@@ -39,7 +39,7 @@ export const conversationTurnActionsStyles = stylex.create({
   // its hover fill has room to read as a warning rather than as noise.
   rollbackPreview: {
     backgroundColor: {
-      default: null,
+      default: "transparent",
       ":hover": vars.colorDangerSoft,
     },
     color: {
@@ -50,11 +50,11 @@ export const conversationTurnActionsStyles = stylex.create({
   // A disabled action stays legible but inert: no hover recolor, no pointer.
   actionDisabled: {
     backgroundColor: {
-      default: null,
+      default: "transparent",
       ":hover": "transparent",
     },
     color: {
-      default: null,
+      default: vars.colorTextMuted,
       ":hover": vars.colorTextMuted,
     },
     cursor: "not-allowed",

@@ -40,18 +40,16 @@ export const fileSearchStyles = stylex.create({
     padding: 0,
     position: "relative",
   },
+  /*
+   * Geometry and fill come from `topBarControlStyles.control` + `.surface`,
+   * composed at the call site: this row is the sixth control in the 48px bar and
+   * was the one that hand-rolled its own numbers — a 28px box against its
+   * siblings' 32, a 10px gutter against their 8, and its own `colorCanvas` fill
+   * restated rather than taken from the shared chrome. What is left here is only
+   * what makes it a field rather than a button.
+   */
   inputRow: {
-    alignItems: "center",
-    backgroundColor: vars.colorCanvas,
-    borderColor: vars.colorBorderSubtle,
-    borderRadius: vars.radiusControl,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    boxShadow: vars.elevationFlat,
     display: "flex",
-    gap: vars.space8,
-    height: 28,
-    paddingInline: "0.625rem",
     position: "relative",
     transitionDuration: {
       default: vars.motionDurationEmphasis,
@@ -72,9 +70,11 @@ export const fileSearchStyles = stylex.create({
     color: vars.colorText,
     flex: 1,
     fontFamily: vars.fontSans,
-    fontSize: vars.fontSizeBody,
-    height: 28,
-    lineHeight: vars.lineHeightNormal,
+    // The bar reads as one dense chrome row: Caption everywhere, including the
+    // field's own text and placeholder. Body here made the search string a step
+    // larger than every label beside it.
+    fontSize: vars.fontSizeCaption,
+    lineHeight: vars.lineHeightControl,
     minWidth: 0,
     outlineStyle: "none",
     padding: 0,

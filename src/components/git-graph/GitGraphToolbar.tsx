@@ -126,7 +126,7 @@ function BranchFilter({
         <span className={sx(styles.branchLabel)}>{label}</span>
         <ChevronDown className={sx(styles.chevronMuted)} />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="start" className={sx(styles.branchMenu)}>
+      <DropdownMenuContent align="start" xstyle={styles.branchMenu}>
         <DropdownMenuLabel>History scope</DropdownMenuLabel>
         {selectionLimitReached ? (
           <DropdownMenuLabel className={sx(styles.limitLabel)}>
@@ -415,7 +415,7 @@ export function GitGraphToolbar({
               </TooltipTrigger>
               <TooltipContent>Visible columns</TooltipContent>
             </Tooltip>
-            <DropdownMenuContent align="end" className={sx(styles.columnsMenu)}>
+            <DropdownMenuContent align="end" xstyle={styles.columnsMenu}>
               <DropdownMenuLabel>Visible columns</DropdownMenuLabel>
               {(
                 [

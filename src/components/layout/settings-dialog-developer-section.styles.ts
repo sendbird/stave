@@ -7,11 +7,11 @@ export const developerStyles = stylex.create({
   timeoutRow: {
     display: "flex",
     flexWrap: "wrap",
-    alignItems: "flex-start",
+    alignItems: "start",
     gap: vars.space12,
   },
   timeoutTrigger: {
-    width: 160,
+    inlineSize: 160,
     borderRadius: vars.radiusControl,
     borderColor: vars.colorBorder,
     backgroundColor: vars.colorCanvas,
@@ -23,7 +23,7 @@ export const developerStyles = stylex.create({
   },
   // Draft inputs
   binaryInput: {
-    height: 40,
+    blockSize: vars.controlHeightLg,
     borderRadius: vars.radiusControl,
     borderColor: vars.colorBorder,
     backgroundColor: vars.colorCanvas,
@@ -31,7 +31,7 @@ export const developerStyles = stylex.create({
     fontSize: vars.fontSizeBody,
   },
   tokenInput: {
-    height: 40,
+    blockSize: vars.controlHeightLg,
     flex: 1,
     borderRadius: vars.radiusControl,
     borderColor: vars.colorBorder,
@@ -78,8 +78,8 @@ export const developerStyles = stylex.create({
     color: vars.colorText,
   },
   warningIcon: {
-    width: 16,
-    height: 16,
+    inlineSize: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
     color: vars.colorWarning,
   },
   loadingCopy: {
@@ -94,26 +94,26 @@ export const developerStyles = stylex.create({
     gap: vars.space8,
   },
   actionButtonMd: {
-    height: 36,
+    blockSize: vars.controlHeight,
   },
   actionButtonLg: {
-    height: 40,
+    blockSize: vars.controlHeightLg,
   },
   actionButtonSm: {
-    height: 32,
+    blockSize: vars.controlHeightSm,
   },
   actionButtonSmGap: {
-    height: 32,
+    blockSize: vars.controlHeightSm,
     gap: vars.space4,
     fontSize: vars.fontSizeCaption,
   },
   actionButtonSmText: {
-    height: 32,
+    blockSize: vars.controlHeightSm,
     fontSize: vars.fontSizeCaption,
   },
   pagerIcon: {
-    width: 14,
-    height: 14,
+    inlineSize: vars.controlIconSizeSm,
+    blockSize: vars.controlIconSizeSm,
   },
   // Info panel + rows
   infoPanel: {
@@ -208,12 +208,12 @@ export const developerStyles = stylex.create({
   logHeaderRow: {
     display: "flex",
     flexWrap: "wrap",
-    alignItems: "flex-start",
+    alignItems: "start",
     justifyContent: "space-between",
     gap: vars.space12,
   },
   logHeaderDetail: {
-    maxWidth: "48rem",
+    maxInlineSize: "48rem",
     fontSize: vars.fontSizeBody,
     color: vars.colorTextMuted,
   },
@@ -238,10 +238,10 @@ export const developerStyles = stylex.create({
     backgroundColor: vars.colorCanvas,
   },
   colTime: {
-    width: 112,
+    inlineSize: 112,
   },
   colStatus: {
-    width: 112,
+    inlineSize: 112,
   },
   cellTop: {
     verticalAlign: "top",
@@ -284,7 +284,7 @@ export const developerStyles = stylex.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: vars.space12,
-    borderTopWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars.borderWidthHairline,
     borderTopStyle: "solid",
     borderTopColor: vars.colorBorder,
     backgroundColor: vars.colorSurfaceTint,
@@ -309,7 +309,7 @@ export const developerStyles = stylex.create({
   },
   payloadToggle: {
     display: "flex",
-    width: "100%",
+    inlineSize: "100%",
     alignItems: "center",
     justifyContent: "space-between",
     gap: vars.space12,
@@ -325,7 +325,7 @@ export const developerStyles = stylex.create({
     },
   },
   payloadLoaderCell: {
-    borderTopWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars.borderWidthHairline,
     borderTopStyle: "solid",
     borderTopColor: vars.colorBorder,
     paddingInline: vars.space12,
@@ -335,9 +335,9 @@ export const developerStyles = stylex.create({
   },
   payloadPre: {
     marginBlock: 0,
-    maxHeight: 256,
+    maxBlockSize: 256,
     overflow: "auto",
-    borderTopWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars.borderWidthHairline,
     borderTopStyle: "solid",
     borderTopColor: vars.colorBorder,
     paddingInline: vars.space12,
@@ -346,7 +346,7 @@ export const developerStyles = stylex.create({
     color: vars.colorTextMuted,
   },
   payloadError: {
-    borderTopWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars.borderWidthHairline,
     borderTopStyle: "solid",
     borderTopColor: vars.colorBorder,
     paddingInline: vars.space12,

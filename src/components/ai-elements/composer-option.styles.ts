@@ -8,21 +8,44 @@ export const optionStyles = stylex.create({
   label: { display: "flex", minWidth: 0, flex: 1, flexDirection: "column", gap: vars.space2 },
   title: { fontSize: vars.fontSizeBody, fontWeight: vars.fontWeightMedium, lineHeight: 1 },
   detail: { fontSize: vars.fontSizeMicro, lineHeight: "16px", color: vars.colorTextMuted },
-  description: { fontSize: vars.fontSizeCaption, lineHeight: "16px", color: vars.colorTextMuted },
   section: { display: "flex", flexDirection: "column", gap: vars.space4, borderTopWidth: vars.borderWidthHairline, borderTopStyle: "solid", borderTopColor: vars.colorBorderSubtle, paddingTop: vars.space8 },
   sectionTitle: { paddingInline: vars.space4, fontSize: vars.fontSizeCaption, fontWeight: vars.fontWeightSemibold, color: vars.colorTextMuted },
-  choice: {
-    height: "auto", minHeight: 44, width: "100%", justifyContent: "flex-start", gap: vars.space8,
-    borderRadius: vars.radiusControl, borderWidth: 0, paddingInline: 10, paddingBlock: vars.space8,
-    textAlign: "start", whiteSpace: "normal",
-    backgroundColor: { default: "transparent", ":hover": vars.colorSurfaceTint },
+  /*
+   * The row geometry these two option lists share is ADS's own two-line item
+   * recipe (`recipes/select-styles` `item` + `itemText`/`itemCopy`/
+   * `itemLabelLine`/`itemDescription`/`itemIndicator`), not a local box. What
+   * the local box got wrong is instructive: it declared `justify-content`,
+   * `gap` and a trailing `align-self` but never `display`, and
+   * `Button layout="host"` hands geometry to the caller — so the row was a UA
+   * `inline-block`, every flex property was inert, and the block-level label
+   * stack pushed the trailing check onto a line of its own at the row's
+   * START edge. The ADS recipe is a 2-column grid whose second track exists
+   * for that mark, so the check is trailing-aligned and vertically centred by
+   * construction rather than by a property that has to win.
+   *
+   * Only two host deltas remain.
+   *
+   * 1. `select-styles.item` lands on Base UI's own `<div>` rows, so it never
+   *    had to answer UA control chrome. These rows are native `<button>`s
+   *    (they perform an action), which arrive with `appearance`, a `2px
+   *    outset` border, a margin and a centred label. `recipes/menu.ts` states
+   *    exactly this reset one file over, for exactly this reason.
+   */
+  rowReset: {
+    appearance: "none",
+    borderStyle: "none",
+    borderWidth: 0,
+    fontFamily: "inherit",
+    margin: 0,
+    textAlign: "start",
   },
+  /** 2. Title weight only; the line box and the ellipsis come from `itemLabel`. */
+  rowTitle: { fontWeight: vars.fontWeightMedium },
   selected: { backgroundColor: { default: vars.colorSelectionFill, ":hover": vars.colorSelectionFill } },
-  check: { width: 14, height: 14, flexShrink: 0, alignSelf: "flex-start" },
+  // Glyph size only: `select-styles.itemIndicator` owns the mark's box,
+  // placement and centring.
+  check: { width: 14, height: 14, flexShrink: 0 },
   selectedCheck: { color: vars.colorAccent },
-  modelLabel: { display: "flex", minWidth: 0, flex: 1, flexDirection: "column" },
-  truncated: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  modelCheck: { width: 14, height: 14, flexShrink: 0, color: vars.colorAccent },
   hint: { paddingInline: vars.space4, fontSize: vars.fontSizeMicro, lineHeight: "16px", color: vars.colorTextMuted },
   callout: { display: "flex", alignItems: "flex-start", gap: vars.space8, paddingInline: 10, paddingBlock: vars.space8, fontSize: vars.fontSizeCaption, lineHeight: "20px", color: vars.colorTextMuted },
   warning: { color: vars.colorWarningText, backgroundColor: vars.colorWarningSoft, borderRadius: vars.radiusControl },

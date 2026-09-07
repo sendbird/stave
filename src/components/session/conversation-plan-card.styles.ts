@@ -22,7 +22,7 @@ export const conversationPlanCardStyles = stylex.create({
     paddingInline: vars.space16,
   },
   headerIcon: {
-    color: vars.colorAccent,
+    color: vars.colorTextMuted,
     flexShrink: 0,
     height: vars.controlIconSizeSm,
     width: vars.controlIconSizeSm,

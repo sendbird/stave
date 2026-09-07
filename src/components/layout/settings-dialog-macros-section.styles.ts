@@ -5,11 +5,11 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 /** Macros settings list, rows, and editor wrappers. */
 export const macrosSectionStyles = stylex.create({
   addButton: {
-    gap: 6,
+    gap: vars.space8,
   },
   addIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   editorWrap: {
     backgroundColor: vars.colorCanvas,
@@ -58,7 +58,7 @@ export const macrosSectionStyles = stylex.create({
     padding: vars.space12,
   },
   rowMain: {
-    alignItems: "flex-start",
+    alignItems: "start",
     display: "flex",
     gap: vars.space12,
   },
@@ -68,28 +68,28 @@ export const macrosSectionStyles = stylex.create({
     borderRadius: vars.radiusControl,
     display: "flex",
     flexShrink: 0,
-    height: 32,
+    blockSize: vars.controlHeightSm,
     justifyContent: "center",
     position: "relative",
-    width: 32,
+    inlineSize: vars.space32,
   },
   markIcon: {
     color: vars.colorTextMuted,
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   rowBody: {
     display: "flex",
     flex: 1,
     flexDirection: "column",
     gap: vars.space4,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   rowHead: {
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
-    gap: 6,
+    gap: vars.space8,
   },
   rowLabel: {
     color: vars.colorText,
@@ -106,15 +106,15 @@ export const macrosSectionStyles = stylex.create({
     flexShrink: 0,
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeMicro,
-    lineHeight: "1rem",
-    paddingBlock: 2,
-    paddingInline: 6,
+    lineHeight: vars.lineHeightTight,
+    paddingBlock: vars.space2,
+    paddingInline: vars.space8,
   },
   instantBadge: {
     fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightMedium,
-    height: 20,
-    paddingInline: 6,
+    blockSize: vars.space20,
+    paddingInline: vars.space8,
   },
   rowMeta: {
     color: vars.colorTextMuted,
@@ -124,11 +124,11 @@ export const macrosSectionStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    gap: 2,
+    gap: vars.space2,
   },
   actionIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   deleteButton: {
     color: {

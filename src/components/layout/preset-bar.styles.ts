@@ -2,8 +2,13 @@ import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "../ads/tokens/tokens.stylex";
 
-/** Chip height; the bar is a single compact row between the tab strip and chat. */
-const CHIP_HEIGHT = 28;
+/**
+ * Chip height. The bar is a single compact row between the tab strip and chat,
+ * and every control in it — chip, chip actions, "Manage presets" — sits on the
+ * ADS `sm` control rung (`controlHeightSm`, 32px) so the row has one baseline
+ * instead of the previous 28px chip / 20px action / 28px cog mix.
+ */
+const CHIP_HEIGHT = vars.controlHeightSm;
 
 /**
  * The chip publishes its hover state as a custom property so the trailing
@@ -49,6 +54,7 @@ export const presetBarStyles = stylex.create({
     },
     flexShrink: 0,
     fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightMedium,
     height: CHIP_HEIGHT,
     paddingInline: vars.space8,
   },
@@ -88,14 +94,16 @@ export const presetBarStyles = stylex.create({
     borderStartStartRadius: vars.radiusControl,
     display: "flex",
     fontSize: vars.fontSizeCaption,
-    gap: 6,
+    fontWeight: vars.fontWeightMedium,
+    gap: vars.space8,
+    lineHeight: vars.lineHeightControl,
     minWidth: 0,
     paddingInline: vars.space8,
   },
   chipIcon: {
     flexShrink: 0,
-    height: 14,
-    width: 14,
+    height: vars.controlIconSizeSm,
+    width: vars.controlIconSizeSm,
   },
   chipLabel: {
     maxWidth: 140,
@@ -106,8 +114,8 @@ export const presetBarStyles = stylex.create({
   chipCliMark: {
     color: vars.colorTextMuted,
     flexShrink: 0,
-    height: 12,
-    width: 12,
+    height: vars.controlIconSizeSm,
+    width: vars.controlIconSizeSm,
   },
   chipActions: {
     borderEndEndRadius: vars.radiusControl,
@@ -124,11 +132,10 @@ export const presetBarStyles = stylex.create({
       ":is([data-popup-open])": 1,
     },
     paddingInline: 0,
-    width: 20,
-  },
-  chipActionsIcon: {
-    height: 12,
-    width: 12,
+    // Trailing half of the split chip: `xs` iconOnly geometry (its glyph rides
+    // the shared `controlIconSizeSm` rung) stretched to the chip's own height
+    // so the two halves share one 32px box and one baseline.
+    width: vars.controlHeightXs,
   },
   chipMenu: {
     width: 160,

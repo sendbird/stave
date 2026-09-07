@@ -587,22 +587,8 @@ export const workspaceInformationPanelStyles = stylex.create({
   },
 
   // ---- summary / todo ----------------------------------------------------
-  summaryEmpty: {
-    backgroundColor: vars.colorSurfaceTint,
-    paddingBlock: vars.space16,
-    paddingInline: vars.space12,
-  },
-  summaryEmptyTitle: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-  },
-  summaryEmptyBody: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightRelaxed,
-    marginBlockStart: vars.space4,
-  },
+  // The Summary empty state is the ADS `EmptyState` (plain variant); it needs
+  // no local box, type, or spacing styles here.
   todoProgressRow: {
     alignItems: "center",
     display: "flex",

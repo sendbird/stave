@@ -10,17 +10,16 @@ export const standaloneCliCardStyles = stylex.create({
     gap: vars.space8,
   },
   input: {
-    backgroundColor: vars.colorCanvas,
-    height: vars.controlHeightLg,
+    blockSize: vars.controlHeightLg,
   },
   browse: {
     flexShrink: 0,
     gap: vars.space8,
-    height: vars.controlHeightLg,
+    blockSize: vars.controlHeightLg,
   },
   browseIcon: {
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   error: {
     color: vars.colorDangerText,

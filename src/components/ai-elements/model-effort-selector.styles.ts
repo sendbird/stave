@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { toolbarMarker } from "./composer-control.stylex";
 
 const mq480 = "@media (min-width: 480px)";
 const border65 = `color-mix(in oklch, ${vars.colorBorder} 65%, transparent)`;
@@ -16,7 +17,15 @@ export const modelEffortSelectorStyles = stylex.create({
   /* ---- control group + trigger ---- */
   group: {
     display: "inline-flex",
-    height: vars.controlHeight,
+    // Three independent controls, so this box only sets the shared height.
+    // In the composer's in-card toolbar the lane is ADS `sm` (32) — the same
+    // rung the attach/send buttons beside it use — so match it there instead
+    // of standing 4px taller than its own row. Everywhere else (dispatch
+    // runtime fields) the default md control height still applies.
+    height: {
+      default: vars.controlHeight,
+      [stylex.when.ancestor(":is(*)", toolbarMarker)]: vars.controlHeightSm,
+    },
     maxWidth: "100%",
     alignItems: "center",
     gap: "0.375rem",
@@ -28,7 +37,9 @@ export const modelEffortSelectorStyles = stylex.create({
     maxWidth: 320,
     alignItems: "center",
     gap: "0.375rem",
-    borderRadius: vars.radiusMark,
+    // The ADS control radius, matching every other button in the toolbar row.
+    // `radiusMark` (4px) is for inert marks (chips, thumbnails), not controls.
+    borderRadius: vars.radiusControl,
     borderWidth: vars.borderWidthHairline,
     borderStyle: "solid",
     borderColor: "transparent",
@@ -74,7 +85,7 @@ export const modelEffortSelectorStyles = stylex.create({
     flexShrink: 0,
     alignItems: "center",
     gap: vars.space4,
-    borderRadius: vars.radiusMark,
+    borderRadius: vars.radiusControl,
     borderWidth: vars.borderWidthHairline,
     borderStyle: "solid",
     borderColor: "transparent",
@@ -84,7 +95,7 @@ export const modelEffortSelectorStyles = stylex.create({
     fontWeight: vars.fontWeightMedium,
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
     backgroundColor: {
-      default: null,
+      default: "transparent",
       ":hover": `color-mix(in oklch, ${vars.colorAccentSoft} 55%, transparent)`,
     },
   },
@@ -119,11 +130,13 @@ export const modelEffortSelectorStyles = stylex.create({
     borderStyle: "solid",
     borderColor: border70,
     backgroundColor: vars.colorSurfaceRaised,
-    // Bespoke floating-selector elevation: a wider, softer ambient layer than the
-    // generic anchored-popover shadow, so this large surface reads as detached
-    // rather than a card sitting on the composer. Contact + ambient pair.
-    boxShadow:
-      "0 4px 12px -6px oklch(0.1375 0.007 89 / 0.4), 0 18px 48px -12px oklch(0.1375 0.007 89 / 0.36)",
+    // The "wider, softer ambient layer than a popover" this used to hand-mix is
+    // exactly ADS's modal band: `elevationModal` carries the 40/72px ambient
+    // layer on top of the contact+mid pair, is theme-aware (the hand-mixed
+    // 0.4/0.36 alphas were tuned for light and go flat on a dark canvas), and
+    // keeps this large detached selector on the elevation scale instead of
+    // between two of its steps.
+    boxShadow: vars.elevationModal,
     padding: 0,
   },
   // ADS vertical Tabs.Root shrink-wraps the rail to its own tab content
@@ -292,7 +305,7 @@ export const modelEffortSelectorStyles = stylex.create({
   modelRowIdle: {
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
     backgroundColor: {
-      default: null,
+      default: "transparent",
       ":hover": `color-mix(in oklch, ${vars.colorCanvasSubtle} 60%, transparent)`,
     },
   },
@@ -372,7 +385,7 @@ export const modelEffortSelectorStyles = stylex.create({
     fontWeight: vars.fontWeightMedium,
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
     backgroundColor: {
-      default: null,
+      default: "transparent",
       ":hover": `color-mix(in oklch, ${vars.colorCanvasSubtle} 60%, transparent)`,
     },
   },

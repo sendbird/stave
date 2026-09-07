@@ -9,6 +9,7 @@ import {
 } from "react";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import type { StyleXValue } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/ads/recipes/transition";
 import { cursorModelConfigStyles as styles } from "./cursor-model-config-list.styles";
 import { PROVIDER_ACCENT_COLORS } from "./model-effort-grid";
 import { ModelIcon } from "./model-icon";
@@ -223,7 +224,7 @@ function CursorModelRow(args: {
     <div
       role="listitem"
       data-cursor-model-row={args.group.baseModel}
-      className={sx(styles.row, selected && styles.rowSelected)}
+      className={sx(styles.row, selected && styles.rowSelected, transition.colors)}
     >
       <div
         role="toolbar"

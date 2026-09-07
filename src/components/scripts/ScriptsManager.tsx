@@ -1032,26 +1032,26 @@ export function ScriptsManager(props: {
           onValueChange={(value) => setActiveTab(value as ScriptsTabValue)}
           className={sx(managerStyles.tabsRoot)}
         >
-          <TabsList variant="soft" className={sx(managerStyles.tabsList)}>
-            <TabsTrigger value="services" className={sx(managerStyles.tab)}>
+          <TabsList xstyle={managerStyles.tabsList}>
+            <TabsTrigger value="services" xstyle={managerStyles.tab}>
               Processes
               <Badge variant="outline" className={sx(managerStyles.tabBadge)}>
                 {servicesCount}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="actions" className={sx(managerStyles.tab)}>
+            <TabsTrigger value="actions" xstyle={managerStyles.tab}>
               Commands
               <Badge variant="outline" className={sx(managerStyles.tabBadge)}>
                 {actionsCount}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="hooks" className={sx(managerStyles.tab)}>
+            <TabsTrigger value="hooks" xstyle={managerStyles.tab}>
               Triggers
               <Badge variant="outline" className={sx(managerStyles.tabBadge)}>
                 {hookLinkCount}
               </Badge>
             </TabsTrigger>
-            <TabsTrigger value="targets" className={sx(managerStyles.tab)}>
+            <TabsTrigger value="targets" xstyle={managerStyles.tab}>
               Environments
               <Badge variant="outline" className={sx(managerStyles.tabBadge)}>
                 {targetsCount}
@@ -1059,7 +1059,7 @@ export function ScriptsManager(props: {
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="services" className={sx(managerStyles.tabPanel)}>
+          <TabsContent value="services" xstyle={managerStyles.tabPanel}>
             <ScriptEntriesTab
               kind="service"
               entries={editorState.services}
@@ -1081,7 +1081,7 @@ export function ScriptsManager(props: {
             />
           </TabsContent>
 
-          <TabsContent value="actions" className={sx(managerStyles.tabPanel)}>
+          <TabsContent value="actions" xstyle={managerStyles.tabPanel}>
             <ScriptEntriesTab
               kind="action"
               entries={editorState.actions}
@@ -1103,7 +1103,7 @@ export function ScriptsManager(props: {
             />
           </TabsContent>
 
-          <TabsContent value="hooks" className={sx(managerStyles.tabPanel)}>
+          <TabsContent value="hooks" xstyle={managerStyles.tabPanel}>
             <ScriptHooksTab
               hooks={editorState.hooks}
               candidates={hookCandidates}
@@ -1113,7 +1113,7 @@ export function ScriptsManager(props: {
             />
           </TabsContent>
 
-          <TabsContent value="targets" className={sx(managerStyles.tabPanel)}>
+          <TabsContent value="targets" xstyle={managerStyles.tabPanel}>
             <ScriptTargetsTab
               targets={editorState.targets}
               usageCountById={usageCountById}

@@ -331,13 +331,13 @@ export function SettingsModelVisibilitySection() {
       >
         <TabsList
           aria-label="Model visibility provider"
-          className={sx(styles.tabsList)}
+          xstyle={styles.tabsList}
         >
           {PROVIDER_IDS.map((providerId) => (
             <TabsTrigger
               key={providerId}
               value={providerId}
-              className={sx(styles.tabsTrigger)}
+              xstyle={styles.tabsTrigger}
             >
               <ModelIcon
                 providerId={providerId}
@@ -351,7 +351,7 @@ export function SettingsModelVisibilitySection() {
           <TabsContent
             key={providerId}
             value={providerId}
-            className={sx(styles.tabsContent)}
+            xstyle={styles.tabsContent}
           >
             <ModelVisibilityProviderPanel
               providerId={providerId}

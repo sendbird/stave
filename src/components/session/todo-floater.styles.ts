@@ -14,11 +14,6 @@ const enterKeyframes = stylex.keyframes({
 });
 
 export const todoFloaterStyles = stylex.create({
-  wrapper: {
-    transitionDuration: "300ms",
-    transitionProperty: "opacity",
-    transitionTimingFunction: vars.motionEaseStandard,
-  },
   wrapperLingering: {
     opacity: 0.5,
   },
@@ -59,7 +54,7 @@ export const todoFloaterStyles = stylex.create({
     paddingInline: "0.875rem",
   },
   headerIcon: {
-    color: vars.colorAccent,
+    color: vars.colorTextMuted,
     flexShrink: 0,
   },
   headerTitle: {
@@ -72,7 +67,7 @@ export const todoFloaterStyles = stylex.create({
   },
   headerCount: {
     color: vars.colorTextMuted,
-    fontSize: "0.8125rem",
+    fontSize: vars.fontSizeBody,
     fontVariantNumeric: "tabular-nums",
   },
   progressTrack: {
@@ -81,10 +76,11 @@ export const todoFloaterStyles = stylex.create({
     width: "100%",
   },
   progressBar: {
+    // `transition.bar` + `motionDurationEmphasis` at the call site. The fill
+    // also swaps `background-color` between the active and complete variants
+    // below, which the old `width`-only list never eased; `motionEaseStandard`
+    // replaces the hand-written `ease-out`.
     height: "100%",
-    transitionDuration: "300ms",
-    transitionProperty: "width",
-    transitionTimingFunction: "ease-out",
   },
   progressBarActive: {
     backgroundColor: vars.colorAccent,

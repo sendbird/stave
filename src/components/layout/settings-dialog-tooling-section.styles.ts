@@ -9,10 +9,10 @@ const spin = stylex.keyframes({
 
 export const toolingStyles = stylex.create({
   authBadge: {
-    height: 24,
+    blockSize: vars.space24,
     borderWidth: vars.borderWidthHairline,
     borderStyle: "solid",
-    paddingInline: 10,
+    paddingInline: vars.space8,
     fontWeight: vars.fontWeightMedium,
     letterSpacing: "normal",
   },
@@ -32,12 +32,12 @@ export const toolingStyles = stylex.create({
     color: vars.colorTextMuted,
   },
   versionBadge: {
-    height: 24,
+    blockSize: vars.space24,
     borderWidth: vars.borderWidthHairline,
     borderStyle: "solid",
     borderColor: vars.colorBorder,
     backgroundColor: vars.colorSurfaceTint,
-    paddingInline: 10,
+    paddingInline: vars.space8,
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightRegular,
@@ -45,8 +45,8 @@ export const toolingStyles = stylex.create({
     color: vars.colorTextMuted,
   },
   toolIcon: {
-    width: 16,
-    height: 16,
+    inlineSize: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
   },
   pathRow: {
     display: "flex",
@@ -74,12 +74,12 @@ export const toolingStyles = stylex.create({
   },
   pathValueGroup: {
     display: "flex",
-    minWidth: 0,
+    minInlineSize: 0,
     alignItems: "center",
     gap: vars.space4,
   },
   pathValue: {
-    minWidth: 0,
+    minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -95,8 +95,8 @@ export const toolingStyles = stylex.create({
     },
   },
   copyIcon: {
-    width: 12,
-    height: 12,
+    inlineSize: vars.space12,
+    blockSize: vars.space12,
   },
   card: {
     borderRadius: vars.radiusFrame,
@@ -109,12 +109,12 @@ export const toolingStyles = stylex.create({
   cardHeaderRow: {
     display: "flex",
     flexWrap: "wrap",
-    alignItems: "flex-start",
+    alignItems: "start",
     justifyContent: "space-between",
     gap: vars.space12,
   },
   cardHeaderInfo: {
-    minWidth: 0,
+    minInlineSize: 0,
     display: "grid",
     gap: vars.space4,
   },
@@ -125,8 +125,8 @@ export const toolingStyles = stylex.create({
   },
   iconPlate: {
     display: "flex",
-    width: 32,
-    height: 32,
+    inlineSize: vars.space32,
+    blockSize: vars.controlHeightSm,
     flexShrink: 0,
     alignItems: "center",
     justifyContent: "center",
@@ -138,7 +138,7 @@ export const toolingStyles = stylex.create({
     color: vars.colorTextMuted,
   },
   cardTitleText: {
-    minWidth: 0,
+    minInlineSize: 0,
     display: "grid",
     gap: vars.space4,
   },
@@ -178,7 +178,7 @@ export const toolingStyles = stylex.create({
     marginBlock: 0,
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeCaption,
-    lineHeight: "20px",
+    lineHeight: vars.lineHeightControl,
     color: vars.colorTextMuted,
     whiteSpace: "pre-wrap",
   },
@@ -189,8 +189,8 @@ export const toolingStyles = stylex.create({
     gap: vars.space8,
   },
   actionIcon: {
-    width: 16,
-    height: 16,
+    inlineSize: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
   },
   toolsGrid: {
     display: "grid",
@@ -208,12 +208,12 @@ export const toolingStyles = stylex.create({
     color: vars.colorTextMuted,
   },
   refreshIcon: {
-    width: 16,
-    height: 16,
+    inlineSize: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
   },
   refreshIconSpinning: {
-    width: 16,
-    height: 16,
+    inlineSize: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
     animationName: spin,
     animationDuration: "1s",
     animationTimingFunction: "linear",

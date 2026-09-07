@@ -7,11 +7,11 @@ export const secretsStyles = stylex.create({
     gap: vars.space4,
   },
   addIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   notice: {
-    alignItems: "flex-start",
+    alignItems: "start",
     backgroundColor: vars.colorSurfaceTint,
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusControl,
@@ -24,9 +24,9 @@ export const secretsStyles = stylex.create({
   noticeIcon: {
     color: vars.colorSuccess,
     flexShrink: 0,
-    height: vars.controlIconSizeMd,
-    marginTop: 2,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    marginBlockStart: vars.space2,
+    inlineSize: vars.controlIconSizeMd,
   },
   noticeText: {
     color: vars.colorTextMuted,
@@ -52,49 +52,49 @@ export const secretsStyles = stylex.create({
   fieldOptional: {
     color: vars.colorTextMuted,
     fontWeight: vars.fontWeightRegular,
-    marginLeft: vars.space4,
+    marginInlineStart: vars.space4,
   },
   /** Reproduces `space-y-1.5` between a label's text and its following block. */
   stacked: {
-    marginTop: 6,
+    marginBlockStart: vars.space4,
   },
   fieldControl: {
     fontSize: vars.fontSizeCaption,
-    height: vars.controlHeightSm,
+    blockSize: vars.controlHeightSm,
   },
   fieldControlMono: {
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeCaption,
-    height: vars.controlHeightSm,
+    blockSize: vars.controlHeightSm,
   },
   valueRow: {
     alignItems: "center",
     display: "flex",
-    gap: 6,
+    gap: vars.space8,
   },
   iconAction: {
     flexShrink: 0,
   },
   actionIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   hint: {
     color: vars.colorTextMuted,
     display: "block",
     fontWeight: vars.fontWeightRegular,
-    lineHeight: "1rem",
+    lineHeight: vars.lineHeightTight,
   },
   hintCode: {
     backgroundColor: vars.colorCanvasSubtle,
     borderRadius: vars.radiusMark,
     marginInline: vars.space4,
-    paddingBlock: 2,
+    paddingBlock: vars.space2,
     paddingInline: vars.space4,
   },
   descriptionArea: {
     fontSize: vars.fontSizeCaption,
-    minHeight: vars.space64,
+    minBlockSize: vars.space64,
   },
   formActions: {
     display: "flex",
@@ -138,24 +138,24 @@ export const secretsStyles = stylex.create({
     borderRadius: vars.radiusControl,
     display: "flex",
     flexShrink: 0,
-    height: vars.space32,
+    blockSize: vars.space32,
     justifyContent: "center",
-    width: vars.space32,
+    inlineSize: vars.space32,
   },
   rowMarkIcon: {
     color: vars.colorTextMuted,
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   rowBody: {
     flex: 1,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   rowTitleLine: {
     alignItems: "center",
     display: "flex",
-    gap: 6,
-    minWidth: 0,
+    gap: vars.space8,
+    minInlineSize: 0,
   },
   rowTitle: {
     fontSize: vars.fontSizeCaption,
@@ -171,8 +171,8 @@ export const secretsStyles = stylex.create({
     flexShrink: 0,
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeMicro,
-    lineHeight: "1rem",
-    paddingBlock: 2,
+    lineHeight: vars.lineHeightTight,
+    paddingBlock: vars.space2,
     paddingInline: vars.space4,
   },
   rowValue: {
@@ -192,7 +192,7 @@ export const secretsStyles = stylex.create({
   },
   copiedIcon: {
     color: vars.colorSuccess,
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
 });

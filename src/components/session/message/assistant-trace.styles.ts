@@ -14,12 +14,6 @@ const traceRowIn = stylex.keyframes({
   to: { opacity: 1, transform: "translateY(0)" },
 });
 
-// In-progress todo spinner. Reduced motion holds the glyph still.
-const spin = stylex.keyframes({
-  from: { transform: "rotate(0deg)" },
-  to: { transform: "rotate(360deg)" },
-});
-
 export const assistantTraceStyles = stylex.create({
   // Icon that tracks the surrounding font size (glyphs inside a text run).
   glyphEm: {
@@ -75,11 +69,6 @@ export const assistantTraceStyles = stylex.create({
     paddingBlock: "0.125rem",
     paddingInline: 6,
   },
-  todoProgress: {
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
-    fontSize: "0.75em",
-    marginLeft: vars.space4,
-  },
   diffSummary: {
     alignItems: "center",
     display: "inline-flex",
@@ -92,128 +81,14 @@ export const assistantTraceStyles = stylex.create({
     color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
   },
   diffAdded: {
-    color: vars.colorSuccess,
+    color: vars.colorDiffAddedText,
     fontVariantNumeric: "tabular-nums",
     fontWeight: vars.fontWeightMedium,
   },
   diffRemoved: {
-    color: vars.colorDanger,
+    color: vars.colorDiffRemovedText,
     fontVariantNumeric: "tabular-nums",
     fontWeight: vars.fontWeightMedium,
-  },
-  // Row meta wrapper (elapsed + failure badge).
-  stepMeta: {
-    alignItems: "center",
-    display: "inline-flex",
-    gap: "0.35em",
-    marginLeft: vars.space4,
-  },
-  stepElapsed: {
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
-    fontSize: "0.75em",
-    fontVariantNumeric: "tabular-nums",
-  },
-  // Todo detail list.
-  todoList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-  },
-  todoItem: {
-    alignItems: "flex-start",
-    color: vars.colorText,
-    display: "flex",
-    fontSize: "0.875em",
-    gap: vars.space8,
-  },
-  todoIcon: {
-    flexShrink: 0,
-    height: 14,
-    marginTop: "0.125rem",
-    width: 14,
-  },
-  todoIconDone: {
-    color: vars.colorSuccess,
-  },
-  todoIconActive: {
-    animationName: {
-      default: spin,
-      "@media (prefers-reduced-motion: reduce)": "none",
-    },
-    animationDuration: "1s",
-    animationIterationCount: "infinite",
-    animationTimingFunction: "linear",
-    color: vars.colorAccent,
-  },
-  todoIconPending: {
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 50%, transparent)`,
-  },
-  todoTextDone: {
-    color: vars.colorTextMuted,
-    textDecorationLine: "line-through",
-  },
-  todoTextActive: {
-    color: vars.colorText,
-    fontWeight: vars.fontWeightMedium,
-  },
-  todoTextPending: {
-    color: vars.colorTextMuted,
-  },
-  // Subagent progress bullet list.
-  progressList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: vars.space4,
-  },
-  progressItem: {
-    alignItems: "flex-start",
-    color: vars.colorTextMuted,
-    display: "flex",
-    fontSize: "0.875em",
-    gap: vars.space8,
-  },
-  progressDot: {
-    backgroundColor: vars.colorBorder,
-    borderRadius: vars.radiusFull,
-    flexShrink: 0,
-    height: 6,
-    marginTop: "0.375rem",
-    width: 6,
-  },
-  // Worker execution badge on a subagent row.
-  workerBadge: {
-    backgroundColor: `color-mix(in oklch, ${vars.colorAccent} 5%, transparent)`,
-    borderColor: `color-mix(in oklch, ${vars.colorAccent} 25%, transparent)`,
-    borderRadius: vars.radiusFull,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorTextMuted,
-    fontSize: "0.6875rem",
-    paddingBlock: "0.125rem",
-    paddingInline: vars.space8,
-  },
-  trailingRow: {
-    alignItems: "center",
-    display: "inline-flex",
-    gap: vars.space8,
-  },
-  // Reasoning prose.
-  reasoningDuration: {
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
-    fontSize: "0.85em",
-    marginLeft: vars.space4,
-  },
-  reasoningText: {
-    color: vars.colorTextMuted,
-    whiteSpace: "pre-wrap",
-  },
-  // A sub-pixel baseline nudge that drops the animated label onto the icon's
-  // cap line.
-  reasoningTitle: {
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: 1,
-    position: "relative",
-    top: "0.08em",
   },
   // Assistant-text bullet row.
   rowMotionLegacy: {
@@ -241,42 +116,20 @@ export const assistantTraceStyles = stylex.create({
     fontSize: "0.875em",
     gap: "0.7em",
   },
-  assistantTextRail: {
-    alignItems: "center",
-    display: "flex",
-    flexDirection: "column",
-    marginTop: "0.265em",
-    position: "relative",
+  /**
+   * Host geometry composed onto ADS `StepRail.Step`. Type and ink only: the
+   * gutter grid, the connector and the trailing pad belong to the rail, and
+   * re-declaring `display` here would replace its grid and drop the gutter
+   * track the row is indented against.
+   */
+  railStep: {
+    fontSize: "0.875em",
   },
-  assistantTextMarker: {
-    alignItems: "center",
-    display: "flex",
-    height: "1.15em",
-    justifyContent: "center",
-    width: "1.15em",
-  },
-  assistantTextDot: {
-    backgroundColor: `color-mix(in oklch, ${vars.colorTextMuted} 50%, transparent)`,
-    borderRadius: vars.radiusFull,
-    height: "0.35em",
-    width: "0.35em",
-  },
-  // The vertical connector line the parent's `:last-child` rule hides — the
-  // `cot-connector` class name stays for that cross-component contract.
-  assistantTextConnector: {
-    backgroundColor: vars.colorBorder,
-    flex: 1,
-    marginTop: "0.35em",
-    width: 1,
-  },
+
   assistantTextBody: {
     flex: 1,
     minWidth: 0,
     paddingBottom: "1em",
-  },
-  // Subagent title shimmer host publishes its base color for the Shimmer.
-  shimmerBaseForeground: {
-    "--shimmer-base-color": vars.colorText,
   },
   // Empty-state and stacking spacers.
   noResponse: {

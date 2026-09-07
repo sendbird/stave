@@ -1,4 +1,5 @@
 import { sheetLayout } from "./sheet-layout.styles";
+import { transition } from "../ads/recipes/transition";
 import { overlayLayout } from "./overlay-layout.styles";
 import { VisuallyHidden } from "../ads/components/VisuallyHidden";
 import * as React from "react";
@@ -71,6 +72,8 @@ function SheetContent({
               sx(
                 drawerStyles.surface,
                 sheetLayout.surface,
+                transition.slide,
+                transition.motionDurationNormal,
                 sheetLayout[side],
                 xstyle,
               ),

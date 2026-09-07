@@ -20,6 +20,7 @@ import {
   Loader,
 } from "@/components/ui";
 import { AutocompleteInput } from "@/components/ads/headless/autocomplete";
+import { transition } from "@/components/ads/recipes/transition";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { useAppStore } from "@/store/app.store";
@@ -28,6 +29,7 @@ import {
   splitFileSearchPath,
 } from "./file-search-utils";
 import { fileSearchStyles } from "./top-bar-file-search.styles";
+import { topBarControlStyles } from "./top-bar.styles";
 
 interface TopBarFileSearchProps {
   noDragStyle?: CSSProperties;
@@ -279,6 +281,16 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
           <div
             data-slot="command-input-wrapper"
             className={sx(
+              // The same two keys every other control in the 48px bar composes,
+              // so the field shares their height, gutter, radius and fill
+              // instead of restating four of them with different numbers.
+              topBarControlStyles.control,
+              topBarControlStyles.surface,
+              // Same reason as the path chip in `TopBar.tsx`: `surface` carries
+              // hover fill and ink, and on a plain `div` nothing else supplies
+              // the transition, so the field's hover was the only hard cut in a
+              // bar of fading controls.
+              transition.colors,
               fileSearchStyles.inputRow,
               isOpen && fileSearchStyles.inputRowOpen,
             )}

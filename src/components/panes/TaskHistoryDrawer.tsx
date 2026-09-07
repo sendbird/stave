@@ -240,14 +240,14 @@ export function TaskHistoryDrawer(args: {
 const styles = stylex.create({
 drawer: {width:"min(28rem, 92vw)",maxWidth:448},
 header: {borderBottomWidth:1,borderBottomStyle:"solid",borderBottomColor:vars.colorBorder,padding:20,textAlign:"left"},
-search: {marginTop:12,height:36,borderRadius:4,borderColor:vars.colorBorder,backgroundColor:vars.colorCanvas},
+search: {marginTop:12,height:36,borderRadius:vars.radiusControl,borderColor:vars.colorBorder},
 body: {minHeight:0,flex:1,overflowY:"auto",paddingInline:20,paddingBlock:16},
-empty: {borderRadius:6,borderWidth:1,borderStyle:"dashed",borderColor:vars.colorBorder,paddingInline:12,paddingBlock:16,fontSize:14,color:vars.colorTextMuted},
+empty: {borderRadius:6,borderWidth:1,borderStyle:"dashed",borderColor:vars.colorBorder,paddingInline:12,paddingBlock:16,fontSize: vars.fontSizeBody,color:vars.colorTextMuted},
 list: {display:"flex",flexDirection:"column",gap:8},
 row: {display:"flex",alignItems:"center",gap:12,borderRadius:6,borderWidth:1,borderStyle:"solid",borderColor:vars.colorBorder,backgroundColor:vars.colorCanvas,padding:12},
 icon: {width:16,height:16,flexShrink:0,color:vars.colorTextMuted},
-title: {minWidth:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:14,fontWeight:500},
-badge: {flexShrink:0,borderRadius:4,borderWidth:1,borderStyle:"solid",borderColor:vars.colorBorder,paddingInline:6,paddingBlock:2,fontSize:11,color:vars.colorTextMuted},
+title: {minWidth:0,flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize: vars.fontSizeBody,fontWeight:500},
+badge: {flexShrink:0,borderRadius:4,borderWidth:1,borderStyle:"solid",borderColor:vars.colorBorder,paddingInline:6,paddingBlock:2,fontSize: vars.fontSizeMicro,color:vars.colorTextMuted},
 action: {height:32,flexShrink:0},
 footer: {borderTopWidth:1,borderTopStyle:"solid",borderTopColor:vars.colorBorder,paddingInline:20,paddingBlock:16}
 });

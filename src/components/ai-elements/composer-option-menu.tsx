@@ -1,4 +1,5 @@
 import { optionStyles } from "./composer-option.styles";
+import { styles as selectStyles } from "../ads/recipes/select-styles";
 import { sx } from "../ads/utils/stylex";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { ReactNode } from "react";
@@ -6,7 +7,6 @@ import { Check, Info, TriangleAlert } from "lucide-react";
 
 import { Switch } from "@/components/ui";
 import { ChoiceChips } from "@/components/system/ChoiceChips";
-import { OptionButton } from "@/components/system/OptionButton";
 import { STAVE_OPEN_SETTINGS_EVENT } from "@/store/app.store";
 import { cx } from "../ads/utils/stylex";
 
@@ -88,6 +88,9 @@ export function ComposerOptionMenuSection(props: {
  * A two-line choice: what it is, and what picking it does. Used where the
  * options are strategies (Advisor provider, Worker preset, provider mode)
  * rather than a list of names.
+ *
+ * Geometry is ADS's two-line item recipe — see `optionStyles.rowReset` for why
+ * the local box it replaced could not place the trailing check.
  */
 export function ComposerOptionCard(props: {
   label: string;
@@ -110,44 +113,90 @@ export function ComposerOptionCard(props: {
       aria-pressed={props.active}
       data-testid={props.testId}
       className={cx(
-        sx(optionStyles.choice, props.active && !props.activeClassName && optionStyles.selected),
+        sx(
+          optionStyles.rowReset,
+          selectStyles.item,
+          props.active && !props.activeClassName && optionStyles.selected,
+        ),
         props.active && props.activeClassName,
       )}
       onClick={props.onSelect}
     >
-      {props.icon}
-      <span className={sx(optionStyles.label)}>
-        <span className={sx(optionStyles.title)}>{props.label}</span>
-        {props.summary ? (
-          <span className={sx(optionStyles.detail)}>
-            {props.summary}
-          </span>
-        ) : null}
-        {props.description ? (
-          <span className={sx(optionStyles.description)}>
-            {props.description}
-          </span>
-        ) : null}
-      </span>
+      <ComposerOptionRowCopy
+        description={props.description}
+        icon={props.icon}
+        label={props.label}
+        summary={props.summary}
+      />
       {props.active ? (
-        <Check
-          className={cx(
-            sx(
-              optionStyles.check,
-              !props.checkClassName && optionStyles.selectedCheck,
-            ),
-            props.checkClassName,
-          )}
-        />
+        <span className={sx(selectStyles.itemIndicator)}>
+          <Check
+            className={cx(
+              sx(
+                optionStyles.check,
+                !props.checkClassName && optionStyles.selectedCheck,
+              ),
+              props.checkClassName,
+            )}
+          />
+        </span>
       ) : null}
     </AdsButton>
   );
 }
 
 /**
- * One model in a list of models. Denser than an option card because the rows
- * are names the user scans, and the icon is the anchor rather than a
- * distinction — it matches the main model list they already read.
+ * The copy column of an option row: leading icon and title on one line, then
+ * whatever explains them. Two nested spans and not one, because the outer is
+ * the row's first grid TRACK (`itemText`) and the inner is the stack inside it
+ * (`itemCopy`, which supplies the line gap the flush two-line rows were
+ * missing) — the same anatomy `Select` renders.
+ */
+function ComposerOptionRowCopy(props: {
+  description?: ReactNode;
+  icon?: ReactNode;
+  label: ReactNode;
+  summary?: ReactNode;
+}) {
+  return (
+    <span className={sx(selectStyles.itemText)}>
+      <span className={sx(selectStyles.itemCopy)}>
+        <span className={sx(selectStyles.itemLabelLine)}>
+          {props.icon ? (
+            <span className={sx(selectStyles.itemLeadingIcon)}>
+              {props.icon}
+            </span>
+          ) : null}
+          <span className={sx(selectStyles.itemLabel, optionStyles.rowTitle)}>
+            {props.label}
+          </span>
+        </span>
+        {props.summary ? (
+          <span className={sx(selectStyles.itemDescription)}>
+            {props.summary}
+          </span>
+        ) : null}
+        {props.description ? (
+          <span className={sx(selectStyles.itemDescription)}>
+            {props.description}
+          </span>
+        ) : null}
+      </span>
+    </span>
+  );
+}
+
+/**
+ * One model in a list of models — the same row as `ComposerOptionCard`, minus
+ * the strategy framing.
+ *
+ * It used to be the denser `OptionButton density="compact"`: 6px of block
+ * padding, no gap between the two lines, and a 1px accent ring drawn straight
+ * around them, which is why a two-line entry ("Auto" + what it resolves to)
+ * read as cramped and ringed rather than chosen. On the shared recipe the
+ * chosen row is marked the way the rest of the system marks one — accent ink
+ * plus the trailing check, over the selection fill — and the description gets
+ * the recipe's own line gap.
  */
 export function ComposerOptionModelRow(props: {
   label: string;
@@ -158,26 +207,30 @@ export function ComposerOptionModelRow(props: {
   testId?: string;
 }) {
   return (
-    <OptionButton
+    <AdsButton
+      layout="host"
       type="button"
-      density="compact"
-      selected={props.active}
+      variant="quiet"
+      aria-pressed={props.active}
       data-testid={props.testId}
+      className={sx(
+        optionStyles.rowReset,
+        selectStyles.item,
+        props.active && optionStyles.selected,
+      )}
       onClick={props.onSelect}
     >
-      {props.icon}
-      <span className={sx(optionStyles.modelLabel)}>
-        <span className={sx(optionStyles.truncated)}>{props.label}</span>
-        {props.description ? (
-          <span className={sx(optionStyles.truncated, optionStyles.detail)}>
-            {props.description}
-          </span>
-        ) : null}
-      </span>
+      <ComposerOptionRowCopy
+        description={props.description}
+        icon={props.icon}
+        label={props.label}
+      />
       {props.active ? (
-        <Check className={sx(optionStyles.modelCheck)} />
+        <span className={sx(selectStyles.itemIndicator)}>
+          <Check className={sx(optionStyles.check, optionStyles.selectedCheck)} />
+        </span>
       ) : null}
-    </OptionButton>
+    </AdsButton>
   );
 }
 

@@ -4,6 +4,7 @@ import * as React from "react";
 import { Command as AdsCommand } from "../ads/components/Command";
 import { AutocompleteInput } from "../ads/headless/autocomplete";
 import { Separator } from "./separator";
+import { Kbd } from "./kbd";
 import { CheckIcon, SearchIcon } from "lucide-react";
 
 import { styles as commandStyles } from "../ads/components/Command.styles";
@@ -175,12 +176,9 @@ function CommandInput({
           onValueChange?.(event.target.value);
         }}
       />
-      <kbd
-        aria-hidden="true"
-        className={sx(commandLayout.escape)}
-      >
-        ESC
-      </kbd>
+      <span aria-hidden="true" className={sx(commandLayout.escape)}>
+        <Kbd>ESC</Kbd>
+      </span>
     </div>
   );
 }
@@ -279,16 +277,24 @@ function CommandItem({
   );
 }
 
+/**
+ * Trailing accelerator hint on a palette row. The wrapper owns only the
+ * trailing alignment; the visible keycap is the ADS `Kbd`, so the palette,
+ * menus, and the dialog footer all render one keycap treatment.
+ */
 function CommandShortcut({
   className,
+  children,
   ...props
 }: React.ComponentProps<"span">) {
   return (
     <span
       data-slot="command-shortcut"
-      className={cx(sx(commandStyles.shortcut, commandLayout.shortcut), className)}
+      className={cx(sx(commandLayout.shortcut), className)}
       {...props}
-    />
+    >
+      <Kbd>{children}</Kbd>
+    </span>
   );
 }
 

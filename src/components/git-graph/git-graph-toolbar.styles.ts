@@ -163,7 +163,6 @@ export const gitGraphToolbarStyles = stylex.create({
   searchInput: {
     height: 32,
     borderRadius: vars.radiusControl,
-    backgroundColor: `color-mix(in oklch, ${vars.colorCanvas} 60%, transparent)`,
     paddingLeft: vars.space32,
     fontSize: vars.fontSizeCaption,
   },

@@ -37,6 +37,29 @@
   will-change: transform, opacity;
 }
 
+/*
+ * Top-anchored modal (the command palette): centred on the inline axis only.
+ *
+ * `.atelier-motion-modal` assumes the both-axes-centred modal and hard-codes
+ * `translate(-50%, -50%)` into `--atelier-surface-translate`. A palette is
+ * pinned a fixed distance from the block start and translated on X alone, so it
+ * could not adopt the shared class without jumping half its own height upward
+ * on every open. This modifier restates that one variable and nothing else, so
+ * the palette inherits the modal's durations, curve, scale tokens and Reduce
+ * Motion arm rather than growing a fourth overlay vocabulary.
+ *
+ * Written as a DOUBLED class (0,2,0) on purpose. The variable it overrides is
+ * declared by `.atelier-motion-modal` itself (0,1,0) further up, and the popup
+ * additionally declares its own static `transform` through StyleX (0,1,0) as
+ * the no-CSS fallback; (0,2,0) beats both regardless of bundle order. The
+ * enter/exit arms need nothing here — they read the variable.
+ */
+.atelier-motion-modal.atelier-motion-modal-top {
+  --atelier-surface-translate: translateX(-50%);
+
+  transform-origin: top center;
+}
+
 .atelier-motion-modal[data-starting-style],
 .atelier-motion-fullscreen[data-starting-style] {
   opacity: 0;

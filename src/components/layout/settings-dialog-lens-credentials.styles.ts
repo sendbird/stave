@@ -7,11 +7,11 @@ export const lensCredentialsStyles = stylex.create({
     gap: vars.space4,
   },
   addIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   notice: {
-    alignItems: "flex-start",
+    alignItems: "start",
     backgroundColor: vars.colorSurfaceTint,
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusControl,
@@ -24,9 +24,9 @@ export const lensCredentialsStyles = stylex.create({
   noticeIcon: {
     color: vars.colorSuccess,
     flexShrink: 0,
-    height: vars.controlIconSizeMd,
-    marginTop: 2,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    marginBlockStart: vars.space2,
+    inlineSize: vars.controlIconSizeMd,
   },
   noticeText: {
     color: vars.colorTextMuted,
@@ -57,37 +57,37 @@ export const lensCredentialsStyles = stylex.create({
     flexDirection: "column",
     fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightMedium,
-    gap: 6,
+    gap: vars.space8,
   },
   hostRows: {
     display: "flex",
     flexDirection: "column",
-    gap: 6,
+    gap: vars.space8,
   },
   hostRow: {
     alignItems: "center",
     display: "flex",
-    gap: 6,
+    gap: vars.space8,
   },
   hostInput: {
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeCaption,
-    height: vars.controlHeightSm,
+    blockSize: vars.controlHeightSm,
   },
   removeHost: {
     flexShrink: 0,
   },
   removeHostIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   addHostButton: {
     gap: vars.space4,
-    height: 28,
+    blockSize: vars.controlHeightXs,
   },
   addHostIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   hostHelp: {
     color: vars.colorTextMuted,
@@ -101,14 +101,14 @@ export const lensCredentialsStyles = stylex.create({
   },
   fieldControl: {
     fontSize: vars.fontSizeCaption,
-    height: vars.controlHeightSm,
+    blockSize: vars.controlHeightSm,
   },
   /** Reproduces `space-y-1.5` between a label's text and its following block. */
   stacked: {
-    marginTop: 6,
+    marginBlockStart: vars.space4,
   },
   autoFillRow: {
-    alignItems: "flex-start",
+    alignItems: "start",
     display: "flex",
     gap: vars.space12,
     justifyContent: "space-between",
@@ -163,25 +163,25 @@ export const lensCredentialsStyles = stylex.create({
     borderRadius: vars.radiusControl,
     display: "flex",
     flexShrink: 0,
-    height: vars.space32,
+    blockSize: vars.space32,
     justifyContent: "center",
-    width: vars.space32,
+    inlineSize: vars.space32,
   },
   rowMarkIcon: {
     color: vars.colorTextMuted,
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   rowBody: {
     flex: 1,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   rowHostLine: {
     alignItems: "center",
     columnGap: vars.space8,
     display: "flex",
     flexWrap: "wrap",
-    minWidth: 0,
+    minInlineSize: 0,
     rowGap: vars.space4,
   },
   rowHost: {
@@ -204,7 +204,7 @@ export const lensCredentialsStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   actionIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
 });

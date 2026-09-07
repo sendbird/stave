@@ -73,13 +73,13 @@ export const commandPaletteStyles = stylex.create({
   },
   extBadge: {
     letterSpacing: "0.12em",
-    fontSize: 9,
+    fontSize: vars.fontSizeMicro,
     minBlockSize: 16,
     paddingInline: vars.space4,
     textTransform: "uppercase",
   },
   contextBadge: {
-    fontSize: 9,
+    fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightMedium,
     letterSpacing: "normal",
     minBlockSize: 16,
@@ -94,14 +94,6 @@ export const commandPaletteStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  itemShortcut: {
-    fontFamily: vars.fontMono,
-    fontSize: 10,
-    letterSpacing: "normal",
-    marginBlockStart: 2,
-    whiteSpace: "nowrap",
-  },
-
   footer: {
     alignItems: "center",
     blockSize: 44,
@@ -111,7 +103,7 @@ export const commandPaletteStyles = stylex.create({
     color: vars.colorTextMuted,
     display: "flex",
     flexShrink: 0,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     gap: vars.space12,
     justifyContent: "space-between",
     paddingInline: vars.space12,
@@ -137,7 +129,7 @@ export const commandPaletteStyles = stylex.create({
   pinButton: {
     blockSize: 28,
     color: vars.colorTextMuted,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     gap: 6,
     maxInlineSize: 224,
     paddingInline: vars.space8,
@@ -146,12 +138,6 @@ export const commandPaletteStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-  },
-  pinKeyHint: {
-    color: vars.colorTextSubtle,
-    fontFamily: vars.fontMono,
-    fontSize: 9,
-    marginInlineStart: 2,
   },
   resultCount: { flexShrink: 0, fontVariantNumeric: "tabular-nums" },
 });

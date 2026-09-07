@@ -7,11 +7,29 @@
  */
 @layer reset, theme, base, priority1, priority2, priority3, priority4, priority5, priority6, priority7, priority8, priority9, priority10, components, utilities;
 
-@import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Nunito:wght@400;500;600;700&display=swap");
-@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css");
+/*
+ * Every face is self-hosted from node_modules. The two remote sheets that used
+ * to sit here (Google Fonts for JetBrains Mono + Nunito, jsdelivr for
+ * Pretendard Variable) blocked first paint on the network and shipped Nunito,
+ * which nothing in this repository asks for. JetBrains Mono now comes from
+ * `@fontsource-variable/jetbrains-mono` (imported by the ADS `fonts.css`), so
+ * `--font-mono` has to name the VARIABLE family first.
+ *
+ * Pretendard is loaded as the variable dynamic subset: ~92 unicode-range faces
+ * of which a page pulls only the ranges it actually renders, so an all-English
+ * session never downloads the Hangul blocks it covers.
+ */
 @import "@xterm/xterm/css/xterm.css";
 @import "@fontsource-variable/geist";
 @import "@fontsource-variable/inter";
+@import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
+/*
+ * Geometry for rich-text and third-party SVG descendants that cannot receive a
+ * StyleX prop from their host. It declares its own `@layer base`/`@layer
+ * components`, so it has to be imported (and not merely exist) for composer
+ * wing glyphs to keep their 16px box.
+ */
+@import "./components/ui/content-integration.css";
 
 .prompt-input-shell {
   box-shadow:
@@ -72,6 +90,19 @@
   )
   [data-managed-task-notice="true"] {
   margin-inline: 4.5rem;
+}
+
+/*
+ * An empty wing is still a wing: the surface carries its own background, inset
+ * ring and shadow, so a column whose every control declined to render (macro
+ * quick picks with no saved macros, a placement list of unavailable controls)
+ * drew as a bare bordered strip beside the composer. The container has to go,
+ * not just its children — `:empty` is exactly that condition, and the reserved
+ * grid track stays so the card does not jump sideways when a macro is saved.
+ */
+[data-composer-frame-slot="left"]:has(.composer-frame-wing:empty),
+[data-composer-frame-slot="right"]:has(.composer-frame-wing:empty) {
+  visibility: hidden;
 }
 
 .composer-frame-wing {
@@ -374,8 +405,21 @@
  * `:root` matches, so the indirection resolves against the active palette.
  */
 :root {
-  --font-sans: "Geist Variable", sans-serif;
-  --font-mono: "JetBrains Mono", monospace;
+  /*
+   * Geist is the interface face and carries no Hangul, so Pretendard sits
+   * directly behind it and picks up every Korean glyph — including a Korean
+   * word inside an English sentence, which is why the fallback has to be a
+   * face we actually ship rather than whatever the reader's OS supplies.
+   * `Pretendard` (static, from the ADS `fonts.css`) backs up the variable
+   * build for the same reason.
+   */
+  --font-sans:
+    "Geist Variable", "Pretendard Variable", Pretendard, "Apple SD Gothic Neo",
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+    sans-serif;
+  --font-mono:
+    "JetBrains Mono Variable", "JetBrains Mono", "SFMono-Regular", "SF Mono",
+    Consolas, monospace;
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --color-card: var(--card);

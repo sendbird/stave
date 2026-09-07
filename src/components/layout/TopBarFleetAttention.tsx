@@ -9,6 +9,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
+import { CountBadge } from "@/components/system/CountBadge";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { useAppStore } from "@/store/app.store";
 
@@ -50,15 +51,15 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
             }
             aria-pressed={isFleetViewActive}
             onClick={toggleFleetView}
+            indicator={
+              attentionCount > 0 ? (
+                <CountBadge count={attentionCount} tone="warning" />
+              ) : null
+            }
           />
         }
       >
         <Bot {...stylex.props(layoutShellStyles.icon16)} />
-        {attentionCount > 0 ? (
-          <span {...stylex.props(layoutShellStyles.topBarAttentionBadge)}>
-            {attentionCount > 99 ? "99+" : attentionCount}
-          </span>
-        ) : null}
       </TooltipTrigger>
       <TooltipContent side="bottom">
         {isFleetViewActive

@@ -1,5 +1,5 @@
 import type { StyleXValue } from "../ads/utils/stylex";
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import type { Button as BaseButton } from "@base-ui/react/button";
 import { Button as AdsButton, type ButtonBaseProps } from "../ads/components/Button";
 import { buttonVariantStyles, buttonDangerToneStyles, buttonSizeGapStyles, buttonSizePadStyles } from "../ads/components/Button.config";
@@ -12,7 +12,30 @@ import { sx, cx } from "../ads/utils/stylex";
 const ForwardButton = AdsButton as ComponentType<ButtonBaseProps>;
 const variants = { default: "primary", outline: "outline", secondary: "secondary", ghost: "quiet", destructive: "soft", link: "link" } as const;
 const sizes = { default: "md", xs: "xs", sm: "sm", lg: "lg", icon: "md", "icon-xs": "xs", "icon-sm": "sm", "icon-lg": "lg" } as const;
-type Options = { xstyle?: StyleXValue; variant?: keyof typeof variants | null; size?: keyof typeof sizes | null; className?: string };
+type Options = {
+  xstyle?: StyleXValue;
+  /**
+   * Forwarded to ADS `Button indicator` — the corner overlay slot (a count
+   * pill, an attention dot). Typed here because this wrapper's props are
+   * `BaseButton.Props & Options`, which does not include ADS's own additions;
+   * without it the one slot that a chrome control cannot express any other way
+   * (the root clips, so a positioned child is cut on two edges) is unreachable
+   * from every consumer that imports `Button` from `@/components/ui`.
+   */
+  indicator?: ReactNode;
+  variant?: keyof typeof variants | null;
+  size?: keyof typeof sizes | null;
+  className?: string;
+  /**
+   * ADS box ownership. `control` (the default) lets ADS size the box and its
+   * glyph, and it does so through an unlayered `> svg` rule that no author
+   * style can outrank. `host` keeps every ADS behaviour and token but hands the
+   * geometry — height, gutters, glyph box — to the caller's own styles, which
+   * is what a lane that pins its controls to one height and one glyph size
+   * needs (the composer control lanes, the top bar row).
+   */
+  layout?: "control" | "host";
+};
 
 /** Class-only consumers share the same ADS recipes as real buttons. */
 export function buttonVariants({ variant = "default", size = "default", className }: Options = {}) {

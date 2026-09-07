@@ -128,12 +128,12 @@ export function PresetBar() {
         <Button
           type="button"
           variant="ghost"
-          size="icon"
+          size="icon-sm"
           xstyle={styles.manage}
           aria-label="Manage presets"
           onClick={handleOpenPresetSettings}
         >
-          <Cog className={sx(styles.chipIcon)} />
+          <Cog />
         </Button>
       </div>
     </div>
@@ -180,6 +180,7 @@ function PresetChip(props: PresetChipProps) {
       >
         <AdsButton
           layout="host"
+          size="sm"
           type="button"
           onClick={() => onApply(preset)}
           xstyle={styles.chipApply}
@@ -204,17 +205,17 @@ function PresetChip(props: PresetChipProps) {
               <Button
                 type="button"
                 variant="ghost"
-                size="icon"
+                size="icon-xs"
                 xstyle={[styles.chipActions, transition.fade]}
                 aria-label="Preset actions"
               />
             }
           >
-            <Ellipsis className={sx(styles.chipActionsIcon)} />
+            <Ellipsis />
           </DropdownMenuTrigger>
           <DropdownMenuContent
             align="end"
-            className={sx(styles.chipMenu)}
+            xstyle={styles.chipMenu}
             // Keep focus where it is when the menu closes after "Edit…".
             // The default focus return lands outside the freshly opened
             // preset editor Popover and immediately dismisses it.

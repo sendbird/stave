@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { transition } from "@/components/ads/recipes/transition";
 import { GitFork, Undo2 } from "lucide-react";
 import { MessageAction } from "@/components/ai-elements";
 import { Button, Loader, toast } from "@/components/ui";
@@ -110,6 +111,7 @@ export function ConversationTurnActions(props: {
           className={sx(
             preview ? styles.actionPreview : styles.actionInline,
             forkDisabled && styles.actionDisabled,
+            transition.control,
           )}
           onClick={() => {
             void forkHere();
@@ -132,6 +134,8 @@ export function ConversationTurnActions(props: {
             preview ? styles.actionPreview : styles.actionInline,
             preview && props.state.rollback.enabled && styles.rollbackPreview,
             rollbackDisabled && styles.actionDisabled,
+            // `control`, not `colors`: the disabled arm moves `opacity` too.
+            transition.control,
           )}
           onClick={() => {
             if (props.state.rollback.enabled && !busy) {

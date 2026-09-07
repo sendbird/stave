@@ -40,6 +40,14 @@ export const controlChrome = stylex.create({
       ":active": raisedWashPressed,
     },
     borderColor: vars.colorBorder,
+    // Width and style, not just colour. These recipes land on native `<button>`
+    // elements, which arrive with the UA's `2px outset` box; stating only
+    // `border-color` recolours that box instead of replacing it. Callers that
+    // compose a geometry recipe on top (`menu.trigger`) were hiding the gap,
+    // and the ones that do not were 4px larger than their own height contract
+    // while painting a 2px ridge in whatever colour was in scope.
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
     // Collapses to `elevationFlat` on `:active` — the shadow half of the press,
     // paired with `transition.control` (now animating `box-shadow`) at the
     // call site.
@@ -62,6 +70,12 @@ export const controlChrome = stylex.create({
       ":active": vars.colorOverlayPressed,
     },
     borderColor: "transparent",
+    // Borderless means zero width, stated. `border-color: transparent` alone
+    // leaves the UA's `2px outset` in the box model on a native button — an
+    // invisible 4px of the control's own size, and a visible ridge the moment
+    // anything downstream sets a border colour.
+    borderStyle: "solid",
+    borderWidth: 0,
     color: {
       default: vars.colorTextMuted,
       ":hover": vars.colorText,

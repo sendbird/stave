@@ -9,19 +9,18 @@ const spin = stylex.keyframes({
 
 /** Workspace/origin sync diagnostics card. */
 export const workspaceSyncStatusCardStyles = stylex.create({
+  /**
+   * The card body IS the surface. `SettingsCard` states no inline padding on
+   * purpose — a section sits on whatever gutter its host established — so a
+   * bordered, inset box here drew a card inside a card and moved its text 17px
+   * off the card title above it. Summary and actions are a plain row.
+   */
   header: {
     alignItems: "flex-start",
-    backgroundColor: vars.colorCanvas,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusFrame,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
     display: "flex",
     flexWrap: "wrap",
     gap: vars.space12,
     justifyContent: "space-between",
-    paddingBlock: vars.space12,
-    paddingInline: vars.space16,
   },
   headerLead: {
     display: "flex",
@@ -73,13 +72,9 @@ export const workspaceSyncStatusCardStyles = stylex.create({
       "@media (min-width: 64rem)": "repeat(2, minmax(0, 1fr))",
     },
   },
+  /** Columns of the same body surface, not two more nested cards. */
   detailPanel: {
-    backgroundColor: vars.colorCanvas,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusFrame,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    padding: vars.space16,
+    minInlineSize: 0,
   },
   infoRows: {
     display: "flex",
@@ -127,6 +122,12 @@ export const workspaceSyncStatusCardStyles = stylex.create({
     overflowWrap: "anywhere",
     wordBreak: "break-all",
   },
+  /**
+   * Output and error stay boxed — they are transient notices, the one thing on
+   * this card that is not part of the standing layout — but they share the
+   * body gutter with everything else instead of being the widest box in a
+   * stack of narrower ones.
+   */
   outputPanel: {
     backgroundColor: vars.colorSurfaceTint,
     borderColor: vars.colorBorder,
@@ -134,7 +135,7 @@ export const workspaceSyncStatusCardStyles = stylex.create({
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
     paddingBlock: vars.space12,
-    paddingInline: vars.space16,
+    paddingInline: vars.space12,
   },
   outputTitle: {
     alignItems: "center",
@@ -162,6 +163,6 @@ export const workspaceSyncStatusCardStyles = stylex.create({
     color: vars.colorDangerText,
     fontSize: vars.fontSizeBody,
     paddingBlock: vars.space12,
-    paddingInline: vars.space16,
+    paddingInline: vars.space12,
   },
 });

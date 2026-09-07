@@ -8,7 +8,7 @@ export const changelogSectionStyles = stylex.create({
     color: vars.colorText,
     fontSize: vars.fontSizeBody,
     lineHeight: vars.lineHeightRelaxed,
-    maxWidth: "none",
+    maxInlineSize: "none",
   },
   h2: {
     borderBottomColor: vars.colorBorder,

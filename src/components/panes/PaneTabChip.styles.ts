@@ -59,7 +59,7 @@ export const paneTabChipStyles = stylex.create({
   },
   statusBadge: {
     borderRadius: vars.radiusMark,
-    fontSize: 10,
+    fontSize: vars.fontSizeMicro,
     letterSpacing: "0.14em",
     textTransform: "uppercase",
   },
@@ -120,12 +120,20 @@ export const paneTabChipStyles = stylex.create({
     opacity: 1,
   },
   closeHidden: {
+    // Opacity is animated by `transition.control` + `motionDurationQuick` on
+    // the Button below, which already had to cover this element's colour states
+    // as well; the literal here named `opacity` alone and would have replaced
+    // that property list, dropping the colour easing and the reduced-motion arm.
     opacity: "var(--pane-close-reveal, 0)",
-    transitionDuration: "150ms",
-    transitionProperty: "opacity",
   },
+  /**
+   * The host-layout Button now emits the glyph contract, so `ads/styles.css`
+   * keeps Lucide's 24px viewport out on its own. That rule is a default for
+   * host layout, so this 14px chip size still wins — it stays because a 20px
+   * chip action wants a tighter glyph than the 16px control default.
+   */
   closeIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
 });

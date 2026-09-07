@@ -25,7 +25,7 @@ export const claudePluginsStyles = stylex.create({
     borderWidth: vars.borderWidthHairline,
   },
   listItem: {
-    alignItems: "flex-start",
+    alignItems: "start",
     borderTopColor: {
       default: vars.colorBorder,
       ":first-child": "transparent",
@@ -45,13 +45,13 @@ export const claudePluginsStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars.space4,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   itemHead: {
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
-    gap: 6,
+    gap: vars.space8,
   },
   itemName: {
     fontSize: vars.fontSizeBody,
@@ -81,6 +81,6 @@ export const claudePluginsStyles = stylex.create({
   },
   itemSwitch: {
     flexShrink: 0,
-    marginBlockStart: 2,
+    marginBlockStart: vars.space2,
   },
 });

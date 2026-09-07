@@ -21,9 +21,11 @@ export const compareRunPanelStyles = stylex.create({
     gap: vars.space12,
   },
   emptyMedia: {
-    backgroundColor: vars.colorAccentSoft,
+    // Empty-state medallion: neutral by contract. Accent is reserved for the
+    // primary action, active/selected state, and links.
+    backgroundColor: vars.colorSurfaceTint,
     borderRadius: vars.radiusFrame,
-    color: vars.colorAccent,
+    color: vars.colorTextMuted,
     // Logical names, matching the keys ADS `emptyStateStyles.media` declares
     // (`inlineSize: 48` / `minBlockSize: 48`). StyleX treats `width` and
     // `inlineSize` as distinct atomic properties, so overriding with the
@@ -82,7 +84,7 @@ export const compareRunPanelStyles = stylex.create({
     gap: vars.space8,
   },
   headerIcon: {
-    color: vars.colorAccent,
+    color: vars.colorTextMuted,
     height: 16,
     width: 16,
   },
@@ -291,8 +293,8 @@ export const compareRunPanelStyles = stylex.create({
     width: 32,
   },
   judgeMarkNeutral: {
-    backgroundColor: vars.colorAccentSoft,
-    color: vars.colorAccent,
+    backgroundColor: vars.colorSurfaceTint,
+    color: vars.colorTextMuted,
   },
   judgeMarkFailed: {
     backgroundColor: vars.colorWarningSoft,
@@ -315,7 +317,7 @@ export const compareRunPanelStyles = stylex.create({
     fontWeight: vars.fontWeightSemibold,
   },
   judgeScore: {
-    color: vars.colorAccent,
+    color: vars.colorText,
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightSemibold,
@@ -352,7 +354,7 @@ export const compareRunPanelStyles = stylex.create({
     gap: vars.space8,
   },
   reviewIcon: {
-    color: vars.colorAccent,
+    color: vars.colorTextMuted,
     height: 16,
     width: 16,
   },

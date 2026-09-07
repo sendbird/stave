@@ -115,6 +115,7 @@ export function TaskStartGuide({
                   <ActionButton
                     weight="quiet"
                     size="sm"
+                    xstyle={styles.promptAction}
                     onClick={() => onSelect(item.example)}
                     aria-label={`Use prompt: ${item.title}`}
                   >
@@ -146,18 +147,19 @@ export function TaskStartGuide({
 const styles = stylex.create({
   root: { gap: vars.space20, padding: vars.space20 },
   introduction: {
-    // The ADS `EmptyState` header is a grid without `justify-items`, so the
-    // icon medallion (a fixed 48px box) resolves to `start` and hangs off the
-    // left edge while the centered copy stays centered. Restore the
-    // cross-axis centering the header used to carry.
-    justifyItems: "center",
+    // Cross-axis centering now lives in the `EmptyHeader` shim, so every empty
+    // state gets it rather than the surfaces that noticed the medallion drift.
     // ADS constrains the header with `maxInlineSize`, so override that same
     // logical property rather than racing `maxWidth` against it.
     maxInlineSize: "32rem",
   },
   content: {
-    width: "100%",
-    maxWidth: "32rem",
+    // Logical only: the ADS `EmptyState` content slot constrains itself with
+    // `maxInlineSize`, so overriding `maxWidth` would leave two rules racing
+    // for the same box.
+    inlineSize: "100%",
+    maxInlineSize: "32rem",
+    minInlineSize: 0,
     display: "flex",
     flexDirection: "column",
     gap: vars.space20,
@@ -167,10 +169,10 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars.space12,
-    borderBottomWidth: 1,
-    borderBottomStyle: "solid",
-    borderBottomColor: vars.colorBorder,
-    paddingBottom: vars.space12,
+    borderBlockEndWidth: vars.borderWidthHairline,
+    borderBlockEndStyle: "solid",
+    borderBlockEndColor: vars.colorBorder,
+    paddingBlockEnd: vars.space12,
   },
   directionHeader: {
     display: "flex",
@@ -211,25 +213,48 @@ const styles = stylex.create({
     color: vars.colorTextMuted,
   },
   actions: { display: "flex", flexWrap: "wrap", gap: vars.space8 },
-  startingPoints: { minWidth: 0 },
+  startingPoints: { minInlineSize: 0 },
+  /**
+   * The row wraps instead of squeezing the action: below roughly a 24rem
+   * content box the copy claims the full inline size and "Use prompt" stacks
+   * underneath at full width, so the label is never clipped to "Use pro…".
+   */
   startingPoint: {
     display: "flex",
+    flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "space-between",
-    gap: vars.space16,
+    columnGap: vars.space16,
+    rowGap: vars.space8,
     paddingBlock: vars.space12,
-    borderTopWidth: { default: 1, ":first-child": 0 },
-    borderTopStyle: "solid",
-    borderTopColor: vars.colorBorder,
+    borderBlockStartWidth: { default: vars.borderWidthHairline, ":first-child": 0 },
+    borderBlockStartStyle: "solid",
+    borderBlockStartColor: vars.colorBorder,
   },
-  promptText: { minWidth: 0 },
+  /**
+   * Title and description are a pair, so the gap between them is the layout's
+   * (`space4` on the ADS spacing ramp) rather than a margin hung off the
+   * description — the same flex-column-plus-gap shape every other title and
+   * description pair in the app uses.
+   */
+  promptText: {
+    display: "flex",
+    flexDirection: "column",
+    flexGrow: 1,
+    flexBasis: "16rem",
+    gap: vars.space4,
+    minInlineSize: 0,
+  },
+  /** Never shrink below the label: the action wraps to its own line first. */
+  promptAction: { flexShrink: 0 },
   promptTitle: {
+    margin: 0,
     fontSize: vars.fontSizeBody,
     lineHeight: vars.lineHeightNormal,
     fontWeight: vars.fontWeightMedium,
   },
   promptDescription: {
-    marginTop: vars.space4,
+    margin: 0,
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightRelaxed,
     color: vars.colorTextMuted,

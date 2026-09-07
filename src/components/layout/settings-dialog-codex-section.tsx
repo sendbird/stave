@@ -1164,43 +1164,43 @@ export function CodexSection() {
           </div>
         </div>
 
-        <Tabs value={activeTab} onValueChange={setActiveTab} className={sx(codexStyles.tabs)}>
+        <Tabs value={activeTab} onValueChange={setActiveTab} xstyle={codexStyles.tabs}>
           <div className={sx(codexStyles.tabsBar)}>
-            <TabsList className={sx(codexStyles.tabsList)}>
+            <TabsList xstyle={codexStyles.tabsList}>
               <TabsTrigger
                 value="overview"
-                className={sx(codexStyles.tabsTrigger)}
+                xstyle={codexStyles.tabsTrigger}
               >
                 Overview
               </TabsTrigger>
               <TabsTrigger
                 value="extensions"
-                className={sx(codexStyles.tabsTrigger)}
+                xstyle={codexStyles.tabsTrigger}
               >
                 Extensions
               </TabsTrigger>
               <TabsTrigger
                 value="threads"
-                className={sx(codexStyles.tabsTrigger)}
+                xstyle={codexStyles.tabsTrigger}
               >
                 Threads
               </TabsTrigger>
               <TabsTrigger
                 value="commands"
-                className={sx(codexStyles.tabsTrigger)}
+                xstyle={codexStyles.tabsTrigger}
               >
                 Commands
               </TabsTrigger>
               <TabsTrigger
                 value="config"
-                className={sx(codexStyles.tabsTrigger)}
+                xstyle={codexStyles.tabsTrigger}
               >
                 Advanced
               </TabsTrigger>
             </TabsList>
           </div>
 
-          <TabsContent value="overview" className={sx(codexStyles.tabContent)}>
+          <TabsContent value="overview" xstyle={codexStyles.tabContent}>
             {!snapshot ? (
               <Empty xstyle={codexStyles.emptyRoot}>
                 <EmptyHeader>
@@ -1493,7 +1493,7 @@ export function CodexSection() {
             )}
           </TabsContent>
 
-          <TabsContent value="extensions" className={sx(codexStyles.tabContent)}>
+          <TabsContent value="extensions" xstyle={codexStyles.tabContent}>
             {!snapshot ? null : (
               <div className={sx(codexStyles.twoColGrid1b)}>
                 <div className={sx(codexStyles.stack4)}>
@@ -2174,7 +2174,7 @@ export function CodexSection() {
             )}
           </TabsContent>
 
-          <TabsContent value="threads" className={sx(codexStyles.tabContent)}>
+          <TabsContent value="threads" xstyle={codexStyles.tabContent}>
             {!snapshot ? null : (
               <div className={sx(codexStyles.twoColGridThreads)}>
                 <DenseSection
@@ -2436,7 +2436,7 @@ export function CodexSection() {
             )}
           </TabsContent>
 
-          <TabsContent value="commands" className={sx(codexStyles.tabContent)}>
+          <TabsContent value="commands" xstyle={codexStyles.tabContent}>
             <div className={sx(codexStyles.stack4)}>
               <DenseSection
                 title="Slash command catalog"
@@ -2514,7 +2514,7 @@ export function CodexSection() {
             </div>
           </TabsContent>
 
-          <TabsContent value="config" className={sx(codexStyles.tabContent)}>
+          <TabsContent value="config" xstyle={codexStyles.tabContent}>
             {!snapshot ? null : (
               <div className={sx(codexStyles.twoColGridConfig)}>
                 <div className={sx(codexStyles.stack4)}>

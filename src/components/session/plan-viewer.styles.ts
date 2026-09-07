@@ -66,7 +66,7 @@ export const planViewerElementStyles = stylex.create({
     cursor: "grab",
   },
   headerIcon: {
-    color: vars.colorAccent,
+    color: vars.colorTextMuted,
     flexShrink: 0,
   },
   headerTitle: {

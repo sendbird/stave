@@ -135,7 +135,7 @@ export const summaryStyles = stylex.create({
     paddingInline: vars.space12,
   },
   activityIcon: {
-    color: vars.colorAccent,
+    color: vars.colorTextMuted,
     flexShrink: 0,
     height: 14,
     marginTop: vars.space2,

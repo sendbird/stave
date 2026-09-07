@@ -16,24 +16,10 @@ export const branchDropdownStyles = stylex.create({
   flexNone: { flexShrink: 0 },
 
   // --- Trigger ------------------------------------------------------------
-  trigger: {
-    alignItems: "center",
-    backgroundColor: {
-      default: vars.colorCanvas,
-      ":hover": vars.colorOverlayHover,
-    },
-    borderColor: vars.colorBorderSubtle,
-    borderRadius: vars.radiusControl,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorTextMuted,
-    display: "inline-flex",
-    fontSize: vars.fontSizeCaption,
-    gap: 6,
-    height: 28,
-    maxWidth: 224,
-    paddingInline: "0.625rem",
-  },
+  // Geometry, type, and chrome fill come from `topBarControlStyles` so the
+  // branch switcher lands on the same 32px baseline as the path chip and
+  // "Commit graph" beside it. Only the truncation budget is local.
+  trigger: { maxWidth: 224 },
   triggerOpen: {
     backgroundColor: vars.colorOverlayPressed,
     borderColor: vars.colorAccent,
@@ -64,7 +50,14 @@ export const branchDropdownStyles = stylex.create({
     backgroundColor: vars.colorWarningSoft,
     color: vars.colorWarningText,
   },
-  chevron: { transitionProperty: "transform" },
+  // The chevron is a child of the trigger button, not a sibling control, so it
+  // inherits the control's centring and sits on the `sm` glyph rung.
+  chevron: {
+    blockSize: vars.controlIconSizeSm,
+    flexShrink: 0,
+    inlineSize: vars.controlIconSizeSm,
+    transitionProperty: "transform",
+  },
   chevronOpen: { transform: "rotate(180deg)" },
 
   // --- Menu shell ---------------------------------------------------------
@@ -98,7 +91,6 @@ export const branchDropdownStyles = stylex.create({
   searchInput: {
     borderRadius: vars.radiusControl,
     fontSize: vars.fontSizeBody,
-    height: 32,
     paddingInlineStart: vars.space32,
   },
   spinning: {
@@ -139,27 +131,27 @@ export const branchDropdownStyles = stylex.create({
   },
   driftText: {
     color: vars.colorTextMuted,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     lineHeight: "1rem",
     marginTop: vars.space2,
   },
   driftAction: {
     flexShrink: 0,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     height: 28,
     paddingInline: vars.space8,
   },
 
-  // --- Current-branch card ------------------------------------------------
-  statusCard: {
-    backgroundColor: vars.colorCanvasSubtle,
-    borderColor: vars.colorBorderSubtle,
-    borderRadius: vars.radiusControl,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+  // --- Current-branch section --------------------------------------------
+  // Flat inside the popup: the popup surface is already the card, so a bordered
+  // box here would be a card-inside-a-card. Sections separate by a hairline
+  // rule and spacing instead of a nested bordered box.
+  statusSection: {
+    borderTopColor: vars.colorBorderSubtle,
+    borderTopStyle: "solid",
+    borderTopWidth: vars.borderWidthHairline,
     marginTop: vars.space8,
-    paddingBlock: vars.space8,
-    paddingInline: "0.625rem",
+    paddingTop: vars.space8,
   },
   statusRow: {
     alignItems: "center",
@@ -176,70 +168,59 @@ export const branchDropdownStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  statusPill: {
-    borderRadius: vars.radiusMark,
-    flexShrink: 0,
-    fontSize: 11,
-    paddingBlock: vars.space2,
-    paddingInline: 6,
-  },
-  statusPillConflict: {
-    backgroundColor: vars.colorDangerSoft,
-    color: vars.colorDangerText,
-  },
-  statusPillDirty: {
-    backgroundColor: vars.colorWarningSoft,
-    color: vars.colorWarningText,
-  },
-  statusPillClean: {
-    backgroundColor: vars.colorSuccessSoft,
-    color: vars.colorSuccessText,
-  },
+  statusBadge: { flexShrink: 0 },
   statusHint: {
     color: vars.colorTextMuted,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     lineHeight: "1rem",
     marginTop: vars.space4,
   },
-  actionGrid: {
+  // Fetch / Pull share a rung; the detached-checkout action wraps to a full
+  // row beneath them. Every control sits on the `sm` (32px) rung.
+  actionRow: {
     display: "grid",
     gap: vars.space8,
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
     marginTop: vars.space8,
   },
   actionButton: {
-    borderRadius: vars.radiusMark,
-    fontSize: vars.fontSizeCaption,
     gap: 6,
-    height: 28,
+    justifyContent: "center",
     paddingInline: vars.space8,
+    width: "100%",
   },
-  detachSlot: { display: "flex", marginTop: vars.space8 },
+  detachSlot: { display: "flex", gridColumn: "1 / -1" },
   detachButton: {
-    borderRadius: vars.radiusMark,
-    fontSize: vars.fontSizeCaption,
     gap: 6,
-    height: 28,
+    justifyContent: "center",
     paddingInline: vars.space8,
     width: "100%",
   },
 
   // --- Create branch ------------------------------------------------------
-  createRow: { display: "flex", gap: vars.space8, marginTop: vars.space8 },
+  createRow: {
+    borderTopColor: vars.colorBorderSubtle,
+    borderTopStyle: "solid",
+    borderTopWidth: vars.borderWidthHairline,
+    display: "flex",
+    gap: vars.space8,
+    marginTop: vars.space8,
+    paddingTop: vars.space8,
+  },
   createInput: {
     borderRadius: vars.radiusControl,
+    flex: 1,
     fontSize: vars.fontSizeBody,
-    height: 32,
+    minWidth: 0,
   },
   createButton: {
-    fontSize: vars.fontSizeCaption,
+    flexShrink: 0,
     gap: 6,
-    height: 32,
-    paddingInline: "0.625rem",
+    paddingInline: vars.space12,
   },
   createError: {
     color: vars.colorDangerText,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     marginTop: 6,
     paddingInline: vars.space2,
   },
@@ -265,7 +246,7 @@ export const branchDropdownStyles = stylex.create({
     alignItems: "center",
     color: vars.colorTextMuted,
     display: "flex",
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightMedium,
     justifyContent: "space-between",
     letterSpacing: "normal",
@@ -291,7 +272,7 @@ export const branchDropdownStyles = stylex.create({
     borderWidth: vars.borderWidthHairline,
   },
   optionSelectable: {
-    backgroundColor: { default: null, ":hover": vars.colorOverlayHover },
+    backgroundColor: { default: "transparent", ":hover": vars.colorOverlayHover },
   },
   optionDisabled: { cursor: "not-allowed", opacity: 0.7 },
   optionIcon: { color: vars.colorTextMuted },
@@ -327,20 +308,5 @@ export const branchDropdownStyles = stylex.create({
   },
 
   // --- Read-only chip (worktree-managed branch) ---------------------------
-  staticChip: {
-    alignItems: "center",
-    backgroundColor: vars.colorCanvas,
-    borderColor: vars.colorBorderSubtle,
-    borderRadius: vars.radiusControl,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorTextMuted,
-    display: "inline-flex",
-    fontSize: vars.fontSizeCaption,
-    gap: 6,
-    height: 28,
-    maxWidth: 224,
-    paddingInline: "0.625rem",
-  },
-  staticChipIcon: { flexShrink: 0, height: 14, width: 14 },
+  staticChip: { maxWidth: 224 },
 });

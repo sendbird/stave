@@ -4,10 +4,93 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { MarkdownMessage } from "@/components/ai-elements/message-markdown";
 import { markdownStyles } from "@/components/ai-elements/message-markdown.styles";
 import { sx } from "@/components/ads/utils/stylex";
+import { hardenSetextHeadings } from "@/components/ai-elements/message-markdown.setext";
 import {
   formatFileLinkLocation,
   resolveWorkspaceFileLink,
 } from "@/lib/message-file-links";
+
+function render(content: string): string {
+  return renderToStaticMarkup(
+    createElement(MarkdownMessage, {
+      content,
+      messageCodeFontSize: 14,
+      messageFontSize: 18,
+    }),
+  );
+}
+
+/**
+ * The reported regression: assistant prose "sometimes renders like a heading".
+ *
+ * Two independent defects compounded. A sentence followed immediately by
+ * `---` is a CommonMark *setext* heading, so the sentence became an `<h2>`
+ * where the model meant a divider; and `MarkdownMessage` had no h1–h6
+ * component overrides at all, so that `<h2>` fell through to the user-agent
+ * sheet at 1.5em bold — with the ADS reset having just removed the UA
+ * `margin-block` that used to separate it from the prose, leaving an outsized
+ * bold line jammed into the paragraph flow.
+ */
+describe("MarkdownMessage headings", () => {
+  test("a sentence above a rule stays a paragraph and the rule stays a rule", () => {
+    const html = render("Deployed to staging.\n---\nNext up: production.");
+    expect(html).not.toContain("<h2");
+    expect(html).toContain("<hr");
+    expect(html).toContain("Deployed to staging.");
+  });
+
+  test("a real heading is still a heading, and is styled rather than left to the UA", () => {
+    const html = render("## What changed\n\nThe runtime now retries.");
+    expect(html).toContain("<h2");
+    // The whole defect was an unstyled element: a class here is the fix.
+    expect(html).toContain(sx(markdownStyles.heading));
+    expect(html).toContain(sx(markdownStyles.heading2));
+  });
+
+  test("every heading level is styled, so none of them can fall back to 2em bold", () => {
+    for (const [hashes, tag] of [
+      ["#", "h1"],
+      ["##", "h2"],
+      ["###", "h3"],
+      ["####", "h4"],
+      ["#####", "h5"],
+      ["######", "h6"],
+    ] as const) {
+      const html = render(`${hashes} Title`);
+      expect(html).toContain(`<${tag} class=`);
+      expect(html).toContain(sx(markdownStyles.heading));
+    }
+  });
+
+  test("the hardening leaves unambiguous markdown exactly as written", () => {
+    // A rule already separated by a blank line, a front-matter fence, a
+    // dashed list, a table delimiter and a fenced code block are all correct
+    // already; rewriting any of them would trade one wrong render for another.
+    for (const source of [
+      "Text.\n\n---\n\nMore.",
+      "- one\n---",
+      "| a |\n| --- |\n| b |",
+      "```\ncode\n---\n```",
+      "no dashes at all",
+    ]) {
+      expect(hardenSetextHeadings(source)).toBe(source);
+    }
+  });
+
+  test("a YAML-looking block is rescued too: CommonMark has no front matter", () => {
+    // `---\ntitle: x\n---` is a thematic break followed by a setext heading
+    // in CommonMark — there is no front-matter extension enabled — so the
+    // closing fence turns `title: x` into an <h2>. The same rescue applies.
+    expect(hardenSetextHeadings("---\ntitle: x\n---")).toBe(
+      "---\ntitle: x\n\n---",
+    );
+  });
+
+  test("only a three-dash rule is rescued: a shorter underline would become a list", () => {
+    expect(hardenSetextHeadings("Title\n-")).toBe("Title\n-");
+    expect(hardenSetextHeadings("Title\n---")).toBe("Title\n\n---");
+  });
+});
 
 describe("MarkdownMessage", () => {
   test("renders GFM tables as HTML table markup", () => {

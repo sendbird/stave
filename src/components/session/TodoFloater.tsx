@@ -13,6 +13,7 @@ import {
   resolveTodoFloaterVisibility,
 } from "@/components/session/todo-floater.utils";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
+import { transition } from "@/components/ads/recipes/transition";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { todoFloaterStyles as styles } from "@/components/session/todo-floater.styles";
 import { useAppStore } from "@/store/app.store";
@@ -178,7 +179,11 @@ export function TodoFloater() {
         SESSION_INPUT_FLOATING_WRAPPER_CLASS_NAME,
         // Anchor todo progress in the same session-edge slot the plan viewer uses.
         sx(
-          styles.wrapper,
+          // The opacity fade the lingering state relies on comes from the ADS
+          // recipe, which carries the reduced-motion arm the hand-written
+          // 300ms literal on the old `wrapper` style did not.
+          transition.fade,
+          transition.motionDurationEmphasis,
           lingering ? styles.wrapperLingering : styles.wrapperVisible,
         ),
       )}
@@ -204,6 +209,8 @@ export function TodoFloater() {
           <div
             className={sx(
               styles.progressBar,
+              transition.bar,
+              transition.motionDurationEmphasis,
               allCompleted
                 ? styles.progressBarComplete
                 : styles.progressBarActive,

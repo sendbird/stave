@@ -77,6 +77,24 @@ type ButtonSharedProps = Omit<ButtonRootProps, "className"> & {
   fullWidth?: boolean;
   /** Override the glyph size without changing the button's control size. */
   iconSize?: number | string;
+  /**
+   * A mark pinned to the button's top-end corner: an unread count, an
+   * attention dot, a "needs review" pip. The slot owns the ANCHOR — the
+   * corner, the overhang, RTL, and lifting the root's clamp that would
+   * otherwise cut two edges off it; the caller owns the mark's paint, exactly
+   * as `PresenceBadge overlay` splits the avatar corner.
+   *
+   * It has to be a prop rather than a caller-positioned child. `styles.root`
+   * clips, so an absolutely positioned child of a `Button` is clipped no
+   * matter what the caller declares, and a caller cannot un-clip it from the
+   * outside: the clamp is on the same element. Every host that wanted a count
+   * on a toolbar button therefore shipped a badge with two flat sides.
+   *
+   * Rendered outside the label flow, so it never changes the button's width
+   * and never joins the truncating label. Not rendered while `loading` — the
+   * spinner is the state, and a count on top of it says two things at once.
+   */
+  indicator?: React.ReactNode;
   loading?: boolean;
   /**
    * Label to show in place of `children` while `loading`. Without it the
@@ -211,6 +229,7 @@ const ButtonImpl = React.forwardRef<
     fullWidth = false,
     iconOnly = false,
     iconSize,
+    indicator,
     layout = "control",
     loading = false,
     loadingLabel,
@@ -225,11 +244,54 @@ const ButtonImpl = React.forwardRef<
   ref,
 ) {
   if (layout === "host") {
-    return <ButtonRoot {...props} ref={ref} render={render} style={style}
-      disabled={disabled || loading} aria-busy={loading || props["aria-busy"] || undefined}
-      className={cx(sx(controlChrome.triggerQuiet, focusRing.ring, transition.colors, xstyle), className)}>
-      {children}
-    </ButtonRoot>;
+    // Host layout hands GEOMETRY to the caller — height, padding, gap, width.
+    // It does not hand over the ICON CONTRACT. `data-ads-control="button"`
+    // plus `--ads-control-icon-size` are what keep Lucide's 24px viewBox from
+    // leaking into a host-sized control, and they are geometry-independent:
+    // the marker only selects direct `> svg` children, and the custom property
+    // is inert until that rule reads it. Omitting them was why host callers
+    // had to re-derive an icon size in their own stylesheets.
+    //
+    // `data-ads-control-layout="host"` rides along so `styles.css` can treat
+    // the glyph box as an overridable default instead of the mandate it is for
+    // an ADS-owned box: a host caller that already sizes its icon keeps that
+    // size, and one that does not stops leaking 24px.
+    //
+    // `data-ads-control-size|tone|variant` are deliberately NOT emitted here:
+    // they describe chrome this path does not render (host owns the box, and
+    // `triggerQuiet` is the only variant it paints), so publishing them would
+    // misdescribe the element to styling and tests alike.
+    const hostScale: ControlScale = isLegacyButtonIconSize(size)
+      ? getLegacyButtonIconScale(size)
+      : size;
+    return (
+      <ButtonRoot
+        {...props}
+        ref={ref}
+        render={render}
+        style={
+          {
+            ...style,
+            "--ads-control-icon-size": iconSize ?? controlIconSizes[hostScale],
+          } as React.CSSProperties
+        }
+        data-ads-control="button"
+        data-ads-control-layout="host"
+        disabled={disabled || loading}
+        aria-busy={loading || props["aria-busy"] || undefined}
+        className={cx(
+          sx(
+            controlChrome.triggerQuiet,
+            focusRing.ring,
+            transition.colors,
+            xstyle,
+          ),
+          className,
+        )}
+      >
+        {children}
+      </ButtonRoot>
+    );
   }
   // Default element is a Motion button that springs on press (Motion owns
   // transform). When the caller supplies their own `render` (e.g. a link
@@ -294,6 +356,9 @@ const ButtonImpl = React.forwardRef<
   // the overlay (which exists only to preserve width) would double the mark.
   const overlaySpinner = loading && !square && loadingLabel == null;
   const swapLabel = loading && !square && loadingLabel != null;
+  // A busy button already says one thing about itself; the corner mark would
+  // say a second on top of the spinner.
+  const showIndicator = indicator != null && !loading;
   const content = withTruncatingButtonLabels(children);
 
   // The link path's a11y corrections. Base UI's button behaviour still owns the
@@ -359,6 +424,7 @@ const ButtonImpl = React.forwardRef<
           cssPress && (press === "scale" ? styles.cssPress : styles.cssSettle),
           cssPress && transition.transformFallback,
           overlaySpinner && styles.loadingHost,
+          showIndicator && styles.indicatorHost,
           xstyle,
           inactive && styles.disabled,
           linkRender && inactive && styles.linkInert,
@@ -406,6 +472,9 @@ const ButtonImpl = React.forwardRef<
       ) : (
         content
       )}
+      {showIndicator ? (
+        <span className={sx(styles.indicatorSlot)}>{indicator}</span>
+      ) : null}
     </Root>
   );
 });

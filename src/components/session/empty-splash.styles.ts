@@ -293,7 +293,10 @@ export const emptySplashStyles = stylex.create({
   },
   emptyHeader: {
     gap: vars.space12,
-    maxWidth: 576,
+    // Logical, matching the `maxInlineSize: 360` the ADS header declares.
+    // `maxWidth` is a separate atomic property in StyleX, so the physical
+    // spelling left both rules live and the header still capped at 360px.
+    maxInlineSize: 576,
   },
   emptyMedia: {
     backgroundColor: vars.colorAccentSoft,

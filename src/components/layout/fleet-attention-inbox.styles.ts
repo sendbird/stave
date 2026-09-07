@@ -32,10 +32,11 @@ export const attentionStyles = stylex.create({
     paddingBlock: vars.space8,
     paddingInline: vars.space12,
   },
+  /** Section eyebrow: Caption, uppercase, medium. */
   groupHeading: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
-    fontWeight: vars.fontWeightSemibold,
+    fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightMedium,
     letterSpacing: "0.12em",
     textTransform: "uppercase",
   },
@@ -63,7 +64,7 @@ export const attentionStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexDirection: "column",
-    gap: 6,
+    gap: vars.space4,
     paddingBlock: vars.space32,
     paddingInline: vars.space16,
     textAlign: "center",
@@ -73,14 +74,24 @@ export const attentionStyles = stylex.create({
     height: 20,
     width: 20,
   },
+  /*
+   * Body, not Lead. This is a panel-level empty state inside a 320px column
+   * whose eyebrow runs Caption and whose rows run Body — a Lead title made
+   * "Nothing blocked" the largest type anywhere in the Fleet surface, two steps
+   * above the copy directly beneath it, and it read as a page heading that had
+   * wandered into a sidebar. Body + semibold keeps it the strongest thing in
+   * the column without leaving the column's scale.
+   */
   emptyTitle: {
     color: vars.colorText,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
+    fontSize: vars.fontSizeBody,
+    fontWeight: vars.fontWeightSemibold,
+    lineHeight: vars.lineHeightNormal,
   },
   emptyHint: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
+    lineHeight: vars.lineHeightNormal,
   },
   row: {
     borderBottomColor: vars.colorBorder,
@@ -128,13 +139,13 @@ export const attentionStyles = stylex.create({
   rowTime: {
     color: vars.colorTextMuted,
     flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     marginInlineStart: "auto",
   },
   rowTitle: {
     color: vars.colorText,
     display: "block",
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -144,7 +155,7 @@ export const attentionStyles = stylex.create({
     alignItems: "center",
     color: vars.colorTextMuted,
     display: "flex",
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     gap: vars.space4,
     minWidth: 0,
   },
@@ -156,7 +167,7 @@ export const attentionStyles = stylex.create({
   rowDetail: {
     color: vars.colorTextMuted,
     display: "-webkit-box",
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     overflow: "hidden",
     WebkitBoxOrient: "vertical",
     WebkitLineClamp: 2,
@@ -170,7 +181,7 @@ export const attentionStyles = stylex.create({
     paddingInline: vars.space8,
   },
   rowAction: {
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     height: 24,
     paddingInline: 6,
   },
@@ -206,7 +217,7 @@ export const attentionStyles = stylex.create({
   },
   reviewCount: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     fontVariantNumeric: "tabular-nums",
   },
 });

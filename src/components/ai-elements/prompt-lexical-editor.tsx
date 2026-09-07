@@ -54,10 +54,20 @@ import {
 } from "@/lib/prompt-token-chips";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
 import { coreStyles } from "./ai-element-core.styles";
-import { lexicalEditorStyles } from "./prompt-lexical-editor.styles";
+import {
+  lexicalEditorStyles,
+  promptEditorTypography,
+} from "./prompt-lexical-editor.styles";
 import { cx, sx } from "../ads/utils/stylex";
 import { registerPromptLexicalPreventedEnterCommand } from "./prompt-lexical-editor.commands";
 import { PromptTokenChip } from "./prompt-token-chip";
+
+/**
+ * The class Lexical hands to every `<p>` it renders. Exported so a test can
+ * assert the editor config still carries it: without it the paragraph keeps the
+ * UA margin and the caret detaches from the placeholder.
+ */
+export const PROMPT_LEXICAL_PARAGRAPH_CLASS = sx(lexicalEditorStyles.paragraph);
 
 const PROMPT_SYNC_TAG = "stave-prompt-sync";
 const PROMPT_TOKENIZE_TAG = "stave-prompt-tokenize";
@@ -758,6 +768,10 @@ export const PromptLexicalEditor = forwardRef<
   const initialConfig = useMemo(
     () => ({
       namespace: "StavePromptInput",
+      // Lexical emits bare `<p>` elements; without a theme class they keep the
+      // UA's `margin-block: 1em` and the caret starts one line below the
+      // placeholder. See `lexicalEditorStyles.paragraph`.
+      theme: { paragraph: PROMPT_LEXICAL_PARAGRAPH_CLASS },
       editable: !props.disabled,
       nodes: [PromptTokenNode],
       onError: (error: Error) => {
@@ -798,8 +812,11 @@ export const PromptLexicalEditor = forwardRef<
                 className={sx(
                   lexicalEditorStyles.placeholder,
                   props.minimal
-                    ? lexicalEditorStyles.placeholderMinimal
-                    : lexicalEditorStyles.placeholderDefault,
+                    ? promptEditorTypography.minimal
+                    : promptEditorTypography.default,
+                  props.minimal
+                    ? null
+                    : lexicalEditorStyles.placeholderDefaultColor,
                 )}
               >
                 {placeholder}

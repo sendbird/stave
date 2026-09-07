@@ -54,7 +54,7 @@ export const chatInputApprovalQueueStyles = stylex.create({
     paddingInline: vars.space4,
   },
   guideKbd: {
-    fontSize: "0.625rem",
+    fontSize: vars.fontSizeMicro,
     height: vars.space16,
     paddingInline: vars.space4,
   },

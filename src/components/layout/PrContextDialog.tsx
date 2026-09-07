@@ -1,5 +1,6 @@
 import { Checkbox } from "@/components/ads/components/Checkbox";
 import { sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/ads/recipes/transition";
 // ---------------------------------------------------------------------------
 // PR context dialog — pick review threads and failed checks to attach
 // ---------------------------------------------------------------------------
@@ -241,6 +242,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
                         className={sx(
                           prContextStyles.row,
                           prContextStyles.rowEnabled,
+                          transition.colors,
                         )}
                       >
                         <Checkbox controlOnly
@@ -305,6 +307,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
                             !checked && checkSelectionFull
                               ? prContextStyles.rowDisabled
                               : prContextStyles.rowEnabled,
+                            transition.colors,
                           )}
                         >
                           <Checkbox controlOnly

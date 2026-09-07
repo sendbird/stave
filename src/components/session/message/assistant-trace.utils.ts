@@ -1,5 +1,23 @@
 import { getTodoProgress, type TodoItem } from "@/components/ai-elements/todo";
+import {
+  isStaveToolName,
+  toStaveToolDisplayName,
+} from "@/lib/tool-display-name";
 import type { ToolUsePart } from "@/types/chat";
+
+/**
+ * The label a row puts in its `title` slot.
+ *
+ * Stave's own tools get their product name; a provider tool keeps the name the
+ * provider used, verbatim. Prettifying "Bash" into "Run command" would put a
+ * name in the transcript that appears nowhere in the provider's own logs, and
+ * the row already carries the command itself in the machine register.
+ */
+export function getToolTitle(toolName: string): string {
+  return isStaveToolName(toolName)
+    ? toStaveToolDisplayName(toolName)
+    : toolName;
+}
 
 export type TraceToolSummaryKind = "command" | "file" | "search" | "web" | "text";
 

@@ -1,4 +1,5 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { EmptyState } from "@/components/ads/components/EmptyState";
 import {
   BookOpen,
   Brain,
@@ -50,6 +51,7 @@ import {
   Badge,
   Button,
   Input,
+  Kbd,
   Popover,
   PopoverContent,
   PopoverTrigger,
@@ -1198,7 +1200,14 @@ function NotesSectionBody(props: {
         />
         <div className={sx(styles.notesFooter)}>
           <span className={sx(styles.notesHint)}>
-            Markdown · ⌘/Ctrl+Enter to save
+            Markdown ·{" "}
+            <Kbd>
+              {typeof navigator !== "undefined" &&
+              navigator.platform.includes("Mac")
+                ? "⌘"
+                : "Ctrl"}
+            </Kbd>
+            <Kbd>Enter</Kbd> to save
           </span>
           <div className={sx(styles.notesActions)}>
             <Button
@@ -1728,15 +1737,15 @@ export function WorkspaceInformationPanel() {
                   {latestTurnSummary ? (
                     <WorkspaceTurnSummary summary={latestTurnSummary} />
                   ) : (
-                    <div className={sx(styles.summaryEmpty)}>
-                      <p className={sx(styles.summaryEmptyTitle)}>
-                        No completed turn yet
-                      </p>
-                      <p className={sx(styles.summaryEmptyBody)}>
-                        The latest request, outcome, and model will appear here
-                        after the first completed response.
-                      </p>
-                    </div>
+                    // The panel already owns the surface, so this is the
+                    // `plain` EmptyState: one ADS copy block (type ramp, gap,
+                    // padding) instead of a square tinted box with asymmetric
+                    // padding and margin-driven spacing.
+                    <EmptyState
+                      variant="plain"
+                      description="The latest request, outcome, and model will appear here after the first completed response."
+                      title="No completed turn yet"
+                    />
                   )}
                 </SectionHeader>
 

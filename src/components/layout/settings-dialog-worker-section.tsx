@@ -145,12 +145,12 @@ export function SettingsWorkerSection(args: {
         value={activeProviderId}
         onValueChange={(value) => setActiveProviderId(value as ProviderId)}
       >
-        <TabsList className={sx(styles.tabsList)}>
+        <TabsList xstyle={styles.tabsList}>
           {providerIds.map((providerId) => (
             <TabsTrigger
               key={providerId}
               value={providerId}
-              className={sx(styles.tabsTrigger)}
+              xstyle={styles.tabsTrigger}
             >
               <ModelIcon
                 providerId={providerId}
@@ -164,7 +164,7 @@ export function SettingsWorkerSection(args: {
           <TabsContent
             key={providerId}
             value={providerId}
-            className={sx(styles.tabsContent)}
+            xstyle={styles.tabsContent}
           >
             <WorkerProviderForm
               providerId={providerId}

@@ -619,34 +619,22 @@ export function SourceControlReviewsPanel(props: {
 
             <Tabs
               value={detailTab}
+              variant="line"
               onValueChange={(value) => setDetailTab(value as ReviewDetailTab)}
               className={sx(reviewsStyles.tabs)}
             >
-              <div className={sx(reviewsStyles.tabStrip)}>
-                <TabsList className={sx(reviewsStyles.tabList)}>
-                  <TabsTrigger
-                    value="files"
-                    className={sx(reviewsStyles.tabTrigger)}
-                  >
-                    Files {detail.changedFiles}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="conversation"
-                    className={sx(reviewsStyles.tabTrigger)}
-                  >
-                    Conversation
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="checks"
-                    className={sx(reviewsStyles.tabTrigger)}
-                  >
-                    Checks {detail.checks.length}
-                  </TabsTrigger>
-                </TabsList>
-              </div>
+              <TabsList xstyle={reviewsStyles.detailTabList}>
+                <TabsTrigger value="files">
+                  Files {detail.changedFiles}
+                </TabsTrigger>
+                <TabsTrigger value="conversation">Conversation</TabsTrigger>
+                <TabsTrigger value="checks">
+                  Checks {detail.checks.length}
+                </TabsTrigger>
+              </TabsList>
               <TabsContent
                 value="files"
-                className={sx(reviewsStyles.tabPanel)}
+                xstyle={reviewsStyles.tabPanel}
               >
                 <FilesView
                   detail={detail}
@@ -655,13 +643,13 @@ export function SourceControlReviewsPanel(props: {
               </TabsContent>
               <TabsContent
                 value="conversation"
-                className={sx(reviewsStyles.tabPanel)}
+                xstyle={reviewsStyles.tabPanel}
               >
                 <ConversationView detail={detail} />
               </TabsContent>
               <TabsContent
                 value="checks"
-                className={sx(reviewsStyles.tabPanel)}
+                xstyle={reviewsStyles.tabPanel}
               >
                 <ChecksView checks={detail.checks} />
               </TabsContent>
@@ -697,22 +685,12 @@ export function SourceControlReviewsPanel(props: {
     <Tabs
       value={kind}
       onValueChange={(value) => setKind(value as GitHubPrInboxKind)}
-      className={sx(reviewsStyles.tabs, reviewsStyles.shell)}
+      className={sx(reviewsStyles.inboxTabs)}
     >
       <div className={sx(reviewsStyles.inboxStrip)}>
-        <TabsList className={sx(reviewsStyles.tabList)}>
-          <TabsTrigger
-            value="review-requested"
-            className={sx(reviewsStyles.tabTrigger)}
-          >
-            To review
-          </TabsTrigger>
-          <TabsTrigger
-            value="authored"
-            className={sx(reviewsStyles.tabTrigger)}
-          >
-            My PRs
-          </TabsTrigger>
+        <TabsList xstyle={reviewsStyles.inboxTabList}>
+          <TabsTrigger value="review-requested">To review</TabsTrigger>
+          <TabsTrigger value="authored">My PRs</TabsTrigger>
         </TabsList>
         <Button
           type="button"
@@ -733,7 +711,7 @@ export function SourceControlReviewsPanel(props: {
       </div>
       <TabsContent
         value="review-requested"
-        className={sx(reviewsStyles.tabPanel)}
+        xstyle={reviewsStyles.tabPanel}
         aria-live="polite"
       >
         <InboxState
@@ -746,7 +724,7 @@ export function SourceControlReviewsPanel(props: {
       </TabsContent>
       <TabsContent
         value="authored"
-        className={sx(reviewsStyles.tabPanel)}
+        xstyle={reviewsStyles.tabPanel}
         aria-live="polite"
       >
         <InboxState

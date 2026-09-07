@@ -15,13 +15,13 @@ export const centerStyles = stylex.create({
   detail: { minInlineSize: 0 },
   detailTerm: {
     color: vars.colorTextMuted,
-    fontSize: 9,
+    fontSize: vars.fontSizeMicro,
     letterSpacing: "0.12em",
     textTransform: "uppercase",
   },
   detailValue: {
     color: vars.colorText,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     marginBlockStart: 2,
     marginInlineStart: 0,
     overflow: "hidden",
@@ -62,7 +62,7 @@ export const centerStyles = stylex.create({
   },
   headerIcon: {
     blockSize: 18,
-    color: vars.colorAccent,
+    color: vars.colorTextMuted,
     flexShrink: 0,
     inlineSize: 18,
   },
@@ -132,16 +132,16 @@ export const centerStyles = stylex.create({
     gap: 2,
     padding: 2,
   },
-  filterChip: { blockSize: 26, fontSize: 11, paddingInline: vars.space8 },
+  filterChip: { blockSize: 26, fontSize: vars.fontSizeMicro, paddingInline: vars.space8 },
   filterChipActive: {
     backgroundColor: canvasSurface(85),
     borderColor: `color-mix(in oklch, ${vars.colorBorder} 55%, transparent)`,
     boxShadow: vars.elevationRaised,
   },
-  runSelect: { blockSize: 28, fontSize: 11, inlineSize: 224 },
+  runSelect: { blockSize: 28, fontSize: vars.fontSizeMicro, inlineSize: 224 },
   shownCount: {
     color: vars.colorTextMuted,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     marginInlineStart: "auto",
   },
 
@@ -299,7 +299,7 @@ export const centerStyles = stylex.create({
     alignItems: "center",
     color: vars.colorTextMuted,
     display: "flex",
-    fontSize: 10,
+    fontSize: vars.fontSizeMicro,
     gap: vars.space8,
     justifyContent: "space-between",
     marginBlockStart: vars.space4,

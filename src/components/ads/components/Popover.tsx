@@ -33,8 +33,26 @@ import { cx, sx } from "../utils/stylex";
 
 export type PopoverTriggerSize = "sm" | "md" | "lg";
 
+/**
+ * Internal air inside the anchored panel.
+ *
+ * `flush` zeroes the panel's own `padding` AND `gap` so content that draws its
+ * own section rules, dividers, or full-bleed rows can reach the surface border
+ * instead of stopping a padding step short. The header keeps ONE gutter of its
+ * own (`headerFlush`) and the content below owes the same inline gutter, so the
+ * panel still has a single inner scale — the double inset a host used to get by
+ * zeroing `padding` from the outside and re-padding every section at a
+ * different value.
+ *
+ * It is a content-tier value: a modal's padding is its margin from the screen,
+ * so there is no flush modal.
+ */
+export type PopoverDensity = "flush" | "regular";
+
 export type PopoverProps = Omit<PopoverRootProps, "children"> & {
   children: React.ReactNode;
+  /** Internal surface air. @default "regular" */
+  density?: PopoverDensity;
   description?: React.ReactNode;
   /** Where the panel opens against its trigger. @default "bottom-start" */
   placement?: PopupPlacement;
@@ -51,6 +69,7 @@ export type PopoverProps = Omit<PopoverRootProps, "children"> & {
 
 export function Popover({
   children,
+  density = "regular",
   description,
   placement,
   title,
@@ -59,6 +78,7 @@ export function Popover({
   ...props
 }: PopoverProps) {
   const anchored = resolvePlacement(placement);
+  const flush = density === "flush";
   return (
     <PopoverRoot {...props}>
       <PopoverTrigger
@@ -88,10 +108,13 @@ export function Popover({
           sideOffset={POPUP_SIDE_OFFSET}
         >
           <PopoverPopup
-            className={cx(sx(styles.surface, styles.popup), "atelier-motion-dropdown")}
+            className={cx(
+              sx(styles.surface, styles.popup, flush && styles.popupFlush),
+              "atelier-motion-dropdown",
+            )}
           >
             <PopoverArrow className={sx(styles.arrow)} />
-            <div className={sx(styles.header)}>
+            <div className={sx(styles.header, flush && styles.headerFlush)}>
               <div className={sx(styles.titleGroup)}>
                 <PopoverTitle className={sx(styles.title)}>
                   {title}
@@ -123,7 +146,19 @@ export function Popover({
                 <X aria-hidden />
               </PopoverClose>
             </div>
-            <div className={sx(styles.body, focusRing.gutter)}>{children}</div>
+            <div
+              className={sx(
+                styles.body,
+                // No gutter on a flush surface: the ring bleed is paid for by
+                // the popup's padding, and a flush popup has none. A focusable
+                // row inside a flush popover therefore composes
+                // `focusRing.ringInset`, the same answer the `line` tab strip
+                // gives for the same reason.
+                !flush && focusRing.gutter,
+              )}
+            >
+              {children}
+            </div>
           </PopoverPopup>
         </PopoverPositioner>
       </PopoverPortal>
@@ -200,6 +235,13 @@ const styles = stylex.create({
     // margin than a centered modal that owns the screen.
     padding: vars.space16,
   },
+  // Both properties, not just `padding`: a grid surface with a surviving `gap`
+  // still insets its own rows from each other, so section dividers would stop
+  // short of one another even after the padding went to zero.
+  popupFlush: {
+    gap: 0,
+    padding: 0,
+  },
   arrow: {
     color: vars.colorSurfaceRaised,
   },
@@ -208,6 +250,19 @@ const styles = stylex.create({
     display: "flex",
     gap: vars.space12,
     justifyContent: "space-between",
+  },
+  /**
+   * The header's own gutter on a `flush` surface, and the ONE inner gutter the
+   * flush anatomy declares: `space16` inline (the padding the regular surface
+   * would have paid) with `space12` under it, so a body that opens with a rule
+   * meets the header at a hairline instead of floating below a full padding
+   * step. Content below owns the same `space16` inline gutter — one scale for
+   * the whole panel, which is what keeps the rules aligned.
+   */
+  headerFlush: {
+    paddingBlockEnd: vars.space12,
+    paddingBlockStart: vars.space16,
+    paddingInline: vars.space16,
   },
   titleGroup: {
     display: "grid",

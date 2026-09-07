@@ -78,6 +78,39 @@ export const transition = stylex.create({
     transitionTimingFunction: vars.motionEaseStandard,
   },
   /**
+   * Determinate bar fill — `width` plus `background-color`, for a progress or
+   * usage meter whose track stays put while the fill grows and recolors across
+   * its thresholds. Named as its own key because `colors` alone leaves the
+   * width a hard jump, and a bar is the one place a width transition is not a
+   * layout animation: the fill is absolutely sized inside a fixed track, so
+   * nothing around it reflows.
+   *
+   * Spatial: a bar that grows IS motion, so under reduced motion the fill
+   * snaps to its new value rather than keeping a micro ease.
+   */
+  bar: {
+    transitionDuration: spatialDuration,
+    transitionProperty: "width, background-color",
+    transitionTimingFunction: vars.motionEaseStandard,
+  },
+  /**
+   * Edge-anchored surface enter/exit — `translate` plus `opacity`, for a
+   * sheet/drawer that slides in from a viewport edge on the CSS layer (Base UI
+   * `[data-starting-style]` / `[data-ending-style]` arms) rather than through
+   * Motion. `translate` and not `transform`, so it composes with the
+   * transform Motion owns on the same element without either overwriting the
+   * other.
+   *
+   * Spatial, and the strictest case for it: an off-screen slide is exactly the
+   * vestibular trigger `prefers-reduced-motion` exists for, so it must be
+   * instant there, not merely quick.
+   */
+  slide: {
+    transitionDuration: spatialDuration,
+    transitionProperty: "translate, opacity",
+    transitionTimingFunction: vars.motionEaseStandard,
+  },
+  /**
    * `transform` alone — a chevron rotating open, a zoom/pan surface, an
    * indicator sliding. Separate from `transformFallback` because those call
    * sites change nothing but the transform, and pulling in four color

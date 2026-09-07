@@ -3,14 +3,11 @@ import { useMemo } from "react";
 import {
   Bot,
   Brain,
-  CheckCircle2,
-  Circle,
   FileCode2,
   FileText,
   Globe,
   Info,
   ListTodo,
-  LoaderCircle,
   Pencil,
   Search,
   ShieldCheck,
@@ -19,26 +16,18 @@ import {
   Wrench,
 } from "lucide-react";
 import { StaveIcon } from "@/components/brand-icons";
+import { StepRail } from "@/components/ads/components/StepRail";
+import { ToolRun } from "@/components/ads/components/ToolRun";
+import { controlIconSizes } from "@/components/ads/recipes/control-metrics";
 import {
   ChainOfThought,
   ChainOfThoughtContent,
   ChainOfThoughtStep,
   ChainOfThoughtTrigger,
-  getTodoProgress,
   MessageResponse,
-  Shimmer,
-  StreamingThoughtViewport,
-  ThinkingAnimatedText,
-  ToolInput,
-  ToolResult,
-  ToolResultOutput,
-  ToolResultStatusIcon,
-  toToolResultStatus,
   parseSubagentToolInput,
 } from "@/components/ai-elements";
 import { useAgentStyle } from "@/components/ai-elements/agent-style-context";
-import { LinkifiedText } from "@/components/ui/linkified-text";
-import { MESSAGE_BODY_LINE_HEIGHT } from "@/components/ai-elements/message-styles";
 import type { TraceSummaryItem } from "@/components/ai-elements/chain-of-thought";
 import {
   ChangedFilesBlock,
@@ -51,12 +40,9 @@ import {
   parseFileChangeToolInput,
   summarizeDiffLineChanges,
 } from "@/components/session/chat-panel.utils";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/ads/utils/stylex";
 import { assistantTraceStyles as styles } from "./assistant-trace.styles";
-import {
-  isStaveToolName,
-  toStaveToolDisplayName,
-} from "@/lib/tool-display-name";
+import { isStaveToolName } from "@/lib/tool-display-name";
 import { formatWorkerExecutionMetadata } from "@/lib/providers/worker-mode";
 import {
   isProviderFailureRecoveryEligible,
@@ -69,10 +55,10 @@ import type {
   ThinkingPart,
 } from "@/types/chat";
 import {
-  deriveTodoTraceItems,
   deriveTodoTraceStatus,
   deriveTraceToolSummary,
   getResidualToolInput,
+  getToolTitle,
   normalizeTraceToolName,
   type TraceToolSummary,
 } from "./assistant-trace.utils";
@@ -81,6 +67,24 @@ import {
   joinReasoningText,
   type AssistantTraceEntry,
 } from "./assistant-trace-builder";
+import { CommandResult } from "./command-result";
+import {
+  planProgressCount,
+  TraceApproval,
+  TraceClarification,
+  TracePlan,
+} from "./turn-event-decisions";
+import { TraceSystemNotice } from "./turn-event-notice";
+import {
+  ReasoningRow,
+  SubagentProgress,
+  TraceCitations,
+  TraceOutput,
+} from "./turn-event-rows";
+import {
+  toAgentRunState,
+  toMeasuredDurationMs,
+} from "./turn-event-state";
 
 /* ─── Step status ────────────────────────────────────────────────── */
 
@@ -123,6 +127,15 @@ function toStepStatus(args: {
 
 /* ─── Step icon mapping ──────────────────────────────────────────── */
 
+/**
+ * The object glyph's box. `controlIconSizes.md` is what ADS `ToolRun` and
+ * `Thinking` size their own glyph slot to, and passing it explicitly is what
+ * keeps a lucide icon from falling back to its 24px default inside those rows.
+ * The host step path clones an em-based `width`/`height` over it, so one
+ * mapping still serves both.
+ */
+const GLYPH_SIZE = controlIconSizes.md;
+
 function getToolIcon(toolName: string): ReactNode {
   if (isStaveToolName(toolName)) {
     return <StaveIcon className={sx(styles.glyphEm)} />;
@@ -130,53 +143,47 @@ function getToolIcon(toolName: string): ReactNode {
 
   switch (normalizeTraceToolName(toolName)) {
     case "bash":
-      return <Terminal />;
+      return <Terminal size={GLYPH_SIZE} />;
     case "read":
-      return <FileText />;
+      return <FileText size={GLYPH_SIZE} />;
     case "write":
-      return <FileText />;
+      return <FileText size={GLYPH_SIZE} />;
     case "edit":
-      return <Pencil />;
+      return <Pencil size={GLYPH_SIZE} />;
     case "glob":
-      return <Search />;
+      return <Search size={GLYPH_SIZE} />;
     case "grep":
-      return <Search />;
+      return <Search size={GLYPH_SIZE} />;
     /* ACP `search` kind — the canonical name ACP providers map onto. */
     case "search":
-      return <Search />;
+      return <Search size={GLYPH_SIZE} />;
     case "websearch":
-      return <Globe />;
+      return <Globe size={GLYPH_SIZE} />;
     case "webfetch":
-      return <Globe />;
+      return <Globe size={GLYPH_SIZE} />;
     default:
-      return <Wrench />;
+      return <Wrench size={GLYPH_SIZE} />;
   }
-}
-
-function getToolTitle(toolName: string): string {
-  return isStaveToolName(toolName)
-    ? toStaveToolDisplayName(toolName)
-    : toolName;
 }
 
 function getEntryIcon(entry: AssistantTraceEntry): ReactNode | undefined {
   switch (entry.kind) {
     case "reasoning":
-      return <Brain />;
+      return <Brain size={GLYPH_SIZE} />;
     case "tool":
       return getToolIcon(entry.part.toolName);
     case "subagent":
-      return <Bot />;
+      return <Bot size={GLYPH_SIZE} />;
     case "todo":
-      return <ListTodo />;
+      return <ListTodo size={GLYPH_SIZE} />;
     case "diff":
-      return <FileCode2 />;
+      return <FileCode2 size={GLYPH_SIZE} />;
     case "system":
-      return <Info />;
+      return <Info size={GLYPH_SIZE} />;
     case "approval":
-      return <ShieldCheck />;
+      return <ShieldCheck size={GLYPH_SIZE} />;
     case "user_input":
-      return <UserRound />;
+      return <UserRound size={GLYPH_SIZE} />;
     case "assistant_text":
       return undefined;
   }
@@ -246,14 +253,9 @@ function getEntrySummary(entry: AssistantTraceEntry): ReactNode {
         <span className={sx(styles.subagentChip)}>{parsed.subagentType}</span>
       ) : null;
     }
-    case "todo": {
-      const progress = getTodoProgress({ input: entry.part.input });
-      return progress.totalCount > 0 ? (
-        <span className={sx(styles.todoProgress)}>
-          {progress.completedCount}/{progress.totalCount}
-        </span>
-      ) : null;
-    }
+    case "todo":
+      /* The plan's progress is a `ToolRun` count, not a host chip. */
+      return null;
     case "diff": {
       /* `+N / -N` uses the semantic success / destructive tokens so the counts
          stay legible in every built-in theme (no new colour tokens). */
@@ -376,189 +378,7 @@ function buildTraceSummary(entries: AssistantTraceEntry[]): TraceSummaryItem[] {
   }));
 }
 
-/* ─── Step detail components (expanded content) ───────────────────── */
-
-/**
- * Row meta — elapsed time plus a failure badge.
- *
- * Only `error` and `cancelled` get a badge. The rail icon already spins while
- * running and mutes when done, so a success check on every row would be a green
- * carpet that adds no signal; a failure, by contrast, is currently invisible in
- * the collapsed row. The expanded body still carries the full status label.
- */
-function ToolStepMeta(args: {
-  part: { state?: string; elapsedSeconds?: number };
-}) {
-  const { state, elapsedSeconds } = args.part;
-  const showBadge = state === "output-error";
-  const showElapsed = elapsedSeconds != null && elapsedSeconds >= 1;
-  if (!showBadge && !showElapsed) {
-    return null;
-  }
-  return (
-    <span className={sx(styles.stepMeta)}>
-      {showElapsed ? (
-        <span className={sx(styles.stepElapsed)}>
-          {formatTraceElapsed(elapsedSeconds)}
-        </span>
-      ) : null}
-      {showBadge ? <ToolResultStatusIcon status="error" /> : null}
-    </span>
-  );
-}
-
-function formatTraceElapsed(seconds: number): string {
-  const total = Math.round(seconds);
-  if (total < 60) {
-    return `${total}s`;
-  }
-  const minutes = Math.floor(total / 60);
-  const remainder = total % 60;
-  return remainder === 0 ? `${minutes}m` : `${minutes}m ${remainder}s`;
-}
-
-function ToolStepDetail(args: {
-  input: string;
-  output?: string;
-  summary: TraceToolSummary | null;
-  state?:
-    "input-streaming" | "input-available" | "output-available" | "output-error";
-}) {
-  /*
-   * The header chip already renders the command / file / pattern / URL, so the
-   * raw INPUT panel is dropped unless the call carries arguments the chip does
-   * not cover. Single-argument tools (Bash, Read, Grep, …) therefore show the
-   * output only, instead of repeating the same string as JSON one row below it.
-   */
-  const residualInput = useMemo(
-    () => getResidualToolInput({ input: args.input, summary: args.summary }),
-    [args.input, args.summary],
-  );
-  const isStreamingInput = args.state === "input-streaming";
-  const showOutput = !isStreamingInput || Boolean(args.output?.trim());
-
-  return (
-    <ToolResult
-      headless
-      status={toToolResultStatus(args.state)}
-      copyText={args.output?.trim() ? args.output : undefined}
-    >
-      {residualInput ? <ToolInput input={residualInput} /> : null}
-      {showOutput ? (
-        <ToolResultOutput
-          label={isStreamingInput ? "Live output" : undefined}
-          text={args.output}
-          errorText={
-            args.state === "output-error"
-              ? (args.output ?? "Tool failed.")
-              : undefined
-          }
-          linkify={!isStreamingInput}
-        />
-      ) : null}
-    </ToolResult>
-  );
-}
-
-function SubagentStepDetail(args: {
-  input: string;
-  output?: string;
-  progressMessages?: string[];
-  state?:
-    "input-streaming" | "input-available" | "output-available" | "output-error";
-}) {
-  const parsed = useMemo(
-    () => parseSubagentToolInput({ input: args.input }),
-    [args.input],
-  );
-  return (
-    <ToolResult
-      headless
-      status={toToolResultStatus(args.state)}
-      copyText={args.output?.trim() ? args.output : undefined}
-    >
-      {args.progressMessages?.length ? (
-        <ul className={sx(styles.progressList)}>
-          {args.progressMessages.map((message, index) => (
-            <li key={`${message}-${index}`} className={sx(styles.progressItem)}>
-              <span className={sx(styles.progressDot)} aria-hidden="true" />
-              <LinkifiedText text={message} />
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {/* The subagent chip carries only the type, so the prompt is still new
-          information and stays visible. */}
-      <ToolInput input={parsed.prompt ?? parsed.raw} />
-      {args.state !== "input-streaming" ? (
-        <ToolResultOutput
-          text={args.output}
-          errorText={
-            args.state === "output-error"
-              ? (args.output ?? "Subagent failed.")
-              : undefined
-          }
-        />
-      ) : null}
-    </ToolResult>
-  );
-}
-
-function TodoStepDetail(args: {
-  input: string;
-  state?:
-    "input-streaming" | "input-available" | "output-available" | "output-error";
-}) {
-  const todos = useMemo(
-    () => deriveTodoTraceItems(args),
-    [args.input, args.state],
-  );
-
-  return (
-    <ol className={sx(styles.todoList)}>
-      {todos.map((todo, index) => (
-        <li key={`${todo.content}-${index}`} className={sx(styles.todoItem)}>
-          {todo.status === "completed" ? (
-            <CheckCircle2
-              className={sx(styles.todoIcon, styles.todoIconDone)}
-            />
-          ) : todo.status === "in_progress" ? (
-            <LoaderCircle
-              className={sx(styles.todoIcon, styles.todoIconActive)}
-            />
-          ) : (
-            <Circle className={sx(styles.todoIcon, styles.todoIconPending)} />
-          )}
-          <span
-            className={sx(
-              todo.status === "completed" && styles.todoTextDone,
-              todo.status === "in_progress" && styles.todoTextActive,
-              todo.status === "pending" && styles.todoTextPending,
-            )}
-          >
-            {todo.content}
-          </span>
-        </li>
-      ))}
-    </ol>
-  );
-}
-
 /* ─── Reasoning step (message-duration summary) ──────────────────── */
-
-function formatThinkingDuration(seconds: number): string {
-  const roundedSeconds = Math.max(1, Math.round(seconds));
-  if (roundedSeconds < 60) {
-    return `${roundedSeconds} second${roundedSeconds === 1 ? "" : "s"}`;
-  }
-
-  const minutes = Math.floor(roundedSeconds / 60);
-  const remainingSeconds = roundedSeconds % 60;
-  if (remainingSeconds === 0) {
-    return `${minutes} minute${minutes === 1 ? "" : "s"}`;
-  }
-  return `${minutes} minute${minutes === 1 ? "" : "s"} ${remainingSeconds} second${remainingSeconds === 1 ? "" : "s"}`;
-}
 
 function toEpochMilliseconds(value?: string): number | null {
   if (!value) {
@@ -614,77 +434,24 @@ export function splitSystemEventContent(content: string): {
   };
 }
 
-function ReasoningStepView(args: {
-  entry: Extract<AssistantTraceEntry, { kind: "reasoning" }>;
-  status: "active" | "done" | "pending";
-  icon: ReactNode;
-}) {
-  const { entry, status, icon } = args;
-  const durationSeconds = getReasoningDurationSeconds(entry.parts);
-
-  const durationSummary =
-    !entry.isStreaming && durationSeconds !== null ? (
-      <span className={sx(styles.reasoningDuration)}>
-        Thought for {formatThinkingDuration(durationSeconds)}
-      </span>
-    ) : null;
-
-  const reasoningText = joinReasoningText(entry.parts);
-  return (
-    <ChainOfThoughtStep
-      title="Reasoning"
-      titleContent={
-        <ThinkingAnimatedText
-          text={entry.isStreaming ? "Thinking" : "Reasoning"}
-          active={entry.isStreaming}
-          replayWhileActive={entry.isStreaming}
-          settleOnStop
-          className={sx(styles.reasoningTitle)}
-        />
-      }
-      status={status}
-      kind="thinking"
-      icon={icon}
-      summary={durationSummary}
-      defaultOpen={entry.isStreaming}
-      openWhen={entry.isStreaming}
-    >
-      {entry.isStreaming ? (
-        /*
-         * Cap the *thought*, not the trace. The step row above stays pinned, so
-         * the "Thinking" label and its icon never fade out; only the prose
-         * glides under the top fade once it outgrows the cap.
-         */
-        <StreamingThoughtViewport>
-          <p
-            className={sx(styles.reasoningText)}
-            style={{ lineHeight: MESSAGE_BODY_LINE_HEIGHT }}
-          >
-            {reasoningText || "Thinking..."}
-          </p>
-        </StreamingThoughtViewport>
-      ) : (
-        <LinkifiedText
-          as="p"
-          text={reasoningText || "Thinking..."}
-          className={sx(styles.reasoningText)}
-          style={{ lineHeight: MESSAGE_BODY_LINE_HEIGHT }}
-        />
-      )}
-    </ChainOfThoughtStep>
-  );
-}
-
 /* ─── Entry renderer ──────────────────────────────────────────────── */
 
 function AssistantTraceEntryView(args: {
   entry: AssistantTraceEntry;
+  isLast: boolean;
   isStreaming: boolean;
   taskId: string;
   messageId: string;
   terminalStopReason?: string;
 }) {
-  const { entry, isStreaming, taskId, messageId, terminalStopReason } = args;
+  const {
+    entry,
+    isLast,
+    isStreaming,
+    taskId,
+    messageId,
+    terminalStopReason,
+  } = args;
   const agentStyle = useAgentStyle();
   const status = toStepStatus({ entry, isStreaming });
   const icon = getEntryIcon(entry);
@@ -695,20 +462,28 @@ function AssistantTraceEntryView(args: {
 
   switch (entry.kind) {
     case "reasoning":
-      return <ReasoningStepView entry={entry} status={status} icon={icon} />;
+      return (
+        <StepRail.Step
+          connector={!isLast}
+          xstyle={[styles.railStep, rowMotionStyle]}
+        >
+          <ReasoningRow
+            durationMs={toMeasuredDurationMs(
+              getReasoningDurationSeconds(entry.parts) ?? undefined,
+            )}
+            isStreaming={entry.isStreaming}
+            text={joinReasoningText(entry.parts)}
+          />
+        </StepRail.Step>
+      );
 
-    /* Assistant text — bullet point, content always visible (no accordion). */
+    /* Assistant text — interim prose, always visible (no disclosure). */
     case "assistant_text":
       return (
-        <div className={sx(styles.assistantTextRow, rowMotionStyle)}>
-          <div className={sx(styles.assistantTextRail)}>
-            <span className={sx(styles.assistantTextMarker)} aria-hidden="true">
-              <span className={sx(styles.assistantTextDot)} />
-            </span>
-            <div
-              className={cx("cot-connector", sx(styles.assistantTextConnector))}
-            />
-          </div>
+        <StepRail.Step
+          connector={!isLast}
+          xstyle={[styles.railStep, rowMotionStyle]}
+        >
           <div className={sx(styles.assistantTextBody)}>
             {entry.parts.map((part, index) => (
               <MessageResponse key={`${entry.id}-${index}`}>
@@ -716,39 +491,89 @@ function AssistantTraceEntryView(args: {
               </MessageResponse>
             ))}
           </div>
-        </div>
+        </StepRail.Step>
       );
 
     case "tool": {
+      const normalized = normalizeTraceToolName(entry.part.toolName);
       const toolSummary =
-        normalizeTraceToolName(entry.part.toolName) === "file_change"
+        normalized === "file_change"
           ? null
           : deriveTraceToolSummary({
               toolName: entry.part.toolName,
               input: entry.part.input,
             });
+      /*
+       * The header already carries the command / file / pattern / URL in the
+       * machine register, so the raw arguments panel appears only for the
+       * arguments the header does not cover. Single-argument tools (Bash,
+       * Read, Grep) therefore show their result and not the same string twice.
+       */
+      const residualInput = getResidualToolInput({
+        input: entry.part.input,
+        summary: toolSummary,
+      });
+      const fileRows =
+        normalized === "file_change"
+          ? parseFileChangeToolInput(entry.part.input)
+          : [];
+      const isCommand = normalized === "bash";
+      const isWeb = normalized === "websearch" || normalized === "webfetch";
+      const isError = entry.part.state === "output-error";
+      const streamingInput = entry.part.state === "input-streaming";
+      const output = entry.part.output?.trim() ?? "";
+      const command =
+        toolSummary?.kind === "command" ? toolSummary.text : entry.part.input;
+
       return (
-        <ChainOfThoughtStep
-          title={getToolTitle(entry.part.toolName)}
-          status={status}
-          icon={icon}
-          summary={summary}
-          trailing={<ToolStepMeta part={entry.part} />}
-          defaultOpen={entry.part.state === "input-streaming"}
-          openWhen={entry.part.state === "input-streaming"}
-          /* Errors stay expanded — auto-collapse only hides a clean result. */
-          collapseWhen={entry.part.state === "output-available"}
+        <StepRail.Step
+          connector={!isLast}
           /* Anchor for Turn Activity's "show in conversation" jump. */
           data-tool-use-id={entry.part.toolUseId}
           tabIndex={entry.part.toolUseId ? -1 : undefined}
+          xstyle={[styles.railStep, rowMotionStyle]}
         >
-          <ToolStepDetail
-            input={entry.part.input}
-            output={entry.part.output}
-            summary={toolSummary}
-            state={entry.part.state}
-          />
-        </ChainOfThoughtStep>
+          <ToolRun
+            count={
+              fileRows.length > 0
+                ? `${fileRows.length} ${fileRows.length === 1 ? "file" : "files"}`
+                : undefined
+            }
+            /*
+             * Measured only. The provider reports `elapsedSeconds` for the
+             * calls it timed and omits it for the rest, and ADS renders no
+             * duration rather than a plausible one — §6.
+             */
+            durationMs={toMeasuredDurationMs(entry.part.elapsedSeconds)}
+            error={
+              isError && output ? (
+                <TraceOutput linkify={false} text={output} />
+              ) : undefined
+            }
+            icon={icon}
+            input={residualInput || undefined}
+            output={
+              !isError && !isCommand && output ? (
+                <TraceOutput linkify={!streamingInput} text={output} />
+              ) : undefined
+            }
+            status={toAgentRunState(entry.part.state)}
+            title={getToolTitle(entry.part.toolName)}
+            tool={toolSummary?.text}
+          >
+            {isCommand ? (
+              <CommandResult
+                command={command}
+                isError={isError}
+                isStreaming={streamingInput}
+                output={entry.part.output}
+              />
+            ) : null}
+            {isWeb && !isError ? (
+              <TraceCitations output={entry.part.output} />
+            ) : null}
+          </ToolRun>
+        </StepRail.Step>
       );
     }
 
@@ -758,64 +583,83 @@ function AssistantTraceEntryView(args: {
       const resolvedTitle = entry.part.workerExecution
         ? `Worker · ${baseTitle}`
         : baseTitle;
-      const titleContent =
-        status === "active" ? (
-          <Shimmer as="span" className={sx(styles.shimmerBaseForeground)}>
-            {resolvedTitle}
-          </Shimmer>
-        ) : undefined;
+      const isError = entry.part.state === "output-error";
+      const output = entry.part.output?.trim() ?? "";
+      const progress = entry.part.progressMessages ?? [];
+
       return (
-        <ChainOfThoughtStep
-          title={resolvedTitle}
-          titleContent={titleContent}
-          status={status}
-          kind="agent"
-          icon={icon}
-          summary={summary}
-          trailing={
-            <span className={sx(styles.trailingRow)}>
-              {entry.part.workerExecution ? (
-                <span className={sx(styles.workerBadge)}>
-                  {formatWorkerExecutionMetadata(entry.part.workerExecution)}
-                </span>
-              ) : null}
-              <ToolStepMeta part={entry.part} />
-            </span>
-          }
-          defaultOpen={entry.part.state === "input-streaming"}
-          openWhen={entry.part.state === "input-streaming"}
-          collapseWhen={entry.part.state === "output-available"}
+        <StepRail.Step
+          connector={!isLast}
           /* Anchor for Turn Activity's "show in conversation" jump. */
           data-tool-use-id={entry.part.toolUseId}
           tabIndex={entry.part.toolUseId ? -1 : undefined}
+          xstyle={[styles.railStep, rowMotionStyle]}
         >
-          <SubagentStepDetail
-            input={entry.part.input}
-            output={entry.part.output}
-            progressMessages={entry.part.progressMessages}
-            state={entry.part.state}
-          />
-        </ChainOfThoughtStep>
+          <ToolRun
+            /*
+             * The subagent's own machine identity goes in the `tool` slot: its
+             * type, and the worker metadata when the run was delegated. Both
+             * are values the runtime reported, not language the agent wrote.
+             */
+            count={
+              entry.part.workerExecution
+                ? formatWorkerExecutionMetadata(entry.part.workerExecution)
+                : undefined
+            }
+            durationMs={toMeasuredDurationMs(entry.part.elapsedSeconds)}
+            error={
+              isError && output ? (
+                <TraceOutput linkify={false} text={output} />
+              ) : undefined
+            }
+            icon={icon}
+            /* The chip carries only the type, so the prompt is still new
+               information and stays visible. */
+            input={parsed.prompt ?? parsed.raw}
+            inputLabel="Prompt"
+            output={
+              !isError && output ? (
+                <TraceOutput prose text={output} />
+              ) : undefined
+            }
+            status={toAgentRunState(entry.part.state)}
+            title={resolvedTitle}
+            tool={parsed.subagentType}
+          >
+            <SubagentProgress messages={progress} />
+          </ToolRun>
+        </StepRail.Step>
       );
     }
 
+    /*
+     * The plan revision is a tool call — TodoWrite genuinely is one — so the
+     * row is `ToolRun` and the payload is ADS `Plan`. That is what keeps §4's
+     * matrix true for this kind: the row opens while the call streams, settles
+     * and collapses when it lands, and the collapsed line still carries
+     * `done / total`, so the collapse hides no progress.
+     */
     case "todo":
       return (
-        <ChainOfThoughtStep
-          title="Todo"
-          status={status}
-          icon={icon}
-          summary={summary}
-          defaultOpen={entry.part.state === "input-streaming"}
-          openWhen={entry.part.state === "input-streaming"}
+        <StepRail.Step
+          connector={!isLast}
+          xstyle={[styles.railStep, rowMotionStyle]}
         >
-          <TodoStepDetail input={entry.part.input} state={entry.part.state} />
-        </ChainOfThoughtStep>
+          <ToolRun
+            count={planProgressCount(entry.part.input)}
+            icon={icon}
+            status={toAgentRunState(entry.part.state)}
+            title="Plan"
+          >
+            <TracePlan input={entry.part.input} state={entry.part.state} />
+          </ToolRun>
+        </StepRail.Step>
       );
 
     case "diff":
       return (
         <ChainOfThoughtStep
+          last={isLast}
           title={
             entry.parts.length === 1
               ? "Changed file"
@@ -834,46 +678,38 @@ function AssistantTraceEntryView(args: {
         </ChainOfThoughtStep>
       );
 
+    /*
+     * A human decision, not a tool call: ADS `Approval` owns the status word,
+     * the focus hand-off when the pressed button unmounts, and the rule that
+     * the decision is preserved in the transcript rather than replaced by it.
+     * There is no disclosure — the gate is the payload.
+     */
     case "approval":
       return (
-        <ChainOfThoughtStep
-          title={`Approval: ${getToolTitle(entry.part.toolName)}`}
-          status={status}
-          icon={icon}
-          defaultOpen
-          data-pending-interaction={
-            entry.part.state === "approval-requested" ? "true" : undefined
-          }
-          data-pending-interaction-request-id={
-            entry.part.state === "approval-requested"
-              ? entry.part.requestId
-              : undefined
-          }
-          tabIndex={entry.part.state === "approval-requested" ? -1 : undefined}
+        <StepRail.Step
+          connector={!isLast}
+          xstyle={[styles.railStep, rowMotionStyle]}
         >
-          <MessagePartRenderer
+          <TraceApproval
+            messageId={messageId}
             part={entry.part}
             taskId={taskId}
-            messageId={messageId}
           />
-        </ChainOfThoughtStep>
+        </StepRail.Step>
       );
 
     case "user_input":
       return (
-        <ChainOfThoughtStep
-          title={`Input: ${getToolTitle(entry.part.toolName)}`}
-          status={status}
-          icon={icon}
-          defaultOpen
+        <StepRail.Step
+          connector={!isLast}
+          xstyle={[styles.railStep, rowMotionStyle]}
         >
-          <MessagePartRenderer
+          <TraceClarification
+            messageId={messageId}
             part={entry.part}
             taskId={taskId}
-            messageId={messageId}
-            userInputPresentation="summary"
           />
-        </ChainOfThoughtStep>
+        </StepRail.Step>
       );
 
     case "system": {
@@ -897,22 +733,30 @@ function AssistantTraceEntryView(args: {
           : { ...entry.part, content: systemDetail };
 
       return (
-        <ChainOfThoughtStep
-          title={providerErrorNotice?.message ?? systemTitle}
-          status={status}
-          icon={icon}
-          defaultOpen={entry.part.compactBoundary != null || isCapacityError}
+        <StepRail.Step
+          connector={!isLast}
+          xstyle={[styles.railStep, rowMotionStyle]}
         >
-          {hasDistinctSystemContent ? (
-            <MessagePartRenderer
-              part={systemBodyPart}
-              taskId={taskId}
-              messageId={messageId}
-              terminalStopReason={terminalStopReason}
-              systemEventPresentation={isCapacityError ? "detail" : "full"}
-            />
-          ) : null}
-        </ChainOfThoughtStep>
+          <TraceSystemNotice
+            attention={
+              entry.part.compactBoundary != null ||
+              isCapacityError ||
+              providerErrorNotice != null
+            }
+            status={providerErrorNotice != null ? "failed" : undefined}
+            title={providerErrorNotice?.message ?? systemTitle}
+          >
+            {hasDistinctSystemContent ? (
+              <MessagePartRenderer
+                part={systemBodyPart}
+                taskId={taskId}
+                messageId={messageId}
+                terminalStopReason={terminalStopReason}
+                systemEventPresentation={isCapacityError ? "detail" : "full"}
+              />
+            ) : null}
+          </TraceSystemNotice>
+        </StepRail.Step>
       );
     }
   }
@@ -1108,10 +952,11 @@ export function AssistantMessageBody(args: {
           />
           {trace.entries.length > 0 ? (
             <ChainOfThoughtContent>
-              {trace.entries.map((entry) => (
+              {trace.entries.map((entry, index) => (
                 <AssistantTraceEntryView
                   key={entry.id}
                   entry={entry}
+                  isLast={index === trace.entries.length - 1}
                   isStreaming={isStreaming}
                   taskId={taskId}
                   messageId={messageId}

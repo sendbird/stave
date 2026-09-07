@@ -56,8 +56,8 @@ export function WorkspaceInformationReferenceChip(args: {
 }
 
 const styles = stylex.create({
-root:{display:"inline-flex",maxWidth:"100%",alignItems:"center",gap:6,borderRadius:4,borderWidth:1,borderStyle:"solid",borderColor:vars.colorBorder,backgroundColor:vars.colorAccentSoft,paddingInline:8,paddingBlock:4,fontSize:14,color:vars.colorText},
-compact:{paddingInline:6,paddingBlock:2,fontSize:12},
+root:{display:"inline-flex",maxWidth:"100%",alignItems:"center",gap:6,borderRadius:4,borderWidth:1,borderStyle:"solid",borderColor:vars.colorBorder,backgroundColor:vars.colorAccentSoft,paddingInline:8,paddingBlock:4,fontSize: vars.fontSizeBody,color:vars.colorText},
+compact:{paddingInline:6,paddingBlock:2,fontSize: vars.fontSizeCaption},
 icon: {width:14,height:14,flexShrink:0},
 label: {minWidth:0,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},
 prefix: {fontWeight:500},

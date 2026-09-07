@@ -14,7 +14,7 @@ export const mcpSectionStyles = stylex.create({
     borderRadius: vars.radiusControl,
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
-    minWidth: 0,
+    minInlineSize: 0,
     padding: vars.space12,
   },
   providerHead: {
@@ -36,7 +36,7 @@ export const mcpSectionStyles = stylex.create({
     display: "flex",
     flexWrap: "wrap",
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space8,
+    marginBlockStart: vars.space8,
     rowGap: vars.space4,
   },
   errorBox: {
@@ -46,9 +46,9 @@ export const mcpSectionStyles = stylex.create({
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space8,
+    marginBlockStart: vars.space8,
     paddingBlock: vars.space8,
-    paddingInline: 10,
+    paddingInline: vars.space8,
   },
   errorTitle: {
     color: vars.colorDangerText,
@@ -56,11 +56,11 @@ export const mcpSectionStyles = stylex.create({
   },
   errorDetail: {
     color: vars.colorTextMuted,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
     overflowWrap: "break-word",
   },
   signInButton: {
-    marginTop: vars.space12,
+    marginBlockStart: vars.space12,
   },
   statsGrid: {
     display: "grid",
@@ -88,7 +88,7 @@ export const mcpSectionStyles = stylex.create({
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   availabilityBox: {
     backgroundColor: vars.colorCanvasSubtle,
@@ -107,7 +107,7 @@ export const mcpSectionStyles = stylex.create({
     display: "flex",
     flexWrap: "wrap",
     gap: vars.space8,
-    marginTop: vars.space8,
+    marginBlockStart: vars.space8,
   },
   mutedText: {
     color: vars.colorTextMuted,
@@ -138,7 +138,7 @@ export const mcpSectionStyles = stylex.create({
     padding: vars.space12,
   },
   serverHead: {
-    alignItems: "flex-start",
+    alignItems: "start",
     columnGap: vars.space12,
     display: "flex",
     flexWrap: "wrap",
@@ -156,18 +156,18 @@ export const mcpSectionStyles = stylex.create({
   serverSources: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   serverBadges: {
     display: "flex",
     flexWrap: "wrap",
-    gap: 6,
+    gap: vars.space8,
     justifyContent: "flex-end",
   },
   serverAvailability: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space8,
+    marginBlockStart: vars.space8,
   },
   providerGrid: {
     display: "grid",
@@ -177,20 +177,20 @@ export const mcpSectionStyles = stylex.create({
       "@media (min-width: 768px)": "repeat(2, minmax(0, 1fr))",
       "@media (min-width: 1280px)": "repeat(4, minmax(0, 1fr))",
     },
-    marginTop: vars.space12,
+    marginBlockStart: vars.space12,
   },
   shareActions: {
     display: "flex",
     flexWrap: "wrap",
     gap: vars.space8,
-    marginTop: vars.space12,
+    marginBlockStart: vars.space12,
   },
   configSection: {
     borderTopColor: vars.colorBorder,
     borderTopStyle: "solid",
-    borderTopWidth: vars.borderWidthHairline,
-    marginTop: vars.space12,
-    paddingTop: vars.space12,
+    borderBlockStartWidth: vars.borderWidthHairline,
+    marginBlockStart: vars.space12,
+    paddingBlockStart: vars.space12,
   },
   configHeading: {
     color: vars.colorTextMuted,
@@ -201,7 +201,7 @@ export const mcpSectionStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars.space8,
-    marginTop: vars.space8,
+    marginBlockStart: vars.space8,
   },
   configRow: {
     alignItems: "center",
@@ -219,13 +219,13 @@ export const mcpSectionStyles = stylex.create({
     rowGap: vars.space8,
   },
   configMeta: {
-    minWidth: 0,
+    minInlineSize: 0,
   },
   configLabelLine: {
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
-    gap: 6,
+    gap: vars.space8,
   },
   configLabel: {
     color: vars.colorText,
@@ -235,12 +235,12 @@ export const mcpSectionStyles = stylex.create({
   configHidden: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   configActions: {
     alignItems: "center",
     display: "flex",
-    gap: 6,
+    gap: vars.space8,
   },
   noticeSuccess: {
     backgroundColor: vars.colorSuccessSoft,

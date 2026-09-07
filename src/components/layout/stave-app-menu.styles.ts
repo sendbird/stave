@@ -36,5 +36,5 @@ export const staveAppMenuStyles = stylex.create({
   logo: { borderRadius: vars.radiusMark, height: 16, width: 16 },
   menu: { width: 256 },
   itemIcon: { color: vars.colorTextMuted, height: 16, width: 16 },
-  shortcut: { fontSize: 11, letterSpacing: "normal" },
+  shortcut: { fontSize: vars.fontSizeMicro, letterSpacing: "normal" },
 });

@@ -26,6 +26,7 @@ import {
   toast,
 } from "@/components/ui";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
+import { CountBadge } from "@/components/system/CountBadge";
 import {
   getNextNotificationView,
   type NotificationView,
@@ -146,7 +147,6 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
     view === "unread" ? unreadNotifications : pagedHistoryNotifications;
   const unreadCount = unreadNotifications.length;
   const historyCount = historyNotifications.length;
-  const unreadCountLabel = unreadCount > 99 ? "99+" : String(unreadCount);
   const hasNotifications = notifications.length > 0;
 
   function isNotificationActionPending(notificationId: string) {
@@ -296,15 +296,15 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                   xstyle={notificationsStyles.trigger}
                   style={props.noDragStyle}
                   aria-label="notifications"
+                  indicator={
+                    unreadCount > 0 ? (
+                      <CountBadge cap={99} count={unreadCount} />
+                    ) : null
+                  }
                 />
               }
             >
               <Bell className={sx(notificationsStyles.triggerIcon)} />
-              {unreadCount > 0 ? (
-                <span className={sx(notificationsStyles.unreadCount)}>
-                  {unreadCountLabel}
-                </span>
-              ) : null}
             </PopoverTrigger>
           </TooltipTrigger>
           <TooltipContent side="bottom">Notifications</TooltipContent>
@@ -317,7 +317,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
         >
           <PopoverHeader className={sx(notificationsStyles.header)}>
             <div className={sx(notificationsStyles.headerRow)}>
-              <div>
+              <div className={sx(notificationsStyles.headerTitleColumn)}>
                 <PopoverTitle className={sx(notificationsStyles.headerTitle)}>
                   Notifications
                 </PopoverTitle>

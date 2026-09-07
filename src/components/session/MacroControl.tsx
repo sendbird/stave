@@ -46,7 +46,7 @@ export function MacroControl(args: MacroControlProps) {
       <DropdownMenuContent
         align="start"
         sideOffset={6}
-        className={sx(styles.content)}
+        xstyle={styles.content}
       >
         <DropdownMenuLabel className={sx(styles.label)}>
           <Zap className={sx(styles.labelIcon)} />

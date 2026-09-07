@@ -682,7 +682,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                 <TabsContent
                   key={candidate}
                   value={candidate}
-                  className={sx(styles.tabContent)}
+                  xstyle={styles.tabContent}
                 >
                   {candidate === providerId ? (
                     visibleOptions.length === 0 ? (

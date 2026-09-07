@@ -76,7 +76,9 @@ export const shortcutsDrawerStyles = stylex.create({
   },
   headerIcon: {
     blockSize: vars.space20,
-    color: vars.colorAccent,
+    // Decorative section glyph, not an action or a selection marker: accent is
+    // reserved for the primary action, active/selected state, and links.
+    color: vars.colorTextMuted,
     flexShrink: 0,
     inlineSize: vars.space20,
   },
@@ -115,7 +117,6 @@ export const shortcutsDrawerStyles = stylex.create({
     translate: "0 -50%",
   },
   searchInput: {
-    backgroundColor: `color-mix(in oklch, ${vars.colorCanvas} 55%, transparent)`,
     blockSize: 36,
     paddingInlineEnd: vars.space32,
     paddingInlineStart: vars.space32,
@@ -130,7 +131,7 @@ export const shortcutsDrawerStyles = stylex.create({
   shownCount: {
     color: vars.colorTextMuted,
     flexShrink: 0,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     fontVariantNumeric: "tabular-nums",
     inlineSize: 64,
     textAlign: "right",
@@ -181,7 +182,7 @@ export const shortcutsDrawerStyles = stylex.create({
   sectionCount: {
     color: vars.colorTextMuted,
     fontFamily: vars.fontMono,
-    fontSize: 10,
+    fontSize: vars.fontSizeMicro,
     fontVariantNumeric: "tabular-nums",
   },
   sectionDescription: {

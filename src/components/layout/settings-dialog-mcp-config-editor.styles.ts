@@ -6,31 +6,31 @@ export const mcpConfigEditorStyles = stylex.create({
   dialogSurface: {
     display: "flex",
     flexDirection: "column",
-    gap: 0,
-    maxHeight: "88vh",
-    maxWidth: "42rem",
+    gap: vars.space0,
+    maxBlockSize: "88vh",
+    maxInlineSize: "42rem",
     overflow: "hidden",
     padding: 0,
   },
   shareSurface: {
     display: "flex",
     flexDirection: "column",
-    gap: 0,
-    maxHeight: "88vh",
-    maxWidth: "36rem",
+    gap: vars.space0,
+    maxBlockSize: "88vh",
+    maxInlineSize: "36rem",
     overflow: "hidden",
     padding: 0,
   },
   deleteSurface: {
-    maxWidth: "28rem",
+    maxInlineSize: "28rem",
   },
   headerBlock: {
     borderBottomColor: vars.colorBorder,
     borderBottomStyle: "solid",
     borderBottomWidth: vars.borderWidthHairline,
     paddingBlock: vars.space20,
-    paddingLeft: vars.space24,
-    paddingRight: 56,
+    paddingInlineStart: vars.space24,
+    paddingInlineEnd: 56,
   },
   headerTitle: {
     fontSize: vars.fontSizeLead,
@@ -40,7 +40,7 @@ export const mcpConfigEditorStyles = stylex.create({
   },
   scrollArea: {
     flex: 1,
-    minHeight: 0,
+    minBlockSize: 0,
     overflowY: "auto",
     paddingBlock: vars.space20,
     paddingInline: vars.space24,
@@ -67,8 +67,8 @@ export const mcpConfigEditorStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     fontSize: vars.fontSizeBody,
-    gap: 6,
-    marginTop: vars.space12,
+    gap: vars.space8,
+    marginBlockStart: vars.space12,
   },
   warningCard: {
     backgroundColor: vars.colorWarningSoft,
@@ -88,7 +88,7 @@ export const mcpConfigEditorStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars.space4,
-    marginTop: vars.space8,
+    marginBlockStart: vars.space8,
   },
   reviewNote: {
     color: vars.colorTextMuted,
@@ -103,7 +103,7 @@ export const mcpConfigEditorStyles = stylex.create({
   fieldStack: {
     display: "flex",
     flexDirection: "column",
-    gap: 6,
+    gap: vars.space8,
   },
   fieldLabel: {
     fontSize: vars.fontSizeBody,
@@ -123,7 +123,7 @@ export const mcpConfigEditorStyles = stylex.create({
     },
   },
   fullWidth: {
-    width: "100%",
+    inlineSize: "100%",
   },
   providerToggles: {
     backgroundColor: vars.colorCanvasSubtle,
@@ -147,7 +147,7 @@ export const mcpConfigEditorStyles = stylex.create({
     fontSize: vars.fontSizeBody,
   },
   toggleRow: {
-    alignItems: "flex-start",
+    alignItems: "start",
     backgroundColor: vars.colorCanvasSubtle,
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusPanel,
@@ -159,7 +159,7 @@ export const mcpConfigEditorStyles = stylex.create({
     padding: vars.space12,
   },
   toggleRowPlain: {
-    alignItems: "flex-start",
+    alignItems: "start",
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusPanel,
     borderStyle: "solid",
@@ -177,12 +177,12 @@ export const mcpConfigEditorStyles = stylex.create({
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.space20,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   toggleHintTight: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   monoArea: {
     fontFamily: vars.fontMono,
@@ -191,12 +191,12 @@ export const mcpConfigEditorStyles = stylex.create({
   monoAreaTall: {
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeCaption,
-    minHeight: "6rem",
+    minBlockSize: "6rem",
   },
   monoAreaShort: {
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeCaption,
-    minHeight: "5rem",
+    minBlockSize: "5rem",
   },
   protectedNote: {
     backgroundColor: vars.colorWarningSoft,
@@ -207,7 +207,7 @@ export const mcpConfigEditorStyles = stylex.create({
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.space20,
-    paddingBlock: 10,
+    paddingBlock: vars.space8,
     paddingInline: vars.space12,
   },
   protectedStrong: {
@@ -222,15 +222,15 @@ export const mcpConfigEditorStyles = stylex.create({
     borderWidth: vars.borderWidthHairline,
     color: vars.colorDangerText,
     fontSize: vars.fontSizeBody,
-    marginTop: vars.space16,
-    paddingBlock: 10,
+    marginBlockStart: vars.space16,
+    paddingBlock: vars.space8,
     paddingInline: vars.space12,
   },
   footer: {
     backgroundColor: vars.colorCanvasSubtle,
     borderTopColor: vars.colorBorder,
     borderTopStyle: "solid",
-    borderTopWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars.borderWidthHairline,
     paddingBlock: vars.space16,
     paddingInline: vars.space24,
   },
@@ -255,7 +255,7 @@ export const mcpConfigEditorStyles = stylex.create({
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.space20,
-    paddingBlock: 10,
+    paddingBlock: vars.space8,
     paddingInline: vars.space12,
   },
 });

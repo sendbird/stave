@@ -1,6 +1,8 @@
 import { readFileSync, readdirSync } from "node:fs";
+import { sep } from "node:path";
 import ts from "typescript";
 import { inventory } from "./style-utility-inventory.mjs";
+import { motionlessInteractive } from "./motionless-interactive.mjs";
 
 const manifest = JSON.parse(
   readFileSync(
@@ -82,6 +84,48 @@ for (const relative of readdirSync(componentRoot, { recursive: true })) {
   if (nativeButtons > (manifest.productButtons?.[path] ?? 0))
     failures.push(`${path}: product actions must compose canonical Button`);
 }
+/*
+ * StyleX `{ default: null }` UNSETS a property. On a paint property that is not
+ * "leave it alone", it is "delete whatever the ADS recipe declared" — so an ADS
+ * quiet control loses its `transparent` background and a `<button>` falls back
+ * to the UA's opaque `buttonface`, which is the gray-slab regression. Author the
+ * resting value explicitly (`"transparent"`, or the token the state maps to).
+ * Only ADS itself owns these contracts, so only `src/components/ads` is exempt.
+ */
+const unsetPaint = /\b(?:backgroundColor|borderColor|color)\s*:\s*\{\s*default:\s*null/g;
+const srcRoot = new URL("../src/", import.meta.url);
+for (const relative of readdirSync(srcRoot, { recursive: true })) {
+  const path = relative.split(sep).join("/");
+  if (!/\.tsx?$/.test(path) || path.startsWith("components/ads/")) continue;
+  const source = readFileSync(new URL(relative, srcRoot), "utf8");
+  for (const match of source.matchAll(unsetPaint)) {
+    const line = source.slice(0, match.index).split("\n").length;
+    failures.push(
+      `src/${path}:${line}: \`${match[0].split(":")[0].trim()}: { default: null }\` unsets the ADS variant contract; declare the resting value (e.g. "transparent")`,
+    );
+  }
+}
+
+/*
+ * The hard-cut ratchet. The analysis lives in `motionless-interactive.mjs`,
+ * which documents why an ADS-control call site is not a finding;
+ * `motionlessInteractive` in the manifest is the list of groups that were still
+ * genuinely silent when the rule landed. It may shrink, never grow, and a stale
+ * entry fails too so a fixed surface cannot keep its exemption.
+ */
+const motionlessBaseline = new Set(manifest.motionlessInteractive ?? []);
+const motionless = motionlessInteractive(srcRoot);
+for (const path of motionless)
+  if (!motionlessBaseline.has(path))
+    failures.push(
+      `${path}: states a \`:hover\`/\`:active\` paint change and nothing on that element transitions it; compose \`transition.colors\` (or \`transition.control\`) from \`ads/recipes/transition\` at the call site`,
+    );
+for (const path of motionlessBaseline)
+  if (!motionless.includes(path))
+    failures.push(
+      `${path}: stale \`motionlessInteractive\` entry — the surface has a transition now, so drop the exemption`,
+    );
+
 const packageJson = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
 );

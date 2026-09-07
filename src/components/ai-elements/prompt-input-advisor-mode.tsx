@@ -135,6 +135,12 @@ export function PromptInputAdvisorPill(args: {
                   type="button"
                   variant="ghost"
                   size="sm"
+                  // The composer lane owns this control's box (height, gutters, and one
+                  // glyph size for every control in the row), so the glyph rule has to be a
+                  // default rather than a mandate: `layout="control"` applies ADS's own
+                  // unlayered `> svg` size and pinned this trigger to the `sm` ramp's 14px
+                  // while its `layout="host"` neighbours in the same wing rendered 16.
+                  layout="host"
                   disabled={args.disabled}
                   aria-label={`Configure Advisor · ${presentation.label}`}
                   {...composerControlAttributes}
@@ -191,8 +197,7 @@ export function PromptInputAdvisorPill(args: {
         align="start"
         side="top"
         sideOffset={8}
-        className={sx(advisorModeStyles.popover)}
-        xstyle={COMPOSER_OPTION_MENU_CONTENT}
+        xstyle={[COMPOSER_OPTION_MENU_CONTENT, advisorModeStyles.popover]}
         data-testid="advisor-mode-options"
       >
         <ComposerOptionMenuToggle

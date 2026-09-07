@@ -1,5 +1,8 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Suspense, lazy, useMemo, useState } from "react";
+import { DiffViewer } from "@/components/ads/components/DiffViewer";
+import { FileChangeSummary } from "@/components/ads/components/FileChangeSummary";
+import type { AgentRunState } from "@/components/ads/components/agent-state";
+import { useMemo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Badge, Button, Card, ImageLightbox } from "@/components/ui";
 import {
@@ -30,8 +33,6 @@ import type {
   ImageContextPart,
 } from "@/types/chat";
 
-const ReactDiffViewer = lazy(() => import("react-diff-viewer-continued"));
-
 function resolveChatBlockFilePath(args: {
   filePath: string;
   workspacePath?: string;
@@ -54,61 +55,40 @@ function getFileChangeStatusPriority(status: FileChangeSummaryRow["status"]) {
   }
 }
 
-const CHAT_DIFF_VIEWER_STYLES = {
-  variables: {
-    light: {
-      diffViewerBackground: "var(--editor)",
-      diffViewerTitleBackground: "var(--editor-tab)",
-      diffViewerColor: "var(--editor-foreground)",
-      diffViewerTitleColor: "var(--editor-foreground)",
-      diffViewerTitleBorderColor: "var(--border)",
-      addedBackground: "var(--diff-added)",
-      addedColor: "var(--diff-added-foreground)",
-      removedBackground: "var(--diff-removed)",
-      removedColor: "var(--diff-removed-foreground)",
-      addedGutterBackground: "var(--diff-added)",
-      removedGutterBackground: "var(--diff-removed)",
-      gutterBackground: "var(--editor-muted)",
-      gutterColor: "var(--muted-foreground)",
-      addedGutterColor: "var(--diff-added-foreground)",
-      removedGutterColor: "var(--diff-removed-foreground)",
-      highlightBackground:
-        "color-mix(in oklch, var(--accent) 14%, transparent)",
-      highlightGutterBackground:
-        "color-mix(in oklch, var(--accent) 18%, transparent)",
-      codeFoldBackground: "var(--editor-muted)",
-      codeFoldGutterBackground: "var(--editor-muted)",
-      codeFoldContentColor: "var(--muted-foreground)",
-      emptyLineBackground: "var(--editor)",
-    },
-    dark: {
-      diffViewerBackground: "var(--editor)",
-      diffViewerTitleBackground: "var(--editor-tab)",
-      diffViewerColor: "var(--editor-foreground)",
-      diffViewerTitleColor: "var(--editor-foreground)",
-      diffViewerTitleBorderColor: "var(--border)",
-      addedBackground: "var(--diff-added)",
-      addedColor: "var(--diff-added-foreground)",
-      removedBackground: "var(--diff-removed)",
-      removedColor: "var(--diff-removed-foreground)",
-      addedGutterBackground: "var(--diff-added)",
-      removedGutterBackground: "var(--diff-removed)",
-      gutterBackground: "var(--editor-muted)",
-      gutterBackgroundDark: "var(--editor-muted)",
-      gutterColor: "var(--muted-foreground)",
-      addedGutterColor: "var(--diff-added-foreground)",
-      removedGutterColor: "var(--diff-removed-foreground)",
-      highlightBackground:
-        "color-mix(in oklch, var(--accent) 14%, transparent)",
-      highlightGutterBackground:
-        "color-mix(in oklch, var(--accent) 18%, transparent)",
-      codeFoldBackground: "var(--editor-muted)",
-      codeFoldGutterBackground: "var(--editor-muted)",
-      codeFoldContentColor: "var(--muted-foreground)",
-      emptyLineBackground: "var(--editor)",
-    },
-  },
-} as const;
+/**
+ * A diff part's own status in ADS's shared run vocabulary. `accepted` is a
+ * change that landed, `rejected` one a human refused, and `pending` one still
+ * waiting on that decision — the same three states `FileChangeSummary` and
+ * `ToolRun` read, so the diff row and the tool row that produced it cannot
+ * describe the same outcome with two different words.
+ */
+function toDiffRunState(status: CodeDiffPart["status"]): AgentRunState {
+  switch (status) {
+    case "accepted":
+      return "done";
+    case "rejected":
+      return "denied";
+    case "pending":
+      return "pending";
+  }
+}
+
+/**
+ * The host's file-change outcomes in the same shared vocabulary: a change the
+ * provider applied, one it skipped, one that failed.
+ */
+function toFileChangeRunState(
+  status: FileChangeSummaryRow["status"],
+): AgentRunState {
+  switch (status) {
+    case "applied":
+      return "done";
+    case "skipped":
+      return "canceled";
+    case "failed":
+      return "failed";
+  }
+}
 
 function ChangeCount(args: { value: number; tone: "added" | "removed" }) {
   return (
@@ -135,7 +115,6 @@ export function ChangedFilesBlock(args: {
   const { parts, taskId, messageId, startIndex = 0 } = args;
   const resolveDiff = useAppStore((state) => state.resolveDiff);
   const openDiffInEditor = useAppStore((state) => state.openDiffInEditor);
-  const isDarkMode = useAppStore((state) => state.isDarkMode);
   const workspaceCwd = useAppStore(
     (state) =>
       state.workspacePathById[state.activeWorkspaceId] ??
@@ -243,14 +222,20 @@ export function ChangedFilesBlock(args: {
                 xstyle={styles.rowButton}
                 onClick={() => toggleRow(index)}
               >
-                <span className={sx(styles.filePath)}>
-                  {row.displayFilePath}
-                </span>
-                <ChangeCount value={row.summary.added} tone="added" />
-                <ChangeCount value={row.summary.removed} tone="removed" />
-                {isPendingDiff ? (
-                  <span className={sx(styles.pendingDot)} aria-hidden="true" />
-                ) : null}
+                {/*
+                  * ADS `FileChangeSummary` is the header `DiffViewer` does not
+                  * draw: path in the machine register truncating at the
+                  * directory, `+N` / `−M` in semantic ink, and the shared
+                  * one-word state. It replaces the local path span, the two
+                  * count chips and the pending dot — four host constructions
+                  * that each restated part of the same row.
+                  */}
+                <FileChangeSummary
+                  added={row.summary.added}
+                  path={row.displayFilePath}
+                  removed={row.summary.removed}
+                  state={toDiffRunState(row.part.status)}
+                />
                 {isOpen ? (
                   <ChevronDown className={sx(styles.chevron)} />
                 ) : (
@@ -260,22 +245,13 @@ export function ChangedFilesBlock(args: {
               {isOpen ? (
                 <div className={sx(styles.expandedBody)}>
                   <div className={sx(styles.diffScroll)}>
-                    <Suspense
-                      fallback={
-                        <div className={sx(styles.diffLoading)}>
-                          Loading diff...
-                        </div>
-                      }
-                    >
-                      <ReactDiffViewer
-                        oldValue={row.part.oldContent}
-                        newValue={row.part.newContent}
-                        splitView={false}
-                        hideLineNumbers={false}
-                        useDarkTheme={isDarkMode}
-                        styles={CHAT_DIFF_VIEWER_STYLES}
-                      />
-                    </Suspense>
+                    <DiffViewer
+                      before={row.part.oldContent}
+                      after={row.part.newContent}
+                      mode="unified"
+                      granularity="word"
+                      aria-label={`Diff for ${row.displayFilePath}`}
+                    />
                   </div>
                   <div className={sx(styles.actionBar)}>
                     <Button
@@ -325,19 +301,6 @@ export function ChangedFilesBlock(args: {
       </div>
     </Card>
   );
-}
-
-function FileChangeStatusBadge(args: {
-  status: FileChangeSummaryRow["status"];
-}) {
-  switch (args.status) {
-    case "applied":
-      return <Badge variant="success">applied</Badge>;
-    case "skipped":
-      return <Badge variant="warning">skipped</Badge>;
-    case "failed":
-      return <Badge variant="destructive">failed</Badge>;
-  }
 }
 
 export function FileChangeSummaryBlock(args: { rows: FileChangeSummaryRow[] }) {
@@ -424,8 +387,10 @@ export function FileChangeSummaryBlock(args: { rows: FileChangeSummaryRow[] }) {
               index === 0 && styles.staticFileRowFirst,
             )}
           >
-            <span className={sx(styles.filePath)}>{displayFilePath}</span>
-            <FileChangeStatusBadge status={row.status} />
+            <FileChangeSummary
+              path={displayFilePath}
+              state={toFileChangeRunState(row.status)}
+            />
             <Button
               type="button"
               size="xs"

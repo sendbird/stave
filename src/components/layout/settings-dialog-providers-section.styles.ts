@@ -11,12 +11,12 @@ export const providersStyles = stylex.create({
   },
   // Trigger width only; the ADS Select trigger owns border, radius, and fill.
   describedSelectTrigger: {
-    width: 256,
+    inlineSize: 256,
   },
   // Popup geometry only; the ADS Select popup owns its surface and radius.
   describedSelectContent: {
-    minWidth: "var(--anchor-width)",
-    maxWidth: "24rem",
+    minInlineSize: "var(--anchor-width)",
+    maxInlineSize: "24rem",
   },
   // Muted descriptive copy under a select.
   describedSelectHint: {
@@ -49,7 +49,7 @@ export const providersStyles = stylex.create({
   },
   trustedRowLabel: {
     fontSize: vars.fontSizeBody,
-    minWidth: 0,
+    minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -57,7 +57,7 @@ export const providersStyles = stylex.create({
   trustedRemove: {
     flexShrink: 0,
     fontSize: vars.fontSizeCaption,
-    height: 28,
+    blockSize: vars.controlHeightXs,
     paddingInline: vars.space8,
   },
   emptyCopy: {
@@ -74,27 +74,30 @@ export const providersStyles = stylex.create({
     borderRadius: vars.radiusFrame,
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
-    height: "auto",
+    blockSize: "auto",
     justifyContent: "flex-start",
     padding: vars.space4,
-    width: "100%",
+    inlineSize: "100%",
   },
+  // No radius override: a `pill` tab shares its box with the gliding
+  // indicator, which is `radiusControl`. At `radiusPanel` the tab was a step
+  // rounder than the pill that fills it, so the selected tab showed the
+  // indicator's corners cutting inside its own.
   tabsTrigger: {
-    borderRadius: vars.radiusPanel,
     flex: "none",
     fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightMedium,
-    height: 32,
+    blockSize: vars.controlHeightSm,
     paddingInline: vars.space12,
   },
   // Sandbox/plan-mode inline field font-family override on the DraftInput.
   fieldMono: {
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeBody,
-    height: vars.controlHeightLg,
+    blockSize: vars.controlHeightLg,
   },
   field: {
-    height: vars.controlHeightLg,
+    blockSize: vars.controlHeightLg,
   },
   presetHint: {
     color: vars.colorTextMuted,

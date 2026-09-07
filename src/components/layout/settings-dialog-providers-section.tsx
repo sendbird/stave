@@ -894,29 +894,29 @@ export function ProvidersSection() {
           </p>
         )}
       </SettingsCard>
-      <Tabs defaultValue="claude" className={sx(providersStyles.tabs)}>
-        <TabsList className={sx(providersStyles.tabsList)}>
+      <Tabs defaultValue="claude" xstyle={providersStyles.tabs}>
+        <TabsList xstyle={providersStyles.tabsList}>
           <TabsTrigger
             value="claude"
-            className={sx(providersStyles.tabsTrigger)}
+            xstyle={providersStyles.tabsTrigger}
           >
             Claude
           </TabsTrigger>
           <TabsTrigger
             value="codex"
-            className={sx(providersStyles.tabsTrigger)}
+            xstyle={providersStyles.tabsTrigger}
           >
             Codex
           </TabsTrigger>
           <TabsTrigger
             value="cursor"
-            className={sx(providersStyles.tabsTrigger)}
+            xstyle={providersStyles.tabsTrigger}
           >
             Cursor
           </TabsTrigger>
           <TabsTrigger
             value="kiro"
-            className={sx(providersStyles.tabsTrigger)}
+            xstyle={providersStyles.tabsTrigger}
           >
             Kiro
           </TabsTrigger>

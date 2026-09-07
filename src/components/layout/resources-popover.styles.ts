@@ -32,9 +32,9 @@ export const resourceStyles = stylex.create({
   usageBarFill: {
     height: "100%",
     borderRadius: vars.radiusFull,
-    transitionProperty: "width, background-color",
-    transitionDuration: "300ms",
-    transitionTimingFunction: vars.motionEaseStandard,
+    // `transition.bar` + `motionDurationEmphasis` at the call site; the fill is
+    // absolutely sized inside a fixed track, so the width transition is not a
+    // layout animation, but it is spatial and now goes instant under reduce.
   },
   tooltipAnchor: {
     display: "inline-flex",
@@ -54,7 +54,8 @@ export const resourceStyles = stylex.create({
   triggerBar: {
     height: 24,
     gap: 6,
-    borderRadius: 0,
+    // Hoverable target: the overlay wash needs the control radius.
+    borderRadius: vars.radiusControl,
     paddingInline: vars.space8,
     fontSize: vars.fontSizeCaption,
   },
@@ -75,7 +76,10 @@ export const resourceStyles = stylex.create({
     height: 16,
   },
   popover: {
-    width: "20rem",
+    // Logical + viewport-clamped, so the popup cannot render wider than the
+    // window it is anchored in (matching the notifications panel).
+    inlineSize: "min(20rem, calc(100vw - 1rem))",
+    maxInlineSize: "calc(100vw - 1rem)",
     gap: 0,
     overflow: "hidden",
     borderWidth: vars.borderWidthHairline,
@@ -98,6 +102,12 @@ export const resourceStyles = stylex.create({
     display: "flex",
     alignItems: "center",
     gap: vars.space8,
+    // Same header contract as the notifications popup: the title column
+    // shrinks (`min-inline-size: 0` defeats the flex item's `auto` minimum),
+    // the trailing action does not.
+    flexGrow: 1,
+    flexShrink: 1,
+    minInlineSize: 0,
   },
   headerIcon: {
     width: 14,
@@ -107,8 +117,12 @@ export const resourceStyles = stylex.create({
   headerTitle: {
     fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   refreshButton: {
+    flexShrink: 0,
     width: 28,
     height: 28,
     padding: 0,
@@ -189,7 +203,7 @@ export const resourceStyles = stylex.create({
     color: vars.colorText,
   },
   summaryTileLabel: {
-    fontSize: "0.625rem",
+    fontSize: vars.fontSizeMicro,
     color: vars.colorTextMuted,
   },
   detailGrid: {
@@ -249,7 +263,7 @@ export const resourceStyles = stylex.create({
   },
   groupMeta: {
     fontFamily: vars.fontMono,
-    fontSize: "0.625rem",
+    fontSize: vars.fontSizeMicro,
     color: vars.colorTextSubtle,
   },
   groupTitleBlock: {

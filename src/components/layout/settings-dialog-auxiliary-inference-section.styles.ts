@@ -1,9 +1,11 @@
 import * as stylex from "@stylexjs/stylex";
 
+import { vars } from "@/components/ads/tokens/tokens.stylex";
+
 /** Provider mark shown in the Background AI provider choice buttons. */
 export const auxiliaryInferenceSectionStyles = stylex.create({
   providerIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
 });

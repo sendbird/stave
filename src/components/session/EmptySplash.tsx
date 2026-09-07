@@ -128,7 +128,7 @@ export function EmptySplash({
           <ChevronDown size={16} className={sx(styles.chevronIcon)} />
         ) : null}
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className={sx(styles.menuContent)}>
+      <DropdownMenuContent align="end" xstyle={styles.menuContent}>
         <DropdownMenuLabel>Start Here</DropdownMenuLabel>
         {CLI_SESSION_CHOICES.map((choice) => {
           const providerAvailable = providerAvailability[choice.provider];

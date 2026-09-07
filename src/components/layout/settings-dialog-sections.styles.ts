@@ -51,7 +51,7 @@ export const settingsSectionsStyles = stylex.create({
   spaceY25: {
     display: "flex",
     flexDirection: "column",
-    gap: 10,
+    gap: vars.space8,
   },
   rowCenter: {
     alignItems: "center",
@@ -78,7 +78,7 @@ export const settingsSectionsStyles = stylex.create({
     flex: 1,
   },
   minW0: {
-    minWidth: 0,
+    minInlineSize: 0,
   },
   rowBetween: {
     alignItems: "center",
@@ -101,12 +101,12 @@ export const settingsSectionsStyles = stylex.create({
   microMutedTop1: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   bodyMutedTop1: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeBody,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
 
   // --- file/custom-audio controls ---
@@ -129,15 +129,15 @@ export const settingsSectionsStyles = stylex.create({
     flex: 1,
     fontSize: vars.fontSizeBody,
     gap: vars.space8,
-    minWidth: 0,
+    minInlineSize: 0,
     paddingBlock: vars.space8,
     paddingInline: vars.space12,
   },
   audioIcon: {
     color: vars.colorTextMuted,
     flexShrink: 0,
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   truncate: {
     overflow: "hidden",
@@ -149,9 +149,9 @@ export const settingsSectionsStyles = stylex.create({
     fontSize: vars.fontSizeBody,
   },
   buttonIconLeading: {
-    height: 14,
+    blockSize: vars.controlIconSizeSm,
     marginInlineEnd: vars.space4,
-    width: 14,
+    inlineSize: vars.controlIconSizeSm,
   },
 
   // --- slider + badge value rows ---
@@ -165,30 +165,30 @@ export const settingsSectionsStyles = stylex.create({
   },
   valueBadge: {
     justifyContent: "center",
-    minWidth: 56,
+    minInlineSize: 56,
   },
   valueReadout: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeBody,
     fontVariantNumeric: "tabular-nums",
     textAlign: "end",
-    width: 48,
+    inlineSize: vars.space48,
   },
   objectiveEnd: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    width: 48,
+    inlineSize: vars.space48,
   },
   objectiveEndRight: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
     textAlign: "end",
-    width: 56,
+    inlineSize: 56,
   },
 
   // --- project settings panel ---
   projectHeader: {
-    alignItems: "flex-start",
+    alignItems: "start",
     backgroundColor: vars.colorSurface,
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusFrame,
@@ -207,7 +207,7 @@ export const settingsSectionsStyles = stylex.create({
     flex: 1,
     flexDirection: "column",
     gap: vars.space8,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   projectTitle: {
     fontSize: vars.fontSizeLead,
@@ -230,15 +230,15 @@ export const settingsSectionsStyles = stylex.create({
     animationDuration: vars.motionDurationLoop,
     animationIterationCount: "infinite",
     animationTimingFunction: "linear",
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
     "@media (prefers-reduced-motion: reduce)": {
       animationName: "none",
     },
   },
   refreshIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
 
   // --- appearance grid ---
@@ -286,15 +286,15 @@ export const settingsSectionsStyles = stylex.create({
       ":hover": vars.colorText,
     },
     backgroundColor: {
-      default: null,
+      default: "transparent",
       ":hover": vars.colorOverlayHover,
     },
     display: "inline-flex",
-    height: vars.controlHeightLg,
+    blockSize: vars.controlHeightLg,
     justifyContent: "center",
     transitionProperty: "background-color, border-color, color",
     transitionDuration: vars.motionDurationFast,
-    width: vars.controlHeightLg,
+    inlineSize: vars.controlHeightLg,
   },
   iconTileActive: {
     backgroundColor: vars.colorAccentSoft,
@@ -309,34 +309,34 @@ export const settingsSectionsStyles = stylex.create({
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
     display: "inline-flex",
-    height: vars.controlHeightLg,
+    blockSize: vars.controlHeightLg,
     justifyContent: "center",
     transitionProperty: "background-color, border-color",
     transitionDuration: vars.motionDurationFast,
-    width: vars.controlHeightLg,
+    inlineSize: vars.controlHeightLg,
   },
   colorTileActive: {
     backgroundColor: vars.colorSelectionFill,
     borderColor: vars.colorText,
   },
   tileGlyph: {
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   swatchGlyph: {
-    height: vars.space20,
-    width: vars.space20,
+    blockSize: vars.space20,
+    inlineSize: vars.space20,
   },
   radioVisuallyHidden: {
     clip: "rect(0 0 0 0)",
     clipPath: "inset(50%)",
-    height: 1,
+    blockSize: 1,
     margin: -1,
     overflow: "hidden",
     padding: 0,
     position: "absolute",
     whiteSpace: "nowrap",
-    width: 1,
+    inlineSize: 1,
   },
 
   // --- identity preview ---
@@ -346,7 +346,7 @@ export const settingsSectionsStyles = stylex.create({
     borderRadius: vars.radiusPanel,
     display: "flex",
     gap: vars.space12,
-    paddingBlock: 10,
+    paddingBlock: vars.space8,
     paddingInline: vars.space12,
   },
   identityName: {
@@ -367,7 +367,7 @@ export const settingsSectionsStyles = stylex.create({
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusMark,
     fontSize: vars.fontSizeBody,
-    minHeight: 140,
+    minBlockSize: 140,
   },
   textarea120Mono: {
     backgroundColor: vars.colorCanvas,
@@ -375,20 +375,20 @@ export const settingsSectionsStyles = stylex.create({
     borderRadius: vars.radiusMark,
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeBody,
-    minHeight: 120,
+    minBlockSize: 120,
   },
   textarea110: {
     backgroundColor: vars.colorCanvas,
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusMark,
     fontSize: vars.fontSizeBody,
-    minHeight: 110,
+    minBlockSize: 112,
   },
   input40: {
     backgroundColor: vars.colorCanvas,
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusMark,
-    height: vars.controlHeightLg,
+    blockSize: vars.controlHeightLg,
   },
   input40Mono: {
     backgroundColor: vars.colorCanvas,
@@ -396,24 +396,24 @@ export const settingsSectionsStyles = stylex.create({
     borderRadius: vars.radiusMark,
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeBody,
-    height: vars.controlHeightLg,
+    blockSize: vars.controlHeightLg,
   },
   input40MonoPlain: {
     backgroundColor: vars.colorCanvas,
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusMark,
     fontFamily: vars.fontMono,
-    height: vars.controlHeightLg,
+    blockSize: vars.controlHeightLg,
   },
   input9: {
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeBody,
-    height: vars.controlHeightSm,
+    blockSize: vars.controlHeightSm,
   },
   input8Mono: {
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeCaption,
-    height: vars.controlHeightXs,
+    blockSize: vars.controlHeightXs,
   },
 
   // --- node_modules toggle button ---
@@ -438,7 +438,7 @@ export const settingsSectionsStyles = stylex.create({
     textAlign: "start",
     transitionProperty: "background-color, border-color, color",
     transitionDuration: vars.motionDurationFast,
-    width: "100%",
+    inlineSize: "100%",
   },
   toggleButtonActive: {
     backgroundColor: vars.colorAccentSoft,
@@ -452,7 +452,7 @@ export const settingsSectionsStyles = stylex.create({
   toggleButtonHint: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   toggleBadge: {
     borderColor: vars.colorBorder,
@@ -463,7 +463,7 @@ export const settingsSectionsStyles = stylex.create({
     fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightSemibold,
     letterSpacing: "0.12em",
-    paddingBlock: 2,
+    paddingBlock: vars.space2,
     paddingInline: vars.space8,
     textTransform: "uppercase",
   },
@@ -483,7 +483,7 @@ export const settingsSectionsStyles = stylex.create({
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeCaption,
     overflowWrap: "break-word",
-    paddingBlock: 10,
+    paddingBlock: vars.space8,
     paddingInline: vars.space12,
     wordBreak: "break-all",
   },
@@ -493,7 +493,7 @@ export const settingsSectionsStyles = stylex.create({
     borderRadius: vars.radiusMark,
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
-    paddingBlock: 10,
+    paddingBlock: vars.space8,
     paddingInline: vars.space12,
   },
   remoteName: {
@@ -501,17 +501,17 @@ export const settingsSectionsStyles = stylex.create({
     fontWeight: vars.fontWeightMedium,
   },
   remoteBadge: {
-    height: 20,
+    blockSize: vars.space20,
     fontSize: vars.fontSizeMicro,
     letterSpacing: "0.04em",
-    paddingInline: 6,
+    paddingInline: vars.space8,
     textTransform: "uppercase",
   },
   remoteMono: {
     color: vars.colorTextMuted,
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
     overflowWrap: "break-word",
     wordBreak: "break-all",
   },
@@ -538,16 +538,16 @@ export const settingsSectionsStyles = stylex.create({
     fontWeight: vars.fontWeightMedium,
   },
   iconMd: {
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   iconSm: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   iconXs: {
-    height: 12,
-    width: 12,
+    blockSize: vars.space12,
+    inlineSize: vars.space12,
   },
 
   // --- workspace tools card ---
@@ -555,11 +555,11 @@ export const settingsSectionsStyles = stylex.create({
     borderRadius: vars.radiusMark,
     fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightRegular,
-    paddingBlock: 2,
+    paddingBlock: vars.space2,
     paddingInline: vars.space8,
   },
   titleAccessoryButton: {
-    gap: 6,
+    gap: vars.space8,
   },
 
   // --- appearance/theme buttons ---
@@ -572,7 +572,9 @@ export const settingsSectionsStyles = stylex.create({
     },
   },
   modeButton: {
-    height: vars.controlHeightLg,
+    blockSize: vars.controlHeightLg,
+    inlineSize: "100%",
+    justifyContent: "center",
   },
 
   // --- theme editor toolbar ---
@@ -594,11 +596,11 @@ export const settingsSectionsStyles = stylex.create({
   motionExpanded: {
     borderTopColor: vars.colorBorder,
     borderTopStyle: "solid",
-    borderTopWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars.borderWidthHairline,
     display: "grid",
     gap: vars.space12,
-    marginTop: vars.space12,
-    paddingTop: vars.space12,
+    marginBlockStart: vars.space12,
+    paddingBlockStart: vars.space12,
   },
 
   // --- theme preset card ---
@@ -639,7 +641,7 @@ export const settingsSectionsStyles = stylex.create({
     borderWidth: 0,
     cursor: "pointer",
     display: "grid",
-    gap: 6,
+    gap: vars.space8,
     padding: 0,
     textAlign: "start",
   },
@@ -688,8 +690,8 @@ export const settingsSectionsStyles = stylex.create({
     borderRadius: vars.radiusMark,
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
-    height: vars.space24,
-    width: vars.space24,
+    blockSize: vars.space24,
+    inlineSize: vars.space24,
   },
   cardActionRow: {
     alignItems: "center",
@@ -698,13 +700,13 @@ export const settingsSectionsStyles = stylex.create({
   },
   smallGhostButton: {
     fontSize: vars.fontSizeCaption,
-    height: vars.controlHeightXs,
+    blockSize: vars.controlHeightXs,
     paddingInline: vars.space8,
   },
   smallGhostButtonDanger: {
     color: vars.colorDanger,
     fontSize: vars.fontSizeCaption,
-    height: vars.controlHeightXs,
+    blockSize: vars.controlHeightXs,
     paddingInline: vars.space8,
   },
 
@@ -719,7 +721,7 @@ export const settingsSectionsStyles = stylex.create({
     gap: vars.space12,
   },
   importButton: {
-    gap: 6,
+    gap: vars.space8,
   },
   importErrorBox: {
     backgroundColor: vars.colorDangerSoft,
@@ -741,7 +743,7 @@ export const settingsSectionsStyles = stylex.create({
     backgroundColor: vars.colorCanvasSubtle,
     borderRadius: vars.radiusMark,
     fontSize: vars.fontSizeMicro,
-    paddingBlock: 2,
+    paddingBlock: vars.space2,
     paddingInline: vars.space4,
   },
 
@@ -777,8 +779,8 @@ export const settingsSectionsStyles = stylex.create({
     borderRadius: vars.radiusControl,
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
-    height: 44,
-    width: 44,
+    blockSize: vars.controlHeightXl,
+    inlineSize: 44,
   },
 
   // --- model selector triggers ---
@@ -791,13 +793,13 @@ export const settingsSectionsStyles = stylex.create({
     borderRadius: vars.radiusMark,
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
-    height: vars.controlHeightLg,
-    maxWidth: "none",
+    blockSize: vars.controlHeightLg,
+    maxInlineSize: "none",
     paddingInline: vars.space12,
-    width: "100%",
+    inlineSize: "100%",
   },
   modelMenu: {
-    maxWidth: {
+    maxInlineSize: {
       default: null,
       "@media (min-width: 640px)": "32rem",
     },
@@ -811,27 +813,27 @@ export const settingsSectionsStyles = stylex.create({
     borderRadius: vars.radiusMark,
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
-    height: vars.controlHeightLg,
-    maxWidth: "none",
+    blockSize: vars.controlHeightLg,
+    maxInlineSize: "none",
     paddingInline: vars.space12,
-    width: "100%",
+    inlineSize: "100%",
   },
   fullWidth: {
-    width: "100%",
+    inlineSize: "100%",
   },
 
   // --- auto routing block ---
   routingBlock: {
     borderTopColor: vars.colorBorder,
     borderTopStyle: "solid",
-    borderTopWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars.borderWidthHairline,
     display: "flex",
     flexDirection: "column",
     gap: vars.space12,
-    paddingTop: vars.space12,
+    paddingBlockStart: vars.space12,
   },
   routingHeader: {
-    alignItems: "flex-start",
+    alignItems: "start",
     display: "flex",
     gap: vars.space12,
     justifyContent: "space-between",
@@ -839,12 +841,12 @@ export const settingsSectionsStyles = stylex.create({
   routingTitleRow: {
     alignItems: "center",
     display: "flex",
-    gap: 6,
+    gap: vars.space8,
   },
   accentGlyph: {
-    color: vars.colorAccent,
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    color: vars.colorTextMuted,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   routingGrid: {
     display: "grid",
@@ -877,16 +879,16 @@ export const settingsSectionsStyles = stylex.create({
     paddingInline: vars.space12,
   },
   smallBadge: {
-    height: 20,
+    blockSize: vars.space20,
     fontSize: vars.fontSizeMicro,
     letterSpacing: "0.04em",
-    paddingInline: 6,
+    paddingInline: vars.space8,
     textTransform: "uppercase",
   },
   smallBadgePlain: {
-    height: 20,
+    blockSize: vars.space20,
     fontSize: vars.fontSizeMicro,
-    paddingInline: 6,
+    paddingInline: vars.space8,
   },
   groupCard: {
     backgroundColor: vars.colorCanvasSubtle,
@@ -909,25 +911,25 @@ export const settingsSectionsStyles = stylex.create({
     paddingBlock: vars.space8,
     paddingInline: vars.space12,
     textAlign: "start",
-    width: "100%",
+    inlineSize: "100%",
   },
   groupToggleLeft: {
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
     gap: vars.space8,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   chevron: {
     color: vars.colorTextMuted,
     flexShrink: 0,
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   groupBody: {
     borderTopColor: vars.colorBorder,
     borderTopStyle: "solid",
-    borderTopWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars.borderWidthHairline,
     display: "flex",
     flexDirection: "column",
     gap: vars.space8,
@@ -937,7 +939,7 @@ export const settingsSectionsStyles = stylex.create({
   skillMeta: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    marginTop: 2,
+    marginBlockStart: vars.space2,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -957,7 +959,7 @@ export const settingsSectionsStyles = stylex.create({
     flexDirection: "column",
     gap: vars.space12,
     "@media (min-width: 1024px)": {
-      alignItems: "flex-start",
+      alignItems: "start",
       flexDirection: "row",
     },
   },
@@ -965,20 +967,20 @@ export const settingsSectionsStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars.space4,
-    minWidth: 0,
+    minInlineSize: 0,
     "@media (min-width: 1024px)": {
       flexShrink: 0,
-      width: 256,
+      inlineSize: 256,
     },
   },
   shortcutLeadNarrow: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space4,
-    minWidth: 0,
+    minInlineSize: 0,
     "@media (min-width: 1024px)": {
       flexShrink: 0,
-      width: 208,
+      inlineSize: 208,
     },
   },
   shortcutMain: {
@@ -986,7 +988,7 @@ export const settingsSectionsStyles = stylex.create({
     flexDirection: "column",
     flex: 1,
     gap: vars.space8,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   seqRow: {
     alignItems: "center",
@@ -1001,19 +1003,19 @@ export const settingsSectionsStyles = stylex.create({
     backgroundColor: vars.colorCanvas,
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusMark,
-    height: vars.controlHeightLg,
-    width: "100%",
+    blockSize: vars.controlHeightLg,
+    inlineSize: "100%",
   },
   selectTriggerEffort: {
     backgroundColor: vars.colorCanvas,
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusMark,
     flex: 1,
-    height: vars.controlHeightSm,
-    minWidth: 0,
+    blockSize: vars.controlHeightSm,
+    minInlineSize: 0,
   },
   selectContentTall: {
-    maxHeight: 320,
+    maxBlockSize: 320,
   },
   selectContentEffortRow: {
     alignItems: "center",
@@ -1054,7 +1056,7 @@ export const settingsSectionsStyles = stylex.create({
     flexDirection: "column",
     gap: vars.space12,
     "@media (min-width: 1024px)": {
-      alignItems: "flex-start",
+      alignItems: "start",
       flexDirection: "row",
       justifyContent: "space-between",
     },
@@ -1063,7 +1065,7 @@ export const settingsSectionsStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars.space8,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   commandTitle: {
     color: vars.colorText,
@@ -1096,11 +1098,11 @@ export const settingsSectionsStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     gap: vars.space8,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   modelOptionGlyph: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
 
   // --- prompt field reset ---
@@ -1108,7 +1110,7 @@ export const settingsSectionsStyles = stylex.create({
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightRelaxed,
-    minHeight: 120,
+    minBlockSize: 120,
     resize: "vertical",
   },
   promptFooter: {
@@ -1130,8 +1132,8 @@ export const settingsSectionsStyles = stylex.create({
       ":hover": vars.colorText,
     },
     fontSize: vars.fontSizeCaption,
-    gap: 6,
-    height: vars.controlHeightXs,
+    gap: vars.space8,
+    blockSize: vars.controlHeightXs,
   },
 
   // --- lens session buttons ---
@@ -1163,10 +1165,10 @@ export const settingsSectionsStyles = stylex.create({
     },
   },
   cdpAddButton: {
-    gap: 6,
+    gap: vars.space8,
     justifyContent: "center",
     "@media (min-width: 640px)": {
-      width: "auto",
+      inlineSize: "auto",
     },
   },
   cdpHelp: {
@@ -1187,7 +1189,7 @@ export const settingsSectionsStyles = stylex.create({
   cdpHostText: {
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeMicro,
-    maxWidth: 192,
+    maxInlineSize: 192,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",

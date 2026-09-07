@@ -38,7 +38,7 @@ export const cursorModelConfigStyles = stylex.create({
       default: vars.colorTextMuted,
       ":hover": vars.colorText,
     },
-    backgroundColor: { default: null, ":hover": overlayHover },
+    backgroundColor: { default: "transparent", ":hover": overlayHover },
   },
   configButtonPressed: {
     borderColor: `color-mix(in oklch, ${vars.colorBorder} 70%, transparent)`,
@@ -54,7 +54,7 @@ export const cursorModelConfigStyles = stylex.create({
     paddingInline: { default: vars.space4, [mq480]: vars.space8 },
     paddingBlock: vars.space4,
     backgroundColor: {
-      default: null,
+      default: "transparent",
       ":hover": `color-mix(in oklch, ${overlayHover} 60%, transparent)`,
     },
   },
@@ -84,7 +84,7 @@ export const cursorModelConfigStyles = stylex.create({
     fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
     color: vars.colorText,
-    backgroundColor: { default: null, ":hover": overlayHover },
+    backgroundColor: { default: "transparent", ":hover": overlayHover },
   },
   modelIcon: { width: "0.875rem", height: "0.875rem", flexShrink: 0 },
   modelLabel: {

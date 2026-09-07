@@ -145,10 +145,12 @@ export const entryCardStyles = stylex.create({
   destructiveButton: {
     width: 32,
     height: 32,
-    color: {
-      default: vars.colorDangerText,
-      ":hover": vars.colorDangerText,
-    },
+    // One value, one declaration. The `:hover` arm named the SAME token as the
+    // resting state, so it was a state change that changed nothing — and it
+    // read as "this control has a hover tone" to every later reader and to the
+    // hard-cut check, which flagged the module for a transition it did not
+    // need. The delete affordance is red at rest and stays red.
+    color: vars.colorDangerText,
   },
   body: {
     borderTopWidth: vars.borderWidthHairline,

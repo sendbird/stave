@@ -14,6 +14,7 @@ import {
   Search,
 } from "lucide-react";
 import {
+  Badge,
   Button,
   DropdownMenu,
   DropdownMenuContent,
@@ -35,6 +36,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { branchDropdownStyles } from "./top-bar-branch-dropdown.styles";
+import { topBarControlStyles } from "./top-bar.styles";
 import { formatWorkspacePathLabel } from "@/store/project.utils";
 import {
   buildTopBarBranchGroups,
@@ -700,8 +702,11 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
               render={
                 <AdsButton
                   layout="host"
+                  size="sm"
                   type="button"
                   xstyle={[
+                    topBarControlStyles.control,
+                    topBarControlStyles.surface,
                     branchDropdownStyles.trigger,
                     branchOpen && branchDropdownStyles.triggerOpen,
                     Boolean(branchDrift) && branchDropdownStyles.triggerDrift,
@@ -756,7 +761,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
         <DropdownMenuContent
           align="start"
           sideOffset={8}
-          className={sx(branchDropdownStyles.menu)}
+          xstyle={branchDropdownStyles.menu}
         >
           <div className={sx(branchDropdownStyles.header)}>
             <div className={sx(branchDropdownStyles.headerRow)}>
@@ -788,8 +793,13 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
               <Button
                 type="button"
                 variant="ghost"
-                size="icon-sm"
+                // `icon-sm` is 32px; every other control in this popup — the
+                // search field beside it, Fetch, Pull, Create — is on the 36px
+                // rung, so the refresh trigger was the one control in the row
+                // that did not line up with its own neighbour.
+                size="icon"
                 title="Refresh branches"
+                aria-label="Refresh branches"
                 disabled={isBusy}
                 onClick={() => void loadBranches({ refreshRemote: true })}
               >
@@ -831,27 +841,27 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
               </div>
             ) : null}
 
-            <div className={sx(branchDropdownStyles.statusCard)}>
+            <div className={sx(branchDropdownStyles.statusSection)}>
               <div className={sx(branchDropdownStyles.statusRow)}>
                 <span className={sx(branchDropdownStyles.statusBranch)}>
                   {currentBranchLabel}
                 </span>
-                <span
-                  {...stylex.props(
-                    branchDropdownStyles.statusPill,
+                <Badge
+                  variant={
                     branchStatus.hasConflicts
-                      ? branchDropdownStyles.statusPillConflict
+                      ? "destructive"
                       : branchStatus.dirtyCount > 0
-                        ? branchDropdownStyles.statusPillDirty
-                        : branchDropdownStyles.statusPillClean,
-                  )}
+                        ? "warning"
+                        : "success"
+                  }
+                  className={sx(branchDropdownStyles.statusBadge)}
                 >
                   {branchStatus.hasConflicts
                     ? "Conflicts"
                     : branchStatus.dirtyCount > 0
                       ? `${branchStatus.dirtyCount} changed`
                       : "Clean"}
-                </span>
+                </Badge>
               </div>
               <p className={sx(branchDropdownStyles.statusHint)}>
                 {branchStatus.dirtyCount > 0
@@ -860,11 +870,11 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                     ? "HEAD is detached, so no local branch moves. Check out a branch to reattach."
                     : "Create or switch branches for this default workspace."}
               </p>
-              <div className={sx(branchDropdownStyles.actionGrid)}>
+              <div className={sx(branchDropdownStyles.actionRow)}>
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
+                  size="default"
                   xstyle={branchDropdownStyles.actionButton}
                   disabled={isBusy}
                   onClick={() => void handleFetchCurrentBranch()}
@@ -879,7 +889,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                 <Button
                   type="button"
                   variant="outline"
-                  size="sm"
+                  size="default"
                   xstyle={branchDropdownStyles.actionButton}
                   disabled={isBusy || isDetachedCheckout}
                   onClick={() => void handlePullCurrentBranch()}
@@ -891,41 +901,39 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                   )}
                   Pull
                 </Button>
-              </div>
-              <Tooltip>
-                <TooltipTrigger
-                  render={
-                    <span
-                      {...stylex.props(branchDropdownStyles.detachSlot)}
-                    />
-                  }
-                >
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    xstyle={branchDropdownStyles.detachButton}
-                    disabled={isBusy || !originDefaultRef}
-                    onClick={() => void handleDetachOriginDefaultBranch()}
+                <Tooltip>
+                  <TooltipTrigger
+                    render={
+                      <span {...stylex.props(branchDropdownStyles.detachSlot)} />
+                    }
                   >
-                    {branchOperation === "detach" ? (
-                      <Loader aria-hidden size="xs" variant="sync" />
-                    ) : (
-                      <GitBranchPlus />
-                    )}
-                    <span className={sx(branchDropdownStyles.truncate)}>
-                      {originDefaultRef
-                        ? `Fetch & checkout ${originDefaultRef}`
-                        : "Fetch & checkout origin default"}
-                    </span>
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="bottom">
-                  {originDefaultRef
-                    ? `Fetch origin and check out ${originDefaultRef} as a detached HEAD, without creating or moving a local branch`
-                    : "Neither origin/main nor origin/master is available"}
-                </TooltipContent>
-              </Tooltip>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="default"
+                      xstyle={branchDropdownStyles.detachButton}
+                      disabled={isBusy || !originDefaultRef}
+                      onClick={() => void handleDetachOriginDefaultBranch()}
+                    >
+                      {branchOperation === "detach" ? (
+                        <Loader aria-hidden size="xs" variant="sync" />
+                      ) : (
+                        <GitBranchPlus />
+                      )}
+                      <span className={sx(branchDropdownStyles.truncate)}>
+                        {originDefaultRef
+                          ? `Checkout ${originDefaultRef}`
+                          : "Checkout origin default"}
+                      </span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="bottom">
+                    {originDefaultRef
+                      ? `Fetch origin and check out ${originDefaultRef} as a detached HEAD, without creating or moving a local branch`
+                      : "Neither origin/main nor origin/master is available"}
+                  </TooltipContent>
+                </Tooltip>
+              </div>
             </div>
 
             <div className={sx(branchDropdownStyles.createRow)}>
@@ -949,7 +957,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
               />
               <Button
                 type="button"
-                size="sm"
+                size="default"
                 xstyle={branchDropdownStyles.createButton}
                 disabled={!canCreateBranch}
                 onClick={() => void handleCreateBranch()}
@@ -1061,12 +1069,16 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       <TooltipTrigger
         render={
           <div
-            className={sx(branchDropdownStyles.staticChip)}
+            className={sx(
+              topBarControlStyles.control,
+              topBarControlStyles.surface,
+              branchDropdownStyles.staticChip,
+            )}
             style={props.noDragStyle}
           />
         }
       >
-        <GitBranch {...stylex.props(branchDropdownStyles.staticChipIcon)} />
+        <GitBranch {...stylex.props(topBarControlStyles.icon)} />
         <span className={sx(branchDropdownStyles.truncate)}>
           {currentBranchLabel}
         </span>

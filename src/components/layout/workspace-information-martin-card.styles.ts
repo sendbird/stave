@@ -83,7 +83,7 @@ export const workspaceInformationMartinCardStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   openProjectIcon: {
-    color: "var(--martin-open-icon-color)",
+    color: `var(--martin-open-icon-color, ${vars.colorTextMuted})`,
     flexShrink: 0,
     height: vars.controlIconSizeSm,
     width: vars.controlIconSizeSm,

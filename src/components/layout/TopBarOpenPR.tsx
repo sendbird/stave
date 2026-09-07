@@ -2,6 +2,7 @@ import { Checkbox } from "@/components/ads/components/Checkbox";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Skeleton } from "@/components/ads/components/Skeleton";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
+import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import * as stylex from "@stylexjs/stylex";
 import {
@@ -16,7 +17,6 @@ import { useShallow } from "zustand/react/shallow";
 import {
   ArrowRight,
   CheckCircle2,
-  ChevronDown,
   ChevronRight,
   ExternalLink,
   GitBranch,
@@ -95,6 +95,7 @@ import {
   prToneBadgeStyles,
 } from "./pr-status.styles";
 import { layoutShellStyles } from "./layout-shell.styles";
+import { topBarControlStyles } from "./top-bar.styles";
 import { openPrStyles } from "./top-bar-open-pr.styles";
 import { isTaskArchived } from "@/lib/tasks";
 import {
@@ -1907,8 +1908,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
             render={
               <AdsButton
                 layout="host"
+                size="sm"
                 type="button"
-                xstyle={[openPrStyles.trigger, prCreateButtonStyles.trigger]}
+                xstyle={[
+                  topBarControlStyles.control,
+                  openPrStyles.trigger,
+                  prCreateButtonStyles.trigger,
+                ]}
                 style={props.noDragStyle}
                 onClick={() => void handleCreateClick()}
                 disabled={isCreateDisabled}
@@ -1923,7 +1929,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 variant="persist"
               />
             ) : (
-              <GitPullRequest />
+              <GitPullRequest
+                aria-hidden
+                className={sx(openPrStyles.triggerIcon)}
+              />
             )}
             {statusLabel ?? "Create PR"}
           </TooltipTrigger>
@@ -1943,8 +1952,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   render={
                     <AdsButton
                       layout="host"
+                      size="sm"
                       type="button"
-                      xstyle={[openPrStyles.trigger, badgeToneStyle]}
+                      xstyle={[
+                        topBarControlStyles.control,
+                        openPrStyles.trigger,
+                        badgeToneStyle,
+                      ]}
                       style={props.noDragStyle}
                       disabled={isBusy || continuingWorkspace}
                       aria-label="open-pr-status-menu"
@@ -1974,7 +1988,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
             <DropdownMenuContent
               align="end"
-              className={sx(openPrStyles.statusMenu)}
+              xstyle={openPrStyles.statusMenu}
             >
               {/* PR info header */}
               <DropdownMenuLabel
@@ -2051,8 +2065,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 render={
                   <AdsButton
                     layout="host"
+                    size="sm"
                     type="button"
                     xstyle={[
+                      topBarControlStyles.control,
                       openPrStyles.trigger,
                       openPrStyles.continueTrigger,
                     ]}
@@ -2307,7 +2323,14 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                       aria-expanded={changesExpanded}
                       aria-controls="create-pr-changed-files"
                     >
-                      {changesExpanded ? <ChevronDown /> : <ChevronRight />}
+                      {/* One rotating chevron: the ternary swapped the DOM
+                          node, so the arrow popped 90° instead of turning. */}
+                      <ChevronRight
+                        className={sx(
+                          changesExpanded && openPrStyles.changesChevronOpen,
+                          transition.transform,
+                        )}
+                      />
                       <span className={sx(openPrStyles.changesCountLabel)}>
                         {changedFiles.length} uncommitted file
                         {changedFiles.length !== 1 ? "s" : ""}
@@ -2332,7 +2355,14 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                             {changedFiles.map((file) => (
                               <label
                                 key={file.path}
-                                className={sx(openPrStyles.changesRow)}
+                                // A hover wash on a selectable file row, on a
+                                // `<label>` — no ADS control underneath it to
+                                // supply the fade the rest of the dialog's rows
+                                // have.
+                                className={sx(
+                                  openPrStyles.changesRow,
+                                  transition.colors,
+                                )}
                               >
                                 <Checkbox
                                   controlOnly

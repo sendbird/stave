@@ -202,23 +202,22 @@ function SkillInstructionsDialog(props: {
           <Tabs
             variant="line"
             defaultValue="rendered"
-            className={sx(skillStyles.dialogTabs)}
+            xstyle={skillStyles.dialogTabs}
           >
             <div className={sx(skillStyles.dialogTabBar)}>
               <TabsList
-                variant="line"
                 aria-label="Instruction view"
-                className={sx(skillStyles.dialogTabList)}
+                xstyle={skillStyles.dialogTabList}
               >
                 <TabsTrigger
                   value="rendered"
-                  className={sx(skillStyles.dialogTab)}
+                  xstyle={skillStyles.dialogTab}
                 >
                   Rendered
                 </TabsTrigger>
                 <TabsTrigger
                   value="source"
-                  className={sx(skillStyles.dialogTab)}
+                  xstyle={skillStyles.dialogTab}
                 >
                   Source
                 </TabsTrigger>
@@ -226,14 +225,14 @@ function SkillInstructionsDialog(props: {
             </div>
             <TabsContent
               value="rendered"
-              className={sx(skillStyles.dialogPanel)}
+              xstyle={skillStyles.dialogPanel}
             >
               <SkillInstructionsContent
                 instructions={skill.instructions}
                 xstyle={skillStyles.instructionsFill}
               />
             </TabsContent>
-            <TabsContent value="source" className={sx(skillStyles.dialogPanel)}>
+            <TabsContent value="source" xstyle={skillStyles.dialogPanel}>
               <SkillInstructionsContent
                 instructions={skill.instructions}
                 presentation="source"
@@ -464,7 +463,7 @@ export function SkillDetail(props: {
           >
             <MoreHorizontal className={sx(skillStyles.glyphSm)} />
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className={sx(skillStyles.detailMenu)}>
+          <DropdownMenuContent align="end" xstyle={skillStyles.detailMenu}>
             <DropdownMenuItem onSelect={handleCopyInvocationToken}>
               <Copy className={sx(skillStyles.glyphMd)} />
               Copy invocation token

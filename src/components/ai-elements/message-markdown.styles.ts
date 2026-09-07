@@ -126,6 +126,45 @@ export const markdownStyles = stylex.create({
   strong: {
     fontWeight: vars.fontWeightSemibold,
   },
+  /**
+   * Transcript headings.
+   *
+   * These existed as unstyled `<h1>`–`<h6>` until now, which is the whole of
+   * the "assistant text renders like a heading" report: with no component
+   * override the elements fell through to the user-agent sheet at `2em` /
+   * `1.5em` bold, and ADS's reset then removed the UA `margin-block` that had
+   * at least separated them from the prose — so a heading landed as an
+   * outsized bold line jammed into the paragraph flow.
+   *
+   * Sizes are `em`, not the `fontSize*` tokens, and that is deliberate: the
+   * message body's own size is a host px value the reader sets
+   * (`messageFontSize`), so an absolute rem step would keep the same size at
+   * every zoom level and invert the hierarchy at the small end. `em` keeps the
+   * ratio to whatever the reader chose. The steps are deliberately shallow —
+   * a transcript heading is a section label inside a message, not a page
+   * title, and h4–h6 stop scaling entirely and separate by weight alone.
+   */
+  heading: {
+    fontWeight: vars.fontWeightSemibold,
+    lineHeight: vars.lineHeightTight,
+    marginBottom: vars.space4,
+    marginTop: { default: vars.space16, ":first-child": 0 },
+    overflowWrap: "anywhere",
+    wordBreak: "break-word",
+  },
+  heading1: {
+    fontSize: "1.25em",
+  },
+  heading2: {
+    fontSize: "1.125em",
+  },
+  heading3: {
+    fontSize: "1em",
+  },
+  heading4: {
+    color: vars.colorTextMuted,
+    fontSize: "1em",
+  },
   paragraph: {
     marginTop: {
       default: `var(${LI_PARAGRAPH_MARGIN}, ${vars.space8})`,
@@ -192,7 +231,7 @@ export const markdownStyles = stylex.create({
   },
   tableRow: {
     backgroundColor: {
-      default: null,
+      default: "transparent",
       ":hover": `color-mix(in oklch, ${vars.colorCanvasSubtle} 30%, transparent)`,
     },
   },

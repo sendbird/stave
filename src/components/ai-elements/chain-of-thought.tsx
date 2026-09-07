@@ -1,4 +1,6 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { CappedViewport } from "@/components/ads/components/CappedViewport";
+import { StepRail } from "@/components/ads/components/StepRail";
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
 import {
   cloneElement,
@@ -77,6 +79,11 @@ interface ChainOfThoughtStepProps extends HTMLAttributes<HTMLDivElement> {
   openWhen?: boolean;
   /** Close once when this flips true. */
   collapseWhen?: boolean;
+  /**
+   * Last step in the run. Drops the rail connector: a rule that runs past the
+   * final marker points at nothing and reads as truncated content.
+   */
+  last?: boolean;
 }
 
 /* ─── Context ────────────────────────────────────────────────────── */
@@ -379,19 +386,24 @@ export function ChainOfThoughtContent({
    * on the reasoning body alone (see `StreamingThoughtViewport`), which keeps
    * every step header pinned and only glides the prose that is actually long.
    */
+  /*
+   * The container is ADS `StepRail`: the step gutter and the connector rule are
+   * one primitive shared with every ADS-backed row in the trace, so a
+   * `Thinking` row and a host `ChainOfThoughtStep` cannot disagree about where
+   * the rail sits. Host motion arrives through `xstyle`, which ADS merges last,
+   * so the reveal wins over the rail's own grid without depending on bundler
+   * emission order.
+   */
   return (
-    <div
-      className={cx(
-        "cot-trace-content",
-        sx(
-          s.content,
-          agentStyle === "legacy"
-            ? /* TODO(agent-style-legacy): remove with the legacy trace visual. */
-              s.contentLegacyMotion
-            : s.contentTraceMotion,
-        ),
-        className,
-      )}
+    <StepRail
+      className={className}
+      xstyle={[
+        s.content,
+        agentStyle === "legacy"
+          ? /* TODO(agent-style-legacy): remove with the legacy trace visual. */
+            s.contentLegacyMotion
+          : s.contentTraceMotion,
+      ]}
       {...args}
     />
   );
@@ -400,25 +412,38 @@ export function ChainOfThoughtContent({
 /* ─── Streaming thought viewport ──────────────────────────────────── */
 
 /**
- * Bottom-anchored, height-capped viewport for a single streaming thought.
+ * The capped viewport for a single streaming thought, now ADS
+ * `CappedViewport`.
  *
- * `justify-end` on a clipped column pushes overflow off the *top* while pinning
- * the newest line to the bottom — the stream-glide with no ResizeObserver, no
- * measured height, and no transform.
- *
- * The mask is a fixed-size layer anchored to the bottom rather than a plain
- * box-relative gradient. A box-relative gradient fades the *whole* body while
- * it is still short (a 2em box lies entirely inside a 3em fade); anchoring a
- * `CAP`-tall mask to the bottom means short content always lands in the mask's
- * opaque tail and the fade only appears once the box grows into the gradient
- * band. The `em` cap tracks `messageFontSize`.
+ * The three things this surface has to get right — the cap belongs to the
+ * *body* and not to the trace, the fade may not appear before there is
+ * overflow, and the follow hands control back the moment the reader scrolls —
+ * are the component's own contract; the local version had the first two.
+ * `live` is implied: this wrapper exists for the streaming case, and a settled
+ * thought renders as plain prose.
  */
 export function StreamingThoughtViewport({
   className,
   ...args
 }: HTMLAttributes<HTMLDivElement>) {
-  return <div className={cx(sx(s.viewport), className)} {...args} />;
+  return (
+    <CappedViewport
+      className={className}
+      label="Streaming reasoning"
+      live
+      maxBlockSize={STREAMING_THOUGHT_CAP}
+      xstyle={s.viewportBody}
+      {...args}
+    />
+  );
 }
+
+/**
+ * The cap, in px because ADS sizes its bounded payloads in px and the mask band
+ * is measured against this exact number. It is the same ~14 lines of body copy
+ * the em-based cap resolved to at the default message size.
+ */
+const STREAMING_THOUGHT_CAP = 220;
 
 /* ─── Step ─────────────────────────────────────────────────────────── */
 
@@ -432,6 +457,7 @@ export function ChainOfThoughtStep({
   kind,
   icon,
   variant = "default",
+  last = false,
   defaultOpen = false,
   openWhen = false,
   collapseWhen = false,
@@ -470,27 +496,30 @@ export function ChainOfThoughtStep({
   const revealMotionStyle =
     agentStyle === "legacy" ? s.revealMotionLegacy : s.revealMotionTrace;
 
+  /*
+   * The step's rail is ADS `StepRail.Step`, and the status mark moves inline
+   * into the title row. One leading mark per row is the anatomy every
+   * ADS-backed row in this trace already has — glyph, label, meta, chevron —
+   * and a second mark out in the gutter restated the status the row's own
+   * spinner and ink already carry.
+   */
+  const statusIcon = (
+    <StepIcon status={status} kind={kind} icon={icon} variant={variant} />
+  );
+
   return (
-    <div
-      className={cx(
-        sx(
-          s.step,
-          status === "active" && s.stepActive,
-          status === "done" && s.stepDone,
-          status === "pending" && s.stepPending,
-          rowMotionStyle,
-        ),
-        className,
-      )}
+    <StepRail.Step
+      className={className}
+      connector={!last}
+      xstyle={[
+        s.step,
+        status === "active" && s.stepActive,
+        status === "done" && s.stepDone,
+        status === "pending" && s.stepPending,
+        rowMotionStyle,
+      ]}
       {...props}
     >
-      {/* Icon column with vertical connector */}
-      <div className={sx(s.iconColumn)}>
-        <StepIcon status={status} kind={kind} icon={icon} variant={variant} />
-        <div className={cx("cot-connector", sx(s.connector))} />
-      </div>
-
-      {/* Content column */}
       <div className={sx(s.contentColumn)}>
         {hasContent ? (
           <AdsButton
@@ -499,6 +528,7 @@ export function ChainOfThoughtStep({
             className={sx(s.disclosure)}
             onClick={() => setOpen((prev) => !prev)}
           >
+            {statusIcon}
             <span>{resolvedTitle}</span>
             {summary}
             {trailing}
@@ -508,6 +538,7 @@ export function ChainOfThoughtStep({
           </AdsButton>
         ) : (
           <div className={sx(s.staticRow)}>
+            {statusIcon}
             <span>{resolvedTitle}</span>
             {summary}
             {trailing}
@@ -522,6 +553,6 @@ export function ChainOfThoughtStep({
           <div className={sx(s.reveal, revealMotionStyle)}>{children}</div>
         ) : null}
       </div>
-    </div>
+    </StepRail.Step>
   );
 }

@@ -13,19 +13,16 @@ export const openPrStyles = stylex.create({
   minWidthZero: { minWidth: 0 },
 
   // --- Top-bar triggers ---------------------------------------------------
+  // Composed after `topBarControlStyles.control`, which owns the 32px height,
+  // `space8` gutter/gap, and the caption/medium label shared by the whole top
+  // bar row. Only the border and the disabled fade are local here, because the
+  // tone styles below repaint the fill per PR state.
   trigger: {
-    alignItems: "center",
-    borderRadius: vars.radiusControl,
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
-    display: "inline-flex",
-    fontSize: vars.fontSizeCaption,
-    gap: 6,
-    height: 28,
     opacity: { default: 1, ":disabled": vars.opacityDisabled },
-    paddingInline: "0.625rem",
   },
-  triggerGroup: { alignItems: "center", display: "flex", gap: 6 },
+  triggerGroup: { alignItems: "center", display: "flex", gap: vars.space8 },
   continueTrigger: {
     backgroundColor: {
       default: vars.colorCanvas,
@@ -34,7 +31,22 @@ export const openPrStyles = stylex.create({
     borderColor: vars.colorBorderSubtle,
     color: vars.colorText,
   },
-  statusIcon: { flexShrink: 0, height: 14, width: 14 },
+  statusIcon: {
+    blockSize: vars.controlIconSizeSm,
+    flexShrink: 0,
+    inlineSize: vars.controlIconSizeSm,
+  },
+  /**
+   * The 16px box is the same value the shared glyph rule in `ads/styles.css`
+   * now resolves for this host-layout Button's default `md` rung, and the box
+   * `Loader size="xs"` occupies — so the idle and busy states of the trigger
+   * stay optically equal whichever rule paints the glyph.
+   */
+  triggerIcon: {
+    blockSize: vars.controlIconSizeSm,
+    flexShrink: 0,
+    inlineSize: vars.controlIconSizeSm,
+  },
   statusMenu: { width: 256 },
   statusMenuLabel: { display: "flex", flexDirection: "column", gap: 2 },
   statusMenuTitle: {
@@ -257,7 +269,7 @@ export const openPrStyles = stylex.create({
   tagLocation: {
     color: vars.colorTextMuted,
     fontFamily: vars.fontMono,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -330,7 +342,7 @@ export const openPrStyles = stylex.create({
   fieldLabel: {
     color: vars.colorTextMuted,
     display: "block",
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightSemibold,
     letterSpacing: "0.12em",
     textTransform: "uppercase",
@@ -431,6 +443,8 @@ export const openPrStyles = stylex.create({
     textAlign: "left",
     width: "100%",
   },
+  /* Rotation only; `transition.transform` at the call site owns the timing. */
+  changesChevronOpen: { transform: "rotate(90deg)" },
   changesCountLabel: { flexShrink: 0 },
   changesHint: {
     color: vars.colorTextMuted,
@@ -455,7 +469,7 @@ export const openPrStyles = stylex.create({
   },
   changesRow: {
     alignItems: "center",
-    backgroundColor: { default: null, ":hover": vars.colorOverlayHover },
+    backgroundColor: { default: "transparent", ":hover": vars.colorOverlayHover },
     borderRadius: vars.radiusMark,
     display: "flex",
     gap: vars.space8,

@@ -135,6 +135,12 @@ export function PromptInputWorkerPill(args: {
                   type="button"
                   variant="ghost"
                   size="sm"
+                  // The composer lane owns this control's box (height, gutters, and one
+                  // glyph size for every control in the row), so the glyph rule has to be a
+                  // default rather than a mandate: `layout="control"` applies ADS's own
+                  // unlayered `> svg` size and pinned this trigger to the `sm` ramp's 14px
+                  // while its `layout="host"` neighbours in the same wing rendered 16.
+                  layout="host"
                   disabled={args.disabled}
                   aria-label={`Configure Worker mode · ${presentation.label}`}
                   {...composerControlAttributes}
@@ -183,8 +189,11 @@ export function PromptInputWorkerPill(args: {
         align="start"
         side="top"
         sideOffset={8}
-        className={sx(workerModeStyles.popover)}
-        xstyle={COMPOSER_OPTION_MENU_CONTENT}
+        // One channel, one call: the shared option-menu geometry and this
+        // menu's own width merge into the popover's own `stylex.props` call,
+        // in order. The width used to ride in on `className`, where StyleX
+        // could not reconcile it against the shared geometry at all.
+        xstyle={[COMPOSER_OPTION_MENU_CONTENT, workerModeStyles.popover]}
         data-testid="worker-mode-options"
       >
         <ComposerOptionMenuToggle

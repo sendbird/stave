@@ -11,9 +11,13 @@ export const runtimeBarStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
   },
+  // One gutter with the popover header (`space16`) so the section rules run
+  // edge to edge on the flush surface and the labels sit on the header's own
+  // inline baseline. `space20` here was the second inset that, on top of the
+  // surface's surviving 16px padding, pushed the content 36px off the edge.
   section: {
-    paddingInline: vars.space20,
-    paddingBlock: "0.875rem",
+    paddingInline: vars.space16,
+    paddingBlock: vars.space12,
     borderTopWidth: vars.borderWidthHairline,
     borderTopStyle: "solid",
     borderTopColor: vars.colorBorder,
@@ -38,9 +42,9 @@ export const runtimeBarStyles = stylex.create({
     minHeight: 36,
     gridTemplateColumns: "minmax(0,1fr) minmax(6rem,auto)",
     alignItems: "center",
-    gap: vars.space20,
+    gap: vars.space16,
     paddingBlock: vars.space8,
-    fontSize: 13,
+    fontSize: vars.fontSizeCaption,
     borderTopWidth: vars.borderWidthHairline,
     borderTopStyle: "solid",
     borderTopColor: vars.colorBorderSubtle,

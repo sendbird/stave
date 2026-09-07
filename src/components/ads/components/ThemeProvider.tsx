@@ -48,8 +48,39 @@ const themeStyles = {
   light: lightTheme,
 } as const;
 
+/*
+ * `::selection`, published as tokens.
+ *
+ * The global `::selection` rule lives in `styles.css` and can only read a
+ * stable custom-property name, because StyleX hashes a `defineVars` key. That
+ * constraint used to be paid for with a per-`data-theme` block of oklch
+ * LITERALS copied out of `theme-values.ts` and policed by a `selection-sync`
+ * guard. A copy is only ever correct for the themes it was written for: a host
+ * that maps the token group onto its own palette (the supported extension
+ * point — its own accents, its own saved themes) still got the design system's
+ * literal ink dragged across its text, and no fourth theme could ever work.
+ *
+ * Assigning the pair here instead makes it a real token read: the value is
+ * `var(<hashed colorText>)`, resolved against the nearest theme provider —
+ * so it follows a nested theme, a density preset, and a host's own remapping
+ * of the group, with nothing to keep in sync.
+ *
+ * The roles are `colorText` (fill) and `colorTextInverted` (glyph), which are
+ * theme-flipped and already gated at 4.5:1 against each other by
+ * `scripts/check-colors.mjs`. Deliberately NOT `colorSelectionFill` — that is
+ * the row-selection tint (design direction §1.7, guarded by
+ * `scripts/check-selection.mjs`), a different role.
+ *
+ * Written on BOTH the wrapper and the `<html>` mirror, and the duplication is
+ * load-bearing: portaled menus, dialogs and toasts mount at `document.body`,
+ * outside the wrapper, so text selected inside a dialog inherits the pair only
+ * from the document. Two declarations, not a shared spread — StyleX resolves
+ * `create` statically and does not read an object spread.
+ */
 const nativeChromeStyles = stylex.create({
   root: {
+    "--ads-selection-background": vars.colorText,
+    "--ads-selection-color": vars.colorTextInverted,
     // Thumb only. A painted track turns a native scrollbar into a channel
     // running the height of the region, which reads as a border the app did
     // not ask for. `colorScrollbarTrack` still belongs to `ScrollArea`, which
@@ -60,6 +91,8 @@ const nativeChromeStyles = stylex.create({
   // behind overscroll, and everything outside the React root — carries the
   // themed canvas instead of the browser's white default.
   documentSurface: {
+    "--ads-selection-background": vars.colorText,
+    "--ads-selection-color": vars.colorTextInverted,
     backgroundColor: vars.colorCanvas,
   },
   dark: {
@@ -199,9 +232,9 @@ export function ThemeProvider({
 
   // Mirror onto <html> so portaled surfaces (menus, dialogs, toasts, which
   // mount at document.body and never see the wrapper div) resolve the same
-  // tokens as the in-tree content. Classes and inline vars are tracked so the
-  // cleanup removes exactly what this effect added, leaving anything a host
-  // page set on <html> itself untouched.
+  // tokens as the in-tree content. Classes and inline vars are tracked and any
+  // pre-existing inline value is snapshotted, so the cleanup restores <html>
+  // to exactly what the host page had set, never deleting host-owned styles.
   const themeClassName = themeProps.className;
   const densityClassName = densityProps?.className;
   // `stylex.props` returns a fresh style object every render, so it is
@@ -230,16 +263,29 @@ export function ThemeProvider({
       string,
       string | undefined
     >;
+    // Snapshot every inline value this effect is about to overwrite so the
+    // cleanup restores the host's own `<html>` styles instead of deleting
+    // them — the same capture/restore used below for `colorScheme`. Without it
+    // a theme switch (which re-runs this effect) tore down host-authored
+    // custom properties on `<html>` and left the shell resolving fallbacks.
+    const previousVars = new Map<string, string>();
     for (const [name, value] of Object.entries(appliedVars)) {
       if (name.startsWith("--") && value != null) {
+        previousVars.set(name, root.style.getPropertyValue(name));
         root.style.setProperty(name, value);
       }
     }
 
     // Hand-off from a pre-hydration boot script: a host may inline a background
     // on <html> to avoid a light flash before React mounts. Now that the real
-    // theme class is on, that inline value would outrank it — so drop it.
-    root.style.removeProperty("background-color");
+    // theme class is on, that inline value would outrank it — so drop it. Only
+    // the boot script's own value is dropped (it flags itself with
+    // `data-ads-boot-background`); a background a host set deliberately is left
+    // alone, and the flag is cleared so this happens exactly once.
+    if (root.dataset.adsBootBackground != null) {
+      root.style.removeProperty("background-color");
+      delete root.dataset.adsBootBackground;
+    }
 
     const previousColorScheme = root.style.colorScheme;
     root.style.colorScheme = resolved === "dark" ? "dark" : "light";
@@ -248,8 +294,10 @@ export function ThemeProvider({
 
     return () => {
       root.classList.remove(...added);
-      for (const name of Object.keys(appliedVars)) {
-        if (name.startsWith("--")) {
+      for (const [name, previous] of previousVars) {
+        if (previous) {
+          root.style.setProperty(name, previous);
+        } else {
           root.style.removeProperty(name);
         }
       }

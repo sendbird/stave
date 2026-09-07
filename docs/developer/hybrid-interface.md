@@ -46,7 +46,6 @@ Bun tests compile this layer with the same StyleX compiler through
 | WorkspaceSurface | Heading, purpose, actions, body; wrapping header and bounded parent scrolling                                                                                                        |
 | StatusBadge      | Text labels plus semantic tone; never color-only state                                                                                                                               |
 | ChoiceChips      | One exclusive choice, one Tab entry, arrow-key selection, visible theme focus, wrapping options and disabled semantics; preserves default/undefined domain values                    |
-| OptionButton     | Compact or comfortable wrapping selection row; explicit pressed state and theme-backed selection/focus; used by execution model menus                                                |
 | SelectionRail    | Vertical category tabs inside the existing Base UI tab root; accessible labels, counts, keyboard navigation and compact icon treatment                                               |
 
 Use 4/8/12/16/24 px spacing roles. Keep existing custom theme semantics, contrast
@@ -145,7 +144,8 @@ Provider selection colors resolve through existing theme tokens. Model, Fast,
 and expanded-context controls remain separate buttons in their existing lane.
 
 Advisor and Worker effort rows share `ChoiceChips`; their model rows share
-`OptionButton`. The general-purpose model dialog uses the same effort choice.
+`ComposerOptionModelRow`. The general-purpose model dialog uses the same effort
+choice.
 Higher effort allows more reasoning and can take longer; the interface does not
 promise better results from that setting alone. Selecting a model never sends
 the prompt or discards its draft.

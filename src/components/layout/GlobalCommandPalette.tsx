@@ -19,6 +19,7 @@ import {
   CommandItem,
   CommandList,
   CommandShortcut,
+  Kbd,
 } from "@/components/ui";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import {
@@ -153,18 +154,29 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
           placeholder="Find a command, task, workspace, or setting…"
         />
         <CommandList className={sx(commandPaletteStyles.list)}>
-          <CommandEmpty className={sx(commandPaletteStyles.empty)}>
-            <p className={sx(commandPaletteStyles.emptyTitle)}>
-              {query.trim()
-                ? `No command matches “${query.trim()}”`
-                : "No commands available in this context"}
-            </p>
-            <p className={sx(commandPaletteStyles.emptyHint)}>
-              {query.trim()
-                ? "Try an action, destination, task, workspace, or a shorter phrase."
-                : "Open a project or task to make its contextual commands available."}
-            </p>
-          </CommandEmpty>
+          {/*
+            Gated on this palette's own result count. `Command.Empty` wraps Base
+            UI's `Autocomplete.Empty`, whose emptiness is derived from the item
+            collection IT filtered — and this palette runs `shouldFilter={false}`
+            and filters into `visibleSections` itself, so that collection is not
+            the thing on screen. Ungated it mounted an 80px padded block above
+            every result list, which is the blank band that appeared between the
+            query row and the first group.
+          */}
+          {visibleSections.length === 0 ? (
+            <CommandEmpty className={sx(commandPaletteStyles.empty)}>
+              <p className={sx(commandPaletteStyles.emptyTitle)}>
+                {query.trim()
+                  ? `No command matches “${query.trim()}”`
+                  : "No commands available in this context"}
+              </p>
+              <p className={sx(commandPaletteStyles.emptyHint)}>
+                {query.trim()
+                  ? "Try an action, destination, task, workspace, or a shorter phrase."
+                  : "Open a project or task to make its contextual commands available."}
+              </p>
+            </CommandEmpty>
+          ) : null}
           {visibleSections.map((section) => (
             <CommandGroup
               key={section.key}
@@ -239,11 +251,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
                       ) : null}
                     </div>
                     {action.shortcut ? (
-                      <CommandShortcut
-                        className={sx(commandPaletteStyles.itemShortcut)}
-                      >
-                        {action.shortcut}
-                      </CommandShortcut>
+                      <CommandShortcut>{action.shortcut}</CommandShortcut>
                     ) : null}
                   </CommandItem>
                 );
@@ -304,12 +312,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
               <span className={sx(commandPaletteStyles.pinLabel)}>
                 {selectedActionIsPinned ? "Unpin" : "Pin"}
               </span>
-              <kbd
-                className={sx(commandPaletteStyles.pinKeyHint)}
-                aria-hidden="true"
-              >
-                Alt+P
-              </kbd>
+              <Kbd aria-hidden="true">Alt+P</Kbd>
             </Button>
             <span className={sx(commandPaletteStyles.resultCount)}>
               {query.trim()

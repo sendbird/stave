@@ -45,13 +45,16 @@ export const workspaceSettingsDialogStyles = stylex.create({
     paddingTop: vars.space4,
     wordBreak: "break-all",
   },
+  /**
+   * A section, not a box. The ADS Dialog surface already supplies the one
+   * content gutter (`space24`), so a bordered card here added a second inset
+   * on top of it and the Label field sat 13px inside the header it should be
+   * flush with. Sections are separated by the surface's own grid gap.
+   */
   labelForm: {
-    backgroundColor: vars.colorCanvasSubtle,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusControl,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    padding: vars.space12,
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.space8,
   },
   labelRow: {
     alignItems: {
@@ -84,20 +87,32 @@ export const workspaceSettingsDialogStyles = stylex.create({
   labelHint: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space8,
   },
+  /**
+   * No block inset of its own: the surface grid gap already separates the tab
+   * rail from the section above it, and a `paddingTop` here pushed the rail
+   * down while the panel carried a second `paddingTop` — the two columns
+   * started 8px apart.
+   */
   tabs: {
     gap: vars.space16,
-    paddingTop: vars.space8,
     width: "100%",
   },
+  /**
+   * One left inset, not two. The ADS pill track pads itself by `space4` and
+   * each tab pads by `space12`, so a rail label sat 16px inside the rail box
+   * while every other row in the dialog sat on the gutter. Dropping the
+   * track's inline padding leaves the tab's own `space12` as the single inset
+   * (the block padding stays, so the pill keeps its vertical breathing room)
+   * and the selected pill spans the rail the way a rail row should.
+   */
   tabsList: {
     flexShrink: 0,
     minWidth: 144,
+    paddingInline: vars.space0,
   },
   tabPanel: {
     maxHeight: "60vh",
     overflowY: "auto",
-    paddingTop: vars.space8,
   },
 });

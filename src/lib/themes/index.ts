@@ -29,6 +29,7 @@ export {
   applyThemeOverrides,
   applyCustomTheme,
   applyFontOverrides,
+  buildFontStacks,
   buildThemeOverrideCss,
   buildCustomThemeCss,
   resolveDarkModeForTheme,

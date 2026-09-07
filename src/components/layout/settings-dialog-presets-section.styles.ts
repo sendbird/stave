@@ -13,14 +13,14 @@ export const presetsSectionStyles = stylex.create({
     fontWeight: vars.fontWeightMedium,
   },
   addButton: {
-    gap: 6,
+    gap: vars.space8,
   },
   addIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   editorPopover: {
-    width: "20rem",
+    inlineSize: "20rem",
   },
   restoreRow: {
     display: "flex",
@@ -41,34 +41,39 @@ export const presetsSectionStyles = stylex.create({
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: 10,
+    gap: vars.space8,
   },
+  /*
+   * One row shape for every preset kind (model preset or CLI preset): a fixed
+   * `controlHeight` icon column, a name + meta stack, and trailing `xs` icon
+   * buttons — all centred on a single 48px row, which is the Settings rhythm
+   * (`space24` card padding, `space20`/`space8` field gaps) two rungs up from
+   * the `xs` controls it contains.
+   *
+   * Previously the row stacked into a column below 1280px, aligned its main
+   * cluster to `start` while the actions centred, and let four labelled outline
+   * buttons wrap — so the icon, the name, the meta line, and the actions each
+   * sat on a different baseline.
+   */
   row: {
+    alignItems: "center",
     backgroundColor: vars.colorSurface,
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusControl,
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
-    padding: vars.space12,
-  },
-  rowInner: {
     display: "flex",
-    flexDirection: {
-      default: "column",
-      "@media (min-width: 1280px)": "row",
-    },
     gap: vars.space12,
-    alignItems: {
-      default: "stretch",
-      "@media (min-width: 1280px)": "center",
-    },
+    minBlockSize: vars.space48,
+    paddingBlock: vars.space8,
+    paddingInline: vars.space12,
   },
   rowMain: {
-    alignItems: "flex-start",
+    alignItems: "center",
     display: "flex",
     flex: 1,
     gap: vars.space12,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   mark: {
     alignItems: "center",
@@ -79,69 +84,71 @@ export const presetsSectionStyles = stylex.create({
     borderWidth: vars.borderWidthHairline,
     display: "flex",
     flexShrink: 0,
-    height: 36,
+    blockSize: vars.controlHeight,
     justifyContent: "center",
     position: "relative",
-    width: 36,
+    inlineSize: vars.controlHeight,
   },
   markIcon: {
     color: vars.colorTextMuted,
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   cliBadge: {
     backgroundColor: vars.colorCanvas,
     borderRadius: vars.radiusMark,
     bottom: -4,
     color: vars.colorTextMuted,
-    height: 12,
+    blockSize: vars.space12,
     position: "absolute",
     right: -4,
-    width: 12,
+    inlineSize: vars.space12,
   },
   rowBody: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space4,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   rowHead: {
     alignItems: "center",
     display: "flex",
-    flexWrap: "wrap",
     gap: vars.space8,
+    minInlineSize: 0,
   },
   rowLabel: {
     color: vars.colorText,
     fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
+    lineHeight: vars.lineHeightControl,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   shortcutChip: {
+    flexShrink: 0,
     fontSize: vars.fontSizeMicro,
-    height: 20,
-    paddingInline: 6,
+    blockSize: vars.space20,
+    paddingInline: vars.space8,
   },
   rowMeta: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
+    lineHeight: vars.lineHeightControl,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
   },
   rowActions: {
+    alignItems: "center",
     display: "flex",
-    flexWrap: "wrap",
-    gap: vars.space8,
-  },
-  actionButton: {
-    gap: 6,
-  },
-  actionIcon: {
-    height: 14,
-    width: 14,
+    flexShrink: 0,
+    gap: vars.space4,
   },
   deleteButton: {
     color: {
       default: vars.colorDangerText,
       ":hover": vars.colorDangerText,
     },
-    gap: 6,
   },
 });

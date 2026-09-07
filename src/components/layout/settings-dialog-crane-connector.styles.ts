@@ -22,7 +22,7 @@ export const craneConnectorStyles = stylex.create({
     outline: "none",
   },
   header: {
-    alignItems: "flex-start",
+    alignItems: "start",
     borderBottomColor: vars.colorBorder,
     borderBottomStyle: "solid",
     borderBottomWidth: vars.borderWidthHairline,
@@ -40,18 +40,18 @@ export const craneConnectorStyles = stylex.create({
     borderWidth: vars.borderWidthHairline,
     display: "flex",
     flexShrink: 0,
-    height: vars.controlHeightMd,
+    blockSize: vars.controlHeightMd,
     justifyContent: "center",
-    width: vars.controlHeightMd,
+    inlineSize: vars.controlHeightMd,
   },
   headerMarkIcon: {
     color: vars.colorTextMuted,
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   headerBody: {
     flex: 1,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   headerTitleLine: {
     alignItems: "center",
@@ -68,20 +68,20 @@ export const craneConnectorStyles = stylex.create({
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightControl,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   guideButton: {
-    height: "auto",
-    marginTop: vars.space4,
+    blockSize: "auto",
+    marginBlockStart: vars.space4,
     paddingInline: 0,
   },
   guideIcon: {
-    height: 12,
-    width: 12,
+    blockSize: vars.space12,
+    inlineSize: vars.space12,
   },
   refreshIcon: {
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   refreshIconSpinning: {
     animationDuration: vars.motionDurationLoop,
@@ -112,7 +112,7 @@ export const craneConnectorStyles = stylex.create({
   enableHint: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   field: {
     display: "grid",
@@ -132,11 +132,11 @@ export const craneConnectorStyles = stylex.create({
     fontSize: vars.fontSizeCaption,
   },
   actionIcon: {
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   pollTrigger: {
-    width: "12rem",
+    inlineSize: "12rem",
   },
   pairPanel: {
     backgroundColor: vars.colorCanvasSubtle,
@@ -157,7 +157,7 @@ export const craneConnectorStyles = stylex.create({
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightControl,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   pairGrid: {
     display: "grid",
@@ -182,7 +182,7 @@ export const craneConnectorStyles = stylex.create({
     rowGap: vars.space12,
   },
   pairedMeta: {
-    minWidth: 0,
+    minInlineSize: 0,
   },
   pairedName: {
     fontSize: vars.fontSizeBody,
@@ -195,7 +195,7 @@ export const craneConnectorStyles = stylex.create({
     color: vars.colorTextMuted,
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeMicro,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   infoNote: {
     borderColor: vars.colorBorder,
@@ -223,11 +223,11 @@ export const craneConnectorStyles = stylex.create({
   mappings: {
     borderTopColor: vars.colorBorder,
     borderTopStyle: "solid",
-    borderTopWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars.borderWidthHairline,
     display: "flex",
     flexDirection: "column",
     gap: vars.space12,
-    paddingTop: vars.space16,
+    paddingBlockStart: vars.space16,
   },
   mappingsList: {
     display: "flex",
@@ -248,7 +248,7 @@ export const craneConnectorStyles = stylex.create({
   },
   mappingBody: {
     flex: 1,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   mappingName: {
     color: vars.colorText,
@@ -283,6 +283,6 @@ export const craneConnectorStyles = stylex.create({
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightControl,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
 });

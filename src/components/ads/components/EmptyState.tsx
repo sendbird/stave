@@ -257,6 +257,13 @@ const styles = stylex.create({
   header: {
     display: "grid",
     gap: vars.space8,
+    // The header is a grid, so its children are placed with `justify-items`,
+    // and the default `stretch` cannot stretch a fixed 48px medallion: the
+    // media box lands at the inline start while the title and description
+    // centre their own text. Every empty state shipped with the icon hard left
+    // of a centred column. `center` places the medallion on the same axis the
+    // copy is already using.
+    justifyItems: "center",
     maxInlineSize: 360,
     minInlineSize: 0,
   },

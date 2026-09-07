@@ -20,14 +20,14 @@ export const automationStyles = stylex.create({
   /** Dense status chip: the Badge default box is too tall for these rows. */
   statusBadge: {
     flexShrink: 0,
-    fontSize: 9,
+    fontSize: vars.fontSizeMicro,
     minBlockSize: 20,
     paddingInline: vars.space4,
   },
   /** Small uppercase section eyebrow. */
   eyebrow: {
     color: vars.colorTextMuted,
-    fontSize: 9,
+    fontSize: vars.fontSizeMicro,
     letterSpacing: "0.12em",
     margin: 0,
     textTransform: "uppercase",

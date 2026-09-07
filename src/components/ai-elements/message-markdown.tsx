@@ -38,6 +38,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { MESSAGE_BODY_LINE_HEIGHT } from "./message-styles";
+import { hardenSetextHeadings } from "./message-markdown.setext";
 
 export interface MarkdownMessageProps extends HTMLAttributes<HTMLDivElement> {
   content: string;
@@ -324,6 +325,24 @@ export function MarkdownMessage({
       hr: () => (
         <hr className={sx(styles.hr)} />
       ),
+      h1: ({ children }: { children?: ReactNode }) => (
+        <h1 className={sx(styles.heading, styles.heading1)}>{children}</h1>
+      ),
+      h2: ({ children }: { children?: ReactNode }) => (
+        <h2 className={sx(styles.heading, styles.heading2)}>{children}</h2>
+      ),
+      h3: ({ children }: { children?: ReactNode }) => (
+        <h3 className={sx(styles.heading, styles.heading3)}>{children}</h3>
+      ),
+      h4: ({ children }: { children?: ReactNode }) => (
+        <h4 className={sx(styles.heading, styles.heading4)}>{children}</h4>
+      ),
+      h5: ({ children }: { children?: ReactNode }) => (
+        <h5 className={sx(styles.heading, styles.heading4)}>{children}</h5>
+      ),
+      h6: ({ children }: { children?: ReactNode }) => (
+        <h6 className={sx(styles.heading, styles.heading4)}>{children}</h6>
+      ),
       strong: ({ children }: { children?: ReactNode }) => (
         <strong className={sx(styles.strong)}>{children}</strong>
       ),
@@ -565,7 +584,7 @@ export function MarkdownMessage({
         </div>
       ) : (
         <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
-          {content}
+          {hardenSetextHeadings(content)}
         </ReactMarkdown>
       )}
     </div>

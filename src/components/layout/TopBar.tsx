@@ -44,9 +44,10 @@ import { TopBarStandaloneCli } from "@/components/layout/TopBarStandaloneCli";
 import { TopBarUpdate } from "@/components/layout/TopBarUpdate";
 import { TopBarWindowControls } from "@/components/layout/TopBarWindowControls";
 import { formatWorkspacePathLabel } from "@/store/project.utils";
+import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";
-import { topBarStyles } from "./top-bar.styles";
+import { topBarControlStyles, topBarStyles } from "./top-bar.styles";
 
 const IS_MAC =
   typeof window !== "undefined" && window.api?.platform === "darwin";
@@ -131,10 +132,33 @@ export function TopBar() {
               <Tooltip>
                 <TooltipTrigger
                   render={
-                    <div className={sx(topBarStyles.pathChip)} />
+                    <div
+                      className={sx(
+                        // The leading half of a segmented pair, so it needs the
+                        // same 32px geometry and bordered fill its own trailing
+                        // trigger already composes. Rendering `pathChip` alone
+                        // left the chip with no height, no border and no type
+                        // step: the path inherited the 16px document size while
+                        // every sibling control in the row ran at 12px, and the
+                        // pair read as a floating mono string welded to a
+                        // button.
+                        topBarControlStyles.control,
+                        topBarControlStyles.surface,
+                        // `surface` states a `:hover` fill AND a `:hover` ink,
+                        // and this is the one place it lands on a plain `div`
+                        // instead of an ADS `Button` (which composes
+                        // `transition.control` itself). So the leading half of
+                        // this segmented pair cut instantly to its hover colour
+                        // while the chevron half beside it faded — the two
+                        // halves of one control disagreeing about how a hover
+                        // arrives.
+                        transition.colors,
+                        topBarStyles.pathChip,
+                      )}
+                    />
                   }
                 >
-                  <FolderTree {...stylex.props(topBarStyles.pathIcon)} />
+                  <FolderTree {...stylex.props(topBarControlStyles.icon)} />
                   <span className={sx(topBarStyles.pathLabel)}>
                     {workspacePathLabel}
                   </span>
@@ -157,8 +181,14 @@ export function TopBar() {
                       render={
                         <AdsButton
                           layout="host"
+                          size="sm"
                           type="button"
-                          xstyle={topBarStyles.pathMenuTrigger}
+                          xstyle={[
+                            topBarControlStyles.control,
+                            topBarControlStyles.surface,
+                            topBarControlStyles.iconOnly,
+                            topBarStyles.pathMenuTrigger,
+                          ]}
                           aria-label="open-workspace-path-actions"
                         />
                       }
@@ -170,7 +200,7 @@ export function TopBar() {
                 </Tooltip>
                 <DropdownMenuContent
                   align="start"
-                  className={sx(topBarStyles.pathMenu)}
+                  xstyle={topBarStyles.pathMenu}
                 >
                   <DropdownMenuItem
                     onSelect={() => {
@@ -246,7 +276,11 @@ export function TopBar() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  xstyle={topBarStyles.gitGraphButton}
+                  xstyle={[
+                    topBarControlStyles.control,
+                    topBarControlStyles.surface,
+                    topBarStyles.gitGraphButton,
+                  ]}
                   style={TOP_BAR_NO_DRAG_STYLE}
                   disabled={!canOpenGitGraph}
                   onClick={focusOrCreateGitGraphSurface}

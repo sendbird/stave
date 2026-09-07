@@ -65,7 +65,7 @@ export const advisorExchangeMonitorStyles = stylex.create({
   },
   headerTitle: {
     flex: 1,
-    fontSize: "0.8125rem",
+    fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -115,7 +115,7 @@ export const advisorExchangeMonitorStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   chipName: {
-    fontSize: "0.8125rem",
+    fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -204,14 +204,14 @@ export const advisorExchangeMonitorStyles = stylex.create({
   statusText: {
     color: vars.colorTextMuted,
     flex: 1,
-    fontSize: "0.75rem",
+    fontSize: vars.fontSizeCaption,
     lineHeight: 1.5,
     minWidth: 0,
   },
   statusElapsed: {
     color: vars.colorTextMuted,
     flexShrink: 0,
-    fontSize: "0.75rem",
+    fontSize: vars.fontSizeCaption,
     fontVariantNumeric: "tabular-nums",
   },
 
@@ -229,7 +229,7 @@ export const advisorExchangeMonitorStyles = stylex.create({
   skipText: {
     color: vars.colorTextMuted,
     flex: 1,
-    fontSize: "0.75rem",
+    fontSize: vars.fontSizeCaption,
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -284,7 +284,7 @@ export const advisorExchangeMonitorStyles = stylex.create({
   },
   checkLabel: {
     color: vars.colorText,
-    fontSize: "0.75rem",
+    fontSize: vars.fontSizeCaption,
     lineHeight: 1.45,
   },
   checkLabelFail: {
@@ -304,7 +304,7 @@ export const advisorExchangeMonitorStyles = stylex.create({
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
     color: vars.colorText,
-    fontSize: "0.75rem",
+    fontSize: vars.fontSizeCaption,
     lineHeight: 1.5,
     marginTop: vars.space4,
     overflowWrap: "break-word",

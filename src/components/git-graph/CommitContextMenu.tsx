@@ -271,7 +271,7 @@ export function CommitContextMenu({
         ></DropdownMenuTrigger>
 
         <DropdownMenuContent
-          className={sx(styles.menu)}
+          xstyle={styles.menu}
           align="start"
           alignOffset={0}
           collisionPadding={8}

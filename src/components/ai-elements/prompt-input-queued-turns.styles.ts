@@ -15,8 +15,12 @@ export const queuedTurnsStyles = stylex.create({
     backgroundColor: vars.colorSurface,
     paddingInline: vars.space12,
     paddingBlock: 10,
-    boxShadow:
-      "0 10px 28px -18px oklch(0 0 0 / 0.28), 0 2px 7px -4px oklch(0 0 0 / 0.16)",
+    // Popup band: this panel floats over the composer, so it takes the ADS
+    // overlay step rather than a hand-mixed pair. The literal it replaced was
+    // pure-black and theme-blind — invisible on a dark canvas, where
+    // `elevationOverlay` is overridden per theme — and it had no ambient layer,
+    // so the surface read as a card on the composer instead of above it.
+    boxShadow: vars.elevationOverlay,
   },
   header: {
     display: "flex",

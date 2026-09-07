@@ -2,7 +2,7 @@ import { MessageSquarePlus, Trash2, X } from "lucide-react";
 import type { KeyboardEvent, MouseEvent } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import { editorReviewPanelStyles as styles } from "@/components/layout/editor-review-panel.styles";
-import { Button, Textarea } from "@/components/ui";
+import { Button, Kbd, Textarea } from "@/components/ui";
 import type { ReviewComment, ReviewCommentDraft } from "@/types/review";
 
 function stopEditorMouseEvent(event: MouseEvent<HTMLElement>) {
@@ -110,11 +110,14 @@ export function EditorReviewPanel(args: {
           />
           <div className={sx(styles.draftFooter)}>
             <span className={sx(styles.draftHint)}>
-              {typeof navigator !== "undefined" &&
-              navigator.platform.includes("Mac")
-                ? "⌘"
-                : "Ctrl"}
-              +Enter to save
+              <Kbd>
+                {typeof navigator !== "undefined" &&
+                navigator.platform.includes("Mac")
+                  ? "⌘"
+                  : "Ctrl"}
+              </Kbd>
+              <Kbd>Enter</Kbd>
+              to save
             </span>
             <div className={sx(styles.draftActions)}>
               <Button

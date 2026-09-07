@@ -106,7 +106,7 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
         >
           <Plus className={sx(styles.icon)} />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className={sx(styles.menu)}>
+        <DropdownMenuContent align="end" xstyle={styles.menu}>
           <DropdownMenuItem onSelect={createTaskInGroup}>
             <Plus className={sx(styles.icon)} />
             New Task
@@ -205,7 +205,7 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
         >
           <Ellipsis className={sx(styles.icon)} />
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" className={sx(styles.options)}>
+        <DropdownMenuContent align="end" xstyle={styles.options}>
           <DropdownMenuItem onSelect={() => dispatchOpenTaskHistory()}>
             Task History
           </DropdownMenuItem>
@@ -235,7 +235,7 @@ item: {alignItems:"flex-start"},
 choice: {display:"flex",minWidth:0,alignItems:"flex-start",gap:8},
 providerIcon: {marginTop:2,width:16,height:16,flexShrink:0,color:vars.colorTextMuted},
 content: {minWidth:0},
-label: {overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:14,fontWeight:500},
-description: {marginTop:2,fontSize:12,color:vars.colorTextMuted},
-taskHint: {marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize:12,color:vars.colorTextSubtle}
+label: {overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize: vars.fontSizeBody,fontWeight:500},
+description: {marginTop:2,fontSize: vars.fontSizeCaption,color:vars.colorTextMuted},
+taskHint: {marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize: vars.fontSizeCaption,color:vars.colorTextSubtle}
 });

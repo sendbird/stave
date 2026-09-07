@@ -138,6 +138,80 @@ export function applyCustomTheme(args: {
 // Font overrides
 // ---------------------------------------------------------------------------
 
+/*
+ * The faces this app actually ships, appended behind whatever the user typed.
+ *
+ * These two properties are written as INLINE styles on `<html>`, so they beat
+ * the `:root` stack in `globals.css` outright — a two-name stack here does not
+ * "fall back to" the documented one, it replaces it. Two things break when the
+ * tail is dropped: the default mono setting reads `JetBrains Mono` while the
+ * face `fonts.css` loads is named `JetBrains Mono Variable`, so code text lands
+ * on the generic monospace; and Hangul under an unavailable custom face has no
+ * declared Korean typeface left to reach, which is exactly the OS-dependent
+ * drift the Geist + Pretendard pairing exists to prevent.
+ *
+ * Kept in step with the `--font-sans` / `--font-mono` declarations in
+ * `globals.css` (tests/prompt-editor-typography.test.ts gates the pair).
+ */
+const SANS_FALLBACK_TAIL = [
+  "Geist Variable",
+  "Pretendard Variable",
+  "Pretendard",
+  "Apple SD Gothic Neo",
+  "ui-sans-serif",
+  "system-ui",
+  "-apple-system",
+  "sans-serif",
+];
+
+const MONO_FALLBACK_TAIL = [
+  "JetBrains Mono Variable",
+  "JetBrains Mono",
+  "SFMono-Regular",
+  "monospace",
+];
+
+/** Quote a family name unless it is a generic keyword or already quoted. */
+const familyToken = (name: string) => {
+  const value = name.trim();
+  if (!value || /^["']/.test(value)) return value;
+  // Generic keywords (`sans-serif`, `system-ui`, `-apple-system`) must stay
+  // bare: quoted, they become a family name nothing matches.
+  if (/^-?(?:[a-z]+-)*[a-z]+$/.test(value)) return value;
+  return `"${value}"`;
+};
+
+const fontStack = (preferred: string[], tail: string[]) => {
+  const seen = new Set<string>();
+  const stack: string[] = [];
+  for (const name of [...preferred, ...tail]) {
+    const token = familyToken(name);
+    if (!token || seen.has(token.toLowerCase())) continue;
+    seen.add(token.toLowerCase());
+    stack.push(token);
+  }
+  return stack.join(", ");
+};
+
+/**
+ * Compose the two font stacks the app writes onto `<html>`.
+ *
+ * Pure and exported so the fallback tail can be asserted without a DOM.
+ */
+export function buildFontStacks(args: {
+  messageFontFamily: string;
+  messageMonoFontFamily: string;
+  messageKoreanFontFamily: string;
+}) {
+  return {
+    sans: fontStack(
+      [args.messageFontFamily, args.messageKoreanFontFamily],
+      SANS_FALLBACK_TAIL,
+    ),
+    mono: fontStack([args.messageMonoFontFamily], MONO_FALLBACK_TAIL),
+  };
+}
+
 export function applyFontOverrides(args: {
   messageFontFamily: string;
   messageMonoFontFamily: string;
@@ -147,16 +221,7 @@ export function applyFontOverrides(args: {
     return;
   }
   const root = document.documentElement;
-  const sans = [
-    args.messageFontFamily,
-    args.messageKoreanFontFamily,
-    "sans-serif",
-  ]
-    .filter(Boolean)
-    .join(", ");
-  const mono = [args.messageMonoFontFamily, "monospace"]
-    .filter(Boolean)
-    .join(", ");
+  const { sans, mono } = buildFontStacks(args);
   root.style.setProperty("--font-sans", sans);
   root.style.setProperty("--font-mono", mono);
 }

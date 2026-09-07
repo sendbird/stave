@@ -103,7 +103,7 @@ export const workbenchStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: "10px",
+    fontSize: vars.fontSizeMicro,
     color: vars.colorTextMuted,
   },
   empty: {
@@ -150,13 +150,13 @@ export const workbenchStyles = stylex.create({
   },
   stackFrameDescription: {
     flexShrink: 0,
-    fontSize: "10px",
+    fontSize: vars.fontSizeMicro,
     color: vars.colorTextMuted,
   },
   stackFrameLocation: {
     marginTop: 2,
     overflowWrap: "break-word",
-    fontSize: "10px",
+    fontSize: vars.fontSizeMicro,
     color: vars.colorTextMuted,
   },
   detailsGrid: { display: "grid", gap: vars.space12 },
@@ -170,7 +170,7 @@ export const workbenchStyles = stylex.create({
     borderBottomColor: vars.colorBorder,
     paddingInline: vars.space12,
     paddingBlock: vars.space8,
-    fontSize: "10px",
+    fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightMedium,
     textTransform: "uppercase",
     color: vars.colorTextMuted,

@@ -28,7 +28,7 @@ export const advisorConsultLogDialogStyles = stylex.create({
   },
   emptyBody: {
     color: vars.colorTextMuted,
-    fontSize: "0.8125rem",
+    fontSize: vars.fontSizeBody,
     paddingBlock: vars.space24,
     paddingInline: vars.space16,
   },
@@ -113,7 +113,7 @@ export const advisorConsultLogDialogStyles = stylex.create({
   },
   rowTitle: {
     flex: 1,
-    fontSize: "0.8125rem",
+    fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
     minWidth: 0,
     overflow: "hidden",
@@ -172,7 +172,7 @@ export const advisorConsultLogDialogStyles = stylex.create({
   },
   detailStatus: {
     color: vars.colorText,
-    fontSize: "0.8125rem",
+    fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
   },
   detailUnresolved: {
