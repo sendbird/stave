@@ -1310,6 +1310,15 @@ function getBrowserGuestPid(session: BrowserSessionState): number | null {
 }
 
 /** Bounded lifecycle/log cardinalities used by the in-app resource monitor. */
+/** Partition names (`persist:lens-...`) currently backing a live Lens guest. */
+export function listActiveLensPartitions(): string[] {
+  return [
+    ...new Set(
+      [...sessions.values()].map((session) => session.sessionProfile.partition),
+    ),
+  ];
+}
+
 export function getBrowserResourceMetrics(): BrowserResourceMetrics {
   const liveSessions = [...sessions.values()].filter(
     (session) => !session.closing,

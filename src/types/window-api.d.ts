@@ -2178,11 +2178,18 @@ interface AppMetricsResult {
   }>;
   mainProcess: {
     rss: number;
+    /** Private (non-shared) footprint; excludes pages already released to the OS. */
+    privateBytes: number | null;
+    sharedBytes: number | null;
     heapTotal: number;
     heapUsed: number;
     external: number;
     arrayBuffers: number;
   };
+  hostRendererMemory: {
+    privateBytes: number;
+    sharedBytes: number;
+  } | null;
   hostRendererPid: number | null;
   hostService: {
     pid: number;
@@ -2239,6 +2246,21 @@ interface AppMetricsResult {
     autoVacuum: number;
   } | null;
   uptimeSeconds: number;
+}
+
+interface WindowStorageApi {
+  getCleanupReport?: () => Promise<{
+    ok: boolean;
+    report: import("../lib/storage-cleanup/storage-cleanup-policy").StorageCleanupReport | null;
+    error?: string;
+  }>;
+  runCleanup?: (
+    args: import("../lib/storage-cleanup/storage-cleanup-policy").StorageCleanupOptions,
+  ) => Promise<{
+    ok: boolean;
+    result: import("../lib/storage-cleanup/storage-cleanup-policy").StorageCleanupResult | null;
+    error?: string;
+  }>;
 }
 
 interface WindowMetricsApi {
@@ -2913,6 +2935,7 @@ interface WindowApi {
   scripts?: WindowScriptsApi;
   sourceControl?: WindowSourceControlApi;
   metrics?: WindowMetricsApi;
+  storage?: WindowStorageApi;
   inlineCompletion?: WindowInlineCompletionApi;
   lens?: WindowLensApi;
   secrets?: WindowSecretsApi;

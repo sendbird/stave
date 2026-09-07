@@ -272,6 +272,17 @@ export const resourceStyles = stylex.create({
     fontWeight: vars.fontWeightMedium,
     color: vars.colorTextMuted,
   },
+  storageActions: {
+    display: "flex",
+    gap: vars.space8,
+    marginBlockStart: vars.space8,
+  },
+  storageMessage: {
+    marginBlockStart: vars.space8,
+    fontFamily: vars.fontMono,
+    fontSize: vars.fontSizeMicro,
+    color: vars.colorTextSubtle,
+  },
   processHead: {
     marginBlockEnd: vars.space8,
     display: "flex",
