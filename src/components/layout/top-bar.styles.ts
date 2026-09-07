@@ -3,6 +3,58 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
 
 /**
+ * The single geometry + type contract for every control that sits directly in
+ * the 48px top bar: the workspace-path chip, its "open in…" trigger, the branch
+ * switcher, "Commit graph", and the PR trigger. Before this recipe each of them
+ * hand-rolled `height: 28`, `gap: 6`, `paddingInline: "0.625rem"` and picked its
+ * own font weight, so the row read as five slightly different controls.
+ *
+ * One rung of the ADS control ramp (`sm`, 32px) for the whole row, centred in a
+ * 48px bar with 8px of air above and below. The label stays on
+ * `fontSizeCaption` + `fontWeightMedium` for every control including the
+ * primary "Create PR" one: the bar is a dense chrome row read as a unit, and a
+ * single 14px label among 12px siblings is exactly the mismatch being fixed.
+ * Emphasis in this row is carried by fill and border, not by type size.
+ */
+export const topBarControlStyles = stylex.create({
+  control: {
+    alignItems: "center",
+    borderRadius: vars.radiusControl,
+    display: "inline-flex",
+    flexShrink: 0,
+    fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightMedium,
+    gap: vars.space8,
+    height: vars.controlHeightSm,
+    lineHeight: vars.lineHeightControl,
+    paddingInline: vars.space8,
+  },
+  /** Bordered chrome fill shared by the path chip, branch chip, and buttons. */
+  surface: {
+    backgroundColor: {
+      default: vars.colorCanvas,
+      ":hover": vars.colorOverlayHover,
+    },
+    borderColor: vars.colorBorderSubtle,
+    borderStyle: "solid",
+    borderWidth: vars.borderWidthHairline,
+    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
+  },
+  /** Square the control and drop the inline gutter for glyph-only triggers. */
+  iconOnly: {
+    justifyContent: "center",
+    paddingInline: 0,
+    width: vars.controlHeightSm,
+  },
+  /** Glyphs inside a `sm` control: the ADS rung, not a hand-picked 12/14/16. */
+  icon: {
+    blockSize: vars.controlIconSizeSm,
+    flexShrink: 0,
+    inlineSize: vars.controlIconSizeSm,
+  },
+});
+
+/**
  * Top bar chrome. The header itself is the macOS drag region, so its geometry
  * (height, padding, the no-drag islands inside it) is behavioral, not
  * decorative — keep the measurements literal rather than re-deriving them.
@@ -37,29 +89,19 @@ export const topBarStyles = stylex.create({
     borderRadius: vars.radiusControl,
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
     flexShrink: 0,
-    height: 28,
+    height: vars.controlHeightSm,
     padding: 0,
-    width: 28,
+    width: vars.controlHeightSm,
   },
   pathGroup: { alignItems: "center", display: "flex", minWidth: 0 },
+  // Composed after `topBarControlStyles.control` + `.surface`; this only
+  // states what makes it the leading half of a segmented pair.
   pathChip: {
-    alignItems: "center",
-    backgroundColor: vars.colorCanvas,
-    borderColor: vars.colorBorderSubtle,
-    borderEndStartRadius: vars.radiusControl,
+    borderEndEndRadius: 0,
     borderInlineEndWidth: 0,
-    borderStartStartRadius: vars.radiusControl,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorTextMuted,
-    display: "inline-flex",
-    fontSize: vars.fontSizeCaption,
-    gap: vars.space8,
-    height: 28,
+    borderStartEndRadius: 0,
     maxWidth: 220,
-    paddingInline: "0.625rem",
   },
-  pathIcon: { flexShrink: 0, height: 14, width: 14 },
   pathLabel: {
     fontFamily: vars.fontMono,
     overflow: "hidden",
@@ -67,40 +109,13 @@ export const topBarStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   pathMenuTrigger: {
-    alignItems: "center",
-    backgroundColor: {
-      default: vars.colorCanvas,
-      ":hover": vars.colorOverlayHover,
-    },
-    borderColor: vars.colorBorderSubtle,
-    borderEndEndRadius: vars.radiusControl,
-    borderStartEndRadius: vars.radiusControl,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: { default: vars.colorTextSubtle, ":hover": vars.colorText },
-    display: "flex",
-    height: 28,
-    justifyContent: "center",
-    padding: 0,
-    width: 28,
+    borderEndStartRadius: 0,
+    borderStartStartRadius: 0,
   },
   pathMenu: { minWidth: 184 },
+  // Geometry and type come from `topBarControlStyles`; nothing left to say.
   gitGraphButton: {
-    backgroundColor: {
-      default: vars.colorCanvas,
-      ":hover": vars.colorOverlayHover,
-    },
-    borderColor: vars.colorBorderSubtle,
-    borderRadius: vars.radiusControl,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
-    flexShrink: 0,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightRegular,
-    gap: 6,
-    height: 28,
-    paddingInline: "0.625rem",
+    opacity: { default: 1, ":disabled": vars.opacityDisabled },
   },
   trail: {
     alignItems: "center",
@@ -122,6 +137,6 @@ export const topBarStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    gap: 6,
+    gap: vars.space8,
   },
 });

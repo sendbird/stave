@@ -73,8 +73,8 @@ export const kickoffStyles = stylex.create({
     flexShrink: 0,
     placeItems: "center",
     borderRadius: vars.radiusPanel,
-    backgroundColor: vars.colorAccentSoft,
-    color: vars.colorAccent,
+    backgroundColor: vars.colorSurfaceTint,
+    color: vars.colorTextMuted,
   },
   headerMarkIcon: {
     width: 16,

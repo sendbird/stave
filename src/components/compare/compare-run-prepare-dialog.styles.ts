@@ -25,9 +25,9 @@ export const compareRunPrepareDialogStyles = stylex.create({
   },
   headerMark: {
     alignItems: "center",
-    backgroundColor: vars.colorAccentSoft,
+    backgroundColor: vars.colorSurfaceTint,
     borderRadius: vars.radiusControl,
-    color: vars.colorAccent,
+    color: vars.colorTextMuted,
     display: "flex",
     flexShrink: 0,
     height: 36,

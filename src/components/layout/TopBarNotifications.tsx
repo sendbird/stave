@@ -317,7 +317,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
         >
           <PopoverHeader className={sx(notificationsStyles.header)}>
             <div className={sx(notificationsStyles.headerRow)}>
-              <div>
+              <div className={sx(notificationsStyles.headerTitleColumn)}>
                 <PopoverTitle className={sx(notificationsStyles.headerTitle)}>
                   Notifications
                 </PopoverTitle>

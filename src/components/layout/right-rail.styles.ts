@@ -33,7 +33,16 @@ export const rightRailStyles = stylex.create({
   },
   railButtonRelative: { position: "relative" },
   railButtonInactive: {
-    backgroundColor: { default: null, ":hover": vars.colorOverlayHover },
+    // `transparent`, never `null`. `null` UNSETS `background-color`, which
+    // dropped the `quiet` variant's own `transparent` and let the UA's
+    // `buttonface` through — an opaque grey slab, dark grey under
+    // `color-scheme: dark`. The rail is the quiet contract: no rest fill, a
+    // theme overlay on hover, a heavier one on press.
+    backgroundColor: {
+      default: "transparent",
+      ":hover": vars.colorOverlayHover,
+      ":active": vars.colorOverlayPressed,
+    },
     borderColor: { default: "transparent", ":hover": vars.colorBorder },
   },
   railIcon: {

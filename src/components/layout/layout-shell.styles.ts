@@ -74,16 +74,35 @@ export const layoutShellStyles = stylex.create({
   },
   diffReview: { paddingBlock: vars.space4, width: "100%" },
   topBarButton: {
+    // States are declared as conditions ON each property, not as a top-level
+    // `":hover": { ... }` block. The nested form compiles to a `:hover`-
+    // qualified rule that outranks any plain declaration from a later style,
+    // so `topBarButtonActive`'s flat `backgroundColor` lost to it and an
+    // active button was indistinguishable from a hovered one.
+    backgroundColor: {
+      default: "transparent",
+      ":hover": vars.colorOverlayHover,
+      ":active": vars.colorOverlayPressed,
+    },
     borderRadius: vars.radiusControl,
-    color: vars.colorTextMuted,
+    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
     flexShrink: 0,
     height: 32,
     padding: 0,
     position: "relative",
     width: 32,
-    ':hover': { backgroundColor: vars.colorOverlayHover, color: vars.colorText },
   },
-  topBarButtonActive: { backgroundColor: vars.colorOverlayHover, color: vars.colorText },
+  // Restates the same properties at the same condition depth, so composing it
+  // after `topBarButton` wins at rest AND under the cursor. The active fill is
+  // the heavier pressed wash so "selected" still reads while hovered.
+  topBarButtonActive: {
+    backgroundColor: {
+      default: vars.colorOverlayPressed,
+      ":hover": vars.colorOverlayPressed,
+      ":active": vars.colorOverlayPressed,
+    },
+    color: { default: vars.colorText, ":hover": vars.colorText },
+  },
   topBarButtonWarning: { color: vars.colorWarningText },
   topBarAttentionBadge: {
     alignItems: "center",
@@ -109,9 +128,24 @@ export const layoutShellStyles = stylex.create({
   icon16: { height: 16, width: 16 },
   windowControls: { alignItems: "center", display: "flex", flexShrink: 0, gap: 6 },
   windowDivider: { backgroundColor: vars.colorBorder, height: 16, marginInline: vars.space4, width: 1 },
-  windowButton: { borderRadius: vars.radiusControl, height: 36, padding: 0, width: 36 },
+  windowButton: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": vars.colorOverlayHover,
+      ":active": vars.colorOverlayPressed,
+    },
+    borderRadius: vars.radiusControl,
+    height: 36,
+    padding: 0,
+    width: 36,
+  },
   closeWindowButton: {
-    ':hover': { backgroundColor: vars.colorDanger, color: vars.colorTextInverted },
+    backgroundColor: {
+      default: "transparent",
+      ":hover": vars.colorDanger,
+      ":active": vars.colorDanger,
+    },
+    color: { default: vars.colorTextMuted, ":hover": vars.colorTextInverted },
   },
   icon14: { height: 14, width: 14 },
   subdued: { opacity: 0.8 },

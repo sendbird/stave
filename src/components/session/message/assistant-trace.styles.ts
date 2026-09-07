@@ -188,7 +188,7 @@ export const assistantTraceStyles = stylex.create({
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
     color: vars.colorTextMuted,
-    fontSize: "0.6875rem",
+    fontSize: vars.fontSizeMicro,
     paddingBlock: "0.125rem",
     paddingInline: vars.space8,
   },

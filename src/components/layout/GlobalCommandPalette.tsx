@@ -19,6 +19,7 @@ import {
   CommandItem,
   CommandList,
   CommandShortcut,
+  Kbd,
 } from "@/components/ui";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import {
@@ -239,11 +240,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
                       ) : null}
                     </div>
                     {action.shortcut ? (
-                      <CommandShortcut
-                        className={sx(commandPaletteStyles.itemShortcut)}
-                      >
-                        {action.shortcut}
-                      </CommandShortcut>
+                      <CommandShortcut>{action.shortcut}</CommandShortcut>
                     ) : null}
                   </CommandItem>
                 );
@@ -304,12 +301,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
               <span className={sx(commandPaletteStyles.pinLabel)}>
                 {selectedActionIsPinned ? "Unpin" : "Pin"}
               </span>
-              <kbd
-                className={sx(commandPaletteStyles.pinKeyHint)}
-                aria-hidden="true"
-              >
-                Alt+P
-              </kbd>
+              <Kbd aria-hidden="true">Alt+P</Kbd>
             </Button>
             <span className={sx(commandPaletteStyles.resultCount)}>
               {query.trim()

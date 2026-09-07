@@ -225,11 +225,54 @@ const ButtonImpl = React.forwardRef<
   ref,
 ) {
   if (layout === "host") {
-    return <ButtonRoot {...props} ref={ref} render={render} style={style}
-      disabled={disabled || loading} aria-busy={loading || props["aria-busy"] || undefined}
-      className={cx(sx(controlChrome.triggerQuiet, focusRing.ring, transition.colors, xstyle), className)}>
-      {children}
-    </ButtonRoot>;
+    // Host layout hands GEOMETRY to the caller — height, padding, gap, width.
+    // It does not hand over the ICON CONTRACT. `data-ads-control="button"`
+    // plus `--ads-control-icon-size` are what keep Lucide's 24px viewBox from
+    // leaking into a host-sized control, and they are geometry-independent:
+    // the marker only selects direct `> svg` children, and the custom property
+    // is inert until that rule reads it. Omitting them was why host callers
+    // had to re-derive an icon size in their own stylesheets.
+    //
+    // `data-ads-control-layout="host"` rides along so `styles.css` can treat
+    // the glyph box as an overridable default instead of the mandate it is for
+    // an ADS-owned box: a host caller that already sizes its icon keeps that
+    // size, and one that does not stops leaking 24px.
+    //
+    // `data-ads-control-size|tone|variant` are deliberately NOT emitted here:
+    // they describe chrome this path does not render (host owns the box, and
+    // `triggerQuiet` is the only variant it paints), so publishing them would
+    // misdescribe the element to styling and tests alike.
+    const hostScale: ControlScale = isLegacyButtonIconSize(size)
+      ? getLegacyButtonIconScale(size)
+      : size;
+    return (
+      <ButtonRoot
+        {...props}
+        ref={ref}
+        render={render}
+        style={
+          {
+            ...style,
+            "--ads-control-icon-size": iconSize ?? controlIconSizes[hostScale],
+          } as React.CSSProperties
+        }
+        data-ads-control="button"
+        data-ads-control-layout="host"
+        disabled={disabled || loading}
+        aria-busy={loading || props["aria-busy"] || undefined}
+        className={cx(
+          sx(
+            controlChrome.triggerQuiet,
+            focusRing.ring,
+            transition.colors,
+            xstyle,
+          ),
+          className,
+        )}
+      >
+        {children}
+      </ButtonRoot>
+    );
   }
   // Default element is a Motion button that springs on press (Motion owns
   // transform). When the caller supplies their own `render` (e.g. a link

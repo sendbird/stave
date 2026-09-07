@@ -59,7 +59,7 @@ export const todoFloaterStyles = stylex.create({
     paddingInline: "0.875rem",
   },
   headerIcon: {
-    color: vars.colorAccent,
+    color: vars.colorTextMuted,
     flexShrink: 0,
   },
   headerTitle: {
@@ -72,7 +72,7 @@ export const todoFloaterStyles = stylex.create({
   },
   headerCount: {
     color: vars.colorTextMuted,
-    fontSize: "0.8125rem",
+    fontSize: vars.fontSizeBody,
     fontVariantNumeric: "tabular-nums",
   },
   progressTrack: {

@@ -157,7 +157,7 @@ export const gitGraphRowStyles = stylex.create({
     height: 10,
   },
   refHeadTag: {
-    fontSize: 8,
+    fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightSemibold,
     textTransform: "uppercase",
     letterSpacing: "0.05em",

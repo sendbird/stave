@@ -1032,7 +1032,7 @@ export function ScriptsManager(props: {
           onValueChange={(value) => setActiveTab(value as ScriptsTabValue)}
           className={sx(managerStyles.tabsRoot)}
         >
-          <TabsList variant="soft" className={sx(managerStyles.tabsList)}>
+          <TabsList className={sx(managerStyles.tabsList)}>
             <TabsTrigger value="services" className={sx(managerStyles.tab)}>
               Processes
               <Badge variant="outline" className={sx(managerStyles.tabBadge)}>

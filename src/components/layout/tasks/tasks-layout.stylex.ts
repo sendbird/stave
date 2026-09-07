@@ -66,7 +66,7 @@ export const taskLayoutStyles = stylex.create({
     gap: vars.space8,
     minWidth: 0,
   },
-  headerIcon: { color: vars.colorAccent, flexShrink: 0, height: 18, width: 18 },
+  headerIcon: { color: vars.colorTextMuted, flexShrink: 0, height: 18, width: 18 },
   headerTitle: {
     color: vars.colorText,
     fontFamily: vars.fontSans,
@@ -350,7 +350,7 @@ export const taskLayoutStyles = stylex.create({
     color: vars.colorTextMuted,
     display: "flex",
     flexShrink: 0,
-    fontSize: "11px",
+    fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightMedium,
     height: 24,
     justifyContent: "center",

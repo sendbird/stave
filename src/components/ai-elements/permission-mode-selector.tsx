@@ -1,7 +1,13 @@
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Check, ChevronDown, Shield } from "lucide-react";
-import { useEffect, useRef, useState } from "react";
-import { layers } from "@/lib/ui-layers.stylex";
+import { ChevronDown, Shield } from "lucide-react";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { sx } from "@/components/ads/utils/stylex";
 import { permissionModeSelectorStyles as styles } from "./permission-mode-selector.styles";
 import type { ClaudePermissionMode } from "@/types/chat";
@@ -54,62 +60,60 @@ interface PermissionModeSelectorProps {
   onSelect: (value: PermissionModeValue) => void;
 }
 
+/**
+ * Permission mode, on the ADS menu.
+ *
+ * The trigger names the current mode and the popup is a single-select radio
+ * group, which is what this control is: one of N, exclusive. Both come from
+ * ADS (`Menu` via the `dropdown-menu` shim), so the popup arrives with a
+ * `role="menu"`, roving focus, typeahead, Escape-to-close, click-outside,
+ * focus return to the trigger, and the portal/layer stacking every other
+ * composer menu uses — all of which the previous hand-rolled
+ * `useState` + `document` mousedown + absolutely positioned `div` had to do
+ * without.
+ */
 export function PermissionModeSelector(args: PermissionModeSelectorProps) {
   const { providerId, value, disabled, onSelect } = args;
   const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
   const options = getPermissionModeOptions(providerId);
-  const current = options.find((o) => o.value === value);
-
-  useEffect(() => {
-    if (!open) return;
-    const onPointerDown = (event: MouseEvent) => {
-      if (rootRef.current?.contains(event.target as Node)) return;
-      setOpen(false);
-    };
-    document.addEventListener("mousedown", onPointerDown);
-    return () => document.removeEventListener("mousedown", onPointerDown);
-  }, [open]);
+  const current = options.find((option) => option.value === value);
 
   return (
-    <div className={sx(styles.root)} ref={rootRef}>
-      <AdsButton
-        layout="host"
-        type="button"
-        className={sx(styles.trigger, open && styles.triggerOpen)}
-        onClick={() => setOpen((prev) => !prev)}
-        disabled={disabled}
-        title="Permission mode"
+    <DropdownMenu open={open} onOpenChange={setOpen}>
+      <DropdownMenuTrigger
+        render={
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            className={sx(styles.trigger, open && styles.triggerOpen)}
+            disabled={disabled}
+            title="Permission mode"
+          />
+        }
       >
         <Shield className={sx(styles.triggerIcon)} />
         <span>{current?.label ?? value}</span>
         <ChevronDown className={sx(styles.triggerIcon)} />
-      </AdsButton>
-      {open ? (
-        <div className={sx(styles.menu, layers.floatingChrome)}>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent
+        align="start"
+        side="top"
+        sideOffset={6}
+        className={sx(styles.menu)}
+      >
+        <DropdownMenuRadioGroup
+          value={value}
+          onValueChange={(next) => onSelect(next as PermissionModeValue)}
+        >
           {options.map((option) => (
-            <AdsButton
-              layout="host"
-              key={option.value}
-              type="button"
-              className={sx(
-                styles.option,
-                option.value === value && styles.optionSelected,
-              )}
-              onClick={() => {
-                onSelect(option.value);
-                setOpen(false);
-              }}
-            >
+            <DropdownMenuRadioItem key={option.value} value={option.value}>
               {option.label}
-              {option.value === value ? (
-                <Check className={sx(styles.optionCheck)} />
-              ) : null}
-            </AdsButton>
+            </DropdownMenuRadioItem>
           ))}
-        </div>
-      ) : null}
-    </div>
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
 

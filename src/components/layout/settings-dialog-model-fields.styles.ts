@@ -5,25 +5,29 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 /** Prompt/aux model selector field inside the Settings sections. */
 export const modelFieldsStyles = stylex.create({
   selector: {
-    width: "100%",
+    inlineSize: "100%",
   },
   trigger: {
-    backgroundColor: {
-      default: vars.colorCanvas,
-      ":hover": vars.colorOverlayHover,
+    // Field fill, not canvas: `colorSurfaceRaised` is what every ADS field
+    // paints, so the trigger keeps a lifted tone under themes whose canvas and
+    // card collapse to the same value. Hover strengthens the border only, the
+    // same contract as `InputGroup`.
+    backgroundColor: vars.colorSurfaceRaised,
+    borderColor: {
+      default: vars.colorBorder,
+      ":hover": vars.colorBorderStrong,
     },
-    borderColor: vars.colorBorder,
     borderRadius: vars.radiusControl,
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
-    height: vars.controlHeightLg,
-    maxWidth: "none",
+    blockSize: vars.controlHeightLg,
+    maxInlineSize: "none",
     paddingInline: vars.space12,
-    width: "100%",
+    inlineSize: "100%",
   },
   menu: {
     "@media (min-width: 640px)": {
-      maxWidth: "32rem",
+      maxInlineSize: "32rem",
     },
   },
 });

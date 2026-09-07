@@ -76,7 +76,7 @@ export const delegationStyles = stylex.create({
     color: vars.colorText,
   },
   requiredTag: {
-    fontSize: "10px",
+    fontSize: vars.fontSizeMicro,
     textTransform: "uppercase",
     letterSpacing: "0.08em",
   },

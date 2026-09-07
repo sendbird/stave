@@ -7,34 +7,45 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
  * `SwitchField`, `ChoiceButtons`, `ToggleChipGroup`, and friends). These
  * components are consumed by every settings section, so their public prop
  * shapes are frozen; only their internal styling moved to StyleX.
+ *
+ * ## The one Settings rhythm
+ *
+ * Every section reads from the single ramp below; nothing in
+ * `settings-dialog-*.styles.ts` may re-derive a spacing, alignment or type
+ * step for the same role. Values are ADS tokens on the 4px scale and the ADS
+ * type ramp (micro / caption / body / lead) only.
+ *
+ * | Role                              | Token                    |
+ * | --------------------------------- | ------------------------ |
+ * | Card padding (block)              | `space24`                |
+ * | Card title -> description         | `space4`                 |
+ * | Card header -> body               | `space20`                |
+ * | Body block -> block               | `space20`                |
+ * | Field row: label col <-> control  | `space20`                |
+ * | Field row alignment               | `start` (one idiom)      |
+ * | Label -> its control (stacked)    | `space8`                 |
+ * | Label <-> inline affordance       | `space8`                 |
+ * | Intra-label (title/description)   | `space4`                 |
+ * | Chip / segment group gap          | `space8`                 |
+ * | Title, label                      | `fontSizeBody` + medium  |
+ * | Description                       | `fontSizeBody` + muted   |
+ * | Chip, segment, meta label         | `fontSizeCaption`        |
+ * | Eyebrow / overline                | `fontSizeMicro`          |
+ *
+ * ### Label / control alignment
+ *
+ * Rows top-align (`alignItems: "start"`) — the single idiom, replacing the
+ * former mix of `start` / `flex-start` / bare flex. A single-line control on
+ * this surface is `controlHeightLg` (40px) with a `lineHeightControl` (20px)
+ * text box, so its first line sits ~10px below the cell top. `fieldLead`
+ * pushes the label column down by the nearest step on the 4px scale
+ * (`space8`) so the label's first line lands on the control's, instead of
+ * floating 10px above it. Multi-line label blocks keep flowing from there, so
+ * one offset serves both cases.
  */
 export const settingsSharedStyles = stylex.create({
-  statusBadge: {
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    fontWeight: vars.fontWeightMedium,
-    height: 24,
-    letterSpacing: "normal",
-    paddingInline: 10,
-  },
-  statusBadgeReady: {
-    backgroundColor: vars.colorSuccessSoft,
-    borderColor: vars.colorSuccessBorder,
-    color: vars.colorSuccessText,
-  },
-  statusBadgeWarning: {
-    backgroundColor: vars.colorWarningSoft,
-    borderColor: vars.colorWarningBorder,
-    color: vars.colorWarningText,
-  },
-  statusBadgeError: {
-    backgroundColor: vars.colorDangerSoft,
-    borderColor: vars.colorDangerBorder,
-    color: vars.colorDangerText,
-  },
-
   infoRow: {
-    alignItems: "flex-start",
+    alignItems: "start",
     display: "flex",
     fontSize: vars.fontSizeBody,
     gap: vars.space12,
@@ -45,7 +56,7 @@ export const settingsSharedStyles = stylex.create({
   },
   infoRowValue: {
     color: vars.colorText,
-    maxWidth: "70%",
+    maxInlineSize: "70%",
     overflowWrap: "break-word",
     textAlign: "end",
     wordBreak: "break-all",
@@ -65,7 +76,7 @@ export const settingsSharedStyles = stylex.create({
     borderTopStyle: "solid",
     borderTopWidth: {
       default: vars.borderWidthHairline,
-      ":first-child": 0,
+      ":first-child": vars.space0,
     },
     borderBottomStyle: {
       default: null,
@@ -80,15 +91,15 @@ export const settingsSharedStyles = stylex.create({
       ":last-child": vars.colorBorder,
     },
     outline: "none",
-    paddingBlock: 28,
-    paddingTop: {
-      default: 28,
-      ":first-child": 0,
+    paddingBlock: vars.space24,
+    paddingBlockStart: {
+      default: vars.space24,
+      ":first-child": vars.space0,
     },
     scrollMarginTop: vars.space24,
   },
   cardHeaderRow: {
-    alignItems: "flex-start",
+    alignItems: "start",
     display: "flex",
     gap: vars.space12,
     justifyContent: "space-between",
@@ -103,25 +114,25 @@ export const settingsSharedStyles = stylex.create({
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeBody,
     lineHeight: vars.lineHeightRelaxed,
-    marginTop: 6,
-    maxWidth: "56rem",
+    marginBlockStart: vars.space4,
+    maxInlineSize: "56rem",
   },
   cardBody: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space20,
-    marginTop: vars.space20,
+    marginBlockStart: vars.space20,
   },
 
   choiceMark: {
     alignItems: "center",
     backgroundColor: vars.colorCanvas,
-    borderRadius: 5,
+    blockSize: vars.space20,
+    borderRadius: vars.radiusMark,
     display: "flex",
     flexShrink: 0,
-    height: vars.space20,
+    inlineSize: vars.space20,
     justifyContent: "center",
-    width: vars.space20,
   },
 
   radioGroupGrid: {
@@ -148,8 +159,8 @@ export const settingsSharedStyles = stylex.create({
     borderWidth: vars.borderWidthHairline,
     display: "inline-flex",
     flexWrap: "wrap",
-    maxWidth: "100%",
-    padding: 2,
+    maxInlineSize: "100%",
+    padding: vars.space2,
   },
   radio: {
     alignItems: "center",
@@ -162,8 +173,10 @@ export const settingsSharedStyles = stylex.create({
     borderRadius: vars.radiusControl,
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
+    // This renders on a real radio control, so `null` would delete the
+    // property and hand the label to the UA's `buttontext`.
     color: {
-      default: null,
+      default: vars.colorText,
       ":is([data-checked])": vars.colorAccentText,
     },
     cursor: "default",
@@ -174,7 +187,7 @@ export const settingsSharedStyles = stylex.create({
     justifyContent: "center",
     opacity: {
       default: null,
-      ":is([data-disabled])": 0.45,
+      ":is([data-disabled])": vars.opacityDisabled,
     },
     outline: "none",
     pointerEvents: {
@@ -189,51 +202,61 @@ export const settingsSharedStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   radioCard: {
-    alignItems: "flex-start",
+    alignItems: "start",
+    // StyleX merges by property, not by condition: every variant of a property
+    // declared here REPLACES the whole `radio` declaration for that property.
+    // The checked branch has to be restated in each override or the selected
+    // state silently disappears.
     backgroundColor: {
       default: vars.colorSurface,
+      ":is([data-checked])": vars.colorAccent,
       ":is([data-unchecked]:hover)": vars.colorSelectionFill,
     },
     borderColor: {
       default: vars.colorBorder,
+      ":is([data-checked])": vars.colorAccent,
       ":is([data-unchecked]:hover)": vars.colorAccent,
     },
-    height: "auto",
+    blockSize: "auto",
     justifyContent: "flex-start",
-    minHeight: 56,
+    minBlockSize: "3.5rem",
     paddingBlock: vars.space12,
     paddingInline: vars.space16,
     textAlign: "start",
     whiteSpace: "normal",
   },
   radioSegment: {
-    borderRadius: 5,
+    borderRadius: vars.radiusMark,
+    // See `radioCard`: restating `:is([data-checked])` is mandatory, because
+    // this object replaces `radio`'s `color`/`background-color` wholesale.
     color: {
       default: vars.colorTextMuted,
+      ":is([data-checked])": vars.colorAccentText,
       ":is([data-unchecked]:hover)": vars.colorText,
     },
     backgroundColor: {
-      default: null,
+      default: "transparent",
+      ":is([data-checked])": vars.colorAccent,
       ":is([data-unchecked]:hover)": vars.colorOverlayHover,
     },
-    fontSize: 13,
-    height: vars.controlHeightSm,
-    paddingInline: 14,
+    fontSize: vars.fontSizeCaption,
+    minBlockSize: vars.controlHeightSm,
+    paddingInline: vars.space12,
   },
   radioContent: {
-    alignItems: "flex-start",
+    alignItems: "start",
     display: "flex",
-    gap: 10,
-    minWidth: 0,
+    gap: vars.space8,
+    minInlineSize: 0,
   },
   radioTextWrap: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space4,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   radioLabel: {
-    fontSize: 15,
+    fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
   },
   radioDescription: {
@@ -243,13 +266,13 @@ export const settingsSharedStyles = stylex.create({
   radioInline: {
     alignItems: "center",
     display: "flex",
-    gap: 6,
+    gap: vars.space8,
   },
 
   toggleGroup: {
     display: "flex",
     flexWrap: "wrap",
-    gap: 6,
+    gap: vars.space8,
   },
   toggle: {
     backgroundColor: {
@@ -267,9 +290,9 @@ export const settingsSharedStyles = stylex.create({
       default: vars.colorText,
       ':is([aria-pressed="true"])': vars.colorAccentText,
     },
-    fontSize: 13,
-    height: vars.controlHeightXs,
-    paddingInline: 14,
+    fontSize: vars.fontSizeCaption,
+    minBlockSize: vars.controlHeightXs,
+    paddingInline: vars.space12,
   },
   toggleWithMark: {
     alignItems: "center",
@@ -277,18 +300,18 @@ export const settingsSharedStyles = stylex.create({
     gap: vars.space4,
   },
   toggleCheck: {
-    height: 12,
-    width: 12,
+    blockSize: vars.space12,
+    inlineSize: vars.space12,
   },
   toggleLabel: {
-    maxWidth: 160,
+    maxInlineSize: "10rem",
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   tooltipContent: {
     fontSize: vars.fontSizeCaption,
-    maxWidth: 256,
+    maxInlineSize: "16rem",
   },
 
   fieldStacked: {
@@ -310,15 +333,27 @@ export const settingsSharedStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars.space4,
-    minWidth: 0,
+    minInlineSize: 0,
+  },
+  /**
+   * Optical lead for the label column of a two-column field row: see the
+   * alignment note at the top of this file. Only applies once the row is
+   * actually two columns — stacked under 640px the label already sits directly
+   * above its control and needs no offset.
+   */
+  fieldLead: {
+    paddingBlockStart: {
+      default: null,
+      "@media (min-width: 640px)": vars.space8,
+    },
   },
   fieldLabelRow: {
     alignItems: "center",
     display: "flex",
-    gap: 6,
+    gap: vars.space8,
   },
   fieldTitle: {
-    fontSize: 15,
+    fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
   },
   fieldDescription: {
@@ -327,39 +362,41 @@ export const settingsSharedStyles = stylex.create({
     lineHeight: vars.lineHeightRelaxed,
   },
   fieldControl: {
-    minWidth: 0,
+    minInlineSize: 0,
   },
 
+  /**
+   * Composed ON TOP of `fieldGrid` — a switch row is a field row, so the grid
+   * definition lives in exactly one place. This adds only what is specific to
+   * it: the row keeps a full control height even though the switch itself is
+   * shorter than one.
+   */
   switchRow: {
-    alignItems: "start",
-    display: "grid",
-    gap: vars.space20,
-    gridTemplateColumns: {
-      default: null,
-      "@media (min-width: 640px)":
-        "minmax(15rem, 0.85fr) minmax(20rem, 1.15fr)",
-    },
-    minHeight: vars.controlHeightLg,
+    minBlockSize: vars.controlHeightLg,
   },
   switchLabelBlock: {
     display: "flex",
     flexDirection: "column",
     flexGrow: 1,
     gap: vars.space4,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   switchControl: {
+    alignItems: "center",
+    display: "flex",
     flexShrink: 0,
     justifySelf: "start",
-    marginTop: 2,
+    // Centre the switch on the label's first text line instead of nudging it
+    // with an off-scale `marginTop: 2`.
+    minBlockSize: vars.lineHeightControl,
   },
 
   selectTrigger: {
     backgroundColor: vars.colorCanvas,
     borderColor: vars.colorBorder,
     fontSize: vars.fontSizeBody,
-    height: vars.controlHeightLg,
-    width: "100%",
+    inlineSize: "100%",
+    minBlockSize: vars.controlHeightLg,
   },
 
   guideTriggerIcon: {
@@ -369,8 +406,8 @@ export const settingsSharedStyles = stylex.create({
     },
   },
   guideIcon: {
-    height: vars.controlIconSizeSm,
-    width: vars.controlIconSizeSm,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   guideTriggerInline: {
     display: "inline-flex",
@@ -379,15 +416,15 @@ export const settingsSharedStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars.space12,
-    maxWidth: "calc(100vw - 2rem)",
-    width: "24rem",
+    inlineSize: "24rem",
+    maxInlineSize: "calc(100vw - 2rem)",
   },
   guideHeader: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space4,
-    paddingBlock: 0,
-    paddingInline: 0,
+    paddingBlock: vars.space0,
+    paddingInline: vars.space0,
   },
   guideTitle: {
     fontSize: vars.fontSizeBody,

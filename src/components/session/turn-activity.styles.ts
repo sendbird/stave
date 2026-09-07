@@ -195,7 +195,7 @@ export const turnActivityStyles = stylex.create({
     margin: 0,
     minWidth: 0,
     overflow: "hidden",
-    fontSize: "0.8125rem",
+    fontSize: vars.fontSizeBody,
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
@@ -209,12 +209,12 @@ export const turnActivityStyles = stylex.create({
   progress: {
     color: vars.colorTextMuted,
     flexShrink: 0,
-    fontSize: "0.6875rem",
+    fontSize: vars.fontSizeMicro,
     fontVariantNumeric: "tabular-nums",
   },
   overflowCount: {
     flexShrink: 0,
-    fontSize: "0.6875rem",
+    fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightMedium,
     fontVariantNumeric: "tabular-nums",
   },
@@ -230,7 +230,7 @@ export const turnActivityStyles = stylex.create({
   elapsed: {
     color: vars.colorTextMuted,
     flexShrink: 0,
-    fontSize: "0.6875rem",
+    fontSize: vars.fontSizeMicro,
     fontVariantNumeric: "tabular-nums",
   },
 
@@ -300,7 +300,7 @@ export const turnActivityStyles = stylex.create({
     lineHeight: "1.25rem",
     margin: 0,
     minWidth: 0,
-    fontSize: "0.8125rem",
+    fontSize: vars.fontSizeBody,
   },
   rowTitleLineDone: {
     color: vars.colorTextMuted,
@@ -325,7 +325,7 @@ export const turnActivityStyles = stylex.create({
     lineHeight: "1rem",
     margin: 0,
     minWidth: 0,
-    fontSize: "0.6875rem",
+    fontSize: vars.fontSizeMicro,
   },
   rowDetail: {
     overflow: "hidden",
@@ -349,7 +349,7 @@ export const turnActivityStyles = stylex.create({
   rowStartOffset: {
     color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
     flexShrink: 0,
-    fontSize: "0.6875rem",
+    fontSize: vars.fontSizeMicro,
     fontVariantNumeric: "tabular-nums",
     lineHeight: "1rem",
     paddingTop: "0.125rem",
@@ -357,7 +357,7 @@ export const turnActivityStyles = stylex.create({
   rowElapsed: {
     color: vars.colorTextMuted,
     flexShrink: 0,
-    fontSize: "0.6875rem",
+    fontSize: vars.fontSizeMicro,
     fontVariantNumeric: "tabular-nums",
     lineHeight: "1rem",
     paddingTop: "0.125rem",

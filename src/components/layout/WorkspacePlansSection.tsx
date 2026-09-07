@@ -1,4 +1,5 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { EmptyState } from "@/components/ads/components/EmptyState";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   ClipboardCheck,
@@ -243,29 +244,28 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
             Loading plans…
           </div>
         ) : entries.length === 0 ? (
-          <div className={sx(planStyles.empty)} data-workspace-plans-empty="">
-            <div className={sx(planStyles.emptyLead)}>
-              <div className={sx(planStyles.emptyMark)}>
-                <ClipboardCheck
-                  className={sx(planStyles.emptyIcon)}
-                  aria-hidden="true"
-                />
-              </div>
-              <div className={sx(planStyles.emptyText)}>
-                <p className={sx(planStyles.emptyTitle)}>
-                  Start with a lightweight plan
-                </p>
-                <p className={sx(planStyles.emptyDescription)}>
-                  Plans stay as editable markdown and can promote checklist
-                  items into workspace todos.
-                </p>
-              </div>
-            </div>
-            <div className={sx(planStyles.emptyActions)}>
+          // ADS `EmptyState`, composed: centered medallion over the copy
+          // block over the actions. The hand-rolled version top-aligned the
+          // medallion beside the text and indented the action row below it,
+          // which read as three unrelated fragments.
+          <EmptyState.Root
+            data-workspace-plans-empty=""
+            variant="plain"
+          >
+            <EmptyState.Media tone="accent">
+              <ClipboardCheck className={sx(planStyles.emptyIcon)} />
+            </EmptyState.Media>
+            <EmptyState.Header>
+              <EmptyState.Title>Start with a lightweight plan</EmptyState.Title>
+              <EmptyState.Description>
+                Plans stay as editable markdown and can promote checklist items
+                into workspace todos.
+              </EmptyState.Description>
+            </EmptyState.Header>
+            <EmptyState.Content xstyle={planStyles.emptyActions}>
               <Button
                 type="button"
                 size="sm"
-                xstyle={planStyles.emptyButton}
                 onClick={() => void createPlan()}
                 disabled={creatingPlan || !args.taskId}
               >
@@ -282,14 +282,13 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                 type="button"
                 size="sm"
                 variant="ghost"
-                xstyle={planStyles.emptyButton}
                 onClick={() => void revealPlansFolder()}
               >
                 <FolderOpen className={sx(planStyles.smallIcon)} />
                 Reveal folder
               </Button>
-            </div>
-          </div>
+            </EmptyState.Content>
+          </EmptyState.Root>
         ) : (
           <div className={sx(planStyles.list)}>
             {entries.map((entry) => (

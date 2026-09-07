@@ -1,7 +1,19 @@
 import type { CSSProperties, ElementType, HTMLAttributes, ReactNode } from "react";
 import { memo, useMemo } from "react";
 import { coreStyles } from "./ai-element-core.styles";
+import { vars } from "../ads/tokens/tokens.stylex";
 import { cx, sx } from "../ads/utils/stylex";
+
+/**
+ * The band is a token pair, not a literal. It used to mix the base ink with
+ * `white 60%`, which only reads as a highlight on a light canvas — on a dark
+ * theme the sweep brightened *away* from the surface and looked like a defect.
+ * Mixing toward `colorCanvas` keeps the intent (the phrase momentarily fades
+ * into the surface it sits on) in every theme, because the canvas follows the
+ * theme.
+ */
+const SHIMMER_BASE = `var(--shimmer-base-color, ${vars.colorTextMuted})`;
+const SHIMMER_HIGHLIGHT = `color-mix(in srgb, ${SHIMMER_BASE}, ${vars.colorCanvas} 60%)`;
 
 export interface ShimmerProps extends Omit<HTMLAttributes<HTMLElement>, "children"> {
   /**
@@ -40,8 +52,8 @@ function ShimmerComponent({
     () => ({
       animationDuration: `${duration}s`,
       backgroundImage: [
-        `linear-gradient(90deg, transparent calc(50% - ${resolvedSpread}), var(--shimmer-highlight-color, color-mix(in srgb, var(--shimmer-base-color, var(--color-muted-foreground)), white 60%)), transparent calc(50% + ${resolvedSpread}))`,
-        "linear-gradient(var(--shimmer-base-color, var(--color-muted-foreground)), var(--shimmer-base-color, var(--color-muted-foreground)))",
+        `linear-gradient(90deg, transparent calc(50% - ${resolvedSpread}), var(--shimmer-highlight-color, ${SHIMMER_HIGHLIGHT}), transparent calc(50% + ${resolvedSpread}))`,
+        `linear-gradient(${SHIMMER_BASE}, ${SHIMMER_BASE})`,
       ].join(", "),
       ...style,
     }),

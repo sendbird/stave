@@ -25,7 +25,7 @@ export const skillStyles = stylex.create({
     color: vars.colorText,
     fontFamily: vars.fontMono,
     // 13px: the reading step between caption and body this pane has always used.
-    fontSize: 13,
+    fontSize: vars.fontSizeBody,
     lineHeight: "24px",
     minHeight: 0,
     overflowWrap: "break-word",
@@ -93,7 +93,7 @@ export const skillStyles = stylex.create({
     height: 44,
     padding: 0,
   },
-  dialogTab: { flex: "none", fontSize: 13, height: 44, paddingInline: 0 },
+  dialogTab: { flex: "none", fontSize: vars.fontSizeBody, height: 44, paddingInline: 0 },
   dialogPanel: {
     display: "flex",
     flex: 1,
@@ -477,8 +477,8 @@ export const skillStyles = stylex.create({
     width: 14,
   },
   searchInput: {
-    backgroundColor: vars.colorSurfaceTint,
-    borderColor: { default: "transparent", ":hover": vars.colorBorderSubtle },
+    // Fill and border come from the ADS field recipe so the search box reads
+    // as a field in every theme instead of a tinted, borderless slab.
     fontSize: vars.fontSizeBody,
     height: 32,
     paddingInlineEnd: 28,

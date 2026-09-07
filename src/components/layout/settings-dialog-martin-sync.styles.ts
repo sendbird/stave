@@ -36,7 +36,7 @@ export const martinSyncStyles = stylex.create({
     borderWidth: vars.borderWidthHairline,
   },
   panelHeader: {
-    alignItems: "flex-start",
+    alignItems: "start",
     borderBottomColor: vars.colorBorder,
     borderBottomStyle: "solid",
     borderBottomWidth: vars.borderWidthHairline,
@@ -54,18 +54,18 @@ export const martinSyncStyles = stylex.create({
     borderWidth: vars.borderWidthHairline,
     display: "flex",
     flexShrink: 0,
-    height: vars.controlHeightMd,
+    blockSize: vars.controlHeightMd,
     justifyContent: "center",
-    width: vars.controlHeightMd,
+    inlineSize: vars.controlHeightMd,
   },
   headerMarkIcon: {
     color: vars.colorTextMuted,
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   headerBody: {
     flex: 1,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   headerTitleLine: {
     alignItems: "center",
@@ -82,11 +82,11 @@ export const martinSyncStyles = stylex.create({
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightControl,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   refreshIcon: {
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   refreshIconSpinning: {
     animationDuration: vars.motionDurationLoop,
@@ -112,7 +112,7 @@ export const martinSyncStyles = stylex.create({
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightControl,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   fieldGrid: {
     display: "grid",
@@ -146,12 +146,12 @@ export const martinSyncStyles = stylex.create({
   },
   pairInput: {
     "@media (min-width: 640px)": {
-      maxWidth: "24rem",
+      maxInlineSize: "24rem",
     },
   },
   pairIcon: {
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   warning: {
     backgroundColor: vars.colorDangerSoft,
@@ -180,11 +180,11 @@ export const martinSyncStyles = stylex.create({
   toggles: {
     borderTopColor: vars.colorBorder,
     borderTopStyle: "solid",
-    borderTopWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars.borderWidthHairline,
     display: "flex",
     flexDirection: "column",
     gap: vars.space20,
-    paddingTop: vars.space20,
+    paddingBlockStart: vars.space20,
   },
   outbox: {
     alignItems: "center",
@@ -202,21 +202,21 @@ export const martinSyncStyles = stylex.create({
   },
   outboxIcon: {
     color: vars.colorTextMuted,
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   outboxText: {
     color: vars.colorTextMuted,
     flex: 1,
     fontSize: vars.fontSizeCaption,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   outboxStrong: {
     color: vars.colorText,
     fontWeight: vars.fontWeightMedium,
   },
   retryIcon: {
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
 });

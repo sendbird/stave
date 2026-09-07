@@ -154,7 +154,9 @@ export const explorerStyles = stylex.create({
     width: 14,
   },
   searchInput: {
-    backgroundColor: vars.colorCanvas,
+    // Fill comes from the ADS field recipe (`colorSurfaceRaised`); pinning it
+    // to the canvas made the field vanish on themes where `--background` and
+    // `--popover` are the same colour.
     borderColor: vars.colorBorderSubtle,
     borderRadius: vars.radiusMark,
     fontSize: vars.fontSizeBody,

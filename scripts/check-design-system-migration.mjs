@@ -1,4 +1,5 @@
 import { readFileSync, readdirSync } from "node:fs";
+import { sep } from "node:path";
 import ts from "typescript";
 import { inventory } from "./style-utility-inventory.mjs";
 
@@ -82,6 +83,28 @@ for (const relative of readdirSync(componentRoot, { recursive: true })) {
   if (nativeButtons > (manifest.productButtons?.[path] ?? 0))
     failures.push(`${path}: product actions must compose canonical Button`);
 }
+/*
+ * StyleX `{ default: null }` UNSETS a property. On a paint property that is not
+ * "leave it alone", it is "delete whatever the ADS recipe declared" — so an ADS
+ * quiet control loses its `transparent` background and a `<button>` falls back
+ * to the UA's opaque `buttonface`, which is the gray-slab regression. Author the
+ * resting value explicitly (`"transparent"`, or the token the state maps to).
+ * Only ADS itself owns these contracts, so only `src/components/ads` is exempt.
+ */
+const unsetPaint = /\b(?:backgroundColor|borderColor|color)\s*:\s*\{\s*default:\s*null/g;
+const srcRoot = new URL("../src/", import.meta.url);
+for (const relative of readdirSync(srcRoot, { recursive: true })) {
+  const path = relative.split(sep).join("/");
+  if (!/\.tsx?$/.test(path) || path.startsWith("components/ads/")) continue;
+  const source = readFileSync(new URL(relative, srcRoot), "utf8");
+  for (const match of source.matchAll(unsetPaint)) {
+    const line = source.slice(0, match.index).split("\n").length;
+    failures.push(
+      `src/${path}:${line}: \`${match[0].split(":")[0].trim()}: { default: null }\` unsets the ADS variant contract; declare the resting value (e.g. "transparent")`,
+    );
+  }
+}
+
 const packageJson = JSON.parse(
   readFileSync(new URL("../package.json", import.meta.url), "utf8"),
 );

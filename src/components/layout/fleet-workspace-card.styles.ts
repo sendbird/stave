@@ -77,8 +77,10 @@ export const cardStyles = stylex.create({
   },
   name: {
     color: vars.colorText,
-    fontSize: 13,
-    fontWeight: vars.fontWeightSemibold,
+    // Was a bare `13`, between Caption (12) and Body (14). Row titles are Body
+    // medium across the fleet surfaces.
+    fontSize: vars.fontSizeBody,
+    fontWeight: vars.fontWeightMedium,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -102,7 +104,7 @@ export const cardStyles = stylex.create({
     alignItems: "center",
     color: vars.colorTextMuted,
     display: "flex",
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     gap: vars.space4,
     marginTop: vars.space2,
     minWidth: 0,
@@ -125,7 +127,7 @@ export const cardStyles = stylex.create({
   },
   tasksEmpty: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     paddingBlock: vars.space12,
     paddingInline: vars.space12,
   },
@@ -210,7 +212,7 @@ export const cardStyles = stylex.create({
     alignItems: "center",
     display: "inline-flex",
     flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightMedium,
     gap: vars.space4,
   },
@@ -241,7 +243,7 @@ export const cardStyles = stylex.create({
       default: vars.colorTextMuted,
       ":hover": vars.colorText,
     },
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightMedium,
     paddingBlock: vars.space4,
     paddingInline: vars.space16,
@@ -286,12 +288,12 @@ export const cardStyles = stylex.create({
   },
   todoCount: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     fontVariantNumeric: "tabular-nums",
   },
   activity: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -299,7 +301,7 @@ export const cardStyles = stylex.create({
   },
   openAction: {
     flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     height: 24,
     marginInlineStart: "auto",
     paddingInline: vars.space8,

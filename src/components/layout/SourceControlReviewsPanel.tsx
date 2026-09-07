@@ -619,31 +619,19 @@ export function SourceControlReviewsPanel(props: {
 
             <Tabs
               value={detailTab}
+              variant="line"
               onValueChange={(value) => setDetailTab(value as ReviewDetailTab)}
               className={sx(reviewsStyles.tabs)}
             >
-              <div className={sx(reviewsStyles.tabStrip)}>
-                <TabsList className={sx(reviewsStyles.tabList)}>
-                  <TabsTrigger
-                    value="files"
-                    className={sx(reviewsStyles.tabTrigger)}
-                  >
-                    Files {detail.changedFiles}
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="conversation"
-                    className={sx(reviewsStyles.tabTrigger)}
-                  >
-                    Conversation
-                  </TabsTrigger>
-                  <TabsTrigger
-                    value="checks"
-                    className={sx(reviewsStyles.tabTrigger)}
-                  >
-                    Checks {detail.checks.length}
-                  </TabsTrigger>
-                </TabsList>
-              </div>
+              <TabsList className={sx(reviewsStyles.detailTabList)}>
+                <TabsTrigger value="files">
+                  Files {detail.changedFiles}
+                </TabsTrigger>
+                <TabsTrigger value="conversation">Conversation</TabsTrigger>
+                <TabsTrigger value="checks">
+                  Checks {detail.checks.length}
+                </TabsTrigger>
+              </TabsList>
               <TabsContent
                 value="files"
                 className={sx(reviewsStyles.tabPanel)}
@@ -697,22 +685,12 @@ export function SourceControlReviewsPanel(props: {
     <Tabs
       value={kind}
       onValueChange={(value) => setKind(value as GitHubPrInboxKind)}
-      className={sx(reviewsStyles.tabs, reviewsStyles.shell)}
+      className={sx(reviewsStyles.inboxTabs)}
     >
       <div className={sx(reviewsStyles.inboxStrip)}>
-        <TabsList className={sx(reviewsStyles.tabList)}>
-          <TabsTrigger
-            value="review-requested"
-            className={sx(reviewsStyles.tabTrigger)}
-          >
-            To review
-          </TabsTrigger>
-          <TabsTrigger
-            value="authored"
-            className={sx(reviewsStyles.tabTrigger)}
-          >
-            My PRs
-          </TabsTrigger>
+        <TabsList className={sx(reviewsStyles.inboxTabList)}>
+          <TabsTrigger value="review-requested">To review</TabsTrigger>
+          <TabsTrigger value="authored">My PRs</TabsTrigger>
         </TabsList>
         <Button
           type="button"

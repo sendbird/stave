@@ -75,7 +75,7 @@ export const branchPickerStyles = stylex.create({
     backgroundColor: vars.colorCanvas,
     paddingInline: 6,
     paddingBlock: 1,
-    fontSize: "0.625rem",
+    fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightMedium,
     textTransform: "uppercase",
     letterSpacing: "0.08em",
@@ -113,7 +113,6 @@ export const branchPickerStyles = stylex.create({
   searchInput: {
     height: vars.controlHeightMd,
     borderColor: vars.colorBorder,
-    backgroundColor: vars.colorCanvas,
     paddingInlineStart: 36,
   },
   loadingRow: {

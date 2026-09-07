@@ -253,7 +253,7 @@ export const commitDetailPanelStyles = stylex.create({
     borderWidth: vars.borderWidthHairline,
     borderStyle: "solid",
     fontFamily: vars.fontMono,
-    fontSize: 9,
+    fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightSemibold,
   },
   fileIcon: {
@@ -275,7 +275,7 @@ export const commitDetailPanelStyles = stylex.create({
     flexShrink: 0,
     gap: vars.space4,
     fontFamily: vars.fontMono,
-    fontSize: 9,
+    fontSize: vars.fontSizeMicro,
     fontVariantNumeric: "tabular-nums",
   },
   menuIcon: {

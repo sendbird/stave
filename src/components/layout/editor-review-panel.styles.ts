@@ -116,7 +116,13 @@ export const editorReviewPanelStyles = stylex.create({
     justifyContent: "space-between",
     marginTop: vars.space8,
   },
-  draftHint: { color: vars.colorTextMuted, fontSize: vars.fontSizeMicro },
+  draftHint: {
+    alignItems: "center",
+    color: vars.colorTextMuted,
+    display: "inline-flex",
+    fontSize: vars.fontSizeCaption,
+    gap: vars.space4,
+  },
   draftActions: { alignItems: "center", display: "flex", gap: vars.space4 },
   cancelButton: {
     blockSize: 28,

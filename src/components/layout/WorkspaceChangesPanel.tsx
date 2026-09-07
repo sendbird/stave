@@ -8,7 +8,6 @@ import {
   GitBranch,
   GitCommitHorizontal,
   GitPullRequest,
-  History,
   ListChecks,
   Minus,
   Plus,
@@ -727,6 +726,9 @@ export function WorkspaceChangesPanel(props: {
           onValueChange={(nextValue) =>
             setView(nextValue as SourceControlPanelView)
           }
+          // `line`, matching the Reviews detail tabs: three counted labels plus
+          // two actions cannot fit a 300px rail as an enclosed pill track.
+          variant="line"
           className={sx(changesStyles.shell)}
         >
           <div className={sx(changesStyles.viewBar)}>
@@ -738,7 +740,6 @@ export function WorkspaceChangesPanel(props: {
                 </span>
               </TabsTrigger>
               <TabsTrigger value="history" className={sx(changesStyles.tab)}>
-                <History className={sx(changesStyles.glyphSm)} />
                 <span>History</span>
                 <span className={sx(changesStyles.tabCount)}>
                   {props.sourceHistory.length}
@@ -746,7 +747,6 @@ export function WorkspaceChangesPanel(props: {
               </TabsTrigger>
               {showChecksTab ? (
                 <TabsTrigger value="checks" className={sx(changesStyles.tab)}>
-                  <ListChecks className={sx(changesStyles.glyphSm)} />
                   <span>Checks</span>
                   {checksAttentionCount > 0 ? (
                     <span className={sx(changesStyles.tabAlert)}>

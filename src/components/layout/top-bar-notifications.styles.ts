@@ -35,7 +35,10 @@ export const notificationsStyles = stylex.create({
     borderRadius: vars.radiusFrame,
     overflow: "hidden",
     padding: 0,
-    width: "min(28rem, calc(100vw - 1rem))",
+    // Logical, and clamped against the viewport so the popup never renders
+    // wider than the window it is anchored in.
+    inlineSize: "min(28rem, calc(100vw - 1rem))",
+    maxInlineSize: "calc(100vw - 1rem)",
   },
   header: {
     borderBlockEndColor: vars.colorBorder,
@@ -49,6 +52,19 @@ export const notificationsStyles = stylex.create({
     display: "flex",
     gap: vars.space12,
     justifyContent: "space-between",
+  },
+  /*
+   * The title/subtitle/view-switch column. `minInlineSize: 0` is the load-
+   * bearing part: as a default flex item it kept `min-width: auto`, so the
+   * column refused to shrink below the min-content width of the longest
+   * subtitle plus the two-tab switch and pushed `headerActions`
+   * (`flexShrink: 0`) past the panel's right edge, where `overflow: hidden`
+   * clipped the buttons.
+   */
+  headerTitleColumn: {
+    flexGrow: 1,
+    flexShrink: 1,
+    minInlineSize: 0,
   },
   headerTitle: {
     color: vars.colorText,
@@ -67,7 +83,9 @@ export const notificationsStyles = stylex.create({
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
     display: "inline-flex",
+    flexWrap: "wrap",
     marginTop: vars.space12,
+    maxInlineSize: "100%",
     padding: vars.space4,
   },
   viewTab: {
@@ -98,6 +116,7 @@ export const notificationsStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
+    flexWrap: "nowrap",
     gap: vars.space4,
   },
   destructiveAction: {

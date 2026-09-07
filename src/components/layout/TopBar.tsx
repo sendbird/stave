@@ -46,7 +46,7 @@ import { TopBarWindowControls } from "@/components/layout/TopBarWindowControls";
 import { formatWorkspacePathLabel } from "@/store/project.utils";
 import { sx } from "@/components/ads/utils/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";
-import { topBarStyles } from "./top-bar.styles";
+import { topBarControlStyles, topBarStyles } from "./top-bar.styles";
 
 const IS_MAC =
   typeof window !== "undefined" && window.api?.platform === "darwin";
@@ -134,7 +134,7 @@ export function TopBar() {
                     <div className={sx(topBarStyles.pathChip)} />
                   }
                 >
-                  <FolderTree {...stylex.props(topBarStyles.pathIcon)} />
+                  <FolderTree {...stylex.props(topBarControlStyles.icon)} />
                   <span className={sx(topBarStyles.pathLabel)}>
                     {workspacePathLabel}
                   </span>
@@ -157,8 +157,14 @@ export function TopBar() {
                       render={
                         <AdsButton
                           layout="host"
+                          size="sm"
                           type="button"
-                          xstyle={topBarStyles.pathMenuTrigger}
+                          xstyle={[
+                            topBarControlStyles.control,
+                            topBarControlStyles.surface,
+                            topBarControlStyles.iconOnly,
+                            topBarStyles.pathMenuTrigger,
+                          ]}
                           aria-label="open-workspace-path-actions"
                         />
                       }
@@ -246,7 +252,11 @@ export function TopBar() {
                 <Button
                   variant="ghost"
                   size="sm"
-                  xstyle={topBarStyles.gitGraphButton}
+                  xstyle={[
+                    topBarControlStyles.control,
+                    topBarControlStyles.surface,
+                    topBarStyles.gitGraphButton,
+                  ]}
                   style={TOP_BAR_NO_DRAG_STYLE}
                   disabled={!canOpenGitGraph}
                   onClick={focusOrCreateGitGraphSurface}

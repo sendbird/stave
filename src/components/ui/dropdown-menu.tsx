@@ -5,7 +5,7 @@ import { sx, cx } from "../ads/utils/stylex";
 import * as React from "react";
 import { Menu as MenuPrimitive } from "@base-ui/react/menu";
 
-import { UI_LAYER_CLASS } from "@/lib/ui-layers";
+import { UI_LAYER_CLASS, UI_LAYER_VALUE } from "@/lib/ui-layers";
 import { ChevronRightIcon, CheckIcon } from "lucide-react";
 
 function DropdownMenu({ ...props }: MenuPrimitive.Root.Props) {
@@ -50,6 +50,18 @@ function DropdownMenuContent({
       <AdsMenu.Positioner
         data-ui-popup-positioner=""
         className={UI_LAYER_CLASS.popover}
+        // The band has to be stated inline, not left to `UI_LAYER_CLASS`
+        // alone. `Menu.Positioner` merges its own `menu.positioner`
+        // (`zIndex: zIndexDropdown` = 60) with the caller's class through a
+        // plain string join, and a string join cannot resolve two competing
+        // StyleX `z-index` declarations -- the one emitted later in the
+        // stylesheet wins, which is ADS's 60. A dropdown then sits below the
+        // `dialog` (80) and `popover` (90) bands and is painted over by the
+        // surface that opened it (a menu anchored inside a Popover, the
+        // information-panel rail, the pane tab bar). An inline value outranks
+        // every class, so the declared band always holds. The layer class stays
+        // on for `uiLayerClassesAtOrAbove` occlusion detection.
+        style={{ zIndex: UI_LAYER_VALUE.popover }}
         align={align}
         alignOffset={alignOffset}
         side={side}

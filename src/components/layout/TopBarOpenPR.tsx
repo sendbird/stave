@@ -95,6 +95,7 @@ import {
   prToneBadgeStyles,
 } from "./pr-status.styles";
 import { layoutShellStyles } from "./layout-shell.styles";
+import { topBarControlStyles } from "./top-bar.styles";
 import { openPrStyles } from "./top-bar-open-pr.styles";
 import { isTaskArchived } from "@/lib/tasks";
 import {
@@ -1907,8 +1908,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
             render={
               <AdsButton
                 layout="host"
+                size="sm"
                 type="button"
-                xstyle={[openPrStyles.trigger, prCreateButtonStyles.trigger]}
+                xstyle={[
+                  topBarControlStyles.control,
+                  openPrStyles.trigger,
+                  prCreateButtonStyles.trigger,
+                ]}
                 style={props.noDragStyle}
                 onClick={() => void handleCreateClick()}
                 disabled={isCreateDisabled}
@@ -1923,7 +1929,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 variant="persist"
               />
             ) : (
-              <GitPullRequest />
+              <GitPullRequest
+                aria-hidden
+                className={sx(openPrStyles.triggerIcon)}
+              />
             )}
             {statusLabel ?? "Create PR"}
           </TooltipTrigger>
@@ -1943,8 +1952,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                   render={
                     <AdsButton
                       layout="host"
+                      size="sm"
                       type="button"
-                      xstyle={[openPrStyles.trigger, badgeToneStyle]}
+                      xstyle={[
+                        topBarControlStyles.control,
+                        openPrStyles.trigger,
+                        badgeToneStyle,
+                      ]}
                       style={props.noDragStyle}
                       disabled={isBusy || continuingWorkspace}
                       aria-label="open-pr-status-menu"
@@ -2051,8 +2065,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                 render={
                   <AdsButton
                     layout="host"
+                    size="sm"
                     type="button"
                     xstyle={[
+                      topBarControlStyles.control,
                       openPrStyles.trigger,
                       openPrStyles.continueTrigger,
                     ]}

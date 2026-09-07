@@ -13,7 +13,6 @@ import { RadioGroup } from "@base-ui/react/radio-group";
 import { ToggleGroup } from "@base-ui/react/toggle-group";
 import { Check, CircleHelp } from "lucide-react";
 import {
-  Badge,
   Input,
   Popover,
   PopoverContent,
@@ -26,6 +25,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
+import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { cx, sx } from "@/components/ads/utils/stylex";
@@ -60,23 +60,18 @@ export function StatusBadge(args: {
   state: ToolingStatusState | WorkspaceSyncStatus["state"];
   label: string;
 }) {
-  const toneStyle =
+  const tone =
     args.state === "ready" || args.state === "synced"
-      ? styles.statusBadgeReady
+      ? "success"
       : args.state === "warning" ||
           args.state === "behind" ||
           args.state === "ahead" ||
           args.state === "dirty"
-        ? styles.statusBadgeWarning
-        : styles.statusBadgeError;
+        ? "warning"
+        : "danger";
 
   return (
-    <Badge
-      variant="secondary"
-      className={sx(styles.statusBadge, toneStyle)}
-    >
-      {args.label}
-    </Badge>
+    <Badge tone={tone}>{args.label}</Badge>
   );
 }
 
@@ -310,7 +305,12 @@ export function LabeledField(args: {
         args.layout === "stacked" ? styles.fieldStacked : styles.fieldGrid,
       )}
     >
-      <div className={sx(styles.fieldLabelBlock)}>
+      <div
+        className={sx(
+          styles.fieldLabelBlock,
+          args.layout === "stacked" ? null : styles.fieldLead,
+        )}
+      >
         <div className={sx(styles.fieldLabelRow)}>
           <p id={titleId} className={sx(styles.fieldTitle)}>
             {args.title}
@@ -339,7 +339,7 @@ export function SwitchField(args: {
   const descriptionId = useId();
 
   return (
-    <div className={sx(styles.switchRow)}>
+    <div className={sx(styles.fieldGrid, styles.switchRow)}>
       <div className={sx(styles.switchLabelBlock)}>
         <div className={sx(styles.fieldLabelRow)}>
           <p id={titleId} className={sx(styles.fieldTitle)}>

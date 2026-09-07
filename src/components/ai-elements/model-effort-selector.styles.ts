@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { toolbarMarker } from "./composer-control.stylex";
 
 const mq480 = "@media (min-width: 480px)";
 const border65 = `color-mix(in oklch, ${vars.colorBorder} 65%, transparent)`;
@@ -16,7 +17,15 @@ export const modelEffortSelectorStyles = stylex.create({
   /* ---- control group + trigger ---- */
   group: {
     display: "inline-flex",
-    height: vars.controlHeight,
+    // Three independent controls, so this box only sets the shared height.
+    // In the composer's in-card toolbar the lane is ADS `sm` (32) — the same
+    // rung the attach/send buttons beside it use — so match it there instead
+    // of standing 4px taller than its own row. Everywhere else (dispatch
+    // runtime fields) the default md control height still applies.
+    height: {
+      default: vars.controlHeight,
+      [stylex.when.ancestor(":is(*)", toolbarMarker)]: vars.controlHeightSm,
+    },
     maxWidth: "100%",
     alignItems: "center",
     gap: "0.375rem",
@@ -28,7 +37,9 @@ export const modelEffortSelectorStyles = stylex.create({
     maxWidth: 320,
     alignItems: "center",
     gap: "0.375rem",
-    borderRadius: vars.radiusMark,
+    // The ADS control radius, matching every other button in the toolbar row.
+    // `radiusMark` (4px) is for inert marks (chips, thumbnails), not controls.
+    borderRadius: vars.radiusControl,
     borderWidth: vars.borderWidthHairline,
     borderStyle: "solid",
     borderColor: "transparent",
@@ -74,7 +85,7 @@ export const modelEffortSelectorStyles = stylex.create({
     flexShrink: 0,
     alignItems: "center",
     gap: vars.space4,
-    borderRadius: vars.radiusMark,
+    borderRadius: vars.radiusControl,
     borderWidth: vars.borderWidthHairline,
     borderStyle: "solid",
     borderColor: "transparent",
@@ -84,7 +95,7 @@ export const modelEffortSelectorStyles = stylex.create({
     fontWeight: vars.fontWeightMedium,
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
     backgroundColor: {
-      default: null,
+      default: "transparent",
       ":hover": `color-mix(in oklch, ${vars.colorAccentSoft} 55%, transparent)`,
     },
   },
@@ -292,7 +303,7 @@ export const modelEffortSelectorStyles = stylex.create({
   modelRowIdle: {
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
     backgroundColor: {
-      default: null,
+      default: "transparent",
       ":hover": `color-mix(in oklch, ${vars.colorCanvasSubtle} 60%, transparent)`,
     },
   },
@@ -372,7 +383,7 @@ export const modelEffortSelectorStyles = stylex.create({
     fontWeight: vars.fontWeightMedium,
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
     backgroundColor: {
-      default: null,
+      default: "transparent",
       ":hover": `color-mix(in oklch, ${vars.colorCanvasSubtle} 60%, transparent)`,
     },
   },

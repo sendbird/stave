@@ -88,7 +88,7 @@ export const projectSidebarStyles = stylex.create({
   },
   previewMeta: {
     color: invertedText70,
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     lineHeight: vars.lineHeightTight,
   },
   previewMetaRow: {
@@ -96,7 +96,7 @@ export const projectSidebarStyles = stylex.create({
     color: invertedText70,
     display: "flex",
     flexWrap: "wrap",
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     gap: 6,
     lineHeight: vars.lineHeightTight,
   },
@@ -151,7 +151,7 @@ export const projectSidebarStyles = stylex.create({
   },
   queueButtonActive: { backgroundColor: accent12, color: vars.colorText },
   queueButtonIdle: {
-    backgroundColor: { default: null, ":hover": vars.colorSelectionFill },
+    backgroundColor: { default: "transparent", ":hover": vars.colorSelectionFill },
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
   },
   queueLabel: {
@@ -173,11 +173,11 @@ export const projectSidebarStyles = stylex.create({
   laneStack: { display: "flex", flexDirection: "column", gap: 2 },
   laneButton: {
     alignItems: "center",
-    backgroundColor: { default: null, ":hover": vars.colorSelectionFill },
+    backgroundColor: { default: "transparent", ":hover": vars.colorSelectionFill },
     borderRadius: vars.radiusControl,
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
     display: "flex",
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightSemibold,
     gap: 6,
     height: 28,
@@ -281,7 +281,7 @@ export const projectSidebarStyles = stylex.create({
   labelRoomy: { paddingInlineEnd: vars.space32 },
   labelActive: { color: vars.colorText, fontWeight: vars.fontWeightMedium },
   labelEditable: {
-    backgroundColor: { default: null, ":hover": vars.colorOverlayHover },
+    backgroundColor: { default: "transparent", ":hover": vars.colorOverlayHover },
     borderRadius: vars.radiusMark,
     cursor: "text",
     outline: "none",
@@ -293,7 +293,7 @@ export const projectSidebarStyles = stylex.create({
     color: vars.colorTextMuted,
     columnGap: vars.space8,
     display: "grid",
-    fontSize: 11,
+    fontSize: vars.fontSizeMicro,
     gridColumn: "span 2",
     gridTemplateColumns: "1rem minmax(0, 1fr)",
     lineHeight: "1rem",
@@ -436,18 +436,18 @@ export const projectSidebarStyles = stylex.create({
     color: vars.colorText,
   },
   collapsedButtonIdle: {
-    backgroundColor: { default: null, ":hover": vars.colorSelectionFill },
+    backgroundColor: { default: "transparent", ":hover": vars.colorSelectionFill },
   },
   chromeButton: {
     borderRadius: vars.radiusControl,
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
-    backgroundColor: { default: null, ":hover": vars.colorOverlayHover },
+    backgroundColor: { default: "transparent", ":hover": vars.colorOverlayHover },
     height: 32,
     padding: 0,
     width: 32,
   },
   chromeButtonSidebar: {
-    backgroundColor: { default: null, ":hover": vars.colorSelectionFill },
+    backgroundColor: { default: "transparent", ":hover": vars.colorSelectionFill },
     borderRadius: vars.radiusControl,
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
     height: 32,
@@ -528,7 +528,7 @@ export const projectSidebarStyles = stylex.create({
     fontWeight: vars.fontWeightMedium,
   },
   navButtonIdle: {
-    backgroundColor: { default: null, ":hover": vars.colorSelectionFill },
+    backgroundColor: { default: "transparent", ":hover": vars.colorSelectionFill },
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
   },
 
@@ -558,7 +558,7 @@ export const projectSidebarStyles = stylex.create({
     color: vars.colorText,
   },
   viewToggleButtonIdle: {
-    backgroundColor: { default: null, ":hover": vars.colorOverlayHover },
+    backgroundColor: { default: "transparent", ":hover": vars.colorOverlayHover },
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
   },
   viewBarActions: { alignItems: "center", display: "flex", gap: vars.space4 },
@@ -672,12 +672,12 @@ export const projectSidebarStyles = stylex.create({
     },
     alignItems: "center",
     backgroundColor: {
-      default: null,
+      default: "transparent",
       ":hover": vars.colorSelectionFill,
       ":focus-within": vars.colorSelectionFill,
     },
     borderRadius: vars.radiusControl,
-    color: { default: null, ":hover": vars.colorText },
+    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
     display: "flex",
     flex: 1,
     fontSize: vars.fontSizeBody,
@@ -870,7 +870,7 @@ export const projectSidebarStyles = stylex.create({
       ":hover": vars.colorSelectionFill,
     },
     borderColor: { default: "transparent", ":hover": vars.colorBorderSubtle },
-    color: { default: null, ":hover": vars.colorText },
+    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
   },
   workspaceRowDragging: {
     backgroundColor: vars.colorSelectionFill,
@@ -931,7 +931,7 @@ export const projectSidebarStyles = stylex.create({
 
   archiveOption: {
     alignItems: "center",
-    backgroundColor: { default: null, ":hover": vars.colorOverlayHover },
+    backgroundColor: { default: "transparent", ":hover": vars.colorOverlayHover },
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusControl,
     borderStyle: "solid",

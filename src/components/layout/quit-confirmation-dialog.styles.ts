@@ -69,7 +69,7 @@ export const quitDialogStyles = stylex.create({
     backgroundColor: vars.colorCanvas,
     paddingInline: vars.space8,
     paddingBlock: vars.space4,
-    fontSize: "0.625rem",
+    fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightMedium,
     letterSpacing: "normal",
     color: vars.colorText,

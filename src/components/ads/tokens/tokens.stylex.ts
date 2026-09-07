@@ -1,14 +1,17 @@
 import * as stylex from "@stylexjs/stylex";
 
 export const vars = stylex.defineVars({
-  // Pretendard for the interface, JetBrains Mono for code. Both are loaded by
-  // `styles.css`, which also has to repeat the sans stack verbatim on `:root`:
-  // StyleX hashes a `defineVars` key to something like `--xwymy5f`, so plain CSS
-  // cannot name this token. `check:tokens` compares the two so the copy cannot
-  // drift — the same arrangement `--ads-selection-*` uses for `::selection`.
+  // Geist Variable for the interface Latin, Pretendard Variable immediately
+  // behind it as the declared Korean face, JetBrains Mono for code. All three
+  // are loaded by `fonts.css`, and `styles.css` also has to repeat the sans
+  // stack verbatim on `:root`: StyleX hashes a `defineVars` key to something
+  // like `--xwymy5f`, so plain CSS cannot name this token. `check:tokens`
+  // compares the two so the copy cannot drift — the same arrangement
+  // `--ads-selection-*` uses for `::selection`. The bare `Pretendard` after
+  // the variable name is for hosts that still ship only the static faces.
   fontSans:
-    'Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
-  // Pretendard ships no monospace. JetBrains Mono is variable (wght 100-800,
+    '"Geist Variable", "Pretendard Variable", Pretendard, "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  // Neither sans ships a monospace. JetBrains Mono is variable (wght 100-800,
   // covering the 400/500/600 the weight roles use), and its ligatures — which
   // would swallow the space in " --" — are already switched off wherever code
   // renders (`CodeBlock`, `fontVariantLigatures: "none"`).

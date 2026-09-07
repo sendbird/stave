@@ -12,7 +12,7 @@ export const chromeStyles = stylex.create({
   compactIcon: { width: 14, height: 14 },
   modes: { display: "flex", flexShrink: 0, alignItems: "center", borderRadius: vars.radiusControl, borderWidth: vars.borderWidthHairline, borderStyle: "solid", borderColor: vars.colorBorderSubtle, backgroundColor: vars.colorCanvas, padding: vars.space2 },
   tab: { position: "relative" },
-  count: { position: "absolute", right: -4, top: -4, minWidth: 14, borderRadius: 9999, backgroundColor: vars.colorAccent, paddingInline: vars.space4, fontSize: vars.fontSizeMicro, lineHeight: "14px", color: vars.colorAccentText },
+  count: { position: "absolute", right: -4, top: -4, minWidth: 14, borderRadius: 9999, backgroundColor: vars.colorSurfaceTint, paddingInline: vars.space4, fontSize: vars.fontSizeMicro, lineHeight: "14px", color: vars.colorTextMuted, borderWidth: vars.borderWidthHairline, borderStyle: "solid", borderColor: vars.colorBorder },
   help: { maxWidth: "16rem", textWrap: "pretty" },
   captureButton: { height: 32, gap: vars.space4, paddingInline: vars.space8 },
   chevron: { width: vars.space12, height: vars.space12, opacity: 0.7 },

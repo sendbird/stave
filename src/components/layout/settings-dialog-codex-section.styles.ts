@@ -45,7 +45,7 @@ export const codexStyles = stylex.create({
     fontSize: vars.fontSizeLead,
     fontWeight: vars.fontWeightSemibold,
     letterSpacing: "-0.01em",
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
 
   // ---- DenseSection -------------------------------------------------------
@@ -57,7 +57,7 @@ export const codexStyles = stylex.create({
     borderWidth: vars.borderWidthHairline,
   },
   sectionHeader: {
-    alignItems: "flex-start",
+    alignItems: "start",
     borderBottomColor: vars.colorBorder,
     borderBottomStyle: "solid",
     borderBottomWidth: vars.borderWidthHairline,
@@ -71,7 +71,7 @@ export const codexStyles = stylex.create({
   sectionHeaderText: {
     flexBasis: 0,
     flexGrow: 1,
-    minWidth: 0,
+    minInlineSize: 0,
     display: "flex",
     flexDirection: "column",
     gap: vars.space4,
@@ -99,8 +99,8 @@ export const codexStyles = stylex.create({
     borderWidth: vars.borderWidthHairline,
     fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightMedium,
-    paddingInline: "0.625rem",
-    paddingBlock: "0.125rem",
+    paddingInline: vars.space8,
+    paddingBlock: vars.space2,
   },
   pillDefault: {
     borderColor: vars.colorBorder,
@@ -122,7 +122,7 @@ export const codexStyles = stylex.create({
   // ---- ReadOnlyCodeBlock (Textarea xstyle) -------------------------------
   codeBlock: {
     fontFamily: vars.fontMono,
-    fontSize: "0.75rem",
+    fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightControl,
   },
 
@@ -145,7 +145,7 @@ export const codexStyles = stylex.create({
     gap: vars.space12,
     justifyContent: "space-between",
     paddingInline: vars.space16,
-    paddingBlock: "0.875rem",
+    paddingBlock: vars.space12,
   },
   rowWrapGap2: {
     alignItems: "center",
@@ -164,7 +164,7 @@ export const codexStyles = stylex.create({
 
   // ---- Tabs ---------------------------------------------------------------
   tabs: {
-    gap: 0,
+    gap: vars.space0,
   },
   tabsBar: {
     borderBottomColor: vars.colorBorder,
@@ -179,16 +179,16 @@ export const codexStyles = stylex.create({
     borderRadius: vars.radiusFrame,
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
-    height: "auto",
+    blockSize: "auto",
     justifyContent: "flex-start",
     padding: vars.space4,
-    width: "100%",
+    inlineSize: "100%",
   },
   tabsTrigger: {
     borderRadius: vars.radiusPanel,
     fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightMedium,
-    height: 32,
+    blockSize: vars.controlHeightSm,
     paddingInline: vars.space12,
   },
   tabContent: {
@@ -198,29 +198,29 @@ export const codexStyles = stylex.create({
 
   // ---- Icon buttons / refresh --------------------------------------------
   refreshBtn: {
-    gap: "0.375rem",
-    height: 32,
+    gap: vars.space8,
+    blockSize: vars.controlHeightSm,
   },
   ghostIconBtn: {
-    height: 24,
-    paddingInline: "0.375rem",
+    blockSize: vars.space24,
+    paddingInline: vars.space4,
   },
   icon35: {
-    height: "0.875rem",
-    width: "0.875rem",
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   icon3: {
-    height: 12,
-    width: 12,
+    blockSize: vars.space12,
+    inlineSize: vars.space12,
   },
   icon4: {
     color: vars.colorTextMuted,
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   icon5: {
-    height: vars.controlIconSizeLg,
-    width: vars.controlIconSizeLg,
+    blockSize: vars.controlIconSizeLg,
+    inlineSize: vars.controlIconSizeLg,
   },
   iconSpin: {
     animationName: spin,
@@ -256,31 +256,31 @@ export const codexStyles = stylex.create({
   stack15: {
     display: "flex",
     flexDirection: "column",
-    gap: "0.375rem",
+    gap: vars.space8,
   },
   mt2Stack2: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space8,
-    marginTop: vars.space8,
+    marginBlockStart: vars.space8,
   },
   mt3Stack15: {
     display: "flex",
     flexDirection: "column",
-    gap: "0.375rem",
-    marginTop: vars.space12,
+    gap: vars.space8,
+    marginBlockStart: vars.space12,
   },
   mt3Stack2: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space8,
-    marginTop: vars.space12,
+    marginBlockStart: vars.space12,
   },
   mt3Stack3: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space12,
-    marginTop: vars.space12,
+    marginBlockStart: vars.space12,
   },
   rowCenterBetween: {
     alignItems: "center",
@@ -296,7 +296,7 @@ export const codexStyles = stylex.create({
   rowCenterGap15: {
     alignItems: "center",
     display: "flex",
-    gap: "0.375rem",
+    gap: vars.space8,
   },
   rowWrapCenterBetween: {
     alignItems: "center",
@@ -395,17 +395,17 @@ export const codexStyles = stylex.create({
   textSmMutedMt2: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeBody,
-    marginTop: vars.space8,
+    marginBlockStart: vars.space8,
   },
   textSmMutedMt1: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeBody,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   textSmMutedMt3: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeBody,
-    marginTop: vars.space12,
+    marginBlockStart: vars.space12,
   },
   textSmMedium: {
     color: vars.colorText,
@@ -424,12 +424,12 @@ export const codexStyles = stylex.create({
   textXsMutedMt1: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   textXsMutedMt3: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space12,
+    marginBlockStart: vars.space12,
   },
   textXsDanger: {
     color: vars.colorDangerText,
@@ -460,7 +460,7 @@ export const codexStyles = stylex.create({
   inspectorTitleMt1: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeBody,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
 
   // ---- Card-like inner tiles ---------------------------------------------
@@ -509,7 +509,7 @@ export const codexStyles = stylex.create({
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeBody,
     paddingInline: vars.space12,
-    paddingBlock: "2.5rem",
+    paddingBlock: vars.space40,
     textAlign: "center",
   },
   tileDashedCenteredSm: {
@@ -538,7 +538,7 @@ export const codexStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars.space12,
-    width: "100%",
+    inlineSize: "100%",
   },
   accordionItem: {
     borderColor: vars.colorBorder,
@@ -554,13 +554,13 @@ export const codexStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars.space8,
-    paddingBottom: vars.space12,
+    paddingBlockEnd: vars.space12,
   },
   accordionContentStack3: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space12,
-    paddingBottom: vars.space12,
+    paddingBlockEnd: vars.space12,
   },
 
   // ---- Selectable row buttons (native button -> ADS Button host) ---------
@@ -578,7 +578,7 @@ export const codexStyles = stylex.create({
     paddingInline: vars.space12,
     paddingBlock: vars.space12,
     textAlign: "left",
-    width: "100%",
+    inlineSize: "100%",
     alignItems: {
       default: "stretch",
       "@media (min-width: 640px)": "flex-start",
@@ -589,7 +589,7 @@ export const codexStyles = stylex.create({
     },
   },
   rowButtonThread: {
-    alignItems: "flex-start",
+    alignItems: "start",
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusFrame,
     borderStyle: "solid",
@@ -600,7 +600,7 @@ export const codexStyles = stylex.create({
     paddingInline: vars.space12,
     paddingBlock: vars.space12,
     textAlign: "left",
-    width: "100%",
+    inlineSize: "100%",
   },
   rowButtonResting: {
     backgroundColor: {
@@ -618,22 +618,22 @@ export const codexStyles = stylex.create({
     flexDirection: "column",
     flexGrow: 1,
     gap: vars.space4,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   rowButtonBodyNoGrow: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space4,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   rowSource: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    maxWidth: "100%",
+    maxInlineSize: "100%",
     overflowWrap: "anywhere",
     wordBreak: "break-all",
     "@media (min-width: 640px)": {
-      maxWidth: "16rem",
+      maxInlineSize: "16rem",
       textAlign: "right",
     },
   },
@@ -648,9 +648,9 @@ export const codexStyles = stylex.create({
   },
 
   // ---- Misc text/word wrap ------------------------------------------------
-  minW0: { minWidth: 0 },
-  minW0Flex1: { flexBasis: 0, flexGrow: 1, minWidth: 0 },
-  minW0Grow1: { flexBasis: "0%", flexGrow: 1, flexShrink: 1, minWidth: 0 },
+  minW0: { minInlineSize: 0 },
+  minW0Flex1: { flexBasis: 0, flexGrow: 1, minInlineSize: 0 },
+  minW0Grow1: { flexBasis: "0%", flexGrow: 1, flexShrink: 1, minInlineSize: 0 },
   breakWordsSmMedium: {
     color: vars.colorText,
     fontSize: vars.fontSizeBody,
@@ -672,13 +672,13 @@ export const codexStyles = stylex.create({
   breakAllXsMutedMt1: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
     wordBreak: "break-all",
   },
   breakAllMicroMutedMt1: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeMicro,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
     wordBreak: "break-all",
   },
   breakWordsXsFontMedium: {
@@ -705,19 +705,19 @@ export const codexStyles = stylex.create({
   },
   mlSmMuted: {
     color: vars.colorTextMuted,
-    marginLeft: "0.375rem",
+    marginInlineStart: vars.space4,
   },
 
   // ---- Rate-limit progress bar -------------------------------------------
   progressTrack: {
     backgroundColor: vars.colorCanvasSubtle,
     borderRadius: vars.radiusFull,
-    height: vars.space8,
+    blockSize: vars.space8,
   },
   progressFill: {
     backgroundColor: vars.colorAccent,
     borderRadius: vars.radiusFull,
-    height: vars.space8,
+    blockSize: vars.space8,
   },
 
   // ---- Skill/chip rows ----------------------------------------------------
@@ -725,7 +725,7 @@ export const codexStyles = stylex.create({
     display: "flex",
     flexWrap: "wrap",
     gap: vars.space8,
-    marginTop: vars.space8,
+    marginBlockStart: vars.space8,
   },
   chipWrap: {
     display: "flex",
@@ -743,7 +743,7 @@ export const codexStyles = stylex.create({
 
   // ---- Feature/hook rows --------------------------------------------------
   featureRow: {
-    alignItems: "flex-start",
+    alignItems: "start",
     backgroundColor: vars.colorCanvas,
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusFrame,
@@ -775,39 +775,39 @@ export const codexStyles = stylex.create({
   searchWrap: {
     flexBasis: 0,
     flexGrow: 1,
-    minWidth: "260px",
+    minInlineSize: "16rem",
     position: "relative",
   },
   searchIcon: {
     color: vars.colorTextMuted,
-    height: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
     left: vars.space12,
     pointerEvents: "none",
     position: "absolute",
     top: "50%",
     transform: "translateY(-50%)",
-    width: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   searchInput: {
-    paddingLeft: "2.25rem",
+    paddingInlineStart: vars.space32,
   },
 
   // ---- Advanced config inputs --------------------------------------------
   configTextarea140: {
     fontFamily: vars.fontMono,
-    fontSize: "0.75rem",
-    minHeight: "140px",
+    fontSize: vars.fontSizeCaption,
+    minBlockSize: "8.75rem",
   },
   configTextarea220: {
     fontFamily: vars.fontMono,
-    fontSize: "0.75rem",
-    minHeight: "220px",
+    fontSize: vars.fontSizeCaption,
+    minBlockSize: "13.75rem",
   },
   rollbackInput: {
-    height: vars.controlHeightLg,
+    blockSize: vars.controlHeightLg,
   },
   maxWSm: {
-    maxWidth: "24rem",
+    maxInlineSize: "24rem",
   },
   rollbackTile: {
     backgroundColor: vars.colorCanvasSubtle,
@@ -828,12 +828,12 @@ export const codexStyles = stylex.create({
     display: "flex",
     flexWrap: "wrap",
     gap: vars.space8,
-    minWidth: 0,
-    paddingRight: vars.space12,
-    width: "100%",
+    minInlineSize: 0,
+    paddingInlineEnd: vars.space12,
+    inlineSize: "100%",
   },
   accordionLayerName: {
-    minWidth: 0,
+    minInlineSize: 0,
     overflowWrap: "anywhere",
     textAlign: "left",
     wordBreak: "break-word",
@@ -856,19 +856,19 @@ export const codexStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars.space12,
-    width: "100%",
+    inlineSize: "100%",
   },
   space2Pb3: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space8,
-    paddingBottom: vars.space12,
+    paddingBlockEnd: vars.space12,
   },
   space3Pb3: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space12,
-    paddingBottom: vars.space12,
+    paddingBlockEnd: vars.space12,
   },
   rowColSmRow: {
     display: "flex",
@@ -906,21 +906,21 @@ export const codexStyles = stylex.create({
   minW0Flex1Only: {
     flexBasis: 0,
     flexGrow: 1,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   mt2Chips: {
     display: "flex",
     flexWrap: "wrap",
     gap: vars.space8,
-    marginTop: vars.space8,
+    marginBlockStart: vars.space8,
   },
   mt2Space2: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space8,
-    marginTop: vars.space8,
+    marginBlockStart: vars.space8,
   },
-  mr1: { marginRight: vars.space4 },
+  mr1: { marginInlineEnd: vars.space4 },
   mutedFg: { color: vars.colorTextMuted },
   rowCenterBetweenGap2: {
     alignItems: "center",
@@ -936,7 +936,7 @@ export const codexStyles = stylex.create({
     flexDirection: "column",
     fontSize: vars.fontSizeBody,
     gap: vars.space4,
-    marginTop: vars.space8,
+    marginBlockStart: vars.space8,
   },
   mt2Space1BreakAllSmMuted: {
     color: vars.colorTextMuted,
@@ -944,13 +944,13 @@ export const codexStyles = stylex.create({
     flexDirection: "column",
     fontSize: vars.fontSizeBody,
     gap: vars.space4,
-    marginTop: vars.space8,
+    marginBlockStart: vars.space8,
     wordBreak: "break-all",
   },
   space15: {
     display: "flex",
     flexDirection: "column",
-    gap: "0.375rem",
+    gap: vars.space8,
   },
   fontMediumFg: {
     color: vars.colorText,
@@ -958,24 +958,24 @@ export const codexStyles = stylex.create({
   },
   mlSmMutedFg: {
     color: vars.colorTextMuted,
-    marginLeft: "0.375rem",
+    marginInlineStart: vars.space4,
   },
   shrink0RowGap15: {
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    gap: "0.375rem",
+    gap: vars.space8,
   },
   metricStartRowXs: {
-    alignItems: "flex-start",
+    alignItems: "start",
     display: "flex",
     fontSize: vars.fontSizeCaption,
     gap: vars.space8,
     justifyContent: "space-between",
   },
   badgeTiny: {
-    height: vars.space16,
-    fontSize: "0.625rem",
+    blockSize: vars.space16,
+    fontSize: vars.fontSizeMicro,
     paddingInline: vars.space4,
   },
   breakWordsXsMuted2: {
@@ -994,19 +994,19 @@ export const codexStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars.space12,
-    marginTop: vars.space12,
+    marginBlockStart: vars.space12,
   },
   mt3Space15: {
     display: "flex",
     flexDirection: "column",
-    gap: "0.375rem",
-    marginTop: vars.space12,
+    gap: vars.space8,
+    marginBlockStart: vars.space12,
   },
   mt3Space2: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space8,
-    marginTop: vars.space12,
+    marginBlockStart: vars.space12,
   },
   mt3Space1XsDanger: {
     color: vars.colorDangerText,
@@ -1014,7 +1014,7 @@ export const codexStyles = stylex.create({
     flexDirection: "column",
     fontSize: vars.fontSizeCaption,
     gap: vars.space4,
-    marginTop: vars.space12,
+    marginBlockStart: vars.space12,
   },
   rateRow: {
     alignItems: "center",
@@ -1037,7 +1037,7 @@ export const codexStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars.space4,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   minW0Grow1Space1: {
     display: "flex",
@@ -1046,7 +1046,7 @@ export const codexStyles = stylex.create({
     flexGrow: 1,
     flexShrink: 1,
     gap: vars.space4,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   textXsDangerOnly: {
     color: vars.colorDangerText,
@@ -1064,14 +1064,14 @@ export const codexStyles = stylex.create({
     color: vars.colorText,
     fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
-    minWidth: 0,
+    minInlineSize: 0,
     overflowWrap: "break-word",
     wordBreak: "break-word",
   },
   mt1BreakXsMuted: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
     overflowWrap: "break-word",
     wordBreak: "break-word",
   },
@@ -1102,7 +1102,7 @@ export const codexStyles = stylex.create({
   mt3TextSmDanger: {
     color: vars.colorDangerText,
     fontSize: vars.fontSizeBody,
-    marginTop: vars.space12,
+    marginBlockStart: vars.space12,
   },
   bgTile50: {
     backgroundColor: vars.colorCanvas,
@@ -1121,7 +1121,7 @@ export const codexStyles = stylex.create({
   mt1TextXsMuted: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   h8Only: { height: 32 },
   h7Only: { height: 28 },
@@ -1136,7 +1136,7 @@ export const codexStyles = stylex.create({
     flexDirection: "column",
     fontSize: vars.fontSizeCaption,
     gap: vars.space4,
-    marginTop: vars.space12,
+    marginBlockStart: vars.space12,
   },
   resourceRow: {
     alignItems: {
@@ -1157,7 +1157,7 @@ export const codexStyles = stylex.create({
       default: "flex-start",
       "@media (min-width: 640px)": "space-between",
     },
-    paddingInline: "0.625rem",
+    paddingInline: vars.space8,
     paddingBlock: vars.space8,
   },
 });

@@ -2,6 +2,7 @@ import { useCallback, useMemo, useState } from "react";
 import {
   ChevronDown,
   ChevronUp,
+  Pencil,
   Plus,
   SquareTerminal,
   Trash2,
@@ -24,6 +25,7 @@ import {
   getTaskPresetShortcutLabel,
   type TaskPreset,
 } from "@/lib/task-presets";
+import { Button as AdsButton } from "@/components/ads/components/Button";
 import { useAppStore } from "@/store/app.store";
 import {
   SectionStack,
@@ -211,84 +213,89 @@ export function PresetsSection() {
                     }}
                   >
                     <div className={sx(styles.row)}>
-                      <div className={sx(styles.rowInner)}>
-                        <div className={sx(styles.rowMain)}>
-                          <div className={sx(styles.mark)}>
-                            <ModelIcon
-                              providerId={preset.provider}
-                              model={preset.model}
-                              className={sx(styles.markIcon)}
-                            />
-                            {preset.kind === "cli-session" ? (
-                              <SquareTerminal className={sx(styles.cliBadge)} />
+                      <div className={sx(styles.rowMain)}>
+                        <div className={sx(styles.mark)}>
+                          <ModelIcon
+                            providerId={preset.provider}
+                            model={preset.model}
+                            className={sx(styles.markIcon)}
+                          />
+                          {preset.kind === "cli-session" ? (
+                            <SquareTerminal className={sx(styles.cliBadge)} />
+                          ) : null}
+                        </div>
+                        <div className={sx(styles.rowBody)}>
+                          <div className={sx(styles.rowHead)}>
+                            <p className={sx(styles.rowLabel)}>
+                              {preset.label}
+                            </p>
+                            {shortcutLabel ? (
+                              <WorkspaceShortcutChip
+                                modifier="Ctrl"
+                                label={shortcutLabel}
+                                className={sx(styles.shortcutChip)}
+                              />
                             ) : null}
                           </div>
-                          <div className={sx(styles.rowBody)}>
-                            <div className={sx(styles.rowHead)}>
-                              <p className={sx(styles.rowLabel)}>
-                                {preset.label}
-                              </p>
-                              {shortcutLabel ? (
-                                <WorkspaceShortcutChip
-                                  modifier="Ctrl"
-                                  label={shortcutLabel}
-                                  className={sx(styles.shortcutChip)}
-                                />
-                              ) : null}
-                            </div>
-                            <p className={sx(styles.rowMeta)}>
-                              {describePreset(preset)}
-                            </p>
-                          </div>
+                          <p className={sx(styles.rowMeta)}>
+                            {describePreset(preset)}
+                          </p>
                         </div>
+                      </div>
 
-                        <div className={sx(styles.rowActions)}>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            xstyle={styles.actionButton}
-                            disabled={moveUpDisabled}
-                            onClick={() => handleMovePreset(preset.id, -1)}
-                          >
-                            <ChevronUp className={sx(styles.actionIcon)} />
-                            Move up
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            xstyle={styles.actionButton}
-                            disabled={moveDownDisabled}
-                            onClick={() => handleMovePreset(preset.id, 1)}
-                          >
-                            <ChevronDown className={sx(styles.actionIcon)} />
-                            Move down
-                          </Button>
-                          <PopoverTrigger
-                            render={
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() =>
-                                  setEditorTarget({
-                                    kind: "edit",
-                                    presetId: preset.id,
-                                  })
-                                }
-                              />
-                            }
-                          >
-                            Edit
-                          </PopoverTrigger>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            xstyle={styles.deleteButton}
-                            onClick={() => handleDeletePreset(preset.id)}
-                          >
-                            <Trash2 className={sx(styles.actionIcon)} />
-                            Delete
-                          </Button>
-                        </div>
+                      <div className={sx(styles.rowActions)}>
+                        <AdsButton
+                          variant="quiet"
+                          size="xs"
+                          iconOnly
+                          aria-label={`Move ${preset.label} up`}
+                          title="Move up"
+                          disabled={moveUpDisabled}
+                          onClick={() => handleMovePreset(preset.id, -1)}
+                        >
+                          <ChevronUp />
+                        </AdsButton>
+                        <AdsButton
+                          variant="quiet"
+                          size="xs"
+                          iconOnly
+                          aria-label={`Move ${preset.label} down`}
+                          title="Move down"
+                          disabled={moveDownDisabled}
+                          onClick={() => handleMovePreset(preset.id, 1)}
+                        >
+                          <ChevronDown />
+                        </AdsButton>
+                        <PopoverTrigger
+                          render={
+                            <AdsButton
+                              variant="quiet"
+                              size="xs"
+                              iconOnly
+                              aria-label={`Edit ${preset.label}`}
+                              title="Edit preset"
+                              onClick={() =>
+                                setEditorTarget({
+                                  kind: "edit",
+                                  presetId: preset.id,
+                                })
+                              }
+                            />
+                          }
+                        >
+                          <Pencil />
+                        </PopoverTrigger>
+                        <AdsButton
+                          variant="quiet"
+                          size="xs"
+                          iconOnly
+                          xstyle={styles.deleteButton}
+                          aria-label={`Delete ${preset.label}`}
+                          title="Delete preset"
+                          onClick={() => handleDeletePreset(preset.id)}
+                        >
+                          <Trash2 />
+                        </AdsButton>
                       </div>
                     </div>
                     <PopoverContent

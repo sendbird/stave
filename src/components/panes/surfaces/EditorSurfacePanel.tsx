@@ -1146,11 +1146,16 @@ viewport: {minHeight:0,flex:1,overflow:"hidden"},
 emptyHost: {display:"flex",height:"100%",alignItems:"center",justifyContent:"center",backgroundColor:"var(--editor)",padding:24},
 empty: {borderWidth:0,backgroundColor:"transparent",padding:0},
 emptyHeader: {gap:12},
-emptyIcon: {width:56,height:56,borderRadius:16,backgroundColor:vars.colorAccentSoft,color:vars.colorAccent},
-emptyText: {display:"flex",flexDirection:"column",gap:4},
-title: {fontSize:20,fontWeight:600},
-description: {maxWidth:448,fontSize:14},
+// Logical names, matching the keys ADS `emptyStateStyles.media` declares
+// (`inlineSize: 48` / `minBlockSize: 48`). StyleX treats `width` and
+// `inlineSize` as distinct atomic properties, so the physical spelling left
+// the ADS inline size live and rendered a 48x56 non-square medallion.
+emptyIcon: {inlineSize:56,blockSize:56,minBlockSize:56,borderRadius:vars.radiusFrame,backgroundColor:vars.colorAccentSoft,color:vars.colorAccent},
+emptyText: {display:"flex",flexDirection:"column",gap:vars.space4},
+title: {fontSize:vars.fontSizeHeading,lineHeight:vars.lineHeightHeading,fontWeight:vars.fontWeightSemibold},
+// `maxInlineSize`, again matching the logical box ADS's description owns.
+description: {maxInlineSize:448,fontSize:vars.fontSizeBody},
 imageHost: {display:"flex",height:"100%",alignItems:"center",justifyContent:"center",overflow:"auto",backgroundColor:"var(--editor)",padding:16},
 image: {maxHeight:"100%",maxWidth:"100%",cursor:"zoom-in",objectFit:"contain"},
-note: {fontSize:14,color:vars.colorTextMuted}
+note: {fontSize:vars.fontSizeBody,color:vars.colorTextMuted}
 });

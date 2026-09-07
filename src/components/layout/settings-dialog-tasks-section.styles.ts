@@ -49,10 +49,10 @@ export const tasksSectionStyles = stylex.create({
     fontWeight: vars.fontWeightMedium,
   },
   triggerWide: {
-    width: "16rem",
+    inlineSize: "16rem",
   },
   intervalInput: {
-    width: "10rem",
+    inlineSize: "10rem",
   },
   sourcesCard: {
     backgroundColor: vars.colorCanvasSubtle,
@@ -75,13 +75,13 @@ export const tasksSectionStyles = stylex.create({
     gap: vars.space12,
   },
   sourceRow: {
-    alignItems: "flex-start",
+    alignItems: "start",
     display: "flex",
     gap: vars.space12,
     justifyContent: "space-between",
   },
   sourceMain: {
-    minWidth: 0,
+    minInlineSize: 0,
   },
   sourceHead: {
     alignItems: "center",
@@ -100,7 +100,7 @@ export const tasksSectionStyles = stylex.create({
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightNormal,
-    marginBlockStart: 2,
+    marginBlockStart: vars.space2,
   },
   sourceActions: {
     alignItems: "center",
@@ -109,11 +109,11 @@ export const tasksSectionStyles = stylex.create({
     gap: vars.space8,
   },
   setUpButton: {
-    height: 32,
+    blockSize: vars.controlHeightSm,
   },
   openIntegrations: {
     fontSize: vars.fontSizeCaption,
-    height: "auto",
+    blockSize: "auto",
     paddingInline: 0,
   },
 });

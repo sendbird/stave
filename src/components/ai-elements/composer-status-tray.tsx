@@ -223,7 +223,7 @@ export function ComposerStatusTray(props: {
               <Button
                 type="button"
                 variant="ghost"
-                size="icon"
+                size="icon-sm"
                 disabled={props.disabled}
                 className={sx(statusTrayStyles.trigger, statusTrayStyles.triggerHover)}
                 aria-label={`More composer controls (${props.items.length + overflowItems.length})`}

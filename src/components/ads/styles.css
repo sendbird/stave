@@ -107,11 +107,39 @@
   flex-shrink: 0;
 }
 
-[data-ads-control="button"] > svg {
-  block-size: var(--ads-control-icon-size);
+/*
+ * The `16px` fallback mirrors the sibling icon-button rule below. Without it a
+ * `<svg>` under a marked element that never received the custom property (a
+ * portalled child, a wrapper that re-declares the marker, a consumer setting
+ * the attribute by hand) resolves to `block-size: <invalid>` and falls back to
+ * Lucide's intrinsic 24px box. The same fix is being proposed upstream.
+ *
+ * `layout="host"` is carved out and handled below. This rule is UNLAYERED, so
+ * it beats every StyleX class no matter its specificity — correct for a control
+ * whose box ADS owns, wrong for one whose box the caller owns.
+ */
+[data-ads-control="button"]:not([data-ads-control-layout="host"]) > svg {
+  block-size: var(--ads-control-icon-size, 16px);
   display: block;
   flex-shrink: 0;
-  inline-size: var(--ads-control-icon-size);
+  inline-size: var(--ads-control-icon-size, 16px);
+}
+
+/*
+ * `layout="host"` Buttons carry the same marker and the same custom property,
+ * but geometry belongs to the caller — so their glyph box is a DEFAULT, not a
+ * mandate. Living in `@layer base` puts this behind StyleX's `priority*` layers
+ * (see the canonical order in `globals.css`), so it stops Lucide's 24px viewBox
+ * from leaking into an unstyled host control while any icon size the caller
+ * authored still wins.
+ */
+@layer base {
+  [data-ads-control-layout="host"] > svg {
+    block-size: var(--ads-control-icon-size, 16px);
+    display: block;
+    flex-shrink: 0;
+    inline-size: var(--ads-control-icon-size, 16px);
+  }
 }
 
 [data-ads-control="sidebar-menu-button"] > svg,
@@ -586,6 +614,8 @@
     color-scheme: light;
     /* Verbatim copy of `fontSans` — StyleX hashes the var name. `check:tokens` gates the drift. */
     font-family:
+      "Geist Variable",
+      "Pretendard Variable",
       Pretendard,
       "Apple SD Gothic Neo",
       "Noto Sans KR",

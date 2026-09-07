@@ -12,7 +12,7 @@ export const jiraConnectorStyles = stylex.create({
     outline: "none",
   },
   header: {
-    alignItems: "flex-start",
+    alignItems: "start",
     borderBottomColor: vars.colorBorder,
     borderBottomStyle: "solid",
     borderBottomWidth: vars.borderWidthHairline,
@@ -23,7 +23,7 @@ export const jiraConnectorStyles = stylex.create({
   },
   headerBody: {
     flex: 1,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   headerTitleLine: {
     alignItems: "center",
@@ -48,7 +48,7 @@ export const jiraConnectorStyles = stylex.create({
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightControl,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
   },
   body: {
     display: "flex",
@@ -89,7 +89,7 @@ export const jiraConnectorStyles = stylex.create({
     rowGap: vars.space12,
   },
   accountMeta: {
-    minWidth: 0,
+    minInlineSize: 0,
   },
   accountName: {
     fontSize: vars.fontSizeBody,
@@ -143,12 +143,12 @@ export const jiraConnectorStyles = stylex.create({
   },
   resetButton: {
     flexShrink: 0,
-    height: "auto",
+    blockSize: "auto",
     paddingBlock: vars.space4,
   },
   resetIcon: {
-    height: 12,
-    width: 12,
+    blockSize: vars.space12,
+    inlineSize: vars.space12,
   },
   refreshRow: {
     alignItems: "center",
@@ -157,20 +157,20 @@ export const jiraConnectorStyles = stylex.create({
     gap: vars.space12,
   },
   maxResultsTrigger: {
-    width: "11rem",
+    inlineSize: "11rem",
   },
   actionIcon: {
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
   mappings: {
     borderTopColor: vars.colorBorder,
     borderTopStyle: "solid",
-    borderTopWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars.borderWidthHairline,
     display: "flex",
     flexDirection: "column",
     gap: vars.space12,
-    paddingTop: vars.space16,
+    paddingBlockStart: vars.space16,
   },
   mappingRow: {
     alignItems: "center",
@@ -186,7 +186,7 @@ export const jiraConnectorStyles = stylex.create({
   },
   mappingBody: {
     flex: 1,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   mappingName: {
     color: vars.colorText,

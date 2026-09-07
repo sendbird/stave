@@ -5,11 +5,11 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 /** Advisor default settings card controls. */
 export const advisorSectionStyles = stylex.create({
   providerIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   selector: {
-    width: "100%",
+    inlineSize: "100%",
   },
   trigger: {
     backgroundColor: {
@@ -20,14 +20,14 @@ export const advisorSectionStyles = stylex.create({
     borderRadius: vars.radiusControl,
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
-    height: vars.controlHeightLg,
-    maxWidth: "none",
+    blockSize: vars.controlHeightLg,
+    maxInlineSize: "none",
     paddingInline: vars.space12,
-    width: "100%",
+    inlineSize: "100%",
   },
   menu: {
     "@media (min-width: 640px)": {
-      maxWidth: "32rem",
+      maxInlineSize: "32rem",
     },
   },
   invalidNote: {
@@ -44,8 +44,8 @@ export const advisorSectionStyles = stylex.create({
   },
   consultInput: {
     backgroundColor: vars.colorCanvas,
-    height: vars.controlHeightLg,
-    width: "6rem",
+    blockSize: vars.controlHeightLg,
+    inlineSize: "6rem",
   },
   noteCard: {
     backgroundColor: vars.colorCanvasSubtle,
@@ -57,7 +57,7 @@ export const advisorSectionStyles = stylex.create({
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightNormal,
     paddingBlock: vars.space12,
-    paddingInline: 14,
+    paddingInline: vars.space12,
   },
   emphasis: {
     color: vars.colorText,

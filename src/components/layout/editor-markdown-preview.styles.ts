@@ -175,7 +175,7 @@ export const editorMarkdownPreviewStyles = stylex.create({
   },
   tableRow: {
     backgroundColor: {
-      default: null,
+      default: "transparent",
       ":hover": `color-mix(in oklch, ${vars.colorCanvasSubtle} 30%, transparent)`,
     },
   },

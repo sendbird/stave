@@ -66,9 +66,18 @@ export const statusBarUsageStyles = stylex.create({
   amountValue: { color: vars.colorTextSubtle, fontFamily: vars.fontMono },
 
   trigger: {
-    borderRadius: 0,
+    // Radius from the token, not `0`: this is a hoverable control, and a square
+    // hover wash in a rounded chrome strip reads as a rendering artefact.
+    borderRadius: vars.radiusControl,
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
-    backgroundColor: { default: null, ":hover": vars.colorOverlayHover },
+    // `transparent`, never `null` — `null` unsets `background-color` and the
+    // UA's `buttonface` shows through as an opaque grey slab (see
+    // `right-rail.styles.ts`).
+    backgroundColor: {
+      default: "transparent",
+      ":hover": vars.colorOverlayHover,
+      ":active": vars.colorOverlayPressed,
+    },
     fontSize: vars.fontSizeCaption,
     gap: 6,
     height: 24,
@@ -108,6 +117,11 @@ export const statusBarUsageStyles = stylex.create({
   },
   refreshButton: {
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
+    backgroundColor: {
+      default: "transparent",
+      ":hover": vars.colorOverlayHover,
+      ":active": vars.colorOverlayPressed,
+    },
     height: 28,
     padding: 0,
     width: 28,

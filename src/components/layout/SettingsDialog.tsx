@@ -246,7 +246,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                 className={sx(styles.sidebarContent)}
                 style={
                   IS_MAC
-                    ? { paddingTop: MAC_TRAFFIC_LIGHT_CLEARANCE }
+                    ? { paddingBlockStart: MAC_TRAFFIC_LIGHT_CLEARANCE }
                     : undefined
                 }
               >

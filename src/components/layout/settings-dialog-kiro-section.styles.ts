@@ -4,7 +4,7 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 
 export const kiroSectionStyles = stylex.create({
   field: {
-    height: vars.controlHeightLg,
+    blockSize: vars.controlHeightLg,
   },
   note: {
     color: vars.colorTextMuted,

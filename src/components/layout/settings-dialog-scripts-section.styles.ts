@@ -14,12 +14,12 @@ export const scriptsSectionStyles = stylex.create({
     backgroundColor: vars.colorSurfaceTint,
   },
   emptyIcon: {
-    width: 16,
-    height: 16,
+    inlineSize: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
   },
   projectLabel: {
     display: "flex",
-    maxWidth: "28rem",
+    maxInlineSize: "28rem",
     flexDirection: "column",
     gap: vars.space4,
   },
@@ -29,6 +29,6 @@ export const scriptsSectionStyles = stylex.create({
     color: vars.colorText,
   },
   triggerFull: {
-    width: "100%",
+    inlineSize: "100%",
   },
 });

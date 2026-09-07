@@ -35,6 +35,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { branchDropdownStyles } from "./top-bar-branch-dropdown.styles";
+import { topBarControlStyles } from "./top-bar.styles";
 import { formatWorkspacePathLabel } from "@/store/project.utils";
 import {
   buildTopBarBranchGroups,
@@ -700,8 +701,11 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
               render={
                 <AdsButton
                   layout="host"
+                  size="sm"
                   type="button"
                   xstyle={[
+                    topBarControlStyles.control,
+                    topBarControlStyles.surface,
                     branchDropdownStyles.trigger,
                     branchOpen && branchDropdownStyles.triggerOpen,
                     Boolean(branchDrift) && branchDropdownStyles.triggerDrift,
@@ -1061,12 +1065,16 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       <TooltipTrigger
         render={
           <div
-            className={sx(branchDropdownStyles.staticChip)}
+            className={sx(
+              topBarControlStyles.control,
+              topBarControlStyles.surface,
+              branchDropdownStyles.staticChip,
+            )}
             style={props.noDragStyle}
           />
         }
       >
-        <GitBranch {...stylex.props(branchDropdownStyles.staticChipIcon)} />
+        <GitBranch {...stylex.props(topBarControlStyles.icon)} />
         <span className={sx(branchDropdownStyles.truncate)}>
           {currentBranchLabel}
         </span>

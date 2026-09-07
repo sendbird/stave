@@ -206,7 +206,6 @@ function SkillInstructionsDialog(props: {
           >
             <div className={sx(skillStyles.dialogTabBar)}>
               <TabsList
-                variant="line"
                 aria-label="Instruction view"
                 className={sx(skillStyles.dialogTabList)}
               >

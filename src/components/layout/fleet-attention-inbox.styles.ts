@@ -32,10 +32,11 @@ export const attentionStyles = stylex.create({
     paddingBlock: vars.space8,
     paddingInline: vars.space12,
   },
+  /** Section eyebrow: Caption, uppercase, medium. */
   groupHeading: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
-    fontWeight: vars.fontWeightSemibold,
+    fontSize: vars.fontSizeCaption,
+    fontWeight: vars.fontWeightMedium,
     letterSpacing: "0.12em",
     textTransform: "uppercase",
   },
@@ -75,12 +76,13 @@ export const attentionStyles = stylex.create({
   },
   emptyTitle: {
     color: vars.colorText,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
+    fontSize: vars.fontSizeLead,
+    fontWeight: vars.fontWeightSemibold,
+    lineHeight: vars.lineHeightLead,
   },
   emptyHint: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
   },
   row: {
     borderBottomColor: vars.colorBorder,
@@ -128,13 +130,13 @@ export const attentionStyles = stylex.create({
   rowTime: {
     color: vars.colorTextMuted,
     flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     marginInlineStart: "auto",
   },
   rowTitle: {
     color: vars.colorText,
     display: "block",
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -144,7 +146,7 @@ export const attentionStyles = stylex.create({
     alignItems: "center",
     color: vars.colorTextMuted,
     display: "flex",
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     gap: vars.space4,
     minWidth: 0,
   },
@@ -156,7 +158,7 @@ export const attentionStyles = stylex.create({
   rowDetail: {
     color: vars.colorTextMuted,
     display: "-webkit-box",
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     overflow: "hidden",
     WebkitBoxOrient: "vertical",
     WebkitLineClamp: 2,
@@ -170,7 +172,7 @@ export const attentionStyles = stylex.create({
     paddingInline: vars.space8,
   },
   rowAction: {
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     height: 24,
     paddingInline: 6,
   },
@@ -206,7 +208,7 @@ export const attentionStyles = stylex.create({
   },
   reviewCount: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     fontVariantNumeric: "tabular-nums",
   },
 });

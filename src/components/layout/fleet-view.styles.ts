@@ -57,7 +57,7 @@ export const fleetStyles = stylex.create({
   },
   headerSummary: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -83,18 +83,6 @@ export const fleetStyles = stylex.create({
   closeIcon: {
     height: 16,
     width: 16,
-  },
-  /** Shortcut hint inside the accent button, tinted from its own ink. */
-  shortcut: {
-    backgroundColor: `color-mix(in oklch, ${vars.colorAccentText} 10%, transparent)`,
-    borderColor: `color-mix(in oklch, ${vars.colorAccentText} 20%, transparent)`,
-    borderRadius: vars.radiusMark,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    fontFamily: vars.fontMono,
-    fontSize: 9,
-    marginInlineStart: vars.space4,
-    paddingInline: vars.space4,
   },
   notice: {
     alignItems: "center",
@@ -187,7 +175,7 @@ export const fleetStyles = stylex.create({
     padding: vars.space2,
   },
   filterChip: {
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     height: 26,
     paddingInline: vars.space8,
   },
@@ -250,8 +238,11 @@ export const fleetStyles = stylex.create({
   },
   boardEmptyTitle: {
     color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
+    // Empty-state titles sit at Lead across the app (the ADS `EmptyState`
+    // title step), so the board's own empty state does not read as a row.
+    fontSize: vars.fontSizeLead,
+    fontWeight: vars.fontWeightSemibold,
+    lineHeight: vars.lineHeightLead,
   },
   boardEmptyHint: {
     color: vars.colorTextMuted,
@@ -308,19 +299,17 @@ export const fleetStyles = stylex.create({
   projectCount: {
     color: vars.colorTextMuted,
     flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     fontVariantNumeric: "tabular-nums",
   },
+  /**
+   * The chip itself is an ADS `Badge` (tone/radius/type all come from the
+   * component); this only reserves it against the header's flex squeeze and
+   * spaces it from the count.
+   */
   projectCurrent: {
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusMark,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorTextMuted,
     flexShrink: 0,
-    fontSize: 9,
     marginInlineStart: vars.space4,
-    paddingInline: vars.space4,
   },
   cardGrid: {
     alignItems: "start",
@@ -336,7 +325,7 @@ export const fleetStyles = stylex.create({
     color: vars.colorTextMuted,
     display: "flex",
     flexWrap: "wrap",
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     gap: vars.space8,
     paddingBlock: vars.space12,
     paddingInline: vars.space16,
@@ -346,7 +335,7 @@ export const fleetStyles = stylex.create({
     width: 14,
   },
   footnoteAction: {
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     height: 24,
     paddingInline: vars.space8,
   },

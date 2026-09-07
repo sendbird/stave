@@ -11,7 +11,7 @@ export const sessionCoreStyles = stylex.create({
   branchGroup: { display: "inline-flex", minWidth: 0, alignItems: "center", gap: 6 },
   branchIcon: { width: 12, height: 12, flexShrink: 0 },
   monoTruncate: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: vars.fontMono },
-  macroInitial: { display: "flex", width: 16, height: 16, flexShrink: 0, alignItems: "center", justifyContent: "center", borderRadius: "0.25rem", backgroundColor: vars.colorSurfaceTint, fontSize: "0.625rem", lineHeight: 1, fontWeight: vars.fontWeightSemibold, textTransform: "uppercase" },
+  macroInitial: { display: "flex", width: 16, height: 16, flexShrink: 0, alignItems: "center", justifyContent: "center", borderRadius: "0.25rem", backgroundColor: vars.colorSurfaceTint, fontSize: vars.fontSizeMicro, lineHeight: 1, fontWeight: vars.fontWeightSemibold, textTransform: "uppercase" },
   statusIcon: { marginTop: vars.space2, width: 14, height: 14, flexShrink: 0 },
   pass: { color: vars.colorSuccessText }, fail: { color: vars.colorDangerText }, muted: { color: vars.colorTextMuted }, mutedSoft: { color: vars.colorTextMuted, opacity: 0.6 },
   spinning: {

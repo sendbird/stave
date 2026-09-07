@@ -59,7 +59,7 @@ export const paneTabChipStyles = stylex.create({
   },
   statusBadge: {
     borderRadius: vars.radiusMark,
-    fontSize: 10,
+    fontSize: vars.fontSizeMicro,
     letterSpacing: "0.14em",
     textTransform: "uppercase",
   },
@@ -124,8 +124,14 @@ export const paneTabChipStyles = stylex.create({
     transitionDuration: "150ms",
     transitionProperty: "opacity",
   },
+  /**
+   * The host-layout Button now emits the glyph contract, so `ads/styles.css`
+   * keeps Lucide's 24px viewport out on its own. That rule is a default for
+   * host layout, so this 14px chip size still wins — it stays because a 20px
+   * chip action wants a tighter glyph than the 16px control default.
+   */
   closeIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
 });

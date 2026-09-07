@@ -98,7 +98,7 @@ export const editorSurfaceToolbarStyles = stylex.create({
     borderWidth: vars.borderWidthHairline,
     color: vars.colorAccentText,
     display: "inline-flex",
-    fontSize: 9,
+    fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightSemibold,
     height: 16,
     insetInlineEnd: -4,

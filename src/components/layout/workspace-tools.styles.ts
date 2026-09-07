@@ -23,7 +23,7 @@ export const toolStyles = stylex.create({
   compactHeader: { gap: vars.space4 },
   compactMedia: { marginBottom: 0 },
   compactTitle: { fontSize: vars.fontSizeBody },
-  description: { fontSize: vars.fontSizeCaption, lineHeight: 1.625, color: vars.colorTextMuted },
+  description: { fontSize: vars.fontSizeCaption, lineHeight: vars.lineHeightControl, color: vars.colorTextMuted },
   hook: { display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: vars.space12, borderBottomWidth: { default: 1, ":last-child": 0 }, borderBottomStyle: "solid", borderBottomColor: vars.colorBorder, paddingBlock: vars.space12 },
   hookText: { minWidth: 0, display: "flex", flexDirection: "column", gap: vars.space4 },
   title: { fontSize: vars.fontSizeBody, fontWeight: vars.fontWeightMedium, color: vars.colorText },
@@ -49,8 +49,8 @@ export const toolStyles = stylex.create({
   detail: { fontSize: vars.fontSizeMicro, color: vars.colorTextSubtle },
   actions: { display: "flex", alignItems: "center", gap: 6 },
   iconButton: { width: 28, height: 28, borderRadius: vars.radiusControl },
-  icon: { width: 14, height: 14 },
-  sectionIcon: { width: 16, height: 16 },
+  icon: { width: vars.controlIconSizeSm, height: vars.controlIconSizeSm },
+  sectionIcon: { width: vars.controlIconSizeMd, height: vars.controlIconSizeMd },
   view: { paddingInline: vars.space12, paddingBlock: vars.space8 },
   loading: { paddingInline: vars.space4, paddingBlock: vars.space16, fontSize: vars.fontSizeCaption, color: vars.colorTextMuted },
   quickAdd: { marginTop: vars.space4, width: "100%", maxWidth: "24rem" },
@@ -63,12 +63,24 @@ export const toolStyles = stylex.create({
   settingsButton: { marginTop: vars.space4, height: 32, borderRadius: vars.radiusControl },
   settingsIcon: { marginRight: vars.space4, width: 16, height: 16 },
   panel: { display: "flex", height: "100%", minHeight: 0, flexDirection: "column", overflow: "hidden" },
-  header: { flexShrink: 0, display: "flex", flexDirection: "column", gap: vars.space8, borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: vars.colorBorder, padding: vars.space12 },
-  headingRow: { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: vars.space8 },
-  heading: { minWidth: 0 },
-  panelTitle: { fontSize: vars.fontSizeBody, fontWeight: vars.fontWeightSemibold },
-  workspaceName: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: vars.fontSizeCaption, color: vars.colorTextMuted },
-  headerActions: { display: "flex", alignItems: "center", gap: vars.space4 },
+  /*
+   * The panel is mounted inside `RightRailPanelShell`, which already paints the
+   * 46px panel bar with the "Workspace Tools" title and icon (see
+   * `panel-bar.constants.ts`). This header is therefore a SUBHEAD, not a second
+   * panel title: it used to restate the title in a wrapping `headingRow`, which
+   * is what pushed the workspace name, the actions, the description, and the
+   * search field onto four different rhythms above the tabs.
+   *
+   * Now it is one 40px toolbar row (`controlHeightLg`, the rung below the 46px
+   * bar above it) plus a stacked description and search field, all on the same
+   * `space12` inline gutter as every other right-rail panel header and
+   * separated by a single `space8` gap.
+   */
+  header: { flexShrink: 0, display: "flex", flexDirection: "column", gap: vars.space8, borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: vars.colorBorder, paddingInline: vars.space12, paddingBottom: vars.space12 },
+  headingRow: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: vars.space8, minHeight: vars.controlHeightLg, height: vars.controlHeightLg, flexShrink: 0 },
+  heading: { minWidth: 0, display: "flex", alignItems: "center", gap: vars.space8 },
+  workspaceName: { minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: vars.fontSizeBody, fontWeight: vars.fontWeightMedium, lineHeight: vars.lineHeightControl, color: vars.colorText },
+  headerActions: { display: "flex", alignItems: "center", gap: vars.space4, flexShrink: 0, marginInlineStart: "auto" },
   refreshing: { animationName: { default: spin, "@media (prefers-reduced-motion: reduce)": "none" }, animationDuration: "1s", animationTimingFunction: "linear", animationIterationCount: "infinite" },
   configError: { flexShrink: 0, borderBottomWidth: 1, borderBottomStyle: "solid", borderBottomColor: vars.colorDangerBorder, paddingInline: vars.space12, paddingBlock: vars.space8, fontSize: vars.fontSizeCaption, color: vars.colorDangerText },
   search: { minHeight: 0, flex: 1, overflow: "auto", padding: vars.space12 },

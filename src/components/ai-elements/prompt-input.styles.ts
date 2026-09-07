@@ -28,11 +28,18 @@ export const promptInputStyles = stylex.create({
     letterSpacing: "-0.01em",
   },
   editorTypographyDefault: {
+    // Stated, not inherited. The editable is a `contenteditable` div and the
+    // placeholder is a sibling `div`; leaving the family to inheritance let
+    // whichever ancestor happened to be closest decide, so the placeholder
+    // could render in the ADS default stack while the typed text used the
+    // app's. `vars.fontSans` resolves to `var(--font-sans)` through
+    // `ads-theme.ts`, so both follow the one font setting.
+    fontFamily: vars.fontSans,
     fontSize: "18px",
     lineHeight: "2rem",
   },
   enhancementEditorInset: {
-    paddingRight: "2.25rem",
+    paddingInlineEnd: "2.25rem",
   },
 
   // ---- Enhancement reveal overlay ----
@@ -114,10 +121,14 @@ export const promptInputStyles = stylex.create({
   },
 
   // ---- Common icon sizes ----
-  icon4: { width: 16, height: 16 },
-  icon3: { width: 12, height: 12 },
-  icon35: { width: "0.875rem", height: "0.875rem" },
-  icon35Shrink: { width: "0.875rem", height: "0.875rem", flexShrink: 0 },
+  // `flexShrink: 0` is not optional on any of these: every composer control is
+  // a flex row whose label is `flex: 1`, and in a 3.75rem wing the row is
+  // narrower than icon + gap + label. Without it the glyph — not the label —
+  // gave up the width and the wing rendered squashed icons.
+  icon4: { width: vars.controlIconSizeMd, height: vars.controlIconSizeMd, flexShrink: 0 },
+  icon3: { width: 12, height: 12, flexShrink: 0 },
+  icon35: { width: vars.controlIconSizeSm, height: vars.controlIconSizeSm, flexShrink: 0 },
+  icon35Shrink: { width: vars.controlIconSizeSm, height: vars.controlIconSizeSm, flexShrink: 0 },
 
   pulseAnimation: {
     animationName: pulse,
@@ -197,7 +208,6 @@ export const promptInputStyles = stylex.create({
     outline: "none",
   },
 
-  iconButton9: { width: 36, height: 36 },
   drawerContent: {
     backgroundColor: vars.colorSurfaceRaised,
     boxShadow: vars.elevationModal,
@@ -245,7 +255,6 @@ export const promptInputStyles = stylex.create({
     fontSize: vars.fontSizeCaption,
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
   },
-  iconButton6: { width: 24, height: 24, minHeight: 24 },
 
   borderBeamTransition: {
     transitionProperty: "box-shadow",
@@ -375,13 +384,13 @@ export const promptInputStyles = stylex.create({
     outline: { default: "none", ":focus-visible": "none" },
   },
   editorSizeMinimal: {
-    minHeight: 32,
-    maxHeight: 168,
+    minBlockSize: 32,
+    maxBlockSize: 168,
     caretColor: vars.colorAccent,
   },
   editorSizeDefault: {
-    minHeight: 104,
-    maxHeight: 240,
+    minBlockSize: 104,
+    maxBlockSize: 240,
   },
   editorProgress: {
     cursor: "progress",
@@ -449,16 +458,23 @@ export const promptInputStyles = stylex.create({
     paddingInline: vars.space12,
     paddingBlock: 10,
   },
+  /*
+   * Icon slots stand next to `minWidth: 0` copy, so they have to opt out of
+   * flex shrinking explicitly — a shrinking wrapper squeezes the glyph inside
+   * it and the row's leading edge stops lining up.
+   */
   iconWrapPrimary: {
     display: "flex",
+    flexShrink: 0,
     alignItems: "flex-start",
-    paddingTop: vars.space2,
+    paddingBlockStart: vars.space2,
     color: vars.colorAccent,
   },
   iconWrap: {
     display: "flex",
+    flexShrink: 0,
     alignItems: "flex-start",
-    paddingTop: vars.space2,
+    paddingBlockStart: vars.space2,
   },
   flex1Min: { minWidth: 0, flex: 1 },
   rowCenter: { display: "flex", alignItems: "center", gap: vars.space8 },
@@ -514,7 +530,7 @@ export const promptInputStyles = stylex.create({
     lineHeight: "16px",
     color: vars.colorTextMuted,
   },
-  iconMuted: { width: 16, height: 16, color: vars.colorTextMuted },
+  iconMuted: { inlineSize: vars.controlIconSizeMd, blockSize: vars.controlIconSizeMd, flexShrink: 0, color: vars.colorTextMuted },
   paletteFooter: {
     borderTopWidth: vars.borderWidthHairline,
     borderTopStyle: "solid",
@@ -824,7 +840,9 @@ export const promptInputStyles = stylex.create({
     display: "flex",
     flexWrap: "wrap",
     alignItems: "center",
-    gap: 6,
+    // The row's own gap, on the space scale, matching `toolbarRow` and
+    // `actionsRow` either side of it.
+    gap: vars.space8,
   },
   customizeAnchor: {
     pointerEvents: "none",
@@ -905,5 +923,8 @@ export const promptInputStyles = stylex.create({
     gap: vars.space4,
     color: `color-mix(in oklch, ${vars.colorTextInverted} 70%, transparent)`,
   },
-  iconSquare: { width: 12, height: 12, fill: "currentColor" },
+  // The stop glyph, not a control icon: it is a filled square drawn inside an
+  // icon button, so it stays off the `controlIconSizes` ramp on purpose. What
+  // it did need is a fixed box that cannot shrink in the actions row.
+  iconSquare: { inlineSize: 12, blockSize: 12, flexShrink: 0, fill: "currentColor" },
 });

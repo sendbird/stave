@@ -55,7 +55,7 @@ export const workGraphTreeStyles = stylex.create({
     minWidth: 0,
     alignItems: "center",
     gap: "0.375rem",
-    fontSize: "0.8125rem",
+    fontSize: vars.fontSizeBody,
     lineHeight: "1.25rem",
     margin: 0,
   },

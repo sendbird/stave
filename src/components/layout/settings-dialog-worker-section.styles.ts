@@ -6,15 +6,15 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 export const workerSectionStyles = stylex.create({
   tabsList: {
     justifyContent: "flex-start",
-    maxWidth: "100%",
+    maxInlineSize: "100%",
     overflowX: "auto",
   },
   tabsTrigger: {
     flexShrink: 0,
   },
   tabIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   tabsContent: {
     display: "flex",
@@ -29,24 +29,24 @@ export const workerSectionStyles = stylex.create({
   resetStack: {
     display: "flex",
     flexDirection: "column",
-    gap: 6,
+    gap: vars.space8,
   },
   resetButton: {
     fontSize: vars.fontSizeCaption,
-    gap: 6,
-    height: 28,
+    gap: vars.space8,
+    blockSize: vars.controlHeightXs,
     paddingInline: vars.space8,
   },
   resetIcon: {
-    height: 14,
-    width: 14,
+    blockSize: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   instructionsTextarea: {
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeCaption,
   },
   turnsInput: {
-    width: "100%",
+    inlineSize: "100%",
   },
   previewCard: {
     backgroundColor: vars.colorCanvasSubtle,
@@ -57,7 +57,7 @@ export const workerSectionStyles = stylex.create({
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightNormal,
-    paddingBlock: 10,
+    paddingBlock: vars.space8,
     paddingInline: vars.space12,
   },
   previewTitle: {

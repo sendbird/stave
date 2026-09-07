@@ -24,11 +24,11 @@ export const settingsDialogStyles = stylex.create({
     backgroundColor: vars.colorCanvas,
     display: "flex",
     flexDirection: "column",
-    height: "100dvh",
+    blockSize: "100dvh",
     inset: 0,
     outline: "none",
     position: "fixed",
-    width: "100%",
+    inlineSize: "100%",
   },
   provider: {
     // The ADS `SidebarProvider` wrapper is `display: contents` by default, so
@@ -36,12 +36,12 @@ export const settingsDialogStyles = stylex.create({
     // sidebar stacks above the content instead of beside it. Re-establish the
     // provider as the sidebar↔content flex row this shell needs; the old
     // `flex items-start` utilities did the same before the migration.
-    alignItems: "flex-start",
+    alignItems: "start",
     display: "flex",
     flexDirection: "row",
     flexGrow: 1,
-    height: "100%",
-    minHeight: 0,
+    blockSize: "100%",
+    minBlockSize: 0,
     overflow: "hidden",
   },
   sidebar: {
@@ -51,10 +51,10 @@ export const settingsDialogStyles = stylex.create({
     },
   },
   sidebarContent: {
-    paddingTop: vars.space8,
+    paddingBlockStart: vars.space8,
   },
   sidebarSection: {
-    paddingBottom: vars.space8,
+    paddingBlockEnd: vars.space8,
     paddingInline: vars.space8,
   },
   searchWrap: {
@@ -62,22 +62,22 @@ export const settingsDialogStyles = stylex.create({
   },
   searchIcon: {
     color: vars.colorTextMuted,
-    height: vars.controlIconSizeSm,
-    insetInlineStart: 10,
+    blockSize: vars.controlIconSizeSm,
+    insetInlineStart: vars.space8,
     pointerEvents: "none",
     position: "absolute",
     top: "50%",
     transform: "translateY(-50%)",
-    width: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   searchInput: {
-    height: vars.controlHeightSm,
+    minBlockSize: vars.controlHeightSm,
     paddingInlineEnd: vars.space32,
     paddingInlineStart: vars.space32,
   },
   searchClear: {
     color: vars.colorTextMuted,
-    insetInlineEnd: 6,
+    insetInlineEnd: vars.space8,
     position: "absolute",
     top: "50%",
     transform: "translateY(-50%)",
@@ -89,27 +89,27 @@ export const settingsDialogStyles = stylex.create({
     textTransform: "uppercase",
   },
   menuButton: {
-    fontSize: 13,
-    height: vars.controlHeightSm,
+    fontSize: vars.fontSizeBody,
+    minBlockSize: vars.controlHeightSm,
   },
   menuButtonGap: {
-    fontSize: 13,
+    fontSize: vars.fontSizeBody,
     gap: vars.space8,
-    height: vars.controlHeightSm,
+    minBlockSize: vars.controlHeightSm,
   },
   menuSectionLabel: {
     color: vars.colorTextMuted,
-    fontSize: 10,
+    fontSize: vars.fontSizeMicro,
   },
   currentPill: {
     backgroundColor: vars.colorSurfaceTint,
     borderRadius: vars.radiusMark,
     color: vars.colorTextMuted,
-    fontSize: 9,
+    fontSize: vars.fontSizeMicro,
     fontWeight: vars.fontWeightSemibold,
     letterSpacing: "0.14em",
-    paddingBlock: 2,
-    paddingInline: 6,
+    paddingBlock: vars.space2,
+    paddingInline: vars.space4,
     textTransform: "uppercase",
   },
   currentPillActive: {
@@ -123,17 +123,17 @@ export const settingsDialogStyles = stylex.create({
     paddingInline: vars.space16,
   },
   backButton: {
-    gap: 6,
+    gap: vars.space8,
     justifyContent: "flex-start",
-    width: "100%",
+    inlineSize: "100%",
   },
   main: {
     backgroundColor: vars.colorCanvas,
     display: "flex",
     flexDirection: "column",
     flexGrow: 1,
-    height: "100%",
-    minHeight: 0,
+    blockSize: "100%",
+    minBlockSize: 0,
     overflow: "hidden",
   },
   header: {
@@ -143,7 +143,7 @@ export const settingsDialogStyles = stylex.create({
     borderBottomWidth: vars.borderWidthHairline,
     display: "flex",
     flexShrink: 0,
-    minHeight: 80,
+    minBlockSize: "5rem",
     paddingBlock: vars.space12,
     paddingInline: {
       default: vars.space16,
@@ -151,11 +151,11 @@ export const settingsDialogStyles = stylex.create({
     },
   },
   headerMacPad: {
-    paddingBottom: {
+    paddingBlockEnd: {
       default: null,
       "@media (min-width: 640px)": vars.space16,
     },
-    paddingTop: {
+    paddingBlockStart: {
       default: vars.space40,
       "@media (min-width: 640px)": vars.space16,
     },
@@ -165,7 +165,7 @@ export const settingsDialogStyles = stylex.create({
       default: "none",
       "@media (min-width: 640px)": "block",
     },
-    minWidth: 0,
+    minInlineSize: 0,
   },
   breadcrumbRow: {
     alignItems: "baseline",
@@ -195,7 +195,7 @@ export const settingsDialogStyles = stylex.create({
   headerDescription: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeBody,
-    marginTop: vars.space4,
+    marginBlockStart: vars.space4,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -208,48 +208,48 @@ export const settingsDialogStyles = stylex.create({
     flexDirection: "column",
     flexGrow: 1,
     gap: vars.space8,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   headerMobileRow: {
     alignItems: "center",
     display: "flex",
     gap: vars.space8,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   mobileBack: {
     flexShrink: 0,
-    height: vars.controlHeightMd,
-    width: vars.controlHeightMd,
+    blockSize: vars.controlHeightMd,
+    inlineSize: vars.controlHeightMd,
   },
   mobileSelectTrigger: {
     flex: 1,
-    height: vars.controlHeightSm,
-    minWidth: 0,
+    minBlockSize: vars.controlHeightSm,
+    minInlineSize: 0,
   },
   mobileSearchIcon: {
     color: vars.colorTextMuted,
-    height: vars.controlIconSizeSm,
-    insetInlineStart: 10,
+    blockSize: vars.controlIconSizeSm,
+    insetInlineStart: vars.space8,
     pointerEvents: "none",
     position: "absolute",
     top: "50%",
     transform: "translateY(-50%)",
-    width: vars.controlIconSizeSm,
+    inlineSize: vars.controlIconSizeSm,
   },
   mobileSearchInput: {
-    height: vars.controlHeightSm,
+    minBlockSize: vars.controlHeightSm,
     paddingInlineEnd: vars.space32,
     paddingInlineStart: vars.space32,
   },
   mobileSearchClear: {
-    insetInlineEnd: 6,
+    insetInlineEnd: vars.space8,
     position: "absolute",
     top: "50%",
     transform: "translateY(-50%)",
   },
   body: {
     flexGrow: 1,
-    minHeight: 0,
+    minBlockSize: 0,
     overflow: "auto",
     paddingBlock: vars.space20,
     paddingInline: {
@@ -258,11 +258,11 @@ export const settingsDialogStyles = stylex.create({
     },
   },
   bodyInner: {
-    maxWidth: "70rem",
-    width: "100%",
+    inlineSize: "100%",
+    maxInlineSize: "70rem",
   },
   icon: {
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
   },
 });

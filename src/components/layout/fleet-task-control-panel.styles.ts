@@ -34,7 +34,7 @@ export const controlPanelStyles = stylex.create({
   },
   subtitle: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     marginTop: vars.space2,
   },
   headerActions: {
@@ -95,7 +95,7 @@ export const controlPanelStyles = stylex.create({
   },
   replyHint: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     marginTop: vars.space2,
   },
   replyInput: {
@@ -136,14 +136,14 @@ export const controlPanelStyles = stylex.create({
   },
   turnText: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     minWidth: 0,
   },
   turnId: {
     fontFamily: vars.fontMono,
   },
   status: {
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     marginTop: vars.space8,
     minHeight: 16,
   },

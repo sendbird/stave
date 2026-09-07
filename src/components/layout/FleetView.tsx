@@ -23,6 +23,7 @@ import {
 } from "@/components/layout/FleetWorkspaceCard";
 import { useFleetAttentionProjection } from "@/components/layout/useFleetAttentionProjection";
 import {
+  Badge,
   Button,
   Empty,
   EmptyDescription,
@@ -30,6 +31,7 @@ import {
   EmptyMedia,
   EmptyTitle,
   Input,
+  Kbd,
 } from "@/components/ui";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 import {
@@ -536,7 +538,7 @@ export function FleetView() {
                 ? "Review queue"
                 : "All clear"}
             {blockingItems.length > 0 ? (
-              <kbd className={sx(styles.shortcut)}>N</kbd>
+              <Kbd>N</Kbd>
             ) : null}
           </Button>
           <Button
@@ -745,9 +747,15 @@ export function FleetView() {
                           {projectVisibleCount}
                         </span>
                         {project.isCurrent ? (
-                          <span className={sx(styles.projectCurrent)}>
+                          // A status chip, so it is the ADS `Badge` rather
+                          // than a span wearing a hand-rolled hairline, a
+                          // `radiusMark`, and an off-ramp font size.
+                          <Badge
+                            className={sx(styles.projectCurrent)}
+                            variant="outline"
+                          >
                             Current
-                          </span>
+                          </Badge>
                         ) : null}
                       </AdsButton>
                       <div

@@ -22,12 +22,12 @@ export const reviewsStyles = stylex.create({
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
     display: "flex",
     gap: vars.space12,
-    minHeight: 64,
-    minWidth: 0,
-    paddingBlock: 10,
+    minBlockSize: vars.space64,
+    minInlineSize: 0,
+    paddingBlock: vars.space8,
     paddingInline: vars.space12,
     textAlign: "start",
-    width: "100%",
+    inlineSize: "100%",
   },
   inboxRowMark: {
     alignItems: "center",
@@ -36,27 +36,27 @@ export const reviewsStyles = stylex.create({
     color: "inherit",
     display: "flex",
     flexShrink: 0,
-    height: 28,
+    blockSize: vars.controlHeightXs,
     justifyContent: "center",
-    marginTop: vars.space2,
-    width: 28,
+    marginBlockStart: vars.space2,
+    inlineSize: vars.controlHeightXs,
   },
-  inboxRowBody: { flex: 1, minWidth: 0 },
+  inboxRowBody: { flex: 1, minInlineSize: 0 },
   inboxRowRepo: {
     alignItems: "center",
     color: vars.colorTextMuted,
     display: "flex",
     fontSize: vars.fontSizeCaption,
     gap: vars.space4,
-    minWidth: 0,
+    minInlineSize: 0,
   },
   inboxRowTitle: {
     color: vars.colorText,
     display: "-webkit-box",
     fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
-    lineHeight: "1.25rem",
-    marginTop: vars.space4,
+    lineHeight: vars.lineHeightControl,
+    marginBlockStart: vars.space4,
     overflow: "hidden",
     WebkitBoxOrient: "vertical",
     WebkitLineClamp: 2,
@@ -68,15 +68,15 @@ export const reviewsStyles = stylex.create({
     display: "flex",
     flexWrap: "wrap",
     fontSize: vars.fontSizeMicro,
-    lineHeight: "1rem",
-    marginTop: vars.space4,
+    lineHeight: vars.lineHeightNormal,
+    marginBlockStart: vars.space4,
     rowGap: vars.space4,
   },
   inboxList: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space2,
-    padding: 6,
+    padding: vars.space4,
   },
 
   // --- shared states ------------------------------------------------------
@@ -87,7 +87,7 @@ export const reviewsStyles = stylex.create({
     fontSize: vars.fontSizeBody,
     gap: vars.space8,
     justifyContent: "center",
-    minHeight: 160,
+    minBlockSize: 160,
   },
   fillStatus: {
     alignItems: "center",
@@ -112,9 +112,9 @@ export const reviewsStyles = stylex.create({
   errorIcon: {
     color: vars.colorDangerText,
     flexShrink: 0,
-    height: 16,
-    marginTop: vars.space2,
-    width: 16,
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
+    marginBlockStart: vars.space2,
   },
   errorTitle: {
     color: vars.colorText,
@@ -124,8 +124,8 @@ export const reviewsStyles = stylex.create({
   errorDetail: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    lineHeight: "1.25rem",
-    marginTop: vars.space4,
+    lineHeight: vars.lineHeightControl,
+    marginBlockStart: vars.space4,
     overflowWrap: "break-word",
   },
   emptyState: {
@@ -133,7 +133,7 @@ export const reviewsStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     justifyContent: "center",
-    minHeight: 192,
+    minBlockSize: 192,
     paddingInline: vars.space24,
     textAlign: "center",
   },
@@ -143,23 +143,23 @@ export const reviewsStyles = stylex.create({
     borderRadius: vars.radiusPanel,
     color: vars.colorTextMuted,
     display: "flex",
-    height: 40,
+    blockSize: vars.controlHeightLg,
     justifyContent: "center",
-    width: 40,
+    inlineSize: vars.controlHeightLg,
   },
-  emptyMarkIcon: { height: 20, width: 20 },
+  emptyMarkIcon: { blockSize: vars.space20, inlineSize: vars.space20 },
   emptyTitle: {
     color: vars.colorText,
     fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
-    marginTop: vars.space12,
+    marginBlockStart: vars.space12,
   },
   emptyBody: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    lineHeight: "1.25rem",
-    marginTop: vars.space4,
-    maxWidth: "16rem",
+    lineHeight: vars.lineHeightControl,
+    marginBlockStart: vars.space4,
+    maxInlineSize: "16rem",
   },
 
   // --- files tab ----------------------------------------------------------
@@ -174,7 +174,7 @@ export const reviewsStyles = stylex.create({
     borderRadius: vars.radiusPanel,
     color: vars.colorWarningText,
     fontSize: vars.fontSizeCaption,
-    lineHeight: "1.25rem",
+    lineHeight: vars.lineHeightControl,
     paddingBlock: vars.space8,
     paddingInline: vars.space12,
   },
@@ -189,20 +189,25 @@ export const reviewsStyles = stylex.create({
     cursor: { default: null, ":disabled": "not-allowed" },
     display: "flex",
     gap: vars.space8,
-    minHeight: 44,
-    minWidth: 0,
+    minBlockSize: vars.controlHeightXl,
+    minInlineSize: 0,
     opacity: { default: null, ":disabled": vars.opacityDisabled },
     paddingBlock: vars.space8,
-    paddingInline: 10,
+    paddingInline: vars.space8,
     textAlign: "start",
-    width: "100%",
+    inlineSize: "100%",
   },
-  fileIcon: { color: vars.colorTextMuted, flexShrink: 0, height: 16, width: 16 },
+  fileIcon: {
+    blockSize: vars.controlIconSizeMd,
+    color: vars.colorTextMuted,
+    flexShrink: 0,
+    inlineSize: vars.controlIconSizeMd,
+  },
   fileName: {
     color: vars.colorText,
     flex: 1,
     fontSize: vars.fontSizeCaption,
-    minWidth: 0,
+    minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -217,7 +222,7 @@ export const reviewsStyles = stylex.create({
   filesFootnote: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    lineHeight: "1.25rem",
+    lineHeight: vars.lineHeightControl,
     paddingBlock: vars.space8,
     paddingInline: vars.space8,
   },
@@ -243,20 +248,20 @@ export const reviewsStyles = stylex.create({
   bodyText: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    lineHeight: "1.25rem",
+    lineHeight: vars.lineHeightControl,
     overflowWrap: "break-word",
     whiteSpace: "pre-wrap",
   },
   mutedText: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    lineHeight: "1.25rem",
+    lineHeight: vars.lineHeightControl,
   },
   timeline: { display: "flex", flexDirection: "column", gap: vars.space12 },
   timelineItem: {
     backgroundColor: vars.colorSurfaceTint,
     borderRadius: vars.radiusPanel,
-    paddingBlock: 10,
+    paddingBlock: vars.space8,
     paddingInline: vars.space12,
   },
   timelineMeta: {
@@ -272,8 +277,8 @@ export const reviewsStyles = stylex.create({
   timelineBody: {
     color: vars.colorText,
     fontSize: vars.fontSizeCaption,
-    lineHeight: "1.25rem",
-    marginTop: vars.space8,
+    lineHeight: vars.lineHeightControl,
+    marginBlockStart: vars.space8,
     overflowWrap: "break-word",
     whiteSpace: "pre-wrap",
   },
@@ -282,7 +287,7 @@ export const reviewsStyles = stylex.create({
   checksEmpty: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    lineHeight: "1.25rem",
+    lineHeight: vars.lineHeightControl,
     paddingBlock: vars.space32,
     paddingInline: vars.space16,
     textAlign: "center",
@@ -298,11 +303,15 @@ export const reviewsStyles = stylex.create({
     borderRadius: vars.radiusPanel,
     display: "flex",
     gap: vars.space8,
-    minHeight: 44,
+    minBlockSize: vars.controlHeightXl,
     paddingBlock: vars.space8,
-    paddingInline: 10,
+    paddingInline: vars.space8,
   },
-  checkIcon: { flexShrink: 0, height: 16, width: 16 },
+  checkIcon: {
+    blockSize: vars.controlIconSizeMd,
+    flexShrink: 0,
+    inlineSize: vars.controlIconSizeMd,
+  },
   checkIconSuccess: { color: vars.colorSuccessText },
   checkIconFail: { color: vars.colorDangerText },
   checkIconPending: { color: vars.colorWarningText },
@@ -310,7 +319,7 @@ export const reviewsStyles = stylex.create({
     color: vars.colorText,
     flex: 1,
     fontSize: vars.fontSizeCaption,
-    minWidth: 0,
+    minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -327,8 +336,8 @@ export const reviewsStyles = stylex.create({
   shell: {
     display: "flex",
     flexDirection: "column",
-    height: "100%",
-    minHeight: 0,
+    blockSize: "100%",
+    minBlockSize: 0,
   },
   detailHeader: {
     alignItems: "center",
@@ -337,11 +346,11 @@ export const reviewsStyles = stylex.create({
     borderBlockEndWidth: vars.borderWidthHairline,
     display: "flex",
     gap: vars.space8,
-    minHeight: 48,
-    paddingBlock: 6,
+    minBlockSize: vars.space48,
+    paddingBlock: vars.space4,
     paddingInline: vars.space8,
   },
-  detailHeaderText: { flex: 1, minWidth: 0 },
+  detailHeaderText: { flex: 1, minInlineSize: 0 },
   breadcrumb: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeMicro,
@@ -357,9 +366,9 @@ export const reviewsStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  iconMd: { height: 16, width: 16 },
-  iconSm: { height: 14, width: 14 },
-  iconXs: { height: 12, width: 12 },
+  iconMd: { blockSize: vars.controlIconSizeMd, inlineSize: vars.controlIconSizeMd },
+  iconSm: { blockSize: vars.controlIconSizeSm, inlineSize: vars.controlIconSizeSm },
+  iconXs: { blockSize: vars.space12, inlineSize: vars.space12 },
   spinning: { animationDuration: "1s", animationIterationCount: "infinite", animationName: { default: spin, "@media (prefers-reduced-motion: reduce)": "none" }, animationTimingFunction: "linear" },
   summaryStrip: {
     borderBlockEndColor: vars.colorBorder,
@@ -368,7 +377,7 @@ export const reviewsStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars.space8,
-    paddingBlock: 10,
+    paddingBlock: vars.space8,
     paddingInline: vars.space12,
   },
   badgeRow: {
@@ -381,21 +390,26 @@ export const reviewsStyles = stylex.create({
   summaryLine: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeMicro,
-    lineHeight: "1rem",
+    lineHeight: vars.lineHeightNormal,
   },
+  // The ADS tabs root is a grid, so the shell is expressed as grid ROWS
+  // (strip, then a scrolling body) instead of being flipped to flex with
+  // `gap: 0` — that override both fought the component and collapsed the row
+  // gap the `line` strip needs under its baseline rule. Scrolling has exactly
+  // one owner: the panel row.
   tabs: {
-    display: "flex",
-    flex: 1,
-    flexDirection: "column",
-    gap: 0,
-    minHeight: 0,
+    flexGrow: 1,
+    gridTemplateRows: "auto minmax(0, 1fr)",
+    minBlockSize: 0,
   },
-  tabStrip: {
-    borderBlockEndColor: vars.colorBorder,
-    borderBlockEndStyle: "solid",
-    borderBlockEndWidth: vars.borderWidthHairline,
-    paddingBlock: 6,
-    paddingInline: vars.space8,
+  // The inbox strip is a pill track plus a refresh button on one bordered
+  // row, so its rows are strip / body / footer and the row gap stays 0 — the
+  // border is the divider, and a gap under it would detach the list.
+  inboxTabs: {
+    blockSize: "100%",
+    gridTemplateRows: "auto minmax(0, 1fr) auto",
+    minBlockSize: 0,
+    rowGap: 0,
   },
   inboxStrip: {
     alignItems: "center",
@@ -404,25 +418,42 @@ export const reviewsStyles = stylex.create({
     borderBlockEndWidth: vars.borderWidthHairline,
     display: "flex",
     gap: vars.space8,
-    paddingBlock: 6,
+    minBlockSize: vars.controlHeightXl,
+    paddingBlock: vars.space4,
     paddingInline: vars.space8,
   },
-  tabList: { flex: 1, minWidth: 0, width: "100%" },
-  tabTrigger: { flex: 1 },
-  tabPanel: { flex: 1, minHeight: 0, overflow: "auto" },
+  // No `width: 100%` and no `flex: 1` on the triggers: a stretched strip is
+  // what made the `line` rule and the pill track read as two stacked chromes.
+  // The inline padding keeps the `line` variant's baseline rule spanning the
+  // panel while the labels stay aligned with the body content.
+  // The `line` strip: no `inlineSize: 100%` and no `flex: 1` on the triggers.
+  // A stretched strip plus a hand-drawn `border-block-end` around it was what
+  // made the pill track and the baseline rule read as two stacked chromes.
+  // The list is a grid item, so it already spans the panel and its own inset
+  // baseline rule spans with it; the inline padding only insets the labels so
+  // they align with the body content below.
+  detailTabList: {
+    minInlineSize: 0,
+    paddingBlockStart: vars.space4,
+    paddingInline: vars.space8,
+  },
+  // The inbox keeps the enclosed pill track (a two-item segmented control next
+  // to a refresh button), so the ADS list owns all of its own chrome here.
+  inboxTabList: { minInlineSize: 0 },
+  tabPanel: { minBlockSize: 0, overflow: "auto" },
   detailFooter: {
     backgroundColor: vars.colorSurface,
     borderBlockStartColor: vars.colorBorder,
     borderBlockStartStyle: "solid",
     borderBlockStartWidth: vars.borderWidthHairline,
     flexShrink: 0,
-    paddingBlock: 10,
+    paddingBlock: vars.space8,
     paddingInline: vars.space12,
   },
   footerNote: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeMicro,
-    marginTop: 6,
+    marginBlockStart: vars.space4,
     textAlign: "center",
   },
   inboxFooter: {

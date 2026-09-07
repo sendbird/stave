@@ -28,11 +28,11 @@ export const kickoffSectionStyles = stylex.create({
     alignItems: "center",
     gap: vars.space12,
     paddingInline: vars.space12,
-    paddingBlock: 10,
+    paddingBlock: vars.space8,
   },
   sourceTrigger: {
     display: "flex",
-    minWidth: 0,
+    minInlineSize: 0,
     flex: 1,
     alignItems: "center",
     gap: vars.space8,
@@ -45,13 +45,13 @@ export const kickoffSectionStyles = stylex.create({
     cursor: "default",
   },
   chevron: {
-    width: 14,
-    height: 14,
+    inlineSize: vars.controlIconSizeSm,
+    blockSize: vars.controlIconSizeSm,
     flexShrink: 0,
     color: vars.colorTextMuted,
   },
   triggerBody: {
-    minWidth: 0,
+    minInlineSize: 0,
     flex: 1,
   },
   triggerLabelRow: {
@@ -62,7 +62,7 @@ export const kickoffSectionStyles = stylex.create({
     fontWeight: vars.fontWeightMedium,
   },
   triggerSummary: {
-    marginBlockStart: 2,
+    marginBlockStart: vars.space2,
     display: "block",
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -76,8 +76,8 @@ export const kickoffSectionStyles = stylex.create({
     alignItems: "center",
   },
   moveIcon: {
-    width: 14,
-    height: 14,
+    inlineSize: vars.controlIconSizeSm,
+    blockSize: vars.controlIconSizeSm,
   },
   serverBadges: {
     display: "flex",
@@ -89,7 +89,7 @@ export const kickoffSectionStyles = stylex.create({
   sourcePanel: {
     display: "grid",
     gap: vars.space16,
-    borderTopWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars.borderWidthHairline,
     borderTopStyle: "solid",
     borderTopColor: vars.colorBorder,
     paddingInline: vars.space12,
@@ -105,7 +105,7 @@ export const kickoffSectionStyles = stylex.create({
   },
   labelField: {
     display: "grid",
-    gap: 6,
+    gap: vars.space8,
     fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightMedium,
   },
@@ -115,7 +115,7 @@ export const kickoffSectionStyles = stylex.create({
     marginBlock: 0,
   },
   selectTrigger: {
-    width: "100%",
+    inlineSize: "100%",
     backgroundColor: vars.colorCanvas,
   },
   monoInput: {
@@ -123,19 +123,19 @@ export const kickoffSectionStyles = stylex.create({
     fontSize: vars.fontSizeCaption,
   },
   resolutionHint: {
-    minHeight: 80,
+    minBlockSize: 80,
   },
   removeRow: {
     display: "flex",
     justifyContent: "flex-end",
   },
   actionIcon: {
-    width: 14,
-    height: 14,
+    inlineSize: vars.controlIconSizeSm,
+    blockSize: vars.controlIconSizeSm,
   },
   actionIconSpinning: {
-    width: 14,
-    height: 14,
+    inlineSize: vars.controlIconSizeSm,
+    blockSize: vars.controlIconSizeSm,
     animationName: spin,
     animationDuration: "1s",
     animationTimingFunction: "linear",
@@ -160,7 +160,7 @@ export const kickoffSectionStyles = stylex.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: vars.space12,
-    borderTopWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars.borderWidthHairline,
     borderTopStyle: "solid",
     borderTopColor: vars.colorBorder,
     paddingBlockStart: vars.space12,
@@ -171,12 +171,12 @@ export const kickoffSectionStyles = stylex.create({
     color: vars.colorTextMuted,
   },
   modelSelector: {
-    width: "100%",
+    inlineSize: "100%",
   },
   modelSelectorTrigger: {
-    height: 40,
-    width: "100%",
-    maxWidth: "none",
+    blockSize: vars.controlHeightLg,
+    inlineSize: "100%",
+    maxInlineSize: "none",
     borderWidth: vars.borderWidthHairline,
     borderStyle: "solid",
     borderColor: vars.colorBorder,
@@ -191,11 +191,11 @@ export const kickoffSectionStyles = stylex.create({
     gap: vars.space8,
   },
   promptTextarea: {
-    minHeight: 224,
+    minBlockSize: 224,
     backgroundColor: vars.colorCanvas,
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeCaption,
-    lineHeight: "20px",
+    lineHeight: vars.lineHeightControl,
   },
   promptFooter: {
     display: "flex",
@@ -208,7 +208,7 @@ export const kickoffSectionStyles = stylex.create({
     color: vars.colorTextMuted,
   },
   resetButton: {
-    height: 28,
+    blockSize: vars.controlHeightXs,
     fontSize: vars.fontSizeCaption,
   },
 });

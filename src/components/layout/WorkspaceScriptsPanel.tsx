@@ -873,16 +873,20 @@ export function WorkspaceScriptsPanel(props: {
   return (
     <section className={sx(toolStyles.panel)} aria-label="Workspace tools">
       <header className={sx(toolStyles.header)}>
+        {/*
+          No panel title here: `RightRailPanelShell` already renders one above
+          this element. The subhead names the workspace the tools belong to and
+          carries the panel's actions as `xs` icon buttons.
+        */}
         <div className={sx(toolStyles.headingRow)}>
           <div className={sx(toolStyles.heading)}>
-            <h2 className={sx(toolStyles.panelTitle)}>Workspace tools</h2>
-            <p className={sx(toolStyles.workspaceName)} title={workspacePath}>{workspaceName}</p>
+            <h2 className={sx(toolStyles.workspaceName)} title={workspacePath}>{workspaceName}</h2>
           </div>
           <div className={sx(toolStyles.headerActions)}>
             {runningCount > 0 ? <StatusBadge tone="active">{runningCount} running</StatusBadge> : null}
-            {runningCount > 0 ? <ActionButton size="sm" weight="quiet" tone="danger" onClick={stopAll} title="Stop all running processes"><Square className={sx(toolStyles.icon)} />Stop all</ActionButton> : null}
-            <ActionButton size="sm" weight="quiet" onClick={refresh} disabled={runtime.configStatus === "loading"} aria-label="Refresh Workspace tools" title="Refresh Workspace tools"><RefreshCcw className={sx(toolStyles.icon, runtime.configStatus === "loading" && toolStyles.refreshing)} /></ActionButton>
-            <ActionButton size="sm" weight="quiet" onClick={openScriptSettings} disabled={!projectPath} aria-label="Open Workspace tools settings" title="Open Workspace tools settings"><Settings2 className={sx(toolStyles.icon)} /></ActionButton>
+            {runningCount > 0 ? <ActionButton size="xs" weight="quiet" tone="danger" onClick={stopAll} title="Stop all running processes"><Square />Stop all</ActionButton> : null}
+            <AdsButton size="xs" variant="quiet" iconOnly onClick={refresh} disabled={runtime.configStatus === "loading"} aria-label="Refresh Workspace tools" title="Refresh Workspace tools"><RefreshCcw className={sx(runtime.configStatus === "loading" && toolStyles.refreshing)} /></AdsButton>
+            <AdsButton size="xs" variant="quiet" iconOnly onClick={openScriptSettings} disabled={!projectPath} aria-label="Open Workspace tools settings" title="Open Workspace tools settings"><Settings2 /></AdsButton>
           </div>
         </div>
         <p className={sx(toolStyles.description)}>{WORKSPACE_TOOLS_VIEWS.find((view) => view.id === activeView)?.description}</p>

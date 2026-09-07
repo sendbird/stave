@@ -939,6 +939,17 @@ export function PromptInput(args: PromptInputProps) {
     onAbort,
   } = args;
   const isMobile = useIsMobile();
+  const useComposerFrame = Boolean(framed && !minimal);
+  const useComposerWings = useComposerFrame && !isMobile;
+  /**
+   * ADS `size` for an icon-only composer control, picked to land on the same
+   * rung of the control ramp as the lane it will stand in: `md` (36) in the
+   * classic in-card toolbar, `sm` (32) on the framed bottom shelf, in a wing,
+   * and in either overflow menu. Passing the size (rather than overriding the
+   * rendered box with a literal) keeps `controlSquares` — the one square-height
+   * map — in charge of both axes.
+   */
+  const composerIconButtonSize = useComposerWings ? "icon-sm" : "icon";
   const promptEnhancementReveal = usePromptEnhancementReveal({
     active: promptEnhancementRevealing,
     revealVersion: promptEnhancementRevealVersion,
@@ -2425,10 +2436,10 @@ export function PromptInput(args: PromptInputProps) {
               <Button
                 type="button"
                 variant="ghost"
-                size="icon"
+                size={composerIconButtonSize}
                 disabled={interactionsDisabled}
                 {...composerControlAttributes}
-                className={cx(PROMPT_TOOLBAR_ICON_BUTTON, sx(promptInputStyles.iconButton9))}
+                className={PROMPT_TOOLBAR_ICON_BUTTON}
                 aria-label={`Runtime · ${runtimeProfile.label}`}
                 title="Runtime profile for the next turn"
               />
@@ -2469,10 +2480,10 @@ export function PromptInput(args: PromptInputProps) {
               <Button
                 type="button"
                 variant="ghost"
-                size="icon"
+                size={composerIconButtonSize}
                 disabled={interactionsDisabled}
                 {...composerControlAttributes}
-                className={cx(PROMPT_TOOLBAR_ICON_BUTTON, sx(promptInputStyles.iconButton9))}
+                className={PROMPT_TOOLBAR_ICON_BUTTON}
                 aria-label={`Runtime · ${runtimeProfile.label}`}
                 title="Runtime profile for the next turn"
               />
@@ -2516,26 +2527,38 @@ export function PromptInput(args: PromptInputProps) {
   const canCustomizeComposerControls = Boolean(
     onComposerControlPlacementsChange,
   );
-  const useComposerFrame = Boolean(framed && !minimal);
-  const useComposerWings = useComposerFrame && !isMobile;
   const composerFrameWings = partitionComposerFrameToolbar(
     composerControlLayout.toolbar,
   );
   const showMacroQuickPicks = useComposerWings && Boolean(macroQuickPicks);
+  /*
+   * A placement list is the *layout*, not the contents: `composerControlNodes`
+   * renders `null` for every control this session cannot offer (no plan
+   * callback, no provider mode, ...). Filtering on the ids alone therefore
+   * mounted a wing whose children were all `null`, and a wing is a bordered,
+   * shadowed surface in its own right — so the composer grew an empty column
+   * beside it. Hide the container, not just the controls.
+   */
+  const leftWingControlIds = composerFrameWings.left.filter((id) =>
+    Boolean(composerControlNodes[id]),
+  );
+  const rightWingControlIds = composerFrameWings.right.filter((id) =>
+    Boolean(composerControlNodes[id]),
+  );
   const leftWing =
     useComposerWings &&
-    (showMacroQuickPicks || composerFrameWings.left.length > 0) ? (
+    (showMacroQuickPicks || leftWingControlIds.length > 0) ? (
       <ComposerFrameWing side="left">
         {showMacroQuickPicks ? macroQuickPicks : null}
-        {composerFrameWings.left.map((id) => (
+        {leftWingControlIds.map((id) => (
           <Fragment key={id}>{composerControlNodes[id]}</Fragment>
         ))}
       </ComposerFrameWing>
     ) : null;
   const rightWing =
-    useComposerWings && composerFrameWings.right.length > 0 ? (
+    useComposerWings && rightWingControlIds.length > 0 ? (
       <ComposerFrameWing side="right">
-        {composerFrameWings.right.map((id) => (
+        {rightWingControlIds.map((id) => (
           <Fragment key={id}>{composerControlNodes[id]}</Fragment>
         ))}
       </ComposerFrameWing>
@@ -2601,19 +2624,12 @@ export function PromptInput(args: PromptInputProps) {
             <Button
               type="button"
               variant="ghost"
-              size="icon"
+              // Sized for the row it stands in rather than by a lane rule:
+              // an ADS icon size owns both axes, and a glyph-only button has
+              // to stay square in each of them.
+              size={composerIconButtonSize}
               disabled={interactionsDisabled}
-              className={cx(
-                PROMPT_TOOLBAR_ICON_BUTTON,
-                // Sized for the row it stands in rather than by a lane rule:
-                // `size-*` owns both axes, and a glyph-only button has to stay
-                // square in each of them.
-                sx(
-                  useComposerWings
-                    ? promptInputStyles.iconButton6
-                    : promptInputStyles.iconButton9,
-                ),
-              )}
+              className={PROMPT_TOOLBAR_ICON_BUTTON}
               aria-label={`More composer controls (${overflowMenuItems.length})`}
               title="More composer controls"
               data-composer-tray-trigger="true"

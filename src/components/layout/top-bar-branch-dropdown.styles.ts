@@ -16,24 +16,10 @@ export const branchDropdownStyles = stylex.create({
   flexNone: { flexShrink: 0 },
 
   // --- Trigger ------------------------------------------------------------
-  trigger: {
-    alignItems: "center",
-    backgroundColor: {
-      default: vars.colorCanvas,
-      ":hover": vars.colorOverlayHover,
-    },
-    borderColor: vars.colorBorderSubtle,
-    borderRadius: vars.radiusControl,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorTextMuted,
-    display: "inline-flex",
-    fontSize: vars.fontSizeCaption,
-    gap: 6,
-    height: 28,
-    maxWidth: 224,
-    paddingInline: "0.625rem",
-  },
+  // Geometry, type, and chrome fill come from `topBarControlStyles` so the
+  // branch switcher lands on the same 32px baseline as the path chip and
+  // "Commit graph" beside it. Only the truncation budget is local.
+  trigger: { maxWidth: 224 },
   triggerOpen: {
     backgroundColor: vars.colorOverlayPressed,
     borderColor: vars.colorAccent,
@@ -64,7 +50,14 @@ export const branchDropdownStyles = stylex.create({
     backgroundColor: vars.colorWarningSoft,
     color: vars.colorWarningText,
   },
-  chevron: { transitionProperty: "transform" },
+  // The chevron is a child of the trigger button, not a sibling control, so it
+  // inherits the control's centring and sits on the `sm` glyph rung.
+  chevron: {
+    blockSize: vars.controlIconSizeSm,
+    flexShrink: 0,
+    inlineSize: vars.controlIconSizeSm,
+    transitionProperty: "transform",
+  },
   chevronOpen: { transform: "rotate(180deg)" },
 
   // --- Menu shell ---------------------------------------------------------
@@ -291,7 +284,7 @@ export const branchDropdownStyles = stylex.create({
     borderWidth: vars.borderWidthHairline,
   },
   optionSelectable: {
-    backgroundColor: { default: null, ":hover": vars.colorOverlayHover },
+    backgroundColor: { default: "transparent", ":hover": vars.colorOverlayHover },
   },
   optionDisabled: { cursor: "not-allowed", opacity: 0.7 },
   optionIcon: { color: vars.colorTextMuted },
@@ -327,20 +320,5 @@ export const branchDropdownStyles = stylex.create({
   },
 
   // --- Read-only chip (worktree-managed branch) ---------------------------
-  staticChip: {
-    alignItems: "center",
-    backgroundColor: vars.colorCanvas,
-    borderColor: vars.colorBorderSubtle,
-    borderRadius: vars.radiusControl,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorTextMuted,
-    display: "inline-flex",
-    fontSize: vars.fontSizeCaption,
-    gap: 6,
-    height: 28,
-    maxWidth: 224,
-    paddingInline: "0.625rem",
-  },
-  staticChipIcon: { flexShrink: 0, height: 14, width: 14 },
+  staticChip: { maxWidth: 224 },
 });

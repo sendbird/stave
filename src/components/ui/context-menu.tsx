@@ -5,7 +5,7 @@ import { sx, cx } from "../ads/utils/stylex";
 import * as React from "react";
 import { ContextMenu as ContextMenuPrimitive } from "@base-ui/react/context-menu";
 
-import { UI_LAYER_CLASS } from "@/lib/ui-layers";
+import { UI_LAYER_CLASS, UI_LAYER_VALUE } from "@/lib/ui-layers";
 import { ChevronRightIcon, CheckIcon } from "lucide-react";
 
 function ContextMenu({ ...props }: ContextMenuPrimitive.Root.Props) {
@@ -61,6 +61,10 @@ function ContextMenuContent({
       <AdsMenu.Positioner
         data-ui-popup-positioner=""
         className={UI_LAYER_CLASS.popover}
+        // Same reason as the dropdown shim: ADS's `menu.positioner` pins
+        // `zIndex: zIndexDropdown` (60) and string-joins the caller's layer
+        // class, so the declared band has to be stated inline to survive.
+        style={{ zIndex: UI_LAYER_VALUE.popover }}
         align={align}
         alignOffset={alignOffset}
         side={side}
