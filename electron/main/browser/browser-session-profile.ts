@@ -22,7 +22,7 @@ export function normalizeLensSessionScope(value: unknown): LensSessionScope {
   return value === "workspace" ? "workspace" : "project";
 }
 
-function hashProfileKey(value: string): string {
+export function hashLensProfileKey(value: string): string {
   return createHash("sha256").update(value).digest("hex").slice(0, 24);
 }
 
@@ -33,7 +33,7 @@ export function resolveLensSessionProfile(
   const projectKey = args.projectKey?.trim();
 
   if (scope === "project" && projectKey) {
-    const keyHash = hashProfileKey(projectKey);
+    const keyHash = hashLensProfileKey(projectKey);
     return {
       scope: "project",
       partition: `${LENS_PARTITION_PREFIX}project-${keyHash}`,
@@ -41,7 +41,7 @@ export function resolveLensSessionProfile(
     };
   }
 
-  const keyHash = hashProfileKey(args.workspaceId);
+  const keyHash = hashLensProfileKey(args.workspaceId);
   return {
     scope: "workspace",
     partition: `${LENS_PARTITION_PREFIX}${args.workspaceId}`,

@@ -49,6 +49,36 @@ describe("Utf8LineBuffer", () => {
     );
   });
 
+  test("reassembles a long line streamed in many chunks", () => {
+    const buffer = new Utf8LineBuffer({
+      label: "test",
+      maxBufferBytes: 16 * 1024 * 1024,
+      maxLineBytes: 8 * 1024 * 1024,
+    });
+    const line = JSON.stringify({ text: "x".repeat(3_000_000) });
+    const stream = `${line}\r\nnext\n`;
+
+    const lines: string[] = [];
+    for (let offset = 0; offset < stream.length; offset += 65_536) {
+      lines.push(...buffer.append(stream.slice(offset, offset + 65_536)));
+    }
+
+    expect(lines).toEqual([line, "next"]);
+  });
+
+  test("emits several complete lines from one chunk while keeping the remainder", () => {
+    const buffer = new Utf8LineBuffer({
+      label: "test",
+      maxBufferBytes: 1024,
+      maxLineBytes: 1024,
+    });
+
+    expect(buffer.append("a\nb\nc")).toEqual(["a", "b"]);
+    expect(buffer.append("")).toEqual([]);
+    expect(buffer.append("\n")).toEqual(["c"]);
+    expect(buffer.append("\n\n")).toEqual(["", ""]);
+  });
+
   describe("oversized-line drop mode", () => {
     test("drops a complete oversized line, reports it, and keeps parsing", () => {
       const dropped: Array<{ lineBytes: number; linePrefix: string }> = [];

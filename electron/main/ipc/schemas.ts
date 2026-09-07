@@ -2112,6 +2112,14 @@ export const PersistenceFlushCompleteArgsSchema = z
   })
   .strict();
 
+export const StorageCleanupArgsSchema = z
+  .object({
+    deleteOrphanedPartitions: z.boolean().optional(),
+    clearLensCaches: z.enum(["none", "oversized", "all"]).optional(),
+    deleteStaleDatabaseFiles: z.boolean().optional(),
+  })
+  .strict();
+
 export {
   ProjectMemoryDeleteArgsSchema,
   ProjectMemoryListArgsSchema,

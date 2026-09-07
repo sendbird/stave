@@ -36,11 +36,23 @@ export interface AppMetricsResult {
   }>;
   mainProcess: {
     rss: number;
+    /**
+     * Private (non-shared) footprint in bytes. Unlike `rss`, this excludes
+     * pages the allocator has already released to the OS but that stay
+     * counted as resident until the kernel reclaims them, so it tracks what
+     * the process actually costs. `null` when the platform cannot report it.
+     */
+    privateBytes: number | null;
+    sharedBytes: number | null;
     heapTotal: number;
     heapUsed: number;
     external: number;
     arrayBuffers: number;
   };
+  hostRendererMemory: {
+    privateBytes: number;
+    sharedBytes: number;
+  } | null;
   hostRendererPid: number | null;
   hostService: HostServiceResourceMetrics | null;
   lens: BrowserResourceMetrics;
@@ -69,11 +81,23 @@ export function registerMetricsHandlers() {
       } catch {
         // A renderer that exited during collection has no current process id.
       }
-      const hostService = await invokeHostService(
-        "service.get-resource-metrics",
-        undefined,
-        { timeoutMs: 1_500 },
-      ).catch(() => null);
+      const [hostService, mainMemoryInfo, hostRendererMemoryInfo] =
+        await Promise.all([
+          invokeHostService("service.get-resource-metrics", undefined, {
+            timeoutMs: 1_500,
+          }).catch(() => null),
+          process.getProcessMemoryInfo().catch(() => null),
+          mainWindow && !mainWindow.isDestroyed()
+            ? mainWindow.webContents.getProcessMemoryInfo().catch(() => null)
+            : Promise.resolve(null),
+        ]);
+      // Electron reports ProcessMemoryInfo in kilobytes.
+      const toBytes = (kb: number | undefined) =>
+        typeof kb === "number" && Number.isFinite(kb) ? kb * 1024 : null;
+      const mainPrivateBytes = toBytes(mainMemoryInfo?.private);
+      const mainSharedBytes = toBytes(mainMemoryInfo?.shared);
+      const hostRendererPrivateBytes = toBytes(hostRendererMemoryInfo?.private);
+      const hostRendererSharedBytes = toBytes(hostRendererMemoryInfo?.shared);
 
       const resolveRole = (
         metric: (typeof processMetrics)[number],
@@ -111,11 +135,20 @@ export function registerMetricsHandlers() {
         })),
         mainProcess: {
           rss: mainMemory.rss,
+          privateBytes: mainPrivateBytes,
+          sharedBytes: mainSharedBytes,
           heapTotal: mainMemory.heapTotal,
           heapUsed: mainMemory.heapUsed,
           external: mainMemory.external,
           arrayBuffers: mainMemory.arrayBuffers,
         },
+        hostRendererMemory:
+          hostRendererPrivateBytes !== null && hostRendererSharedBytes !== null
+            ? {
+                privateBytes: hostRendererPrivateBytes,
+                sharedBytes: hostRendererSharedBytes,
+              }
+            : null,
         hostRendererPid,
         hostService,
         lens,

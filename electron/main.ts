@@ -4,6 +4,10 @@ import { startHostService, stopHostService } from "./main/host-service-client";
 import { configurePersistenceUserDataPath } from "./main/runtime-profile";
 import { resetMainProcessState } from "./main/state";
 import {
+  startStorageCleanupRuntime,
+  stopStorageCleanupRuntime,
+} from "./main/storage-cleanup";
+import {
   startStaveMcpServer,
   stopStaveMcpServer,
 } from "./main/stave-mcp-server";
@@ -84,6 +88,7 @@ function runBeforeQuitCleanup() {
       Promise.resolve(stopCraneConnectorRuntime()),
       Promise.resolve(stopMartinSyncRuntime()),
       Promise.resolve(stopTrackerTasksRuntime()),
+      Promise.resolve(stopStorageCleanupRuntime()),
       stopStaveMcpServer(),
       stopHostService(),
     ]);
@@ -119,6 +124,7 @@ if (hasSingleInstanceLock) {
     registerHandlers();
     createMainWindow();
     startTrackerTasksRuntime();
+    startStorageCleanupRuntime();
     void startHostService().catch((error) => {
       console.error("[host-service] failed to start", error);
     });

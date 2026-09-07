@@ -23,6 +23,7 @@ import {
   type ResourceMetricSummary,
 } from "@/lib/performance/resource-metric-history";
 import { getLatestWorkspaceSwitchPerformance } from "@/lib/performance/workspace-switch-metrics";
+import type { StorageCleanupReport } from "@/lib/storage-cleanup/storage-cleanup-policy";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
 import {
@@ -49,11 +50,18 @@ interface AppMetrics {
   processes: ProcessMetric[];
   mainProcess: {
     rss: number;
+    /** Private (non-shared) footprint; excludes pages already released to the OS. */
+    privateBytes: number | null;
+    sharedBytes: number | null;
     heapTotal: number;
     heapUsed: number;
     external: number;
     arrayBuffers: number;
   };
+  hostRendererMemory: {
+    privateBytes: number;
+    sharedBytes: number;
+  } | null;
   hostRendererPid: number | null;
   hostService: {
     pid: number;
@@ -235,6 +243,10 @@ export function MemoryUsagePopover({
   const [recentMetrics, setRecentMetrics] =
     useState<ResourceMetricSummary | null>(null);
   const [loading, setLoading] = useState(false);
+  const [storageReport, setStorageReport] =
+    useState<StorageCleanupReport | null>(null);
+  const [storageBusy, setStorageBusy] = useState(false);
+  const [storageMessage, setStorageMessage] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const samplesRef = useRef<ResourceMetricSample[]>([]);
 
@@ -276,6 +288,57 @@ export function MemoryUsagePopover({
     }
   }, []);
 
+  const fetchStorageReport = useCallback(async () => {
+    try {
+      const response = await window.api?.storage?.getCleanupReport?.();
+      if (response?.ok && response.report) {
+        setStorageReport(response.report);
+      }
+    } catch {
+      // Storage report is best-effort; the popover stays usable without it.
+    }
+  }, []);
+
+  useEffect(() => {
+    if (open) {
+      void fetchStorageReport();
+    }
+  }, [open, fetchStorageReport]);
+
+  const runStorageCleanup = useCallback(
+    async (mode: "reclaim" | "clear-all-caches") => {
+      if (storageBusy) return;
+      setStorageBusy(true);
+      setStorageMessage(null);
+      try {
+        const response = await window.api?.storage?.runCleanup?.(
+          mode === "reclaim"
+            ? {
+                deleteOrphanedPartitions: true,
+                clearLensCaches: "oversized",
+                deleteStaleDatabaseFiles: true,
+              }
+            : { clearLensCaches: "all" },
+        );
+        if (response?.ok && response.result) {
+          setStorageMessage(
+            response.result.errors.length > 0
+              ? `Reclaimed ${formatBytes(response.result.reclaimedBytes)} with ${response.result.errors.length} error(s)`
+              : `Reclaimed ${formatBytes(response.result.reclaimedBytes)}`,
+          );
+        } else {
+          setStorageMessage(response?.error ?? "Clean-up unavailable");
+        }
+      } catch (error) {
+        setStorageMessage(String(error));
+      } finally {
+        setStorageBusy(false);
+        void fetchStorageReport();
+      }
+    },
+    [storageBusy, fetchStorageReport],
+  );
+
   useEffect(() => {
     if (!open) {
       if (intervalRef.current) {
@@ -297,9 +360,26 @@ export function MemoryUsagePopover({
     };
   }, [open, fetchMetrics]);
 
+  // Working-set (RSS) figures count pages the allocator has already released
+  // but the kernel has not reclaimed yet, so after a burst they can read
+  // several GB above the real footprint. Where a private footprint is
+  // available (main, host renderer) substitute it into the headline total.
+  const mainPrivateBytes = metrics?.mainProcess.privateBytes ?? null;
+  const hostRendererPrivateBytes =
+    metrics?.hostRendererMemory?.privateBytes ?? null;
   const totalWorkingSetKB =
     metrics?.processes.reduce((sum, p) => sum + p.memory.workingSetSizeKB, 0) ??
     0;
+  const totalFootprintKB =
+    metrics?.processes.reduce((sum, p) => {
+      if (p.role === "main" && mainPrivateBytes !== null) {
+        return sum + mainPrivateBytes / 1024;
+      }
+      if (p.role === "host-renderer" && hostRendererPrivateBytes !== null) {
+        return sum + hostRendererPrivateBytes / 1024;
+      }
+      return sum + p.memory.workingSetSizeKB;
+    }, 0) ?? 0;
   const totalCpu =
     metrics?.processes.reduce((sum, p) => sum + p.cpu.percentCPUUsage, 0) ?? 0;
   const latestWorkspaceSwitch = getLatestWorkspaceSwitchPerformance();
@@ -410,10 +490,12 @@ export function MemoryUsagePopover({
                     />
                   </div>
                   <div className={sx(resourceStyles.summaryTileValue)}>
-                    {formatKB(totalWorkingSetKB)}
+                    {formatKB(totalFootprintKB)}
                   </div>
                   <div className={sx(resourceStyles.summaryTileLabel)}>
-                    Electron
+                    {totalFootprintKB !== totalWorkingSetKB
+                      ? `Electron · RSS ${formatKB(totalWorkingSetKB)}`
+                      : "Electron"}
                   </div>
                 </div>
                 <div className={sx(resourceStyles.summaryTile)}>
@@ -448,12 +530,16 @@ export function MemoryUsagePopover({
                 )} / ${formatBytes(metrics.mainProcess.heapTotal)}`}
               />
 
-              {/* RSS bar */}
+              {/* Main footprint bar (private bytes; RSS shown for reference) */}
               <UsageBar
-                label="RSS (Main)"
-                used={metrics.mainProcess.rss}
-                total={metrics.mainProcess.rss * 1.25}
-                detail={formatBytes(metrics.mainProcess.rss)}
+                label={mainPrivateBytes !== null ? "Footprint (Main)" : "RSS (Main)"}
+                used={mainPrivateBytes ?? metrics.mainProcess.rss}
+                total={(mainPrivateBytes ?? metrics.mainProcess.rss) * 1.25}
+                detail={
+                  mainPrivateBytes !== null
+                    ? `${formatBytes(mainPrivateBytes)} · RSS ${formatBytes(metrics.mainProcess.rss)}`
+                    : formatBytes(metrics.mainProcess.rss)
+                }
               />
 
               {rendererMemory ? (
@@ -682,6 +768,88 @@ export function MemoryUsagePopover({
                       {metrics.persistence.autoVacuum === 2 ? "on" : "pending"}
                     </span>
                   </div>
+                </div>
+              ) : null}
+
+              {storageReport ? (
+                <div className={sx(resourceStyles.group)}>
+                  <div className={sx(resourceStyles.groupHead)}>
+                    <span className={sx(resourceStyles.groupTitle)}>
+                      Storage
+                    </span>
+                    <span className={sx(resourceStyles.groupMeta)}>
+                      {formatBytes(
+                        storageReport.totals.partitionBytes +
+                          storageReport.totals.staleDatabaseBytes,
+                      )}{" "}
+                      on disk
+                    </span>
+                  </div>
+                  <div className={sx(resourceStyles.detailGrid)}>
+                    <span className={sx(resourceStyles.detailKey)}>
+                      Lens partitions
+                    </span>
+                    <span className={sx(resourceStyles.detailValue)}>
+                      {storageReport.partitions.length} ·{" "}
+                      {formatBytes(storageReport.totals.partitionBytes)}
+                    </span>
+                    <span className={sx(resourceStyles.detailKey)}>
+                      Orphaned
+                    </span>
+                    <span
+                      className={sx(
+                        storageReport.totals.orphanedPartitionCount > 0
+                          ? resourceStyles.detailValueWarning
+                          : resourceStyles.detailValue,
+                      )}
+                    >
+                      {storageReport.totals.orphanedPartitionCount} ·{" "}
+                      {formatBytes(storageReport.totals.orphanedPartitionBytes)}
+                    </span>
+                    <span className={sx(resourceStyles.detailKey)}>
+                      Oversized caches
+                    </span>
+                    <span className={sx(resourceStyles.detailValue)}>
+                      {storageReport.totals.oversizedCacheCount} ·{" "}
+                      {formatBytes(storageReport.totals.oversizedCacheBytes)}
+                    </span>
+                    <span className={sx(resourceStyles.detailKey)}>
+                      Stale DB files
+                    </span>
+                    <span
+                      className={sx(
+                        storageReport.staleDatabaseFiles.length > 0
+                          ? resourceStyles.detailValueWarning
+                          : resourceStyles.detailValue,
+                      )}
+                    >
+                      {storageReport.staleDatabaseFiles.length} ·{" "}
+                      {formatBytes(storageReport.totals.staleDatabaseBytes)}
+                    </span>
+                  </div>
+                  <div className={sx(resourceStyles.storageActions)}>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      disabled={storageBusy}
+                      onClick={() => void runStorageCleanup("reclaim")}
+                    >
+                      {storageBusy ? "Cleaning…" : "Clean up"}
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      disabled={storageBusy}
+                      onClick={() => void runStorageCleanup("clear-all-caches")}
+                    >
+                      Clear Lens caches
+                    </Button>
+                  </div>
+                  {storageMessage ? (
+                    <div className={sx(resourceStyles.storageMessage)}>
+                      {storageMessage}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
 

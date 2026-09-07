@@ -19,6 +19,7 @@ import { registerRoutineHandlers } from "./routines";
 import { registerScmHandlers } from "./scm";
 import { registerSecretHandlers } from "./secrets";
 import { registerSkillsHandlers } from "./skills";
+import { registerStorageHandlers } from "./storage";
 import { registerTerminalHandlers } from "./terminal";
 import { registerTaskControlHandlers } from "./task-control";
 import { registerToolingHandlers } from "./tooling";
@@ -45,6 +46,7 @@ export function registerHandlers() {
   registerEslintHandlers();
   registerInlineCompletionHandlers();
   registerMetricsHandlers();
+  registerStorageHandlers();
   registerNotificationHandlers();
   registerLocalMcpHandlers();
   registerAtelierConnectorHandlers();

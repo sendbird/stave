@@ -2639,11 +2639,17 @@ contextBridge.exposeInMainWorld("api", {
         }>;
         mainProcess: {
           rss: number;
+          privateBytes: number | null;
+          sharedBytes: number | null;
           heapTotal: number;
           heapUsed: number;
           external: number;
           arrayBuffers: number;
         };
+        hostRendererMemory: {
+          privateBytes: number;
+          sharedBytes: number;
+        } | null;
         hostRendererPid: number | null;
         hostService: {
           pid: number;
@@ -2706,6 +2712,22 @@ contextBridge.exposeInMainWorld("api", {
       process: await process.getProcessMemoryInfo(),
       blink: process.getBlinkMemoryInfo(),
     }),
+  },
+  storage: {
+    getCleanupReport: () =>
+      ipcRenderer.invoke("storage:get-cleanup-report") as Promise<{
+        ok: boolean;
+        report: import("../src/lib/storage-cleanup/storage-cleanup-policy").StorageCleanupReport | null;
+        error?: string;
+      }>,
+    runCleanup: (
+      args: import("../src/lib/storage-cleanup/storage-cleanup-policy").StorageCleanupOptions,
+    ) =>
+      ipcRenderer.invoke("storage:run-cleanup", args) as Promise<{
+        ok: boolean;
+        result: import("../src/lib/storage-cleanup/storage-cleanup-policy").StorageCleanupResult | null;
+        error?: string;
+      }>,
   },
   inlineCompletion: {
     request: (args: {
