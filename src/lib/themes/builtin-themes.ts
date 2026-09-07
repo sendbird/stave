@@ -52,6 +52,10 @@ const PRESET_EXTENDED_THEME_TOKENS: Record<
     "chart-5": "oklch(0.53 0.09 185)",
     "provider-codex": "oklch(0.54 0.18 260)",
     "provider-claude": "oklch(0.62 0.16 38)",
+    "service-git-open": "oklch(0.51 0.13 145)",
+    "service-git-merged": "oklch(0.55 0.19 303)",
+    "service-git-closed": "oklch(0.55 0.19 25)",
+    "service-git-modified": "oklch(0.55 0.13 78)",
   },
   dark: {
     success: "oklch(0.74 0.12 155)",
@@ -91,6 +95,10 @@ const PRESET_EXTENDED_THEME_TOKENS: Record<
     "chart-5": "oklch(0.73 0.11 185)",
     "provider-codex": "oklch(0.71 0.15 252)",
     "provider-claude": "oklch(0.75 0.14 45)",
+    "service-git-open": "oklch(0.7 0.15 145)",
+    "service-git-merged": "oklch(0.68 0.17 303)",
+    "service-git-closed": "oklch(0.67 0.19 25)",
+    "service-git-modified": "oklch(0.74 0.14 85)",
   },
 };
 
@@ -205,6 +213,10 @@ const STAVE_SCORE = createBuiltinTheme({
     "chart-5": "oklch(0.53 0.09 185)",
     "provider-codex": "oklch(0.52 0.17 255)",
     "provider-claude": "oklch(0.62 0.16 38)",
+    "service-git-open": "oklch(0.51 0.13 145)",
+    "service-git-merged": "oklch(0.55 0.19 303)",
+    "service-git-closed": "oklch(0.55 0.19 25)",
+    "service-git-modified": "oklch(0.55 0.13 78)",
   } satisfies BuiltinThemeTokenValues,
 });
 
@@ -279,6 +291,10 @@ const STAVE_NOCTURNE = createBuiltinTheme({
     "chart-5": "oklch(0.73 0.11 185)",
     "provider-codex": "oklch(0.72 0.14 250)",
     "provider-claude": "oklch(0.75 0.14 45)",
+    "service-git-open": "oklch(0.7 0.15 145)",
+    "service-git-merged": "oklch(0.68 0.17 303)",
+    "service-git-closed": "oklch(0.67 0.19 25)",
+    "service-git-modified": "oklch(0.74 0.14 85)",
   } satisfies BuiltinThemeTokenValues,
 });
 
@@ -410,6 +426,10 @@ const GITHUB_LIGHT_DEFAULT = createBuiltinTheme({
     "chart-5": "#D1242F",
     "provider-codex": "#0969DA",
     "provider-claude": "#9A6700",
+    "service-git-open": "#1A7F37",
+    "service-git-merged": "#8250DF",
+    "service-git-closed": "#D1242F",
+    "service-git-modified": "#9A6700",
   },
 });
 
@@ -473,6 +493,10 @@ const GITHUB_DARK_DEFAULT = createBuiltinTheme({
     "chart-5": "#F85149",
     "provider-codex": "#4493F8",
     "provider-claude": "#D29922",
+    "service-git-open": "#3FB950",
+    "service-git-merged": "#A371F7",
+    "service-git-closed": "#F85149",
+    "service-git-modified": "#D29922",
   },
 });
 

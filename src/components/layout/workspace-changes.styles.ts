@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "../ads/tokens/tokens.stylex";
+import { SERVICE_GIT } from "@/lib/themes/service-git";
 
 const spin = stylex.keyframes({ to: { transform: "rotate(360deg)" } });
 
@@ -17,7 +18,7 @@ const ROW_ACTION_EVENTS = "--stave-scm-row-events";
 const dangerWash = `color-mix(in oklch, ${vars.colorDanger} 15%, transparent)`;
 const warningWash = `color-mix(in oklch, ${vars.colorWarning} 15%, transparent)`;
 const dangerHoverWash = `color-mix(in oklch, ${vars.colorDanger} 10%, transparent)`;
-const successHoverWash = `color-mix(in oklch, ${vars.colorSuccess} 10%, transparent)`;
+const gitOpenHoverWash = `color-mix(in oklab, ${SERVICE_GIT.open} 10%, transparent)`;
 const warningPanel = `color-mix(in oklch, ${vars.colorWarning} 10%, transparent)`;
 const warningEdge = `color-mix(in oklch, ${vars.colorWarning} 40%, transparent)`;
 const dangerPanel = `color-mix(in oklch, ${vars.colorDanger} 10%, transparent)`;
@@ -33,9 +34,15 @@ export const checkToneStyles = stylex.create({
 
 /** Per-file status-code ink in the changes list. */
 export const scmStatusToneStyles = stylex.create({
-  conflict: { color: vars.colorDangerText },
-  unstaged: { color: vars.colorWarningText },
-  staged: { color: vars.colorSuccessText },
+  conflict: {
+    color: `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.closed})`,
+  },
+  unstaged: {
+    color: `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.modified})`,
+  },
+  staged: {
+    color: `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.open})`,
+  },
   none: { color: vars.colorTextMuted },
 });
 
@@ -50,16 +57,23 @@ export const scmActionToneStyles = stylex.create({
     color: { default: vars.colorDangerText, ":hover": vars.colorDangerText },
   },
   success: {
-    backgroundColor: { default: "transparent", ":hover": successHoverWash },
-    color: { default: vars.colorSuccessText, ":hover": vars.colorSuccessText },
+    backgroundColor: { default: "transparent", ":hover": gitOpenHoverWash },
+    color: {
+      default: `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.open})`,
+      ":hover": `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.open})`,
+    },
   },
 });
 
 /** Summary-line ink for the staged / working-tree / conflict counters. */
 export const scmSummaryToneStyles = stylex.create({
-  staged: { color: vars.colorSuccessText },
+  staged: {
+    color: `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.open})`,
+  },
   workingTree: { color: vars.colorTextMuted },
-  conflicts: { color: vars.colorDangerText },
+  conflicts: {
+    color: `color-mix(in oklab, ${vars.colorText} 45%, ${SERVICE_GIT.closed})`,
+  },
 });
 
 export const changesStyles = stylex.create({

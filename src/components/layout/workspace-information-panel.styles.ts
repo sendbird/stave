@@ -349,10 +349,16 @@ export const workspaceInformationPanelStyles = stylex.create({
   // memory lists so the three cannot drift. Only the status glyph's ink is
   // specific to a pull request.
   prStatusGlyph: { flexShrink: 0, height: 18, width: 18 },
-  prStatusMerged: { color: vars.colorAccent },
-  prStatusClosed: { color: vars.colorDangerText },
+  prStatusMerged: {
+    color: `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-merged))`,
+  },
+  prStatusClosed: {
+    color: `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-closed))`,
+  },
   prStatusDraft: { color: vars.colorTextMuted },
-  prStatusOpen: { color: vars.colorSuccessText },
+  prStatusOpen: {
+    color: `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-open))`,
+  },
   // ---- badges / chips ----------------------------------------------------
   chip: {
     borderRadius: vars.radiusFull,

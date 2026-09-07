@@ -218,6 +218,26 @@ describe("BUILTIN_CUSTOM_THEMES", () => {
     );
   });
 
+  it("tracks Git service identity tokens in the built-in token registry", () => {
+    expect(BUILTIN_THEME_TOKEN_NAMES).toEqual(
+      expect.arrayContaining([
+        "service-git-open",
+        "service-git-merged",
+        "service-git-closed",
+        "service-git-modified",
+      ]),
+    );
+  });
+
+  it("every built-in theme defines non-empty Git service tokens", () => {
+    for (const theme of BUILTIN_CUSTOM_THEMES) {
+      expect(theme.tokens["service-git-open"]?.trim()).toBeTruthy();
+      expect(theme.tokens["service-git-merged"]?.trim()).toBeTruthy();
+      expect(theme.tokens["service-git-closed"]?.trim()).toBeTruthy();
+      expect(theme.tokens["service-git-modified"]?.trim()).toBeTruthy();
+    }
+  });
+
   it("tracks pane drop-zone tokens in the built-in token registry", () => {
     expect(BUILTIN_THEME_TOKEN_NAMES).toEqual(
       expect.arrayContaining(["drop-zone", "drop-zone-border"]),

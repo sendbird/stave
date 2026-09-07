@@ -115,7 +115,7 @@ import {
   type WorkspacePrStatus,
   PR_STATUS_VISUAL,
 } from "@/lib/pr-status";
-import { PR_TONE_BADGE_VARIANT } from "./pr-status.styles";
+import { prToneBadgeStyles } from "./pr-status.styles";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import {
   formatWorkspaceInfoTaskSeedPrompt,
@@ -840,8 +840,8 @@ export function GitHubPrRow(props: {
         <div className={sx(informationRow.meta)}>
           <span className={sx(informationRow.metaNumeric)}>#{props.number}</span>
           <Badge
-            variant={PR_TONE_BADGE_VARIANT[visual.tone]}
-            className={sx(styles.chipStatus)}
+            tone="neutral"
+            className={sx(styles.chipStatus, prToneBadgeStyles[visual.tone])}
           >
             {visual.label}
           </Badge>
