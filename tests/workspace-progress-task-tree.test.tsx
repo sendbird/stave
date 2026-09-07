@@ -36,8 +36,7 @@ describe("WorkspaceProgressTaskTreeView", () => {
     expect(html).toContain('data-loader-variant="pulse"');
     expect(html).toContain("claude-color.svg");
     expect(html).toContain("codex-color.svg");
-    // The nested tree hangs off a left indent-guide border (formerly `border-l`),
-    // now the inline-start hairline on the list container.
+    // One-depth list: no indent-guide border, only the parent-row inset.
     expect(html).toContain(sx(workspaceProgressTaskTreeStyles.list));
   });
 
