@@ -7,8 +7,8 @@ import {
 } from "@/lib/providers/provider-mode-presets";
 import {
   clampCodexEffortToModel,
+  resolveCodexEffortForModelSwitch,
   resolveDefaultClaudeEffortForModel,
-  resolveDefaultCodexEffortForModel,
 } from "@/lib/providers/model-catalog";
 import type {
   ProviderId,
@@ -325,7 +325,11 @@ export function applyModelRuntimePreference<
         ? (preference.effort as CodexEffort)
         : args.model === args.settings.modelCodex
           ? args.settings.codexReasoningEffort
-          : resolveDefaultCodexEffortForModel({ model: args.model }),
+          : resolveCodexEffortForModelSwitch({
+              previousModel: args.settings.modelCodex,
+              nextModel: args.model,
+              currentEffort: args.settings.codexReasoningEffort,
+            }),
   });
   if (
     !preference &&

@@ -175,4 +175,51 @@ describe("settings model default migration", () => {
 
     expect(result.changed).toBe(false);
   });
+
+  // Regression: "Astra effort keeps resetting to low".
+  //
+  // `previousDefaultCodexEffort` used to guess "medium" for every model that
+  // was not `gpt-5.*`, so a user already on `gpt-6-astra` at "medium" looked
+  // like they were sitting on a stale default. The migration then replaced it
+  // with `resolveDefaultCodexEffortForModel`, which reads the dynamic registry
+  // primed from the App Server `model/list` — landing on "low" whenever the
+  // installed Codex binary recommended it. Astra was never in the pre-Astra
+  // picker, so it has no previous default to migrate away from.
+  test("leaves a deliberately chosen Astra effort alone", () => {
+    for (const effort of ["low", "medium", "high", "xhigh", "max", "ultra"]) {
+      const result = migrateSettingsModelDefaults(
+        preMigrationSnapshot({
+          modelCodex: "gpt-6-astra",
+          codexReasoningEffort: effort,
+        }),
+      );
+
+      expect(result.modelCodex).toBe("gpt-6-astra");
+      expect(result.codexReasoningEffort).toBe(effort);
+    }
+  });
+
+  test("still retargets the effort of a model that was in the old picker", () => {
+    // Terra at the old "xhigh" default follows its model to Sol's new default.
+    const result = migrateSettingsModelDefaults(
+      preMigrationSnapshot({
+        modelCodex: "gpt-5.6-terra",
+        codexReasoningEffort: "xhigh",
+      }),
+    );
+
+    expect(result.modelCodex).toBe("gpt-5.6-sol");
+    expect(result.codexReasoningEffort).not.toBe("xhigh");
+  });
+
+  test("keeps a tuned effort on a model that was in the old picker", () => {
+    const result = migrateSettingsModelDefaults(
+      preMigrationSnapshot({
+        modelCodex: "gpt-5.6-luna",
+        codexReasoningEffort: "max",
+      }),
+    );
+
+    expect(result.codexReasoningEffort).toBe("max");
+  });
 });

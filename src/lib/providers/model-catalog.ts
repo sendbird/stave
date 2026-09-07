@@ -780,6 +780,33 @@ export function resolveClaudeEffortForModelSwitch(args: {
 }
 
 /**
+ * The Codex counterpart of `resolveClaudeEffortForModelSwitch`.
+ *
+ * An effort the user actually tuned follows them onto the next model; only an
+ * effort still parked on the previous model's default is re-derived. Adopting
+ * the next model's default unconditionally is what made a Codex model switch
+ * look like it "reset" the effort: switching to a model whose runtime
+ * recommendation is "low" (what codex-cli reports for some models) silently
+ * replaced a deliberately chosen "ultra" on every read, because the composer
+ * re-derives this value continuously rather than storing it.
+ *
+ * Callers still clamp the result to the target model's supported scale.
+ */
+export function resolveCodexEffortForModelSwitch(args: {
+  previousModel: string;
+  nextModel: string;
+  currentEffort: NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>;
+}): NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]> {
+  const previousDefaultEffort = resolveDefaultCodexEffortForModel({
+    model: args.previousModel,
+  });
+  if (args.currentEffort !== previousDefaultEffort) {
+    return args.currentEffort;
+  }
+  return resolveDefaultCodexEffortForModel({ model: args.nextModel });
+}
+
+/**
  * Dynamic display-name registry populated at runtime by the Codex model
  * catalog (`model/list`). Entries here take priority over the static `known`
  * map so that newly-added server-side models get correct names immediately
