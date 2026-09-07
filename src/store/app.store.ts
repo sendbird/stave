@@ -2318,6 +2318,8 @@ export const useAppStore = create<AppState>()(
                 codexPlanMode: modelRuntimeSettings.codexPlanMode,
                 codexReasoningEffort: modelRuntimeSettings.codexReasoningEffort,
                 cursorMode: modelRuntimeSettings.cursorMode,
+                cursorEffort: modelRuntimeSettings.cursorEffort,
+                cursorFastMode: modelRuntimeSettings.cursorFastMode,
                 kiroEffort: modelRuntimeSettings.kiroEffort,
               },
             });
@@ -2333,6 +2335,9 @@ export const useAppStore = create<AppState>()(
               codexFastMode:
                 resolvedPromptDraftRuntimeState.codexFastMode ??
                 modelRuntimeSettings.codexFastMode,
+              cursorFastMode:
+                resolvedPromptDraftRuntimeState.cursorFastMode ??
+                modelRuntimeSettings.cursorFastMode,
               ...(autoRoutingDecision?.claudeEffort
                 ? { claudeEffort: autoRoutingDecision.claudeEffort }
                 : {}),

@@ -58,6 +58,50 @@ const configOptions = [
   },
 ];
 
+function createParameterizedConfig() {
+  return [
+    {
+      id: "model",
+      name: "Model",
+      type: "select",
+      currentValue: "auto",
+      options: [
+        { value: "auto", name: "Auto" },
+        { value: "gpt-5.6-sol", name: "gpt-5.6-sol" },
+        { value: "grok-4.6", name: "grok-4.6" },
+      ],
+    },
+    {
+      id: "effort",
+      name: "Effort",
+      type: "select",
+      currentValue: "medium",
+      options: [
+        { value: "low", name: "Low" },
+        { value: "medium", name: "Medium" },
+        { value: "high", name: "High" },
+        { value: "xhigh", name: "X-High" },
+        { value: "max", name: "Max" },
+      ],
+    },
+    {
+      id: "fast",
+      name: "Fast",
+      type: "select",
+      currentValue: "false",
+      options: [
+        { value: "true", name: "On" },
+        { value: "false", name: "Off" },
+      ],
+    },
+  ];
+}
+
+const sessionConfig =
+  scenario === "parameterized" ? createParameterizedConfig() : configOptions;
+const appliedConfig: { configId: string; value: string }[] = [];
+let initializeMeta: unknown;
+
 input.on("line", (line) => {
   const message = JSON.parse(line) as Record<string, unknown>;
   const method = typeof message.method === "string" ? message.method : "";
@@ -77,6 +121,13 @@ input.on("line", (line) => {
   }
 
   if (method === "initialize") {
+    const params = message.params as Record<string, unknown> | undefined;
+    const clientCapabilities =
+      params?.clientCapabilities &&
+      typeof params.clientCapabilities === "object"
+        ? (params.clientCapabilities as Record<string, unknown>)
+        : {};
+    initializeMeta = clientCapabilities._meta;
     result(id, {
       protocolVersion: 1,
       agentCapabilities: {
@@ -97,7 +148,7 @@ input.on("line", (line) => {
     result(id, {
       sessionId: "cursor-fixture-session",
       modes,
-      configOptions,
+      configOptions: sessionConfig,
     });
     return;
   }
@@ -142,11 +193,27 @@ input.on("line", (line) => {
         agentId: "previous-agent-1",
       },
     });
-    result(id, { modes, configOptions });
+    result(id, { modes, configOptions: sessionConfig });
     return;
   }
-  if (method === "session/set_mode" || method === "session/set_config_option") {
+  if (method === "session/set_mode") {
     result(id, {});
+    return;
+  }
+  if (method === "session/set_config_option") {
+    const params = message.params as Record<string, unknown> | undefined;
+    const configId =
+      typeof params?.configId === "string" ? params.configId : "";
+    const value = typeof params?.value === "string" ? params.value : "";
+    appliedConfig.push({ configId, value });
+    const option = sessionConfig.find((entry) => entry.id === configId);
+    if (option) {
+      option.currentValue = value;
+    }
+    result(
+      id,
+      scenario === "parameterized" ? { configOptions: sessionConfig } : {},
+    );
     return;
   }
   if (method === "session/cancel") {
@@ -158,6 +225,24 @@ input.on("line", (line) => {
   }
 
   pendingPromptId = id;
+  if (scenario === "parameterized") {
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: {
+        type: "text",
+        text: `parameterized:${JSON.stringify({
+          initializeMeta,
+          applied: appliedConfig,
+          current: Object.fromEntries(
+            sessionConfig.map((option) => [option.id, option.currentValue]),
+          ),
+        })}`,
+      },
+      messageId: "parameterized-message-1",
+    });
+    finishPrompt();
+    return;
+  }
   if (scenario === "image-unsupported") {
     const params = message.params as Record<string, unknown> | undefined;
     const prompt = Array.isArray(params?.prompt) ? params.prompt : [];

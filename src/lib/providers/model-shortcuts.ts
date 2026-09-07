@@ -196,7 +196,7 @@ export function listModelShortcutEffortOptions(args: {
     return KIRO_EFFORT_OPTIONS;
   }
   if (parsed.providerId === "cursor") {
-    return [];
+    return KIRO_EFFORT_OPTIONS;
   }
   return listCodexEffortOptionsForModel({ model: parsed.model });
 }

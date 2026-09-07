@@ -13,6 +13,7 @@ import {
   resolveClaudeContextOption,
   resolveCursorModelVariant,
   supportsClaudeContextToggle,
+  usesCursorParameterizedPicker,
 } from "@/components/ai-elements/model-effort-selector.utils";
 import type { ModelSelectorOption } from "@/components/ai-elements/model-selector.utils";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -143,6 +144,32 @@ describe("model effort selector utilities", () => {
       "xhigh",
     ]);
     expect(listModelEfforts(unspecified)).toEqual([]);
+  });
+
+  test("opens the Cursor effort scale from advertised session options", () => {
+    const sol = option({
+      providerId: "cursor",
+      model: "gpt-5.6-sol",
+      supportedEfforts: ["low", "medium", "high", "xhigh"],
+    });
+
+    expect(listModelEfforts(sol).map((effort) => effort.value)).toEqual([
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+    ]);
+    expect(usesCursorParameterizedPicker([sol])).toBe(true);
+    expect(
+      usesCursorParameterizedPicker([
+        option({
+          providerId: "cursor",
+          model: "grok-4.6[effort=high]",
+          defaultEffort: "high",
+          supportedEfforts: [],
+        }),
+      ]),
+    ).toBe(false);
   });
 
   test("separates Cursor model names from runtime capability labels", () => {

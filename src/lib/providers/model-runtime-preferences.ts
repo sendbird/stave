@@ -19,10 +19,11 @@ import type { ClaudePermissionMode } from "@/types/chat";
 type ClaudeEffort = NonNullable<ProviderRuntimeOptions["claudeEffort"]>;
 type CodexEffort = NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]>;
 type KiroEffort = NonNullable<ProviderRuntimeOptions["kiroEffort"]>;
+type CursorEffort = NonNullable<ProviderRuntimeOptions["cursorEffort"]>;
 
 export interface ModelRuntimePreference {
   mode?: ProviderModePresetId;
-  effort?: ClaudeEffort | CodexEffort | KiroEffort;
+  effort?: ClaudeEffort | CodexEffort | KiroEffort | CursorEffort;
   fastMode?: boolean;
 }
 
@@ -45,6 +46,8 @@ export interface ModelRuntimePreferenceSettings {
   claudeAllowUnsandboxedCommands: boolean;
   claudeEffort: ClaudeEffort;
   claudeFastMode: boolean;
+  cursorEffort: CursorEffort;
+  cursorFastMode: boolean;
   codexFileAccess: NonNullable<ProviderRuntimeOptions["codexFileAccess"]>;
   codexApprovalPolicy: NonNullable<
     ProviderRuntimeOptions["codexApprovalPolicy"]
@@ -79,6 +82,7 @@ const KIRO_EFFORTS = new Set<KiroEffort>([
   "xhigh",
   "max",
 ]);
+const CURSOR_EFFORTS = KIRO_EFFORTS as Set<CursorEffort>;
 const MODE_PRESETS = new Set<ProviderModePresetId>([
   "manual",
   "guided",
@@ -92,7 +96,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 function isProviderEffort(
   providerId: ProviderId,
   value: unknown,
-): value is ClaudeEffort | CodexEffort | KiroEffort {
+): value is ClaudeEffort | CodexEffort | KiroEffort | CursorEffort {
   if (typeof value !== "string") {
     return false;
   }
@@ -101,6 +105,9 @@ function isProviderEffort(
   }
   if (providerId === "codex") {
     return CODEX_EFFORTS.has(value as CodexEffort);
+  }
+  if (providerId === "cursor") {
+    return CURSOR_EFFORTS.has(value as CursorEffort);
   }
   return providerId === "kiro" && KIRO_EFFORTS.has(value as KiroEffort);
 }
@@ -142,7 +149,9 @@ function normalizeModelRuntimePreference(args: {
     preference.effort = args.value.effort;
   }
   if (
-    (args.providerId === "claude-code" || args.providerId === "codex") &&
+    (args.providerId === "claude-code" ||
+      args.providerId === "codex" ||
+      args.providerId === "cursor") &&
     typeof args.value.fastMode === "boolean"
   ) {
     preference.fastMode = args.value.fastMode;
@@ -271,12 +280,24 @@ export function applyModelRuntimePreference<
   }
 
   if (args.providerId === "cursor") {
-    if (!preference?.mode) {
+    const cursorEffort =
+      preference?.effort && CURSOR_EFFORTS.has(preference.effort as CursorEffort)
+        ? (preference.effort as CursorEffort)
+        : args.settings.cursorEffort;
+    if (!preference && cursorEffort === args.settings.cursorEffort) {
       return args.settings;
     }
     return {
       ...args.settings,
-      ...buildCursorProviderModeSettingsPatch({ presetId: preference.mode }),
+      ...(preference?.mode
+        ? buildCursorProviderModeSettingsPatch({
+            presetId: preference.mode,
+          })
+        : {}),
+      cursorEffort,
+      ...(preference?.fastMode === undefined
+        ? {}
+        : { cursorFastMode: preference.fastMode }),
     };
   }
 

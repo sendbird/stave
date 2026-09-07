@@ -130,6 +130,10 @@ export const KIRO_EFFORT_OPTIONS = [
   NonNullable<ProviderRuntimeOptions["kiroEffort"]>
 >[];
 
+export const CURSOR_EFFORT_OPTIONS = KIRO_EFFORT_OPTIONS satisfies readonly SelectOption<
+  NonNullable<ProviderRuntimeOptions["cursorEffort"]>
+>[];
+
 /**
  * `CODEX_EFFORT_OPTIONS` filtered to the values the given Codex model
  * actually accepts (e.g. GPT-5.6 Luna has no "ultra" tier), preserving the
@@ -240,6 +244,8 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "cursorBinaryPath",
   "cursorMode",
   "cursorApprovalMode",
+  "cursorEffort",
+  "cursorFastMode",
   "cursorResumeSessionId",
   "kiroBinaryPath",
   "kiroEffort",

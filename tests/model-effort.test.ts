@@ -22,6 +22,13 @@ describe("model effort helpers", () => {
         model: "gpt-5.6-luna",
       }).map((option) => option.value),
     ).not.toContain("ultra");
+
+    expect(
+      listModelEffortOptions({
+        providerId: "cursor",
+        model: "gpt-5.6-sol",
+      }).map((option) => option.value),
+    ).toEqual(["low", "medium", "high", "xhigh", "max"]);
   });
 
   test("exposes no effort scale for Claude Haiku, which rejects the field", () => {
@@ -105,6 +112,14 @@ describe("model effort helpers", () => {
         effort: undefined,
       }),
     ).toEqual({});
+
+    expect(
+      buildModelEffortRuntimeOverrides({
+        providerId: "cursor",
+        model: "gpt-5.6-sol",
+        effort: "high",
+      }),
+    ).toEqual({ cursorEffort: "high" });
   });
 
   test("labels efforts and rejects unknown values", () => {

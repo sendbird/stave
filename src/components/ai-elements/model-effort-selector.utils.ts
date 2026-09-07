@@ -354,6 +354,12 @@ export function listModelEfforts(
     return scale.filter((effort) => supported.has(effort.value as never));
   }
   if (option.providerId === "cursor") {
+    if ((option.supportedEfforts?.length ?? 0) > 0) {
+      const supported = new Set(
+        option.supportedEfforts?.map(normalizeCatalogEffort).filter(Boolean),
+      );
+      return scale.filter((effort) => supported.has(effort.value));
+    }
     const embeddedEffort = normalizeCatalogEffort(option.defaultEffort);
     return embeddedEffort
       ? scale.filter((effort) => effort.value === embeddedEffort)
@@ -385,7 +391,12 @@ export function resolveDefaultModelEffort(
     }) as ModelEffortValue;
   }
   if (option.providerId === "cursor") {
-    return listModelEfforts(option)[0]?.value;
+    const efforts = listModelEfforts(option);
+    return (
+      efforts.find((effort) => effort.value === option.defaultEffort)?.value ??
+      efforts.find((effort) => effort.value === "medium")?.value ??
+      efforts[0]?.value
+    );
   }
   if (option.providerId === "kiro") {
     const efforts = listModelEfforts(option);
@@ -396,6 +407,16 @@ export function resolveDefaultModelEffort(
     );
   }
   return undefined;
+}
+
+export function usesCursorParameterizedPicker(
+  options: readonly ModelSelectorOption[],
+) {
+  return options.some(
+    (option) =>
+      option.providerId === "cursor" &&
+      (option.supportedEfforts?.length ?? 0) > 0,
+  );
 }
 
 export function isClaudeContext1MModel(model: string) {

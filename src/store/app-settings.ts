@@ -439,6 +439,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * so it applies for the whole session rather than per tool call.
    */
   cursorApprovalMode: "manual" | "guided" | "auto";
+  cursorEffort: "low" | "medium" | "high" | "xhigh" | "max";
+  cursorFastMode: boolean;
   kiroBinaryPath: string;
   kiroEffort: "low" | "medium" | "high" | "xhigh" | "max";
   /** Approval autonomy for Kiro turns. `auto` adds `acp --trust-all-tools`. */
@@ -576,6 +578,12 @@ export function normalizeKiroEffort(value: unknown): AppSettings["kiroEffort"] {
     value === "max"
     ? value
     : "medium";
+}
+
+export function normalizeCursorEffort(
+  value: unknown,
+): AppSettings["cursorEffort"] {
+  return normalizeKiroEffort(value);
 }
 
 export function normalizeBorderBeamSize(
@@ -784,6 +792,8 @@ export const defaultSettings: AppSettings = {
   cursorBinaryPath: "",
   cursorMode: "agent",
   cursorApprovalMode: "auto",
+  cursorEffort: "medium",
+  cursorFastMode: false,
   kiroBinaryPath: "",
   kiroEffort: "medium",
   kiroApprovalMode: "auto",

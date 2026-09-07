@@ -3,9 +3,11 @@ import {
   cloneDefaultTaskPresets,
   DEFAULT_TASK_PRESETS,
   getTaskPresetShortcutLabel,
+  listEffortsForPresetProvider,
   listModelsForPresetProvider,
   normalizePersistedTaskPresets,
   normalizeTaskPreset,
+  resolveTaskPresetRuntimeOverrides,
   resolveTaskPresetShortcutSlot,
   type TaskPreset,
 } from "@/lib/task-presets";
@@ -81,6 +83,24 @@ describe("normalizeTaskPreset", () => {
     });
     expect(preset.provider).toBe("codex");
     expect(listModelsForPresetProvider("codex")).toContain(preset.model!);
+  });
+
+  test("keeps an advertised Cursor effort on a task preset", () => {
+    expect(
+      listEffortsForPresetProvider("cursor").map((option) => option.value),
+    ).toEqual(["low", "medium", "high", "xhigh", "max"]);
+    const preset = normalizeTaskPreset({
+      kind: "task",
+      provider: "cursor",
+      model: "auto",
+      effort: "high",
+    });
+    expect(preset.effort).toBe("high");
+    expect(resolveTaskPresetRuntimeOverrides(preset)).toMatchObject({
+      model: "auto",
+      modelProviderId: "cursor",
+      cursorEffort: "high",
+    });
   });
 
   test("accepts ACP providers for task presets but not standalone CLI presets", () => {

@@ -95,7 +95,7 @@ describe("worker capability table", () => {
           provider: providerId,
           executionAdapter: "acp-tool",
           resolvedWorkerModel: "runtime-worker",
-          resolvedWorkerEffort: providerId === "kiro" ? "medium" : null,
+          resolvedWorkerEffort: "medium",
         },
       });
       expect(
@@ -147,6 +147,15 @@ describe("worker capability table", () => {
         model: "claude-haiku-4-5",
       }),
     ).toEqual([]);
+  });
+
+  test("Cursor exposes the same selectable effort scale as Kiro", () => {
+    expect(
+      listWorkerEffortsForModel({
+        providerId: "cursor",
+        model: "gpt-5.6-sol",
+      }),
+    ).toEqual(["low", "medium", "high", "xhigh", "max"]);
   });
 
   test("Claude effort scale excludes Codex's ultra tier", () => {

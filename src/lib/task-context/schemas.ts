@@ -310,6 +310,16 @@ const PromptDraftRuntimeOverridesSchema = z.object({
   cursorApprovalMode: z
     .union([z.literal("manual"), z.literal("guided"), z.literal("auto")])
     .optional(),
+  cursorEffort: z
+    .union([
+      z.literal("low"),
+      z.literal("medium"),
+      z.literal("high"),
+      z.literal("xhigh"),
+      z.literal("max"),
+    ])
+    .optional(),
+  cursorFastMode: z.boolean().optional(),
   kiroApprovalMode: z
     .union([z.literal("manual"), z.literal("auto")])
     .optional(),

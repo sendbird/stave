@@ -20,6 +20,8 @@ export function buildMacroRuntimeOverrides(args: {
     modelProviderId: args.runtime.providerId,
     claudeEffort: undefined,
     codexReasoningEffort: undefined,
+    cursorEffort: undefined,
+    kiroEffort: undefined,
     ...effortOverrides,
   };
 }

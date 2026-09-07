@@ -1,8 +1,16 @@
 import { Badge } from "@/components/ui";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   CURSOR_PROVIDER_MODE_PRESETS,
   buildCursorProviderModeSettingsPatch,
 } from "@/lib/providers/provider-mode-presets";
+import { CURSOR_EFFORT_OPTIONS } from "@/lib/providers/runtime-option-contract";
 import { useAppStore } from "@/store/app.store";
 import { sx } from "@/components/ads/utils/stylex";
 import { useShallow } from "zustand/react/shallow";
@@ -12,6 +20,7 @@ import {
   LabeledField,
   SectionStack,
   SettingsCard,
+  SwitchField,
 } from "./settings-dialog.shared";
 import { cursorSectionStyles } from "./settings-dialog-cursor-section.styles";
 
@@ -34,15 +43,23 @@ const CURSOR_MODE_OPTIONS = [
 ] as const;
 
 export function SettingsCursorSection() {
-  const [cursorMode, cursorApprovalMode, modelCursor, cursorBinaryPath] =
-    useAppStore(
-      useShallow((state) => [
-        state.settings.cursorMode,
-        state.settings.cursorApprovalMode,
-        state.settings.modelCursor,
-        state.settings.cursorBinaryPath,
-      ]),
-    );
+  const [
+    cursorMode,
+    cursorApprovalMode,
+    modelCursor,
+    cursorEffort,
+    cursorFastMode,
+    cursorBinaryPath,
+  ] = useAppStore(
+    useShallow((state) => [
+      state.settings.cursorMode,
+      state.settings.cursorApprovalMode,
+      state.settings.modelCursor,
+      state.settings.cursorEffort,
+      state.settings.cursorFastMode,
+      state.settings.cursorBinaryPath,
+    ]),
+  );
   const updateSettings = useAppStore((state) => state.updateSettings);
 
   return (
@@ -104,6 +121,43 @@ export function SettingsCursorSection() {
             }
           />
         </LabeledField>
+        <LabeledField
+          title="Default Effort"
+          description="Used when the connected Cursor session advertises a separate effort option. Individual model choices are remembered from the composer."
+        >
+          <Select
+            value={cursorEffort}
+            onValueChange={(value) =>
+              updateSettings({
+                patch: {
+                  cursorEffort: value as typeof cursorEffort,
+                },
+              })
+            }
+          >
+            <SelectTrigger
+              aria-label="Cursor default effort"
+              className={sx(cursorSectionStyles.field)}
+            >
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {CURSOR_EFFORT_OPTIONS.map((option) => (
+                <SelectItem key={option.value} value={option.value}>
+                  {option.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </LabeledField>
+        <SwitchField
+          title="Fast Mode"
+          description="Uses the Cursor Fast session option when the connected runtime advertises it. Individual model choices are remembered from the composer."
+          checked={cursorFastMode}
+          onCheckedChange={(checked) =>
+            updateSettings({ patch: { cursorFastMode: checked } })
+          }
+        />
       </SettingsCard>
       <SettingsCard
         title="Cursor Agent CLI"

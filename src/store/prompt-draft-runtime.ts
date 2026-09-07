@@ -15,6 +15,8 @@ export interface ResolvedPromptDraftRuntimeState {
   codexReasoningEffort?: PromptDraftRuntimeOverrides["codexReasoningEffort"];
   codexFastMode?: boolean;
   cursorMode: "agent" | "plan" | "ask";
+  cursorEffort?: PromptDraftRuntimeOverrides["cursorEffort"];
+  cursorFastMode?: boolean;
   kiroEffort?: PromptDraftRuntimeOverrides["kiroEffort"];
   boundSecretIds?: string[];
 }
@@ -43,6 +45,9 @@ export function resolvePromptDraftRuntimeState(args: {
       runtimeOverrides?.codexFastMode ?? args.fallback.codexFastMode,
     cursorMode:
       runtimeOverrides?.cursorMode ?? args.fallback.cursorMode ?? "agent",
+    cursorEffort: runtimeOverrides?.cursorEffort ?? args.fallback.cursorEffort,
+    cursorFastMode:
+      runtimeOverrides?.cursorFastMode ?? args.fallback.cursorFastMode,
     kiroEffort: runtimeOverrides?.kiroEffort ?? args.fallback.kiroEffort,
     boundSecretIds:
       runtimeOverrides?.boundSecretIds ?? args.fallback.boundSecretIds,
@@ -303,6 +308,8 @@ export function arePromptDraftRuntimeOverridesEqual(
     left?.codexReasoningEffort === right?.codexReasoningEffort &&
     left?.codexFastMode === right?.codexFastMode &&
     left?.cursorMode === right?.cursorMode &&
+    left?.cursorEffort === right?.cursorEffort &&
+    left?.cursorFastMode === right?.cursorFastMode &&
     left?.kiroEffort === right?.kiroEffort &&
     left?.autoRouting === right?.autoRouting &&
     left?.advisorEnabled === right?.advisorEnabled &&

@@ -18,6 +18,8 @@ const settings: ModelRuntimePreferenceSettings = {
   claudeAllowUnsandboxedCommands: true,
   claudeEffort: "high",
   claudeFastMode: false,
+  cursorEffort: "medium",
+  cursorFastMode: false,
   codexFileAccess: "workspace-write",
   codexApprovalPolicy: "untrusted",
   codexNetworkAccess: false,
@@ -180,5 +182,25 @@ describe("model runtime preferences", () => {
 
     expect(scoped.kiroEffort).toBe("high");
     expect(scoped.codexReasoningEffort).toBe(settings.codexReasoningEffort);
+  });
+
+  test("remembers Cursor effort and fast mode per model", () => {
+    const preferences = mergeModelRuntimePreference({
+      preferences: {},
+      providerId: "cursor",
+      model: "gpt-5.6-sol",
+      patch: { effort: "high", fastMode: true },
+    });
+    const scoped = applyModelRuntimePreference({
+      settings: { ...settings, modelRuntimePreferences: preferences },
+      providerId: "cursor",
+      model: "gpt-5.6-sol",
+    });
+
+    expect(scoped).toMatchObject({
+      cursorEffort: "high",
+      cursorFastMode: true,
+    });
+    expect(scoped.kiroEffort).toBe(settings.kiroEffort);
   });
 });

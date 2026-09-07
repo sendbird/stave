@@ -126,8 +126,8 @@ describe("model shortcuts", () => {
     expect(
       listModelShortcutEffortOptions({
         shortcutKey: "cursor:auto",
-      }),
-    ).toEqual([]);
+      }).map((option) => option.value),
+    ).toEqual(["low", "medium", "high", "xhigh", "max"]);
   });
 
   test("resolves only supported effort overrides for a shortcut slot", () => {

@@ -1272,6 +1272,8 @@ export interface ProviderRuntimeOptions {
    * `auto` sends `--force --approve-mcps`.
    */
   cursorApprovalMode?: "manual" | "guided" | "auto";
+  cursorEffort?: "low" | "medium" | "high" | "xhigh" | "max";
+  cursorFastMode?: boolean;
   cursorResumeSessionId?: string;
   kiroBinaryPath?: string;
   kiroEffort?: "low" | "medium" | "high" | "xhigh" | "max";

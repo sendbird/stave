@@ -23,12 +23,18 @@ import {
 } from "@/lib/providers/model-catalog";
 import type { ModelVisibility } from "@/lib/providers/model-visibility";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import { useAppStore } from "@/store/app.store";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { modelEffortSelectorStyles as styles } from "./model-effort-selector.styles";
 import { SelectionRail } from "@/components/system/SelectionRail";
 import { CursorModelConfigList } from "./cursor-model-config-list";
 import { ModelEffortGrid } from "./model-effort-grid";
 import { ModelIcon } from "./model-icon";
+import {
+  readCursorComposerSettings,
+  resolveCursorComposerControls,
+  shouldPersistCursorComposerSelection,
+} from "./cursor-model-runtime";
 import {
   collapseClaudeContextOptions,
   getClaudeContextBaseLabel,
@@ -41,6 +47,7 @@ import {
   resolveClaudeContextOption,
   resolveDefaultModelEffort,
   supportsClaudeContextToggle,
+  usesCursorParameterizedPicker,
   type ModelEffortValue,
 } from "./model-effort-selector.utils";
 import {
@@ -256,6 +263,34 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   const handledOpenTokenRef = useRef(args.openToken);
   const resetHandledForOpenRef = useRef(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
+  const updateModelRuntimePreference = useAppStore(
+    (state) => state.updateModelRuntimePreference,
+  );
+  const storeCursorEffort = useAppStore((state) =>
+    args.value.providerId === "cursor" && !args.value.isAuto
+      ? readCursorComposerSettings({
+          settings: state.settings,
+          model: args.value.model,
+        }).effort
+      : "medium",
+  );
+  const storeCursorFastMode = useAppStore((state) =>
+    args.value.providerId === "cursor" && !args.value.isAuto
+      ? readCursorComposerSettings({
+          settings: state.settings,
+          model: args.value.model,
+        }).fastMode
+      : false,
+  );
+  const cursorComposerControls = resolveCursorComposerControls({
+    selectedModel: args.value,
+    effortValue: args.effortValue,
+    effortLabel: args.effortLabel,
+    fastMode: args.fastMode,
+    storeEffort: storeCursorEffort,
+    storeFastMode: storeCursorFastMode,
+  });
+  const cursorParameterized = usesCursorParameterizedPicker(args.options);
   const autoOption = args.options.find((option) => option.isAuto);
   const providerIds = useMemo(
     () =>
@@ -320,12 +355,17 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     query,
     showAllModels,
   ]);
+  const hideCursorVariantList =
+    providerId === "cursor" && cursorParameterized;
   const effortfulOptions = visibleOptions.filter(
-    (option) => providerId !== "cursor" && listModelEfforts(option).length > 0,
+    (option) =>
+      (providerId !== "cursor" || cursorParameterized) &&
+      listModelEfforts(option).length > 0,
   );
   const effortlessOptions = visibleOptions.filter(
     (option) =>
-      providerId !== "cursor" && listModelEfforts(option).length === 0,
+      (providerId !== "cursor" || cursorParameterized) &&
+      listModelEfforts(option).length === 0,
   );
   const canToggleAllModels =
     query.trim().length === 0 &&
@@ -347,13 +387,14 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   const selectedEffort =
     args.value.isAuto || listModelEfforts(args.value).length === 0
       ? undefined
-      : (args.effortValue ?? resolveDefaultModelEffort(args.value));
+      : ((cursorComposerControls.effortValue as ModelEffortValue | undefined) ??
+        resolveDefaultModelEffort(args.value));
   const selectedEffortLabel =
-    args.value.providerId === "cursor"
+    args.value.providerId === "cursor" && !cursorParameterized
       ? undefined
       : (listModelEfforts(args.value).find(
           (effort) => effort.value === selectedEffort,
-        )?.label ?? args.effortLabel);
+        )?.label ?? cursorComposerControls.effortLabel);
   const supportsContext1M = supportsClaudeContextToggle({
     options: args.options,
     option: args.value,
@@ -378,12 +419,31 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     option: ModelSelectorOption,
     effort?: ModelEffortValue,
   ) => {
+    const nextFastMode =
+      option.providerId === "codex" ||
+      (option.providerId === "cursor" && cursorParameterized)
+        ? (cursorComposerControls.fastMode ?? false)
+        : undefined;
+    if (
+      shouldPersistCursorComposerSelection({
+        providerId: option.providerId,
+        effort,
+        fastMode: nextFastMode,
+      })
+    ) {
+      updateModelRuntimePreference({
+        providerId: "cursor",
+        model: option.model,
+        patch: {
+          ...(effort ? { effort } : {}),
+          ...(nextFastMode === undefined ? {} : { fastMode: nextFastMode }),
+        },
+      });
+    }
     args.onSelect({
       selection: option,
       ...(effort ? { effort } : {}),
-      ...(option.providerId === "codex"
-        ? { fastMode: args.fastMode ?? false }
-        : {}),
+      ...(nextFastMode === undefined ? {} : { fastMode: nextFastMode }),
     });
     setOpen(false);
   };
@@ -633,7 +693,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                       </div>
                     ) : (
                       <>
-                        {providerId === "cursor" ? (
+                        {providerId === "cursor" && !hideCursorVariantList ? (
                           <CursorModelConfigList
                             options={visibleOptions}
                             selectedModelKey={
@@ -708,24 +768,36 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       </Popover>
 
       {!args.value.isAuto &&
-      args.value.providerId === "codex" &&
+      (args.value.providerId === "codex" ||
+        (args.value.providerId === "cursor" && cursorParameterized)) &&
       args.showFastMode !== false ? (
         <AdsButton
           layout="host"
           type="button"
-          aria-label={`Fast mode: ${args.fastMode ? "On" : "Off"}`}
-          aria-pressed={args.fastMode ?? false}
+          aria-label={`Fast mode: ${cursorComposerControls.fastMode ? "On" : "Off"}`}
+          aria-pressed={cursorComposerControls.fastMode ?? false}
           disabled={args.disabled}
-          onClick={() => args.onFastModeChange?.(!(args.fastMode ?? false))}
+          onClick={() => {
+            const enabled = !(cursorComposerControls.fastMode ?? false);
+            if (args.value.providerId === "cursor") {
+              updateModelRuntimePreference({
+                providerId: "cursor",
+                model: args.value.model,
+                patch: { fastMode: enabled },
+              });
+            }
+            args.onFastModeChange?.(enabled);
+          }}
           className={sx(
             styles.capabilityToggle,
-            args.fastMode && styles.capabilityToggleFastActive,
+            cursorComposerControls.fastMode &&
+              styles.capabilityToggleFastActive,
           )}
         >
           <Zap
             className={sx(
               styles.toggleIcon,
-              args.fastMode && styles.toggleIconFilled,
+              cursorComposerControls.fastMode && styles.toggleIconFilled,
             )}
             aria-hidden="true"
           />

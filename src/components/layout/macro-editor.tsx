@@ -21,7 +21,7 @@ import {
   resolveDefaultModelEffort,
   type ModelEffort,
 } from "@/lib/providers/model-effort";
-import type { ManagedExecutionProviderId } from "@/lib/providers/provider.types";
+import type { ProviderId } from "@/lib/providers/provider.types";
 import { listModelsForPresetProvider } from "@/lib/task-presets";
 import {
   isMacroInstantRun,
@@ -100,7 +100,7 @@ export function MacroEditor(props: MacroEditorProps) {
   );
   const [instantRun, setInstantRun] = useState(isMacroInstantRun(initialMacro));
   const [pinRuntime, setPinRuntime] = useState(Boolean(initialMacro.runtime));
-  const [providerId, setProviderId] = useState<ManagedExecutionProviderId>(
+  const [providerId, setProviderId] = useState<ProviderId>(
     initialMacro.runtime?.providerId ?? "claude-code",
   );
   const [model, setModel] = useState(
@@ -149,7 +149,12 @@ export function MacroEditor(props: MacroEditorProps) {
   }
 
   function handleProviderChange(nextProvider: string) {
-    const nextProviderId = nextProvider === "codex" ? "codex" : "claude-code";
+    const nextProviderId =
+      nextProvider === "codex" ||
+      nextProvider === "cursor" ||
+      nextProvider === "kiro"
+        ? nextProvider
+        : "claude-code";
     setProviderId(nextProviderId);
     const nextModels = listModelsForPresetProvider(nextProviderId);
     const nextModel = nextModels.includes(model)
@@ -311,7 +316,9 @@ export function MacroEditor(props: MacroEditorProps) {
             description="The execution provider used for this macro's pinned model."
             value={providerId}
             onChange={handleProviderChange}
-            options={(["claude-code", "codex"] as const).map((id) => ({
+            options={(
+              ["claude-code", "codex", "cursor", "kiro"] as const
+            ).map((id) => ({
               value: id,
               label: getProviderLabel({ providerId: id }),
             }))}

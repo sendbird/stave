@@ -1,5 +1,5 @@
 import type { ModelEffort } from "@/lib/providers/model-effort";
-import type { ManagedExecutionProviderId } from "@/lib/providers/provider.types";
+import type { ProviderId } from "@/lib/providers/provider.types";
 
 export const MAX_MACROS = 100;
 export const MAX_MACRO_BODY_LENGTH = 20_000;
@@ -12,7 +12,7 @@ export const MACRO_INSERT_MODES = ["replace", "append", "prepend"] as const;
 export type MacroInsertMode = (typeof MACRO_INSERT_MODES)[number];
 
 export interface MacroRuntime {
-  providerId: ManagedExecutionProviderId;
+  providerId: ProviderId;
   model: string;
   /** Absent = the model's default effort. */
   effort?: ModelEffort;

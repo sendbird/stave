@@ -76,6 +76,7 @@ import {
 import {
   defaultSettings,
   normalizeCursorApprovalMode,
+  normalizeCursorEffort,
   normalizeCursorMode,
   normalizeKiroApprovalMode,
   normalizeKiroEffort,
@@ -546,6 +547,13 @@ export function createAppStorePersistenceOptions() {
       state.settings.kiroEffort = normalizeKiroEffort(
         state.settings.kiroEffort,
       );
+      state.settings.cursorEffort = normalizeCursorEffort(
+        state.settings.cursorEffort,
+      );
+      state.settings.cursorFastMode =
+        typeof state.settings.cursorFastMode === "boolean"
+          ? state.settings.cursorFastMode
+          : defaultSettings.cursorFastMode;
       state.settings.cursorApprovalMode = normalizeCursorApprovalMode(
         state.settings.cursorApprovalMode,
       );

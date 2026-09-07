@@ -14,6 +14,8 @@ import type {
 import {
   CLAUDE_EFFORT_OPTIONS,
   CODEX_EFFORT_OPTIONS,
+  CURSOR_EFFORT_OPTIONS,
+  KIRO_EFFORT_OPTIONS,
   listCodexEffortOptionsForModel,
 } from "@/lib/providers/runtime-option-contract";
 
@@ -33,7 +35,15 @@ export type ClaudeModelEffort = NonNullable<
 export type CodexModelEffort = NonNullable<
   ProviderRuntimeOptions["codexReasoningEffort"]
 >;
-export type ModelEffort = ClaudeModelEffort | CodexModelEffort;
+export type CursorModelEffort = NonNullable<
+  ProviderRuntimeOptions["cursorEffort"]
+>;
+export type KiroModelEffort = NonNullable<ProviderRuntimeOptions["kiroEffort"]>;
+export type ModelEffort =
+  | ClaudeModelEffort
+  | CodexModelEffort
+  | CursorModelEffort
+  | KiroModelEffort;
 
 export interface ModelEffortOption {
   value: ModelEffort;
@@ -49,6 +59,12 @@ const CODEX_EFFORT_VALUES = new Set<string>([
   "minimal",
   ...CODEX_EFFORT_OPTIONS.map((option) => option.value),
 ]);
+const CURSOR_EFFORT_VALUES = new Set<string>(
+  CURSOR_EFFORT_OPTIONS.map((option) => option.value),
+);
+const KIRO_EFFORT_VALUES = new Set<string>(
+  KIRO_EFFORT_OPTIONS.map((option) => option.value),
+);
 
 export function isClaudeModelEffort(
   value: string | undefined,
@@ -62,8 +78,25 @@ export function isCodexModelEffort(
   return value != null && CODEX_EFFORT_VALUES.has(value);
 }
 
+export function isCursorModelEffort(
+  value: string | undefined,
+): value is CursorModelEffort {
+  return value != null && CURSOR_EFFORT_VALUES.has(value);
+}
+
+export function isKiroModelEffort(
+  value: string | undefined,
+): value is KiroModelEffort {
+  return value != null && KIRO_EFFORT_VALUES.has(value);
+}
+
 export function isModelEffort(value: string | undefined): value is ModelEffort {
-  return isClaudeModelEffort(value) || isCodexModelEffort(value);
+  return (
+    isClaudeModelEffort(value) ||
+    isCodexModelEffort(value) ||
+    isCursorModelEffort(value) ||
+    isKiroModelEffort(value)
+  );
 }
 
 /** The effort the provider itself recommends for this model. */
@@ -71,9 +104,13 @@ export function resolveDefaultModelEffort(args: {
   providerId: ProviderId;
   model: string;
 }): ModelEffort {
-  return args.providerId === "claude-code"
-    ? resolveDefaultClaudeEffortForModel({ model: args.model })
-    : resolveDefaultCodexEffortForModel({ model: args.model });
+  if (args.providerId === "claude-code") {
+    return resolveDefaultClaudeEffortForModel({ model: args.model });
+  }
+  if (args.providerId === "cursor" || args.providerId === "kiro") {
+    return "medium";
+  }
+  return resolveDefaultCodexEffortForModel({ model: args.model });
 }
 
 /**
@@ -98,9 +135,16 @@ export function listModelEffortOptions(args: {
   if (!modelAcceptsExplicitEffort(args)) {
     return [];
   }
-  return args.providerId === "claude-code"
-    ? CLAUDE_EFFORT_OPTIONS
-    : listCodexEffortOptionsForModel({ model: args.model });
+  if (args.providerId === "claude-code") {
+    return CLAUDE_EFFORT_OPTIONS;
+  }
+  if (args.providerId === "cursor") {
+    return CURSOR_EFFORT_OPTIONS;
+  }
+  if (args.providerId === "kiro") {
+    return KIRO_EFFORT_OPTIONS;
+  }
+  return listCodexEffortOptionsForModel({ model: args.model });
 }
 
 /** The effort a task would run at today, honoring per-model preferences. */
@@ -112,9 +156,16 @@ export function resolveModelEffortFromSettings<
   model: string;
 }): ModelEffort {
   const runtimeSettings = applyModelRuntimePreference(args);
-  return args.providerId === "claude-code"
-    ? runtimeSettings.claudeEffort
-    : runtimeSettings.codexReasoningEffort;
+  if (args.providerId === "claude-code") {
+    return runtimeSettings.claudeEffort;
+  }
+  if (args.providerId === "cursor") {
+    return runtimeSettings.cursorEffort;
+  }
+  if (args.providerId === "kiro") {
+    return runtimeSettings.kiroEffort;
+  }
+  return runtimeSettings.codexReasoningEffort;
 }
 
 /**
@@ -157,13 +208,26 @@ export function buildModelEffortRuntimeOverrides(args: {
   providerId: ProviderId;
   model: string;
   effort: ModelEffort | undefined;
-}): Pick<ProviderRuntimeOptions, "claudeEffort" | "codexReasoningEffort"> {
+}): Pick<
+  ProviderRuntimeOptions,
+  "claudeEffort" | "codexReasoningEffort" | "cursorEffort" | "kiroEffort"
+> {
   if (!args.effort) {
     return {};
   }
   if (args.providerId === "claude-code") {
     return isClaudeModelEffort(args.effort)
       ? { claudeEffort: args.effort }
+      : {};
+  }
+  if (args.providerId === "cursor") {
+    return isCursorModelEffort(args.effort)
+      ? { cursorEffort: args.effort }
+      : {};
+  }
+  if (args.providerId === "kiro") {
+    return isKiroModelEffort(args.effort)
+      ? { kiroEffort: args.effort }
       : {};
   }
   return isCodexModelEffort(args.effort)

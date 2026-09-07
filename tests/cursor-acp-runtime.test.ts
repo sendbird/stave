@@ -93,6 +93,61 @@ describe("Cursor ACP runtime", () => {
     });
   });
 
+  test("maps parameterized catalogs to bare models plus advertised efforts", () => {
+    expect(
+      mapCursorAcpModelCatalog({
+        configOptions: [
+          {
+            id: "model",
+            name: "Model",
+            type: "select",
+            currentValue: "gpt-5.6-sol",
+            options: [
+              { value: "auto", name: "Auto" },
+              { value: "gpt-5.6-sol", name: "gpt-5.6-sol" },
+            ],
+          },
+          {
+            id: "effort",
+            name: "Effort",
+            type: "select",
+            currentValue: "medium",
+            options: [
+              { value: "low", name: "Low" },
+              { value: "medium", name: "Medium" },
+              { value: "high", name: "High" },
+              { value: "xhigh", name: "X-High" },
+            ],
+          },
+          {
+            id: "fast",
+            name: "Fast",
+            type: "select",
+            currentValue: "false",
+            options: [
+              { value: "true", name: "On" },
+              { value: "false", name: "Off" },
+            ],
+          },
+        ],
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        model: "auto",
+        displayName: "Auto",
+        defaultEffort: "medium",
+        supportedEfforts: ["low", "medium", "high", "xhigh"],
+      }),
+      expect.objectContaining({
+        model: "gpt-5.6-sol",
+        displayName: "GPT 5.6 Sol",
+        isDefault: true,
+        defaultEffort: "medium",
+        supportedEfforts: ["low", "medium", "high", "xhigh"],
+      }),
+    ]);
+  });
+
   test("maps only model values accepted by the ACP session", () => {
     expect(
       mapCursorAcpModelCatalog({
@@ -608,6 +663,52 @@ describe("Cursor ACP runtime", () => {
     expect(firstText).toMatchObject({
       type: "text",
       text: "Fixture response",
+    });
+  });
+
+  test("applies a stored bracketed model as bare id plus effort and fast options", async () => {
+    const events = await streamCursorWithAcp(
+      createTurnArgs("parameterized", {
+        runtimeOptions: {
+          model: "gpt-5.6-sol[context=272k,reasoning=high,fast=true]",
+          cursorEffort: "high",
+          cursorFastMode: true,
+          cursorMode: "agent",
+          cursorBinaryPath: process.execPath,
+        },
+      }),
+    );
+
+    expect(events).toContainEqual({
+      type: "model_resolved",
+      resolvedProviderId: "cursor",
+      resolvedModel: "gpt-5.6-sol",
+    });
+    const text = events.find((event) => event.type === "text");
+    expect(text).toMatchObject({
+      type: "text",
+      segmentId: "parameterized-message-1",
+    });
+    if (text?.type !== "text") {
+      throw new Error("Expected parameterized fixture text.");
+    }
+    const payload = JSON.parse(text.text.replace(/^parameterized:/, "")) as {
+      initializeMeta: { parameterizedModelPicker?: boolean };
+      applied: { configId: string; value: string }[];
+      current: Record<string, string>;
+    };
+    expect(payload.initializeMeta).toEqual({
+      parameterizedModelPicker: true,
+    });
+    expect(payload.applied).toEqual([
+      { configId: "model", value: "gpt-5.6-sol" },
+      { configId: "effort", value: "high" },
+      { configId: "fast", value: "true" },
+    ]);
+    expect(payload.current).toEqual({
+      model: "gpt-5.6-sol",
+      effort: "high",
+      fast: "true",
     });
   });
 

@@ -358,6 +358,9 @@ export async function streamCursorWithAcp(
       resumeSessionId: args.runtimeOptions?.cursorResumeSessionId,
       requestedMode: args.runtimeOptions?.cursorMode ?? "agent",
       requestedModel: args.runtimeOptions?.model?.trim() || "auto",
+      requestedEffort: args.runtimeOptions?.cursorEffort,
+      requestedFast: args.runtimeOptions?.cursorFastMode,
+      parameterizedModelPicker: true,
       modelSetter: "config-option",
       authenticationMethodId: CURSOR_AUTH_METHOD_ID,
       authenticationHelp: "Run `agent login` if authentication has expired.",
@@ -377,6 +380,7 @@ export async function streamCursorWorkerWithAcp(args: {
   prompt: string;
   cwd: string;
   model: string;
+  effort?: "low" | "medium" | "high" | "xhigh" | "max" | "ultra" | null;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   requestIdScope: string;
   resumeSessionId?: string;
@@ -421,6 +425,12 @@ export async function streamCursorWorkerWithAcp(args: {
       resumeSessionId: args.resumeSessionId,
       requestedMode: "agent",
       requestedModel: args.model.trim() || "auto",
+      requestedEffort:
+        args.effort === "ultra"
+          ? "max"
+          : (args.effort ?? args.runtimeOptions?.cursorEffort),
+      requestedFast: args.runtimeOptions?.cursorFastMode,
+      parameterizedModelPicker: true,
       modelSetter: "config-option",
       authenticationMethodId: CURSOR_AUTH_METHOD_ID,
       authenticationHelp: "Run `agent login` if authentication has expired.",

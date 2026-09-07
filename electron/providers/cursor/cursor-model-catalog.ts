@@ -5,11 +5,18 @@ import type {
   ProviderRuntimeOptions,
 } from "../../../src/lib/providers/provider.types";
 import { AcpProtocolClient } from "../acp/acp-protocol";
-import { AcpConfigSelectGroupSchema, type AcpSessionConfigOption } from "../acp/acp-schemas";
+import type { AcpSessionConfigOption } from "../acp/acp-schemas";
 import {
   buildCursorAgentEnv,
   resolveCursorAgentExecutablePath,
 } from "../cursor-cli-env";
+import {
+  buildCursorAcpClientCapabilities,
+  findCursorEffortConfig,
+  flattenCursorConfigOptions,
+  isCursorParameterizedCatalog,
+  listCursorAdvertisedEfforts,
+} from "./cursor-session-config";
 
 const CURSOR_AUTH_METHOD_ID = "cursor_login";
 const CURSOR_MODEL_CONFIG_ID = "model";
@@ -81,16 +88,6 @@ function formatModelDisplayName(args: { name: string; value: string }) {
   return details.length > 0 ? `${family} · ${details.join(" · ")}` : family;
 }
 
-function flattenConfigOptions(option: AcpSessionConfigOption) {
-  return (option.options ?? []).flatMap((item) => {
-    if (typeof item.value === "string") {
-      return [{ value: item.value, name: item.name, description: typeof item.description === "string" ? item.description : "" }];
-    }
-    const group = AcpConfigSelectGroupSchema.safeParse(item);
-    return group.success ? group.data.options : [];
-  });
-}
-
 export function mapCursorAcpModelCatalog(args: {
   configOptions?: AcpSessionConfigOption[] | null;
 }): ProviderModelCatalogEntry[] {
@@ -100,7 +97,16 @@ export function mapCursorAcpModelCatalog(args: {
   if (!modelConfig || typeof modelConfig.currentValue !== "string") {
     return [];
   }
-  return flattenConfigOptions(modelConfig).map((option) => {
+  const parameterized = isCursorParameterizedCatalog(args.configOptions);
+  const effortConfig = findCursorEffortConfig(args.configOptions);
+  const advertisedEfforts = parameterized
+    ? listCursorAdvertisedEfforts(effortConfig)
+    : [];
+  const sessionEffort =
+    typeof effortConfig?.currentValue === "string"
+      ? effortConfig.currentValue
+      : null;
+  return flattenCursorConfigOptions(modelConfig).map((option) => {
     const parameters = parseModelParameters(option.value);
     return {
       model: option.value,
@@ -112,8 +118,10 @@ export function mapCursorAcpModelCatalog(args: {
       hidden: false,
       isDefault: option.value === modelConfig.currentValue,
       defaultEffort:
-        parameters.get("effort") ?? parameters.get("reasoning") ?? null,
-      supportedEfforts: [],
+        parameters.get("effort") ??
+        parameters.get("reasoning") ??
+        sessionEffort,
+      supportedEfforts: advertisedEfforts,
     };
   });
 }
@@ -146,6 +154,7 @@ export async function getCursorModelCatalog(args: {
     const initialize = await client.initialize({
       clientName: "Stave",
       clientVersion: "1",
+      clientCapabilities: buildCursorAcpClientCapabilities(),
     });
     if (
       !initialize.authMethods?.some(
