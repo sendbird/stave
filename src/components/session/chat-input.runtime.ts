@@ -322,7 +322,6 @@ export function buildChatInputRuntimeStatusItems(
         value: args.claudeAgentProgressSummaries ? "On" : "Off",
       },
       buildAdvisorRuntimeStatusItem(args.advisorSummary),
-    buildWorkerRuntimeStatusItem(args.workerSummary),
       buildWorkerRuntimeStatusItem(args.workerSummary),
       ...(args.claudeBinaryPath.trim()
         ? [

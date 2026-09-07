@@ -1,13 +1,41 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
 
-const EASE_STEP = "cubic-bezier(0.2, 0.8, 0.2, 1)";
-const EASE_AGENT_OUT = "cubic-bezier(0.16, 1, 0.3, 1)";
-const EASE_AGENT_SPRING = "cubic-bezier(0.34, 1.56, 0.64, 1)";
+/*
+ * This module used to run a private motion vocabulary: three local
+ * `cubic-bezier` constants and raw 150/200/220/250/260ms literals. Every one of
+ * them is now a token, per the motion table in `docs/design/turn-events.md`.
+ *
+ * The mapping, and the two judgement calls in it:
+ *
+ * - `cubic-bezier(0.2, 0.8, 0.2, 1)` and `cubic-bezier(0.16, 1, 0.3, 1)` were
+ *   hand-tuned near-duplicates of `motionEaseStandard`
+ *   (`cubic-bezier(0.2, 0, 0, 1)`) and `motionEaseExpressive`
+ *   (`cubic-bezier(0.22, 1, 0.36, 1)`). They are gone rather than "kept for
+ *   fidelity": a curve nobody can tell apart from the token is a fourth copy of
+ *   the token that drifts on the next edit.
+ * - `cubic-bezier(0.34, 1.56, 0.64, 1)` overshot past 1. The agent-surface
+ *   grammar §5 spends its one attention-taking animation on the composer's
+ *   working state and names spring overshoot as a thing reduced motion drops,
+ *   so an overshoot on *every* trace row was the wrong place for it. It becomes
+ *   `motionEaseExpressive` — the same decelerating arrival without the bounce.
+ * - 220ms and 260ms round to `motionDurationEmphasis` (250ms) and 200ms to
+ *   `motionDurationNormal` (180ms). 150ms and 250ms and the 2s shimmer loop
+ *   were already exactly `motionDurationQuick`, `motionDurationEmphasis` and
+ *   `motionDurationLoopSlow`.
+ *
+ * The reduced-motion arms stay on every key: the tokens carry no media query of
+ * their own, so dropping the arm here would re-enable the translation the
+ * grammar requires be removed.
+ */
 
-/* Local keyframes replacing the global `@utility animate-*` classes. The
-   global `cot-step-in` / `cot-content-in` / `trace-*` keyframes remain in
-   globals.css because sibling trace components still reference them. */
+/*
+ * Local keyframes, replacing the global `@utility animate-*` classes. The
+ * `cot-*` / `trace-*` keyframes these were named after are gone from
+ * `globals.css`; nothing outside this module references them any more, which is
+ * why the matching `cot-trace-content` hook was dropped from the content
+ * container rather than being given a definition it never had.
+ */
 const cotStepIn = stylex.keyframes({
   from: { opacity: 0, transform: "translateY(4px)" },
   to: { opacity: 1, transform: "translateY(0)" },
@@ -62,7 +90,10 @@ export const chainOfThoughtStyles = stylex.create({
       ":hover": vars.colorText,
     },
     transitionProperty: "color",
-    transitionDuration: { default: "150ms", [reduced]: "0ms" },
+    transitionDuration: {
+      default: vars.motionDurationQuick,
+      [reduced]: "0ms",
+    },
     transitionTimingFunction: vars.motionEaseStandard,
   },
   streamingLabel: {
@@ -95,8 +126,8 @@ export const chainOfThoughtStyles = stylex.create({
     fontSize: "0.75em",
     color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
     animationName: { default: cotStepIn, [reduced]: "none" },
-    animationDuration: "200ms",
-    animationTimingFunction: EASE_STEP,
+    animationDuration: { default: vars.motionDurationNormal, [reduced]: "0ms" },
+    animationTimingFunction: vars.motionEaseStandard,
   },
   summaryItem: {
     display: "inline-flex",
@@ -113,7 +144,10 @@ export const chainOfThoughtStyles = stylex.create({
     height: "1.15em",
     flexShrink: 0,
     transitionProperty: "transform",
-    transitionDuration: { default: "150ms", [reduced]: "0ms" },
+    transitionDuration: {
+      default: vars.motionDurationQuick,
+      [reduced]: "0ms",
+    },
     transitionTimingFunction: vars.motionEaseStandard,
   },
   chevronAuto: { marginLeft: "auto" },
@@ -123,34 +157,41 @@ export const chainOfThoughtStyles = stylex.create({
   content: { marginTop: "0.75em" },
   contentLegacyMotion: {
     animationName: { default: cotContentIn, [reduced]: "none" },
-    animationDuration: "250ms",
-    animationTimingFunction: EASE_STEP,
+    animationDuration: {
+      default: vars.motionDurationEmphasis,
+      [reduced]: "0ms",
+    },
+    animationTimingFunction: vars.motionEaseStandard,
     transformOrigin: "top",
   },
   contentTraceMotion: {
     animationName: { default: traceReveal, [reduced]: "none" },
-    animationDuration: "220ms",
-    animationTimingFunction: EASE_AGENT_OUT,
+    animationDuration: {
+      default: vars.motionDurationEmphasis,
+      [reduced]: "0ms",
+    },
+    animationTimingFunction: vars.motionEaseExpressive,
     transformOrigin: "top",
   },
 
   // ── Streaming thought viewport ───────────────────────────────
-  viewport: {
-    display: "flex",
-    maxHeight: "14em",
-    flexDirection: "column",
-    justifyContent: "flex-end",
-    overflow: "hidden",
-    maskImage: "linear-gradient(to bottom, transparent 0, black 2.5em)",
-    maskSize: "100% 14em",
-    maskPosition: "bottom",
-    maskRepeat: "no-repeat",
+  /*
+   * The cap, the mask band and the live-edge follow now belong to ADS
+   * `CappedViewport`; what stays here is the one thing the host owns, the
+   * reading measure of the prose inside it.
+   */
+  viewportBody: {
+    minWidth: 0,
   },
 
   // ── Step ─────────────────────────────────────────────────────
+  /*
+   * Composed as `xstyle` onto ADS `StepRail.Step`, which owns the gutter grid
+   * and the connector, so this key carries type and ink only: re-declaring
+   * `display` here would replace the rail's grid with a flex row and drop the
+   * gutter track the connector lives in.
+   */
   step: {
-    display: "flex",
-    gap: "0.7em",
     fontSize: "0.875em",
   },
   stepActive: { color: vars.colorText },
@@ -160,38 +201,31 @@ export const chainOfThoughtStyles = stylex.create({
   },
   stepMotionRowLegacy: {
     animationName: { default: cotStepIn, [reduced]: "none" },
-    animationDuration: "200ms",
-    animationTimingFunction: EASE_STEP,
+    animationDuration: { default: vars.motionDurationNormal, [reduced]: "0ms" },
+    animationTimingFunction: vars.motionEaseStandard,
     transformOrigin: "top",
   },
   stepMotionRowTrace: {
     animationName: { default: traceRowIn, [reduced]: "none" },
-    animationDuration: "260ms",
-    animationTimingFunction: EASE_AGENT_SPRING,
+    animationDuration: {
+      default: vars.motionDurationEmphasis,
+      [reduced]: "0ms",
+    },
+    animationTimingFunction: vars.motionEaseExpressive,
     transformOrigin: "top",
-  },
-  iconColumn: {
-    position: "relative",
-    marginTop: "0.265em",
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-  },
-  connector: {
-    marginTop: "0.35em",
-    width: 1,
-    flex: 1,
-    backgroundColor: vars.colorBorder,
   },
   contentColumn: {
     minWidth: 0,
-    flex: 1,
-    paddingBottom: "1em",
   },
+  /*
+   * `controlHeightSm` on the title row is what puts this row on the same
+   * rhythm as the ADS `ToolRun` and `Thinking` rows beside it in the rail.
+   */
   disclosure: {
     display: "flex",
     alignItems: "center",
     gap: "0.35em",
+    minHeight: vars.controlHeightSm,
     textAlign: "left",
   },
   disclosureChevron: {
@@ -200,7 +234,10 @@ export const chainOfThoughtStyles = stylex.create({
     flexShrink: 0,
     color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
     transitionProperty: "transform",
-    transitionDuration: { default: "150ms", [reduced]: "0ms" },
+    transitionDuration: {
+      default: vars.motionDurationQuick,
+      [reduced]: "0ms",
+    },
     transitionTimingFunction: vars.motionEaseStandard,
   },
   disclosureChevronOpen: { transform: "rotate(180deg)" },
@@ -208,19 +245,23 @@ export const chainOfThoughtStyles = stylex.create({
     display: "flex",
     alignItems: "center",
     gap: "0.35em",
+    minHeight: vars.controlHeightSm,
   },
   description: { marginTop: "0.25em", color: vars.colorTextMuted },
   reveal: { marginTop: "0.5em" },
   revealMotionLegacy: {
     animationName: { default: cotStepIn, [reduced]: "none" },
-    animationDuration: "200ms",
-    animationTimingFunction: EASE_STEP,
+    animationDuration: { default: vars.motionDurationNormal, [reduced]: "0ms" },
+    animationTimingFunction: vars.motionEaseStandard,
     transformOrigin: "top",
   },
   revealMotionTrace: {
     animationName: { default: traceReveal, [reduced]: "none" },
-    animationDuration: "220ms",
-    animationTimingFunction: EASE_AGENT_OUT,
+    animationDuration: {
+      default: vars.motionDurationEmphasis,
+      [reduced]: "0ms",
+    },
+    animationTimingFunction: vars.motionEaseExpressive,
     transformOrigin: "top",
   },
 
@@ -247,8 +288,8 @@ export const chainOfThoughtStyles = stylex.create({
   iconThinking: {
     color: vars.colorText,
     animationName: { default: thinkingShimmer, [reduced]: "none" },
-    animationDuration: "2s",
-    animationTimingFunction: "ease-in-out",
+    animationDuration: vars.motionDurationLoopSlow,
+    animationTimingFunction: vars.motionEaseInOut,
     animationIterationCount: "infinite",
   },
   iconAgent: { color: vars.colorText },

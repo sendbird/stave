@@ -1,5 +1,7 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { DiffViewer } from "@/components/ads/components/DiffViewer";
+import { FileChangeSummary } from "@/components/ads/components/FileChangeSummary";
+import type { AgentRunState } from "@/components/ads/components/agent-state";
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Badge, Button, Card, ImageLightbox } from "@/components/ui";
@@ -50,6 +52,41 @@ function getFileChangeStatusPriority(status: FileChangeSummaryRow["status"]) {
       return 2;
     case "applied":
       return 1;
+  }
+}
+
+/**
+ * A diff part's own status in ADS's shared run vocabulary. `accepted` is a
+ * change that landed, `rejected` one a human refused, and `pending` one still
+ * waiting on that decision — the same three states `FileChangeSummary` and
+ * `ToolRun` read, so the diff row and the tool row that produced it cannot
+ * describe the same outcome with two different words.
+ */
+function toDiffRunState(status: CodeDiffPart["status"]): AgentRunState {
+  switch (status) {
+    case "accepted":
+      return "done";
+    case "rejected":
+      return "denied";
+    case "pending":
+      return "pending";
+  }
+}
+
+/**
+ * The host's file-change outcomes in the same shared vocabulary: a change the
+ * provider applied, one it skipped, one that failed.
+ */
+function toFileChangeRunState(
+  status: FileChangeSummaryRow["status"],
+): AgentRunState {
+  switch (status) {
+    case "applied":
+      return "done";
+    case "skipped":
+      return "canceled";
+    case "failed":
+      return "failed";
   }
 }
 
@@ -185,14 +222,20 @@ export function ChangedFilesBlock(args: {
                 xstyle={styles.rowButton}
                 onClick={() => toggleRow(index)}
               >
-                <span className={sx(styles.filePath)}>
-                  {row.displayFilePath}
-                </span>
-                <ChangeCount value={row.summary.added} tone="added" />
-                <ChangeCount value={row.summary.removed} tone="removed" />
-                {isPendingDiff ? (
-                  <span className={sx(styles.pendingDot)} aria-hidden="true" />
-                ) : null}
+                {/*
+                  * ADS `FileChangeSummary` is the header `DiffViewer` does not
+                  * draw: path in the machine register truncating at the
+                  * directory, `+N` / `−M` in semantic ink, and the shared
+                  * one-word state. It replaces the local path span, the two
+                  * count chips and the pending dot — four host constructions
+                  * that each restated part of the same row.
+                  */}
+                <FileChangeSummary
+                  added={row.summary.added}
+                  path={row.displayFilePath}
+                  removed={row.summary.removed}
+                  state={toDiffRunState(row.part.status)}
+                />
                 {isOpen ? (
                   <ChevronDown className={sx(styles.chevron)} />
                 ) : (
@@ -258,19 +301,6 @@ export function ChangedFilesBlock(args: {
       </div>
     </Card>
   );
-}
-
-function FileChangeStatusBadge(args: {
-  status: FileChangeSummaryRow["status"];
-}) {
-  switch (args.status) {
-    case "applied":
-      return <Badge variant="success">applied</Badge>;
-    case "skipped":
-      return <Badge variant="warning">skipped</Badge>;
-    case "failed":
-      return <Badge variant="destructive">failed</Badge>;
-  }
 }
 
 export function FileChangeSummaryBlock(args: { rows: FileChangeSummaryRow[] }) {
@@ -357,8 +387,10 @@ export function FileChangeSummaryBlock(args: { rows: FileChangeSummaryRow[] }) {
               index === 0 && styles.staticFileRowFirst,
             )}
           >
-            <span className={sx(styles.filePath)}>{displayFilePath}</span>
-            <FileChangeStatusBadge status={row.status} />
+            <FileChangeSummary
+              path={displayFilePath}
+              state={toFileChangeRunState(row.status)}
+            />
             <Button
               type="button"
               size="xs"

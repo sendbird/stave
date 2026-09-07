@@ -77,3 +77,31 @@ Further host extensions:
   `ToolRun.parts`'s `aggregateRunStatus` states the `null` its signature already
   documents. Behaviour is identical.
 
+
+- Three components in this copy were authored in ADS and installed here in the
+  same change rather than retrieved from a source bundle, so they carry no
+  `.ads-source*.json` entry — there is no upstream revision to record yet:
+  `StepRail` (the containment ladder's rung 2: a `space24` gutter, a
+  `controlHeightSm` marker box, and a hairline `colorBorderSubtle` rule),
+  `CappedViewport` (a `maxBlockSize` bound with a `space16` edge fade and
+  live-edge follow), and `FileChangeSummary` (the header line `DiffViewer`
+  deliberately does not have). Their ADS records are
+  `consumer-changes/2026-09-07-step-rail-ladder-rung-two.json`,
+  `2026-09-07-capped-viewport-bounded-payload.json` and
+  `2026-09-07-file-change-summary-diff-header.json`.
+
+- `Thread.liveEdge.ts` was installed as a missing file, unmodified, because
+  `CappedViewport` composes its `useLiveEdgeFollow`. It is the follow
+  arithmetic — direction beats position, a shrink is not a scroll-up — and a
+  local re-approximation of it is the "fighting the reader" bug the file exists
+  to prevent. Only `Thread.liveEdge.ts` was taken; `Thread` itself is not
+  installed, because Stave owns its own transcript virtualization.
+
+- `ToolRun` and `ToolRun.Group` gained an optional `icon` here and upstream
+  (`consumer-changes/2026-09-07-tool-run-object-glyph.json`). The transcript
+  renders a dozen kinds of work through one component, and the glyph is the
+  only part of the row that names the kind before a word is read; the hardcoded
+  wrench made every row look like the same call. Omitting `icon` keeps the
+  previous glyph, so the change is additive. The prop crossed ADS's 500-line
+  source ceiling, so `ToolRun.Group` moved to `ToolRun.group.tsx` upstream and
+  here; `ToolRun.Group` is still how a call site reaches it.

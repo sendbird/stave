@@ -3,6 +3,7 @@ import { useMemo, useState } from "react";
 import type * as React from "react";
 
 import { focusRing } from "../recipes/focus-ring";
+import { transition } from "../recipes/transition";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx } from "../utils/stylex";
 import {
@@ -134,7 +135,17 @@ export function DiffViewer({
   const expandRow = (start: number, count: number) => (
     <div className={sx(styles.expandRow)} key={`x-${start}`}>
       <button
-        className={sx(styles.expandButton, focusRing.ring, focusRing.ringInset)}
+        className={sx(
+          styles.expandButton,
+          // The expand affordance is the one pressable thing in the diff, and
+          // its hover/press wash was a hard cut: `transition.colors` is what
+          // every other ADS row composes beside `focusRing.ring`, and naming
+          // the three paint properties keeps `all` off a surface that can hold
+          // hundreds of rows.
+          transition.colors,
+          focusRing.ring,
+          focusRing.ringInset,
+        )}
         onClick={() => expand(start)}
         type="button"
       >

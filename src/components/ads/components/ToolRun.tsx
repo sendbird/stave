@@ -1,4 +1,4 @@
-import { ListTree, Wrench } from "lucide-react";
+import { Wrench } from "lucide-react";
 import * as React from "react";
 
 import {
@@ -41,9 +41,11 @@ import {
   type AgentRetryProps,
   isRetryableAgentState,
 } from "./agent-retry";
+import { ToolRunGroup } from "./ToolRun.group";
 
 export type { ToolRunSectionProps, ToolRunSummaryProps } from "./ToolRun.parts";
 export { aggregateRunStatus, isLiveRunState } from "./ToolRun.parts";
+export type { ToolRunGroupProps, ToolRunGroupRun } from "./ToolRun.group";
 
 type ToolRunBaseProps = Omit<React.ComponentProps<"div">, "children"> &
   ElapsedSource &
@@ -64,6 +66,14 @@ export type ToolRunProps = ToolRunBaseProps & {
   defaultOpen?: boolean;
   /** Error output. Tinted danger and announced assertively when opened. */
   error?: React.ReactNode;
+  /**
+   * The object glyph, replacing the default wrench. A transcript is a list of
+   * *kinds* of work — a command, a read, an edit, a search, a subagent — and
+   * the glyph is the only part of the row that says which before a word is
+   * read; a column of identical wrenches throws that away. Pass a bare icon
+   * element: the disclosure slot sizes it and swaps it for the chevron.
+   */
+  icon?: React.ReactNode;
   /** Arguments the tool was called with. */
   input?: React.ReactNode;
   /** @default "Arguments" */
@@ -119,6 +129,7 @@ function ToolRunRoot({
   defaultOpen,
   durationMs,
   error,
+  icon,
   input,
   inputLabel = "Arguments",
   now,
@@ -145,6 +156,7 @@ function ToolRunRoot({
   const elapsedText =
     elapsedMs === null ? null : formatElapsed(elapsedMs, !live);
 
+  const glyph = icon ?? <Wrench aria-hidden size={controlIconSizes.md} />;
   const extra = React.Children.toArray(children);
   const retryable = isRetryableAgentState(status) && onRetry != null;
   const hasPayload =
@@ -200,9 +212,7 @@ function ToolRunRoot({
         )}
         data-tool-run-status={status}
       >
-        <InlineDisclosureIcon disclosure={false}>
-          <Wrench aria-hidden size={controlIconSizes.md} />
-        </InlineDisclosureIcon>
+        <InlineDisclosureIcon disclosure={false}>{glyph}</InlineDisclosureIcon>
         {summary}
         {liveRegion}
       </div>
@@ -242,9 +252,7 @@ function ToolRunRoot({
           )
         }
       >
-        <InlineDisclosureIcon open={open}>
-          <Wrench aria-hidden size={controlIconSizes.md} />
-        </InlineDisclosureIcon>
+        <InlineDisclosureIcon open={open}>{glyph}</InlineDisclosureIcon>
         {summary}
       </CollapsibleTrigger>
       <CollapsiblePanel
@@ -286,206 +294,6 @@ function ToolRunRoot({
       {liveRegion}
     </CollapsibleRoot>
   );
-}
-
-export type ToolRunGroupProps = Omit<
-  React.ComponentProps<"div">,
-  "children"
-> & {
-  /** Accessible name for the list of runs. @default "Tool calls" */
-  "aria-label"?: string;
-  children?: React.ReactNode;
-  /** Initial open state of a rolled-up group. Defaults to "open while any run is live". */
-  defaultOpen?: boolean;
-  onOpenChange?: (open: boolean) => void;
-  /** Controlled open state of a rolled-up group. */
-  open?: boolean;
-  /**
-   * Let the whole run collapse into one summary line. Off by default: a group
-   * of three visible rows is already quiet, and hiding work behind a
-   * disclosure nobody asked for is worse than showing it.
-   * @default false
-   */
-  rollUp?: boolean;
-  /**
-   * Explicit lifecycle data for the roll-up summary. Visual children are not
-   * inspected: fragments, wrappers, and conditional composition must not make
-   * the aggregate status or duration silently wrong.
-   */
-  runs: readonly ToolRunGroupRun[];
-  /**
-   * Overrides the rolled-up status word. By default the group takes the most
-   * urgent state among its runs — see `aggregateRunStatus`.
-   */
-  status?: AgentRunState;
-  /** Overrides the "4 tool calls" summary label. */
-  summary?: React.ReactNode;
-} & XstyleProp;
-
-export type ToolRunGroupRun = ElapsedSource & {
-  status: AgentRunState;
-};
-
-/**
- * A run of sibling `ToolRun` rows, and the roll-up that hides them behind one
- * line.
- *
- * **Rung 3.** Compact gaps and each row's hover/open wash separate the run.
- * Tool rows are disclosures, not table records, so the default group does not
- * draw full-width rules between every sibling.
- *
- * **Why the roll-up is a compound part and not a separate component.** Three
- * reasons, in order of weight:
- *
- * 1. **The group owns explicit run data.** "4 tool calls", the aggregate
- *    status and the total duration are facts about the run, not facts React
- *    markup can reliably reveal. `runs` stays correct through fragments,
- *    wrappers and conditional composition; the children only render rows.
- * 2. **The summary row and list are one object in two states**, not two
- *    components that swap. §5.2 asks for a row-track animation between them;
- *    that is only expressible if the collapsed and expanded forms share a
- *    root. A `ToolRunRollup` beside a `ToolRunList` would have to mount one
- *    and unmount the other, which is exactly the transition the rule forbids.
- * 3. **`ToolRun.Group` says at the call site what is being grouped.** A
- *    top-level `ToolRunList` — what the old set shipped — is discoverable only
- *    from documentation, and §8 does not want a second generic list primitive
- *    in the family.
- *
- * The roll-up is a **row**, not a bordered pill: a pill would spend a
- * perimeter (rung 5) on a list header, and §1 reserves those for detachable
- * artifacts. It carries the same anatomy as the rows under it — an object glyph
- * that yields to the disclosure chevron on hover or focus, title, one colored
- * status word, right-aligned duration — because it *is* one of them, standing
- * for the rest.
- *
- * An empty group renders nothing. A blank slate for "no tools ran" is the
- * product's copy to write, not a shape this component should guess.
- */
-function ToolRunGroup({
-  "aria-label": ariaLabel = "Tool calls",
-  children,
-  className,
-  defaultOpen,
-  onOpenChange,
-  open: openProp,
-  rollUp = false,
-  runs,
-  status: statusProp,
-  summary,
-  xstyle,
-  ...props
-}: ToolRunGroupProps) {
-  const items = flattenRunRows(children);
-  const derivedStatus =
-    statusProp ?? aggregateRunStatus(runs.map((run) => run.status)) ?? "done";
-  const live = runs.some(
-    (run) => isLiveRunState(run.status) || isAttentionState(run.status),
-  );
-  const totalMs = totalMeasuredDuration(runs);
-
-  const { open, setOpen } = useSettleDisclosure({
-    defaultOpen,
-    live,
-    onOpenChange,
-    open: openProp,
-  });
-
-  if (items.length === 0) return null;
-
-  const list = (
-    <div
-      aria-label={ariaLabel}
-      className={sx(agentSurface.rowGroup, toolRunStyles.groupList)}
-      role="list"
-    >
-      {items.map((item, index) => (
-        <div
-          className={sx(toolRunStyles.groupItem)}
-          key={item.key ?? index}
-          role="listitem"
-        >
-          {item}
-        </div>
-      ))}
-    </div>
-  );
-
-  if (!rollUp) {
-    return (
-      <div
-        {...props}
-        className={cx(
-          sx(agentSurface.bare, toolRunStyles.group, xstyle),
-          className,
-        )}
-        data-tool-run-group-status={derivedStatus}
-      >
-        {list}
-      </div>
-    );
-  }
-
-  return (
-    <CollapsibleRoot
-      className={cx(
-        sx(inlineDisclosure.root, toolRunStyles.group, xstyle),
-        className,
-      )}
-      data-tool-run-group-status={derivedStatus}
-      onOpenChange={(nextOpen) => setOpen(nextOpen)}
-      open={open}
-      render={<div {...props} />}
-    >
-      <CollapsibleTrigger
-        className={() =>
-          cx(
-            sx(
-              inlineDisclosure.trigger,
-              inlineDisclosure.triggerIntrinsic,
-              open && inlineDisclosure.triggerOpen,
-              toolRunStyles.row,
-              controlHeights.sm,
-              transition.colors,
-              toolRunStyles.trigger,
-              focusRing.ring,
-              focusRing.ringInset,
-            ),
-            "atelier-inline-disclosure-trigger",
-          )
-        }
-      >
-        <InlineDisclosureIcon open={open}>
-          <ListTree aria-hidden size={controlIconSizes.md} />
-        </InlineDisclosureIcon>
-        <ToolRunSummary
-          elapsedText={totalMs === null ? null : formatElapsed(totalMs, true)}
-          status={derivedStatus}
-          title={summary ?? defaultRollupSummary(runs.length)}
-        />
-      </CollapsibleTrigger>
-      <CollapsiblePanel
-        className={cx(
-          sx(inlineDisclosure.panel, toolRunStyles.panel),
-          "atelier-motion-collapse",
-        )}
-        keepMounted
-      >
-        <div className="atelier-motion-panel-inner">{list}</div>
-      </CollapsiblePanel>
-    </CollapsibleRoot>
-  );
-}
-
-/** Fragments are transparent grouping syntax, not one visual tool row. */
-function flattenRunRows(children: React.ReactNode): React.ReactElement[] {
-  return React.Children.toArray(children).flatMap((item) => {
-    if (!React.isValidElement(item)) return [];
-    if (item.type === React.Fragment) {
-      const fragment = item.props as { children?: React.ReactNode };
-      return flattenRunRows(fragment.children);
-    }
-    return [item];
-  });
 }
 
 /**
