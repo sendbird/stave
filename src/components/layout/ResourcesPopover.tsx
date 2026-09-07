@@ -366,7 +366,10 @@ export function MemoryUsagePopover({
   // available (main, host renderer) substitute it into the headline total.
   const mainPrivateBytes = metrics?.mainProcess.privateBytes ?? null;
   const hostRendererPrivateBytes =
-    metrics?.hostRendererMemory?.privateBytes ?? null;
+    metrics?.hostRendererMemory?.privateBytes ??
+    (typeof rendererMemory?.process.private === "number"
+      ? rendererMemory.process.private * 1024
+      : null);
   const totalWorkingSetKB =
     metrics?.processes.reduce((sum, p) => sum + p.memory.workingSetSizeKB, 0) ??
     0;

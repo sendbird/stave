@@ -81,23 +81,17 @@ export function registerMetricsHandlers() {
       } catch {
         // A renderer that exited during collection has no current process id.
       }
-      const [hostService, mainMemoryInfo, hostRendererMemoryInfo] =
-        await Promise.all([
-          invokeHostService("service.get-resource-metrics", undefined, {
-            timeoutMs: 1_500,
-          }).catch(() => null),
-          process.getProcessMemoryInfo().catch(() => null),
-          mainWindow && !mainWindow.isDestroyed()
-            ? mainWindow.webContents.getProcessMemoryInfo().catch(() => null)
-            : Promise.resolve(null),
-        ]);
+      const [hostService, mainMemoryInfo] = await Promise.all([
+        invokeHostService("service.get-resource-metrics", undefined, {
+          timeoutMs: 1_500,
+        }).catch(() => null),
+        process.getProcessMemoryInfo().catch(() => null),
+      ]);
       // Electron reports ProcessMemoryInfo in kilobytes.
       const toBytes = (kb: number | undefined) =>
         typeof kb === "number" && Number.isFinite(kb) ? kb * 1024 : null;
       const mainPrivateBytes = toBytes(mainMemoryInfo?.private);
       const mainSharedBytes = toBytes(mainMemoryInfo?.shared);
-      const hostRendererPrivateBytes = toBytes(hostRendererMemoryInfo?.private);
-      const hostRendererSharedBytes = toBytes(hostRendererMemoryInfo?.shared);
 
       const resolveRole = (
         metric: (typeof processMetrics)[number],
@@ -142,13 +136,9 @@ export function registerMetricsHandlers() {
           external: mainMemory.external,
           arrayBuffers: mainMemory.arrayBuffers,
         },
-        hostRendererMemory:
-          hostRendererPrivateBytes !== null && hostRendererSharedBytes !== null
-            ? {
-                privateBytes: hostRendererPrivateBytes,
-                sharedBytes: hostRendererSharedBytes,
-              }
-            : null,
+        // Filled by the preload bridge from the renderer process. Electron 41
+        // no longer exposes getProcessMemoryInfo() on WebContents.
+        hostRendererMemory: null,
         hostRendererPid,
         hostService,
         lens,
