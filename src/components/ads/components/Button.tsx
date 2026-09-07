@@ -77,6 +77,24 @@ type ButtonSharedProps = Omit<ButtonRootProps, "className"> & {
   fullWidth?: boolean;
   /** Override the glyph size without changing the button's control size. */
   iconSize?: number | string;
+  /**
+   * A mark pinned to the button's top-end corner: an unread count, an
+   * attention dot, a "needs review" pip. The slot owns the ANCHOR — the
+   * corner, the overhang, RTL, and lifting the root's clamp that would
+   * otherwise cut two edges off it; the caller owns the mark's paint, exactly
+   * as `PresenceBadge overlay` splits the avatar corner.
+   *
+   * It has to be a prop rather than a caller-positioned child. `styles.root`
+   * clips, so an absolutely positioned child of a `Button` is clipped no
+   * matter what the caller declares, and a caller cannot un-clip it from the
+   * outside: the clamp is on the same element. Every host that wanted a count
+   * on a toolbar button therefore shipped a badge with two flat sides.
+   *
+   * Rendered outside the label flow, so it never changes the button's width
+   * and never joins the truncating label. Not rendered while `loading` — the
+   * spinner is the state, and a count on top of it says two things at once.
+   */
+  indicator?: React.ReactNode;
   loading?: boolean;
   /**
    * Label to show in place of `children` while `loading`. Without it the
@@ -211,6 +229,7 @@ const ButtonImpl = React.forwardRef<
     fullWidth = false,
     iconOnly = false,
     iconSize,
+    indicator,
     layout = "control",
     loading = false,
     loadingLabel,
@@ -337,6 +356,9 @@ const ButtonImpl = React.forwardRef<
   // the overlay (which exists only to preserve width) would double the mark.
   const overlaySpinner = loading && !square && loadingLabel == null;
   const swapLabel = loading && !square && loadingLabel != null;
+  // A busy button already says one thing about itself; the corner mark would
+  // say a second on top of the spinner.
+  const showIndicator = indicator != null && !loading;
   const content = withTruncatingButtonLabels(children);
 
   // The link path's a11y corrections. Base UI's button behaviour still owns the
@@ -402,6 +424,7 @@ const ButtonImpl = React.forwardRef<
           cssPress && (press === "scale" ? styles.cssPress : styles.cssSettle),
           cssPress && transition.transformFallback,
           overlaySpinner && styles.loadingHost,
+          showIndicator && styles.indicatorHost,
           xstyle,
           inactive && styles.disabled,
           linkRender && inactive && styles.linkInert,
@@ -449,6 +472,9 @@ const ButtonImpl = React.forwardRef<
       ) : (
         content
       )}
+      {showIndicator ? (
+        <span className={sx(styles.indicatorSlot)}>{indicator}</span>
+      ) : null}
     </Root>
   );
 });

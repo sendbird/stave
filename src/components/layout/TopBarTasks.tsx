@@ -9,6 +9,7 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { useTrackerTasksAttention } from "@/lib/tracker-tasks/client-state";
+import { CountBadge } from "@/components/system/CountBadge";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { useAppStore } from "@/store/app.store";
 
@@ -41,15 +42,15 @@ export function TopBarTasks(props: { noDragStyle: CSSProperties }) {
             aria-label={isTasksActive ? "close-tasks" : "open-tasks"}
             aria-pressed={isTasksActive}
             onClick={toggleTasks}
+            indicator={
+              attentionCount > 0 ? (
+                <CountBadge count={attentionCount} tone="warning" />
+              ) : null
+            }
           />
         }
       >
         <ListTodo {...stylex.props(layoutShellStyles.icon16)} />
-        {attentionCount > 0 ? (
-          <span {...stylex.props(layoutShellStyles.topBarAttentionBadge)}>
-            {attentionCount > 99 ? "99+" : attentionCount}
-          </span>
-        ) : null}
       </TooltipTrigger>
       <TooltipContent side="bottom">
         {isTasksActive

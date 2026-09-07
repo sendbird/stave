@@ -6,12 +6,7 @@ import {
   type JSX,
 } from "react";
 import { Badge, Button, Input } from "@/components/ui";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import type { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
@@ -233,11 +228,16 @@ export function WorkspaceSettingsDialog(
   return (
     <Dialog open={props.open} onOpenChange={props.onOpenChange}>
       <DialogContent xstyle={styles.surface}>
-        <DialogHeader>
-          <VisuallyHidden>
-            <DialogTitle>Workspace settings</DialogTitle>
-          </VisuallyHidden>
-        </DialogHeader>
+        {/*
+          The accessible name only: `DialogHeader` is a flex wrapper, and an
+          empty one is still a grid child of the surface, so it contributed a
+          0px row plus the surface's full `space24` gap above the visible
+          header. `VisuallyHidden` is absolutely positioned, so it takes no
+          row at all.
+        */}
+        <VisuallyHidden>
+          <DialogTitle>Workspace settings</DialogTitle>
+        </VisuallyHidden>
         {sharedContent}
       </DialogContent>
     </Dialog>

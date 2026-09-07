@@ -109,6 +109,37 @@ export const styles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  /**
+   * Root arm for `indicator`. A corner mark has to escape the button's box, and
+   * `root`'s clamp paints away exactly the two edges it hangs over — which is
+   * why every consumer that pinned a count badge to a button corner got a badge
+   * with two flat sides. Nothing is lost by lifting it here: the clamp never
+   * produced the ellipsis (`text-overflow` is inert on a flex container — see
+   * `root`), that lives on `label`, so the only thing it ever hid was content
+   * the caller deliberately placed outside.
+   *
+   * `overflow` is restated at the same condition depth as `root`'s, so
+   * composition order cannot decide the property.
+   */
+  indicatorHost: {
+    overflow: "visible",
+    position: "relative",
+  },
+  /**
+   * The anchor: top-end corner, overhanging by one `space4` step on both axes,
+   * so the same mark sits the same way on a 32px square and a 28px one instead
+   * of each call site re-deriving a negative offset from its own badge height.
+   * Logical insets keep RTL correct. `pointer-events: none` because the mark
+   * annotates the press target and must never eat the press.
+   */
+  indicatorSlot: {
+    alignItems: "center",
+    display: "flex",
+    insetBlockStart: `calc(-1 * ${vars.space4})`,
+    insetInlineEnd: `calc(-1 * ${vars.space4})`,
+    pointerEvents: "none",
+    position: "absolute",
+  },
   // CSS press fallbacks, applied only when the caller passes a custom `render`
   // (so the element is not a Motion button). Pair with
   // `transition.transformFallback`, the one recipe key that names `transform`.

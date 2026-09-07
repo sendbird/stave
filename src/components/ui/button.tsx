@@ -1,5 +1,5 @@
 import type { StyleXValue } from "../ads/utils/stylex";
-import type { ComponentType } from "react";
+import type { ComponentType, ReactNode } from "react";
 import type { Button as BaseButton } from "@base-ui/react/button";
 import { Button as AdsButton, type ButtonBaseProps } from "../ads/components/Button";
 import { buttonVariantStyles, buttonDangerToneStyles, buttonSizeGapStyles, buttonSizePadStyles } from "../ads/components/Button.config";
@@ -14,6 +14,15 @@ const variants = { default: "primary", outline: "outline", secondary: "secondary
 const sizes = { default: "md", xs: "xs", sm: "sm", lg: "lg", icon: "md", "icon-xs": "xs", "icon-sm": "sm", "icon-lg": "lg" } as const;
 type Options = {
   xstyle?: StyleXValue;
+  /**
+   * Forwarded to ADS `Button indicator` — the corner overlay slot (a count
+   * pill, an attention dot). Typed here because this wrapper's props are
+   * `BaseButton.Props & Options`, which does not include ADS's own additions;
+   * without it the one slot that a chrome control cannot express any other way
+   * (the root clips, so a positioned child is cut on two edges) is unreachable
+   * from every consumer that imports `Button` from `@/components/ui`.
+   */
+  indicator?: ReactNode;
   variant?: keyof typeof variants | null;
   size?: keyof typeof sizes | null;
   className?: string;

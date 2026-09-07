@@ -105,3 +105,57 @@ Further host extensions:
   previous glyph, so the change is additive. The prop crossed ADS's 500-line
   source ceiling, so `ToolRun.Group` moved to `ToolRun.group.tsx` upstream and
   here; `ToolRun.Group` is still how a call site reaches it.
+
+- The turn-event decision family was installed as missing files, byte-identical
+  from the ADS working tree: `Plan` (+ `Plan.parts`), `Approval`,
+  `Clarification` and `Checkpoint`. Their dependency closure was already
+  present — `agent-surface`, `focus-ring`, `transition`, `control-metrics`,
+  `Button`, `Loader`, `VisuallyHidden` — so nothing else was written and no
+  existing file was touched. `.ads-source.json` records each one with the
+  sha256 of the exact bytes installed.
+
+  Two of the four carry an ADS change made upstream first and installed here in
+  the same pass, because the transcript has two records that are neither
+  answered nor pending and §5 forbids rendering them as the nearest decision:
+  `ApprovalOutcome.decision` widens to `ApprovalResolution`, adding `allowed`
+  (the host kept "answered", not the scope) and `lapsed` (the run ended with
+  the gate unanswered); `ClarificationOutcome.result` gains the matching
+  `lapsed`. Both are additive type widenings, so no existing call site changes.
+  Their ADS records are
+  `consumer-changes/2026-09-07-approval-resolution-beyond-the-decision.json`
+  and `2026-09-07-clarification-lapsed-result.json`.
+
+  `Checkpoint` is installed but not yet wired: Stave's compaction-boundary
+  restore runs a destructive `git restore --worktree` behind a
+  confirm-then-restore second click, and `Checkpoint` models a single
+  `onRestore`. Adopting it now would silently drop the confirmation, so the
+  host surface stays until ADS can express a destructive restore.
+
+- `Button` gained the `indicator` slot upstream first and the hunk was installed
+  here (the file is host-modified, so the change is applied as a hunk rather
+  than a byte-identical overwrite — see the note about integrity values above).
+  It is what makes a corner count badge possible at all: `styles.root` declares
+  `overflow: hidden`, so an absolutely positioned child pinned to a corner was
+  clipped on the two edges it hung over and no caller could un-clip it from the
+  outside. Measured on a 32px top-bar button with a 16px badge at `-4/-4`: 4px
+  of the badge painted away on each of the top and end edges. ADS record:
+  `consumer-changes/2026-09-07-button-corner-indicator-slot.json`.
+
+  Stave divergence: `layout="host"` (a host extension, not upstream) returns
+  before the slot renders, so it ignores `indicator`. That path composes
+  `controlChrome.triggerQuiet` and never clipped, so a host-layout caller can
+  keep rendering the mark as a positioned child; a shared slot there would have
+  to re-decide geometry the host owns on that path by definition.
+
+- `ThemeProvider` publishes `--ads-selection-background` / `--ads-selection-color`
+  from `colorText` / `colorTextInverted`, and `styles.css` no longer carries the
+  per-`data-theme` oklch literals for them (upstream first; installed here as
+  the same hunk). The literals were a copy of the three shipped themes, so they
+  could not follow Stave's own saved themes at all: `StaveDesignProvider` maps
+  the ADS color group onto `--foreground` / `--background`, and a workspace on a
+  custom dark theme (`--foreground: #CCCAC2`) still had text highlighted in the
+  design system's `oklch(0.985 0.007 89)`. Measured after: the pair resolves to
+  `#CCCAC2` on `#242936`. ADS record:
+  `consumer-changes/2026-09-07-selection-follows-theme-tokens.json`; the
+  installed copy is guarded by `tests/ads-selection-tokens.test.ts`, because the
+  upstream `selection-sync` script does not run in this repository.

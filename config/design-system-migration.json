@@ -136,10 +136,6 @@
       "legacyRecipeCount": 0,
       "requiresCanonicalSource": true
     },
-    "src/components/system/OptionButton.tsx": {
-      "legacyRecipeCount": 0,
-      "requiresCanonicalSource": true
-    },
     "src/components/system/SelectionRail.tsx": {
       "legacyRecipeCount": 0,
       "requiresCanonicalSource": true

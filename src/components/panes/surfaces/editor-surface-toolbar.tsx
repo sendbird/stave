@@ -27,6 +27,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui";
+import { CountBadge } from "@/components/system/CountBadge";
 import { sx } from "@/components/ads/utils/stylex";
 import { transition } from "@/components/ads/recipes/transition";
 import { editorSurfaceToolbarStyles as s } from "./editor-surface-toolbar.styles";
@@ -215,15 +216,13 @@ export function EditorSurfaceToolbar(args: {
                     disabled={!args.canSubmitReviewFeedback}
                     onClick={args.onSubmitReviewFeedback}
                     aria-label="Send review to agent"
+                    indicator={
+                      args.reviewCommentCount > 0 ? (
+                        <CountBadge cap={9} count={args.reviewCommentCount} />
+                      ) : null
+                    }
                   >
                     <MessagesSquare size={16} />
-                    {args.reviewCommentCount > 0 ? (
-                      <span className={sx(s.reviewCountBadge)}>
-                        {args.reviewCommentCount > 9
-                          ? "9+"
-                          : args.reviewCommentCount}
-                      </span>
-                    ) : null}
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent side="bottom">

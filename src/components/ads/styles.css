@@ -774,37 +774,37 @@
    * `oklch(0.985 0 0)` glyph). Against the dark theme's page fills that
    * highlight measured 1.02:1 — a dark-theme user dragging across text saw no
    * highlight at all. The right roles are `colorText` (fill) and
-   * `colorTextInverted` (glyph): they are theme-flipped, so one pair per theme
-   * is correct everywhere, and `scripts/check-colors.mjs` already gates
-   * `colorTextInverted` on `colorText` at 4.5:1. Deliberately NOT
-   * `colorSelectionFill` — that is the row-selection tint (design direction
-   * §1.7, guarded by `scripts/check-selection.mjs`), a different role.
+   * `colorTextInverted` (glyph): they are theme-flipped, and
+   * `scripts/check-colors.mjs` already gates `colorTextInverted` on `colorText`
+   * at 4.5:1. Deliberately NOT `colorSelectionFill` — that is the
+   * row-selection tint (design direction §1.7, guarded by
+   * `scripts/check-selection.mjs`), a different role.
    *
-   * Stable CSS variables are assigned on each `data-theme` wrapper and then
-   * inherited by the originating element's pseudo-element. That matters for a
-   * light theme nested inside a dark one (and vice versa): descendant selectors
-   * let the outer theme win by source order, while inherited variables always
-   * come from the nearest provider.
+   * A pseudo-element can only be reached from here by a stable custom-property
+   * name, because StyleX hashes a `defineVars` key. The pair was therefore a
+   * per-`data-theme` block of literals copied out of `theme-values.ts` — which
+   * is correct only for the three themes it was written for. A host that maps
+   * the token group onto its own palette (the supported extension point) got
+   * the design system's literal ink dragged across its text, and a fourth
+   * theme could not work at all.
    *
-   * KEEP IN SYNC with `colorText` / `colorTextInverted` in
-   * src/tokens/theme-values.ts.
+   * `ThemeProvider` (`components/ThemeProvider.tsx`) now assigns both
+   * properties FROM the tokens (`nativeChromeStyles.root` for its own subtree,
+   * `documentSurface` for the `<html>` mirror that portaled surfaces inherit
+   * from), so this rule reads a real theme value and there is nothing to keep
+   * in sync. In Stave that provider sits under `StaveDesignProvider`, whose
+   * `adsThemeVariables` mapping is what makes the highlight follow a SAVED
+   * Stave theme (`--foreground` / `--background`) rather than the three themes
+   * the removed literals were written for. Inheritance is also
+   * what makes a light theme nested inside a dark one correct: descendant
+   * selectors would let the outer theme win by source order, while an
+   * inherited variable always comes from the nearest provider.
+   *
+   * No literal fallback: without a provider the properties are unset, the two
+   * declarations are invalid at computed-value time, and the highlight falls
+   * back to the user agent's — which is always legible. A fallback here would
+   * be the copy this change removed.
    */
-  :root,
-  [data-theme="light"] {
-    --ads-selection-background: oklch(0 0 0);
-    --ads-selection-color: oklch(0.97 0.007 89);
-  }
-
-  [data-theme="dark"] {
-    --ads-selection-background: oklch(0.985 0.007 89);
-    --ads-selection-color: oklch(0.1925 0.007 89);
-  }
-
-  [data-theme="high-contrast"] {
-    --ads-selection-background: oklch(0 0 0);
-    --ads-selection-color: oklch(1 0 0);
-  }
-
   ::selection {
     background: var(--ads-selection-background);
     color: var(--ads-selection-color);

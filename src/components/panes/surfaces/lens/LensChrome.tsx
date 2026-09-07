@@ -1,5 +1,7 @@
 import { chromeStyles } from "./lens-chrome.styles";
+import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "../../../ads/utils/stylex";
+import { CountBadge } from "@/components/system/CountBadge";
 import {
   ArrowLeft,
   ArrowRight,
@@ -216,7 +218,13 @@ export function LensChrome(props: {
         </Tooltip>
 
         <form onSubmit={handleSubmit} className={sx(chromeStyles.addressForm)}>
-          <InputGroup xstyle={chromeStyles.address}>
+          <InputGroup
+            xstyle={[
+              chromeStyles.address,
+              transition.ring,
+              transition.motionDurationNormal,
+            ]}
+          >
             <InputGroupAddon
               align="inline-start"
               xstyle={chromeStyles.addressStart}
@@ -300,15 +308,15 @@ export function LensChrome(props: {
                       onClick={() => setLensPanelTab(tab.id)}
                       aria-label={`Show ${tab.label.toLowerCase()}`}
                       aria-pressed={active}
+                      indicator={
+                        tab.count ? (
+                          <CountBadge count={tab.count} tone="neutral" />
+                        ) : null
+                      }
                     />
                   }
                 >
                   <Icon className={LENS_TOOL_ICON_CLASS} />
-                  {tab.count ? (
-                    <span className={sx(chromeStyles.count)}>
-                      {tab.count > 99 ? "99+" : tab.count}
-                    </span>
-                  ) : null}
                 </TooltipTrigger>
                 <TooltipContent>{tab.label}</TooltipContent>
               </Tooltip>
