@@ -1,6 +1,11 @@
 import { describe, expect, test } from "bun:test";
 import { buildMacroRuntimeOverrides } from "@/lib/macros/apply";
 import {
+  createEmptyMacroDraft,
+  listMacroModelOptions,
+  resolveMacroModelForProvider,
+} from "@/lib/macros/editor";
+import {
   generateMacroId,
   normalizeMacro,
   normalizePersistedMacros,
@@ -92,6 +97,89 @@ describe("normalizeMacro", () => {
     });
 
     expect(macro?.runtime).toBeUndefined();
+  });
+
+  test("preserves a runtime catalog model that is not in the built-in fallback", () => {
+    const macro = normalizeMacro({
+      label: "Runtime model",
+      slug: "runtime-model",
+      body: "Use the current runtime model.",
+      runtime: {
+        providerId: "codex",
+        model: "gpt-runtime-new",
+      },
+    });
+
+    expect(macro?.runtime?.model).toBe("gpt-runtime-new");
+  });
+});
+
+describe("macro editor data", () => {
+  const promptModelOptions = [
+    {
+      key: "auto",
+      providerId: "claude-code" as const,
+      model: "",
+      label: "Auto",
+      available: true,
+      isAuto: true,
+    },
+    {
+      key: "claude-code:claude-runtime-new",
+      providerId: "claude-code" as const,
+      model: "claude-runtime-new",
+      label: "Claude Runtime New",
+      available: true,
+      isDefault: true,
+    },
+    {
+      key: "codex:gpt-runtime-new",
+      providerId: "codex" as const,
+      model: "gpt-runtime-new",
+      label: "GPT Runtime New",
+      available: true,
+    },
+    {
+      key: "cursor:cursor-runtime-new",
+      providerId: "cursor" as const,
+      model: "cursor-runtime-new",
+      label: "Cursor Runtime New",
+      available: true,
+    },
+  ];
+
+  test("derives the managed provider list from Prompt Input options", () => {
+    expect(
+      listMacroModelOptions({
+        options: promptModelOptions,
+        providerId: "claude-code",
+      }),
+    ).toEqual([promptModelOptions[1]]);
+    expect(
+      listMacroModelOptions({
+        options: promptModelOptions,
+        providerId: "codex",
+      }),
+    ).toEqual([promptModelOptions[2]]);
+  });
+
+  test("uses the shared catalog default when switching providers", () => {
+    expect(
+      resolveMacroModelForProvider({
+        options: promptModelOptions,
+        providerId: "claude-code",
+        currentModel: "gpt-runtime-new",
+      }),
+    ).toBe("claude-runtime-new");
+  });
+
+  test("seeds only the current prompt text into a new macro", () => {
+    const draft = createEmptyMacroDraft({ body: "first line\nsecond line" });
+
+    expect(draft.body).toBe("first line\nsecond line");
+    expect(draft.label).toBe("");
+    expect(draft.slug).toBe("");
+    expect(draft.runtime).toBeUndefined();
   });
 });
 

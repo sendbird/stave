@@ -2,10 +2,21 @@ import { expect, test } from "@playwright/test";
 
 function seedWorkspace(page: import("@playwright/test").Page) {
   return page.addInitScript(() => {
+    const testState = { streamTurnCalls: 0 };
+    (
+      window as unknown as {
+        __stavePromptAutocompleteTestState?: typeof testState;
+      }
+    ).__stavePromptAutocompleteTestState = testState;
     // Keep the browser-only dev bridge from replacing this deterministic
     // fixture with host lookups that are unavailable in Playwright.
     (window as unknown as { api?: Record<string, unknown> }).api = {
-      provider: { streamTurn: async () => [] },
+      provider: {
+        streamTurn: async () => {
+          testState.streamTurnCalls += 1;
+          return [];
+        },
+      },
       terminal: {
         runCommand: async () => ({
           ok: true,
@@ -150,4 +161,84 @@ test("grows and scrolls the prompt after multiline input", async ({ page }) => {
   await expect
     .poll(() => editor.evaluate((element) => element.scrollTop))
     .toBeGreaterThan(scrollState.scrollTop);
+});
+
+test("saves the current multiline prompt as a reusable macro without sending it", async ({
+  page,
+}) => {
+  await seedWorkspace(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  const prompt = "Review the current patch.\nKeep the public API unchanged.";
+  const editor = page.locator('[data-prompt-lexical-editor="true"]');
+  await expect(editor).toBeVisible();
+  await editor.click();
+  await page.keyboard.type("Review the current patch.");
+  await page.keyboard.press("Shift+Enter");
+  await page.keyboard.type("Keep the public API unchanged.");
+
+  await page.getByRole("button", { name: "Insert a saved macro" }).click();
+  await page
+    .getByRole("menuitem", { name: /^Save current prompt as macro/ })
+    .click();
+
+  const macroEditor = page.getByRole("dialog", {
+    name: "Save current prompt as macro",
+  });
+  await expect(macroEditor).toBeVisible();
+  await expect(macroEditor.locator("#macro-editor-body")).toHaveValue(prompt);
+
+  await macroEditor.locator("#macro-editor-label").fill("Review current patch");
+  await expect(
+    macroEditor.locator("#macro-editor-slug"),
+  ).toHaveValue("review-current-patch");
+  await macroEditor.getByRole("button", { name: "Save macro" }).click();
+  await expect(macroEditor).toBeHidden();
+
+  await expect
+    .poll(() => editor.evaluate((element) => element.innerText))
+    .toBe(prompt);
+  await expect
+    .poll(() =>
+      page.evaluate(() => {
+        const stored = JSON.parse(
+          window.localStorage.getItem("stave-store") ?? "{}",
+        ) as {
+          state?: {
+            settings?: {
+              macros?: Array<{ body?: string; insertMode?: string }>;
+            };
+          };
+        };
+        return stored.state?.settings?.macros?.[0];
+      }),
+    )
+    .toMatchObject({ body: prompt, insertMode: "replace" });
+
+  await editor.fill("Temporary draft that should be replaced.");
+  await expect
+    .poll(() => editor.evaluate((element) => element.innerText))
+    .toBe("Temporary draft that should be replaced.");
+  await page.getByRole("button", { name: "Insert a saved macro" }).click();
+  await page
+    .getByRole("menuitem")
+    .filter({ hasText: "Review current patch" })
+    .click();
+
+  await expect
+    .poll(() => editor.evaluate((element) => element.innerText))
+    .toBe(prompt);
+  expect(
+    await page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __stavePromptAutocompleteTestState?: {
+              streamTurnCalls: number;
+            };
+          }
+        ).__stavePromptAutocompleteTestState?.streamTurnCalls ?? -1,
+    ),
+  ).toBe(0);
 });

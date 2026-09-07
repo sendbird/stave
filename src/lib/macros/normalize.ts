@@ -8,7 +8,6 @@ import {
   listModelEffortOptions,
   resolveDefaultModelEffort,
 } from "@/lib/providers/model-effort";
-import { listModelsForPresetProvider } from "@/lib/task-presets";
 import {
   MAX_MACROS,
   MAX_MACRO_BODY_LENGTH,
@@ -65,12 +64,13 @@ function normalizeMacroRuntime(input: unknown): MacroRuntime | undefined {
   if (!providerId || !isManagedExecutionProviderId(providerId)) {
     return undefined;
   }
-  const allowedModels = listModelsForPresetProvider(providerId);
   const rawModel =
     typeof candidate.model === "string" ? candidate.model.trim() : "";
-  const model = allowedModels.includes(rawModel)
-    ? rawModel
-    : getDefaultModelForProvider({ providerId });
+  // Catalogs are runtime-owned. Persist a non-empty managed-provider model ID
+  // even when the runtime is temporarily unavailable or the built-in fallback
+  // has not learned that ID yet. The editor limits new choices to the shared
+  // Prompt Input catalog and keeps an already persisted value visible.
+  const model = rawModel || getDefaultModelForProvider({ providerId });
   const requestedEffort = isModelEffort(candidate.effort)
     ? candidate.effort
     : undefined;

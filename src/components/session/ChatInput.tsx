@@ -371,6 +371,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     settingsWorkerEnabled,
     settingsWorkerConfigByProvider,
     macros,
+    upsertMacro,
     applyMacroToDraft,
   ] = useAppStore(
     useShallow(
@@ -403,6 +404,7 @@ function ChatInputComposer(args: ChatInputComposerProps) {
           state.settings.workerEnabled,
           state.settings.workerConfigByProvider,
           state.settings.macros,
+          state.upsertMacro,
           state.applyMacroToDraft,
         ] as const,
     ),
@@ -1902,7 +1904,10 @@ function ChatInputComposer(args: ChatInputComposerProps) {
               // leave the pill floating at its own height inside the row.
               <MacroControl
                 macros={macros}
+                currentDraftText={draftText}
+                modelOptions={args.modelOptions}
                 disabled={isInputBlocked}
+                onSave={(macro) => upsertMacro({ macro })}
                 onSelect={(macro) => {
                   handleApplyMacro({
                     macroId: macro.id,

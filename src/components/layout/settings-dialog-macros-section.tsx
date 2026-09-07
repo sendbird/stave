@@ -15,10 +15,15 @@ import {
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import { getModelEffortLabel } from "@/lib/providers/model-effort";
+import { createEmptyMacroDraft } from "@/lib/macros/editor";
 import { isMacroInstantRun, type Macro } from "@/lib/macros/types";
 import { useAppStore } from "@/store/app.store";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { createEmptyMacroDraft, MacroEditor } from "./macro-editor";
+import { MacroEditor } from "./macro-editor";
+import {
+  PROMPT_MODEL_PROVIDER_IDS,
+  useSettingsModelSelectorOptions,
+} from "./settings-dialog-model-fields";
 import { SectionStack, SettingsCard } from "./settings-dialog.shared";
 import { sx } from "@/components/ads/utils/stylex";
 import { macrosSectionStyles as styles } from "./settings-dialog-macros-section.styles";
@@ -71,6 +76,9 @@ export function MacrosSection() {
   const [editorTarget, setEditorTarget] = useState<MacroEditorTarget>(null);
   const [editorError, setEditorError] = useState<string | undefined>();
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const { options: modelOptions } = useSettingsModelSelectorOptions({
+    providerIds: PROMPT_MODEL_PROVIDER_IDS,
+  });
 
   const isAddingNew = editorTarget?.kind === "new";
   const newMacroDraft = useMemo(() => createEmptyMacroDraft(), [isAddingNew]);
@@ -149,6 +157,7 @@ export function MacrosSection() {
           <div className={sx(styles.editorWrap)}>
             <MacroEditor
               initialMacro={newMacroDraft}
+              modelOptions={modelOptions}
               submitLabel="Add macro"
               error={editorError}
               onSave={handleSaveMacro}
@@ -256,8 +265,9 @@ export function MacrosSection() {
                   </div>
                   {isEditing ? (
                     <div className={sx(styles.editorWrapInline)}>
-                      <MacroEditor
-                        initialMacro={macro}
+                    <MacroEditor
+                      initialMacro={macro}
+                      modelOptions={modelOptions}
                         submitLabel="Save macro"
                         error={editorError}
                         onSave={handleSaveMacro}

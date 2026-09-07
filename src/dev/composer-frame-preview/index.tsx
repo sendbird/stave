@@ -200,7 +200,13 @@ export function ComposerFramePreviewApp() {
                 <PromptInput
                   framed={framed}
                   macroControl={
-                    <MacroControl macros={PREVIEW_MACROS} onSelect={() => {}} />
+                    <MacroControl
+                      macros={PREVIEW_MACROS}
+                      currentDraftText={draft}
+                      modelOptions={[PREVIEW_MODEL]}
+                      onSelect={() => {}}
+                      onSave={() => ({ ok: true })}
+                    />
                   }
                   macroQuickPicks={
                     <MacroQuickPicks

@@ -10,10 +10,16 @@ import {
   Textarea,
 } from "@/components/ui";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
+import type { ModelSelectorOption } from "@/components/ai-elements/model-selector.utils";
+import {
+  createUnlistedMacroModelOption,
+  listMacroModelOptions,
+  resolveMacroModelForProvider,
+} from "@/lib/macros/editor";
 import {
   getDefaultModelForProvider,
   getProviderLabel,
-  toHumanModelName,
+  listManagedExecutionProviderIds,
 } from "@/lib/providers/model-catalog";
 import {
   clampModelEffort,
@@ -22,18 +28,13 @@ import {
   type ModelEffort,
 } from "@/lib/providers/model-effort";
 import type { ManagedExecutionProviderId } from "@/lib/providers/provider.types";
-import { listModelsForPresetProvider } from "@/lib/task-presets";
 import {
   isMacroInstantRun,
   MACRO_INSERT_MODES,
   type Macro,
   type MacroInsertMode,
 } from "@/lib/macros/types";
-import {
-  generateMacroId,
-  normalizeMacro,
-  slugifyMacroLabel,
-} from "@/lib/macros/normalize";
+import { normalizeMacro, slugifyMacroLabel } from "@/lib/macros/normalize";
 import {
   ChoiceButtons,
   LabeledField,
@@ -67,27 +68,15 @@ const INSERT_MODE_OPTIONS: Array<{
 
 interface MacroEditorProps {
   initialMacro: Macro;
+  modelOptions: readonly ModelSelectorOption[];
   submitLabel: string;
   error?: string;
   onSave: (macro: Macro) => { ok: boolean; error?: string };
   onCancel: () => void;
 }
 
-export function createEmptyMacroDraft(): Macro {
-  const now = new Date().toISOString();
-  return {
-    id: generateMacroId(),
-    label: "",
-    slug: "",
-    body: "",
-    insertMode: "replace",
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
 export function MacroEditor(props: MacroEditorProps) {
-  const { initialMacro, submitLabel, error, onSave, onCancel } = props;
+  const { initialMacro, modelOptions, submitLabel, error, onSave, onCancel } = props;
   const [label, setLabel] = useState(initialMacro.label);
   const [slug, setSlug] = useState(initialMacro.slug);
   const [slugTouched, setSlugTouched] = useState(false);
@@ -132,10 +121,13 @@ export function MacroEditor(props: MacroEditorProps) {
     setLocalError(undefined);
   }, [initialMacro]);
 
-  const modelOptions = useMemo(
-    () => listModelsForPresetProvider(providerId),
-    [providerId],
-  );
+  const providerModelOptions = useMemo(() => {
+    const listed = listMacroModelOptions({ options: modelOptions, providerId });
+    if (!model || listed.some((option) => option.model === model)) {
+      return listed;
+    }
+    return [createUnlistedMacroModelOption({ providerId, model }), ...listed];
+  }, [model, modelOptions, providerId]);
   const effortOptions = useMemo(
     () => listModelEffortOptions({ providerId, model }),
     [model, providerId],
@@ -151,10 +143,11 @@ export function MacroEditor(props: MacroEditorProps) {
   function handleProviderChange(nextProvider: string) {
     const nextProviderId = nextProvider === "codex" ? "codex" : "claude-code";
     setProviderId(nextProviderId);
-    const nextModels = listModelsForPresetProvider(nextProviderId);
-    const nextModel = nextModels.includes(model)
-      ? model
-      : getDefaultModelForProvider({ providerId: nextProviderId });
+    const nextModel = resolveMacroModelForProvider({
+      options: modelOptions,
+      providerId: nextProviderId,
+      currentModel: model,
+    });
     setModel(nextModel);
     if (effort) {
       const nextEffort = clampModelEffort({
@@ -196,6 +189,9 @@ export function MacroEditor(props: MacroEditorProps) {
 
   function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    // The editor may render through a Popover portal owned by the composer.
+    // Stop the React submit event before PromptInput treats it as a send.
+    event.stopPropagation();
     const normalized = normalizeMacro({
       id: initialMacro.id,
       label,
@@ -311,7 +307,7 @@ export function MacroEditor(props: MacroEditorProps) {
             description="The execution provider used for this macro's pinned model."
             value={providerId}
             onChange={handleProviderChange}
-            options={(["claude-code", "codex"] as const).map((id) => ({
+            options={listManagedExecutionProviderIds().map((id) => ({
               value: id,
               label: getProviderLabel({ providerId: id }),
             }))}
@@ -325,16 +321,16 @@ export function MacroEditor(props: MacroEditorProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {modelOptions.map((option) => (
-                  <SelectItem key={option} value={option}>
+                {providerModelOptions.map((option) => (
+                  <SelectItem key={option.key} value={option.model}>
                     <span className={sx(styles.option)}>
                       <ModelIcon
                         providerId={providerId}
-                        model={option}
+                        model={option.model}
                         className={sx(styles.optionIcon)}
                       />
                       <span className={sx(styles.optionLabel)}>
-                        {toHumanModelName({ model: option })}
+                        {option.label}
                       </span>
                     </span>
                   </SelectItem>
