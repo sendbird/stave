@@ -1,6 +1,14 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { CappedViewport } from "@/components/ads/components/CappedViewport";
+import { InlineDisclosureIcon } from "@/components/ads/components/inline-disclosure-icon";
 import { StepRail } from "@/components/ads/components/StepRail";
+import { agentSurface } from "@/components/ads/recipes/agent-surface";
+import {
+  controlHeights,
+  controlIconSizes,
+} from "@/components/ads/recipes/control-metrics";
+import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { inlineDisclosure } from "@/components/ads/recipes/inline-disclosure";
 import type { ButtonHTMLAttributes, HTMLAttributes, ReactNode } from "react";
 import {
   cloneElement,
@@ -299,6 +307,28 @@ export function ChainOfThoughtTrigger(
   const showDuration =
     !open && !isStreaming && durationSeconds != null && durationSeconds > 0;
 
+  /*
+   * The turn's own object glyph, in the leading slot that swaps it for the
+   * chevron — the same anatomy as every `ToolRun` and `Thinking` row inside
+   * the trace. This header used to carry a trailing `ChevronDown` and no
+   * padding at all, so the one row that owns every other row on the rail was
+   * the only one whose glyph column, hover wash, height and disclosure
+   * direction disagreed with them.
+   *
+   * `cascade`, not `matrix`. This mark stands for the whole turn — a run of
+   * dependent stages, which is what `cascade` names — while `matrix` names
+   * generative inference, and that is the reasoning row's own mark inside this
+   * trace. Both ran the same cadence, so a streaming turn drew the identical
+   * animation twice, eight pixels apart, and the trace header read as a
+   * duplicate of its first step rather than as the container of every step
+   * under it.
+   */
+  const glyph = isStreaming ? (
+    <Loader aria-hidden cadence="reduced" size="xs" variant="cascade" />
+  ) : (
+    <Brain aria-hidden size={controlIconSizes.md} />
+  );
+
   return (
     <AdsButton
       layout="host"
@@ -307,38 +337,30 @@ export function ChainOfThoughtTrigger(
          without it the control is announced as a plain button and the trace
          below reads as unrelated content. */
       aria-expanded={open}
-      className={cx(sx(s.trigger), className)}
+      /* The hover/focus hook the shared glyph-to-chevron motion reads. */
+      className={cx("atelier-inline-disclosure-trigger", className)}
       onClick={() => setOpen(!open)}
+      xstyle={[
+        inlineDisclosure.trigger,
+        controlHeights.sm,
+        /* Full-bleed in the transcript column, so the ring goes inside. */
+        focusRing.ringInset,
+        s.trigger,
+      ]}
       {...args}
     >
+      <InlineDisclosureIcon open={open}>{glyph}</InlineDisclosureIcon>
       {isStreaming ? (
         <span className={sx(s.streamingLabel)}>
-          {/*
-           * `cascade`, not `matrix`. This mark stands for the whole turn — a
-           * run of dependent stages, which is what `cascade` names — while
-           * `matrix` names generative inference, and that is the reasoning
-           * row's own mark inside this trace. Both ran the same cadence, so a
-           * streaming turn drew the identical animation twice, eight pixels
-           * apart, and the trace header read as a duplicate of its first step
-           * rather than as the container of every step under it.
-           */}
-          <Loader
-            aria-hidden
-            cadence="reduced"
-            className={sx(s.streamingLoader)}
-            size="sm"
-            variant="cascade"
-          />
           <ThinkingPhraseLabel active={isStreaming} />
         </span>
       ) : (
         <>
-          <Brain className={sx(s.brainIcon)} />
           <span className={sx(s.completionLabel)}>
             {completionLabel ?? completionPhrase}
           </span>
           {showDuration ? (
-            <span className={sx(s.durationLabel)}>
+            <span className={sx(agentSurface.meta, s.durationLabel)}>
               for {formatTriggerDuration(durationSeconds)}
             </span>
           ) : null}
@@ -365,14 +387,6 @@ export function ChainOfThoughtTrigger(
           ))}
         </span>
       ) : null}
-
-      <ChevronDown
-        className={sx(
-          s.chevron,
-          !showSummary && s.chevronAuto,
-          open && s.chevronOpen,
-        )}
-      />
     </AdsButton>
   );
 }

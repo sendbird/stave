@@ -348,6 +348,62 @@ describe("AssistantMessageBody", () => {
     expect(html).toContain("Patched the issue.");
   });
 
+  test("keeps collapsible turn events closed while they run and leaves interim prose open", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({
+        isStreaming: true,
+        parts: [
+          { type: "text", text: "Inspecting the repo." },
+          {
+            type: "thinking",
+            text: "Comparing the two migrations.",
+            isStreaming: true,
+          },
+          {
+            type: "tool_use",
+            toolUseId: "tool-read",
+            toolName: "Read",
+            input: JSON.stringify({ path: "README.md" }),
+            output: "# Stave",
+            state: "input-available",
+          },
+          {
+            type: "tool_use",
+            toolUseId: "tool-bash-fail",
+            toolName: "Bash",
+            input: JSON.stringify({ command: "bun test" }),
+            output: "1 fail",
+            state: "output-error",
+          },
+        ],
+      }),
+      taskId: "task-1",
+      messageId: "message-1",
+      streamingEnabled: true,
+    }));
+
+    expect(html).toContain("Inspecting the repo.");
+    expect(html).toContain('data-thinking-status="thinking"');
+    expect(html).toContain('data-tool-run-status="running"');
+    expect(html).toContain('data-tool-run-status="failed"');
+
+    const expanded = [...html.matchAll(/aria-expanded="(true|false)"/g)].map(
+      (match) => match[1],
+    );
+    expect(expanded).toContain("false");
+    expect(expanded).toContain("true");
+    expect(html).toMatch(
+      /data-thinking-status="thinking"[\s\S]*?aria-expanded="false"/,
+    );
+    expect(html).toMatch(
+      /data-tool-run-status="running"[\s\S]*?aria-expanded="false"/,
+    );
+    expect(html).toMatch(
+      /data-tool-run-status="failed"[\s\S]*?aria-expanded="true"/,
+    );
+  });
+
   test("renders interim assistant messages when enabled", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
@@ -367,6 +423,47 @@ describe("AssistantMessageBody", () => {
     expect(html).toContain("Patched the issue.");
   });
 
+
+  /*
+   * The settled turn header is the container of every row on the rail, and it
+   * was the one row that disagreed with them about its own anatomy: a trailing
+   * `ChevronDown`, no padding, no hover wash and no glyph column. It now
+   * composes the same ADS `inlineDisclosure` trigger the rows do, so the
+   * chevron lives in the LEADING slot that swaps for the object glyph.
+   */
+  test("the turn header is an inline disclosure row with a leading chevron", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({
+        parts: [
+          {
+            type: "tool_use",
+            toolName: "Bash",
+            input: "ls",
+            output: "a\nb\n",
+            state: "output-available",
+          },
+        ],
+        isStreaming: false,
+      }),
+      taskId: "task-1",
+      messageId: "message-1",
+      streamingEnabled: true,
+    }));
+
+    const header = html.slice(html.indexOf("<button"));
+    /* The shared hover/focus hook, and the ADS box that comes with it. */
+    expect(header).toContain("atelier-inline-disclosure-trigger");
+    /*
+     * The first element inside the header is the disclosure slot — that is
+     * what "leading, not trailing" means, and it is the assertion a future
+     * trailing chevron would break.
+     */
+    expect(header).toMatch(
+      /^<button(?:(?!<span)[\s\S])*?<span[^>]*data-ads-inline-disclosure-icon/,
+    );
+    expect(header).toContain("data-ads-inline-disclosure-chevron");
+  });
 
   /*
    * The changed-file row is `ToolRun`, the same primitive as every other call

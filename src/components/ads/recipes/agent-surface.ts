@@ -175,6 +175,32 @@ export const agentSurface = stylex.create({
     minInlineSize: 0,
   },
   /**
+   * The **label ink of a repeated row** — a tool call's title, a settled
+   * thought's summary line, a runtime notice's one line.
+   *
+   * A third reading tier, between body ink and the machine register, and it
+   * exists because the two tiers either side of it are both wrong for a
+   * transcript row. At `colorText` a column of ten "Bash" / "Changed file"
+   * labels carries the same ink weight as the answer underneath it, so the
+   * rail out-shouts the prose it is supporting. At `colorTextMuted` — which
+   * sits closer to `colorTextSubtle` than to body — the label falls into the
+   * metadata register beside the duration it is supposed to outrank.
+   *
+   * So the ink is the midpoint of the two ends of that range: body and
+   * `colorTextSubtle`, the register the duration and the tool target already
+   * use. Derived rather than authored, for the same reason the interaction
+   * washes are: it follows every theme's own ink and surface without a
+   * per-theme value, and it cannot drift from the two roles it sits between.
+   * `in oklab`, never `in oklch` — OKLCH interpolates hue, and a near-neutral
+   * operand still carries a nominal one.
+   *
+   * Rows own this; the turn header above them does not. That header is one
+   * step darker (body ink) so the container still outranks its contents.
+   */
+  rowLabel: {
+    color: `color-mix(in oklab, ${vars.colorText} 50%, ${vars.colorTextSubtle})`,
+  },
+  /**
    * Recessed content inside a row or decision boundary (arguments, output, a
    * log tail). A temperature step, never an outline — §1.3's answer to "this
    * is nested".

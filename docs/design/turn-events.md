@@ -50,7 +50,7 @@ no kind may add one or reorder them.
 | Slot        | Register                                              | Owner                                  |
 | ----------- | ----------------------------------------------------- | -------------------------------------- |
 | status mark | glyph at the `md` icon step, or a `Loader` while live | `InlineDisclosureIcon` inside the row |
-| label       | `fontSizeBody` + `fontWeightMedium`, `colorText`      | `ToolRun` `title` / `Thinking` `phase` |
+| label       | `fontSizeBody` + `fontWeightMedium`, `agentSurface.rowLabel` | `ToolRun` `title` / `Thinking` `phase` |
 | status word | `fontSizeCaption`, one `agentStatusWord` tone         | `ToolRun`, from `AgentRunState`        |
 | target      | `agentSurface.meta` (mono, `tabular-nums`, `colorTextSubtle`) | `ToolRun` `tool`              |
 | count       | `agentSurface.meta`                                   | `ToolRun` `count`                      |
@@ -60,7 +60,18 @@ no kind may add one or reorder them.
 
 The status mark and the chevron share one slot on purpose. One leading mark per
 row is the whole anatomy; a second mark out on the rail restates a status the
-row's own spinner, colored word and ink already carry.
+row's own spinner, colored word and ink already carry. **This includes the turn
+header** — the row that owns every other row here composes the same
+`inlineDisclosure` trigger and the same leading slot, so its chevron is not on
+the trailing edge and its glyph column lines up with the rows underneath it.
+
+**Three ink tiers, not two.** `agentSurface.rowLabel` sits between body ink and
+the machine register, and it is what every repeated row label takes — a tool
+title, a settled thought's summary line, a runtime notice. Body ink put a
+column of ten row labels at the same weight as the answer under the trace;
+`colorTextMuted` dropped them into the register of the duration they have to
+outrank. The turn header is the one line one step darker (body ink): a
+container that shares its contents' ink reads as one more row.
 
 **No card.** A row is rung 0 at rest: no perimeter, no fill, padding and a hover
 wash. At most one rung-5 perimeter may appear per turn, and a turn of tool calls
@@ -95,9 +106,9 @@ maps into it exactly once, in
 | Provider state              | `AgentRunState` | Status word        | Disclosure                      |
 | --------------------------- | --------------- | ------------------ | ------------------------------- |
 | (absent)                    | `pending`       | Pending, neutral   | closed                          |
-| `input-streaming`           | `running`       | Running, accent    | open, live clock                |
-| `input-available`           | `running`       | Running, accent    | open, live clock                |
-| `output-available`          | `done`          | Completed, success | auto-collapses to its record    |
+| `input-streaming`           | `running`       | Running, accent    | closed, live clock on the header |
+| `input-available`           | `running`       | Running, accent    | closed, live clock on the header |
+| `output-available`          | `done`          | Completed, success | closed                          |
 | `output-error`              | `failed`        | Failed, danger     | **stays open**                  |
 | approval requested          | `approval`      | Awaiting approval  | **stays open**                  |
 | interrupted / canceled turn | `interrupted` / `canceled` | warning / neutral | closed             |
@@ -108,10 +119,10 @@ correct answer rather than a gap:
 
 | Kind        | Live means                          | Open                            | Settled                                            |
 | ----------- | ----------------------------------- | ------------------------------- | -------------------------------------------------- |
-| todo / plan | the TodoWrite call is running       | `ToolRun` opens; `Plan` inside  | collapses, and the row keeps `done / total`         |
+| todo / plan | the TodoWrite call is running       | `ToolRun` stays closed; `Plan` inside | stays closed, and the row keeps `done / total`  |
 | approval    | — (no run)                          | always, until answered          | the audit record replaces the buttons in place      |
 | user input  | — (no run)                          | always, until answered          | the recorded answer replaces the fields in place    |
-| system      | the notice is a failure or boundary | attention notices stay open     | an ordinary notice collapses to its one titled line |
+| system      | the notice is a failure or boundary | attention notices stay open     | an ordinary notice stays closed to its one titled line |
 
 - **A plan is not a disclosure of its own.** `Plan` has no collapsed form by
   design — it is the durable half of the reasoning story and stays readable
@@ -150,13 +161,16 @@ refusal. They were added to ADS in this pass —
 Rules, all owned by ADS `useSettleDisclosure` and `isAttentionState` — do not
 re-derive them per call site:
 
-1. **Open while live.** A running payload is the thing the reader is watching.
-2. **Auto-collapse on completion.** A clean result collapses to one measured
-   line. Only a clean result: a failure, denial or approval gate counts as live
+1. **Closed by default.** A running payload stays behind the disclosure. The
+   header already carries the status word and the live clock, so auto-opening
+   every row turns a turn of tool calls into a stack of payloads. Interim
+   assistant text is the exception: it is language, not an event, and stays
+   visible on the rail with no disclosure.
+2. **Attention stays open.** A failure, denial or approval gate counts as live
    for the disclosure, because collapsing it would hide the one payload worth
    reading the instant it appeared.
-3. **The reader outranks the automation.** Toggling a row during a run switches
-   auto-collapse off for that run.
+3. **The reader outranks the default.** Toggling a row during a run is a
+   choice about *this* run.
 4. **The turn-level trace** (`ChainOfThought`) opens while the turn streams and
    collapses once, on completion, unless the turn ended in an actionable
    failure. A manual re-open is not stolen back.
@@ -210,7 +224,6 @@ properties.
 | disclosure close         | `motionDurationQuick`, `motionEaseStandard`              |
 | chevron rotate + glyph swap | `motionDurationQuick`, `motionEaseExpressive`         |
 | step / trace entrance    | `motionDurationNormal`–`Emphasis`, `motionEaseStandard`/`Expressive` |
-| turn-trigger chevron + ink | `motionDurationQuick`, `motionEaseStandard`            |
 | reasoning glyph pulse    | `motionDurationLoopSlow`, `motionEaseInOut`              |
 | phase-label shimmer      | `recipes/text-shimmer` via `TextShimmer` — never re-implemented |
 

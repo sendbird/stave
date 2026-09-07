@@ -77,24 +77,26 @@ export const chainOfThoughtStyles = stylex.create({
   },
 
   // ── Trigger ──────────────────────────────────────────────────
+  /*
+   * Composed as `xstyle` on top of ADS `inlineDisclosure.trigger`, which now
+   * owns the whole box — the glyph column's inline padding, the block padding,
+   * `controlHeightSm`, the radius, the hover/press wash and the focus ring.
+   * What stays here is the three things the recipe cannot decide:
+   *
+   * - **The wrap.** This header carries a phrase, a duration and a roll-up, so
+   *   it wraps in a narrow transcript column instead of ellipsizing.
+   * - **The size.** `em`, not `fontSizeBody`: the trace scales with the user's
+   *   message font size, and a fixed-token header inside an `em`-scaled rail
+   *   would stop matching the rows under it at any non-default setting.
+   * - **The ink.** One step darker than `agentSurface.rowLabel`, which is what
+   *   every row *inside* the trace now uses. The container has to outrank its
+   *   contents; at the rows' own ink the turn header read as one more row.
+   */
   trigger: {
-    display: "flex",
-    width: "100%",
+    color: vars.colorText,
     flexWrap: "wrap",
-    alignItems: "center",
-    columnGap: "0.5em",
-    rowGap: "0.3em",
     fontSize: "0.875em",
-    color: {
-      default: vars.colorTextMuted,
-      ":hover": vars.colorText,
-    },
-    transitionProperty: "color",
-    transitionDuration: {
-      default: vars.motionDurationQuick,
-      [reduced]: "0ms",
-    },
-    transitionTimingFunction: vars.motionEaseStandard,
+    rowGap: vars.space4,
   },
   streamingLabel: {
     display: "inline-flex",
@@ -103,18 +105,14 @@ export const chainOfThoughtStyles = stylex.create({
     gap: "0.5em",
     fontWeight: vars.fontWeightMedium,
   },
-  streamingLoader: { flexShrink: 0, color: vars.colorText },
-  brainIcon: { width: "1.15em", height: "1.15em", flexShrink: 0 },
   completionLabel: {
     flexShrink: 0,
     whiteSpace: "nowrap",
     fontWeight: vars.fontWeightMedium,
   },
+  /* The machine register, from `agentSurface.meta` at the call site. */
   durationLabel: {
     flexShrink: 0,
-    fontSize: "0.9em",
-    fontVariantNumeric: "tabular-nums",
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
   },
   summary: {
     marginLeft: "auto",
@@ -139,22 +137,13 @@ export const chainOfThoughtStyles = stylex.create({
     display: "inline-flex",
     alignItems: "center",
   },
-  chevron: {
-    width: "1.15em",
-    height: "1.15em",
-    flexShrink: 0,
-    transitionProperty: "transform",
-    transitionDuration: {
-      default: vars.motionDurationQuick,
-      [reduced]: "0ms",
-    },
-    transitionTimingFunction: vars.motionEaseStandard,
-  },
-  chevronAuto: { marginLeft: "auto" },
-  chevronOpen: { transform: "rotate(180deg)" },
-
   // ── Content container ────────────────────────────────────────
-  content: { marginTop: "0.75em" },
+  /*
+   * `space4`, matching `inlineDisclosure.body`'s own `marginBlockStart`: the
+   * trigger now carries block padding of its own, so the old `0.75em` read as
+   * a gap between two unrelated blocks rather than a header and its panel.
+   */
+  content: { marginTop: vars.space4 },
   contentLegacyMotion: {
     animationName: { default: cotContentIn, [reduced]: "none" },
     animationDuration: {

@@ -27,6 +27,7 @@ import {
 } from "@/components/panes/pane-host-controller";
 import { closePaneSurface } from "@/components/panes/pane-surface-actions";
 import { useEditorPaneFocus } from "@/components/panes/use-editor-pane-focus";
+import { useFleetResultAutoReview } from "@/components/layout/useFleetResultAutoReview";
 import { resolveLatestCompletedTurnTarget } from "@/components/layout/command-palette-navigation";
 import { useScriptsCommandPaletteContributor } from "@/components/layout/command-palette-scripts";
 import { dispatchTopBarPrAction } from "@/components/layout/top-bar-pr-events";
@@ -204,6 +205,8 @@ export function AppShell() {
   const showPresetBar = useAppStore((state) => state.settings.showPresetBar);
   // Editor open actions only set activeEditorTabId; reveal the pane for them.
   useEditorPaneFocus();
+  // Reading a finished turn in the task window acknowledges its Fleet row.
+  useFleetResultAutoReview();
   const hasProject = Boolean(projectPath);
   const panelRowRef = useRef<HTMLDivElement>(null);
   const contentRowRef = useRef<HTMLDivElement>(null);

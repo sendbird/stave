@@ -1,9 +1,11 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   AlertTriangle,
+  BellOff,
   CheckCircle2,
   ChevronDown,
   ChevronRight,
+  Clock,
   GitMerge,
   Inbox,
   MessageCircleQuestion,
@@ -18,13 +20,21 @@ import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
 import { sx } from "@/components/ads/utils/stylex";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
-import { Button } from "@/components/ui";
+import {
+  Button,
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuTrigger,
+} from "@/components/ui";
 import { attentionStyles as styles } from "./fleet-attention-inbox.styles";
 import {
   getFleetAttentionTier,
   type FleetAttentionItem,
   type FleetAttentionKind,
 } from "@/lib/fleet/attention-projection";
+import { FLEET_ATTENTION_SNOOZE_DURATIONS } from "@/lib/fleet/attention-snooze";
 import { PR_STATUS_VISUAL } from "@/lib/pr-status";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 
@@ -116,6 +126,7 @@ function FleetNeedRow(args: {
   onOpenTask: (target: FleetTaskControlTarget) => void;
   onMarkRead: (item: FleetAttentionItem) => void;
   onDismiss: (item: FleetAttentionItem) => void;
+  onSnooze: (item: FleetAttentionItem, durationMs: number) => void;
   onOpenPr: (item: FleetAttentionItem) => void;
 }) {
   const { item, selected, busy } = args;
@@ -184,8 +195,7 @@ function FleetNeedRow(args: {
           <span className={sx(styles.rowDetail)}>{detail}</span>
         ) : null}
       </AdsButton>
-      {canMarkRead || canDismiss || item.prUrl ? (
-        <div className={sx(styles.rowActions)}>
+      <div className={sx(styles.rowActions)}>
           {canMarkRead ? (
             <Button
               type="button"
@@ -223,8 +233,42 @@ function FleetNeedRow(args: {
               Open PR
             </Button>
           ) : null}
+          {/*
+            Snooze is offered on every kind, including blocking ones. It is the
+            only way to set aside a row whose underlying state Fleet does not
+            own — a pull request status, a request nobody can settle yet — and it
+            is time-bounded, so unlike Dismiss it cannot lose the item. The
+            snoozed count in the footer keeps what is hidden accountable.
+          */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="ghost"
+                  xstyle={styles.rowAction}
+                  disabled={busy}
+                  aria-label={`Snooze ${FLEET_NEED_LABEL[item.kind].toLowerCase()} for ${title} in ${item.workspaceName}`}
+                />
+              }
+            >
+              <Clock className={sx(styles.rowActionIcon)} aria-hidden="true" />
+              Snooze
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuLabel>Hide until</DropdownMenuLabel>
+              {FLEET_ATTENTION_SNOOZE_DURATIONS.map((duration) => (
+                <DropdownMenuItem
+                  key={duration.id}
+                  onSelect={() => args.onSnooze(item, duration.ms)}
+                >
+                  {duration.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      ) : null}
       {selected && controlTarget ? (
         <div
           id={`fleet-attention-controls-${item.id}`}
@@ -257,14 +301,21 @@ export function FleetAttentionInbox(args: {
   items: FleetAttentionItem[];
   selectedAttentionId: string | null;
   busyAttentionId: string | null;
+  /** How many rows an unexpired snooze is currently hiding. */
+  snoozedCount?: number;
+  clearingReview?: boolean;
   onOpen: (item: FleetAttentionItem) => void;
   onOpenTask: (target: FleetTaskControlTarget) => void;
   onMarkRead: (item: FleetAttentionItem) => void;
   onDismiss: (item: FleetAttentionItem) => void;
+  onSnooze: (item: FleetAttentionItem, durationMs: number) => void;
   onOpenPr: (item: FleetAttentionItem) => void;
+  onClearReview: () => void;
+  onRestoreSnoozed: () => void;
   onClearSelection: () => void;
 }) {
   const [showReview, setShowReview] = useState(false);
+  const snoozedCount = args.snoozedCount ?? 0;
 
   const blocking = args.items.filter(
     (item) => getFleetAttentionTier(item.kind) === "blocking",
@@ -299,6 +350,7 @@ export function FleetAttentionInbox(args: {
       onOpenTask={args.onOpenTask}
       onMarkRead={args.onMarkRead}
       onDismiss={args.onDismiss}
+      onSnooze={args.onSnooze}
       onOpenPr={args.onOpenPr}
     />
   );
@@ -339,30 +391,72 @@ export function FleetAttentionInbox(args: {
 
         {review.length > 0 ? (
           <div className={sx(styles.reviewGroup)}>
-            <AdsButton
-              layout="host"
-              type="button"
-              xstyle={[styles.reviewToggle, focusRing.ringInset]}
-              aria-expanded={showReviewGroup}
-              onClick={toggleReviewGroup}
-            >
-              {showReviewGroup ? (
-                <ChevronDown
-                  className={sx(styles.reviewIcon)}
-                  aria-hidden="true"
-                />
-              ) : (
-                <ChevronRight
-                  className={sx(styles.reviewIcon)}
-                  aria-hidden="true"
-                />
-              )}
-              <span className={sx(styles.groupHeading)}>Worth a look</span>
-              <span className={sx(styles.reviewCount)}>{review.length}</span>
-            </AdsButton>
+            <div className={sx(styles.reviewHeader)}>
+              <AdsButton
+                layout="host"
+                type="button"
+                xstyle={[styles.reviewToggle, focusRing.ringInset]}
+                aria-expanded={showReviewGroup}
+                onClick={toggleReviewGroup}
+              >
+                {showReviewGroup ? (
+                  <ChevronDown
+                    className={sx(styles.reviewIcon)}
+                    aria-hidden="true"
+                  />
+                ) : (
+                  <ChevronRight
+                    className={sx(styles.reviewIcon)}
+                    aria-hidden="true"
+                  />
+                )}
+                <span className={sx(styles.groupHeading)}>Worth a look</span>
+                <span className={sx(styles.reviewCount)}>{review.length}</span>
+              </AdsButton>
+              {/*
+                Bulk clear is scoped to this group on purpose. Nothing here is
+                stalled, so acknowledging it in one gesture is safe; doing the
+                same to the blocking rail would answer requests an agent is
+                still waiting on.
+              */}
+              <Button
+                type="button"
+                size="sm"
+                variant="ghost"
+                xstyle={styles.rowAction}
+                disabled={args.clearingReview}
+                aria-label={
+                  review.length === 1
+                    ? "Clear the 1 item worth a look"
+                    : `Clear all ${review.length} items worth a look`
+                }
+                onClick={args.onClearReview}
+              >
+                Clear all
+              </Button>
+            </div>
             {showReviewGroup ? (
               <ul className={sx(styles.list)}>{review.map(renderRow)}</ul>
             ) : null}
+          </div>
+        ) : null}
+
+        {snoozedCount > 0 ? (
+          <div className={sx(styles.snoozedFooter)}>
+            <BellOff className={sx(styles.reviewIcon)} aria-hidden="true" />
+            <span className={sx(styles.snoozedLabel)}>
+              {snoozedCount} snoozed
+            </span>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              xstyle={styles.rowAction}
+              aria-label={`Restore ${snoozedCount} snoozed items`}
+              onClick={args.onRestoreSnoozed}
+            >
+              Restore
+            </Button>
           </div>
         ) : null}
       </div>

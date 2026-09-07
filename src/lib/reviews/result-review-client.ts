@@ -3,12 +3,14 @@ import { ResultEvidenceSchema } from "./result-evidence";
 import {
   ListResultReviewsArgsSchema,
   SetResultReviewedArgsSchema,
+  SetResultsReviewedArgsSchema,
   ResultReviewSchema,
   resultReviewKey,
   type ListResultReviewsArgs,
   type ResultReview,
   type ResultReviewPage,
   type SetResultReviewedArgs,
+  type SetResultsReviewedArgs,
 } from "./result-review";
 
 const STORAGE_KEY = "stave:result-reviews:v1";
@@ -170,4 +172,44 @@ export async function setResultReviewed(
   }
   invalidateResultReviews();
   return result;
+}
+
+/**
+ * Bulk acknowledgement, used by Fleet's `Clear` action and by dwell-based auto
+ * review. Returns how many rows actually changed so the caller can report a
+ * count it observed rather than the size of the batch it hoped to write.
+ */
+export async function setResultsReviewed(
+  input: SetResultsReviewedArgs,
+): Promise<number> {
+  const args = SetResultsReviewedArgsSchema.parse(input);
+  const persistence = window.api?.persistence;
+  if (persistence) {
+    if (!persistence.setResultsReviewed)
+      throw new Error(
+        "Result review storage is unavailable. Restart Stave to load the updated bridge.",
+      );
+    const response = await persistence.setResultsReviewed(args);
+    if (!response.ok)
+      throw new Error(
+        "Reviews were not saved. Retry; the results are still pending review.",
+      );
+    invalidateResultReviews();
+    return response.updated;
+  }
+  const rows = fallbackRows();
+  const wanted = new Set(args.scopes.map((scope) => resultReviewKey(scope)));
+  let updated = 0;
+  const next = rows.map((row) => {
+    if (!wanted.has(resultReviewKey(row))) return row;
+    const reviewedAt = args.reviewed
+      ? (row.reviewedAt ?? new Date().toISOString())
+      : null;
+    if (row.reviewedAt === reviewedAt) return row;
+    updated += 1;
+    return { ...row, reviewedAt };
+  });
+  window.localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+  invalidateResultReviews();
+  return updated;
 }

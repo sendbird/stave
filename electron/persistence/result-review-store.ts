@@ -3,6 +3,7 @@ import type {
   ResultReview,
   ResultReviewPage,
   SetResultReviewedArgs,
+  SetResultsReviewedArgs,
 } from "../../src/lib/reviews/result-review";
 import { ResultEvidenceSchema } from "../../src/lib/reviews/result-evidence";
 
@@ -139,6 +140,44 @@ export class ResultReviewStore {
         .prepare(`SELECT ${COLUMNS}, ${EVIDENCE_COLUMN} FROM result_reviews WHERE ${where}`)
         .get(...identity);
     return row ? decodeReview(row) : null;
+  }
+
+  /**
+   * Acknowledges (or reopens) many results at once.
+   *
+   * Wrapped in a savepoint so a partial clear can never be observed: Fleet
+   * reports "N cleared" from the return value, and a half-applied bulk write
+   * would make that count a lie while leaving the rail inconsistent with it.
+   * A savepoint rather than BEGIN keeps this safe if a caller already opened a
+   * transaction around it.
+   */
+  setManyReviewed(args: SetResultsReviewedArgs): number {
+    const reviewedAt = new Date().toISOString();
+    const statement = this.db.prepare(
+      `UPDATE result_reviews SET reviewed_at = ${
+        args.reviewed ? "COALESCE(reviewed_at, ?)" : "NULL"
+      } WHERE project_path = ? AND workspace_id = ? AND task_id = ? AND turn_id = ?`,
+    );
+    this.db.exec("SAVEPOINT set_many_result_reviews");
+    try {
+      let updated = 0;
+      for (const scope of args.scopes) {
+        const result = statement.run(
+          ...(args.reviewed ? [reviewedAt] : []),
+          scope.projectPath,
+          scope.workspaceId,
+          scope.taskId,
+          scope.turnId,
+        ) as { changes?: number };
+        updated += result?.changes ?? 0;
+      }
+      this.db.exec("RELEASE set_many_result_reviews");
+      return updated;
+    } catch (error) {
+      this.db.exec("ROLLBACK TO set_many_result_reviews");
+      this.db.exec("RELEASE set_many_result_reviews");
+      throw error;
+    }
   }
 }
 
