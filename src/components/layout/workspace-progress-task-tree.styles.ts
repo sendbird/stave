@@ -2,12 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 
-/** Nested open-task tree under a workspace row in the project sidebar. */
+/** Flat open-task list under a workspace row in the project sidebar. */
 export const workspaceProgressTaskTreeStyles = stylex.create({
   list: {
-    borderInlineStartColor: vars.colorBorderSubtle,
-    borderInlineStartStyle: "solid",
-    borderInlineStartWidth: vars.borderWidthHairline,
     display: "flex",
     flexDirection: "column",
     gap: vars.space2,
@@ -17,7 +14,6 @@ export const workspaceProgressTaskTreeStyles = stylex.create({
     marginInlineStart: vars.space20,
     minWidth: 0,
     paddingInline: 0,
-    paddingInlineStart: vars.space8,
   },
   loadingRow: {
     alignItems: "center",
