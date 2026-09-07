@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 describe("TaskStartGuide", () => {
-  test("renders the keep-goal action as an outline button", async () => {
+  test("renders the shared-instructions action as an outline button", async () => {
     const { useAppStore } = await import("../src/store/app.store");
     useAppStore.setState(useAppStore.getInitialState());
     useAppStore.setState((state) => ({
@@ -45,9 +45,9 @@ describe("TaskStartGuide", () => {
 
     expect(html).toContain("What would you like to work on?");
     expect(html).not.toContain("Browse workflows, macros");
-    expect(html).toContain("Keep a goal");
+    expect(html).toContain("Add shared instructions");
     expect(html).toMatch(
-      /data-variant="outline"[^>]*>[\s\S]*Keep a goal &amp; next action/,
+      /data-variant="outline"[^>]*>[\s\S]*Add shared instructions/,
     );
     expect(html).toContain('data-testid="task-start-guide"');
   });

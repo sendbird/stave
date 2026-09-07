@@ -11,6 +11,7 @@ import {
   EmptyTitle,
 } from "@/components/ui";
 import { ActionButton } from "@/components/system/ActionButton";
+import { getWorkspaceInstructions } from "@/lib/workspace-resume-brief";
 import { useAppStore } from "@/store/app.store";
 
 const STARTING_POINTS = [
@@ -48,6 +49,7 @@ export function TaskStartGuide({
     useAppStore.getState().setLayout({
       patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "information" },
     });
+  const hasInstructions = Boolean(getWorkspaceInstructions(brief).trim());
   return (
     <div className={sx(styles.shell)} data-testid="task-start-guide">
       <Empty xstyle={styles.root}>
@@ -64,46 +66,6 @@ export function TaskStartGuide({
         </EmptyHeader>
         {showExamples ? (
           <div className={sx(styles.content)}>
-            {brief?.goal || brief?.nextAction ? (
-              <section
-                aria-label="Saved workspace direction"
-                className={sx(styles.direction)}
-              >
-                <div className={sx(styles.directionHeader)}>
-                  <h3 className={sx(styles.directionTitle)}>
-                    Pick up where you left off
-                  </h3>
-                  <time dateTime={brief.updatedAt} className={sx(styles.savedAt)}>
-                    Saved {new Date(brief.updatedAt).toLocaleDateString()}
-                  </time>
-                </div>
-                {brief.goal ? (
-                  <p className={sx(styles.goal)}>{brief.goal}</p>
-                ) : null}
-                {brief.nextAction ? (
-                  <p className={sx(styles.nextAction)}>
-                    <strong>Next action:</strong> {brief.nextAction}
-                  </p>
-                ) : null}
-                <div className={sx(styles.actions)}>
-                  {onSelect && brief.nextAction ? (
-                    <ActionButton
-                      weight="primary"
-                      onClick={() =>
-                        onSelect(
-                          `Continue the saved workspace direction.\nNext action: ${brief.nextAction}\nCheck the goal, completion conditions and evidence in Information before proceeding. Report changes to the next action when you finish.`,
-                        )
-                      }
-                    >
-                      Prepare the next step
-                    </ActionButton>
-                  ) : null}
-                  <Button variant="outline" onClick={openInformation}>
-                    Review direction &amp; evidence
-                  </Button>
-                </div>
-              </section>
-            ) : null}
             <div className={sx(styles.startingPoints)}>
               {STARTING_POINTS.map((item) => (
                 <div key={item.title} className={sx(styles.startingPoint)}>
@@ -130,10 +92,12 @@ export function TaskStartGuide({
           </div>
         ) : null}
       </Empty>
-      {showExamples && !brief?.goal && !brief?.nextAction ? (
+      {showExamples ? (
         <div className={sx(styles.actions, styles.footerActions)}>
           <Button variant="outline" onClick={openInformation}>
-            Keep a goal &amp; next action
+            {hasInstructions
+              ? "Review shared instructions"
+              : "Add shared instructions"}
           </Button>
         </div>
       ) : null}
@@ -170,53 +134,6 @@ const styles = stylex.create({
     gap: vars.space16,
     textAlign: "left",
   },
-  direction: {
-    display: "flex",
-    flexDirection: "column",
-    gap: vars.space12,
-    borderBlockEndWidth: vars.borderWidthHairline,
-    borderBlockEndStyle: "solid",
-    borderBlockEndColor: vars.colorBorder,
-    paddingBlockEnd: vars.space12,
-  },
-  directionHeader: {
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: vars.space8,
-  },
-  directionTitle: {
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightSemibold,
-    lineHeight: vars.lineHeightNormal,
-  },
-  savedAt: {
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightTight,
-    color: vars.colorTextMuted,
-  },
-  goal: {
-    display: "-webkit-box",
-    WebkitBoxOrient: "vertical",
-    WebkitLineClamp: 3,
-    overflow: "hidden",
-    whiteSpace: "pre-wrap",
-    overflowWrap: "break-word",
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
-  },
-  nextAction: {
-    display: "-webkit-box",
-    WebkitBoxOrient: "vertical",
-    WebkitLineClamp: 3,
-    overflow: "hidden",
-    whiteSpace: "pre-wrap",
-    overflowWrap: "break-word",
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightTight,
-    color: vars.colorTextMuted,
-  },
   actions: { display: "flex", flexWrap: "wrap", gap: vars.space8 },
   footerActions: {
     inlineSize: "100%",
@@ -237,7 +154,10 @@ const styles = stylex.create({
     columnGap: vars.space16,
     rowGap: vars.space8,
     paddingBlock: vars.space12,
-    borderBlockStartWidth: { default: vars.borderWidthHairline, ":first-child": 0 },
+    borderBlockStartWidth: {
+      default: vars.borderWidthHairline,
+      ":first-child": 0,
+    },
     borderBlockStartStyle: "solid",
     borderBlockStartColor: vars.colorBorder,
   },

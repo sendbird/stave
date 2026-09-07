@@ -14,7 +14,7 @@ knowledge destination requires a distinct retrieval/reuse job before inclusion.
 These corrections supersede contradictory placement prescriptions below.
 
 The interface is migrating by complete product surfaces: product navigation,
-attention, task collaboration, reusable work, and workspace direction. Existing
+attention, task collaboration, reusable work, and shared workspace instructions. Existing
 UI primitives remain available while compound product surfaces move to
 `src/components/system`. This is a whole-product migration; collaboration is
 one consumer of the shared behavior and theme contracts.
@@ -83,7 +83,7 @@ A finished run remains distinct from reviewed or verified work.
 
 Existing project/task lists remain the primary navigation. Fleet and Tasks keep
 their existing placement and visibility preferences. Workspace Information holds
-the maintained goal, completion conditions, decisions, evidence, and next action.
+shared instructions that apply to every task in the workspace.
 Automations is the destination for scheduling repeatable agent work and reviewing
 run history. It is an optional destination, not a mandatory step before working.
 
@@ -99,11 +99,11 @@ mounted when switching views; saving a command never runs it. Tabs wrap in narro
 panes so all destinations remain visible. Advanced configuration stays available
 from the panel header.
 
-The empty task surface offers the maintained next action as an editable prompt,
-with direct access to its goal and evidence. Lens introduces page navigation,
+The empty task surface can open shared instructions from Information.
+Lens introduces page navigation,
 development servers, annotation, diagnostics and evidence capture before a page
 is opened. Loading failures offer retry and address correction. Result review
-links to current changes, documents and maintained direction; those links do not
+links to current changes, documents and shared instructions; those links do not
 claim to be immutable artifacts from the selected run.
 
 ## Save and recovery feedback
@@ -115,7 +115,7 @@ notice offers retry while changes are unsaved. Quit acknowledgement includes
 pending and in-flight background workspace writes. A successful older write
 cannot evict messages that arrived while it was in flight.
 
-Maintained direction and unsaved direction drafts use distinct durable records.
+Shared instructions and unsaved instruction drafts use distinct durable records.
 Opening a task reads its notifications; reviewing a result is a separate explicit,
 reversible action stored independently of notification cleanup.
 
@@ -124,7 +124,7 @@ reversible action stored independently of notification cleanup.
 Use the collaboration preview and browser contract tests for narrow/light/dark
 layout, keyboard navigation, computed metrics, and uncertain delivery. Native
 Electron tests cover product navigation, the automation-to-task path, rejected
-workspace writes and retry, direction recovery, and result-review persistence.
+workspace writes and retry, instruction recovery, and result-review persistence.
 Theme, provider and child lifecycle contracts remain required alongside them.
 
 Continue migrating workspace tool detail/actions and composer option panels.
@@ -191,3 +191,13 @@ headline number. Test themes, narrow/wide layouts, keyboard behavior, and reduce
 motion as part of the migrated surface, then move to the next product outcome.
 
 The current source and compatibility contract is documented in [Stave design system](design-system.md).
+
+## Shared workspace instructions
+
+Information provides one optional text field for instructions shared across tasks.
+Saved text is included in subsequent task context; it does not dispatch a turn or
+judge completion. Keep detailed plans in linked files and action items in Todos.
+Legacy direction fields and local drafts are displayed together without losing
+content, then converted to the single field on save. Clearing the field removes
+its instructions from subsequent context. Existing conversations may retain text
+already sent to the provider.
