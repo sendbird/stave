@@ -14,6 +14,7 @@ const cleanupCommands: Array<{
 }> = [];
 let callFailure: unknown = null;
 let boxFailure: unknown = null;
+let screenshotFailure: unknown = null;
 let attachedForCleanup = true;
 
 mock.module("electron", () => ({
@@ -69,6 +70,13 @@ mock.module("../electron/main/browser/browser-cdp-controller", () => ({
     if (method === "Runtime.callFunctionOn") {
       return { result: { value: true } };
     }
+    if (method === "Page.getLayoutMetrics") {
+      return { contentSize: { width: 1400, height: 3200 } };
+    }
+    if (method === "Page.captureScreenshot") {
+      if (screenshotFailure) throw screenshotFailure;
+      return { data: "cGVuZw==" };
+    }
     return { result: { objectId: "selector-object" } };
   },
   sendCdpCommandIfAttached: async (
@@ -88,6 +96,7 @@ beforeEach(() => {
   cleanupCommands.length = 0;
   callFailure = null;
   boxFailure = null;
+  screenshotFailure = null;
   attachedForCleanup = true;
 });
 
@@ -173,4 +182,37 @@ test("cleanup never reattaches a closing debugger", async () => {
   expect(
     commands.some(({ method }) => method === "Runtime.releaseObject"),
   ).toBe(false);
+});
+
+test("full-page capture clears the viewport override it relied on", async () => {
+  await expect(
+    cdp.captureScreenshot(webContents.id, { fullPage: true }),
+  ).resolves.toBe("data:image/png;base64,cGVuZw==");
+
+  expect(
+    commands.find(({ method }) => method === "Page.captureScreenshot")?.params,
+  ).toMatchObject({ captureBeyondViewport: true });
+  expect(cleanupCommands).toEqual([
+    { method: "Emulation.clearDeviceMetricsOverride", params: undefined },
+  ]);
+});
+
+test("full-page capture clears the viewport override when the capture fails", async () => {
+  screenshotFailure = new Error("Lens screenshot timed out after 15 seconds.");
+
+  await expect(
+    cdp.captureScreenshot(webContents.id, { fullPage: true }),
+  ).rejects.toThrow("timed out");
+
+  expect(cleanupCommands).toEqual([
+    { method: "Emulation.clearDeviceMetricsOverride", params: undefined },
+  ]);
+});
+
+test("viewport capture leaves emulation alone", async () => {
+  await expect(cdp.captureScreenshot(webContents.id)).resolves.toBe(
+    "data:image/png;base64,cGVuZw==",
+  );
+
+  expect(cleanupCommands).toEqual([]);
 });
