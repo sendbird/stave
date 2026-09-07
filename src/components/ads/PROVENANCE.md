@@ -51,3 +51,29 @@ Further host extensions:
   adaptation above. The upstream `xstyle`/`XstyleProp` escape hatch is dropped
   because the installed `utils/stylex` does not export it; callers style the
   wrapper through `className`.
+
+- The agent turn-event family was installed as missing files: `ToolRun` (+
+  `ToolRun.parts`, `ToolRun.styles`), `Thinking` (+ `Thinking.parts`),
+  `Citation` (+ `Citation.parts`), and the parts they compose —
+  `agent-state`, `agent-retry`, `DurationTimer`, `inline-disclosure-icon`,
+  `LinkChip`, `StatusDot`, `TextShimmer` — with the recipes
+  `agent-surface`, `inline-disclosure`, `status-chip` and `text-shimmer`. Only
+  files absent from this copy were written: every file already present carries
+  host fixes and was left untouched, so the installed `styles.css`,
+  `control-chrome`, `tokens.stylex`, `ThemeProvider`, `Badge` and `Button*`
+  remain the host's.
+
+- `utils/stylex` now exports `XstyleProp`, the host style-composition channel.
+  It is the contract the turn-event components above are written against, and it
+  is what makes host composition deterministic: `xstyle` is merged last into the
+  part's own `stylex.props(...)` call, so the host wins on exactly the properties
+  it names, where a `className` composition resolves by bundler emission order.
+  `StyleXValue` and the existing `sx`/`cx` behaviour are unchanged, so nothing
+  already installed is affected.
+
+- Two of the installed turn-event files needed the same strict indexed-access
+  adaptation as `Calendar` and the diff engine: `TextShimmer`'s line-width
+  lookup states the fallback its own modulo already guarantees, and
+  `ToolRun.parts`'s `aggregateRunStatus` states the `null` its signature already
+  documents. Behaviour is identical.
+
