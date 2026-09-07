@@ -415,7 +415,8 @@ export const PaneTabChip = memo(function PaneTabChip(
           xstyle={[
             c.closeButton,
             focusRing.ring,
-            transition.colors,
+            transition.control,
+            transition.motionDurationQuick,
             isActive ? c.closeVisible : c.closeHidden,
           ]}
           aria-label={`close-pane-${panelId}`}

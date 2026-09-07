@@ -6,7 +6,10 @@ export const sheetLayout = stylex.create({
   surface: {
     position: "fixed", display: "flex", flexDirection: "column", gap: vars.space16,
     backgroundClip: "padding-box", fontSize: vars.fontSizeBody,
-    transitionProperty: "translate, opacity", transitionDuration: "200ms", transitionTimingFunction: vars.motionEaseStandard,
+    // The slide/fade pair lives on `transition.slide` at the call site: it is a
+    // spatial, edge-anchored surface, and the literal 200ms this replaced had
+    // no reduced-motion arm, so an off-screen drawer still travelled its full
+    // 2.5rem for a user who asked for no motion.
     opacity: { default: 1, ":is([data-starting-style], [data-ending-style])": 0 },
   },
   left: {

@@ -19,7 +19,12 @@ export const gitGraphRowStyles = stylex.create({
     borderBottomStyle: "solid",
     borderBottomColor: `color-mix(in oklch, ${vars.colorBorder} 30%, transparent)`,
     fontSize: vars.fontSizeCaption,
-    outline: "none",
+    // No `outline: none` here. Both row variants are focusable (`role="row"`
+    // with a roving `tabIndex`) and both already compose
+    // `focusRing.ring` + `focusRing.ringInset` at the call site in
+    // `GitGraphRow.tsx`; the shorthand suppressed the whole outline group and
+    // raced the recipe's longhands for the keyboard indicator. The recipe's own
+    // `outlineStyle: none` default is what makes the resting state ring-less.
     backgroundColor: {
       default: "transparent",
       ":hover": `color-mix(in oklch, ${vars.colorSelectionFill} 35%, transparent)`,
@@ -48,7 +53,6 @@ export const gitGraphRowStyles = stylex.create({
       ":hover": `color-mix(in oklch, ${vars.colorSelectionFill} 35%, transparent)`,
     },
     fontSize: vars.fontSizeCaption,
-    outline: "none",
   },
   workingTreeRowSelected: {
     backgroundColor: {

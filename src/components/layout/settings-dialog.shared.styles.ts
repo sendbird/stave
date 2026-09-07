@@ -194,10 +194,10 @@ export const settingsSharedStyles = stylex.create({
       default: null,
       ":is([data-disabled])": "none",
     },
-    transitionDuration: "150ms",
-    transitionProperty:
-      "background-color, border-color, color, box-shadow, transform, opacity",
-    transitionTimingFunction: vars.motionEaseStandard,
+    // Motion comes from `transition.control` + `motionDurationQuick` at the
+    // call site. The literal it replaced also named `box-shadow` and
+    // `transform`, neither of which this radio or any of its variants ever
+    // changes, and it carried no reduced-motion arm.
     userSelect: "none",
     whiteSpace: "nowrap",
   },

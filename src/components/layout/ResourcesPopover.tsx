@@ -206,7 +206,12 @@ function UsageBar({
       </div>
       <div className={sx(resourceStyles.usageBarTrack)}>
         <div
-          className={sx(resourceStyles.usageBarFill, barColor(ratio))}
+          className={sx(
+            resourceStyles.usageBarFill,
+            transition.bar,
+            transition.motionDurationEmphasis,
+            barColor(ratio),
+          )}
           style={{ width: `${Math.min(ratio * 100, 100)}%` }}
         />
       </div>

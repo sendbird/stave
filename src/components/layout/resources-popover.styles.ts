@@ -32,9 +32,9 @@ export const resourceStyles = stylex.create({
   usageBarFill: {
     height: "100%",
     borderRadius: vars.radiusFull,
-    transitionProperty: "width, background-color",
-    transitionDuration: "300ms",
-    transitionTimingFunction: vars.motionEaseStandard,
+    // `transition.bar` + `motionDurationEmphasis` at the call site; the fill is
+    // absolutely sized inside a fixed track, so the width transition is not a
+    // layout animation, but it is spatial and now goes instant under reduce.
   },
   tooltipAnchor: {
     display: "inline-flex",

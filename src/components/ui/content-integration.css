@@ -4,6 +4,22 @@
   [data-slot="dialog-description"] > a {
     text-decoration-line: underline;
     text-underline-offset: 3px;
+    /* The hover below repaints `color` with no easing, which is the one thing
+       every StyleX interactive surface in the app transitions. Declared here
+       rather than on `:hover` so the return to rest eases too. Named property,
+       ADS duration/easing — the same contract `transition.colors` compiles to.
+       The colour itself stays on `--foreground`: ADS role variables are
+       StyleX-hashed at build time and have no stable name a hand-written CSS
+       file can reference, so `--foreground` (which ADS `colorText` maps to in
+       `system/ads-theme.ts`) is the exposed equivalent. */
+    transition: color var(--atelier-motion-duration-fast)
+      var(--atelier-motion-ease-standard);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    /* The recipe's non-spatial arm: colour feedback keeps an 80ms tick. */
+    [data-slot="dialog-description"] > a {
+      transition-duration: var(--atelier-motion-duration-micro);
+    }
   }
   [data-slot="dialog-description"] > a:hover { color: var(--foreground); }
   [data-slot="input-group-addon"] > svg,

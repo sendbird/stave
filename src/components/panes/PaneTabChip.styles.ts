@@ -120,9 +120,11 @@ export const paneTabChipStyles = stylex.create({
     opacity: 1,
   },
   closeHidden: {
+    // Opacity is animated by `transition.control` + `motionDurationQuick` on
+    // the Button below, which already had to cover this element's colour states
+    // as well; the literal here named `opacity` alone and would have replaced
+    // that property list, dropping the colour easing and the reduced-motion arm.
     opacity: "var(--pane-close-reveal, 0)",
-    transitionDuration: "150ms",
-    transitionProperty: "opacity",
   },
   /**
    * The host-layout Button now emits the glyph contract, so `ads/styles.css`

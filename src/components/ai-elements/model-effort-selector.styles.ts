@@ -130,11 +130,13 @@ export const modelEffortSelectorStyles = stylex.create({
     borderStyle: "solid",
     borderColor: border70,
     backgroundColor: vars.colorSurfaceRaised,
-    // Bespoke floating-selector elevation: a wider, softer ambient layer than the
-    // generic anchored-popover shadow, so this large surface reads as detached
-    // rather than a card sitting on the composer. Contact + ambient pair.
-    boxShadow:
-      "0 4px 12px -6px oklch(0.1375 0.007 89 / 0.4), 0 18px 48px -12px oklch(0.1375 0.007 89 / 0.36)",
+    // The "wider, softer ambient layer than a popover" this used to hand-mix is
+    // exactly ADS's modal band: `elevationModal` carries the 40/72px ambient
+    // layer on top of the contact+mid pair, is theme-aware (the hand-mixed
+    // 0.4/0.36 alphas were tuned for light and go flat on a dark canvas), and
+    // keeps this large detached selector on the elevation scale instead of
+    // between two of its steps.
+    boxShadow: vars.elevationModal,
     padding: 0,
   },
   // ADS vertical Tabs.Root shrink-wraps the rail to its own tab content

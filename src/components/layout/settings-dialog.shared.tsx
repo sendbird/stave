@@ -28,6 +28,7 @@ import {
 import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
+import { transition } from "@/components/ads/recipes/transition";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import {
   Select,
@@ -184,6 +185,8 @@ export function ChoiceButtons<T extends string>(args: {
           className={sx(
             styles.radio,
             focusRing.ring,
+            transition.control,
+            transition.motionDurationQuick,
             hasDescriptions ? styles.radioCard : styles.radioSegment,
           )}
         >
