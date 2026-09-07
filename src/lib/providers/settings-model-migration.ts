@@ -64,9 +64,28 @@ function previousDefaultClaudeEffort(model: string) {
   return "medium";
 }
 
-function previousDefaultCodexEffort(model: string) {
+/**
+ * Only the models that actually shipped in the pre-Astra Codex picker had a
+ * "previous default" to recognize. Returning a guess for anything else made
+ * the migration claim a deliberate choice was a stale default: a user already
+ * on `gpt-6-astra` at "medium" matched the invented `"medium"` guess and had
+ * their effort overwritten by whatever `resolveDefaultCodexEffortForModel`
+ * returned — which, once the App Server catalog primed the dynamic registry,
+ * could be "low". `undefined` never equals a trimmed string, so an unknown
+ * model is now always left alone.
+ */
+const PREVIOUS_CODEX_PICKER_MODELS: readonly string[] = [
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
+  "gpt-5.6-luna",
+  "gpt-5.5",
+];
+
+function previousDefaultCodexEffort(model: string): string | undefined {
   const normalized = model.trim().toLowerCase();
-  return normalized.startsWith("gpt-5.") ? "xhigh" : "medium";
+  return PREVIOUS_CODEX_PICKER_MODELS.includes(normalized)
+    ? "xhigh"
+    : undefined;
 }
 
 /** The seeded Codex task preset as it shipped before the Astra release. */

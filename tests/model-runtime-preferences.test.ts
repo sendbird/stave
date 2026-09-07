@@ -1,4 +1,7 @@
-import { describe, expect, test } from "bun:test";
+import { afterAll, describe, expect, test } from "bun:test";
+import {
+  registerDynamicDefaultReasoningEfforts,
+} from "@/lib/providers/model-catalog";
 import {
   applyModelRuntimePreference,
   buildModelRuntimePreferenceKey,
@@ -202,5 +205,108 @@ describe("model runtime preferences", () => {
       cursorFastMode: true,
     });
     expect(scoped.kiroEffort).toBe(settings.kiroEffort);
+  });
+
+  // Regression: switching between Codex GPT models resets effort to low.
+  //
+  // The composer re-derives the Codex effort from settings on every render and
+  // only stores a per-model preference when the selection carried an explicit
+  // effort. Switching to a model without one (the seeded Alt+1..0 slots have
+  // no effort configured) therefore hit this fallback every time — and the old
+  // fallback adopted the target model's runtime default unconditionally, so a
+  // model whose `model/list` recommendation is "low" overwrote the user's
+  // choice continuously rather than once.
+  describe("codex model switch", () => {
+    const withCodexModelDefaults = () => {
+      registerDynamicDefaultReasoningEfforts(
+        new Map([
+          ["gpt-6-astra", "low"],
+          ["gpt-5.6-luna", "low"],
+          ["gpt-5.6-sol", "low"],
+          ["gpt-5.6-terra", "xhigh"],
+        ]),
+      );
+    };
+
+    afterAll(() => {
+      registerDynamicDefaultReasoningEfforts(
+        new Map([
+          ["gpt-6-astra", "medium"],
+          ["gpt-5.6-luna", "max"],
+          ["gpt-5.6-sol", "high"],
+          ["gpt-5.6-terra", "xhigh"],
+        ]),
+      );
+    });
+
+    test("carries a tuned effort onto every Codex GPT model", () => {
+      withCodexModelDefaults();
+
+      for (const [model, expectedEffort] of [
+        ["gpt-6-astra", "ultra"],
+        // Luna rejects ultra, so the carried choice clamps to its maximum.
+        ["gpt-5.6-luna", "max"],
+        ["gpt-5.6-sol", "ultra"],
+      ] as const) {
+        const scoped = applyModelRuntimePreference({
+          // "ultra" is not Terra's default, so it was a deliberate choice.
+          settings: { ...settings, codexReasoningEffort: "ultra" },
+          providerId: "codex",
+          model,
+        });
+
+        expect(scoped.codexReasoningEffort).toBe(expectedEffort);
+      }
+    });
+
+    test("re-derives an effort still parked on the previous default", () => {
+      withCodexModelDefaults();
+
+      const scoped = applyModelRuntimePreference({
+        // "xhigh" is Terra's default, so it was never tuned.
+        settings: { ...settings, codexReasoningEffort: "xhigh" },
+        providerId: "codex",
+        model: "gpt-6-astra",
+      });
+
+      expect(scoped.codexReasoningEffort).toBe("low");
+    });
+
+    test("a stored per-model preference still wins outright", () => {
+      withCodexModelDefaults();
+
+      const preferences = mergeModelRuntimePreference({
+        preferences: {},
+        providerId: "codex",
+        model: "gpt-6-astra",
+        patch: { effort: "max" },
+      });
+      const scoped = applyModelRuntimePreference({
+        settings: {
+          ...settings,
+          codexReasoningEffort: "xhigh",
+          modelRuntimePreferences: preferences,
+        },
+        providerId: "codex",
+        model: "gpt-6-astra",
+      });
+
+      expect(scoped.codexReasoningEffort).toBe("max");
+    });
+
+    test("still clamps a carried effort the target model rejects", () => {
+      registerDynamicDefaultReasoningEfforts(
+        new Map([["gpt-5.6-terra", "xhigh"]]),
+      );
+
+      const scoped = applyModelRuntimePreference({
+        // Luna accepts no "ultra"; the carried value steps down to "max".
+        settings: { ...settings, codexReasoningEffort: "ultra" },
+        providerId: "codex",
+        model: "gpt-5.6-luna",
+      });
+
+      expect(scoped.codexReasoningEffort).toBe("max");
+    });
   });
 });

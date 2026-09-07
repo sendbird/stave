@@ -232,15 +232,24 @@ export function mapCodexModelCatalogEntry(model: any): CodexModelCatalogEntry {
       typeof model?.defaultReasoningEffort === "string"
         ? model.defaultReasoningEffort
         : "medium",
+    // codex-cli reports each supported tier as an object keyed by
+    // `reasoningEffort` (verified against 0.153.0-alpha.5 `model/list`:
+    // `{ reasoningEffort: "ultra", description: "…" }`). Reading only
+    // `entry.value` collapsed every entry to "" and filtered the whole list
+    // away, which silently disabled the per-model effort restriction and let
+    // downstream clamps fall back to the model default.
     supportedReasoningEfforts: Array.isArray(model?.supportedReasoningEfforts)
       ? model.supportedReasoningEfforts
           .map((entry: any) =>
             typeof entry === "string"
               ? entry
-              : typeof entry?.value === "string"
-                ? entry.value
-                : "",
+              : typeof entry?.reasoningEffort === "string"
+                ? entry.reasoningEffort
+                : typeof entry?.value === "string"
+                  ? entry.value
+                  : "",
           )
+          .map((entry: string) => entry.trim())
           .filter(Boolean)
       : [],
     inputModalities: Array.isArray(model?.inputModalities)
