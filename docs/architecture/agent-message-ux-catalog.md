@@ -99,7 +99,7 @@ become a second visible assistant message.
 | `subagent_progress` | Appends to the matching Agent `tool_use.progressMessages` | Show progress bullets inside the subagent row; if no Agent can be matched, degrade to one system event rather than dropping the signal | Covered |
 | `model_resolved` | Updates message provider and model metadata | Keep the footer and status copy truthful when routing resolves to a different provider or model; no transcript row | Metadata only |
 | `error` | Error system event plus turn error state | Keep recoverable errors distinguishable from terminal failures; preserve subsequent recovery and explain a terminal stop | Not yet |
-| `done` | Finalizes the message and pending interaction states | Stop streaming, close thinking and open tool states appropriately, add truncation or “No response returned” fallback, and auto-collapse clean completed traces | Not yet |
+| `done` | Finalizes the message and pending interaction states | Stop streaming, keep collapsible rows closed unless they need attention, add truncation or “No response returned” fallback, and auto-collapse the clean completed turn-level trace | Not yet |
 
 ## Persisted Message Parts Without A Dedicated Provider Event
 
@@ -115,7 +115,8 @@ construction even though they are not separate `NormalizedProviderEvent` types.
 ## Interaction Invariants
 
 - The root trace stays open during streaming and auto-collapses only after a
-  clean completed turn. Errors and pending interactions remain inspectable.
+  clean completed turn. Collapsible rows inside it stay closed unless they
+  need attention. Errors and pending interactions remain inspectable.
 - A row is an accordion only when its body contains new information. A title
   such as `Context window at 62%` must not repeat the same sentence inside a
   nested body. For a multi-line generic system notice, the first non-empty line

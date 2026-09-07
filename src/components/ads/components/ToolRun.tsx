@@ -62,7 +62,7 @@ export type ToolRunProps = ToolRunBaseProps & {
    * "1.4 kB". What the run produced, counted.
    */
   count?: React.ReactNode;
-  /** Initial open state. Defaults to "open while the run is live". */
+  /** Initial open state. Defaults to closed; attention states stay open. */
   defaultOpen?: boolean;
   /** Error output. Tinted danger and announced assertively when opened. */
   error?: React.ReactNode;
@@ -114,9 +114,11 @@ export type ToolRunProps = ToolRunBaseProps & {
  * Arguments, output and errors share one open body without nested wells;
  * Terminal or JsonViewer children keep only their own necessary surface.
  *
- * The disclosure animates a mounted row track, stays open while live or failed,
- * and collapses to its measured one-line record when it settles. A reader who
- * toggles it during a run takes control for that run. Duration comes only from
+ * The disclosure animates a mounted row track and stays closed while the run
+ * is live, so a turn of tool calls is a list of status rows rather than a
+ * stack of open payloads. A failure, denial or approval gate stays open —
+ * collapsing those would hide the one payload worth reading. A reader who
+ * toggles a row takes control for that run. Duration comes only from
  * `durationMs`, `startedAt`/`settledAt`, or a real live interval; missing
  * measurement renders no plausible substitute.
  *
@@ -168,12 +170,11 @@ function ToolRunRoot({
 
   const { open, setOpen } = useSettleDisclosure({
     defaultOpen,
-    // A failed, denied or approval-gated run counts as "live" for the
-    // disclosure even though its clock has stopped: it is the one payload the
-    // reader has to read, and the completed-collapse would hide the error the
-    // instant it appeared. `isAttentionState` owns that list for the whole
-    // family — do not re-derive it here.
-    live: hasPayload && (live || isAttentionState(status)),
+    // Only attention keeps the payload on screen. A running call stays
+    // collapsed so the rail stays a list of status rows; the header still
+    // carries the live clock. `isAttentionState` owns the stay-open list
+    // for the whole family — do not re-derive it here.
+    live: hasPayload && isAttentionState(status),
     onOpenChange,
     open: openProp,
   });

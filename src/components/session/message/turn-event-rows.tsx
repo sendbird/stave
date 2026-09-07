@@ -107,8 +107,8 @@ export function TraceCitations(args: { output?: string }) {
  * Three behaviours move out of the host and into the component, which is the
  * whole point of the adoption: the phase label shimmers through the shared
  * `text-shimmer` recipe instead of a fourth local copy of that sweep, the
- * trace collapses to its measured one-line record when the model settles, and
- * a reader who opens the trace mid-run keeps it open.
+ * trace stays closed unless the reader opens it, and the settled header
+ * keeps the measured duration.
  *
  * `durationMs` is passed only when the provider actually timed the pass. §6:
  * given no measurement `Thinking` says "Finished thinking" rather than a
