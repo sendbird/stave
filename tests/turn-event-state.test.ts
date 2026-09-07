@@ -3,6 +3,8 @@ import { describe, expect, test } from "bun:test";
 import {
   extractOutputUrls,
   toAgentRunState,
+  toDiffRunState,
+  toFileChangeRunState,
   toMeasuredDurationMs,
   toUrlSource,
 } from "@/components/session/message/turn-event-state";
@@ -20,6 +22,22 @@ describe("toAgentRunState", () => {
     expect(toAgentRunState("output-available")).toBe("done");
     expect(toAgentRunState("output-error")).toBe("failed");
     expect(toAgentRunState(undefined)).toBe("pending");
+  });
+});
+
+describe("toDiffRunState", () => {
+  test("keeps accept, reject, and pending as distinct words", () => {
+    expect(toDiffRunState("accepted")).toBe("done");
+    expect(toDiffRunState("rejected")).toBe("denied");
+    expect(toDiffRunState("pending")).toBe("pending");
+  });
+});
+
+describe("toFileChangeRunState", () => {
+  test("maps the shared provider payload without calling a skip a cancel", () => {
+    expect(toFileChangeRunState("applied")).toBe("done");
+    expect(toFileChangeRunState("skipped")).toBe("skipped");
+    expect(toFileChangeRunState("failed")).toBe("failed");
   });
 });
 

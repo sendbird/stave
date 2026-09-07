@@ -113,6 +113,20 @@ maps into it exactly once, in
 | approval requested          | `approval`      | Awaiting approval  | **stays open**                  |
 | interrupted / canceled turn | `interrupted` / `canceled` | warning / neutral | closed             |
 
+File-change rows do not use the tool-part column above. Claude and Codex both
+emit `appliedPaths` / `skippedPaths` / `failedPaths` on a `file_change` tool,
+and the host maps that payload once in `toFileChangeRunState`:
+
+| Provider payload   | Host status | `AgentRunState` | Status word |
+| ------------------ | ----------- | --------------- | ----------- |
+| `appliedPaths`     | `applied`   | `done`          | Completed (quiet) |
+| `skippedPaths`     | `skipped`   | `skipped`       | Skipped, warning |
+| `failedPaths`      | `failed`    | `failed`        | Failed, danger |
+
+`skippedPaths` means the inline diff was omitted (binary, too large, outside
+the workspace, or the snapshot never covered it). It is not a cancelled run.
+A human abort is `canceled`; a refused pending diff is `denied`.
+
 The four kinds adopted last are the same matrix read against the signal each
 one actually has. Two of them have no disclosure at all, and that is the
 correct answer rather than a gap:

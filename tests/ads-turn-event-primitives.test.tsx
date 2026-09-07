@@ -114,6 +114,12 @@ describe("FileChangeSummary", () => {
     expect(
       renderToStaticMarkup(<FileChangeSummary path="a.ts" state="denied" />),
     ).toContain("Denied");
+    expect(
+      renderToStaticMarkup(<FileChangeSummary path="a.ts" state="skipped" />),
+    ).toContain("Skipped");
+    expect(
+      renderToStaticMarkup(<FileChangeSummary path="a.ts" state="canceled" />),
+    ).toContain("Canceled");
   });
 });
 

@@ -78,6 +78,7 @@ const ROLLUP_PRIORITY: AgentRunState[] = [
   "denied",
   "interrupted",
   "canceled",
+  "skipped",
   "retrying",
   "running",
   "queued",
