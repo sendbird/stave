@@ -208,9 +208,14 @@ export const promptInputStyles = stylex.create({
     outline: "none",
   },
 
+  /*
+   * Height cap only. The drawer panel is a detached global surface and the ADS
+   * drawer surface already carries `elevationModal` for exactly that role;
+   * restating it here (from `className`, where StyleX cannot reconcile the
+   * duplicate) painted the same modal band twice on one element.
+   */
   drawerContent: {
     backgroundColor: vars.colorSurfaceRaised,
-    boxShadow: vars.elevationModal,
     maxHeight: "78vh",
   },
   drawerHeader: {
@@ -389,7 +394,9 @@ export const promptInputStyles = stylex.create({
     backgroundColor: "transparent",
     paddingInline: 0,
     paddingBlock: 0,
-    boxShadow: "none",
+    // Explicitly flat, on the elevation scale: the editor is the composer
+    // surface's own text plane, not a layer above it.
+    boxShadow: vars.elevationFlat,
     outline: { default: "none", ":focus-visible": "none" },
   },
   editorSizeMinimal: {
@@ -438,7 +445,6 @@ export const promptInputStyles = stylex.create({
     gap: 0,
     overflow: "hidden",
     padding: vars.space4,
-    boxShadow: vars.elevationOverlay,
   },
   commandRoot: {
     borderRadius: vars.radiusControl,

@@ -15,12 +15,11 @@ export const queuedTurnsStyles = stylex.create({
     backgroundColor: vars.colorSurface,
     paddingInline: vars.space12,
     paddingBlock: 10,
-    // Popup band: this panel floats over the composer, so it takes the ADS
-    // overlay step rather than a hand-mixed pair. The literal it replaced was
-    // pure-black and theme-blind — invisible on a dark canvas, where
-    // `elevationOverlay` is overridden per theme — and it had no ambient layer,
-    // so the surface read as a card on the composer instead of above it.
-    boxShadow: vars.elevationOverlay,
+    // In-surface panel, not a popup: the queue renders in the composer's own
+    // flow above the input, with no portal, backdrop or anchor. `elevationRaised`
+    // is the step for a raised in-flow panel; `elevationOverlay` is the
+    // dialog/popover band and made a stationary panel read as a floating popup.
+    boxShadow: vars.elevationRaised,
   },
   header: {
     display: "flex",
@@ -67,8 +66,11 @@ export const queuedTurnsStyles = stylex.create({
     backgroundColor: `color-mix(in oklch, ${vars.colorCanvas} 80%, transparent)`,
     paddingInline: 10,
     paddingBlock: vars.space8,
-    boxShadow: { default: vars.elevationRaised, ":hover": vars.elevationLift },
-    transitionProperty: "border-color, box-shadow",
+    // A row is content inside the panel above, so it claims no depth of its
+    // own — nesting `elevationRaised`/`elevationLift` here matched and then
+    // out-stepped its own container. Hover reads on the border instead.
+    boxShadow: vars.elevationFlat,
+    transitionProperty: "border-color",
     transitionDuration: vars.motionDurationFast,
     transitionTimingFunction: vars.motionEaseStandard,
     [rowActionsOpacity]: { default: 0, ":hover": 1, ":focus-within": 1 },

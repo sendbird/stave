@@ -89,7 +89,9 @@ export const controlStyles = stylex.create({
      */
     "--ads-control-icon-size": vars.controlIconSizeMd,
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
-    boxShadow: "none",
+    // Explicitly flat, on the elevation scale: a lane control is chrome drawn
+    // on the composer surface, so it carries no depth of its own.
+    boxShadow: vars.elevationFlat,
     // Radius is deliberately absent: ADS `Button` resolves each corner from
     // `var(--ads-button-radius-*, vars.radiusControl)` and nothing in this
     // repository sets those properties (only ADS `ButtonGroup`/`SplitButton`
@@ -136,10 +138,14 @@ export const controlStyles = stylex.create({
     transitionProperty: { default: "opacity, translate", "@media (prefers-reduced-motion: reduce)": "opacity" },
     transitionDuration: "150ms", transitionTimingFunction: vars.motionEaseStandard,
   },
+  /*
+   * Geometry and inner air only. Both overflow menus render on an ADS popover
+   * surface, which already owns the anchored-popup elevation step, so the
+   * elevation that used to be restated here is the surface's to state once.
+   */
   menu: {
     inlineSize: "auto", minInlineSize: "14rem", maxInlineSize: "min(26rem, calc(100vw - 2rem))", gap: 0,
     borderRadius: vars.radiusPanel, backgroundColor: vars.colorSurfaceRaised, padding: vars.space8,
-    boxShadow: vars.elevationOverlay,
   },
   menuList: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: vars.space4 },
   menuRow: { display: "flex", alignItems: "center", gap: vars.space8 },

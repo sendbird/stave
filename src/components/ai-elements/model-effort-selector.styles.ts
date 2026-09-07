@@ -130,13 +130,11 @@ export const modelEffortSelectorStyles = stylex.create({
     borderStyle: "solid",
     borderColor: border70,
     backgroundColor: vars.colorSurfaceRaised,
-    // The "wider, softer ambient layer than a popover" this used to hand-mix is
-    // exactly ADS's modal band: `elevationModal` carries the 40/72px ambient
-    // layer on top of the contact+mid pair, is theme-aware (the hand-mixed
-    // 0.4/0.36 alphas were tuned for light and go flat on a dark canvas), and
-    // keeps this large detached selector on the elevation scale instead of
-    // between two of its steps.
-    boxShadow: vars.elevationModal,
+    // Elevation is the ADS popover surface's to state: this selector is
+    // anchored to its composer trigger, so it belongs in the popup band the
+    // surface already applies. Overriding it to `elevationModal` here promoted
+    // a trigger-anchored popup into the band reserved for detached, backdropped
+    // surfaces — the widest ambient layer in the system on composer chrome.
     padding: 0,
   },
   // ADS vertical Tabs.Root shrink-wraps the rail to its own tab content
