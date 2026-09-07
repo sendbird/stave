@@ -23,7 +23,12 @@ export const commandLayout = stylex.create({
     alignItems: "center", flexShrink: 0,
   },
   list: { scrollbarWidth: "none", maxHeight: "18rem", scrollPaddingBlock: vars.space8, overflowX: "hidden", overflowY: "auto", outlineStyle: "none" },
-  group: { overflow: "hidden", padding: vars.space4 },
+  // No `overflow` here. `overflow: hidden` on a flex item makes its automatic
+  // minimum size 0, so a group inside the scrolling `list` column shrank below
+  // its own grid rows and clipped them instead of letting the list scroll —
+  // measured 5 rows summing 152px inside a 71px box, each group starting inside
+  // the previous one's rows. Row-level truncation is `itemLabel`'s job.
+  group: { padding: vars.space4 },
   separator: { marginInline: -4, height: 1, width: "auto", backgroundColor: vars.colorBorder },
   item: {
     pointerEvents: { default: null, ':is([data-disabled="true"])': "none" },

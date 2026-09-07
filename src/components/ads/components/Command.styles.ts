@@ -223,6 +223,16 @@ export const styles = stylex.create({
   },
   group: {
     display: "grid",
+    // `list` is a scrolling flex column, so a group is a flex ITEM in it and
+    // must not shrink — the same reason `item` below states it. A grid item
+    // that shrinks below its own rows does not reflow, it clips: measured 5
+    // rows summing 152px inside a 71px box, with the next group starting
+    // inside the previous one's rows. A group's automatic minimum size
+    // normally prevents that, but that protection is void the moment anything
+    // gives the group a non-`visible` overflow, and a host reasonably might.
+    // Stating `flexShrink: 0` here makes the list scroll in every case, which
+    // is what `overflow-y: auto` on the list was for.
+    flexShrink: 0,
     gap: vars.space4,
   },
   groupLabel: {

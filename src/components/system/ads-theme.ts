@@ -19,14 +19,41 @@ const roles = {
   colorBorderStrong: "var(--muted-foreground)",
   colorBorderFocus: "var(--ring)",
   colorAccent: "var(--primary)",
+  /*
+   * Interaction states are derived, not authored, so all 20+ saved themes get
+   * them from their own `--primary` instead of inheriting ADS's.
+   *
+   * Two rules, both ADS's own (tokens.stylex.ts on `colorMixInk`/`colorMixLift`,
+   * design-direction "A state step is sized in OKLCH lightness"):
+   *
+   * 1. The operand is picked by the FILL, not by the theme — a light fill
+   *    darkens, a dark fill lifts. `--primary-foreground` IS that operand for
+   *    any theme by construction: it is the pole the accent had to contrast
+   *    against to carry a label, so it is on the far side of the accent's own
+   *    lightness whichever way round the theme is. That is what makes this one
+   *    expression correct for a dark-blue primary in a light theme and a
+   *    light-blue primary in a dark theme, with no per-theme flag.
+   * 2. `in oklab`, never `in oklch`. OKLCH interpolates HUE, and a near-neutral
+   *    operand still carries a nominal one, so the mix dragged the accent's hue
+   *    toward it: measured `oklch(0.54 0.18 260)` hovering to
+   *    `oklch(0.585 0.1623 277.5)` — the blue button turned violet under the
+   *    pointer. OKLAB is rectangular, so the same mix moves lightness and
+   *    leaves hue where it was.
+   *
+   * 8% lands ΔL ~= 0.036-0.044 across the built-in themes, against the
+   * documented hover step of ~0.038; 16% doubles it for the pressed step, which
+   * is the ~0.077 the same table gives.
+   */
   colorAccentHover:
-    "color-mix(in oklch, var(--primary) 90%, var(--primary-foreground))",
+    "color-mix(in oklab, var(--primary-foreground) 8%, var(--primary))",
   colorAccentSoft: "var(--accent)",
   colorAccentText: "var(--primary-foreground)",
   colorSelectionFill: "var(--accent)",
   colorDanger: "var(--destructive)",
+  // Same two rules. The operand is the ink the destructive fill contrasts
+  // against, and the space is oklab so a red does not swing toward orange.
   colorDangerHover:
-    "color-mix(in oklch, var(--destructive) 90%, var(--foreground))",
+    "color-mix(in oklab, var(--foreground) 8%, var(--destructive))",
   colorDangerText: "var(--destructive)",
   colorDangerBorder: "var(--destructive)",
   colorDangerSoft: "color-mix(in oklch, var(--destructive) 12%, var(--card))",

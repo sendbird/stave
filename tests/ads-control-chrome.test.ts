@@ -54,9 +54,33 @@ describe("ADS control chrome", () => {
       expect(reset).toMatch(new RegExp(`^\\s*${selector}(,| \\{)$`, "m"));
     }
     expect(reset).toContain("margin: 0;");
-    // Deliberately NOT reset: zeroing the list indent without also removing the
-    // markers paints them outside the box.
-    expect(reset).not.toContain("padding-inline-start: 0");
+  });
+
+  test("the reset layer removes the user-agent fieldset box and list indent", () => {
+    const css = read(`${ADS}/styles.css`);
+    const reset = css.slice(
+      css.indexOf("@layer reset {"),
+      css.indexOf("@layer base"),
+    );
+    // `fieldset` is the only element whose UA box is a visible border, so every
+    // form that grouped its controls for assistive tech drew a `2px groove`
+    // rectangle inside whatever card already framed it. `min-inline-size` goes
+    // with it: the UA's `min-content` silently blocks the fieldset from
+    // shrinking in a flex or grid parent.
+    const fieldset = reset.slice(reset.indexOf("  fieldset {"));
+    const fieldsetBody = fieldset.slice(0, fieldset.indexOf("}"));
+    expect(fieldsetBody).toContain("border-width: 0");
+    expect(fieldsetBody).toContain("border-style: solid");
+    expect(fieldsetBody).toContain("min-inline-size: 0");
+    expect(fieldsetBody).toContain("padding: 0");
+
+    // A list is this system's row container, and the UA's 40px indent is never
+    // wanted there — measured on a Settings model list whose rows started 40px
+    // inside their own card. Prose states its own markers and indent, so both
+    // halves go together.
+    const list = reset.slice(reset.lastIndexOf("  ol,"));
+    expect(list).toContain("list-style: none");
+    expect(list).toContain("padding-inline-start: 0");
   });
 
   test("empty-state headers centre their media on the copy's axis", () => {
@@ -86,8 +110,7 @@ describe("ADS control chrome", () => {
     );
   });
 
-  test("the theme provider restores host-owned <html> styles it overwrote", () => {
-    // A light<->dark switch re-runs the sync effect. Deleting the names it wrote
+  test("the theme provider restores host-owned <html> styles it overwrote", () => {    // A light<->dark switch re-runs the sync effect. Deleting the names it wrote
     // on cleanup took the host's own values with them, and the unconditional
     // `background-color` removal deleted a background a host had set on purpose.
     const source = read(`${ADS}/components/ThemeProvider.tsx`);
@@ -96,5 +119,57 @@ describe("ADS control chrome", () => {
       "previousVars.set(name, root.style.getPropertyValue(name))",
     );
     expect(source).toContain("if (root.dataset.adsBootBackground != null)");
+  });
+
+  test("trigger chrome states border width and style, not only colour", () => {
+    // Both keys land on native `<button>` elements, which arrive with the UA's
+    // `2px outset` box. Stating only `border-color` recoloured that box instead
+    // of replacing it: a quiet trigger carried 4px of invisible size, and one
+    // sidebar button rendered a visible ridge.
+    const recipe = read(`${ADS}/recipes/control-chrome.ts`);
+    const trigger = recipe.slice(
+      recipe.indexOf("  trigger: {"),
+      recipe.indexOf("  triggerQuiet: {"),
+    );
+    expect(trigger).toContain('borderStyle: "solid"');
+    expect(trigger).toContain("borderWidth: vars.borderWidthHairline");
+
+    const quiet = recipe.slice(recipe.indexOf("  triggerQuiet: {"));
+    const quietBody = quiet.slice(0, quiet.indexOf("\n  },"));
+    expect(quietBody).toContain('borderStyle: "solid"');
+    expect(quietBody).toContain("borderWidth: 0");
+  });
+
+  test("command groups do not shrink inside their scrolling list", () => {
+    // `list` is a scrolling flex column, so a group is a flex item in it. A grid
+    // item that shrinks below its own rows clips rather than reflows: measured 5
+    // rows summing 152px inside a 71px box, with each group starting inside the
+    // previous one's rows.
+    const styles = read(`${ADS}/components/Command.styles.ts`);
+    const group = styles.slice(styles.indexOf("  group: {"));
+    expect(group.slice(0, group.indexOf("\n  },"))).toContain("flexShrink: 0");
+  });
+
+  test("the host command layout does not re-zero the group's minimum size", () => {
+    // `overflow: hidden` on a flex item makes its automatic minimum size 0,
+    // which is what let the groups shrink in the first place.
+    const layout = read("src/components/ui/command-layout.stylex.ts");
+    const group = layout.slice(layout.indexOf("  group: {"));
+    expect(group.slice(0, group.indexOf("},"))).not.toContain("overflow");
+  });
+
+  test("accent and danger interaction states are derived hue-safely", () => {
+    // `color-mix(in oklch, …)` interpolates HUE, and a near-neutral operand
+    // still carries a nominal one: measured `oklch(0.54 0.18 260)` hovering to
+    // `oklch(0.585 0.1623 277.5)` — the blue primary button turned violet.
+    // OKLAB is rectangular, so the same mix moves lightness and leaves hue.
+    const theme = read("src/components/system/ads-theme.ts");
+    expect(theme).not.toMatch(/color-mix\(in oklch[^)]*--primary\)/);
+    expect(theme).toContain(
+      "color-mix(in oklab, var(--primary-foreground) 8%, var(--primary))",
+    );
+    expect(theme).toContain(
+      "color-mix(in oklab, var(--foreground) 8%, var(--destructive))",
+    );
   });
 });

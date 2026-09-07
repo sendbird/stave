@@ -1,5 +1,6 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Suspense, lazy, useMemo, useState } from "react";
+import { DiffViewer } from "@/components/ads/components/DiffViewer";
+import { useMemo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Badge, Button, Card, ImageLightbox } from "@/components/ui";
 import {
@@ -30,8 +31,6 @@ import type {
   ImageContextPart,
 } from "@/types/chat";
 
-const ReactDiffViewer = lazy(() => import("react-diff-viewer-continued"));
-
 function resolveChatBlockFilePath(args: {
   filePath: string;
   workspacePath?: string;
@@ -53,62 +52,6 @@ function getFileChangeStatusPriority(status: FileChangeSummaryRow["status"]) {
       return 1;
   }
 }
-
-const CHAT_DIFF_VIEWER_STYLES = {
-  variables: {
-    light: {
-      diffViewerBackground: "var(--editor)",
-      diffViewerTitleBackground: "var(--editor-tab)",
-      diffViewerColor: "var(--editor-foreground)",
-      diffViewerTitleColor: "var(--editor-foreground)",
-      diffViewerTitleBorderColor: "var(--border)",
-      addedBackground: "var(--diff-added)",
-      addedColor: "var(--diff-added-foreground)",
-      removedBackground: "var(--diff-removed)",
-      removedColor: "var(--diff-removed-foreground)",
-      addedGutterBackground: "var(--diff-added)",
-      removedGutterBackground: "var(--diff-removed)",
-      gutterBackground: "var(--editor-muted)",
-      gutterColor: "var(--muted-foreground)",
-      addedGutterColor: "var(--diff-added-foreground)",
-      removedGutterColor: "var(--diff-removed-foreground)",
-      highlightBackground:
-        "color-mix(in oklch, var(--accent) 14%, transparent)",
-      highlightGutterBackground:
-        "color-mix(in oklch, var(--accent) 18%, transparent)",
-      codeFoldBackground: "var(--editor-muted)",
-      codeFoldGutterBackground: "var(--editor-muted)",
-      codeFoldContentColor: "var(--muted-foreground)",
-      emptyLineBackground: "var(--editor)",
-    },
-    dark: {
-      diffViewerBackground: "var(--editor)",
-      diffViewerTitleBackground: "var(--editor-tab)",
-      diffViewerColor: "var(--editor-foreground)",
-      diffViewerTitleColor: "var(--editor-foreground)",
-      diffViewerTitleBorderColor: "var(--border)",
-      addedBackground: "var(--diff-added)",
-      addedColor: "var(--diff-added-foreground)",
-      removedBackground: "var(--diff-removed)",
-      removedColor: "var(--diff-removed-foreground)",
-      addedGutterBackground: "var(--diff-added)",
-      removedGutterBackground: "var(--diff-removed)",
-      gutterBackground: "var(--editor-muted)",
-      gutterBackgroundDark: "var(--editor-muted)",
-      gutterColor: "var(--muted-foreground)",
-      addedGutterColor: "var(--diff-added-foreground)",
-      removedGutterColor: "var(--diff-removed-foreground)",
-      highlightBackground:
-        "color-mix(in oklch, var(--accent) 14%, transparent)",
-      highlightGutterBackground:
-        "color-mix(in oklch, var(--accent) 18%, transparent)",
-      codeFoldBackground: "var(--editor-muted)",
-      codeFoldGutterBackground: "var(--editor-muted)",
-      codeFoldContentColor: "var(--muted-foreground)",
-      emptyLineBackground: "var(--editor)",
-    },
-  },
-} as const;
 
 function ChangeCount(args: { value: number; tone: "added" | "removed" }) {
   return (
@@ -135,7 +78,6 @@ export function ChangedFilesBlock(args: {
   const { parts, taskId, messageId, startIndex = 0 } = args;
   const resolveDiff = useAppStore((state) => state.resolveDiff);
   const openDiffInEditor = useAppStore((state) => state.openDiffInEditor);
-  const isDarkMode = useAppStore((state) => state.isDarkMode);
   const workspaceCwd = useAppStore(
     (state) =>
       state.workspacePathById[state.activeWorkspaceId] ??
@@ -260,22 +202,13 @@ export function ChangedFilesBlock(args: {
               {isOpen ? (
                 <div className={sx(styles.expandedBody)}>
                   <div className={sx(styles.diffScroll)}>
-                    <Suspense
-                      fallback={
-                        <div className={sx(styles.diffLoading)}>
-                          Loading diff...
-                        </div>
-                      }
-                    >
-                      <ReactDiffViewer
-                        oldValue={row.part.oldContent}
-                        newValue={row.part.newContent}
-                        splitView={false}
-                        hideLineNumbers={false}
-                        useDarkTheme={isDarkMode}
-                        styles={CHAT_DIFF_VIEWER_STYLES}
-                      />
-                    </Suspense>
+                    <DiffViewer
+                      before={row.part.oldContent}
+                      after={row.part.newContent}
+                      mode="unified"
+                      granularity="word"
+                      aria-label={`Diff for ${row.displayFilePath}`}
+                    />
                   </div>
                   <div className={sx(styles.actionBar)}>
                     <Button

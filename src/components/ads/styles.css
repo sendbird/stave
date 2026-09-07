@@ -120,6 +120,49 @@
   ul {
     margin: 0;
   }
+
+  /*
+   * `fieldset` is the one element whose UA box is a VISIBLE border — `2px
+   * groove`, drawn in whatever `border-color` is in scope — and grouping a set
+   * of controls for assistive tech is the only reason to reach for it. So every
+   * form that grouped its fields correctly was rewarded with a heavy rectangle
+   * no surface in this system draws, nested inside whatever card already framed
+   * the form. Its `padding`/`margin` go for the same reason (spacing belongs to
+   * the container) and so does `min-inline-size`, which the UA sets to
+   * `min-content`: that value silently blocks a fieldset from shrinking inside a
+   * flex or grid parent, which is a layout bug with no visible cause.
+   *
+   * A form that wants a visible group states it, like any other surface.
+   */
+  fieldset {
+    border-style: solid;
+    border-width: 0;
+    margin: 0;
+    min-inline-size: 0;
+    padding: 0;
+  }
+
+  legend {
+    padding: 0;
+  }
+
+  /*
+   * A list is this system's default structure for a set of rows — a settings
+   * list, a menu, a result set — and none of those want the UA's
+   * `padding-inline-start: 40px` or its markers. Left in, the indent is invisible
+   * in the markup and shows up as rows that start 40px inside their own card:
+   * measured on a Settings model list, where every row's icon sat 40px past the
+   * section heading above it.
+   *
+   * Prose is unaffected because prose states both halves itself. Both Markdown
+   * renderers here already declare `list-style-type` and their own indent, which
+   * is what a list that genuinely wants markers has to do.
+   */
+  ol,
+  ul {
+    list-style: none;
+    padding-inline-start: 0;
+  }
 }
 
 /*

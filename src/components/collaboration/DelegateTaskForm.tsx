@@ -208,7 +208,7 @@ export function DelegateTaskForm({
         </p>
         <fieldset
           disabled={busy || !loaded}
-          {...stylex.props(styles.contentStack)}
+          {...stylex.props(styles.fieldsetReset)}
         >
           <label {...stylex.props(styles.label)} htmlFor={`${formId}-prompt`}>
             <span>Assignment</span>

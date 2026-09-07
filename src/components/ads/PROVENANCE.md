@@ -42,3 +42,12 @@ Further host extensions:
 - Menu rows explicitly align text to inline start, including native button hosts.
 - Source comments describing unrelated host products are generalized; source
   integrity records remain unchanged and do not claim byte-identical copies.
+
+- DiffViewer (`DiffViewer.tsx` + the pure `DiffViewer.diff.ts` engine) was a
+  missing file installed so the turn-event surface can render file diffs through
+  a canonical, token-driven component instead of an external diff engine. Its
+  pure engine satisfies strict indexed-access checks (loop-bounded reads are
+  asserted present; the DP table falls back to `0`), matching the Calendar
+  adaptation above. The upstream `xstyle`/`XstyleProp` escape hatch is dropped
+  because the installed `utils/stylex` does not export it; callers style the
+  wrapper through `className`.

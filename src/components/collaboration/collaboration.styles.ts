@@ -4,6 +4,21 @@ import { vars } from "../ads/tokens/tokens.stylex";
 export const collaborationStyles = stylex.create({
   panelStack: { display: "flex", flexDirection: "column", gap: vars.space16 },
   contentStack: { display: "flex", flexDirection: "column", gap: vars.space12 },
+  // A bare <fieldset> keeps the user-agent `2px groove` border because the
+  // global reset overrides only border-color, not border-style/width. Left
+  // unreset it draws a heavy dark rectangle inside the card — a second surface
+  // for one form. This fieldset is a grouping/disable wrapper with no legend,
+  // so drop its box entirely and let contentStack spacing separate the group.
+  fieldsetReset: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars.space12,
+    minWidth: 0,
+    borderWidth: 0,
+    borderStyle: "none",
+    margin: 0,
+    padding: 0,
+  },
   compactStack: { display: "flex", flexDirection: "column", gap: vars.space8 },
   librarySectionStack: {
     display: "flex",

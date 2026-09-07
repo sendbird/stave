@@ -40,6 +40,12 @@ export const modelVisibilityStyles = stylex.create({
     borderRadius: vars.radiusControl,
     borderStyle: "solid",
     borderWidth: vars.borderWidthHairline,
+    // A bare `<ul>` carries the UA `padding-inline-start: 40px` + list marker,
+    // which indents every row's icon far past the section's content edge. Reset
+    // both so the row's own `paddingInline` is the only inset.
+    listStyle: "none",
+    margin: 0,
+    padding: 0,
     maxBlockSize: 320,
     overflowY: "auto",
     overscrollBehavior: "contain",

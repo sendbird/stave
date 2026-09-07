@@ -91,7 +91,6 @@ export const branchDropdownStyles = stylex.create({
   searchInput: {
     borderRadius: vars.radiusControl,
     fontSize: vars.fontSizeBody,
-    height: 32,
     paddingInlineStart: vars.space32,
   },
   spinning: {
@@ -143,16 +142,16 @@ export const branchDropdownStyles = stylex.create({
     paddingInline: vars.space8,
   },
 
-  // --- Current-branch card ------------------------------------------------
-  statusCard: {
-    backgroundColor: vars.colorCanvasSubtle,
-    borderColor: vars.colorBorderSubtle,
-    borderRadius: vars.radiusControl,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+  // --- Current-branch section --------------------------------------------
+  // Flat inside the popup: the popup surface is already the card, so a bordered
+  // box here would be a card-inside-a-card. Sections separate by a hairline
+  // rule and spacing instead of a nested bordered box.
+  statusSection: {
+    borderTopColor: vars.colorBorderSubtle,
+    borderTopStyle: "solid",
+    borderTopWidth: vars.borderWidthHairline,
     marginTop: vars.space8,
-    paddingBlock: vars.space8,
-    paddingInline: "0.625rem",
+    paddingTop: vars.space8,
   },
   statusRow: {
     alignItems: "center",
@@ -169,66 +168,55 @@ export const branchDropdownStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  statusPill: {
-    borderRadius: vars.radiusMark,
-    flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
-    paddingBlock: vars.space2,
-    paddingInline: 6,
-  },
-  statusPillConflict: {
-    backgroundColor: vars.colorDangerSoft,
-    color: vars.colorDangerText,
-  },
-  statusPillDirty: {
-    backgroundColor: vars.colorWarningSoft,
-    color: vars.colorWarningText,
-  },
-  statusPillClean: {
-    backgroundColor: vars.colorSuccessSoft,
-    color: vars.colorSuccessText,
-  },
+  statusBadge: { flexShrink: 0 },
   statusHint: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeMicro,
     lineHeight: "1rem",
     marginTop: vars.space4,
   },
-  actionGrid: {
+  // Fetch / Pull share a rung; the detached-checkout action wraps to a full
+  // row beneath them. Every control sits on the `sm` (32px) rung.
+  actionRow: {
     display: "grid",
     gap: vars.space8,
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
     marginTop: vars.space8,
   },
   actionButton: {
-    borderRadius: vars.radiusMark,
-    fontSize: vars.fontSizeCaption,
     gap: 6,
-    height: 28,
+    justifyContent: "center",
     paddingInline: vars.space8,
+    width: "100%",
   },
-  detachSlot: { display: "flex", marginTop: vars.space8 },
+  detachSlot: { display: "flex", gridColumn: "1 / -1" },
   detachButton: {
-    borderRadius: vars.radiusMark,
-    fontSize: vars.fontSizeCaption,
     gap: 6,
-    height: 28,
+    justifyContent: "center",
     paddingInline: vars.space8,
     width: "100%",
   },
 
   // --- Create branch ------------------------------------------------------
-  createRow: { display: "flex", gap: vars.space8, marginTop: vars.space8 },
+  createRow: {
+    borderTopColor: vars.colorBorderSubtle,
+    borderTopStyle: "solid",
+    borderTopWidth: vars.borderWidthHairline,
+    display: "flex",
+    gap: vars.space8,
+    marginTop: vars.space8,
+    paddingTop: vars.space8,
+  },
   createInput: {
     borderRadius: vars.radiusControl,
+    flex: 1,
     fontSize: vars.fontSizeBody,
-    height: 32,
+    minWidth: 0,
   },
   createButton: {
-    fontSize: vars.fontSizeCaption,
+    flexShrink: 0,
     gap: 6,
-    height: 32,
-    paddingInline: "0.625rem",
+    paddingInline: vars.space12,
   },
   createError: {
     color: vars.colorDangerText,
