@@ -13,6 +13,8 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   CLAUDE_EFFORT_OPTIONS,
   CODEX_EFFORT_OPTIONS,
+  CURSOR_EFFORT_OPTIONS,
+  KIRO_EFFORT_OPTIONS,
   listCodexEffortOptionsForModel,
 } from "@/lib/providers/runtime-option-contract";
 import type { CliSessionContextMode } from "@/lib/terminal/types";
@@ -33,6 +35,14 @@ export function resolveTaskPresetRuntimeOverrides(preset: TaskPreset): PromptDra
     overrides.codexReasoningEffort = listCodexEffortOptionsForModel({ model: preset.model }).find(
       (option) => option.value === preset.effort,
     )?.value ?? resolveDefaultCodexEffortForModel({ model: preset.model });
+  } else if (preset.provider === "cursor") {
+    overrides.cursorEffort = CURSOR_EFFORT_OPTIONS.find(
+      (option) => option.value === preset.effort,
+    )?.value ?? "medium";
+  } else if (preset.provider === "kiro") {
+    overrides.kiroEffort = KIRO_EFFORT_OPTIONS.find(
+      (option) => option.value === preset.effort,
+    )?.value ?? "medium";
   }
   return overrides;
 }
@@ -54,8 +64,8 @@ export interface TaskPreset {
   /** Model id used for `task` presets. Ignored for CLI sessions. */
   model?: string;
   /**
-   * Reasoning effort applied to `task` presets. Claude presets accept
-   * `low | medium | high | xhigh | max`; Codex presets accept
+   * Reasoning effort applied to `task` presets. Claude, Cursor, and Kiro
+   * presets accept `low | medium | high | xhigh | max`; Codex presets accept
    * `low | medium | high | xhigh | max | ultra` (legacy persisted `minimal`
    * still validates and maps to `low` at runtime). When omitted, the model's
    * default effort is used at launch. Ignored for CLI sessions.
@@ -80,8 +90,11 @@ export function listEffortsForPresetProvider(
   providerId: ProviderId,
   model?: string,
 ): readonly { value: TaskPresetEffort; label: string }[] {
-  if (providerId === "cursor" || providerId === "kiro") {
-    return [];
+  if (providerId === "cursor") {
+    return CURSOR_EFFORT_OPTIONS;
+  }
+  if (providerId === "kiro") {
+    return KIRO_EFFORT_OPTIONS;
   }
   if (providerId === "codex") {
     return model

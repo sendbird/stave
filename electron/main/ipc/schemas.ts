@@ -1019,6 +1019,16 @@ export const RuntimeOptionsObjectSchema = z
     cursorApprovalMode: z
       .union([z.literal("manual"), z.literal("guided"), z.literal("auto")])
       .optional(),
+    cursorEffort: z
+      .union([
+        z.literal("low"),
+        z.literal("medium"),
+        z.literal("high"),
+        z.literal("xhigh"),
+        z.literal("max"),
+      ])
+      .optional(),
+    cursorFastMode: z.boolean().optional(),
     cursorResumeSessionId: z.string().max(500).optional(),
     kiroBinaryPath: z.string().max(4096).optional(),
     kiroEffort: z

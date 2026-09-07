@@ -69,6 +69,38 @@ describe("turn model info", () => {
     ).toBe("Claude Opus 4.8 (1M) · X-High");
   });
 
+  test("captures Cursor effort and fast mode for a bare model id", () => {
+    expect(
+      resolveTurnModelInfo({
+        providerId: "cursor",
+        runtimeOptions: {
+          cursorEffort: "high",
+          cursorFastMode: true,
+        },
+      }),
+    ).toEqual({
+      effort: "high",
+      fastMode: true,
+    });
+    expect(
+      getTurnModelInfoLabel({
+        providerId: "cursor",
+        model: "gpt-5.6-sol",
+        modelInfo: { effort: "high", fastMode: true },
+      }),
+    ).toBe("GPT-5.6 Sol · High · Fast");
+  });
+
+  test("keeps bracketed Cursor ids as the source of configuration labels", () => {
+    expect(
+      getTurnModelInfoLabel({
+        providerId: "cursor",
+        model: "gpt-5.6-sol[context=272k,reasoning=high,fast=true]",
+        modelInfo: { effort: "low", fastMode: false },
+      }),
+    ).toBe("GPT-5.6 Sol · 272K · High · Fast");
+  });
+
   test("formats Codex effort and enabled fast mode in the model chip", () => {
     expect(
       getTurnModelInfoLabel({

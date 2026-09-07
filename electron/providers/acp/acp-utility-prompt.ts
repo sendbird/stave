@@ -143,6 +143,8 @@ export async function runAcpUtilityPrompt(
           cwd: runtimeCwd,
           runtimeOptions: {
             model: requestedModel,
+            cursorEffort: "low",
+            cursorFastMode: true,
             ...(args.runtimeOptions?.cursorBinaryPath
               ? { cursorBinaryPath: args.runtimeOptions.cursorBinaryPath }
               : {}),
@@ -159,6 +161,9 @@ export async function runAcpUtilityPrompt(
           requestedMode: "ask",
           requestedModeRequired: false,
           requestedModel,
+          requestedEffort: "low",
+          requestedFast: true,
+          parameterizedModelPicker: true,
           modelSetter: "config-option",
           authenticationMethodId: CURSOR_AUTH_METHOD_ID,
           authenticationHelp:

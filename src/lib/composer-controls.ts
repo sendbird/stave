@@ -64,7 +64,7 @@ export const COMPOSER_CONTROL_DESCRIPTIONS: Record<ComposerControlId, string> =
     plan: "Toggle plan mode before sending.",
     providerMode: "Manual, Guided, or Auto permission preset.",
     thinking: "Cycle extended thinking. Claude only.",
-    fast: "Fast toggle inside the model picker. Codex only.",
+    fast: "Fast toggle inside the model picker. Codex and Cursor.",
     advisor: "Arm a second model to review the prompt before it runs.",
     worker:
       "Delegate bounded implementation work to a cheaper same-provider model.",

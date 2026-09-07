@@ -1,7 +1,5 @@
-import {
-  getDefaultModelForProvider,
-  isManagedExecutionProviderId,
-} from "@/lib/providers/model-catalog";
+import { getDefaultModelForProvider } from "@/lib/providers/model-catalog";
+import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   clampModelEffort,
   isModelEffort,
@@ -62,36 +60,42 @@ function normalizeMacroRuntime(input: unknown): MacroRuntime | undefined {
   }
   const candidate = input as Partial<MacroRuntime>;
   const providerId = candidate.providerId;
-  if (!providerId || !isManagedExecutionProviderId(providerId)) {
+  if (
+    providerId !== "claude-code" &&
+    providerId !== "codex" &&
+    providerId !== "cursor" &&
+    providerId !== "kiro"
+  ) {
     return undefined;
   }
-  const allowedModels = listModelsForPresetProvider(providerId);
+  const pinnedProviderId: ProviderId = providerId;
+  const allowedModels = listModelsForPresetProvider(pinnedProviderId);
   const rawModel =
     typeof candidate.model === "string" ? candidate.model.trim() : "";
   const model = allowedModels.includes(rawModel)
     ? rawModel
-    : getDefaultModelForProvider({ providerId });
+    : getDefaultModelForProvider({ providerId: pinnedProviderId });
   const requestedEffort = isModelEffort(candidate.effort)
     ? candidate.effort
     : undefined;
   const effort = requestedEffort
     ? clampModelEffort({
-        providerId,
+        providerId: pinnedProviderId,
         model,
         effort: requestedEffort,
         fallback: resolveDefaultModelEffort({
-          providerId,
+          providerId: pinnedProviderId,
           model,
         }),
       })
     : undefined;
   const supported = listModelEffortOptions({
-    providerId,
+    providerId: pinnedProviderId,
     model,
   }).some((option) => option.value === effort);
 
   return {
-    providerId,
+    providerId: pinnedProviderId,
     model,
     ...(effort && supported ? { effort } : {}),
   };

@@ -98,6 +98,8 @@ export interface PromptDraftRuntimeOverrides {
     "minimal" | "low" | "medium" | "high" | "xhigh" | "max" | "ultra";
   codexFastMode?: boolean;
   cursorMode?: "agent" | "plan" | "ask";
+  cursorEffort?: "low" | "medium" | "high" | "xhigh" | "max";
+  cursorFastMode?: boolean;
   kiroEffort?: "low" | "medium" | "high" | "xhigh" | "max";
   autoRouting?: boolean;
   model?: string;
@@ -148,6 +150,7 @@ export interface PromptDraftRuntimeOverrides {
 export type TurnModelEffort = NonNullable<
   | PromptDraftRuntimeOverrides["claudeEffort"]
   | PromptDraftRuntimeOverrides["codexReasoningEffort"]
+  | PromptDraftRuntimeOverrides["cursorEffort"]
   | PromptDraftRuntimeOverrides["kiroEffort"]
 >;
 

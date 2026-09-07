@@ -97,6 +97,8 @@ type RuntimeSettings = Pick<
   | "cursorBinaryPath"
   | "cursorMode"
   | "cursorApprovalMode"
+  | "cursorEffort"
+  | "cursorFastMode"
   | "kiroBinaryPath"
   | "kiroEffort"
   | "kiroApprovalMode"
@@ -405,6 +407,8 @@ export function buildProviderRuntimeOptions(args: {
     cursorBinaryPath: settings.cursorBinaryPath || undefined,
     cursorMode: settings.cursorMode,
     cursorApprovalMode: settings.cursorApprovalMode,
+    cursorEffort: settings.cursorEffort,
+    cursorFastMode: settings.cursorFastMode,
     ...(args.provider === "cursor" && cursorResumeSessionId
       ? { cursorResumeSessionId }
       : {}),

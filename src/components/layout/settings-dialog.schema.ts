@@ -126,6 +126,7 @@ export const settingsSections = [
       "auto review",
       "model",
       "effort",
+      "fast",
       "advisor",
       "consult",
       "on demand",

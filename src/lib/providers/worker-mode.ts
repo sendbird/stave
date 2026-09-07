@@ -412,10 +412,7 @@ export function listWorkerEffortsForModel(args: {
   if (capability.modelsRejectingEffort.includes(model)) {
     return [];
   }
-  if (args.providerId === "cursor") {
-    return [];
-  }
-  if (args.providerId === "kiro") {
+  if (args.providerId === "cursor" || args.providerId === "kiro") {
     return WORKER_EFFORT_ORDER.filter((effort) => effort !== "ultra");
   }
   if (args.providerId === "codex") {
@@ -515,7 +512,7 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     autoEffort: {
       "claude-code": "medium",
       codex: "high",
-      cursor: null,
+      cursor: "medium",
       kiro: null,
     },
   },
@@ -544,7 +541,7 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     autoEffort: {
       "claude-code": "high",
       codex: "max",
-      cursor: null,
+      cursor: "medium",
       kiro: null,
     },
   },
@@ -572,7 +569,7 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     autoEffort: {
       "claude-code": "medium",
       codex: "xhigh",
-      cursor: null,
+      cursor: "medium",
       kiro: null,
     },
   },
@@ -600,7 +597,7 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     autoEffort: {
       "claude-code": "medium",
       codex: "high",
-      cursor: null,
+      cursor: "medium",
       kiro: null,
     },
   },
@@ -628,7 +625,7 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     autoEffort: {
       "claude-code": "max",
       codex: "max",
-      cursor: null,
+      cursor: "max",
       kiro: null,
     },
   },
@@ -657,7 +654,7 @@ export const WORKER_PRESETS: readonly WorkerPreset[] = [
     autoEffort: {
       "claude-code": "high",
       codex: "high",
-      cursor: null,
+      cursor: "medium",
       kiro: null,
     },
   },
@@ -910,7 +907,10 @@ function resolveWorkerEffort(args: {
   }
   const desired =
     args.requested === WORKER_AUTO_VALUE
-      ? (args.presetEffort ?? (args.providerId === "kiro" ? "medium" : null))
+      ? (args.presetEffort ??
+        (args.providerId === "kiro" || args.providerId === "cursor"
+          ? "medium"
+          : null))
       : args.requested;
   if (!desired) {
     return null;

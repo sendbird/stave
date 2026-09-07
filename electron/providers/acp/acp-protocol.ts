@@ -9,6 +9,7 @@ import {
   AcpLoadSessionResponseSchema,
   AcpNewSessionResponseSchema,
   AcpPromptResponseSchema,
+  AcpSessionConfigOptionSchema,
   type AcpInitializeResponse,
   type AcpSessionConfigOption,
   type AcpSessionModeState,
@@ -216,7 +217,11 @@ export class AcpProtocolClient {
     return this.request(
       "session/set_config_option",
       args,
-      z.object({}).passthrough(),
+      z
+        .object({
+          configOptions: z.array(AcpSessionConfigOptionSchema).nullish(),
+        })
+        .passthrough(),
     );
   }
 

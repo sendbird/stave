@@ -39,6 +39,25 @@ describe("normalizeMacro", () => {
     expect(macro?.runtime?.effort).toBe("high");
   });
 
+  test("keeps a Cursor runtime pin and its effort", () => {
+    const macro = normalizeMacro({
+      label: "Cursor high",
+      slug: "cursor-high",
+      body: "Inspect the change.",
+      runtime: {
+        providerId: "cursor",
+        model: "auto",
+        effort: "high",
+      },
+    });
+
+    expect(macro?.runtime).toEqual({
+      providerId: "cursor",
+      model: "auto",
+      effort: "high",
+    });
+  });
+
   test("keeps instantRun only when it is explicitly true", () => {
     const instant = normalizeMacro({
       label: "Ship",
@@ -80,13 +99,13 @@ describe("normalizeMacro", () => {
     expect(macro?.runtime?.effort).not.toBe("ultra");
   });
 
-  test("drops cursor and kiro runtime pins", () => {
+  test("drops an unknown provider runtime pin", () => {
     const macro = normalizeMacro({
       label: "Ask",
       slug: "ask",
       body: "Explain this.",
       runtime: {
-        providerId: "cursor",
+        providerId: "unknown",
         model: "auto",
       },
     });
@@ -144,6 +163,30 @@ describe("buildMacroRuntimeOverrides", () => {
     expect(next.autoRouting).toBe(false);
     expect(next.codexReasoningEffort).toBe("high");
     expect(next.claudeEffort).toBeUndefined();
+    expect(next.cursorEffort).toBeUndefined();
     expect(next.boundSecretIds).toEqual(["secret-1"]);
+  });
+
+  test("pins a Cursor model and effort without leaking Claude or Codex fields", () => {
+    const next = buildMacroRuntimeOverrides({
+      current: {
+        claudeEffort: "low",
+        codexReasoningEffort: "ultra",
+      },
+      runtime: {
+        providerId: "cursor",
+        model: "auto",
+        effort: "high",
+      },
+    });
+
+    expect(next).toMatchObject({
+      model: "auto",
+      modelProviderId: "cursor",
+      autoRouting: false,
+      cursorEffort: "high",
+    });
+    expect(next.claudeEffort).toBeUndefined();
+    expect(next.codexReasoningEffort).toBeUndefined();
   });
 });

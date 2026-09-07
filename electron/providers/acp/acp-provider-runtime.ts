@@ -29,6 +29,11 @@ import {
   collectNativeImageInputs,
   withoutNativeInlineImageData,
 } from "../native-image-input";
+import {
+  buildCursorAcpClientCapabilities,
+  listCursorSessionParameterUpdates,
+  resolveAdvertisedCursorModelId,
+} from "../cursor/cursor-session-config";
 
 const ACP_EVENT_RETAINED_BYTES_MAX = 512 * 1024;
 const ACP_EVENT_TAIL_BYTES = 16 * 1024;
@@ -91,6 +96,13 @@ export interface AcpProviderRuntimeProfile {
   /** When false, a missing requested mode is skipped instead of failing the turn. */
   requestedModeRequired?: boolean;
   requestedModel: string;
+  requestedEffort?: string;
+  requestedFast?: boolean;
+  /**
+   * Cursor-only: ask the agent to advertise bare model ids plus separate
+   * effort/fast config options instead of one encoded variant per combination.
+   */
+  parameterizedModelPicker?: boolean;
   /** Reject tool permissions immediately instead of waiting on UI approval. */
   permissionPolicy?: AcpPermissionPolicy;
   modelConfigId?: string;
@@ -472,10 +484,15 @@ export async function streamAcpProviderTurn(args: {
     const initialized = await client.initialize({
       clientName: "Stave",
       clientVersion: process.env.npm_package_version ?? "0.0.0",
-      clientCapabilities: {
-        fs: { readTextFile: false, writeTextFile: false },
-        terminal: false,
-      },
+      clientCapabilities: profile.parameterizedModelPicker
+        ? buildCursorAcpClientCapabilities({
+            fs: { readTextFile: false, writeTextFile: false },
+            terminal: false,
+          })
+        : {
+            fs: { readTextFile: false, writeTextFile: false },
+            terminal: false,
+          },
     });
     if (profile.authenticationMethodId) {
       if (
@@ -557,29 +574,59 @@ export async function streamAcpProviderTurn(args: {
       typeof modelConfig?.currentValue === "string"
         ? modelConfig.currentValue
         : "auto";
+    const advertisedModels = modelConfig
+      ? listConfigOptionValues(modelConfig)
+      : [];
+    const requestedModelId =
+      profile.parameterizedModelPicker && advertisedModels.length > 0
+        ? (resolveAdvertisedCursorModelId({
+            requestedModel: profile.requestedModel,
+            advertised: advertisedModels,
+          }) ?? profile.requestedModel)
+        : profile.requestedModel;
     if (profile.requestedModel !== "auto") {
       if (profile.modelSetter === "legacy-set-model" && !modelConfig) {
         await client.setModel({
           sessionId: session.sessionId,
-          modelId: profile.requestedModel,
+          modelId: requestedModelId,
         });
-        resolvedModel = profile.requestedModel;
-      } else if (
-        modelConfig &&
-        listConfigOptionValues(modelConfig).includes(profile.requestedModel)
-      ) {
-        await client.setConfigOption({
+        resolvedModel = requestedModelId;
+      } else if (modelConfig && advertisedModels.includes(requestedModelId)) {
+        const result = await client.setConfigOption({
           sessionId: session.sessionId,
           configId: profile.modelConfigId ?? "model",
-          value: profile.requestedModel,
+          value: requestedModelId,
         });
-        resolvedModel = profile.requestedModel;
+        if (result.configOptions) {
+          mapper.setConfigOptions(result.configOptions);
+        }
+        resolvedModel = requestedModelId;
       } else {
         emit({
           type: "error",
           message: `${profile.displayName} did not advertise the requested model ${profile.requestedModel}; using ${resolvedModel}.`,
           recoverable: true,
         });
+      }
+    }
+    if (profile.parameterizedModelPicker) {
+      for (const update of listCursorSessionParameterUpdates({
+        configOptions: mapper.getConfigOptions(),
+        ...(profile.requestedEffort
+          ? { effort: profile.requestedEffort }
+          : {}),
+        ...(profile.requestedFast !== undefined
+          ? { fastMode: profile.requestedFast }
+          : {}),
+      })) {
+        const result = await client.setConfigOption({
+          sessionId: session.sessionId,
+          configId: update.configId,
+          value: update.value,
+        });
+        if (result.configOptions) {
+          mapper.setConfigOptions(result.configOptions);
+        }
       }
     }
     emit({

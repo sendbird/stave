@@ -49,12 +49,13 @@ approval headers therefore read as a short title plus one target chip on every
 provider. Short label-like titles (MCP tool names) stay as the tool name.
 
 Cursor supports `agent`, `plan`, and `ask` session modes. At app startup, Stave
-loads the model values advertised by an authenticated ACP session and shows
-the effort, context, thinking, and fast parameters encoded in those accepted
-values. The composer groups accepted values with the same base model into one
-row and selects the exact advertised value when a context, thinking, fast, or
-effort control is used. Unsupported combinations remain visibly unavailable;
-Stave does not synthesize them. The broader `agent --list-models` output is not
+loads the model values advertised by an authenticated ACP session. Current
+Cursor builds honor `clientCapabilities._meta.parameterizedModelPicker`, so
+the catalog is bare model ids and effort/fast are independent session config
+options, the same way Claude, Codex, and Kiro expose those controls. Older
+builds still encode effort, context, thinking, and fast in the model id; the
+composer then groups those accepted values by base model and only selects an
+advertised combination. The broader `agent --list-models` output is not
 used because the ACP server rejects variants it did not advertise. `Auto`
 remains the offline fallback; a configured model is applied only when the
 active ACP session advertises the same value. Tool permissions use one-turn
@@ -85,8 +86,8 @@ serialized tool input, so it re-matches only that exact payload, while the
 provider rule generalizes to the command.
 
 Cursor parameters that the session advertises only one value for render as plain
-labels instead of controls. `session/set_model` rejects any value the session
-did not advertise, so a segmented control with one reachable value would imply a
+labels instead of controls. The ACP session rejects any model value it did not
+advertise, so a segmented control with one reachable value would imply a
 choice the runtime does not accept.
 
 Cursor approval autonomy is a process flag on the ACP subcommand, not an ACP

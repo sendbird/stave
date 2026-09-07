@@ -4,6 +4,7 @@ import { toHumanModelName } from "@/lib/providers/model-catalog";
 import {
   CLAUDE_EFFORT_OPTIONS,
   CODEX_EFFORT_OPTIONS,
+  CURSOR_EFFORT_OPTIONS,
   KIRO_EFFORT_OPTIONS,
   findOptionLabel,
 } from "@/lib/providers/runtime-option-contract";
@@ -22,9 +23,11 @@ export function resolveTurnModelInfo(args: {
       ? args.runtimeOptions.claudeEffort
       : args.providerId === "codex"
         ? args.runtimeOptions.codexReasoningEffort
-        : args.providerId === "kiro"
-          ? args.runtimeOptions.kiroEffort
-          : undefined;
+        : args.providerId === "cursor"
+          ? args.runtimeOptions.cursorEffort
+          : args.providerId === "kiro"
+            ? args.runtimeOptions.kiroEffort
+            : undefined;
   const effort =
     args.providerId === "codex"
       ? resolveCodexAppServerReasoningEffort({
@@ -43,7 +46,9 @@ export function resolveTurnModelInfo(args: {
         ? args.runtimeOptions.claudeFastMode === true
         : args.providerId === "codex"
           ? args.runtimeOptions.codexFastMode === true
-          : false,
+          : args.providerId === "cursor"
+            ? args.runtimeOptions.cursorFastMode === true
+            : false,
   };
 }
 
@@ -67,7 +72,20 @@ export function getTurnModelInfoParts(
   message: Pick<ChatMessage, "model" | "providerId" | "modelInfo">,
 ): TurnModelInfoParts {
   if (message.providerId === "cursor") {
-    return describeCursorModel(message.model);
+    const described = describeCursorModel(message.model);
+    if (described.details.length > 0 || message.model.includes("[")) {
+      return described;
+    }
+    if (!message.modelInfo) {
+      return { name: described.name, details: [] };
+    }
+    const details = [
+      findOptionLabel(CURSOR_EFFORT_OPTIONS, message.modelInfo.effort),
+    ];
+    if (message.modelInfo.fastMode) {
+      details.push("Fast");
+    }
+    return { name: described.name, details };
   }
 
   const name = toHumanModelName({ model: message.model });
