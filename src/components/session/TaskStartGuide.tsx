@@ -3,7 +3,6 @@ import { vars } from "../ads/tokens/tokens.stylex";
 import { sx } from "../ads/utils/stylex";
 import { MessageSquareIcon } from "lucide-react";
 import {
-  Button,
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -11,6 +10,7 @@ import {
   EmptyTitle,
 } from "@/components/ui";
 import { ActionButton } from "@/components/system/ActionButton";
+import { getWorkspaceInstructions } from "@/lib/workspace-resume-brief";
 import { useAppStore } from "@/store/app.store";
 
 const STARTING_POINTS = [
@@ -49,116 +49,64 @@ export function TaskStartGuide({
       patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "information" },
     });
   return (
-    <div className={sx(styles.shell)} data-testid="task-start-guide">
-      <Empty xstyle={styles.root}>
-        <EmptyHeader xstyle={styles.introduction}>
-          <EmptyMedia variant="icon">
-            <MessageSquareIcon />
-          </EmptyMedia>
-          <EmptyTitle role="heading" aria-level={2}>
-            What would you like to work on?
-          </EmptyTitle>
-          <EmptyDescription>
-            Describe the outcome you want, or choose a starting point.
-          </EmptyDescription>
-        </EmptyHeader>
-        {showExamples ? (
-          <div className={sx(styles.content)}>
-            {brief?.goal || brief?.nextAction ? (
-              <section
-                aria-label="Saved workspace direction"
-                className={sx(styles.direction)}
-              >
-                <div className={sx(styles.directionHeader)}>
-                  <h3 className={sx(styles.directionTitle)}>
-                    Pick up where you left off
-                  </h3>
-                  <time dateTime={brief.updatedAt} className={sx(styles.savedAt)}>
-                    Saved {new Date(brief.updatedAt).toLocaleDateString()}
-                  </time>
-                </div>
-                {brief.goal ? (
-                  <p className={sx(styles.goal)}>{brief.goal}</p>
-                ) : null}
-                {brief.nextAction ? (
-                  <p className={sx(styles.nextAction)}>
-                    <strong>Next action:</strong> {brief.nextAction}
-                  </p>
-                ) : null}
-                <div className={sx(styles.actions)}>
-                  {onSelect && brief.nextAction ? (
-                    <ActionButton
-                      weight="primary"
-                      onClick={() =>
-                        onSelect(
-                          `Continue the saved workspace direction.\nNext action: ${brief.nextAction}\nCheck the goal, completion conditions and evidence in Information before proceeding. Report changes to the next action when you finish.`,
-                        )
-                      }
-                    >
-                      Prepare the next step
-                    </ActionButton>
-                  ) : null}
-                  <Button variant="outline" onClick={openInformation}>
-                    Review direction &amp; evidence
-                  </Button>
-                </div>
-              </section>
-            ) : null}
-            <div className={sx(styles.startingPoints)}>
-              {STARTING_POINTS.map((item) => (
-                <div key={item.title} className={sx(styles.startingPoint)}>
-                  <div className={sx(styles.promptText)}>
-                    <h3 className={sx(styles.promptTitle)}>{item.title}</h3>
-                    <p className={sx(styles.promptDescription)}>
-                      {item.description}
-                    </p>
-                  </div>
-                  {onSelect ? (
-                    <ActionButton
-                      weight="quiet"
-                      size="sm"
-                      xstyle={styles.promptAction}
-                      onClick={() => onSelect(item.example)}
-                      aria-label={`Use prompt: ${item.title}`}
-                    >
-                      Use prompt
-                    </ActionButton>
-                  ) : null}
-                </div>
-              ))}
-            </div>
-          </div>
-        ) : null}
-      </Empty>
+    <Empty xstyle={styles.root} data-testid="task-start-guide">
+      <EmptyHeader xstyle={styles.introduction}>
+        <EmptyMedia variant="icon">
+          <MessageSquareIcon />
+        </EmptyMedia>
+        <EmptyTitle role="heading" aria-level={2}>
+          What would you like to work on?
+        </EmptyTitle>
+        <EmptyDescription>
+          Describe the outcome you want, or choose a starting point.
+        </EmptyDescription>
+      </EmptyHeader>
       {showExamples ? (
-        <div className={sx(styles.actions, styles.footerActions)}>
-          <Button
-            variant="outline"
-            onClick={() => useAppStore.getState().openAutomationCenter()}
-          >
-            Browse workflows, macros &amp; presets
-          </Button>
-          {!brief?.goal && !brief?.nextAction ? (
-            <Button variant="outline" onClick={openInformation}>
-              Keep a goal &amp; next action
-            </Button>
-          ) : null}
+        <div className={sx(styles.content)}>
+          <div className={sx(styles.startingPoints)}>
+            {STARTING_POINTS.map((item) => (
+              <div key={item.title} className={sx(styles.startingPoint)}>
+                <div className={sx(styles.promptText)}>
+                  <h3 className={sx(styles.promptTitle)}>{item.title}</h3>
+                  <p className={sx(styles.promptDescription)}>
+                    {item.description}
+                  </p>
+                </div>
+                {onSelect ? (
+                  <ActionButton
+                    weight="quiet"
+                    size="sm"
+                    xstyle={styles.promptAction}
+                    onClick={() => onSelect(item.example)}
+                    aria-label={`Use prompt: ${item.title}`}
+                  >
+                    Use prompt
+                  </ActionButton>
+                ) : null}
+              </div>
+            ))}
+          </div>
+          <div className={sx(styles.actions)}>
+            <ActionButton
+              weight="quiet"
+              onClick={() => useAppStore.getState().openAutomationCenter()}
+            >
+              Browse workflows, macros &amp; presets
+            </ActionButton>
+            <ActionButton weight="quiet" onClick={openInformation}>
+              {getWorkspaceInstructions(brief).trim()
+                ? "Review shared instructions"
+                : "Add shared instructions"}
+            </ActionButton>
+          </div>
         </div>
       ) : null}
-    </div>
+    </Empty>
   );
 }
 
 const styles = stylex.create({
-  shell: {
-    display: "flex",
-    flexDirection: "column",
-    alignItems: "center",
-    gap: vars.space8,
-    inlineSize: "100%",
-    minInlineSize: 0,
-  },
-  root: { gap: vars.space16, padding: vars.space20 },
+  root: { gap: vars.space20, padding: vars.space20 },
   introduction: {
     // Cross-axis centering now lives in the `EmptyHeader` shim, so every empty
     // state gets it rather than the surfaces that noticed the medallion drift.
@@ -175,62 +123,10 @@ const styles = stylex.create({
     minInlineSize: 0,
     display: "flex",
     flexDirection: "column",
-    gap: vars.space16,
+    gap: vars.space20,
     textAlign: "left",
   },
-  direction: {
-    display: "flex",
-    flexDirection: "column",
-    gap: vars.space12,
-    borderBlockEndWidth: vars.borderWidthHairline,
-    borderBlockEndStyle: "solid",
-    borderBlockEndColor: vars.colorBorder,
-    paddingBlockEnd: vars.space12,
-  },
-  directionHeader: {
-    display: "flex",
-    flexWrap: "wrap",
-    alignItems: "center",
-    justifyContent: "space-between",
-    gap: vars.space8,
-  },
-  directionTitle: {
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightSemibold,
-    lineHeight: vars.lineHeightNormal,
-  },
-  savedAt: {
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightTight,
-    color: vars.colorTextMuted,
-  },
-  goal: {
-    display: "-webkit-box",
-    WebkitBoxOrient: "vertical",
-    WebkitLineClamp: 3,
-    overflow: "hidden",
-    whiteSpace: "pre-wrap",
-    overflowWrap: "break-word",
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
-  },
-  nextAction: {
-    display: "-webkit-box",
-    WebkitBoxOrient: "vertical",
-    WebkitLineClamp: 3,
-    overflow: "hidden",
-    whiteSpace: "pre-wrap",
-    overflowWrap: "break-word",
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightTight,
-    color: vars.colorTextMuted,
-  },
   actions: { display: "flex", flexWrap: "wrap", gap: vars.space8 },
-  footerActions: {
-    inlineSize: "100%",
-    maxInlineSize: "32rem",
-    justifyContent: "center",
-  },
   startingPoints: { minInlineSize: 0 },
   /**
    * The row wraps instead of squeezing the action: below roughly a 24rem
@@ -245,7 +141,10 @@ const styles = stylex.create({
     columnGap: vars.space16,
     rowGap: vars.space8,
     paddingBlock: vars.space12,
-    borderBlockStartWidth: { default: vars.borderWidthHairline, ":first-child": 0 },
+    borderBlockStartWidth: {
+      default: vars.borderWidthHairline,
+      ":first-child": 0,
+    },
     borderBlockStartStyle: "solid",
     borderBlockStartColor: vars.colorBorder,
   },

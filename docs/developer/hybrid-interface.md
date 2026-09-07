@@ -14,7 +14,7 @@ knowledge destination requires a distinct retrieval/reuse job before inclusion.
 These corrections supersede contradictory placement prescriptions below.
 
 The interface is migrating by complete product surfaces: product navigation,
-attention, task collaboration, reusable work, and workspace direction. Existing
+attention, task collaboration, reusable work, and shared workspace instructions. Existing
 UI primitives remain available while compound product surfaces move to
 `src/components/system`. This is a whole-product migration; collaboration is
 one consumer of the shared behavior and theme contracts.
@@ -117,7 +117,7 @@ notice offers retry while changes are unsaved. Quit acknowledgement includes
 pending and in-flight background workspace writes. A successful older write
 cannot evict messages that arrived while it was in flight.
 
-Maintained direction and unsaved direction drafts use distinct durable records.
+Shared instructions and unsaved instruction drafts use distinct durable records.
 Opening a task reads its notifications; reviewing a result is a separate explicit,
 reversible action stored independently of notification cleanup.
 
@@ -126,7 +126,7 @@ reversible action stored independently of notification cleanup.
 Use the collaboration preview and browser contract tests for narrow/light/dark
 layout, keyboard navigation, computed metrics, and uncertain delivery. Native
 Electron tests cover product navigation, the library-to-task path, rejected
-workspace writes and retry, direction recovery, and result-review persistence.
+workspace writes and retry, instruction recovery, and result-review persistence.
 Theme, provider and child lifecycle contracts remain required alongside them.
 
 Continue migrating workspace tool detail/actions and composer option panels.
@@ -193,3 +193,13 @@ headline number. Test themes, narrow/wide layouts, keyboard behavior, and reduce
 motion as part of the migrated surface, then move to the next product outcome.
 
 The current source and compatibility contract is documented in [Stave design system](design-system.md).
+
+## Shared workspace instructions
+
+Information provides one optional text field for instructions shared across tasks.
+Saved text is included in subsequent task context; it does not dispatch a turn or
+judge completion. Keep detailed plans in linked files and action items in Todos.
+Legacy direction fields and local drafts are displayed together without losing
+content, then converted to the single field on save. Clearing the field removes
+its instructions from subsequent context. Existing conversations may retain text
+already sent to the provider.

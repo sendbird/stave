@@ -1,3 +1,11 @@
+import { ChevronDown, ChevronRight, FileText } from "lucide-react";
+import {
+  Accordion,
+  AccordionItem,
+  AccordionTrigger,
+  AccordionContent,
+} from "@/components/ui/accordion";
+import { workspaceInformationPanelStyles as panelStyles } from "./workspace-information-panel.styles";
 import { Textarea as AdsTextarea } from "@/components/ui/textarea";
 import { useEffect, useId, useRef, useState } from "react";
 import { ActionButton } from "@/components/system/ActionButton";
@@ -6,7 +14,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
 import {
   emptyResumeBriefFields,
-  RESUME_BRIEF_FIELDS,
+  getWorkspaceInstructions,
   WorkspaceResumeBriefSchema,
   type ResumeBriefFields,
   type WorkspaceResumeBrief,
@@ -18,12 +26,14 @@ import {
 } from "@/lib/workspace-direction-draft-client";
 import { workspaceResumeBriefStyles as styles } from "./workspace-resume-brief.styles";
 
-/** A manually maintained direction, above the replaceable turn recap. */
+/** Shared instructions in Information, retained across workspace tasks. */
 export function WorkspaceResumeBrief(props: {
   workspaceId: string;
   brief?: WorkspaceResumeBrief | null;
 }) {
   const id = useId();
+  const [openSections, setOpenSections] = useState<string[]>(["instructions"]);
+  const isOpen = openSections.includes("instructions");
   const [draft, setDraft] = useState<{
     fields: ResumeBriefFields;
     baseUpdatedAt: string;
@@ -110,7 +120,7 @@ export function WorkspaceResumeBrief(props: {
       .catch(() => {
         if (revision === draftRevision.current)
           setDraftStatus(
-            "Draft save failed. Keep this panel open and save the direction.",
+            "Draft save failed. Keep this panel open and save the instructions.",
           );
       });
   };
@@ -133,7 +143,7 @@ export function WorkspaceResumeBrief(props: {
       setDraft((current) => ({
         ...current,
         error:
-          "The saved brief changed while you were editing. Your draft is kept. Copy any changes you need, then load the saved brief.",
+          "The saved instructions changed while you were editing. Your draft is kept. Copy any changes you need, then load the saved instructions.",
       }));
       return;
     }
@@ -141,7 +151,8 @@ export function WorkspaceResumeBrief(props: {
     const updatedAt = new Date().toISOString();
     try {
       const brief = WorkspaceResumeBriefSchema.parse({
-        ...draft.fields,
+        ...emptyResumeBriefFields(),
+        instructions: getWorkspaceInstructions(draft.fields),
         updatedAt,
         sourceTaskId: state.activeTaskId || null,
       });
@@ -155,7 +166,7 @@ export function WorkspaceResumeBrief(props: {
         await saveDirectionDraft(props.workspaceId, null);
       } catch {
         cleanupError =
-          "Direction saved. The local draft could not be cleared and may reappear when this panel opens.";
+          "Instructions saved. The local draft could not be cleared and may reappear when this panel opens.";
       }
       setDraft({
         fields: brief,
@@ -169,142 +180,164 @@ export function WorkspaceResumeBrief(props: {
       setDraft((current) => ({
         ...current,
         error:
-          "Saving the brief could not be confirmed. Your draft is kept; retry before leaving.",
+          "Saving the instructions could not be confirmed. Your draft is kept; retry before leaving.",
       }));
     } finally {
       setSaving(false);
     }
   };
-  const hasBrief =
-    props.brief &&
-    RESUME_BRIEF_FIELDS.some(({ key }) => props.brief?.[key].trim());
+  const hasBrief = Boolean(getWorkspaceInstructions(props.brief).trim());
   return (
-    <section
-      aria-labelledby={`${id}-heading`}
-      className={sx(styles.root)}
-    >
-      <div className={sx(styles.header)}>
-        <h2
-          id={`${id}-heading`}
-          className={sx(styles.heading)}
+    <section aria-labelledby={`${id}-heading`} className={sx(styles.root)}>
+      <Accordion
+        value={openSections}
+        onValueChange={(value) => setOpenSections(value as string[])}
+      >
+        <AccordionItem
+          value="instructions"
+          className={sx(panelStyles.sectionItem, panelStyles.sectionItemFirst)}
         >
-          Workspace direction
-        </h2>
-        {!draft.editing ? (
-          <ActionButton
-            size="xs"
-            weight="quiet"
-            disabled={!draftLoaded}
-            onClick={() =>
-              setDraft({
-                fields: props.brief ?? emptyResumeBriefFields(),
-                baseUpdatedAt: props.brief?.updatedAt ?? "",
-                editing: true,
-                error: "",
-              })
-            }
-          >
-            {hasBrief ? "Edit direction" : "Set direction"}
-          </ActionButton>
-        ) : null}
-      </div>
-      <p className={sx(styles.intro)}>
-        Keep the goal, agreed decisions, and next step across tasks. Automatic
-        turn summaries do not replace this direction.
-      </p>
-      <p role="status" className={sx(styles.draftStatus)}>
-        {draftStatus}
-      </p>
-      {!draftLoaded && draftStatus.includes("could not") ? (
-        <ActionButton
-          size="xs"
-          onClick={() => {
-            setDraftStatus("Loading local draft…");
-            setLoadAttempt((value) => value + 1);
-          }}
-        >
-          Retry draft
-        </ActionButton>
-      ) : null}
-      {draft.error ? (
-        <p role="alert" className={sx(styles.error)}>
-          {draft.error}
-        </p>
-      ) : null}
-      {draft.editing ? (
-        <form
-          className={sx(styles.form)}
-          onSubmit={(event) => {
-            event.preventDefault();
-            void save();
-          }}
-        >
-          {RESUME_BRIEF_FIELDS.map(({ key, label, hint }) => (
-            <div key={key} className={sx(styles.field)}>
-              <label
-                htmlFor={`${id}-${key}`}
-                className={sx(styles.fieldLabel)}
-              >
-                {label}
-              </label>
-              <p
-                id={`${id}-${key}-hint`}
-                className={sx(styles.fieldHint)}
-              >
-                {hint}
-              </p>
-              <AdsTextarea
-                id={`${id}-${key}`}
-                aria-describedby={`${id}-${key}-hint`}
-                maxLength={2000}
-                rows={key === "goal" ? 3 : 2}
-                value={draft.fields[key]}
-                disabled={saving}
-                onChange={(event) => changeField(key, event.target.value)}
-              />
-            </div>
-          ))}
-          <div className={sx(styles.formActions)}>
-            <ActionButton type="submit" weight="primary" loading={saving}>
-              Save direction
-            </ActionButton>
-            <ActionButton
-              type="button"
-              weight="quiet"
-              disabled={saving}
-              onClick={() => void resetDraft()}
+          <div className={sx(panelStyles.sectionRow)}>
+            <AccordionTrigger
+              id={`${id}-heading`}
+              className={sx(panelStyles.sectionTrigger)}
             >
-              Load saved brief
-            </ActionButton>
+              <span className={sx(panelStyles.sectionTitleRow)}>
+                <span
+                  className={sx(panelStyles.sectionMark)}
+                  aria-hidden="true"
+                >
+                  <span className={sx(panelStyles.sectionMarkIcon)}>
+                    <FileText size={16} />
+                  </span>
+                  <span className={sx(panelStyles.sectionMarkChevronSlot)}>
+                    {isOpen ? (
+                      <ChevronDown
+                        className={sx(panelStyles.sectionMarkChevron)}
+                      />
+                    ) : (
+                      <ChevronRight
+                        className={sx(panelStyles.sectionMarkChevron)}
+                      />
+                    )}
+                  </span>
+                </span>
+                <span className={sx(panelStyles.sectionTitle)}>
+                  Shared instructions
+                </span>
+              </span>
+            </AccordionTrigger>
+            {isOpen && !draft.editing ? (
+              <ActionButton
+                size="xs"
+                weight="quiet"
+                disabled={!draftLoaded}
+                onClick={() =>
+                  setDraft({
+                    fields: props.brief ?? emptyResumeBriefFields(),
+                    baseUpdatedAt: props.brief?.updatedAt ?? "",
+                    editing: true,
+                    error: "",
+                  })
+                }
+              >
+                {hasBrief ? "Edit instructions" : "Add instructions"}
+              </ActionButton>
+            ) : null}
           </div>
-        </form>
-      ) : hasBrief ? (
-        <dl className={sx(styles.list)}>
-          {RESUME_BRIEF_FIELDS.map(({ key, label }) =>
-            props.brief?.[key].trim() ? (
-              <div key={key}>
-                <dt className={sx(styles.term)}>
-                  {label}
-                </dt>
-                <dd className={sx(styles.definition)}>
-                  {props.brief[key]}
-                </dd>
-              </div>
-            ) : null,
-          )}
-          <div className={sx(styles.meta)}>
-            <dt>
-              <VisuallyHidden>Last maintained</VisuallyHidden>
-            </dt>
-            <dd className={sx(styles.metaValue)}>Updated {new Date(props.brief!.updatedAt).toLocaleString()}</dd>
-          </div>
-        </dl>
-      ) : (
-        <p className={sx(styles.empty)}>
-          Set a goal and completion conditions so the next task starts with the
-          same direction. Keep detailed plans in linked files.
-        </p>
-      )}
+          <AccordionContent className={sx(panelStyles.sectionPanel)}>
+            <p className={sx(styles.intro)}>
+              Saved instructions are included in subsequent messages across all
+              tasks in this workspace. Keep detailed plans in files and action
+              items in Todos.
+            </p>
+            <p role="status" className={sx(styles.draftStatus)}>
+              {draftStatus}
+            </p>
+            {!draftLoaded && draftStatus.includes("could not") ? (
+              <ActionButton
+                size="xs"
+                onClick={() => {
+                  setDraftStatus("Loading local draft…");
+                  setLoadAttempt((value) => value + 1);
+                }}
+              >
+                Retry draft
+              </ActionButton>
+            ) : null}
+            {draft.error ? (
+              <p role="alert" className={sx(styles.error)}>
+                {draft.error}
+              </p>
+            ) : null}
+            {draft.editing ? (
+              <form
+                className={sx(styles.form)}
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  void save();
+                }}
+              >
+                <div className={sx(styles.field)}>
+                  <label
+                    htmlFor={`${id}-instructions`}
+                    className={sx(styles.fieldLabel)}
+                  >
+                    Instructions for all tasks
+                  </label>
+                  <AdsTextarea
+                    id={`${id}-instructions`}
+                    maxLength={12000}
+                    rows={6}
+                    value={getWorkspaceInstructions(draft.fields)}
+                    placeholder="For example: Preserve existing keyboard shortcuts. Link the verification results when finishing."
+                    disabled={saving}
+                    onChange={(event) =>
+                      changeField("instructions", event.target.value)
+                    }
+                  />
+                </div>
+                <div className={sx(styles.formActions)}>
+                  <ActionButton type="submit" weight="primary" loading={saving}>
+                    Save instructions
+                  </ActionButton>
+                  <ActionButton
+                    type="button"
+                    weight="quiet"
+                    disabled={saving}
+                    onClick={() => void resetDraft()}
+                  >
+                    Discard edits
+                  </ActionButton>
+                </div>
+              </form>
+            ) : hasBrief ? (
+              <dl className={sx(styles.list)}>
+                <div>
+                  <dt>
+                    <VisuallyHidden>Instructions for all tasks</VisuallyHidden>
+                  </dt>
+                  <dd className={sx(styles.definition)}>
+                    {getWorkspaceInstructions(props.brief)}
+                  </dd>
+                </div>
+                <div className={sx(styles.meta)}>
+                  <dt>
+                    <VisuallyHidden>Last maintained</VisuallyHidden>
+                  </dt>
+                  <dd className={sx(styles.metaValue)}>
+                    Updated {new Date(props.brief!.updatedAt).toLocaleString()}
+                  </dd>
+                </div>
+              </dl>
+            ) : (
+              <p className={sx(styles.empty)}>
+                Add instructions you want the agent to remember across tasks.
+              </p>
+            )}
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </section>
   );
 }

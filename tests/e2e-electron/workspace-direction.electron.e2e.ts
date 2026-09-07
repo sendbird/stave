@@ -32,42 +32,46 @@ test("maintained direction and an unsaved draft survive a full application resta
       .getByRole("button", { name: "Information", exact: true })
       .click();
     const direction = () =>
-      stave!.page.getByRole("region", { name: "Workspace direction" });
+      stave!.page.getByRole("region", { name: "Shared instructions" });
     await direction()
-      .getByRole("button", { name: "Set direction", exact: true })
+      .getByRole("button", { name: "Add instructions", exact: true })
       .click();
     await direction()
-      .getByLabel("Goal", { exact: true })
-      .fill(
-        "Deliver the complete workspace, including recovery and usability.",
-      );
+      .getByLabel("Instructions for all tasks", { exact: true })
+      .fill("Preserve keyboard shortcuts and verify recovery after restart.");
     await direction()
-      .getByLabel("Completion conditions", { exact: true })
-      .fill("Restart must preserve goals and drafts.");
-    await direction()
-      .getByLabel("Confirmed decisions", { exact: true })
-      .fill("Keep advanced controls available.");
-    await direction()
-      .getByLabel("Evidence and plan references", { exact: true })
-      .fill(".stave/context/plans/readiness.md");
-    await direction()
-      .getByLabel("Next action", { exact: true })
-      .fill("Measure workspace switching.");
-    await direction()
-      .getByRole("button", { name: "Save direction", exact: true })
+      .getByRole("button", { name: "Save instructions", exact: true })
       .click();
     await expect(
-      direction().getByRole("button", { name: "Edit direction", exact: true }),
+      direction().getByRole("button", {
+        name: "Edit instructions",
+        exact: true,
+      }),
     ).toBeVisible();
     await direction()
-      .getByRole("button", { name: "Edit direction", exact: true })
+      .getByRole("button", { name: "Edit instructions", exact: true })
       .click();
     await direction()
-      .getByLabel("Next action", { exact: true })
+      .getByLabel("Instructions for all tasks", { exact: true })
       .fill("Unsaved follow-up: inspect Lens recovery.");
     await expect(
       direction().getByText("Draft saved on this device", { exact: true }),
     ).toBeVisible();
+    const toggle = direction().getByRole("button", {
+      name: "Shared instructions",
+      exact: true,
+    });
+    await toggle.click();
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(
+      direction().getByLabel("Instructions for all tasks", { exact: true }),
+    ).toBeHidden();
+    await toggle.focus();
+    await stave.page.keyboard.press("Enter");
+    await expect(toggle).toHaveAttribute("aria-expanded", "true");
+    await expect(
+      direction().getByLabel("Instructions for all tasks", { exact: true }),
+    ).toHaveValue("Unsaved follow-up: inspect Lens recovery.");
     await expect
       .poll(() =>
         stave!.page.evaluate(
@@ -83,34 +87,52 @@ test("maintained direction and an unsaved draft survive a full application resta
     listen();
     await expect(stave.page.getByTestId("task-start-guide")).toBeVisible();
     await stave.page
-      .getByRole("button", { name: "Review direction & evidence", exact: true })
+      .getByRole("button", { name: "Review shared instructions", exact: true })
       .click();
-    await expect(direction().getByLabel("Goal", { exact: true })).toHaveValue(
-      "Deliver the complete workspace, including recovery and usability.",
-    );
     await expect(
-      direction().getByLabel("Next action", { exact: true }),
+      direction().getByLabel("Instructions for all tasks", { exact: true }),
     ).toHaveValue("Unsaved follow-up: inspect Lens recovery.");
     await direction()
-      .getByRole("button", { name: "Load saved brief", exact: true })
+      .getByRole("button", { name: "Discard edits", exact: true })
       .click();
     await expect(
-      direction().getByText("Measure workspace switching.", { exact: true }),
+      direction().getByText(
+        "Preserve keyboard shortcuts and verify recovery after restart.",
+        { exact: true },
+      ),
     ).toBeVisible();
-    await expect(
-      direction().getByText("Restart must preserve goals and drafts.", {
-        exact: true,
-      }),
-    ).toBeVisible();
-    await stave.page
-      .getByRole("button", { name: "Prepare the next step", exact: true })
-      .click();
-    await expect(
-      stave.page.locator('[data-prompt-lexical-editor="true"]'),
-    ).toContainText("Measure workspace switching.");
     await stave.page.screenshot({
       path: testInfo.outputPath("workspace-direction-restored.png"),
     });
+    for (const mode of ["light", "dark"] as const) {
+      await stave.page.evaluate((theme) => {
+        document.documentElement.classList.toggle("dark", theme === "dark");
+      }, mode);
+      await stave.page.screenshot({
+        path: testInfo.outputPath(`instructions-${mode}-expanded.png`),
+      });
+      const heading = direction().getByRole("button", {
+        name: "Shared instructions",
+        exact: true,
+      });
+      await heading.click();
+      await expect(heading).toHaveAttribute("aria-expanded", "false");
+      await expect(
+        direction().getByRole("button", {
+          name: "Edit instructions",
+          exact: true,
+        }),
+      ).toBeHidden();
+      await expect(
+        direction().getByText("Saved instructions are included", {
+          exact: false,
+        }),
+      ).toBeHidden();
+      await stave.page.screenshot({
+        path: testInfo.outputPath(`instructions-${mode}-collapsed.png`),
+      });
+      await heading.click();
+    }
     expect(errors).toEqual([]);
   } catch (error) {
     await stave?.page.screenshot({

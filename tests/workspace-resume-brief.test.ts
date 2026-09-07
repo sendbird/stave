@@ -7,6 +7,7 @@ import {
 import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
 import {
   emptyResumeBriefFields,
+  getWorkspaceInstructions,
   WorkspaceResumeBriefSchema,
 } from "@/lib/workspace-resume-brief";
 
@@ -75,7 +76,7 @@ test("workspace snapshots retain maintained direction when the turn recap is rep
   ).toBe(false);
 });
 
-test("all direction fields precede long notes and identify abridged context", () => {
+test("shared instructions precede notes and identify abridged context", () => {
   const parts = buildCurrentTaskAwarenessRetrievedContextParts({
     workspaceId: "ws",
     taskId: "task",
@@ -85,20 +86,39 @@ test("all direction fields precede long notes and identify abridged context", ()
       notes: "Old notes ".repeat(1000),
       resumeBrief: {
         ...brief,
-        completionCriteria: "Required outcome ".repeat(100),
+        instructions: "Shared constraint ".repeat(200),
       },
     },
   });
   const content = parts.find(
     (part) => part.sourceId === STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
   )!.content;
-  expect(content).toContain(brief.goal);
+  expect(content).toContain("Shared constraint");
   expect(content).toContain("[abridged]");
-  expect(content).toContain(brief.decisions);
-  expect(content).toContain(brief.evidence);
-  expect(content).toContain(brief.nextAction);
-  expect(content.indexOf(brief.goal)).toBeLessThan(
+  expect(content.indexOf("Shared constraint")).toBeLessThan(
     content.indexOf("Old notes"),
   );
-  expect(content).toContain("does not replace this goal");
+  expect(content).toContain("do not replace these instructions");
+});
+
+test("legacy fields convert without loss and an explicitly cleared instruction stays empty", () => {
+  const text = getWorkspaceInstructions(brief);
+  for (const value of [
+    brief.goal,
+    brief.completionCriteria,
+    brief.decisions,
+    brief.evidence,
+    brief.nextAction,
+  ]) {
+    expect(text).toContain(value);
+  }
+  expect(getWorkspaceInstructions({ ...brief, instructions: "" })).toBe("");
+  const updated = { ...brief, instructions: text };
+  expect(WorkspaceResumeBriefSchema.parse(updated)).toEqual(updated);
+  expect(
+    WorkspaceResumeBriefSchema.safeParse({
+      ...updated,
+      instructions: "x".repeat(12001),
+    }).success,
+  ).toBe(false);
 });

@@ -3,6 +3,7 @@ import { z } from "zod";
 /** Explicit workspace intent is kept apart from an automatically replaced turn summary. */
 export const WorkspaceResumeBriefSchema = z
   .object({
+    instructions: z.string().max(12000).optional(),
     goal: z.string().max(2000),
     completionCriteria: z.string().max(2000),
     decisions: z.string().max(2000),
@@ -67,20 +68,27 @@ export function emptyResumeBriefFields(): ResumeBriefFields {
   };
 }
 
+/** Preserve every legacy field when opening saved content or a local draft. */
+export function getWorkspaceInstructions(
+  brief?: ResumeBriefFields | null,
+): string {
+  if (!brief) return "";
+  if (brief.instructions !== undefined) return brief.instructions;
+  return RESUME_BRIEF_FIELDS.filter(({ key }) => brief[key].trim())
+    .map(({ key, label }) => `${label}: ${brief[key]}`)
+    .join("\n\n");
+}
+
 export function formatResumeBriefContext(brief: WorkspaceResumeBrief) {
-  const lines = [
-    "Workspace goal and confirmed direction (maintained explicitly; not the latest-turn summary):",
+  const instructions = getWorkspaceInstructions(brief).trim();
+  if (!instructions) return [];
+  const limit = 1400;
+  return [
+    "Shared workspace instructions (apply across tasks in this workspace):",
     `Updated: ${brief.updatedAt}`,
+    instructions.length > limit
+      ? `${instructions.slice(0, limit)}… [abridged]`
+      : instructions,
+    "Read the full shared instructions in Information when abridged. Automatic turn summaries do not replace these instructions.",
   ];
-  for (const { key, label } of RESUME_BRIEF_FIELDS) {
-    if (!brief[key].trim()) continue;
-    const value = brief[key].trim();
-    lines.push(
-      `${label}: ${value.length > 360 ? `${value.slice(0, 360)}… [abridged]` : value}`,
-    );
-  }
-  lines.push(
-    "Read the full Information panel when an abridged condition matters. A new summary does not replace this goal or its completion conditions.",
-  );
-  return lines;
 }
