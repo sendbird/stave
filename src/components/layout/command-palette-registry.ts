@@ -372,8 +372,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "navigation.automation-center",
-    title: "Open Library",
-    description: "Find reusable instructions, task setups, and scheduled work.",
+    title: "Open Automations",
+    description: "Open scheduled agent automations and their run history.",
     group: "navigation",
     icon: Workflow,
     keywords: [
@@ -390,13 +390,13 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     shortcut: (modifierLabel) => `${modifierLabel}+K A`,
     build: (args) => ({
       id: "navigation.automation-center",
-      title: "Open Library",
-      subtitle: "Find macros, task presets, workspace tools, and scheduled work.",
+      title: "Open Automations",
+      subtitle: "Schedule repeatable agent work and inspect run history.",
       group: "navigation",
       icon: Workflow,
       keywords: [
         "library",
-      "automation",
+        "automation",
         "automations",
         "routine",
         "schedule",
