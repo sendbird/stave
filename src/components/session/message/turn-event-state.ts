@@ -1,5 +1,6 @@
 import type { AgentRunState } from "@/components/ads/components/agent-state";
-import type { ToolUsePart } from "@/types/chat";
+import type { FileChangeStatus } from "@/components/session/chat-panel.utils";
+import type { CodeDiffPart, ToolUsePart } from "@/types/chat";
 
 /**
  * The one place a Stave tool-part state becomes an ADS `AgentRunState`.
@@ -27,6 +28,40 @@ export function toAgentRunState(state?: ToolUsePart["state"]): AgentRunState {
       return "failed";
     default:
       return "pending";
+  }
+}
+
+/**
+ * A diff part's own status in ADS's shared run vocabulary. `accepted` is a
+ * change that landed, `rejected` one a human refused, and `pending` one still
+ * waiting on that decision.
+ */
+export function toDiffRunState(status: CodeDiffPart["status"]): AgentRunState {
+  switch (status) {
+    case "accepted":
+      return "done";
+    case "rejected":
+      return "denied";
+    case "pending":
+      return "pending";
+  }
+}
+
+/**
+ * Provider file-change outcomes share one payload across Claude and Codex:
+ * `appliedPaths`, `skippedPaths`, `failedPaths`.
+ *
+ * `skipped` means the inline diff was omitted (binary, too large, outside the
+ * workspace, or the snapshot never covered it). It is not a cancelled run.
+ */
+export function toFileChangeRunState(status: FileChangeStatus): AgentRunState {
+  switch (status) {
+    case "applied":
+      return "done";
+    case "skipped":
+      return "skipped";
+    case "failed":
+      return "failed";
   }
 }
 

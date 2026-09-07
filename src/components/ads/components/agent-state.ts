@@ -29,7 +29,14 @@ export type AgentRunState =
   | "checkpointed"
   | "resumed"
   | "interrupted"
-  | "canceled";
+  | "canceled"
+  /**
+   * Work that did not run, or a result that was omitted on purpose.
+   * Distinct from `canceled`: nobody aborted a live run. Distinct from
+   * `denied`: nobody refused it. File-change rows use this when the provider
+   * applied (or could not snapshot) a path but skipped the inline diff.
+   */
+  | "skipped";
 
 /** Human-readable label for a run state. */
 export const agentStateLabel: Record<AgentRunState, string> = {
@@ -47,6 +54,7 @@ export const agentStateLabel: Record<AgentRunState, string> = {
   retrying: "Retrying",
   resumed: "Resumed",
   running: "Running",
+  skipped: "Skipped",
 };
 
 /** Semantic tone for a run state, for status-bearing `Badge` compositions. */
@@ -65,6 +73,7 @@ export const agentStateTone: Record<AgentRunState, AgentStatusTone> = {
   retrying: "accent",
   resumed: "accent",
   running: "accent",
+  skipped: "warning",
 };
 
 /** The same tone narrowed to what `StatusDot` accepts. */
@@ -83,6 +92,7 @@ export const agentStateDotTone: Record<AgentRunState, StatusDotTone> = {
   retrying: "accent",
   resumed: "accent",
   running: "accent",
+  skipped: "warning",
 };
 
 /**

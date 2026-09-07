@@ -1,7 +1,6 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { DiffViewer } from "@/components/ads/components/DiffViewer";
 import { FileChangeSummary } from "@/components/ads/components/FileChangeSummary";
-import type { AgentRunState } from "@/components/ads/components/agent-state";
 import { useMemo, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { Badge, Button, Card, ImageLightbox } from "@/components/ui";
@@ -26,6 +25,10 @@ import {
 import { toBaseName } from "@/lib/message-file-links";
 import { sx } from "@/components/ads/utils/stylex";
 import { chatPanelFileBlocksStyles as styles } from "./chat-panel-file-blocks.styles";
+import {
+  toDiffRunState,
+  toFileChangeRunState,
+} from "./message/turn-event-state";
 import { useAppStore } from "@/store/app.store";
 import type {
   CodeDiffPart,
@@ -52,41 +55,6 @@ function getFileChangeStatusPriority(status: FileChangeSummaryRow["status"]) {
       return 2;
     case "applied":
       return 1;
-  }
-}
-
-/**
- * A diff part's own status in ADS's shared run vocabulary. `accepted` is a
- * change that landed, `rejected` one a human refused, and `pending` one still
- * waiting on that decision — the same three states `FileChangeSummary` and
- * `ToolRun` read, so the diff row and the tool row that produced it cannot
- * describe the same outcome with two different words.
- */
-function toDiffRunState(status: CodeDiffPart["status"]): AgentRunState {
-  switch (status) {
-    case "accepted":
-      return "done";
-    case "rejected":
-      return "denied";
-    case "pending":
-      return "pending";
-  }
-}
-
-/**
- * The host's file-change outcomes in the same shared vocabulary: a change the
- * provider applied, one it skipped, one that failed.
- */
-function toFileChangeRunState(
-  status: FileChangeSummaryRow["status"],
-): AgentRunState {
-  switch (status) {
-    case "applied":
-      return "done";
-    case "skipped":
-      return "canceled";
-    case "failed":
-      return "failed";
   }
 }
 
