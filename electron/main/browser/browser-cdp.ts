@@ -156,11 +156,49 @@ export async function captureScreenshot(
     params.clip = { ...options.clip, scale: 1 };
   }
 
-  const result = (await withLensScreenshotTimeout(
-    sendCommand(webContentsId, "Page.captureScreenshot", params),
-  )) as { data: string };
+  try {
+    const result = (await withLensScreenshotTimeout(
+      sendCommand(webContentsId, "Page.captureScreenshot", params),
+    )) as { data: string };
 
-  return `data:image/png;base64,${result.data}`;
+    return `data:image/png;base64,${result.data}`;
+  } finally {
+    if (params.captureBeyondViewport) {
+      await clearLensDeviceMetricsOverride(webContentsId);
+    }
+  }
+}
+
+/**
+ * Undo the viewport a full-page capture temporarily gave the guest.
+ *
+ * `captureBeyondViewport` works by having Chromium apply a device-metrics
+ * override the size of the whole document and restoring the original metrics
+ * once the frame is captured. That restore rides on the capture completing: a
+ * guest that produces no frame in time — Lens gives up after its own timeout
+ * while the command stays in flight — or one that navigates mid-capture keeps
+ * the oversized viewport. Emulation lives on the CDP session, so it survives
+ * every later navigation and reload; only a fresh guest sheds it. The user sees
+ * a page laid out wider than its pane and centred on it, both edges clipped,
+ * that no resize can fix.
+ *
+ * Clearing is cheap and idempotent — a session with no override in force
+ * answers success — so it runs after every full-page capture regardless of how
+ * it ended. Best-effort via the already-attached path: the override can only
+ * exist while the debugger is attached, and this must never revive a debugger
+ * on a guest that is closing.
+ */
+async function clearLensDeviceMetricsOverride(
+  webContentsId: number,
+): Promise<void> {
+  try {
+    await sendCdpCommandIfAttached(
+      webContentsId,
+      "Emulation.clearDeviceMetricsOverride",
+    );
+  } catch {
+    // The guest may have closed between the capture and its cleanup.
+  }
 }
 
 // ---------------------------------------------------------------------------
