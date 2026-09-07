@@ -45,8 +45,19 @@ export const agentSurface = stylex.create({
     display: "grid",
     inlineSize: "100%",
     minInlineSize: 0,
-    paddingBlock: vars.space8,
-    paddingInline: vars.space12,
+    // The same block rhythm as `inlineDisclosure.trigger`: a one-line row
+    // resolves to exactly `controlHeightSm` on both sides of the static /
+    // interactive split, instead of the static arm running 3px taller because
+    // it padded to its own content rather than to the shared control height.
+    minBlockSize: vars.controlHeightSm,
+    paddingBlock: vars.space4,
+    // Locked to `inlineDisclosure.trigger`'s inline padding. A transcript row
+    // is static or interactive depending on whether it has a payload — the
+    // same `ToolRun`, `Thinking` or notice renders as this row when there is
+    // nothing to open and as that trigger when there is — so the two must
+    // start their glyph in the same column. They did not, and a column of
+    // rows stepped 4px in and out by nothing but the presence of output.
+    paddingInline: vars.space8,
   },
   /**
    * Hover/press wash for an interactive `row`. Split from `row` so a static

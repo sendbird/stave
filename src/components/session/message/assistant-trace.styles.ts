@@ -20,55 +20,6 @@ export const assistantTraceStyles = stylex.create({
     height: "1.15em",
     width: "1.15em",
   },
-  // Shared "target" chip — the file, command, pattern, or URL a step acted on.
-  // One mono treatment for every kind so a trace column reads as a single list
-  // of targets instead of four competing chip styles.
-  targetChip: {
-    alignItems: "center",
-    backgroundColor: `color-mix(in oklch, ${vars.colorSurfaceTint} 80%, transparent)`,
-    borderRadius: vars.radiusPanel,
-    color: vars.colorTextMuted,
-    display: "inline-flex",
-    fontFamily: vars.fontMono,
-    fontSize: "0.85em",
-    gap: vars.space4,
-    lineHeight: 1,
-    marginLeft: vars.space4,
-    maxWidth: "42rem",
-    overflow: "hidden",
-    paddingBlock: vars.space4,
-    paddingInline: "0.625rem",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  chipIcon: {
-    flexShrink: 0,
-    height: "0.85em",
-    width: "0.85em",
-  },
-  // Plain-text summary chip (no card), dimmer than the target chip.
-  textSummary: {
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
-    display: "inline-block",
-    marginLeft: vars.space4,
-    maxWidth: "42rem",
-    overflow: "hidden",
-    fontSize: "0.75em",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  // Subagent type chip — a soft accent pill.
-  subagentChip: {
-    backgroundColor: `color-mix(in oklch, ${vars.colorAccent} 10%, transparent)`,
-    borderRadius: vars.radiusMark,
-    color: vars.colorAccent,
-    fontSize: "0.85em",
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: 1,
-    marginLeft: vars.space4,
-    paddingBlock: "0.125rem",
-    paddingInline: 6,
-  },
   diffSummary: {
     alignItems: "center",
     display: "inline-flex",

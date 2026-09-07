@@ -290,7 +290,7 @@ const styles = stylex.create({
   header: {
     // Matches `agentSurface.row`'s inline padding so the plan title sits in the
     // same column as the step titles below it.
-    paddingInline: vars.space12,
+    paddingInline: vars.space8,
   },
   title: {
     color: vars.colorText,

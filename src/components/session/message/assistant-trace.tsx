@@ -16,13 +16,13 @@ import {
   Wrench,
 } from "lucide-react";
 import { StaveIcon } from "@/components/brand-icons";
+import type { AgentRunState } from "@/components/ads/components/agent-state";
 import { StepRail } from "@/components/ads/components/StepRail";
 import { ToolRun } from "@/components/ads/components/ToolRun";
 import { controlIconSizes } from "@/components/ads/recipes/control-metrics";
 import {
   ChainOfThought,
   ChainOfThoughtContent,
-  ChainOfThoughtStep,
   ChainOfThoughtTrigger,
   MessageResponse,
   parseSubagentToolInput,
@@ -55,12 +55,10 @@ import type {
   ThinkingPart,
 } from "@/types/chat";
 import {
-  deriveTodoTraceStatus,
   deriveTraceToolSummary,
   getResidualToolInput,
   getToolTitle,
   normalizeTraceToolName,
-  type TraceToolSummary,
 } from "./assistant-trace.utils";
 import {
   buildAssistantTrace,
@@ -85,45 +83,6 @@ import {
   toAgentRunState,
   toMeasuredDurationMs,
 } from "./turn-event-state";
-
-/* ─── Step status ────────────────────────────────────────────────── */
-
-function toStepStatus(args: {
-  entry: AssistantTraceEntry;
-  isStreaming: boolean;
-}) {
-  switch (args.entry.kind) {
-    case "reasoning":
-      return args.entry.isStreaming ? ("active" as const) : ("done" as const);
-    case "assistant_text":
-      return "done" as const;
-    case "tool":
-    case "subagent":
-      return args.entry.part.state === "input-streaming" ||
-        args.entry.part.state === "input-available"
-        ? ("active" as const)
-        : args.entry.part.state === "output-available" ||
-            args.entry.part.state === "output-error"
-          ? ("done" as const)
-          : ("pending" as const);
-    case "todo":
-      return deriveTodoTraceStatus({
-        input: args.entry.part.input,
-        state: args.entry.part.state,
-      });
-    case "approval":
-      return args.entry.part.state === "approval-requested"
-        ? ("active" as const)
-        : ("done" as const);
-    case "user_input":
-      return args.entry.part.state === "input-requested"
-        ? ("active" as const)
-        : ("done" as const);
-    case "diff":
-    case "system":
-      return "done" as const;
-  }
-}
 
 /* ─── Step icon mapping ──────────────────────────────────────────── */
 
@@ -189,115 +148,47 @@ function getEntryIcon(entry: AssistantTraceEntry): ReactNode | undefined {
   }
 }
 
-/* ─── Step summary chips ─────────────────────────────────────────── */
-
 /**
- * Shared "target" chip — the file, command, pattern, or URL a step acted on.
- * One mono treatment for every kind so a trace column reads as a single list of
- * targets instead of four competing chip styles.
+ * The `+N −M` roll-up a changed-file row carries in its machine register.
+ *
+ * Diff-only by construction. Every other kind on the rail is an ADS row that
+ * owns its own summary slot — a tool call puts its target in `tool` and its
+ * result count in `count`, a plan puts `done / total` in `count` — so a host
+ * chip beside those was a second summary competing with the one the component
+ * already draws.
  */
-const TRACE_TARGET_CHIP_CLASS = sx(styles.targetChip);
-
-function renderTraceToolSummaryChip(summary: TraceToolSummary): ReactNode {
-  switch (summary.kind) {
-    case "command":
-      return <span className={TRACE_TARGET_CHIP_CLASS}>{summary.text}</span>;
-    case "file":
-      return (
-        <span className={TRACE_TARGET_CHIP_CLASS}>
-          <FileText className={sx(styles.chipIcon)} />
-          {summary.text}
-        </span>
-      );
-    case "search":
-      return (
-        <span className={TRACE_TARGET_CHIP_CLASS}>
-          <Search className={sx(styles.chipIcon)} />
-          {summary.text}
-        </span>
-      );
-    case "web":
-      return (
-        <span className={TRACE_TARGET_CHIP_CLASS}>
-          <Globe className={sx(styles.chipIcon)} />
-          {summary.text}
-        </span>
-      );
-    case "text":
-      return <span className={sx(styles.textSummary)}>{summary.text}</span>;
+function getDiffSummary(parts: readonly CodeDiffPart[]): ReactNode {
+  /* `+N / -N` uses the semantic success / destructive tokens so the counts
+     stay legible in every built-in theme (no new colour tokens). */
+  const totals = parts.reduce(
+    (accumulator, part) => {
+      const changes = summarizeDiffLineChanges({
+        oldContent: part.oldContent,
+        newContent: part.newContent,
+      });
+      return {
+        added: accumulator.added + changes.added,
+        removed: accumulator.removed + changes.removed,
+      };
+    },
+    { added: 0, removed: 0 },
+  );
+  if (parts.length <= 1 && totals.added === 0 && totals.removed === 0) {
+    return null;
   }
-}
-
-function getToolSummary(toolName: string, input: string): ReactNode {
-  if (normalizeTraceToolName(toolName) === "file_change") {
-    const rows = parseFileChangeToolInput(input);
-    return rows.length > 0 ? (
-      <span className={TRACE_TARGET_CHIP_CLASS}>
-        <FileCode2 className={sx(styles.chipIcon)} />
-        {rows.length} {rows.length === 1 ? "file" : "files"}
-      </span>
-    ) : null;
-  }
-
-  const summary = deriveTraceToolSummary({ toolName, input });
-  return summary ? renderTraceToolSummaryChip(summary) : null;
-}
-
-function getEntrySummary(entry: AssistantTraceEntry): ReactNode {
-  switch (entry.kind) {
-    case "tool":
-      return getToolSummary(entry.part.toolName, entry.part.input);
-    case "subagent": {
-      const parsed = parseSubagentToolInput({ input: entry.part.input });
-      return parsed.subagentType ? (
-        <span className={sx(styles.subagentChip)}>{parsed.subagentType}</span>
-      ) : null;
-    }
-    case "todo":
-      /* The plan's progress is a `ToolRun` count, not a host chip. */
-      return null;
-    case "diff": {
-      /* `+N / -N` uses the semantic success / destructive tokens so the counts
-         stay legible in every built-in theme (no new colour tokens). */
-      const totals = entry.parts.reduce(
-        (accumulator, part) => {
-          const changes = summarizeDiffLineChanges({
-            oldContent: part.oldContent,
-            newContent: part.newContent,
-          });
-          return {
-            added: accumulator.added + changes.added,
-            removed: accumulator.removed + changes.removed,
-          };
-        },
-        { added: 0, removed: 0 },
-      );
-      if (
-        entry.parts.length <= 1 &&
-        totals.added === 0 &&
-        totals.removed === 0
-      ) {
-        return null;
-      }
-      return (
-        <span className={sx(styles.diffSummary)}>
-          {entry.parts.length > 1 ? (
-            <span className={sx(styles.diffFiles)}>
-              {entry.parts.length} files
-            </span>
-          ) : null}
-          {totals.added > 0 ? (
-            <span className={sx(styles.diffAdded)}>+{totals.added}</span>
-          ) : null}
-          {totals.removed > 0 ? (
-            <span className={sx(styles.diffRemoved)}>-{totals.removed}</span>
-          ) : null}
-        </span>
-      );
-    }
-    default:
-      return null;
-  }
+  return (
+    <span className={sx(styles.diffSummary)}>
+      {parts.length > 1 ? (
+        <span className={sx(styles.diffFiles)}>{parts.length} files</span>
+      ) : null}
+      {totals.added > 0 ? (
+        <span className={sx(styles.diffAdded)}>+{totals.added}</span>
+      ) : null}
+      {totals.removed > 0 ? (
+        <span className={sx(styles.diffRemoved)}>-{totals.removed}</span>
+      ) : null}
+    </span>
+  );
 }
 
 /* ─── Trace summary (collapsed trigger stats) ────────────────────── */
@@ -439,7 +330,6 @@ export function splitSystemEventContent(content: string): {
 function AssistantTraceEntryView(args: {
   entry: AssistantTraceEntry;
   isLast: boolean;
-  isStreaming: boolean;
   taskId: string;
   messageId: string;
   terminalStopReason?: string;
@@ -447,15 +337,12 @@ function AssistantTraceEntryView(args: {
   const {
     entry,
     isLast,
-    isStreaming,
     taskId,
     messageId,
     terminalStopReason,
   } = args;
   const agentStyle = useAgentStyle();
-  const status = toStepStatus({ entry, isStreaming });
   const icon = getEntryIcon(entry);
-  const summary = getEntrySummary(entry);
   /* TODO(agent-style-legacy): collapse to `rowMotion` once signed off. */
   const rowMotionStyle =
     agentStyle === "legacy" ? styles.rowMotionLegacy : styles.rowMotion;
@@ -656,27 +543,57 @@ function AssistantTraceEntryView(args: {
         </StepRail.Step>
       );
 
-    case "diff":
+    /*
+     * A file edit is a tool call's result, so the row is `ToolRun` — the same
+     * primitive as every other call on the rail. It used to be the host
+     * `ChainOfThoughtStep`, which is the one row anatomy on this surface that
+     * puts its chevron on the trailing edge and sizes its glyph in `em`, so the
+     * one kind of row a reader scans for most sat 8px left of its neighbours,
+     * pointed its chevron the other way, and grew with the message font while
+     * they did not. Nothing about a diff asked for that; it was just the row it
+     * was built on.
+     *
+     * The pending/rejected states are reported through `AgentRunState` rather
+     * than a local `defaultOpen`: `approval` is what "waiting for accept or
+     * reject" is called everywhere else in this family, and `isAttentionState`
+     * then keeps exactly those rows open without this call site re-deriving the
+     * rule.
+     */
+    case "diff": {
+      const diffStatus: AgentRunState = entry.parts.some(
+        (part) => part.status === "pending",
+      )
+        ? "approval"
+        : entry.parts.every((part) => part.status === "rejected")
+          ? "denied"
+          : "completed";
+
       return (
-        <ChainOfThoughtStep
-          last={isLast}
-          title={
-            entry.parts.length === 1
-              ? "Changed file"
-              : `${entry.parts.length} changed files`
-          }
-          status={status}
-          icon={icon}
-          summary={summary}
-          defaultOpen={entry.parts.some((p) => p.status === "pending")}
+        <StepRail.Step
+          connector={!isLast}
+          xstyle={[styles.railStep, rowMotionStyle]}
         >
-          <ChangedFilesBlock
-            parts={entry.parts}
-            taskId={taskId}
-            messageId={messageId}
-          />
-        </ChainOfThoughtStep>
+          <ToolRun
+            /* `+N −M`, already in the diff's own semantic ink. It reads in the
+               machine register beside a tool call's "12 matches". */
+            count={getDiffSummary(entry.parts)}
+            icon={icon}
+            status={diffStatus}
+            title={
+              entry.parts.length === 1
+                ? "Changed file"
+                : `${entry.parts.length} changed files`
+            }
+          >
+            <ChangedFilesBlock
+              parts={entry.parts}
+              taskId={taskId}
+              messageId={messageId}
+            />
+          </ToolRun>
+        </StepRail.Step>
       );
+    }
 
     /*
      * A human decision, not a tool call: ADS `Approval` owns the status word,
@@ -957,7 +874,6 @@ export function AssistantMessageBody(args: {
                   key={entry.id}
                   entry={entry}
                   isLast={index === trace.entries.length - 1}
-                  isStreaming={isStreaming}
                   taskId={taskId}
                   messageId={messageId}
                   terminalStopReason={message.terminalStopReason}

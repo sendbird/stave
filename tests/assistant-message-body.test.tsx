@@ -367,4 +367,90 @@ describe("AssistantMessageBody", () => {
     expect(html).toContain("Patched the issue.");
   });
 
+
+  /*
+   * The changed-file row is `ToolRun`, the same primitive as every other call
+   * on the rail — not the host `ChainOfThoughtStep` it used to be, which put
+   * its chevron on the trailing edge and sized its glyph in `em`. These pin the
+   * two halves of that: the ADS row anatomy is present, and the pending /
+   * rejected state is reported through `AgentRunState` rather than a local
+   * open flag, so `isAttentionState` decides which rows stay open.
+   */
+  test("renders a changed file as an ADS tool run row awaiting approval", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({
+        parts: [
+          {
+            type: "code_diff",
+            filePath: "src/lib/example.ts",
+            oldContent: "const a = 1;\n",
+            newContent: "const a = 2;\nconst b = 3;\n",
+            status: "pending",
+          },
+        ],
+        /* The trace auto-opens only while the turn streams, and a settled turn
+           renders the diff through the block below the trace instead. */
+        isStreaming: true,
+      }),
+      taskId: "task-1",
+      messageId: "message-1",
+      streamingEnabled: true,
+    }));
+
+    expect(html).toContain("Changed file");
+    // The ADS row, keyed by the state the whole family shares.
+    expect(html).toContain('data-tool-run-status="approval"');
+    expect(html).toContain("Awaiting approval");
+    // The disclosure's leading glyph slot, which is what swaps for the chevron.
+    expect(html).toContain("atelier-inline-disclosure-trigger");
+  });
+
+  test("reports an entirely rejected changed-file row as denied", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({
+        parts: [
+          {
+            type: "code_diff",
+            filePath: "src/lib/example.ts",
+            oldContent: "const a = 1;\n",
+            newContent: "const a = 2;\n",
+            status: "rejected",
+          },
+        ],
+        isStreaming: true,
+      }),
+      taskId: "task-1",
+      messageId: "message-1",
+      streamingEnabled: true,
+    }));
+
+    expect(html).toContain('data-tool-run-status="denied"');
+    expect(html).not.toContain('data-tool-run-status="approval"');
+  });
+
+  test("reports an accepted changed-file row as completed", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({
+        parts: [
+          {
+            type: "code_diff",
+            filePath: "src/lib/example.ts",
+            oldContent: "const a = 1;\n",
+            newContent: "const a = 2;\n",
+            status: "accepted",
+          },
+        ],
+        isStreaming: true,
+      }),
+      taskId: "task-1",
+      messageId: "message-1",
+      streamingEnabled: true,
+    }));
+
+    expect(html).toContain('data-tool-run-status="completed"');
+  });
+
 });
