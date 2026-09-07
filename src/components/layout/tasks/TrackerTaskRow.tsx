@@ -3,6 +3,7 @@ import { memo } from "react";
 import { CornerDownRight, ExternalLink, GitBranch, Link2 } from "lucide-react";
 
 import { Badge } from "@/components/ads/components/Badge";
+import { PriorityIcon } from "@/components/ads/components/WorkflowIcon";
 import {
   ContextMenu,
   ContextMenuContent,
@@ -30,7 +31,6 @@ import {
 import { labelColorStyles, priorityToneStyles } from "./tracker-visual.styles";
 import {
   TRACKER_LINK_STATE_PRESENTATION,
-  TRACKER_PRIORITY_ICONS,
   TRACKER_SOURCE_LABELS,
   copyTrackerTaskValue,
   openTrackerTaskInBrowser,
@@ -84,7 +84,6 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
     : null;
   const status = TRACKER_STATUS_PRESENTATION[task.status.category];
   const priority = TRACKER_PRIORITY_PRESENTATION[task.priority.level];
-  const PriorityIcon = TRACKER_PRIORITY_ICONS[priority.iconName];
   const due = formatTrackerDue(task.dueDate, now);
   const finished =
     task.status.category === "done" || task.status.category === "closed";
@@ -136,7 +135,7 @@ export const TrackerTaskRow = memo(function TrackerTaskRow(
         >
           <PriorityIcon
             {...stylex.props(styles.priority)}
-            aria-label={priority.label}
+            priority={task.priority.level}
           />
         </span>
 

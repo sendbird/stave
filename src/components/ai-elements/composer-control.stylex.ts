@@ -5,6 +5,13 @@ export const toolbarMarker = stylex.defineMarker();
 export const wingMarker = stylex.defineMarker();
 export const shelfMarker = stylex.defineMarker();
 export const menuMarker = stylex.defineMarker();
+/**
+ * A row that holds ONE action expressed as more than one button — a primary
+ * plus its alternatives menu. The lane hands such a row its width once, at the
+ * group, instead of asking each half for `100%` of a box that has no width of
+ * its own.
+ */
+export const groupMarker = stylex.defineMarker();
 
 /** Lane owners determine geometry; providers and actions determine behavior. */
 export const controlStyles = stylex.create({
@@ -45,7 +52,22 @@ export const controlStyles = stylex.create({
     },
     gap: vars.space8,
     paddingInline: { default: vars.space12, [stylex.when.ancestor(":is(*)", wingMarker)]: vars.space8, [stylex.when.ancestor(":is(*)", shelfMarker)]: vars.space8, [stylex.when.ancestor(":is(*)", menuMarker)]: vars.space8 },
-    inlineSize: { default: null, [stylex.when.ancestor(":is(*)", wingMarker)]: "100%", [stylex.when.ancestor(":is(*)", menuMarker)]: "100%" },
+    /*
+     * The wing and menu lanes stack one full-width control per row, so a
+     * control there fills its row.
+     *
+     * `groupMarker` is listed LAST and wins, because that width is wrong the
+     * moment a row holds a two-part action. The `⋯` tray's Compare control is
+     * a primary plus a chevron menu inside a shrink-to-fit wrapper: both
+     * halves asked for `100%` of a box with no definite width, both flex bases
+     * overflowed it, both shrank, and the primary ended up at roughly half a
+     * row — which is what truncated `Compare` to `Comp` under ADS's own label
+     * ellipsis. Inside a group the row width belongs to the group
+     * (`COMPOSER_CONTROL_GROUP`); the halves go back to hugging and the
+     * primary claims the slack with `flexGrow`.
+     */
+    inlineSize: { default: null, [stylex.when.ancestor(":is(*)", wingMarker)]: "100%", [stylex.when.ancestor(":is(*)", menuMarker)]: "100%", [stylex.when.ancestor(":is(*)", groupMarker)]: "auto" },
+    minInlineSize: { default: null, [stylex.when.ancestor(":is(*)", groupMarker)]: 0 },
     flexShrink: { default: null, [stylex.when.ancestor(":is(*)", wingMarker)]: 0 },
     justifyContent: { default: null, [stylex.when.ancestor(":is(*)", wingMarker)]: "flex-start", [stylex.when.ancestor(":is(*)", menuMarker)]: "flex-start" },
     flexDirection: { default: null, [stylex.when.ancestor(':is([data-side="left"])', wingMarker)]: "row-reverse" },
@@ -75,6 +97,30 @@ export const controlStyles = stylex.create({
     // lane renders `radiusControl`, and restating it here would be the one
     // thing that could break a future grouped composer control.
   },
+  /**
+   * The row box for a two-part action (primary + alternatives menu).
+   *
+   * It takes over the full-row width the lane would otherwise have demanded
+   * from each half, and it is the element carrying `groupMarker`, so the
+   * halves inside it hug. `gap` is `space2` rather than 0 because ADS's
+   * grouped-button radii (`--ads-button-radius-*`) are not installed in this
+   * bundle, so a connected edge cannot be expressed yet — see the ADS request
+   * log. Until then the two halves stay two buttons with a hairline gap.
+   */
+  group: {
+    alignItems: "stretch",
+    display: "inline-flex",
+    gap: vars.space2,
+    minInlineSize: 0,
+    inlineSize: {
+      default: null,
+      [stylex.when.ancestor(":is(*)", wingMarker)]: "100%",
+      [stylex.when.ancestor(":is(*)", menuMarker)]: "100%",
+    },
+  },
+  /** The primary half of a group claims the slack; the menu half hugs. */
+  groupPrimary: { flexGrow: 1, minInlineSize: 0 },
+  groupMenu: { flexGrow: 0, flexShrink: 0 },
   wingLabel: {
     pointerEvents: "none", display: "inline-flex", minInlineSize: 0, flex: 1, alignItems: "center", gap: vars.space8,
     whiteSpace: "nowrap", fontSize: vars.fontSizeCaption,

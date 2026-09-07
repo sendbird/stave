@@ -11,7 +11,12 @@ export const commandLayout = stylex.create({
     backgroundColor: vars.colorSurfaceRaised, padding: 0,
     maxHeight: { default: null, "@media (min-width: 640px)": "78vh" },
   },
-  inputRow: { display: "flex", height: 52, flexShrink: 0, alignItems: "center", gap: vars.space12, paddingInline: vars.space16 },
+  // The search gutter is ADS's: `Command.styles.inputGroup` already states
+  // `paddingInline: space12`, the same value the list rows resolve to. Stating
+  // `space16` here overrode it in the same `sx()` call, so the search field sat
+  // one step further in than everything below it and read as a second inset
+  // frame around the input.
+  inputRow: { display: "flex", height: 52, flexShrink: 0, alignItems: "center", gap: vars.space12 },
   searchIcon: { width: vars.space16, height: vars.space16, flexShrink: 0, color: vars.colorAccent },
   input: { height: "100%", minWidth: 0, flex: 1 },
   /**
@@ -28,7 +33,12 @@ export const commandLayout = stylex.create({
   // its own grid rows and clipped them instead of letting the list scroll —
   // measured 5 rows summing 152px inside a 71px box, each group starting inside
   // the previous one's rows. Row-level truncation is `itemLabel`'s job.
-  group: { padding: vars.space4 },
+  // Layout only, no gutter. The scrolling column already has exactly one:
+  // `Command.styles.list` owns `padding: space4`, and a group repeating it
+  // pushed every row a second step in, so the option list read as a frame
+  // inside a frame. ADS's `group` contributes `gap` and `flexShrink: 0`; the
+  // host adds nothing.
+  group: {},
   separator: { marginInline: -4, height: 1, width: "auto", backgroundColor: vars.colorBorder },
   item: {
     pointerEvents: { default: null, ':is([data-disabled="true"])': "none" },

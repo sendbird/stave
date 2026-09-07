@@ -14,10 +14,13 @@ export const resultStyles = stylex.create({
     fontWeight: vars.fontWeightMedium,
   },
   body: { minWidth: 0 },
+  // Panel prose, not a caption. `introduction`, `guidance`, `loading` and
+  // `notice` sat a rung under `error`/`empty` while saying the same kind of
+  // thing, so the same register printed at two sizes in one panel.
   introduction: {
     maxWidth: "65ch",
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightTight,
+    fontSize: vars.fontSizeBody,
+    lineHeight: vars.lineHeightNormal,
     color: vars.colorTextMuted,
   },
   navigation: {
@@ -28,11 +31,15 @@ export const resultStyles = stylex.create({
   },
   guidance: {
     marginTop: vars.space8,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightTight,
+    fontSize: vars.fontSizeBody,
+    lineHeight: vars.lineHeightNormal,
     color: vars.colorTextMuted,
   },
-  loading: { paddingBlock: vars.space8, fontSize: vars.fontSizeCaption },
+  loading: {
+    paddingBlock: vars.space8,
+    fontSize: vars.fontSizeBody,
+    lineHeight: vars.lineHeightNormal,
+  },
   error: {
     paddingBlock: vars.space8,
     fontSize: vars.fontSizeBody,
@@ -47,8 +54,8 @@ export const resultStyles = stylex.create({
   },
   notice: {
     paddingBlock: vars.space8,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightTight,
+    fontSize: vars.fontSizeBody,
+    lineHeight: vars.lineHeightNormal,
     color: vars.colorTextMuted,
   },
   pagination: {
@@ -107,12 +114,16 @@ export const resultStyles = stylex.create({
     lineHeight: vars.lineHeightNormal,
     color: vars.colorText,
   },
+  // Container step for the whole evidence block, including the reviewed
+  // answer — the panel's actual payload. At Caption it demoted the payload
+  // below the summary that introduces it; the descendants that are genuinely
+  // metadata (`filePath`, `snapshotSummary`, `code`) restate Caption locally.
   evidence: {
     display: "flex",
     flexDirection: "column",
     gap: vars.space8,
     paddingBlock: vars.space12,
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars.fontSizeBody,
   },
   evidenceHeading: { fontWeight: vars.fontWeightMedium },
   evidenceDescription: { marginBlock: vars.space8, color: vars.colorTextMuted },
@@ -128,7 +139,11 @@ export const resultStyles = stylex.create({
     flexDirection: "column",
     gap: vars.space4,
   },
-  filePath: { wordBreak: "break-all", fontFamily: vars.fontMono },
+  filePath: {
+    wordBreak: "break-all",
+    fontFamily: vars.fontMono,
+    fontSize: vars.fontSizeCaption,
+  },
   muted: { color: vars.colorTextMuted },
   reference: {
     minWidth: 0,
@@ -153,6 +168,7 @@ export const resultStyles = stylex.create({
     borderRadius: vars.radiusMark,
     paddingBlock: vars.space4,
     fontFamily: vars.fontMono,
+    fontSize: vars.fontSizeCaption,
   },
   snapshotContent: {
     display: "flex",

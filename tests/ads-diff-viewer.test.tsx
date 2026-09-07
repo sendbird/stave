@@ -101,11 +101,10 @@ describe("ADS DiffViewer (installed copy)", () => {
     expect(source).toContain('from "../recipes/focus-ring"');
     expect(source).toContain('from "../tokens/tokens.stylex"');
     expect(source).toContain('from "../utils/stylex"');
-    // The upstream `xstyle`/`XstyleProp` escape hatch is not part of the
-    // installed `utils/stylex`, so it must not be imported or used here.
-    expect(source).not.toContain("type XstyleProp");
-    expect(source).not.toContain("& XstyleProp");
-    expect(source).not.toContain("sx(styles.root, xstyle)");
+    // Embedded diffs compose host geometry in the same StyleX merge.
+    expect(source).toContain("type XstyleProp");
+    expect(source).toContain("& XstyleProp");
+    expect(source).toContain("sx(styles.root, xstyle)");
   });
 });
 

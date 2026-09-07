@@ -2,14 +2,14 @@ import * as stylex from "@stylexjs/stylex";
 import type * as React from "react";
 
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 
 export type CardDensity = "compact" | "regular";
 
 export type CardProps = React.ComponentProps<"section"> & {
   /** Spatial scale of the padding. @default "regular" */
   density?: CardDensity;
-};
+} & XstyleProp;
 
 /**
  * Bounded content surface (baseline `Card` anatomy). Compose with `CardHeader`
@@ -17,11 +17,16 @@ export type CardProps = React.ComponentProps<"section"> & {
  * `CardFooter`. It stays flat: the perimeter marks ownership, while elevation
  * remains reserved for pressable or detached surfaces.
  */
-export function Card({ className, density = "regular", ...props }: CardProps) {
+export function Card({
+  className,
+  density = "regular",
+  xstyle,
+  ...props
+}: CardProps) {
   return (
     <section
       {...props}
-      className={cx(sx(styles.root, densityStyles[density]), className)}
+      className={cx(sx(styles.root, densityStyles[density], xstyle), className)}
     />
   );
 }

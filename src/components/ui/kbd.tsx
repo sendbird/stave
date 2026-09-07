@@ -3,8 +3,15 @@ import { overlayLayout } from "./overlay-layout.styles";
 import { cx } from "../ads/utils/stylex";
 
 import { Kbd as AdsKbd } from "../ads/components/Kbd";
-function Kbd(props: React.ComponentProps<"kbd">) {
-  return <AdsKbd {...props} size="sm" data-slot="kbd" />;
+function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
+  return (
+    <AdsKbd
+      {...props}
+      size="sm"
+      data-slot="kbd"
+      className={cx(sx(overlayLayout.keyCap), className)}
+    />
+  );
 }
 
 function KbdGroup({ className, ...props }: React.ComponentProps<"span">) {

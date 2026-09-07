@@ -68,16 +68,20 @@ export const conversationStyles = stylex.create({
     fontSize: vars.fontSizeBody,
     color: vars.colorTextMuted,
   },
+  /*
+   * Placement only.
+   *
+   * The box is ADS's: `variant="floating" size="sm" iconOnly` is the raised
+   * round viewport-level control, and it resolves a 32px SQUARE from
+   * `controlSquares` plus `--ads-button-radius-*: radiusFull` and its own
+   * elevation. What was here before hand-rolled three quarters of that —
+   * `height: 32` with `paddingInline: space8` and no inline size, so the
+   * control came out 40×32 and the `radiusFull` turned it into a lozenge
+   * instead of a circle.
+   */
   floatingButton: {
     position: "absolute",
     bottom: vars.space12,
     left: vars.space12,
-    height: 32,
-    borderRadius: vars.radiusFull,
-    paddingInline: vars.space8,
-  },
-  buttonIcon: {
-    width: vars.controlIconSizeMd,
-    height: vars.controlIconSizeMd,
   },
 });

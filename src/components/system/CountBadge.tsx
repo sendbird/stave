@@ -70,14 +70,29 @@ const styles = stylex.create({
     backgroundColor: vars.colorAccent,
     color: vars.colorAccentText,
   },
+  // The soft pair, not `colorWarning` + `colorText`. ADS declares exactly one
+  // foreground for a solid fill — `colorAccentText` on `colorAccent` — and
+  // `colorText` is a body-ink role whose contract is "reads on the surface
+  // ramp", not "reads on a saturated amber". It measured ~7.6:1 in the default
+  // light theme and ~1.8:1 in the default dark one, and worse in the ported
+  // themes (Dracula's pale yellow under near-white body ink is ~1.05:1), so
+  // the loudest pill in the chrome was the one nobody could read. The soft
+  // fill with its declared text step is legible in every theme, and the
+  // warning-coloured ring keeps it reading as a deliberate amber mark rather
+  // than a wash.
   warning: {
-    backgroundColor: vars.colorWarning,
-    color: vars.colorText,
+    backgroundColor: vars.colorWarningSoft,
+    borderColor: vars.colorWarningBorder,
+    color: vars.colorWarningText,
   },
   neutral: {
     // The one tone that states its own edge: a neutral fill has no contrast
     // against the chrome behind it, so the ring has to carry the perimeter.
-    backgroundColor: vars.colorSurfaceTint,
+    // `colorCanvasSubtle` and not `colorSurfaceTint`, which is byte-identical
+    // to `colorAccentSoft` in the default light theme — so on a selected,
+    // accent-tinted host the pill's fill vanished into the control behind it
+    // and only the hairline was left to say a pill was there.
+    backgroundColor: vars.colorCanvasSubtle,
     borderColor: vars.colorBorder,
     color: vars.colorTextMuted,
   },

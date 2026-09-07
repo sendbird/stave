@@ -57,6 +57,7 @@ import type { SourceControlStatusItem } from "@/lib/source-control-status";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
+import { hostSurface } from "@/components/ui/host-surface.styles";
 import {
   changesStyles,
   checkToneStyles,
@@ -450,7 +451,14 @@ function SourceControlRow(args: {
         <AdsButton
           layout="host"
           type="button"
-          xstyle={[changesStyles.fileOpen, focusRing.ring]}
+          // `fileRow` owns the wash. Without `inertChrome` ADS's host-layout
+          // trigger recipe washed the copy column a second time, so the row
+          // hovered to double opacity behind the file name only.
+          xstyle={[
+            changesStyles.fileOpen,
+            focusRing.ring,
+            hostSurface.inertChrome,
+          ]}
           onClick={() => args.onOpenDiff(args.item.pathLabel)}
         >
           <WorkspaceFileIcon fileName={args.item.fileName} />

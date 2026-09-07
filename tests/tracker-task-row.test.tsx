@@ -81,7 +81,7 @@ describe("TrackerTaskRow", () => {
     expect(html).toContain("PLAT-1");
     expect(html).toContain("Fix the flaky upload retry");
     expect(html).toContain("In progress");
-    expect(html).toContain('aria-label="Urgent"');
+    expect(html).toContain('aria-label="Urgent priority"');
     expect(html).toContain('aria-selected="false"');
     expect(html).toContain('data-tracker-task-key="crane:PLAT-1"');
   });

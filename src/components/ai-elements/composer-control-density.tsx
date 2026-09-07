@@ -1,4 +1,4 @@
-import { controlStyles, toolbarMarker, wingMarker, shelfMarker, menuMarker } from "./composer-control.stylex";
+import { controlStyles, toolbarMarker, wingMarker, shelfMarker, menuMarker, groupMarker } from "./composer-control.stylex";
 import { sx } from "../ads/utils/stylex";
 import { createContext, useContext, type ReactNode } from "react";
 
@@ -25,6 +25,22 @@ export const composerControlAttributes = {
  * `COMPOSER_CONTROL_LANE` through StyleX ancestor conditions.
  */
 export const COMPOSER_CONTROL_BUTTON = sx(controlStyles.button);
+
+/**
+ * The wrapper for one action expressed as two buttons — a primary plus its
+ * alternatives menu.
+ *
+ * A lane sizes ROWS, and a lane cannot tell a two-button row apart from two
+ * one-button rows: in the wing and `⋯` lanes it asks each control for the
+ * full row width, which is right until two of them share one. Marking the
+ * wrapper moves that width up one level, so the group fills the row and the
+ * halves divide it (`COMPOSER_CONTROL_GROUP_PRIMARY` takes the slack,
+ * `COMPOSER_CONTROL_GROUP_MENU` hugs) instead of both overflowing and shrinking
+ * to half a row each.
+ */
+export const COMPOSER_CONTROL_GROUP = sx(groupMarker, controlStyles.group);
+export const COMPOSER_CONTROL_GROUP_PRIMARY = sx(controlStyles.groupPrimary);
+export const COMPOSER_CONTROL_GROUP_MENU = sx(controlStyles.groupMenu);
 
 /**
  * Control geometry, stated once per lane instead of once per control.

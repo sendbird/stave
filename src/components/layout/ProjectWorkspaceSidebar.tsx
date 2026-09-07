@@ -732,6 +732,7 @@ const WorkspaceRespondingCountBadge = memo(
       <div className={sx(projectSidebarStyles.respondingSlot)}>
         <Badge
           variant="outline"
+          tone="accent"
           className={sx(
             projectSidebarStyles.respondingBadge,
             transition.fade,
@@ -924,6 +925,7 @@ const WorkspaceExpandedMeta = memo(function WorkspaceExpandedMeta(args: {
             {respondingTaskCount > 0 ? (
               <Badge
                 variant="outline"
+                tone="accent"
                 className={sx(projectSidebarStyles.respondingBadgeInline)}
               >
                 {respondingTaskCount}

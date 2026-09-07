@@ -21,6 +21,8 @@ import {
 } from "@/lib/plans";
 import { sx } from "@/components/ads/utils/stylex";
 import { transition } from "@/components/ads/recipes/transition";
+import { hostSurface } from "@/components/ui/host-surface.styles";
+import { informationRow } from "./information-row.styles";
 import { planStyles } from "./workspace-plans.styles";
 
 interface WorkspacePlansSectionProps {
@@ -291,72 +293,82 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
             </EmptyState.Content>
           </EmptyState.Root>
         ) : (
-          <div className={sx(planStyles.list)}>
+          <div className={sx(informationRow.list)}>
             {entries.map((entry) => (
               <div
                 key={entry.filePath}
-                // Hover wash on a plain `div`: the row action inside it is an
-                // ADS Button and faded, the row around it cut.
-                className={sx(planStyles.row, transition.colors)}
+                /* The shared Information-panel row: the same shape as a linked
+                   pull request two sections up. The row owns the hover wash and
+                   `--info-row-action-opacity`; its actions read that variable
+                   rather than each carrying a hover rule. */
+                className={sx(
+                  informationRow.root,
+                  informationRow.rootFocusWithin,
+                  transition.colors,
+                )}
               >
-                <AdsButton
-                  layout="host"
-                  type="button"
-                  onClick={() => void onOpenFile({ filePath: entry.filePath })}
-                  xstyle={planStyles.rowOpen}
-                  title={entry.filePath}
-                >
-                  <ClipboardCheck
-                    className={sx(planStyles.rowIcon)}
-                    aria-hidden="true"
-                  />
-                  <div className={sx(planStyles.rowBody)}>
-                    <div className={sx(planStyles.rowTitleLine)}>
-                      <p className={sx(planStyles.rowTitle)}>{entry.label}</p>
-                      {entry.source === "legacy" ? (
-                        <Badge
-                          variant="outline"
-                          className={sx(planStyles.rowBadge)}
-                        >
-                          legacy
-                        </Badge>
-                      ) : null}
-                    </div>
-                    <p className={sx(planStyles.rowMeta)}>
-                      Task {entry.taskIdPrefix || "unknown"}
-                    </p>
+                <ClipboardCheck
+                  className={sx(informationRow.mark, planStyles.rowMark)}
+                  aria-hidden="true"
+                />
+                <div className={sx(informationRow.body)}>
+                  <div className={sx(informationRow.titleLine)}>
+                    <AdsButton
+                      layout="host"
+                      type="button"
+                      onClick={() =>
+                        void onOpenFile({ filePath: entry.filePath })
+                      }
+                      /* The row owns the wash; `inertChrome` stops ADS's
+                         host-layout trigger recipe painting a second, square
+                         one inside it. */
+                      xstyle={[informationRow.title, hostSurface.inertChrome]}
+                      title={entry.filePath}
+                    >
+                      {entry.label}
+                    </AdsButton>
+                    {entry.source === "legacy" ? (
+                      <Badge variant="outline">legacy</Badge>
+                    ) : null}
                   </div>
-                </AdsButton>
-                {onImportTodos ? (
+                  <div className={sx(informationRow.meta)}>
+                    <span className={sx(informationRow.metaText)}>
+                      Task {entry.taskIdPrefix || "unknown"}
+                    </span>
+                  </div>
+                </div>
+                <div className={sx(informationRow.trail)}>
+                  {onImportTodos ? (
+                    <AdsButton
+                      layout="host"
+                      type="button"
+                      onClick={() =>
+                        void onImportTodos({ filePath: entry.filePath })
+                      }
+                      xstyle={planStyles.rowAction}
+                      title="Import checklist items as todos"
+                      aria-label={`Import checklist items from ${entry.label} as todos`}
+                    >
+                      <ListPlus
+                        className={sx(planStyles.rowActionIcon)}
+                        aria-hidden="true"
+                      />
+                    </AdsButton>
+                  ) : null}
                   <AdsButton
                     layout="host"
                     type="button"
-                    onClick={() =>
-                      void onImportTodos({ filePath: entry.filePath })
-                    }
-                    xstyle={planStyles.rowAction}
-                    title="Import checklist items as todos"
-                    aria-label={`Import checklist items from ${entry.label} as todos`}
+                    onClick={() => setDeleteTarget(entry)}
+                    xstyle={[planStyles.rowAction, planStyles.rowActionDanger]}
+                    title="Delete saved plan"
+                    aria-label={`Delete plan ${entry.label}`}
                   >
-                    <ListPlus
+                    <Trash2
                       className={sx(planStyles.rowActionIcon)}
                       aria-hidden="true"
                     />
                   </AdsButton>
-                ) : null}
-                <AdsButton
-                  layout="host"
-                  type="button"
-                  onClick={() => setDeleteTarget(entry)}
-                  xstyle={[planStyles.rowAction, planStyles.rowActionDanger]}
-                  title="Delete saved plan"
-                  aria-label={`Delete plan ${entry.label}`}
-                >
-                  <Trash2
-                    className={sx(planStyles.rowActionIcon)}
-                    aria-hidden="true"
-                  />
-                </AdsButton>
+                </div>
               </div>
             ))}
           </div>

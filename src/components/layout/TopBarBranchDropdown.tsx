@@ -846,13 +846,14 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                 <span className={sx(branchDropdownStyles.statusBranch)}>
                   {currentBranchLabel}
                 </span>
+                {/* Conflicts are a fault and keep the danger tone. A count of
+                    changed files is not: it is the normal state of a branch
+                    being worked on, so it reads neutral, matching the workspace
+                    sync card which states the same fact. "Clean" is likewise a
+                    report, not a success event. */}
                 <Badge
                   variant={
-                    branchStatus.hasConflicts
-                      ? "destructive"
-                      : branchStatus.dirtyCount > 0
-                        ? "warning"
-                        : "success"
+                    branchStatus.hasConflicts ? "destructive" : "secondary"
                   }
                   className={sx(branchDropdownStyles.statusBadge)}
                 >

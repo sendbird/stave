@@ -135,12 +135,17 @@ export function PromptInputWorkerPill(args: {
                   type="button"
                   variant="ghost"
                   size="sm"
-                  // The composer lane owns this control's box (height, gutters, and one
-                  // glyph size for every control in the row), so the glyph rule has to be a
-                  // default rather than a mandate: `layout="control"` applies ADS's own
-                  // unlayered `> svg` size and pinned this trigger to the `sm` ramp's 14px
-                  // while its `layout="host"` neighbours in the same wing rendered 16.
-                  layout="host"
+                  // No `layout="host"`. Host layout hands the caller the box AND
+                  // silently drops the button's whole expression: ADS composes only
+                  // `controlChrome.triggerQuiet`, so `variant`, `tone` and the press
+                  // affordance are never painted. That is why this trigger read as a
+                  // different control from `MacroControl` / `SecretBindingControl` /
+                  // the Review trigger, which stand in the same lane on the default
+                  // `layout="control"` and get the real `quiet` weight. The lane still
+                  // owns height and gutters through `COMPOSER_CONTROL_BUTTON`; the
+                  // glyph is ADS's at this control's `size`, which is the one thing
+                  // host layout was reached for and the one thing every neighbour
+                  // already resolved from the system.
                   disabled={args.disabled}
                   aria-label={`Configure Worker mode · ${presentation.label}`}
                   {...composerControlAttributes}

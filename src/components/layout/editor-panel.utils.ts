@@ -53,7 +53,8 @@ export type SourceControlSectionId =
   | "untracked";
 
 export interface SourceControlSection {
-  badgeVariant: "destructive" | "outline" | "success" | "warning";
+  /* Neutral for a tally, danger for a genuine block. See the table below. */
+  badgeVariant: "destructive" | "secondary";
   description: string;
   id: SourceControlSectionId;
   items: SourceControlItemViewModel[];
@@ -88,6 +89,14 @@ const SOURCE_CONTROL_SECTION_META: Record<
   SourceControlSectionId,
   Pick<SourceControlSection, "badgeVariant" | "description" | "id" | "title">
 > = {
+  /*
+   * `badgeVariant` tones a COUNT, and the section title beside it already says
+   * which state the count is of — so a hue on "3" adds no information and just
+   * makes an ordinary working tree look like a fault. Only a conflict, which
+   * genuinely blocks the tree, keeps a tone; "Partially Staged" and "Working
+   * Tree" were also both `warning`, which rendered two different things
+   * identically.
+   */
   conflicted: {
     id: "conflicted",
     title: "Conflicts",
@@ -98,25 +107,25 @@ const SOURCE_CONTROL_SECTION_META: Record<
     id: "mixed",
     title: "Partially Staged",
     description: "These files have both staged and unstaged edits.",
-    badgeVariant: "warning",
+    badgeVariant: "secondary",
   },
   unstaged: {
     id: "unstaged",
     title: "Working Tree",
     description: "Tracked files with local edits that are not staged yet.",
-    badgeVariant: "warning",
+    badgeVariant: "secondary",
   },
   staged: {
     id: "staged",
     title: "Staged",
     description: "These changes are ready to be included in the next commit.",
-    badgeVariant: "success",
+    badgeVariant: "secondary",
   },
   untracked: {
     id: "untracked",
     title: "Untracked",
     description: "Files not yet added to Git.",
-    badgeVariant: "outline",
+    badgeVariant: "secondary",
   },
 };
 

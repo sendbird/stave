@@ -1,10 +1,58 @@
 import * as stylex from "@stylexjs/stylex";
-import type * as React from "react";
+import * as React from "react";
 
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 
-export type StepRailProps = React.ComponentProps<"div"> & XstyleProp;
+/** Inter-step air. `compact` is one deliberate step below `regular`. */
+export type StepRailDensity = "compact" | "regular";
+
+/**
+ * What the rail publishes to its steps.
+ *
+ * Both settings are properties of the RUN, not of a step: a rail whose steps
+ * disagreed about whether there is a gutter would draw a ragged left edge, and
+ * one whose steps disagreed about density would have uneven gaps that read as
+ * grouping. Publishing them from the root is what makes that unrepresentable —
+ * the same reason `ButtonGroup` owns scale and orientation for its children.
+ */
+type StepRailContextValue = {
+  density: StepRailDensity;
+  rail: boolean;
+};
+
+/**
+ * `null` means "a step outside a rail". `StepRail.Step` is exported through the
+ * compound object only, but a consumer can still destructure it, so the defaults
+ * below keep that case rendering the documented rail rather than crashing.
+ */
+const StepRailContext = React.createContext<StepRailContextValue | null>(null);
+
+const DEFAULT_CONTEXT: StepRailContextValue = {
+  density: "regular",
+  rail: true,
+};
+
+export type StepRailProps = React.ComponentProps<"div"> & {
+  /**
+   * Inter-step air. `compact` halves the trailing pad below each step's body,
+   * for a dense transcript where the steps are one-line rows. @default "regular"
+   */
+  density?: StepRailDensity;
+  /**
+   * Draw the gutter and its connector. @default true
+   *
+   * **Turn it off when the steps carry their own leading mark.** The rail earns
+   * its column by holding a marker per step; a rail whose steps pass no `marker`
+   * is a vertical rule with nothing on it, plus 24px of indent that pushes every
+   * row away from the text it belongs to. That is not a cheaper containment
+   * signal than nothing, which is what rung 0 asks for — it is chrome. With
+   * `rail={false}` the gutter track is not reserved at all (not merely emptied),
+   * so the rows sit flush, and a `marker` that IS passed renders inline at the
+   * head of the step instead of being dropped.
+   */
+  rail?: boolean;
+} & XstyleProp;
 
 /**
  * Rung 2 of the containment ladder — `decisions/agent-surface-grammar.md` §1.
@@ -32,8 +80,20 @@ export type StepRailProps = React.ComponentProps<"div"> & XstyleProp;
  * `block-size` transition for free. A second transition on the rail would
  * animate against the panel's and lag behind the marker it connects to.
  */
-function StepRailRoot({ className, xstyle, ...props }: StepRailProps) {
-  return <div {...props} className={cx(sx(styles.root, xstyle), className)} />;
+function StepRailRoot({
+  className,
+  density = "regular",
+  rail = true,
+  xstyle,
+  ...props
+}: StepRailProps) {
+  const context = React.useMemo(() => ({ density, rail }), [density, rail]);
+
+  return (
+    <StepRailContext.Provider value={context}>
+      <div {...props} className={cx(sx(styles.root, xstyle), className)} />
+    </StepRailContext.Provider>
+  );
 }
 
 export type StepRailStepProps = React.ComponentProps<"div"> & {
@@ -67,8 +127,36 @@ function StepRailStep({
   xstyle,
   ...props
 }: StepRailStepProps) {
+  const { density, rail } =
+    React.useContext(StepRailContext) ?? DEFAULT_CONTEXT;
+  const bodyStyle = density === "compact" ? styles.bodyCompact : styles.body;
+
+  if (!rail) {
+    return (
+      <div
+        {...props}
+        className={cx(sx(styles.step, styles.stepFlush, xstyle), className)}
+      >
+        {/*
+         * Inline, not dropped. A caller that passes a marker is naming this
+         * step's kind, and a railless rail is still a list of steps; the mark
+         * just leads the row instead of standing in a column of its own.
+         */}
+        {marker != null ? (
+          <span className={sx(styles.marker, styles.markerInline)}>
+            {marker}
+          </span>
+        ) : null}
+        <div className={sx(bodyStyle)}>{children}</div>
+      </div>
+    );
+  }
+
   return (
-    <div {...props} className={cx(sx(styles.step, xstyle), className)}>
+    <div
+      {...props}
+      className={cx(sx(styles.step, styles.stepRail, xstyle), className)}
+    >
       <div className={sx(styles.gutter)}>
         {marker != null ? (
           <span className={sx(styles.marker)}>{marker}</span>
@@ -77,7 +165,7 @@ function StepRailStep({
           <span aria-hidden="true" className={sx(styles.connector)} />
         ) : null}
       </div>
-      <div className={sx(styles.body)}>{children}</div>
+      <div className={sx(bodyStyle)}>{children}</div>
     </div>
   );
 }
@@ -98,11 +186,28 @@ const styles = stylex.create({
   step: {
     columnGap: vars.space8,
     display: "grid",
-    // `minmax(0, 1fr)`, not `1fr`: the body holds mono output and long tool
-    // names, whose min-content width would otherwise widen the whole rail.
-    gridTemplateColumns: `${vars.space24} minmax(0, 1fr)`,
     inlineSize: "100%",
     minInlineSize: 0,
+  },
+  // `minmax(0, 1fr)`, not `1fr`: the body holds mono output and long tool
+  // names, whose min-content width would otherwise widen the whole rail.
+  stepRail: {
+    gridTemplateColumns: `${vars.space24} minmax(0, 1fr)`,
+  },
+  /**
+   * No gutter TRACK, not an empty one. Reserving `space24` and leaving it blank
+   * indents every row by the width of a column that draws nothing, which is the
+   * indent without the containment it was paying for.
+   */
+  stepFlush: {
+    alignItems: "start",
+    columnGap: vars.space4,
+    // Flex rather than a two-track grid: the marker is optional here, and a
+    // fixed `auto minmax(0, 1fr)` would put a marker-less step's body in the
+    // `auto` track and shrink it to its content. `display` is restated after
+    // `step` in the same `sx()` call, which is the one place StyleX reconciles
+    // deterministically.
+    display: "flex",
   },
   gutter: {
     alignItems: "center",
@@ -123,6 +228,15 @@ const styles = stylex.create({
     justifyContent: "center",
   },
   /**
+   * The railless form of the same box. It keeps the `controlHeightSm` height —
+   * that is what centres the mark on the row's first line — and gives up only
+   * the gutter's fixed width, so a spinner and a dot still occupy the same
+   * vertical band without either one setting the row height.
+   */
+  markerInline: {
+    inlineSize: vars.space16,
+  },
+  /**
    * The rule. `borderWidthHairline` on `colorBorderSubtle`: it locates the run
    * without competing with the markers it connects, and §2 keeps the visible
    * step information in ink rather than in chrome.
@@ -140,7 +254,20 @@ const styles = stylex.create({
    * becomes disconnected dots.
    */
   body: {
+    flexGrow: 1,
     minInlineSize: 0,
     paddingBlockEnd: vars.space12,
+  },
+  /**
+   * One deliberate step below `regular`, per the density contract in the ADS
+   * README: `space12` → `space4`, not zero. At zero the connector's flexible
+   * track collapses on a one-line step and the run becomes disconnected dots —
+   * the failure the `body` docstring above already names — and the rows lose the
+   * gap that separates a step from the next step's title.
+   */
+  bodyCompact: {
+    flexGrow: 1,
+    minInlineSize: 0,
+    paddingBlockEnd: vars.space4,
   },
 });

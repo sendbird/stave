@@ -254,13 +254,13 @@ export const changesStyles = stylex.create({
     color: { default: vars.colorSuccessText, ":hover": vars.colorSuccessText },
   },
   autoRefreshLabel: {
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightMedium,
   },
   autoRefreshMenu: { width: "11rem" },
   autoRefreshMenuLabel: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightMedium,
     letterSpacing: "0.14em",
     textTransform: "uppercase",
@@ -297,7 +297,7 @@ export const changesStyles = stylex.create({
   popoverTitle: { fontSize: vars.fontSizeCaption },
   popoverHint: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     marginTop: vars.space2,
   },
   popoverList: {
@@ -306,22 +306,27 @@ export const changesStyles = stylex.create({
     paddingBlock: vars.space4,
   },
   popoverItem: {
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     paddingBlock: 6,
     paddingInline: vars.space12,
   },
+  // Caption is ADS's smallest control-text rung (Button `xs`); these three
+  // labels sat below it, so the panel's actions read smaller than the text
+  // they act on. `controlHeightXs` is the box that rung comes with — at 24 and
+  // 20 these were off the ramp entirely, which also meant the compact-density
+  // axis could not move them.
   fixAllButton: {
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     gap: vars.space4,
-    height: 24,
+    height: vars.controlHeightXs,
     paddingInline: vars.space8,
   },
   fixOneButton: {
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     flexShrink: 0,
     gap: vars.space4,
-    height: 20,
+    height: vars.controlHeightXs,
     marginInlineStart: "auto",
     paddingInline: 6,
   },
@@ -364,7 +369,7 @@ export const changesStyles = stylex.create({
     backgroundColor: { default: "transparent", ":hover": vars.colorCanvasSubtle },
     display: "flex",
     flexDirection: "column",
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     gap: vars.space2,
     paddingBlock: 6,
     paddingInline: vars.space12,
@@ -388,7 +393,7 @@ export const changesStyles = stylex.create({
     backgroundColor: vars.colorCanvasSubtle,
     borderRadius: vars.radiusMark,
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     letterSpacing: "0.025em",
     paddingBlock: 1,
     paddingInline: vars.space4,
@@ -443,7 +448,7 @@ export const changesStyles = stylex.create({
   },
   checksLine: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -451,12 +456,12 @@ export const changesStyles = stylex.create({
   checksStrong: { color: vars.colorText, fontWeight: vars.fontWeightMedium },
   checksStack: { display: "flex", flexDirection: "column", gap: 6 },
   checksList: { display: "flex", flexDirection: "column", gap: vars.space4 },
-  failureItem: { fontSize: vars.fontSizeMicro },
+  failureItem: { fontSize: vars.fontSizeCaption },
   checksTodoList: {
     color: vars.colorTextMuted,
     display: "flex",
     flexDirection: "column",
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     gap: vars.space2,
   },
   checksTodoRow: { alignItems: "flex-start", display: "flex", gap: 6 },
@@ -468,7 +473,7 @@ export const changesStyles = stylex.create({
     marginTop: vars.space4,
     width: 4,
   },
-  checksTodoMore: { fontSize: vars.fontSizeMicro, paddingInlineStart: 10 },
+  checksTodoMore: { fontSize: vars.fontSizeCaption, paddingInlineStart: 10 },
 
   // ---- Changes list ------------------------------------------------------
   changesBody: {
@@ -601,12 +606,13 @@ export const changesStyles = stylex.create({
     justifyContent: "space-between",
     paddingInline: vars.space4,
   },
+  // Labels the panel's top-level grouping, so it is a section header, not a
+  // mark: Micro plus uppercase plus 0.14em tracking made the one line that
+  // names a group the smallest and least legible type in the pane.
   sectionTitle: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
-    fontWeight: vars.fontWeightMedium,
-    letterSpacing: "0.14em",
-    textTransform: "uppercase",
+    fontSize: vars.fontSizeBody,
+    fontWeight: vars.fontWeightSemibold,
   },
   sectionBadge: {
     borderRadius: vars.radiusControl,
@@ -665,7 +671,7 @@ export const changesStyles = stylex.create({
   fileVerification: { height: 12, width: 12 },
   filePath: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -683,7 +689,7 @@ export const changesStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightMedium,
     inset: 0,
     justifyContent: "flex-end",
@@ -801,7 +807,7 @@ export const changesStyles = stylex.create({
   historyHash: {
     color: vars.colorTextMuted,
     fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
   },
   historyDot: {
     backgroundColor: vars.colorBorder,

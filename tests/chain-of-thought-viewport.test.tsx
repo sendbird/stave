@@ -97,19 +97,26 @@ describe("ChainOfThoughtContent", () => {
 });
 
 describe("ChainOfThoughtTrigger", () => {
-  test("renders a reduced-cadence matrix loader while streaming and drops it when complete", () => {
+  test("renders a reduced-cadence cascade loader while streaming and drops it when complete", () => {
     const streaming = renderTrace({ isStreaming: true });
-    expect(streaming).toContain('data-loader-variant="matrix"');
+    /*
+     * `cascade` — dependent pipeline stages — because this mark stands for the
+     * whole turn. `matrix` is generative inference, which is the reasoning
+     * row's own mark *inside* this trace, so sharing it drew the identical
+     * animation twice and made the header read as a copy of its first step.
+     */
+    expect(streaming).toContain('data-loader-variant="cascade"');
     expect(streaming).toContain('data-loader-cadence="reduced"');
+    expect(streaming).not.toContain('data-loader-variant="matrix"');
 
     expect(renderTrace({ isStreaming: false })).not.toContain(
-      'data-loader-variant="matrix"',
+      'data-loader-variant="cascade"',
     );
   });
 
   test("uses the same lightweight status loader under the legacy style", () => {
     const legacy = renderTrace({ isStreaming: true, style: "legacy" });
-    expect(legacy).toContain('data-loader-variant="matrix"');
+    expect(legacy).toContain('data-loader-variant="cascade"');
   });
 
   test("appends the duration to the collapsed completion phrase", () => {

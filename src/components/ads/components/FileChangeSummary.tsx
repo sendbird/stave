@@ -15,8 +15,10 @@ import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
   agentStateLabel,
   agentStateTone,
+  isQuietState,
   type AgentRunState,
 } from "./agent-state";
+import { VisuallyHidden } from "./VisuallyHidden";
 
 /** What happened to the file. Orthogonal to whether the change landed. */
 export type FileChangeKind = "added" | "modified" | "removed" | "renamed";
@@ -27,9 +29,27 @@ export type FileChangeSummaryProps = Omit<
 > & {
   /** Lines added. Omitted rather than `0` when the count is unknown. */
   added?: number;
+  /**
+   * How many trailing directory segments stay visible before the rest collapses
+   * to a leading `…/`. @default 2
+   *
+   * This is head truncation, done in JS, and it is the only kind that answers
+   * the reader's question. CSS can only cut the END of a string, so an absolute
+   * path — which is what a host hands over whenever the file sits outside the
+   * root it resolved against — rendered as `<workspace>/packages/app…`:
+   * thirty characters of machine identity and none of the file. Two segments is
+   * the default because `…/message/assistant-trace.tsx` is enough to tell two
+   * same-named files apart in one repository, which is the case that actually
+   * happens. Pass `Infinity` for the whole path.
+   */
+  directoryDepth?: number;
   /** @default "modified" */
   kind?: FileChangeKind;
-  /** Workspace-relative path. Rendered in the machine register. */
+  /**
+   * The path. Workspace-relative when the caller can resolve one, absolute when
+   * it cannot. Rendered in the machine register, head-truncated per
+   * `directoryDepth`, and always present in full on the element's `title`.
+   */
   path: string;
   /** Lines removed. */
   removed?: number;
@@ -60,11 +80,22 @@ const kindIcon: Record<FileChangeKind, LucideIcon> = {
  * truncates at the front (it must) and whether the counts use tabular figures
  * (they must).
  *
- * **The path truncates at the directory, never at the basename.** `.../
- * message/assistant-trace.tsx` answers the reader's question; `src/components/
- * session/mes…` does not. So the path is two cells — a shrinking directory and
- * a fixed basename — rather than one `text-overflow: ellipsis` span, which can
- * only cut the end.
+ * **The path truncates at the directory, never at the basename, and it
+ * truncates from the FRONT.** `…/message/assistant-trace.tsx` answers the
+ * reader's question; `src/components/session/mes…` does not. That takes two
+ * mechanisms, because the first alone is not enough. Two cells — a shrinking
+ * directory and a fixed basename — keep the filename off the chopping block,
+ * and that is all CSS can do: `text-overflow` cuts the end of the string it is
+ * given, so a directory cell holding `<workspace>/src/components/…`
+ * spends its whole width on the part nobody reads. `directoryDepth` therefore
+ * shortens the directory in JS first, to its last two segments behind a leading
+ * `…/`, and the CSS ellipsis stays as the second line of defence for a single
+ * pathological segment. The full path is on `title` either way.
+ *
+ * `directoryDepth` also absorbs the case a host cannot fix: a file outside the
+ * root it resolved against has no relative form, so what arrives here IS the
+ * absolute path, and rendering it whole is what made a file row wider than the
+ * transcript.
  *
  * **`+N` / `−M` are rung 0.** §1.2 allows semantic color on a small element,
  * and the counts are the smallest element on the row; they take
@@ -77,9 +108,44 @@ const kindIcon: Record<FileChangeKind, LucideIcon> = {
  * disclosure trigger, a `ToolRun` body, or a list row, and that owner already
  * owns the perimeter budget.
  */
+/**
+ * Split a path into the directory to render and the basename to protect.
+ *
+ * Exported for the host that has to line a path up with something else — and
+ * tested directly, because the interesting cases are the ones a specimen does
+ * not show: a bare filename with no directory at all, a path already shorter
+ * than the depth, a trailing slash, and `Infinity`.
+ */
+export function splitFileChangePath(
+  path: string,
+  directoryDepth = DEFAULT_DIRECTORY_DEPTH,
+): { basename: string; directory: string } {
+  const separator = path.lastIndexOf("/");
+  if (separator === -1) return { basename: path, directory: "" };
+
+  const basename = path.slice(separator + 1);
+  const full = path.slice(0, separator + 1);
+  if (!Number.isFinite(directoryDepth) || directoryDepth < 0) {
+    return { basename, directory: full };
+  }
+
+  // `filter(Boolean)` drops the empty leading segment of an absolute path and
+  // any doubled slash, so `/a//b/` and `a/b/` produce the same two segments and
+  // the depth means the same thing for a relative and an absolute path.
+  const segments = full.split("/").filter(Boolean);
+  const depth = Math.floor(directoryDepth);
+  if (segments.length <= depth) return { basename, directory: full };
+  if (depth === 0) return { basename, directory: "…/" };
+
+  return { basename, directory: `…/${segments.slice(-depth).join("/")}/` };
+}
+
+const DEFAULT_DIRECTORY_DEPTH = 2;
+
 export function FileChangeSummary({
   added,
   className,
+  directoryDepth = DEFAULT_DIRECTORY_DEPTH,
   kind = "modified",
   path,
   removed,
@@ -88,9 +154,7 @@ export function FileChangeSummary({
   ...props
 }: FileChangeSummaryProps) {
   const Icon = kindIcon[kind];
-  const separator = path.lastIndexOf("/");
-  const directory = separator === -1 ? "" : path.slice(0, separator + 1);
-  const basename = separator === -1 ? path : path.slice(separator + 1);
+  const { basename, directory } = splitFileChangePath(path, directoryDepth);
 
   return (
     <span {...props} className={cx(sx(styles.root, xstyle), className)}>
@@ -115,7 +179,17 @@ export function FileChangeSummary({
           ) : null}
         </span>
       ) : null}
-      {state ? (
+      {/*
+        * The quiet-state rule, same as `ToolRun`'s: a file that was applied the
+        * way it was meant to be applied says nothing by saying "Completed", and
+        * a summary list is where that repeats hardest — one word per row, down
+        * a column, in the one place a reader is scanning for the row that is
+        * NOT fine. It stays in the accessibility tree. See `isQuietState`.
+        */}
+      {state && isQuietState(state) ? (
+        <VisuallyHidden>{agentStateLabel[state]}</VisuallyHidden>
+      ) : null}
+      {state && !isQuietState(state) ? (
         <span
           className={sx(
             styles.state,

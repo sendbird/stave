@@ -41,6 +41,7 @@ import {
 import { useAppStore } from "@/store/app.store";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
+import { hostSurface } from "@/components/ui/host-surface.styles";
 import { notificationsStyles } from "./top-bar-notifications.styles";
 
 const HISTORY_PAGE_SIZE = 20;
@@ -321,47 +322,6 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                 <PopoverTitle className={sx(notificationsStyles.headerTitle)}>
                   Notifications
                 </PopoverTitle>
-                <p className={sx(notificationsStyles.headerSubtitle)}>
-                  {unreadCount > 0
-                    ? `${unreadCount} unread`
-                    : historyCount > 0
-                      ? "All caught up. Browse read history below."
-                      : "No notifications yet."}
-                </p>
-                <div className={sx(notificationsStyles.viewSwitch)}>
-                  <AdsButton layout="host"
-                    type="button"
-                    xstyle={[
-                      notificationsStyles.viewTab,
-                      view === "unread"
-                        ? notificationsStyles.viewTabActive
-                        : notificationsStyles.viewTabIdle,
-                    ]}
-                    onClick={() => setView("unread")}
-                  >
-                    Unread
-                    <Badge variant={view === "unread" ? "secondary" : "outline"}>
-                      {unreadCount}
-                    </Badge>
-                  </AdsButton>
-                  <AdsButton layout="host"
-                    type="button"
-                    xstyle={[
-                      notificationsStyles.viewTab,
-                      view === "history"
-                        ? notificationsStyles.viewTabActive
-                        : notificationsStyles.viewTabIdle,
-                    ]}
-                    onClick={() => setView("history")}
-                  >
-                    History
-                    <Badge
-                      variant={view === "history" ? "secondary" : "outline"}
-                    >
-                      {historyCount}
-                    </Badge>
-                  </AdsButton>
-                </div>
               </div>
               <div className={sx(notificationsStyles.headerActions)}>
                 {view === "history" ? (
@@ -393,6 +353,58 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                   Mark all read
                 </Button>
               </div>
+            </div>
+            <p className={sx(notificationsStyles.headerSubtitle)}>
+              {unreadCount > 0
+                ? `${unreadCount} unread`
+                : historyCount > 0
+                  ? "All caught up. Browse read history below."
+                  : "No notifications yet."}
+            </p>
+            <div className={sx(notificationsStyles.viewSwitch)}>
+              <AdsButton
+                layout="host"
+                type="button"
+                xstyle={[
+                  notificationsStyles.viewTab,
+                  view === "unread"
+                    ? notificationsStyles.viewTabActive
+                    : notificationsStyles.viewTabIdle,
+                ]}
+                aria-pressed={view === "unread"}
+                onClick={() => setView("unread")}
+              >
+                <span className={sx(notificationsStyles.viewTabLabel)}>
+                  Unread
+                </span>
+                {/* Always `outline`. The selected arm used to be `secondary`,
+                    whose `colorCanvasSubtle` fill sits 1.5% of lightness from
+                    the active tab's own `colorCanvas` — so on the tab you were
+                    looking at, the chip disappeared. A ring does not depend on
+                    the fill behind it, so the count reads the same on both. */}
+                <Badge className={sx(notificationsStyles.viewTabCount)} variant="outline">
+                  {unreadCount}
+                </Badge>
+              </AdsButton>
+              <AdsButton
+                layout="host"
+                type="button"
+                xstyle={[
+                  notificationsStyles.viewTab,
+                  view === "history"
+                    ? notificationsStyles.viewTabActive
+                    : notificationsStyles.viewTabIdle,
+                ]}
+                aria-pressed={view === "history"}
+                onClick={() => setView("history")}
+              >
+                <span className={sx(notificationsStyles.viewTabLabel)}>
+                  History
+                </span>
+                <Badge className={sx(notificationsStyles.viewTabCount)} variant="outline">
+                  {historyCount}
+                </Badge>
+              </AdsButton>
             </div>
           </PopoverHeader>
           <div className={sx(notificationsStyles.scroller)}>
@@ -497,9 +509,13 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                           />
                           <div className={sx(notificationsStyles.rowMain)}>
                             <div className={sx(notificationsStyles.rowMainTop)}>
-                              <AdsButton layout="host"
+                              <AdsButton
+                                layout="host"
                                 type="button"
-                                xstyle={notificationsStyles.openAction}
+                                xstyle={[
+                                  notificationsStyles.openAction,
+                                  hostSurface.inertChrome,
+                                ]}
                                 disabled={notificationBusy}
                                 onClick={() =>
                                   void handleOpenNotification(notification)
@@ -513,20 +529,30 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                                   <NotificationKindIcon
                                     kind={notification.kind}
                                   />
-                                  <p className={sx(notificationsStyles.rowTitle)}>
+                                  <p
+                                    className={sx(notificationsStyles.rowTitle)}
+                                  >
                                     {notification.taskTitle ??
                                       notification.title}
                                   </p>
-                                  <span className={sx(notificationsStyles.rowTime)}>
+                                  <span
+                                    className={sx(notificationsStyles.rowTime)}
+                                  >
                                     {createdLabel}
                                   </span>
                                 </div>
                                 {notificationDetail ? (
-                                  <p className={sx(notificationsStyles.rowDetail)}>
+                                  <p
+                                    className={sx(
+                                      notificationsStyles.rowDetail,
+                                    )}
+                                  >
                                     {notificationDetail}
                                   </p>
                                 ) : null}
-                                <div className={sx(notificationsStyles.rowMeta)}>
+                                <div
+                                  className={sx(notificationsStyles.rowMeta)}
+                                >
                                   {locationLabel ? (
                                     <span
                                       className={sx(
@@ -604,7 +630,9 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                           </div>
                         ) : null}
                         {showArchivedPrompt ? (
-                          <div className={sx(notificationsStyles.archivedPrompt)}>
+                          <div
+                            className={sx(notificationsStyles.archivedPrompt)}
+                          >
                             <p className={sx(notificationsStyles.promptTitle)}>
                               This task is archived.
                             </p>
@@ -658,8 +686,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                       <ChevronDown
                         className={sx(notificationsStyles.smallIcon)}
                       />
-                      Load more ({historyNotifications.length -
-                        historyLimit}{" "}
+                      Load more ({historyNotifications.length - historyLimit}{" "}
                       remaining)
                     </Button>
                   </div>

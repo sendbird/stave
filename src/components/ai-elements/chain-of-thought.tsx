@@ -303,18 +303,31 @@ export function ChainOfThoughtTrigger(
     <AdsButton
       layout="host"
       type="button"
+      /* The trigger owns a disclosure, so it reports its own expanded state:
+         without it the control is announced as a plain button and the trace
+         below reads as unrelated content. */
+      aria-expanded={open}
       className={cx(sx(s.trigger), className)}
       onClick={() => setOpen(!open)}
       {...args}
     >
       {isStreaming ? (
         <span className={sx(s.streamingLabel)}>
+          {/*
+           * `cascade`, not `matrix`. This mark stands for the whole turn — a
+           * run of dependent stages, which is what `cascade` names — while
+           * `matrix` names generative inference, and that is the reasoning
+           * row's own mark inside this trace. Both ran the same cadence, so a
+           * streaming turn drew the identical animation twice, eight pixels
+           * apart, and the trace header read as a duplicate of its first step
+           * rather than as the container of every step under it.
+           */}
           <Loader
             aria-hidden
             cadence="reduced"
             className={sx(s.streamingLoader)}
             size="sm"
-            variant="matrix"
+            variant="cascade"
           />
           <ThinkingPhraseLabel active={isStreaming} />
         </span>
@@ -397,6 +410,8 @@ export function ChainOfThoughtContent({
   return (
     <StepRail
       className={className}
+      rail={false}
+      density="compact"
       xstyle={[
         s.content,
         agentStyle === "legacy"

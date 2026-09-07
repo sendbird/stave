@@ -140,7 +140,7 @@ export const workspaceInformationPanelStyles = stylex.create({
   },
   sectionStamp: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     paddingInlineEnd: vars.space4,
   },
 
@@ -344,73 +344,15 @@ export const workspaceInformationPanelStyles = stylex.create({
   },
 
   // ---- github pr row -----------------------------------------------------
-  prRow: {
-    "--info-row-action-opacity": { default: "0", ":hover": "1" },
-    alignItems: "flex-start",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": vars.colorOverlayHover,
-    },
-    borderRadius: vars.radiusControl,
-    display: "flex",
-    gap: 10,
-    paddingBlock: 10,
-    paddingInline: 6,
-  },
-  prRowMark: { flexShrink: 0, height: 16, marginBlockStart: 2, width: 16 },
+  // Row anatomy — box, hover wash, title, meta and the action trail — now
+  // lives in `information-row.styles.ts`, shared with the saved-plan and
+  // memory lists so the three cannot drift. Only the status glyph's ink is
+  // specific to a pull request.
   prStatusGlyph: { flexShrink: 0, height: 18, width: 18 },
   prStatusMerged: { color: vars.colorAccent },
   prStatusClosed: { color: vars.colorDangerText },
   prStatusDraft: { color: vars.colorTextMuted },
   prStatusOpen: { color: vars.colorSuccessText },
-  prRowBody: { flex: 1, minWidth: 0 },
-  prRowTitleLine: {
-    alignItems: "flex-start",
-    display: "flex",
-    gap: vars.space8,
-  },
-  prRowTitle: {
-    color: { default: vars.colorText, ":hover": vars.colorAccent },
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: 1.375,
-    minWidth: 0,
-    textAlign: "start",
-    textDecorationLine: { default: "none", ":hover": "underline" },
-  },
-  prRowMeta: {
-    alignItems: "center",
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 6,
-    marginBlockStart: vars.space4,
-  },
-  prRowNumber: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    fontVariantNumeric: "tabular-nums",
-  },
-  prRowRepo: { color: vars.colorTextMuted, fontSize: vars.fontSizeCaption },
-  prRowBranch: {
-    color: vars.colorTextSubtle,
-    fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeMicro,
-  },
-  prRowTrail: {
-    alignItems: "center",
-    display: "flex",
-    flexShrink: 0,
-    gap: vars.space2,
-    opacity: "var(--info-row-action-opacity)",
-    paddingBlockStart: 2,
-    transitionDuration: {
-      default: vars.motionDurationFast,
-      "@media (prefers-reduced-motion: reduce)": vars.motionDurationMicro,
-    },
-    transitionProperty: "opacity",
-    transitionTimingFunction: vars.motionEaseStandard,
-  },
-
   // ---- badges / chips ----------------------------------------------------
   chip: {
     borderRadius: vars.radiusFull,
@@ -553,7 +495,7 @@ export const workspaceInformationPanelStyles = stylex.create({
     gap: vars.space12,
     justifyContent: "space-between",
   },
-  notesHint: { color: vars.colorTextMuted, fontSize: vars.fontSizeMicro },
+  notesHint: { color: vars.colorTextMuted, fontSize: vars.fontSizeCaption },
   notesActions: {
     alignItems: "center",
     display: "flex",

@@ -10,7 +10,6 @@ import { vars } from "../ads/tokens/tokens.stylex";
 const accent10 = `color-mix(in srgb, ${vars.colorAccent} 10%, transparent)`;
 const accent12 = `color-mix(in srgb, ${vars.colorAccent} 12%, transparent)`;
 const accent16 = `color-mix(in srgb, ${vars.colorAccent} 16%, transparent)`;
-const accent30 = `color-mix(in srgb, ${vars.colorAccent} 30%, transparent)`;
 const accent40 = `color-mix(in srgb, ${vars.colorAccent} 40%, transparent)`;
 const accent45 = `color-mix(in srgb, ${vars.colorAccent} 45%, transparent)`;
 
@@ -111,7 +110,7 @@ export const projectSidebarStyles = stylex.create({
   },
   previewMeta: {
     color: invertedText70,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightTight,
   },
   previewMetaRow: {
@@ -119,7 +118,7 @@ export const projectSidebarStyles = stylex.create({
     color: invertedText70,
     display: "flex",
     flexWrap: "wrap",
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     gap: 6,
     lineHeight: vars.lineHeightTight,
   },
@@ -134,10 +133,12 @@ export const projectSidebarStyles = stylex.create({
     paddingBlock: 2,
     paddingInline: vars.space4,
   },
+  // The hover preview's row title, so it takes the row-title step; the 16px
+  // literal leading was sized for Caption and clipped 14px descenders.
   previewTaskTitle: {
     color: vars.colorTextInverted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: "1rem",
+    fontSize: vars.fontSizeBody,
+    lineHeight: vars.lineHeightTight,
   },
   previewShortcutChip: {
     height: 16,
@@ -194,19 +195,21 @@ export const projectSidebarStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   laneStack: { display: "flex", flexDirection: "column", gap: 2 },
+  // Both the lane's section header and its collapse target, so it is held to
+  // the section-header step: Micro plus uppercase plus 0.18em tracking made a
+  // full-width click target out of the rail's smallest, widest-set line. The
+  // box is `controlHeightXs` by token so the density axis reaches it.
   laneButton: {
     alignItems: "center",
     backgroundColor: { default: "transparent", ":hover": vars.colorSelectionFill },
     borderRadius: vars.radiusControl,
     color: { default: vars.colorTextMuted, ":hover": vars.colorText },
     display: "flex",
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightSemibold,
     gap: 6,
-    height: 28,
-    letterSpacing: "0.18em",
+    height: vars.controlHeightXs,
     paddingInline: vars.space8,
-    textTransform: "uppercase",
     width: "100%",
   },
   /*
@@ -221,9 +224,9 @@ export const projectSidebarStyles = stylex.create({
    */
   laneChevron: {
     flexShrink: 0,
-    height: 12,
+    height: vars.controlIconSizeSm,
     transform: "rotate(0deg)",
-    width: 12,
+    width: vars.controlIconSizeSm,
   },
   laneChevronOpen: { transform: "rotate(90deg)" },
   laneLabel: {
@@ -271,11 +274,19 @@ export const projectSidebarStyles = stylex.create({
     minWidth: 28,
     paddingInlineEnd: vars.space4,
   },
+  /*
+   * Geometry only. These used to override `Badge`'s fill, ring and ink with a
+   * hand-mixed accent wash, which broke twice over: the mix is TRANSLUCENT, so
+   * the chip's real colour changed with whatever the row behind it was doing —
+   * at rest, hovered or selected — where a semantic token is opaque precisely
+   * so it does not; and it re-chromatised what the theme layer deliberately
+   * de-chromatises, since `ads-theme.ts` remaps `colorAccentSoft` to a neutral
+   * wash because spreading the host's accent across ordinary rows and chips
+   * was what made every theme look blue. The colour now comes from
+   * `Badge tone="accent"`, so it is one decision made in one place.
+   */
   respondingBadge: {
-    backgroundColor: accent10,
-    borderColor: accent30,
     borderRadius: vars.radiusMark,
-    color: vars.colorAccent,
     fontSize: vars.fontSizeMicro,
     fontVariantNumeric: "tabular-nums",
     fontWeight: vars.fontWeightMedium,
@@ -285,10 +296,7 @@ export const projectSidebarStyles = stylex.create({
     paddingInline: 6,
   },
   respondingBadgeInline: {
-    backgroundColor: accent10,
-    borderColor: accent30,
     borderRadius: vars.radiusMark,
-    color: vars.colorAccent,
     flexShrink: 0,
     fontSize: vars.fontSizeMicro,
     fontVariantNumeric: "tabular-nums",
@@ -332,10 +340,10 @@ export const projectSidebarStyles = stylex.create({
     color: vars.colorTextMuted,
     columnGap: vars.space8,
     display: "grid",
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     gridColumn: "span 2",
     gridTemplateColumns: "1rem minmax(0, 1fr)",
-    lineHeight: "1rem",
+    lineHeight: vars.lineHeightTight,
     minWidth: 0,
   },
   metaIconSlot: {
@@ -639,8 +647,8 @@ export const projectSidebarStyles = stylex.create({
     backgroundColor: "transparent",
     borderColor: vars.colorBorderSubtle,
     borderRadius: vars.radiusControl,
-    fontSize: vars.fontSizeCaption,
-    height: 32,
+    fontSize: vars.fontSizeBody,
+    height: vars.controlHeightSm,
     paddingInlineEnd: 28,
     paddingInlineStart: 28,
   },

@@ -33,7 +33,41 @@ function resolveDevPreview(): string | null {
 const root = createRoot(document.getElementById("root")!);
 const preview = import.meta.env.DEV ? resolveDevPreview() : null;
 
-if (preview === "collaboration") {
+if (preview === "information-rows") {
+  void import("@/dev/information-rows-preview").then(
+    ({ InformationRowsPreview }) => {
+      root.render(
+        <StrictMode>
+          <StaveDesignProvider>
+            <InformationRowsPreview />
+          </StaveDesignProvider>
+        </StrictMode>,
+      );
+    },
+  );
+} else if (preview === "turn-events") {
+  void import("@/dev/turn-event-preview").then(({ TurnEventPreview }) => {
+    root.render(
+      <StrictMode>
+        <StaveDesignProvider>
+          <TurnEventPreview />
+        </StaveDesignProvider>
+      </StrictMode>,
+    );
+  });
+} else if (preview === "ads-regressions") {
+  void import("@/dev/ads-regression-preview").then(
+    ({ AdsRegressionPreview }) => {
+      root.render(
+        <StrictMode>
+          <StaveDesignProvider>
+            <AdsRegressionPreview />
+          </StaveDesignProvider>
+        </StrictMode>,
+      );
+    },
+  );
+} else if (preview === "collaboration") {
   void import("@/dev/collaboration-preview").then(
     ({ CollaborationPreview }) => {
       root.render(

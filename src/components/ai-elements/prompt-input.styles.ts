@@ -791,9 +791,11 @@ export const promptInputStyles = stylex.create({
     fontSize: "inherit",
     color: "inherit",
   },
+  // Layout only. The muted→text hover ink this used to restate is what
+  // `variant="ghost"` (ADS `quiet`) already resolves, and the glyph box comes
+  // from the control's `size` through `--ads-control-icon-size`.
   fileRemoveButton: {
     flexShrink: 0,
-    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
   },
   imageChip: {
     position: "relative",
@@ -824,14 +826,18 @@ export const promptInputStyles = stylex.create({
     borderRadius: vars.radiusMark,
     objectFit: "cover",
   },
+  /*
+   * Placement only. The opaque circle that keeps this control legible over
+   * the thumbnail — round corners, raised surface, hairline border, elevation,
+   * muted ink — is ADS `variant="floating"`, the weight for exactly this kind
+   * of detached action. It used to be re-derived here on top of `ghost`, which
+   * is why it carried `radiusFull` and an `elevationRaised` that the system
+   * spells `elevationLift` for a detached control.
+   */
   imageRemoveButton: {
     position: "absolute",
     right: -4,
     top: -4,
-    borderRadius: vars.radiusFull,
-    backgroundColor: { default: vars.colorCanvas, ":hover": vars.colorCanvas },
-    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
-    boxShadow: vars.elevationRaised,
   },
 
   toolbarRow: {

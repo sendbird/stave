@@ -49,21 +49,6 @@ export const rightRailStyles = stylex.create({
     height: { default: vars.controlIconSizeSm, [LG]: vars.controlIconSizeMd },
     width: { default: vars.controlIconSizeSm, [LG]: vars.controlIconSizeMd },
   },
-  runningBadge: {
-    alignItems: "center",
-    backgroundColor: vars.colorAccent,
-    borderRadius: vars.radiusFull,
-    color: vars.colorAccentText,
-    display: "flex",
-    fontSize: vars.fontSizeMicro,
-    fontWeight: vars.fontWeightMedium,
-    height: 14,
-    insetBlockStart: -2,
-    insetInlineEnd: -2,
-    justifyContent: "center",
-    lineHeight: 1,
-    minWidth: 14,
-    paddingInline: 2,
-    position: "absolute",
-  },
+  // The running count is ADS `Button indicator` + `CountBadge` now; the
+  // hand-placed pill this key painted was a fifth copy of that mark.
 });

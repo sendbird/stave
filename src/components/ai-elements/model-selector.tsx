@@ -235,7 +235,8 @@ export function ModelSelector(args: ModelSelectorProps) {
         </DialogTrigger>
       </div>
       <DialogContent
-        className={cx(sx(styles.dialogContent), menuClassName)}
+        xstyle={styles.dialogContent}
+        className={menuClassName}
         showCloseButton={false}
       >
         <DialogHeader className={sx(styles.srOnly)}>

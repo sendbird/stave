@@ -4,6 +4,7 @@ import {
   labelColorStyles,
 } from "./tracker-visual.styles";
 import { Badge } from "../../ads/components/Badge";
+import { PriorityIcon } from "@/components/ads/components/WorkflowIcon";
 import { sx } from "@/components/ads/utils/stylex";
 import { ServiceLinkIcon } from "@/components/ui/service-link-badge";
 import {
@@ -15,7 +16,6 @@ import {
 import type { TrackerTask } from "@/lib/tracker-tasks/types";
 import {
   TRACKER_SOURCE_LABELS,
-  TRACKER_PRIORITY_ICONS,
 } from "./tracker-task-ui";
 import { taskLayoutStyles } from "./tasks-layout.stylex";
 
@@ -33,7 +33,6 @@ export function TrackerTaskMeta(props: { task: TrackerTask; now: Date }) {
   const { task } = props;
   const status = TRACKER_STATUS_PRESENTATION[task.status.category];
   const priority = TRACKER_PRIORITY_PRESENTATION[task.priority.level];
-  const PriorityIcon = TRACKER_PRIORITY_ICONS[priority.iconName];
   const due = formatTrackerDue(task.dueDate, props.now);
 
   return (
@@ -55,6 +54,7 @@ export function TrackerTaskMeta(props: { task: TrackerTask; now: Date }) {
           >
             <PriorityIcon
               className={sx(trackerVisualStyles.icon)}
+              priority={task.priority.level}
               aria-hidden="true"
             />
             {task.priority.raw ?? priority.label}

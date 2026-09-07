@@ -42,6 +42,8 @@ export const inlineDisclosure = stylex.create({
     minBlockSize: vars.controlHeightSm,
     minInlineSize: 0,
     paddingBlock: vars.space4,
+    // The agent-row left edge. `agentSurface.row` is locked to this value so a
+    // payload-less row and a disclosure row share one glyph column.
     paddingInline: vars.space8,
     textAlign: "start",
   },

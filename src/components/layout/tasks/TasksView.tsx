@@ -16,7 +16,11 @@ import {
   writeTrackerTasksViewPreference,
 } from "@/lib/tracker-tasks/view-preference";
 import type { TrackerTaskLayout } from "@/lib/tracker-tasks/layout";
-import { describeTrackerSources } from "@/lib/tracker-tasks/source-status";
+import {
+  describeTrackerSources,
+  hasPendingTrackerSource,
+  hasProducingTrackerSource,
+} from "@/lib/tracker-tasks/source-status";
 import {
   TRACKER_SOURCE_IDS,
   type TrackerSourceId,
@@ -178,6 +182,16 @@ export function TasksView(props: { onClose: () => void }) {
     [snapshot.syncBySource],
   );
 
+  // A cold start on the board draws the column shape with placeholder cards
+  // instead of a centred spinner that then jumps into a five-column board.
+  // Only the pending case qualifies: "no tracker configured" and "no match" are
+  // verdicts, and a skeleton would promise rows that are never coming.
+  const boardLoading =
+    layout === "board" &&
+    layoutKeys.length === 0 &&
+    !hasProducingTrackerSource(summaries) &&
+    hasPendingTrackerSource(summaries);
+
   const refresh = (source?: TrackerSourceId) => {
     setRefreshing(true);
     actions.refresh(source);
@@ -272,8 +286,9 @@ export function TasksView(props: { onClose: () => void }) {
         summaries={summaries}
         onRetry={(source) => refresh(source)}
         // With an empty list the empty state already lists every source, so the
-        // strip would say the same thing twice.
-        hidden={layoutKeys.length === 0}
+        // strip would say the same thing twice. A loading board is the
+        // exception: it says nothing about the sources, so the strip stays.
+        hidden={layoutKeys.length === 0 && !boardLoading}
       />
       <div className={sx(taskLayoutStyles.content)}>
         <div
@@ -282,7 +297,19 @@ export function TasksView(props: { onClose: () => void }) {
             !selectedItem && taskLayoutStyles.listPaneVisible,
           )}
         >
-          {layoutKeys.length === 0 ? (
+          {boardLoading ? (
+            <TasksBoard
+              items={[]}
+              now={now}
+              selectedKey={null}
+              onSelect={setSelectedKey}
+              onKickoff={setKickoffKey}
+              onAttach={attachForKey}
+              onOpenStaveTask={openStaveTaskForKey}
+              attachTargetLabel={activeWorkspaceName}
+              loading
+            />
+          ) : layoutKeys.length === 0 ? (
             <TrackerTasksEmptyListState
               summaries={summaries}
               hasFilters={countActiveTrackerTaskFilters(filter) > 0}
@@ -296,8 +323,13 @@ export function TasksView(props: { onClose: () => void }) {
                 {layout === "board" ? (
                   <TasksBoard
                     items={boardItems}
+                    now={now}
                     selectedKey={selectedKey}
                     onSelect={setSelectedKey}
+                    onKickoff={setKickoffKey}
+                    onAttach={attachForKey}
+                    onOpenStaveTask={openStaveTaskForKey}
+                    attachTargetLabel={activeWorkspaceName}
                   />
                 ) : (
                   <TrackerTaskList

@@ -2,14 +2,14 @@ import * as stylex from "@stylexjs/stylex";
 import type * as React from "react";
 
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 
 export type KbdSize = "sm" | "md";
 
 export type KbdProps = React.ComponentProps<"kbd"> & {
   /** `md` (24px min box) fits body copy; `sm` (20px) fits dense chrome like menu shortcut hints. */
   size?: KbdSize;
-};
+} & XstyleProp;
 
 /**
  * Keyboard-key chip (standalone `Kbd` element). Visually identical to
@@ -21,11 +21,11 @@ export type KbdProps = React.ComponentProps<"kbd"> & {
  * Renders one key per element; compose several `<Kbd>`s (e.g. `⌘` + `K`) side
  * by side rather than packing a combo into one chip.
  */
-export function Kbd({ className, size = "md", ...props }: KbdProps) {
+export function Kbd({ className, size = "md", xstyle, ...props }: KbdProps) {
   return (
     <kbd
       {...props}
-      className={cx(sx(styles.root, sizeStyles[size]), className)}
+      className={cx(sx(styles.root, sizeStyles[size], xstyle), className)}
     />
   );
 }
@@ -33,6 +33,14 @@ export function Kbd({ className, size = "md", ...props }: KbdProps) {
 const styles = stylex.create({
   root: {
     alignItems: "center",
+    // A keycap is a fixed-size mark, and `inline-flex` does not protect it from
+    // its parent. In a flex row `align-items` defaults to `stretch`, so a Kbd
+    // beside a 36px control grew to 36px tall and stopped reading as a key; in a
+    // grid cell the same thing happens on both axes. `min-block-size` cannot
+    // catch this — it sets a floor, and stretching pushes past it. So the mark
+    // states its own cross-axis alignment and refuses to be squeezed. Overridable
+    // through `xstyle` for the rare caller that really wants a stretched cap.
+    alignSelf: "center",
     backgroundColor: vars.colorCanvasSubtle,
     borderColor: vars.colorBorder,
     borderRadius: vars.radiusMark,
@@ -45,6 +53,7 @@ const styles = stylex.create({
     boxShadow: `inset 0 calc(-1 * ${vars.borderWidthHairline}) 0 0 ${vars.colorInsetEdge}`,
     color: vars.colorText,
     display: "inline-flex",
+    flexShrink: 0,
     fontFamily: vars.fontMono,
     fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightMedium,

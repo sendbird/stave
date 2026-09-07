@@ -132,9 +132,10 @@ export const attentionStyles = stylex.create({
   needBadge: {
     flexShrink: 0,
   },
+  // Glyphs inside interactive rows take the control-icon floor.
   needIcon: {
-    height: 12,
-    width: 12,
+    height: vars.controlIconSizeSm,
+    width: vars.controlIconSizeSm,
   },
   rowTime: {
     color: vars.colorTextMuted,
@@ -212,8 +213,8 @@ export const attentionStyles = stylex.create({
   },
   reviewIcon: {
     color: vars.colorTextMuted,
-    height: 12,
-    width: 12,
+    height: vars.controlIconSizeSm,
+    width: vars.controlIconSizeSm,
   },
   reviewCount: {
     color: vars.colorTextMuted,
