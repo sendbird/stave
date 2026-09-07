@@ -167,7 +167,15 @@ export function Thinking({
       ) : null}
     </>
   ) : (
-    <span className={sx(styles.label, styles.labelSettled)}>
+    /*
+     * The settled line is quiet, but it is still a row **label** (§2): a
+     * finished thought is supporting copy for the answer under it, and it also
+     * has to outrank the duration sitting inside it. `agentSurface.rowLabel`
+     * is the register both facts resolve to, shared with every `ToolRun` title
+     * on the same rail — a settled thought and a settled tool call are the
+     * same kind of line and may not disagree about their ink.
+     */
+    <span className={sx(agentSurface.rowLabel, styles.label)}>
       {settledLabel ?? (
         <>
           {elapsedText ? (
@@ -326,13 +334,6 @@ const styles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-  },
-  /**
-   * The settled line is quiet: secondary ink (§2), because a finished thought
-   * is supporting copy for the answer under it, not the answer.
-   */
-  labelSettled: {
-    color: vars.colorTextMuted,
   },
   /** Standalone readout, so it may not shrink below its own digits. */
   elapsed: {

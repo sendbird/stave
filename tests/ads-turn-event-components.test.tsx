@@ -7,6 +7,8 @@ import { Clarification } from "@/components/ads/components/Clarification";
 import { Thinking } from "@/components/ads/components/Thinking";
 import { ToolRun } from "@/components/ads/components/ToolRun";
 import { agentStateLabel } from "@/components/ads/components/agent-state";
+import { agentSurface } from "@/components/ads/recipes/agent-surface";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   TraceApproval,
   TraceClarification,
@@ -371,5 +373,36 @@ describe("ADS turn-event components", () => {
     );
     expect(markup).toContain("Turn interrupted");
     expect(markup).not.toContain("aria-expanded");
+  });
+
+  /*
+   * A tool call, a settled thought and a runtime notice are the same KIND of
+   * line — a repeated row label on the rail — so they take one ink from
+   * `agentSurface.rowLabel` rather than each picking a step off the text ramp.
+   * They did not: the two ADS rows sat at `colorText` and `colorTextMuted`
+   * respectively, which put a column of tool titles at the same weight as the
+   * answer below the trace while the thought that finished fell into the
+   * metadata register beside its own duration.
+   */
+  test("row labels across the family share one ink", () => {
+    const rowLabel = sx(agentSurface.rowLabel);
+    expect(rowLabel).not.toBe("");
+
+    const toolRun = renderToStaticMarkup(
+      <ToolRun status="completed" title="Bash" tool="ls" />,
+    );
+    const thought = renderToStaticMarkup(
+      <Thinking durationMs={1000} status="settled" />,
+    );
+    const notice = renderToStaticMarkup(
+      <TraceSystemNotice title="Checkpoint captured before the turn" />,
+    );
+
+    for (const markup of [toolRun, thought, notice]) {
+      expect(markup).toContain(rowLabel);
+    }
+    /* And it is not the machine register the duration already uses. */
+    expect(thought).toContain("Thought for");
+    expect(rowLabel).not.toBe(sx(agentSurface.meta));
   });
 });

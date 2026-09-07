@@ -50,7 +50,7 @@ no kind may add one or reorder them.
 | Slot        | Register                                              | Owner                                  |
 | ----------- | ----------------------------------------------------- | -------------------------------------- |
 | status mark | glyph at the `md` icon step, or a `Loader` while live | `InlineDisclosureIcon` inside the row |
-| label       | `fontSizeBody` + `fontWeightMedium`, `colorText`      | `ToolRun` `title` / `Thinking` `phase` |
+| label       | `fontSizeBody` + `fontWeightMedium`, `agentSurface.rowLabel` | `ToolRun` `title` / `Thinking` `phase` |
 | status word | `fontSizeCaption`, one `agentStatusWord` tone         | `ToolRun`, from `AgentRunState`        |
 | target      | `agentSurface.meta` (mono, `tabular-nums`, `colorTextSubtle`) | `ToolRun` `tool`              |
 | count       | `agentSurface.meta`                                   | `ToolRun` `count`                      |
@@ -60,7 +60,18 @@ no kind may add one or reorder them.
 
 The status mark and the chevron share one slot on purpose. One leading mark per
 row is the whole anatomy; a second mark out on the rail restates a status the
-row's own spinner, colored word and ink already carry.
+row's own spinner, colored word and ink already carry. **This includes the turn
+header** — the row that owns every other row here composes the same
+`inlineDisclosure` trigger and the same leading slot, so its chevron is not on
+the trailing edge and its glyph column lines up with the rows underneath it.
+
+**Three ink tiers, not two.** `agentSurface.rowLabel` sits between body ink and
+the machine register, and it is what every repeated row label takes — a tool
+title, a settled thought's summary line, a runtime notice. Body ink put a
+column of ten row labels at the same weight as the answer under the trace;
+`colorTextMuted` dropped them into the register of the duration they have to
+outrank. The turn header is the one line one step darker (body ink): a
+container that shares its contents' ink reads as one more row.
 
 **No card.** A row is rung 0 at rest: no perimeter, no fill, padding and a hover
 wash. At most one rung-5 perimeter may appear per turn, and a turn of tool calls
@@ -213,7 +224,6 @@ properties.
 | disclosure close         | `motionDurationQuick`, `motionEaseStandard`              |
 | chevron rotate + glyph swap | `motionDurationQuick`, `motionEaseExpressive`         |
 | step / trace entrance    | `motionDurationNormal`–`Emphasis`, `motionEaseStandard`/`Expressive` |
-| turn-trigger chevron + ink | `motionDurationQuick`, `motionEaseStandard`            |
 | reasoning glyph pulse    | `motionDurationLoopSlow`, `motionEaseInOut`              |
 | phase-label shimmer      | `recipes/text-shimmer` via `TextShimmer` — never re-implemented |
 

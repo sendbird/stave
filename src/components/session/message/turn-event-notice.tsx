@@ -70,7 +70,9 @@ export function TraceSystemNotice(args: {
 
   const summary = (
     <>
-      <span className={sx(styles.noticeTitle)}>{title}</span>
+      <span className={sx(agentSurface.rowLabel, styles.noticeTitle)}>
+        {title}
+      </span>
       {status === "failed" ? (
         <span className={sx(styles.noticeStatus, agentStatusWord.danger)}>
           Failed

@@ -425,6 +425,47 @@ describe("AssistantMessageBody", () => {
 
 
   /*
+   * The settled turn header is the container of every row on the rail, and it
+   * was the one row that disagreed with them about its own anatomy: a trailing
+   * `ChevronDown`, no padding, no hover wash and no glyph column. It now
+   * composes the same ADS `inlineDisclosure` trigger the rows do, so the
+   * chevron lives in the LEADING slot that swaps for the object glyph.
+   */
+  test("the turn header is an inline disclosure row with a leading chevron", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({
+        parts: [
+          {
+            type: "tool_use",
+            toolName: "Bash",
+            input: "ls",
+            output: "a\nb\n",
+            state: "output-available",
+          },
+        ],
+        isStreaming: false,
+      }),
+      taskId: "task-1",
+      messageId: "message-1",
+      streamingEnabled: true,
+    }));
+
+    const header = html.slice(html.indexOf("<button"));
+    /* The shared hover/focus hook, and the ADS box that comes with it. */
+    expect(header).toContain("atelier-inline-disclosure-trigger");
+    /*
+     * The first element inside the header is the disclosure slot — that is
+     * what "leading, not trailing" means, and it is the assertion a future
+     * trailing chevron would break.
+     */
+    expect(header).toMatch(
+      /^<button(?:(?!<span)[\s\S])*?<span[^>]*data-ads-inline-disclosure-icon/,
+    );
+    expect(header).toContain("data-ads-inline-disclosure-chevron");
+  });
+
+  /*
    * The changed-file row is `ToolRun`, the same primitive as every other call
    * on the rail — not the host `ChainOfThoughtStep` it used to be, which put
    * its chevron on the trailing edge and sized its glyph in `em`. These pin the

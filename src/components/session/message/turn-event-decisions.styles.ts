@@ -45,8 +45,11 @@ export const turnEventDecisionStyles = stylex.create({
     display: "flex",
     minInlineSize: 0,
   },
+  /*
+   * Ink comes from `agentSurface.rowLabel`, composed before this key at the
+   * call site: a notice line is the same row label as a `ToolRun` title.
+   */
   noticeTitle: {
-    color: vars.colorText,
     fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
     lineHeight: vars.lineHeightTight,
