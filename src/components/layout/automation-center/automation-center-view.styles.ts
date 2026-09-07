@@ -168,14 +168,6 @@ export const centerStyles = stylex.create({
     marginBlockStart: 2,
   },
 
-  libraryPane: {
-    flexGrow: 1,
-    minBlockSize: 0,
-    overflowY: "auto",
-    padding: vars.space20,
-  },
-  libraryColumn: { marginInline: "auto", maxInlineSize: "48rem" },
-
   loadingPane: {
     alignItems: "center",
     display: "flex",

@@ -22,7 +22,6 @@ import {
 import {
   aggregateRunStatus,
   defaultRollupSummary,
-  isLiveRunState,
   totalMeasuredDuration,
   ToolRunSummary,
   toolRunStyles,
@@ -47,7 +46,7 @@ export type ToolRunGroupProps = Omit<
   /** Accessible name for the list of runs. @default "Tool calls" */
   "aria-label"?: string;
   children?: React.ReactNode;
-  /** Initial open state of a rolled-up group. Defaults to "open while any run is live". */
+  /** Initial open state of a rolled-up group. Defaults to closed; attention stays open. */
   defaultOpen?: boolean;
   /** The roll-up's glyph, replacing the default tree. */
   icon?: React.ReactNode;
@@ -133,9 +132,7 @@ export function ToolRunGroup({
   const items = flattenRunRows(children);
   const derivedStatus =
     statusProp ?? aggregateRunStatus(runs.map((run) => run.status)) ?? "done";
-  const live = runs.some(
-    (run) => isLiveRunState(run.status) || isAttentionState(run.status),
-  );
+  const live = runs.some((run) => isAttentionState(run.status));
   const totalMs = totalMeasuredDuration(runs);
 
   const { open, setOpen } = useSettleDisclosure({

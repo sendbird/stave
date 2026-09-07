@@ -36,7 +36,10 @@ same `ChatMessage.parts` shape before UI rendering.
 - Top-level `ChainOfThought` is the primary pre-answer container.
 - While the assistant turn is streaming, top-level `ChainOfThought` stays open.
 - After the turn completes, top-level `ChainOfThought` auto-collapses.
-- Individual steps inside `ChainOfThought` may still be opened and closed independently.
+- Individual collapsible steps inside `ChainOfThought` stay closed by default.
+  Failures, denials, and approval gates stay open. Interim assistant text is
+  prose on the rail, not a disclosure.
+- Individual steps may still be opened and closed independently.
 - `MessageResponse` renders only the final text response area below the trace.
 - Interim assistant text rendered outside the trace is user-configurable in
   Settings → Chat and defaults to hidden.
@@ -97,7 +100,11 @@ mirror the Codex investigation:
 The UI follows `elements.ai-sdk.dev/components/chain-of-thought` as closely as possible:
 
 - **Root**: No outer border or background — just `not-prose w-full`.
-- **Trigger**: Simple row `[icon] label [chevron]`, text-muted-foreground, no card.
+- **Trigger**: The ADS `inlineDisclosure` trigger, no card — `[glyph/chevron] label · duration · summary`.
+  The chevron is in the LEADING slot (`InlineDisclosureIcon`) and replaces the glyph on hover
+  and focus-visible, exactly like the `ToolRun` and `Thinking` rows inside the trace, so the box
+  brings its padding, `controlHeightSm`, radius, hover wash and focus ring with it. Its ink is
+  body ink — one step darker than the `agentSurface.rowLabel` its rows use.
   When streaming, the "Thinking" label uses a shimmer gradient animation.
   The rotating phrase swap animation is user-selectable in Settings → Chat, with a soft fade as the default.
   When collapsed and not streaming, a summary row shows tool/agent/file counts below the trigger.

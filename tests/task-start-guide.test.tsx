@@ -29,7 +29,7 @@ afterEach(() => {
 });
 
 describe("TaskStartGuide", () => {
-  test("renders browse actions as quiet buttons", async () => {
+  test("renders the shared-instructions action as an outline button", async () => {
     const { useAppStore } = await import("../src/store/app.store");
     useAppStore.setState(useAppStore.getInitialState());
     useAppStore.setState((state) => ({
@@ -44,13 +44,10 @@ describe("TaskStartGuide", () => {
     );
 
     expect(html).toContain("What would you like to work on?");
-    expect(html).toContain("Browse workflows, macros");
+    expect(html).not.toContain("Browse workflows, macros");
     expect(html).toContain("Add shared instructions");
     expect(html).toMatch(
-      /data-ads-control-variant="quiet"[^>]*>[\s\S]*Browse workflows, macros/,
-    );
-    expect(html).toMatch(
-      /data-ads-control-variant="quiet"[^>]*>[\s\S]*Add shared instructions/,
+      /data-variant="outline"[^>]*>[\s\S]*Add shared instructions/,
     );
     expect(html).toContain('data-testid="task-start-guide"');
   });
@@ -67,7 +64,7 @@ describe("TaskStartGuide", () => {
 
     expect(styles).toContain("paddingBottom: vars.space24");
     expect(styles).toContain("gap: vars.space8");
-    expect(guide).toContain("styles.actions");
+    expect(guide).toContain("styles.footerActions");
     expect(guide).toContain("gap: vars.space8");
   });
 });

@@ -3,6 +3,7 @@ import { vars } from "../ads/tokens/tokens.stylex";
 import { sx } from "../ads/utils/stylex";
 import { MessageSquareIcon } from "lucide-react";
 import {
+  Button,
   Empty,
   EmptyDescription,
   EmptyHeader,
@@ -48,65 +49,72 @@ export function TaskStartGuide({
     useAppStore.getState().setLayout({
       patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "information" },
     });
+  const hasInstructions = Boolean(getWorkspaceInstructions(brief).trim());
   return (
-    <Empty xstyle={styles.root} data-testid="task-start-guide">
-      <EmptyHeader xstyle={styles.introduction}>
-        <EmptyMedia variant="icon">
-          <MessageSquareIcon />
-        </EmptyMedia>
-        <EmptyTitle role="heading" aria-level={2}>
-          What would you like to work on?
-        </EmptyTitle>
-        <EmptyDescription>
-          Describe the outcome you want, or choose a starting point.
-        </EmptyDescription>
-      </EmptyHeader>
-      {showExamples ? (
-        <div className={sx(styles.content)}>
-          <div className={sx(styles.startingPoints)}>
-            {STARTING_POINTS.map((item) => (
-              <div key={item.title} className={sx(styles.startingPoint)}>
-                <div className={sx(styles.promptText)}>
-                  <h3 className={sx(styles.promptTitle)}>{item.title}</h3>
-                  <p className={sx(styles.promptDescription)}>
-                    {item.description}
-                  </p>
+    <div className={sx(styles.shell)} data-testid="task-start-guide">
+      <Empty xstyle={styles.root}>
+        <EmptyHeader xstyle={styles.introduction}>
+          <EmptyMedia variant="icon">
+            <MessageSquareIcon />
+          </EmptyMedia>
+          <EmptyTitle role="heading" aria-level={2}>
+            What would you like to work on?
+          </EmptyTitle>
+          <EmptyDescription>
+            Describe the outcome you want, or choose a starting point.
+          </EmptyDescription>
+        </EmptyHeader>
+        {showExamples ? (
+          <div className={sx(styles.content)}>
+            <div className={sx(styles.startingPoints)}>
+              {STARTING_POINTS.map((item) => (
+                <div key={item.title} className={sx(styles.startingPoint)}>
+                  <div className={sx(styles.promptText)}>
+                    <h3 className={sx(styles.promptTitle)}>{item.title}</h3>
+                    <p className={sx(styles.promptDescription)}>
+                      {item.description}
+                    </p>
+                  </div>
+                  {onSelect ? (
+                    <ActionButton
+                      weight="quiet"
+                      size="sm"
+                      xstyle={styles.promptAction}
+                      onClick={() => onSelect(item.example)}
+                      aria-label={`Use prompt: ${item.title}`}
+                    >
+                      Use prompt
+                    </ActionButton>
+                  ) : null}
                 </div>
-                {onSelect ? (
-                  <ActionButton
-                    weight="quiet"
-                    size="sm"
-                    xstyle={styles.promptAction}
-                    onClick={() => onSelect(item.example)}
-                    aria-label={`Use prompt: ${item.title}`}
-                  >
-                    Use prompt
-                  </ActionButton>
-                ) : null}
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
-          <div className={sx(styles.actions)}>
-            <ActionButton
-              weight="quiet"
-              onClick={() => useAppStore.getState().openAutomationCenter()}
-            >
-              Browse workflows, macros &amp; presets
-            </ActionButton>
-            <ActionButton weight="quiet" onClick={openInformation}>
-              {getWorkspaceInstructions(brief).trim()
-                ? "Review shared instructions"
-                : "Add shared instructions"}
-            </ActionButton>
-          </div>
+        ) : null}
+      </Empty>
+      {showExamples ? (
+        <div className={sx(styles.actions, styles.footerActions)}>
+          <Button variant="outline" onClick={openInformation}>
+            {hasInstructions
+              ? "Review shared instructions"
+              : "Add shared instructions"}
+          </Button>
         </div>
       ) : null}
-    </Empty>
+    </div>
   );
 }
 
 const styles = stylex.create({
-  root: { gap: vars.space20, padding: vars.space20 },
+  shell: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "center",
+    gap: vars.space8,
+    inlineSize: "100%",
+    minInlineSize: 0,
+  },
+  root: { gap: vars.space16, padding: vars.space20 },
   introduction: {
     // Cross-axis centering now lives in the `EmptyHeader` shim, so every empty
     // state gets it rather than the surfaces that noticed the medallion drift.
@@ -123,10 +131,15 @@ const styles = stylex.create({
     minInlineSize: 0,
     display: "flex",
     flexDirection: "column",
-    gap: vars.space20,
+    gap: vars.space16,
     textAlign: "left",
   },
   actions: { display: "flex", flexWrap: "wrap", gap: vars.space8 },
+  footerActions: {
+    inlineSize: "100%",
+    maxInlineSize: "32rem",
+    justifyContent: "center",
+  },
   startingPoints: { minInlineSize: 0 },
   /**
    * The row wraps instead of squeezing the action: below roughly a 24rem

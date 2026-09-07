@@ -4,7 +4,7 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 import { launchStave } from "./harness/stave-app";
 
-test("schedule controls persist without executing and returning from Library preserves the task draft", async ({}, testInfo) => {
+test("schedule controls persist without executing and returning from Automations preserves the task draft", async ({}, testInfo) => {
   const projectPath = await mkdtemp(path.join(tmpdir(), "stave-acceptance-"));
   const stave = await launchStave();
   try {
@@ -33,9 +33,8 @@ test("schedule controls persist without executing and returning from Library pre
     await stave.page.getByRole("button", { name: "Open Stave menu" }).click();
     await stave.page.getByRole("menuitem", { name: /Command Palette/ }).click();
     const palette = stave.page.getByRole("dialog", { name: "Command Palette" });
-    await palette.getByPlaceholder("Find a command, task, workspace, or setting…").fill("Open Library");
-    await palette.getByText("Open Library", { exact: true }).click();
-    await stave.page.getByRole("button", { name: /^Schedules/ }).click();
+    await palette.getByPlaceholder("Find a command, task, workspace, or setting…").fill("Open Automations");
+    await palette.getByText("Open Automations", { exact: true }).click();
     await expect(stave.page.getByText(/Runs while Stave is open/)).toBeVisible();
     await stave.page.getByText("Document review", { exact: true }).first().click();
     await stave.page.getByRole("button", { name: "Enable schedule", exact: true }).click();
@@ -47,7 +46,7 @@ test("schedule controls persist without executing and returning from Library pre
     const state = await stave.page.evaluate(() => window.api.routines!.list!());
     expect(state.snapshot.routines.find(item => item.id === routine.id)?.enabled).toBe(false);
     expect(state.snapshot.runs).toHaveLength(0);
-    await stave.page.getByTitle("Close Library", { exact: true }).click();
+    await stave.page.getByTitle("Close Automations", { exact: true }).click();
     await expect(editor).toContainText("Draft a document describing the release changes.");
   } finally {
     await stave.close();

@@ -83,15 +83,13 @@ A finished run remains distinct from reviewed or verified work.
 
 Existing project/task lists remain the primary navigation. Fleet and Tasks keep
 their existing placement and visibility preferences. Workspace Information holds
-the maintained goal, completion conditions, decisions, evidence, and next action.
-Automation opens a library of workflows, macros, task presets and workspace tools,
-with schedules and run history alongside it. These are optional destinations, not mandatory steps before working.
+shared instructions that apply to every task in the workspace.
+Automations is the destination for scheduling repeatable agent work and reviewing
+run history. It is an optional destination, not a mandatory step before working.
 
-The library is usable before project selection. Actions explain when a project
-is required. Workflow and macro actions append to an editable draft, creating a
-task when needed; they never send the prompt. Presets store model, provider and
-effort in the new task's draft overrides, leaving other tasks and global defaults
-unchanged. Each action rechecks its workspace identity at invocation time.
+Automations remains usable before project selection. Each automation explains
+when a project or workspace is required and rechecks its workspace identity at
+invocation time.
 
 ## Workspace tools and resumption
 
@@ -101,11 +99,11 @@ mounted when switching views; saving a command never runs it. Tabs wrap in narro
 panes so all destinations remain visible. Advanced configuration stays available
 from the panel header.
 
-The empty task surface offers the maintained next action as an editable prompt,
-with direct access to its goal and evidence. Lens introduces page navigation,
+The empty task surface can open shared instructions from Information.
+Lens introduces page navigation,
 development servers, annotation, diagnostics and evidence capture before a page
 is opened. Loading failures offer retry and address correction. Result review
-links to current changes, documents and maintained direction; those links do not
+links to current changes, documents and shared instructions; those links do not
 claim to be immutable artifacts from the selected run.
 
 ## Save and recovery feedback
@@ -125,7 +123,7 @@ reversible action stored independently of notification cleanup.
 
 Use the collaboration preview and browser contract tests for narrow/light/dark
 layout, keyboard navigation, computed metrics, and uncertain delivery. Native
-Electron tests cover product navigation, the library-to-task path, rejected
+Electron tests cover product navigation, the automation-to-task path, rejected
 workspace writes and retry, instruction recovery, and result-review persistence.
 Theme, provider and child lifecycle contracts remain required alongside them.
 

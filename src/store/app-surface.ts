@@ -1,6 +1,6 @@
 /**
  * App-level surfaces swap out the main content column while the sidebar, top
- * bar, and right rail stay mounted. Fleet View, the Library, and
+ * bar, and right rail stay mounted. Fleet View, Automations, and
  * Tasks are peers here: exactly one of them can own the column at a time.
  */
 export type AppActiveSurface =

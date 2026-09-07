@@ -71,7 +71,8 @@ export const toolRunStyles = stylex.create({
     opacity: vars.opacityDisabled,
   },
   title: {
-    color: vars.colorText,
+    // Ink comes from `agentSurface.rowLabel`, composed before this key at the
+    // call site: a row label is a shared register, not a per-component choice.
     flex: {
       default: "0 1 auto",
       "@container (max-width: 22rem)": "1 1 100%",

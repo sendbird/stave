@@ -227,7 +227,9 @@ export function ToolRunSummary({
   return (
     <span className={sx(toolRunStyles.summary, xstyle)}>
       <span className={sx(toolRunStyles.primary)}>
-        <span className={sx(toolRunStyles.title)}>{title}</span>
+        <span className={sx(agentSurface.rowLabel, toolRunStyles.title)}>
+          {title}
+        </span>
         {quiet ? (
           <VisuallyHidden>{word}</VisuallyHidden>
         ) : (
