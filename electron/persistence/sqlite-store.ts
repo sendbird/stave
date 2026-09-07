@@ -65,6 +65,7 @@ import type {
 import { TaskHeartbeatStore } from "./task-heartbeat-store";
 import { ProjectMemoryStore } from "./project-memory-store";
 import { ResultReviewStore } from "./result-review-store";
+import { FleetAttentionSnoozeStore } from "./fleet-attention-snooze-store";
 import { WorkspaceDirectionDraftStore } from "./workspace-direction-drafts";
 import { DelegationDraftStore } from "./delegation-drafts";
 import type { ProjectMemoryKind } from "../../src/lib/project-memory";
@@ -211,6 +212,7 @@ export class SqliteStore {
   private taskHeartbeats: TaskHeartbeatStore;
   private projectMemories: ProjectMemoryStore;
   readonly resultReviews: ResultReviewStore;
+  readonly fleetAttentionSnoozes: FleetAttentionSnoozeStore;
   readonly directionDrafts: WorkspaceDirectionDraftStore;
   readonly delegationDrafts: DelegationDraftStore;
   private _closed = false;
@@ -252,6 +254,7 @@ export class SqliteStore {
     this.db.pragma("wal_autocheckpoint = 1000");
     this.bootstrap();
     this.resultReviews = new ResultReviewStore(this.db);
+    this.fleetAttentionSnoozes = new FleetAttentionSnoozeStore(this.db);
     this.directionDrafts = new WorkspaceDirectionDraftStore(this.db);
     this.delegationDrafts = new DelegationDraftStore(this.db);
     this.runLedger = new RunLedgerStore(this.db);

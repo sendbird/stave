@@ -33,7 +33,18 @@ import {
   Input,
   Kbd,
 } from "@/components/ui";
-import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
+import {
+  getFleetAttentionTier,
+  type FleetAttentionItem,
+} from "@/lib/fleet/attention-projection";
+import {
+  FLEET_ATTENTION_CLEAR_SNOOZE_MS,
+  resolveSnoozeDeadline,
+} from "@/lib/fleet/attention-snooze";
+import {
+  clearFleetAttentionSnoozes,
+  snoozeFleetAttention,
+} from "@/lib/fleet/attention-snooze-client";
 import {
   compareFleetWorkspaceActivity,
   FLEET_BOARD_FILTER_OPTIONS,
@@ -44,7 +55,10 @@ import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { sx } from "@/components/ads/utils/stylex";
 import { fleetStyles as styles } from "./fleet-view.styles";
 import { useAppStore } from "@/store/app.store";
-import { setResultReviewed } from "@/lib/reviews/result-review-client";
+import {
+  setResultReviewed,
+  setResultsReviewed,
+} from "@/lib/reviews/result-review-client";
 import { toast } from "@/lib/notifications/toast";
 
 type FleetProjectView = {
@@ -200,6 +214,7 @@ export function FleetView() {
   const {
     items: attentionTargets,
     blockingItems,
+    snoozedItems,
     attentionItemsByWorkspaceId,
     resultReviewError,
     resultReviewTotal,
@@ -220,6 +235,7 @@ export function FleetView() {
     null,
   );
   const [busyAttentionId, setBusyAttentionId] = useState<string | null>(null);
+  const [clearingReview, setClearingReview] = useState(false);
   const filterInputRef = useRef<HTMLInputElement>(null);
 
   const allCardKeys = useMemo(
@@ -402,6 +418,123 @@ export function FleetView() {
     },
     [markNotificationRead],
   );
+
+  const snoozeNeed = useCallback(
+    (target: FleetAttentionItem, durationMs: number) => {
+      setBusyAttentionId(target.id);
+      void snoozeFleetAttention({
+        attentionId: target.id,
+        workspaceId: target.workspaceId,
+        snoozedUntil: resolveSnoozeDeadline({ durationMs }),
+      })
+        .catch((error: unknown) => {
+          toast.error(
+            error instanceof Error
+              ? error.message
+              : "Snooze was not saved. Retry.",
+          );
+        })
+        .finally(() => {
+          setBusyAttentionId((current) =>
+            current === target.id ? null : current,
+          );
+        });
+    },
+    [],
+  );
+
+  const restoreSnoozedNeeds = useCallback(() => {
+    const attentionIds = snoozedItems.map((item) => item.id);
+    if (attentionIds.length === 0) {
+      return;
+    }
+    void clearFleetAttentionSnoozes({ attentionIds }).catch(
+      (error: unknown) => {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Snoozed items were not restored. Retry.",
+        );
+      },
+    );
+  }, [snoozedItems]);
+
+  /**
+   * Acknowledges the whole `Worth a look` group in one gesture.
+   *
+   * Each row is cleared through whichever mechanism actually owns it, because
+   * Fleet owns none of them: a durable result is marked reviewed, a
+   * notification-backed row is read and resolved, and a pull-request row — whose
+   * state lives on GitHub and would be rebuilt on the next projection — is
+   * snoozed for a day instead. Anything that cannot be cleared is left in place
+   * rather than reported as cleared.
+   */
+  const clearReviewNeeds = useCallback(() => {
+    const reviewTargets = attentionTargets.filter(
+      (target) => getFleetAttentionTier(target.kind) === "review",
+    );
+    if (reviewTargets.length === 0) {
+      return;
+    }
+    setClearingReview(true);
+    void (async () => {
+      let cleared = 0;
+      const scopes = reviewTargets.flatMap((target) =>
+        target.resultReview
+          ? [
+              {
+                projectPath: target.resultReview.projectPath,
+                workspaceId: target.resultReview.workspaceId,
+                taskId: target.resultReview.taskId,
+                turnId: target.resultReview.turnId,
+              },
+            ]
+          : [],
+      );
+      // The bulk contract caps a batch at 200; a paged rail can exceed that.
+      for (let index = 0; index < scopes.length; index += 200) {
+        cleared += await setResultsReviewed({
+          scopes: scopes.slice(index, index + 200),
+          reviewed: true,
+        });
+      }
+
+      const resolvedAt = new Date().toISOString();
+      for (const target of reviewTargets) {
+        if (target.resultReview || !target.notificationId) {
+          continue;
+        }
+        await markNotificationRead({ id: target.notificationId, resolvedAt });
+        cleared += 1;
+      }
+
+      const snoozedUntil = resolveSnoozeDeadline({
+        durationMs: FLEET_ATTENTION_CLEAR_SNOOZE_MS,
+      });
+      for (const target of reviewTargets) {
+        if (target.resultReview || target.notificationId) {
+          continue;
+        }
+        await snoozeFleetAttention({
+          attentionId: target.id,
+          workspaceId: target.workspaceId,
+          snoozedUntil,
+        });
+        cleared += 1;
+      }
+      toast.success(
+        cleared === 1 ? "Cleared 1 item." : `Cleared ${cleared} items.`,
+      );
+    })()
+      .catch((error: unknown) => {
+        toast.error(
+          error instanceof Error
+            ? error.message
+            : "Some items were not cleared. Retry.",
+        );
+      })
+      .finally(() => setClearingReview(false));
+  }, [attentionTargets, markNotificationRead]);
 
   const openAttentionItemPr = useCallback((target: FleetAttentionItem) => {
     if (!target.prUrl) {
@@ -591,10 +724,15 @@ export function FleetView() {
             items={attentionTargets}
             selectedAttentionId={selectedAttentionId}
             busyAttentionId={busyAttentionId}
+            snoozedCount={snoozedItems.length}
+            clearingReview={clearingReview}
             onOpen={openAttentionItem}
             onOpenTask={handleOpenTask}
             onMarkRead={markNeedRead}
             onDismiss={dismissNeed}
+            onSnooze={snoozeNeed}
+            onClearReview={clearReviewNeeds}
+            onRestoreSnoozed={restoreSnoozedNeeds}
             onOpenPr={openAttentionItemPr}
             onClearSelection={() => setSelectedAttentionId(null)}
           />

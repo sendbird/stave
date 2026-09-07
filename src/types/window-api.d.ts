@@ -2038,6 +2038,24 @@ interface WindowPersistenceApi {
     ok: boolean;
     result: import("@/lib/reviews/result-review").ResultReview | null;
   }>;
+  setResultsReviewed?: (
+    args: import("@/lib/reviews/result-review").SetResultsReviewedArgs,
+  ) => Promise<{ ok: boolean; updated: number }>;
+  listFleetAttentionSnoozes?: (
+    args?: import("@/lib/fleet/attention-snooze").ListFleetAttentionSnoozesArgs,
+  ) => Promise<{
+    ok: boolean;
+    snoozes: import("@/lib/fleet/attention-snooze").FleetAttentionSnooze[];
+  }>;
+  snoozeFleetAttention?: (
+    args: import("@/lib/fleet/attention-snooze").SnoozeFleetAttentionArgs,
+  ) => Promise<{
+    ok: boolean;
+    snooze: import("@/lib/fleet/attention-snooze").FleetAttentionSnooze | null;
+  }>;
+  clearFleetAttentionSnoozes?: (
+    args?: import("@/lib/fleet/attention-snooze").ClearFleetAttentionSnoozesArgs,
+  ) => Promise<{ ok: boolean; cleared: number }>;
   listNotifications?: (args?: {
     limit?: number;
     unreadOnly?: boolean;

@@ -23,7 +23,10 @@ function buildAttentionItem(overrides: Partial<FleetAttentionItem> = {}): FleetA
   };
 }
 
-function renderInbox(items: FleetAttentionItem[]) {
+function renderInbox(
+  items: FleetAttentionItem[],
+  overrides: { snoozedCount?: number; selectedAttentionId?: string } = {},
+) {
   return renderToStaticMarkup(
     createElement(FleetAttentionInbox, {
       items,
@@ -33,10 +36,23 @@ function renderInbox(items: FleetAttentionItem[]) {
       onOpenTask: () => {},
       onMarkRead: () => {},
       onDismiss: () => {},
+      onSnooze: () => {},
       onOpenPr: () => {},
+      onClearReview: () => {},
+      onRestoreSnoozed: () => {},
+      onClearSelection: () => {},
+      ...overrides,
     }),
   );
 }
+
+const REVIEW_ITEM = buildAttentionItem({
+  id: "turn:result-ready:workspace-1:task-1:turn-1",
+  kind: "result-ready",
+  priority: 4,
+  requestId: undefined,
+  turnId: "turn-1",
+});
 
 describe("FleetAttentionInbox", () => {
   test("offers a dismiss action for notification-backed questions", () => {
@@ -67,5 +83,30 @@ describe("FleetAttentionInbox", () => {
     expect(
       renderInbox([buildAttentionItem({ source: "live" })]),
     ).not.toContain("Dismiss");
+  });
+
+  test("offers snooze on a blocking row as well as a review row", () => {
+    expect(renderInbox([buildAttentionItem()])).toContain("Snooze");
+    // Review rows stay folded until selected, so unfold this one to see it.
+    expect(
+      renderInbox([REVIEW_ITEM], { selectedAttentionId: REVIEW_ITEM.id }),
+    ).toContain("Snooze");
+  });
+
+  test("offers a bulk clear only once something is worth a look", () => {
+    expect(renderInbox([REVIEW_ITEM])).toContain("Clear all");
+    expect(renderInbox([REVIEW_ITEM])).toContain("Clear the 1 item worth a look");
+    // Nothing in the blocking rail may be cleared in bulk: an agent is waiting.
+    expect(renderInbox([buildAttentionItem()])).not.toContain("Clear all");
+  });
+
+  test("accounts for snoozed rows and offers to restore them", () => {
+    const markup = renderInbox([buildAttentionItem()], { snoozedCount: 3 });
+    expect(markup).toContain("3 snoozed");
+    expect(markup).toContain("Restore");
+  });
+
+  test("says nothing about snoozed rows when none are hidden", () => {
+    expect(renderInbox([buildAttentionItem()])).not.toContain("snoozed");
   });
 });
