@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 /**
- * Regression: "Astra effort keeps resetting to low".
+ * Regression: switching between Codex GPT models resets effort to low.
  *
  * Boots a pre-migration snapshot (no `settingsModelMigrationVersion`) that is
  * already pinned to `gpt-6-astra` at a deliberately chosen effort, with an App
@@ -204,7 +204,7 @@ test("Astra offers every effort the catalog reports", async ({ page }) => {
  * used to adopt Astra's runtime default ("low" here), discarding the tuned
  * effort the user was carrying.
  */
-test("switching to Astra keeps a tuned effort instead of Low", async ({
+test("switching between Codex GPT models keeps a tuned effort", async ({
   page,
 }) => {
   await seedPreMigrationAstra(page);
