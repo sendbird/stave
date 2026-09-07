@@ -180,7 +180,7 @@ export const explorerStyles = stylex.create({
   searchClearIcon: { height: 14, width: 14 },
   searchHint: {
     color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     lineHeight: "16px",
     paddingInline: vars.space2,
     paddingTop: vars.space4,
@@ -277,16 +277,18 @@ export const explorerStyles = stylex.create({
     color: vars.colorTextMuted,
     flexShrink: 0,
     fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     marginTop: 2,
     paddingBlock: vars.space2,
     paddingInline: 6,
   },
+  // The matched source line — the whole result, not a caption on one — so it
+  // reads at the body step while its line number stays metadata.
   resultText: {
     color: vars.colorTextMuted,
     flex: 1,
     fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeBody,
     lineHeight: "20px",
     minWidth: 0,
     overflowWrap: "break-word",

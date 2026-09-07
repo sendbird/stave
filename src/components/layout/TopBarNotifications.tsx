@@ -377,7 +377,12 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                 <span className={sx(notificationsStyles.viewTabLabel)}>
                   Unread
                 </span>
-                <Badge variant={view === "unread" ? "secondary" : "outline"}>
+                {/* Always `outline`. The selected arm used to be `secondary`,
+                    whose `colorCanvasSubtle` fill sits 1.5% of lightness from
+                    the active tab's own `colorCanvas` — so on the tab you were
+                    looking at, the chip disappeared. A ring does not depend on
+                    the fill behind it, so the count reads the same on both. */}
+                <Badge className={sx(notificationsStyles.viewTabCount)} variant="outline">
                   {unreadCount}
                 </Badge>
               </AdsButton>
@@ -396,7 +401,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                 <span className={sx(notificationsStyles.viewTabLabel)}>
                   History
                 </span>
-                <Badge variant={view === "history" ? "secondary" : "outline"}>
+                <Badge className={sx(notificationsStyles.viewTabCount)} variant="outline">
                   {historyCount}
                 </Badge>
               </AdsButton>

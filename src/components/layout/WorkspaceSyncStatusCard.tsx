@@ -200,8 +200,13 @@ export function WorkspaceSyncStatusCard(props: { cwd: string | null }) {
               state={workspace?.state ?? "unknown"}
               label={WorkspaceStateLabel(workspace?.state ?? "unknown")}
             />
+            {/* Uncommitted files are the normal working state of a
+                workspace, not a fault, and the number is a tally rather than a
+                severity — so it takes the neutral chip. The branch dropdown
+                paints the identical fact `warning`; both are now neutral, and
+                the status word beside them is the thing that carries tone. */}
             {workspace?.dirty ? (
-              <Badge variant="destructive">
+              <Badge variant="secondary">
                 {workspace.dirtyFileCount} dirty
               </Badge>
             ) : (

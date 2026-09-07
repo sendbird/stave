@@ -186,8 +186,12 @@ export function ChangedFilesBlock(args: {
           </span>
           <ChangeCount value={totalAdded} tone="added" />
           <ChangeCount value={totalRemoved} tone="removed" />
+          {/* "Pending" is a not-yet state, not a fault, and `failed` two
+              hundred lines down is already `destructive` — painting both red
+              collapsed two counts that mean different things onto one pair.
+              A queue length is a tally, so it reads neutral. */}
           {pendingCount > 0 ? (
-            <Badge variant="destructive">{pendingCount} pending</Badge>
+            <Badge variant="secondary">{pendingCount} pending</Badge>
           ) : null}
         </div>
         <Button

@@ -68,7 +68,7 @@ export function AdvisorTranscript({
           ))}
         </div>
       ) : !history.loading && !history.error ? (
-        <p {...stylex.props(styles.bodyRelaxed, styles.muted)}>
+        <p {...stylex.props(styles.body, styles.muted)}>
           No advisor exchanges in the current conversation or this saved slice.
           Browse older messages or configure Advisor in the composer.
         </p>

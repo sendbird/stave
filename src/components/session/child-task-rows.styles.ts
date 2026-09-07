@@ -34,38 +34,46 @@ export const childTaskRowsStyles = stylex.create({
     textTransform: "uppercase",
     letterSpacing: "0.08em",
   },
+  // The row's title, so it takes the row-title step rather than sitting a
+  // rung under the metadata it labels.
   delegationName: {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightMedium,
     color: vars.colorText,
   },
   metaText: {
     flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     color: vars.colorTextMuted,
   },
   metaTextNums: {
     flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     fontVariantNumeric: "tabular-nums",
     color: vars.colorTextMuted,
   },
+  // Consequential prose — why a child task is blocked, why it stopped, what
+  // failed. Micro is the badge-count step, not a step for text a user has to
+  // read to act on.
   blockedHint: {
     marginTop: vars.space4,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeBody,
+    lineHeight: vars.lineHeightNormal,
     color: vars.colorWarning,
   },
   reasonText: {
     marginTop: vars.space4,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeBody,
+    lineHeight: vars.lineHeightNormal,
     color: vars.colorTextMuted,
   },
   errorText: {
     marginTop: vars.space4,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeBody,
+    lineHeight: vars.lineHeightNormal,
     color: vars.colorDanger,
   },
   actionsRow: {
@@ -85,7 +93,7 @@ export const childTaskRowsStyles = stylex.create({
     padding: vars.space8,
   },
   composerLabel: {
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     fontWeight: vars.fontWeightMedium,
     color: vars.colorText,
   },
@@ -104,7 +112,9 @@ export const childTaskRowsStyles = stylex.create({
     gap: vars.space4,
   },
   composerHint: { fontSize: vars.fontSizeMicro, color: vars.colorTextMuted },
-  actionIcon: { width: 12, height: 12 },
+  // Glyph inside a control, so it takes the control-icon floor rather than a
+  // raw 12px that reads as a status mark.
+  actionIcon: { width: vars.controlIconSizeSm, height: vars.controlIconSizeSm },
   backlink: {
     display: "flex",
     minWidth: 0,
@@ -121,18 +131,23 @@ export const childTaskRowsStyles = stylex.create({
     letterSpacing: "0.1em",
     color: vars.colorTextMuted,
   },
+  /* A parent task's title, not a chip: Micro is the badge-count step and this
+     is the row's one orienting label. */
   backlinkTitle: {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     color: vars.colorText,
   },
+  /* Body-semibold, and no uppercase or tracking: those were standing in
+     for a hierarchy the step now supplies directly, and at 11px they cost
+     the x-height and word-shape cues that make a header scannable in the
+     first place. Matches the section headers in the changes panel and the
+     workspace sidebar. */
   sectionHeading: {
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightSemibold,
-    textTransform: "uppercase",
-    letterSpacing: "0.1em",
     color: vars.colorTextMuted,
   },
   sectionRoot: { minWidth: 0 },

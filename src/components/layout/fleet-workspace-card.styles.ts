@@ -198,11 +198,13 @@ export const cardStyles = stylex.create({
     height: 12,
     width: 12,
   },
+  // The card's row title, so it takes the row-title step rather than the
+  // metadata step used by the status and timestamp beside it.
   taskTitle: {
     color: vars.colorText,
     flexBasis: 0,
     flexGrow: 1,
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars.fontSizeBody,
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",

@@ -21,6 +21,7 @@ import { useRunningWorkspaceProcessCount } from "@/lib/workspace-scripts";
 import { workspaceToolsRunningLabel } from "@/lib/workspace-tools-presentation";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { rightRailStyles } from "@/components/layout/right-rail.styles";
+import { CountBadge } from "@/components/system/CountBadge";
 import { useAppStore } from "@/store/app.store";
 
 function RightRailWorkspaceToolsButton(props: {
@@ -77,16 +78,24 @@ function RightRailWorkspaceToolsButton(props: {
           ]}
           onClick={props.onClick}
           aria-label={label}
+          /*
+           * `CountBadge` through ADS `Button indicator`, not a positioned
+           * child. This rail was the fifth hand-written copy of the same accent
+           * pill — the one `CountBadge` was created to delete — and the copy
+           * had dropped the knockout ring, so it merged into the glyph it
+           * overlapped. `indicator` also owns the corner, the overhang and
+           * lifting the button's own overflow clamp, which is why the
+           * hand-placed version had two flat sides.
+           */
+          indicator={
+            runningCount > 0 ? (
+              <span data-testid="workspace-tools-running-count">
+                <CountBadge count={runningCount} />
+              </span>
+            ) : null
+          }
         >
           <Icon className={sx(rightRailStyles.railIcon)} />
-          {runningCount > 0 ? (
-            <span
-              data-testid="workspace-tools-running-count"
-              className={sx(rightRailStyles.runningBadge)}
-            >
-              {runningCount}
-            </span>
-          ) : null}
         </Button>
       </TooltipTrigger>
       <TooltipContent side="left">{label}</TooltipContent>

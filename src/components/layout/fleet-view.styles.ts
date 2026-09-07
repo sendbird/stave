@@ -221,7 +221,7 @@ export const fleetStyles = stylex.create({
    * and the trailing clear button need.
    */
   searchInput: {
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars.fontSizeBody,
     height: vars.controlHeightSm,
     paddingInlineEnd: vars.space32,
     paddingInlineStart: vars.space32,
@@ -299,9 +299,11 @@ export const fleetStyles = stylex.create({
     height: 14,
     width: 14,
   },
+  // Names the group of cards under it, so it is a section header rather than
+  // a row label sharing the step of the counts beside it.
   projectName: {
     color: vars.colorText,
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightSemibold,
     overflow: "hidden",
     textOverflow: "ellipsis",

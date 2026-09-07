@@ -253,7 +253,7 @@ export function CollaborationPanel({
                 </h4>
                 <p
                   {...stylex.props(
-                    styles.bodyRelaxed,
+                    styles.body,
                     styles.preWrap,
                     styles.breakWords,
                     styles.marginTop1,
@@ -266,7 +266,7 @@ export function CollaborationPanel({
                 <h4 {...stylex.props(styles.heading)}>Advisor response</h4>
                 <p
                   {...stylex.props(
-                    styles.bodyRelaxed,
+                    styles.body,
                     styles.preWrap,
                     styles.breakWords,
                     styles.marginTop1,
@@ -357,7 +357,7 @@ export function CollaborationPanel({
           >
             <h3
               id="delegated-work-heading"
-              {...stylex.props(styles.headingBody)}
+              {...stylex.props(styles.heading)}
             >
               Delegated tasks
             </h3>
@@ -368,7 +368,7 @@ export function CollaborationPanel({
               aria-labelledby="advice-heading"
               {...stylex.props(styles.sectionDivider)}
             >
-              <h3 id="advice-heading" {...stylex.props(styles.headingBody)}>
+              <h3 id="advice-heading" {...stylex.props(styles.heading)}>
                 Consultations
               </h3>
               {advice}
@@ -381,7 +381,7 @@ export function CollaborationPanel({
             >
               <h3
                 id="worker-work-heading"
-                {...stylex.props(styles.headingBody)}
+                {...stylex.props(styles.heading)}
               >
                 Worker assignments
               </h3>

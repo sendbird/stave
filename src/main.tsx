@@ -33,7 +33,19 @@ function resolveDevPreview(): string | null {
 const root = createRoot(document.getElementById("root")!);
 const preview = import.meta.env.DEV ? resolveDevPreview() : null;
 
-if (preview === "turn-events") {
+if (preview === "information-rows") {
+  void import("@/dev/information-rows-preview").then(
+    ({ InformationRowsPreview }) => {
+      root.render(
+        <StrictMode>
+          <StaveDesignProvider>
+            <InformationRowsPreview />
+          </StaveDesignProvider>
+        </StrictMode>,
+      );
+    },
+  );
+} else if (preview === "turn-events") {
   void import("@/dev/turn-event-preview").then(({ TurnEventPreview }) => {
     root.render(
       <StrictMode>

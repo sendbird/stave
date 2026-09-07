@@ -71,21 +71,22 @@ export const collaborationStyles = stylex.create({
     paddingBottom: vars.space12,
   },
   wrap: { display: "flex", flexWrap: "wrap", gap: vars.space8 },
-  body: { fontSize: vars.fontSizeCaption, lineHeight: vars.lineHeightNormal },
-  bodyRelaxed: {
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightRelaxed,
-  },
+  // Panel prose, not a caption: `body` carries every status line, alert and
+  // empty state in this panel, so it sits on the 14px control-text baseline.
+  // `bodyRelaxed` was the same Caption text with relaxed leading — relaxed
+  // leading is for readable prose, so the size moved and the key collapsed
+  // into `body` rather than leaving two names for one treatment.
+  body: { fontSize: vars.fontSizeBody, lineHeight: vars.lineHeightNormal },
   muted: { color: vars.colorTextMuted },
   danger: { color: vars.colorDangerText },
   warning: { color: vars.colorWarningText },
+  // One section-header treatment: `heading` (Caption) and `headingBody` (Body)
+  // dressed the same <h3>/<h4> role at two steps in one file, so the panel's
+  // headers disagreed by a rung depending on which key a call site reached
+  // for. Body semibold is the section-header step; `headingBody` is gone.
   heading: {
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
-    fontWeight: vars.fontWeightSemibold,
-  },
-  headingBody: {
     fontSize: vars.fontSizeBody,
+    lineHeight: vars.lineHeightNormal,
     fontWeight: vars.fontWeightSemibold,
   },
   label: {

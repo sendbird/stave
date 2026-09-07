@@ -9,11 +9,14 @@ const rowFadeIn = stylex.keyframes({
 
 export const workGraphTreeStyles = stylex.create({
   root: { minWidth: 0 },
+  /* Body-semibold, and no uppercase or tracking: those were standing in
+     for a hierarchy the step now supplies directly, and at 11px they cost
+     the x-height and word-shape cues that make a header scannable in the
+     first place. Matches the section headers in the changes panel and the
+     workspace sidebar. */
   heading: {
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeBody,
     fontWeight: vars.fontWeightSemibold,
-    textTransform: "uppercase",
-    letterSpacing: "0.1em",
     color: vars.colorTextMuted,
     margin: 0,
   },
@@ -24,7 +27,9 @@ export const workGraphTreeStyles = stylex.create({
     flexDirection: "column",
   },
   completedToggle: { marginTop: vars.space4, color: vars.colorTextMuted },
-  toggleIcon: { width: 12, height: 12 },
+  // Glyphs inside controls take the control-icon floor; the 12px marks left
+  // at a raw size in this file are status marks and graph nodes, not affordances.
+  toggleIcon: { width: vars.controlIconSizeSm, height: vars.controlIconSizeSm },
   row: {
     display: "flex",
     minWidth: 0,
@@ -75,25 +80,27 @@ export const workGraphTreeStyles = stylex.create({
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
     overflow: "hidden",
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     lineHeight: "1rem",
     color: vars.colorTextMuted,
     margin: 0,
   },
+  // An error the user has to read, so it takes the status/alert step. The
+  // 16px clamp line was sized for Micro and would crop 14px descenders.
   controlError: {
     display: "-webkit-box",
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
     overflow: "hidden",
-    fontSize: vars.fontSizeMicro,
-    lineHeight: "1rem",
+    fontSize: vars.fontSizeBody,
+    lineHeight: vars.lineHeightNormal,
     color: vars.colorDanger,
     margin: 0,
   },
   elapsed: {
     flexShrink: 0,
     paddingTop: "0.125rem",
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars.fontSizeCaption,
     lineHeight: "1rem",
     fontVariantNumeric: "tabular-nums",
     color: vars.colorTextMuted,
@@ -119,7 +126,7 @@ export const workGraphTreeStyles = stylex.create({
     alignItems: "center",
     gap: vars.space2,
   },
-  controlIcon: { width: 12, height: 12 },
+  controlIcon: { width: vars.controlIconSizeSm, height: vars.controlIconSizeSm },
   badge: {
     flexShrink: 0,
     borderRadius: vars.radiusMark,

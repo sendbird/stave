@@ -136,6 +136,7 @@ import {
   useSortableRow,
 } from "@/hooks/use-sortable-list";
 import { EditorMarkdownPreview } from "./editor-markdown-preview";
+import { informationRow } from "./information-row.styles";
 import { WorkspacePlansSection } from "./WorkspacePlansSection";
 import { WorkspaceMemorySection } from "./WorkspaceMemorySection";
 import {
@@ -804,7 +805,10 @@ function GitHubPrStatusIcon(props: {
   return <GitPullRequest className={sx(glyph, styles.prStatusOpen)} />;
 }
 
-function GitHubPrRow(props: {
+/* Exported for `src/dev/information-rows-preview`, which renders the three
+   Information-panel row kinds side by side so the shared row shape can be
+   verified without a live workspace. */
+export function GitHubPrRow(props: {
   number: number;
   title: string;
   status: WorkspacePrStatus;
@@ -820,21 +824,21 @@ function GitHubPrRow(props: {
   const visual = PR_STATUS_VISUAL[props.status];
 
   return (
-    <div className={sx(styles.prRow)}>
-      <GitHubPrStatusIcon status={props.status} xstyle={styles.prRowMark} />
-      <div className={sx(styles.prRowBody)}>
-        <div className={sx(styles.prRowTitleLine)}>
+    <div className={sx(informationRow.root, informationRow.rootFocusWithin)}>
+      <GitHubPrStatusIcon status={props.status} xstyle={informationRow.mark} />
+      <div className={sx(informationRow.body)}>
+        <div className={sx(informationRow.titleLine)}>
           <AdsButton
             layout="host"
             type="button"
-            xstyle={[styles.prRowTitle, hostSurface.inertChrome]}
+            xstyle={[informationRow.title, hostSurface.inertChrome]}
             onClick={() => openExternalUrl(props.url)}
           >
             {props.title}
           </AdsButton>
         </div>
-        <div className={sx(styles.prRowMeta)}>
-          <span className={sx(styles.prRowNumber)}>#{props.number}</span>
+        <div className={sx(informationRow.meta)}>
+          <span className={sx(informationRow.metaNumeric)}>#{props.number}</span>
           <Badge
             variant={PR_TONE_BADGE_VARIANT[visual.tone]}
             className={sx(styles.chipStatus)}
@@ -847,14 +851,14 @@ function GitHubPrRow(props: {
             </Badge>
           ) : null}
           {props.repo ? (
-            <span className={sx(styles.prRowRepo)}>{props.repo}</span>
+            <span className={sx(informationRow.metaText)}>{props.repo}</span>
           ) : null}
           {props.branch ? (
-            <span className={sx(styles.prRowBranch)}>{props.branch}</span>
+            <span className={sx(informationRow.metaMono)}>{props.branch}</span>
           ) : null}
         </div>
       </div>
-      <div className={sx(styles.prRowTrail)}>
+      <div className={sx(informationRow.trail)}>
         {props.actions}
         {props.onRefresh ? (
           <AdsButton
@@ -1268,9 +1272,11 @@ function NotesSectionBody(props: {
       }}
       className={sx(styles.notesPreview)}
     >
+      {/* 13 is not on the type ramp; the notes preview reads at the control-text
+          baseline, the same step WorkspaceSkillsPanel passes. */}
       <EditorMarkdownPreview
         content={props.notes}
-        fontSize={13}
+        fontSize={14}
         variant="embedded"
       />
     </div>

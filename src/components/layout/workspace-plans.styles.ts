@@ -22,7 +22,7 @@ export const planStyles = stylex.create({
   headerHint: {
     color: vars.colorTextMuted,
     fontSize: vars.fontSizeCaption,
-    lineHeight: "16px",
+    lineHeight: vars.lineHeightTight,
   },
   headerActions: {
     alignItems: "center",
@@ -30,8 +30,15 @@ export const planStyles = stylex.create({
     gap: vars.space8,
   },
   headerBadge: { borderRadius: vars.radiusMark },
-  refreshButton: { borderRadius: vars.radiusMark, height: 32 },
-  refreshIcon: { height: 16, marginRight: vars.space4, width: 16 },
+  refreshButton: {
+    borderRadius: vars.radiusMark,
+    blockSize: vars.controlHeightSm,
+  },
+  refreshIcon: {
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
+    marginRight: vars.space4,
+  },
   spinning: {
     animationDuration: {
       default: vars.motionDurationLoop,
@@ -76,79 +83,26 @@ export const planStyles = stylex.create({
     gap: vars.space8,
     justifyContent: "center",
   },
-  list: { display: "flex", flexDirection: "column", gap: vars.space8 },
-  row: {
-    alignItems: "stretch",
-    backgroundColor: {
-      default: vars.colorSurfaceTint,
-      ":hover": vars.colorCanvasSubtle,
-    },
-    borderColor: vars.colorBorderSubtle,
-    borderRadius: vars.radiusPanel,
-    borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    display: "flex",
-    gap: vars.space4,
-    overflow: "hidden",
-    width: "100%",
-  },
-  rowOpen: {
-    alignItems: "flex-start",
-    display: "flex",
-    flex: 1,
-    gap: vars.space12,
-    minWidth: 0,
-    paddingBlock: 10,
-    paddingInline: vars.space12,
-    textAlign: "start",
-  },
-  rowIcon: {
-    color: vars.colorTextMuted,
-    flexShrink: 0,
-    height: 16,
-    marginTop: 2,
-    width: 16,
-  },
-  rowBody: {
-    display: "flex",
-    flex: 1,
-    flexDirection: "column",
-    gap: vars.space4,
-    minWidth: 0,
-  },
-  rowTitleLine: { alignItems: "center", display: "flex", gap: vars.space8 },
-  rowTitle: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  rowBadge: {
-    borderRadius: vars.radiusMark,
-    fontSize: vars.fontSizeMicro,
-    paddingBlock: 0,
-    paddingInline: 6,
-  },
-  rowMeta: {
-    color: vars.colorTextSubtle,
-    fontSize: vars.fontSizeMicro,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
+  /* Row shape, hover wash and trail live in `information-row.styles.ts`, which
+     this list shares with the linked-pull-request rows above it. Only the two
+     things that belong to a plan specifically stay here. */
+  rowMark: { color: vars.colorTextMuted },
   rowAction: {
     alignItems: "center",
+    backgroundColor: {
+      default: "transparent",
+      ":hover": vars.colorOverlayHover,
+    },
+    blockSize: vars.iconButtonSize,
+    borderRadius: vars.radiusControl,
     color: {
       default: vars.colorTextSubtle,
       ":hover": vars.colorText,
     },
-    backgroundColor: { default: "transparent", ":hover": vars.colorOverlayHover },
     display: "flex",
     flexShrink: 0,
+    inlineSize: vars.iconButtonSize,
     justifyContent: "center",
-    width: 36,
   },
   rowActionDanger: {
     backgroundColor: {
@@ -161,7 +115,10 @@ export const planStyles = stylex.create({
       ":hover": vars.colorDangerText,
     },
   },
-  rowActionIcon: { height: 16, width: 16 },
+  rowActionIcon: {
+    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars.controlIconSizeMd,
+  },
   card: {
     backgroundColor: vars.colorCanvas,
     borderColor: vars.colorBorderSubtle,
