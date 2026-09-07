@@ -25,6 +25,7 @@ export type LoaderProps = Omit<React.ComponentProps<"span">, "children"> & {
    * - `spinner`: ordinary indeterminate wait
    * - `dots`: conversational hand-off or queue
    * - `matrix`: generative inference
+   * - `reason`: a chain of thought — each step derived from the last
    * - `pulse`: continuous stream
    * - `steps`: staged tool execution
    * - `orbit`: synthesis around stable context

@@ -167,6 +167,7 @@ function renderVariant(variant: LoaderVariant, size: LoaderSize) {
     case "explore":
     case "handoff":
     case "persist":
+    case "reason":
     case "route":
     case "sync":
     case "verify":
@@ -187,6 +188,7 @@ const variantContainerStyles = {
   parallel: styles.parallel,
   persist: null,
   pulse: styles.pulse,
+  reason: null,
   ripple: styles.ripple,
   route: null,
   scan: styles.scan,

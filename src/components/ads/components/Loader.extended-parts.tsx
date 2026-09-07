@@ -146,5 +146,34 @@ export function ExtendedLoaderMark({ variant }: ExtendedLoaderMarkProps) {
           )}
         </span>
       );
+    /*
+     * The inference figure: two premises, the rule, then what follows from
+     * them. It runs in that order on every loop, so the mark spends its beat
+     * saying the one thing a chain of thought is — a step earned from the
+     * step before it — rather than repeating an undifferentiated field of
+     * activity. Direction-neutral by construction: the derivation reads down
+     * the block axis, so it means the same thing in an RTL locale.
+     */
+    case "reason":
+      return (
+        <span className={sx(styles.mark)} data-ads-loader-anatomy="reason">
+          {[styles.reasonPremiseStart, styles.reasonPremiseEnd].map(
+            (position, index) => (
+              <span
+                className={sx(styles.reasonNode, position, phases[index])}
+                key={index}
+              />
+            ),
+          )}
+          <span className={sx(styles.reasonRule, phases[2])} />
+          <span
+            className={sx(
+              styles.reasonNode,
+              styles.reasonConclusion,
+              phases[3],
+            )}
+          />
+        </span>
+      );
   }
 }

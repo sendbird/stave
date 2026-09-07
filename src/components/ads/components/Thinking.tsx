@@ -55,9 +55,10 @@ export type ThinkingProps = Omit<React.ComponentProps<"div">, "children"> &
     /** Accessible name for the trace region. @default "Reasoning trace" */
     label?: string;
     /**
-     * Activity cadence for the live leading mark. Keep the default for general
-     * reasoning; choose another Loader cadence only when the phase names a
-     * more specific work shape. Ignored once settled. @default "matrix"
+     * Activity cadence for the live leading mark. The default is the
+     * chain-of-thought cadence, which is what this component always renders;
+     * choose another Loader cadence only when the phase names a more specific
+     * work shape. Ignored once settled. @default "reason"
      */
     loaderVariant?: LoaderVariant;
     onOpenChange?: (open: boolean) => void;
@@ -123,7 +124,7 @@ export function Thinking({
   defaultOpen,
   durationMs,
   label = "Reasoning trace",
-  loaderVariant = "matrix",
+  loaderVariant = "reason",
   now,
   onOpenChange,
   open: openProp,
