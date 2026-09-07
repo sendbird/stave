@@ -95,9 +95,9 @@ maps into it exactly once, in
 | Provider state              | `AgentRunState` | Status word        | Disclosure                      |
 | --------------------------- | --------------- | ------------------ | ------------------------------- |
 | (absent)                    | `pending`       | Pending, neutral   | closed                          |
-| `input-streaming`           | `running`       | Running, accent    | open, live clock                |
-| `input-available`           | `running`       | Running, accent    | open, live clock                |
-| `output-available`          | `done`          | Completed, success | auto-collapses to its record    |
+| `input-streaming`           | `running`       | Running, accent    | closed, live clock on the header |
+| `input-available`           | `running`       | Running, accent    | closed, live clock on the header |
+| `output-available`          | `done`          | Completed, success | closed                          |
 | `output-error`              | `failed`        | Failed, danger     | **stays open**                  |
 | approval requested          | `approval`      | Awaiting approval  | **stays open**                  |
 | interrupted / canceled turn | `interrupted` / `canceled` | warning / neutral | closed             |
@@ -108,10 +108,10 @@ correct answer rather than a gap:
 
 | Kind        | Live means                          | Open                            | Settled                                            |
 | ----------- | ----------------------------------- | ------------------------------- | -------------------------------------------------- |
-| todo / plan | the TodoWrite call is running       | `ToolRun` opens; `Plan` inside  | collapses, and the row keeps `done / total`         |
+| todo / plan | the TodoWrite call is running       | `ToolRun` stays closed; `Plan` inside | stays closed, and the row keeps `done / total`  |
 | approval    | — (no run)                          | always, until answered          | the audit record replaces the buttons in place      |
 | user input  | — (no run)                          | always, until answered          | the recorded answer replaces the fields in place    |
-| system      | the notice is a failure or boundary | attention notices stay open     | an ordinary notice collapses to its one titled line |
+| system      | the notice is a failure or boundary | attention notices stay open     | an ordinary notice stays closed to its one titled line |
 
 - **A plan is not a disclosure of its own.** `Plan` has no collapsed form by
   design — it is the durable half of the reasoning story and stays readable
@@ -150,13 +150,16 @@ refusal. They were added to ADS in this pass —
 Rules, all owned by ADS `useSettleDisclosure` and `isAttentionState` — do not
 re-derive them per call site:
 
-1. **Open while live.** A running payload is the thing the reader is watching.
-2. **Auto-collapse on completion.** A clean result collapses to one measured
-   line. Only a clean result: a failure, denial or approval gate counts as live
+1. **Closed by default.** A running payload stays behind the disclosure. The
+   header already carries the status word and the live clock, so auto-opening
+   every row turns a turn of tool calls into a stack of payloads. Interim
+   assistant text is the exception: it is language, not an event, and stays
+   visible on the rail with no disclosure.
+2. **Attention stays open.** A failure, denial or approval gate counts as live
    for the disclosure, because collapsing it would hide the one payload worth
    reading the instant it appeared.
-3. **The reader outranks the automation.** Toggling a row during a run switches
-   auto-collapse off for that run.
+3. **The reader outranks the default.** Toggling a row during a run is a
+   choice about *this* run.
 4. **The turn-level trace** (`ChainOfThought`) opens while the turn streams and
    collapses once, on completion, unless the turn ended in an actionable
    failure. A manual re-open is not stolen back.

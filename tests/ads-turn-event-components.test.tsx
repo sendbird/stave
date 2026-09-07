@@ -79,7 +79,7 @@ describe("ADS turn-event components", () => {
     expect(markup).toContain('data-tool-run-status="running"');
   });
 
-  test("a ToolRun with a payload becomes a disclosure and stays open while live", () => {
+  test("a ToolRun with a payload stays closed while running", () => {
     const markup = renderToStaticMarkup(
       <ToolRun
         status="running"
@@ -90,7 +90,7 @@ describe("ADS turn-event components", () => {
         now={Date.now()}
       />,
     );
-    expect(markup).toContain('aria-expanded="true"');
+    expect(markup).toContain('aria-expanded="false"');
     expect(markup).toContain("Arguments");
     expect(markup).toContain("Output");
   });
@@ -148,6 +148,17 @@ describe("ADS turn-event components", () => {
     );
     expect(unmeasured).toContain("Finished thinking");
     expect(unmeasured).not.toMatch(/Thought for/);
+  });
+
+  test("Thinking with a trace stays closed while the model is thinking", () => {
+    const markup = renderToStaticMarkup(
+      <Thinking phase="Reading the changelog" status="thinking">
+        Comparing the two migrations.
+      </Thinking>,
+    );
+    expect(markup).toContain("Reading the changelog");
+    expect(markup).toContain("Comparing the two migrations.");
+    expect(markup).toContain('aria-expanded="false"');
   });
 
   test("Thinking with no trace is one row rather than an empty disclosure", () => {

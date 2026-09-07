@@ -36,7 +36,10 @@ same `ChatMessage.parts` shape before UI rendering.
 - Top-level `ChainOfThought` is the primary pre-answer container.
 - While the assistant turn is streaming, top-level `ChainOfThought` stays open.
 - After the turn completes, top-level `ChainOfThought` auto-collapses.
-- Individual steps inside `ChainOfThought` may still be opened and closed independently.
+- Individual collapsible steps inside `ChainOfThought` stay closed by default.
+  Failures, denials, and approval gates stay open. Interim assistant text is
+  prose on the rail, not a disclosure.
+- Individual steps may still be opened and closed independently.
 - `MessageResponse` renders only the final text response area below the trace.
 - Interim assistant text rendered outside the trace is user-configurable in
   Settings → Chat and defaults to hidden.

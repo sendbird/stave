@@ -348,6 +348,62 @@ describe("AssistantMessageBody", () => {
     expect(html).toContain("Patched the issue.");
   });
 
+  test("keeps collapsible turn events closed while they run and leaves interim prose open", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({
+        isStreaming: true,
+        parts: [
+          { type: "text", text: "Inspecting the repo." },
+          {
+            type: "thinking",
+            text: "Comparing the two migrations.",
+            isStreaming: true,
+          },
+          {
+            type: "tool_use",
+            toolUseId: "tool-read",
+            toolName: "Read",
+            input: JSON.stringify({ path: "README.md" }),
+            output: "# Stave",
+            state: "input-available",
+          },
+          {
+            type: "tool_use",
+            toolUseId: "tool-bash-fail",
+            toolName: "Bash",
+            input: JSON.stringify({ command: "bun test" }),
+            output: "1 fail",
+            state: "output-error",
+          },
+        ],
+      }),
+      taskId: "task-1",
+      messageId: "message-1",
+      streamingEnabled: true,
+    }));
+
+    expect(html).toContain("Inspecting the repo.");
+    expect(html).toContain('data-thinking-status="thinking"');
+    expect(html).toContain('data-tool-run-status="running"');
+    expect(html).toContain('data-tool-run-status="failed"');
+
+    const expanded = [...html.matchAll(/aria-expanded="(true|false)"/g)].map(
+      (match) => match[1],
+    );
+    expect(expanded).toContain("false");
+    expect(expanded).toContain("true");
+    expect(html).toMatch(
+      /data-thinking-status="thinking"[\s\S]*?aria-expanded="false"/,
+    );
+    expect(html).toMatch(
+      /data-tool-run-status="running"[\s\S]*?aria-expanded="false"/,
+    );
+    expect(html).toMatch(
+      /data-tool-run-status="failed"[\s\S]*?aria-expanded="true"/,
+    );
+  });
+
   test("renders interim assistant messages when enabled", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();
     const html = renderToStaticMarkup(createElement(AssistantMessageBody, {

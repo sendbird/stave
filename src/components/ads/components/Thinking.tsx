@@ -48,9 +48,8 @@ export type ThinkingProps = Omit<React.ComponentProps<"div">, "children"> &
      */
     children?: React.ReactNode;
     /**
-     * Initial open state of the trace. Defaults to "open while thinking",
-     * which is what makes the settle in §7.C a designed transition rather
-     * than dead code.
+     * Initial open state of the trace. Defaults to closed: the phase label
+     * and clock stay on the row, and the reader opens the payload.
      */
     defaultOpen?: boolean;
     /** Accessible name for the trace region. @default "Reasoning trace" */
@@ -104,14 +103,14 @@ export type ThinkingProps = Omit<React.ComponentProps<"div">, "children"> &
  *    from a `durationMs` the caller already measured. Given none of those the
  *    component shows *no* duration rather than a plausible one, and it never
  *    shows a percentage — there is no percentage to know.
- * 3. **It settles rather than vanishing.** When `status` flips to `settled`
- *    the trace collapses on a row-track animation (§5.2) and the header
- *    becomes one quiet line that keeps the number: "Thought for 14.2s". A
- *    thinking indicator that disappears leaves the reader unable to answer
- *    "what took so long"; one that stays expanded buries the answer under the
- *    trace.
- * 4. **The reader outranks the automation.** Toggling the trace during a run
- *    switches the auto-collapse off for that run — see `useSettleDisclosure`.
+ * 3. **It stays closed unless the reader opens it.** The phase label and
+ *    clock stay on the row; the payload is behind the disclosure. When
+ *    `status` flips to `settled` the header becomes one quiet line that
+ *    keeps the number: "Thought for 14.2s". A thinking indicator that
+ *    disappears leaves the reader unable to answer "what took so long"; one
+ *    that auto-expands buries the answer under the trace.
+ * 4. **The reader outranks the default.** Opening the trace is a choice
+ *    about *this* pass — see `useSettleDisclosure`.
  *
  * The trace is not a live region. Re-announcing a growing chain of thought on
  * every token is unusable; one polite `role="status"` line announces the two
@@ -144,7 +143,9 @@ export function Thinking({
   const hasTrace = React.Children.toArray(children).length > 0;
   const { open, setOpen } = useSettleDisclosure({
     defaultOpen,
-    live: thinking && hasTrace,
+    // Reasoning is supporting copy, not an attention state. Stay closed
+    // while the model thinks; the reader opens the trace if they want it.
+    live: false,
     onOpenChange,
     open: openProp,
   });
