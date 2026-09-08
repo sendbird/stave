@@ -1,3 +1,32 @@
+## [0.18.1](https://github.com/sendbird/stave/compare/v0.18.0...v0.18.1) (2026-09-08)
+
+### Features
+
+* Stop provider turns at account usage limits with a default-on setting for Claude, Codex, Cursor, and Kiro, per-provider blocking, and workspace-row usage markers.
+* Recover failed outgoing messages by preserving pre-provider send failures with Retry and Dismiss actions while keeping the composer draft intact.
+* Curate project memory with candidate/relevant/core separation, bounded per-request injection, and project-scoped collection, recall, reset, and editing controls.
+* Expose independent Cursor effort and Fast controls across the composer, Settings, presets, macros, shortcuts, and Worker turns.
+* Auto-clear completed Fleet attention after focused dwell, add bulk clear for the "Worth a look" group, and add durable per-item snooze with restore.
+* Add a `reason` thinking loader cadence and align interim assistant text to the tool/thinking glyph column.
+
+### Bug Fixes
+
+* Restore ADS adoption across the product surface — transcript grammar, dropdown chrome, rail density, control geometry, command palette, popovers, motion layer, and theme-aware git/diff ink.
+* Correct ADS geometry and trace composition, and use ADS elevation roles for PromptInput shadows to stop double-painted surfaces.
+* Paint git chrome (Create PR, Ready to merge, Merged, source-control status) with dedicated Git service identity tokens across light, dark, and built-in themes.
+* Cut Electron stream-buffer memory peaks and reclaim stale storage with scheduled Lens partition/cache and orphaned sqlite cleanup plus footprint-based resource reporting.
+* Make context compaction provider-safe by requiring provider-specific compact boundaries and preserving cross-provider turns and failed-turn cursors.
+* Attach the Stave Local MCP endpoint to managed Codex primary turns while keeping bearer tokens out of shared clients and preserving read-only isolation.
+* Preserve deliberately tuned Codex/Astra reasoning effort across model switches with range clamping and migration safety.
+* Unify composer control placement and sizing, split model capability toggles, reseat the overflow tray, and consolidate option panels.
+* Consolidate workspace direction into a single shared instructions field in the Information accordion with draft and legacy-content recovery.
+* Restore the Automations destination and command-palette entry, collapse routine turn events by default while keeping failures and approvals expanded, and label omitted file diffs as skipped.
+* Declare ADS webfont packages so webfont CSS resolves after a clean install, and clear Lens device-metric overrides after full-page capture.
+* Refine onboarding, browse actions, toast action alignment, and remove the unused workspace task indent-guide.
+
+### References
+
+* [#483](https://github.com/sendbird/stave/pull/483), [#484](https://github.com/sendbird/stave/pull/484), [#485](https://github.com/sendbird/stave/pull/485), [#486](https://github.com/sendbird/stave/pull/486), [#487](https://github.com/sendbird/stave/pull/487), [#488](https://github.com/sendbird/stave/pull/488), [#489](https://github.com/sendbird/stave/pull/489), [#490](https://github.com/sendbird/stave/pull/490), [#491](https://github.com/sendbird/stave/pull/491), [#492](https://github.com/sendbird/stave/pull/492), [#493](https://github.com/sendbird/stave/pull/493), [#494](https://github.com/sendbird/stave/pull/494), [#495](https://github.com/sendbird/stave/pull/495), [#496](https://github.com/sendbird/stave/pull/496), [#497](https://github.com/sendbird/stave/pull/497), [#498](https://github.com/sendbird/stave/pull/498), [#499](https://github.com/sendbird/stave/pull/499), [#500](https://github.com/sendbird/stave/pull/500), [#501](https://github.com/sendbird/stave/pull/501), [#502](https://github.com/sendbird/stave/pull/502), [#503](https://github.com/sendbird/stave/pull/503), [#504](https://github.com/sendbird/stave/pull/504), [#505](https://github.com/sendbird/stave/pull/505), [#506](https://github.com/sendbird/stave/pull/506), [#507](https://github.com/sendbird/stave/pull/507), [#508](https://github.com/sendbird/stave/pull/508)
 ## [0.18.0](https://github.com/sendbird/stave/compare/v0.17.3...v0.18.0) (2026-09-05)
 
 ### Features
