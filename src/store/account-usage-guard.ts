@@ -1,4 +1,7 @@
-import { resolveAccountUsageBlock } from "@/lib/providers/account-usage-block";
+import {
+  resolveAccountUsageBlock,
+  resolveTightestAccountUsageWindow,
+} from "@/lib/providers/account-usage-block";
 import { toast } from "@/lib/notifications/toast";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
@@ -6,12 +9,33 @@ import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
 export async function guardSendAgainstAccountUsage(
   getState: () => AppState,
   providerId: ProviderId,
+  options?: { cachedOnly?: boolean },
 ): Promise<Extract<SendUserMessageResult, { status: "blocked" }> | null> {
   const enabled = getState().settings.blockTurnsWhenAccountLimitReached;
   if (!enabled) {
     return null;
   }
-  await getState().refreshRateLimits({ providers: [providerId] });
+  const state = getState();
+  const usage = resolveTightestAccountUsageWindow({
+    providerId,
+    snapshot: state.rateLimitsSnapshot,
+  });
+  // Use the latest poll result immediately. Only near-limit dispatches need
+  // another round trip; already-exhausted accounts can be rejected from cache.
+  const cachedBlock = resolveAccountUsageBlock({
+    providerId,
+    snapshot: state.rateLimitsSnapshot,
+  });
+  if (!options?.cachedOnly && !cachedBlock) {
+    if (usage != null && usage.usedPercent >= 97) {
+      await state.refreshRateLimits({ providers: [providerId] });
+    } else if (!usage) {
+      // Initial/unavailable usage must not hold the composer hostage.
+      void state
+        .refreshRateLimits({ providers: [providerId] })
+        .catch(() => undefined);
+    }
+  }
   const block = resolveAccountUsageBlock({
     providerId,
     snapshot: getState().rateLimitsSnapshot,

@@ -150,6 +150,7 @@ export interface AppState
   workspacePrInfoById: Record<string, WorkspacePrInfo>;
   /** Claude/Codex usage for the bottom status bar – transient, not persisted. */
   rateLimitsSnapshot: RateLimitsSnapshotResponse | null;
+  rateLimitsUpdatedAtByProvider: Partial<Record<ProviderId, number>>;
   rateLimitsLoading: boolean;
   rateLimitsError: string | null;
   isDarkMode: boolean;

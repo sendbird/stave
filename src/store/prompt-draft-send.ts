@@ -1,3 +1,4 @@
+import { buildModelEffortRuntimeOverrides } from "@/lib/providers/model-effort";
 import {
   buildClearedPromptDraftWithQueuedNextTurn,
   normalizePromptDraftForStorage,
@@ -49,6 +50,21 @@ export function buildPromptDraftForSend(args: {
     ...(args.runtimeOverrides
       ? { runtimeOverrides: args.runtimeOverrides }
       : undefined),
+    ...(args.queuedTurn?.effort && args.queuedTurn.providerId
+      ? {
+          runtimeOverrides: {
+            ...(args.runtimeOverrides ??
+              (args.storedDraft ?? args.sourceDraft).runtimeOverrides),
+            // A queued selection must not inherit a later switch to Auto.
+            autoRouting: false,
+            ...buildModelEffortRuntimeOverrides({
+              providerId: args.queuedTurn.providerId,
+              model: args.queuedTurn.model ?? "",
+              effort: args.queuedTurn.effort,
+            }),
+          },
+        }
+      : {}),
     queuedNextTurn: undefined,
   });
 }

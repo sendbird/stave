@@ -455,19 +455,36 @@ export function createSupportActions(args: {
       if (!getSnapshot) {
         return;
       }
+      const requestedAt = Date.now();
       set({ rateLimitsLoading: true, rateLimitsError: null });
       try {
         const snapshot = await getSnapshot({
           providers: args?.providers,
         });
-        set((state) => ({
-          rateLimitsSnapshot: mergeRateLimitsSnapshots({
-            current: state.rateLimitsSnapshot,
-            incoming: snapshot,
-            providers: args?.providers,
-          }),
-          rateLimitsLoading: false,
-        }));
+        set((state) => {
+          const providers = (
+            args?.providers?.length ? args.providers : listProviderIds()
+          ).filter(
+            (providerId) =>
+              requestedAt >=
+              (state.rateLimitsUpdatedAtByProvider[providerId] ?? 0),
+          );
+          if (providers.length === 0) return { rateLimitsLoading: false };
+          return {
+            rateLimitsSnapshot: mergeRateLimitsSnapshots({
+              current: state.rateLimitsSnapshot,
+              incoming: snapshot,
+              providers,
+            }),
+            rateLimitsUpdatedAtByProvider: {
+              ...state.rateLimitsUpdatedAtByProvider,
+              ...Object.fromEntries(
+                providers.map((providerId) => [providerId, requestedAt]),
+              ),
+            },
+            rateLimitsLoading: false,
+          };
+        });
       } catch (error) {
         set({
           rateLimitsLoading: false,

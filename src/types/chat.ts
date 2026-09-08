@@ -185,6 +185,8 @@ export interface PromptDraftQueuedTurn {
    * model when absent or when it no longer belongs to that provider.
    */
   model?: string;
+  /** Effort selected at queue time; absent on legacy queue items. */
+  effort?: PromptDraftRuntimeOverrides["codexReasoningEffort"];
 }
 
 export interface PromptDraftBatchItem {

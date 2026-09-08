@@ -1,3 +1,5 @@
+import { resolveModelEffortFromSettings } from "@/lib/providers/model-effort";
+import type { ModelRuntimePreferenceSettings } from "@/lib/providers/model-runtime-preferences";
 import { shouldIncludeImageAttachmentAsProviderContext } from "@/lib/lens/lens-annotation-attachment";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { extractWorkspaceInformationReferencesFromText } from "@/lib/workspace-information-references";
@@ -69,7 +71,25 @@ export function buildQueuedTurnFromDraft(args: {
   content?: string;
   providerId?: PromptDraftQueuedTurn["providerId"];
   model?: string;
+  settings?: ModelRuntimePreferenceSettings;
 }): PromptDraftQueuedTurn {
+  const effortKey =
+    args.providerId === "claude-code"
+      ? "claudeEffort"
+      : args.providerId === "cursor"
+        ? "cursorEffort"
+        : args.providerId === "kiro"
+          ? "kiroEffort"
+          : "codexReasoningEffort";
+  const effort =
+    args.draft.runtimeOverrides?.[effortKey] ??
+    (args.settings && args.providerId && args.model
+      ? resolveModelEffortFromSettings({
+          settings: args.settings,
+          providerId: args.providerId,
+          model: args.model,
+        })
+      : undefined);
   return {
     id:
       typeof crypto !== "undefined" && "randomUUID" in crypto
@@ -84,6 +104,7 @@ export function buildQueuedTurnFromDraft(args: {
     // if the user switches provider/model before this turn runs.
     ...(args.providerId ? { providerId: args.providerId } : {}),
     ...(args.model ? { model: args.model } : {}),
+    ...(effort ? { effort } : {}),
   };
 }
 
