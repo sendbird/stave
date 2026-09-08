@@ -340,7 +340,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                 <MessageAction
                   key="provider-action"
                   label={turnModelInfoLabel}
-                  // The chip owns its own border and fill, so the action shell
+                  // The notation is a flat metadata row, so the action shell
                   // is stripped back to a positioning wrapper.
                   className={sx(styles.providerAction)}
                 >

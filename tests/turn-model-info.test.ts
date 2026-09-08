@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import {
+  classifyTurnModelDetail,
   getTurnModelInfoLabel,
+  peelContextWindowFromName,
   resolveTurnModelInfo,
 } from "@/lib/providers/turn-model-info";
 import { replayProviderEventsToTaskState } from "@/lib/session/provider-event-replay";
@@ -56,6 +58,21 @@ describe("turn model info", () => {
     ).toBe("Kiro Model · X-High");
   });
 
+  test("peels a parenthetical context window off a catalog name", () => {
+    expect(peelContextWindowFromName("Claude Opus 4.8 (1M)")).toEqual({
+      name: "Claude Opus 4.8",
+      context: "1M",
+    });
+    expect(peelContextWindowFromName("Claude Opus 5")).toEqual({
+      name: "Claude Opus 5",
+    });
+    expect(classifyTurnModelDetail("1M")).toBe("context");
+    expect(classifyTurnModelDetail("300K")).toBe("context");
+    expect(classifyTurnModelDetail("X-High")).toBe("effort");
+    expect(classifyTurnModelDetail("Fast")).toBe("fast");
+    expect(classifyTurnModelDetail("Thinking")).toBe("thinking");
+  });
+
   test("formats Claude 1M context and effort in the model chip", () => {
     expect(
       getTurnModelInfoLabel({
@@ -66,7 +83,7 @@ describe("turn model info", () => {
           fastMode: false,
         },
       }),
-    ).toBe("Claude Opus 4.8 (1M) · X-High");
+    ).toBe("Claude Opus 4.8 · 1M · X-High");
   });
 
   test("captures Cursor effort and fast mode for a bare model id", () => {

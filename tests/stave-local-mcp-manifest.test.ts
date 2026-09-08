@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS,
+  isAcpStaveLocalMcpServer,
   toAcpStdioMcpServerConfig,
   toClaudeCodeSettingsMcpServerEntry,
   toClaudeSdkMcpServerConfig,
@@ -45,6 +46,23 @@ describe("Stave Local MCP unattended automation authorization", () => {
         },
       ],
     });
+  });
+
+  test("exposes the full ACP catalog when no tool allowlist is set", () => {
+    expect(toAcpStdioMcpServerConfig(manifest)).toEqual({
+      name: "stave-local-mcp",
+      command: process.execPath,
+      args: ["/tmp/stave-mcp-stdio-proxy.js"],
+      env: [{ name: "ELECTRON_RUN_AS_NODE", value: "1" }],
+    });
+  });
+
+  test("recognizes the managed ACP Local MCP server by name", () => {
+    expect(isAcpStaveLocalMcpServer(toAcpStdioMcpServerConfig(manifest))).toBe(
+      true,
+    );
+    expect(isAcpStaveLocalMcpServer({ name: "docs" })).toBe(false);
+    expect(isAcpStaveLocalMcpServer(null)).toBe(false);
   });
 
   test("adds the authorization only to the scoped URL", () => {

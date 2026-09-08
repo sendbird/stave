@@ -13,16 +13,18 @@ export type CoreLoaderVariant =
   | "steps";
 
 export type ExtendedLoaderVariant =
-  | "cascade"
   | "compile"
   | "decode"
   | "explore"
   | "handoff"
   | "persist"
-  | "reason"
   | "route"
   | "sync"
   | "verify"
   | "vision";
 
-export type LoaderVariant = CoreLoaderVariant | ExtendedLoaderVariant;
+export type LoaderVariant =
+  | CoreLoaderVariant
+  | ExtendedLoaderVariant
+  | "reason"
+  | "think";

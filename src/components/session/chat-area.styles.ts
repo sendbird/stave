@@ -14,7 +14,10 @@ export const chatAreaStyles = stylex.create({
   startStack: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space8,
+    // Inter-group gap: the shared-instructions action and the chip row are
+    // separate clusters. space8 matches the chip row's *internal* rhythm and
+    // glued the outline button to the pills.
+    gap: vars.space16,
   },
   startOptions: {
     display: "flex",

@@ -9,6 +9,7 @@ import {
   isProtectedMcpServerName,
   sanitizeMcpUrl,
 } from "../mcp-config-management-shared";
+import { resolveAcpStaveLocalMcpServers } from "../../main/stave-local-mcp-manifest";
 
 export type AcpMcpEnvEntry = { name: string; value: string };
 
@@ -568,6 +569,23 @@ export async function resolveAcpSharedMcpServers(args: {
     if (descriptor) descriptors.push(descriptor);
   }
   return mergeAcpMcpServers(descriptors);
+}
+
+/**
+ * In-app Cursor and Kiro primary turns attach the full Local MCP catalog the
+ * same way Claude and Codex do. An empty allowlist is deliberate: the older
+ * Worker-only allowlist made workspace tools invisible on ordinary chats.
+ */
+export async function resolveAcpEmbeddedStaveLocalMcpServers(args?: {
+  requiredForWorker?: boolean;
+}) {
+  const servers = await resolveAcpStaveLocalMcpServers({
+    allowedToolNames: [],
+  });
+  return {
+    servers,
+    workerUnavailable: Boolean(args?.requiredForWorker) && servers.length === 0,
+  };
 }
 
 export async function resolveAcpTurnMcpServers(args: {

@@ -28,11 +28,6 @@ const persist = stylex.keyframes({
   "0%, 100%": { opacity: 0.32, transform: "translateY(-1px)" },
   "44%": { opacity: 1, transform: "translateY(1px)" },
 });
-const derive = stylex.keyframes({
-  "0%, 100%": { opacity: 0.14, transform: "scaleX(0.22)" },
-  "46%, 64%": { opacity: 0.72, transform: "scaleX(1)" },
-});
-
 const loopAnimation = {
   animationDuration: vars.motionDurationLoop,
   animationFillMode: "both",
@@ -46,26 +41,6 @@ export const extendedLoaderStyles = stylex.create({
     inlineSize: "100%",
     position: "relative",
   },
-  cascadeDot: {
-    ...loopAnimation,
-    animationName: {
-      default: breathe,
-      "@media (prefers-reduced-motion: reduce)": "none",
-    },
-    backgroundColor: "currentColor",
-    blockSize: "22%",
-    borderRadius: vars.radiusMark,
-    inlineSize: "22%",
-    opacity: {
-      default: null,
-      "@media (prefers-reduced-motion: reduce)": 0.64,
-    },
-    position: "absolute",
-  },
-  cascade1: { insetBlockStart: "15%", insetInlineStart: "10%" },
-  cascade2: { insetBlockStart: "32%", insetInlineStart: "30%" },
-  cascade3: { insetBlockStart: "49%", insetInlineStart: "50%" },
-  cascade4: { insetBlockStart: "66%", insetInlineStart: "70%" },
   decode: {
     alignContent: "center",
     display: "grid",
@@ -330,50 +305,6 @@ export const extendedLoaderStyles = stylex.create({
   persist1: { insetBlockStart: "18%" },
   persist2: { insetBlockStart: "42%" },
   persist3: { insetBlockStart: "66%" },
-  reasonNode: {
-    ...loopAnimation,
-    animationName: {
-      default: breathe,
-      "@media (prefers-reduced-motion: reduce)": "none",
-    },
-    backgroundColor: "currentColor",
-    blockSize: "22%",
-    borderRadius: vars.radiusFull,
-    inlineSize: "22%",
-    opacity: {
-      default: null,
-      "@media (prefers-reduced-motion: reduce)": 0.64,
-    },
-    position: "absolute",
-  },
-  reasonPremiseStart: { insetBlockStart: "12%", insetInlineStart: "20%" },
-  reasonPremiseEnd: { insetBlockStart: "12%", insetInlineEnd: "20%" },
-  reasonConclusion: {
-    blockSize: "24%",
-    inlineSize: "24%",
-    insetBlockEnd: "8%",
-    insetInlineStart: "38%",
-  },
-  reasonRule: {
-    ...loopAnimation,
-    animationName: {
-      default: derive,
-      "@media (prefers-reduced-motion: reduce)": "none",
-    },
-    animationTimingFunction: vars.motionEaseStandard,
-    backgroundColor: "currentColor",
-    blockSize: "8%",
-    borderRadius: vars.radiusFull,
-    inlineSize: "72%",
-    insetBlockStart: "46%",
-    insetInlineStart: "14%",
-    opacity: {
-      default: null,
-      "@media (prefers-reduced-motion: reduce)": 0.36,
-    },
-    position: "absolute",
-    transformOrigin: "left center",
-  },
   phase0: { animationDelay: "0ms" },
   phase1: { animationDelay: "120ms" },
   phase2: { animationDelay: "240ms" },

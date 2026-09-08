@@ -23,7 +23,6 @@ import { ProviderErrorRecovery } from "@/components/session/ProviderErrorRecover
 import {
   isSubagentToolPart,
   isTodoToolPart,
-  shouldAutoOpenToolPart,
   formatInlineSystemEventContent,
   shouldRenderInlineSystemEvent,
 } from "@/components/session/chat-panel.utils";
@@ -157,10 +156,7 @@ export function MessagePartRenderer(args: {
         return <FileChangeToolBlock input={part.input} />;
       }
       return (
-        <Tool
-          defaultOpen={shouldAutoOpenToolPart(part.state)}
-          openWhen={shouldAutoOpenToolPart(part.state)}
-        >
+        <Tool defaultOpen={false}>
           <ToolHeader
             type={part.toolName}
             state={part.state}

@@ -109,7 +109,7 @@ maps into it exactly once, in
 | `input-streaming`           | `running`       | Running, accent    | closed, live clock on the header |
 | `input-available`           | `running`       | Running, accent    | closed, live clock on the header |
 | `output-available`          | `done`          | Completed, success | closed                          |
-| `output-error`              | `failed`        | Failed, danger     | **stays open**                  |
+| `output-error`              | `failed`        | Failed, danger     | closed                          |
 | approval requested          | `approval`      | Awaiting approval  | **stays open**                  |
 | interrupted / canceled turn | `interrupted` / `canceled` | warning / neutral | closed             |
 
@@ -136,7 +136,7 @@ correct answer rather than a gap:
 | todo / plan | the TodoWrite call is running       | `ToolRun` stays closed; `Plan` inside | stays closed, and the row keeps `done / total`  |
 | approval    | — (no run)                          | always, until answered          | the audit record replaces the buttons in place      |
 | user input  | — (no run)                          | always, until answered          | the recorded answer replaces the fields in place    |
-| system      | the notice is a failure or boundary | attention notices stay open     | an ordinary notice stays closed to its one titled line |
+| system      | the notice is a failure or boundary | closed; header still names the failure | an ordinary notice stays closed to its one titled line |
 
 - **A plan is not a disclosure of its own.** `Plan` has no collapsed form by
   design — it is the durable half of the reasoning story and stays readable
@@ -151,10 +151,9 @@ correct answer rather than a gap:
   title, the description and the arguments the action would have run with all
   survive the decision, because a decision you cannot see afterwards is a
   decision you cannot audit.
-- **A notice has no clock**, so `live` is read as "attention": a provider
-  failure, a capacity error or a compaction boundary stays open, and everything
-  else collapses. That is `isAttentionState`'s rule evaluated against the only
-  signal the kind has.
+- **A notice has no clock**, so it never auto-opens. A provider failure still
+  names itself on the header; the payload is behind the disclosure. That is
+  the same closed-by-default rule as a failed tool run.
 
 ### Records that are not decisions
 
@@ -172,17 +171,18 @@ refusal. They were added to ADS in this pass —
 `consumer-changes/2026-09-07-approval-resolution-beyond-the-decision.json` and
 `2026-09-07-clarification-lapsed-result.json`.
 
-Rules, all owned by ADS `useSettleDisclosure` and `isAttentionState` — do not
-re-derive them per call site:
+Rules, all owned by ADS `useSettleDisclosure` and `isActionRequiredState` — do
+not re-derive them per call site:
 
-1. **Closed by default.** A running payload stays behind the disclosure. The
-   header already carries the status word and the live clock, so auto-opening
-   every row turns a turn of tool calls into a stack of payloads. Interim
-   assistant text is the exception: it is language, not an event, and stays
-   visible on the rail with no disclosure.
-2. **Attention stays open.** A failure, denial or approval gate counts as live
-   for the disclosure, because collapsing it would hide the one payload worth
-   reading the instant it appeared.
+1. **Closed by default.** A running or failed payload stays behind the
+   disclosure. The header already carries the status word and the live clock,
+   so auto-opening every row turns a turn of tool calls into a stack of
+   payloads. Interim assistant text is the exception: it is language, not an
+   event, and stays visible on the rail with no disclosure.
+2. **A request to the reader stays open.** Only an approval gate counts as
+   live for the disclosure. Failures and denials stay loud on the header and
+   collapsed in the body; collapsing an unanswered approval would hide the
+   buttons the reader has to use.
 3. **The reader outranks the default.** Toggling a row during a run is a
    choice about *this* run.
 4. **The turn-level trace** (`ChainOfThought`) opens while the turn streams and

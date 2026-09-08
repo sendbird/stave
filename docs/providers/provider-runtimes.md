@@ -251,12 +251,13 @@ cheap primary consulting an expensive Advisor only when it needs a second
 opinion — the consult carries the primary's framed question plus minimal
 quoted context, not the whole conversation.
 
-Managed Claude and Codex primary turns attach the running Local MCP server
-directly. Codex receives the current URL, bearer-token environment variable name,
-and tool deadline through per-thread config on start and resume; the token stays
-in the App Server process environment. User CLI MCP auto-registration in
-Settings → Developer is optional for these internal turns. Secondary read-only
-runs do not receive this connection.
+Managed Claude, Codex, Cursor, and Kiro primary turns attach the running Local
+MCP server directly. Codex receives the current URL, bearer-token environment
+variable name, and tool deadline through per-thread config on start and resume;
+the token stays in the App Server process environment. Cursor and Kiro receive
+the same catalog over ACP stdio via the bundled proxy. User CLI MCP
+auto-registration in Settings → Developer is optional for these internal turns.
+Secondary read-only runs and nested Worker lanes do not receive this connection.
 
 Control is split deliberately: the **user** decides who answers, at what
 effort, and how often (the per-turn consult budget,

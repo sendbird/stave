@@ -2,47 +2,13 @@ import { Button as AdsButton } from "@/components/ads/components/Button";
 import type { HTMLAttributes } from "react";
 import { createContext, memo, useContext, useEffect, useState } from "react";
 import { Check, Copy } from "lucide-react";
-import { createHighlighter } from "shiki";
 import type { BundledLanguage } from "shiki";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { transition } from "@/components/ads/recipes/transition";
 import { copyTextToClipboard } from "@/lib/clipboard";
+import { getSyntaxHighlighter } from "@/lib/syntax-highlight";
 import { useAppStore } from "@/store/app.store";
 import { codeBlockStyles as styles } from "./code-block.styles";
-
-// ---------------------------------------------------------------------------
-// Singleton highlighter
-// ---------------------------------------------------------------------------
-
-const COMMON_LANGS: BundledLanguage[] = [
-  "javascript",
-  "typescript",
-  "tsx",
-  "jsx",
-  "python",
-  "bash",
-  "json",
-  "yaml",
-  "html",
-  "css",
-  "rust",
-  "go",
-  "markdown",
-  "sql",
-  "diff",
-];
-
-let _highlighterPromise: ReturnType<typeof createHighlighter> | null = null;
-
-function getHighlighter() {
-  if (!_highlighterPromise) {
-    _highlighterPromise = createHighlighter({
-      themes: ["github-dark"],
-      langs: COMMON_LANGS,
-    });
-  }
-  return _highlighterPromise;
-}
 
 // Shiki emits its own `<pre>`; style it via a transformer so the layout lives
 // with the component instead of a descendant selector. Mirrors the previous
@@ -132,7 +98,7 @@ export const CodeBlockContent = memo(function CodeBlockContent({ code, language 
     }
 
     let cancelled = false;
-    getHighlighter().then((hl) => {
+    getSyntaxHighlighter().then((hl) => {
       if (cancelled) return;
       try {
         const lang = resolvedLang as BundledLanguage;
