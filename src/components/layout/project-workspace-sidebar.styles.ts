@@ -152,7 +152,21 @@ export const projectSidebarStyles = stylex.create({
   statusIcon: { height: 16, width: 16 },
   statusIconWarning: { color: vars.colorWarning, height: 16, width: 16 },
   statusIconDanger: { color: vars.colorDanger, height: 16, width: 16 },
-  statusIconSuccess: { color: vars.colorSuccess, height: 16, width: 16 },
+  statusIconGitOpen: {
+    color: `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-open))`,
+    height: 16,
+    width: 16,
+  },
+  statusIconGitClosed: {
+    color: `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-closed))`,
+    height: 16,
+    width: 16,
+  },
+  statusIconGitModified: {
+    color: `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-modified))`,
+    height: 16,
+    width: 16,
+  },
   identityMark: { borderRadius: vars.radiusMark, height: 16, width: 16 },
   identityMarkIcon: { height: 10, width: 10 },
   toneAccent: { color: vars.colorAccent },

@@ -131,9 +131,8 @@ export const PR_STATUS_VISUAL: Record<WorkspacePrStatus, PrStatusVisual> = {
 
 /**
  * Semantic tone is the whole visual contract this module publishes. Mapping a
- * tone to an ADS `Badge` tone or a StyleX declaration is a UI concern and lives
- * in `src/components/layout/pr-status.styles.ts`; no class string leaves
- * `src/lib`.
+ * tone to Git service-token StyleX is a UI concern and lives in
+ * `src/components/layout/pr-status.styles.ts`; no class string leaves `src/lib`.
  */
 
 // ---------------------------------------------------------------------------

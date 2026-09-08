@@ -522,13 +522,7 @@ const WorkspaceLeadingStatusIcon = memo(
         />
       );
     }
-    if (
-      leadingAttentionKind === "run-failed" ||
-      leadingAttentionKind === "pr-changes-requested" ||
-      leadingAttentionKind === "pr-checks-failed" ||
-      leadingAttentionKind === "pr-merge-conflict" ||
-      leadingAttentionKind === "pr-behind-base"
-    ) {
+    if (leadingAttentionKind === "run-failed") {
       return (
         <AlertTriangle
           className={sx(projectSidebarStyles.statusIconDanger)}
@@ -536,10 +530,30 @@ const WorkspaceLeadingStatusIcon = memo(
         />
       );
     }
+    if (leadingAttentionKind === "pr-behind-base") {
+      return (
+        <AlertTriangle
+          className={sx(projectSidebarStyles.statusIconGitModified)}
+          aria-hidden="true"
+        />
+      );
+    }
+    if (
+      leadingAttentionKind === "pr-changes-requested" ||
+      leadingAttentionKind === "pr-checks-failed" ||
+      leadingAttentionKind === "pr-merge-conflict"
+    ) {
+      return (
+        <AlertTriangle
+          className={sx(projectSidebarStyles.statusIconGitClosed)}
+          aria-hidden="true"
+        />
+      );
+    }
     if (leadingAttentionKind === "pr-ready-to-merge") {
       return (
         <GitMerge
-          className={sx(projectSidebarStyles.statusIconSuccess)}
+          className={sx(projectSidebarStyles.statusIconGitOpen)}
           aria-hidden="true"
         />
       );

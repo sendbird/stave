@@ -15,8 +15,9 @@ import {
   type FleetTaskControlTarget,
 } from "@/components/layout/FleetTaskControlPanel";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
+import { prToneBadgeStyles } from "@/components/layout/pr-status.styles";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
-import { Badge, type BadgeTone } from "@/components/ads/components/Badge";
+import { Badge } from "@/components/ads/components/Badge";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { transition } from "@/components/ads/recipes/transition";
@@ -49,7 +50,6 @@ import {
 } from "@/lib/fleet/workspace-activity";
 import {
   PR_STATUS_VISUAL,
-  type PrStatusTone,
   type WorkspacePrStatus,
 } from "@/lib/pr-status";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
@@ -167,16 +167,6 @@ const FLEET_STATUS_VISUAL: Record<
   },
 };
 
-/** PR tones are published as semantics; the Badge owns their colors. */
-const PR_BADGE_TONE: Record<PrStatusTone, BadgeTone> = {
-  neutral: "neutral",
-  open: "success",
-  attention: "warning",
-  danger: "danger",
-  done: "accent",
-  closed: "danger",
-};
-
 function FleetProviderIcon({ provider }: { provider: Task["provider"] }) {
   const label = getProviderLabel({ providerId: provider });
   return (
@@ -194,9 +184,9 @@ function FleetCardPrBadge({ status }: { status: WorkspacePrStatus | null }) {
   const visual = PR_STATUS_VISUAL[status];
   return (
     <Badge
-      className={sx(styles.chip)}
+      className={sx(styles.chip, prToneBadgeStyles[visual.tone])}
       title={`Pull request: ${visual.label}`}
-      tone={PR_BADGE_TONE[visual.tone]}
+      tone="neutral"
     >
       <PrStatusIcon status={status} />
       {visual.label}

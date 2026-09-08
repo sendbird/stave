@@ -294,9 +294,9 @@ export const commitDetailPanelStyles = stylex.create({
     color: vars.colorDiffRemovedText,
   },
   statusModified: {
-    borderColor: `color-mix(in oklch, ${vars.colorWarningBorder} 40%, transparent)`,
-    backgroundColor: `color-mix(in oklch, ${vars.colorWarning} 10%, transparent)`,
-    color: vars.colorWarningText,
+    borderColor: `color-mix(in oklab, var(--service-git-modified) 40%, transparent)`,
+    backgroundColor: `color-mix(in oklab, var(--service-git-modified) 10%, transparent)`,
+    color: `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-modified))`,
   },
   statusRenamed: {
     borderColor: `color-mix(in oklch, ${vars.colorInfoBorder} 35%, transparent)`,

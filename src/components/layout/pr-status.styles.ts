@@ -1,25 +1,36 @@
 import * as stylex from "@stylexjs/stylex";
 
-import { badgeToneStyles } from "@/components/ads/components/Badge";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import type { PrStatusTone } from "@/lib/pr-status";
 
 /**
  * `src/lib/pr-status.ts` publishes a semantic tone and nothing else. This module
- * is the single place that turns that tone into ADS visuals, mirroring how
- * `tracker-visual.styles.ts` translates the tracker tones from
- * `src/lib/tracker-tasks/presentation.ts`.
+ * is the single place that turns that tone into Git service-token visuals.
+ *
+ * The `var(--service-git-*)` strings must stay literals here. StyleX treats an
+ * imported theme helper as a `.stylex.ts` module and fails the isolated test
+ * transform otherwise.
  */
+
+const gitOpenInk = `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-open))`;
+const gitMergedInk = `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-merged))`;
+const gitClosedInk = `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-closed))`;
+const gitModifiedInk = `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-modified))`;
+const gitOpenSoft = `color-mix(in oklab, var(--service-git-open) 12%, ${vars.colorSurface})`;
+const gitMergedSoft = `color-mix(in oklab, var(--service-git-merged) 12%, ${vars.colorSurface})`;
+const gitClosedSoft = `color-mix(in oklab, var(--service-git-closed) 12%, ${vars.colorSurface})`;
+const gitModifiedSoft = `color-mix(in oklab, var(--service-git-modified) 12%, ${vars.colorSurface})`;
+const gitOpenHover = `color-mix(in oklab, var(--service-git-open) 18%, ${vars.colorSurface})`;
 
 /** Foreground tint for a status glyph. */
 export const prToneIconStyles = stylex.create({
   neutral: { color: vars.colorTextMuted },
-  open: { color: vars.colorSuccessText },
-  attention: { color: vars.colorWarningText },
-  danger: { color: vars.colorDangerText },
-  done: { color: vars.colorAccent },
-  closed: { color: vars.colorDangerText },
+  open: { color: gitOpenInk },
+  attention: { color: gitModifiedInk },
+  danger: { color: gitClosedInk },
+  done: { color: gitMergedInk },
+  closed: { color: gitClosedInk },
 });
 
 export const prStatusIconStyles = stylex.create({
@@ -27,44 +38,46 @@ export const prStatusIconStyles = stylex.create({
 });
 
 /**
- * The `ui` Badge variant that carries each tone. Callers rendering a real
- * `Badge` pass this instead of layering a second tone class on top of the one
- * the component already emits.
+ * Canonical chip fills, addressed by PR tone. Host-owned so a merged chip can
+ * be purple even when the theme accent is cobalt.
  */
-export const PR_TONE_BADGE_VARIANT = {
-  neutral: "secondary",
-  open: "success",
-  attention: "warning",
-  danger: "destructive",
-  done: "default",
-  closed: "destructive",
-} as const satisfies Record<PrStatusTone, string>;
-
-/**
- * Canonical ADS badge tone fills, addressed by PR tone. Reused verbatim so a
- * status chip on a bare element matches a real `Badge` exactly.
- */
-export const prToneBadgeStyles = {
-  neutral: badgeToneStyles.neutral,
-  open: badgeToneStyles.success,
-  attention: badgeToneStyles.warning,
-  danger: badgeToneStyles.danger,
-  done: badgeToneStyles.accent,
-  closed: badgeToneStyles.danger,
-} as const;
+export const prToneBadgeStyles = stylex.create({
+  neutral: {
+    backgroundColor: vars.colorCanvasSubtle,
+    color: vars.colorTextMuted,
+  },
+  open: {
+    backgroundColor: gitOpenSoft,
+    color: gitOpenInk,
+  },
+  attention: {
+    backgroundColor: gitModifiedSoft,
+    color: gitModifiedInk,
+  },
+  danger: {
+    backgroundColor: gitClosedSoft,
+    color: gitClosedInk,
+  },
+  done: {
+    backgroundColor: gitMergedSoft,
+    color: gitMergedInk,
+  },
+  closed: {
+    backgroundColor: gitClosedSoft,
+    color: gitClosedInk,
+  },
+});
 
 /** Create-PR trigger treatment for a branch with no linked PR yet. */
 export const prCreateButtonStyles = stylex.create({
   trigger: {
-    // `colorSelectionFill` is the next step down the same accent tint ramp, so
-    // hover reads as "more of the same accent", not as a neutral overlay.
     backgroundColor: {
-      default: vars.colorAccentSoft,
-      ":hover": vars.colorSelectionFill,
+      default: gitOpenSoft,
+      ":hover": gitOpenHover,
     },
     borderColor: vars.colorBorder,
     boxShadow: vars.elevationRaised,
-    color: vars.colorText,
+    color: gitOpenInk,
   },
 });
 
