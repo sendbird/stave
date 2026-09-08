@@ -3019,6 +3019,123 @@ function mapClaudeStreamPlanEvent(args: {
 }
 
 /**
+ * Shape of `rate_limit_event.rate_limit_info`, mirroring `SDKRateLimitInfo`.
+ *
+ * `status`/`utilization` describe the *currently limiting* window only, and
+ * `rateLimitType` is what names it — including `"overage"`, the paid
+ * extra-usage credit budget, which resets on its own monthly period rather
+ * than with the 5-hour or weekly subscription windows. Reporting every one of
+ * these as a plain "rate limit" made an exhausted credit balance look like a
+ * subscription window that had failed to reset.
+ *
+ * `utilization` here is a 0..1 fraction (unlike the OAuth usage endpoint's
+ * 0..100 percentages, which must never be rescaled) and can legitimately
+ * exceed 1 when usage runs past a window's cap.
+ */
+interface ClaudeRateLimitInfo {
+  status?: string;
+  resetsAt?: number;
+  rateLimitType?: string;
+  utilization?: number;
+  overageStatus?: string;
+  overageResetsAt?: number;
+  overageDisabledReason?: string;
+  isUsingOverage?: boolean;
+  errorCode?: string;
+}
+
+const CLAUDE_RATE_LIMIT_WINDOW_LABELS: Record<string, string> = {
+  five_hour: "5-hour limit",
+  seven_day: "weekly limit",
+  seven_day_opus: "weekly Opus limit",
+  seven_day_sonnet: "weekly Sonnet limit",
+  seven_day_overage_included: "weekly limit",
+};
+
+/**
+ * Weekly and credit windows reset days away, so a bare `toLocaleTimeString()`
+ * reported "resets at 8:00:00 AM" with no hint of which day.
+ */
+function formatClaudeRateLimitReset(epochSeconds: number | undefined): string {
+  if (!epochSeconds) {
+    return "unknown";
+  }
+  const reset = new Date(epochSeconds * 1000);
+  return reset.toDateString() === new Date().toDateString()
+    ? reset.toLocaleTimeString()
+    : reset.toLocaleString();
+}
+
+/**
+ * Extra usage is exhausted rather than merely inactive. `overageStatus` is
+ * deliberately not consulted: it tracks the overflow request outcome, while
+ * these two say the credit balance itself is gone.
+ */
+function isClaudeOutOfUsageCredits(info: ClaudeRateLimitInfo): boolean {
+  return (
+    info.overageDisabledReason === "out_of_credits" ||
+    info.errorCode === "credits_required"
+  );
+}
+
+function buildClaudeRateLimitEvents(
+  info: ClaudeRateLimitInfo | undefined,
+): BridgeEvent[] {
+  if (!info) {
+    return [];
+  }
+  const isOverage = info.rateLimitType === "overage";
+  const windowLabel = info.rateLimitType
+    ? CLAUDE_RATE_LIMIT_WINDOW_LABELS[info.rateLimitType]
+    : undefined;
+
+  if (info.status === "rejected") {
+    const resetsAt = isOverage
+      ? (info.overageResetsAt ?? info.resetsAt)
+      : info.resetsAt;
+    const resetTime = formatClaudeRateLimitReset(resetsAt);
+    const headline = isOverage
+      ? "Extra usage credits are exhausted"
+      : `Rate limit reached${windowLabel ? ` (${windowLabel})` : ""}`;
+    const creditSuffix =
+      !isOverage && isClaudeOutOfUsageCredits(info)
+        ? " Extra usage credits are also exhausted."
+        : "";
+    return [
+      {
+        type: "error",
+        message: `${headline}. Resets at ${resetTime}.${creditSuffix}`,
+        recoverable: true,
+      },
+    ];
+  }
+
+  if (info.status === "allowed_warning") {
+    const pct =
+      info.utilization != null
+        ? ` (${Math.round(info.utilization * 100)}% used)`
+        : "";
+    const headline = isOverage
+      ? "Approaching your extra usage credit limit"
+      : `Approaching ${windowLabel ?? "rate limit"}`;
+    let creditSuffix = "";
+    if (!isOverage && isClaudeOutOfUsageCredits(info)) {
+      creditSuffix = " Extra usage credits are exhausted.";
+    } else if (!isOverage && info.isUsingOverage) {
+      creditSuffix = " Extra usage credits are covering the overflow.";
+    }
+    return [
+      {
+        type: "system",
+        content: `${headline}${pct}. Consider pacing requests.${creditSuffix}`,
+      },
+    ];
+  }
+
+  return [];
+}
+
+/**
  * Minimal view of `SubagentProgressTracker` needed while mapping tool_use
  * blocks, so the mapper stays a pure function of its inputs. Deliberately named
  * for the *owner* direction: Claude reports which subagent a tool call ran
@@ -3501,41 +3618,9 @@ export function mapClaudeMessageToEvents(args: {
   if (message.type === "rate_limit_event") {
     const rlMsg = message as {
       type: "rate_limit_event";
-      rate_limit_info?: {
-        status?: string;
-        resetsAt?: number;
-        utilization?: number;
-        api_error_status?: number | null;
-      };
+      rate_limit_info?: ClaudeRateLimitInfo;
     };
-    const info = rlMsg.rate_limit_info;
-    if (info?.status === "rejected") {
-      const resetTime = info.resetsAt
-        ? new Date(info.resetsAt * 1000).toLocaleTimeString()
-        : "unknown";
-      const statusSuffix =
-        info.api_error_status != null ? ` (HTTP ${info.api_error_status})` : "";
-      return [
-        {
-          type: "error",
-          message: `Rate limit reached. Resets at ${resetTime}.${statusSuffix}`,
-          recoverable: true,
-        },
-      ];
-    }
-    if (info?.status === "allowed_warning") {
-      const pct =
-        info.utilization != null
-          ? ` (${Math.round(info.utilization * 100)}% used)`
-          : "";
-      return [
-        {
-          type: "system",
-          content: `Approaching rate limit${pct}. Consider pacing requests.`,
-        },
-      ];
-    }
-    return [];
+    return buildClaudeRateLimitEvents(rlMsg.rate_limit_info);
   }
 
   if (message.type === "tool_progress") {

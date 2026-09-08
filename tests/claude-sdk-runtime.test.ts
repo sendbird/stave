@@ -74,6 +74,160 @@ describe("Claude MCP OAuth", () => {
 });
 
 describe("mapClaudeMessageToEvents", () => {
+  test("labels an exhausted extra-usage credit budget as credits, not a rate limit", () => {
+    // `rateLimitType: "overage"` is the paid credit budget, which keeps
+    // reporting 100% after the 5-hour and weekly windows have reset.
+    const events = mapClaudeMessageToEvents({
+      message: {
+        type: "rate_limit_event",
+        rate_limit_info: {
+          status: "allowed_warning",
+          rateLimitType: "overage",
+          utilization: 1,
+          resetsAt: 1_700_000_000,
+        },
+        uuid: "msg-rl-1",
+        session_id: "session-1",
+      } as never,
+      claudeDebugStream: false,
+    });
+    expect(events).toEqual([
+      {
+        type: "system",
+        content:
+          "Approaching your extra usage credit limit (100% used). Consider pacing requests.",
+      },
+    ]);
+  });
+  test("names the limiting subscription window in rate limit warnings", () => {
+    const events = mapClaudeMessageToEvents({
+      message: {
+        type: "rate_limit_event",
+        rate_limit_info: {
+          status: "allowed_warning",
+          rateLimitType: "seven_day",
+          utilization: 0.85,
+        },
+        uuid: "msg-rl-2",
+        session_id: "session-1",
+      } as never,
+      claudeDebugStream: false,
+    });
+    expect(events).toEqual([
+      {
+        type: "system",
+        content:
+          "Approaching weekly limit (85% used). Consider pacing requests.",
+      },
+    ]);
+  });
+  test("reports exhausted credits alongside a warning on a subscription window", () => {
+    const events = mapClaudeMessageToEvents({
+      message: {
+        type: "rate_limit_event",
+        rate_limit_info: {
+          status: "allowed_warning",
+          rateLimitType: "five_hour",
+          utilization: 0.92,
+          overageDisabledReason: "out_of_credits",
+        },
+        uuid: "msg-rl-3",
+        session_id: "session-1",
+      } as never,
+      claudeDebugStream: false,
+    });
+    expect(events).toEqual([
+      {
+        type: "system",
+        content:
+          "Approaching 5-hour limit (92% used). Consider pacing requests. Extra usage credits are exhausted.",
+      },
+    ]);
+  });
+  test("notes when paid extra usage is already covering the overflow", () => {
+    const events = mapClaudeMessageToEvents({
+      message: {
+        type: "rate_limit_event",
+        rate_limit_info: {
+          status: "allowed_warning",
+          rateLimitType: "five_hour",
+          utilization: 1.2,
+          isUsingOverage: true,
+        },
+        uuid: "msg-rl-4",
+        session_id: "session-1",
+      } as never,
+      claudeDebugStream: false,
+    });
+    expect(events).toEqual([
+      {
+        type: "system",
+        content:
+          "Approaching 5-hour limit (120% used). Consider pacing requests. Extra usage credits are covering the overflow.",
+      },
+    ]);
+  });
+  test("prefers the overage reset instant when the credit budget is what rejected the turn", () => {
+    const overageResetsAt = Math.floor(Date.now() / 1000) + 5 * 86_400;
+    const events = mapClaudeMessageToEvents({
+      message: {
+        type: "rate_limit_event",
+        rate_limit_info: {
+          status: "rejected",
+          rateLimitType: "overage",
+          resetsAt: Math.floor(Date.now() / 1000) + 600,
+          overageResetsAt,
+          overageDisabledReason: "out_of_credits",
+        },
+        uuid: "msg-rl-5",
+        session_id: "session-1",
+      } as never,
+      claudeDebugStream: false,
+    });
+    expect(events).toEqual([
+      {
+        type: "error",
+        message: `Extra usage credits are exhausted. Resets at ${new Date(
+          overageResetsAt * 1000,
+        ).toLocaleString()}.`,
+        recoverable: true,
+      },
+    ]);
+  });
+  test("keeps the generic rate limit wording when the window is unknown", () => {
+    const resetsAt = Math.floor(Date.now() / 1000) + 600;
+    const events = mapClaudeMessageToEvents({
+      message: {
+        type: "rate_limit_event",
+        rate_limit_info: { status: "rejected", resetsAt },
+        uuid: "msg-rl-6",
+        session_id: "session-1",
+      } as never,
+      claudeDebugStream: false,
+    });
+    expect(events).toEqual([
+      {
+        type: "error",
+        message: `Rate limit reached. Resets at ${new Date(
+          resetsAt * 1000,
+        ).toLocaleTimeString()}.`,
+        recoverable: true,
+      },
+    ]);
+  });
+  test("ignores rate limit events that only report the allowed state", () => {
+    expect(
+      mapClaudeMessageToEvents({
+        message: {
+          type: "rate_limit_event",
+          rate_limit_info: { status: "allowed", utilization: 0.1 },
+          uuid: "msg-rl-7",
+          session_id: "session-1",
+        } as never,
+        claudeDebugStream: false,
+      }),
+    ).toEqual([]);
+  });
   test("surfaces plugin installation outcomes from SDK system messages", () => {
     const base = { type: "system", subtype: "plugin_install", uuid: "00000000-0000-0000-0000-000000000001", session_id: "session-1", name: "project-tools" } as const;
     expect(mapClaudeMessageToEvents({ message: { ...base, status: "installed" }, claudeDebugStream: false })).toEqual([
