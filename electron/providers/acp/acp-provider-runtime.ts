@@ -119,6 +119,13 @@ export interface AcpProviderRuntimeProfile {
   supportsMidTurnSteering?: boolean;
   authenticationMethodId?: string;
   authenticationHelp: string;
+  /**
+   * Fail the ACP client when stderr already proves the agent transport is
+   * dead, instead of waiting for `session/prompt` to time out or hang.
+   */
+  interpretStderr?: (accumulated: string, chunk: string) => Error | void;
+  /** Rewrite a raw ACP failure into a user-facing stream error, or null. */
+  interpretFailure?: (error: Error, stderr: string) => string | null;
   decisionTimeoutMs: number;
   /** Distinguishes nested ACP requests from the primary process on one turn. */
   requestIdScope?: string;
@@ -393,6 +400,7 @@ export async function streamAcpProviderTurn(args: {
     cwd: profile.cwd,
     env: profile.env,
     requestHandlers,
+    interpretStderr: profile.interpretStderr,
     onNotification: (method, params) => {
       const isSessionUpdate =
         method === "session/update" || method === "session/notification";
@@ -781,11 +789,17 @@ export async function streamAcpProviderTurn(args: {
     if (abortRequested) {
       emit({ type: "done", stop_reason: "user_abort" });
     } else {
+      const rawMessage =
+        error instanceof Error ? error.message : String(error);
+      const interpreted = profile.interpretFailure?.(
+        error instanceof Error ? error : new Error(rawMessage),
+        client.stderr,
+      );
       emit({
         type: "error",
-        message: `${profile.displayName} provider stream failed: ${
-          error instanceof Error ? error.message : String(error)
-        }. ${profile.authenticationHelp}`,
+        message: interpreted
+          ? `${profile.displayName} provider stream failed: ${interpreted}`
+          : `${profile.displayName} provider stream failed: ${rawMessage}. ${profile.authenticationHelp}`,
         recoverable: true,
       });
       emit({ type: "done", stop_reason: "runtime_failure" });

@@ -127,5 +127,29 @@ input.on("line", (line) => {
     process.stdout.write(`${"x".repeat(2048)}\n`);
     return;
   }
+  if (method === "fixture/oversized-notification") {
+    send({
+      jsonrpc: "2.0",
+      method: "session/update",
+      params: {
+        sessionId: "fixture-session",
+        update: {
+          sessionUpdate: "tool_call_update",
+          toolCallId: "call_1",
+          content: [{ type: "content", content: { type: "text", text: "x".repeat(2048) } }],
+        },
+      },
+    });
+    result(id, { ok: true });
+    return;
+  }
+  if (method === "fixture/oversized-response") {
+    result(id, { ok: true, debug: "x".repeat(2048) });
+    return;
+  }
+  if (method === "fixture/ping-timeout") {
+    process.stderr.write("RetriableError: [unavailable] PING timed out\n");
+    return;
+  }
   error(id, -32601, `Unknown fixture method: ${method}`);
 });

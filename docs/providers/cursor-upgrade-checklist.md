@@ -9,7 +9,14 @@ baseline or its ACP integration.
 - ACP protocol: version `1`
 - Executable aliases: `agent`, `cursor-agent`
 - Authentication method: `cursor_login`
-- Session resume: `session/load` when `loadSession` is advertised
+- Session resume: `session/load` when `loadSession` is advertised.
+  ACP v1 `session/resume` (no history replay) is not used until a baseline
+  advertises `sessionCapabilities.resume`.
+- NDJSON framing: accept stdout lines up to 32 MiB; drop a larger line and
+  keep the process. ACP has no client-negotiated payload-size option.
+- Cursor Agent stderr `PING timed out` / `RetriableError: [unavailable]` ends
+  the in-flight turn as a recoverable network drop. Do not map it to login
+  help.
 - Modes: `agent`, `plan`, `ask`
 - Model config id: `model`; Stave defaults to `auto`
 - Model catalog: the `model` options returned by `session/new`. Initialize

@@ -1,6 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import path from "node:path";
 import {
+  CURSOR_AGENT_PING_TIMEOUT_MESSAGE,
+  isCursorAgentPingTimeout,
+} from "../electron/providers/cursor/cursor-agent-transport";
+import {
   streamCursorWorkerWithAcp,
   streamCursorWithAcp,
 } from "../electron/providers/cursor/cursor-acp-profile";
@@ -724,6 +728,32 @@ describe("Cursor ACP runtime", () => {
       effort: "high",
       fast: "true",
     });
+  });
+
+  test("ends the turn when Cursor Agent reports a PING timeout on stderr", async () => {
+    const events = await streamCursorWithAcp(createTurnArgs("ping-timeout"));
+    const error = events.find((event) => event.type === "error");
+    expect(error).toMatchObject({
+      type: "error",
+      recoverable: true,
+    });
+    if (error?.type !== "error") {
+      throw new Error("Expected a PING timeout error event.");
+    }
+    expect(error.message).toContain(CURSOR_AGENT_PING_TIMEOUT_MESSAGE);
+    expect(error.message).not.toContain("agent login");
+    expect(events.filter((event) => event.type === "done")).toEqual([
+      { type: "done", stop_reason: "runtime_failure" },
+    ]);
+  });
+
+  test("recognizes Cursor Agent keepalive failures", () => {
+    expect(
+      isCursorAgentPingTimeout("RetriableError: [unavailable] PING timed out"),
+    ).toBe(true);
+    expect(isCursorAgentPingTimeout("ACP process closed by Stave.")).toBe(
+      false,
+    );
   });
 
   test("cancels the ACP prompt and emits one user-abort terminal", async () => {

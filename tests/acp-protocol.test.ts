@@ -160,12 +160,47 @@ describe("ACP protocol client", () => {
     expect(Buffer.byteLength(client.stderr, "utf8")).toBe(16);
   });
 
-  test("fails closed when stdout exceeds the configured line bound", async () => {
+  test("drops an oversized notification and still answers the next response", async () => {
+    const diagnostics: string[] = [];
+    const client = createClient("standard", {
+      maxLineBytes: 512,
+      onDiagnostic: (message) => diagnostics.push(message),
+    });
+    await initialize(client);
+    await expect(
+      client.request(
+        "fixture/oversized-notification",
+        {},
+        z.object({ ok: z.literal(true) }),
+      ),
+    ).resolves.toEqual({ ok: true });
+    expect(
+      diagnostics.some((message) => message.includes("Dropped oversized ACP")),
+    ).toBe(true);
+  });
+
+  test("rejects an oversized response without tearing down later requests", async () => {
     const client = createClient("standard", { maxLineBytes: 512 });
     await initialize(client);
     await expect(
-      client.request("fixture/oversized", {}, z.unknown()),
-    ).rejects.toBeInstanceOf(AcpLineTooLargeError);
+      client.request("fixture/oversized-response", {}, z.unknown()),
+    ).rejects.toThrow(/oversized line/);
+    await expect(
+      client.request("fixture/fast", {}, z.object({ value: z.string() })),
+    ).resolves.toEqual({ value: "fast" });
+  });
+
+  test("fails the in-flight request when stderr reports a Cursor PING timeout", async () => {
+    const client = createClient("standard", {
+      interpretStderr: (accumulated) =>
+        /PING timed out/i.test(accumulated)
+          ? new AcpProtocolError("cursor ping timeout")
+          : undefined,
+    });
+    await initialize(client);
+    await expect(
+      client.request("fixture/ping-timeout", {}, z.unknown()),
+    ).rejects.toThrow("cursor ping timeout");
   });
 
   test("sends cancellation and accepts the cancelled stop reason", async () => {

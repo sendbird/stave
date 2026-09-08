@@ -247,6 +247,10 @@ input.on("line", (line) => {
   }
 
   pendingPromptId = id;
+  if (scenario === "ping-timeout") {
+    process.stderr.write("RetriableError: [unavailable] PING timed out\n");
+    return;
+  }
   if (scenario === "echo-session") {
     const params = message.params as Record<string, unknown> | undefined;
     update({

@@ -1,7 +1,8 @@
 import { spawn, type ChildProcessWithoutNullStreams } from "node:child_process";
 import { randomUUID } from "node:crypto";
 import { z, type ZodType } from "zod";
-import { AcpNdjsonDecoder } from "./acp-ndjson";
+import { describeJsonRpcLinePrefix } from "../../shared/json-rpc-line";
+import { Utf8LineBuffer } from "../../shared/utf8-line-buffer";
 import {
   AcpInitializeResponseSchema,
   AcpJsonRpcErrorSchema,
@@ -18,7 +19,8 @@ import {
 const ACP_JSON_RPC_VERSION = "2.0";
 const ACP_PROTOCOL_VERSION = 1;
 const DEFAULT_REQUEST_TIMEOUT_MS = 30_000;
-const DEFAULT_MAX_LINE_BYTES = 1024 * 1024;
+const DEFAULT_MAX_LINE_BYTES = 32 * 1024 * 1024;
+const DEFAULT_MAX_BUFFER_BYTES = 64 * 1024 * 1024;
 const DEFAULT_MAX_STDERR_BYTES = 32 * 1024;
 const ACP_KILL_ESCALATION_MS = 2_000;
 
@@ -53,11 +55,18 @@ export interface AcpProtocolClientOptions {
   env: Record<string, string | undefined>;
   requestTimeoutMs?: number;
   maxLineBytes?: number;
+  maxBufferBytes?: number;
   maxStderrBytes?: number;
   requestHandlers?: ReadonlyMap<string, AcpInboundRequestHandler>;
   onNotification?: (method: string, params: unknown) => boolean | void;
   onUnknownNotification?: (method: string) => void;
   onDiagnostic?: (message: string) => void;
+  /**
+   * Inspect each stderr chunk. Return an Error to fail the client instead of
+   * waiting for a request timeout when the agent has already died on the
+   * transport (for example Cursor's HTTP/2 PING keepalive).
+   */
+  interpretStderr?: (accumulated: string, chunk: string) => Error | void;
   spawnProcess?: typeof spawn;
 }
 
@@ -78,7 +87,8 @@ export interface AcpOpenSessionResult {
 
 export class AcpProtocolClient {
   private readonly child: ChildProcessWithoutNullStreams;
-  private readonly stdoutDecoder: AcpNdjsonDecoder;
+  private readonly stdoutDecoder: Utf8LineBuffer;
+  private readonly maxLineBytes: number;
   private readonly pendingRequests = new Map<JsonRpcId, PendingRequest>();
   private readonly inboundRequests = new Map<JsonRpcId, AbortController>();
   private readonly requestHandlers: ReadonlyMap<
@@ -104,9 +114,18 @@ export class AcpProtocolClient {
   constructor(private readonly options: AcpProtocolClientOptions) {
     const spawnProcess = options.spawnProcess ?? spawn;
     this.requestHandlers = options.requestHandlers ?? new Map();
-    this.stdoutDecoder = new AcpNdjsonDecoder(
-      options.maxLineBytes ?? DEFAULT_MAX_LINE_BYTES,
-    );
+    this.maxLineBytes = options.maxLineBytes ?? DEFAULT_MAX_LINE_BYTES;
+    this.stdoutDecoder = new Utf8LineBuffer({
+      label: "acp stdout",
+      maxBufferBytes: options.maxBufferBytes ?? DEFAULT_MAX_BUFFER_BYTES,
+      maxLineBytes: this.maxLineBytes,
+      // Drop one oversized NDJSON line and keep the process. ACP has no
+      // client setting that shrinks agent payloads, and a single large
+      // session/update (file read, diff, image replay) must not kill the turn.
+      onOversizedLine: ({ lineBytes, linePrefix }) => {
+        this.handleOversizedLine(lineBytes, linePrefix);
+      },
+    });
     this.child = spawnProcess(options.command, [...options.args], {
       cwd: options.cwd,
       env: options.env,
@@ -356,9 +375,10 @@ export class AcpProtocolClient {
   }
 
   private bindProcess() {
-    this.child.stdout.on("data", (chunk: Buffer) => {
+    this.child.stdout.setEncoding("utf8");
+    this.child.stdout.on("data", (chunk: string) => {
       try {
-        for (const line of this.stdoutDecoder.push(chunk)) {
+        for (const line of this.stdoutDecoder.append(chunk)) {
           this.handleLine(line);
         }
       } catch (error) {
@@ -368,30 +388,46 @@ export class AcpProtocolClient {
       }
     });
     this.child.stderr.on("data", (chunk: Buffer) => {
+      const chunkText = chunk.toString("utf8");
       const maxBytes = this.options.maxStderrBytes ?? DEFAULT_MAX_STDERR_BYTES;
-      if (Buffer.byteLength(this.stderrText, "utf8") >= maxBytes) {
-        return;
+      if (Buffer.byteLength(this.stderrText, "utf8") < maxBytes) {
+        const remaining = maxBytes - Buffer.byteLength(this.stderrText, "utf8");
+        this.stderrText += chunk.subarray(0, remaining).toString("utf8");
       }
-      const remaining = maxBytes - Buffer.byteLength(this.stderrText, "utf8");
-      this.stderrText += chunk.subarray(0, remaining).toString("utf8");
+      const failure = this.options.interpretStderr?.(this.stderrText, chunkText);
+      if (failure) {
+        this.fail(failure);
+      }
     });
     this.child.on("error", (error) => this.fail(error));
     this.child.on("exit", (code, signal) => {
-      try {
-        for (const line of this.stdoutDecoder.finish()) {
-          this.handleLine(line);
-        }
-      } catch (error) {
-        this.options.onDiagnostic?.(
-          error instanceof Error ? error.message : String(error),
-        );
-      }
       this.fail(
         new AcpProtocolError(
           `ACP process exited (${code ?? "null"}/${signal ?? "none"}).`,
         ),
       );
     });
+  }
+
+  private handleOversizedLine(lineBytes: number, linePrefix: string) {
+    const described = describeJsonRpcLinePrefix(linePrefix);
+    this.options.onDiagnostic?.(
+      `Dropped oversized ACP stdout line (${lineBytes} bytes > ${this.maxLineBytes}).`,
+    );
+    if (described.responseId == null) {
+      return;
+    }
+    const pending = this.pendingRequests.get(described.responseId);
+    if (!pending) {
+      return;
+    }
+    this.pendingRequests.delete(described.responseId);
+    clearTimeout(pending.timer);
+    pending.reject(
+      new AcpProtocolError(
+        `ACP response for ${pending.method} was dropped: oversized line (${lineBytes} bytes) exceeded ${this.maxLineBytes} bytes.`,
+      ),
+    );
   }
 
   private handleLine(line: string) {

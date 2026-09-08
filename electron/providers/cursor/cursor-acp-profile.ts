@@ -19,6 +19,7 @@ import {
   AcpProtocolError,
   type AcpInboundRequestHandler,
 } from "../acp/acp-protocol";
+import { describeCursorAgentTransportFailure } from "./cursor-agent-transport";
 import {
   buildCursorAgentEnv,
   resolveCursorAgentExecutablePath,
@@ -77,6 +78,15 @@ type PendingQuestion = {
   settle: (result: unknown) => void;
   timer: ReturnType<typeof setTimeout>;
 };
+
+function interpretCursorAgentStderr(accumulated: string, chunk: string) {
+  const message = describeCursorAgentTransportFailure(`${accumulated}\n${chunk}`);
+  return message ? new AcpProtocolError(message) : undefined;
+}
+
+function interpretCursorAgentFailure(error: Error, stderr: string) {
+  return describeCursorAgentTransportFailure(`${error.message}\n${stderr}`);
+}
 
 function unavailableEvents(message: string): BridgeEvent[] {
   return [
@@ -362,6 +372,8 @@ export async function streamCursorWithAcp(
       modelSetter: "config-option",
       authenticationMethodId: CURSOR_AUTH_METHOD_ID,
       authenticationHelp: "Run `agent login` if authentication has expired.",
+      interpretStderr: interpretCursorAgentStderr,
+      interpretFailure: interpretCursorAgentFailure,
       decisionTimeoutMs: parsePositiveIntEnv({
         value: process.env.STAVE_CURSOR_APPROVAL_TIMEOUT_MS,
         fallback: CURSOR_APPROVAL_TIMEOUT_DEFAULT_MS,
@@ -432,6 +444,8 @@ export async function streamCursorWorkerWithAcp(args: {
       modelSetter: "config-option",
       authenticationMethodId: CURSOR_AUTH_METHOD_ID,
       authenticationHelp: "Run `agent login` if authentication has expired.",
+      interpretStderr: interpretCursorAgentStderr,
+      interpretFailure: interpretCursorAgentFailure,
       decisionTimeoutMs: parsePositiveIntEnv({
         value: process.env.STAVE_CURSOR_APPROVAL_TIMEOUT_MS,
         fallback: CURSOR_APPROVAL_TIMEOUT_DEFAULT_MS,
