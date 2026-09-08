@@ -198,3 +198,33 @@ describe("resolveHostServiceScriptPath", () => {
     expect(bytes).toBeLessThan(HOST_SERVICE_PROTOCOL_MESSAGE_MAX_BYTES);
   });
 });
+
+describe("host service termination", () => {
+  test("forces SIGKILL when an owned process ignores SIGTERM", async () => {
+    const { escalateHostServiceChildTermination } =
+      await import("../electron/main/host-service-client");
+    const signals: Array<NodeJS.Signals | undefined> = [];
+    const child = new (class extends EventEmitter {
+      exitCode: number | null = null;
+      signalCode: NodeJS.Signals | null = null;
+
+      kill(signal?: NodeJS.Signals) {
+        signals.push(signal);
+        if (signal === "SIGKILL") {
+          this.signalCode = "SIGKILL";
+          queueMicrotask(() => this.emit("exit"));
+        }
+        return true;
+      }
+    })();
+
+    await escalateHostServiceChildTermination(child, {
+      gracefulExitMs: 0,
+      sigtermExitMs: 10,
+      sigkillExitMs: 1000,
+    });
+    expect(signals).toEqual(["SIGTERM", "SIGKILL"]);
+    expect(child.signalCode).toBe("SIGKILL");
+    expect(child.listenerCount("exit")).toBe(0);
+  });
+});

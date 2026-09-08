@@ -248,3 +248,24 @@ export function buildCodexInstructionProfileKey(args: {
     .digest("hex")
     .slice(0, 12);
 }
+
+export function buildCodexThreadKey(args: {
+  taskId?: string;
+  cwd: string;
+  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  boundSecretFingerprint?: string;
+  secondaryReadOnly?: boolean;
+  hasStaveLocalMcp?: boolean;
+}) {
+  const model = args.runtimeOptions?.model?.trim() || "default";
+  const mode = args.runtimeOptions?.codexPlanMode ? "plan" : "chat";
+  // The developer instructions are hashed into the key, so anything that
+  // changes them — including whether the Lens block is present — belongs here.
+  const instructionProfile = buildCodexInstructionProfileKey({
+    runtimeOptions: args.runtimeOptions,
+    ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
+    ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
+  });
+  const secretFingerprint = args.boundSecretFingerprint ?? "none";
+  return `${args.taskId ?? "default"}:${args.cwd}:${model}:${mode}:${instructionProfile}:${secretFingerprint}`;
+}

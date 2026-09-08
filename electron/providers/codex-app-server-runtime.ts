@@ -1,4 +1,13 @@
-import { buildCodexCompactionCompletedEvent, compactCodexThreadWithClient } from "./codex-compaction";
+import {
+  summarizeCodexAppServerDebugMessage,
+  extractCodexAppServerErrorMessage,
+} from "./codex-app-server-errors";
+export { summarizeCodexAppServerDebugMessage } from "./codex-app-server-errors";
+import { CodexClientLifetime } from "./codex-thread-lifetime";
+import {
+  buildCodexCompactionCompletedEvent,
+  compactCodexThreadWithClient,
+} from "./codex-compaction";
 import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
 import type {
   BridgeEvent,
@@ -71,8 +80,14 @@ import {
 } from "./codex-app-server-mcp-status";
 import { readPrimaryStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
 import { resolveBoundSecretEnv } from "../main/browser/secret-service";
-import { buildCodexInstructionProfileKey, resolveCodexWorkerProfile } from "./codex-runtime-config";
-import { buildWorkerExecutionMetadata, type WorkerExecutionMetadata } from "../../src/lib/providers/worker-mode";
+import {
+  buildCodexThreadKey,
+  resolveCodexWorkerProfile,
+} from "./codex-runtime-config";
+import {
+  buildWorkerExecutionMetadata,
+  type WorkerExecutionMetadata,
+} from "../../src/lib/providers/worker-mode";
 import {
   getCodexMcpConfigPathGroups,
   McpConfigRefreshTracker,
@@ -88,7 +103,7 @@ import {
   CODEX_STEER_REQUEST_TIMEOUT_MS,
 } from "./codex-app-server-steer";
 import { mapCodexThreadForkResponse } from "./codex-thread-actions";
-import { isRecord, toTrimmedString } from "./codex-app-server-json";
+import { isRecord } from "./codex-app-server-json";
 import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
 import {
   buildCodexTerminalFailureEvents,
@@ -153,10 +168,20 @@ import {
 } from "./codex-file-change-mapping";
 import { createCodexAppServerElicitationPauseController } from "./codex-elicitation-pause";
 import { createCodexWorkerActivityMapper } from "./codex-worker-activity";
-import { createProviderBrowserConnectionTracker, parseProviderBrowserDomains, shouldActivateProviderBrowser } from "../../src/lib/provider-browser";
-import { buildCodexNativeBrowserTurnConfigOverrides, resolveCodexNativeBrowserPluginEnabled } from "./codex-runtime-config";
+import {
+  createProviderBrowserConnectionTracker,
+  parseProviderBrowserDomains,
+  shouldActivateProviderBrowser,
+} from "../../src/lib/provider-browser";
+import {
+  buildCodexNativeBrowserTurnConfigOverrides,
+  resolveCodexNativeBrowserPluginEnabled,
+} from "./codex-runtime-config";
 import { prepareCodexImageAwareTurnInput } from "./native-image-input";
-import { normalizeCodexTokenUsage, normalizeCodexContextUsage } from "./codex-token-usage";
+import {
+  normalizeCodexTokenUsage,
+  normalizeCodexContextUsage,
+} from "./codex-token-usage";
 
 // This module stays the public entry point for the Codex App Server runtime, so
 // helpers that moved into sibling modules are re-exported here unchanged.
@@ -357,7 +382,8 @@ async function hasStaveLensToolsForCodex(hasEmbeddedStaveLocalMcp: boolean) {
   try {
     // Imported lazily: `stave-mcp-config` reads `electron.app` at module scope,
     // which this runtime module must not require just to be loadable.
-    const { readStaveLocalMcpConfig } = await import("../main/stave-mcp-config");
+    const { readStaveLocalMcpConfig } =
+      await import("../main/stave-mcp-config");
     return (await readStaveLocalMcpConfig()).browserToolsEnabled !== false;
   } catch {
     return true;
@@ -413,7 +439,8 @@ function buildCodexMcpToolCallInputEvent(
 ): Extract<BridgeEvent, { type: "tool" }> {
   const itemId = typeof item.id === "string" ? item.id : "";
   const normalizedToolName = `${item.server ?? "mcp"}:${item.tool ?? "tool"}`
-    .toLowerCase().replace(/[^a-z0-9]+/g, "");
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
   return {
     type: "tool",
     ...(itemId ? { toolUseId: itemId } : {}),
@@ -427,27 +454,6 @@ function buildCodexMcpToolCallInputEvent(
       ? { workerExecution }
       : {}),
   };
-}
-
-function buildThreadKey(args: {
-  taskId?: string;
-  cwd: string;
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-  boundSecretFingerprint?: string;
-  secondaryReadOnly?: boolean;
-  hasStaveLocalMcp?: boolean;
-}) {
-  const model = args.runtimeOptions?.model?.trim() || "default";
-  const mode = args.runtimeOptions?.codexPlanMode ? "plan" : "chat";
-  // The developer instructions are hashed into the key, so anything that
-  // changes them — including whether the Lens block is present — belongs here.
-  const instructionProfile = buildCodexInstructionProfileKey({
-    runtimeOptions: args.runtimeOptions,
-    ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
-    ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
-  });
-  const secretFingerprint = args.boundSecretFingerprint ?? "none";
-  return `${args.taskId ?? "default"}:${args.cwd}:${model}:${mode}:${instructionProfile}:${secretFingerprint}`;
 }
 
 function resolveThreadId(args: {
@@ -566,59 +572,6 @@ function shouldDebugCodexAppServerMessage(message: JsonRpcMessage) {
   );
 }
 
-export function summarizeCodexAppServerDebugMessage(message: JsonRpcMessage) {
-  const params = isRecord(message.params) ? message.params : null;
-  const turn = params && isRecord(params.turn) ? params.turn : null;
-  const item = params && isRecord(params.item) ? params.item : null;
-  const turnError = turn && isRecord(turn.error) ? turn.error : null;
-
-  return {
-    id: Object.prototype.hasOwnProperty.call(message, "id")
-      ? message.id
-      : undefined,
-    method: typeof message.method === "string" ? message.method : undefined,
-    threadId:
-      typeof params?.threadId === "string" ? params.threadId : undefined,
-    turnId:
-      typeof params?.turnId === "string"
-        ? params.turnId
-        : typeof turn?.id === "string"
-          ? turn.id
-          : undefined,
-    status:
-      typeof turn?.status === "string"
-        ? turn.status
-        : typeof item?.status === "string"
-          ? item.status
-          : undefined,
-    errorMessage:
-      extractCodexAppServerErrorMessage(params) ??
-      (typeof turnError?.message === "string" ? turnError.message : undefined),
-  };
-}
-
-function extractCodexAppServerErrorMessage(
-  params: Record<string, unknown> | null,
-) {
-  if (!params) {
-    return null;
-  }
-  const directMessage = toTrimmedString(params.message);
-  if (directMessage) {
-    return directMessage;
-  }
-  const error = isRecord(params.error) ? params.error : null;
-  if (!error) {
-    return null;
-  }
-  const errorMessage = toTrimmedString(error.message);
-  if (errorMessage) {
-    return errorMessage;
-  }
-  const nestedError = isRecord(error.error) ? error.error : null;
-  return toTrimmedString(nestedError?.message);
-}
-
 class CodexAppServerClient {
   private process: ChildProcessWithoutNullStreams | null = null;
   private processStartedAt: number | null = null;
@@ -630,6 +583,28 @@ class CodexAppServerClient {
   >();
   private listeners = new Set<(message: JsonRpcMessage) => void>();
   private exitListeners = new Set<(message: string) => void>();
+  private readonly lifetime = new CodexClientLifetime({
+    isRunning: () => this.process !== null && this.initialized,
+    isBusy: () =>
+      Boolean(this.startupPromise) ||
+      this.pendingResponses.size > 0 ||
+      this.listeners.size > 0 ||
+      (activeCodexTurnsByExecutable.get(this.executablePath) ?? 0) > 0,
+    retire: () => this.dispose("Closed idle Codex App Server."),
+    unsubscribe: async (threadId) => {
+      await this.sendRequest(
+        "thread/unsubscribe",
+        { threadId },
+        { timeoutMs: 5_000 },
+      );
+    },
+    onError: () =>
+      console.warn(
+        "[codex-app-server-runtime] idle thread release failed; idle client retirement remains enabled.",
+      ),
+  });
+  readonly threadLifetime = this.lifetime.threads;
+
   private initialized = false;
   private lastErrorMessage: string | null = null;
   constructor(
@@ -671,10 +646,14 @@ class CodexAppServerClient {
     params: unknown,
     options?: { timeoutMs?: number },
   ): Promise<T> {
-    await this.ensureStarted();
-    // JSON-RPC carries unknown data. This generic is the caller's method
-    // contract, not runtime validation of the response.
-    return (await this.sendRequest(method, params, options)) as T;
+    this.lifetime.suspend();
+    try {
+      await this.ensureStarted();
+      // JSON-RPC carries unknown data; the caller owns the response contract.
+      return (await this.sendRequest(method, params, options)) as T;
+    } finally {
+      this.lifetime.schedule();
+    }
   }
 
   async respond(requestId: JsonRpcId, result: unknown) {
@@ -954,6 +933,7 @@ class CodexAppServerClient {
   }
 
   private dispatchMessage(message: JsonRpcMessage) {
+    this.lifetime.observe(message);
     try {
       codexMcpManagement.captureNotification(this.executablePath, message);
     } catch (error) {
@@ -1003,6 +983,7 @@ class CodexAppServerClient {
   }
 
   private teardownProcess(message: string) {
+    this.lifetime.clear();
     const current = this.process;
     this.process = null;
     this.processStartedAt = null;
@@ -1144,7 +1125,7 @@ async function ensureCodexThread(args: {
   /** Resolved before keying: it decides the instruction hash. */
   hasStaveLocalMcp?: boolean;
 }) {
-  const threadKey = buildThreadKey({
+  const threadKey = buildCodexThreadKey({
     taskId: args.taskId,
     cwd: args.cwd,
     runtimeOptions: args.runtimeOptions,
@@ -1165,52 +1146,65 @@ async function ensureCodexThread(args: {
             }),
       });
 
-  requireCompactResumeSession(args.conversation?.input.content ?? args.input ?? "", resumeThreadId);
+  requireCompactResumeSession(
+    args.conversation?.input.content ?? args.input ?? "",
+    resumeThreadId,
+  );
 
-  const response = resumeThreadId
-    ? await args.client.request<{ thread: { id: string } }>("thread/resume", {
-        ...buildCodexThreadResumeParams({
-          threadId: resumeThreadId,
-          cwd: args.cwd,
-          runtimeOptions: args.runtimeOptions,
-          // Forward caller config overrides on resume too. Previously dropped
-          // here, which silently discarded MCP-isolation and injected-secret
-          // shell env whenever a thread resumed instead of starting fresh.
-          configOverrides: args.configOverrides,
-          ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
-          ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
-        }),
-      })
-    : await args.client.request<{ thread: { id: string } }>(
-        "thread/start",
-        buildCodexThreadStartParams({
-          cwd: args.cwd,
-          runtimeOptions: args.runtimeOptions,
-          ...(args.ephemeral
-            ? {
-                ephemeral: true,
-                sandbox: "read-only" as const,
-                approvalPolicy: "never" as const,
-              }
-            : {}),
-          configOverrides: args.configOverrides,
-          ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
-          ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
-        }),
-      );
-  const threadId = response.thread.id;
-  if (!args.ephemeral) {
-    rememberThreadId({
-      threadKey,
+  let releaseThread = resumeThreadId
+    ? await args.client.threadLifetime.acquire(resumeThreadId)
+    : undefined;
+  try {
+    const response = resumeThreadId
+      ? await args.client.request<{ thread: { id: string } }>("thread/resume", {
+          ...buildCodexThreadResumeParams({
+            threadId: resumeThreadId,
+            cwd: args.cwd,
+            runtimeOptions: args.runtimeOptions,
+            // Forward caller config overrides on resume too. Previously dropped
+            // here, which silently discarded MCP-isolation and injected-secret
+            // shell env whenever a thread resumed instead of starting fresh.
+            configOverrides: args.configOverrides,
+            ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
+            ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
+          }),
+        })
+      : await args.client.request<{ thread: { id: string } }>(
+          "thread/start",
+          buildCodexThreadStartParams({
+            cwd: args.cwd,
+            runtimeOptions: args.runtimeOptions,
+            ...(args.ephemeral
+              ? {
+                  ephemeral: true,
+                  sandbox: "read-only" as const,
+                  approvalPolicy: "never" as const,
+                }
+              : {}),
+            configOverrides: args.configOverrides,
+            ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
+            ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
+          }),
+        );
+    const threadId = response.thread.id;
+    releaseThread ??= await args.client.threadLifetime.acquire(threadId);
+    if (!args.ephemeral) {
+      rememberThreadId({
+        threadKey,
+        threadId,
+        executablePath: args.executablePath,
+      });
+    }
+    return {
       threadId,
-      executablePath: args.executablePath,
-    });
+      threadKey,
+      resumedThreadId: resumeThreadId ?? null,
+      releaseThread,
+    };
+  } catch (error) {
+    releaseThread?.();
+    throw error;
   }
-  return {
-    threadId,
-    threadKey,
-    resumedThreadId: resumeThreadId ?? null,
-  };
 }
 
 export function cleanupCodexAppServerTask(taskId: string) {
@@ -1249,7 +1243,8 @@ export const readCodexMcpResource = codexMcpManagement.readResource;
 export const listCodexMcpServerConfigs = codexMcpManagement.listConfigs;
 export const previewCodexMcpServerConfigMutation =
   codexMcpManagement.previewConfigMutation;
-export const applyCodexMcpServerConfigMutation = codexMcpManagement.applyConfigMutation;
+export const applyCodexMcpServerConfigMutation =
+  codexMcpManagement.applyConfigMutation;
 export const readCodexMcpShareDraft = codexMcpManagement.readShareDraft;
 
 async function listPaginatedCodexData<T>(args: {
@@ -1917,10 +1912,14 @@ export async function compactCodexThread(args: {
 }): Promise<CodexMutationResponse> {
   try {
     return await compactCodexThreadWithClient(
-      getCodexAppServerClientFromRuntimeOptions(args), args.threadId,
+      getCodexAppServerClientFromRuntimeOptions(args),
+      args.threadId,
     );
   } catch (error) {
-    return { ok: false, detail: toCodexUserFacingErrorMessage({ message: toErrorMessage(error) }) };
+    return {
+      ok: false,
+      detail: toCodexUserFacingErrorMessage({ message: toErrorMessage(error) }),
+    };
   }
 }
 
@@ -2348,1608 +2347,1526 @@ export async function streamCodexWithAppServer(
     (activeCodexTurnsByExecutable.get(codexExecutablePath) ?? 0) + 1,
   );
   try {
-    const account = await client.request<{
-      account: unknown | null;
-      requiresOpenaiAuth: boolean;
-    }>("account/read", { refreshToken: true });
-    if (!account.account && account.requiresOpenaiAuth) {
+    try {
+      const account = await client.request<{
+        account: unknown | null;
+        requiresOpenaiAuth: boolean;
+      }>("account/read", { refreshToken: true });
+      if (!account.account && account.requiresOpenaiAuth) {
+        const events = buildCodexTerminalFailureEvents({
+          message: "Codex authentication failed. Run `codex login` and retry.",
+        });
+        events.forEach((event) => args.onEvent?.(event));
+        return events;
+      }
+    } catch (error) {
       const events = buildCodexTerminalFailureEvents({
-        message: "Codex authentication failed. Run `codex login` and retry.",
+        message: error instanceof Error ? error.message : String(error),
       });
       events.forEach((event) => args.onEvent?.(event));
-      finishCodexTurn(codexExecutablePath, transientSecretClient);
       return events;
     }
-  } catch (error) {
-    const events = buildCodexTerminalFailureEvents({
-      message: error instanceof Error ? error.message : String(error),
-    });
-    events.forEach((event) => args.onEvent?.(event));
-    finishCodexTurn(codexExecutablePath, transientSecretClient);
-    return events;
-  }
 
-  let secondaryConfigOverrides: CodexConfigOverrides | undefined;
-  if (secondaryReadOnly) {
-    try {
-      // The thread cwd matters: project config layers between it and the repo
-      // root decide which MCP servers actually exist for this thread.
-      secondaryConfigOverrides = await resolveCodexSecondaryConfigOverrides(
-        client.request.bind(client),
-        runtimeCwd,
-      );
-    } catch {
-      const events: BridgeEvent[] = [
-        {
-          type: "error",
-          message:
-            "Codex secondary execution could not establish MCP isolation.",
-          recoverable: false,
-        },
-        { type: "done", stop_reason: "runtime_failure" },
-      ];
-      events.forEach((event) => args.onEvent?.(event));
-      finishCodexTurn(codexExecutablePath, transientSecretClient);
-      return events;
+    let secondaryConfigOverrides: CodexConfigOverrides | undefined;
+    if (secondaryReadOnly) {
+      try {
+        // The thread cwd matters: project config layers between it and the repo
+        // root decide which MCP servers actually exist for this thread.
+        secondaryConfigOverrides = await resolveCodexSecondaryConfigOverrides(
+          client.request.bind(client),
+          runtimeCwd,
+        );
+      } catch {
+        const events: BridgeEvent[] = [
+          {
+            type: "error",
+            message:
+              "Codex secondary execution could not establish MCP isolation.",
+            recoverable: false,
+          },
+          { type: "done", stop_reason: "runtime_failure" },
+        ];
+        events.forEach((event) => args.onEvent?.(event));
+        return events;
+      }
     }
-  }
 
-  const nativeBrowserPluginEnabled =
-    await resolveCodexNativeBrowserPluginEnabled({
-      requested: providerBrowserRequested,
-      cwd: runtimeCwd,
-      request: client.request.bind(client),
-    });
-
-  const secretShellOverrides = buildSecretShellOverrides(boundSecretEnv);
-  const boundSecretFingerprint = buildBoundSecretFingerprint(boundSecretEnv);
-  const nativeSlashCommandTurn = Boolean(
-    args.conversation && getProviderNativeSlashCommandInput(args.conversation),
-  );
-  const staveLocalMcpManifest =
-    secondaryReadOnly || nativeSlashCommandTurn
-      ? null
-      : await readPrimaryStaveLocalMcpManifest();
-  if (
-    args.staveCollaborationGrants?.consultKey &&
-    !staveLocalMcpManifest &&
-    !secondaryReadOnly
-  ) {
-    const events = buildCodexTerminalFailureEvents({
-      message:
-        "Advisor is armed, but Stave Local MCP is unavailable. Start it in Settings and retry the turn.",
-    });
-    events.forEach((event) => args.onEvent?.(event));
-    finishCodexTurn(codexExecutablePath, transientSecretClient);
-    return events;
-  }
-  const mergedConfigOverrides = await mergeCodexTurnConfigOverrides({
-    base: {
-      ...(secondaryConfigOverrides ?? {}),
-      ...buildCodexNativeBrowserTurnConfigOverrides({
+    const nativeBrowserPluginEnabled =
+      await resolveCodexNativeBrowserPluginEnabled({
         requested: providerBrowserRequested,
-        userEnabled: nativeBrowserPluginEnabled,
-      }),
-    },
-    secretShellOverrides,
-    staveLocalMcpManifest,
-    collaborationGrants: args.staveCollaborationGrants,
-    secondaryReadOnly,
-    unattendedAutomationAuthorizationToken:
-      args.unattendedAutomation?.authorizationToken,
-  });
+        cwd: runtimeCwd,
+        request: client.request.bind(client),
+      });
 
-  // Resolved before the thread is keyed: it decides whether the Lens
-  // instruction block is part of the developer instructions, which are hashed
-  // into the thread key.
-  const hasEmbeddedStaveLocalMcp = staveLocalMcpManifest !== null;
-  const hasStaveLensTools = await hasStaveLensToolsForCodex(
-    hasEmbeddedStaveLocalMcp,
-  );
-
-  let threadId: string;
-  let resumedThreadId: string | null;
-  try {
-    ({ threadId, resumedThreadId } = await ensureCodexThread({
-      client,
-      input: args.prompt,
-      executablePath: codexExecutablePath,
-      taskId: args.taskId,
-      cwd: runtimeCwd,
-      conversation: args.conversation,
-      runtimeOptions,
-      ephemeral: secondaryReadOnly,
-      configOverrides: mergedConfigOverrides,
-      boundSecretFingerprint,
-      secondaryReadOnly,
-      hasStaveLocalMcp: hasStaveLensTools,
-    }));
-  } catch (error) {
-    const events = buildCodexTerminalFailureEvents({
-      message: error instanceof Error ? error.message : String(error),
-    });
-    events.forEach((event) => args.onEvent?.(event));
-    finishCodexTurn(codexExecutablePath, transientSecretClient);
-    return events;
-  }
-
-  try {
-    const eventCollector = createBoundedBridgeEventCollector({
-      maxBytes: CODEX_APP_SERVER_COLLECTED_EVENTS_MAX_BYTES,
-      reserveTailBytes: CODEX_APP_SERVER_OVERFLOW_TAIL_BYTES,
-    });
-    const events: BridgeEvent[] = eventCollector.events;
-    let hasEmittedDone = false;
-    const providerBrowserTracker = createProviderBrowserConnectionTracker({
-      providerId: "codex",
-      requested: providerBrowserRequested,
-      available: nativeBrowserPluginEnabled,
-    });
-    const emitBridgeEvent = (event: BridgeEvent) => {
-      if (event.type === "done") {
-        hasEmittedDone = true;
-      }
-      eventCollector.append(event);
-      args.onEvent?.(event);
-    };
-    const emitBridgeEvents = (nextEvents: BridgeEvent[]) => {
-      nextEvents.forEach(emitBridgeEvent);
-    };
-    const settleMissingProviderBrowserConnection = () =>
-      providerBrowserTracker.settle(emitBridgeEvent);
-    const finalizeCollectedEvents = () => {
-      if (!hasEmittedDone) {
-        settleMissingProviderBrowserConnection();
-      }
-      if (eventCollector.overflowed) {
-        for (const overflowEvent of CODEX_APP_SERVER_OVERFLOW_TAIL_EVENTS) {
-          eventCollector.appendTail(overflowEvent);
-        }
-        if (!hasEmittedDone) {
-          args.onEvent?.({ type: "done" });
-        }
-      } else if (
-        !hasEmittedDone &&
-        events[events.length - 1]?.type !== "done"
-      ) {
-        const doneEvent: BridgeEvent = { type: "done" };
-        eventCollector.appendTail(doneEvent);
-        args.onEvent?.(doneEvent);
-      }
+    const secretShellOverrides = buildSecretShellOverrides(boundSecretEnv);
+    const boundSecretFingerprint = buildBoundSecretFingerprint(boundSecretEnv);
+    const nativeSlashCommandTurn = Boolean(
+      args.conversation &&
+      getProviderNativeSlashCommandInput(args.conversation),
+    );
+    const staveLocalMcpManifest =
+      secondaryReadOnly || nativeSlashCommandTurn
+        ? null
+        : await readPrimaryStaveLocalMcpManifest();
+    if (
+      args.staveCollaborationGrants?.consultKey &&
+      !staveLocalMcpManifest &&
+      !secondaryReadOnly
+    ) {
+      const events = buildCodexTerminalFailureEvents({
+        message:
+          "Advisor is armed, but Stave Local MCP is unavailable. Start it in Settings and retry the turn.",
+      });
+      events.forEach((event) => args.onEvent?.(event));
       return events;
-    };
-
-    emitBridgeEvents(buildCodexThreadStartedEvents({ threadId }));
-    providerBrowserTracker.emitInitial(emitBridgeEvent);
-    const syncedGoalEvent = await readCodexGoalStatusEvent({
-      client,
-      threadId,
-    });
-    if (syncedGoalEvent) {
-      emitBridgeEvent(syncedGoalEvent);
     }
-    const turnInput = await prepareCodexImageAwareTurnInput({
-      cwd: runtimeCwd,
-      providerId: args.providerId,
-      prompt: args.prompt,
-      conversation: args.conversation,
-      activeResumeSessionId: resumedThreadId,
-      taskId: args.taskId,
+    const mergedConfigOverrides = await mergeCodexTurnConfigOverrides({
+      base: {
+        ...(secondaryConfigOverrides ?? {}),
+        ...buildCodexNativeBrowserTurnConfigOverrides({
+          requested: providerBrowserRequested,
+          userEnabled: nativeBrowserPluginEnabled,
+        }),
+      },
+      secretShellOverrides,
+      staveLocalMcpManifest,
+      collaborationGrants: args.staveCollaborationGrants,
+      secondaryReadOnly,
+      unattendedAutomationAuthorizationToken:
+        args.unattendedAutomation?.authorizationToken,
+    });
+
+    // Resolved before the thread is keyed: it decides whether the Lens
+    // instruction block is part of the developer instructions, which are hashed
+    // into the thread key.
+    const hasEmbeddedStaveLocalMcp = staveLocalMcpManifest !== null;
+    const hasStaveLensTools = await hasStaveLensToolsForCodex(
       hasEmbeddedStaveLocalMcp,
-      model: runtimeOptions?.model,
-      request: (method, params) => client.request(method, params),
-    });
-    const providerPrompt = turnInput.prompt;
+    );
 
-    const goalCommandEvents = await runCodexGoalSlashCommand({
-      client,
-      threadId,
-      input: providerPrompt,
-    });
-    if (goalCommandEvents) {
-      emitBridgeEvents(goalCommandEvents);
-      if (!secondaryReadOnly) {
-        finishCodexTurn(codexExecutablePath, transientSecretClient);
-      }
-      return finalizeCollectedEvents();
+    let threadId: string;
+    let resumedThreadId: string | null;
+    let releaseThread: () => void;
+    try {
+      ({ threadId, resumedThreadId, releaseThread } = await ensureCodexThread({
+        client,
+        input: args.prompt,
+        executablePath: codexExecutablePath,
+        taskId: args.taskId,
+        cwd: runtimeCwd,
+        conversation: args.conversation,
+        runtimeOptions,
+        ephemeral: secondaryReadOnly,
+        configOverrides: mergedConfigOverrides,
+        boundSecretFingerprint,
+        secondaryReadOnly,
+        hasStaveLocalMcp: hasStaveLensTools,
+      }));
+    } catch (error) {
+      const events = buildCodexTerminalFailureEvents({
+        message: error instanceof Error ? error.message : String(error),
+      });
+      events.forEach((event) => args.onEvent?.(event));
+      return events;
     }
 
-    const compactCommandEvents = await runCodexCompactSlashCommand({
-      client,
-      threadId,
-      input: providerPrompt,
-      cwd: runtimeCwd,
-      registerAbort: args.registerAbort,
-      onProgress: emitBridgeEvent,
-    });
-    if (compactCommandEvents) {
-      emitBridgeEvents(compactCommandEvents);
-      if (!secondaryReadOnly) {
-        finishCodexTurn(codexExecutablePath, transientSecretClient);
-      }
-      return finalizeCollectedEvents();
-    }
+    try {
+      const eventCollector = createBoundedBridgeEventCollector({
+        maxBytes: CODEX_APP_SERVER_COLLECTED_EVENTS_MAX_BYTES,
+        reserveTailBytes: CODEX_APP_SERVER_OVERFLOW_TAIL_BYTES,
+      });
+      const events: BridgeEvent[] = eventCollector.events;
+      let hasEmittedDone = false;
+      const providerBrowserTracker = createProviderBrowserConnectionTracker({
+        providerId: "codex",
+        requested: providerBrowserRequested,
+        available: nativeBrowserPluginEnabled,
+      });
+      const emitBridgeEvent = (event: BridgeEvent) => {
+        if (event.type === "done") {
+          hasEmittedDone = true;
+        }
+        eventCollector.append(event);
+        args.onEvent?.(event);
+      };
+      const emitBridgeEvents = (nextEvents: BridgeEvent[]) => {
+        nextEvents.forEach(emitBridgeEvent);
+      };
+      const settleMissingProviderBrowserConnection = () =>
+        providerBrowserTracker.settle(emitBridgeEvent);
+      const finalizeCollectedEvents = () => {
+        if (!hasEmittedDone) {
+          settleMissingProviderBrowserConnection();
+        }
+        if (eventCollector.overflowed) {
+          for (const overflowEvent of CODEX_APP_SERVER_OVERFLOW_TAIL_EVENTS) {
+            eventCollector.appendTail(overflowEvent);
+          }
+          if (!hasEmittedDone) {
+            args.onEvent?.({ type: "done" });
+          }
+        } else if (
+          !hasEmittedDone &&
+          events[events.length - 1]?.type !== "done"
+        ) {
+          const doneEvent: BridgeEvent = { type: "done" };
+          eventCollector.appendTail(doneEvent);
+          args.onEvent?.(doneEvent);
+        }
+        return events;
+      };
 
-    const diffTracker = await createTurnDiffTracker({ cwd: runtimeCwd });
-
-    const toolOutputBuffers = new Map<string, string>();
-    const toolOutputLastEmitAt = new Map<string, number>();
-    const agentMessageBuffers = new Map<string, string>();
-    const streamedAgentMessageIds = new Set<string>();
-    const streamedReasoningIds = new Set<string>();
-    const planBuffers = new Map<string, string>();
-    const planLastEmitAt = new Map<string, number>();
-    const startedMcpToolCallIds = new Set<string>();
-    // A command's `tool` event is announced at `item/started` so its streamed
-    // `outputDelta` chunks have a work item to attach to. Without that opener
-    // the turn-status reducer drops every partial result (it has no item to
-    // update) and a long-running command stays invisible until it finishes —
-    // exactly the window where "what is it doing" matters most.
-    const startedCommandExecutionIds = new Set<string>();
-    /** Same opener contract as commands, for Codex's file edits. */
-    const startedFileChangeIds = new Set<string>();
-    const workerActivity = createCodexWorkerActivityMapper({
-      workerExecution,
-      inputMaxBytes: CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES,
-      outputMaxBytes: CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES,
-    });
-    const pendingApprovalRequests = new Map<string, PendingApprovalRequest>();
-    const pendingUserInputRequests = new Map<string, PendingUserInputRequest>();
-    let latestUsage: {
-      inputTokens: number;
-      outputTokens: number;
-      cacheReadTokens?: number;
-    } | null = null;
-    let lastUsageEmitAt = 0;
-    let appServerTurnId = "";
-    let abortRequested = false;
-    let completed = false;
-    let resolveTurnCompletion: (() => void) | null = null;
-    let interruptFallbackHandle: ReturnType<typeof setTimeout> | null = null;
-    let lastAgentMessageSegmentId = "";
-    let sawNativePlan = false;
-    let shouldInterruptPlanTurn = false;
-    let sentPlanInterrupt = false;
-    let lastAppServerErrorMessage: string | null = null;
-    const codexDebug =
-      runtimeOptions?.debug ?? process.env.STAVE_CODEX_DEBUG === "1";
-    const elicitationPauseController =
-      createCodexAppServerElicitationPauseController({
+      emitBridgeEvents(buildCodexThreadStartedEvents({ threadId }));
+      providerBrowserTracker.emitInitial(emitBridgeEvent);
+      const syncedGoalEvent = await readCodexGoalStatusEvent({
         client,
         threadId,
-        debug: codexDebug,
       });
-    const waitForTurnCompletion = new Promise<void>((resolve) => {
-      resolveTurnCompletion = resolve;
-    });
-
-    // ── Approval / user-input auto-decline: symmetric with Claude's
-    // `waitForClaudeToolDecision` timeout fallback. See
-    // `CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS` for the rationale. ──
-    const codexApprovalDecisionTimeoutMs =
-      resolveCodexApprovalDecisionTimeoutMs({
-        envValue: process.env.STAVE_CODEX_APPROVAL_TIMEOUT_MS,
+      if (syncedGoalEvent) {
+        emitBridgeEvent(syncedGoalEvent);
+      }
+      const turnInput = await prepareCodexImageAwareTurnInput({
+        cwd: runtimeCwd,
+        providerId: args.providerId,
+        prompt: args.prompt,
+        conversation: args.conversation,
+        activeResumeSessionId: resumedThreadId,
+        taskId: args.taskId,
+        hasEmbeddedStaveLocalMcp,
+        model: runtimeOptions?.model,
+        request: (method, params) => client.request(method, params),
       });
-    const pendingApprovalAutoDeclineHandles = new Map<
-      string,
-      ReturnType<typeof setTimeout>
-    >();
-    const clearApprovalAutoDecline = (requestId: string) => {
-      const handle = pendingApprovalAutoDeclineHandles.get(requestId);
-      if (handle == null) {
-        return;
-      }
-      clearTimeout(handle);
-      pendingApprovalAutoDeclineHandles.delete(requestId);
-    };
-    const buildApprovalAutoDeclineTimeoutEvent = (args: {
-      kind: "approval" | "user_input";
-      toolName: string;
-      requestId: string;
-    }): BridgeEvent => {
-      const seconds = Math.round(codexApprovalDecisionTimeoutMs / 1000);
-      const label = args.kind === "user_input" ? "answer" : "approval";
-      return {
-        type: "error",
-        message: `Stave did not receive an ${label} decision for ${args.toolName} (request ${args.requestId}) within ${seconds}s. The request was denied automatically so the turn could continue. If this happened while you were reviewing the request, the approval responder may have been lost — please report this with the devtools console logs.`,
-        recoverable: true,
-      };
-    };
-    const scheduleApprovalAutoDecline = (args: {
-      requestId: string;
-      toolName: string;
-    }) => {
-      const handle = setTimeout(() => {
-        pendingApprovalAutoDeclineHandles.delete(args.requestId);
-        const pending = pendingApprovalRequests.get(args.requestId);
-        if (!pending || completed) {
-          return;
-        }
-        pendingApprovalRequests.delete(args.requestId);
-        console.warn(
-          "[provider-runtime] Codex approval request auto-declined after timeout",
-          {
-            threadId,
-            requestId: args.requestId,
-            timeoutMs: codexApprovalDecisionTimeoutMs,
-          },
-        );
-        emitBridgeEvent(
-          buildApprovalAutoDeclineTimeoutEvent({
-            kind: "approval",
-            toolName: args.toolName,
-            requestId: args.requestId,
-          }),
-        );
-        void client
-          .respond(
-            pending.serverRequestId,
-            pending.responseKind === "elicitation"
-              ? { action: "decline" as const }
-              : { decision: "decline" as const },
-          )
-          .catch(() => {})
-          .finally(() => elicitationPauseController.end(args.requestId));
-      }, codexApprovalDecisionTimeoutMs);
-      pendingApprovalAutoDeclineHandles.set(args.requestId, handle);
-    };
-    const scheduleUserInputAutoDecline = (args: {
-      requestId: string;
-      toolName: string;
-    }) => {
-      const handle = setTimeout(() => {
-        pendingApprovalAutoDeclineHandles.delete(args.requestId);
-        const pending = pendingUserInputRequests.get(args.requestId);
-        if (!pending || completed) {
-          return;
-        }
-        pendingUserInputRequests.delete(args.requestId);
-        console.warn(
-          "[provider-runtime] Codex user-input request auto-declined after timeout",
-          {
-            threadId,
-            requestId: args.requestId,
-            timeoutMs: codexApprovalDecisionTimeoutMs,
-          },
-        );
-        emitBridgeEvent(
-          buildApprovalAutoDeclineTimeoutEvent({
-            kind: "user_input",
-            toolName: args.toolName,
-            requestId: args.requestId,
-          }),
-        );
-        void client
-          .respond(
-            pending.serverRequestId,
-            pending.responseKind === "elicitation"
-              ? { action: "decline" as const }
-              : { answers: {} },
-          )
-          .catch(() => {})
-          .finally(() => elicitationPauseController.end(args.requestId));
-      }, codexApprovalDecisionTimeoutMs);
-      pendingApprovalAutoDeclineHandles.set(args.requestId, handle);
-    };
+      const providerPrompt = turnInput.prompt;
 
-    const clearInterruptFallback = () => {
-      if (interruptFallbackHandle == null) {
-        return;
+      const goalCommandEvents = await runCodexGoalSlashCommand({
+        client,
+        threadId,
+        input: providerPrompt,
+      });
+      if (goalCommandEvents) {
+        emitBridgeEvents(goalCommandEvents);
+        return finalizeCollectedEvents();
       }
-      clearTimeout(interruptFallbackHandle);
-      interruptFallbackHandle = null;
-    };
 
-    const finishTurnWait = () => {
-      if (completed) {
-        return;
+      const compactCommandEvents = await runCodexCompactSlashCommand({
+        client,
+        threadId,
+        input: providerPrompt,
+        cwd: runtimeCwd,
+        registerAbort: args.registerAbort,
+        onProgress: emitBridgeEvent,
+      });
+      if (compactCommandEvents) {
+        emitBridgeEvents(compactCommandEvents);
+        return finalizeCollectedEvents();
       }
-      completed = true;
-      clearInterruptFallback();
-      const resolve = resolveTurnCompletion;
-      resolveTurnCompletion = null;
-      resolve?.();
-    };
 
-    const requestPlanInterrupt = () => {
-      if (
-        !runtimeOptions?.codexPlanMode ||
-        sentPlanInterrupt ||
-        !appServerTurnId ||
-        completed
-      ) {
-        return;
-      }
-      sentPlanInterrupt = true;
-      void client
-        .request("turn/interrupt", {
+      const diffTracker = await createTurnDiffTracker({ cwd: runtimeCwd });
+
+      const toolOutputBuffers = new Map<string, string>();
+      const toolOutputLastEmitAt = new Map<string, number>();
+      const agentMessageBuffers = new Map<string, string>();
+      const streamedAgentMessageIds = new Set<string>();
+      const streamedReasoningIds = new Set<string>();
+      const planBuffers = new Map<string, string>();
+      const planLastEmitAt = new Map<string, number>();
+      const startedMcpToolCallIds = new Set<string>();
+      // A command's `tool` event is announced at `item/started` so its streamed
+      // `outputDelta` chunks have a work item to attach to. Without that opener
+      // the turn-status reducer drops every partial result (it has no item to
+      // update) and a long-running command stays invisible until it finishes —
+      // exactly the window where "what is it doing" matters most.
+      const startedCommandExecutionIds = new Set<string>();
+      /** Same opener contract as commands, for Codex's file edits. */
+      const startedFileChangeIds = new Set<string>();
+      const workerActivity = createCodexWorkerActivityMapper({
+        workerExecution,
+        inputMaxBytes: CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES,
+        outputMaxBytes: CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES,
+      });
+      const pendingApprovalRequests = new Map<string, PendingApprovalRequest>();
+      const pendingUserInputRequests = new Map<
+        string,
+        PendingUserInputRequest
+      >();
+      let latestUsage: {
+        inputTokens: number;
+        outputTokens: number;
+        cacheReadTokens?: number;
+      } | null = null;
+      let lastUsageEmitAt = 0;
+      let appServerTurnId = "";
+      let abortRequested = false;
+      let completed = false;
+      let resolveTurnCompletion: (() => void) | null = null;
+      let interruptFallbackHandle: ReturnType<typeof setTimeout> | null = null;
+      let lastAgentMessageSegmentId = "";
+      let sawNativePlan = false;
+      let shouldInterruptPlanTurn = false;
+      let sentPlanInterrupt = false;
+      let lastAppServerErrorMessage: string | null = null;
+      const codexDebug =
+        runtimeOptions?.debug ?? process.env.STAVE_CODEX_DEBUG === "1";
+      const elicitationPauseController =
+        createCodexAppServerElicitationPauseController({
+          client,
           threadId,
-          turnId: appServerTurnId,
-        })
-        .catch(() => {});
-    };
+          debug: codexDebug,
+        });
+      const waitForTurnCompletion = new Promise<void>((resolve) => {
+        resolveTurnCompletion = resolve;
+      });
 
-    args.registerApprovalResponder?.(({ requestId, approved }) => {
-      const pending = pendingApprovalRequests.get(requestId);
-      if (!pending) {
-        return {
-          ok: false,
-          reason: "unknown-request",
-          pendingRequestIds: Array.from(pendingApprovalRequests.keys()),
-        };
-      }
-      pendingApprovalRequests.delete(requestId);
-      clearApprovalAutoDecline(requestId);
-      void client
-        .respond(
-          pending.serverRequestId,
-          (() => {
-            if (pending.responseKind === "commandExecution") {
-              return { decision: approved ? "accept" : "decline" };
-            }
-            if (pending.responseKind === "fileChange") {
-              return { decision: approved ? "accept" : "decline" };
-            }
-            if (pending.responseKind === "permissions") {
-              return approved
-                ? {
-                    permissions: {
-                      ...(pending.permissions?.network
-                        ? { network: pending.permissions.network }
-                        : {}),
-                      ...(pending.permissions?.fileSystem
-                        ? { fileSystem: pending.permissions.fileSystem }
-                        : {}),
-                    },
-                    scope: "turn",
-                  }
-                : { permissions: {}, scope: "turn" };
-            }
-            if (pending.responseKind === "elicitation") {
-              return { action: approved ? "accept" : "decline" };
-            }
-            return { decision: approved ? "approved" : "denied" };
-          })(),
-        )
-        .finally(() => elicitationPauseController.end(requestId));
-      return { ok: true };
-    });
-
-    args.registerUserInputResponder?.(({ requestId, answers, denied }) => {
-      const pending = pendingUserInputRequests.get(requestId);
-      if (!pending) {
-        return {
-          ok: false,
-          reason: "unknown-request",
-          pendingRequestIds: Array.from(pendingUserInputRequests.keys()),
-        };
-      }
-      pendingUserInputRequests.delete(requestId);
-      clearApprovalAutoDecline(requestId);
-      if (pending.responseKind === "elicitation") {
-        if (denied) {
-          void client
-            .respond(pending.serverRequestId, {
-              action: "decline",
-            })
-            .finally(() => elicitationPauseController.end(requestId));
-          return { ok: true };
+      // ── Approval / user-input auto-decline: symmetric with Claude's
+      // `waitForClaudeToolDecision` timeout fallback. See
+      // `CODEX_APPROVAL_DECISION_TIMEOUT_DEFAULT_MS` for the rationale. ──
+      const codexApprovalDecisionTimeoutMs =
+        resolveCodexApprovalDecisionTimeoutMs({
+          envValue: process.env.STAVE_CODEX_APPROVAL_TIMEOUT_MS,
+        });
+      const pendingApprovalAutoDeclineHandles = new Map<
+        string,
+        ReturnType<typeof setTimeout>
+      >();
+      const clearApprovalAutoDecline = (requestId: string) => {
+        const handle = pendingApprovalAutoDeclineHandles.get(requestId);
+        if (handle == null) {
+          return;
         }
+        clearTimeout(handle);
+        pendingApprovalAutoDeclineHandles.delete(requestId);
+      };
+      const buildApprovalAutoDeclineTimeoutEvent = (args: {
+        kind: "approval" | "user_input";
+        toolName: string;
+        requestId: string;
+      }): BridgeEvent => {
+        const seconds = Math.round(codexApprovalDecisionTimeoutMs / 1000);
+        const label = args.kind === "user_input" ? "answer" : "approval";
+        return {
+          type: "error",
+          message: `Stave did not receive an ${label} decision for ${args.toolName} (request ${args.requestId}) within ${seconds}s. The request was denied automatically so the turn could continue. If this happened while you were reviewing the request, the approval responder may have been lost — please report this with the devtools console logs.`,
+          recoverable: true,
+        };
+      };
+      const scheduleApprovalAutoDecline = (args: {
+        requestId: string;
+        toolName: string;
+      }) => {
+        const handle = setTimeout(() => {
+          pendingApprovalAutoDeclineHandles.delete(args.requestId);
+          const pending = pendingApprovalRequests.get(args.requestId);
+          if (!pending || completed) {
+            return;
+          }
+          pendingApprovalRequests.delete(args.requestId);
+          console.warn(
+            "[provider-runtime] Codex approval request auto-declined after timeout",
+            {
+              threadId,
+              requestId: args.requestId,
+              timeoutMs: codexApprovalDecisionTimeoutMs,
+            },
+          );
+          emitBridgeEvent(
+            buildApprovalAutoDeclineTimeoutEvent({
+              kind: "approval",
+              toolName: args.toolName,
+              requestId: args.requestId,
+            }),
+          );
+          void client
+            .respond(
+              pending.serverRequestId,
+              pending.responseKind === "elicitation"
+                ? { action: "decline" as const }
+                : { decision: "decline" as const },
+            )
+            .catch(() => {})
+            .finally(() => elicitationPauseController.end(args.requestId));
+        }, codexApprovalDecisionTimeoutMs);
+        pendingApprovalAutoDeclineHandles.set(args.requestId, handle);
+      };
+      const scheduleUserInputAutoDecline = (args: {
+        requestId: string;
+        toolName: string;
+      }) => {
+        const handle = setTimeout(() => {
+          pendingApprovalAutoDeclineHandles.delete(args.requestId);
+          const pending = pendingUserInputRequests.get(args.requestId);
+          if (!pending || completed) {
+            return;
+          }
+          pendingUserInputRequests.delete(args.requestId);
+          console.warn(
+            "[provider-runtime] Codex user-input request auto-declined after timeout",
+            {
+              threadId,
+              requestId: args.requestId,
+              timeoutMs: codexApprovalDecisionTimeoutMs,
+            },
+          );
+          emitBridgeEvent(
+            buildApprovalAutoDeclineTimeoutEvent({
+              kind: "user_input",
+              toolName: args.toolName,
+              requestId: args.requestId,
+            }),
+          );
+          void client
+            .respond(
+              pending.serverRequestId,
+              pending.responseKind === "elicitation"
+                ? { action: "decline" as const }
+                : { answers: {} },
+            )
+            .catch(() => {})
+            .finally(() => elicitationPauseController.end(args.requestId));
+        }, codexApprovalDecisionTimeoutMs);
+        pendingApprovalAutoDeclineHandles.set(args.requestId, handle);
+      };
 
-        if (pending.elicitationMode === "url") {
+      const clearInterruptFallback = () => {
+        if (interruptFallbackHandle == null) {
+          return;
+        }
+        clearTimeout(interruptFallbackHandle);
+        interruptFallbackHandle = null;
+      };
+
+      const finishTurnWait = () => {
+        if (completed) {
+          return;
+        }
+        completed = true;
+        clearInterruptFallback();
+        const resolve = resolveTurnCompletion;
+        resolveTurnCompletion = null;
+        resolve?.();
+      };
+
+      const requestPlanInterrupt = () => {
+        if (
+          !runtimeOptions?.codexPlanMode ||
+          sentPlanInterrupt ||
+          !appServerTurnId ||
+          completed
+        ) {
+          return;
+        }
+        sentPlanInterrupt = true;
+        void client
+          .request("turn/interrupt", {
+            threadId,
+            turnId: appServerTurnId,
+          })
+          .catch(() => {});
+      };
+
+      args.registerApprovalResponder?.(({ requestId, approved }) => {
+        const pending = pendingApprovalRequests.get(requestId);
+        if (!pending) {
+          return {
+            ok: false,
+            reason: "unknown-request",
+            pendingRequestIds: Array.from(pendingApprovalRequests.keys()),
+          };
+        }
+        pendingApprovalRequests.delete(requestId);
+        clearApprovalAutoDecline(requestId);
+        void client
+          .respond(
+            pending.serverRequestId,
+            (() => {
+              if (pending.responseKind === "commandExecution") {
+                return { decision: approved ? "accept" : "decline" };
+              }
+              if (pending.responseKind === "fileChange") {
+                return { decision: approved ? "accept" : "decline" };
+              }
+              if (pending.responseKind === "permissions") {
+                return approved
+                  ? {
+                      permissions: {
+                        ...(pending.permissions?.network
+                          ? { network: pending.permissions.network }
+                          : {}),
+                        ...(pending.permissions?.fileSystem
+                          ? { fileSystem: pending.permissions.fileSystem }
+                          : {}),
+                      },
+                      scope: "turn",
+                    }
+                  : { permissions: {}, scope: "turn" };
+              }
+              if (pending.responseKind === "elicitation") {
+                return { action: approved ? "accept" : "decline" };
+              }
+              return { decision: approved ? "approved" : "denied" };
+            })(),
+          )
+          .finally(() => elicitationPauseController.end(requestId));
+        return { ok: true };
+      });
+
+      args.registerUserInputResponder?.(({ requestId, answers, denied }) => {
+        const pending = pendingUserInputRequests.get(requestId);
+        if (!pending) {
+          return {
+            ok: false,
+            reason: "unknown-request",
+            pendingRequestIds: Array.from(pendingUserInputRequests.keys()),
+          };
+        }
+        pendingUserInputRequests.delete(requestId);
+        clearApprovalAutoDecline(requestId);
+        if (pending.responseKind === "elicitation") {
+          if (denied) {
+            void client
+              .respond(pending.serverRequestId, {
+                action: "decline",
+              })
+              .finally(() => elicitationPauseController.end(requestId));
+            return { ok: true };
+          }
+
+          if (pending.elicitationMode === "url") {
+            void client
+              .respond(pending.serverRequestId, {
+                action: "accept",
+              })
+              .finally(() => elicitationPauseController.end(requestId));
+            return { ok: true };
+          }
+
+          const content = Object.fromEntries(
+            (pending.elicitationFields ?? []).flatMap((field) => {
+              const rawValue = answers?.[field.key];
+              if (typeof rawValue !== "string") {
+                return [];
+              }
+              const coerced = coerceElicitationAnswer({
+                rawValue,
+                field,
+              });
+              return coerced === undefined ? [] : [[field.key, coerced]];
+            }),
+          );
           void client
             .respond(pending.serverRequestId, {
               action: "accept",
+              content,
             })
             .finally(() => elicitationPauseController.end(requestId));
           return { ok: true };
         }
 
-        const content = Object.fromEntries(
-          (pending.elicitationFields ?? []).flatMap((field) => {
-            const rawValue = answers?.[field.key];
-            if (typeof rawValue !== "string") {
-              return [];
-            }
-            const coerced = coerceElicitationAnswer({
-              rawValue,
-              field,
-            });
-            return coerced === undefined ? [] : [[field.key, coerced]];
-          }),
+        const responseAnswers = Object.fromEntries(
+          Object.entries(answers ?? {}).map(([key, value]) => [
+            key,
+            { answers: [value] },
+          ]),
         );
         void client
           .respond(pending.serverRequestId, {
-            action: "accept",
-            content,
+            answers: denied ? {} : responseAnswers,
           })
           .finally(() => elicitationPauseController.end(requestId));
         return { ok: true };
-      }
+      });
 
-      const responseAnswers = Object.fromEntries(
-        Object.entries(answers ?? {}).map(([key, value]) => [
-          key,
-          { answers: [value] },
-        ]),
-      );
-      void client
-        .respond(pending.serverRequestId, {
-          answers: denied ? {} : responseAnswers,
-        })
-        .finally(() => elicitationPauseController.end(requestId));
-      return { ok: true };
-    });
-
-    args.registerSteerResponder?.(async ({ text, clientMessageId }) => {
-      if (!appServerTurnId || completed) {
-        return {
-          ok: false,
-          reason: "turn-not-steerable",
-          pendingRequestIds: [],
-        };
-      }
-      try {
-        const steerResponse = await client.request<{ turnId: string }>(
-          "turn/steer",
-          buildCodexTurnSteerParams({
+      args.registerSteerResponder?.(async ({ text, clientMessageId }) => {
+        if (!appServerTurnId || completed) {
+          return {
+            ok: false,
+            reason: "turn-not-steerable",
+            pendingRequestIds: [],
+          };
+        }
+        try {
+          const steerResponse = await client.request<{ turnId: string }>(
+            "turn/steer",
+            buildCodexTurnSteerParams({
+              threadId,
+              expectedTurnId: appServerTurnId,
+              text,
+              clientMessageId,
+            }),
+            { timeoutMs: CODEX_STEER_REQUEST_TIMEOUT_MS },
+          );
+          // CRITICAL: the steer response may carry a *new* turnId. The notification
+          // filter (see the `client.subscribe` handler below) drops any message
+          // whose `params.turnId` doesn't match `appServerTurnId`. If we don't
+          // reassign it here, all subsequent streamed output for the rest of the
+          // turn is silently dropped while the turn still visibly "completes".
+          // Reassigning live also fixes abort-after-steer, since every
+          // `turn/interrupt` call site reads `appServerTurnId` by reference.
+          if (
+            typeof steerResponse?.turnId === "string" &&
+            steerResponse.turnId.length > 0
+          ) {
+            appServerTurnId = steerResponse.turnId;
+          }
+          return { ok: true };
+        } catch (error) {
+          console.warn("[codex-app-server-runtime] turn/steer rejected", {
             threadId,
-            expectedTurnId: appServerTurnId,
-            text,
-            clientMessageId,
-          }),
-          { timeoutMs: CODEX_STEER_REQUEST_TIMEOUT_MS },
-        );
-        // CRITICAL: the steer response may carry a *new* turnId. The notification
-        // filter (see the `client.subscribe` handler below) drops any message
-        // whose `params.turnId` doesn't match `appServerTurnId`. If we don't
-        // reassign it here, all subsequent streamed output for the rest of the
-        // turn is silently dropped while the turn still visibly "completes".
-        // Reassigning live also fixes abort-after-steer, since every
-        // `turn/interrupt` call site reads `appServerTurnId` by reference.
-        if (
-          typeof steerResponse?.turnId === "string" &&
-          steerResponse.turnId.length > 0
-        ) {
-          appServerTurnId = steerResponse.turnId;
-        }
-        return { ok: true };
-      } catch (error) {
-        console.warn("[codex-app-server-runtime] turn/steer rejected", {
-          threadId,
-          appServerTurnId,
-          error: toErrorMessage(error),
-        });
-        return {
-          ok: false,
-          reason: "turn-not-steerable",
-          pendingRequestIds: [],
-        };
-      }
-    });
-
-    const unsubscribe = client.subscribe((message) => {
-      if (codexDebug && shouldDebugCodexAppServerMessage(message)) {
-        console.debug("[codex-app-server-runtime] raw lifecycle message", {
-          activeThreadId: threadId,
-          activeTurnId: appServerTurnId || null,
-          message: summarizeCodexAppServerDebugMessage(message),
-        });
-      }
-      if (completed) {
-        return;
-      }
-      if (!message.method) {
-        return;
-      }
-
-      if (Object.prototype.hasOwnProperty.call(message, "id")) {
-        const requestParams = isRecord(message.params) ? message.params : null;
-        const requestThreadId =
-          typeof requestParams?.threadId === "string"
-            ? requestParams.threadId
-            : null;
-        // Notifications are thread-filtered further down, but requests were
-        // not: with the App Server client shared process-wide, a request raised
-        // on another thread (an isolated Advisor thread, or another task's turn)
-        // surfaced in *this* turn's UI and was answered on its behalf.
-        if (
-          requestThreadId &&
-          threadId &&
-          requestThreadId !== threadId &&
-          !workerActivity.ownsChildThread(requestThreadId)
-        ) {
-          return;
-        }
-        const requestId = String(message.id);
-        const secondaryDenial = secondaryReadOnly
-          ? buildCodexSecondaryServerRequestDenial(message.method)
-          : null;
-        if (secondaryDenial) {
-          void client
-            .respond(message.id as JsonRpcId, secondaryDenial)
-            .catch(() => {});
-          emitBridgeEvent({
-            type: "error",
-            message:
-              "Codex secondary execution requested an interactive or privileged operation.",
-            recoverable: false,
+            appServerTurnId,
+            error: toErrorMessage(error),
           });
+          return {
+            ok: false,
+            reason: "turn-not-steerable",
+            pendingRequestIds: [],
+          };
+        }
+      });
+
+      const unsubscribe = client.subscribe((message) => {
+        if (codexDebug && shouldDebugCodexAppServerMessage(message)) {
+          console.debug("[codex-app-server-runtime] raw lifecycle message", {
+            activeThreadId: threadId,
+            activeTurnId: appServerTurnId || null,
+            message: summarizeCodexAppServerDebugMessage(message),
+          });
+        }
+        if (completed) {
           return;
         }
-        switch (message.method as ServerRequestMethod) {
-          case "item/commandExecution/requestApproval": {
-            const params = (message.params ?? {}) as Record<string, unknown>;
-            const approvalInput = buildApprovalInput({ params });
-            pendingApprovalRequests.set(requestId, {
-              serverRequestId: message.id as JsonRpcId,
-              responseKind: "commandExecution",
-            });
-            void elicitationPauseController.begin(requestId);
-            scheduleApprovalAutoDecline({ requestId, toolName: "bash" });
+        if (!message.method) {
+          return;
+        }
+
+        if (Object.prototype.hasOwnProperty.call(message, "id")) {
+          const requestParams = isRecord(message.params)
+            ? message.params
+            : null;
+          const requestThreadId =
+            typeof requestParams?.threadId === "string"
+              ? requestParams.threadId
+              : null;
+          // Notifications are thread-filtered further down, but requests were
+          // not: with the App Server client shared process-wide, a request raised
+          // on another thread (an isolated Advisor thread, or another task's turn)
+          // surfaced in *this* turn's UI and was answered on its behalf.
+          if (
+            requestThreadId &&
+            threadId &&
+            requestThreadId !== threadId &&
+            !workerActivity.ownsChildThread(requestThreadId)
+          ) {
+            return;
+          }
+          const requestId = String(message.id);
+          const secondaryDenial = secondaryReadOnly
+            ? buildCodexSecondaryServerRequestDenial(message.method)
+            : null;
+          if (secondaryDenial) {
+            void client
+              .respond(message.id as JsonRpcId, secondaryDenial)
+              .catch(() => {});
             emitBridgeEvent({
-              type: "approval",
-              toolName: "bash",
-              requestId,
-              description: buildApprovalDescription({
-                method: "item/commandExecution/requestApproval",
-                params,
-              }),
-              ...(approvalInput ? { input: approvalInput } : {}),
+              type: "error",
+              message:
+                "Codex secondary execution requested an interactive or privileged operation.",
+              recoverable: false,
             });
             return;
           }
-          case "item/fileChange/requestApproval": {
-            const params = (message.params ?? {}) as Record<string, unknown>;
-            pendingApprovalRequests.set(requestId, {
-              serverRequestId: message.id as JsonRpcId,
-              responseKind: "fileChange",
-            });
-            void elicitationPauseController.begin(requestId);
-            scheduleApprovalAutoDecline({ requestId, toolName: "apply_patch" });
-            emitBridgeEvent({
-              type: "approval",
-              toolName: "apply_patch",
-              requestId,
-              description: buildApprovalDescription({
-                method: "item/fileChange/requestApproval",
-                params,
-              }),
-            });
-            return;
-          }
-          case "item/permissions/requestApproval": {
-            const params = (message.params ?? {}) as Record<string, unknown>;
-            pendingApprovalRequests.set(requestId, {
-              serverRequestId: message.id as JsonRpcId,
-              responseKind: "permissions",
-              permissions:
-                typeof params.permissions === "object" && params.permissions
-                  ? (params.permissions as PendingApprovalRequest["permissions"])
-                  : null,
-            });
-            void elicitationPauseController.begin(requestId);
-            scheduleApprovalAutoDecline({ requestId, toolName: "permissions" });
-            emitBridgeEvent({
-              type: "approval",
-              toolName: "permissions",
-              requestId,
-              description: buildApprovalDescription({
-                method: "item/permissions/requestApproval",
-                params,
-              }),
-            });
-            return;
-          }
-          case "applyPatchApproval":
-          case "execCommandApproval": {
-            const params = (message.params ?? {}) as Record<string, unknown>;
-            const approvalInput = buildApprovalInput({ params });
-            pendingApprovalRequests.set(requestId, {
-              serverRequestId: message.id as JsonRpcId,
-              responseKind: "review",
-            });
-            void elicitationPauseController.begin(requestId);
-            scheduleApprovalAutoDecline({
-              requestId,
-              toolName: mapApprovalToolName(
-                message.method as ServerRequestMethod,
-              ),
-            });
-            emitBridgeEvent({
-              type: "approval",
-              toolName: mapApprovalToolName(
-                message.method as ServerRequestMethod,
-              ),
-              requestId,
-              description: buildApprovalDescription({
-                method: message.method as ServerRequestMethod,
-                params,
-              }),
-              ...(approvalInput ? { input: approvalInput } : {}),
-            });
-            return;
-          }
-          case "item/tool/requestUserInput": {
-            const params = (message.params ?? {}) as Record<string, unknown>;
-            const questions = Array.isArray(params.questions)
-              ? mapCodexUserInputQuestions(
-                  params.questions as Array<Record<string, unknown>>,
-                )
-              : [];
-            pendingUserInputRequests.set(requestId, {
-              serverRequestId: message.id as JsonRpcId,
-              responseKind: "tool",
-            });
-            void elicitationPauseController.begin(requestId);
-            scheduleUserInputAutoDecline({
-              requestId,
-              toolName: "request_user_input",
-            });
-            emitBridgeEvent({
-              type: "user_input",
-              toolName: "request_user_input",
-              requestId,
-              questions,
-            });
-            return;
-          }
-          case "mcpServer/elicitation/request": {
-            const params = (message.params ?? {}) as Record<string, unknown>;
-            const approval = mapCodexElicitationToApproval(params);
-            if (
-              approval &&
-              shouldAutoApproveStaveLocalMcpElicitation({
-                enabled:
-                  runtimeOptions?.codexAutoApproveStaveLocalMcpTools === true,
-                params,
-              })
-            ) {
-              void client
-                .respond(message.id as JsonRpcId, { action: "accept" })
-                .catch((error) => {
-                  emitBridgeEvent({
-                    type: "error",
-                    message: `Codex could not auto-approve ${approval.toolName}: ${
-                      error instanceof Error ? error.message : String(error)
-                    }`,
-                    recoverable: true,
-                  });
-                });
-              return;
-            }
-            if (approval) {
+          switch (message.method as ServerRequestMethod) {
+            case "item/commandExecution/requestApproval": {
+              const params = (message.params ?? {}) as Record<string, unknown>;
+              const approvalInput = buildApprovalInput({ params });
               pendingApprovalRequests.set(requestId, {
                 serverRequestId: message.id as JsonRpcId,
-                responseKind: "elicitation",
+                responseKind: "commandExecution",
+              });
+              void elicitationPauseController.begin(requestId);
+              scheduleApprovalAutoDecline({ requestId, toolName: "bash" });
+              emitBridgeEvent({
+                type: "approval",
+                toolName: "bash",
+                requestId,
+                description: buildApprovalDescription({
+                  method: "item/commandExecution/requestApproval",
+                  params,
+                }),
+                ...(approvalInput ? { input: approvalInput } : {}),
+              });
+              return;
+            }
+            case "item/fileChange/requestApproval": {
+              const params = (message.params ?? {}) as Record<string, unknown>;
+              pendingApprovalRequests.set(requestId, {
+                serverRequestId: message.id as JsonRpcId,
+                responseKind: "fileChange",
               });
               void elicitationPauseController.begin(requestId);
               scheduleApprovalAutoDecline({
                 requestId,
-                toolName: approval.toolName,
+                toolName: "apply_patch",
               });
               emitBridgeEvent({
                 type: "approval",
-                toolName: approval.toolName,
+                toolName: "apply_patch",
                 requestId,
-                description: approval.description,
+                description: buildApprovalDescription({
+                  method: "item/fileChange/requestApproval",
+                  params,
+                }),
               });
               return;
             }
-            const elicitation = mapCodexElicitationToUserInput(params);
-            if (!elicitation) {
+            case "item/permissions/requestApproval": {
+              const params = (message.params ?? {}) as Record<string, unknown>;
+              pendingApprovalRequests.set(requestId, {
+                serverRequestId: message.id as JsonRpcId,
+                responseKind: "permissions",
+                permissions:
+                  typeof params.permissions === "object" && params.permissions
+                    ? (params.permissions as PendingApprovalRequest["permissions"])
+                    : null,
+              });
+              void elicitationPauseController.begin(requestId);
+              scheduleApprovalAutoDecline({
+                requestId,
+                toolName: "permissions",
+              });
               emitBridgeEvent({
-                type: "error",
-                message:
-                  "Codex MCP elicitation could not be rendered by Stave.",
-                recoverable: true,
+                type: "approval",
+                toolName: "permissions",
+                requestId,
+                description: buildApprovalDescription({
+                  method: "item/permissions/requestApproval",
+                  params,
+                }),
               });
-              void client.respond(message.id as JsonRpcId, {
-                action: "cancel",
+              return;
+            }
+            case "applyPatchApproval":
+            case "execCommandApproval": {
+              const params = (message.params ?? {}) as Record<string, unknown>;
+              const approvalInput = buildApprovalInput({ params });
+              pendingApprovalRequests.set(requestId, {
+                serverRequestId: message.id as JsonRpcId,
+                responseKind: "review",
+              });
+              void elicitationPauseController.begin(requestId);
+              scheduleApprovalAutoDecline({
+                requestId,
+                toolName: mapApprovalToolName(
+                  message.method as ServerRequestMethod,
+                ),
+              });
+              emitBridgeEvent({
+                type: "approval",
+                toolName: mapApprovalToolName(
+                  message.method as ServerRequestMethod,
+                ),
+                requestId,
+                description: buildApprovalDescription({
+                  method: message.method as ServerRequestMethod,
+                  params,
+                }),
+                ...(approvalInput ? { input: approvalInput } : {}),
               });
               return;
             }
-            pendingUserInputRequests.set(requestId, {
-              serverRequestId: message.id as JsonRpcId,
-              responseKind: "elicitation",
-              elicitationMode: elicitation.mode,
-              elicitationFields: elicitation.fields,
-            });
-            void elicitationPauseController.begin(requestId);
-            scheduleUserInputAutoDecline({
-              requestId,
-              toolName: "mcp_elicitation",
-            });
-            emitBridgeEvent({
-              type: "user_input",
-              toolName: "mcp_elicitation",
-              requestId,
-              questions: elicitation.questions,
-            });
-            return;
-          }
-          case "item/tool/call":
-            emitBridgeEvent({
-              type: "error",
-              message: `${message.method} is not supported in Stave yet.`,
-              recoverable: true,
-            });
-            void client.respond(message.id as JsonRpcId, {});
-            return;
-          case "account/chatgptAuthTokens/refresh": {
-            const params = (message.params ??
-              {}) as CodexChatgptAuthTokensRefreshParams;
-            void (async () => {
-              try {
-                const response = await refreshCodexChatgptAuthTokens({
-                  executablePath: codexExecutablePath,
-                  previousAccountId: params.previousAccountId,
-                });
-                await client.respond(message.id as JsonRpcId, response);
-              } catch (error) {
-                const messageText = toCodexUserFacingErrorMessage({
-                  message:
-                    error instanceof Error ? error.message : String(error),
-                });
-                emitBridgeEvent({
-                  type: "error",
-                  message: messageText,
-                  recoverable: true,
-                });
-                await client.respondError(message.id as JsonRpcId, {
-                  code: -32000,
-                  message: messageText,
-                });
-              }
-            })();
-            return;
-          }
-          default:
-            return;
-        }
-      }
-
-      const params = (message.params ?? {}) as Record<string, unknown>;
-      if (message.method === "thread/goal/updated") {
-        const goal = normalizeCodexThreadGoal(params.goal);
-        const eventThreadId =
-          typeof params.threadId === "string"
-            ? params.threadId
-            : goal?.threadId;
-        if (eventThreadId === threadId && goal) {
-          emitBridgeEvent(buildCodexGoalStatusEvent(goal));
-        }
-        return;
-      }
-      if (message.method === "thread/goal/cleared") {
-        const eventThreadId =
-          typeof params.threadId === "string" ? params.threadId : "";
-        if (eventThreadId === threadId) {
-          emitBridgeEvent(buildCodexGoalStatusEvent(null));
-        }
-        return;
-      }
-      const eventThreadId =
-        typeof params.threadId === "string" ? params.threadId : "";
-      if (eventThreadId && eventThreadId !== threadId) {
-        const mapped = workerActivity.mapForeignNotification({
-          method: message.method,
-          threadId: eventThreadId,
-          params,
-        });
-        emitBridgeEvents(mapped.events);
-        return;
-      }
-      if (
-        typeof params.turnId === "string" &&
-        appServerTurnId &&
-        params.turnId !== appServerTurnId
-      ) {
-        return;
-      }
-      switch (message.method) {
-        case "hook/started":
-        case "hook/completed": {
-          if (!codexCapabilities.hooks.lifecycleEvents) {
-            return;
-          }
-          const hookEvent = mapCodexHookNotificationToBridgeEvent(params);
-          if (hookEvent) {
-            emitBridgeEvent(hookEvent);
-          }
-          return;
-        }
-        case "item/started": {
-          const workerMapping = workerActivity.mapStarted(params.item);
-          if (workerMapping.handled) {
-            emitBridgeEvents(workerMapping.events);
-            return;
-          }
-          const startedItem = params.item as
-            { type?: string; id?: string; command?: string } | undefined;
-          const startedItemId =
-            typeof startedItem?.id === "string" ? startedItem.id : "";
-          if (startedItem?.type === "contextCompaction") {
-            emitBridgeEvent({ type: "system", content: "Compacting conversation context…" });
-            return;
-          }
-          if (startedItem?.type === "commandExecution") {
-            if (
-              !startedItemId ||
-              startedCommandExecutionIds.has(startedItemId)
-            ) {
-              return;
-            }
-            startedCommandExecutionIds.add(startedItemId);
-            emitBridgeEvent({
-              type: "tool",
-              toolUseId: startedItemId,
-              toolName: "bash",
-              input:
-                typeof startedItem.command === "string"
-                  ? startedItem.command
-                  : "",
-              state: "input-available",
-            });
-            return;
-          }
-          if (startedItem?.type === "fileChange") {
-            if (!startedItemId || startedFileChangeIds.has(startedItemId)) {
-              return;
-            }
-            const openEvent = buildCodexFileChangeToolEvent({
-              itemId: startedItemId,
-              item: params.item as { changes?: Array<{ path?: string }> },
-            });
-            if (openEvent) {
-              startedFileChangeIds.add(startedItemId);
-              emitBridgeEvent(openEvent);
-            }
-            return;
-          }
-          const item = params.item as CodexMcpToolCallItem | undefined;
-          if (item?.type !== "mcpToolCall") {
-            return;
-          }
-          const itemId = typeof item.id === "string" ? item.id : "";
-          if (!itemId || startedMcpToolCallIds.has(itemId)) {
-            return;
-          }
-          startedMcpToolCallIds.add(itemId);
-          emitBridgeEvent(
-            buildCodexMcpToolCallInputEvent(item, workerExecution),
-          );
-          return;
-        }
-        case "item/agentMessage/delta": {
-          const itemId = typeof params.itemId === "string" ? params.itemId : "";
-          const delta = typeof params.delta === "string" ? params.delta : "";
-          if (!delta) {
-            return;
-          }
-          streamedAgentMessageIds.add(itemId);
-          if (itemId) {
-            agentMessageBuffers.set(
-              itemId,
-              appendBoundedCodexBuffer({
-                current: agentMessageBuffers.get(itemId) ?? "",
-                chunk: delta,
-                keep: "prefix",
-                maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
-              }),
-            );
-            lastAgentMessageSegmentId = itemId;
-          }
-          emitBridgeEvent({
-            type: "text",
-            text: delta,
-            ...(itemId ? { segmentId: itemId } : {}),
-          });
-          return;
-        }
-        case "item/reasoning/textDelta": {
-          const itemId = typeof params.itemId === "string" ? params.itemId : "";
-          const delta = typeof params.delta === "string" ? params.delta : "";
-          if (!delta) {
-            return;
-          }
-          streamedReasoningIds.add(itemId);
-          emitBridgeEvent({
-            type: "thinking",
-            text: delta,
-            isStreaming: true,
-          });
-          return;
-        }
-        case "item/reasoning/summaryTextDelta": {
-          const itemId = typeof params.itemId === "string" ? params.itemId : "";
-          const delta = typeof params.delta === "string" ? params.delta : "";
-          if (!delta) {
-            return;
-          }
-          streamedReasoningIds.add(itemId);
-          emitBridgeEvent({
-            type: "thinking",
-            text: delta,
-            isStreaming: true,
-          });
-          return;
-        }
-        case "item/plan/delta": {
-          const itemId = typeof params.itemId === "string" ? params.itemId : "";
-          const delta = typeof params.delta === "string" ? params.delta : "";
-          if (!delta) {
-            return;
-          }
-          sawNativePlan = true;
-          const next = appendBoundedCodexBuffer({
-            current: planBuffers.get(itemId) ?? "",
-            chunk: delta,
-            keep: "prefix",
-            maxBytes: CODEX_APP_SERVER_PLAN_BUFFER_MAX_BYTES,
-          });
-          planBuffers.set(itemId, next);
-          const now = Date.now();
-          const lastEmitAt = planLastEmitAt.get(itemId) ?? 0;
-          if (
-            now - lastEmitAt >=
-            CODEX_APP_SERVER_PARTIAL_PLAN_EMIT_THROTTLE_MS
-          ) {
-            planLastEmitAt.set(itemId, now);
-            emitBridgeEvent({
-              type: "plan_ready",
-              planText: truncateCodexSnapshot({
-                value: next,
-                maxBytes: CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES,
-              }),
-              ...(itemId ? { sourceSegmentId: itemId } : {}),
-            });
-          }
-          return;
-        }
-        case "item/commandExecution/outputDelta": {
-          const itemId = typeof params.itemId === "string" ? params.itemId : "";
-          const delta = typeof params.delta === "string" ? params.delta : "";
-          if (!itemId || !delta) {
-            return;
-          }
-          const next = appendBoundedCodexBuffer({
-            current: toolOutputBuffers.get(itemId) ?? "",
-            chunk: delta,
-            keep: "suffix",
-            maxBytes: CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES,
-          });
-          toolOutputBuffers.set(itemId, next);
-          const now = Date.now();
-          const lastEmitAt = toolOutputLastEmitAt.get(itemId) ?? 0;
-          if (
-            now - lastEmitAt >=
-            CODEX_APP_SERVER_PARTIAL_TOOL_EMIT_THROTTLE_MS
-          ) {
-            toolOutputLastEmitAt.set(itemId, now);
-            emitBridgeEvent({
-              type: "tool_result",
-              tool_use_id: itemId,
-              output: truncateCodexSnapshot({
-                value: next,
-                maxBytes: CODEX_APP_SERVER_PARTIAL_TOOL_OUTPUT_MAX_BYTES,
-              }),
-              isPartial: true,
-            });
-          }
-          return;
-        }
-        case "item/mcpToolCall/progress": {
-          const itemId = typeof params.itemId === "string" ? params.itemId : "";
-          const progressMessage =
-            typeof params.message === "string" ? params.message : "";
-          if (!progressMessage) {
-            return;
-          }
-          // `itemId` is a tool-use id, never an agent id. Only tag `agentId`
-          // when this item actually spawned a child thread Codex named.
-          const progressAgentId = itemId
-            ? (workerActivity.agentIdForToolUseId(itemId) ?? "")
-            : "";
-          emitBridgeEvent({
-            type: "subagent_progress",
-            ...(itemId ? { toolUseId: itemId } : {}),
-            content: progressMessage,
-            ...(progressAgentId ? { agentId: progressAgentId } : {}),
-          });
-          return;
-        }
-        case "thread/tokenUsage/updated": {
-          const contextUsage = normalizeCodexContextUsage(params.tokenUsage);
-          if (contextUsage) emitBridgeEvent(contextUsage);
-          const normalizedUsage = normalizeCodexTokenUsage(
-            params.tokenUsage as Parameters<typeof normalizeCodexTokenUsage>[0],
-          );
-          if (!normalizedUsage) {
-            return;
-          }
-          latestUsage = normalizedUsage;
-          // Replay overwrites the assistant message's usage fields rather than
-          // accumulating them, so emitting the running total repeatedly is
-          // safe and keeps the Usage metric live instead of blank until the
-          // turn ends. Waiting for the first output token keeps a usage ping
-          // from opening an assistant message before the model has said
-          // anything; `turn/completed` still emits the authoritative total.
-          const usageNow = Date.now();
-          if (
-            latestUsage.outputTokens > 0 &&
-            usageNow - lastUsageEmitAt >=
-              CODEX_APP_SERVER_USAGE_EMIT_THROTTLE_MS
-          ) {
-            lastUsageEmitAt = usageNow;
-            emitBridgeEvent({ type: "usage", ...latestUsage });
-          }
-          return;
-        }
-        case "error": {
-          const errorMessage =
-            extractCodexAppServerErrorMessage(params) ??
-            "Codex App Server error.";
-          lastAppServerErrorMessage = errorMessage;
-          emitBridgeEvent({
-            type: "error",
-            message: toCodexUserFacingErrorMessage({ message: errorMessage }),
-            recoverable: true,
-          });
-          return;
-        }
-        case "item/completed": {
-          const workerMapping = workerActivity.mapCompleted(params.item);
-          if (workerMapping.handled) {
-            emitBridgeEvents(workerMapping.events);
-            return;
-          }
-          const item = params.item as
-            { type?: string; id?: string } | undefined;
-          if (!item?.type) {
-            return;
-          }
-          const itemId = typeof item.id === "string" ? item.id : "";
-          switch (item.type) {
-            case "contextCompaction":
-              emitBridgeEvent(buildCodexCompactionCompletedEvent("auto", runtimeCwd));
-              return;
-            case "agentMessage": {
-              const text =
-                typeof (item as { text?: unknown }).text === "string"
-                  ? String((item as { text?: unknown }).text)
-                  : "";
-              if (itemId && text) {
-                agentMessageBuffers.set(
-                  itemId,
-                  truncateCodexSnapshot({
-                    value: text,
-                    maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
-                  }),
-                );
-                lastAgentMessageSegmentId = itemId;
-              }
-              if (!streamedAgentMessageIds.has(itemId) && text) {
-                emitBridgeEvent({
-                  type: "text",
-                  text: truncateCodexSnapshot({
-                    value: text,
-                    maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
-                  }),
-                  ...(itemId ? { segmentId: itemId } : {}),
-                });
-              }
-              return;
-            }
-            case "plan": {
-              const text =
-                typeof (item as { text?: unknown }).text === "string"
-                  ? String((item as { text?: unknown }).text)
-                  : "";
-              if (itemId) {
-                planLastEmitAt.delete(itemId);
-              }
-              const planText = truncateCodexSnapshot({
-                value: text || planBuffers.get(itemId) || "",
-                maxBytes: CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES,
+            case "item/tool/requestUserInput": {
+              const params = (message.params ?? {}) as Record<string, unknown>;
+              const questions = Array.isArray(params.questions)
+                ? mapCodexUserInputQuestions(
+                    params.questions as Array<Record<string, unknown>>,
+                  )
+                : [];
+              pendingUserInputRequests.set(requestId, {
+                serverRequestId: message.id as JsonRpcId,
+                responseKind: "tool",
               });
-              if (itemId) {
-                planBuffers.delete(itemId);
-              }
-              if (planText.trim().length > 0) {
-                sawNativePlan = true;
-                emitBridgeEvent({
-                  type: "plan_ready",
-                  planText,
-                  ...(itemId ? { sourceSegmentId: itemId } : {}),
-                });
-              }
-              if (runtimeOptions?.codexPlanMode) {
-                shouldInterruptPlanTurn = true;
-                requestPlanInterrupt();
-              }
+              void elicitationPauseController.begin(requestId);
+              scheduleUserInputAutoDecline({
+                requestId,
+                toolName: "request_user_input",
+              });
+              emitBridgeEvent({
+                type: "user_input",
+                toolName: "request_user_input",
+                requestId,
+                questions,
+              });
               return;
             }
-            case "reasoning": {
-              const reasoningItem = item as {
-                content?: string[];
-                summary?: string[];
-              };
-              if (!streamedReasoningIds.has(itemId)) {
-                const text = truncateCodexSnapshot({
-                  value: [
-                    ...(reasoningItem.summary ?? []),
-                    ...(reasoningItem.content ?? []),
-                  ].join("\n"),
-                  maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
-                });
-                if (text.trim().length > 0) {
-                  emitBridgeEvent({
-                    type: "thinking",
-                    text,
-                    isStreaming: false,
+            case "mcpServer/elicitation/request": {
+              const params = (message.params ?? {}) as Record<string, unknown>;
+              const approval = mapCodexElicitationToApproval(params);
+              if (
+                approval &&
+                shouldAutoApproveStaveLocalMcpElicitation({
+                  enabled:
+                    runtimeOptions?.codexAutoApproveStaveLocalMcpTools === true,
+                  params,
+                })
+              ) {
+                void client
+                  .respond(message.id as JsonRpcId, { action: "accept" })
+                  .catch((error) => {
+                    emitBridgeEvent({
+                      type: "error",
+                      message: `Codex could not auto-approve ${approval.toolName}: ${
+                        error instanceof Error ? error.message : String(error)
+                      }`,
+                      recoverable: true,
+                    });
                   });
-                  return;
-                }
                 return;
               }
-              emitBridgeEvent({
-                type: "thinking",
-                text: "",
-                isStreaming: false,
-              });
-              return;
-            }
-            case "commandExecution": {
-              const commandItem = item as {
-                command?: string;
-                aggregatedOutput?: string | null;
-                status?: string;
-              };
-              if (itemId) {
-                toolOutputLastEmitAt.delete(itemId);
-              }
-              const output = truncateCodexSnapshot({
-                value:
-                  typeof commandItem.aggregatedOutput === "string"
-                    ? commandItem.aggregatedOutput
-                    : (toolOutputBuffers.get(itemId) ?? ""),
-                maxBytes: CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES,
-              });
-              if (itemId) {
-                toolOutputBuffers.delete(itemId);
-              }
-              // `item/started` already opened this command (and its streamed
-              // output has been landing against it), so only re-announce the
-              // tool when the opener never arrived.
-              const alreadyStarted = Boolean(
-                itemId && startedCommandExecutionIds.delete(itemId),
-              );
-              emitBridgeEvents([
-                ...(alreadyStarted
-                  ? []
-                  : [
-                      {
-                        type: "tool" as const,
-                        ...(itemId ? { toolUseId: itemId } : {}),
-                        toolName: "bash",
-                        input:
-                          typeof commandItem.command === "string"
-                            ? commandItem.command
-                            : "",
-                        state: "input-available" as const,
-                      },
-                    ]),
-                {
-                  type: "tool_result",
-                  tool_use_id: itemId,
-                  output,
-                  ...(commandItem.status === "failed" ||
-                  commandItem.status === "declined"
-                    ? { isError: true }
-                    : {}),
-                },
-              ]);
-              return;
-            }
-            case "mcpToolCall": {
-              const mcpItem = item as CodexMcpToolCallItem;
-              const completedEvents: BridgeEvent[] = [];
-              if (!itemId || !startedMcpToolCallIds.delete(itemId)) {
-                completedEvents.push(
-                  buildCodexMcpToolCallInputEvent(mcpItem, workerExecution),
-                );
-              }
-              completedEvents.push({
-                type: "tool_result",
-                tool_use_id: itemId,
-                output: mcpItem.error?.message
-                  ? `[error] ${mcpItem.error.message}`
-                  : truncateCodexSnapshot({
-                      value: toText(mcpItem.result ?? ""),
-                      maxBytes: CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES,
-                    }),
-                ...(mcpItem.status === "failed" ? { isError: true } : {}),
-              });
-              const browserConnectionEvent =
-                providerBrowserTracker.observeCodexMcpCall({
-                  server: mcpItem.server,
-                  tool: mcpItem.tool,
-                  input: serializeCodexMcpToolCallArguments(mcpItem.arguments),
-                  failed: Boolean(
-                    mcpItem.status === "failed" || mcpItem.error?.message,
-                  ),
+              if (approval) {
+                pendingApprovalRequests.set(requestId, {
+                  serverRequestId: message.id as JsonRpcId,
+                  responseKind: "elicitation",
                 });
-              if (browserConnectionEvent) {
-                completedEvents.push(browserConnectionEvent);
+                void elicitationPauseController.begin(requestId);
+                scheduleApprovalAutoDecline({
+                  requestId,
+                  toolName: approval.toolName,
+                });
+                emitBridgeEvent({
+                  type: "approval",
+                  toolName: approval.toolName,
+                  requestId,
+                  description: approval.description,
+                });
+                return;
               }
-              emitBridgeEvents(completedEvents);
-              return;
-            }
-            case "webSearch": {
-              const query =
-                typeof (item as { query?: unknown }).query === "string"
-                  ? String((item as { query?: unknown }).query)
-                  : "";
-              emitBridgeEvents([
-                {
-                  type: "tool",
-                  ...(itemId ? { toolUseId: itemId } : {}),
-                  toolName: "web_search",
-                  input: query,
-                  state: "input-available",
-                },
-                {
-                  type: "tool_result",
-                  tool_use_id: itemId,
-                  output: "",
-                },
-              ]);
-              return;
-            }
-            case "fileChange": {
-              emitCodexFileChangeEvents({
-                itemId,
-                item: item as {
-                  changes?: Array<{ path?: string }>;
-                  status?: string;
-                },
-                alreadyStarted: Boolean(
-                  itemId && startedFileChangeIds.delete(itemId),
-                ),
-                diffTracker,
-                emit: emitBridgeEvents,
+              const elicitation = mapCodexElicitationToUserInput(params);
+              if (!elicitation) {
+                emitBridgeEvent({
+                  type: "error",
+                  message:
+                    "Codex MCP elicitation could not be rendered by Stave.",
+                  recoverable: true,
+                });
+                void client.respond(message.id as JsonRpcId, {
+                  action: "cancel",
+                });
+                return;
+              }
+              pendingUserInputRequests.set(requestId, {
+                serverRequestId: message.id as JsonRpcId,
+                responseKind: "elicitation",
+                elicitationMode: elicitation.mode,
+                elicitationFields: elicitation.fields,
               });
-              return;
-            }
-            case "todo_list": {
-              // Mirror the legacy codex-sdk runtime: surface Codex's todo_list
-              // items as a TodoWrite tool_use bridge event so the TodoFloater
-              // (which scans for toolName === "TodoWrite") can render them.
-              const todoItem = item as {
-                items?: Array<{ text?: string; completed?: boolean }>;
-              };
-              const todos = (todoItem.items ?? []).map((entry) => ({
-                content: entry.text ?? "",
-                status: entry.completed ? "completed" : "pending",
-              }));
+              void elicitationPauseController.begin(requestId);
+              scheduleUserInputAutoDecline({
+                requestId,
+                toolName: "mcp_elicitation",
+              });
               emitBridgeEvent({
-                type: "tool",
-                ...(itemId ? { toolUseId: itemId } : {}),
-                toolName: "TodoWrite",
-                input: JSON.stringify({ todos }),
-                state: "output-available",
+                type: "user_input",
+                toolName: "mcp_elicitation",
+                requestId,
+                questions: elicitation.questions,
               });
+              return;
+            }
+            case "item/tool/call":
+              emitBridgeEvent({
+                type: "error",
+                message: `${message.method} is not supported in Stave yet.`,
+                recoverable: true,
+              });
+              void client.respond(message.id as JsonRpcId, {});
+              return;
+            case "account/chatgptAuthTokens/refresh": {
+              const params = (message.params ??
+                {}) as CodexChatgptAuthTokensRefreshParams;
+              void (async () => {
+                try {
+                  const response = await refreshCodexChatgptAuthTokens({
+                    executablePath: codexExecutablePath,
+                    previousAccountId: params.previousAccountId,
+                  });
+                  await client.respond(message.id as JsonRpcId, response);
+                } catch (error) {
+                  const messageText = toCodexUserFacingErrorMessage({
+                    message:
+                      error instanceof Error ? error.message : String(error),
+                  });
+                  emitBridgeEvent({
+                    type: "error",
+                    message: messageText,
+                    recoverable: true,
+                  });
+                  await client.respondError(message.id as JsonRpcId, {
+                    code: -32000,
+                    message: messageText,
+                  });
+                }
+              })();
               return;
             }
             default:
               return;
           }
         }
-        case "turn/completed": {
-          const turn = params.turn as
-            | {
-                status?: string;
-                error?: { message?: string | null } | null;
-              }
-            | undefined;
-          if (runtimeOptions?.codexPlanMode && !sawNativePlan) {
-            const fallbackSegmentId = lastAgentMessageSegmentId.trim();
-            const fallbackPlanText = truncateCodexSnapshot({
-              value: fallbackSegmentId
-                ? (agentMessageBuffers.get(fallbackSegmentId) ?? "")
-                : "",
-              maxBytes: CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES,
-            });
-            if (fallbackPlanText.trim().length > 0) {
-              emitBridgeEvent({
-                type: "plan_ready",
-                planText: fallbackPlanText,
-                ...(fallbackSegmentId
-                  ? { sourceSegmentId: fallbackSegmentId }
-                  : {}),
-              });
-            }
+
+        const params = (message.params ?? {}) as Record<string, unknown>;
+        if (message.method === "thread/goal/updated") {
+          const goal = normalizeCodexThreadGoal(params.goal);
+          const eventThreadId =
+            typeof params.threadId === "string"
+              ? params.threadId
+              : goal?.threadId;
+          if (eventThreadId === threadId && goal) {
+            emitBridgeEvent(buildCodexGoalStatusEvent(goal));
           }
-          if (turn?.status === "failed" && !abortRequested) {
-            const [terminalError] = buildCodexTerminalFailureEvents({
-              message:
-                turn.error?.message ??
-                lastAppServerErrorMessage ??
-                "Codex App Server turn failed.",
-              stopReason: "failed",
-            });
-            emitBridgeEvent(terminalError);
-          }
-          if (latestUsage) {
-            emitBridgeEvent({
-              type: "usage",
-              ...latestUsage,
-            });
-          }
-          settleMissingProviderBrowserConnection();
-          const stopReason = resolveCodexTurnCompletionStopReason({
-            status: turn?.status,
-            abortRequested,
-          });
-          emitBridgeEvent({
-            type: "done",
-            ...(stopReason ? { stop_reason: stopReason } : {}),
-          });
-          finishTurnWait();
           return;
         }
-        default:
+        if (message.method === "thread/goal/cleared") {
+          const eventThreadId =
+            typeof params.threadId === "string" ? params.threadId : "";
+          if (eventThreadId === threadId) {
+            emitBridgeEvent(buildCodexGoalStatusEvent(null));
+          }
           return;
-      }
-    });
-
-    // ── Process-death listener: resolve waitForTurnCompletion if the app
-    // server exits unexpectedly so the turn never hangs forever. ──
-    const unsubscribeProcessExit = client.onProcessExit((exitMessage) => {
-      if (completed) {
-        return;
-      }
-      console.warn(
-        "[provider-runtime] Codex app-server process exited during turn",
-        { threadId, appServerTurnId: appServerTurnId || null, exitMessage },
-      );
-      const [terminalError] = buildCodexTerminalFailureEvents({
-        message: exitMessage,
+        }
+        const eventThreadId =
+          typeof params.threadId === "string" ? params.threadId : "";
+        if (eventThreadId && eventThreadId !== threadId) {
+          const mapped = workerActivity.mapForeignNotification({
+            method: message.method,
+            threadId: eventThreadId,
+            params,
+          });
+          emitBridgeEvents(mapped.events);
+          return;
+        }
+        if (
+          typeof params.turnId === "string" &&
+          appServerTurnId &&
+          params.turnId !== appServerTurnId
+        ) {
+          return;
+        }
+        switch (message.method) {
+          case "hook/started":
+          case "hook/completed": {
+            if (!codexCapabilities.hooks.lifecycleEvents) {
+              return;
+            }
+            const hookEvent = mapCodexHookNotificationToBridgeEvent(params);
+            if (hookEvent) {
+              emitBridgeEvent(hookEvent);
+            }
+            return;
+          }
+          case "item/started": {
+            const workerMapping = workerActivity.mapStarted(params.item);
+            if (workerMapping.handled) {
+              emitBridgeEvents(workerMapping.events);
+              return;
+            }
+            const startedItem = params.item as
+              { type?: string; id?: string; command?: string } | undefined;
+            const startedItemId =
+              typeof startedItem?.id === "string" ? startedItem.id : "";
+            if (startedItem?.type === "contextCompaction") {
+              emitBridgeEvent({
+                type: "system",
+                content: "Compacting conversation context…",
+              });
+              return;
+            }
+            if (startedItem?.type === "commandExecution") {
+              if (
+                !startedItemId ||
+                startedCommandExecutionIds.has(startedItemId)
+              ) {
+                return;
+              }
+              startedCommandExecutionIds.add(startedItemId);
+              emitBridgeEvent({
+                type: "tool",
+                toolUseId: startedItemId,
+                toolName: "bash",
+                input:
+                  typeof startedItem.command === "string"
+                    ? startedItem.command
+                    : "",
+                state: "input-available",
+              });
+              return;
+            }
+            if (startedItem?.type === "fileChange") {
+              if (!startedItemId || startedFileChangeIds.has(startedItemId)) {
+                return;
+              }
+              const openEvent = buildCodexFileChangeToolEvent({
+                itemId: startedItemId,
+                item: params.item as { changes?: Array<{ path?: string }> },
+              });
+              if (openEvent) {
+                startedFileChangeIds.add(startedItemId);
+                emitBridgeEvent(openEvent);
+              }
+              return;
+            }
+            const item = params.item as CodexMcpToolCallItem | undefined;
+            if (item?.type !== "mcpToolCall") {
+              return;
+            }
+            const itemId = typeof item.id === "string" ? item.id : "";
+            if (!itemId || startedMcpToolCallIds.has(itemId)) {
+              return;
+            }
+            startedMcpToolCallIds.add(itemId);
+            emitBridgeEvent(
+              buildCodexMcpToolCallInputEvent(item, workerExecution),
+            );
+            return;
+          }
+          case "item/agentMessage/delta": {
+            const itemId =
+              typeof params.itemId === "string" ? params.itemId : "";
+            const delta = typeof params.delta === "string" ? params.delta : "";
+            if (!delta) {
+              return;
+            }
+            streamedAgentMessageIds.add(itemId);
+            if (itemId) {
+              agentMessageBuffers.set(
+                itemId,
+                appendBoundedCodexBuffer({
+                  current: agentMessageBuffers.get(itemId) ?? "",
+                  chunk: delta,
+                  keep: "prefix",
+                  maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
+                }),
+              );
+              lastAgentMessageSegmentId = itemId;
+            }
+            emitBridgeEvent({
+              type: "text",
+              text: delta,
+              ...(itemId ? { segmentId: itemId } : {}),
+            });
+            return;
+          }
+          case "item/reasoning/textDelta": {
+            const itemId =
+              typeof params.itemId === "string" ? params.itemId : "";
+            const delta = typeof params.delta === "string" ? params.delta : "";
+            if (!delta) {
+              return;
+            }
+            streamedReasoningIds.add(itemId);
+            emitBridgeEvent({
+              type: "thinking",
+              text: delta,
+              isStreaming: true,
+            });
+            return;
+          }
+          case "item/reasoning/summaryTextDelta": {
+            const itemId =
+              typeof params.itemId === "string" ? params.itemId : "";
+            const delta = typeof params.delta === "string" ? params.delta : "";
+            if (!delta) {
+              return;
+            }
+            streamedReasoningIds.add(itemId);
+            emitBridgeEvent({
+              type: "thinking",
+              text: delta,
+              isStreaming: true,
+            });
+            return;
+          }
+          case "item/plan/delta": {
+            const itemId =
+              typeof params.itemId === "string" ? params.itemId : "";
+            const delta = typeof params.delta === "string" ? params.delta : "";
+            if (!delta) {
+              return;
+            }
+            sawNativePlan = true;
+            const next = appendBoundedCodexBuffer({
+              current: planBuffers.get(itemId) ?? "",
+              chunk: delta,
+              keep: "prefix",
+              maxBytes: CODEX_APP_SERVER_PLAN_BUFFER_MAX_BYTES,
+            });
+            planBuffers.set(itemId, next);
+            const now = Date.now();
+            const lastEmitAt = planLastEmitAt.get(itemId) ?? 0;
+            if (
+              now - lastEmitAt >=
+              CODEX_APP_SERVER_PARTIAL_PLAN_EMIT_THROTTLE_MS
+            ) {
+              planLastEmitAt.set(itemId, now);
+              emitBridgeEvent({
+                type: "plan_ready",
+                planText: truncateCodexSnapshot({
+                  value: next,
+                  maxBytes: CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES,
+                }),
+                ...(itemId ? { sourceSegmentId: itemId } : {}),
+              });
+            }
+            return;
+          }
+          case "item/commandExecution/outputDelta": {
+            const itemId =
+              typeof params.itemId === "string" ? params.itemId : "";
+            const delta = typeof params.delta === "string" ? params.delta : "";
+            if (!itemId || !delta) {
+              return;
+            }
+            const next = appendBoundedCodexBuffer({
+              current: toolOutputBuffers.get(itemId) ?? "",
+              chunk: delta,
+              keep: "suffix",
+              maxBytes: CODEX_APP_SERVER_TOOL_OUTPUT_BUFFER_MAX_BYTES,
+            });
+            toolOutputBuffers.set(itemId, next);
+            const now = Date.now();
+            const lastEmitAt = toolOutputLastEmitAt.get(itemId) ?? 0;
+            if (
+              now - lastEmitAt >=
+              CODEX_APP_SERVER_PARTIAL_TOOL_EMIT_THROTTLE_MS
+            ) {
+              toolOutputLastEmitAt.set(itemId, now);
+              emitBridgeEvent({
+                type: "tool_result",
+                tool_use_id: itemId,
+                output: truncateCodexSnapshot({
+                  value: next,
+                  maxBytes: CODEX_APP_SERVER_PARTIAL_TOOL_OUTPUT_MAX_BYTES,
+                }),
+                isPartial: true,
+              });
+            }
+            return;
+          }
+          case "item/mcpToolCall/progress": {
+            const itemId =
+              typeof params.itemId === "string" ? params.itemId : "";
+            const progressMessage =
+              typeof params.message === "string" ? params.message : "";
+            if (!progressMessage) {
+              return;
+            }
+            // `itemId` is a tool-use id, never an agent id. Only tag `agentId`
+            // when this item actually spawned a child thread Codex named.
+            const progressAgentId = itemId
+              ? (workerActivity.agentIdForToolUseId(itemId) ?? "")
+              : "";
+            emitBridgeEvent({
+              type: "subagent_progress",
+              ...(itemId ? { toolUseId: itemId } : {}),
+              content: progressMessage,
+              ...(progressAgentId ? { agentId: progressAgentId } : {}),
+            });
+            return;
+          }
+          case "thread/tokenUsage/updated": {
+            const contextUsage = normalizeCodexContextUsage(params.tokenUsage);
+            if (contextUsage) emitBridgeEvent(contextUsage);
+            const normalizedUsage = normalizeCodexTokenUsage(
+              params.tokenUsage as Parameters<
+                typeof normalizeCodexTokenUsage
+              >[0],
+            );
+            if (!normalizedUsage) {
+              return;
+            }
+            latestUsage = normalizedUsage;
+            // Replay overwrites the assistant message's usage fields rather than
+            // accumulating them, so emitting the running total repeatedly is
+            // safe and keeps the Usage metric live instead of blank until the
+            // turn ends. Waiting for the first output token keeps a usage ping
+            // from opening an assistant message before the model has said
+            // anything; `turn/completed` still emits the authoritative total.
+            const usageNow = Date.now();
+            if (
+              latestUsage.outputTokens > 0 &&
+              usageNow - lastUsageEmitAt >=
+                CODEX_APP_SERVER_USAGE_EMIT_THROTTLE_MS
+            ) {
+              lastUsageEmitAt = usageNow;
+              emitBridgeEvent({ type: "usage", ...latestUsage });
+            }
+            return;
+          }
+          case "error": {
+            const errorMessage =
+              extractCodexAppServerErrorMessage(params) ??
+              "Codex App Server error.";
+            lastAppServerErrorMessage = errorMessage;
+            emitBridgeEvent({
+              type: "error",
+              message: toCodexUserFacingErrorMessage({ message: errorMessage }),
+              recoverable: true,
+            });
+            return;
+          }
+          case "item/completed": {
+            const workerMapping = workerActivity.mapCompleted(params.item);
+            if (workerMapping.handled) {
+              emitBridgeEvents(workerMapping.events);
+              return;
+            }
+            const item = params.item as
+              { type?: string; id?: string } | undefined;
+            if (!item?.type) {
+              return;
+            }
+            const itemId = typeof item.id === "string" ? item.id : "";
+            switch (item.type) {
+              case "contextCompaction":
+                emitBridgeEvent(
+                  buildCodexCompactionCompletedEvent("auto", runtimeCwd),
+                );
+                return;
+              case "agentMessage": {
+                const text =
+                  typeof (item as { text?: unknown }).text === "string"
+                    ? String((item as { text?: unknown }).text)
+                    : "";
+                if (itemId && text) {
+                  agentMessageBuffers.set(
+                    itemId,
+                    truncateCodexSnapshot({
+                      value: text,
+                      maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
+                    }),
+                  );
+                  lastAgentMessageSegmentId = itemId;
+                }
+                if (!streamedAgentMessageIds.has(itemId) && text) {
+                  emitBridgeEvent({
+                    type: "text",
+                    text: truncateCodexSnapshot({
+                      value: text,
+                      maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
+                    }),
+                    ...(itemId ? { segmentId: itemId } : {}),
+                  });
+                }
+                return;
+              }
+              case "plan": {
+                const text =
+                  typeof (item as { text?: unknown }).text === "string"
+                    ? String((item as { text?: unknown }).text)
+                    : "";
+                if (itemId) {
+                  planLastEmitAt.delete(itemId);
+                }
+                const planText = truncateCodexSnapshot({
+                  value: text || planBuffers.get(itemId) || "",
+                  maxBytes: CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES,
+                });
+                if (itemId) {
+                  planBuffers.delete(itemId);
+                }
+                if (planText.trim().length > 0) {
+                  sawNativePlan = true;
+                  emitBridgeEvent({
+                    type: "plan_ready",
+                    planText,
+                    ...(itemId ? { sourceSegmentId: itemId } : {}),
+                  });
+                }
+                if (runtimeOptions?.codexPlanMode) {
+                  shouldInterruptPlanTurn = true;
+                  requestPlanInterrupt();
+                }
+                return;
+              }
+              case "reasoning": {
+                const reasoningItem = item as {
+                  content?: string[];
+                  summary?: string[];
+                };
+                if (!streamedReasoningIds.has(itemId)) {
+                  const text = truncateCodexSnapshot({
+                    value: [
+                      ...(reasoningItem.summary ?? []),
+                      ...(reasoningItem.content ?? []),
+                    ].join("\n"),
+                    maxBytes: CODEX_APP_SERVER_MESSAGE_BUFFER_MAX_BYTES,
+                  });
+                  if (text.trim().length > 0) {
+                    emitBridgeEvent({
+                      type: "thinking",
+                      text,
+                      isStreaming: false,
+                    });
+                    return;
+                  }
+                  return;
+                }
+                emitBridgeEvent({
+                  type: "thinking",
+                  text: "",
+                  isStreaming: false,
+                });
+                return;
+              }
+              case "commandExecution": {
+                const commandItem = item as {
+                  command?: string;
+                  aggregatedOutput?: string | null;
+                  status?: string;
+                };
+                if (itemId) {
+                  toolOutputLastEmitAt.delete(itemId);
+                }
+                const output = truncateCodexSnapshot({
+                  value:
+                    typeof commandItem.aggregatedOutput === "string"
+                      ? commandItem.aggregatedOutput
+                      : (toolOutputBuffers.get(itemId) ?? ""),
+                  maxBytes: CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES,
+                });
+                if (itemId) {
+                  toolOutputBuffers.delete(itemId);
+                }
+                // `item/started` already opened this command (and its streamed
+                // output has been landing against it), so only re-announce the
+                // tool when the opener never arrived.
+                const alreadyStarted = Boolean(
+                  itemId && startedCommandExecutionIds.delete(itemId),
+                );
+                emitBridgeEvents([
+                  ...(alreadyStarted
+                    ? []
+                    : [
+                        {
+                          type: "tool" as const,
+                          ...(itemId ? { toolUseId: itemId } : {}),
+                          toolName: "bash",
+                          input:
+                            typeof commandItem.command === "string"
+                              ? commandItem.command
+                              : "",
+                          state: "input-available" as const,
+                        },
+                      ]),
+                  {
+                    type: "tool_result",
+                    tool_use_id: itemId,
+                    output,
+                    ...(commandItem.status === "failed" ||
+                    commandItem.status === "declined"
+                      ? { isError: true }
+                      : {}),
+                  },
+                ]);
+                return;
+              }
+              case "mcpToolCall": {
+                const mcpItem = item as CodexMcpToolCallItem;
+                const completedEvents: BridgeEvent[] = [];
+                if (!itemId || !startedMcpToolCallIds.delete(itemId)) {
+                  completedEvents.push(
+                    buildCodexMcpToolCallInputEvent(mcpItem, workerExecution),
+                  );
+                }
+                completedEvents.push({
+                  type: "tool_result",
+                  tool_use_id: itemId,
+                  output: mcpItem.error?.message
+                    ? `[error] ${mcpItem.error.message}`
+                    : truncateCodexSnapshot({
+                        value: toText(mcpItem.result ?? ""),
+                        maxBytes: CODEX_APP_SERVER_FINAL_TOOL_OUTPUT_MAX_BYTES,
+                      }),
+                  ...(mcpItem.status === "failed" ? { isError: true } : {}),
+                });
+                const browserConnectionEvent =
+                  providerBrowserTracker.observeCodexMcpCall({
+                    server: mcpItem.server,
+                    tool: mcpItem.tool,
+                    input: serializeCodexMcpToolCallArguments(
+                      mcpItem.arguments,
+                    ),
+                    failed: Boolean(
+                      mcpItem.status === "failed" || mcpItem.error?.message,
+                    ),
+                  });
+                if (browserConnectionEvent) {
+                  completedEvents.push(browserConnectionEvent);
+                }
+                emitBridgeEvents(completedEvents);
+                return;
+              }
+              case "webSearch": {
+                const query =
+                  typeof (item as { query?: unknown }).query === "string"
+                    ? String((item as { query?: unknown }).query)
+                    : "";
+                emitBridgeEvents([
+                  {
+                    type: "tool",
+                    ...(itemId ? { toolUseId: itemId } : {}),
+                    toolName: "web_search",
+                    input: query,
+                    state: "input-available",
+                  },
+                  {
+                    type: "tool_result",
+                    tool_use_id: itemId,
+                    output: "",
+                  },
+                ]);
+                return;
+              }
+              case "fileChange": {
+                emitCodexFileChangeEvents({
+                  itemId,
+                  item: item as {
+                    changes?: Array<{ path?: string }>;
+                    status?: string;
+                  },
+                  alreadyStarted: Boolean(
+                    itemId && startedFileChangeIds.delete(itemId),
+                  ),
+                  diffTracker,
+                  emit: emitBridgeEvents,
+                });
+                return;
+              }
+              case "todo_list": {
+                // Mirror the legacy codex-sdk runtime: surface Codex's todo_list
+                // items as a TodoWrite tool_use bridge event so the TodoFloater
+                // (which scans for toolName === "TodoWrite") can render them.
+                const todoItem = item as {
+                  items?: Array<{ text?: string; completed?: boolean }>;
+                };
+                const todos = (todoItem.items ?? []).map((entry) => ({
+                  content: entry.text ?? "",
+                  status: entry.completed ? "completed" : "pending",
+                }));
+                emitBridgeEvent({
+                  type: "tool",
+                  ...(itemId ? { toolUseId: itemId } : {}),
+                  toolName: "TodoWrite",
+                  input: JSON.stringify({ todos }),
+                  state: "output-available",
+                });
+                return;
+              }
+              default:
+                return;
+            }
+          }
+          case "turn/completed": {
+            const turn = params.turn as
+              | {
+                  status?: string;
+                  error?: { message?: string | null } | null;
+                }
+              | undefined;
+            if (runtimeOptions?.codexPlanMode && !sawNativePlan) {
+              const fallbackSegmentId = lastAgentMessageSegmentId.trim();
+              const fallbackPlanText = truncateCodexSnapshot({
+                value: fallbackSegmentId
+                  ? (agentMessageBuffers.get(fallbackSegmentId) ?? "")
+                  : "",
+                maxBytes: CODEX_APP_SERVER_PLAN_EVENT_MAX_BYTES,
+              });
+              if (fallbackPlanText.trim().length > 0) {
+                emitBridgeEvent({
+                  type: "plan_ready",
+                  planText: fallbackPlanText,
+                  ...(fallbackSegmentId
+                    ? { sourceSegmentId: fallbackSegmentId }
+                    : {}),
+                });
+              }
+            }
+            if (turn?.status === "failed" && !abortRequested) {
+              const [terminalError] = buildCodexTerminalFailureEvents({
+                message:
+                  turn.error?.message ??
+                  lastAppServerErrorMessage ??
+                  "Codex App Server turn failed.",
+                stopReason: "failed",
+              });
+              emitBridgeEvent(terminalError);
+            }
+            if (latestUsage) {
+              emitBridgeEvent({
+                type: "usage",
+                ...latestUsage,
+              });
+            }
+            settleMissingProviderBrowserConnection();
+            const stopReason = resolveCodexTurnCompletionStopReason({
+              status: turn?.status,
+              abortRequested,
+            });
+            emitBridgeEvent({
+              type: "done",
+              ...(stopReason ? { stop_reason: stopReason } : {}),
+            });
+            finishTurnWait();
+            return;
+          }
+          default:
+            return;
+        }
       });
-      emitBridgeEvent(terminalError);
-      settleMissingProviderBrowserConnection();
-      emitBridgeEvent(
-        abortRequested
-          ? { type: "done", stop_reason: "user_abort" }
-          : { type: "done", stop_reason: "runtime_failure" },
-      );
-      finishTurnWait();
-    });
 
-    // ── Register abort BEFORE turn/start so the user can cancel at any
-    // point, including while the turn/start request is still in flight. ──
-    args.registerAbort?.(() => {
-      abortRequested = true;
-      if (!appServerTurnId) {
-        // turn/start hasn't resolved yet — no turnId to interrupt.
-        // Resolve the wait so the Promise.race below exits.
-        settleMissingProviderBrowserConnection();
-        emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
-        finishTurnWait();
-        return;
-      }
-      // Normal interrupt: we have a turnId.
-      clearInterruptFallback();
-      interruptFallbackHandle = setTimeout(() => {
-        interruptFallbackHandle = null;
+      // ── Process-death listener: resolve waitForTurnCompletion if the app
+      // server exits unexpectedly so the turn never hangs forever. ──
+      const unsubscribeProcessExit = client.onProcessExit((exitMessage) => {
         if (completed) {
           return;
         }
         console.warn(
-          "[provider-runtime] Codex app-server interrupt did not settle after 10 seconds",
-          { threadId, appServerTurnId },
+          "[provider-runtime] Codex app-server process exited during turn",
+          { threadId, appServerTurnId: appServerTurnId || null, exitMessage },
         );
+        const [terminalError] = buildCodexTerminalFailureEvents({
+          message: exitMessage,
+        });
+        emitBridgeEvent(terminalError);
         settleMissingProviderBrowserConnection();
-        emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
+        emitBridgeEvent(
+          abortRequested
+            ? { type: "done", stop_reason: "user_abort" }
+            : { type: "done", stop_reason: "runtime_failure" },
+        );
         finishTurnWait();
-      }, APP_SERVER_INTERRUPT_GRACE_MS);
-      void client
-        .request("turn/interrupt", {
-          threadId,
-          turnId: appServerTurnId,
-        })
-        .catch((error) => {
-          console.warn(
-            "[provider-runtime] Codex app-server interrupt request failed",
-            {
-              threadId,
-              appServerTurnId,
-              error: toErrorMessage(error),
-            },
-          );
-        });
-    });
-
-    try {
-      const gitRef = resolveGitHeadRef({ cwd: runtimeCwd });
-      emitBridgeEvent({
-        type: "system",
-        content: "Checkpoint captured before Codex turn.",
-        compactBoundary: {
-          trigger: "turn_start",
-          ...(gitRef ? { gitRef } : {}),
-        },
       });
 
-      // Race turn/start against waitForTurnCompletion so an abort (or
-      // process death) during the request isn't blocked until the outer
-      // 3-hour timeout.
-      const turnStartPromise = client.request<{ turn: { id: string } }>(
-        "turn/start",
-        buildCodexTurnStartParams({
-          threadId,
-          cwd: runtimeCwd,
-          prompt: providerPrompt,
-          runtimeOptions,
-          nativeImageItems: turnInput.nativeImageItems,
-        }),
-      );
-
-      const turnResponse = await Promise.race([
-        turnStartPromise,
-        waitForTurnCompletion.then(() => null as null),
-      ]);
-
-      // If waitForTurnCompletion won the race (abort or process death during
-      // turn/start), clean up the orphaned turn/start and return.
-      if (turnResponse == null || completed) {
-        void turnStartPromise
-          .then((resolved) => {
-            void client
-              .request("turn/interrupt", {
-                threadId,
-                turnId: resolved.turn.id,
-              })
-              .catch(() => {});
-          })
-          .catch(() => {});
-        return finalizeCollectedEvents();
-      }
-
-      appServerTurnId = turnResponse.turn.id;
-      turnInput.commitRetrievedContextDedup();
-      emitBridgeEvent({
-        type: "provider_turn",
-        providerId: "codex",
-        nativeSessionId: threadId,
-        nativeTurnId: appServerTurnId,
-      });
-      if (codexCapabilities.history.forkBoundary === "turn") {
-        emitBridgeEvent({
-          type: "history_boundary",
-          providerId: "codex",
-          boundaryKind: "turn",
-          nativeId: appServerTurnId,
-          targetRole: "assistant",
-        });
-      }
-      if (codexDebug) {
-        console.debug("[codex-app-server-runtime] turn/start acknowledged", {
-          threadId,
-          turnId: appServerTurnId,
-        });
-      }
-
-      // If the user pressed stop while turn/start was in flight, we now have
-      // a turnId and can send a proper interrupt.
-      if (abortRequested) {
+      // ── Register abort BEFORE turn/start so the user can cancel at any
+      // point, including while the turn/start request is still in flight. ──
+      args.registerAbort?.(() => {
+        abortRequested = true;
+        if (!appServerTurnId) {
+          // turn/start hasn't resolved yet — no turnId to interrupt.
+          // Resolve the wait so the Promise.race below exits.
+          settleMissingProviderBrowserConnection();
+          emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
+          finishTurnWait();
+          return;
+        }
+        // Normal interrupt: we have a turnId.
         clearInterruptFallback();
         interruptFallbackHandle = setTimeout(() => {
           interruptFallbackHandle = null;
           if (completed) {
             return;
           }
+          console.warn(
+            "[provider-runtime] Codex app-server interrupt did not settle after 10 seconds",
+            { threadId, appServerTurnId },
+          );
           settleMissingProviderBrowserConnection();
           emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
           finishTurnWait();
@@ -3959,78 +3876,176 @@ export async function streamCodexWithAppServer(
             threadId,
             turnId: appServerTurnId,
           })
-          .catch(() => {});
-      }
-
-      if (shouldInterruptPlanTurn) {
-        requestPlanInterrupt();
-      }
-
-      await waitForTurnCompletion;
-
-      return finalizeCollectedEvents();
-    } catch (error) {
-      // Distinguish abort from real failures (symmetric with claude-sdk-runtime).
-      const isAbort =
-        (error instanceof Error && error.name === "AbortError") ||
-        (error instanceof Error && /aborted|cancel/i.test(error.message));
-      if (isAbort) {
-        console.info("[provider-runtime] Codex app-server turn aborted", {
-          threadId,
-          appServerTurnId,
-        });
-        settleMissingProviderBrowserConnection();
-        emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
-        return finalizeCollectedEvents();
-      }
-      const [errorEvent] = buildCodexTerminalFailureEvents({
-        message: error instanceof Error ? error.message : String(error),
+          .catch((error) => {
+            console.warn(
+              "[provider-runtime] Codex app-server interrupt request failed",
+              {
+                threadId,
+                appServerTurnId,
+                error: toErrorMessage(error),
+              },
+            );
+          });
       });
-      emitBridgeEvent(errorEvent);
-      settleMissingProviderBrowserConnection();
-      emitBridgeEvent({ type: "done", stop_reason: "runtime_failure" });
-      return finalizeCollectedEvents();
+
+      try {
+        const gitRef = resolveGitHeadRef({ cwd: runtimeCwd });
+        emitBridgeEvent({
+          type: "system",
+          content: "Checkpoint captured before Codex turn.",
+          compactBoundary: {
+            trigger: "turn_start",
+            ...(gitRef ? { gitRef } : {}),
+          },
+        });
+
+        // Race turn/start against waitForTurnCompletion so an abort (or
+        // process death) during the request isn't blocked until the outer
+        // 3-hour timeout.
+        const turnStartPromise = client.request<{ turn: { id: string } }>(
+          "turn/start",
+          buildCodexTurnStartParams({
+            threadId,
+            cwd: runtimeCwd,
+            prompt: providerPrompt,
+            runtimeOptions,
+            nativeImageItems: turnInput.nativeImageItems,
+          }),
+        );
+
+        const turnResponse = await Promise.race([
+          turnStartPromise,
+          waitForTurnCompletion.then(() => null as null),
+        ]);
+
+        // If waitForTurnCompletion won the race (abort or process death during
+        // turn/start), clean up the orphaned turn/start and return.
+        if (turnResponse == null || completed) {
+          void turnStartPromise
+            .then((resolved) => {
+              void client
+                .request("turn/interrupt", {
+                  threadId,
+                  turnId: resolved.turn.id,
+                })
+                .catch(() => {});
+            })
+            .catch(() => {});
+          return finalizeCollectedEvents();
+        }
+
+        appServerTurnId = turnResponse.turn.id;
+        turnInput.commitRetrievedContextDedup();
+        emitBridgeEvent({
+          type: "provider_turn",
+          providerId: "codex",
+          nativeSessionId: threadId,
+          nativeTurnId: appServerTurnId,
+        });
+        if (codexCapabilities.history.forkBoundary === "turn") {
+          emitBridgeEvent({
+            type: "history_boundary",
+            providerId: "codex",
+            boundaryKind: "turn",
+            nativeId: appServerTurnId,
+            targetRole: "assistant",
+          });
+        }
+        if (codexDebug) {
+          console.debug("[codex-app-server-runtime] turn/start acknowledged", {
+            threadId,
+            turnId: appServerTurnId,
+          });
+        }
+
+        // If the user pressed stop while turn/start was in flight, we now have
+        // a turnId and can send a proper interrupt.
+        if (abortRequested) {
+          clearInterruptFallback();
+          interruptFallbackHandle = setTimeout(() => {
+            interruptFallbackHandle = null;
+            if (completed) {
+              return;
+            }
+            settleMissingProviderBrowserConnection();
+            emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
+            finishTurnWait();
+          }, APP_SERVER_INTERRUPT_GRACE_MS);
+          void client
+            .request("turn/interrupt", {
+              threadId,
+              turnId: appServerTurnId,
+            })
+            .catch(() => {});
+        }
+
+        if (shouldInterruptPlanTurn) {
+          requestPlanInterrupt();
+        }
+
+        await waitForTurnCompletion;
+
+        return finalizeCollectedEvents();
+      } catch (error) {
+        // Distinguish abort from real failures (symmetric with claude-sdk-runtime).
+        const isAbort =
+          (error instanceof Error && error.name === "AbortError") ||
+          (error instanceof Error && /aborted|cancel/i.test(error.message));
+        if (isAbort) {
+          console.info("[provider-runtime] Codex app-server turn aborted", {
+            threadId,
+            appServerTurnId,
+          });
+          settleMissingProviderBrowserConnection();
+          emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
+          return finalizeCollectedEvents();
+        }
+        const [errorEvent] = buildCodexTerminalFailureEvents({
+          message: error instanceof Error ? error.message : String(error),
+        });
+        emitBridgeEvent(errorEvent);
+        settleMissingProviderBrowserConnection();
+        emitBridgeEvent({ type: "done", stop_reason: "runtime_failure" });
+        return finalizeCollectedEvents();
+      } finally {
+        clearInterruptFallback();
+        unsubscribeProcessExit();
+        // Reject any pending approval/input requests so the Codex app-server
+        // doesn't hang waiting for a response that will never arrive.
+        for (const [id, pending] of pendingApprovalRequests) {
+          clearApprovalAutoDecline(id);
+          const declinePayload =
+            pending.responseKind === "elicitation"
+              ? { action: "decline" as const }
+              : { decision: "decline" as const };
+          void client
+            .respond(pending.serverRequestId, declinePayload)
+            .catch(() => {});
+          pendingApprovalRequests.delete(id);
+        }
+        for (const [id, pending] of pendingUserInputRequests) {
+          clearApprovalAutoDecline(id);
+          const declinePayload =
+            pending.responseKind === "elicitation"
+              ? { action: "decline" as const }
+              : { answers: {} };
+          void client
+            .respond(pending.serverRequestId, declinePayload)
+            .catch(() => {});
+          pendingUserInputRequests.delete(id);
+        }
+        await elicitationPauseController.endAll();
+        unsubscribe();
+      }
     } finally {
-      clearInterruptFallback();
-      unsubscribeProcessExit();
-      // Reject any pending approval/input requests so the Codex app-server
-      // doesn't hang waiting for a response that will never arrive.
-      for (const [id, pending] of pendingApprovalRequests) {
-        clearApprovalAutoDecline(id);
-        const declinePayload =
-          pending.responseKind === "elicitation"
-            ? { action: "decline" as const }
-            : { decision: "decline" as const };
-        void client
-          .respond(pending.serverRequestId, declinePayload)
-          .catch(() => {});
-        pendingApprovalRequests.delete(id);
-      }
-      for (const [id, pending] of pendingUserInputRequests) {
-        clearApprovalAutoDecline(id);
-        const declinePayload =
-          pending.responseKind === "elicitation"
-            ? { action: "decline" as const }
-            : { answers: {} };
-        void client
-          .respond(pending.serverRequestId, declinePayload)
-          .catch(() => {});
-        pendingUserInputRequests.delete(id);
-      }
-      await elicitationPauseController.endAll();
-      unsubscribe();
-      if (!secondaryReadOnly) {
-        finishCodexTurn(codexExecutablePath, transientSecretClient);
-      }
+      releaseThread();
+      await deleteCodexSecondaryThread({
+        enabled: secondaryReadOnly,
+        threadId,
+        request: client.request.bind(client),
+      });
     }
   } finally {
-    await deleteCodexSecondaryThread({
-      enabled: secondaryReadOnly,
-      threadId,
-      request: client.request.bind(client),
-    });
-    if (secondaryReadOnly) {
-      finishCodexTurn(codexExecutablePath, transientSecretClient);
-    }
+    finishCodexTurn(codexExecutablePath, transientSecretClient);
   }
 }

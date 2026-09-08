@@ -119,19 +119,36 @@ loop runs forever.
 
 ---
 
-### 4. Thread/client cache grows unbounded
+### 4. Completed Codex threads keep MCP processes resident
 
-**Symptom**: Memory usage increases over long sessions. Each unique
-`(taskId, cwd, runtimeOptions)` combination creates a new cached thread
-that is never evicted.
+**Symptom**: Provider descendants and RSS grow over hours even after individual
+turns finish. A shared App Server can retain multiple threads and each thread's
+stdio MCP servers. The Resources popover counts the entire provider process
+tree, not separate host-service instances.
 
-**Cause**: Codex app-server thread/client maps are global `Map`s with no size
-limit or TTL.
+**Fix**: `codex-thread-lifetime.ts` pins each active turn through setup, approvals,
+streaming, and cleanup. After the last owner releases a thread, a 60-second idle
+timer sends `thread/unsubscribe`. A new turn cancels that timer; if unsubscribe
+is already in flight, resume waits for it. Process teardown invalidates old
+release callbacks. Native worker and detached-review activity also protects
+client retirement.
 
-**Fix (applied)**: Codex task thread tracking avoids unbounded SDK thread
-caches because the legacy SDK runtime has been removed. App Server client
-lifetime is keyed by executable path and should be watched when adding new
-long-lived App Server state.
+Unsubscribe does not archive or delete the conversation. The App Server has its
+own no-subscriber inactivity grace period (30 minutes in the current official
+protocol), so subprocess exit is not immediate. Separately, a client with no
+active Stave turns, native turns, listeners, startup, or pending requests retires
+after five idle minutes. Its next request starts a new process; the saved thread
+ID is still used for `thread/resume`. Older servers that reject unsubscribe log
+a cleanup warning and retain the idle-client retirement fallback.
+
+The active-turn counter is released in one outer `finally`, including failures
+before streaming starts. Secret-bound disposable clients and secondary thread
+deletion retain their existing lifetimes. Claude closes its per-turn SDK query;
+this shared-client retirement policy is intentionally Codex-specific.
+
+Regression coverage: `tests/codex-thread-lifetime.test.ts` and
+`tests/codex-app-server-mcp-lifecycle.test.ts`. Protocol reference:
+[Codex App Server](https://developers.openai.com/codex/app-server).
 
 ---
 
@@ -197,6 +214,25 @@ Do not "optimize" this by resuming across a config change. A model answering
 from a stale tool list reports connectors as disconnected that are connected.
 
 ---
+
+## Idle replay retention and failed host retirement
+
+A running stream has no inactivity eviction deadline. Approval waits and long
+commands can be quiet while the turn is still alive, and their buffered cursor
+must remain available for push-to-poll recovery. Each stream still has a bounded
+payload. Completed buffers expire after 60 seconds without reads or acknowledgments;
+a timer owns expiration even if no further API calls arrive. Shutdown cancels
+that timer. Regression coverage is in `tests/provider-runtime-stream-order.test.ts`.
+
+Host transport errors use the same bounded SIGTERM-to-SIGKILL escalation as
+normal shutdown. Termination captures the failed child, so a late cleanup never
+targets its replacement. `tests/host-service-client.test.ts` exercises an owned
+child that deliberately ignores SIGTERM and verifies its exit is reaped.
+
+The live message row owns elapsed-time ticks. The conversation list does not
+update state once per second just to refresh one elapsed label. Browser coverage
+in `tests/e2e/message-clock.e2e.ts` checks that the label advances while running
+and freezes at the persisted completion duration.
 
 ## Stall indication
 

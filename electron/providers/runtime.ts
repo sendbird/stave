@@ -90,7 +90,6 @@ import { DEFAULT_PROVIDER_TIMEOUT_MS } from "../../src/lib/providers/runtime-opt
 const sdkTurnTimeoutMs = Number(
   process.env.STAVE_PROVIDER_TIMEOUT_MS ?? DEFAULT_PROVIDER_TIMEOUT_MS,
 );
-const ACTIVE_STREAM_TTL_MS = 15 * 60 * 1000;
 const COMPLETED_STREAM_TTL_MS = 60 * 1000;
 const ACTIVE_STREAM_RETAINED_BYTES_MAX = 512 * 1024;
 const BATCH_TURN_RETAINED_BYTES_MAX = 2 * 1024 * 1024;
@@ -159,6 +158,7 @@ type ActiveStreamSession = {
 };
 
 const activeStreams = new Map<string, ActiveStreamSession>();
+let completedStreamExpiryTimer: ReturnType<typeof setTimeout> | null = null;
 /**
  * Tracks in-flight turn promises so `shutdown()` can await their completion
  * before the caller closes the persistence layer.  Without this, abort is
@@ -384,11 +384,22 @@ async function deliverResponderResult<
 }
 
 function pruneExpiredStreams(now = Date.now()) {
-  for (const [streamId, session] of activeStreams.entries()) {
-    const ttl = session.done ? COMPLETED_STREAM_TTL_MS : ACTIVE_STREAM_TTL_MS;
-    if (now - session.updatedAt > ttl) {
-      activeStreams.delete(streamId);
-    }
+  if (completedStreamExpiryTimer) clearTimeout(completedStreamExpiryTimer);
+  completedStreamExpiryTimer = null;
+  let nextExpiry = Number.POSITIVE_INFINITY;
+  for (const [streamId, session] of activeStreams) {
+    // Silence is not completion: approvals and long tool calls still need replay.
+    if (!session.done) continue;
+    const expiresAt = session.updatedAt + COMPLETED_STREAM_TTL_MS;
+    if (now >= expiresAt) activeStreams.delete(streamId);
+    else nextExpiry = Math.min(nextExpiry, expiresAt);
+  }
+  if (Number.isFinite(nextExpiry)) {
+    completedStreamExpiryTimer = setTimeout(
+      () => pruneExpiredStreams(),
+      nextExpiry - now,
+    );
+    completedStreamExpiryTimer.unref?.();
   }
 }
 
@@ -1383,6 +1394,7 @@ export const providerRuntime: ProviderRuntime = {
           if (!shouldBufferForPolling) {
             activeStreams.delete(streamId);
           }
+          pruneExpiredStreams();
           options?.onDone?.();
         });
       activeTurnPromises.set(turnId, turnPromise);
@@ -1478,7 +1490,9 @@ export const providerRuntime: ProviderRuntime = {
     };
   },
   respondApproval: ({ turnId, requestId, approved, reason, scope }) =>
-    deliverResponderResult<NonNullable<ActiveRuntimeSession["respondApproval"]>>({
+    deliverResponderResult<
+      NonNullable<ActiveRuntimeSession["respondApproval"]>
+    >({
       kind: "approval",
       turnId,
       requestId,
@@ -1487,7 +1501,9 @@ export const providerRuntime: ProviderRuntime = {
       timeoutMs: PROVIDER_STEER_ACK_TIMEOUT_MS,
     }),
   respondUserInput: ({ turnId, requestId, answers, denied }) =>
-    deliverResponderResult<NonNullable<ActiveRuntimeSession["respondUserInput"]>>({
+    deliverResponderResult<
+      NonNullable<ActiveRuntimeSession["respondUserInput"]>
+    >({
       kind: "user-input",
       turnId,
       requestId,
@@ -1511,7 +1527,9 @@ export const providerRuntime: ProviderRuntime = {
         delivery: "rejected" as const,
       };
     }
-    const result = await deliverResponderResult<NonNullable<ActiveRuntimeSession["steer"]>>({
+    const result = await deliverResponderResult<
+      NonNullable<ActiveRuntimeSession["steer"]>
+    >({
       kind: "steer",
       turnId,
       requestId: clientMessageId ?? turnId,
@@ -1598,6 +1616,8 @@ export const providerRuntime: ProviderRuntime = {
 
     activeSessions.clear();
     activeStreams.clear();
+    if (completedStreamExpiryTimer) clearTimeout(completedStreamExpiryTimer);
+    completedStreamExpiryTimer = null;
     activeTurnPromises.clear();
     cleanupProviderTaskState(DEFAULT_PROVIDER_TASK_KEY);
     for (const taskId of taskIds) {

@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 import type {
   NormalizedProviderEvent,
   ProviderId,
@@ -7,6 +7,9 @@ import {
   applyProviderTurnActivityEvents,
   startProviderTurnActivity,
 } from "@/lib/providers/turn-status";
+
+let releaseQuietTurn: (() => void) | undefined;
+let onQuietTurnStarted: (() => void) | undefined;
 
 const actualClaudeRuntime =
   await import("../electron/providers/claude-sdk-runtime");
@@ -49,6 +52,12 @@ mock.module("../electron/providers/codex-app-server-runtime", () => ({
     prompt?: string;
     onEvent?: (event: { type: string }) => void;
   }) => {
+    if (args.prompt === "quiet-turn") {
+      await new Promise<void>((resolve) => {
+        releaseQuietTurn = resolve;
+        onQuietTurnStarted?.();
+      });
+    }
     if (args.prompt === "runtime-fallback") {
       return [];
     }
@@ -90,13 +99,68 @@ mock.module("../electron/providers/connected-tool-status", () => ({
   }),
 }));
 
-const { providerRuntime } = await import("../electron/providers/runtime");
+const { providerRuntime, getProviderRuntimeLifecycleSnapshot } =
+  await import("../electron/providers/runtime");
 
 afterEach(async () => {
   await providerRuntime.shutdown();
 });
 
 describe("providerRuntime.startTurnStream", () => {
+  test("keeps an active quiet turn replayable beyond the old idle TTL", async () => {
+    const ready = new Promise<void>((resolve) => {
+      onQuietTurnStarted = resolve;
+    });
+    const started = providerRuntime.startTurnStream({
+      providerId: "codex",
+      prompt: "quiet-turn",
+    });
+    await ready;
+    const now = Date.now();
+    const clock = spyOn(Date, "now").mockReturnValue(now + 16 * 60_000);
+    try {
+      const result = providerRuntime.readTurnStream({
+        streamId: started.streamId,
+        cursor: 0,
+      });
+      expect(result.ok).toBe(true);
+      expect(result.done).toBe(false);
+    } finally {
+      clock.mockRestore();
+      releaseQuietTurn?.();
+      onQuietTurnStarted = undefined;
+    }
+  });
+
+  test("expires completed replay buffers without another API read", async () => {
+    const original = globalThis.setTimeout;
+    let expire: (() => void) | undefined;
+    const timerSpy = spyOn(globalThis, "setTimeout").mockImplementation(((
+      callback: () => void,
+      delay: number,
+      ...args: unknown[]
+    ) => {
+      if (delay === 60_000) expire = callback;
+      return original(callback, delay, ...args);
+    }) as typeof setTimeout);
+    const done = new Promise<void>((resolve) => {
+      providerRuntime.startTurnStream(
+        { providerId: "codex", prompt: "smoke" },
+        { bufferEvents: true, onDone: resolve },
+      );
+    });
+    await done;
+    const clock = spyOn(Date, "now").mockReturnValue(Date.now() + 60_001);
+    try {
+      expect(expire).toBeDefined();
+      expire?.();
+      expect(getProviderRuntimeLifecycleSnapshot().activeStreamCount).toBe(0);
+    } finally {
+      clock.mockRestore();
+      timerSpy.mockRestore();
+    }
+  });
+
   test("does not synchronously emit push events before returning", async () => {
     let returned = false;
     let sawSynchronousEvent = false;

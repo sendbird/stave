@@ -126,3 +126,60 @@ export function formatCodexAppServerErrorMessage(message: string) {
     ? `${nestedMessage} (${details.join(", ")})`
     : nestedMessage;
 }
+
+export function summarizeCodexAppServerDebugMessage(message: {
+  id?: unknown;
+  method?: string;
+  params?: unknown;
+}) {
+  const params = isRecord(message.params) ? message.params : null;
+  const turn = params && isRecord(params.turn) ? params.turn : null;
+  const item = params && isRecord(params.item) ? params.item : null;
+  const turnError = turn && isRecord(turn.error) ? turn.error : null;
+
+  return {
+    id: Object.prototype.hasOwnProperty.call(message, "id")
+      ? message.id
+      : undefined,
+    method: typeof message.method === "string" ? message.method : undefined,
+    threadId:
+      typeof params?.threadId === "string" ? params.threadId : undefined,
+    turnId:
+      typeof params?.turnId === "string"
+        ? params.turnId
+        : typeof turn?.id === "string"
+          ? turn.id
+          : undefined,
+    status:
+      typeof turn?.status === "string"
+        ? turn.status
+        : typeof item?.status === "string"
+          ? item.status
+          : undefined,
+    errorMessage:
+      extractCodexAppServerErrorMessage(params) ??
+      (typeof turnError?.message === "string" ? turnError.message : undefined),
+  };
+}
+
+export function extractCodexAppServerErrorMessage(
+  params: Record<string, unknown> | null,
+) {
+  if (!params) {
+    return null;
+  }
+  const directMessage = toTrimmedString(params.message);
+  if (directMessage) {
+    return directMessage;
+  }
+  const error = isRecord(params.error) ? params.error : null;
+  if (!error) {
+    return null;
+  }
+  const errorMessage = toTrimmedString(error.message);
+  if (errorMessage) {
+    return errorMessage;
+  }
+  const nestedError = isRecord(error.error) ? error.error : null;
+  return toTrimmedString(nestedError?.message);
+}

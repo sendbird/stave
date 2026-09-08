@@ -180,7 +180,13 @@ class HostServiceClient {
     }
 
     if (activeChild && activeChild.exitCode === null) {
-      activeChild.kill();
+      // Failed transports can wedge just like normal shutdown. Keep the old
+      // child reference so escalation cannot target a replacement host.
+      void escalateHostServiceChildTermination(activeChild, {
+        gracefulExitMs: 0,
+      }).catch((error) =>
+        console.warn("[host-service] failed child termination failed", error),
+      );
     }
   }
 
@@ -503,11 +509,15 @@ export async function escalateHostServiceChildTermination(
     sigkillExitMs?: number;
   } = {},
 ) {
-  if (await waitForHostServiceChildExit(child, timeouts.gracefulExitMs ?? 5_000)) {
+  if (
+    await waitForHostServiceChildExit(child, timeouts.gracefulExitMs ?? 5_000)
+  ) {
     return;
   }
   child.kill("SIGTERM");
-  if (await waitForHostServiceChildExit(child, timeouts.sigtermExitMs ?? 2_000)) {
+  if (
+    await waitForHostServiceChildExit(child, timeouts.sigtermExitMs ?? 2_000)
+  ) {
     return;
   }
   child.kill("SIGKILL");

@@ -123,7 +123,6 @@ interface MessageRowProps {
   taskId: string;
   activeTurnId?: string;
   chatStreamingEnabled: boolean;
-  elapsedAnchorMs?: number;
   isFirst?: boolean;
   liveStreamingMessageId?: string;
   showInterimMessages: boolean;
@@ -159,7 +158,6 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     taskId,
     activeTurnId,
     chatStreamingEnabled,
-    elapsedAnchorMs,
     isFirst,
     liveStreamingMessageId,
     showInterimMessages,
@@ -195,9 +193,26 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     boundary.kind === "message" &&
     capabilities?.history.rewind.files,
   );
+  // The live row owns its clock; ticking must not rerender the conversation.
+  const [elapsedAnchorMs, setElapsedAnchorMs] = useState(() => Date.now());
+  const clockActive =
+    Boolean(activeTurnId) && message.id === liveStreamingMessageId;
+  useEffect(() => {
+    if (!clockActive) return;
+    setElapsedAnchorMs(Date.now());
+    const timer = window.setInterval(
+      () => setElapsedAnchorMs(Date.now()),
+      1000,
+    );
+    return () => window.clearInterval(timer);
+  }, [clockActive]);
   const elapsedLabel = useMemo(
-    () => getMessageElapsedLabel({ message, nowMs: elapsedAnchorMs }),
-    [elapsedAnchorMs, message],
+    () =>
+      getMessageElapsedLabel({
+        message,
+        nowMs: clockActive ? elapsedAnchorMs : undefined,
+      }),
+    [clockActive, elapsedAnchorMs, message],
   );
   const planPresentation = useMemo(
     () => resolvePlanMessagePresentation(message),
@@ -580,7 +595,6 @@ function ChatPanelMessageList(props: {
   );
   const scrollToLatestMessageRequestNonce =
     retainedScrollToLatestMessageNonceRef.current;
-  const [elapsedAnchorMs, setElapsedAnchorMs] = useState(() => Date.now());
   const [turnCompletionScrollTick, setTurnCompletionScrollTick] = useState(0);
   // A width change (e.g. a pane split narrowing this surface) re-wraps the
   // transcript taller. Virtuoso's own resize handler only re-pins while it
@@ -721,16 +735,6 @@ function ChatPanelMessageList(props: {
       taskScrollAnchorCache.delete(scrollContextKey);
     }
   }, [restoreAnchor, restoreItemIndex, scrollContextKey, taskMessagesLoading]);
-
-  useEffect(() => {
-    if (!activeTurnId) {
-      return;
-    }
-    const handle = window.setInterval(() => {
-      setElapsedAnchorMs(Date.now());
-    }, 1000);
-    return () => window.clearInterval(handle);
-  }, [activeTurnId]);
 
   useEffect(() => {
     if (
@@ -950,11 +954,6 @@ function ChatPanelMessageList(props: {
                 taskId={taskId}
                 activeTurnId={activeTurnId}
                 chatStreamingEnabled={chatStreamingEnabled}
-                elapsedAnchorMs={
-                  message.id === liveStreamingMessageId
-                    ? elapsedAnchorMs
-                    : undefined
-                }
                 isFirst={index === 0}
                 liveStreamingMessageId={liveStreamingMessageId}
                 showInterimMessages={showInterimMessages}
