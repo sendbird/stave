@@ -116,7 +116,8 @@ construction even though they are not separate `NormalizedProviderEvent` types.
 
 - The root trace stays open during streaming and auto-collapses only after a
   clean completed turn. Collapsible rows inside it stay closed unless they
-  need attention. Errors and pending interactions remain inspectable.
+  are an approval request. Failures stay inspectable on the header; the
+  reader opens the payload.
 - A row is an accordion only when its body contains new information. A title
   such as `Context window at 62%` must not repeat the same sentence inside a
   nested body. For a multi-line generic system notice, the first non-empty line

@@ -25,10 +25,12 @@ import {
 import { toBaseName } from "@/lib/message-file-links";
 import { sx } from "@/components/ads/utils/stylex";
 import { chatPanelFileBlocksStyles as styles } from "./chat-panel-file-blocks.styles";
+import { useDiffLineHighlighter } from "./message/diff-highlighter";
 import {
   toDiffRunState,
   toFileChangeRunState,
 } from "./message/turn-event-state";
+import { languageFromFilePath } from "@/lib/syntax-highlight";
 import { useAppStore } from "@/store/app.store";
 import type {
   CodeDiffPart,
@@ -56,6 +58,28 @@ function getFileChangeStatusPriority(status: FileChangeSummaryRow["status"]) {
     case "applied":
       return 1;
   }
+}
+
+function OpenedFileDiff(args: {
+  after: string;
+  before: string;
+  displayFilePath: string;
+  filePath: string;
+}) {
+  const language = languageFromFilePath(args.filePath);
+  const highlighter = useDiffLineHighlighter(language);
+  return (
+    <DiffViewer
+      after={args.after}
+      aria-label={`Diff for ${args.displayFilePath}`}
+      before={args.before}
+      granularity="word"
+      highlighter={highlighter}
+      language={language}
+      mode="unified"
+      xstyle={styles.inlineDiff}
+    />
+  );
 }
 
 function ChangeCount(args: { value: number; tone: "added" | "removed" }) {
@@ -217,13 +241,11 @@ export function ChangedFilesBlock(args: {
               {isOpen ? (
                 <div className={sx(styles.expandedBody)}>
                   <div className={sx(styles.diffScroll)}>
-                    <DiffViewer
-                      before={row.part.oldContent}
+                    <OpenedFileDiff
                       after={row.part.newContent}
-                      xstyle={styles.inlineDiff}
-                      mode="unified"
-                      granularity="word"
-                      aria-label={`Diff for ${row.displayFilePath}`}
+                      before={row.part.oldContent}
+                      displayFilePath={row.displayFilePath}
+                      filePath={row.openFilePath}
                     />
                   </div>
                   <div className={sx(styles.actionBar)}>

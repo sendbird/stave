@@ -111,19 +111,29 @@
       "integrity": "sha256-602081b07d8e2348039fe10f861ec1ae07ab2d7c694ce5621836f13c139a9944"
     },
     {
-      "integrity": "sha256-3531511130f553f28192c079c857f7d9fba116e1506881bebce1b0fe1d38e717",
+      "integrity": "sha256-1fec4e42f44e75bd0d6b7d54a16dcd5591a028b856955591a47c03951a43be46",
       "path": "src/components/ads/components/Loader.extended-parts.tsx",
       "sourcePath": "packages/design-system/src/components/Loader.extended-parts.tsx"
     },
     {
-      "integrity": "sha256-ee40ae589b53007f16459777f0346c5de8be1b8c9c7ee7b6161a97cff8d1cc8a",
+      "integrity": "sha256-4b86baeb09eecf5422367508ae4722e003e53d5866c5b742b6bdcd6dc0f7044f",
       "path": "src/components/ads/components/Loader.extended-styles.ts",
       "sourcePath": "packages/design-system/src/components/Loader.extended-styles.ts"
     },
     {
-      "integrity": "sha256-adafca420a32e05a3e3692e90e9df67b0be4fa9960c79b9fe4867c56c3ca594c",
+      "integrity": "sha256-63ac68cb456cfbb8e3bdd33d7b4ec2e56ee776f0e8c2a47790fb207270cebc32",
       "path": "src/components/ads/components/Loader.parts.tsx",
       "sourcePath": "packages/design-system/src/components/Loader.parts.tsx"
+    },
+    {
+      "integrity": "sha256-5c927dc81429b5e5b2ed7e1a70454d5a3c82be69f12b7f84d4b9d756a86d5ec8",
+      "path": "src/components/ads/components/Loader.reasoning-parts.tsx",
+      "sourcePath": "packages/design-system/src/components/Loader.reasoning-parts.tsx"
+    },
+    {
+      "integrity": "sha256-06c5f6415ac97378017ac2b192abc85a9058a1fe067336281e62d300b1b5e92f",
+      "path": "src/components/ads/components/Loader.reasoning-styles.ts",
+      "sourcePath": "packages/design-system/src/components/Loader.reasoning-styles.ts"
     },
     {
       "integrity": "sha256-32e231736942955f1c1825ac8c5534842bc605f40429e50053e40411b7c5e2e2",
@@ -131,12 +141,12 @@
       "sourcePath": "packages/design-system/src/components/Loader.styles.ts"
     },
     {
-      "integrity": "sha256-7fd2385a1b369635266070bf7db1862e249f3e43e733e519309352a7bd9a2330",
+      "integrity": "sha256-1886de3dba1e2007cbfaa754703c13799cb404edaa6b2e71cf8dcac5d5c5e15f",
       "path": "src/components/ads/components/Loader.tsx",
       "sourcePath": "packages/design-system/src/components/Loader.tsx"
     },
     {
-      "integrity": "sha256-86ef5e260de6c941d491d17af1f67a1fa4117bfb6fd9db9b24b4f185ca7989cc",
+      "integrity": "sha256-dbe105a223b9cff23102b9311142bc27bc25373f5df7638450fc056266429b5a",
       "path": "src/components/ads/components/Loader.types.ts",
       "sourcePath": "packages/design-system/src/components/Loader.types.ts"
     },

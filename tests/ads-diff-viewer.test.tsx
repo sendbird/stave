@@ -4,12 +4,14 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createElement } from "react";
 import { DiffViewer } from "@/components/ads/components/DiffViewer";
 import {
-  diffLines,
-  splitLines,
   annotateWordDiff,
-  toSplitRows,
+  diffLines,
+  paintHighlightedLine,
   planCollapse,
+  splitLines,
+  toSplitRows,
 } from "@/components/ads/components/DiffViewer.diff";
+import { languageFromFilePath } from "@/lib/syntax-highlight";
 
 const read = (relative: string) =>
   readFileSync(new URL(`../${relative}`, import.meta.url), "utf8");
@@ -63,6 +65,27 @@ describe("ADS DiffViewer (installed copy)", () => {
     );
     expect(html).toContain("beta");
     expect(html).toContain("gamma");
+  });
+
+  test("a host highlighter paints per-span color and still reconstructs the line", () => {
+    const html = renderToStaticMarkup(
+      createElement(DiffViewer, {
+        after: "const b = 3;\n",
+        before: "const b = 2;\n",
+        highlighter: (line) =>
+          line.startsWith("const")
+            ? [
+                { color: "rgb(207, 34, 46)", text: "const" },
+                { text: line.slice("const".length) },
+              ]
+            : [{ text: line }],
+        language: "typescript",
+      }),
+    );
+    expect(html).toContain("color:rgb(207, 34, 46)");
+    expect(html).toContain(">const</span>");
+    expect(html).toContain(" b = 2;");
+    expect(html).toContain(" b = 3;");
   });
 
   test("context collapses long unchanged runs behind an Expand affordance", () => {
@@ -137,6 +160,31 @@ describe("DiffViewer diff engine", () => {
     expect(changed?.right?.type).toBe("add");
   });
 
+  test("paintHighlightedLine intersects syntax spans with word-diff ops", () => {
+    expect(
+      paintHighlightedLine(
+        "abcdef",
+        [{ color: "#111", text: "abcdef" }],
+        [
+          { text: "abc", type: "equal" },
+          { text: "def", type: "add" },
+        ],
+      ),
+    ).toEqual([
+      { color: "#111", text: "abc", wordType: "equal" },
+      { color: "#111", text: "def", wordType: "add" },
+    ]);
+  });
+
+  test("paintHighlightedLine discards spans that do not reconstruct the line", () => {
+    expect(
+      paintHighlightedLine("const a = 1;", [
+        { color: "#c678dd", text: "let" },
+        { text: " a = 1;" },
+      ]),
+    ).toEqual([{ color: undefined, text: "const a = 1;" }]);
+  });
+
   test("planCollapse hides an unchanged run larger than 2x the context", () => {
     const rows = Array.from({ length: 10 }, (_, i) => ({ equal: i !== 5 }));
     const segments = planCollapse(rows, (row) => row.equal, 1, new Set());
@@ -156,5 +204,31 @@ describe("ChangedFilesBlock adopts the ADS DiffViewer", () => {
     expect(source).not.toContain("react-diff-viewer-continued");
     expect(source).not.toContain("ReactDiffViewer");
     expect(source).not.toContain("CHAT_DIFF_VIEWER_STYLES");
+    expect(source).toContain("useDiffLineHighlighter");
+    expect(source).toContain("languageFromFilePath");
+  });
+});
+
+describe("highlightLineSpans", () => {
+  test("colors a typescript keyword after the shared highlighter warms up", async () => {
+    const { getSyntaxHighlighter, highlightLineSpans } = await import(
+      "@/lib/syntax-highlight"
+    );
+    await getSyntaxHighlighter();
+    const spans = highlightLineSpans("const x = 1", "typescript", "github-dark");
+    expect(spans.some((span) => span.text.includes("const") && span.color)).toBe(
+      true,
+    );
+    expect(spans.reduce((acc, span) => acc + span.text, "")).toBe("const x = 1");
+  });
+});
+
+describe("languageFromFilePath", () => {
+  test("maps common code extensions and ignores unknown ones", () => {
+    expect(languageFromFilePath("src/app.tsx")).toBe("tsx");
+    expect(languageFromFilePath("lib/util.ts")).toBe("typescript");
+    expect(languageFromFilePath("notes.md")).toBe("markdown");
+    expect(languageFromFilePath("README")).toBeUndefined();
+    expect(languageFromFilePath("image.png")).toBeUndefined();
   });
 });

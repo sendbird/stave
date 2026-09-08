@@ -548,8 +548,10 @@ export function hasVisibleMessagePartContent(part: MessagePart): boolean {
   return true;
 }
 
-export function shouldAutoOpenToolPart(state: ToolUsePart["state"]) {
-  return state === "input-streaming";
+export function shouldAutoOpenToolPart(_state?: ToolUsePart["state"]) {
+  // Closed unless the reader opens the row. Streaming is a header clock,
+  // not a reason to dump MCP captures, snapshots, or other payloads.
+  return false;
 }
 
 export function shouldAutoOpenToolGroup(states: Array<ToolUsePart["state"] | undefined>) {

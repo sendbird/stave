@@ -313,6 +313,20 @@ describe("Kiro ACP runtime", () => {
     ).toBe(true);
   });
 
+  test("auto-approves read-safe Stave Local MCP tools", async () => {
+    const events = await streamKiroWithAcp(
+      createTurnArgs("stave-mcp-permission"),
+    );
+    expect(events.some((event) => event.type === "approval")).toBe(false);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "text" &&
+          event.text.includes('"optionId":"allow_once"'),
+      ),
+    ).toBe(true);
+  });
+
   test("falls back to allow_once when the runtime advertises no allow_always", async () => {
     let responder:
       | ((args: {

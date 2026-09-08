@@ -9,11 +9,15 @@ import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
   annotateWordDiff,
   diffLines,
+  paintHighlightedLine,
   planCollapse,
   splitLines,
   toSplitRows,
+  type DiffViewerHighlightSpan,
   type WordOp,
 } from "./DiffViewer.diff";
+
+export type { DiffViewerHighlightSpan };
 
 /**
  * Line-level text diff (unified or split) with an internal LCS diff — no
@@ -35,6 +39,11 @@ import {
  * `context` (optional) collapses long unchanged runs to N lines of context
  * around each change, with an inline expand affordance. Omit it to render
  * every line.
+ *
+ * `highlighter` is optional and host-owned — same contract as `CodeBlock`.
+ * ADS does not bundle a syntax engine. The callback returns per-line spans
+ * that must reconstruct the line; a mismatch falls back to uncolored text.
+ * Word-diff washes compose with those spans by character offset.
  *
  */
 
@@ -70,6 +79,17 @@ export type DiffViewerProps = Omit<React.ComponentProps<"div">, "children"> & {
    * runs collapse behind an "Expand" affordance. Omit to show all lines.
    */
   context?: number;
+  /**
+   * Host-supplied per-line highlighter. Return spans whose `text` values
+   * reconstruct the line; otherwise the line renders without syntax color.
+   * Omit to keep the default uncolored text.
+   */
+  highlighter?: (
+    line: string,
+    language?: string,
+  ) => readonly DiffViewerHighlightSpan[];
+  /** Language hint forwarded to `highlighter`. */
+  language?: string;
 } & XstyleProp;
 
 const signFor = { add: "+", equal: " ", remove: "-" } as const;
@@ -78,30 +98,50 @@ const signFor = { add: "+", equal: " ", remove: "-" } as const;
  * Renders one line/cell's text content. In `"word"` mode, a paired changed op
  * (`wordOps` set) renders its own tokens with only the changed runs wrapped in
  * an emphasis span (`successSoft` / `dangerSoft` background — see the file
- * header's color contract); everything else renders as plain text, same as
- * `"line"` mode.
+ * header's color contract). A host `highlighter` paints syntax color on those
+ * same runs; without either, the line is plain text.
  */
 function renderCode(
   op: { text: string; wordOps?: WordOp[] },
   granularity: DiffViewerGranularity,
+  highlighter?: DiffViewerProps["highlighter"],
+  language?: string,
 ) {
-  if (granularity !== "word" || !op.wordOps) {
+  if (!highlighter && (granularity !== "word" || !op.wordOps)) {
     return op.text.length > 0 ? op.text : " ";
   }
-  return op.wordOps.map((wordOp, index) =>
-    wordOp.type === "equal" ? (
-      <span key={index}>{wordOp.text}</span>
-    ) : (
-      <span
-        className={sx(
-          wordOp.type === "add" ? styles.wordAdd : styles.wordRemove,
-        )}
-        key={index}
-      >
-        {wordOp.text}
-      </span>
-    ),
+  const painted = paintHighlightedLine(
+    op.text,
+    highlighter?.(op.text, language),
+    granularity === "word" ? op.wordOps : undefined,
   );
+  const first = painted[0];
+  const onlyPlain =
+    painted.length === 1 &&
+    first &&
+    !first.color &&
+    first.wordType !== "add" &&
+    first.wordType !== "remove";
+  if (onlyPlain) {
+    return first.text.length > 0 ? first.text : " ";
+  }
+  return painted.map((span, index) => {
+    const wash =
+      span.wordType === "add"
+        ? styles.wordAdd
+        : span.wordType === "remove"
+          ? styles.wordRemove
+          : null;
+    return (
+      <span
+        className={wash ? sx(wash) : undefined}
+        key={index}
+        style={span.color ? { color: span.color } : undefined}
+      >
+        {span.text}
+      </span>
+    );
+  });
 }
 
 export function DiffViewer({
@@ -110,6 +150,8 @@ export function DiffViewer({
   className,
   context,
   granularity = "line",
+  highlighter,
+  language,
   mode = "unified",
   xstyle,
   ...props
@@ -205,7 +247,7 @@ export function DiffViewer({
                           {signFor[op.type]}
                         </span>
                         <span className={sx(styles.code)}>
-                          {renderCode(op, granularity)}
+                          {renderCode(op, granularity, highlighter, language)}
                         </span>
                       </div>
                     );
@@ -259,7 +301,14 @@ export function DiffViewer({
                               {cell ? signFor[cell.type] : " "}
                             </span>
                             <span className={sx(styles.code)}>
-                              {cell ? renderCode(cell, granularity) : " "}
+                              {cell
+                                ? renderCode(
+                                    cell,
+                                    granularity,
+                                    highlighter,
+                                    language,
+                                  )
+                                : " "}
                             </span>
                           </div>
                         );

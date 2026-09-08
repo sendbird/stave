@@ -1,8 +1,12 @@
 import type { ProviderId } from "../../../src/lib/providers/provider.types";
+import { STAVE_MCP_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS } from "../../../src/lib/task-context/current-task-awareness";
 import {
   buildProviderTurnPrompt,
+  filterPromptRetrievedContext,
   resolveProviderResumeSessionId,
 } from "../../../src/lib/providers/provider-request-translators";
+import { isAcpStaveLocalMcpServer } from "../../main/stave-local-mcp-manifest";
+import { isAlwaysAllowedStaveLocalMcpTool } from "../stave-local-mcp-approval";
 import { createBoundedBridgeEventCollector } from "../provider-buffering";
 import { PROVIDER_STEER_ACK_TIMEOUT_MS } from "../../../src/lib/providers/steer-delivery";
 import type {
@@ -287,13 +291,6 @@ export async function streamAcpProviderTurn(args: {
       }
       return { outcome: { outcome: "cancelled" } };
     }
-    // Cursor and Kiro both advertise `allow_always`, and Cursor persists the
-    // choice as a rule in its own permissions allowlist, so later turns stop
-    // asking. Surfacing it is what lets an approval be answered once instead of
-    // every turn; without it the allowlist stays empty forever.
-    const allowAlwaysOption = parsed.data.options.find(
-      (option) => option.kind === "allow_always",
-    );
     /* Same split as the trace mapper: the canonical name titles the approval
        row, and the agent's prose title stays in the description instead of
        becoming an oversized "Approval: cd /long/path && …" header. */
@@ -302,6 +299,26 @@ export async function streamAcpProviderTurn(args: {
       kind: parsed.data.toolCall.kind,
       rawInput: parsed.data.toolCall.rawInput,
     });
+    if (
+      allowOption &&
+      [parsed.data.toolCall.title, presentation.toolName].some(
+        (name) => Boolean(name) && isAlwaysAllowedStaveLocalMcpTool(name!),
+      )
+    ) {
+      return {
+        outcome: {
+          outcome: "selected",
+          optionId: allowOption.optionId,
+        },
+      };
+    }
+    // Cursor and Kiro both advertise `allow_always`, and Cursor persists the
+    // choice as a rule in its own permissions allowlist, so later turns stop
+    // asking. Surfacing it is what lets an approval be answered once instead of
+    // every turn; without it the allowlist stays empty forever.
+    const allowAlwaysOption = parsed.data.options.find(
+      (option) => option.kind === "allow_always",
+    );
     const input = serializeApprovalInput(presentation.input);
     return await new Promise<unknown>((resolve, reject) => {
       const timer = createDecisionTimer(() => {
@@ -670,12 +687,23 @@ export async function streamAcpProviderTurn(args: {
         recoverable: true,
       });
     }
-    const promptConversation = supportsNativeImages
+    const conversationForPrompt = supportsNativeImages
       ? withoutNativeInlineImageData({
           conversation: turn.conversation,
           inputs: nativeImages.acceptedInputs,
         })
       : turn.conversation;
+    const hasEmbeddedStaveLocalMcp = (profile.mcpServers ?? []).some(
+      isAcpStaveLocalMcpServer,
+    );
+    const promptConversation = conversationForPrompt
+      ? filterPromptRetrievedContext({
+          conversation: conversationForPrompt,
+          excludedSourceIds: hasEmbeddedStaveLocalMcp
+            ? []
+            : [...STAVE_MCP_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS],
+        })
+      : conversationForPrompt;
     const prompt = buildProviderTurnPrompt({
       providerId: profile.providerId,
       prompt: turn.prompt,

@@ -97,10 +97,10 @@ describe("ADS turn-event components", () => {
     expect(markup).toContain("Output");
   });
 
-  test("a failed ToolRun stays expanded and offers exactly one recovery action", () => {
-    // `isAttentionState` owns the list of states that keep their payload on
-    // screen; a failure that auto-collapsed would hide the only thing worth
-    // reading.
+  test("a failed ToolRun stays collapsed and still offers recovery", () => {
+    // Failures are loud on the header and stay closed; the reader opens the
+    // payload. The panel stays mounted, so the error and retry remain in the
+    // tree.
     const markup = renderToStaticMarkup(
       <ToolRun
         status="failed"
@@ -109,10 +109,17 @@ describe("ADS turn-event components", () => {
         onRetry={() => {}}
       />,
     );
-    expect(markup).toContain('aria-expanded="true"');
+    expect(markup).toContain('aria-expanded="false"');
     expect(markup).toContain("exit 1");
     expect(markup).toContain("Retry");
     expect(markup).toContain('role="alert"');
+  });
+
+  test("an approval ToolRun stays expanded", () => {
+    const markup = renderToStaticMarkup(
+      <ToolRun status="approval" title="Apply the patch" input="{}" />,
+    );
+    expect(markup).toContain('aria-expanded="true"');
   });
 
   test("a ToolRun group rolls its runs up to the most urgent state", () => {
@@ -161,6 +168,7 @@ describe("ADS turn-event components", () => {
     expect(markup).toContain("Reading the changelog");
     expect(markup).toContain("Comparing the two migrations.");
     expect(markup).toContain('aria-expanded="false"');
+    expect(markup).toContain('data-ads-loader-anatomy="reason"');
   });
 
   test("Thinking with no trace is one row rather than an empty disclosure", () => {
@@ -349,7 +357,7 @@ describe("ADS turn-event components", () => {
     }
   });
 
-  test("a system notice is a row with a disclosure, and a failure stays open", () => {
+  test("a system notice is a row with a disclosure, and a failure stays closed", () => {
     const quiet = renderToStaticMarkup(
       <TraceSystemNotice title="Context compacted">
         <p>Trigger: auto</p>
@@ -364,7 +372,7 @@ describe("ADS turn-event components", () => {
       </TraceSystemNotice>,
     );
     expect(failure).toContain("Failed");
-    expect(failure).toContain('aria-expanded="true"');
+    expect(failure).toContain('aria-expanded="false"');
   });
 
   test("a notice with no payload is a line, not an empty disclosure", () => {

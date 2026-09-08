@@ -1,4 +1,5 @@
 import { sx } from "../utils/stylex";
+import { ReasoningLoaderMark } from "./Loader.reasoning-parts";
 import { ExtendedLoaderMark } from "./Loader.extended-parts";
 import { loaderMarkStyles as styles } from "./Loader.styles";
 import type { LoaderSize, LoaderVariant } from "./Loader.types";
@@ -161,13 +162,14 @@ function renderVariant(variant: LoaderVariant, size: LoaderSize) {
           />
         </span>
       ));
-    case "cascade":
+    case "reason":
+    case "think":
+      return <ReasoningLoaderMark variant={variant} />;
     case "compile":
     case "decode":
     case "explore":
     case "handoff":
     case "persist":
-    case "reason":
     case "route":
     case "sync":
     case "verify":
@@ -177,7 +179,6 @@ function renderVariant(variant: LoaderVariant, size: LoaderSize) {
 }
 
 const variantContainerStyles = {
-  cascade: null,
   compile: null,
   decode: null,
   dots: styles.dots,
@@ -189,6 +190,7 @@ const variantContainerStyles = {
   persist: null,
   pulse: styles.pulse,
   reason: null,
+  think: null,
   ripple: styles.ripple,
   route: null,
   scan: styles.scan,

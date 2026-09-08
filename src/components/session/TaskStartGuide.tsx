@@ -110,11 +110,17 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: vars.space8,
+    gap: vars.space16,
     inlineSize: "100%",
     minInlineSize: 0,
   },
-  root: { gap: vars.space16, padding: vars.space20 },
+  root: {
+    gap: vars.space16,
+    // Same `padding` shorthand ADS Empty uses, so this replaces it instead of
+    // racing `paddingBlockEnd` against it. Bottom is 0: the shell gap owns
+    // the space to the footer action.
+    padding: `${vars.space20} ${vars.space20} 0`,
+  },
   introduction: {
     // Cross-axis centering now lives in the `EmptyHeader` shim, so every empty
     // state gets it rather than the surfaces that noticed the medallion drift.

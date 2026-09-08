@@ -191,7 +191,7 @@ test("shows each turn's model, effort, context, and fast mode", async ({
 
   await expect(
     page.getByRole("button", {
-      name: "Claude Opus 4.8 (1M) · X-High",
+      name: "Claude Opus 4.8 · 1M · X-High",
     }),
   ).toBeVisible();
   await expect(
@@ -200,8 +200,8 @@ test("shows each turn's model, effort, context, and fast mode", async ({
     }),
   ).toBeVisible();
 
-  // Bracket notation must never reach the screen, and each parameter becomes its
-  // own inset segment inside the chip.
+  // Bracket notation must never reach the screen, and each parameter becomes
+  // its own mark beside the model name.
   const autoChip = page
     .locator('[data-turn-model-chip="true"]')
     .filter({ hasText: "Auto Smart" });

@@ -59,6 +59,56 @@ export interface TurnModelInfoParts {
   details: string[];
 }
 
+export type TurnModelDetailKind = "context" | "effort" | "fast" | "thinking";
+
+const CONTEXT_NAME_SUFFIX = /\s+\((\d+[MK])\)$/i;
+const CONTEXT_DETAIL = /^\d+[MK]$/i;
+
+/**
+ * Pulls a parenthetical context window (`(1M)`, `(300K)`) off a catalog name
+ * so the chip can render it in the machine register instead of as part of the
+ * prose name.
+ */
+export function peelContextWindowFromName(name: string): {
+  name: string;
+  context?: string;
+} {
+  const match = CONTEXT_NAME_SUFFIX.exec(name);
+  const context = match?.[1];
+  if (!match || match.index === undefined || !context) {
+    return { name };
+  }
+  return {
+    name: name.slice(0, match.index).trimEnd(),
+    context: context.toUpperCase(),
+  };
+}
+
+export function classifyTurnModelDetail(detail: string): TurnModelDetailKind {
+  const normalized = detail.trim();
+  if (/^fast$/i.test(normalized)) {
+    return "fast";
+  }
+  if (/^thinking$/i.test(normalized)) {
+    return "thinking";
+  }
+  if (CONTEXT_DETAIL.test(normalized)) {
+    return "context";
+  }
+  return "effort";
+}
+
+function withPeeledContext(parts: TurnModelInfoParts): TurnModelInfoParts {
+  const peeled = peelContextWindowFromName(parts.name);
+  if (!peeled.context) {
+    return parts;
+  }
+  const details = parts.details.includes(peeled.context)
+    ? parts.details
+    : [peeled.context, ...parts.details];
+  return { name: peeled.name, details };
+}
+
 /**
  * Splits a turn's model notation into a name plus its configuration labels.
  *
@@ -74,10 +124,10 @@ export function getTurnModelInfoParts(
   if (message.providerId === "cursor") {
     const described = describeCursorModel(message.model);
     if (described.details.length > 0 || message.model.includes("[")) {
-      return described;
+      return withPeeledContext(described);
     }
     if (!message.modelInfo) {
-      return { name: described.name, details: [] };
+      return withPeeledContext({ name: described.name, details: [] });
     }
     const details = [
       findOptionLabel(CURSOR_EFFORT_OPTIONS, message.modelInfo.effort),
@@ -85,12 +135,12 @@ export function getTurnModelInfoParts(
     if (message.modelInfo.fastMode) {
       details.push("Fast");
     }
-    return { name: described.name, details };
+    return withPeeledContext({ name: described.name, details });
   }
 
   const name = toHumanModelName({ model: message.model });
   if (!message.modelInfo || message.providerId === "user") {
-    return { name: name || message.model, details: [] };
+    return withPeeledContext({ name: name || message.model, details: [] });
   }
 
   const effortOptions =
@@ -104,7 +154,7 @@ export function getTurnModelInfoParts(
     details.push("Fast");
   }
 
-  return { name, details };
+  return withPeeledContext({ name, details });
 }
 
 /**

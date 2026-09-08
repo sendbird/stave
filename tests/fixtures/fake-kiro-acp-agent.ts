@@ -5,6 +5,24 @@ const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
 let pendingPromptId: unknown;
 let pendingPermissionId: string | null = null;
 let selectedModel = "auto";
+let sessionMcpServers: unknown[] = [];
+
+function promptTextFromParams(params: Record<string, unknown> | undefined) {
+  const prompt = Array.isArray(params?.prompt) ? params.prompt : [];
+  return prompt
+    .flatMap((block) => {
+      if (
+        block &&
+        typeof block === "object" &&
+        (block as Record<string, unknown>).type === "text" &&
+        typeof (block as Record<string, unknown>).text === "string"
+      ) {
+        return [(block as Record<string, unknown>).text as string];
+      }
+      return [];
+    })
+    .join("\n");
+}
 
 function send(message: Record<string, unknown>) {
   process.stdout.write(`${JSON.stringify(message)}\n`);
@@ -68,6 +86,10 @@ input.on("line", (line) => {
     return;
   }
   if (method === "session/new") {
+    const params = message.params as Record<string, unknown> | undefined;
+    sessionMcpServers = Array.isArray(params?.mcpServers)
+      ? params.mcpServers
+      : [];
     // MCP servers start while `session/new` is still in flight, so this
     // namespaced notification always precedes the session result.
     send({
@@ -161,6 +183,51 @@ input.on("line", (line) => {
     return;
   }
   pendingPromptId = id;
+  if (scenario === "echo-session") {
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: {
+        type: "text",
+        text: `echo-session:${JSON.stringify({
+          mcpServers: sessionMcpServers,
+          prompt: promptTextFromParams(params),
+        })}`,
+      },
+      messageId: "kiro-echo-session-message-1",
+    });
+    finishPrompt();
+    return;
+  }
+  if (scenario === "stave-mcp-permission") {
+    pendingPermissionId = "stave-mcp-permission-kiro";
+    send({
+      jsonrpc: "2.0",
+      id: pendingPermissionId,
+      method: "session/request_permission",
+      params: {
+        sessionId: "kiro-fixture-session",
+        toolCall: {
+          toolCallId: "kiro-stave-mcp-permission",
+          title: "stave_get_workspace_information",
+          kind: "other",
+          rawInput: { workspaceId: "worktree:fixture" },
+        },
+        options: [
+          {
+            optionId: "allow_once",
+            name: "Allow once",
+            kind: "allow_once",
+          },
+          {
+            optionId: "reject_once",
+            name: "Reject once",
+            kind: "reject_once",
+          },
+        ],
+      },
+    });
+    return;
+  }
   if (scenario === "steer" || scenario === "steer-unsupported") {
     update({
       sessionUpdate: "agent_thought_chunk",

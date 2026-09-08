@@ -46,26 +46,22 @@ import { turnEventDecisionStyles as styles } from "./turn-event-decisions.styles
  *
  * ## The state matrix, for a kind with no run
  *
- * A notice has no clock, so `live` cannot be "the work is running". It is
- * `attention`: a failure or a boundary the reader has to act on stays open
- * (§4's error-stays-open arm), and an ordinary notice — "context compacted",
- * a stop reason — collapses to its one titled line. That is the same rule
- * `isAttentionState` applies to a run, evaluated against the only signal a
- * notice has.
+ * A notice has no clock and no request to the reader, so it stays closed.
+ * The header still names a failure; the payload is behind the disclosure.
  */
 export function TraceSystemNotice(args: {
-  /** Keeps the payload open: a failure is the one thing worth reading. */
+  /** Ignored. Notices stay closed; the header still names a failure. */
   attention?: boolean;
   children?: ReactNode;
   /** The one semantic word, or nothing. A word saying "Notice" says nothing. */
   status?: "failed";
   title: ReactNode;
 }) {
-  const { attention = false, children, status, title } = args;
+  const { children, status, title } = args;
   const hasPayload = children != null;
 
   const { open, setOpen } = useSettleDisclosure({
-    live: hasPayload && attention,
+    live: false,
   });
 
   const summary = (

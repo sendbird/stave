@@ -420,6 +420,20 @@ describe("Cursor ACP runtime", () => {
     ).toBe(true);
   });
 
+  test("auto-approves read-safe Stave Local MCP tools", async () => {
+    const events = await streamCursorWithAcp(
+      createTurnArgs("stave-mcp-permission"),
+    );
+    expect(events.some((event) => event.type === "approval")).toBe(false);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "text" &&
+          event.text.includes('"optionId":"allow-once"'),
+      ),
+    ).toBe(true);
+  });
+
   test("submits stable option ids for Cursor questions", async () => {
     let responder:
       | ((args: {

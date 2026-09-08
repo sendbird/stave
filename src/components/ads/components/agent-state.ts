@@ -118,6 +118,17 @@ export function isAttentionState(state: AgentRunState): boolean {
 }
 
 /**
+ * Whether the row's payload must stay on screen without a click.
+ *
+ * Distinct from `isAttentionState`, which only answers "is this loud".
+ * Failures stay loud on the header and stay collapsed; the reader opens
+ * the payload. Only a request to the reader (`approval`) auto-opens.
+ */
+export function isActionRequiredState(state: AgentRunState): boolean {
+  return state === "approval";
+}
+
+/**
  * Whether the status WORD is chrome rather than information.
  *
  * `isAttentionState` above answers "is this loud", and `statusWordTone` in

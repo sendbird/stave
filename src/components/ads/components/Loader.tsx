@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import type * as React from "react";
 
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { LoaderMark } from "./Loader.parts";
 import type { LoaderSize, LoaderVariant } from "./Loader.types";
 
@@ -25,7 +25,8 @@ export type LoaderProps = Omit<React.ComponentProps<"span">, "children"> & {
    * - `spinner`: ordinary indeterminate wait
    * - `dots`: conversational hand-off or queue
    * - `matrix`: generative inference
-   * - `reason`: a chain of thought — each step derived from the last
+   * - `reason`: a chain of thought written out step by step
+   * - `think`: open-ended AI thinking without a step structure
    * - `pulse`: continuous stream
    * - `steps`: staged tool execution
    * - `orbit`: synthesis around stable context
@@ -33,7 +34,6 @@ export type LoaderProps = Omit<React.ComponentProps<"span">, "children"> & {
    * - `signal`: remote I/O or reconnection
    * - `scan`: inspection or indexing pass
    * - `parallel`: concurrent work lanes
-   * - `cascade`: dependent pipeline stages
    * - `decode`: token or response resolution
    * - `compile`: build or bundle transformation
    * - `route`: orchestration path
@@ -47,13 +47,12 @@ export type LoaderProps = Omit<React.ComponentProps<"span">, "children"> & {
    * @default "spinner"
    */
   variant?: LoaderVariant;
-};
+} & XstyleProp;
 
 /**
- * General-purpose indeterminate activity mark. Unlike `DelightSpinner`, this
- * component is product chrome rather than a branded moment. Its variants
- * share one size, color, accessibility and reduced-motion contract; agent
- * components compose them instead of creating an AI-only loader vocabulary.
+ * General-purpose indeterminate activity mark. Its variants share one size,
+ * color, accessibility and reduced-motion contract; agent components compose
+ * them instead of creating an AI-only loader vocabulary.
  */
 export function Loader({
   className,
@@ -62,6 +61,7 @@ export function Loader({
   size = "sm",
   tone = "inherit",
   variant = "spinner",
+  xstyle,
   ...props
 }: LoaderProps) {
   const hidden =
@@ -77,7 +77,12 @@ export function Loader({
       }
       aria-live={hidden ? undefined : (props["aria-live"] ?? "polite")}
       className={cx(
-        sx(styles.root, toneStyles[tone], showLabel && styles.withLabel),
+        sx(
+          styles.root,
+          toneStyles[tone],
+          showLabel && styles.withLabel,
+          xstyle,
+        ),
         className,
       )}
       data-ads-loader-variant={variant}

@@ -115,6 +115,7 @@ describe("model capability toggles", () => {
     expect(fastTag).toContain(
       sx(
         modelEffortSelectorStyles.capabilityToggle,
+        modelEffortSelectorStyles.capabilityToggleIconOnly,
         modelEffortSelectorStyles.capabilityToggleFastActive,
       ),
     );
@@ -135,12 +136,12 @@ describe("model capability toggles", () => {
       html.indexOf(">", contextAt),
     );
     // Stands beside the model button with its own full radius (formerly
-    // `rounded-md`), same capability-toggle style as Fast (with its semibold
-    // weight). Off state adds no active tone.
+    // `rounded-md`), same capability-toggle style as Fast (with mono
+    // figures so 1M reads as a machine value). Off state adds no active tone.
     expect(contextTag).toContain(
       sx(
         modelEffortSelectorStyles.capabilityToggle,
-        modelEffortSelectorStyles.capabilityToggleSemibold,
+        modelEffortSelectorStyles.capabilityToggleMono,
       ),
     );
   });

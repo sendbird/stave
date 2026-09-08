@@ -101,6 +101,24 @@ const sessionConfig =
   scenario === "parameterized" ? createParameterizedConfig() : configOptions;
 const appliedConfig: { configId: string; value: string }[] = [];
 let initializeMeta: unknown;
+let sessionMcpServers: unknown[] = [];
+
+function promptTextFromParams(params: Record<string, unknown> | undefined) {
+  const prompt = Array.isArray(params?.prompt) ? params.prompt : [];
+  return prompt
+    .flatMap((block) => {
+      if (
+        block &&
+        typeof block === "object" &&
+        (block as Record<string, unknown>).type === "text" &&
+        typeof (block as Record<string, unknown>).text === "string"
+      ) {
+        return [(block as Record<string, unknown>).text as string];
+      }
+      return [];
+    })
+    .join("\n");
+}
 
 input.on("line", (line) => {
   const message = JSON.parse(line) as Record<string, unknown>;
@@ -145,6 +163,10 @@ input.on("line", (line) => {
     return;
   }
   if (method === "session/new") {
+    const params = message.params as Record<string, unknown> | undefined;
+    sessionMcpServers = Array.isArray(params?.mcpServers)
+      ? params.mcpServers
+      : [];
     result(id, {
       sessionId: "cursor-fixture-session",
       modes,
@@ -225,6 +247,52 @@ input.on("line", (line) => {
   }
 
   pendingPromptId = id;
+  if (scenario === "echo-session") {
+    const params = message.params as Record<string, unknown> | undefined;
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: {
+        type: "text",
+        text: `echo-session:${JSON.stringify({
+          mcpServers: sessionMcpServers,
+          prompt: promptTextFromParams(params),
+        })}`,
+      },
+      messageId: "echo-session-message-1",
+    });
+    finishPrompt();
+    return;
+  }
+  if (scenario === "stave-mcp-permission") {
+    pendingServerRequestId = "stave-mcp-permission-1";
+    send({
+      jsonrpc: "2.0",
+      id: pendingServerRequestId,
+      method: "session/request_permission",
+      params: {
+        sessionId: "cursor-fixture-session",
+        toolCall: {
+          toolCallId: "stave-mcp-permission",
+          title: "stave_get_workspace_information",
+          kind: "other",
+          rawInput: { workspaceId: "worktree:fixture" },
+        },
+        options: [
+          {
+            optionId: "allow-once",
+            name: "Allow once",
+            kind: "allow_once",
+          },
+          {
+            optionId: "reject-once",
+            name: "Reject once",
+            kind: "reject_once",
+          },
+        ],
+      },
+    });
+    return;
+  }
   if (scenario === "parameterized") {
     update({
       sessionUpdate: "agent_message_chunk",
