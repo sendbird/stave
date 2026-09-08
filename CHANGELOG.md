@@ -1,3 +1,19 @@
+## [0.18.2](https://github.com/sendbird/stave/compare/v0.18.1...v0.18.2) (2026-09-08)
+
+### Bug Fixes
+
+* Keep Cursor and Kiro ACP turns alive when an agent emits a stdout line up to 32 MiB, drop a larger line without closing the process, and treat Cursor Agent PING timeouts as recoverable stream failures.
+* Bind Worker and Advisor MCP tools to the active turn's grant so they appear only on Stave-managed connections, carry grants through Claude, Codex, and ACP transports, and revoke them on Stop or completion.
+* Preserve login-shell discovery for GUI-launched provider and tooling requests, allow slow shells up to 10 seconds, and keep auth status unknown when probes fail for non-auth reasons.
+* Preserve composer-selected effort through submit and queued prompts, skip usage queries when cached usage is below 97%, and immediately block a cached exhausted account.
+
+### Breaking Changes
+
+* `stave_run_worker` and `stave_consult_advisor` are available only through Stave-managed turn connections. Their input schemas no longer require execution keys, and unscoped CLI connections cannot invoke these collaboration tools.
+
+### References
+
+* [#511](https://github.com/sendbird/stave/pull/511), [#512](https://github.com/sendbird/stave/pull/512), [#513](https://github.com/sendbird/stave/pull/513), [#514](https://github.com/sendbird/stave/pull/514)
 ## [0.18.1](https://github.com/sendbird/stave/compare/v0.18.0...v0.18.1) (2026-09-08)
 
 ### Features
