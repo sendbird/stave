@@ -1,3 +1,4 @@
+import type { StaveCollaborationGrants } from "./stave-collaboration-grants";
 import type {
   AdvisorActivityPhase,
   AdvisorEffort,
@@ -39,6 +40,8 @@ export interface ProviderCommandCatalogResult {
 }
 
 export interface StreamTurnArgs {
+  /** Minted inside the host runtime; excluded from renderer IPC and prompts. */
+  staveCollaborationGrants?: StaveCollaborationGrants;
   turnId?: string;
   executionPolicy?: "secondary-read-only";
   /**

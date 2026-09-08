@@ -129,7 +129,8 @@ export async function streamKiroWithAcp(
     : {};
   const { servers: staveLocalMcpServers, workerUnavailable } =
     await resolveAcpEmbeddedStaveLocalMcpServers({
-      requiredForWorker: Boolean(args.staveLocalMcpToolNames?.length),
+      requiredForWorker: Boolean(args.staveCollaborationGrants?.workerKey),
+      collaborationGrants: args.staveCollaborationGrants,
     });
   const mcpServers = await resolveAcpTurnMcpServers({
     targetProvider: "kiro",
@@ -138,12 +139,11 @@ export async function streamKiroWithAcp(
     staveLocalMcpServers,
   });
   if (workerUnavailable) {
-    args.onEvent?.({
-      type: "error",
-      message:
-        "Worker mode is armed, but the Stave Local MCP server is unavailable. Start it in Settings and retry the turn.",
-      recoverable: true,
-    });
+    const events = unavailableEvents(
+      "Worker is armed, but Stave Local MCP is unavailable. Start it in Settings and retry the turn.",
+    );
+    events.forEach((event) => args.onEvent?.(event));
+    return events;
   }
   return streamAcpProviderTurn({
     turn: args,

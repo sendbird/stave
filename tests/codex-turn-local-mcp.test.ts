@@ -49,6 +49,32 @@ describe("Codex turn-scoped Local MCP", () => {
     }
   });
 
+  test("rotates and clears collaboration headers on start and resume", async () => {
+    for (const consultKey of ["turn-one", "turn-two", undefined]) {
+      const configOverrides = await mergeCodexTurnConfigOverrides({
+        staveLocalMcpManifest: manifest,
+        secondaryReadOnly: false,
+        secretShellOverrides: {},
+        collaborationGrants: { consultKey },
+      });
+      for (const params of [
+        buildCodexThreadStartParams({ cwd: "/tmp/project", configOverrides }),
+        buildCodexThreadResumeParams({
+          cwd: "/tmp/project",
+          threadId: "same-thread",
+          configOverrides,
+        }),
+      ]) {
+        expect(params.config?.["mcp_servers.stave-local.http_headers"]).toEqual(
+          {
+            "x-stave-advisor-key": consultKey ?? "",
+            "x-stave-worker-key": "",
+          },
+        );
+      }
+    }
+  });
+
   test("does not re-enable MCP on secondary runs, even with automation authorization", async () => {
     const base = { mcp_servers: { "stave-local": { enabled: false } } };
     expect(
@@ -58,6 +84,7 @@ describe("Codex turn-scoped Local MCP", () => {
         secondaryReadOnly: true,
         secretShellOverrides: {},
         unattendedAutomationAuthorizationToken: "automation-placeholder",
+        collaborationGrants: { consultKey: "must-not-reach-secondary" },
       }),
     ).toEqual(base);
   });
@@ -70,7 +97,9 @@ describe("Codex turn-scoped Local MCP", () => {
     };
     expect(await mergeCodexTurnConfigOverrides(args)).toBeUndefined();
     const base = { "plugins.example.enabled": false };
-    expect(await mergeCodexTurnConfigOverrides({ ...args, base })).toEqual(base);
+    expect(await mergeCodexTurnConfigOverrides({ ...args, base })).toEqual(
+      base,
+    );
   });
 
   test("uses the current endpoint and keeps automation authorization turn-scoped", async () => {

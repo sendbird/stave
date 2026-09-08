@@ -1,3 +1,9 @@
+import {
+  collaborationGrantHeaders,
+  ADVISOR_GRANT_ENV,
+  WORKER_GRANT_ENV,
+  type StaveCollaborationGrants,
+} from "../providers/stave-collaboration-grants";
 import { promises as fs, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -71,7 +77,10 @@ export function readPrimaryStaveLocalMcpManifestSync() {
 /** The connection itself, without any client-side policy attached. */
 function toStaveLocalMcpTransport(
   manifest: StaveLocalMcpManifest,
-  options?: { unattendedAutomationAuthorizationToken?: string },
+  options?: {
+    unattendedAutomationAuthorizationToken?: string;
+    collaborationGrants?: StaveCollaborationGrants;
+  },
 ) {
   return {
     type: "http" as const,
@@ -81,13 +90,21 @@ function toStaveLocalMcpTransport(
     }),
     headers: {
       Authorization: `Bearer ${manifest.token}`,
+      // Turn-scoped grants only. Persistent Claude Code settings must not
+      // receive empty keys that look like live Worker/Advisor capability.
+      ...(options?.collaborationGrants
+        ? collaborationGrantHeaders(options.collaborationGrants)
+        : {}),
     },
   };
 }
 
 export function toClaudeSdkMcpServerConfig(
   manifest: StaveLocalMcpManifest,
-  options?: { unattendedAutomationAuthorizationToken?: string },
+  options?: {
+    unattendedAutomationAuthorizationToken?: string;
+    collaborationGrants?: StaveCollaborationGrants;
+  },
 ) {
   return {
     ...toStaveLocalMcpTransport(manifest, options),
@@ -102,7 +119,10 @@ export function toClaudeSdkMcpServerConfig(
  */
 export function toAcpStdioMcpServerConfig(
   manifest: StaveLocalMcpManifest,
-  options?: { allowedToolNames?: readonly string[] },
+  options?: {
+    allowedToolNames?: readonly string[];
+    collaborationGrants?: StaveCollaborationGrants;
+  },
 ) {
   const allowedToolNames = Array.from(
     new Set(
@@ -117,6 +137,14 @@ export function toAcpStdioMcpServerConfig(
     args: [manifest.stdioProxyScript],
     env: [
       { name: "ELECTRON_RUN_AS_NODE", value: "1" },
+      {
+        name: ADVISOR_GRANT_ENV,
+        value: options?.collaborationGrants?.consultKey ?? "",
+      },
+      {
+        name: WORKER_GRANT_ENV,
+        value: options?.collaborationGrants?.workerKey ?? "",
+      },
       ...(allowedToolNames.length > 0
         ? [
             {
@@ -142,6 +170,7 @@ export function isAcpStaveLocalMcpServer(server: unknown): boolean {
 
 export async function resolveAcpStaveLocalMcpServers(args?: {
   allowedToolNames?: readonly string[];
+  collaborationGrants?: StaveCollaborationGrants;
 }) {
   const manifest = await readPrimaryStaveLocalMcpManifest();
   if (!manifest?.stdioProxyScript?.trim()) {
@@ -150,6 +179,7 @@ export async function resolveAcpStaveLocalMcpServers(args?: {
   return [
     toAcpStdioMcpServerConfig(manifest, {
       allowedToolNames: args?.allowedToolNames,
+      collaborationGrants: args?.collaborationGrants,
     }),
   ];
 }

@@ -53,6 +53,7 @@ import {
   normalizeAdvisorConsultLimit,
   normalizeAdvisorTarget,
   shouldRunAdvisor,
+  ADVISOR_BRIEFING_SOURCE_ID,
   withoutAdvisorTarget,
 } from "../../src/lib/providers/advisor";
 import {
@@ -74,7 +75,7 @@ import {
 import { getProviderModelCatalog } from "./provider-model-catalog";
 import { createProviderApprovalRouter } from "./provider-approval-router";
 import {
-  WORKER_DELEGATE_TOOL_NAME,
+  WORKER_BRIEFING_SOURCE_ID,
   appendAcpWorkerBriefing,
   buildAcpWorkerPrimaryInstructions,
   resolveWorkerProfile,
@@ -764,12 +765,14 @@ async function runProviderTurn(
   };
   const turnId = args.turnId ?? randomUUID();
   let abortRequested = false;
+  let revokeCollaborationGrants = () => {};
   let activePhaseAborter: (() => void) | null = null;
   const abortTurn = () => {
     if (abortRequested) {
       return;
     }
     abortRequested = true;
+    revokeCollaborationGrants();
     activePhaseAborter?.();
   };
   const registerPhaseAborter = (aborter: () => void) => {
@@ -856,6 +859,20 @@ async function runProviderTurn(
   let effectiveArgs: typeof args = {
     ...args,
     runtimeOptions: withoutAdvisorTarget(args.runtimeOptions),
+    staveCollaborationGrants: {},
+    ...(args.conversation
+      ? {
+          conversation: {
+            ...args.conversation,
+            contextParts: args.conversation.contextParts.filter(
+              (part) =>
+                part.type !== "retrieved_context" ||
+                (part.sourceId !== ADVISOR_BRIEFING_SOURCE_ID &&
+                  part.sourceId !== WORKER_BRIEFING_SOURCE_ID),
+            ),
+          },
+        }
+      : {}),
   };
   // Sum of delegated model usage this turn. This includes Advisor consults and
   // ACP Workers, and is read lazily so late usage is included in the primary
@@ -873,16 +890,18 @@ async function runProviderTurn(
     args.runtimeOptions?.advisorTarget,
   );
   if (
+    args.executionPolicy !== "secondary-read-only" &&
+    (args.providerId === "claude-code" || args.providerId === "codex") &&
     advisorTarget &&
     shouldRunAdvisor({
-      conversation: args.conversation,
+      conversation: effectiveArgs.conversation,
       target: advisorTarget,
     }) &&
     effectiveArgs.conversation
   ) {
     // On-demand Advisor: instead of a blocking preflight, mint a turn-scoped
     // consult grant and brief the primary on how to use it. The primary calls
-    // the `stave_consult_advisor` Local MCP tool with the grant's key whenever
+    // the `stave_consult_advisor` Local MCP tool on its scoped connection whenever
     // it wants a second opinion; each consult streams its own
     // `advisor_activity` exchange into this turn.
     const consultKey = randomUUID();
@@ -944,12 +963,12 @@ async function runProviderTurn(
     const injection = appendAdvisorConsultBriefing({
       conversation: effectiveArgs.conversation,
       target: advisorTarget,
-      consultKey,
       consultLimit,
     });
     effectiveArgs = {
       ...effectiveArgs,
       conversation: injection.conversation,
+      staveCollaborationGrants: { consultKey },
     };
   }
 
@@ -959,6 +978,7 @@ async function runProviderTurn(
   } | null = null;
   let acpWorkerUnavailableDetail: string | null = null;
   if (
+    args.executionPolicy !== "secondary-read-only" &&
     (args.providerId === "cursor" || args.providerId === "kiro") &&
     args.runtimeOptions?.workerIntent
   ) {
@@ -1001,7 +1021,6 @@ async function runProviderTurn(
               conversation: appendAcpWorkerBriefing({
                 conversation: effectiveArgs.conversation,
                 profile: resolution.profile,
-                workerKey,
               }),
             }
           : {
@@ -1010,7 +1029,6 @@ async function runProviderTurn(
                 effectiveArgs.prompt,
                 buildAcpWorkerPrimaryInstructions({
                   profile: resolution.profile,
-                  workerKey,
                 }),
               ]
                 .filter(Boolean)
@@ -1050,6 +1068,10 @@ async function runProviderTurn(
     });
   }
   if (acpWorkerGrant) {
+    effectiveArgs.staveCollaborationGrants = {
+      ...effectiveArgs.staveCollaborationGrants,
+      workerKey: acpWorkerGrant.workerKey,
+    };
     acpWorkerGrantHandle = registerAcpWorkerGrant({
       workerKey: acpWorkerGrant.workerKey,
       turnId,
@@ -1075,6 +1097,11 @@ async function runProviderTurn(
       registerApprovalResponder: approvalRouter.registerNested,
     });
   }
+  revokeCollaborationGrants = () => {
+    revokeAdvisorGrant();
+    revokeAcpWorkerGrant();
+  };
+  if (abortRequested) revokeCollaborationGrants();
   const emitMissingReturnedEvents = (events: BridgeEvent[]) => {
     const emittedCounts = new Map<string, number>();
     for (const event of emittedPrimaryEvents) {
@@ -1173,9 +1200,6 @@ async function runProviderTurn(
       const events = await runStreamWithPausableTimeout(
         (isCursor ? streamCursorWithAcp : streamKiroWithAcp)({
           ...effectiveArgs,
-          ...(acpWorkerGrantHandle
-            ? { staveLocalMcpToolNames: [WORKER_DELEGATE_TOOL_NAME] }
-            : {}),
           onEvent: wrapStreamOnEvent(emitPrimaryEvent),
           registerAbort: registerPhaseAborter,
           registerApprovalResponder: (responder) => {

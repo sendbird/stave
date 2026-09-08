@@ -40,6 +40,8 @@ describe("Stave Local MCP unattended automation authorization", () => {
       args: ["/tmp/stave-mcp-stdio-proxy.js"],
       env: [
         { name: "ELECTRON_RUN_AS_NODE", value: "1" },
+        { name: "STAVE_ADVISOR_GRANT_KEY", value: "" },
+        { name: "STAVE_WORKER_GRANT_KEY", value: "" },
         {
           name: "STAVE_MCP_ALLOWED_TOOLS",
           value: "stave_run_worker",
@@ -53,7 +55,31 @@ describe("Stave Local MCP unattended automation authorization", () => {
       name: "stave-local-mcp",
       command: process.execPath,
       args: ["/tmp/stave-mcp-stdio-proxy.js"],
-      env: [{ name: "ELECTRON_RUN_AS_NODE", value: "1" }],
+      env: [
+        { name: "ELECTRON_RUN_AS_NODE", value: "1" },
+        { name: "STAVE_ADVISOR_GRANT_KEY", value: "" },
+        { name: "STAVE_WORKER_GRANT_KEY", value: "" },
+      ],
+    });
+  });
+
+  test("binds Claude and ACP calls through transport fields without changing the endpoint", () => {
+    const sdk = toClaudeSdkMcpServerConfig(manifest, {
+      collaborationGrants: { consultKey: "advisor-live" },
+    });
+    expect(sdk.url).toBe(manifest.url);
+    expect(sdk.headers["x-stave-advisor-key"]).toBe("advisor-live");
+    expect(sdk.headers["x-stave-worker-key"]).toBe("");
+    const acp = toAcpStdioMcpServerConfig(manifest, {
+      collaborationGrants: { workerKey: "worker-live" },
+    });
+    expect(acp.env).toContainEqual({
+      name: "STAVE_WORKER_GRANT_KEY",
+      value: "worker-live",
+    });
+    expect(acp.env).toContainEqual({
+      name: "STAVE_ADVISOR_GRANT_KEY",
+      value: "",
     });
   });
 
@@ -108,9 +134,11 @@ describe("Stave Local MCP unattended automation authorization", () => {
     // The settings-file shape stays untouched on purpose: the field is only
     // confirmed for the SDK option, and this entry lives in a file Stave does
     // not own.
-    expect(
-      toClaudeCodeSettingsMcpServerEntry(manifest).transport,
-    ).not.toHaveProperty("timeout");
+    const settingsTransport = toClaudeCodeSettingsMcpServerEntry(manifest).transport;
+    expect(settingsTransport).not.toHaveProperty("timeout");
+    expect(settingsTransport.headers).toEqual({
+      Authorization: "Bearer manifest-token-placeholder",
+    });
   });
 
   test("keeps the timeout ladder ordered innermost-first", () => {

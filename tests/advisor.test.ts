@@ -183,7 +183,6 @@ describe("Advisor turn preparation", () => {
         providerId: "claude-code",
         model: "claude-fable-5-1",
       },
-      consultKey: "consult-key-123",
       consultLimit: 3,
     });
     const next = injection.conversation;
@@ -201,20 +200,19 @@ describe("Advisor turn preparation", () => {
     expect(injection.injectedChars).toBe(next.contextParts[0]?.content.length);
     // The briefing must hand the primary everything a consult call needs.
     const content = next.contextParts[0]?.content ?? "";
-    expect(content).toContain("consult-key-123");
+    expect(content).not.toContain("consultKey");
     expect(content).toContain("at most 3 times");
     expect(content).toContain(ADVISOR_CONSULT_TOOL_NAME);
   });
 
-  test("the briefing teaches the tool, the key, and the budget", () => {
+  test("the briefing teaches the tool and budget without exposing a capability", () => {
     const briefing = buildAdvisorConsultBriefing({
       target: { providerId: "codex", model: "gpt-5.6-terra", effort: "low" },
-      consultKey: "turn-scoped-key",
       consultLimit: 1,
     });
 
     expect(briefing).toContain(ADVISOR_CONSULT_TOOL_NAME);
-    expect(briefing).toContain('consultKey: "turn-scoped-key"');
+    expect(briefing).not.toContain("consultKey");
     // A budget of one reads as singular; the copy is the only budget UI.
     expect(briefing).toContain("at most 1 time");
     expect(briefing).not.toContain("1 times");

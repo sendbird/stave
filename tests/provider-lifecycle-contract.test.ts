@@ -11,7 +11,7 @@ type Scenario =
 
 type AdapterArgs = {
   prompt?: string;
-  staveLocalMcpToolNames?: readonly string[];
+  staveCollaborationGrants?: { workerKey?: string; consultKey?: string };
   onEvent?: (event: BridgeEvent) => void;
   registerAbort?: (abort: () => void) => void;
   registerApprovalResponder?: (responder: () => { ok: true }) => void;
@@ -139,7 +139,11 @@ mock.module("../electron/providers/connected-tool-status", () => ({
 }));
 
 mock.module("../electron/providers/provider-model-catalog", () => ({
-  getProviderModelCatalog: async ({ providerId }: { providerId: ProviderId }) => ({
+  getProviderModelCatalog: async ({
+    providerId,
+  }: {
+    providerId: ProviderId;
+  }) => ({
     providerId,
     ok: true,
     detail: "fixture catalog",
@@ -312,13 +316,10 @@ for (const providerId of ["cursor", "kiro"] as const) {
     });
     await turn.done;
 
-    expect(adapterState.lastArgs?.staveLocalMcpToolNames).toEqual([
-      "stave_run_worker",
-    ]);
     expect(adapterState.lastArgs?.prompt).toContain("stave_run_worker");
-    const workerKey = adapterState.lastArgs?.prompt?.match(
-      /workerKey: `([^`]+)`/,
-    )?.[1];
+    const workerKey =
+      adapterState.lastArgs?.staveCollaborationGrants?.workerKey;
+    expect(adapterState.lastArgs?.prompt).not.toContain(workerKey!);
     expect(workerKey).toBeTruthy();
     expect(
       await providerRuntime.runAcpWorker({
@@ -326,5 +327,35 @@ for (const providerId of ["cursor", "kiro"] as const) {
         task: "Attempt reuse after the parent turn",
       }),
     ).toMatchObject({ ok: false, code: "unknown-worker-key" });
+    await runStream({ providerId }).done;
+    expect(adapterState.lastArgs?.staveCollaborationGrants).toEqual({});
+    expect(adapterState.lastArgs?.prompt).not.toContain("Worker mode is on");
   });
 }
+
+test("Stop revokes a Worker connection before the primary finishes exiting", async () => {
+  adapterState.scenario = "wait-for-abort";
+  const turn = runStream({
+    providerId: "cursor",
+    runtimeOptions: {
+      model: "cursor-fixture-model",
+      workerIntent: {
+        mode: "task-executor",
+        presetId: "verified-patch",
+        workerModel: "cursor-fixture-model",
+        workerEffort: "auto",
+      },
+    },
+  });
+  await new Promise((resolve) => setTimeout(resolve, 0));
+  const workerKey = adapterState.lastArgs?.staveCollaborationGrants?.workerKey;
+  expect(workerKey).toBeTruthy();
+  expect(providerRuntime.abortTurn({ turnId: turn.turnId }).ok).toBe(true);
+  expect(
+    await providerRuntime.runAcpWorker({
+      workerKey: workerKey!,
+      task: "Late call after Stop",
+    }),
+  ).toMatchObject({ ok: false, code: "unknown-worker-key" });
+  await turn.done;
+});

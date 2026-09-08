@@ -4,7 +4,9 @@ const MAX_LOCAL_MCP_LOG_ARRAY_ITEMS = 20;
 const MAX_LOCAL_MCP_LOG_OBJECT_KEYS = 40;
 
 function isSensitiveLogKey(key: string) {
-  return /(authorization|token|secret|password|api[_-]?key)/i.test(key);
+  return /(authorization|token|secret|password|api[_-]?key|consultKey|workerKey|grant[_-]?key|x-stave-.*-key)/i.test(
+    key,
+  );
 }
 
 export function truncateLogString(value: string) {

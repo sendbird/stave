@@ -31,9 +31,7 @@ mock.module("../electron/main/stave-local-mcp-manifest", () => ({
     if (!manifestOverride) {
       return [];
     }
-    return [
-      actualManifest.toAcpStdioMcpServerConfig(manifestOverride, args),
-    ];
+    return [actualManifest.toAcpStdioMcpServerConfig(manifestOverride, args)];
   },
 }));
 
@@ -66,9 +64,7 @@ function workspaceConversation(
       role: "user",
       providerId: "user",
       content: "What is on the Information panel?",
-      parts: [
-        { type: "text", text: "What is on the Information panel?" },
-      ],
+      parts: [{ type: "text", text: "What is on the Information panel?" }],
     },
     contextParts: [
       {
@@ -116,9 +112,11 @@ describe("ACP Stave Local MCP embedding", () => {
       (server) => server.name === "stave-local-mcp",
     );
     expect(staveServer).toBeTruthy();
-    expect(staveServer?.env?.some((entry) => entry.name === "STAVE_MCP_ALLOWED_TOOLS")).toBe(
-      false,
-    );
+    expect(
+      staveServer?.env?.some(
+        (entry) => entry.name === "STAVE_MCP_ALLOWED_TOOLS",
+      ),
+    ).toBe(false);
     expect(echoed.prompt).toContain("Notes: keep the panel compact");
   });
 
@@ -141,9 +139,11 @@ describe("ACP Stave Local MCP embedding", () => {
       (server) => server.name === "stave-local-mcp",
     );
     expect(staveServer).toBeTruthy();
-    expect(staveServer?.env?.some((entry) => entry.name === "STAVE_MCP_ALLOWED_TOOLS")).toBe(
-      false,
-    );
+    expect(
+      staveServer?.env?.some(
+        (entry) => entry.name === "STAVE_MCP_ALLOWED_TOOLS",
+      ),
+    ).toBe(false);
     expect(echoed.prompt).toContain("Notes: keep the panel compact");
   });
 
@@ -159,7 +159,7 @@ describe("ACP Stave Local MCP embedding", () => {
           cursorMode: "agent",
           cursorBinaryPath: process.execPath,
         },
-        staveLocalMcpToolNames: ["stave_run_worker"],
+        staveCollaborationGrants: { workerKey: "worker-grant" },
         acpArgsForTest: [cursorFixturePath, "echo-session"],
       }),
     );
@@ -167,9 +167,16 @@ describe("ACP Stave Local MCP embedding", () => {
       (server) => server.name === "stave-local-mcp",
     );
     expect(staveServer).toBeTruthy();
-    expect(staveServer?.env?.some((entry) => entry.name === "STAVE_MCP_ALLOWED_TOOLS")).toBe(
-      false,
-    );
+    expect(staveServer?.env).toContainEqual({
+      name: "STAVE_WORKER_GRANT_KEY",
+      value: "worker-grant",
+    });
+    expect(echoed.prompt).not.toContain("worker-grant");
+    expect(
+      staveServer?.env?.some(
+        (entry) => entry.name === "STAVE_MCP_ALLOWED_TOOLS",
+      ),
+    ).toBe(false);
   });
 
   test("drops MCP-scoped retrieved context when the Local MCP server is down", async () => {
@@ -188,14 +195,14 @@ describe("ACP Stave Local MCP embedding", () => {
         conversation: workspaceConversation("cursor"),
       }),
     );
-    expect(echoed.mcpServers.some((server) => server.name === "stave-local-mcp")).toBe(
-      false,
-    );
+    expect(
+      echoed.mcpServers.some((server) => server.name === "stave-local-mcp"),
+    ).toBe(false);
     expect(echoed.prompt).not.toContain("Notes: keep the panel compact");
     expect(echoed.prompt).not.toContain(STAVE_WORKSPACE_INFORMATION_SOURCE_ID);
   });
 
-  test("warns when Worker mode is armed without a Local MCP server", async () => {
+  test("stops before starting a provider when Worker mode is armed without a Local MCP server", async () => {
     manifestOverride = null;
     const observed: Array<{ type: string; message?: string }> = [];
     await streamCursorWithAcp({
@@ -207,16 +214,19 @@ describe("ACP Stave Local MCP embedding", () => {
         cursorMode: "agent",
         cursorBinaryPath: process.execPath,
       },
-      staveLocalMcpToolNames: ["stave_run_worker"],
+      staveCollaborationGrants: { workerKey: "worker-grant" },
       acpArgsForTest: [cursorFixturePath, "standard"],
       onEvent: (event) => {
         observed.push(event);
       },
     });
+    expect(observed.some((event) => event.type === "provider_session")).toBe(
+      false,
+    );
     expect(observed).toContainEqual({
       type: "error",
       message:
-        "Worker mode is armed, but the Stave Local MCP server is unavailable. Start it in Settings and retry the turn.",
+        "Worker is armed, but Stave Local MCP is unavailable. Start it in Settings and retry the turn.",
       recoverable: true,
     });
   });

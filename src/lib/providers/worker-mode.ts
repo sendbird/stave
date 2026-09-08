@@ -1116,6 +1116,11 @@ export function buildWorkerPrimaryInstructions(
     }) is available to do bounded implementation work for you.`,
     "",
     "You remain responsible for the result. Delegation is the default, not an optional fallback. For any request involving repository investigation, code changes, verification, or review, make at least one worker call before doing the delegated portion yourself. Skip delegation only for conversation-only requests or a truly atomic one-step action with no useful bounded handoff.",
+    ...(profile.executionAdapter === "native"
+      ? [
+          "Use the provider native agent tool for Worker mode. The stave_run_worker MCP tool belongs to a different execution adapter and is not needed here.",
+        ]
+      : []),
     "Your job is to plan, delegate, then verify and integrate:",
     "",
     "1. Decide what needs to happen and which part is bounded enough to hand off.",
@@ -1145,12 +1150,11 @@ export function buildWorkerPrimaryInstructions(
 /** Turn-specific addendum for the Stave-owned ACP Worker adapter. */
 export function buildAcpWorkerPrimaryInstructions(args: {
   profile: ResolvedWorkerProfile;
-  workerKey: string;
 }) {
   return [
     buildWorkerPrimaryInstructions(args.profile),
     "",
-    `Call \`${WORKER_DELEGATE_TOOL_NAME}\` with this exact turn-scoped workerKey: \`${args.workerKey}\`.`,
+    `Call \`${WORKER_DELEGATE_TOOL_NAME}\`; Stave authorizes the call for this turn automatically.`,
     "Put the complete delegated brief in `task`. Use `context` only for small excerpts or constraints the worker cannot discover from the workspace. Wait for the tool result before reviewing the worker's changes.",
   ].join("\n");
 }
@@ -1159,11 +1163,9 @@ export function buildAcpWorkerPrimaryInstructions(args: {
 export function appendAcpWorkerBriefing(args: {
   conversation: CanonicalConversationRequest;
   profile: ResolvedWorkerProfile;
-  workerKey: string;
 }) {
   const content = buildAcpWorkerPrimaryInstructions({
     profile: args.profile,
-    workerKey: args.workerKey,
   });
   return {
     ...args.conversation,

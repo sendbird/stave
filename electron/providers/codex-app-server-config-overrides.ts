@@ -1,4 +1,8 @@
 import {
+  collaborationGrantHeaders,
+  type StaveCollaborationGrants,
+} from "./stave-collaboration-grants";
+import {
   CODEX_STAVE_MCP_SERVER_NAME,
   CODEX_STAVE_MCP_TOKEN_ENV_VAR,
 } from "../main/codex-mcp";
@@ -34,6 +38,7 @@ export function buildCodexUnattendedAutomationMcpOverrides(args: {
 }
 
 export async function mergeCodexTurnConfigOverrides(args: {
+  collaborationGrants?: StaveCollaborationGrants;
   base?: CodexConfigOverrides;
   secretShellOverrides: Record<string, string>;
   staveLocalMcpManifest: StaveLocalMcpManifest | null;
@@ -53,6 +58,8 @@ export async function mergeCodexTurnConfigOverrides(args: {
               authorizationToken: args.unattendedAutomationAuthorizationToken,
             }),
           [`mcp_servers.${CODEX_STAVE_MCP_SERVER_NAME}.enabled`]: true,
+          [`mcp_servers.${CODEX_STAVE_MCP_SERVER_NAME}.http_headers`]:
+            collaborationGrantHeaders(args.collaborationGrants ?? {}),
           [`mcp_servers.${CODEX_STAVE_MCP_SERVER_NAME}.bearer_token_env_var`]:
             CODEX_STAVE_MCP_TOKEN_ENV_VAR,
           [`mcp_servers.${CODEX_STAVE_MCP_SERVER_NAME}.tool_timeout_sec`]:
