@@ -173,4 +173,25 @@ describe("buildClaudeCliEnv", () => {
       }
     }
   });
+
+  test("applies a relocated Claude config dir from the login shell", () => {
+    const originalConfigDir = process.env.CLAUDE_CONFIG_DIR;
+    delete process.env.CLAUDE_CONFIG_DIR;
+
+    try {
+      const env = buildClaudeCliEnv({
+        executablePath: "/tmp/claude",
+        resolver: ({ key }) =>
+          key === "CLAUDE_CONFIG_DIR" ? "/relocated/claude" : null,
+      });
+
+      expect(env.CLAUDE_CONFIG_DIR).toBe("/relocated/claude");
+    } finally {
+      if (typeof originalConfigDir === "string") {
+        process.env.CLAUDE_CONFIG_DIR = originalConfigDir;
+      } else {
+        delete process.env.CLAUDE_CONFIG_DIR;
+      }
+    }
+  });
 });

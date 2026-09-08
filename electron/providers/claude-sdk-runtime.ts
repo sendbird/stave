@@ -448,6 +448,7 @@ function buildClaudeDiagnostics(args: {
       ? canExecutePath({ path: args.executablePath })
       : null,
     envPathHead: summarizePathHead({ value: env.PATH }),
+    claudeConfigDir: env.CLAUDE_CONFIG_DIR?.trim() || null,
     electronEnv: {
       ELECTRON_RUN_AS_NODE: process.env.ELECTRON_RUN_AS_NODE ?? "",
       ELECTRON_NO_ATTACH_CONSOLE: process.env.ELECTRON_NO_ATTACH_CONSOLE ?? "",
