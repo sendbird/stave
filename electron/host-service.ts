@@ -1406,13 +1406,29 @@ async function loadMergedCodexMcpStatus(args: {
   };
 }
 
-async function handleRequest(request: AnyHostServiceRequestEnvelope) {
+function requestNeedsCliDiscovery(method: string) {
+  if (method === "tooling.get-status") {
+    return true;
+  }
   if (
-    request.method === "provider.check-availability" ||
-    request.method === "provider.get-model-catalog"
+    method === "provider.abort-turn" ||
+    method === "provider.read-stream-turn" ||
+    method === "provider.ack-stream-turn" ||
+    method === "provider.steer-turn" ||
+    method === "provider.respond-approval" ||
+    method === "provider.respond-user-input" ||
+    method === "provider.skip-advisor"
   ) {
-    // Discovery may initialize login shells. Only discovery reads wait for it;
-    // routine lists, PTY traffic and turn stop/input acknowledgements stay live.
+    return false;
+  }
+  return method.startsWith("provider.");
+}
+
+async function handleRequest(request: AnyHostServiceRequestEnvelope) {
+  if (requestNeedsCliDiscovery(request.method)) {
+    // Discovery may initialize login shells. Turns and tooling probes must see
+    // CLAUDE_CONFIG_DIR / CODEX_HOME from that shell; PTY traffic, turn stop,
+    // and in-turn acknowledgements stay live.
     await prepareCliExecutableDiscovery();
   }
   switch (request.method) {
@@ -1985,6 +2001,7 @@ async function main() {
     },
   });
   prewarmClaudeSdk();
+  void prepareCliExecutableDiscovery();
   routineRuntime.start();
   taskSupervisorRuntime.start();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({

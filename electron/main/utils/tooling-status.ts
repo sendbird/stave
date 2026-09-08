@@ -4,7 +4,10 @@ import {
   resolveClaudeExecutablePath,
 } from "../../providers/claude-sdk-runtime";
 import { resolveCodexExecutablePath } from "../../providers/codex-app-server-runtime";
-import { buildCodexCliEnv } from "../../providers/cli-path-env";
+import {
+  buildCodexCliEnv,
+  prepareCliExecutableDiscovery,
+} from "../../providers/cli-path-env";
 import {
   buildCursorAgentEnv,
   resolveCursorAgentExecutablePath,
@@ -172,24 +175,22 @@ export function parseCodexAuthState(args: {
   if (
     combined.includes("not logged in") ||
     combined.includes("codex login") ||
-    combined.includes("credential") ||
-    combined.includes("api key") ||
     combined.includes("unauthorized") ||
-    combined.includes("authentication")
+    combined.includes("authentication failed")
   ) {
     return {
       authState: "unauthenticated",
       authDetail: detail || "Codex CLI login is required.",
     };
   }
-  if (combined.includes("logged in")) {
+  if (args.ok && combined.includes("logged in")) {
     return {
       authState: "authenticated",
       authDetail: detail || "Codex CLI is authenticated.",
     };
   }
   return {
-    authState: args.ok ? "unknown" : "unauthenticated",
+    authState: "unknown",
     authDetail: detail || "Unable to determine Codex CLI authentication state.",
   };
 }
@@ -250,7 +251,7 @@ export function parseClaudeAuthState(args: {
   }
 
   return {
-    authState: args.ok ? "unknown" : "unauthenticated",
+    authState: "unknown",
     authDetail:
       detail || "Unable to determine Claude CLI authentication state.",
   };
@@ -280,10 +281,8 @@ export function parseCursorAuthState(args: {
     };
   }
   return {
-    authState: args.ok ? "unknown" : "unauthenticated",
-    authDetail: args.ok
-      ? "Unable to determine Cursor Agent CLI authentication state."
-      : "Run `agent login` to authenticate Cursor Agent CLI.",
+    authState: "unknown",
+    authDetail: "Unable to determine Cursor Agent CLI authentication state.",
   };
 }
 
@@ -311,8 +310,8 @@ export function parseKiroAuthState(args: {
     };
   }
   return {
-    authState: "unauthenticated",
-    authDetail: "Run `kiro-cli login` to authenticate Kiro CLI.",
+    authState: "unknown",
+    authDetail: "Unable to determine Kiro CLI authentication state.",
   };
 }
 
@@ -591,6 +590,7 @@ async function inspectGhStatus() {
 }
 
 async function inspectClaudeStatus(args: { claudeBinaryPath?: string } = {}) {
+  await prepareCliExecutableDiscovery();
   const executablePath =
     resolveClaudeExecutablePath({
       explicitPath: args.claudeBinaryPath,
@@ -665,6 +665,7 @@ async function inspectClaudeStatus(args: { claudeBinaryPath?: string } = {}) {
 }
 
 async function inspectCodexStatus(args: { codexBinaryPath?: string }) {
+  await prepareCliExecutableDiscovery();
   const executablePath =
     resolveCodexExecutablePath({
       explicitPath: args.codexBinaryPath,

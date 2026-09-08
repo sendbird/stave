@@ -16,7 +16,13 @@ interface ResolveExecutablePathArgs {
 const LOGIN_SHELL_PATH_MARKER = "__STAVE_LOGIN_SHELL_PATH__";
 const LOGIN_SHELL_ENV_MARKER_PREFIX = "__STAVE_LOGIN_SHELL_ENV__";
 const LOGIN_SHELL_COMMAND_MARKER_PREFIX = "__STAVE_LOGIN_SHELL_CMD__";
-const LOGIN_SHELL_PROBE_TIMEOUT_MS = 2500;
+// Why: GUI-launched Electron does not inherit `.zshrc` exports. Stave probes a
+// login shell for `CLAUDE_CONFIG_DIR` / `CODEX_HOME`. A 2.5s cap often dies
+// while `nvm.sh` is still sourcing, then a faster bash fallback looks unset and
+// the miss was cached — Claude then uses `~/.claude` while the real login lives
+// under a relocated config dir, so usage (keychain) works and turns do not.
+const DEFAULT_LOGIN_SHELL_PROBE_TIMEOUT_MS = 10_000;
+let loginShellProbeTimeoutMs = DEFAULT_LOGIN_SHELL_PROBE_TIMEOUT_MS;
 let cachedLoginShellPath: string | null | undefined;
 const cachedLoginShellEnvVarValues = new Map<string, string | null>();
 const cachedLoginShellCommandPaths = new Map<string, string | null>();
@@ -205,7 +211,7 @@ function resolveLoginShellPath(args: { baseEnv?: NodeJS.ProcessEnv } = {}) {
           ...(args.baseEnv ?? process.env),
           TERM: args.baseEnv?.TERM || process.env.TERM || "dumb",
         },
-        timeout: LOGIN_SHELL_PROBE_TIMEOUT_MS,
+        timeout: loginShellProbeTimeoutMs,
         maxBuffer: 1024 * 1024,
       },
     );
@@ -247,7 +253,21 @@ export function resolveLoginShellEnvVarValue(args: {
 }
 
 type LoginShellEnvProbeArgs = { keys: readonly string[]; cache?: boolean };
-type LoginShellProbeOutput = { stdout: string | null; stderr: string | null };
+type LoginShellProbeOutput = {
+  stdout: string | null;
+  stderr: string | null;
+  timedOut?: boolean;
+};
+
+function isLoginShellProbeTimeout(error: unknown) {
+  return Boolean(
+    error &&
+      typeof error === "object" &&
+      (("code" in error && error.code === "ETIMEDOUT") ||
+        // execFile reports timeout termination via killed, unlike spawnSync.
+        ("killed" in error && error.killed === true)),
+  );
+}
 
 function* loginShellEnvProbes(
   args: LoginShellEnvProbeArgs,
@@ -290,6 +310,7 @@ function* loginShellEnvProbes(
   }
 
   let pendingKeys = unresolvedKeys;
+  let probeIncomplete = false;
   for (const shell of getLoginShellCandidates()) {
     if (pendingKeys.length === 0) {
       break;
@@ -308,6 +329,9 @@ function* loginShellEnvProbes(
       })
       .join(";");
     const result = yield { shell, command };
+    if (result.timedOut) {
+      probeIncomplete = true;
+    }
     const nextPendingKeys: string[] = [];
     for (const key of pendingKeys) {
       const parsed = parseMarkedProbeOutput({
@@ -329,7 +353,7 @@ function* loginShellEnvProbes(
 
   for (const key of pendingKeys) {
     values.set(key, null);
-    if (shouldCache) {
+    if (shouldCache && !probeIncomplete) {
       cachedLoginShellEnvVarValues.set(key, null);
     }
   }
@@ -341,7 +365,7 @@ function loginShellProbeOptions() {
   return {
     encoding: "utf8" as const,
     env: { ...process.env, TERM: process.env.TERM || "dumb" },
-    timeout: LOGIN_SHELL_PROBE_TIMEOUT_MS,
+    timeout: loginShellProbeTimeoutMs,
     killSignal: "SIGKILL" as const,
     maxBuffer: 1024 * 1024,
   };
@@ -351,13 +375,16 @@ export function resolveLoginShellEnvVarValues(args: LoginShellEnvProbeArgs) {
   const probes = loginShellEnvProbes(args);
   let step = probes.next();
   while (!step.done) {
-    step = probes.next(
-      spawnSync(
-        step.value.shell,
-        ["-ilc", step.value.command],
-        loginShellProbeOptions(),
-      ),
+    const result = spawnSync(
+      step.value.shell,
+      ["-ilc", step.value.command],
+      loginShellProbeOptions(),
     );
+    step = probes.next({
+      stdout: result.stdout,
+      stderr: result.stderr,
+      timedOut: isLoginShellProbeTimeout(result.error),
+    });
   }
   return step.value;
 }
@@ -375,9 +402,13 @@ export async function resolveLoginShellEnvVarValuesAsync(
         shell,
         ["-ilc", command],
         loginShellProbeOptions(),
-        (_error, stdout, stderr) => {
+        (error, stdout, stderr) => {
           // Shell diagnostics may contain private environment values. Never log them.
-          resolve({ stdout, stderr });
+          resolve({
+            stdout,
+            stderr,
+            timedOut: isLoginShellProbeTimeout(error),
+          });
         },
       );
     });
@@ -498,7 +529,7 @@ export function resolveLoginShellCommandPath(args: { command: string }) {
           ...process.env,
           TERM: process.env.TERM || "dumb",
         },
-        timeout: LOGIN_SHELL_PROBE_TIMEOUT_MS,
+        timeout: loginShellProbeTimeoutMs,
         maxBuffer: 1024 * 1024,
       },
     );
@@ -528,6 +559,14 @@ export function __resetExecutablePathCachesForTests() {
   cachedLoginShellCommandPaths.clear();
   cachedNodeVersionManagerBinDirs = null;
   pendingExecutableLookup = undefined;
+  loginShellProbeTimeoutMs = DEFAULT_LOGIN_SHELL_PROBE_TIMEOUT_MS;
+}
+
+export function __setLoginShellProbeTimeoutMsForTests(value?: number) {
+  loginShellProbeTimeoutMs =
+    typeof value === "number" && Number.isFinite(value) && value > 0
+      ? value
+      : DEFAULT_LOGIN_SHELL_PROBE_TIMEOUT_MS;
 }
 
 /** Warm the shared shell caches without blocking unrelated host requests. */

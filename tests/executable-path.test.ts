@@ -11,11 +11,13 @@ import path from "node:path";
 import {
   buildExecutableLookupEnv,
   __resetExecutablePathCachesForTests,
+  __setLoginShellProbeTimeoutMsForTests,
   normalizeExecutablePathValue,
   parseMarkedProbeOutput,
   prepareExecutableLookup,
   resolveExecutablePath,
   resolveLoginShellCommandPath,
+  resolveLoginShellEnvVarValues,
   resolveLoginShellEnvVarValuesAsync,
   toAsarUnpackedPath,
 } from "../electron/providers/executable-path";
@@ -375,3 +377,37 @@ describe("parseMarkedProbeOutput", () => {
     ).toBe("/opt/homebrew/bin:/usr/bin:/bin");
   });
 });
+
+test.each([
+  ["sync", resolveLoginShellEnvVarValues],
+  ["async", resolveLoginShellEnvVarValuesAsync],
+] as const)(
+  "a timed-out %s login-shell env probe does not cache a miss",
+  async (_mode, resolveValues) => {
+    if (process.platform === "win32") return;
+    const { executablePath } = createExecutableFixture({
+      prefix: "stave-shell-timeout-",
+    });
+    writeFileSync(
+      executablePath,
+      "#!/bin/sh\nsleep 1\nprintf '__STAVE_LOGIN_SHELL_ENV__STAVE_PROBE_TEST__/relocated/config__STAVE_LOGIN_SHELL_ENV__STAVE_PROBE_TEST__'\n",
+    );
+    const originalShell = process.env.SHELL;
+    __resetExecutablePathCachesForTests();
+    try {
+      process.env.SHELL = executablePath;
+      __setLoginShellProbeTimeoutMsForTests(50);
+      expect(
+        await resolveValues({ keys: ["STAVE_PROBE_TEST"] }),
+      ).toEqual({ STAVE_PROBE_TEST: null });
+      __setLoginShellProbeTimeoutMsForTests(2_000);
+      expect(
+        await resolveValues({ keys: ["STAVE_PROBE_TEST"] }),
+      ).toEqual({ STAVE_PROBE_TEST: "/relocated/config" });
+    } finally {
+      if (originalShell === undefined) delete process.env.SHELL;
+      else process.env.SHELL = originalShell;
+      __resetExecutablePathCachesForTests();
+    }
+  },
+);

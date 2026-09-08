@@ -39,6 +39,32 @@ describe("tooling status helpers", () => {
     });
   });
 
+  test("recognizes successful Codex API key authentication", () => {
+    expect(parseCodexAuthState({
+      ok: true,
+      stdout: "",
+      stderr: "Logged in using an API key - fixture",
+    }).authState).toBe("authenticated");
+  });
+
+  test.each([
+    ["Claude", parseClaudeAuthState],
+    ["Codex", parseCodexAuthState],
+    ["Cursor", parseCursorAuthState],
+    ["Kiro", parseKiroAuthState],
+  ] as const)(
+    "keeps %s probe failures distinct from missing login",
+    (_provider, parse) => {
+      for (const stderr of [
+        "Temporary service unavailable",
+        "Error reading credential store",
+        "",
+      ]) {
+        expect(parse({ ok: false, stdout: "", stderr }).authState).toBe("unknown");
+      }
+    },
+  );
+
   test("parses Claude auth status JSON", () => {
     expect(parseClaudeAuthState({
       ok: true,
@@ -63,6 +89,20 @@ describe("tooling status helpers", () => {
     })).toEqual({
       authState: "authenticated",
       authDetail: "Authenticated · dev@example.com · org: Acme",
+    });
+  });
+
+  test("parses Claude auth status JSON when the CLI reports logged out", () => {
+    expect(parseClaudeAuthState({
+      ok: false,
+      stdout: JSON.stringify({
+        loggedIn: false,
+        authMethod: "none",
+      }),
+      stderr: "",
+    })).toEqual({
+      authState: "unauthenticated",
+      authDetail: "Not authenticated",
     });
   });
 
