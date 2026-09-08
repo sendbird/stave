@@ -112,7 +112,10 @@ import {
   useLocalMcpReadiness,
 } from "@/lib/local-mcp-readiness";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
-import { buildModelEffortRuntimeOverrides } from "@/lib/providers/model-effort";
+import {
+  buildModelEffortRuntimeOverrides,
+  buildModelSelectionRuntimeOverrides,
+} from "@/lib/providers/model-effort";
 import type { ClaudeSettingSource } from "@/lib/providers/provider.types";
 import {
   getCachedProviderCommandCatalog,
@@ -2571,7 +2574,7 @@ function BaseChatInput() {
     claudeAllowUnsandboxedCommands,
     claudeTaskBudgetTokens,
     claudeSettingSources,
-    claudeEffort,
+    savedClaudeEffort,
     claudeThinkingMode,
     claudeAgentProgressSummaries,
     claudeBinaryPath,
@@ -2604,7 +2607,7 @@ function BaseChatInput() {
     codexFileAccess,
     codexNetworkAccess,
     codexApprovalPolicy,
-    codexReasoningEffort,
+    savedCodexReasoningEffort,
     codexWebSearch,
     codexShowRawReasoning,
     codexReasoningSummary,
@@ -2637,6 +2640,10 @@ function BaseChatInput() {
       ] as const;
     }),
   );
+  const claudeEffort =
+    promptDraftRuntimeOverrides?.claudeEffort ?? savedClaudeEffort;
+  const codexReasoningEffort =
+    promptDraftRuntimeOverrides?.codexReasoningEffort ?? savedCodexReasoningEffort;
   const skillCatalog = useAppStore((state) => state.skillCatalog);
   const taskRuntimeState = useMemo(
     () =>
@@ -3423,12 +3430,16 @@ function BaseChatInput() {
         updatePromptDraft({
           taskId: providerSelectionTarget,
           patch: {
-            runtimeOverrides: {
-              ...(promptDraftRuntimeOverrides ?? {}),
-              autoRouting: false,
+            runtimeOverrides: buildModelSelectionRuntimeOverrides({
+              runtimeOverrides: promptDraftRuntimeOverrides,
+              settings: useAppStore.getState().settings,
+              providerId: selection.providerId,
               model: nextModel,
-              modelProviderId: selection.providerId,
-            },
+              effort: resolveModelShortcutEffort({
+                shortcutKey: selection.key,
+                effort,
+              }),
+            }),
           },
         });
         if (selection.providerId === "claude-code") {

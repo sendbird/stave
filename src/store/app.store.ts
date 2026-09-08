@@ -1350,6 +1350,7 @@ export const useAppStore = create<AppState>()(
       workspaceLastActiveAtById: {},
       workspacePrInfoById: {},
       rateLimitsSnapshot: null,
+      rateLimitsUpdatedAtByProvider: {},
       rateLimitsLoading: false,
       rateLimitsError: null,
       isDarkMode: true,
@@ -1597,6 +1598,7 @@ export const useAppStore = create<AppState>()(
           const accountUsageBlock = await guardSendAgainstAccountUsage(
             get,
             providerOverride ?? task?.provider ?? state.draftProvider ?? "claude-code",
+            { cachedOnly: submitIntent !== "steer" },
           );
           if (accountUsageBlock) return accountUsageBlock;
         }
@@ -1896,6 +1898,7 @@ export const useAppStore = create<AppState>()(
           // "steer" (suggestion clicks, PlanViewer, etc.).
           const queuedTurn = buildQueuedTurnFromDraft({
             draft: promptDraft,
+            settings: state.settings,
             sourceTurnId: activeTurnId,
             content: promptContent,
             // Pin the selection at queue time so switching provider/model
@@ -2036,7 +2039,7 @@ export const useAppStore = create<AppState>()(
         submittedPromptDraft.clear();
 
         try {
-          if (!hasActiveTurn) {
+          if (!hasActiveTurn || activeTurnStalled) {
             const accountUsageBlock = await guardSendAgainstAccountUsage(
               get,
               provider,

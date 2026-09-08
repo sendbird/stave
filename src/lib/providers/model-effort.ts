@@ -1,3 +1,4 @@
+import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 import {
   clampCodexEffortToModel,
   resolveDefaultClaudeEffortForModel,
@@ -248,4 +249,24 @@ export function getModelEffortLabel(args: {
   return listModelEffortOptions(args).find(
     (option) => option.value === args.effort,
   )?.label;
+}
+
+/** Snapshot the selector choice so a stale draft cannot override it at send. */
+export function buildModelSelectionRuntimeOverrides(args: {
+  runtimeOverrides?: PromptDraftRuntimeOverrides;
+  settings: ModelRuntimePreferenceSettings;
+  providerId: ProviderId;
+  model: string;
+  effort?: ModelEffort;
+}): PromptDraftRuntimeOverrides {
+  return {
+    ...args.runtimeOverrides,
+    autoRouting: false,
+    model: args.model,
+    modelProviderId: args.providerId,
+    ...buildModelEffortRuntimeOverrides({
+      ...args,
+      effort: args.effort ?? resolveModelEffortFromSettings(args),
+    }),
+  };
 }

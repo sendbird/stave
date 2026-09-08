@@ -472,6 +472,9 @@ const PromptDraftQueuedTurnSchema = z
     // instead of rejecting the entire workspace snapshot.
     providerId: ProviderIdSchema.optional().catch(undefined),
     model: z.string().optional().catch(undefined),
+    effort: PromptDraftRuntimeOverridesSchema.shape.codexReasoningEffort.catch(
+      undefined,
+    ),
   })
   .strict();
 
