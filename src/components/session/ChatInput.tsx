@@ -2811,7 +2811,7 @@ function BaseChatInput() {
         ? codexReasoningEffort
         : activeProvider === "kiro"
           ? effectiveKiroEffort
-          : undefined;
+          : promptDraftRuntimeOverrides?.cursorEffort;
   const goalStatus = useMemo(
     () =>
       buildChatInputGoalStatus({

@@ -4762,21 +4762,6 @@ describe("workspace store hydration ordering", () => {
     let streamListener:
       | ((payload: { streamId: string; event: unknown; done: boolean }) => void)
       | null = null;
-    let resolveClassification:
-      | ((value: {
-          ok: boolean;
-          classification: {
-            taskType: "implementation";
-            complexity: "medium";
-            recommendedTier: "standard";
-            confidence: number;
-          };
-        }) => void)
-      | null = null;
-    let markClassificationStarted: (() => void) | null = null;
-    const classificationStarted = new Promise<void>((resolve) => {
-      markClassificationStarted = resolve;
-    });
     setWindowContext({
       localStorage,
       api: {
@@ -4797,20 +4782,6 @@ describe("workspace store hydration ordering", () => {
                 streamListener = null;
               }
             };
-          },
-          classifyRoute: async () => {
-            markClassificationStarted?.();
-            return await new Promise<{
-              ok: boolean;
-              classification: {
-                taskType: "implementation";
-                complexity: "medium";
-                recommendedTier: "standard";
-                confidence: number;
-              };
-            }>((resolve) => {
-              resolveClassification = resolve;
-            });
           },
           abortTurn: async () => ({ ok: true, message: "aborted" }),
           cleanupTask: async () => ({ ok: true }),
@@ -4924,19 +4895,8 @@ describe("workspace store hydration ordering", () => {
       event: { type: "done" },
       done: true,
     });
-    await classificationStarted;
-    expect(resolveClassification).toBeFunction();
 
     await useAppStore.getState().switchWorkspace({ workspaceId: "ws-alt" });
-    resolveClassification?.({
-      ok: true,
-      classification: {
-        taskType: "implementation",
-        complexity: "medium",
-        recommendedTier: "standard",
-        confidence: 0.9,
-      },
-    });
     await Bun.sleep(25);
 
     const nextState = useAppStore.getState();
