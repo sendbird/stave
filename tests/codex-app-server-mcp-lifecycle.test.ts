@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, mock, test } from "bun:test";
+import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 import { EventEmitter } from "node:events";
 import { mkdir, mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -18,10 +18,7 @@ class FakeStream extends EventEmitter {
 }
 
 type FakeScenario =
-  | "full-lifecycle"
-  | "completed-only"
-  | "native-collab"
-  | "command-streaming";
+  "full-lifecycle" | "completed-only" | "native-collab" | "command-streaming";
 
 class FakeChild extends EventEmitter {
   stdout = new FakeStream();
@@ -88,14 +85,15 @@ class FakeChild extends EventEmitter {
           });
           continue;
         }
-        if (message.method === "thread/start" && message.id != null) {
+        if (
+          (message.method === "thread/start" ||
+            message.method === "thread/resume") &&
+          message.id != null
+        ) {
           this.emitResponse(message.id, { thread: { id: "thread-1" } });
           continue;
         }
-        if (
-          message.method === "mcpServerStatus/list" &&
-          message.id != null
-        ) {
+        if (message.method === "mcpServerStatus/list" && message.id != null) {
           this.emitResponse(message.id, {
             data: [
               { name: "functions" },
@@ -103,6 +101,14 @@ class FakeChild extends EventEmitter {
               { name: "codex_apps" },
             ],
           });
+          continue;
+        }
+        if (message.method === "turn/interrupt" && message.id != null) {
+          this.emitResponse(message.id, {});
+          continue;
+        }
+        if (message.method === "thread/unsubscribe" && message.id != null) {
+          this.emitResponse(message.id, { status: "unsubscribed" });
           continue;
         }
         if (message.method === "thread/delete" && message.id != null) {
@@ -408,6 +414,98 @@ async function streamScenario(
 }
 
 describe("Codex App Server MCP lifecycle mapping", () => {
+  test("releases idle threads, retires the process, and resumes the same persisted thread", async () => {
+    const timers = new Map<
+      ReturnType<typeof setTimeout>,
+      { callback: () => void; delay: number }
+    >();
+    const originalSetTimeout = globalThis.setTimeout;
+    const originalClearTimeout = globalThis.clearTimeout;
+    const setTimeoutSpy = spyOn(globalThis, "setTimeout").mockImplementation(((
+      callback: () => void,
+      delay: number,
+      ...args: unknown[]
+    ) => {
+      const timer = originalSetTimeout(callback, delay, ...args);
+      if (delay === 60_000 || delay === 300_000)
+        timers.set(timer, { callback, delay });
+      return timer;
+    }) as typeof setTimeout);
+    const clearTimeoutSpy = spyOn(
+      globalThis,
+      "clearTimeout",
+    ).mockImplementation((timer) => {
+      timers.delete(timer as ReturnType<typeof setTimeout>);
+      originalClearTimeout(timer);
+    });
+    const expire = async (delay: number) => {
+      for (const [timer, item] of [...timers]) {
+        if (item.delay !== delay) continue;
+        clearTimeout(timer);
+        item.callback();
+      }
+      await Bun.sleep(0);
+    };
+    const runtime = await import(
+      `../electron/providers/codex-app-server-runtime?idle-test=${Math.random()}`
+    );
+    const stream = () =>
+      runtime.streamCodexWithAppServer({
+        providerId: "codex",
+        taskId: "idle-task",
+        prompt: "Inspect",
+        cwd: process.cwd(),
+        runtimeOptions: { codexBinaryPath: "/tmp/fake-codex-idle" },
+      });
+    try {
+      await stream();
+      const first = fakeChildren[0]!;
+      expect(first.killed).toBe(false);
+      await expire(60_000);
+      expect(
+        first.receivedMessages.some(
+          (m) =>
+            m.method === "thread/unsubscribe" &&
+            m.params?.threadId === "thread-1",
+        ),
+      ).toBe(true);
+      first.stdout.emit(
+        "data",
+        JSON.stringify({
+          method: "turn/started",
+          params: { threadId: "review-thread", turn: { id: "review-turn" } },
+        }) + "\n",
+      );
+      await expire(300_000);
+      expect(first.killed).toBe(false);
+      first.stdout.emit(
+        "data",
+        JSON.stringify({
+          method: "turn/completed",
+          params: {
+            threadId: "review-thread",
+            turn: { id: "review-turn", status: "completed" },
+          },
+        }) + "\n",
+      );
+      await expire(300_000);
+      expect(first.killed).toBe(true);
+      await stream();
+      expect(fakeChildren).toHaveLength(2);
+      expect(
+        fakeChildren[1]!.receivedMessages.some(
+          (m) =>
+            m.method === "thread/resume" && m.params?.threadId === "thread-1",
+        ),
+      ).toBe(true);
+    } finally {
+      runtime.disposeAllCodexAppServerClients();
+      for (const timer of timers.keys()) clearTimeout(timer);
+      setTimeoutSpy.mockRestore();
+      clearTimeoutSpy.mockRestore();
+    }
+  });
+
   test("sends current attachments as native image inputs", async () => {
     const runtime = await import(
       `../electron/providers/codex-app-server-runtime?native-image-test=${Date.now()}-${Math.random()}`
@@ -455,9 +553,11 @@ describe("Codex App Server MCP lifecycle mapping", () => {
       (message) => message.method === "turn/start",
     );
     const input = turnStart?.params?.input as Array<Record<string, unknown>>;
-    expect(child?.receivedMessages.some(
-      (message) => message.method === "model/list",
-    )).toBe(true);
+    expect(
+      child?.receivedMessages.some(
+        (message) => message.method === "model/list",
+      ),
+    ).toBe(true);
     expect(input).toEqual([
       expect.objectContaining({
         type: "text",
