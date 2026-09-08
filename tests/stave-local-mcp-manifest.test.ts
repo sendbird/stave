@@ -117,8 +117,6 @@ describe("Stave Local MCP unattended automation authorization", () => {
       url: "http://127.0.0.1:39517/mcp?staveUnattendedAutomation=authorization-placeholder",
       headers: {
         Authorization: "Bearer manifest-token-placeholder",
-        "x-stave-advisor-key": "",
-        "x-stave-worker-key": "",
       },
       timeout: STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS,
     });
@@ -136,9 +134,11 @@ describe("Stave Local MCP unattended automation authorization", () => {
     // The settings-file shape stays untouched on purpose: the field is only
     // confirmed for the SDK option, and this entry lives in a file Stave does
     // not own.
-    expect(
-      toClaudeCodeSettingsMcpServerEntry(manifest).transport,
-    ).not.toHaveProperty("timeout");
+    const settingsTransport = toClaudeCodeSettingsMcpServerEntry(manifest).transport;
+    expect(settingsTransport).not.toHaveProperty("timeout");
+    expect(settingsTransport.headers).toEqual({
+      Authorization: "Bearer manifest-token-placeholder",
+    });
   });
 
   test("keeps the timeout ladder ordered innermost-first", () => {

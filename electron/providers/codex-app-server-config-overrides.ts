@@ -59,7 +59,7 @@ export async function mergeCodexTurnConfigOverrides(args: {
             }),
           [`mcp_servers.${CODEX_STAVE_MCP_SERVER_NAME}.enabled`]: true,
           [`mcp_servers.${CODEX_STAVE_MCP_SERVER_NAME}.http_headers`]:
-            collaborationGrantHeaders(args.collaborationGrants),
+            collaborationGrantHeaders(args.collaborationGrants ?? {}),
           [`mcp_servers.${CODEX_STAVE_MCP_SERVER_NAME}.bearer_token_env_var`]:
             CODEX_STAVE_MCP_TOKEN_ENV_VAR,
           [`mcp_servers.${CODEX_STAVE_MCP_SERVER_NAME}.tool_timeout_sec`]:

@@ -90,7 +90,11 @@ function toStaveLocalMcpTransport(
     }),
     headers: {
       Authorization: `Bearer ${manifest.token}`,
-      ...collaborationGrantHeaders(options?.collaborationGrants),
+      // Turn-scoped grants only. Persistent Claude Code settings must not
+      // receive empty keys that look like live Worker/Advisor capability.
+      ...(options?.collaborationGrants
+        ? collaborationGrantHeaders(options.collaborationGrants)
+        : {}),
     },
   };
 }

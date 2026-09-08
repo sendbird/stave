@@ -950,7 +950,7 @@ async function resolveEmbeddedStaveLocalMcpServers(options?: {
   }
   return {
     [STAVE_LOCAL_MCP_SERVER_NAME]: toClaudeSdkMcpServerConfig(manifest, {
-      collaborationGrants: options?.collaborationGrants,
+      collaborationGrants: options?.collaborationGrants ?? {},
       unattendedAutomationAuthorizationToken:
         options?.unattendedAutomationAuthorizationToken,
     }),
