@@ -32,11 +32,23 @@ after the session is open. Provider-namespaced notifications outside the load
 window are unaffected, because MCP startup reports arrive during `session/new`.
 
 The shared ACP layer used by Cursor and Kiro owns bounded NDJSON framing, JSON-RPC request lifecycle,
-schema validation, cancellation, and stable session-update mapping. The Cursor
+schema validation, cancellation, and stable session-update mapping. Official
+ACP v1 does not define a message-size cap or a client setting that shrinks
+`session/update` payloads. Stave therefore accepts NDJSON lines up to 32 MiB
+and drops a larger line without closing the process, so a large tool result,
+diff, or `session/load` replay cannot poison every follow-up turn. Dropped
+JSON-RPC responses fail that one request; notifications are skipped. The Cursor
 profile owns executable discovery, authentication, mode and model selection,
 and namespaced question, plan, todo, task, and image notifications. Renderer
 and IPC contracts continue to use normalized Stave events rather than exposing
 ACP wire payloads.
+
+Cursor Agent can also stall when its Connect-RPC HTTP/2 keepalive fails with
+`RetriableError: [unavailable] PING timed out`. That is an Agent-to-backend
+network drop, not an ACP framing error and not a Stave setting. The Cursor
+profile treats that stderr as a failed turn so `session/prompt` does not hang
+until the stall watchdog. There is no ACP option that selects HTTP/1.1 or
+relaxes the Agent ping timeout.
 
 ACP tool calls are also renamed before they reach the renderer. Agents put prose
 in `toolCall.title` — usually the whole shell command or an absolute path —
