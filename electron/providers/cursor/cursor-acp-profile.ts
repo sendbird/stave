@@ -1,7 +1,9 @@
 import path from "node:path";
 import { resolveBoundSecretEnv } from "../../main/browser/secret-service";
-import { resolveAcpStaveLocalMcpServers } from "../../main/stave-local-mcp-manifest";
-import { resolveAcpTurnMcpServers } from "../acp/acp-shared-mcp";
+import {
+  resolveAcpEmbeddedStaveLocalMcpServers,
+  resolveAcpTurnMcpServers,
+} from "../acp/acp-shared-mcp";
 import {
   createEmptyProviderRuntimeCapabilities,
   extractRuntimeVersion,
@@ -322,21 +324,17 @@ export async function streamCursorWithAcp(
   const secretEnv = args.runtimeOptions?.boundSecretIds?.length
     ? await resolveBoundSecretEnv({ ids: args.runtimeOptions.boundSecretIds })
     : {};
-  const staveLocalMcpServers = args.staveLocalMcpToolNames?.length
-    ? await resolveAcpStaveLocalMcpServers({
-        allowedToolNames: args.staveLocalMcpToolNames,
-      })
-    : [];
+  const { servers: staveLocalMcpServers, workerUnavailable } =
+    await resolveAcpEmbeddedStaveLocalMcpServers({
+      requiredForWorker: Boolean(args.staveLocalMcpToolNames?.length),
+    });
   const mcpServers = await resolveAcpTurnMcpServers({
     targetProvider: "cursor",
     cwd: runtimeCwd,
     env: { ...process.env, ...secretEnv },
     staveLocalMcpServers,
   });
-  if (
-    args.staveLocalMcpToolNames?.length &&
-    staveLocalMcpServers.length === 0
-  ) {
+  if (workerUnavailable) {
     args.onEvent?.({
       type: "error",
       message:

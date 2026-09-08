@@ -52,7 +52,7 @@ describe("TaskStartGuide", () => {
     expect(html).toContain('data-testid="task-start-guide"');
   });
 
-  test("lifts the empty-task cluster and tightens the chip row", () => {
+  test("lifts the empty-task cluster and separates the shared-instructions action from the chips", () => {
     const styles = readFileSync(
       join(import.meta.dir, "..", "src", "components", "session", "chat-area.styles.ts"),
       "utf8",
@@ -63,8 +63,10 @@ describe("TaskStartGuide", () => {
     );
 
     expect(styles).toContain("paddingBottom: vars.space24");
-    expect(styles).toContain("gap: vars.space8");
+    expect(styles).toMatch(/startStack:[\s\S]*?gap: vars\.space16/);
+    expect(styles).toMatch(/startOptions:[\s\S]*?gap: vars\.space8/);
     expect(guide).toContain("styles.footerActions");
-    expect(guide).toContain("gap: vars.space8");
+    expect(guide).toMatch(/shell:[\s\S]*?gap: vars\.space16/);
+    expect(guide).toContain("${vars.space20} ${vars.space20} 0");
   });
 });

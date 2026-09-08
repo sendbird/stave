@@ -129,8 +129,19 @@ export function toAcpStdioMcpServerConfig(
   };
 }
 
-export async function resolveAcpStaveLocalMcpServers(args: {
-  allowedToolNames: readonly string[];
+export function isAcpStaveLocalMcpServer(server: unknown): boolean {
+  if (!server || typeof server !== "object" || !("name" in server)) {
+    return false;
+  }
+  const name = (server as { name: unknown }).name;
+  return (
+    typeof name === "string" &&
+    name.trim().toLowerCase() === STAVE_LOCAL_MCP_SERVER_NAME
+  );
+}
+
+export async function resolveAcpStaveLocalMcpServers(args?: {
+  allowedToolNames?: readonly string[];
 }) {
   const manifest = await readPrimaryStaveLocalMcpManifest();
   if (!manifest?.stdioProxyScript?.trim()) {
@@ -138,7 +149,7 @@ export async function resolveAcpStaveLocalMcpServers(args: {
   }
   return [
     toAcpStdioMcpServerConfig(manifest, {
-      allowedToolNames: args.allowedToolNames,
+      allowedToolNames: args?.allowedToolNames,
     }),
   ];
 }

@@ -2,14 +2,14 @@
  * The Stave Local MCP tools that are safe enough to run without ever asking the
  * user, regardless of the provider's permission posture.
  *
- * This list is shared by both runtimes on purpose. Claude and Codex express
- * permissions with completely different vocabularies — Claude resolves a
- * per-tool decision from a `ClaudePermissionMode`, while Codex answers an
- * `mcpServer/elicitation/request` under a server-wide auto-approve flag — and
- * the two drifted: a Codex run with any non-default sandbox setting prompted
- * for read-only calls like `stave_get_workspace_information` that Claude has
- * always allowed silently. Keeping the membership question in one module is
- * what makes the two runtimes answer it the same way.
+ * This list is shared by every in-app runtime on purpose. Claude resolves a
+ * per-tool decision from a `ClaudePermissionMode`, Codex answers an
+ * `mcpServer/elicitation/request` under a server-wide auto-approve flag, and
+ * Cursor/Kiro answer `session/request_permission`. Those vocabularies drifted:
+ * a Codex run with any non-default sandbox setting prompted for read-only
+ * calls like `stave_get_workspace_information` that Claude has always allowed
+ * silently. Keeping the membership question in one module is what makes the
+ * runtimes answer it the same way.
  *
  * Membership rule: a tool belongs here when it only reads Stave state or edits
  * the workspace's own metadata (notes, todos, resources, routine definitions).

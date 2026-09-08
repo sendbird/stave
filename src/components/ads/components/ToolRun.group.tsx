@@ -12,7 +12,7 @@ import { focusRing } from "../recipes/focus-ring";
 import { inlineDisclosure } from "../recipes/inline-disclosure";
 import { transition } from "../recipes/transition";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
-import { isAttentionState, type AgentRunState } from "./agent-state";
+import { isActionRequiredState, type AgentRunState } from "./agent-state";
 import { InlineDisclosureIcon } from "./inline-disclosure-icon";
 import {
   formatElapsed,
@@ -46,7 +46,7 @@ export type ToolRunGroupProps = Omit<
   /** Accessible name for the list of runs. @default "Tool calls" */
   "aria-label"?: string;
   children?: React.ReactNode;
-  /** Initial open state of a rolled-up group. Defaults to closed; attention stays open. */
+  /** Initial open state of a rolled-up group. Defaults to closed. */
   defaultOpen?: boolean;
   /** The roll-up's glyph, replacing the default tree. */
   icon?: React.ReactNode;
@@ -132,7 +132,7 @@ export function ToolRunGroup({
   const items = flattenRunRows(children);
   const derivedStatus =
     statusProp ?? aggregateRunStatus(runs.map((run) => run.status)) ?? "done";
-  const live = runs.some((run) => isAttentionState(run.status));
+  const live = runs.some((run) => isActionRequiredState(run.status));
   const totalMs = totalMeasuredDuration(runs);
 
   const { open, setOpen } = useSettleDisclosure({

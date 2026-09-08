@@ -315,16 +315,16 @@ export function ChainOfThoughtTrigger(
    * the only one whose glyph column, hover wash, height and disclosure
    * direction disagreed with them.
    *
-   * `cascade`, not the reasoning row's own cadence. This mark stands for the
-   * whole turn — a run of dependent stages, which is what `cascade` names —
-   * while the `Thinking` row beneath it runs `reason`, the chain-of-thought
-   * derivation. The header and its first step once ran the identical cadence,
-   * so a streaming turn drew the same animation twice, eight pixels apart, and
-   * the trace header read as a duplicate of its first step rather than as the
-   * container of every step under it.
+   * `reason`, not the reasoning row's own cadence. This mark stands for the
+   * written chain of thought — each step derived from the last — while the
+   * `Thinking` row beneath it runs `think`, open-ended contemplation. The
+   * header and its first step once ran the identical cadence, so a streaming
+   * turn drew the same animation twice, eight pixels apart, and the trace
+   * header read as a duplicate of its first step rather than as the container
+   * of every step under it.
    */
   const glyph = isStreaming ? (
-    <Loader aria-hidden cadence="reduced" size="xs" variant="cascade" />
+    <Loader aria-hidden cadence="reduced" size="xs" variant="reason" />
   ) : (
     <Brain aria-hidden size={controlIconSizes.md} />
   );

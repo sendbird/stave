@@ -97,26 +97,27 @@ describe("ChainOfThoughtContent", () => {
 });
 
 describe("ChainOfThoughtTrigger", () => {
-  test("renders a reduced-cadence cascade loader while streaming and drops it when complete", () => {
+  test("renders a reduced-cadence reason loader while streaming and drops it when complete", () => {
     const streaming = renderTrace({ isStreaming: true });
     /*
-     * `cascade` — dependent pipeline stages — because this mark stands for the
-     * whole turn. `matrix` is generative inference, which is the reasoning
-     * row's own mark *inside* this trace, so sharing it drew the identical
-     * animation twice and made the header read as a copy of its first step.
+     * `reason` — a written chain of thought — because this mark stands for
+     * the CoT header. `think` is open-ended contemplation, which is the
+     * reasoning row's own mark *inside* this trace, so sharing it would draw
+     * the identical animation twice and make the header read as a copy of
+     * its first step.
      */
-    expect(streaming).toContain('data-loader-variant="cascade"');
+    expect(streaming).toContain('data-loader-variant="reason"');
     expect(streaming).toContain('data-loader-cadence="reduced"');
-    expect(streaming).not.toContain('data-loader-variant="matrix"');
+    expect(streaming).not.toContain('data-loader-variant="think"');
 
     expect(renderTrace({ isStreaming: false })).not.toContain(
-      'data-loader-variant="cascade"',
+      'data-loader-variant="reason"',
     );
   });
 
   test("uses the same lightweight status loader under the legacy style", () => {
     const legacy = renderTrace({ isStreaming: true, style: "legacy" });
-    expect(legacy).toContain('data-loader-variant="cascade"');
+    expect(legacy).toContain('data-loader-variant="reason"');
   });
 
   test("appends the duration to the collapsed completion phrase", () => {

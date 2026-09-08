@@ -283,17 +283,17 @@ describe("tool auto-open behavior", () => {
     expect(getReasoningTraceExpansionMode({ reasoningExpansionMode: "manual" })).toBe("manual");
   });
 
-  test("auto-opens individual tool cards only while streaming", () => {
-    expect(shouldAutoOpenToolPart("input-streaming")).toBe(true);
+  test("does not auto-open individual tool cards, including while streaming", () => {
+    expect(shouldAutoOpenToolPart("input-streaming")).toBe(false);
     expect(shouldAutoOpenToolPart("input-available")).toBe(false);
     expect(shouldAutoOpenToolPart("output-available")).toBe(false);
     expect(shouldAutoOpenToolPart("output-error")).toBe(false);
   });
 
-  test("auto-opens grouped tools only when at least one tool is streaming", () => {
+  test("does not auto-open grouped tools when one of them is streaming", () => {
     expect(shouldAutoOpenToolGroup(["output-error"])).toBe(false);
     expect(shouldAutoOpenToolGroup(["output-available", "output-error"])).toBe(false);
-    expect(shouldAutoOpenToolGroup(["output-error", "input-streaming"])).toBe(true);
+    expect(shouldAutoOpenToolGroup(["output-error", "input-streaming"])).toBe(false);
   });
 });
 

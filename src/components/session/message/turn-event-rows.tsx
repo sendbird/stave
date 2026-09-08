@@ -129,6 +129,7 @@ export function ReasoningRow(args: {
     <Thinking
       durationMs={durationMs}
       label="Reasoning trace"
+      loaderVariant="think"
       phase={isStreaming ? "Thinking" : "Reasoning"}
       status={isStreaming ? "thinking" : "settled"}
     >

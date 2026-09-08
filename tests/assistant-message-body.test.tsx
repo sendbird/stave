@@ -400,8 +400,82 @@ describe("AssistantMessageBody", () => {
       /data-tool-run-status="running"[\s\S]*?aria-expanded="false"/,
     );
     expect(html).toMatch(
-      /data-tool-run-status="failed"[\s\S]*?aria-expanded="true"/,
+      /data-tool-run-status="failed"[\s\S]*?aria-expanded="false"/,
     );
+  });
+
+  test("keeps Stave MCP capture and snapshot rows collapsed unless the reader opens them", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const screenshotOutput = `data:image/png;base64,${"A".repeat(400)}`;
+    const snapshotOutput = [
+      "RootWebArea url=https://example.test",
+      '  button "Save screenshot" [ref=d1e12]',
+      "  img Capture screen",
+    ].join("\n");
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({
+        isStreaming: true,
+        parts: [
+          {
+            type: "tool_use",
+            toolUseId: "tool-screenshot",
+            toolName: "mcp__stave-local-mcp__stave_lens_screenshot",
+            input: JSON.stringify({ selector: "main" }),
+            output: screenshotOutput,
+            state: "output-available",
+          },
+          {
+            type: "tool_use",
+            toolUseId: "tool-snapshot",
+            toolName: "mcp__stave-local-mcp__stave_lens_snapshot",
+            input: JSON.stringify({ includeFrames: true }),
+            output: snapshotOutput,
+            state: "input-streaming",
+          },
+        ],
+      }),
+      taskId: "task-1",
+      messageId: "message-1",
+      streamingEnabled: true,
+    }));
+
+    expect(html).toContain("Capture screen");
+    expect(html).toContain("Inspect page");
+    expect(html).toMatch(
+      /data-tool-run-status="done"[\s\S]*?aria-expanded="false"/,
+    );
+    expect(html).toMatch(
+      /data-tool-run-status="running"[\s\S]*?aria-expanded="false"/,
+    );
+    expect(html).not.toMatch(
+      /data-tool-run-status="(?:done|running)"[\s\S]*?aria-expanded="true"/,
+    );
+  });
+
+  test("does not dump a streaming MCP capture body on the legacy display-part path", async () => {
+    const { AssistantMessageBody } = await loadAssistantMessageBodies();
+    const screenshotOutput = `data:image/png;base64,${"B".repeat(400)}`;
+    const html = renderToStaticMarkup(createElement(AssistantMessageBody, {
+      message: createAssistantMessage({
+        displayParts: [
+          {
+            type: "tool_use",
+            toolUseId: "tool-screenshot",
+            toolName: "mcp__stave-local-mcp__stave_lens_screenshot",
+            input: JSON.stringify({ selector: "main" }),
+            output: screenshotOutput,
+            state: "input-streaming",
+          },
+        ],
+      }),
+      taskId: "task-1",
+      messageId: "message-1",
+      streamingEnabled: true,
+    }));
+
+    expect(html).toContain("Capture screen");
+    expect(html).not.toContain(screenshotOutput);
+    expect(html).not.toContain("Live output");
   });
 
   test("renders interim assistant messages when enabled", async () => {
@@ -471,7 +545,7 @@ describe("AssistantMessageBody", () => {
    * its chevron on the trailing edge and sized its glyph in `em`. These pin the
    * two halves of that: the ADS row anatomy is present, and the pending /
    * rejected state is reported through `AgentRunState` rather than a local
-   * open flag, so `isAttentionState` decides which rows stay open.
+   * open flag, so `isActionRequiredState` decides which rows stay open.
    */
   test("renders a changed file as an ADS tool run row awaiting approval", async () => {
     const { AssistantMessageBody } = await loadAssistantMessageBodies();

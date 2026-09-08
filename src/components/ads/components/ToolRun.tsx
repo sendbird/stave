@@ -14,7 +14,7 @@ import { transition } from "../recipes/transition";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
   agentStateLabel,
-  isAttentionState,
+  isActionRequiredState,
   type AgentRunState,
 } from "./agent-state";
 import {
@@ -114,10 +114,10 @@ export type ToolRunProps = ToolRunBaseProps & {
  * Arguments, output and errors share one open body without nested wells;
  * Terminal or JsonViewer children keep only their own necessary surface.
  *
- * The disclosure animates a mounted row track and stays closed while the run
- * is live, so a turn of tool calls is a list of status rows rather than a
- * stack of open payloads. A failure, denial or approval gate stays open —
- * collapsing those would hide the one payload worth reading. A reader who
+ * The disclosure animates a mounted row track and stays closed unless the
+ * reader opens it. A running or failed call is a status row; the header
+ * still carries the clock and the status word. Only an approval gate stays
+ * open, because that payload is a request to the reader. A reader who
  * toggles a row takes control for that run. Duration comes only from
  * `durationMs`, `startedAt`/`settledAt`, or a real live interval; missing
  * measurement renders no plausible substitute.
@@ -170,11 +170,9 @@ function ToolRunRoot({
 
   const { open, setOpen } = useSettleDisclosure({
     defaultOpen,
-    // Only attention keeps the payload on screen. A running call stays
-    // collapsed so the rail stays a list of status rows; the header still
-    // carries the live clock. `isAttentionState` owns the stay-open list
-    // for the whole family — do not re-derive it here.
-    live: hasPayload && isAttentionState(status),
+    // Closed unless the reader opens it. Failures stay loud on the header
+    // and collapsed in the body. Only an approval gate auto-opens.
+    live: hasPayload && isActionRequiredState(status),
     onOpenChange,
     open: openProp,
   });

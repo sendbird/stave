@@ -35,6 +35,7 @@ describe("ReasoningRow", () => {
     expect(markup).toContain("--ads-capped-viewport-cap:220px");
     expect(markup).toContain("Reading the changelog");
     expect(markup).toContain('aria-expanded="false"');
+    expect(markup).toContain('data-ads-loader-anatomy="think"');
   });
 
   test("an empty reasoning pass is one quiet line, not an empty disclosure", () => {

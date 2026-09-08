@@ -99,7 +99,15 @@ export const modelEffortSelectorStyles = stylex.create({
       ":hover": `color-mix(in oklch, ${vars.colorAccentSoft} 55%, transparent)`,
     },
   },
-  capabilityToggleSemibold: { fontWeight: vars.fontWeightSemibold },
+  capabilityToggleMono: {
+    fontFamily: vars.fontMono,
+    fontVariantNumeric: "tabular-nums",
+    fontWeight: vars.fontWeightMedium,
+  },
+  capabilityToggleIconOnly: {
+    gap: 0,
+    paddingInline: vars.space8,
+  },
   capabilityToggleFastActive: {
     borderColor:
       "color-mix(in oklch, var(--prompt-role-fast) 30%, transparent)",

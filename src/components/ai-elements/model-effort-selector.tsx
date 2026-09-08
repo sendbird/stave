@@ -790,6 +790,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
           }}
           className={sx(
             styles.capabilityToggle,
+            styles.capabilityToggleIconOnly,
             cursorComposerControls.fastMode &&
               styles.capabilityToggleFastActive,
           )}
@@ -801,7 +802,6 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
             )}
             aria-hidden="true"
           />
-          Fast
         </AdsButton>
       ) : null}
 
@@ -815,7 +815,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
           onClick={toggleContext1M}
           className={sx(
             styles.capabilityToggle,
-            styles.capabilityToggleSemibold,
+            styles.capabilityToggleMono,
             isClaudeContext1MModel(args.value.model) &&
               styles.capabilityToggleContextActive,
           )}

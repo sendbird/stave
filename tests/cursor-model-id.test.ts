@@ -110,7 +110,7 @@ describe("turn model notation", () => {
         model: "claude-opus-4-8[1m]",
         modelInfo: { effort: "xhigh", fastMode: false },
       }),
-    ).toEqual({ name: "Claude Opus 4.8 (1M)", details: ["X-High"] });
+    ).toEqual({ name: "Claude Opus 4.8", details: ["1M", "X-High"] });
   });
 
   test("carries a legacy Cursor turn with no parameters", () => {

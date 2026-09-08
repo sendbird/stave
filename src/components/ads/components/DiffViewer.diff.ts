@@ -7,6 +7,10 @@
  * Split out when the word-diff addition pushed `DiffViewer.tsx` past the
  * repo's 500-line file ceiling (`bun run check:structure`) — the same
  * data/rendering split `DataTable.sizing.ts` already uses for `DataTable`.
+ *
+ * `paintHighlightedLine` is the host-highlighter overlay: syntax color spans
+ * compose with word-diff washes by character offset. The highlighter itself
+ * stays app-side so this package does not take a syntax-engine dependency.
  */
 
 /** One token-level (word-boundary) op inside a word-diffed changed line. */
@@ -286,4 +290,84 @@ export function planCollapse<T>(
     }
   }
   return segments;
+}
+
+/** One syntax-color run returned by a host `DiffViewer` highlighter. */
+export type DiffViewerHighlightSpan = {
+  text: string;
+  color?: string;
+};
+
+/**
+ * One painted run after syntax spans and optional word-diff ops are
+ * intersected. `wordType` is set only when this run sits inside a word-diffed
+ * line; `"equal"` still means "present on both sides," not "leave unstyled."
+ */
+export type PaintedDiffSpan = {
+  text: string;
+  color?: string;
+  wordType?: WordOp["type"];
+};
+
+function joinedText(spans: readonly { text: string }[]): string {
+  return spans.reduce((acc, span) => acc + span.text, "");
+}
+
+/**
+ * Intersect host syntax spans with optional word-diff ops. If the spans do
+ * not reconstruct `line` exactly, they are discarded and the line paints as
+ * a single uncolored run (word-diff washes still apply when `wordOps` match).
+ */
+export function paintHighlightedLine(
+  line: string,
+  spans?: readonly DiffViewerHighlightSpan[],
+  wordOps?: readonly WordOp[],
+): PaintedDiffSpan[] {
+  const resolvedSpans =
+    spans && spans.length > 0 && joinedText(spans) === line
+      ? spans
+      : [{ text: line }];
+  const resolvedWords =
+    wordOps && wordOps.length > 0 && joinedText(wordOps) === line
+      ? wordOps
+      : undefined;
+  if (!resolvedWords) {
+    return resolvedSpans.map((span) => ({
+      color: span.color,
+      text: span.text,
+    }));
+  }
+
+  const painted: PaintedDiffSpan[] = [];
+  let spanIndex = 0;
+  let spanOffset = 0;
+  let wordIndex = 0;
+  let wordOffset = 0;
+  while (spanIndex < resolvedSpans.length && wordIndex < resolvedWords.length) {
+    const span = resolvedSpans[spanIndex];
+    const word = resolvedWords[wordIndex];
+    if (!span || !word) break;
+    const take = Math.min(
+      span.text.length - spanOffset,
+      word.text.length - wordOffset,
+    );
+    if (take > 0) {
+      painted.push({
+        color: span.color,
+        text: span.text.slice(spanOffset, spanOffset + take),
+        wordType: word.type,
+      });
+    }
+    spanOffset += take;
+    wordOffset += take;
+    if (spanOffset >= span.text.length) {
+      spanIndex += 1;
+      spanOffset = 0;
+    }
+    if (wordOffset >= word.text.length) {
+      wordIndex += 1;
+      wordOffset = 0;
+    }
+  }
+  return painted.length > 0 ? painted : [{ text: line }];
 }
