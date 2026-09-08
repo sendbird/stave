@@ -222,14 +222,12 @@ function briefingPart(conversation: StreamTurnArgs["conversation"]) {
   );
 }
 
-/** The consultKey is minted per turn and only surfaced through the briefing. */
-function captureConsultKey(conversation: StreamTurnArgs["conversation"]) {
-  const content = briefingPart(conversation)?.content ?? "";
-  const match = /consultKey: "([^"]+)"/.exec(content);
-  if (!match?.[1]) {
-    throw new Error("No consultKey found in the advisor briefing.");
-  }
-  return match[1];
+/** Tests access the host transport capability, never the model prompt. */
+function captureConsultKey(args: StreamTurnArgs | null) {
+  const key = args?.staveCollaborationGrants?.consultKey;
+  if (!key) throw new Error("No host-owned advisor grant.");
+  expect(JSON.stringify(args?.conversation)).not.toContain(key);
+  return key;
 }
 
 function withoutAdvisorActivity(events: BridgeEvent[]) {
@@ -328,9 +326,7 @@ describe("provider runtime on-demand Advisor integration", () => {
       expect(briefing?.title).toContain("On-demand Advisor");
       expect(briefing?.content).toContain(CONSULT_TOOL_NAME);
       expect(briefing?.content).toContain(advisorTarget.model);
-      expect(captureConsultKey(primaryTurn?.conversation)).toMatch(
-        /^[0-9a-f-]{36}$/,
-      );
+      expect(captureConsultKey(primaryTurn)).toMatch(/^[0-9a-f-]{36}$/);
 
       // The adapter must never see the advisor wiring options.
       expect(primaryTurn?.runtimeOptions).not.toHaveProperty("advisorTarget");
@@ -359,6 +355,16 @@ describe("provider runtime on-demand Advisor integration", () => {
       { type: "usage", inputTokens: 20, outputTokens: 8 },
       { type: "done", stop_reason: "end_turn" },
     ]);
+  });
+
+  test("turning Advisor off removes a retained briefing and transport capability", async () => {
+    await runBufferedTurn({ advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" } });
+    const previous = primaryTurn?.conversation;
+    const oldKey = captureConsultKey(primaryTurn);
+    await runBufferedTurn({ conversation: previous });
+    expect(briefingPart(primaryTurn?.conversation)).toBeUndefined();
+    expect(primaryTurn?.staveCollaborationGrants).toEqual({});
+    expect(await consultAdvisor({ consultKey: oldKey, question: "Old connection" })).toMatchObject({ ok: false });
   });
 
   test("injects no briefing for a non-chat turn", async () => {
@@ -395,9 +401,11 @@ describe("provider runtime on-demand Advisor integration", () => {
       }),
     });
 
-    // A retried request already carries advisor material; re-arming would
-    // stack briefings and hand out a second live key.
-    expect(primaryTurn?.conversation?.contextParts).toEqual([existingBriefing]);
+    expect(primaryTurn?.conversation?.contextParts).toHaveLength(1);
+    expect(JSON.stringify(primaryTurn?.conversation)).not.toContain(
+      "stale-key",
+    );
+    expect(captureConsultKey(primaryTurn)).toBeTruthy();
   });
 
   test("answers an in-turn consult and folds its usage into the turn total", async () => {
@@ -405,7 +413,7 @@ describe("provider runtime on-demand Advisor integration", () => {
       null;
     duringPrimaryTurn = async (args) => {
       consultOutcome = await consultAdvisor({
-        consultKey: captureConsultKey(args.conversation),
+        consultKey: captureConsultKey(args),
         question: "Is the cancellation path sound?",
       });
     };
@@ -491,7 +499,7 @@ describe("provider runtime on-demand Advisor integration", () => {
     > | null = null;
     duringPrimaryTurn = async (args) => {
       consultOutcome = await providerRuntime.consultAdvisor({
-        consultKey: captureConsultKey(args.conversation),
+        consultKey: captureConsultKey(args),
         question: "Is the cancellation path sound?",
       });
     };
@@ -542,7 +550,7 @@ describe("provider runtime on-demand Advisor integration", () => {
       null;
     duringPrimaryTurn = async (args) => {
       consultOutcome = await consultAdvisor({
-        consultKey: captureConsultKey(args.conversation),
+        consultKey: captureConsultKey(args),
         question: "Second opinion?",
       });
     };
@@ -564,7 +572,7 @@ describe("provider runtime on-demand Advisor integration", () => {
   test("enforces the normalized per-turn consult budget", async () => {
     const outcomes: Awaited<ReturnType<typeof consultAdvisor>>[] = [];
     duringPrimaryTurn = async (args) => {
-      const consultKey = captureConsultKey(args.conversation);
+      const consultKey = captureConsultKey(args);
       outcomes.push(await consultAdvisor({ consultKey, question: "One?" }));
       outcomes.push(await consultAdvisor({ consultKey, question: "Two?" }));
     };
@@ -605,7 +613,7 @@ describe("provider runtime on-demand Advisor integration", () => {
     let inFlightOutcome: Awaited<ReturnType<typeof consultAdvisor>> | null =
       null;
     duringPrimaryTurn = async (args) => {
-      const consultKey = captureConsultKey(args.conversation);
+      const consultKey = captureConsultKey(args);
       const pending = consultAdvisor({ consultKey, question: "Slow one?" });
       await until(() => codexRunnerHeld);
       // One consult at a time per grant.
@@ -648,7 +656,7 @@ describe("provider runtime on-demand Advisor integration", () => {
     await runBufferedTurn({
       advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
     });
-    const consultKey = captureConsultKey(primaryTurn?.conversation);
+    const consultKey = captureConsultKey(primaryTurn);
 
     // The key was live during the turn but must die with it: a stale
     // transcript or fabricated call can never bill an advisor afterwards.
@@ -664,7 +672,7 @@ describe("provider runtime on-demand Advisor integration", () => {
     primaryEmitsEvents = false;
     duringPrimaryTurn = async (args) => {
       await consultAdvisor({
-        consultKey: captureConsultKey(args.conversation),
+        consultKey: captureConsultKey(args),
         question: "Merged anyway?",
       });
     };

@@ -40,6 +40,8 @@ describe("Stave Local MCP unattended automation authorization", () => {
       args: ["/tmp/stave-mcp-stdio-proxy.js"],
       env: [
         { name: "ELECTRON_RUN_AS_NODE", value: "1" },
+        { name: "STAVE_ADVISOR_GRANT_KEY", value: "" },
+        { name: "STAVE_WORKER_GRANT_KEY", value: "" },
         {
           name: "STAVE_MCP_ALLOWED_TOOLS",
           value: "stave_run_worker",
@@ -53,7 +55,31 @@ describe("Stave Local MCP unattended automation authorization", () => {
       name: "stave-local-mcp",
       command: process.execPath,
       args: ["/tmp/stave-mcp-stdio-proxy.js"],
-      env: [{ name: "ELECTRON_RUN_AS_NODE", value: "1" }],
+      env: [
+        { name: "ELECTRON_RUN_AS_NODE", value: "1" },
+        { name: "STAVE_ADVISOR_GRANT_KEY", value: "" },
+        { name: "STAVE_WORKER_GRANT_KEY", value: "" },
+      ],
+    });
+  });
+
+  test("binds Claude and ACP calls through transport fields without changing the endpoint", () => {
+    const sdk = toClaudeSdkMcpServerConfig(manifest, {
+      collaborationGrants: { consultKey: "advisor-live" },
+    });
+    expect(sdk.url).toBe(manifest.url);
+    expect(sdk.headers["x-stave-advisor-key"]).toBe("advisor-live");
+    expect(sdk.headers["x-stave-worker-key"]).toBe("");
+    const acp = toAcpStdioMcpServerConfig(manifest, {
+      collaborationGrants: { workerKey: "worker-live" },
+    });
+    expect(acp.env).toContainEqual({
+      name: "STAVE_WORKER_GRANT_KEY",
+      value: "worker-live",
+    });
+    expect(acp.env).toContainEqual({
+      name: "STAVE_ADVISOR_GRANT_KEY",
+      value: "",
     });
   });
 
@@ -91,6 +117,8 @@ describe("Stave Local MCP unattended automation authorization", () => {
       url: "http://127.0.0.1:39517/mcp?staveUnattendedAutomation=authorization-placeholder",
       headers: {
         Authorization: "Bearer manifest-token-placeholder",
+        "x-stave-advisor-key": "",
+        "x-stave-worker-key": "",
       },
       timeout: STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS,
     });

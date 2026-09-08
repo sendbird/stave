@@ -271,14 +271,27 @@ the same catalog over ACP stdio via the bundled proxy. User CLI MCP
 auto-registration in Settings → Developer is optional for these internal turns.
 Secondary read-only runs and nested Worker lanes do not receive this connection.
 
+The server exposes collaboration tools only on connections carrying the
+corresponding grant. Unscoped CLI connections and disabled turns keep ordinary
+workspace tools but expose neither `stave_consult_advisor` nor `stave_run_worker`.
+Codex and Claude use their native agent mechanisms for Worker mode; only Cursor
+and Kiro receive an MCP Worker grant. Grants are replaced on each turn (including
+resume), revoked on stop or completion, and checked by the host before execution.
+A stale call cannot fall back to another active task. ACP carries its grant to
+the HTTP proxy through private environment entries. Enabled collaboration that
+cannot attach Local MCP stops with a setup error instead of starting a primary
+that cannot use the promised tool. Previous collaboration briefings are replaced
+when retrying a canonical request, and removed when the feature is disabled.
+
+
 Control is split deliberately: the **user** decides who answers, at what
 effort, and how often (the per-turn consult budget,
 `advisorConsultLimit`, default 5, clamp 1–20); the **model** decides when a
 question is worth asking. When a turn starts with an armed Advisor, the shared
-runtime mints a turn-scoped `consultKey` (a capability honoured only while
-that turn is alive), registers a consult grant, and injects a briefing
-`retrieved_context` part (source id `stave:advisor-consult`) telling the
-primary how to call the tool. The tool is auto-approved
+runtime registers a turn-scoped consult grant and binds it to the primary
+MCP connection through a private header. The briefing `retrieved_context`
+part (source id `stave:advisor-consult`) describes the question, context, and
+budget; no execution key enters the prompt or tool arguments. The tool is auto-approved
 (`stave-local-mcp-approval.ts`) because the spend was authorised at arm time
 and each call is read-only and budget-bounded.
 

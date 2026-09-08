@@ -29,10 +29,11 @@ import {
   PROJECT_MEMORY_CONTENT_MAX_CHARS,
   ProjectMemoryKindSchema,
 } from "../../src/lib/project-memory";
+import { registerCollaborationTools } from "./stave-collaboration-tools";
 import {
-  WORKER_CONTEXT_MAX_CHARS,
-  WORKER_TASK_MAX_CHARS,
-} from "../../src/lib/providers/worker-mode";
+  readCollaborationGrantHeaders,
+  type StaveCollaborationGrants,
+} from "../providers/stave-collaboration-grants";
 import {
   getStaveLocalMcpConfigPath,
   readStaveLocalMcpConfig,
@@ -344,7 +345,10 @@ async function removeManifestFiles() {
   manifestPaths = [];
 }
 
-function createToolServer(options?: { browserToolsEnabled?: boolean }) {
+function createToolServer(options?: {
+  browserToolsEnabled?: boolean;
+  collaborationGrants?: StaveCollaborationGrants;
+}) {
   const server = new McpServer({
     name: "stave-local-mcp",
     version: app.getVersion(),
@@ -602,77 +606,10 @@ function createToolServer(options?: { browserToolsEnabled?: boolean }) {
       }),
   );
 
-  server.registerTool(
-    "stave_consult_advisor",
-    {
-      description:
-        "Consult the on-demand Advisor armed for the current turn: a separate read-only model that answers one question with advice. Only usable with the consultKey from this turn's Advisor briefing; each turn has a limited consult budget.",
-      inputSchema: {
-        consultKey: z
-          .string()
-          .min(1)
-          .describe(
-            "The turn-scoped consult key from the Advisor briefing in your context.",
-          ),
-        question: z
-          .string()
-          .min(1)
-          .describe("What you want advice on. Be specific."),
-        context: z
-          .string()
-          .optional()
-          .describe(
-            "Minimal code/plan excerpts the Advisor needs. It has no repository or tool access and sees nothing else.",
-          ),
-      },
-    },
-    async ({ consultKey, question, context }) =>
-      toStructuredResult({
-        consult: await consultAdvisor({
-          consultKey,
-          question,
-          ...(context ? { context } : {}),
-        }),
-      }),
-  );
-
-  server.registerTool(
-    "stave_run_worker",
-    {
-      description:
-        "Run one bounded task through the same-provider Worker armed for the current turn. The Worker gets a fresh session in the current workspace and returns its result to the primary for review.",
-      inputSchema: {
-        workerKey: z
-          .string()
-          .min(1)
-          .describe(
-            "The exact turn-scoped worker key from the Worker briefing in your context.",
-          ),
-        task: z
-          .string()
-          .min(1)
-          .max(WORKER_TASK_MAX_CHARS)
-          .describe(
-            "A complete, standalone delegated task including file scope and verification requirements.",
-          ),
-        context: z
-          .string()
-          .max(WORKER_CONTEXT_MAX_CHARS)
-          .optional()
-          .describe(
-            "Optional small excerpts or constraints the Worker cannot discover from the workspace.",
-          ),
-      },
-    },
-    async ({ workerKey, task, context }) =>
-      toStructuredResult({
-        worker: await runAcpWorker({
-          workerKey,
-          task,
-          ...(context ? { context } : {}),
-        }),
-      }),
-  );
+  registerCollaborationTools(server, options?.collaborationGrants ?? {}, {
+    consultAdvisor,
+    runAcpWorker,
+  });
 
   server.registerTool(
     "stave_delegate_task",
@@ -1896,6 +1833,7 @@ export async function startStaveMcpServer() {
       const body = req.method === "POST" ? await readJsonBody(req) : undefined;
       const server = createToolServer({
         browserToolsEnabled: browserToolsEnabled,
+        collaborationGrants: readCollaborationGrantHeaders(req.headers),
       });
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,

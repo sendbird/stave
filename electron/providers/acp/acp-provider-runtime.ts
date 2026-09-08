@@ -153,8 +153,6 @@ export type AcpProviderStreamTurnArgs = StreamTurnArgs & {
     responder: (args: UserInputResponseArgs) => ProviderResponderResult,
   ) => void;
   registerSteerResponder?: (responder: ProviderSteerResponder) => void;
-  /** Internal-only scoped Stave tools to attach through the ACP session. */
-  staveLocalMcpToolNames?: readonly string[];
 };
 
 function listConfigOptionValues(

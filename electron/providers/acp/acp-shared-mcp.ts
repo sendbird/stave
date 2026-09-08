@@ -1,3 +1,4 @@
+import type { StaveCollaborationGrants } from "../stave-collaboration-grants";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -578,9 +579,11 @@ export async function resolveAcpSharedMcpServers(args: {
  */
 export async function resolveAcpEmbeddedStaveLocalMcpServers(args?: {
   requiredForWorker?: boolean;
+  collaborationGrants?: StaveCollaborationGrants;
 }) {
   const servers = await resolveAcpStaveLocalMcpServers({
     allowedToolNames: [],
+    collaborationGrants: args?.collaborationGrants,
   });
   return {
     servers,

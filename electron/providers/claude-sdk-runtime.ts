@@ -936,14 +936,21 @@ function resolveTrustedApprovalInput(args: {
 }
 
 async function resolveEmbeddedStaveLocalMcpServers(options?: {
+  collaborationGrants?: StreamTurnArgs["staveCollaborationGrants"];
   unattendedAutomationAuthorizationToken?: string;
 }): Promise<Record<string, McpServerConfig> | undefined> {
   const manifest = await readPrimaryStaveLocalMcpManifest();
   if (!manifest) {
+    if (options?.collaborationGrants?.consultKey) {
+      throw new Error(
+        "Advisor is armed, but Stave Local MCP is unavailable. Start it in Settings and retry the turn.",
+      );
+    }
     return undefined;
   }
   return {
     [STAVE_LOCAL_MCP_SERVER_NAME]: toClaudeSdkMcpServerConfig(manifest, {
+      collaborationGrants: options?.collaborationGrants,
       unattendedAutomationAuthorizationToken:
         options?.unattendedAutomationAuthorizationToken,
     }),
@@ -959,6 +966,7 @@ function logClaudeMcpConfigDiagnostic(diagnostic: ClaudeMcpConfigDiagnostic) {
 }
 
 async function resolveClaudeMcpServersForQuery(args: {
+  collaborationGrants?: StreamTurnArgs["staveCollaborationGrants"];
   cwd: string;
   claudeExecutablePath: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -966,6 +974,7 @@ async function resolveClaudeMcpServersForQuery(args: {
   unattendedAutomationAuthorizationToken?: string;
 }) {
   const staveServers = await resolveEmbeddedStaveLocalMcpServers({
+    collaborationGrants: args.collaborationGrants,
     unattendedAutomationAuthorizationToken:
       args.unattendedAutomationAuthorizationToken,
   });
@@ -5140,6 +5149,7 @@ export async function streamClaudeWithSdk(
     const resolvedMcpServers = secondaryReadOnly
       ? { mcpServers: undefined, hasStaveLocalMcp: false }
       : await resolveClaudeMcpServersForQuery({
+          collaborationGrants: args.staveCollaborationGrants,
           cwd: runtimeCwd,
           claudeExecutablePath,
           runtimeOptions: args.runtimeOptions,

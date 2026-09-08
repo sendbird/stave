@@ -2410,6 +2410,19 @@ export async function streamCodexWithAppServer(
     secondaryReadOnly || nativeSlashCommandTurn
       ? null
       : await readPrimaryStaveLocalMcpManifest();
+  if (
+    args.staveCollaborationGrants?.consultKey &&
+    !staveLocalMcpManifest &&
+    !secondaryReadOnly
+  ) {
+    const events = buildCodexTerminalFailureEvents({
+      message:
+        "Advisor is armed, but Stave Local MCP is unavailable. Start it in Settings and retry the turn.",
+    });
+    events.forEach((event) => args.onEvent?.(event));
+    finishCodexTurn(codexExecutablePath, transientSecretClient);
+    return events;
+  }
   const mergedConfigOverrides = await mergeCodexTurnConfigOverrides({
     base: {
       ...(secondaryConfigOverrides ?? {}),
@@ -2420,6 +2433,7 @@ export async function streamCodexWithAppServer(
     },
     secretShellOverrides,
     staveLocalMcpManifest,
+    collaborationGrants: args.staveCollaborationGrants,
     secondaryReadOnly,
     unattendedAutomationAuthorizationToken:
       args.unattendedAutomation?.authorizationToken,

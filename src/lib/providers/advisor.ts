@@ -695,13 +695,11 @@ export function boundAdvisorAdvice(value: string) {
  * it. Injected as a `retrieved_context` part so the wiring is provider-agnostic
  * — one injection point in the shared runtime instead of one per adapter.
  *
- * The `consultKey` is the turn-scoped capability: the Local MCP handler only
- * honours a key the runtime minted for a live turn, so a stale transcript or a
- * fabricated call can never bill an Advisor the user did not arm.
+ * Authorization is bound to the MCP connection by the host, never copied by
+ * the model from conversation text.
  */
 export function buildAdvisorConsultBriefing(args: {
   target: AdvisorTarget;
-  consultKey: string;
   consultLimit: number;
 }) {
   const advisorLabel = `${getProviderLabel({
@@ -710,7 +708,6 @@ export function buildAdvisorConsultBriefing(args: {
   return [
     `An on-demand Advisor is armed for this turn: ${advisorLabel}. It is a separate read-only model with no tool or repository access.`,
     `When you want a second opinion on a design decision, a risky change, or a plan you are unsure about, call the \`${ADVISOR_CONSULT_TOOL_NAME}\` tool (Stave Local MCP) with:`,
-    `- consultKey: "${args.consultKey}"`,
     "- question: what you want advice on (be specific)",
     "- context: the minimum code/plan excerpts the Advisor needs — it sees nothing else",
     `You may consult at most ${args.consultLimit} time${args.consultLimit === 1 ? "" : "s"} this turn. Consults cost real tokens: prefer one well-framed question over many small ones, and skip consulting entirely for routine work.`,
@@ -728,12 +725,10 @@ export type AdvisorBriefingInjection = {
 export function appendAdvisorConsultBriefing(args: {
   conversation: CanonicalConversationRequest;
   target: AdvisorTarget;
-  consultKey: string;
   consultLimit: number;
 }): AdvisorBriefingInjection {
   const content = buildAdvisorConsultBriefing({
     target: args.target,
-    consultKey: args.consultKey,
     consultLimit: args.consultLimit,
   });
   const contextParts = [
