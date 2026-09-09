@@ -1,3 +1,13 @@
+## [0.18.3](https://github.com/sendbird/stave/compare/v0.18.2...v0.18.3) (2026-09-09)
+
+### Bug Fixes
+
+* Label Claude extra usage credits separately from 5-hour and weekly rate-limit windows, mention exhausted extra credits or overflow coverage when those flags are present, and prefer `overageResetsAt` including the calendar date when the reset is not today.
+* Unsubscribe idle Codex threads, retire idle App Server clients, escalate a failed host child from SIGTERM to SIGKILL, retain quiet active-turn streams for replay, and move elapsed-time updates onto the live message row.
+
+### References
+
+* [#516](https://github.com/sendbird/stave/pull/516), [#517](https://github.com/sendbird/stave/pull/517)
 ## [0.18.2](https://github.com/sendbird/stave/compare/v0.18.1...v0.18.2) (2026-09-08)
 
 ### Bug Fixes
