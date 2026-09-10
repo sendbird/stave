@@ -513,6 +513,8 @@ export interface AppState
     text?: string;
     caretIndex?: number;
     instantRun?: boolean;
+    providerOverride?: ProviderId;
+    runtimeOverrides?: PromptDraftRuntimeOverrides;
     error?: string;
   };
   setActiveCliSessionTab: (args: { tabId: string | null }) => void;

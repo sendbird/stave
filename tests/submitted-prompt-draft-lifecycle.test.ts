@@ -69,6 +69,34 @@ describe("submitted prompt draft lifecycle", () => {
     expect(updates).toHaveLength(1);
   });
 
+  test("uses the composer runtime when a turn-only runtime override is sent", () => {
+    const composerDraft: PromptDraft = {
+      ...SENT_DRAFT,
+      runtimeOverrides: {
+        model: "gpt-5.4",
+        modelProviderId: "codex",
+      },
+    };
+    const { lifecycle, updates } = buildLifecycle({
+      promptDraft: {
+        ...SENT_DRAFT,
+        runtimeOverrides: {
+          model: "claude-opus-4-6",
+          modelProviderId: "claude-code",
+        },
+      },
+      composerDraft,
+    });
+
+    lifecycle.clear();
+    expect(updates[0]?.["task-1"]?.runtimeOverrides).toEqual(
+      composerDraft.runtimeOverrides,
+    );
+
+    lifecycle.restore();
+    expect(updates[1]?.["task-1"]).toEqual(composerDraft);
+  });
+
   test("returns a failed queued dispatch to the queue instead of the composer", () => {
     const storedDraft: PromptDraft = {
       text: "composer draft in progress",

@@ -4224,6 +4224,156 @@ describe("workspace store hydration ordering", () => {
     );
   });
 
+  test("runs an instant macro on its pinned model without changing the selected model", async () => {
+    const localStorage = createMemoryStorage();
+    let startedRequest:
+      | {
+          providerId?: string;
+          prompt?: string;
+          runtimeOptions?: { model?: string; claudeEffort?: string };
+        }
+      | undefined;
+
+    (globalThis as { window: unknown }).window = {
+      localStorage,
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      api: {
+        provider: {
+          startPushTurn: async (args: typeof startedRequest) => {
+            startedRequest = args;
+            return {
+              ok: true,
+              streamId: "stream-macro",
+              turnId: "turn-macro",
+            };
+          },
+          subscribeStreamEvents: () => () => {},
+          abortTurn: async () => ({ ok: true, message: "aborted" }),
+          cleanupTask: async () => ({ ok: true }),
+        },
+        fs: {
+          readFile: async () => ({
+            ok: false,
+            content: "",
+            revision: "",
+            stderr: "not found",
+          }),
+        },
+      },
+    } as unknown;
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    const selectedRuntime = {
+      model: "gpt-5.4",
+      modelProviderId: "codex" as const,
+      codexReasoningEffort: "medium" as const,
+    };
+    useAppStore.setState({
+      ...initialState,
+      settings: {
+        ...initialState.settings,
+        macros: [
+          {
+            id: "macro-review",
+            label: "Review",
+            slug: "review",
+            body: "Review these changes",
+            insertMode: "replace",
+            instantRun: true,
+            runtime: {
+              providerId: "claude-code",
+              model: "claude-opus-4-6",
+              effort: "high",
+            },
+            createdAt: "2026-09-10T00:00:00.000Z",
+            updatedAt: "2026-09-10T00:00:00.000Z",
+          },
+        ],
+      },
+      hasHydratedWorkspaces: true,
+      workspaces: [
+        { id: "ws-main", name: "Main", updatedAt: "2026-09-10T00:00:00.000Z" },
+      ],
+      activeWorkspaceId: "ws-main",
+      activeTaskId: "task-main",
+      projectPath: "/tmp/stave-project",
+      workspacePathById: { "ws-main": "/tmp/stave-project" },
+      workspaceBranchById: { "ws-main": "main" },
+      workspaceDefaultById: { "ws-main": true },
+      draftProvider: "codex",
+      tasks: [
+        {
+          id: "task-main",
+          title: "Main Task",
+          provider: "codex",
+          updatedAt: "2026-09-10T00:00:00.000Z",
+          unread: false,
+          archivedAt: null,
+        },
+      ],
+      messagesByTask: { "task-main": [] },
+      activeTurnIdsByTask: {},
+      promptDraftByTask: {
+        "task-main": {
+          text: "!review",
+          attachedFilePaths: [],
+          attachments: [],
+          runtimeOverrides: selectedRuntime,
+        },
+      },
+      nativeSessionReadyByTask: {},
+      providerSessionByTask: {},
+      taskWorkspaceIdById: { "task-main": "ws-main" },
+    });
+
+    const macroResult = useAppStore.getState().applyMacroToDraft({
+      taskId: "task-main",
+      macroId: "macro-review",
+      draftText: "!review",
+      tokenMatch: { start: 0, end: 7 },
+    });
+    expect(macroResult).toMatchObject({
+      ok: true,
+      instantRun: true,
+      providerOverride: "claude-code",
+      runtimeOverrides: {
+        model: "claude-opus-4-6",
+        modelProviderId: "claude-code",
+        claudeEffort: "high",
+      },
+    });
+
+    const started = await useAppStore.getState().sendUserMessage({
+      taskId: "task-main",
+      content: macroResult.text ?? "",
+      providerOverride: macroResult.providerOverride,
+      runtimeOverrides: macroResult.runtimeOverrides,
+      turnOrigin: "conversation",
+    });
+
+    expect(started).toMatchObject({ status: "started" });
+    expect(startedRequest).toMatchObject({
+      providerId: "claude-code",
+      prompt: "Review these changes",
+      runtimeOptions: {
+        model: "claude-opus-4-6",
+        claudeEffort: "high",
+      },
+    });
+    expect(
+      useAppStore.getState().tasks.find((task) => task.id === "task-main")
+        ?.provider,
+    ).toBe("codex");
+    expect(
+      useAppStore.getState().promptDraftByTask["task-main"]?.runtimeOverrides,
+    ).toEqual(selectedRuntime);
+    expect(useAppStore.getState().promptDraftByTask["task-main"]?.text).toBe(
+      "",
+    );
+  });
+
   test("queues multiple prompts during an active turn and auto-dispatches one on completion", async () => {
     const localStorage = createMemoryStorage();
     const startedPrompts: string[] = [];

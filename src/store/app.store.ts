@@ -1748,6 +1748,14 @@ export const useAppStore = create<AppState>()(
         }
         const { promptDraft, queuedTurnToSend, remainingQueuedTurns } =
           promptDraftSendState;
+        const composerDraft = runtimeOverrides
+          ? normalizePromptDraftForStorage({
+              ...promptDraft,
+              runtimeOverrides:
+                storedPromptDraftForTask?.runtimeOverrides ??
+                sourcePromptDraft.runtimeOverrides,
+            })
+          : promptDraft;
         // A queued turn dispatches on the provider captured when it was
         // queued (auto and manual dispatch alike); the composer's current
         // selection only applies to new sends. Legacy queue items without a
@@ -2028,6 +2036,7 @@ export const useAppStore = create<AppState>()(
           sourceTaskId: sourcePromptDraftTaskId,
           preservePromptDraft,
           promptDraft,
+          composerDraft,
           sourcePromptDraft,
           storedDraft: storedPromptDraftForTask,
           preservedQueuedDispatchDraft,
