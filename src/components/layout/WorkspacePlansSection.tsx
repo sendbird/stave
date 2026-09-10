@@ -301,11 +301,7 @@ function WorkspacePlansSectionBody(args: WorkspacePlansSectionProps) {
                    pull request two sections up. The row owns the hover wash and
                    `--info-row-action-opacity`; its actions read that variable
                    rather than each carrying a hover rule. */
-                className={sx(
-                  informationRow.root,
-                  informationRow.rootFocusWithin,
-                  transition.colors,
-                )}
+                className={sx(informationRow.root, transition.colors)}
               >
                 <ClipboardCheck
                   className={sx(informationRow.mark, planStyles.rowMark)}

@@ -823,7 +823,7 @@ export function GitHubPrRow(props: {
   const visual = PR_STATUS_VISUAL[props.status];
 
   return (
-    <div className={sx(informationRow.root, informationRow.rootFocusWithin)}>
+    <div className={sx(informationRow.root)}>
       <GitHubPrStatusIcon status={props.status} xstyle={informationRow.mark} />
       <div className={sx(informationRow.body)}>
         <div className={sx(informationRow.titleLine)}>

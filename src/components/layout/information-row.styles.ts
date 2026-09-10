@@ -22,8 +22,10 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
  * `--info-row-action-opacity` is the contract between the row and its trail:
  * the row owns the variable, the trail reads it, so hovering anywhere on the
  * row reveals its actions and no child needs its own hover rule. Keyboard users
- * are not served by hover, so the trail also forces itself visible on
- * `:focus-within`.
+ * are not served by hover, so `:focus-within` is the other arm of the SAME
+ * declaration. Splitting hover and focus-within across two StyleX objects
+ * lets the later class replace the custom-property value, so hover never
+ * reaches the trail and the buttons only appear after a click focuses them.
  */
 export const informationRow = stylex.create({
   /** The list. Negative inline margin lets the hover wash bleed to the panel's
@@ -35,10 +37,15 @@ export const informationRow = stylex.create({
     marginInline: -8,
   },
   root: {
-    "--info-row-action-opacity": { default: "0", ":hover": "1" },
+    "--info-row-action-opacity": {
+      default: "0",
+      ":focus-within": "1",
+      ":hover": "1",
+    },
     alignItems: "flex-start",
     backgroundColor: {
       default: "transparent",
+      ":focus-within": vars.colorOverlayHover,
       ":hover": vars.colorOverlayHover,
     },
     borderRadius: vars.radiusControl,
@@ -46,10 +53,6 @@ export const informationRow = stylex.create({
     gap: 10,
     paddingBlock: 10,
     paddingInline: 6,
-  },
-  /** Keyboard focus inside the row is the non-pointer equivalent of hover. */
-  rootFocusWithin: {
-    "--info-row-action-opacity": { default: "0", ":focus-within": "1" },
   },
   /** The object glyph. `marginBlockStart` optically centres it on the first
    *  line of the title rather than on the title block. */

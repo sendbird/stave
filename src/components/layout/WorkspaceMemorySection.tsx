@@ -341,7 +341,7 @@ export function MemoryRow(props: {
   return (
     <>
       <article
-        className={sx(informationRow.root, informationRow.rootFocusWithin)}
+        className={sx(informationRow.root)}
       >
         <RecallGlyph
           aria-hidden="true"
