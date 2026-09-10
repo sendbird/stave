@@ -1,5 +1,9 @@
 import { createClaudeContextUsageTracker } from "./claude-context-usage";
 import { createClaudeCompactionTracker } from "./claude-compaction";
+import {
+  CLAUDE_STAVE_LENS_INSTRUCTIONS,
+  CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS,
+} from "./claude-browser-instructions";
 import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
 import type {
   BridgeEvent,
@@ -1244,6 +1248,11 @@ export function buildClaudeSystemPrompt(args: {
    * available; without this the primary has no reason to delegate to it.
    */
   workerInstructions?: string;
+  /**
+   * Whether the Stave local MCP is registered for this session. The Lens block
+   * is included only then, because its tools do not otherwise exist.
+   */
+  hasStaveLocalMcp?: boolean;
 }): string[] {
   const workspacePrompt = [
     "Stave workspace context:",
@@ -1262,6 +1271,15 @@ export function buildClaudeSystemPrompt(args: {
   const responseStyle = args.responseStylePrompt?.trim();
   if (responseStyle) {
     staticParts.push(responseStyle);
+  }
+  // Browser policy is identical on every turn of every Stave-managed session,
+  // so it belongs in the cacheable prefix. It is stated unconditionally rather
+  // than only on `@web` turns: the model needs to know *not* to reach for
+  // Chrome — and not to substitute Lens or desktop control for it — on the
+  // turns where the browser is deliberately off.
+  staticParts.push(CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS);
+  if (args.hasStaveLocalMcp) {
+    staticParts.push(CLAUDE_STAVE_LENS_INSTRUCTIONS);
   }
 
   // Dynamic suffix — session-specific, not globally cached. Worker mode belongs
@@ -5204,18 +5222,6 @@ export async function streamClaudeWithSdk(
           primaryModel: args.runtimeOptions?.model ?? "",
           intent: args.runtimeOptions?.workerIntent,
         });
-    const claudeSystemPrompt = buildClaudeSystemPrompt({
-      cwd: runtimeCwd,
-      baseSystemPrompt: args.runtimeOptions?.claudeSystemPrompt,
-      responseStylePrompt: args.runtimeOptions?.responseStylePrompt,
-      ...(workerResolution.status === "ready"
-        ? {
-            workerInstructions: buildWorkerPrimaryInstructions(
-              workerResolution.profile,
-            ),
-          }
-        : {}),
-    });
     const resolvedMcpServers = secondaryReadOnly
       ? { mcpServers: undefined, hasStaveLocalMcp: false }
       : await resolveClaudeMcpServersForQuery({
@@ -5227,6 +5233,21 @@ export async function streamClaudeWithSdk(
           unattendedAutomationAuthorizationToken:
             args.unattendedAutomation?.authorizationToken,
         });
+    const claudeSystemPrompt = buildClaudeSystemPrompt({
+      cwd: runtimeCwd,
+      baseSystemPrompt: args.runtimeOptions?.claudeSystemPrompt,
+      responseStylePrompt: args.runtimeOptions?.responseStylePrompt,
+      // Gates the Lens block: its tools only exist when the Stave local MCP
+      // is registered, so this must be resolved before the prompt is built.
+      hasStaveLocalMcp: resolvedMcpServers.hasStaveLocalMcp,
+      ...(workerResolution.status === "ready"
+        ? {
+            workerInstructions: buildWorkerPrimaryInstructions(
+              workerResolution.profile,
+            ),
+          }
+        : {}),
+    });
     const turnEnabledPlugins = await resolveClaudeEnabledPluginsForQuery({
       cwd: runtimeCwd,
       claudeExecutablePath,

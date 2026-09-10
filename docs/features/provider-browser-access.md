@@ -6,10 +6,13 @@ copy browser credentials into Stave.
 
 ## Provider behavior
 
-- Claude Code starts the turn with its native Chrome integration enabled. The
-  Claude browser extension decides which existing Chrome tabs are available
-  and keeps its own site-access and sensitive-action confirmations. Stave
-  explicitly disables the integration on turns without interactive `@web`.
+- Claude Code starts the turn with its native Chrome integration enabled
+  (`--chrome`), which surfaces as the `claude-in-chrome` MCP server
+  (`mcp__claude-in-chrome__*`). The Claude browser extension decides which
+  existing Chrome tabs are available and keeps its own site-access and
+  sensitive-action confirmations. Stave explicitly disables the integration
+  (`--no-chrome`) on turns without interactive `@web`, including every
+  utility and analysis query.
 - Codex uses `cua_repl` and selects only its external Chrome surface. The same
   tool can expose an in-app browser and desktop UI control, but those surfaces
   do not satisfy `@web`. Stave disables the Chrome plugin for turns without
@@ -19,6 +22,12 @@ copy browser credentials into Stave.
 The browser extension, provider CLI, and the user's existing Chrome profile own
 the live connection. Stave only asks the provider to use that connection for
 the current turn.
+
+Both providers also receive an injected browser-policy block stating what
+`@web` means, that Chrome access exists only for an interactive primary `@web`
+turn, and that neither an in-app browser nor desktop UI control substitutes
+for the requested Chrome connection. The tool names in each block differ
+because the provider contracts differ; the policy does not.
 
 ## Using `@web`
 
