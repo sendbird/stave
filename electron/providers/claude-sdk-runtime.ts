@@ -1,4 +1,5 @@
 import { createClaudeContextUsageTracker } from "./claude-context-usage";
+import { recordClaudeRateLimitObservation } from "./rate-limits/claude-rate-limits-observation";
 import { createClaudeCompactionTracker } from "./claude-compaction";
 import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
 import type {
@@ -3620,6 +3621,15 @@ export function mapClaudeMessageToEvents(args: {
       type: "rate_limit_event";
       rate_limit_info?: ClaudeRateLimitInfo;
     };
+    // The event carries the binding window's utilization, so the status bar
+    // can stay current off turn traffic the user already paid for instead of
+    // a dedicated usage request. Only warnings and rejections produce chat
+    // events; every event, including a plain `allowed` one, updates the meter.
+    if (rlMsg.rate_limit_info) {
+      recordClaudeRateLimitObservation({
+        observation: rlMsg.rate_limit_info,
+      });
+    }
     return buildClaudeRateLimitEvents(rlMsg.rate_limit_info);
   }
 

@@ -28,7 +28,6 @@ import type {
   CodexPluginDetailResponse,
   CodexPluginInstallResponse,
   CodexPluginMarketplaceSnapshot,
-  CodexRateLimitSnapshot,
   CodexReviewStartResponse,
   CodexThreadForkResponse,
   CodexThreadReadResponse,
@@ -124,6 +123,10 @@ import {
   runCodexCompactSlashCommand,
   runCodexGoalSlashCommand,
 } from "./codex-goal-commands";
+import {
+  recordCodexRateLimits,
+  requestCodexRateLimitBuckets,
+} from "./codex-rate-limits-cache";
 import {
   mapCodexConfigSnapshot,
   mapCodexHookCatalogGroups,
@@ -1217,7 +1220,7 @@ export function cleanupCodexAppServerTask(taskId: string) {
   }
 }
 
-function getCodexAppServerClientFromRuntimeOptions(args: {
+export function getCodexAppServerClientFromRuntimeOptions(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }) {
   const executablePath = resolveCodexExecutablePath({
@@ -1318,25 +1321,6 @@ export async function getCodexModelCatalog(args: {
       models: [],
     };
   }
-}
-
-async function requestCodexRateLimitBuckets(
-  client: ReturnType<typeof getCodexAppServerClientFromRuntimeOptions>,
-): Promise<CodexRateLimitSnapshot[]> {
-  const response = await client.request<any>("account/rateLimits/read", {});
-  return mapCodexRateLimitBuckets(response);
-}
-
-/**
- * Lightweight rate-limit-only fetch for the global status bar. Avoids the
- * heavy `getCodexAppServerSnapshot` call (account/skills/plugins/threads/...)
- * so it can be polled on a short interval.
- */
-export async function fetchCodexRateLimitBuckets(args: {
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-}): Promise<CodexRateLimitSnapshot[]> {
-  const client = getCodexAppServerClientFromRuntimeOptions(args);
-  return requestCodexRateLimitBuckets(client);
 }
 
 export async function getCodexAppServerSnapshot(args: {
@@ -3467,6 +3451,16 @@ export async function streamCodexWithAppServer(
               ...(itemId ? { toolUseId: itemId } : {}),
               content: progressMessage,
               ...(progressAgentId ? { agentId: progressAgentId } : {}),
+            });
+            return;
+          }
+          case "account/rateLimits/updated": {
+            // Account-level push (no threadId/turnId). Recording it here lets
+            // the status bar read fresh limits without an active
+            // `account/rateLimits/read` while the user is working.
+            recordCodexRateLimits({
+              buckets: mapCodexRateLimitBuckets(params),
+              source: "notification",
             });
             return;
           }

@@ -1218,6 +1218,8 @@ contextBridge.exposeInMainWorld("api", {
       cwd?: string;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
       providers?: StreamTurnArgs["providerId"][];
+      force?: boolean;
+      reason?: "manual" | "dispatch-guard";
     }) =>
       ipcRenderer.invoke(
         "provider:get-rate-limits-snapshot",
