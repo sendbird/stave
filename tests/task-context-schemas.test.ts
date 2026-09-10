@@ -45,6 +45,27 @@ function createWorkspaceBase() {
 }
 
 describe("task-context workspace schemas", () => {
+  test("drops legacy provider browser connection status from saved workspaces", () => {
+    const parsed = parseWorkspaceSnapshot({
+      payload: {
+        ...createWorkspaceBase(),
+        messagesByTask: {},
+        workspaceInformation: {
+          ...createWorkspaceBase().workspaceInformation,
+          connectedBrowserTab: {
+            providerId: "codex",
+            status: "connected",
+            requestedAt: "2026-09-10T05:00:00.000Z",
+            lastUpdatedAt: "2026-09-10T05:00:01.000Z",
+          },
+        },
+      },
+    });
+
+    expect(parsed?.workspaceInformation).not.toHaveProperty(
+      "connectedBrowserTab",
+    );
+  });
   test("corrupt saved pins and worker preset keep the task draft and its textual evidence", () => {
     const parsed = parseWorkspaceSnapshot({
       payload: {

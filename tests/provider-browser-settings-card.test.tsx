@@ -10,64 +10,29 @@ const fallbackOff = {
 } as const;
 
 describe("ProviderBrowserAccessSettingsCard", () => {
-  test("shows provider setup and an honest unchecked state", () => {
+  test("shows provider setup without storing a connection status", () => {
     const html = renderToStaticMarkup(
-      <ProviderBrowserAccessSettingsCard tab={null} {...fallbackOff} />,
+      <ProviderBrowserAccessSettingsCard {...fallbackOff} />,
     );
 
     expect(html).toContain("Browser access");
-    expect(html).toContain("Claude Code browser access: Not checked");
-    expect(html).toContain("Codex browser access: Not checked");
+    expect(html).toContain("Claude Code browser access setup");
+    expect(html).toContain("Codex browser access setup");
     expect(html).toContain("chrome@openai-bundled");
-    expect(html).toContain("new interactive prompt containing");
-  });
-
-  test("attributes the latest workspace result only to its provider", () => {
-    const html = renderToStaticMarkup(
-      <ProviderBrowserAccessSettingsCard
-        tab={{
-          providerId: "claude-code",
-          status: "connected",
-          requestedAt: "2026-08-11T05:00:00.000Z",
-          lastUpdatedAt: "2026-08-11T05:00:01.000Z",
-        }}
-        {...fallbackOff}
-      />,
-    );
-
-    expect(html).toContain("Claude Code browser access: Connected");
-    expect(html).toContain("Codex browser access: No recent result");
-    expect(html).toContain("confirmed its native browser tools");
-    expect(html).toContain(
-      "retains its latest @web result from the other provider",
-    );
-    expect(html).not.toContain("cookie");
-    expect(html).not.toContain("session token");
-  });
-
-  test("gives an unavailable provider a concrete recovery path", () => {
-    const html = renderToStaticMarkup(
-      <ProviderBrowserAccessSettingsCard
-        tab={{
-          providerId: "codex",
-          status: "failed",
-          requestedAt: "2026-08-11T05:00:00.000Z",
-          lastUpdatedAt: "2026-08-11T05:00:01.000Z",
-        }}
-        {...fallbackOff}
-      />,
-    );
-
-    expect(html).toContain("Codex browser access: Unavailable");
-    expect(html).toContain("Install and enable chrome@openai-bundled");
+    expect(html).toContain("Enable chrome@openai-bundled");
+    expect(html).toContain("unified-computer-use@openai-bundled");
     expect(html).toContain("then try @web again");
+    expect(html).toContain("any failure is reported in the conversation");
+    expect(html).not.toContain("Connected");
+    expect(html).not.toContain("Not verified");
+    expect(html).not.toContain("Unavailable");
   });
 });
 
 describe("ProviderBrowserAccessSettingsCard automatic fallback", () => {
   test("keeps the extra host list hidden until fallback is enabled", () => {
     const html = renderToStaticMarkup(
-      <ProviderBrowserAccessSettingsCard tab={null} {...fallbackOff} />,
+      <ProviderBrowserAccessSettingsCard {...fallbackOff} />,
     );
 
     expect(html).toContain("Automatic browser fallback");
@@ -77,7 +42,6 @@ describe("ProviderBrowserAccessSettingsCard automatic fallback", () => {
   test("shows the built-in hosts alongside the user's own when enabled", () => {
     const html = renderToStaticMarkup(
       <ProviderBrowserAccessSettingsCard
-        tab={null}
         autoFallback
         onAutoFallbackChange={() => {}}
         autoFallbackDomains="wiki.corp.example"

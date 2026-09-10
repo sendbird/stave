@@ -6,17 +6,28 @@ copy browser credentials into Stave.
 
 ## Provider behavior
 
-- Claude Code starts the turn with its native Chrome integration enabled. The
-  Claude browser extension decides which existing Chrome tabs are available
-  and keeps its own site-access and sensitive-action confirmations. Stave
-  explicitly disables the integration on turns without interactive `@web`.
-- Codex uses its installed Chrome plugin and extension-backed browser runtime.
-  Stave disables that plugin for turns without interactive `@web`, and does
-  not force-enable a plugin that the user disabled.
+- Claude Code starts the turn with its native Chrome integration enabled
+  (`--chrome`), which surfaces as the `claude-in-chrome` MCP server
+  (`mcp__claude-in-chrome__*`). The Claude browser extension decides which
+  existing Chrome tabs are available and keeps its own site-access and
+  sensitive-action confirmations. Stave explicitly disables the integration
+  (`--no-chrome`) on turns without interactive `@web`, including every
+  utility and analysis query.
+- Codex uses `cua_repl` and selects only its external Chrome surface. The same
+  tool can expose an in-app browser and desktop UI control, but those surfaces
+  do not satisfy `@web`. Stave disables the Chrome plugin for turns without
+  interactive `@web`, and does not force-enable a plugin that the user
+  disabled.
 
 The browser extension, provider CLI, and the user's existing Chrome profile own
 the live connection. Stave only asks the provider to use that connection for
 the current turn.
+
+Both providers also receive an injected browser-policy block stating what
+`@web` means, that Chrome access exists only for an interactive primary `@web`
+turn, and that neither an in-app browser nor desktop UI control substitutes
+for the requested Chrome connection. The tool names in each block differ
+because the provider contracts differ; the policy does not.
 
 ## Using `@web`
 
@@ -60,27 +71,11 @@ succeed.
 
 ## Settings
 
-Settings > Providers > Browser access shows the latest connection state
-recorded in the active workspace, together with the setup and recheck path for
-Claude Code and Codex. `Not checked` means the workspace has no recorded
-`@web` request. `No recent result` means the other provider owns the single
-latest result; run this provider with `@web` to check it again. Because the
-extension is provider-owned, Stave cannot install it, enable it, or grant site
-access from Settings.
-
-## Information panel
-
-After an `@web` request, the Information panel shows a `Connected browser tab`
-card with the provider and one of these states:
-
-- `Connecting`: the provider-native browser connection was requested.
-- `Connected`: the provider confirmed that its browser runtime was available.
-- `Unavailable`: the provider could not confirm the connection during the turn.
-
-This card is connection metadata, not a tab mirror. Stave stores no page URL,
-DOM snapshot, cookie, password, or session token in workspace Information.
-Page content returned by a provider browser tool can still become part of the
-provider turn and task transcript, just like any other tool result.
+Settings > Providers > Browser access shows the setup path for Claude Code and
+Codex. Stave does not persist or display a browser connection status: each
+`@web` turn attempts Chrome access directly, and any failure is reported in
+that conversation. Because the extension is provider-owned, Stave cannot
+install it, enable it, or grant site access from Settings.
 
 ## Security boundary
 
@@ -88,6 +83,10 @@ provider turn and task transcript, just like any other tool result.
   provider-owned.
 - Stave never asks the model to inspect or reveal raw cookies, passwords, or
   session tokens.
+- Stave stores no browser connection status, page URL, DOM snapshot, cookie,
+  password, or session token in workspace Information. Page content returned by
+  a provider browser tool can still become part of the task transcript like any
+  other tool result.
 - The integration is opt-in per interactive prompt through `@web`. Automatic
   fallback widens that to a per-host and post-failure opt-in, and is itself
   off by default and configured only in Settings.

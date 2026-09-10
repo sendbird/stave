@@ -924,17 +924,6 @@ const WorkspaceTurnSummarySchema = z.object({
   workSummary: z.string().optional().default(""),
 });
 
-const WorkspaceConnectedBrowserTabSchema = z.object({
-  providerId: ManagedExecutionProviderIdSchema,
-  status: z.union([
-    z.literal("connecting"),
-    z.literal("connected"),
-    z.literal("failed"),
-  ]),
-  requestedAt: z.string(),
-  lastUpdatedAt: z.string(),
-});
-
 const WorkspaceInformationSchema = z.object({
   resumeBrief: WorkspaceResumeBriefSchema.nullable().optional(),
   intentAnchorIds: z.array(z.string()).optional(),
@@ -968,7 +957,6 @@ const WorkspaceInformationSchema = z.object({
   amplifyLinks: z.array(WorkspaceAmplifyLinkSchema).optional().default([]),
   slackThreads: z.array(WorkspaceSlackThreadSchema).optional().default([]),
   turnSummary: WorkspaceTurnSummarySchema.nullable().optional(),
-  connectedBrowserTab: WorkspaceConnectedBrowserTabSchema.nullable().optional(),
   notes: z.string().optional().default(""),
   todos: z.array(WorkspaceTodoItemSchema).optional().default([]),
   customFields: z.array(WorkspaceInfoCustomFieldSchema).optional().default([]),

@@ -1,6 +1,10 @@
 import { createClaudeContextUsageTracker } from "./claude-context-usage";
 import { recordClaudeRateLimitObservation } from "./rate-limits/claude-rate-limits-observation";
 import { createClaudeCompactionTracker } from "./claude-compaction";
+import {
+  CLAUDE_STAVE_LENS_INSTRUCTIONS,
+  CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS,
+} from "./claude-browser-instructions";
 import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
 import type {
   BridgeEvent,
@@ -1245,6 +1249,11 @@ export function buildClaudeSystemPrompt(args: {
    * available; without this the primary has no reason to delegate to it.
    */
   workerInstructions?: string;
+  /**
+   * Whether the Stave local MCP is registered for this session. The Lens block
+   * is included only then, because its tools do not otherwise exist.
+   */
+  hasStaveLocalMcp?: boolean;
 }): string[] {
   const workspacePrompt = [
     "Stave workspace context:",
@@ -1263,6 +1272,15 @@ export function buildClaudeSystemPrompt(args: {
   const responseStyle = args.responseStylePrompt?.trim();
   if (responseStyle) {
     staticParts.push(responseStyle);
+  }
+  // Browser policy is identical on every turn of every Stave-managed session,
+  // so it belongs in the cacheable prefix. It is stated unconditionally rather
+  // than only on `@web` turns: the model needs to know *not* to reach for
+  // Chrome — and not to substitute Lens or desktop control for it — on the
+  // turns where the browser is deliberately off.
+  staticParts.push(CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS);
+  if (args.hasStaveLocalMcp) {
+    staticParts.push(CLAUDE_STAVE_LENS_INSTRUCTIONS);
   }
 
   // Dynamic suffix — session-specific, not globally cached. Worker mode belongs
@@ -3155,7 +3173,6 @@ export function mapClaudeMessageToEvents(args: {
   cwd?: string;
   planState?: ClaudePlanStreamState;
   ownerAgentIdResolver?: ClaudeOwnerAgentIdResolver;
-  providerBrowserRequested?: boolean;
 }): BridgeEvent[] {
   const { message, claudeDebugStream } = args;
 
@@ -3256,28 +3273,13 @@ export function mapClaudeMessageToEvents(args: {
       typeof sysMsg.session_id === "string" &&
       sysMsg.session_id.trim()
     ) {
-      const events: BridgeEvent[] = [
+      return [
         {
           type: "provider_session",
           providerId: "claude-code",
           nativeSessionId: sysMsg.session_id,
         },
       ];
-      if (args.providerBrowserRequested) {
-        const chromeServer = sysMsg.mcp_servers?.find(
-          (server) => server.name.trim().toLowerCase() === "claude-in-chrome",
-        );
-        events.push({
-          type: "browser_connection",
-          providerId: "claude-code",
-          status:
-            chromeServer?.status.trim().toLowerCase() === "connected"
-              ? "connected"
-              : "failed",
-          at: Date.now(),
-        });
-      }
-      return events;
     }
     if (sysMsg.subtype === "compact_boundary") {
       const meta = (sysMsg as { compact_metadata?: { trigger?: string } })
@@ -5230,18 +5232,6 @@ export async function streamClaudeWithSdk(
           primaryModel: args.runtimeOptions?.model ?? "",
           intent: args.runtimeOptions?.workerIntent,
         });
-    const claudeSystemPrompt = buildClaudeSystemPrompt({
-      cwd: runtimeCwd,
-      baseSystemPrompt: args.runtimeOptions?.claudeSystemPrompt,
-      responseStylePrompt: args.runtimeOptions?.responseStylePrompt,
-      ...(workerResolution.status === "ready"
-        ? {
-            workerInstructions: buildWorkerPrimaryInstructions(
-              workerResolution.profile,
-            ),
-          }
-        : {}),
-    });
     const resolvedMcpServers = secondaryReadOnly
       ? { mcpServers: undefined, hasStaveLocalMcp: false }
       : await resolveClaudeMcpServersForQuery({
@@ -5253,6 +5243,21 @@ export async function streamClaudeWithSdk(
           unattendedAutomationAuthorizationToken:
             args.unattendedAutomation?.authorizationToken,
         });
+    const claudeSystemPrompt = buildClaudeSystemPrompt({
+      cwd: runtimeCwd,
+      baseSystemPrompt: args.runtimeOptions?.claudeSystemPrompt,
+      responseStylePrompt: args.runtimeOptions?.responseStylePrompt,
+      // Gates the Lens block: its tools only exist when the Stave local MCP
+      // is registered, so this must be resolved before the prompt is built.
+      hasStaveLocalMcp: resolvedMcpServers.hasStaveLocalMcp,
+      ...(workerResolution.status === "ready"
+        ? {
+            workerInstructions: buildWorkerPrimaryInstructions(
+              workerResolution.profile,
+            ),
+          }
+        : {}),
+    });
     const turnEnabledPlugins = await resolveClaudeEnabledPluginsForQuery({
       cwd: runtimeCwd,
       claudeExecutablePath,
@@ -6005,7 +6010,6 @@ export async function streamClaudeWithSdk(
         cwd: runtimeCwd,
         planState: planStreamState,
         ownerAgentIdResolver: subagentTracker,
-        providerBrowserRequested,
       });
       const contextUsage = trackContextUsage(message);
       if (contextUsage) normalizedEvents.push(contextUsage);

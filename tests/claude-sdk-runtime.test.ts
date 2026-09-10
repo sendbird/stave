@@ -36,6 +36,10 @@ import {
   SubagentProgressTracker,
   waitForClaudeToolDecision,
 } from "../electron/providers/claude-sdk-runtime";
+import {
+  CLAUDE_STAVE_LENS_INSTRUCTIONS,
+  CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS,
+} from "../electron/providers/claude-browser-instructions";
 import { RESERVED_ENV_VAR_NAMES } from "../src/lib/secrets/secrets";
 import type { SDKMessage } from "@anthropic-ai/claude-agent-sdk";
 
@@ -258,7 +262,7 @@ describe("mapClaudeMessageToEvents", () => {
     ]);
   });
 
-  test("records Claude's native Chrome connection for an @web turn", () => {
+  test("does not persist provider browser connection status from init metadata", () => {
     const events = mapClaudeMessageToEvents({
       message: {
         type: "system",
@@ -268,7 +272,6 @@ describe("mapClaudeMessageToEvents", () => {
         mcp_servers: [{ name: "claude-in-chrome", status: "connected" }],
       } as never,
       claudeDebugStream: false,
-      providerBrowserRequested: true,
     });
 
     expect(events).toEqual([
@@ -277,40 +280,7 @@ describe("mapClaudeMessageToEvents", () => {
         providerId: "claude-code",
         nativeSessionId: "session-web-1",
       },
-      {
-        type: "browser_connection",
-        providerId: "claude-code",
-        status: "connected",
-        at: expect.any(Number),
-      },
     ]);
-  });
-
-  test("records an unavailable Claude Chrome connection without exposing MCP details", () => {
-    const events = mapClaudeMessageToEvents({
-      message: {
-        type: "system",
-        subtype: "init",
-        session_id: "session-web-2",
-        uuid: "msg-init-web-2",
-        mcp_servers: [
-          {
-            name: "claude-in-chrome",
-            status: "failed",
-            error: "extension-specific detail",
-          },
-        ],
-      } as never,
-      claudeDebugStream: false,
-      providerBrowserRequested: true,
-    });
-
-    expect(events.at(-1)).toMatchObject({
-      type: "browser_connection",
-      providerId: "claude-code",
-      status: "failed",
-    });
-    expect(JSON.stringify(events)).not.toContain("extension-specific detail");
   });
 
   test("surfaces Claude assistant UUIDs as point-in-time turn metadata", () => {
@@ -1665,6 +1635,85 @@ describe("buildClaudeSystemPrompt", () => {
     expect(parts[0]).toContain("run_in_background: false");
     expect(parts[0]).toContain("continue that same agent once");
     expect(parts[0]).toContain("Never end merely by announcing");
+  });
+
+  test("always states the @web external-Chrome policy in the cacheable prefix", () => {
+    const parts = buildClaudeSystemPrompt({ cwd: workspaceRoot });
+    // Browser policy is unconditional: the model must know not to reach for
+    // Chrome on the turns where Stave deliberately left it off.
+    expect(parts[0]).toBe(
+      [
+        parts[0].split("\n\n")[0],
+        CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS,
+      ].join("\n\n"),
+    );
+    // The current Claude tool contract, not Codex's cua_repl.
+    expect(parts[0]).toContain("mcp__claude-in-chrome__*");
+    expect(parts[0]).not.toContain("cua_repl");
+  });
+
+  test("names the restricted execution modes that never get Chrome", () => {
+    const joined = buildClaudeSystemPrompt({ cwd: workspaceRoot }).join(
+      "\n\n",
+    );
+    expect(joined).toContain("interactive primary `@web` turn");
+    expect(joined).toContain("plan mode");
+    expect(joined).toContain("unattended automation");
+    expect(joined).toContain("secondary read-only analysis");
+    expect(joined).toContain("prompts without `@web`");
+  });
+
+  test("forbids substituting Lens, in-app, or desktop control for Chrome", () => {
+    const joined = buildClaudeSystemPrompt({ cwd: workspaceRoot }).join(
+      "\n\n",
+    );
+    expect(joined).toContain("`@web` means external Chrome only.");
+    expect(joined).toContain("desktop in-app browser");
+    expect(joined).toContain("desktop/computer UI control");
+    // A win on another surface is not Chrome access.
+    expect(joined).toContain(
+      "do not treat a success on one of those surfaces as Chrome access",
+    );
+  });
+
+  test("keeps provider-owned approvals and never reads session secrets", () => {
+    const joined = buildClaudeSystemPrompt({ cwd: workspaceRoot }).join(
+      "\n\n",
+    );
+    expect(joined).toContain("those approvals stay provider-owned");
+    expect(joined).toContain(
+      "never inspect or expose raw cookies, passwords, or session tokens",
+    );
+  });
+
+  test("includes the Lens block only when the Stave local MCP is registered", () => {
+    const withLens = buildClaudeSystemPrompt({
+      cwd: workspaceRoot,
+      hasStaveLocalMcp: true,
+    }).join("\n\n");
+    const withoutLens = buildClaudeSystemPrompt({
+      cwd: workspaceRoot,
+      hasStaveLocalMcp: false,
+    }).join("\n\n");
+
+    expect(withLens).toContain(CLAUDE_STAVE_LENS_INSTRUCTIONS);
+    // Without the MCP none of the stave_lens_* tools exist, so the block would
+    // be pure prompt overhead on every turn.
+    expect(withoutLens).not.toContain(CLAUDE_STAVE_LENS_INSTRUCTIONS);
+    expect(withoutLens).not.toContain("stave_lens_snapshot");
+  });
+
+  test("keeps dev-UI validation on Lens rather than external Chrome", () => {
+    const joined = buildClaudeSystemPrompt({
+      cwd: workspaceRoot,
+      hasStaveLocalMcp: true,
+    }).join("\n\n");
+    expect(joined).toContain(
+      "Never substitute provider-native external Chrome, a desktop in-app browser, or desktop UI control for Lens.",
+    );
+    expect(joined).toContain(
+      "a change to the current project requires visual inspection",
+    );
   });
 });
 

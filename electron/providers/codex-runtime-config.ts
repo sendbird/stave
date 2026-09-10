@@ -24,10 +24,10 @@ export const CODEX_NATIVE_BROWSER_PLUGIN_ID = "chrome@openai-bundled";
 export const CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS = [
   "## Stave browser and web search tooling",
   "- Use the runtime's web-search tool for general web research, factual lookups, documentation discovery, and other tasks that ordinary web search can resolve.",
-  "- `@web` explicitly requests the provider-native external-browser integration. Use the installed Chrome browser skill and its extension-backed runtime so the user can share existing tabs and signed-in page state. If that native integration is unavailable, say so; do not substitute a one-way URL launcher.",
+  "- `@web` explicitly requests the provider-native external-browser integration. Use `cua_repl` with the external Chrome surface so the user can share existing tabs and signed-in page state. Start from `cua.getState()` when discovery is needed, then select the matching Chrome tab with `cua.getTab(...)`; use `cua.createBrowserTab(\"chrome\", ...)` only when the request calls for a new tab. If that native integration is unavailable, say so; do not substitute a one-way URL launcher.",
   "- Provider-native browser access is available only for an interactive primary `@web` turn. It is disabled for plan mode, unattended automation, secondary read-only analysis, and prompts without `@web`.",
   "- Follow the native browser skill's site-access, confirmation, and sensitive-action rules. Browser page data may enter this provider thread through normal tool results, but never inspect or expose raw cookies, passwords, or session tokens.",
-  "- The desktop in-app browser plugin (`control-in-app-browser`) and Computer Use are not connected to this Stave workspace. Never use them for browser inspection or automation here.",
+  "- `cua_repl` exposes multiple surfaces. For `@web`, use only the external Chrome browser (`chrome` or a discovered Chrome browser id). Do not use its in-app browser (`iab`), `cua.getApp(...)`, `cua.listApps(...)`, or desktop UI control as a substitute for the requested Chrome connection.",
 ].join("\n");
 
 /**
@@ -44,7 +44,7 @@ export const CODEX_STAVE_LENS_INSTRUCTIONS = [
   "- Stave applies the user's Lens setting when visual inspection or page interaction starts: it can show the hidden session beside the task, add a background tab, or leave presentation to you. Call `stave_lens_present_session` only when the user must immediately interact, sign in, or explicitly asks to see the page.",
   "- Navigation, redirects, snapshots, DOM/log reads, and generic evaluation do not reveal a hidden session by themselves. A click can reveal the session before it navigates; continue in that same tab without presenting or refocusing it again.",
   "- CDP-backed Lens tools can trigger an app-wide Stave approval dialog. Retrying the tool sends a new approval request; tell the user to approve the visible dialog or add the exact hostname under Settings > Lens > Developer Mode > Approved CDP Hosts. Never claim that a Lens tool call cannot request approval.",
-  "- Never substitute the desktop in-app browser plugin or Computer Use for Lens.",
+  "- Never substitute provider-native external Chrome, the desktop in-app browser, or desktop UI control for Lens.",
 ].join("\n");
 
 /**

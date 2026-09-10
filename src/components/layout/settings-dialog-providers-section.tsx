@@ -655,7 +655,6 @@ export function ProvidersSection() {
     codexBinaryPath,
     activeTaskProvider,
     activeTaskModelOverride,
-    connectedBrowserTab,
     providerBrowserAutoFallback,
     providerBrowserAutoFallbackDomains,
     claudeRuntimeCapabilities,
@@ -712,7 +711,6 @@ export function ProvidersSection() {
             ?.provider ?? null,
           state.promptDraftByTask[state.activeTaskId]?.runtimeOverrides
             ?.model ?? null,
-          state.workspaceInformation.connectedBrowserTab ?? null,
           state.settings.providerBrowserAutoFallback,
           state.settings.providerBrowserAutoFallbackDomains,
           state.providerRuntimeCapabilities["claude-code"],
@@ -818,7 +816,6 @@ export function ProvidersSection() {
         />
       </SettingsCard>
       <ProviderBrowserAccessSettingsCard
-        tab={connectedBrowserTab}
         autoFallback={providerBrowserAutoFallback}
         onAutoFallbackChange={(checked) =>
           updateSettings({ patch: { providerBrowserAutoFallback: checked } })

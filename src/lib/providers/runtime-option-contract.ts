@@ -274,7 +274,6 @@ export const NORMALIZED_PROVIDER_EVENT_TYPES = [
   "text",
   "provider_session",
   "provider_turn",
-  "browser_connection",
   "goal_status",
   "usage",
   "context_usage",

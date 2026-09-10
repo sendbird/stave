@@ -172,7 +172,6 @@ import {
 import { createCodexAppServerElicitationPauseController } from "./codex-elicitation-pause";
 import { createCodexWorkerActivityMapper } from "./codex-worker-activity";
 import {
-  createProviderBrowserConnectionTracker,
   parseProviderBrowserDomains,
   shouldActivateProviderBrowser,
 } from "../../src/lib/provider-browser";
@@ -2461,11 +2460,6 @@ export async function streamCodexWithAppServer(
       });
       const events: BridgeEvent[] = eventCollector.events;
       let hasEmittedDone = false;
-      const providerBrowserTracker = createProviderBrowserConnectionTracker({
-        providerId: "codex",
-        requested: providerBrowserRequested,
-        available: nativeBrowserPluginEnabled,
-      });
       const emitBridgeEvent = (event: BridgeEvent) => {
         if (event.type === "done") {
           hasEmittedDone = true;
@@ -2476,12 +2470,7 @@ export async function streamCodexWithAppServer(
       const emitBridgeEvents = (nextEvents: BridgeEvent[]) => {
         nextEvents.forEach(emitBridgeEvent);
       };
-      const settleMissingProviderBrowserConnection = () =>
-        providerBrowserTracker.settle(emitBridgeEvent);
       const finalizeCollectedEvents = () => {
-        if (!hasEmittedDone) {
-          settleMissingProviderBrowserConnection();
-        }
         if (eventCollector.overflowed) {
           for (const overflowEvent of CODEX_APP_SERVER_OVERFLOW_TAIL_EVENTS) {
             eventCollector.appendTail(overflowEvent);
@@ -2501,7 +2490,6 @@ export async function streamCodexWithAppServer(
       };
 
       emitBridgeEvents(buildCodexThreadStartedEvents({ threadId }));
-      providerBrowserTracker.emitInitial(emitBridgeEvent);
       const syncedGoalEvent = await readCodexGoalStatusEvent({
         client,
         threadId,
@@ -3680,20 +3668,6 @@ export async function streamCodexWithAppServer(
                       }),
                   ...(mcpItem.status === "failed" ? { isError: true } : {}),
                 });
-                const browserConnectionEvent =
-                  providerBrowserTracker.observeCodexMcpCall({
-                    server: mcpItem.server,
-                    tool: mcpItem.tool,
-                    input: serializeCodexMcpToolCallArguments(
-                      mcpItem.arguments,
-                    ),
-                    failed: Boolean(
-                      mcpItem.status === "failed" || mcpItem.error?.message,
-                    ),
-                  });
-                if (browserConnectionEvent) {
-                  completedEvents.push(browserConnectionEvent);
-                }
                 emitBridgeEvents(completedEvents);
                 return;
               }
@@ -3798,7 +3772,6 @@ export async function streamCodexWithAppServer(
                 ...latestUsage,
               });
             }
-            settleMissingProviderBrowserConnection();
             const stopReason = resolveCodexTurnCompletionStopReason({
               status: turn?.status,
               abortRequested,
@@ -3829,7 +3802,6 @@ export async function streamCodexWithAppServer(
           message: exitMessage,
         });
         emitBridgeEvent(terminalError);
-        settleMissingProviderBrowserConnection();
         emitBridgeEvent(
           abortRequested
             ? { type: "done", stop_reason: "user_abort" }
@@ -3845,7 +3817,6 @@ export async function streamCodexWithAppServer(
         if (!appServerTurnId) {
           // turn/start hasn't resolved yet — no turnId to interrupt.
           // Resolve the wait so the Promise.race below exits.
-          settleMissingProviderBrowserConnection();
           emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
           finishTurnWait();
           return;
@@ -3861,7 +3832,6 @@ export async function streamCodexWithAppServer(
             "[provider-runtime] Codex app-server interrupt did not settle after 10 seconds",
             { threadId, appServerTurnId },
           );
-          settleMissingProviderBrowserConnection();
           emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
           finishTurnWait();
         }, APP_SERVER_INTERRUPT_GRACE_MS);
@@ -3961,7 +3931,6 @@ export async function streamCodexWithAppServer(
             if (completed) {
               return;
             }
-            settleMissingProviderBrowserConnection();
             emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
             finishTurnWait();
           }, APP_SERVER_INTERRUPT_GRACE_MS);
@@ -3990,7 +3959,6 @@ export async function streamCodexWithAppServer(
             threadId,
             appServerTurnId,
           });
-          settleMissingProviderBrowserConnection();
           emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
           return finalizeCollectedEvents();
         }
@@ -3998,7 +3966,6 @@ export async function streamCodexWithAppServer(
           message: error instanceof Error ? error.message : String(error),
         });
         emitBridgeEvent(errorEvent);
-        settleMissingProviderBrowserConnection();
         emitBridgeEvent({ type: "done", stop_reason: "runtime_failure" });
         return finalizeCollectedEvents();
       } finally {
