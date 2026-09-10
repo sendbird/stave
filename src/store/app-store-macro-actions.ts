@@ -143,23 +143,27 @@ export function createMacroActions(args: {
         insertMode: macro.insertMode,
         tokenMatch,
       });
+      const instantRun = isMacroInstantRun(macro);
+      const macroRuntimeOverrides = macro.runtime
+        ? buildMacroRuntimeOverrides({
+            current: currentDraft?.runtimeOverrides,
+            runtime: macro.runtime,
+          })
+        : undefined;
 
       get().updatePromptDraft({
         taskId,
         patch: {
           text: expanded.text,
-          ...(macro.runtime
+          ...(macroRuntimeOverrides && !instantRun
             ? {
-                runtimeOverrides: buildMacroRuntimeOverrides({
-                  current: currentDraft?.runtimeOverrides,
-                  runtime: macro.runtime,
-                }),
+                runtimeOverrides: macroRuntimeOverrides,
               }
             : {}),
         },
       });
 
-      if (macro.runtime) {
+      if (macro.runtime && !instantRun) {
         const currentProvider =
           state.tasks.find((task) => task.id === taskId)?.provider ??
           state.draftProvider;
@@ -175,7 +179,13 @@ export function createMacroActions(args: {
         ok: true,
         text: expanded.text,
         caretIndex: expanded.caretIndex,
-        instantRun: isMacroInstantRun(macro),
+        instantRun,
+        ...(instantRun && macro.runtime && macroRuntimeOverrides
+          ? {
+              providerOverride: macro.runtime.providerId,
+              runtimeOverrides: macroRuntimeOverrides,
+            }
+          : {}),
       };
     },
   };

@@ -116,7 +116,10 @@ import {
   buildModelEffortRuntimeOverrides,
   buildModelSelectionRuntimeOverrides,
 } from "@/lib/providers/model-effort";
-import type { ClaudeSettingSource } from "@/lib/providers/provider.types";
+import type {
+  ClaudeSettingSource,
+  ProviderId,
+} from "@/lib/providers/provider.types";
 import {
   getCachedProviderCommandCatalog,
   getInitialProviderCommandCatalog,
@@ -624,7 +627,11 @@ function ChatInputComposer(args: ChatInputComposerProps) {
       text: result.text,
     });
     if (result.instantRun) {
-      void submitInstantMacro({ text: result.text });
+      void submitInstantMacro({
+        text: result.text,
+        providerOverride: result.providerOverride,
+        runtimeOverrides: result.runtimeOverrides,
+      });
     }
     return {
       text: result.text,
@@ -633,7 +640,11 @@ function ChatInputComposer(args: ChatInputComposerProps) {
     };
   }
 
-  async function submitInstantMacro(request: { text: string }) {
+  async function submitInstantMacro(request: {
+    text: string;
+    providerOverride?: ProviderId;
+    runtimeOverrides?: PromptDraftRuntimeOverrides;
+  }) {
     const text = request.text.trim();
     if (!text) {
       return;
@@ -646,6 +657,8 @@ function ChatInputComposer(args: ChatInputComposerProps) {
       taskId: args.activeTaskId,
       content: text,
       turnOrigin: "conversation",
+      providerOverride: request.providerOverride,
+      runtimeOverrides: request.runtimeOverrides,
     });
     if (
       sendResult.status === "started" ||
