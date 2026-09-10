@@ -125,6 +125,7 @@ import {
 } from "./codex-goal-commands";
 import {
   recordCodexRateLimits,
+  requestCodexRateLimitBuckets,
 } from "./codex-rate-limits-cache";
 import {
   mapCodexConfigSnapshot,

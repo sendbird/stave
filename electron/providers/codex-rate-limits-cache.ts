@@ -80,9 +80,9 @@ export async function resolveCodexRateLimitBuckets(args: {
 }): Promise<CodexRateLimitSnapshot[]> {
   const now = args.now ?? Date.now();
   const maxAgeMs = args.maxAgeMs ?? CODEX_RATE_LIMITS_ACTIVE_REFRESH_MS;
-  const entry = cachedEntry;
-  if (!args.force && isCodexRateLimitsCacheFresh({ entry, now, maxAgeMs })) {
-    return entry.buckets;
+  const probe = { entry: cachedEntry, now, maxAgeMs };
+  if (!args.force && isCodexRateLimitsCacheFresh(probe)) {
+    return probe.entry.buckets;
   }
   const buckets = await args.request();
   recordCodexRateLimits({ buckets, source: "rpc", now });
