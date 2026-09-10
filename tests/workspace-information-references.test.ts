@@ -108,12 +108,6 @@ test("lens references resolve, extract, and format from @lens tokens", () => {
 
 test("web references request the provider-native browser integration", () => {
   const info = createEmptyWorkspaceInformation();
-  info.connectedBrowserTab = {
-    providerId: "codex",
-    status: "connected",
-    requestedAt: "2026-08-11T05:00:00.000Z",
-    lastUpdatedAt: "2026-08-11T05:00:01.000Z",
-  };
   const options = buildWorkspaceInformationReferenceOptions(info);
   expect(options.some((option) => option.reference.token === "@web")).toBe(
     true,
@@ -133,10 +127,10 @@ test("web references request the provider-native browser integration", () => {
     info,
     references: [resolveWorkspaceInformationReferenceFromToken("@web")!],
   });
-  expect(context).toContain("Section: Connected browser (@web)");
+  expect(context).toContain("Section: Web browser (@web)");
   expect(context).toContain("provider's browser extension tools");
-  expect(context).toContain("Last provider: codex");
-  expect(context).toContain("Connection status: connected");
+  expect(context).toContain("Chrome access is attempted for the current turn");
+  expect(context).not.toContain("Connection status");
   expect(context).not.toContain("example.com");
 });
 

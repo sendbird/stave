@@ -799,10 +799,13 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
       "Use the runtime's web-search tool for general web research",
     );
     expect(withBasePrompt).toContain("`@web` explicitly requests");
-    expect(withBasePrompt).toContain("installed Chrome browser skill");
+    expect(withBasePrompt).toContain("`cua_repl`");
+    expect(withBasePrompt).toContain("`cua.getState()`");
+    expect(withBasePrompt).toContain("`cua.getTab(...)`");
     expect(withBasePrompt).toContain("existing tabs and signed-in page state");
     expect(withBasePrompt).toContain("unattended automation");
-    expect(withBasePrompt).toContain("control-in-app-browser");
+    expect(withBasePrompt).toContain("in-app browser (`iab`)");
+    expect(withBasePrompt).toContain("desktop UI control");
   });
 
   test("includes Lens guidance only when the Stave local MCP is registered", () => {

@@ -3154,7 +3154,6 @@ export function mapClaudeMessageToEvents(args: {
   cwd?: string;
   planState?: ClaudePlanStreamState;
   ownerAgentIdResolver?: ClaudeOwnerAgentIdResolver;
-  providerBrowserRequested?: boolean;
 }): BridgeEvent[] {
   const { message, claudeDebugStream } = args;
 
@@ -3255,28 +3254,13 @@ export function mapClaudeMessageToEvents(args: {
       typeof sysMsg.session_id === "string" &&
       sysMsg.session_id.trim()
     ) {
-      const events: BridgeEvent[] = [
+      return [
         {
           type: "provider_session",
           providerId: "claude-code",
           nativeSessionId: sysMsg.session_id,
         },
       ];
-      if (args.providerBrowserRequested) {
-        const chromeServer = sysMsg.mcp_servers?.find(
-          (server) => server.name.trim().toLowerCase() === "claude-in-chrome",
-        );
-        events.push({
-          type: "browser_connection",
-          providerId: "claude-code",
-          status:
-            chromeServer?.status.trim().toLowerCase() === "connected"
-              ? "connected"
-              : "failed",
-          at: Date.now(),
-        });
-      }
-      return events;
     }
     if (sysMsg.subtype === "compact_boundary") {
       const meta = (sysMsg as { compact_metadata?: { trigger?: string } })
@@ -5995,7 +5979,6 @@ export async function streamClaudeWithSdk(
         cwd: runtimeCwd,
         planState: planStreamState,
         ownerAgentIdResolver: subagentTracker,
-        providerBrowserRequested,
       });
       const contextUsage = trackContextUsage(message);
       if (contextUsage) normalizedEvents.push(contextUsage);

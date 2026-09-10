@@ -143,7 +143,6 @@ import {
   useMartinInformationCardAvailable,
   WorkspaceInformationMartinCard,
 } from "./WorkspaceInformationMartinCard";
-import { WorkspaceInformationConnectedBrowserCard } from "./WorkspaceInformationConnectedBrowserCard";
 import { WorkspaceTurnSummary } from "./WorkspaceTurnSummary";
 import { WorkspaceResumeBrief } from "./WorkspaceResumeBrief";
 import { hostSurface } from "@/components/ui/host-surface.styles";
@@ -1697,9 +1696,6 @@ export function WorkspaceInformationPanel() {
   ).length;
   const openTodoCount = totalTodoCount - completedTodoCount;
   const latestTurnSummary = workspaceInformation.turnSummary ?? null;
-  const connectedBrowserTab = workspaceInformation.connectedBrowserTab ?? null;
-  const showInformationTopCards =
-    showMartinCard || Boolean(connectedBrowserTab);
 
   return (
     <div
@@ -1708,12 +1704,9 @@ export function WorkspaceInformationPanel() {
     >
       <div className={sx(styles.body)}>
         <WorkspaceResumeBrief key={activeWorkspaceId} workspaceId={activeWorkspaceId} brief={workspaceInformation.resumeBrief} />
-        {showInformationTopCards ? (
+        {showMartinCard ? (
           <div className={sx(styles.topCards)}>
-            {showMartinCard ? <WorkspaceInformationMartinCard /> : null}
-            <WorkspaceInformationConnectedBrowserCard
-              tab={connectedBrowserTab}
-            />
+            <WorkspaceInformationMartinCard />
           </div>
         ) : null}
         <SectionDragSuppressionContext.Provider value={suppressSectionClickRef}>

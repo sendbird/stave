@@ -101,10 +101,10 @@ test("clicking an @ autocomplete popover item inserts the reference token", asyn
 
   // The provider browser is a first-class reference beside Lens.
   await page.keyboard.type("and @");
-  const webItem = page.getByRole("option", { name: /Connected browser/ });
+  const webItem = page.getByRole("option", { name: /Web browser/ });
   await expect(webItem).toBeVisible();
   await webItem.click();
-  await expect(editor).toContainText("Connected browser");
+  await expect(editor).toContainText("Web browser");
 });
 
 test("grows and scrolls the prompt after multiline input", async ({ page }) => {

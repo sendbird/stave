@@ -92,15 +92,6 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
   const noteItems = info.notes.trim()
     ? [truncateText(info.notes, MAX_NOTES_CHARS)]
     : [];
-  const connectedBrowserItems = info.connectedBrowserTab
-    ? [
-        [
-          info.connectedBrowserTab.providerId,
-          info.connectedBrowserTab.status,
-          "provider-native browser extension",
-        ].join(" | "),
-      ]
-    : [];
   const todoItems = info.todos
     .slice(0, MAX_VISIBLE_RESOURCES)
     .map((todo) => `${todo.completed ? "[done]" : "[open]"} ${todo.text}`);
@@ -205,10 +196,6 @@ function buildWorkspaceInformationDetailLines(info: WorkspaceInformationState) {
 
   return capWorkspaceInformationLines([
     ...(info.resumeBrief ? formatResumeBriefContext(info.resumeBrief) : []),
-    ...formatSection({
-      label: "Connected browser tab",
-      items: connectedBrowserItems,
-    }),
     ...formatSection({
       label: "Notes",
       items: noteItems,

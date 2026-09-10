@@ -953,8 +953,8 @@ Claude path and approval handling:
   Stave explicitly passes the native no-Chrome flag on other turns, including
   plan mode, unattended automation, and secondary read-only analysis. Claude's
   extension owns site access and sensitive-action
-  confirmation; Stave records only normalized connection status in workspace
-  Information.
+  confirmation. Browser failures are reported in the turn instead of being
+  persisted as workspace connection status.
 
 Compaction checkpoint UI support:
 
@@ -980,7 +980,7 @@ Codex prompt injection note:
 
 - Stave now forwards response-style and project/system prompt overrides through Codex `developer_instructions` config instead of prepending visible `<system>` blocks to each user turn.
 - Task history, selected text-file context, skill context, and retrieved context still render into the provider prompt body because they are part of the actual turn payload rather than hidden session config. Supported image attachments use the native image items described above, while the prompt keeps only their labels and fallback instructions.
-- Stave always appends native browser-tooling guidance (`CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS`) to `developer_instructions`. It directs Codex to use ordinary web search for general research and its installed native Chrome plugin for explicit interactive `@web` requests. The provider-native browser stays unavailable to plan mode, unattended automation, and secondary read-only analysis. Stave does not force-enable a disabled Chrome plugin, and records only normalized connection status in workspace Information. It still disables the unrelated ChatGPT desktop bundled `browser@openai-bundled` plugin per thread via the `plugins."browser@openai-bundled".enabled = false` config override. See `electron/providers/codex-runtime-config.ts` and [Provider Browser Access](../features/provider-browser-access.md).
+- Stave always appends native browser-tooling guidance (`CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS`) to `developer_instructions`. It directs Codex to use ordinary web search for general research and, for explicit interactive `@web` requests, to use `cua_repl` with only the external Chrome surface. The in-app browser and desktop UI surfaces exposed by that tool do not satisfy `@web`. The provider-native browser stays unavailable to plan mode, unattended automation, and secondary read-only analysis. Stave does not force-enable a disabled Chrome plugin and does not persist a browser connection status. It still disables the unrelated ChatGPT desktop bundled `browser@openai-bundled` plugin per thread via the `plugins."browser@openai-bundled".enabled = false` config override. See `electron/providers/codex-runtime-config.ts` and [Provider Browser Access](../features/provider-browser-access.md).
 - Lens guidance (`CODEX_STAVE_LENS_INSTRUCTIONS`) is appended **only when the thread will actually see `stave_lens_*` tools**: the local MCP must be registered with Codex *and* `browserToolsEnabled` must still be on. Without it there are no `stave_lens_*` tools, so the block would describe tools that do not exist. Because `developer_instructions` are hashed into the Codex thread key, `hasStaveLocalMcp` is resolved *before* `buildThreadKey` and is part of `buildCodexInstructionProfileKey` — a thread never resumes with an instruction set it was not started with.
 
 Codex event mapping:
@@ -993,7 +993,6 @@ Codex event mapping:
 - command execution -> `tool`
 - MCP tool calls -> `tool`
 - web search -> `tool`
-- provider-native browser selection -> `browser_connection` metadata in workspace Information
 - file changes -> diff events
 - hook lifecycle -> `hook_activity`
 - acknowledged turn id -> assistant `history_boundary`
