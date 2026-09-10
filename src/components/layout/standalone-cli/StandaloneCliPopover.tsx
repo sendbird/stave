@@ -10,7 +10,7 @@ import { STAVE_OPEN_SETTINGS_EVENT, useAppStore } from "@/store/app.store";
 import { useStandaloneCliStore } from "@/store/standalone-cli.store";
 
 export function buildStandaloneCliEmptyStateText() {
-  return "Set a Standalone CLI folder in Settings to run Claude Code and Codex here. Nothing is added to your projects.";
+  return "Set a Standalone CLI folder in Settings to run Claude Code, Codex, Cursor, and Kiro here. Nothing is added to your projects.";
 }
 
 /**

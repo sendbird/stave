@@ -1,6 +1,7 @@
 import { ipcMain, webContents } from "electron";
 import {
   CliSessionCreateSessionArgsSchema,
+  CreateCursorChatIdArgsSchema,
   TerminalAckSessionOutputArgsSchema,
   TerminalAttachSessionArgsSchema,
   TerminalCreateSessionArgsSchema,
@@ -153,6 +154,22 @@ export function registerTerminalHandlers() {
       parsed.data,
     );
     return result;
+  });
+
+  ipcMain.handle("terminal:create-cursor-chat-id", async (_event, args) => {
+    const parsed = CreateCursorChatIdArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      logDev(
+        "[terminal:create-cursor-chat-id] schema validation failed:",
+        parsed.error.flatten().formErrors,
+      );
+      return {
+        ok: false,
+        stderr: parsed.error.flatten().formErrors.join("\n"),
+      };
+    }
+
+    return invokeHostService("terminal.create-cursor-chat-id", parsed.data);
   });
 
   ipcMain.handle(

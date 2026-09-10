@@ -72,6 +72,7 @@ import * as localMcpRuntime from "./host-service/local-mcp-runtime";
 import { createRoutineRuntime } from "./host-service/routine-runtime";
 import { createTaskSupervisorRuntime } from "./host-service/task-supervisor-runtime";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
+import { createCursorChatId } from "./host-service/cursor-chat-id";
 import { readHostServiceResourceMetrics } from "./host-service/resource-metrics";
 import {
   parseExpectedHostParentPid,
@@ -1464,6 +1465,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         request.id,
         terminalRuntime.createCliSession(request.params),
       );
+      return;
+    case "terminal.create-cursor-chat-id":
+      await respond(request.id, await createCursorChatId(request.params));
       return;
     case "terminal.write-session":
       await respond(request.id, terminalRuntime.writeSession(request.params));

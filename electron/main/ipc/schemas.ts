@@ -645,12 +645,19 @@ export const TerminalCreateSessionArgsSchema = z
   })
   .strict();
 
+export const CreateCursorChatIdArgsSchema = z
+  .object({
+    cwd: z.string().min(1).max(4096),
+    cursorBinaryPath: z.string().max(4096).optional(),
+  })
+  .strict();
+
 export const CliSessionCreateSessionArgsSchema = z
   .object({
     workspaceId: z.string().min(1).max(200),
     workspacePath: z.string().min(1).max(4096),
     cliSessionTabId: z.string().min(1).max(200),
-    providerId: ManagedExecutionProviderIdSchema,
+    providerId: ProviderIdSchema,
     contextMode: z.union([z.literal("workspace"), z.literal("active-task")]),
     nativeSessionId: z.string().max(200).optional(),
     taskId: z.string().min(1).max(200).nullable(),

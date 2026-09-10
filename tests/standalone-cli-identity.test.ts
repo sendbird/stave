@@ -9,6 +9,20 @@ import {
   STANDALONE_CLI_WORKSPACE_ID,
 } from "@/lib/terminal/standalone-cli";
 import { buildTerminalSessionSlotKey } from "@/lib/terminal/types";
+import type { ProviderId } from "@/lib/providers/provider.types";
+
+/**
+ * Mirrors the `ProviderId` union. Adding a provider breaks this line at
+ * typecheck time (missing key) and the assertion below at test time, which is
+ * the reminder to add the matching standalone CLI tab — see
+ * `docs/developer/adding-a-provider.md`.
+ */
+const ALL_PROVIDER_IDS = Object.keys({
+  "claude-code": true,
+  codex: true,
+  cursor: true,
+  kiro: true,
+} satisfies Record<ProviderId, true>) as ProviderId[];
 
 describe("standalone cli identity", () => {
   test("uses a sentinel workspace id that cannot collide with real ids", () => {
@@ -33,9 +47,13 @@ describe("standalone cli identity", () => {
   });
 
   test("the slot prefix does not collide with workspace cleanup prefixes", () => {
-    const workspaceCleanupPrefixes = ["", "base", "base:1x2y3z", "worktree:9ab7c"].map(
-      (workspaceId) =>
-        buildTerminalSessionSlotKey({ surface: "cli", workspaceId, tabId: "" }),
+    const workspaceCleanupPrefixes = [
+      "",
+      "base",
+      "base:1x2y3z",
+      "worktree:9ab7c",
+    ].map((workspaceId) =>
+      buildTerminalSessionSlotKey({ surface: "cli", workspaceId, tabId: "" }),
     );
     for (const prefix of workspaceCleanupPrefixes) {
       expect(STANDALONE_CLI_SLOT_PREFIX.startsWith(prefix)).toBe(false);
@@ -45,9 +63,9 @@ describe("standalone cli identity", () => {
 
   test("every slot key starts with the slot prefix", () => {
     for (const tabId of STANDALONE_CLI_TAB_IDS) {
-      expect(buildStandaloneCliSlotKey(tabId).startsWith(STANDALONE_CLI_SLOT_PREFIX)).toBe(
-        true,
-      );
+      expect(
+        buildStandaloneCliSlotKey(tabId).startsWith(STANDALONE_CLI_SLOT_PREFIX),
+      ).toBe(true);
     }
   });
 
@@ -56,7 +74,9 @@ describe("standalone cli identity", () => {
     // breaking this leaks PTYs silently.
     for (const tabId of STANDALONE_CLI_TAB_IDS) {
       expect(
-        getStandaloneCliTabKey(tabId).startsWith(`${STANDALONE_CLI_WORKSPACE_ID}:`),
+        getStandaloneCliTabKey(tabId).startsWith(
+          `${STANDALONE_CLI_WORKSPACE_ID}:`,
+        ),
       ).toBe(true);
     }
   });
@@ -64,6 +84,14 @@ describe("standalone cli identity", () => {
   test("exposes a display title per tab", () => {
     expect(getStandaloneCliTabTitle("claude-code")).toBe("Claude Code");
     expect(getStandaloneCliTabTitle("codex")).toBe("Codex");
+    expect(getStandaloneCliTabTitle("cursor")).toBe("Cursor");
+    expect(getStandaloneCliTabTitle("kiro")).toBe("Kiro");
+  });
+
+  test("keeps one tab per provider id", () => {
+    expect([...STANDALONE_CLI_TAB_IDS].sort()).toEqual(
+      [...ALL_PROVIDER_IDS].sort(),
+    );
   });
 
   test("builds one tab per provider carrying the folder as cwd", () => {
@@ -72,11 +100,21 @@ describe("standalone cli identity", () => {
       nativeSessionIdByTab: { codex: "codex-session-1" },
     });
 
-    expect(tabs.map((tab) => tab.id)).toEqual(["claude-code", "codex"]);
+    expect(tabs.map((tab) => tab.id)).toEqual([
+      "claude-code",
+      "codex",
+      "cursor",
+      "kiro",
+    ]);
     expect(tabs.every((tab) => tab.cwd === "/tmp/notes")).toBe(true);
     expect(Object.hasOwn(tabs[0], "nativeSessionId")).toBe(false);
     expect(tabs[1].nativeSessionId).toBe("codex-session-1");
     expect(Object.hasOwn(tabs[1], "nativeSessionId")).toBe(true);
-    expect(tabs.map((tab) => tab.title)).toEqual(["Claude Code", "Codex"]);
+    expect(tabs.map((tab) => tab.title)).toEqual([
+      "Claude Code",
+      "Codex",
+      "Cursor",
+      "Kiro",
+    ]);
   });
 });

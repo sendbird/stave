@@ -301,7 +301,8 @@ export interface HostProviderClassifyRouteResult {
 }
 
 export interface HostProviderEnhancePromptArgs
-  extends UtilityInferenceContext,
+  extends
+    UtilityInferenceContext,
     Omit<PromptEnhancementContext, "repoGuidance"> {
   prompt: string;
 }
@@ -503,6 +504,7 @@ export interface HostServiceRequestMap {
   "service.get-resource-metrics": undefined;
   "terminal.create-session": TerminalCreateSessionArgs;
   "terminal.create-cli-session": CliSessionCreateSessionArgs;
+  "terminal.create-cursor-chat-id": { cwd: string; cursorBinaryPath?: string };
   "terminal.write-session": {
     sessionId: string;
     input: string;
@@ -1006,6 +1008,11 @@ export interface HostServiceResponseMap {
   "service.get-resource-metrics": HostServiceResourceMetrics;
   "terminal.create-session": HostTerminalCreateSessionResult;
   "terminal.create-cli-session": HostTerminalCreateSessionResult;
+  "terminal.create-cursor-chat-id": {
+    ok: boolean;
+    chatId?: string;
+    stderr?: string;
+  };
   "terminal.write-session": HostTerminalMutationResult;
   "terminal.ack-session-output": HostTerminalMutationResult;
   "terminal.read-session": HostTerminalReadSessionResult;

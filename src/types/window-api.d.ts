@@ -243,7 +243,9 @@ interface WindowRunsApi {
   listReceipts?: (
     args: SecondaryRunReceiptListArgs,
   ) => Promise<SecondaryRunReceiptList>;
-  delegateChildTask?: (args: ChildTaskDelegateArgs) => Promise<ChildTaskActionResponse>;
+  delegateChildTask?: (
+    args: ChildTaskDelegateArgs,
+  ) => Promise<ChildTaskActionResponse>;
   listChildTasks?: (args: ChildTaskListArgs) => Promise<ChildTaskList>;
   followUpChildTask?: (
     args: ChildTaskFollowUpArgs,
@@ -1287,6 +1289,10 @@ interface WindowTerminalApi {
     nativeSessionId?: string;
     stderr?: string;
   }>;
+  createCursorChatId?: (args: {
+    cwd: string;
+    cursorBinaryPath?: string;
+  }) => Promise<{ ok: boolean; chatId?: string; stderr?: string }>;
   writeSession?: (args: {
     sessionId: string;
     input: string;
@@ -2017,26 +2023,42 @@ interface WindowPersistenceApi {
     activeProjectPath?: string | null;
   }) => Promise<{ ok: boolean }>;
   closeWorkspace?: (args: { workspaceId: string }) => Promise<{ ok: boolean }>;
-  loadDirectionDraft?: (args: { workspaceId: string }) => Promise<{ ok: boolean; draft: import("@/lib/workspace-resume-brief").WorkspaceResumeBriefDraft | null }>;
-  saveDirectionDraft?: (args: { workspaceId: string; draft: import("@/lib/workspace-resume-brief").WorkspaceResumeBriefDraft | null }) => Promise<{ ok: boolean }>;
+  loadDirectionDraft?: (args: {
+    workspaceId: string;
+  }) => Promise<{
+    ok: boolean;
+    draft:
+      import("@/lib/workspace-resume-brief").WorkspaceResumeBriefDraft | null;
+  }>;
+  saveDirectionDraft?: (args: {
+    workspaceId: string;
+    draft:
+      import("@/lib/workspace-resume-brief").WorkspaceResumeBriefDraft | null;
+  }) => Promise<{ ok: boolean }>;
   loadDelegationDraft?: (args: {
     scope: import("@/lib/collaboration/delegation-draft").DelegationDraftScope;
   }) => Promise<{
     ok: boolean;
-    draft: import("@/lib/collaboration/delegation-draft").DelegationDraft | null;
+    draft:
+      import("@/lib/collaboration/delegation-draft").DelegationDraft | null;
   }>;
   saveDelegationDraft?: (args: {
     scope: import("@/lib/collaboration/delegation-draft").DelegationDraftScope;
-    draft: import("@/lib/collaboration/delegation-draft").DelegationDraft | null;
+    draft:
+      import("@/lib/collaboration/delegation-draft").DelegationDraft | null;
   }) => Promise<{ ok: boolean }>;
   clearAcceptedDelegationDraft?: (args: {
     scope: import("@/lib/collaboration/delegation-draft").DelegationDraftScope;
     delegationKey: string;
   }) => Promise<{ ok: boolean; cleared: boolean }>;
-  listResultReviews?: (args?: import("@/lib/reviews/result-review").ListResultReviewsArgs) => Promise<
+  listResultReviews?: (
+    args?: import("@/lib/reviews/result-review").ListResultReviewsArgs,
+  ) => Promise<
     { ok: boolean } & import("@/lib/reviews/result-review").ResultReviewPage
   >;
-  setResultReviewed?: (args: import("@/lib/reviews/result-review").SetResultReviewedArgs) => Promise<{
+  setResultReviewed?: (
+    args: import("@/lib/reviews/result-review").SetResultReviewedArgs,
+  ) => Promise<{
     ok: boolean;
     result: import("@/lib/reviews/result-review").ResultReview | null;
   }>;
@@ -2154,7 +2176,10 @@ interface WindowPersistenceApi {
   onFlushRequested?: (
     listener: (args: { requestId: number }) => void,
   ) => () => void;
-  notifyFlushComplete?: (args: { requestId: number; success: boolean }) => Promise<{
+  notifyFlushComplete?: (args: {
+    requestId: number;
+    success: boolean;
+  }) => Promise<{
     ok: boolean;
   }>;
 }
@@ -2163,13 +2188,7 @@ interface AppMetricsResult {
   processes: Array<{
     pid: number;
     type: string;
-    role:
-      | "main"
-      | "host-renderer"
-      | "lens-guest"
-      | "gpu"
-      | "utility"
-      | "other";
+    role: "main" | "host-renderer" | "lens-guest" | "gpu" | "utility" | "other";
     memory: {
       workingSetSizeKB: number;
       peakWorkingSetSizeKB: number;
@@ -2253,14 +2272,18 @@ interface AppMetricsResult {
 interface WindowStorageApi {
   getCleanupReport?: () => Promise<{
     ok: boolean;
-    report: import("../lib/storage-cleanup/storage-cleanup-policy").StorageCleanupReport | null;
+    report:
+      | import("../lib/storage-cleanup/storage-cleanup-policy").StorageCleanupReport
+      | null;
     error?: string;
   }>;
   runCleanup?: (
     args: import("../lib/storage-cleanup/storage-cleanup-policy").StorageCleanupOptions,
   ) => Promise<{
     ok: boolean;
-    result: import("../lib/storage-cleanup/storage-cleanup-policy").StorageCleanupResult | null;
+    result:
+      | import("../lib/storage-cleanup/storage-cleanup-policy").StorageCleanupResult
+      | null;
     error?: string;
   }>;
 }

@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   buildStandaloneCliCreateSessionArgs,
+  resolveStandaloneCliLaunchTab,
   resolveStandaloneCliTerminalLifecycle,
 } from "@/components/layout/standalone-cli/StandaloneCliTerminal";
 import { buildCliTerminalRestartToken } from "@/components/layout/useCliTerminalInstance";
@@ -19,6 +20,8 @@ describe("buildStandaloneCliCreateSessionArgs", () => {
     deliveryMode: "push" as const,
     claudeBinaryPath: "",
     codexBinaryPath: "",
+    cursorBinaryPath: "",
+    kiroBinaryPath: "",
   };
 
   test("sends the sentinel workspace id and the folder as cwd and workspacePath", () => {
@@ -72,6 +75,23 @@ describe("buildStandaloneCliCreateSessionArgs", () => {
     });
   });
 
+  test("forwards Cursor and Kiro binary path overrides", () => {
+    expect(
+      buildStandaloneCliCreateSessionArgs({
+        ...base,
+        cursorBinaryPath: "/opt/agent",
+        tab: { id: "cursor", title: "Cursor", cwd: "/tmp/notes" },
+      }).runtimeOptions,
+    ).toEqual({ cursorBinaryPath: "/opt/agent" });
+    expect(
+      buildStandaloneCliCreateSessionArgs({
+        ...base,
+        kiroBinaryPath: "/opt/kiro-cli",
+        tab: { id: "kiro", title: "Kiro", cwd: "/tmp/notes" },
+      }).runtimeOptions,
+    ).toEqual({ kiroBinaryPath: "/opt/kiro-cli" });
+  });
+
   test("uses a transcript key that no other surface shares", () => {
     expect(STANDALONE_CLI_TRANSCRIPT_STORAGE_KEY).toBe(
       "stave:standalone-cli-transcript:v1",
@@ -79,6 +99,82 @@ describe("buildStandaloneCliCreateSessionArgs", () => {
     expect(STANDALONE_CLI_TRANSCRIPT_STORAGE_KEY).not.toBe(
       "stave:cli-session-transcript:v1",
     );
+  });
+});
+
+describe("resolveStandaloneCliLaunchTab", () => {
+  const cursorTab = {
+    id: "cursor" as const,
+    title: "Cursor",
+    cwd: "/tmp/notes",
+  };
+
+  test("issues a Cursor chat id before launch so the tab can resume later", async () => {
+    const calls: Array<{ cwd: string; cursorBinaryPath?: string }> = [];
+
+    expect(
+      await resolveStandaloneCliLaunchTab({
+        tab: cursorTab,
+        folderPath: "/tmp/notes",
+        cursorBinaryPath: " /opt/agent ",
+        createCursorChatId: async (input) => {
+          calls.push(input);
+          return { ok: true, chatId: "cursor-chat-1" };
+        },
+      }),
+    ).toEqual({ ...cursorTab, nativeSessionId: "cursor-chat-1" });
+    expect(calls).toEqual([
+      { cwd: "/tmp/notes", cursorBinaryPath: "/opt/agent" },
+    ]);
+  });
+
+  test("starts without an id when the Cursor CLI cannot issue one", async () => {
+    expect(
+      await resolveStandaloneCliLaunchTab({
+        tab: cursorTab,
+        folderPath: "/tmp/notes",
+        cursorBinaryPath: "",
+        createCursorChatId: async () => ({ ok: false, stderr: "offline" }),
+      }),
+    ).toEqual(cursorTab);
+
+    expect(
+      await resolveStandaloneCliLaunchTab({
+        tab: cursorTab,
+        folderPath: "/tmp/notes",
+        cursorBinaryPath: "",
+      }),
+    ).toEqual(cursorTab);
+  });
+
+  test("never issues an id for a resuming or non-Cursor tab", async () => {
+    const createCursorChatId = async () => {
+      throw new Error("should not be called");
+    };
+
+    const resuming = { ...cursorTab, nativeSessionId: "cursor-chat-1" };
+    expect(
+      await resolveStandaloneCliLaunchTab({
+        tab: resuming,
+        folderPath: "/tmp/notes",
+        cursorBinaryPath: "",
+        createCursorChatId,
+      }),
+    ).toEqual(resuming);
+
+    const codexTab = {
+      id: "codex" as const,
+      title: "Codex",
+      cwd: "/tmp/notes",
+    };
+    expect(
+      await resolveStandaloneCliLaunchTab({
+        tab: codexTab,
+        folderPath: "/tmp/notes",
+        cursorBinaryPath: "",
+        createCursorChatId,
+      }),
+    ).toEqual(codexTab);
   });
 });
 
@@ -155,11 +251,11 @@ describe("resolveStandaloneCliTerminalLifecycle", () => {
   });
 
   test("follows the popover for renderer-local work only", () => {
-    expect(resolveStandaloneCliTerminalLifecycle({ visible: false }).visible).toBe(
-      false,
-    );
-    expect(resolveStandaloneCliTerminalLifecycle({ visible: true }).visible).toBe(
-      true,
-    );
+    expect(
+      resolveStandaloneCliTerminalLifecycle({ visible: false }).visible,
+    ).toBe(false);
+    expect(
+      resolveStandaloneCliTerminalLifecycle({ visible: true }).visible,
+    ).toBe(true);
   });
 });

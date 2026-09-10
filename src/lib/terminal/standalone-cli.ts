@@ -1,3 +1,4 @@
+import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   buildTerminalSessionSlotKey,
   getWorkspaceCliSessionTabKey,
@@ -13,7 +14,19 @@ import {
  */
 export const STANDALONE_CLI_WORKSPACE_ID = "standalone-cli";
 
-export const STANDALONE_CLI_TAB_IDS = ["claude-code", "codex"] as const;
+/**
+ * One tab per `ProviderId`. `STANDALONE_CLI_TAB_TITLE` below is the compile-time
+ * guard: adding a `ProviderId` breaks typecheck here until the new provider gets
+ * a tab, a launch spec in `electron/host-service/cli-session-launch.ts`, and a
+ * `buildCliSessionRuntimeOptions` branch. See
+ * `docs/developer/adding-a-provider.md` for the full checklist.
+ */
+export const STANDALONE_CLI_TAB_IDS = [
+  "claude-code",
+  "codex",
+  "cursor",
+  "kiro",
+] as const satisfies readonly ProviderId[];
 
 /**
  * Transcript scrollback for this surface only. Entries are keyed by tab key,
@@ -34,9 +47,11 @@ export interface StandaloneCliTab {
   nativeSessionId?: string;
 }
 
-const STANDALONE_CLI_TAB_TITLE: Record<StandaloneCliTabId, string> = {
+const STANDALONE_CLI_TAB_TITLE: Record<ProviderId, string> = {
   "claude-code": "Claude Code",
   codex: "Codex",
+  cursor: "Cursor",
+  kiro: "Kiro",
 };
 
 export const STANDALONE_CLI_SLOT_PREFIX = buildTerminalSessionSlotKey({

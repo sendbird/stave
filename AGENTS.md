@@ -103,10 +103,13 @@ Required check files:
 - `src/types/window-api.d.ts`
 - `electron/preload.ts`
 - `electron/main/ipc/schemas.ts`
+- `electron/host-service/cli-session-launch.ts`
+- `src/lib/terminal/standalone-cli.ts`
 - call sites such as `src/store/app.store.ts`
 
 Rules:
 
+- Adding a `ProviderId` requires a Standalone CLI tab. Update `STANDALONE_CLI_TAB_TITLE`, `cli-session-launch.ts`, and `buildCliSessionRuntimeOptions`, then follow the full checklist in `docs/developer/adding-a-provider.md`. The typecheck failures in those three files are the intended reminder, not something to work around.
 - Keep `NormalizedProviderEvent` and `NormalizedProviderEventSchema` in sync.
 - When a provider payload changes, verify the full renderer -> preload -> IPC schema -> main -> runtime path.
 - If a change is provider-specific, say so explicitly. Otherwise, check the sibling provider adapter for symmetry.
@@ -133,7 +136,7 @@ Rules:
 - Inject secrets for the **primary user turn only** — never for introspection, aux, or secondary read-only analysis queries.
 - Claude injects at the `options.env` layer (kept out of `buildClaudeDiagnostics`); Codex injects shell variables via per-thread `shell_environment_policy.set.<KEY>` overrides, forwarded on **both** `thread/start` and `thread/resume`. Secret-bound primary Codex turns use a disposable App Server process with the same environment so `bearer_token_env_var` MCP authentication works without exposing values to shared clients.
 - Never write a secret value to `console.*`, a `BridgeEvent`, a transcript, or the thread key. Log only counts, env-var names, and skip reasons.
-- This is an *automatic-leak* guarantee, not a sandbox: a deliberate `echo $NAME` can still surface a bound value. Keep the Settings > Secrets copy honest about this.
+- This is an _automatic-leak_ guarantee, not a sandbox: a deliberate `echo $NAME` can still surface a bound value. Keep the Settings > Secrets copy honest about this.
 
 ## Terminal Surface Guardrails
 

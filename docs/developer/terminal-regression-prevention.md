@@ -66,37 +66,37 @@ Stave uses a **surface-specific renderer model on top of a shared attach/detach 
 - Explicit tab close
 - Workspace deletion (`closeSessionsBySlotPrefix`)
 - Project deletion (all workspaces' sessions)
-- Standalone CLI folder change (`closeSessionsBySlotPrefix` on the standalone slot prefix; both tabs)
+- Standalone CLI folder change (`closeSessionsBySlotPrefix` on the standalone slot prefix; all tabs)
 - App quit (`cleanupAll`)
 
 ## Required Check Files
 
-| File | Why it matters |
-|------|----------------|
-| `src/components/layout/useTerminalSessionManager.ts` | Dock session lifecycle, attach/detach, slot reconciliation, I/O transport |
-| `src/components/layout/useTerminalTabManager.ts` | Dock tab mount/unmount decisions and xterm instance registry |
-| `src/components/layout/useTerminalInstance.ts` | Dock `xterm.js` renderer init, DOM rendering, resize, theme sync |
-| `src/components/layout/TerminalTabSurface.tsx` | Dock bridge between terminal renderer instances and tab manager |
-| `src/components/layout/useCliSessionManager.ts` | CLI session lifecycle, attach/detach, slot reconciliation, active renderer hydration |
-| `src/components/layout/useCliTerminalInstance.ts` | CLI `xterm.js` renderer init, fit/resize, and focus recovery |
-| `src/components/layout/pty-session-surface.utils.ts` | Shared pure rules for creation gating |
-| `src/components/layout/terminal-surface-styles.ts` | Shared terminal inset/focus styling so dock and CLI surfaces do not diverge |
-| `src/components/layout/CliSessionPanel.tsx` | CLI shell, controls, and surface mounting |
-| `src/components/layout/standalone-cli/StandaloneCliTerminal.tsx` | Standalone CLI shell and the renderer key that must move with the active tab |
-| `src/components/layout/standalone-cli/StandaloneCliPopover.tsx` | Standalone CLI popup shape, first-open boot gate, and folder reconciliation trigger |
-| `src/components/layout/TopBarStandaloneCli.tsx` | Standalone CLI trigger and the dismissal reasons the popover is allowed to act on |
-| `src/lib/terminal/standalone-cli.ts` | Standalone CLI identity: sentinel workspace id, tab keys, slot keys, transcript storage key |
-| `src/store/standalone-cli.store.ts` | Standalone CLI popover state, persisted resume ids, and folder-change teardown |
-| `src/components/layout/app-shell.shortcuts.ts` | Keyboard boundary between app shortcuts and terminal-native shortcuts |
-| `src/components/panes/WorkspacePaneHost.tsx` | Pane placement, terminal keep-alive registration, and surface close routing |
-| `src/components/panes/surfaces/TerminalSurfacePanel.tsx` | Terminal pane shell, controls, and surface mounting |
-| `src/components/panes/terminal-pane-group.ts` | Pure terminal pane placement and initial group sizing rules |
-| `src/store/workspace-session-state.ts` | Workspace restore semantics for active surfaces and shell state |
-| `src/store/app.store.ts` | Terminal and CLI tab lifecycle, workspace snapshot persistence, session cleanup on delete |
-| `src/lib/terminal/types.ts` | Terminal types, slot key builder (`buildTerminalSessionSlotKey`), session slot state |
-| `electron/main/ipc/terminal.ts` | Main-process bridge: IPC handlers, attach registry, push event routing |
-| `electron/host-service/terminal-runtime.ts` | PTY session supervisor: create, attach, detach, close, slot state, background buffer, output bounds |
-| `src/types/window-api.d.ts` | Terminal IPC contract exposed to the renderer |
+| File                                                             | Why it matters                                                                                      |
+| ---------------------------------------------------------------- | --------------------------------------------------------------------------------------------------- |
+| `src/components/layout/useTerminalSessionManager.ts`             | Dock session lifecycle, attach/detach, slot reconciliation, I/O transport                           |
+| `src/components/layout/useTerminalTabManager.ts`                 | Dock tab mount/unmount decisions and xterm instance registry                                        |
+| `src/components/layout/useTerminalInstance.ts`                   | Dock `xterm.js` renderer init, DOM rendering, resize, theme sync                                    |
+| `src/components/layout/TerminalTabSurface.tsx`                   | Dock bridge between terminal renderer instances and tab manager                                     |
+| `src/components/layout/useCliSessionManager.ts`                  | CLI session lifecycle, attach/detach, slot reconciliation, active renderer hydration                |
+| `src/components/layout/useCliTerminalInstance.ts`                | CLI `xterm.js` renderer init, fit/resize, and focus recovery                                        |
+| `src/components/layout/pty-session-surface.utils.ts`             | Shared pure rules for creation gating                                                               |
+| `src/components/layout/terminal-surface-styles.ts`               | Shared terminal inset/focus styling so dock and CLI surfaces do not diverge                         |
+| `src/components/layout/CliSessionPanel.tsx`                      | CLI shell, controls, and surface mounting                                                           |
+| `src/components/layout/standalone-cli/StandaloneCliTerminal.tsx` | Standalone CLI shell and the renderer key that must move with the active tab                        |
+| `src/components/layout/standalone-cli/StandaloneCliPopover.tsx`  | Standalone CLI popup shape, first-open boot gate, and folder reconciliation trigger                 |
+| `src/components/layout/TopBarStandaloneCli.tsx`                  | Standalone CLI trigger and the dismissal reasons the popover is allowed to act on                   |
+| `src/lib/terminal/standalone-cli.ts`                             | Standalone CLI identity: sentinel workspace id, tab keys, slot keys, transcript storage key         |
+| `src/store/standalone-cli.store.ts`                              | Standalone CLI popover state, persisted resume ids, and folder-change teardown                      |
+| `src/components/layout/app-shell.shortcuts.ts`                   | Keyboard boundary between app shortcuts and terminal-native shortcuts                               |
+| `src/components/panes/WorkspacePaneHost.tsx`                     | Pane placement, terminal keep-alive registration, and surface close routing                         |
+| `src/components/panes/surfaces/TerminalSurfacePanel.tsx`         | Terminal pane shell, controls, and surface mounting                                                 |
+| `src/components/panes/terminal-pane-group.ts`                    | Pure terminal pane placement and initial group sizing rules                                         |
+| `src/store/workspace-session-state.ts`                           | Workspace restore semantics for active surfaces and shell state                                     |
+| `src/store/app.store.ts`                                         | Terminal and CLI tab lifecycle, workspace snapshot persistence, session cleanup on delete           |
+| `src/lib/terminal/types.ts`                                      | Terminal types, slot key builder (`buildTerminalSessionSlotKey`), session slot state                |
+| `electron/main/ipc/terminal.ts`                                  | Main-process bridge: IPC handlers, attach registry, push event routing                              |
+| `electron/host-service/terminal-runtime.ts`                      | PTY session supervisor: create, attach, detach, close, slot state, background buffer, output bounds |
+| `src/types/window-api.d.ts`                                      | Terminal IPC contract exposed to the renderer                                                       |
 
 ## Ownership Rules
 
@@ -118,7 +118,7 @@ Do not let the dock use one padding system while the CLI panel uses another.
 - **Tab close = close**. Only explicit tab close kills the PTY.
 - **Workspace/project delete = close by prefix**. All sessions for that workspace are killed.
 - **Dock visibility hide = keep the renderer alive** (within the same workspace). Use `display:none`.
-- **CLI visibility hide = dispose renderer and reattach later**, *unless the surface opts into keep-alive*. The workspace CLI panel disposes; the Standalone CLI popover opts out, because a rehydrate replays a host snapshot that was serialized at the PTY width from before the close, and the restored screen then re-wraps against the reopened panel. `resolveStandaloneCliTerminalLifecycle` in `StandaloneCliTerminal.tsx` is where that opt-out is stated: `enabled` and `isVisible` stay `true` through a close so xterm and the host attachment both survive, and only the renderer-local `visible` flag follows the popover. Do not collapse those three into one flag.
+- **CLI visibility hide = dispose renderer and reattach later**, _unless the surface opts into keep-alive_. The workspace CLI panel disposes; the Standalone CLI popover opts out, because a rehydrate replays a host snapshot that was serialized at the PTY width from before the close, and the restored screen then re-wraps against the reopened panel. `resolveStandaloneCliTerminalLifecycle` in `StandaloneCliTerminal.tsx` is where that opt-out is stated: `enabled` and `isVisible` stay `true` through a close so xterm and the host attachment both survive, and only the renderer-local `visible` flag follows the popover. Do not collapse those three into one flag.
 - **CLI mount node key change = renderer rebuild**. React discards the mount node when its `key` changes, and the renderer hook only rebuilds into the container when `restartToken` changes, so the two must always change together.
 - **Dock visibility restore = forced refit/repaint**. Call the renderer-specific recovery path after animation frames: refit if the geometry changed, otherwise `terminal.refresh`.
 - **Renderer choice = `xterm.js` on both surfaces.** xterm handles `devicePixelRatio`/zoom changes natively. Do not reintroduce a renderer (e.g. a WASM canvas) that caches the device pixel ratio at construction — that is what made dock text blurry/garbled on zoom and display moves.

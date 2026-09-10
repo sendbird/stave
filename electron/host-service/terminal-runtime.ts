@@ -1,7 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { existsSync } from "node:fs";
-import { homedir } from "node:os";
-import path from "node:path";
 import * as pty from "node-pty";
 import { SerializeAddon } from "@xterm/addon-serialize";
 import { Terminal as HeadlessTerminal } from "@xterm/headless";
@@ -10,13 +7,6 @@ import {
   type CliSessionCreateSessionArgs,
   type TerminalCreateSessionArgs,
 } from "../../src/lib/terminal/types";
-import {
-  buildClaudeCliEnv,
-  buildCodexCliEnv,
-  resolveClaudeCliAutoModeSupport,
-  resolveClaudeCliExecutablePath,
-  resolveCodexCliExecutablePath,
-} from "../providers/cli-path-env";
 import {
   bindTerminalSessionSlot,
   clearTerminalSessionSlotRegistry,
@@ -45,10 +35,8 @@ import {
   createBufferedDataHandler,
   createOscColorInterceptor,
 } from "./terminal-pty-stream";
-import {
-  collectRecentCodexSessionFiles,
-  readCodexSessionMeta,
-} from "./codex-native-session-files";
+import { buildCliSessionLaunch } from "./cli-session-launch";
+import { createNativeSessionDiscovery } from "./native-session-discovery";
 import {
   appendBackgroundBuffer,
   appendOutputChunk,
@@ -68,11 +56,9 @@ const TERMINAL_PUSH_FLUSH_MAX_BYTES = 128 * 1024;
 const TERMINAL_PUSH_ACK_HIGH_WATER_BYTES = 512 * 1024;
 const TERMINAL_PUSH_ACK_LOW_WATER_BYTES = 128 * 1024;
 const TERMINAL_SCREEN_STATE_MAX_BYTES = 256 * 1024;
-const TERMINAL_SCREEN_STATE_SCROLLBACK_CANDIDATES = [512, 256, 128, 64, 32, 0] as const;
-const CODEX_SESSION_DISCOVERY_POLL_MS = 500;
-const CODEX_SESSION_DISCOVERY_MAX_ATTEMPTS = 60;
-const CODEX_SESSION_DISCOVERY_LOOKBACK_MS = 15_000;
-const CODEX_SESSION_DISCOVERY_MATCH_WINDOW_MS = 60_000;
+const TERMINAL_SCREEN_STATE_SCROLLBACK_CANDIDATES = [
+  512, 256, 128, 64, 32, 0,
+] as const;
 export function createTerminalRuntime(args: {
   emitEvent: <TEvent extends keyof HostServiceEventMap>(
     event: TEvent,
@@ -88,137 +74,11 @@ export function createTerminalRuntime(args: {
     string,
     { exitCode: number; signal?: number }
   >();
-  const codexSessionFileClaimByPath = new Map<string, string>();
-  const codexSessionIdClaimByNativeId = new Map<string, string>();
-
-  function normalizeSessionCwd(cwd: string) {
-    return resolveCommandCwd({ cwd });
-  }
-
-  function releaseNativeSessionClaims(sessionId: string) {
-    for (const [filePath, ownerSessionId] of codexSessionFileClaimByPath) {
-      if (ownerSessionId === sessionId) {
-        codexSessionFileClaimByPath.delete(filePath);
-      }
-    }
-    for (const [
-      nativeSessionId,
-      ownerSessionId,
-    ] of codexSessionIdClaimByNativeId) {
-      if (ownerSessionId === sessionId) {
-        codexSessionIdClaimByNativeId.delete(nativeSessionId);
-      }
-    }
-  }
-
-  function startCodexNativeSessionDiscovery(args: {
-    sessionId: string;
-    cwd: string;
-    startedAtMs: number;
-  }) {
-    const session = sessions.get(args.sessionId);
-    if (!session || session.nativeSessionId) {
-      return;
-    }
-
-    const sessionsRoot = path.join(homedir(), ".agents", "codex", "sessions");
-    if (!existsSync(sessionsRoot)) {
-      return;
-    }
-
-    const targetCwd = normalizeSessionCwd(args.cwd);
-    let disposed = false;
-    let attempts = 0;
-
-    const stop = () => {
-      if (disposed) {
-        return;
-      }
-      disposed = true;
-      clearInterval(intervalId);
-      const currentSession = sessions.get(args.sessionId);
-      if (currentSession?.disposeNativeSessionDiscovery === stop) {
-        currentSession.disposeNativeSessionDiscovery = null;
-      }
-    };
-
-    const scan = () => {
-      const currentSession = sessions.get(args.sessionId);
-      if (
-        !currentSession ||
-        currentSession.closing ||
-        currentSession.nativeSessionId
-      ) {
-        stop();
-        return;
-      }
-
-      const candidates = collectRecentCodexSessionFiles({
-        rootPath: sessionsRoot,
-        earliestMtimeMs: args.startedAtMs - CODEX_SESSION_DISCOVERY_LOOKBACK_MS,
-      });
-
-      let bestMatch: {
-        filePath: string;
-        nativeSessionId: string;
-        deltaMs: number;
-      } | null = null;
-
-      for (const filePath of candidates) {
-        const claimedBy = codexSessionFileClaimByPath.get(filePath);
-        if (claimedBy && claimedBy !== args.sessionId) {
-          continue;
-        }
-        const meta = readCodexSessionMeta({ filePath });
-        if (!meta || meta.cwd !== targetCwd) {
-          continue;
-        }
-        if (
-          Math.abs(meta.timestampMs - args.startedAtMs) >
-          CODEX_SESSION_DISCOVERY_MATCH_WINDOW_MS
-        ) {
-          continue;
-        }
-        const claimedNativeSessionId = codexSessionIdClaimByNativeId.get(
-          meta.nativeSessionId,
-        );
-        if (
-          claimedNativeSessionId &&
-          claimedNativeSessionId !== args.sessionId
-        ) {
-          continue;
-        }
-        const deltaMs = Math.abs(meta.timestampMs - args.startedAtMs);
-        if (!bestMatch || deltaMs < bestMatch.deltaMs) {
-          bestMatch = {
-            filePath,
-            nativeSessionId: meta.nativeSessionId,
-            deltaMs,
-          };
-        }
-      }
-
-      if (bestMatch) {
-        currentSession.nativeSessionId = bestMatch.nativeSessionId;
-        codexSessionFileClaimByPath.set(bestMatch.filePath, args.sessionId);
-        codexSessionIdClaimByNativeId.set(
-          bestMatch.nativeSessionId,
-          args.sessionId,
-        );
-        stop();
-        return;
-      }
-
-      attempts += 1;
-      if (attempts >= CODEX_SESSION_DISCOVERY_MAX_ATTEMPTS) {
-        stop();
-      }
-    };
-
-    const intervalId = setInterval(scan, CODEX_SESSION_DISCOVERY_POLL_MS);
-    session.disposeNativeSessionDiscovery = stop;
-    scan();
-  }
+  const {
+    releaseNativeSessionClaims,
+    startCodexNativeSessionDiscovery,
+    startKiroNativeSessionDiscovery,
+  } = createNativeSessionDiscovery({ sessions });
 
   function deleteSession(sessionId: string) {
     const session = sessions.get(sessionId);
@@ -739,99 +599,52 @@ export function createTerminalRuntime(args: {
     const requestedNativeSessionId = args.nativeSessionId?.trim() || "";
     const sessionCwd = args.cwd || args.workspacePath;
 
-    if (args.providerId === "claude-code") {
-      const executablePath = resolveClaudeCliExecutablePath({
-        explicitPath: args.runtimeOptions?.claudeBinaryPath,
-      });
-      if (!executablePath) {
-        return {
-          ok: false,
-          stderr:
-            "Claude executable not found. Check Claude CLI installation and auth.",
-        };
-      }
-      const nativeSessionId = requestedNativeSessionId || randomUUID();
-      const requestedClaudePermissionMode =
-        args.runtimeOptions?.claudePermissionMode ?? "auto";
-      const claudeAutoModeSupported = resolveClaudeCliAutoModeSupport({
-        executablePath,
-      });
-      const claudePermissionMode =
-        requestedClaudePermissionMode === "auto" && !claudeAutoModeSupported
-          ? "default"
-          : requestedClaudePermissionMode;
-      const claudeCommandArgs = [
-        ...(claudeAutoModeSupported ? ["--enable-auto-mode"] : []),
-        "--permission-mode",
-        claudePermissionMode,
-        ...(requestedNativeSessionId
-          ? ["--resume", nativeSessionId]
-          : ["--session-id", nativeSessionId]),
-      ];
-      const env = buildClaudeCliEnv({ executablePath, cwd: sessionCwd });
-      return {
-        ok: true,
-        sessionId: createPtySession({
-          command: executablePath,
-          commandArgs: claudeCommandArgs,
-          cwd: sessionCwd,
-          cols: args.cols,
-          rows: args.rows,
-          deliveryMode: args.deliveryMode,
-          slotKey,
-          nativeSessionId,
-          env: {
-            ...env,
-            STAVE_WORKSPACE_PATH: args.workspacePath,
-            STAVE_TASK_ID: args.taskId ?? "",
-            STAVE_TASK_TITLE: args.taskTitle ?? "",
-          },
-        }),
-        nativeSessionId,
-      };
+    const launch = buildCliSessionLaunch({
+      providerId: args.providerId,
+      cwd: sessionCwd,
+      requestedNativeSessionId,
+      runtimeOptions: args.runtimeOptions,
+    });
+    if (!launch.ok) {
+      return { ok: false, stderr: launch.stderr };
     }
 
-    const executablePath = resolveCodexCliExecutablePath({
-      explicitPath: args.runtimeOptions?.codexBinaryPath,
-    });
-    if (!executablePath) {
-      return {
-        ok: false,
-        stderr:
-          "Codex executable not found. Check Codex CLI installation or the configured binary path.",
-      };
-    }
-    const env = buildCodexCliEnv({ executablePath, cwd: sessionCwd });
     const startedAtMs = Date.now();
     const sessionId = createPtySession({
-      command: executablePath,
-      commandArgs: requestedNativeSessionId
-        ? ["resume", requestedNativeSessionId]
-        : undefined,
+      command: launch.executablePath,
+      commandArgs: launch.commandArgs,
       cwd: sessionCwd,
       cols: args.cols,
       rows: args.rows,
       deliveryMode: args.deliveryMode,
       slotKey,
-      nativeSessionId: requestedNativeSessionId || undefined,
+      nativeSessionId: launch.nativeSessionId,
       env: {
-        ...env,
+        ...launch.env,
         STAVE_WORKSPACE_PATH: args.workspacePath,
         STAVE_TASK_ID: args.taskId ?? "",
         STAVE_TASK_TITLE: args.taskTitle ?? "",
       },
     });
-    if (!requestedNativeSessionId) {
+    if (launch.discovery === "codex") {
       startCodexNativeSessionDiscovery({
         sessionId,
         cwd: sessionCwd,
         startedAtMs,
       });
+    } else if (launch.discovery === "kiro") {
+      startKiroNativeSessionDiscovery({
+        sessionId,
+        cwd: sessionCwd,
+        startedAtMs,
+        executablePath: launch.executablePath,
+        env: launch.env,
+      });
     }
     return {
       ok: true,
       sessionId,
-      nativeSessionId: requestedNativeSessionId || undefined,
+      nativeSessionId: launch.nativeSessionId,
     };
   }
 

@@ -44,6 +44,8 @@ export function buildStandaloneCliCreateSessionArgs(args: {
   deliveryMode: "poll" | "push";
   claudeBinaryPath: string;
   codexBinaryPath: string;
+  cursorBinaryPath: string;
+  kiroBinaryPath: string;
 }) {
   return {
     workspaceId: STANDALONE_CLI_WORKSPACE_ID,
@@ -62,8 +64,46 @@ export function buildStandaloneCliCreateSessionArgs(args: {
       providerId: args.tab.id,
       claudeBinaryPath: args.claudeBinaryPath,
       codexBinaryPath: args.codexBinaryPath,
+      cursorBinaryPath: args.cursorBinaryPath,
+      kiroBinaryPath: args.kiroBinaryPath,
     }),
   };
+}
+
+/**
+ * Cursor keeps conversations server-side, so unlike Codex and Kiro there is
+ * nothing to discover after spawn. `agent create-chat` is the only way to get
+ * an id and it has to be known before launch, so it runs here — an async step
+ * ahead of the synchronous host `createCliSession`.
+ *
+ * A failure (offline, signed out, CLI missing) is not fatal: the tab starts
+ * without an id and simply cannot be resumed after an app restart. Pure so the
+ * fallback can be asserted without a DOM.
+ */
+export async function resolveStandaloneCliLaunchTab(args: {
+  tab: StandaloneCliTab;
+  folderPath: string;
+  cursorBinaryPath: string;
+  createCursorChatId?: (input: {
+    cwd: string;
+    cursorBinaryPath?: string;
+  }) => Promise<{ ok: boolean; chatId?: string; stderr?: string }>;
+}): Promise<StandaloneCliTab> {
+  if (args.tab.id !== "cursor" || args.tab.nativeSessionId) {
+    return args.tab;
+  }
+  if (!args.createCursorChatId) {
+    return args.tab;
+  }
+  const result = await args.createCursorChatId({
+    cwd: args.folderPath,
+    ...(args.cursorBinaryPath.trim()
+      ? { cursorBinaryPath: args.cursorBinaryPath.trim() }
+      : {}),
+  });
+  return result.ok && result.chatId
+    ? { ...args.tab, nativeSessionId: result.chatId }
+    : args.tab;
 }
 
 /**
@@ -112,6 +152,8 @@ export function StandaloneCliTerminal(props: {
   const [
     claudeBinaryPath,
     codexBinaryPath,
+    cursorBinaryPath,
+    kiroBinaryPath,
     terminalFontFamily,
     terminalFontSize,
     terminalLineHeight,
@@ -123,6 +165,8 @@ export function StandaloneCliTerminal(props: {
         [
           state.settings.claudeBinaryPath,
           state.settings.codexBinaryPath,
+          state.settings.cursorBinaryPath,
+          state.settings.kiroBinaryPath,
           state.settings.terminalFontFamily,
           state.settings.terminalFontSize,
           state.settings.terminalLineHeight,
@@ -176,19 +220,33 @@ export function StandaloneCliTerminal(props: {
           stderr: "CLI session bridge unavailable. Use bun run dev:desktop.",
         };
       }
+      const launchTab = await resolveStandaloneCliLaunchTab({
+        tab: args.tab,
+        folderPath: props.folderPath,
+        cursorBinaryPath,
+        createCursorChatId: window.api?.terminal?.createCursorChatId,
+      });
       return createCliSession(
         buildStandaloneCliCreateSessionArgs({
-          tab: args.tab,
+          tab: launchTab,
           folderPath: props.folderPath,
           cols: args.cols,
           rows: args.rows,
           deliveryMode: args.deliveryMode,
           claudeBinaryPath,
           codexBinaryPath,
+          cursorBinaryPath,
+          kiroBinaryPath,
         }),
       );
     },
-    [claudeBinaryPath, codexBinaryPath, props.folderPath],
+    [
+      claudeBinaryPath,
+      codexBinaryPath,
+      cursorBinaryPath,
+      kiroBinaryPath,
+      props.folderPath,
+    ],
   );
 
   const lifecycle = resolveStandaloneCliTerminalLifecycle({
@@ -282,7 +340,8 @@ export function StandaloneCliTerminal(props: {
           where it would occlude a full-screen TUI's top-right corner and
           swallow every click in that region. */}
       <div className={sx(styles.terminalHeader)}>
-        <AdsButton layout="host"
+        <AdsButton
+          layout="host"
           type="button"
           aria-label="Restart CLI session"
           xstyle={styles.restartButton}
@@ -294,12 +353,10 @@ export function StandaloneCliTerminal(props: {
       <div className={TERMINAL_SURFACE_PANEL_CLASS_NAME}>
         <div className={TERMINAL_SURFACE_VIEWPORT_CLASS_NAME}>
           {status ? (
-            <div
-              role="alert"
-              className={sx(styles.statusBanner)}
-            >
+            <div role="alert" className={sx(styles.statusBanner)}>
               <span className={sx(styles.statusText)}>{status}</span>
-              <AdsButton layout="host"
+              <AdsButton
+                layout="host"
                 type="button"
                 xstyle={styles.statusAction}
                 onClick={() => setRendererRestartToken((value) => value + 1)}
@@ -309,10 +366,7 @@ export function StandaloneCliTerminal(props: {
             </div>
           ) : null}
           {sessionExited ? (
-            <div
-              role="status"
-              className={sx(styles.exitedBanner)}
-            >
+            <div role="status" className={sx(styles.exitedBanner)}>
               Session exited. Use Restart to start a new one.
             </div>
           ) : null}

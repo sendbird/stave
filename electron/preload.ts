@@ -995,7 +995,9 @@ contextBridge.exposeInMainWorld("api", {
       args: SecondaryRunReceiptListArgs,
     ): Promise<SecondaryRunReceiptList> =>
       ipcRenderer.invoke("runs:list-receipts", args),
-    delegateChildTask: (args: ChildTaskDelegateArgs): Promise<ChildTaskActionResponse> =>
+    delegateChildTask: (
+      args: ChildTaskDelegateArgs,
+    ): Promise<ChildTaskActionResponse> =>
       ipcRenderer.invoke("runs:delegate-child-task", args),
     listChildTasks: (args: ChildTaskListArgs): Promise<ChildTaskList> =>
       ipcRenderer.invoke("runs:list-child-tasks", args),
@@ -1532,8 +1534,10 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("persistence:load-project-registry"),
     upsertWorkspace: (args: { id: string; name: string; snapshot: unknown }) =>
       ipcRenderer.invoke("persistence:upsert-workspace", args),
-    saveProjectRegistry: (args: { projects: unknown[]; activeProjectPath?: string | null }) =>
-      ipcRenderer.invoke("persistence:save-project-registry", args),
+    saveProjectRegistry: (args: {
+      projects: unknown[];
+      activeProjectPath?: string | null;
+    }) => ipcRenderer.invoke("persistence:save-project-registry", args),
     /**
      * Quit-time flush handshake. `onFlushRequested` fires when main is about to
      * tear down persistence; the renderer performs its ordinary async snapshot
@@ -1552,38 +1556,54 @@ contextBridge.exposeInMainWorld("api", {
       }>,
     closeWorkspace: (args: { workspaceId: string }) =>
       ipcRenderer.invoke("persistence:close-workspace", args),
-    loadDirectionDraft: (args: { workspaceId: string }) => ipcRenderer.invoke("persistence:load-direction-draft", args),
-    saveDirectionDraft: (args: { workspaceId: string; draft: import("../src/lib/workspace-resume-brief").WorkspaceResumeBriefDraft | null }) => ipcRenderer.invoke("persistence:save-direction-draft", args),
+    loadDirectionDraft: (args: { workspaceId: string }) =>
+      ipcRenderer.invoke("persistence:load-direction-draft", args),
+    saveDirectionDraft: (args: {
+      workspaceId: string;
+      draft:
+        | import("../src/lib/workspace-resume-brief").WorkspaceResumeBriefDraft
+        | null;
+    }) => ipcRenderer.invoke("persistence:save-direction-draft", args),
     loadDelegationDraft: (args: {
       scope: import("../src/lib/collaboration/delegation-draft").DelegationDraftScope;
     }) => ipcRenderer.invoke("persistence:load-delegation-draft", args),
     saveDelegationDraft: (args: {
       scope: import("../src/lib/collaboration/delegation-draft").DelegationDraftScope;
-      draft: import("../src/lib/collaboration/delegation-draft").DelegationDraft | null;
+      draft:
+        | import("../src/lib/collaboration/delegation-draft").DelegationDraft
+        | null;
     }) => ipcRenderer.invoke("persistence:save-delegation-draft", args),
     clearAcceptedDelegationDraft: (args: {
       scope: import("../src/lib/collaboration/delegation-draft").DelegationDraftScope;
       delegationKey: string;
     }) =>
-      ipcRenderer.invoke(
-        "persistence:clear-accepted-delegation-draft",
-        args,
-      ),
-    listResultReviews: (args?: import("../src/lib/reviews/result-review").ListResultReviewsArgs) =>
-      ipcRenderer.invoke("persistence:list-result-reviews", args ?? {}),
-    setResultReviewed: (args: import("../src/lib/reviews/result-review").SetResultReviewedArgs) =>
-      ipcRenderer.invoke("persistence:set-result-reviewed", args),
-    setResultsReviewed: (args: import("../src/lib/reviews/result-review").SetResultsReviewedArgs) =>
-      ipcRenderer.invoke("persistence:set-results-reviewed", args),
+      ipcRenderer.invoke("persistence:clear-accepted-delegation-draft", args),
+    listResultReviews: (
+      args?: import("../src/lib/reviews/result-review").ListResultReviewsArgs,
+    ) => ipcRenderer.invoke("persistence:list-result-reviews", args ?? {}),
+    setResultReviewed: (
+      args: import("../src/lib/reviews/result-review").SetResultReviewedArgs,
+    ) => ipcRenderer.invoke("persistence:set-result-reviewed", args),
+    setResultsReviewed: (
+      args: import("../src/lib/reviews/result-review").SetResultsReviewedArgs,
+    ) => ipcRenderer.invoke("persistence:set-results-reviewed", args),
     listFleetAttentionSnoozes: (
       args?: import("../src/lib/fleet/attention-snooze").ListFleetAttentionSnoozesArgs,
-    ) => ipcRenderer.invoke("persistence:list-fleet-attention-snoozes", args ?? {}),
+    ) =>
+      ipcRenderer.invoke(
+        "persistence:list-fleet-attention-snoozes",
+        args ?? {},
+      ),
     snoozeFleetAttention: (
       args: import("../src/lib/fleet/attention-snooze").SnoozeFleetAttentionArgs,
     ) => ipcRenderer.invoke("persistence:snooze-fleet-attention", args),
     clearFleetAttentionSnoozes: (
       args?: import("../src/lib/fleet/attention-snooze").ClearFleetAttentionSnoozesArgs,
-    ) => ipcRenderer.invoke("persistence:clear-fleet-attention-snoozes", args ?? {}),
+    ) =>
+      ipcRenderer.invoke(
+        "persistence:clear-fleet-attention-snoozes",
+        args ?? {},
+      ),
     listNotifications: (args?: { limit?: number; unreadOnly?: boolean }) =>
       ipcRenderer.invoke("persistence:list-notifications", args ?? {}),
     createNotification: (args: { notification: AppNotificationCreateInput }) =>
@@ -1963,12 +1983,22 @@ contextBridge.exposeInMainWorld("api", {
     },
   },
   projectMemory: {
-    getSettings: (args: Parameters<ProjectMemoryControlsApi["getSettings"]>[0]) =>
-      ipcRenderer.invoke("project-memory:get-settings", args) as ReturnType<ProjectMemoryControlsApi["getSettings"]>,
-    saveSettings: (args: Parameters<ProjectMemoryControlsApi["saveSettings"]>[0]) =>
-      ipcRenderer.invoke("project-memory:save-settings", args) as ReturnType<ProjectMemoryControlsApi["saveSettings"]>,
+    getSettings: (
+      args: Parameters<ProjectMemoryControlsApi["getSettings"]>[0],
+    ) =>
+      ipcRenderer.invoke("project-memory:get-settings", args) as ReturnType<
+        ProjectMemoryControlsApi["getSettings"]
+      >,
+    saveSettings: (
+      args: Parameters<ProjectMemoryControlsApi["saveSettings"]>[0],
+    ) =>
+      ipcRenderer.invoke("project-memory:save-settings", args) as ReturnType<
+        ProjectMemoryControlsApi["saveSettings"]
+      >,
     clear: (args: Parameters<ProjectMemoryControlsApi["clear"]>[0]) =>
-      ipcRenderer.invoke("project-memory:clear", args) as ReturnType<ProjectMemoryControlsApi["clear"]>,
+      ipcRenderer.invoke("project-memory:clear", args) as ReturnType<
+        ProjectMemoryControlsApi["clear"]
+      >,
     list: (args: ProjectMemoryListArgs) =>
       ipcRenderer.invoke("project-memory:list", args) as Promise<{
         ok: boolean;
@@ -2254,6 +2284,8 @@ contextBridge.exposeInMainWorld("api", {
       ipcRenderer.invoke("terminal:create-session", args),
     createCliSession: (args: CliSessionCreateSessionArgs) =>
       ipcRenderer.invoke("terminal:create-cli-session", args),
+    createCursorChatId: (args: { cwd: string; cursorBinaryPath?: string }) =>
+      ipcRenderer.invoke("terminal:create-cursor-chat-id", args),
     writeSession: (args: { sessionId: string; input: string }) =>
       ipcRenderer.invoke("terminal:write-session", args),
     ackSessionOutput: (args: {
@@ -2719,7 +2751,9 @@ contextBridge.exposeInMainWorld("api", {
     getCleanupReport: () =>
       ipcRenderer.invoke("storage:get-cleanup-report") as Promise<{
         ok: boolean;
-        report: import("../src/lib/storage-cleanup/storage-cleanup-policy").StorageCleanupReport | null;
+        report:
+          | import("../src/lib/storage-cleanup/storage-cleanup-policy").StorageCleanupReport
+          | null;
         error?: string;
       }>,
     runCleanup: (
@@ -2727,7 +2761,9 @@ contextBridge.exposeInMainWorld("api", {
     ) =>
       ipcRenderer.invoke("storage:run-cleanup", args) as Promise<{
         ok: boolean;
-        result: import("../src/lib/storage-cleanup/storage-cleanup-policy").StorageCleanupResult | null;
+        result:
+          | import("../src/lib/storage-cleanup/storage-cleanup-policy").StorageCleanupResult
+          | null;
         error?: string;
       }>,
   },

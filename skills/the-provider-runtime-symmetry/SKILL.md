@@ -40,18 +40,20 @@ Use alongside `the-ipc-contract-audit` when the change also crosses IPC.
 
 ## Required Check Files
 
-| File | Role |
-|---|---|
-| `electron/providers/claude-sdk-runtime.ts` | Large Claude SDK adapter; inspect targeted sections |
-| `electron/providers/codex-app-server-runtime.ts` | Codex App Server adapter |
-| `electron/providers/runtime.ts` | Shared provider runtime entry |
-| `electron/providers/executable-path.ts` | CLI binary lookup |
-| `electron/providers/cli-path-env.ts` | Env-builder (PATH, config homes) |
-| `src/lib/providers/adapter.factory.ts` | Event normalization entry (`parseNormalizedEvent`) |
-| `electron/main/utils/tooling-status.ts` | Provider availability probes |
-| `electron/providers/types.ts` | Shared runtime option types |
-| `src/lib/providers/provider.types.ts` | Renderer-facing TS union |
-| `src/lib/providers/schemas.ts` | Zod discriminated union mirror |
+| File                                             | Role                                                |
+| ------------------------------------------------ | --------------------------------------------------- |
+| `electron/providers/claude-sdk-runtime.ts`       | Large Claude SDK adapter; inspect targeted sections |
+| `electron/providers/codex-app-server-runtime.ts` | Codex App Server adapter                            |
+| `electron/providers/runtime.ts`                  | Shared provider runtime entry                       |
+| `electron/providers/executable-path.ts`          | CLI binary lookup                                   |
+| `electron/providers/cli-path-env.ts`             | Env-builder (PATH, config homes)                    |
+| `src/lib/providers/adapter.factory.ts`           | Event normalization entry (`parseNormalizedEvent`)  |
+| `electron/main/utils/tooling-status.ts`          | Provider availability probes                        |
+| `electron/providers/types.ts`                    | Shared runtime option types                         |
+| `src/lib/providers/provider.types.ts`            | Renderer-facing TS union                            |
+| `src/lib/providers/schemas.ts`                   | Zod discriminated union mirror                      |
+| `electron/host-service/cli-session-launch.ts`    | Per-provider Standalone CLI launch spec             |
+| `src/lib/terminal/standalone-cli.ts`             | Standalone CLI tab set (one per `ProviderId`)       |
 
 ## Symmetry Checklist
 
@@ -68,18 +70,24 @@ Run this before considering an adapter change complete.
 - [ ] Added a new `runtimeOptions` field? Check it is wired through **both** adapters, the shared type in `electron/providers/types.ts`, the renderer-side type in `src/lib/providers/provider.types.ts`, the preload/window-api contract, and the strict Zod schema in `electron/main/ipc/schemas.ts`.
 - [ ] Renamed or removed a field? Grep across `electron/providers/`, `src/store/app.store.ts`, and session/input UI producer sites.
 
-### 3. Event emission
+### 3. Standalone CLI parity
+
+- [ ] Added a new `ProviderId`? It needs a `STANDALONE_CLI_TAB_TITLE` entry, a `buildCliSessionLaunch` branch, and a `buildCliSessionRuntimeOptions` branch. All three fail typecheck until done — see `docs/developer/adding-a-provider.md`.
+- [ ] Does the new provider's CLI accept a session id up front, or does it need post-launch discovery (Codex/Kiro) or a pre-launch async id (Cursor)? Pick the matching pattern instead of shipping a tab that cannot resume.
+- [ ] Changed a CLI's binary lookup or env builder? The Standalone CLI launch spec uses the same `resolve*ExecutablePath` / `build*Env` pair as the runtime — do not fork it.
+
+### 4. Event emission
 
 - [ ] New or renamed `NormalizedProviderEvent` variant? Both `src/lib/providers/provider.types.ts` (TS) and `src/lib/providers/schemas.ts` (Zod) updated in the same change, plus every emitter across `electron/providers/`.
 - [ ] Replay handlers in `src/lib/session/provider-event-replay.ts` updated.
 
-### 4. CLI environment parity
+### 5. CLI environment parity
 
 - [ ] `PATH` handling: GUI-launched Stave must resolve the same executables a login shell resolves. Cloned env objects must not drop login-shell `PATH` entries.
 - [ ] `CLAUDE_CONFIG_DIR` / `CODEX_HOME` / auth-related vars: the same precedence rules apply to runtime execution **and** tooling-status probes.
 - [ ] Claude runtime, Codex runtime, app-server runtime, CLI sessions, and tooling-status probes all route through the **same** env-builder. Do not fork the rule in one adapter.
 
-### 5. Probe vs runtime mismatch
+### 6. Probe vs runtime mismatch
 
 `claude auth status` / `codex --version` probe success is **not** sufficient verification. Environment parity bugs often show:
 
@@ -88,7 +96,7 @@ Run this before considering an adapter change complete.
 
 Verify both paths explicitly.
 
-### 6. SDK upgrade hygiene
+### 7. SDK upgrade hygiene
 
 When upgrading `@anthropic-ai/claude-agent-sdk` or the Claude/Codex CLI expectations:
 
