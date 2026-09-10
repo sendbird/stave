@@ -1,3 +1,4 @@
+import { appendOpenTaskTabForHostCreatedTask } from "../../src/lib/tasks";
 import type {
   PersistedWorkspaceShellPayload,
   PersistenceWorkspaceSnapshot,
@@ -24,7 +25,9 @@ export type PersistenceTaskRow = PersistenceWorkspaceSnapshot["tasks"][number];
  *
  * The result keeps every renderer-owned field byte-identical to the persisted
  * input — including `editorTabs` and its artifact pointers, so no artifact is
- * rewritten — and replaces only the host-owned fields above.
+ * rewritten — and replaces only the host-owned fields above. Creating a new
+ * top-level task is the one exception: its id is appended to `openTaskTabIds`
+ * so the pane shows a tab instead of stranding the row in Task History.
  *
  * `archivedAt` is deliberately taken from the *persisted* task row rather than
  * the caller's copy: task archival is renderer-owned, and the host's cached
@@ -57,9 +60,20 @@ export function mergeTaskTurnDeltaPayload(args: {
         )
       : [...args.payload.tasks, args.task];
 
+  const nextOpenTaskTabIds =
+    args.task && !existingTask
+      ? appendOpenTaskTabForHostCreatedTask({
+          openTaskTabIds: args.payload.openTaskTabIds,
+          task: args.task,
+        })
+      : args.payload.openTaskTabIds;
+
   return {
     ...args.payload,
     tasks: nextTasks,
+    ...(nextOpenTaskTabIds !== args.payload.openTaskTabIds
+      ? { openTaskTabIds: nextOpenTaskTabIds }
+      : {}),
     ...(args.activeTaskId ? { activeTaskId: args.activeTaskId } : {}),
     ...(args.providerSession
       ? {

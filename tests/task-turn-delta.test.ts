@@ -171,7 +171,7 @@ describe("mergeTaskTurnDeltaPayload", () => {
       taskId: "task-2",
       task: {
         id: "task-2",
-        title: "Delegated child",
+        title: "New managed task",
         provider: "claude-code",
         updatedAt: "2026-01-02T00:00:00.000Z",
         unread: false,
@@ -182,6 +182,47 @@ describe("mergeTaskTurnDeltaPayload", () => {
 
     expect(next.tasks.map((task) => task.id)).toEqual(["task-1", "task-2"]);
     expect(next.messageCountByTask).toEqual({ "task-1": 10, "task-2": 1 });
+    expect(next.openTaskTabIds).toEqual(["task-1", "task-2"]);
+  });
+
+  test("does not open a tab for a delegated child task", () => {
+    const next = mergeTaskTurnDeltaPayload({
+      payload: createPayload(),
+      taskId: "task-child",
+      task: {
+        id: "task-child",
+        title: "Delegated child",
+        provider: "claude-code",
+        updatedAt: "2026-01-02T00:00:00.000Z",
+        unread: false,
+        archivedAt: null,
+        parentTaskId: "task-1",
+      },
+      messageCount: 1,
+    });
+
+    expect(next.tasks.map((task) => task.id)).toEqual(["task-1", "task-child"]);
+    expect(next.openTaskTabIds).toEqual(["task-1"]);
+  });
+
+  test("leaves a missing openTaskTabIds field unset for a new task", () => {
+    const payload = createPayload();
+    delete (payload as { openTaskTabIds?: string[] }).openTaskTabIds;
+    const next = mergeTaskTurnDeltaPayload({
+      payload,
+      taskId: "task-2",
+      task: {
+        id: "task-2",
+        title: "New Task",
+        provider: "claude-code",
+        updatedAt: "2026-01-02T00:00:00.000Z",
+        unread: false,
+        archivedAt: null,
+      },
+      messageCount: 1,
+    });
+
+    expect(next.openTaskTabIds).toBeUndefined();
   });
 
   test("updates only the delta task's message count", () => {
