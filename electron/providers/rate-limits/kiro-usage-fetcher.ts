@@ -7,6 +7,10 @@ import type {
 import { AcpProtocolClient } from "../acp/acp-protocol";
 import { buildKiroCliEnv, resolveKiroExecutablePath } from "../kiro-cli-env";
 import type { StreamTurnArgs } from "../types";
+import {
+  USAGE_CLIENT_NAME,
+  USAGE_CLIENT_VERSION,
+} from "./usage-client-identity";
 
 const KiroUsageResponseSchema = z
   .object({
@@ -38,10 +42,40 @@ type KiroUsageConnection = {
   sessionId: string;
 };
 
+/**
+ * How long an idle usage connection is kept before it is closed.
+ *
+ * Reading Kiro usage needs an ACP session, and keeping one open for the whole
+ * life of the app means a permanently open agent session that exists only to
+ * answer a status-bar meter — a long-lived session with no user behind it.
+ * The connection is instead kept just long enough for a burst (a forced read
+ * right after a background one) to reuse it, then closed.
+ */
+export const KIRO_USAGE_SESSION_IDLE_MS = 90_000;
+
 let activeConnection: KiroUsageConnection | null = null;
 let connecting: Promise<KiroUsageConnection> | null = null;
+let idleTimer: ReturnType<typeof setTimeout> | null = null;
+
+function clearIdleTimer() {
+  if (idleTimer !== null) {
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+}
+
+function armIdleClose() {
+  clearIdleTimer();
+  idleTimer = setTimeout(() => {
+    idleTimer = null;
+    resetActiveConnection();
+  }, KIRO_USAGE_SESSION_IDLE_MS);
+  // Never hold the process open just to run this teardown.
+  idleTimer.unref?.();
+}
 
 function resetActiveConnection() {
+  clearIdleTimer();
   activeConnection?.client.close();
   activeConnection = null;
 }
@@ -138,8 +172,8 @@ async function createConnection(args: {
   });
   try {
     await client.initialize({
-      clientName: "stave-usage",
-      clientVersion: "1",
+      clientName: `${USAGE_CLIENT_NAME}-usage`,
+      clientVersion: USAGE_CLIENT_VERSION,
     });
     const session = await client.openSession({
       cwd: args.cwd,
@@ -198,6 +232,7 @@ export async function fetchKiroUsageSnapshot(args: {
       },
       KiroUsageResponseSchema,
     );
+    armIdleClose();
     return (
       mapKiroUsageResponse(response) ??
       unavailable("Kiro usage response was not recognized.")

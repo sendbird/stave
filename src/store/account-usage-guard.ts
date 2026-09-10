@@ -28,7 +28,11 @@ export async function guardSendAgainstAccountUsage(
   });
   if (!options?.cachedOnly && !cachedBlock) {
     if (usage != null && usage.usedPercent >= 97) {
-      await state.refreshRateLimits({ providers: [providerId] });
+      await state.refreshRateLimits({
+        providers: [providerId],
+        force: true,
+        reason: "dispatch-guard",
+      });
     } else if (!usage) {
       // Initial/unavailable usage must not hold the composer hostage.
       void state

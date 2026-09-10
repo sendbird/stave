@@ -1113,6 +1113,24 @@ Stave uses `never`, `on-request`, and `untrusted` for selectable Codex shell
 approval policies. It preserves persisted `on-failure` values for compatibility
 but does not use that legacy mode as a new default.
 
+### Account usage refresh cadence
+
+The status bar shows ChatGPT rate limits for Codex, but it must not turn into a
+steady stream of authenticated requests against the user's account. Two layers
+keep it quiet:
+
+- **Push first.** The App Server sends `account/rateLimits/updated` on every
+  model response during a turn. The Codex runtime records that payload in a
+  host-side cache (`electron/providers/codex-rate-limits-cache.ts`), so an
+  active session refreshes the status bar without any extra request.
+- **Active read as fallback.** `account/rateLimits/read` runs only when the
+  cached reading is older than 15 minutes, or when the caller passes `force`
+  (the status-bar refresh button and the ≥97% pre-send dispatch guard).
+
+Codex is the only provider with a push path. The cadence, caching, and backoff
+rules that apply to every provider are described in
+[Account usage reads](#account-usage-reads).
+
 ### Codex settings quick guide
 
 If you want the user-facing setup workflow instead of the runtime internals, use [Provider Sandbox And Approval Guide](../features/provider-sandbox-and-approval.md).
@@ -1260,3 +1278,153 @@ You do not need to symlink anything into `/usr/local/bin` or set `STAVE_CODEX_CL
 - `STAVE_CODEX_DEBUG`
 
 Most per-turn runtime settings can also be changed from the Settings dialog, and those UI values override the environment defaults for active turns.
+
+## Account usage reads
+
+The status bar's usage meters are the only part of Stave that talks to a
+provider without the user asking. Every read is an authenticated request against
+the user's own subscription, and two of the paths can launch a provider CLI, so
+the read policy is deliberately conservative on four axes.
+
+### A tier decides how often to think; a reason decides whether to read
+
+`src/lib/providers/rate-limits-poll-policy.ts` splits the decision in two,
+because evaluating a cadence is free and issuing a request is not.
+
+The **tier** sets how often the loop wakes up. First match wins:
+
+| Condition | Interval |
+| --- | --- |
+| Window hidden | no read; slow recheck only |
+| Usage meter open, or closed within 5 min | 2 min |
+| Turn activity within 5 min | 5 min |
+| Interaction within 1 h | 5 min |
+| Interaction 1-4 h ago | 15 min |
+| Interaction over 4 h ago | 30 min |
+
+Only the meter unlocks the 2-minute tier. Refocusing the window records
+ordinary attention and lands in the 5-minute tier: moving between apps while
+coding says the user is working, not that they are watching a quota.
+
+The **per-provider reason** decides whether that wake-up actually reads
+anything. A provider's numbers cannot move unless something spends its quota or
+its window rolls over, and Stave can observe both locally — it is the agent
+client, so it knows which provider every turn belongs to, and the previous
+snapshot already carries `resetsAt`. First match wins:
+
+| Reason | Required freshness |
+| --- | --- |
+| No reading yet | read now |
+| This provider's meter is open | 2 min |
+| A known window boundary has passed since the last read | read now |
+| A turn spent this provider within 15 min | 5 min |
+| Nothing local, but the app was used within 4 h | 60 min (drift floor) |
+| Nothing local, app unused over 4 h | no read |
+
+The tier interval is a floor on every reason, so no signal can out-run the
+current tier. The drift floor exists because usage spent outside Stave — a bare
+`claude` in a terminal, the ChatGPT web app — is invisible here; it bounds that
+staleness at an hour without becoming a poll.
+
+Practical effect: a hidden window issues nothing, an open app with no turns
+running issues one read per provider per hour, and a provider being actively
+spent refreshes every 5 minutes. The old fixed 60-second timer issued 1,440 per
+provider per day regardless.
+
+The timer reschedules from each decision rather than running at a fixed period,
+and opening the meter or starting the first turn after a quiet stretch re-arms
+the loop immediately (`subscribeRateLimitsPollWake`) so a user never waits out a
+30-minute timer for a number they just asked for. All of this state is in-memory
+only; it is a freshness hint, not persisted state.
+
+### Turn completion is the primary trigger
+
+A finished turn is the one moment a provider's usage is known to have changed,
+so `src/store/app.store.ts` refreshes that provider — and only that provider —
+from the `turnCompleted` branch. This is what makes the meter correct; the timer
+above is only there to catch drift. Bursts of short turns collapse into one
+request because the host-side per-provider cache floor still applies.
+
+### Reads are cached and back off on failure
+
+`electron/providers/rate-limits/usage-read-policy.ts` wraps all four providers:
+
+- A background read inside 2 minutes of the last one is served from cache.
+- Consecutive failures back off geometrically — 5, 10, 20, 40 minutes, capped at
+  1 hour. During a backoff the meter keeps showing the last successful reading
+  rather than reissuing a request that is expected to fail again. A stale
+  credential can no longer produce an authentication failure on every tick.
+- A read that throws is accounted for as a failure too, so a throwing fetcher
+  cannot escape the backoff.
+- Concurrent reads of the same provider share one request.
+
+The fetchers report failure as an `unavailable` snapshot rather than by
+throwing, so the wrapper is told which is which by an explicit `classify`.
+
+### `force` is bounded
+
+`force` marks a read a user action is waiting on, and `reason` says which
+action. A `manual` refresh — the meter's refresh button — bypasses the cache and
+the backoff but never more than once per minute per provider, so the button
+cannot be held down. A `dispatch-guard` read, the pre-send check when the
+tightest window is at or above 97%, is not floored: its only job is to be
+correct at the instant a turn is dispatched, and floored to a minute it would
+wave a second send through on a reading it had already decided was too close to
+call. It is still one read per send and still coalesced with any read already in
+flight, which is interactive traffic rather than a background poll.
+
+`force` is also the only thing allowed to launch a provider CLI. Background
+polls pass `allowCliFallback: false`, so Claude's `claude -p /usage` panel is
+never spawned by a timer; a failing OAuth read reports its error and lets the
+backoff slow it down. `tests/usage-read-cli-boundary.test.ts` pins this.
+
+### Stave identifies itself
+
+Usage reads name Stave (`electron/providers/rate-limits/usage-client-identity.ts`).
+The Claude OAuth usage endpoint needs only the bearer token and the
+`anthropic-beta` header, so the request carries a `stave/<version>` user agent
+rather than presenting another vendor's client string; Cursor's dashboard
+request does the same, and the Kiro ACP session initializes as `stave-usage`.
+Third-party traffic that names itself is attributable to a legitimate
+integration; traffic that impersonates a first-party client is not.
+
+### Turn traffic reports usage for free
+
+Two providers report their own limits as a side effect of traffic the user has
+already paid for, which is strictly better than any poll: newer, authoritative,
+and free.
+
+- **Codex.** The App Server pushes `account/rateLimits/updated` on every model
+  response, recorded in `electron/providers/codex-rate-limits-cache.ts`.
+- **Claude.** The SDK emits `rate_limit_event` carrying the utilization and
+  reset time of the currently binding window — the same numbers Anthropic
+  returns in its `anthropic-ratelimit-unified-*` response headers.
+  `electron/providers/rate-limits/claude-rate-limits-observation.ts` folds that
+  into the cached snapshot and moves `updatedAt` forward, which suppresses the
+  next read.
+
+The Claude path is deliberately an overlay, never a source: one event describes
+one window, so it is applied only on top of a snapshot a real read established,
+and only for windows it can name unambiguously. Model-scoped weekly limits and
+the extra-usage credit budget are skipped rather than guessed into
+`fableWeekly`. The event reports a 0-1 fraction while the snapshot is on the
+0-100 scale, and that conversion lives in one place for the same reason.
+
+Cursor and Kiro have no push path, so for them every reading costs a request and
+the cadence above is the only thing bounding it.
+
+### No long-lived probe sessions
+
+Reading Kiro usage requires an ACP session. That session is closed 90 seconds
+after the last read (`KIRO_USAGE_SESSION_IDLE_MS`) instead of being held for the
+lifetime of the app, which is long enough for a forced read to reuse a
+background one but short enough that no agent session sits open with no user
+behind it. Shutdown still closes it explicitly.
+
+### What this does not change
+
+Behavior the user depends on is unaffected: workspace turn summaries, the
+warning as a window approaches its limit, and the setting that blocks starting a
+turn once an account limit is reached all keep working. The block decision reads
+from the cached snapshot and only pays for a fresh read near the limit, which is
+the case the floor above still allows.

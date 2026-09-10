@@ -12,6 +12,10 @@ import {
 } from "@/components/layout/status-bar-usage.utils";
 import { sx } from "@/components/ads/utils/stylex";
 import { statusBarUsageStyles } from "@/components/layout/status-bar-usage.styles";
+import {
+  noteRateLimitsMeterClosed,
+  noteRateLimitsMeterOpen,
+} from "@/lib/providers/rate-limits-poll-policy";
 import { useAppStore } from "@/store/app.store";
 import type {
   AccountUsageWindow,
@@ -19,9 +23,18 @@ import type {
   CodexUsageSnapshot,
   CursorUsageSnapshot,
   KiroUsageSnapshot,
+  ProviderId,
 } from "@/lib/providers/provider.types";
 
 type UsageProvider = "claude" | "codex" | "cursor" | "kiro";
+
+/** The meter labels its segments by display name; the policy keys on the id. */
+const USAGE_PROVIDER_IDS: Record<UsageProvider, ProviderId> = {
+  claude: "claude-code",
+  codex: "codex",
+  cursor: "cursor",
+  kiro: "kiro",
+};
 
 function formatPercent(usedPercent: number): string {
   return `${Math.round(usedPercent)}%`;
@@ -349,7 +362,22 @@ export function StatusBarUsageSegment({
   const headlinePercent = headlineUsagePercent(headlineWindows);
 
   return (
-    <Popover open={open} onOpenChange={setOpen}>
+    <Popover
+      open={open}
+      onOpenChange={(next) => {
+        // Opening the meter is the one unambiguous signal that the user cares
+        // about these numbers right now, so it — and only it — unlocks the
+        // fast poll tier, and only for the provider actually on screen. The
+        // read is left to the poll tick, which still applies the per-provider
+        // cache floor, so holding the popover open cannot spam the account.
+        if (next) {
+          noteRateLimitsMeterOpen(USAGE_PROVIDER_IDS[provider]);
+        } else {
+          noteRateLimitsMeterClosed(USAGE_PROVIDER_IDS[provider]);
+        }
+        setOpen(next);
+      }}
+    >
       <PopoverTrigger
         render={
           <Button
@@ -394,7 +422,13 @@ export function StatusBarUsageSegment({
             size="sm"
             xstyle={statusBarUsageStyles.refreshButton}
             aria-label="refresh-rate-limits"
-            onClick={() => void refreshRateLimits()}
+            onClick={() =>
+              void refreshRateLimits({
+                providers: [USAGE_PROVIDER_IDS[provider]],
+                force: true,
+                reason: "manual",
+              })
+            }
           >
             <RefreshCw
               className={sx(

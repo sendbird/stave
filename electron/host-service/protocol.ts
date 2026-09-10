@@ -686,6 +686,14 @@ export interface HostServiceRequestMap {
     cwd?: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
     providers?: StreamTurnArgs["providerId"][];
+    force?: boolean;
+    /**
+     * Who is forcing. `manual` is a refresh button and gets a floor so it
+     * cannot be held down; `dispatch-guard` is the pre-send near-limit check,
+     * whose whole job is to be correct at the moment of sending, so it is not
+     * floored.
+     */
+    reason?: "manual" | "dispatch-guard";
   };
   "provider.get-codex-plugin-detail": {
     marketplacePath: string;

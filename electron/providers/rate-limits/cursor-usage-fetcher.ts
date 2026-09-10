@@ -6,6 +6,7 @@ import type {
   AccountUsageBucket,
   CursorUsageSnapshot,
 } from "../../../src/lib/providers/provider.types";
+import { USAGE_CLIENT_USER_AGENT } from "./usage-client-identity";
 
 const CURSOR_USAGE_URL =
   "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage";
@@ -233,6 +234,9 @@ export async function fetchCursorUsageSnapshot(): Promise<CursorUsageSnapshot> {
         Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
         "Connect-Protocol-Version": "1",
+        // Name the client rather than going unlabelled or borrowing the IDE's
+        // identity, so this traffic is attributable to Stave.
+        "User-Agent": USAGE_CLIENT_USER_AGENT,
       },
       body: "{}",
       signal: controller.signal,

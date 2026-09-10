@@ -433,6 +433,8 @@ interface WindowProviderApi {
     cwd?: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
     providers?: ProviderId[];
+    force?: boolean;
+    reason?: "manual" | "dispatch-guard";
   }) => Promise<RateLimitsSnapshotResponse>;
   getCodexPluginDetail?: (args: {
     marketplacePath: string;

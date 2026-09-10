@@ -4,10 +4,10 @@ import type {
 } from "../../../src/lib/providers/provider.types";
 import { readClaudeOAuthCredentials } from "./claude-credentials";
 import { fetchClaudeUsageViaCli } from "./claude-usage-cli-fallback";
+import { USAGE_CLIENT_USER_AGENT } from "./usage-client-identity";
 
 const OAUTH_USAGE_URL = "https://api.anthropic.com/api/oauth/usage";
 const OAUTH_BETA_HEADER = "oauth-2025-04-20";
-const CLAUDE_CODE_USER_AGENT = "claude-code/2.1.0";
 const REQUEST_TIMEOUT_MS = 10_000;
 
 function clampPercent(value: number): number {
@@ -252,7 +252,9 @@ async function attemptOAuthUsage(accessToken: string): Promise<OAuthAttempt> {
       headers: {
         Authorization: `Bearer ${accessToken}`,
         "anthropic-beta": OAUTH_BETA_HEADER,
-        "User-Agent": CLAUDE_CODE_USER_AGENT,
+        // Bearer + the beta header are what this endpoint actually requires.
+        // The user agent names Stave rather than impersonating the vendor CLI.
+        "User-Agent": USAGE_CLIENT_USER_AGENT,
       },
       signal: controller.signal,
     });
@@ -289,19 +291,33 @@ async function attemptOAuthUsage(accessToken: string): Promise<OAuthAttempt> {
 }
 
 /**
- * Claude session/weekly usage for the global status bar: OAuth usage
- * endpoint first (using the Claude Code CLI's own stored credentials, no
- * separate API key), falling back to parsing the hidden CLI `/usage` panel
- * when OAuth credentials are missing or the request fails.
+ * Claude session/weekly usage for the global status bar: the OAuth usage
+ * endpoint, using the Claude Code CLI's own stored credentials (no separate API
+ * key), with the hidden `claude -p /usage` panel as a fallback.
  *
- * On a stale-token rejection the CLI fallback doubles as a credential repair
- * step — the CLI rotates its own tokens on startup — so OAuth is retried once
- * with the re-read token before settling for the panel-parsed numbers.
+ * The fallback is opt-in per call. It launches a real CLI process, and a
+ * background timer that spawns one every tick — which is what a stale token
+ * would cause, since a 401 routes here — is both wasteful and the wrong traffic
+ * shape for an unattended app. Background reads therefore report the OAuth
+ * error and let the caller's backoff slow them down; only a user-initiated
+ * refresh or a near-limit dispatch check pays for the CLI.
+ *
+ * On a stale-token rejection the CLI doubles as a credential repair step (it
+ * rotates its own tokens on startup), so when the fallback is allowed OAuth is
+ * retried once with the re-read token before settling for panel-parsed numbers.
  */
-export async function fetchClaudeUsageSnapshot(): Promise<ClaudeUsageSnapshot> {
+export async function fetchClaudeUsageSnapshot(args?: {
+  allowCliFallback?: boolean;
+}): Promise<ClaudeUsageSnapshot> {
+  const allowCliFallback = args?.allowCliFallback ?? false;
   const credentials = await readClaudeOAuthCredentials();
 
   if (!credentials.accessToken) {
+    if (!allowCliFallback) {
+      return unavailable(
+        "Claude OAuth credentials are unavailable. Sign in to Claude Code, then refresh.",
+      );
+    }
     const cliResult = await fetchClaudeUsageViaCli();
     if (cliResult.source === "cli") {
       return cliResult;
@@ -319,7 +335,7 @@ export async function fetchClaudeUsageSnapshot(): Promise<ClaudeUsageSnapshot> {
   if (attempt.kind === "success") {
     return attempt.snapshot;
   }
-  if (attempt.failure.action === "terminal") {
+  if (attempt.failure.action === "terminal" || !allowCliFallback) {
     return unavailable(attempt.failure.error);
   }
 

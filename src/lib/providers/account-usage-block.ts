@@ -179,6 +179,36 @@ export function resolveTightestAccountUsageWindow(args: {
   return [...windows].sort(compareUsageWindows)[0] ?? null;
 }
 
+/**
+ * Earliest window boundary this provider will cross, in epoch milliseconds.
+ *
+ * Crossing a boundary is the one way a reading goes stale without anything
+ * local happening, and the boundary is already in the snapshot — so the poll
+ * policy can schedule a single read for it instead of polling to notice. The
+ * *earliest* window is what matters, not the tightest: a 5-hour window resets
+ * while a weekly one is still days out, and only the 5-hour number changed.
+ */
+export function resolveEarliestAccountUsageResetAtMs(args: {
+  providerId: ProviderId;
+  snapshot: RateLimitsSnapshotResponse | null | undefined;
+}): number | null {
+  const windows = collectProviderAccountUsageWindows(args);
+  if (!windows || windows.length === 0) {
+    return null;
+  }
+  let earliest: number | null = null;
+  for (const window of windows) {
+    if (window.resetsAt == null || !Number.isFinite(window.resetsAt)) {
+      continue;
+    }
+    const resetsAtMs = window.resetsAt * 1000;
+    if (earliest === null || resetsAtMs < earliest) {
+      earliest = resetsAtMs;
+    }
+  }
+  return earliest;
+}
+
 function formatResetPhrase(resetsAt: number | null, now: number): string {
   if (resetsAt == null || !Number.isFinite(resetsAt)) {
     return "it resets";
