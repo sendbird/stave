@@ -51,7 +51,7 @@ export interface WorkspaceInformationReferenceOption {
 const SECTION_LABELS: Record<WorkspaceInformationReferenceSection, string> = {
   "turn-summary": "Latest turn summary",
   lens: "Lens browser",
-  web: "Connected browser",
+  web: "Web browser",
   notes: "Notes",
   todo: "Todos",
   pr: "Linked pull requests",
@@ -200,7 +200,7 @@ export function buildWorkspaceInformationReferenceOptions(
   const sectionCounts: Record<WorkspaceInformationReferenceSection, number> = {
     "turn-summary": info.turnSummary ? 1 : 0,
     lens: 1,
-    web: info.connectedBrowserTab ? 1 : 0,
+    web: 1,
     notes: info.notes.trim() ? 1 : 0,
     todo: info.todos.length,
     pr: info.linkedPullRequests.length,
@@ -531,19 +531,12 @@ function formatLensReferenceLines(lens: LensReferenceState | null | undefined) {
   ];
 }
 
-function formatWebReferenceLines(info: WorkspaceInformationState) {
-  const tab = info.connectedBrowserTab;
+function formatWebReferenceLines() {
   return [
     "`@web` requests the active provider's native external-browser integration for this interactive turn.",
     "Use the provider's browser extension tools to reference existing tabs and signed-in page state. Do not substitute Lens, web search, or a one-way URL launcher for browser interaction.",
     "Follow the native provider's site-access and sensitive-action confirmation flow. Never inspect or expose raw cookies, passwords, or session tokens.",
-    ...(tab
-      ? [
-          `Last provider: ${tab.providerId}`,
-          `Connection status: ${tab.status}`,
-          `Last updated: ${tab.lastUpdatedAt}`,
-        ]
-      : ["No provider-native browser connection is recorded for this workspace yet."]),
+    "Chrome access is attempted for the current turn. If it fails, report that failure in the conversation.",
   ];
 }
 
@@ -556,7 +549,7 @@ function formatSectionItemLines(args: {
     return formatLensReferenceLines(args.lens);
   }
   if (args.section === "web") {
-    return formatWebReferenceLines(args.info);
+    return formatWebReferenceLines();
   }
   const optionItems = buildWorkspaceInformationReferenceOptions(args.info)
     .filter(

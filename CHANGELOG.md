@@ -1,3 +1,15 @@
+## [0.18.4](https://github.com/sendbird/stave/compare/v0.18.3...v0.18.4) (2026-09-10)
+
+### Bug Fixes
+
+* Align browser access across Claude and Codex by adding Stave-managed browser usage guidance to Claude sessions, unifying the browser policy and runtime configuration, and removing the persistent browser-connection state, its UI card, saved state, and connected-browser references from workspace information and task context.
+* Gate account-usage reads on real turn activity so the status bar stops issuing a steady authenticated request per provider: poll cadence is adaptive (2–30 minutes), hidden windows issue no reads, and a provider is read only on first fetch, meter open, window reset, recent turn activity, or an hourly drift floor.
+* Fill the usage cache from Claude `rate_limit_event` and Codex `account/rateLimits/updated` without a dedicated request, identify usage HTTP as `stave/<version>`, stop spawning `claude -p /usage` from the timer, and idle-close Kiro ACP usage sessions after 90 seconds with back-off on failed reads.
+* Preserve the composer-selected model on instant macro execution by passing the macro model and runtime settings as a turn-only override, leaving the composer selection and runtime state unchanged.
+
+### References
+
+* [#520](https://github.com/sendbird/stave/pull/520), [#521](https://github.com/sendbird/stave/pull/521), [#522](https://github.com/sendbird/stave/pull/522)
 ## [0.18.3](https://github.com/sendbird/stave/compare/v0.18.2...v0.18.3) (2026-09-09)
 
 ### Bug Fixes

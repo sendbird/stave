@@ -513,6 +513,8 @@ export interface AppState
     text?: string;
     caretIndex?: number;
     instantRun?: boolean;
+    providerOverride?: ProviderId;
+    runtimeOverrides?: PromptDraftRuntimeOverrides;
     error?: string;
   };
   setActiveCliSessionTab: (args: { tabId: string | null }) => void;
@@ -536,7 +538,13 @@ export interface AppState
   toggleEditorMarkdownPreviewMode: () => void;
   openWorkspacePicker: () => Promise<void>;
   refreshProjectFiles: () => Promise<void>;
-  refreshRateLimits: (args?: { providers?: ProviderId[] }) => Promise<void>;
+  refreshRateLimits: (args?: {
+    providers?: ProviderId[];
+    /** Bypass host-side caches; only ever set from a user action. */
+    force?: boolean;
+    /** Which user action is forcing, which decides whether a floor applies. */
+    reason?: "manual" | "dispatch-guard";
+  }) => Promise<void>;
   refreshProviderAvailability: () => Promise<void>;
   refreshSkillCatalog: (args?: {
     workspacePath?: string | null;

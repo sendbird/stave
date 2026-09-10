@@ -25,6 +25,8 @@ export function createSubmittedPromptDraftLifecycle(args: {
   sourceTaskId: string;
   preservePromptDraft?: boolean;
   promptDraft: PromptDraft;
+  /** Composer state to clear or restore when the payload has turn-only overrides. */
+  composerDraft?: PromptDraft;
   sourcePromptDraft: PromptDraft;
   storedDraft?: PromptDraft;
   preservedQueuedDispatchDraft?: PromptDraft | null;
@@ -38,6 +40,7 @@ export function createSubmittedPromptDraftLifecycle(args: {
     args.sourceTaskId !== args.taskId
       ? { [args.sourceTaskId]: args.sourcePromptDraft }
       : {};
+  const composerDraft = args.composerDraft ?? args.promptDraft;
   return {
     clear: () => {
       if (args.preservePromptDraft || cleared) {
@@ -48,7 +51,7 @@ export function createSubmittedPromptDraftLifecycle(args: {
         [args.taskId]:
           args.preservedQueuedDispatchDraft ??
           buildClearedPromptDraftWithQueuedNextTurn({
-            draft: args.promptDraft,
+            draft: composerDraft,
             queuedTurns: args.queuedTurns,
           }),
         ...(args.sourceTaskId !== args.taskId
@@ -70,7 +73,7 @@ export function createSubmittedPromptDraftLifecycle(args: {
         // back (the item returns to the queue untouched).
         [args.taskId]: args.queuedTurnToSend
           ? (args.storedDraft ?? args.sourcePromptDraft)
-          : args.promptDraft,
+          : composerDraft,
         ...sourceDraftEntry,
       });
     },

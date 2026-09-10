@@ -1551,6 +1551,8 @@ export const RateLimitsSnapshotArgsSchema = z
     cwd: z.string().max(4096).optional(),
     runtimeOptions: RuntimeOptionsSchema,
     providers: z.array(ProviderIdSchema).min(1).max(4).optional(),
+    force: z.boolean().optional(),
+    reason: z.enum(["manual", "dispatch-guard"]).optional(),
   })
   .strict();
 

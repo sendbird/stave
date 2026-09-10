@@ -460,6 +460,8 @@ export function createSupportActions(args: {
       try {
         const snapshot = await getSnapshot({
           providers: args?.providers,
+          ...(args?.force ? { force: true } : {}),
+          ...(args?.reason ? { reason: args.reason } : {}),
         });
         set((state) => {
           const providers = (

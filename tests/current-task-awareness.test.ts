@@ -59,12 +59,6 @@ describe("buildCurrentTaskAwarenessRetrievedContextParts", () => {
     };
     workspaceInformation.notes =
       "Check the design handoff before editing the prompt input.";
-    workspaceInformation.connectedBrowserTab = {
-      providerId: "codex",
-      status: "connected",
-      requestedAt: "2026-04-10T01:00:00.000Z",
-      lastUpdatedAt: "2026-04-10T01:00:01.000Z",
-    };
     workspaceInformation.figmaResources = [
       {
         id: "figma-1",
@@ -179,10 +173,6 @@ describe("buildCurrentTaskAwarenessRetrievedContextParts", () => {
       parts,
       STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
     );
-    expect(information).toContain("Connected browser tab:");
-    expect(information).toContain(
-      "codex | connected | provider-native browser extension",
-    );
     expect(information).toContain("Storybook resources (1):");
     expect(information).toContain("Amplify deploy links (1):");
     expect(information).not.toContain("Workspace Information Summary:");
@@ -208,28 +198,6 @@ describe("buildCurrentTaskAwarenessRetrievedContextParts", () => {
     );
   });
 
-  test("omits a raw browser-tab timestamp so an idle turn's block stays byte-identical", () => {
-    const workspaceInformation = createEmptyWorkspaceInformation();
-    workspaceInformation.connectedBrowserTab = {
-      providerId: "codex",
-      status: "connected",
-      requestedAt: "2026-04-10T01:00:00.000Z",
-      lastUpdatedAt: "2026-04-10T01:00:01.000Z",
-    };
-
-    const information = contentBySourceId(
-      buildCurrentTaskAwarenessRetrievedContextParts({
-        workspaceId: "ws-clock",
-        taskId: "task-1",
-        tasks: [createTask({ id: "task-1", title: "Task" })],
-        workspaceInformation,
-      }),
-      STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
-    );
-
-    expect(information).not.toContain("2026-04-10T01:00:01.000Z");
-    expect(information).not.toMatch(/\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/);
-  });
 
   test("caps the Workspace Information body and points at the MCP tool for the rest", () => {
     const workspaceInformation = createEmptyWorkspaceInformation();

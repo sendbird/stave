@@ -1,19 +1,33 @@
 import type { CodexUsageSnapshot } from "../../../src/lib/providers/provider.types";
-import { fetchCodexRateLimitBuckets } from "../codex-app-server-runtime";
+import { getCodexAppServerClientFromRuntimeOptions } from "../codex-app-server-runtime";
+import {
+  requestCodexRateLimitBuckets,
+  resolveCodexRateLimitBuckets,
+} from "../codex-rate-limits-cache";
 import type { StreamTurnArgs } from "../types";
 
 /**
- * Codex rate-limit buckets for the global status bar. Thin wrapper around
- * the existing `account/rateLimits/read` app-server RPC (already used by
- * `getCodexAppServerSnapshot` for the Settings > Codex panel) so the status
- * bar can poll just the rate-limit data without the account/skills/plugins/
- * threads sections that snapshot also loads.
+ * Codex rate-limit buckets for the global status bar.
+ *
+ * Deliberately avoids the heavy `getCodexAppServerSnapshot` call
+ * (account/skills/plugins/threads/...) — the meter needs the rate-limit
+ * section only. Readings are served from the `account/rateLimits/updated`
+ * cache the runtime fills during a turn, so an active session costs no extra
+ * ChatGPT request; the active `account/rateLimits/read` RPC runs only when
+ * that cache has aged out or `force` demands a live reading.
  */
 export async function fetchCodexUsageSnapshot(args: {
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
+  force?: boolean;
 }): Promise<CodexUsageSnapshot> {
   try {
-    const buckets = await fetchCodexRateLimitBuckets(args);
+    const buckets = await resolveCodexRateLimitBuckets({
+      force: args.force,
+      request: () =>
+        requestCodexRateLimitBuckets(
+          getCodexAppServerClientFromRuntimeOptions(args),
+        ),
+    });
     return { source: "rpc", buckets, error: null };
   } catch (error) {
     return {

@@ -273,18 +273,20 @@ describe("TrackerTasksStore", () => {
     "chunks a taskRefs lookup well past the SQLite variable limit",
     () => {
       const refs: string[] = [];
-      for (let index = 0; index < 1_500; index += 1) {
-        const ref = `task-${String(index).padStart(4, "0")}`;
-        refs.push(ref);
-        store.upsertKickoff(
-          kickoff({
-            id: `kickoff-${ref}`,
-            taskRef: ref,
-            taskKey: `CRANE-${index}`,
-            createdAt: `2026-07-26T00:00:${String(index % 60).padStart(2, "0")}.000Z`,
-          }),
-        );
-      }
+      database.transaction(() => {
+        for (let index = 0; index < 1_500; index += 1) {
+          const ref = `task-${String(index).padStart(4, "0")}`;
+          refs.push(ref);
+          store.upsertKickoff(
+            kickoff({
+              id: `kickoff-${ref}`,
+              taskRef: ref,
+              taskKey: `CRANE-${index}`,
+              createdAt: `2026-07-26T00:00:${String(index % 60).padStart(2, "0")}.000Z`,
+            }),
+          );
+        }
+      })();
 
       const found = store.listKickoffs({ taskRefs: refs });
       expect(found).toHaveLength(1_500);

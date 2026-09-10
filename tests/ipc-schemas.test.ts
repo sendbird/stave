@@ -16,6 +16,7 @@ import {
   LocalMcpConfigUpdateArgsSchema,
   McpServerConfigMutationApplyArgsSchema,
   McpServerConfigMutationArgsSchema,
+  RateLimitsSnapshotArgsSchema,
   ReviewDiffArgsSchema,
   RoutineInformationResourceCreateArgsSchema,
   RoutineProviderTimeoutArgsSchema,
@@ -1051,6 +1052,40 @@ describe("Jira connector IPC schemas", () => {
     );
     expect(
       JiraConnectorTestConnectionArgsSchema.safeParse({ force: true }).success,
+    ).toBe(false);
+  });
+});
+
+describe("rate-limits snapshot IPC schema", () => {
+  test("accepts the provider filter and both force reasons", () => {
+    expect(RateLimitsSnapshotArgsSchema.safeParse({}).success).toBe(true);
+    expect(
+      RateLimitsSnapshotArgsSchema.safeParse({
+        providers: ["claude-code"],
+        force: true,
+        reason: "manual",
+      }).success,
+    ).toBe(true);
+    expect(
+      RateLimitsSnapshotArgsSchema.safeParse({
+        force: true,
+        reason: "dispatch-guard",
+      }).success,
+    ).toBe(true);
+  });
+
+  test("rejects an unknown reason and an empty provider filter", () => {
+    // An unrecognised reason must not silently fall back to the floored path:
+    // that would quietly weaken the pre-send limit check.
+    expect(
+      RateLimitsSnapshotArgsSchema.safeParse({ force: true, reason: "poll" })
+        .success,
+    ).toBe(false);
+    expect(
+      RateLimitsSnapshotArgsSchema.safeParse({ providers: [] }).success,
+    ).toBe(false);
+    expect(
+      RateLimitsSnapshotArgsSchema.safeParse({ providers: ["nope"] }).success,
     ).toBe(false);
   });
 });

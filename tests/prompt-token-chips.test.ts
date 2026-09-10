@@ -99,7 +99,7 @@ describe("parsePromptTokenSegments", () => {
         descriptor: {
           kind: "information",
           token: "@web",
-          label: "Connected browser",
+          label: "Web browser",
           detail: "Provider browser",
         },
       },

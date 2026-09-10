@@ -89,6 +89,7 @@ import {
   resolveProviderTurnDisplayState,
   startProviderTurnActivity,
 } from "@/lib/providers/turn-status";
+import { noteRateLimitsProviderActivity } from "@/lib/providers/rate-limits-poll-policy";
 import { buildTurnActivityFlushPatch } from "@/store/turn-activity-retention";
 import {
   applyDetectedWorkspaceResources,
@@ -1748,6 +1749,14 @@ export const useAppStore = create<AppState>()(
         }
         const { promptDraft, queuedTurnToSend, remainingQueuedTurns } =
           promptDraftSendState;
+        const composerDraft = runtimeOverrides
+          ? normalizePromptDraftForStorage({
+              ...promptDraft,
+              runtimeOverrides:
+                storedPromptDraftForTask?.runtimeOverrides ??
+                sourcePromptDraft.runtimeOverrides,
+            })
+          : promptDraft;
         // A queued turn dispatches on the provider captured when it was
         // queued (auto and manual dispatch alike); the composer's current
         // selection only applies to new sends. Legacy queue items without a
@@ -2028,6 +2037,7 @@ export const useAppStore = create<AppState>()(
           sourceTaskId: sourcePromptDraftTaskId,
           preservePromptDraft,
           promptDraft,
+          composerDraft,
           sourcePromptDraft,
           storedDraft: storedPromptDraftForTask,
           preservedQueuedDispatchDraft,
@@ -2529,6 +2539,10 @@ export const useAppStore = create<AppState>()(
           }
 
           const turnActivityStartedAt = Date.now();
+          // The usage meter's cadence is driven by real turn activity rather
+          // than a wall clock, and this is the authoritative "this provider's
+          // quota is being spent now" signal.
+          noteRateLimitsProviderActivity(provider, turnActivityStartedAt);
           set((nextState) => ({
             providerTurnActivityByTask: startProviderTurnActivity({
               activityByTask: nextState.providerTurnActivityByTask,
@@ -2552,11 +2566,16 @@ export const useAppStore = create<AppState>()(
           });
           const providerTurnEventController = createProviderTurnEventController(
             {
-              onEventArrived: () =>
+              onEventArrived: () => {
+                // Keeps a long-running turn inside the active usage tier
+                // without a store write; the policy only re-arms its loop on
+                // the quiet-to-active transition.
+                noteRateLimitsProviderActivity(provider);
                 reportProviderTurnLiveness({
                   taskId: resolvedTaskId,
                   turnId,
-                }),
+                });
+              },
               flushEvents: (pendingEvents) => {
                 webFetchAuthWallTracker.observe(pendingEvents);
                 if (eventsIndicateFileEdits(pendingEvents)) {
@@ -2817,6 +2836,14 @@ export const useAppStore = create<AppState>()(
                   });
                 });
                 if (applied.turnCompleted) {
+                  // A finished turn is the one moment the provider's usage is
+                  // known to have changed, so this — not a timer — is what
+                  // makes the meter correct. The host-side per-provider cache
+                  // floor debounces bursts of short turns into one read.
+                  noteRateLimitsProviderActivity(provider);
+                  void get()
+                    .refreshRateLimits({ providers: [provider] })
+                    .catch(() => undefined);
                   const compareOutcome =
                     resolveCompareTurnOutcome(pendingEvents);
                   set((state) => {
