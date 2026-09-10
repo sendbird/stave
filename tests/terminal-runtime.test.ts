@@ -120,6 +120,32 @@ mock.module("../electron/providers/cli-path-env", () => ({
   buildCodexCliEnv: () => ({ PATH: process.env.PATH ?? "" }),
 }));
 
+mock.module("../electron/providers/cursor-cli-env", () => ({
+  resolveCursorAgentExecutablePath: () => "/tmp/fake-agent",
+  buildCursorAgentEnv: () => ({ PATH: process.env.PATH ?? "" }),
+}));
+
+let fakeKiroSessions: Array<{ sessionId: string; updatedAtMs: number }> = [];
+const fakeKiroListCalls: Array<{ executablePath: string; cwd: string }> = [];
+
+mock.module("../electron/host-service/kiro-native-session-files", () => ({
+  listKiroSessions: async (listArgs: {
+    executablePath: string;
+    cwd: string;
+  }) => {
+    fakeKiroListCalls.push({
+      executablePath: listArgs.executablePath,
+      cwd: listArgs.cwd,
+    });
+    return fakeKiroSessions;
+  },
+}));
+
+mock.module("../electron/providers/kiro-cli-env", () => ({
+  resolveKiroExecutablePath: () => "/tmp/fake-kiro",
+  buildKiroCliEnv: () => ({ PATH: process.env.PATH ?? "" }),
+}));
+
 const { createTerminalRuntime } =
   await import("../electron/host-service/terminal-runtime");
 
@@ -130,6 +156,8 @@ afterEach(() => {
   fakePtys.length = 0;
   fakeSpawnCalls.length = 0;
   fakeClaudeAutoModeSupported = true;
+  fakeKiroSessions = [];
+  fakeKiroListCalls.length = 0;
 });
 
 describe("terminal runtime PTY cleanup", () => {
@@ -971,6 +999,213 @@ describe("terminal runtime slot lifecycle", () => {
     ).toEqual({
       ok: true,
       nativeSessionId: "codex-session-1",
+    });
+  });
+  test("starts Cursor CLI sessions with no arguments", () => {
+    const runtime = createTerminalRuntime({
+      emitEvent: async () => {},
+    });
+
+    const created = runtime.createCliSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      cliSessionTabId: "cli-1",
+      providerId: "cursor",
+      contextMode: "workspace",
+      taskId: null,
+      taskTitle: null,
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+
+    expect(created.ok).toBe(true);
+    expect(created.nativeSessionId).toBeUndefined();
+    expect(fakeSpawnCalls.at(-1)).toEqual({
+      command: "/tmp/fake-agent",
+      args: [],
+      options: expect.objectContaining({ cwd: "/tmp/workspace" }),
+    });
+  });
+
+  test("resumes Cursor CLI sessions from a stored native session id", () => {
+    const runtime = createTerminalRuntime({
+      emitEvent: async () => {},
+    });
+
+    const created = runtime.createCliSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      cliSessionTabId: "cli-1",
+      providerId: "cursor",
+      contextMode: "workspace",
+      nativeSessionId: "cursor-chat-1",
+      taskId: null,
+      taskTitle: null,
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+
+    expect(created).toEqual({
+      ok: true,
+      sessionId: expect.any(String),
+      nativeSessionId: "cursor-chat-1",
+    });
+    expect(fakeSpawnCalls.at(-1)).toEqual({
+      command: "/tmp/fake-agent",
+      args: ["--resume", "cursor-chat-1"],
+      options: expect.objectContaining({ cwd: "/tmp/workspace" }),
+    });
+  });
+
+  test("starts Kiro CLI sessions in chat mode", () => {
+    const runtime = createTerminalRuntime({
+      emitEvent: async () => {},
+    });
+
+    const created = runtime.createCliSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      cliSessionTabId: "cli-1",
+      providerId: "kiro",
+      contextMode: "workspace",
+      taskId: null,
+      taskTitle: null,
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+
+    expect(created.ok).toBe(true);
+    expect(fakeSpawnCalls.at(-1)).toEqual({
+      command: "/tmp/fake-kiro",
+      args: ["chat"],
+      options: expect.objectContaining({ cwd: "/tmp/workspace" }),
+    });
+  });
+
+  test("discovers the Kiro native session id after spawn", async () => {
+    const runtime = createTerminalRuntime({
+      emitEvent: async () => {},
+    });
+
+    const startedAtMs = Date.now();
+    fakeKiroSessions = [
+      { sessionId: "kiro-stale", updatedAtMs: startedAtMs - 600_000 },
+      { sessionId: "kiro-fresh", updatedAtMs: startedAtMs + 1_000 },
+    ];
+
+    const created = runtime.createCliSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      cliSessionTabId: "cli-1",
+      providerId: "kiro",
+      contextMode: "workspace",
+      taskId: null,
+      taskTitle: null,
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+
+    expect(created.ok).toBe(true);
+    expect(created.nativeSessionId).toBeUndefined();
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(fakeKiroListCalls.at(-1)).toEqual({
+      executablePath: "/tmp/fake-kiro",
+      cwd: "/tmp/workspace",
+    });
+    expect(
+      runtime.getSessionResumeInfo({ sessionId: created.sessionId! }),
+    ).toEqual({
+      ok: true,
+      nativeSessionId: "kiro-fresh",
+    });
+
+    runtime.closeSession({ sessionId: created.sessionId! });
+  });
+
+  test("ignores Kiro sessions already claimed by another PTY", async () => {
+    const runtime = createTerminalRuntime({
+      emitEvent: async () => {},
+    });
+
+    const startedAtMs = Date.now();
+    fakeKiroSessions = [
+      { sessionId: "kiro-shared", updatedAtMs: startedAtMs + 1_000 },
+    ];
+
+    const first = runtime.createCliSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      cliSessionTabId: "cli-1",
+      providerId: "kiro",
+      contextMode: "workspace",
+      taskId: null,
+      taskTitle: null,
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    const second = runtime.createCliSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      cliSessionTabId: "cli-2",
+      providerId: "kiro",
+      contextMode: "workspace",
+      taskId: null,
+      taskTitle: null,
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+    await Promise.resolve();
+    await Promise.resolve();
+
+    expect(
+      runtime.getSessionResumeInfo({ sessionId: first.sessionId! }),
+    ).toEqual({ ok: true, nativeSessionId: "kiro-shared" });
+    expect(
+      runtime.getSessionResumeInfo({ sessionId: second.sessionId! }),
+    ).toEqual({ ok: true, nativeSessionId: undefined });
+
+    runtime.closeSession({ sessionId: first.sessionId! });
+    runtime.closeSession({ sessionId: second.sessionId! });
+  });
+
+  test("resumes Kiro CLI sessions from a stored native session id", () => {
+    const runtime = createTerminalRuntime({
+      emitEvent: async () => {},
+    });
+
+    const created = runtime.createCliSession({
+      workspaceId: "workspace-1",
+      workspacePath: "/tmp/workspace",
+      cliSessionTabId: "cli-1",
+      providerId: "kiro",
+      contextMode: "workspace",
+      nativeSessionId: "kiro-session-1",
+      taskId: null,
+      taskTitle: null,
+      cwd: "/tmp/workspace",
+      deliveryMode: "push",
+    });
+
+    expect(created).toEqual({
+      ok: true,
+      sessionId: expect.any(String),
+      nativeSessionId: "kiro-session-1",
+    });
+    expect(fakeSpawnCalls.at(-1)).toEqual({
+      command: "/tmp/fake-kiro",
+      args: ["chat", "--resume-id", "kiro-session-1"],
+      options: expect.objectContaining({ cwd: "/tmp/workspace" }),
+    });
+    expect(
+      runtime.getSessionResumeInfo({ sessionId: created.sessionId! }),
+    ).toEqual({
+      ok: true,
+      nativeSessionId: "kiro-session-1",
     });
   });
 });

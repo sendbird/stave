@@ -165,7 +165,7 @@ describe("StandaloneCliTabBar", () => {
 describe("buildStandaloneCliEmptyStateText", () => {
   test("points the user at Settings", () => {
     expect(buildStandaloneCliEmptyStateText()).toBe(
-      "Set a Standalone CLI folder in Settings to run Claude Code and Codex here. Nothing is added to your projects.",
+      "Set a Standalone CLI folder in Settings to run Claude Code, Codex, Cursor, and Kiro here. Nothing is added to your projects.",
     );
   });
 });

@@ -14,6 +14,12 @@
 > [terminal-regression-prevention.md](../../developer/terminal-regression-prevention.md)
 > for the current lifecycle rules and
 > [standalone-cli.md](../../features/standalone-cli.md) for the current behavior.
+>
+> The two-tab decision was also superseded: the surface now carries one tab per
+> `ProviderId` — Claude Code, Codex, Cursor, and Kiro — so every reference below
+> to "two tabs" or "both tabs" should be read as "all tabs". See
+> [adding-a-provider.md](../../developer/adding-a-provider.md) for what a new
+> provider has to add.
 
 ## 1. Summary
 
@@ -86,17 +92,17 @@ The existing `CliSessionCreateSessionArgs` contract
 (`src/lib/terminal/types.ts:63`) is satisfied entirely by values this surface
 already has:
 
-| Field | Value | Effect on the host |
-|---|---|---|
-| `workspaceId` | `"standalone-cli"` | slot key only |
-| `cliSessionTabId` | `"claude-code"` \| `"codex"` | slot key only |
-| `cwd` | the configured folder | the real PTY cwd (`terminal-runtime.ts:744`) |
-| `workspacePath` | the configured folder | `STAVE_WORKSPACE_PATH` env var only |
-| `providerId` | `"claude-code"` \| `"codex"` | selects the executable resolver |
-| `contextMode` | `"workspace"` | not read by the host at all |
-| `taskId` / `taskTitle` | `null` | `STAVE_TASK_ID` / `STAVE_TASK_TITLE` env vars |
-| `nativeSessionId` | persisted value or omitted | `--resume <id>` vs `--session-id <id>` (`terminal-runtime.ts:770`) |
-| `runtimeOptions` | `buildCliSessionRuntimeOptions(...)` | binary path overrides |
+| Field                  | Value                                | Effect on the host                                                 |
+| ---------------------- | ------------------------------------ | ------------------------------------------------------------------ |
+| `workspaceId`          | `"standalone-cli"`                   | slot key only                                                      |
+| `cliSessionTabId`      | `"claude-code"` \| `"codex"`         | slot key only                                                      |
+| `cwd`                  | the configured folder                | the real PTY cwd (`terminal-runtime.ts:744`)                       |
+| `workspacePath`        | the configured folder                | `STAVE_WORKSPACE_PATH` env var only                                |
+| `providerId`           | `"claude-code"` \| `"codex"`         | selects the executable resolver                                    |
+| `contextMode`          | `"workspace"`                        | not read by the host at all                                        |
+| `taskId` / `taskTitle` | `null`                               | `STAVE_TASK_ID` / `STAVE_TASK_TITLE` env vars                      |
+| `nativeSessionId`      | persisted value or omitted           | `--resume <id>` vs `--session-id <id>` (`terminal-runtime.ts:770`) |
+| `runtimeOptions`       | `buildCliSessionRuntimeOptions(...)` | binary path overrides                                              |
 
 Consequently **no changes are required** to
 `electron/host-service/terminal-runtime.ts`, `electron/main/ipc/terminal.ts`,
@@ -127,14 +133,14 @@ chrome are portable and should be followed closely rather than reinvented.
 (`src/store/app.store.ts:2753`), so Standalone CLI state cannot live there.
 A new independent slice, standalone-cli.store.ts in `src/store/`:
 
-| Field | Purpose |
-|---|---|
-| `open: boolean` | overlay visibility |
-| `activeTabId: "claude-code" \| "codex"` | which tab is shown |
+| Field                                                      | Purpose                      |
+| ---------------------------------------------------------- | ---------------------------- |
+| `open: boolean`                                            | overlay visibility           |
+| `activeTabId: "claude-code" \| "codex"`                    | which tab is shown           |
 | `nativeSessionIdByTab: Record<tabId, string \| undefined>` | persisted, drives `--resume` |
 
 `open` deliberately does **not** go through `activeAppSurface`. Its existing
-members `fleet-view` and `automation-center` *replace* the workspace view
+members `fleet-view` and `automation-center` _replace_ the workspace view
 (`src/components/layout/AppShell.tsx:1241`); a floating panel composes over
 it instead.
 
@@ -234,17 +240,17 @@ keys must continue to reach the PTY, per ownership rule 5
 
 ## 5. Lifecycle matrix
 
-| Event | Behaviour |
-|---|---|
-| First open | Renderer built, PTY spawned (`useCliSessionManager.ts:749`) |
-| Close overlay | Renderer disposed, PTY **detached, not killed**; host slot keeps running and buffering |
-| Reopen | Renderer rebuilt, `attachSession` returns `{backlog, screenState}` and the screen is restored |
-| Switch tab | Inactive renderer disposed, its PTY detached and alive in background |
-| Restart tab | `closeSession` + clear `nativeSessionId` → next boot uses a fresh `--session-id` |
-| Folder changed | Close both sessions and clear both `nativeSessionId`s **before** adopting the new path, then reboot. Prevents cross-folder session bleed — the same defect a reviewer found in PR #389 |
-| App restart | `nativeSessionIdByTab` is persisted, so both tabs resume via `--resume` |
-| Project switch / delete, workspace archive | Untouched. The sentinel prefix cannot match `cli:<realWorkspaceId>:` |
-| App quit | `cleanupAll` kills the PTYs like any other session (`terminal-runtime.ts:967`) |
+| Event                                      | Behaviour                                                                                                                                                                              |
+| ------------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First open                                 | Renderer built, PTY spawned (`useCliSessionManager.ts:749`)                                                                                                                            |
+| Close overlay                              | Renderer disposed, PTY **detached, not killed**; host slot keeps running and buffering                                                                                                 |
+| Reopen                                     | Renderer rebuilt, `attachSession` returns `{backlog, screenState}` and the screen is restored                                                                                          |
+| Switch tab                                 | Inactive renderer disposed, its PTY detached and alive in background                                                                                                                   |
+| Restart tab                                | `closeSession` + clear `nativeSessionId` → next boot uses a fresh `--session-id`                                                                                                       |
+| Folder changed                             | Close both sessions and clear both `nativeSessionId`s **before** adopting the new path, then reboot. Prevents cross-folder session bleed — the same defect a reviewer found in PR #389 |
+| App restart                                | `nativeSessionIdByTab` is persisted, so both tabs resume via `--resume`                                                                                                                |
+| Project switch / delete, workspace archive | Untouched. The sentinel prefix cannot match `cli:<realWorkspaceId>:`                                                                                                                   |
+| App quit                                   | `cleanupAll` kills the PTYs like any other session (`terminal-runtime.ts:967`)                                                                                                         |
 
 Codex mints its own session id asynchronously; the id arrives through the
 `getSessionResumeInfo` poll (500 ms, up to 60 attempts —

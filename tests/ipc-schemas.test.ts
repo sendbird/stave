@@ -777,6 +777,37 @@ describe("provider IPC schemas", () => {
       CliSessionCreateSessionArgsSchema.safeParse({
         workspaceId: "workspace-1",
         workspacePath: "/tmp/project",
+        cliSessionTabId: "cli-2",
+        providerId: "cursor",
+        contextMode: "workspace",
+        taskId: null,
+        taskTitle: null,
+        cwd: "/tmp/project",
+        runtimeOptions: {
+          cursorBinaryPath: "/tmp/agent",
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      CliSessionCreateSessionArgsSchema.safeParse({
+        workspaceId: "workspace-1",
+        workspacePath: "/tmp/project",
+        cliSessionTabId: "cli-3",
+        providerId: "kiro",
+        contextMode: "workspace",
+        nativeSessionId: "kiro-session-1",
+        taskId: null,
+        taskTitle: null,
+        cwd: "/tmp/project",
+        runtimeOptions: {
+          kiroBinaryPath: "/tmp/kiro-cli",
+        },
+      }).success,
+    ).toBe(true);
+    expect(
+      CliSessionCreateSessionArgsSchema.safeParse({
+        workspaceId: "workspace-1",
+        workspacePath: "/tmp/project",
         cliSessionTabId: "cli-1",
         providerId: "stave",
         contextMode: "workspace",

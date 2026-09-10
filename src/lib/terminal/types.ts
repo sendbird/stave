@@ -65,7 +65,7 @@ export interface CliSessionCreateSessionArgs {
   workspaceId: string;
   workspacePath: string;
   cliSessionTabId: string;
-  providerId: ManagedExecutionProviderId;
+  providerId: ProviderId;
   contextMode: CliSessionContextMode;
   nativeSessionId?: string;
   taskId: string | null;

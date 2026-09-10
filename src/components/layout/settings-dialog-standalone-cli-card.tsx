@@ -76,11 +76,11 @@ export function StandaloneCliSettingsCard() {
       id={STANDALONE_CLI_SETTING_FIELD_ID}
       tabIndex={-1}
       title="Standalone CLI"
-      description="Run Claude Code and Codex against one folder without registering it as a project."
+      description="Run Claude Code, Codex, Cursor, and Kiro against one folder without registering it as a project."
     >
       <LabeledField
         title="Standalone CLI Folder"
-        description="Absolute path. Changing it restarts both CLI tabs in the new folder and discards their conversations."
+        description="Absolute path. Changing it restarts every CLI tab in the new folder and discards their conversations."
       >
         <div className={sx(styles.row)}>
           <DraftInput

@@ -11,13 +11,6 @@ import {
   type TerminalCreateSessionArgs,
 } from "../../src/lib/terminal/types";
 import {
-  buildClaudeCliEnv,
-  buildCodexCliEnv,
-  resolveClaudeCliAutoModeSupport,
-  resolveClaudeCliExecutablePath,
-  resolveCodexCliExecutablePath,
-} from "../providers/cli-path-env";
-import {
   bindTerminalSessionSlot,
   clearTerminalSessionSlotRegistry,
   createTerminalSessionSlotRegistry,
@@ -45,6 +38,8 @@ import {
   createBufferedDataHandler,
   createOscColorInterceptor,
 } from "./terminal-pty-stream";
+import { buildCliSessionLaunch } from "./cli-session-launch";
+import { listKiroSessions } from "./kiro-native-session-files";
 import {
   collectRecentCodexSessionFiles,
   readCodexSessionMeta,
@@ -68,11 +63,16 @@ const TERMINAL_PUSH_FLUSH_MAX_BYTES = 128 * 1024;
 const TERMINAL_PUSH_ACK_HIGH_WATER_BYTES = 512 * 1024;
 const TERMINAL_PUSH_ACK_LOW_WATER_BYTES = 128 * 1024;
 const TERMINAL_SCREEN_STATE_MAX_BYTES = 256 * 1024;
-const TERMINAL_SCREEN_STATE_SCROLLBACK_CANDIDATES = [512, 256, 128, 64, 32, 0] as const;
+const TERMINAL_SCREEN_STATE_SCROLLBACK_CANDIDATES = [
+  512, 256, 128, 64, 32, 0,
+] as const;
 const CODEX_SESSION_DISCOVERY_POLL_MS = 500;
 const CODEX_SESSION_DISCOVERY_MAX_ATTEMPTS = 60;
 const CODEX_SESSION_DISCOVERY_LOOKBACK_MS = 15_000;
 const CODEX_SESSION_DISCOVERY_MATCH_WINDOW_MS = 60_000;
+const KIRO_SESSION_DISCOVERY_POLL_MS = 500;
+const KIRO_SESSION_DISCOVERY_MAX_ATTEMPTS = 60;
+const KIRO_SESSION_DISCOVERY_LOOKBACK_MS = 15_000;
 export function createTerminalRuntime(args: {
   emitEvent: <TEvent extends keyof HostServiceEventMap>(
     event: TEvent,
@@ -90,6 +90,7 @@ export function createTerminalRuntime(args: {
   >();
   const codexSessionFileClaimByPath = new Map<string, string>();
   const codexSessionIdClaimByNativeId = new Map<string, string>();
+  const kiroSessionIdClaimByNativeId = new Map<string, string>();
 
   function normalizeSessionCwd(cwd: string) {
     return resolveCommandCwd({ cwd });
@@ -109,6 +110,121 @@ export function createTerminalRuntime(args: {
         codexSessionIdClaimByNativeId.delete(nativeSessionId);
       }
     }
+    for (const [
+      nativeSessionId,
+      ownerSessionId,
+    ] of kiroSessionIdClaimByNativeId) {
+      if (ownerSessionId === sessionId) {
+        kiroSessionIdClaimByNativeId.delete(nativeSessionId);
+      }
+    }
+  }
+
+  /**
+   * Kiro accepts no session id up front, so the id is discovered after spawn by
+   * polling `kiro-cli chat --list-sessions --format json` in the session cwd.
+   * The lookback filter keeps a conversation the user started in that folder
+   * before this PTY existed from being adopted, and the claim map keeps two
+   * PTYs in the same folder from landing on the same id.
+   */
+  function startKiroNativeSessionDiscovery(args: {
+    sessionId: string;
+    cwd: string;
+    startedAtMs: number;
+    executablePath: string;
+    env?: Record<string, string | undefined>;
+  }) {
+    const session = sessions.get(args.sessionId);
+    if (!session || session.nativeSessionId) {
+      return;
+    }
+
+    let disposed = false;
+    let attempts = 0;
+    let scanning = false;
+
+    const stop = () => {
+      if (disposed) {
+        return;
+      }
+      disposed = true;
+      clearInterval(intervalId);
+      const currentSession = sessions.get(args.sessionId);
+      if (currentSession?.disposeNativeSessionDiscovery === stop) {
+        currentSession.disposeNativeSessionDiscovery = null;
+      }
+    };
+
+    const scan = async () => {
+      if (scanning) {
+        return;
+      }
+      const currentSession = sessions.get(args.sessionId);
+      if (
+        !currentSession ||
+        currentSession.closing ||
+        currentSession.nativeSessionId
+      ) {
+        stop();
+        return;
+      }
+
+      scanning = true;
+      let summaries: Array<{ sessionId: string; updatedAtMs: number }> = [];
+      try {
+        summaries = await listKiroSessions({
+          executablePath: args.executablePath,
+          cwd: args.cwd,
+          env: args.env,
+        });
+      } finally {
+        scanning = false;
+      }
+      if (disposed) {
+        return;
+      }
+
+      const liveSession = sessions.get(args.sessionId);
+      if (!liveSession || liveSession.closing || liveSession.nativeSessionId) {
+        stop();
+        return;
+      }
+
+      let bestMatch: { sessionId: string; updatedAtMs: number } | null = null;
+      for (const summary of summaries) {
+        if (
+          summary.updatedAtMs <
+          args.startedAtMs - KIRO_SESSION_DISCOVERY_LOOKBACK_MS
+        ) {
+          continue;
+        }
+        const claimedBy = kiroSessionIdClaimByNativeId.get(summary.sessionId);
+        if (claimedBy && claimedBy !== args.sessionId) {
+          continue;
+        }
+        if (!bestMatch || summary.updatedAtMs > bestMatch.updatedAtMs) {
+          bestMatch = summary;
+        }
+      }
+
+      if (bestMatch) {
+        liveSession.nativeSessionId = bestMatch.sessionId;
+        kiroSessionIdClaimByNativeId.set(bestMatch.sessionId, args.sessionId);
+        stop();
+        return;
+      }
+
+      attempts += 1;
+      if (attempts >= KIRO_SESSION_DISCOVERY_MAX_ATTEMPTS) {
+        stop();
+      }
+    };
+
+    const intervalId = setInterval(() => {
+      void scan();
+    }, KIRO_SESSION_DISCOVERY_POLL_MS);
+    session.disposeNativeSessionDiscovery = stop;
+    void scan();
   }
 
   function startCodexNativeSessionDiscovery(args: {
@@ -739,99 +855,52 @@ export function createTerminalRuntime(args: {
     const requestedNativeSessionId = args.nativeSessionId?.trim() || "";
     const sessionCwd = args.cwd || args.workspacePath;
 
-    if (args.providerId === "claude-code") {
-      const executablePath = resolveClaudeCliExecutablePath({
-        explicitPath: args.runtimeOptions?.claudeBinaryPath,
-      });
-      if (!executablePath) {
-        return {
-          ok: false,
-          stderr:
-            "Claude executable not found. Check Claude CLI installation and auth.",
-        };
-      }
-      const nativeSessionId = requestedNativeSessionId || randomUUID();
-      const requestedClaudePermissionMode =
-        args.runtimeOptions?.claudePermissionMode ?? "auto";
-      const claudeAutoModeSupported = resolveClaudeCliAutoModeSupport({
-        executablePath,
-      });
-      const claudePermissionMode =
-        requestedClaudePermissionMode === "auto" && !claudeAutoModeSupported
-          ? "default"
-          : requestedClaudePermissionMode;
-      const claudeCommandArgs = [
-        ...(claudeAutoModeSupported ? ["--enable-auto-mode"] : []),
-        "--permission-mode",
-        claudePermissionMode,
-        ...(requestedNativeSessionId
-          ? ["--resume", nativeSessionId]
-          : ["--session-id", nativeSessionId]),
-      ];
-      const env = buildClaudeCliEnv({ executablePath, cwd: sessionCwd });
-      return {
-        ok: true,
-        sessionId: createPtySession({
-          command: executablePath,
-          commandArgs: claudeCommandArgs,
-          cwd: sessionCwd,
-          cols: args.cols,
-          rows: args.rows,
-          deliveryMode: args.deliveryMode,
-          slotKey,
-          nativeSessionId,
-          env: {
-            ...env,
-            STAVE_WORKSPACE_PATH: args.workspacePath,
-            STAVE_TASK_ID: args.taskId ?? "",
-            STAVE_TASK_TITLE: args.taskTitle ?? "",
-          },
-        }),
-        nativeSessionId,
-      };
+    const launch = buildCliSessionLaunch({
+      providerId: args.providerId,
+      cwd: sessionCwd,
+      requestedNativeSessionId,
+      runtimeOptions: args.runtimeOptions,
+    });
+    if (!launch.ok) {
+      return { ok: false, stderr: launch.stderr };
     }
 
-    const executablePath = resolveCodexCliExecutablePath({
-      explicitPath: args.runtimeOptions?.codexBinaryPath,
-    });
-    if (!executablePath) {
-      return {
-        ok: false,
-        stderr:
-          "Codex executable not found. Check Codex CLI installation or the configured binary path.",
-      };
-    }
-    const env = buildCodexCliEnv({ executablePath, cwd: sessionCwd });
     const startedAtMs = Date.now();
     const sessionId = createPtySession({
-      command: executablePath,
-      commandArgs: requestedNativeSessionId
-        ? ["resume", requestedNativeSessionId]
-        : undefined,
+      command: launch.executablePath,
+      commandArgs: launch.commandArgs,
       cwd: sessionCwd,
       cols: args.cols,
       rows: args.rows,
       deliveryMode: args.deliveryMode,
       slotKey,
-      nativeSessionId: requestedNativeSessionId || undefined,
+      nativeSessionId: launch.nativeSessionId,
       env: {
-        ...env,
+        ...launch.env,
         STAVE_WORKSPACE_PATH: args.workspacePath,
         STAVE_TASK_ID: args.taskId ?? "",
         STAVE_TASK_TITLE: args.taskTitle ?? "",
       },
     });
-    if (!requestedNativeSessionId) {
+    if (launch.discovery === "codex") {
       startCodexNativeSessionDiscovery({
         sessionId,
         cwd: sessionCwd,
         startedAtMs,
       });
+    } else if (launch.discovery === "kiro") {
+      startKiroNativeSessionDiscovery({
+        sessionId,
+        cwd: sessionCwd,
+        startedAtMs,
+        executablePath: launch.executablePath,
+        env: launch.env,
+      });
     }
     return {
       ok: true,
       sessionId,
-      nativeSessionId: requestedNativeSessionId || undefined,
+      nativeSessionId: launch.nativeSessionId,
     };
   }
 

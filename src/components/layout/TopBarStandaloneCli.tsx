@@ -25,7 +25,7 @@ export function buildStandaloneCliTriggerLabel(args: {
 }
 
 /**
- * `Escape` is the cancel key inside both CLIs' TUIs, so it has to reach the
+ * `Escape` is the cancel key inside every CLI's TUI, so it has to reach the
  * PTY rather than dismiss the popover. Every other dismissal reason -- an
  * outside press, focus leaving the panel, a second press on the trigger --
  * closes normally.
@@ -59,7 +59,9 @@ export function TopBarStandaloneCli(props: { noDragStyle: CSSProperties }) {
       }}
     >
       <Tooltip>
-        <TooltipTrigger render={<span {...stylex.props(layoutShellStyles.inlineFlex)} />}>
+        <TooltipTrigger
+          render={<span {...stylex.props(layoutShellStyles.inlineFlex)} />}
+        >
           <PopoverTrigger
             render={
               <Button

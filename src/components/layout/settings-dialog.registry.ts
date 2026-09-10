@@ -472,7 +472,7 @@ export const settingDefinitions = [
     fieldId: STANDALONE_CLI_SETTING_FIELD_ID,
     title: "Standalone CLI folder",
     description:
-      "Absolute folder the Standalone CLI overlay runs Claude Code and Codex in, without registering it as a project.",
+      "Absolute folder the Standalone CLI overlay runs every AI CLI in, without registering it as a project.",
     keywords: [
       "standalone",
       "cli",

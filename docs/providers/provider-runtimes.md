@@ -175,7 +175,9 @@ and under `_meta`, so a later Cursor build that starts reporting usage is
 picked up without a runtime change.
 
 Cursor is intentionally excluded from Advisor, secondary and unattended runs,
-routines, standalone CLI tabs, native thread actions, and mid-turn steering.
+routines, native thread actions, and mid-turn steering. It does have a
+Standalone CLI tab: that surface runs `agent` directly over a PTY and does not
+go through the ACP runtime, so none of the ACP limitations apply to it.
 ACP v1 `session/prompt` is blocking, and the Cursor Agent ACP dispatcher
 (`2026.08.25-3e8eec8`) has no steer or inject method. Cancelling the prompt
 and sending a new one aborts in-flight work, so Stave does not present that
@@ -234,7 +236,9 @@ usage control and the turn-activity Headroom/Usage tiles show a percentage and
 a credit amount instead of a zero-token turn.
 
 Kiro is intentionally excluded from Advisor, secondary and unattended runs,
-routines, standalone CLI tabs, and native thread actions. Interactive primary
+routines, and native thread actions. It does have a Standalone CLI tab: that
+surface runs `kiro-cli chat` directly over a PTY and does not go through the
+ACP runtime, so none of the ACP limitations apply to it. Interactive primary
 turns can steer mid-turn: while `session/prompt` is in flight, Stave sends the
 Kiro ACP extension `_session/steer` with the session id and a text prompt
 block. That method is present in `kiro-cli` 2.20.2; if the agent answers
@@ -282,7 +286,6 @@ the HTTP proxy through private environment entries. Enabled collaboration that
 cannot attach Local MCP stops with a setup error instead of starting a primary
 that cannot use the promised tool. Previous collaboration briefings are replaced
 when retrying a canonical request, and removed when the feature is disabled.
-
 
 Control is split deliberately: the **user** decides who answers, at what
 effort, and how often (the per-turn consult budget,
@@ -350,11 +353,11 @@ only the in-flight consult; the grant (and the turn) keep going.
 That deadline is only meaningful if every layer wrapping it outlasts it, so the
 consult path keeps an explicitly ordered ladder — innermost first:
 
-| Layer | Deadline | Defined in |
-| --- | --- | --- |
-| One advisor call | 3–25 min by effort tier | `resolveAdvisorTimeoutMs` |
-| Host-service backstop | 30 min | `HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS` |
-| MCP tool call (client) | 31 min | `STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS` |
+| Layer                  | Deadline                | Defined in                                |
+| ---------------------- | ----------------------- | ----------------------------------------- |
+| One advisor call       | 3–25 min by effort tier | `resolveAdvisorTimeoutMs`                 |
+| Host-service backstop  | 30 min                  | `HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS` |
+| MCP tool call (client) | 31 min                  | `STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS`         |
 
 Raising any effort tier means raising the backstop with it. `STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS`
 is derived (`backstop + 60s`) so only the first two rungs are hand-set, and
@@ -368,7 +371,7 @@ billed, and still emitted its `completed` trace to the turn — while the client
 had already aborted and the MCP SDK discarded the reply with no error, no log,
 and no metric. Only the UI ever saw the advice.
 
-Keeping the ladder ordered is what prevents that, and it is the *only* thing
+Keeping the ladder ordered is what prevents that, and it is the _only_ thing
 that prevents it: a consult cannot notice its caller leaving. The tool handler
 runs in the Electron main process while the grant registry lives in the
 host-service child, so the caller's `AbortSignal` cannot reach the run — it
@@ -427,7 +430,7 @@ target, the Settings default for that provider, the Settings pick, then the
 provider's catalog default. That is what lets the composer offer a model and
 tier for a provider that is not armed — configuring the Advisor must not
 require paying for it first — while a provider the task never touched still
-starts from the default configured for *that* provider.
+starts from the default configured for _that_ provider.
 
 `resolveAdvisorArmState` in `src/lib/providers/advisor.ts` is the single
 resolution point, and it re-normalizes the persisted target, so a corrupt
@@ -582,7 +585,7 @@ Providers → Worker mode.
 The provider-neutral core is `src/lib/providers/worker-mode.ts`. It owns the
 preset catalog, the capability table, and `resolveWorkerProfile` — the single
 semantic gate that both the renderer (for labels and availability) and the
-provider runtime (for execution) resolve through. Zod proves payload *shape* at
+provider runtime (for execution) resolve through. Zod proves payload _shape_ at
 the IPC boundary; this resolver proves the payload makes sense for the
 provider, primary model, and installed runtime.
 
@@ -593,15 +596,15 @@ before building the call.
 
 ### Supported combinations
 
-| | Claude | Codex | Cursor | Kiro |
-| --- | --- | --- | --- | --- |
-| orchestrating primaries | Fable 5.1, Opus 5 (+1M), Sonnet 5 (+1M) | GPT-6 Astra, GPT-5.6 Sol, GPT-5.6 Terra | runtime ACP catalog | runtime model catalog |
-| worker models | Sonnet 5 (+1M), Haiku 4.5, Opus 5, Fable 5.1 | Terra, Sol | runtime ACP catalog | runtime model catalog |
-| execution adapter | native named agent | native spawned agent | task-scoped ACP role session | task-scoped ACP role session |
-| worker model pinning | `AgentDefinition.model` | `agents.default_subagent_model` | ACP config option | ACP model selection |
-| worker effort pinning | `AgentDefinition.effort` | `agents.default_subagent_reasoning_effort` | encoded in the selected model variant | ACP process `--effort` |
-| description / instructions | `description` + `prompt` | `developer_instructions` | turn briefing + standalone Worker prompt | turn briefing + standalone Worker prompt |
-| tool bounding | `tools` — hard-enforced | guidance | guidance | guidance |
+|                            | Claude                                       | Codex                                      | Cursor                                   | Kiro                                     |
+| -------------------------- | -------------------------------------------- | ------------------------------------------ | ---------------------------------------- | ---------------------------------------- |
+| orchestrating primaries    | Fable 5.1, Opus 5 (+1M), Sonnet 5 (+1M)      | GPT-6 Astra, GPT-5.6 Sol, GPT-5.6 Terra    | runtime ACP catalog                      | runtime model catalog                    |
+| worker models              | Sonnet 5 (+1M), Haiku 4.5, Opus 5, Fable 5.1 | Terra, Sol                                 | runtime ACP catalog                      | runtime model catalog                    |
+| execution adapter          | native named agent                           | native spawned agent                       | task-scoped ACP role session             | task-scoped ACP role session             |
+| worker model pinning       | `AgentDefinition.model`                      | `agents.default_subagent_model`            | ACP config option                        | ACP model selection                      |
+| worker effort pinning      | `AgentDefinition.effort`                     | `agents.default_subagent_reasoning_effort` | encoded in the selected model variant    | ACP process `--effort`                   |
+| description / instructions | `description` + `prompt`                     | `developer_instructions`                   | turn briefing + standalone Worker prompt | turn briefing + standalone Worker prompt |
+| tool bounding              | `tools` — hard-enforced                      | guidance                                   | guidance                                 | guidance                                 |
 
 Codex primaries are limited to Astra, Sol, and Terra because they are the only
 models whose live catalog advertises the `ultra` tier, described by that catalog
@@ -677,14 +680,14 @@ Presets bundle a role, a tool bound, and per-provider model/effort defaults.
 Each one's description is written as a delegation trigger, because on Claude that
 string is what the primary reads to decide whether to delegate.
 
-| preset | intent |
-| --- | --- |
-| Patch hand | Applies a decided edit exactly. No verification. |
+| preset                   | intent                                                   |
+| ------------------------ | -------------------------------------------------------- |
+| Patch hand               | Applies a decided edit exactly. No verification.         |
 | Verified patch (default) | Applies the edit, then runs typecheck/tests until green. |
-| Sweep | One mechanical transformation across many files. |
-| Scout | Read-only investigation returning a conclusion. |
-| Deep packet | Owns one bounded unit of real work at maximum effort. |
-| Second pair of eyes | Reviews a diff for correctness; never edits. |
+| Sweep                    | One mechanical transformation across many files.         |
+| Scout                    | Read-only investigation returning a conclusion.          |
+| Deep packet              | Owns one bounded unit of real work at maximum effort.    |
+| Second pair of eyes      | Reviews a diff for correctness; never edits.             |
 
 Description, instructions, tool list, and max turns are editable per provider in
 Settings. An empty field means "use the preset", which is what stops a preset
@@ -768,12 +771,12 @@ attached here is paid for again on each turn unless it is gated. Blocks carry a
 stable `sourceId` and the gating decision is made in one place — the prompt
 funnel `buildLegacyPromptFromCanonicalRequest` — rather than at each builder.
 
-| Source id | Contents | Sent when |
-| --- | --- | --- |
-| `stave:current-task-awareness` | Project/workspace/task identity, other visible tasks | Every turn (identity can change) |
-| `stave:workspace-guidance` | Workspace conventions, token-budget guidance, handoff procedure | First turn only |
-| `stave:workspace-information` | The Information panel dump | Every turn, deduplicated when unchanged |
-| `stave:latest-turn-summary` | The Information panel's latest-turn recap | First turn only |
+| Source id                      | Contents                                                        | Sent when                               |
+| ------------------------------ | --------------------------------------------------------------- | --------------------------------------- |
+| `stave:current-task-awareness` | Project/workspace/task identity, other visible tasks            | Every turn (identity can change)        |
+| `stave:workspace-guidance`     | Workspace conventions, token-budget guidance, handoff procedure | First turn only                         |
+| `stave:workspace-information`  | The Information panel dump                                      | Every turn, deduplicated when unchanged |
+| `stave:latest-turn-summary`    | The Information panel's latest-turn recap                       | First turn only                         |
 
 Rules:
 
@@ -981,7 +984,7 @@ Codex prompt injection note:
 - Stave now forwards response-style and project/system prompt overrides through Codex `developer_instructions` config instead of prepending visible `<system>` blocks to each user turn.
 - Task history, selected text-file context, skill context, and retrieved context still render into the provider prompt body because they are part of the actual turn payload rather than hidden session config. Supported image attachments use the native image items described above, while the prompt keeps only their labels and fallback instructions.
 - Stave always appends native browser-tooling guidance (`CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS`) to `developer_instructions`. It directs Codex to use ordinary web search for general research and its installed native Chrome plugin for explicit interactive `@web` requests. The provider-native browser stays unavailable to plan mode, unattended automation, and secondary read-only analysis. Stave does not force-enable a disabled Chrome plugin, and records only normalized connection status in workspace Information. It still disables the unrelated ChatGPT desktop bundled `browser@openai-bundled` plugin per thread via the `plugins."browser@openai-bundled".enabled = false` config override. See `electron/providers/codex-runtime-config.ts` and [Provider Browser Access](../features/provider-browser-access.md).
-- Lens guidance (`CODEX_STAVE_LENS_INSTRUCTIONS`) is appended **only when the thread will actually see `stave_lens_*` tools**: the local MCP must be registered with Codex *and* `browserToolsEnabled` must still be on. Without it there are no `stave_lens_*` tools, so the block would describe tools that do not exist. Because `developer_instructions` are hashed into the Codex thread key, `hasStaveLocalMcp` is resolved *before* `buildThreadKey` and is part of `buildCodexInstructionProfileKey` — a thread never resumes with an instruction set it was not started with.
+- Lens guidance (`CODEX_STAVE_LENS_INSTRUCTIONS`) is appended **only when the thread will actually see `stave_lens_*` tools**: the local MCP must be registered with Codex _and_ `browserToolsEnabled` must still be on. Without it there are no `stave_lens_*` tools, so the block would describe tools that do not exist. Because `developer_instructions` are hashed into the Codex thread key, `hasStaveLocalMcp` is resolved _before_ `buildThreadKey` and is part of `buildCodexInstructionProfileKey` — a thread never resumes with an instruction set it was not started with.
 
 Codex event mapping:
 
@@ -1166,15 +1169,15 @@ When a task switches from one Codex model to another, Stave does not attempt to 
 
 ### Default-effort ladder
 
-Default reasoning effort runs *inverse* to model strength, so every rung lands
+Default reasoning effort runs _inverse_ to model strength, so every rung lands
 at roughly the same answer quality for very different cost:
 
-| Rung | Claude | Codex | Default effort |
-| --- | --- | --- | --- |
-| frontier | Fable 5.1 | GPT-6 Astra | `medium` |
-| flagship | Opus 5 (+1M) | GPT-5.6 Sol | `high` |
-| balanced | Sonnet 5 (+1M) | GPT-5.6 Terra | `xhigh` |
-| light | — | GPT-5.6 Luna | `max` |
+| Rung     | Claude         | Codex         | Default effort |
+| -------- | -------------- | ------------- | -------------- |
+| frontier | Fable 5.1      | GPT-6 Astra   | `medium`       |
+| flagship | Opus 5 (+1M)   | GPT-5.6 Sol   | `high`         |
+| balanced | Sonnet 5 (+1M) | GPT-5.6 Terra | `xhigh`        |
+| light    | —              | GPT-5.6 Luna  | `max`          |
 
 A frontier model pinned to `xhigh` mostly buys latency — codex-cli 0.153.2
 reports `defaultReasoningEffort: "medium"` for Astra itself — while a cheaper
@@ -1193,7 +1196,7 @@ Two knock-on effects worth knowing:
 - Fresh-install `claudeEffort` / `codexReasoningEffort` seeds track the default
   model's rung. Existing users are carried over by the one-time settings
   migration in `src/lib/providers/settings-model-migration.ts`, which moves a
-  stored effort only when it still matched that model's *old* default — an
+  stored effort only when it still matched that model's _old_ default — an
   effort the user actually tuned is left alone. The same migration moves the
   previous per-provider default models (Sonnet 5 → Opus 5, Terra → Sol) and is
   gated by `settings.settingsModelMigrationVersion` so it runs exactly once.
