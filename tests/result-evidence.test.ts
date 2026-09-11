@@ -30,9 +30,15 @@ test("captures the last answer and its file names without private tool arguments
       },
     ],
   };
+  message.modelInfo = { effort: "high", fastMode: true };
   const evidence = captureResultEvidence([message], "turn");
   expect(ResultEvidenceSchema.safeParse(evidence).success).toBe(true);
   expect(evidence?.answer).toBe("Final result");
+  expect(evidence?.modelInfo).toEqual({ effort: "high", fastMode: true });
+  // Older saved results carry no modelInfo and must still parse.
+  const legacy = { ...evidence, modelInfo: undefined };
+  delete (legacy as { modelInfo?: unknown }).modelInfo;
+  expect(ResultEvidenceSchema.safeParse(legacy).success).toBe(true);
   expect(evidence?.files).toEqual(["src/result.ts"]);
   expect(evidence?.snapshots).toEqual([
     {

@@ -17,7 +17,14 @@ export function useResultReviews(args: ListResultReviewsArgs = {}) {
     getResultReviewRevision,
     getResultReviewRevision,
   );
-  const notifications = useAppStore((state) => state.notifications);
+  // Result rows are written when a terminal notification is ingested, so a
+  // new notification is the refresh signal. Subscribe to a primitive derived
+  // from the list rather than the array: reads, snoozes and prunes elsewhere
+  // in the app must not re-query every mounted result list.
+  const notificationSignal = useAppStore(
+    (state) =>
+      `${state.notifications.length}:${state.notifications[0]?.id ?? ""}`,
+  );
   const [state, setState] = useState({
     key,
     page: EMPTY,
@@ -51,7 +58,7 @@ export function useResultReviews(args: ListResultReviewsArgs = {}) {
     return () => {
       cancelled = true;
     };
-  }, [key, revision, notifications]);
+  }, [key, revision, notificationSignal]);
   useEffect(() => {
     const refresh = () => invalidateResultReviews();
     window.addEventListener("focus", refresh);

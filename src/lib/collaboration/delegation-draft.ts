@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   ChildTaskDelegateArgsSchema,
+  ChildTaskEffortSchema,
   ChildTaskPermissionProfileSchema,
   type ChildTaskDelegateArgs,
 } from "@/lib/runs/child-task";
@@ -20,6 +21,8 @@ export const DelegationDraftSchema = z
     prompt: z.string().max(100_000),
     providerId: z.enum(["claude-code", "codex"]),
     model: z.string().max(200),
+    /** Absent (legacy drafts) means the child's provider default. */
+    effort: ChildTaskEffortSchema.optional(),
     permissionProfile: ChildTaskPermissionProfileSchema,
     keepOpen: z.boolean(),
     isolated: z.boolean(),
@@ -88,6 +91,7 @@ export function editDelegationDraft(
       | "prompt"
       | "providerId"
       | "model"
+      | "effort"
       | "permissionProfile"
       | "keepOpen"
       | "isolated"
@@ -132,6 +136,7 @@ export function prepareDelegationDraftRequest(args: {
       prompt: args.draft.prompt,
       providerId: args.draft.providerId,
       model: args.draft.model.trim() || undefined,
+      effort: args.draft.effort,
       permissionProfile: args.draft.permissionProfile,
       lifecycle: args.draft.keepOpen ? "detached" : "one-turn",
       workspace: args.draft.isolated
@@ -152,7 +157,8 @@ export function prepareDelegationDraftRequest(args: {
   }
   return {
     ok: false,
-    message: request.error.issues[0]?.message ?? "Check the delegation details.",
+    message:
+      request.error.issues[0]?.message ?? "Check the delegation details.",
   };
 }
 

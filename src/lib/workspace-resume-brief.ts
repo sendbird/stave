@@ -79,10 +79,15 @@ export function getWorkspaceInstructions(
     .join("\n\n");
 }
 
+/** Characters of shared instructions sent verbatim; longer text is abridged in context. */
+export const SHARED_INSTRUCTIONS_CONTEXT_LIMIT = 1400;
+/** Storage ceiling for shared instructions, matching the schema. */
+export const SHARED_INSTRUCTIONS_MAX_LENGTH = 12000;
+
 export function formatResumeBriefContext(brief: WorkspaceResumeBrief) {
   const instructions = getWorkspaceInstructions(brief).trim();
   if (!instructions) return [];
-  const limit = 1400;
+  const limit = SHARED_INSTRUCTIONS_CONTEXT_LIMIT;
   return [
     "Shared workspace instructions (apply across tasks in this workspace):",
     `Updated: ${brief.updatedAt}`,

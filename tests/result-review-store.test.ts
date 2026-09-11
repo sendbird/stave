@@ -68,6 +68,17 @@ describe("durable result review", () => {
     expect(reopened.list().results[0]?.reviewedAt).toBeTruthy();
   });
 
+  test("narrows to one run by turn id so evidence loads on demand", () => {
+    const store = new ResultReviewStore(db);
+    insert("first", "turn-1");
+    insert("second", "turn-2");
+    const page = store.list({ workspaceId: "workspace", taskId: "task", turnId: "turn-2", limit: 1 });
+    expect(page.total).toBe(1);
+    expect(page.hasMore).toBe(false);
+    expect(page.results.map((row) => row.turnId)).toEqual(["turn-2"]);
+    expect(store.list({ turnId: "missing" }).total).toBe(0);
+  });
+
   test("migrates read outcomes as unreviewed and survives notification cleanup and restart", () => {
     insert("result", "turn", "2026-09-05T01:00:00Z");
     const store = new ResultReviewStore(db);

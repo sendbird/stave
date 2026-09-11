@@ -19,6 +19,22 @@ export const ResultEvidenceSchema = z.object({
   providerId: z.string().max(100),
   model: z.string().max(1000),
   modelResolution: AutoRoutingModelResolutionSchema.optional().catch(undefined),
+  /** Effort and fast-mode the run was dispatched with; absent on older saved results. */
+  modelInfo: z
+    .object({
+      effort: z.enum([
+        "minimal",
+        "low",
+        "medium",
+        "high",
+        "xhigh",
+        "max",
+        "ultra",
+      ]),
+      fastMode: z.boolean().optional(),
+    })
+    .optional()
+    .catch(undefined),
   answer: z.string().max(32_000),
   answerTruncated: z.boolean(),
   files: z.array(z.string().max(2000)).max(100),
@@ -112,6 +128,7 @@ export function captureResultEvidence(
     providerId: message.providerId,
     model: message.model,
     ...(modelResolution ? { modelResolution } : {}),
+    ...(message.modelInfo ? { modelInfo: message.modelInfo } : {}),
     answer: text.slice(0, 32_000),
     answerTruncated: text.length > 32_000,
     files: [...files],

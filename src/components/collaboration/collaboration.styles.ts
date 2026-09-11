@@ -93,13 +93,17 @@ export const collaborationStyles = stylex.create({
     display: "flex",
     flexDirection: "column",
     gap: vars.space4,
+    minWidth: 0,
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightNormal,
   },
-  field: {
-    width: "100%",
-    paddingInline: vars.space8,
-    paddingBlock: vars.space8,
+  // Fixed-height label text keeps sibling controls in one grid row on the
+  // same baseline even when a label wraps or is longer than its neighbours.
+  labelText: {
+    display: "block",
+    fontWeight: vars.fontWeightMedium,
+    color: vars.colorText,
+    lineHeight: vars.lineHeightNormal,
   },
   searchField: {
     width: "100%",
@@ -123,7 +127,8 @@ export const collaborationStyles = stylex.create({
   },
   grid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))",
+    gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))",
+    alignItems: "end",
     gap: vars.space12,
   },
   checkboxLabel: {
@@ -132,6 +137,13 @@ export const collaborationStyles = stylex.create({
     gap: vars.space8,
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightNormal,
+  },
+  checkboxNote: { display: "block", marginTop: vars.space4 },
+  submitRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: vars.space12,
   },
   definitionList: {
     display: "grid",

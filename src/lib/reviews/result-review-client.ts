@@ -110,6 +110,7 @@ export function listResultReviews(
           (!args.workspaceIds || args.workspaceIds.includes(row.workspaceId)) &&
           (!args.workspaceId || row.workspaceId === args.workspaceId) &&
           (!args.taskId || row.taskId === args.taskId) &&
+          (!args.turnId || row.turnId === args.turnId) &&
           (!args.pendingOnly || !row.reviewedAt),
       )
       .sort(

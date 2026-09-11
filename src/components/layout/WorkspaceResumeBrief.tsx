@@ -15,6 +15,8 @@ import { useAppStore } from "@/store/app.store";
 import {
   emptyResumeBriefFields,
   getWorkspaceInstructions,
+  SHARED_INSTRUCTIONS_CONTEXT_LIMIT,
+  SHARED_INSTRUCTIONS_MAX_LENGTH,
   WorkspaceResumeBriefSchema,
   type ResumeBriefFields,
   type WorkspaceResumeBrief,
@@ -25,6 +27,7 @@ import {
   saveDirectionDraft,
 } from "@/lib/workspace-direction-draft-client";
 import { workspaceResumeBriefStyles as styles } from "./workspace-resume-brief.styles";
+import { formatRelativeTime } from "@/components/layout/automation-center/automation-center.utils";
 
 /** Shared instructions in Information, retained across workspace tasks. */
 export function WorkspaceResumeBrief(props: {
@@ -64,7 +67,11 @@ export function WorkspaceResumeBrief(props: {
             error: "",
           });
         setDraftLoaded(true);
-        setDraftStatus(saved ? "Draft saved on this device" : "");
+        setDraftStatus(
+          saved
+            ? "Unsaved draft on this device — tasks still use the saved instructions."
+            : "",
+        );
       })
       .catch(() => {
         if (!cancelled)
@@ -115,7 +122,9 @@ export function WorkspaceResumeBrief(props: {
     })
       .then(() => {
         if (revision === draftRevision.current)
-          setDraftStatus("Draft saved on this device");
+          setDraftStatus(
+            "Draft kept on this device — save to apply it to tasks.",
+          );
       })
       .catch(() => {
         if (revision === draftRevision.current)
@@ -186,7 +195,12 @@ export function WorkspaceResumeBrief(props: {
       setSaving(false);
     }
   };
-  const hasBrief = Boolean(getWorkspaceInstructions(props.brief).trim());
+  const savedInstructions = getWorkspaceInstructions(props.brief);
+  const hasBrief = Boolean(savedInstructions.trim());
+  const draftText = getWorkspaceInstructions(draft.fields);
+  const abridged =
+    (draft.editing ? draftText : savedInstructions).trim().length >
+    SHARED_INSTRUCTIONS_CONTEXT_LIMIT;
   return (
     <section aria-labelledby={`${id}-heading`} className={sx(styles.root)}>
       <Accordion
@@ -247,9 +261,8 @@ export function WorkspaceResumeBrief(props: {
           </div>
           <AccordionContent className={sx(panelStyles.sectionPanel)}>
             <p className={sx(styles.intro)}>
-              Saved instructions are included in subsequent messages across all
-              tasks in this workspace. Keep detailed plans in files and action
-              items in Todos.
+              Standing rules for this workspace. Once saved they travel with
+              every message in every task here, until you change them.
             </p>
             <p role="status" className={sx(styles.draftStatus)}>
               {draftStatus}
@@ -287,15 +300,42 @@ export function WorkspaceResumeBrief(props: {
                   </label>
                   <AdsTextarea
                     id={`${id}-instructions`}
-                    maxLength={12000}
+                    aria-describedby={`${id}-instructions-hint`}
+                    maxLength={SHARED_INSTRUCTIONS_MAX_LENGTH}
                     rows={6}
-                    value={getWorkspaceInstructions(draft.fields)}
+                    value={draftText}
                     placeholder="For example: Preserve existing keyboard shortcuts. Link the verification results when finishing."
                     disabled={saving}
                     onChange={(event) =>
                       changeField("instructions", event.target.value)
                     }
                   />
+                  <div
+                    id={`${id}-instructions-hint`}
+                    className={sx(styles.fieldFooter)}
+                  >
+                    <span className={sx(styles.fieldHint)}>
+                      Short standing rules work best. Plans belong in files,
+                      action items in Todos.
+                    </span>
+                    <span
+                      className={sx(
+                        styles.counter,
+                        abridged && styles.counterWarning,
+                      )}
+                    >
+                      {draftText.length.toLocaleString()} /{" "}
+                      {SHARED_INSTRUCTIONS_MAX_LENGTH.toLocaleString()}
+                    </span>
+                  </div>
+                  {abridged ? (
+                    <p className={sx(styles.warning)}>
+                      Longer than{" "}
+                      {SHARED_INSTRUCTIONS_CONTEXT_LIMIT.toLocaleString()}{" "}
+                      characters: agents receive an abridged copy. Put the
+                      essentials first.
+                    </p>
+                  ) : null}
                 </div>
                 <div className={sx(styles.formActions)}>
                   <ActionButton type="submit" weight="primary" loading={saving}>
@@ -313,26 +353,45 @@ export function WorkspaceResumeBrief(props: {
               </form>
             ) : hasBrief ? (
               <dl className={sx(styles.list)}>
+                <div className={sx(styles.meta)}>
+                  <dt>
+                    <VisuallyHidden>Status</VisuallyHidden>
+                  </dt>
+                  <dd className={sx(styles.metaRow)}>
+                    <span className={sx(styles.appliedMark)}>
+                      Active in every task
+                    </span>
+                    <time
+                      dateTime={props.brief!.updatedAt}
+                      title={new Date(props.brief!.updatedAt).toLocaleString()}
+                    >
+                      Updated {formatRelativeTime(props.brief!.updatedAt)}
+                    </time>
+                  </dd>
+                </div>
                 <div>
                   <dt>
                     <VisuallyHidden>Instructions for all tasks</VisuallyHidden>
                   </dt>
-                  <dd className={sx(styles.definition)}>
-                    {getWorkspaceInstructions(props.brief)}
-                  </dd>
+                  <dd className={sx(styles.definition)}>{savedInstructions}</dd>
                 </div>
-                <div className={sx(styles.meta)}>
-                  <dt>
-                    <VisuallyHidden>Last maintained</VisuallyHidden>
-                  </dt>
-                  <dd className={sx(styles.metaValue)}>
-                    Updated {new Date(props.brief!.updatedAt).toLocaleString()}
-                  </dd>
-                </div>
+                {abridged ? (
+                  <div>
+                    <dt>
+                      <VisuallyHidden>Context note</VisuallyHidden>
+                    </dt>
+                    <dd className={sx(styles.warning)}>
+                      Agents receive the first{" "}
+                      {SHARED_INSTRUCTIONS_CONTEXT_LIMIT.toLocaleString()}{" "}
+                      characters verbatim and a note that the rest is abridged.
+                    </dd>
+                  </div>
+                ) : null}
               </dl>
             ) : (
               <p className={sx(styles.empty)}>
-                Add instructions you want the agent to remember across tasks.
+                Nothing shared yet. Add rules every task should follow, such as
+                a verification step, a style constraint, or files to avoid.
               </p>
             )}
           </AccordionContent>

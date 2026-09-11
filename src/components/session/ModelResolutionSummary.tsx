@@ -1,6 +1,18 @@
 import { sx } from "../ads/utils/stylex";
 import { resultStyles as styles } from "./result-review.styles";
-import type { AutoRoutingModelResolution } from "@/lib/providers/provider.types";
+import type {
+  AutoRoutingModelResolution,
+  ProviderId,
+} from "@/lib/providers/provider.types";
+import { getTurnModelInfoParts } from "@/lib/providers/turn-model-info";
+import type { TurnModelInfo } from "@/types/chat";
+
+const PROVIDER_IDS: ReadonlySet<string> = new Set<ProviderId>([
+  "claude-code",
+  "codex",
+  "cursor",
+  "kiro",
+]);
 
 function toProviderLabel(providerId: string) {
   if (providerId === "claude-code") return "Claude Code";
@@ -15,9 +27,37 @@ function toSourceLabel(source: AutoRoutingModelResolution["source"]) {
   return source === "classifier" ? "Classifier" : "Heuristic";
 }
 
+export interface ActualRunModel {
+  providerId: string;
+  model: string;
+  /** Effort / fast-mode the run was dispatched with, when the record kept it. */
+  modelInfo?: TurnModelInfo;
+}
+
+/**
+ * `Claude Code · Claude Fable 5.1 · High`. The effort rides beside the model
+ * because the two are chosen together in the composer; a run record that
+ * names only the model hides half of what was asked of it.
+ */
+export function formatActualRunModel(actual: ActualRunModel) {
+  const providerId = PROVIDER_IDS.has(actual.providerId)
+    ? (actual.providerId as ProviderId)
+    : null;
+  const parts = providerId
+    ? getTurnModelInfoParts({
+        providerId,
+        model: actual.model,
+        modelInfo: actual.modelInfo,
+      })
+    : { name: actual.model, details: [] as string[] };
+  return [toProviderLabel(actual.providerId), parts.name, ...parts.details]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 /** Recorded model facts only; callers may reuse this in live or saved runs. */
 export function ModelResolutionSummary(props: {
-  actual: { providerId: string; model: string } | null;
+  actual: ActualRunModel | null;
   resolution?: AutoRoutingModelResolution;
 }) {
   if (!props.actual && !props.resolution) {
@@ -25,21 +65,13 @@ export function ModelResolutionSummary(props: {
       <p className={sx(styles.caption)}>Actual model has not been reported</p>
     );
   }
+  const actualLabel = props.actual ? formatActualRunModel(props.actual) : null;
 
   return (
     <dl className={sx(styles.modelFacts)}>
       <dt className={sx(styles.muted)}>Run model</dt>
-      <dd
-        className={sx(styles.modelValue)}
-        title={
-          props.actual
-            ? `${toProviderLabel(props.actual.providerId)} · ${props.actual.model}`
-            : undefined
-        }
-      >
-        {props.actual
-          ? `${toProviderLabel(props.actual.providerId)} · ${props.actual.model}`
-          : "Not reported"}
+      <dd className={sx(styles.modelValue)} title={actualLabel ?? undefined}>
+        {actualLabel ?? "Not reported"}
       </dd>
       {props.resolution ? (
         <>

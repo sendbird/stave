@@ -182,7 +182,11 @@ export function TaskRunOverview() {
   });
   const actualModel =
     message && message.providerId !== "user"
-      ? { providerId: message.providerId, model: message.model }
+      ? {
+          providerId: message.providerId,
+          model: message.model,
+          modelInfo: message.modelInfo,
+        }
       : null;
   const hasRun = Boolean(activeTurnId || message || activity || retained);
   const title = activeTurnId
