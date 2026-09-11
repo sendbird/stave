@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { selectTaskHistoryEntries } from "../src/lib/tasks";
+import { appendOpenTaskTabForHostCreatedTask, selectTaskHistoryEntries } from "../src/lib/tasks";
 import type { Task } from "../src/types/chat";
 
 function buildTask(overrides: Partial<Task> & Pick<Task, "id">): Task {
@@ -103,5 +103,43 @@ describe("selectTaskHistoryEntries", () => {
         openTaskTabIds: [],
       }).map((task) => task.id),
     ).toEqual(["newer", "older"]);
+  });
+});
+
+describe("appendOpenTaskTabForHostCreatedTask", () => {
+  test("appends a live top-level task to an explicit tab list", () => {
+    expect(
+      appendOpenTaskTabForHostCreatedTask({
+        openTaskTabIds: ["open"],
+        task: buildTask({ id: "created" }),
+      }),
+    ).toEqual(["open", "created"]);
+  });
+
+  test("leaves delegated children and archived tasks off the tab strip", () => {
+    expect(
+      appendOpenTaskTabForHostCreatedTask({
+        openTaskTabIds: ["open"],
+        task: buildTask({ id: "child", parentTaskId: "open" }),
+      }),
+    ).toEqual(["open"]);
+    expect(
+      appendOpenTaskTabForHostCreatedTask({
+        openTaskTabIds: ["open"],
+        task: buildTask({
+          id: "archived",
+          archivedAt: "2026-03-09T00:00:00.000Z",
+        }),
+      }),
+    ).toEqual(["open"]);
+  });
+
+  test("does not materialize a missing legacy tab list", () => {
+    expect(
+      appendOpenTaskTabForHostCreatedTask({
+        openTaskTabIds: undefined,
+        task: buildTask({ id: "created" }),
+      }),
+    ).toBeUndefined();
   });
 });

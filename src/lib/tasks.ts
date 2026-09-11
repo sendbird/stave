@@ -61,6 +61,27 @@ export function isDelegatedChildTask(task: Pick<Task, "parentTaskId">) {
 }
 
 /**
+ * Open a pane tab for a host-created top-level task, matching renderer
+ * `createTask`. Delegated children stay off the strip. A missing array is the
+ * legacy "all live tasks open" snapshot and must stay unset.
+ */
+export function appendOpenTaskTabForHostCreatedTask(args: {
+  openTaskTabIds: string[] | undefined;
+  task: Pick<Task, "id" | "archivedAt" | "parentTaskId">;
+}): string[] | undefined {
+  if (!Array.isArray(args.openTaskTabIds)) {
+    return args.openTaskTabIds;
+  }
+  if (isTaskArchived(args.task) || isDelegatedChildTask(args.task)) {
+    return args.openTaskTabIds;
+  }
+  if (args.openTaskTabIds.includes(args.task.id)) {
+    return args.openTaskTabIds;
+  }
+  return [...args.openTaskTabIds, args.task.id];
+}
+
+/**
  * Reconcile a task list against the archived state that persistence currently
  * holds as authoritative.
  *

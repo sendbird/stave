@@ -4,6 +4,8 @@ import {
   loadWorkspaceShellForRestore,
 } from "@/lib/db/workspaces.db";
 import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
+import { appendOpenTaskTabForHostCreatedTask } from "@/lib/tasks";
+import { WORKSPACE_APP_SURFACE, type AppActiveSurface } from "@/store/app-surface";
 import {
   applyProviderTurnActivityEvents,
   clearProviderTurnActivity,
@@ -42,6 +44,7 @@ type HostTaskTurnStoreState = Parameters<
   retainedTurnActivityByTask: RetainedTurnActivityByTask;
   advisorExchangeByTask: AdvisorExchangeByTask;
   advisorConsultLogByTask: AdvisorConsultLogByTask;
+  workspaceSnapshotVersion: number;
 };
 
 interface LoadedHostTaskTurn {
@@ -95,6 +98,7 @@ function mergePersistedTaskIntoSession(args: {
   currentSession: WorkspaceSessionState;
   loaded: LoadedHostTaskTurn;
   update: LocalMcpTaskTurnUpdate;
+  isNewToRenderer: boolean;
 }) {
   const persistedTask = args.loaded.persistedSession.tasks.find(
     (task) => task.id === args.update.taskId,
@@ -105,8 +109,18 @@ function mergePersistedTaskIntoSession(args: {
     args.loaded.persistedActiveTurnId === undefined &&
     (currentActiveTurnId === args.update.turnId ||
       (args.update.done && currentActiveTurnId === undefined));
+  const nextOpenTaskTabIds = args.isNewToRenderer
+    ? appendOpenTaskTabForHostCreatedTask({
+        openTaskTabIds: args.currentSession.openTaskTabIds,
+        task: persistedTask,
+      })
+    : args.currentSession.openTaskTabIds;
+  const openedHostCreatedTaskTab =
+    Array.isArray(nextOpenTaskTabIds) &&
+    nextOpenTaskTabIds !== args.currentSession.openTaskTabIds;
   return {
     turnSettled,
+    openedHostCreatedTaskTab,
     session: {
       ...args.currentSession,
       tasks: args.currentSession.tasks.some(
@@ -116,6 +130,16 @@ function mergePersistedTaskIntoSession(args: {
             task.id === args.update.taskId ? persistedTask : task,
           )
         : [persistedTask, ...args.currentSession.tasks],
+      ...(openedHostCreatedTaskTab
+        ? {
+            openTaskTabIds: nextOpenTaskTabIds,
+            activeTaskId: persistedTask.id,
+            activeSurface: {
+              kind: "task" as const,
+              taskId: persistedTask.id,
+            },
+          }
+        : {}),
       messagesByTask: {
         ...args.currentSession.messagesByTask,
         [args.update.taskId]: args.loaded.messages,
@@ -156,14 +180,18 @@ export function applyHostTaskTurnSync(args: {
   loaded: LoadedHostTaskTurn;
   update: LocalMcpTaskTurnUpdate;
 }) {
-  const currentSession =
+  const liveOrCache =
     args.state.activeWorkspaceId === args.update.workspaceId
       ? createWorkspaceSessionStateFromAppState(args.state)
       : (args.state.workspaceRuntimeCacheById[args.update.workspaceId] ?? null);
+  const isNewToRenderer =
+    !liveOrCache ||
+    !liveOrCache.tasks.some((task) => task.id === args.update.taskId);
   const merged = mergePersistedTaskIntoSession({
-    currentSession: currentSession ?? args.loaded.persistedSession,
+    currentSession: liveOrCache ?? args.loaded.persistedSession,
     loaded: args.loaded,
     update: args.update,
+    isNewToRenderer,
   });
   const active = args.loaded.persistedActiveTurnId === args.update.turnId;
   const startedActivityByTask = active
@@ -239,6 +267,15 @@ export function applyHostTaskTurnSync(args: {
     args.state.activeWorkspaceId === args.update.workspaceId
       ? {
           ...sharedPatch,
+          ...(merged.openedHostCreatedTaskTab
+            ? {
+                openTaskTabIds: merged.session.openTaskTabIds,
+                activeTaskId: merged.session.activeTaskId,
+                activeSurface: merged.session.activeSurface,
+                activeAppSurface: WORKSPACE_APP_SURFACE,
+                workspaceSnapshotVersion: args.state.workspaceSnapshotVersion + 1,
+              }
+            : {}),
           tasks: merged.session.tasks,
           messagesByTask: merged.session.messagesByTask,
           messageCountByTask: merged.session.messageCountByTask,
@@ -260,6 +297,7 @@ export function applyHostTaskTurnSync(args: {
       retainedTurnActivityByTask: RetainedTurnActivityByTask;
       advisorExchangeByTask: AdvisorExchangeByTask;
       advisorConsultLogByTask: AdvisorConsultLogByTask;
+      activeAppSurface?: AppActiveSurface;
     },
     syncedSession: merged.session,
     turnSettled: merged.turnSettled,
