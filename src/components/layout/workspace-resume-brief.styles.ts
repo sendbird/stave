@@ -44,6 +44,36 @@ export const workspaceResumeBriefStyles = stylex.create({
     fontSize: vars.fontSizeCaption,
     lineHeight: vars.lineHeightRelaxed,
   },
+  fieldFooter: {
+    display: "flex",
+    alignItems: "baseline",
+    justifyContent: "space-between",
+    gap: vars.space8,
+  },
+  counter: {
+    color: vars.colorTextMuted,
+    flexShrink: 0,
+    fontSize: vars.fontSizeCaption,
+    fontVariantNumeric: "tabular-nums",
+  },
+  counterWarning: { color: vars.colorWarningText },
+  warning: {
+    color: vars.colorWarningText,
+    fontSize: vars.fontSizeCaption,
+    lineHeight: vars.lineHeightRelaxed,
+    marginInlineStart: 0,
+  },
+  metaRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: vars.space8,
+    marginInlineStart: 0,
+  },
+  appliedMark: {
+    color: vars.colorSuccessText,
+    fontWeight: vars.fontWeightMedium,
+  },
   formActions: {
     alignItems: "center",
     display: "flex",

@@ -16,6 +16,8 @@ export const ListResultReviewsArgsSchema = z
     workspaceIds: z.array(Identity).max(1000).optional(),
     workspaceId: Identity.optional(),
     taskId: Identity.optional(),
+    /** Narrow to one finished run, for loading its evidence on demand. */
+    turnId: Identity.optional(),
     pendingOnly: z.boolean().optional(),
     includeEvidence: z.boolean().optional(),
     limit: z.number().int().min(1).max(200).optional(),

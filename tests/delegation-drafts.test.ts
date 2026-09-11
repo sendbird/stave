@@ -3,6 +3,7 @@ import { Database } from "bun:sqlite";
 import { DelegationDraftStore } from "../electron/persistence/delegation-drafts";
 import {
   createEmptyDelegationDraft,
+  DelegationDraftSchema,
   editDelegationDraft,
   prepareDelegationDraftRequest,
   type DelegationDraft,
@@ -75,6 +76,30 @@ test("unchanged uncertain retries reuse the exact request and edits create a new
     lifecycle: "one-turn",
     workspace: { mode: "same-workspace" },
   });
+});
+
+test("effort is optional on legacy drafts and travels into the delegation request", () => {
+  const legacy = DelegationDraftSchema.parse({
+    prompt: "Legacy",
+    providerId: "codex",
+    model: "",
+    permissionProfile: "guided",
+    keepOpen: true,
+    isolated: true,
+    deliveryUncertain: false,
+  });
+  expect(legacy.effort).toBeUndefined();
+  const withEffort = editDelegationDraft(legacy, { effort: "xhigh" });
+  const prepared = prepareDelegationDraftRequest({
+    scope,
+    draft: withEffort,
+    createDelegationKey: () => "effort-1",
+  });
+  expect(prepared.ok).toBe(true);
+  if (!prepared.ok) throw new Error(prepared.message);
+  expect(prepared.request.effort).toBe("xhigh");
+  const cleared = editDelegationDraft(withEffort, { effort: undefined });
+  expect(cleared.effort).toBeUndefined();
 });
 
 test("draft store keeps exact owners and compare-clears only the accepted revision", () => {

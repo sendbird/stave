@@ -100,6 +100,10 @@ export class ResultReviewStore {
       predicates.push("task_id = ?");
       values.push(args.taskId);
     }
+    if (args.turnId) {
+      predicates.push("turn_id = ?");
+      values.push(args.turnId);
+    }
     if (args.pendingOnly) predicates.push("reviewed_at IS NULL");
     const where = predicates.length ? `WHERE ${predicates.join(" AND ")}` : "";
     const limit = Math.max(1, Math.min(200, args.limit ?? 100));
