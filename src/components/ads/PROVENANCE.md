@@ -451,3 +451,69 @@ Further host extensions:
   grid, where both are blockified. `IconTile` paints an unconditional hairline
   rim the old `media` key did not, which is upstream's stated intent; the two
   call sites that override the medallion's fill and size keep doing so.
+
+- The overlay/portal group was three-way merged against the pristine install
+  baseline: `Dialog`, `Drawer`, `Popover`, `Menu`, `Tooltip`, `ToastHost` and
+  `overlay-motion.css`. Upstream had independently adopted every one of this
+  group's host extensions except the style exports and the toast manager, so
+  those hunks collapse to upstream's spelling:
+
+  - Dialog's and Drawer's `surface` / `popup` split — paint separated from
+    geometry — is now `recipes/overlay-surface`'s `modal` (+ `modalRounded` for
+    Dialog) composed ahead of a geometry-only `popup` key, with the surface's
+    `gap`/`padding` supplied by `overlayModalDensity`. The declarations are
+    identical to the host's; only the module they live in moved.
+  - Popover's `PopoverDensity` / `popupFlush` / `headerFlush` / suppressed
+    `focusRing.gutter` is upstream's `OverlayContentDensity` `"flush"` value,
+    `overlaySurface.contentFlush`, the same `headerFlush` declarations and
+    `flush ? styles.bodyFlush : focusRing.gutter`. Upstream's version is a
+    superset: `compact` joins `regular` and `flush`, and `overlayDensityTier()`
+    narrows the content tier back for the title-group map. ADS record:
+    `consumer-changes/2026-09-07-popover-flush-content-density.json`.
+  - `Menu.Popup`'s `xstyle`, threaded into `menu.popup`.
+  - `ToastHost`'s column restructure — `content` as a flex column, the main
+    row extracted to a `row` / `rowMultiline` pair, and `actionRow` promoted to
+    a sibling of the row at `space12` so a multi-line action row spans the
+    close column. Upstream's `ToastHost.styles.ts` is byte-identical to the
+    host's former inline `styles` object, comments included.
+  - `overlay-motion.css`'s `.atelier-motion-modal.atelier-motion-modal-top`.
+    The merged sheet is byte-identical to upstream, which also drops the
+    `--atelier-motion-tooltip-delay` transition delay (the dwell is a JS rest
+    timer on the trigger now).
+
+  Five host modifications survive, re-expressed on upstream's structure: the
+  canonical style exports `dialogStyles` (re-exported from the new
+  `Dialog.styles`), `drawerStyles`, `popoverStyles` and `tooltipStyles`, still
+  needed by the compound adapters in `../ui` and by the product's own dialog
+  panels; and `ToastHost`'s `toastManager` passthrough, which is how
+  store-originated notifications reach a host that cannot call `useToast()`.
+
+  New files, all byte-identical to upstream `589cfc4c`: `Dialog.styles.ts`,
+  `Menu.styles.ts`, `Menu.density.tsx`, `Menu.merge-class-name.ts`,
+  `Tooltip.group.tsx` and `ToastHost.styles.ts`. `Menu`, `Tooltip` and
+  `overlay-motion.css` carry no other host delta; `Menu.tsx` is now
+  byte-identical to upstream.
+
+  One upstream API change reached product code. The `surface` key these
+  components used to export no longer exists, because paint moved to
+  `recipes/overlay-surface`. The seven call sites that composed it —
+  `src/components/ui/dialog.tsx`, `src/components/ui/drawer.tsx`,
+  `src/components/ui/sheet.tsx`, `src/components/ui/popover.tsx`,
+  `src/components/layout/ConfirmDialog.tsx`,
+  `src/components/layout/CreateWorkspaceDialog.tsx` and
+  `src/components/layout/OpenPathDialog.tsx` — now compose
+  `overlaySurface.modal` (+ `modalRounded` for the four dialog surfaces) or
+  `overlaySurface.anchored`, which are the same declarations under the recipe's
+  names and the same keys the ADS components themselves compose.
+
+  `Menu.Popup` reads menu density from React context now, so it can no longer
+  be invoked as a plain function. `tests/ui-menu-popup-surface.test.tsx`
+  resolves the part's class through a probe component instead; its Base UI
+  child still refuses to render outside `Menu.Portal`, which is a no-op under
+  `react-dom/server`.
+
+  Contrary to expectation, `data-variant` on `ui/dropdown-menu.tsx`'s and
+  `ui/context-menu.tsx`'s items is NOT overwritten by the new theme spread:
+  the `menu-item` target publishes `density` and `tone` axes only, so a
+  destructive row renders `data-variant="destructive" data-tone="danger"`.
+  Verified by rendering both shims. The product attribute is left in place.

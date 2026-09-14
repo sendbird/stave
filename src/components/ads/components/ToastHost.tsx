@@ -1,4 +1,3 @@
-import * as stylex from "@stylexjs/stylex";
 import {
   AlertTriangle,
   CheckCircle2,
@@ -25,11 +24,16 @@ import {
 import { controlIconSizes, controlSquares } from "../recipes/control-metrics";
 import { focusRing } from "../recipes/focus-ring";
 import { surfaceChrome } from "../recipes/surface-chrome";
-import { vars } from "../tokens/tokens.stylex";
+import {
+  PortalProductThemeScope,
+  usePortalProductThemeProps,
+} from "../theming/ProductThemeProvider";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { cx, sx } from "../utils/stylex";
 import { Button } from "./Button";
 import { Loader } from "./Loader";
 import { runToastPromise, type ToastPromiseApi } from "./ToastHost.promise";
+import { styles, toneIconStyles } from "./ToastHost.styles";
 
 export type ToastTone =
   | "danger"
@@ -49,9 +53,15 @@ export type ToastPosition =
 
 export type ToastHostProps = {
   children?: React.ReactNode;
-  toastManager?: ToastProviderProps["toastManager"];
   /** Max stacked toasts before older ones fold away. @default 3 */
   limit?: ToastProviderProps["limit"];
+  /**
+   * Host modification: an externally created Base UI toast manager, so a
+   * store — which cannot call `useToast()` — can push notifications into this
+   * host. Omit it and the provider creates its own, which is upstream's
+   * behaviour.
+   */
+  toastManager?: ToastProviderProps["toastManager"];
   /** Where the toast viewport is anchored. @default "bottom-right" */
   position?: ToastPosition;
   /** Default auto-dismiss delay in ms (`0` disables). @default 5000 */
@@ -227,28 +237,36 @@ function resolvePosition(position: ToastPosition) {
  */
 export function ToastHost({
   children,
-  toastManager,
   limit = 3,
   position = "bottom-right",
   timeout = DEFAULT_TOAST_TIMEOUT_MS,
+  toastManager,
 }: ToastHostProps) {
   const { horizontal, isTop, swipe } = resolvePosition(position);
+  // The stack leaves the host's DOM subtree through the portal, so it carries
+  // the brand with it. `@scope` is a fact about the DOM tree and a portal is
+  // exactly where the DOM tree and the React tree disagree — without this, a
+  // toast host mounted inside a branded region drops to ADS's own paint.
+  const portalTheme = usePortalProductThemeProps();
 
   return (
     <ToastProvider limit={limit} timeout={timeout} toastManager={toastManager}>
       {children}
       <ToastPortal>
-        <ToastViewport
-          className={sx(
-            styles.viewport,
-            isTop ? styles.viewportTop : styles.viewportBottom,
-            horizontal === "left" && styles.viewportLeft,
-            horizontal === "center" && styles.viewportCenter,
-            horizontal === "right" && styles.viewportRight,
-          )}
-        >
-          <ToastHostList isTop={isTop} swipe={swipe} />
-        </ToastViewport>
+        <PortalProductThemeScope>
+          <ToastViewport
+            {...portalTheme}
+            className={sx(
+              styles.viewport,
+              isTop ? styles.viewportTop : styles.viewportBottom,
+              horizontal === "left" && styles.viewportLeft,
+              horizontal === "center" && styles.viewportCenter,
+              horizontal === "right" && styles.viewportRight,
+            )}
+          >
+            <ToastHostList isTop={isTop} swipe={swipe} />
+          </ToastViewport>
+        </PortalProductThemeScope>
       </ToastPortal>
     </ToastProvider>
   );
@@ -277,8 +295,11 @@ function ToastHostList({
     const hasDescription = Boolean(toast.description);
     const inlineAction = hasAction && !hasDescription;
 
+    const theme = themeProps("toast", { tone });
+
     return (
       <ToastRoot
+        {...theme}
         className={(state) =>
           cx(
             sx(
@@ -286,6 +307,7 @@ function ToastHostList({
               isTop ? styles.toastTop : styles.toastBottom,
               state.limited && styles.toastLimited,
             ),
+            theme.className,
             "atelier-toast-stack",
             isTop && "atelier-toast-stack-top",
           )
@@ -294,12 +316,16 @@ function ToastHostList({
         swipeDirection={swipe}
         toast={toast}
       >
-        <ToastContent className={sx(styles.content)}>
+        <ToastContent
+          {...themeSlotProps("toast", "content")}
+          className={sx(styles.content)}
+        >
           <div
             className={sx(styles.row, hasDescription && styles.rowMultiline)}
           >
             {tone === "loading" ? (
               <span
+                {...themeSlotProps("toast", "icon")}
                 className={sx(
                   styles.icon,
                   hasDescription && styles.iconMultiline,
@@ -315,6 +341,7 @@ function ToastHostList({
               // so the glyph can be centred on it by flex alignment (see
               // `iconMultiline`).
               <span
+                {...themeSlotProps("toast", "icon")}
                 className={sx(
                   styles.icon,
                   hasDescription && styles.iconMultiline,
@@ -325,13 +352,20 @@ function ToastHostList({
               </span>
             ) : null}
             <div className={sx(styles.copy)}>
-              <ToastTitle className={sx(styles.title)} />
-              <ToastDescription className={sx(styles.description)} />
+              <ToastTitle
+                {...themeSlotProps("toast", "title")}
+                className={sx(styles.title)}
+              />
+              <ToastDescription
+                {...themeSlotProps("toast", "description")}
+                className={sx(styles.description)}
+              />
             </div>
             {inlineAction ? (
               <ToastAction render={<Button size="sm" variant="secondary" />} />
             ) : null}
             <ToastClose
+              {...themeSlotProps("toast", "close")}
               className={sx(
                 surfaceChrome.quietIconButton,
                 controlSquares.sm,
@@ -361,139 +395,3 @@ function ToastHostList({
     );
   });
 }
-
-const styles = stylex.create({
-  viewport: {
-    inlineSize: `min(360px, calc(100dvw - ${vars["--ads-space-32"]}))`,
-    position: "fixed",
-    zIndex: vars["--ads-z-index-toast"],
-  },
-  viewportTop: {
-    insetBlockStart: vars["--ads-space-20"],
-  },
-  viewportBottom: {
-    insetBlockEnd: vars["--ads-space-20"],
-  },
-  viewportLeft: {
-    insetInlineStart: vars["--ads-space-20"],
-  },
-  viewportRight: {
-    insetInlineEnd: vars["--ads-space-20"],
-  },
-  viewportCenter: {
-    insetInlineStart: "50%",
-    transform: "translateX(-50%)",
-  },
-  toast: {
-    backgroundColor: vars["--ads-color-surface-raised"],
-    blockSize: "var(--toast-height)",
-    borderColor: vars["--ads-color-media-edge"],
-    borderRadius: vars["--ads-radius-panel"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    // elevation4 — a toast is a detached global surface: it sits on the highest
-    // z band (`zIndexToast`) precisely so feedback is never occluded, and it
-    // floats over whatever is already on screen. elevation3 gave it a
-    // dropdown's depth (tokens.stylex.ts elevation policy).
-    boxShadow: vars["--ads-elevation-modal"],
-    color: vars["--ads-color-text"],
-    inlineSize: "100%",
-    overflow: "hidden",
-    position: "absolute",
-    // Stacking transform + transitions live in `.atelier-toast-stack` (+`-top`).
-    userSelect: "none",
-  },
-  toastBottom: {
-    insetBlockEnd: 0,
-    insetInlineEnd: 0,
-    insetInlineStart: "auto",
-    transformOrigin: "bottom center",
-  },
-  toastTop: {
-    insetBlockStart: 0,
-    insetInlineEnd: 0,
-    insetInlineStart: "auto",
-    transformOrigin: "top center",
-  },
-  toastLimited: {
-    opacity: 0,
-  },
-  // Column: the main row, then the multi-line action row underneath it. The
-  // action row is a sibling of the row rather than a child of `copy` so it
-  // spans the close column too; nesting it in `copy` inset its trailing edge
-  // by the close button's width plus the row gap.
-  content: {
-    display: "flex",
-    flexDirection: "column",
-    paddingBlock: vars["--ads-space-12"],
-    paddingInline: vars["--ads-space-16"],
-  },
-  // Flex row: [icon?] [copy 1fr] [inline action?] [close]. Single-line
-  // toasts center everything; multi-line toasts top-align the trailing chrome.
-  row: {
-    alignItems: "center",
-    display: "flex",
-    gap: vars["--ads-space-8"],
-  },
-  rowMultiline: {
-    alignItems: "flex-start",
-  },
-  // Tone reads from the icon (neutral card), matching Alert/Banner. The slot is
-  // a centring box so the glyph never needs a hand nudge.
-  icon: {
-    alignItems: "center",
-    display: "inline-flex",
-    flexShrink: 0,
-    justifyContent: "center",
-  },
-  iconMultiline: {
-    // A multi-line toast top-aligns its row, so the glyph must centre on the
-    // title's FIRST line box, not on the whole card. Giving the slot exactly
-    // that line box (title font size × its line height) and letting flex centre
-    // the glyph inside it replaces the banned `marginBlockStart: 1` optical
-    // nudge — and it now tracks the type scale instead of one hard-coded pixel.
-    alignSelf: "start",
-    blockSize: `calc(${vars["--ads-font-size-body"]} * ${vars["--ads-line-height-tight"]})`,
-  },
-  iconInfo: { color: vars["--ads-color-info"] },
-  iconLoading: { color: vars["--ads-color-text-muted"] },
-  iconSuccess: { color: vars["--ads-color-success"] },
-  iconWarning: { color: vars["--ads-color-warning"] },
-  iconDanger: { color: vars["--ads-color-danger"] },
-  copy: {
-    display: "grid",
-    flexGrow: 1,
-    flexShrink: 1,
-    gap: vars["--ads-space-4"],
-    minInlineSize: 0,
-  },
-  title: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    lineHeight: vars["--ads-line-height-tight"],
-    margin: 0,
-  },
-  description: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-body"],
-    lineHeight: vars["--ads-line-height-normal"],
-    margin: 0,
-  },
-  // Bottom-end action row for multi-line toasts (toast-stack anatomy). It sits
-  // outside the row so the button's trailing edge is flush with the card's
-  // inline padding, aligned with the close button above it.
-  actionRow: {
-    display: "flex",
-    justifyContent: "flex-end",
-    marginBlockStart: vars["--ads-space-12"],
-  },
-});
-
-const toneIconStyles = {
-  danger: styles.iconDanger,
-  info: styles.iconInfo,
-  loading: styles.iconLoading,
-  success: styles.iconSuccess,
-  warning: styles.iconWarning,
-} as const;

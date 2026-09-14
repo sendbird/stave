@@ -21,39 +21,39 @@ import {
   controlSquares,
 } from "../recipes/control-metrics";
 import { focusRing } from "../recipes/focus-ring";
+import {
+  type OverlayContentDensity,
+  overlayContentDensity,
+  overlayDensityTier,
+  overlaySurface,
+  overlayTitleGroupDensity,
+} from "../recipes/overlay-surface";
 import { surfaceChrome } from "../recipes/surface-chrome";
 import { transition } from "../recipes/transition";
+import {
+  PortalProductThemeScope,
+  usePortalProductThemeProps,
+} from "../theming/ProductThemeProvider";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import {
   POPUP_SIDE_OFFSET,
   type PopupPlacement,
   resolvePlacement,
 } from "../utils/placement";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 
 export type PopoverTriggerSize = "sm" | "md" | "lg";
 
-/**
- * Internal air inside the anchored panel.
- *
- * `flush` zeroes the panel's own `padding` AND `gap` so content that draws its
- * own section rules, dividers, or full-bleed rows can reach the surface border
- * instead of stopping a padding step short. The header keeps ONE gutter of its
- * own (`headerFlush`) and the content below owes the same inline gutter, so the
- * panel still has a single inner scale — the double inset a host used to get by
- * zeroing `padding` from the outside and re-padding every section at a
- * different value.
- *
- * It is a content-tier value: a modal's padding is its margin from the screen,
- * so there is no flush modal.
- */
-export type PopoverDensity = "flush" | "regular";
-
 export type PopoverProps = Omit<PopoverRootProps, "children"> & {
   children: React.ReactNode;
-  /** Internal surface air. @default "regular" */
-  density?: PopoverDensity;
   description?: React.ReactNode;
+  /**
+   * Internal surface air. `flush` removes the panel's own padding and gap so
+   * the content can run its rules and rows edge to edge; the header keeps one
+   * gutter of its own and the body owns the rest. @default "regular"
+   */
+  density?: OverlayContentDensity;
   /** Where the panel opens against its trigger. @default "bottom-start" */
   placement?: PopupPlacement;
   title: React.ReactNode;
@@ -65,102 +65,141 @@ export type PopoverProps = Omit<PopoverRootProps, "children"> & {
    * @default "md"
    */
   triggerSize?: PopoverTriggerSize;
-};
+} & XstyleProp;
 
 export function Popover({
   children,
-  density = "regular",
   description,
+  density = "regular",
   placement,
   title,
   trigger,
   triggerSize = "md",
+  xstyle,
   ...props
 }: PopoverProps) {
   const anchored = resolvePlacement(placement);
   const flush = density === "flush";
+  // The trigger stays in the provider's tree; only the popup portals out, so
+  // only the popup carries the brand across the portal (see Dialog).
+  const triggerTheme = themeProps("popover-trigger", { size: triggerSize });
+  const popupTheme = themeProps("popover-popup", { density });
+  const portalTheme = usePortalProductThemeProps();
   return (
     <PopoverRoot {...props}>
       <PopoverTrigger
+        {...triggerTheme}
         className={(state) =>
-          sx(
-            styles.trigger,
-            triggerSizeStyles[triggerSize],
-            // Color state comes from the shared control chrome so the trigger
-            // reacts exactly like the `Button variant="secondary"` it visually
-            // quotes (§2), and stays visibly held while the popup is open.
-            controlChrome.trigger,
-            controlChrome.triggerFocusBorder,
-            transition.colors,
-            focusRing.borderOnly,
-            controlHeightBySize[triggerSize],
-            state.open && controlChrome.triggerOpen,
+          cx(
+            sx(
+              styles.trigger,
+              triggerSizeStyles[triggerSize],
+              // Color state comes from the shared control chrome so the trigger
+              // reacts exactly like the `Button variant="secondary"` it visually
+              // quotes (§2), and stays visibly held while the popup is open.
+              controlChrome.trigger,
+              controlChrome.triggerFocusBorder,
+              transition.colors,
+              focusRing.borderOnly,
+              controlHeightBySize[triggerSize],
+              state.open && controlChrome.triggerOpen,
+            ),
+            triggerTheme.className,
           )
         }
       >
         {trigger}
       </PopoverTrigger>
       <PopoverPortal>
-        <PopoverPositioner
-          align={anchored.align}
-          className={sx(styles.positioner)}
-          side={anchored.side}
-          sideOffset={POPUP_SIDE_OFFSET}
-        >
-          <PopoverPopup
-            className={cx(
-              sx(styles.surface, styles.popup, flush && styles.popupFlush),
-              "atelier-motion-dropdown",
-            )}
+        <PortalProductThemeScope>
+          <PopoverPositioner
+            align={anchored.align}
+            className={sx(styles.positioner)}
+            side={anchored.side}
+            sideOffset={POPUP_SIDE_OFFSET}
           >
-            <PopoverArrow className={sx(styles.arrow)} />
-            <div className={sx(styles.header, flush && styles.headerFlush)}>
-              <div className={sx(styles.titleGroup)}>
-                <PopoverTitle className={sx(styles.title)}>
-                  {title}
-                </PopoverTitle>
-                {description ? (
-                  <PopoverDescription className={sx(styles.description)}>
-                    {description}
-                  </PopoverDescription>
-                ) : null}
-              </div>
-              <PopoverClose
-                className={sx(
-                  surfaceChrome.quietIconButton,
-                  controlSquares.sm,
-                  focusRing.ring,
-                )}
-                aria-label="Close"
-                // 16px glyph in the 32px quiet square, same as Dialog's close —
-                // it shipped at 14px, which read as a different (weaker) button
-                // on an otherwise identical surface. Sized through the tokenized
-                // control-icon custom property rather than a literal `size`.
-                data-ads-control-icon-button="true"
-                style={
-                  {
-                    "--ads-control-icon-size": controlIconSizes.md,
-                  } as React.CSSProperties
-                }
-              >
-                <X aria-hidden />
-              </PopoverClose>
-            </div>
-            <div
-              className={sx(
-                styles.body,
-                // No gutter on a flush surface: the ring bleed is paid for by
-                // the popup's padding, and a flush popup has none. A focusable
-                // row inside a flush popover therefore composes
-                // `focusRing.ringInset`, the same answer the `line` tab strip
-                // gives for the same reason.
-                !flush && focusRing.gutter,
+            <PopoverPopup
+              {...portalTheme}
+              {...popupTheme}
+              className={cx(
+                sx(
+                  overlaySurface.anchored,
+                  styles.popup,
+                  overlayContentDensity[density],
+                  xstyle,
+                ),
+                popupTheme.className,
+                "atelier-motion-dropdown",
               )}
             >
-              {children}
-            </div>
-          </PopoverPopup>
-        </PopoverPositioner>
+              <PopoverArrow
+                {...themeSlotProps("popover-popup", "arrow")}
+                className={sx(styles.arrow)}
+              />
+              <div
+                {...themeSlotProps("popover-popup", "header")}
+                className={sx(styles.header, flush && styles.headerFlush)}
+              >
+                <div
+                  className={sx(
+                    styles.titleGroup,
+                    overlayTitleGroupDensity[overlayDensityTier(density)],
+                  )}
+                >
+                  <PopoverTitle
+                    {...themeSlotProps("popover-popup", "title")}
+                    className={sx(styles.title)}
+                  >
+                    {title}
+                  </PopoverTitle>
+                  {description ? (
+                    <PopoverDescription
+                      {...themeSlotProps("popover-popup", "description")}
+                      className={sx(styles.description)}
+                    >
+                      {description}
+                    </PopoverDescription>
+                  ) : null}
+                </div>
+                <PopoverClose
+                  {...themeSlotProps("popover-popup", "close")}
+                  className={sx(
+                    surfaceChrome.quietIconButton,
+                    controlSquares.sm,
+                    focusRing.ring,
+                  )}
+                  aria-label="Close"
+                  // 16px glyph in the 32px quiet square, same as Dialog's close —
+                  // it shipped at 14px, which read as a different (weaker) button
+                  // on an otherwise identical surface. Sized through the tokenized
+                  // control-icon custom property rather than a literal `size`.
+                  data-ads-control-icon-button="true"
+                  style={
+                    {
+                      "--ads-control-icon-size": controlIconSizes.md,
+                    } as React.CSSProperties
+                  }
+                >
+                  <X aria-hidden />
+                </PopoverClose>
+              </div>
+              <div
+                {...themeSlotProps("popover-popup", "body")}
+                className={sx(
+                  styles.body,
+                  // No gutter on a flush surface: the ring bleed is paid for by
+                  // the popup's padding, and a flush popup has none. A focusable
+                  // row inside a flush popover therefore composes
+                  // `focusRing.ringInset`, the same answer the `line` tab strip
+                  // gives for the same reason.
+                  flush ? styles.bodyFlush : focusRing.gutter,
+                )}
+              >
+                {children}
+              </div>
+            </PopoverPopup>
+          </PopoverPositioner>
+        </PortalProductThemeScope>
       </PopoverPortal>
     </PopoverRoot>
   );
@@ -201,21 +240,11 @@ const styles = stylex.create({
   positioner: {
     zIndex: vars["--ads-z-index-dropdown"],
   },
-  surface: {
-    backgroundColor: vars["--ads-color-surface-raised"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-panel"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
+  popup: {
     // elevationOverlay — a popover is a transient popup anchored to its trigger, not
     // a detached global surface (elevationModal). Confirmed against the elevation
     // policy in tokens.stylex.ts; unchanged.
-    boxShadow: vars["--ads-elevation-overlay"],
-    color: vars["--ads-color-text"],
-  },
-  popup: {
     display: "grid",
-    gap: vars["--ads-space-16"],
     // Header stays put; the body row is the one that shrinks and scrolls when
     // the anchored clamp below bites. (The Arrow is `position: absolute` via
     // Base UI, so it is out of flow and not a grid row.)
@@ -233,14 +262,6 @@ const styles = stylex.create({
     // *content* surface, so it pads with `space16` — one step under Dialog's
     // `space20`, because an anchored 340px panel next to its trigger needs less
     // margin than a centered modal that owns the screen.
-    padding: vars["--ads-space-16"],
-  },
-  // Both properties, not just `padding`: a grid surface with a surviving `gap`
-  // still insets its own rows from each other, so section dividers would stop
-  // short of one another even after the padding went to zero.
-  popupFlush: {
-    gap: 0,
-    padding: 0,
   },
   arrow: {
     color: vars["--ads-color-surface-raised"],
@@ -253,11 +274,11 @@ const styles = stylex.create({
   },
   /**
    * The header's own gutter on a `flush` surface, and the ONE inner gutter the
-   * flush anatomy declares: `space16` inline (the padding the regular surface
-   * would have paid) with `space12` under it, so a body that opens with a rule
-   * meets the header at a hairline instead of floating below a full padding
-   * step. Content below owns the same `space16` inline gutter — one scale for
-   * the whole panel, which is what keeps the rules aligned.
+   * flush anatomy declares: `space16` inline (the padding the regular content
+   * tier would have paid) with `space12` under the title group, so a body that
+   * opens with a rule meets the header at a hairline instead of floating below
+   * a full padding step. Content below owns the same `space16` inline gutter —
+   * one scale for the whole panel, which is what keeps the rules aligned.
    */
   headerFlush: {
     paddingBlockEnd: vars["--ads-space-12"],
@@ -266,7 +287,6 @@ const styles = stylex.create({
   },
   titleGroup: {
     display: "grid",
-    gap: vars["--ads-space-4"],
   },
   // Overlay-surface title role (§5): 17px semibold on the 24px heading line
   // box with snug tracking — identical to Dialog/AlertDialog/Drawer. It used to
@@ -300,6 +320,11 @@ const styles = stylex.create({
     minBlockSize: 0,
     overflowY: "auto",
   },
+  // A flush body is a scroller with no gutter of its own; its children draw
+  // their own edge-to-edge rules and pay their own inline padding.
+  bodyFlush: {
+    paddingInline: 0,
+  },
 });
 
 const triggerSizeStyles = {
@@ -308,4 +333,6 @@ const triggerSizeStyles = {
   sm: styles.triggerSm,
 } as const;
 
+// Host modification: `../../ui/popover` composes Popover's canonical keys for
+// its compound API, so the style object stays exported.
 export { styles as popoverStyles };

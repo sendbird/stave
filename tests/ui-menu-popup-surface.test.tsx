@@ -1,5 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import * as React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import {
   ContextMenuContent,
   ContextMenuItem,
@@ -49,6 +50,30 @@ function resolveClassName(value: unknown, state: unknown = {}) {
     : ((value as string | undefined) ?? "");
 }
 
+/**
+ * The class an ADS part would put on its Base UI child, without rendering that
+ * child.
+ *
+ * `Menu.Popup` reads the menu density from context now, so it can no longer be
+ * invoked as a plain function; and its Base UI child refuses to render outside
+ * `Menu.Portal` / `Menu.Positioner`, which are no-ops under `react-dom/server`.
+ * Calling the part inside another component's body is what satisfies both: the
+ * hook resolves against the probe's own render, and the element it returns is
+ * inspected rather than mounted.
+ */
+function classNameOf(part: unknown, props: Record<string, unknown>) {
+  let resolved = "";
+  function Probe() {
+    const element = (part as (p: unknown) => React.ReactElement)(props);
+    resolved = resolveClassName(
+      (element.props as { className?: unknown }).className,
+    );
+    return null;
+  }
+  renderToStaticMarkup(React.createElement(Probe));
+  return resolved;
+}
+
 const popupClasses = sx(menu.popup).split(" ").filter(Boolean);
 
 describe.each([
@@ -82,10 +107,7 @@ describe.each([
     // `elevationOverlay`) plus the ADS open/close motion class. A shim that
     // renders a bare Base UI popup, or overrides the class instead of
     // composing it, is the regression this pins.
-    const rendered = resolveClassName(
-      (AdsMenu.Popup as (props: unknown) => React.ReactElement)(popup).props
-        .className,
-    ).split(" ");
+    const rendered = classNameOf(AdsMenu.Popup, popup).split(" ");
     for (const cls of popupClasses) expect(rendered).toContain(cls);
     expect(rendered).toContain("atelier-motion-dropdown");
   });

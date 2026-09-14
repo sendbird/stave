@@ -7,6 +7,7 @@ import { Dialog as SheetPrimitive } from "@base-ui/react/dialog";
 
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { drawerStyles } from "../ads/components/Drawer";
+import { overlaySurface } from "../ads/recipes/overlay-surface";
 import { sx, type StyleXValue } from "../ads/utils/stylex";
 import { cx } from "../ads/utils/stylex";
 import { mergeClassName } from "../ads/components/merge-class-name";
@@ -70,7 +71,7 @@ function SheetContent({
             cx(
               UI_LAYER_CLASS.dialog,
               sx(
-                drawerStyles.surface,
+                overlaySurface.modal,
                 sheetLayout.surface,
                 transition.slide,
                 transition.motionDurationNormal,

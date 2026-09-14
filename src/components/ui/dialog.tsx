@@ -7,7 +7,8 @@ import * as React from "react";
 import { Dialog as DialogPrimitive } from "@base-ui/react/dialog";
 
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { Dialog as AdsDialog, dialogStyles } from "../ads/components/Dialog";
+import { Dialog as AdsDialog } from "../ads/components/Dialog";
+import { overlaySurface } from "../ads/recipes/overlay-surface";
 import { sx } from "../ads/utils/stylex";
 import { cx } from "../ads/utils/stylex";
 import { mergeClassName } from "../ads/components/merge-class-name";
@@ -68,7 +69,12 @@ function DialogContent({
             cx(
               UI_LAYER_CLASS.dialog,
               "t-modal",
-              sx(dialogStyles.surface, overlayLayout.dialog, xstyle),
+              sx(
+                overlaySurface.modal,
+                overlaySurface.modalRounded,
+                overlayLayout.dialog,
+                xstyle,
+              ),
             ) ?? "",
           className,
         )}

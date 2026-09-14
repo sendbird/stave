@@ -1,6 +1,6 @@
 import { FolderOpen } from "lucide-react";
 import { useState, type FormEvent, type KeyboardEvent } from "react";
-import { dialogStyles } from "@/components/ads/components/Dialog";
+import { overlaySurface } from "@/components/ads/recipes/overlay-surface";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { Button, Input } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
@@ -97,7 +97,11 @@ export function OpenPathDialog(args: OpenPathDialogProps) {
       onMouseDown={close}
     >
       <section
-        className={sx(dialogStyles.surface, openPathDialogStyles.panel)}
+        className={sx(
+          overlaySurface.modal,
+          overlaySurface.modalRounded,
+          openPathDialogStyles.panel,
+        )}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <form onSubmit={handleSubmit} onKeyDown={handleDialogKeyDown}>
