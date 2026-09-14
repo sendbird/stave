@@ -7,7 +7,8 @@ import { controlWidth } from "../recipes/control-width";
 import { focusRing } from "../recipes/focus-ring";
 import { menu } from "../recipes/menu";
 import { transition } from "../recipes/transition";
-import { cx, sx } from "../utils/stylex";
+import { themeProps } from "../theming/theme-props";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 
 /**
  * `quiet` is the borderless "reveals itself on hover" weight — the same
@@ -44,7 +45,7 @@ export type MenuTriggerProps = Omit<
   size?: MenuTriggerSize;
   /** Visual treatment for standalone controls vs. triggers embedded in toolbars. */
   variant?: MenuTriggerVariant;
-};
+} & XstyleProp;
 
 // Inline gutter per size, from the shared recipe (Button parity).
 const triggerSizeStyles = {
@@ -63,6 +64,7 @@ export function MenuTriggerPart({
   fullWidth = false,
   size,
   variant = "default",
+  xstyle,
   ...props
 }: MenuTriggerProps) {
   // One weight, two spellings; `ghost` is the deprecated one. Resolved once,
@@ -71,9 +73,19 @@ export function MenuTriggerPart({
   const resolvedSize = size ?? (quiet ? "sm" : "md");
   const styled = variant !== "unstyled";
 
+  // The stable target reflects the RESOLVED rung (see the registry): `size` is
+  // undefined on most triggers and its default depends on the weight, so the
+  // caller's raw prop would leave the axis absent on exactly the triggers a
+  // brand most wants to reach. An `unstyled` trigger is the caller's own
+  // control and carries no target class at all.
+  const theme = styled
+    ? themeProps("menu-trigger", { size: resolvedSize, variant })
+    : undefined;
+
   return (
     <MenuTrigger
       {...props}
+      {...theme}
       className={(state) =>
         cx(
           sx(
@@ -91,7 +103,9 @@ export function MenuTriggerPart({
             styled && focusRing.ring,
             styled && controlHeightBySize[resolvedSize],
             styled && state.open && controlChrome.triggerOpen,
+            xstyle,
           ),
+          theme?.className,
           typeof className === "function" ? className(state) : className,
         )
       }

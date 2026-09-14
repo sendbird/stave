@@ -1,5 +1,7 @@
+import { themeSlotProps } from "../theming/theme-props";
 import { sx } from "../utils/stylex";
 import { styles } from "./Command.styles";
+import { Kbd } from "./Kbd";
 
 /**
  * `CommandDialog`'s default hint footer (⌘↑↓/⏎/esc) — shown whenever the
@@ -8,19 +10,32 @@ import { styles } from "./Command.styles";
  */
 export function CommandFooterHint() {
   return (
-    <div aria-hidden className={sx(styles.footer)}>
-      <span className={sx(styles.hint)}>
-        <kbd className={sx(styles.footerKbd)}>↑</kbd>
-        <kbd className={sx(styles.footerKbd)}>↓</kbd>
+    <div
+      aria-hidden
+      {...themeSlotProps("command-dialog", "footer")}
+      className={sx(styles.footer)}
+    >
+      <span
+        {...themeSlotProps("command-dialog", "hint")}
+        className={sx(styles.hint)}
+      >
+        <Kbd size="sm">↑</Kbd>
+        <Kbd size="sm">↓</Kbd>
         navigate
       </span>
-      <span className={sx(styles.hint)}>
-        <kbd className={sx(styles.footerKbd)}>↵</kbd>
+      <span
+        {...themeSlotProps("command-dialog", "hint")}
+        className={sx(styles.hint)}
+      >
+        <Kbd size="sm">↵</Kbd>
         select
       </span>
-      <span className={sx(styles.hint)}>
-        <kbd className={sx(styles.footerKbd)}>esc</kbd>
-        close
+      <span
+        {...themeSlotProps("command-dialog", "hint")}
+        className={sx(styles.hint)}
+      >
+        <Kbd size="sm">esc</Kbd>
+        back / close
       </span>
     </div>
   );

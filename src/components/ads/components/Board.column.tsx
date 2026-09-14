@@ -2,6 +2,7 @@ import { Children, useCallback } from "react";
 import type * as React from "react";
 
 import { transition } from "../recipes/transition";
+import { themeSlotProps, themeTargetClassName } from "../theming/theme-props";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { useBoardContext } from "./Board.context";
 import { styles } from "./Board.styles";
@@ -55,15 +56,29 @@ export function BoardColumn({
           highlighted && styles.columnActive,
           xstyle,
         ),
+        themeTargetClassName("board-column"),
         className,
       )}
       data-board-column-id={id}
       ref={registerRef}
     >
-      <header className={sx(styles.columnHeader)}>
-        <span className={sx(styles.columnTitle)}>{title}</span>
+      <header
+        {...themeSlotProps("board-column", "header")}
+        className={sx(styles.columnHeader)}
+      >
+        <span
+          {...themeSlotProps("board-column", "title")}
+          className={sx(styles.columnTitle)}
+        >
+          {title}
+        </span>
         {count !== undefined ? (
-          <span className={sx(styles.columnCount)}>{count}</span>
+          <span
+            {...themeSlotProps("board-column", "count")}
+            className={sx(styles.columnCount)}
+          >
+            {count}
+          </span>
         ) : null}
         {actions != null ? (
           <div className={sx(styles.columnActions)}>{actions}</div>

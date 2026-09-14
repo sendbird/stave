@@ -3,8 +3,9 @@ import type * as React from "react";
 
 import type { SkeletonRootProps } from "../headless/skeleton";
 import { treeRowHeights } from "../recipes/control-metrics";
+import { themeProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 
 export type SkeletonProps = Omit<SkeletonRootProps, "className"> & {
   className?: string;
@@ -16,9 +17,19 @@ export type SkeletonProps = Omit<SkeletonRootProps, "className"> & {
   radius?: React.CSSProperties["borderRadius"];
   /** Number of text lines (last line is shortened). Only used by `variant="text"`. */
   lines?: number;
-  /** Placeholder shape: `block` (rect), `text` (line stack), `avatar` (circle). @default "block" */
-  variant?: "text" | "block" | "avatar";
-};
+  /**
+   * Placeholder shape. `block` (rect), `text` (line stack) and `avatar`
+   * (circle) are the originals; `chip`, `control` and `row` are shape-matched to
+   * the three things a loading product surface actually reserves space for.
+   *
+   * They exist because the alternative is what every consumer was writing:
+   * `<Skeleton height={24} radius={vars["--ads-radius-full"]} width={72} />` for a badge,
+   * repeated at every call site with a different guess at the width. A shape that
+   * ADS owns matches the component it stands in for and moves with it.
+   * @default "block"
+   */
+  variant?: "text" | "block" | "avatar" | "chip" | "control" | "row";
+} & XstyleProp;
 
 /**
  * Loading placeholder (baseline `Skeleton` anatomy). Use only inside a component
@@ -38,6 +49,7 @@ export function Skeleton({
   style,
   variant = "block",
   width,
+  xstyle,
   ...props
 }: SkeletonProps) {
   const placeholderStyle = {
@@ -50,17 +62,22 @@ export function Skeleton({
     ...(height === undefined ? {} : { blockSize: height }),
     ...(radius === undefined ? {} : { borderRadius: radius }),
   } as React.CSSProperties;
+  // The target lands on the blocks that paint, not on the stack that lays them
+  // out: a multi-line text skeleton is N placeholders in a grid, and a brand
+  // filling the grid instead would also fill the gaps between the lines.
+  const theme = themeProps("skeleton", { variant });
 
   if (variant === "text" && lines > 1) {
     return (
       <div
         {...props}
         aria-hidden
-        className={cx(sx(styles.stack), className)}
+        className={cx(sx(styles.stack, xstyle), className)}
         style={placeholderStyle}
       >
         {Array.from({ length: lines }).map((_, index) => (
           <span
+            {...theme}
             className={cx(
               sx(
                 styles.root,
@@ -68,6 +85,7 @@ export function Skeleton({
                 index === lines - 1 && styles.lastLine,
               ),
               "atelier-motion-skeleton",
+              theme.className,
             )}
             key={index}
             style={lineStyle}
@@ -80,10 +98,12 @@ export function Skeleton({
   return (
     <div
       {...props}
+      {...theme}
       aria-hidden
       className={cx(
-        sx(styles.root, variantStyles[variant]),
+        sx(styles.root, variantStyles[variant], xstyle),
         "atelier-motion-skeleton",
+        theme.className,
         className,
       )}
       style={placeholderStyle}
@@ -96,17 +116,22 @@ export type TreeSkeletonProps = React.ComponentProps<"div"> & {
   rows?: number;
   /** Match the rendered Tree density. @default "regular" */
   density?: "compact" | "regular";
-};
+} & XstyleProp;
 
 /** Shape-matched loading rows for a page tree/sidebar navigation surface. */
 export function TreeSkeleton({
   className,
   density = "regular",
   rows = 5,
+  xstyle,
   ...props
 }: TreeSkeletonProps) {
   return (
-    <div {...props} aria-hidden className={cx(sx(styles.tree), className)}>
+    <div
+      {...props}
+      aria-hidden
+      className={cx(sx(styles.tree, xstyle), className)}
+    >
       {Array.from({ length: rows }).map((_, index) => (
         <div
           className={sx(styles.treeRow, treeRowHeights[density])}
@@ -129,15 +154,20 @@ export function TreeSkeleton({
   );
 }
 
-export type PageHeaderSkeletonProps = React.ComponentProps<"div">;
+export type PageHeaderSkeletonProps = React.ComponentProps<"div"> & XstyleProp;
 
 /** Shape-matched loading state for the common breadcrumb/title/action header. */
 export function PageHeaderSkeleton({
   className,
+  xstyle,
   ...props
 }: PageHeaderSkeletonProps) {
   return (
-    <div {...props} aria-hidden className={cx(sx(styles.header), className)}>
+    <div
+      {...props}
+      aria-hidden
+      className={cx(sx(styles.header, xstyle), className)}
+    >
       <div className={sx(styles.headerCopy)}>
         <Skeleton height={12} variant="block" width="38%" />
         <Skeleton height={28} variant="block" width="54%" />
@@ -181,6 +211,27 @@ const styles = stylex.create({
     inlineSize: 40,
     minBlockSize: 40,
   },
+  /*
+   * Shape-matched rungs. Each one takes the geometry of the component it
+   * reserves space for, so a loading row does not resize when the real content
+   * arrives: `chip` is Badge's 24px pill, `control` is the 36px default control
+   * height with the control corner, and `row` is a table/list row's 20px text
+   * band at full width.
+   */
+  chip: {
+    borderRadius: vars["--ads-radius-full"],
+    inlineSize: 72,
+    minBlockSize: 24,
+  },
+  control: {
+    borderRadius: vars["--ads-radius-control"],
+    inlineSize: 96,
+    minBlockSize: vars["--ads-control-height"],
+  },
+  row: {
+    blockSize: 20,
+    inlineSize: "100%",
+  },
   stack: {
     display: "grid",
     gap: vars["--ads-space-8"],
@@ -221,5 +272,8 @@ const styles = stylex.create({
 const variantStyles = {
   avatar: styles.avatar,
   block: styles.block,
+  chip: styles.chip,
+  control: styles.control,
+  row: styles.row,
   text: styles.text,
 } as const;

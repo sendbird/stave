@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type * as React from "react";
 
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { LoaderMark } from "./Loader.parts";
@@ -66,10 +67,12 @@ export function Loader({
 }: LoaderProps) {
   const hidden =
     props["aria-hidden"] === true || props["aria-hidden"] === "true";
+  const theme = themeProps("loader", { tone });
 
   return (
     <span
       {...props}
+      {...theme}
       aria-label={
         hidden || showLabel
           ? props["aria-label"]
@@ -83,13 +86,21 @@ export function Loader({
           showLabel && styles.withLabel,
           xstyle,
         ),
+        theme.className,
         className,
       )}
       data-ads-loader-variant={variant}
       role={hidden ? undefined : (props.role ?? "status")}
     >
       <LoaderMark size={size} variant={variant} />
-      {showLabel ? <span className={sx(styles.label)}>{label}</span> : null}
+      {showLabel ? (
+        <span
+          className={sx(styles.label)}
+          {...themeSlotProps("loader", "label")}
+        >
+          {label}
+        </span>
+      ) : null}
     </span>
   );
 }

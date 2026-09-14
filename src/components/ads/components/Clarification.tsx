@@ -4,6 +4,7 @@ import * as React from "react";
 import { agentStatusWord, agentSurface } from "../recipes/agent-surface";
 import { focusRing } from "../recipes/focus-ring";
 import { transition } from "../recipes/transition";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { Button } from "./Button";
@@ -136,16 +137,20 @@ export function Clarification({
     action();
   };
 
+  const theme = themeProps("clarification");
+
   return (
     <section
       {...props}
+      {...theme}
       aria-busy={busy || undefined}
       aria-labelledby={titleId}
-      className={cx(sx(agentSurface.decision, xstyle), className)}
+      className={cx(sx(agentSurface.decision, xstyle), theme.className, className)}
       role="group"
     >
       <div className={sx(agentSurface.metaRow)}>
         <span
+          {...themeSlotProps("clarification", "title")}
           className={sx(agentSurface.metaRowLabel, styles.title)}
           id={titleId}
         >
@@ -162,6 +167,7 @@ export function Clarification({
           )}
           <span
             aria-describedby={audit ? auditId : undefined}
+            {...themeSlotProps("clarification", "status")}
             className={sx(
               styles.status,
               resolved ? resultTone[outcome.result] : agentStatusWord.warning,
@@ -179,7 +185,12 @@ export function Clarification({
         </span>
       </div>
       {description == null ? null : (
-        <p className={sx(styles.description)}>{description}</p>
+        <p
+          {...themeSlotProps("clarification", "description")}
+          className={sx(styles.description)}
+        >
+          {description}
+        </p>
       )}
       {resolved ? (
         audit ? (
@@ -294,7 +305,11 @@ const styles = stylex.create({
     overflowWrap: "anywhere",
   },
   fields: { display: "grid", gap: vars["--ads-space-12"], minInlineSize: 0 },
-  interaction: { display: "grid", gap: vars["--ads-space-12"], minInlineSize: 0 },
+  interaction: {
+    display: "grid",
+    gap: vars["--ads-space-12"],
+    minInlineSize: 0,
+  },
   actions: {
     alignItems: "center",
     display: "flex",

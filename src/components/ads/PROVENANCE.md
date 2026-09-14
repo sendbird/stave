@@ -281,3 +281,58 @@ Further host extensions:
   Base UI re-exports that declare nothing and so have no `xstyle` to offer.
   ADS records: `consumer-changes/2026-09-07-xstyle-host-style-composition-contract.json`,
   `consumer-changes/2026-09-08-xstyle-style-channel.json`.
+
+- The `theming/` module (32 files) and `tokens/theme-values.ts` were installed,
+  and 27 never-modified components were re-synced from ADS `589cfc4c`. Those 27
+  now emit stable theme targets — an `ads-<target>` class plus `data-variant` /
+  `data-size` / `data-tone` / `data-density` and `data-ads-slot` — through
+  `themeProps` / `themeSlotProps`. Nothing styles those selectors yet; they are
+  the addressing scheme a product theme would need, and the `ads-theme` cascade
+  layer reserved earlier is still empty. ADS records:
+  `consumer-changes/2026-09-09-stable-theme-targets.json`,
+  `consumer-changes/2026-09-09-scoped-product-themes.json`,
+  `consumer-changes/2026-09-09-theme-target-coverage.json`.
+
+  **This host does not adopt ProductTheme.** Stave's own theme system
+  (`src/lib/themes/`) stays the single theme authority: it is user-installable
+  at runtime as validated JSON, which a build-time CSS generator cannot express.
+  `defineProductTheme` and `ProductThemeProvider` are therefore installed but
+  unmounted, and `src/components/system/ads-theme.ts` remains the bridge from
+  ADS token roles onto Stave's palette.
+
+  That decision forced one host modification, in
+  `theming/ProductThemeProvider.tsx`. Upstream's `PortalProductThemeScope`
+  re-applies the mode and density token groups on the portal wrapper, because
+  upstream supports a provider scoped to a region and `@scope` cannot un-inherit
+  a custom property. Here the single root `ThemeProvider` already mirrors those
+  groups onto `document.documentElement` under `syncDocument`, and
+  `StaveDesignProvider` publishes the host palette mapping over them as inline
+  custom properties on `<html>`. A class on a closer element outranks an
+  inherited value, so the unconditional form would have replaced the user's
+  saved theme with the design system's stock palette inside every dialog, menu,
+  popover, drawer, select and tooltip. The groups are now applied only when a
+  brand is actually scoped; the attributes, `color-scheme` and the selection
+  pair are still re-established unconditionally, because those declare no token.
+  Guarded by `tests/ads-portal-theme-scope.test.tsx`, which fails if a later
+  re-sync restores the upstream form.
+
+- `Select.parts.tsx` carries a PARTIAL forward-port: the re-synced
+  `Select.array.tsx` passes `readOnly` to the trigger, so that prop and its
+  behaviour (`aria-readonly`, pointer/key interception, and
+  `controlChrome.readOnlyField` composed after `disabledField`) were taken from
+  upstream verbatim. The rest of the file still carries host edits and its
+  `xstyle`/`themeProps` changes are deliberately not taken; it needs a full
+  three-way merge in a later pass.
+
+- Still unapplied: 35 host-modified files whose upstream versions have moved
+  (`Button`, `Menu`, `Dialog`, `Drawer`, `Popover`, `Tooltip`, `Tabs`,
+  `ToastHost`, `Card`, `Badge`, `Table`, the field family, `Calendar`,
+  `Command`, `Breadcrumb`, `EmptyState`, `StepRail`, `Plan`, `DiffViewer`,
+  `ThemeProvider`, `styles.css`, `fonts.css`, `overlay-motion.css`,
+  `recipes/menu.ts`, `recipes/transition.ts`, `utils/stylex.ts` and their
+  style/type siblings). Each needs a three-way merge against the pristine
+  install baseline, not an overwrite. A mechanical batch attempt was reverted:
+  taken singly these files break each other (`Button.types.ts` introduces a
+  `dashed` variant `Button.styles.ts` has no styles for) and upstream compiles
+  without `noUncheckedIndexedAccess`, so wholesale copies reintroduce strict
+  errors this copy already fixed. Merge them as coherent groups.

@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import type * as React from "react";
 
+import { themeProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 
@@ -22,10 +23,16 @@ export type KbdProps = React.ComponentProps<"kbd"> & {
  * by side rather than packing a combo into one chip.
  */
 export function Kbd({ className, size = "md", xstyle, ...props }: KbdProps) {
+  const theme = themeProps("kbd", { size });
   return (
     <kbd
       {...props}
-      className={cx(sx(styles.root, sizeStyles[size], xstyle), className)}
+      {...theme}
+      className={cx(
+        sx(styles.root, sizeStyles[size], xstyle),
+        theme.className,
+        className,
+      )}
     />
   );
 }

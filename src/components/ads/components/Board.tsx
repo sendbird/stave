@@ -3,6 +3,7 @@ import type * as React from "react";
 
 import { useAtelierMotion } from "../motion";
 import { useCancelableHandle } from "../utils/pointer-gesture";
+import { themeProps } from "../theming/theme-props";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { BoardCard } from "./Board.card";
 import { BoardColumn } from "./Board.column";
@@ -125,8 +126,8 @@ function BoardRoot({
     (
       cardId: string,
       toColumnId: string,
-    toIndex: number,
-    options?: { refocus?: boolean },
+      toIndex: number,
+      options?: { refocus?: boolean },
     ): boolean => {
       if (!interactive || !onCardMove) return false;
       const layout = readLayout();
@@ -244,12 +245,15 @@ function BoardRoot({
     ],
   );
 
+  const theme = themeProps("board");
   return (
     <BoardContext.Provider value={context}>
       <div
         {...props}
+        {...theme}
         className={cx(
           sx(styles.board, fillHeight && styles.boardFillHeight, xstyle),
+          theme.className,
           className,
         )}
         ref={boardRef}

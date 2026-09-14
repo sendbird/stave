@@ -4,6 +4,7 @@ import * as React from "react";
 
 import { agentSurface } from "../recipes/agent-surface";
 import { controlIconSizes } from "../recipes/control-metrics";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { Button } from "./Button";
@@ -76,23 +77,29 @@ export function Checkpoint({
   ...props
 }: CheckpointProps) {
   const titleId = `${React.useId()}title`;
+  const theme = themeProps("checkpoint");
 
   return (
     <div
       {...props}
+      {...theme}
       aria-label={ariaLabel}
       // The visible title IS the name of this boundary, so point at it rather
       // than restating it in an `aria-label` that then goes stale — and that
       // would have to invent a generic fallback exactly when the caller passed
       // an element instead of a string, i.e. when they named it most precisely.
       aria-labelledby={ariaLabelledBy ?? (ariaLabel ? undefined : titleId)}
-      className={cx(sx(styles.root, xstyle), className)}
+      className={cx(sx(styles.root, xstyle), theme.className, className)}
       // `group`, not `separator`: `role="separator"` is a leaf and would hide
       // the Restore control from assistive tech, and not `region`, because a
       // transcript with twenty checkpoints would publish twenty landmarks.
       role="group"
     >
-      <span aria-hidden className={sx(styles.rule, styles.ruleLead)} />
+      <span
+        aria-hidden
+        {...themeSlotProps("checkpoint", "rule")}
+        className={sx(styles.rule, styles.ruleLead)}
+      />
       <span aria-hidden className={sx(styles.glyph)}>
         {/*
          * `Bookmark`, not a `WorkflowIcon`: that family is the issue
@@ -101,11 +108,20 @@ export function Checkpoint({
          */}
         <Bookmark size={controlIconSizes.sm} />
       </span>
-      <span className={sx(styles.title)} id={titleId}>
+      <span
+        {...themeSlotProps("checkpoint", "title")}
+        className={sx(styles.title)}
+        id={titleId}
+      >
         {title}
       </span>
       {description == null ? null : (
-        <span className={sx(styles.description)}>{description}</span>
+        <span
+          {...themeSlotProps("checkpoint", "description")}
+          className={sx(styles.description)}
+        >
+          {description}
+        </span>
       )}
       {meta == null ? null : (
         <span className={sx(agentSurface.meta, styles.meta)}>{meta}</span>
@@ -133,7 +149,11 @@ export function Checkpoint({
           </Button>
         </span>
       )}
-      <span aria-hidden className={sx(styles.rule, styles.ruleTrail)} />
+      <span
+        aria-hidden
+        {...themeSlotProps("checkpoint", "rule")}
+        className={sx(styles.rule, styles.ruleTrail)}
+      />
     </div>
   );
 }

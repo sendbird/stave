@@ -1,21 +1,25 @@
 import * as stylex from "@stylexjs/stylex";
 import type * as React from "react";
 
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 
 export type VisuallyHiddenProps = React.ComponentProps<"span"> & {
   focusable?: boolean;
-};
+} & XstyleProp;
 
 export function VisuallyHidden({
   className,
   focusable = false,
+  xstyle,
   ...props
 }: VisuallyHiddenProps) {
   return (
     <span
       {...props}
-      className={cx(sx(styles.root, focusable && styles.focusable), className)}
+      className={cx(
+        sx(styles.root, focusable && styles.focusable, xstyle),
+        className,
+      )}
     />
   );
 }

@@ -2,8 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import * as React from "react";
 
 import { transition } from "../recipes/transition";
+import { themeTargetClassName } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
-import { sx, type XstyleProp } from "../utils/stylex";
+import { sx, cx, type XstyleProp } from "../utils/stylex";
 import { Loader } from "./Loader";
 import { VisuallyHidden } from "./VisuallyHidden";
 
@@ -94,7 +95,13 @@ export function PlanStatusMark({
 }: { status: PlanStepStatus } & XstyleProp) {
   if (status === "running") {
     return (
-      <span aria-hidden className={sx(markStyles.slot, xstyle)}>
+      <span
+        aria-hidden
+        className={cx(
+          sx(markStyles.slot, xstyle),
+          themeTargetClassName("plan-status-mark"),
+        )}
+      >
         <Loader aria-hidden label="Running" size="xs" tone="neutral" />
       </span>
     );
@@ -103,11 +110,9 @@ export function PlanStatusMark({
   return (
     <span
       aria-hidden
-      className={sx(
-        markStyles.slot,
-        markStyles[status],
-        transition.colors,
-        xstyle,
+      className={cx(
+        sx(markStyles.slot, markStyles[status], transition.colors, xstyle),
+        themeTargetClassName("plan-status-mark"),
       )}
     >
       <svg

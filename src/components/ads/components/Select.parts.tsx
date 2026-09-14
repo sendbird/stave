@@ -82,18 +82,65 @@ export type SelectTriggerProps = React.ComponentProps<typeof SelectTrigger> & {
   /** Tints the border with the invalid tone. Composed here, not by a caller's
    * `className`: the package's own classes win on CSS source order. */
   invalid?: boolean;
+  /**
+   * The value is settled and cannot be changed here — a locked assignee, a field
+   * the caller's role may read but not edit.
+   *
+   * It is NOT `disabled`: a disabled control is unavailable, a read-only one is
+   * simply not yours to change, and the two must not look alike. This composes
+   * `controlChrome.readOnlyField`, the same chrome `TextField`, `Textarea`,
+   * `NumberField`, `InputGroup`, `Field` and `DatePicker` already use, so the
+   * whole field family says it one way.
+   *
+   * Host adaptation: forward-ported from upstream `Select.parts.tsx` because the
+   * re-synced `Select.array.tsx` passes `readOnly` to this trigger. Only the
+   * read-only support is taken; the rest of this file still carries host edits
+   * and is left for the later three-way merge.
+   */
+  readOnly?: boolean;
   size?: SelectSize;
 };
 
 function Trigger({
   className,
   invalid = false,
+  readOnly = false,
   size: resolvedSize = "md",
   ...props
 }: SelectTriggerProps) {
   return (
     <SelectTrigger
       {...props}
+      aria-readonly={readOnly || undefined}
+      /*
+       * A read-only Select does not open. Blocking the pointer/keyboard here
+       * rather than passing `disabled` keeps the control focusable and its value
+       * announced — the difference between "not yours to change" and "unavailable".
+       */
+      onPointerDown={
+        readOnly
+          ? (event) => {
+              // Base UI opens the popup on pointer DOWN, so intercepting click
+              // was measurably too late — the listbox was already mounted.
+              event.preventDefault();
+              props.onPointerDown?.(event);
+            }
+          : props.onPointerDown
+      }
+      onKeyDown={
+        readOnly
+          ? (event) => {
+              if (
+                event.key === "Enter" ||
+                event.key === " " ||
+                event.key === "ArrowDown"
+              ) {
+                event.preventDefault();
+              }
+              props.onKeyDown?.(event);
+            }
+          : props.onKeyDown
+      }
       className={mergeClassName(
         (state) =>
           sx(
@@ -124,6 +171,9 @@ function Trigger({
             // `disabledField` so a disabled control still reads as disabled.
             invalid && styles.triggerError,
             state.disabled && controlChrome.disabledField,
+            // After `disabledField`: a control that is both disabled and
+            // read-only is disabled first, and reads that way.
+            readOnly && !state.disabled && controlChrome.readOnlyField,
           ),
         className,
       )}

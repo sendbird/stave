@@ -1,4 +1,5 @@
-/*
+@layer ads {
+  /*
  * DataTable reveal-on-intent chrome.
  *
  * Both blocks below key off an ANCESTOR's hover/focus, which StyleX's
@@ -8,36 +9,36 @@
  * `overlay-motion.css` does.
  */
 
-/*
+  /*
  * DataTable bulk selection stays available without visually dominating every
  * row. Reveal checkboxes when the table/row is intentionally targeted, while
  * keeping selected rows persistently visible.
  */
-.ads-data-table--selectable .ads-data-table__selection-checkbox {
-  opacity: 0;
-  transition: opacity var(--atelier-motion-duration-fast)
-    var(--atelier-motion-ease-standard);
-}
-
-.ads-data-table--selectable:focus-within .ads-data-table__selection-checkbox,
-.ads-data-table--selection-active .ads-data-table__selection-checkbox,
-.ads-data-table--selectable tr:hover .ads-data-table__selection-checkbox,
-.ads-data-table--selectable th:hover .ads-data-table__selection-checkbox,
-.ads-data-table--selectable
-  tr[data-selected="true"]
-  .ads-data-table__selection-checkbox,
-.ads-data-table__selection-checkbox:checked,
-.ads-data-table__selection-checkbox:focus-visible {
-  opacity: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
   .ads-data-table--selectable .ads-data-table__selection-checkbox {
-    transition: none;
+    opacity: 0;
+    transition: opacity var(--atelier-motion-duration-fast)
+      var(--atelier-motion-ease-standard);
   }
-}
 
-/*
+  .ads-data-table--selectable:focus-within .ads-data-table__selection-checkbox,
+  .ads-data-table--selection-active .ads-data-table__selection-checkbox,
+  .ads-data-table--selectable tr:hover .ads-data-table__selection-checkbox,
+  .ads-data-table--selectable th:hover .ads-data-table__selection-checkbox,
+  .ads-data-table--selectable
+    tr[data-selected="true"]
+    .ads-data-table__selection-checkbox,
+  .ads-data-table__selection-checkbox:checked,
+  .ads-data-table__selection-checkbox:focus-visible {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .ads-data-table--selectable .ads-data-table__selection-checkbox {
+      transition: none;
+    }
+  }
+
+  /*
  * Same reveal contract as the selection checkboxes above, for the neutral sort
  * glyph. An unsorted sortable column painted its up/down chevron at full
  * strength, so every header shouted "sortable" and the ONE column actually
@@ -48,19 +49,20 @@
  * In CSS rather than StyleX because the trigger is an ANCESTOR's hover/focus
  * (`th:hover`), which StyleX's per-element conditions cannot express.
  */
-[data-ads-sort-indicator="idle"] {
-  opacity: 0;
-  transition: opacity var(--atelier-motion-duration-fast)
-    var(--atelier-motion-ease-standard);
-}
-
-th:hover [data-ads-sort-indicator="idle"],
-th:focus-within [data-ads-sort-indicator="idle"] {
-  opacity: 1;
-}
-
-@media (prefers-reduced-motion: reduce) {
   [data-ads-sort-indicator="idle"] {
-    transition: none;
+    opacity: 0;
+    transition: opacity var(--atelier-motion-duration-fast)
+      var(--atelier-motion-ease-standard);
+  }
+
+  th:hover [data-ads-sort-indicator="idle"],
+  th:focus-within [data-ads-sort-indicator="idle"] {
+    opacity: 1;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    [data-ads-sort-indicator="idle"] {
+      transition: none;
+    }
   }
 }
