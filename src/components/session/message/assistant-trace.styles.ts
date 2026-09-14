@@ -26,20 +26,20 @@ export const assistantTraceStyles = stylex.create({
     fontSize: "0.8em",
     gap: 6,
     lineHeight: 1,
-    marginLeft: vars.space4,
+    marginLeft: vars["--ads-space-4"],
   },
   diffFiles: {
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
+    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 70%, transparent)`,
   },
   diffAdded: {
-    color: vars.colorDiffAddedText,
+    color: vars["--ads-color-diff-added-text"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars.fontWeightMedium,
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   diffRemoved: {
-    color: vars.colorDiffRemovedText,
+    color: vars["--ads-color-diff-removed-text"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars.fontWeightMedium,
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   // Assistant-text bullet row.
   rowMotionLegacy: {
@@ -62,7 +62,7 @@ export const assistantTraceStyles = stylex.create({
     transformOrigin: "top",
   },
   assistantTextRow: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     display: "flex",
     fontSize: "0.875em",
     gap: "0.7em",
@@ -97,20 +97,20 @@ export const assistantTraceStyles = stylex.create({
   assistantTextBody: {
     flex: 1,
     minWidth: 0,
-    paddingBottom: vars.space8,
-    paddingInlineEnd: vars.space8,
-    paddingInlineStart: `calc(${vars.space8} + ${vars.controlIconSizeMd} + ${vars.space8})`,
+    paddingBottom: vars["--ads-space-8"],
+    paddingInlineEnd: vars["--ads-space-8"],
+    paddingInlineStart: `calc(${vars["--ads-space-8"]} + ${vars["--ads-control-icon-size-md"]} + ${vars["--ads-space-8"]})`,
   },
   // Empty-state and stacking spacers.
   noResponse: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     fontSize: "0.875em",
     fontStyle: "italic",
   },
   block: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
   },
   blockTight: {
     display: "flex",
@@ -118,13 +118,13 @@ export const assistantTraceStyles = stylex.create({
     gap: 6,
   },
   interim: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     display: "flex",
     flexDirection: "column",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     opacity: 0.5,
   },
   spacedTop: {
-    marginTop: vars.space12,
+    marginTop: vars["--ads-space-12"],
   },
 });

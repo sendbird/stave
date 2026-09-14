@@ -132,7 +132,7 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
      * `maxRows` is a runtime number, so the cap is resolved from JS.
      */
     const maxBlockSize = autoResize
-      ? `calc(${maxRows} * ${vars.lineHeightNormal} * 1em + 2 * ${paddingBySize[size]} + 2 * ${vars.borderWidthHairline})`
+      ? `calc(${maxRows} * ${vars["--ads-line-height-normal"]} * 1em + 2 * ${paddingBySize[size]} + 2 * ${vars["--ads-border-width-hairline"]})`
       : undefined;
 
     const control = (
@@ -270,24 +270,24 @@ const styles = stylex.create({
   },
   input: {
     appearance: "none",
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
     // Focus contract: border on `:focus-within` (see the header of
     // `TextField.tsx` for the family-wide statement).
     borderColor: {
-      default: vars.colorBorder,
-      ":hover": vars.colorBorderStrong,
-      ":focus-within": vars.colorBorderFocus,
+      default: vars["--ads-color-border"],
+      ":hover": vars["--ads-color-border-strong"],
+      ":focus-within": vars["--ads-color-border-focus"],
     },
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorText,
-    fontFamily: vars.fontSans,
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-text"],
+    fontFamily: vars["--ads-font-sans"],
     inlineSize: "100%",
-    lineHeight: vars.lineHeightNormal,
+    lineHeight: vars["--ads-line-height-normal"],
     resize: "vertical",
     "::placeholder": {
-      color: vars.colorTextPlaceholder,
+      color: vars["--ads-color-text-placeholder"],
     },
   },
   // The auto-grown control stacks on the sizer and takes the cell's full
@@ -312,12 +312,12 @@ const styles = stylex.create({
   sizer: {
     borderColor: "transparent",
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     color: "transparent",
-    fontFamily: vars.fontSans,
+    fontFamily: vars["--ads-font-sans"],
     gridArea: "1 / 1 / 2 / 2",
     inlineSize: "100%",
-    lineHeight: vars.lineHeightNormal,
+    lineHeight: vars["--ads-line-height-normal"],
     overflow: "hidden",
     overflowWrap: "anywhere",
     pointerEvents: "none",
@@ -328,28 +328,28 @@ const styles = stylex.create({
   // Size ramp mirrors Button/TextField on the inline axis (space2/3/4) and
   // steps `lg` up to `fontSizeMd`.
   sm: {
-    fontSize: vars.fontSizeBody,
-    minBlockSize: `calc(3 * ${vars.lineHeightNormal} * 1em + 2 * ${vars.space8} + 2 * ${vars.borderWidthHairline})`,
-    paddingBlock: vars.space8,
-    paddingInline: vars.space8,
+    fontSize: vars["--ads-font-size-body"],
+    minBlockSize: `calc(3 * ${vars["--ads-line-height-normal"]} * 1em + 2 * ${vars["--ads-space-8"]} + 2 * ${vars["--ads-border-width-hairline"]})`,
+    paddingBlock: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-8"],
   },
   md: {
-    fontSize: vars.fontSizeBody,
-    minBlockSize: `calc(4 * ${vars.lineHeightNormal} * 1em + 2 * ${vars.space12} + 2 * ${vars.borderWidthHairline})`,
-    paddingBlock: vars.space12,
-    paddingInline: vars.space12,
+    fontSize: vars["--ads-font-size-body"],
+    minBlockSize: `calc(4 * ${vars["--ads-line-height-normal"]} * 1em + 2 * ${vars["--ads-space-12"]} + 2 * ${vars["--ads-border-width-hairline"]})`,
+    paddingBlock: vars["--ads-space-12"],
+    paddingInline: vars["--ads-space-12"],
   },
   lg: {
-    fontSize: vars.fontSizeLead,
-    minBlockSize: `calc(5 * ${vars.lineHeightNormal} * 1em + 2 * ${vars.space16} + 2 * ${vars.borderWidthHairline})`,
-    paddingBlock: vars.space16,
-    paddingInline: vars.space16,
+    fontSize: vars["--ads-font-size-lead"],
+    minBlockSize: `calc(5 * ${vars["--ads-line-height-normal"]} * 1em + 2 * ${vars["--ads-space-16"]} + 2 * ${vars["--ads-border-width-hairline"]})`,
+    paddingBlock: vars["--ads-space-16"],
+    paddingInline: vars["--ads-space-16"],
   },
   success: {
-    borderColor: vars.colorSuccessBorder,
+    borderColor: vars["--ads-color-success-border"],
   },
   danger: {
-    borderColor: vars.colorDangerBorder,
+    borderColor: vars["--ads-color-danger-border"],
   },
 });
 
@@ -362,9 +362,9 @@ const sizeStyles = {
 // The block gutter each size step declares above, restated so the auto-grow
 // ceiling can be written in the same terms as the floor.
 const paddingBySize = {
-  lg: vars.space16,
-  md: vars.space12,
-  sm: vars.space8,
+  lg: vars["--ads-space-16"],
+  md: vars["--ads-space-12"],
+  sm: vars["--ads-space-8"],
 } as const;
 
 const toneStyles = {

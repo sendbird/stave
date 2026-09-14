@@ -32,26 +32,26 @@ import { vars } from "../tokens/tokens.stylex";
 export const controlHeights = stylex.create({
   xs: {
     minBlockSize: {
-      default: vars.controlHeightXs,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: vars["--ads-control-height-xs"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
   },
   sm: {
     minBlockSize: {
-      default: vars.controlHeightSm,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: vars["--ads-control-height-sm"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
   },
   md: {
     minBlockSize: {
-      default: vars.controlHeight,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: vars["--ads-control-height"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
   },
   lg: {
     minBlockSize: {
-      default: vars.controlHeightLg,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: vars["--ads-control-height-lg"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
   },
 });
@@ -63,42 +63,42 @@ export const controlHeights = stylex.create({
 export const controlSquares = stylex.create({
   xs: {
     inlineSize: {
-      default: vars.controlHeightXs,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: vars["--ads-control-height-xs"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
     minBlockSize: {
-      default: vars.controlHeightXs,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: vars["--ads-control-height-xs"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
   },
   sm: {
     inlineSize: {
-      default: vars.controlHeightSm,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: vars["--ads-control-height-sm"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
     minBlockSize: {
-      default: vars.controlHeightSm,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: vars["--ads-control-height-sm"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
   },
   md: {
     inlineSize: {
-      default: vars.controlHeight,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: vars["--ads-control-height"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
     minBlockSize: {
-      default: vars.controlHeight,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: vars["--ads-control-height"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
   },
   lg: {
     inlineSize: {
-      default: vars.controlHeightLg,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: vars["--ads-control-height-lg"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
     minBlockSize: {
-      default: vars.controlHeightLg,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: vars["--ads-control-height-lg"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
   },
 });
@@ -143,18 +143,18 @@ export type ControlScale = "xs" | "sm" | "md" | "lg";
  * rung, it is one token in §9 and one line here.
  */
 export const controlIconSizes = {
-  lg: vars.controlIconSizeLg,
-  md: vars.controlIconSizeMd,
-  sm: vars.controlIconSizeSm,
-  xs: vars.controlIconSizeSm,
+  lg: vars["--ads-control-icon-size-lg"],
+  md: vars["--ads-control-icon-size-md"],
+  sm: vars["--ads-control-icon-size-sm"],
+  xs: vars["--ads-control-icon-size-sm"],
 } as const;
 
 /** Tree row metrics: compact scan rows vs. the regular nav row. */
 export const treeRowHeights = stylex.create({
   compact: {
-    blockSize: vars.treeRowHeightCompact,
+    blockSize: vars["--ads-tree-row-height-compact"],
   },
   regular: {
-    blockSize: vars.treeRowHeightRegular,
+    blockSize: vars["--ads-tree-row-height-regular"],
   },
 });

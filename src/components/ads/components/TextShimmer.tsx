@@ -151,7 +151,7 @@ export function TextShimmerLines({
 
 const styles = stylex.create({
   base: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   /**
    * Zero row gap, deliberately: each line already reserves a full `1lh` line
@@ -171,19 +171,19 @@ const styles = stylex.create({
    * slot stays exactly one line tall.
    */
   line: {
-    backgroundColor: vars.colorCanvasSubtle,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
     blockSize: "0.7em",
-    borderRadius: vars.radiusMark,
+    borderRadius: vars["--ads-radius-mark"],
     marginBlock: "calc((1lh - 0.7em) / 2)",
   },
   caption: {
     alignItems: "center",
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
     display: "flex",
-    fontSize: vars.fontSizeCaption,
-    gap: vars.space8,
-    lineHeight: vars.lineHeightTight,
-    paddingBlockStart: vars.space4,
+    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--ads-space-8"],
+    lineHeight: vars["--ads-line-height-tight"],
+    paddingBlockStart: vars["--ads-space-4"],
   },
 });
 

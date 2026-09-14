@@ -5,28 +5,28 @@ export const scriptsSectionStyles = stylex.create({
   root: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
   },
   emptyState: {
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     borderStyle: "dashed",
-    borderColor: vars.colorBorder,
-    backgroundColor: vars.colorSurfaceTint,
+    borderColor: vars["--ads-color-border"],
+    backgroundColor: vars["--ads-color-surface-tint"],
   },
   emptyIcon: {
-    inlineSize: vars.controlIconSizeMd,
-    blockSize: vars.controlIconSizeMd,
+    inlineSize: vars["--ads-control-icon-size-md"],
+    blockSize: vars["--ads-control-icon-size-md"],
   },
   projectLabel: {
     display: "flex",
     maxInlineSize: "28rem",
     flexDirection: "column",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   projectLabelText: {
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    color: vars.colorText,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--ads-color-text"],
   },
   triggerFull: {
     inlineSize: "100%",

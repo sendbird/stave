@@ -47,23 +47,23 @@ export const settingsSharedStyles = stylex.create({
   infoRow: {
     alignItems: "start",
     display: "flex",
-    fontSize: vars.fontSizeBody,
-    gap: vars.space12,
+    fontSize: vars["--ads-font-size-body"],
+    gap: vars["--ads-space-12"],
     justifyContent: "space-between",
   },
   infoRowLabel: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   infoRowValue: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     maxInlineSize: "70%",
     overflowWrap: "break-word",
     textAlign: "end",
     wordBreak: "break-all",
   },
   infoRowValueMono: {
-    fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeCaption,
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
   },
 
   sectionStack: {
@@ -72,11 +72,11 @@ export const settingsSharedStyles = stylex.create({
   },
 
   card: {
-    borderTopColor: vars.colorBorder,
+    borderTopColor: vars["--ads-color-border"],
     borderTopStyle: "solid",
     borderTopWidth: {
-      default: vars.borderWidthHairline,
-      ":first-child": vars.space0,
+      default: vars["--ads-border-width-hairline"],
+      ":first-child": vars["--ads-space-0"],
     },
     borderBottomStyle: {
       default: null,
@@ -84,60 +84,60 @@ export const settingsSharedStyles = stylex.create({
     },
     borderBottomWidth: {
       default: null,
-      ":last-child": vars.borderWidthHairline,
+      ":last-child": vars["--ads-border-width-hairline"],
     },
     borderBottomColor: {
       default: null,
-      ":last-child": vars.colorBorder,
+      ":last-child": vars["--ads-color-border"],
     },
     outline: "none",
-    paddingBlock: vars.space24,
+    paddingBlock: vars["--ads-space-24"],
     paddingBlockStart: {
-      default: vars.space24,
-      ":first-child": vars.space0,
+      default: vars["--ads-space-24"],
+      ":first-child": vars["--ads-space-0"],
     },
-    scrollMarginTop: vars.space24,
+    scrollMarginTop: vars["--ads-space-24"],
   },
   cardHeaderRow: {
     alignItems: "start",
     display: "flex",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     justifyContent: "space-between",
   },
   cardTitle: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeLead,
-    fontWeight: vars.fontWeightSemibold,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-lead"],
+    fontWeight: vars["--ads-font-weight-semibold"],
     letterSpacing: "-0.015em",
   },
   cardDescription: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightRelaxed,
-    marginBlockStart: vars.space4,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-relaxed"],
+    marginBlockStart: vars["--ads-space-4"],
     maxInlineSize: "56rem",
   },
   cardBody: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space20,
-    marginBlockStart: vars.space20,
+    gap: vars["--ads-space-20"],
+    marginBlockStart: vars["--ads-space-20"],
   },
 
   choiceMark: {
     alignItems: "center",
-    backgroundColor: vars.colorCanvas,
-    blockSize: vars.space20,
-    borderRadius: vars.radiusMark,
+    backgroundColor: vars["--ads-color-canvas"],
+    blockSize: vars["--ads-space-20"],
+    borderRadius: vars["--ads-radius-mark"],
     display: "flex",
     flexShrink: 0,
-    inlineSize: vars.space20,
+    inlineSize: vars["--ads-space-20"],
     justifyContent: "center",
   },
 
   radioGroupGrid: {
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   radioGroupGridCols2: {
     gridTemplateColumns: {
@@ -152,42 +152,42 @@ export const settingsSharedStyles = stylex.create({
     },
   },
   radioGroupInline: {
-    backgroundColor: vars.colorCanvasSubtle,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusControl,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     display: "inline-flex",
     flexWrap: "wrap",
     maxInlineSize: "100%",
-    padding: vars.space2,
+    padding: vars["--ads-space-2"],
   },
   radio: {
     alignItems: "center",
     backgroundClip: "padding-box",
     backgroundColor: {
       default: "transparent",
-      ":is([data-checked])": vars.colorAccent,
+      ":is([data-checked])": vars["--ads-color-accent"],
     },
     borderColor: "transparent",
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     // This renders on a real radio control, so `null` would delete the
     // property and hand the label to the UA's `buttontext`.
     color: {
-      default: vars.colorText,
-      ":is([data-checked])": vars.colorAccentText,
+      default: vars["--ads-color-text"],
+      ":is([data-checked])": vars["--ads-color-accent-text"],
     },
     cursor: "default",
     display: "inline-flex",
     flexShrink: 0,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
     justifyContent: "center",
     opacity: {
       default: null,
-      ":is([data-disabled])": vars.opacityDisabled,
+      ":is([data-disabled])": vars["--ads-opacity-disabled"],
     },
     outline: "none",
     pointerEvents: {
@@ -208,100 +208,100 @@ export const settingsSharedStyles = stylex.create({
     // The checked branch has to be restated in each override or the selected
     // state silently disappears.
     backgroundColor: {
-      default: vars.colorSurface,
-      ":is([data-checked])": vars.colorAccent,
-      ":is([data-unchecked]:hover)": vars.colorSelectionFill,
+      default: vars["--ads-color-surface"],
+      ":is([data-checked])": vars["--ads-color-accent"],
+      ":is([data-unchecked]:hover)": vars["--ads-color-selection-fill"],
     },
     borderColor: {
-      default: vars.colorBorder,
-      ":is([data-checked])": vars.colorAccent,
-      ":is([data-unchecked]:hover)": vars.colorAccent,
+      default: vars["--ads-color-border"],
+      ":is([data-checked])": vars["--ads-color-accent"],
+      ":is([data-unchecked]:hover)": vars["--ads-color-accent"],
     },
     blockSize: "auto",
     justifyContent: "flex-start",
     minBlockSize: "3.5rem",
-    paddingBlock: vars.space12,
-    paddingInline: vars.space16,
+    paddingBlock: vars["--ads-space-12"],
+    paddingInline: vars["--ads-space-16"],
     textAlign: "start",
     whiteSpace: "normal",
   },
   radioSegment: {
-    borderRadius: vars.radiusMark,
+    borderRadius: vars["--ads-radius-mark"],
     // See `radioCard`: restating `:is([data-checked])` is mandatory, because
     // this object replaces `radio`'s `color`/`background-color` wholesale.
     color: {
-      default: vars.colorTextMuted,
-      ":is([data-checked])": vars.colorAccentText,
-      ":is([data-unchecked]:hover)": vars.colorText,
+      default: vars["--ads-color-text-muted"],
+      ":is([data-checked])": vars["--ads-color-accent-text"],
+      ":is([data-unchecked]:hover)": vars["--ads-color-text"],
     },
     backgroundColor: {
       default: "transparent",
-      ":is([data-checked])": vars.colorAccent,
-      ":is([data-unchecked]:hover)": vars.colorOverlayHover,
+      ":is([data-checked])": vars["--ads-color-accent"],
+      ":is([data-unchecked]:hover)": vars["--ads-color-overlay-hover"],
     },
-    fontSize: vars.fontSizeCaption,
-    minBlockSize: vars.controlHeightSm,
-    paddingInline: vars.space12,
+    fontSize: vars["--ads-font-size-caption"],
+    minBlockSize: vars["--ads-control-height-sm"],
+    paddingInline: vars["--ads-space-12"],
   },
   radioContent: {
     alignItems: "start",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minInlineSize: 0,
   },
   radioTextWrap: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
   radioLabel: {
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   radioDescription: {
-    fontSize: vars.fontSizeBody,
+    fontSize: vars["--ads-font-size-body"],
     opacity: 0.75,
   },
   radioInline: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
 
   toggleGroup: {
     display: "flex",
     flexWrap: "wrap",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   toggle: {
     backgroundColor: {
-      default: vars.colorSurface,
-      ':is([aria-pressed="true"])': vars.colorAccent,
+      default: vars["--ads-color-surface"],
+      ':is([aria-pressed="true"])': vars["--ads-color-accent"],
     },
     borderColor: {
-      default: vars.colorBorder,
+      default: vars["--ads-color-border"],
       ':is([aria-pressed="true"])': "transparent",
     },
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     color: {
-      default: vars.colorText,
-      ':is([aria-pressed="true"])': vars.colorAccentText,
+      default: vars["--ads-color-text"],
+      ':is([aria-pressed="true"])': vars["--ads-color-accent-text"],
     },
-    fontSize: vars.fontSizeCaption,
-    minBlockSize: vars.controlHeightXs,
-    paddingInline: vars.space12,
+    fontSize: vars["--ads-font-size-caption"],
+    minBlockSize: vars["--ads-control-height-xs"],
+    paddingInline: vars["--ads-space-12"],
   },
   toggleWithMark: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   toggleCheck: {
-    blockSize: vars.space12,
-    inlineSize: vars.space12,
+    blockSize: vars["--ads-space-12"],
+    inlineSize: vars["--ads-space-12"],
   },
   toggleLabel: {
     maxInlineSize: "10rem",
@@ -310,19 +310,19 @@ export const settingsSharedStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   tooltipContent: {
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars["--ads-font-size-caption"],
     maxInlineSize: "16rem",
   },
 
   fieldStacked: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   fieldGrid: {
     alignItems: "start",
     display: "grid",
-    gap: vars.space20,
+    gap: vars["--ads-space-20"],
     gridTemplateColumns: {
       default: null,
       "@media (min-width: 640px)":
@@ -332,7 +332,7 @@ export const settingsSharedStyles = stylex.create({
   fieldLabelBlock: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
   /**
@@ -344,22 +344,22 @@ export const settingsSharedStyles = stylex.create({
   fieldLead: {
     paddingBlockStart: {
       default: null,
-      "@media (min-width: 640px)": vars.space8,
+      "@media (min-width: 640px)": vars["--ads-space-8"],
     },
   },
   fieldLabelRow: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   fieldTitle: {
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   fieldDescription: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightRelaxed,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-relaxed"],
   },
   fieldControl: {
     minInlineSize: 0,
@@ -372,13 +372,13 @@ export const settingsSharedStyles = stylex.create({
    * shorter than one.
    */
   switchRow: {
-    minBlockSize: vars.controlHeightLg,
+    minBlockSize: vars["--ads-control-height-lg"],
   },
   switchLabelBlock: {
     display: "flex",
     flexDirection: "column",
     flexGrow: 1,
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
   switchControl: {
@@ -388,26 +388,26 @@ export const settingsSharedStyles = stylex.create({
     justifySelf: "start",
     // Centre the switch on the label's first text line instead of nudging it
     // with an off-scale `marginTop: 2`.
-    minBlockSize: vars.lineHeightControl,
+    minBlockSize: vars["--ads-line-height-control"],
   },
 
   selectTrigger: {
-    backgroundColor: vars.colorCanvas,
-    borderColor: vars.colorBorder,
-    fontSize: vars.fontSizeBody,
+    backgroundColor: vars["--ads-color-canvas"],
+    borderColor: vars["--ads-color-border"],
+    fontSize: vars["--ads-font-size-body"],
     inlineSize: "100%",
-    minBlockSize: vars.controlHeightLg,
+    minBlockSize: vars["--ads-control-height-lg"],
   },
 
   guideTriggerIcon: {
     color: {
-      default: vars.colorTextMuted,
-      ":hover": vars.colorText,
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-text"],
     },
   },
   guideIcon: {
-    blockSize: vars.controlIconSizeSm,
-    inlineSize: vars.controlIconSizeSm,
+    blockSize: vars["--ads-control-icon-size-sm"],
+    inlineSize: vars["--ads-control-icon-size-sm"],
   },
   guideTriggerInline: {
     display: "inline-flex",
@@ -415,57 +415,57 @@ export const settingsSharedStyles = stylex.create({
   guidePopover: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     inlineSize: "24rem",
     maxInlineSize: "calc(100vw - 2rem)",
   },
   guideHeader: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space4,
-    paddingBlock: vars.space0,
-    paddingInline: vars.space0,
+    gap: vars["--ads-space-4"],
+    paddingBlock: vars["--ads-space-0"],
+    paddingInline: vars["--ads-space-0"],
   },
   guideTitle: {
-    fontSize: vars.fontSizeBody,
+    fontSize: vars["--ads-font-size-body"],
   },
   guideList: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   guideItem: {
-    backgroundColor: vars.colorCanvasSubtle,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusMark,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-mark"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     display: "flex",
     flexDirection: "column",
-    gap: vars.space4,
-    paddingBlock: vars.space8,
-    paddingInline: vars.space12,
+    gap: vars["--ads-space-4"],
+    paddingBlock: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-12"],
   },
   guideItemLabel: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightSemibold,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-semibold"],
     letterSpacing: "0.02em",
     textTransform: "uppercase",
   },
   guideItemDescription: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightControl,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-control"],
   },
   guideExampleLabel: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   guideNote: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightControl,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-control"],
   },
 });

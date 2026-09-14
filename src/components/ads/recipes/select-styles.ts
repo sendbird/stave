@@ -9,28 +9,28 @@ export const styles = stylex.create({
   field: {
     alignContent: "start",
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     inlineSize: "100%",
     minInlineSize: 0,
   },
   label: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightControl,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-control"],
   },
   trigger: {
     alignItems: "center",
     appearance: "none",
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     cursor: "pointer",
     display: "inline-flex",
     // The trigger owns the control's type scale and `value` inherits it, so a
     // scale arm that changes the font size only has to say so once.
-    fontSize: vars.fontSizeBody,
-    gap: vars.space8,
+    fontSize: vars["--ads-font-size-body"],
+    gap: vars["--ads-space-8"],
     inlineSize: "100%",
     justifyContent: "space-between",
     // Height comes from the shared control-metrics recipe (applied by the
@@ -42,7 +42,7 @@ export const styles = stylex.create({
   // Height lives in the shared control-metrics recipe.
   // §8 — the padding arms below read `densityPad`, never `spaceN`.
   triggerDense: {
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars["--ads-font-size-caption"],
     paddingInline: densityPad.sm,
   },
   triggerCompact: {
@@ -52,17 +52,17 @@ export const styles = stylex.create({
     paddingInline: densityPad.md,
   },
   triggerLg: {
-    paddingInline: vars.space16,
+    paddingInline: vars["--ads-space-16"],
   },
   value: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "block",
     flex: "1 1 0",
     // Inherited from the trigger, so the `xs` arm needs no value style of
     // its own.
     fontSize: "inherit",
     inlineSize: "100%",
-    lineHeight: vars.lineHeightControl,
+    lineHeight: vars["--ads-line-height-control"],
     minInlineSize: 0,
     overflow: "hidden",
     textAlign: "start",
@@ -73,7 +73,7 @@ export const styles = stylex.create({
   valueInner: {
     alignItems: "center",
     display: "inline-flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -86,23 +86,23 @@ export const styles = stylex.create({
     // The icon now renders inside the same ellipsis-clipped `value` box (see
     // Select.array.tsx bug 7) rather than as a separate flex sibling in the
     // trigger row, so it carries its own trailing gap.
-    marginInlineEnd: vars.space8,
+    marginInlineEnd: vars["--ads-space-8"],
   },
   icon: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     display: "inline-flex",
     flexShrink: 0,
   },
   positioner: {
-    zIndex: vars.zIndexDropdown,
+    zIndex: vars["--ads-z-index-dropdown"],
   },
   popup: {
-    backgroundColor: vars.colorSurfaceRaised,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusPanel,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    boxShadow: vars.elevationOverlay,
+    borderWidth: vars["--ads-border-width-hairline"],
+    boxShadow: vars["--ads-elevation-overlay"],
     maxBlockSize: "min(320px, var(--available-height, calc(100vh - 32px)))",
     minInlineSize: "min(220px, var(--available-width, 100vw))",
     overflow: "hidden",
@@ -111,13 +111,13 @@ export const styles = stylex.create({
     position: "relative",
   },
   empty: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     overflowWrap: "anywhere",
-    paddingBlock: vars.space12,
-    paddingInline: vars.space12,
+    paddingBlock: vars["--ads-space-12"],
+    paddingInline: vars["--ads-space-12"],
   },
   item: {
     // Center single-line options in the 32px row — `start` left them
@@ -125,44 +125,44 @@ export const styles = stylex.create({
     alignItems: "center",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
-      ":active": vars.colorOverlayPressed,
+      ":hover": vars["--ads-color-overlay-hover"],
+      ":active": vars["--ads-color-overlay-pressed"],
     },
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     boxSizing: "border-box",
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     cursor: "pointer",
     display: "grid",
     flexShrink: 0,
-    fontSize: vars.fontSizeBody,
-    gap: vars.space8,
-    gridTemplateColumns: `minmax(0, 1fr) ${vars.controlIconSizeLg}`,
+    fontSize: vars["--ads-font-size-body"],
+    gap: vars["--ads-space-8"],
+    gridTemplateColumns: `minmax(0, 1fr) ${vars["--ads-control-icon-size-lg"]}`,
     inlineSize: "100%",
-    lineHeight: vars.lineHeightControl,
-    minBlockSize: vars.menuItemHeight,
+    lineHeight: vars["--ads-line-height-control"],
+    minBlockSize: vars["--ads-menu-item-height"],
     minInlineSize: 0,
-    paddingBlock: vars.space4,
-    paddingInline: vars.space8,
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
   },
   itemCompact: {
-    minBlockSize: vars.controlHeightXs,
-    paddingBlock: vars.space4,
+    minBlockSize: vars["--ads-control-height-xs"],
+    paddingBlock: vars["--ads-space-4"],
   },
   itemDense: {
-    fontSize: vars.fontSizeCaption,
-    minBlockSize: vars.controlHeightXs,
-    paddingBlock: vars.space4,
+    fontSize: vars["--ads-font-size-caption"],
+    minBlockSize: vars["--ads-control-height-xs"],
+    paddingBlock: vars["--ads-space-4"],
   },
   itemRegular: {
-    minBlockSize: vars.menuItemHeight,
-    paddingBlock: vars.space4,
+    minBlockSize: vars["--ads-menu-item-height"],
+    paddingBlock: vars["--ads-space-4"],
   },
   itemHighlighted: {
     // The pointer/keyboard highlight is a hover, so it takes the hover wash the
     // rest of the system uses. It painted `colorCanvasSubtle` — an opaque
     // Neutral100 — so a menu row lit up a different colour than a button, a
     // tree row or a sidebar item under the same pointer.
-    backgroundColor: vars.colorOverlayHover,
+    backgroundColor: vars["--ads-color-overlay-hover"],
   },
   itemSelected: {
     /*
@@ -172,10 +172,10 @@ export const styles = stylex.create({
      * while, which meant the chosen row and a pointed-at row were the same
      * colour and the list read as having two active rows.
      */
-    color: vars.colorAccent,
+    color: vars["--ads-color-accent"],
   },
   itemDisabled: {
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
     cursor: "not-allowed",
   },
   itemIndicator: {
@@ -184,14 +184,14 @@ export const styles = stylex.create({
     // convention used by Base UI. Explicit placement means compound
     // consumers can keep the natural Indicator → ItemText child order.
     alignSelf: "center",
-    color: vars.colorAccent,
+    color: vars["--ads-color-accent"],
     display: "inline-flex",
     gridColumn: "2",
     gridRow: "1",
-    inlineSize: vars.controlIconSizeLg,
+    inlineSize: vars["--ads-control-icon-size-lg"],
     justifyContent: "center",
-    minBlockSize: vars.controlIconSizeLg,
-    minInlineSize: vars.controlIconSizeLg,
+    minBlockSize: vars["--ads-control-icon-size-lg"],
+    minInlineSize: vars["--ads-control-icon-size-lg"],
   },
   itemIndicatorHidden: {
     opacity: 0,
@@ -201,7 +201,7 @@ export const styles = stylex.create({
     gridColumn: "1",
     gridRow: "1",
     inlineSize: "100%",
-    lineHeight: vars.lineHeightControl,
+    lineHeight: vars["--ads-line-height-control"],
     maxInlineSize: "100%",
     minInlineSize: 0,
     whiteSpace: "normal",
@@ -210,9 +210,9 @@ export const styles = stylex.create({
     alignContent: "center",
     alignSelf: "stretch",
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     inlineSize: "100%",
-    lineHeight: vars.lineHeightControl,
+    lineHeight: vars["--ads-line-height-control"],
     maxInlineSize: "100%",
     minInlineSize: 0,
     whiteSpace: "normal",
@@ -221,7 +221,7 @@ export const styles = stylex.create({
   itemLabelLine: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minInlineSize: 0,
   },
   itemLeadingIcon: {
@@ -233,7 +233,7 @@ export const styles = stylex.create({
     // Keep single-line array options on the same crisp 20px line box as the
     // compound ItemText path. A nested normal line-height otherwise undoes the
     // row-level dropdown alignment fix.
-    lineHeight: vars.lineHeightControl,
+    lineHeight: vars["--ads-line-height-control"],
     maxInlineSize: "100%",
     minInlineSize: 0,
     overflow: "hidden",
@@ -242,27 +242,27 @@ export const styles = stylex.create({
     whiteSpace: "normal",
   },
   itemDescription: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     maxInlineSize: "100%",
     overflowWrap: "anywhere",
     whiteSpace: "normal",
   },
   groupLabel: {
-    color: vars.colorTextSubtle,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
+    color: vars["--ads-color-text-subtle"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
     // Tight label row (a group label conventionally runs sm; ours is xs + tight so
     // the label never reads taller than the 32px items beneath it).
-    lineHeight: vars.lineHeightTight,
-    paddingBlock: vars.space4,
-    paddingInline: vars.space8,
+    lineHeight: vars["--ads-line-height-tight"],
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
   },
   separator: {
-    backgroundColor: vars.colorBorderSubtle,
-    blockSize: vars.borderWidthHairline,
-    marginBlock: vars.space4,
+    backgroundColor: vars["--ads-color-border-subtle"],
+    blockSize: vars["--ads-border-width-hairline"],
+    marginBlock: vars["--ads-space-4"],
   },
   /**
    * The trigger's own invalid tone. `Select` set `aria-invalid` and rendered the
@@ -278,20 +278,20 @@ export const styles = stylex.create({
    * that greyed out when you clicked it.
    */
   triggerOpen: {
-    backgroundColor: vars.colorSurfaceRaised,
-    borderColor: vars.colorBorderFocus,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: vars["--ads-color-border-focus"],
   },
   triggerError: {
     borderColor: {
-      default: vars.colorDangerBorder,
-      ":focus-within": vars.colorBorderFocus,
+      default: vars["--ads-color-danger-border"],
+      ":focus-within": vars["--ads-color-border-focus"],
     },
   },
   error: {
     // The border's red — one error, one colour. See `Field.tsx`.
-    color: vars.colorDanger,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-danger"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     overflowWrap: "anywhere",
   },
   // Base UI mounts scroll arrows with inline `position: absolute` but no
@@ -300,9 +300,9 @@ export const styles = stylex.create({
   // items scroll underneath cleanly.
   scrollArrow: {
     alignItems: "center",
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
     blockSize: 24,
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     cursor: "default",
     display: "flex",
     insetInline: 0,
@@ -311,7 +311,7 @@ export const styles = stylex.create({
     // positioner already carries zIndexDropdown
     zIndex: 1,
     "::after": {
-      blockSize: vars.space8,
+      blockSize: vars["--ads-space-8"],
       content: '""',
       insetInline: 0,
       pointerEvents: "none",
@@ -319,20 +319,20 @@ export const styles = stylex.create({
     },
   },
   scrollArrowUp: {
-    borderStartEndRadius: vars.radiusPanel,
-    borderStartStartRadius: vars.radiusPanel,
+    borderStartEndRadius: vars["--ads-radius-panel"],
+    borderStartStartRadius: vars["--ads-radius-panel"],
     insetBlockStart: 0,
     "::after": {
-      backgroundImage: `linear-gradient(to bottom, ${vars.colorSurfaceRaised}, transparent)`,
+      backgroundImage: `linear-gradient(to bottom, ${vars["--ads-color-surface-raised"]}, transparent)`,
       insetBlockStart: "100%",
     },
   },
   scrollArrowDown: {
-    borderEndEndRadius: vars.radiusPanel,
-    borderEndStartRadius: vars.radiusPanel,
+    borderEndEndRadius: vars["--ads-radius-panel"],
+    borderEndStartRadius: vars["--ads-radius-panel"],
     insetBlockEnd: 0,
     "::after": {
-      backgroundImage: `linear-gradient(to top, ${vars.colorSurfaceRaised}, transparent)`,
+      backgroundImage: `linear-gradient(to top, ${vars["--ads-color-surface-raised"]}, transparent)`,
       insetBlockEnd: "100%",
     },
   },

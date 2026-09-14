@@ -8,16 +8,16 @@ const WIDE = "@media (min-width: 40rem)";
 export const cardStyles = stylex.create({
   card: {
     backgroundColor: {
-      default: vars.colorSurface,
-      ":hover": vars.colorSurfaceRaised,
+      default: vars["--ads-color-surface"],
+      ":hover": vars["--ads-color-surface-raised"],
     },
     borderColor: {
-      default: vars.colorBorderSubtle,
-      ":hover": vars.colorBorder,
+      default: vars["--ads-color-border-subtle"],
+      ":hover": vars["--ads-color-border"],
     },
-    borderRadius: vars.radiusPanel,
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     display: "flex",
     flexDirection: "column",
     minWidth: 0,
@@ -35,16 +35,16 @@ export const cardStyles = stylex.create({
     },
   },
   accentLive: {
-    "::before": { backgroundColor: vars.colorAccent },
+    "::before": { backgroundColor: vars["--ads-color-accent"] },
   },
   accentBlocking: {
-    "::before": { backgroundColor: vars.colorWarning },
+    "::before": { backgroundColor: vars["--ads-color-warning"] },
   },
   accentDormant: {
-    "::before": { backgroundColor: vars.colorBorder },
+    "::before": { backgroundColor: vars["--ads-color-border"] },
   },
   accentQuiet: {
-    "::before": { backgroundColor: vars.colorBorderSubtle },
+    "::before": { backgroundColor: vars["--ads-color-border-subtle"] },
   },
   cardDormant: {
     opacity: {
@@ -53,15 +53,15 @@ export const cardStyles = stylex.create({
     },
   },
   cardExpanded: {
-    boxShadow: `0 0 0 1px ${vars.colorBorderFocus}`,
+    boxShadow: `0 0 0 1px ${vars["--ads-color-border-focus"]}`,
   },
   header: {
     alignItems: "flex-start",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minWidth: 0,
-    paddingBottom: vars.space8,
-    paddingInline: vars.space12,
+    paddingBottom: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-12"],
     paddingTop: 10,
   },
   headerMain: {
@@ -76,11 +76,11 @@ export const cardStyles = stylex.create({
     minWidth: 0,
   },
   name: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     // Was a bare `13`, between Caption (12) and Body (14). Row titles are Body
     // medium across the fleet surfaces.
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -96,17 +96,17 @@ export const cardStyles = stylex.create({
     flexShrink: 0,
   },
   dormantIcon: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     height: 12,
     width: 12,
   },
   metaRow: {
     alignItems: "center",
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     display: "flex",
-    fontSize: vars.fontSizeCaption,
-    gap: vars.space4,
-    marginTop: vars.space2,
+    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--ads-space-4"],
+    marginTop: vars["--ads-space-2"],
     minWidth: 0,
   },
   metaPart: {
@@ -120,16 +120,16 @@ export const cardStyles = stylex.create({
     width: 12,
   },
   tasks: {
-    borderTopColor: vars.colorBorder,
+    borderTopColor: vars["--ads-color-border"],
     borderTopStyle: "solid",
-    borderTopWidth: vars.borderWidthHairline,
+    borderTopWidth: vars["--ads-border-width-hairline"],
     minWidth: 0,
   },
   tasksEmpty: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    paddingBlock: vars.space12,
-    paddingInline: vars.space12,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    paddingBlock: vars["--ads-space-12"],
+    paddingInline: vars["--ads-space-12"],
   },
   list: {
     minWidth: 0,
@@ -141,25 +141,25 @@ export const cardStyles = stylex.create({
     alignItems: "center",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
+      ":hover": vars["--ads-color-overlay-hover"],
     },
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minHeight: 36,
     minWidth: 0,
     paddingBlock: 6,
-    paddingInlineEnd: vars.space12,
-    paddingInlineStart: vars.space16,
+    paddingInlineEnd: vars["--ads-space-12"],
+    paddingInlineStart: vars["--ads-space-16"],
     position: "relative",
     textAlign: "left",
     width: "100%",
     zIndex: {
       default: null,
-      ":focus-visible": vars.zIndexPanel,
+      ":focus-visible": vars["--ads-z-index-panel"],
     },
     // Per-task status rail, tinted by the `rail*` styles below.
     "::before": {
-      borderRadius: vars.radiusFull,
+      borderRadius: vars["--ads-radius-full"],
       bottom: 6,
       content: '""',
       insetInlineStart: 6,
@@ -169,22 +169,22 @@ export const cardStyles = stylex.create({
     },
   },
   taskRowExpanded: {
-    backgroundColor: vars.colorSelectionFill,
+    backgroundColor: vars["--ads-color-selection-fill"],
   },
   railWarning: {
-    "::before": { backgroundColor: vars.colorWarning },
+    "::before": { backgroundColor: vars["--ads-color-warning"] },
   },
   railDanger: {
-    "::before": { backgroundColor: vars.colorDanger },
+    "::before": { backgroundColor: vars["--ads-color-danger"] },
   },
   railAccent: {
-    "::before": { backgroundColor: vars.colorAccent },
+    "::before": { backgroundColor: vars["--ads-color-accent"] },
   },
   railNeutral: {
-    "::before": { backgroundColor: vars.colorBorder },
+    "::before": { backgroundColor: vars["--ads-color-border"] },
   },
   railUnknown: {
-    "::before": { backgroundColor: vars.colorBorderSubtle },
+    "::before": { backgroundColor: vars["--ads-color-border-subtle"] },
   },
   providerMark: {
     alignItems: "center",
@@ -201,10 +201,10 @@ export const cardStyles = stylex.create({
   // The card's row title, so it takes the row-title step rather than the
   // metadata step used by the status and timestamp beside it.
   taskTitle: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     flexBasis: 0,
     flexGrow: 1,
-    fontSize: vars.fontSizeBody,
+    fontSize: vars["--ads-font-size-body"],
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -214,9 +214,9 @@ export const cardStyles = stylex.create({
     alignItems: "center",
     display: "inline-flex",
     flexShrink: 0,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    gap: vars.space4,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--ads-space-4"],
   },
   statusIcon: {
     height: 12,
@@ -229,45 +229,45 @@ export const cardStyles = stylex.create({
     },
   },
   toneWarning: {
-    color: vars.colorWarningText,
+    color: vars["--ads-color-warning-text"],
   },
   toneDanger: {
-    color: vars.colorDangerText,
+    color: vars["--ads-color-danger-text"],
   },
   toneAccent: {
-    color: vars.colorAccent,
+    color: vars["--ads-color-accent"],
   },
   toneMuted: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   disclosure: {
     color: {
-      default: vars.colorTextMuted,
-      ":hover": vars.colorText,
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-text"],
     },
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    paddingBlock: vars.space4,
-    paddingInline: vars.space16,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-16"],
     textAlign: "left",
     width: "100%",
   },
   controls: {
-    borderTopColor: vars.colorBorder,
+    borderTopColor: vars["--ads-color-border"],
     borderTopStyle: "solid",
-    borderTopWidth: vars.borderWidthHairline,
+    borderTopWidth: vars["--ads-border-width-hairline"],
   },
   footer: {
     alignItems: "center",
-    borderTopColor: vars.colorBorder,
+    borderTopColor: vars["--ads-color-border"],
     borderTopStyle: "solid",
-    borderTopWidth: vars.borderWidthHairline,
+    borderTopWidth: vars["--ads-border-width-hairline"],
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     marginTop: "auto",
     minWidth: 0,
     paddingBlock: 6,
-    paddingInline: vars.space12,
+    paddingInline: vars["--ads-space-12"],
   },
   todo: {
     alignItems: "center",
@@ -276,26 +276,26 @@ export const cardStyles = stylex.create({
     gap: 6,
   },
   todoTrack: {
-    backgroundColor: vars.colorCanvasSubtle,
-    borderRadius: vars.radiusFull,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    borderRadius: vars["--ads-radius-full"],
     height: 4,
     overflow: "hidden",
     width: 40,
   },
   todoFill: {
-    backgroundColor: vars.colorAccent,
-    borderRadius: vars.radiusFull,
+    backgroundColor: vars["--ads-color-accent"],
+    borderRadius: vars["--ads-radius-full"],
     display: "block",
     height: "100%",
   },
   todoCount: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
   },
   activity: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -303,10 +303,10 @@ export const cardStyles = stylex.create({
   },
   openAction: {
     flexShrink: 0,
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars["--ads-font-size-caption"],
     height: 24,
     marginInlineStart: "auto",
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   openIcon: {
     height: 12,

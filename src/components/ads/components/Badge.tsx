@@ -123,11 +123,11 @@ const styles = stylex.create({
     // composed at the call site.
     // Transparent by default so `soft` and `outline` share metrics.
     borderColor: "transparent",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     display: "inline-flex",
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars["--ads-font-size-caption"],
     // A badge is the system's default home for a count, and a proportional
     // ramp makes "9 → 10 → 11" change the chip's own width as it updates,
     // nudging everything after it in the row. Tabular figures pin every digit
@@ -137,10 +137,10 @@ const styles = stylex.create({
     // headings. A badge is a label on a small object, and its emphasis already
     // comes from the tone fill and the chip itself — a weight jump on top of
     // those is the third signal §5 tells you not to reach for.
-    fontWeight: vars.fontWeightMedium,
-    gap: vars.space4,
+    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--ads-space-4"],
     justifySelf: "start",
-    lineHeight: vars.lineHeightTight,
+    lineHeight: vars["--ads-line-height-tight"],
     maxInlineSize: "100%",
     minBlockSize: 24,
     minInlineSize: 0,
@@ -148,7 +148,7 @@ const styles = stylex.create({
     // removable button's coarse-pointer hit area can bleed beyond the 24px
     // painted chip instead of being clipped back to the failing target size.
     paddingBlock: 0,
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
     whiteSpace: "nowrap",
   },
   /**
@@ -164,13 +164,13 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   removable: {
-    paddingInlineEnd: vars.space4,
+    paddingInlineEnd: vars["--ads-space-4"],
   },
   // Tone rides on the small dot (currentColor), not on extra surface area.
   dot: {
     backgroundColor: "currentColor",
     blockSize: 6,
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     flexShrink: 0,
     inlineSize: 6,
   },
@@ -187,11 +187,11 @@ const styles = stylex.create({
     appearance: "none",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
-      ":active": vars.colorOverlayPressed,
+      ":hover": vars["--ads-color-overlay-hover"],
+      ":active": vars["--ads-color-overlay-pressed"],
     },
     blockSize: 16,
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     borderStyle: "none",
     color: "inherit",
     cursor: "pointer",
@@ -203,49 +203,49 @@ const styles = stylex.create({
     padding: 0,
   },
   neutral: {
-    backgroundColor: vars.colorCanvasSubtle,
-    color: vars.colorTextMuted,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
   accent: {
-    backgroundColor: vars.colorAccentSoft,
-    color: vars.colorAccent,
+    backgroundColor: vars["--ads-color-accent-soft"],
+    color: vars["--ads-color-accent"],
   },
   info: {
-    backgroundColor: vars.colorInfoSoft,
-    color: vars.colorInfoText,
+    backgroundColor: vars["--ads-color-info-soft"],
+    color: vars["--ads-color-info-text"],
   },
   // `warm` is a deprecated alias of `warning` and rendered identically because
   // the hue-named tokens it read held the same values. Those tokens are gone
   // (they named a shade, not a role); the alias reads the role tokens directly
   // now, so the prop keeps working with no rendered change.
   warm: {
-    backgroundColor: vars.colorWarningSoft,
-    color: vars.colorWarningText,
+    backgroundColor: vars["--ads-color-warning-soft"],
+    color: vars["--ads-color-warning-text"],
   },
   warning: {
-    backgroundColor: vars.colorWarningSoft,
-    color: vars.colorWarningText,
+    backgroundColor: vars["--ads-color-warning-soft"],
+    color: vars["--ads-color-warning-text"],
   },
   success: {
-    backgroundColor: vars.colorSuccessSoft,
-    color: vars.colorSuccessText,
+    backgroundColor: vars["--ads-color-success-soft"],
+    color: vars["--ads-color-success-text"],
   },
   danger: {
-    backgroundColor: vars.colorDangerSoft,
-    color: vars.colorDangerText,
+    backgroundColor: vars["--ads-color-danger-soft"],
+    color: vars["--ads-color-danger-text"],
   },
   // Outline: neutral hairline, tone carried by text (and the `dot`).
   outlineBase: {
     backgroundColor: "transparent",
-    borderColor: vars.colorBorder,
+    borderColor: vars["--ads-color-border"],
   },
-  outlineNeutral: { color: vars.colorTextMuted },
-  outlineAccent: { color: vars.colorAccent },
-  outlineInfo: { color: vars.colorInfoText },
-  outlineWarm: { color: vars.colorWarningText },
-  outlineWarning: { color: vars.colorWarningText },
-  outlineSuccess: { color: vars.colorSuccessText },
-  outlineDanger: { color: vars.colorDangerText },
+  outlineNeutral: { color: vars["--ads-color-text-muted"] },
+  outlineAccent: { color: vars["--ads-color-accent"] },
+  outlineInfo: { color: vars["--ads-color-info-text"] },
+  outlineWarm: { color: vars["--ads-color-warning-text"] },
+  outlineWarning: { color: vars["--ads-color-warning-text"] },
+  outlineSuccess: { color: vars["--ads-color-success-text"] },
+  outlineDanger: { color: vars["--ads-color-danger-text"] },
 });
 
 const toneStyles = {

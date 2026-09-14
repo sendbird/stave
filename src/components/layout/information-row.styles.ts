@@ -33,7 +33,7 @@ export const informationRow = stylex.create({
   list: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space2,
+    gap: vars["--ads-space-2"],
     marginInline: -8,
   },
   root: {
@@ -45,10 +45,10 @@ export const informationRow = stylex.create({
     alignItems: "flex-start",
     backgroundColor: {
       default: "transparent",
-      ":focus-within": vars.colorOverlayHover,
-      ":hover": vars.colorOverlayHover,
+      ":focus-within": vars["--ads-color-overlay-hover"],
+      ":hover": vars["--ads-color-overlay-hover"],
     },
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     display: "flex",
     gap: 10,
     paddingBlock: 10,
@@ -57,24 +57,24 @@ export const informationRow = stylex.create({
   /** The object glyph. `marginBlockStart` optically centres it on the first
    *  line of the title rather than on the title block. */
   mark: {
-    blockSize: vars.controlIconSizeMd,
+    blockSize: vars["--ads-control-icon-size-md"],
     flexShrink: 0,
-    inlineSize: vars.controlIconSizeMd,
+    inlineSize: vars["--ads-control-icon-size-md"],
     marginBlockStart: 2,
   },
   body: { flex: 1, minWidth: 0 },
   titleLine: {
     alignItems: "flex-start",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   /** The row's own name, and its link. Accent + underline on hover is the only
    *  affordance it needs; the row wash already says the row is live. */
   title: {
-    color: { default: vars.colorText, ":hover": vars.colorAccent },
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightNormal,
+    color: { default: vars["--ads-color-text"], ":hover": vars["--ads-color-accent"] },
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-normal"],
     minWidth: 0,
     overflow: "hidden",
     textAlign: "start",
@@ -96,12 +96,12 @@ export const informationRow = stylex.create({
     display: "flex",
     flexWrap: "wrap",
     gap: 6,
-    marginBlockStart: vars.space4,
+    marginBlockStart: vars["--ads-space-4"],
   },
   metaText: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightTight,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-tight"],
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -111,31 +111,31 @@ export const informationRow = stylex.create({
      `fix/ads-regressions → main` across two lines splits one identifier into
      two half-words, which is harder to read than an ellipsis. */
   metaMono: {
-    color: vars.colorTextSubtle,
-    fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightTight,
+    color: vars["--ads-color-text-subtle"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-tight"],
     minWidth: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   metaNumeric: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
-    lineHeight: vars.lineHeightTight,
+    lineHeight: vars["--ads-line-height-tight"],
   },
   trail: {
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    gap: vars.space2,
+    gap: vars["--ads-space-2"],
     opacity: "var(--info-row-action-opacity)",
     paddingBlockStart: 2,
     transitionDuration: {
-      default: vars.motionDurationFast,
-      "@media (prefers-reduced-motion: reduce)": vars.motionDurationMicro,
+      default: vars["--ads-motion-duration-fast"],
+      "@media (prefers-reduced-motion: reduce)": vars["--ads-motion-duration-micro"],
     },
     transitionProperty: "opacity",
   },

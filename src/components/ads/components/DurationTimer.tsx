@@ -172,10 +172,10 @@ export function DurationTimer({
 
 const styles = stylex.create({
   root: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
     fontVariantNumeric: "tabular-nums",
-    lineHeight: vars.lineHeightTight,
+    lineHeight: vars["--ads-line-height-tight"],
     whiteSpace: "nowrap",
   },
 });

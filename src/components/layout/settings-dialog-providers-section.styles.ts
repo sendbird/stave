@@ -7,7 +7,7 @@ export const providersStyles = stylex.create({
   describedSelectRoot: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   // Trigger width only; the ADS Select trigger owns border, radius, and fill.
   describedSelectTrigger: {
@@ -20,35 +20,35 @@ export const providersStyles = stylex.create({
   },
   // Muted descriptive copy under a select.
   describedSelectHint: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightControl,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-control"],
   },
   describedSelectHintTerm: {
-    color: vars.colorText,
-    fontWeight: vars.fontWeightMedium,
+    color: vars["--ads-color-text"],
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   // Trusted-tools list.
   trustedList: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   trustedRow: {
     alignItems: "center",
-    backgroundColor: vars.colorCanvasSubtle,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusControl,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     display: "flex",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     justifyContent: "space-between",
-    paddingBlock: vars.space8,
-    paddingInline: vars.space12,
+    paddingBlock: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-12"],
   },
   trustedRowLabel: {
-    fontSize: vars.fontSizeBody,
+    fontSize: vars["--ads-font-size-body"],
     minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -56,27 +56,27 @@ export const providersStyles = stylex.create({
   },
   trustedRemove: {
     flexShrink: 0,
-    fontSize: vars.fontSizeCaption,
-    blockSize: vars.controlHeightXs,
-    paddingInline: vars.space8,
+    fontSize: vars["--ads-font-size-caption"],
+    blockSize: vars["--ads-control-height-xs"],
+    paddingInline: vars["--ads-space-8"],
   },
   emptyCopy: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
   },
   // Provider tabs.
   tabs: {
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
   },
   tabsList: {
-    backgroundColor: vars.colorCanvasSubtle,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusFrame,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-frame"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     blockSize: "auto",
     justifyContent: "flex-start",
-    padding: vars.space4,
+    padding: vars["--ads-space-4"],
     inlineSize: "100%",
   },
   // No radius override: a `pill` tab shares its box with the gliding
@@ -85,27 +85,27 @@ export const providersStyles = stylex.create({
   // indicator's corners cutting inside its own.
   tabsTrigger: {
     flex: "none",
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    blockSize: vars.controlHeightSm,
-    paddingInline: vars.space12,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    blockSize: vars["--ads-control-height-sm"],
+    paddingInline: vars["--ads-space-12"],
   },
   // Sandbox/plan-mode inline field font-family override on the DraftInput.
   fieldMono: {
-    fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeBody,
-    blockSize: vars.controlHeightLg,
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-body"],
+    blockSize: vars["--ads-control-height-lg"],
   },
   field: {
-    blockSize: vars.controlHeightLg,
+    blockSize: vars["--ads-control-height-lg"],
   },
   presetHint: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   webSearchHint: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightControl,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-control"],
   },
 });

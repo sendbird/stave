@@ -36,7 +36,7 @@ describe("ADS control chrome", () => {
     // The hover wash has to stay the only fill in the popup, which only holds
     // while the resting value is stated rather than unset.
     const highlighted = recipe.slice(recipe.indexOf("  itemHighlighted: {"));
-    expect(highlighted).toContain("backgroundColor: vars.colorOverlayHover");
+    expect(highlighted).toContain('backgroundColor: vars["--ads-color-overlay-hover"]');
   });
 
   test("the reset layer zeroes user-agent block margins", () => {
@@ -103,8 +103,8 @@ describe("ADS control chrome", () => {
       styles.indexOf("const tabExtraSmallHeight"),
       styles.indexOf("export const tabHeightBySize"),
     );
-    expect(xs).toContain("fontSize: vars.fontSizeCaption");
-    expect(xs).toContain("paddingInline: vars.space8");
+    expect(xs).toContain('fontSize: vars["--ads-font-size-caption"]');
+    expect(xs).toContain('paddingInline: vars["--ads-space-8"]');
     expect(read(`${ADS}/components/Tabs.tsx`)).toContain(
       'export type TabsSize = "md" | "sm" | "xs"',
     );
@@ -132,7 +132,7 @@ describe("ADS control chrome", () => {
       recipe.indexOf("  triggerQuiet: {"),
     );
     expect(trigger).toContain('borderStyle: "solid"');
-    expect(trigger).toContain("borderWidth: vars.borderWidthHairline");
+    expect(trigger).toContain('borderWidth: vars["--ads-border-width-hairline"]');
 
     const quiet = recipe.slice(recipe.indexOf("  triggerQuiet: {"));
     const quietBody = quiet.slice(0, quiet.indexOf("\n  },"));

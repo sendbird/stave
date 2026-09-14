@@ -99,20 +99,20 @@ const styles = stylex.create({
     alignItems: "center",
     display: "inline-flex",
     flexShrink: 0,
-    lineHeight: vars.lineHeightNormal,
+    lineHeight: vars["--ads-line-height-normal"],
     minInlineSize: 0,
   },
-  withLabel: { gap: vars.space8 },
+  withLabel: { gap: vars["--ads-space-8"] },
   label: {
     color: "currentColor",
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     minInlineSize: 0,
   },
-  accent: { color: vars.colorAccent },
+  accent: { color: vars["--ads-color-accent"] },
   inherit: { color: "inherit" },
-  neutral: { color: vars.colorTextMuted },
+  neutral: { color: vars["--ads-color-text-muted"] },
 });
 
 const toneStyles = {

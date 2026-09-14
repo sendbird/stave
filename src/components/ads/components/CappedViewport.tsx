@@ -192,7 +192,7 @@ const CAP_VAR = "--ads-capped-viewport-cap";
  * mask reads alpha only, so naming a theme color here would imply the band has
  * a hue it does not have.
  */
-const FADE = vars.space16;
+const FADE = vars["--ads-space-16"];
 
 /**
  * **Why each fade is a cap-tall layer anchored to the far edge, and not a

@@ -358,37 +358,37 @@ function ApprovalAudit({
 
 const styles = stylex.create({
   title: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
     // Medium, not semibold: §3 reserves semibold for page titles, and a weight
     // jump on top of an ink step is the third signal that turns a dense
     // surface loud.
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
   },
   status: {
-    borderRadius: vars.radiusMark,
+    borderRadius: vars["--ads-radius-mark"],
     flex: "0 0 auto",
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     whiteSpace: "nowrap",
   },
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
     overflowWrap: "anywhere",
   },
   arguments: {
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     margin: 0,
   },
   term: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
   },
   value: {
     // The `<dd>` UA sheet ships a 40px inline indent; the metaRow owns spacing.
@@ -399,18 +399,18 @@ const styles = stylex.create({
   },
   audit: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
   by: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightTight,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-tight"],
   },
   note: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
     overflowWrap: "anywhere",
   },
@@ -418,7 +418,7 @@ const styles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     justifyContent: "flex-start",
   },
 });

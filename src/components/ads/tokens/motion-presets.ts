@@ -41,7 +41,7 @@ export const springBouncy: SpringPreset = {
 /**
  * JS mirror of the CSS enter/exit primitives.
  *
- * The Motion layer cannot read `vars.motionDistanceSmall` & co. — those resolve to
+ * The Motion layer cannot read `vars["--ads-motion-distance-small"]` & co. — those resolve to
  * `var(--atelier-motion-*)` strings, which Motion's numeric interpolation
  * cannot animate. Components in the JS layer (`TextReveal`, `ActionSwap`,
  * `FloatingToolbar`, …) were therefore hard-coding their own blur/distance/

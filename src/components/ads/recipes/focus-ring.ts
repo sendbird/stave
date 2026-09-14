@@ -9,7 +9,7 @@ import { vars } from "../tokens/tokens.stylex";
  * to protect it. Kept in `calc()` (not resolved here) because both operands are
  * theme variables.
  */
-const bleed = `calc(${vars.focusRingOffset} + ${vars.focusRingWidth})`;
+const bleed = `calc(${vars["--ads-focus-ring-offset"]} + ${vars["--ads-focus-ring-width"]})`;
 
 /**
  * Shared `:focus-visible` outline ring.
@@ -44,7 +44,7 @@ export const focusRing = stylex.create({
   ring: {
     outlineColor: {
       default: "transparent",
-      ":focus-visible": vars.colorBorderFocus,
+      ":focus-visible": vars["--ads-color-border-focus"],
       // Forced-colors: use the system Highlight color so the ring stays visible
       // even though the OS discards our author/token colors.
       "@media (forced-colors: active)": {
@@ -54,7 +54,7 @@ export const focusRing = stylex.create({
     },
     outlineOffset: {
       default: 0,
-      ":focus-visible": vars.focusRingOffset,
+      ":focus-visible": vars["--ads-focus-ring-offset"],
     },
     outlineStyle: {
       default: "none",
@@ -62,7 +62,7 @@ export const focusRing = stylex.create({
     },
     outlineWidth: {
       default: 0,
-      ":focus-visible": vars.focusRingWidth,
+      ":focus-visible": vars["--ads-focus-ring-width"],
     },
   },
   /**
@@ -107,7 +107,7 @@ export const focusRing = stylex.create({
       default: 0,
       "@media (forced-colors: active)": {
         default: 0,
-        ":focus-within": vars.focusRingOffset,
+        ":focus-within": vars["--ads-focus-ring-offset"],
       },
     },
     outlineStyle: {
@@ -121,7 +121,7 @@ export const focusRing = stylex.create({
       default: 0,
       "@media (forced-colors: active)": {
         default: 0,
-        ":focus-within": vars.focusRingWidth,
+        ":focus-within": vars["--ads-focus-ring-width"],
       },
     },
   },
@@ -136,7 +136,7 @@ export const focusRing = stylex.create({
   ringInset: {
     outlineOffset: {
       default: 0,
-      ":focus-visible": `calc(-1 * ${vars.focusRingOffset})`,
+      ":focus-visible": `calc(-1 * ${vars["--ads-focus-ring-offset"]})`,
     },
   },
   /**
@@ -202,7 +202,7 @@ export const focusRing = stylex.create({
   ringWithin: {
     outlineColor: {
       default: "transparent",
-      ":has(:focus-visible)": vars.colorBorderFocus,
+      ":has(:focus-visible)": vars["--ads-color-border-focus"],
       "@media (forced-colors: active)": {
         default: "transparent",
         ":has(:focus-visible)": "Highlight",
@@ -210,7 +210,7 @@ export const focusRing = stylex.create({
     },
     outlineOffset: {
       default: 0,
-      ":has(:focus-visible)": vars.focusRingOffset,
+      ":has(:focus-visible)": vars["--ads-focus-ring-offset"],
     },
     outlineStyle: {
       default: "none",
@@ -218,7 +218,7 @@ export const focusRing = stylex.create({
     },
     outlineWidth: {
       default: 0,
-      ":has(:focus-visible)": vars.focusRingWidth,
+      ":has(:focus-visible)": vars["--ads-focus-ring-width"],
     },
   },
 });

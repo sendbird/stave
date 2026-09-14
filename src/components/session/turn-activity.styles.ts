@@ -25,12 +25,12 @@ const SHELF_MOTION_DURATION = "200ms";
 export const turnActivityStyles = stylex.create({
   panelIdle: {
     alignItems: "center",
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     display: "flex",
-    fontSize: vars.fontSizeBody,
+    fontSize: vars["--ads-font-size-body"],
     height: "100%",
     justifyContent: "center",
-    paddingInline: vars.space24,
+    paddingInline: vars["--ads-space-24"],
     textAlign: "center",
   },
   // Floating shell inner pointer target.
@@ -47,7 +47,7 @@ export const turnActivityStyles = stylex.create({
   // Standalone docked pulls the composer up over its extra bottom padding.
   stackDockedStandalone: {
     marginBottom: "-0.75rem",
-    marginInline: vars.space12,
+    marginInline: vars["--ads-space-12"],
     position: "relative",
     zIndex: 0,
   },
@@ -69,7 +69,7 @@ export const turnActivityStyles = stylex.create({
       default: SHELF_MOTION_DURATION,
       "@media (prefers-reduced-motion: reduce)": "0ms",
     },
-    animationTimingFunction: vars.motionEaseStandard,
+    animationTimingFunction: vars["--ads-motion-ease-standard"],
   },
   stackLeaving: {
     animationName: {
@@ -81,7 +81,7 @@ export const turnActivityStyles = stylex.create({
       "@media (prefers-reduced-motion: reduce)": "0ms",
     },
     animationFillMode: "forwards",
-    animationTimingFunction: vars.motionEaseStandard,
+    animationTimingFunction: vars["--ads-motion-ease-standard"],
     pointerEvents: "none",
   },
 
@@ -102,26 +102,26 @@ export const turnActivityStyles = stylex.create({
   // A floating or panelled surface is a card in its own right; the docked one
   // takes its surface from the global `.turn-activity-surface` class.
   surfaceCard: {
-    backgroundColor: vars.colorSurface,
+    backgroundColor: vars["--ads-color-surface"],
   },
   surfaceDocked: {
-    borderStartStartRadius: vars.radiusFrame,
-    borderStartEndRadius: vars.radiusFrame,
+    borderStartStartRadius: vars["--ads-radius-frame"],
+    borderStartEndRadius: vars["--ads-radius-frame"],
     borderEndStartRadius: 0,
     borderEndEndRadius: 0,
     paddingBottom: "0.75rem",
   },
   surfaceFloating: {
-    borderColor: `color-mix(in oklch, ${vars.colorBorder} 80%, transparent)`,
-    borderRadius: vars.radiusFrame,
+    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 80%, transparent)`,
+    borderRadius: vars["--ads-radius-frame"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    boxShadow: vars.elevationOverlay,
-    paddingBottom: vars.space8,
+    borderWidth: vars["--ads-border-width-hairline"],
+    boxShadow: vars["--ads-elevation-overlay"],
+    paddingBottom: vars["--ads-space-8"],
   },
   surfacePanel: {
     flex: 1,
-    paddingBottom: vars.space8,
+    paddingBottom: vars["--ads-space-8"],
   },
 
   // ── Header row ──────────────────────────────────────────────────────
@@ -131,19 +131,19 @@ export const turnActivityStyles = stylex.create({
     flexShrink: 0,
     gap: "0.625rem",
     minHeight: "2.75rem",
-    paddingInline: vars.space12,
+    paddingInline: vars["--ads-space-12"],
   },
   headerInset: {
-    paddingBlock: vars.space12,
+    paddingBlock: vars["--ads-space-12"],
   },
   headerStandard: {
-    paddingBlock: vars.space8,
+    paddingBlock: vars["--ads-space-8"],
   },
   headerExpanded: {
-    backgroundColor: `color-mix(in oklch, ${vars.colorSurfaceTint} 10%, transparent)`,
-    borderBottomColor: `color-mix(in oklch, ${vars.colorBorder} 50%, transparent)`,
+    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-surface-tint"]} 10%, transparent)`,
+    borderBottomColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 50%, transparent)`,
     borderBottomStyle: "solid",
-    borderBottomWidth: vars.borderWidthHairline,
+    borderBottomWidth: vars["--ads-border-width-hairline"],
   },
   headerGrab: {
     cursor: "grab",
@@ -159,7 +159,7 @@ export const turnActivityStyles = stylex.create({
     width: 24,
   },
   loaderInk: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
   },
   // Visually hidden but present for AT — used where the element's tag matters
   // (the `<h2>` heading) so the ADS VisuallyHidden span cannot substitute.
@@ -178,15 +178,15 @@ export const turnActivityStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   replayBadge: {
-    backgroundColor: vars.colorSurfaceTint,
-    borderRadius: vars.radiusFull,
-    color: vars.colorTextMuted,
+    backgroundColor: vars["--ads-color-surface-tint"],
+    borderRadius: vars["--ads-radius-full"],
+    color: vars["--ads-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
-    fontWeight: vars.fontWeightMedium,
+    fontSize: vars["--ads-font-size-micro"],
+    fontWeight: vars["--ads-font-weight-medium"],
     letterSpacing: "0.025em",
     paddingBlock: "0.125rem",
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
     textTransform: "uppercase",
   },
   headline: {
@@ -195,42 +195,42 @@ export const turnActivityStyles = stylex.create({
     margin: 0,
     minWidth: 0,
     overflow: "hidden",
-    fontSize: vars.fontSizeBody,
+    fontSize: vars["--ads-font-size-body"],
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   headlineTitle: {
-    color: vars.colorText,
-    fontWeight: vars.fontWeightMedium,
+    color: vars["--ads-color-text"],
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   headlineDetail: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   progress: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars["--ads-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
   },
   overflowCount: {
     flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
-    fontWeight: vars.fontWeightMedium,
+    fontSize: vars["--ads-font-size-micro"],
+    fontWeight: vars["--ads-font-weight-medium"],
     fontVariantNumeric: "tabular-nums",
   },
   overflowFailed: {
-    color: vars.colorDanger,
+    color: vars["--ads-color-danger"],
   },
   overflowWaiting: {
-    color: vars.colorWarning,
+    color: vars["--ads-color-warning"],
   },
   overflowDefault: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   elapsed: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars["--ads-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
   },
 
@@ -243,8 +243,8 @@ export const turnActivityStyles = stylex.create({
   },
   placementButton: {
     color: {
-      default: vars.colorTextMuted,
-      ":hover": vars.colorText,
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-text"],
     },
   },
   chevron: {
@@ -254,7 +254,7 @@ export const turnActivityStyles = stylex.create({
 
   // ── List ────────────────────────────────────────────────────────────
   list: {
-    backgroundColor: `color-mix(in oklch, ${vars.colorSurfaceTint} 10%, transparent)`,
+    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-surface-tint"]} 10%, transparent)`,
     minHeight: 0,
     overflowY: "auto",
     overscrollBehavior: "contain",
@@ -274,12 +274,12 @@ export const turnActivityStyles = stylex.create({
   },
   childBlock: {
     paddingInline: 6,
-    paddingTop: vars.space8,
+    paddingTop: vars["--ads-space-8"],
   },
   childBlockPadded: {
-    paddingBottom: vars.space4,
+    paddingBottom: vars["--ads-space-4"],
     paddingInline: 6,
-    paddingTop: vars.space8,
+    paddingTop: vars["--ads-space-8"],
   },
 
   // ── Row ─────────────────────────────────────────────────────────────
@@ -300,32 +300,32 @@ export const turnActivityStyles = stylex.create({
     lineHeight: "1.25rem",
     margin: 0,
     minWidth: 0,
-    fontSize: vars.fontSizeBody,
+    fontSize: vars["--ads-font-size-body"],
   },
   rowTitleLineDone: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   rowTitle: {
-    fontWeight: vars.fontWeightMedium,
+    fontWeight: vars["--ads-font-weight-medium"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   rowBadge: {
     flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars["--ads-font-size-micro"],
     lineHeight: "1rem",
-    paddingInline: vars.space4,
+    paddingInline: vars["--ads-space-4"],
   },
   rowDetailLine: {
     alignItems: "center",
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     display: "flex",
     gap: 6,
     lineHeight: "1rem",
     margin: 0,
     minWidth: 0,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars["--ads-font-size-micro"],
   },
   rowDetail: {
     overflow: "hidden",
@@ -333,31 +333,31 @@ export const turnActivityStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   rowDetailRule: {
-    backgroundColor: vars.colorBorder,
+    backgroundColor: vars["--ads-color-border"],
     flexShrink: 0,
     height: "0.625rem",
     width: 1,
   },
   rowProviderDetail: {
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
-    fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeMicro,
+    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 70%, transparent)`,
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-micro"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   rowStartOffset: {
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
+    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 70%, transparent)`,
     flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars["--ads-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
     lineHeight: "1rem",
     paddingTop: "0.125rem",
   },
   rowElapsed: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars["--ads-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
     lineHeight: "1rem",
     paddingTop: "0.125rem",
@@ -366,12 +366,12 @@ export const turnActivityStyles = stylex.create({
   // quiet-button chrome / focus ring at the call site.
   row: {
     alignItems: "flex-start",
-    borderRadius: vars.radiusPanel,
+    borderRadius: vars["--ads-radius-panel"],
     display: "flex",
     gap: "0.625rem",
     minWidth: 0,
     paddingBlock: 6,
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
     textAlign: "left",
     width: "100%",
   },
@@ -384,6 +384,6 @@ export const turnActivityStyles = stylex.create({
       default: SHELF_MOTION_DURATION,
       "@media (prefers-reduced-motion: reduce)": "0ms",
     },
-    animationTimingFunction: vars.motionEaseStandard,
+    animationTimingFunction: vars["--ads-motion-ease-standard"],
   },
 });

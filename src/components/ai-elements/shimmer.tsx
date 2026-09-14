@@ -12,8 +12,8 @@ import { cx, sx } from "../ads/utils/stylex";
  * into the surface it sits on) in every theme, because the canvas follows the
  * theme.
  */
-const SHIMMER_BASE = `var(--shimmer-base-color, ${vars.colorTextMuted})`;
-const SHIMMER_HIGHLIGHT = `color-mix(in srgb, ${SHIMMER_BASE}, ${vars.colorCanvas} 60%)`;
+const SHIMMER_BASE = `var(--shimmer-base-color, ${vars["--ads-color-text-muted"]})`;
+const SHIMMER_HIGHLIGHT = `color-mix(in srgb, ${SHIMMER_BASE}, ${vars["--ads-color-canvas"]} 60%)`;
 
 export interface ShimmerProps extends Omit<HTMLAttributes<HTMLElement>, "children"> {
   /**

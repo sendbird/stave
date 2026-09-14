@@ -27,7 +27,7 @@ export function Separator({
 
 const styles = stylex.create({
   root: {
-    backgroundColor: vars.colorBorder,
+    backgroundColor: vars["--ads-color-border"],
     blockSize: 1,
     inlineSize: "100%",
   },

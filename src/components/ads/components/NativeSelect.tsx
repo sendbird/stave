@@ -189,7 +189,7 @@ const styles = stylex.create({
   field: {
     alignContent: "start",
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     inlineSize: "100%",
     minInlineSize: 0,
   },
@@ -200,37 +200,37 @@ const styles = stylex.create({
   },
   control: {
     appearance: "none",
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
     // Focus contract: border on `:focus-within` (see the header of
     // `TextField.tsx` for the family-wide statement). A native `<select>`
     // does not match `:focus-visible` on a mouse click, so keying the border
     // to the ring's pseudo-class here would recolor on Tab but not on click.
     borderColor: {
-      default: vars.colorBorder,
-      ":hover": vars.colorBorderStrong,
-      ":focus-within": vars.colorBorderFocus,
+      default: vars["--ads-color-border"],
+      ":hover": vars["--ads-color-border-strong"],
+      ":focus-within": vars["--ads-color-border-focus"],
     },
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorText,
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-text"],
     cursor: "pointer",
-    fontFamily: vars.fontSans,
-    fontSize: vars.fontSizeBody,
+    fontFamily: vars["--ads-font-sans"],
+    fontSize: vars["--ads-font-size-body"],
     inlineSize: "100%",
-    lineHeight: vars.lineHeightNormal,
+    lineHeight: vars["--ads-line-height-normal"],
     maxInlineSize: "100%",
     minInlineSize: 0,
     overflow: "hidden",
     paddingBlock: 0,
-    paddingInlineEnd: vars.space32,
-    paddingInlineStart: vars.space12,
+    paddingInlineEnd: vars["--ads-space-32"],
+    paddingInlineStart: vars["--ads-space-12"],
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   // Inline padding only — height lives in the control-metrics recipe.
   compact: {
-    paddingInlineStart: vars.space8,
+    paddingInlineStart: vars["--ads-space-8"],
   },
   // `dense` carries `compact`'s gutter as well as the type step: the two used
   // to be composed together for `xs` (`size !== "md"` matched it too), and
@@ -238,38 +238,38 @@ const styles = stylex.create({
   // that `lg` exists and no longer wants the compact gutter. Same two atomic
   // rules as before.
   dense: {
-    fontSize: vars.fontSizeCaption,
-    paddingInlineStart: vars.space8,
+    fontSize: vars["--ads-font-size-caption"],
+    paddingInlineStart: vars["--ads-space-8"],
   },
   // The top of the ramp reads `space4` and `fontSizeMd`, the gutter and type
   // step a `lg` TextField and a `lg` Button take, so a `lg` form row is one
   // scale. The trailing gutter stays `space8` — the chevron did not grow.
   lg: {
-    fontSize: vars.fontSizeLead,
-    paddingInlineStart: vars.space16,
+    fontSize: vars["--ads-font-size-lead"],
+    paddingInlineStart: vars["--ads-space-16"],
   },
   invalid: {
-    borderColor: vars.colorDangerBorder,
+    borderColor: vars["--ads-color-danger-border"],
   },
   icon: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     insetBlockStart: "50%",
-    insetInlineEnd: vars.space12,
+    insetInlineEnd: vars["--ads-space-12"],
     pointerEvents: "none",
     position: "absolute",
     transform: "translateY(-50%)",
   },
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     overflowWrap: "anywhere",
   },
   error: {
     // The border's red — one error, one colour. See `Field.tsx`.
-    color: vars.colorDanger,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-danger"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     overflowWrap: "anywhere",
   },
 });

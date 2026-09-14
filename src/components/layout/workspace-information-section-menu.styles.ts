@@ -4,8 +4,8 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 
 /** Section-visibility dropdown in the Information panel header. */
 export const workspaceInformationSectionMenuStyles = stylex.create({
-  trigger: { borderRadius: vars.radiusControl, height: 32, width: 32 },
-  triggerIcon: { height: vars.controlIconSizeSm, width: vars.controlIconSizeSm },
+  trigger: { borderRadius: vars["--ads-radius-control"], height: 32, width: 32 },
+  triggerIcon: { height: vars["--ads-control-icon-size-sm"], width: vars["--ads-control-icon-size-sm"] },
   content: { width: "14rem" },
   itemLabel: {
     flex: 1,
@@ -14,6 +14,6 @@ export const workspaceInformationSectionMenuStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  itemHint: { color: vars.colorTextMuted, fontSize: vars.fontSizeCaption },
+  itemHint: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
   resetIcon: { height: 16, width: 16 },
 });

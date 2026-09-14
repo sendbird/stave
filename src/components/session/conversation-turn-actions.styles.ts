@@ -12,26 +12,26 @@ export const conversationTurnActionsStyles = stylex.create({
   groupInline: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space2,
+    gap: vars["--ads-space-2"],
     marginLeft: "auto",
   },
   // Preview actions are full bordered cards on a translucent surface; the
   // inline variant is a compact text action with no border.
   actionPreview: {
-    backgroundColor: `color-mix(in oklch, ${vars.colorCanvas} 55%, transparent)`,
-    borderColor: `color-mix(in oklch, ${vars.colorBorder} 70%, transparent)`,
-    borderRadius: vars.radiusControl,
+    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-canvas"]} 55%, transparent)`,
+    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    fontSize: vars.fontSizeCaption,
+    borderWidth: vars["--ads-border-width-hairline"],
+    fontSize: vars["--ads-font-size-caption"],
     gap: 6,
     height: 32,
     justifyContent: "flex-start",
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   actionInline: {
-    fontSize: vars.fontSizeCaption,
-    gap: vars.space4,
+    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--ads-space-4"],
     height: 28,
     paddingInline: 6,
   },
@@ -40,11 +40,11 @@ export const conversationTurnActionsStyles = stylex.create({
   rollbackPreview: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorDangerSoft,
+      ":hover": vars["--ads-color-danger-soft"],
     },
     color: {
-      default: vars.colorDangerText,
-      ":hover": vars.colorDangerText,
+      default: vars["--ads-color-danger-text"],
+      ":hover": vars["--ads-color-danger-text"],
     },
   },
   // A disabled action stays legible but inert: no hover recolor, no pointer.
@@ -54,8 +54,8 @@ export const conversationTurnActionsStyles = stylex.create({
       ":hover": "transparent",
     },
     color: {
-      default: vars.colorTextMuted,
-      ":hover": vars.colorTextMuted,
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-text-muted"],
     },
     cursor: "not-allowed",
     opacity: {

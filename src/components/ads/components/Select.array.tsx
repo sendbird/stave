@@ -91,7 +91,7 @@ export type SelectProps = Omit<SelectRootProps, "children" | "items"> &
     size?: SelectSize;
     /**
      * 포지셔너 z-index 오버라이드 — 소비 앱의 고정 크롬이 DS z-스케일
-     * (`vars.zIndexDropdown`)보다 높은 레이어(z 900+ 등)를 쓸 때 옵션 목록이
+     * (`vars["--ads-z-index-dropdown"]`)보다 높은 레이어(z 900+ 등)를 쓸 때 옵션 목록이
      * 그 크롬/패널 뒤에 깔리지 않게 한다. Tooltip의 `zIndex`와 같은 탈출구.
      */
     zIndex?: number;

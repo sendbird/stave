@@ -10,15 +10,15 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
  */
 export const paneTabChipStyles = stylex.create({
   icon: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     height: 16,
     width: 16,
   },
   mutedColor: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   faviconImage: {
-    borderRadius: vars.radiusMark,
+    borderRadius: vars["--ads-radius-mark"],
     height: 16,
     objectFit: "contain",
     width: 16,
@@ -33,9 +33,9 @@ export const paneTabChipStyles = stylex.create({
     width: 20,
   },
   cliIconBadge: {
-    backgroundColor: vars.colorCanvas,
-    borderRadius: vars.radiusMark,
-    color: vars.colorTextMuted,
+    backgroundColor: vars["--ads-color-canvas"],
+    borderRadius: vars["--ads-radius-mark"],
+    color: vars["--ads-color-text-muted"],
     height: 10,
     insetBlockEnd: -2,
     insetInlineEnd: -2,
@@ -51,15 +51,15 @@ export const paneTabChipStyles = stylex.create({
     width: 20,
   },
   dirtyDot: {
-    backgroundColor: vars.colorAccent,
-    borderRadius: vars.radiusFull,
+    backgroundColor: vars["--ads-color-accent"],
+    borderRadius: vars["--ads-radius-full"],
     flexShrink: 0,
     height: 8,
     width: 8,
   },
   statusBadge: {
-    borderRadius: vars.radiusMark,
-    fontSize: vars.fontSizeMicro,
+    borderRadius: vars["--ads-radius-mark"],
+    fontSize: vars["--ads-font-size-micro"],
     letterSpacing: "0.14em",
     textTransform: "uppercase",
   },
@@ -69,7 +69,7 @@ export const paneTabChipStyles = stylex.create({
     gap: 6,
     height: "100%",
     minWidth: 0,
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
     // Published so the close affordance can reveal itself on hover/focus
     // without a `group-hover` utility (StyleX has no group variant).
     "--pane-close-reveal": {
@@ -79,22 +79,22 @@ export const paneTabChipStyles = stylex.create({
     },
   },
   renameInput: {
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars["--ads-font-size-caption"],
     height: 20,
     minWidth: 0,
-    paddingInline: vars.space4,
+    paddingInline: vars["--ads-space-4"],
     width: 128,
   },
   title: {
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
     maxWidth: 192,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   pinIcon: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     flexShrink: 0,
     height: 12,
     width: 12,
@@ -103,12 +103,12 @@ export const paneTabChipStyles = stylex.create({
     alignItems: "center",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
+      ":hover": vars["--ads-color-overlay-hover"],
     },
-    borderRadius: vars.radiusMark,
+    borderRadius: vars["--ads-radius-mark"],
     color: {
-      default: vars.colorTextMuted,
-      ":hover": vars.colorText,
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-text"],
     },
     display: "flex",
     flexShrink: 0,
@@ -133,7 +133,7 @@ export const paneTabChipStyles = stylex.create({
    * chip action wants a tighter glyph than the 16px control default.
    */
   closeIcon: {
-    blockSize: vars.controlIconSizeSm,
-    inlineSize: vars.controlIconSizeSm,
+    blockSize: vars["--ads-control-icon-size-sm"],
+    inlineSize: vars["--ads-control-icon-size-sm"],
   },
 });

@@ -18,16 +18,16 @@ const capabilities: ProviderWorkGraphCapabilities = {
 const styles = stylex.create({
   section: {
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     maxInlineSize: "42rem",
-    padding: vars.space16,
-    borderRadius: vars.radiusPanel,
-    backgroundColor: vars.colorSurfaceRaised,
+    padding: vars["--ads-space-16"],
+    borderRadius: vars["--ads-radius-panel"],
+    backgroundColor: vars["--ads-color-surface-raised"],
   },
   title: {
     margin: 0,
-    fontSize: vars.fontSizeCaption,
-    color: vars.colorTextMuted,
+    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--ads-color-text-muted"],
   },
 });
 

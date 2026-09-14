@@ -16,8 +16,8 @@ export const layers = stylex.create({
   lightbox: { zIndex: 110 },
 });
 export const elevations = stylex.create({
-  surface: { boxShadow: vars.elevationRaised },
-  raised: { boxShadow: vars.elevationLift },
-  floating: { boxShadow: vars.elevationOverlay },
-  modal: { boxShadow: vars.elevationModal },
+  surface: { boxShadow: vars["--ads-elevation-raised"] },
+  raised: { boxShadow: vars["--ads-elevation-lift"] },
+  floating: { boxShadow: vars["--ads-elevation-overlay"] },
+  modal: { boxShadow: vars["--ads-elevation-modal"] },
 });

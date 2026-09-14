@@ -25,7 +25,7 @@ export const terminalSurfaceStyles = stylex.create({
     outline: "none",
     width: "100%",
     ':focus-visible': {
-      boxShadow: `inset 0 0 0 1px ${vars.colorBorderFocus}`,
+      boxShadow: `inset 0 0 0 1px ${vars["--ads-color-border-focus"]}`,
     },
   },
   dimmed: { opacity: 0.6 },

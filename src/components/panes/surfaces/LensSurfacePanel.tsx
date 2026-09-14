@@ -372,6 +372,6 @@ function LensSessionSurface(args: {
 }
 
 const styles = stylex.create({
-root: {display:"flex",height:"100%",minHeight:0,flexDirection:"column",overflow:"hidden",backgroundColor:vars.colorCanvasSubtle},
-body: {position:"relative",minHeight:0,flex:1,overflow:"hidden",backgroundColor:vars.colorCanvas}
+root: {display:"flex",height:"100%",minHeight:0,flexDirection:"column",overflow:"hidden",backgroundColor:vars["--ads-color-canvas-subtle"]},
+body: {position:"relative",minHeight:0,flex:1,overflow:"hidden",backgroundColor:vars["--ads-color-canvas"]}
 });

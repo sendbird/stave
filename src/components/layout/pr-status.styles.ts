@@ -13,19 +13,19 @@ import type { PrStatusTone } from "@/lib/pr-status";
  * transform otherwise.
  */
 
-const gitOpenInk = `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-open))`;
-const gitMergedInk = `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-merged))`;
-const gitClosedInk = `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-closed))`;
-const gitModifiedInk = `color-mix(in oklab, ${vars.colorText} 45%, var(--service-git-modified))`;
-const gitOpenSoft = `color-mix(in oklab, var(--service-git-open) 12%, ${vars.colorSurface})`;
-const gitMergedSoft = `color-mix(in oklab, var(--service-git-merged) 12%, ${vars.colorSurface})`;
-const gitClosedSoft = `color-mix(in oklab, var(--service-git-closed) 12%, ${vars.colorSurface})`;
-const gitModifiedSoft = `color-mix(in oklab, var(--service-git-modified) 12%, ${vars.colorSurface})`;
-const gitOpenHover = `color-mix(in oklab, var(--service-git-open) 18%, ${vars.colorSurface})`;
+const gitOpenInk = `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--service-git-open))`;
+const gitMergedInk = `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--service-git-merged))`;
+const gitClosedInk = `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--service-git-closed))`;
+const gitModifiedInk = `color-mix(in oklab, ${vars["--ads-color-text"]} 45%, var(--service-git-modified))`;
+const gitOpenSoft = `color-mix(in oklab, var(--service-git-open) 12%, ${vars["--ads-color-surface"]})`;
+const gitMergedSoft = `color-mix(in oklab, var(--service-git-merged) 12%, ${vars["--ads-color-surface"]})`;
+const gitClosedSoft = `color-mix(in oklab, var(--service-git-closed) 12%, ${vars["--ads-color-surface"]})`;
+const gitModifiedSoft = `color-mix(in oklab, var(--service-git-modified) 12%, ${vars["--ads-color-surface"]})`;
+const gitOpenHover = `color-mix(in oklab, var(--service-git-open) 18%, ${vars["--ads-color-surface"]})`;
 
 /** Foreground tint for a status glyph. */
 export const prToneIconStyles = stylex.create({
-  neutral: { color: vars.colorTextMuted },
+  neutral: { color: vars["--ads-color-text-muted"] },
   open: { color: gitOpenInk },
   attention: { color: gitModifiedInk },
   danger: { color: gitClosedInk },
@@ -43,8 +43,8 @@ export const prStatusIconStyles = stylex.create({
  */
 export const prToneBadgeStyles = stylex.create({
   neutral: {
-    backgroundColor: vars.colorCanvasSubtle,
-    color: vars.colorTextMuted,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
   open: {
     backgroundColor: gitOpenSoft,
@@ -75,8 +75,8 @@ export const prCreateButtonStyles = stylex.create({
       default: gitOpenSoft,
       ":hover": gitOpenHover,
     },
-    borderColor: vars.colorBorder,
-    boxShadow: vars.elevationRaised,
+    borderColor: vars["--ads-color-border"],
+    boxShadow: vars["--ads-elevation-raised"],
     color: gitOpenInk,
   },
 });

@@ -79,21 +79,21 @@ const themeStyles = {
  */
 const nativeChromeStyles = stylex.create({
   root: {
-    "--ads-selection-background": vars.colorText,
-    "--ads-selection-color": vars.colorTextInverted,
+    "--ads-selection-background": vars["--ads-color-text"],
+    "--ads-selection-color": vars["--ads-color-text-inverted"],
     // Thumb only. A painted track turns a native scrollbar into a channel
     // running the height of the region, which reads as a border the app did
     // not ask for. `colorScrollbarTrack` still belongs to `ScrollArea`, which
     // draws its own and wants the channel.
-    scrollbarColor: `${vars.colorScrollbarThumb} transparent`,
+    scrollbarColor: `${vars["--ads-color-scrollbar-thumb"]} transparent`,
   },
   // Applied to <html> under `syncDocument` so the document itself — the strip
   // behind overscroll, and everything outside the React root — carries the
   // themed canvas instead of the browser's white default.
   documentSurface: {
-    "--ads-selection-background": vars.colorText,
-    "--ads-selection-color": vars.colorTextInverted,
-    backgroundColor: vars.colorCanvas,
+    "--ads-selection-background": vars["--ads-color-text"],
+    "--ads-selection-color": vars["--ads-color-text-inverted"],
+    backgroundColor: vars["--ads-color-canvas"],
   },
   dark: {
     colorScheme: "dark",

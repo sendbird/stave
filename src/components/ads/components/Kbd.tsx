@@ -41,22 +41,22 @@ const styles = stylex.create({
     // states its own cross-axis alignment and refuses to be squeezed. Overridable
     // through `xstyle` for the rare caller that really wants a stretched cap.
     alignSelf: "center",
-    backgroundColor: vars.colorCanvasSubtle,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusMark,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-mark"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     // Inset bottom edge that makes the keycap read recessed. The literal it
     // replaces was an ink color baked for light mode only, so on a dark keycap
     // the edge was dark-on-dark and vanished; `colorInsetEdge` flips to a light
     // alpha in dark/high-contrast themes.
-    boxShadow: `inset 0 calc(-1 * ${vars.borderWidthHairline}) 0 0 ${vars.colorInsetEdge}`,
-    color: vars.colorText,
+    boxShadow: `inset 0 calc(-1 * ${vars["--ads-border-width-hairline"]}) 0 0 ${vars["--ads-color-inset-edge"]}`,
+    color: vars["--ads-color-text"],
     display: "inline-flex",
     flexShrink: 0,
-    fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
     justifyContent: "center",
     lineHeight: 1,
     paddingBlock: 0,
@@ -65,12 +65,12 @@ const styles = stylex.create({
   sm: {
     minBlockSize: 20,
     minInlineSize: 20,
-    paddingInline: vars.space4,
+    paddingInline: vars["--ads-space-4"],
   },
   md: {
     minBlockSize: 24,
     minInlineSize: 24,
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
 });
 

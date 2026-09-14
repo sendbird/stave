@@ -1200,11 +1200,11 @@ export function WorkspacePaneHost() {
 }
 
 const styles = stylex.create({
-choice: {display:"flex",width:28,height:28,alignItems:"center",justifyContent:"center",borderRadius:4,color:{default:vars.colorTextMuted,":hover":vars.colorText},backgroundColor:{default:"transparent",":hover":vars.colorCanvasSubtle}},
-selected:{backgroundColor:vars.colorAccentSoft,color:vars.colorText},
+choice: {display:"flex",width:28,height:28,alignItems:"center",justifyContent:"center",borderRadius:4,color:{default:vars["--ads-color-text-muted"],":hover":vars["--ads-color-text"]},backgroundColor:{default:"transparent",":hover":vars["--ads-color-canvas-subtle"]}},
+selected:{backgroundColor:vars["--ads-color-accent-soft"],color:vars["--ads-color-text"]},
 picker: {display:"flex",minWidth:192,alignItems:"center",gap:4,paddingInline:8,paddingBlock:6},
-label: {marginRight:4,fontSize: vars.fontSizeCaption,color:vars.colorTextMuted},
-reset: {display:"flex",width:28,height:28,alignItems:"center",justifyContent:"center",borderRadius:4,borderWidth:1,borderStyle:"solid",borderColor:vars.colorBorder,fontSize: vars.fontSizeCaption,color:{default:vars.colorTextMuted,":hover":vars.colorText},backgroundColor:{default:"transparent",":hover":vars.colorCanvasSubtle}},
+label: {marginRight:4,fontSize: vars["--ads-font-size-caption"],color:vars["--ads-color-text-muted"]},
+reset: {display:"flex",width:28,height:28,alignItems:"center",justifyContent:"center",borderRadius:4,borderWidth:1,borderStyle:"solid",borderColor:vars["--ads-color-border"],fontSize: vars["--ads-font-size-caption"],color:{default:vars["--ads-color-text-muted"],":hover":vars["--ads-color-text"]},backgroundColor:{default:"transparent",":hover":vars["--ads-color-canvas-subtle"]}},
 icon: {width:16,height:16},
 root: {height:"100%",minHeight:0,width:"100%",minWidth:0}
 });

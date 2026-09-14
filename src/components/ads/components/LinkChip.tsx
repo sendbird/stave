@@ -12,8 +12,8 @@ import { cx, sx, type XstyleProp } from "../utils/stylex";
 // overlay cannot be painted onto one without dropping the fill itself, so the
 // same operand is applied the other way, at the same 6/12 weights. sRGB, not
 // oklab: an oklab mix is nearly invisible over a near-black fill.
-const raisedWashHover = `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars.colorMixInk} 6%)`;
-const raisedWashPressed = `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars.colorMixInk} 12%)`;
+const raisedWashHover = `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 6%)`;
+const raisedWashPressed = `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 12%)`;
 
 export type LinkChipProps = React.ComponentPropsWithoutRef<"a"> & {
   /**
@@ -109,32 +109,32 @@ const styles = stylex.create({
   root: {
     alignItems: "center",
     backgroundColor: {
-      default: vars.colorSurfaceRaised,
+      default: vars["--ads-color-surface-raised"],
       ":hover": raisedWashHover,
       ":active": raisedWashPressed,
     },
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusFull,
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-full"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorText,
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-text"],
     display: "inline-flex",
     flexShrink: 1,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    gap: vars.space4,
-    lineHeight: vars.lineHeightTight,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--ads-space-4"],
+    lineHeight: vars["--ads-line-height-tight"],
     maxInlineSize: "100%",
     minInlineSize: 0,
     overflow: "hidden",
     paddingBlock: 0,
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
     textDecoration: "none",
     whiteSpace: "nowrap",
   },
   icon: {
     alignItems: "center",
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     display: "inline-flex",
     flexShrink: 0,
   },
@@ -158,7 +158,7 @@ const styles = stylex.create({
       ':is([href^="http"], [href^="//"], [href^="mailto:"], [href^="tel:"])': `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M15 3h6v6'/%3E%3Cpath d='M10 14 21 3'/%3E%3Cpath d='M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h6'/%3E%3C/svg%3E")`,
     },
     "::before": {
-      backgroundColor: vars.colorTextMuted,
+      backgroundColor: vars["--ads-color-text-muted"],
       blockSize: 12,
       content: '""',
       flexShrink: 0,

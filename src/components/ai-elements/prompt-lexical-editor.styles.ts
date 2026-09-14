@@ -28,10 +28,10 @@ export const lexicalEditorStyles = stylex.create({
     insetInlineStart: 0,
     insetBlockStart: 0,
     userSelect: "none",
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   placeholderDefaultColor: {
-    color: vars.colorTextPlaceholder,
+    color: vars["--ads-color-text-placeholder"],
   },
   /*
    * Lexical builds its root out of real `<p>` elements. Nothing in this app's

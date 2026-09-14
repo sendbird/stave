@@ -364,39 +364,39 @@ function ToastHostList({
 
 const styles = stylex.create({
   viewport: {
-    inlineSize: `min(360px, calc(100dvw - ${vars.space32}))`,
+    inlineSize: `min(360px, calc(100dvw - ${vars["--ads-space-32"]}))`,
     position: "fixed",
-    zIndex: vars.zIndexToast,
+    zIndex: vars["--ads-z-index-toast"],
   },
   viewportTop: {
-    insetBlockStart: vars.space20,
+    insetBlockStart: vars["--ads-space-20"],
   },
   viewportBottom: {
-    insetBlockEnd: vars.space20,
+    insetBlockEnd: vars["--ads-space-20"],
   },
   viewportLeft: {
-    insetInlineStart: vars.space20,
+    insetInlineStart: vars["--ads-space-20"],
   },
   viewportRight: {
-    insetInlineEnd: vars.space20,
+    insetInlineEnd: vars["--ads-space-20"],
   },
   viewportCenter: {
     insetInlineStart: "50%",
     transform: "translateX(-50%)",
   },
   toast: {
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
     blockSize: "var(--toast-height)",
-    borderColor: vars.colorMediaEdge,
-    borderRadius: vars.radiusPanel,
+    borderColor: vars["--ads-color-media-edge"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     // elevation4 — a toast is a detached global surface: it sits on the highest
     // z band (`zIndexToast`) precisely so feedback is never occluded, and it
     // floats over whatever is already on screen. elevation3 gave it a
     // dropdown's depth (tokens.stylex.ts elevation policy).
-    boxShadow: vars.elevationModal,
-    color: vars.colorText,
+    boxShadow: vars["--ads-elevation-modal"],
+    color: vars["--ads-color-text"],
     inlineSize: "100%",
     overflow: "hidden",
     position: "absolute",
@@ -425,15 +425,15 @@ const styles = stylex.create({
   content: {
     display: "flex",
     flexDirection: "column",
-    paddingBlock: vars.space12,
-    paddingInline: vars.space16,
+    paddingBlock: vars["--ads-space-12"],
+    paddingInline: vars["--ads-space-16"],
   },
   // Flex row: [icon?] [copy 1fr] [inline action?] [close]. Single-line
   // toasts center everything; multi-line toasts top-align the trailing chrome.
   row: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   rowMultiline: {
     alignItems: "flex-start",
@@ -453,31 +453,31 @@ const styles = stylex.create({
     // the glyph inside it replaces the banned `marginBlockStart: 1` optical
     // nudge — and it now tracks the type scale instead of one hard-coded pixel.
     alignSelf: "start",
-    blockSize: `calc(${vars.fontSizeBody} * ${vars.lineHeightTight})`,
+    blockSize: `calc(${vars["--ads-font-size-body"]} * ${vars["--ads-line-height-tight"]})`,
   },
-  iconInfo: { color: vars.colorInfo },
-  iconLoading: { color: vars.colorTextMuted },
-  iconSuccess: { color: vars.colorSuccess },
-  iconWarning: { color: vars.colorWarning },
-  iconDanger: { color: vars.colorDanger },
+  iconInfo: { color: vars["--ads-color-info"] },
+  iconLoading: { color: vars["--ads-color-text-muted"] },
+  iconSuccess: { color: vars["--ads-color-success"] },
+  iconWarning: { color: vars["--ads-color-warning"] },
+  iconDanger: { color: vars["--ads-color-danger"] },
   copy: {
     display: "grid",
     flexGrow: 1,
     flexShrink: 1,
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
   title: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightSemibold,
-    lineHeight: vars.lineHeightTight,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    lineHeight: vars["--ads-line-height-tight"],
     margin: 0,
   },
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
   },
   // Bottom-end action row for multi-line toasts (toast-stack anatomy). It sits
@@ -486,7 +486,7 @@ const styles = stylex.create({
   actionRow: {
     display: "flex",
     justifyContent: "flex-end",
-    marginBlockStart: vars.space12,
+    marginBlockStart: vars["--ads-space-12"],
   },
 });
 

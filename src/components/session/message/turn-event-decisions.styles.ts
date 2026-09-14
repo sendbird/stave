@@ -13,7 +13,7 @@ export const turnEventDecisionStyles = stylex.create({
   fieldset: {
     border: "none",
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     margin: 0,
     minInlineSize: 0,
     padding: 0,
@@ -24,10 +24,10 @@ export const turnEventDecisionStyles = stylex.create({
    * in the same form would read as two kinds of question.
    */
   legend: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     padding: 0,
   },
 
@@ -41,7 +41,7 @@ export const turnEventDecisionStyles = stylex.create({
    */
   notice: {
     alignItems: "center",
-    columnGap: vars.space8,
+    columnGap: vars["--ads-space-8"],
     display: "flex",
     minInlineSize: 0,
   },
@@ -50,18 +50,18 @@ export const turnEventDecisionStyles = stylex.create({
    * call site: a notice line is the same row label as a `ToolRun` title.
    */
   noticeTitle: {
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     minInlineSize: 0,
     overflowWrap: "anywhere",
   },
   /** The one semantic word, tone from `agentStatusWord`. No dot, no chip. */
   noticeStatus: {
     flex: "0 0 auto",
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     whiteSpace: "nowrap",
   },
   noticeBody: {

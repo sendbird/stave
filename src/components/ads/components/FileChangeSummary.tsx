@@ -207,12 +207,12 @@ const styles = stylex.create({
   root: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     inlineSize: "100%",
     minInlineSize: 0,
   },
   glyph: {
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
     flexShrink: 0,
   },
   /**
@@ -221,14 +221,14 @@ const styles = stylex.create({
    * `agentSurface.metaRow`.
    */
   path: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "flex",
     flex: "1 1 auto",
     minInlineSize: 0,
     whiteSpace: "nowrap",
   },
   directory: {
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
     minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -239,19 +239,19 @@ const styles = stylex.create({
   counts: {
     display: "flex",
     flexShrink: 0,
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   added: {
-    color: vars.colorDiffAddedText,
+    color: vars["--ads-color-diff-added-text"],
   },
   removed: {
-    color: vars.colorDiffRemovedText,
+    color: vars["--ads-color-diff-removed-text"],
   },
   state: {
     flexShrink: 0,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     whiteSpace: "nowrap",
   },
 });

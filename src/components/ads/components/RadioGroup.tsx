@@ -165,30 +165,30 @@ const dotPop = stylex.keyframes({
 const styles = stylex.create({
   group: {
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   option: {
     alignItems: "start",
     backgroundColor: {
-      default: vars.colorSurfaceRaised,
+      default: vars["--ads-color-surface-raised"],
       // The 6% wash, not an opaque Neutral100 — the same fill every other
       // pointer state in the system takes. See design-direction.md §1.5.
-      ":hover": vars.colorOverlayHover,
+      ":hover": vars["--ads-color-overlay-hover"],
     },
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusControl,
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorText,
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-text"],
     cursor: "pointer",
     display: "grid",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     gridTemplateColumns: "20px minmax(0, 1fr)",
     // Height comes from the shared control-metrics recipe (`controlHeights.md`,
     // composed at the call site) — same metric as Checkbox, with the recipe's
     // `(pointer: coarse)` 44px touch-target bump.
-    paddingBlock: vars.space12,
-    paddingInline: vars.space12,
+    paddingBlock: vars["--ads-space-12"],
+    paddingInline: vars["--ads-space-12"],
   },
   /*
    * Invalid: the resting outline of every row moves to the danger ramp, so the
@@ -198,15 +198,15 @@ const styles = stylex.create({
    * declaration here.
    */
   optionInvalid: {
-    borderColor: vars.colorDangerBorder,
+    borderColor: vars["--ads-color-danger-border"],
   },
   radio: {
     alignItems: "center",
-    backgroundColor: vars.colorSurfaceRaised,
-    borderColor: vars.colorBorderStrong,
-    borderRadius: vars.radiusFull,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: vars["--ads-color-border-strong"],
+    borderRadius: vars["--ads-radius-full"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     display: "inline-flex",
     flexShrink: 0,
     inlineSize: 20,
@@ -219,40 +219,40 @@ const styles = stylex.create({
     minBlockSize: 20,
   },
   radioChecked: {
-    borderColor: vars.colorAccent,
+    borderColor: vars["--ads-color-accent"],
   },
   indicator: {
     animationDuration: {
-      default: vars.motionDurationFast,
+      default: vars["--ads-motion-duration-fast"],
       "@media (prefers-reduced-motion: reduce)": "0ms",
     },
     animationName: dotPop,
-    animationTimingFunction: vars.motionEaseExpressive,
-    backgroundColor: vars.colorAccent,
-    borderRadius: vars.radiusFull,
+    animationTimingFunction: vars["--ads-motion-ease-expressive"],
+    backgroundColor: vars["--ads-color-accent"],
+    borderRadius: vars["--ads-radius-full"],
     display: "block",
     inlineSize: 10,
     minBlockSize: 10,
   },
   optionCopy: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
   optionLabel: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
     // §5 weight roles: an option label stops at medium; the dot, the accent
     // border, and the row surface already carry selection.
-    fontWeight: vars.fontWeightMedium,
+    fontWeight: vars["--ads-font-weight-medium"],
     // Whole-pixel control line box (20px) so the label's first line and the
     // 20px radio share one center — see `radio` above. `lineHeightTight`
     // resolved to 18.9px and forced a 1px optical nudge on the control.
-    lineHeight: vars.lineHeightControl,
+    lineHeight: vars["--ads-line-height-control"],
   },
   optionDescription: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
   },
 });

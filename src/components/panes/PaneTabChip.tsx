@@ -61,7 +61,7 @@ const EMPTY_MESSAGES: ChatMessage[] = [];
 const providerToneStyles = stylex.create({
   claude: { color: "var(--provider-claude)" },
   codex: { color: "var(--provider-codex)" },
-  accent: { color: vars.colorAccent },
+  accent: { color: vars["--ads-color-accent"] },
 });
 
 function resolveProviderToneClass(providerId: ProviderId): string {

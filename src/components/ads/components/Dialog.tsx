@@ -306,28 +306,28 @@ export const Dialog = Object.assign(DialogConvenience, {
 
 const styles = stylex.create({
   backdrop: {
-    backdropFilter: vars.motionBlurOverlay,
-    backgroundColor: vars.colorOverlay,
+    backdropFilter: vars["--ads-motion-blur-overlay"],
+    backgroundColor: vars["--ads-color-overlay"],
     inset: 0,
     position: "fixed",
-    zIndex: vars.zIndexOverlay,
+    zIndex: vars["--ads-z-index-overlay"],
   },
   surface: {
-    backgroundColor: vars.colorSurfaceRaised,
-    borderColor: vars.colorMediaEdge,
-    borderRadius: vars.radiusPanel,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: vars["--ads-color-media-edge"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     // elevationModal — a Dialog is a detached global surface that owns the screen,
     // one tier above an anchored popup. It shipped on elevationOverlay, which made a
     // modal read at exactly the same depth as a dropdown (tokens.stylex.ts
     // elevation policy).
-    boxShadow: vars.elevationModal,
-    color: vars.colorText,
+    boxShadow: vars["--ads-elevation-modal"],
+    color: vars["--ads-color-text"],
   },
   popup: {
     display: "grid",
-    gap: vars.space20,
+    gap: vars["--ads-space-20"],
     // Header / body / actions, with only the middle track allowed to grow —
     // the popup itself used to be the scroll container (`overflowY: auto`
     // here), so a tall body (a form, or any body at 200% zoom) scrolled the
@@ -340,37 +340,37 @@ const styles = stylex.create({
     // Clamp against the live viewport, never a fixed ceiling: a tall dialog
     // scrolls inside its own surface instead of running off screen. The gutter
     // is a space step so the modal tier (Dialog/AlertDialog) cannot drift apart.
-    maxBlockSize: `calc(100dvh - ${vars.space48})`,
+    maxBlockSize: `calc(100dvh - ${vars["--ads-space-48"]})`,
     overflow: "hidden",
     // Modal padding step (design-direction §5): row-hosting popups pad space4,
     // content popovers space16, modal surfaces space20. Same value in
     // AlertDialog so the two confirm surfaces are interchangeable.
-    padding: vars.space20,
+    padding: vars["--ads-space-20"],
     position: "fixed",
     top: "50%",
     transform: "translate(-50%, -50%)",
-    zIndex: vars.zIndexModal,
+    zIndex: vars["--ads-z-index-modal"],
   },
   // 400px — the rung below the 460px confirm/form default, and the same
   // measure `PeekPanel` stands on, so the narrowest modal and the narrowest
   // docked surface read as one column width. Below this a two-button footer
   // starts wrapping, which is the floor a confirm dialog cannot cross.
   popupSm: {
-    inlineSize: `min(400px, calc(100dvw - ${vars.space32}))`,
+    inlineSize: `min(400px, calc(100dvw - ${vars["--ads-space-32"]}))`,
   },
   popupMd: {
-    inlineSize: `min(460px, calc(100dvw - ${vars.space32}))`,
+    inlineSize: `min(460px, calc(100dvw - ${vars["--ads-space-32"]}))`,
   },
   popupLg: {
-    inlineSize: `min(520px, calc(100dvw - ${vars.space32}))`,
+    inlineSize: `min(520px, calc(100dvw - ${vars["--ads-space-32"]}))`,
   },
   popupXl: {
-    inlineSize: `min(1040px, calc(100dvw - ${vars.space32}))`,
+    inlineSize: `min(1040px, calc(100dvw - ${vars["--ads-space-32"]}))`,
   },
   header: {
     alignItems: "start",
     display: "flex",
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
     justifyContent: "space-between",
   },
   /**
@@ -385,17 +385,17 @@ const styles = stylex.create({
    * negative margin cannot shorten it.
    */
   closeButton: {
-    marginBlockStart: `calc((${vars.lineHeightLead} - ${vars.controlHeightSm}) / 2)`,
+    marginBlockStart: `calc((${vars["--ads-line-height-lead"]} - ${vars["--ads-control-height-sm"]}) / 2)`,
   },
   titleGroup: {
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   title: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeLead,
-    fontWeight: vars.fontWeightSemibold,
-    lineHeight: vars.lineHeightLead,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-lead"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    lineHeight: vars["--ads-line-height-lead"],
     margin: 0,
     // A heading is short enough for the browser to line-break optimally:
     // `balance` evens the lines instead of leaving a one-word second line.
@@ -403,9 +403,9 @@ const styles = stylex.create({
     textWrap: "balance",
   },
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
     // Paired prose, not a heading: `pretty` only fixes the last line, so a
     // multi-paragraph description keeps its normal ragged edge.
@@ -416,9 +416,9 @@ const styles = stylex.create({
   // is the scroll container, so a form field or a button flush against its edge
   // — the first control in every scrolling dialog — had its ring erased.
   body: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     // The dialog's only scroll container (the popup is `overflow: hidden`), so
     // the header and the action row stay on screen. `minBlockSize: 0` lets the
     // `minmax(0, 1fr)` track actually shrink below its content size — without
@@ -429,7 +429,7 @@ const styles = stylex.create({
   actions: {
     display: "flex",
     flexWrap: "wrap",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     justifyContent: "end",
   },
 });

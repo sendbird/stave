@@ -2,14 +2,14 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
 
 export const optionStyles = stylex.create({
-  menu: { gap: vars.space8, padding: vars.space8 },
-  list: { maxHeight: "13rem", display: "flex", flexDirection: "column", gap: vars.space2, overflowY: "auto" },
-  toggle: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: vars.space12, paddingInline: vars.space12, paddingBlock: vars.space8 },
-  label: { display: "flex", minWidth: 0, flex: 1, flexDirection: "column", gap: vars.space2 },
-  title: { fontSize: vars.fontSizeBody, fontWeight: vars.fontWeightMedium, lineHeight: 1 },
-  detail: { fontSize: vars.fontSizeMicro, lineHeight: "16px", color: vars.colorTextMuted },
-  section: { display: "flex", flexDirection: "column", gap: vars.space4, borderTopWidth: vars.borderWidthHairline, borderTopStyle: "solid", borderTopColor: vars.colorBorderSubtle, paddingTop: vars.space8 },
-  sectionTitle: { paddingInline: vars.space4, fontSize: vars.fontSizeCaption, fontWeight: vars.fontWeightSemibold, color: vars.colorTextMuted },
+  menu: { gap: vars["--ads-space-8"], padding: vars["--ads-space-8"] },
+  list: { maxHeight: "13rem", display: "flex", flexDirection: "column", gap: vars["--ads-space-2"], overflowY: "auto" },
+  toggle: { display: "flex", alignItems: "center", justifyContent: "space-between", gap: vars["--ads-space-12"], paddingInline: vars["--ads-space-12"], paddingBlock: vars["--ads-space-8"] },
+  label: { display: "flex", minWidth: 0, flex: 1, flexDirection: "column", gap: vars["--ads-space-2"] },
+  title: { fontSize: vars["--ads-font-size-body"], fontWeight: vars["--ads-font-weight-medium"], lineHeight: 1 },
+  detail: { fontSize: vars["--ads-font-size-micro"], lineHeight: "16px", color: vars["--ads-color-text-muted"] },
+  section: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], borderTopWidth: vars["--ads-border-width-hairline"], borderTopStyle: "solid", borderTopColor: vars["--ads-color-border-subtle"], paddingTop: vars["--ads-space-8"] },
+  sectionTitle: { paddingInline: vars["--ads-space-4"], fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-semibold"], color: vars["--ads-color-text-muted"] },
   /*
    * The row geometry these two option lists share is ADS's own two-line item
    * recipe (`recipes/select-styles` `item` + `itemText`/`itemCopy`/
@@ -40,20 +40,20 @@ export const optionStyles = stylex.create({
     textAlign: "start",
   },
   /** 2. Title weight only; the line box and the ellipsis come from `itemLabel`. */
-  rowTitle: { fontWeight: vars.fontWeightMedium },
-  selected: { backgroundColor: { default: vars.colorSelectionFill, ":hover": vars.colorSelectionFill } },
+  rowTitle: { fontWeight: vars["--ads-font-weight-medium"] },
+  selected: { backgroundColor: { default: vars["--ads-color-selection-fill"], ":hover": vars["--ads-color-selection-fill"] } },
   // Glyph size only: `select-styles.itemIndicator` owns the mark's box,
   // placement and centring.
   check: { width: 14, height: 14, flexShrink: 0 },
-  selectedCheck: { color: vars.colorAccent },
-  hint: { paddingInline: vars.space4, fontSize: vars.fontSizeMicro, lineHeight: "16px", color: vars.colorTextMuted },
-  callout: { display: "flex", alignItems: "flex-start", gap: vars.space8, paddingInline: 10, paddingBlock: vars.space8, fontSize: vars.fontSizeCaption, lineHeight: "20px", color: vars.colorTextMuted },
-  warning: { color: vars.colorWarningText, backgroundColor: vars.colorWarningSoft, borderRadius: vars.radiusControl },
-  calloutIcon: { marginTop: vars.space2, width: 14, height: 14, flexShrink: 0 },
+  selectedCheck: { color: vars["--ads-color-accent"] },
+  hint: { paddingInline: vars["--ads-space-4"], fontSize: vars["--ads-font-size-micro"], lineHeight: "16px", color: vars["--ads-color-text-muted"] },
+  callout: { display: "flex", alignItems: "flex-start", gap: vars["--ads-space-8"], paddingInline: 10, paddingBlock: vars["--ads-space-8"], fontSize: vars["--ads-font-size-caption"], lineHeight: "20px", color: vars["--ads-color-text-muted"] },
+  warning: { color: vars["--ads-color-warning-text"], backgroundColor: vars["--ads-color-warning-soft"], borderRadius: vars["--ads-radius-control"] },
+  calloutIcon: { marginTop: vars["--ads-space-2"], width: 14, height: 14, flexShrink: 0 },
   calloutBody: { minWidth: 0, flex: 1 },
   settingsLink: {
-    paddingInline: vars.space4, textAlign: "start", fontSize: vars.fontSizeMicro, lineHeight: "16px",
-    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
+    paddingInline: vars["--ads-space-4"], textAlign: "start", fontSize: vars["--ads-font-size-micro"], lineHeight: "16px",
+    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
     textUnderlineOffset: 2, textDecorationLine: { default: "none", ":hover": "underline" },
   },
 });

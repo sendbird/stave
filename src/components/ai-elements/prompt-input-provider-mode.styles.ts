@@ -52,13 +52,13 @@ export const providerModeStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontWeight: vars.fontWeightMedium,
+    fontWeight: vars["--ads-font-weight-medium"],
     lineHeight: 1,
   },
   popover: { width: "22rem" },
   optionList: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
 });

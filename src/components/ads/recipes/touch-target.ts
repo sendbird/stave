@@ -42,7 +42,7 @@ export const touchTarget = stylex.create({
      */
     "--ads-touch-bleed": {
       default: "0px",
-      "@media (pointer: coarse)": `calc((100% - ${vars.controlHeightXl}) / 2)`,
+      "@media (pointer: coarse)": `calc((100% - ${vars["--ads-control-height-xl"]}) / 2)`,
     },
     "::after": {
       content: '""',

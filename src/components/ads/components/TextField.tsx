@@ -200,27 +200,27 @@ export function TextField({
 const styles = stylex.create({
   input: {
     appearance: "none",
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
     // Focus contract: border on `:focus-within` (see the file header).
     borderColor: {
-      default: vars.colorBorder,
+      default: vars["--ads-color-border"],
       // The pointer strengthens the boundary; it does not wash the fill —
       // hovering a field must not imply a press. Before `:focus-within` so
       // focus wins when both match.
-      ":hover": vars.colorBorderStrong,
-      ":focus-within": vars.colorBorderFocus,
+      ":hover": vars["--ads-color-border-strong"],
+      ":focus-within": vars["--ads-color-border-focus"],
     },
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorText,
-    fontFamily: vars.fontSans,
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-text"],
+    fontFamily: vars["--ads-font-sans"],
     inlineSize: "100%",
-    lineHeight: vars.lineHeightNormal,
+    lineHeight: vars["--ads-line-height-normal"],
     minInlineSize: 0,
     paddingBlock: 0,
     "::placeholder": {
-      color: vars.colorTextPlaceholder,
+      color: vars["--ads-color-text-placeholder"],
     },
   },
   // Size ramp mirrors Button (xs/sm `space2` / md `space3` / lg `space4` +
@@ -228,26 +228,26 @@ const styles = stylex.create({
   // Heights always come from `controlHeightBySize`; these entries only carry
   // the inline gutter and type step.
   xs: {
-    fontSize: vars.fontSizeCaption,
-    paddingInline: vars.space8,
+    fontSize: vars["--ads-font-size-caption"],
+    paddingInline: vars["--ads-space-8"],
   },
   sm: {
-    fontSize: vars.fontSizeBody,
-    paddingInline: vars.space8,
+    fontSize: vars["--ads-font-size-body"],
+    paddingInline: vars["--ads-space-8"],
   },
   md: {
-    fontSize: vars.fontSizeBody,
-    paddingInline: vars.space12,
+    fontSize: vars["--ads-font-size-body"],
+    paddingInline: vars["--ads-space-12"],
   },
   lg: {
-    fontSize: vars.fontSizeLead,
-    paddingInline: vars.space16,
+    fontSize: vars["--ads-font-size-lead"],
+    paddingInline: vars["--ads-space-16"],
   },
   success: {
-    borderColor: vars.colorSuccessBorder,
+    borderColor: vars["--ads-color-success-border"],
   },
   danger: {
-    borderColor: vars.colorDangerBorder,
+    borderColor: vars["--ads-color-danger-border"],
   },
 });
 

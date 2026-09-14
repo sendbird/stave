@@ -197,29 +197,29 @@ export function Switch({
 const styles = stylex.create({
   label: {
     alignItems: "center",
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     cursor: "pointer",
     display: "inline-flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   labelText: {
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
   },
   labelDisabled: {
     cursor: "not-allowed",
   },
   rowCopy: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
   // Same type step as the anatomy's own description, restated because this one
   // is painted inside the row rather than by `FieldMessages`.
   rowDescription: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     textWrap: "pretty",
   },
   /*
@@ -238,12 +238,12 @@ const styles = stylex.create({
    */
   messages: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   // ...except under `variant="row"`, where the row's own inline padding is what
   // the message has to line up with.
   messagesRow: {
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   /*
    * `variant="row"`: the settings-list shape. `row-reverse` puts the label
@@ -255,14 +255,14 @@ const styles = stylex.create({
   row: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
+      ":hover": vars["--ads-color-overlay-hover"],
     },
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     flexDirection: "row-reverse",
     inlineSize: "100%",
     justifyContent: "space-between",
-    paddingBlock: vars.space4,
-    paddingInline: vars.space8,
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
   },
   /*
    * Track geometry is on the 4px grid and written in grid tokens so it cannot
@@ -284,25 +284,25 @@ const styles = stylex.create({
     // recipe itself is not composed here because a track is a *filled* shape,
     // so the step has to land on `background-color`, not `border-color`.
     backgroundColor: {
-      default: vars.colorBorderStrong,
-      ":hover": vars.colorBorderFocus,
-      ":active": `color-mix(in srgb, ${vars.colorBorderFocus}, ${vars.colorMixInk} 12%)`,
+      default: vars["--ads-color-border-strong"],
+      ":hover": vars["--ads-color-border-focus"],
+      ":active": `color-mix(in srgb, ${vars["--ads-color-border-focus"]}, ${vars["--ads-color-mix-ink"]} 12%)`,
     },
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     display: "inline-flex",
     flexShrink: 0,
-    inlineSize: vars.space40,
+    inlineSize: vars["--ads-space-40"],
     justifyContent: "flex-start",
-    minBlockSize: vars.space24,
-    padding: vars.space4,
+    minBlockSize: vars["--ads-space-24"],
+    padding: vars["--ads-space-4"],
   },
   checked: {
     // On uses the `colorAccent` → `colorAccentHover` pair, the same step
     // `Button variant="primary"` and the checked Checkbox take.
     backgroundColor: {
-      default: vars.colorAccent,
-      ":hover": vars.colorAccentHover,
-      ":active": `color-mix(in srgb, ${vars.colorAccentHover}, ${vars.colorMixInk} 12%)`,
+      default: vars["--ads-color-accent"],
+      ":hover": vars["--ads-color-accent-hover"],
+      ":active": `color-mix(in srgb, ${vars["--ads-color-accent-hover"]}, ${vars["--ads-color-mix-ink"]} 12%)`,
     },
     // The whole "animation" of the thumb, in one declaration. Direction-aware:
     // `flex-end` is the trailing edge in RTL too.
@@ -314,7 +314,7 @@ const styles = stylex.create({
   rootCompact: {
     inlineSize: 28,
     minBlockSize: 16,
-    padding: vars.space2,
+    padding: vars["--ads-space-2"],
   },
   /*
    * Invalid *and* off. The track is a filled shape, so the danger signal has to
@@ -326,25 +326,25 @@ const styles = stylex.create({
    */
   invalid: {
     backgroundColor: {
-      default: vars.colorDangerBorder,
-      ":hover": vars.colorDangerHover,
-      ":active": vars.colorDangerHover,
+      default: vars["--ads-color-danger-border"],
+      ":hover": vars["--ads-color-danger-hover"],
+      ":active": vars["--ads-color-danger-hover"],
     },
   },
   disabled: {
     cursor: "not-allowed",
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
   thumb: {
     // No `transform` in this layer: Motion owns transform on this element
     // (`layout`), per the motion ADR's interop rule.
-    backgroundColor: vars.colorSurfaceRaised,
-    borderRadius: vars.radiusFull,
-    boxShadow: vars.elevationRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderRadius: vars["--ads-radius-full"],
+    boxShadow: vars["--ads-elevation-raised"],
     display: "block",
     flexShrink: 0,
-    inlineSize: vars.space16,
-    minBlockSize: vars.space16,
+    inlineSize: vars["--ads-space-16"],
+    minBlockSize: vars["--ads-space-16"],
   },
   thumbCompact: {
     inlineSize: 10,

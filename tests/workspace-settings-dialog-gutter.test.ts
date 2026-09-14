@@ -56,7 +56,7 @@ describe("workspace settings dialog gutter", () => {
     // `space4` on top of it made a rail label a compound 16px inset while
     // every other row in the dialog sat on the gutter.
     const block = styleBlock("workspace-settings-dialog.styles.ts", "tabsList");
-    expect(block).toMatch(/paddingInline:\s*vars\.space0/);
+    expect(block).toMatch(/paddingInline:\s*vars\["--ads-space-0"\]/);
   });
 
   test("the sync card draws no card inside the settings card", () => {
@@ -77,8 +77,8 @@ describe("workspace settings dialog gutter", () => {
       "errorPanel",
     );
     const inline = (block: string) =>
-      block.match(/paddingInline:\s*(vars\.space\d+)/)?.[1];
-    expect(inline(output)).toBe("vars.space12");
+      block.match(/paddingInline:\s*(vars\["--ads-space-\d+"\])/)?.[1];
+    expect(inline(output)).toBe('vars["--ads-space-12"]');
     expect(inline(error)).toBe(inline(output));
   });
 });

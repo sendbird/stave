@@ -157,15 +157,15 @@ const styles = stylex.create({
     // declaration is what makes the alignment invariant hold; do not move an
     // element out of row 1 without re-measuring.
     alignItems: "center",
-    color: vars.colorTextMuted,
-    columnGap: vars.space8,
+    color: vars["--ads-color-text-muted"],
+    columnGap: vars["--ads-space-8"],
     display: "grid",
     // The outer `1fr`s are the rules; `minmax(0, auto)` lets the copy take the
     // width it needs and shrink to nothing before the grid overflows.
     gridTemplateColumns: "1fr auto minmax(0, auto) auto auto 1fr",
     inlineSize: "100%",
     minInlineSize: 0,
-    paddingBlock: vars.space8,
+    paddingBlock: vars["--ads-space-8"],
     // Zero, always. Stacked rows pay their own leading (see the class doc), so
     // a numbered row that renders nothing costs nothing.
     rowGap: 0,
@@ -174,14 +174,14 @@ const styles = stylex.create({
     },
   },
   rule: {
-    borderBlockStartColor: vars.colorBorderSubtle,
+    borderBlockStartColor: vars["--ads-color-border-subtle"],
     borderBlockStartStyle: "solid",
-    borderBlockStartWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars["--ads-border-width-hairline"],
     gridRow: "1",
     // Floor for both rules. Same flex factor and same floor on both tracks, so
     // they resolve equal at every width and the content run is centred by
     // construction — no width cap involved.
-    minInlineSize: vars.space16,
+    minInlineSize: vars["--ads-space-16"],
   },
   ruleLead: {
     gridColumn: "1",
@@ -194,7 +194,7 @@ const styles = stylex.create({
   },
   glyph: {
     alignItems: "center",
-    color: vars.colorAccent,
+    color: vars["--ads-color-accent"],
     display: "inline-flex",
     gridColumn: "2",
     gridRow: "1",
@@ -204,12 +204,12 @@ const styles = stylex.create({
   // §3's row-title weight — semibold is reserved for page titles, and a weight
   // jump on top of an ink step is the signal that turns a dense surface loud.
   title: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
     gridColumn: "3",
     gridRow: "1",
-    lineHeight: vars.lineHeightTight,
+    lineHeight: vars["--ads-line-height-tight"],
     minInlineSize: 0,
     // One line, always. A checkpoint title is a boundary label; the description
     // is the part that wraps. This is also the second half of the alignment
@@ -220,17 +220,17 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightRegular,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-regular"],
     gridColumn: "3",
     gridRow: "2",
-    lineHeight: vars.lineHeightNormal,
-    marginBlockStart: vars.space4,
+    lineHeight: vars["--ads-line-height-normal"],
+    marginBlockStart: vars["--ads-space-4"],
     minInlineSize: 0,
     overflowWrap: "anywhere",
     "@media (max-width: 520px)": {
-      marginBlockStart: vars.space8,
+      marginBlockStart: vars["--ads-space-8"],
     },
   },
   // Ink, mono and tabular figures come from `agentSurface.meta` — a
@@ -242,7 +242,7 @@ const styles = stylex.create({
     "@media (max-width: 520px)": {
       gridColumn: "3",
       gridRow: "3",
-      marginBlockStart: vars.space8,
+      marginBlockStart: vars["--ads-space-8"],
     },
   },
   action: {
@@ -255,7 +255,7 @@ const styles = stylex.create({
       // Left-aligned under the copy column rather than stretched: a stacked
       // Restore is still an inline action, not a full-width commit.
       justifySelf: "start",
-      marginBlockStart: vars.space8,
+      marginBlockStart: vars["--ads-space-8"],
     },
   },
 });

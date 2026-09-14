@@ -25,11 +25,11 @@ export const gitGraphToolbarStyles = stylex.create({
       [CONTAINER_30]: "minmax(0,auto) minmax(7rem,1fr) auto",
     },
     alignItems: "center",
-    columnGap: vars.space8,
+    columnGap: vars["--ads-space-8"],
     rowGap: 6,
-    borderBottomWidth: vars.borderWidthHairline,
+    borderBottomWidth: vars["--ads-border-width-hairline"],
     borderBottomStyle: "solid",
-    borderBottomColor: `color-mix(in oklch, ${vars.colorBorder} 75%, transparent)`,
+    borderBottomColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 75%, transparent)`,
     backgroundColor: "var(--editor)",
     paddingInline: 10,
     paddingBlock: 6,
@@ -38,7 +38,7 @@ export const gitGraphToolbarStyles = stylex.create({
     display: "flex",
     minWidth: 0,
     alignItems: "center",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   branchTrigger: {
     height: 32,
@@ -51,12 +51,12 @@ export const gitGraphToolbarStyles = stylex.create({
     justifyContent: "flex-start",
     gap: 6,
     paddingInline: 10,
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars["--ads-font-size-caption"],
   },
   branchIcon: {
     width: 14,
     height: 14,
-    color: vars.colorAccent,
+    color: vars["--ads-color-accent"],
   },
   branchLabel: {
     minWidth: 0,
@@ -68,15 +68,15 @@ export const gitGraphToolbarStyles = stylex.create({
   chevronMuted: {
     width: 12,
     height: 12,
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   branchMenu: {
     width: "18rem",
   },
   limitLabel: {
-    fontSize: vars.fontSizeMicro,
-    fontWeight: vars.fontWeightRegular,
-    color: vars.colorWarningText,
+    fontSize: vars["--ads-font-size-micro"],
+    fontWeight: vars["--ads-font-weight-regular"],
+    color: vars["--ads-color-warning-text"],
   },
   truncate: {
     overflow: "hidden",
@@ -85,16 +85,16 @@ export const gitGraphToolbarStyles = stylex.create({
   },
   headBadge: {
     marginLeft: "auto",
-    fontSize: vars.fontSizeMicro,
-    fontWeight: vars.fontWeightMedium,
-    color: vars.colorAccent,
+    fontSize: vars["--ads-font-size-micro"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--ads-color-accent"],
   },
   statusUnavailable: {
     display: "flex",
     alignItems: "center",
-    gap: vars.space4,
-    fontSize: vars.fontSizeMicro,
-    color: vars.colorWarningText,
+    gap: vars["--ads-space-4"],
+    fontSize: vars["--ads-font-size-micro"],
+    color: vars["--ads-color-warning-text"],
   },
   statusIcon: {
     width: 14,
@@ -111,8 +111,8 @@ export const gitGraphToolbarStyles = stylex.create({
       default: "none",
       [CONTAINER_62]: "inline",
     },
-    fontSize: vars.fontSizeMicro,
-    color: vars.colorTextMuted,
+    fontSize: vars["--ads-font-size-micro"],
+    color: vars["--ads-color-text-muted"],
   },
   statusEntries: {
     display: {
@@ -123,20 +123,20 @@ export const gitGraphToolbarStyles = stylex.create({
     gap: 6,
   },
   statusEntry: {
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars["--ads-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
   },
   statusEntryStaged: {
-    color: vars.colorSuccessText,
+    color: vars["--ads-color-success-text"],
   },
   statusEntryChanged: {
-    color: vars.colorWarningText,
+    color: vars["--ads-color-warning-text"],
   },
   statusEntryUntracked: {
-    color: vars.colorInfoText,
+    color: vars["--ads-color-info-text"],
   },
   statusEntryConflicts: {
-    color: vars.colorDangerText,
+    color: vars["--ads-color-danger-text"],
   },
   searchWrap: {
     position: "relative",
@@ -158,23 +158,23 @@ export const gitGraphToolbarStyles = stylex.create({
     width: 14,
     height: 14,
     transform: "translateY(-50%)",
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   searchInput: {
     height: 32,
-    borderRadius: vars.radiusControl,
-    paddingLeft: vars.space32,
-    fontSize: vars.fontSizeCaption,
+    borderRadius: vars["--ads-radius-control"],
+    paddingLeft: vars["--ads-space-32"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   searchInputWithMatches: {
     paddingRight: "9rem",
   },
   searchInputNoMatches: {
-    paddingRight: vars.space64,
+    paddingRight: vars["--ads-space-64"],
   },
   searchControls: {
     position: "absolute",
-    right: vars.space4,
+    right: vars["--ads-space-4"],
     top: "50%",
     display: "flex",
     transform: "translateY(-50%)",
@@ -183,9 +183,9 @@ export const gitGraphToolbarStyles = stylex.create({
   },
   matchCount: {
     marginRight: 2,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars["--ads-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   iconButtonSm: {
     width: 24,
@@ -206,14 +206,14 @@ export const gitGraphToolbarStyles = stylex.create({
     gap: 2,
   },
   commitCount: {
-    marginRight: vars.space4,
+    marginRight: vars["--ads-space-4"],
     display: {
       default: "none",
       [CONTAINER_48]: "inline",
     },
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars["--ads-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   iconButtonMd: {
     width: 32,

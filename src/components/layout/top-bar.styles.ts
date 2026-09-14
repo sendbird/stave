@@ -19,38 +19,38 @@ import { vars } from "../ads/tokens/tokens.stylex";
 export const topBarControlStyles = stylex.create({
   control: {
     alignItems: "center",
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     display: "inline-flex",
     flexShrink: 0,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    gap: vars.space8,
-    height: vars.controlHeightSm,
-    lineHeight: vars.lineHeightControl,
-    paddingInline: vars.space8,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--ads-space-8"],
+    height: vars["--ads-control-height-sm"],
+    lineHeight: vars["--ads-line-height-control"],
+    paddingInline: vars["--ads-space-8"],
   },
   /** Bordered chrome fill shared by the path chip, branch chip, and buttons. */
   surface: {
     backgroundColor: {
-      default: vars.colorCanvas,
-      ":hover": vars.colorOverlayHover,
+      default: vars["--ads-color-canvas"],
+      ":hover": vars["--ads-color-overlay-hover"],
     },
-    borderColor: vars.colorBorderSubtle,
+    borderColor: vars["--ads-color-border-subtle"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
   },
   /** Square the control and drop the inline gutter for glyph-only triggers. */
   iconOnly: {
     justifyContent: "center",
     paddingInline: 0,
-    width: vars.controlHeightSm,
+    width: vars["--ads-control-height-sm"],
   },
   /** Glyphs inside a `sm` control: the ADS rung, not a hand-picked 12/14/16. */
   icon: {
-    blockSize: vars.controlIconSizeSm,
+    blockSize: vars["--ads-control-icon-size-sm"],
     flexShrink: 0,
-    inlineSize: vars.controlIconSizeSm,
+    inlineSize: vars["--ads-control-icon-size-sm"],
   },
 });
 
@@ -62,36 +62,36 @@ export const topBarControlStyles = stylex.create({
 export const topBarStyles = stylex.create({
   header: {
     alignItems: "center",
-    backgroundColor: vars.colorSurface,
-    borderBottomColor: vars.colorBorderSubtle,
+    backgroundColor: vars["--ads-color-surface"],
+    borderBottomColor: vars["--ads-color-border-subtle"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars.borderWidthHairline,
+    borderBottomWidth: vars["--ads-border-width-hairline"],
     display: "flex",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     height: "3rem",
     justifyContent: "space-between",
     paddingInline: "0.875rem",
     position: "relative",
-    zIndex: vars.zIndexAppChrome,
+    zIndex: vars["--ads-z-index-app-chrome"],
   },
   lead: {
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minWidth: 0,
   },
   sidebarToggle: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
+      ":hover": vars["--ads-color-overlay-hover"],
     },
-    borderRadius: vars.radiusControl,
-    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
+    borderRadius: vars["--ads-radius-control"],
+    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
     flexShrink: 0,
-    height: vars.controlHeightSm,
+    height: vars["--ads-control-height-sm"],
     padding: 0,
-    width: vars.controlHeightSm,
+    width: vars["--ads-control-height-sm"],
   },
   pathGroup: { alignItems: "center", display: "flex", minWidth: 0 },
   // Composed after `topBarControlStyles.control` + `.surface`; this only
@@ -103,7 +103,7 @@ export const topBarStyles = stylex.create({
     maxWidth: 220,
   },
   pathLabel: {
-    fontFamily: vars.fontMono,
+    fontFamily: vars["--ads-font-mono"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -115,13 +115,13 @@ export const topBarStyles = stylex.create({
   pathMenu: { minWidth: 184 },
   // Geometry and type come from `topBarControlStyles`; nothing left to say.
   gitGraphButton: {
-    opacity: { default: 1, ":disabled": vars.opacityDisabled },
+    opacity: { default: 1, ":disabled": vars["--ads-opacity-disabled"] },
   },
   trail: {
     alignItems: "center",
     display: "flex",
     flex: 1,
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     justifyContent: "flex-end",
     minWidth: 0,
   },
@@ -137,6 +137,6 @@ export const topBarStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
 });

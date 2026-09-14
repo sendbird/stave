@@ -13,8 +13,8 @@ import { motionPrimitives, vars } from "../tokens/tokens.stylex";
  * a dark one, so the hover/press steps stay correct everywhere — including the
  * new dark neutral ramp — without inventing a token.
  */
-const softHover = `color-mix(in oklab, ${vars.colorText} 8%, ${vars.colorCanvasSubtle})`;
-const softPress = `color-mix(in oklab, ${vars.colorText} 12%, ${vars.colorCanvasSubtle})`;
+const softHover = `color-mix(in oklab, ${vars["--ads-color-text"]} 8%, ${vars["--ads-color-canvas-subtle"]})`;
+const softPress = `color-mix(in oklab, ${vars["--ads-color-text"]} 12%, ${vars["--ads-color-canvas-subtle"]})`;
 /**
  * The press step for every OTHER bordered variant, extending the `soft`
  * pattern above: mix ~5% of the theme's own text ink into the variant's own
@@ -24,7 +24,7 @@ const softPress = `color-mix(in oklab, ${vars.colorText} 12%, ${vars.colorCanvas
  * the hover colour already carries none of that mix, so ~5% on top of it lands
  * the same visual distance.
  */
-const canvasSubtlePress = `color-mix(in oklab, ${vars.colorText} 5%, ${vars.colorCanvasSubtle})`;
+const canvasSubtlePress = `color-mix(in oklab, ${vars["--ads-color-text"]} 5%, ${vars["--ads-color-canvas-subtle"]})`;
 /*
  * Lift, not ink. The rule above assumes `:hover` sits at the resting fill, which
  * held while `colorAccentHover` shipped identical to `colorAccent`. It no longer
@@ -35,8 +35,8 @@ const canvasSubtlePress = `color-mix(in oklab, ${vars.colorText} 5%, ${vars.colo
  * 6% lands ΔL 0.082 off resting, against the ~0.077 every other pressed step
  * takes.
  */
-const primaryPress = `color-mix(in oklab, ${vars.colorMixLift} 6%, ${vars.colorAccentHover})`;
-const dangerPress = `color-mix(in oklab, ${vars.colorText} 5%, ${vars.colorDangerHover})`;
+const primaryPress = `color-mix(in oklab, ${vars["--ads-color-mix-lift"]} 6%, ${vars["--ads-color-accent-hover"]})`;
+const dangerPress = `color-mix(in oklab, ${vars["--ads-color-text"]} 5%, ${vars["--ads-color-danger-hover"]})`;
 /**
  * Danger's washes, derived by the same rule as the neutral pair above so the
  * `tone` axis is a hue swap and not a second, differently-behaved language.
@@ -50,9 +50,9 @@ const dangerPress = `color-mix(in oklab, ${vars.colorText} 5%, ${vars.colorDange
  * own ink is what keeps all six correct in the dark and high-contrast ramps
  * without inventing a `colorDangerSoftHover` token.
  */
-const dangerWashHover = `color-mix(in oklab, ${vars.colorText} 8%, ${vars.colorDangerSoft})`;
-const dangerWashPress = `color-mix(in oklab, ${vars.colorText} 12%, ${vars.colorDangerSoft})`;
-const dangerSoftPress = `color-mix(in oklab, ${vars.colorText} 5%, ${vars.colorDangerSoft})`;
+const dangerWashHover = `color-mix(in oklab, ${vars["--ads-color-text"]} 8%, ${vars["--ads-color-danger-soft"]})`;
+const dangerWashPress = `color-mix(in oklab, ${vars["--ads-color-text"]} 12%, ${vars["--ads-color-danger-soft"]})`;
+const dangerSoftPress = `color-mix(in oklab, ${vars["--ads-color-text"]} 5%, ${vars["--ads-color-danger-soft"]})`;
 const buttonSettleTransform = "translateY(1px)";
 export const styles = stylex.create({
   root: {
@@ -61,21 +61,21 @@ export const styles = stylex.create({
     // Each corner reads a private custom property so ButtonGroup can join
     // adjacent actions without fighting this component's generated class
     // order. Outside a group all four fall back to the normal control radius.
-    borderEndEndRadius: `var(--ads-button-radius-end-end, ${vars.radiusControl})`,
-    borderEndStartRadius: `var(--ads-button-radius-end-start, ${vars.radiusControl})`,
-    borderStartEndRadius: `var(--ads-button-radius-start-end, ${vars.radiusControl})`,
-    borderStartStartRadius: `var(--ads-button-radius-start-start, ${vars.radiusControl})`,
+    borderEndEndRadius: `var(--ads-button-radius-end-end, ${vars["--ads-radius-control"]})`,
+    borderEndStartRadius: `var(--ads-button-radius-end-start, ${vars["--ads-radius-control"]})`,
+    borderStartEndRadius: `var(--ads-button-radius-start-end, ${vars["--ads-radius-control"]})`,
+    borderStartStartRadius: `var(--ads-button-radius-start-start, ${vars["--ads-radius-control"]})`,
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     cursor: "pointer",
     display: "inline-flex",
-    fontFamily: vars.fontSans,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
+    fontFamily: vars["--ads-font-sans"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
     justifyContent: "center",
     // Use the whole-pixel control line box so labels share the same visual
     // center as adjacent glyphs instead of landing on a fractional half-leading.
-    lineHeight: vars.lineHeightControl,
+    lineHeight: vars["--ads-line-height-control"],
     // Height comes from the shared control-metrics recipe (sizeMetricStyles),
     // applied on every render path — never re-declare minBlockSize here.
     // Outer clamp only — the ellipsis itself lives on `label` (see
@@ -135,8 +135,8 @@ export const styles = stylex.create({
   indicatorSlot: {
     alignItems: "center",
     display: "flex",
-    insetBlockStart: `calc(-1 * ${vars.space4})`,
-    insetInlineEnd: `calc(-1 * ${vars.space4})`,
+    insetBlockStart: `calc(-1 * ${vars["--ads-space-4"]})`,
+    insetInlineEnd: `calc(-1 * ${vars["--ads-space-4"]})`,
     pointerEvents: "none",
     position: "absolute",
   },
@@ -198,29 +198,29 @@ export const styles = stylex.create({
   },
   primary: {
     backgroundColor: {
-      default: vars.colorAccent,
-      ":hover": vars.colorAccentHover,
+      default: vars["--ads-color-accent"],
+      ":hover": vars["--ads-color-accent-hover"],
       ":active": primaryPress,
     },
-    borderColor: vars.colorAccent,
+    borderColor: vars["--ads-color-accent"],
     boxShadow: {
-      default: vars.elevationRaised,
-      ":active": vars.elevationFlat,
+      default: vars["--ads-elevation-raised"],
+      ":active": vars["--ads-elevation-flat"],
     },
-    color: vars.colorAccentText,
+    color: vars["--ads-color-accent-text"],
   },
   secondary: {
     backgroundColor: {
-      default: vars.colorSurfaceRaised,
-      ":hover": `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars.colorMixInk} 6%)`,
+      default: vars["--ads-color-surface-raised"],
+      ":hover": `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 6%)`,
       ":active": canvasSubtlePress,
     },
-    borderColor: vars.colorBorder,
+    borderColor: vars["--ads-color-border"],
     boxShadow: {
-      default: vars.elevationRaised,
-      ":active": vars.elevationFlat,
+      default: vars["--ads-elevation-raised"],
+      ":active": vars["--ads-elevation-flat"],
     },
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
   },
   /**
    * Borderless tinted fill — the weight between `secondary` (a bordered box
@@ -234,30 +234,30 @@ export const styles = stylex.create({
    */
   soft: {
     backgroundColor: {
-      default: vars.colorCanvasSubtle,
+      default: vars["--ads-color-canvas-subtle"],
       ":hover": softHover,
       ":active": softPress,
     },
     borderColor: "transparent",
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
   },
   outline: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
+      ":hover": vars["--ads-color-overlay-hover"],
       ":active": canvasSubtlePress,
     },
-    borderColor: vars.colorBorder,
+    borderColor: vars["--ads-color-border"],
     boxShadow: {
-      default: vars.elevationRaised,
-      ":active": vars.elevationFlat,
+      default: vars["--ads-elevation-raised"],
+      ":active": vars["--ads-elevation-flat"],
     },
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
   },
   link: {
     backgroundColor: "transparent",
     borderColor: "transparent",
-    color: vars.colorAccent,
+    color: vars["--ads-color-accent"],
     textDecoration: {
       default: "none",
       ":hover": "underline",
@@ -272,39 +272,39 @@ export const styles = stylex.create({
   // paint a visible rim of the wrong shade around a hovered button.
   danger: {
     backgroundColor: {
-      default: vars.colorDanger,
-      ":hover": vars.colorDangerHover,
+      default: vars["--ads-color-danger"],
+      ":hover": vars["--ads-color-danger-hover"],
       ":active": dangerPress,
     },
     borderColor: {
-      default: vars.colorDanger,
-      ":hover": vars.colorDangerHover,
+      default: vars["--ads-color-danger"],
+      ":hover": vars["--ads-color-danger-hover"],
       ":active": dangerPress,
     },
     boxShadow: {
-      default: vars.elevationRaised,
-      ":active": vars.elevationFlat,
+      default: vars["--ads-elevation-raised"],
+      ":active": vars["--ads-elevation-flat"],
     },
-    color: vars.colorTextInverted,
+    color: vars["--ads-color-text-inverted"],
   },
   // Detached actions such as Conversation's jump-to-latest control own their
   // circle and elevation here instead of redrawing a one-off raw button.
   floating: {
-    "--ads-button-radius-end-end": vars.radiusFull,
-    "--ads-button-radius-end-start": vars.radiusFull,
-    "--ads-button-radius-start-end": vars.radiusFull,
-    "--ads-button-radius-start-start": vars.radiusFull,
+    "--ads-button-radius-end-end": vars["--ads-radius-full"],
+    "--ads-button-radius-end-start": vars["--ads-radius-full"],
+    "--ads-button-radius-start-end": vars["--ads-radius-full"],
+    "--ads-button-radius-start-start": vars["--ads-radius-full"],
     backgroundColor: {
-      default: vars.colorSurfaceRaised,
-      ":hover": `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars.colorMixInk} 6%)`,
+      default: vars["--ads-color-surface-raised"],
+      ":hover": `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 6%)`,
       ":active": canvasSubtlePress,
     },
-    borderColor: vars.colorBorder,
+    borderColor: vars["--ads-color-border"],
     // `elevation2` — a detached viewport action, not the `elevation1` bordered
     // family above — stays flat across states; only elevation1 carriers
     // collapse to elevation0 on `:active` (§1.5).
-    boxShadow: vars.elevationLift,
-    color: vars.colorTextMuted,
+    boxShadow: vars["--ads-elevation-lift"],
+    color: vars["--ads-color-text-muted"],
   },
   // ---- tone="danger" arms --------------------------------------------------
   // Composed AFTER the variant style, so each of these only has to restate the
@@ -326,21 +326,21 @@ export const styles = stylex.create({
    */
   dangerSecondary: {
     backgroundColor: {
-      default: vars.colorSurfaceRaised,
-      ":hover": vars.colorDangerSoft,
+      default: vars["--ads-color-surface-raised"],
+      ":hover": vars["--ads-color-danger-soft"],
       ":active": dangerSoftPress,
     },
-    borderColor: vars.colorDangerBorder,
-    color: vars.colorDangerText,
+    borderColor: vars["--ads-color-danger-border"],
+    color: vars["--ads-color-danger-text"],
   },
   dangerOutline: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorDangerSoft,
+      ":hover": vars["--ads-color-danger-soft"],
       ":active": dangerSoftPress,
     },
-    borderColor: vars.colorDangerBorder,
-    color: vars.colorDangerText,
+    borderColor: vars["--ads-color-danger-border"],
+    color: vars["--ads-color-danger-text"],
   },
   /**
    * The quiet arm restates `color` at all three states because the neutral
@@ -354,14 +354,14 @@ export const styles = stylex.create({
   dangerQuiet: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorDangerSoft,
+      ":hover": vars["--ads-color-danger-soft"],
       ":active": dangerSoftPress,
     },
     borderColor: "transparent",
     color: {
-      default: vars.colorDangerText,
-      ":hover": vars.colorDangerText,
-      ":active": vars.colorDangerText,
+      default: vars["--ads-color-danger-text"],
+      ":hover": vars["--ads-color-danger-text"],
+      ":active": vars["--ads-color-danger-text"],
     },
   },
   /**
@@ -371,19 +371,19 @@ export const styles = stylex.create({
    */
   dangerSoft: {
     backgroundColor: {
-      default: vars.colorDangerSoft,
+      default: vars["--ads-color-danger-soft"],
       ":hover": dangerWashHover,
       ":active": dangerWashPress,
     },
     borderColor: "transparent",
-    color: vars.colorDangerText,
+    color: vars["--ads-color-danger-text"],
   },
   /**
    * `link` and `floating` carry no fill to tint, so the tone is ink only.
    * `floating` keeps `elevation2` and its circle from the variant.
    */
   dangerInk: {
-    color: vars.colorDangerText,
+    color: vars["--ads-color-danger-text"],
   },
   // Heights/squares come from the shared control-metrics recipe
   // (sizeMetricStyles below); these keep only per-size padding and type.
@@ -393,39 +393,39 @@ export const styles = stylex.create({
   // filter/toolbar row beside an `xs` TextField or Select without being the one
   // control 4px taller than the row it is in.
   xs: {
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars["--ads-font-size-caption"],
     paddingBlock: 0,
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   sm: {
     paddingBlock: 0,
     // 12, not 8: at 32px tall an 8px inset reads as cramped, and sm is the
     // size dense surfaces (toolbars, table rows, cards) reach for most.
-    paddingInline: vars.space12,
+    paddingInline: vars["--ads-space-12"],
   },
   md: {
     paddingBlock: 0,
-    paddingInline: vars.space12,
+    paddingInline: vars["--ads-space-12"],
   },
   lg: {
-    fontSize: vars.fontSizeLead,
+    fontSize: vars["--ads-font-size-lead"],
     paddingBlock: 0,
-    paddingInline: vars.space16,
+    paddingInline: vars["--ads-space-16"],
   },
   gapXs: {
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   gapSm: {
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   gapMd: {
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   gapLg: {
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
   },
   gapIcon: {
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   flushInline: {
     borderInlineEndWidth: 0,
@@ -438,7 +438,7 @@ export const styles = stylex.create({
   },
   disabled: {
     cursor: "not-allowed",
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
   /**
    * The disabled/loading expression for a Button rendered as a **link**

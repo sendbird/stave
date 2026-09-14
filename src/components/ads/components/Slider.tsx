@@ -185,11 +185,11 @@ function thumbAriaLabel(base: string, index: number, count: number): string {
 const styles = stylex.create({
   root: {
     display: "grid",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     inlineSize: "100%",
   },
   disabled: {
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
   header: {
     alignItems: "center",
@@ -197,41 +197,41 @@ const styles = stylex.create({
     justifyContent: "space-between",
   },
   label: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   value: {
-    color: vars.colorTextMuted,
-    fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text-muted"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   control: {
     alignItems: "center",
     display: "flex",
   },
   track: {
-    backgroundColor: vars.colorBorder,
-    borderRadius: vars.radiusFull,
+    backgroundColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-full"],
     blockSize: 6,
     inlineSize: "100%",
   },
   indicator: {
-    backgroundColor: vars.colorAccent,
-    borderRadius: vars.radiusFull,
+    backgroundColor: vars["--ads-color-accent"],
+    borderRadius: vars["--ads-radius-full"],
   },
   // The filled part of the track is the answer, so it is what moves to the
   // danger ramp. The thumb rim moves with it (below): it sits at the end of the
   // indicator, and an accent ring capping a danger bar reads as a rendering
   // bug rather than as a state.
   indicatorInvalid: {
-    backgroundColor: vars.colorDanger,
+    backgroundColor: vars["--ads-color-danger"],
   },
   // `space1`, not the root's `space3`: description and error belong tighter to
   // each other than the whole stack does to the control above it.
   messages: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   thumb: {
     // The thumb is the hit target, and it had no pointer feedback at all — the
@@ -239,15 +239,15 @@ const styles = stylex.create({
     // takes the 6%/12% wash mixed into its own fill, like every other opaque
     // pressable.
     backgroundColor: {
-      default: vars.colorSurfaceRaised,
-      ":hover": `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars.colorMixInk} 6%)`,
-      ":active": `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars.colorMixInk} 12%)`,
+      default: vars["--ads-color-surface-raised"],
+      ":hover": `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 6%)`,
+      ":active": `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 12%)`,
     },
-    borderColor: vars.colorAccent,
-    borderRadius: vars.radiusFull,
+    borderColor: vars["--ads-color-accent"],
+    borderRadius: vars["--ads-radius-full"],
     borderStyle: "solid",
-    borderWidth: vars.ringWidthSm,
-    boxShadow: vars.elevationRaised,
+    borderWidth: vars["--ads-ring-width-sm"],
+    boxShadow: vars["--ads-elevation-raised"],
     cursor: {
       default: "grab",
       ":active": "grabbing",
@@ -256,7 +256,7 @@ const styles = stylex.create({
     minBlockSize: 20,
   },
   thumbInvalid: {
-    borderColor: vars.colorDangerBorder,
+    borderColor: vars["--ads-color-danger-border"],
   },
   thumbDisabled: {
     cursor: "not-allowed",

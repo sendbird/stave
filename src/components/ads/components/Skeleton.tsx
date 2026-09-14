@@ -114,7 +114,7 @@ export function TreeSkeleton({
         >
           <Skeleton
             height={14}
-            radius={vars.radiusMark}
+            radius={vars["--ads-radius-mark"]}
             variant="block"
             width={14}
           />
@@ -142,7 +142,7 @@ export function PageHeaderSkeleton({
         <Skeleton height={12} variant="block" width="38%" />
         <Skeleton height={28} variant="block" width="54%" />
       </div>
-      <Skeleton height={32} radius={vars.radiusControl} width={96} />
+      <Skeleton height={32} radius={vars["--ads-radius-control"]} width={96} />
     </div>
   );
 }
@@ -162,9 +162,9 @@ export function TextBlockSkeleton({
 
 const styles = stylex.create({
   root: {
-    backgroundColor: vars.colorCanvasSubtle,
-    borderRadius: vars.radiusMark,
-    color: vars.colorTextMuted,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    borderRadius: vars["--ads-radius-mark"],
+    color: vars["--ads-color-text-muted"],
     overflow: "hidden",
     position: "relative",
   },
@@ -177,13 +177,13 @@ const styles = stylex.create({
     inlineSize: "100%",
   },
   avatar: {
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: 40,
     minBlockSize: 40,
   },
   stack: {
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     inlineSize: "100%",
   },
   lastLine: {
@@ -191,29 +191,29 @@ const styles = stylex.create({
   },
   tree: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     inlineSize: "100%",
   },
   treeRow: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
-    paddingInline: vars.space8,
+    gap: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-8"],
   },
   header: {
     alignItems: "end",
-    borderBlockEndColor: vars.colorBorderSubtle,
+    borderBlockEndColor: vars["--ads-color-border-subtle"],
     borderBlockEndStyle: "solid",
-    borderBlockEndWidth: vars.borderWidthHairline,
+    borderBlockEndWidth: vars["--ads-border-width-hairline"],
     display: "flex",
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
     justifyContent: "space-between",
-    paddingBlockEnd: vars.space20,
+    paddingBlockEnd: vars["--ads-space-20"],
   },
   headerCopy: {
     display: "grid",
     flexGrow: 1,
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     minInlineSize: 0,
   },
 });

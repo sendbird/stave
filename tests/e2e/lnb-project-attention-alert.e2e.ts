@@ -160,7 +160,7 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
   expect(rendered.width).toBeGreaterThan(0);
 
   const warningColor = await sidebar.evaluate((element) => {
-    // The glyph paints with the semantic warning token (`vars.colorWarning`
+    // The glyph paints with the semantic warning token (`vars["--ads-color-warning"]`
     // maps to `--warning`). Resolve that token the same way the icon does so
     // the assertion tracks the color contract rather than a utility class.
     const probe = document.createElement("span");

@@ -184,7 +184,7 @@ const styles = stylex.create({
     minInlineSize: 0,
   },
   step: {
-    columnGap: vars.space8,
+    columnGap: vars["--ads-space-8"],
     display: "grid",
     inlineSize: "100%",
     minInlineSize: 0,
@@ -192,7 +192,7 @@ const styles = stylex.create({
   // `minmax(0, 1fr)`, not `1fr`: the body holds mono output and long tool
   // names, whose min-content width would otherwise widen the whole rail.
   stepRail: {
-    gridTemplateColumns: `${vars.space24} minmax(0, 1fr)`,
+    gridTemplateColumns: `${vars["--ads-space-24"]} minmax(0, 1fr)`,
   },
   /**
    * No gutter TRACK, not an empty one. Reserving `space24` and leaving it blank
@@ -201,7 +201,7 @@ const styles = stylex.create({
    */
   stepFlush: {
     alignItems: "start",
-    columnGap: vars.space4,
+    columnGap: vars["--ads-space-4"],
     // Flex rather than a two-track grid: the marker is optional here, and a
     // fixed `auto minmax(0, 1fr)` would put a marker-less step's body in the
     // `auto` track and shrink it to its content. `display` is restated after
@@ -222,7 +222,7 @@ const styles = stylex.create({
    */
   marker: {
     alignItems: "center",
-    blockSize: vars.controlHeightSm,
+    blockSize: vars["--ads-control-height-sm"],
     display: "flex",
     flexShrink: 0,
     justifyContent: "center",
@@ -234,7 +234,7 @@ const styles = stylex.create({
    * vertical band without either one setting the row height.
    */
   markerInline: {
-    inlineSize: vars.space16,
+    inlineSize: vars["--ads-space-16"],
   },
   /**
    * The rule. `borderWidthHairline` on `colorBorderSubtle`: it locates the run
@@ -242,10 +242,10 @@ const styles = stylex.create({
    * step information in ink rather than in chrome.
    */
   connector: {
-    backgroundColor: vars.colorBorderSubtle,
-    borderRadius: vars.radiusFull,
+    backgroundColor: vars["--ads-color-border-subtle"],
+    borderRadius: vars["--ads-radius-full"],
     flex: 1,
-    inlineSize: vars.borderWidthHairline,
+    inlineSize: vars["--ads-border-width-hairline"],
     minBlockSize: 0,
   },
   /**
@@ -256,7 +256,7 @@ const styles = stylex.create({
   body: {
     flexGrow: 1,
     minInlineSize: 0,
-    paddingBlockEnd: vars.space12,
+    paddingBlockEnd: vars["--ads-space-12"],
   },
   /**
    * One deliberate step below `regular`, per the density contract in the ADS
@@ -268,6 +268,6 @@ const styles = stylex.create({
   bodyCompact: {
     flexGrow: 1,
     minInlineSize: 0,
-    paddingBlockEnd: vars.space4,
+    paddingBlockEnd: vars["--ads-space-4"],
   },
 });

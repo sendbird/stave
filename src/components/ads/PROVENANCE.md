@@ -169,3 +169,35 @@ Further host extensions:
   `consumer-changes/2026-09-08-loader-reason-cadence.json`,
   `consumer-changes/2026-09-08-loader-connected-reason-think.json`,
   `consumer-changes/2026-09-08-loader-reason-trace-think-orb.json`.
+
+- Design tokens moved from StyleX-hashed `defineVars` keys to explicit CSS
+  custom property names: `vars.colorText` is now `vars["--ads-color-text"]`, and
+  the emitted variable is the literal `--ads-color-text` instead of a hash. The
+  rename is total and derivable (camelCase to kebab, `--ads-` prefix, a break
+  before each digit run), so there is no rename table to keep. It is a
+  prerequisite for compiling ADS and product code under different StyleX
+  `classNamePrefix` values: a prefix renames generated CSS *variables* as well
+  as classes, so a product-origin file would otherwise emit `var(--a1i78luf)`
+  for a token whose ADS-origin rule defines `--x1i78luf`. Never alias,
+  re-export or spread a token group — an unresolvable member on an
+  explicit-key group is hashed silently into a variable nothing defines. ADS
+  record: `consumer-changes/2026-09-09-explicit-token-custom-property-names.json`.
+
+- `tokens.stylex.ts` and `themes.stylex.ts` were re-synced from upstream in the
+  same change, which also picks up the re-anchored warning and success hues
+  (warning to hue 50, success to hue 152) and the retuned priority, csat and
+  chart steps. `colorWarning`, `colorSuccess` and `colorDanger` are remapped by
+  `../system/ads-theme.ts` onto Stave's own semantic colors and so do not move;
+  `colorWorkflow*`, `colorPriority*`, `colorCsat*` and `chart*` are deliberately
+  not remapped, so those steps do change. The one retained host modification is
+  the sans stack, which keeps `"Pretendard Variable"` second because this copy's
+  `fonts.css` loads Pretendard's variable dynamic subset rather than upstream's
+  four static weights.
+
+- `breakpoints.stylex.ts` was installed as a missing file: upstream split the
+  `defineConsts` breakpoints out of `tokens.stylex.ts`, which now re-exports
+  them for JS and types only. A StyleX condition key such as `[breakpoints.md]`
+  must import the *defining* module or CSS generation fails with an invalid
+  empty selector, so `AppShell.shell.styles.ts` imports it directly. ADS
+  records: `consumer-changes/2026-09-07-breakpoints-module-split.json`,
+  `consumer-changes/2026-09-07-breakpoints-defineconsts-import.json`.

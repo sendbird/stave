@@ -20,30 +20,30 @@ export const conversationStyles = stylex.create({
     width: "100%",
     maxWidth: "72rem",
     flexDirection: "column",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     paddingInline: {
-      default: vars.space12,
-      "@media (min-width: 640px)": vars.space20,
+      default: vars["--ads-space-12"],
+      "@media (min-width: 640px)": vars["--ads-space-20"],
     },
-    paddingBlock: vars.space12,
+    paddingBlock: vars["--ads-space-12"],
   },
   listContainer: {
     marginInline: "auto",
     width: "100%",
     maxWidth: "72rem",
     paddingInline: {
-      default: vars.space12,
-      "@media (min-width: 640px)": vars.space20,
+      default: vars["--ads-space-12"],
+      "@media (min-width: 640px)": vars["--ads-space-20"],
     },
     paddingTop: {
-      default: vars.space16,
-      "@media (min-width: 640px)": vars.space20,
+      default: vars["--ads-space-16"],
+      "@media (min-width: 640px)": vars["--ads-space-20"],
     },
   },
   listItem: {
-    paddingBottom: vars.space12,
+    paddingBottom: vars["--ads-space-12"],
     ":last-child": {
-      paddingBottom: vars.space24,
+      paddingBottom: vars["--ads-space-24"],
     },
   },
   emptyState: {
@@ -55,18 +55,18 @@ export const conversationStyles = stylex.create({
     textAlign: "center",
   },
   emptyIcon: {
-    marginBottom: vars.space12,
-    color: vars.colorTextMuted,
+    marginBottom: vars["--ads-space-12"],
+    color: vars["--ads-color-text-muted"],
   },
   emptyTitle: {
-    fontSize: vars.fontSizeLead,
-    fontWeight: vars.fontWeightSemibold,
-    color: `color-mix(in oklch, ${vars.colorText} 90%, transparent)`,
+    fontSize: vars["--ads-font-size-lead"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    color: `color-mix(in oklch, ${vars["--ads-color-text"]} 90%, transparent)`,
   },
   emptyDescription: {
-    marginTop: vars.space4,
-    fontSize: vars.fontSizeBody,
-    color: vars.colorTextMuted,
+    marginTop: vars["--ads-space-4"],
+    fontSize: vars["--ads-font-size-body"],
+    color: vars["--ads-color-text-muted"],
   },
   /*
    * Placement only.
@@ -81,7 +81,7 @@ export const conversationStyles = stylex.create({
    */
   floatingButton: {
     position: "absolute",
-    bottom: vars.space12,
-    left: vars.space12,
+    bottom: vars["--ads-space-12"],
+    left: vars["--ads-space-12"],
   },
 });

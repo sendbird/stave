@@ -28,12 +28,12 @@ import { vars } from "../tokens/tokens.stylex";
  *   reduced motion. Transform and layout-adjacent timing becomes instant.
  */
 const nonSpatialDuration = {
-  default: vars.motionDurationFast,
-  "@media (prefers-reduced-motion: reduce)": vars.motionDurationMicro,
+  default: vars["--ads-motion-duration-fast"],
+  "@media (prefers-reduced-motion: reduce)": vars["--ads-motion-duration-micro"],
 } as const;
 
 const spatialDuration = {
-  default: vars.motionDurationFast,
+  default: vars["--ads-motion-duration-fast"],
   "@media (prefers-reduced-motion: reduce)": "0ms",
 } as const;
 
@@ -45,7 +45,7 @@ export const transition = stylex.create({
   colors: {
     transitionDuration: nonSpatialDuration,
     transitionProperty: "background-color, border-color, color",
-    transitionTimingFunction: vars.motionEaseStandard,
+    transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
   /**
    * Colors plus `opacity` plus `box-shadow`, for controls that fade as a whole
@@ -59,7 +59,7 @@ export const transition = stylex.create({
     transitionDuration: nonSpatialDuration,
     transitionProperty:
       "background-color, border-color, color, opacity, box-shadow",
-    transitionTimingFunction: vars.motionEaseStandard,
+    transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
   /**
    * Colors plus `box-shadow`, for controls that actually grow a ring or halo
@@ -69,13 +69,13 @@ export const transition = stylex.create({
   ring: {
     transitionDuration: nonSpatialDuration,
     transitionProperty: "background-color, border-color, color, box-shadow",
-    transitionTimingFunction: vars.motionEaseStandard,
+    transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
   /** Reveal-on-hover chrome (row actions, table selection checkboxes). */
   fade: {
     transitionDuration: nonSpatialDuration,
     transitionProperty: "opacity",
-    transitionTimingFunction: vars.motionEaseStandard,
+    transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
   /**
    * Determinate bar fill — `width` plus `background-color`, for a progress or
@@ -91,7 +91,7 @@ export const transition = stylex.create({
   bar: {
     transitionDuration: spatialDuration,
     transitionProperty: "width, background-color",
-    transitionTimingFunction: vars.motionEaseStandard,
+    transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
   /**
    * Edge-anchored surface enter/exit — `translate` plus `opacity`, for a
@@ -108,7 +108,7 @@ export const transition = stylex.create({
   slide: {
     transitionDuration: spatialDuration,
     transitionProperty: "translate, opacity",
-    transitionTimingFunction: vars.motionEaseStandard,
+    transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
   /**
    * `transform` alone — a chevron rotating open, a zoom/pan surface, an
@@ -124,7 +124,7 @@ export const transition = stylex.create({
   transform: {
     transitionDuration: spatialDuration,
     transitionProperty: "transform",
-    transitionTimingFunction: vars.motionEaseStandard,
+    transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
   /**
    * CSS press fallback for components that render a non-Motion element and so
@@ -134,35 +134,35 @@ export const transition = stylex.create({
     transitionDuration: spatialDuration,
     transitionProperty:
       "background-color, border-color, color, opacity, transform",
-    transitionTimingFunction: vars.motionEaseStandard,
+    transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
 
   // ---- Duration overrides (compose after a property key) -------------------
   /** 80ms — a press/release tick. */
   motionDurationMicro: {
     transitionDuration: {
-      default: vars.motionDurationMicro,
+      default: vars["--ads-motion-duration-micro"],
       "@media (prefers-reduced-motion: reduce)": "0ms",
     },
   },
   /** 150ms — a change the eye should follow (indicator slide, reveal). */
   motionDurationQuick: {
     transitionDuration: {
-      default: vars.motionDurationQuick,
+      default: vars["--ads-motion-duration-quick"],
       "@media (prefers-reduced-motion: reduce)": "0ms",
     },
   },
   /** 180ms — a small layout/size change. */
   motionDurationNormal: {
     transitionDuration: {
-      default: vars.motionDurationNormal,
+      default: vars["--ads-motion-duration-normal"],
       "@media (prefers-reduced-motion: reduce)": "0ms",
     },
   },
   /** 250ms — an emphasized surface change. */
   motionDurationEmphasis: {
     transitionDuration: {
-      default: vars.motionDurationEmphasis,
+      default: vars["--ads-motion-duration-emphasis"],
       "@media (prefers-reduced-motion: reduce)": "0ms",
     },
   },

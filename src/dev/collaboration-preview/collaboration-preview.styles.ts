@@ -5,15 +5,15 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 /** Styles for the dev-only collaboration component preview root. */
 export const collaborationPreviewStyles = stylex.create({
   page: {
-    backgroundColor: vars.colorCanvas,
-    color: vars.colorText,
+    backgroundColor: vars["--ads-color-canvas"],
+    color: vars["--ads-color-text"],
     minHeight: "100vh",
-    padding: vars.space12,
+    padding: vars["--ads-space-12"],
   },
   container: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     marginInline: "auto",
     maxWidth: "48rem",
   },
@@ -23,8 +23,8 @@ export const collaborationPreviewStyles = stylex.create({
     justifyContent: "space-between",
   },
   caption: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   inspectorHost: {
     height: 720,

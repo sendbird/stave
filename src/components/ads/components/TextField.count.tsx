@@ -120,7 +120,7 @@ const styles = stylex.create({
   row: {
     alignItems: "start",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     justifyContent: "space-between",
     minInlineSize: 0,
   },
@@ -128,17 +128,17 @@ const styles = stylex.create({
   // the spacing they have when no counter shares their row.
   stack: {
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minInlineSize: 0,
   },
   // Muted label type, matching the description it sits beside. `tabular-nums`
   // so the row does not twitch as the count crosses a digit width.
   count: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
-    lineHeight: vars.lineHeightNormal,
+    lineHeight: vars["--ads-line-height-normal"],
     whiteSpace: "nowrap",
   },
 });

@@ -1140,8 +1140,8 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
 }
 
 const styles = stylex.create({
-root: {display:"flex",height:"100%",minHeight:0,minWidth:0,width:"100%",flexDirection:"column",backgroundColor:vars.colorSurface},
-body: {display:"flex",minHeight:0,minWidth:0,flex:1,flexDirection:"column",overflow:"hidden",backgroundColor:vars.colorSurface,color:"var(--editor-foreground)"},
+root: {display:"flex",height:"100%",minHeight:0,minWidth:0,width:"100%",flexDirection:"column",backgroundColor:vars["--ads-color-surface"]},
+body: {display:"flex",minHeight:0,minWidth:0,flex:1,flexDirection:"column",overflow:"hidden",backgroundColor:vars["--ads-color-surface"],color:"var(--editor-foreground)"},
 viewport: {minHeight:0,flex:1,overflow:"hidden"},
 emptyHost: {display:"flex",height:"100%",alignItems:"center",justifyContent:"center",backgroundColor:"var(--editor)",padding:24},
 empty: {borderWidth:0,backgroundColor:"transparent",padding:0},
@@ -1150,12 +1150,12 @@ emptyHeader: {gap:12},
 // (`inlineSize: 48` / `minBlockSize: 48`). StyleX treats `width` and
 // `inlineSize` as distinct atomic properties, so the physical spelling left
 // the ADS inline size live and rendered a 48x56 non-square medallion.
-emptyIcon: {inlineSize:56,blockSize:56,minBlockSize:56,borderRadius:vars.radiusFrame,backgroundColor:vars.colorAccentSoft,color:vars.colorAccent},
-emptyText: {display:"flex",flexDirection:"column",gap:vars.space4},
-title: {fontSize:vars.fontSizeHeading,lineHeight:vars.lineHeightHeading,fontWeight:vars.fontWeightSemibold},
+emptyIcon: {inlineSize:56,blockSize:56,minBlockSize:56,borderRadius:vars["--ads-radius-frame"],backgroundColor:vars["--ads-color-accent-soft"],color:vars["--ads-color-accent"]},
+emptyText: {display:"flex",flexDirection:"column",gap:vars["--ads-space-4"]},
+title: {fontSize:vars["--ads-font-size-heading"],lineHeight:vars["--ads-line-height-heading"],fontWeight:vars["--ads-font-weight-semibold"]},
 // `maxInlineSize`, again matching the logical box ADS's description owns.
-description: {maxInlineSize:448,fontSize:vars.fontSizeBody},
+description: {maxInlineSize:448,fontSize:vars["--ads-font-size-body"]},
 imageHost: {display:"flex",height:"100%",alignItems:"center",justifyContent:"center",overflow:"auto",backgroundColor:"var(--editor)",padding:16},
 image: {maxHeight:"100%",maxWidth:"100%",cursor:"zoom-in",objectFit:"contain"},
-note: {fontSize:vars.fontSizeBody,color:vars.colorTextMuted}
+note: {fontSize:vars["--ads-font-size-body"],color:vars["--ads-color-text-muted"]}
 });

@@ -160,18 +160,18 @@ export function Drawer({
 
 const styles = stylex.create({
   backdrop: {
-    backdropFilter: vars.motionBlurOverlay,
-    backgroundColor: vars.colorOverlay,
+    backdropFilter: vars["--ads-motion-blur-overlay"],
+    backgroundColor: vars["--ads-color-overlay"],
     inset: 0,
     position: "fixed",
-    zIndex: vars.zIndexOverlay,
+    zIndex: vars["--ads-z-index-overlay"],
   },
   viewport: {
     alignItems: "stretch",
     display: "flex",
     inset: 0,
     position: "fixed",
-    zIndex: vars.zIndexModal,
+    zIndex: vars["--ads-z-index-modal"],
   },
   viewportRight: {
     justifyContent: "flex-end",
@@ -188,23 +188,23 @@ const styles = stylex.create({
     justifyContent: "stretch",
   },
   surface: {
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
     // elevationModal — a Drawer is a detached global surface that owns the screen
     // (it ships with a backdrop and a focus trap), not a popup anchored to a
     // trigger. elevationOverlay put it in the dropdown band (tokens.stylex.ts
     // elevation policy).
-    boxShadow: vars.elevationModal,
-    color: vars.colorText,
+    boxShadow: vars["--ads-elevation-modal"],
+    color: vars["--ads-color-text"],
   },
   popup: {
     display: "grid",
-    gap: vars.space20,
+    gap: vars["--ads-space-20"],
     // Single shrinkable row for `DrawerContent`. `1fr` is `minmax(auto, 1fr)`,
     // whose automatic minimum size is the content's — so a long drawer refused
     // to shrink and overflowed the panel instead of letting the body scroll.
     gridTemplateRows: "minmax(0, 1fr)",
     // Modal padding step (space20), matching Dialog/AlertDialog.
-    padding: vars.space20,
+    padding: vars["--ads-space-20"],
     position: "relative",
   },
   // The four side styles carry the seam border and the CROSS axis only. The
@@ -212,26 +212,26 @@ const styles = stylex.create({
   // same property and `size` cannot be silently overridden by `side`.
   popupRight: {
     blockSize: "100dvh",
-    borderInlineStartColor: vars.colorMediaEdge,
+    borderInlineStartColor: vars["--ads-color-media-edge"],
     borderInlineStartStyle: "solid",
-    borderInlineStartWidth: vars.borderWidthHairline,
+    borderInlineStartWidth: vars["--ads-border-width-hairline"],
   },
   popupLeft: {
     blockSize: "100dvh",
-    borderInlineEndColor: vars.colorMediaEdge,
+    borderInlineEndColor: vars["--ads-color-media-edge"],
     borderInlineEndStyle: "solid",
-    borderInlineEndWidth: vars.borderWidthHairline,
+    borderInlineEndWidth: vars["--ads-border-width-hairline"],
   },
   popupTop: {
-    borderBlockEndColor: vars.colorMediaEdge,
+    borderBlockEndColor: vars["--ads-color-media-edge"],
     borderBlockEndStyle: "solid",
-    borderBlockEndWidth: vars.borderWidthHairline,
+    borderBlockEndWidth: vars["--ads-border-width-hairline"],
     inlineSize: "100dvw",
   },
   popupBottom: {
-    borderBlockStartColor: vars.colorMediaEdge,
+    borderBlockStartColor: vars["--ads-color-media-edge"],
     borderBlockStartStyle: "solid",
-    borderBlockStartWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars["--ads-border-width-hairline"],
     inlineSize: "100dvw",
   },
   // There is no width token family — the system names spacing, not panel
@@ -255,7 +255,7 @@ const styles = stylex.create({
   content: {
     blockSize: "100%",
     display: "grid",
-    gap: vars.space20,
+    gap: vars["--ads-space-20"],
     // Header stays put; the body row is the one that shrinks and scrolls (same
     // model as Popover). `minmax(0, …)` is required — see `popup` above.
     gridTemplateRows: "auto minmax(0, 1fr)",
@@ -264,24 +264,24 @@ const styles = stylex.create({
   header: {
     alignItems: "start",
     display: "flex",
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
     justifyContent: "space-between",
   },
   titleGroup: {
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   title: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeLead,
-    fontWeight: vars.fontWeightSemibold,
-    lineHeight: vars.lineHeightLead,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-lead"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    lineHeight: vars["--ads-line-height-lead"],
     margin: 0,
   },
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
   },
   // `focusRing.gutter` is composed at the call site: `popup` pays `space20`, but
@@ -290,7 +290,7 @@ const styles = stylex.create({
   body: {
     alignContent: "start",
     display: "grid",
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
     // Pair for the shrinkable row above: a grid item's automatic minimum size
     // would otherwise refuse to go below its content and defeat the scroll.
     minBlockSize: 0,

@@ -5,35 +5,35 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 // The tooltip surface is dark (`colorText` fill, `colorTextInverted` copy), so
 // its secondary text and dividers are the inverted ink at reduced alpha rather
 // than a muted-on-light token.
-const invertedMuted = `color-mix(in oklch, ${vars.colorTextInverted} 70%, transparent)`;
-const invertedFaint = `color-mix(in oklch, ${vars.colorTextInverted} 20%, transparent)`;
-const triggerMuted = `color-mix(in oklch, ${vars.colorTextMuted} 60%, transparent)`;
+const invertedMuted = `color-mix(in oklch, ${vars["--ads-color-text-inverted"]} 70%, transparent)`;
+const invertedFaint = `color-mix(in oklch, ${vars["--ads-color-text-inverted"]} 20%, transparent)`;
+const triggerMuted = `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 60%, transparent)`;
 
 export const messageUsageSummaryStyles = stylex.create({
   delegatedSection: {
-    marginTop: vars.space8,
+    marginTop: vars["--ads-space-8"],
     display: "flex",
     flexDirection: "column",
-    gap: vars.space8,
-    borderTopWidth: vars.borderWidthHairline,
+    gap: vars["--ads-space-8"],
+    borderTopWidth: vars["--ads-border-width-hairline"],
     borderTopStyle: "solid",
     borderTopColor: invertedFaint,
-    paddingTop: vars.space8,
+    paddingTop: vars["--ads-space-8"],
   },
-  sectionTitle: { fontWeight: vars.fontWeightMedium },
+  sectionTitle: { fontWeight: vars["--ads-font-weight-medium"] },
   mutedLine: { color: invertedMuted },
   entry: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   entryHeader: {
     display: "flex",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
   },
-  entryLabel: { fontWeight: vars.fontWeightMedium },
+  entryLabel: { fontWeight: vars["--ads-font-weight-medium"] },
   entryMeta: {
     minWidth: 0,
     overflowWrap: "anywhere",
@@ -43,31 +43,31 @@ export const messageUsageSummaryStyles = stylex.create({
   metricsGrid: {
     display: "grid",
     gridTemplateColumns: "auto 1fr",
-    columnGap: vars.space12,
+    columnGap: vars["--ads-space-12"],
     rowGap: "0.125rem",
   },
   metricLabel: { color: invertedMuted },
-  metricValue: { textAlign: "right", fontFamily: vars.fontMono },
+  metricValue: { textAlign: "right", fontFamily: vars["--ads-font-mono"] },
   turnTotal: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   turnTotalHeader: {
     display: "flex",
     alignItems: "flex-start",
     justifyContent: "space-between",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
   },
-  turnTotalTitle: { fontWeight: vars.fontWeightMedium },
+  turnTotalTitle: { fontWeight: vars["--ads-font-weight-medium"] },
   trigger: {
     display: "flex",
     cursor: "default",
     alignItems: "center",
     gap: "0.375rem",
-    borderRadius: vars.radiusMark,
-    paddingLeft: vars.space4,
-    fontSize: vars.fontSizeMicro,
+    borderRadius: vars["--ads-radius-mark"],
+    paddingLeft: vars["--ads-space-4"],
+    fontSize: vars["--ads-font-size-micro"],
     lineHeight: 1,
     color: triggerMuted,
   },

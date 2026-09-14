@@ -195,34 +195,34 @@ export const EmptyState = Object.assign(EmptyStateConvenience, {
 const styles = stylex.create({
   root: {
     alignItems: "center",
-    backgroundColor: vars.colorSurfaceRaised,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusPanel,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     // Flat by contract (§1.5 "Elevation is a lift, not a grouping cue"): a
     // static container that groups content in flow does not leave its plane, so
     // it carries no shadow. `elevation1` now means pressable, movable, or
     // docked. Depth against the canvas comes from the surface step + hairline.
-    boxShadow: vars.elevationFlat,
-    color: vars.colorText,
+    boxShadow: vars["--ads-elevation-flat"],
+    color: vars["--ads-color-text"],
     display: "grid",
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
     inlineSize: "100%",
     justifyItems: "center",
     minInlineSize: 0,
-    padding: vars.space32,
+    padding: vars["--ads-space-32"],
     textAlign: "center",
   },
   plain: {
     backgroundColor: "transparent",
     borderWidth: 0,
     boxShadow: "none",
-    padding: vars.space20,
+    padding: vars["--ads-space-20"],
   },
   media: {
     alignItems: "center",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     display: "inline-flex",
     inlineSize: 48,
     justifyContent: "center",
@@ -231,32 +231,32 @@ const styles = stylex.create({
   toneAccent: {
     // selection-ok: this tint identifies a decorative accent medallion, not a
     // selected/current surface.
-    backgroundColor: vars.colorAccentSoft,
-    color: vars.colorAccent,
+    backgroundColor: vars["--ads-color-accent-soft"],
+    color: vars["--ads-color-accent"],
   },
   toneNeutral: {
-    backgroundColor: vars.colorCanvasSubtle,
-    color: vars.colorTextMuted,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    color: vars["--ads-color-text-muted"],
   },
   toneInfo: {
-    backgroundColor: vars.colorInfoSoft,
-    color: vars.colorInfo,
+    backgroundColor: vars["--ads-color-info-soft"],
+    color: vars["--ads-color-info"],
   },
   toneSuccess: {
-    backgroundColor: vars.colorSuccessSoft,
-    color: vars.colorSuccess,
+    backgroundColor: vars["--ads-color-success-soft"],
+    color: vars["--ads-color-success"],
   },
   toneWarning: {
-    backgroundColor: vars.colorWarningSoft,
-    color: vars.colorWarning,
+    backgroundColor: vars["--ads-color-warning-soft"],
+    color: vars["--ads-color-warning"],
   },
   toneDanger: {
-    backgroundColor: vars.colorDangerSoft,
-    color: vars.colorDanger,
+    backgroundColor: vars["--ads-color-danger-soft"],
+    color: vars["--ads-color-danger"],
   },
   header: {
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     // The header is a grid, so its children are placed with `justify-items`,
     // and the default `stretch` cannot stretch a fixed 48px medallion: the
     // media box lands at the inline start while the title and description
@@ -268,22 +268,22 @@ const styles = stylex.create({
     minInlineSize: 0,
   },
   title: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeLead,
-    fontWeight: vars.fontWeightSemibold,
-    lineHeight: vars.lineHeightLead,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-lead"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    lineHeight: vars["--ads-line-height-lead"],
     margin: 0,
   },
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
     overflowWrap: "anywhere",
   },
   content: {
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     justifyItems: "center",
     maxInlineSize: 360,
     minInlineSize: 0,

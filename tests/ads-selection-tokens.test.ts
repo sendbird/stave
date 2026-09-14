@@ -49,10 +49,10 @@ describe("::selection follows theme tokens", () => {
       );
       expect(block, `nativeChromeStyles.${rule}`).not.toBeNull();
       expect(block?.[1]).toContain(
-        '"--ads-selection-background": vars.colorText,',
+        '"--ads-selection-background": vars["--ads-color-text"],',
       );
       expect(block?.[1]).toContain(
-        '"--ads-selection-color": vars.colorTextInverted,',
+        '"--ads-selection-color": vars["--ads-color-text-inverted"],',
       );
     }
   });

@@ -60,24 +60,24 @@ export function TaskWorkPanel({ kind }: { kind: "results" | "collaboration" }) {
 
 const styles = stylex.create({
   empty: {
-    padding: vars.space16,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
-    color: vars.colorTextMuted,
+    padding: vars["--ads-space-16"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--ads-color-text-muted"],
   },
   panel: {
     height: "100%",
     minHeight: 0,
     overflowY: "auto",
-    padding: vars.space16,
+    padding: vars["--ads-space-16"],
   },
   title: {
-    marginBottom: vars.space16,
+    marginBottom: vars["--ads-space-16"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
-    fontWeight: vars.fontWeightMedium,
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
+    fontWeight: vars["--ads-font-weight-medium"],
   },
 });

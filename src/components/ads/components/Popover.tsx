@@ -175,47 +175,47 @@ const styles = stylex.create({
   trigger: {
     alignItems: "center",
     appearance: "none",
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     cursor: "pointer",
     display: "inline-flex",
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    gap: vars.space8,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--ads-space-8"],
     justifyContent: "center",
     paddingBlock: 0,
   },
   // Inline gutters mirror Button (sm space8 / md space12 / lg space16 + the 15px
   // lg type step) so a Button and a popover trigger in one row line up.
   triggerSm: {
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   triggerMd: {
-    paddingInline: vars.space12,
+    paddingInline: vars["--ads-space-12"],
   },
   triggerLg: {
-    fontSize: vars.fontSizeLead,
-    paddingInline: vars.space16,
+    fontSize: vars["--ads-font-size-lead"],
+    paddingInline: vars["--ads-space-16"],
   },
   positioner: {
-    zIndex: vars.zIndexDropdown,
+    zIndex: vars["--ads-z-index-dropdown"],
   },
   surface: {
-    backgroundColor: vars.colorSurfaceRaised,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusPanel,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     // elevationOverlay — a popover is a transient popup anchored to its trigger, not
     // a detached global surface (elevationModal). Confirmed against the elevation
     // policy in tokens.stylex.ts; unchanged.
-    boxShadow: vars.elevationOverlay,
-    color: vars.colorText,
+    boxShadow: vars["--ads-elevation-overlay"],
+    color: vars["--ads-color-text"],
   },
   popup: {
     display: "grid",
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
     // Header stays put; the body row is the one that shrinks and scrolls when
     // the anchored clamp below bites. (The Arrow is `position: absolute` via
     // Base UI, so it is out of flow and not a grid row.)
@@ -233,7 +233,7 @@ const styles = stylex.create({
     // *content* surface, so it pads with `space16` — one step under Dialog's
     // `space20`, because an anchored 340px panel next to its trigger needs less
     // margin than a centered modal that owns the screen.
-    padding: vars.space16,
+    padding: vars["--ads-space-16"],
   },
   // Both properties, not just `padding`: a grid surface with a surviving `gap`
   // still insets its own rows from each other, so section dividers would stop
@@ -243,12 +243,12 @@ const styles = stylex.create({
     padding: 0,
   },
   arrow: {
-    color: vars.colorSurfaceRaised,
+    color: vars["--ads-color-surface-raised"],
   },
   header: {
     alignItems: "start",
     display: "flex",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     justifyContent: "space-between",
   },
   /**
@@ -260,39 +260,39 @@ const styles = stylex.create({
    * the whole panel, which is what keeps the rules aligned.
    */
   headerFlush: {
-    paddingBlockEnd: vars.space12,
-    paddingBlockStart: vars.space16,
-    paddingInline: vars.space16,
+    paddingBlockEnd: vars["--ads-space-12"],
+    paddingBlockStart: vars["--ads-space-16"],
+    paddingInline: vars["--ads-space-16"],
   },
   titleGroup: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   // Overlay-surface title role (§5): 17px semibold on the 24px heading line
   // box with snug tracking — identical to Dialog/AlertDialog/Drawer. It used to
   // sit at 14px, so the same title read as an in-flow Card heading.
   title: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeLead,
-    fontWeight: vars.fontWeightSemibold,
-    lineHeight: vars.lineHeightLead,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-lead"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    lineHeight: vars["--ads-line-height-lead"],
     margin: 0,
   },
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
   },
   // `focusRing.gutter` is composed at the call site: `popup` pays `space16`, but
   // that padding is on the element that does not clip. This is the scroller, so
   // it owes the ring its own bleed gutter (see Dialog's `body`).
   body: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "grid",
-    fontSize: vars.fontSizeBody,
-    gap: vars.space12,
-    lineHeight: vars.lineHeightNormal,
+    fontSize: vars["--ads-font-size-body"],
+    gap: vars["--ads-space-12"],
+    lineHeight: vars["--ads-line-height-normal"],
     // Pair for the popup's height clamp: the body is the scroll area, so a long
     // popover keeps its title and close button visible instead of overflowing.
     // `minBlockSize: 0` is required — a grid item's automatic minimum size

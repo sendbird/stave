@@ -85,36 +85,36 @@ const styles = stylex.create({
   root: {
     alignItems: "center",
     appearance: "none",
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     cursor: "pointer",
     display: "inline-flex",
-    fontFamily: vars.fontSans,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    gap: vars.space8,
+    fontFamily: vars["--ads-font-sans"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--ads-space-8"],
     justifyContent: "flex-start",
     // Height comes from the shared control-metrics recipe (`controlHeights.md`,
     // composed at the call site) — a local `minBlockSize: controlHeight` looked
     // identical on desktop but silently opted the toggle out of the
     // `(pointer: coarse)` 44px bump every other control gets.
     paddingBlock: 0,
-    paddingInline: vars.space12,
+    paddingInline: vars["--ads-space-12"],
   },
   // "On" is a filled accent so the pressed state reads at a glance (the old
   // colorAccentSoft fill was ~indistinguishable from the surface).
   pressed: {
     backgroundColor: {
-      default: vars.colorAccent,
-      ":hover": vars.colorAccentHover,
+      default: vars["--ads-color-accent"],
+      ":hover": vars["--ads-color-accent-hover"],
     },
-    borderColor: vars.colorAccent,
-    color: vars.colorAccentText,
+    borderColor: vars["--ads-color-accent"],
+    color: vars["--ads-color-accent-text"],
   },
   disabled: {
     cursor: "not-allowed",
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
   icon: {
     alignItems: "center",

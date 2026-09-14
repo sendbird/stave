@@ -13,18 +13,18 @@ export const panelBarStyles = stylex.create({
   bar: { height: 46 },
   headerTitle: {
     alignItems: "center",
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "inline-flex",
-    fontFamily: vars.fontSans,
-    fontSize: vars.fontSizeLead,
-    fontWeight: vars.fontWeightMedium,
-    gap: vars.space8,
+    fontFamily: vars["--ads-font-sans"],
+    fontSize: vars["--ads-font-size-lead"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--ads-space-8"],
     lineHeight: 1,
   },
   headerIcon: {
-    color: vars.colorTextMuted,
-    height: vars.controlIconSizeMd,
-    width: vars.controlIconSizeMd,
+    color: vars["--ads-color-text-muted"],
+    height: vars["--ads-control-icon-size-md"],
+    width: vars["--ads-control-icon-size-md"],
   },
 });
 

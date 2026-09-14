@@ -110,16 +110,16 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     alignItems: "center",
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
     inlineSize: "100%",
     minInlineSize: 0,
   },
   root: {
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
     // Same `padding` shorthand ADS Empty uses, so this replaces it instead of
     // racing `paddingBlockEnd` against it. Bottom is 0: the shell gap owns
     // the space to the footer action.
-    padding: `${vars.space20} ${vars.space20} 0`,
+    padding: `${vars["--ads-space-20"]} ${vars["--ads-space-20"]} 0`,
   },
   introduction: {
     // Cross-axis centering now lives in the `EmptyHeader` shim, so every empty
@@ -137,10 +137,10 @@ const styles = stylex.create({
     minInlineSize: 0,
     display: "flex",
     flexDirection: "column",
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
     textAlign: "left",
   },
-  actions: { display: "flex", flexWrap: "wrap", gap: vars.space8 },
+  actions: { display: "flex", flexWrap: "wrap", gap: vars["--ads-space-8"] },
   footerActions: {
     inlineSize: "100%",
     maxInlineSize: "32rem",
@@ -157,15 +157,15 @@ const styles = stylex.create({
     flexWrap: "wrap",
     alignItems: "center",
     justifyContent: "space-between",
-    columnGap: vars.space16,
-    rowGap: vars.space8,
-    paddingBlock: vars.space12,
+    columnGap: vars["--ads-space-16"],
+    rowGap: vars["--ads-space-8"],
+    paddingBlock: vars["--ads-space-12"],
     borderBlockStartWidth: {
-      default: vars.borderWidthHairline,
+      default: vars["--ads-border-width-hairline"],
       ":first-child": 0,
     },
     borderBlockStartStyle: "solid",
-    borderBlockStartColor: vars.colorBorder,
+    borderBlockStartColor: vars["--ads-color-border"],
   },
   /**
    * Title and description are a pair, so the gap between them is the layout's
@@ -178,21 +178,21 @@ const styles = stylex.create({
     flexDirection: "column",
     flexGrow: 1,
     flexBasis: "16rem",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
   /** Never shrink below the label: the action wraps to its own line first. */
   promptAction: { flexShrink: 0 },
   promptTitle: {
     margin: 0,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
-    fontWeight: vars.fontWeightMedium,
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   promptDescription: {
     margin: 0,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightRelaxed,
-    color: vars.colorTextMuted,
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-relaxed"],
+    color: vars["--ads-color-text-muted"],
   },
 });

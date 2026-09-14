@@ -25,28 +25,28 @@ export const overlayLayout = stylex.create({
     inlineSize: "calc(100% - 2rem)",
     maxInlineSize: "28rem",
     translate: "-50% -50%",
-    gap: vars.space24,
-    padding: vars.space24,
-    fontSize: vars.fontSizeBody,
+    gap: vars["--ads-space-24"],
+    padding: vars["--ads-space-24"],
+    fontSize: vars["--ads-font-size-body"],
     outlineStyle: "none",
   },
-  close: { position: "absolute", top: vars.space16, right: vars.space16 },
-  header: { display: "flex", flexDirection: "column", gap: vars.space8 },
+  close: { position: "absolute", top: vars["--ads-space-16"], right: vars["--ads-space-16"] },
+  header: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"] },
   footer: {
     display: "flex",
     flexDirection: { default: "column-reverse", "@media (min-width: 640px)": "row" },
     justifyContent: { default: "normal", "@media (min-width: 640px)": "flex-end" },
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
-  description: { fontSize: vars.fontSizeBody, color: vars.colorTextMuted },
+  description: { fontSize: vars["--ads-font-size-body"], color: vars["--ads-color-text-muted"] },
   popover: {
     display: "flex",
     inlineSize: "18rem",
     transformOrigin: "var(--transform-origin)",
     flexDirection: "column",
-    gap: vars.space16,
-    padding: vars.space16,
-    fontSize: vars.fontSizeBody,
+    gap: vars["--ads-space-16"],
+    padding: vars["--ads-space-16"],
+    fontSize: vars["--ads-font-size-body"],
     outlineStyle: "none",
   },
   /**
@@ -72,17 +72,17 @@ export const overlayLayout = stylex.create({
     overflowY: "auto",
     padding: 0,
   },
-  popoverHeader: { display: "flex", flexDirection: "column", gap: vars.space4, fontSize: vars.fontSizeBody },
-  muted: { color: vars.colorTextMuted },
+  popoverHeader: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], fontSize: vars["--ads-font-size-body"] },
+  muted: { color: vars["--ads-color-text-muted"] },
   submenuArrow: { marginInlineStart: "auto" },
-  menuIndicator: { pointerEvents: "none", position: "absolute", right: vars.space8 },
+  menuIndicator: { pointerEvents: "none", position: "absolute", right: vars["--ads-space-8"] },
   menuLabel: { minWidth: 0, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  selectArrow: { pointerEvents: "none", width: vars.space16, height: vars.space16, color: vars.colorTextMuted },
-  selectList: { width: "100%", minWidth: 0, padding: vars.space4 },
-  selectLabel: { display: "flex", minWidth: 0, flex: 1, gap: vars.space8, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
-  selectIndicator: { pointerEvents: "none", position: "absolute", right: vars.space8, display: "flex", width: vars.space16, height: vars.space16, alignItems: "center", justifyContent: "center" },
+  selectArrow: { pointerEvents: "none", width: vars["--ads-space-16"], height: vars["--ads-space-16"], color: vars["--ads-color-text-muted"] },
+  selectList: { width: "100%", minWidth: 0, padding: vars["--ads-space-4"] },
+  selectLabel: { display: "flex", minWidth: 0, flex: 1, gap: vars["--ads-space-8"], overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  selectIndicator: { pointerEvents: "none", position: "absolute", right: vars["--ads-space-8"], display: "flex", width: vars["--ads-space-16"], height: vars["--ads-space-16"], alignItems: "center", justifyContent: "center" },
   decorative: { pointerEvents: "none" },
-  tableViewport: { position: "relative", width: "100%", overflowX: "auto", "--atelier-table-cell-padding-block": vars.space8 },
+  tableViewport: { position: "relative", width: "100%", overflowX: "auto", "--atelier-table-cell-padding-block": vars["--ads-space-8"] },
   /**
    * A keycap group hugs its keys in every parent.
    *
@@ -94,7 +94,7 @@ export const overlayLayout = stylex.create({
    * these chips normally sit in (stretch only applies to an `auto` cross
    * size), so it fixes the stretch without moving the aligned cases.
    */
-  keyGroup: { display: "inline-flex", inlineSize: "fit-content", alignItems: "center", gap: vars.space4, whiteSpace: "nowrap" },
+  keyGroup: { display: "inline-flex", inlineSize: "fit-content", alignItems: "center", gap: vars["--ads-space-4"], whiteSpace: "nowrap" },
   /**
    * The same hug for a single ADS `Kbd`. ADS's own root declares
    * `minInlineSize` but no `inlineSize`, so it cannot resist a stretching

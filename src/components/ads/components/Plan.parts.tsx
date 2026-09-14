@@ -189,16 +189,16 @@ const markStyles = stylex.create({
     opacity: 1,
   },
   pending: {
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
   },
   approval: {
-    color: vars.colorWarning,
+    color: vars["--ads-color-warning"],
   },
   done: {
-    color: vars.colorSuccess,
+    color: vars["--ads-color-success"],
   },
   failed: {
-    color: vars.colorDanger,
+    color: vars["--ads-color-danger"],
   },
 });
 

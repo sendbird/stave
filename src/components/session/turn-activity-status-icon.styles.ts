@@ -22,18 +22,18 @@ export const turnActivityStatusIconStyles = stylex.create({
     width: 14,
   },
   success: {
-    color: vars.colorSuccess,
+    color: vars["--ads-color-success"],
   },
   danger: {
-    color: vars.colorDanger,
+    color: vars["--ads-color-danger"],
   },
   warning: {
-    color: vars.colorWarning,
+    color: vars["--ads-color-warning"],
   },
   pending: {
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 45%, transparent)`,
+    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 45%, transparent)`,
   },
   running: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
 });

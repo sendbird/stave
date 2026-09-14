@@ -51,7 +51,7 @@ const MenuRadioItemIndicatorPart = BaseMenu.RadioItemIndicator;
 const styles = stylex.create({
   radioDot: {
     backgroundColor: "currentColor",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     blockSize: 8,
     inlineSize: 8,
   },

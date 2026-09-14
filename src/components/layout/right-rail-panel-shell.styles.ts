@@ -4,7 +4,7 @@ import { vars } from "../ads/tokens/tokens.stylex";
 
 export const rightRailPanelShellStyles = stylex.create({
   root: {
-    backgroundColor: vars.colorSurface,
+    backgroundColor: vars["--ads-color-surface"],
     display: "flex",
     flexDirection: "column",
     height: "100%",
@@ -14,12 +14,12 @@ export const rightRailPanelShellStyles = stylex.create({
   },
   header: {
     alignItems: "center",
-    borderBottomColor: vars.colorBorder,
+    borderBottomColor: vars["--ads-color-border"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars.borderWidthHairline,
+    borderBottomWidth: vars["--ads-border-width-hairline"],
     display: "flex",
     flexShrink: 0,
-    paddingInline: vars.space12,
+    paddingInline: vars["--ads-space-12"],
   },
   actions: {
     alignItems: "center",

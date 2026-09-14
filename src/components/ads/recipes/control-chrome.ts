@@ -6,8 +6,8 @@ import { vars } from "../tokens/tokens.stylex";
 // overlay cannot be painted onto one without dropping the fill itself, so the
 // same operand is applied the other way, at the same 6/12 weights. sRGB, not
 // oklab: an oklab mix is nearly invisible over a near-black fill.
-const raisedWashHover = `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars.colorMixInk} 6%)`;
-const raisedWashPressed = `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars.colorMixInk} 12%)`;
+const raisedWashHover = `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 6%)`;
+const raisedWashPressed = `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 12%)`;
 /**
  * Shared surface + state language for **bordered interactive controls** —
  * overlay triggers (Select, Popover, Menu, DatePicker), field wrappers, and
@@ -36,11 +36,11 @@ export const controlChrome = stylex.create({
   /** Resting/hover/press surface of a bordered "secondary"-weight control. */
   trigger: {
     backgroundColor: {
-      default: vars.colorSurfaceRaised,
+      default: vars["--ads-color-surface-raised"],
       ":hover": raisedWashHover,
       ":active": raisedWashPressed,
     },
-    borderColor: vars.colorBorder,
+    borderColor: vars["--ads-color-border"],
     // Width and style, not just colour. These recipes land on native `<button>`
     // elements, which arrive with the UA's `2px outset` box; stating only
     // `border-color` recolours that box instead of replacing it. Callers that
@@ -48,15 +48,15 @@ export const controlChrome = stylex.create({
     // and the ones that do not were 4px larger than their own height contract
     // while painting a 2px ridge in whatever colour was in scope.
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     // Collapses to `elevationFlat` on `:active` — the shadow half of the press,
     // paired with `transition.control` (now animating `box-shadow`) at the
     // call site.
     boxShadow: {
-      default: vars.elevationRaised,
-      ":active": vars.elevationFlat,
+      default: vars["--ads-elevation-raised"],
+      ":active": vars["--ads-elevation-flat"],
     },
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
   },
   /** Borderless "quiet"-weight variant of the same language. */
   triggerQuiet: {
@@ -67,8 +67,8 @@ export const controlChrome = stylex.create({
       // directly. Mixing the two mechanisms in one control is what made a quiet
       // button hover to a colour that follows its surface and then press to one
       // that does not.
-      ":hover": vars.colorOverlayHover,
-      ":active": vars.colorOverlayPressed,
+      ":hover": vars["--ads-color-overlay-hover"],
+      ":active": vars["--ads-color-overlay-pressed"],
     },
     borderColor: "transparent",
     // Borderless means zero width, stated. `border-color: transparent` alone
@@ -96,11 +96,11 @@ export const controlChrome = stylex.create({
     // rather than differing by whether the caller remembered. A caller that
     // wants another shape still wins: `xstyle` merges last on both paths, and a
     // geometry recipe composed after this one overrides it as before.
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     color: {
-      default: vars.colorTextMuted,
-      ":hover": vars.colorText,
-      ":active": vars.colorText,
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-text"],
+      ":active": vars["--ads-color-text"],
     },
   },
   /**
@@ -122,8 +122,8 @@ export const controlChrome = stylex.create({
    */
   triggerFocusBorder: {
     borderColor: {
-      default: vars.colorBorder,
-      ":focus-within": vars.colorBorderFocus,
+      default: vars["--ads-color-border"],
+      ":focus-within": vars["--ads-color-border-focus"],
     },
   },
   /**
@@ -140,7 +140,7 @@ export const controlChrome = stylex.create({
   },
   /** `triggerOpen` for a `triggerQuiet` base: the same press, translucent. */
   triggerQuietOpen: {
-    backgroundColor: vars.colorOverlayPressed,
+    backgroundColor: vars["--ads-color-overlay-pressed"],
   },
   /**
    * Field-shaped control (text entry and its wrappers). Unlike `trigger` it
@@ -148,17 +148,17 @@ export const controlChrome = stylex.create({
    * but its border strengthens so the target stays discoverable.
    */
   field: {
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
     // `:focus-within` last so focus beats hover when both match — the tone
     // yields to focus (contract: header of `TextField.tsx`). This recipe had no
     // focus step and, for that reason, no consumer: every field-shaped control
     // hand-rolled its own border and each one dropped the hover half.
     borderColor: {
-      default: vars.colorBorder,
-      ":hover": vars.colorBorderStrong,
-      ":focus-within": vars.colorBorderFocus,
+      default: vars["--ads-color-border"],
+      ":hover": vars["--ads-color-border-strong"],
+      ":focus-within": vars["--ads-color-border-focus"],
     },
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
   },
 
   // ---- One disabled language, three shapes ---------------------------------
@@ -172,7 +172,7 @@ export const controlChrome = stylex.create({
    */
   disabled: {
     cursor: "not-allowed",
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
   /**
    * Disabled for a **field** (text input, textarea, number field, select
@@ -182,9 +182,9 @@ export const controlChrome = stylex.create({
    * any usable contrast.
    */
   disabledField: {
-    backgroundColor: vars.colorSurfaceTint,
-    borderColor: vars.colorBorder,
-    color: vars.colorTextMuted,
+    backgroundColor: vars["--ads-color-surface-tint"],
+    borderColor: vars["--ads-color-border"],
+    color: vars["--ads-color-text-muted"],
     cursor: "not-allowed",
   },
   /**
@@ -192,7 +192,7 @@ export const controlChrome = stylex.create({
    * full text contrast and loses only the editable affordance.
    */
   readOnlyField: {
-    backgroundColor: vars.colorSurfaceTint,
+    backgroundColor: vars["--ads-color-surface-tint"],
     cursor: "default",
   },
 });

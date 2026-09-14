@@ -91,27 +91,27 @@ export function CardFooter({ className, ...props }: CardFooterProps) {
 
 const styles = stylex.create({
   root: {
-    backgroundColor: vars.colorSurfaceRaised,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusPanel,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     // Flat by contract (§1.5 "Elevation is a lift, not a grouping cue"): a
     // static container that groups content in flow does not leave its plane, so
     // it carries no shadow. `elevation1` now means pressable, movable, or
     // docked. Depth against the canvas comes from the surface step + hairline.
-    boxShadow: vars.elevationFlat,
-    color: vars.colorText,
+    boxShadow: vars["--ads-elevation-flat"],
+    color: vars["--ads-color-text"],
     display: "grid",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     inlineSize: "100%",
     minInlineSize: 0,
   },
   compact: {
-    padding: vars.space16,
+    padding: vars["--ads-space-16"],
   },
   regular: {
-    padding: vars.space20,
+    padding: vars["--ads-space-20"],
   },
   header: {
     display: "grid",
@@ -120,7 +120,7 @@ const styles = stylex.create({
     // 14px title (the composition the Card docs preview uses) read as a
     // collision at 4px. The title size itself is not the problem — 14px
     // semibold for an in-flow surface is the decided title role.
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     // Auto column collapses to zero when no CardAction is present.
     gridTemplateColumns: "minmax(0, 1fr) auto",
     justifyItems: "start",
@@ -134,28 +134,28 @@ const styles = stylex.create({
     justifySelf: "end",
   },
   title: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightSemibold,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-semibold"],
     gridColumnStart: "1",
-    lineHeight: vars.lineHeightTight,
+    lineHeight: vars["--ads-line-height-tight"],
     margin: 0,
     overflowWrap: "anywhere",
   },
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
     gridColumnStart: "1",
-    lineHeight: vars.lineHeightNormal,
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
     overflowWrap: "anywhere",
   },
   content: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "grid",
-    fontSize: vars.fontSizeBody,
-    gap: vars.space12,
-    lineHeight: vars.lineHeightNormal,
+    fontSize: vars["--ads-font-size-body"],
+    gap: vars["--ads-space-12"],
+    lineHeight: vars["--ads-line-height-normal"],
     minInlineSize: 0,
   },
   footer: {
@@ -166,11 +166,11 @@ const styles = stylex.create({
     // footer border is opt-in, never a default.
     display: "flex",
     flexWrap: "wrap",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     justifyContent: "flex-end",
-    marginBlockStart: vars.space4,
+    marginBlockStart: vars["--ads-space-4"],
     minInlineSize: 0,
-    paddingBlockStart: vars.space12,
+    paddingBlockStart: vars["--ads-space-12"],
   },
 });
 

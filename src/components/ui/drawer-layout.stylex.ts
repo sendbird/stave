@@ -8,7 +8,7 @@ export const layout = stylex.create({
       "default": "fixed",
       "@supports (-webkit-touch-callout:none)": "absolute"
     },
-    "inset": `${vars.space0}`,
+    "inset": `${vars["--ads-space-0"]}`,
     "minHeight": "100dvh",
     "backgroundColor": "var(--overlay)",
     "opacity": {
@@ -44,7 +44,7 @@ export const layout = stylex.create({
       ":active": "grabbing"
     },
     "transitionProperty": "opacity",
-    "transitionTimingFunction": `${vars.motionEaseStandard}`,
+    "transitionTimingFunction": `${vars["--ads-motion-ease-standard"]}`,
     "transitionDuration": "200ms",
     "opacity": {
       "default": null,
@@ -54,11 +54,11 @@ export const layout = stylex.create({
     "height": {
       "default": null,
       [stylex.when.ancestor(":is([data-swipe-axis=\"x\"])", drawerMarker)]: "100%",
-      [stylex.when.ancestor(":is([data-swipe-axis=\"y\"])", drawerMarker)]: `${vars.space12}`
+      [stylex.when.ancestor(":is([data-swipe-axis=\"y\"])", drawerMarker)]: `${vars["--ads-space-12"]}`
     },
     "width": {
       "default": null,
-      [stylex.when.ancestor(":is([data-swipe-axis=\"x\"])", drawerMarker)]: `${vars.space12}`,
+      [stylex.when.ancestor(":is([data-swipe-axis=\"x\"])", drawerMarker)]: `${vars["--ads-space-12"]}`,
       [stylex.when.ancestor(":is([data-swipe-axis=\"y\"])", drawerMarker)]: "100%"
     },
     "alignItems": {
@@ -87,7 +87,7 @@ export const layout = stylex.create({
       "display": "block",
       "flexShrink": "0",
       "borderRadius": 9999,
-      "backgroundColor": `${vars.colorSurfaceTint}`,
+      "backgroundColor": `${vars["--ads-color-surface-tint"]}`,
       "height": {
         "default": null,
         [stylex.when.ancestor(":is([data-swipe-axis=\"x\"])", drawerMarker)]: "100px",
@@ -113,7 +113,7 @@ export const layout = stylex.create({
       }
     },
     "maxHeight": "var(--drawer-content-max-height,none)",
-    "minHeight": `${vars.space0}`,
+    "minHeight": `${vars["--ads-space-0"]}`,
     "width": "var(--drawer-content-width,auto)",
     "transform": {
       "default": "translate3d(var(--translate-x,0px),var(--translate-y,0px),0) scale(var(--stack-scale))",
@@ -124,7 +124,7 @@ export const layout = stylex.create({
       "default": "column",
       ":is([data-swipe-axis=\"x\"])": "row"
     },
-    "fontSize": `${vars.fontSizeBody}`,
+    "fontSize": `${vars["--ads-font-size-body"]}`,
     "lineHeight": "1.428571",
     "transitionProperty": "transform,height,opacity,filter",
     "transitionTimingFunction": "cubic-bezier(0.22,1,0.36,1)",
@@ -171,10 +171,10 @@ export const layout = stylex.create({
       },
       "pointerEvents": "none",
       "position": "absolute",
-      "backgroundColor": `var(--drawer-bleed-background, ${vars.colorSurfaceRaised})`,
+      "backgroundColor": `var(--drawer-bleed-background, ${vars["--ads-color-surface-raised"]})`,
       "insetBlock": {
         "default": null,
-        ":is([data-swipe-axis=\"x\"])": `${vars.space0}`
+        ":is([data-swipe-axis=\"x\"])": `${vars["--ads-space-0"]}`
       },
       "width": {
         "default": null,
@@ -182,7 +182,7 @@ export const layout = stylex.create({
       },
       "insetInline": {
         "default": null,
-        ":is([data-swipe-axis=\"y\"])": `${vars.space0}`
+        ":is([data-swipe-axis=\"y\"])": `${vars["--ads-space-0"]}`
       },
       "height": {
         "default": null,
@@ -219,7 +219,7 @@ export const layout = stylex.create({
     },
     "insetBlock": {
       "default": null,
-      ":is([data-swipe-axis=\"x\"])": `${vars.space0}`
+      ":is([data-swipe-axis=\"x\"])": `${vars["--ads-space-0"]}`
     },
     "--drawer-content-width": {
       "default": null,
@@ -230,7 +230,7 @@ export const layout = stylex.create({
     },
     "insetInline": {
       "default": null,
-      ":is([data-swipe-axis=\"y\"])": `${vars.space0}`
+      ":is([data-swipe-axis=\"y\"])": `${vars["--ads-space-0"]}`
     },
     "--drawer-content-max-height": {
       "default": null,
@@ -238,7 +238,7 @@ export const layout = stylex.create({
     },
     "bottom": {
       "default": null,
-      ":is([data-swipe-direction=\"down\"])": `${vars.space0}`
+      ":is([data-swipe-direction=\"down\"])": `${vars["--ads-space-0"]}`
     },
     "transformOrigin": {
       "default": null,
@@ -249,13 +249,13 @@ export const layout = stylex.create({
     },
     "borderTopLeftRadius": {
       "default": null,
-      ":is([data-swipe-direction=\"down\"])": vars.radiusPanel,
-      ":is([data-swipe-direction=\"right\"])": vars.radiusPanel
+      ":is([data-swipe-direction=\"down\"])": vars["--ads-radius-panel"],
+      ":is([data-swipe-direction=\"right\"])": vars["--ads-radius-panel"]
     },
     "borderTopRightRadius": {
       "default": null,
-      ":is([data-swipe-direction=\"down\"])": vars.radiusPanel,
-      ":is([data-swipe-direction=\"left\"])": vars.radiusPanel
+      ":is([data-swipe-direction=\"down\"])": vars["--ads-radius-panel"],
+      ":is([data-swipe-direction=\"left\"])": vars["--ads-radius-panel"]
     },
     "borderTopStyle": {
       "default": null,
@@ -279,12 +279,12 @@ export const layout = stylex.create({
     },
     "left": {
       "default": null,
-      ":is([data-swipe-direction=\"left\"])": `${vars.space0}`
+      ":is([data-swipe-direction=\"left\"])": `${vars["--ads-space-0"]}`
     },
     "borderBottomRightRadius": {
       "default": null,
-      ":is([data-swipe-direction=\"left\"])": vars.radiusPanel,
-      ":is([data-swipe-direction=\"up\"])": vars.radiusPanel
+      ":is([data-swipe-direction=\"left\"])": vars["--ads-radius-panel"],
+      ":is([data-swipe-direction=\"up\"])": vars["--ads-radius-panel"]
     },
     "borderRightStyle": {
       "default": null,
@@ -301,12 +301,12 @@ export const layout = stylex.create({
     },
     "right": {
       "default": null,
-      ":is([data-swipe-direction=\"right\"])": `${vars.space0}`
+      ":is([data-swipe-direction=\"right\"])": `${vars["--ads-space-0"]}`
     },
     "borderBottomLeftRadius": {
       "default": null,
-      ":is([data-swipe-direction=\"right\"])": vars.radiusPanel,
-      ":is([data-swipe-direction=\"up\"])": vars.radiusPanel
+      ":is([data-swipe-direction=\"right\"])": vars["--ads-radius-panel"],
+      ":is([data-swipe-direction=\"up\"])": vars["--ads-radius-panel"]
     },
     "borderLeftStyle": {
       "default": null,
@@ -318,7 +318,7 @@ export const layout = stylex.create({
     },
     "top": {
       "default": null,
-      ":is([data-swipe-direction=\"up\"])": `${vars.space0}`
+      ":is([data-swipe-direction=\"up\"])": `${vars["--ads-space-0"]}`
     },
     "borderBottomStyle": {
       "default": null,
@@ -331,7 +331,7 @@ export const layout = stylex.create({
   },
   "content": {
     "display": "flex",
-    "minHeight": `${vars.space0}`,
+    "minHeight": `${vars["--ads-space-0"]}`,
     "flex": "1",
     "flexDirection": "column",
     "overflow": "hidden",
@@ -359,11 +359,11 @@ export const layout = stylex.create({
     "flexShrink": "0",
     "flexDirection": "column",
     "gap": {
-      "default": `${vars.space2}`,
+      "default": `${vars["--ads-space-2"]}`,
       "@media (width >= 48rem)": "6px"
     },
-    "padding": `${vars.space16}`,
-    "paddingBottom": `${vars.space0}`,
+    "padding": `${vars["--ads-space-16"]}`,
+    "paddingBottom": `${vars["--ads-space-0"]}`,
     "textAlign": {
       "default": null,
       [stylex.when.ancestor(":is([data-swipe-axis=\"y\"])", drawerMarker)]: "center",
@@ -375,9 +375,9 @@ export const layout = stylex.create({
     "display": "flex",
     "flexShrink": "0",
     "flexDirection": "column",
-    "gap": `${vars.space8}`,
-    "padding": `${vars.space16}`,
-    "paddingTop": `${vars.space0}`
+    "gap": `${vars["--ads-space-8"]}`,
+    "padding": `${vars["--ads-space-16"]}`,
+    "paddingTop": `${vars["--ads-space-0"]}`
   },
   "description": {
     "textWrap": "balance"
@@ -388,7 +388,7 @@ export const layout = stylex.create({
       ":is([data-modal=\"true\"])": "auto"
     },
     "position": "fixed",
-    "inset": `${vars.space0}`,
+    "inset": `${vars["--ads-space-0"]}`,
     "WebkitUserSelect": "none",
     "userSelect": "none"
   }

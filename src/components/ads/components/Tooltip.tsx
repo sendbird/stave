@@ -72,7 +72,7 @@ export type TooltipProps = {
   sideOffset?: number;
   /**
    * 포지셔너 z-index 오버라이드 — 소비 앱의 고정 크롬이 DS z-스케일
-   * (`vars.zIndexDropdown`)보다 높은 레이어(z 900+ 등)를 쓸 때 툴팁이
+   * (`vars["--ads-z-index-dropdown"]`)보다 높은 레이어(z 900+ 등)를 쓸 때 툴팁이
    * 크롬 뒤에 깔리지 않게 한다.
    */
   zIndex?: number;
@@ -169,33 +169,33 @@ export function TooltipIconButton({
 
 const styles = stylex.create({
   positioner: {
-    zIndex: vars.zIndexDropdown,
+    zIndex: vars["--ads-z-index-dropdown"],
   },
   popup: {
-    backgroundColor: vars.colorText,
-    borderRadius: vars.radiusControl,
+    backgroundColor: vars["--ads-color-text"],
+    borderRadius: vars["--ads-radius-control"],
     // elevationLift — a tooltip is a small hint *attached* to its trigger, not a
     // floating panel: it belongs with the "objects lifted within a surface"
     // step, one below the menu/popover band. It shipped on elevationOverlay, so a
     // two-word label cast the same 15px shadow as a full dropdown
     // (tokens.stylex.ts elevation policy).
-    boxShadow: vars.elevationLift,
-    color: vars.colorTextInverted,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    boxShadow: vars["--ads-elevation-lift"],
+    color: vars["--ads-color-text-inverted"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     // Inline clamp against the anchored space Base UI reports. This is the
     // overflow guard for a tooltip: long content has to WRAP, because the
     // alternative — a block clamp plus `overflow` — would clip the Arrow, which
     // paints outside the popup's border box (the same reason `menu.popupClamp`
     // is opt-in). Base UI flips/shifts the popup on the block axis.
-    maxInlineSize: `min(280px, var(--available-width, calc(100dvw - ${vars.space32})))`,
+    maxInlineSize: `min(280px, var(--available-width, calc(100dvw - ${vars["--ads-space-32"]})))`,
     // Tooltip padding step: one below Popover's content gutter. A hint that is
     // mostly a single line does not need a panel's margin.
-    padding: vars.space8,
+    padding: vars["--ads-space-8"],
   },
   arrow: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
   },
 });
 

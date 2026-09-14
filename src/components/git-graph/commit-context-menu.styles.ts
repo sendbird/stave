@@ -7,11 +7,11 @@ export const commitContextMenuStyles = stylex.create({
     maxWidth: "24rem",
   },
   destructiveHeader: {
-    marginBottom: vars.space4,
+    marginBottom: vars["--ads-space-4"],
     display: "flex",
     alignItems: "center",
-    gap: vars.space8,
-    color: vars.colorDangerText,
+    gap: vars["--ads-space-8"],
+    color: vars["--ads-color-danger-text"],
   },
   destructiveIcon: {
     width: 16,
@@ -19,15 +19,15 @@ export const commitContextMenuStyles = stylex.create({
     flexShrink: 0,
   },
   destructiveTitle: {
-    color: vars.colorDangerText,
+    color: vars["--ads-color-danger-text"],
   },
   menu: {
     width: "14rem",
   },
   menuLabel: {
-    fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeCaption,
-    color: vars.colorTextMuted,
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--ads-color-text-muted"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",

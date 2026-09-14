@@ -4,34 +4,34 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 
 export const providerErrorRecoveryStyles = stylex.create({
   root: {
-    backgroundColor: vars.colorDangerSoft,
-    borderColor: vars.colorDangerBorder,
-    borderRadius: vars.radiusPanel,
+    backgroundColor: vars["--ads-color-danger-soft"],
+    borderColor: vars["--ads-color-danger-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     display: "flex",
     flexDirection: "column",
-    fontSize: vars.fontSizeBody,
-    gap: vars.space8,
-    padding: vars.space12,
+    fontSize: vars["--ads-font-size-body"],
+    gap: vars["--ads-space-8"],
+    padding: vars["--ads-space-12"],
   },
   messageRow: {
     alignItems: "flex-start",
-    color: vars.colorDangerText,
+    color: vars["--ads-color-danger-text"],
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   messageIcon: {
     flexShrink: 0,
-    height: vars.controlIconSizeSm,
-    marginTop: vars.space2,
-    width: vars.controlIconSizeSm,
+    height: vars["--ads-control-icon-size-sm"],
+    marginTop: vars["--ads-space-2"],
+    width: vars["--ads-control-icon-size-sm"],
   },
   message: {
-    fontWeight: vars.fontWeightMedium,
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   guidance: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   resume: {
     display: "flex",
@@ -39,12 +39,12 @@ export const providerErrorRecoveryStyles = stylex.create({
     gap: 6,
   },
   help: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1.25rem",
   },
   error: {
-    color: vars.colorDangerText,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-danger-text"],
+    fontSize: vars["--ads-font-size-caption"],
   },
 });

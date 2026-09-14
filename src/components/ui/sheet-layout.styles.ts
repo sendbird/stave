@@ -4,8 +4,8 @@ import { vars } from "../ads/tokens/tokens.stylex";
 export const sheetLayout = stylex.create({
   overlay: { position: "fixed", inset: 0, backgroundColor: "var(--overlay)" },
   surface: {
-    position: "fixed", display: "flex", flexDirection: "column", gap: vars.space16,
-    backgroundClip: "padding-box", fontSize: vars.fontSizeBody,
+    position: "fixed", display: "flex", flexDirection: "column", gap: vars["--ads-space-16"],
+    backgroundClip: "padding-box", fontSize: vars["--ads-font-size-body"],
     // The slide/fade pair lives on `transition.slide` at the call site: it is a
     // spatial, edge-anchored surface, and the literal 200ms this replaced had
     // no reduced-motion arm, so an off-screen drawer still travelled its full
@@ -13,23 +13,23 @@ export const sheetLayout = stylex.create({
     opacity: { default: 1, ":is([data-starting-style], [data-ending-style])": 0 },
   },
   left: {
-    insetBlock: 0, left: 0, height: "100%", width: "75%", borderRightWidth: vars.borderWidthHairline,
+    insetBlock: 0, left: 0, height: "100%", width: "75%", borderRightWidth: vars["--ads-border-width-hairline"],
     maxWidth: { default: null, "@media (min-width: 640px)": "24rem" },
     translate: { default: "0 0", ":is([data-starting-style], [data-ending-style])": "-2.5rem 0" },
   },
   right: {
-    insetBlock: 0, right: 0, height: "100%", width: "75%", borderLeftWidth: vars.borderWidthHairline,
+    insetBlock: 0, right: 0, height: "100%", width: "75%", borderLeftWidth: vars["--ads-border-width-hairline"],
     maxWidth: { default: null, "@media (min-width: 640px)": "24rem" },
     translate: { default: "0 0", ":is([data-starting-style], [data-ending-style])": "2.5rem 0" },
   },
   top: {
-    insetInline: 0, top: 0, height: "auto", borderBottomWidth: vars.borderWidthHairline,
+    insetInline: 0, top: 0, height: "auto", borderBottomWidth: vars["--ads-border-width-hairline"],
     translate: { default: "0 0", ":is([data-starting-style], [data-ending-style])": "0 -2.5rem" },
   },
   bottom: {
-    insetInline: 0, bottom: 0, height: "auto", borderTopWidth: vars.borderWidthHairline,
+    insetInline: 0, bottom: 0, height: "auto", borderTopWidth: vars["--ads-border-width-hairline"],
     translate: { default: "0 0", ":is([data-starting-style], [data-ending-style])": "0 2.5rem" },
   },
-  header: { display: "flex", flexDirection: "column", gap: 6, padding: vars.space16 },
-  footer: { marginTop: "auto", display: "flex", flexDirection: "column", gap: vars.space8, padding: vars.space16 },
+  header: { display: "flex", flexDirection: "column", gap: 6, padding: vars["--ads-space-16"] },
+  footer: { marginTop: "auto", display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], padding: vars["--ads-space-16"] },
 });

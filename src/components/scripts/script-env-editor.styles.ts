@@ -5,45 +5,45 @@ export const envEditorStyles = stylex.create({
   root: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   label: {
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    color: vars.colorText,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    color: vars["--ads-color-text"],
   },
   empty: {
-    fontSize: vars.fontSizeMicro,
-    color: vars.colorTextMuted,
+    fontSize: vars["--ads-font-size-micro"],
+    color: vars["--ads-color-text-muted"],
   },
   rows: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   row: {
     display: "flex",
     alignItems: "center",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   input: {
     height: 32,
-    fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeCaption,
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   equals: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   removeButton: {
     flexShrink: 0,
     color: {
-      default: vars.colorTextMuted,
-      ":hover": vars.colorDangerText,
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-danger-text"],
     },
   },
   addButton: {
     height: 28,
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   icon: {
     width: 14,
