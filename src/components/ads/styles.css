@@ -1,9 +1,24 @@
+/*
+ * A name-only `@layer` statement is the one at-rule the spec allows ahead of
+ * `@import`, so stating the order here settles it before an imported sheet can
+ * register a layer of its own. `src/globals.css` and the `#stave-style-layers`
+ * block in `index.html` restate the same order with the host's own `theme`,
+ * `components` and `utilities` layers around it.
+ *
+ * `ads` and `product` hold StyleX's atomic classes, one origin each — see
+ * `scripts/vite-ads-stylex.mjs`. `ads-theme` is the seam between them and
+ * ships empty: it exists so a brand recipe can outrank a component's own
+ * declaration while still losing to a style the product wrote at the call
+ * site. Do not write `!important` into it; `!important` inverts layer order
+ * and would put a brand above the product.
+ */
+@layer reset, base, ads, ads-theme, product;
+
 @import "./fonts.css";
 @import "./data-table-motion.css";
 @import "./sidebar-motion.css";
 @import "./overlay-motion.css";
 @import "./inline-disclosure-motion.css";
-@layer reset, base;
 
 /*
  * Corner geometry is published to a button as custom properties, and custom

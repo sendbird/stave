@@ -4,8 +4,21 @@
  * the order before any imported or injected stylesheet can create a layer of
  * its own. It must stay byte-identical to the `#stave-style-layers` block in
  * `index.html` (`scripts/check-design-system-migration.mjs` compares them).
+ *
+ * `ads` and `product` replace the flat `priority1 … priority10` StyleX used to
+ * emit. `scripts/vite-ads-stylex.mjs` compiles ADS and product modules under
+ * different StyleX class name prefixes and nests each origin's priority
+ * buckets inside its own layer (`@layer ads.priority1`, `@layer
+ * product.priority1`), so the two origins hold distinct cascade positions
+ * instead of sharing one. That is what makes `ads-theme` expressible: a brand
+ * recipe placed there outranks a component's own declaration and still loses
+ * to a style the product wrote at the call site. It ships empty today.
+ *
+ * `components` and `utilities` stay above `product` exactly as they sat above
+ * `priority*` before, so host CSS that has to reach rich-text and third-party
+ * descendants keeps winning.
  */
-@layer reset, theme, base, priority1, priority2, priority3, priority4, priority5, priority6, priority7, priority8, priority9, priority10, components, utilities;
+@layer reset, theme, base, ads, ads-theme, product, components, utilities;
 
 /*
  * Every face is self-hosted from node_modules. The two remote sheets that used

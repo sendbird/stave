@@ -6,10 +6,6 @@ import "@/globals.css";
 import { StaveDesignProvider } from "@/components/system/StaveDesignProvider";
 import { installDevApiBridge } from "@/lib/dev-bridge";
 
-if (import.meta.env.DEV) {
-  void import("virtual:stylex:runtime");
-}
-
 installDevApiBridge();
 
 /*

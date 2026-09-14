@@ -31,14 +31,46 @@ const css = readFileSync(
   new URL("../src/globals.css", import.meta.url),
   "utf8",
 );
-const layerOrder = /@layer reset, theme, base, priority1[^;]+;/;
-if (
-  !html.match(layerOrder) ||
-  html.match(layerOrder)?.[0] !== css.match(layerOrder)?.[0]
-) {
+const layerOrder = /@layer reset,[^;]+;/;
+const htmlLayers = html.match(layerOrder)?.[0];
+const cssLayers = css.match(layerOrder)?.[0];
+if (!htmlLayers || htmlLayers !== cssLayers) {
   failures.push(
     "index.html and globals.css must establish the same canonical layer order",
   );
+}
+/*
+ * StyleX no longer emits one flat `priority*` band: `scripts/vite-ads-stylex.mjs`
+ * compiles ADS and product modules under different class name prefixes and nests
+ * each origin's priority buckets inside `ads` and `product`. `ads-theme` is the
+ * seam between them. Drop any of the three, or reorder them, and a brand recipe
+ * has no defined position — so the names are asserted, not just the agreement.
+ */
+const ADS_ORIGIN_SEAM = ["ads", "ads-theme", "product"];
+const adsStyles = readFileSync(
+  new URL("../src/components/ads/styles.css", import.meta.url),
+  "utf8",
+);
+for (const [label, source] of [
+  ["index.html", htmlLayers],
+  ["src/globals.css", cssLayers],
+  ["src/components/ads/styles.css", adsStyles.match(layerOrder)?.[0]],
+]) {
+  if (!source) {
+    failures.push(`${label}: no canonical \`@layer reset, …;\` statement`);
+    continue;
+  }
+  const names = source
+    .replace(/^@layer\s+/, "")
+    .replace(/;$/, "")
+    .split(",")
+    .map((name) => name.trim());
+  const seam = names.filter((name) => ADS_ORIGIN_SEAM.includes(name));
+  if (seam.join(",") !== ADS_ORIGIN_SEAM.join(",")) {
+    failures.push(
+      `${label}: cascade layer statement must name ${ADS_ORIGIN_SEAM.join(", ")} in that order; found ${seam.join(", ") || "none"}`,
+    );
+  }
 }
 for (const file of readdirSync(
   new URL("../src/components/ui", import.meta.url),

@@ -1,4 +1,4 @@
-import stylex from "@stylexjs/unplugin";
+import { adsStylex } from "./scripts/vite-ads-stylex.mjs";
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import path from "node:path";
@@ -6,8 +6,12 @@ import { createWorkspaceWatchIgnore } from "./config/workspace-watch";
 
 export default defineConfig({
   plugins: [
-    stylex.vite({
-      useCSSLayers: true,
+    adsStylex({
+      // Every directory whose modules are ADS. Anything not listed compiles as
+      // product, which is the safe default: the product layer is topmost, so a
+      // misfiled module loses the ability to be re-themed rather than gaining
+      // the ability to outrank a theme.
+      adsRoots: [path.resolve(__dirname, "src", "components", "ads")],
       enableMediaQueryOrder: false,
       unstable_moduleResolution: { type: "commonJS", rootDir: __dirname },
       aliases: { "@/*": [path.resolve(__dirname, "src", "*")] },

@@ -201,3 +201,46 @@ Further host extensions:
   empty selector, so `AppShell.shell.styles.ts` imports it directly. ADS
   records: `consumer-changes/2026-09-07-breakpoints-module-split.json`,
   `consumer-changes/2026-09-07-breakpoints-defineconsts-import.json`.
+
+- StyleX is now compiled per ORIGIN. `scripts/vite-ads-stylex.mjs` and its
+  `.core.mjs`/`.d.mts` siblings replace `stylex.vite()` in `vite.config.ts` and
+  `electron.vite.config.ts`: ADS modules (everything under this directory, named
+  by `adsRoots`) keep StyleX's default `x` class name prefix, everything else
+  compiles under `p`, and each origin's rules are emitted as
+  `@layer ads.priority*` / `@layer product.priority*`. An atomic class is a pure
+  function of its declaration, so ADS and product code writing the same
+  declaration used to produce the SAME class and therefore one cascade
+  position; distinct prefixes are what let the two origins hold different ones.
+  The canonical order is now
+  `reset, theme, base, ads, ads-theme, product, components, utilities`, stated
+  identically in `index.html`, `src/globals.css` and this directory's
+  `styles.css`, and enforced by `scripts/check-design-system-migration.mjs`.
+  `ads-theme` ships empty; it is the seam a brand recipe would occupy.
+  Measured on the dev server against a rendered ADS Button whose own
+  `padding-inline` is 12px: a rule in `ads-theme` renders 33px, the same rule
+  with a product-layer rule renders 41px. ADS record:
+  `consumer-changes/2026-09-09-stylex-origin-layers.json`; the compatibility
+  test for the `@stylexjs/unplugin` internals this reaches is
+  `tests/stylex-origin-layers.test.mjs`, which must pass after any StyleX
+  upgrade (the dependency is pinned to 0.19.0 exactly for this reason).
+
+  Two deliberate departures from the upstream instructions. The origin
+  classifier has no built-in ADS root, because upstream's default is its own
+  workspace package path and this is a source install; `adsRoots` is the only
+  thing that names ADS here. And `adsCascadeLayers()` is not installed: the
+  `#stave-style-layers` block in `index.html` already publishes the statement
+  ahead of every bundled sheet, which is the same mechanism, and the migration
+  gate already compares it against `src/globals.css`.
+
+  `src/main.tsx` no longer imports `virtual:stylex:runtime`. That module is
+  served by `@stylexjs/unplugin`'s own Vite adapter, which this plugin replaces;
+  `adsStylex` injects the equivalent `/virtual:ads-stylex.css` link and dev
+  client itself. Left in place it is an unresolvable import and the dev server
+  returns 500 on the entry module.
+
+- Not yet adopted from `consumer-changes/2026-09-09-layered-motion-and-font-imports.json`:
+  the ADS motion sheets and `fonts.css` are still imported UNLAYERED here.
+  Unlayered declarations outrank every layer, which is their behaviour today, so
+  annotating them `layer(ads)` would move them below product StyleX — a real
+  change with no consumer for it yet, because no product theme exists. Adopt it
+  with the theming module, not before.
