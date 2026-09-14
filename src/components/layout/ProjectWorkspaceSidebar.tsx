@@ -3124,7 +3124,7 @@ export function ProjectWorkspaceSidebar(args: {
           <label className={sx(projectSidebarStyles.archiveOption)}>
             <Checkbox
               controlOnly
-              className={sx(projectSidebarStyles.archiveCheckbox)}
+              xstyle={projectSidebarStyles.archiveCheckbox}
               checked={archiveDeletesBranch}
               disabled={closingWorkspaceId !== null}
               onCheckedChange={(checked) => setArchiveDeletesBranch(checked)}

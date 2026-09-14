@@ -225,21 +225,21 @@ export function SidebarRail({
 const styles = stylex.create({
   sidebarInput: {
     appearance: "none",
-    backgroundColor: vars.colorSurfaceRaised,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusControl,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorText,
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-text"],
     fontFamily: "inherit",
-    fontSize: vars.fontSizeBody,
+    fontSize: vars["--ads-font-size-body"],
     inlineSize: "100%",
-    lineHeight: vars.lineHeightTight,
+    lineHeight: vars["--ads-line-height-tight"],
     minInlineSize: 0,
     paddingBlock: 0,
-    paddingInline: vars.space12,
+    paddingInline: vars["--ads-space-12"],
     "::placeholder": {
-      color: vars.colorTextPlaceholder,
+      color: vars["--ads-color-text-placeholder"],
     },
   },
   sidebarInputCollapsed: {
@@ -252,8 +252,8 @@ const styles = stylex.create({
     position: "relative",
   },
   sidebarSearchIcon: {
-    color: vars.colorTextSubtle,
-    insetInlineStart: vars.space12,
+    color: vars["--ads-color-text-subtle"],
+    insetInlineStart: vars["--ads-space-12"],
     pointerEvents: "none",
     position: "absolute",
   },
@@ -263,17 +263,17 @@ const styles = stylex.create({
     "::-webkit-search-cancel-button": {
       display: "none",
     },
-    paddingInlineEnd: vars.space12,
+    paddingInlineEnd: vars["--ads-space-12"],
     // Clear the absolutely-positioned 14px glyph: space12 inset (12) + icon
     // (14) + space8 breathing room (8). `space24` (24px) landed the
     // placeholder on top of the icon.
     paddingInlineStart: 34,
   },
   sidebarSearchShortcut: {
-    color: vars.colorTextSubtle,
-    fontSize: vars.fontSizeCaption,
-    insetInlineEnd: vars.space12,
-    lineHeight: vars.lineHeightTight,
+    color: vars["--ads-color-text-subtle"],
+    fontSize: vars["--ads-font-size-caption"],
+    insetInlineEnd: vars["--ads-space-12"],
+    lineHeight: vars["--ads-line-height-tight"],
     pointerEvents: "none",
     position: "absolute",
     whiteSpace: "nowrap",
@@ -283,14 +283,14 @@ const styles = stylex.create({
     appearance: "none",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
-      ":active": vars.colorOverlayPressed,
+      ":hover": vars["--ads-color-overlay-hover"],
+      ":active": vars["--ads-color-overlay-pressed"],
     },
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderWidth: 0,
     color: {
-      default: vars.colorTextMuted,
-      ":hover": vars.colorText,
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-text"],
     },
     cursor: "pointer",
     display: "inline-flex",
@@ -298,10 +298,10 @@ const styles = stylex.create({
     marginInline: "auto",
   },
   sidebarSeparator: {
-    backgroundColor: vars.colorBorder,
+    backgroundColor: vars["--ads-color-border"],
     blockSize: 1,
     inlineSize: "100%",
-    marginBlock: vars.space4,
+    marginBlock: vars["--ads-space-4"],
   },
   sidebarRail: {
     appearance: "none",
@@ -313,8 +313,8 @@ const styles = stylex.create({
     // that is `tabIndex`-reachable and carries `aria-expanded`.
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorBorder,
-      ":focus-visible": vars.colorAccent,
+      ":hover": vars["--ads-color-border"],
+      ":focus-visible": vars["--ads-color-accent"],
       // Forced colors discards author backgrounds, so the accent bar — the ONLY
       // focus cue on this control — would disappear in High Contrast Mode. Same
       // escape the ring recipe uses for `outlineColor`: name a system color.
@@ -342,7 +342,7 @@ const styles = stylex.create({
     position: "absolute",
     // In-surface chrome: the resize rail sits over the sidebar's own edge, not
     // over other surfaces. Tokenized (was a raw `zIndex: 1`).
-    zIndex: vars.zIndexSticky,
+    zIndex: vars["--ads-z-index-sticky"],
   },
   sidebarRailRight: {
     insetInlineEnd: "auto",

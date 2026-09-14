@@ -133,7 +133,7 @@ function ConsultRow(props: {
       data-testid="advisor-consult-log-row"
       data-consult-key={props.entry.key}
       aria-current={props.selected ? "true" : undefined}
-      className={sx(styles.row, props.selected && styles.rowSelected)}
+      xstyle={[styles.row, props.selected && styles.rowSelected]}
       onClick={props.onSelect}
     >
       <span className={sx(styles.rowHeader)}>

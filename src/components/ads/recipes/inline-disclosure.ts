@@ -2,9 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "../tokens/tokens.stylex";
 
-const disclosureRest = `color-mix(in oklab, ${vars.colorSurfaceTint} 76%, transparent)`;
-const disclosureHover = `color-mix(in oklab, ${vars.colorCanvasSubtle} 84%, transparent)`;
-const disclosurePress = `color-mix(in oklab, ${vars.colorText} 5%, ${vars.colorCanvasSubtle})`;
+const disclosureRest = `color-mix(in oklab, ${vars["--ads-color-surface-tint"]} 76%, transparent)`;
+const disclosureHover = `color-mix(in oklab, ${vars["--ads-color-canvas-subtle"]} 84%, transparent)`;
+const disclosurePress = `color-mix(in oklab, ${vars["--ads-color-text"]} 5%, ${vars["--ads-color-canvas-subtle"]})`;
 
 /**
  * Compact progressive disclosure for evidence, reasoning, and tool details.
@@ -30,21 +30,21 @@ export const inlineDisclosure = stylex.create({
         ":hover": disclosureHover,
       },
     },
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderWidth: 0,
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     cursor: "pointer",
     display: "flex",
-    fontFamily: vars.fontSans,
-    gap: vars.space8,
+    fontFamily: vars["--ads-font-sans"],
+    gap: vars["--ads-space-8"],
     inlineSize: "100%",
     justifyContent: "flex-start",
-    minBlockSize: vars.controlHeightSm,
+    minBlockSize: vars["--ads-control-height-sm"],
     minInlineSize: 0,
-    paddingBlock: vars.space4,
+    paddingBlock: vars["--ads-space-4"],
     // The agent-row left edge. `agentSurface.row` is locked to this value so a
     // payload-less row and a disclosure row share one glyph column.
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
     textAlign: "start",
   },
   triggerIntrinsic: {
@@ -52,7 +52,7 @@ export const inlineDisclosure = stylex.create({
     maxInlineSize: "100%",
   },
   triggerOpen: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
   },
   panel: {
     inlineSize: "100%",
@@ -60,13 +60,13 @@ export const inlineDisclosure = stylex.create({
   },
   body: {
     backgroundColor: disclosureRest,
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     boxSizing: "border-box",
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     inlineSize: "100%",
-    marginBlockStart: vars.space4,
+    marginBlockStart: vars["--ads-space-4"],
     minInlineSize: 0,
-    padding: vars.space8,
+    padding: vars["--ads-space-8"],
   },
 });

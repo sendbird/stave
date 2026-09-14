@@ -62,11 +62,11 @@ describe("TaskStartGuide", () => {
       "utf8",
     );
 
-    expect(styles).toContain("paddingBottom: vars.space24");
-    expect(styles).toMatch(/startStack:[\s\S]*?gap: vars\.space16/);
-    expect(styles).toMatch(/startOptions:[\s\S]*?gap: vars\.space8/);
+    expect(styles).toContain('paddingBottom: vars["--ads-space-24"]');
+    expect(styles).toMatch(/startStack:[\s\S]*?gap: vars\["--ads-space-16"\]/);
+    expect(styles).toMatch(/startOptions:[\s\S]*?gap: vars\["--ads-space-8"\]/);
     expect(guide).toContain("styles.footerActions");
-    expect(guide).toMatch(/shell:[\s\S]*?gap: vars\.space16/);
-    expect(guide).toContain("${vars.space20} ${vars.space20} 0");
+    expect(guide).toMatch(/shell:[\s\S]*?gap: vars\["--ads-space-16"\]/);
+    expect(guide).toContain('${vars["--ads-space-20"]} ${vars["--ads-space-20"]} 0');
   });
 });

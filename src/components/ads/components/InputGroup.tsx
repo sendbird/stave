@@ -9,7 +9,8 @@ import {
 import { focusRing } from "../recipes/focus-ring";
 import { surfaceChrome } from "../recipes/surface-chrome";
 import { transition } from "../recipes/transition";
-import { cx, sx } from "../utils/stylex";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
   actionSizeStyles,
   actionsInsetStyles,
@@ -35,7 +36,7 @@ const InputGroupContext = React.createContext<InputGroupContextValue | null>(
 
 export type InputGroupActionProps = Omit<ButtonRootProps, "className"> & {
   className?: string;
-};
+} & XstyleProp;
 
 /**
  * A quiet, size-aware action that lives inside an InputGroup.
@@ -50,21 +51,31 @@ export type InputGroupActionProps = Omit<ButtonRootProps, "className"> & {
  * 30 → 24, 26 → 20), and two of the four land off the 28/32/36/40 control
  * scale on purpose — see `styles.actionRegular` in `InputGroup.styles` for why
  * a scale-aligned height is the wrong contract here.
+ *
+ * §9 — the control owns the glyph box. `data-ads-control-icon-button` reads
+ * the `--ads-control-icon-size` the group already sets per size step, so an
+ * icon passed in here comes out the same size as the group's `leading` mark.
+ * `SearchField`'s clear button has carried this since it was written; this
+ * action did not, so every call site hand-passed a literal (`size={14}` in the
+ * docs previews, at every size step) and a copy mark inside an `md` group
+ * rendered 14px beside a 16px search mark.
  */
 export const InputGroupAction = React.forwardRef<
   React.ElementRef<typeof ButtonRoot>,
   InputGroupActionProps
 >(function InputGroupAction(
-  { className, disabled: disabledProp, ...props },
+  { className, disabled: disabledProp, xstyle, ...props },
   forwardedRef,
 ) {
   const context = React.useContext(InputGroupContext);
   const size = context?.size ?? "md";
   const disabled = disabledProp || context?.disabled;
+  const theme = themeProps("input-group-action");
 
   return (
     <ButtonRoot
       {...props}
+      {...theme}
       className={cx(
         sx(
           surfaceChrome.quietIconButton,
@@ -73,9 +84,12 @@ export const InputGroupAction = React.forwardRef<
           focusRing.ringInset,
           actionSizeStyles[size],
           disabled && controlChrome.disabled,
+          xstyle,
         ),
+        theme.className,
         className,
       )}
+      data-ads-control-icon-button="true"
       disabled={disabled}
       ref={forwardedRef}
     />
@@ -114,7 +128,7 @@ export type InputGroupProps = Omit<
   size?: InputGroupSize;
   tone?: InputGroupTone;
   trailing?: React.ReactNode;
-};
+} & XstyleProp;
 
 function InputGroupImpl(
   {
@@ -132,6 +146,7 @@ function InputGroupImpl(
     suffixText,
     tone = "default",
     trailing,
+    xstyle,
     ...props
   }: InputGroupProps,
   forwardedRef: React.ForwardedRef<HTMLInputElement>,
@@ -142,9 +157,12 @@ function InputGroupImpl(
   const errorId = error ? `${inputId}-error` : undefined;
   const describedBy = [descriptionId, errorId].filter(Boolean).join(" ");
   const resolvedTone = error ? "danger" : tone;
+  // The bordered group is the target: it owns the border, the tint, and the
+  // state. `tone` is the RESOLVED validity, so an `error` shows up as `danger`.
+  const theme = themeProps("input-group", { size, tone: resolvedTone });
 
   return (
-    <div className={cx(sx(styles.field), className)}>
+    <div className={cx(sx(styles.field, xstyle), className)}>
       {label ? (
         <Label disabled={disabled} htmlFor={inputId} required={props.required}>
           {label}
@@ -152,22 +170,27 @@ function InputGroupImpl(
       ) : null}
       <InputGroupContext.Provider value={{ disabled: Boolean(disabled), size }}>
         <div
-          className={sx(
-            styles.group,
-            transition.colors,
-            focusRing.borderOnly,
-            controlHeightBySize[size],
-            sizeStyles[size],
-            toneStyles[resolvedTone],
-            // One state per element (design-direction §2): the bordered group
-            // owns the border and the tint, so it owns the state. The inner
-            // input inherits its color/cursor rather than re-stating them.
-            props.readOnly && !disabled && controlChrome.readOnlyField,
-            disabled && controlChrome.disabledField,
+          {...theme}
+          className={cx(
+            sx(
+              styles.group,
+              transition.colors,
+              focusRing.borderOnly,
+              controlHeightBySize[size],
+              sizeStyles[size],
+              toneStyles[resolvedTone],
+              // One state per element (design-direction §2): the bordered group
+              // owns the border and the tint, so it owns the state. The inner
+              // input inherits its color/cursor rather than re-stating them.
+              props.readOnly && !disabled && controlChrome.readOnlyField,
+              disabled && controlChrome.disabledField,
+            ),
+            theme.className,
           )}
         >
           {leadingActions ? (
             <span
+              {...themeSlotProps("input-group", "actions")}
               className={sx(styles.actions, leadingActionsInsetStyles[size])}
             >
               {leadingActions}
@@ -175,6 +198,7 @@ function InputGroupImpl(
           ) : null}
           {leading ? (
             <span
+              {...themeSlotProps("input-group", "adornment")}
               className={sx(styles.adornment)}
               data-ads-control-icon-slot="true"
             >
@@ -182,7 +206,12 @@ function InputGroupImpl(
             </span>
           ) : null}
           {prefixText ? (
-            <span className={sx(styles.affix)}>{prefixText}</span>
+            <span
+              {...themeSlotProps("input-group", "affix")}
+              className={sx(styles.affix)}
+            >
+              {prefixText}
+            </span>
           ) : null}
           <input
             {...props}
@@ -194,10 +223,16 @@ function InputGroupImpl(
             ref={forwardedRef}
           />
           {suffixText ? (
-            <span className={sx(styles.affix)}>{suffixText}</span>
+            <span
+              {...themeSlotProps("input-group", "affix")}
+              className={sx(styles.affix)}
+            >
+              {suffixText}
+            </span>
           ) : null}
           {trailing ? (
             <span
+              {...themeSlotProps("input-group", "adornment")}
               className={sx(styles.adornment)}
               data-ads-control-icon-slot="true"
             >
@@ -205,7 +240,10 @@ function InputGroupImpl(
             </span>
           ) : null}
           {actions ? (
-            <span className={sx(styles.actions, actionsInsetStyles[size])}>
+            <span
+              {...themeSlotProps("input-group", "actions")}
+              className={sx(styles.actions, actionsInsetStyles[size])}
+            >
               {actions}
             </span>
           ) : null}

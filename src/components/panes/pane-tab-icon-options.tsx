@@ -42,5 +42,5 @@ export function PaneCustomIcon(props: { name: string }) {
 }
 
 const styles = stylex.create({
-icon: {width:16,height:16,color:vars.colorTextMuted}
+icon: {width:16,height:16,color:vars["--ads-color-text-muted"]}
 });

@@ -9,7 +9,8 @@ function Kbd({ className, ...props }: React.ComponentProps<"kbd">) {
       {...props}
       size="sm"
       data-slot="kbd"
-      className={cx(sx(overlayLayout.keyCap), className)}
+      className={className}
+      xstyle={overlayLayout.keyCap}
     />
   );
 }

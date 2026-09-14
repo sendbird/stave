@@ -19,8 +19,14 @@ import {
 import { focusRing } from "../recipes/focus-ring";
 import { menu } from "../recipes/menu";
 import { transition } from "../recipes/transition";
+import { PortalProductThemeScope } from "../theming/ProductThemeProvider";
+import {
+  themeProps,
+  themeSlotProps,
+  themeTargetClassName,
+} from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
   Menu,
   type MenuCheckboxItemProps,
@@ -80,34 +86,50 @@ export type ContextMenuPortalProps = React.ComponentProps<
   typeof ContextMenuPortal
 >;
 
-function Portal(props: ContextMenuPortalProps) {
-  return <ContextMenuPortal {...props} />;
+function Portal({ children, ...props }: ContextMenuPortalProps) {
+  return (
+    <ContextMenuPortal {...props}>
+      <PortalProductThemeScope>{children}</PortalProductThemeScope>
+    </ContextMenuPortal>
+  );
 }
 
 export type ContextMenuPositionerProps = React.ComponentProps<
   typeof ContextMenuPositioner
->;
+> &
+  XstyleProp;
 
-function Positioner({ className, ...props }: ContextMenuPositionerProps) {
+function Positioner({
+  className,
+  xstyle,
+  ...props
+}: ContextMenuPositionerProps) {
   return (
     <ContextMenuPositioner
       {...props}
-      className={mergeClassName(() => sx(menu.positioner), className)}
+      className={mergeClassName(() => sx(menu.positioner, xstyle), className)}
     />
   );
 }
 
 export type ContextMenuPopupProps = React.ComponentProps<
   typeof ContextMenuPopup
->;
+> &
+  XstyleProp;
 
-function Popup({ className, ...props }: ContextMenuPopupProps) {
+function Popup({ className, xstyle, ...props }: ContextMenuPopupProps) {
+  const theme = themeProps("menu-popup");
   return (
     <ContextMenuPopup
       {...props}
+      {...theme}
       className={mergeClassName(
         () =>
-          cx(sx(menu.popup, menu.popupTransform), "atelier-motion-dropdown"),
+          cx(
+            sx(menu.popup, menu.popupTransform, xstyle),
+            "atelier-motion-dropdown",
+            theme.className,
+          ),
         className,
       )}
     />
@@ -116,26 +138,34 @@ function Popup({ className, ...props }: ContextMenuPopupProps) {
 
 export type ContextMenuGroupProps = React.ComponentProps<
   typeof ContextMenuGroup
->;
+> &
+  XstyleProp;
 
-function Group({ className, ...props }: ContextMenuGroupProps) {
+function Group({ className, xstyle, ...props }: ContextMenuGroupProps) {
   return (
     <ContextMenuGroup
       {...props}
-      className={mergeClassName(() => sx(menu.group), className)}
+      {...themeSlotProps("menu-popup", "group")}
+      className={mergeClassName(() => sx(menu.group, xstyle), className)}
     />
   );
 }
 
 export type ContextMenuGroupLabelProps = React.ComponentProps<
   typeof ContextMenuGroupLabel
->;
+> &
+  XstyleProp;
 
-function GroupLabel({ className, ...props }: ContextMenuGroupLabelProps) {
+function GroupLabel({
+  className,
+  xstyle,
+  ...props
+}: ContextMenuGroupLabelProps) {
   return (
     <ContextMenuGroupLabel
       {...props}
-      className={mergeClassName(() => sx(menu.groupLabel), className)}
+      {...themeSlotProps("menu-popup", "group-label")}
+      className={mergeClassName(() => sx(menu.groupLabel, xstyle), className)}
     />
   );
 }
@@ -144,21 +174,32 @@ export type ContextMenuItemProps = React.ComponentProps<
   typeof ContextMenuItem
 > & {
   tone?: "danger" | "default";
-};
+} & XstyleProp;
 
-function Item({ className, tone = "default", ...props }: ContextMenuItemProps) {
+function Item({
+  className,
+  tone = "default",
+  xstyle,
+  ...props
+}: ContextMenuItemProps) {
+  const theme = themeProps("menu-item", { tone });
   return (
     <ContextMenuItem
       {...props}
+      {...theme}
       className={mergeClassName(
         (state) =>
-          sx(
-            menu.item,
-            transition.colors,
-            menu.itemDefault,
-            state.highlighted && menu.itemHighlighted,
-            tone === "danger" && menu.itemDanger,
-            state.disabled && menu.itemDisabled,
+          cx(
+            sx(
+              menu.item,
+              transition.colors,
+              menu.itemDefault,
+              state.highlighted && menu.itemHighlighted,
+              tone === "danger" && menu.itemDanger,
+              state.disabled && menu.itemDisabled,
+              xstyle,
+            ),
+            theme.className,
           ),
         className,
       )}
@@ -168,13 +209,19 @@ function Item({ className, tone = "default", ...props }: ContextMenuItemProps) {
 
 export type ContextMenuSeparatorProps = React.ComponentProps<
   typeof ContextMenuSeparator
->;
+> &
+  XstyleProp;
 
-function SeparatorPart({ className, ...props }: ContextMenuSeparatorProps) {
+function SeparatorPart({
+  className,
+  xstyle,
+  ...props
+}: ContextMenuSeparatorProps) {
   return (
     <ContextMenuSeparator
       {...props}
-      className={mergeClassName(() => sx(menu.separator), className)}
+      {...themeSlotProps("menu-popup", "separator")}
+      className={mergeClassName(() => sx(menu.separator, xstyle), className)}
     />
   );
 }
@@ -189,22 +236,30 @@ function SubmenuRoot(props: ContextMenuSubmenuRootProps) {
 
 export type ContextMenuSubmenuTriggerProps = React.ComponentProps<
   typeof ContextMenuSubmenuTrigger
->;
+> &
+  XstyleProp;
 
 function SubmenuTrigger({
   className,
+  xstyle,
   ...props
 }: ContextMenuSubmenuTriggerProps) {
+  const theme = themeProps("menu-item");
   return (
     <ContextMenuSubmenuTrigger
       {...props}
+      {...theme}
       className={mergeClassName(
         (state) =>
-          sx(
-            menu.item,
-            menu.itemDefault,
-            state.highlighted && menu.itemHighlighted,
-            state.disabled && menu.itemDisabled,
+          cx(
+            sx(
+              menu.item,
+              menu.itemDefault,
+              state.highlighted && menu.itemHighlighted,
+              state.disabled && menu.itemDisabled,
+              xstyle,
+            ),
+            theme.className,
           ),
         className,
       )}
@@ -292,7 +347,7 @@ export type ContextMenuGroupConfig = {
 export type ContextMenuProps = Omit<ContextMenuRootProps, "children"> & {
   children: React.ReactNode;
   groups: ContextMenuGroupConfig[];
-};
+} & XstyleProp;
 
 /**
  * Renders array-config groups as compound `Item`/`Group` parts. Shared by the
@@ -369,15 +424,25 @@ export function ContextMenuGroups({
   );
 }
 
-function ContextMenuArray({ children, groups, ...props }: ContextMenuProps) {
+function ContextMenuArray({
+  children,
+  groups,
+  xstyle,
+  ...props
+}: ContextMenuProps) {
   return (
     <Root {...props}>
-      <Trigger className={sx(styles.trigger, focusRing.ring)}>
+      <Trigger
+        className={cx(
+          sx(styles.trigger, focusRing.ring),
+          themeTargetClassName("context-menu-region"),
+        )}
+      >
         {children}
       </Trigger>
       <Portal>
         <Positioner>
-          <Popup>
+          <Popup xstyle={xstyle}>
             <ContextMenuGroups groups={groups} />
           </Popup>
         </Positioner>
@@ -406,20 +471,20 @@ export const ContextMenu = Object.assign(ContextMenuArray, compoundParts);
 const styles = stylex.create({
   trigger: {
     alignItems: "center",
-    backgroundColor: vars.colorSurfaceRaised,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusPanel,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "dashed",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorTextMuted,
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-text-muted"],
     display: "grid",
-    fontSize: vars.fontSizeBody,
-    gap: vars.space8,
+    fontSize: vars["--ads-font-size-body"],
+    gap: vars["--ads-space-8"],
     inlineSize: "min(360px, 100%)",
     justifyItems: "center",
-    lineHeight: vars.lineHeightNormal,
+    lineHeight: vars["--ads-line-height-normal"],
     minBlockSize: 168,
-    padding: vars.space20,
+    padding: vars["--ads-space-20"],
     textAlign: "center",
     // No transition: this demo drop-zone has a single flat resting state (a
     // context menu opens on right-click and leaves its trigger untouched), so

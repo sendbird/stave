@@ -6,6 +6,7 @@ import { Drawer as DrawerPrimitive } from "@base-ui/react/drawer";
 
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { drawerStyles } from "../ads/components/Drawer";
+import { overlaySurface } from "../ads/recipes/overlay-surface";
 import { sx } from "../ads/utils/stylex";
 import { cx } from "../ads/utils/stylex";
 import { mergeClassName } from "../ads/components/merge-class-name";
@@ -132,7 +133,7 @@ function DrawerContent({
             () =>
               cx(
                 UI_LAYER_CLASS.dialog,
-                sx(drawerStyles.surface, layout.popup, drawerMarker),
+                sx(overlaySurface.modal, layout.popup, drawerMarker),
               ) ?? "",
             className,
           )}

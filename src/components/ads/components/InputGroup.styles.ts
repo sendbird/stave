@@ -22,29 +22,29 @@ export const styles = stylex.create({
     // and `Combobox` already carry this; InputGroup was the one that did not.
     alignContent: "start",
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     inlineSize: "100%",
     minInlineSize: 0,
   },
   group: {
     alignItems: "center",
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
     // Focus contract: the bordered wrapper owns the border, so the border
     // color changes on `:focus-within` and the keyboard ring comes from
     // `focusRing.ringWithin` (see the header of `TextField.tsx`).
     borderColor: {
-      default: vars.colorBorder,
+      default: vars["--ads-color-border"],
       // The pointer strengthens the boundary; it does not wash the fill.
-      ":hover": vars.colorBorderStrong,
-      ":focus-within": vars.colorBorderFocus,
+      ":hover": vars["--ads-color-border-strong"],
+      ":focus-within": vars["--ads-color-border-focus"],
     },
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorText,
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-text"],
     display: "flex",
-    fontSize: vars.fontSizeBody,
-    gap: vars.space8,
+    fontSize: vars["--ads-font-size-body"],
+    gap: vars["--ads-space-8"],
     inlineSize: "100%",
     minInlineSize: 0,
   },
@@ -53,12 +53,12 @@ export const styles = stylex.create({
   // the `spaceN` ramp, `md` and `sm` both resolved to 8px under the compact
   // theme.
   regular: {
-    "--ads-control-icon-size": vars.controlIconSizeMd,
+    "--ads-control-icon-size": vars["--ads-control-icon-size-md"],
     paddingBlock: 0,
     paddingInline: densityPad.md,
   },
   compact: {
-    "--ads-control-icon-size": vars.controlIconSizeSm,
+    "--ads-control-icon-size": vars["--ads-control-icon-size-sm"],
     paddingBlock: 0,
     paddingInline: densityPad.sm,
   },
@@ -66,8 +66,8 @@ export const styles = stylex.create({
   // height and type size, not by padding, so tightening it here would be an
   // unrelated geometry change.
   dense: {
-    "--ads-control-icon-size": vars.controlIconSizeSm,
-    fontSize: vars.fontSizeCaption,
+    "--ads-control-icon-size": vars["--ads-control-icon-size-sm"],
+    fontSize: vars["--ads-font-size-caption"],
     paddingBlock: 0,
     paddingInline: densityPad.sm,
   },
@@ -80,10 +80,10 @@ export const styles = stylex.create({
    * 14/16/18 ramp `controlIconSizes` declares.
    */
   lg: {
-    "--ads-control-icon-size": vars.controlIconSizeLg,
-    fontSize: vars.fontSizeLead,
+    "--ads-control-icon-size": vars["--ads-control-icon-size-lg"],
+    fontSize: vars["--ads-font-size-lead"],
     paddingBlock: 0,
-    paddingInline: vars.space16,
+    paddingInline: vars["--ads-space-16"],
   },
   input: {
     alignSelf: "stretch",
@@ -94,7 +94,7 @@ export const styles = stylex.create({
     // value text instead of being re-declared (and re-faded) here.
     color: "inherit",
     flex: 1,
-    fontFamily: vars.fontSans,
+    fontFamily: vars["--ads-font-sans"],
     fontSize: "inherit",
     inlineSize: "100%",
     // Integer line box, like `recipes/menu.ts` and `recipes/select-styles.ts`.
@@ -104,7 +104,7 @@ export const styles = stylex.create({
     // area rounds the half-leading DOWN to 0 instead of 1, and every text run
     // in the field rendered exactly 1px above the action's. Same failure class
     // as the `+1` glyph nudge in `recipes/surface-chrome.ts`.
-    lineHeight: vars.lineHeightControl,
+    lineHeight: vars["--ads-line-height-control"],
     // The bordered group owns the control metric. Inheriting its min-height
     // here adds the group's two hairlines again (36 → 38, 32 → 34).
     minBlockSize: 0,
@@ -112,7 +112,7 @@ export const styles = stylex.create({
     outlineStyle: "none",
     padding: 0,
     "::placeholder": {
-      color: vars.colorTextPlaceholder,
+      color: vars["--ads-color-text-placeholder"],
     },
     ":disabled": {
       cursor: "not-allowed",
@@ -133,7 +133,7 @@ export const styles = stylex.create({
   adornment: {
     alignItems: "center",
     blockSize: "var(--ads-control-icon-size)",
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     display: "inline-flex",
     flexShrink: 0,
     inlineSize: "var(--ads-control-icon-size)",
@@ -141,15 +141,15 @@ export const styles = stylex.create({
   },
   affix: {
     alignItems: "center",
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     display: "inline-flex",
     flexShrink: 0,
     fontSize: "inherit",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     // Integer line box — see `styles.input`. This span is what made the 1px
     // drift visible: it is a flex ITEM, so its fractional 19.984px height was
     // centred against the 34px content box directly.
-    lineHeight: vars.lineHeightControl,
+    lineHeight: vars["--ads-line-height-control"],
     whiteSpace: "nowrap",
   },
   /**
@@ -164,7 +164,7 @@ export const styles = stylex.create({
     alignItems: "center",
     display: "inline-flex",
     flexShrink: 0,
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   /*
    * The action slot is pulled back OUT of the group's inline gutter, which is
@@ -181,30 +181,30 @@ export const styles = stylex.create({
    * uniform 3px block / 4px inline clearance.
    */
   actionsInsetRegular: {
-    marginInlineEnd: `calc(-1 * (${densityPad.md} - ${vars.space4}))`,
+    marginInlineEnd: `calc(-1 * (${densityPad.md} - ${vars["--ads-space-4"]}))`,
   },
   actionsInsetCompact: {
-    marginInlineEnd: `calc(-1 * (${densityPad.sm} - ${vars.space4}))`,
+    marginInlineEnd: `calc(-1 * (${densityPad.sm} - ${vars["--ads-space-4"]}))`,
   },
   leadingActionsInsetRegular: {
-    marginInlineStart: `calc(-1 * (${densityPad.md} - ${vars.space4}))`,
+    marginInlineStart: `calc(-1 * (${densityPad.md} - ${vars["--ads-space-4"]}))`,
   },
   leadingActionsInsetCompact: {
-    marginInlineStart: `calc(-1 * (${densityPad.sm} - ${vars.space4}))`,
+    marginInlineStart: `calc(-1 * (${densityPad.sm} - ${vars["--ads-space-4"]}))`,
   },
   actionsInsetLg: {
-    marginInlineEnd: `calc(-1 * (${vars.space16} - ${vars.space4}))`,
+    marginInlineEnd: `calc(-1 * (${vars["--ads-space-16"]} - ${vars["--ads-space-4"]}))`,
   },
   leadingActionsInsetLg: {
-    marginInlineStart: `calc(-1 * (${vars.space16} - ${vars.space4}))`,
+    marginInlineStart: `calc(-1 * (${vars["--ads-space-16"]} - ${vars["--ads-space-4"]}))`,
   },
   action: {
-    borderRadius: vars.radiusMark,
-    gap: vars.space2, // label + chevron read as one word
-    fontFamily: vars.fontSans,
+    borderRadius: vars["--ads-radius-mark"],
+    gap: vars["--ads-space-2"], // label + chevron read as one word
+    fontFamily: vars["--ads-font-sans"],
     fontSize: "inherit",
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightControl,
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-control"],
     maxInlineSize: "100%",
     minInlineSize: 0,
     textOverflow: "ellipsis",
@@ -227,25 +227,25 @@ export const styles = stylex.create({
    */
   actionRegular: {
     blockSize: {
-      default: vars.controlHeightXs,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: vars["--ads-control-height-xs"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
     // `densityPad.md - space1`, so the label sits on the group's padding line.
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   actionCompact: {
     blockSize: {
-      default: `calc(${vars.controlHeightXs} - ${vars.space4})`,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: `calc(${vars["--ads-control-height-xs"]} - ${vars["--ads-space-4"]})`,
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
-    paddingInline: vars.space4,
+    paddingInline: vars["--ads-space-4"],
   },
   actionDense: {
     blockSize: {
-      default: `calc(${vars.controlHeightXs} - ${vars.space8})`,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: `calc(${vars["--ads-control-height-xs"]} - ${vars["--ads-space-8"]})`,
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
-    paddingInline: vars.space4,
+    paddingInline: vars["--ads-space-4"],
   },
   // Same `group content box - 6px` rule at the top of the ramp: 32 inside a
   // 40px group (38px content box). Its `space3` gutter is `space4 - space1`,
@@ -253,28 +253,28 @@ export const styles = stylex.create({
   // `actionRegular`'s does on the regular one.
   actionLg: {
     blockSize: {
-      default: vars.controlHeightSm,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: vars["--ads-control-height-sm"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
-    paddingInline: vars.space12,
+    paddingInline: vars["--ads-space-12"],
   },
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     overflowWrap: "anywhere",
   },
   error: {
-    color: vars.colorDangerText,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-danger-text"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     overflowWrap: "anywhere",
   },
   success: {
-    borderColor: vars.colorSuccessBorder,
+    borderColor: vars["--ads-color-success-border"],
   },
   danger: {
-    borderColor: vars.colorDangerBorder,
+    borderColor: vars["--ads-color-danger-border"],
   },
 });
 

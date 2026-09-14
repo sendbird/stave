@@ -4,13 +4,14 @@ import type * as React from "react";
 import type { SelectRootProps } from "../headless/select";
 import { styles } from "../recipes/select-styles";
 import { type PopupPlacement } from "../utils/placement";
-import { sx } from "../utils/stylex";
+import { sx, type XstyleProp } from "../utils/stylex";
 import { clearValueStylesBySize, SelectClearField } from "./Select.clear";
 import {
   selectCompoundParts,
   type SelectPositionerProps,
   type SelectSize,
 } from "./Select.parts";
+import { Loader } from "./Loader";
 
 /** Base UI's second `onValueChange` argument, named once for the clear path. */
 type SelectValueChangeDetails = Parameters<
@@ -91,11 +92,11 @@ export type SelectProps = Omit<SelectRootProps, "children" | "items"> &
     size?: SelectSize;
     /**
      * 포지셔너 z-index 오버라이드 — 소비 앱의 고정 크롬이 DS z-스케일
-     * (`vars.zIndexDropdown`)보다 높은 레이어(z 900+ 등)를 쓸 때 옵션 목록이
+     * (`vars["--ads-z-index-dropdown"]`)보다 높은 레이어(z 900+ 등)를 쓸 때 옵션 목록이
      * 그 크롬/패널 뒤에 깔리지 않게 한다. Tooltip의 `zIndex`와 같은 탈출구.
      */
     zIndex?: number;
-  };
+  } & XstyleProp;
 
 export function SelectArray({
   "aria-label": ariaLabel,
@@ -123,6 +124,7 @@ export function SelectArray({
   // back on their own — one value reaches the trigger and every option row.
   size: resolvedSize = "md",
   value,
+  xstyle,
   ...props
 }: SelectProps) {
   const generatedId = useId();
@@ -184,9 +186,11 @@ export function SelectArray({
       {...(ariaLabelledby !== undefined
         ? { "aria-labelledby": ariaLabelledby }
         : {})}
+      aria-busy={loading || undefined}
       aria-describedby={errorId}
       aria-invalid={error ? true : undefined}
       invalid={Boolean(error)}
+      readOnly={props.readOnly}
       size={resolvedSize}
     >
       <Value
@@ -233,7 +237,19 @@ export function SelectArray({
               }
         }
       </Value>
-      <Icon />
+      {/*
+       * While options load the chevron yields its box to a spinner, so the
+       * closed trigger says "still coming" without the popup having to be
+       * open to show its status row. Same swap-in-place rule as SearchField.
+       */}
+      <Icon>
+        {loading ? (
+          // Decorative here: a button's children are presentational to the
+          // accessibility tree, so the trigger's own `aria-busy` carries the
+          // state and the popup's status row does the announcing.
+          <Loader aria-hidden size="xs" tone="neutral" />
+        ) : undefined}
+      </Icon>
     </Trigger>
   );
 
@@ -242,13 +258,21 @@ export function SelectArray({
       {...props}
       defaultValue={mirrored ? undefined : defaultValue}
       items={options}
+      /*
+       * A read-only Select is held closed at the ROOT, not only by swallowing the
+       * trigger's events. Base UI opens on pointer down and also from the keyboard,
+       * so event interception alone left paths open (measured: the listbox mounted
+       * on click). Pinning `open` is the deterministic half; the trigger still
+       * blocks pointer-down so the popup never attempts to mount.
+       */
+      open={props.readOnly ? false : props.open}
       onValueChange={(next, details) => {
         if (mirrored) setOwnValue(next);
         onValueChange?.(next, details);
       }}
       value={mirrored ? ownValue : value}
     >
-      <div className={sx(styles.field)}>
+      <div className={sx(styles.field, xstyle)}>
         {label ? <CompoundLabel>{label}</CompoundLabel> : null}
         {showClear ? (
           <SelectClearField

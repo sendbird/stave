@@ -4,6 +4,7 @@ import type * as React from "react";
 
 import { focusRing } from "../recipes/focus-ring";
 import { transition } from "../recipes/transition";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
@@ -44,7 +45,6 @@ export type { DiffViewerHighlightSpan };
  * ADS does not bundle a syntax engine. The callback returns per-line spans
  * that must reconstruct the line; a mismatch falls back to uncolored text.
  * Word-diff washes compose with those spans by character offset.
- *
  */
 
 export type DiffViewerMode = "unified" | "split";
@@ -108,7 +108,7 @@ function renderCode(
   language?: string,
 ) {
   if (!highlighter && (granularity !== "word" || !op.wordOps)) {
-    return op.text.length > 0 ? op.text : " ";
+    return op.text.length > 0 ? op.text : " ";
   }
   const painted = paintHighlightedLine(
     op.text,
@@ -123,7 +123,7 @@ function renderCode(
     first.wordType !== "add" &&
     first.wordType !== "remove";
   if (onlyPlain) {
-    return first.text.length > 0 ? first.text : " ";
+    return first.text.length > 0 ? first.text : " ";
   }
   return painted.map((span, index) => {
     const wash =
@@ -135,6 +135,7 @@ function renderCode(
     return (
       <span
         className={wash ? sx(wash) : undefined}
+        // eslint-disable-next-line react/no-array-index-key -- token order is stable within one render of one line.
         key={index}
         style={span.color ? { color: span.color } : undefined}
       >
@@ -172,9 +173,12 @@ export function DiffViewer({
   const expand = (start: number) =>
     setExpanded((prev) => new Set(prev).add(start));
 
+  const theme = themeProps("diff-viewer");
+
   const expandRow = (start: number, count: number) => (
     <div className={sx(styles.expandRow)} key={`x-${start}`}>
       <button
+        {...themeSlotProps("diff-viewer", "expand")}
         className={sx(
           styles.expandButton,
           // The expand affordance is the one pressable thing in the diff, and
@@ -197,8 +201,9 @@ export function DiffViewer({
   return (
     <div
       {...props}
+      {...theme}
       aria-label={props["aria-label"] ?? "Text diff"}
-      className={cx(sx(styles.root, xstyle), className)}
+      className={cx(sx(styles.root, xstyle), theme.className, className)}
       role="group"
     >
       {mode === "unified"
@@ -230,10 +235,16 @@ export function DiffViewer({
                         )}
                         key={`${op.type}-${op.beforeLine ?? ""}-${op.afterLine ?? ""}`}
                       >
-                        <span className={sx(styles.lineNo)}>
+                        <span
+                          {...themeSlotProps("diff-viewer", "line-number")}
+                          className={sx(styles.lineNo)}
+                        >
                           {op.beforeLine ?? ""}
                         </span>
-                        <span className={sx(styles.lineNo)}>
+                        <span
+                          {...themeSlotProps("diff-viewer", "line-number")}
+                          className={sx(styles.lineNo)}
+                        >
                           {op.afterLine ?? ""}
                         </span>
                         <span
@@ -287,7 +298,10 @@ export function DiffViewer({
                             )}
                             key={side}
                           >
-                            <span className={sx(styles.lineNo)}>
+                            <span
+                              {...themeSlotProps("diff-viewer", "line-number")}
+                              className={sx(styles.lineNo)}
+                            >
                               {cell?.line ?? ""}
                             </span>
                             <span
@@ -308,7 +322,7 @@ export function DiffViewer({
                                     highlighter,
                                     language,
                                   )
-                                : " "}
+                                : " "}
                             </span>
                           </div>
                         );
@@ -324,15 +338,15 @@ export function DiffViewer({
 
 const styles = stylex.create({
   root: {
-    backgroundColor: vars.colorSurface,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusPanel,
+    backgroundColor: vars["--ads-color-surface"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeCaption,
+    borderWidth: vars["--ads-border-width-hairline"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
     inlineSize: "100%",
-    lineHeight: vars.lineHeightNormal,
+    lineHeight: vars["--ads-line-height-normal"],
     overflow: "auto",
   },
   row: {
@@ -343,7 +357,7 @@ const styles = stylex.create({
     borderInlineStartStyle: "solid",
     borderInlineStartWidth: 2,
     display: "grid",
-    gridTemplateColumns: `${vars.space32} ${vars.space32} ${vars.space16} minmax(0, 1fr)`,
+    gridTemplateColumns: `${vars["--ads-space-32"]} ${vars["--ads-space-32"]} ${vars["--ads-space-16"]} minmax(0, 1fr)`,
   },
   splitRow: {
     display: "grid",
@@ -355,41 +369,41 @@ const styles = stylex.create({
     borderInlineStartStyle: "solid",
     borderInlineStartWidth: 2,
     display: "grid",
-    gridTemplateColumns: `${vars.space32} ${vars.space16} minmax(0, 1fr)`,
+    gridTemplateColumns: `${vars["--ads-space-32"]} ${vars["--ads-space-16"]} minmax(0, 1fr)`,
     minInlineSize: 0,
   },
   cellEmpty: {
-    backgroundColor: vars.colorCanvasSubtle,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
   },
   // Split from the wash below so a word-paired changed line (granularity
   // "word") can keep the edge stripe without the row-level wash competing
   // with its own inline emphasis (see the render-time `wordPaired` checks).
   rowEdgeAdd: {
-    borderInlineStartColor: vars.colorDiffAddedText,
+    borderInlineStartColor: vars["--ads-color-diff-added-text"],
   },
   rowEdgeRemove: {
-    borderInlineStartColor: vars.colorDiffRemovedText,
+    borderInlineStartColor: vars["--ads-color-diff-removed-text"],
   },
   rowWashAdd: {
-    backgroundColor: vars.colorDiffAdded,
+    backgroundColor: vars["--ads-color-diff-added"],
   },
   rowWashRemove: {
-    backgroundColor: vars.colorDiffRemoved,
+    backgroundColor: vars["--ads-color-diff-removed"],
   },
   // Word-boundary emphasis (granularity="word"): the same wash tokens as the
   // row wash above, now scoped to just the changed run instead of the whole
   // line — no new saturated fill, per the file header's color contract.
   wordAdd: {
-    backgroundColor: vars.colorDiffAdded,
-    borderRadius: vars.radiusMark,
+    backgroundColor: vars["--ads-color-diff-added"],
+    borderRadius: vars["--ads-radius-mark"],
   },
   wordRemove: {
-    backgroundColor: vars.colorDiffRemoved,
-    borderRadius: vars.radiusMark,
+    backgroundColor: vars["--ads-color-diff-removed"],
+    borderRadius: vars["--ads-radius-mark"],
   },
   lineNo: {
-    color: vars.colorTextSubtle,
-    paddingInlineEnd: vars.space8,
+    color: vars["--ads-color-text-subtle"],
+    paddingInlineEnd: vars["--ads-space-8"],
     textAlign: "end",
     userSelect: "none",
   },
@@ -398,44 +412,44 @@ const styles = stylex.create({
     userSelect: "none",
   },
   signAdd: {
-    color: vars.colorDiffAddedText,
+    color: vars["--ads-color-diff-added-text"],
   },
   signRemove: {
-    color: vars.colorDiffRemovedText,
+    color: vars["--ads-color-diff-removed-text"],
   },
   code: {
     overflowWrap: "anywhere",
-    paddingInlineEnd: vars.space12,
+    paddingInlineEnd: vars["--ads-space-12"],
     whiteSpace: "pre-wrap",
   },
   expandRow: {
-    borderBlockColor: vars.colorBorderSubtle,
+    borderBlockColor: vars["--ads-color-border-subtle"],
     borderBlockStyle: "solid",
     // The root draws the card border. When an expand row is the last thing in
     // the diff its own block-end hairline landed on that border and the pair
     // read as one thick rule; the block-start rule is the one doing the work.
     borderBlockEndWidth: {
-      default: vars.borderWidthHairline,
+      default: vars["--ads-border-width-hairline"],
       ":last-child": 0,
     },
-    borderBlockStartWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars["--ads-border-width-hairline"],
     display: "flex",
   },
   expandButton: {
     appearance: "none",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
-      ":active": vars.colorOverlayPressed,
+      ":hover": vars["--ads-color-overlay-hover"],
+      ":active": vars["--ads-color-overlay-pressed"],
     },
     borderStyle: "none",
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     cursor: "pointer",
     flexGrow: 1,
-    fontFamily: vars.fontSans,
-    fontSize: vars.fontSizeCaption,
-    paddingBlock: vars.space4,
-    paddingInline: vars.space12,
+    fontFamily: vars["--ads-font-sans"],
+    fontSize: vars["--ads-font-size-caption"],
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-12"],
     textAlign: "start",
   },
 });

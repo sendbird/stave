@@ -59,7 +59,7 @@ export function toProviderStartCase(args: { providerId: ProviderId }) {
 const providerToneStyles = stylex.create({
   claude: { color: "var(--provider-claude)" },
   codex: { color: "var(--provider-codex)" },
-  accent: { color: vars.colorAccent },
+  accent: { color: vars["--ads-color-accent"] },
 });
 
 export function toProviderWaveToneClass(args: {

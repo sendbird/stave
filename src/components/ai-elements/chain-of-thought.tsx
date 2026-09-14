@@ -554,7 +554,7 @@ export function ChainOfThoughtStep({
           <AdsButton
             layout="host"
             type="button"
-            className={sx(s.disclosure)}
+            xstyle={s.disclosure}
             onClick={() => setOpen((prev) => !prev)}
           >
             {statusIcon}

@@ -6,7 +6,7 @@ import { vars } from "../tokens/tokens.stylex";
 // overlay cannot be painted onto one without dropping the fill itself, so the
 // same operand is applied the other way, at the same 6/12 weights. sRGB, not
 // oklab: an oklab mix is nearly invisible over a near-black fill.
-const raisedWashHover = `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars.colorMixInk} 6%)`;
+const raisedWashHover = `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 6%)`;
 /**
  * AppShell stylesheet, part 2 of 2 — see `AppShell.shell.styles.ts`.
  */
@@ -14,7 +14,7 @@ export const sidebarStyles = stylex.create({
   sidebarGroupHeader: {
     alignItems: "center",
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     gridTemplateColumns: "minmax(0, 1fr) auto",
     minInlineSize: 0,
   },
@@ -23,32 +23,32 @@ export const sidebarStyles = stylex.create({
     appearance: "none",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
-      ":active": vars.colorOverlayPressed,
+      ":hover": vars["--ads-color-overlay-hover"],
+      ":active": vars["--ads-color-overlay-pressed"],
     },
     borderColor: "transparent",
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorTextSubtle,
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-text-subtle"],
     cursor: "pointer",
     display: "grid",
     // Matches `sidebarGroupLabel`, the non-collapsible variant of this same
     // role. Without them a bare <button> takes the UA's own font-size (13.33px
     // in Chrome, off the type scale) and weight 400, so the two variants of one
     // label rendered a step apart.
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    gap: vars.space4,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--ads-space-4"],
     gridTemplateColumns: "minmax(0, 1fr) auto",
     inlineSize: "100%",
-    minBlockSize: vars.controlHeightXs,
+    minBlockSize: vars["--ads-control-height-xs"],
     minInlineSize: 0,
     paddingBlock: 0,
     // The chevron used to carry its own `marginInlineEnd: space8` while the
     // trigger had `padding: 0`; now the trailing inset belongs to the row, so
     // the glyph lines up with every other trailing control in the rail.
-    paddingInlineEnd: vars.space8,
+    paddingInlineEnd: vars["--ads-space-8"],
     paddingInlineStart: 0,
     textAlign: "start",
   },
@@ -59,20 +59,20 @@ export const sidebarStyles = stylex.create({
     // The label is smaller than the 14px navigation rows, so strong text ink
     // lets it read as the heading for those rows instead of as another quiet
     // item. Size and weight still keep it below a section title.
-    color: vars.colorText,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-caption"],
     // Medium, not semibold: the stronger ink supplies the hierarchy without
     // making a 12px rail label heavier than selected navigation at 500.
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     minInlineSize: 0,
     overflow: "hidden",
     // Keep the label connected to the rows it heads (4px after the text) while
     // adding one spacing step before it. With SidebarContent's compact 8px gap,
     // successive groups now read as 16px apart above and 8px within below.
-    paddingBlockEnd: vars.space4,
-    paddingBlockStart: vars.space8,
-    paddingInline: vars.space8,
+    paddingBlockEnd: vars["--ads-space-4"],
+    paddingBlockStart: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-8"],
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
@@ -81,7 +81,7 @@ export const sidebarStyles = stylex.create({
   },
   sidebarGroupContent: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
   sidebarGroupContentHidden: {
@@ -92,31 +92,31 @@ export const sidebarStyles = stylex.create({
     appearance: "none",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
-      ":active": vars.colorOverlayPressed,
+      ":hover": vars["--ads-color-overlay-hover"],
+      ":active": vars["--ads-color-overlay-pressed"],
     },
     borderColor: "transparent",
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorTextSubtle,
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-text-subtle"],
     cursor: "pointer",
     display: "inline-flex",
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars["--ads-font-size-caption"],
     justifyContent: "center",
-    minBlockSize: vars.controlHeightXs,
-    minInlineSize: vars.controlHeightXs,
+    minBlockSize: vars["--ads-control-height-xs"],
+    minInlineSize: vars["--ads-control-height-xs"],
     padding: 0,
-    transitionDuration: vars.motionDurationFast,
+    transitionDuration: vars["--ads-motion-duration-fast"],
     transitionProperty: "background-color, color",
-    transitionTimingFunction: vars.motionEaseStandard,
+    transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
   sidebarGroupActionCollapsed: {
     display: "none",
   },
   sidebarMenu: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     listStyle: "none",
     margin: 0,
     minInlineSize: 0,
@@ -135,25 +135,25 @@ export const sidebarStyles = stylex.create({
     alignItems: "center",
     appearance: "none",
     transitionDuration: {
-      default: vars.motionDurationFast,
+      default: vars["--ads-motion-duration-fast"],
       "@media (prefers-reduced-motion: reduce)": "0ms",
     },
     transitionProperty: "background-color, color",
-    transitionTimingFunction: vars.motionEaseStandard,
+    transitionTimingFunction: vars["--ads-motion-ease-standard"],
     borderWidth: 0,
-    borderRadius: vars.radiusControl,
-    color: vars.colorTextMuted,
+    borderRadius: vars["--ads-radius-control"],
+    color: vars["--ads-color-text-muted"],
     cursor: "pointer",
     display: "grid",
     fontFamily: "inherit",
-    fontSize: vars.fontSizeBody,
-    gap: vars.space8,
-    gridTemplateColumns: `${vars.controlIconSizeLg} minmax(0, 1fr) auto`,
+    fontSize: vars["--ads-font-size-body"],
+    gap: vars["--ads-space-8"],
+    gridTemplateColumns: `${vars["--ads-control-icon-size-lg"]} minmax(0, 1fr) auto`,
     inlineSize: "100%",
     minInlineSize: 0,
     overflow: "hidden",
     paddingBlock: 0,
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
     textAlign: "start",
     textDecoration: "none",
     // The press step is the same wash as hover, matching `sidebarItemOutline`
@@ -162,20 +162,20 @@ export const sidebarStyles = stylex.create({
     // no hover state to stand in for the press.
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
+      ":hover": vars["--ads-color-overlay-hover"],
     },
   },
   sidebarItemOutline: {
     backgroundColor: {
-      default: vars.colorSurfaceRaised,
+      default: vars["--ads-color-surface-raised"],
       ":hover": raisedWashHover,
     },
-    borderColor: vars.colorBorder,
+    borderColor: vars["--ads-color-border"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
   },
   sidebarItemSm: {
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars["--ads-font-size-caption"],
   },
   /**
    * Two-line identity row (`description` set): the label keeps the rail's own
@@ -190,20 +190,20 @@ export const sidebarStyles = stylex.create({
    * scales `size` and how a sidebar `lg` row behaves in the references.
    */
   sidebarItemStacked: {
-    paddingBlock: vars.space4,
+    paddingBlock: vars["--ads-space-4"],
   },
   sidebarItemCopy: {
     display: "grid",
     minInlineSize: 0,
   },
   sidebarDescription: {
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
     display: "block",
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars["--ads-font-size-caption"],
     // Stated explicitly: `sidebarItemCurrent` raises the ROW to medium, and the
     // secondary line must stay the quieter of the two in every state.
-    fontWeight: vars.fontWeightRegular,
-    lineHeight: vars.lineHeightTight,
+    fontWeight: vars["--ads-font-weight-regular"],
+    lineHeight: vars["--ads-line-height-tight"],
     minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -221,29 +221,29 @@ export const sidebarStyles = stylex.create({
     gridTemplateColumns: "minmax(0, 1fr) auto",
   },
   sidebarItemCurrent: {
-    backgroundColor: vars.colorSelectionFill,
-    color: vars.colorText,
-    fontWeight: vars.fontWeightMedium,
+    backgroundColor: vars["--ads-color-selection-fill"],
+    color: vars["--ads-color-text"],
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   sidebarItemDisabled: {
     // The menu button marks disabled with `aria-disabled` on both its <button>
     // and <a> branches and never with the native attribute, so without this the
     // hover wash and press fill still ran on an item whose href is stripped.
     backgroundColor: "transparent",
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
     cursor: "not-allowed",
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
   sidebarIcon: {
     alignItems: "center",
-    blockSize: vars.controlIconSizeLg,
+    blockSize: vars["--ads-control-icon-size-lg"],
     display: "inline-flex",
-    inlineSize: vars.controlIconSizeLg,
+    inlineSize: vars["--ads-control-icon-size-lg"],
     justifyContent: "center",
     overflow: "hidden",
   },
   sidebarIconCurrent: {
-    color: vars.colorAccent,
+    color: vars["--ads-color-accent"],
   },
   sidebarIconCollapsed: {
     justifyContent: "center",
@@ -254,7 +254,7 @@ export const sidebarStyles = stylex.create({
     // the row's own `display` ever changes (the flex sibling below is exactly
     // the bug that shape produces).
     display: "block",
-    lineHeight: vars.lineHeightTight,
+    lineHeight: vars["--ads-line-height-tight"],
     minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -271,7 +271,7 @@ export const sidebarStyles = stylex.create({
     clip: "rect(0 0 0 0)",
     clipPath: "inset(50%)",
     display: "block",
-    fontSize: vars.fontSizeBody,
+    fontSize: vars["--ads-font-size-body"],
     inlineSize: 1,
     // Pinned: an auto-inset absolute box adds phantom scrollable overflow at
     // its static position (see VisuallyHidden.tsx).
@@ -288,18 +288,18 @@ export const sidebarStyles = stylex.create({
     alignItems: "center",
     appearance: "none",
     borderWidth: 0,
-    borderRadius: vars.radiusControl,
-    color: vars.colorTextMuted,
+    borderRadius: vars["--ads-radius-control"],
+    color: vars["--ads-color-text-muted"],
     cursor: "pointer",
     display: "flex",
     fontFamily: "inherit",
-    fontSize: vars.fontSizeBody,
+    fontSize: vars["--ads-font-size-body"],
     inlineSize: "100%",
-    lineHeight: vars.lineHeightTight,
+    lineHeight: vars["--ads-line-height-tight"],
     minInlineSize: 0,
     overflow: "hidden",
     paddingBlock: 0,
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
     textAlign: "start",
     textDecoration: "none",
     // No `textOverflow` here: this box is `display: flex`, and the clamp only
@@ -309,7 +309,7 @@ export const sidebarStyles = stylex.create({
     whiteSpace: "nowrap",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
+      ":hover": vars["--ads-color-overlay-hover"],
     },
   },
   sidebarSubLabel: {
@@ -321,38 +321,38 @@ export const sidebarStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   sidebarSubButtonSm: {
-    fontSize: vars.fontSizeCaption,
-    minBlockSize: vars.controlHeightXs,
+    fontSize: vars["--ads-font-size-caption"],
+    minBlockSize: vars["--ads-control-height-xs"],
     paddingBlock: 0,
   },
   sidebarSubButtonCurrent: {
-    color: vars.colorText,
-    fontWeight: vars.fontWeightSemibold,
+    color: vars["--ads-color-text"],
+    fontWeight: vars["--ads-font-weight-semibold"],
   },
   sidebarTooltip: {
-    backgroundColor: vars.colorText,
-    borderRadius: vars.radiusControl,
-    boxShadow: vars.elevationOverlay,
-    color: vars.colorTextInverted,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    backgroundColor: vars["--ads-color-text"],
+    borderRadius: vars["--ads-radius-control"],
+    boxShadow: vars["--ads-elevation-overlay"],
+    color: vars["--ads-color-text-inverted"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     maxInlineSize: 220,
-    paddingBlock: vars.space8,
-    paddingInline: vars.space8,
-    zIndex: vars.zIndexDropdown,
+    paddingBlock: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-8"],
+    zIndex: vars["--ads-z-index-dropdown"],
   },
   sidebarTooltipArrow: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
   },
   sidebarSkeleton: {
     alignItems: "center",
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     gridColumn: "1 / -1",
     gridTemplateColumns: "18px minmax(0, 1fr)",
     minInlineSize: 0,
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   sidebarSkeletonCollapsed: {
     gridTemplateColumns: "minmax(0, 1fr)",
@@ -360,15 +360,15 @@ export const sidebarStyles = stylex.create({
     paddingInline: 0,
   },
   sidebarSkeletonIcon: {
-    backgroundColor: vars.colorCanvasSubtle,
-    borderRadius: vars.radiusFull,
-    blockSize: vars.controlIconSizeMd,
-    inlineSize: vars.controlIconSizeMd,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    borderRadius: vars["--ads-radius-full"],
+    blockSize: vars["--ads-control-icon-size-md"],
+    inlineSize: vars["--ads-control-icon-size-md"],
   },
   sidebarSkeletonLabel: {
-    backgroundColor: vars.colorCanvasSubtle,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
     blockSize: 10,
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: "68%",
     minInlineSize: 0,
   },

@@ -91,6 +91,14 @@ function SelectValue({ className, ...props }: SelectPrimitive.Value.Props) {
   );
 }
 
+/**
+ * `data-size` is no longer forwarded here. ADS `Select.Trigger` publishes its
+ * own theme identity on that exact attribute name (`themeProps("select-trigger",
+ * { size })`, whose target declares `axes: { size: ["xs","sm","md","lg"] }`),
+ * spread after the caller's props, so this wrapper's spelling was overwritten
+ * before it reached the DOM. The rendered button carries the ADS rung —
+ * `"default"` reads as `data-size="md"`.
+ */
 function SelectTrigger({
   className,
   size = "default",
@@ -102,7 +110,6 @@ function SelectTrigger({
   return (
     <AdsSelect.Trigger
       data-slot="select-trigger"
-      data-size={size}
       size={size === "sm" ? "sm" : "md"}
       className={className}
       {...props}
@@ -168,7 +175,7 @@ function SelectContent({
           {...props}
         >
           <SelectScrollUpButton />
-          <AdsSelect.List className={sx(overlayLayout.selectList)}>
+          <AdsSelect.List xstyle={overlayLayout.selectList}>
             {children}
           </AdsSelect.List>
           <SelectScrollDownButton />
@@ -202,7 +209,7 @@ function SelectItem({
       className={className}
       {...props}
     >
-      <AdsSelect.ItemText className={sx(overlayLayout.selectLabel)}>
+      <AdsSelect.ItemText xstyle={overlayLayout.selectLabel}>
         {children}
       </AdsSelect.ItemText>
       <AdsSelect.ItemIndicator

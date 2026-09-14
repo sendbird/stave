@@ -1,4 +1,3 @@
-import { sx } from "@/components/ads/utils/stylex";
 import { overlayLayout } from "@/components/ui/overlay-layout.styles";
 import { describe, expect, test } from "bun:test";
 import type { ReactElement, ReactNode } from "react";
@@ -30,7 +29,7 @@ describe("popup layout primitives", () => {
     const popupChildren = popup.props.children as ElementWithChildren[];
     const list = popupChildren[1];
 
-    expect(list.props.className).toBe(sx(overlayLayout.selectList));
+    expect(list.props.xstyle).toBe(overlayLayout.selectList);
     expect(list.props.children).toBe("Select content");
   });
 

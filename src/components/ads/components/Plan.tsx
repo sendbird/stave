@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import * as React from "react";
 
 import { agentStatusWord, agentSurface } from "../recipes/agent-surface";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
@@ -110,11 +111,18 @@ export function Plan({
     say(describePlanDelta(previous, flat, done, total));
   }, [done, flat, say, total]);
 
+  const theme = themeProps("plan");
+
   return (
     <section
       {...props}
+      {...theme}
       aria-labelledby={titleId}
-      className={cx(sx(agentSurface.bare, styles.root, xstyle), className)}
+      className={cx(
+        sx(agentSurface.bare, styles.root, xstyle),
+        theme.className,
+        className,
+      )}
       // `group`, not `region`: a long transcript can hold several plans, and a
       // landmark per plan makes the landmark list useless.
       role="group"
@@ -150,7 +158,7 @@ export function Plan({
           </p>
         ))
       ) : (
-        <ol className={sx(agentSurface.rowGroup, styles.list)}>
+        <ol className={sx(agentSurface.rowGroup, styles.list)} role="list">
           {steps.map((step, index) => (
             <PlanStepRow
               depth={0}
@@ -219,7 +227,10 @@ function PlanStepRow({
       <span className={sx(styles.markCell)}>
         <PlanStatusMark status={status} />
       </span>
-      <span className={sx(styles.stepTitle)}>
+      <span
+        {...themeSlotProps("plan", "title")}
+        className={sx(styles.stepTitle)}
+      >
         {item.title}
         {/*
          * Status as text on the row, so reading the plan reads the states. The
@@ -246,7 +257,10 @@ function PlanStepRow({
         )}
       </span>
       {item.meta == null ? null : (
-        <span className={sx(agentSurface.meta, styles.metaCell)}>
+        <span
+          {...themeSlotProps("plan", "meta")}
+          className={sx(agentSurface.meta, styles.metaCell)}
+        >
           {item.meta}
         </span>
       )}
@@ -262,6 +276,7 @@ function PlanStepRow({
             // holds its children with inset alone.
             top && substeps === "rail" && styles.substepRail,
           )}
+          role="list"
         >
           {nested.map((child, index) => (
             <PlanStepRow
@@ -281,31 +296,31 @@ function PlanStepRow({
 // One title line box. The mark and the machine value are centred inside a cell
 // of exactly this height, which is what pins them to the title's FIRST line
 // rather than to the middle of a wrapped one.
-const TITLE_LINE = `calc(${vars.fontSizeBody} * ${vars.lineHeightTight})`;
+const TITLE_LINE = `calc(${vars["--ads-font-size-body"]} * ${vars["--ads-line-height-tight"]})`;
 
 const styles = stylex.create({
   root: {
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   header: {
     // Matches `agentSurface.row`'s inline padding so the plan title sits in the
     // same column as the step titles below it.
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   title: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
     // §3: medium for a row/section title. Semibold is the page-title weight.
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
   },
   empty: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
-    paddingBlock: vars.space8,
-    paddingInline: vars.space12,
+    paddingBlock: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-12"],
   },
   list: {
     listStyle: "none",
@@ -314,7 +329,7 @@ const styles = stylex.create({
   },
   step: {
     alignItems: "start",
-    columnGap: vars.space12,
+    columnGap: vars["--ads-space-12"],
     gridTemplateColumns: "auto minmax(0, 1fr) auto",
     rowGap: 0,
   },
@@ -322,7 +337,7 @@ const styles = stylex.create({
     // No rule and no radius; the inset (or the parent's spine) is the whole
     // containment. Tighter block padding keeps a nested run denser than the
     // top-level rows it belongs to.
-    paddingBlock: vars.space4,
+    paddingBlock: vars["--ads-space-4"],
     paddingInline: 0,
   },
   markCell: {
@@ -341,18 +356,18 @@ const styles = stylex.create({
    * rather than fighting the machine value in column 3 for the row's width.
    */
   statusWord: {
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    marginInlineStart: vars.space8,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    marginInlineStart: vars["--ads-space-8"],
     whiteSpace: "nowrap",
   },
   stepTitle: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
     gridColumn: "2",
     gridRow: "1",
-    lineHeight: vars.lineHeightTight,
+    lineHeight: vars["--ads-line-height-tight"],
     minInlineSize: 0,
     overflowWrap: "anywhere",
   },
@@ -365,12 +380,12 @@ const styles = stylex.create({
     whiteSpace: "nowrap",
   },
   detail: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
     gridColumn: "2 / -1",
     gridRow: "2",
-    lineHeight: vars.lineHeightNormal,
-    marginBlockStart: vars.space4,
+    lineHeight: vars["--ads-line-height-normal"],
+    marginBlockStart: vars["--ads-space-4"],
     minInlineSize: 0,
     overflowWrap: "anywhere",
   },
@@ -380,15 +395,15 @@ const styles = stylex.create({
     gridRow: "3",
     listStyle: "none",
     margin: 0,
-    marginBlockStart: vars.space4,
+    marginBlockStart: vars["--ads-space-4"],
     minInlineSize: 0,
     padding: 0,
   },
   substepRail: {
-    backgroundColor: `color-mix(in oklab, ${vars.colorSurfaceTint} 72%, transparent)`,
-    borderRadius: vars.radiusControl,
+    backgroundColor: `color-mix(in oklab, ${vars["--ads-color-surface-tint"]} 72%, transparent)`,
+    borderRadius: vars["--ads-radius-control"],
     gap: 0,
-    paddingBlock: vars.space4,
-    paddingInline: vars.space8,
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
   },
 });

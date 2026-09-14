@@ -7,12 +7,12 @@ import { vars } from "../../ads/tokens/tokens.stylex";
  * stays value-only; this module is where a tone becomes paint.
  */
 export const runToneDotStyles = stylex.create({
-  neutral: { backgroundColor: vars.colorTextMuted },
-  accent: { backgroundColor: vars.colorAccent },
-  info: { backgroundColor: vars.colorInfo },
-  warning: { backgroundColor: vars.colorWarning },
-  success: { backgroundColor: vars.colorSuccess },
-  danger: { backgroundColor: vars.colorDanger },
+  neutral: { backgroundColor: vars["--ads-color-text-muted"] },
+  accent: { backgroundColor: vars["--ads-color-accent"] },
+  info: { backgroundColor: vars["--ads-color-info"] },
+  warning: { backgroundColor: vars["--ads-color-warning"] },
+  success: { backgroundColor: vars["--ads-color-success"] },
+  danger: { backgroundColor: vars["--ads-color-danger"] },
 });
 
 /** Chrome shared by every automation-center panel. */
@@ -20,29 +20,29 @@ export const automationStyles = stylex.create({
   /** Dense status chip: the Badge default box is too tall for these rows. */
   statusBadge: {
     flexShrink: 0,
-    fontSize: vars.fontSizeMicro,
+    fontSize: vars["--ads-font-size-micro"],
     minBlockSize: 20,
-    paddingInline: vars.space4,
+    paddingInline: vars["--ads-space-4"],
   },
   /** Small uppercase section eyebrow. */
   eyebrow: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeMicro,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-micro"],
     letterSpacing: "0.12em",
     margin: 0,
     textTransform: "uppercase",
   },
   sectionHeading: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightSemibold,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-semibold"],
     letterSpacing: "0.12em",
     margin: 0,
     textTransform: "uppercase",
   },
   statusDot: {
     blockSize: 8,
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     flexShrink: 0,
     inlineSize: 8,
   },

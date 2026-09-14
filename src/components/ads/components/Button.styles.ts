@@ -13,8 +13,8 @@ import { motionPrimitives, vars } from "../tokens/tokens.stylex";
  * a dark one, so the hover/press steps stay correct everywhere — including the
  * new dark neutral ramp — without inventing a token.
  */
-const softHover = `color-mix(in oklab, ${vars.colorText} 8%, ${vars.colorCanvasSubtle})`;
-const softPress = `color-mix(in oklab, ${vars.colorText} 12%, ${vars.colorCanvasSubtle})`;
+const softHover = `color-mix(in oklab, ${vars["--ads-color-text"]} 8%, ${vars["--ads-color-canvas-subtle"]})`;
+const softPress = `color-mix(in oklab, ${vars["--ads-color-text"]} 12%, ${vars["--ads-color-canvas-subtle"]})`;
 /**
  * The press step for every OTHER bordered variant, extending the `soft`
  * pattern above: mix ~5% of the theme's own text ink into the variant's own
@@ -24,7 +24,7 @@ const softPress = `color-mix(in oklab, ${vars.colorText} 12%, ${vars.colorCanvas
  * the hover colour already carries none of that mix, so ~5% on top of it lands
  * the same visual distance.
  */
-const canvasSubtlePress = `color-mix(in oklab, ${vars.colorText} 5%, ${vars.colorCanvasSubtle})`;
+const canvasSubtlePress = `color-mix(in oklab, ${vars["--ads-color-text"]} 5%, ${vars["--ads-color-canvas-subtle"]})`;
 /*
  * Lift, not ink. The rule above assumes `:hover` sits at the resting fill, which
  * held while `colorAccentHover` shipped identical to `colorAccent`. It no longer
@@ -35,24 +35,7 @@ const canvasSubtlePress = `color-mix(in oklab, ${vars.colorText} 5%, ${vars.colo
  * 6% lands ΔL 0.082 off resting, against the ~0.077 every other pressed step
  * takes.
  */
-const primaryPress = `color-mix(in oklab, ${vars.colorMixLift} 6%, ${vars.colorAccentHover})`;
-const dangerPress = `color-mix(in oklab, ${vars.colorText} 5%, ${vars.colorDangerHover})`;
-/**
- * Danger's washes, derived by the same rule as the neutral pair above so the
- * `tone` axis is a hue swap and not a second, differently-behaved language.
- *
- * `colorDangerSoft` is the tinted danger surface — it plays the part
- * `colorCanvasSubtle` plays for the neutral arms — so the *resting* fill of a
- * `soft`+`danger` button steps 8% → 12% of the theme's own ink (mirroring
- * `softHover`/`softPress`), and the arms that rest transparent or raised
- * (`outline`, `quiet`, `secondary`) take `colorDangerSoft` itself as the hover
- * and land the same 5% press step `canvasSubtlePress` uses. Mixing the theme's
- * own ink is what keeps all six correct in the dark and high-contrast ramps
- * without inventing a `colorDangerSoftHover` token.
- */
-const dangerWashHover = `color-mix(in oklab, ${vars.colorText} 8%, ${vars.colorDangerSoft})`;
-const dangerWashPress = `color-mix(in oklab, ${vars.colorText} 12%, ${vars.colorDangerSoft})`;
-const dangerSoftPress = `color-mix(in oklab, ${vars.colorText} 5%, ${vars.colorDangerSoft})`;
+const primaryPress = `color-mix(in oklab, ${vars["--ads-color-mix-lift"]} 6%, ${vars["--ads-color-accent-hover"]})`;
 const buttonSettleTransform = "translateY(1px)";
 export const styles = stylex.create({
   root: {
@@ -61,21 +44,21 @@ export const styles = stylex.create({
     // Each corner reads a private custom property so ButtonGroup can join
     // adjacent actions without fighting this component's generated class
     // order. Outside a group all four fall back to the normal control radius.
-    borderEndEndRadius: `var(--ads-button-radius-end-end, ${vars.radiusControl})`,
-    borderEndStartRadius: `var(--ads-button-radius-end-start, ${vars.radiusControl})`,
-    borderStartEndRadius: `var(--ads-button-radius-start-end, ${vars.radiusControl})`,
-    borderStartStartRadius: `var(--ads-button-radius-start-start, ${vars.radiusControl})`,
+    borderEndEndRadius: `var(--ads-button-radius-end-end, ${vars["--ads-radius-control"]})`,
+    borderEndStartRadius: `var(--ads-button-radius-end-start, ${vars["--ads-radius-control"]})`,
+    borderStartEndRadius: `var(--ads-button-radius-start-end, ${vars["--ads-radius-control"]})`,
+    borderStartStartRadius: `var(--ads-button-radius-start-start, ${vars["--ads-radius-control"]})`,
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     cursor: "pointer",
     display: "inline-flex",
-    fontFamily: vars.fontSans,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
+    fontFamily: vars["--ads-font-sans"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
     justifyContent: "center",
     // Use the whole-pixel control line box so labels share the same visual
     // center as adjacent glyphs instead of landing on a fractional half-leading.
-    lineHeight: vars.lineHeightControl,
+    lineHeight: vars["--ads-line-height-control"],
     // Height comes from the shared control-metrics recipe (sizeMetricStyles),
     // applied on every render path — never re-declare minBlockSize here.
     // Outer clamp only — the ellipsis itself lives on `label` (see
@@ -135,8 +118,8 @@ export const styles = stylex.create({
   indicatorSlot: {
     alignItems: "center",
     display: "flex",
-    insetBlockStart: `calc(-1 * ${vars.space4})`,
-    insetInlineEnd: `calc(-1 * ${vars.space4})`,
+    insetBlockStart: `calc(-1 * ${vars["--ads-space-4"]})`,
+    insetInlineEnd: `calc(-1 * ${vars["--ads-space-4"]})`,
     pointerEvents: "none",
     position: "absolute",
   },
@@ -198,29 +181,29 @@ export const styles = stylex.create({
   },
   primary: {
     backgroundColor: {
-      default: vars.colorAccent,
-      ":hover": vars.colorAccentHover,
+      default: vars["--ads-color-accent"],
+      ":hover": vars["--ads-color-accent-hover"],
       ":active": primaryPress,
     },
-    borderColor: vars.colorAccent,
+    borderColor: vars["--ads-color-accent"],
     boxShadow: {
-      default: vars.elevationRaised,
-      ":active": vars.elevationFlat,
+      default: vars["--ads-elevation-raised"],
+      ":active": vars["--ads-elevation-flat"],
     },
-    color: vars.colorAccentText,
+    color: vars["--ads-color-accent-text"],
   },
   secondary: {
     backgroundColor: {
-      default: vars.colorSurfaceRaised,
-      ":hover": `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars.colorMixInk} 6%)`,
+      default: vars["--ads-color-surface-raised"],
+      ":hover": `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 6%)`,
       ":active": canvasSubtlePress,
     },
-    borderColor: vars.colorBorder,
+    borderColor: vars["--ads-color-border"],
     boxShadow: {
-      default: vars.elevationRaised,
-      ":active": vars.elevationFlat,
+      default: vars["--ads-elevation-raised"],
+      ":active": vars["--ads-elevation-flat"],
     },
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
   },
   /**
    * Borderless tinted fill — the weight between `secondary` (a bordered box
@@ -234,156 +217,83 @@ export const styles = stylex.create({
    */
   soft: {
     backgroundColor: {
-      default: vars.colorCanvasSubtle,
+      default: vars["--ads-color-canvas-subtle"],
       ":hover": softHover,
       ":active": softPress,
     },
     borderColor: "transparent",
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
   },
   outline: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
+      ":hover": vars["--ads-color-overlay-hover"],
       ":active": canvasSubtlePress,
     },
-    borderColor: vars.colorBorder,
+    borderColor: vars["--ads-color-border"],
     boxShadow: {
-      default: vars.elevationRaised,
-      ":active": vars.elevationFlat,
+      default: vars["--ads-elevation-raised"],
+      ":active": vars["--ads-elevation-flat"],
     },
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
+  },
+  /**
+   * `dashed` — the "add the thing that is not there yet" action: a new row in a
+   * rule builder, an empty slot in a layout, a drop target's own trigger. The
+   * dashed edge is doing semantic work that no other variant can do: it says the
+   * boundary is provisional, which is exactly why six surfaces across Canvas,
+   * Copy Review, and the docs card specimens drew their own
+   * `1px dashed` box rather than reach for a variant that did not exist.
+   *
+   * It is the one bordered variant that is deliberately FLAT. `outline` and
+   * `secondary` carry `elevationRaised` because they are present, pressable
+   * objects; a dashed placeholder that lifted off the page would contradict its
+   * own edge — §1.5's elevation is for a surface that is really there. The
+   * border darkens to `colorBorderStrong` on hover instead, so the affordance
+   * still answers the cursor.
+   */
+  dashed: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": vars["--ads-color-overlay-hover"],
+      ":active": canvasSubtlePress,
+    },
+    borderColor: {
+      default: vars["--ads-color-border"],
+      ":hover": vars["--ads-color-border-strong"],
+    },
+    borderStyle: "dashed",
+    boxShadow: vars["--ads-elevation-flat"],
+    color: vars["--ads-color-text-muted"],
   },
   link: {
     backgroundColor: "transparent",
     borderColor: "transparent",
-    color: vars.colorAccent,
+    color: vars["--ads-color-accent"],
     textDecoration: {
       default: "none",
       ":hover": "underline",
     },
     textUnderlineOffset: 4,
   },
-  // Wired like `primary`'s `colorAccent` → `colorAccentHover` pair: the one
-  // destructive control in the system must not be the one control that sits
-  // inert under the cursor. The border follows the fill (`primary` keeps its
-  // border static only because both accent steps are near-black); `colorDanger`
-  // and `colorDangerHover` are far enough apart that a static border would
-  // paint a visible rim of the wrong shade around a hovered button.
-  danger: {
-    backgroundColor: {
-      default: vars.colorDanger,
-      ":hover": vars.colorDangerHover,
-      ":active": dangerPress,
-    },
-    borderColor: {
-      default: vars.colorDanger,
-      ":hover": vars.colorDangerHover,
-      ":active": dangerPress,
-    },
-    boxShadow: {
-      default: vars.elevationRaised,
-      ":active": vars.elevationFlat,
-    },
-    color: vars.colorTextInverted,
-  },
   // Detached actions such as Conversation's jump-to-latest control own their
   // circle and elevation here instead of redrawing a one-off raw button.
   floating: {
-    "--ads-button-radius-end-end": vars.radiusFull,
-    "--ads-button-radius-end-start": vars.radiusFull,
-    "--ads-button-radius-start-end": vars.radiusFull,
-    "--ads-button-radius-start-start": vars.radiusFull,
+    "--ads-button-radius-end-end": vars["--ads-radius-full"],
+    "--ads-button-radius-end-start": vars["--ads-radius-full"],
+    "--ads-button-radius-start-end": vars["--ads-radius-full"],
+    "--ads-button-radius-start-start": vars["--ads-radius-full"],
     backgroundColor: {
-      default: vars.colorSurfaceRaised,
-      ":hover": `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars.colorMixInk} 6%)`,
+      default: vars["--ads-color-surface-raised"],
+      ":hover": `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 6%)`,
       ":active": canvasSubtlePress,
     },
-    borderColor: vars.colorBorder,
+    borderColor: vars["--ads-color-border"],
     // `elevation2` — a detached viewport action, not the `elevation1` bordered
     // family above — stays flat across states; only elevation1 carriers
     // collapse to elevation0 on `:active` (§1.5).
-    boxShadow: vars.elevationLift,
-    color: vars.colorTextMuted,
-  },
-  // ---- tone="danger" arms --------------------------------------------------
-  // Composed AFTER the variant style, so each of these only has to restate the
-  // properties the variant declares. `danger` is a TONE, not a weight: an
-  // outline-danger button is still an outline button — same border, same
-  // elevation, same wash geometry — with the destructive hue substituted. That
-  // is why every arm below mirrors its neutral twin property-for-property
-  // instead of inventing its own chrome.
-  //
-  // The ink is `colorDangerText`, not `colorDanger`: `colorDanger` is a FILL
-  // role (it is what `primary`+`danger` paints), and setting a 0.57-lightness
-  // fill colour as label text on a raised surface lands under the 4.5:1 text
-  // floor. `colorDangerText` is the ramp's text role and clears it.
-  /**
-   * `secondary` keeps its raised surface — it is the bordered "second action"
-   * weight, and a destructive second action ("Delete" beside "Cancel") must
-   * still read as a real button at rest, not as a red-tinted panel. Only the
-   * border, the ink and the wash carry the tone.
-   */
-  dangerSecondary: {
-    backgroundColor: {
-      default: vars.colorSurfaceRaised,
-      ":hover": vars.colorDangerSoft,
-      ":active": dangerSoftPress,
-    },
-    borderColor: vars.colorDangerBorder,
-    color: vars.colorDangerText,
-  },
-  dangerOutline: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": vars.colorDangerSoft,
-      ":active": dangerSoftPress,
-    },
-    borderColor: vars.colorDangerBorder,
-    color: vars.colorDangerText,
-  },
-  /**
-   * The quiet arm restates `color` at all three states because the neutral
-   * quiet language (`controlChrome.triggerQuiet`) BRIGHTENS its ink from
-   * `colorTextMuted` on hover — that ramp is how a borderless control announces
-   * itself. A danger control has already announced itself with hue at rest, so
-   * it holds one ink and lets the wash do the state work; without the explicit
-   * `:hover`/`:active` entries the quiet recipe's `colorText` would win on
-   * hover and a hovered destructive item would go neutral mid-gesture.
-   */
-  dangerQuiet: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": vars.colorDangerSoft,
-      ":active": dangerSoftPress,
-    },
-    borderColor: "transparent",
-    color: {
-      default: vars.colorDangerText,
-      ":hover": vars.colorDangerText,
-      ":active": vars.colorDangerText,
-    },
-  },
-  /**
-   * `soft` rests ON the tint, so its steps come from the 8%/12% pair rather
-   * than the 5% press used by the arms that rest transparent — same reasoning
-   * as `softHover`/`softPress` for the neutral tint.
-   */
-  dangerSoft: {
-    backgroundColor: {
-      default: vars.colorDangerSoft,
-      ":hover": dangerWashHover,
-      ":active": dangerWashPress,
-    },
-    borderColor: "transparent",
-    color: vars.colorDangerText,
-  },
-  /**
-   * `link` and `floating` carry no fill to tint, so the tone is ink only.
-   * `floating` keeps `elevation2` and its circle from the variant.
-   */
-  dangerInk: {
-    color: vars.colorDangerText,
+    boxShadow: vars["--ads-elevation-lift"],
+    color: vars["--ads-color-text-muted"],
   },
   // Heights/squares come from the shared control-metrics recipe
   // (sizeMetricStyles below); these keep only per-size padding and type.
@@ -393,39 +303,39 @@ export const styles = stylex.create({
   // filter/toolbar row beside an `xs` TextField or Select without being the one
   // control 4px taller than the row it is in.
   xs: {
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars["--ads-font-size-caption"],
     paddingBlock: 0,
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   sm: {
     paddingBlock: 0,
     // 12, not 8: at 32px tall an 8px inset reads as cramped, and sm is the
     // size dense surfaces (toolbars, table rows, cards) reach for most.
-    paddingInline: vars.space12,
+    paddingInline: vars["--ads-space-12"],
   },
   md: {
     paddingBlock: 0,
-    paddingInline: vars.space12,
+    paddingInline: vars["--ads-space-12"],
   },
   lg: {
-    fontSize: vars.fontSizeLead,
+    fontSize: vars["--ads-font-size-lead"],
     paddingBlock: 0,
-    paddingInline: vars.space16,
+    paddingInline: vars["--ads-space-16"],
   },
   gapXs: {
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   gapSm: {
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   gapMd: {
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   gapLg: {
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
   },
   gapIcon: {
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   flushInline: {
     borderInlineEndWidth: 0,
@@ -438,7 +348,7 @@ export const styles = stylex.create({
   },
   disabled: {
     cursor: "not-allowed",
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
   /**
    * The disabled/loading expression for a Button rendered as a **link**

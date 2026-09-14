@@ -193,7 +193,7 @@ function CopyAction(args: { text: string }) {
     <AdsButton
       layout="host"
       type="button"
-      className={sx(s.action, transition.colors)}
+      xstyle={[s.action, transition.colors]}
       onClick={() => {
         /* `copyTextToClipboard` throws when every copy path fails, so the
            "Copied" confirmation only shows on an actual write. */
@@ -340,7 +340,7 @@ export function ToolResult({
               <AdsButton
                 layout="host"
                 type="button"
-                className={sx(s.action, transition.colors)}
+                xstyle={[s.action, transition.colors]}
                 onClick={onRetry}
               >
                 <RotateCcw className={sx(s.actionIcon)} />
@@ -375,7 +375,7 @@ export function ToolResult({
         <AdsButton
           layout="host"
           type="button"
-          className={sx(s.header, open && s.headerOpen)}
+          xstyle={[s.header, open && s.headerOpen]}
           onClick={() => setOpen((previous) => !previous)}
         >
           <ToolResultKindIcon kind={kind} className={sx(s.kindIcon)} />

@@ -5,8 +5,9 @@ import type * as React from "react";
 
 import type { BreadcrumbRootProps } from "../headless/breadcrumb";
 import { focusRing } from "../recipes/focus-ring";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 
 // ---------------------------------------------------------------------------
 // Compound parts (compositional Breadcrumb API — standard anatomy:
@@ -39,7 +40,7 @@ export type BreadcrumbRootCompoundProps = React.ComponentProps<"nav"> & {
    * @default true
    */
   wrap?: boolean;
-};
+} & XstyleProp;
 
 /** The breadcrumb landmark (`<nav aria-label="Breadcrumb">`). */
 function Root({
@@ -47,57 +48,76 @@ function Root({
   className,
   density = "default",
   wrap = true,
+  xstyle,
   ...props
 }: BreadcrumbRootCompoundProps) {
   const shape = useMemo(() => ({ density, wrap }), [density, wrap]);
+  // `data-density` was already on this nav for consumers to query; it is now
+  // the theme axis too, which is why the attribute is spread rather than
+  // written twice under two names.
+  const theme = themeProps("breadcrumb", { density });
 
   return (
     <BreadcrumbShapeContext.Provider value={shape}>
       <nav
         {...props}
+        {...theme}
         aria-label={ariaLabel}
-        className={cx(sx(styles.root), className)}
-        data-density={density}
+        className={cx(sx(styles.root, xstyle), theme.className, className)}
       />
     </BreadcrumbShapeContext.Provider>
   );
 }
 
-export type BreadcrumbListProps = React.ComponentProps<"ol">;
+export type BreadcrumbListProps = React.ComponentProps<"ol"> & XstyleProp;
 
 /** The ordered list containing the crumb items. */
-function List({ className, ...props }: BreadcrumbListProps) {
+function List({ className, xstyle, ...props }: BreadcrumbListProps) {
   const { wrap } = useContext(BreadcrumbShapeContext);
 
   return (
     <ol
+      role="list"
       {...props}
-      className={cx(sx(styles.list, !wrap && styles.listSingleLine), className)}
+      {...themeSlotProps("breadcrumb", "list")}
+      className={cx(
+        sx(styles.list, !wrap && styles.listSingleLine, xstyle),
+        className,
+      )}
     />
   );
 }
 
-export type BreadcrumbItemCompoundProps = React.ComponentProps<"li">;
+export type BreadcrumbItemCompoundProps = React.ComponentProps<"li"> &
+  XstyleProp;
 
 /** One crumb (`<li>`); contains a `Link` or a `Page`. */
-function Item({ className, ...props }: BreadcrumbItemCompoundProps) {
-  return <li {...props} className={cx(sx(styles.item), className)} />;
+function Item({ className, xstyle, ...props }: BreadcrumbItemCompoundProps) {
+  return (
+    <li
+      {...props}
+      {...themeSlotProps("breadcrumb", "item")}
+      className={cx(sx(styles.item, xstyle), className)}
+    />
+  );
 }
 
-export type BreadcrumbLinkProps = React.ComponentProps<"a">;
+export type BreadcrumbLinkProps = React.ComponentProps<"a"> & XstyleProp;
 
 /** A navigable crumb (`<a>`). */
-function Link({ className, ...props }: BreadcrumbLinkProps) {
+function Link({ className, xstyle, ...props }: BreadcrumbLinkProps) {
   const { density } = useContext(BreadcrumbShapeContext);
 
   return (
     <a
       {...props}
+      {...themeSlotProps("breadcrumb", "link")}
       className={cx(
         sx(
           styles.link,
           density === "compact" && styles.interactiveCompact,
           focusRing.ring,
+          xstyle,
         ),
         className,
       )}
@@ -105,7 +125,7 @@ function Link({ className, ...props }: BreadcrumbLinkProps) {
   );
 }
 
-export type BreadcrumbPageProps = React.ComponentProps<"span">;
+export type BreadcrumbPageProps = React.ComponentProps<"span"> & XstyleProp;
 
 /**
  * The current page crumb (`aria-current="page"`, non-interactive).
@@ -121,6 +141,7 @@ export type BreadcrumbPageProps = React.ComponentProps<"span">;
 function Page({
   "aria-current": ariaCurrent = "page",
   className,
+  xstyle,
   ...props
 }: BreadcrumbPageProps) {
   const isCurrent = ariaCurrent !== false;
@@ -129,12 +150,14 @@ function Page({
   return (
     <span
       {...props}
+      {...themeSlotProps("breadcrumb", "page")}
       aria-current={isCurrent ? ariaCurrent : undefined}
       className={cx(
         sx(
           styles.page,
           density === "compact" && styles.interactiveCompact,
           !isCurrent && styles.pageMuted,
+          xstyle,
         ),
         className,
       )}
@@ -142,19 +165,21 @@ function Page({
   );
 }
 
-export type BreadcrumbSeparatorProps = React.ComponentProps<"li">;
+export type BreadcrumbSeparatorProps = React.ComponentProps<"li"> & XstyleProp;
 
 /** The visual divider between crumbs (presentational; chevron by default). */
 function Separator({
   children,
   className,
+  xstyle,
   ...props
 }: BreadcrumbSeparatorProps) {
   return (
     <li
       {...props}
+      {...themeSlotProps("breadcrumb", "separator")}
       aria-hidden
-      className={cx(sx(styles.separatorItem), className)}
+      className={cx(sx(styles.separatorItem, xstyle), className)}
       role="presentation"
     >
       {children ?? (
@@ -191,17 +216,24 @@ export type BreadcrumbProps = Omit<BreadcrumbRootProps, "children"> & {
   label?: string;
   /** See `Breadcrumb.Root`'s `wrap`. @default true */
   wrap?: boolean;
-};
+} & XstyleProp;
 
 function BreadcrumbArray({
   density = "default",
   items,
   label = "Breadcrumb",
   wrap = true,
+  xstyle,
   ...props
 }: BreadcrumbProps) {
   return (
-    <Root {...props} aria-label={label} density={density} wrap={wrap}>
+    <Root
+      xstyle={xstyle}
+      {...props}
+      aria-label={label}
+      density={density}
+      wrap={wrap}
+    >
       <List>
         {items.map((item, index) => {
           const current = item.current ?? index === items.length - 1;
@@ -270,7 +302,7 @@ const styles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     listStyle: "none",
     margin: 0,
     padding: 0,
@@ -283,36 +315,36 @@ const styles = stylex.create({
   item: {
     alignItems: "center",
     display: "inline-flex",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
   link: {
     alignItems: "center",
-    borderRadius: vars.radiusControl,
-    color: vars.colorTextMuted,
+    borderRadius: vars["--ads-radius-control"],
+    color: vars["--ads-color-text-muted"],
     display: "inline-flex",
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    gap: vars.space4,
-    minBlockSize: vars.controlHeightSm,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--ads-space-4"],
+    minBlockSize: vars["--ads-control-height-sm"],
     minInlineSize: 0,
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
     textDecoration: "none",
   },
   page: {
     alignItems: "center",
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "inline-flex",
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightSemibold,
-    gap: vars.space4,
-    minBlockSize: vars.controlHeightSm,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    gap: vars["--ads-space-4"],
+    minBlockSize: vars["--ads-control-height-sm"],
     minInlineSize: 0,
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   interactiveCompact: {
-    minBlockSize: vars.controlHeightXs,
-    paddingInline: vars.space4,
+    minBlockSize: vars["--ads-control-height-xs"],
+    paddingInline: vars["--ads-space-4"],
   },
   // A crumb that is non-navigable but not the current page reads as an
   // ancestor, so it takes the muted ink and weight of `link` rather than the
@@ -320,8 +352,8 @@ const styles = stylex.create({
   // identically to the current one and a trail ended in two bold segments,
   // with nothing to say which one the reader was actually on.
   pageMuted: {
-    color: vars.colorTextMuted,
-    fontWeight: vars.fontWeightMedium,
+    color: vars["--ads-color-text-muted"],
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   icon: {
     alignItems: "center",
@@ -340,7 +372,7 @@ const styles = stylex.create({
     flexShrink: 0,
   },
   separator: {
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
     flexShrink: 0,
   },
 });

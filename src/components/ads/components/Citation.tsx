@@ -194,35 +194,35 @@ export const Citation = Object.assign(CitationMark, { List: CitationList });
  * the same `color-mix(in oklab, …)` construction `control-chrome.ts` uses for
  * its press step, so light darkens and dark lightens without a second token.
  */
-const markHover = `color-mix(in oklab, ${vars.colorText} 5%, ${vars.colorCanvasSubtle})`;
+const markHover = `color-mix(in oklab, ${vars["--ads-color-text"]} 5%, ${vars["--ads-color-canvas-subtle"]})`;
 
 const styles = stylex.create({
   mark: {
-    backgroundColor: vars.colorCanvasSubtle,
-    borderRadius: vars.radiusMark,
-    color: vars.colorTextMuted,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    borderRadius: vars["--ads-radius-mark"],
+    color: vars["--ads-color-text-muted"],
     display: "inline-block",
-    fontFamily: vars.fontSans,
-    fontSize: vars.fontSizeCaption,
+    fontFamily: vars["--ads-font-sans"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars.fontWeightMedium,
+    fontWeight: vars["--ads-font-weight-medium"],
     lineHeight: 1,
     // `1`, not a spacing token: the mark follows a word directly, and a 4px
     // gutter would read as a space the model did not write.
     marginInlineStart: 1,
     paddingBlock: 1,
-    paddingInline: vars.space4,
+    paddingInline: vars["--ads-space-4"],
     textDecoration: "none",
     verticalAlign: "baseline",
   },
   markInteractive: {
     backgroundColor: {
-      default: vars.colorCanvasSubtle,
+      default: vars["--ads-color-canvas-subtle"],
       ":hover": markHover,
     },
     color: {
-      default: vars.colorTextMuted,
-      ":hover": vars.colorText,
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-text"],
     },
     cursor: "pointer",
   },
@@ -233,7 +233,7 @@ const styles = stylex.create({
     borderWidth: 0,
   },
   positioner: {
-    zIndex: vars.zIndexDropdown,
+    zIndex: vars["--ads-z-index-dropdown"],
   },
   /**
    * The one perimeter this component spends, and §1 exempts it: a portalled
@@ -241,25 +241,25 @@ const styles = stylex.create({
    * transient band `Popover` and `PreviewCard` already share.
    */
   popup: {
-    backgroundColor: vars.colorSurfaceRaised,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusPanel,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    boxShadow: vars.elevationOverlay,
-    color: vars.colorText,
+    borderWidth: vars["--ads-border-width-hairline"],
+    boxShadow: vars["--ads-elevation-overlay"],
+    color: vars["--ads-color-text"],
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     inlineSize: "min(300px, calc(100dvw - 32px))",
     justifyItems: "start",
-    padding: vars.space12,
+    padding: vars["--ads-space-12"],
     transformOrigin: "var(--transform-origin)",
   },
   popupTitle: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     minInlineSize: 0,
     overflowWrap: "anywhere",
   },
@@ -271,15 +271,15 @@ const styles = stylex.create({
   popupExcerpt: {
     WebkitBoxOrient: "vertical",
     WebkitLineClamp: 4,
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     display: "-webkit-box",
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     minInlineSize: 0,
     overflow: "hidden",
   },
   popupLink: {
-    marginBlockStart: vars.space4,
+    marginBlockStart: vars["--ads-space-4"],
   },
   wrapAnywhere: {
     overflowWrap: "anywhere",

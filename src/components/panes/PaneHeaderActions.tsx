@@ -226,16 +226,16 @@ export function PaneHeaderActions(props: IDockviewHeaderActionsProps) {
 
 const styles = stylex.create({
 root: {display:"flex",height:"100%",alignItems:"center",gap:2,paddingInline:4},
-trigger: {height:28,width:28,flexShrink:0,borderRadius:4,padding:0,color:vars.colorTextMuted},
+trigger: {height:28,width:28,flexShrink:0,borderRadius:4,padding:0,color:vars["--ads-color-text-muted"]},
 icon: {width:16,height:16},
 menu: {width:240},
 submenu: {width:256},
 options: {width:176},
 item: {alignItems:"flex-start"},
 choice: {display:"flex",minWidth:0,alignItems:"flex-start",gap:8},
-providerIcon: {marginTop:2,width:16,height:16,flexShrink:0,color:vars.colorTextMuted},
+providerIcon: {marginTop:2,width:16,height:16,flexShrink:0,color:vars["--ads-color-text-muted"]},
 content: {minWidth:0},
-label: {overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize: vars.fontSizeBody,fontWeight:500},
-description: {marginTop:2,fontSize: vars.fontSizeCaption,color:vars.colorTextMuted},
-taskHint: {marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize: vars.fontSizeCaption,color:vars.colorTextSubtle}
+label: {overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize: vars["--ads-font-size-body"],fontWeight:500},
+description: {marginTop:2,fontSize: vars["--ads-font-size-caption"],color:vars["--ads-color-text-muted"]},
+taskHint: {marginTop:2,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",fontSize: vars["--ads-font-size-caption"],color:vars["--ads-color-text-subtle"]}
 });

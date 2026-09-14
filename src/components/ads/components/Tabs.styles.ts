@@ -3,6 +3,8 @@ import * as stylex from "@stylexjs/stylex";
 import { controlHeightBySize } from "../recipes/control-metrics";
 import { vars } from "../tokens/tokens.stylex";
 
+export type TabsSize = "xs" | "sm" | "md";
+
 /**
  * `Tabs`'s styles, split into their own module when the vertical-orientation,
  * `size`, and lazy-`mount` additions pushed `Tabs.tsx` past the repo's
@@ -22,30 +24,31 @@ import { vars } from "../tokens/tokens.stylex";
  */
 const PANEL_VIEWPORT_MIN_BLOCK_SIZE = 96;
 
-/*
- * The dense rail/tree rung. It is the one size where the type comes down with
- * the box: Body (14/20) inside a 24px control leaves 2px of vertical air, and a
- * strip of Body labels is what makes a 300px rail wrap its tabs onto a second
- * row — measured 330px of tabs in a 300px panel. Caption plus the `sm` gutter
- * keeps three or four counted labels on one line, which is the whole reason
- * this rung exists. `sm` and `md` stay on Body deliberately: they align against
- * Button, which also holds Body for both of those rungs.
- */
-const tabExtraSmallHeight = stylex.create({
-  xs: {
-    fontSize: vars.fontSizeCaption,
-    minBlockSize: {
-      default: vars.treeRowHeightCompact,
-      "@media (pointer: coarse)": vars.controlHeightXl,
-    },
-    paddingInline: vars.space8,
-  },
-});
-
 /**
  * `size` → shared control-ramp height for the tab trigger. See `TabsSize` for
  * why the names are offset one rung from the ramp step they resolve to.
  */
+const tabExtraSmallHeight = stylex.create({
+  xs: {
+    /*
+     * `xs` is the rail/tree rung, and it is the one size where the type has to
+     * come down with the box. Body (14/20) inside a 24px control leaves 2px of
+     * vertical air, and a strip of Body labels is what makes a 300px rail wrap
+     * its tabs onto a second row — measured 330px of tabs in a 300px panel.
+     * Caption plus the `sm` gutter keeps three or four counted labels on one
+     * line, which is the whole reason this rung exists. `sm` and `md` stay on
+     * Body deliberately: they align against Button, which also holds Body for
+     * both of those rungs.
+     */
+    fontSize: vars["--ads-font-size-caption"],
+    minBlockSize: {
+      default: vars["--ads-tree-row-height-compact"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
+    },
+    paddingInline: vars["--ads-space-8"],
+  },
+});
+
 export const tabHeightBySize = {
   md: controlHeightBySize.sm,
   sm: controlHeightBySize.xs,
@@ -77,7 +80,7 @@ export const styles = stylex.create({
   root: {
     alignContent: "start",
     display: "grid",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     minInlineSize: 0,
   },
   // A vertical strip is the same grid turned on its side: rail, then panels.
@@ -97,14 +100,14 @@ export const styles = stylex.create({
   // 0.238 pill, high contrast 0.967 under 1.0.
   list: {
     alignItems: "center",
-    backgroundColor: vars.colorSurfaceTint,
-    borderRadius: vars.radiusControl,
+    backgroundColor: vars["--ads-color-surface-tint"],
+    borderRadius: vars["--ads-radius-control"],
     display: "inline-flex",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     maxInlineSize: "100%",
     minInlineSize: 0,
     overflowX: "auto",
-    padding: vars.space4,
+    padding: vars["--ads-space-4"],
     position: "relative",
   },
   // `stretch` (not the horizontal `center`) so every tab is as wide as the
@@ -119,9 +122,9 @@ export const styles = stylex.create({
     appearance: "none",
     backgroundColor: "transparent",
     borderColor: "transparent",
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     // Same quiet language as every other borderless control in the system
     // (`controlChrome.triggerQuiet`, `surfaceChrome.quietIconButton`): muted at
     // rest, full ink under the cursor. An inactive tab used to have NO hover
@@ -129,8 +132,8 @@ export const styles = stylex.create({
     // already selected. Colour only — a background wash here would fight the
     // gliding indicator that shares the tab's box.
     color: {
-      default: vars.colorTextMuted,
-      ":hover": vars.colorText,
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-text"],
     },
     cursor: "pointer",
     display: "inline-flex",
@@ -139,15 +142,15 @@ export const styles = stylex.create({
     // label wraps to two lines, which puts the active indicator mid-word — it
     // read as a strikethrough in narrow artifact selectors.
     flexShrink: 0,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
     justifyContent: "center",
     // Height comes from the shared control-metrics recipe (`controlHeights.xs`,
     // composed at the call site): 28px trigger inside the space1-padded list =
     // 36px total (the 36px baseline control height), bumped to 44px under
     // `(pointer: coarse)` for the touch-target minimum.
     paddingBlock: 0,
-    paddingInline: vars.space12,
+    paddingInline: vars["--ads-space-12"],
     position: "relative",
     whiteSpace: "nowrap",
     // layer-ok: keeps the label above this tab list's own sliding indicator
@@ -161,14 +164,14 @@ export const styles = stylex.create({
   // Flat colors on purpose: they replace the base hover pair outright, so an
   // active tab stays at full ink and a disabled one never brightens.
   tabActive: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
   },
   // The fade + cursor come from `controlChrome.disabled` (composed at the call
   // site) — the one disabled language. This only pins the color flat so a
   // disabled tab cannot brighten under the cursor; `opacity: 0.56` on top of an
   // already-subtle ink was a second, unshared dim.
   tabDisabled: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   indicator: {
     // Position + size come from Base UI's measured `--active-tab-*` vars.
@@ -185,10 +188,10 @@ export const styles = stylex.create({
   // a 28px chip made it heavier than the Button beside it, which is flat by
   // decision (`elevation0`, `Button.tsx`).
   indicatorPill: {
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
     blockSize: "var(--active-tab-height)",
-    borderRadius: vars.radiusControl,
-    boxShadow: vars.elevationRaised,
+    borderRadius: vars["--ads-radius-control"],
+    boxShadow: vars["--ads-elevation-raised"],
     insetBlockStart: "var(--active-tab-top)",
   },
   // `ringWidthSm` IS 2px and exists to name a 2px emphasis mark, so the bar
@@ -198,10 +201,10 @@ export const styles = stylex.create({
   // 3px mark. Pulling it down by the hairline makes the bar cover the rule,
   // which is what an underlined tab strip actually looks like.
   indicatorLine: {
-    backgroundColor: vars.colorAccent,
-    blockSize: vars.ringWidthSm,
-    borderRadius: vars.radiusFull,
-    insetBlockStart: `calc(var(--active-tab-top) + var(--active-tab-height) - ${vars.ringWidthSm})`,
+    backgroundColor: vars["--ads-color-accent"],
+    blockSize: vars["--ads-ring-width-sm"],
+    borderRadius: vars["--ads-radius-full"],
+    insetBlockStart: `calc(var(--active-tab-top) + var(--active-tab-height) - ${vars["--ads-ring-width-sm"]})`,
   },
   // The vertical bar swaps the two axes of `indicatorLine`: it spans the tab's
   // height and is `ringWidthSm` wide, pinned to the tab's own inline-start
@@ -210,7 +213,7 @@ export const styles = stylex.create({
   // already share an origin instead of meeting end-to-end.
   indicatorLineVertical: {
     blockSize: "var(--active-tab-height)",
-    inlineSize: vars.ringWidthSm,
+    inlineSize: vars["--ads-ring-width-sm"],
     insetBlockStart: "var(--active-tab-top)",
   },
   // The baseline rule is an INSET shadow, not `border-block-end`. As a border it
@@ -245,8 +248,8 @@ export const styles = stylex.create({
     alignSelf: "stretch",
     backgroundColor: "transparent",
     borderRadius: 0,
-    boxShadow: `inset 0 calc(-1 * ${vars.borderWidthHairline}) 0 0 ${vars.colorBorder}`,
-    gap: vars.space8,
+    boxShadow: `inset 0 calc(-1 * ${vars["--ads-border-width-hairline"]}) 0 0 ${vars["--ads-color-border"]}`,
+    gap: vars["--ads-space-8"],
     padding: 0,
   },
   // Same inset-shadow trick as `listLine`, moved to the inline-start edge so a
@@ -259,16 +262,16 @@ export const styles = stylex.create({
     // of the tallest panel reads as a sidebar, which is exactly what
     // `rootVertical`'s `alignItems: start` exists to prevent.
     alignSelf: "start",
-    boxShadow: `inset ${vars.borderWidthHairline} 0 0 0 ${vars.colorBorder}`,
+    boxShadow: `inset ${vars["--ads-border-width-hairline"]} 0 0 0 ${vars["--ads-color-border"]}`,
   },
   panelViewport: {
     minBlockSize: PANEL_VIEWPORT_MIN_BLOCK_SIZE,
     minInlineSize: 0,
   },
   panel: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     minInlineSize: 0,
   },
 });

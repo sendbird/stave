@@ -19,13 +19,13 @@ export const turnActivityPanelStyles = stylex.create({
   placeholder: {
     alignItems: "flex-start",
     display: "flex",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     justifyContent: "space-between",
-    padding: vars.space12,
+    padding: vars["--ads-space-12"],
   },
   placeholderText: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1.25rem",
   },
   body: {

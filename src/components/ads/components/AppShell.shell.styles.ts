@@ -1,7 +1,8 @@
 import * as stylex from "@stylexjs/stylex";
 
 import { densityPad } from "../tokens/density.stylex";
-import { breakpoints, vars } from "../tokens/tokens.stylex";
+import { breakpoints } from "../tokens/breakpoints.stylex";
+import { vars } from "../tokens/tokens.stylex";
 
 /**
  * AppShell stylesheet, part 1 of 2. Split only because the source-size guard
@@ -15,12 +16,12 @@ export const shellStyles = stylex.create({
   shell: {
     // The ground, one step below the scaffold the sidebar paints — they used
     // to share `colorCanvas`, so the panel had nothing to recede from.
-    backgroundColor: vars.colorGround,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusPanel,
+    backgroundColor: vars["--ads-color-ground"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorText,
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-text"],
     display: "grid",
     // One workspace track by default. The old unconditional navigation track
     // left a phantom `max-content` column in shells with no sidebar and made
@@ -45,12 +46,12 @@ export const shellStyles = stylex.create({
      * 16px icon, the glyph overflows to the inline-end, and the row's hover or
      * pressed fill shows more space on one side than the other.
      */
-    gridTemplateColumns: `calc(${vars.controlHeightXl} + ${vars.space4} + ${vars.space2}) minmax(0, 1fr)`,
+    gridTemplateColumns: `calc(${vars["--ads-control-height-xl"]} + ${vars["--ads-space-4"]} + ${vars["--ads-space-2"]}) minmax(0, 1fr)`,
   },
   shellFramedChrome: {
     // This is the ground the framed shell actually shows — it composes after
     // `shell`, so it, not `shell`, decides what sits behind the app frame.
-    backgroundColor: vars.colorGround,
+    backgroundColor: vars["--ads-color-ground"],
     borderRadius: 0,
     borderWidth: 0,
   },
@@ -62,26 +63,26 @@ export const shellStyles = stylex.create({
   // the band ABOVE `zIndexAppChrome` (tokens.stylex.ts: everything above that
   // boundary may cover it), and below `zIndexModal` so it never jumps a dialog.
   skipLink: {
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
     blockSize: { default: 1, ":focus-visible": "auto" },
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusControl,
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     clipPath: { default: "inset(50%)", ":focus-visible": "none" },
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
     inlineSize: { default: 1, ":focus-visible": "auto" },
-    insetBlockStart: vars.space8,
-    insetInlineStart: vars.space8,
+    insetBlockStart: vars["--ads-space-8"],
+    insetInlineStart: vars["--ads-space-8"],
     overflow: "hidden",
-    paddingBlock: vars.space8,
-    paddingInline: vars.space12,
+    paddingBlock: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-12"],
     position: "fixed",
     textDecoration: "none",
     whiteSpace: "nowrap",
-    zIndex: vars.zIndexOverlay,
+    zIndex: vars["--ads-z-index-overlay"],
   },
   sidebarSlot: {
     minBlockSize: 0,
@@ -94,10 +95,10 @@ export const shellStyles = stylex.create({
     minBlockSize: 0,
     minInlineSize: 0,
     position: "relative",
-    zIndex: vars.zIndexAppChrome,
+    zIndex: vars["--ads-z-index-app-chrome"],
   },
   appHeaderSlot: {
-    minBlockSize: vars.chromeRowHeight,
+    minBlockSize: vars["--ads-chrome-row-height"],
     minInlineSize: 0,
   },
   appFrame: {
@@ -121,7 +122,7 @@ export const shellStyles = stylex.create({
    * is true whether or not a rail happens to be present.
    */
   appFrameSurface: {
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
   },
   /**
    * The framed CHROME — inset margins, hairline, corner, lift. Still tied to
@@ -130,19 +131,19 @@ export const shellStyles = stylex.create({
    * surface above without this.
    */
   appFrameFramed: {
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusPanel,
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    boxShadow: vars.elevationRaised,
+    borderWidth: vars["--ads-border-width-hairline"],
+    boxShadow: vars["--ads-elevation-raised"],
     // One gutter on all four sides. It used to be 12 on three and 4 on the
     // rail seam, so the frame sat visibly off-centre inside the ground.
     //
     // Zero on the inline-start when a rail is present: the rail track carries
     // its own 4px gutter on that edge, so a margin here would stack on top of
     // it and make the one seam between two planes twice every other gap.
-    marginBlock: vars.space8,
-    marginInlineEnd: vars.space8,
+    marginBlock: vars["--ads-space-8"],
+    marginInlineEnd: vars["--ads-space-8"],
     marginInlineStart: 0,
   },
   appFrameWithSidebarLeft: {
@@ -174,12 +175,12 @@ export const shellStyles = stylex.create({
     // hundreds of pixels.
     alignContent: "start",
     display: "grid",
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
     gridTemplateColumns: "minmax(0, 1fr)",
     minBlockSize: 0,
     minInlineSize: 0,
     overflow: "auto",
-    padding: vars.space16,
+    padding: vars["--ads-space-16"],
     // Where the OS draws classic scrollbars, a full-width bar read as a
     // permanent gutter rather than chrome. `thin` is the width `Stepper` uses,
     // and the bar only paints while the pointer is in the region it scrolls;
@@ -188,8 +189,8 @@ export const shellStyles = stylex.create({
     // it back would reflow the content the moment a list grew past the fold.
     scrollbarColor: {
       default: "transparent transparent",
-      ":focus-within": `${vars.colorScrollbarThumb} transparent`,
-      ":hover": `${vars.colorScrollbarThumb} transparent`,
+      ":focus-within": `${vars["--ads-color-scrollbar-thumb"]} transparent`,
+      ":hover": `${vars["--ads-color-scrollbar-thumb"]} transparent`,
     },
     scrollbarWidth: "thin",
   },
@@ -207,13 +208,13 @@ export const shellStyles = stylex.create({
   sidebar: {
     // Near-white warm canvas (not a gray wash) + logical hairline; on a white
     // content surface the sidebar should recede by *temperature*, not weight.
-    backgroundColor: vars.colorCanvas,
+    backgroundColor: vars["--ads-color-canvas"],
     // Fill the AppShell sidebar slot so the inline-end hairline spans the
     // shell's full height (a content-sized nav leaves the border short).
     blockSize: "100%",
-    borderRightColor: vars.colorBorder,
+    borderRightColor: vars["--ads-color-border"],
     borderRightStyle: "solid",
-    borderRightWidth: vars.borderWidthHairline,
+    borderRightWidth: vars["--ads-border-width-hairline"],
     // Flex column (not a fixed 2-row grid): the header is `display:none` when
     // collapsed, which shifted grid auto-placement so the footer grabbed the
     // stretchy row and floated mid-rail. With flex, the content region grows
@@ -247,11 +248,11 @@ export const shellStyles = stylex.create({
     paddingInline: densityPad.sm,
     position: "relative",
     transitionDuration: {
-      default: vars.motionDurationQuick,
+      default: vars["--ads-motion-duration-quick"],
       "@media (prefers-reduced-motion: reduce)": "0ms",
     },
     transitionProperty: "inline-size, opacity, transform",
-    transitionTimingFunction: vars.motionEaseStandard,
+    transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
   sidebarCompact: {
     gap: densityPad.sm,
@@ -267,7 +268,7 @@ export const shellStyles = stylex.create({
   },
   sidebarCollapsed: {
     inlineSize: "var(--atelier-sidebar-width-icon, 68px)",
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   /**
    * A rail nobody can collapse — no `SidebarProvider` (so no state, and
@@ -309,7 +310,7 @@ export const shellStyles = stylex.create({
   },
   sidebarMobileOffcanvas: {
     blockSize: "100dvh",
-    boxShadow: vars.elevationOverlay,
+    boxShadow: vars["--ads-elevation-overlay"],
     // The drawer states its own width instead of inheriting the rail's: it is a
     // modal panel, not an in-flow rail, and it is the surface
     // `--atelier-sidebar-width-mobile` was named for. This is exactly what the
@@ -321,14 +322,14 @@ export const shellStyles = stylex.create({
     left: 0,
     maxInlineSize: "calc(100dvw - 2rem)",
     position: "fixed",
-    zIndex: vars.zIndexModal,
+    zIndex: vars["--ads-z-index-modal"],
   },
   sidebarBackdrop: {
-    backdropFilter: vars.motionBlurOverlay,
-    backgroundColor: vars.colorOverlay,
+    backdropFilter: vars["--ads-motion-blur-overlay"],
+    backgroundColor: vars["--ads-color-overlay"],
     inset: 0,
     position: "fixed",
-    zIndex: vars.zIndexOverlay,
+    zIndex: vars["--ads-z-index-overlay"],
   },
   sidebarMobileOffcanvasRight: {
     left: "auto",
@@ -337,26 +338,26 @@ export const shellStyles = stylex.create({
   sidebarRight: {
     // Physical edge pair because `side` itself is physical. Logical borders
     // would swap under RTL while AppShell's left/right slot placement does not.
-    borderLeftColor: vars.colorBorder,
+    borderLeftColor: vars["--ads-color-border"],
     borderLeftStyle: "solid",
-    borderLeftWidth: vars.borderWidthHairline,
+    borderLeftWidth: vars["--ads-border-width-hairline"],
     borderRightWidth: 0,
   },
   sidebarFloating: {
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusPanel,
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    boxShadow: vars.elevationRaised,
-    margin: vars.space8,
+    borderWidth: vars["--ads-border-width-hairline"],
+    boxShadow: vars["--ads-elevation-raised"],
+    margin: vars["--ads-space-8"],
   },
   sidebarInset: {
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
   },
   sidebarHeader: {
     display: "grid",
     flexShrink: 0,
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minInlineSize: 0,
   },
   sidebarHeaderCollapsed: {
@@ -373,7 +374,7 @@ export const shellStyles = stylex.create({
     // a 32px box, so it already carries 8px of optical inset on the side facing
     // the label. 8px of grid gap on top of that read as a hole and cost width a
     // 220px rail does not have.
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     gridTemplateColumns: "minmax(0, 1fr) auto",
     minInlineSize: 0,
   },
@@ -401,8 +402,8 @@ export const shellStyles = stylex.create({
     // so a bar that behaves differently on one of them reads as a mistake.
     scrollbarColor: {
       default: "transparent transparent",
-      ":focus-within": `${vars.colorScrollbarThumb} transparent`,
-      ":hover": `${vars.colorScrollbarThumb} transparent`,
+      ":focus-within": `${vars["--ads-color-scrollbar-thumb"]} transparent`,
+      ":hover": `${vars["--ads-color-scrollbar-thumb"]} transparent`,
     },
     scrollbarWidth: "thin",
   },
@@ -410,14 +411,14 @@ export const shellStyles = stylex.create({
     gap: densityPad.sm,
   },
   sidebarFooter: {
-    borderBlockStartColor: vars.colorBorder,
+    borderBlockStartColor: vars["--ads-color-border"],
     borderBlockStartStyle: "solid",
-    borderBlockStartWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars["--ads-border-width-hairline"],
     display: "grid",
     flexShrink: 0,
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minInlineSize: 0,
-    paddingBlockStart: vars.space12,
+    paddingBlockStart: vars["--ads-space-12"],
   },
   sidebarTrigger: {
     // Quiet chrome, not a bordered control. The 1px `colorBorder` that used to
@@ -432,21 +433,21 @@ export const shellStyles = stylex.create({
     appearance: "none",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
-      ":active": vars.colorOverlayPressed,
+      ":hover": vars["--ads-color-overlay-hover"],
+      ":active": vars["--ads-color-overlay-pressed"],
     },
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderWidth: 0,
     color: {
-      default: vars.colorTextMuted,
-      ":hover": vars.colorText,
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-text"],
     },
     cursor: "pointer",
     display: "inline-flex",
     flexShrink: 0,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    gap: vars.space8,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--ads-space-8"],
     justifyContent: "center",
     paddingBlock: 0,
     paddingInline: 0,
@@ -478,22 +479,22 @@ export const shellStyles = stylex.create({
    */
   workspaceSwitcher: {
     alignItems: "center",
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "flex",
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
-    minBlockSize: vars.controlHeightSm,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
+    minBlockSize: vars["--ads-control-height-sm"],
     minInlineSize: 0,
     overflow: "hidden",
     paddingBlock: 0,
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   sidebarGroup: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
 });

@@ -200,12 +200,12 @@ function CitationRow({
 
 const styles = stylex.create({
   triggerLabel: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     flexBasis: 0,
     flexGrow: 1,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -221,16 +221,16 @@ const styles = stylex.create({
   },
   row: {
     alignItems: "center",
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     boxSizing: "border-box",
-    columnGap: vars.space8,
+    columnGap: vars["--ads-space-8"],
     display: "grid",
     gridTemplateColumns: "auto minmax(0, 1fr) auto auto",
     inlineSize: "100%",
-    minBlockSize: vars.controlHeightSm,
+    minBlockSize: vars["--ads-control-height-sm"],
     minInlineSize: 0,
-    paddingBlock: vars.space4,
-    paddingInline: vars.space8,
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
     textDecoration: "none",
   },
   rowStatic: {
@@ -239,18 +239,18 @@ const styles = stylex.create({
   rowLink: {
     backgroundColor: {
       default: "transparent",
-      ":active": vars.colorOverlayPressed,
+      ":active": vars["--ads-color-overlay-pressed"],
       "@media (hover: hover) and (pointer: fine)": {
         default: "transparent",
-        ":active": vars.colorOverlayPressed,
-        ":hover": vars.colorOverlayHover,
+        ":active": vars["--ads-color-overlay-pressed"],
+        ":hover": vars["--ads-color-overlay-hover"],
       },
     },
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
   },
   sourceGlyph: {
     alignItems: "center",
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
     display: "inline-flex",
     flexShrink: 0,
   },
@@ -259,24 +259,24 @@ const styles = stylex.create({
    * so the count stays aligned while the title/domain cell yields first.
    */
   rowIndex: {
-    lineHeight: vars.lineHeightTight,
+    lineHeight: vars["--ads-line-height-tight"],
   },
   rowCopy: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
   rowHeading: {
     alignItems: "baseline",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minInlineSize: 0,
   },
   rowTitle: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-normal"],
     minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -292,14 +292,14 @@ const styles = stylex.create({
   rowExcerpt: {
     WebkitBoxOrient: "vertical",
     WebkitLineClamp: 2,
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     display: "-webkit-box",
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     minInlineSize: 0,
     overflow: "hidden",
   },
   rowGlyph: {
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
   },
 });

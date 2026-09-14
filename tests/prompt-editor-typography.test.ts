@@ -41,11 +41,11 @@ describe("app font setting", () => {
     expect(globals).toContain("./components/ui/content-integration.css");
   });
 
-  test("the installed ADS copy names the same sans stack", () => {    // ADS components wear `vars.fontSans`, host CSS wears `--font-sans`. If the
+  test("the installed ADS copy names the same sans stack", () => {    // ADS components wear `vars["--ads-font-sans"]`, host CSS wears `--font-sans`. If the
     // two disagree, an ADS control and the shell around it render in different
     // typefaces on the same row.
     const tokens = read("src/components/ads/tokens/tokens.stylex.ts");
-    const adsStack = tokens.slice(tokens.indexOf("fontSans:"));
+    const adsStack = tokens.slice(tokens.indexOf('"--ads-font-sans":'));
     const geist = adsStack.indexOf('"Geist Variable"');
     expect(geist).toBeGreaterThanOrEqual(0);
     expect(adsStack.indexOf('"Pretendard Variable"')).toBeGreaterThan(geist);
@@ -117,7 +117,7 @@ describe("prompt editor box", () => {
     );
     // `promptEditorTypography.default` is what the placeholder wears too, so a
     // family stated here is a family both of them agree on.
-    expect(block).toContain("fontFamily: vars.fontSans");
+    expect(block).toContain('fontFamily: vars["--ads-font-sans"]');
   });
 
   test("zeroes the Lexical paragraph so the caret starts on the placeholder line", () => {
@@ -152,8 +152,8 @@ describe("composer wing icons", () => {
 
   test("sizes glyphs off the ADS control ramp", () => {
     const styles = read("src/components/ai-elements/prompt-input.styles.ts");
-    expect(styles).toContain("icon4: { width: vars.controlIconSizeMd");
-    expect(styles).toContain("icon35: { width: vars.controlIconSizeSm");
+    expect(styles).toContain('icon4: { width: vars["--ads-control-icon-size-md"]');
+    expect(styles).toContain('icon35: { width: vars["--ads-control-icon-size-sm"]');
   });
 
   test("hides a wing whose controls all declined to render", () => {

@@ -5,6 +5,7 @@ export type ButtonVariant =
   | "secondary"
   | "soft"
   | "outline"
+  | "dashed"
   | "quiet"
   | "link"
   | "floating"
@@ -18,7 +19,7 @@ export type ButtonIconSize = "icon" | "iconSm" | "iconLg";
 export type ButtonSize = ControlScale | ButtonIconSize;
 
 /** Semantic intent, orthogonal to visual weight (`variant`). */
-export type ButtonTone = "default" | "danger";
+export type ButtonTone = "default" | "success" | "warning" | "danger";
 
 /** Width-safe press geometry; `settle` is the default. */
 export type ButtonPress = "settle" | "scale" | "none";

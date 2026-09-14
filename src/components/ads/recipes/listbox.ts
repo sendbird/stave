@@ -18,7 +18,7 @@ import { vars } from "../tokens/tokens.stylex";
  */
 export const listbox = stylex.create({
   positioner: {
-    zIndex: vars.zIndexDropdown,
+    zIndex: vars["--ads-z-index-dropdown"],
   },
   /**
    * Shared popup width clamp for anchored listboxes (Autocomplete, Combobox):
@@ -40,51 +40,51 @@ export const listbox = stylex.create({
     // to the popup height clips the last row's bottom.
     display: "flex",
     flexDirection: "column",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     inlineSize: "100%",
     maxBlockSize: "inherit",
     minInlineSize: 0,
     overflowX: "hidden",
     overflowY: "auto",
-    padding: vars.space4,
+    padding: vars["--ads-space-4"],
   },
   empty: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     overflowWrap: "anywhere",
     // Base UI keeps the empty/announcement live-region mounted even when there
     // ARE matches (for a11y). Collapse its padding when it has no content so it
     // doesn't reserve space above the list.
-    paddingBlock: { default: vars.space12, ":empty": 0 },
-    paddingInline: { default: vars.space12, ":empty": 0 },
+    paddingBlock: { default: vars["--ads-space-12"], ":empty": 0 },
+    paddingInline: { default: vars["--ads-space-12"], ":empty": 0 },
   },
   itemCompact: {
-    minBlockSize: vars.controlHeightXs,
-    paddingBlock: vars.space4,
+    minBlockSize: vars["--ads-control-height-xs"],
+    paddingBlock: vars["--ads-space-4"],
   },
   // The `xs`/`dense` tier: same 28px row `itemCompact` already renders, plus
   // the smaller type Select's own `itemDense` (recipes/select-styles.ts)
   // pairs with it — dense is a font-size step down from compact, not just a
   // height one.
   itemDense: {
-    fontSize: vars.fontSizeCaption,
-    minBlockSize: vars.controlHeightXs,
-    paddingBlock: vars.space4,
+    fontSize: vars["--ads-font-size-caption"],
+    minBlockSize: vars["--ads-control-height-xs"],
+    paddingBlock: vars["--ads-space-4"],
   },
   itemRegular: {
-    minBlockSize: vars.menuItemHeight,
-    paddingBlock: vars.space4,
+    minBlockSize: vars["--ads-menu-item-height"],
+    paddingBlock: vars["--ads-space-4"],
   },
   itemHighlighted: {
     // The pointer/keyboard highlight is a hover, so it takes the hover wash the
     // rest of the system uses. It painted `colorCanvasSubtle` — an opaque
     // Neutral100 — so a menu row lit up a different colour than a button, a
     // tree row or a sidebar item under the same pointer.
-    backgroundColor: vars.colorOverlayHover,
+    backgroundColor: vars["--ads-color-overlay-hover"],
   },
   itemDisabled: {
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
     cursor: "not-allowed",
   },
   itemCopy: {
@@ -96,9 +96,9 @@ export const listbox = stylex.create({
     alignContent: "center",
     alignSelf: "stretch",
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     inlineSize: "100%",
-    lineHeight: vars.lineHeightControl,
+    lineHeight: vars["--ads-line-height-control"],
     maxInlineSize: "100%",
     minInlineSize: 0,
     whiteSpace: "normal",
@@ -106,32 +106,32 @@ export const listbox = stylex.create({
   itemLabel: {
     // Match Select/Menu's integer line box so one-line Combobox and
     // Autocomplete options do not land on fractional pixels.
-    lineHeight: vars.lineHeightControl,
+    lineHeight: vars["--ads-line-height-control"],
     maxInlineSize: "100%",
     overflowWrap: "anywhere",
     whiteSpace: "normal",
   },
   itemDescription: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     maxInlineSize: "100%",
     overflowWrap: "anywhere",
     whiteSpace: "normal",
   },
   groupLabel: {
-    color: vars.colorTextSubtle,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
-    paddingBlock: vars.space4,
-    paddingInline: vars.space8,
+    color: vars["--ads-color-text-subtle"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
   },
   error: {
     // The border's red — one error, one colour. See `Field.tsx`.
-    color: vars.colorDanger,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-danger"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     overflowWrap: "anywhere",
   },
 });

@@ -4,6 +4,7 @@ import { sx } from "../ads/utils/stylex";
 import { cx } from "../ads/utils/stylex";
 import { mergeClassName } from "../ads/components/merge-class-name";
 import { popoverStyles } from "../ads/components/Popover";
+import { overlaySurface } from "../ads/recipes/overlay-surface";
 import * as React from "react";
 import { mergeProps } from "@base-ui/react/merge-props";
 import { Popover as PopoverPrimitive } from "@base-ui/react/popover";
@@ -155,7 +156,7 @@ function PopoverContent({
               cx(
                 "atelier-motion-dropdown",
                 sx(
-                  popoverStyles.surface,
+                  overlaySurface.anchored,
                   overlayLayout.popover,
                   density === "flush" && overlayLayout.popoverFlush,
                   xstyle,

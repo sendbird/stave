@@ -91,10 +91,10 @@ export function Message({ from, className, style, ...props }: MessageProps) {
   const bubbleVars =
     from === "user"
       ? ({
-          "--message-bubble-radius": vars.radiusMark,
-          "--message-bubble-bg": `color-mix(in oklch, ${vars.colorAccent} 12%, transparent)`,
-          "--message-bubble-pad-inline": vars.space16,
-          "--message-bubble-pad-block": vars.space12,
+          "--message-bubble-radius": vars["--ads-radius-mark"],
+          "--message-bubble-bg": `color-mix(in oklch, ${vars["--ads-color-accent"]} 12%, transparent)`,
+          "--message-bubble-pad-inline": vars["--ads-space-16"],
+          "--message-bubble-pad-block": vars["--ads-space-12"],
         } as CSSProperties)
       : undefined;
   return (

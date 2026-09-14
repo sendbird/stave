@@ -6,18 +6,18 @@ export const providerModelPickerStyles = stylex.create({
   root: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minWidth: 0,
     width: "100%",
   },
   // Narrow-control affordance: the provider is unavailable, so the row wears a
   // 1px danger status ring (emphasis, not keyboard focus).
   rootUnavailable: {
-    borderRadius: vars.radiusMark,
-    boxShadow: `0 0 0 ${vars.borderWidthHairline} ${vars.colorDangerBorder}`,
+    borderRadius: vars["--ads-radius-mark"],
+    boxShadow: `0 0 0 ${vars["--ads-border-width-hairline"]} ${vars["--ads-color-danger-border"]}`,
   },
   trigger: {
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars["--ads-font-size-caption"],
     height: 32,
   },
   providerTriggerWidth: {
@@ -30,22 +30,22 @@ export const providerModelPickerStyles = stylex.create({
     width: "100%",
   },
   item: {
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars["--ads-font-size-caption"],
   },
   itemInner: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   modelItemInner: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minWidth: 0,
   },
   icon: {
-    height: vars.controlIconSizeSm,
-    width: vars.controlIconSizeSm,
+    height: vars["--ads-control-icon-size-sm"],
+    width: vars["--ads-control-icon-size-sm"],
   },
   modelName: {
     overflow: "hidden",

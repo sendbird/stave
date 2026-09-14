@@ -7,22 +7,22 @@ export const taskPresetEditorStyles = stylex.create({
   form: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
   },
   field: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   label: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   option: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minWidth: 0,
   },
   optionIcon: {
@@ -37,8 +37,8 @@ export const taskPresetEditorStyles = stylex.create({
   actions: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     justifyContent: "flex-end",
-    paddingBlockStart: vars.space4,
+    paddingBlockStart: vars["--ads-space-4"],
   },
 });

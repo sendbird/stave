@@ -12,8 +12,13 @@ import {
 } from "../headless/accordion";
 import { focusRing } from "../recipes/focus-ring";
 import { transition } from "../recipes/transition";
+import {
+  themeProps,
+  themeSlotProps,
+  themeTargetClassName,
+} from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { usePanelMount, type PanelMount } from "./Collapsible.panel-mount";
 import { mergeClassName } from "./merge-class-name";
 
@@ -23,49 +28,67 @@ import { mergeClassName } from "./merge-class-name";
 
 export type AccordionRootCompoundProps = React.ComponentProps<
   typeof AccordionRoot
->;
+> &
+  XstyleProp;
 
-function Root({ className, ...props }: AccordionRootCompoundProps) {
+function Root({ className, xstyle, ...props }: AccordionRootCompoundProps) {
+  const theme = themeProps("accordion");
   return (
     <AccordionRoot
       {...props}
-      className={mergeClassName(() => sx(styles.root), className)}
+      {...theme}
+      className={mergeClassName(
+        () => cx(sx(styles.root, xstyle), theme.className) ?? "",
+        className,
+      )}
     />
   );
 }
 
-export type AccordionItemProps = React.ComponentProps<typeof AccordionItem>;
+export type AccordionItemProps = React.ComponentProps<typeof AccordionItem> &
+  XstyleProp;
 
-function Item({ className, ...props }: AccordionItemProps) {
+function Item({ className, xstyle, ...props }: AccordionItemProps) {
   return (
     <AccordionItem
       {...props}
-      className={mergeClassName(() => sx(styles.item), className)}
+      {...themeSlotProps("accordion", "item")}
+      className={mergeClassName(() => sx(styles.item, xstyle), className)}
     />
   );
 }
 
-export type AccordionHeaderProps = React.ComponentProps<typeof AccordionHeader>;
+export type AccordionHeaderProps = React.ComponentProps<
+  typeof AccordionHeader
+> &
+  XstyleProp;
 
-function Header({ className, ...props }: AccordionHeaderProps) {
+function Header({ className, xstyle, ...props }: AccordionHeaderProps) {
   return (
     <AccordionHeader
       {...props}
-      className={mergeClassName(() => sx(styles.header), className)}
+      {...themeSlotProps("accordion", "header")}
+      className={mergeClassName(() => sx(styles.header, xstyle), className)}
     />
   );
 }
 
 export type AccordionTriggerProps = React.ComponentProps<
   typeof AccordionTrigger
->;
+> &
+  XstyleProp;
 
 /**
  * Renders the clickable header button. Passes Base UI's `render` prop straight
  * through, so callers can render the trigger *as* their own element. When no
  * children are supplied the default chevron affordance is rendered.
  */
-function Trigger({ children, className, ...props }: AccordionTriggerProps) {
+function Trigger({
+  children,
+  className,
+  xstyle,
+  ...props
+}: AccordionTriggerProps) {
   return (
     <AccordionTrigger
       {...props}
@@ -78,8 +101,10 @@ function Trigger({ children, className, ...props }: AccordionTriggerProps) {
               transition.motionDurationNormal,
               focusRing.ring,
               state.disabled && styles.disabled,
+              xstyle,
             ),
             "atelier-accordion-trigger",
+            themeTargetClassName("accordion-trigger"),
           ) ?? "",
         className,
       )}
@@ -101,13 +126,14 @@ export type AccordionPanelProps = React.ComponentProps<
    * @default "eager"
    */
   mount?: PanelMount;
-};
+} & XstyleProp;
 
 function Panel({
   children,
   className,
   keepMounted,
   mount = "eager",
+  xstyle,
   ...props
 }: AccordionPanelProps) {
   const panelMount = usePanelMount(mount);
@@ -115,8 +141,9 @@ function Panel({
   return (
     <AccordionPanel
       {...props}
+      {...themeSlotProps("accordion", "panel")}
       className={mergeClassName(
-        () => cx(sx(styles.panel), "atelier-motion-collapse") ?? "",
+        () => cx(sx(styles.panel, xstyle), "atelier-motion-collapse") ?? "",
         className,
       )}
       keepMounted={keepMounted ?? panelMount.keepMounted}
@@ -153,13 +180,14 @@ export type AccordionProps = Omit<
   items: AccordionEntry[];
   /** Forwarded to every item's panel. @default "eager" */
   mount?: PanelMount;
-};
+} & XstyleProp;
 
 function AccordionArray({
   defaultValue,
   items,
   mount,
   value,
+  xstyle,
   ...props
 }: AccordionProps) {
   const fallbackDefaultValue =
@@ -167,6 +195,7 @@ function AccordionArray({
 
   return (
     <Root
+      xstyle={xstyle}
       {...props}
       defaultValue={value === undefined ? fallbackDefaultValue : undefined}
       value={value}
@@ -220,14 +249,14 @@ const styles = stylex.create({
   root: {
     boxSizing: "border-box",
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     inlineSize: "100%",
     maxInlineSize: "100%",
     minInlineSize: 0,
   },
   item: {
     backgroundColor: "transparent",
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     boxSizing: "border-box",
     display: "grid",
     inlineSize: "100%",
@@ -247,46 +276,46 @@ const styles = stylex.create({
     borderColor: "transparent",
     borderStyle: "solid",
     borderWidth: 0,
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     // Accordion is a reading sequence. A full-row wash makes every disclosure
     // look like another nested card, so hover changes the title ink while the
     // whole row remains the hit target. Press and focus still have their own
     // stronger feedback.
     color: {
-      default: vars.colorText,
-      ":active": vars.colorAccentHover,
+      default: vars["--ads-color-text"],
+      ":active": vars["--ads-color-accent-hover"],
       "@media (hover: hover) and (pointer: fine)": {
-        default: vars.colorText,
-        ":active": vars.colorAccentHover,
-        ":hover": vars.colorAccent,
+        default: vars["--ads-color-text"],
+        ":active": vars["--ads-color-accent-hover"],
+        ":hover": vars["--ads-color-accent"],
       },
     },
     cursor: "pointer",
     display: "grid",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     gridTemplateColumns: "minmax(0, 1fr) auto",
     inlineSize: "100%",
     justifyContent: "stretch",
     maxInlineSize: "100%",
     minBlockSize: {
-      default: vars.controlHeightLg,
-      "@media (pointer: coarse)": vars.controlHeightXl,
+      default: vars["--ads-control-height-lg"],
+      "@media (pointer: coarse)": vars["--ads-control-height-xl"],
     },
     minInlineSize: 0,
-    paddingBlock: vars.space8,
-    paddingInline: vars.space12,
+    paddingBlock: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-12"],
     textAlign: "start",
   },
   disabled: {
     cursor: "not-allowed",
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
   title: {
     display: "block",
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
     inlineSize: "100%",
-    lineHeight: vars.lineHeightNormal,
+    lineHeight: vars["--ads-line-height-normal"],
     maxInlineSize: "100%",
     minInlineSize: 0,
     overflowWrap: "anywhere",
@@ -294,26 +323,26 @@ const styles = stylex.create({
   // The rotation itself lives in `styles.css` (`[data-open]` descendant
   // selector); `transition.transform` supplies the timing at the call site.
   chevron: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     flexShrink: 0,
   },
   panel: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightRegular,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-regular"],
     inlineSize: "100%",
-    lineHeight: vars.lineHeightNormal,
+    lineHeight: vars["--ads-line-height-normal"],
     maxInlineSize: "100%",
     minInlineSize: 0,
   },
   panelInner: {
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     inlineSize: "100%",
     maxInlineSize: "100%",
     minInlineSize: 0,
-    paddingBlockEnd: vars.space12,
-    paddingBlockStart: vars.space4,
-    paddingInline: vars.space12,
+    paddingBlockEnd: vars["--ads-space-12"],
+    paddingBlockStart: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-12"],
   },
 });

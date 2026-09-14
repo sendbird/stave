@@ -7,7 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
-import { dialogStyles } from "@/components/ads/components/Dialog";
+import { overlaySurface } from "@/components/ads/recipes/overlay-surface";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { Button, Loader } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
@@ -78,7 +78,11 @@ export function ConfirmDialog(args: ConfirmDialogProps) {
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
-        className={sx(dialogStyles.surface, confirmDialogStyles.panel)}
+        className={sx(
+          overlaySurface.modal,
+          overlaySurface.modalRounded,
+          confirmDialogStyles.panel,
+        )}
         onMouseDown={(event) => event.stopPropagation()}
       >
         <form onSubmit={handleSubmit} onKeyDown={handleKeyDown}>

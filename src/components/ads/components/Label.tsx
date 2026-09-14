@@ -1,8 +1,9 @@
 import * as stylex from "@stylexjs/stylex";
 import type * as React from "react";
 
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 
 export type LabelProps = React.ComponentProps<"label"> & {
   /** Helper text under the label text. */
@@ -11,7 +12,7 @@ export type LabelProps = React.ComponentProps<"label"> & {
   disabled?: boolean;
   /** Show the required asterisk (visual only — set `required` on the control itself). */
   required?: boolean;
-};
+} & XstyleProp;
 
 /**
  * Form field label (baseline `Label` anatomy) with optional description and
@@ -25,13 +26,20 @@ export function Label({
   description,
   disabled = false,
   required = false,
+  xstyle,
   ...props
 }: LabelProps) {
+  const theme = themeProps("label");
   return (
     <label
       {...props}
+      {...theme}
       aria-disabled={disabled || undefined}
-      className={cx(sx(styles.root, disabled && styles.disabled), className)}
+      className={cx(
+        sx(styles.root, disabled && styles.disabled, xstyle),
+        theme.className,
+        className,
+      )}
     >
       <span className={sx(styles.row)}>
         <span className={sx(styles.text)}>{children}</span>
@@ -42,7 +50,12 @@ export function Label({
         ) : null}
       </span>
       {description ? (
-        <span className={sx(styles.description)}>{description}</span>
+        <span
+          {...themeSlotProps("label", "description")}
+          className={sx(styles.description)}
+        >
+          {description}
+        </span>
       ) : null}
     </label>
   );
@@ -50,37 +63,37 @@ export function Label({
 
 const styles = stylex.create({
   root: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
   row: {
     alignItems: "center",
     display: "inline-flex",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
   text: {
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightNormal,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-normal"],
     minInlineSize: 0,
     overflowWrap: "anywhere",
   },
   required: {
-    color: vars.colorDangerText,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-danger-text"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
   },
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     overflowWrap: "anywhere",
   },
   disabled: {
     cursor: "not-allowed",
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
 });

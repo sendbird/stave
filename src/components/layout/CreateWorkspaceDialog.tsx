@@ -9,7 +9,7 @@ import {
 } from "react";
 import { CreateWorkspaceBranchPicker } from "@/components/layout/CreateWorkspaceBranchPicker";
 import { resolveDefaultCreateWorkspaceBaseBranch } from "@/components/layout/CreateWorkspaceBranchPicker.utils";
-import { dialogStyles } from "@/components/ads/components/Dialog";
+import { overlaySurface } from "@/components/ads/recipes/overlay-surface";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { Badge, Button, Input, Textarea, toast } from "@/components/ui";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
@@ -328,7 +328,11 @@ export function CreateWorkspaceDialog({
       <section
         className={cx(
           "t-modal",
-          sx(dialogStyles.surface, createWorkspaceStyles.panel),
+          sx(
+            overlaySurface.modal,
+            overlaySurface.modalRounded,
+            createWorkspaceStyles.panel,
+          ),
         )}
         onMouseDown={(event) => event.stopPropagation()}
       >

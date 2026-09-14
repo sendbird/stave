@@ -15,8 +15,8 @@ export const toolRunStyles = stylex.create({
   row: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
-    minBlockSize: vars.controlHeightSm,
+    gap: vars["--ads-space-8"],
+    minBlockSize: vars["--ads-control-height-sm"],
   },
   summary: {
     alignItems: "center",
@@ -41,8 +41,8 @@ export const toolRunStyles = stylex.create({
       "@container (max-width: 22rem)": "wrap",
     },
     gap: {
-      default: `${vars.space4} ${vars.space8}`,
-      "@container (max-width: 22rem)": vars.space4,
+      default: `${vars["--ads-space-4"]} ${vars["--ads-space-8"]}`,
+      "@container (max-width: 22rem)": vars["--ads-space-4"],
     },
     minInlineSize: 0,
   },
@@ -55,7 +55,7 @@ export const toolRunStyles = stylex.create({
     // The title/status pair keeps its natural compact width but may not take
     // more than half the row: the command needs a real shrinking lane.
     flex: "0 1 auto",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     maxInlineSize: "50%",
     minInlineSize: 0,
   },
@@ -68,7 +68,7 @@ export const toolRunStyles = stylex.create({
   },
   disabled: {
     cursor: "not-allowed",
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
   title: {
     // Ink comes from `agentSurface.rowLabel`, composed before this key at the
@@ -77,9 +77,9 @@ export const toolRunStyles = stylex.create({
       default: "0 1 auto",
       "@container (max-width: 22rem)": "1 1 100%",
     },
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     // Zero, deliberately: the title yields rather than overflowing. A floor
     // here cannot be honoured inside `primary`'s 50% cap — a flex child whose
     // min-inline-size exceeds its parent's max-inline-size paints outside it,
@@ -109,10 +109,10 @@ export const toolRunStyles = stylex.create({
     alignItems: "center",
     display: "inline-flex",
     flexShrink: 0,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    gap: vars.space4,
-    lineHeight: vars.lineHeightTight,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--ads-space-4"],
+    lineHeight: vars["--ads-line-height-tight"],
     whiteSpace: "nowrap",
   },
   secondary: {
@@ -125,8 +125,8 @@ export const toolRunStyles = stylex.create({
     // which remain whole; only the narrow container arm below stacks.
     flex: "1 1 0",
     gap: {
-      default: vars.space8,
-      "@container (max-width: 22rem)": vars.space4,
+      default: vars["--ads-space-8"],
+      "@container (max-width: 22rem)": vars["--ads-space-4"],
     },
     marginInlineStart: {
       default: "auto",
@@ -140,7 +140,7 @@ export const toolRunStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   groupList: {
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   groupItem: {
     minInlineSize: 0,
@@ -150,34 +150,34 @@ export const toolRunStyles = stylex.create({
     minInlineSize: 0,
   },
   payload: {
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
   },
   wellOpen: {
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
   },
   wellDanger: {
-    backgroundColor: vars.colorDangerSoft,
+    backgroundColor: vars["--ads-color-danger-soft"],
   },
   section: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
-    padding: vars.space8,
+    padding: vars["--ads-space-8"],
   },
   sectionLabel: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
   },
   // Machine output keeps line breaks but may break long tokens before they
   // establish a min-content width wider than the disclosure owner.
   sectionContent: {
-    color: vars.colorText,
-    fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantLigatures: "none",
-    lineHeight: vars.lineHeightNormal,
+    lineHeight: vars["--ads-line-height-normal"],
     minInlineSize: 0,
     overflowWrap: "anywhere",
     whiteSpace: "pre-wrap",

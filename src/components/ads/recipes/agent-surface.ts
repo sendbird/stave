@@ -39,9 +39,9 @@ export const agentSurface = stylex.create({
    * because of its own padding and the rule above it, not because it is boxed.
    */
   row: {
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     boxSizing: "border-box",
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "grid",
     inlineSize: "100%",
     minInlineSize: 0,
@@ -49,15 +49,15 @@ export const agentSurface = stylex.create({
     // resolves to exactly `controlHeightSm` on both sides of the static /
     // interactive split, instead of the static arm running 3px taller because
     // it padded to its own content rather than to the shared control height.
-    minBlockSize: vars.controlHeightSm,
-    paddingBlock: vars.space4,
+    minBlockSize: vars["--ads-control-height-sm"],
+    paddingBlock: vars["--ads-space-4"],
     // Locked to `inlineDisclosure.trigger`'s inline padding. A transcript row
     // is static or interactive depending on whether it has a payload — the
     // same `ToolRun`, `Thinking` or notice renders as this row when there is
     // nothing to open and as that trigger when there is — so the two must
     // start their glyph in the same column. They did not, and a column of
     // rows stepped 4px in and out by nothing but the presence of output.
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   /**
    * Hover/press wash for an interactive `row`. Split from `row` so a static
@@ -66,11 +66,11 @@ export const agentSurface = stylex.create({
   rowInteractive: {
     backgroundColor: {
       default: "transparent",
-      ":active": vars.colorOverlayPressed,
+      ":active": vars["--ads-color-overlay-pressed"],
       "@media (hover: hover) and (pointer: fine)": {
         default: "transparent",
-        ":active": vars.colorOverlayPressed,
-        ":hover": vars.colorOverlayHover,
+        ":active": vars["--ads-color-overlay-pressed"],
+        ":hover": vars["--ads-color-overlay-hover"],
       },
     },
     cursor: "pointer",
@@ -90,9 +90,9 @@ export const agentSurface = stylex.create({
    * inside `rowGroup` — StyleX cannot address descendants.
    */
   rowGroupItem: {
-    borderBlockStartColor: vars.colorBorderSubtle,
+    borderBlockStartColor: vars["--ads-color-border-subtle"],
     borderBlockStartStyle: "solid",
-    borderBlockStartWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars["--ads-border-width-hairline"],
   },
   rowGroupItemFirst: {
     borderBlockStartWidth: 0,
@@ -104,17 +104,17 @@ export const agentSurface = stylex.create({
    * the decision in transcript flow without turning it into a tinted card.
    */
   decision: {
-    borderBlockStartColor: vars.colorBorderSubtle,
+    borderBlockStartColor: vars["--ads-color-border-subtle"],
     borderBlockStartStyle: "solid",
-    borderBlockStartWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars["--ads-border-width-hairline"],
     borderRadius: 0,
     boxSizing: "border-box",
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     inlineSize: "100%",
     minInlineSize: 0,
-    paddingBlock: vars.space12,
+    paddingBlock: vars["--ads-space-12"],
     paddingInline: 0,
   },
   /**
@@ -132,18 +132,18 @@ export const agentSurface = stylex.create({
    * "is a block card".
    */
   tile: {
-    backgroundColor: vars.colorSurfaceRaised,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusPanel,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     boxSizing: "border-box",
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     inlineSize: "100%",
     minInlineSize: 0,
-    padding: vars.space12,
+    padding: vars["--ads-space-12"],
   },
   /**
    * One bounded AI workspace. A panel may contain tabs, rows, and a footer, so
@@ -151,13 +151,13 @@ export const agentSurface = stylex.create({
    * directional dividers. No elevation: it is stationary, not pressable.
    */
   panel: {
-    backgroundColor: vars.colorSurfaceRaised,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusPanel,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     boxSizing: "border-box",
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "grid",
     inlineSize: "100%",
     minInlineSize: 0,
@@ -168,9 +168,9 @@ export const agentSurface = stylex.create({
    * so nesting one composite inside another adds zero concentric borders.
    */
   bare: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "grid",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     inlineSize: "100%",
     minInlineSize: 0,
   },
@@ -198,7 +198,7 @@ export const agentSurface = stylex.create({
    * step darker (body ink) so the container still outranks its contents.
    */
   rowLabel: {
-    color: `color-mix(in oklab, ${vars.colorText} 50%, ${vars.colorTextSubtle})`,
+    color: `color-mix(in oklab, ${vars["--ads-color-text"]} 50%, ${vars["--ads-color-text-subtle"]})`,
   },
   /**
    * Recessed content inside a row or decision boundary (arguments, output, a
@@ -206,13 +206,13 @@ export const agentSurface = stylex.create({
    * is nested".
    */
   well: {
-    backgroundColor: vars.colorCanvasSubtle,
-    borderRadius: vars.radiusControl,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    borderRadius: vars["--ads-radius-control"],
     boxSizing: "border-box",
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minInlineSize: 0,
-    padding: vars.space12,
+    padding: vars["--ads-space-12"],
   },
   /**
    * The **machine register**: a value the agent produced or measured, rather
@@ -237,11 +237,11 @@ export const agentSurface = stylex.create({
    * code block and undoes the split it exists to create.
    */
   meta: {
-    color: vars.colorTextSubtle,
-    fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text-subtle"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
-    lineHeight: vars.lineHeightTight,
+    lineHeight: vars["--ads-line-height-tight"],
     minInlineSize: 0,
   },
   /**
@@ -256,7 +256,7 @@ export const agentSurface = stylex.create({
   metaRow: {
     alignItems: "baseline",
     display: "flex",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     inlineSize: "100%",
     justifyContent: "space-between",
     minInlineSize: 0,
@@ -302,8 +302,8 @@ export const agentSurface = stylex.create({
    */
   indent: {
     display: "grid",
-    gap: vars.space8,
-    marginInlineStart: vars.space24,
+    gap: vars["--ads-space-8"],
+    marginInlineStart: vars["--ads-space-24"],
     minInlineSize: 0,
   },
   /**
@@ -319,15 +319,15 @@ export const agentSurface = stylex.create({
    * language rather than acting like a control.
    */
   bubble: {
-    backgroundColor: vars.colorCanvasSubtle,
-    borderRadius: vars.radiusPanel,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    borderRadius: vars["--ads-radius-panel"],
     boxSizing: "border-box",
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minInlineSize: 0,
-    paddingBlock: vars.space12,
-    paddingInline: vars.space16,
+    paddingBlock: vars["--ads-space-12"],
+    paddingInline: vars["--ads-space-16"],
   },
   /**
    * The transcript's reading measure.
@@ -355,9 +355,9 @@ export const agentSurface = stylex.create({
  * union.
  */
 export const agentStatusWord = stylex.create({
-  neutral: { color: vars.colorTextSubtle },
-  accent: { color: vars.colorAccent },
-  success: { color: vars.colorSuccess },
-  warning: { color: vars.colorWarning },
-  danger: { color: vars.colorDanger },
+  neutral: { color: vars["--ads-color-text-subtle"] },
+  accent: { color: vars["--ads-color-accent"] },
+  success: { color: vars["--ads-color-success"] },
+  warning: { color: vars["--ads-color-warning"] },
+  danger: { color: vars["--ads-color-danger"] },
 });

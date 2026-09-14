@@ -1,31 +1,31 @@
 import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 
-const accent10 = `color-mix(in oklch, ${vars.colorAccent} 10%, transparent)`;
+const accent10 = `color-mix(in oklch, ${vars["--ads-color-accent"]} 10%, transparent)`;
 
 export const modelSelectorStyles = stylex.create({
   root: { position: "relative" },
   trigger: {
     display: "inline-flex",
-    height: vars.controlHeight,
+    height: vars["--ads-control-height"],
     maxWidth: 240,
     alignItems: "center",
     justifyContent: "space-between",
     gap: "0.375rem",
-    borderRadius: vars.radiusMark,
-    borderWidth: vars.borderWidthHairline,
+    borderRadius: vars["--ads-radius-mark"],
+    borderWidth: vars["--ads-border-width-hairline"],
     borderStyle: "solid",
     borderColor: "transparent",
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
+      ":hover": vars["--ads-color-overlay-hover"],
     },
     paddingInline: "0.625rem",
-    fontSize: vars.fontSizeBody,
-    color: vars.colorText,
+    fontSize: vars["--ads-font-size-body"],
+    color: vars["--ads-color-text"],
   },
   triggerOpen: {
-    backgroundColor: `color-mix(in oklch, ${vars.colorOverlayHover} 100%, transparent)`,
+    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-overlay-hover"]} 100%, transparent)`,
   },
   triggerLead: {
     display: "flex",
@@ -34,15 +34,15 @@ export const modelSelectorStyles = stylex.create({
     gap: "0.375rem",
   },
   triggerIcon: {
-    width: vars.controlIconSizeSm,
-    height: vars.controlIconSizeSm,
+    width: vars["--ads-control-icon-size-sm"],
+    height: vars["--ads-control-icon-size-sm"],
     flexShrink: 0,
   },
   triggerAccentIcon: {
-    width: vars.controlIconSizeSm,
-    height: vars.controlIconSizeSm,
+    width: vars["--ads-control-icon-size-sm"],
+    height: vars["--ads-control-icon-size-sm"],
     flexShrink: 0,
-    color: vars.colorAccent,
+    color: vars["--ads-color-accent"],
   },
   triggerLabel: {
     overflow: "hidden",
@@ -50,9 +50,9 @@ export const modelSelectorStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   triggerChevron: {
-    width: vars.controlIconSizeSm,
-    height: vars.controlIconSizeSm,
-    color: vars.colorTextMuted,
+    width: vars["--ads-control-icon-size-sm"],
+    height: vars["--ads-control-icon-size-sm"],
+    color: vars["--ads-color-text-muted"],
   },
   /**
    * Flush surface. Passed as `xstyle` (never `className`) so `padding: 0`
@@ -68,7 +68,7 @@ export const modelSelectorStyles = stylex.create({
    */
   dialogContent: {
     overflow: "hidden",
-    borderRadius: vars.radiusPanel,
+    borderRadius: vars["--ads-radius-panel"],
     // `gap` goes with `padding`: the shim's `space24` track gap sat between the
     // screen-reader-only header row and the command frame, so a flush surface
     // that only zeroed `padding` still opened with a 24px band above the search
@@ -91,18 +91,18 @@ export const modelSelectorStyles = stylex.create({
   // row edge lines up with the group heading and the list padding.
   optionItem: {
     gap: "0.75rem",
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     paddingBlock: "0.625rem",
   },
   optionAccentIcon: {
-    width: vars.controlIconSizeMd,
-    height: vars.controlIconSizeMd,
+    width: vars["--ads-control-icon-size-md"],
+    height: vars["--ads-control-icon-size-md"],
     flexShrink: 0,
-    color: vars.colorAccent,
+    color: vars["--ads-color-accent"],
   },
   optionIcon: {
-    width: vars.controlIconSizeMd,
-    height: vars.controlIconSizeMd,
+    width: vars["--ads-control-icon-size-md"],
+    height: vars["--ads-control-icon-size-md"],
     flexShrink: 0,
   },
   optionBody: {
@@ -119,24 +119,24 @@ export const modelSelectorStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  optionLabel: { fontWeight: vars.fontWeightMedium },
+  optionLabel: { fontWeight: vars["--ads-font-weight-medium"] },
   optionDefaultBadge: {
     flexShrink: 0,
-    borderRadius: vars.radiusMark,
+    borderRadius: vars["--ads-radius-mark"],
     backgroundColor: accent10,
-    paddingInline: vars.space4,
+    paddingInline: vars["--ads-space-4"],
     paddingBlock: "1px",
-    fontSize: vars.fontSizeMicro,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
-    color: vars.colorAccent,
+    fontSize: vars["--ads-font-size-micro"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
+    color: vars["--ads-color-accent"],
   },
   optionDescription: {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
-    fontSize: vars.fontSizeCaption,
-    color: vars.colorTextMuted,
+    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--ads-color-text-muted"],
   },
   groupHeading: {
     display: "flex",
@@ -144,20 +144,20 @@ export const modelSelectorStyles = stylex.create({
     gap: "0.375rem",
   },
   groupHeadingIcon: {
-    width: vars.controlIconSizeSm,
-    height: vars.controlIconSizeSm,
+    width: vars["--ads-control-icon-size-sm"],
+    height: vars["--ads-control-icon-size-sm"],
   },
   effortRow: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space8,
-    borderTopWidth: vars.borderWidthHairline,
+    gap: vars["--ads-space-8"],
+    borderTopWidth: vars["--ads-border-width-hairline"],
     borderTopStyle: "solid",
-    borderTopColor: `color-mix(in oklch, ${vars.colorBorder} 70%, transparent)`,
-    paddingInline: vars.space12,
-    paddingBlock: vars.space12,
+    borderTopColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 70%, transparent)`,
+    paddingInline: vars["--ads-space-12"],
+    paddingBlock: vars["--ads-space-12"],
   },
-  effortLabel: { fontSize: vars.fontSizeCaption, color: vars.colorTextMuted },
+  effortLabel: { fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
   srOnly: {
     position: "absolute",
     width: 1,

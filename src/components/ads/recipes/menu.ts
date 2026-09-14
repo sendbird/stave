@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
+import { densityPad } from "../tokens/density.stylex";
 import { vars } from "../tokens/tokens.stylex";
 
 /**
@@ -30,23 +31,23 @@ import { vars } from "../tokens/tokens.stylex";
  */
 export const menu = stylex.create({
   positioner: {
-    zIndex: vars.zIndexDropdown,
+    zIndex: vars["--ads-z-index-dropdown"],
   },
   popup: {
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
     // Elevation communicates depth; the semantic hairline keeps a small
     // anchored surface legible when it overlaps a surface of similar lightness.
     // High contrast strengthens the same role instead of introducing another
     // popup-only edge token.
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusPanel,
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     // elevationOverlay = "transient popup anchored to a trigger" (tokens.stylex.ts
     // elevation policy). Correct for every menu surface: they are anchored,
     // not detached global surfaces (elevationModal).
-    boxShadow: vars.elevationOverlay,
-    color: vars.colorText,
+    boxShadow: vars["--ads-elevation-overlay"],
+    color: vars["--ads-color-text"],
     display: "grid",
     // Explicit `minmax(0, 1fr)` track, never the implicit `auto` one. An `auto`
     // track's max sizing function is intrinsic, so it sizes to its content's
@@ -62,7 +63,10 @@ export const menu = stylex.create({
     // Row-hosting popup → `space4` (see the padding rule above). Menu popups
     // are not scroll containers by default (`popupClamp` is opt-in), so the
     // gutter can stay on the popup itself.
-    padding: vars.space4,
+    padding: densityPad.xs,
+  },
+  popupCompact: {
+    padding: 0,
   },
   popupTransform: {
     transformOrigin: "var(--transform-origin)",
@@ -89,14 +93,14 @@ export const menu = stylex.create({
   trigger: {
     alignItems: "center",
     appearance: "none",
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     cursor: "pointer",
     display: "inline-flex",
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    gap: vars.space8,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--ads-space-8"],
     // A menu trigger is a BUTTON ("Actions ⌄"), not a field. Its label and
     // caret stay one centered cluster at content width — the menu-trigger
     // convention — and `fit-content` is the width contract every sibling
@@ -123,14 +127,14 @@ export const menu = stylex.create({
   // the 15px lg type step) so a Button and a menu trigger in one form row line
   // up on both axes.
   triggerSm: {
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   triggerMd: {
-    paddingInline: vars.space12,
+    paddingInline: vars["--ads-space-12"],
   },
   triggerLg: {
-    fontSize: vars.fontSizeLead,
-    paddingInline: vars.space16,
+    fontSize: vars["--ads-font-size-lead"],
+    paddingInline: vars["--ads-space-16"],
   },
   /**
    * Quiet/toolbar variant — colors come from `controlChrome.triggerQuiet`.
@@ -138,23 +142,27 @@ export const menu = stylex.create({
    * dense toolbar row, not in a form row aligned against Button.
    */
   triggerGhost: {
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   group: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
+  },
+  groupCompact: {
+    gap: 0,
   },
   groupLabel: {
-    color: vars.colorTextSubtle,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
+    color: vars["--ads-color-text-subtle"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
     // Tight label row (a group label conventionally runs sm; ours is xs + tight so
     // the label never reads taller than the 32px items beneath it).
-    lineHeight: vars.lineHeightTight,
-    paddingBlock: vars.space4,
-    paddingInline: vars.space8,
+    lineHeight: vars["--ads-line-height-tight"],
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
   },
   item: {
+    alignItems: "center",
     /*
      * `Menu.Item` documents a `render` passthrough, and the element a caller
      * renders into is routinely a real `<button>` (Base UI's `nativeButton`) —
@@ -176,42 +184,45 @@ export const menu = stylex.create({
      */
     appearance: "none",
     backgroundColor: "transparent",
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "none",
     borderWidth: 0,
-    // Buttons do not inherit the document face; `styles.css` states this for
-    // every control, and the recipe restates it so a row is correct even where
-    // that base layer is not loaded (a portalled popup in a host that imports
-    // recipes without the stylesheet).
-    fontFamily: "inherit",
-    margin: 0,
-    // The UA centres a button's label. A menu row's label is flush to the
-    // reading edge.
-    textAlign: "start",
-    alignItems: "center",
-    borderRadius: vars.radiusControl,
     // A native button is `inline-block` at content width and shrink-wraps its
     // label; every other row recipe that survives a button render states the
     // full-width contract explicitly (`select-styles.item`,
     // `agent-surface.row`). Grid parents already stretch it, so this only
     // matters for the popup shapes a caller composes by hand.
     boxSizing: "border-box",
+    color: vars["--ads-color-text"],
+    // Buttons do not inherit the document face; `styles.css` states this for
+    // every control, and the recipe restates it so a row is correct even where
+    // that base layer is not loaded (a portalled popup in a host that imports
+    // recipes without the stylesheet).
+    fontFamily: "inherit",
     inlineSize: "100%",
-    color: vars.colorText,
+    margin: 0,
+    // The UA centres a button's label. A menu row's label is flush to the
+    // reading edge.
+    textAlign: "start",
     // Flex row (icon? · label · trailing) instead of a grid with a hardcoded
     // first track: icon-less items must not carry a phantom left gutter.
     // Real leading icons opt into `itemIcon`; selection indicators are docked
     // at inline-end by `itemIndicator` and never affect the label's start edge.
     display: "flex",
-    fontSize: vars.fontSizeBody,
-    gap: vars.space8,
+    fontSize: vars["--ads-font-size-body"],
+    gap: vars["--ads-space-8"],
     // Fixed integer line box (`lineHeightControl`) so single-line rows center on
     // whole pixels inside the 32px item grid (1.35 → 18.9px reads subtly off)
     // without inheriting the :root 1.5 or clipping descenders.
-    lineHeight: vars.lineHeightControl,
-    minBlockSize: vars.menuItemHeight,
+    lineHeight: vars["--ads-line-height-control"],
+    minBlockSize: vars["--ads-menu-item-height"],
     minInlineSize: 0,
-    paddingBlock: vars.space4,
-    paddingInline: vars.space8,
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
+  },
+  itemCompact: {
+    minBlockSize: vars["--ads-control-height-xs"],
+    paddingBlock: 0,
   },
   itemPointer: {
     cursor: "pointer",
@@ -224,7 +235,7 @@ export const menu = stylex.create({
     // rest of the system uses. It painted `colorCanvasSubtle` — an opaque
     // Neutral100 — so a menu row lit up a different colour than a button, a
     // tree row or a sidebar item under the same pointer.
-    backgroundColor: vars.colorOverlayHover,
+    backgroundColor: vars["--ads-color-overlay-hover"],
   },
   /*
    * A checked row keeps a fill, not just the indicator at its inline-end. The
@@ -240,20 +251,20 @@ export const menu = stylex.create({
      * while, which meant the chosen row and a pointed-at row were the same
      * colour and the list read as having two active rows.
      */
-    color: vars.colorAccent,
+    color: vars["--ads-color-accent"],
   },
   itemDanger: {
-    color: vars.colorDangerText,
+    color: vars["--ads-color-danger-text"],
   },
   itemDisabled: {
     cursor: "not-allowed",
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
   // Checkable rows reserve space only at inline-end. The indicator is
   // absolutely docked so its position is stable regardless of where the
   // compound part appears among the item's children.
   itemCheckable: {
-    paddingInlineEnd: `calc(${vars.space8} + ${vars.controlIconSizeSm} + ${vars.space8})`,
+    paddingInlineEnd: `calc(${vars["--ads-space-8"]} + ${vars["--ads-control-icon-size-sm"]} + ${vars["--ads-space-8"]})`,
     position: "relative",
   },
   itemIcon: {
@@ -273,17 +284,17 @@ export const menu = stylex.create({
     // default 24 — pushed the slot open to 24 and the `> svg { 100% }` contract
     // held it there. The shell's own menus shipped both: 16 where a caller
     // passed a size, 24 where one forgot.
-    blockSize: vars.controlIconSizeMd,
-    inlineSize: vars.controlIconSizeMd,
+    blockSize: vars["--ads-control-icon-size-md"],
+    inlineSize: vars["--ads-control-icon-size-md"],
   },
   itemIndicator: {
     alignItems: "center",
-    blockSize: vars.controlIconSizeSm,
-    color: vars.colorTextMuted,
+    blockSize: vars["--ads-control-icon-size-sm"],
+    color: vars["--ads-color-text-muted"],
     display: "inline-flex",
     flexShrink: 0,
-    inlineSize: vars.controlIconSizeSm,
-    insetInlineEnd: vars.space8,
+    inlineSize: vars["--ads-control-icon-size-sm"],
+    insetInlineEnd: vars["--ads-space-8"],
     justifyContent: "center",
     position: "absolute",
   },
@@ -297,37 +308,40 @@ export const menu = stylex.create({
     flexGrow: 1,
     // Match the item's fixed integer line box — a 1.35 label inside a 20px row
     // lands on half-pixels and reads vertically off.
-    lineHeight: vars.lineHeightControl,
+    lineHeight: vars["--ads-line-height-control"],
     minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
   shortcut: {
-    color: vars.colorTextSubtle,
-    fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text-subtle"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
     marginInlineStart: "auto",
     whiteSpace: "nowrap",
   },
   // Trailing "current choice" check (DropdownMenu `selected`). Lives at the
   // item's inline end so icon-less choice groups keep flush-left labels.
   selectedIndicator: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     flexShrink: 0,
     marginInlineStart: "auto",
   },
   chevron: {
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
     flexShrink: 0,
     marginInlineStart: "auto",
   },
   separator: {
-    backgroundColor: vars.colorBorderSubtle,
-    blockSize: vars.borderWidthHairline,
-    marginBlock: vars.space4,
+    backgroundColor: vars["--ads-color-border-subtle"],
+    blockSize: vars["--ads-border-width-hairline"],
+    marginBlock: vars["--ads-space-4"],
+  },
+  separatorCompact: {
+    marginBlock: 0,
   },
   arrow: {
-    color: vars.colorSurfaceRaised,
+    color: vars["--ads-color-surface-raised"],
   },
 });

@@ -249,7 +249,7 @@ export const fieldAnatomy = stylex.create({
   field: {
     alignContent: "start",
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     inlineSize: "100%",
     minInlineSize: 0,
   },
@@ -259,29 +259,29 @@ const styles = stylex.create({
   // §5 weight roles: a field label is a label, not a title — medium.
   label: {
     alignItems: "center",
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "inline-flex",
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    gap: vars.space4,
-    lineHeight: vars.lineHeightNormal,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--ads-space-4"],
+    lineHeight: vars["--ads-line-height-normal"],
     minInlineSize: 0,
   },
   labelDisabled: {
     cursor: "not-allowed",
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
   required: {
-    color: vars.colorDangerText,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-danger-text"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
   },
   // Ragged-right prose under a full-width control: `pretty` keeps the last
   // line from collapsing to a single orphaned word.
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     textWrap: "pretty",
   },
   error: {
@@ -290,18 +290,18 @@ const styles = stylex.create({
     // `colorDangerText` stays where it must — badge and callout ink ON a danger
     // tint, where this value measures 3.99:1 against a 4.5 floor. On the form
     // surface it is 4.86:1.
-    color: vars.colorDanger,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-danger"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     textWrap: "pretty",
   },
   successMessage: {
     alignItems: "center",
-    color: vars.colorSuccessText,
+    color: vars["--ads-color-success-text"],
     display: "flex",
-    fontSize: vars.fontSizeCaption,
-    gap: vars.space4,
-    lineHeight: vars.lineHeightNormal,
+    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--ads-space-4"],
+    lineHeight: vars["--ads-line-height-normal"],
     textWrap: "pretty",
   },
   successIcon: {

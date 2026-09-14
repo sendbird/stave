@@ -11,15 +11,15 @@ import { focusRing } from "../recipes/focus-ring";
 import { touchTarget } from "../recipes/touch-target";
 import { transition } from "../recipes/transition";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { FieldMessages, fieldAnatomy, useFieldAnatomy } from "./field-anatomy";
 
 // Hover and pressed washes for this file's OPAQUE resting fills. A translucent
 // overlay cannot be painted onto one without dropping the fill itself, so the
 // same operand is applied the other way, at the same 6/12 weights. sRGB, not
 // oklab: an oklab mix is nearly invisible over a near-black fill.
-const raisedWashHover = `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars.colorMixInk} 6%)`;
-const raisedWashPressed = `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars.colorMixInk} 12%)`;
+const raisedWashHover = `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 6%)`;
+const raisedWashPressed = `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 12%)`;
 
 export type CheckboxProps = Omit<CheckboxRootProps, "className"> & {
   className?: string;
@@ -35,7 +35,7 @@ export type CheckboxProps = Omit<CheckboxRootProps, "className"> & {
    */
   error?: React.ReactNode;
   label?: React.ReactNode;
-};
+} & XstyleProp;
 
 export function Checkbox({
   className,
@@ -44,6 +44,7 @@ export function Checkbox({
   error,
   indeterminate,
   label,
+  xstyle,
   ...props
 }: CheckboxProps) {
   /*
@@ -82,6 +83,12 @@ export function Checkbox({
               !(state.checked || state.indeterminate) &&
               styles.invalid,
             state.disabled && styles.disabled,
+            // `xstyle` follows `className`'s routing exactly. In `controlOnly`
+            // mode the control IS the outer box the host sees, so host layout
+            // styles have to land here; otherwise the label row below is that
+            // box and takes them. Applying it to both would paint the same
+            // override twice on two nested boxes.
+            controlOnly ? xstyle : null,
           ),
           // In `controlOnly` mode there is no label wrapper to take the
           // caller's class, so the control is what it must land on.
@@ -152,6 +159,7 @@ export function Checkbox({
           styles.label,
           controlHeights.md,
           props.disabled && styles.labelDisabled,
+          xstyle,
         ),
         className,
       )}
@@ -218,14 +226,14 @@ const markDraw = stylex.keyframes({
 const styles = stylex.create({
   label: {
     alignItems: "center",
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     cursor: "pointer",
     display: "inline-flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   labelText: {
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
   },
   labelDisabled: {
     cursor: "not-allowed",
@@ -237,8 +245,8 @@ const styles = stylex.create({
    * gets for free from its flex row.
    */
   required: {
-    color: vars.colorDangerText,
-    marginInlineStart: vars.space4,
+    color: vars["--ads-color-danger-text"],
+    marginInlineStart: vars["--ads-space-4"],
   },
   /*
    * The row keeps its intrinsic width. A grid blockifies its `inline-flex` to
@@ -256,8 +264,8 @@ const styles = stylex.create({
    */
   messages: {
     display: "grid",
-    gap: vars.space4,
-    paddingInlineStart: `calc(20px + ${vars.space8})`,
+    gap: vars["--ads-space-4"],
+    paddingInlineStart: `calc(20px + ${vars["--ads-space-8"]})`,
   },
   /*
    * Resting/hover/press language. It is deliberately NOT
@@ -274,19 +282,19 @@ const styles = stylex.create({
   root: {
     alignItems: "center",
     backgroundColor: {
-      default: vars.colorSurfaceRaised,
+      default: vars["--ads-color-surface-raised"],
       ":hover": raisedWashHover,
       ":active": raisedWashPressed,
     },
     borderColor: {
-      default: vars.colorBorderStrong,
-      ":hover": vars.colorBorderFocus,
-      ":active": vars.colorBorderFocus,
+      default: vars["--ads-color-border-strong"],
+      ":hover": vars["--ads-color-border-focus"],
+      ":active": vars["--ads-color-border-focus"],
     },
-    borderRadius: vars.radiusMark,
+    borderRadius: vars["--ads-radius-mark"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorAccentText,
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-accent-text"],
     display: "inline-flex",
     flexShrink: 0,
     // 20px painted box, unchanged. The WCAG 2.5.8 touch minimum is served by
@@ -304,14 +312,14 @@ const styles = stylex.create({
   // box (the reason `Button`'s `danger` moves both).
   checked: {
     backgroundColor: {
-      default: vars.colorAccent,
-      ":hover": vars.colorAccentHover,
-      ":active": `color-mix(in srgb, ${vars.colorAccentHover}, ${vars.colorMixInk} 12%)`,
+      default: vars["--ads-color-accent"],
+      ":hover": vars["--ads-color-accent-hover"],
+      ":active": `color-mix(in srgb, ${vars["--ads-color-accent-hover"]}, ${vars["--ads-color-mix-ink"]} 12%)`,
     },
     borderColor: {
-      default: vars.colorAccent,
-      ":hover": vars.colorAccentHover,
-      ":active": `color-mix(in srgb, ${vars.colorAccentHover}, ${vars.colorMixInk} 12%)`,
+      default: vars["--ads-color-accent"],
+      ":hover": vars["--ads-color-accent-hover"],
+      ":active": `color-mix(in srgb, ${vars["--ads-color-accent-hover"]}, ${vars["--ads-color-mix-ink"]} 12%)`,
     },
   },
   /*
@@ -324,33 +332,33 @@ const styles = stylex.create({
    */
   invalid: {
     borderColor: {
-      default: vars.colorDangerBorder,
-      ":hover": vars.colorDangerHover,
-      ":active": vars.colorDangerHover,
+      default: vars["--ads-color-danger-border"],
+      ":hover": vars["--ads-color-danger-hover"],
+      ":active": vars["--ads-color-danger-hover"],
     },
   },
   disabled: {
     cursor: "not-allowed",
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
   indicator: {
     alignItems: "center",
     animationDuration: {
-      default: vars.motionDurationFast,
+      default: vars["--ads-motion-duration-fast"],
       "@media (prefers-reduced-motion: reduce)": "0ms",
     },
     animationName: markPop,
-    animationTimingFunction: vars.motionEaseExpressive,
+    animationTimingFunction: vars["--ads-motion-ease-expressive"],
     display: "inline-flex",
     justifyContent: "center",
   },
   mark: {
     animationDuration: {
-      default: vars.motionDurationQuick,
+      default: vars["--ads-motion-duration-quick"],
       "@media (prefers-reduced-motion: reduce)": "0ms",
     },
     animationName: markDraw,
-    animationTimingFunction: vars.motionEaseStandard,
+    animationTimingFunction: vars["--ads-motion-ease-standard"],
     strokeDasharray: "1",
     strokeDashoffset: "0",
   },

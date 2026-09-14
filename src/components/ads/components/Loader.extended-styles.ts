@@ -29,10 +29,10 @@ const persist = stylex.keyframes({
   "44%": { opacity: 1, transform: "translateY(1px)" },
 });
 const loopAnimation = {
-  animationDuration: vars.motionDurationLoop,
+  animationDuration: vars["--ads-motion-duration-loop"],
   animationFillMode: "both",
   animationIterationCount: "infinite",
-  animationTimingFunction: vars.motionEaseInOut,
+  animationTimingFunction: vars["--ads-motion-ease-in-out"],
 } as const;
 
 export const extendedLoaderStyles = stylex.create({
@@ -56,7 +56,7 @@ export const extendedLoaderStyles = stylex.create({
     },
     aspectRatio: "1",
     backgroundColor: "currentColor",
-    borderRadius: vars.radiusMark,
+    borderRadius: vars["--ads-radius-mark"],
     opacity: {
       default: null,
       "@media (prefers-reduced-motion: reduce)": 0.64,
@@ -73,7 +73,7 @@ export const extendedLoaderStyles = stylex.create({
     },
     backgroundColor: "currentColor",
     blockSize: "12%",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: "76%",
     insetInlineStart: "12%",
     opacity: {
@@ -93,7 +93,7 @@ export const extendedLoaderStyles = stylex.create({
   routeRail: {
     backgroundColor: "currentColor",
     blockSize: "8%",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: "72%",
     insetBlockStart: "46%",
     insetInlineStart: "14%",
@@ -104,9 +104,9 @@ export const extendedLoaderStyles = stylex.create({
     backgroundColor: "currentColor",
     blockSize: "22%",
     borderColor: "currentColor",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     borderStyle: "solid",
-    borderWidth: vars.ringWidthSm,
+    borderWidth: vars["--ads-ring-width-sm"],
     boxSizing: "border-box",
     inlineSize: "22%",
     insetBlockStart: "39%",
@@ -121,10 +121,10 @@ export const extendedLoaderStyles = stylex.create({
       default: route,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
-    animationTimingFunction: vars.motionEaseStandard,
+    animationTimingFunction: vars["--ads-motion-ease-standard"],
     backgroundColor: "currentColor",
     blockSize: "22%",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: "14%",
     insetBlockStart: "39%",
     insetInlineStart: "12%",
@@ -138,7 +138,7 @@ export const extendedLoaderStyles = stylex.create({
     },
     backgroundColor: "currentColor",
     blockSize: "24%",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: "24%",
     insetBlockStart: "38%",
     opacity: {
@@ -152,9 +152,9 @@ export const extendedLoaderStyles = stylex.create({
   handoff3: { insetInlineEnd: "8%" },
   visionFrame: {
     borderColor: "currentColor",
-    borderRadius: vars.radiusMark,
+    borderRadius: vars["--ads-radius-mark"],
     borderStyle: "solid",
-    borderWidth: vars.ringWidthSm,
+    borderWidth: vars["--ads-ring-width-sm"],
     insetBlock: "10%",
     insetInline: "10%",
     opacity: 0.3,
@@ -162,16 +162,16 @@ export const extendedLoaderStyles = stylex.create({
   },
   visionIris: {
     ...loopAnimation,
-    animationDuration: vars.motionDurationLoopSlow,
+    animationDuration: vars["--ads-motion-duration-loop-slow"],
     animationName: {
       default: vision,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
     borderBlockColor: "currentColor",
     borderInlineColor: "transparent",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     borderStyle: "solid",
-    borderWidth: vars.ringWidthMd,
+    borderWidth: vars["--ads-ring-width-md"],
     insetBlock: "24%",
     insetInline: "24%",
     position: "absolute",
@@ -179,7 +179,7 @@ export const extendedLoaderStyles = stylex.create({
   visionFocus: {
     backgroundColor: "currentColor",
     blockSize: "18%",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: "18%",
     insetBlockStart: "41%",
     insetInlineStart: "41%",
@@ -188,7 +188,7 @@ export const extendedLoaderStyles = stylex.create({
   exploreCenter: {
     backgroundColor: "currentColor",
     blockSize: "22%",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: "22%",
     insetBlockStart: "39%",
     insetInlineStart: "39%",
@@ -215,7 +215,7 @@ export const extendedLoaderStyles = stylex.create({
     },
     backgroundColor: "currentColor",
     blockSize: "20%",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: "20%",
     opacity: {
       default: null,
@@ -229,7 +229,7 @@ export const extendedLoaderStyles = stylex.create({
   syncRail: {
     backgroundColor: "currentColor",
     blockSize: "8%",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: "72%",
     insetInlineStart: "14%",
     opacity: 0.2,
@@ -245,7 +245,7 @@ export const extendedLoaderStyles = stylex.create({
     },
     backgroundColor: "currentColor",
     blockSize: "18%",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: "18%",
     insetInlineStart: "16%",
     position: "absolute",
@@ -257,9 +257,9 @@ export const extendedLoaderStyles = stylex.create({
   },
   verifyFrame: {
     borderColor: "currentColor",
-    borderRadius: vars.radiusMark,
+    borderRadius: vars["--ads-radius-mark"],
     borderStyle: "solid",
-    borderWidth: vars.ringWidthSm,
+    borderWidth: vars["--ads-ring-width-sm"],
     insetBlock: "20%",
     insetInline: "20%",
     opacity: 0.22,
@@ -273,7 +273,7 @@ export const extendedLoaderStyles = stylex.create({
     },
     backgroundColor: "currentColor",
     blockSize: "20%",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: "20%",
     opacity: {
       default: null,
@@ -293,7 +293,7 @@ export const extendedLoaderStyles = stylex.create({
     },
     backgroundColor: "currentColor",
     blockSize: "16%",
-    borderRadius: vars.radiusMark,
+    borderRadius: vars["--ads-radius-mark"],
     inlineSize: "72%",
     insetInlineStart: "14%",
     opacity: {

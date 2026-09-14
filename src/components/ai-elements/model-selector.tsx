@@ -206,10 +206,8 @@ export function ModelSelector(args: ModelSelectorProps) {
             <AdsButton
               layout="host"
               type="button"
-              className={cx(
-                sx(styles.trigger, open && styles.triggerOpen),
-                triggerClassName,
-              )}
+              className={triggerClassName}
+              xstyle={[styles.trigger, open && styles.triggerOpen]}
               disabled={disabled}
               aria-label={triggerAriaLabel}
               title="Open model selector (Alt+P). Use Alt+1..0 for mapped models."

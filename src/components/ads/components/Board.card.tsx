@@ -6,6 +6,7 @@ import { focusRing } from "../recipes/focus-ring";
 import { transition } from "../recipes/transition";
 import { springSmooth } from "../tokens/tokens.stylex";
 import { useClickSuppressionLatch } from "../utils/pointer-gesture";
+import { themeTargetClassName } from "../theming/theme-props";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { useBoardContext, type BoardContextValue } from "./Board.context";
 import { styles } from "./Board.styles";
@@ -152,6 +153,7 @@ export function BoardCard({
           focusRing.ring,
           xstyle,
         ),
+        themeTargetClassName("board-card"),
         className,
       )}
       data-board-card-id={id}

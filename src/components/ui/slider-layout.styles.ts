@@ -12,7 +12,7 @@ export const sliderLayout = stylex.create({
     width: { default: "100%", ':is([data-orientation="vertical"])': 28 },
     minHeight: { default: null, ':is([data-orientation="vertical"])': 160 },
     flexDirection: { default: "row", ':is([data-orientation="vertical"])': "column" },
-    opacity: { default: 1, ':is([data-disabled]):not([data-disabled="false"])': vars.opacityDisabled },
+    opacity: { default: 1, ':is([data-disabled]):not([data-disabled="false"])': vars["--ads-opacity-disabled"] },
   },
   track: {
     position: "relative", flexGrow: 1, userSelect: "none",

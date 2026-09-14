@@ -47,10 +47,10 @@ const parallel = stylex.keyframes({
 });
 
 const loopAnimation = {
-  animationDuration: vars.motionDurationLoop,
+  animationDuration: vars["--ads-motion-duration-loop"],
   animationFillMode: "both",
   animationIterationCount: "infinite",
-  animationTimingFunction: vars.motionEaseInOut,
+  animationTimingFunction: vars["--ads-motion-ease-in-out"],
 } as const;
 
 export const loaderMarkStyles = stylex.create({
@@ -62,7 +62,7 @@ export const loaderMarkStyles = stylex.create({
     overflow: "hidden",
   },
   spinner: {
-    animationDuration: vars.motionDurationLoop,
+    animationDuration: vars["--ads-motion-duration-loop"],
     animationIterationCount: "infinite",
     animationName: {
       default: spin,
@@ -77,20 +77,20 @@ export const loaderMarkStyles = stylex.create({
     overflow: "visible",
   },
   spinnerArc: {
-    animationDuration: vars.motionDurationLoop,
+    animationDuration: vars["--ads-motion-duration-loop"],
     animationIterationCount: "infinite",
     animationName: {
       default: spinnerDash,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
-    animationTimingFunction: vars.motionEaseInOut,
+    animationTimingFunction: vars["--ads-motion-ease-in-out"],
     fill: "none",
     stroke: "currentColor",
     // Dashboard's default spinner uses a 3px stroke at 24px. The matching ADS
     // ring token keeps that ratio as the SVG scales with every Loader size.
     strokeDasharray: "0.28 1.15",
     strokeLinecap: "round",
-    strokeWidth: vars.ringWidthMd,
+    strokeWidth: vars["--ads-ring-width-md"],
     transformOrigin: "center",
   },
   dots: { gap: 2 },
@@ -101,7 +101,7 @@ export const loaderMarkStyles = stylex.create({
       "@media (prefers-reduced-motion: reduce)": "none",
     },
     backgroundColor: "currentColor",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     opacity: {
       default: null,
       "@media (prefers-reduced-motion: reduce)": 0.64,
@@ -118,13 +118,13 @@ export const loaderMarkStyles = stylex.create({
   },
   matrixDot: {
     ...loopAnimation,
-    animationDuration: vars.motionDurationLoopSlow,
+    animationDuration: vars["--ads-motion-duration-loop-slow"],
     animationName: {
       default: matrixPulse,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
     backgroundColor: "currentColor",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     opacity: {
       default: null,
       "@media (prefers-reduced-motion: reduce)": 0.64,
@@ -138,7 +138,7 @@ export const loaderMarkStyles = stylex.create({
       "@media (prefers-reduced-motion: reduce)": "none",
     },
     backgroundColor: "currentColor",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     transformOrigin: "center",
   },
   steps: { gap: 1 },
@@ -149,7 +149,7 @@ export const loaderMarkStyles = stylex.create({
       "@media (prefers-reduced-motion: reduce)": "none",
     },
     backgroundColor: "currentColor",
-    borderRadius: vars.radiusMark,
+    borderRadius: vars["--ads-radius-mark"],
     opacity: {
       default: null,
       "@media (prefers-reduced-motion: reduce)": 0.64,
@@ -158,16 +158,16 @@ export const loaderMarkStyles = stylex.create({
   orbit: { position: "relative" },
   orbitRail: {
     borderColor: "currentColor",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     borderStyle: "solid",
-    borderWidth: vars.ringWidthSm,
+    borderWidth: vars["--ads-ring-width-sm"],
     insetBlock: "14%",
     insetInline: "14%",
     opacity: 0.2,
     position: "absolute",
   },
   orbitMotion: {
-    animationDuration: vars.motionDurationLoopSlow,
+    animationDuration: vars["--ads-motion-duration-loop-slow"],
     animationIterationCount: "infinite",
     animationName: {
       default: spin,
@@ -180,7 +180,7 @@ export const loaderMarkStyles = stylex.create({
   },
   orbitPoint: {
     backgroundColor: "currentColor",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     insetBlockStart: 0,
     insetInlineStart: "50%",
     position: "absolute",
@@ -194,23 +194,23 @@ export const loaderMarkStyles = stylex.create({
   orbitCore: {
     backgroundColor: "currentColor",
     blockSize: "20%",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: "20%",
     opacity: 0.8,
   },
   ripple: { position: "relative" },
   rippleRing: {
-    animationDuration: vars.motionDurationLoopSlow,
+    animationDuration: vars["--ads-motion-duration-loop-slow"],
     animationIterationCount: "infinite",
     animationName: {
       default: ripple,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
-    animationTimingFunction: vars.motionEaseStandard,
+    animationTimingFunction: vars["--ads-motion-ease-standard"],
     borderColor: "currentColor",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     borderStyle: "solid",
-    borderWidth: vars.ringWidthSm,
+    borderWidth: vars["--ads-ring-width-sm"],
     insetBlock: 1,
     insetInline: 1,
     position: "absolute",
@@ -226,7 +226,7 @@ export const loaderMarkStyles = stylex.create({
       "@media (prefers-reduced-motion: reduce)": "none",
     },
     backgroundColor: "currentColor",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     opacity: {
       default: null,
       "@media (prefers-reduced-motion: reduce)": 0.64,
@@ -240,23 +240,23 @@ export const loaderMarkStyles = stylex.create({
   scan: { position: "relative" },
   scanFrame: {
     borderColor: "currentColor",
-    borderRadius: vars.radiusMark,
+    borderRadius: vars["--ads-radius-mark"],
     borderStyle: "solid",
-    borderWidth: vars.ringWidthSm,
+    borderWidth: vars["--ads-ring-width-sm"],
     blockSize: "72%",
     inlineSize: "72%",
     opacity: 0.42,
   },
   scanBeam: {
-    animationDuration: vars.motionDurationLoopSlow,
+    animationDuration: vars["--ads-motion-duration-loop-slow"],
     animationIterationCount: "infinite",
     animationName: {
       default: scan,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
-    animationTimingFunction: vars.motionEaseInOut,
+    animationTimingFunction: vars["--ads-motion-ease-in-out"],
     backgroundColor: "currentColor",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: "58%",
     position: "absolute",
   },
@@ -268,22 +268,22 @@ export const loaderMarkStyles = stylex.create({
   parallelRail: {
     backgroundColor: "currentColor",
     blockSize: "100%",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: "100%",
     opacity: 0.24,
     position: "absolute",
   },
   parallelRunner: {
-    animationDuration: vars.motionDurationLoopSlow,
+    animationDuration: vars["--ads-motion-duration-loop-slow"],
     animationIterationCount: "infinite",
     animationName: {
       default: parallel,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
-    animationTimingFunction: vars.motionEaseInOut,
+    animationTimingFunction: vars["--ads-motion-ease-in-out"],
     backgroundColor: "currentColor",
     blockSize: "100%",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     inlineSize: "28%",
     position: "absolute",
   },

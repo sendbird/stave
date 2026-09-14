@@ -76,7 +76,6 @@ function InputGroupButton({
   return (
     <Button
       type={type}
-      data-size={size}
       variant={variant}
       className={cx(inputGroupButtonVariants({ size }), className)}
       {...props}

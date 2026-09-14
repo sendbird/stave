@@ -17,9 +17,24 @@ import {
 } from "../headless/drawer";
 import { controlIconSizes, controlSquares } from "../recipes/control-metrics";
 import { focusRing } from "../recipes/focus-ring";
+import {
+  type OverlayDensity,
+  overlayModalDensity,
+  overlaySurface,
+  overlayTitleGroupDensity,
+} from "../recipes/overlay-surface";
 import { surfaceChrome } from "../recipes/surface-chrome";
+import {
+  PortalProductThemeScope,
+  usePortalProductThemeProps,
+} from "../theming/ProductThemeProvider";
+import {
+  themeProps,
+  themeSlotProps,
+  themeTargetClassName,
+} from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { Button } from "./Button";
 
 export type DrawerSide = "bottom" | "left" | "right" | "top";
@@ -34,20 +49,26 @@ export type DrawerSide = "bottom" | "left" | "right" | "top";
  * and the other made its own fields wrap. The ramp below is not a new scale —
  * each step is a measure the system already stands on somewhere else.
  */
-export type DrawerSize = "sm" | "md" | "lg" | "full";
+export type DrawerWidth = "sm" | "md" | "lg" | "full";
+/** @deprecated Use `DrawerWidth`; `size` was a panel-measure axis. */
+export type DrawerSize = DrawerWidth;
 
 export type DrawerProps = Omit<DrawerRootProps, "children"> & {
   children: React.ReactNode;
   description?: React.ReactNode;
+  /** Internal surface air. @default "regular" */
+  density?: OverlayDensity;
   side?: DrawerSide;
+  /** @deprecated Use `width`. */
+  size?: DrawerSize;
+  title: React.ReactNode;
+  trigger: React.ReactNode;
   /**
    * Panel measure on the docked axis. `md` (420px) is the default and renders
    * exactly what every existing caller renders today. @default "md"
    */
-  size?: DrawerSize;
-  title: React.ReactNode;
-  trigger: React.ReactNode;
-};
+  width?: DrawerWidth;
+} & XstyleProp;
 
 const sideToSwipeDirection = {
   bottom: "down",
@@ -73,19 +94,27 @@ const sideToAxis = {
 export function Drawer({
   children,
   description,
+  density = "regular",
   side = "right",
-  size = "md",
+  size,
   title,
   trigger,
+  width = size ?? "md",
+  xstyle,
   ...props
 }: DrawerProps) {
-  // The side owns the cross axis and the seam border; the size owns the docked
+  // The side owns the cross axis and the seam border; width owns the docked
   // axis. Splitting them is what keeps the map at 4 sides + 4 sizes instead of
   // the 16 popup styles a single combined lookup would need.
   const sizeStyle =
     side === "left" || side === "right"
-      ? inlineSizeStyles[size]
-      : blockSizeStyles[size];
+      ? inlineSizeStyles[width]
+      : blockSizeStyles[width];
+  // Backdrop and popup portal out of the provider's subtree, so they carry the
+  // brand with them (see Dialog). `width` is the docked-measure axis Drawer
+  // spells `size` in the registry.
+  const portalTheme = usePortalProductThemeProps();
+  const theme = themeProps("drawer-popup", { density, size: width });
 
   return (
     <DrawerRoot {...props} swipeDirection={sideToSwipeDirection[side]}>
@@ -99,79 +128,104 @@ export function Drawer({
         }
       />
       <DrawerPortal>
-        <DrawerBackdrop
-          className={cx(sx(styles.backdrop), "atelier-motion-backdrop")}
-        />
-        <DrawerViewport className={sx(styles.viewport, viewportStyles[side])}>
-          <DrawerPopup
+        <PortalProductThemeScope>
+          <DrawerBackdrop
+            {...portalTheme}
             className={cx(
-              sx(styles.surface, styles.popup, popupSideStyles[side], sizeStyle),
-              "atelier-motion-drawer",
+              sx(overlaySurface.backdrop),
+              themeTargetClassName("drawer-backdrop"),
+              "atelier-motion-backdrop",
             )}
-            style={
-              {
-                "--atelier-drawer-axis-x": sideToAxis[side].x,
-                "--atelier-drawer-axis-y": sideToAxis[side].y,
-              } as React.CSSProperties
-            }
-          >
-            <DrawerContent className={sx(styles.content)}>
-              <div className={sx(styles.header)}>
-                <div className={sx(styles.titleGroup)}>
-                  <DrawerTitle className={sx(styles.title)}>
-                    {title}
-                  </DrawerTitle>
-                  {description ? (
-                    <DrawerDescription className={sx(styles.description)}>
-                      {description}
-                    </DrawerDescription>
-                  ) : null}
-                </div>
-                <DrawerClose
-                  className={sx(
-                    surfaceChrome.quietIconButton,
-                    controlSquares.sm,
-                    focusRing.ring,
-                  )}
-                  aria-label="Close"
-                  // Same close contract as Popover/Dialog: a 16px glyph in the
-                  // 32px quiet square, sized through the tokenized control-icon
-                  // custom property rather than a literal `size`.
-                  data-ads-control-icon-button="true"
-                  style={
-                    {
-                      "--ads-control-icon-size": controlIconSizes.md,
-                    } as React.CSSProperties
-                  }
+          />
+          <DrawerViewport className={sx(styles.viewport, viewportStyles[side])}>
+            <DrawerPopup
+              {...portalTheme}
+              {...theme}
+              className={cx(
+                sx(styles.popup, popupSideStyles[side], sizeStyle, xstyle),
+                sx(overlaySurface.modal, overlayModalDensity[density]),
+                theme.className,
+                "atelier-motion-drawer",
+              )}
+              style={
+                {
+                  "--atelier-drawer-axis-x": sideToAxis[side].x,
+                  "--atelier-drawer-axis-y": sideToAxis[side].y,
+                } as React.CSSProperties
+              }
+            >
+              <DrawerContent
+                {...themeSlotProps("drawer-popup", "content")}
+                className={sx(styles.content)}
+              >
+                <div
+                  {...themeSlotProps("drawer-popup", "header")}
+                  className={sx(styles.header)}
                 >
-                  <X aria-hidden />
-                </DrawerClose>
-              </div>
-              <div className={sx(styles.body, focusRing.gutter)}>
-                {children}
-              </div>
-            </DrawerContent>
-          </DrawerPopup>
-        </DrawerViewport>
+                  <div
+                    className={sx(
+                      styles.titleGroup,
+                      overlayTitleGroupDensity[density],
+                    )}
+                  >
+                    <DrawerTitle
+                      {...themeSlotProps("drawer-popup", "title")}
+                      className={sx(styles.title)}
+                    >
+                      {title}
+                    </DrawerTitle>
+                    {description ? (
+                      <DrawerDescription
+                        {...themeSlotProps("drawer-popup", "description")}
+                        className={sx(styles.description)}
+                      >
+                        {description}
+                      </DrawerDescription>
+                    ) : null}
+                  </div>
+                  <DrawerClose
+                    {...themeSlotProps("drawer-popup", "close")}
+                    className={sx(
+                      surfaceChrome.quietIconButton,
+                      controlSquares.sm,
+                      focusRing.ring,
+                    )}
+                    aria-label="Close"
+                    // Same close contract as Popover/Dialog: a 16px glyph in the
+                    // 32px quiet square, sized through the tokenized control-icon
+                    // custom property rather than a literal `size`.
+                    data-ads-control-icon-button="true"
+                    style={
+                      {
+                        "--ads-control-icon-size": controlIconSizes.md,
+                      } as React.CSSProperties
+                    }
+                  >
+                    <X aria-hidden />
+                  </DrawerClose>
+                </div>
+                <div
+                  {...themeSlotProps("drawer-popup", "body")}
+                  className={sx(styles.body, focusRing.gutter)}
+                >
+                  {children}
+                </div>
+              </DrawerContent>
+            </DrawerPopup>
+          </DrawerViewport>
+        </PortalProductThemeScope>
       </DrawerPortal>
     </DrawerRoot>
   );
 }
 
 const styles = stylex.create({
-  backdrop: {
-    backdropFilter: vars.motionBlurOverlay,
-    backgroundColor: vars.colorOverlay,
-    inset: 0,
-    position: "fixed",
-    zIndex: vars.zIndexOverlay,
-  },
   viewport: {
     alignItems: "stretch",
     display: "flex",
     inset: 0,
     position: "fixed",
-    zIndex: vars.zIndexModal,
+    zIndex: vars["--ads-z-index-modal"],
   },
   viewportRight: {
     justifyContent: "flex-end",
@@ -187,24 +241,17 @@ const styles = stylex.create({
     alignItems: "flex-end",
     justifyContent: "stretch",
   },
-  surface: {
-    backgroundColor: vars.colorSurfaceRaised,
+  popup: {
     // elevationModal — a Drawer is a detached global surface that owns the screen
     // (it ships with a backdrop and a focus trap), not a popup anchored to a
     // trigger. elevationOverlay put it in the dropdown band (tokens.stylex.ts
     // elevation policy).
-    boxShadow: vars.elevationModal,
-    color: vars.colorText,
-  },
-  popup: {
     display: "grid",
-    gap: vars.space20,
     // Single shrinkable row for `DrawerContent`. `1fr` is `minmax(auto, 1fr)`,
     // whose automatic minimum size is the content's — so a long drawer refused
     // to shrink and overflowed the panel instead of letting the body scroll.
     gridTemplateRows: "minmax(0, 1fr)",
     // Modal padding step (space20), matching Dialog/AlertDialog.
-    padding: vars.space20,
     position: "relative",
   },
   // The four side styles carry the seam border and the CROSS axis only. The
@@ -212,26 +259,26 @@ const styles = stylex.create({
   // same property and `size` cannot be silently overridden by `side`.
   popupRight: {
     blockSize: "100dvh",
-    borderInlineStartColor: vars.colorMediaEdge,
+    borderInlineStartColor: vars["--ads-color-media-edge"],
     borderInlineStartStyle: "solid",
-    borderInlineStartWidth: vars.borderWidthHairline,
+    borderInlineStartWidth: vars["--ads-border-width-hairline"],
   },
   popupLeft: {
     blockSize: "100dvh",
-    borderInlineEndColor: vars.colorMediaEdge,
+    borderInlineEndColor: vars["--ads-color-media-edge"],
     borderInlineEndStyle: "solid",
-    borderInlineEndWidth: vars.borderWidthHairline,
+    borderInlineEndWidth: vars["--ads-border-width-hairline"],
   },
   popupTop: {
-    borderBlockEndColor: vars.colorMediaEdge,
+    borderBlockEndColor: vars["--ads-color-media-edge"],
     borderBlockEndStyle: "solid",
-    borderBlockEndWidth: vars.borderWidthHairline,
+    borderBlockEndWidth: vars["--ads-border-width-hairline"],
     inlineSize: "100dvw",
   },
   popupBottom: {
-    borderBlockStartColor: vars.colorMediaEdge,
+    borderBlockStartColor: vars["--ads-color-media-edge"],
     borderBlockStartStyle: "solid",
-    borderBlockStartWidth: vars.borderWidthHairline,
+    borderBlockStartWidth: vars["--ads-border-width-hairline"],
     inlineSize: "100dvw",
   },
   // There is no width token family — the system names spacing, not panel
@@ -255,7 +302,7 @@ const styles = stylex.create({
   content: {
     blockSize: "100%",
     display: "grid",
-    gap: vars.space20,
+    gap: vars["--ads-space-20"],
     // Header stays put; the body row is the one that shrinks and scrolls (same
     // model as Popover). `minmax(0, …)` is required — see `popup` above.
     gridTemplateRows: "auto minmax(0, 1fr)",
@@ -264,24 +311,23 @@ const styles = stylex.create({
   header: {
     alignItems: "start",
     display: "flex",
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
     justifyContent: "space-between",
   },
   titleGroup: {
     display: "grid",
-    gap: vars.space8,
   },
   title: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeLead,
-    fontWeight: vars.fontWeightSemibold,
-    lineHeight: vars.lineHeightLead,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-lead"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    lineHeight: vars["--ads-line-height-lead"],
     margin: 0,
   },
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
   },
   // `focusRing.gutter` is composed at the call site: `popup` pays `space20`, but
@@ -290,7 +336,7 @@ const styles = stylex.create({
   body: {
     alignContent: "start",
     display: "grid",
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
     // Pair for the shrinkable row above: a grid item's automatic minimum size
     // would otherwise refuse to go below its content and defeat the scroll.
     minBlockSize: 0,
@@ -326,4 +372,7 @@ const blockSizeStyles = {
   sm: styles.blockSm,
 } as const;
 
+// Host modification: `../../ui/sheet` and `../../ui/drawer` compose Drawer's
+// canonical geometry keys for their compound APIs, so the style object stays
+// exported.
 export { styles as drawerStyles };

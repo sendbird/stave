@@ -4,7 +4,12 @@ import type * as React from "react";
 import { transition } from "../recipes/transition";
 import { densityPad } from "../tokens/density.stylex";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import {
+  themeProps,
+  themeSlotProps,
+  themeTargetClassName,
+} from "../theming/theme-props";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { useDirection } from "./DirectionProvider";
 
 export type TableDensity = "compact" | "regular";
@@ -12,13 +17,14 @@ export type TableDensity = "compact" | "regular";
 export type TableProps = Omit<React.ComponentProps<"div">, "children"> & {
   children: React.ReactNode;
   density?: TableDensity;
-};
+} & XstyleProp;
 
 export function Table({
   children,
   className,
   density = "regular",
   style,
+  xstyle,
   ...props
 }: TableProps) {
   // §8: both arms come from the fixed `densityPad*` scale. On `space2`/`space3`
@@ -29,10 +35,13 @@ export function Table({
       density === "compact" ? densityPad.sm : densityPad.md,
   } as React.CSSProperties;
 
+  const theme = themeProps("table", { density });
+
   return (
     <div
       {...props}
-      className={cx(sx(styles.frame), className)}
+      {...theme}
+      className={cx(sx(styles.frame, xstyle), theme.className, className)}
       style={{ ...densityStyle, ...style }}
     >
       <table className={sx(styles.table)}>{children}</table>
@@ -42,34 +51,48 @@ export function Table({
 
 export type TableHeaderProps = React.ComponentProps<"thead"> & {
   sticky?: boolean;
-};
+} & XstyleProp;
 
 export function TableHeader({
   className,
   sticky = false,
+  xstyle,
   ...props
 }: TableHeaderProps) {
   return (
     <thead
       {...props}
+      {...themeSlotProps("table", "header")}
       className={cx(
-        sx(styles.header, sticky && styles.headerSticky),
+        sx(styles.header, sticky && styles.headerSticky, xstyle),
         className,
       )}
     />
   );
 }
 
-export type TableBodyProps = React.ComponentProps<"tbody">;
+export type TableBodyProps = React.ComponentProps<"tbody"> & XstyleProp;
 
-export function TableBody({ className, ...props }: TableBodyProps) {
-  return <tbody {...props} className={cx(sx(styles.body), className)} />;
+export function TableBody({ className, xstyle, ...props }: TableBodyProps) {
+  return (
+    <tbody
+      {...props}
+      {...themeSlotProps("table", "body")}
+      className={cx(sx(styles.body, xstyle), className)}
+    />
+  );
 }
 
-export type TableFooterProps = React.ComponentProps<"tfoot">;
+export type TableFooterProps = React.ComponentProps<"tfoot"> & XstyleProp;
 
-export function TableFooter({ className, ...props }: TableFooterProps) {
-  return <tfoot {...props} className={cx(sx(styles.footer), className)} />;
+export function TableFooter({ className, xstyle, ...props }: TableFooterProps) {
+  return (
+    <tfoot
+      {...props}
+      {...themeSlotProps("table", "footer")}
+      className={cx(sx(styles.footer, xstyle), className)}
+    />
+  );
 }
 
 export type TableRowProps = React.ComponentProps<"tr"> & {
@@ -80,12 +103,13 @@ export type TableRowProps = React.ComponentProps<"tr"> & {
    * presentation; it does not model checkbox selection.
    */
   selected?: boolean;
-};
+} & XstyleProp;
 
 export function TableRow({
   className,
   current = false,
   selected = false,
+  xstyle,
   ...props
 }: TableRowProps) {
   const direction = useDirection();
@@ -104,7 +128,9 @@ export function TableRow({
           isCurrent && styles.rowCurrent,
           isCurrent &&
             (direction === "rtl" ? styles.rowCurrentRtl : styles.rowCurrentLtr),
+          xstyle,
         ),
+        themeTargetClassName("table-row"),
         className,
       )}
       data-current={isCurrent ? "true" : undefined}
@@ -115,17 +141,19 @@ export function TableRow({
 
 export type TableHeadProps = Omit<React.ComponentProps<"th">, "align"> & {
   align?: "start" | "center" | "end";
-};
+} & XstyleProp;
 
 export function TableHead({
   align = "start",
   className,
+  xstyle,
   ...props
 }: TableHeadProps) {
   return (
     <th
       {...props}
-      className={cx(sx(styles.headCell, alignStyles[align]), className)}
+      {...themeSlotProps("table", "head")}
+      className={cx(sx(styles.headCell, alignStyles[align], xstyle), className)}
       scope={props.scope ?? "col"}
     />
   );
@@ -133,34 +161,46 @@ export function TableHead({
 
 export type TableCellProps = Omit<React.ComponentProps<"td">, "align"> & {
   align?: "start" | "center" | "end";
-};
+} & XstyleProp;
 
 export function TableCell({
   align = "start",
   className,
+  xstyle,
   ...props
 }: TableCellProps) {
   return (
     <td
       {...props}
-      className={cx(sx(styles.cell, alignStyles[align]), className)}
+      {...themeSlotProps("table", "cell")}
+      className={cx(sx(styles.cell, alignStyles[align], xstyle), className)}
     />
   );
 }
 
-export type TableCaptionProps = React.ComponentProps<"caption">;
+export type TableCaptionProps = React.ComponentProps<"caption"> & XstyleProp;
 
-export function TableCaption({ className, ...props }: TableCaptionProps) {
-  return <caption {...props} className={cx(sx(styles.caption), className)} />;
+export function TableCaption({
+  className,
+  xstyle,
+  ...props
+}: TableCaptionProps) {
+  return (
+    <caption
+      {...props}
+      {...themeSlotProps("table", "caption")}
+      className={cx(sx(styles.caption, xstyle), className)}
+    />
+  );
 }
 
 const styles = stylex.create({
   frame: {
-    backgroundColor: vars.colorSurfaceRaised,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusPanel,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     // Flat by contract (§1.5 "Elevation is a lift, not a grouping cue"). The
     // shadow was here because "the bare hairline gave the frame no depth at all
     // on a dark canvas" — but in dark the surface step already does that work
@@ -168,42 +208,42 @@ const styles = stylex.create({
     // under a full-width table frame is the single largest instance of using
     // elevation to group. The sticky header keeps its `elevation1`: that one IS
     // a surface leaving its plane.
-    boxShadow: vars.elevationFlat,
+    boxShadow: vars["--ads-elevation-flat"],
     inlineSize: "100%",
     minInlineSize: 0,
     overflow: "auto",
   },
   table: {
     borderCollapse: "collapse",
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
     inlineSize: "100%",
     minInlineSize: 560,
   },
   header: {
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
   },
   headerSticky: {
-    boxShadow: vars.elevationRaised,
+    boxShadow: vars["--ads-elevation-raised"],
     insetBlockStart: 0,
     position: "sticky",
     // Above rows, below in-surface panels (PeekPanel at zIndexPanel).
-    zIndex: vars.zIndexSticky,
+    zIndex: vars["--ads-z-index-sticky"],
   },
   body: {
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
   },
   footer: {
-    backgroundColor: vars.colorCanvasSubtle,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
   },
   row: {
     backgroundColor: {
       default: "transparent",
-      ":active": vars.colorOverlayPressed,
+      ":active": vars["--ads-color-overlay-pressed"],
       "@media (hover: hover) and (pointer: fine)": {
         default: "transparent",
-        ":active": vars.colorOverlayPressed,
-        ":hover": vars.colorOverlayHover,
+        ":active": vars["--ads-color-overlay-pressed"],
+        ":hover": vars["--ads-color-overlay-hover"],
       },
     },
     // §1.3: the row rule lives on the `<tr>` so the last row in a section can
@@ -212,10 +252,10 @@ const styles = stylex.create({
     // `colorBorder` underline wins the collapsed-border conflict — a cell
     // border outranks a row border at equal width — so the header seam is
     // unaffected.
-    borderBlockEndColor: vars.colorBorderSubtle,
+    borderBlockEndColor: vars["--ads-color-border-subtle"],
     borderBlockEndStyle: "solid",
     borderBlockEndWidth: {
-      default: vars.borderWidthHairline,
+      default: vars["--ads-border-width-hairline"],
       ":last-child": 0,
     },
   },
@@ -226,54 +266,54 @@ const styles = stylex.create({
     // distinct from checkbox selection without changing text metrics. It
     // mirrors in RTL.
     backgroundColor: {
-      default: vars.colorSelectionFill,
-      ":active": vars.colorSelectionFill,
+      default: vars["--ads-color-selection-fill"],
+      ":active": vars["--ads-color-selection-fill"],
       "@media (hover: hover) and (pointer: fine)": {
-        default: vars.colorSelectionFill,
-        ":active": vars.colorSelectionFill,
-        ":hover": vars.colorSelectionFill,
+        default: vars["--ads-color-selection-fill"],
+        ":active": vars["--ads-color-selection-fill"],
+        ":hover": vars["--ads-color-selection-fill"],
       },
     },
   },
   rowCurrentLtr: {
-    boxShadow: `inset ${vars.ringWidthSm} 0 0 0 ${vars.colorBorderStrong}`,
+    boxShadow: `inset ${vars["--ads-ring-width-sm"]} 0 0 0 ${vars["--ads-color-border-strong"]}`,
   },
   rowCurrentRtl: {
-    boxShadow: `inset calc(-1 * ${vars.ringWidthSm}) 0 0 0 ${vars.colorBorderStrong}`,
+    boxShadow: `inset calc(-1 * ${vars["--ads-ring-width-sm"]}) 0 0 0 ${vars["--ads-color-border-strong"]}`,
   },
   headCell: {
     // §1.3: an in-surface divider, so the alpha hairline — the same token the
     // row rules use, and the same hairline runs through head and body rows.
     // §1.5 puts the header's hierarchy in `text.muted` + weight, not in a
     // heavier line.
-    borderBlockEndColor: vars.colorBorderSubtle,
+    borderBlockEndColor: vars["--ads-color-border-subtle"],
     borderBlockEndStyle: "solid",
-    borderBlockEndWidth: vars.borderWidthHairline,
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightSemibold,
-    lineHeight: vars.lineHeightTight,
+    borderBlockEndWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    lineHeight: vars["--ads-line-height-tight"],
     paddingBlock: "var(--atelier-table-cell-padding-block)",
-    paddingInline: vars.space12,
+    paddingInline: vars["--ads-space-12"],
     textAlign: "start",
     verticalAlign: "middle",
     whiteSpace: "nowrap",
   },
   cell: {
-    color: vars.colorText,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text"],
+    lineHeight: vars["--ads-line-height-normal"],
     minInlineSize: 0,
     paddingBlock: "var(--atelier-table-cell-padding-block)",
-    paddingInline: vars.space12,
+    paddingInline: vars["--ads-space-12"],
     verticalAlign: "middle",
   },
   caption: {
     captionSide: "bottom",
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
-    paddingBlock: vars.space12,
-    paddingInline: vars.space12,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    paddingBlock: vars["--ads-space-12"],
+    paddingInline: vars["--ads-space-12"],
     textAlign: "start",
   },
   alignStart: {

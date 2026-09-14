@@ -3891,7 +3891,7 @@ export function PromptInput(args: PromptInputProps) {
                         onClick={() =>
                           onRemovePromptBatchItem?.({ itemId: item.id })
                         }
-                        className={sx(promptInputStyles.chipRemove)}
+                        xstyle={promptInputStyles.chipRemove}
                         aria-label={`Remove comment ${index + 1}`}
                       >
                         <X className={sx(promptInputStyles.icon3)} />
@@ -3919,7 +3919,7 @@ export function PromptInput(args: PromptInputProps) {
                                         attachment.displayContent ??
                                         attachment.content
                                       }
-                                      className={sx(promptInputStyles.lensChipTrigger)}
+                                      xstyle={promptInputStyles.lensChipTrigger}
                                     />
                                   }
                                 />
@@ -3964,7 +3964,7 @@ export function PromptInput(args: PromptInputProps) {
                               ),
                             })
                           }
-                          className={sx(promptInputStyles.lensChipRemove)}
+                          xstyle={promptInputStyles.lensChipRemove}
                           aria-label={`Remove ${attachment.label}`}
                         >
                           <X className={sx(promptInputStyles.icon3)} />
@@ -3995,7 +3995,7 @@ export function PromptInput(args: PromptInputProps) {
                         {screenshot ? (
                           <AdsButton layout="host"
                             type="button"
-                            className={sx(promptInputStyles.screenshotButton)}
+                            xstyle={promptInputStyles.screenshotButton}
                             title="View visual comment screenshot"
                             onClick={() =>
                               setImagePreviewSrc({
@@ -4020,7 +4020,7 @@ export function PromptInput(args: PromptInputProps) {
                                     <AdsButton layout="host"
                                       type="button"
                                       title={annotation.comment}
-                                      className={sx(promptInputStyles.annotationTextButton)}
+                                      xstyle={promptInputStyles.annotationTextButton}
                                     />
                                   }
                                 />
@@ -4190,7 +4190,7 @@ export function PromptInput(args: PromptInputProps) {
                     disabled={interactionsDisabled}
                     aria-label={`Preview attached image ${img.label}`}
                     title="View full size"
-                    className={sx(promptInputStyles.imagePreviewButton)}
+                    xstyle={promptInputStyles.imagePreviewButton}
                     onClick={() =>
                       setImagePreviewSrc({
                         dataUrl: img.dataUrl,

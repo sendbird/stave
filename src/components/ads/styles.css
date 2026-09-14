@@ -1,9 +1,24 @@
+/*
+ * A name-only `@layer` statement is the one at-rule the spec allows ahead of
+ * `@import`, so stating the order here settles it before an imported sheet can
+ * register a layer of its own. `src/globals.css` and the `#stave-style-layers`
+ * block in `index.html` restate the same order with the host's own `theme`,
+ * `components` and `utilities` layers around it.
+ *
+ * `ads` and `product` hold StyleX's atomic classes, one origin each — see
+ * `scripts/vite-ads-stylex.mjs`. `ads-theme` is the seam between them and
+ * ships empty: it exists so a brand recipe can outrank a component's own
+ * declaration while still losing to a style the product wrote at the call
+ * site. Do not write `!important` into it; `!important` inverts layer order
+ * and would put a brand above the product.
+ */
+@layer reset, base, ads, ads-theme, product;
+
 @import "./fonts.css";
 @import "./data-table-motion.css";
 @import "./sidebar-motion.css";
 @import "./overlay-motion.css";
 @import "./inline-disclosure-motion.css";
-@layer reset, base;
 
 /*
  * Corner geometry is published to a button as custom properties, and custom
@@ -56,34 +71,40 @@
   --atelier-motion-panel-distance: 12px;
   --atelier-motion-drawer-distance: 48px;
   --atelier-motion-drawer-close-distance: 24px;
-  --atelier-motion-tooltip-delay: 80ms;
   --atelier-motion-distance-small: 4px;
   --atelier-motion-distance-medium: 8px;
   --atelier-motion-scale-enter: 0.96;
 }
 
+/*
+ * Every selector below is wrapped in `:where()`, at specificity 0,0,0.
+ *
+ * This is NOT a defence against the layer order inverting — a layer is compared
+ * before specificity, so a reset above StyleX wins whatever its selector
+ * weighs, and `check:cascade-runtime` reports the same failures either way.
+ * What it buys is a defined answer when the contest is inside this layer:
+ * `public/src/index.css` puts `button, input { font: inherit }` here and today
+ * wins only by being parsed later. Applied uniformly, including to `*` where it
+ * was already zero — a per-rule judgement call is how the next rule added here
+ * gets it wrong. Full rationale: README “Cascade layers”.
+ */
 @layer reset {
-  *,
-  *::before,
-  *::after {
+  :where(*, *::before, *::after) {
     box-sizing: border-box;
   }
 
-  html {
+  :where(html) {
     min-inline-size: 320px;
     text-size-adjust: 100%;
   }
 
-  body {
+  :where(body) {
     margin: 0;
     min-block-size: 100vh;
     position: relative;
   }
 
-  button,
-  input,
-  textarea,
-  select {
+  :where(button, input, textarea, select) {
     font-family: inherit;
     /* Or the control takes the UA's own size — 13.33px for a Chrome button. */
     font-size: inherit;
@@ -92,32 +113,19 @@
   /*
    * The UA gives every block text element a `margin-block` in `em`, so its size
    * changes with the font size of the element it lands on: a `p` at Caption
-   * contributes 12px above and below, an `h1` 16.08px. Spacing in this system is
-   * owned by the container (`gap`, `padding`), which means that margin is always
-   * unwanted and never token-sized — and it is why nearly every component here
-   * had to state `margin: 0` on its own title and description. One row of a
-   * settings list rendered 49px between a name and its meta line because two of
-   * those margins survived next to a `space4` gap.
+   * contributes 12px above and below, an `h1` 16.08px. Spacing here is owned by
+   * the container (`gap`, `padding`), so that margin is always unwanted and
+   * never token-sized — which is why nearly every component had to state
+   * `margin: 0` itself. One settings row rendered 49px between a name and its
+   * meta line because two of those margins survived next to a `space4` gap.
    *
-   * `@layer reset` is the lowest-priority layer in the published order, below
-   * every StyleX `priority*` layer, so any margin a component or a host actually
-   * authors — long-form prose, a markdown renderer restating paragraph rhythm —
-   * still wins without needing `!important` or a higher-specificity selector.
+   * `@layer reset` is the weakest layer, below every StyleX `priority*` layer,
+   * so a margin a component or host authors still wins. That order is not
+   * automatic — layers sort by first appearance, and Vite's dev server emitted
+   * StyleX first, inverting it. `scripts/vite-cascade-layers.mjs` publishes the
+   * statement atop this file ahead of both sheets; README “Cascade layers”.
    */
-  blockquote,
-  dd,
-  dl,
-  figure,
-  h1,
-  h2,
-  h3,
-  h4,
-  h5,
-  h6,
-  ol,
-  p,
-  pre,
-  ul {
+  :where(blockquote, dd, dl, figure, h1, h2, h3, h4, h5, h6, ol, p, pre, ul) {
     margin: 0;
   }
 
@@ -134,7 +142,7 @@
    *
    * A form that wants a visible group states it, like any other surface.
    */
-  fieldset {
+  :where(fieldset) {
     border-style: solid;
     border-width: 0;
     margin: 0;
@@ -142,24 +150,27 @@
     padding: 0;
   }
 
-  legend {
+  :where(legend) {
     padding: 0;
   }
 
   /*
    * A list is this system's default structure for a set of rows — a settings
    * list, a menu, a result set — and none of those want the UA's
-   * `padding-inline-start: 40px` or its markers. Left in, the indent is invisible
-   * in the markup and shows up as rows that start 40px inside their own card:
-   * measured on a Settings model list, where every row's icon sat 40px past the
-   * section heading above it.
+   * `padding-inline-start: 40px` or its markers. Left in, the indent is
+   * invisible in the markup and shows up as rows that start 40px inside their
+   * own card: measured on a Settings model list, where every row's icon sat
+   * 40px past the section heading above it.
    *
-   * Prose is unaffected because prose states both halves itself. Both Markdown
-   * renderers here already declare `list-style-type` and their own indent, which
-   * is what a list that genuinely wants markers has to do.
+   * Dropping the marker with the indent is deliberate: a row list that kept
+   * `disc` would draw a bullet in the gutter it just gave up. Prose wants both
+   * halves back and cannot ask from StyleX — its `<ul>` is authored by the
+   * caller, so there is no class to hang a declaration on. The `@layer base`
+   * rule below matches it by container instead. (This comment used to claim
+   * prose was unaffected "because prose states both halves itself." No prose
+   * renderer here ever did, which is how the product lost every marker.)
    */
-  ol,
-  ul {
+  :where(ol, ul) {
     list-style: none;
     padding-inline-start: 0;
   }
@@ -301,377 +312,6 @@
   }
 }
 
-.atelier-delight-spinner {
-  --atelier-delight-cycle: var(--atelier-motion-duration-loop-brand);
-  color: currentColor;
-}
-
-.atelier-delight-spinner__logo {
-  block-size: 100%;
-  display: block;
-  inline-size: 100%;
-  position: relative;
-}
-
-.atelier-delight-spinner__arm {
-  animation-duration: var(--atelier-delight-cycle);
-  animation-iteration-count: infinite;
-  animation-timing-function: var(--atelier-motion-ease-standard);
-  fill: none;
-  opacity: 0;
-  stroke: currentColor;
-  stroke-dasharray: 0.12 1;
-  stroke-linecap: butt;
-  stroke-width: 4.4375;
-  transform: rotate(var(--atelier-delight-angle)) scale(0.96);
-  transform-box: view-box;
-  transform-origin: center;
-  will-change: opacity, stroke-dasharray, stroke-width, transform;
-}
-
-.atelier-delight-spinner__arm--top {
-  --atelier-delight-angle: 0deg;
-  animation-name: atelier-delight-spinner-arm-top;
-}
-
-.atelier-delight-spinner__arm--right {
-  --atelier-delight-angle: 90deg;
-  animation-name: atelier-delight-spinner-arm-right;
-}
-
-.atelier-delight-spinner__arm--lower-right {
-  --atelier-delight-angle: 135deg;
-  animation-name: atelier-delight-spinner-arm-lower-right;
-}
-
-.atelier-delight-spinner__arm--bottom {
-  --atelier-delight-angle: 180deg;
-  animation-name: atelier-delight-spinner-arm-bottom;
-}
-
-.atelier-delight-spinner__arm--lower-left {
-  --atelier-delight-angle: 225deg;
-  animation-name: atelier-delight-spinner-arm-lower-left;
-}
-
-.atelier-delight-spinner__arm--left {
-  --atelier-delight-angle: 270deg;
-  animation-name: atelier-delight-spinner-arm-left;
-}
-
-.atelier-delight-spinner__arm--upper-left {
-  --atelier-delight-angle: 315deg;
-  animation-name: atelier-delight-spinner-arm-upper-left;
-}
-
-.atelier-delight-spinner__dot {
-  animation: atelier-delight-spinner-dot-pulse
-    var(--atelier-motion-duration-loop-fast)
-    var(--atelier-motion-ease-expressive) infinite;
-  opacity: 0.46;
-  transform: scale(0.82);
-  transform-box: fill-box;
-  transform-origin: center;
-  will-change: opacity, transform;
-}
-
-@keyframes atelier-delight-spinner-arm-top {
-  0%,
-  3% {
-    opacity: 0;
-    stroke-dasharray: 0.12 1;
-    stroke-width: 3.65;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
-  }
-
-  12% {
-    opacity: 0.7;
-    stroke-dasharray: 0.58 1;
-    stroke-width: 4.28;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.99);
-  }
-
-  20%,
-  96% {
-    opacity: 1;
-    stroke-dasharray: 1 1;
-    stroke-width: 4.4375;
-    transform: rotate(var(--atelier-delight-angle)) scale(1);
-  }
-
-  98% {
-    opacity: 0.55;
-    stroke-dasharray: 0.48 1;
-    stroke-width: 4;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.98);
-  }
-
-  100% {
-    opacity: 0;
-    stroke-dasharray: 0.12 1;
-    stroke-width: 3.65;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
-  }
-}
-
-@keyframes atelier-delight-spinner-arm-right {
-  0%,
-  9% {
-    opacity: 0;
-    stroke-dasharray: 0.12 1;
-    stroke-width: 3.65;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
-  }
-
-  16% {
-    opacity: 0.72;
-    stroke-dasharray: 0.62 1;
-    stroke-width: 4.25;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.99);
-  }
-
-  22%,
-  92% {
-    opacity: 1;
-    stroke-dasharray: 1 1;
-    stroke-width: 4.4375;
-    transform: rotate(var(--atelier-delight-angle)) scale(1);
-  }
-
-  96% {
-    opacity: 0.55;
-    stroke-dasharray: 0.48 1;
-    stroke-width: 4;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.98);
-  }
-
-  99%,
-  100% {
-    opacity: 0;
-    stroke-dasharray: 0.12 1;
-    stroke-width: 3.65;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
-  }
-}
-
-@keyframes atelier-delight-spinner-arm-lower-right {
-  0%,
-  15% {
-    opacity: 0;
-    stroke-dasharray: 0.12 1;
-    stroke-width: 3.65;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
-  }
-
-  22% {
-    opacity: 0.72;
-    stroke-dasharray: 0.62 1;
-    stroke-width: 4.25;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.99);
-  }
-
-  28%,
-  88% {
-    opacity: 1;
-    stroke-dasharray: 1 1;
-    stroke-width: 4.4375;
-    transform: rotate(var(--atelier-delight-angle)) scale(1);
-  }
-
-  92% {
-    opacity: 0.55;
-    stroke-dasharray: 0.48 1;
-    stroke-width: 4;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.98);
-  }
-
-  96%,
-  100% {
-    opacity: 0;
-    stroke-dasharray: 0.12 1;
-    stroke-width: 3.65;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
-  }
-}
-
-@keyframes atelier-delight-spinner-arm-bottom {
-  0%,
-  21% {
-    opacity: 0;
-    stroke-dasharray: 0.12 1;
-    stroke-width: 3.65;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
-  }
-
-  28% {
-    opacity: 0.7;
-    stroke-dasharray: 0.62 1;
-    stroke-width: 4.22;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.99);
-  }
-
-  34%,
-  84% {
-    opacity: 1;
-    stroke-dasharray: 1 1;
-    stroke-width: 4.4375;
-    transform: rotate(var(--atelier-delight-angle)) scale(1);
-  }
-
-  88% {
-    opacity: 0.55;
-    stroke-dasharray: 0.48 1;
-    stroke-width: 4;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.98);
-  }
-
-  92%,
-  100% {
-    opacity: 0;
-    stroke-dasharray: 0.12 1;
-    stroke-width: 3.65;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
-  }
-}
-
-@keyframes atelier-delight-spinner-arm-lower-left {
-  0%,
-  27% {
-    opacity: 0;
-    stroke-dasharray: 0.12 1;
-    stroke-width: 3.65;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
-  }
-
-  34% {
-    opacity: 0.7;
-    stroke-dasharray: 0.62 1;
-    stroke-width: 4.22;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.99);
-  }
-
-  40%,
-  80% {
-    opacity: 1;
-    stroke-dasharray: 1 1;
-    stroke-width: 4.4375;
-    transform: rotate(var(--atelier-delight-angle)) scale(1);
-  }
-
-  84% {
-    opacity: 0.55;
-    stroke-dasharray: 0.48 1;
-    stroke-width: 4;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.98);
-  }
-
-  88%,
-  100% {
-    opacity: 0;
-    stroke-dasharray: 0.12 1;
-    stroke-width: 3.65;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
-  }
-}
-
-@keyframes atelier-delight-spinner-arm-left {
-  0%,
-  33% {
-    opacity: 0;
-    stroke-dasharray: 0.12 1;
-    stroke-width: 3.65;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
-  }
-
-  40% {
-    opacity: 0.68;
-    stroke-dasharray: 0.6 1;
-    stroke-width: 4.2;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.99);
-  }
-
-  46%,
-  76% {
-    opacity: 1;
-    stroke-dasharray: 1 1;
-    stroke-width: 4.4375;
-    transform: rotate(var(--atelier-delight-angle)) scale(1);
-  }
-
-  80% {
-    opacity: 0.55;
-    stroke-dasharray: 0.48 1;
-    stroke-width: 4;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.98);
-  }
-
-  84%,
-  100% {
-    opacity: 0;
-    stroke-dasharray: 0.12 1;
-    stroke-width: 3.65;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
-  }
-}
-
-@keyframes atelier-delight-spinner-arm-upper-left {
-  0%,
-  39% {
-    opacity: 0;
-    stroke-dasharray: 0.12 1;
-    stroke-width: 3.65;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
-  }
-
-  46% {
-    opacity: 0.72;
-    stroke-dasharray: 0.62 1;
-    stroke-width: 4.25;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.99);
-  }
-
-  52%,
-  72% {
-    opacity: 1;
-    stroke-dasharray: 1 1;
-    stroke-width: 4.4375;
-    transform: rotate(var(--atelier-delight-angle)) scale(1);
-  }
-
-  76% {
-    opacity: 0.55;
-    stroke-dasharray: 0.48 1;
-    stroke-width: 4;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.98);
-  }
-
-  80%,
-  100% {
-    opacity: 0;
-    stroke-dasharray: 0.12 1;
-    stroke-width: 3.65;
-    transform: rotate(var(--atelier-delight-angle)) scale(0.96);
-  }
-}
-
-@keyframes atelier-delight-spinner-dot-pulse {
-  0%,
-  100% {
-    opacity: 0.46;
-    transform: scale(0.82);
-  }
-
-  42% {
-    opacity: 1;
-    transform: scale(1.12);
-  }
-
-  68% {
-    opacity: 0.76;
-    transform: scale(0.96);
-  }
-}
-
 .atelier-accordion-trigger[data-open] .atelier-accordion-chevron {
   transform: rotate(180deg);
 }
@@ -687,20 +327,6 @@
 
   .atelier-icon-spinner {
     animation: none;
-  }
-
-  .atelier-delight-spinner__arm {
-    animation: none;
-    opacity: 1;
-    stroke-dasharray: 1 1;
-    stroke-width: 4.4375;
-    transform: rotate(var(--atelier-delight-angle)) scale(1);
-  }
-
-  .atelier-delight-spinner__dot {
-    animation: none;
-    opacity: 1;
-    transform: none;
   }
 
   .atelier-accordion-chevron,
@@ -727,7 +353,7 @@
       "Segoe UI",
       sans-serif;
     font-kerning: normal;
-    /* Style synthesis ON: no face ships an italic. design-direction.md §5. */
+    /* Style synthesis ON: Pretendard (Hangul fallback) ships no italic. design-direction.md §5. */
     font-synthesis: style;
     line-height: 1.428571;
     text-rendering: auto;
@@ -744,6 +370,27 @@
    */
   body {
     font-size: 0.875rem;
+  }
+
+  /*
+   * Prose list markers — the restoring half of the `ol, ul` reset. It lives
+   * here, not in a component, because the list is authored by the caller:
+   * `<Prose>` wraps markup it does not own, so reaching that `<ul>` needs a
+   * descendant selector StyleX cannot express. `base` is above `reset` and
+   * below every StyleX layer, which is the standing this rule wants. Opt in as
+   * a container (`[data-ads-prose]`, set by `Prose`; a
+   * `[contenteditable]` root, where what a person typed IS the prose) or per
+   * list (`data-ads-list="marked"` — `Stream`'s block, the App Guide's steps).
+   * `revert` rolls the shorthand back to the UA origin, so `ul` vs `ol` and the
+   * nesting cycle come free; `:not([role])` drops a widget list nested in
+   * prose. The gutter is `vars.space20` as a literal (StyleX hashes
+   * `defineVars` keys, as on `::selection`) and a surface overrides it with
+   * `paddingInlineStart`. See README “Prose lists”.
+   */
+  :is([data-ads-prose], [contenteditable="true"]) :is(ol, ul):not([role]),
+  [data-ads-list="marked"]:not([role]) {
+    list-style: revert;
+    padding-inline-start: 1.25rem;
   }
 
   /*
@@ -781,7 +428,8 @@
    * `scripts/check-selection.mjs`), a different role.
    *
    * A pseudo-element can only be reached from here by a stable custom-property
-   * name, because StyleX hashes a `defineVars` key. The pair was therefore a
+   * name, which a `defineVars` key did not have until token names became
+   * explicit (2026-09-09). The pair was therefore a
    * per-`data-theme` block of literals copied out of `theme-values.ts` — which
    * is correct only for the three themes it was written for. A host that maps
    * the token group onto its own palette (the supported extension point) got
@@ -866,11 +514,10 @@
     }
 
     /*
-     * Decorative-only graphics (the brand spinner, skeleton shimmer) should not
-     * be repainted with the forced palette — let them keep their own colors so
-     * they remain recognizable rather than turning into solid system blocks.
+     * Decorative-only graphics (skeleton shimmer) should not be repainted
+     * with the forced palette — let them keep their own colors so they
+     * remain recognizable rather than turning into solid system blocks.
      */
-    .atelier-delight-spinner,
     .atelier-motion-skeleton::after {
       forced-color-adjust: none;
     }

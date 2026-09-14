@@ -81,9 +81,9 @@ const halo = stylex.keyframes({
 });
 
 const loop = {
-  animationDuration: vars.motionDurationLoopSlow,
+  animationDuration: vars["--ads-motion-duration-loop-slow"],
   animationIterationCount: "infinite",
-  animationTimingFunction: vars.motionEaseInOut,
+  animationTimingFunction: vars["--ads-motion-ease-in-out"],
 } as const;
 const reduced = (name: string) => ({
   animationName: {
@@ -139,7 +139,7 @@ export const reasoningLoaderStyles = stylex.create({
     ...reduced(halo),
     backgroundColor: "currentColor",
     blockSize: "75%",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     gridArea: "1 / 1",
     inlineSize: "75%",
     opacity: 0.16,
@@ -149,7 +149,7 @@ export const reasoningLoaderStyles = stylex.create({
     ...reduced(orb),
     backgroundColor: "currentColor",
     blockSize: "46%",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     gridArea: "1 / 1",
     inlineSize: "46%",
     opacity: 0.95,

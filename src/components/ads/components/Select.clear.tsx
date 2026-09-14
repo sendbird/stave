@@ -106,20 +106,20 @@ const styles = stylex.create({
    * moment the quiet background paints on hover.
    */
   clearDense: {
-    inlineSize: `calc(${vars.controlHeightXs} - ${vars.space8})`,
-    minBlockSize: `calc(${vars.controlHeightXs} - ${vars.space8})`,
+    inlineSize: `calc(${vars["--ads-control-height-xs"]} - ${vars["--ads-space-8"]})`,
+    minBlockSize: `calc(${vars["--ads-control-height-xs"]} - ${vars["--ads-space-8"]})`,
   },
   clearCompact: {
-    inlineSize: `calc(${vars.controlHeightXs} - ${vars.space4})`,
-    minBlockSize: `calc(${vars.controlHeightXs} - ${vars.space4})`,
+    inlineSize: `calc(${vars["--ads-control-height-xs"]} - ${vars["--ads-space-4"]})`,
+    minBlockSize: `calc(${vars["--ads-control-height-xs"]} - ${vars["--ads-space-4"]})`,
   },
   clearRegular: {
-    inlineSize: vars.controlHeightXs,
-    minBlockSize: vars.controlHeightXs,
+    inlineSize: vars["--ads-control-height-xs"],
+    minBlockSize: vars["--ads-control-height-xs"],
   },
   clearLg: {
-    inlineSize: vars.controlHeightSm,
-    minBlockSize: vars.controlHeightSm,
+    inlineSize: vars["--ads-control-height-sm"],
+    minBlockSize: vars["--ads-control-height-sm"],
   },
   /*
    * Parked just inside the chevron: the trigger's own inline gutter, plus the
@@ -128,16 +128,16 @@ const styles = stylex.create({
    * these arms are keyed the same way rather than sharing one inset.
    */
   insetDense: {
-    insetInlineEnd: `calc(${densityPad.sm} + ${vars.controlIconSizeMd} + ${vars.space4})`,
+    insetInlineEnd: `calc(${densityPad.sm} + ${vars["--ads-control-icon-size-md"]} + ${vars["--ads-space-4"]})`,
   },
   insetCompact: {
-    insetInlineEnd: `calc(${densityPad.sm} + ${vars.controlIconSizeMd} + ${vars.space4})`,
+    insetInlineEnd: `calc(${densityPad.sm} + ${vars["--ads-control-icon-size-md"]} + ${vars["--ads-space-4"]})`,
   },
   insetRegular: {
-    insetInlineEnd: `calc(${densityPad.md} + ${vars.controlIconSizeMd} + ${vars.space4})`,
+    insetInlineEnd: `calc(${densityPad.md} + ${vars["--ads-control-icon-size-md"]} + ${vars["--ads-space-4"]})`,
   },
   insetLg: {
-    insetInlineEnd: `calc(${vars.space16} + ${vars.controlIconSizeMd} + ${vars.space4})`,
+    insetInlineEnd: `calc(${vars["--ads-space-16"]} + ${vars["--ads-control-icon-size-md"]} + ${vars["--ads-space-4"]})`,
   },
   /*
    * The trailing gutter `Value` takes while the mark is showing. It equals the
@@ -148,16 +148,16 @@ const styles = stylex.create({
    * selected still lays its placeholder out exactly like every other Select.
    */
   valueDense: {
-    paddingInlineEnd: `calc(${vars.controlHeightXs} - ${vars.space8})`,
+    paddingInlineEnd: `calc(${vars["--ads-control-height-xs"]} - ${vars["--ads-space-8"]})`,
   },
   valueCompact: {
-    paddingInlineEnd: `calc(${vars.controlHeightXs} - ${vars.space4})`,
+    paddingInlineEnd: `calc(${vars["--ads-control-height-xs"]} - ${vars["--ads-space-4"]})`,
   },
   valueRegular: {
-    paddingInlineEnd: vars.controlHeightXs,
+    paddingInlineEnd: vars["--ads-control-height-xs"],
   },
   valueLg: {
-    paddingInlineEnd: vars.controlHeightSm,
+    paddingInlineEnd: vars["--ads-control-height-sm"],
   },
 });
 

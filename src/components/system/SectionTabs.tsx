@@ -1,7 +1,6 @@
 import { Tabs } from "../ads/components/Tabs";
 import type { ReactNode } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { sx } from "../ads/utils/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
 
 export function SectionTabs({
@@ -40,7 +39,7 @@ export function SectionTabs({
       value={value}
       onValueChange={(v) => onValueChange(String(v))}
       size={size}
-      className={sx(fillHeight && styles.fillRoot)}
+      xstyle={fillHeight && styles.fillRoot}
     >
       <Tabs.List aria-label={label} xstyle={[styles.list, wrap && styles.wrapList]}>
         {items.map((item) => (
@@ -82,6 +81,6 @@ const styles = stylex.create({
    * in a set.
    */
   wrapList: { flexWrap: "wrap", overflowX: "visible", flexShrink: 0 },
-  panel: { paddingBlockStart: vars.space16, minInlineSize: 0, outline: "none" },
+  panel: { paddingBlockStart: vars["--ads-space-16"], minInlineSize: 0, outline: "none" },
   fillPanel: { minBlockSize: 0, overflowY: "auto", paddingBlockStart: 0 },
 });

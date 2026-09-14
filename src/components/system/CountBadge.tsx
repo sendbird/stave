@@ -44,17 +44,17 @@ export function CountBadge({
 const styles = stylex.create({
   root: {
     alignItems: "center",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     // A knockout ring, so the pill separates from the glyph it overlaps
     // instead of merging with it. Hairline in the page fill: both hosts (the
     // top bar and a pane toolbar) sit on canvas-family chrome, and a ring that
     // follows the ink instead would read as a second, heavier pill.
-    borderColor: vars.colorCanvas,
+    borderColor: vars["--ads-color-canvas"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     display: "inline-flex",
-    fontSize: vars.fontSizeMicro,
-    fontWeight: vars.fontWeightSemibold,
+    fontSize: vars["--ads-font-size-micro"],
+    fontWeight: vars["--ads-font-weight-semibold"],
     justifyContent: "center",
     // `1` and not a token: the pill is a single glyph row whose box is set by
     // the two metrics below, so any leading at all would push the digits off
@@ -64,11 +64,11 @@ const styles = stylex.create({
     // Not `inlineSize`: `99+` is wider than `9`, and the pill grows rather
     // than clipping. The 16px floor keeps a one-digit count circular.
     minInlineSize: 16,
-    paddingInline: vars.space4,
+    paddingInline: vars["--ads-space-4"],
   },
   accent: {
-    backgroundColor: vars.colorAccent,
-    color: vars.colorAccentText,
+    backgroundColor: vars["--ads-color-accent"],
+    color: vars["--ads-color-accent-text"],
   },
   // The soft pair, not `colorWarning` + `colorText`. ADS declares exactly one
   // foreground for a solid fill — `colorAccentText` on `colorAccent` — and
@@ -81,9 +81,9 @@ const styles = stylex.create({
   // warning-coloured ring keeps it reading as a deliberate amber mark rather
   // than a wash.
   warning: {
-    backgroundColor: vars.colorWarningSoft,
-    borderColor: vars.colorWarningBorder,
-    color: vars.colorWarningText,
+    backgroundColor: vars["--ads-color-warning-soft"],
+    borderColor: vars["--ads-color-warning-border"],
+    color: vars["--ads-color-warning-text"],
   },
   neutral: {
     // The one tone that states its own edge: a neutral fill has no contrast
@@ -92,9 +92,9 @@ const styles = stylex.create({
     // to `colorAccentSoft` in the default light theme — so on a selected,
     // accent-tinted host the pill's fill vanished into the control behind it
     // and only the hairline was left to say a pill was there.
-    backgroundColor: vars.colorCanvasSubtle,
-    borderColor: vars.colorBorder,
-    color: vars.colorTextMuted,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    borderColor: vars["--ads-color-border"],
+    color: vars["--ads-color-text-muted"],
   },
 });
 

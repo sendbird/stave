@@ -55,7 +55,7 @@ const sweepKeyframes = stylex.keyframes({
 
 /** The shared travel. Both arms below run at `durationLoop`, linear. */
 const travel = {
-  animationDuration: vars.motionDurationLoop,
+  animationDuration: vars["--ads-motion-duration-loop"],
   animationIterationCount: "infinite",
   animationName: {
     default: sweepKeyframes,
@@ -77,12 +77,12 @@ export const textShimmer = stylex.create({
       "@media (prefers-reduced-motion: reduce)": "border-box",
     },
     backgroundImage: {
-      default: `linear-gradient(90deg, ${vars.colorTextMuted} 38%, ${vars.colorText} 50%, ${vars.colorTextMuted} 62%)`,
+      default: `linear-gradient(90deg, ${vars["--ads-color-text-muted"]} 38%, ${vars["--ads-color-text"]} 50%, ${vars["--ads-color-text-muted"]} 62%)`,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
     color: {
       default: "transparent",
-      "@media (prefers-reduced-motion: reduce)": vars.colorTextMuted,
+      "@media (prefers-reduced-motion: reduce)": vars["--ads-color-text-muted"],
     },
     WebkitBackgroundClip: {
       default: "text",
@@ -92,7 +92,7 @@ export const textShimmer = stylex.create({
     // leaving it `transparent` under reduced motion hides the label outright.
     WebkitTextFillColor: {
       default: "transparent",
-      "@media (prefers-reduced-motion: reduce)": vars.colorTextMuted,
+      "@media (prefers-reduced-motion: reduce)": vars["--ads-color-text-muted"],
     },
   },
   /**
@@ -104,7 +104,7 @@ export const textShimmer = stylex.create({
   bar: {
     ...travel,
     backgroundImage: {
-      default: `linear-gradient(90deg, ${vars.colorCanvasSubtle} 38%, ${vars.colorBorderSubtle} 50%, ${vars.colorCanvasSubtle} 62%)`,
+      default: `linear-gradient(90deg, ${vars["--ads-color-canvas-subtle"]} 38%, ${vars["--ads-color-border-subtle"]} 50%, ${vars["--ads-color-canvas-subtle"]} 62%)`,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
   },

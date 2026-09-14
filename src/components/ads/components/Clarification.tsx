@@ -4,6 +4,7 @@ import * as React from "react";
 import { agentStatusWord, agentSurface } from "../recipes/agent-surface";
 import { focusRing } from "../recipes/focus-ring";
 import { transition } from "../recipes/transition";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { Button } from "./Button";
@@ -136,16 +137,20 @@ export function Clarification({
     action();
   };
 
+  const theme = themeProps("clarification");
+
   return (
     <section
       {...props}
+      {...theme}
       aria-busy={busy || undefined}
       aria-labelledby={titleId}
-      className={cx(sx(agentSurface.decision, xstyle), className)}
+      className={cx(sx(agentSurface.decision, xstyle), theme.className, className)}
       role="group"
     >
       <div className={sx(agentSurface.metaRow)}>
         <span
+          {...themeSlotProps("clarification", "title")}
           className={sx(agentSurface.metaRowLabel, styles.title)}
           id={titleId}
         >
@@ -162,6 +167,7 @@ export function Clarification({
           )}
           <span
             aria-describedby={audit ? auditId : undefined}
+            {...themeSlotProps("clarification", "status")}
             className={sx(
               styles.status,
               resolved ? resultTone[outcome.result] : agentStatusWord.warning,
@@ -179,7 +185,12 @@ export function Clarification({
         </span>
       </div>
       {description == null ? null : (
-        <p className={sx(styles.description)}>{description}</p>
+        <p
+          {...themeSlotProps("clarification", "description")}
+          className={sx(styles.description)}
+        >
+          {description}
+        </p>
       )}
       {resolved ? (
         audit ? (
@@ -268,55 +279,59 @@ function ClarificationAudit({
 
 const styles = stylex.create({
   title: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
   },
   headerMeta: {
     alignItems: "center",
     display: "inline-flex",
     flexShrink: 0,
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   status: {
-    borderRadius: vars.radiusMark,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    borderRadius: vars["--ads-radius-mark"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     whiteSpace: "nowrap",
   },
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
     overflowWrap: "anywhere",
   },
-  fields: { display: "grid", gap: vars.space12, minInlineSize: 0 },
-  interaction: { display: "grid", gap: vars.space12, minInlineSize: 0 },
+  fields: { display: "grid", gap: vars["--ads-space-12"], minInlineSize: 0 },
+  interaction: {
+    display: "grid",
+    gap: vars["--ads-space-12"],
+    minInlineSize: 0,
+  },
   actions: {
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
-  audit: { display: "grid", gap: vars.space8, minInlineSize: 0 },
-  answer: { gap: vars.space4 },
+  audit: { display: "grid", gap: vars["--ads-space-8"], minInlineSize: 0 },
+  answer: { gap: vars["--ads-space-4"] },
   answerLabel: {
-    color: vars.colorTextSubtle,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightTight,
+    color: vars["--ads-color-text-subtle"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-tight"],
   },
   answerCopy: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     overflowWrap: "anywhere",
   },
   by: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightTight,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-tight"],
   },
 });

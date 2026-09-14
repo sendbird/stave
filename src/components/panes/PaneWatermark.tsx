@@ -70,7 +70,7 @@ export function PaneWatermark(_props: IWatermarkPanelProps) {
 }
 
 const styles = stylex.create({
-root: {display:"flex",height:"100%",width:"100%",alignItems:"center",justifyContent:"center",backgroundColor:vars.colorCanvas},
+root: {display:"flex",height:"100%",width:"100%",alignItems:"center",justifyContent:"center",backgroundColor:vars["--ads-color-canvas"]},
 empty: {borderWidth:0,backgroundColor:"transparent"},
 actions: {display:"flex",alignItems:"center",gap:8},
 icon: {width:16,height:16}

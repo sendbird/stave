@@ -93,22 +93,22 @@ export const chainOfThoughtStyles = stylex.create({
    *   contents; at the rows' own ink the turn header read as one more row.
    */
   trigger: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     flexWrap: "wrap",
     fontSize: "0.875em",
-    rowGap: vars.space4,
+    rowGap: vars["--ads-space-4"],
   },
   streamingLabel: {
     display: "inline-flex",
     minWidth: 0,
     alignItems: "center",
     gap: "0.5em",
-    fontWeight: vars.fontWeightMedium,
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   completionLabel: {
     flexShrink: 0,
     whiteSpace: "nowrap",
-    fontWeight: vars.fontWeightMedium,
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   /* The machine register, from `agentSurface.meta` at the call site. */
   durationLabel: {
@@ -122,17 +122,17 @@ export const chainOfThoughtStyles = stylex.create({
     columnGap: "0.6em",
     whiteSpace: "nowrap",
     fontSize: "0.75em",
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
+    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 70%, transparent)`,
     animationName: { default: cotStepIn, [reduced]: "none" },
-    animationDuration: { default: vars.motionDurationNormal, [reduced]: "0ms" },
-    animationTimingFunction: vars.motionEaseStandard,
+    animationDuration: { default: vars["--ads-motion-duration-normal"], [reduced]: "0ms" },
+    animationTimingFunction: vars["--ads-motion-ease-standard"],
   },
   summaryItem: {
     display: "inline-flex",
     alignItems: "center",
     gap: "0.3em",
   },
-  summaryDivider: { color: vars.colorBorder },
+  summaryDivider: { color: vars["--ads-color-border"] },
   summaryItemIcon: {
     display: "inline-flex",
     alignItems: "center",
@@ -143,23 +143,23 @@ export const chainOfThoughtStyles = stylex.create({
    * trigger now carries block padding of its own, so the old `0.75em` read as
    * a gap between two unrelated blocks rather than a header and its panel.
    */
-  content: { marginTop: vars.space4 },
+  content: { marginTop: vars["--ads-space-4"] },
   contentLegacyMotion: {
     animationName: { default: cotContentIn, [reduced]: "none" },
     animationDuration: {
-      default: vars.motionDurationEmphasis,
+      default: vars["--ads-motion-duration-emphasis"],
       [reduced]: "0ms",
     },
-    animationTimingFunction: vars.motionEaseStandard,
+    animationTimingFunction: vars["--ads-motion-ease-standard"],
     transformOrigin: "top",
   },
   contentTraceMotion: {
     animationName: { default: traceReveal, [reduced]: "none" },
     animationDuration: {
-      default: vars.motionDurationEmphasis,
+      default: vars["--ads-motion-duration-emphasis"],
       [reduced]: "0ms",
     },
-    animationTimingFunction: vars.motionEaseExpressive,
+    animationTimingFunction: vars["--ads-motion-ease-expressive"],
     transformOrigin: "top",
   },
 
@@ -183,24 +183,24 @@ export const chainOfThoughtStyles = stylex.create({
   step: {
     fontSize: "0.875em",
   },
-  stepActive: { color: vars.colorText },
-  stepDone: { color: vars.colorTextMuted },
+  stepActive: { color: vars["--ads-color-text"] },
+  stepDone: { color: vars["--ads-color-text-muted"] },
   stepPending: {
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 50%, transparent)`,
+    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 50%, transparent)`,
   },
   stepMotionRowLegacy: {
     animationName: { default: cotStepIn, [reduced]: "none" },
-    animationDuration: { default: vars.motionDurationNormal, [reduced]: "0ms" },
-    animationTimingFunction: vars.motionEaseStandard,
+    animationDuration: { default: vars["--ads-motion-duration-normal"], [reduced]: "0ms" },
+    animationTimingFunction: vars["--ads-motion-ease-standard"],
     transformOrigin: "top",
   },
   stepMotionRowTrace: {
     animationName: { default: traceRowIn, [reduced]: "none" },
     animationDuration: {
-      default: vars.motionDurationEmphasis,
+      default: vars["--ads-motion-duration-emphasis"],
       [reduced]: "0ms",
     },
-    animationTimingFunction: vars.motionEaseExpressive,
+    animationTimingFunction: vars["--ads-motion-ease-expressive"],
     transformOrigin: "top",
   },
   contentColumn: {
@@ -214,43 +214,43 @@ export const chainOfThoughtStyles = stylex.create({
     display: "flex",
     alignItems: "center",
     gap: "0.35em",
-    minHeight: vars.controlHeightSm,
+    minHeight: vars["--ads-control-height-sm"],
     textAlign: "left",
   },
   disclosureChevron: {
     width: "0.85em",
     height: "0.85em",
     flexShrink: 0,
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 70%, transparent)`,
+    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 70%, transparent)`,
     transitionProperty: "transform",
     transitionDuration: {
-      default: vars.motionDurationQuick,
+      default: vars["--ads-motion-duration-quick"],
       [reduced]: "0ms",
     },
-    transitionTimingFunction: vars.motionEaseStandard,
+    transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
   disclosureChevronOpen: { transform: "rotate(180deg)" },
   staticRow: {
     display: "flex",
     alignItems: "center",
     gap: "0.35em",
-    minHeight: vars.controlHeightSm,
+    minHeight: vars["--ads-control-height-sm"],
   },
-  description: { marginTop: "0.25em", color: vars.colorTextMuted },
+  description: { marginTop: "0.25em", color: vars["--ads-color-text-muted"] },
   reveal: { marginTop: "0.5em" },
   revealMotionLegacy: {
     animationName: { default: cotStepIn, [reduced]: "none" },
-    animationDuration: { default: vars.motionDurationNormal, [reduced]: "0ms" },
-    animationTimingFunction: vars.motionEaseStandard,
+    animationDuration: { default: vars["--ads-motion-duration-normal"], [reduced]: "0ms" },
+    animationTimingFunction: vars["--ads-motion-ease-standard"],
     transformOrigin: "top",
   },
   revealMotionTrace: {
     animationName: { default: traceReveal, [reduced]: "none" },
     animationDuration: {
-      default: vars.motionDurationEmphasis,
+      default: vars["--ads-motion-duration-emphasis"],
       [reduced]: "0ms",
     },
-    animationTimingFunction: vars.motionEaseExpressive,
+    animationTimingFunction: vars["--ads-motion-ease-expressive"],
     transformOrigin: "top",
   },
 
@@ -265,27 +265,27 @@ export const chainOfThoughtStyles = stylex.create({
   bullet: {
     width: "0.35em",
     height: "0.35em",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
   },
-  bulletActive: { backgroundColor: vars.colorText },
+  bulletActive: { backgroundColor: vars["--ads-color-text"] },
   bulletIdle: {
-    backgroundColor: `color-mix(in oklch, ${vars.colorTextMuted} 50%, transparent)`,
+    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 50%, transparent)`,
   },
   iconChild: {
     display: "inline-flex",
   },
   iconThinking: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     animationName: { default: thinkingShimmer, [reduced]: "none" },
-    animationDuration: vars.motionDurationLoopSlow,
-    animationTimingFunction: vars.motionEaseInOut,
+    animationDuration: vars["--ads-motion-duration-loop-slow"],
+    animationTimingFunction: vars["--ads-motion-ease-in-out"],
     animationIterationCount: "infinite",
   },
-  iconAgent: { color: vars.colorText },
-  iconDone: { color: vars.colorTextMuted },
+  iconAgent: { color: vars["--ads-color-text"] },
+  iconDone: { color: vars["--ads-color-text-muted"] },
   iconPending: {
-    color: `color-mix(in oklch, ${vars.colorTextMuted} 50%, transparent)`,
+    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 50%, transparent)`,
   },
-  loaderColor: { color: vars.colorText },
+  loaderColor: { color: vars["--ads-color-text"] },
   statusIcon: { width: "1.15em", height: "1.15em" },
 });

@@ -7,32 +7,32 @@ import { vars } from "../ads/tokens/tokens.stylex";
  * slots rather than inventing per-folder hues. The badge fill is the same hue
  * mixed down to a wash, which is what the previous `/12` alpha meant.
  */
-const codeWash = `color-mix(in oklch, ${vars.chart1} 12%, transparent)`;
-const dataWash = `color-mix(in oklch, ${vars.chart7} 12%, transparent)`;
-const docsWash = `color-mix(in oklch, ${vars.chart9} 12%, transparent)`;
-const mediaWash = `color-mix(in oklch, ${vars.chart3} 12%, transparent)`;
-const testsWash = `color-mix(in oklch, ${vars.chart10} 12%, transparent)`;
-const scriptsWash = `color-mix(in oklch, ${vars.chart2} 12%, transparent)`;
-const securityWash = `color-mix(in oklch, ${vars.chart6} 12%, transparent)`;
-const configWash = `color-mix(in oklch, ${vars.colorTextMuted} 12%, transparent)`;
-const packagesWash = `color-mix(in oklch, ${vars.chart4} 12%, transparent)`;
-const stylesWash = `color-mix(in oklch, ${vars.chart11} 12%, transparent)`;
-const gitWash = `color-mix(in oklch, ${vars.chart13} 12%, transparent)`;
-const folderWash = `color-mix(in oklch, ${vars.chart5} 12%, transparent)`;
+const codeWash = `color-mix(in oklch, ${vars["--ads-chart-1"]} 12%, transparent)`;
+const dataWash = `color-mix(in oklch, ${vars["--ads-chart-7"]} 12%, transparent)`;
+const docsWash = `color-mix(in oklch, ${vars["--ads-chart-9"]} 12%, transparent)`;
+const mediaWash = `color-mix(in oklch, ${vars["--ads-chart-3"]} 12%, transparent)`;
+const testsWash = `color-mix(in oklch, ${vars["--ads-chart-10"]} 12%, transparent)`;
+const scriptsWash = `color-mix(in oklch, ${vars["--ads-chart-2"]} 12%, transparent)`;
+const securityWash = `color-mix(in oklch, ${vars["--ads-chart-6"]} 12%, transparent)`;
+const configWash = `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 12%, transparent)`;
+const packagesWash = `color-mix(in oklch, ${vars["--ads-chart-4"]} 12%, transparent)`;
+const stylesWash = `color-mix(in oklch, ${vars["--ads-chart-11"]} 12%, transparent)`;
+const gitWash = `color-mix(in oklch, ${vars["--ads-chart-13"]} 12%, transparent)`;
+const folderWash = `color-mix(in oklch, ${vars["--ads-chart-5"]} 12%, transparent)`;
 
 export const folderToneStyles = stylex.create({
-  code: { backgroundColor: codeWash, color: vars.chart1 },
-  data: { backgroundColor: dataWash, color: vars.chart7 },
-  docs: { backgroundColor: docsWash, color: vars.chart9 },
-  media: { backgroundColor: mediaWash, color: vars.chart3 },
-  tests: { backgroundColor: testsWash, color: vars.chart10 },
-  scripts: { backgroundColor: scriptsWash, color: vars.chart2 },
-  security: { backgroundColor: securityWash, color: vars.chart6 },
-  config: { backgroundColor: configWash, color: vars.colorTextMuted },
-  packages: { backgroundColor: packagesWash, color: vars.chart4 },
-  styles: { backgroundColor: stylesWash, color: vars.chart11 },
-  git: { backgroundColor: gitWash, color: vars.chart13 },
-  folder: { backgroundColor: folderWash, color: vars.chart5 },
+  code: { backgroundColor: codeWash, color: vars["--ads-chart-1"] },
+  data: { backgroundColor: dataWash, color: vars["--ads-chart-7"] },
+  docs: { backgroundColor: docsWash, color: vars["--ads-chart-9"] },
+  media: { backgroundColor: mediaWash, color: vars["--ads-chart-3"] },
+  tests: { backgroundColor: testsWash, color: vars["--ads-chart-10"] },
+  scripts: { backgroundColor: scriptsWash, color: vars["--ads-chart-2"] },
+  security: { backgroundColor: securityWash, color: vars["--ads-chart-6"] },
+  config: { backgroundColor: configWash, color: vars["--ads-color-text-muted"] },
+  packages: { backgroundColor: packagesWash, color: vars["--ads-chart-4"] },
+  styles: { backgroundColor: stylesWash, color: vars["--ads-chart-11"] },
+  git: { backgroundColor: gitWash, color: vars["--ads-chart-13"] },
+  folder: { backgroundColor: folderWash, color: vars["--ads-chart-5"] },
 });
 
 export type FolderTone = keyof typeof folderToneStyles;

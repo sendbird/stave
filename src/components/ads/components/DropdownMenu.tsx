@@ -5,7 +5,7 @@ import type * as React from "react";
 import { type MenuRootProps } from "../headless/menu";
 import { menu } from "../recipes/menu";
 import { type PopupPlacement } from "../utils/placement";
-import { sx } from "../utils/stylex";
+import { sx, type XstyleProp } from "../utils/stylex";
 import {
   Menu,
   type MenuPopupProps,
@@ -56,7 +56,7 @@ export type DropdownMenuProps = Omit<MenuRootProps, "children"> & {
   triggerSize?: MenuTriggerSize;
   /** Override trigger chrome. Composed triggers preserve their own styles by default. */
   triggerVariant?: MenuTriggerVariant;
-};
+} & XstyleProp;
 
 function DropdownMenuArray({
   finalFocus,
@@ -67,6 +67,7 @@ function DropdownMenuArray({
   triggerClassName,
   triggerSize,
   triggerVariant,
+  xstyle,
   ...props
 }: DropdownMenuProps) {
   const resolvedTriggerVariant =
@@ -101,7 +102,7 @@ function DropdownMenuArray({
       {triggerNode}
       <Menu.Portal>
         <Menu.Positioner placement={placement}>
-          <Menu.Popup finalFocus={finalFocus}>
+          <Menu.Popup finalFocus={finalFocus} xstyle={xstyle}>
             <Menu.Arrow className={sx(menu.arrow)} />
             {groups.map((group, groupIndex) => (
               <Menu.Group key={group.label ?? groupIndex}>

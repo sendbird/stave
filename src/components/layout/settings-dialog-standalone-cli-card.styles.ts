@@ -7,23 +7,23 @@ export const standaloneCliCardStyles = stylex.create({
   row: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   input: {
-    blockSize: vars.controlHeightLg,
+    blockSize: vars["--ads-control-height-lg"],
   },
   browse: {
     flexShrink: 0,
-    gap: vars.space8,
-    blockSize: vars.controlHeightLg,
+    gap: vars["--ads-space-8"],
+    blockSize: vars["--ads-control-height-lg"],
   },
   browseIcon: {
-    blockSize: vars.controlIconSizeMd,
-    inlineSize: vars.controlIconSizeMd,
+    blockSize: vars["--ads-control-icon-size-md"],
+    inlineSize: vars["--ads-control-icon-size-md"],
   },
   error: {
-    color: vars.colorDangerText,
-    fontSize: vars.fontSizeCaption,
-    marginBlockStart: vars.space8,
+    color: vars["--ads-color-danger-text"],
+    fontSize: vars["--ads-font-size-caption"],
+    marginBlockStart: vars["--ads-space-8"],
   },
 });

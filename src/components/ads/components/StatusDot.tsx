@@ -154,30 +154,30 @@ const styles = stylex.create({
   root: {
     alignItems: "center",
     display: "inline-flex",
-    gap: vars.space8,
-    lineHeight: vars.lineHeightTight,
+    gap: vars["--ads-space-8"],
+    lineHeight: vars["--ads-line-height-tight"],
     verticalAlign: "middle",
   },
   dot: {
     backgroundColor: "currentColor",
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     flexShrink: 0,
   },
   pulsing: {
     // Slow loop step: `running` is an ambient presence cue, so it breathes
     // with the other status halos rather than at a bespoke 1.6s (which sat
     // exactly between two steps of the loop family).
-    animationDuration: vars.motionDurationLoopSlow,
+    animationDuration: vars["--ads-motion-duration-loop-slow"],
     animationIterationCount: "infinite",
     animationName: {
       default: pulse,
       "@media (prefers-reduced-motion: reduce)": "none",
     },
-    animationTimingFunction: vars.motionEaseInOut,
+    animationTimingFunction: vars["--ads-motion-ease-in-out"],
   },
   label: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
     minInlineSize: 0,
   },
   // Hollow ring, not a fill — distinguishes "waiting" from the filled
@@ -187,19 +187,19 @@ const styles = stylex.create({
     borderColor: "currentColor",
     borderStyle: "solid",
     borderWidth: 1.5,
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
   },
   running: {
-    color: vars.colorInfo,
+    color: vars["--ads-color-info"],
   },
   ready: {
-    color: vars.colorSuccess,
+    color: vars["--ads-color-success"],
   },
   error: {
-    color: vars.colorDanger,
+    color: vars["--ads-color-danger"],
   },
   canceled: {
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
   },
 });
 
@@ -220,13 +220,13 @@ const sizeStyles = stylex.create({
 // Semantic tones for non-lifecycle dots. Color rides the dot only; each
 // value maps to a status/text token, never a chart token.
 const toneStyles = stylex.create({
-  neutral: { color: vars.colorTextSubtle },
-  muted: { color: vars.colorTextMuted },
-  accent: { color: vars.colorAccent },
-  info: { color: vars.colorInfo },
-  warning: { color: vars.colorWarning },
-  success: { color: vars.colorSuccess },
-  danger: { color: vars.colorDanger },
+  neutral: { color: vars["--ads-color-text-subtle"] },
+  muted: { color: vars["--ads-color-text-muted"] },
+  accent: { color: vars["--ads-color-accent"] },
+  info: { color: vars["--ads-color-info"] },
+  warning: { color: vars["--ads-color-warning"] },
+  success: { color: vars["--ads-color-success"] },
+  danger: { color: vars["--ads-color-danger"] },
 });
 
 // Soft same-hue halo for the `ring` variant (e.g. a fatal severity that must
@@ -235,11 +235,11 @@ const toneStyles = stylex.create({
 // literals here could drift from the selection halos in PresenceBadge /
 // CallControlBar / Annotation independently.
 const ringStyles = stylex.create({
-  neutral: { boxShadow: `0 0 0 ${vars.ringWidthMd} ${vars.colorBorder}` },
-  muted: { boxShadow: `0 0 0 ${vars.ringWidthMd} ${vars.colorBorder}` },
-  accent: { boxShadow: `0 0 0 ${vars.ringWidthMd} ${vars.colorAccentSoft}` },
-  info: { boxShadow: `0 0 0 ${vars.ringWidthMd} ${vars.colorInfoSoft}` },
-  warning: { boxShadow: `0 0 0 ${vars.ringWidthMd} ${vars.colorWarningSoft}` },
-  success: { boxShadow: `0 0 0 ${vars.ringWidthMd} ${vars.colorSuccessSoft}` },
-  danger: { boxShadow: `0 0 0 ${vars.ringWidthMd} ${vars.colorDangerSoft}` },
+  neutral: { boxShadow: `0 0 0 ${vars["--ads-ring-width-md"]} ${vars["--ads-color-border"]}` },
+  muted: { boxShadow: `0 0 0 ${vars["--ads-ring-width-md"]} ${vars["--ads-color-border"]}` },
+  accent: { boxShadow: `0 0 0 ${vars["--ads-ring-width-md"]} ${vars["--ads-color-accent-soft"]}` },
+  info: { boxShadow: `0 0 0 ${vars["--ads-ring-width-md"]} ${vars["--ads-color-info-soft"]}` },
+  warning: { boxShadow: `0 0 0 ${vars["--ads-ring-width-md"]} ${vars["--ads-color-warning-soft"]}` },
+  success: { boxShadow: `0 0 0 ${vars["--ads-ring-width-md"]} ${vars["--ads-color-success-soft"]}` },
+  danger: { boxShadow: `0 0 0 ${vars["--ads-ring-width-md"]} ${vars["--ads-color-danger-soft"]}` },
 });

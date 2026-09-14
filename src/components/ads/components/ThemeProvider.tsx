@@ -9,7 +9,7 @@ import {
   lightTheme,
 } from "../tokens/themes.stylex";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 
 export type Theme = "light" | "dark" | "high-contrast" | "system";
 export type ResolvedTheme = "light" | "dark" | "high-contrast";
@@ -52,8 +52,9 @@ const themeStyles = {
  * `::selection`, published as tokens.
  *
  * The global `::selection` rule lives in `styles.css` and can only read a
- * stable custom-property name, because StyleX hashes a `defineVars` key. That
- * constraint used to be paid for with a per-`data-theme` block of oklch
+ * stable custom-property name, which a `defineVars` key did not have until
+ * token names became explicit (2026-09-09). That constraint was first paid for
+ * with a per-`data-theme` block of oklch
  * LITERALS copied out of `theme-values.ts` and policed by a `selection-sync`
  * guard. A copy is only ever correct for the themes it was written for: a host
  * that maps the token group onto its own palette (the supported extension
@@ -79,21 +80,21 @@ const themeStyles = {
  */
 const nativeChromeStyles = stylex.create({
   root: {
-    "--ads-selection-background": vars.colorText,
-    "--ads-selection-color": vars.colorTextInverted,
+    "--ads-selection-background": vars["--ads-color-text"],
+    "--ads-selection-color": vars["--ads-color-text-inverted"],
     // Thumb only. A painted track turns a native scrollbar into a channel
     // running the height of the region, which reads as a border the app did
     // not ask for. `colorScrollbarTrack` still belongs to `ScrollArea`, which
     // draws its own and wants the channel.
-    scrollbarColor: `${vars.colorScrollbarThumb} transparent`,
+    scrollbarColor: `${vars["--ads-color-scrollbar-thumb"]} transparent`,
   },
   // Applied to <html> under `syncDocument` so the document itself — the strip
   // behind overscroll, and everything outside the React root — carries the
   // themed canvas instead of the browser's white default.
   documentSurface: {
-    "--ads-selection-background": vars.colorText,
-    "--ads-selection-color": vars.colorTextInverted,
-    backgroundColor: vars.colorCanvas,
+    "--ads-selection-background": vars["--ads-color-text"],
+    "--ads-selection-color": vars["--ads-color-text-inverted"],
+    backgroundColor: vars["--ads-color-canvas"],
   },
   dark: {
     colorScheme: "dark",
@@ -170,7 +171,7 @@ export type ThemeProviderProps = React.ComponentProps<"div"> & {
    */
   syncDocument?: boolean;
   theme?: Theme;
-};
+} & XstyleProp;
 
 export function ThemeProvider({
   children,
@@ -180,6 +181,7 @@ export function ThemeProvider({
   style,
   syncDocument = false,
   theme = "light",
+  xstyle,
   ...props
 }: ThemeProviderProps) {
   // SSR-safe default: assume light until the client confirms via matchMedia.
@@ -265,9 +267,7 @@ export function ThemeProvider({
     >;
     // Snapshot every inline value this effect is about to overwrite so the
     // cleanup restores the host's own `<html>` styles instead of deleting
-    // them — the same capture/restore used below for `colorScheme`. Without it
-    // a theme switch (which re-runs this effect) tore down host-authored
-    // custom properties on `<html>` and left the shell resolving fallbacks.
+    // them — the same capture/restore used below for `colorScheme`.
     const previousVars = new Map<string, string>();
     for (const [name, value] of Object.entries(appliedVars)) {
       if (name.startsWith("--") && value != null) {
@@ -331,7 +331,7 @@ export function ThemeProvider({
         className={cx(
           themeProps.className,
           densityProps?.className,
-          sx(nativeChromeStyles.root, colorSchemeStyles[resolved]),
+          sx(nativeChromeStyles.root, colorSchemeStyles[resolved], xstyle),
           transitioning && "atelier-theme-transition",
           className,
         )}

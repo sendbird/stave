@@ -58,11 +58,11 @@ export function InlineDisclosureIcon({
 
 const styles = stylex.create({
   slot: {
-    blockSize: vars.controlIconSizeMd,
-    color: vars.colorTextSubtle,
+    blockSize: vars["--ads-control-icon-size-md"],
+    color: vars["--ads-color-text-subtle"],
     display: "grid",
     flexShrink: 0,
-    inlineSize: vars.controlIconSizeMd,
+    inlineSize: vars["--ads-control-icon-size-md"],
     placeItems: "center",
   },
   layer: {

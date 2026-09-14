@@ -4,6 +4,7 @@ import * as stylex from "@stylexjs/stylex";
 import {
   emptyStateStyles,
   EmptyStateHeader,
+  EmptyStateMedia,
   EmptyStateDescription,
   EmptyStateContent,
 } from "../ads/components/EmptyState";
@@ -62,26 +63,31 @@ export function EmptyMedia({
   xstyle,
   variant = "default",
   ...props
-}: ComponentProps<"div"> & { xstyle?: StyleXValue } & { variant?: "default" | "icon" }) {
+}: ComponentProps<"span"> & { xstyle?: StyleXValue } & { variant?: "default" | "icon" }) {
+  // The medallion box and its tone no longer live on `emptyStateStyles`:
+  // upstream moved them onto `IconTile`, and `EmptyStateMedia` is now the round
+  // `xl` tile. The icon variant therefore delegates to the ADS part instead of
+  // re-composing two style keys that no longer exist. `neutral` matches this
+  // variant's pre-adapter intent, and callers that pass their own fill still
+  // win because `xstyle` is applied last.
+  if (variant === "icon") {
+    return (
+      <EmptyStateMedia
+        {...props}
+        data-slot="empty-icon"
+        data-variant={variant}
+        className={className}
+        tone="neutral"
+        xstyle={[styles.media, xstyle]}
+      />
+    );
+  }
   return (
-    <div
+    <span
       {...props}
       data-slot="empty-icon"
       data-variant={variant}
-      className={cx(
-        // The icon variant is a medallion: the ADS `media` style only carries
-        // the box and centering, the chip fill comes from a tone. Without a
-        // tone the medallion renders transparent, so pair the two here.
-        // `toneNeutral` matches this variant's pre-adapter intent, and callers
-        // that pass their own fill still win because `xstyle` is applied last.
-        sx(
-          styles.media,
-          variant === "icon" && emptyStateStyles.media,
-          variant === "icon" && emptyStateStyles.toneNeutral,
-          xstyle,
-        ),
-        className,
-      )}
+      className={cx(sx(styles.media, xstyle), className)}
     />
   );
 }

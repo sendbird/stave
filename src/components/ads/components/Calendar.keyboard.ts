@@ -9,13 +9,16 @@ export function handleCalendarDayKeyDown(
     ArrowRight: 1,
     ArrowUp: -7,
   };
+  const currentDate = parseCalendarDay(event.currentTarget);
+  if (!currentDate) return null;
 
   if (event.key === "Home" || event.key === "End") {
-    const row = Math.floor(getButtonIndex(event.currentTarget) / 7);
     event.preventDefault();
-    return moveFocus(
+    const offset =
+      event.key === "Home" ? -currentDate.getDay() : 6 - currentDate.getDay();
+    return moveFocusByDate(
       event.currentTarget,
-      row * 7 + (event.key === "Home" ? 0 : 6),
+      addDays(currentDate, offset),
       event.key === "Home" ? 1 : -1,
     );
   }
@@ -24,9 +27,9 @@ export function handleCalendarDayKeyDown(
 
   if (offset) {
     event.preventDefault();
-    return moveFocus(
+    return moveFocusByDate(
       event.currentTarget,
-      getButtonIndex(event.currentTarget) + offset,
+      addDays(currentDate, offset),
       offset,
     );
   }
@@ -34,31 +37,59 @@ export function handleCalendarDayKeyDown(
   return null;
 }
 
-function getButtonIndex(button: HTMLButtonElement) {
-  return getCalendarButtons(button).indexOf(button);
-}
-
-// Moves focus to the button at `nextIndex`, skipping disabled days by
-// continuing in the `step` direction within the grid.
-function moveFocus(button: HTMLButtonElement, nextIndex: number, step: number) {
+// Move by calendar date rather than concatenated DOM index. One month happens
+// to have 42 cells; two months have two overlapping 42-cell grids, so a DOM
+// `index + 7` can land on the duplicate outside-day from the wrong panel.
+function moveFocusByDate(
+  button: HTMLButtonElement,
+  nextDate: Date,
+  step: number,
+) {
   const buttons = getCalendarButtons(button);
-  let index = nextIndex;
+  let candidate = nextDate;
 
-  while (index >= 0 && index < buttons.length && buttons[index]?.disabled) {
-    index += step;
+  for (let attempts = 0; attempts < buttons.length; attempts += 1) {
+    const key = toDateKey(candidate);
+    const nextButton = buttons.find(
+      (entry) => entry.dataset.calendarDay === key && !entry.disabled,
+    );
+    if (nextButton) {
+      nextButton.focus();
+      return key;
+    }
+    candidate = addDays(candidate, step);
   }
-
-  const nextButton = buttons[index];
-  if (!nextButton) return null;
-
-  nextButton.focus();
-  return nextButton.dataset.calendarDay ?? null;
+  return null;
 }
 
 function getCalendarButtons(button: HTMLButtonElement) {
   return Array.from(
     button
-      .closest("[data-calendar-grid]")
+      .closest("[data-calendar-root]")
       ?.querySelectorAll<HTMLButtonElement>("[data-calendar-day]") ?? [],
   );
+}
+
+function parseCalendarDay(button: HTMLButtonElement) {
+  const value = button.dataset.calendarDay;
+  if (!value) return null;
+  // Host adaptation: this repo compiles with `noUncheckedIndexedAccess`, which
+  // upstream does not, so the destructured parts arrive as `number | undefined`.
+  // Defaulting to `NaN` keeps the malformed-key path yielding an Invalid Date
+  // exactly as before — same idiom `Calendar.tsx`'s `parseDateKey` already uses.
+  const [year = NaN, month = NaN, day = NaN] = value.split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function addDays(date: Date, amount: number) {
+  const next = new Date(date);
+  next.setDate(date.getDate() + amount);
+  return next;
+}
+
+function toDateKey(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
 }

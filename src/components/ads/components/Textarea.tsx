@@ -1,4 +1,3 @@
-import type { StyleXValue } from "../utils/stylex";
 import * as stylex from "@stylexjs/stylex";
 import { forwardRef } from "react";
 import type * as React from "react";
@@ -7,8 +6,9 @@ import type { TextareaRootProps } from "../headless/textarea";
 import { controlChrome } from "../recipes/control-chrome";
 import { focusRing } from "../recipes/focus-ring";
 import { transition } from "../recipes/transition";
+import { themeProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { FieldCountRow, useMirroredFieldValue } from "./TextField.count";
 import {
   fieldAnatomy,
@@ -18,7 +18,7 @@ import {
   useFieldAnatomy,
 } from "./field-anatomy";
 
-export type TextareaSize = "sm" | "md" | "lg";
+export type TextareaSize = "xs" | "sm" | "md" | "lg";
 
 export type TextareaProps = Omit<TextareaRootProps, "className" | "ref"> & {
   /**
@@ -28,8 +28,6 @@ export type TextareaProps = Omit<TextareaRootProps, "className" | "ref"> & {
    */
   autoResize?: boolean;
   className?: string;
-  /** Host composition resolved before class names are emitted. */
-  xstyle?: StyleXValue;
   /** Render only the textarea control, for composition inside an existing field. */
   controlOnly?: boolean;
   description?: string;
@@ -74,7 +72,9 @@ export type TextareaProps = Omit<TextareaRootProps, "className" | "ref"> & {
   showCount?: boolean;
   /**
    * Size ramp shared with TextField/Button: scales type, padding, and the
-   * minimum visible row count (sm 3 rows / md 4 rows / lg 5 rows).
+   * minimum visible row count (xs 2 rows / sm 3 rows / md 4 rows / lg 5
+   * rows). `xs` is the dense-form rung: caption type and the 4px block gutter
+   * a 28px `TextField` keeps, so a two-line note fits a compact settings row.
    * A Textarea has no single-line control height, so `size` never resolves
    * through `controlHeightBySize`.
    */
@@ -86,14 +86,13 @@ export type TextareaProps = Omit<TextareaRootProps, "className" | "ref"> & {
    */
   successMessage?: React.ReactNode;
   tone?: FieldTone;
-};
+} & XstyleProp;
 
 export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
   function Textarea(
     {
       autoResize = false,
       className,
-      xstyle,
       controlOnly = false,
       description,
       disabled,
@@ -111,11 +110,15 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
       style,
       successMessage,
       tone = "default",
+      xstyle,
       ...props
     },
     ref,
   ) {
     const anatomy = useFieldAnatomy({ description, error, id, tone });
+    // Stable theme target: the `<textarea>` is the box a brand restyles, with
+    // its size and RESOLVED tone reflected (see `text-field` in the pilot).
+    const theme = themeProps("textarea", { size, tone: anatomy.tone });
     // A count with no limit is a fact about nothing, so the counter resolves
     // to the limit itself: present ⇒ count, absent ⇒ no row.
     const countLimit = showCount ? maxLength : undefined;
@@ -132,14 +135,22 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
      * `maxRows` is a runtime number, so the cap is resolved from JS.
      */
     const maxBlockSize = autoResize
-      ? `calc(${maxRows} * ${vars.lineHeightNormal} * 1em + 2 * ${paddingBySize[size]} + 2 * ${vars.borderWidthHairline})`
+      ? `calc(${maxRows} * ${vars["--ads-line-height-normal"]} * 1em + 2 * ${paddingBySize[size]} + 2 * ${vars["--ads-border-width-hairline"]})`
       : undefined;
 
     const control = (
       <textarea
         {...props}
+        {...theme}
         ref={ref}
-        aria-describedby={[props["aria-describedby"], anatomy.describedBy].filter(Boolean).join(" ") || undefined}
+        // Host adaptation: merge the caller's ARIA rather than replacing it,
+        // so a product wrapper that already describes or invalidates this
+        // control keeps its wiring alongside the field anatomy's.
+        aria-describedby={
+          [props["aria-describedby"], anatomy.describedBy]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
         aria-invalid={anatomy.invalid || props["aria-invalid"]}
         className={cx(
           sx(
@@ -156,11 +167,12 @@ export const Textarea = forwardRef<HTMLTextAreaElement, TextareaProps>(
             sizeStyles[size],
             autoResize && styles.inputAutoResize,
             toneStyles[anatomy.tone],
-            xstyle,
             // One state per element (design-direction §2).
             readOnly && !disabled && controlChrome.readOnlyField,
             disabled && controlChrome.disabledField,
+            xstyle,
           ),
+          theme.className,
           className,
         )}
         disabled={disabled}
@@ -270,24 +282,24 @@ const styles = stylex.create({
   },
   input: {
     appearance: "none",
-    backgroundColor: vars.colorSurfaceRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
     // Focus contract: border on `:focus-within` (see the header of
     // `TextField.tsx` for the family-wide statement).
     borderColor: {
-      default: vars.colorBorder,
-      ":hover": vars.colorBorderStrong,
-      ":focus-within": vars.colorBorderFocus,
+      default: vars["--ads-color-border"],
+      ":hover": vars["--ads-color-border-strong"],
+      ":focus-within": vars["--ads-color-border-focus"],
     },
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    color: vars.colorText,
-    fontFamily: vars.fontSans,
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-text"],
+    fontFamily: vars["--ads-font-sans"],
     inlineSize: "100%",
-    lineHeight: vars.lineHeightNormal,
+    lineHeight: vars["--ads-line-height-normal"],
     resize: "vertical",
     "::placeholder": {
-      color: vars.colorTextPlaceholder,
+      color: vars["--ads-color-text-placeholder"],
     },
   },
   // The auto-grown control stacks on the sizer and takes the cell's full
@@ -312,12 +324,12 @@ const styles = stylex.create({
   sizer: {
     borderColor: "transparent",
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     color: "transparent",
-    fontFamily: vars.fontSans,
+    fontFamily: vars["--ads-font-sans"],
     gridArea: "1 / 1 / 2 / 2",
     inlineSize: "100%",
-    lineHeight: vars.lineHeightNormal,
+    lineHeight: vars["--ads-line-height-normal"],
     overflow: "hidden",
     overflowWrap: "anywhere",
     pointerEvents: "none",
@@ -327,29 +339,35 @@ const styles = stylex.create({
   },
   // Size ramp mirrors Button/TextField on the inline axis (space2/3/4) and
   // steps `lg` up to `fontSizeMd`.
+  xs: {
+    fontSize: vars["--ads-font-size-caption"],
+    minBlockSize: `calc(2 * ${vars["--ads-line-height-normal"]} * 1em + 2 * ${vars["--ads-space-4"]} + 2 * ${vars["--ads-border-width-hairline"]})`,
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
+  },
   sm: {
-    fontSize: vars.fontSizeBody,
-    minBlockSize: `calc(3 * ${vars.lineHeightNormal} * 1em + 2 * ${vars.space8} + 2 * ${vars.borderWidthHairline})`,
-    paddingBlock: vars.space8,
-    paddingInline: vars.space8,
+    fontSize: vars["--ads-font-size-body"],
+    minBlockSize: `calc(3 * ${vars["--ads-line-height-normal"]} * 1em + 2 * ${vars["--ads-space-8"]} + 2 * ${vars["--ads-border-width-hairline"]})`,
+    paddingBlock: vars["--ads-space-8"],
+    paddingInline: vars["--ads-space-8"],
   },
   md: {
-    fontSize: vars.fontSizeBody,
-    minBlockSize: `calc(4 * ${vars.lineHeightNormal} * 1em + 2 * ${vars.space12} + 2 * ${vars.borderWidthHairline})`,
-    paddingBlock: vars.space12,
-    paddingInline: vars.space12,
+    fontSize: vars["--ads-font-size-body"],
+    minBlockSize: `calc(4 * ${vars["--ads-line-height-normal"]} * 1em + 2 * ${vars["--ads-space-12"]} + 2 * ${vars["--ads-border-width-hairline"]})`,
+    paddingBlock: vars["--ads-space-12"],
+    paddingInline: vars["--ads-space-12"],
   },
   lg: {
-    fontSize: vars.fontSizeLead,
-    minBlockSize: `calc(5 * ${vars.lineHeightNormal} * 1em + 2 * ${vars.space16} + 2 * ${vars.borderWidthHairline})`,
-    paddingBlock: vars.space16,
-    paddingInline: vars.space16,
+    fontSize: vars["--ads-font-size-lead"],
+    minBlockSize: `calc(5 * ${vars["--ads-line-height-normal"]} * 1em + 2 * ${vars["--ads-space-16"]} + 2 * ${vars["--ads-border-width-hairline"]})`,
+    paddingBlock: vars["--ads-space-16"],
+    paddingInline: vars["--ads-space-16"],
   },
   success: {
-    borderColor: vars.colorSuccessBorder,
+    borderColor: vars["--ads-color-success-border"],
   },
   danger: {
-    borderColor: vars.colorDangerBorder,
+    borderColor: vars["--ads-color-danger-border"],
   },
 });
 
@@ -357,14 +375,16 @@ const sizeStyles = {
   lg: styles.lg,
   md: styles.md,
   sm: styles.sm,
+  xs: styles.xs,
 } as const;
 
 // The block gutter each size step declares above, restated so the auto-grow
 // ceiling can be written in the same terms as the floor.
 const paddingBySize = {
-  lg: vars.space16,
-  md: vars.space12,
-  sm: vars.space8,
+  lg: vars["--ads-space-16"],
+  md: vars["--ads-space-12"],
+  sm: vars["--ads-space-8"],
+  xs: vars["--ads-space-4"],
 } as const;
 
 const toneStyles = {

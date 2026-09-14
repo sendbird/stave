@@ -42,7 +42,7 @@ export function AutomationLatestRun(props: {
           role="status"
           aria-live="polite"
           aria-atomic="true"
-          className={sx(automationStyles.statusBadge)}
+          xstyle={automationStyles.statusBadge}
         >
           {presentation.label}
         </Badge>

@@ -1439,13 +1439,13 @@ const TurnActivityRow = memo(function TurnActivityRow({
       {...(handler.reveal
         ? { "data-turn-activity-revealable": "true" }
         : { "data-turn-activity-opens": "advisor-consult-log" })}
-      className={sx(
+      xstyle={[
         surfaceChrome.quietIconButton,
         focusRing.ring,
         transition.control,
         styles.row,
         styles.rowMotion,
-      )}
+      ]}
       title={
         handler.reveal
           ? `${baseTitle} — show in conversation`

@@ -114,10 +114,27 @@ describe("globals.css is plain CSS", () => {
   });
 
   it("declares the canonical layer order ahead of every @import", () => {
-    const layerOrder = /@layer reset, theme, base, priority1[^;]+;/;
+    const layerOrder = /@layer reset,[^;]+;/;
     const fromHtml = html.match(layerOrder)?.[0];
     expect(fromHtml).toBeTruthy();
     expect(code.match(layerOrder)?.[0]).toBe(fromHtml!);
+
+    // StyleX emits one layer per ORIGIN now (`@layer ads.priority1`,
+    // `@layer product.priority1`), not one flat `priority*` band, and
+    // `ads-theme` is the seam between them. Assert the three by name: the
+    // agreement check above is satisfied by any pair of identical strings,
+    // including one that has silently lost the seam.
+    const names = fromHtml!
+      .replace(/^@layer\s+/, "")
+      .replace(/;$/, "")
+      .split(",")
+      .map((name) => name.trim());
+    expect(names.filter((n) => ["ads", "ads-theme", "product"].includes(n))).toEqual([
+      "ads",
+      "ads-theme",
+      "product",
+    ]);
+    expect(names).not.toContain("priority1");
 
     // A name-only `@layer` statement is the one at-rule the spec allows before
     // `@import`; placing it after the imports would append these layers behind

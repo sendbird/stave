@@ -211,15 +211,22 @@
   transform: translateY(8px);
 }
 
+/*
+ * No transition-delay. The hint's dwell is a JS rest timer on the trigger
+ * (`Tooltip.group.tsx`), and this class used to add another 80ms of held
+ * `opacity: 0` on top of it — invisible in a screenshot, and the difference
+ * between a hint that answers the pointer and one that arrives after it. Same
+ * reasoning that took the blur pass off `.atelier-motion-dropdown`
+ * (design-direction §3): these open dozens of times a minute.
+ */
 .atelier-motion-tooltip {
   opacity: 1;
   transform: scale(1);
   transform-origin: var(--transform-origin, center bottom);
   transition:
     transform var(--atelier-motion-duration-quick)
-      var(--atelier-motion-ease-out) var(--atelier-motion-tooltip-delay),
-    opacity var(--atelier-motion-duration-quick) var(--atelier-motion-ease-out)
-      var(--atelier-motion-tooltip-delay);
+      var(--atelier-motion-ease-out),
+    opacity var(--atelier-motion-duration-quick) var(--atelier-motion-ease-out);
   will-change: transform, opacity;
 }
 
@@ -231,7 +238,6 @@
 .atelier-motion-tooltip[data-ending-style] {
   opacity: 0;
   transform: scale(var(--atelier-motion-tooltip-close-scale));
-  transition-delay: 0ms;
   transition-duration: var(--atelier-motion-duration-micro);
 }
 

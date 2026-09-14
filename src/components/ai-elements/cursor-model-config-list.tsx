@@ -118,11 +118,11 @@ function ConfigurationButton(args: {
       onFocus={() => args.onFocus(args.controlKey)}
       onKeyDown={args.onKeyDown}
       onClick={args.onClick}
-      className={sx(
+      xstyle={[
         styles.configButton,
         args.pressed && styles.configButtonPressed,
         args.extraStyle,
-      )}
+      ]}
     >
       {args.children}
     </AdsButton>
@@ -243,7 +243,7 @@ function CursorModelRow(args: {
           onKeyDown={handleKeyDown}
           onClick={() => chooseVariant(anchor)}
           title={args.group.label}
-          className={sx(styles.modelButton)}
+          xstyle={styles.modelButton}
         >
           <ModelIcon providerId="cursor" className={sx(styles.modelIcon)} />
           <span className={sx(styles.modelLabel)}>{args.group.label}</span>

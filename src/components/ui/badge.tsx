@@ -1,7 +1,6 @@
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import {
-  badgeStyles,
   badgeToneStyles,
   badgeOutlineToneStyles,
   type BadgeTone,
@@ -9,6 +8,10 @@ import {
 } from "../ads/components/Badge";
 import { sx, cx } from "../ads/utils/stylex";
 import { transition } from "../ads/recipes/transition";
+import {
+  statusChip,
+  statusChipSizeStyles,
+} from "../ads/recipes/status-chip";
 
 /**
  * The legacy shim vocabulary, which folds ADS's two orthogonal axes — `tone`
@@ -75,11 +78,17 @@ export function badgeVariants({
   variant = "default",
 }: BadgeShimProps = {}) {
   const resolved = resolveBadge(variant ?? "default", tone);
+  // ADS moved the chip's box and its `outline` edge out of `Badge`'s own
+  // `styles` and into `recipes/status-chip`, and gained a `size` axis whose
+  // `md` rung now carries the font size and inline padding the old `root` held.
+  // This class-only path composes the same three keys the component does, so a
+  // `badgeVariants()` string and a rendered `<Badge>` keep painting alike.
   return cx(
     sx(
-      badgeStyles.root,
+      statusChip.root,
+      statusChipSizeStyles.md,
       transition.colors,
-      resolved.variant === "outline" && badgeStyles.outlineBase,
+      resolved.variant === "outline" && statusChip.outline,
       resolved.variant === "outline"
         ? badgeOutlineToneStyles[resolved.tone]
         : badgeToneStyles[resolved.tone],

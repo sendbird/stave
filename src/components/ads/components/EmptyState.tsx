@@ -1,11 +1,12 @@
-import type { StyleXValue } from "../utils/stylex";
 import * as stylex from "@stylexjs/stylex";
 import { isValidElement } from "react";
 import type * as React from "react";
 
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { Button, type ButtonProps } from "./Button";
+import { IconTile, type IconTileProps, type IconTileTone } from "./IconTile";
 
 export type EmptyStateProps = Omit<React.ComponentProps<"section">, "title"> & {
   /**
@@ -26,39 +27,42 @@ export type EmptyStateProps = Omit<React.ComponentProps<"section">, "title"> & {
   tone?: EmptyStateTone;
   /** Container treatment. Use plain when a parent already owns the surface. @default "card" */
   variant?: "card" | "plain";
-};
+} & XstyleProp;
 
-export type EmptyStateTone =
-  | "accent"
-  | "neutral"
-  | "info"
-  | "success"
-  | "warning"
-  | "danger";
+/**
+ * The shared tinted-object tone union. `EmptyState`'s medallion is an
+ * `IconTile`, so the two families cannot disagree about what "danger" is.
+ */
+export type EmptyStateTone = IconTileTone;
 
 export type EmptyStateRootProps = React.ComponentProps<"section"> & {
   /** Container treatment. Use plain when a parent already owns the surface. @default "card" */
   variant?: "card" | "plain";
-};
+} & XstyleProp;
 
 /** Root surface for a composed empty state. */
 export function EmptyStateRoot({
   className,
   variant = "card",
+  xstyle,
   ...props
 }: EmptyStateRootProps) {
+  const theme = themeProps("empty-state", { variant });
+
   return (
     <section
       {...props}
+      {...theme}
       className={cx(
-        sx(styles.root, variant === "plain" ? styles.plain : undefined),
+        sx(styles.root, variant === "plain" ? styles.plain : undefined, xstyle),
+        theme.className,
         className,
       )}
     />
   );
 }
 
-export type EmptyStateHeaderProps = React.ComponentProps<"div"> & { xstyle?: StyleXValue };
+export type EmptyStateHeaderProps = React.ComponentProps<"div"> & XstyleProp;
 
 /** Groups the title and description into one readable copy block. */
 export function EmptyStateHeader({
@@ -66,25 +70,40 @@ export function EmptyStateHeader({
   xstyle,
   ...props
 }: EmptyStateHeaderProps) {
-  return <div {...props} className={cx(sx(styles.header, xstyle), className)} />;
+  return (
+    <div
+      {...props}
+      {...themeSlotProps("empty-state", "header")}
+      className={cx(sx(styles.header, xstyle), className)}
+    />
+  );
 }
 
-export type EmptyStateMediaProps = React.ComponentProps<"div"> & {
+export type EmptyStateMediaProps = Omit<IconTileProps, "shape" | "size"> & {
   /** Semantic color family for an icon medallion. @default "accent" */
   tone?: EmptyStateTone;
 };
 
-/** Decorative media slot. Use a semantic tone only when the state warrants it. */
+/**
+ * Decorative media slot — the `xl` round `IconTile`. Use a semantic tone only
+ * when the state warrants it, and size the glyph with
+ * `iconTileGlyphSizes.xl`.
+ */
 export function EmptyStateMedia({
   className,
   tone = "accent",
+  xstyle,
   ...props
 }: EmptyStateMediaProps) {
   return (
-    <div
+    <IconTile
       {...props}
-      aria-hidden={props["aria-hidden"] ?? true}
-      className={cx(sx(styles.media, toneStyles[tone]), className)}
+      {...themeSlotProps("empty-state", "media")}
+      className={className}
+      shape="round"
+      size="xl"
+      tone={tone}
+      xstyle={xstyle}
     />
   );
 }
@@ -92,18 +111,25 @@ export function EmptyStateMedia({
 export type EmptyStateTitleProps = Omit<React.ComponentProps<"h3">, "as"> & {
   /** Heading element used in the surrounding page hierarchy. @default "h3" */
   as?: "h2" | "h3" | "h4";
-};
+} & XstyleProp;
 
 /** Heading slot with explicit page-hierarchy control. */
 export function EmptyStateTitle({
   as: Title = "h3",
   className,
+  xstyle,
   ...props
 }: EmptyStateTitleProps) {
-  return <Title {...props} className={cx(sx(styles.title), className)} />;
+  return (
+    <Title
+      {...props}
+      {...themeSlotProps("empty-state", "title")}
+      className={cx(sx(styles.title, xstyle), className)}
+    />
+  );
 }
 
-export type EmptyStateDescriptionProps = React.ComponentProps<"p"> & { xstyle?: StyleXValue };
+export type EmptyStateDescriptionProps = React.ComponentProps<"p"> & XstyleProp;
 
 /** Supporting explanation that adds the next useful piece of context. */
 export function EmptyStateDescription({
@@ -111,10 +137,16 @@ export function EmptyStateDescription({
   xstyle,
   ...props
 }: EmptyStateDescriptionProps) {
-  return <p {...props} className={cx(sx(styles.description, xstyle), className)} />;
+  return (
+    <p
+      {...props}
+      {...themeSlotProps("empty-state", "description")}
+      className={cx(sx(styles.description, xstyle), className)}
+    />
+  );
 }
 
-export type EmptyStateContentProps = React.ComponentProps<"div"> & { xstyle?: StyleXValue };
+export type EmptyStateContentProps = React.ComponentProps<"div"> & XstyleProp;
 
 /** Action, field, link, or other next-step content below the copy block. */
 export function EmptyStateContent({
@@ -122,7 +154,13 @@ export function EmptyStateContent({
   xstyle,
   ...props
 }: EmptyStateContentProps) {
-  return <div {...props} className={cx(sx(styles.content, xstyle), className)} />;
+  return (
+    <div
+      {...props}
+      {...themeSlotProps("empty-state", "content")}
+      className={cx(sx(styles.content, xstyle), className)}
+    />
+  );
 }
 
 /**
@@ -141,13 +179,19 @@ function EmptyStateConvenience({
   title,
   tone = "accent",
   variant = "card",
+  xstyle,
   ...props
 }: EmptyStateProps) {
   const titleElement =
     headingLevel === 2 ? "h2" : headingLevel === 4 ? "h4" : "h3";
 
   return (
-    <EmptyStateRoot {...props} className={className} variant={variant}>
+    <EmptyStateRoot
+      {...props}
+      className={className}
+      xstyle={xstyle}
+      variant={variant}
+    >
       {icon ? <EmptyStateMedia tone={tone}>{icon}</EmptyStateMedia> : null}
       <EmptyStateHeader>
         <EmptyStateTitle as={titleElement}>{title}</EmptyStateTitle>
@@ -195,108 +239,59 @@ export const EmptyState = Object.assign(EmptyStateConvenience, {
 const styles = stylex.create({
   root: {
     alignItems: "center",
-    backgroundColor: vars.colorSurfaceRaised,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusPanel,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
+    borderWidth: vars["--ads-border-width-hairline"],
     // Flat by contract (§1.5 "Elevation is a lift, not a grouping cue"): a
     // static container that groups content in flow does not leave its plane, so
     // it carries no shadow. `elevation1` now means pressable, movable, or
     // docked. Depth against the canvas comes from the surface step + hairline.
-    boxShadow: vars.elevationFlat,
-    color: vars.colorText,
+    boxShadow: vars["--ads-elevation-flat"],
+    color: vars["--ads-color-text"],
     display: "grid",
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
     inlineSize: "100%",
     justifyItems: "center",
     minInlineSize: 0,
-    padding: vars.space32,
+    padding: vars["--ads-space-32"],
     textAlign: "center",
   },
   plain: {
     backgroundColor: "transparent",
     borderWidth: 0,
     boxShadow: "none",
-    padding: vars.space20,
-  },
-  media: {
-    alignItems: "center",
-    borderRadius: vars.radiusFull,
-    display: "inline-flex",
-    inlineSize: 48,
-    justifyContent: "center",
-    minBlockSize: 48,
-  },
-  toneAccent: {
-    // selection-ok: this tint identifies a decorative accent medallion, not a
-    // selected/current surface.
-    backgroundColor: vars.colorAccentSoft,
-    color: vars.colorAccent,
-  },
-  toneNeutral: {
-    backgroundColor: vars.colorCanvasSubtle,
-    color: vars.colorTextMuted,
-  },
-  toneInfo: {
-    backgroundColor: vars.colorInfoSoft,
-    color: vars.colorInfo,
-  },
-  toneSuccess: {
-    backgroundColor: vars.colorSuccessSoft,
-    color: vars.colorSuccess,
-  },
-  toneWarning: {
-    backgroundColor: vars.colorWarningSoft,
-    color: vars.colorWarning,
-  },
-  toneDanger: {
-    backgroundColor: vars.colorDangerSoft,
-    color: vars.colorDanger,
+    padding: vars["--ads-space-20"],
   },
   header: {
     display: "grid",
-    gap: vars.space8,
-    // The header is a grid, so its children are placed with `justify-items`,
-    // and the default `stretch` cannot stretch a fixed 48px medallion: the
-    // media box lands at the inline start while the title and description
-    // centre their own text. Every empty state shipped with the icon hard left
-    // of a centred column. `center` places the medallion on the same axis the
-    // copy is already using.
+    gap: vars["--ads-space-8"],
     justifyItems: "center",
     maxInlineSize: 360,
     minInlineSize: 0,
   },
   title: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeLead,
-    fontWeight: vars.fontWeightSemibold,
-    lineHeight: vars.lineHeightLead,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-lead"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    lineHeight: vars["--ads-line-height-lead"],
     margin: 0,
   },
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
     overflowWrap: "anywhere",
   },
   content: {
     display: "grid",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     justifyItems: "center",
     maxInlineSize: 360,
     minInlineSize: 0,
   },
 });
-
-const toneStyles = {
-  accent: styles.toneAccent,
-  danger: styles.toneDanger,
-  info: styles.toneInfo,
-  neutral: styles.toneNeutral,
-  success: styles.toneSuccess,
-  warning: styles.toneWarning,
-} as const;
 
 export { styles as emptyStateStyles };

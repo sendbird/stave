@@ -1,7 +1,6 @@
 import { Menu as BaseMenu } from "@base-ui/react/menu";
-import * as stylex from "@stylexjs/stylex";
 import { Check } from "lucide-react";
-import type * as React from "react";
+import * as React from "react";
 
 import {
   MenuArrow,
@@ -15,16 +14,21 @@ import {
   MenuSeparator,
 } from "../headless/menu";
 import { menu } from "../recipes/menu";
+import type { OverlayDensity } from "../recipes/overlay-surface";
 import { transition } from "../recipes/transition";
-import { vars } from "../tokens/tokens.stylex";
+import { PortalProductThemeScope } from "../theming/ProductThemeProvider";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import {
   POPUP_SIDE_OFFSET,
   type PopupPlacement,
   resolveAlign,
 } from "../utils/placement";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
+import { mergeClassName } from "./Menu.merge-class-name";
+import { styles } from "./Menu.styles";
 import { MenuShortcut } from "./Menu.shortcut";
 import { MenuTriggerPart } from "./Menu.trigger";
+import { MenuDensityProvider, useMenuDensity } from "./Menu.density";
 
 export type { MenuShortcutProps } from "./Menu.shortcut";
 export type {
@@ -44,55 +48,33 @@ const MenuRadioGroupPart = BaseMenu.RadioGroup;
 const MenuRadioItemPart = BaseMenu.RadioItem;
 const MenuRadioItemIndicatorPart = BaseMenu.RadioItemIndicator;
 
-// Local styles for the radio dot. The shared `recipes/menu.ts` has no
-// equivalent (and must not be edited), so the dot is defined here, mirroring the
-// `itemIcon` convention by inheriting `currentColor` so it follows the item's
-// tone/highlight state.
-const styles = stylex.create({
-  radioDot: {
-    backgroundColor: "currentColor",
-    borderRadius: vars.radiusFull,
-    blockSize: 8,
-    inlineSize: 8,
-  },
-});
-
-/**
- * `className` on a Base UI part may be a string or a `(state) => string`
- * callback. Merge Atelier's base styles with a caller-supplied `className` of
- * either shape, preserving the state argument.
- */
-type ClassNameProp<State> =
-  | string
-  | undefined
-  | ((state: State) => string | undefined);
-
-function mergeClassName<State>(
-  base: (state: State) => string | undefined,
-  className: ClassNameProp<State>,
-): (state: State) => string | undefined {
-  return (state) =>
-    cx(
-      base(state),
-      typeof className === "function" ? className(state) : className,
-    );
-}
-
 // ---------------------------------------------------------------------------
 // Compound parts (compositional Menu API, shared by DropdownMenu / ContextMenu /
 // Menubar). Styled wrappers over the Base UI `headless/menu` parts.
 // ---------------------------------------------------------------------------
 
-export type MenuRootCompoundProps = React.ComponentProps<typeof MenuRoot>;
+export type MenuRootCompoundProps = React.ComponentProps<typeof MenuRoot> & {
+  /** Row and popup air inherited by every compound part. @default "regular" */
+  density?: OverlayDensity;
+};
 
-function Root(props: MenuRootCompoundProps) {
-  return <MenuRoot {...props} />;
+function Root({ density, ...props }: MenuRootCompoundProps) {
+  const inheritedDensity = useMenuDensity();
+  return (
+    <MenuDensityProvider density={density ?? inheritedDensity}>
+      <MenuRoot {...props} />
+    </MenuDensityProvider>
+  );
 }
 
 export type MenuPortalProps = React.ComponentProps<typeof MenuPortal>;
 
-function Portal(props: MenuPortalProps) {
-  return <MenuPortal {...props} />;
+function Portal({ children, ...props }: MenuPortalProps) {
+  return (
+    <MenuPortal {...props}>
+      <PortalProductThemeScope>{children}</PortalProductThemeScope>
+    </MenuPortal>
+  );
 }
 
 export type MenuPositionerProps = React.ComponentProps<
@@ -107,7 +89,7 @@ export type MenuPositionerProps = React.ComponentProps<
    * (`inline-start`/`inline-end`) this vocabulary does not name.
    */
   placement?: PopupPlacement;
-};
+} & XstyleProp;
 
 function Positioner({
   align,
@@ -115,6 +97,7 @@ function Positioner({
   placement,
   side,
   sideOffset = POPUP_SIDE_OFFSET,
+  xstyle,
   ...props
 }: MenuPositionerProps) {
   const resolved = resolveAlign(placement);
@@ -122,22 +105,37 @@ function Positioner({
     <MenuPositioner
       {...props}
       align={align ?? resolved.align}
-      className={mergeClassName(() => sx(menu.positioner), className)}
+      className={mergeClassName(() => sx(menu.positioner, xstyle), className)}
       side={side ?? resolved.side}
       sideOffset={sideOffset}
     />
   );
 }
 
-export type MenuPopupProps = React.ComponentProps<typeof MenuPopup> &
-  XstyleProp;
+export type MenuPopupProps = React.ComponentProps<typeof MenuPopup> & {
+  /** Row and popup air. @default "regular" */
+  density?: OverlayDensity;
+} & XstyleProp;
 
-function Popup({ className, xstyle, ...props }: MenuPopupProps) {
+function Popup({ className, density, xstyle, ...props }: MenuPopupProps) {
+  const inheritedDensity = useMenuDensity();
+  const resolvedDensity = density ?? inheritedDensity;
+  const theme = themeProps("menu-popup", { density: resolvedDensity });
   return (
     <MenuPopup
       {...props}
+      {...theme}
       className={mergeClassName(
-        () => cx(sx(menu.popup, xstyle), "atelier-motion-dropdown"),
+        () =>
+          cx(
+            sx(
+              menu.popup,
+              resolvedDensity === "compact" && menu.popupCompact,
+              xstyle,
+            ),
+            "atelier-motion-dropdown",
+            theme.className,
+          ),
         className,
       )}
     />
@@ -147,10 +145,11 @@ function Popup({ className, xstyle, ...props }: MenuPopupProps) {
 export type MenuArrowProps = React.ComponentProps<typeof MenuArrow>;
 
 function Arrow(props: MenuArrowProps) {
-  return <MenuArrow {...props} />;
+  return <MenuArrow {...props} {...themeSlotProps("menu-popup", "arrow")} />;
 }
 
 export type MenuItemProps = React.ComponentProps<typeof MenuItem> & {
+  density?: OverlayDensity;
   /**
    * Pointer behavior: `"pointer"` (default — used by trigger menus) or
    * `"default"` (used by context menus, which open on right-click).
@@ -159,28 +158,39 @@ export type MenuItemProps = React.ComponentProps<typeof MenuItem> & {
   /** The currently applied choice; takes a `Select` row's fill. See menu.ts. */
   selected?: boolean;
   tone?: "danger" | "default";
-};
+} & XstyleProp;
 
 function Item({
   className,
+  density,
   itemKind = "pointer",
   selected = false,
   tone = "default",
+  xstyle,
   ...props
 }: MenuItemProps) {
+  const inheritedDensity = useMenuDensity();
+  const resolvedDensity = density ?? inheritedDensity;
+  const theme = themeProps("menu-item", { density: resolvedDensity, tone });
   return (
     <MenuItem
       {...props}
+      {...theme}
       className={mergeClassName(
         (state) =>
-          sx(
-            menu.item,
-            transition.colors,
-            itemKind === "pointer" ? menu.itemPointer : menu.itemDefault,
-            state.highlighted && menu.itemHighlighted,
-            selected && menu.itemChecked,
-            tone === "danger" && menu.itemDanger,
-            state.disabled && menu.itemDisabled,
+          cx(
+            sx(
+              menu.item,
+              resolvedDensity === "compact" && menu.itemCompact,
+              transition.colors,
+              itemKind === "pointer" ? menu.itemPointer : menu.itemDefault,
+              state.highlighted && menu.itemHighlighted,
+              selected && menu.itemChecked,
+              tone === "danger" && menu.itemDanger,
+              state.disabled && menu.itemDisabled,
+              xstyle,
+            ),
+            theme.className,
           ),
         className,
       )}
@@ -188,35 +198,55 @@ function Item({
   );
 }
 
-export type MenuGroupProps = React.ComponentProps<typeof MenuGroup>;
+export type MenuGroupProps = React.ComponentProps<typeof MenuGroup> &
+  XstyleProp;
 
-function Group({ className, ...props }: MenuGroupProps) {
+function Group({ className, xstyle, ...props }: MenuGroupProps) {
+  const density = useMenuDensity();
   return (
     <MenuGroup
       {...props}
-      className={mergeClassName(() => sx(menu.group), className)}
+      {...themeSlotProps("menu-popup", "group")}
+      className={mergeClassName(
+        () =>
+          sx(menu.group, density === "compact" && menu.groupCompact, xstyle),
+        className,
+      )}
     />
   );
 }
 
-export type MenuGroupLabelProps = React.ComponentProps<typeof MenuGroupLabel>;
+export type MenuGroupLabelProps = React.ComponentProps<typeof MenuGroupLabel> &
+  XstyleProp;
 
-function GroupLabel({ className, ...props }: MenuGroupLabelProps) {
+function GroupLabel({ className, xstyle, ...props }: MenuGroupLabelProps) {
   return (
     <MenuGroupLabel
       {...props}
-      className={mergeClassName(() => sx(menu.groupLabel), className)}
+      {...themeSlotProps("menu-popup", "group-label")}
+      className={mergeClassName(() => sx(menu.groupLabel, xstyle), className)}
     />
   );
 }
 
-export type MenuSeparatorProps = React.ComponentProps<typeof MenuSeparator>;
+export type MenuSeparatorProps = React.ComponentProps<typeof MenuSeparator> &
+  XstyleProp;
 
-function Separator({ className, ...props }: MenuSeparatorProps) {
+function Separator({ className, xstyle, ...props }: MenuSeparatorProps) {
+  const density = useMenuDensity();
   return (
     <MenuSeparator
       {...props}
-      className={mergeClassName(() => sx(menu.separator), className)}
+      {...themeSlotProps("menu-popup", "separator")}
+      className={mergeClassName(
+        () =>
+          sx(
+            menu.separator,
+            density === "compact" && menu.separatorCompact,
+            xstyle,
+          ),
+        className,
+      )}
     />
   );
 }
@@ -233,24 +263,33 @@ export type MenuSubmenuTriggerProps = React.ComponentProps<
   typeof MenuSubmenuTriggerPart
 > & {
   itemKind?: "default" | "pointer";
-};
+} & XstyleProp;
 
 function SubmenuTrigger({
   className,
   itemKind = "pointer",
+  xstyle,
   ...props
 }: MenuSubmenuTriggerProps) {
+  const density = useMenuDensity();
+  const theme = themeProps("menu-item", { density });
   return (
     <MenuSubmenuTriggerPart
       {...props}
+      {...theme}
       className={mergeClassName(
         (state) =>
-          sx(
-            menu.item,
-            transition.colors,
-            itemKind === "pointer" ? menu.itemPointer : menu.itemDefault,
-            state.highlighted && menu.itemHighlighted,
-            state.disabled && menu.itemDisabled,
+          cx(
+            sx(
+              menu.item,
+              density === "compact" && menu.itemCompact,
+              transition.colors,
+              itemKind === "pointer" ? menu.itemPointer : menu.itemDefault,
+              state.highlighted && menu.itemHighlighted,
+              state.disabled && menu.itemDisabled,
+              xstyle,
+            ),
+            theme.className,
           ),
         className,
       )}
@@ -267,28 +306,37 @@ export type MenuCheckboxItemProps = React.ComponentProps<
    */
   itemKind?: "default" | "pointer";
   tone?: "danger" | "default";
-};
+} & XstyleProp;
 
 function CheckboxItem({
   className,
   itemKind = "pointer",
   tone = "default",
+  xstyle,
   ...props
 }: MenuCheckboxItemProps) {
+  const density = useMenuDensity();
+  const theme = themeProps("menu-item", { density, tone });
   return (
     <MenuCheckboxItemPart
       {...props}
+      {...theme}
       className={mergeClassName(
         (state) =>
-          sx(
-            menu.item,
-            menu.itemCheckable,
-            transition.colors,
-            itemKind === "pointer" ? menu.itemPointer : menu.itemDefault,
-            state.highlighted && menu.itemHighlighted,
-            state.checked && menu.itemChecked,
-            tone === "danger" && menu.itemDanger,
-            state.disabled && menu.itemDisabled,
+          cx(
+            sx(
+              menu.item,
+              density === "compact" && menu.itemCompact,
+              menu.itemCheckable,
+              transition.colors,
+              itemKind === "pointer" ? menu.itemPointer : menu.itemDefault,
+              state.highlighted && menu.itemHighlighted,
+              state.checked && menu.itemChecked,
+              tone === "danger" && menu.itemDanger,
+              state.disabled && menu.itemDisabled,
+              xstyle,
+            ),
+            theme.className,
           ),
         className,
       )}
@@ -298,20 +346,23 @@ function CheckboxItem({
 
 export type MenuCheckboxItemIndicatorProps = React.ComponentProps<
   typeof MenuCheckboxItemIndicatorPart
->;
+> &
+  XstyleProp;
 
 function CheckboxItemIndicator({
   children,
   className,
   keepMounted = true,
+  xstyle,
   ...props
 }: MenuCheckboxItemIndicatorProps) {
   return (
     <MenuCheckboxItemIndicatorPart
       {...props}
+      {...themeSlotProps("menu-item", "indicator")}
       className={mergeClassName(
         (state) =>
-          sx(menu.itemIndicator, !state.checked && menu.itemIconHidden),
+          sx(menu.itemIndicator, !state.checked && menu.itemIconHidden, xstyle),
         className,
       )}
       keepMounted={keepMounted}
@@ -338,28 +389,37 @@ export type MenuRadioItemProps = React.ComponentProps<
    */
   itemKind?: "default" | "pointer";
   tone?: "danger" | "default";
-};
+} & XstyleProp;
 
 function RadioItem({
   className,
   itemKind = "pointer",
   tone = "default",
+  xstyle,
   ...props
 }: MenuRadioItemProps) {
+  const density = useMenuDensity();
+  const theme = themeProps("menu-item", { density, tone });
   return (
     <MenuRadioItemPart
       {...props}
+      {...theme}
       className={mergeClassName(
         (state) =>
-          sx(
-            menu.item,
-            menu.itemCheckable,
-            transition.colors,
-            itemKind === "pointer" ? menu.itemPointer : menu.itemDefault,
-            state.highlighted && menu.itemHighlighted,
-            state.checked && menu.itemChecked,
-            tone === "danger" && menu.itemDanger,
-            state.disabled && menu.itemDisabled,
+          cx(
+            sx(
+              menu.item,
+              density === "compact" && menu.itemCompact,
+              menu.itemCheckable,
+              transition.colors,
+              itemKind === "pointer" ? menu.itemPointer : menu.itemDefault,
+              state.highlighted && menu.itemHighlighted,
+              state.checked && menu.itemChecked,
+              tone === "danger" && menu.itemDanger,
+              state.disabled && menu.itemDisabled,
+              xstyle,
+            ),
+            theme.className,
           ),
         className,
       )}
@@ -369,20 +429,23 @@ function RadioItem({
 
 export type MenuRadioItemIndicatorProps = React.ComponentProps<
   typeof MenuRadioItemIndicatorPart
->;
+> &
+  XstyleProp;
 
 function RadioItemIndicator({
   children,
   className,
   keepMounted = true,
+  xstyle,
   ...props
 }: MenuRadioItemIndicatorProps) {
   return (
     <MenuRadioItemIndicatorPart
       {...props}
+      {...themeSlotProps("menu-item", "indicator")}
       className={mergeClassName(
         (state) =>
-          sx(menu.itemIndicator, !state.checked && menu.itemIconHidden),
+          sx(menu.itemIndicator, !state.checked && menu.itemIconHidden, xstyle),
         className,
       )}
       keepMounted={keepMounted}

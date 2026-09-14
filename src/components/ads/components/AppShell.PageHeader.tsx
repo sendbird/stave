@@ -88,7 +88,7 @@ const styles = stylex.create({
     containerName: "atelier-page-header",
     containerType: "inline-size",
     display: "grid",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     gridTemplateColumns: "minmax(0, 1fr)",
     inlineSize: "100%",
     minInlineSize: 0,
@@ -97,7 +97,7 @@ const styles = stylex.create({
     alignItems: "start",
     display: "flex",
     flexWrap: "wrap",
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
     minInlineSize: 0,
   },
   pageHeaderCopy: {
@@ -108,22 +108,22 @@ const styles = stylex.create({
     flexBasis: "24rem",
     flexGrow: 1,
     flexShrink: 1,
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     justifyItems: "start",
     minInlineSize: 0,
   },
   pageTitle: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeHeading,
-    fontWeight: vars.fontWeightSemibold,
-    lineHeight: vars.lineHeightHeading,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-heading"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    lineHeight: vars["--ads-line-height-heading"],
     margin: 0,
     overflowWrap: "anywhere",
   },
   pageDescription: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
     // Measure cap in `ch`, so it tracks the font size instead of assuming one.
     // 680px was the 60–75ch cap for a 16px body; against this rule's own
@@ -143,7 +143,7 @@ const styles = stylex.create({
     display: "inline-flex",
     flexShrink: 0,
     flexWrap: "wrap",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     /*
      * The row is `align-items: start`, because the copy column can carry a
      * description under the title. That left every action sitting lower than
@@ -157,7 +157,7 @@ const styles = stylex.create({
      * The box does not clip — nothing here sets `overflow`.
      */
     blockSize: {
-      default: vars.lineHeightHeading,
+      default: vars["--ads-line-height-heading"],
       "@container atelier-page-header (max-width: 480px)": "auto",
     },
     inlineSize: {
@@ -174,7 +174,7 @@ const styles = stylex.create({
   pageTitleRow: {
     alignItems: "center",
     display: "inline-flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minInlineSize: 0,
   },
   pageTitleIcon: {
@@ -187,13 +187,13 @@ const styles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     minInlineSize: 0,
   },
   pageMetaItem: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     minInlineSize: 0,
   },
   pageTabs: {

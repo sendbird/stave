@@ -184,7 +184,7 @@ function FleetCardPrBadge({ status }: { status: WorkspacePrStatus | null }) {
   const visual = PR_STATUS_VISUAL[status];
   return (
     <Badge
-      className={sx(styles.chip, prToneBadgeStyles[visual.tone])}
+      xstyle={[styles.chip, prToneBadgeStyles[visual.tone]]}
       title={`Pull request: ${visual.label}`}
       tone="neutral"
     >
@@ -528,7 +528,7 @@ export function FleetWorkspaceCard(args: {
           <div className={sx(styles.titleRow)}>
             <span className={sx(styles.name)}>{displayName}</span>
             {args.workspace.isDefault ? (
-              <Badge className={sx(styles.chip)}>Default</Badge>
+              <Badge xstyle={styles.chip}>Default</Badge>
             ) : null}
             {activity === "dormant" ? (
               <span

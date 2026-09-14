@@ -14,11 +14,17 @@ import {
 } from "../headless/slider";
 import { controlHeights } from "../recipes/control-metrics";
 import { focusRing } from "../recipes/focus-ring";
+import { themeProps, themeSlotProps, themeTargetClassName } from "../theming/theme-props";
 import { springSnappy, vars } from "../tokens/tokens.stylex";
-import { sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 // No `fieldAnatomy.field` here: `Slider.Root` is already the field grid (label
 // row, control, messages), so wrapping it in a second one would only add a box.
 import { FieldMessages, useFieldAnatomy } from "./field-anatomy";
+
+export type SliderMark = {
+  label?: React.ReactNode;
+  value: number;
+};
 
 export type SliderProps = Omit<SliderRootProps, "className"> & {
   ariaLabel?: string;
@@ -44,7 +50,9 @@ export type SliderProps = Omit<SliderRootProps, "className"> & {
    */
   formatValue?: (value: number) => string;
   label?: string;
-};
+  /** Step-aligned ticks; array entries add labels at matching steps. */
+  marks?: boolean | readonly SliderMark[];
+} & XstyleProp;
 
 export function Slider({
   ariaLabel,
@@ -53,6 +61,8 @@ export function Slider({
   error,
   formatValue,
   label,
+  marks,
+  xstyle,
   ...props
 }: SliderProps) {
   const anatomy = useFieldAnatomy({ description, error, id: props.id });
@@ -68,10 +78,24 @@ export function Slider({
   const values = props.value ?? props.defaultValue;
   const thumbCount = Array.isArray(values) ? Math.max(values.length, 1) : 1;
   const hasMessages = Boolean(description || error);
+  const min = props.min ?? 0;
+  const max = props.max ?? 100;
+  const ticks = getSliderTicks(min, max, props.step ?? 1);
+  const markLabels = new Map(
+    Array.isArray(marks)
+      ? marks.map((mark) => [mark.value, mark.label] as const)
+      : [],
+  );
+  const theme = themeProps("slider", { density });
+  // Bare class: `SliderThumb`'s `className` is a `(state) => string` callback,
+  // and the thumb carries no axes, so the stable class is merged directly
+  // rather than spread as props.
+  const themeThumbClassName = themeTargetClassName("slider-thumb");
 
   return (
     <SliderRoot
       {...props}
+      {...theme}
       /*
        * The root already renders `role="group"`, so a description hung here is
        * announced on entry. It is deliberately not repeated onto each thumb's
@@ -80,12 +104,18 @@ export function Slider({
        */
       aria-describedby={anatomy.describedBy}
       aria-invalid={anatomy.invalid}
-      className={sx(styles.root, props.disabled && styles.disabled)}
+      className={cx(
+        sx(styles.root, props.disabled && styles.disabled, xstyle),
+        theme.className,
+      )}
     >
       {label ? (
         <div className={sx(styles.header)}>
           <SliderLabel className={sx(styles.label)}>{label}</SliderLabel>
-          <SliderValue className={sx(styles.value)}>
+          <SliderValue
+            {...themeSlotProps("slider", "value")}
+            className={sx(styles.value)}
+          >
             {/*
              * Base UI joins a range with " – " when it formats the values
              * itself; matching that separator keeps a caller-formatted range
@@ -125,11 +155,14 @@ export function Slider({
                 thumbCount,
               )}
               className={(state) =>
-                sx(
-                  styles.thumb,
-                  focusRing.ring,
-                  anatomy.invalid && styles.thumbInvalid,
-                  state.disabled && styles.thumbDisabled,
+                cx(
+                  sx(
+                    styles.thumb,
+                    focusRing.ring,
+                    anatomy.invalid && styles.thumbInvalid,
+                    state.disabled && styles.thumbDisabled,
+                  ),
+                  themeThumbClassName,
                 )
               }
               /*
@@ -151,6 +184,30 @@ export function Slider({
           ))}
         </SliderTrack>
       </SliderControl>
+      {marks && ticks.length ? (
+        <div aria-hidden className={sx(styles.marks)} data-slider-marks>
+          {ticks.map((tick) => (
+            <span
+              {...themeSlotProps("slider", "mark")}
+              className={sx(styles.mark)}
+              data-slider-mark-value={tick}
+              key={tick}
+              style={
+                {
+                  "--ads-slider-mark-position": `${((tick - min) / (max - min)) * 100}%`,
+                } as React.CSSProperties
+              }
+            >
+              <span className={sx(styles.tick)} />
+              {markLabels.has(tick) ? (
+                <span className={sx(styles.markLabel)}>
+                  {markLabels.get(tick)}
+                </span>
+              ) : null}
+            </span>
+          ))}
+        </div>
+      ) : null}
       {/*
        * Gated, not always-on: the root is a grid with a `space3` gap, so an
        * empty message row would still cost 12px of dead space under every
@@ -182,14 +239,25 @@ function thumbAriaLabel(base: string, index: number, count: number): string {
   return `${base} ${index + 1}`;
 }
 
+function getSliderTicks(min: number, max: number, step: number) {
+  if (!(step > 0) || !(max > min)) return [];
+  const intervals = Math.floor((max - min) / step);
+  if (intervals < 1 || intervals > 100) return [];
+  const ticks = Array.from({ length: intervals + 1 }, (_, index) =>
+    Number((min + index * step).toFixed(10)),
+  );
+  if (ticks[ticks.length - 1] !== max && ticks.length <= 100) ticks.push(max);
+  return ticks;
+}
+
 const styles = stylex.create({
   root: {
     display: "grid",
-    gap: vars.space12,
+    gap: vars["--ads-space-12"],
     inlineSize: "100%",
   },
   disabled: {
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
   header: {
     alignItems: "center",
@@ -197,41 +265,66 @@ const styles = stylex.create({
     justifyContent: "space-between",
   },
   label: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   value: {
-    color: vars.colorTextMuted,
-    fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text-muted"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   control: {
     alignItems: "center",
     display: "flex",
   },
   track: {
-    backgroundColor: vars.colorBorder,
-    borderRadius: vars.radiusFull,
+    backgroundColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-full"],
     blockSize: 6,
     inlineSize: "100%",
   },
+  marks: {
+    minBlockSize: vars["--ads-space-16"],
+    position: "relative",
+  },
+  mark: {
+    alignItems: "center",
+    display: "flex",
+    flexDirection: "column",
+    inlineSize: 0,
+    insetInlineStart: "var(--ads-slider-mark-position)",
+    overflow: "visible",
+    position: "absolute",
+  },
+  tick: {
+    backgroundColor: vars["--ads-color-border-strong"],
+    blockSize: vars["--ads-space-4"],
+    inlineSize: vars["--ads-border-width-hairline"],
+  },
+  markLabel: {
+    color: vars["--ads-color-text-muted"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-tight"],
+    whiteSpace: "nowrap",
+  },
   indicator: {
-    backgroundColor: vars.colorAccent,
-    borderRadius: vars.radiusFull,
+    backgroundColor: vars["--ads-color-accent"],
+    borderRadius: vars["--ads-radius-full"],
   },
   // The filled part of the track is the answer, so it is what moves to the
   // danger ramp. The thumb rim moves with it (below): it sits at the end of the
   // indicator, and an accent ring capping a danger bar reads as a rendering
   // bug rather than as a state.
   indicatorInvalid: {
-    backgroundColor: vars.colorDanger,
+    backgroundColor: vars["--ads-color-danger"],
   },
   // `space1`, not the root's `space3`: description and error belong tighter to
   // each other than the whole stack does to the control above it.
   messages: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   thumb: {
     // The thumb is the hit target, and it had no pointer feedback at all — the
@@ -239,15 +332,15 @@ const styles = stylex.create({
     // takes the 6%/12% wash mixed into its own fill, like every other opaque
     // pressable.
     backgroundColor: {
-      default: vars.colorSurfaceRaised,
-      ":hover": `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars.colorMixInk} 6%)`,
-      ":active": `color-mix(in srgb, ${vars.colorSurfaceRaised}, ${vars.colorMixInk} 12%)`,
+      default: vars["--ads-color-surface-raised"],
+      ":hover": `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 6%)`,
+      ":active": `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 12%)`,
     },
-    borderColor: vars.colorAccent,
-    borderRadius: vars.radiusFull,
+    borderColor: vars["--ads-color-accent"],
+    borderRadius: vars["--ads-radius-full"],
     borderStyle: "solid",
-    borderWidth: vars.ringWidthSm,
-    boxShadow: vars.elevationRaised,
+    borderWidth: vars["--ads-ring-width-sm"],
+    boxShadow: vars["--ads-elevation-raised"],
     cursor: {
       default: "grab",
       ":active": "grabbing",
@@ -256,7 +349,7 @@ const styles = stylex.create({
     minBlockSize: 20,
   },
   thumbInvalid: {
-    borderColor: vars.colorDangerBorder,
+    borderColor: vars["--ads-color-danger-border"],
   },
   thumbDisabled: {
     cursor: "not-allowed",

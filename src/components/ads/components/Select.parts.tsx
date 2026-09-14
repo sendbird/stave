@@ -24,11 +24,16 @@ import { focusRing } from "../recipes/focus-ring";
 import { listbox } from "../recipes/listbox";
 import { transition } from "../recipes/transition";
 import {
+  PortalProductThemeScope,
+  usePortalProductThemeProps,
+} from "../theming/ProductThemeProvider";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
+import {
   POPUP_SIDE_OFFSET,
   type PopupPlacement,
   resolvePlacement,
 } from "../utils/placement";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
   itemStylesBySize,
   styles,
@@ -67,13 +72,19 @@ function Root(props: SelectRootCompoundProps) {
   return <SelectRoot {...props} />;
 }
 
-export type SelectLabelProps = React.ComponentProps<typeof SelectLabel>;
+export type SelectLabelProps = React.ComponentProps<typeof SelectLabel> &
+  XstyleProp;
 
-function CompoundLabel({ className, ...props }: SelectLabelProps) {
+function CompoundLabel({ className, xstyle, ...props }: SelectLabelProps) {
+  const theme = themeProps("select-label");
   return (
     <SelectLabel
       {...props}
-      className={mergeClassName(() => sx(styles.label), className)}
+      {...theme}
+      className={mergeClassName(
+        () => cx(sx(styles.label, xstyle), theme.className) ?? "",
+        className,
+      )}
     />
   );
 }
@@ -82,73 +93,130 @@ export type SelectTriggerProps = React.ComponentProps<typeof SelectTrigger> & {
   /** Tints the border with the invalid tone. Composed here, not by a caller's
    * `className`: the package's own classes win on CSS source order. */
   invalid?: boolean;
+  /**
+   * The value is settled and cannot be changed here — a locked assignee, a field
+   * the caller's role may read but not edit.
+   *
+   * It is NOT `disabled`: a disabled control is unavailable, a read-only one is
+   * simply not yours to change, and the two must not look alike. This composes
+   * `controlChrome.readOnlyField`, the same chrome `TextField`, `Textarea`,
+   * `NumberField`, `InputGroup`, `Field` and `DatePicker` already use, so the
+   * whole field family says it one way. Until now a read-only Select rendered
+   * pixel-identical to an editable one.
+   */
+  readOnly?: boolean;
   size?: SelectSize;
-};
+} & XstyleProp;
 
 function Trigger({
   className,
   invalid = false,
+  readOnly = false,
   size: resolvedSize = "md",
+  xstyle,
   ...props
 }: SelectTriggerProps) {
+  const theme = themeProps("select-trigger", { size: resolvedSize });
   return (
     <SelectTrigger
       {...props}
+      {...theme}
+      aria-readonly={readOnly || undefined}
+      /*
+       * A read-only Select does not open. Blocking the pointer/keyboard here
+       * rather than passing `disabled` keeps the control focusable and its value
+       * announced — the difference between "not yours to change" and "unavailable".
+       */
+      onPointerDown={
+        readOnly
+          ? (event) => {
+              // Base UI opens the popup on pointer DOWN, so intercepting click
+              // was measurably too late — the listbox was already mounted.
+              event.preventDefault();
+              props.onPointerDown?.(event);
+            }
+          : props.onPointerDown
+      }
+      onKeyDown={
+        readOnly
+          ? (event) => {
+              if (
+                event.key === "Enter" ||
+                event.key === " " ||
+                event.key === "ArrowDown"
+              ) {
+                event.preventDefault();
+              }
+              props.onKeyDown?.(event);
+            }
+          : props.onKeyDown
+      }
       className={mergeClassName(
         (state) =>
-          sx(
-            styles.trigger,
-            triggerStylesBySize[resolvedSize],
-            controlChrome.trigger,
-            controlChrome.triggerFocusBorder,
-            // A Select is field-shaped, so it answers the pointer the way a
-            // TextField does: the boundary strengthens, the fill holds still.
-            // `trigger`'s background wash made it the one control in the form
-            // row that lit up like a button under the pointer. Composed after
-            // both so its fill and its border win; `trigger`'s elevation and
-            // press collapse are untouched.
-            controlChrome.field,
-            transition.colors,
-            focusRing.borderOnly,
-            triggerHeightsBySize[resolvedSize],
-            state.open && styles.triggerOpen,
-            // `Select`'s value is still information while disabled (like a
-            // disabled `TextField`), so it tints and mutes instead of fading —
-            // `controlChrome.disabledField`, not the opacity-fade
-            // `controlChrome.disabled` every other pressable trigger uses.
-            // Composed last so its plain `cursor`/background/border/color
-            // beat `styles.trigger`/`controlChrome.trigger`'s; the native
-            // `disabled` attribute on this button (Base UI's `nativeButton`)
-            // already keeps `:hover`/`:active` from ever matching.
-            // After `controlChrome.trigger`'s border so the tone wins, before
-            // `disabledField` so a disabled control still reads as disabled.
-            invalid && styles.triggerError,
-            state.disabled && controlChrome.disabledField,
-          ),
+          cx(
+            sx(
+              styles.trigger,
+              triggerStylesBySize[resolvedSize],
+              controlChrome.trigger,
+              controlChrome.triggerFocusBorder,
+              // A Select is field-shaped, so it answers the pointer the way a
+              // TextField does: the boundary strengthens, the fill holds still.
+              // `trigger`'s background wash made it the one control in the form
+              // row that lit up like a button under the pointer. Composed after
+              // both so its fill and its border win; `trigger`'s elevation and
+              // press collapse are untouched.
+              controlChrome.field,
+              transition.colors,
+              focusRing.borderOnly,
+              triggerHeightsBySize[resolvedSize],
+              state.open && styles.triggerOpen,
+              // `Select`'s value is still information while disabled (like a
+              // disabled `TextField`), so it tints and mutes instead of fading —
+              // `controlChrome.disabledField`, not the opacity-fade
+              // `controlChrome.disabled` every other pressable trigger uses.
+              // Composed last so its plain `cursor`/background/border/color
+              // beat `styles.trigger`/`controlChrome.trigger`'s; the native
+              // `disabled` attribute on this button (Base UI's `nativeButton`)
+              // already keeps `:hover`/`:active` from ever matching.
+              // After `controlChrome.trigger`'s border so the tone wins, before
+              // `disabledField` so a disabled control still reads as disabled.
+              invalid && styles.triggerError,
+              state.disabled && controlChrome.disabledField,
+              // After `disabledField`: a control that is both disabled and
+              // read-only is disabled first, and reads that way.
+              readOnly && !state.disabled && controlChrome.readOnlyField,
+              xstyle,
+            ),
+            theme.className,
+          ) ?? "",
         className,
       )}
     />
   );
 }
 
-export type SelectValueProps = React.ComponentProps<typeof SelectValue>;
+export type SelectValueProps = React.ComponentProps<typeof SelectValue> &
+  XstyleProp;
 
-function Value({ className, ...props }: SelectValueProps) {
+function Value({ className, xstyle, ...props }: SelectValueProps) {
   return (
     <SelectValue
       {...props}
-      className={mergeClassName(() => sx(styles.value), className)}
+      {...themeSlotProps("select-trigger", "value")}
+      className={mergeClassName(() => sx(styles.value, xstyle), className)}
     />
   );
 }
 
-export type SelectIconProps = React.ComponentProps<typeof SelectIcon>;
+export type SelectIconProps = React.ComponentProps<typeof SelectIcon> &
+  XstyleProp;
 
-function Icon({ children, className, ...props }: SelectIconProps) {
+function Icon({ children, className, xstyle, ...props }: SelectIconProps) {
   return (
     <SelectIcon
       {...props}
-      className={mergeClassName(() => sx(styles.icon), className)}
+      {...themeSlotProps("select-trigger", "icon")}
+      className={mergeClassName(() => sx(styles.icon, xstyle), className)}
     >
       {children ?? <ChevronDown aria-hidden size={16} />}
     </SelectIcon>
@@ -157,8 +225,12 @@ function Icon({ children, className, ...props }: SelectIconProps) {
 
 export type SelectPortalProps = React.ComponentProps<typeof SelectPortal>;
 
-function Portal(props: SelectPortalProps) {
-  return <SelectPortal {...props} />;
+function Portal({ children, ...props }: SelectPortalProps) {
+  return (
+    <SelectPortal {...props}>
+      <PortalProductThemeScope>{children}</PortalProductThemeScope>
+    </SelectPortal>
+  );
 }
 
 export type SelectPositionerProps = React.ComponentProps<
@@ -166,7 +238,7 @@ export type SelectPositionerProps = React.ComponentProps<
 > & {
   /** Where the list opens against its trigger. @default "bottom-start" */
   placement?: PopupPlacement;
-};
+} & XstyleProp;
 
 function Positioner({
   align,
@@ -175,6 +247,7 @@ function Positioner({
   placement,
   side,
   sideOffset = POPUP_SIDE_OFFSET,
+  xstyle,
   ...props
 }: SelectPositionerProps) {
   const resolved = resolvePlacement(placement);
@@ -191,97 +264,123 @@ function Positioner({
        * that want the native-select behaviour can pass it back.
        */
       alignItemWithTrigger={alignItemWithTrigger}
-      className={mergeClassName(() => sx(styles.positioner), className)}
+      className={mergeClassName(() => sx(styles.positioner, xstyle), className)}
       side={side ?? resolved.side}
       sideOffset={sideOffset}
     />
   );
 }
 
-export type SelectPopupProps = React.ComponentProps<typeof SelectPopup>;
+export type SelectPopupProps = React.ComponentProps<typeof SelectPopup> &
+  XstyleProp;
 
-function Popup({ className, ...props }: SelectPopupProps) {
+function Popup({ className, xstyle, ...props }: SelectPopupProps) {
+  const theme = themeProps("select-popup");
+  // The list leaves its provider's DOM subtree through the portal, so it has to
+  // carry the brand with it: `@scope` is a fact about the DOM tree, and a
+  // portal is exactly where the DOM tree and the React tree disagree.
+  const portalTheme = usePortalProductThemeProps();
   return (
     <SelectPopup
       {...props}
+      {...portalTheme}
+      {...theme}
       className={mergeClassName(
         () =>
-          cx(sx(styles.popup, listbox.popupWidth), "atelier-motion-dropdown") ??
-          "",
+          cx(
+            sx(styles.popup, listbox.popupWidth, xstyle),
+            theme.className,
+            "atelier-motion-dropdown",
+          ) ?? "",
         className,
       )}
     />
   );
 }
 
-export type SelectListProps = React.ComponentProps<typeof SelectList>;
+export type SelectListProps = React.ComponentProps<typeof SelectList> &
+  XstyleProp;
 
-function List({ className, ...props }: SelectListProps) {
+function List({ className, xstyle, ...props }: SelectListProps) {
   return (
     <SelectList
       {...props}
-      className={mergeClassName(() => sx(listbox.list), className)}
+      {...themeSlotProps("select-popup", "list")}
+      className={mergeClassName(() => sx(listbox.list, xstyle), className)}
     />
   );
 }
 
 export type SelectItemProps = React.ComponentProps<typeof SelectItem> & {
   size?: SelectSize;
-};
+} & XstyleProp;
 
 function Item({
   className,
   size: resolvedSize = "md",
+  xstyle,
   ...props
 }: SelectItemProps) {
+  const theme = themeProps("select-item", { size: resolvedSize });
   return (
     <SelectItem
       {...props}
+      {...theme}
       className={mergeClassName(
         (state) =>
-          sx(
-            styles.item,
-            transition.colors,
-            itemStylesBySize[resolvedSize],
-            state.highlighted && styles.itemHighlighted,
-            state.selected && styles.itemSelected,
-            state.disabled && styles.itemDisabled,
-          ),
+          cx(
+            sx(
+              styles.item,
+              transition.colors,
+              itemStylesBySize[resolvedSize],
+              state.highlighted && styles.itemHighlighted,
+              state.selected && styles.itemSelected,
+              state.disabled && styles.itemDisabled,
+              xstyle,
+            ),
+            theme.className,
+          ) ?? "",
         className,
       )}
     />
   );
 }
 
-export type SelectItemTextProps = React.ComponentProps<typeof SelectItemText>;
+export type SelectItemTextProps = React.ComponentProps<typeof SelectItemText> &
+  XstyleProp;
 
-function ItemText({ className, ...props }: SelectItemTextProps) {
+function ItemText({ className, xstyle, ...props }: SelectItemTextProps) {
   return (
     <SelectItemText
       {...props}
-      className={mergeClassName(() => sx(styles.itemText), className)}
+      {...themeSlotProps("select-item", "text")}
+      className={mergeClassName(() => sx(styles.itemText, xstyle), className)}
     />
   );
 }
 
 export type SelectItemIndicatorProps = React.ComponentProps<
   typeof SelectItemIndicator
->;
+> &
+  XstyleProp;
 
 function ItemIndicator({
   children,
   className,
   keepMounted = true,
+  xstyle,
   ...props
 }: SelectItemIndicatorProps) {
   return (
     <SelectItemIndicator
       {...props}
+      {...themeSlotProps("select-item", "indicator")}
       className={mergeClassName(
         (state) =>
           sx(
             styles.itemIndicator,
             !state.selected && styles.itemIndicatorHidden,
+            xstyle,
           ),
         className,
       )}
@@ -300,44 +399,51 @@ function Group(props: SelectGroupProps) {
 
 export type SelectGroupLabelProps = React.ComponentProps<
   typeof SelectGroupLabelPart
->;
+> &
+  XstyleProp;
 
-function GroupLabel({ className, ...props }: SelectGroupLabelProps) {
+function GroupLabel({ className, xstyle, ...props }: SelectGroupLabelProps) {
   return (
     <SelectGroupLabelPart
       {...props}
-      className={mergeClassName(() => sx(styles.groupLabel), className)}
+      {...themeSlotProps("select-popup", "group-label")}
+      className={mergeClassName(() => sx(styles.groupLabel, xstyle), className)}
     />
   );
 }
 
 export type SelectSeparatorProps = React.ComponentProps<
   typeof SelectSeparatorPart
->;
+> &
+  XstyleProp;
 
-function Separator({ className, ...props }: SelectSeparatorProps) {
+function Separator({ className, xstyle, ...props }: SelectSeparatorProps) {
   return (
     <SelectSeparatorPart
       {...props}
-      className={mergeClassName(() => sx(styles.separator), className)}
+      {...themeSlotProps("select-popup", "separator")}
+      className={mergeClassName(() => sx(styles.separator, xstyle), className)}
     />
   );
 }
 
 export type SelectScrollUpArrowProps = React.ComponentProps<
   typeof SelectScrollUpArrow
->;
+> &
+  XstyleProp;
 
 function ScrollUpArrow({
   children,
   className,
+  xstyle,
   ...props
 }: SelectScrollUpArrowProps) {
   return (
     <SelectScrollUpArrow
       {...props}
+      {...themeSlotProps("select-popup", "scroll-up-arrow")}
       className={mergeClassName(
-        () => sx(styles.scrollArrow, styles.scrollArrowUp),
+        () => sx(styles.scrollArrow, styles.scrollArrowUp, xstyle),
         className,
       )}
     >
@@ -348,18 +454,21 @@ function ScrollUpArrow({
 
 export type SelectScrollDownArrowProps = React.ComponentProps<
   typeof SelectScrollDownArrow
->;
+> &
+  XstyleProp;
 
 function ScrollDownArrow({
   children,
   className,
+  xstyle,
   ...props
 }: SelectScrollDownArrowProps) {
   return (
     <SelectScrollDownArrow
       {...props}
+      {...themeSlotProps("select-popup", "scroll-down-arrow")}
       className={mergeClassName(
-        () => sx(styles.scrollArrow, styles.scrollArrowDown),
+        () => sx(styles.scrollArrow, styles.scrollArrowDown, xstyle),
         className,
       )}
     >

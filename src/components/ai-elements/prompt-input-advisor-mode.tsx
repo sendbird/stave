@@ -57,7 +57,7 @@ import { advisorModeStyles } from "./prompt-input-advisor-mode.styles";
 const providerWaveToneStyles = stylex.create({
   claude: { color: "var(--provider-claude)" },
   codex: { color: "var(--provider-codex)" },
-  accent: { color: vars.colorAccent },
+  accent: { color: vars["--ads-color-accent"] },
 });
 
 /**

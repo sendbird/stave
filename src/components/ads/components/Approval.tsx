@@ -4,6 +4,7 @@ import * as React from "react";
 import { agentStatusWord, agentSurface } from "../recipes/agent-surface";
 import { focusRing } from "../recipes/focus-ring";
 import { transition } from "../recipes/transition";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { Button } from "./Button";
@@ -194,18 +195,22 @@ export function Approval({
     onDecide(decision);
   };
 
+  const theme = themeProps("approval");
+
   return (
     <section
       {...props}
+      {...theme}
       aria-busy={busy || undefined}
       aria-labelledby={titleId}
-      className={cx(sx(agentSurface.decision, xstyle), className)}
+      className={cx(sx(agentSurface.decision, xstyle), theme.className, className)}
       // `group`, not `region`: a transcript can hold a dozen of these, and a
       // dozen landmarks is a landmark list nobody can use.
       role="group"
     >
       <div className={sx(agentSurface.metaRow)}>
         <span
+          {...themeSlotProps("approval", "title")}
           className={sx(agentSurface.metaRowLabel, styles.title)}
           id={titleId}
         >
@@ -214,6 +219,7 @@ export function Approval({
         <span
           aria-live="polite"
           aria-describedby={audit ? auditId : undefined}
+          {...themeSlotProps("approval", "status")}
           className={sx(
             styles.status,
             resolved ? decisionTone[outcome.decision] : agentStatusWord.warning,
@@ -236,13 +242,21 @@ export function Approval({
       </div>
 
       {description == null ? null : (
-        <p className={sx(styles.description)}>{description}</p>
+        <p
+          {...themeSlotProps("approval", "description")}
+          className={sx(styles.description)}
+        >
+          {description}
+        </p>
       )}
 
       {argumentRows == null || argumentRows.length === 0 ? null : (
         // Rung 4. A recess, never a nested bordered panel: the decision itself
         // already has a horizontal transcript boundary.
-        <dl className={sx(agentSurface.well, styles.arguments)}>
+        <dl
+          {...themeSlotProps("approval", "arguments")}
+          className={sx(agentSurface.well, styles.arguments)}
+        >
           {argumentRows.map((row) => (
             <div className={sx(agentSurface.metaRow)} key={row.id}>
               <dt className={sx(agentSurface.metaRowLabel, styles.term)}>
@@ -338,7 +352,11 @@ function ApprovalAudit({
   outcome: ApprovalOutcome;
 }) {
   return (
-    <div className={sx(styles.audit)} id={id}>
+    <div
+      {...themeSlotProps("approval", "audit")}
+      className={sx(styles.audit)}
+      id={id}
+    >
       {outcome.by == null && outcome.at == null ? null : (
         <div className={sx(agentSurface.metaRow)}>
           <span className={sx(agentSurface.metaRowLabel, styles.by)}>
@@ -358,37 +376,37 @@ function ApprovalAudit({
 
 const styles = stylex.create({
   title: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
     // Medium, not semibold: §3 reserves semibold for page titles, and a weight
     // jump on top of an ink step is the third signal that turns a dense
     // surface loud.
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
   },
   status: {
-    borderRadius: vars.radiusMark,
+    borderRadius: vars["--ads-radius-mark"],
     flex: "0 0 auto",
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     whiteSpace: "nowrap",
   },
   description: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
     overflowWrap: "anywhere",
   },
   arguments: {
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     margin: 0,
   },
   term: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
   },
   value: {
     // The `<dd>` UA sheet ships a 40px inline indent; the metaRow owns spacing.
@@ -399,18 +417,18 @@ const styles = stylex.create({
   },
   audit: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
   by: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightTight,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-tight"],
   },
   note: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
     overflowWrap: "anywhere",
   },
@@ -418,7 +436,7 @@ const styles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     justifyContent: "flex-start",
   },
 });

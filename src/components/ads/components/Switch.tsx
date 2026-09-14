@@ -11,8 +11,9 @@ import { controlHeights } from "../recipes/control-metrics";
 import { focusRing } from "../recipes/focus-ring";
 import { touchTarget } from "../recipes/touch-target";
 import { transition } from "../recipes/transition";
+import { themeProps } from "../theming/theme-props";
 import { springSnappy, vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { FieldMessages, fieldAnatomy, useFieldAnatomy } from "./field-anatomy";
 
 export type SwitchProps = Omit<SwitchRootProps, "className"> & {
@@ -35,12 +36,24 @@ export type SwitchProps = Omit<SwitchRootProps, "className"> & {
   error?: React.ReactNode;
   label?: React.ReactNode;
   /**
+   * The toggle is committing — an API round-trip, a provisioning call.
+   *
+   * A settings switch backed by a server has three states, not two, and ADS only
+   * had two: consumers either flipped optimistically and snapped back on failure
+   * (the switch lies for 400ms) or disabled the row (the setting looks
+   * unavailable rather than busy). `pending` blocks further input like
+   * `disabled` does — a second toggle mid-flight is a race the caller cannot
+   * win — but keeps the row at full strength and marks it `aria-busy`, so it
+   * reads as working rather than as unavailable.
+   */
+  pending?: boolean;
+  /**
    * `inline` (default) sits the control before its label; `row` makes the whole
    * thing a full-width row with the label first and the control on the trailing
    * edge — the settings-list shape.
    */
   variant?: "inline" | "row";
-};
+} & XstyleProp;
 
 export function Switch({
   className,
@@ -48,7 +61,9 @@ export function Switch({
   description,
   error,
   label,
+  pending = false,
   variant = "inline",
+  xstyle,
   ...props
 }: SwitchProps) {
   /*
@@ -66,6 +81,12 @@ export function Switch({
   const rowDescription = variant === "row" && label ? description : undefined;
   const stackDescription = rowDescription ? undefined : description;
   const hasStack = Boolean(stackDescription || error);
+  // RESOLVED validity, like `text-field`: an error forces `danger`, computed
+  // here so a caller cannot claim it. Only the OFF track paints danger (see
+  // `styles.invalid`), so the axis repaints nothing when the switch is on.
+  const theme = themeProps("switch", {
+    tone: anatomy.invalid ? "danger" : "default",
+  });
 
   const row = (
     <label
@@ -75,27 +96,49 @@ export function Switch({
           labelHeightStyles[density],
           variant === "row" && styles.row,
           variant === "row" && transition.colors,
-          props.disabled && styles.labelDisabled,
+          props.disabled && !pending && styles.labelDisabled,
+          xstyle,
         ),
         className,
       )}
     >
       <SwitchRoot
         {...props}
-        aria-describedby={[props["aria-describedby"], anatomy.describedBy].filter(Boolean).join(" ") || undefined}
+        {...theme}
+        aria-busy={pending || undefined}
+        // Host adaptation: merge the caller's ARIA rather than replacing it,
+        // so a product wrapper that already describes or invalidates this
+        // control keeps its wiring alongside the field anatomy's.
+        aria-describedby={
+          [props["aria-describedby"], anatomy.describedBy]
+            .filter(Boolean)
+            .join(" ") || undefined
+        }
         aria-invalid={anatomy.invalid || props["aria-invalid"]}
         className={(state) =>
-          sx(
-            styles.root,
-            density === "compact" && styles.rootCompact,
-            transition.control,
-            touchTarget.coarse,
-            focusRing.ring,
-            state.checked && styles.checked,
-            anatomy.invalid && !state.checked && styles.invalid,
-            state.disabled && styles.disabled,
+          cx(
+            sx(
+              styles.root,
+              density === "compact" && styles.rootCompact,
+              transition.control,
+              touchTarget.coarse,
+              focusRing.ring,
+              state.checked && styles.checked,
+              anatomy.invalid && !state.checked && styles.invalid,
+              /*
+               * `pending` blocks input the same way `disabled` does, but must not
+               * wear the disabled chrome: a busy setting is not an unavailable one.
+               * The pending rule therefore comes after and restores full strength,
+               * adding the working cursor instead of `not-allowed`.
+               */
+              state.disabled && styles.disabled,
+              pending && styles.pending,
+            ),
+            theme.className,
           )
         }
+        data-pending={pending ? "true" : undefined}
+        disabled={props.disabled || pending}
       >
         <SwitchThumb
           className={sx(
@@ -197,29 +240,29 @@ export function Switch({
 const styles = stylex.create({
   label: {
     alignItems: "center",
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     cursor: "pointer",
     display: "inline-flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   labelText: {
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightNormal,
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
   },
   labelDisabled: {
     cursor: "not-allowed",
   },
   rowCopy: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minInlineSize: 0,
   },
   // Same type step as the anatomy's own description, restated because this one
   // is painted inside the row rather than by `FieldMessages`.
   rowDescription: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightNormal,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
     textWrap: "pretty",
   },
   /*
@@ -238,12 +281,12 @@ const styles = stylex.create({
    */
   messages: {
     display: "grid",
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   // ...except under `variant="row"`, where the row's own inline padding is what
   // the message has to line up with.
   messagesRow: {
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   /*
    * `variant="row"`: the settings-list shape. `row-reverse` puts the label
@@ -255,14 +298,14 @@ const styles = stylex.create({
   row: {
     backgroundColor: {
       default: "transparent",
-      ":hover": vars.colorOverlayHover,
+      ":hover": vars["--ads-color-overlay-hover"],
     },
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     flexDirection: "row-reverse",
     inlineSize: "100%",
     justifyContent: "space-between",
-    paddingBlock: vars.space4,
-    paddingInline: vars.space8,
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
   },
   /*
    * Track geometry is on the 4px grid and written in grid tokens so it cannot
@@ -284,25 +327,25 @@ const styles = stylex.create({
     // recipe itself is not composed here because a track is a *filled* shape,
     // so the step has to land on `background-color`, not `border-color`.
     backgroundColor: {
-      default: vars.colorBorderStrong,
-      ":hover": vars.colorBorderFocus,
-      ":active": `color-mix(in srgb, ${vars.colorBorderFocus}, ${vars.colorMixInk} 12%)`,
+      default: vars["--ads-color-border-strong"],
+      ":hover": vars["--ads-color-border-focus"],
+      ":active": `color-mix(in srgb, ${vars["--ads-color-border-focus"]}, ${vars["--ads-color-mix-ink"]} 12%)`,
     },
-    borderRadius: vars.radiusFull,
+    borderRadius: vars["--ads-radius-full"],
     display: "inline-flex",
     flexShrink: 0,
-    inlineSize: vars.space40,
+    inlineSize: vars["--ads-space-40"],
     justifyContent: "flex-start",
-    minBlockSize: vars.space24,
-    padding: vars.space4,
+    minBlockSize: vars["--ads-space-24"],
+    padding: vars["--ads-space-4"],
   },
   checked: {
     // On uses the `colorAccent` → `colorAccentHover` pair, the same step
     // `Button variant="primary"` and the checked Checkbox take.
     backgroundColor: {
-      default: vars.colorAccent,
-      ":hover": vars.colorAccentHover,
-      ":active": `color-mix(in srgb, ${vars.colorAccentHover}, ${vars.colorMixInk} 12%)`,
+      default: vars["--ads-color-accent"],
+      ":hover": vars["--ads-color-accent-hover"],
+      ":active": `color-mix(in srgb, ${vars["--ads-color-accent-hover"]}, ${vars["--ads-color-mix-ink"]} 12%)`,
     },
     // The whole "animation" of the thumb, in one declaration. Direction-aware:
     // `flex-end` is the trailing edge in RTL too.
@@ -314,7 +357,7 @@ const styles = stylex.create({
   rootCompact: {
     inlineSize: 28,
     minBlockSize: 16,
-    padding: vars.space2,
+    padding: vars["--ads-space-2"],
   },
   /*
    * Invalid *and* off. The track is a filled shape, so the danger signal has to
@@ -326,25 +369,34 @@ const styles = stylex.create({
    */
   invalid: {
     backgroundColor: {
-      default: vars.colorDangerBorder,
-      ":hover": vars.colorDangerHover,
-      ":active": vars.colorDangerHover,
+      default: vars["--ads-color-danger-border"],
+      ":hover": vars["--ads-color-danger-hover"],
+      ":active": vars["--ads-color-danger-hover"],
     },
   },
   disabled: {
     cursor: "not-allowed",
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
   thumb: {
     // No `transform` in this layer: Motion owns transform on this element
     // (`layout`), per the motion ADR's interop rule.
-    backgroundColor: vars.colorSurfaceRaised,
-    borderRadius: vars.radiusFull,
-    boxShadow: vars.elevationRaised,
+    backgroundColor: vars["--ads-color-surface-raised"],
+    borderRadius: vars["--ads-radius-full"],
+    boxShadow: vars["--ads-elevation-raised"],
     display: "block",
     flexShrink: 0,
-    inlineSize: vars.space16,
-    minBlockSize: vars.space16,
+    inlineSize: vars["--ads-space-16"],
+    minBlockSize: vars["--ads-space-16"],
+  },
+  /*
+   * Full-strength track with a progress cursor. The thumb keeps its position, so
+   * the switch does not appear to have committed before the server said so —
+   * this is the state between "off" and "on", not a preview of the result.
+   */
+  pending: {
+    cursor: "progress",
+    opacity: 1,
   },
   thumbCompact: {
     inlineSize: 10,

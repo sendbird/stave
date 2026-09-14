@@ -10,6 +10,7 @@ import type * as React from "react";
 
 import { agentSurface, agentStatusWord } from "../recipes/agent-surface";
 import { controlIconSizes } from "../recipes/control-metrics";
+import { themeSlotProps, themeTargetClassName } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
@@ -157,13 +158,24 @@ export function FileChangeSummary({
   const { basename, directory } = splitFileChangePath(path, directoryDepth);
 
   return (
-    <span {...props} className={cx(sx(styles.root, xstyle), className)}>
+    <span
+      {...props}
+      className={cx(
+        sx(styles.root, xstyle),
+        themeTargetClassName("file-change-summary"),
+        className,
+      )}
+    >
       <Icon
         aria-hidden
         className={sx(styles.glyph)}
         size={controlIconSizes.md}
       />
-      <span className={sx(agentSurface.meta, styles.path)} title={path}>
+      <span
+        {...themeSlotProps("file-change-summary", "path")}
+        className={sx(agentSurface.meta, styles.path)}
+        title={path}
+      >
         {directory ? (
           <span className={sx(styles.directory)}>{directory}</span>
         ) : null}
@@ -180,21 +192,18 @@ export function FileChangeSummary({
         </span>
       ) : null}
       {/*
-        * The quiet-state rule, same as `ToolRun`'s: a file that was applied the
-        * way it was meant to be applied says nothing by saying "Completed", and
-        * a summary list is where that repeats hardest — one word per row, down
-        * a column, in the one place a reader is scanning for the row that is
-        * NOT fine. It stays in the accessibility tree. See `isQuietState`.
-        */}
+       * The quiet-state rule, same as `ToolRun`'s: a file that was applied the
+       * way it was meant to be applied says nothing by saying "Completed", and
+       * a summary list is where that repeats hardest — one word per row, down
+       * a column, in the one place a reader is scanning for the row that is
+       * NOT fine. It stays in the accessibility tree. See `isQuietState`.
+       */}
       {state && isQuietState(state) ? (
         <VisuallyHidden>{agentStateLabel[state]}</VisuallyHidden>
       ) : null}
       {state && !isQuietState(state) ? (
         <span
-          className={sx(
-            styles.state,
-            agentStatusWord[agentStateTone[state]],
-          )}
+          className={sx(styles.state, agentStatusWord[agentStateTone[state]])}
         >
           {agentStateLabel[state]}
         </span>
@@ -207,12 +216,12 @@ const styles = stylex.create({
   root: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     inlineSize: "100%",
     minInlineSize: 0,
   },
   glyph: {
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
     flexShrink: 0,
   },
   /**
@@ -221,14 +230,14 @@ const styles = stylex.create({
    * `agentSurface.metaRow`.
    */
   path: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     display: "flex",
     flex: "1 1 auto",
     minInlineSize: 0,
     whiteSpace: "nowrap",
   },
   directory: {
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
     minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -239,19 +248,19 @@ const styles = stylex.create({
   counts: {
     display: "flex",
     flexShrink: 0,
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   added: {
-    color: vars.colorDiffAddedText,
+    color: vars["--ads-color-diff-added-text"],
   },
   removed: {
-    color: vars.colorDiffRemovedText,
+    color: vars["--ads-color-diff-removed-text"],
   },
   state: {
     flexShrink: 0,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     whiteSpace: "nowrap",
   },
 });

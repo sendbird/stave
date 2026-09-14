@@ -1,9 +1,12 @@
+import * as stylex from "@stylexjs/stylex";
 import type { StyleXValue } from "../ads/utils/stylex";
 import type { ComponentType, ReactNode } from "react";
 import type { Button as BaseButton } from "@base-ui/react/button";
 import { Button as AdsButton, type ButtonBaseProps } from "../ads/components/Button";
-import { buttonVariantStyles, buttonDangerToneStyles, buttonSizeGapStyles, buttonSizePadStyles } from "../ads/components/Button.config";
+import { buttonVariantStyles, buttonSizeGapStyles, buttonSizePadStyles } from "../ads/components/Button.config";
 import { styles } from "../ads/components/Button.styles";
+import { buttonToneVariantStyles } from "../ads/components/Button.tone-styles";
+import { vars } from "../ads/tokens/tokens.stylex";
 import { controlHeights, controlSquares } from "../ads/recipes/control-metrics";
 import { focusRing } from "../ads/recipes/focus-ring";
 import { transition } from "../ads/recipes/transition";
@@ -54,17 +57,44 @@ type Options = {
   layout?: "control" | "host";
 };
 
+/**
+ * ADS retired the per-variant `danger*` style keys and now expresses every
+ * semantic tone through `--ads-button-tone-*` custom properties that `Button`
+ * publishes as an inline style. `buttonVariants` emits classes only and has no
+ * element to attach that style to, so the class-only path declares the same
+ * five properties itself and keeps `variant="destructive"` painting as before.
+ */
+const toneVariables = stylex.create({
+  danger: {
+    "--ads-button-tone-border": vars["--ads-color-danger-border"],
+    "--ads-button-tone-fill": vars["--ads-color-danger"],
+    "--ads-button-tone-hover": vars["--ads-color-danger-hover"],
+    "--ads-button-tone-ink": vars["--ads-color-danger-text"],
+    "--ads-button-tone-soft": vars["--ads-color-danger-soft"],
+  },
+});
+
 /** Class-only consumers share the same ADS recipes as real buttons. */
 export function buttonVariants({ variant = "default", size = "default", iconOnly, className }: Options = {}) {
   const weight = variants[variant ?? "default"];
   const scale = sizes[size ?? "default"];
   const square = iconOnly ?? size?.startsWith("icon");
-  return cx(sx(styles.root, transition.control, focusRing.ring, buttonVariantStyles[weight], variant === "destructive" && buttonDangerToneStyles[weight], square ? controlSquares[scale] : controlHeights[scale], square ? styles.iconPad : buttonSizePadStyles[scale], square ? styles.gapIcon : buttonSizeGapStyles[scale]), className);
+  return cx(sx(styles.root, transition.control, focusRing.ring, buttonVariantStyles[weight], variant === "destructive" && toneVariables.danger, variant === "destructive" && buttonToneVariantStyles[weight], square ? controlSquares[scale] : controlHeights[scale], square ? styles.iconPad : buttonSizePadStyles[scale], square ? styles.gapIcon : buttonSizeGapStyles[scale]), className);
 }
 
-/** Preserve the public call contract while ADS owns behavior and styling. */
+/**
+ * Preserve the public call contract while ADS owns behavior and styling.
+ *
+ * `data-variant` / `data-size` are no longer emitted here. ADS `Button` now
+ * publishes its own stable theme identity on those exact attribute names
+ * (`themeProps("button", …)`), spread after the caller's props, so a duplicate
+ * in this wrapper's spelling was overwritten before it reached the DOM. The
+ * rendered element carries the ADS spelling — `ghost` reads as
+ * `data-variant="quiet"`, `destructive` as `data-variant="soft"
+ * data-tone="danger"`, `icon-sm` as `data-size="sm"`.
+ */
 export function Button({ variant = "default", size = "default", iconOnly, className, ...props }: BaseButton.Props & Options) {
   const scale = sizes[size ?? "default"];
   const square = iconOnly ?? size?.startsWith("icon");
-  return <ForwardButton {...props} className={typeof className === "string" ? className : undefined} variant={variants[variant ?? "default"]} tone={variant === "destructive" ? "danger" : "default"} size={scale} iconOnly={Boolean(square)} data-slot="button" data-variant={variant} data-size={size} />;
+  return <ForwardButton {...props} className={typeof className === "string" ? className : undefined} variant={variants[variant ?? "default"]} tone={variant === "destructive" ? "danger" : "default"} size={scale} iconOnly={Boolean(square)} data-slot="button" />;
 }

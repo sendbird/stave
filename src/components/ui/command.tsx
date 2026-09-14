@@ -10,7 +10,6 @@ import { CheckIcon, SearchIcon } from "lucide-react";
 import { styles as commandStyles } from "../ads/components/Command.styles";
 import { sx } from "../ads/utils/stylex";
 import { cx } from "../ads/utils/stylex";
-import { mergeClassName } from "../ads/components/merge-class-name";
 import {
   Dialog,
   DialogContent,
@@ -104,7 +103,8 @@ function Command({
         <AdsCommand.Frame
           bare
           data-slot="command"
-          className={cx(sx(commandLayout.frame), className)}
+          className={className}
+          xstyle={commandLayout.frame}
           {...props}
         >
           {content}
@@ -190,10 +190,8 @@ function CommandList({
   return (
     <AdsCommand.List
       data-slot="command-list"
-      className={mergeClassName(
-        () => sx(commandLayout.list),
-        className,
-      )}
+      className={className}
+      xstyle={commandLayout.list}
       {...props}
     />
   );
@@ -206,7 +204,8 @@ function CommandEmpty({
   return (
     <AdsCommand.Empty
       data-slot="command-empty"
-      className={mergeClassName(() => sx(commandStyles.empty), className)}
+      className={className}
+      xstyle={commandStyles.empty}
       {...props}
     />
   );
@@ -221,7 +220,8 @@ function CommandGroup({
   return (
     <AdsCommand.Group
       data-slot="command-group"
-      className={cx(sx(commandLayout.group), className)}
+      className={className}
+      xstyle={commandLayout.group}
       {...props}
     >
       {heading ? (
@@ -265,10 +265,8 @@ function CommandItem({
       value={value}
       data-selected={context.selected === value}
       onClick={() => onSelect?.(value ?? "")}
-      className={cx(
-        sx(commandStyles.item, commandLayout.item, commandItemMarker),
-        className,
-      )}
+      className={className}
+      xstyle={[commandStyles.item, commandLayout.item, commandItemMarker]}
       {...props}
     >
       {children}

@@ -58,7 +58,7 @@ import { workerModeStyles } from "./prompt-input-worker-mode.styles";
 const providerWaveToneStyles = stylex.create({
   claude: { color: "var(--provider-claude)" },
   codex: { color: "var(--provider-codex)" },
-  accent: { color: vars.colorAccent },
+  accent: { color: vars["--ads-color-accent"] },
 });
 
 /**

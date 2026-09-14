@@ -24,7 +24,7 @@ import {
 import type { ModelVisibility } from "@/lib/providers/model-visibility";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { useAppStore } from "@/store/app.store";
-import { cx, sx } from "@/components/ads/utils/stylex";
+import { sx } from "@/components/ads/utils/stylex";
 import { modelEffortSelectorStyles as styles } from "./model-effort-selector.styles";
 import { SelectionRail } from "@/components/system/SelectionRail";
 import { CursorModelConfigList } from "./cursor-model-config-list";
@@ -159,10 +159,10 @@ function ModelOnlyList(args: {
             tabIndex={optionIndex === tabStopIndex ? 0 : -1}
             onKeyDown={(event) => moveFocus(event, optionIndex)}
             onClick={() => args.onChoose(option)}
-            className={sx(
+            xstyle={[
               styles.modelRow,
               selected ? styles.modelRowSelected : styles.modelRowIdle,
-            )}
+            ]}
           >
             <ModelIcon
               providerId={option.providerId}
@@ -536,7 +536,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                     }`
               }
               title="Open model and effort selector (Alt+P). Use Alt+1..0 for mapped models."
-              className={sx(styles.trigger, open && styles.triggerOpen)}
+              xstyle={[styles.trigger, open && styles.triggerOpen]}
             />
           }
         >
@@ -747,7 +747,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                     layout="host"
                     type="button"
                     onClick={() => setShowAllModels((value) => !value)}
-                    className={sx(styles.showAllButton)}
+                    xstyle={styles.showAllButton}
                   >
                     <span>
                       {showAllModels
@@ -788,12 +788,12 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
             }
             args.onFastModeChange?.(enabled);
           }}
-          className={sx(
+          xstyle={[
             styles.capabilityToggle,
             styles.capabilityToggleIconOnly,
             cursorComposerControls.fastMode &&
               styles.capabilityToggleFastActive,
-          )}
+          ]}
         >
           <Zap
             className={sx(
@@ -813,12 +813,12 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
           aria-pressed={isClaudeContext1MModel(args.value.model)}
           disabled={args.disabled}
           onClick={toggleContext1M}
-          className={sx(
+          xstyle={[
             styles.capabilityToggle,
             styles.capabilityToggleMono,
             isClaudeContext1MModel(args.value.model) &&
               styles.capabilityToggleContextActive,
-          )}
+          ]}
         >
           1M
         </AdsButton>

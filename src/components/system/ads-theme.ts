@@ -3,8 +3,8 @@ import { vars } from "../ads/tokens/tokens.stylex";
 
 /** Saved Stave themes remain the color authority during source migration. */
 const roles = {
-  colorCanvas: "var(--background)",
-  colorCanvasSubtle: "var(--muted)",
+  "--ads-color-canvas": "var(--background)",
+  "--ads-color-canvas-subtle": "var(--muted)",
   // The ground behind the frame must sit BEHIND `colorCanvasSubtle`, and ADS
   // reads depth as darkness (light: ground 0.93 < canvasSubtle 0.97). Stave's
   // `--sidebar` and `--muted` share a lightness in the default themes, so the
@@ -12,11 +12,11 @@ const roles = {
   // restores the step in both modes (light 0.918 vs muted 0.955; dark 0.184 vs
   // 0.245 — `--foreground` is the light pole there, so the same expression
   // lifts instead of darkens and the ordering survives).
-  colorGround: "color-mix(in oklab, var(--foreground) 5%, var(--sidebar))",
-  colorSurface: "var(--card)",
-  colorSurfaceRaised: "var(--popover)",
-  colorSurfaceTint: "var(--muted)",
-  colorText: "var(--foreground)",
+  "--ads-color-ground": "color-mix(in oklab, var(--foreground) 5%, var(--sidebar))",
+  "--ads-color-surface": "var(--card)",
+  "--ads-color-surface-raised": "var(--popover)",
+  "--ads-color-surface-tint": "var(--muted)",
+  "--ads-color-text": "var(--foreground)",
   // Text ramp. All three used to alias `--muted-foreground`, which collapsed
   // ADS's three tiers into one value, so a placeholder read as filled-in copy
   // and "subtle" carried body-weight contrast. ADS inserts two half-steps
@@ -36,17 +36,17 @@ const roles = {
   // Themes whose own `--muted-foreground` already misses the muted floor
   // (Dracula 2.51:1, Ayu, Solarized) stay under it here too — that is the
   // theme's authored contrast, not this mapping's.
-  colorTextMuted: "var(--muted-foreground)",
-  colorTextSubtle:
+  "--ads-color-text-muted": "var(--muted-foreground)",
+  "--ads-color-text-subtle":
     "color-mix(in oklab, var(--background) 23%, var(--muted-foreground))",
-  colorTextPlaceholder:
+  "--ads-color-text-placeholder":
     "color-mix(in oklab, var(--background) 5%, var(--muted-foreground))",
-  colorTextInverted: "var(--background)",
-  colorBorder: "var(--border)",
-  colorBorderSubtle: "color-mix(in oklab, var(--border) 60%, transparent)",
-  colorBorderStrong: "var(--muted-foreground)",
-  colorBorderFocus: "var(--ring)",
-  colorAccent: "var(--primary)",
+  "--ads-color-text-inverted": "var(--background)",
+  "--ads-color-border": "var(--border)",
+  "--ads-color-border-subtle": "color-mix(in oklab, var(--border) 60%, transparent)",
+  "--ads-color-border-strong": "var(--muted-foreground)",
+  "--ads-color-border-focus": "var(--ring)",
+  "--ads-color-accent": "var(--primary)",
   /*
    * Interaction states are derived, not authored, so all 20+ saved themes get
    * them from their own `--primary` instead of inheriting ADS's.
@@ -72,18 +72,18 @@ const roles = {
    * documented hover step of ~0.038; 16% doubles it for the pressed step, which
    * is the ~0.077 the same table gives.
    */
-  colorAccentHover:
+  "--ads-color-accent-hover":
     "color-mix(in oklab, var(--primary-foreground) 8%, var(--primary))",
   // ADS's soft emphasis is a neutral wash. Using the host's selected accent
   // here spread blue across ordinary rows, chips and payload chrome. Derive
   // the wash from the theme's ink and surface; selection keeps its own role.
-  colorAccentSoft: "color-mix(in oklab, var(--foreground) 4%, var(--card))",
-  colorAccentText: "var(--primary-foreground)",
-  colorSelectionFill: "var(--accent)",
-  colorDanger: "var(--destructive)",
+  "--ads-color-accent-soft": "color-mix(in oklab, var(--foreground) 4%, var(--card))",
+  "--ads-color-accent-text": "var(--primary-foreground)",
+  "--ads-color-selection-fill": "var(--accent)",
+  "--ads-color-danger": "var(--destructive)",
   // Same two rules. The operand is the ink the destructive fill contrasts
   // against, and the space is oklab so a red does not swing toward orange.
-  colorDangerHover:
+  "--ads-color-danger-hover":
     "color-mix(in oklab, var(--foreground) 8%, var(--destructive))",
   // Semantic TEXT steps. These four aliased their own fills, and a fill only
   // has to clear the 3:1 mark floor, so `colorDangerText` on `colorDangerSoft`
@@ -109,56 +109,56 @@ const roles = {
   // their `--card` (Solarized Light tops out at 3.28:1, Ayu Light at 5.73:1
   // only at a 100% mix) cannot reach 4.5:1 from any mix ratio; that ceiling is
   // the theme's authored ink, not this expression.
-  colorDangerText: "color-mix(in oklab, var(--foreground) 45%, var(--destructive))",
-  colorDangerBorder: "var(--destructive)",
-  colorDangerSoft: "color-mix(in oklab, var(--destructive) 12%, var(--card))",
-  colorMixInk: "var(--foreground)",
-  colorMixLift: "var(--background)",
+  "--ads-color-danger-text": "color-mix(in oklab, var(--foreground) 45%, var(--destructive))",
+  "--ads-color-danger-border": "var(--destructive)",
+  "--ads-color-danger-soft": "color-mix(in oklab, var(--destructive) 12%, var(--card))",
+  "--ads-color-mix-ink": "var(--foreground)",
+  "--ads-color-mix-lift": "var(--background)",
   // Interaction washes. ADS states hover/pressed as a TRANSLUCENT overlay at
   // 6%/12%, and its own themes flip the operand (ink on light, light on dark).
   // Deriving the operand from `--foreground` reproduces that flip for every
   // saved Stave theme and, unlike the ADS default, carries the theme's own hue
   // instead of the warm neutral — a blue-grey theme was hovering to warm grey.
-  colorOverlayHover: "color-mix(in oklab, var(--foreground) 6%, transparent)",
-  colorOverlayPressed: "color-mix(in oklab, var(--foreground) 12%, transparent)",
+  "--ads-color-overlay-hover": "color-mix(in oklab, var(--foreground) 6%, transparent)",
+  "--ads-color-overlay-pressed": "color-mix(in oklab, var(--foreground) 12%, transparent)",
   // Modal scrim. Stave already owns a semantic scrim.
-  colorOverlay: "var(--overlay)",
+  "--ads-color-overlay": "var(--overlay)",
   // Scroll chrome: the same overlay mechanism at ADS's 6/24/48 weights.
-  colorScrollbarTrack: "color-mix(in oklab, var(--foreground) 6%, transparent)",
-  colorScrollbarThumb: "color-mix(in oklab, var(--foreground) 24%, transparent)",
-  colorScrollbarThumbHover:
+  "--ads-color-scrollbar-track": "color-mix(in oklab, var(--foreground) 6%, transparent)",
+  "--ads-color-scrollbar-thumb": "color-mix(in oklab, var(--foreground) 24%, transparent)",
+  "--ads-color-scrollbar-thumb-hover":
     "color-mix(in oklab, var(--foreground) 48%, transparent)",
   // Inset hairline under recessed keycaps/chips; ink-on-light, light-on-dark.
-  colorInsetEdge: "color-mix(in oklab, var(--foreground) 6%, transparent)",
-  zIndexSticky: "1",
-  zIndexPanel: "10",
-  zIndexAppChrome: "30",
-  zIndexOverlay: "79",
-  zIndexModal: "80",
-  zIndexDropdown: "90",
-  zIndexToast: "120",
-  colorSuccess: "var(--success)",
-  colorSuccessText: "color-mix(in oklab, var(--foreground) 45%, var(--success))",
-  colorSuccessSoft: "color-mix(in oklab, var(--success) 12%, var(--card))",
-  colorSuccessBorder: "var(--success)",
+  "--ads-color-inset-edge": "color-mix(in oklab, var(--foreground) 6%, transparent)",
+  "--ads-z-index-sticky": "1",
+  "--ads-z-index-panel": "10",
+  "--ads-z-index-app-chrome": "30",
+  "--ads-z-index-overlay": "79",
+  "--ads-z-index-modal": "80",
+  "--ads-z-index-dropdown": "90",
+  "--ads-z-index-toast": "120",
+  "--ads-color-success": "var(--success)",
+  "--ads-color-success-text": "color-mix(in oklab, var(--foreground) 45%, var(--success))",
+  "--ads-color-success-soft": "color-mix(in oklab, var(--success) 12%, var(--card))",
+  "--ads-color-success-border": "var(--success)",
   // VCS / diff identity. Stave already authors `--diff-*` per theme (GitHub
   // green/red on github, Solarized yellow-green on solarized). Mapping these
   // through `--success` / `--destructive` was what painted a Dracula added
   // line in the remixed status teal instead of `#50FA7B`.
-  colorDiffAdded: "var(--diff-added)",
-  colorDiffAddedText: "var(--diff-added-foreground)",
-  colorDiffRemoved: "var(--diff-removed)",
-  colorDiffRemovedText: "var(--diff-removed-foreground)",
-  colorWarning: "var(--warning)",
-  colorWarningText: "color-mix(in oklab, var(--foreground) 45%, var(--warning))",
-  colorWarningSoft: "color-mix(in oklab, var(--warning) 12%, var(--card))",
-  colorWarningBorder: "var(--warning)",
-  colorInfo: "var(--info)",
-  colorInfoText: "color-mix(in oklab, var(--foreground) 45%, var(--info))",
-  colorInfoSoft: "color-mix(in oklab, var(--info) 12%, var(--card))",
-  colorInfoBorder: "var(--info)",
-  fontSans: "var(--font-sans)",
-  fontMono: "var(--font-mono)",
+  "--ads-color-diff-added": "var(--diff-added)",
+  "--ads-color-diff-added-text": "var(--diff-added-foreground)",
+  "--ads-color-diff-removed": "var(--diff-removed)",
+  "--ads-color-diff-removed-text": "var(--diff-removed-foreground)",
+  "--ads-color-warning": "var(--warning)",
+  "--ads-color-warning-text": "color-mix(in oklab, var(--foreground) 45%, var(--warning))",
+  "--ads-color-warning-soft": "color-mix(in oklab, var(--warning) 12%, var(--card))",
+  "--ads-color-warning-border": "var(--warning)",
+  "--ads-color-info": "var(--info)",
+  "--ads-color-info-text": "color-mix(in oklab, var(--foreground) 45%, var(--info))",
+  "--ads-color-info-soft": "color-mix(in oklab, var(--info) 12%, var(--card))",
+  "--ads-color-info-border": "var(--info)",
+  "--ads-font-sans": "var(--font-sans)",
+  "--ads-font-mono": "var(--font-mono)",
   // Deliberately NOT remapped, so ADS stays the authority:
   // - `colorMediaEdge` is theme-scoped in ADS on purpose (transparent in light
   //   and dark, ink only under high contrast); giving it a light/dark value is
@@ -172,10 +172,18 @@ const roles = {
   // `colorDiff*` IS remapped: Stave authors `--diff-*` per theme, and those
   // values must not follow the success/danger remix.
 } satisfies Partial<
-  Record<Extract<keyof typeof vars, `color${string}` | `font${string}` | `zIndex${string}`>, string>
+  Record<
+    Extract<
+      keyof typeof vars,
+      `--ads-color-${string}` | `--ads-font-${string}` | `--ads-z-index-${string}`
+    >,
+    string
+  >
 >;
 
-// StyleX exports CSS var() references, so the canonical hashes stay authoritative.
+// StyleX exports CSS var() references, so the token name stays authoritative:
+// `vars["--ads-color-text"]` is the string `var(--ads-color-text)`, and slicing
+// the wrapper off yields the custom property this bridge has to publish.
 export const adsThemeVariables = Object.fromEntries(
   Object.entries(roles).map(([role, value]) => [
     vars[role as keyof typeof roles].slice(4, -1),

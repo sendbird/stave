@@ -8,7 +8,7 @@ import { vars } from "../ads/tokens/tokens.stylex";
  * ADS `sm` control rung (`controlHeightSm`, 32px) so the row has one baseline
  * instead of the previous 28px chip / 20px action / 28px cog mix.
  */
-const CHIP_HEIGHT = vars.controlHeightSm;
+const CHIP_HEIGHT = vars["--ads-control-height-sm"];
 
 /**
  * The chip publishes its hover state as a custom property so the trailing
@@ -21,23 +21,23 @@ const CHIP_ACTION_OPACITY = "--presetChipActionOpacity";
 export const presetBarStyles = stylex.create({
   root: {
     alignItems: "center",
-    backgroundColor: vars.colorCanvasSubtle,
-    borderBottomColor: vars.colorBorder,
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    borderBottomColor: vars["--ads-color-border"],
     borderBottomStyle: "solid",
-    borderBottomWidth: vars.borderWidthHairline,
+    borderBottomWidth: vars["--ads-border-width-hairline"],
     display: "flex",
     flexShrink: 0,
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minWidth: 0,
-    paddingBlock: vars.space4,
-    paddingInline: vars.space8,
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
   },
   chips: {
     alignItems: "center",
     display: "flex",
     flexBasis: 0,
     flexGrow: 1,
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
     minWidth: 0,
     overflowX: "auto",
   },
@@ -45,24 +45,24 @@ export const presetBarStyles = stylex.create({
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
-    gap: vars.space4,
+    gap: vars["--ads-space-4"],
   },
   restore: {
     color: {
-      default: vars.colorTextMuted,
-      ":hover": vars.colorText,
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-text"],
     },
     flexShrink: 0,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
     height: CHIP_HEIGHT,
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   manage: {
-    borderRadius: vars.radiusControl,
+    borderRadius: vars["--ads-radius-control"],
     color: {
-      default: vars.colorTextMuted,
-      ":hover": vars.colorText,
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-text"],
     },
     flexShrink: 0,
     height: CHIP_HEIGHT,
@@ -74,13 +74,13 @@ export const presetBarStyles = stylex.create({
       ":hover": "1",
     },
     alignItems: "stretch",
-    backgroundColor: vars.colorSurface,
-    borderColor: vars.colorBorder,
-    borderRadius: vars.radiusControl,
+    backgroundColor: vars["--ads-color-surface"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
-    borderWidth: vars.borderWidthHairline,
-    boxShadow: vars.elevationRaised,
-    color: vars.colorText,
+    borderWidth: vars["--ads-border-width-hairline"],
+    boxShadow: vars["--ads-elevation-raised"],
+    color: vars["--ads-color-text"],
     display: "flex",
     flexShrink: 0,
     height: CHIP_HEIGHT,
@@ -89,21 +89,21 @@ export const presetBarStyles = stylex.create({
   chipApply: {
     alignItems: "center",
     borderEndEndRadius: 0,
-    borderEndStartRadius: vars.radiusControl,
+    borderEndStartRadius: vars["--ads-radius-control"],
     borderStartEndRadius: 0,
-    borderStartStartRadius: vars.radiusControl,
+    borderStartStartRadius: vars["--ads-radius-control"],
     display: "flex",
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
-    gap: vars.space8,
-    lineHeight: vars.lineHeightControl,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    gap: vars["--ads-space-8"],
+    lineHeight: vars["--ads-line-height-control"],
     minWidth: 0,
-    paddingInline: vars.space8,
+    paddingInline: vars["--ads-space-8"],
   },
   chipIcon: {
     flexShrink: 0,
-    height: vars.controlIconSizeSm,
-    width: vars.controlIconSizeSm,
+    height: vars["--ads-control-icon-size-sm"],
+    width: vars["--ads-control-icon-size-sm"],
   },
   chipLabel: {
     maxWidth: 140,
@@ -112,17 +112,17 @@ export const presetBarStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   chipCliMark: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     flexShrink: 0,
-    height: vars.controlIconSizeSm,
-    width: vars.controlIconSizeSm,
+    height: vars["--ads-control-icon-size-sm"],
+    width: vars["--ads-control-icon-size-sm"],
   },
   chipActions: {
-    borderEndEndRadius: vars.radiusControl,
+    borderEndEndRadius: vars["--ads-radius-control"],
     borderEndStartRadius: 0,
-    borderStartEndRadius: vars.radiusControl,
+    borderStartEndRadius: vars["--ads-radius-control"],
     borderStartStartRadius: 0,
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     flexShrink: 0,
     height: "100%",
     opacity: {
@@ -135,7 +135,7 @@ export const presetBarStyles = stylex.create({
     // Trailing half of the split chip: `xs` iconOnly geometry (its glyph rides
     // the shared `controlIconSizeSm` rung) stretched to the chip's own height
     // so the two halves share one 32px box and one baseline.
-    width: vars.controlHeightXs,
+    width: vars["--ads-control-height-xs"],
   },
   chipMenu: {
     width: 160,

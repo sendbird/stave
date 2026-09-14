@@ -279,13 +279,13 @@ const styles = stylex.create({
     fill: "currentColor",
   },
   barMuted: {
-    fill: vars.colorBorder,
+    fill: vars["--ads-color-border"],
   },
   urgentSquare: {
     fill: "currentColor",
   },
   urgentMark: {
-    fill: vars.colorTextInverted,
+    fill: vars["--ads-color-text-inverted"],
   },
   ring: {
     stroke: "currentColor",
@@ -294,44 +294,44 @@ const styles = stylex.create({
     fill: "currentColor",
   },
   glyphStroke: {
-    stroke: vars.colorTextInverted,
+    stroke: vars["--ads-color-text-inverted"],
   },
   stateBacklog: {
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
   },
   stateTodo: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   stateInProgress: {
-    color: vars.colorWorkflowInProgress,
+    color: vars["--ads-color-workflow-in-progress"],
   },
   stateInReview: {
-    color: vars.colorWorkflowInReview,
+    color: vars["--ads-color-workflow-in-review"],
   },
   stateDone: {
-    color: vars.colorWorkflowDone,
+    color: vars["--ads-color-workflow-done"],
   },
   stateCanceled: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
   },
   priorityNone: {
     // The quietest step of the priority ramp, not a text colour. Borrowing
     // `colorTextMuted` here made "no priority" the only level painted from
     // outside the ramp, so it read as label text rather than as the ramp's
     // zero — and it tracked the text ramp whenever that moved.
-    color: vars.colorPriorityNone,
+    color: vars["--ads-color-priority-none"],
   },
   priorityLow: {
-    color: vars.colorPriorityLow,
+    color: vars["--ads-color-priority-low"],
   },
   priorityMedium: {
-    color: vars.colorPriorityMedium,
+    color: vars["--ads-color-priority-medium"],
   },
   priorityHigh: {
-    color: vars.colorPriorityHigh,
+    color: vars["--ads-color-priority-high"],
   },
   priorityUrgent: {
-    color: vars.colorPriorityUrgent,
+    color: vars["--ads-color-priority-urgent"],
   },
 });
 

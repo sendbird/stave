@@ -5,7 +5,7 @@ import { layoutShellStyles } from "./layout-shell.styles";
 /**
  * Workspace identity tones.
  *
- * Deliberately NOT sourced from `vars.chart1..6`. `system/ads-theme.ts` leaves
+ * Deliberately NOT sourced from `vars["--ads-chart-1"]..6`. `system/ads-theme.ts` leaves
  * the `chart*` ramp unmapped on purpose — it is categorical DATA ink whose
  * steps are picked against ADS's own contrast floors and CVD separation, and
  * Stave only owns five chart hues, so a partial remap would break both the

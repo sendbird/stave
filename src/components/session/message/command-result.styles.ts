@@ -10,17 +10,17 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
  */
 export const commandResultStyles = stylex.create({
   root: {
-    gap: vars.space8,
-    padding: vars.space8,
+    gap: vars["--ads-space-8"],
+    padding: vars["--ads-space-8"],
   },
   header: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     minInlineSize: 0,
   },
   glyph: {
-    color: vars.colorTextSubtle,
+    color: vars["--ads-color-text-subtle"],
     flexShrink: 0,
   },
   /**
@@ -29,7 +29,7 @@ export const commandResultStyles = stylex.create({
    * thing they will copy.
    */
   command: {
-    color: vars.colorText,
+    color: vars["--ads-color-text"],
     flex: "1 1 auto",
     minInlineSize: 0,
     overflow: "hidden",
@@ -45,11 +45,11 @@ export const commandResultStyles = stylex.create({
    * min-content width wider than the disclosure holding it.
    */
   output: {
-    color: vars.colorText,
-    fontFamily: vars.fontMono,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantLigatures: "none",
-    lineHeight: vars.lineHeightNormal,
+    lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
     minInlineSize: 0,
     overflowWrap: "anywhere",
@@ -62,11 +62,11 @@ export const commandResultStyles = stylex.create({
    * dump is worse than no number at all.
    */
   outputError: {
-    color: vars.colorDangerText,
+    color: vars["--ads-color-danger-text"],
   },
   empty: {
-    color: vars.colorTextSubtle,
-    fontSize: vars.fontSizeCaption,
-    lineHeight: vars.lineHeightTight,
+    color: vars["--ads-color-text-subtle"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-tight"],
   },
 });

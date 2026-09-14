@@ -12,7 +12,7 @@ export const workspaceAccountLimitIconStyles = stylex.create({
     width: 16,
   },
   icon: {
-    color: vars.colorDangerText,
+    color: vars["--ads-color-danger-text"],
     height: 14,
     width: 14,
   },

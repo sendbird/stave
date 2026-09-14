@@ -267,8 +267,8 @@ export function SortableDropIndicator(props: { edge: Edge; gap?: string }) {
 }
 
 const styles = stylex.create({
-preview: {display:"flex",maxWidth:240,alignItems:"center",gap:6,borderRadius:6,borderWidth:1,borderStyle:"solid",borderColor:vars.colorBorder,backgroundColor:vars.colorSurfaceRaised,paddingInline:10,paddingBlock:6,fontSize:12,fontWeight:500,color:vars.colorText,boxShadow:vars.elevationLift},
-icon: {display:"flex",width:16,height:16,flexShrink:0,alignItems:"center",justifyContent:"center",color:vars.colorTextMuted},
+preview: {display:"flex",maxWidth:240,alignItems:"center",gap:6,borderRadius:6,borderWidth:1,borderStyle:"solid",borderColor:vars["--ads-color-border"],backgroundColor:vars["--ads-color-surface-raised"],paddingInline:10,paddingBlock:6,fontSize:12,fontWeight:500,color:vars["--ads-color-text"],boxShadow:vars["--ads-elevation-lift"]},
+icon: {display:"flex",width:16,height:16,flexShrink:0,alignItems:"center",justifyContent:"center",color:vars["--ads-color-text-muted"]},
 title: {overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"},
 indicator: {display:"contents"}
 });

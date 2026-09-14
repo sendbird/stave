@@ -18,31 +18,31 @@ export const workspaceSettingsDialogStyles = stylex.create({
   header: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   headerTitle: {
     // Matches the reset heading it replaces: the size comes from the dialog.
-    fontFamily: vars.fontSans,
+    fontFamily: vars["--ads-font-sans"],
     fontSize: "inherit",
-    fontWeight: vars.fontWeightMedium,
+    fontWeight: vars["--ads-font-weight-medium"],
     lineHeight: 1,
   },
   headerMeta: {
     alignItems: "center",
     display: "flex",
     flexWrap: "wrap",
-    gap: vars.space8,
-    paddingTop: vars.space4,
+    gap: vars["--ads-space-8"],
+    paddingTop: vars["--ads-space-4"],
   },
   headerName: {
-    color: vars.colorText,
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightSemibold,
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-semibold"],
   },
   headerPath: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
-    paddingTop: vars.space4,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    paddingTop: vars["--ads-space-4"],
     wordBreak: "break-all",
   },
   /**
@@ -54,7 +54,7 @@ export const workspaceSettingsDialogStyles = stylex.create({
   labelForm: {
     display: "flex",
     flexDirection: "column",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   labelRow: {
     alignItems: {
@@ -66,27 +66,27 @@ export const workspaceSettingsDialogStyles = stylex.create({
       default: "column",
       [WIDE]: "row",
     },
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
   },
   labelField: {
-    color: vars.colorTextMuted,
+    color: vars["--ads-color-text-muted"],
     flexBasis: 0,
     flexGrow: 1,
-    fontSize: vars.fontSizeCaption,
-    fontWeight: vars.fontWeightMedium,
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
     minWidth: 0,
   },
   labelInput: {
-    backgroundColor: vars.colorCanvas,
+    backgroundColor: vars["--ads-color-canvas"],
     height: 32,
-    marginTop: vars.space4,
+    marginTop: vars["--ads-space-4"],
   },
   labelSubmit: {
     height: 32,
   },
   labelHint: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeCaption,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   /**
    * No block inset of its own: the surface grid gap already separates the tab
@@ -95,7 +95,7 @@ export const workspaceSettingsDialogStyles = stylex.create({
    * started 8px apart.
    */
   tabs: {
-    gap: vars.space16,
+    gap: vars["--ads-space-16"],
     width: "100%",
   },
   /**
@@ -109,7 +109,7 @@ export const workspaceSettingsDialogStyles = stylex.create({
   tabsList: {
     flexShrink: 0,
     minWidth: 144,
-    paddingInline: vars.space0,
+    paddingInline: vars["--ads-space-0"],
   },
   tabPanel: {
     maxHeight: "60vh",

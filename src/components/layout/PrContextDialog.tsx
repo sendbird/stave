@@ -246,7 +246,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
                         )}
                       >
                         <Checkbox controlOnly
-                          className={sx(prContextStyles.rowCheckbox)}
+                          xstyle={prContextStyles.rowCheckbox}
                           checked={selectedThreadIds.includes(thread.id)}
                           onCheckedChange={() => toggleThread(thread.id)}
                         />
@@ -311,7 +311,7 @@ export function PrContextDialog(props: PrContextDialogProps) {
                           )}
                         >
                           <Checkbox controlOnly
-                            className={sx(prContextStyles.rowCheckbox)}
+                            xstyle={prContextStyles.rowCheckbox}
                             checked={checked}
                             disabled={!checked && checkSelectionFull}
                             onCheckedChange={() => toggleCheck(check.id)}

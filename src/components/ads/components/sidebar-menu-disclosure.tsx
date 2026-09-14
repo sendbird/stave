@@ -142,9 +142,9 @@ export function SidebarMenuSubBase({
 const styles = stylex.create({
   chevron: {
     alignItems: "center",
-    blockSize: vars.controlIconSizeSm,
+    blockSize: vars["--ads-control-icon-size-sm"],
     display: "inline-flex",
-    inlineSize: vars.controlIconSizeSm,
+    inlineSize: vars["--ads-control-icon-size-sm"],
     justifyContent: "center",
     // Same guard as `AppShell`'s icon slot: keeps Lucide's 24px default from
     // leaking out of the box if a host has not loaded `styles.css`.
@@ -162,20 +162,20 @@ const styles = stylex.create({
     display: "none",
   },
   subMenu: {
-    borderInlineStartColor: vars.colorBorderSubtle,
+    borderInlineStartColor: vars["--ads-color-border-subtle"],
     borderInlineStartStyle: "solid",
-    borderInlineStartWidth: vars.borderWidthHairline,
+    borderInlineStartWidth: vars["--ads-border-width-hairline"],
     display: "grid",
     // A hairline, not a spacing step — same intent as the border above it.
-    gap: vars.borderWidthHairline,
+    gap: vars["--ads-border-width-hairline"],
     gridColumn: "1 / -1",
     listStyle: "none",
     margin: 0,
     marginInlineStart: 17,
     minInlineSize: 0,
-    paddingBlock: vars.space4,
+    paddingBlock: vars["--ads-space-4"],
     paddingInline: 0,
-    paddingInlineStart: vars.space8,
+    paddingInlineStart: vars["--ads-space-8"],
   },
   subMenuCollapsed: {
     display: "none",

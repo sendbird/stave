@@ -305,32 +305,32 @@ const styles = stylex.create({
   staticRow: {
     alignItems: "center",
     display: "flex",
-    gap: vars.space8,
-    minBlockSize: vars.controlHeightSm,
+    gap: vars["--ads-space-8"],
+    minBlockSize: vars["--ads-control-height-sm"],
   },
   trigger: {
     alignItems: "center",
     appearance: "none",
     borderWidth: 0,
     display: "flex",
-    gap: vars.space8,
+    gap: vars["--ads-space-8"],
     // A transcript row, not a control: `controlHeightSm`, not the tall control
     // box that made the old stack read as a column of cards.
-    minBlockSize: vars.controlHeightSm,
+    minBlockSize: vars["--ads-control-height-sm"],
     textAlign: "start",
   },
   disabled: {
     cursor: "not-allowed",
-    opacity: vars.opacityDisabled,
+    opacity: vars["--ads-opacity-disabled"],
   },
   /**
    * §3: `fontSizeSm` is the largest thing in the family, and weight — not size
    * — carries the emphasis. `fontWeightSemibold` is reserved for page titles.
    */
   label: {
-    fontSize: vars.fontSizeBody,
-    fontWeight: vars.fontWeightMedium,
-    lineHeight: vars.lineHeightTight,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    lineHeight: vars["--ads-line-height-tight"],
     minInlineSize: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",
@@ -360,9 +360,9 @@ const styles = stylex.create({
    * scan.
    */
   trace: {
-    color: vars.colorTextMuted,
-    fontSize: vars.fontSizeBody,
-    lineHeight: vars.lineHeightRelaxed,
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-relaxed"],
     overflowWrap: "anywhere",
     whiteSpace: "pre-wrap",
   },

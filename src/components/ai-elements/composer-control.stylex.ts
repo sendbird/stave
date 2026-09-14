@@ -37,21 +37,21 @@ export const controlStyles = stylex.create({
     // what the old `shelf: 24` did: pills floored at 32 while the shelf's
     // icon-only buttons really were 24.
     blockSize: {
-      default: vars.controlHeightSm,
-      [stylex.when.ancestor(":is(*)", toolbarMarker)]: vars.controlHeightSm,
-      [stylex.when.ancestor(":is(*)", wingMarker)]: vars.controlHeightSm,
-      [stylex.when.ancestor(":is(*)", shelfMarker)]: vars.controlHeightSm,
-      [stylex.when.ancestor(":is(*)", menuMarker)]: vars.controlHeightSm,
+      default: vars["--ads-control-height-sm"],
+      [stylex.when.ancestor(":is(*)", toolbarMarker)]: vars["--ads-control-height-sm"],
+      [stylex.when.ancestor(":is(*)", wingMarker)]: vars["--ads-control-height-sm"],
+      [stylex.when.ancestor(":is(*)", shelfMarker)]: vars["--ads-control-height-sm"],
+      [stylex.when.ancestor(":is(*)", menuMarker)]: vars["--ads-control-height-sm"],
     },
     minBlockSize: {
       default: null,
-      [stylex.when.ancestor(":is(*)", toolbarMarker)]: vars.controlHeightSm,
-      [stylex.when.ancestor(":is(*)", wingMarker)]: vars.controlHeightSm,
-      [stylex.when.ancestor(":is(*)", shelfMarker)]: vars.controlHeightSm,
-      [stylex.when.ancestor(":is(*)", menuMarker)]: vars.controlHeightSm,
+      [stylex.when.ancestor(":is(*)", toolbarMarker)]: vars["--ads-control-height-sm"],
+      [stylex.when.ancestor(":is(*)", wingMarker)]: vars["--ads-control-height-sm"],
+      [stylex.when.ancestor(":is(*)", shelfMarker)]: vars["--ads-control-height-sm"],
+      [stylex.when.ancestor(":is(*)", menuMarker)]: vars["--ads-control-height-sm"],
     },
-    gap: vars.space8,
-    paddingInline: { default: vars.space12, [stylex.when.ancestor(":is(*)", wingMarker)]: vars.space8, [stylex.when.ancestor(":is(*)", shelfMarker)]: vars.space8, [stylex.when.ancestor(":is(*)", menuMarker)]: vars.space8 },
+    gap: vars["--ads-space-8"],
+    paddingInline: { default: vars["--ads-space-12"], [stylex.when.ancestor(":is(*)", wingMarker)]: vars["--ads-space-8"], [stylex.when.ancestor(":is(*)", shelfMarker)]: vars["--ads-space-8"], [stylex.when.ancestor(":is(*)", menuMarker)]: vars["--ads-space-8"] },
     /*
      * The wing and menu lanes stack one full-width control per row, so a
      * control there fills its row.
@@ -72,7 +72,7 @@ export const controlStyles = stylex.create({
     justifyContent: { default: null, [stylex.when.ancestor(":is(*)", wingMarker)]: "flex-start", [stylex.when.ancestor(":is(*)", menuMarker)]: "flex-start" },
     flexDirection: { default: null, [stylex.when.ancestor(':is([data-side="left"])', wingMarker)]: "row-reverse" },
     textAlign: { default: null, [stylex.when.ancestor(':is([data-side="left"])', wingMarker)]: "right", [stylex.when.ancestor(':is([data-side="right"])', wingMarker)]: "left" },
-    fontSize: vars.fontSizeCaption,
+    fontSize: vars["--ads-font-size-caption"],
     /*
      * One glyph size for the whole lane, published as the ADS control variable
      * so it reaches the `[data-ads-control="button"] > svg` contract as well as
@@ -87,13 +87,13 @@ export const controlStyles = stylex.create({
      * this surface already chose in four places and the one that suits a 32px
      * box; stating it once on the lane makes the odd control out impossible.
      */
-    "--ads-control-icon-size": vars.controlIconSizeMd,
-    color: { default: vars.colorTextMuted, ":hover": vars.colorText },
+    "--ads-control-icon-size": vars["--ads-control-icon-size-md"],
+    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
     // Explicitly flat, on the elevation scale: a lane control is chrome drawn
     // on the composer surface, so it carries no depth of its own.
-    boxShadow: vars.elevationFlat,
+    boxShadow: vars["--ads-elevation-flat"],
     // Radius is deliberately absent: ADS `Button` resolves each corner from
-    // `var(--ads-button-radius-*, vars.radiusControl)` and nothing in this
+    // `var(--ads-button-radius-*, vars["--ads-radius-control"])` and nothing in this
     // repository sets those properties (only ADS `ButtonGroup`/`SplitButton`
     // do, upstream, and they set them on the grouped button itself). So every
     // lane renders `radiusControl`, and restating it here would be the one
@@ -112,7 +112,7 @@ export const controlStyles = stylex.create({
   group: {
     alignItems: "stretch",
     display: "inline-flex",
-    gap: vars.space2,
+    gap: vars["--ads-space-2"],
     minInlineSize: 0,
     inlineSize: {
       default: null,
@@ -124,8 +124,8 @@ export const controlStyles = stylex.create({
   groupPrimary: { flexGrow: 1, minInlineSize: 0 },
   groupMenu: { flexGrow: 0, flexShrink: 0 },
   wingLabel: {
-    pointerEvents: "none", display: "inline-flex", minInlineSize: 0, flex: 1, alignItems: "center", gap: vars.space8,
-    whiteSpace: "nowrap", fontSize: vars.fontSizeCaption,
+    pointerEvents: "none", display: "inline-flex", minInlineSize: 0, flex: 1, alignItems: "center", gap: vars["--ads-space-8"],
+    whiteSpace: "nowrap", fontSize: vars["--ads-font-size-caption"],
     opacity: { default: 0, [stylex.when.ancestor(":is(:hover, :focus-within, :has([aria-expanded=true]))", wingMarker)]: 1 },
     translate: {
       default: "0 0",
@@ -136,7 +136,7 @@ export const controlStyles = stylex.create({
     },
     justifyContent: { default: "flex-start", [stylex.when.ancestor(':is([data-side="left"])', wingMarker)]: "flex-end" },
     transitionProperty: { default: "opacity, translate", "@media (prefers-reduced-motion: reduce)": "opacity" },
-    transitionDuration: "150ms", transitionTimingFunction: vars.motionEaseStandard,
+    transitionDuration: "150ms", transitionTimingFunction: vars["--ads-motion-ease-standard"],
   },
   /*
    * Geometry and inner air only. Both overflow menus render on an ADS popover
@@ -145,9 +145,9 @@ export const controlStyles = stylex.create({
    */
   menu: {
     inlineSize: "auto", minInlineSize: "14rem", maxInlineSize: "min(26rem, calc(100vw - 2rem))", gap: 0,
-    borderRadius: vars.radiusPanel, backgroundColor: vars.colorSurfaceRaised, padding: vars.space8,
+    borderRadius: vars["--ads-radius-panel"], backgroundColor: vars["--ads-color-surface-raised"], padding: vars["--ads-space-8"],
   },
-  menuList: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: vars.space4 },
-  menuRow: { display: "flex", alignItems: "center", gap: vars.space8 },
-  menuLabel: { fontSize: vars.fontSizeBody, color: vars.colorTextMuted },
+  menuList: { display: "flex", flexDirection: "column", alignItems: "stretch", gap: vars["--ads-space-4"] },
+  menuRow: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"] },
+  menuLabel: { fontSize: vars["--ads-font-size-body"], color: vars["--ads-color-text-muted"] },
 });

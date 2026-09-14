@@ -1,9 +1,10 @@
 import type * as React from "react";
 
 import { menu } from "../recipes/menu";
-import { cx, sx } from "../utils/stylex";
+import { themeSlotProps } from "../theming/theme-props";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 
-export type MenuShortcutProps = React.ComponentProps<"span">;
+export type MenuShortcutProps = React.ComponentProps<"span"> & XstyleProp;
 
 /**
  * The trailing keyboard-shortcut hint on a menu row ("⌘K", "⇧⌘P").
@@ -25,6 +26,16 @@ export type MenuShortcutProps = React.ComponentProps<"span">;
  *
  * Lives in a sibling file because `Menu.tsx` is at its size ceiling.
  */
-export function MenuShortcut({ className, ...props }: MenuShortcutProps) {
-  return <span {...props} className={cx(sx(menu.shortcut), className)} />;
+export function MenuShortcut({
+  className,
+  xstyle,
+  ...props
+}: MenuShortcutProps) {
+  return (
+    <span
+      {...props}
+      {...themeSlotProps("menu-item", "shortcut")}
+      className={cx(sx(menu.shortcut, xstyle), className)}
+    />
+  );
 }
