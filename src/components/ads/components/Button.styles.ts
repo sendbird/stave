@@ -36,23 +36,6 @@ const canvasSubtlePress = `color-mix(in oklab, ${vars["--ads-color-text"]} 5%, $
  * takes.
  */
 const primaryPress = `color-mix(in oklab, ${vars["--ads-color-mix-lift"]} 6%, ${vars["--ads-color-accent-hover"]})`;
-const dangerPress = `color-mix(in oklab, ${vars["--ads-color-text"]} 5%, ${vars["--ads-color-danger-hover"]})`;
-/**
- * Danger's washes, derived by the same rule as the neutral pair above so the
- * `tone` axis is a hue swap and not a second, differently-behaved language.
- *
- * `colorDangerSoft` is the tinted danger surface — it plays the part
- * `colorCanvasSubtle` plays for the neutral arms — so the *resting* fill of a
- * `soft`+`danger` button steps 8% → 12% of the theme's own ink (mirroring
- * `softHover`/`softPress`), and the arms that rest transparent or raised
- * (`outline`, `quiet`, `secondary`) take `colorDangerSoft` itself as the hover
- * and land the same 5% press step `canvasSubtlePress` uses. Mixing the theme's
- * own ink is what keeps all six correct in the dark and high-contrast ramps
- * without inventing a `colorDangerSoftHover` token.
- */
-const dangerWashHover = `color-mix(in oklab, ${vars["--ads-color-text"]} 8%, ${vars["--ads-color-danger-soft"]})`;
-const dangerWashPress = `color-mix(in oklab, ${vars["--ads-color-text"]} 12%, ${vars["--ads-color-danger-soft"]})`;
-const dangerSoftPress = `color-mix(in oklab, ${vars["--ads-color-text"]} 5%, ${vars["--ads-color-danger-soft"]})`;
 const buttonSettleTransform = "translateY(1px)";
 export const styles = stylex.create({
   root: {
@@ -254,6 +237,35 @@ export const styles = stylex.create({
     },
     color: vars["--ads-color-text"],
   },
+  /**
+   * `dashed` — the "add the thing that is not there yet" action: a new row in a
+   * rule builder, an empty slot in a layout, a drop target's own trigger. The
+   * dashed edge is doing semantic work that no other variant can do: it says the
+   * boundary is provisional, which is exactly why six surfaces across Canvas,
+   * Copy Review, and the docs card specimens drew their own
+   * `1px dashed` box rather than reach for a variant that did not exist.
+   *
+   * It is the one bordered variant that is deliberately FLAT. `outline` and
+   * `secondary` carry `elevationRaised` because they are present, pressable
+   * objects; a dashed placeholder that lifted off the page would contradict its
+   * own edge — §1.5's elevation is for a surface that is really there. The
+   * border darkens to `colorBorderStrong` on hover instead, so the affordance
+   * still answers the cursor.
+   */
+  dashed: {
+    backgroundColor: {
+      default: "transparent",
+      ":hover": vars["--ads-color-overlay-hover"],
+      ":active": canvasSubtlePress,
+    },
+    borderColor: {
+      default: vars["--ads-color-border"],
+      ":hover": vars["--ads-color-border-strong"],
+    },
+    borderStyle: "dashed",
+    boxShadow: vars["--ads-elevation-flat"],
+    color: vars["--ads-color-text-muted"],
+  },
   link: {
     backgroundColor: "transparent",
     borderColor: "transparent",
@@ -263,29 +275,6 @@ export const styles = stylex.create({
       ":hover": "underline",
     },
     textUnderlineOffset: 4,
-  },
-  // Wired like `primary`'s `colorAccent` → `colorAccentHover` pair: the one
-  // destructive control in the system must not be the one control that sits
-  // inert under the cursor. The border follows the fill (`primary` keeps its
-  // border static only because both accent steps are near-black); `colorDanger`
-  // and `colorDangerHover` are far enough apart that a static border would
-  // paint a visible rim of the wrong shade around a hovered button.
-  danger: {
-    backgroundColor: {
-      default: vars["--ads-color-danger"],
-      ":hover": vars["--ads-color-danger-hover"],
-      ":active": dangerPress,
-    },
-    borderColor: {
-      default: vars["--ads-color-danger"],
-      ":hover": vars["--ads-color-danger-hover"],
-      ":active": dangerPress,
-    },
-    boxShadow: {
-      default: vars["--ads-elevation-raised"],
-      ":active": vars["--ads-elevation-flat"],
-    },
-    color: vars["--ads-color-text-inverted"],
   },
   // Detached actions such as Conversation's jump-to-latest control own their
   // circle and elevation here instead of redrawing a one-off raw button.
@@ -305,85 +294,6 @@ export const styles = stylex.create({
     // collapse to elevation0 on `:active` (§1.5).
     boxShadow: vars["--ads-elevation-lift"],
     color: vars["--ads-color-text-muted"],
-  },
-  // ---- tone="danger" arms --------------------------------------------------
-  // Composed AFTER the variant style, so each of these only has to restate the
-  // properties the variant declares. `danger` is a TONE, not a weight: an
-  // outline-danger button is still an outline button — same border, same
-  // elevation, same wash geometry — with the destructive hue substituted. That
-  // is why every arm below mirrors its neutral twin property-for-property
-  // instead of inventing its own chrome.
-  //
-  // The ink is `colorDangerText`, not `colorDanger`: `colorDanger` is a FILL
-  // role (it is what `primary`+`danger` paints), and setting a 0.57-lightness
-  // fill colour as label text on a raised surface lands under the 4.5:1 text
-  // floor. `colorDangerText` is the ramp's text role and clears it.
-  /**
-   * `secondary` keeps its raised surface — it is the bordered "second action"
-   * weight, and a destructive second action ("Delete" beside "Cancel") must
-   * still read as a real button at rest, not as a red-tinted panel. Only the
-   * border, the ink and the wash carry the tone.
-   */
-  dangerSecondary: {
-    backgroundColor: {
-      default: vars["--ads-color-surface-raised"],
-      ":hover": vars["--ads-color-danger-soft"],
-      ":active": dangerSoftPress,
-    },
-    borderColor: vars["--ads-color-danger-border"],
-    color: vars["--ads-color-danger-text"],
-  },
-  dangerOutline: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": vars["--ads-color-danger-soft"],
-      ":active": dangerSoftPress,
-    },
-    borderColor: vars["--ads-color-danger-border"],
-    color: vars["--ads-color-danger-text"],
-  },
-  /**
-   * The quiet arm restates `color` at all three states because the neutral
-   * quiet language (`controlChrome.triggerQuiet`) BRIGHTENS its ink from
-   * `colorTextMuted` on hover — that ramp is how a borderless control announces
-   * itself. A danger control has already announced itself with hue at rest, so
-   * it holds one ink and lets the wash do the state work; without the explicit
-   * `:hover`/`:active` entries the quiet recipe's `colorText` would win on
-   * hover and a hovered destructive item would go neutral mid-gesture.
-   */
-  dangerQuiet: {
-    backgroundColor: {
-      default: "transparent",
-      ":hover": vars["--ads-color-danger-soft"],
-      ":active": dangerSoftPress,
-    },
-    borderColor: "transparent",
-    color: {
-      default: vars["--ads-color-danger-text"],
-      ":hover": vars["--ads-color-danger-text"],
-      ":active": vars["--ads-color-danger-text"],
-    },
-  },
-  /**
-   * `soft` rests ON the tint, so its steps come from the 8%/12% pair rather
-   * than the 5% press used by the arms that rest transparent — same reasoning
-   * as `softHover`/`softPress` for the neutral tint.
-   */
-  dangerSoft: {
-    backgroundColor: {
-      default: vars["--ads-color-danger-soft"],
-      ":hover": dangerWashHover,
-      ":active": dangerWashPress,
-    },
-    borderColor: "transparent",
-    color: vars["--ads-color-danger-text"],
-  },
-  /**
-   * `link` and `floating` carry no fill to tint, so the tone is ink only.
-   * `floating` keeps `elevation2` and its circle from the variant.
-   */
-  dangerInk: {
-    color: vars["--ads-color-danger-text"],
   },
   // Heights/squares come from the shared control-metrics recipe
   // (sizeMetricStyles below); these keep only per-size padding and type.

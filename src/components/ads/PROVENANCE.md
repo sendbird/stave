@@ -336,3 +336,43 @@ Further host extensions:
   `dashed` variant `Button.styles.ts` has no styles for) and upstream compiles
   without `noUncheckedIndexedAccess`, so wholesale copies reintroduce strict
   errors this copy already fixed. Merge them as coherent groups.
+
+- The Button family and the three foundation modules (`utils/stylex.ts`,
+  `recipes/transition.ts`, `recipes/menu.ts`) were three-way merged against the
+  pristine install baseline. Upstream had independently adopted three host
+  extensions verbatim — the `bar`/`slide` transition recipes, the native-button
+  reset on `menu.item`, and Button's `indicatorHost`/`indicatorSlot` — so those
+  hunks collapsed to upstream's spelling. Three host modifications survive and
+  are re-expressed in upstream's structure: the exported, widened `StyleXValue`
+  and unfiltered `sx` that `xstyle` arrays depend on; Button's `layout="host"`
+  render path; Button's `aria-busy` honouring a caller-passed value; and
+  `xstyle` merged ahead of the disabled and inert expressions so a disabled
+  control's `cursor` and `opacity` stay authoritative.
+
+  Two upstream API removals reached product code.
+
+  `Button` now publishes its theme identity on `data-variant` / `data-size` /
+  `data-tone` and no longer emits `data-ads-control-size|tone|variant`. Those
+  are spread after the caller's props, so `src/components/ui/button.tsx`'s own
+  `data-variant` / `data-size` were being overwritten before reaching the DOM
+  and have been removed; the rendered element now carries the design system's
+  spelling, so the product's `ghost` reads as `data-variant="quiet"` and
+  `destructive` as `data-variant="soft" data-tone="danger"`. No stylesheet
+  selects on those attributes; two assertions in
+  `tests/prompt-input-queue-mode.test.tsx` were updated to the spelling that
+  actually reaches the DOM, and a dead `data-size` forward in
+  `ui/input-group.tsx` was dropped.
+
+  `buttonDangerToneStyles` was deleted upstream: every semantic tone is now one
+  implementation driven by `--ads-button-tone-*` custom properties that `Button`
+  publishes as an inline style. `buttonVariants()` emits classes only and has no
+  element to carry an inline style, so the class-only path declares the same
+  five properties through StyleX. That crosses the origin split — the
+  declaration compiles as product and the consumers as ADS — so it was measured
+  rather than assumed: in the live sheet `.po9pvqs` (product) declares
+  `--ads-button-tone-fill` and `.x1k91mr0` (ADS) consumes it for
+  `background-color`, and an element carrying both paints
+  `oklch(0.56 0.2 25)`, this theme's `--destructive`. StyleX emits a
+  variable-only rule at priority 0, which `processStylexRules` leaves unlayered,
+  so the declaration outranks every layer and cannot be shadowed by either
+  origin.

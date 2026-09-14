@@ -1,5 +1,6 @@
 import * as stylex from "@stylexjs/stylex";
 
+import { densityPad } from "../tokens/density.stylex";
 import { vars } from "../tokens/tokens.stylex";
 
 /**
@@ -62,7 +63,10 @@ export const menu = stylex.create({
     // Row-hosting popup → `space4` (see the padding rule above). Menu popups
     // are not scroll containers by default (`popupClamp` is opt-in), so the
     // gutter can stay on the popup itself.
-    padding: vars["--ads-space-4"],
+    padding: densityPad.xs,
+  },
+  popupCompact: {
+    padding: 0,
   },
   popupTransform: {
     transformOrigin: "var(--transform-origin)",
@@ -144,6 +148,9 @@ export const menu = stylex.create({
     display: "grid",
     gap: vars["--ads-space-4"],
   },
+  groupCompact: {
+    gap: 0,
+  },
   groupLabel: {
     color: vars["--ads-color-text-subtle"],
     fontSize: vars["--ads-font-size-caption"],
@@ -155,6 +162,7 @@ export const menu = stylex.create({
     paddingInline: vars["--ads-space-8"],
   },
   item: {
+    alignItems: "center",
     /*
      * `Menu.Item` documents a `render` passthrough, and the element a caller
      * renders into is routinely a real `<button>` (Base UI's `nativeButton`) —
@@ -176,27 +184,26 @@ export const menu = stylex.create({
      */
     appearance: "none",
     backgroundColor: "transparent",
+    borderRadius: vars["--ads-radius-control"],
     borderStyle: "none",
     borderWidth: 0,
-    // Buttons do not inherit the document face; `styles.css` states this for
-    // every control, and the recipe restates it so a row is correct even where
-    // that base layer is not loaded (a portalled popup in a host that imports
-    // recipes without the stylesheet).
-    fontFamily: "inherit",
-    margin: 0,
-    // The UA centres a button's label. A menu row's label is flush to the
-    // reading edge.
-    textAlign: "start",
-    alignItems: "center",
-    borderRadius: vars["--ads-radius-control"],
     // A native button is `inline-block` at content width and shrink-wraps its
     // label; every other row recipe that survives a button render states the
     // full-width contract explicitly (`select-styles.item`,
     // `agent-surface.row`). Grid parents already stretch it, so this only
     // matters for the popup shapes a caller composes by hand.
     boxSizing: "border-box",
-    inlineSize: "100%",
     color: vars["--ads-color-text"],
+    // Buttons do not inherit the document face; `styles.css` states this for
+    // every control, and the recipe restates it so a row is correct even where
+    // that base layer is not loaded (a portalled popup in a host that imports
+    // recipes without the stylesheet).
+    fontFamily: "inherit",
+    inlineSize: "100%",
+    margin: 0,
+    // The UA centres a button's label. A menu row's label is flush to the
+    // reading edge.
+    textAlign: "start",
     // Flex row (icon? · label · trailing) instead of a grid with a hardcoded
     // first track: icon-less items must not carry a phantom left gutter.
     // Real leading icons opt into `itemIcon`; selection indicators are docked
@@ -212,6 +219,10 @@ export const menu = stylex.create({
     minInlineSize: 0,
     paddingBlock: vars["--ads-space-4"],
     paddingInline: vars["--ads-space-8"],
+  },
+  itemCompact: {
+    minBlockSize: vars["--ads-control-height-xs"],
+    paddingBlock: 0,
   },
   itemPointer: {
     cursor: "pointer",
@@ -326,6 +337,9 @@ export const menu = stylex.create({
     backgroundColor: vars["--ads-color-border-subtle"],
     blockSize: vars["--ads-border-width-hairline"],
     marginBlock: vars["--ads-space-4"],
+  },
+  separatorCompact: {
+    marginBlock: 0,
   },
   arrow: {
     color: vars["--ads-color-surface-raised"],

@@ -176,7 +176,9 @@ describe("PromptInput queue mode", () => {
     expect(html).toContain('aria-label="Review local changes"');
     expect(buttonMarkup).toContain(">Review</span>");
     expect(buttonMarkup).toBeTruthy();
-    expect(buttonMarkup).toContain('data-variant="ghost"');
+    // ADS `Button` owns `data-variant` and publishes its own spelling of the
+    // understated weight, so the product's `ghost` reads as `quiet` here.
+    expect(buttonMarkup).toContain('data-variant="quiet"');
     // The review CTA wears the shared composer-control pill rather than a
     // bespoke one, so the bottom shelf and the wings can resize every control
     // through a single rule.
@@ -262,7 +264,9 @@ describe("PromptInput queue mode", () => {
     const buttonMarkup = getLocalReviewButtonMarkup(html);
 
     expect(buttonMarkup).toBeTruthy();
-    expect(buttonMarkup).toContain('data-variant="ghost"');
+    // ADS `Button` owns `data-variant` and publishes its own spelling of the
+    // understated weight, so the product's `ghost` reads as `quiet` here.
+    expect(buttonMarkup).toContain('data-variant="quiet"');
     expect(buttonMarkup).not.toContain("bg-background/60");
     expect(buttonMarkup).not.toContain("backdrop-blur-md");
   });

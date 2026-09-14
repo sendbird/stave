@@ -28,6 +28,19 @@ export type XstyleProp = {
   xstyle?: StyleXValue;
 };
 
+/**
+ * Compose StyleX styles into a class name. Falsy entries are dropped, so a
+ * conditional style — or an absent `xstyle` — can be passed inline.
+ *
+ * Pass the host's `xstyle` last; StyleX resolves the final argument's
+ * properties over the earlier ones.
+ *
+ * Host adaptation: `StyleXValue` is exported and widened to a `StyleXArray`,
+ * and the entries are handed to `stylex.props` unfiltered. `props` already
+ * ignores falsy members, and pre-filtering forced a cast to
+ * `stylex.StyleXStyles[]` that rejected the conditional arrays and marker
+ * classes `xstyle` exists to carry.
+ */
 export function sx(...styles: StyleXValue[]): string {
   const props = stylex.props(...styles);
   return props.className ?? "";

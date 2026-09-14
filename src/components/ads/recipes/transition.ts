@@ -29,7 +29,8 @@ import { vars } from "../tokens/tokens.stylex";
  */
 const nonSpatialDuration = {
   default: vars["--ads-motion-duration-fast"],
-  "@media (prefers-reduced-motion: reduce)": vars["--ads-motion-duration-micro"],
+  "@media (prefers-reduced-motion: reduce)":
+    vars["--ads-motion-duration-micro"],
 } as const;
 
 const spatialDuration = {

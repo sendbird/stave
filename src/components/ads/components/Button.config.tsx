@@ -44,6 +44,7 @@ export function getLegacyButtonIconScale(size: ButtonIconSize): ControlScale {
 }
 
 export const buttonVariantStyles = {
+  dashed: styles.dashed,
   floating: styles.floating,
   link: styles.link,
   outline: styles.outline,
@@ -51,16 +52,6 @@ export const buttonVariantStyles = {
   quiet: controlChrome.triggerQuiet,
   secondary: styles.secondary,
   soft: styles.soft,
-} as const satisfies Record<Exclude<ButtonVariant, "danger">, unknown>;
-
-export const buttonDangerToneStyles = {
-  floating: styles.dangerInk,
-  link: styles.dangerInk,
-  outline: styles.dangerOutline,
-  primary: styles.danger,
-  quiet: styles.dangerQuiet,
-  secondary: styles.dangerSecondary,
-  soft: styles.dangerSoft,
 } as const satisfies Record<Exclude<ButtonVariant, "danger">, unknown>;
 
 export const buttonSizePadStyles = {

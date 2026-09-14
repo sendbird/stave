@@ -1,4 +1,3 @@
-import type { StyleXValue } from "../utils/stylex";
 import { m } from "motion/react";
 import * as React from "react";
 
@@ -14,9 +13,9 @@ import { focusRing } from "../recipes/focus-ring";
 import { transition } from "../recipes/transition";
 import { controlWidth } from "../recipes/control-width";
 import { motionPrimitives, springSnappy } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
-  buttonDangerToneStyles,
   buttonSizeGapStyles,
   buttonSizePadStyles,
   buttonVariantStyles,
@@ -25,6 +24,10 @@ import {
   withTruncatingButtonLabels,
 } from "./Button.config";
 import { styles } from "./Button.styles";
+import {
+  buttonToneVariables,
+  buttonToneVariantStyles,
+} from "./Button.tone-styles";
 import type {
   ButtonPress,
   ButtonSize,
@@ -63,8 +66,6 @@ const buttonSettleDepth = 1;
  */
 type ButtonSharedProps = Omit<ButtonRootProps, "className"> & {
   className?: string;
-  /** Host composition resolved before class names are emitted. */
-  xstyle?: StyleXValue;
   /** Product rows and custom controls retain their DOM children and geometry. */
   layout?: "control" | "host";
   /** Remove inline chrome so a text action can align with surrounding copy. */
@@ -149,7 +150,7 @@ type ButtonSharedProps = Omit<ButtonRootProps, "className"> & {
   /** Semantic axis, composed with `variant`. @default "default" */
   tone?: ButtonTone;
   variant?: ButtonVariant;
-};
+} & XstyleProp;
 
 /**
  * An icon-only button has no visible text, so its accessible name can only come
@@ -223,7 +224,6 @@ const ButtonImpl = React.forwardRef<
   {
     children,
     className,
-    xstyle,
     disabled,
     flushInline = false,
     fullWidth = false,
@@ -239,6 +239,7 @@ const ButtonImpl = React.forwardRef<
     style,
     tone = "default",
     variant = "primary",
+    xstyle,
     ...props
   },
   ref,
@@ -257,10 +258,12 @@ const ButtonImpl = React.forwardRef<
     // an ADS-owned box: a host caller that already sizes its icon keeps that
     // size, and one that does not stops leaking 24px.
     //
-    // `data-ads-control-size|tone|variant` are deliberately NOT emitted here:
-    // they describe chrome this path does not render (host owns the box, and
-    // `triggerQuiet` is the only variant it paints), so publishing them would
-    // misdescribe the element to styling and tests alike.
+    // The stable theme identity (`themeProps("button", …)`: the `ads-button`
+    // class plus `data-size`/`data-tone`/`data-variant`) is deliberately NOT
+    // emitted here. It describes chrome this path does not render — the host
+    // owns the box, and `triggerQuiet` is the only variant it paints — so
+    // publishing it would hand a brand a selector that reaches an element it
+    // cannot legitimately restyle, and would misdescribe the element to tests.
     const hostScale: ControlScale = isLegacyButtonIconSize(size)
       ? getLegacyButtonIconScale(size)
       : size;
@@ -360,6 +363,14 @@ const ButtonImpl = React.forwardRef<
   // say a second on top of the spinner.
   const showIndicator = indicator != null && !loading;
   const content = withTruncatingButtonLabels(children);
+  // The stable theme identity. `size` is reflected as the caller wrote it,
+  // including the deprecated `icon*` values: a brand selecting on `data-size`
+  // must see the same axis the consumer typed, not the rung it resolved to.
+  const theme = themeProps("button", {
+    size,
+    tone: resolvedTone,
+    variant,
+  });
 
   // The link path's a11y corrections. Base UI's button behaviour still owns the
   // press and keyboard contract; what it cannot own is an element that is not a
@@ -401,11 +412,11 @@ const ButtonImpl = React.forwardRef<
       {...motionProps}
       {...linkProps}
       ref={ref}
+      {...theme}
+      // Host adaptation: a caller that already knows the control is busy for a
+      // reason `loading` does not model keeps saying so.
       aria-busy={loading || props["aria-busy"] || undefined}
       data-ads-control="button"
-      data-ads-control-size={size}
-      data-ads-control-tone={resolvedTone}
-      data-ads-control-variant={variant}
       className={cx(
         sx(
           styles.root,
@@ -416,7 +427,8 @@ const ButtonImpl = React.forwardRef<
           // Tone composes ON TOP of the variant and only restates the
           // properties that carry the hue, so an outline-danger button keeps
           // outline's border weight, elevation and geometry.
-          resolvedTone === "danger" && buttonDangerToneStyles[resolvedVariant],
+          resolvedTone !== "default" &&
+            buttonToneVariantStyles[resolvedVariant],
           square ? controlSquares[scale] : controlHeights[scale],
           square ? styles.iconPad : buttonSizePadStyles[scale],
           square ? styles.gapIcon : buttonSizeGapStyles[scale],
@@ -425,10 +437,13 @@ const ButtonImpl = React.forwardRef<
           cssPress && transition.transformFallback,
           overlaySpinner && styles.loadingHost,
           showIndicator && styles.indicatorHost,
+          // Host adaptation: `xstyle` is merged here rather than strictly last,
+          // so a disabled control's `cursor` and `opacity` stay authoritative.
           xstyle,
           inactive && styles.disabled,
           linkRender && inactive && styles.linkInert,
         ),
+        theme.className,
         className,
       )}
       disabled={inactive}
@@ -437,6 +452,9 @@ const ButtonImpl = React.forwardRef<
       style={
         {
           ...style,
+          ...(resolvedTone === "default"
+            ? null
+            : buttonToneVariables[resolvedTone]),
           "--ads-control-icon-size": iconSize ?? controlIconSizes[scale],
         } as React.CSSProperties
       }
@@ -473,7 +491,12 @@ const ButtonImpl = React.forwardRef<
         content
       )}
       {showIndicator ? (
-        <span className={sx(styles.indicatorSlot)}>{indicator}</span>
+        <span
+          className={sx(styles.indicatorSlot)}
+          {...themeSlotProps("button", "indicator")}
+        >
+          {indicator}
+        </span>
       ) : null}
     </Root>
   );
