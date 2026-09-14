@@ -517,3 +517,77 @@ Further host extensions:
   the `menu-item` target publishes `density` and `tone` axes only, so a
   destructive row renders `data-variant="destructive" data-tone="danger"`.
   Verified by rendering both shims. The product attribute is left in place.
+
+- The field/control/navigation group was three-way merged against the pristine
+  install baseline: `TextField`, `Textarea`, `Switch`, `Toggle`, `Slider`,
+  `Select.parts`, `Tabs` (+ `Tabs.styles`) and `Calendar`. Upstream had
+  independently adopted almost every host extension in this group verbatim, so
+  those hunks collapse to upstream's spelling:
+
+  - `xstyle` on `TextField` and `Textarea`, now the shared `XstyleProp` type
+    rather than a locally declared `xstyle?: StyleXValue` field, and `xstyle`
+    on `Toggle`, `Slider` and `Select.List` / `Select.ItemText`.
+  - The whole read-only `Select.Trigger` — the prop, `aria-readonly`, the
+    pointer/key interception and `controlChrome.readOnlyField` composed after
+    `disabledField`. The partial forward-port recorded above is therefore no
+    longer a host modification; it is upstream's own code, and the note
+    explaining the forward-port is gone with it.
+  - The entire Tabs `xs` rung. `tabExtraSmallHeight` (caption font size,
+    `treeRowHeightCompact` min block size, `space8` inline padding, coarse
+    pointer floor at `controlHeightXl`), `tabHeightBySize.xs`, `TabsSize`
+    widened to `"xs" | "sm" | "md"`, `root.alignContent: "start"`, `listLine`'s
+    `alignItems`/`alignSelf: "stretch"` and `listLineVertical.alignSelf:
+    "start"`, plus `xstyle` on all five compound parts. ADS records:
+    `consumer-changes/2026-09-07-tabs-xs-caption-type-step.json`,
+    `consumer-changes/2026-09-07-tabs-root-align-content-start.json`,
+    `consumer-changes/2026-09-07-tabs-line-strip-meets-row-bottom.json`.
+
+  `Tabs.tsx`, `Tabs.styles.ts` and `Select.parts.tsx` are now byte-identical to
+  upstream. `TabsSize` moved into `Tabs.styles.ts` and `Tabs.tsx` re-exports it,
+  so `size="xs"` still resolves at every call site (`system/SectionTabs.tsx`
+  passes it for the ~300px workspace tools rail).
+
+  Five host modifications survive, re-expressed on upstream's structure:
+
+  - `TextField`, `Textarea` and `Switch` still MERGE the caller's ARIA rather
+    than replacing it — `aria-describedby` joins the caller's value with the
+    field anatomy's and `aria-invalid` falls through to the caller's when the
+    anatomy is valid. Upstream still overwrites both, and this is accessibility
+    behaviour rather than styling, so the host form is kept. Each is now marked
+    with a short host-adaptation comment at the read site; verified by rendering
+    all three, which produce `aria-describedby="host-hint <anatomy id>"`.
+  - The canonical style exports `toggleStyles` and `sliderStyles`, still needed
+    by the compound adapters in `../ui`.
+  - `Calendar`'s `enabled[0]!` strict indexed-access adaptation.
+
+  Four new files were installed to close the import graph, all byte-identical
+  to upstream `589cfc4c` except where noted: `Calendar.styles.ts`,
+  `Tabs.session.tsx`, `Tabs.session.styles.ts`, and `date-range.ts`. `Calendar`
+  no longer owns `toDateKey` / `parseDateKey`; they moved to `date-range.ts`
+  with the shared `DateRangeValue` / `DateRangePreset` types, so the host's
+  `parseDateKey` adaptation moved with them — `[year = NaN, month = NaN, day =
+  NaN]`, the same "malformed key resolves to an invalid date" behaviour recorded
+  at the top of this file. `Tabs.session.tsx` is installed but not wired: it is
+  reachable as `Tabs.Session`, and no product surface composes it yet.
+
+  Three of these merges reported MERGED CLEAN while producing a duplicate,
+  because both sides had added the same thing at the same anchor: `Textarea`
+  and `TextField` ended up with two `xstyle` bindings in one destructuring
+  pattern, and `Tabs.styles.ts` with two `const tabExtraSmallHeight`
+  declarations. Read the merged diff, not the exit code.
+
+  One upstream API change reached product code. `Select.Trigger` publishes its
+  theme identity on `data-size` (`themeProps("select-trigger", { size })`, whose
+  target declares `axes: { size: ["xs", "sm", "md", "lg"] }`) and `{...theme}`
+  is spread after the caller's props, so `src/components/ui/select.tsx`'s own
+  `data-size` was overwritten before reaching the DOM and has been removed; the
+  rendered button carries the ADS rung, so the shim's `"default"` reads as
+  `data-size="md"`. `src/components/ui/switch.tsx`'s `data-size` is NOT a
+  collision and is left in place: the `switch` target declares `axes: { tone:
+  [...] }` only, and the rendered element carries `data-size="sm"
+  data-tone="default"` together. Both verified by rendering the shims.
+  `src/components/ui/input-group.tsx` publishes no theme-axis attribute at all.
+
+  One host test moved with the source. `tests/ads-control-chrome.test.ts`
+  asserted the `xs` union in `Tabs.tsx`; it now asserts the declaration in
+  `Tabs.styles.ts` and the re-export in `Tabs.tsx`.

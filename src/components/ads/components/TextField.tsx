@@ -1,4 +1,3 @@
-import type { StyleXValue } from "../utils/stylex";
 import * as stylex from "@stylexjs/stylex";
 import type * as React from "react";
 
@@ -8,7 +7,8 @@ import { controlHeightBySize } from "../recipes/control-metrics";
 import { focusRing } from "../recipes/focus-ring";
 import { transition } from "../recipes/transition";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { themeProps } from "../theming/theme-props";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { FieldCountRow, useMirroredFieldValue } from "./TextField.count";
 import {
   fieldAnatomy,
@@ -17,6 +17,7 @@ import {
   type FieldTone,
   useFieldAnatomy,
 } from "./field-anatomy";
+import { Loader } from "./Loader";
 
 /**
  * ## Focus contract for the text-entry family (canonical statement)
@@ -60,8 +61,6 @@ export type TextFieldSize = "xs" | "sm" | "md" | "lg";
 
 export type TextFieldProps = Omit<InputRootProps, "className" | "size"> & {
   className?: string;
-  /** Host composition resolved before class names are emitted. */
-  xstyle?: StyleXValue;
   /** Render only the input control, for composition inside an existing field label. */
   controlOnly?: boolean;
   description?: string;
@@ -77,6 +76,20 @@ export type TextFieldProps = Omit<InputRootProps, "className" | "size"> & {
    * has no `maxLength`: a count with no limit is a fact about nothing.
    */
   showCount?: boolean;
+  /**
+   * An async check on the value is in flight (uniqueness, availability, a
+   * server-side format rule). Sets `aria-busy` and shows a small spinner in
+   * the trailing slot; the input stays editable.
+   *
+   * Pass a boolean for the field's whole lifetime — `loading={isChecking}`,
+   * not `loading={isChecking || undefined}`. The trailing slot exists only
+   * while the prop is a boolean, so a field that never validates keeps its
+   * bare `<input>` and a field that does keeps one DOM shape across the
+   * toggle (no remount, no lost caret).
+   */
+  loading?: boolean;
+  /** Status text announced while `loading`. @default "Validating" */
+  loadingLabel?: string;
   /** Control height: xs 28px / sm 32px / md 36px (default) / lg 40px. */
   size?: TextFieldSize;
   /**
@@ -86,17 +99,18 @@ export type TextFieldProps = Omit<InputRootProps, "className" | "size"> & {
    */
   successMessage?: React.ReactNode;
   tone?: FieldTone;
-};
+} & XstyleProp;
 
 export function TextField({
   className,
-  xstyle,
   controlOnly = false,
   description,
   disabled,
   error,
   id,
   label,
+  loading,
+  loadingLabel = "Validating",
   maxLength,
   onChange,
   readOnly,
@@ -104,6 +118,7 @@ export function TextField({
   size = "md",
   successMessage,
   tone = "default",
+  xstyle,
   ...props
 }: TextFieldProps) {
   const anatomy = useFieldAnatomy({ description, error, id, tone });
@@ -116,10 +131,27 @@ export function TextField({
     value: props.value,
   });
 
-  const control = (
+  // The trailing slot is opt-in by shape, not by state: a field that never
+  // validates renders the bare input it always did, and one that does keeps
+  // the wrapper across every `loading` toggle. See the prop's doc.
+  const hasLoadingSlot = loading !== undefined;
+  // `anatomy.tone` and not `tone`: `error` forces `danger`, and the attribute a
+  // brand selects on has to agree with the border it is painting over.
+  const theme = themeProps("text-field", { size, tone: anatomy.tone });
+
+  const input = (
     <InputRoot
       {...props}
-      aria-describedby={[props["aria-describedby"], anatomy.describedBy].filter(Boolean).join(" ") || undefined}
+      {...theme}
+      aria-busy={loading || undefined}
+      // Host adaptation: merge the caller's ARIA rather than replacing it,
+      // so a product wrapper that already describes or invalidates this
+      // control keeps its wiring alongside the field anatomy's.
+      aria-describedby={
+        [props["aria-describedby"], anatomy.describedBy]
+          .filter(Boolean)
+          .join(" ") || undefined
+      }
       aria-invalid={anatomy.invalid || props["aria-invalid"]}
       className={cx(
         sx(
@@ -128,13 +160,15 @@ export function TextField({
           focusRing.borderOnly,
           controlHeightBySize[size],
           sizeStyles[size],
+          hasLoadingSlot && styles.inputWithLoadingSlot,
           toneStyles[anatomy.tone],
-          xstyle,
           // One state per element (design-direction §2): the input owns the
           // border, so it owns the disabled/read-only treatment too.
           readOnly && !disabled && controlChrome.readOnlyField,
           disabled && controlChrome.disabledField,
+          xstyle,
         ),
+        theme.className,
         className,
       )}
       disabled={disabled}
@@ -154,6 +188,22 @@ export function TextField({
       }
       readOnly={readOnly}
     />
+  );
+
+  const control = hasLoadingSlot ? (
+    <span className={sx(styles.loadingSlot)}>
+      {input}
+      {loading ? (
+        <Loader
+          className={sx(styles.loadingMark)}
+          label={loadingLabel}
+          size="xs"
+          tone="neutral"
+        />
+      ) : null}
+    </span>
+  ) : (
+    input
   );
 
   // Composition escape hatch: the caller already owns a label/description
@@ -242,6 +292,26 @@ const styles = stylex.create({
   lg: {
     fontSize: vars["--ads-font-size-lead"],
     paddingInline: vars["--ads-space-16"],
+  },
+  // The slot is a grid so the input keeps the field's full width and the mark
+  // floats over its trailing gutter without adding a second bordered box.
+  loadingSlot: {
+    display: "grid",
+    minInlineSize: 0,
+    position: "relative",
+  },
+  // Reserve the mark's lane while the slot exists, so the caret never sits
+  // under the spinner and the text does not jump when it appears.
+  inputWithLoadingSlot: {
+    paddingInlineEnd: vars["--ads-space-32"],
+  },
+  loadingMark: {
+    alignItems: "center",
+    display: "inline-flex",
+    insetBlock: 0,
+    insetInlineEnd: vars["--ads-space-8"],
+    pointerEvents: "none",
+    position: "absolute",
   },
   success: {
     borderColor: vars["--ads-color-success-border"],

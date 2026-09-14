@@ -20,10 +20,14 @@ import {
 import { controlChrome } from "../recipes/control-chrome";
 import { focusRing } from "../recipes/focus-ring";
 import { transition } from "../recipes/transition";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { springSmooth } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { usePanelMount, type PanelMount } from "./Collapsible.panel-mount";
-import { styles, tabHeightBySize } from "./Tabs.styles";
+import { styles, tabHeightBySize, type TabsSize } from "./Tabs.styles";
+import { SessionTabs } from "./Tabs.session";
+
+export type { TabsSize } from "./Tabs.styles";
 
 /**
  * `className` on a Base UI part may be a string or a `(state) => string`
@@ -66,16 +70,7 @@ export type TabsVariant = "pill" | "line";
  * forced `sm` onto a 24px trigger that does not exist. So today's strip is
  * `sm` — unchanged, still the default — and `md` is the new roomier rung
  * (32px trigger, 40px strip) for a page-level tab bar.
- *
- * `xs` is below the floor that argument describes, and it exists for the one
- * embedding that argument does not cover: a strip inside a ~300px rail panel,
- * where nothing is standing beside it to measure against and the constraint is
- * horizontal, not vertical. It takes the 24px tree-row height and steps the
- * label to Caption so three or four counted labels stay on one line instead of
- * wrapping the strip onto a second row.
  */
-export type TabsSize = "md" | "sm" | "xs";
-
 /** Base UI's own axis vocabulary, re-stated so callers can name it. */
 export type TabsOrientation = "horizontal" | "vertical";
 
@@ -120,11 +115,13 @@ function Root({
     () => ({ orientation, size, variant }),
     [orientation, size, variant],
   );
+  const theme = themeProps("tabs", { size, variant });
 
   return (
     <TabsConfigContext.Provider value={config}>
       <TabsRoot
         {...props}
+        {...theme}
         orientation={orientation}
         // Remount the strip when the variant changes. `pill` and `line` are
         // different objects — a 28px chip inset inside a padded track vs. a 2px
@@ -144,7 +141,11 @@ function Root({
         // the docs Properties panel.
         key={`${variant}:${orientation}:${size}`}
         className={mergeClassName(
-          () => sx(styles.root, vertical && styles.rootVertical, xstyle),
+          () =>
+            cx(
+              sx(styles.root, vertical && styles.rootVertical, xstyle),
+              theme.className,
+            ) ?? "",
           className,
         )}
       />
@@ -165,6 +166,7 @@ function assignRef<T>(ref: React.Ref<T> | undefined, value: T | null) {
 function List({ className, ref, xstyle, ...props }: TabsListProps) {
   const { orientation, variant } = useContext(TabsConfigContext);
   const vertical = orientation === "vertical";
+  const theme = themeProps("tabs-list", { variant });
   const listRef = useRef<HTMLDivElement>(null);
   const composedRef = useCallback(
     (node: HTMLDivElement | null) => {
@@ -215,18 +217,22 @@ function List({ className, ref, xstyle, ...props }: TabsListProps) {
   return (
     <TabsList
       {...props}
+      {...theme}
       ref={composedRef}
       className={mergeClassName(
         () =>
-          sx(
-            styles.list,
-            vertical && styles.listVertical,
-            variant === "line" && styles.listLine,
-            // After `listLine`, which paints the horizontal baseline rule this
-            // one has to replace rather than join.
-            variant === "line" && vertical && styles.listLineVertical,
-            xstyle,
-          ),
+          cx(
+            sx(
+              styles.list,
+              vertical && styles.listVertical,
+              variant === "line" && styles.listLine,
+              // After `listLine`, which paints the horizontal baseline rule
+              // this one has to replace rather than join.
+              variant === "line" && vertical && styles.listLineVertical,
+              xstyle,
+            ),
+            theme.className,
+          ) ?? "",
         className,
       )}
     />
@@ -237,36 +243,41 @@ export type TabsTabProps = React.ComponentProps<typeof TabsTab> & XstyleProp;
 
 function Tab({ className, xstyle, ...props }: TabsTabProps) {
   const { orientation, size, variant } = useContext(TabsConfigContext);
+  const theme = themeProps("tabs-tab", { size, variant });
   return (
     <TabsTab
       {...props}
+      {...theme}
       className={mergeClassName(
         (state) =>
-          sx(
-            styles.tab,
-            transition.colors,
-            tabHeightBySize[size],
-            orientation === "vertical" && styles.tabVertical,
-            focusRing.ring,
-            // The list clips (`overflow-x: auto`, and per CSS the block axis
-            // computes to `auto` with it), so the ring needs either a gutter on
-            // the list or an inset ring here. `pill` gets the gutter for free —
-            // its `space1` inset is exactly the ring's
-            // `focusRingOffset + focusRingWidth` bleed. `line` has no inset and
-            // cannot grow one: the list's padding box is where its baseline
-            // rule and its active bar are both painted, so widening it would
-            // drag the rule off the tabs. Before this the focused tab in a
-            // `line` strip had NO visible focus indicator at all.
-            //
-            // Orientation does not change the answer, only the axis it is
-            // wrong on: a vertical `line` rail has the same zero inset, so the
-            // same inset ring is what keeps the focused tab visible.
-            variant === "line" && focusRing.ringInset,
-            state.active && styles.tabActive,
-            state.disabled && styles.tabDisabled,
-            state.disabled && controlChrome.disabled,
-            xstyle,
-          ),
+          cx(
+            sx(
+              styles.tab,
+              transition.colors,
+              tabHeightBySize[size],
+              orientation === "vertical" && styles.tabVertical,
+              focusRing.ring,
+              // The list clips (`overflow-x: auto`, and per CSS the block axis
+              // computes to `auto` with it), so the ring needs either a gutter on
+              // the list or an inset ring here. `pill` gets the gutter for free —
+              // its `space1` inset is exactly the ring's
+              // `focusRingOffset + focusRingWidth` bleed. `line` has no inset and
+              // cannot grow one: the list's padding box is where its baseline
+              // rule and its active bar are both painted, so widening it would
+              // drag the rule off the tabs. Before this the focused tab in a
+              // `line` strip had NO visible focus indicator at all.
+              //
+              // Orientation does not change the answer, only the axis it is
+              // wrong on: a vertical `line` rail has the same zero inset, so the
+              // same inset ring is what keeps the focused tab visible.
+              variant === "line" && focusRing.ringInset,
+              state.active && styles.tabActive,
+              state.disabled && styles.tabDisabled,
+              state.disabled && controlChrome.disabled,
+              xstyle,
+            ),
+            theme.className,
+          ) ?? "",
         className,
       )}
     />
@@ -292,24 +303,29 @@ export type TabsIndicatorProps = React.ComponentProps<typeof TabsIndicator> &
  */
 function Indicator({ className, xstyle, ...props }: TabsIndicatorProps) {
   const { orientation, variant } = useContext(TabsConfigContext);
+  const theme = themeProps("tabs-indicator", { variant });
   return (
     <TabsIndicator
       {...props}
+      {...theme}
       className={mergeClassName(
         () =>
-          sx(
-            styles.indicator,
-            variant === "line" ? styles.indicatorLine : styles.indicatorPill,
-            // `pill` needs nothing for a vertical rail: Base UI publishes all
-            // six `--active-tab-*` vars on both axes, so a box built from
-            // top/left/width/height already follows the tab down a column. Only
-            // the 2px bar is axis-specific, because it is the one shape that
-            // deliberately collapses one of those dimensions.
-            variant === "line" &&
-              orientation === "vertical" &&
-              styles.indicatorLineVertical,
-            xstyle,
-          ),
+          cx(
+            sx(
+              styles.indicator,
+              variant === "line" ? styles.indicatorLine : styles.indicatorPill,
+              // `pill` needs nothing for a vertical rail: Base UI publishes all
+              // six `--active-tab-*` vars on both axes, so a box built from
+              // top/left/width/height already follows the tab down a column.
+              // Only the 2px bar is axis-specific, because it is the one shape
+              // that deliberately collapses one of those dimensions.
+              variant === "line" &&
+                orientation === "vertical" &&
+                styles.indicatorLineVertical,
+              xstyle,
+            ),
+            theme.className,
+          ) ?? "",
         className,
       )}
       render={<m.span layout transition={springSmooth} />}
@@ -317,8 +333,7 @@ function Indicator({ className, xstyle, ...props }: TabsIndicatorProps) {
   );
 }
 
-export type TabsPanelProps = React.ComponentProps<typeof TabsPanel> &
-  XstyleProp & {
+export type TabsPanelProps = React.ComponentProps<typeof TabsPanel> & {
   /**
    * When the panel's children enter the DOM.
    *
@@ -333,7 +348,7 @@ export type TabsPanelProps = React.ComponentProps<typeof TabsPanel> &
    * away). An explicit `keepMounted` still wins.
    */
   mount?: PanelMount;
-};
+} & XstyleProp;
 
 function Panel({
   children,
@@ -348,6 +363,7 @@ function Panel({
   return (
     <TabsPanel
       {...props}
+      {...themeSlotProps("tabs", "panel")}
       className={mergeClassName(() => sx(styles.panel, xstyle), className)}
       keepMounted={keepMounted ?? panelMount.keepMounted}
     >
@@ -363,6 +379,7 @@ const compoundParts = {
   Tab,
   Indicator,
   Panel,
+  Session: SessionTabs,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -383,13 +400,21 @@ export type TabsProps = Omit<TabsRootProps, "children" | "className"> & {
   /** Tab height. @default "sm" */
   size?: TabsSize;
   variant?: TabsVariant;
-};
+} & XstyleProp;
 
-function TabsArray({ defaultValue, items, mount, value, ...props }: TabsProps) {
+function TabsArray({
+  defaultValue,
+  items,
+  mount,
+  value,
+  xstyle,
+  ...props
+}: TabsProps) {
   const fallbackDefaultValue = defaultValue ?? items[0]?.value;
 
   return (
     <Root
+      xstyle={xstyle}
       {...props}
       defaultValue={value === undefined ? fallbackDefaultValue : undefined}
       value={value}

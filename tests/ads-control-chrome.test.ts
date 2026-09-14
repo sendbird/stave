@@ -105,8 +105,11 @@ describe("ADS control chrome", () => {
     );
     expect(xs).toContain('fontSize: vars["--ads-font-size-caption"]');
     expect(xs).toContain('paddingInline: vars["--ads-space-8"]');
+    // ADS adopted the rung and moved the union next to the heights it names;
+    // `Tabs.tsx` re-exports it, so `size="xs"` still resolves at every call site.
+    expect(styles).toContain('export type TabsSize = "xs" | "sm" | "md"');
     expect(read(`${ADS}/components/Tabs.tsx`)).toContain(
-      'export type TabsSize = "md" | "sm" | "xs"',
+      'export type { TabsSize } from "./Tabs.styles"',
     );
   });
 

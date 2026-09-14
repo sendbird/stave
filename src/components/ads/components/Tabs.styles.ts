@@ -3,6 +3,8 @@ import * as stylex from "@stylexjs/stylex";
 import { controlHeightBySize } from "../recipes/control-metrics";
 import { vars } from "../tokens/tokens.stylex";
 
+export type TabsSize = "xs" | "sm" | "md";
+
 /**
  * `Tabs`'s styles, split into their own module when the vertical-orientation,
  * `size`, and lazy-`mount` additions pushed `Tabs.tsx` past the repo's
@@ -22,17 +24,22 @@ import { vars } from "../tokens/tokens.stylex";
  */
 const PANEL_VIEWPORT_MIN_BLOCK_SIZE = 96;
 
-/*
- * The dense rail/tree rung. It is the one size where the type comes down with
- * the box: Body (14/20) inside a 24px control leaves 2px of vertical air, and a
- * strip of Body labels is what makes a 300px rail wrap its tabs onto a second
- * row — measured 330px of tabs in a 300px panel. Caption plus the `sm` gutter
- * keeps three or four counted labels on one line, which is the whole reason
- * this rung exists. `sm` and `md` stay on Body deliberately: they align against
- * Button, which also holds Body for both of those rungs.
+/**
+ * `size` → shared control-ramp height for the tab trigger. See `TabsSize` for
+ * why the names are offset one rung from the ramp step they resolve to.
  */
 const tabExtraSmallHeight = stylex.create({
   xs: {
+    /*
+     * `xs` is the rail/tree rung, and it is the one size where the type has to
+     * come down with the box. Body (14/20) inside a 24px control leaves 2px of
+     * vertical air, and a strip of Body labels is what makes a 300px rail wrap
+     * its tabs onto a second row — measured 330px of tabs in a 300px panel.
+     * Caption plus the `sm` gutter keeps three or four counted labels on one
+     * line, which is the whole reason this rung exists. `sm` and `md` stay on
+     * Body deliberately: they align against Button, which also holds Body for
+     * both of those rungs.
+     */
     fontSize: vars["--ads-font-size-caption"],
     minBlockSize: {
       default: vars["--ads-tree-row-height-compact"],
@@ -42,10 +49,6 @@ const tabExtraSmallHeight = stylex.create({
   },
 });
 
-/**
- * `size` → shared control-ramp height for the tab trigger. See `TabsSize` for
- * why the names are offset one rung from the ramp step they resolve to.
- */
 export const tabHeightBySize = {
   md: controlHeightBySize.sm,
   sm: controlHeightBySize.xs,
