@@ -1,6 +1,7 @@
 import * as React from "react";
 
 import { agentStatusWord, agentSurface } from "../recipes/agent-surface";
+import { themeSlotProps } from "../theming/theme-props";
 import { sx, type XstyleProp } from "../utils/stylex";
 import {
   agentStateLabel,
@@ -78,6 +79,9 @@ const ROLLUP_PRIORITY: AgentRunState[] = [
   "denied",
   "interrupted",
   "canceled",
+  // Host adaptation: `skipped` is a host-added `AgentRunState` (see
+  // `agent-state.ts`), so the roll-up has to rank it. It sits below the states
+  // somebody has to deal with and above the ones still in flight.
   "skipped",
   "retrying",
   "running",
@@ -116,6 +120,9 @@ export function aggregateRunStatus(
 ): AgentRunState | null {
   if (states.length === 0) return null;
   const present = new Set(states);
+  // Host adaptation (`noUncheckedIndexedAccess`): `states[0]` is
+  // `AgentRunState | undefined` here, so state the `null` the signature above
+  // already documents. Behaviour is identical — the empty case returned early.
   return (
     ROLLUP_PRIORITY.find((state) => present.has(state)) ?? states[0] ?? null
   );
@@ -226,7 +233,10 @@ export function ToolRunSummary({
   const toolTitle = nodeText(tool) ?? undefined;
 
   return (
-    <span className={sx(toolRunStyles.summary, xstyle)}>
+    <span
+      {...themeSlotProps("tool-run", "summary")}
+      className={sx(toolRunStyles.summary, xstyle)}
+    >
       <span className={sx(toolRunStyles.primary)}>
         <span className={sx(agentSurface.rowLabel, toolRunStyles.title)}>
           {title}
@@ -235,6 +245,7 @@ export function ToolRunSummary({
           <VisuallyHidden>{word}</VisuallyHidden>
         ) : (
           <span
+            {...themeSlotProps("tool-run", "status")}
             className={sx(
               toolRunStyles.statusWord,
               agentStatusWord[statusWordTone(status)],
@@ -318,6 +329,7 @@ export function ToolRunSection({
 
   return (
     <div
+      {...themeSlotProps("tool-run", "section")}
       aria-labelledby={labelId}
       className={sx(
         toolRunStyles.section,

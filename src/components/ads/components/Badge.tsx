@@ -3,8 +3,22 @@ import { X } from "lucide-react";
 import * as React from "react";
 
 import { focusRing } from "../recipes/focus-ring";
+import {
+  statusChip,
+  statusChipOutlineToneStyles,
+  statusChipSizeStyles,
+  statusChipSoftToneStyles,
+  statusChipSolidToneStyles,
+} from "../recipes/status-chip";
 import { touchTarget } from "../recipes/touch-target";
 import { transition } from "../recipes/transition";
+import { valueToken, valueTokenRemoveIconSizes } from "../recipes/value-token";
+import { withTruncatingLabels } from "./truncating-label";
+import {
+  themeProps,
+  themeSlotProps,
+  themeTargetClassName,
+} from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 
@@ -18,7 +32,14 @@ export type BadgeTone =
   | "success"
   | "danger";
 
-export type BadgeVariant = "soft" | "outline";
+export type BadgeVariant = "soft" | "outline" | "solid";
+
+/**
+ * Chip scale. `md` (24px) is the in-content default; `sm` (20px) is the dense
+ * rung for a 28–32px table row, an inline list cell, or a sidebar count, where
+ * a 24px chip sets the row height instead of sitting inside it.
+ */
+export type BadgeSize = "sm" | "md";
 
 export type BadgeProps = Omit<React.ComponentProps<"span">, "onRemove"> & {
   /**
@@ -30,6 +51,8 @@ export type BadgeProps = Omit<React.ComponentProps<"span">, "onRemove"> & {
   onRemove?: () => void;
   /** Accessible label for the remove button. @default "Remove" */
   removeLabel?: string;
+  /** Chip scale: `sm` 20px for dense rows, `md` 24px in content. @default "md" */
+  size?: BadgeSize;
   /**
    * Semantic color family. `"warm"` is a deprecated alias of `"warning"`
    * (identical rendering); it keeps working until the next major.
@@ -37,8 +60,10 @@ export type BadgeProps = Omit<React.ComponentProps<"span">, "onRemove"> & {
    */
   tone?: BadgeTone;
   /**
-   * Visual style: `soft` = tinted fill (default), `outline` = hairline border
-   * on a transparent background with tone-colored text.
+   * Visual weight: `soft` = tinted fill (default), `outline` = hairline border
+   * on a transparent background with tone-colored text, `solid` = filled chip
+   * with inverted text for the one status in a view that must be read before
+   * anything else.
    * @default "soft"
    */
   variant?: BadgeVariant;
@@ -55,104 +80,67 @@ export function Badge({
   dot = false,
   onRemove,
   removeLabel = "Remove",
+  size = "md",
   tone = "neutral",
   variant = "soft",
   xstyle,
   ...props
 }: BadgeProps) {
+  const theme = themeProps("badge", { size, tone, variant });
   return (
     <span
       {...props}
+      {...theme}
       className={cx(
         sx(
-          styles.root,
+          statusChip.root,
+          statusChipSizeStyles[size],
           transition.colors,
-          variant === "outline" && styles.outlineBase,
-          variant === "outline" ? outlineToneStyles[tone] : toneStyles[tone],
+          variant === "outline" && statusChip.outline,
+          variantToneStyles[variant][tone],
           onRemove ? styles.removable : null,
           xstyle,
         ),
+        theme.className,
         className,
       )}
     >
-      {dot ? <span aria-hidden className={sx(styles.dot)} /> : null}
-      {withTruncatingLabels(children)}
+      {dot ? (
+        <span
+          aria-hidden
+          className={sx(styles.dot)}
+          {...themeSlotProps("badge", "dot")}
+        />
+      ) : null}
+      {withTruncatingLabels(
+        children,
+        styles.label,
+        themeSlotProps("badge", "label"),
+      )}
       {onRemove ? (
         <button
           aria-label={removeLabel}
-          className={sx(
-            styles.remove,
-            transition.control,
-            touchTarget.coarse,
-            focusRing.ring,
+          className={cx(
+            sx(
+              valueToken.remove,
+              styles.removeInk,
+              transition.control,
+              touchTarget.coarse,
+              focusRing.ring,
+            ),
+            themeTargetClassName("badge-remove"),
           )}
           onClick={onRemove}
           type="button"
         >
-          <X aria-hidden size={12} />
+          <X aria-hidden size={valueTokenRemoveIconSizes.md} />
         </button>
       ) : null}
     </span>
   );
 }
 
-/**
- * `text-overflow` only applies to a **block container**. The Badge root is a
- * flex container (it has to be — dot, label, remove button), so its bare text
- * lived in an anonymous flex item that never inherited the property, and the
- * `overflow`/`text-overflow`/`white-space` triple on the root clipped long
- * labels mid-glyph instead of eliding them.
- *
- * The truncation therefore moves onto a real block child — the same
- * `recipes/menu.ts` `itemLabel` pattern `Button` now uses. Only *text* children
- * are wrapped so element children stay direct flex items and the `gap` between
- * the dot, the label and the remove button is unchanged.
- */
-function withTruncatingLabels(children: React.ReactNode): React.ReactNode {
-  return React.Children.map(children, (child) =>
-    typeof child === "string" || typeof child === "number" ? (
-      <span className={sx(styles.label)}>{child}</span>
-    ) : (
-      child
-    ),
-  );
-}
-
 const styles = stylex.create({
-  root: {
-    alignItems: "center",
-    // Transitions come from `recipes/transition` (`transition.colors`),
-    // composed at the call site.
-    // Transparent by default so `soft` and `outline` share metrics.
-    borderColor: "transparent",
-    borderRadius: vars["--ads-radius-full"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    display: "inline-flex",
-    fontSize: vars["--ads-font-size-caption"],
-    // A badge is the system's default home for a count, and a proportional
-    // ramp makes "9 → 10 → 11" change the chip's own width as it updates,
-    // nudging everything after it in the row. Tabular figures pin every digit
-    // to one advance width.
-    fontVariantNumeric: "tabular-nums",
-    // §5 weight roles: 600 is reserved for titles and genuinely strong
-    // headings. A badge is a label on a small object, and its emphasis already
-    // comes from the tone fill and the chip itself — a weight jump on top of
-    // those is the third signal §5 tells you not to reach for.
-    fontWeight: vars["--ads-font-weight-medium"],
-    gap: vars["--ads-space-4"],
-    justifySelf: "start",
-    lineHeight: vars["--ads-line-height-tight"],
-    maxInlineSize: "100%",
-    minBlockSize: 24,
-    minInlineSize: 0,
-    // The label owns overflow clipping. The root must stay visible so the
-    // removable button's coarse-pointer hit area can bleed beyond the 24px
-    // painted chip instead of being clipped back to the failing target size.
-    paddingBlock: 0,
-    paddingInline: vars["--ads-space-8"],
-    whiteSpace: "nowrap",
-  },
   /**
    * The truncating label box: a real block container, so `text-overflow`
    * applies. `min-inline-size: 0` lets it shrink below its content size as a
@@ -176,98 +164,70 @@ const styles = stylex.create({
     flexShrink: 0,
     inlineSize: 6,
   },
-  /*
-   * 16px painted box, unchanged — the chip's proportions depend on it. The
-   * WCAG 2.5.8 floor is served by `touchTarget.coarse` at the call site (an
+  /**
+   * Ink only. The 16px painted box, its radius, and its overlay hover/pressed
+   * states are `recipes/value-token`'s `remove`, shared with `Combobox.Chip`.
+   * The WCAG 2.5.8 floor is served by `touchTarget.coarse` at the call site (an
    * out-of-flow 44px pseudo-element under `(pointer: coarse)`), the same way
-   * Checkbox/Switch/RadioGroup do it, instead of inflating the glyph square.
-   * The root deliberately leaves overflow visible so the full coarse-pointer
-   * target remains hittable without changing the badge's painted geometry.
+   * Checkbox/Switch/RadioGroup do it, instead of inflating the glyph square;
+   * the root leaves overflow visible so that target stays hittable without
+   * changing the badge's painted geometry.
+   *
+   * `inherit` is the whole declaration: the × takes the tone's own ink, so a
+   * danger badge removes in red rather than in a second neutral.
+   *
+   * **This used to also fade the glyph to `opacity: 0.7`.** Against the badge's
+   * own fill that measured 2.93:1 on the default `neutral` tone in light —
+   * under the WCAG 1.4.11 3.0:1 floor for a non-text control, on the most
+   * common removable object in the system. It survived because the five
+   * semantic tones sit on darker ink and stayed above the floor (3.20–5.33),
+   * and because neutral reads as "quiet on purpose" rather than as broken.
+   * Removing the fade restores 5.38:1 and moves no geometry; hover is now an
+   * overlay, which is what every other quiet icon control in ADS already used.
    */
-  remove: {
-    alignItems: "center",
-    appearance: "none",
-    backgroundColor: {
-      default: "transparent",
-      ":hover": vars["--ads-color-overlay-hover"],
-      ":active": vars["--ads-color-overlay-pressed"],
-    },
-    blockSize: 16,
-    borderRadius: vars["--ads-radius-full"],
-    borderStyle: "none",
+  removeInk: {
     color: "inherit",
-    cursor: "pointer",
-    display: "inline-flex",
-    flexShrink: 0,
-    inlineSize: 16,
-    justifyContent: "center",
-    opacity: { default: 0.7, ":hover": 1 },
-    padding: 0,
-  },
-  neutral: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    color: vars["--ads-color-text-muted"],
-  },
-  accent: {
-    backgroundColor: vars["--ads-color-accent-soft"],
-    color: vars["--ads-color-accent"],
-  },
-  info: {
-    backgroundColor: vars["--ads-color-info-soft"],
-    color: vars["--ads-color-info-text"],
   },
   // `warm` is a deprecated alias of `warning` and rendered identically because
   // the hue-named tokens it read held the same values. Those tokens are gone
   // (they named a shade, not a role); the alias reads the role tokens directly
   // now, so the prop keeps working with no rendered change.
-  warm: {
-    backgroundColor: vars["--ads-color-warning-soft"],
-    color: vars["--ads-color-warning-text"],
-  },
-  warning: {
-    backgroundColor: vars["--ads-color-warning-soft"],
-    color: vars["--ads-color-warning-text"],
-  },
-  success: {
-    backgroundColor: vars["--ads-color-success-soft"],
-    color: vars["--ads-color-success-text"],
-  },
-  danger: {
-    backgroundColor: vars["--ads-color-danger-soft"],
-    color: vars["--ads-color-danger-text"],
-  },
-  // Outline: neutral hairline, tone carried by text (and the `dot`).
-  outlineBase: {
-    backgroundColor: "transparent",
-    borderColor: vars["--ads-color-border"],
-  },
-  outlineNeutral: { color: vars["--ads-color-text-muted"] },
-  outlineAccent: { color: vars["--ads-color-accent"] },
-  outlineInfo: { color: vars["--ads-color-info-text"] },
-  outlineWarm: { color: vars["--ads-color-warning-text"] },
-  outlineWarning: { color: vars["--ads-color-warning-text"] },
-  outlineSuccess: { color: vars["--ads-color-success-text"] },
-  outlineDanger: { color: vars["--ads-color-danger-text"] },
 });
 
 const toneStyles = {
-  accent: styles.accent,
-  danger: styles.danger,
-  info: styles.info,
-  neutral: styles.neutral,
-  success: styles.success,
-  warning: styles.warning,
-  warm: styles.warm,
+  ...statusChipSoftToneStyles,
+  warm: statusChipSoftToneStyles.warning,
 } as const;
 
 const outlineToneStyles = {
-  accent: styles.outlineAccent,
-  danger: styles.outlineDanger,
-  info: styles.outlineInfo,
-  neutral: styles.outlineNeutral,
-  success: styles.outlineSuccess,
-  warning: styles.outlineWarning,
-  warm: styles.outlineWarm,
+  ...statusChipOutlineToneStyles,
+  warm: statusChipOutlineToneStyles.warning,
 } as const;
 
-export { styles as badgeStyles, toneStyles as badgeToneStyles, outlineToneStyles as badgeOutlineToneStyles };
+/**
+ * The seven `solid` pairs now live in `recipes/status-chip` — `Badge solid` is
+ * no longer the system's only solid semantic object, and `Indicator`'s corner
+ * mark reads the same rows. `warm` keeps its deprecated alias here, where the
+ * rest of `Badge`'s back-compat lives, rather than leaking a deprecated name
+ * into a shared recipe.
+ */
+const solidToneStyles = {
+  ...statusChipSolidToneStyles,
+  warm: statusChipSolidToneStyles.warning,
+} as const;
+
+/**
+ * variant → tone → style. One lookup instead of the previous ternary chain, so
+ * a third variant cannot be added without deciding its tone row.
+ */
+const variantToneStyles = {
+  outline: outlineToneStyles,
+  soft: toneStyles,
+  solid: solidToneStyles,
+} as const satisfies Record<BadgeVariant, Record<BadgeTone, unknown>>;
+
+export {
+  styles as badgeStyles,
+  toneStyles as badgeToneStyles,
+  outlineToneStyles as badgeOutlineToneStyles,
+};

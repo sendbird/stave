@@ -376,3 +376,78 @@ Further host extensions:
   variable-only rule at priority 0, which `processStylexRules` leaves unlayered,
   so the declaration outranks every layer and cannot be shadowed by either
   origin.
+
+- The content/agent-surface group was three-way merged against the pristine
+  install baseline: `Badge`, `Card`, `Table`, `Breadcrumb`, `EmptyState`,
+  `Plan`, `StepRail`, `DiffViewer`, `Command` (+ `Command.styles`) and
+  `ToolRun.styles` / `ToolRun.parts`. Upstream had independently adopted most
+  of this group's host extensions verbatim, so those hunks collapse to
+  upstream's spelling: `xstyle` on `Badge`, the six `Card` parts, every `Table`,
+  `Breadcrumb` and `EmptyState` part and five `Command` parts; the empty-state
+  header's `justifyItems: center`; the plan header's `space8` inline padding;
+  `ToolRun`'s 22rem container arm across all seven keys; `DiffViewer`'s
+  `highlighter` / `language` seam, `paintHighlightedLine` span painting and the
+  `DiffViewerHighlightSpan` re-export; and the command palette's
+  `atelier-motion-backdrop` / `-modal` / `-modal-top` classes. `Card`, `Plan`,
+  `StepRail`, `DiffViewer` and `Command` are now byte-identical to upstream.
+
+  Five host modifications survive, re-expressed on upstream's structure: the
+  canonical style exports `badgeStyles` / `badgeToneStyles` /
+  `badgeOutlineToneStyles`, `tableStyles`, `breadcrumbStyles` and
+  `emptyStateStyles`, still needed by the compound adapters in `../ui`; and
+  `ToolRun.styles`'s `title` dropping `color`, because a row label's ink is
+  `agentSurface.rowLabel` composed before it at the call site.
+
+  `ToolRun.parts.tsx` was HAND-MERGED WITHOUT A BASE. Its recorded integrity is
+  an uncommitted upstream working-tree state, so no pristine baseline exists in
+  either repository and a mechanical three-way merge is impossible. It starts
+  from upstream with three known host deltas re-applied and nothing else:
+  `"skipped"` in `ROLLUP_PRIORITY` (a host-added `AgentRunState`),
+  `?? null` on `aggregateRunStatus`'s result (the strict indexed-access
+  adaptation recorded above), and `agentSurface.rowLabel` on the title.
+
+  `Command.styles.ts` did not move upstream, but it is reset to upstream here
+  rather than kept, because upstream's `Command.tsx` now uses the three keys
+  this copy had dropped as unused — `pageHeader`, `pageTitle` and
+  `sectionLabel` — for command pages and the recents section. The other host
+  edits to that file were the palette's missing surface and a hand-rolled
+  keycap, and upstream has since solved both in shared form: the backdrop and
+  popup surface are `recipes/overlay-surface`'s `backdrop` / `modal` /
+  `modalRounded` (identical declarations to the host's), and the ⌘K hint is the
+  `Kbd` component inside a positioning-only `triggerShortcut`. `footerKbd` was
+  already dead — `Command.parts` renders `Kbd`.
+
+  `CommandDialog` moved out of `Command.tsx` into `Command.dialog.tsx` upstream
+  (the `xstyle` contract pushed the module past the 500-line ratchet), so that
+  file is installed to keep the export reachable. It is installed but not
+  wired, like `Checkpoint`: the product palette is `ui/command.tsx` over
+  `ui/dialog`, and only the compound `Command` parts and `Command.styles` are
+  consumed.
+
+  New files, all byte-identical to upstream `589cfc4c`: `Command.types.ts`,
+  `Command.dialog.tsx`, `IconTile.tsx`, `truncating-label.tsx`,
+  `recipes/value-token.ts` and `recipes/overlay-surface.ts`.
+  `recipes/status-chip.ts` was re-synced for the additive
+  `statusChipSolidToneStyles` rows `Badge solid` reads; it carried no host
+  modification.
+
+  Two upstream API changes reached product code.
+
+  `Badge`'s box and its `outline` edge moved out of the component's own
+  `styles` into `recipes/status-chip`, and the chip gained a `size` axis whose
+  `md` rung now carries the font size and inline padding the old `root` held.
+  `badgeStyles.root` / `.outlineBase` no longer exist, so `badgeVariants()` in
+  `src/components/ui/badge.tsx` — the class-only path, which has no element to
+  render — composes `statusChip.root`, `statusChipSizeStyles.md` and
+  `statusChip.outline` instead, the same three keys the component composes.
+
+  `EmptyState`'s medallion is now an `IconTile` (`round`, `xl`), so
+  `emptyStateStyles.media` and `.toneNeutral` are gone. `EmptyMedia` in
+  `src/components/ui/empty.tsx` delegates its `variant="icon"` arm to the ADS
+  `EmptyStateMedia` part rather than re-composing two keys that no longer
+  exist; the shim's own `justifySelf: center` is passed through `xstyle`, so a
+  caller's fill and size still win. The tile is a `<span>`, so the shim's
+  default arm is one too — every call site nests it in `EmptyStateHeader`'s
+  grid, where both are blockified. `IconTile` paints an unconditional hairline
+  rim the old `media` key did not, which is upstream's stated intent; the two
+  call sites that override the medallion's fill and size keep doing so.

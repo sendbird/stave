@@ -1,7 +1,10 @@
 import * as stylex from "@stylexjs/stylex";
 import type * as React from "react";
 
+import { focusRing } from "../recipes/focus-ring";
+import { transition } from "../recipes/transition";
 import { vars } from "../tokens/tokens.stylex";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 
 export type CardDensity = "compact" | "regular";
@@ -9,24 +12,109 @@ export type CardDensity = "compact" | "regular";
 export type CardProps = React.ComponentProps<"section"> & {
   /** Spatial scale of the padding. @default "regular" */
   density?: CardDensity;
+  /**
+   * The whole card is one target — a board card, a connector tile, a template
+   * chooser. It gains the shallow elevation role, a hover wash, a press settle,
+   * and the shared focus ring when `onClick` is present. ADS supplies button
+   * semantics, one tab stop, and Enter/Space activation; the callback is what
+   * distinguishes a real target from a static card that merely looks active.
+   *
+   * Leave it off for a static grouping surface. §1.5: elevation is a lift, not
+   * a grouping cue, so a card that cannot be pressed must not look pressable.
+   * @default false
+   */
+  interactive?: boolean;
+  /**
+   * The card is the chosen one in a set (a plan, a channel, a variant). §1.7
+   * pairs the selection fill with one companion signal and names it for this
+   * exact surface: "selected bordered row/card → the row's own hairline goes
+   * `colorAccent`". Both halves ship together, because in light the fill alone
+   * measures 1.11:1 against its own surface.
+   * @default false
+   */
+  selected?: boolean;
 } & XstyleProp;
 
 /**
  * Bounded content surface (baseline `Card` anatomy). Compose with `CardHeader`
  * (+ `CardTitle` / `CardDescription` / `CardAction`), `CardContent`, and
- * `CardFooter`. It stays flat: the perimeter marks ownership, while elevation
- * remains reserved for pressable or detached surfaces.
+ * `CardFooter`. It stays flat by default: the perimeter marks ownership, while
+ * elevation remains reserved for pressable (`interactive`) or detached
+ * surfaces.
  */
 export function Card({
   className,
   density = "regular",
+  interactive = false,
+  onClick,
+  onKeyDown,
+  onKeyUp,
+  role,
+  selected = false,
+  tabIndex,
   xstyle,
   ...props
 }: CardProps) {
+  const actionable = interactive && typeof onClick === "function";
+  const theme = themeProps("card", { density });
+
   return (
     <section
       {...props}
-      className={cx(sx(styles.root, densityStyles[density], xstyle), className)}
+      {...theme}
+      className={cx(
+        sx(
+          styles.root,
+          densityStyles[density],
+          actionable && styles.interactive,
+          actionable && transition.control,
+          actionable && focusRing.ring,
+          selected && styles.selected,
+          actionable && selected && styles.selectedInteractive,
+          xstyle,
+        ),
+        theme.className,
+        className,
+      )}
+      /*
+       * `data-selected`, not `aria-selected`: §2's "ARIA is contextual, not
+       * cargo-culted". `aria-selected` is only valid on `option`, `tab`, `row`,
+       * `gridcell` and `treeitem`, and a Card is a `section` until its consumer
+       * gives it a role. The attribute is here so a consumer can style or query
+       * descendants off the state; the consumer owns the role and the matching
+       * ARIA state.
+       */
+      data-selected={selected ? "" : undefined}
+      onClick={onClick}
+      onKeyDown={(event) => {
+        onKeyDown?.(event);
+        if (
+          !actionable ||
+          event.defaultPrevented ||
+          event.target !== event.currentTarget
+        )
+          return;
+        if (event.key === "Enter") {
+          event.preventDefault();
+          event.currentTarget.click();
+          return;
+        }
+        if (event.key === " ") event.preventDefault();
+      }}
+      onKeyUp={(event) => {
+        onKeyUp?.(event);
+        if (
+          !actionable ||
+          event.defaultPrevented ||
+          event.key !== " " ||
+          event.target !== event.currentTarget
+        )
+          return;
+        event.preventDefault();
+        event.currentTarget.click();
+      }}
+      role={actionable ? (role ?? "button") : role}
+      tabIndex={actionable ? (tabIndex ?? 0) : tabIndex}
     />
   );
 }
@@ -36,14 +124,24 @@ export type CardHeaderProps = React.ComponentProps<"div"> & XstyleProp;
 /** Title block; place an optional `CardAction` inside for a trailing control. */
 export function CardHeader({ className, xstyle, ...props }: CardHeaderProps) {
   return (
-    <div {...props} className={cx(sx(styles.header, xstyle), className)} />
+    <div
+      {...props}
+      {...themeSlotProps("card", "header")}
+      className={cx(sx(styles.header, xstyle), className)}
+    />
   );
 }
 
 export type CardTitleProps = React.ComponentProps<"h3"> & XstyleProp;
 
 export function CardTitle({ className, xstyle, ...props }: CardTitleProps) {
-  return <h3 {...props} className={cx(sx(styles.title, xstyle), className)} />;
+  return (
+    <h3
+      {...props}
+      {...themeSlotProps("card", "title")}
+      className={cx(sx(styles.title, xstyle), className)}
+    />
+  );
 }
 
 export type CardDescriptionProps = React.ComponentProps<"p"> & XstyleProp;
@@ -54,7 +152,11 @@ export function CardDescription({
   ...props
 }: CardDescriptionProps) {
   return (
-    <p {...props} className={cx(sx(styles.description, xstyle), className)} />
+    <p
+      {...props}
+      {...themeSlotProps("card", "description")}
+      className={cx(sx(styles.description, xstyle), className)}
+    />
   );
 }
 
@@ -83,7 +185,11 @@ export type CardActionProps = React.ComponentProps<"div"> & XstyleProp;
  */
 export function CardAction({ className, xstyle, ...props }: CardActionProps) {
   return (
-    <div {...props} className={cx(sx(styles.action, xstyle), className)} />
+    <div
+      {...props}
+      {...themeSlotProps("card", "action")}
+      className={cx(sx(styles.action, xstyle), className)}
+    />
   );
 }
 
@@ -91,7 +197,11 @@ export type CardContentProps = React.ComponentProps<"div"> & XstyleProp;
 
 export function CardContent({ className, xstyle, ...props }: CardContentProps) {
   return (
-    <div {...props} className={cx(sx(styles.content, xstyle), className)} />
+    <div
+      {...props}
+      {...themeSlotProps("card", "content")}
+      className={cx(sx(styles.content, xstyle), className)}
+    />
   );
 }
 
@@ -99,7 +209,11 @@ export type CardFooterProps = React.ComponentProps<"div"> & XstyleProp;
 
 export function CardFooter({ className, xstyle, ...props }: CardFooterProps) {
   return (
-    <div {...props} className={cx(sx(styles.footer, xstyle), className)} />
+    <div
+      {...props}
+      {...themeSlotProps("card", "footer")}
+      className={cx(sx(styles.footer, xstyle), className)}
+    />
   );
 }
 
@@ -126,6 +240,57 @@ const styles = stylex.create({
   },
   regular: {
     padding: vars["--ads-space-20"],
+  },
+  /*
+   * `interactive` is what §1.5 reserves elevation FOR: the surface can be
+   * pressed, so it is allowed to leave its plane. It takes the same shallow
+   * `elevationRaised` → `elevationFlat` press the bordered Button variants
+   * take, and the same `colorMixInk 6%` hover wash `Button secondary` uses, so
+   * a pressable card and a pressable button read as members of one family
+   * instead of two hand-tuned surfaces.
+   *
+   * The wash is composited with `color-mix` on the card's own surface rather
+   * than layered as a second background, because a card frequently holds its
+   * own tinted children and an overlay token would wash those too.
+   */
+  interactive: {
+    backgroundColor: {
+      default: vars["--ads-color-surface-raised"],
+      ":hover": `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 6%)`,
+      ":active": `color-mix(in srgb, ${vars["--ads-color-surface-raised"]}, ${vars["--ads-color-mix-ink"]} 10%)`,
+    },
+    boxShadow: {
+      default: vars["--ads-elevation-raised"],
+      ":active": vars["--ads-elevation-flat"],
+    },
+    cursor: "pointer",
+  },
+  /*
+   * §1.7, the row named "Selected bordered row/card": the fill plus the card's
+   * own hairline going `colorAccent`. The companion lives in this same rule
+   * because the fill cannot carry the state alone — 1.11:1 against its own
+   * surface in light.
+   *
+   * The hover/press steps are restated on the selection fill rather than
+   * inherited from `interactive`. StyleX merges atomically per
+   * property-and-condition pair, so leaving them out would keep
+   * `interactive`'s `:hover` atom alive and a hovered selected card would fade
+   * back to the unselected wash — losing the state exactly while the pointer is
+   * on it. Same `colorMixInk` steps, different base.
+   */
+  selected: {
+    backgroundColor: vars["--ads-color-selection-fill"],
+    borderColor: vars["--ads-color-accent"],
+  },
+  selectedInteractive: {
+    backgroundColor: {
+      default: vars["--ads-color-selection-fill"],
+      ":hover": `color-mix(in srgb, ${vars["--ads-color-selection-fill"]}, ${vars["--ads-color-mix-ink"]} 6%)`,
+      ":active": `color-mix(in srgb, ${vars["--ads-color-selection-fill"]}, ${vars["--ads-color-mix-ink"]} 10%)`,
+    },
+    // Restated with the interactive hover/press fill so the selected-state
+    // contract remains locally complete: tint plus the card's own accent edge.
+    borderColor: vars["--ads-color-accent"],
   },
   header: {
     display: "grid",

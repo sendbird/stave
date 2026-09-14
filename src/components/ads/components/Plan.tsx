@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import * as React from "react";
 
 import { agentStatusWord, agentSurface } from "../recipes/agent-surface";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
@@ -110,11 +111,18 @@ export function Plan({
     say(describePlanDelta(previous, flat, done, total));
   }, [done, flat, say, total]);
 
+  const theme = themeProps("plan");
+
   return (
     <section
       {...props}
+      {...theme}
       aria-labelledby={titleId}
-      className={cx(sx(agentSurface.bare, styles.root, xstyle), className)}
+      className={cx(
+        sx(agentSurface.bare, styles.root, xstyle),
+        theme.className,
+        className,
+      )}
       // `group`, not `region`: a long transcript can hold several plans, and a
       // landmark per plan makes the landmark list useless.
       role="group"
@@ -150,7 +158,7 @@ export function Plan({
           </p>
         ))
       ) : (
-        <ol className={sx(agentSurface.rowGroup, styles.list)}>
+        <ol className={sx(agentSurface.rowGroup, styles.list)} role="list">
           {steps.map((step, index) => (
             <PlanStepRow
               depth={0}
@@ -219,7 +227,10 @@ function PlanStepRow({
       <span className={sx(styles.markCell)}>
         <PlanStatusMark status={status} />
       </span>
-      <span className={sx(styles.stepTitle)}>
+      <span
+        {...themeSlotProps("plan", "title")}
+        className={sx(styles.stepTitle)}
+      >
         {item.title}
         {/*
          * Status as text on the row, so reading the plan reads the states. The
@@ -246,7 +257,10 @@ function PlanStepRow({
         )}
       </span>
       {item.meta == null ? null : (
-        <span className={sx(agentSurface.meta, styles.metaCell)}>
+        <span
+          {...themeSlotProps("plan", "meta")}
+          className={sx(agentSurface.meta, styles.metaCell)}
+        >
           {item.meta}
         </span>
       )}
@@ -262,6 +276,7 @@ function PlanStepRow({
             // holds its children with inset alone.
             top && substeps === "rail" && styles.substepRail,
           )}
+          role="list"
         >
           {nested.map((child, index) => (
             <PlanStepRow

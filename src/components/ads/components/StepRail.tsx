@@ -1,6 +1,7 @@
 import * as stylex from "@stylexjs/stylex";
 import * as React from "react";
 
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 
@@ -88,10 +89,15 @@ function StepRailRoot({
   ...props
 }: StepRailProps) {
   const context = React.useMemo(() => ({ density, rail }), [density, rail]);
+  const theme = themeProps("step-rail", { density });
 
   return (
     <StepRailContext.Provider value={context}>
-      <div {...props} className={cx(sx(styles.root, xstyle), className)} />
+      <div
+        {...props}
+        {...theme}
+        className={cx(sx(styles.root, xstyle), theme.className, className)}
+      />
     </StepRailContext.Provider>
   );
 }
@@ -135,6 +141,7 @@ function StepRailStep({
     return (
       <div
         {...props}
+        {...themeSlotProps("step-rail", "step")}
         className={cx(sx(styles.step, styles.stepFlush, xstyle), className)}
       >
         {/*
@@ -143,11 +150,19 @@ function StepRailStep({
          * just leads the row instead of standing in a column of its own.
          */}
         {marker != null ? (
-          <span className={sx(styles.marker, styles.markerInline)}>
+          <span
+            {...themeSlotProps("step-rail", "marker")}
+            className={sx(styles.marker, styles.markerInline)}
+          >
             {marker}
           </span>
         ) : null}
-        <div className={sx(bodyStyle)}>{children}</div>
+        <div
+          {...themeSlotProps("step-rail", "body")}
+          className={sx(bodyStyle)}
+        >
+          {children}
+        </div>
       </div>
     );
   }
@@ -155,17 +170,29 @@ function StepRailStep({
   return (
     <div
       {...props}
+      {...themeSlotProps("step-rail", "step")}
       className={cx(sx(styles.step, styles.stepRail, xstyle), className)}
     >
       <div className={sx(styles.gutter)}>
         {marker != null ? (
-          <span className={sx(styles.marker)}>{marker}</span>
+          <span
+            {...themeSlotProps("step-rail", "marker")}
+            className={sx(styles.marker)}
+          >
+            {marker}
+          </span>
         ) : null}
         {connector ? (
-          <span aria-hidden="true" className={sx(styles.connector)} />
+          <span
+            {...themeSlotProps("step-rail", "connector")}
+            aria-hidden="true"
+            className={sx(styles.connector)}
+          />
         ) : null}
       </div>
-      <div className={sx(bodyStyle)}>{children}</div>
+      <div {...themeSlotProps("step-rail", "body")} className={sx(bodyStyle)}>
+        {children}
+      </div>
     </div>
   );
 }

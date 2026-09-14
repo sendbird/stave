@@ -4,6 +4,7 @@ import type * as React from "react";
 
 import { focusRing } from "../recipes/focus-ring";
 import { transition } from "../recipes/transition";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { vars } from "../tokens/tokens.stylex";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
@@ -44,7 +45,6 @@ export type { DiffViewerHighlightSpan };
  * ADS does not bundle a syntax engine. The callback returns per-line spans
  * that must reconstruct the line; a mismatch falls back to uncolored text.
  * Word-diff washes compose with those spans by character offset.
- *
  */
 
 export type DiffViewerMode = "unified" | "split";
@@ -108,7 +108,7 @@ function renderCode(
   language?: string,
 ) {
   if (!highlighter && (granularity !== "word" || !op.wordOps)) {
-    return op.text.length > 0 ? op.text : " ";
+    return op.text.length > 0 ? op.text : " ";
   }
   const painted = paintHighlightedLine(
     op.text,
@@ -123,7 +123,7 @@ function renderCode(
     first.wordType !== "add" &&
     first.wordType !== "remove";
   if (onlyPlain) {
-    return first.text.length > 0 ? first.text : " ";
+    return first.text.length > 0 ? first.text : " ";
   }
   return painted.map((span, index) => {
     const wash =
@@ -135,6 +135,7 @@ function renderCode(
     return (
       <span
         className={wash ? sx(wash) : undefined}
+        // eslint-disable-next-line react/no-array-index-key -- token order is stable within one render of one line.
         key={index}
         style={span.color ? { color: span.color } : undefined}
       >
@@ -172,9 +173,12 @@ export function DiffViewer({
   const expand = (start: number) =>
     setExpanded((prev) => new Set(prev).add(start));
 
+  const theme = themeProps("diff-viewer");
+
   const expandRow = (start: number, count: number) => (
     <div className={sx(styles.expandRow)} key={`x-${start}`}>
       <button
+        {...themeSlotProps("diff-viewer", "expand")}
         className={sx(
           styles.expandButton,
           // The expand affordance is the one pressable thing in the diff, and
@@ -197,8 +201,9 @@ export function DiffViewer({
   return (
     <div
       {...props}
+      {...theme}
       aria-label={props["aria-label"] ?? "Text diff"}
-      className={cx(sx(styles.root, xstyle), className)}
+      className={cx(sx(styles.root, xstyle), theme.className, className)}
       role="group"
     >
       {mode === "unified"
@@ -230,10 +235,16 @@ export function DiffViewer({
                         )}
                         key={`${op.type}-${op.beforeLine ?? ""}-${op.afterLine ?? ""}`}
                       >
-                        <span className={sx(styles.lineNo)}>
+                        <span
+                          {...themeSlotProps("diff-viewer", "line-number")}
+                          className={sx(styles.lineNo)}
+                        >
                           {op.beforeLine ?? ""}
                         </span>
-                        <span className={sx(styles.lineNo)}>
+                        <span
+                          {...themeSlotProps("diff-viewer", "line-number")}
+                          className={sx(styles.lineNo)}
+                        >
                           {op.afterLine ?? ""}
                         </span>
                         <span
@@ -287,7 +298,10 @@ export function DiffViewer({
                             )}
                             key={side}
                           >
-                            <span className={sx(styles.lineNo)}>
+                            <span
+                              {...themeSlotProps("diff-viewer", "line-number")}
+                              className={sx(styles.lineNo)}
+                            >
                               {cell?.line ?? ""}
                             </span>
                             <span
@@ -308,7 +322,7 @@ export function DiffViewer({
                                     highlighter,
                                     language,
                                   )
-                                : " "}
+                                : " "}
                             </span>
                           </div>
                         );

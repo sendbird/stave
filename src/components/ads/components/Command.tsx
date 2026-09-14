@@ -1,5 +1,5 @@
-import { Search } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { ChevronLeft, Search } from "lucide-react";
+import { Fragment, useMemo, useState } from "react";
 import type * as React from "react";
 
 import {
@@ -14,22 +14,15 @@ import {
   AutocompleteRoot,
   type AutocompleteRootProps,
 } from "../headless/autocomplete";
-import {
-  DialogBackdrop,
-  DialogPopup,
-  DialogPortal,
-  DialogRoot,
-  DialogTitle,
-  DialogTrigger,
-} from "../headless/dialog";
-import { controlChrome } from "../recipes/control-chrome";
-import { focusRing } from "../recipes/focus-ring";
 import { listbox } from "../recipes/listbox";
 import { transition } from "../recipes/transition";
+import { themeProps, themeSlotProps } from "../theming/theme-props";
 import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { mergeClassName } from "./merge-class-name";
-import { CommandFooterHint } from "./Command.parts";
+import { Button } from "./Button";
 import { styles } from "./Command.styles";
+import type { CommandItem, CommandProps } from "./Command.types";
+import { Kbd } from "./Kbd";
 
 // ---------------------------------------------------------------------------
 // Compound parts (compositional Command API). Command is an always-open inline
@@ -98,27 +91,40 @@ function Frame({
   xstyle,
   ...props
 }: CommandFrameProps) {
+  const theme = themeProps("command");
   return (
     <div
       {...props}
+      {...theme}
       className={cx(
         sx(styles.root, bare && styles.rootBare, xstyle),
+        theme.className,
         className,
       )}
     />
   );
 }
 
-export type CommandInputProps = React.ComponentProps<typeof AutocompleteInput>;
+export type CommandInputProps = React.ComponentProps<typeof AutocompleteInput> &
+  XstyleProp;
 
 /** The search field: input group + leading search icon + text input. */
-function Input({ className, ...props }: CommandInputProps) {
+function Input({ className, xstyle, ...props }: CommandInputProps) {
   return (
-    <AutocompleteInputGroup className={sx(styles.inputGroup)}>
-      <Search aria-hidden className={sx(styles.searchIcon)} size={16} />
+    <AutocompleteInputGroup
+      {...themeSlotProps("command", "input-group")}
+      className={sx(styles.inputGroup)}
+    >
+      <Search
+        aria-hidden
+        {...themeSlotProps("command", "icon")}
+        className={sx(styles.searchIcon)}
+        size={16}
+      />
       <AutocompleteInput
         {...props}
-        className={mergeClassName(() => sx(styles.input), className)}
+        {...themeSlotProps("command", "input")}
+        className={mergeClassName(() => sx(styles.input, xstyle), className)}
       />
     </AutocompleteInputGroup>
   );
@@ -132,6 +138,7 @@ function List({ className, xstyle, ...props }: CommandListProps) {
   return (
     <AutocompleteList
       {...props}
+      {...themeSlotProps("command", "list")}
       className={mergeClassName(() => sx(styles.list, xstyle), className)}
     />
   );
@@ -142,11 +149,12 @@ export type CommandItemProps = React.ComponentProps<typeof AutocompleteItem> &
 
 /** One command row. Compose icon/label/shortcut children freely. */
 function ItemPart({ className, xstyle, ...props }: CommandItemProps) {
+  const theme = themeProps("command-item");
   return (
     <AutocompleteItem
       {...props}
-      className={mergeClassName(
-        (state) =>
+      className={(state) =>
+        cx(
           sx(
             styles.item,
             transition.colors,
@@ -154,15 +162,15 @@ function ItemPart({ className, xstyle, ...props }: CommandItemProps) {
             state.disabled && styles.itemDisabled,
             xstyle,
           ),
-        className,
-      )}
+          theme.className,
+          typeof className === "function" ? className(state) : className,
+        )
+      }
     />
   );
 }
 
-export type CommandEmptyProps = React.ComponentProps<
-  typeof AutocompleteEmpty
-> &
+export type CommandEmptyProps = React.ComponentProps<typeof AutocompleteEmpty> &
   XstyleProp;
 
 /** Shown when the query matches nothing. */
@@ -170,6 +178,7 @@ function Empty({ className, xstyle, ...props }: CommandEmptyProps) {
   return (
     <AutocompleteEmpty
       {...props}
+      {...themeSlotProps("command", "empty")}
       className={mergeClassName(() => sx(styles.empty, xstyle), className)}
     />
   );
@@ -197,9 +206,7 @@ function Collection(props: CommandCollectionProps) {
   return <AutocompleteCollection {...props} />;
 }
 
-export type CommandGroupProps = React.ComponentProps<
-  typeof AutocompleteGroup
-> &
+export type CommandGroupProps = React.ComponentProps<typeof AutocompleteGroup> &
   XstyleProp;
 
 /** Groups related items under one `Command.GroupLabel`. */
@@ -207,6 +214,7 @@ function Group({ className, xstyle, ...props }: CommandGroupProps) {
   return (
     <AutocompleteGroup
       {...props}
+      {...themeSlotProps("command", "group")}
       className={mergeClassName(() => sx(styles.group, xstyle), className)}
     />
   );
@@ -214,14 +222,16 @@ function Group({ className, xstyle, ...props }: CommandGroupProps) {
 
 export type CommandGroupLabelProps = React.ComponentProps<
   typeof AutocompleteGroupLabel
->;
+> &
+  XstyleProp;
 
 /** Heading for a `Command.Group`. */
-function GroupLabel({ className, ...props }: CommandGroupLabelProps) {
+function GroupLabel({ className, xstyle, ...props }: CommandGroupLabelProps) {
   return (
     <AutocompleteGroupLabel
       {...props}
-      className={mergeClassName(() => sx(styles.groupLabel), className)}
+      {...themeSlotProps("command", "group-label")}
+      className={mergeClassName(() => sx(styles.groupLabel, xstyle), className)}
     />
   );
 }
@@ -242,62 +252,153 @@ const compoundParts = {
 // Array (back-compat convenience) API — re-implemented on the compound parts
 // ---------------------------------------------------------------------------
 
-export type CommandItem = {
-  disabled?: boolean;
-  description?: React.ReactNode;
-  icon?: React.ReactNode;
-  label: React.ReactNode;
-  onSelect?: () => void;
-  shortcut?: string;
-  value: string;
-};
-
-export type CommandProps = {
-  /** Drop the outer border/shadow/radius — for use inside a Dialog/Popover. */
-  bare?: boolean;
-  className?: string;
-  defaultValue?: string;
-  emptyText?: React.ReactNode;
-  items: CommandItem[];
-  label?: React.ReactNode;
-  loading?: boolean;
-  loadingText?: React.ReactNode;
-  onValueChange?: (value: string) => void;
-  placeholder?: string;
-  /**
-   * Rendered between the input and the list — for sort/filter controls (a
-   * `Menu`, a `ToggleGroup`, ...) that must stay outside the list so they
-   * never steal its arrow-key roving.
-   */
-  toolbar?: React.ReactNode;
-  value?: string;
-};
-
 function CommandArray({
   bare = false,
   className,
+  defaultPageId,
+  defaultRecentValues = [],
   defaultValue,
   emptyText = "No matching commands.",
   items,
   label = "Command menu",
   loading = false,
   loadingText = "Loading commands...",
+  maxRecents = 5,
+  onItemSelect,
+  onPageChange,
+  onRecentValuesChange,
   onValueChange,
+  pages = [],
   placeholder = "Search commands",
+  recentValues,
   toolbar,
   value,
+  xstyle,
 }: CommandProps) {
+  const [internalValue, setInternalValue] = useState(defaultValue ?? "");
+  const [pageStack, setPageStack] = useState<string[]>(() =>
+    defaultPageId ? [defaultPageId] : [],
+  );
+  const [internalRecents, setInternalRecents] = useState(defaultRecentValues);
+  const query = value === undefined ? internalValue : value;
+  const resolvedRecents = recentValues ?? internalRecents;
+  const pagesById = useMemo(
+    () => new Map(pages.map((page) => [page.id, page])),
+    [pages],
+  );
+  const currentPageId = pageStack.at(-1) ?? null;
+  const currentPage = currentPageId ? pagesById.get(currentPageId) : undefined;
+  const currentItems = currentPage?.items ?? items;
+  const allItems = useMemo(
+    () => [...items, ...pages.flatMap((page) => page.items)],
+    [items, pages],
+  );
+  const displayItems = useMemo(() => {
+    if (loading) return [];
+    if (currentPage || query.trim()) return currentItems;
+
+    const recentItems = resolvedRecents
+      .map((recentValue) =>
+        allItems.find(
+          (item) => item.value === recentValue && item.pageId === undefined,
+        ),
+      )
+      .filter((item): item is CommandItem => item !== undefined);
+    if (recentItems.length === 0) return currentItems;
+
+    const recentSet = new Set(recentItems.map((item) => item.value));
+    const remaining = currentItems.filter((item) => !recentSet.has(item.value));
+    return [
+      ...recentItems.map((item, index) => ({
+        ...item,
+        sectionLabel: index === 0 ? "Recent" : undefined,
+      })),
+      ...remaining.map((item, index) => ({
+        ...item,
+        sectionLabel: index === 0 ? "Commands" : undefined,
+      })),
+    ];
+  }, [allItems, currentItems, currentPage, loading, query, resolvedRecents]);
+
+  const setQuery = (nextValue: string) => {
+    if (value === undefined) setInternalValue(nextValue);
+    onValueChange?.(nextValue);
+  };
+
+  const openPage = (pageId: string) => {
+    if (!pagesById.has(pageId)) return;
+    setPageStack((current) => [...current, pageId]);
+    setQuery("");
+    onPageChange?.(pageId);
+  };
+
+  const goBack = () => {
+    setPageStack((current) => {
+      const next = current.slice(0, -1);
+      onPageChange?.(next.at(-1) ?? null);
+      return next;
+    });
+    setQuery("");
+  };
+
+  const remember = (item: CommandItem) => {
+    const next = [
+      item.value,
+      ...resolvedRecents.filter((value) => value !== item.value),
+    ].slice(0, Math.max(0, maxRecents));
+    if (recentValues === undefined) setInternalRecents(next);
+    onRecentValuesChange?.(next);
+  };
+
+  const activate = (item: CommandItem) => {
+    if (item.pageId) {
+      openPage(item.pageId);
+      return;
+    }
+    item.onSelect?.();
+    remember(item);
+    onItemSelect?.(item);
+  };
+
   return (
     <Root
-      defaultValue={defaultValue}
       itemToStringValue={commandItemToString}
-      items={loading ? [] : items}
-      onValueChange={onValueChange}
-      value={value}
+      items={displayItems}
+      onValueChange={(nextValue, details) => {
+        if (details.reason === "item-press") {
+          details.cancel();
+          return;
+        }
+        setQuery(nextValue);
+      }}
+      value={query}
     >
-      <Frame bare={bare} className={className}>
+      <Frame
+        bare={bare}
+        className={className}
+        xstyle={xstyle}
+        onKeyDownCapture={(event) => {
+          if (event.key !== "Escape" || pageStack.length === 0) return;
+          event.preventDefault();
+          event.stopPropagation();
+          goBack();
+        }}
+      >
         {bare ? null : <span className={sx(styles.label)}>{label}</span>}
-        <Input placeholder={placeholder} />
+        <Input placeholder={currentPage?.placeholder ?? placeholder} />
+        {currentPage ? (
+          <div className={sx(styles.pageHeader)}>
+            <Button
+              aria-label="Back one command page"
+              onClick={goBack}
+              size="iconSm"
+              variant="quiet"
+            >
+              <ChevronLeft aria-hidden size={16} />
+            </Button>
+            <span className={sx(styles.pageTitle)}>{currentPage.label}</span>
+          </div>
+        ) : null}
         {toolbar ? <div className={sx(styles.toolbar)}>{toolbar}</div> : null}
         {loading ? (
           <div className={sx(styles.empty)} role="status">
@@ -305,27 +406,40 @@ function CommandArray({
           </div>
         ) : (
           <List>
-            {(item: CommandItem, index: number) => (
-              <ItemPart
-                disabled={item.disabled}
-                index={index}
-                key={item.value}
-                onClick={item.onSelect}
-                value={item}
-              >
-                <span className={sx(styles.itemIcon)}>{item.icon}</span>
-                <span className={sx(styles.itemCopy)}>
-                  <span className={sx(styles.itemLabel)}>{item.label}</span>
-                  {item.description ? (
-                    <span className={sx(styles.itemDescription)}>
-                      {item.description}
+            {(item: CommandItem & { sectionLabel?: string }, index: number) => (
+              <Fragment key={item.value}>
+                {item.sectionLabel ? (
+                  <span className={sx(styles.sectionLabel)}>
+                    {item.sectionLabel}
+                  </span>
+                ) : null}
+                <ItemPart
+                  disabled={item.disabled}
+                  index={index}
+                  onClick={() => activate(item)}
+                  value={item}
+                >
+                  <span className={sx(styles.itemIcon)}>{item.icon}</span>
+                  <span className={sx(styles.itemCopy)}>
+                    <span className={sx(styles.itemLabel)}>{item.label}</span>
+                    {item.description ? (
+                      <span className={sx(styles.itemDescription)}>
+                        {item.description}
+                      </span>
+                    ) : null}
+                  </span>
+                  {item.shortcut ? (
+                    <span className={sx(styles.shortcut)}>
+                      {typeof item.shortcut === "string" ||
+                      typeof item.shortcut === "number" ? (
+                        <Kbd size="sm">{item.shortcut}</Kbd>
+                      ) : (
+                        item.shortcut
+                      )}
                     </span>
                   ) : null}
-                </span>
-                {item.shortcut ? (
-                  <span className={sx(styles.shortcut)}>{item.shortcut}</span>
-                ) : null}
-              </ItemPart>
+                </ItemPart>
+              </Fragment>
             )}
           </List>
         )}
@@ -353,164 +467,4 @@ function commandItemToString(item: CommandItem) {
   return typeof item.label === "string" ? item.label : item.value;
 }
 
-export type CommandDialogSize = "md" | "lg";
-
-export type CommandDialogProps = Omit<CommandProps, "bare" | "items"> & {
-  /**
-   * Compose the palette body yourself — `Command.Root` + `Command.Frame bare`
-   * and whatever the list needs — instead of handing over a flat `items`
-   * array. Reach for it when the palette needs grouping
-   * (`Command.Group`/`GroupLabel`), a custom `filter`, or rows that are not
-   * all the same shape; the array API cannot express any of those, and the
-   * dialog's instantaneous popup/backdrop, focus trap, and footer are the
-   * parts worth keeping either way.
-   *
-   * `items` and the other array-API props are ignored while this is set, and
-   * closing on select becomes the caller's job — `onOpenChange(false)` — since
-   * only the caller knows which of its rows are selections and which (a
-   * "manage…" row, say) open something else.
-   */
-  children?: React.ReactNode;
-  defaultOpen?: boolean;
-  /** The array API's rows. Omit when composing via `children`. */
-  items?: CommandItem[];
-  /**
-   * Replaces the default ⌘↑↓/⏎/esc hint footer rendered below the list. Omit
-   * to keep that default; pass `null` to render no footer at all.
-   */
-  footer?: React.ReactNode;
-  onOpenChange?: (open: boolean) => void;
-  open?: boolean;
-  /**
-   * Enable the ⌘K / Ctrl+K toggle shortcut. @default true
-   *
-   * The Atelier shell already owns a global ⌘K command palette — a
-   * `CommandDialog` rendered inside a shell-hosted sub-app must pass
-   * `shortcut={false}` and open through its own trigger/shortcut instead, or
-   * the two palettes will fight over the same key.
-   */
-  shortcut?: boolean;
-  /**
-   * Popup width. `"md"` (420px, unchanged default) fits a plain list;
-   * `"lg"` (720px) gives a `toolbar` (sort/filter controls) and wider rows
-   * room to breathe.
-   * @default "md"
-   */
-  size?: CommandDialogSize;
-  /** Accessible dialog name (visually hidden). @default "Command menu" */
-  title?: React.ReactNode;
-  /**
-   * Trigger button contents, rendered inside the dialog's own trigger button.
-   * Pass `null` when the palette is opened from a control you render yourself
-   * (a sidebar button, a keyboard shortcut) — otherwise the dialog plants a
-   * second, unwanted "Show command" button next to yours.
-   * @default "Show command"
-   */
-  trigger?: React.ReactNode;
-};
-
-/**
- * Command palette modal (beUI command-palette block): a trigger button
- * (and ⌘K) opens a centered, chromeless overlay containing the command list.
- * Selecting an item runs it and closes the palette.
- */
-export function CommandDialog({
-  children,
-  defaultOpen = false,
-  footer,
-  items,
-  onOpenChange,
-  open: openProp,
-  shortcut = true,
-  size = "md",
-  title = "Command menu",
-  trigger = "Show command",
-  ...commandProps
-}: CommandDialogProps) {
-  const [internalOpen, setInternalOpen] = useState(defaultOpen);
-  const isControlled = openProp !== undefined;
-  const open = isControlled ? openProp : internalOpen;
-
-  const setOpen = useCallback(
-    (next: boolean) => {
-      if (!isControlled) setInternalOpen(next);
-      onOpenChange?.(next);
-    },
-    [isControlled, onOpenChange],
-  );
-
-  useEffect(() => {
-    if (!shortcut) return;
-    const onKeyDown = (event: KeyboardEvent) => {
-      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
-        event.preventDefault();
-        setOpen(!open);
-      }
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [open, setOpen, shortcut]);
-
-  const closingItems = (items ?? []).map((item) => ({
-    ...item,
-    onSelect: () => {
-      item.onSelect?.();
-      setOpen(false);
-    },
-  }));
-
-  // `footer` distinguishes "omitted" (show the default hint row) from an
-  // explicit value (including `null`, to render no footer at all) — a `??`
-  // fallback could not tell those apart.
-  const footerContent = footer === undefined ? <CommandFooterHint /> : footer;
-
-  return (
-    <DialogRoot onOpenChange={setOpen} open={open}>
-      {trigger === null ? null : (
-        <DialogTrigger
-          className={sx(
-            styles.trigger,
-            controlChrome.trigger,
-            transition.colors,
-            focusRing.ring,
-          )}
-        >
-          <Search aria-hidden size={16} />
-          {trigger}
-          {/* The hint has to follow the binding: with `shortcut={false}` the
-            palette does not answer ⌘K, and printing it anyway teaches a key
-            that does nothing (or, inside the Atelier shell, one that opens a
-            different palette). */}
-          {shortcut ? <kbd className={sx(styles.kbd)}>⌘K</kbd> : null}
-        </DialogTrigger>
-      )}
-      <DialogPortal>
-        {/*
-         * The palette is the most-opened overlay in the product and was the
-         * only one with no enter/exit motion at all: it composed `DialogPopup`
-         * from `headless/dialog` (the raw Base UI part) rather than the styled
-         * `Dialog` parts, so it never picked up the two motion classes every
-         * other Base UI surface in this system carries. It appeared and
-         * disappeared as a hard cut while a `Dialog` two keystrokes away scaled
-         * and faded. `-top` supplies the X-only translate the palette's
-         * top-anchored position needs; everything else — duration, curve, scale
-         * tokens, Reduce Motion — comes from the shared modal contract.
-         */}
-        <DialogBackdrop
-          className={cx(sx(styles.backdrop), "atelier-motion-backdrop")}
-        />
-        <DialogPopup
-          className={cx(
-            sx(styles.popup, size === "lg" && styles.popupLg),
-            "atelier-motion-modal",
-            "atelier-motion-modal-top",
-          )}
-        >
-          <DialogTitle className={sx(styles.srOnly)}>{title}</DialogTitle>
-          {children ?? <Command {...commandProps} bare items={closingItems} />}
-          {footerContent}
-        </DialogPopup>
-      </DialogPortal>
-    </DialogRoot>
-  );
-}
+export type { CommandItem, CommandPage, CommandProps } from "./Command.types";

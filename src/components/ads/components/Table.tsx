@@ -4,7 +4,12 @@ import type * as React from "react";
 import { transition } from "../recipes/transition";
 import { densityPad } from "../tokens/density.stylex";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import {
+  themeProps,
+  themeSlotProps,
+  themeTargetClassName,
+} from "../theming/theme-props";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { useDirection } from "./DirectionProvider";
 
 export type TableDensity = "compact" | "regular";
@@ -12,13 +17,14 @@ export type TableDensity = "compact" | "regular";
 export type TableProps = Omit<React.ComponentProps<"div">, "children"> & {
   children: React.ReactNode;
   density?: TableDensity;
-};
+} & XstyleProp;
 
 export function Table({
   children,
   className,
   density = "regular",
   style,
+  xstyle,
   ...props
 }: TableProps) {
   // §8: both arms come from the fixed `densityPad*` scale. On `space2`/`space3`
@@ -29,10 +35,13 @@ export function Table({
       density === "compact" ? densityPad.sm : densityPad.md,
   } as React.CSSProperties;
 
+  const theme = themeProps("table", { density });
+
   return (
     <div
       {...props}
-      className={cx(sx(styles.frame), className)}
+      {...theme}
+      className={cx(sx(styles.frame, xstyle), theme.className, className)}
       style={{ ...densityStyle, ...style }}
     >
       <table className={sx(styles.table)}>{children}</table>
@@ -42,34 +51,48 @@ export function Table({
 
 export type TableHeaderProps = React.ComponentProps<"thead"> & {
   sticky?: boolean;
-};
+} & XstyleProp;
 
 export function TableHeader({
   className,
   sticky = false,
+  xstyle,
   ...props
 }: TableHeaderProps) {
   return (
     <thead
       {...props}
+      {...themeSlotProps("table", "header")}
       className={cx(
-        sx(styles.header, sticky && styles.headerSticky),
+        sx(styles.header, sticky && styles.headerSticky, xstyle),
         className,
       )}
     />
   );
 }
 
-export type TableBodyProps = React.ComponentProps<"tbody">;
+export type TableBodyProps = React.ComponentProps<"tbody"> & XstyleProp;
 
-export function TableBody({ className, ...props }: TableBodyProps) {
-  return <tbody {...props} className={cx(sx(styles.body), className)} />;
+export function TableBody({ className, xstyle, ...props }: TableBodyProps) {
+  return (
+    <tbody
+      {...props}
+      {...themeSlotProps("table", "body")}
+      className={cx(sx(styles.body, xstyle), className)}
+    />
+  );
 }
 
-export type TableFooterProps = React.ComponentProps<"tfoot">;
+export type TableFooterProps = React.ComponentProps<"tfoot"> & XstyleProp;
 
-export function TableFooter({ className, ...props }: TableFooterProps) {
-  return <tfoot {...props} className={cx(sx(styles.footer), className)} />;
+export function TableFooter({ className, xstyle, ...props }: TableFooterProps) {
+  return (
+    <tfoot
+      {...props}
+      {...themeSlotProps("table", "footer")}
+      className={cx(sx(styles.footer, xstyle), className)}
+    />
+  );
 }
 
 export type TableRowProps = React.ComponentProps<"tr"> & {
@@ -80,12 +103,13 @@ export type TableRowProps = React.ComponentProps<"tr"> & {
    * presentation; it does not model checkbox selection.
    */
   selected?: boolean;
-};
+} & XstyleProp;
 
 export function TableRow({
   className,
   current = false,
   selected = false,
+  xstyle,
   ...props
 }: TableRowProps) {
   const direction = useDirection();
@@ -104,7 +128,9 @@ export function TableRow({
           isCurrent && styles.rowCurrent,
           isCurrent &&
             (direction === "rtl" ? styles.rowCurrentRtl : styles.rowCurrentLtr),
+          xstyle,
         ),
+        themeTargetClassName("table-row"),
         className,
       )}
       data-current={isCurrent ? "true" : undefined}
@@ -115,17 +141,19 @@ export function TableRow({
 
 export type TableHeadProps = Omit<React.ComponentProps<"th">, "align"> & {
   align?: "start" | "center" | "end";
-};
+} & XstyleProp;
 
 export function TableHead({
   align = "start",
   className,
+  xstyle,
   ...props
 }: TableHeadProps) {
   return (
     <th
       {...props}
-      className={cx(sx(styles.headCell, alignStyles[align]), className)}
+      {...themeSlotProps("table", "head")}
+      className={cx(sx(styles.headCell, alignStyles[align], xstyle), className)}
       scope={props.scope ?? "col"}
     />
   );
@@ -133,25 +161,37 @@ export function TableHead({
 
 export type TableCellProps = Omit<React.ComponentProps<"td">, "align"> & {
   align?: "start" | "center" | "end";
-};
+} & XstyleProp;
 
 export function TableCell({
   align = "start",
   className,
+  xstyle,
   ...props
 }: TableCellProps) {
   return (
     <td
       {...props}
-      className={cx(sx(styles.cell, alignStyles[align]), className)}
+      {...themeSlotProps("table", "cell")}
+      className={cx(sx(styles.cell, alignStyles[align], xstyle), className)}
     />
   );
 }
 
-export type TableCaptionProps = React.ComponentProps<"caption">;
+export type TableCaptionProps = React.ComponentProps<"caption"> & XstyleProp;
 
-export function TableCaption({ className, ...props }: TableCaptionProps) {
-  return <caption {...props} className={cx(sx(styles.caption), className)} />;
+export function TableCaption({
+  className,
+  xstyle,
+  ...props
+}: TableCaptionProps) {
+  return (
+    <caption
+      {...props}
+      {...themeSlotProps("table", "caption")}
+      className={cx(sx(styles.caption, xstyle), className)}
+    />
+  );
 }
 
 const styles = stylex.create({
