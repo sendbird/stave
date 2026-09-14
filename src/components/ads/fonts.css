@@ -23,16 +23,27 @@
  * Pretendard is loaded as its VARIABLE dynamic subset: one variable face
  * (wght 45-920) across 92 unicode-range slices, of which a page pulls only the
  * slices it needs. That is one face instead of the four static weights
- * (400/500/600/700 = 368 files) this stack used to import, and it covers every
- * weight the roles ask for plus whatever a bare `<strong>` resolves to.
+ * (400/500/600/700 = 368 files) upstream imports, and it covers every weight
+ * the roles ask for plus whatever a bare `<strong>` resolves to. This is the
+ * one host deviation in this file; the layer annotation and the reasoning below
+ * are ADS's own.
  *
  * MONO — JetBrains Mono, variable (wght 100-800). Neither sans ships a
  * monospace. Its ligatures are switched off wherever literal code renders
  * (`CodeBlock`, `fontVariantLigatures: "none"`).
  *
- * No face here ships an italic, which is why `styles.css` sets
- * `font-synthesis: style`. Full decisions: design-direction.md §5.
+ * Geist ships an `ital` axis; Pretendard does not. `styles.css` keeps
+ * `font-synthesis: style` so a Korean `<em>` is not silently upright.
+ * Full decisions: design-direction.md §5.
  */
-@import "@fontsource-variable/geist";
-@import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css";
-@import "@fontsource-variable/jetbrains-mono";
+/*
+ * `@font-face` registers named resources; it does not compete with a
+ * product's `font-family` declaration in the normal-property cascade. The
+ * layer annotation keeps this imported ADS sheet in the same origin as the
+ * rest of the package without claiming that it creates a typography override
+ * seam. Products still select their family through `@layer product`.
+ */
+@import "@fontsource-variable/geist" layer(ads);
+@import "pretendard/dist/web/variable/pretendardvariable-dynamic-subset.css"
+layer(ads);
+@import "@fontsource-variable/jetbrains-mono" layer(ads);

@@ -45,29 +45,49 @@ describe("ADS control chrome", () => {
     // settings row rendered 49px between a name and its meta line where the
     // container asked for 4px.
     const css = read(`${ADS}/styles.css`);
+    // Anchor on the block, not the phrase: a comment inside the reset now
+    // mentions `@layer base` in prose, and slicing on that truncated the region
+    // before the rules this test is about.
     const reset = css.slice(
       css.indexOf("@layer reset {"),
-      css.indexOf("@layer base"),
+      css.indexOf("@layer base {"),
     );
+    // Every reset selector is wrapped in `:where()`, at specificity 0,0,0, so a
+    // host rule placed in the same layer wins by weight instead of by whichever
+    // sheet the bundler parsed last. Assert the wrapper, not just the presence
+    // of the element name — an unwrapped selector is the regression.
+    const marginRule = reset
+      .split("\n")
+      .find((line) => line.includes(":where(") && line.includes("blockquote"));
+    expect(marginRule).toBeTruthy();
     for (const selector of ["p", "h1", "h6", "ul", "ol", "pre", "blockquote"]) {
-      // Either a selector in the list or the last one, which carries the brace.
-      expect(reset).toMatch(new RegExp(`^\\s*${selector}(,| \\{)$`, "m"));
+      expect(marginRule).toMatch(new RegExp(`(\\(|, )${selector}(,|\\))`));
     }
     expect(reset).toContain("margin: 0;");
+    // A bare element selector anywhere in the reset would outrank a host rule
+    // of the same weight purely by source order.
+    for (const line of reset.split("\n")) {
+      if (/^\s{2}[a-z][a-z0-9]*(,|\s*\{)/.test(line)) {
+        throw new Error(`unwrapped reset selector: ${line.trim()}`);
+      }
+    }
   });
 
   test("the reset layer removes the user-agent fieldset box and list indent", () => {
     const css = read(`${ADS}/styles.css`);
+    // Anchor on the block, not the phrase: a comment inside the reset now
+    // mentions `@layer base` in prose, and slicing on that truncated the region
+    // before the rules this test is about.
     const reset = css.slice(
       css.indexOf("@layer reset {"),
-      css.indexOf("@layer base"),
+      css.indexOf("@layer base {"),
     );
     // `fieldset` is the only element whose UA box is a visible border, so every
     // form that grouped its controls for assistive tech drew a `2px groove`
     // rectangle inside whatever card already framed it. `min-inline-size` goes
     // with it: the UA's `min-content` silently blocks the fieldset from
     // shrinking in a flex or grid parent.
-    const fieldset = reset.slice(reset.indexOf("  fieldset {"));
+    const fieldset = reset.slice(reset.indexOf("  :where(fieldset) {"));
     const fieldsetBody = fieldset.slice(0, fieldset.indexOf("}"));
     expect(fieldsetBody).toContain("border-width: 0");
     expect(fieldsetBody).toContain("border-style: solid");
@@ -78,7 +98,7 @@ describe("ADS control chrome", () => {
     // wanted there — measured on a Settings model list whose rows started 40px
     // inside their own card. Prose states its own markers and indent, so both
     // halves go together.
-    const list = reset.slice(reset.lastIndexOf("  ol,"));
+    const list = reset.slice(reset.lastIndexOf("  :where(ol, ul) {"));
     expect(list).toContain("list-style: none");
     expect(list).toContain("padding-inline-start: 0");
   });

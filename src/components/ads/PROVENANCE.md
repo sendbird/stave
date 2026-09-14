@@ -591,3 +591,42 @@ Further host extensions:
   One host test moved with the source. `tests/ads-control-chrome.test.ts`
   asserted the `xs` union in `Tabs.tsx`; it now asserts the declaration in
   `Tabs.styles.ts` and the re-export in `Tabs.tsx`.
+
+- The global sheets close the re-sync. `ThemeProvider.tsx` is now byte-identical
+  to upstream: both remaining conflicts were prose, because upstream had already
+  adopted the non-destructive `<html>` restore and the selection token pair this
+  copy carried. `styles.css` takes upstream's zero-specificity reset — every
+  selector wrapped in `:where()` at 0,0,0, so a host rule in the same layer wins
+  by weight instead of by whichever sheet the bundler parsed last — and keeps
+  three host rules: the cascade layer statement's comment, the
+  `layout="host"` carve-out on the control glyph rule, and the `@layer base`
+  default that gives a host-layout Button's glyph a size without mandating one.
+  `--atelier-motion-tooltip-delay` is gone, upstream having moved the tooltip
+  dwell to a JS rest timer in `Tooltip.group.tsx`; that is a perceptible timing
+  change to every tooltip. ADS record:
+  `consumer-changes/2026-09-08-reset-layer-zero-specificity-and-runtime-cascade-guard.json`.
+
+  `fonts.css` keeps this copy's Pretendard VARIABLE dynamic subset — one variable
+  face across 92 unicode-range slices instead of upstream's four static weights
+  (368 files) — and adopts upstream's `layer(ads)` annotations, which are inert
+  for `@font-face` but keep the imported sheet in the package's own origin. The
+  matching sans stack in `tokens.stylex.ts` keeps `"Pretendard Variable"` for the
+  same reason. ADS record:
+  `consumer-changes/2026-09-09-layered-motion-and-font-imports.json`.
+
+  `tests/ads-control-chrome.test.ts` now asserts the zero-specificity form
+  rather than the presence of an element name, and fails on any unwrapped reset
+  selector. Its region slice was also anchored on `@layer base {` instead of the
+  bare phrase, which upstream's new prose had started matching.
+
+- **All three manifests now carry `sourceRevision`.** Every installed file's
+  recorded integrity is the hash of the upstream file at ADS `589cfc4c`, so the
+  merge base for the next upgrade is `git -C <atelier> show <sourceRevision>:<sourcePath>`,
+  verifiable against the integrity value. That replaces the archaeology this
+  migration needed: no pristine copy was stored anywhere, so the baseline had to
+  be recovered by scanning both repositories' object stores for a blob matching
+  each recorded hash (119 of 120 found; `ToolRun.parts.tsx` matched nothing
+  because its recorded bytes were an uncommitted upstream working-tree state).
+  The integrity values remain PRISTINE upstream hashes, never hashes of locally
+  modified files — a file whose current hash differs is a documented host
+  modification, not drift to be overwritten.
