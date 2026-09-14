@@ -112,14 +112,12 @@ export function ComposerOptionCard(props: {
       variant="quiet"
       aria-pressed={props.active}
       data-testid={props.testId}
-      className={cx(
-        sx(
-          optionStyles.rowReset,
-          selectStyles.item,
-          props.active && !props.activeClassName && optionStyles.selected,
-        ),
-        props.active && props.activeClassName,
-      )}
+      className={props.active ? props.activeClassName : undefined}
+      xstyle={[
+        optionStyles.rowReset,
+        selectStyles.item,
+        props.active && !props.activeClassName && optionStyles.selected,
+      ]}
       onClick={props.onSelect}
     >
       <ComposerOptionRowCopy
@@ -213,11 +211,11 @@ export function ComposerOptionModelRow(props: {
       variant="quiet"
       aria-pressed={props.active}
       data-testid={props.testId}
-      className={sx(
+      xstyle={[
         optionStyles.rowReset,
         selectStyles.item,
         props.active && optionStyles.selected,
-      )}
+      ]}
       onClick={props.onSelect}
     >
       <ComposerOptionRowCopy
@@ -306,7 +304,7 @@ export function ComposerOptionMenuSettingsLink(props: {
     <AdsButton layout="host"
       type="button"
       data-testid={props.testId}
-      className={sx(optionStyles.settingsLink)}
+      xstyle={optionStyles.settingsLink}
       onClick={() => {
         window.dispatchEvent(
           new CustomEvent(STAVE_OPEN_SETTINGS_EVENT, {

@@ -53,7 +53,7 @@ export function TrackerTaskMeta(props: { task: TrackerTask; now: Date }) {
             )}
           >
             <PriorityIcon
-              className={sx(trackerVisualStyles.icon)}
+              xstyle={trackerVisualStyles.icon}
               priority={task.priority.level}
               aria-hidden="true"
             />

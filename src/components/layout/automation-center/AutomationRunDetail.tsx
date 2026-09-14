@@ -49,7 +49,7 @@ export function AutomationRunRow(props: {
         <Badge
           variant="outline"
           tone={presentation.tone}
-          className={sx(automationStyles.statusBadge)}
+          xstyle={automationStyles.statusBadge}
         >
           {presentation.label}
         </Badge>
@@ -106,7 +106,7 @@ export function AutomationRunDetail(props: {
               <Badge
                 variant="outline"
                 tone={presentation.tone}
-                className={sx(automationStyles.statusBadge)}
+                xstyle={automationStyles.statusBadge}
               >
                 {presentation.label}
               </Badge>

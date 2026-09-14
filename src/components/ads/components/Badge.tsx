@@ -6,7 +6,7 @@ import { focusRing } from "../recipes/focus-ring";
 import { touchTarget } from "../recipes/touch-target";
 import { transition } from "../recipes/transition";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 
 export type BadgeTone =
   | "neutral"
@@ -42,7 +42,7 @@ export type BadgeProps = Omit<React.ComponentProps<"span">, "onRemove"> & {
    * @default "soft"
    */
   variant?: BadgeVariant;
-};
+} & XstyleProp;
 
 /**
  * Status / label chip (baseline `Badge` anatomy). Set `onRemove` for a
@@ -57,6 +57,7 @@ export function Badge({
   removeLabel = "Remove",
   tone = "neutral",
   variant = "soft",
+  xstyle,
   ...props
 }: BadgeProps) {
   return (
@@ -69,6 +70,7 @@ export function Badge({
           variant === "outline" && styles.outlineBase,
           variant === "outline" ? outlineToneStyles[tone] : toneStyles[tone],
           onRemove ? styles.removable : null,
+          xstyle,
         ),
         className,
       )}

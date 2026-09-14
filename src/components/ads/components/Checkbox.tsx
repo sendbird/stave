@@ -11,7 +11,7 @@ import { focusRing } from "../recipes/focus-ring";
 import { touchTarget } from "../recipes/touch-target";
 import { transition } from "../recipes/transition";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { FieldMessages, fieldAnatomy, useFieldAnatomy } from "./field-anatomy";
 
 // Hover and pressed washes for this file's OPAQUE resting fills. A translucent
@@ -35,7 +35,7 @@ export type CheckboxProps = Omit<CheckboxRootProps, "className"> & {
    */
   error?: React.ReactNode;
   label?: React.ReactNode;
-};
+} & XstyleProp;
 
 export function Checkbox({
   className,
@@ -44,6 +44,7 @@ export function Checkbox({
   error,
   indeterminate,
   label,
+  xstyle,
   ...props
 }: CheckboxProps) {
   /*
@@ -82,6 +83,12 @@ export function Checkbox({
               !(state.checked || state.indeterminate) &&
               styles.invalid,
             state.disabled && styles.disabled,
+            // `xstyle` follows `className`'s routing exactly. In `controlOnly`
+            // mode the control IS the outer box the host sees, so host layout
+            // styles have to land here; otherwise the label row below is that
+            // box and takes them. Applying it to both would paint the same
+            // override twice on two nested boxes.
+            controlOnly ? xstyle : null,
           ),
           // In `controlOnly` mode there is no label wrapper to take the
           // caller's class, so the control is what it must land on.
@@ -152,6 +159,7 @@ export function Checkbox({
           styles.label,
           controlHeights.md,
           props.disabled && styles.labelDisabled,
+          xstyle,
         ),
         className,
       )}

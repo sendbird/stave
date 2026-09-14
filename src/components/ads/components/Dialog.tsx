@@ -17,7 +17,7 @@ import { controlIconSizes, controlSquares } from "../recipes/control-metrics";
 import { focusRing } from "../recipes/focus-ring";
 import { surfaceChrome } from "../recipes/surface-chrome";
 import { vars } from "../tokens/tokens.stylex";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { Button } from "./Button";
 import { mergeClassName } from "./merge-class-name";
 
@@ -51,16 +51,21 @@ export function DialogPortal(props: DialogPortalProps) {
 
 export type DialogBackdropProps = React.ComponentProps<
   typeof HeadlessDialogBackdrop
->;
+> &
+  XstyleProp;
 
 /** Tokenized modal backdrop with the shared enter/exit motion contract. */
-export function DialogBackdrop({ className, ...props }: DialogBackdropProps) {
+export function DialogBackdrop({
+  className,
+  xstyle,
+  ...props
+}: DialogBackdropProps) {
   return (
     <HeadlessDialogBackdrop
       {...props}
       className={(state) =>
         cx(
-          sx(styles.backdrop),
+          sx(styles.backdrop, xstyle),
           "atelier-motion-backdrop",
           typeof className === "function" ? className(state) : className,
         )
@@ -75,12 +80,13 @@ export type DialogPopupProps = Omit<
 > & {
   /** @default "md" */
   size?: DialogSize;
-};
+} & XstyleProp;
 
 /** Modal surface. Header, Body, and Footer own its three stable grid rows. */
 export function DialogPopup({
   className,
   size = "md",
+  xstyle,
   ...props
 }: DialogPopupProps) {
   return (
@@ -88,7 +94,7 @@ export function DialogPopup({
       {...props}
       className={(state) =>
         cx(
-          sx(styles.surface, styles.popup, popupSizeStyles[size]),
+          sx(styles.surface, styles.popup, popupSizeStyles[size], xstyle),
           "atelier-motion-modal",
           typeof className === "function" ? className(state) : className,
         )
@@ -97,65 +103,89 @@ export function DialogPopup({
   );
 }
 
-export type DialogHeaderProps = React.ComponentProps<"div">;
+export type DialogHeaderProps = React.ComponentProps<"div"> & XstyleProp;
 
-export function DialogHeader({ className, ...props }: DialogHeaderProps) {
-  return <div {...props} className={cx(sx(styles.header), className)} />;
+export function DialogHeader({
+  className,
+  xstyle,
+  ...props
+}: DialogHeaderProps) {
+  return (
+    <div {...props} className={cx(sx(styles.header, xstyle), className)} />
+  );
 }
 
-export type DialogHeaderContentProps = React.ComponentProps<"div">;
+export type DialogHeaderContentProps = React.ComponentProps<"div"> &
+  XstyleProp;
 
 /** Keeps title and supporting copy together opposite the close control. */
 export function DialogHeaderContent({
   className,
+  xstyle,
   ...props
 }: DialogHeaderContentProps) {
-  return <div {...props} className={cx(sx(styles.titleGroup), className)} />;
+  return (
+    <div {...props} className={cx(sx(styles.titleGroup, xstyle), className)} />
+  );
 }
 
-export type DialogTitleProps = React.ComponentProps<typeof HeadlessDialogTitle>;
+export type DialogTitleProps = React.ComponentProps<
+  typeof HeadlessDialogTitle
+> &
+  XstyleProp;
 
-export function DialogTitle({ className, ...props }: DialogTitleProps) {
+export function DialogTitle({ className, xstyle, ...props }: DialogTitleProps) {
   return (
     <HeadlessDialogTitle
       {...props}
-      className={mergeClassName(() => sx(styles.title), className)}
+      className={mergeClassName(() => sx(styles.title, xstyle), className)}
     />
   );
 }
 
 export type DialogDescriptionProps = React.ComponentProps<
   typeof HeadlessDialogDescription
->;
+> &
+  XstyleProp;
 
 export function DialogDescription({
   className,
+  xstyle,
   ...props
 }: DialogDescriptionProps) {
   return (
     <HeadlessDialogDescription
       {...props}
-      className={mergeClassName(() => sx(styles.description), className)}
+      className={mergeClassName(
+        () => sx(styles.description, xstyle),
+        className,
+      )}
     />
   );
 }
 
-export type DialogBodyProps = React.ComponentProps<"div">;
+export type DialogBodyProps = React.ComponentProps<"div"> & XstyleProp;
 
 /** The only scroll container, so the header and footer remain reachable. */
-export function DialogBody({ className, ...props }: DialogBodyProps) {
+export function DialogBody({ className, xstyle, ...props }: DialogBodyProps) {
   return (
     <div
       {...props}
-      className={cx(sx(styles.body, focusRing.gutter), className)}
+      className={cx(sx(styles.body, focusRing.gutter, xstyle), className)}
     />
   );
 }
 
-export type DialogFooterProps = React.ComponentProps<"div">;
+export type DialogFooterProps = React.ComponentProps<"div"> & XstyleProp;
 
-export function DialogFooter({ className, ...props }: DialogFooterProps) {
-  return <div {...props} className={cx(sx(styles.actions), className)} />;
+export function DialogFooter({
+  className,
+  xstyle,
+  ...props
+}: DialogFooterProps) {
+  return (
+    <div {...props} className={cx(sx(styles.actions, xstyle), className)} />
+  );
 }
 
 export type DialogCloseProps = React.ComponentProps<typeof HeadlessDialogClose>;
@@ -171,7 +201,7 @@ export type DialogCloseButtonProps = Omit<
 > & {
   children?: React.ReactNode;
   style?: React.CSSProperties;
-};
+} & XstyleProp;
 
 /** Standard 32px quiet close control shared by Dialog convenience and parts. */
 export function DialogCloseButton({
@@ -179,6 +209,7 @@ export function DialogCloseButton({
   children,
   className,
   style,
+  xstyle,
   ...props
 }: DialogCloseButtonProps) {
   return (
@@ -192,6 +223,7 @@ export function DialogCloseButton({
             controlSquares.sm,
             focusRing.ring,
             styles.closeButton,
+            xstyle,
           ),
         className,
       )}

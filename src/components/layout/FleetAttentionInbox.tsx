@@ -176,7 +176,7 @@ function FleetNeedRow(args: {
           <Badge
             variant="outline"
             tone={FLEET_NEED_TONE[item.kind]}
-            className={sx(styles.needBadge)}
+            xstyle={styles.needBadge}
           >
             {getFleetNeedIcon(item)}
             {FLEET_NEED_LABEL[item.kind]}

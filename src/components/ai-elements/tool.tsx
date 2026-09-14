@@ -168,7 +168,8 @@ export function ToolHeader({
     <AdsButton
       layout="host"
       type="button"
-      className={cx(sx(s.header, open && s.headerOpen), className)}
+      className={className}
+      xstyle={[s.header, open && s.headerOpen]}
       onClick={() => setOpen(!open)}
       {...props}
     >
@@ -310,7 +311,7 @@ export function ToolGroup(args: {
       <AdsButton
         layout="host"
         type="button"
-        className={sx(s.header, open && s.headerOpen)}
+        xstyle={[s.header, open && s.headerOpen]}
         onClick={() => setOpen((v) => !v)}
       >
         <span className={sx(s.headerName)}>

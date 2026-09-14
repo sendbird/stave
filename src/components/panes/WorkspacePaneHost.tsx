@@ -106,7 +106,7 @@ function PaneIconPicker(props: IContextMenuItemComponentProps) {
       <span className={sx(styles.label)}>Icon</span>
       <AdsButton layout="host"
         type="button"
-        className={sx(styles.reset)}
+        xstyle={styles.reset}
         aria-label="Use default tab icon"
         title="Default"
         onClick={() => setIcon(undefined)}

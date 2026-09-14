@@ -333,11 +333,11 @@ export const ConversationTurnRail = forwardRef<
                 aria-controls={displayed ? previewId : undefined}
                 data-turn-rail-message-id={item.messageId}
                 data-active={active ? "true" : undefined}
-                className={sx(
+                xstyle={[
                   styles.trigger,
                   focusRing.ring,
                   focusRing.ringInset,
-                )}
+                ]}
                 onPointerEnter={(event) => {
                   if (event.pointerType !== "touch") {
                     setHoveredMessageId(item.messageId);

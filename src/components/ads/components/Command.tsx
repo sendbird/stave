@@ -26,7 +26,7 @@ import { controlChrome } from "../recipes/control-chrome";
 import { focusRing } from "../recipes/focus-ring";
 import { listbox } from "../recipes/listbox";
 import { transition } from "../recipes/transition";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import { mergeClassName } from "./merge-class-name";
 import { CommandFooterHint } from "./Command.parts";
 import { styles } from "./Command.styles";
@@ -89,14 +89,22 @@ function Root<ItemValue>(props: CommandRootProps<ItemValue>) {
 export type CommandFrameProps = React.ComponentProps<"div"> & {
   /** Drop the outer border/shadow/radius — for use inside a Dialog/Popover. */
   bare?: boolean;
-};
+} & XstyleProp;
 
 /** The visual chrome around the input + list. */
-function Frame({ bare = false, className, ...props }: CommandFrameProps) {
+function Frame({
+  bare = false,
+  className,
+  xstyle,
+  ...props
+}: CommandFrameProps) {
   return (
     <div
       {...props}
-      className={cx(sx(styles.root, bare && styles.rootBare), className)}
+      className={cx(
+        sx(styles.root, bare && styles.rootBare, xstyle),
+        className,
+      )}
     />
   );
 }
@@ -116,22 +124,24 @@ function Input({ className, ...props }: CommandInputProps) {
   );
 }
 
-export type CommandListProps = React.ComponentProps<typeof AutocompleteList>;
+export type CommandListProps = React.ComponentProps<typeof AutocompleteList> &
+  XstyleProp;
 
 /** The scrollable results list. Accepts a function child for item mapping. */
-function List({ className, ...props }: CommandListProps) {
+function List({ className, xstyle, ...props }: CommandListProps) {
   return (
     <AutocompleteList
       {...props}
-      className={mergeClassName(() => sx(styles.list), className)}
+      className={mergeClassName(() => sx(styles.list, xstyle), className)}
     />
   );
 }
 
-export type CommandItemProps = React.ComponentProps<typeof AutocompleteItem>;
+export type CommandItemProps = React.ComponentProps<typeof AutocompleteItem> &
+  XstyleProp;
 
 /** One command row. Compose icon/label/shortcut children freely. */
-function ItemPart({ className, ...props }: CommandItemProps) {
+function ItemPart({ className, xstyle, ...props }: CommandItemProps) {
   return (
     <AutocompleteItem
       {...props}
@@ -142,6 +152,7 @@ function ItemPart({ className, ...props }: CommandItemProps) {
             transition.colors,
             state.highlighted && listbox.itemHighlighted,
             state.disabled && styles.itemDisabled,
+            xstyle,
           ),
         className,
       )}
@@ -149,14 +160,17 @@ function ItemPart({ className, ...props }: CommandItemProps) {
   );
 }
 
-export type CommandEmptyProps = React.ComponentProps<typeof AutocompleteEmpty>;
+export type CommandEmptyProps = React.ComponentProps<
+  typeof AutocompleteEmpty
+> &
+  XstyleProp;
 
 /** Shown when the query matches nothing. */
-function Empty({ className, ...props }: CommandEmptyProps) {
+function Empty({ className, xstyle, ...props }: CommandEmptyProps) {
   return (
     <AutocompleteEmpty
       {...props}
-      className={mergeClassName(() => sx(styles.empty), className)}
+      className={mergeClassName(() => sx(styles.empty, xstyle), className)}
     />
   );
 }
@@ -183,14 +197,17 @@ function Collection(props: CommandCollectionProps) {
   return <AutocompleteCollection {...props} />;
 }
 
-export type CommandGroupProps = React.ComponentProps<typeof AutocompleteGroup>;
+export type CommandGroupProps = React.ComponentProps<
+  typeof AutocompleteGroup
+> &
+  XstyleProp;
 
 /** Groups related items under one `Command.GroupLabel`. */
-function Group({ className, ...props }: CommandGroupProps) {
+function Group({ className, xstyle, ...props }: CommandGroupProps) {
   return (
     <AutocompleteGroup
       {...props}
-      className={mergeClassName(() => sx(styles.group), className)}
+      className={mergeClassName(() => sx(styles.group, xstyle), className)}
     />
   );
 }

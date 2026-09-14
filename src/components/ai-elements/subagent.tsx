@@ -94,7 +94,7 @@ export function SubagentCard({ className, input, output, state, defaultOpen = fa
       <AdsButton
         layout="host"
         type="button"
-        className={sx(s.header)}
+        xstyle={s.header}
         onClick={() => setOpen((current) => !current)}
       >
         <div className={sx(s.headerBody)}>

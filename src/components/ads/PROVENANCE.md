@@ -244,3 +244,40 @@ Further host extensions:
   annotating them `layer(ads)` would move them below product StyleX — a real
   change with no consumer for it yet, because no product theme exists. Adopt it
   with the theming module, not before.
+
+- `xstyle` is now the single host style-composition channel, and
+  `scripts/check-style-channel.mjs` enforces it (`bun run check:style-channel`,
+  wired into `test:ci`). It fails a JSX element imported from this directory
+  that carries StyleX through `className`. `className` is unchanged and still
+  correct for behaviour hooks, motion class names, test ids and forwarding a
+  caller's own class.
+
+  The two channels are not interchangeable. `className` hands the component an
+  opaque string, so the component's atomic class and the host's both exist and
+  the winner is settled by cascade position — which, before the origin split,
+  was decided per property by whichever module first emitted the class, and
+  after it is decided uniformly in the host's favour. Either way the call site
+  cannot see the answer. `xstyle` is merged last into the part's own
+  `stylex.props()` call, so it resolves by property name in JS before the
+  cascade is consulted and reads the same before and after the split.
+
+  `Badge`, `Checkbox`, the six `Card` parts, nine `Dialog` parts, five
+  `Command` parts and two `Select` parts gained the prop; `Kbd`, `Tabs.Root`,
+  `WorkflowIcon` and `Button` already had it. 52 product call sites moved.
+
+  Two host-specific decisions. `Checkbox` routes `xstyle` the way it already
+  routes `className`: to the control root in `controlOnly` mode and to the
+  label row otherwise, because in `controlOnly` the control IS the outer box
+  the host sees. Applying it to both would paint the same override on two
+  nested boxes. And `Button` keeps its existing argument order, with `xstyle`
+  ahead of the disabled and inert expressions rather than strictly last, so a
+  disabled control's `cursor` and `opacity` stay authoritative; that deviation
+  predates this change and is recorded above.
+
+  The guard is retargeted for a source install: it scans `src/` minus this
+  directory, and resolves each import specifier (`@/…` or relative) against the
+  importing file rather than matching a package name, because there is no
+  package specifier here. `ads/headless` is excluded — those modules are bare
+  Base UI re-exports that declare nothing and so have no `xstyle` to offer.
+  ADS records: `consumer-changes/2026-09-07-xstyle-host-style-composition-contract.json`,
+  `consumer-changes/2026-09-08-xstyle-style-channel.json`.

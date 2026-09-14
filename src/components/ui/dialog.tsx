@@ -41,10 +41,8 @@ function DialogOverlay({
   return (
     <AdsDialog.Backdrop
       data-slot="dialog-overlay"
-      className={mergeClassName(
-        () => cx(UI_LAYER_CLASS.dialog, sx(overlayLayout.positioner)) ?? "",
-        className,
-      )}
+      className={mergeClassName(() => UI_LAYER_CLASS.dialog, className)}
+      xstyle={overlayLayout.positioner}
       {...props}
     />
   );
@@ -151,10 +149,8 @@ function DialogDescription({
   return (
     <AdsDialog.Description
       data-slot="dialog-description"
-      className={mergeClassName(
-        () => sx(overlayLayout.description),
-        className,
-      )}
+      className={className}
+      xstyle={overlayLayout.description}
       {...props}
     />
   );

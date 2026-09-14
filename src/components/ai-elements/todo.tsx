@@ -140,7 +140,7 @@ export function TodoCard({
       <AdsButton
         layout="host"
         type="button"
-        className={sx(s.header, open && s.headerOpen)}
+        xstyle={[s.header, open && s.headerOpen]}
         onClick={() => setOpen((v) => !v)}
       >
         <span className={sx(s.headerLabel)}>

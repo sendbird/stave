@@ -253,7 +253,8 @@ export function ModelEffortGrid(args: {
                       handleKeyDown(event, rowIndex, effortIndex)
                     }
                     onClick={() => args.onChoose(option, effort.value)}
-                    className={cx(sx(styles.cell), "model-effort-cell")}
+                    className="model-effort-cell"
+                    xstyle={styles.cell}
                   >
                     <span
                       data-selected={selected || undefined}

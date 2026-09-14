@@ -28,7 +28,7 @@ import {
   type PopupPlacement,
   resolvePlacement,
 } from "../utils/placement";
-import { cx, sx } from "../utils/stylex";
+import { cx, sx, type XstyleProp } from "../utils/stylex";
 import {
   itemStylesBySize,
   styles,
@@ -214,13 +214,14 @@ function Popup({ className, ...props }: SelectPopupProps) {
   );
 }
 
-export type SelectListProps = React.ComponentProps<typeof SelectList>;
+export type SelectListProps = React.ComponentProps<typeof SelectList> &
+  XstyleProp;
 
-function List({ className, ...props }: SelectListProps) {
+function List({ className, xstyle, ...props }: SelectListProps) {
   return (
     <SelectList
       {...props}
-      className={mergeClassName(() => sx(listbox.list), className)}
+      className={mergeClassName(() => sx(listbox.list, xstyle), className)}
     />
   );
 }
@@ -253,13 +254,14 @@ function Item({
   );
 }
 
-export type SelectItemTextProps = React.ComponentProps<typeof SelectItemText>;
+export type SelectItemTextProps = React.ComponentProps<typeof SelectItemText> &
+  XstyleProp;
 
-function ItemText({ className, ...props }: SelectItemTextProps) {
+function ItemText({ className, xstyle, ...props }: SelectItemTextProps) {
   return (
     <SelectItemText
       {...props}
-      className={mergeClassName(() => sx(styles.itemText), className)}
+      className={mergeClassName(() => sx(styles.itemText, xstyle), className)}
     />
   );
 }

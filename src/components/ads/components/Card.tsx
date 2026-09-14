@@ -31,26 +31,34 @@ export function Card({
   );
 }
 
-export type CardHeaderProps = React.ComponentProps<"div">;
+export type CardHeaderProps = React.ComponentProps<"div"> & XstyleProp;
 
 /** Title block; place an optional `CardAction` inside for a trailing control. */
-export function CardHeader({ className, ...props }: CardHeaderProps) {
-  return <div {...props} className={cx(sx(styles.header), className)} />;
+export function CardHeader({ className, xstyle, ...props }: CardHeaderProps) {
+  return (
+    <div {...props} className={cx(sx(styles.header, xstyle), className)} />
+  );
 }
 
-export type CardTitleProps = React.ComponentProps<"h3">;
+export type CardTitleProps = React.ComponentProps<"h3"> & XstyleProp;
 
-export function CardTitle({ className, ...props }: CardTitleProps) {
-  return <h3 {...props} className={cx(sx(styles.title), className)} />;
+export function CardTitle({ className, xstyle, ...props }: CardTitleProps) {
+  return <h3 {...props} className={cx(sx(styles.title, xstyle), className)} />;
 }
 
-export type CardDescriptionProps = React.ComponentProps<"p">;
+export type CardDescriptionProps = React.ComponentProps<"p"> & XstyleProp;
 
-export function CardDescription({ className, ...props }: CardDescriptionProps) {
-  return <p {...props} className={cx(sx(styles.description), className)} />;
+export function CardDescription({
+  className,
+  xstyle,
+  ...props
+}: CardDescriptionProps) {
+  return (
+    <p {...props} className={cx(sx(styles.description, xstyle), className)} />
+  );
 }
 
-export type CardActionProps = React.ComponentProps<"div">;
+export type CardActionProps = React.ComponentProps<"div"> & XstyleProp;
 
 /**
  * Trailing control slot in the header (the `CardAction` slot): sits at
@@ -73,20 +81,26 @@ export type CardActionProps = React.ComponentProps<"div">;
  * the dashboard composition puts the eyebrow in a `CardDescription` above the
  * title with the badge here.
  */
-export function CardAction({ className, ...props }: CardActionProps) {
-  return <div {...props} className={cx(sx(styles.action), className)} />;
+export function CardAction({ className, xstyle, ...props }: CardActionProps) {
+  return (
+    <div {...props} className={cx(sx(styles.action, xstyle), className)} />
+  );
 }
 
-export type CardContentProps = React.ComponentProps<"div">;
+export type CardContentProps = React.ComponentProps<"div"> & XstyleProp;
 
-export function CardContent({ className, ...props }: CardContentProps) {
-  return <div {...props} className={cx(sx(styles.content), className)} />;
+export function CardContent({ className, xstyle, ...props }: CardContentProps) {
+  return (
+    <div {...props} className={cx(sx(styles.content, xstyle), className)} />
+  );
 }
 
-export type CardFooterProps = React.ComponentProps<"div">;
+export type CardFooterProps = React.ComponentProps<"div"> & XstyleProp;
 
-export function CardFooter({ className, ...props }: CardFooterProps) {
-  return <div {...props} className={cx(sx(styles.footer), className)} />;
+export function CardFooter({ className, xstyle, ...props }: CardFooterProps) {
+  return (
+    <div {...props} className={cx(sx(styles.footer, xstyle), className)} />
+  );
 }
 
 const styles = stylex.create({

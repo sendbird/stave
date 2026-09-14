@@ -825,7 +825,7 @@ export function AutomationCenterView() {
                             tone={
                               getRunStatusPresentation(latestRun.status).tone
                             }
-                            className={sx(automationStyles.statusBadge)}
+                            xstyle={automationStyles.statusBadge}
                           >
                             {getRunStatusPresentation(latestRun.status).label}
                           </Badge>

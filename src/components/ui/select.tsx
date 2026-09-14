@@ -168,7 +168,7 @@ function SelectContent({
           {...props}
         >
           <SelectScrollUpButton />
-          <AdsSelect.List className={sx(overlayLayout.selectList)}>
+          <AdsSelect.List xstyle={overlayLayout.selectList}>
             {children}
           </AdsSelect.List>
           <SelectScrollDownButton />
@@ -202,7 +202,7 @@ function SelectItem({
       className={className}
       {...props}
     >
-      <AdsSelect.ItemText className={sx(overlayLayout.selectLabel)}>
+      <AdsSelect.ItemText xstyle={overlayLayout.selectLabel}>
         {children}
       </AdsSelect.ItemText>
       <AdsSelect.ItemIndicator
