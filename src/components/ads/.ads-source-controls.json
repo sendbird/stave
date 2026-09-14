@@ -60,47 +60,47 @@
       "sourcePath": "generated:get_source_bundle"
     },
     {
-      "integrity": "sha256-62b0ac9b12bc8fc015c2f809a47a2a6ede3685f15a2e03359c4944313239fbd2",
+      "integrity": "sha256-5e02e816bd35ab6fa1f1c35286b3e5a18de23166a1e6fe12bc79914a40510371",
       "path": "src/components/ads/components/AppShell.PageHeader.tsx",
       "sourcePath": "packages/design-system/src/components/AppShell.PageHeader.tsx"
     },
     {
-      "integrity": "sha256-b209908a550244ed3da98b57ae26b8e8bbf97f7a6820eae87cd8c8b94e4ec865",
+      "integrity": "sha256-422054a6b639b5f2f3a870cc293caa28c673f067b313c22eaa0b2d3fc1c234da",
       "path": "src/components/ads/components/AppShell.Root.tsx",
       "sourcePath": "packages/design-system/src/components/AppShell.Root.tsx"
     },
     {
-      "integrity": "sha256-8c46e946ee1b55687f40b414c7fdebee298b656384209e64a65606a8a5cbba02",
+      "integrity": "sha256-643ceff9004792b224e6e23944bc976f0a84661c08ddb574277d5f23906420cc",
       "path": "src/components/ads/components/AppShell.shell.styles.ts",
       "sourcePath": "packages/design-system/src/components/AppShell.shell.styles.ts"
     },
     {
-      "integrity": "sha256-52fa8864ba20774035511f6a9e4e07b73c649abfca8ecd1cf50004e540e1bac7",
+      "integrity": "sha256-4becdf06da5f0173fe91106861c6224ca97e4ec0ec6a3ccd8fb1d52423889ec0",
       "path": "src/components/ads/components/AppShell.sidebar.styles.ts",
       "sourcePath": "packages/design-system/src/components/AppShell.sidebar.styles.ts"
     },
     {
-      "integrity": "sha256-298180f3a328e4c51b9340a53df5ede2e41b7ff07d8873c216f79bba6b1499b7",
+      "integrity": "sha256-cbd4ae2690bc1cd2bb65c717d7634a9b586440cc8e7476f6a06f681292e56f32",
       "path": "src/components/ads/components/AppShell.SidebarMenuSlot.tsx",
       "sourcePath": "packages/design-system/src/components/AppShell.SidebarMenuSlot.tsx"
     },
     {
-      "integrity": "sha256-3233158ae33f85474b062aa576f375ef5d90f6c5a328678af72cab432710e492",
+      "integrity": "sha256-426bdd4d1b32bc324e69439da2923feea596cc796f65163efcf86e1241fe5dc2",
       "path": "src/components/ads/components/AppShell.SidebarSearch.tsx",
       "sourcePath": "packages/design-system/src/components/AppShell.SidebarSearch.tsx"
     },
     {
-      "integrity": "sha256-9a4ccf4b51fbe9b36f493038c4e1ebc563268e4823be6fef14db955fbe97f4c2",
+      "integrity": "sha256-25272d2802bb835997583a8f6af5636aee9459e67f0ef1985f8c80174e7e3d9f",
       "path": "src/components/ads/components/AppShell.SidebarTrigger.tsx",
       "sourcePath": "packages/design-system/src/components/AppShell.SidebarTrigger.tsx"
     },
     {
-      "integrity": "sha256-d190faf805e93b61e2d21873c64b978a51a3b3ebbcd5bf157807c5d2432b6f67",
+      "integrity": "sha256-63f6f3d9d3a41469041d80137aa5279be8587c81c5aa07bff61c00de31cbd206",
       "path": "src/components/ads/components/AppShell.Topbar.tsx",
       "sourcePath": "packages/design-system/src/components/AppShell.Topbar.tsx"
     },
     {
-      "integrity": "sha256-15439ca31450dac16939d1ed289572f01998bd6bc43ba45afa7e8bb18a7b1fb0",
+      "integrity": "sha256-6858e86bbc03780e4439b82b3006d8610318bc2d75b3fc48284dea34932163a9",
       "path": "src/components/ads/components/AppShell.tsx",
       "sourcePath": "packages/design-system/src/components/AppShell.tsx"
     },
@@ -130,7 +130,7 @@
       "sourcePath": "packages/design-system/src/components/Button.types.ts"
     },
     {
-      "integrity": "sha256-3c013c0ad9cdf6709023c03ba422dfd80cd168eee29b7393394ed6c572c4962b",
+      "integrity": "sha256-e6df7edae2de97e259431073b1b4599050767adcb44b8ef102d1680624fcea7d",
       "path": "src/components/ads/components/Checkbox.tsx",
       "sourcePath": "packages/design-system/src/components/Checkbox.tsx"
     },
@@ -175,12 +175,12 @@
       "sourcePath": "packages/design-system/src/components/Loader.types.ts"
     },
     {
-      "integrity": "sha256-15d72cfe9ebb40a47a5ddf8bd1306c34639f7f570c08cf40b2b9587b6707dd03",
+      "integrity": "sha256-fe018ab1d27054e18428f1104379a7558ac0992d525ef846cb9b36a1c6a3c14a",
       "path": "src/components/ads/components/NativeSelect.tsx",
       "sourcePath": "packages/design-system/src/components/NativeSelect.tsx"
     },
     {
-      "integrity": "sha256-ee78e9589f37e93ec7d1467e6e0182d9582bc11d28cc0501d8daf04d757c2084",
+      "integrity": "sha256-f7ceb374308707e69d2882e52d312f5bc3fc7e449c1ba0596b6ce2384816c49f",
       "path": "src/components/ads/components/RadioGroup.tsx",
       "sourcePath": "packages/design-system/src/components/RadioGroup.tsx"
     },
@@ -190,12 +190,12 @@
       "sourcePath": "packages/design-system/src/components/sidebar-context.ts"
     },
     {
-      "integrity": "sha256-c9153ac28b090f6591565256716ee57910fc66778fe1c89b3298346e95f40a3b",
+      "integrity": "sha256-0faa577ae5a6945155d3a14c75f74484c49a9e8a3d86c81f20d5e4da1c488861",
       "path": "src/components/ads/components/sidebar-menu-disclosure.tsx",
       "sourcePath": "packages/design-system/src/components/sidebar-menu-disclosure.tsx"
     },
     {
-      "integrity": "sha256-b03e25f3dd24e0aa61513f77a9b79bf7af624e670fc7ec418bdf987a30ff699d",
+      "integrity": "sha256-bff71b2b0c9c73cc6d297289b43dd20e2d857f676b7c23eb618be47fd663282c",
       "path": "src/components/ads/components/sidebar-menu-initial.tsx",
       "sourcePath": "packages/design-system/src/components/sidebar-menu-initial.tsx"
     },
@@ -344,7 +344,6 @@
     "Keep routing, data, authorization, persistence, analytics, and side effects in host-owned modules."
   ],
   "schemaVersion": "1.0",
-  "sourceRevision": "589cfc4ca41b0f75a3e19c3fb43cccfcc5b71485",
   "sourceVersion": "0.1.0",
   "targetDir": "src/components/ads"
 }

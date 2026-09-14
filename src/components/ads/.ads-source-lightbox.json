@@ -62,7 +62,7 @@
       "sourcePath": "packages/design-system/src/components/Button.types.ts"
     },
     {
-      "integrity": "sha256-0aa693e80f2eecd5d795e7a16f09f10f424b3b635b84616db7059f451874b570",
+      "integrity": "sha256-35328cfdc2891d66d8056f732bafaac2aa8096a26b793687fbb6b2dd8ab0be9e",
       "path": "src/components/ads/components/Lightbox.tsx",
       "sourcePath": "packages/design-system/src/components/Lightbox.tsx"
     },
@@ -201,7 +201,6 @@
     "Keep routing, data, authorization, persistence, analytics, and side effects in host-owned modules."
   ],
   "schemaVersion": "1.0",
-  "sourceRevision": "589cfc4ca41b0f75a3e19c3fb43cccfcc5b71485",
   "sourceVersion": "0.1.0",
   "targetDir": "src/components/ads"
 }

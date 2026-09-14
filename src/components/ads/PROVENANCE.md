@@ -619,7 +619,8 @@ Further host extensions:
   selector. Its region slice was also anchored on `@layer base {` instead of the
   bare phrase, which upstream's new prose had started matching.
 
-- **All three manifests now carry `sourceRevision`.** Every installed file's
+- **`.ads-source.json` carries `sourceRevision`; the two sibling manifests do
+  not, on purpose.** Every installed file's
   recorded integrity is the hash of the upstream file at ADS `589cfc4c`, so the
   merge base for the next upgrade is `git -C <atelier> show <sourceRevision>:<sourcePath>`,
   verifiable against the integrity value. That replaces the archaeology this
@@ -630,3 +631,15 @@ Further host extensions:
   The integrity values remain PRISTINE upstream hashes, never hashes of locally
   modified files — a file whose current hash differs is a documented host
   modification, not drift to be overwritten.
+
+  The control and lightbox closures were not part of this migration. 21 of their
+  files live outside `.ads-source.json` — `AppShell` and its sidebar parts,
+  `Lightbox`, `Checkbox`, `RadioGroup`, `NativeSelect`, `CappedViewport`,
+  `Citation`, `Thinking`, the `ToolRun` group, and the small agent-surface parts
+  — and they still sit at the upstream content they were installed from plus
+  their host modifications. Their recorded baselines are therefore left at the
+  original install hashes: advancing them to `589cfc4c` would claim a merge base
+  that was never merged, and the next three-way merge would silently use the
+  wrong base and drop host work. Files those manifests SHARE with
+  `.ads-source.json` were re-synced and did advance. Re-syncing those two
+  closures is the remaining ADS parity work.
