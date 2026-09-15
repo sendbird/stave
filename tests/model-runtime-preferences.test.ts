@@ -118,7 +118,7 @@ describe("model runtime preferences", () => {
       settings: {
         ...settings,
         modelCodex: "gpt-5.6-luna",
-        codexReasoningEffort: "max",
+        codexReasoningEffort: "medium",
       },
       providerId: "codex",
       model: "gpt-5.6-sol",
@@ -129,8 +129,8 @@ describe("model runtime preferences", () => {
       model: "claude-opus-4-8",
     });
 
-    // Sol and Opus both sit on the "high" rung of the inverse effort ladder,
-    // so neither inherits Luna's "max" nor the incoming settings value.
+    // Sol and Opus both default to "high", so neither inherits Luna's "medium"
+    // nor the incoming settings value.
     expect(codexSettings.codexReasoningEffort).toBe("high");
     expect(claudeSettings.claudeEffort).toBe("high");
   });
@@ -229,12 +229,14 @@ describe("model runtime preferences", () => {
     };
 
     afterAll(() => {
+      // Restore the static catalog defaults: the registry is process-wide, so
+      // anything left here leaks into test files that run afterwards.
       registerDynamicDefaultReasoningEfforts(
         new Map([
           ["gpt-6-astra", "medium"],
-          ["gpt-5.6-luna", "max"],
+          ["gpt-5.6-luna", "medium"],
           ["gpt-5.6-sol", "high"],
-          ["gpt-5.6-terra", "xhigh"],
+          ["gpt-5.6-terra", "high"],
         ]),
       );
     });

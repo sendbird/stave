@@ -49,6 +49,7 @@ import {
   useSettingsModelSelectorOptions,
 } from "@/components/layout/settings-dialog-model-fields";
 import { SettingsAuxiliaryInferenceSection } from "@/components/layout/settings-dialog-auxiliary-inference-section";
+import { SettingsAutoRoutingSection } from "@/components/layout/settings-dialog-auto-routing-section";
 import {
   COMMAND_PALETTE_GROUP_LABELS,
   getCommandPaletteCoreCommands,
@@ -2035,13 +2036,6 @@ function ModelsSection() {
     codexReasoningEffort,
     codexBinaryPath,
     utilityInferenceProvider,
-    autoRoutingEnabled,
-    autoRoutingUseClassifier,
-    autoRoutingObjective,
-    autoRoutingSafetyEscalation,
-    autoRoutingAllowProviderSwitch,
-    autoRoutingEligibleClaudeModels,
-    autoRoutingEligibleCodexModels,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -2052,13 +2046,6 @@ function ModelsSection() {
           state.settings.codexReasoningEffort,
           state.settings.codexBinaryPath,
           state.settings.utilityInferenceProvider,
-          state.settings.autoRoutingEnabled,
-          state.settings.autoRoutingUseClassifier,
-          state.settings.autoRoutingObjective,
-          state.settings.autoRoutingSafetyEscalation,
-          state.settings.autoRoutingAllowProviderSwitch,
-          state.settings.autoRoutingEligibleClaudeModels,
-          state.settings.autoRoutingEligibleCodexModels,
         ] as const,
     ),
   );
@@ -2101,53 +2088,11 @@ function ModelsSection() {
     () => buildRecommendedModelSelectorOptions({ options: modelOptions }),
     [modelOptions],
   );
-  const claudeRoutingOptions = useMemo(
-    () => modelOptions.filter((option) => option.providerId === "claude-code"),
-    [modelOptions],
-  );
-  const codexRoutingOptions = useMemo(
-    () => modelOptions.filter((option) => option.providerId === "codex"),
-    [modelOptions],
-  );
   // Scoped to the default Codex model so, e.g., GPT-5.6 Luna never offers
   // "Ultra" here — a value only Sol/Terra accept.
   const codexEffortOptions = useMemo(
     () => listCodexEffortOptionsForModel({ model: modelCodex }),
     [modelCodex],
-  );
-  const updateEligibleModels = useCallback(
-    (args: { providerId: "claude-code" | "codex"; models: string[] }) => {
-      updateSettings({
-        patch:
-          args.providerId === "claude-code"
-            ? { autoRoutingEligibleClaudeModels: args.models }
-            : { autoRoutingEligibleCodexModels: args.models },
-      });
-    },
-    [updateSettings],
-  );
-  const renderEligibleModelButtons = (
-    providerId: "claude-code" | "codex",
-    options: typeof modelOptions,
-    selectedModels: readonly string[],
-  ) => (
-    <ToggleChipGroup
-      allLabel="All"
-      onSelectAll={() => updateEligibleModels({ providerId, models: [] })}
-      selected={selectedModels}
-      onToggle={(model) =>
-        updateEligibleModels({
-          providerId,
-          models: selectedModels.includes(model)
-            ? selectedModels.filter((selectedModel) => selectedModel !== model)
-            : [...selectedModels, model],
-        })
-      }
-      options={options.map((option) => ({
-        value: option.model,
-        label: option.label,
-      }))}
-    />
   );
 
   return (
@@ -2315,109 +2260,6 @@ function ModelsSection() {
               </SelectContent>
             </Select>
           </LabeledField>
-          <div className={sx(styles.routingBlock)}>
-            <div className={sx(styles.routingHeader)}>
-              <div className={sx(styles.spaceY1, styles.minW0)}>
-                <div className={sx(styles.routingTitleRow)}>
-                  <Sparkles className={sx(styles.accentGlyph)} />
-                  <p className={sx(styles.smallTitle)}>Auto</p>
-                  <Badge variant="secondary">v1</Badge>
-                </div>
-                <p className={sx(styles.mutedBody)}>
-                  Route Auto-selected drafts through deterministic heuristics,
-                  optional classification, and provider stickiness.
-                </p>
-              </div>
-            </div>
-            <SwitchField
-              title="Enable Auto Routing"
-              description="Global kill switch. Off keeps the existing provider and model path."
-              checked={autoRoutingEnabled}
-              onCheckedChange={(checked) =>
-                updateSettings({ patch: { autoRoutingEnabled: checked } })
-              }
-            />
-            <LabeledField
-              title="Objective"
-              description="Bias routing toward lower cost or higher quality."
-            >
-              <div className={sx(styles.sliderRow)}>
-                <span className={sx(styles.objectiveEnd)}>Cost</span>
-                <Slider
-                  aria-label="Auto routing objective"
-                  min={0}
-                  max={1}
-                  step={0.05}
-                  value={autoRoutingObjective}
-                  onValueChange={(value) =>
-                    updateSettings({
-                      patch: { autoRoutingObjective: value },
-                    })
-                  }
-                />
-                <span className={sx(styles.objectiveEndRight)}>Quality</span>
-              </div>
-            </LabeledField>
-            <div className={sx(styles.routingGrid)}>
-              <SwitchField
-                title="Classifier"
-                description="Use the selected Utility AI for low-confidence prompts."
-                checked={autoRoutingUseClassifier}
-                onCheckedChange={(checked) =>
-                  updateSettings({
-                    patch: { autoRoutingUseClassifier: checked },
-                  })
-                }
-              />
-              <SwitchField
-                title="Safety Escalation"
-                description="Lift sensitive domains to stronger tiers."
-                checked={autoRoutingSafetyEscalation}
-                onCheckedChange={(checked) =>
-                  updateSettings({
-                    patch: { autoRoutingSafetyEscalation: checked },
-                  })
-                }
-              />
-              <SwitchField
-                title="Provider Switch"
-                description="Allow Auto to move between Claude and Codex after a task starts."
-                checked={autoRoutingAllowProviderSwitch}
-                onCheckedChange={(checked) =>
-                  updateSettings({
-                    patch: { autoRoutingAllowProviderSwitch: checked },
-                  })
-                }
-              />
-            </div>
-            <LabeledField
-              title="Claude Eligible Models"
-              description="Empty selection means every catalog Claude model can be used."
-            >
-              {renderEligibleModelButtons(
-                "claude-code",
-                claudeRoutingOptions,
-                autoRoutingEligibleClaudeModels,
-              )}
-            </LabeledField>
-            <LabeledField
-              title="Codex Eligible Models"
-              description="Empty selection means every available Codex model can be used."
-            >
-              {renderEligibleModelButtons(
-                "codex",
-                codexRoutingOptions.length > 0
-                  ? codexRoutingOptions
-                  : getSdkModelOptions({ providerId: "codex" }).map((model) =>
-                      buildModelSelectorValue({
-                        providerId: "codex",
-                        model,
-                      }),
-                    ),
-                autoRoutingEligibleCodexModels,
-              )}
-            </LabeledField>
-          </div>
         </SettingsCard>
       </SectionStack>
     </>
@@ -3985,6 +3827,8 @@ export function SettingsDialogSectionContent(args: {
       return <KickoffSection />;
     case "auxiliaryInference":
       return <SettingsAuxiliaryInferenceSection />;
+    case "autoRouting":
+      return <SettingsAutoRoutingSection />;
     case "prompts":
       return <PromptsSection />;
     case "memory":

@@ -74,6 +74,10 @@ import {
   normalizeAutoRoutingObjective,
 } from "@/store/auto-routing";
 import {
+  migrateLegacyAutoSettings,
+  validateProfile,
+} from "@/lib/providers/auto-routing-profile";
+import {
   defaultSettings,
   normalizeCursorApprovalMode,
   normalizeCursorEffort,
@@ -370,6 +374,19 @@ export function createAppStorePersistenceOptions() {
         normalizeAutoRoutingEligibleModels(raw.autoRoutingEligibleClaudeModels);
       state.settings.autoRoutingEligibleCodexModels =
         normalizeAutoRoutingEligibleModels(raw.autoRoutingEligibleCodexModels);
+      // v1 flags become a v2 role table once; afterwards the profile is the
+      // source of truth and the flags only mirror its stance and chip lists.
+      state.settings.autoRoutingProfile =
+        raw.autoRoutingProfile === undefined
+          ? migrateLegacyAutoSettings({
+              autoRoutingUseClassifier: raw.autoRoutingUseClassifier,
+              autoRoutingObjective: raw.autoRoutingObjective,
+              autoRoutingSafetyEscalation: raw.autoRoutingSafetyEscalation,
+              autoRoutingAllowProviderSwitch: raw.autoRoutingAllowProviderSwitch,
+              autoRoutingEligibleClaudeModels: raw.autoRoutingEligibleClaudeModels,
+              autoRoutingEligibleCodexModels: raw.autoRoutingEligibleCodexModels,
+            })
+          : validateProfile(raw.autoRoutingProfile);
       state.settings.promptCommentShortcut = normalizePromptCommentShortcut(
         raw.promptCommentShortcut,
       );

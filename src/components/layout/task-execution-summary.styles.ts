@@ -4,10 +4,16 @@ import { vars } from "../ads/tokens/tokens.stylex";
 
 /** Tile grid breakpoints: three across once there is room, six when compact. */
 const MEDIUM = "@media (min-width: 40rem)";
-const WIDE = "@media (min-width: 80rem)";
+/**
+ * The shelf tiles size to the shelf, not the window: a 26rem docked shelf in a
+ * 90rem window is still narrow. Container queries need the root to be a
+ * container, so `root` opts in.
+ */
+const WIDE_SHELF = "@container (min-width: 40rem)";
 
 export const summaryStyles = stylex.create({
   root: {
+    containerType: "inline-size",
     minWidth: 0,
   },
   grid: {
@@ -25,11 +31,12 @@ export const summaryStyles = stylex.create({
       [MEDIUM]: "repeat(3, minmax(0, 1fr))",
     },
   },
+  // Four outcome tiles in the shelf: two-up until the shelf is wide enough
+  // for a single row, never a three-up that strands one tile alone.
   gridCompact: {
     gridTemplateColumns: {
       default: "repeat(2, minmax(0, 1fr))",
-      [MEDIUM]: "repeat(3, minmax(0, 1fr))",
-      [WIDE]: "repeat(6, minmax(0, 1fr))",
+      [WIDE_SHELF]: "repeat(4, minmax(0, 1fr))",
     },
   },
   tile: {
@@ -62,7 +69,7 @@ export const summaryStyles = stylex.create({
   },
   tileLabel: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
     letterSpacing: "0.1em",
     overflow: "hidden",
@@ -82,7 +89,7 @@ export const summaryStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
   },
   tileValueCompact: {
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   tileValueUnavailable: {
     color: vars["--ads-color-text-muted"],
@@ -146,7 +153,7 @@ export const summaryStyles = stylex.create({
   },
   activityHeading: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
     letterSpacing: "0.1em",
     textTransform: "uppercase",
@@ -171,7 +178,7 @@ export const summaryStyles = stylex.create({
   activityProvenance: {
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     marginInlineStart: "auto",
   },
 });

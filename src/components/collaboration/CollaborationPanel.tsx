@@ -1,24 +1,37 @@
-import type { ChatMessage } from "@/types/chat";
+import type { ChatMessage, ToolUsePart } from "@/types/chat";
 import { CollaborationHistoryControls } from "./CollaborationHistoryControls";
 import { selectWorkerExchanges } from "@/lib/collaboration/worker-exchanges";
 import { selectAdvisorTranscriptExchanges } from "@/lib/collaboration/advisor-transcript";
 import { loadTaskMessagesPage } from "@/lib/db/workspaces.db";
-import { AdvisorTranscript } from "./AdvisorTranscript";
-import { WorkerExchanges } from "./WorkerExchanges";
-import { useEffect, useRef, useState } from "react";
-import { ChildTaskRows } from "@/components/session/ChildTaskRows";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  ChildTaskRowActions,
+  useChildTaskRowController,
+} from "@/components/session/ChildTaskRows";
 import { useChildTasks } from "@/components/session/useChildTasks";
 import {
   WorkGraphTree,
   NO_WORK_GRAPH_CAPABILITIES,
 } from "@/components/session/WorkGraphTree";
+import {
+  DelegationsBlock,
+  useDelegationClock,
+} from "@/components/delegation/DelegationsBlock";
 import { ActionButton } from "@/components/system/ActionButton";
-import { StatusBadge } from "@/components/system/WorkspaceSurface";
 import { selectAdvisorConsultLog } from "@/lib/providers/advisor-consult-log";
 import { buildCollaborationReport } from "@/lib/collaboration/report";
+import {
+  isDelegationExchangeLive,
+  partitionDelegationExchanges,
+  selectDelegationExchanges,
+  type DelegationActionId,
+  type DelegationExchange,
+  type DelegationExchangeKind,
+} from "@/lib/delegation/exchange";
+import type { WorkerExecutionMetadata } from "@/lib/providers/worker-mode";
 import { useAppStore } from "@/store/app.store";
 import { DelegateTaskForm, type CollaborationTarget } from "./DelegateTaskForm";
-import { WorkflowLibrary } from "./WorkflowLibrary";
+import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import {
   collectCollaborationHistoryExport,
   mergeCollaborationRows,
@@ -26,43 +39,50 @@ import {
 import { useCollaborationHistory } from "./useCollaborationHistory";
 import * as stylex from "@stylexjs/stylex";
 import { collaborationStyles as styles } from "./collaboration.styles";
-import { focusRing } from "../ads/recipes/focus-ring";
+import { delegationStyles } from "@/components/delegation/delegation.styles";
+import { sx } from "@/components/ads/utils/stylex";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 
-export type CollaborationSection = "team" | "workers" | "advice" | "tools";
+export type DelegationFilter = "all" | "advisor" | "worker" | "tasks";
 
-const DIRECT_SECTION_COPY: Record<
-  CollaborationSection,
-  { title: string; description: string }
-> = {
-  team: {
-    title: "Team",
-    description: "Delegate work and inspect the tasks in this workspace.",
-  },
-  workers: {
-    title: "Workers",
-    description:
-      "Inspect worker exchanges from this task and its saved history.",
-  },
-  advice: {
-    title: "Advisor",
-    description: "Read advisor questions, responses, and saved exchanges.",
-  },
-  tools: {
-    title: "Tools",
-    description: "Reuse workflows, macros, presets, and workspace tools.",
-  },
+const FILTERS: ReadonlyArray<{ id: DelegationFilter; label: string }> = [
+  { id: "all", label: "All" },
+  { id: "advisor", label: "Advisor" },
+  { id: "worker", label: "Worker" },
+  { id: "tasks", label: "Tasks" },
+];
+
+const FILTER_KINDS: Record<DelegationFilter, readonly DelegationExchangeKind[]> = {
+  all: ["advisor", "worker", "child-task", "subagent"],
+  advisor: ["advisor"],
+  worker: ["worker"],
+  tasks: ["child-task", "subagent"],
 };
 
-/** Mounted only on demand; no hidden polling, chat cloning, or secondary executor. */
-export function CollaborationPanel({
-  target,
-  section,
-}: {
-  target: CollaborationTarget;
-  section?: CollaborationSection;
-}) {
+/** Execution metadata the live transcript still holds, by tool-use id. */
+function collectWorkerExecutions(messages: readonly ChatMessage[]) {
+  const byToolUseId: Record<string, WorkerExecutionMetadata | undefined> = {};
+  for (const message of messages) {
+    for (const part of message.parts) {
+      if (part.type !== "tool_use") continue;
+      const toolPart = part as ToolUsePart;
+      if (toolPart.toolUseId && toolPart.workerExecution) {
+        byToolUseId[toolPart.toolUseId] = toolPart.workerExecution;
+      }
+    }
+  }
+  return byToolUseId;
+}
+
+/**
+ * The right-rail Delegations panel: every advisor consult, worker run, child
+ * task and subagent this task made, as one chronological list of exchange
+ * rows, live first. Mounted only on demand; no hidden polling, chat cloning,
+ * or secondary executor.
+ */
+export function CollaborationPanel({ target }: { target: CollaborationTarget }) {
+  const [filter, setFilter] = useState<DelegationFilter>("all");
   const [exporting, setExporting] = useState(false);
   const [exportNotice, setExportNotice] = useState<{
     text: string;
@@ -78,25 +98,162 @@ export function CollaborationPanel({
     parentWorkspaceId: target.workspaceId,
     projectPath: target.projectPath,
   });
+  const childSource = useMemo(
+    () => ({ children: listing.children, actions: listing.actions }),
+    [listing.actions, listing.children],
+  );
+  const childController = useChildTaskRowController({
+    source: childSource,
+    projectPath: target.projectPath,
+  });
   const consults = useAppStore((s) =>
     selectAdvisorConsultLog(s.advisorConsultLogByTask, target.taskId),
+  );
+  const advisorSnapshot = useAppStore(
+    (s) => s.advisorExchangeByTask[target.taskId] ?? null,
+  );
+  const activeTurnId = useAppStore(
+    (s) => s.activeTurnIdsByTask[target.taskId] ?? null,
   );
   const messages = useAppStore(
     (state) => state.messagesByTask[target.taskId] ?? EMPTY_MESSAGES,
   );
-  const hasAdvice =
-    consults.length > 0 ||
-    selectAdvisorTranscriptExchanges(messages).length > 0 ||
-    Boolean(history.page?.advisors.length);
-  const hasWorkers =
-    selectWorkerExchanges(messages).length > 0 ||
-    Boolean(history.page?.workers.length);
   const activity = useAppStore(
     (s) =>
       s.providerTurnActivityByTask[target.taskId] ??
       s.retainedTurnActivityByTask[target.taskId]?.snapshot ??
       null,
   );
+  const focusTranscriptTool = useAppStore((s) => s.focusTranscriptTool);
+  const openAdvisorConsultLog = useAppStore((s) => s.openAdvisorConsultLog);
+  const skipTaskAdvisor = useAppStore((s) => s.skipTaskAdvisor);
+
+  const liveWorkers = useMemo(() => selectWorkerExchanges(messages), [messages]);
+  const liveAdvisors = useMemo(
+    () => selectAdvisorTranscriptExchanges(messages),
+    [messages],
+  );
+  const workerExecutionByToolUseId = useMemo(
+    () => collectWorkerExecutions(messages),
+    [messages],
+  );
+  const workers = useMemo(
+    () => mergeCollaborationRows(liveWorkers, history.page?.workers ?? []),
+    [history.page?.workers, liveWorkers],
+  );
+  const advisorTranscript = useMemo(
+    () => mergeCollaborationRows(liveAdvisors, history.page?.advisors ?? []),
+    [history.page?.advisors, liveAdvisors],
+  );
+
+  const exchanges = useMemo(
+    () =>
+      selectDelegationExchanges({
+        consults,
+        advisorSnapshot,
+        activeTurnId,
+        advisorTranscript,
+        workers,
+        workerExecutionByToolUseId,
+        childTasks: childController.children,
+        childBlockedByDelegationKey: childController.blockedByDelegationKey,
+        workGraph: activity?.workGraph ?? null,
+        includeSubagents: true,
+        advisorOptions: {
+          canCancel: advisorSnapshot?.turnId === activeTurnId,
+        },
+      }),
+    [
+      activeTurnId,
+      activity?.workGraph,
+      advisorSnapshot,
+      advisorTranscript,
+      childController.blockedByDelegationKey,
+      childController.children,
+      consults,
+      workerExecutionByToolUseId,
+      workers,
+    ],
+  );
+  const hasLive = exchanges.some(isDelegationExchangeLive);
+  const nowMs = useDelegationClock(hasLive);
+  const ordered = useMemo(() => {
+    const kinds = FILTER_KINDS[filter];
+    const filtered = exchanges.filter((exchange) => kinds.includes(exchange.kind));
+    const { live, settled } = partitionDelegationExchanges(filtered);
+    // History reads newest first; live work stays on top.
+    return [...live, ...settled.reverse()];
+  }, [exchanges, filter]);
+
+  const handleAction = useCallback(
+    (action: DelegationActionId, exchange: DelegationExchange) => {
+      switch (action) {
+        case "show-in-conversation":
+          if (exchange.ref.toolUseId) {
+            focusTranscriptTool({
+              taskId: target.taskId,
+              toolUseId: exchange.ref.toolUseId,
+            });
+          }
+          return;
+        case "open-log":
+          openAdvisorConsultLog({
+            taskId: target.taskId,
+            ...(exchange.ref.entryKey ? { entryKey: exchange.ref.entryKey } : {}),
+          });
+          return;
+        case "cancel":
+          skipTaskAdvisor({ taskId: target.taskId });
+          return;
+        default:
+          return;
+      }
+    },
+    [focusTranscriptTool, openAdvisorConsultLog, skipTaskAdvisor, target.taskId],
+  );
+  const renderExtraActions = useCallback(
+    (exchange: DelegationExchange) => {
+      if (exchange.kind !== "child-task" || !exchange.ref.delegationKey) {
+        return null;
+      }
+      const child = childController.children.find(
+        (row) => row.delegationKey === exchange.ref.delegationKey,
+      );
+      if (!child) {
+        return null;
+      }
+      return (
+        <ChildTaskRowActions
+          child={child}
+          busy={childController.busyDelegationKey === child.delegationKey}
+          onOpen={childController.onOpen}
+          onFollowUp={childController.onFollowUp}
+          onRetry={childController.onRetry}
+          onStop={childController.onStop}
+          onDetach={childController.onDetach}
+        />
+      );
+    },
+    [childController],
+  );
+  const statusNoteFor = useCallback(
+    (exchange: DelegationExchange) =>
+      exchange.ref.delegationKey
+        ? childController.errorByDelegationKey[exchange.ref.delegationKey]
+        : undefined,
+    [childController.errorByDelegationKey],
+  );
+  // Child-task rows keep their descriptor list empty here: the shared action
+  // row renders the real controls (with the prompt composer follow-up and
+  // retry need), so descriptor buttons would double every control.
+  const rows = useMemo(
+    () =>
+      ordered.map((exchange) =>
+        exchange.kind === "child-task" ? { ...exchange, actions: [] } : exchange,
+      ),
+    [ordered],
+  );
+
   useEffect(() => {
     return () => exportAbortRef.current?.abort();
   }, []);
@@ -126,7 +283,7 @@ export function CollaborationPanel({
         return;
       }
       const currentState = useAppStore.getState();
-      const messages =
+      const currentMessages =
         currentState.activeWorkspaceId === target.workspaceId
           ? (currentState.messagesByTask[target.taskId] ?? [])
           : [];
@@ -136,11 +293,11 @@ export function CollaborationPanel({
         consults,
         now: new Date().toISOString(),
         workers: mergeCollaborationRows(
-          selectWorkerExchanges(messages),
+          selectWorkerExchanges(currentMessages),
           saved.export.workers,
         ),
         recoveredAdvice: mergeCollaborationRows(
-          selectAdvisorTranscriptExchanges(messages),
+          selectAdvisorTranscriptExchanges(currentMessages),
           saved.export.advisors,
         ),
         historyExport: saved.export,
@@ -181,148 +338,23 @@ export function CollaborationPanel({
     exportAbortRef.current?.abort();
   }
 
-  const team = (
-    <div {...stylex.props(styles.panelStack)}>
-      {listing.loading ? (
-        <p role="status" {...stylex.props(styles.body, styles.muted)}>
-          Loading delegated tasks…
-        </p>
-      ) : null}
-      {listing.error ? (
-        <p role="alert" {...stylex.props(styles.body, styles.danger)}>
-          {listing.error}{" "}
-          <ActionButton onClick={listing.actions.refresh}>
-            Retry loading
-          </ActionButton>
-        </p>
-      ) : null}
-      <ChildTaskRows
-        parentTaskId={target.taskId}
-        parentWorkspaceId={target.workspaceId}
-        projectPath={target.projectPath}
-        source={listing}
-      />
-      {!listing.loading && !listing.error && !listing.children.length ? (
-        <p {...stylex.props(styles.body, styles.muted)}>
-          No delegated tasks yet.
-        </p>
-      ) : null}
-      {activity?.workGraph ? (
-        <section>
-          <h3 {...stylex.props(styles.heading, styles.marginBottom2)}>
-            Agents in the current or last retained run
-          </h3>
-          <WorkGraphTree
-            graph={activity.workGraph}
-            now={Date.now()}
-            capabilities={NO_WORK_GRAPH_CAPABILITIES}
-          />
-        </section>
-      ) : null}
-      <DelegateTaskForm
-        key={target.taskId}
-        target={target}
-        onCreated={listing.actions.refresh}
-      />
-    </div>
-  );
-  const advice = (
-    <div {...stylex.props(styles.contentStack)}>
-      {consults.length
-        ? consults.map(({ key, snapshot: s }) => (
-            <article key={key} {...stylex.props(styles.article)}>
-              <div {...stylex.props(styles.row)}>
-                <h3 {...stylex.props(styles.heading)}>
-                  {s.advisorModel ?? s.advisorProviderId ?? "Advisor"}
-                </h3>
-                <StatusBadge
-                  tone={
-                    s.outcome === "completed"
-                      ? "success"
-                      : s.outcome === "pending"
-                        ? "active"
-                        : "neutral"
-                  }
-                >
-                  {s.outcome}
-                </StatusBadge>
-              </div>
-              <div>
-                <h4 {...stylex.props(styles.heading)}>
-                  Question from {s.primaryModel ?? s.primaryProviderId}
-                </h4>
-                <p
-                  {...stylex.props(
-                    styles.body,
-                    styles.preWrap,
-                    styles.breakWords,
-                    styles.marginTop1,
-                  )}
-                >
-                  {s.question ?? "No question captured."}
-                </p>
-              </div>
-              <div>
-                <h4 {...stylex.props(styles.heading)}>Advisor response</h4>
-                <p
-                  {...stylex.props(
-                    styles.body,
-                    styles.preWrap,
-                    styles.breakWords,
-                    styles.marginTop1,
-                  )}
-                >
-                  {s.advice ?? s.detail ?? "Waiting for a response…"}
-                </p>
-              </div>
-              <details {...stylex.props(styles.detailsMuted)}>
-                <summary {...stylex.props(styles.cursor, focusRing.ring)}>
-                  Exchange details
-                </summary>
-                <p {...stylex.props(styles.marginTop2, styles.breakAll)}>
-                  Turn {s.turnId} ·{" "}
-                  {s.durationMs === undefined
-                    ? "Duration unavailable"
-                    : `${Math.round(s.durationMs / 1000)} seconds`}
-                </p>
-              </details>
-            </article>
-          ))
-        : null}
-      <AdvisorTranscript
-        taskId={target.taskId}
-        history={history}
-        showHistory={Boolean(section)}
-      />
-    </div>
-  );
-  const directContent =
-    section === "team" ? (
-      team
-    ) : section === "workers" ? (
-      <WorkerExchanges
-        taskId={target.taskId}
-        history={history}
-        showHistory={Boolean(section)}
-      />
-    ) : section === "advice" ? (
-      advice
-    ) : section === "tools" ? (
-      <WorkflowLibrary
-        taskId={target.taskId}
-        workspaceId={target.workspaceId}
-        projectPath={target.projectPath}
-      />
-    ) : null;
-  const directCopy = section ? DIRECT_SECTION_COPY[section] : null;
+  // The tree only earns its heading once the graph has rows; a root-only
+  // graph would print "Agent tree" over nothing.
+  const workGraph = activity?.workGraph ?? null;
+  const showTree =
+    (filter === "all" || filter === "tasks") &&
+    workGraph !== null &&
+    summarizeWorkGraph(workGraph).totalCount > 0;
+
   return (
     <section
-      aria-label={directCopy?.title ?? "Task collaboration"}
+      aria-label="Delegations"
+      data-testid="delegations-panel"
       {...stylex.props(styles.minZero, styles.panelStack)}
     >
       <div {...stylex.props(styles.rowBetween)}>
         <p {...stylex.props(styles.body, styles.muted)}>
-          Assignments and recorded exchanges for this task
+          Every advisor consult, worker run and delegated task for this task
         </p>
         {exporting ? (
           <ActionButton size="xs" tone="danger" onClick={cancelExport}>
@@ -347,54 +379,79 @@ export function CollaborationPanel({
           {exportNotice.text}
         </p>
       ) : null}
-      {section ? (
-        directContent
-      ) : (
-        <>
-          <section
-            aria-labelledby="delegated-work-heading"
-            {...stylex.props(styles.sectionStack)}
+
+      <div
+        role="group"
+        aria-label="Filter delegations"
+        className={sx(delegationStyles.filterRow)}
+      >
+        {FILTERS.map((option) => (
+          <ActionButton
+            key={option.id}
+            size="xs"
+            weight={filter === option.id ? "secondary" : "quiet"}
+            aria-pressed={filter === option.id}
+            data-delegation-filter={option.id}
+            onClick={() => setFilter(option.id)}
           >
-            <h3
-              id="delegated-work-heading"
-              {...stylex.props(styles.heading)}
-            >
-              Delegated tasks
-            </h3>
-            {team}
-          </section>
-          {hasAdvice ? (
-            <section
-              aria-labelledby="advice-heading"
-              {...stylex.props(styles.sectionDivider)}
-            >
-              <h3 id="advice-heading" {...stylex.props(styles.heading)}>
-                Consultations
-              </h3>
-              {advice}
-            </section>
-          ) : null}
-          {hasWorkers ? (
-            <section
-              aria-labelledby="worker-work-heading"
-              {...stylex.props(styles.sectionDivider)}
-            >
-              <h3
-                id="worker-work-heading"
-                {...stylex.props(styles.heading)}
-              >
-                Worker assignments
-              </h3>
-              <WorkerExchanges
-                taskId={target.taskId}
-                history={history}
-                showHistory={Boolean(section)}
-              />
-            </section>
-          ) : null}
-          <CollaborationHistoryControls history={history} exchangeKind="all" />
-        </>
-      )}
+            {option.label}
+          </ActionButton>
+        ))}
+      </div>
+
+      {listing.loading ? (
+        <p role="status" {...stylex.props(styles.body, styles.muted)}>
+          Loading delegated tasks…
+        </p>
+      ) : null}
+      {listing.error ? (
+        <p role="alert" {...stylex.props(styles.body, styles.danger)}>
+          {listing.error}{" "}
+          <ActionButton onClick={listing.actions.refresh}>
+            Retry loading
+          </ActionButton>
+        </p>
+      ) : null}
+
+      {rows.length > 0 ? (
+        <DelegationsBlock
+          exchanges={rows}
+          nowMs={nowMs}
+          showHeader={false}
+          onAction={handleAction}
+          renderExtraActions={renderExtraActions}
+          statusNoteFor={statusNoteFor}
+          data-testid="delegations-list"
+        />
+      ) : !listing.loading && !history.loading ? (
+        <p className={sx(delegationStyles.empty)}>
+          {filter === "all"
+            ? "No delegations yet. Arm the Advisor or Worker in the composer, or delegate a task below."
+            : "Nothing matches this filter in the current conversation or the saved slice."}
+        </p>
+      ) : null}
+
+      {showTree && activity?.workGraph ? (
+        <section>
+          <h3 {...stylex.props(styles.heading, styles.marginBottom2)}>
+            Agent tree
+          </h3>
+          <WorkGraphTree
+            graph={activity.workGraph}
+            now={nowMs}
+            capabilities={NO_WORK_GRAPH_CAPABILITIES}
+          />
+        </section>
+      ) : null}
+
+      <div {...stylex.props(styles.sectionDivider)}>
+        <DelegateTaskForm
+          key={target.taskId}
+          target={target}
+          onCreated={listing.actions.refresh}
+        />
+        <CollaborationHistoryControls history={history} exchangeKind="all" />
+      </div>
     </section>
   );
 }

@@ -5,6 +5,7 @@ import type {
   ProviderId,
 } from "@/lib/providers/provider.types";
 import { getTurnModelInfoParts } from "@/lib/providers/turn-model-info";
+import { toHumanModelName } from "@/lib/providers/model-catalog";
 import type { TurnModelInfo } from "@/types/chat";
 
 const PROVIDER_IDS: ReadonlySet<string> = new Set<ProviderId>([
@@ -35,7 +36,7 @@ export interface ActualRunModel {
 }
 
 /**
- * `Claude Code · Claude Fable 5.1 · High`. The effort rides beside the model
+ * `Claude Fable 5.1 · High`. The effort rides beside the model
  * because the two are chosen together in the composer; a run record that
  * names only the model hides half of what was asked of it.
  */
@@ -50,7 +51,10 @@ export function formatActualRunModel(actual: ActualRunModel) {
         modelInfo: actual.modelInfo,
       })
     : { name: actual.model, details: [] as string[] };
-  return [toProviderLabel(actual.providerId), parts.name, ...parts.details]
+  // A catalog name already says which provider ran it; the provider label
+  // only leads when the model is unknown to the catalog.
+  const named = providerId !== null && parts.name !== actual.model;
+  return [named ? null : toProviderLabel(actual.providerId), parts.name, ...parts.details]
     .filter(Boolean)
     .join(" · ");
 }
@@ -80,14 +84,32 @@ export function ModelResolutionSummary(props: {
             className={sx(styles.modelValue)}
             title={`${toProviderLabel(props.resolution.selectedProviderId)} · ${props.resolution.selectedModel}`}
           >
-            {toProviderLabel(props.resolution.selectedProviderId)} ·{" "}
-            {props.resolution.selectedModel}
+            {toHumanModelName({ model: props.resolution.selectedModel }) ||
+              `${toProviderLabel(props.resolution.selectedProviderId)} · ${props.resolution.selectedModel}`}
           </dd>
+          {props.resolution.taskClass ? (
+            <>
+              <dt className={sx(styles.muted)}>Task</dt>
+              <dd className={sx(styles.modelSource)}>
+                {[props.resolution.taskClass, props.resolution.stance]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </dd>
+            </>
+          ) : null}
           <dt className={sx(styles.muted)}>Source</dt>
           <dd className={sx(styles.modelSource)}>
             {toSourceLabel(props.resolution.source)}
           </dd>
-          <dt className={sx(styles.muted)}>Reason</dt>
+          {props.resolution.ruleReason ? (
+            <>
+              <dt className={sx(styles.muted)}>Rule</dt>
+              <dd className={sx(styles.modelReason)}>
+                {props.resolution.ruleReason}
+              </dd>
+            </>
+          ) : null}
+          <dt className={sx(styles.muted)}>Signals</dt>
           <dd className={sx(styles.modelReason)}>
             {props.resolution.rationale}
           </dd>

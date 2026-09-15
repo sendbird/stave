@@ -10,7 +10,6 @@ import { chatAreaStyles } from "./chat-area.styles";
 import { sx } from "../ads/utils/stylex";
 import { memo, useCallback, useEffect, useRef, type MouseEvent } from "react";
 import { AdvisorConsultLogHost } from "@/components/session/AdvisorConsultLogDialog";
-import { AdvisorExchangeMonitor } from "@/components/session/AdvisorExchangeMonitor";
 import { ChatInput } from "@/components/session/ChatInput";
 import { TaskStartGuide } from "@/components/session/TaskStartGuide";
 import { ChatPanel } from "@/components/session/ChatPanel";
@@ -368,12 +367,6 @@ function ChatAreaImpl(props: ChatAreaProps) {
                 dock height changes frame-by-frame. */}
             <RenderProfiler id="PlanViewer">
               <PlanViewer />
-            </RenderProfiler>
-            {/* Advisor state is anchored top-right, opposite the plan card and
-                clear of the turn rail, because it describes the turn's setup
-                rather than its output. */}
-            <RenderProfiler id="AdvisorExchangeMonitor">
-              <AdvisorExchangeMonitor />
             </RenderProfiler>
             {/* Floating placement of the turn activity shelf. Renders only
                 when `settings.turnActivityPlacement === "floating"`; the

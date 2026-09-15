@@ -26,6 +26,13 @@ import {
   MartinSyncSettingsSchema,
 } from "@/lib/martin-sync/types";
 import { STANDALONE_CLI_SETTING_FIELD_ID } from "@/components/layout/settings-dialog-standalone-cli-card";
+import { AUTO_ROUTING_SETTING_FIELD_ID } from "@/components/layout/settings-dialog-auto-routing-section";
+import {
+  buildStarterProfile,
+  DEFAULT_AUTO_ROUTING_PROFILE_ID,
+  validateProfile,
+  type AutoRoutingProfile,
+} from "@/lib/providers/auto-routing-profile";
 import type { SectionId } from "./settings-dialog.schema";
 
 export interface SettingDefinition<
@@ -80,7 +87,58 @@ const ADVISOR_MODEL_SEARCH_KEYWORDS = (
   ]),
 );
 
+const AutoRoutingProfileSchema = z
+  .custom<AutoRoutingProfile>(
+    (value) => typeof value === "object" && value !== null,
+    "Expected an Auto routing profile",
+  )
+  .transform((value) => validateProfile(value));
+
 export const settingDefinitions = [
+  {
+    key: "autoRoutingEnabled",
+    sectionId: "autoRouting",
+    fieldId: AUTO_ROUTING_SETTING_FIELD_ID,
+    title: "Enable Auto routing",
+    description:
+      "Global kill switch for the model router behind the composer's Auto option.",
+    keywords: ["auto", "routing", "router", "enable", "kill switch", "model"],
+    schema: z.boolean(),
+    defaultValue: false,
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "next-turn",
+    importExport: "include",
+  } satisfies SettingDefinition<"autoRoutingEnabled">,
+  {
+    key: "autoRoutingProfile",
+    sectionId: "autoRouting",
+    fieldId: AUTO_ROUTING_SETTING_FIELD_ID,
+    title: "Auto routing profile",
+    description:
+      "Role table, stance, budget guard, signal toggles, and eligible models the router reads.",
+    keywords: [
+      "auto",
+      "routing",
+      "profile",
+      "role table",
+      "stance",
+      "cost saver",
+      "quality first",
+      "balanced",
+      "budget guard",
+      "eligible models",
+      "advisor",
+      "worker",
+      "delegate",
+    ],
+    schema: AutoRoutingProfileSchema,
+    defaultValue: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
+    scope: "app",
+    sensitivity: "plain",
+    applyMode: "next-turn",
+    importExport: "include",
+  } satisfies SettingDefinition<"autoRoutingProfile">,
   {
     key: "advisorTarget",
     sectionId: "providers",

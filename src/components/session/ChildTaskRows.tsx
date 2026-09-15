@@ -19,7 +19,8 @@ import {
   type ChildTaskListingSource,
 } from "@/components/session/useChildTasks";
 import { Button, Textarea } from "@/components/ui";
-import { getProviderLabel } from "@/lib/providers/model-catalog";
+import { describeAgentIdentity } from "@/lib/delegation/format";
+import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { sx, cx } from "@/components/ads/utils/stylex";
 import {
   childTaskRowsStyles as styles,
@@ -69,28 +70,47 @@ const COMPOSER_COPY: Record<
   },
 };
 
-function ChildTaskRow(props: {
-  child: ChildTaskSummary;
-  busy: boolean;
-  blockedKind?: ChildTaskBlockedKind | null;
-  error?: string | null;
+export interface ChildTaskRowActionHandlers {
   onOpen: (child: ChildTaskSummary) => void;
   onFollowUp: (child: ChildTaskSummary, prompt: string) => void;
   onRetry: (child: ChildTaskSummary, prompt: string) => void;
   onStop: (child: ChildTaskSummary) => void;
   onDetach: (child: ChildTaskSummary) => void;
-}) {
+}
+
+/**
+ * `Requested: GPT-5.3-Codex · High` — what the delegation asked for, through
+ * the shared identity vocabulary so the row never prints a raw model id.
+ */
+export function describeChildTaskRequest(child: ChildTaskSummary): string | null {
+  if (!child.requestedModel && !child.requestedEffort) {
+    return null;
+  }
+  return describeAgentIdentity({
+    model: child.requestedModel,
+    effort: child.requestedEffort,
+  }).text;
+}
+
+/**
+ * The action row for one delegation — Open · Follow-up · Stop · Retry ·
+ * Detach — plus the inline prompt composer the follow-up and retry need.
+ * Shared by the child-task row here and the child-task exchange detail in the
+ * Turn Activity shelf and the Delegations panel, so both surfaces offer the
+ * same controls and the same refusals.
+ */
+export function ChildTaskRowActions(
+  props: {
+    child: ChildTaskSummary;
+    busy: boolean;
+  } & ChildTaskRowActionHandlers,
+) {
   const { child } = props;
   const composerId = useId();
   const [composer, setComposer] = useState<ChildTaskComposerKind | null>(null);
   const [prompt, setPrompt] = useState("");
-  const phase = describeChildTaskPhase(child, props.blockedKind);
   const controls = resolveChildTaskControls(child);
   const copy = composer ? COMPOSER_COPY[composer] : null;
-  const requestedDetails = [
-    child.requestedModel ? `model ${child.requestedModel}` : null,
-    child.requestedEffort ? `effort ${child.requestedEffort}` : null,
-  ].filter((detail): detail is string => detail !== null);
 
   const openComposer = (kind: ChildTaskComposerKind) => {
     setComposer((current) => (current === kind ? null : kind));
@@ -112,59 +132,8 @@ function ChildTaskRow(props: {
   };
 
   return (
-    <div
-      data-child-task-delegation-key={child.delegationKey}
-      data-child-task-blocked={phase.blocked ? "true" : undefined}
-      className={sx(
-        styles.row,
-        phase.blocked ? styles.rowBorderBlocked : styles.rowBorderDefault,
-      )}
-    >
-      <div className={sx(styles.headerRow)}>
-        <span
-          className={sx(
-            styles.phaseBadge,
-            childTaskPhaseToneStyles[phase.tone],
-          )}
-        >
-          {phase.label}
-        </span>
-        <span className={sx(styles.delegationName)}>{child.delegationKey}</span>
-        <span className={sx(styles.metaText)}>
-          {getProviderLabel({ providerId: child.providerId })}
-        </span>
-        {requestedDetails.length ? (
-          <span
-            className={sx(styles.metaText)}
-            data-testid="child-task-requested-details"
-          >
-            Requested: {requestedDetails.join(" · ")}
-          </span>
-        ) : null}
-        {child.attempt > 0 ? (
-          <span className={sx(styles.metaTextNums)}>
-            Attempt {child.attempt + 1}
-          </span>
-        ) : null}
-      </div>
-
-      {phase.blocked && props.blockedKind ? (
-        <p className={sx(styles.blockedHint)}>
-          {BLOCKED_HINT[props.blockedKind]}
-        </p>
-      ) : null}
-
-      {child.reason ? (
-        <p className={sx(styles.reasonText)}>{child.reason}</p>
-      ) : null}
-
-      {props.error ? (
-        <p className={sx(styles.errorText)} role="alert">
-          {props.error}
-        </p>
-      ) : null}
-
-      <div className={sx(styles.actionsRow)}>
+    <>
+      <div className={sx(styles.actionsRow)} data-testid="child-task-actions">
         <Button
           type="button"
           size="xs"
@@ -269,6 +238,85 @@ function ChildTaskRow(props: {
           </div>
         </div>
       ) : null}
+    </>
+  );
+}
+
+function ChildTaskRow(
+  props: {
+    child: ChildTaskSummary;
+    busy: boolean;
+    blockedKind?: ChildTaskBlockedKind | null;
+    error?: string | null;
+  } & ChildTaskRowActionHandlers,
+) {
+  const { child } = props;
+  const phase = describeChildTaskPhase(child, props.blockedKind);
+  const requested = describeChildTaskRequest(child);
+
+  return (
+    <div
+      data-child-task-delegation-key={child.delegationKey}
+      data-child-task-blocked={phase.blocked ? "true" : undefined}
+      className={sx(
+        styles.row,
+        phase.blocked ? styles.rowBorderBlocked : styles.rowBorderDefault,
+      )}
+    >
+      <div className={sx(styles.headerRow)}>
+        <span
+          className={sx(
+            styles.phaseBadge,
+            childTaskPhaseToneStyles[phase.tone],
+          )}
+        >
+          {phase.label}
+        </span>
+        <span className={sx(styles.delegationName)}>{child.delegationKey}</span>
+        <span
+          className={sx(styles.metaText)}
+          data-testid="child-task-requested-details"
+          title={requested ? `Requested ${requested}` : undefined}
+        >
+          <AgentIdentity
+            compact
+            providerId={child.providerId}
+            model={child.requestedModel}
+            effort={child.requestedEffort}
+          />
+        </span>
+        {child.attempt > 0 ? (
+          <span className={sx(styles.metaTextNums)}>
+            Attempt {child.attempt + 1}
+          </span>
+        ) : null}
+      </div>
+
+      {phase.blocked && props.blockedKind ? (
+        <p className={sx(styles.blockedHint)}>
+          {BLOCKED_HINT[props.blockedKind]}
+        </p>
+      ) : null}
+
+      {child.reason ? (
+        <p className={sx(styles.reasonText)}>{child.reason}</p>
+      ) : null}
+
+      {props.error ? (
+        <p className={sx(styles.errorText)} role="alert">
+          {props.error}
+        </p>
+      ) : null}
+
+      <ChildTaskRowActions
+        child={child}
+        busy={props.busy}
+        onOpen={props.onOpen}
+        onFollowUp={props.onFollowUp}
+        onRetry={props.onRetry}
+        onStop={props.onStop}
+        onDetach={props.onDetach}
+      />
     </div>
   );
 }
@@ -344,29 +392,24 @@ async function openTaskInWorkspace(args: {
   return useAppStore.getState().tasks.some((task) => task.id === args.taskId);
 }
 
-export function ChildTaskRows(props: {
-  parentTaskId: string | null | undefined;
-  parentWorkspaceId?: string | null;
+export interface ChildTaskRowController extends ChildTaskRowActionHandlers {
+  children: readonly ChildTaskSummary[];
+  errorByDelegationKey: Readonly<Record<string, string>>;
+  blockedByDelegationKey: Readonly<Record<string, ChildTaskBlockedKind>>;
+  busyDelegationKey: string | null;
+}
+
+/**
+ * The action plumbing behind a child-task listing: busy/refusal state per
+ * delegation, blocked-kind derivation, and the five handlers. Owned here so the
+ * child rows and the exchange rows in the shelf and the panel run the same
+ * actions through the same coordinator, with the same refusals shown.
+ */
+export function useChildTaskRowController(args: {
+  source: ChildTaskListingSource;
   projectPath?: string | null;
-  enabled?: boolean;
-  /**
-   * A listing already loaded by an ancestor that needs it for something else
-   * too — the turn activity shelf reads it to fold delegated children into the
-   * turn's work graph. Passing it down keeps one subscription per parent task
-   * instead of one per view, and guarantees both views show the same rows.
-   */
-  source?: ChildTaskListingSource;
-  className?: string;
-}) {
-  // Disabled rather than skipped: a hook cannot be conditional, and an disabled
-  // `useChildTasks` neither lists nor subscribes.
-  const ownListing = useChildTasks({
-    parentTaskId: props.parentTaskId,
-    parentWorkspaceId: props.parentWorkspaceId,
-    projectPath: props.projectPath,
-    enabled: props.source ? false : props.enabled,
-  });
-  const { children, actions } = props.source ?? ownListing;
+}): ChildTaskRowController {
+  const { children, actions } = args.source;
   const [errorByDelegationKey, setErrorByDelegationKey] = useState<
     Record<string, string>
   >({});
@@ -430,12 +473,13 @@ export function ChildTaskRows(props: {
     [applyResult],
   );
 
+  const projectPath = args.projectPath;
   const handleOpen = useCallback(
     (child: ChildTaskSummary) => {
       void openTaskInWorkspace({
         taskId: child.childTaskId,
         workspaceId: child.childWorkspaceId,
-        projectPath: props.projectPath,
+        projectPath,
       })
         .then((opened) => {
           if (opened) {
@@ -453,7 +497,7 @@ export function ChildTaskRows(props: {
           });
         });
     },
-    [applyResult, props.projectPath],
+    [applyResult, projectPath],
   );
 
   const handleFollowUp = useCallback(
@@ -496,18 +540,58 @@ export function ChildTaskRows(props: {
     [actions, runAction],
   );
 
+  return {
+    children,
+    errorByDelegationKey,
+    blockedByDelegationKey,
+    busyDelegationKey,
+    onOpen: handleOpen,
+    onFollowUp: handleFollowUp,
+    onRetry: handleRetry,
+    onStop: handleStop,
+    onDetach: handleDetach,
+  };
+}
+
+export function ChildTaskRows(props: {
+  parentTaskId: string | null | undefined;
+  parentWorkspaceId?: string | null;
+  projectPath?: string | null;
+  enabled?: boolean;
+  /**
+   * A listing already loaded by an ancestor that needs it for something else
+   * too — the turn activity shelf reads it to fold delegated children into the
+   * turn's work graph. Passing it down keeps one subscription per parent task
+   * instead of one per view, and guarantees both views show the same rows.
+   */
+  source?: ChildTaskListingSource;
+  className?: string;
+}) {
+  // Disabled rather than skipped: a hook cannot be conditional, and an disabled
+  // `useChildTasks` neither lists nor subscribes.
+  const ownListing = useChildTasks({
+    parentTaskId: props.parentTaskId,
+    parentWorkspaceId: props.parentWorkspaceId,
+    projectPath: props.projectPath,
+    enabled: props.source ? false : props.enabled,
+  });
+  const controller = useChildTaskRowController({
+    source: props.source ?? ownListing,
+    projectPath: props.projectPath,
+  });
+
   return (
     <ChildTaskRowsSurface
-      rows={children}
-      errorByDelegationKey={errorByDelegationKey}
-      blockedByDelegationKey={blockedByDelegationKey}
-      busyDelegationKey={busyDelegationKey}
+      rows={controller.children}
+      errorByDelegationKey={controller.errorByDelegationKey}
+      blockedByDelegationKey={controller.blockedByDelegationKey}
+      busyDelegationKey={controller.busyDelegationKey}
       className={props.className}
-      onOpen={handleOpen}
-      onFollowUp={handleFollowUp}
-      onRetry={handleRetry}
-      onStop={handleStop}
-      onDetach={handleDetach}
+      onOpen={controller.onOpen}
+      onFollowUp={controller.onFollowUp}
+      onRetry={controller.onRetry}
+      onStop={controller.onStop}
+      onDetach={controller.onDetach}
     />
   );
 }

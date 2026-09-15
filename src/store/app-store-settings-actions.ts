@@ -51,6 +51,10 @@ import {
   normalizeAutoRoutingEligibleModels,
   normalizeAutoRoutingObjective,
 } from "@/store/auto-routing";
+import {
+  STANCE_OBJECTIVE,
+  validateProfile,
+} from "@/lib/providers/auto-routing-profile";
 import { normalizeProviderTimeoutMs } from "@/store/editor.utils";
 import {
   captureCurrentProjectState,
@@ -67,6 +71,7 @@ import {
 } from "@/store/provider-runtime-options";
 
 type SettingsActionKey =
+  | "clearAutoRoutingDecision"
   | "setProjectWorkspaceInitCommand"
   | "setProjectBasePrompt"
   | "setProjectKickoffBranchNamingRule"
@@ -93,6 +98,16 @@ export function createSettingsActions(args: {
   const { set, get, normalizeSharedSkillsHomeSetting } = args;
 
   return {
+    clearAutoRoutingDecision: (taskId) => {
+      set((state) => {
+        if (!(taskId in state.autoRoutingDecisionByTask)) {
+          return state;
+        }
+        const { [taskId]: _dropped, ...autoRoutingDecisionByTask } =
+          state.autoRoutingDecisionByTask;
+        return { autoRoutingDecisionByTask };
+      });
+    },
     setProjectWorkspaceInitCommand: ({ projectPath, command }) => {
       set((state) => {
         const normalizedProjectPath =
@@ -442,6 +457,30 @@ export function createSettingsActions(args: {
           : {
               modelVisibility: normalizeModelVisibility(patch.modelVisibility),
             }),
+        ...(patch.autoRoutingProfile === undefined
+          ? {}
+          : (() => {
+              const autoRoutingProfile = validateProfile(
+                patch.autoRoutingProfile,
+              );
+              // Keep the v1 mirrors coherent for anything still reading them.
+              return {
+                autoRoutingProfile,
+                autoRoutingObjective: STANCE_OBJECTIVE[autoRoutingProfile.stance],
+                autoRoutingUseClassifier: autoRoutingProfile.signals.classifier,
+                autoRoutingSafetyEscalation:
+                  autoRoutingProfile.signals.safetyEscalation,
+                autoRoutingAllowProviderSwitch:
+                  autoRoutingProfile.signals.providerSwitch,
+                autoRoutingEligibleClaudeModels: [
+                  ...(autoRoutingProfile.eligibleModelsByProvider["claude-code"] ??
+                    []),
+                ],
+                autoRoutingEligibleCodexModels: [
+                  ...(autoRoutingProfile.eligibleModelsByProvider.codex ?? []),
+                ],
+              };
+            })()),
         ...(patch.autoRoutingEligibleClaudeModels === undefined
           ? {}
           : {

@@ -109,6 +109,8 @@ export interface WorkGraphTreeProps {
   onControl?: (request: WorkGraphControlRequest) => void;
   /** Reveal the spawning tool call in the transcript when the graph knows it. */
   onSelectTool?: (toolUseId: string) => void;
+  /** Hidden when a host block already titles the tree (the Agents block). */
+  showHeading?: boolean;
   /**
    * Why a control the reader just used did not take effect, per node.
    *
@@ -178,7 +180,9 @@ export const WorkGraphTree = memo(function WorkGraphTree(
       aria-label="Agent tree"
       data-testid="work-graph-tree"
     >
-      <h3 className={sx(styles.heading)}>Agent tree</h3>
+      {props.showHeading !== false ? (
+        <h3 className={sx(styles.heading)}>Agent tree</h3>
+      ) : null}
       <div id={completedRowsId} className={sx(styles.list)}>
         {visibleRows.map((row) => (
           <WorkGraphTreeNodeRow

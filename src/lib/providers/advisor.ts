@@ -21,6 +21,11 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
+import {
+  buildRoleSignals,
+  resolveRoute,
+  type AutoRoutingProfile,
+} from "@/lib/providers/auto-routing-profile";
 
 export const ADVISOR_CONTEXT_SOURCE_ID = "stave:advisor";
 export const ADVISOR_SETTING_FIELD_ID = "settings-field-advisor";
@@ -57,6 +62,62 @@ export function normalizeAdvisorConsultLimit(value: unknown): number {
  * bounded.
  */
 export const DEFAULT_ADVISOR_TIMEOUT_MS = 10 * 60_000;
+
+/**
+ * Advisor target model that defers to the Auto model router. The role table's
+ * `advisor` rules decide the concrete provider, model and effort per turn, so
+ * a target pinned to this value is never sent to a runtime as-is.
+ */
+export const ADVISOR_AUTO_VALUE = "auto";
+
+export function isAutoAdvisorTarget(
+  target: AdvisorTarget | null | undefined,
+): boolean {
+  return target?.model.trim().toLowerCase() === ADVISOR_AUTO_VALUE;
+}
+
+/**
+ * Resolves an `auto` Advisor target through the router's advisor role. A
+ * concrete target passes through untouched so callers can apply this
+ * unconditionally right before the runtime options are built.
+ */
+export function resolveAdvisorAutoTarget(args: {
+  target: AdvisorTarget | null | undefined;
+  profile: AutoRoutingProfile;
+  primaryProviderId: ProviderId;
+  primaryModel?: string;
+  budgetUsedPercent?: number;
+  providerAvailability?: Partial<Record<ProviderId, boolean>>;
+}): AdvisorTarget | null {
+  if (!args.target) {
+    return null;
+  }
+  if (!isAutoAdvisorTarget(args.target)) {
+    return args.target;
+  }
+  const route = resolveRoute({
+    profile: args.profile,
+    role: "advisor",
+    signals: buildRoleSignals({
+      currentProviderId: args.primaryProviderId,
+      currentModel: args.primaryModel,
+      budgetUsedPercent: args.budgetUsedPercent,
+      providerAvailability: args.providerAvailability,
+    }),
+  });
+  if (route.providerId !== "claude-code" && route.providerId !== "codex") {
+    return null;
+  }
+  const effort = normalizeAdvisorEffort({
+    providerId: route.providerId,
+    value: route.effort,
+  });
+  return {
+    providerId: route.providerId,
+    model: route.model,
+    ...(effort ? { effort } : {}),
+  };
+}
 
 /**
  * Deadline per resolved effort tier.

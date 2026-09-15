@@ -1,0 +1,172 @@
+import * as stylex from "@stylexjs/stylex";
+import { vars } from "@/components/ads/tokens/tokens.stylex";
+
+/**
+ * The lit path of a routing decision as one vertical chain: a dot per hop
+ * joined by a single accent rail. Only the nodes the router actually landed
+ * on render here; the alternatives live in `RouteFlow`.
+ */
+export const routeTraceStyles = stylex.create({
+  root: {
+    display: "flex",
+    flexDirection: "column",
+    minWidth: 0,
+  },
+  header: {
+    alignItems: "center",
+    display: "flex",
+    gap: vars["--ads-space-8"],
+    minWidth: 0,
+    paddingBlock: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
+  },
+  title: {
+    color: vars["--ads-color-text"],
+    flex: 1,
+    fontSize: vars["--ads-font-size-body"],
+    fontWeight: vars["--ads-font-weight-medium"],
+    margin: 0,
+    minWidth: 0,
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  titleMuted: {
+    color: vars["--ads-color-text-muted"],
+    fontWeight: vars["--ads-font-weight-regular"],
+  },
+  toggle: {
+    color: vars["--ads-color-text-muted"],
+    flexShrink: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--ads-space-2"],
+  },
+  chain: {
+    display: "grid",
+    gridTemplateColumns: "0.75rem minmax(0, 1fr)",
+    columnGap: vars["--ads-space-8"],
+    paddingBlock: vars["--ads-space-2"],
+    paddingInline: vars["--ads-space-8"],
+    rowGap: 0,
+  },
+  hopItem: {
+    display: "contents",
+  },
+  railCell: {
+    alignItems: "center",
+    display: "flex",
+    flexDirection: "column",
+    minHeight: "100%",
+  },
+  dot: {
+    backgroundColor: vars["--ads-color-accent"],
+    borderRadius: vars["--ads-radius-full"],
+    flexShrink: 0,
+    height: "0.5rem",
+    marginTop: "0.3125rem",
+    width: "0.5rem",
+  },
+  dotWarn: {
+    backgroundColor: vars["--ads-color-warning-text"],
+  },
+  rail: {
+    backgroundColor: vars["--ads-color-accent"],
+    flex: 1,
+    minHeight: vars["--ads-space-8"],
+    opacity: 0.5,
+    width: 1.5,
+  },
+  hop: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-2"],
+    minWidth: 0,
+    paddingBottom: vars["--ads-space-8"],
+  },
+  hopLast: {
+    paddingBottom: vars["--ads-space-2"],
+  },
+  hopLabel: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    letterSpacing: "0.04em",
+    lineHeight: vars["--ads-line-height-tight"],
+    textTransform: "uppercase",
+  },
+  hopValue: {
+    color: vars["--ads-color-text"],
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-tight"],
+    minWidth: 0,
+    overflowWrap: "anywhere",
+  },
+  prompt: {
+    color: vars["--ads-color-text"],
+    display: "-webkit-box",
+    fontSize: vars["--ads-font-size-body"],
+    lineHeight: vars["--ads-line-height-normal"],
+    overflow: "hidden",
+    overflowWrap: "anywhere",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 2,
+  },
+  chips: {
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars["--ads-space-4"],
+    minWidth: 0,
+  },
+  chip: {
+    backgroundColor: vars["--ads-color-surface"],
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-mark"],
+    borderStyle: "solid",
+    borderWidth: vars["--ads-border-width-hairline"],
+    color: vars["--ads-color-text"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-tight"],
+    paddingBlock: vars["--ads-space-2"],
+    paddingInline: vars["--ads-space-4"],
+    whiteSpace: "nowrap",
+  },
+  chipWarn: {
+    backgroundColor: vars["--ads-color-warning-soft"],
+    borderColor: vars["--ads-color-warning-border"],
+    color: vars["--ads-color-warning-text"],
+  },
+  mono: {
+    color: vars["--ads-color-text"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    lineHeight: vars["--ads-line-height-tight"],
+  },
+  caption: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    minWidth: 0,
+    overflowWrap: "anywhere",
+  },
+  row: {
+    alignItems: "center",
+    display: "flex",
+    flexWrap: "wrap",
+    gap: vars["--ads-space-8"],
+    minWidth: 0,
+  },
+  srOnly: {
+    borderWidth: 0,
+    clip: "rect(0 0 0 0)",
+    clipPath: "inset(50%)",
+    height: 1,
+    margin: -1,
+    overflow: "hidden",
+    padding: 0,
+    position: "absolute",
+    whiteSpace: "nowrap",
+    width: 1,
+  },
+});

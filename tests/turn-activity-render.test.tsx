@@ -5,6 +5,7 @@ import { TurnActivitySurface } from "@/components/session/TurnActivity";
 import { turnActivityStyles } from "@/components/session/turn-activity.styles";
 import { sx } from "@/components/ads/utils/stylex";
 import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
+import { buildAutoRoutingDecisionRecord } from "@/store/auto-routing";
 
 describe("TurnActivity", () => {
   test("reuses the task execution summary in the expanded shelf", () => {
@@ -55,18 +56,35 @@ describe("TurnActivity", () => {
     expect(html).toContain("Task execution summary");
     expect(html).toContain("1 file");
     expect(html).toContain("120 tokens");
-    // Account limit and context headroom share one "Headroom" tile so the grid
-    // stays at six evenly dividing tiles.
+    // Account limit and context headroom share one "Headroom" tile. The shelf
+    // drops the Elapsed and Agents tiles: the header already shows elapsed and
+    // the Agents block above already counts the agents.
     expect(html).toContain("Headroom");
+    expect(html).not.toContain('data-metric="elapsed"');
+    expect(html).not.toContain('data-metric="agents"');
     expect(html).not.toContain(">Context left<");
     expect(html).not.toContain(">Account limit<");
-    expect(html.match(/data-metric="/g)).toHaveLength(6);
+    expect(html.match(/data-metric="/g)).toHaveLength(4);
   });
 
   test("keeps Cursor headroom free of Codex account-limit numbers", () => {
+    // One reported fact keeps the grid mounted: a grid that only says
+    // "Not reported" is dropped from the shelf altogether.
     const executionSummary = buildTaskExecutionSummary({
       providerId: "cursor",
-      messages: [],
+      messages: [
+        {
+          id: "assistant-cursor",
+          role: "assistant",
+          model: "cursor-default",
+          providerId: "cursor",
+          content: "Checked the diagnostics.",
+          startedAt: "2026-07-31T00:00:00.000Z",
+          completedAt: "2026-07-31T00:00:02.000Z",
+          usage: { inputTokens: 40, outputTokens: 10 },
+          parts: [],
+        },
+      ],
       rateLimits: {
         claude: {
           source: "oauth",
@@ -947,5 +965,94 @@ describe("TurnActivity", () => {
     // never reaches the title.
     expect(html).not.toContain("handler 1");
     expect(html).not.toContain("/Users/dev/.agents");
+  });
+});
+
+describe("TurnActivity route block", () => {
+  const routedRecord = buildAutoRoutingDecisionRecord({
+    decision: {
+      providerId: "claude-code",
+      model: "claude-sonnet-5",
+      role: "primary",
+      taskType: "implementation",
+      taskClass: "implement",
+      tier: "standard",
+      confidence: 0.82,
+      source: "heuristic",
+      rationale: "implement · medium complexity · 3 files",
+      ruleId: "implement",
+      ruleReason: "Implementation runs on Sonnet 5 at high effort",
+      stance: "balanced",
+      signals: {
+        taskClass: "implement",
+        complexity: "medium",
+        sensitive: false,
+        fileContextCount: 3,
+        lastAssistantProvider: "claude-code",
+      },
+      providerChanged: false,
+      stick: false,
+      claudeEffort: "high",
+    },
+    prompt: "Fix the terminal host close ordering.",
+  });
+  const baseProps = {
+    activeTurnId: "turn-route",
+    activity: {
+      turnId: "turn-route",
+      providerId: "claude-code" as const,
+      startedAt: 1_000,
+      lastEventAt: 2_000,
+      stalledAt: null,
+      pendingInteraction: null,
+      workItemsById: {},
+      orderedWorkItemIds: [],
+    },
+    isPlanPreparing: false,
+    workItems: [],
+    todos: [],
+  };
+
+  test("leads the list with the route when Auto picked the model", () => {
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        ...baseProps,
+        variant: "panel",
+        autoRouting: routedRecord,
+        autoRoutingBudgetStepDownAt: 80,
+      }),
+    );
+    const route = html.indexOf('data-testid="turn-activity-route"');
+    const agents = html.indexOf('data-testid="delegations-block"');
+    expect(route).toBeGreaterThan(-1);
+    // Who runs the turn and why comes before what they are doing.
+    if (agents !== -1) {
+      expect(route).toBeLessThan(agents);
+    }
+    // The panel is tall enough for the whole chain.
+    expect(html).toContain('data-testid="route-trace-chain"');
+    expect(html).toContain('data-rule-id="implement"');
+    expect(html).toContain("Sonnet 5");
+  });
+
+  test("folds the route to one line in the docked shelf", () => {
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        ...baseProps,
+        variant: "docked",
+        autoRouting: routedRecord,
+      }),
+    );
+    expect(html).toContain('data-testid="turn-activity-route"');
+    expect(html).toContain('data-collapsed="true"');
+    expect(html).not.toContain('data-testid="route-trace-chain"');
+    expect(html).toContain("Sonnet 5");
+  });
+
+  test("draws no route block when the model was picked by hand", () => {
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, { ...baseProps, autoRouting: null }),
+    );
+    expect(html).not.toContain('data-testid="turn-activity-route"');
   });
 });

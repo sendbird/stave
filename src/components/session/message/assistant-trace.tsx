@@ -45,6 +45,15 @@ import { assistantTraceStyles as styles } from "./assistant-trace.styles";
 import { isStaveToolName } from "@/lib/tool-display-name";
 import { formatWorkerExecutionMetadata } from "@/lib/providers/worker-mode";
 import {
+  isAdvisorToolName,
+  parseAdvisorToolAnswer,
+  parseAdvisorToolQuestion,
+} from "@/lib/collaboration/advisor-transcript";
+import { describeAgentIdentity } from "@/lib/delegation/format";
+import { selectAdvisorConsultLog } from "@/lib/providers/advisor-consult-log";
+import { useScopedTaskId } from "@/components/session/task-scope-context";
+import { useAppStore } from "@/store/app.store";
+import {
   isProviderFailureRecoveryEligible,
   parseProviderErrorNotice,
 } from "@/lib/providers/provider-error-recovery";
@@ -327,6 +336,56 @@ export function splitSystemEventContent(content: string): {
 
 /* ─── Entry renderer ──────────────────────────────────────────────── */
 
+const ADVISOR_TITLE_SUMMARY_CHARS = 72;
+
+/** `Advisor · Should the close request drain…` — the question as the title. */
+function summarizeAdvisorQuestion(question: string) {
+  const normalized = question.trim().replace(/\s+/g, " ");
+  if (normalized.length <= ADVISOR_TITLE_SUMMARY_CHARS) {
+    return normalized;
+  }
+  return `${normalized.slice(0, ADVISOR_TITLE_SUMMARY_CHARS - 1).trimEnd()}…`;
+}
+
+/**
+ * The advisor's identity for a transcript consult, read from the consult log.
+ *
+ * The tool part itself carries only the question and the advice; which model
+ * answered lives in the runtime's advisor events, archived per task. The log
+ * is matched on the question text because the runtime reports no tool-use id
+ * on advisor events — the same key the Delegations panel dedupes on.
+ */
+function AdvisorTraceIdentity(props: { question: string }) {
+  const taskId = useScopedTaskId();
+  const consults = useAppStore((state) =>
+    selectAdvisorConsultLog(state.advisorConsultLogByTask, taskId),
+  );
+  const match = useMemo(() => {
+    const question = props.question.trim();
+    return (
+      consults.find(
+        (entry) =>
+          entry.snapshot.advisorProviderId &&
+          entry.snapshot.question?.trim() === question,
+      ) ?? null
+    );
+  }, [consults, props.question]);
+  if (!match) {
+    return null;
+  }
+  return (
+    <>
+      {
+        describeAgentIdentity({
+          providerId: match.snapshot.advisorProviderId,
+          model: match.snapshot.advisorModel,
+          effort: match.snapshot.advisorEffort,
+        }).text
+      }
+    </>
+  );
+}
+
 function AssistantTraceEntryView(args: {
   entry: AssistantTraceEntry;
   isLast: boolean;
@@ -382,6 +441,50 @@ function AssistantTraceEntryView(args: {
       );
 
     case "tool": {
+      if (isAdvisorToolName(entry.part.toolName)) {
+        // Symmetric with the Worker row below: the delegation's own identity
+        // rides the machine slot, the question is the title, the advice is the
+        // output. Both are values the runtime reported, not agent prose.
+        const question = parseAdvisorToolQuestion(entry.part.input);
+        const isAdvisorError = entry.part.state === "output-error";
+        const answer =
+          entry.part.state === "output-available" || isAdvisorError
+            ? parseAdvisorToolAnswer({
+                output: entry.part.output,
+                state: entry.part.state,
+              })
+            : "";
+        return (
+          <StepRail.Step
+            connector={!isLast}
+            data-tool-use-id={entry.part.toolUseId}
+            tabIndex={entry.part.toolUseId ? -1 : undefined}
+            xstyle={[styles.railStep, rowMotionStyle]}
+          >
+            <ToolRun
+              count={<AdvisorTraceIdentity question={question} />}
+              durationMs={toMeasuredDurationMs(entry.part.elapsedSeconds)}
+              error={
+                isAdvisorError && answer ? (
+                  <TraceOutput linkify={false} text={answer} />
+                ) : undefined
+              }
+              icon={icon}
+              input={question}
+              inputLabel="Question"
+              output={
+                !isAdvisorError && answer ? (
+                  <TraceOutput prose text={answer} />
+                ) : undefined
+              }
+              outputLabel="Advice"
+              status={toAgentRunState(entry.part.state)}
+              title={`Advisor · ${summarizeAdvisorQuestion(question)}`}
+              tool="Advisor"
+            />
+          </StepRail.Step>
+        );
+      }
       const normalized = normalizeTraceToolName(entry.part.toolName);
       const toolSummary =
         normalized === "file_change"

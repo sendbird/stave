@@ -13,14 +13,6 @@ const enter = stylex.keyframes({
 });
 
 export const advisorExchangeMonitorStyles = stylex.create({
-  // Floating wrapper. Composes the shared floater wrapper class at the call
-  // site; this owns only the position offsets and width.
-  wrapper: {
-    right: 64,
-    top: vars["--ads-space-12"],
-    width: "min(23rem, calc(100% - 6rem))",
-  },
-
   // Card shell (composed with UI_ELEVATION_CLASS.floating at the call site).
   card: {
     animationName: {
@@ -77,17 +69,6 @@ export const advisorExchangeMonitorStyles = stylex.create({
     height: 14,
     width: 14,
   },
-  outcomeBadge: {
-    borderRadius: vars["--ads-radius-mark"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    letterSpacing: "0.025em",
-    lineHeight: "1rem",
-    paddingInline: vars["--ads-space-4"],
-  },
 
   participantRow: {
     alignItems: "flex-end",
@@ -106,7 +87,7 @@ export const advisorExchangeMonitorStyles = stylex.create({
   },
   chipRole: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
     letterSpacing: "0.1em",
     overflow: "hidden",
@@ -235,6 +216,9 @@ export const advisorExchangeMonitorStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  skipTextPassed: {
+    color: vars["--ads-color-warning-text"],
+  },
   skipButton: {
     flexShrink: 0,
     gap: vars["--ads-space-4"],
@@ -252,130 +236,6 @@ export const advisorExchangeMonitorStyles = stylex.create({
     paddingBlock: "0.625rem",
     paddingInline: vars["--ads-space-12"],
   },
-  sectionLabel: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    letterSpacing: "0.1em",
-    textTransform: "uppercase",
-  },
-  sectionLabelSpaced: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    letterSpacing: "0.1em",
-    marginTop: vars["--ads-space-12"],
-    textTransform: "uppercase",
-  },
-  checkList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    marginTop: 6,
-  },
-  checkItem: {
-    alignItems: "flex-start",
-    display: "flex",
-    gap: vars["--ads-space-8"],
-  },
-  checkBody: {
-    flex: 1,
-    minWidth: 0,
-  },
-  checkLabel: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: 1.45,
-  },
-  checkLabelFail: {
-    color: vars["--ads-color-danger-text"],
-    fontWeight: vars["--ads-font-weight-medium"],
-  },
-  checkDetail: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    lineHeight: 1.45,
-    overflowWrap: "break-word",
-  },
-  prose: {
-    backgroundColor: vars["--ads-color-surface"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-mark"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: 1.5,
-    marginTop: vars["--ads-space-4"],
-    overflowWrap: "break-word",
-    paddingBlock: 6,
-    paddingInline: vars["--ads-space-8"],
-    whiteSpace: "pre-wrap",
-  },
-  lifecycleList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: vars["--ads-space-2"],
-    marginTop: vars["--ads-space-4"],
-  },
-  lifecycleItem: {
-    alignItems: "baseline",
-    display: "flex",
-    fontSize: vars["--ads-font-size-micro"],
-    gap: vars["--ads-space-8"],
-    lineHeight: 1.5,
-  },
-  lifecycleAt: {
-    color: vars["--ads-color-text-muted"],
-    flexShrink: 0,
-    fontVariantNumeric: "tabular-nums",
-  },
-  lifecycleLabel: {
-    color: vars["--ads-color-text-muted"],
-    flex: 1,
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  metaGrid: {
-    columnGap: vars["--ads-space-12"],
-    display: "grid",
-    gridTemplateColumns: "1fr 1fr",
-    marginTop: vars["--ads-space-12"],
-    rowGap: 6,
-  },
-  metaCell: {
-    minWidth: 0,
-  },
-  metaTerm: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    letterSpacing: "0.1em",
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    textTransform: "uppercase",
-    whiteSpace: "nowrap",
-  },
-  metaValue: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-micro"],
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  footerRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: vars["--ads-space-4"],
-    justifyContent: "flex-end",
-    marginTop: vars["--ads-space-12"],
-  },
-  logButton: {
-    gap: vars["--ads-space-4"],
-    marginRight: "auto",
-  },
 });
 
 // Accent ink for the tone-tinted header glyph/loader.
@@ -385,35 +245,6 @@ export const advisorExchangeTone = stylex.create({
   positive: { color: vars["--ads-color-success-text"] },
   caution: { color: vars["--ads-color-warning-text"] },
   danger: { color: vars["--ads-color-danger-text"] },
-});
-
-// Tone chip: soft fill + matching border + text ink.
-export const advisorExchangeToneBadge = stylex.create({
-  neutral: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderColor: vars["--ads-color-border"],
-    color: vars["--ads-color-text-muted"],
-  },
-  active: {
-    backgroundColor: vars["--ads-color-info-soft"],
-    borderColor: vars["--ads-color-info-border"],
-    color: vars["--ads-color-info-text"],
-  },
-  positive: {
-    backgroundColor: vars["--ads-color-success-soft"],
-    borderColor: vars["--ads-color-success-border"],
-    color: vars["--ads-color-success-text"],
-  },
-  caution: {
-    backgroundColor: vars["--ads-color-warning-soft"],
-    borderColor: vars["--ads-color-warning-border"],
-    color: vars["--ads-color-warning-text"],
-  },
-  danger: {
-    backgroundColor: vars["--ads-color-danger-soft"],
-    borderColor: vars["--ads-color-danger-border"],
-    color: vars["--ads-color-danger-text"],
-  },
 });
 
 // Provider bar fills read the themed provider tone variables (same values the

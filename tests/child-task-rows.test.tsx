@@ -77,13 +77,15 @@ describe("ChildTaskRowsSurface", () => {
       }),
     ]);
 
-    expect(html).toContain("Requested: model gpt-5.3-codex · effort high");
+    // Catalog names and title-case effort, never raw ids or tokens.
+    expect(html).toContain('data-agent-identity="GPT-5.3-Codex · High"');
+    expect(html).not.toContain("gpt-5.3-codex");
 
     const modelOnly = renderRows([
-      buildChild({ requestedModel: "claude-sonnet-4" }),
+      buildChild({ requestedModel: "claude-sonnet-5" }),
     ]);
-    expect(modelOnly).toContain("Requested: model claude-sonnet-4");
-    expect(modelOnly).not.toContain("effort");
+    expect(modelOnly).toContain('data-agent-identity="Claude Sonnet 5"');
+    expect(modelOnly).not.toContain("· High");
   });
 
   test("reads a detached delegation apart from the row's reason line", () => {

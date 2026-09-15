@@ -525,8 +525,7 @@ describe("advisor effort", () => {
   });
 
   test("an unpinned target follows the model's provider default", () => {
-    // The default-effort ladder runs inverse to model strength: Opus/Sol high,
-    // Sonnet/Terra xhigh.
+    // Vendor default ladder: Opus/Sol high, Terra high.
     expect(
       resolveAdvisorEffort({
         providerId: "claude-code",
@@ -538,16 +537,16 @@ describe("advisor effort", () => {
     ).toBe("high");
     expect(
       resolveAdvisorEffort({ providerId: "codex", model: "gpt-5.6-terra" }),
-    ).toBe("xhigh");
+    ).toBe("high");
   });
 
   test("gives high-effort Advisors a longer deadline", () => {
-    // Sonnet 5 defaults to xhigh on the inverse ladder, so its unpinned
-    // Advisor outlasts Opus 5's high tier without pinning an effort.
+    // A pinned xhigh Advisor outlasts Opus 5's unpinned high tier.
     expect(
       resolveAdvisorTimeoutMs({
         providerId: "claude-code",
         model: "claude-sonnet-5",
+        effort: "xhigh",
       }),
     ).toBe(15 * 60_000);
     expect(

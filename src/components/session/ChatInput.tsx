@@ -30,6 +30,11 @@ import {
 } from "@/components/ai-elements/composer-control-density";
 import { useComposerFrameFits } from "@/hooks/use-composer-frame-fits";
 import { PromptInputAdvisorPill } from "@/components/ai-elements/prompt-input-advisor-mode";
+import {
+  STANCE_LABELS,
+  formatResolvedRouteLabel,
+} from "@/lib/providers/auto-routing-profile";
+import { formatAutoRoutingSignalSummary } from "@/store/auto-routing";
 import { PromptInputWorkerPill } from "@/components/ai-elements/prompt-input-worker-mode";
 import {
   buildWorkerEffortPatch,
@@ -2532,6 +2537,12 @@ function BaseChatInput() {
         ] as const,
     ),
   );
+  const autoRoutingStance = useAppStore(
+    (state) => state.settings.autoRoutingProfile.stance,
+  );
+  const autoRoutingDecisionRecord = useAppStore(
+    (state) => state.autoRoutingDecisionByTask[activeTaskId] ?? null,
+  );
   const providerSelectionTarget = activeTaskId || "draft:session";
   const activeModel =
     activeProvider === "claude-code"
@@ -2722,8 +2733,28 @@ function BaseChatInput() {
       buildAutoModelSelectorOption({
         providerId: activeProvider,
         available: autoRoutingEnabled,
+        stanceLabel: STANCE_LABELS[autoRoutingStance],
+        routed:
+          autoRoutingDecisionRecord &&
+          autoRoutingDecisionRecord.decision.source !== "disabled" &&
+          autoRoutingDecisionRecord.decision.source !== "manual"
+            ? {
+                label: formatResolvedRouteLabel({
+                  model: autoRoutingDecisionRecord.decision.model,
+                  effort:
+                    autoRoutingDecisionRecord.decision.claudeEffort ??
+                    autoRoutingDecisionRecord.decision.codexReasoningEffort,
+                }),
+                description: `${autoRoutingDecisionRecord.decision.ruleReason} — ${formatAutoRoutingSignalSummary(autoRoutingDecisionRecord.decision.signals)}`,
+              }
+            : null,
       }),
-    [activeProvider, autoRoutingEnabled],
+    [
+      activeProvider,
+      autoRoutingDecisionRecord,
+      autoRoutingEnabled,
+      autoRoutingStance,
+    ],
   );
   const selectedModelOption = isAutoRoutingSelected
     ? autoModelOption

@@ -52,33 +52,13 @@ export const advisorConsultLogDialogStyles = stylex.create({
     },
   },
 
-  // Section + prose primitives.
+  // Section label for the log-only sections (post-consult, verdict).
   sectionLabel: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
     letterSpacing: "0.1em",
     textTransform: "uppercase",
-  },
-  prose: {
-    backgroundColor: vars["--ads-color-surface"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-mark"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: 1.5,
-    marginTop: vars["--ads-space-4"],
-    overflowWrap: "break-word",
-    paddingBlock: 6,
-    paddingInline: vars["--ads-space-8"],
-    whiteSpace: "pre-wrap",
-  },
-  proseInk: {
-    color: vars["--ads-color-text"],
-  },
-  proseMuted: {
-    color: vars["--ads-color-text-muted"],
   },
 
   // Consult row (an ADS host button). `layout="host"` supplies the quiet hover
@@ -121,21 +101,17 @@ export const advisorConsultLogDialogStyles = stylex.create({
     whiteSpace: "nowrap",
   },
   chip: {
-    borderRadius: vars["--ads-radius-mark"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    letterSpacing: "0.025em",
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1rem",
+    minBlockSize: "1rem",
     paddingInline: vars["--ads-space-4"],
   },
   rowMeta: {
     alignItems: "center",
     color: vars["--ads-color-text-muted"],
     display: "flex",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     gap: 6,
     lineHeight: "1rem",
     minWidth: 0,
@@ -153,7 +129,7 @@ export const advisorConsultLogDialogStyles = stylex.create({
     borderStyle: "solid",
     borderWidth: vars["--ads-border-width-hairline"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1rem",
     paddingInline: vars["--ads-space-4"],
   },
@@ -170,126 +146,12 @@ export const advisorConsultLogDialogStyles = stylex.create({
     paddingBlock: vars["--ads-space-12"],
     paddingInline: vars["--ads-space-16"],
   },
-  detailStatus: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-medium"],
-  },
-  detailUnresolved: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    lineHeight: 1.45,
-    marginTop: vars["--ads-space-2"],
-  },
   section: {
     marginTop: vars["--ads-space-12"],
   },
-  checkList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 6,
-    marginTop: 6,
-  },
-  checkItem: {
-    alignItems: "flex-start",
-    display: "flex",
-    gap: vars["--ads-space-8"],
-  },
-  checkBody: {
-    flex: 1,
-    minWidth: 0,
-  },
-  checkLabel: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: 1.45,
-  },
-  checkLabelFail: {
-    color: vars["--ads-color-danger-text"],
-    fontWeight: vars["--ads-font-weight-medium"],
-  },
-  checkDetail: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    lineHeight: 1.45,
-    overflowWrap: "break-word",
-  },
-  lifecycleList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: vars["--ads-space-2"],
-    marginTop: vars["--ads-space-4"],
-  },
-  lifecycleItem: {
-    alignItems: "baseline",
-    display: "flex",
-    fontSize: vars["--ads-font-size-micro"],
-    gap: vars["--ads-space-8"],
-    lineHeight: 1.5,
-  },
-  lifecycleAt: {
-    color: vars["--ads-color-text-muted"],
-    flexShrink: 0,
-    fontVariantNumeric: "tabular-nums",
-  },
-  lifecycleLabel: {
-    color: vars["--ads-color-text-muted"],
-    flex: 1,
-    minWidth: 0,
-  },
-  setupGrid: {
-    display: "grid",
-    columnGap: vars["--ads-space-12"],
-    gridTemplateColumns: "1fr 1fr",
-    marginTop: vars["--ads-space-4"],
-    rowGap: 6,
-  },
-  setupCell: {
-    minWidth: 0,
-  },
-  setupTerm: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  setupValue: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-micro"],
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
-  spendList: {
-    display: "flex",
-    flexDirection: "column",
-    gap: vars["--ads-space-4"],
-    marginTop: vars["--ads-space-4"],
-  },
-  spendRow: {
-    alignItems: "baseline",
-    display: "flex",
-    gap: vars["--ads-space-12"],
-    justifyContent: "space-between",
-  },
-  spendTerm: {
-    color: vars["--ads-color-text-muted"],
-    flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
-  },
-  spendValue: {
-    color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-micro"],
-    fontVariantNumeric: "tabular-nums",
-    minWidth: 0,
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
   footnote: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: 1.45,
     marginTop: vars["--ads-space-4"],
   },
@@ -302,7 +164,7 @@ export const advisorConsultLogDialogStyles = stylex.create({
   postConsultItem: {
     alignItems: "baseline",
     display: "flex",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     gap: vars["--ads-space-8"],
     lineHeight: 1.5,
   },
@@ -324,39 +186,9 @@ export const advisorConsultLogDialogStyles = stylex.create({
   },
   tally: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: 1.45,
     marginTop: 6,
-  },
-});
-
-// Tone chips read a soft fill, matching border, and text ink from the
-// semantic scale. Neutral falls back to the muted surface.
-export const advisorConsultLogChipTone = stylex.create({
-  armed: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderColor: vars["--ads-color-border"],
-    color: vars["--ads-color-text-muted"],
-  },
-  pending: {
-    backgroundColor: vars["--ads-color-info-soft"],
-    borderColor: vars["--ads-color-info-border"],
-    color: vars["--ads-color-info-text"],
-  },
-  completed: {
-    backgroundColor: vars["--ads-color-success-soft"],
-    borderColor: vars["--ads-color-success-border"],
-    color: vars["--ads-color-success-text"],
-  },
-  warning: {
-    backgroundColor: vars["--ads-color-warning-soft"],
-    borderColor: vars["--ads-color-warning-border"],
-    color: vars["--ads-color-warning-text"],
-  },
-  unresolved: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderColor: vars["--ads-color-border"],
-    color: vars["--ads-color-text-muted"],
   },
 });
 

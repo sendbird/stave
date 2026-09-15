@@ -45,6 +45,7 @@ import type {
   StartCompareRunResult,
 } from "@/lib/compare-runs";
 import type { AppSettings } from "@/store/app-settings";
+import type { AutoRoutingDecisionRecord } from "@/store/auto-routing";
 import type { AppActiveSurface, AppSurfaceActions } from "@/store/app-surface";
 import type { FailedOutgoingSendsByTask } from "@/store/failed-send-recovery";
 import type { LayoutState } from "@/store/layout.utils";
@@ -150,6 +151,11 @@ export interface AppState
   workspacePrInfoById: Record<string, WorkspacePrInfo>;
   /** Claude/Codex usage for the bottom status bar – transient, not persisted. */
   rateLimitsSnapshot: RateLimitsSnapshotResponse | null;
+  /**
+   * Latest Auto (model router) decision per task – transient, not persisted.
+   * Lets the composer pill and summaries explain what Auto resolved to.
+   */
+  autoRoutingDecisionByTask: Record<string, AutoRoutingDecisionRecord>;
   rateLimitsUpdatedAtByProvider: Partial<Record<ProviderId, number>>;
   rateLimitsLoading: boolean;
   rateLimitsError: string | null;
@@ -373,6 +379,7 @@ export interface AppState
   };
   removeCustomTheme: (args: { themeId: string }) => void;
   updateSettings: (args: { patch: Partial<AppSettings> }) => void;
+  clearAutoRoutingDecision: (taskId: string) => void;
   updateModelRuntimePreference: (
     args: UpdateModelRuntimePreferenceArgs,
   ) => void;

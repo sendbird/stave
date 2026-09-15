@@ -476,18 +476,20 @@ export const MODEL_TIER_ORDER = [
 ] as const satisfies readonly ModelTier[];
 
 export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
-  // Default effort runs *inverse* to model strength, so every rung of the
-  // ladder lands at roughly the same answer quality for very different cost:
+  // Default effort follows each vendor's own recommendation for the model:
   //
-  //   frontier (Fable, Astra)  medium
-  //   flagship (Opus 5, Sol)   high
-  //   balanced (Sonnet 5, Terra) xhigh
-  //   light    (Luna)          max
+  //   frontier (Fable, Astra)    medium
+  //   flagship (Opus 5, Sol)     high
+  //   balanced (Sonnet 5, Terra) high
+  //   light    (Luna)            medium
   //
   // A frontier model pinned to "xhigh" mostly buys latency (codex-cli 0.153.2
-  // reports `defaultReasoningEffort: "medium"` for Astra), while a cheaper
-  // model given a deep budget can match a mid model at its own default.
-  // Raising or lowering it stays a deliberate per-turn choice.
+  // reports `defaultReasoningEffort: "medium"` for Astra). Smaller models are
+  // *not* handed a deeper budget to compensate: both vendors advise lowering
+  // effort before lowering the model, Anthropic positions Fable at low effort
+  // as cheaper per task than a small model at high effort, and Luna's long
+  // context collapses (MRCR 8-needle 41%) regardless of effort. Raising or
+  // lowering it stays a deliberate per-turn choice.
   //
   // Haiku is absent from the ladder on purpose: the Claude API rejects
   // `effort` outright for Haiku-class models (see `modelsRejectingEffort` in
@@ -525,14 +527,14 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     model: DEFAULT_CLAUDE_SONNET_MODEL,
     tier: "heavy",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultClaudeEffort: "xhigh",
+    defaultClaudeEffort: "high",
   },
   [DEFAULT_CLAUDE_SONNET_1M_MODEL]: {
     providerId: "claude-code",
     model: DEFAULT_CLAUDE_SONNET_1M_MODEL,
     tier: "heavy",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultClaudeEffort: "xhigh",
+    defaultClaudeEffort: "high",
   },
   [DEFAULT_CLAUDE_HAIKU_MODEL]: {
     providerId: "claude-code",
@@ -586,7 +588,7 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     model: "gpt-5.6-terra",
     tier: "heavy",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultCodexReasoningEffort: "xhigh",
+    defaultCodexReasoningEffort: "high",
     supportedCodexReasoningEfforts: [
       "low",
       "medium",
@@ -601,7 +603,7 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     model: "gpt-5.6-luna",
     tier: "light",
     taskTypes: ["quick_edit", "general"],
-    defaultCodexReasoningEffort: "max",
+    defaultCodexReasoningEffort: "medium",
     // Luna is the one GPT-5.6 variant that does not accept "ultra".
     supportedCodexReasoningEfforts: ["low", "medium", "high", "xhigh", "max"],
   },
@@ -724,9 +726,9 @@ export function resolveDefaultClaudeEffortForModel(args: {
   model: string;
 }): NonNullable<ProviderRuntimeOptions["claudeEffort"]> {
   const normalizedModel = args.model.trim().toLowerCase();
-  // Ordered strongest-first, and effort runs inverse to model strength — see
-  // the ladder note on MODEL_CAPABILITIES. Fable must be tested before Opus so
-  // the shared frontier tier does not drag it up a rung.
+  // Ordered strongest-first — see the ladder note on MODEL_CAPABILITIES. Fable
+  // must be tested before Opus so the shared frontier tier does not drag it up
+  // a rung.
   if (normalizedModel.includes("fable")) {
     return "medium";
   }
@@ -734,7 +736,7 @@ export function resolveDefaultClaudeEffortForModel(args: {
     return "high";
   }
   if (normalizedModel.includes("sonnet")) {
-    return "xhigh";
+    return "high";
   }
   return "medium";
 }
@@ -992,6 +994,119 @@ export function clampCodexEffortToModel(args: {
     )[0];
 
   return nextLower ?? resolveDefaultCodexEffortForModel({ model: args.model });
+}
+
+export interface ModelPrice {
+  inputPerMTok: number;
+  outputPerMTok: number;
+  /** Plain URL of the published price list the numbers were read from. */
+  source: string;
+  /** ISO date the price list was checked. */
+  asOf: string;
+  /** Promotional or scope caveats, when the published page carries one. */
+  note?: string;
+}
+
+const CLAUDE_PRICING_SOURCE =
+  "https://platform.claude.com/docs/en/about-claude/pricing";
+const CODEX_PRICING_SOURCE = "https://developers.openai.com/api/docs/pricing";
+
+/**
+ * Standard-tier list prices in USD per million tokens. Models without a
+ * published price stay undefined so the UI falls back to the tier label
+ * instead of inventing a number. Runtime-catalog providers (Cursor, Kiro)
+ * bill through their own plans and are intentionally absent.
+ */
+export const MODEL_PRICING: Partial<Record<string, ModelPrice>> = {
+  [CLAUDE_FABLE_MODEL]: {
+    inputPerMTok: 10,
+    outputPerMTok: 50,
+    source: CLAUDE_PRICING_SOURCE,
+    asOf: "2026-09-14",
+  },
+  [DEFAULT_CLAUDE_OPUS_MODEL]: {
+    inputPerMTok: 5,
+    outputPerMTok: 25,
+    source: CLAUDE_PRICING_SOURCE,
+    asOf: "2026-09-14",
+  },
+  [DEFAULT_CLAUDE_OPUS_1M_MODEL]: {
+    inputPerMTok: 5,
+    outputPerMTok: 25,
+    source: CLAUDE_PRICING_SOURCE,
+    asOf: "2026-09-14",
+    note: "The 1M context window bills at the standard rate.",
+  },
+  [DEFAULT_CLAUDE_SONNET_MODEL]: {
+    inputPerMTok: 2,
+    outputPerMTok: 10,
+    source: CLAUDE_PRICING_SOURCE,
+    asOf: "2026-09-14",
+  },
+  [DEFAULT_CLAUDE_SONNET_1M_MODEL]: {
+    inputPerMTok: 2,
+    outputPerMTok: 10,
+    source: CLAUDE_PRICING_SOURCE,
+    asOf: "2026-09-14",
+    note: "The 1M context window bills at the standard rate.",
+  },
+  [DEFAULT_CLAUDE_HAIKU_MODEL]: {
+    inputPerMTok: 1,
+    outputPerMTok: 5,
+    source: CLAUDE_PRICING_SOURCE,
+    asOf: "2026-09-14",
+  },
+  "gpt-6-astra": {
+    inputPerMTok: 10,
+    outputPerMTok: 50,
+    source: CODEX_PRICING_SOURCE,
+    asOf: "2026-09-14",
+  },
+  "gpt-5.6-sol": {
+    inputPerMTok: 4,
+    outputPerMTok: 20,
+    source: CODEX_PRICING_SOURCE,
+    asOf: "2026-09-14",
+    note: "Promotional price published through at least 2026-11-21.",
+  },
+  "gpt-5.6-terra": {
+    inputPerMTok: 2,
+    outputPerMTok: 12,
+    source: CODEX_PRICING_SOURCE,
+    asOf: "2026-09-14",
+  },
+  "gpt-5.6-luna": {
+    inputPerMTok: 0.2,
+    outputPerMTok: 1.2,
+    source: CODEX_PRICING_SOURCE,
+    asOf: "2026-09-14",
+  },
+  "gpt-5.5": {
+    inputPerMTok: 5,
+    outputPerMTok: 30,
+    source: CODEX_PRICING_SOURCE,
+    asOf: "2026-09-14",
+    note: "Standard price below the 272K context threshold.",
+  },
+};
+
+export function getModelPrice(args: { model: string }): ModelPrice | null {
+  return MODEL_PRICING[args.model.trim()] ?? null;
+}
+
+function formatUsdPerMTok(value: number) {
+  return Number.isInteger(value)
+    ? `$${value}`
+    : `$${value.toFixed(2).replace(/0+$/, "").replace(/\.$/, "")}`;
+}
+
+/** `$5 / $25` (input / output per million tokens), or null when unpriced. */
+export function formatModelPrice(model: string): string | null {
+  const price = getModelPrice({ model });
+  if (!price) {
+    return null;
+  }
+  return `${formatUsdPerMTok(price.inputPerMTok)} / ${formatUsdPerMTok(price.outputPerMTok)}`;
 }
 
 export function toHumanModelName(args: { model: string }) {

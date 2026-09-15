@@ -13,7 +13,7 @@ test("run model label carries the dispatched effort next to the model", () => {
       model: "claude-fable-5-1",
       modelInfo: { effort: "high" },
     }),
-  ).toBe("Claude Code · Claude Fable 5.1 · High");
+  ).toBe("Claude Fable 5.1 · High");
   expect(
     formatActualRunModel({
       providerId: "codex",
@@ -41,5 +41,6 @@ test("summary renders the effort in the Run model row", () => {
     }),
   );
   expect(html).toContain("Run model");
-  expect(html).toContain("Claude Code · Claude Fable 5.1 · Max");
+  expect(html).toContain("Claude Fable 5.1 · Max");
+  expect(html).not.toContain("Claude Code · Claude");
 });

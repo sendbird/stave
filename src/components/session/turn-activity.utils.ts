@@ -9,9 +9,9 @@ import {
   normalizeHookEventToken,
 } from "@/lib/providers/hook-activity";
 import {
-  getProviderLabel,
-  toHumanModelName,
-} from "@/lib/providers/model-catalog";
+  describeAgentIdentity,
+  formatExchangeDuration,
+} from "@/lib/delegation/format";
 import { truncateWorkText } from "@/lib/providers/subagent-identity";
 import { resolveToolProviderDetail } from "@/lib/providers/tool-activity";
 import type {
@@ -273,14 +273,11 @@ function describeAdvisorIdentity(snapshot: AdvisorExchangeSnapshot) {
   if (!snapshot.advisorProviderId) {
     return null;
   }
-  const segments = [
-    getProviderLabel({ providerId: snapshot.advisorProviderId }),
-    ...(snapshot.advisorModel
-      ? [toHumanModelName({ model: snapshot.advisorModel })]
-      : []),
-    ...(snapshot.advisorEffort ? [snapshot.advisorEffort] : []),
-  ];
-  return segments.join(" · ");
+  return describeAgentIdentity({
+    providerId: snapshot.advisorProviderId,
+    model: snapshot.advisorModel,
+    effort: snapshot.advisorEffort,
+  }).text;
 }
 
 /**
@@ -331,12 +328,13 @@ export function describeAdvisorTurnActivityItem(
   const index = snapshot.consultIndex ?? snapshot.settledConsults;
   const countLabel = limit ? `${index}/${limit}` : `${index}`;
   if (snapshot.outcome === "pending") {
+    // No count badge: the title already carries `n/limit`, and the same
+    // number twice on one row read as two different facts.
     return {
       id: "advisor",
       status: "running",
       title: `Advisor consult ${countLabel}`,
       detail: snapshot.question ?? identity ?? "Waiting on the advisor",
-      ...(limit ? { badge: countLabel } : {}),
       ...(options?.hasConsultLog
         ? { detailSurface: "advisor-consult-log" as const }
         : {}),
@@ -863,14 +861,13 @@ export function formatTurnActivityCountsLabel(counts: TurnActivityCounts) {
   return segments.length > 0 ? segments.join(" · ") : null;
 }
 
+/**
+ * Whole-second elapsed label. Shares `formatExchangeDuration` so a row's
+ * elapsed time and an exchange's duration are the same number in the same
+ * words; seconds are rounded first because the shelf ticks once a second.
+ */
 export function formatTurnActivityElapsedSeconds(value: number) {
-  const totalSeconds = Math.max(0, Math.round(value));
-  if (totalSeconds < 60) {
-    return `${totalSeconds}s`;
-  }
-  const minutes = Math.floor(totalSeconds / 60);
-  const seconds = totalSeconds % 60;
-  return seconds > 0 ? `${minutes}m ${seconds}s` : `${minutes}m`;
+  return formatExchangeDuration(Math.max(0, Math.round(value)) * 1_000);
 }
 
 /** Whether any row still represents outstanding work rather than a result. */

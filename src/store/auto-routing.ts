@@ -1,15 +1,27 @@
 import {
-  getDefaultModelForProvider,
+  type AutoRoutingProfile,
+  migrateLegacyAutoSettings,
+  resolveRoute,
+  type ResolvedRoute,
+  type RouteComplexity,
+  type RouterRole,
+  type RouterSignals,
+  type Stance,
+  type TaskClass,
+} from "@/lib/providers/auto-routing-profile";
+import { resolveTightestAccountUsageWindow } from "@/lib/providers/account-usage-block";
+import {
   inferProviderIdFromModel,
+  listProviderIds,
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
-  resolveTierModel,
   type ModelTier,
   type TaskType,
 } from "@/lib/providers/model-catalog";
 import type {
   ProviderId,
   ProviderRuntimeOptions,
+  RateLimitsSnapshotResponse,
 } from "@/lib/providers/provider.types";
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 
@@ -17,6 +29,7 @@ export const AUTO_ROUTING_CONFIDENCE_THRESHOLD = 0.7;
 export const AUTO_ROUTING_CLASSIFIER_TIMEOUT_MS = 800;
 export const AUTO_ROUTING_TINY_PROMPT_TOKEN_LIMIT = 12;
 export const AUTO_ROUTING_FILE_CONTEXT_TIER_UP_THRESHOLD = 4;
+export const AUTO_ROUTING_LONG_PROMPT_TOKEN_LIMIT = 120;
 export const AUTO_ROUTING_PROMPT_HASH_CACHE_LIMIT = 64;
 export const AUTO_ROUTING_PROVIDER_SWITCH_MIN_ASSISTANT_TURNS = 3;
 
@@ -67,7 +80,8 @@ const DEBUG_PATTERNS = [
   /\berror\b/i,
   /\bfailing\b/i,
   /\bstack trace\b/i,
-  /\bregression\b/i,
+  // "a regression in X" is debugging; "add a regression test" is building one.
+  /\bregression\b(?!\s+tests?\b)/i,
   /\btest failure\b/i,
   /에러/,
   /실패/,
@@ -80,6 +94,37 @@ const REVIEW_PATTERNS = [
   /\bcode review\b/i,
   /리뷰/,
   /검토/,
+];
+
+const CI_FIX_PATTERNS = [
+  /\bci\b/i,
+  /\bpipeline\b/i,
+  /\bworkflow (?:run|failure|failing)\b/i,
+  /\blint(?:er)?\b/i,
+  /\bflaky\b/i,
+  /\bbuild (?:is )?(?:broken|failing|red)\b/i,
+];
+
+const DOCS_PATTERNS = [
+  /\bdocs?\b/i,
+  /\bdocumentation\b/i,
+  /\breadme\b/i,
+  /\bchangelog\b/i,
+  /\bdocstring\b/i,
+  /\bjsdoc\b/i,
+  /문서/,
+];
+
+const RESEARCH_PATTERNS = [
+  /\bresearch\b/i,
+  /\binvestigate\b/i,
+  /\bexplain\b/i,
+  /\bhow does\b/i,
+  /\bwhat is\b/i,
+  /\bcompare\b/i,
+  /\bsummari[sz]e\b/i,
+  /조사/,
+  /설명/,
 ];
 
 const IMPLEMENTATION_PATTERNS = [
@@ -95,6 +140,17 @@ const IMPLEMENTATION_PATTERNS = [
   /추가/,
 ];
 
+/** Build verbs strong enough to outrank the tiny-prompt shortcut. */
+const BUILD_VERB_PATTERNS = [
+  /\bimplement\b/i,
+  /\bbuild\b/i,
+  /\bcreate\b/i,
+  /\bwire\b/i,
+  /\bmigrate\b/i,
+  /구현/,
+  /만들/,
+];
+
 const QUICK_EDIT_PATTERNS = [
   /\btypo\b/i,
   /\brename\b/i,
@@ -106,6 +162,24 @@ const QUICK_EDIT_PATTERNS = [
   /문구/,
 ];
 
+/** `/ship`, `/ci-fix …`, `/review:pr` at the very start of the prompt. */
+const SKILL_COMMAND_PATTERN = /^\s*\/([a-z][\w:-]{0,63})(?=\s|$)/i;
+
+/** Skills whose name already tells the task class. */
+const SKILL_TASK_CLASS: Readonly<Record<string, TaskClass>> = {
+  "ci-fix": "ci-fix",
+  ci: "ci-fix",
+  review: "review",
+  "code-review": "review",
+  plan: "plan",
+  docs: "docs",
+  doc: "docs",
+  research: "research",
+  debug: "debug",
+  "quick-edit": "quick-edit",
+  typo: "quick-edit",
+};
+
 export interface AutoRoutingSettings {
   autoRoutingEnabled: boolean;
   autoRoutingUseClassifier: boolean;
@@ -114,6 +188,8 @@ export interface AutoRoutingSettings {
   autoRoutingAllowProviderSwitch: boolean;
   autoRoutingEligibleClaudeModels: readonly string[];
   autoRoutingEligibleCodexModels: readonly string[];
+  /** v2 role table; absent falls back to a profile migrated from the v1 flags. */
+  autoRoutingProfile?: AutoRoutingProfile;
 }
 
 export interface AutoRoutingHistoryMessage {
@@ -138,10 +214,24 @@ export interface AutoRoutingClassifierResult {
   stick?: boolean;
 }
 
+/** Compact, serialisable signal summary carried on every decision. */
+export interface AutoRoutingSignalSummary {
+  taskClass: TaskClass;
+  complexity: RouteComplexity;
+  sensitive: boolean;
+  skill?: string;
+  phase?: "plan" | "execute";
+  fileContextCount: number;
+  budgetUsedPercent?: number;
+  lastAssistantProvider?: ProviderId | null;
+}
+
 export interface AutoRoutingDecision {
   providerId: ProviderId;
   model: string;
+  role: RouterRole;
   taskType: TaskType;
+  taskClass: TaskClass;
   tier: ModelTier;
   confidence: number;
   source:
@@ -151,12 +241,43 @@ export interface AutoRoutingDecision {
     | "classifier"
     | "classifier_fallback";
   rationale: string;
+  /** Id of the role-table rule that fired; `null` for fallback/manual/disabled. */
+  ruleId: string | null;
+  /** Human sentence from the rule plus stance/budget adjustments. */
+  ruleReason: string;
+  stance: Stance;
+  signals: AutoRoutingSignalSummary;
   providerChanged: boolean;
   stick: boolean;
   claudeEffort?: NonNullable<ProviderRuntimeOptions["claudeEffort"]>;
   codexReasoningEffort?: NonNullable<
     ProviderRuntimeOptions["codexReasoningEffort"]
   >;
+}
+
+export interface AutoRoutingDecisionRecord {
+  decision: AutoRoutingDecision;
+  resolvedAt: string;
+  /** First 120 characters of the prompt the decision was made for. */
+  promptPreview: string;
+}
+
+export const AUTO_ROUTING_PROMPT_PREVIEW_MAX_CHARS = 120;
+
+export function buildAutoRoutingDecisionRecord(args: {
+  decision: AutoRoutingDecision;
+  prompt: string;
+  resolvedAt?: string;
+}): AutoRoutingDecisionRecord {
+  const preview = args.prompt.replace(/\s+/g, " ").trim();
+  return {
+    decision: args.decision,
+    resolvedAt: args.resolvedAt ?? new Date().toISOString(),
+    promptPreview:
+      preview.length > AUTO_ROUTING_PROMPT_PREVIEW_MAX_CHARS
+        ? `${preview.slice(0, AUTO_ROUTING_PROMPT_PREVIEW_MAX_CHARS - 1)}…`
+        : preview,
+  };
 }
 
 export interface ResolveAutoRoutingDecisionArgs {
@@ -167,6 +288,11 @@ export interface ResolveAutoRoutingDecisionArgs {
   prompt: string;
   history: readonly AutoRoutingHistoryMessage[];
   fileContextCount?: number;
+  /** Plan mode on the draft, when the caller knows it. */
+  phase?: "plan" | "execute";
+  rateLimitsSnapshot?: RateLimitsSnapshotResponse | null;
+  providerAvailability?: Partial<Record<ProviderId, boolean>>;
+  runtimeModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
   classifierTimeoutMs?: number;
   classifyRoute?: (
     args: AutoRoutingClassifierRequest,
@@ -175,7 +301,11 @@ export interface ResolveAutoRoutingDecisionArgs {
 
 interface HeuristicRoute {
   taskType: TaskType;
+  taskClass: TaskClass;
   tier: ModelTier;
+  complexity: RouteComplexity;
+  sensitive: boolean;
+  skill?: string;
   confidence: number;
   rationale: string;
 }
@@ -231,18 +361,57 @@ function shiftTier(tier: ModelTier, offset: number): ModelTier {
   return MODEL_TIERS[nextIndex] ?? tier;
 }
 
-function applyObjectiveToTier(args: {
-  tier: ModelTier;
-  objective: number;
-}): ModelTier {
-  const objective = normalizeAutoRoutingObjective(args.objective);
-  if (objective <= 0.2) {
-    return shiftTier(args.tier, -1);
+/** Legacy task type → v2 task class. `general` depends on prompt size. */
+export function taskTypeToTaskClass(
+  taskType: TaskType,
+  options?: { tiny?: boolean },
+): TaskClass {
+  switch (taskType) {
+    case "quick_edit":
+      return "quick-edit";
+    case "plan":
+      return "plan";
+    case "implementation":
+      return "implement";
+    case "debug":
+      return "debug";
+    case "review":
+      return "review";
+    case "safety":
+      return "safety-critical";
+    case "general":
+    default:
+      return options?.tiny ? "quick-edit" : "implement";
   }
-  if (objective >= 0.8) {
-    return shiftTier(args.tier, 1);
+}
+
+/** v2 task class → the legacy field still recorded on turn evidence. */
+export function taskClassToTaskType(taskClass: TaskClass): TaskType {
+  switch (taskClass) {
+    case "quick-edit":
+    case "docs":
+    case "ci-fix":
+      return "quick_edit";
+    case "plan":
+    case "research":
+      return "plan";
+    case "implement":
+      return "implementation";
+    case "debug":
+      return "debug";
+    case "review":
+      return "review";
+    case "safety-critical":
+      return "safety";
+    default:
+      return "general";
   }
-  return args.tier;
+}
+
+/** Detects a leading slash command such as `/ship` and returns its name. */
+export function detectPromptSkill(prompt: string): string | undefined {
+  const match = SKILL_COMMAND_PATTERN.exec(prompt);
+  return match?.[1]?.toLowerCase();
 }
 
 function hashClassifierPrompt(args: AutoRoutingClassifierRequest) {
@@ -257,6 +426,11 @@ function rememberClassifierResult(
   key: string,
   result: AutoRoutingClassifierResult | null,
 ) {
+  // A timeout or malformed verdict is not a fact about the prompt; caching it
+  // would pin every later attempt to the fallback path.
+  if (result === null) {
+    return;
+  }
   classifierCache.set(key, result);
   if (classifierCache.size <= AUTO_ROUTING_PROMPT_HASH_CACHE_LIMIT) {
     return;
@@ -326,10 +500,11 @@ async function classifyWithTimeout(args: {
   }
 }
 
-function resolveHeuristicRoute(args: {
+export function resolveHeuristicRoute(args: {
   prompt: string;
   fileContextCount: number;
   safetyEscalation: boolean;
+  skillRouting?: boolean;
 }): HeuristicRoute {
   const prompt = args.prompt.trim();
   const tokenCount = countPromptTokens(prompt);
@@ -338,8 +513,10 @@ function resolveHeuristicRoute(args: {
     tokenCount <= AUTO_ROUTING_TINY_PROMPT_TOKEN_LIMIT &&
     args.fileContextCount === 0;
   const sensitive = matchesAny(prompt, SENSITIVE_DOMAIN_PATTERNS);
+  const skill = args.skillRouting === false ? undefined : detectPromptSkill(prompt);
 
   let taskType: TaskType = "general";
+  let taskClass: TaskClass | null = null;
   let tier: ModelTier = isTiny ? "light" : "standard";
   let confidence = isTiny ? 0.78 : 0.62;
   let rationale = isTiny ? "tiny prompt" : "general prompt";
@@ -349,6 +526,12 @@ function resolveHeuristicRoute(args: {
     tier = "heavy";
     confidence = 0.84;
     rationale = "planning keywords";
+  } else if (matchesAny(prompt, CI_FIX_PATTERNS)) {
+    taskType = "quick_edit";
+    taskClass = "ci-fix";
+    tier = "light";
+    confidence = 0.76;
+    rationale = "CI keywords";
   } else if (matchesAny(prompt, DEBUG_PATTERNS)) {
     taskType = "debug";
     tier = args.fileContextCount > 0 ? "heavy" : "standard";
@@ -359,16 +542,38 @@ function resolveHeuristicRoute(args: {
     tier = args.fileContextCount > 0 ? "heavy" : "standard";
     confidence = 0.76;
     rationale = "review keywords";
-  } else if (matchesAny(prompt, QUICK_EDIT_PATTERNS) || isTiny) {
+  } else if (matchesAny(prompt, DOCS_PATTERNS)) {
+    taskType = "quick_edit";
+    taskClass = "docs";
+    tier = "light";
+    confidence = 0.74;
+    rationale = "documentation keywords";
+  } else if (matchesAny(prompt, QUICK_EDIT_PATTERNS)) {
     taskType = "quick_edit";
     tier = "light";
     confidence = 0.78;
     rationale = "quick-edit keywords";
-  } else if (matchesAny(prompt, IMPLEMENTATION_PATTERNS)) {
+  } else if (
+    matchesAny(prompt, IMPLEMENTATION_PATTERNS) &&
+    (!isTiny || matchesAny(prompt, BUILD_VERB_PATTERNS))
+  ) {
+    // "Implement the follow-up fix" is implementation work despite its length;
+    // a bare tiny "fix it" stays a quick edit below.
     taskType = "implementation";
     tier = args.fileContextCount > 0 ? "heavy" : "standard";
     confidence = 0.76;
     rationale = "implementation keywords";
+  } else if (isTiny) {
+    taskType = "quick_edit";
+    tier = "light";
+    confidence = 0.78;
+    rationale = "tiny prompt";
+  } else if (matchesAny(prompt, RESEARCH_PATTERNS)) {
+    taskType = "plan";
+    taskClass = "research";
+    tier = "heavy";
+    confidence = 0.72;
+    rationale = "research keywords";
   }
 
   if (args.fileContextCount > 0 && tier === "light") {
@@ -386,15 +591,44 @@ function resolveHeuristicRoute(args: {
 
   if (args.safetyEscalation && sensitive) {
     taskType = "safety";
+    taskClass = "safety-critical";
     tier = tierIndex(tier) < tierIndex("heavy") ? "heavy" : tier;
     confidence = Math.max(confidence, 0.86);
     rationale = `${rationale}, sensitive domain`;
   }
 
-  return { taskType, tier, confidence, rationale };
+  // A named skill is the strongest signal we have about intent.
+  if (skill && SKILL_TASK_CLASS[skill] && !(args.safetyEscalation && sensitive)) {
+    taskClass = SKILL_TASK_CLASS[skill] ?? taskClass;
+    taskType = taskClassToTaskType(taskClass);
+    confidence = Math.max(confidence, 0.9);
+    rationale = `/${skill} command`;
+  } else if (skill) {
+    confidence = Math.max(confidence, 0.8);
+    rationale = `${rationale}, /${skill} command`;
+  }
+
+  const complexity: RouteComplexity =
+    isTiny
+      ? "low"
+      : tokenCount >= AUTO_ROUTING_LONG_PROMPT_TOKEN_LIMIT ||
+          args.fileContextCount >= AUTO_ROUTING_FILE_CONTEXT_TIER_UP_THRESHOLD
+        ? "high"
+        : "medium";
+
+  return {
+    taskType,
+    taskClass: taskClass ?? taskTypeToTaskClass(taskType, { tiny: isTiny }),
+    tier,
+    complexity,
+    sensitive,
+    ...(skill ? { skill } : {}),
+    confidence,
+    rationale,
+  };
 }
 
-function findLastAssistantProvider(
+export function findLastAssistantProvider(
   history: readonly AutoRoutingHistoryMessage[],
 ): ProviderId | null {
   for (let index = history.length - 1; index >= 0; index -= 1) {
@@ -448,61 +682,206 @@ export function resolveProviderStickiness(args: {
   return pinnedProvider;
 }
 
-function suggestProviderForTaskType(taskType: TaskType): ProviderId {
-  if (
-    taskType === "implementation" ||
-    taskType === "debug" ||
-    taskType === "quick_edit"
-  ) {
-    return "codex";
+/** Percent used of each provider's tightest usage window, when known. */
+export function resolveBudgetUsedPercentByProvider(
+  snapshot: RateLimitsSnapshotResponse | null | undefined,
+): Partial<Record<ProviderId, number>> {
+  const result: Partial<Record<ProviderId, number>> = {};
+  if (!snapshot) {
+    return result;
   }
-  return "claude-code";
+  for (const providerId of listProviderIds()) {
+    const window = resolveTightestAccountUsageWindow({ providerId, snapshot });
+    if (window && Number.isFinite(window.usedPercent)) {
+      result[providerId] = window.usedPercent;
+    }
+  }
+  return result;
 }
 
-function resolveEligibleModels(args: {
-  providerId: ProviderId;
-  settings: AutoRoutingSettings;
-}) {
-  return args.providerId === "claude-code"
-    ? args.settings.autoRoutingEligibleClaudeModels
-    : args.settings.autoRoutingEligibleCodexModels;
+export function resolveAutoRoutingProfile(
+  settings: AutoRoutingSettings,
+): AutoRoutingProfile {
+  return settings.autoRoutingProfile ?? migrateLegacyAutoSettings(settings);
+}
+
+function toClaudeEffort(
+  effort: string | undefined,
+  model: string,
+): NonNullable<ProviderRuntimeOptions["claudeEffort"]> {
+  const scale = ["low", "medium", "high", "xhigh", "max"] as const;
+  return effort && (scale as readonly string[]).includes(effort)
+    ? (effort as (typeof scale)[number])
+    : resolveDefaultClaudeEffortForModel({ model });
+}
+
+function toCodexEffort(
+  effort: string | undefined,
+  model: string,
+): NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]> {
+  const scale = ["low", "medium", "high", "xhigh", "max", "ultra"] as const;
+  return effort && (scale as readonly string[]).includes(effort)
+    ? (effort as (typeof scale)[number])
+    : resolveDefaultCodexEffortForModel({ model });
+}
+
+function routeTierToModelTier(route: ResolvedRoute): ModelTier {
+  switch (route.tier) {
+    case "frontier":
+    case "flagship":
+      return "frontier";
+    case "balanced":
+      return "heavy";
+    case "light":
+    default:
+      return "light";
+  }
 }
 
 function buildDecision(args: {
   providerId: ProviderId;
   model: string;
+  role?: RouterRole;
   taskType: TaskType;
+  taskClass?: TaskClass;
   tier: ModelTier;
   confidence: number;
   source: AutoRoutingDecision["source"];
   rationale: string;
+  ruleId?: string | null;
+  ruleReason?: string;
+  stance?: Stance;
+  signals?: Partial<AutoRoutingSignalSummary>;
+  effort?: string;
   currentProviderId: ProviderId;
   stick?: boolean;
 }): AutoRoutingDecision {
+  const taskClass = args.taskClass ?? taskTypeToTaskClass(args.taskType);
   return {
     providerId: args.providerId,
     model: args.model,
+    role: args.role ?? "primary",
     taskType: args.taskType,
+    taskClass,
     tier: args.tier,
     confidence: args.confidence,
     source: args.source,
     rationale: args.rationale,
+    ruleId: args.ruleId ?? null,
+    ruleReason: args.ruleReason ?? "",
+    stance: args.stance ?? "balanced",
+    signals: {
+      taskClass,
+      complexity: "medium",
+      sensitive: false,
+      fileContextCount: 0,
+      ...args.signals,
+    },
     providerChanged: args.providerId !== args.currentProviderId,
     stick: args.stick === true,
     ...(args.providerId === "claude-code"
-      ? {
-          claudeEffort: resolveDefaultClaudeEffortForModel({
-            model: args.model,
-          }),
-        }
+      ? { claudeEffort: toClaudeEffort(args.effort, args.model) }
       : args.providerId === "codex"
-        ? {
-            codexReasoningEffort: resolveDefaultCodexEffortForModel({
-              model: args.model,
-            }),
-          }
+        ? { codexReasoningEffort: toCodexEffort(args.effort, args.model) }
         : {}),
   };
+}
+
+/**
+ * Turns a prompt plus task context into the signal set the role table reads.
+ * Pure: the optional classifier result is passed in, never fetched here.
+ */
+export function computeRouterSignals(args: {
+  prompt: string;
+  fileContextCount: number;
+  history: readonly AutoRoutingHistoryMessage[];
+  currentProviderId: ProviderId;
+  currentModel?: string;
+  profile: AutoRoutingProfile;
+  phase?: "plan" | "execute";
+  rateLimitsSnapshot?: RateLimitsSnapshotResponse | null;
+  providerAvailability?: Partial<Record<ProviderId, boolean>>;
+  classifier?: AutoRoutingClassifierResult | null;
+}): { signals: RouterSignals; heuristic: HeuristicRoute } {
+  const heuristic = resolveHeuristicRoute({
+    prompt: args.prompt,
+    fileContextCount: args.fileContextCount,
+    safetyEscalation: args.profile.signals.safetyEscalation,
+    skillRouting: args.profile.signals.skillRouting,
+  });
+  const budgetByProvider = resolveBudgetUsedPercentByProvider(
+    args.rateLimitsSnapshot,
+  );
+  const lastAssistantProvider = findLastAssistantProvider(args.history);
+  const budgetProvider = lastAssistantProvider ?? args.currentProviderId;
+  const taskClass = args.classifier
+    ? heuristic.skill && heuristic.rationale.startsWith("/")
+      ? heuristic.taskClass
+      : taskTypeToTaskClass(args.classifier.taskType, {
+          tiny: heuristic.complexity === "low",
+        })
+    : heuristic.taskClass;
+  return {
+    heuristic,
+    signals: {
+      taskClass,
+      complexity: args.classifier?.complexity ?? heuristic.complexity,
+      sensitive: heuristic.sensitive,
+      ...(heuristic.skill ? { skill: heuristic.skill } : {}),
+      ...(args.phase ? { phase: args.phase } : {}),
+      fileContextCount: args.fileContextCount,
+      ...(typeof budgetByProvider[budgetProvider] === "number"
+        ? { budgetUsedPercent: budgetByProvider[budgetProvider] }
+        : {}),
+      budgetUsedPercentByProvider: budgetByProvider,
+      ...(args.providerAvailability
+        ? { providerAvailability: args.providerAvailability }
+        : {}),
+      lastAssistantProvider,
+      currentProviderId: args.currentProviderId,
+      ...(args.currentModel ? { currentModel: args.currentModel } : {}),
+    },
+  };
+}
+
+export function summarizeRouterSignals(
+  signals: RouterSignals,
+): AutoRoutingSignalSummary {
+  return {
+    taskClass: signals.taskClass,
+    complexity: signals.complexity,
+    sensitive: signals.sensitive,
+    ...(signals.skill ? { skill: signals.skill } : {}),
+    ...(signals.phase ? { phase: signals.phase } : {}),
+    fileContextCount: signals.fileContextCount,
+    ...(typeof signals.budgetUsedPercent === "number"
+      ? { budgetUsedPercent: Math.round(signals.budgetUsedPercent) }
+      : {}),
+    lastAssistantProvider: signals.lastAssistantProvider ?? null,
+  };
+}
+
+/** `implement · 3 files · budget 41%` — the tooltip line under the Auto pill. */
+export function formatAutoRoutingSignalSummary(
+  summary: AutoRoutingSignalSummary,
+) {
+  const parts: string[] = [summary.taskClass];
+  if (summary.skill) {
+    parts.push(`/${summary.skill}`);
+  }
+  parts.push(`${summary.complexity} complexity`);
+  if (summary.sensitive) {
+    parts.push("sensitive");
+  }
+  if (summary.fileContextCount > 0) {
+    parts.push(
+      `${summary.fileContextCount} ${summary.fileContextCount === 1 ? "file" : "files"}`,
+    );
+  }
+  if (typeof summary.budgetUsedPercent === "number") {
+    parts.push(`budget ${summary.budgetUsedPercent}%`);
+  }
+  return parts.join(" · ");
 }
 
 export async function resolveAutoRoutingDecision(
@@ -552,22 +931,24 @@ export async function resolveAutoRoutingDecision(
     });
   }
 
+  const profile = resolveAutoRoutingProfile(args.settings);
   const fileContextCount = Math.max(0, args.fileContextCount ?? 0);
-  const heuristic = resolveHeuristicRoute({
+  const preliminary = resolveHeuristicRoute({
     prompt: args.prompt,
     fileContextCount,
-    safetyEscalation: args.settings.autoRoutingSafetyEscalation,
+    safetyEscalation: profile.signals.safetyEscalation,
+    skillRouting: profile.signals.skillRouting,
   });
-  let selectedRoute = heuristic;
+
+  let classifier: AutoRoutingClassifierResult | null = null;
   let source: AutoRoutingDecision["source"] = "heuristic";
   let classifierStick = false;
-
   if (
-    args.settings.autoRoutingUseClassifier &&
+    profile.signals.classifier &&
     args.classifyRoute &&
-    heuristic.confidence < AUTO_ROUTING_CONFIDENCE_THRESHOLD
+    preliminary.confidence < AUTO_ROUTING_CONFIDENCE_THRESHOLD
   ) {
-    const classifier = await classifyWithTimeout({
+    classifier = await classifyWithTimeout({
       request: {
         prompt: args.prompt,
         history: args.history,
@@ -578,12 +959,6 @@ export async function resolveAutoRoutingDecision(
         args.classifierTimeoutMs ?? AUTO_ROUTING_CLASSIFIER_TIMEOUT_MS,
     });
     if (classifier) {
-      selectedRoute = {
-        taskType: classifier.taskType,
-        tier: classifier.recommendedTier,
-        confidence: classifier.confidence,
-        rationale: classifier.rationale ?? "classifier recommendation",
-      };
       source = "classifier";
       classifierStick = classifier.stick === true;
     } else {
@@ -592,36 +967,57 @@ export async function resolveAutoRoutingDecision(
     }
   }
 
-  const tier = applyObjectiveToTier({
-    tier: selectedRoute.tier,
-    objective: args.settings.autoRoutingObjective,
+  const { signals, heuristic } = computeRouterSignals({
+    prompt: args.prompt,
+    fileContextCount,
+    history: args.history,
+    currentProviderId: args.currentProviderId,
+    currentModel: args.currentModel,
+    profile,
+    phase: args.phase,
+    rateLimitsSnapshot: args.rateLimitsSnapshot,
+    providerAvailability: args.providerAvailability,
+    classifier,
   });
-  const providerId = resolveProviderStickiness({
+
+  // Stickiness still decides which provider "any-eligible" means: a classifier
+  // that asked to stick, or a profile with provider switching off, pins the
+  // provider that answered last.
+  const pinnedProvider = resolveProviderStickiness({
     currentProviderId: args.currentProviderId,
     history: args.history,
-    allowProviderSwitch: args.settings.autoRoutingAllowProviderSwitch,
+    allowProviderSwitch: profile.signals.providerSwitch,
     classifierStick,
-    suggestedProviderId: suggestProviderForTaskType(selectedRoute.taskType),
   });
-  const eligibleModels = resolveEligibleModels({
-    providerId,
-    settings: args.settings,
+
+  const route = resolveRoute({
+    profile,
+    role: "primary",
+    signals: {
+      ...signals,
+      lastAssistantProvider: pinnedProvider,
+    },
+    runtimeModelsByProvider: args.runtimeModelsByProvider,
   });
-  const model =
-    resolveTierModel({
-      tier,
-      providerId,
-      eligibleModels,
-    }) ?? getDefaultModelForProvider({ providerId });
+
+  const confidence = classifier?.confidence ?? heuristic.confidence;
+  const rationale = classifier?.rationale ?? heuristic.rationale;
 
   return buildDecision({
-    providerId,
-    model,
-    taskType: selectedRoute.taskType,
-    tier,
-    confidence: selectedRoute.confidence,
+    providerId: route.providerId,
+    model: route.model,
+    role: "primary",
+    taskType: taskClassToTaskType(signals.taskClass),
+    taskClass: signals.taskClass,
+    tier: routeTierToModelTier(route),
+    confidence,
     source,
-    rationale: selectedRoute.rationale,
+    rationale: route.ruleId ? `${rationale} → ${route.ruleId}` : rationale,
+    ruleId: route.ruleId,
+    ruleReason: route.reason,
+    stance: profile.stance,
+    signals: summarizeRouterSignals(signals),
+    effort: route.effort,
     currentProviderId: args.currentProviderId,
     stick: classifierStick,
   });

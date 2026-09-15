@@ -75,7 +75,12 @@ import {
 } from "@/lib/providers/model-catalog";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { resolveTurnModelInfo } from "@/lib/providers/turn-model-info";
-import { resolveAutoRoutingDecision } from "@/store/auto-routing";
+import { buildAutoRoutingDecisionRecord } from "@/store/auto-routing";
+import {
+  buildAutoRoutingModelResolution,
+  resolveAutoRoutingForSend,
+  resolveDelegatedRuntimeOverrides,
+} from "@/store/auto-routing-dispatch";
 import type { TurnIntentComplianceResult } from "@/lib/source-control-review";
 import { partitionStalePrContexts } from "@/lib/pr-context";
 import { isTaskManaged } from "@/lib/tasks";
@@ -122,7 +127,6 @@ import {
   buildUtilityInferenceContext,
 } from "@/store/provider-runtime-options";
 import {
-  createUtilityRouteClassifier,
   maybeSuggestUtilityTaskName,
 } from "@/store/utility-inference-runtime";
 import {
@@ -1351,6 +1355,7 @@ export const useAppStore = create<AppState>()(
       workspaceLastActiveAtById: {},
       workspacePrInfoById: {},
       rateLimitsSnapshot: null,
+      autoRoutingDecisionByTask: {},
       rateLimitsUpdatedAtByProvider: {},
       rateLimitsLoading: false,
       rateLimitsError: null,
@@ -2104,58 +2109,38 @@ export const useAppStore = create<AppState>()(
             return { status: "blocked" } satisfies SendUserMessageResult;
           }
 
-          let autoRoutingDecision: Awaited<
-            ReturnType<typeof resolveAutoRoutingDecision>
-          > | null = null;
-          if (
-            state.settings.autoRoutingEnabled &&
-            promptDraft.runtimeOverrides?.autoRouting === true
-          ) {
-            const classifyRoute = state.settings.autoRoutingUseClassifier
-              ? createUtilityRouteClassifier({
-                  context: buildUtilityInferenceContext({
-                    cwd: workspaceCwd,
-                    provider,
-                    model: activeModel,
-                    settings: state.settings,
-                  }),
-                })
-              : undefined;
-            autoRoutingDecision = await resolveAutoRoutingDecision({
-              settings: {
-                autoRoutingEnabled: state.settings.autoRoutingEnabled,
-                autoRoutingUseClassifier:
-                  state.settings.autoRoutingUseClassifier,
-                autoRoutingObjective: state.settings.autoRoutingObjective,
-                autoRoutingSafetyEscalation:
-                  state.settings.autoRoutingSafetyEscalation,
-                autoRoutingAllowProviderSwitch:
-                  state.settings.autoRoutingAllowProviderSwitch,
-                autoRoutingEligibleClaudeModels:
-                  state.settings.autoRoutingEligibleClaudeModels,
-                autoRoutingEligibleCodexModels:
-                  state.settings.autoRoutingEligibleCodexModels,
-              },
-              runtimeOverrides: promptDraft.runtimeOverrides,
-              currentProviderId: provider,
-              currentModel: activeModel,
-              prompt: promptContent,
-              history: latestHistory.map((message) => ({
-                role: message.role,
-                content: message.content,
-                providerId:
-                  message.providerId === "claude-code" ||
-                  message.providerId === "codex"
-                    ? message.providerId
-                    : undefined,
-                model: message.model,
-              })),
-              fileContextCount: resolvedFileContexts.length,
-              classifyRoute,
-            });
+          const autoRoutingDecision = await resolveAutoRoutingForSend({
+            state,
+            promptDraft,
+            provider,
+            activeModel,
+            prompt: promptContent,
+            history: latestHistory,
+            fileContextCount: resolvedFileContexts.length,
+            workspaceCwd,
+          });
+          if (autoRoutingDecision) {
             provider = autoRoutingDecision.providerId;
             activeModel = autoRoutingDecision.model;
+            if (autoRoutingDecision.source !== "disabled") {
+              const record = buildAutoRoutingDecisionRecord({
+                decision: autoRoutingDecision,
+                prompt: promptContent,
+              });
+              set((current) => ({
+                autoRoutingDecisionByTask: {
+                  ...current.autoRoutingDecisionByTask,
+                  [resolvedTaskId]: record,
+                },
+              }));
+            }
           }
+          const delegatedRuntimeOverrides = resolveDelegatedRuntimeOverrides({
+            state,
+            overrides: promptDraft.runtimeOverrides,
+            provider,
+            activeModel,
+          });
 
           const skillSelection = resolveSkillSelections({
             text: promptContent,
@@ -2340,8 +2325,8 @@ export const useAppStore = create<AppState>()(
             provider,
             model: activeModel,
             includeAdvisor: turnOrigin === "conversation",
-            advisorRuntimeOverrides: promptDraft.runtimeOverrides,
-            workerRuntimeOverrides: promptDraft.runtimeOverrides,
+            advisorRuntimeOverrides: delegatedRuntimeOverrides,
+            workerRuntimeOverrides: delegatedRuntimeOverrides,
             settings: {
               ...modelRuntimeSettings,
               ...resolvedPromptDraftRuntimeState,
@@ -2913,22 +2898,16 @@ export const useAppStore = create<AppState>()(
             autoRoutingDecision &&
             autoRoutingDecision.source !== "disabled"
           ) {
+            const modelResolution = buildAutoRoutingModelResolution({
+              decision: autoRoutingDecision,
+              provider,
+              model: activeModel,
+            });
             providerTurnEventController.handleEvent({
               type: "model_resolved",
               resolvedProviderId: provider,
               resolvedModel: activeModel,
-              ...(autoRoutingDecision.source !== "manual"
-                ? {
-                    modelResolution: {
-                      selectedProviderId: provider,
-                      selectedModel: activeModel,
-                      source: autoRoutingDecision.source,
-                      rationale: autoRoutingDecision.rationale,
-                      confidence: autoRoutingDecision.confidence,
-                      taskType: autoRoutingDecision.taskType,
-                    },
-                  }
-                : {}),
+              ...(modelResolution ? { modelResolution } : {}),
             });
           }
 
