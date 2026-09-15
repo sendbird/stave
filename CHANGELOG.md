@@ -1,3 +1,27 @@
+## [0.18.5](https://github.com/sendbird/stave/compare/v0.18.4...v0.18.5) (2026-09-15)
+
+### Features
+
+* Add Cursor and Kiro standalone CLI tabs with session resume, alongside Claude and Codex.
+* Add Resource Manager so operators can inspect Lens memory, sleep or wake hidden pages, stop and resume workspace execution, and clean up inactive worktrees without leaving the current workspace.
+* Add Auto model routing with starter profiles, a Settings editor, and a live route on the composer pill, turn summary, RouteFlow, and RouteTrace, and fold advisor, worker, and child-task activity into shared exchange rows.
+* Route Auto Advisor selection from the current prompt's task class, complexity, sensitivity, skill, and attached files, and accept bounded structured consult evidence.
+* Refresh the installed design-system copy with explicit `--ads-*` tokens, per-origin StyleX cascade layers, the `xstyle` host style channel, and theming targets.
+* Collapse run history into compact accordion rows, show dispatched effort next to the run model, and state that shared instructions apply to every task.
+
+### Bug Fixes
+
+* Reveal Information panel row actions on hover without requiring a click to focus them.
+* Open a pane tab for tasks created through `stave_run_task` instead of leaving them only in Task History.
+* Align provider, model, and permission selects on the delegate form and add an effort control with a one-line send summary.
+
+### Breaking Changes
+
+* StyleX compositions must reach ADS components through `xstyle`, not `className`. Overlay style objects no longer export a `surface` key — compose `recipes/overlay-surface` instead. `badgeStyles.root` / `.outlineBase` moved to `recipes/status-chip`.
+
+### References
+
+* [#519](https://github.com/sendbird/stave/pull/519), [#524](https://github.com/sendbird/stave/pull/524), [#525](https://github.com/sendbird/stave/pull/525), [#526](https://github.com/sendbird/stave/pull/526), [#527](https://github.com/sendbird/stave/pull/527), [#528](https://github.com/sendbird/stave/pull/528), [#529](https://github.com/sendbird/stave/pull/529), [#530](https://github.com/sendbird/stave/pull/530)
 ## [0.18.4](https://github.com/sendbird/stave/compare/v0.18.3...v0.18.4) (2026-09-10)
 
 ### Bug Fixes
