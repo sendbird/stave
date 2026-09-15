@@ -565,9 +565,11 @@ describe("advisor exchange presentation", () => {
   });
 
   test("sub-second advisors are not rounded up to a full second", () => {
-    expect(formatAdvisorDuration(150)).toBe("150ms");
-    expect(formatAdvisorDuration(0)).toBe("0ms");
+    expect(formatAdvisorDuration(150)).toBe("0.2s");
+    expect(formatAdvisorDuration(0)).toBe("0s");
     expect(formatAdvisorDuration(4_120)).toBe("4.1s");
+    // One implementation with every other delegation duration.
+    expect(formatAdvisorDuration(64_000)).toBe("1m 4s");
   });
 });
 

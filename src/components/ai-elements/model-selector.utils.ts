@@ -79,13 +79,26 @@ export function buildModelSelectorValue(args: {
 export function buildAutoModelSelectorOption(args: {
   providerId: ProviderId;
   available?: boolean;
+  /**
+   * The route the last Auto decision for this task resolved to, so the pill
+   * reads `Auto → Opus 5 · High` and its tooltip carries the rule that fired.
+   * Absent before the first routed turn, when only the stance is known.
+   */
+  routed?: { label: string; description: string } | null;
+  stanceLabel?: string;
 }): ModelSelectorOption {
   return {
     key: "auto",
     providerId: args.providerId,
     model: "",
-    label: "Auto",
-    description: "Stave chooses the provider, model, and effort.",
+    label: args.routed
+      ? `Auto → ${args.routed.label}`
+      : args.stanceLabel
+        ? `Auto · ${args.stanceLabel}`
+        : "Auto",
+    description:
+      args.routed?.description ??
+      "Stave chooses the provider, model, and effort.",
     isAuto: true,
     available: args.available ?? true,
   };

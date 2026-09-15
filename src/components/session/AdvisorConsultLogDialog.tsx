@@ -4,10 +4,13 @@ import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 
 import { ChoiceButtons } from "@/components/layout/settings-dialog.shared";
-import { AdvisorCheckIcon } from "@/components/session/AdvisorCheckIcon";
+import {
+  ExchangeDetail,
+  ExchangeStatusBadge,
+  KeyValueGrid,
+} from "@/components/delegation";
 import {
   ADVISOR_VERDICT_OPTIONS,
-  describeAdvisorConsultLogStatus,
   describeAdvisorVerdict,
   describeAdvisorVerdictTally,
   formatAdvisorSpend,
@@ -18,13 +21,11 @@ import {
   type AdvisorConsultLogStatus,
 } from "@/components/session/advisor-consult-log.utils";
 import {
-  buildAdvisorChecks,
-  describeAdvisorEffort,
-  describeAdvisorIsolation,
   describeAdvisorParticipant,
-  describeAdvisorPhase,
   formatAdvisorDuration,
 } from "@/components/session/advisor-exchange.utils";
+import { fromAdvisorSnapshot } from "@/lib/delegation/exchange";
+import { exchangeStatusFromAdvisorOutcome } from "@/lib/delegation/format";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import {
   Dialog,
@@ -44,7 +45,6 @@ import {
 import type { ProviderTurnWorkItem } from "@/lib/providers/turn-status";
 import { sx } from "@/components/ads/utils/stylex";
 import {
-  advisorConsultLogChipTone,
   advisorConsultLogDialogStyles as styles,
   advisorConsultLogVerdictDot,
 } from "./advisor-consult-log-dialog.styles";
@@ -62,26 +62,11 @@ const ADVISOR_POST_CONSULT_EMPTY =
   "No tool calls from this turn are still in memory, so Stave cannot say what ran after.";
 const ADVISOR_VERDICT_SUBLINE =
   "Your own judgement, recorded per consult. Stave does not infer this.";
-const ADVISOR_QUESTION_EMPTY = "The runtime did not report the question.";
 const ADVISOR_UNRESOLVED_DETAIL =
   "Its turn ended before the runtime reported an outcome, so this consult has no result and no cost to show.";
 const ADVISOR_LOG_TITLE = "Advisor consults";
 const ADVISOR_LOG_DESCRIPTION =
   "Every consult this session, with what was asked, what came back, and what it cost.";
-
-const STATUS_CHIP_STYLE: Record<
-  AdvisorConsultLogStatus,
-  (typeof advisorConsultLogChipTone)[keyof typeof advisorConsultLogChipTone]
-> = {
-  armed: advisorConsultLogChipTone.armed,
-  pending: advisorConsultLogChipTone.pending,
-  completed: advisorConsultLogChipTone.completed,
-  failed: advisorConsultLogChipTone.warning,
-  timeout: advisorConsultLogChipTone.warning,
-  aborted: advisorConsultLogChipTone.warning,
-  skipped: advisorConsultLogChipTone.warning,
-  unresolved: advisorConsultLogChipTone.unresolved,
-};
 
 const VERDICT_DOT_STYLE: Record<
   AdvisorConsultVerdict,
@@ -91,23 +76,6 @@ const VERDICT_DOT_STYLE: Record<
   not_helpful: advisorConsultLogVerdictDot.not_helpful,
   ignored: advisorConsultLogVerdictDot.ignored,
 };
-
-function SectionLabel(props: { children: React.ReactNode }) {
-  return <p className={sx(styles.sectionLabel)}>{props.children}</p>;
-}
-
-function ProseBlock(props: { children: React.ReactNode; muted?: boolean }) {
-  return (
-    <p
-      className={sx(
-        styles.prose,
-        props.muted ? styles.proseMuted : styles.proseInk,
-      )}
-    >
-      {props.children}
-    </p>
-  );
-}
 
 function consultLabel(snapshot: AdvisorExchangeSnapshot) {
   if (snapshot.consultIndex === undefined) {
@@ -154,15 +122,17 @@ function ConsultRow(props: {
           </>
         ) : null}
         <span className={sx(styles.rowTitle)}>{consultLabel(snapshot)}</span>
-        <span className={sx(styles.chip, STATUS_CHIP_STYLE[props.status])}>
-          {describeAdvisorConsultLogStatus(props.status)}
-        </span>
+        <ExchangeStatusBadge
+          status={exchangeStatusFromAdvisorOutcome(props.status)}
+          className={sx(styles.chip)}
+        />
       </span>
       <span className={sx(styles.rowMeta)}>
         <span className={sx(styles.rowMetaLabel)}>
           {describeAdvisorParticipant({
             providerId: snapshot.advisorProviderId,
             model: snapshot.advisorModel,
+            effort: snapshot.advisorEffort,
           })}
         </span>
         {props.isCurrentTurn ? (
@@ -187,8 +157,14 @@ function ConsultDetail(props: {
   onSetVerdict: (verdict: AdvisorConsultVerdict) => void;
 }) {
   const { snapshot } = props.entry;
-  const checks = useMemo(() => buildAdvisorChecks(snapshot), [snapshot]);
   const settled = snapshot.outcome !== "pending" && snapshot.outcome !== "armed";
+  // The dialog has no clock: a pending consult of the live turn is the one
+  // case that moves, and it is read for seconds, not minutes.
+  const nowMs = useMemo(() => Date.now(), [props.entry]);
+  const exchange = useMemo(
+    () => fromAdvisorSnapshot(snapshot, { status: props.status }),
+    [props.status, snapshot],
+  );
   const postConsult = useMemo(
     () =>
       resolveAdvisorPostConsultWorkItems({
@@ -213,187 +189,89 @@ function ConsultDetail(props: {
 
   return (
     <div data-testid="advisor-consult-log-detail" className={sx(styles.detail)}>
-      <p className={sx(styles.detailStatus)}>
-        {describeAdvisorConsultLogStatus(props.status)}
-      </p>
-      {props.status === "unresolved" ? (
-        // The checks below read off `outcome`, which is still `pending`, so
-        // without this they would say the advisor is being waited on — for a
-        // turn that ended long ago.
-        <p className={sx(styles.detailUnresolved)}>{ADVISOR_UNRESOLVED_DETAIL}</p>
-      ) : null}
-
-      <div className={sx(styles.section)}>
-        <SectionLabel>Did the advisor system work?</SectionLabel>
-        <ul className={sx(styles.checkList)}>
-          {checks.map((check) => (
-            <li key={check.id} className={sx(styles.checkItem)}>
-              <AdvisorCheckIcon status={check.status} />
-              <div className={sx(styles.checkBody)}>
-                <p
-                  className={sx(
-                    styles.checkLabel,
-                    check.status === "fail" && styles.checkLabelFail,
-                  )}
-                >
-                  {check.label}
-                </p>
-                <p className={sx(styles.checkDetail)}>{check.detail}</p>
-              </div>
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      <div className={sx(styles.section)}>
-        <SectionLabel>Question asked</SectionLabel>
-        {snapshot.question ? (
-          <ProseBlock>{snapshot.question}</ProseBlock>
-        ) : (
-          <ProseBlock muted>{ADVISOR_QUESTION_EMPTY}</ProseBlock>
-        )}
-      </div>
-
-      {snapshot.advice ? (
-        <div className={sx(styles.section)}>
-          <SectionLabel>Advice returned</SectionLabel>
-          <ProseBlock>{snapshot.advice}</ProseBlock>
-        </div>
-      ) : null}
-
-      <div className={sx(styles.section)}>
-        <SectionLabel>Lifecycle</SectionLabel>
-        <ol className={sx(styles.lifecycleList)}>
-          {snapshot.stages.map((stage, index) => (
-            <li
-              key={`${stage.phase}:${stage.at}:${index}`}
-              className={sx(styles.lifecycleItem)}
-            >
-              <span className={sx(styles.lifecycleAt)}>
-                +{formatAdvisorDuration(stage.at - snapshot.startedAt)}
-              </span>
-              <span className={sx(styles.lifecycleLabel)}>
-                {describeAdvisorPhase(stage.phase)}
-                {stage.detail ? ` — ${stage.detail}` : ""}
-              </span>
-            </li>
-          ))}
-        </ol>
-      </div>
-
-      <div className={sx(styles.section)}>
-        <SectionLabel>Setup</SectionLabel>
-        <dl className={sx(styles.setupGrid)}>
-          <div className={sx(styles.setupCell)}>
-            <dt className={sx(styles.setupTerm)}>Isolation</dt>
-            <dd className={sx(styles.setupValue)}>
-              {describeAdvisorIsolation(snapshot.isolation)}
-            </dd>
-          </div>
-          <div className={sx(styles.setupCell)}>
-            <dt className={sx(styles.setupTerm)}>Effort</dt>
-            <dd className={sx(styles.setupValue)}>
-              {describeAdvisorEffort(snapshot.advisorEffort)}
-            </dd>
-          </div>
-          <div className={sx(styles.setupCell)}>
-            <dt className={sx(styles.setupTerm)}>Deadline</dt>
-            <dd className={sx(styles.setupValue)}>
-              {snapshot.timeoutMs === undefined
-                ? "Not reported"
-                : formatAdvisorDuration(snapshot.timeoutMs)}
-            </dd>
-          </div>
-          <div className={sx(styles.setupCell)}>
-            <dt className={sx(styles.setupTerm)}>Duration</dt>
-            <dd className={sx(styles.setupValue)}>
-              {snapshot.durationMs === undefined
-                ? "Not reported"
-                : formatAdvisorDuration(snapshot.durationMs)}
-            </dd>
-          </div>
-        </dl>
-      </div>
-
-      <div className={sx(styles.section)}>
-        <SectionLabel>Advisor spend</SectionLabel>
-        <dl className={sx(styles.spendList)}>
-          <div className={sx(styles.spendRow)}>
-            <dt className={sx(styles.spendTerm)}>This consult</dt>
-            <dd className={sx(styles.spendValue)}>
-              {formatAdvisorSpend({
-                inputTokens: snapshot.inputTokens ?? 0,
-                outputTokens: snapshot.outputTokens ?? 0,
-                cacheReadTokens: snapshot.cacheReadTokens,
-                cacheCreationTokens: snapshot.cacheCreationTokens,
-                totalCostUsd: snapshot.totalCostUsd ?? null,
-              })}
-            </dd>
-          </div>
-          <div className={sx(styles.spendRow)}>
-            <dt className={sx(styles.spendTerm)}>This turn&apos;s consults</dt>
-            <dd className={sx(styles.spendValue)}>
-              {formatAdvisorSpend(turnSpend)}
-            </dd>
-          </div>
-        </dl>
-        <p className={sx(styles.footnote)}>{ADVISOR_SPEND_FOOTNOTE}</p>
-      </div>
-
-      {settled ? (
-        <div className={sx(styles.section)} data-testid="advisor-consult-log-after">
-          <SectionLabel>What ran after this consult</SectionLabel>
-          <p className={sx(styles.footnote)}>{ADVISOR_POST_CONSULT_SUBLINE}</p>
-          {postConsult.length === 0 ? (
-            <ProseBlock muted>{ADVISOR_POST_CONSULT_EMPTY}</ProseBlock>
-          ) : (
-            <ol className={sx(styles.postConsultList)}>
-              {postConsult.map((item) => (
-                <li key={item.id} className={sx(styles.postConsultItem)}>
-                  <span className={sx(styles.postConsultAt)}>
-                    +
-                    {formatAdvisorDuration(
-                      item.startedAt -
-                        (snapshot.outcomeAt ?? snapshot.startedAt),
-                    )}
-                  </span>
-                  <span className={sx(styles.postConsultTitle)}>
-                    {item.title}
-                  </span>
-                </li>
-              ))}
-            </ol>
-          )}
-        </div>
-      ) : null}
-
-      {settled ? (
-        <div className={sx(styles.section)}>
-          <SectionLabel>Your call</SectionLabel>
-          <p className={sx(styles.footnote)}>{ADVISOR_VERDICT_SUBLINE}</p>
-          <div className={sx(styles.verdictControl)}>
-            {/* The unrated state is a value outside the option set rather than
-                a fourth "Not rated" button: the control is set-only, so an
-                option the user can never legitimately choose would be dead. */}
-            <ChoiceButtons<AdvisorConsultVerdict | "">
-              aria-label="Was this consult helpful?"
-              value={props.entry.verdict ?? ""}
-              onChange={(value) => {
-                if (value) {
-                  props.onSetVerdict(value);
-                }
-              }}
-              options={ADVISOR_VERDICT_OPTIONS}
+      <ExchangeDetail
+        exchange={exchange}
+        nowMs={nowMs}
+        // The checks read off `outcome`, which is still `pending`, so without
+        // this they would say the advisor is being waited on — for a turn that
+        // ended long ago.
+        statusNote={
+          props.status === "unresolved" ? ADVISOR_UNRESOLVED_DETAIL : undefined
+        }
+        spendFootnote={ADVISOR_SPEND_FOOTNOTE}
+      >
+        {turnSpend.consults > 1 ? (
+          <div className={sx(styles.section)}>
+            <KeyValueGrid
+              items={[
+                {
+                  key: "turn-spend",
+                  label: "This turn's consults",
+                  value: formatAdvisorSpend(turnSpend),
+                },
+              ]}
             />
           </div>
-          <p
-            data-testid="advisor-consult-log-tally"
-            className={sx(styles.tally)}
+        ) : null}
+
+        {settled ? (
+          <div
+            className={sx(styles.section)}
+            data-testid="advisor-consult-log-after"
           >
-            {describeAdvisorVerdictTally(tally)}
-          </p>
-        </div>
-      ) : null}
+            <p className={sx(styles.sectionLabel)}>What ran after this consult</p>
+            <p className={sx(styles.footnote)}>{ADVISOR_POST_CONSULT_SUBLINE}</p>
+            {postConsult.length === 0 ? (
+              <p className={sx(styles.footnote)}>{ADVISOR_POST_CONSULT_EMPTY}</p>
+            ) : (
+              <ol className={sx(styles.postConsultList)}>
+                {postConsult.map((item) => (
+                  <li key={item.id} className={sx(styles.postConsultItem)}>
+                    <span className={sx(styles.postConsultAt)}>
+                      +
+                      {formatAdvisorDuration(
+                        item.startedAt -
+                          (snapshot.outcomeAt ?? snapshot.startedAt),
+                      )}
+                    </span>
+                    <span className={sx(styles.postConsultTitle)}>
+                      {item.title}
+                    </span>
+                  </li>
+                ))}
+              </ol>
+            )}
+          </div>
+        ) : null}
+
+        {settled ? (
+          <div className={sx(styles.section)}>
+            <p className={sx(styles.sectionLabel)}>Your call</p>
+            <p className={sx(styles.footnote)}>{ADVISOR_VERDICT_SUBLINE}</p>
+            <div className={sx(styles.verdictControl)}>
+              {/* The unrated state is a value outside the option set rather than
+                  a fourth "Not rated" button: the control is set-only, so an
+                  option the user can never legitimately choose would be dead. */}
+              <ChoiceButtons<AdvisorConsultVerdict | "">
+                aria-label="Was this consult helpful?"
+                value={props.entry.verdict ?? ""}
+                onChange={(value) => {
+                  if (value) {
+                    props.onSetVerdict(value);
+                  }
+                }}
+                options={ADVISOR_VERDICT_OPTIONS}
+              />
+            </div>
+            <p
+              data-testid="advisor-consult-log-tally"
+              className={sx(styles.tally)}
+            >
+              {describeAdvisorVerdictTally(tally)}
+            </p>
+          </div>
+        ) : null}
+      </ExchangeDetail>
     </div>
   );
 }

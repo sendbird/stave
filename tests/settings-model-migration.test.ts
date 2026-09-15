@@ -90,7 +90,8 @@ describe("settings model default migration", () => {
   });
 
   test("re-pitches an untuned effort even when the model does not move", () => {
-    // A user parked on Luna at its old default (xhigh) lands on the new one.
+    // A user parked on Luna at its old default (xhigh) lands on the new one
+    // (medium: light models are no longer handed a deeper budget).
     const result = migrateSettingsModelDefaults(
       preMigrationSnapshot({
         modelCodex: "gpt-5.6-luna",
@@ -99,7 +100,7 @@ describe("settings model default migration", () => {
     );
 
     expect(result.modelCodex).toBe("gpt-5.6-luna");
-    expect(result.codexReasoningEffort).toBe("max");
+    expect(result.codexReasoningEffort).toBe("medium");
   });
 
   test("keeps an effort the user actually tuned", () => {

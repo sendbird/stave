@@ -114,7 +114,7 @@ describe("advisor pill presentation", () => {
     expect(presentation.label).toBe("Advisor");
     expect(presentation.tone).toBe("off");
     expect(presentation.canToggle).toBe(true);
-    expect(presentation.tooltip).toContain("Codex");
+    expect(presentation.tooltip).toContain("GPT-5.6 Sol");
   });
 
   test("cannot toggle when nothing is configured to arm", () => {
@@ -376,7 +376,7 @@ describe("advisor runtime summary", () => {
   test("shows the pair that will actually run", () => {
     expect(
       formatAdvisorRuntimeStatusValue(arm({ settingsTarget: CODEX_TARGET })),
-    ).toContain("Codex");
+    ).toContain("GPT-5.6 Sol");
   });
 
   test("reads Off whenever no advisor will run", () => {
@@ -577,7 +577,7 @@ describe("advisor pill reports the effort", () => {
   test("the runtime summary row names the tier the turn will pay for", () => {
     expect(
       formatAdvisorRuntimeStatusValue(arm({ settingsTarget: CODEX_TARGET })),
-    ).toBe("Codex · GPT-5.6 Sol · High");
+    ).toBe("GPT-5.6 Sol · High");
   });
 
   describe("an armed Advisor the model cannot reach", () => {

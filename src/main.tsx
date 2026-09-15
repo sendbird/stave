@@ -89,6 +89,18 @@ if (preview === "resource-manager") {
       </StrictMode>,
     );
   });
+} else if (preview === "advisor-worker-live") {
+  void import("@/dev/advisor-worker-live-preview").then(
+    ({ AdvisorWorkerLivePreview }) => {
+      root.render(
+        <StrictMode>
+          <StaveDesignProvider>
+            <AdvisorWorkerLivePreview />
+          </StaveDesignProvider>
+        </StrictMode>,
+      );
+    },
+  );
 } else if (preview === "composer-frame") {
   void import("@/dev/composer-frame-preview").then(
     ({ ComposerFramePreviewApp }) => {

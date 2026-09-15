@@ -38,6 +38,12 @@ export interface AutoRoutingModelResolution {
     | "review"
     | "general"
     | "safety";
+  /** Role-table rule that fired, when the v2 router made the decision. */
+  ruleId?: string;
+  /** Human sentence for the rule plus any stance or budget adjustment. */
+  ruleReason?: string;
+  taskClass?: string;
+  stance?: string;
 }
 
 export type ProviderHistoryForkBoundary = "thread" | "turn" | "message";

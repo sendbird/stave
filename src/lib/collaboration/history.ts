@@ -93,7 +93,7 @@ export function projectCollaborationHistoryPage(
     advisors: selectAdvisorTranscriptExchanges(
       page.messages,
       COLLABORATION_HISTORY_PAGE_SIZE,
-    ),
+    ).map(({ toolUseId: _toolUseId, ...row }) => row),
     workers,
     coverage: {
       firstMessageNumber,
@@ -184,7 +184,9 @@ export async function collectCollaborationHistoryExport(args: {
     }
     if (advisorSlots) {
       advisors.push(
-        ...selectAdvisorTranscriptExchanges(page.messages, advisorSlots),
+        ...selectAdvisorTranscriptExchanges(page.messages, advisorSlots).map(
+          ({ toolUseId: _toolUseId, ...row }) => row,
+        ),
       );
     }
     if (workerSlots) {

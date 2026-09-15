@@ -13,6 +13,11 @@ import {
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type { ModelTier } from "@/lib/providers/model-catalog";
+import {
+  buildRoleSignals,
+  resolveRoute,
+  type AutoRoutingProfile,
+} from "@/lib/providers/auto-routing-profile";
 import type {
   CanonicalConversationRequest,
   ProviderId,
@@ -938,6 +943,48 @@ function resolveWorkerEffort(args: {
 }
 
 /**
+ * Asks the router's worker role for a model. Returns `null` when no worker
+ * rule matched (the preset decides) or when the routed model cannot run as a
+ * worker on this provider — a routed pick never widens the capability table.
+ */
+export function resolveRoutedWorkerModel(args: {
+  profile: AutoRoutingProfile;
+  providerId: WorkerProviderId;
+  primaryModel: string;
+  runtimeModels?: readonly string[];
+  budgetUsedPercent?: number;
+}): { model: string; effort: WorkerEffort | null; ruleId: string; reason: string } | null {
+  const route = resolveRoute({
+    profile: args.profile,
+    role: "worker",
+    signals: buildRoleSignals({
+      currentProviderId: args.providerId,
+      currentModel: args.primaryModel,
+      budgetUsedPercent: args.budgetUsedPercent,
+    }),
+    runtimeModelsByProvider: args.runtimeModels
+      ? { [args.providerId]: args.runtimeModels }
+      : undefined,
+  });
+  if (
+    !route.ruleId ||
+    route.providerId !== args.providerId ||
+    !isWorkerCapableModel({
+      providerId: args.providerId,
+      model: route.model,
+      runtimeModels: args.runtimeModels,
+    })
+  ) {
+    return null;
+  }
+  const effort =
+    route.effort && WORKER_EFFORT_ORDER.includes(route.effort as WorkerEffort)
+      ? (route.effort as WorkerEffort)
+      : null;
+  return { model: route.model, effort, ruleId: route.ruleId, reason: route.reason };
+}
+
+/**
  * The single semantic gate for Worker mode.
  *
  * Zod proves the payload's shape at the IPC boundary; this proves the payload
@@ -956,6 +1003,13 @@ export function resolveWorkerProfile(args: {
   intent?: WorkerRuntimeIntent | null;
   /** Runtime-advertised models for providers whose catalog is not static. */
   runtimeModels?: readonly string[];
+  /**
+   * Auto model router profile. When the worker model is left on `auto` and a
+   * worker-role rule matches, its model wins over the preset's `autoModel`;
+   * the routed model still has to pass the worker capability gate below.
+   */
+  autoRoutingProfile?: AutoRoutingProfile | null;
+  budgetUsedPercent?: number;
 }): WorkerResolution {
   if (!args.intent || args.intent.mode !== "task-executor") {
     return { status: "off" };
@@ -991,9 +1045,21 @@ export function resolveWorkerProfile(args: {
   const requestedWorkerModel = normalizeModelPreference(
     args.intent.workerModel,
   );
+  const routedWorker =
+    requestedWorkerModel === WORKER_AUTO_VALUE && args.autoRoutingProfile
+      ? resolveRoutedWorkerModel({
+          profile: args.autoRoutingProfile,
+          providerId,
+          primaryModel,
+          runtimeModels: args.runtimeModels,
+          budgetUsedPercent: args.budgetUsedPercent,
+        })
+      : null;
   const resolvedWorkerModel =
     requestedWorkerModel === WORKER_AUTO_VALUE
-      ? (preset.autoModel[providerId] ?? DEFAULT_WORKER_MODEL[providerId])
+      ? (routedWorker?.model ??
+        preset.autoModel[providerId] ??
+        DEFAULT_WORKER_MODEL[providerId])
       : requestedWorkerModel;
 
   if (
@@ -1028,7 +1094,7 @@ export function resolveWorkerProfile(args: {
     providerId,
     model: resolvedWorkerModel,
     requested: requestedWorkerEffort,
-    presetEffort: preset.autoEffort[providerId],
+    presetEffort: routedWorker?.effort ?? preset.autoEffort[providerId],
   });
 
   const overrideTools = normalizeToolList(args.intent.tools);

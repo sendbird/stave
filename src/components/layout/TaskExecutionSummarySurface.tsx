@@ -363,9 +363,22 @@ export function TaskExecutionSummarySurface(args: {
   /** Kept for callers that still hand this surface a global/utility class. */
   className?: string;
   xstyle?: StyleXValue;
+  /** Tiles another part of the host already states (e.g. elapsed in a header). */
+  omitKeys?: readonly SummaryMetricDescriptor["key"][];
 }) {
   const showLatestActivity = args.showLatestActivity ?? true;
-  const descriptors = buildMetricDescriptors(args.summary);
+  const omit = new Set(args.omitKeys ?? []);
+  const descriptors = buildMetricDescriptors(args.summary).filter(
+    (descriptor) => !omit.has(descriptor.key),
+  );
+  // A grid that only says "Not reported" four times carries no information;
+  // the tiles appear once the first fact lands.
+  if (
+    !showLatestActivity &&
+    descriptors.every((descriptor) => descriptor.provenance === "unavailable")
+  ) {
+    return null;
+  }
 
   return (
     <section

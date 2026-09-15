@@ -1186,20 +1186,23 @@ When a task switches from one Codex model to another, Stave does not attempt to 
 
 ### Default-effort ladder
 
-Default reasoning effort runs _inverse_ to model strength, so every rung lands
-at roughly the same answer quality for very different cost:
+Default reasoning effort follows each vendor's own recommendation for the
+model; smaller models are not handed a deeper budget to compensate:
 
 | Rung     | Claude         | Codex         | Default effort |
 | -------- | -------------- | ------------- | -------------- |
 | frontier | Fable 5.1      | GPT-6 Astra   | `medium`       |
 | flagship | Opus 5 (+1M)   | GPT-5.6 Sol   | `high`         |
-| balanced | Sonnet 5 (+1M) | GPT-5.6 Terra | `xhigh`        |
-| light    | —              | GPT-5.6 Luna  | `max`          |
+| balanced | Sonnet 5 (+1M) | GPT-5.6 Terra | `high`         |
+| light    | —              | GPT-5.6 Luna  | `medium`       |
 
 A frontier model pinned to `xhigh` mostly buys latency — codex-cli 0.153.2
-reports `defaultReasoningEffort: "medium"` for Astra itself — while a cheaper
-model given a deep budget can match a mid model at its own default. Raising or
-lowering the tier stays a deliberate per-turn choice.
+reports `defaultReasoningEffort: "medium"` for Astra itself. Both vendors
+advise lowering effort before lowering the model: a model switch always
+invalidates the prompt cache, Anthropic positions Fable at low effort as
+cheaper per task than a smaller model at high effort, and Luna's long-context
+recall collapses (MRCR 8-needle 41%) whatever the effort. Raising or lowering
+the tier stays a deliberate per-turn choice.
 
 Claude Haiku 4.5 is deliberately absent: the Claude API rejects `effort`
 outright for Haiku-class models, so Stave drops the field rather than clamping

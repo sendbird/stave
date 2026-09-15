@@ -182,7 +182,7 @@ export const turnActivityStyles = stylex.create({
     borderRadius: vars["--ads-radius-full"],
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     letterSpacing: "0.025em",
     paddingBlock: "0.125rem",
@@ -209,12 +209,12 @@ export const turnActivityStyles = stylex.create({
   progress: {
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
   },
   overflowCount: {
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-medium"],
     fontVariantNumeric: "tabular-nums",
   },
@@ -230,7 +230,7 @@ export const turnActivityStyles = stylex.create({
   elapsed: {
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
   },
 
@@ -281,6 +281,16 @@ export const turnActivityStyles = stylex.create({
     paddingInline: 6,
     paddingTop: vars["--ads-space-8"],
   },
+  // The backlink leads the list, so it takes the row inset without the gap a
+  // block spends separating itself from the rows above.
+  childBlockLead: {
+    paddingBottom: vars["--ads-space-4"],
+    paddingInline: 6,
+  },
+  // The agent tree sits inside the Agents block, under its rows.
+  childBlockNested: {
+    paddingTop: vars["--ads-space-4"],
+  },
 
   // ── Row ─────────────────────────────────────────────────────────────
   rowStatusSlot: {
@@ -313,7 +323,7 @@ export const turnActivityStyles = stylex.create({
   },
   rowBadge: {
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1rem",
     paddingInline: vars["--ads-space-4"],
   },
@@ -325,7 +335,7 @@ export const turnActivityStyles = stylex.create({
     lineHeight: "1rem",
     margin: 0,
     minWidth: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   rowDetail: {
     overflow: "hidden",
@@ -341,7 +351,7 @@ export const turnActivityStyles = stylex.create({
   rowProviderDetail: {
     color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 70%, transparent)`,
     fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
@@ -349,7 +359,7 @@ export const turnActivityStyles = stylex.create({
   rowStartOffset: {
     color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 70%, transparent)`,
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
     lineHeight: "1rem",
     paddingTop: "0.125rem",
@@ -357,7 +367,7 @@ export const turnActivityStyles = stylex.create({
   rowElapsed: {
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
     lineHeight: "1rem",
     paddingTop: "0.125rem",

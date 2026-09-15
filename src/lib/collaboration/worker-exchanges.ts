@@ -14,6 +14,16 @@ export interface WorkerExchange {
   assignment: string;
   result: string;
   progress: readonly string[];
+  /** Message start time in ms, when the transcript recorded one. */
+  at?: number;
+  /** Message completion time in ms, when the transcript recorded one. */
+  endedAt?: number;
+}
+
+function parseMessageMs(value: string | undefined): number | undefined {
+  if (!value) return undefined;
+  const ms = Date.parse(value);
+  return Number.isFinite(ms) ? ms : undefined;
 }
 const MAX_EXCHANGES = 24;
 const MAX_TEXT = 12000;
@@ -51,6 +61,8 @@ export function selectWorkerExchanges(
   const rows: WorkerExchange[] = [];
   for (let i = messages.length - 1; i >= 0 && rows.length < maxExchanges; i--) {
     const message = messages[i]!;
+    const at = parseMessageMs(message.startedAt);
+    const endedAt = parseMessageMs(message.completedAt);
     for (
       let j = message.parts.length - 1;
       j >= 0 && rows.length < maxExchanges;
@@ -87,6 +99,10 @@ export function selectWorkerExchanges(
         progress: (part.progressMessages ?? [])
           .slice(-8)
           .map((p) => p.slice(0, 1000)),
+        ...(at !== undefined ? { at } : {}),
+        ...(endedAt !== undefined && part.state !== "input-available"
+          ? { endedAt }
+          : {}),
       });
     }
   }

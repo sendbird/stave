@@ -25,13 +25,16 @@ export function TaskWorkPanel({ kind }: { kind: "results" | "collaboration" }) {
   const task = useAppStore((state) =>
     state.tasks.find((item) => item.id === state.activeTaskId),
   );
+  const kindLabel = kind === "collaboration" ? "delegations" : kind;
   if (!workspaceId || !taskId || !task) {
-    return <p className={sx(styles.empty)}>Open a task to see its {kind}.</p>;
+    return (
+      <p className={sx(styles.empty)}>Open a task to see its {kindLabel}.</p>
+    );
   }
   if (kind === "collaboration" && (!projectPath || isTaskManaged(task))) {
     return (
       <p className={sx(styles.empty)}>
-        Collaboration is available in a local project task.
+        Delegations are available in a local project task.
       </p>
     );
   }
@@ -40,7 +43,7 @@ export function TaskWorkPanel({ kind }: { kind: "results" | "collaboration" }) {
       <p className={sx(styles.title)} title={task.title}>
         {task.title}
       </p>
-      <Suspense fallback={<Loader label={`Loading ${kind}…`} showLabel />}>
+      <Suspense fallback={<Loader label={`Loading ${kindLabel}…`} showLabel />}>
         {kind === "results" ? (
           <Results
             key={`${workspaceId}:${taskId}`}

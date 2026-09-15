@@ -29,7 +29,7 @@ export const childTaskRowsStyles = stylex.create({
     borderStyle: "solid",
     paddingInline: "0.375rem",
     paddingBlock: "0.125rem",
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
     textTransform: "uppercase",
     letterSpacing: "0.08em",
@@ -111,7 +111,7 @@ export const childTaskRowsStyles = stylex.create({
     alignItems: "center",
     gap: vars["--ads-space-4"],
   },
-  composerHint: { fontSize: vars["--ads-font-size-micro"], color: vars["--ads-color-text-muted"] },
+  composerHint: { fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-muted"] },
   // Glyph inside a control, so it takes the control-icon floor rather than a
   // raw 12px that reads as a status mark.
   actionIcon: { width: vars["--ads-control-icon-size-sm"], height: vars["--ads-control-icon-size-sm"] },
@@ -125,7 +125,7 @@ export const childTaskRowsStyles = stylex.create({
   },
   backlinkLabel: {
     flexShrink: 0,
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
     textTransform: "uppercase",
     letterSpacing: "0.1em",

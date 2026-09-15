@@ -197,9 +197,12 @@ export function isAdvisorSelfAdvising(args: {
 }
 
 function describeTarget(target: AdvisorTarget) {
-  return `${getProviderLabel({ providerId: target.providerId })} · ${toHumanModelName(
-    { model: target.model },
-  )}`;
+  // The catalog name already names its provider; the provider label only
+  // leads for a model the catalog does not know.
+  const name = toHumanModelName({ model: target.model });
+  return name && name !== target.model
+    ? name
+    : `${getProviderLabel({ providerId: target.providerId })} · ${target.model}`;
 }
 
 /**

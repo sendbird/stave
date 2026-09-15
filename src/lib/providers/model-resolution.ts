@@ -34,5 +34,9 @@ export const AutoRoutingModelResolutionSchema = z
       z.literal("general"),
       z.literal("safety"),
     ]),
+    ruleId: z.string().trim().min(1).max(80).optional(),
+    ruleReason: z.string().trim().max(1_000).optional(),
+    taskClass: z.string().trim().max(40).optional(),
+    stance: z.string().trim().max(40).optional(),
   })
   .strict() satisfies z.ZodType<AutoRoutingModelResolution>;

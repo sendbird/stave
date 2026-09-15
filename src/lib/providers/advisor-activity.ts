@@ -7,6 +7,7 @@ import {
   upsertAdvisorConsultLogEntry,
   type AdvisorConsultLogByTask,
 } from "@/lib/providers/advisor-consult-log";
+import { formatExchangeDuration } from "@/lib/delegation/duration";
 
 /**
  * Advisor consult lifecycle phases.
@@ -124,14 +125,11 @@ const ADVISOR_STAGE_LIMIT = 12;
  * Sub-second advisors are real (a cached Codex reply lands in ~150ms), so the
  * duration must not be floored to "1s" — that made a fast advisor look slow and
  * an instant skip look like it did work. Shared by the main-process trace and
- * the renderer overlay so both report the same number.
+ * the renderer surfaces, and one implementation with every other delegation
+ * duration so the same consult never reads `4.1s` here and `4s` there.
  */
 export function formatAdvisorDuration(durationMs: number) {
-  const safeMs = Math.max(0, Math.round(durationMs));
-  if (safeMs < 1_000) {
-    return `${safeMs}ms`;
-  }
-  return `${Math.round(safeMs / 100) / 10}s`;
+  return formatExchangeDuration(durationMs);
 }
 
 const TERMINAL_OUTCOME_BY_PHASE: Partial<

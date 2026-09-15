@@ -5,7 +5,11 @@ import {
   type AdvisorExchangeSnapshot,
 } from "@/lib/providers/advisor-activity";
 import { formatAdvisorEffortLabel } from "@/components/ai-elements/prompt-input-advisor-mode.utils";
-import { getProviderLabel } from "@/lib/providers/model-catalog";
+import {
+  describeAgentIdentity,
+  describeDeadline,
+  type DeadlineDescription,
+} from "@/lib/delegation/format";
 import type { ProviderId } from "@/lib/providers/provider.types";
 
 /**
@@ -216,15 +220,16 @@ export function describeAdvisorEffort(
   return effort ? formatAdvisorEffortLabel(effort) : "Not reported";
 }
 
+/** `Claude · Opus 5` — provider and catalog model name, never a raw id. */
 export function describeAdvisorParticipant(args: {
   providerId?: ProviderId;
   model?: string;
+  effort?: string;
 }): string {
   if (!args.providerId) {
     return "Not resolved";
   }
-  const label = getProviderLabel({ providerId: args.providerId });
-  return args.model ? `${label} · ${args.model}` : label;
+  return describeAgentIdentity(args).text;
 }
 
 function crossModelCheck(snapshot: AdvisorExchangeSnapshot): AdvisorCheck {
@@ -384,6 +389,39 @@ export function resolveAdvisorRemainingMs(args: {
     0,
     args.snapshot.startedAt + args.snapshot.timeoutMs - args.nowMs,
   );
+}
+
+/**
+ * The pending card's deadline line. Once the deadline is behind us the runtime
+ * owns the timeout, so the line says so rather than counting down to `0ms`.
+ */
+export function describeAdvisorDeadline(args: {
+  snapshot: AdvisorExchangeSnapshot;
+  nowMs: number;
+}): DeadlineDescription & { hint: string } {
+  const { snapshot } = args;
+  if (snapshot.outcome !== "pending") {
+    return {
+      ...describeDeadline({ nowMs: args.nowMs }),
+      hint: "",
+    };
+  }
+  if (!snapshot.timeoutMs) {
+    return {
+      ...describeDeadline({ nowMs: args.nowMs }),
+      hint: "The primary is waiting on this consult.",
+    };
+  }
+  const deadline = describeDeadline({
+    deadlineAtMs: snapshot.startedAt + snapshot.timeoutMs,
+    nowMs: args.nowMs,
+  });
+  return {
+    ...deadline,
+    hint: deadline.passed
+      ? "Deadline passed · waiting on runtime"
+      : `${deadline.label}.`,
+  };
 }
 
 export { formatAdvisorDuration };

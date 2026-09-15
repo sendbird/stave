@@ -78,6 +78,11 @@ import {
 } from "@/lib/providers/model-catalog";
 import { DEFAULT_PROVIDER_TIMEOUT_MS } from "@/lib/providers/runtime-option-contract";
 import type { UtilityInferenceProvider } from "@/lib/providers/utility-inference";
+import {
+  buildStarterProfile,
+  DEFAULT_AUTO_ROUTING_PROFILE_ID,
+  type AutoRoutingProfile,
+} from "@/lib/providers/auto-routing-profile";
 import type { WorkspaceInformationSectionVisibility } from "@/lib/workspace-information-sections";
 import type {
   CustomThemeDefinition,
@@ -217,6 +222,11 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   autoRoutingAllowProviderSwitch: boolean;
   autoRoutingEligibleClaudeModels: string[];
   autoRoutingEligibleCodexModels: string[];
+  /**
+   * v2 model router: role table × stance. Authoritative for routing; the v1
+   * flags above are kept for back-compat readers and migrated on load.
+   */
+  autoRoutingProfile: AutoRoutingProfile;
   /**
    * User-configurable presets rendered in the preset bar between the task
    * tab strip and the chat panel. Each preset either seeds a new task with a
@@ -662,6 +672,7 @@ export const defaultSettings: AppSettings = {
   autoRoutingAllowProviderSwitch: false,
   autoRoutingEligibleClaudeModels: [],
   autoRoutingEligibleCodexModels: [],
+  autoRoutingProfile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
   taskPresets: cloneDefaultTaskPresets(),
   macros: [],
   permissionMode: "auto-safe",

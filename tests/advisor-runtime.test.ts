@@ -348,7 +348,7 @@ describe("advisor effort", () => {
       runners,
     });
 
-    // The inverse effort ladder: Fable defaults to "medium", Sol to "high".
+    // Vendor default ladder: Fable defaults to "medium", Sol to "high".
     expect(claudeEffort).toBe("medium");
     expect(codexEffort).toBe("high");
   });

@@ -133,7 +133,7 @@ export const workGraphTreeStyles = stylex.create({
     borderWidth: vars["--ads-border-width-hairline"],
     borderStyle: "solid",
     paddingInline: vars["--ads-space-4"],
-    fontSize: vars["--ads-font-size-micro"],
+    fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1rem",
     fontWeight: vars["--ads-font-weight-medium"],
     letterSpacing: "0.025em",
