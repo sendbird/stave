@@ -1,3 +1,4 @@
+import { workspaceExecutionGate } from "../shared/workspace-execution-gate";
 import {
   buildClaudeEnv,
   cleanupClaudeMcpOauthFlows,
@@ -752,7 +753,12 @@ export function getProviderDecisionRequestId(event: BridgeEvent) {
   return null;
 }
 
-async function runProviderTurn(
+async function runProviderTurn(args: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void }) {
+  const release = workspaceExecutionGate.acquire(args);
+  try { return await runProviderTurnImpl(args); } finally { release(); }
+}
+
+async function runProviderTurnImpl(
   args: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void },
 ) {
   const lifecycle = createProviderTurnLifecycle({
@@ -1338,6 +1344,7 @@ async function runProviderTurn(
 export const providerRuntime: ProviderRuntime = {
   streamTurn: (args) => runProviderTurn(args),
   startTurnStream: (args, options) => {
+    const releaseAdmission = workspaceExecutionGate.acquire(args);
     pruneExpiredStreams();
     const streamId = randomUUID();
     const turnId = args.turnId ?? randomUUID();
@@ -1387,6 +1394,7 @@ export const providerRuntime: ProviderRuntime = {
           if (!deliveryLifecycle.terminal) {
             deliveryLifecycle.finish("runtime_failure");
           }
+          releaseAdmission();
           session.done = true;
           session.updatedAt = Date.now();
           clearActiveTurnState({ turnId });

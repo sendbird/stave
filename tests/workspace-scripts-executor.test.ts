@@ -1,3 +1,4 @@
+import { workspaceExecutionGate } from "../electron/shared/workspace-execution-gate";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
 type ExitPayload = { exitCode: number; signal?: number };
@@ -155,4 +156,14 @@ describe("workspace scripts executor", () => {
     expect(completed).toBeDefined();
     expect(completed?.exitCode).toBe(2);
   });
+});
+
+
+test("a stopped workspace refuses scripts before creating a process", async () => {
+  const target = { workspaceId: "stopped-script", workspacePath: "/tmp/workspace" };
+  await workspaceExecutionGate.stop(target, async () => {});
+  try {
+    await expect(runScriptEntry({ ...target, workspaceName: "workspace", projectPath: "/tmp/project", branch: "main", scriptEntry: createServiceScript() })).rejects.toThrow("stopped");
+    expect(fakePtys.length).toBe(0);
+  } finally { workspaceExecutionGate.resume(target.workspaceId); }
 });

@@ -78,7 +78,7 @@ export const resourceStyles = stylex.create({
   popover: {
     // Logical + viewport-clamped, so the popup cannot render wider than the
     // window it is anchored in (matching the notifications panel).
-    inlineSize: "min(20rem, calc(100vw - 1rem))",
+    inlineSize: "min(30rem, calc(100vw - 1rem))",
     maxInlineSize: "calc(100vw - 1rem)",
     gap: 0,
     overflow: "hidden",

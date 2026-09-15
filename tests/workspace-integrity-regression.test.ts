@@ -73,6 +73,68 @@ afterEach(() => {
 });
 
 describe("workspace integrity regressions", () => {
+  test.each(["Current workspace", "Agent running"])("bulk cleanup stops after the notification await: %s", async (blocker) => {
+    (globalThis as { window?: unknown }).window = { localStorage: createMemoryStorage() };
+    const { useAppStore } = await import("../src/store/app.store");
+    useAppStore.setState({
+      ...useAppStore.getInitialState(),
+      projectPath: PROJECT_PATH,
+      workspaces: [
+        { id: "current", name: "Current", updatedAt: "2026-01-01" },
+        { id: "old", name: "Old", updatedAt: "2026-01-01" },
+      ],
+      activeWorkspaceId: "current",
+      workspacePathById: { current: PROJECT_PATH, old: `${PROJECT_PATH}/old` },
+      workspaceDefaultById: { current: true },
+      activeTurnIdsByTask: {}, taskWorkspaceIdById: {}, notifications: [],
+      purgeWorkspaceNotifications: async () => {
+        useAppStore.setState(blocker === "Current workspace"
+          ? { activeWorkspaceId: "old" }
+          : { activeTurnIdsByTask: { job: "turn" }, taskWorkspaceIdById: { job: "old" } });
+      },
+    });
+    await expect(useAppStore.getState().closeWorkspace({
+      workspaceId: "old", deleteBranch: false, onlyIfInactive: true,
+    })).rejects.toThrow(blocker);
+    expect(useAppStore.getState().workspaces.map((workspace) => workspace.id)).toEqual(["current", "old"]);
+  });
+
+  test("bulk cleanup preserves the current session without an asynchronous workspace switch", async () => {
+    (globalThis as { window?: unknown }).window = { localStorage: createMemoryStorage() };
+    const { useAppStore } = await import("../src/store/app.store");
+    const { waitForPendingWorkspaceArchiveCleanups } = await import("../src/store/workspace-archive-cleanup");
+    const switchedTo: string[] = [];
+    const currentTask = createTask("current-task");
+    useAppStore.setState({
+      ...useAppStore.getInitialState(),
+      projectPath: PROJECT_PATH,
+      workspaces: ["base", "current", "old"].map((id) => ({ id, name: id, updatedAt: "2026-01-01" })),
+      activeWorkspaceId: "current",
+      activeTaskId: currentTask.id,
+      tasks: [currentTask],
+      workspacePathById: { base: PROJECT_PATH, current: `${PROJECT_PATH}/current`, old: `${PROJECT_PATH}/old` },
+      workspaceDefaultById: { base: true },
+      activeTurnIdsByTask: {}, taskWorkspaceIdById: {}, notifications: [],
+      purgeWorkspaceNotifications: async () => {},
+      flushProjectRegistry: async () => {},
+      switchWorkspace: async ({ workspaceId }) => {
+        switchedTo.push(workspaceId);
+        // A turn can arrive during the old asynchronous switch boundary.
+        useAppStore.setState({ activeWorkspaceId: workspaceId, activeTurnIdsByTask: { job: "turn" }, taskWorkspaceIdById: { job: "old" } });
+      },
+    });
+    try {
+      await useAppStore.getState().closeWorkspace({ workspaceId: "old", deleteBranch: false, onlyIfInactive: true });
+      expect(switchedTo).toEqual([]);
+      expect(useAppStore.getState().activeWorkspaceId).toBe("current");
+      expect(useAppStore.getState().activeTaskId).toBe(currentTask.id);
+      expect(useAppStore.getState().tasks).toEqual([currentTask]);
+      expect(useAppStore.getState().workspaces.map((workspace) => workspace.id)).toEqual(["base", "current"]);
+    } finally {
+      await waitForPendingWorkspaceArchiveCleanups();
+    }
+  });
+
   test("notification deep-links do not silently reopen archived tasks", async () => {
     const localStorage = createMemoryStorage();
     (globalThis as { window?: unknown }).window = {

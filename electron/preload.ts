@@ -1,3 +1,4 @@
+import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../src/lib/performance/workspace-execution";
 import type { PromptEnhancementContext } from "../src/lib/providers/prompt-enhancement-context";
 import type { ProjectMemoryControlsApi } from "../src/lib/project-memory-settings";
 import { contextBridge, ipcRenderer, webUtils } from "electron";
@@ -2650,6 +2651,10 @@ contextBridge.exposeInMainWorld("api", {
     openInGhostty: (args: { path: string }) =>
       ipcRenderer.invoke("shell:open-in-ghostty", args),
   },
+  workspaceExecution: {
+    status: () => ipcRenderer.invoke("workspace:execution-status") as Promise<WorkspaceExecutionState[]>,
+    update: (args: WorkspaceExecutionArgs) => ipcRenderer.invoke("workspace:execution", args) as Promise<WorkspaceExecutionResult>,
+  },
   metrics: {
     getAppMetrics: () =>
       ipcRenderer.invoke("metrics:get-app-metrics") as Promise<{
@@ -2716,13 +2721,18 @@ contextBridge.exposeInMainWorld("api", {
           cdpClosingControllers: number;
           cdpInFlightCommands: number;
           cdpCloseDrainTimeouts: number;
-          guests: Array<{
+          memoryBudgetKB?: number;
+    resourceEvents?: Array<{ workspaceId: string; lensSessionId: string; kind: "released" | "reopened"; at: number }>;
+    guests: Array<{
             workspaceId: string;
             lensSessionId: string;
             pid: number | null;
             visible: boolean;
             managedByMcp: boolean;
             url: string;
+      sleeping?: boolean;
+    keptActive?: boolean;
+      protectionReasons?: string[];
           }>;
         };
         renderer: {
@@ -2863,6 +2873,9 @@ contextBridge.exposeInMainWorld("api", {
         ok: boolean;
         sessions?: LensSessionDescriptor[];
       }>,
+    setSleeping: (args: { workspaceId: string; lensSessionId: string; sleeping: boolean }) => ipcRenderer.invoke("lens:set-sleeping", args) as Promise<{ ok: boolean; message?: string }>,
+    setKeepActive: (args: { workspaceId: string; lensSessionId: string; keepActive: boolean }) =>
+      ipcRenderer.invoke("lens:set-keep-active", args) as Promise<{ ok: boolean; message?: string }>,
     releaseWorkspaceGuests: (args: { workspaceId: string }) =>
       ipcRenderer.invoke("lens:release-workspace-guests", args) as Promise<{
         ok: boolean;

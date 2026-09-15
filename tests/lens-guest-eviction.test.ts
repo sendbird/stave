@@ -3,6 +3,7 @@ import {
   selectEvictableAgentLensGuests,
   selectEvictableLensGuests,
   selectIdleLensGuests,
+  selectOverBudgetLensGuests,
   type LensGuestEvictionCandidate,
 } from "../src/lib/lens/lens-guest-eviction";
 
@@ -25,6 +26,61 @@ function candidate(
 
 const ids = (sessions: ReadonlyArray<LensGuestEvictionCandidate>) =>
   sessions.map((session) => session.lensSessionId);
+
+test("keep-active and activity protection apply to every eviction policy", () => {
+  for (const managedByMcp of [false, true]) {
+    const protectedGuest = candidate({ lensSessionId: "protected", managedByMcp, memoryProtected: true });
+    expect(selectEvictableLensGuests([protectedGuest], { maxHidden: 0 })).toEqual([]);
+    expect(selectEvictableAgentLensGuests([protectedGuest], { maxHidden: 0 })).toEqual([]);
+    expect(selectIdleLensGuests([protectedGuest], { nowMs: 1_000_000, idleTtlMs: 1, agentIdleTtlMs: 1 })).toEqual([]);
+    expect(selectOverBudgetLensGuests([{ ...protectedGuest, pid: 10 }], {
+      workingSetKBByPid: new Map([[10, 1_000_000]]), budgetKB: 0, nowMs: 1_000_000, graceMs: 1, agentGraceMs: 1,
+    })).toEqual([]);
+    expect(selectIdleLensGuests([{ ...protectedGuest, memoryProtected: false }], { nowMs: 1_000_000, idleTtlMs: 1, agentIdleTtlMs: 1 })).toHaveLength(1);
+  }
+});
+
+describe("hidden Lens memory budget", () => {
+  const options = {
+    nowMs: 600_000,
+    graceMs: 60_000,
+    agentGraceMs: 300_000,
+    budgetKB: 512 * 1024,
+    workingSetKBByPid: new Map([[10, 1_200 * 1024], [20, 80 * 1024]]),
+  };
+  const guest = (id: string, pid: number, overrides: Partial<LensGuestEvictionCandidate> = {}) => ({
+    ...candidate({ lensSessionId: id, ...overrides }), pid,
+  });
+
+  test("releases one oversized hidden renderer below the count cap", () => {
+    expect(ids(selectOverBudgetLensGuests([
+      guest("large", 10), guest("small", 20),
+    ], options))).toEqual(["large"]);
+  });
+
+  test("protects visible, busy, recently hidden and recently addressed agent pages", () => {
+    for (const overrides of [
+      { visible: true }, { cdpInFlight: 1 }, { lastHiddenAtMs: 550_000 },
+      { managedByMcp: true, lastAgentTouchedAtMs: 400_000 },
+    ]) {
+      expect(selectOverBudgetLensGuests([guest("protected", 10, overrides)], options)).toEqual([]);
+    }
+    expect(ids(selectOverBudgetLensGuests([
+      guest("idle-agent", 10, { managedByMcp: true, lastAgentTouchedAtMs: 200_000 }),
+    ], options))).toEqual(["idle-agent"]);
+  });
+
+  test("counts shared processes once and never partially evicts a protected group", () => {
+    const shared = [guest("a", 20), guest("b", 20)];
+    expect(selectOverBudgetLensGuests(shared, { ...options, budgetKB: 100 * 1024 })).toEqual([]);
+    expect(ids(selectOverBudgetLensGuests(shared, { ...options, budgetKB: 0 }))).toEqual(["a", "b"]);
+    expect(selectOverBudgetLensGuests([guest("hidden", 10), guest("visible", 10, { visible: true })], options)).toEqual([]);
+    expect(selectOverBudgetLensGuests([guest("hidden", 10), guest("busy", 10, { cdpInFlight: 1 })], options)).toEqual([]);
+    expect(selectOverBudgetLensGuests([
+      { ...guest("audio-or-download", 10), memoryProtected: true },
+    ], options)).toEqual([]);
+  });
+});
 
 describe("selectEvictableLensGuests", () => {
   test("evicts nothing while the hidden count is within the cap", () => {

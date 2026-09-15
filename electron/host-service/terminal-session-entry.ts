@@ -10,6 +10,7 @@ import type { Terminal as HeadlessTerminal } from "@xterm/headless";
 import type { Osc133Parser } from "../../src/lib/terminal/osc133";
 
 export interface TerminalSessionEntry {
+  workspaceId?: string;
   pty: pty.IPty;
   dataSubscription: pty.IDisposable | null;
   exitSubscription: pty.IDisposable | null;

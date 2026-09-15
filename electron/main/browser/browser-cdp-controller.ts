@@ -13,6 +13,8 @@ export type CdpMessageListener = (
 export type CdpDetachListener = (reason: string) => void;
 
 interface CdpControllerState {
+  sleeping: boolean;
+  lifecycleChange: Promise<void>;
   webContentsId: number;
   attachedByController: boolean;
   commandBarrier: CdpCommandBarrier;
@@ -87,6 +89,8 @@ function getOrCreateController(webContentsId: number): CdpControllerState {
 
   const wc = requireWebContents(webContentsId);
   const state = {} as CdpControllerState;
+  state.sleeping = false;
+  state.lifecycleChange = Promise.resolve();
   state.webContentsId = webContentsId;
   state.attachedByController = false;
   state.commandBarrier = createCdpCommandBarrier();
@@ -121,6 +125,10 @@ function getOrCreateController(webContentsId: number): CdpControllerState {
 }
 
 function finalizeControllerDetach(state: CdpControllerState): void {
+  if (state.sleeping) {
+    void setCdpPageSleeping(state.webContentsId, false).then(() => finalizeControllerDetach(state)).catch(() => undefined);
+    return;
+  }
   state.detachRequested = false;
   const wc = webContents.fromId(state.webContentsId);
   if (wc && !wc.isDestroyed()) {
@@ -161,6 +169,22 @@ export function ensureCdpAttached(webContentsId: number): void {
   }
 }
 
+export function isCdpPageSleeping(webContentsId: number): boolean {
+  return controllers.get(webContentsId)?.sleeping ?? false;
+}
+
+export function setCdpPageSleeping(webContentsId: number, sleeping: boolean): Promise<void> {
+  ensureCdpAttached(webContentsId);
+  const state = getOrCreateController(webContentsId);
+  const release = state.commandBarrier.acquire();
+  state.sleeping = sleeping;
+  const operation = state.lifecycleChange.catch(() => undefined).then(async () => {
+    await requireWebContents(webContentsId).debugger.sendCommand("Page.setWebLifecycleState", { state: sleeping ? "frozen" : "active" });
+  }).catch((error) => { state.sleeping = !sleeping; throw error; }).finally(() => { release(); releaseCommandLease(state); });
+  state.lifecycleChange = operation;
+  return operation;
+}
+
 export async function sendCdpCommand(
   webContentsId: number,
   method: string,
@@ -170,6 +194,8 @@ export async function sendCdpCommand(
   const controller = getOrCreateController(webContentsId);
   const release = controller.commandBarrier.acquire();
   try {
+    if (controller.sleeping) await setCdpPageSleeping(webContentsId, false);
+    await controller.lifecycleChange.catch(() => undefined);
     return await requireWebContents(webContentsId).debugger.sendCommand(
       method,
       params,

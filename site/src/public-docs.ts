@@ -130,6 +130,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         previewImage: "screenshots/scripts-panel.png",
       },
       {
+        routePath: "resource-manager",
+        sourcePath: "docs/features/resource-manager.md",
+        title: "Resource Manager",
+        description:
+          "Inspect Lens memory, sleep or release hidden pages, stop workspace execution, and clean up inactive worktrees.",
+      },
+      {
         routePath: "routines",
         sourcePath: "docs/features/routines.md",
         title: "Routines",

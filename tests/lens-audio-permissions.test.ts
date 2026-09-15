@@ -112,9 +112,11 @@ describe("Lens audio permission policy", () => {
       "setPermissionCheckHandler" | "setPermissionRequestHandler"
     >;
 
+    const audioInputs: number[] = [];
     installLensAudioPermissionHandlers(
       session,
       (webContents) => webContents?.id === 7,
+      (webContents) => audioInputs.push(webContents.id),
     );
     expect(requestHandler).not.toBeNull();
     expect(checkHandler).not.toBeNull();
@@ -136,6 +138,7 @@ describe("Lens audio permission policy", () => {
       },
     );
     expect(granted).toBe(true);
+    expect(audioInputs).toEqual([7]);
 
     requestHandler?.(
       popupWebContents,

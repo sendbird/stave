@@ -1,4 +1,5 @@
 import type { StoreApi } from "zustand";
+import { workspaceCleanupBlocker } from "@/lib/workspace-cleanup";
 import { loadWorkspaceShell } from "@/lib/db/workspaces.db";
 import { stampWorkspaceActive } from "@/lib/fleet/workspace-activity";
 import { maybeRefreshMartinContext } from "@/lib/martin-sync/renderer-triggers";
@@ -195,11 +196,21 @@ export function createWorkspaceManagementActions(args: {
   } = args;
 
   return {
-    closeWorkspace: async ({ workspaceId, deleteBranch = true }) => {
+    closeWorkspace: async ({ workspaceId, deleteBranch = true, onlyIfInactive = false }) => {
       const state = get();
       const workspace = state.workspaces.find(
         (item) => item.id === workspaceId,
       );
+      if (!workspace) return;
+      const assertCleanupTarget = () => {
+        if (!onlyIfInactive) return;
+        const blocker = workspaceCleanupBlocker(
+          get(), state.projectPath ?? "", workspaceId,
+          state.workspacePathById[workspaceId] ?? "",
+        );
+        if (blocker) throw new Error(blocker);
+      };
+      assertCleanupTarget();
       const isProtectedDefault =
         state.workspaceDefaultById[workspaceId] ||
         workspaceId === starterWorkspaceId ||
@@ -211,6 +222,7 @@ export function createWorkspaceManagementActions(args: {
       await get().purgeWorkspaceNotifications({
         workspaceIds: [workspaceId],
       });
+      assertCleanupTarget();
       const workspacePath = state.workspacePathById[workspaceId];
       const workspaceBranch = state.workspaceBranchById[workspaceId];
       const projectPath = state.projectPath;
@@ -350,7 +362,13 @@ export function createWorkspaceManagementActions(args: {
         }
         return;
       }
-      await get().switchWorkspace({ workspaceId: nextWorkspace.id });
+      // Archiving an inactive workspace must not disturb the current session.
+      // Bulk cleanup also avoids the asynchronous switch, so its final guard
+      // and removal run together without letting a new turn start between them.
+      if (get().activeWorkspaceId === workspaceId) {
+        await get().switchWorkspace({ workspaceId: nextWorkspace.id });
+      }
+      assertCleanupTarget();
       set((nextState) => {
         const nextBranchById = { ...nextState.workspaceBranchById };
         const nextPathById = { ...nextState.workspacePathById };
@@ -376,8 +394,7 @@ export function createWorkspaceManagementActions(args: {
               taskWorkspaceIdById: nextState.taskWorkspaceIdById,
               workspaceIds: [workspaceId],
             }),
-            // The switch above parked the closed workspace's session in the
-            // runtime cache, so its task ids are read from there.
+            // Inactive workspace sessions are parked in the runtime cache.
             ...(
               nextState.workspaceRuntimeCacheById[workspaceId]?.tasks ?? []
             ).map((task) => task.id),

@@ -59,17 +59,20 @@ export function enableLensPageAudioOutput(
 export function installLensAudioPermissionHandlers(
   session: LensPermissionSession,
   isOwnedLensPage: (webContents: WebContents | null) => boolean,
+  onAudioInputGranted?: (webContents: WebContents) => void,
 ): void {
   session.setPermissionRequestHandler(
     (webContents, permission, callback, details) => {
-      callback(
-        shouldGrantLensPermissionRequest({
+      const granted = shouldGrantLensPermissionRequest({
           isOwnedLensPage: isOwnedLensPage(webContents),
           permission,
           mediaTypes:
             "mediaTypes" in details ? details.mediaTypes : undefined,
-        }),
-      );
+        });
+      if (granted && permission === "media" && webContents) {
+        onAudioInputGranted?.(webContents);
+      }
+      callback(granted);
     },
   );
 

@@ -1,3 +1,7 @@
+import { lensMemoryBudgetKB, lensReopenCooldownUntil } from "../../../src/lib/lens/lens-memory-policy";
+import { isCdpPageSleeping, setCdpPageSleeping } from "./browser-cdp-controller";
+import { LensResourceHistory, type LensResourceEvent } from "../../../src/lib/lens/lens-resource-history";
+import { isLensKeptActive, setLensKeptActive } from "./lens-resource-preferences";
 // ---------------------------------------------------------------------------
 // Browser session manager – singleton per Electron main process
 // Tracks Lens sessions keyed by (workspaceId, lensSessionId) so a workspace can
@@ -9,6 +13,7 @@
 // ---------------------------------------------------------------------------
 
 import {
+  app,
   BrowserWindow,
   session as electronSession,
   webContents,
@@ -30,6 +35,7 @@ import {
   selectEvictableAgentLensGuests,
   selectEvictableLensGuests,
   selectIdleLensGuests,
+  selectOverBudgetLensGuests,
 } from "../../../src/lib/lens/lens-guest-eviction";
 import { selectPreferredLensSession } from "../../../src/lib/lens/lens-session-selection";
 import {
@@ -158,6 +164,7 @@ export interface BrowserSessionState {
   annotationExtractDebugSource: boolean;
   /** Rotated for every top-level document navigation. */
   documentId: string;
+  audioInputGrantedDocumentId?: string;
   annotations: LensAnnotation[];
   /** True when the box-model inspect overlay is active for this session. */
   boxInspectActive: boolean;
@@ -217,9 +224,14 @@ export const MAX_HIDDEN_AGENT_LENS_GUESTS = 4;
 export const LENS_IDLE_TTL_MS = 15 * 60_000;
 export const LENS_AGENT_IDLE_TTL_MS = 30 * 60_000;
 export const LENS_IDLE_SWEEP_INTERVAL_MS = 60_000;
+// A small guest count can still retain gigabytes. Reuse the existing eviction
+// and URL restoration path after a grace period; never interrupt a live command.
+export const LENS_MEMORY_GRACE_MS = 60_000;
+export const LENS_AGENT_MEMORY_GRACE_MS = 5 * 60_000;
 
 /** Registry keyed by sessionKey(workspaceId, lensSessionId). */
 const sessions = new Map<string, BrowserSessionState>();
+const resourceHistory = new LensResourceHistory();
 const closingSessions = new Map<string, Promise<void>>();
 let lensIdleSweepTimer: ReturnType<typeof setInterval> | null = null;
 
@@ -968,6 +980,11 @@ function wireBrowserSession(args: {
       owner?.webContentsId === permissionWebContents.id &&
       isCurrentBrowserSession(owner)
     );
+  }, (permissionWebContents) => {
+    const owner = getSessionForWebContentsId(permissionWebContents.id);
+    if (!owner) return;
+    owner.audioInputGrantedDocumentId = owner.documentId;
+    if (isCdpPageSleeping(owner.webContentsId)) void setCdpPageSleeping(owner.webContentsId, false).catch(() => undefined);
   });
 
   // Partition-level dispatchers route traffic back to the owning session.
@@ -1025,6 +1042,7 @@ function wireBrowserSession(args: {
     },
   };
 
+  resourceHistory.opened(workspaceId, lensSessionId);
   sessions.set(sessionKey(workspaceId, lensSessionId), session);
   webContentsSessionIndex.set(session.webContentsId, session);
   startLensIdleSweep();
@@ -1275,6 +1293,8 @@ export function listBrowserSessions(
 }
 
 export interface BrowserResourceMetrics {
+  memoryBudgetKB?: number;
+  resourceEvents?: LensResourceEvent[];
   sessions: number;
   visibleSessions: number;
   managedByMcpSessions: number;
@@ -1294,6 +1314,9 @@ export interface BrowserResourceMetrics {
     visible: boolean;
     managedByMcp: boolean;
     url: string;
+    sleeping?: boolean;
+    keptActive?: boolean;
+    protectionReasons?: string[];
   }>;
 }
 
@@ -1325,6 +1348,8 @@ export function getBrowserResourceMetrics(): BrowserResourceMetrics {
   );
   const cdp = getCdpControllerResourceMetrics();
   return {
+    memoryBudgetKB: lensMemoryBudgetKB(process.getSystemMemoryInfo().total),
+    resourceEvents: resourceHistory.snapshot(),
     sessions: liveSessions.length,
     visibleSessions: liveSessions.filter((session) => session.visible).length,
     managedByMcpSessions: liveSessions.filter((session) => session.managedByMcp)
@@ -1359,6 +1384,9 @@ export function getBrowserResourceMetrics(): BrowserResourceMetrics {
       visible: session.visible,
       managedByMcp: session.managedByMcp,
       url: session.navigationState.url,
+      sleeping: isCdpPageSleeping(session.webContentsId),
+      keptActive: isLensKeptActive(session.workspaceId, session.lensSessionId),
+      protectionReasons: getLensProtectionReasons(session),
     })),
   };
 }
@@ -1371,6 +1399,7 @@ export function getWebContentsForSession(
   if (!session) return undefined;
   try {
     const wc = session.webContents;
+    if (isCdpPageSleeping(session.webContentsId)) void setCdpPageSleeping(session.webContentsId, false).catch(() => undefined);
     return wc && !wc.isDestroyed() ? wc : undefined;
   } catch {
     return undefined;
@@ -1465,9 +1494,32 @@ function reapDeadBrowserSession(
  * page it was on. Least-recently-presented first; a session that has never been
  * presented ranks by creation order, oldest first.
  */
+export function setBrowserSessionKeptActive(workspaceId: string, lensSessionId: string, keepActive: boolean): void {
+  if (!getBrowserSession(workspaceId, lensSessionId)) throw new Error("Lens session no longer exists");
+  setLensKeptActive(workspaceId, lensSessionId, keepActive);
+  const session = getBrowserSession(workspaceId, lensSessionId);
+  if (keepActive && session && isCdpPageSleeping(session.webContentsId)) void setCdpPageSleeping(session.webContentsId, false).catch(() => undefined);
+}
+
+function getLensProtectionReasons(session: BrowserSessionState): string[] {
+  const reasons: string[] = [];
+  if (session.visible) reasons.push("Visible");
+  if (lensReopenCooldownUntil(resourceHistory.snapshot(), session.workspaceId, session.lensSessionId, Date.now()) > Date.now()) reasons.push("Recently reopened; cooldown");
+  if (session.navigationState.isLoading) reasons.push("Page loading");
+  if (session.audioInputGrantedDocumentId === session.documentId) reasons.push("Microphone access; retained until navigation");
+  if (isLensKeptActive(session.workspaceId, session.lensSessionId)) reasons.push("Always keep active");
+  if (getCdpInFlightCommandCount(session.webContentsId) > 0) reasons.push("Command running");
+  if (session.authPopups.size > 0) reasons.push("Authentication open");
+  if (session.downloadLog.toArray().some((entry) => entry.state === "progressing")) reasons.push("Downloading");
+  if (!session.webContents.isDestroyed() && session.webContents.isCurrentlyAudible()) reasons.push("Audio playing");
+  return reasons;
+}
+
 function getLensGuestEvictionCandidates() {
   return [...sessions.values()].map((session) => ({
     ...session,
+    pid: getBrowserGuestPid(session),
+    memoryProtected: getLensProtectionReasons(session).length > 0,
     cdpInFlight: getCdpInFlightCommandCount(session.webContentsId),
   }));
 }
@@ -1498,12 +1550,32 @@ function enforceHiddenLensGuestCap(exempt?: BrowserSessionState): void {
 }
 
 function sweepIdleLensGuests(): void {
-  const victims = selectIdleLensGuests(getLensGuestEvictionCandidates(), {
-    nowMs: Date.now(),
+  const candidates = getLensGuestEvictionCandidates();
+  if (candidates.length === 0) return;
+  const nowMs = Date.now();
+  const victims = selectIdleLensGuests(candidates, {
+    nowMs,
     idleTtlMs: LENS_IDLE_TTL_MS,
     agentIdleTtlMs: LENS_AGENT_IDLE_TTL_MS,
   });
-  for (const victim of victims) {
+  const overBudget = selectOverBudgetLensGuests(candidates, {
+    workingSetKBByPid: new Map(
+      app.getAppMetrics().map((metric) => [metric.pid, metric.memory.workingSetSize]),
+    ),
+    budgetKB: lensMemoryBudgetKB(process.getSystemMemoryInfo().total),
+    nowMs,
+    graceMs: LENS_MEMORY_GRACE_MS,
+    agentGraceMs: LENS_AGENT_MEMORY_GRACE_MS,
+  });
+  const uniqueVictims = new Map([...victims, ...overBudget].map((victim) => [
+    sessionKey(victim.workspaceId, victim.lensSessionId), victim,
+  ]));
+  for (const candidate of selectIdleLensGuests(candidates, { nowMs, idleTtlMs: LENS_MEMORY_GRACE_MS, agentIdleTtlMs: LENS_AGENT_MEMORY_GRACE_MS })) {
+    if (!uniqueVictims.has(sessionKey(candidate.workspaceId, candidate.lensSessionId)) && !isCdpPageSleeping(candidate.webContentsId)) {
+      void setBrowserSessionSleeping(candidate.workspaceId, candidate.lensSessionId, true).catch(() => undefined);
+    }
+  }
+  for (const victim of uniqueVictims.values()) {
     void destroyBrowserSession(
       victim.workspaceId,
       victim.lensSessionId,
@@ -1547,25 +1619,39 @@ export function markBrowserSessionAgentTouched(
   session.lastAgentTouchedAtMs = Date.now();
 }
 
+export async function setBrowserSessionSleeping(workspaceId: string, lensSessionId: string, sleeping: boolean): Promise<void> {
+  const session = getBrowserSession(workspaceId, lensSessionId);
+  if (!session || session.closing) throw new Error("Lens session no longer exists");
+  if (sleeping && getLensProtectionReasons(session).length > 0) throw new Error("This page is protected by current activity.");
+  await setCdpPageSleeping(session.webContentsId, sleeping);
+  // Presentation or protected activity can arrive while the freeze command is pending.
+  if (sleeping && getLensProtectionReasons(session).length > 0) await setCdpPageSleeping(session.webContentsId, false);
+}
+
 /** Reclaim hidden panel-owned guests after their workspace cache is dropped. */
-export function releaseHiddenLensGuestsForWorkspace(
+export async function releaseHiddenLensGuestsForWorkspace(
   workspaceId: string,
-): number {
+): Promise<number> {
   const victims = getLensGuestEvictionCandidates().filter(
     (session) =>
       session.workspaceId === workspaceId &&
       !session.visible &&
       !session.managedByMcp &&
+      !session.memoryProtected &&
       !session.closing &&
-      session.cdpInFlight === 0,
+      session.cdpInFlight === 0 &&
+      session.authPopups.size === 0 &&
+      !session.downloadLog.toArray().some((entry) => entry.state === "progressing") &&
+      !session.webContents.isDestroyed() &&
+      !session.webContents.isCurrentlyAudible(),
   );
-  for (const victim of victims) {
-    void destroyBrowserSession(
+  await Promise.all(victims.map((victim) =>
+    destroyBrowserSession(
       victim.workspaceId,
       victim.lensSessionId,
       "evicted",
-    );
-  }
+    ),
+  ));
   return victims.length;
 }
 
@@ -1584,6 +1670,7 @@ export function destroyBrowserSession(
   if (!session || session.closing) return Promise.resolve();
 
   session.closing = true;
+  if (reason === "evicted") resourceHistory.released(session.workspaceId, session.lensSessionId);
 
   // Tombstone routing before any teardown work so late console/network events
   // cannot enqueue more renderer IPC while the page is closing.
@@ -1707,6 +1794,7 @@ export function setSessionPresented(
   const wasVisible = session.visible;
   session.visible = presented;
   if (presented) {
+    if (isCdpPageSleeping(session.webContentsId)) void setCdpPageSleeping(session.webContentsId, false).catch(() => undefined);
     session.lastHiddenAtMs = 0;
     session.lastVisibleAt = ++lensVisibilitySequence;
     // First sight of the page is what earns it the speakers. See the mute in

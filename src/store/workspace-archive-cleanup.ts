@@ -20,6 +20,11 @@ import { closeTerminalSessionsForWorkspaces } from "@/store/workspace-terminal-c
 
 const activeWorkspaceArchiveCleanups = new Set<Promise<void>>();
 
+/** Keep paths and branch names literal when invoking the existing shell runner. */
+export function quoteWorkspaceShellArgument(value: string): string {
+  return `'${value.replace(/'/g, `'"'"'`)}'`;
+}
+
 /**
  * Normalized worktree paths the user explicitly archived this session. When a
  * worktree is genuinely dirty, archive intentionally preserves it on disk to
@@ -287,7 +292,7 @@ async function performWorkspaceArchiveCleanup(args: {
       });
       await runner({
         cwd: projectPath,
-        command: `if [ -L ${JSON.stringify(symlinkPath)} ]; then rm ${JSON.stringify(symlinkPath)}; fi`,
+        command: `if [ -L ${quoteWorkspaceShellArgument(symlinkPath)} ]; then rm -- ${quoteWorkspaceShellArgument(symlinkPath)}; fi`,
       });
     } catch (error) {
       console.error(
@@ -346,11 +351,11 @@ async function performWorkspaceArchiveCleanup(args: {
         const nodeModulesSymlinkPath = `${workspacePath}/node_modules`;
         await runner({
           cwd: projectPath,
-          command: `if [ -L ${JSON.stringify(nodeModulesSymlinkPath)} ]; then rm ${JSON.stringify(nodeModulesSymlinkPath)}; fi`,
+          command: `if [ -L ${quoteWorkspaceShellArgument(nodeModulesSymlinkPath)} ]; then rm -- ${quoteWorkspaceShellArgument(nodeModulesSymlinkPath)}; fi`,
         });
         const removeResult = await runner({
           cwd: projectPath,
-          command: `git worktree remove ${JSON.stringify(workspacePath)}`,
+          command: `git worktree remove -- ${quoteWorkspaceShellArgument(workspacePath)}`,
         });
         didRemoveWorktree = removeResult.ok;
         if (!removeResult.ok) {
@@ -391,7 +396,7 @@ async function performWorkspaceArchiveCleanup(args: {
           // it — but only for the branch the worktree actually held.
           const deleteResult = await runner({
             cwd: projectPath,
-            command: `git branch -D ${JSON.stringify(branchToDelete)}`,
+            command: `git branch -D -- ${quoteWorkspaceShellArgument(branchToDelete)}`,
           });
           if (!deleteResult.ok) {
             console.warn("[workspace-archive] git branch -D failed", {
