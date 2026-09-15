@@ -35,6 +35,11 @@ prompt + context ──▶ Signals ──▶ Task class ──▶ Role table × 
 4. **Roles**: the same table routes the `primary` turn, the `advisor` target,
    the `worker` model, and `delegate` (child task) defaults. Rules without a
    `role` filter apply to the primary only.
+   Advisor Auto uses the current user prompt's heuristic task class,
+   complexity, sensitivity, skill, and attached file count at send time, even
+   when the primary model is manually selected. The resolved Advisor stays
+   fixed for that turn; individual consult questions do not reroute it. Custom
+   Advisor rules can use those signals; the starter's default remains unchanged.
 5. **Stance**: `cost-saver`, `balanced`, or `quality-first`. The stance
    shifts every route one rung down or up and moves the budget-guard
    thresholds. Cost-saver also lowers effort one step; quality-first keeps the

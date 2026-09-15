@@ -110,6 +110,45 @@ afterEach(() => {
 });
 
 describe("consultAdvisor", () => {
+  test("validates evidence before spending the grant and passes it to the runner", async () => {
+    const prompts: string[] = [];
+    const harness = createGrant({
+      consultKey: "evidence-grant",
+      consultLimit: 1,
+      runners: {
+        runClaude: async ({ prompt }) => {
+          prompts.push(prompt);
+          return { ok: true, text: "Inspect the missing handler." };
+        },
+        runCodex: createUnusedRunner("Unexpected Codex call"),
+      },
+    });
+    registerAdvisorConsultGrant(harness.grant);
+    expect(
+      await consultAdvisor({
+        consultKey: "evidence-grant",
+        question: "Review",
+        evidence: { constraints: ["x".repeat(1_001)] },
+      }),
+    ).toMatchObject({ ok: false, remainingConsults: 1 });
+    expect(prompts).toEqual([]);
+    const outcome = await consultAdvisor({
+      consultKey: "evidence-grant",
+      question: "Review cancellation",
+      evidence: {
+        excerpts: [{ source: "src/session.ts:1", content: "abort();" }],
+        missingEvidence: ["IPC handler"],
+      },
+    });
+    expect(outcome).toMatchObject({
+      ok: true,
+      consultIndex: 1,
+      remainingConsults: 0,
+    });
+    expect(prompts[0]).toContain("src/session.ts:1");
+    expect(prompts[0]).toContain("IPC handler");
+  });
+
   test("rejects a key no grant was minted for", async () => {
     const outcome = await consultAdvisor({
       consultKey: "never-registered",
@@ -199,7 +238,9 @@ describe("consultAdvisor", () => {
   test("resumes an Advisor role session across turns in the same task", async () => {
     const resumeSessionIds: Array<string | undefined> = [];
     const runners = {
-      runClaude: async (args: Parameters<AdvisorRunnerDependencies["runClaude"]>[0]) => {
+      runClaude: async (
+        args: Parameters<AdvisorRunnerDependencies["runClaude"]>[0],
+      ) => {
         resumeSessionIds.push(args.resumeSessionId);
         return {
           ok: true,

@@ -1,4 +1,8 @@
 import { randomUUID } from "node:crypto";
+import {
+  AdvisorEvidenceSchema,
+  type AdvisorConsultRequest,
+} from "../../src/lib/providers/advisor-evidence";
 
 import {
   buildAdvisorAdviceContent,
@@ -253,11 +257,9 @@ export type AdvisorConsultOutcome =
  * the turn-clock pause both model a single active exchange, and a primary that
  * wants parallel opinions should ask one better question instead.
  */
-export async function consultAdvisor(args: {
-  consultKey: string;
-  question: string;
-  context?: string;
-}): Promise<AdvisorConsultOutcome> {
+export async function consultAdvisor(
+  args: AdvisorConsultRequest,
+): Promise<AdvisorConsultOutcome> {
   const grant = grantsByKey.get(args.consultKey);
   if (!grant || grant.revoked) {
     return {
@@ -295,6 +297,18 @@ export async function consultAdvisor(args: {
     };
   }
 
+  const evidence = AdvisorEvidenceSchema.optional().safeParse(args.evidence);
+  if (!evidence.success) {
+    return {
+      ok: false,
+      code: "advisor-failed",
+      message:
+        "Invalid Advisor evidence. Supply bounded excerpts, constraints, and check results matching the consult schema.",
+      consultLimit: grant.consultLimit,
+      remainingConsults: grant.consultLimit - grant.used,
+    };
+  }
+
   grant.used += 1;
   const consult: AdvisorConsultDescriptor = {
     exchangeId: randomUUID(),
@@ -308,10 +322,7 @@ export async function consultAdvisor(args: {
       grant.emit(event);
     }
   };
-  const emitDelegatedUsage = (
-    usage?: UsageEvent,
-    sessionReused?: boolean,
-  ) => {
+  const emitDelegatedUsage = (usage?: UsageEvent, sessionReused?: boolean) => {
     emitIfLive({
       type: "delegated_usage",
       executionId: consult.exchangeId,
@@ -356,6 +367,7 @@ export async function consultAdvisor(args: {
       target: grant.target,
       prompt: buildAdvisorConsultPrompt({
         question,
+        evidence: evidence.data,
         ...(args.context ? { context: args.context } : {}),
         primaryProviderId: grant.primaryProviderId,
         ...(grant.primaryModel ? { primaryModel: grant.primaryModel } : {}),
@@ -470,7 +482,8 @@ export async function consultAdvisor(args: {
     }
     return {
       ok: false,
-      code: result.failureKind === "timeout" ? "advisor-timeout" : "advisor-failed",
+      code:
+        result.failureKind === "timeout" ? "advisor-timeout" : "advisor-failed",
       message: `The Advisor consult did not produce advice: ${result.detail} Proceed with your own judgment.`,
       consultLimit: grant.consultLimit,
       remainingConsults,

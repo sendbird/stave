@@ -39,11 +39,21 @@ opinion the primary model can request on demand during normal chat turns:
 3. Check the configured executor → Advisor pair shown in the card.
 
 The Advisor is isolated from the primary conversation session and cannot edit
-files, use network access, or resume a provider thread. Its bounded advice
+files or use network access. It may reuse its own Advisor session within the same
+task; earlier exchanges do not establish the current state of files. Its bounded advice
 returns to the primary as the `stave_consult_advisor` tool result. If a
 consult is unavailable, fails, or times out, Stave records a small trace and
 the primary continues; it does not silently switch models. Native slash
 commands and internal helper turns never receive a consult grant.
+
+The consult tool accepts optional `evidence` alongside the existing `question`
+and `context`: constraints, a diff reference, source-labelled code/diff excerpts,
+reported check results, and missing evidence. These are caller-supplied claims,
+not independent verification. The Advisor is asked to separate recommendations,
+supporting evidence, risks, and required checks, and to identify missing or
+truncated evidence. It cannot inspect a file merely because its path was supplied.
+Invalid or oversized structured evidence is rejected before a model call and
+does not consume a consult. Legacy question/context calls remain supported.
 
 ## Recommended Starting Points
 

@@ -1,4 +1,5 @@
 import { webContents } from "electron";
+import type { AdvisorConsultRequest } from "../../src/lib/providers/advisor-evidence";
 import type { CanonicalRetrievedContextPart } from "../../src/lib/providers/provider.types";
 import type {
   HostCraneReleaseTaskControlArgs,
@@ -488,11 +489,7 @@ export async function releaseTaskParent(args: {
  * key here in the Electron main process would always miss, so every consult
  * would fail with `unknown-consult-key` regardless of the armed advisor.
  */
-export async function consultAdvisor(args: {
-  consultKey: string;
-  question: string;
-  context?: string;
-}) {
+export async function consultAdvisor(args: AdvisorConsultRequest) {
   return invokeHostService("provider.consult-advisor", args);
 }
 

@@ -11,6 +11,7 @@ import type {
   ProviderSteerTurnResponse,
 } from "../../src/lib/providers/provider.types";
 import type { AdvisorConsultOutcome } from "./advisor-consult";
+import type { AdvisorConsultRequest } from "../../src/lib/providers/advisor-evidence";
 import type { AcpWorkerOutcome } from "./acp/acp-worker-runtime";
 import type { UserInputQuestion } from "../../src/types/chat";
 import type { WorkerExecutionMetadata } from "../../src/lib/providers/worker-mode";
@@ -365,11 +366,7 @@ export interface ProviderRuntime {
    * process. Main must cross the boundary rather than consult a registry that
    * is, in its own process, permanently empty.
    */
-  consultAdvisor: (args: {
-    consultKey: string;
-    question: string;
-    context?: string;
-  }) => Promise<AdvisorConsultOutcome>;
+  consultAdvisor: (args: AdvisorConsultRequest) => Promise<AdvisorConsultOutcome>;
   /** Executes one task through an active turn-scoped ACP Worker grant. */
   runAcpWorker: (args: {
     workerKey: string;

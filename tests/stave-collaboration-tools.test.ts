@@ -3,6 +3,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { registerCollaborationTools } from "../electron/main/stave-collaboration-tools";
+import type { AdvisorConsultRequest } from "../src/lib/providers/advisor-evidence";
 import {
   collaborationGrantHeaders,
   readCollaborationGrantHeaders,
@@ -23,7 +24,7 @@ afterEach(async () => {
 
 async function connect(
   grants: StaveCollaborationGrants,
-  onConsult = (_key: string) => {},
+  onConsult = (_key: string, _request: AdvisorConsultRequest) => {},
 ) {
   const server = new McpServer({ name: "test-stave", version: "1" });
   server.registerTool("stave_workspace_fixture", {}, async () => ({
@@ -34,8 +35,8 @@ async function connect(
     readCollaborationGrantHeaders(collaborationGrantHeaders(grants)),
     {
       runAcpWorker,
-      consultAdvisor: async ({ consultKey }) => {
-        onConsult(consultKey);
+      consultAdvisor: async (request) => {
+        onConsult(request.consultKey, request);
         return { ok: false, code: "unknown-consult-key", message: "fixture" };
       },
     },
@@ -111,6 +112,36 @@ test("catalog follows connection capabilities and preserves ordinary workspace t
       })
     ).isError,
   ).toBe(true);
+});
+
+test("consult evidence crosses MCP and invalid evidence never reaches the handler", async () => {
+  const requests: AdvisorConsultRequest[] = [];
+  const client = await connect(
+    { consultKey: "evidence-grant" },
+    (_key, request) => {
+      requests.push(request);
+    },
+  );
+  const evidence = {
+    excerpts: [{ source: "src/example.ts:1", content: "return value;" }],
+    missingEvidence: ["caller"],
+  };
+  await client.callTool({
+    name: "stave_consult_advisor",
+    arguments: { question: "Review", evidence },
+  });
+  expect(requests).toEqual([
+    { consultKey: "evidence-grant", question: "Review", evidence },
+  ]);
+  const invalid = await client.callTool({
+    name: "stave_consult_advisor",
+    arguments: {
+      question: "Review",
+      evidence: { constraints: ["x".repeat(1_001)] },
+    },
+  });
+  expect(invalid.isError).toBe(true);
+  expect(requests).toHaveLength(1);
 });
 
 test("keyless calls stay with their own concurrent turn and cannot switch to a supplied key", async () => {

@@ -18,6 +18,7 @@ import type {
   GitHubPrReviewSubmitResult,
 } from "../../src/lib/github-pr-review";
 import type { AdvisorConsultOutcome } from "../providers/advisor-consult";
+import type { AdvisorConsultRequest } from "../../src/lib/providers/advisor-evidence";
 import type { AcpWorkerOutcome } from "../providers/acp/acp-worker-runtime";
 import type {
   CanonicalRetrievedContextPart,
@@ -591,11 +592,7 @@ export interface HostServiceRequestMap {
   "provider.skip-advisor": {
     turnId: string;
   };
-  "provider.consult-advisor": {
-    consultKey: string;
-    question: string;
-    context?: string;
-  };
+  "provider.consult-advisor": AdvisorConsultRequest;
   "provider.run-acp-worker": {
     workerKey: string;
     task: string;

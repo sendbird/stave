@@ -112,6 +112,7 @@ describe("local MCP service bridge", () => {
       consultKey: "grant-1",
       question: "Is the cancellation path sound?",
       context: "runAdvisorCall(...)",
+      evidence: { missingEvidence: ["IPC handler"] },
     });
 
     expect(invokeCalls).toEqual([{
@@ -120,6 +121,7 @@ describe("local MCP service bridge", () => {
         consultKey: "grant-1",
         question: "Is the cancellation path sound?",
         context: "runAdvisorCall(...)",
+        evidence: { missingEvidence: ["IPC handler"] },
       },
     }]);
   });
