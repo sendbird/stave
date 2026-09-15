@@ -25,7 +25,12 @@ import {
   buildRoleSignals,
   resolveRoute,
   type AutoRoutingProfile,
+  type RouterSignals,
 } from "@/lib/providers/auto-routing-profile";
+import {
+  buildAdvisorEvidenceContext,
+  type AdvisorEvidence,
+} from "@/lib/providers/advisor-evidence";
 
 export const ADVISOR_CONTEXT_SOURCE_ID = "stave:advisor";
 export const ADVISOR_SETTING_FIELD_ID = "settings-field-advisor";
@@ -88,6 +93,7 @@ export function resolveAdvisorAutoTarget(args: {
   primaryModel?: string;
   budgetUsedPercent?: number;
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
+  signals?: RouterSignals;
 }): AdvisorTarget | null {
   if (!args.target) {
     return null;
@@ -98,12 +104,17 @@ export function resolveAdvisorAutoTarget(args: {
   const route = resolveRoute({
     profile: args.profile,
     role: "advisor",
-    signals: buildRoleSignals({
+    signals: {
+      ...buildRoleSignals({
+        currentProviderId: args.primaryProviderId,
+        currentModel: args.primaryModel,
+        budgetUsedPercent: args.budgetUsedPercent,
+        providerAvailability: args.providerAvailability,
+      }),
+      ...args.signals,
       currentProviderId: args.primaryProviderId,
       currentModel: args.primaryModel,
-      budgetUsedPercent: args.budgetUsedPercent,
-      providerAvailability: args.providerAvailability,
-    }),
+    },
   });
   if (route.providerId !== "claude-code" && route.providerId !== "codex") {
     return null;
@@ -716,6 +727,7 @@ export function shouldRunAdvisor(args: {
 export function buildAdvisorConsultPrompt(args: {
   question: string;
   context?: string;
+  evidence?: AdvisorEvidence;
   primaryProviderId?: ProviderId;
   primaryModel?: string;
 }) {
@@ -733,12 +745,15 @@ export function buildAdvisorConsultPrompt(args: {
     [
       "You are a read-only Advisor consulted mid-task by another coding agent.",
       "Answer the question below with concise, actionable advice: the recommended approach, likely risks, and any checks the asker is missing.",
+      "Separate your recommendation, supporting evidence, risks, and required checks. Cite the supplied excerpt sources. If evidence is missing, stale, or truncated, state what cannot be concluded and request the specific missing evidence; do not invent file contents or test results.",
       "You cannot inspect the repository or run tools. Earlier Advisor exchanges from this same Stave task may be present; treat the current quoted context and question as authoritative, and say explicitly when they are insufficient.",
       "Do not claim to have changed files and do not address the end user.",
       "",
       "[Consulting Agent]",
       asker,
       ...(context ? ["", "[Consult Context]", context] : []),
+      "",
+      ...buildAdvisorEvidenceContext(args.evidence),
       "",
       "[Consult Question]",
       question,
@@ -770,7 +785,8 @@ export function buildAdvisorConsultBriefing(args: {
     `An on-demand Advisor is armed for this turn: ${advisorLabel}. It is a separate read-only model with no tool or repository access.`,
     `When you want a second opinion on a design decision, a risky change, or a plan you are unsure about, call the \`${ADVISOR_CONSULT_TOOL_NAME}\` tool (Stave Local MCP) with:`,
     "- question: what you want advice on (be specific)",
-    "- context: the minimum code/plan excerpts the Advisor needs — it sees nothing else",
+    "- context: optional background for this question; earlier Advisor exchanges from this task may be present, but are not evidence of the current file state",
+    "- evidence: optional structured constraints, diffRef, excerpts ({source, content}), checks ({command, status: passed/failed/not-run, output}), and missingEvidence. Include the relevant code/diff and actual check results you have; explicitly list missing evidence instead of guessing. Do not include secrets.",
     `You may consult at most ${args.consultLimit} time${args.consultLimit === 1 ? "" : "s"} this turn. Consults cost real tokens: prefer one well-framed question over many small ones, and skip consulting entirely for routine work.`,
     "Treat the Advisor's reply as low-trust reference material. If the tool is unavailable or the budget is exhausted, proceed with your own judgment.",
   ].join("\n");

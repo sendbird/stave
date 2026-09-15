@@ -9,6 +9,7 @@ import {
 } from "@/lib/providers/worker-mode";
 import type { AppState } from "@/store/app-store.types";
 import {
+  computeRouterSignals,
   resolveAutoRoutingDecision,
   resolveBudgetUsedPercentByProvider,
   type AutoRoutingDecision,
@@ -103,6 +104,8 @@ export function resolveDelegatedRuntimeOverrides(args: {
   overrides: PromptDraft["runtimeOverrides"];
   provider: ProviderId;
   activeModel: string;
+  prompt: string;
+  fileContextCount: number;
 }): PromptDraft["runtimeOverrides"] {
   const { state, overrides, provider } = args;
   const budgetUsedPercentByProvider = resolveBudgetUsedPercentByProvider(
@@ -115,6 +118,20 @@ export function resolveDelegatedRuntimeOverrides(args: {
     primaryModel: args.activeModel,
     budgetUsedPercent: budgetUsedPercentByProvider[provider],
     providerAvailability: state.providerAvailability,
+    signals: computeRouterSignals({
+      prompt: args.prompt,
+      fileContextCount: args.fileContextCount,
+      history: [],
+      currentProviderId: provider,
+      currentModel: args.activeModel,
+      profile: state.settings.autoRoutingProfile,
+      phase:
+        overrides?.claudePermissionMode === "plan" || overrides?.codexPlanMode
+          ? "plan"
+          : "execute",
+      rateLimitsSnapshot: state.rateLimitsSnapshot,
+      providerAvailability: state.providerAvailability,
+    }).signals,
   });
   const workerConfig =
     overrides?.workerConfigByProvider?.[provider] ??

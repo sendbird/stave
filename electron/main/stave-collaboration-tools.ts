@@ -1,5 +1,6 @@
 import type { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { z } from "zod";
+import { AdvisorEvidenceSchema } from "../../src/lib/providers/advisor-evidence";
 import {
   WORKER_CONTEXT_MAX_CHARS,
   WORKER_TASK_MAX_CHARS,
@@ -37,16 +38,20 @@ export function registerCollaborationTools(
             .string()
             .optional()
             .describe(
-              "Minimal code/plan excerpts the Advisor needs. It has no repository or tool access and sees nothing else.",
+              "Background for this question. The Advisor has no repository or tool access; earlier exchanges may be present but do not establish current file state.",
             ),
+          evidence: AdvisorEvidenceSchema.optional().describe(
+            "Relevant constraints, code/diff excerpts with sources, diff reference, actual check results, and missing evidence. Supplied claims are not independently verified. Omit secrets.",
+          ),
         },
       },
-      async ({ question, context }) =>
+      async ({ question, context, evidence }) =>
         toStructuredResult({
           consult: await consultAdvisor({
             consultKey,
             question,
             ...(context ? { context } : {}),
+            ...(evidence ? { evidence } : {}),
           }),
         }),
     );

@@ -2140,6 +2140,8 @@ export const useAppStore = create<AppState>()(
             overrides: promptDraft.runtimeOverrides,
             provider,
             activeModel,
+            prompt: promptContent,
+            fileContextCount: resolvedFileContexts.length,
           });
 
           const skillSelection = resolveSkillSelections({
