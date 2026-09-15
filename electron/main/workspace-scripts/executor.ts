@@ -1,3 +1,4 @@
+import { workspaceExecutionGate } from "../../shared/workspace-execution-gate";
 import { createScriptOutputCapture } from "./output-capture";
 // ---------------------------------------------------------------------------
 // Workspace Scripts – Execution Engine (Electron main process)
@@ -689,7 +690,12 @@ async function runServiceScript(args: {
   return { ok: true as const, runId, sessionId };
 }
 
-export async function runScriptEntry(args: {
+export async function runScriptEntry(args: Parameters<typeof runScriptEntryImpl>[0]) {
+  const release = workspaceExecutionGate.acquire({ workspaceId: args.workspaceId, cwd: args.workspacePath });
+  try { return await runScriptEntryImpl(args); } finally { release(); }
+}
+
+async function runScriptEntryImpl(args: {
   workspaceId: string;
   scriptEntry: ResolvedWorkspaceScript;
   projectPath: string;
@@ -784,7 +790,7 @@ export async function stopAllWorkspaceScriptProcesses(args: {
   workspaceId: string;
 }): Promise<void> {
   const entries = listWorkspaceScriptProcessesForWorkspace(args.workspaceId);
-  await Promise.all(
+  const results = await Promise.allSettled(
     entries.map((entry) =>
       stopScriptEntry({
         workspaceId: entry.workspaceId,
@@ -793,6 +799,8 @@ export async function stopAllWorkspaceScriptProcesses(args: {
       }),
     ),
   );
+  const failure = results.find((result) => result.status === "rejected");
+  if (failure?.status === "rejected") throw failure.reason;
 }
 
 export async function cleanupAllScriptProcesses(): Promise<void> {

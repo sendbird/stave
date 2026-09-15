@@ -1,3 +1,5 @@
+import { setBrowserSessionSleeping } from "../browser/browser-manager";
+import { LensSleepArgsSchema } from "./schemas";
 // ---------------------------------------------------------------------------
 // IPC handlers for the built-in Lens feature
 // ---------------------------------------------------------------------------
@@ -17,6 +19,7 @@ import {
   pushConsoleEntry,
   pushNetworkEntry,
   setSessionPresented,
+  setBrowserSessionKeptActive,
 } from "../browser/browser-manager";
 import {
   bindBrowserSessionGuestWithEvents,
@@ -90,6 +93,7 @@ import {
   LensScreenshotArgsSchema,
   LensSessionTargetArgsSchema,
   LensWorkspaceTargetArgsSchema,
+  LensKeepActiveArgsSchema,
 } from "./schemas";
 import type {
   LensCdpApprovalResponse,
@@ -473,6 +477,26 @@ export function registerBrowserHandlers() {
     }),
   );
 
+  handleLens("lens:set-sleeping", async (_event, input: unknown) => {
+    try {
+      const args = LensSleepArgsSchema.parse(input);
+      await setBrowserSessionSleeping(args.workspaceId, args.lensSessionId, args.sleeping);
+      return { ok: true };
+    } catch (error) { return { ok: false, message: String(error) }; }
+  });
+
+  handleLens("lens:set-keep-active", async (_event, input: unknown) => {
+    const parsed = LensKeepActiveArgsSchema.safeParse(input);
+    if (!parsed.success) return { ok: false, message: "Invalid Lens target." };
+    try {
+      const { workspaceId, lensSessionId, keepActive } = parsed.data;
+      setBrowserSessionKeptActive(workspaceId, lensSessionId, keepActive);
+      return { ok: true };
+    } catch (error) {
+      return { ok: false, message: error instanceof Error ? error.message : "Preference could not be saved" };
+    }
+  });
+
   handleLens("lens:release-workspace-guests", async (_event, input: unknown) => {
     const parsed = LensWorkspaceTargetArgsSchema.safeParse(input);
     if (!parsed.success) {
@@ -480,7 +504,7 @@ export function registerBrowserHandlers() {
     }
     return {
       ok: true,
-      released: releaseHiddenLensGuestsForWorkspace(parsed.data.workspaceId),
+      released: await releaseHiddenLensGuestsForWorkspace(parsed.data.workspaceId),
     };
   });
 

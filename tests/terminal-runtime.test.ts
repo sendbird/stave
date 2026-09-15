@@ -1,3 +1,4 @@
+import { workspaceExecutionGate } from "../electron/shared/workspace-execution-gate";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
 type ExitPayload = { exitCode: number; signal?: number };
@@ -1208,4 +1209,23 @@ describe("terminal runtime slot lifecycle", () => {
       nativeSessionId: "kiro-session-1",
     });
   });
+});
+
+
+test("workspace stop preserves a similarly prefixed owner and blocks all provider CLI starts", async () => {
+  const runtime = createTerminalRuntime({ emitEvent: async () => {} });
+  const args = { workspaceId: "stop-w", workspacePath: "/tmp/workspace", taskId: null, taskTitle: null, terminalTabId: "t", cwd: "/tmp/workspace" };
+  const first = runtime.createSession(args);
+  const other = runtime.createSession({ ...args, workspaceId: "stop-w:other" });
+  await workspaceExecutionGate.stop(args, () => runtime.stopWorkspace(args.workspaceId));
+  try {
+    expect(fakePtys[0]?.destroyed).toBe(true);
+    expect(fakePtys[1]?.destroyed).toBe(false);
+    expect(runtime.writeSession({ sessionId: first.sessionId!, input: "" }).ok).toBe(false);
+    expect(runtime.writeSession({ sessionId: other.sessionId!, input: "" }).ok).toBe(true);
+    for (const providerId of ["claude-code", "codex", "cursor", "kiro"] as const) {
+      expect(runtime.createCliSession({ ...args, cliSessionTabId: "cli", providerId, contextMode: "workspace" }).ok).toBe(false);
+    }
+    expect(runtime.createSession(args).ok).toBe(false);
+  } finally { workspaceExecutionGate.resume(args.workspaceId); await runtime.cleanupAll(); }
 });

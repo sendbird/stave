@@ -32,6 +32,8 @@ export interface LensGuestEvictionCandidate {
   lastAgentTouchedAtMs: number;
   /** Native CDP commands that must drain before the guest can be reclaimed. */
   cdpInFlight: number;
+  /** Keep-active, media, authentication, or another protected activity. */
+  memoryProtected?: boolean;
 }
 
 export interface LensGuestEvictionOptions {
@@ -71,6 +73,7 @@ export function selectEvictableLensGuests<
       !candidate.managedByMcp &&
       !candidate.closing &&
       candidate.cdpInFlight === 0 &&
+      !candidate.memoryProtected &&
       !(
         exempt &&
         candidate.workspaceId === exempt.workspaceId &&
@@ -107,6 +110,7 @@ export function selectEvictableAgentLensGuests<
       candidate.managedByMcp &&
       !candidate.closing &&
       candidate.cdpInFlight === 0 &&
+      !candidate.memoryProtected &&
       !(
         exempt &&
         candidate.workspaceId === exempt.workspaceId &&
@@ -138,6 +142,7 @@ export function selectIdleLensGuests<
 ): Candidate[] {
   return candidates.filter((candidate) => {
     if (
+      candidate.memoryProtected ||
       candidate.visible ||
       candidate.closing ||
       candidate.cdpInFlight > 0 ||
@@ -153,4 +158,53 @@ export function selectIdleLensGuests<
       : options.idleTtlMs;
     return options.nowMs - lastActiveAtMs >= ttlMs;
   });
+}
+
+/** Reclaim whole hidden renderer groups; shared PIDs must never be double counted. */
+export function selectOverBudgetLensGuests<
+  Candidate extends LensGuestEvictionCandidate & {
+    pid: number | null;
+    memoryProtected?: boolean;
+  },
+>(
+  candidates: ReadonlyArray<Candidate>,
+  options: {
+    workingSetKBByPid: ReadonlyMap<number, number>;
+    budgetKB: number;
+    nowMs: number;
+    graceMs: number;
+    agentGraceMs: number;
+  },
+): Candidate[] {
+  const groups = new Map<number, Candidate[]>();
+  for (const candidate of candidates) {
+    if (candidate.pid === null || candidate.closing) continue;
+    const group = groups.get(candidate.pid) ?? [];
+    group.push(candidate);
+    groups.set(candidate.pid, group);
+  }
+  let retainedKB = 0;
+  const reclaimable: Array<{ guests: Candidate[]; sizeKB: number }> = [];
+  for (const [pid, guests] of groups) {
+    if (guests.some((guest) => guest.visible)) continue;
+    const sizeKB = options.workingSetKBByPid.get(pid) ?? 0;
+    retainedKB += sizeKB;
+    if (
+      !guests.some((guest) => guest.memoryProtected) &&
+      selectIdleLensGuests(guests, {
+        nowMs: options.nowMs,
+        idleTtlMs: options.graceMs,
+        agentIdleTtlMs: options.agentGraceMs,
+      }).length === guests.length
+    ) {
+      reclaimable.push({ guests, sizeKB });
+    }
+  }
+  const victims: Candidate[] = [];
+  for (const group of reclaimable.sort((a, b) => b.sizeKB - a.sizeKB)) {
+    if (retainedKB <= options.budgetKB) break;
+    victims.push(...group.guests);
+    retainedKB -= group.sizeKB;
+  }
+  return victims;
 }

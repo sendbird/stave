@@ -29,7 +29,11 @@ function resolveDevPreview(): string | null {
 const root = createRoot(document.getElementById("root")!);
 const preview = import.meta.env.DEV ? resolveDevPreview() : null;
 
-if (preview === "information-rows") {
+if (preview === "resource-manager") {
+  void import("@/dev/resource-manager-preview").then(({ ResourceManagerPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><ResourceManagerPreview /></StaveDesignProvider></StrictMode>);
+  });
+} else if (preview === "information-rows") {
   void import("@/dev/information-rows-preview").then(
     ({ InformationRowsPreview }) => {
       root.render(

@@ -2243,6 +2243,8 @@ interface AppMetricsResult {
     cdpClosingControllers: number;
     cdpInFlightCommands: number;
     cdpCloseDrainTimeouts: number;
+    memoryBudgetKB?: number;
+    resourceEvents?: Array<{ workspaceId: string; lensSessionId: string; kind: "released" | "reopened"; at: number }>;
     guests: Array<{
       workspaceId: string;
       lensSessionId: string;
@@ -2250,6 +2252,9 @@ interface AppMetricsResult {
       visible: boolean;
       managedByMcp: boolean;
       url: string;
+      sleeping?: boolean;
+    keptActive?: boolean;
+      protectionReasons?: string[];
     }>;
   };
   renderer: {
@@ -2607,6 +2612,8 @@ interface WindowLensApi {
     ok: boolean;
     sessions?: LensSessionDescriptor[];
   }>;
+  setSleeping?: (args: { workspaceId: string; lensSessionId: string; sleeping: boolean }) => Promise<{ ok: boolean; message?: string }>;
+  setKeepActive?: (args: { workspaceId: string; lensSessionId: string; keepActive: boolean }) => Promise<{ ok: boolean; message?: string }>;
   releaseWorkspaceGuests?: (args: { workspaceId: string }) => Promise<{
     ok: boolean;
     released: number;
@@ -2925,6 +2932,10 @@ interface WindowInlineCompletionApi {
 }
 
 interface WindowApi {
+  workspaceExecution?: {
+    status: () => Promise<import("@/lib/performance/workspace-execution").WorkspaceExecutionState[]>;
+    update: (args: import("@/lib/performance/workspace-execution").WorkspaceExecutionArgs) => Promise<import("@/lib/performance/workspace-execution").WorkspaceExecutionResult>;
+  };
   platform?: NodeJS.Platform;
   runs?: WindowRunsApi;
   provider?: WindowProviderApi;

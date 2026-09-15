@@ -329,6 +329,8 @@ export interface AppState
   }>;
   closeWorkspace: (args: {
     workspaceId: string;
+    /** Bulk cleanup must stop if the workspace becomes active or awaits input. */
+    onlyIfInactive?: boolean;
     /** Defaults to true; the archive dialog lets the user opt out. */
     deleteBranch?: boolean;
   }) => Promise<void>;

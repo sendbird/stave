@@ -1,3 +1,4 @@
+import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../../src/lib/performance/workspace-execution";
 import type {
   CliSessionCreateSessionArgs,
   TerminalCreateSessionArgs,
@@ -500,6 +501,8 @@ export type HostRoutineAction =
   | "list-information-references";
 
 export interface HostServiceRequestMap {
+  "workspace.execution": WorkspaceExecutionArgs;
+  "workspace.execution-status": undefined;
   "service.shutdown": undefined;
   "service.get-resource-metrics": undefined;
   "terminal.create-session": TerminalCreateSessionArgs;
@@ -1002,6 +1005,8 @@ export interface HostServiceRequestMap {
 }
 
 export interface HostServiceResponseMap {
+  "workspace.execution": WorkspaceExecutionResult;
+  "workspace.execution-status": WorkspaceExecutionState[];
   "service.shutdown": {
     ok: true;
   };

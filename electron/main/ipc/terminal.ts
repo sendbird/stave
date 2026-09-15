@@ -1,3 +1,4 @@
+import { WorkspaceExecutionArgsSchema } from "./schemas";
 import { ipcMain, webContents } from "electron";
 import {
   CliSessionCreateSessionArgsSchema,
@@ -109,6 +110,11 @@ function syncTerminalSessionOwner(args: {
 
 export function registerTerminalHandlers() {
   registerTerminalEventBridge();
+  ipcMain.handle("workspace:execution-status", () => invokeHostService("workspace.execution-status", undefined));
+  ipcMain.handle("workspace:execution", async (_event, input: unknown) => {
+    const args = WorkspaceExecutionArgsSchema.parse(input);
+    return invokeHostService("workspace.execution", args);
+  });
 
   ipcMain.handle(
     "terminal:run-command",

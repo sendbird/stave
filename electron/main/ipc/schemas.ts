@@ -1,3 +1,4 @@
+export { WorkspaceExecutionArgsSchema } from "../../../src/lib/performance/workspace-execution";
 import { WorkspaceSnapshotSchema } from "../../../src/lib/task-context/schemas";
 import { WORKER_PRESET_IDS } from "../../../src/lib/providers/worker-preset-ids";
 import { z } from "zod";
@@ -251,6 +252,16 @@ export const LensSessionTargetArgsSchema = z
     lensSessionId: z.string().min(1).max(200).optional(),
   })
   .strict();
+
+export const LensSleepArgsSchema = LensSessionTargetArgsSchema.extend({
+  lensSessionId: z.string().min(1).max(200),
+  sleeping: z.boolean(),
+}).strict();
+
+export const LensKeepActiveArgsSchema = LensSessionTargetArgsSchema.extend({
+  lensSessionId: z.string().min(1).max(200),
+  keepActive: z.boolean(),
+}).strict();
 
 export const LensWorkspaceTargetArgsSchema = LensSessionTargetArgsSchema.pick({
   workspaceId: true,

@@ -1,3 +1,4 @@
+import { workspaceExecutionGate } from "../shared/workspace-execution-gate";
 import { randomUUID } from "node:crypto";
 import * as pty from "node-pty";
 import { SerializeAddon } from "@xterm/addon-serialize";
@@ -319,6 +320,7 @@ export function createTerminalRuntime(args: {
   }
 
   function createPtySession(args: {
+    workspaceId: string;
     command: string;
     commandArgs?: string[];
     env: Record<string, string>;
@@ -362,6 +364,7 @@ export function createTerminalRuntime(args: {
     });
 
     const session: TerminalSessionEntry = {
+      workspaceId: args.workspaceId,
       pty: ptyProcess,
       dataSubscription: null,
       exitSubscription: null,
@@ -538,6 +541,8 @@ export function createTerminalRuntime(args: {
   function createSession(
     args: TerminalCreateSessionArgs,
   ): HostTerminalCreateSessionResult {
+    try { workspaceExecutionGate.assertAllowed({ workspaceId: args.workspaceId, cwd: args.workspacePath }); }
+    catch (error) { return { ok: false, stderr: String(error) }; }
     const slotKey = buildTerminalSessionSlotKey({
       workspaceId: args.workspaceId,
       surface: "terminal",
@@ -557,6 +562,7 @@ export function createTerminalRuntime(args: {
     return {
       ok: true,
       sessionId: createPtySession({
+        workspaceId: args.workspaceId,
         command: shellExe,
         cwd: sessionCwd,
         cols: args.cols,
@@ -578,6 +584,8 @@ export function createTerminalRuntime(args: {
   function createCliSession(
     args: CliSessionCreateSessionArgs,
   ): HostTerminalCreateSessionResult {
+    try { workspaceExecutionGate.assertAllowed({ workspaceId: args.workspaceId, cwd: args.workspacePath }); }
+    catch (error) { return { ok: false, stderr: String(error) }; }
     const slotKey = buildTerminalSessionSlotKey({
       workspaceId: args.workspaceId,
       surface: "cli",
@@ -611,6 +619,7 @@ export function createTerminalRuntime(args: {
 
     const startedAtMs = Date.now();
     const sessionId = createPtySession({
+      workspaceId: args.workspaceId,
       command: launch.executablePath,
       commandArgs: launch.commandArgs,
       cwd: sessionCwd,
@@ -957,7 +966,21 @@ export function createTerminalRuntime(args: {
     };
   }
 
+  async function stopWorkspace(workspaceId: string) {
+    const targets = [...sessions.entries()].filter(([, session]) => session.workspaceId === workspaceId);
+    const results = await Promise.allSettled(targets.map(async ([sessionId, session]) => {
+      await persistSessionSnapshot(session);
+      session.close();
+      await session.closed;
+      deleteSession(sessionId);
+      await emitEvent("terminal.exit", { sessionId, exitCode: session.exitCode ?? -1, signal: session.exitSignal });
+    }));
+    const failure = results.find((result) => result.status === "rejected");
+    if (failure?.status === "rejected") throw failure.reason;
+  }
+
   return {
+    stopWorkspace,
     createSession,
     createCliSession,
     writeSession,

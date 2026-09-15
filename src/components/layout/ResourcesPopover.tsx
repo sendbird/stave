@@ -31,6 +31,9 @@ import {
   resourceStyles,
   usageRampStyles,
 } from "./resources-popover.styles";
+import { ResourceManagerOverview } from "./ResourceManagerOverview";
+import { WorkspaceCleanupDialog } from "./WorkspaceCleanupDialog";
+import { managerStyles } from "./resource-manager.styles";
 
 interface ProcessMetric {
   pid: number;
@@ -46,7 +49,7 @@ interface ProcessMetric {
   cpu: { percentCPUUsage: number };
 }
 
-interface AppMetrics {
+export interface AppMetrics {
   processes: ProcessMetric[];
   mainProcess: {
     rss: number;
@@ -94,6 +97,8 @@ interface AppMetrics {
     cdpClosingControllers: number;
     cdpInFlightCommands: number;
     cdpCloseDrainTimeouts: number;
+    memoryBudgetKB?: number;
+    resourceEvents?: Array<{ workspaceId: string; lensSessionId: string; kind: "released" | "reopened"; at: number }>;
     guests: Array<{
       workspaceId: string;
       lensSessionId: string;
@@ -101,6 +106,9 @@ interface AppMetrics {
       visible: boolean;
       managedByMcp: boolean;
       url: string;
+      sleeping?: boolean;
+    keptActive?: boolean;
+      protectionReasons?: string[];
     }>;
   };
   renderer: {
@@ -237,6 +245,7 @@ export function MemoryUsagePopover({
 }) {
   const isBar = variant === "bar";
   const [open, setOpen] = useState(false);
+  const [cleanupOpen, setCleanupOpen] = useState(false);
   const [metrics, setMetrics] = useState<AppMetrics | null>(null);
   const [rendererMemory, setRendererMemory] =
     useState<RendererMemoryMetrics | null>(null);
@@ -298,12 +307,6 @@ export function MemoryUsagePopover({
       // Storage report is best-effort; the popover stays usable without it.
     }
   }, []);
-
-  useEffect(() => {
-    if (open) {
-      void fetchStorageReport();
-    }
-  }, [open, fetchStorageReport]);
 
   const runStorageCleanup = useCallback(
     async (mode: "reclaim" | "clear-all-caches") => {
@@ -405,6 +408,7 @@ export function MemoryUsagePopover({
   );
 
   return (
+    <>
     <Popover open={open} onOpenChange={setOpen}>
       <Tooltip>
         <TooltipTrigger
@@ -436,7 +440,7 @@ export function MemoryUsagePopover({
         </TooltipTrigger>
         {!open ? (
           <TooltipContent side={collapsed ? "right" : isBar ? "top" : "bottom"}>
-            Memory Usage
+            Resource Manager
           </TooltipContent>
         ) : null}
       </Tooltip>
@@ -452,7 +456,7 @@ export function MemoryUsagePopover({
         <div className={sx(resourceStyles.header)}>
           <div className={sx(resourceStyles.headerTitleGroup)}>
             <Activity className={sx(resourceStyles.headerIcon)} />
-            <span className={sx(resourceStyles.headerTitle)}>Memory Usage</span>
+            <span className={sx(resourceStyles.headerTitle)}>Resource Manager</span>
           </div>
           <Button
             variant="ghost"
@@ -484,6 +488,14 @@ export function MemoryUsagePopover({
             </div>
           ) : (
             <div className={sx(resourceStyles.stack)}>
+              <ResourceManagerOverview metrics={metrics} refresh={fetchMetrics} onOpenCleanup={() => {
+                setOpen(false);
+                setCleanupOpen(true);
+              }} />
+              <details>
+                <summary className={sx(managerStyles.summary)}>Memory diagnostics and storage</summary>
+                <div className={sx(resourceStyles.stack)}>
+                  <Button variant="secondary" size="sm" onClick={() => void fetchStorageReport()}>Scan app storage</Button>
               {/* Summary row */}
               <div className={sx(resourceStyles.summaryGrid)}>
                 <div className={sx(resourceStyles.summaryTile)}>
@@ -958,10 +970,14 @@ export function MemoryUsagePopover({
                   </span>
                 </div>
               </div>
+                </div>
+              </details>
             </div>
           )}
         </div>
       </PopoverContent>
     </Popover>
+    <WorkspaceCleanupDialog open={cleanupOpen} onOpenChange={setCleanupOpen} />
+    </>
   );
 }

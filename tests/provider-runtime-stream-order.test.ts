@@ -1,3 +1,4 @@
+import { workspaceExecutionGate } from "../electron/shared/workspace-execution-gate";
 import { afterEach, describe, expect, mock, spyOn, test } from "bun:test";
 import type {
   NormalizedProviderEvent,
@@ -434,4 +435,17 @@ describe("providerRuntime.startTurnStream", () => {
       message: "Stream session not found.",
     });
   });
+});
+
+
+test("all provider entrypoints refuse stopped workspace execution", async () => {
+  const target = { workspaceId: "stopped-runtime", workspacePath: "/tmp/stopped-runtime" };
+  await workspaceExecutionGate.stop(target, async () => {});
+  try {
+    for (const providerId of ["claude-code", "codex", "cursor", "kiro"] as const) {
+      const args = { workspaceId: target.workspaceId, cwd: target.workspacePath, providerId, prompt: "do not spawn" };
+      expect(() => providerRuntime.startTurnStream(args)).toThrow("stopped");
+      await expect(providerRuntime.streamTurn(args)).rejects.toThrow("stopped");
+    }
+  } finally { workspaceExecutionGate.resume(target.workspaceId); }
 });

@@ -20,6 +20,9 @@ class FakeGuest extends EventEmitter {
   isDestroyed() {
     return false;
   }
+  isCurrentlyAudible() {
+    return false;
+  }
   setAudioMuted() {}
   setBackgroundThrottling() {}
   setWindowOpenHandler() {}
@@ -29,6 +32,7 @@ let drain = new Promise<"drained" | "timed-out">((resolve) => {
   finishDrain = resolve;
 });
 mock.module("electron", () => ({
+  app: { getPath: () => "/tmp/stave-lens-close-ordering", getAppMetrics: () => [] },
   BrowserWindow: class {},
   session: { fromPartition: () => partition },
   webContents: { fromId: (id: number) => guests.get(id) },

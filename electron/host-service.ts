@@ -1,3 +1,6 @@
+import { realpathSync } from "node:fs";
+import { workspaceExecutionGate } from "./shared/workspace-execution-gate";
+import { WorkspaceExecutionArgsSchema } from "../src/lib/performance/workspace-execution";
 import { randomUUID } from "node:crypto";
 import {
   buildPullRequestDescriptionPrompt,
@@ -1454,6 +1457,32 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       await respond(request.id, { ok: true });
       if (firstTrigger) {
         setImmediate(() => process.exit(0));
+      }
+      return;
+    }
+    case "workspace.execution-status":
+      await respond(request.id, workspaceExecutionGate.snapshot());
+      return;
+    case "workspace.execution": {
+      try {
+        const args = WorkspaceExecutionArgsSchema.parse(request.params);
+        const projects = ensureHostServicePersistenceReady().loadProjectRegistry();
+        const owners = projects.filter((project) => project.workspaces.some((workspace) => workspace.id === args.workspaceId));
+        if (owners.length !== 1 || !owners[0]?.workspacePathById[args.workspaceId] || realpathSync(owners[0].workspacePathById[args.workspaceId]!) !== realpathSync(args.workspacePath)) {
+          throw new Error("Workspace ownership changed. Refresh Resource Manager and try again.");
+        }
+        if (args.action === "resume") workspaceExecutionGate.resume(args.workspaceId);
+        else await workspaceExecutionGate.stop(args, async () => {
+          const results = await Promise.allSettled([
+            terminalRuntime.stopWorkspace(args.workspaceId),
+            stopAllWorkspaceScriptProcesses({ workspaceId: args.workspaceId }),
+          ]);
+          const failure = results.find((result) => result.status === "rejected");
+          if (failure?.status === "rejected") throw failure.reason;
+        });
+        await respond(request.id, { ok: true, states: workspaceExecutionGate.snapshot() });
+      } catch (error) {
+        await respond(request.id, { ok: false, states: workspaceExecutionGate.snapshot(), message: String(error) });
       }
       return;
     }

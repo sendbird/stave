@@ -7253,14 +7253,14 @@ describe("workspace store hydration ordering", () => {
             if (
               call.cwd === "/tmp/stave-project-close" &&
               call.command ===
-                `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`
+                `if [ -L '${workspacePath}/node_modules' ]; then rm -- '${workspacePath}/node_modules'; fi`
             ) {
               return { ok: true, code: 0, stdout: "", stderr: "" };
             }
             if (
               call.cwd === "/tmp/stave-project-close" &&
               call.command ===
-                `git worktree remove ${JSON.stringify(workspacePath)}`
+                `git worktree remove -- '${workspacePath}'`
             ) {
               return { ok: true, code: 0, stdout: "", stderr: "" };
             }
@@ -7272,7 +7272,7 @@ describe("workspace store hydration ordering", () => {
             }
             if (
               call.cwd === "/tmp/stave-project-close" &&
-              call.command === 'git branch -D "feature"'
+              call.command === "git branch -D -- 'feature'"
             ) {
               return { ok: true, code: 0, stdout: "", stderr: "" };
             }
@@ -7332,10 +7332,10 @@ describe("workspace store hydration ordering", () => {
       // unreadable: `workspaceBranchById` is a cache that an out-of-band
       // `git checkout` can leave pointing at an unrelated branch.
       "git symbolic-ref --quiet --short HEAD",
-      `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`,
-      `git worktree remove ${JSON.stringify(workspacePath)}`,
+      `if [ -L '${workspacePath}/node_modules' ]; then rm -- '${workspacePath}/node_modules'; fi`,
+      `git worktree remove -- '${workspacePath}'`,
       "git worktree prune",
-      'git branch -D "feature"',
+      "git branch -D -- 'feature'",
     ]);
     expect(runCalls.some((call) => call.command.includes("--force"))).toBe(
       false,
@@ -7590,14 +7590,14 @@ describe("workspace store hydration ordering", () => {
               if (
                 call.cwd === "/tmp/stave-project-close" &&
                 call.command ===
-                  `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`
+                  `if [ -L '${workspacePath}/node_modules' ]; then rm -- '${workspacePath}/node_modules'; fi`
               ) {
                 return { ok: true, code: 0, stdout: "", stderr: "" };
               }
               if (
                 call.cwd === "/tmp/stave-project-close" &&
                 call.command ===
-                  `git worktree remove ${JSON.stringify(workspacePath)}`
+                  `git worktree remove -- '${workspacePath}'`
               ) {
                 return { ok: true, code: 0, stdout: "", stderr: "" };
               }
@@ -7663,8 +7663,8 @@ describe("workspace store hydration ordering", () => {
 
     expect(runCalls.map((call) => call.command)).toEqual([
       "git status --porcelain --untracked-files=all",
-      `if [ -L ${JSON.stringify(`${workspacePath}/node_modules`)} ]; then rm ${JSON.stringify(`${workspacePath}/node_modules`)}; fi`,
-      `git worktree remove ${JSON.stringify(workspacePath)}`,
+      `if [ -L '${workspacePath}/node_modules' ]; then rm -- '${workspacePath}/node_modules'; fi`,
+      `git worktree remove -- '${workspacePath}'`,
       "git worktree prune",
     ]);
   });
@@ -7763,11 +7763,11 @@ describe("workspace store hydration ordering", () => {
     const branchCommands = runCalls
       .map((call) => call.command)
       .filter((command) => command.startsWith("git branch"));
-    expect(branchCommands).toEqual(['git branch -D "feature-v2"']);
+    expect(branchCommands).toEqual(["git branch -D -- 'feature-v2'"]);
     // Force-deleting the stale name would destroy a branch this worktree no
     // longer owns, potentially with unpushed commits behind it.
     expect(
-      runCalls.some((call) => call.command === 'git branch -D "feature"'),
+      runCalls.some((call) => call.command === "git branch -D -- 'feature'"),
     ).toBe(false);
   });
 
