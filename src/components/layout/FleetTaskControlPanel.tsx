@@ -387,6 +387,13 @@ export function FleetTaskControlPanel(args: {
       setStatus({ tone: "error", text: validation.reason });
       return;
     }
+    const freshState = useAppStore.getState();
+    const targetRuntimeOverrides =
+      (freshState.activeWorkspaceId === args.target.workspaceId
+        ? freshState.promptDraftByTask[args.target.taskId]
+        : freshState.workspaceRuntimeCacheById[args.target.workspaceId]
+            ?.promptDraftByTask[args.target.taskId]
+      )?.runtimeOverrides;
     setBusyAction(intent);
     setStatus({
       tone: "neutral",
@@ -398,6 +405,7 @@ export function FleetTaskControlPanel(args: {
       submitIntent: intent,
       turnOrigin: "conversation",
       preservePromptDraft: true,
+      runtimeOverrides: targetRuntimeOverrides,
     });
     const nextStatus = resolveActionStatus(result);
     setStatus(nextStatus);

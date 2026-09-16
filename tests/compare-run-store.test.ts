@@ -383,11 +383,16 @@ describe("compare run store actions", () => {
     expect(runtimeOverridePatches).toEqual([
       {
         taskId: "task-1",
-        runtimeOverrides: { model: "claude-sonnet-5", claudeEffort: "max" },
+        runtimeOverrides: {
+          autoRouting: false,
+          model: "claude-sonnet-5",
+          claudeEffort: "max",
+        },
       },
       {
         taskId: "task-2",
         runtimeOverrides: {
+          autoRouting: false,
           model: "gpt-5.6-luna",
           codexReasoningEffort: "max",
         },

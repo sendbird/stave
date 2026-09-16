@@ -13,6 +13,7 @@ import {
   resolveProviderStickiness,
   type AutoRoutingSettings,
 } from "@/store/auto-routing";
+import { isAutoRoutingUnavailableForSend } from "@/store/auto-routing-dispatch";
 
 const AUTO_SETTINGS: AutoRoutingSettings = {
   autoRoutingEnabled: true,
@@ -23,6 +24,35 @@ const AUTO_SETTINGS: AutoRoutingSettings = {
   autoRoutingEligibleClaudeModels: [],
   autoRoutingEligibleCodexModels: [],
 };
+
+describe("Auto routing send availability", () => {
+  const autoDraft = {
+    text: "Route this",
+    attachedFilePaths: [],
+    attachments: [],
+    runtimeOverrides: { autoRouting: true },
+  };
+
+  test("blocks new and queued Auto turns while the setting is off", () => {
+    expect(
+      isAutoRoutingUnavailableForSend({
+        promptDraft: autoDraft,
+        autoRoutingEnabled: false,
+        steeringActiveTurn: false,
+      }),
+    ).toBe(true);
+  });
+
+  test("lets a steer continue on its already-running provider", () => {
+    expect(
+      isAutoRoutingUnavailableForSend({
+        promptDraft: autoDraft,
+        autoRoutingEnabled: false,
+        steeringActiveTurn: true,
+      }),
+    ).toBe(false);
+  });
+});
 
 function resolveDecision(args: {
   prompt: string;

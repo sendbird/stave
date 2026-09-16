@@ -88,7 +88,11 @@ export interface SkillCatalogState {
 }
 
 export type SendUserMessageResult =
-  | { status: "blocked"; reason?: "account-limit"; message?: string }
+  | {
+      status: "blocked";
+      reason?: "account-limit" | "auto-routing-disabled";
+      message?: string;
+    }
   | { status: "queued"; taskId: string; workspaceId: string }
   | { status: "steered"; taskId: string; workspaceId: string; turnId: string }
   | {
@@ -652,7 +656,7 @@ export interface AppState
     /**
      * Attachments for a send that cannot read them off the composer draft,
      * i.e. one with `preservePromptDraft`. Retrying a failed send is the only
-     * caller: its payload lives on the failed bubble, not in the composer.
+     * callers: their payload lives outside the composer.
      */
     attachedFilePaths?: string[];
     attachments?: Attachment[];

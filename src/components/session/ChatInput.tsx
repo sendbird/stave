@@ -2735,6 +2735,7 @@ function BaseChatInput() {
         available: autoRoutingEnabled,
         stanceLabel: STANCE_LABELS[autoRoutingStance],
         routed:
+          autoRoutingEnabled &&
           autoRoutingDecisionRecord &&
           autoRoutingDecisionRecord.decision.source !== "disabled" &&
           autoRoutingDecisionRecord.decision.source !== "manual"
@@ -3456,6 +3457,14 @@ function BaseChatInput() {
               runtimeOverrides: {
                 ...restRuntimeOverrides,
                 autoRouting: true,
+                autoRoutingPlanMode:
+                  activeProvider === "claude-code"
+                    ? effectiveClaudePermissionMode === "plan"
+                    : activeProvider === "codex"
+                      ? effectiveCodexPlanMode
+                      : activeProvider === "cursor"
+                        ? effectiveCursorMode === "plan"
+                        : false,
               },
             },
           });
@@ -3555,11 +3564,13 @@ function BaseChatInput() {
           : undefined
       }
       planMode={
-        activeProvider === "codex"
-          ? effectiveCodexPlanMode
-          : activeProvider === "claude-code"
-            ? effectiveClaudePermissionMode === "plan"
-            : activeProvider === "cursor" && effectiveCursorMode === "plan"
+        isAutoRoutingSelected
+          ? promptDraftRuntimeOverrides?.autoRoutingPlanMode === true
+          : activeProvider === "codex"
+            ? effectiveCodexPlanMode
+            : activeProvider === "claude-code"
+              ? effectiveClaudePermissionMode === "plan"
+              : activeProvider === "cursor" && effectiveCursorMode === "plan"
       }
       onPlanModeChange={
         activeProvider === "codex" || activeProvider === "cursor"
@@ -3578,7 +3589,12 @@ function BaseChatInput() {
               updatePromptDraft({
                 taskId: providerSelectionTarget,
                 patch: {
-                  runtimeOverrides: nextPlanModeState.runtimeOverrides,
+                  runtimeOverrides: {
+                    ...nextPlanModeState.runtimeOverrides,
+                    ...(isAutoRoutingSelected
+                      ? { autoRoutingPlanMode: enabled }
+                      : {}),
+                  },
                 },
               });
               if (nextPlanModeState.shouldAbortActiveTurn) {
@@ -3604,7 +3620,12 @@ function BaseChatInput() {
                 updatePromptDraft({
                   taskId: providerSelectionTarget,
                   patch: {
-                    runtimeOverrides: nextPlanModeState.runtimeOverrides,
+                    runtimeOverrides: {
+                      ...nextPlanModeState.runtimeOverrides,
+                      ...(isAutoRoutingSelected
+                        ? { autoRoutingPlanMode: enabled }
+                        : {}),
+                    },
                   },
                 });
               }

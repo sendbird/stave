@@ -78,6 +78,7 @@ import { resolveTurnModelInfo } from "@/lib/providers/turn-model-info";
 import { buildAutoRoutingDecisionRecord } from "@/store/auto-routing";
 import {
   buildAutoRoutingModelResolution,
+  isAutoRoutingUnavailableForSend,
   resolveAutoRoutingForSend,
   resolveDelegatedRuntimeOverrides,
 } from "@/store/auto-routing-dispatch";
@@ -144,6 +145,7 @@ import {
 } from "@/store/host-task-turn-sync";
 import { createQueuedTaskTurnDispatcher } from "@/store/queued-task-turn-dispatch";
 import { guardSendAgainstAccountUsage } from "@/store/account-usage-guard";
+import { toast } from "@/lib/notifications/toast";
 import { createIntentGuardRunner } from "@/store/intent-guard-runtime";
 import { applySteeredTurnState } from "@/store/steer-turn-state";
 import {
@@ -181,6 +183,7 @@ import {
   buildPromptDraftDisplayPartsForSend,
 } from "@/store/prompt-draft-message-content";
 import {
+  applyAutoRoutingPlanMode,
   resolvePromptDraftRuntimeState,
   resolveTurnModelForSend,
 } from "@/store/prompt-draft-runtime";
@@ -1600,7 +1603,7 @@ export const useAppStore = create<AppState>()(
         const hasActiveTurn = Boolean(
           task && runtimeTarget?.session.activeTurnIdsByTask[task.id],
         );
-        if (hasActiveTurn) {
+        if (hasActiveTurn && submitIntent === "steer") {
           const accountUsageBlock = await guardSendAgainstAccountUsage(
             get,
             providerOverride ?? task?.provider ?? state.draftProvider ?? "claude-code",
@@ -1754,6 +1757,22 @@ export const useAppStore = create<AppState>()(
         }
         const { promptDraft, queuedTurnToSend, remainingQueuedTurns } =
           promptDraftSendState;
+        if (
+          isAutoRoutingUnavailableForSend({
+            promptDraft,
+            autoRoutingEnabled: state.settings.autoRoutingEnabled,
+            steeringActiveTurn: hasActiveTurn && submitIntent === "steer",
+          })
+        ) {
+          const message =
+            "Stave Auto is turned off. Enable it in Settings or choose a provider model before sending.";
+          toast.warning("Stave Auto is unavailable", { description: message });
+          return {
+            status: "blocked",
+            reason: "auto-routing-disabled",
+            message,
+          } satisfies SendUserMessageResult;
+        }
         const composerDraft = runtimeOverrides
           ? normalizePromptDraftForStorage({
               ...promptDraft,
@@ -1765,8 +1784,9 @@ export const useAppStore = create<AppState>()(
         // A queued turn dispatches on the provider captured when it was
         // queued (auto and manual dispatch alike); the composer's current
         // selection only applies to new sends. Legacy queue items without a
-        // stored provider keep following the task's current provider.
-        if (queuedTurnToSend?.providerId) {
+        // stored provider keep following the task's current provider. Stave
+        // Auto items re-route at dispatch instead of pinning the task model.
+        if (queuedTurnToSend?.providerId && !queuedTurnToSend.autoRouting) {
           provider = queuedTurnToSend.providerId;
         }
         const codexGoalQueuedTurns = buildCodexGoalQueuedTurns({
@@ -1915,14 +1935,18 @@ export const useAppStore = create<AppState>()(
             settings: state.settings,
             sourceTurnId: activeTurnId,
             content: promptContent,
-            // Pin the selection at queue time so switching provider/model
-            // while the current turn streams never retargets queued turns.
-            providerId: provider,
-            model: resolveTurnModelForSend({
-              providerId: provider,
-              runtimeOverrides: promptDraft.runtimeOverrides,
-              settings: state.settings,
-            }),
+            ...(promptDraft.runtimeOverrides?.autoRouting === true
+              ? { autoRouting: true }
+              : {
+                  // Pin the selection at queue time so switching provider/model
+                  // while the current turn streams never retargets queued turns.
+                  providerId: provider,
+                  model: resolveTurnModelForSend({
+                    providerId: provider,
+                    runtimeOverrides: promptDraft.runtimeOverrides,
+                    settings: state.settings,
+                  }),
+                }),
           });
           const storedDraft =
             taskWorkspaceSession.promptDraftByTask[resolvedTaskId] ??
@@ -2054,21 +2078,13 @@ export const useAppStore = create<AppState>()(
         submittedPromptDraft.clear();
 
         try {
-          if (!hasActiveTurn || activeTurnStalled) {
-            const accountUsageBlock = await guardSendAgainstAccountUsage(
-              get,
-              provider,
-            );
-            if (accountUsageBlock) {
-              submittedPromptDraft.restore();
-              return accountUsageBlock;
-            }
-          }
           // A queued turn's stored model (queue-time selection) wins over the
           // composer's current override; see resolveTurnModelForSend.
           let activeModel = resolveTurnModelForSend({
             providerId: provider,
-            queuedTurnModel: queuedTurnToSend?.model,
+            queuedTurnModel: queuedTurnToSend?.autoRouting
+              ? undefined
+              : queuedTurnToSend?.model,
             runtimeOverrides: promptDraft.runtimeOverrides,
             settings: state.settings,
           });
@@ -2122,18 +2138,31 @@ export const useAppStore = create<AppState>()(
           if (autoRoutingDecision) {
             provider = autoRoutingDecision.providerId;
             activeModel = autoRoutingDecision.model;
-            if (autoRoutingDecision.source !== "disabled") {
-              const record = buildAutoRoutingDecisionRecord({
-                decision: autoRoutingDecision,
-                prompt: promptContent,
-              });
-              set((current) => ({
-                autoRoutingDecisionByTask: {
-                  ...current.autoRoutingDecisionByTask,
-                  [resolvedTaskId]: record,
-                },
-              }));
+          }
+          if (!hasActiveTurn || activeTurnStalled) {
+            const accountUsageBlock = await guardSendAgainstAccountUsage(
+              get,
+              provider,
+            );
+            if (accountUsageBlock) {
+              submittedPromptDraft.restore();
+              return accountUsageBlock;
             }
+          }
+          if (
+            autoRoutingDecision &&
+            autoRoutingDecision.source !== "disabled"
+          ) {
+            const record = buildAutoRoutingDecisionRecord({
+              decision: autoRoutingDecision,
+              prompt: promptContent,
+            });
+            set((current) => ({
+              autoRoutingDecisionByTask: {
+                ...current.autoRoutingDecisionByTask,
+                [resolvedTaskId]: record,
+              },
+            }));
           }
           const delegatedRuntimeOverrides = resolveDelegatedRuntimeOverrides({
             state,
@@ -2307,8 +2336,10 @@ export const useAppStore = create<AppState>()(
             providerId: provider,
             model: activeModel,
           });
-          const resolvedPromptDraftRuntimeState =
-            resolvePromptDraftRuntimeState({
+          const resolvedPromptDraftRuntimeState = applyAutoRoutingPlanMode({
+            providerId: provider,
+            runtimeOverrides: promptDraft.runtimeOverrides,
+            runtimeState: resolvePromptDraftRuntimeState({
               promptDraft,
               fallback: {
                 claudePermissionMode: modelRuntimeSettings.claudePermissionMode,
@@ -2322,7 +2353,8 @@ export const useAppStore = create<AppState>()(
                 cursorFastMode: modelRuntimeSettings.cursorFastMode,
                 kiroEffort: modelRuntimeSettings.kiroEffort,
               },
-            });
+            }),
+          });
           const providerRuntimeOptions = buildProviderRuntimeOptions({
             provider,
             model: activeModel,
@@ -2550,6 +2582,7 @@ export const useAppStore = create<AppState>()(
             prompt,
             turnOrigin,
             runtimeOptions: providerRuntimeOptions,
+            runtimeOverrides: promptDraft.runtimeOverrides,
           });
           const providerTurnEventController = createProviderTurnEventController(
             {

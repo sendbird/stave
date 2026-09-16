@@ -725,6 +725,41 @@ describe("task-context workspace schemas", () => {
     });
   });
 
+  test("preserves Stave Auto queue pins in workspace snapshots", () => {
+    const parsed = parseWorkspaceSnapshot({
+      payload: {
+        ...createWorkspaceBase(),
+        messagesByTask: {},
+        promptDraftByTask: {
+          "task-1": {
+            text: "",
+            attachedFilePaths: [],
+            attachments: [],
+            queuedTurns: [
+              {
+                id: "queue-auto",
+                queuedAt: "2026-04-11T00:00:02.000Z",
+                content: "follow-up",
+                attachedFilePaths: [],
+                attachments: [],
+                autoRouting: true,
+                autoRoutingPlanMode: true,
+              },
+            ],
+          },
+        },
+      },
+    });
+
+    expect(parsed?.promptDraftByTask["task-1"]?.queuedTurns?.[0]).toMatchObject({
+      autoRouting: true,
+      autoRoutingPlanMode: true,
+    });
+    expect(
+      parsed?.promptDraftByTask["task-1"]?.queuedTurns?.[0]?.providerId,
+    ).toBeUndefined();
+  });
+
   test("accepts a git-graph editor tab so the workspace shell still restores", () => {
     // Regression: a persisted tab with kind "git-graph" must not make the whole
     // workspace payload fail to parse (which would block shell restoration).

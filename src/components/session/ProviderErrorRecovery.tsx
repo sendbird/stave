@@ -82,10 +82,18 @@ export function ProviderErrorRecovery(props: {
     resumePendingRef.current = true;
     setResumePending(true);
     setResumeError(null);
+    const taskRuntimeOverrides =
+      (state.activeWorkspaceId === workspaceId
+        ? state.promptDraftByTask[props.taskId]
+        : state.workspaceRuntimeCacheById[workspaceId]?.promptDraftByTask[
+            props.taskId
+          ]
+      )?.runtimeOverrides;
     void state.sendUserMessage({
       taskId: props.taskId,
       content: buildProviderFailureContinuationPrompt(),
       preservePromptDraft: true,
+      runtimeOverrides: taskRuntimeOverrides,
       turnOrigin: "conversation",
     })
       .then((result) => {

@@ -71,8 +71,33 @@ export function buildQueuedTurnFromDraft(args: {
   content?: string;
   providerId?: PromptDraftQueuedTurn["providerId"];
   model?: string;
+  autoRouting?: boolean;
   settings?: ModelRuntimePreferenceSettings;
 }): PromptDraftQueuedTurn {
+  const id =
+    typeof crypto !== "undefined" && "randomUUID" in crypto
+      ? crypto.randomUUID()
+      : `queued-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+  const queuedAt = buildRecentTimestamp();
+  const content = args.content ?? buildPromptDraftContentForSend(args.draft);
+  const attachedFilePaths = getPromptDraftAttachedFilePaths(args.draft);
+  const attachments = getPromptDraftAttachments(args.draft);
+  if (args.autoRouting) {
+    // Stave Auto is a routing decision, not a provider/model. Pinning the
+    // task's current Cursor `auto` model here made every queued follow-up
+    // dispatch as Cursor Auto.
+    return {
+      id,
+      queuedAt,
+      sourceTurnId: args.sourceTurnId,
+      content,
+      attachedFilePaths,
+      attachments,
+      autoRouting: true,
+      autoRoutingPlanMode:
+        args.draft.runtimeOverrides?.autoRoutingPlanMode === true,
+    };
+  }
   const effortKey =
     args.providerId === "claude-code"
       ? "claudeEffort"
@@ -91,15 +116,12 @@ export function buildQueuedTurnFromDraft(args: {
         })
       : undefined);
   return {
-    id:
-      typeof crypto !== "undefined" && "randomUUID" in crypto
-        ? crypto.randomUUID()
-        : `queued-${Date.now()}-${Math.random().toString(36).slice(2)}`,
-    queuedAt: buildRecentTimestamp(),
+    id,
+    queuedAt,
     sourceTurnId: args.sourceTurnId,
-    content: args.content ?? buildPromptDraftContentForSend(args.draft),
-    attachedFilePaths: getPromptDraftAttachedFilePaths(args.draft),
-    attachments: getPromptDraftAttachments(args.draft),
+    content,
+    attachedFilePaths,
+    attachments,
     // Pin the composer selection at queue time so dispatch can honor it even
     // if the user switches provider/model before this turn runs.
     ...(args.providerId ? { providerId: args.providerId } : {}),

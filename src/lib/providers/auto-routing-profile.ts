@@ -230,11 +230,9 @@ export const STANCE_LABELS: Readonly<Record<Stance, string>> = {
 };
 
 export const STANCE_DESCRIPTIONS: Readonly<Record<Stance, string>> = {
-  "cost-saver":
-    "Every route steps one rung down and one effort step lower; the budget guard trips early.",
+  "cost-saver": "Every route steps one rung and one effort down.",
   balanced: "Routes run exactly as the role table says.",
-  "quality-first":
-    "Every route steps one rung up at the rule's effort; the budget guard trips late.",
+  "quality-first": "Every route steps one rung up at the rule's effort.",
 };
 
 const STANCE_SHIFT: Readonly<Record<Stance, -1 | 0 | 1>> = {

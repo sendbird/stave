@@ -23,6 +23,18 @@ type RoutingState = Pick<
   "settings" | "rateLimitsSnapshot" | "providerAvailability"
 >;
 
+export function isAutoRoutingUnavailableForSend(args: {
+  promptDraft: PromptDraft;
+  autoRoutingEnabled: boolean;
+  steeringActiveTurn: boolean;
+}) {
+  return (
+    args.promptDraft.runtimeOverrides?.autoRouting === true &&
+    !args.autoRoutingEnabled &&
+    !args.steeringActiveTurn
+  );
+}
+
 /**
  * The composer's Auto decision for one send. Pure apart from the optional
  * classifier call; the store applies the returned provider/model and records
@@ -84,8 +96,7 @@ export async function resolveAutoRoutingForSend(args: {
     })),
     fileContextCount: args.fileContextCount,
     phase:
-      promptDraft.runtimeOverrides?.claudePermissionMode === "plan" ||
-      promptDraft.runtimeOverrides?.codexPlanMode === true
+      promptDraft.runtimeOverrides?.autoRoutingPlanMode === true
         ? "plan"
         : "execute",
     rateLimitsSnapshot: state.rateLimitsSnapshot,
