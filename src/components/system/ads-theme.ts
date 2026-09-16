@@ -33,9 +33,9 @@ const roles = {
   // (dark, L 0.654); subtle 3.62/3.49/3.20/3.20 (light, L 0.619) and
   // 3.90/4.17/3.54/4.31 (dark, L 0.563). 5% is the largest step that keeps the
   // placeholder floor on `--muted`; 23% lands subtle on ADS's own 0.62.
-  // Themes whose own `--muted-foreground` already misses the muted floor
-  // (Dracula 2.51:1, Ayu, Solarized) stay under it here too — that is the
-  // theme's authored contrast, not this mapping's.
+  // Built-in editor ports author `--muted-foreground` to clear these floors
+  // after the mix (`tests/theme-contrast.test.ts`). Keep the mapping honest:
+  // do not compensate here for a theme that ships a comment-color muted.
   "--ads-color-text-muted": "var(--muted-foreground)",
   "--ads-color-text-subtle":
     "color-mix(in oklab, var(--background) 23%, var(--muted-foreground))",
@@ -105,10 +105,10 @@ const roles = {
   // construction. Measured on the same softs they swing from 15.97:1 to 1.09:1
   // depending on the theme, and they discard the semantic hue entirely.
   //
-  // Editor-ported themes whose `--foreground` is itself low-contrast against
-  // their `--card` (Solarized Light tops out at 3.28:1, Ayu Light at 5.73:1
-  // only at a 100% mix) cannot reach 4.5:1 from any mix ratio; that ceiling is
-  // the theme's authored ink, not this expression.
+  // A theme whose `--foreground` is itself below 4.5:1 against `--card` cannot
+  // be rescued by this mix. Built-in ports keep body ink above that floor
+  // (`tests/theme-contrast.test.ts`); user themes that ship comment-color
+  // body ink will still inherit that ceiling.
   "--ads-color-danger-text": "color-mix(in oklab, var(--foreground) 45%, var(--destructive))",
   "--ads-color-danger-border": "var(--destructive)",
   "--ads-color-danger-soft": "color-mix(in oklab, var(--destructive) 12%, var(--card))",
@@ -142,7 +142,7 @@ const roles = {
   "--ads-color-success-soft": "color-mix(in oklab, var(--success) 12%, var(--card))",
   "--ads-color-success-border": "var(--success)",
   // VCS / diff identity. Stave already authors `--diff-*` per theme (GitHub
-  // green/red on github, Solarized yellow-green on solarized). Mapping these
+  // green/red, palette-specific added/removed ink). Mapping these
   // through `--success` / `--destructive` was what painted a Dracula added
   // line in the remixed status teal instead of `#50FA7B`.
   "--ads-color-diff-added": "var(--diff-added)",

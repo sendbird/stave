@@ -275,7 +275,7 @@ describe("BUILTIN_CUSTOM_THEMES", () => {
     );
   });
 
-  it("includes the new VS Code-inspired presets", () => {
+  it("includes the shipped editor palette presets", () => {
     const ids = BUILTIN_CUSTOM_THEMES.map((theme) => theme.id);
     expect(ids).toEqual(
       expect.arrayContaining([
@@ -284,8 +284,36 @@ describe("BUILTIN_CUSTOM_THEMES", () => {
         "one-light",
         "one-dark-pro",
         "dracula",
+        "alucard",
+        "light-high-contrast",
         "ayu-light",
         "ayu-mirage",
+        "catppuccin-latte",
+        "catppuccin-mocha",
+        "everforest-light",
+        "everforest-dark",
+        "kanagawa-lotus",
+        "kanagawa-wave",
+        "nord-snow",
+        "nord-polar",
+        "rose-pine-dawn",
+        "rose-pine-moon",
+        "flexoki-light",
+        "flexoki-dark",
+        "gruvbox-material-light",
+        "gruvbox-material-dark",
+        "dayfox",
+        "nightfox",
+        "oxocarbon-light",
+        "oxocarbon",
+        "vesper",
+        "poimandres",
+        "edge-light",
+        "cyberdream-light",
+      ]),
+    );
+    expect(ids).not.toEqual(
+      expect.arrayContaining([
         "night-owl-light",
         "night-owl",
         "tokyo-night-light",
@@ -305,6 +333,8 @@ describe("BUILTIN_CUSTOM_THEMES", () => {
       { light: 0, dark: 0 },
     );
 
+    // Vesper and Poimandres stay unpaired; Alucard and Light High Contrast
+    // restore the catalog count.
     expect(counts.light).toBe(counts.dark);
   });
 
