@@ -116,7 +116,6 @@ import {
   type SidebarWorkQueueSignals,
 } from "@/lib/fleet/sidebar-work-queue";
 import { isDelegatedChildTask, isTaskArchived } from "@/lib/tasks";
-import { toProviderWaveToneClass } from "@/components/ai-elements/provider-wave-tone.styles";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
@@ -172,14 +171,11 @@ function resolveRespondingToneClass(args: {
 
   return {
     respondingTaskCount: summary.respondingTaskCount,
+    // The workspace row is a container, not one provider. Theme primary keeps
+    // it stable when several tasks run under different brands.
     respondingToneClass: summary.hasWarningTask
       ? sx(projectSidebarStyles.toneWarning)
-      : summary.respondingProviderIds.length === 1 &&
-          summary.respondingProviderIds[0]
-        ? toProviderWaveToneClass({
-            providerId: summary.respondingProviderIds[0],
-          })
-        : sx(projectSidebarStyles.toneAccent),
+      : sx(projectSidebarStyles.toneAccent),
   };
 }
 
@@ -553,7 +549,7 @@ const WorkspaceLeadingStatusIcon = memo(
           aria-hidden
           className={respondingToneClass}
           size="xs"
-          variant="pulse"
+          variant="spinner"
         />
       );
     }
