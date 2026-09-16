@@ -49,8 +49,8 @@ export function WorkspaceExecutionControls() {
   };
 
   if (!window.api?.workspaceExecution) return null;
-  return <details className={sx(styles.group)}>
-    <summary className={sx(styles.summary)}>Workspace execution</summary>
+  return <section className={sx(styles.group)}>
+    <h3 className={sx(styles.heading)}>Workspace execution</h3>
     <div className={sx(styles.detail)}>
       <p className={sx(styles.muted)}>Stop terminals and managed services without removing the workspace. Running tasks and scripts must finish first. The stop lasts until you resume or the runtime restarts.</p>
       {workspaces.map((workspace) => {
@@ -71,5 +71,5 @@ export function WorkspaceExecutionControls() {
       })}
       {message && <p role="status" className={sx(styles.message)}>{message}</p>}
     </div>
-  </details>;
+  </section>;
 }

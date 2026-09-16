@@ -1,3 +1,4 @@
+import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
 import {
   summarizeCodexAppServerDebugMessage,
   extractCodexAppServerErrorMessage,
@@ -691,6 +692,10 @@ class CodexAppServerClient {
     return this.lastErrorMessage;
   }
 
+  getProcessId() {
+    return this.process?.pid;
+  }
+
   getProcessStartedAt() {
     return this.processStartedAt;
   }
@@ -725,6 +730,11 @@ class CodexAppServerClient {
       },
     );
     this.process = child;
+    if (child.pid) {
+      const pid = child.pid;
+      child.once("exit", () => forgetResourceProcess(pid));
+      child.once("error", () => forgetResourceProcess(pid));
+    }
     this.processStartedAt = processStartedAt;
     this.initialized = false;
     const stdoutLineBuffer = new Utf8LineBuffer({
@@ -2329,7 +2339,11 @@ export async function streamCodexWithAppServer(
     codexExecutablePath,
     (activeCodexTurnsByExecutable.get(codexExecutablePath) ?? 0) + 1,
   );
+  let releaseResourceOwner = () => {};
   try {
+    await client.ensureStarted();
+    const resourcePid = client.getProcessId();
+    if (resourcePid) releaseResourceOwner = retainResourceProcessOwner(resourcePid, args);
     try {
       const account = await client.request<{
         account: unknown | null;
@@ -4007,6 +4021,7 @@ export async function streamCodexWithAppServer(
       });
     }
   } finally {
+    releaseResourceOwner();
     finishCodexTurn(codexExecutablePath, transientSecretClient);
   }
 }

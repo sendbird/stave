@@ -1,4 +1,5 @@
 import { execFile } from "node:child_process";
+import { getResourceProcessOwners, type ResourceProcessOwner } from "../shared/resource-process-owners";
 
 export type HostServiceChildKind =
   | "provider"
@@ -11,6 +12,7 @@ export interface HostServiceChildProcessMetric {
   parentPid: number;
   rssBytes: number;
   kind: HostServiceChildKind;
+  owners?: ResourceProcessOwner[];
 }
 
 export interface HostServiceResourceMetrics {
@@ -135,10 +137,21 @@ export function selectDescendantProcessMetrics(args: {
   rootPid: number;
   ptyPids: number[];
   excludedPids?: number[];
+  ownersByPid?: Map<number, ResourceProcessOwner[]>;
 }): HostServiceChildProcessMetric[] {
   const rowByPid = new Map(args.rows.map((row) => [row.pid, row]));
   const ptyPids = new Set(args.ptyPids);
   const excludedPids = new Set(args.excludedPids ?? []);
+  const ownersFor = (pid: number): ResourceProcessOwner[] | undefined => {
+    const visited = new Set<number>();
+    while (pid > 0 && pid !== args.rootPid && !visited.has(pid)) {
+      visited.add(pid);
+      const owners = args.ownersByPid?.get(pid);
+      if (owners?.length) return owners;
+      pid = rowByPid.get(pid)?.parentPid ?? 0;
+    }
+    return undefined;
+  };
   return args.rows
     .filter(
       (row) =>
@@ -150,6 +163,7 @@ export function selectDescendantProcessMetrics(args: {
       parentPid: row.parentPid,
       rssBytes: row.rssBytes,
       kind: classifyChildProcess({ row, ptyPids, rowByPid }),
+      ...(ownersFor(row.pid) ? { owners: ownersFor(row.pid) } : {}),
     }));
 }
 
@@ -164,7 +178,7 @@ async function readProcessTable(): Promise<{
     const child = execFile(
       "ps",
       ["-axo", "pid=,ppid=,rss=,command="],
-      { maxBuffer: 4 * 1024 * 1024 },
+      { maxBuffer: 4 * 1024 * 1024, timeout: 1_000 },
       (error, stdout) => {
         resolve({
           rows: error ? [] : parseProcessTable(stdout),
@@ -187,6 +201,7 @@ export async function readHostServiceResourceMetrics(args: {
     rows: processTable.rows,
     rootPid: process.pid,
     ptyPids: args.ptyPids,
+    ownersByPid: getResourceProcessOwners(),
     excludedPids:
       processTable.collectorPid === null ? [] : [processTable.collectorPid],
   });

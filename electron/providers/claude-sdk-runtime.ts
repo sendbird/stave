@@ -1,3 +1,5 @@
+import { spawn as spawnResourceProcess } from "node:child_process";
+import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
 import { createClaudeContextUsageTracker } from "./claude-context-usage";
 import { recordClaudeRateLimitObservation } from "./rate-limits/claude-rate-limits-observation";
 import { createClaudeCompactionTracker } from "./claude-compaction";
@@ -2092,6 +2094,7 @@ function resolveClaudePluginConfigs(value?: readonly string[]) {
 }
 
 export function buildClaudeQueryOptions(args: {
+  resourceOwner?: { workspaceId?: string; taskId?: string };
   cwd: string;
   claudeExecutablePath: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -2284,6 +2287,19 @@ export function buildClaudeQueryOptions(args: {
       args.promptSuggestions ??
       false,
     cwd: args.cwd,
+    ...(args.resourceOwner ? { spawnClaudeCodeProcess: (options: Parameters<NonNullable<Options["spawnClaudeCodeProcess"]>>[0]) => {
+      const child = spawnResourceProcess(options.command, options.args, {
+        cwd: options.cwd, env: options.env, signal: options.signal,
+        stdio: ["pipe", "pipe", "ignore"], windowsHide: true,
+      });
+      if (child.pid) {
+        const pid = child.pid;
+        retainResourceProcessOwner(pid, args.resourceOwner ?? {});
+        child.once("exit", () => forgetResourceProcess(pid));
+        child.once("error", () => forgetResourceProcess(pid));
+      }
+      return child;
+    } } : {}),
     extraArgs: args.providerBrowserRequested
       ? { chrome: null }
       : { "no-chrome": null },
@@ -5353,6 +5369,7 @@ export async function streamClaudeWithSdk(
     const queryResult = queryFn({
       prompt: inputQueue,
       options: (queryOptions = buildClaudeQueryOptions({
+        resourceOwner: args,
         cwd: runtimeCwd,
         claudeExecutablePath,
         runtimeOptions: args.runtimeOptions,

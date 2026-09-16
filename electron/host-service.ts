@@ -1436,14 +1436,26 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     await prepareCliExecutableDiscovery();
   }
   switch (request.method) {
-    case "service.get-resource-metrics":
-      await respond(
-        request.id,
-        await readHostServiceResourceMetrics({
-          ptyPids: terminalRuntime.listPtyPids(),
-        }),
-      );
+    case "service.get-resource-metrics": {
+      const metrics = await readHostServiceResourceMetrics({
+        ptyPids: terminalRuntime.listPtyPids(),
+      });
+      const store = ensureHostServicePersistenceReady();
+      const titles = new Map<string, Map<string, string>>();
+      for (const child of metrics.childProcesses) {
+        for (const owner of child.owners ?? []) {
+          if (!owner.taskId) continue;
+          let workspaceTitles = titles.get(owner.workspaceId);
+          if (!workspaceTitles) {
+            workspaceTitles = new Map(store.listWorkspaceTasks({ workspaceId: owner.workspaceId }).map((task) => [task.id, task.title]));
+            titles.set(owner.workspaceId, workspaceTitles);
+          }
+          owner.taskTitle = workspaceTitles.get(owner.taskId);
+        }
+      }
+      await respond(request.id, metrics);
       return;
+    }
     case "service.shutdown": {
       // Guard re-entrancy: a signal, stdin close, or duplicate request may
       // already be running the one allowed shutdown pass. In that case just
