@@ -32,6 +32,12 @@ import {
   toCursorEnvReference,
   toEnvReference,
 } from "./mcp-config-management-shared";
+import {
+  assertKiroSlackOAuthClientId,
+  CURSOR_SLACK_MCP_CLIENT_ID,
+  isPublicOAuthClientId,
+  isSlackHostedMcpUrl,
+} from "../../src/lib/providers/slack-hosted-mcp";
 
 type JsonMcpProvider = Extract<McpConfigProvider, "cursor" | "kiro">;
 type JsonDocument = Record<string, unknown>;
@@ -154,10 +160,92 @@ function countOpaqueAuthValues(
   profile: JsonMcpConfigProfile,
   config: Record<string, unknown>,
 ) {
-  return profile.opaqueAuthKeys.reduce(
-    (count, key) => count + (config[key] === undefined ? 0 : 1),
-    0,
-  );
+  return profile.opaqueAuthKeys.reduce((count, key) => {
+    const value = config[key];
+    if (value === undefined) return count;
+    const record = asMcpRecord(value);
+    if (!record) return count + 1;
+    const publicField = publicOAuthClientIdField(profile, key);
+    const hasOpaque = Object.keys(record).some((name) => name !== publicField);
+    return count + (hasOpaque ? 1 : 0);
+  }, 0);
+}
+
+function publicOAuthClientIdField(
+  profile: JsonMcpConfigProfile,
+  objectKey: string,
+) {
+  if (profile.provider === "cursor" && objectKey === "auth") return "CLIENT_ID";
+  if (profile.provider === "kiro" && objectKey === "oauth") return "clientId";
+  return null;
+}
+
+function readPublicOAuthClientId(
+  profile: JsonMcpConfigProfile,
+  config: Record<string, unknown>,
+) {
+  for (const key of profile.opaqueAuthKeys) {
+    const field = publicOAuthClientIdField(profile, key);
+    if (!field) continue;
+    const value = asMcpRecord(config[key])?.[field];
+    if (isPublicOAuthClientId(value)) return value;
+  }
+  return undefined;
+}
+
+function applyJsonMcpOAuthClientId(
+  profile: JsonMcpConfigProfile,
+  args: {
+    config: Record<string, unknown>;
+    current: Record<string, unknown>;
+    draft: McpServerConfigDraft;
+    operation: "create" | "update";
+    sameTransport: boolean;
+  },
+) {
+  const url =
+    typeof args.config.url === "string" ? args.config.url : undefined;
+  if (profile.provider === "cursor") {
+    if (isSlackHostedMcpUrl(url)) {
+      const existingAuth = args.sameTransport
+        ? (asMcpRecord(args.current.auth) ?? {})
+        : {};
+      args.config.auth = {
+        ...existingAuth,
+        CLIENT_ID: CURSOR_SLACK_MCP_CLIENT_ID,
+      };
+      return;
+    }
+    if (args.draft.oauthClientId) {
+      const existingAuth = args.sameTransport
+        ? (asMcpRecord(args.current.auth) ?? {})
+        : {};
+      args.config.auth = {
+        ...existingAuth,
+        CLIENT_ID: args.draft.oauthClientId,
+      };
+    }
+    return;
+  }
+  if (profile.provider !== "kiro") return;
+  if (isSlackHostedMcpUrl(url) && !args.draft.oauthClientId) {
+    const existingId = readPublicOAuthClientId(profile, args.current);
+    if (args.operation === "create" || !existingId) {
+      assertKiroSlackOAuthClientId(args.draft.oauthClientId);
+    }
+    return;
+  }
+  if (!args.draft.oauthClientId) return;
+  if (isSlackHostedMcpUrl(url)) {
+    assertKiroSlackOAuthClientId(args.draft.oauthClientId);
+  }
+  const existingOauth = args.sameTransport
+    ? (asMcpRecord(args.current.oauth) ?? {})
+    : {};
+  args.config.oauth = {
+    ...existingOauth,
+    clientId: args.draft.oauthClientId,
+  };
 }
 
 function toJsonMcpSnapshot(
@@ -176,6 +264,7 @@ function toJsonMcpSnapshot(
   const url = sanitizeMcpUrl(config.url);
   const argsList = Array.isArray(config.args) ? config.args : [];
   const protectedEntry = isProtectedMcpServerName(args.name);
+  const oauthClientId = readPublicOAuthClientId(profile, config);
   return {
     id: getMcpConfigSnapshotId({
       provider: profile.provider,
@@ -197,6 +286,7 @@ function toJsonMcpSnapshot(
     headerEnvBindings: headers.bindings.sort((left, right) =>
       left.name.localeCompare(right.name),
     ),
+    ...(oauthClientId ? { oauthClientId } : {}),
     enabled: config.disabled !== true,
     argumentCount: argsList.length,
     hiddenValueCount:
@@ -287,6 +377,13 @@ function buildJsonMcpServerEntry(
     if (!sameTransport) {
       for (const key of profile.opaqueAuthKeys) delete config[key];
     }
+    applyJsonMcpOAuthClientId(profile, {
+      config,
+      current,
+      draft: args.draft,
+      operation: args.operation,
+      sameTransport,
+    });
   }
   if (args.draft.enabled) delete config.disabled;
   else config.disabled = true;
@@ -417,6 +514,7 @@ function toJsonMcpShareDraft(
     env.hiddenValueCount +
     headers.hiddenValueCount +
     countOpaqueAuthValues(profile, config);
+  const oauthClientId = readPublicOAuthClientId(profile, config);
   const warnings = opaqueCount
     ? [
         `${opaqueCount} opaque ${profile.label} authentication value${
@@ -446,6 +544,7 @@ function toJsonMcpShareDraft(
         ? { bearerTokenEnvVar: headers.bearerTokenEnvVar }
         : {}),
       headerEnvBindings: headers.bindings,
+      ...(oauthClientId ? { oauthClientId } : {}),
       enabled: config.disabled !== true,
     } satisfies McpServerConfigDraft,
     warnings,
@@ -634,6 +733,19 @@ export function createJsonMcpConfigManagement(profile: JsonMcpConfigProfile) {
         preview.warnings.push(
           "Changing transport removes fields that only apply to the previous transport.",
         );
+      }
+      const remoteUrl = args.draft?.url ?? prepared.existingSnapshot?.url;
+      if (
+        profile.provider === "cursor" &&
+        args.draft &&
+        isSlackHostedMcpUrl(remoteUrl)
+      ) {
+        preview.changes.push(
+          "Slack OAuth client ID: Slack-published Cursor client",
+        );
+      }
+      if (profile.provider === "kiro" && args.draft?.oauthClientId) {
+        preview.changes.push("OAuth client ID: provided");
       }
       return {
         ok: true,

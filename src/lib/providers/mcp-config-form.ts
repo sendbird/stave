@@ -6,6 +6,11 @@ import type {
   McpServerConfigDraft,
   McpServerConfigSnapshot,
 } from "./mcp-config.types";
+import {
+  assertKiroSlackOAuthClientId,
+  isSlackHostedMcpUrl,
+  OAUTH_CLIENT_ID_PATTERN,
+} from "./slack-hosted-mcp";
 
 export type McpConfigFormState = {
   provider: McpConfigProvider;
@@ -21,6 +26,7 @@ export type McpConfigFormState = {
   envVarsText: string;
   bearerTokenEnvVar: string;
   headerBindingsText: string;
+  oauthClientId: string;
   enabled: boolean;
 };
 
@@ -81,6 +87,7 @@ export function createInitialMcpConfigForm(
       envVarsText: "",
       bearerTokenEnvVar: "",
       headerBindingsText: "",
+      oauthClientId: "",
       enabled: true,
     };
   }
@@ -98,6 +105,7 @@ export function createInitialMcpConfigForm(
     envVarsText: snapshot.envVars.join("\n"),
     bearerTokenEnvVar: snapshot.bearerTokenEnvVar ?? "",
     headerBindingsText: formatHeaderBindings(snapshot.headerEnvBindings),
+    oauthClientId: snapshot.oauthClientId ?? "",
     enabled: snapshot.enabled,
   };
 }
@@ -173,6 +181,36 @@ export function validateMcpConfigForm(args: {
     throw new Error("Bearer token environment variable has an invalid name.");
   }
   parseMcpHeaderBindings(form.headerBindingsText);
+  const oauthClientId = form.oauthClientId.trim();
+  if (oauthClientId && !OAUTH_CLIENT_ID_PATTERN.test(oauthClientId)) {
+    throw new Error(
+      "OAuth client ID must start with a letter or number and use only letters, numbers, dots, underscores, or hyphens.",
+    );
+  }
+  if (formNeedsKiroSlackOAuthClientId(form)) {
+    assertKiroSlackOAuthClientId(oauthClientId);
+  }
+}
+
+export function formShowsKiroOAuthClientIdField(form: McpConfigFormState) {
+  return (
+    resolveMcpInstallProviders(form).includes("kiro") &&
+    form.transport !== "stdio"
+  );
+}
+
+export function formNeedsKiroSlackOAuthClientId(form: McpConfigFormState) {
+  return (
+    formShowsKiroOAuthClientIdField(form) && isSlackHostedMcpUrl(form.url)
+  );
+}
+
+export function formUsesCursorOfficialSlackClient(form: McpConfigFormState) {
+  return (
+    resolveMcpInstallProviders(form).includes("cursor") &&
+    form.transport !== "stdio" &&
+    isSlackHostedMcpUrl(form.url)
+  );
 }
 
 export function resolveMcpInstallProviders(form: McpConfigFormState) {
@@ -212,6 +250,9 @@ export function buildMcpConfigDraft(args: {
       ? { bearerTokenEnvVar: form.bearerTokenEnvVar.trim() }
       : {}),
     headerEnvBindings: parseMcpHeaderBindings(form.headerBindingsText),
+    ...(form.oauthClientId.trim()
+      ? { oauthClientId: form.oauthClientId.trim() }
+      : {}),
     enabled: form.enabled,
   };
 }

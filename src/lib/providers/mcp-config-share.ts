@@ -3,6 +3,10 @@ import type {
   McpServerConfigDraft,
   McpServerConfigMutationPreview,
 } from "./mcp-config.types";
+import {
+  assertKiroSlackOAuthClientId,
+  isSlackHostedMcpUrl,
+} from "./slack-hosted-mcp";
 
 function formatMcpShareProviderLabel(provider: McpConfigProvider) {
   switch (provider) {
@@ -42,6 +46,12 @@ export function normalizeMcpInstallProviders(
   return MCP_SHAREABLE_PROVIDERS.filter((provider) => unique.has(provider));
 }
 
+function stripOauthClientId(draft: McpServerConfigDraft): McpServerConfigDraft {
+  const next = { ...draft };
+  delete next.oauthClientId;
+  return next;
+}
+
 export function adaptMcpDraftForProvider(
   draft: McpServerConfigDraft,
   provider: McpConfigProvider,
@@ -51,19 +61,31 @@ export function adaptMcpDraftForProvider(
       throw new Error("Codex does not support creating SSE MCP servers.");
     }
     return {
-      ...draft,
+      ...stripOauthClientId(draft),
       provider,
       scope: "user",
     };
   }
-  if (
-    (provider === "cursor" || provider === "kiro") &&
-    draft.scope === "local"
-  ) {
-    return { ...draft, provider, scope: "project" };
+  if (provider === "cursor") {
+    return {
+      ...stripOauthClientId(draft),
+      provider,
+      scope: draft.scope === "local" ? "project" : draft.scope,
+    };
+  }
+  if (provider === "kiro") {
+    const next: McpServerConfigDraft = {
+      ...draft,
+      provider,
+      scope: draft.scope === "local" ? "project" : draft.scope,
+    };
+    if (isSlackHostedMcpUrl(next.url)) {
+      next.oauthClientId = assertKiroSlackOAuthClientId(next.oauthClientId);
+    }
+    return next;
   }
   return {
-    ...draft,
+    ...stripOauthClientId(draft),
     provider,
   };
 }
@@ -104,6 +126,16 @@ export function describeMcpInstallAdaptation(args: {
   if (args.provider === "kiro" && args.draft.scope === "local") {
     warnings.push(
       "Kiro will receive a project-scope copy because it has no local-project MCP scope.",
+    );
+  }
+  if (args.provider === "kiro" && isSlackHostedMcpUrl(args.draft.url)) {
+    warnings.push(
+      "Kiro Slack MCP stores your Slack app client ID as oauth.clientId. Cursor's published Slack client ID is not copied.",
+    );
+  }
+  if (args.provider === "cursor" && isSlackHostedMcpUrl(args.draft.url)) {
+    warnings.push(
+      "Cursor Slack MCP writes Slack's published Cursor client ID. Sign in from Settings after applying.",
     );
   }
   return warnings;

@@ -7,6 +7,7 @@ import {
   applyKiroMcpServerConfigMutation,
   previewKiroMcpServerConfigMutation,
 } from "../electron/providers/kiro-mcp-config-management";
+import { CURSOR_SLACK_MCP_CLIENT_ID } from "@/lib/providers/slack-hosted-mcp";
 
 const temporaryDirectories: string[] = [];
 
@@ -31,7 +32,7 @@ describe("Kiro MCP configuration management", () => {
           "X-Team": "${SLACK_TEAM}",
           "X-Private": "literal-secret",
         },
-        oauth: { clientSecret: "oauth-secret" },
+        oauth: { clientId: "public-client", clientSecret: "oauth-secret" },
         oauthScopes: ["channels:read"],
       },
     });
@@ -43,10 +44,70 @@ describe("Kiro MCP configuration management", () => {
       urlRedacted: true,
       bearerTokenEnvVar: "SLACK_TOKEN",
       headerEnvBindings: [{ name: "X-Team", envVar: "SLACK_TEAM" }],
+      oauthClientId: "public-client",
       hiddenValueCount: 4,
     });
     expect(JSON.stringify(snapshot)).not.toContain("private");
     expect(JSON.stringify(snapshot)).not.toContain("oauth-secret");
+  });
+
+  test("writes the caller Slack app client id for hosted Slack MCP", () => {
+    const created = __kiroMcpConfigManagementTest.buildKiroServerEntry({
+      operation: "create",
+      draft: {
+        provider: "kiro",
+        scope: "user",
+        name: "slack",
+        transport: "http",
+        url: "https://mcp.slack.com/mcp",
+        envVars: [],
+        headerEnvBindings: [],
+        oauthClientId: "9988776655.4433221100",
+        enabled: true,
+      },
+    });
+
+    expect(created).toEqual({
+      url: "https://mcp.slack.com/mcp",
+      oauth: { clientId: "9988776655.4433221100" },
+    });
+  });
+
+  test("refuses hosted Slack MCP without a Slack app client id", () => {
+    expect(() =>
+      __kiroMcpConfigManagementTest.buildKiroServerEntry({
+        operation: "create",
+        draft: {
+          provider: "kiro",
+          scope: "user",
+          name: "slack",
+          transport: "http",
+          url: "https://mcp.slack.com/mcp",
+          envVars: [],
+          headerEnvBindings: [],
+          enabled: true,
+        },
+      }),
+    ).toThrow("requires a Slack app OAuth client ID");
+  });
+
+  test("refuses Cursor's published Slack client id for Kiro", () => {
+    expect(() =>
+      __kiroMcpConfigManagementTest.buildKiroServerEntry({
+        operation: "create",
+        draft: {
+          provider: "kiro",
+          scope: "user",
+          name: "slack",
+          transport: "http",
+          url: "https://mcp.slack.com/mcp",
+          envVars: [],
+          headerEnvBindings: [],
+          oauthClientId: CURSOR_SLACK_MCP_CLIENT_ID,
+          enabled: true,
+        },
+      }),
+    ).toThrow("cannot reuse Cursor's published Slack client ID");
   });
 
   test("writes Kiro env syntax and preserves unrelated file content", async () => {

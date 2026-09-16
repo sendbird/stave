@@ -33,6 +33,12 @@ export interface McpServerConfigDraft {
   envVars: string[];
   bearerTokenEnvVar?: string;
   headerEnvBindings: McpHeaderEnvBinding[];
+  /**
+   * Public OAuth client id for native JSON providers. Never a client secret.
+   * Cursor Slack hosted MCP ignores this and writes Slack's published Cursor
+   * client id. Kiro Slack hosted MCP requires the caller's Slack app id.
+   */
+  oauthClientId?: string;
   enabled: boolean;
 }
 
@@ -53,6 +59,7 @@ export interface McpServerConfigSnapshot extends McpServerConfigTarget {
   envVars: string[];
   bearerTokenEnvVar?: string;
   headerEnvBindings: McpHeaderEnvBinding[];
+  oauthClientId?: string;
   enabled: boolean;
   argumentCount: number;
   hiddenValueCount: number;

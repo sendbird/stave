@@ -77,29 +77,25 @@ The connection list refreshes after the native files are written. Cursor and
 Kiro read those files in their own runtimes, so targeted changes also affect the
 provider outside Stave.
 
-## Cursor/Grok Slack OAuth Setup
+## Cursor Slack Hosted MCP
 
-Use this flow when Slack is exposed as a remote MCP endpoint that requires
-OAuth. Replace every placeholder with values from the Slack MCP operator; do
-not paste OAuth secrets into Stave.
+Use this flow for Slack's hosted MCP endpoint `https://mcp.slack.com/mcp`. Slack
+does not support dynamic client registration on that endpoint.
 
-### Dynamic OAuth registration
-
-Dynamic registration needs only the remote endpoint:
-
-1. Open a workspace if the server should be project-scoped.
-2. Open `Settings > MCP` and select `Add server`.
-3. Enable `Cursor`. Disable the other targets unless they also need their own
-   native copy.
-4. Choose `User` for all workspaces or `Project` for only the current workspace.
-5. Name the server `slack`, choose `HTTP` (or `SSE` only when the endpoint
-   requires it), and enter `<slack-mcp-url>`.
-6. Leave bearer-token and header fields empty for OAuth.
-7. Review and apply the change.
-8. On the `slack` row, select `Sign in` in the Cursor card. Stave runs the
+1. Open `Settings > MCP` and select `Add server`.
+2. Enable `Cursor`. Disable the other targets unless they also need their own
+   native copy. If Kiro is also selected, enter your Slack app client ID in the
+   Kiro field; Cursor does not reuse that value.
+3. Choose `User` for all workspaces or `Project` for only the current workspace.
+4. Name the server `slack`, choose `HTTP`, and enter `https://mcp.slack.com/mcp`.
+5. Leave bearer-token and header fields empty.
+6. Review and apply the change. Stave writes Slack's published Cursor MCP client
+   ID into Cursor's native `auth.CLIENT_ID`. That identifier is public, not a
+   credential.
+7. On the `slack` row, select `Sign in` in the Cursor card. Stave runs the
    configured Cursor Agent as `agent mcp login slack`; Cursor opens and owns the
    browser flow and stores its OAuth state separately.
-9. Complete consent in the browser, then start a new Cursor/Grok task.
+8. Complete consent in the browser, then start a new Cursor task.
 
 Cursor Agent's documented OAuth callback is:
 
@@ -107,16 +103,35 @@ Cursor Agent's documented OAuth callback is:
 https://www.cursor.com/agents/mcp/oauth/callback
 ```
 
-Register that callback with the MCP OAuth client when the server requires an
-explicit redirect URI.
+If `agent mcp login` reports a `redirect_uri` mismatch, update the Cursor Agent
+binary rather than pasting a different Slack client ID. An older Agent callback
+(`http://localhost:8787/callback`) is not accepted by Slack's published Cursor
+client. A successful Claude or Codex Slack login does not authenticate Cursor.
 
-### Static OAuth client metadata
+## Kiro Slack Hosted MCP
 
-Some endpoints require a pre-registered client rather than dynamic
-registration. Cursor accepts an `auth` object in its native file. Stave safely
-preserves an existing `auth` object during same-transport edits, but the current
-Settings form does not create or reveal static client metadata. Add it directly
-to the chosen Cursor file, using an environment reference for the secret:
+Kiro cannot use Slack's published Cursor client ID. Create a Slack app (or reuse
+one you already own), copy its OAuth client ID, and register a loopback redirect
+URI for Kiro on that app.
+
+1. Open `Settings > MCP` and select `Add server`.
+2. Enable `Kiro`.
+3. Name the server `slack`, choose `HTTP`, and enter `https://mcp.slack.com/mcp`.
+4. Paste the Slack app OAuth client ID into `Slack app client ID`. Stave writes
+   it to Kiro as `oauth.clientId`. Never enter a client secret.
+5. Review and apply the change.
+6. Authenticate with Kiro's own MCP OAuth flow (`/mcp auth` in the Kiro CLI).
+   Stave does not copy Slack tokens into the renderer, logs, or transcripts.
+
+Sharing a Cursor Slack entry to Kiro is refused: add Kiro from `Add server` and
+enter the Slack app client ID there.
+
+## Other Cursor OAuth Endpoints
+
+Some non-Slack endpoints still require static client metadata that Stave does
+not create. Cursor accepts an `auth` object in its native file. Stave preserves
+an existing `auth` object during same-transport edits. Add extra fields directly
+to the chosen Cursor file, using an environment reference for a client secret:
 
 ```json
 {
@@ -184,9 +199,11 @@ The editor accepts references rather than values:
   `bearer_token_env_var` and `env_http_headers`.
 
 Existing literal environment values, headers, URL query details, command
-arguments, Cursor `auth`, and Kiro `oauth` metadata are not returned to the
-renderer. The UI reports only how many opaque values are hidden. Same-transport
-edits preserve opaque values where possible. Renderer-facing diagnostics are
+arguments, and remaining Cursor `auth` / Kiro `oauth` metadata are not returned
+to the renderer. Public OAuth client IDs (`auth.CLIENT_ID` and `oauth.clientId`)
+are an exception because they are identifiers, not credentials. The UI reports
+how many opaque values are hidden. Same-transport edits preserve opaque values
+where possible. Renderer-facing diagnostics are
 bounded and redact credential-like URL details, bearer values, and token-shaped
 assignments.
 
