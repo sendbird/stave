@@ -423,7 +423,7 @@ export function isClaudeContext1MModel(model: string) {
   return model.trim().toLowerCase().endsWith("[1m]");
 }
 
-function getClaudeContextBaseModel(model: string) {
+export function getClaudeContextBaseModel(model: string) {
   return model.trim().replace(/\[1m\]$/i, "");
 }
 
@@ -467,9 +467,13 @@ export function supportsClaudeContextToggle(args: {
   return variants.has(baseModel) && variants.has(`${baseModel}[1m]`);
 }
 
+export type ClaudeContext1MState =
+  | boolean
+  | ((baseModel: string) => boolean | undefined);
+
 export function collapseClaudeContextOptions(args: {
   options: readonly ModelSelectorOption[];
-  context1M: boolean;
+  context1M: ClaudeContext1MState;
 }) {
   const optionByModel = new Map(
     args.options.map((option) => [option.model.toLowerCase(), option] as const),
@@ -485,8 +489,12 @@ export function collapseClaudeContextOptions(args: {
     seen.add(baseModel);
     const base = optionByModel.get(baseModel);
     const context = optionByModel.get(`${baseModel}[1m]`);
+    const wants1M =
+      typeof args.context1M === "function"
+        ? args.context1M(baseModel)
+        : args.context1M;
     collapsed.push(
-      args.context1M && context ? context : (base ?? context ?? option),
+      wants1M && context ? context : (base ?? context ?? option),
     );
   }
   return collapsed;

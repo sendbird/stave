@@ -264,6 +264,14 @@ export function buildModelSelectionRuntimeOverrides(args: {
     autoRouting: false,
     model: args.model,
     modelProviderId: args.providerId,
+    claudeEffort: undefined,
+    codexReasoningEffort: undefined,
+    cursorEffort: undefined,
+    kiroEffort: undefined,
+    // Fast stays in per-model preferences. Carrying the previous model's
+    // Fast through the draft is what made Cursor Instant and Codex share it.
+    codexFastMode: undefined,
+    cursorFastMode: undefined,
     ...buildModelEffortRuntimeOverrides({
       ...args,
       effort: args.effort ?? resolveModelEffortFromSettings(args),

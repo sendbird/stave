@@ -10,6 +10,7 @@ import {
   resolveCodexEffortForModelSwitch,
   resolveDefaultClaudeEffortForModel,
 } from "@/lib/providers/model-catalog";
+import { getModelVisibilityKey } from "@/lib/providers/model-visibility";
 import type {
   ProviderId,
   ProviderRuntimeOptions,
@@ -25,6 +26,8 @@ export interface ModelRuntimePreference {
   mode?: ProviderModePresetId;
   effort?: ClaudeEffort | CodexEffort | KiroEffort | CursorEffort;
   fastMode?: boolean;
+  /** Claude `[1m]` context, stored on the family base model. */
+  context1M?: boolean;
 }
 
 export type ModelRuntimePreferences = Record<string, ModelRuntimePreference>;
@@ -156,6 +159,12 @@ function normalizeModelRuntimePreference(args: {
   ) {
     preference.fastMode = args.value.fastMode;
   }
+  if (
+    args.providerId === "claude-code" &&
+    typeof args.value.context1M === "boolean"
+  ) {
+    preference.context1M = args.value.context1M;
+  }
 
   return Object.keys(preference).length > 0 ? preference : null;
 }
@@ -196,7 +205,19 @@ export function normalizeModelRuntimePreferences(
   return normalized;
 }
 
-export function mergeModelRuntimePreference(args: {
+function areModelRuntimePreferencesEqual(
+  left: ModelRuntimePreference,
+  right: ModelRuntimePreference,
+) {
+  return (
+    left.mode === right.mode &&
+    left.effort === right.effort &&
+    left.fastMode === right.fastMode &&
+    left.context1M === right.context1M
+  );
+}
+
+function mergePreferenceFields(args: {
   preferences: ModelRuntimePreferences;
   providerId: ProviderId;
   model: string;
@@ -214,6 +235,9 @@ export function mergeModelRuntimePreference(args: {
     ...(args.patch.fastMode === undefined
       ? {}
       : { fastMode: args.patch.fastMode }),
+    ...(args.patch.context1M === undefined
+      ? {}
+      : { context1M: args.patch.context1M }),
   };
   const next = normalizeModelRuntimePreference({
     providerId: args.providerId,
@@ -222,14 +246,63 @@ export function mergeModelRuntimePreference(args: {
   if (!next) {
     return args.preferences;
   }
-  if (
-    current.mode === next.mode &&
-    current.effort === next.effort &&
-    current.fastMode === next.fastMode
-  ) {
+  if (areModelRuntimePreferencesEqual(current, next)) {
     return args.preferences;
   }
   return { ...args.preferences, [key]: next };
+}
+
+export function mergeModelRuntimePreference(args: {
+  preferences: ModelRuntimePreferences;
+  providerId: ProviderId;
+  model: string;
+  patch: ModelRuntimePreferencePatch;
+}): ModelRuntimePreferences {
+  if (!args.model.trim()) {
+    return args.preferences;
+  }
+
+  const { context1M, ...restPatch } = args.patch;
+  let preferences = args.preferences;
+  if (args.providerId === "claude-code" && context1M !== undefined) {
+    preferences = mergePreferenceFields({
+      preferences,
+      providerId: "claude-code",
+      model: getModelVisibilityKey({
+        providerId: "claude-code",
+        model: args.model,
+      }),
+      patch: { context1M },
+    });
+  }
+  if (
+    restPatch.mode !== undefined ||
+    restPatch.effort !== undefined ||
+    restPatch.fastMode !== undefined
+  ) {
+    preferences = mergePreferenceFields({
+      preferences,
+      providerId: args.providerId,
+      model: args.model,
+      patch: restPatch,
+    });
+  }
+  return preferences;
+}
+
+export function readClaudeContext1MPreference(args: {
+  preferences: ModelRuntimePreferences;
+  model: string;
+}): boolean | undefined {
+  return args.preferences[
+    buildModelRuntimePreferenceKey({
+      providerId: "claude-code",
+      model: getModelVisibilityKey({
+        providerId: "claude-code",
+        model: args.model,
+      }),
+    })
+  ]?.context1M;
 }
 
 export function mergeModelRuntimePreferenceSettings<

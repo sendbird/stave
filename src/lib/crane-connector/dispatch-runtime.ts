@@ -199,6 +199,54 @@ export function resolveCraneDispatchEffort(args: {
     : runtimeSettings.codexReasoningEffort;
 }
 
+/** Fast is last-used per Codex model. Other providers have no dispatch Fast. */
+export function resolveCraneDispatchFastMode(args: {
+  settings: ModelRuntimePreferenceSettings;
+  providerId: ManagedExecutionProviderId;
+  model: string;
+}): boolean {
+  if (args.providerId !== "codex") {
+    return false;
+  }
+  return applyModelRuntimePreference({
+    settings: args.settings,
+    providerId: args.providerId,
+    model: args.model,
+  }).codexFastMode;
+}
+
+/**
+ * Capabilities to show after the user picks a model. An explicit effort from
+ * the picker wins; Fast always comes from that model's last preference so a
+ * previous model's toggle cannot follow the selection.
+ */
+export function resolveCraneDispatchModelSwitch(args: {
+  settings: ModelRuntimePreferenceSettings;
+  providerId: ManagedExecutionProviderId;
+  model: string;
+  effort?: CraneDispatchEffort;
+}): Pick<CraneDispatchModelState, "effort" | "codexFastMode"> {
+  return {
+    effort: clampCraneDispatchEffort({
+      settings: args.settings,
+      providerId: args.providerId,
+      model: args.model,
+      effort:
+        args.effort ??
+        resolveCraneDispatchEffort({
+          settings: args.settings,
+          providerId: args.providerId,
+          model: args.model,
+        }),
+    }),
+    codexFastMode: resolveCraneDispatchFastMode({
+      settings: args.settings,
+      providerId: args.providerId,
+      model: args.model,
+    }),
+  };
+}
+
 /**
  * Keeps a held effort valid after a model switch (e.g. GPT-5.6 Luna drops the
  * "ultra" tier), falling back to the provider/model default instead of sending

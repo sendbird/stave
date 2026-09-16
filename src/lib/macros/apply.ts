@@ -22,6 +22,10 @@ export function buildMacroRuntimeOverrides(args: {
     codexReasoningEffort: undefined,
     cursorEffort: undefined,
     kiroEffort: undefined,
+    // Fast is remembered per provider+model. A pinned macro must not carry
+    // the composer's current Fast onto a different provider for this turn.
+    codexFastMode: undefined,
+    cursorFastMode: undefined,
     ...effortOverrides,
   };
 }
