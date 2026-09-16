@@ -95,7 +95,7 @@ export function AgentIdentity(props: AgentIdentityProps) {
         <Badge
           variant="outline"
           tone="neutral"
-          className={sx(styles.identityChip)}
+          xstyle={styles.identityChip}
         >
           {identity.effortLabel}
         </Badge>
@@ -104,7 +104,7 @@ export function AgentIdentity(props: AgentIdentityProps) {
         <Badge
           variant="soft"
           tone={props.source === "auto" ? "accent" : "neutral"}
-          className={sx(styles.identityChip)}
+          xstyle={styles.identityChip}
           title={`Model selected by ${SOURCE_LABEL[props.source].toLowerCase()}`}
         >
           {SOURCE_LABEL[props.source]}

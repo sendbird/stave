@@ -17,6 +17,7 @@ function seedWorkspace(
     (window as unknown as { api?: Record<string, unknown> }).api = {
       provider: {
         streamTurn: async () => [],
+        checkAvailability: async () => ({ ok: true, available: true }),
         getCodexModelCatalog: async () => ({
           ok: true,
           models: [],
@@ -121,6 +122,9 @@ function seedWorkspace(
           };
         },
       },
+      terminal: {
+        runCommand: async () => ({ exitCode: 0, stdout: "", stderr: "" }),
+      },
     };
     const workspaceSnapshot = {
       activeTaskId: "task-model-effort",
@@ -166,6 +170,12 @@ function seedWorkspace(
           workspaceBranchById: { "ws-main": "main" },
           workspacePathById: { "ws-main": "/tmp/stave-project" },
           workspaceDefaultById: { "ws-main": true },
+          providerAvailability: {
+            "claude-code": true,
+            codex: true,
+            cursor: true,
+            kiro: true,
+          },
           settings: { autoRoutingEnabled: true, ...settingsOverride },
           ...workspaceSnapshot,
         },
@@ -199,19 +209,12 @@ test("selects a model and effort in one click across provider tabs", async ({
     shadow: getComputedStyle(surface).boxShadow,
   }));
   expect(selectorStyle.backdropFilter).toBe("none");
-  expect(selectorStyle.shadow).toContain("0px 18px 48px");
+  expect(selectorStyle.shadow).toContain("0px 24px 48px -12px");
   expect(await selector.evaluate((surface) => surface.offsetWidth)).toBe(640);
 
   const providerTabs = page.getByRole("tablist", { name: "Model provider" });
-  const autoButton = page.getByRole("button", { name: "Stave Auto" });
-  await expect(autoButton).toBeVisible();
-  const providerTabsBox = await providerTabs.boundingBox();
-  const autoButtonBox = await autoButton.boundingBox();
-  expect(providerTabsBox).not.toBeNull();
-  expect(autoButtonBox).not.toBeNull();
-  expect(autoButtonBox?.x).toBeGreaterThanOrEqual(
-    (providerTabsBox?.x ?? 0) + (providerTabsBox?.width ?? 0),
-  );
+  const autoTab = providerTabs.getByRole("tab", { name: "Stave Auto" });
+  await expect(autoTab).toBeVisible();
   const providerTabBoxes = await providerTabs
     .getByRole("tab")
     .evaluateAll((tabs) =>
@@ -224,18 +227,25 @@ test("selects a model and effort in one click across provider tabs", async ({
         };
       }),
     );
-  expect(providerTabBoxes).toHaveLength(4);
+  expect(providerTabBoxes).toHaveLength(5);
   expect(new Set(providerTabBoxes.map((box) => Math.round(box.x))).size).toBe(
     1,
   );
   expect(providerTabBoxes.every((box) => box.height >= 44)).toBe(true);
   expect(providerTabBoxes[1]?.y).toBeGreaterThan(providerTabBoxes[0]?.y ?? 0);
+  expect(providerTabBoxes[4]?.y).toBeGreaterThan(providerTabBoxes[3]?.y ?? 0);
+  const selectorBox = await selector.boundingBox();
+  const providerTabsBox = await providerTabs.boundingBox();
+  expect(selectorBox).not.toBeNull();
+  expect(providerTabsBox).not.toBeNull();
+  expect(providerTabsBox?.y ?? -1).toBeGreaterThanOrEqual(
+    (selectorBox?.y ?? 0) - 2,
+  );
   expect(
-    Math.abs(
-      (await selector.evaluate((element) => element.offsetHeight)) -
-        (await providerTabs.evaluate((element) => element.offsetHeight)),
-    ),
-  ).toBeLessThanOrEqual(2);
+    (providerTabsBox?.y ?? 0) + (providerTabsBox?.height ?? 0),
+  ).toBeLessThanOrEqual(
+    (selectorBox?.y ?? 0) + (selectorBox?.height ?? 0) + 2,
+  );
   const claudeTab = providerTabs.getByRole("tab", { name: /Claude/ });
   const codexTab = providerTabs.getByRole("tab", { name: /Codex/ });
   await claudeTab.focus();
@@ -444,10 +454,10 @@ test("selects a model and effort in one click across provider tabs", async ({
       ),
     };
   });
-  expect(controlGeometry.groupHeight).toBe(36);
-  // Each capability button is its own 36px control now, not a segment clipped
+  expect(controlGeometry.groupHeight).toBe(32);
+  // Each capability button is its own 32px control now, not a segment clipped
   // inside a shared group box.
-  expect(controlGeometry.buttonHeights.every((height) => height === 36)).toBe(
+  expect(controlGeometry.buttonHeights.every((height) => height === 32)).toBe(
     true,
   );
   await modelControl.screenshot({
@@ -465,7 +475,11 @@ test("selects a model and effort in one click across provider tabs", async ({
     path: testInfo.outputPath("model-effort-matrix.png"),
     fullPage: true,
   });
-  await page.getByRole("button", { name: /Stave Auto/ }).click();
+  await autoTab.click();
+  await page
+    .getByRole("listbox", { name: "Auto routing profile" })
+    .getByRole("option", { name: /^Balanced/ })
+    .click();
   await expect(selector).toBeHidden();
   await expect(modelTrigger).toBeFocused();
   await expect(modelTrigger).toHaveAccessibleName(
@@ -499,7 +513,11 @@ test("keeps the searchable model list within a narrow viewport", async ({
   await expect(
     page.getByRole("textbox", { name: "Search models" }),
   ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Stave Auto" })).toBeVisible();
+  await expect(
+    page
+      .getByRole("tablist", { name: "Model provider" })
+      .getByRole("tab", { name: "Stave Auto" }),
+  ).toBeVisible();
   await expect(
     page
       .getByRole("tablist", { name: "Model provider" })
@@ -524,14 +542,25 @@ test("keeps the searchable model list within a narrow viewport", async ({
   expect(
     (selectorBox?.y ?? 0) + (selectorBox?.height ?? 0),
   ).toBeLessThanOrEqual(844);
-  const gridScroller = page
+  // The tab panel, not a wrapper inside the grid, owns horizontal overflow —
+  // a nested scroller there would strand the grid's sticky column header.
+  const panelScrollState = await page
     .getByRole("grid", { name: "Model and reasoning effort" })
-    .locator("..");
-  expect(
-    await gridScroller.evaluate(
-      (element) => element.scrollWidth <= element.clientWidth,
-    ),
-  ).toBe(true);
+    .evaluate((element) => {
+      const panel = element.closest("[role='tabpanel']");
+      return panel instanceof HTMLElement
+        ? {
+            clientWidth: panel.clientWidth,
+            overflowX: getComputedStyle(panel).overflowX,
+            scrollWidth: panel.scrollWidth,
+          }
+        : null;
+    });
+  expect(panelScrollState).not.toBeNull();
+  expect(panelScrollState?.overflowX).toBe("auto");
+  expect(panelScrollState?.scrollWidth ?? 0).toBeGreaterThan(
+    panelScrollState?.clientWidth ?? 0,
+  );
   await page.screenshot({
     path: testInfo.outputPath("model-effort-matrix-narrow.png"),
     fullPage: true,
@@ -663,7 +692,9 @@ test("configures Cursor and Kiro Worker models from runtime catalogs", async ({
   await expect(modelTrigger).toContainText(
     "GPT 5.4[context=272k,reasoning=high,fast=true]",
   );
-  await expect(workerCard).toContainText("has no selectable reasoning effort");
+  await expect(
+    workerCard.getByRole("combobox", { name: "Worker effort" }),
+  ).toContainText("Auto");
 
   await cursorTab.focus();
   await cursorTab.press("ArrowRight");
@@ -793,15 +824,17 @@ test("offers approval presets for Cursor and Kiro from the composer and Settings
   await approvalCursorTab.click();
   const cursorRow = page.locator('[data-cursor-model-row="gpt-5.4"]');
   await expect(cursorRow).toBeVisible();
-  await cursorRow.getByRole("button", { name: /^GPT 5\.4/ }).first().click();
+  await cursorRow
+    .getByRole("button", { name: "GPT 5.4, High effort" })
+    .click();
   await expect(selector).toBeHidden();
 
-  // Cursor gets all three tiers; the pill starts on the conservative default.
+  // Cursor gets all three tiers and starts on the workspace's Auto default.
   const cursorPill = page.getByRole("button", {
     name: /^Cursor (Manual|Guided|Auto|Custom):/,
   });
   await expect(cursorPill).toBeVisible();
-  await expect(cursorPill).toHaveAccessibleName(/^Cursor Manual:/);
+  await expect(cursorPill).toHaveAccessibleName(/^Cursor Auto:/);
   await cursorPill.click();
   const modePopover = page.getByRole("dialog", { name: "Cursor mode presets" });
   await expect(modePopover).toBeVisible();
@@ -810,8 +843,8 @@ test("offers approval presets for Cursor and Kiro from the composer and Settings
       modePopover.getByRole("button", { name: new RegExp(`^${tier}`) }),
     ).toBeVisible();
   }
-  await modePopover.getByRole("button", { name: /^Auto/ }).click();
-  await expect(cursorPill).toHaveAccessibleName(/^Cursor Auto:/);
+  await modePopover.getByRole("button", { name: /^Manual/ }).click();
+  await expect(cursorPill).toHaveAccessibleName(/^Cursor Manual:/);
 
   await page.getByRole("button", { name: "open-settings" }).click();
   const settings = page.getByRole("dialog", { name: "Settings" });
@@ -839,9 +872,9 @@ test("offers approval presets for Cursor and Kiro from the composer and Settings
     name: /Approval Preset/,
   });
   // The composer pill writes a per-model override, so the Settings card still
-  // shows the workspace default. Same layering as Claude and Codex.
+  // shows the workspace's Auto default. Same layering as Claude and Codex.
   await expect(
-    cursorApproval.getByRole("radio", { name: /^Manual/ }),
+    cursorApproval.getByRole("radio", { name: /^Auto/ }),
   ).toHaveAttribute("aria-checked", "true");
   await cursorApproval.getByRole("radio", { name: /^Guided/ }).click();
   await expect(
@@ -890,4 +923,84 @@ test("keeps the open selector's provider tab and search when a catalog resolves 
   await expect(
     page.locator('[data-cursor-model-row="cursor-archive-7"]'),
   ).toBeVisible();
+});
+
+test("pins the effort column header while the model grid scrolls", async ({
+  page,
+}, testInfo) => {
+  await seedWorkspace(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.goto("/");
+
+  await page.getByRole("button", { name: /^Model:/ }).click();
+  const selector = page.getByRole("dialog", {
+    name: "Model and effort selector",
+  });
+  await expect(selector).toBeVisible();
+  await expect
+    .poll(() =>
+      selector.evaluate((element) => getComputedStyle(element).opacity),
+    )
+    .toBe("1");
+
+  // Kiro's fixture catalog carries enough effortful rows to overflow the panel
+  // once the hidden archive models are shown.
+  await page
+    .getByRole("tablist", { name: "Model provider" })
+    .getByRole("tab", { name: /Kiro/ })
+    .click();
+  await page.getByRole("button", { name: /Show all models/ }).click();
+
+  const grid = page.getByRole("grid", { name: "Model and reasoning effort" });
+  await expect(grid).toBeVisible();
+
+  const before = await grid.evaluate((element) => {
+    const panel = element.closest('[role="tabpanel"]');
+    if (!(panel instanceof HTMLElement)) {
+      return null;
+    }
+    const header = element.querySelector('[role="row"]');
+    if (!(header instanceof HTMLElement)) {
+      return null;
+    }
+    return {
+      scrollable: panel.scrollHeight - panel.clientHeight,
+      // The header must span every column, not sit in per-cell islands that
+      // rows could show through between.
+      spansGrid:
+        element.getBoundingClientRect().width -
+          header.getBoundingClientRect().width <=
+        1,
+      opaque: getComputedStyle(header).backgroundColor !== "rgba(0, 0, 0, 0)",
+      delta:
+        header.getBoundingClientRect().top - panel.getBoundingClientRect().top,
+    };
+  });
+  expect(before).not.toBeNull();
+  expect(before?.scrollable ?? 0).toBeGreaterThan(80);
+  expect(before?.spansGrid).toBe(true);
+  expect(before?.opaque).toBe(true);
+  expect(before?.delta ?? -1).toBeGreaterThan(0);
+
+  const after = await grid.evaluate((element) => {
+    const panel = element.closest("[role='tabpanel']") as HTMLElement;
+    panel.scrollTop = 80;
+    const header = element.querySelector("[role='row']") as HTMLElement;
+    const headerBox = header.getBoundingClientRect();
+    const firstRowHeader = element.querySelectorAll("[role='rowheader']")[0];
+    return {
+      scrollTop: panel.scrollTop,
+      delta: headerBox.top - panel.getBoundingClientRect().top,
+      // The first data row has to pass behind the header, not in front of it.
+      firstRowUnderHeader:
+        (firstRowHeader?.getBoundingClientRect().top ?? 0) < headerBox.bottom,
+    };
+  });
+  expect(after.scrollTop).toBe(80);
+  expect(Math.abs(after.delta)).toBeLessThanOrEqual(1);
+  expect(after.firstRowUnderHeader).toBe(true);
+
+  await selector.screenshot({
+    path: testInfo.outputPath("model-effort-header-pinned.png"),
+  });
 });

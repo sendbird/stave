@@ -4,10 +4,12 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 const mq480 = "@media (min-width: 480px)";
 
 export const modelEffortGridStyles = stylex.create({
+  // No overflow of its own: an `overflow-x: auto` wrapper here would become the
+  // nearest scrollport for the sticky column header, pinning it to a box that
+  // never scrolls vertically. The tab panel above already scrolls both axes, so
+  // hand horizontal overflow to it and only reserve the grid's own width here.
   scroller: {
-    minWidth: 0,
-    overflowX: "auto",
-    overscrollBehaviorX: "contain",
+    minWidth: "max-content",
     padding: { default: vars["--ads-space-4"], [mq480]: vars["--ads-space-8"] },
   },
   grid: {
@@ -17,6 +19,20 @@ export const modelEffortGridStyles = stylex.create({
     columnGap: { default: 0, [mq480]: vars["--ads-space-2"] },
     rowGap: vars["--ads-space-4"],
     "--model-effort-row-width": { default: "6rem", [mq480]: "6.75rem" },
+  },
+  // One opaque bar spanning every column rather than `display: contents`, so
+  // rows scroll under a continuous surface instead of through the column gaps.
+  // `subgrid` keeps the effort labels on the same tracks as the cells below.
+  headerRow: {
+    position: "sticky",
+    insetBlockStart: 0,
+    zIndex: vars["--ads-z-index-sticky"],
+    display: "grid",
+    gridColumn: "1 / -1",
+    gridTemplateColumns: "subgrid",
+    alignItems: "center",
+    paddingBlock: vars["--ads-space-4"],
+    backgroundColor: vars["--ads-color-surface-raised"],
   },
   columnHeaderModel: {
     paddingInline: vars["--ads-space-8"],
