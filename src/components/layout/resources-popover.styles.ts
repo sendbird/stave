@@ -71,6 +71,16 @@ export const resourceStyles = stylex.create({
     width: 36,
     height: 36,
   },
+  /**
+   * Withholds the focus ring on a trigger that was restored focus after a
+   * pointer-opened dialog closed. Composed after `focusRing.ring` inside the
+   * Button, so it wins on every outline property it restates.
+   */
+  triggerRingSuppressed: {
+    outlineColor: { default: "transparent", ":focus-visible": "transparent" },
+    outlineStyle: { default: "none", ":focus-visible": "none" },
+    outlineWidth: { default: 0, ":focus-visible": 0 },
+  },
   triggerIcon: {
     width: 16,
     height: 16,

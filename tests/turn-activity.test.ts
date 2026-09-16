@@ -12,6 +12,7 @@ import {
   resolveTurnActivityHiddenSeverity,
   resolveTurnActivityLoaderVariant,
   resolveTurnActivityReplay,
+  resolveTurnActivityRestMark,
   resolveTurnActivitySummary,
   resolveTurnActivityVisibility,
   type TurnActivityRowStatus,
@@ -34,6 +35,35 @@ function buildWorkItem(
 }
 
 describe("turn activity presentation", () => {
+  test("rests an ended turn on its outcome instead of a frozen loader frame", () => {
+    expect(
+      resolveTurnActivityRestMark({
+        replayOutcome: "stopped",
+        activity: null,
+      }),
+    ).toBe("stopped");
+    // Failure linger: the live snapshot outlives its turn and is already paused.
+    expect(
+      resolveTurnActivityRestMark({
+        activity: { completedAt: 3_000, turnError: "provider crashed" },
+      }),
+    ).toBe("failed");
+    expect(
+      resolveTurnActivityRestMark({
+        activity: { completedAt: 3_000, turnError: null },
+      }),
+    ).toBe("completed");
+  });
+
+  test("keeps the loader while the turn is still in flight", () => {
+    expect(
+      resolveTurnActivityRestMark({
+        activity: { completedAt: null, turnError: null },
+      }),
+    ).toBeNull();
+    expect(resolveTurnActivityRestMark({ activity: null })).toBeNull();
+  });
+
   test("uses the signal loader until the provider activity snapshot arrives", () => {
     expect(
       resolveTurnActivityLoaderVariant({
