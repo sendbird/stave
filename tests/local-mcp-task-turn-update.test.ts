@@ -45,7 +45,17 @@ describe("local MCP task turn activity projection", () => {
     expect(tool.input.length).toBeLessThan(4_200);
     expect(tool.input).toContain("command");
     expect(tool.input).not.toContain("expression");
-    expect(text).toBeUndefined();
+    expect(text).toEqual({ type: "text", text: "" });
+  });
+
+  test("forwards thinking as a heartbeat without the thought body", () => {
+    expect(
+      projectLocalMcpTaskTurnActivityEvent({
+        type: "thinking",
+        text: "I will inspect the repo first.",
+        isStreaming: true,
+      }),
+    ).toEqual({ type: "thinking", text: "", isStreaming: true });
   });
 
   test("preserves projected events while renderer reloads are coalesced", () => {

@@ -1,6 +1,9 @@
 import type { ChatMessage, EditorTab, PromptDraft, Task } from "@/types/chat";
 import type { ReviewComment } from "@/types/review";
-import { normalizeMessagesForSnapshot } from "@/lib/task-context/message-normalization";
+import {
+  normalizeMessagesForSnapshot,
+  sanitizeMessagesForLoad,
+} from "@/lib/task-context/message-normalization";
 import {
   parseWorkspaceShell,
   parseWorkspaceShellLite,
@@ -557,11 +560,26 @@ export async function loadWorkspaceShellSummary(args: {
     : null;
 }
 
+function hydrateLoadedTaskMessages(args: {
+  messagesByTask: Record<string, ChatMessage[]>;
+  preserveStreaming?: boolean;
+}) {
+  return args.preserveStreaming
+    ? sanitizeMessagesForLoad({ messagesByTask: args.messagesByTask })
+    : normalizeMessagesForSnapshot({ messagesByTask: args.messagesByTask });
+}
+
 export async function loadTaskMessagesPage(args: {
   workspaceId: string;
   taskId: string;
   limit?: number;
   offset?: number;
+  /**
+   * Keep persisted streaming flags. Host-owned turns reload this page while the
+   * turn is still running; snapshot sealing would render finished interim
+   * below an open turn.
+   */
+  preserveStreaming?: boolean;
 }): Promise<TaskMessagesPage> {
   const limit = Math.max(1, Math.min(500, args.limit ?? 120));
   const offset = Math.max(0, args.offset ?? 0);
@@ -572,8 +590,9 @@ export async function loadTaskMessagesPage(args: {
       ? parseWorkspaceSnapshot({ payload: row.snapshot })
       : null;
     const messages =
-      normalizeMessagesForSnapshot({
+      hydrateLoadedTaskMessages({
         messagesByTask: snapshot?.messagesByTask ?? {},
+        preserveStreaming: args.preserveStreaming,
       })[args.taskId] ?? [];
     const start = Math.max(messages.length - offset - limit, 0);
     const end = Math.max(messages.length - offset, 0);
@@ -591,7 +610,13 @@ export async function loadTaskMessagesPage(args: {
     const snapshot = await loadWorkspaceSnapshot({
       workspaceId: args.workspaceId,
     });
-    const messages = snapshot?.messagesByTask[args.taskId] ?? [];
+    const messages =
+      hydrateLoadedTaskMessages({
+        messagesByTask: snapshot
+          ? { [args.taskId]: snapshot.messagesByTask[args.taskId] ?? [] }
+          : {},
+        preserveStreaming: args.preserveStreaming,
+      })[args.taskId] ?? [];
     const start = Math.max(messages.length - offset - limit, 0);
     const end = Math.max(messages.length - offset, 0);
     const pageMessages = messages.slice(start, end);
@@ -617,8 +642,9 @@ export async function loadTaskMessagesPage(args: {
   }
   return {
     messages:
-      normalizeMessagesForSnapshot({
+      hydrateLoadedTaskMessages({
         messagesByTask: { [args.taskId]: response.page.messages },
+        preserveStreaming: args.preserveStreaming,
       })[args.taskId] ?? [],
     totalCount: response.page.totalCount,
     limit: response.page.limit,

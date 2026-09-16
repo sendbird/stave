@@ -1,6 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
-import { applyHostTaskTurnSync } from "@/store/host-task-turn-sync";
+import {
+  applyHostTaskTurnSync,
+  restoreActiveTurnStreaming,
+} from "@/store/host-task-turn-sync";
 import {
   createEmptyWorkspaceState,
   type WorkspaceSessionState,
@@ -208,5 +211,152 @@ describe("applyHostTaskTurnSync", () => {
       result.statePatch.workspaceRuntimeCacheById?.["ws-background"]
         ?.activeTaskId,
     ).toBe(created.id);
+  });
+
+  test("reopens the live assistant bubble after snapshot sealing", () => {
+    const task = buildTask({ id: "task-managed" });
+    const sealedAssistant = {
+      id: "msg-assistant",
+      role: "assistant" as const,
+      model: "claude-sonnet",
+      providerId: "claude-code" as const,
+      content: "Inspecting the repo.",
+      turnId: "turn-1",
+      isStreaming: false,
+      parts: [
+        {
+          type: "text" as const,
+          text: "Inspecting the repo.",
+          segmentId: "commentary-1",
+        },
+      ],
+    };
+    const result = applyHostTaskTurnSync({
+      state: buildState({
+        session: emptySession({
+          activeTaskId: task.id,
+          tasks: [task],
+          openTaskTabIds: [task.id],
+          activeSurface: { kind: "task", taskId: task.id },
+          activeTurnIdsByTask: { [task.id]: "turn-1" },
+        }),
+      }),
+      loaded: {
+        persistedSession: emptySession({
+          activeTaskId: task.id,
+          tasks: [task],
+          openTaskTabIds: [task.id],
+          activeTurnIdsByTask: { [task.id]: "turn-1" },
+        }),
+        persistedActiveTurnId: "turn-1",
+        messages: [sealedAssistant],
+        messageCount: 1,
+      },
+      update: buildUpdate({ taskId: task.id }),
+    });
+
+    expect(result.statePatch.messagesByTask?.[task.id]?.[0]).toMatchObject({
+      id: "msg-assistant",
+      isStreaming: true,
+    });
+  });
+
+  test("does not reopen a finished turn after the host reports done", () => {
+    const task = buildTask({ id: "task-managed" });
+    const finishedAssistant = {
+      id: "msg-assistant",
+      role: "assistant" as const,
+      model: "claude-sonnet",
+      providerId: "claude-code" as const,
+      content: "Patched the issue.",
+      turnId: "turn-1",
+      completedAt: "2026-03-10T00:01:00.000Z",
+      isStreaming: false,
+      parts: [
+        {
+          type: "text" as const,
+          text: "Patched the issue.",
+          segmentId: "final-1",
+        },
+      ],
+    };
+    const result = applyHostTaskTurnSync({
+      state: buildState({
+        session: emptySession({
+          activeTaskId: task.id,
+          tasks: [task],
+          openTaskTabIds: [task.id],
+          activeSurface: { kind: "task", taskId: task.id },
+          activeTurnIdsByTask: { [task.id]: "turn-1" },
+        }),
+      }),
+      loaded: {
+        persistedSession: emptySession({
+          activeTaskId: task.id,
+          tasks: [task],
+          openTaskTabIds: [task.id],
+          activeTurnIdsByTask: {},
+        }),
+        persistedActiveTurnId: undefined,
+        messages: [finishedAssistant],
+        messageCount: 1,
+      },
+      update: {
+        ...buildUpdate({ taskId: task.id }),
+        eventType: "done",
+        done: true,
+      },
+    });
+
+    expect(result.statePatch.messagesByTask?.[task.id]?.[0]).toMatchObject({
+      id: "msg-assistant",
+      isStreaming: false,
+    });
+  });
+});
+
+describe("restoreActiveTurnStreaming", () => {
+  const commentary = {
+    id: "msg-interim",
+    role: "assistant" as const,
+    model: "claude-sonnet",
+    providerId: "claude-code" as const,
+    content: "Inspecting the repo.",
+    turnId: "turn-1",
+    isStreaming: false,
+    parts: [{ type: "text" as const, text: "Inspecting the repo." }],
+  };
+
+  test("leaves a sealed prior plan bubble closed", () => {
+    const plan = {
+      ...commentary,
+      id: "msg-plan",
+      completedAt: "2026-03-10T00:00:30.000Z",
+      isPlanResponse: true,
+    };
+    const followUp = {
+      ...commentary,
+      id: "msg-follow-up",
+    };
+    const restored = restoreActiveTurnStreaming({
+      messages: [plan, followUp],
+      activeTurnId: "turn-1",
+    });
+
+    expect(restored[0]).toBe(plan);
+    expect(restored[1]).toMatchObject({ id: "msg-follow-up", isStreaming: true });
+  });
+
+  test("does not reopen an assistant from a different turn", () => {
+    const previous = {
+      ...commentary,
+      turnId: "turn-0",
+    };
+    expect(
+      restoreActiveTurnStreaming({
+        messages: [previous],
+        activeTurnId: "turn-1",
+      }),
+    ).toEqual([previous]);
   });
 });

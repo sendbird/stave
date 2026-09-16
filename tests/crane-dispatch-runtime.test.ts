@@ -18,6 +18,7 @@ import {
   type CraneDispatchAccessState,
 } from "@/lib/crane-connector/dispatch-runtime";
 import { CraneDispatchApprovalResponseSchema } from "@/lib/crane-connector/types";
+import { proposeDispatchWorkspaceLabel } from "@/lib/crane-connector/workspace-label";
 import { defaultSettings } from "@/store/app-settings";
 
 const SETTINGS = {
@@ -107,7 +108,26 @@ describe("Crane dispatch runtime", () => {
           runtime,
         }).success,
       ).toBe(true);
+      expect(
+        CraneDispatchApprovalResponseSchema.safeParse({
+          jobId: "job-1",
+          projectPath: "/tmp/project",
+          workspace: {
+            strategy: "new",
+            branchName: "crane/atl-2",
+            workspaceLabel: "Fix the connector",
+          },
+          runtime,
+        }).success,
+      ).toBe(true);
     }
+  });
+
+  test("proposes a compact workspace label from the issue title", () => {
+    expect(proposeDispatchWorkspaceLabel("  Fix   the connector  ")).toBe(
+      "Fix the connector",
+    );
+    expect(proposeDispatchWorkspaceLabel("x".repeat(120))).toHaveLength(80);
   });
 
   test("never sends a Codex-only effort tier as claudeEffort", () => {

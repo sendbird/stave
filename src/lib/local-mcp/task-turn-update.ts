@@ -15,6 +15,8 @@ export type LocalMcpTaskTurnActivityEvent = Extract<
       | "subagent_progress"
       | "provider_session"
       | "model_resolved"
+      | "text"
+      | "thinking"
       | "error"
       | "done";
   }
@@ -99,6 +101,11 @@ export function projectLocalMcpTaskTurnActivityEvent(
     case "model_resolved":
     case "done":
       return event;
+    case "text":
+    case "thinking":
+      // Keep lastEventAt / stall recovery in lockstep with a regular turn,
+      // but strip the transcript so IPC stays a heartbeat.
+      return { ...event, text: "" };
     case "error":
       return { ...event, message: boundActivityText(event.message) };
     case "tool":

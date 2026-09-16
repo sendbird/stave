@@ -209,6 +209,10 @@ describe("kickoffTrackerTask Jira run", () => {
     );
 
     expect(calls.createWorkspace.length).toBe(1);
+    expect(calls.createWorkspace[0]).toMatchObject({
+      name: "feature/CRN-1",
+      label: "Ticket CRN-1",
+    });
     expect(calls.runLocallyApprovedRun.length).toBe(1);
     const run = calls.runLocallyApprovedRun[0] as {
       retrievedContextParts: Array<{ type: string }>;

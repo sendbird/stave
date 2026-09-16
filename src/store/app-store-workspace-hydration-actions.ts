@@ -64,6 +64,7 @@ import {
 } from "@/store/workspace-session-state";
 import { TASK_MESSAGES_PAGE_SIZE } from "@/store/task-message-loading";
 import { trimPersistedMessageWindow } from "@/store/resident-message-budget";
+import { restoreActiveTurnStreaming } from "@/store/host-task-turn-sync";
 import {
   shouldPreferLoadedWorkspaceState,
   shouldReloadWorkspaceShellFromPersistence,
@@ -212,6 +213,11 @@ export const loadWorkspaceSessionFromPersistence = async (args: {
       initialTaskIds.add(turn.taskId);
     }
   }
+  const activeTurnIdByTask = Object.fromEntries(
+    latestTurns
+      .filter((turn) => !turn.completedAt)
+      .map((turn) => [turn.taskId, turn.id] as const),
+  );
   const pageEntries = await Promise.all(
     [...initialTaskIds].map(async (taskId) => ({
       taskId,
@@ -220,13 +226,23 @@ export const loadWorkspaceSessionFromPersistence = async (args: {
         taskId,
         limit: TASK_MESSAGES_PAGE_SIZE,
         offset: 0,
+        // This loader is the live managed-task poll. Snapshot sealing here
+        // would collapse CoT and promote interim every 3s while the host
+        // turn is still running.
+        preserveStreaming: Boolean(activeTurnIdByTask[taskId]),
       }),
     })),
   );
   const workspaceState = buildWorkspaceSessionStateFromShell({
     shell,
     messagesByTask: Object.fromEntries(
-      pageEntries.map(({ taskId, page }) => [taskId, trimPersistedMessageWindow({ messages: page.messages })] as const),
+      pageEntries.map(({ taskId, page }) => [
+        taskId,
+        restoreActiveTurnStreaming({
+          messages: trimPersistedMessageWindow({ messages: page.messages }),
+          activeTurnId: activeTurnIdByTask[taskId],
+        }),
+      ] as const),
     ),
     messageCountByTaskOverrides: Object.fromEntries(
       pageEntries.map(({ taskId, page }) => [taskId, page.totalCount] as const),

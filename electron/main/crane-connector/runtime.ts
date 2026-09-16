@@ -32,6 +32,7 @@ import {
   buildCraneDispatchTaskTitle,
   resolveCraneJiraReference,
 } from "../../../src/lib/crane-connector/jira-reference";
+import { proposeDispatchWorkspaceLabel } from "../../../src/lib/crane-connector/workspace-label";
 import type { CraneCredentialStore } from "./credential-vault";
 import {
   CraneConnectorHttpClient,
@@ -75,6 +76,7 @@ interface CraneRuntimeDependencies {
   createWorkspace: (args: {
     projectPath: string;
     name: string;
+    label?: string;
     mode: "branch";
     fromBranch?: string;
     fromBranchKind?: "local" | "remote";
@@ -585,6 +587,10 @@ export class CraneConnectorRuntime {
         const created = await this.dependencies.createWorkspace({
           projectPath: project.projectPath,
           name: choice.workspace.branchName,
+          label:
+            choice.workspace.workspaceLabel?.trim() ||
+            proposeDispatchWorkspaceLabel(binding.job.issue.title) ||
+            undefined,
           mode: "branch",
           fromBranch: project.defaultBranch,
           fromBranchKind: "remote",

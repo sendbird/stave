@@ -1,12 +1,6 @@
+import { Select } from "@/components/ads/components/Select";
 import { sx } from "@/components/ads/utils/stylex";
-import {
-  Input,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui";
+import { Input } from "@/components/ui";
 import { dispatchFieldStyles } from "./dispatch-runtime.styles";
 
 export type DispatchWorkspaceStrategy = "new" | "existing";
@@ -35,6 +29,8 @@ export interface DispatchTargetFieldsProps {
   onWorkspaceIdChange: (workspaceId: string) => void;
   branchName: string;
   onBranchNameChange: (branchName: string) => void;
+  workspaceLabel: string;
+  onWorkspaceLabelChange: (workspaceLabel: string) => void;
 }
 
 /** The "Where it runs" controls: project, workspace strategy, and branch. */
@@ -48,96 +44,91 @@ export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
       <h3 id={`${idPrefix}-target-heading`} className={sx(dispatchFieldStyles.sectionHeading)}>
         Where it runs
       </h3>
-      <div className={sx(dispatchFieldStyles.field)}>
-        <label
-          htmlFor={`${idPrefix}-project`}
-          className={sx(dispatchFieldStyles.fieldLabel)}
-        >
-          Stave project
-        </label>
-        <Select
-          value={props.projectPath}
-          onValueChange={props.onProjectPathChange}
-        >
-          <SelectTrigger id={`${idPrefix}-project`}>
-            <SelectValue placeholder="Choose a project" />
-          </SelectTrigger>
-          <SelectContent>
-            {props.projects.map((project) => (
-              <SelectItem key={project.projectPath} value={project.projectPath}>
-                {project.projectName}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        <p className={sx(dispatchFieldStyles.monoPath)}>
-          {props.projectPath || "No registered project available"}
-        </p>
-      </div>
-      <div className={sx(dispatchFieldStyles.field)}>
-        <label
-          htmlFor={`${idPrefix}-workspace-strategy`}
-          className={sx(dispatchFieldStyles.fieldLabel)}
-        >
-          Workspace
-        </label>
-        <Select
-          value={props.workspaceStrategy}
-          onValueChange={(value) =>
-            props.onWorkspaceStrategyChange(value as DispatchWorkspaceStrategy)
+      <Select
+        label="Stave project"
+        value={props.projectPath}
+        options={props.projects.map((project) => ({
+          value: project.projectPath,
+          label: project.projectName,
+        }))}
+        placeholder="Choose a project"
+        onValueChange={(value) => {
+          if (typeof value === "string") {
+            props.onProjectPathChange(value);
           }
-        >
-          <SelectTrigger id={`${idPrefix}-workspace-strategy`}>
-            <SelectValue />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="new">Create a new workspace</SelectItem>
-            <SelectItem value="existing">Use an existing workspace</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+        }}
+      />
+      <p className={sx(dispatchFieldStyles.monoPath)}>
+        {props.projectPath || "No registered project available"}
+      </p>
+      <Select
+        label="Workspace"
+        value={props.workspaceStrategy}
+        options={[
+          { value: "new", label: "Create a new workspace" },
+          { value: "existing", label: "Use an existing workspace" },
+        ]}
+        onValueChange={(value) => {
+          if (value === "new" || value === "existing") {
+            props.onWorkspaceStrategyChange(value);
+          }
+        }}
+      />
       {props.workspaceStrategy === "new" ? (
-        <div className={sx(dispatchFieldStyles.field)}>
-          <label
-            htmlFor={`${idPrefix}-branch`}
-            className={sx(dispatchFieldStyles.fieldLabel)}
-          >
-            Branch name
-          </label>
-          <Input
-            id={`${idPrefix}-branch`}
-            value={props.branchName}
-            onChange={(event) => props.onBranchNameChange(event.target.value)}
-            autoComplete="off"
-          />
-          <p className={sx(dispatchFieldStyles.hint)}>
-            Based on the selected project&apos;s remote default branch.
-          </p>
-        </div>
+        <>
+          <div className={sx(dispatchFieldStyles.field)}>
+            <label
+              htmlFor={`${idPrefix}-branch`}
+              className={sx(dispatchFieldStyles.fieldLabel)}
+            >
+              Branch name
+            </label>
+            <Input
+              id={`${idPrefix}-branch`}
+              value={props.branchName}
+              onChange={(event) => props.onBranchNameChange(event.target.value)}
+              autoComplete="off"
+            />
+            <p className={sx(dispatchFieldStyles.hint)}>
+              Based on the selected project&apos;s remote default branch.
+            </p>
+          </div>
+          <div className={sx(dispatchFieldStyles.field)}>
+            <label
+              htmlFor={`${idPrefix}-label`}
+              className={sx(dispatchFieldStyles.fieldLabel)}
+            >
+              Workspace label
+            </label>
+            <Input
+              id={`${idPrefix}-label`}
+              value={props.workspaceLabel}
+              onChange={(event) =>
+                props.onWorkspaceLabelChange(event.target.value)
+              }
+              autoComplete="off"
+            />
+            <p className={sx(dispatchFieldStyles.hint)}>
+              Shown in the project workspace list. Prefilled from the issue
+              title.
+            </p>
+          </div>
+        </>
       ) : (
-        <div className={sx(dispatchFieldStyles.field)}>
-          <label
-            htmlFor={`${idPrefix}-existing-workspace`}
-            className={sx(dispatchFieldStyles.fieldLabel)}
-          >
-            Existing workspace
-          </label>
-          <Select
-            value={props.workspaceId}
-            onValueChange={props.onWorkspaceIdChange}
-          >
-            <SelectTrigger id={`${idPrefix}-existing-workspace`}>
-              <SelectValue placeholder="Choose a workspace" />
-            </SelectTrigger>
-            <SelectContent>
-              {props.workspaces.map((workspace) => (
-                <SelectItem key={workspace.id} value={workspace.id}>
-                  {workspace.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
+        <Select
+          label="Existing workspace"
+          value={props.workspaceId}
+          options={props.workspaces.map((workspace) => ({
+            value: workspace.id,
+            label: workspace.name,
+          }))}
+          placeholder="Choose a workspace"
+          onValueChange={(value) => {
+            if (typeof value === "string") {
+              props.onWorkspaceIdChange(value);
+            }
+          }}
+        />
       )}
     </section>
   );

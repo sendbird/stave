@@ -390,6 +390,7 @@ export async function registerProject(args: {
 export async function createWorkspace(args: {
   projectPath: string;
   name: string;
+  label?: string;
   mode: "branch" | "clean";
   fromBranch?: string;
   fromBranchKind?: "local" | "remote";

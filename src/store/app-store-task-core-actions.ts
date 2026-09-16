@@ -112,11 +112,22 @@ export function createTaskCoreActions(args: {
         await stateBefore.openProject({ projectPath });
       }
 
-      const stateAfterProjectOpen = get();
+      let stateAfterProjectOpen = get();
       const resolvedWorkspaceId =
         workspaceId ??
         stateAfterProjectOpen.taskWorkspaceIdById[taskId] ??
         stateAfterProjectOpen.activeWorkspaceId;
+
+      if (
+        resolvedWorkspaceId &&
+        !stateAfterProjectOpen.workspaces.some(
+          (workspace) => workspace.id === resolvedWorkspaceId,
+        )
+      ) {
+        // Host-created worktrees appear in git before this renderer list.
+        await stateAfterProjectOpen.refreshWorkspaces();
+        stateAfterProjectOpen = get();
+      }
 
       if (
         resolvedWorkspaceId &&

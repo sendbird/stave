@@ -7,6 +7,7 @@ import {
   mock,
   test,
 } from "bun:test";
+import { getTurnModelInfoLabel } from "@/lib/providers/turn-model-info";
 import { DEFAULT_PROVIDER_TIMEOUT_MS } from "@/lib/providers/runtime-option-contract";
 
 // Regression: the host-service local MCP `runTask` builds a pending provider
@@ -73,7 +74,16 @@ const lastUpsertSnapshotByWorkspaceId = new Map<
   string,
   {
     tasks?: Array<{ id: string; archivedAt?: string | null }>;
-    messagesByTask?: Record<string, Array<{ id: string }>>;
+    messagesByTask?: Record<
+      string,
+      Array<{
+        id: string;
+        role?: string;
+        model?: string;
+        providerId?: string;
+        modelInfo?: { effort: string; fastMode?: boolean };
+      }>
+    >;
   }
 >();
 
@@ -292,7 +302,16 @@ const fakeStore = {
     snapshot: {
       workspaceInformation?: unknown;
       tasks?: Array<Partial<PersistedTaskRow> & { id: string }>;
-      messagesByTask?: Record<string, Array<{ id: string }>>;
+      messagesByTask?: Record<
+        string,
+        Array<{
+          id: string;
+          role?: string;
+          model?: string;
+          providerId?: string;
+          modelInfo?: { effort: string; fastMode?: boolean };
+        }>
+      >;
     };
   }) => {
     if (snapshot.workspaceInformation) {
@@ -377,6 +396,38 @@ describe("local MCP runtime runTask", () => {
     expect(result.taskId).toBeTruthy();
     expect(result.turnId).toBeTruthy();
     expect(startTurnStreamCalls).toHaveLength(1);
+  });
+
+  test("records effort, Fast, and 1M on the pending assistant message", async () => {
+    const result = await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "Investigate the bug",
+      provider: "claude-code",
+      runtimeOptions: {
+        model: "claude-sonnet-5[1m]",
+        claudeEffort: "xhigh",
+        claudeFastMode: true,
+      },
+    });
+
+    const assistant = lastUpsertSnapshotByWorkspaceId
+      .get(WORKSPACE_ID)
+      ?.messagesByTask?.[result.taskId]?.find(
+        (message) => message.role === "assistant",
+      );
+
+    expect(assistant).toMatchObject({
+      model: "claude-sonnet-5[1m]",
+      providerId: "claude-code",
+      modelInfo: { effort: "xhigh", fastMode: true },
+    });
+    expect(
+      getTurnModelInfoLabel({
+        providerId: "claude-code",
+        model: assistant?.model ?? "",
+        modelInfo: assistant?.modelInfo,
+      }),
+    ).toBe("Claude Sonnet 5 · 1M · X-High · Fast");
   });
 
   test("creates a delegated child task with the ledger's pre-minted id", async () => {

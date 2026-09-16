@@ -90,39 +90,9 @@ export const dispatchFieldStyles = stylex.create({
     marginBlockEnd: 0,
     marginBlockStart: 2,
   },
-  switchRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: vars["--ads-space-12"],
-    justifyContent: "space-between",
-  },
-  switchRowStart: {
-    alignItems: "flex-start",
-    display: "flex",
-    gap: vars["--ads-space-12"],
-    justifyContent: "space-between",
-  },
-  switchLabel: { fontSize: vars["--ads-font-size-body"] },
-  advisorDescription: {
-    color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-caption"],
-    lineHeight: vars["--ads-line-height-control"],
-    marginBlockEnd: 0,
-    marginBlockStart: vars["--ads-space-4"],
-  },
-
-  accordion: {
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-panel"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    paddingInline: vars["--ads-space-12"],
-  },
-  accordionTrigger: { paddingBlock: vars["--ads-space-12"] },
   accordionPanel: {
     display: "grid",
     gap: vars["--ads-space-12"],
-    paddingBlockEnd: vars["--ads-space-12"],
   },
 
   accessPair: {
@@ -134,15 +104,4 @@ export const dispatchFieldStyles = stylex.create({
     },
   },
   optionIcon: { blockSize: 14, inlineSize: 14 },
-  optionRow: {
-    alignItems: "center",
-    display: "flex",
-    gap: vars["--ads-space-8"],
-    minInlineSize: 0,
-  },
-  optionLabel: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
-  },
 });

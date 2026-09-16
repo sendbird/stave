@@ -241,4 +241,40 @@ describe("turn model info", () => {
     expect(replayed.messages).toHaveLength(2);
     expect(replayed.messages[1]?.modelInfo).toEqual(message.modelInfo);
   });
+
+  test("keeps turn model info when replay opens a later assistant bubble", () => {
+    const message: ChatMessage = {
+      id: "task-1-m-1",
+      role: "assistant",
+      providerId: "claude-code",
+      model: "claude-sonnet-5[1m]",
+      modelInfo: {
+        effort: "high",
+        fastMode: true,
+      },
+      content: "Done with the first pass.",
+      isStreaming: false,
+      completedAt: "2026-07-24T00:00:01.000Z",
+      parts: [{ type: "text", text: "Done with the first pass." }],
+    };
+    const replayed = replayProviderEventsToTaskState({
+      taskId: "task-1",
+      messages: [message],
+      events: [
+        {
+          type: "history_boundary",
+          targetRole: "assistant",
+          providerId: "claude-code",
+          boundaryKind: "turn",
+          nativeId: "turn-2",
+        },
+        { type: "text", text: "Continuing." },
+      ],
+      provider: "claude-code",
+      model: "claude-sonnet-5[1m]",
+      turnId: "turn-2",
+    });
+
+    expect(replayed.messages.at(-1)?.modelInfo).toEqual(message.modelInfo);
+  });
 });
