@@ -1,6 +1,7 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Check, Minus } from "lucide-react";
 import { type CSSProperties, type KeyboardEvent, useMemo, useRef } from "react";
+import { getProviderAccentColor } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { modelEffortGridStyles as styles } from "./model-effort-grid.styles";
@@ -14,10 +15,10 @@ import {
 import type { ModelSelectorOption } from "./model-selector.utils";
 
 export const PROVIDER_ACCENT_COLORS: Record<ProviderId, string> = {
-  "claude-code": "var(--provider-claude)",
-  codex: "var(--provider-codex)",
-  cursor: "var(--foreground)",
-  kiro: "var(--primary)",
+  "claude-code": getProviderAccentColor({ providerId: "claude-code" }),
+  codex: getProviderAccentColor({ providerId: "codex" }),
+  cursor: getProviderAccentColor({ providerId: "cursor" }),
+  kiro: getProviderAccentColor({ providerId: "kiro" }),
 };
 
 function getCellKey(option: ModelSelectorOption, effort: ModelEffortValue) {

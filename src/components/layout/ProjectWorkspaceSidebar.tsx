@@ -116,7 +116,7 @@ import {
   type SidebarWorkQueueSignals,
 } from "@/lib/fleet/sidebar-work-queue";
 import { isDelegatedChildTask, isTaskArchived } from "@/lib/tasks";
-import { getProviderWaveTone } from "@/lib/providers/model-catalog";
+import { toProviderWaveToneClass } from "@/components/ai-elements/provider-wave-tone.styles";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
@@ -176,21 +176,9 @@ function resolveRespondingToneClass(args: {
       ? sx(projectSidebarStyles.toneWarning)
       : summary.respondingProviderIds.length === 1 &&
           summary.respondingProviderIds[0]
-        ? // `getProviderWaveTone` is shared provider presentation and is
-          // not part of this file's migration surface; map its semantic tone
-          // to a local StyleX style.
-          sx(
-            (() => {
-              const tone = getProviderWaveTone({
-                providerId: summary.respondingProviderIds[0],
-              });
-              return tone === "claude"
-                ? projectSidebarStyles.toneClaude
-                : tone === "codex"
-                  ? projectSidebarStyles.toneCodex
-                  : projectSidebarStyles.toneAccent;
-            })(),
-          )
+        ? toProviderWaveToneClass({
+            providerId: summary.respondingProviderIds[0],
+          })
         : sx(projectSidebarStyles.toneAccent),
   };
 }

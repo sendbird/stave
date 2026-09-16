@@ -348,10 +348,24 @@ export function resolveProviderDisplayId(args: {
 /**
  * Semantic provider-wave tone. A presentation value, not a color: the consuming
  * component maps it to a StyleX style using the themed provider CSS variables
- * (`--provider-claude` / `--provider-codex`) or the ADS accent token. Providers
- * without their own brand wave color fall back to `"accent"`.
+ * (`--provider-claude` / `--provider-codex` / `--provider-cursor` /
+ * `--provider-kiro`) or the ADS accent token. `"accent"` is only for a
+ * presentation that is not a known provider (for example a user-authored row).
  */
-export type ProviderWaveTone = "claude" | "codex" | "accent";
+export type ProviderWaveTone =
+  | "claude"
+  | "codex"
+  | "cursor"
+  | "kiro"
+  | "accent";
+
+const PROVIDER_WAVE_COLOR: Record<ProviderWaveTone, string> = {
+  claude: "var(--provider-claude)",
+  codex: "var(--provider-codex)",
+  cursor: "var(--provider-cursor)",
+  kiro: "var(--provider-kiro)",
+  accent: "var(--primary)",
+};
 
 export function getProviderWaveTone(args: {
   providerId: ProviderId;
@@ -365,7 +379,20 @@ export function getProviderWaveTone(args: {
   if (displayProviderId === "codex") {
     return "codex";
   }
+  if (displayProviderId === "cursor") {
+    return "cursor";
+  }
+  if (displayProviderId === "kiro") {
+    return "kiro";
+  }
   return "accent";
+}
+
+export function getProviderAccentColor(args: {
+  providerId: ProviderId;
+  model?: string;
+}) {
+  return PROVIDER_WAVE_COLOR[getProviderWaveTone(args)];
 }
 
 export function getProviderFallbackLabel(args: { providerId: ProviderId }) {

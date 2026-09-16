@@ -218,6 +218,26 @@ describe("BUILTIN_CUSTOM_THEMES", () => {
     );
   });
 
+  it("tracks provider brand tokens in the built-in token registry", () => {
+    expect(BUILTIN_THEME_TOKEN_NAMES).toEqual(
+      expect.arrayContaining([
+        "provider-claude",
+        "provider-codex",
+        "provider-cursor",
+        "provider-kiro",
+      ]),
+    );
+  });
+
+  it("every built-in theme defines non-empty provider brand tokens", () => {
+    for (const theme of BUILTIN_CUSTOM_THEMES) {
+      expect(theme.tokens["provider-claude"]?.trim()).toBeTruthy();
+      expect(theme.tokens["provider-codex"]?.trim()).toBeTruthy();
+      expect(theme.tokens["provider-cursor"]?.trim()).toBeTruthy();
+      expect(theme.tokens["provider-kiro"]?.trim()).toBeTruthy();
+    }
+  });
+
   it("tracks Git service identity tokens in the built-in token registry", () => {
     expect(BUILTIN_THEME_TOKEN_NAMES).toEqual(
       expect.arrayContaining([

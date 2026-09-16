@@ -22,12 +22,10 @@ import { ModelIcon } from "@/components/ai-elements";
 import { Badge, Loader } from "@/components/ui";
 import { resolvePathBaseName } from "@/lib/path-utils";
 import { COMMIT_GRAPH_TITLE } from "@/lib/git-graph/presentation";
-import { getProviderWaveTone } from "@/lib/providers/model-catalog";
-import * as stylex from "@stylexjs/stylex";
+import { toProviderWaveToneClass } from "@/components/ai-elements/provider-wave-tone.styles";
 import { sx } from "@/components/ads/utils/stylex";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { transition } from "@/components/ads/recipes/transition";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { resolveProviderTurnDisplayState } from "@/lib/providers/turn-status";
 import { getRespondingProviderId, isTaskManaged } from "@/lib/tasks";
@@ -55,18 +53,8 @@ import {
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 
-// Provider wave tone → StyleX style. `getProviderWaveTone` returns a semantic
-// tone (this file is a consumer of that contract, not part of its own
-// migration surface); the themed provider CSS variables carry the color.
-const providerToneStyles = stylex.create({
-  claude: { color: "var(--provider-claude)" },
-  codex: { color: "var(--provider-codex)" },
-  accent: { color: vars["--ads-color-accent"] },
-});
-
 function resolveProviderToneClass(providerId: ProviderId): string {
-  const tone = getProviderWaveTone({ providerId });
-  return sx(providerToneStyles[tone]);
+  return toProviderWaveToneClass({ providerId });
 }
 
 interface TaskChipState {

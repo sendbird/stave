@@ -27,10 +27,7 @@ import {
   shouldRenderInlineSystemEvent,
 } from "@/components/session/chat-panel.utils";
 import { copyTextToClipboard } from "@/lib/clipboard";
-import { getProviderWaveTone } from "@/lib/providers/model-catalog";
-import * as stylex from "@stylexjs/stylex";
 import { sx } from "@/components/ads/utils/stylex";
-import { vars } from "@/components/ads/tokens/tokens.stylex";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { detectTruncationNotice } from "@/lib/truncation-visibility";
 import { useAppStore } from "@/store/app.store";
@@ -45,35 +42,13 @@ import {
 } from "./chat-panel-file-blocks";
 
 export { toToolDisplayName } from "@/lib/tool-display-name";
+export { toProviderWaveToneClass } from "@/components/ai-elements/provider-wave-tone.styles";
 
 export function toProviderStartCase(args: { providerId: ProviderId }) {
   return args.providerId
     .split("-")
     .map((chunk) => `${chunk.slice(0, 1).toUpperCase()}${chunk.slice(1)}`)
     .join(" ");
-}
-
-// Provider wave tone → StyleX style. `getProviderWaveTone` returns a semantic
-// tone (this file consumes that contract); themed provider CSS variables and
-// the ADS accent token carry the color.
-const providerToneStyles = stylex.create({
-  claude: { color: "var(--provider-claude)" },
-  codex: { color: "var(--provider-codex)" },
-  accent: { color: vars["--ads-color-accent"] },
-});
-
-export function toProviderWaveToneClass(args: {
-  providerId: ProviderId | "user";
-  model?: string;
-}) {
-  if (args.providerId === "user") {
-    return sx(providerToneStyles.accent);
-  }
-  const tone = getProviderWaveTone({
-    providerId: args.providerId,
-    model: args.model,
-  });
-  return sx(providerToneStyles[tone]);
 }
 
 export function CopyButton({ text }: { text: string }) {

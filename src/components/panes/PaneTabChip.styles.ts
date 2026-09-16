@@ -5,7 +5,7 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 /**
  * Styles for the dockview pane tab chip. Every `sx(...)` result computed from
  * these declarations is referentially stable, so values read into the Zustand
- * row-local selector (see `providerToneStyles` in the component) keep a stable
+ * row-local selector (see `toProviderWaveToneClass`) keep a stable
  * class string across renders.
  */
 export const paneTabChipStyles = stylex.create({
