@@ -189,4 +189,24 @@ describe("buildMacroRuntimeOverrides", () => {
     expect(next.claudeEffort).toBeUndefined();
     expect(next.codexReasoningEffort).toBeUndefined();
   });
+
+  test("does not carry the composer's Fast onto a pinned Cursor instant runtime", () => {
+    const next = buildMacroRuntimeOverrides({
+      current: {
+        model: "gpt-5.6-luna",
+        modelProviderId: "codex",
+        codexFastMode: true,
+        cursorFastMode: true,
+      },
+      runtime: {
+        providerId: "cursor",
+        model: "auto",
+        effort: "high",
+      },
+    });
+
+    expect(next.modelProviderId).toBe("cursor");
+    expect(next.codexFastMode).toBeUndefined();
+    expect(next.cursorFastMode).toBeUndefined();
+  });
 });

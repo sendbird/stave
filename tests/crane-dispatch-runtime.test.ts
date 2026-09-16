@@ -13,7 +13,9 @@ import {
   resolveCraneDispatchAdvisorDefaults,
   resolveCraneDispatchAdvisorTarget,
   resolveCraneDispatchEffort,
+  resolveCraneDispatchFastMode,
   resolveCraneDispatchModelDefaults,
+  resolveCraneDispatchModelSwitch,
   selectCraneDispatchAdvisorTarget,
   type CraneDispatchAccessState,
 } from "@/lib/crane-connector/dispatch-runtime";
@@ -48,6 +50,42 @@ const GUIDED_CLAUDE_ACCESS: CraneDispatchAccessState = {
 };
 
 describe("Crane dispatch runtime", () => {
+  test("restores Fast from the selected Codex model instead of the previous one", () => {
+    const settings = {
+      ...SETTINGS,
+      modelRuntimePreferences: {
+        "codex:gpt-5.6-luna": { fastMode: true },
+        "codex:gpt-5.6-sol": { fastMode: false },
+      },
+    };
+
+    expect(
+      resolveCraneDispatchFastMode({
+        settings,
+        providerId: "codex",
+        model: "gpt-5.6-luna",
+      }),
+    ).toBe(true);
+    expect(
+      resolveCraneDispatchModelSwitch({
+        settings,
+        providerId: "codex",
+        model: "gpt-5.6-sol",
+        effort: "ultra",
+      }),
+    ).toMatchObject({
+      effort: "ultra",
+      codexFastMode: false,
+    });
+    expect(
+      resolveCraneDispatchFastMode({
+        settings,
+        providerId: "claude-code",
+        model: SETTINGS.modelClaude,
+      }),
+    ).toBe(false);
+  });
+
   test("defaults effort to the same value an interactive turn would use", () => {
     expect(
       resolveCraneDispatchEffort({

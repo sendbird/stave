@@ -4372,6 +4372,9 @@ describe("workspace store hydration ordering", () => {
     expect(useAppStore.getState().promptDraftByTask["task-main"]?.text).toBe(
       "",
     );
+    expect(
+      useAppStore.getState().settings.modelRuntimePreferences,
+    ).toEqual(initialState.settings.modelRuntimePreferences);
   });
 
   test("queues multiple prompts during an active turn and auto-dispatches one on completion", async () => {

@@ -73,6 +73,36 @@ describe("model effort selector utilities", () => {
     ).toBe(context);
   });
 
+  test("collapses each Claude family to its own last 1M choice", () => {
+    const opus = option({
+      providerId: "claude-code",
+      model: "claude-opus-5",
+      label: "Claude Opus 5",
+    });
+    const opus1m = option({
+      providerId: "claude-code",
+      model: "claude-opus-5[1m]",
+      label: "Claude Opus 5 (1M)",
+    });
+    const sonnet = option({
+      providerId: "claude-code",
+      model: "claude-sonnet-5",
+      label: "Claude Sonnet 5",
+    });
+    const sonnet1m = option({
+      providerId: "claude-code",
+      model: "claude-sonnet-5[1m]",
+      label: "Claude Sonnet 5 (1M)",
+    });
+
+    expect(
+      collapseClaudeContextOptions({
+        options: [opus, opus1m, sonnet, sonnet1m],
+        context1M: (baseModel) => baseModel === "claude-opus-5",
+      }).map((candidate) => candidate.model),
+    ).toEqual(["claude-opus-5[1m]", "claude-sonnet-5"]);
+  });
+
   test("keeps unmatched Claude models available without inventing a 1M pair", () => {
     const fable = option({
       providerId: "claude-code",

@@ -7,6 +7,7 @@ import {
   buildModelRuntimePreferenceKey,
   mergeModelRuntimePreference,
   normalizeModelRuntimePreferences,
+  readClaudeContext1MPreference,
   type ModelRuntimePreferenceSettings,
 } from "@/lib/providers/model-runtime-preferences";
 
@@ -141,6 +142,7 @@ describe("model runtime preferences", () => {
         mode: "auto",
         effort: "ultra",
         fastMode: true,
+        context1M: true,
       },
       "codex:gpt-5.6-luna": {
         mode: "guided",
@@ -158,7 +160,7 @@ describe("model runtime preferences", () => {
       [buildModelRuntimePreferenceKey({
         providerId: "claude-code",
         model: "claude-opus-4-8",
-      })]: { mode: "auto", fastMode: true },
+      })]: { mode: "auto", fastMode: true, context1M: true },
       [buildModelRuntimePreferenceKey({
         providerId: "codex",
         model: "gpt-5.6-luna",
@@ -185,6 +187,67 @@ describe("model runtime preferences", () => {
 
     expect(scoped.kiroEffort).toBe("high");
     expect(scoped.codexReasoningEffort).toBe(settings.codexReasoningEffort);
+  });
+
+  test("Cursor Fast does not rewrite Codex Fast", () => {
+    const preferences = mergeModelRuntimePreference({
+      preferences: {},
+      providerId: "cursor",
+      model: "gpt-5.6-sol",
+      patch: { fastMode: true },
+    });
+    const cursorSettings = applyModelRuntimePreference({
+      settings: { ...settings, modelRuntimePreferences: preferences },
+      providerId: "cursor",
+      model: "gpt-5.6-sol",
+    });
+    const codexSettings = applyModelRuntimePreference({
+      settings: { ...settings, modelRuntimePreferences: preferences },
+      providerId: "codex",
+      model: "gpt-5.6-luna",
+    });
+
+    expect(cursorSettings.cursorFastMode).toBe(true);
+    expect(codexSettings.codexFastMode).toBe(false);
+    expect(codexSettings.cursorFastMode).toBe(false);
+  });
+
+  test("remembers Claude 1M per family on the base model key", () => {
+    const preferences = mergeModelRuntimePreference({
+      preferences: {},
+      providerId: "claude-code",
+      model: "claude-opus-5[1m]",
+      patch: { context1M: true, effort: "max" },
+    });
+
+    expect(
+      readClaudeContext1MPreference({
+        preferences,
+        model: "claude-opus-5",
+      }),
+    ).toBe(true);
+    expect(
+      readClaudeContext1MPreference({
+        preferences,
+        model: "claude-sonnet-5",
+      }),
+    ).toBeUndefined();
+    expect(
+      preferences[
+        buildModelRuntimePreferenceKey({
+          providerId: "claude-code",
+          model: "claude-opus-5",
+        })
+      ],
+    ).toEqual({ context1M: true });
+    expect(
+      preferences[
+        buildModelRuntimePreferenceKey({
+          providerId: "claude-code",
+          model: "claude-opus-5[1m]",
+        })
+      ],
+    ).toEqual({ effort: "max" });
   });
 
   test("remembers Cursor effort and fast mode per model", () => {

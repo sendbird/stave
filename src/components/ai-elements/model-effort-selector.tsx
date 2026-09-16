@@ -23,6 +23,7 @@ import {
 } from "@/lib/providers/model-catalog";
 import type { ModelVisibility } from "@/lib/providers/model-visibility";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import { readClaudeContext1MPreference } from "@/lib/providers/model-runtime-preferences";
 import { useAppStore } from "@/store/app.store";
 import { sx } from "@/components/ads/utils/stylex";
 import { modelEffortSelectorStyles as styles } from "./model-effort-selector.styles";
@@ -39,6 +40,7 @@ import {
 import {
   collapseClaudeContextOptions,
   getClaudeContextBaseLabel,
+  getClaudeContextBaseModel,
   getCursorModelPresentation,
   getCursorModelBaseId,
   groupCursorModelOptions,
@@ -281,6 +283,9 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   const updateModelRuntimePreference = useAppStore(
     (state) => state.updateModelRuntimePreference,
   );
+  const modelRuntimePreferences = useAppStore(
+    (state) => state.settings.modelRuntimePreferences,
+  );
   const storeCursorEffort = useAppStore((state) =>
     args.value.providerId === "cursor" && !args.value.isAuto
       ? readCursorComposerSettings({
@@ -317,14 +322,33 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       ),
     [args.options],
   );
+  const selectedClaudeBaseModel =
+    args.value.providerId === "claude-code" && !args.value.isAuto
+      ? getClaudeContextBaseModel(args.value.model).toLowerCase()
+      : "";
   const providerOptions = useMemo(() => {
     const options = args.options.filter(
       (option) => !option.isAuto && option.providerId === providerId,
     );
     return providerId === "claude-code"
-      ? collapseClaudeContextOptions({ options, context1M })
+      ? collapseClaudeContextOptions({
+          options,
+          context1M: (baseModel) =>
+            baseModel === selectedClaudeBaseModel
+              ? context1M
+              : (readClaudeContext1MPreference({
+                  preferences: modelRuntimePreferences,
+                  model: baseModel,
+                }) ?? false),
+        })
       : options;
-  }, [args.options, context1M, providerId]);
+  }, [
+    args.options,
+    context1M,
+    modelRuntimePreferences,
+    providerId,
+    selectedClaudeBaseModel,
+  ]);
   const defaultProviderOptions = useMemo(
     () =>
       listDefaultModelOptions({
@@ -438,16 +462,13 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     option: ModelSelectorOption,
     effort?: ModelEffortValue,
   ) => {
-    const nextFastMode =
-      option.providerId === "codex" ||
-      (option.providerId === "cursor" && cursorParameterized)
-        ? (cursorComposerControls.fastMode ?? false)
-        : undefined;
+    // Fast and 1M are last-used per provider+model. Never copy the currently
+    // displayed toggle onto the model the user just picked — that is what
+    // made a Cursor Instant Fast selection turn Codex Fast on.
     if (
       shouldPersistCursorComposerSelection({
         providerId: option.providerId,
         effort,
-        fastMode: nextFastMode,
       })
     ) {
       updateModelRuntimePreference({
@@ -455,14 +476,19 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
         model: option.model,
         patch: {
           ...(effort ? { effort } : {}),
-          ...(nextFastMode === undefined ? {} : { fastMode: nextFastMode }),
         },
+      });
+    }
+    if (option.providerId === "claude-code" && !option.isAuto) {
+      updateModelRuntimePreference({
+        providerId: "claude-code",
+        model: getClaudeContextBaseModel(option.model),
+        patch: { context1M: isClaudeContext1MModel(option.model) },
       });
     }
     args.onSelect({
       selection: option,
       ...(effort ? { effort } : {}),
-      ...(nextFastMode === undefined ? {} : { fastMode: nextFastMode }),
     });
     setOpen(false);
   };
@@ -475,6 +501,11 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       context1M: enabled,
     });
     setContext1M(enabled);
+    updateModelRuntimePreference({
+      providerId: "claude-code",
+      model: getClaudeContextBaseModel(args.value.model),
+      patch: { context1M: enabled },
+    });
     args.onSelect({
       selection,
       ...(args.effortValue ? { effort: args.effortValue } : {}),

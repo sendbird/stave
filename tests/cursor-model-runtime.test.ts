@@ -62,6 +62,20 @@ describe("Cursor composer runtime helpers", () => {
     });
   });
 
+  test("does not persist Fast just because a different provider is selected", () => {
+    expect(
+      shouldPersistCursorComposerSelection({
+        providerId: "codex",
+        fastMode: true,
+      }),
+    ).toBe(false);
+    expect(
+      shouldPersistCursorComposerSelection({
+        providerId: "cursor",
+      }),
+    ).toBe(false);
+  });
+
   test("persists only Cursor composer selections that change effort or fast", () => {
     expect(
       shouldPersistCursorComposerSelection({

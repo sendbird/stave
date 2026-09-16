@@ -9,7 +9,6 @@ import {
   applyCraneAutonomyPreset,
   buildCraneDispatchRuntimeChoice,
   buildCraneTeamRuntimeMemory,
-  clampCraneDispatchEffort,
   describeCraneAccess,
   detectCraneAutonomyPreset,
   listCraneAutonomyOptions,
@@ -19,6 +18,7 @@ import {
   resolveCraneDispatchAdvisorChoice,
   resolveCraneDispatchAdvisorDefaults,
   resolveCraneDispatchModelDefaults,
+  resolveCraneDispatchModelSwitch,
   type CraneDispatchAccessState,
   type CraneDispatchAdvisorSettings,
   type CraneDispatchAdvisorState,
@@ -247,24 +247,18 @@ export function useDispatchRuntimeDraft(args: {
     }
     const providerId = selectArgs.selection.providerId;
     const nextModel = selectArgs.selection.model;
-    setModel((current) => ({
+    const nextCapabilities = resolveCraneDispatchModelSwitch({
+      settings,
       providerId,
       model: nextModel,
-      effort: clampCraneDispatchEffort({
-        settings,
-        providerId,
-        model: nextModel,
-        effort: selectArgs.effort ?? current.effort,
-      }),
-      // The picker resets its internal Fast toggle to `false` whenever it is
-      // opened with a non-Codex model selected, so a Claude -> Codex switch
-      // reports `fastMode: false` that the user never asked for. An explicit
-      // toggle still arrives through `onFastModeChange`.
-      codexFastMode:
-        current.providerId === "codex" && selectArgs.fastMode !== undefined
-          ? selectArgs.fastMode
-          : current.codexFastMode,
-    }));
+      ...(selectArgs.effort ? { effort: selectArgs.effort } : {}),
+    });
+    setModel({
+      providerId,
+      model: nextModel,
+      effort: nextCapabilities.effort,
+      codexFastMode: nextCapabilities.codexFastMode,
+    });
     setAccess((current) =>
       reseedCraneAccessForProvider({
         settings,

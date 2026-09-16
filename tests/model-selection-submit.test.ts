@@ -91,6 +91,28 @@ describe("model selector effort submission", () => {
       }).codexReasoningEffort,
     ).toBe("max");
   });
+
+  test("model selection does not carry another provider's Fast through the draft", () => {
+    const overrides = buildModelSelectionRuntimeOverrides({
+      runtimeOverrides: {
+        model: "gpt-5.6-sol",
+        modelProviderId: "cursor",
+        cursorFastMode: true,
+        codexFastMode: true,
+        boundSecretIds: ["secret-id"],
+      },
+      settings: defaultSettings,
+      providerId: "codex",
+      model: "gpt-5.6-luna",
+    });
+
+    expect(overrides.model).toBe("gpt-5.6-luna");
+    expect(overrides.modelProviderId).toBe("codex");
+    expect(overrides.boundSecretIds).toEqual(["secret-id"]);
+    expect(overrides.codexFastMode).toBeUndefined();
+    expect(overrides.cursorFastMode).toBeUndefined();
+    expect(overrides.cursorEffort).toBeUndefined();
+  });
 });
 
 describe("queued effort snapshots", () => {
