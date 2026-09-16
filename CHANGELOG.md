@@ -1,3 +1,26 @@
+## [0.19.0](https://github.com/sendbird/stave/compare/v0.18.5...v0.19.0) (2026-09-16)
+
+### Features
+
+* Add a Stave Auto rail tab with Balanced-first profile rows, persist Auto queue items as router decisions, and keep Auto-selected sends on the router instead of the task's current provider default.
+* Attribute provider, PTY, and descendant process memory to workspace and task owners in Resource Manager, with dedicated versus shared RSS and unnamed shared processes listed separately.
+* Seed a Run in Stave workspace label from the issue title, keep host-owned turns streaming across persist reloads, and persist effort / Fast / 1M chips on the assistant footer.
+* Ship refreshed built-in palettes (Catppuccin, Everforest, Kanagawa, Nord, Rosé Pine, Flexoki, Gruvbox Material, Nightfox, Oxocarbon, Vesper, Poimandres, Alucard, Edge Light, Cyberdream Light) and add Light High Contrast as the pair for Dark High Contrast.
+
+### Bug Fixes
+
+* Restore readable contrast after the ADS token mapping by lifting muted, semantic, selection, and diff tokens so secondary copy stays at 4.5:1, and keep warning and success fills distinguishable on light cards.
+* Pin Turn Activity Changes, Verification, Usage, and Headroom tiles to the panel floor, and reflow them to one row of four below 24rem.
+* Give Cursor and Kiro loaders their own brand colors instead of sharing the Codex accent.
+* Keep Fast and Claude 1M last-used per provider and model so instant macros and model switches do not copy the currently displayed Fast onto the next selection.
+
+### Breaking Changes
+
+* Night Owl, Tokyo Night, Solarized Light, and Light Modern are no longer built-in themes.
+
+### References
+
+* [#532](https://github.com/sendbird/stave/pull/532), [#533](https://github.com/sendbird/stave/pull/533), [#534](https://github.com/sendbird/stave/pull/534), [#535](https://github.com/sendbird/stave/pull/535), [#536](https://github.com/sendbird/stave/pull/536), [#537](https://github.com/sendbird/stave/pull/537), [#538](https://github.com/sendbird/stave/pull/538)
 ## [0.18.5](https://github.com/sendbird/stave/compare/v0.18.4...v0.18.5) (2026-09-15)
 
 ### Features
