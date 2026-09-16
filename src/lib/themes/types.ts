@@ -78,6 +78,8 @@ export const EXTENDED_THEME_TOKEN_NAMES = [
   "chart-5",
   "provider-codex",
   "provider-claude",
+  "provider-cursor",
+  "provider-kiro",
   // Git / GitHub identity. These stay a service palette — open green, merged
   // purple, closed red, modified amber — so a cobalt theme cannot paint a
   // mergeable PR as the app accent.

@@ -252,6 +252,8 @@ export const advisorExchangeTone = stylex.create({
 export const advisorExchangeProviderBar = stylex.create({
   claude: { backgroundColor: "var(--provider-claude)" },
   codex: { backgroundColor: "var(--provider-codex)" },
+  cursor: { backgroundColor: "var(--provider-cursor)" },
+  kiro: { backgroundColor: "var(--provider-kiro)" },
   fallback: { backgroundColor: vars["--ads-color-text-muted"] },
 });
 
@@ -261,5 +263,7 @@ export const advisorExchangeProviderBar = stylex.create({
 export const advisorExchangeWaveTone = stylex.create({
   claude: { color: "var(--provider-claude)" },
   codex: { color: "var(--provider-codex)" },
+  cursor: { color: "var(--provider-cursor)" },
+  kiro: { color: "var(--provider-kiro)" },
   accent: { color: vars["--ads-color-accent"] },
 });

@@ -18,8 +18,10 @@ import {
   resolveTierModel,
   getDefaultModelForProvider,
   getNextProviderId,
+  getProviderAccentColor,
   getProviderLabel,
   getProviderWaveTone,
+  listProviderIds,
   inferProviderIdFromModel,
   registerDynamicDefaultReasoningEfforts,
   registerDynamicDisplayNames,
@@ -363,8 +365,29 @@ describe("model catalog", () => {
   test("returns semantic provider wave tones", () => {
     expect(getProviderWaveTone({ providerId: "claude-code" })).toBe("claude");
     expect(getProviderWaveTone({ providerId: "codex" })).toBe("codex");
-    expect(getProviderWaveTone({ providerId: "cursor" })).toBe("accent");
-    expect(getProviderWaveTone({ providerId: "kiro" })).toBe("accent");
+    expect(getProviderWaveTone({ providerId: "cursor" })).toBe("cursor");
+    expect(getProviderWaveTone({ providerId: "kiro" })).toBe("kiro");
+  });
+
+  test("gives every registered provider its own wave tone", () => {
+    for (const providerId of listProviderIds()) {
+      expect(getProviderWaveTone({ providerId })).not.toBe("accent");
+    }
+  });
+
+  test("maps each provider wave tone to a distinct brand color variable", () => {
+    expect(getProviderAccentColor({ providerId: "claude-code" })).toBe(
+      "var(--provider-claude)",
+    );
+    expect(getProviderAccentColor({ providerId: "codex" })).toBe(
+      "var(--provider-codex)",
+    );
+    expect(getProviderAccentColor({ providerId: "cursor" })).toBe(
+      "var(--provider-cursor)",
+    );
+    expect(getProviderAccentColor({ providerId: "kiro" })).toBe(
+      "var(--provider-kiro)",
+    );
   });
 
   test("infers provider ids from routed model ids", () => {

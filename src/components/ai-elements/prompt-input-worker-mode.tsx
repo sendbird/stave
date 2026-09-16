@@ -29,6 +29,7 @@ import {
   type WorkerResolution,
   getWorkerPreset,
 } from "@/lib/providers/worker-mode";
+import { providerWaveToneStyles } from "@/components/ai-elements/provider-wave-tone.styles";
 import { getProviderWaveTone } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
@@ -48,18 +49,7 @@ import {
   composerControlAttributes,
 } from "@/components/ai-elements/composer-control-density";
 import { cx, sx } from "../ads/utils/stylex";
-import * as stylex from "@stylexjs/stylex";
-import { vars } from "../ads/tokens/tokens.stylex";
 import { workerModeStyles } from "./prompt-input-worker-mode.styles";
-
-// Provider wave tone → StyleX style. `getProviderWaveTone` returns a semantic
-// tone (this file consumes that contract); themed provider CSS variables and
-// the ADS accent token carry the color.
-const providerWaveToneStyles = stylex.create({
-  claude: { color: "var(--provider-claude)" },
-  codex: { color: "var(--provider-codex)" },
-  accent: { color: vars["--ads-color-accent"] },
-});
 
 /**
  * Composer control for Worker mode, beside the Advisor.

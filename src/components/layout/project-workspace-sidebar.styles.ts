@@ -171,8 +171,6 @@ export const projectSidebarStyles = stylex.create({
   identityMarkIcon: { height: 10, width: 10 },
   toneAccent: { color: vars["--ads-color-accent"] },
   toneWarning: { color: vars["--ads-color-warning"] },
-  toneClaude: { color: "var(--provider-claude)" },
-  toneCodex: { color: "var(--provider-codex)" },
 
   /* -------------------------------------------------------- work-queue rows */
   queueRow: { minWidth: 0 },

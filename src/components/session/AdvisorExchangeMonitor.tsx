@@ -45,13 +45,14 @@ import { UI_ELEVATION_CLASS } from "@/lib/ui-layers";
  */
 
 function providerBarStyle(providerId: ProviderId | undefined) {
-  if (providerId === "claude-code") {
-    return advisorExchangeProviderBar.claude;
+  if (!providerId) {
+    return advisorExchangeProviderBar.fallback;
   }
-  if (providerId === "codex") {
-    return advisorExchangeProviderBar.codex;
+  const tone = getProviderWaveTone({ providerId });
+  if (tone === "accent") {
+    return advisorExchangeProviderBar.fallback;
   }
-  return advisorExchangeProviderBar.fallback;
+  return advisorExchangeProviderBar[tone];
 }
 
 function ParticipantChip(props: {

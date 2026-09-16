@@ -403,10 +403,12 @@ export const delegationStyles = stylex.create({
 
 /**
  * Provider ink for the model name. The themed provider CSS variables carry the
- * brand colors; providers without one fall back to the ADS accent token.
+ * brand colors; a non-provider presentation falls back to the ADS accent token.
  */
 export const delegationWaveTone = stylex.create({
   claude: { color: "var(--provider-claude)" },
   codex: { color: "var(--provider-codex)" },
+  cursor: { color: "var(--provider-cursor)" },
+  kiro: { color: "var(--provider-kiro)" },
   accent: { color: vars["--ads-color-accent"] },
 });
