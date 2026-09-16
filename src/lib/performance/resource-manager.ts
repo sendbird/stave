@@ -3,6 +3,7 @@ export interface ResourceProcess {
   label: string;
   rssBytes: number;
   cpu: number | null;
+  owners?: Array<{ workspaceId: string; taskId?: string; taskTitle?: string; active: boolean }>;
 }
 
 export function formatResourceBytes(bytes: number): string {

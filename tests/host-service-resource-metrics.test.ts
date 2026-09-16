@@ -55,3 +55,15 @@ describe("host-service resource metrics", () => {
     ]);
   });
 });
+
+
+test("inherits nearest explicit owners, preserves shared tasks, and never leaks commands", () => {
+  const owners = [{ workspaceId: "w1", taskId: "t1", active: true }, { workspaceId: "w2", taskId: "t2", active: false }];
+  const rows = parseProcessTable("10 1 20 host\n11 10 30 codex\n12 11 40 helper --secret=hidden\n13 12 50 worker\n14 10 60 unknown");
+  const result = selectDescendantProcessMetrics({ rows, rootPid: 10, ptyPids: [], ownersByPid: new Map([[11, owners], [13, [{ workspaceId: "w3", active: true }]]]) });
+  expect(result.find((p) => p.pid === 12)?.owners).toEqual(owners);
+  expect(result.find((p) => p.pid === 13)?.owners).toEqual([{ workspaceId: "w3", active: true }]);
+  expect(result.find((p) => p.pid === 14)?.owners).toBeUndefined();
+  expect(JSON.stringify(result)).not.toContain("hidden");
+  expect(result.reduce((sum, p) => sum + p.rssBytes, 0)).toBe(180 * 1024);
+});

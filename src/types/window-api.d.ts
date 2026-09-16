@@ -2228,6 +2228,7 @@ interface AppMetricsResult {
       parentPid: number;
       rssBytes: number;
       kind: "provider" | "pty" | "language-server" | "other";
+      owners?: Array<{ workspaceId: string; taskId?: string; taskTitle?: string; active: boolean }>;
     }>;
   } | null;
   lens: {

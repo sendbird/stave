@@ -95,8 +95,9 @@ export const resourceStyles = stylex.create({
     borderBottomWidth: vars["--ads-border-width-hairline"],
     borderBottomStyle: "solid",
     borderBottomColor: vars["--ads-color-border"],
-    paddingInline: vars["--ads-space-12"],
-    paddingBlock: 10,
+    paddingInline: 0,
+    paddingBlockStart: 0,
+    paddingBlockEnd: 8,
   },
   headerTitleGroup: {
     display: "flex",
@@ -137,15 +138,19 @@ export const resourceStyles = stylex.create({
     height: 14,
   },
   refreshIconSpinning: {
-    animationName: { default: spin, "@media (prefers-reduced-motion: reduce)": "none" },
+    animationName: {
+      default: spin,
+      "@media (prefers-reduced-motion: reduce)": "none",
+    },
     animationDuration: "1s",
     animationIterationCount: "infinite",
     animationTimingFunction: "linear",
   },
   body: {
-    maxHeight: "24rem",
+    maxHeight: "calc(85vh - 9rem)",
+    minHeight: 0,
     overflowY: "auto",
-    padding: vars["--ads-space-12"],
+    padding: 0,
   },
   emptyState: {
     display: "flex",

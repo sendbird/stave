@@ -1,3 +1,4 @@
+import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
 import { workspaceExecutionGate } from "../shared/workspace-execution-gate";
 import { randomUUID } from "node:crypto";
 import * as pty from "node-pty";
@@ -341,6 +342,11 @@ export function createTerminalRuntime(args: {
       // input (e.g. Korean) on echo; force a UTF-8 codeset (see ensureUtf8Locale).
       env: ensureUtf8Locale(args.env),
     });
+    retainResourceProcessOwner(ptyProcess.pid, { workspaceId: args.workspaceId, taskId: args.env.STAVE_TASK_ID || undefined });
+    const resourceExit = ptyProcess.onExit(() => {
+      forgetResourceProcess(ptyProcess.pid);
+      resourceExit.dispose();
+    });
 
     const sessionId = randomUUID();
     const headlessTerminal = new HeadlessTerminal({
@@ -421,6 +427,8 @@ export function createTerminalRuntime(args: {
         ptyProcess.kill();
       },
       disposePtyListeners: () => {
+        resourceExit.dispose();
+        forgetResourceProcess(ptyProcess.pid);
         session.dataSubscription?.dispose();
         session.exitSubscription?.dispose();
         session.dataSubscription = null;

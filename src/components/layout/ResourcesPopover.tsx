@@ -1,17 +1,22 @@
 import {
+  Dialog,
+  DialogContent,
+  DialogTrigger,
+  DialogTitle,
+  DialogClose,
+} from "@/components/ui/dialog";
+import {
   Activity,
   Clock,
   Cpu,
   HardDrive,
   MemoryStick,
   RefreshCw,
+  X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   Button,
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -38,13 +43,7 @@ import { managerStyles } from "./resource-manager.styles";
 interface ProcessMetric {
   pid: number;
   type: string;
-  role:
-    | "main"
-    | "host-renderer"
-    | "lens-guest"
-    | "gpu"
-    | "utility"
-    | "other";
+  role: "main" | "host-renderer" | "lens-guest" | "gpu" | "utility" | "other";
   memory: { workingSetSizeKB: number; peakWorkingSetSizeKB: number };
   cpu: { percentCPUUsage: number };
 }
@@ -82,6 +81,12 @@ export interface AppMetrics {
       parentPid: number;
       rssBytes: number;
       kind: "provider" | "pty" | "language-server" | "other";
+      owners?: Array<{
+        workspaceId: string;
+        taskId?: string;
+        taskTitle?: string;
+        active: boolean;
+      }>;
     }>;
   } | null;
   lens: {
@@ -98,7 +103,12 @@ export interface AppMetrics {
     cdpInFlightCommands: number;
     cdpCloseDrainTimeouts: number;
     memoryBudgetKB?: number;
-    resourceEvents?: Array<{ workspaceId: string; lensSessionId: string; kind: "released" | "reopened"; at: number }>;
+    resourceEvents?: Array<{
+      workspaceId: string;
+      lensSessionId: string;
+      kind: "released" | "reopened";
+      at: number;
+    }>;
     guests: Array<{
       workspaceId: string;
       lensSessionId: string;
@@ -107,7 +117,7 @@ export interface AppMetrics {
       managedByMcp: boolean;
       url: string;
       sleeping?: boolean;
-    keptActive?: boolean;
+      keptActive?: boolean;
       protectionReasons?: string[];
     }>;
   };
@@ -245,6 +255,7 @@ export function MemoryUsagePopover({
 }) {
   const isBar = variant === "bar";
   const [open, setOpen] = useState(false);
+  const [view, setView] = useState<"usage" | "diagnostics">("usage");
   const [cleanupOpen, setCleanupOpen] = useState(false);
   const [metrics, setMetrics] = useState<AppMetrics | null>(null);
   const [rendererMemory, setRendererMemory] =
@@ -409,575 +420,696 @@ export function MemoryUsagePopover({
 
   return (
     <>
-    <Popover open={open} onOpenChange={setOpen}>
-      <Tooltip>
-        <TooltipTrigger
-          render={<span className={sx(resourceStyles.tooltipAnchor)} />}
+      <Dialog open={open} onOpenChange={setOpen}>
+        <Tooltip>
+          <TooltipTrigger
+            render={<span className={sx(resourceStyles.tooltipAnchor)} />}
+          >
+            <DialogTrigger
+              render={
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  xstyle={[
+                    resourceStyles.trigger,
+                    isBar
+                      ? resourceStyles.triggerBar
+                      : [
+                          resourceStyles.triggerRail,
+                          collapsed
+                            ? resourceStyles.triggerRailCollapsed
+                            : resourceStyles.triggerRailExpanded,
+                        ],
+                  ]}
+                  aria-label="Resource Manager"
+                />
+              }
+            >
+              <Activity className={sx(resourceStyles.triggerIcon)} />
+              {isBar ? <span>Resource Manager</span> : null}
+            </DialogTrigger>
+          </TooltipTrigger>
+          {!open ? (
+            <TooltipContent
+              side={collapsed ? "right" : isBar ? "top" : "bottom"}
+            >
+              Resource Manager
+            </TooltipContent>
+          ) : null}
+        </Tooltip>
+
+        <DialogContent
+          showCloseButton={false}
+          xstyle={[managerStyles.dialog, managerStyles.resourceDialog]}
         >
-          <PopoverTrigger
-            render={
+          {/* Header */}
+          <div className={sx(resourceStyles.header)}>
+            <div className={sx(resourceStyles.headerTitleGroup)}>
+              <Activity className={sx(resourceStyles.headerIcon)} />
+              <DialogTitle className={sx(resourceStyles.headerTitle)}>
+                Resource Manager
+              </DialogTitle>
+            </div>
+            <div className={sx(managerStyles.actions)}>
               <Button
                 variant="ghost"
-                size="sm"
-                xstyle={[
-                  resourceStyles.trigger,
-                  isBar
-                    ? resourceStyles.triggerBar
-                    : [
-                        resourceStyles.triggerRail,
-                        collapsed
-                          ? resourceStyles.triggerRailCollapsed
-                          : resourceStyles.triggerRailExpanded,
-                      ],
-                ]}
-                aria-label="memory-usage"
-              />
-            }
-          >
-            <Activity className={sx(resourceStyles.triggerIcon)} />
-            {isBar ? <span>Memory</span> : null}
-          </PopoverTrigger>
-        </TooltipTrigger>
-        {!open ? (
-          <TooltipContent side={collapsed ? "right" : isBar ? "top" : "bottom"}>
-            Resource Manager
-          </TooltipContent>
-        ) : null}
-      </Tooltip>
-
-      <PopoverContent
-        side={isBar ? "top" : "right"}
-        align={isBar ? "end" : "start"}
-        sideOffset={isBar ? 8 : 12}
-        xstyle={resourceStyles.popover}
-        initialFocus={false}
-      >
-        {/* Header */}
-        <div className={sx(resourceStyles.header)}>
-          <div className={sx(resourceStyles.headerTitleGroup)}>
-            <Activity className={sx(resourceStyles.headerIcon)} />
-            <span className={sx(resourceStyles.headerTitle)}>Resource Manager</span>
-          </div>
-          <Button
-            variant="ghost"
-            size="sm"
-            xstyle={resourceStyles.refreshButton}
-            aria-label="refresh-metrics"
-            onClick={() => {
-              setLoading(true);
-              fetchMetrics();
-            }}
-          >
-            <RefreshCw
-              className={sx(
-                resourceStyles.refreshIcon,
-                loading && resourceStyles.refreshIconSpinning,
-              )}
-            />
-          </Button>
-        </div>
-
-        {/* Content */}
-        <div className={sx(resourceStyles.body)}>
-          {!metrics ? (
-            <div className={sx(resourceStyles.emptyState)}>
-              <Activity className={sx(resourceStyles.emptyIcon)} />
-              <p className={sx(resourceStyles.emptyCopy)}>
-                {loading ? "Loading metrics…" : "Metrics unavailable"}
-              </p>
+                size="icon-sm"
+                aria-label="refresh-metrics"
+                onClick={() => {
+                  setLoading(true);
+                  fetchMetrics();
+                }}
+              >
+                <RefreshCw
+                  className={sx(
+                    resourceStyles.refreshIcon,
+                    loading && resourceStyles.refreshIconSpinning,
+                  )}
+                />
+              </Button>
+              <DialogClose
+                render={
+                  <Button
+                    variant="ghost"
+                    size="icon-sm"
+                    aria-label="Close Resource Manager"
+                  />
+                }
+              >
+                <X className={sx(resourceStyles.refreshIcon)} />
+              </DialogClose>
             </div>
-          ) : (
-            <div className={sx(resourceStyles.stack)}>
-              <ResourceManagerOverview metrics={metrics} refresh={fetchMetrics} onOpenCleanup={() => {
+          </div>
+
+          <div className={sx(managerStyles.toolbar)}>
+            <div
+              className={sx(managerStyles.actions)}
+              role="group"
+              aria-label="Resource view"
+            >
+              <Button
+                variant={view === "usage" ? "secondary" : "ghost"}
+                aria-pressed={view === "usage"}
+                onClick={() => setView("usage")}
+              >
+                Workspaces and processes
+              </Button>
+              <Button
+                variant={view === "diagnostics" ? "secondary" : "ghost"}
+                aria-pressed={view === "diagnostics"}
+                onClick={() => setView("diagnostics")}
+              >
+                Diagnostics and storage
+              </Button>
+            </div>
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => {
                 setOpen(false);
                 setCleanupOpen(true);
-              }} />
-              <details>
-                <summary className={sx(managerStyles.summary)}>Memory diagnostics and storage</summary>
-                <div className={sx(resourceStyles.stack)}>
-                  <Button variant="secondary" size="sm" onClick={() => void fetchStorageReport()}>Scan app storage</Button>
-              {/* Summary row */}
-              <div className={sx(resourceStyles.summaryGrid)}>
-                <div className={sx(resourceStyles.summaryTile)}>
-                  <div className={sx(resourceStyles.summaryTileIconRow)}>
-                    <MemoryStick
-                      className={sx(resourceStyles.summaryTileIcon)}
-                    />
-                  </div>
-                  <div className={sx(resourceStyles.summaryTileValue)}>
-                    {formatKB(totalFootprintKB)}
-                  </div>
-                  <div className={sx(resourceStyles.summaryTileLabel)}>
-                    {totalFootprintKB !== totalWorkingSetKB
-                      ? `Electron · RSS ${formatKB(totalWorkingSetKB)}`
-                      : "Electron"}
-                  </div>
-                </div>
-                <div className={sx(resourceStyles.summaryTile)}>
-                  <div className={sx(resourceStyles.summaryTileIconRow)}>
-                    <Cpu className={sx(resourceStyles.summaryTileIcon)} />
-                  </div>
-                  <div className={sx(resourceStyles.summaryTileValue)}>
-                    {totalCpu.toFixed(1)}%
-                  </div>
-                  <div className={sx(resourceStyles.summaryTileLabel)}>CPU</div>
-                </div>
-                <div className={sx(resourceStyles.summaryTile)}>
-                  <div className={sx(resourceStyles.summaryTileIconRow)}>
-                    <Clock className={sx(resourceStyles.summaryTileIcon)} />
-                  </div>
-                  <div className={sx(resourceStyles.summaryTileValue)}>
-                    {formatUptime(metrics.uptimeSeconds)}
-                  </div>
-                  <div className={sx(resourceStyles.summaryTileLabel)}>
-                    Uptime
-                  </div>
-                </div>
+              }}
+            >
+              Clean up workspaces
+            </Button>
+          </div>
+          {/* Content */}
+          <div className={sx(resourceStyles.body)}>
+            {!metrics ? (
+              <div className={sx(resourceStyles.emptyState)}>
+                <Activity className={sx(resourceStyles.emptyIcon)} />
+                <p className={sx(resourceStyles.emptyCopy)}>
+                  {loading ? "Loading metrics…" : "Metrics unavailable"}
+                </p>
               </div>
-
-              {/* Heap usage bar */}
-              <UsageBar
-                label="JS Heap"
-                used={metrics.mainProcess.heapUsed}
-                total={metrics.mainProcess.heapTotal}
-                detail={`${formatBytes(
-                  metrics.mainProcess.heapUsed,
-                )} / ${formatBytes(metrics.mainProcess.heapTotal)}`}
-              />
-
-              {/* Main footprint bar (private bytes; RSS shown for reference) */}
-              <UsageBar
-                label={mainPrivateBytes !== null ? "Footprint (Main)" : "RSS (Main)"}
-                used={mainPrivateBytes ?? metrics.mainProcess.rss}
-                total={(mainPrivateBytes ?? metrics.mainProcess.rss) * 1.25}
-                detail={
-                  mainPrivateBytes !== null
-                    ? `${formatBytes(mainPrivateBytes)} · RSS ${formatBytes(metrics.mainProcess.rss)}`
-                    : formatBytes(metrics.mainProcess.rss)
-                }
-              />
-
-              {rendererMemory ? (
-                <UsageBar
-                  label="Renderer heap"
-                  used={rendererMemory.heap.usedHeapSize}
-                  total={rendererMemory.heap.totalHeapSize}
-                  detail={`${formatKB(
-                    rendererMemory.heap.usedHeapSize,
-                  )} / ${formatKB(rendererMemory.heap.totalHeapSize)}`}
-                />
-              ) : null}
-
-              <div className={sx(resourceStyles.detailGrid)}>
-                {rendererMemory ? (
-                  <>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      Renderer memory
-                    </span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {formatKB(
-                        rendererMemory.process.residentSet ??
-                          rendererMemory.process.private,
-                      )}
-                    </span>
-                  </>
-                ) : null}
-                {rendererMemory ? (
-                  <>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      Blink allocated
-                    </span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {formatKB(rendererMemory.blink.allocated)}
-                    </span>
-                  </>
-                ) : null}
-                <span className={sx(resourceStyles.detailKey)}>
-                  Renderer stalls
-                </span>
-                <span
-                  className={sx(
-                    resourceStyles.detailValuePlain,
-                    metrics.renderer.currentlyUnresponsive
-                      ? resourceStyles.detailValueDanger
-                      : resourceStyles.detailValueMuted,
-                  )}
+            ) : (
+              <div className={sx(resourceStyles.stack)}>
+                <div hidden={view !== "usage"}>
+                  <ResourceManagerOverview
+                    metrics={metrics}
+                    refresh={fetchMetrics}
+                  />
+                </div>
+                <section
+                  hidden={view !== "diagnostics"}
+                  aria-label="Memory diagnostics and storage"
                 >
-                  {metrics.renderer.unresponsiveEvents}
-                  {metrics.renderer.currentlyUnresponsive ? " active" : ""}
-                </span>
-                <span className={sx(resourceStyles.detailKey)}>Renderer exits</span>
-                <span className={sx(resourceStyles.detailValue, resourceStyles.truncated)}>
-                  {metrics.renderer.renderProcessGoneEvents}
-                  {metrics.renderer.lastRenderProcessGoneReason
-                    ? ` · ${metrics.renderer.lastRenderProcessGoneReason}`
-                    : ""}
-                </span>
-              </div>
-
-              {recentMetrics && recentMetrics.sampleCount > 1 ? (
-                <div className={sx(resourceStyles.group)}>
-                  <div className={sx(resourceStyles.groupHead)}>
-                    <span className={sx(resourceStyles.groupTitle)}>
-                      Recent pressure
-                    </span>
-                    <span className={sx(resourceStyles.groupMeta)}>
-                      {Math.max(1, Math.round(recentMetrics.durationMs / 1_000))}s
-                      · {recentMetrics.sampleCount} samples
-                    </span>
-                  </div>
-                  <div className={sx(resourceStyles.detailGrid)}>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      App renderer CPU
-                    </span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {recentMetrics.rendererCpuAverage.toFixed(1)}% avg ·{" "}
-                      {recentMetrics.rendererCpuPeak.toFixed(1)}% peak
-                    </span>
-                    <span className={sx(resourceStyles.detailKey)}>GPU CPU</span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {recentMetrics.gpuCpuAverage.toFixed(1)}% avg ·{" "}
-                      {recentMetrics.gpuCpuPeak.toFixed(1)}% peak
-                    </span>
-                    {recentMetrics.rendererHeapDeltaKB != null ? (
-                      <>
-                        <span className={sx(resourceStyles.detailKey)}>
-                          Renderer heap change
-                        </span>
-                        <span className={sx(resourceStyles.detailValue)}>
-                          {formatSignedKB(recentMetrics.rendererHeapDeltaKB)}
-                        </span>
-                      </>
-                    ) : null}
-                  </div>
-                </div>
-              ) : null}
-
-              {metrics.hostService ? (
-                <div className={sx(resourceStyles.group)}>
-                  <div className={sx(resourceStyles.groupHead)}>
-                    <span className={sx(resourceStyles.groupTitle)}>
-                      Host service
-                    </span>
-                    <span className={sx(resourceStyles.groupMeta)}>
-                      {formatBytes(metrics.hostService.memory.rss)} RSS
-                    </span>
-                  </div>
-                  <div className={sx(resourceStyles.detailGrid)}>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      All descendants
-                    </span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {metrics.hostService.childProcesses.length} ·{" "}
-                      {formatBytes(childProcessRss)}
-                    </span>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      ↳ Provider trees (subset)
-                    </span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {providerChildProcesses.length} ·{" "}
-                      {formatBytes(providerChildRss)}
-                    </span>
-                    <span className={sx(resourceStyles.detailKey)}>PTY sessions</span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {metrics.hostService.terminalSessions}
-                    </span>
-                  </div>
-                </div>
-              ) : null}
-
-              {/* Lens lifecycle and bounded-log cardinalities */}
-              <div className={sx(resourceStyles.group)}>
-                <div className={sx(resourceStyles.groupHead)}>
-                  <span className={sx(resourceStyles.groupTitle)}>
-                    Lens resources
-                  </span>
-                  <span className={sx(resourceStyles.groupMeta)}>
-                    {metrics.lens.sessions} sessions ·{" "}
-                    {metrics.lens.visibleSessions} visible
-                  </span>
-                </div>
-                <div className={sx(resourceStyles.detailGrid)}>
-                  <span className={sx(resourceStyles.detailKey)}>Diagnostics</span>
-                  <span className={sx(resourceStyles.detailValue)}>
-                    {metrics.lens.diagnosticsSessions} active
-                  </span>
-                  <span className={sx(resourceStyles.detailKey)}>MCP sessions</span>
-                  <span className={sx(resourceStyles.detailValue)}>
-                    {metrics.lens.managedByMcpSessions}
-                  </span>
-                  <span className={sx(resourceStyles.detailKey)}>Hidden guests</span>
-                  <span className={sx(resourceStyles.detailValue)}>
-                    {metrics.lens.sessions - metrics.lens.visibleSessions}
-                  </span>
-                  <span className={sx(resourceStyles.detailKey)}>
-                    Guest working set
-                  </span>
-                  <span className={sx(resourceStyles.detailValue)}>
-                    {formatKB(lensWorkingSetKB)}
-                  </span>
-                  <span className={sx(resourceStyles.detailKey)}>
-                    Buffered logs
-                  </span>
-                  <span className={sx(resourceStyles.detailValue)}>
-                    {metrics.lens.consoleEntries} C ·{" "}
-                    {metrics.lens.networkEntries} N ·{" "}
-                    {metrics.lens.downloadEntries} D
-                  </span>
-                  <span className={sx(resourceStyles.detailKey)}>
-                    Auth popups
-                  </span>
-                  <span className={sx(resourceStyles.detailValue)}>
-                    {metrics.lens.authPopups}
-                  </span>
-                  <span className={sx(resourceStyles.detailKey)}>
-                    CDP active / closing
-                  </span>
-                  <span className={sx(resourceStyles.detailValue)}>
-                    {metrics.lens.cdpControllers} /{" "}
-                    {metrics.lens.cdpClosingControllers}
-                  </span>
-                  <span className={sx(resourceStyles.detailKey)}>
-                    CDP in-flight / timeouts
-                  </span>
-                  <span
-                    className={sx(
-                      resourceStyles.detailValuePlain,
-                      metrics.lens.cdpCloseDrainTimeouts > 0
-                        ? resourceStyles.detailValueWarning
-                        : resourceStyles.detailValueMuted,
-                    )}
-                  >
-                    {metrics.lens.cdpInFlightCommands} /{" "}
-                    {metrics.lens.cdpCloseDrainTimeouts}
-                  </span>
-                </div>
-              </div>
-
-              {metrics.persistence ? (
-                <div className={sx(resourceStyles.group)}>
-                  <div className={sx(resourceStyles.groupTitleBlock)}>
-                    Persistence
-                  </div>
-                  <div className={sx(resourceStyles.detailGrid)}>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      SQLite used
-                    </span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {formatBytes(metrics.persistence.usedBytes)}
-                    </span>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      File / reclaimable
-                    </span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {formatBytes(metrics.persistence.fileBytes)} /{" "}
-                      {formatBytes(
-                        metrics.persistence.freePages *
-                          metrics.persistence.pageSizeBytes,
-                      )}
-                    </span>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      Incremental vacuum
-                    </span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {metrics.persistence.autoVacuum === 2 ? "on" : "pending"}
-                    </span>
-                  </div>
-                </div>
-              ) : null}
-
-              {storageReport ? (
-                <div className={sx(resourceStyles.group)}>
-                  <div className={sx(resourceStyles.groupHead)}>
-                    <span className={sx(resourceStyles.groupTitle)}>
-                      Storage
-                    </span>
-                    <span className={sx(resourceStyles.groupMeta)}>
-                      {formatBytes(
-                        storageReport.totals.partitionBytes +
-                          storageReport.totals.staleDatabaseBytes,
-                      )}{" "}
-                      on disk
-                    </span>
-                  </div>
-                  <div className={sx(resourceStyles.detailGrid)}>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      Lens partitions
-                    </span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {storageReport.partitions.length} ·{" "}
-                      {formatBytes(storageReport.totals.partitionBytes)}
-                    </span>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      Orphaned
-                    </span>
-                    <span
-                      className={sx(
-                        storageReport.totals.orphanedPartitionCount > 0
-                          ? resourceStyles.detailValueWarning
-                          : resourceStyles.detailValue,
-                      )}
-                    >
-                      {storageReport.totals.orphanedPartitionCount} ·{" "}
-                      {formatBytes(storageReport.totals.orphanedPartitionBytes)}
-                    </span>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      Oversized caches
-                    </span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {storageReport.totals.oversizedCacheCount} ·{" "}
-                      {formatBytes(storageReport.totals.oversizedCacheBytes)}
-                    </span>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      Stale DB files
-                    </span>
-                    <span
-                      className={sx(
-                        storageReport.staleDatabaseFiles.length > 0
-                          ? resourceStyles.detailValueWarning
-                          : resourceStyles.detailValue,
-                      )}
-                    >
-                      {storageReport.staleDatabaseFiles.length} ·{" "}
-                      {formatBytes(storageReport.totals.staleDatabaseBytes)}
-                    </span>
-                  </div>
-                  <div className={sx(resourceStyles.storageActions)}>
+                  <div className={sx(resourceStyles.stack)}>
                     <Button
                       variant="secondary"
                       size="sm"
-                      disabled={storageBusy}
-                      onClick={() => void runStorageCleanup("reclaim")}
+                      onClick={() => void fetchStorageReport()}
                     >
-                      {storageBusy ? "Cleaning…" : "Clean up"}
+                      Scan app storage
                     </Button>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      disabled={storageBusy}
-                      onClick={() => void runStorageCleanup("clear-all-caches")}
-                    >
-                      Clear Lens caches
-                    </Button>
-                  </div>
-                  {storageMessage ? (
-                    <div className={sx(resourceStyles.storageMessage)}>
-                      {storageMessage}
+                    {/* Summary row */}
+                    <div className={sx(resourceStyles.summaryGrid)}>
+                      <div className={sx(resourceStyles.summaryTile)}>
+                        <div className={sx(resourceStyles.summaryTileIconRow)}>
+                          <MemoryStick
+                            className={sx(resourceStyles.summaryTileIcon)}
+                          />
+                        </div>
+                        <div className={sx(resourceStyles.summaryTileValue)}>
+                          {formatKB(totalFootprintKB)}
+                        </div>
+                        <div className={sx(resourceStyles.summaryTileLabel)}>
+                          {totalFootprintKB !== totalWorkingSetKB
+                            ? `Electron · RSS ${formatKB(totalWorkingSetKB)}`
+                            : "Electron"}
+                        </div>
+                      </div>
+                      <div className={sx(resourceStyles.summaryTile)}>
+                        <div className={sx(resourceStyles.summaryTileIconRow)}>
+                          <Cpu className={sx(resourceStyles.summaryTileIcon)} />
+                        </div>
+                        <div className={sx(resourceStyles.summaryTileValue)}>
+                          {totalCpu.toFixed(1)}%
+                        </div>
+                        <div className={sx(resourceStyles.summaryTileLabel)}>
+                          CPU
+                        </div>
+                      </div>
+                      <div className={sx(resourceStyles.summaryTile)}>
+                        <div className={sx(resourceStyles.summaryTileIconRow)}>
+                          <Clock
+                            className={sx(resourceStyles.summaryTileIcon)}
+                          />
+                        </div>
+                        <div className={sx(resourceStyles.summaryTileValue)}>
+                          {formatUptime(metrics.uptimeSeconds)}
+                        </div>
+                        <div className={sx(resourceStyles.summaryTileLabel)}>
+                          Uptime
+                        </div>
+                      </div>
                     </div>
-                  ) : null}
-                </div>
-              ) : null}
 
-              {latestWorkspaceSwitch ? (
-                <div className={sx(resourceStyles.group)}>
-                  <div className={sx(resourceStyles.groupHead)}>
-                    <span className={sx(resourceStyles.groupTitle)}>
-                      Last workspace switch
-                    </span>
-                    <span className={sx(resourceStyles.groupMeta)}>
-                      {latestWorkspaceSwitch.cacheHit ? "cache" : "storage"}
-                    </span>
-                  </div>
-                  <div className={sx(resourceStyles.detailGrid)}>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      Interactive
-                    </span>
-                    <span className={sx(resourceStyles.detailValueStrong)}>
-                      {formatDuration(latestWorkspaceSwitch.totalMs)}
-                    </span>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      Outgoing save
-                    </span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {formatDuration(latestWorkspaceSwitch.flushMs)}
-                    </span>
-                    <span className={sx(resourceStyles.detailKey)}>Shell load</span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {formatDuration(latestWorkspaceSwitch.shellMs)}
-                    </span>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      Files ready
-                    </span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {formatDuration(latestWorkspaceSwitch.filesMs)}
-                    </span>
-                    <span className={sx(resourceStyles.detailKey)}>
-                      Messages ready
-                    </span>
-                    <span className={sx(resourceStyles.detailValue)}>
-                      {formatDuration(latestWorkspaceSwitch.messagesMs)}
-                    </span>
-                  </div>
-                </div>
-              ) : null}
+                    {/* Heap usage bar */}
+                    <UsageBar
+                      label="JS Heap"
+                      used={metrics.mainProcess.heapUsed}
+                      total={metrics.mainProcess.heapTotal}
+                      detail={`${formatBytes(
+                        metrics.mainProcess.heapUsed,
+                      )} / ${formatBytes(metrics.mainProcess.heapTotal)}`}
+                    />
 
-              {/* Process breakdown */}
-              <div>
-                <div className={sx(resourceStyles.processHead)}>
-                  <HardDrive className={sx(resourceStyles.processHeadIcon)} />
-                  <span className={sx(resourceStyles.groupTitle)}>
-                    Processes ({metrics.processes.length})
-                  </span>
-                </div>
-                <div className={sx(resourceStyles.processList)}>
-                  {metrics.processes
-                    .slice()
-                    .sort(
-                      (a, b) =>
-                        b.memory.workingSetSizeKB - a.memory.workingSetSizeKB,
-                    )
-                    .map((proc) => (
-                      <div
-                        key={proc.pid}
-                        className={sx(resourceStyles.processRow, transition.colors)}
+                    {/* Main footprint bar (private bytes; RSS shown for reference) */}
+                    <UsageBar
+                      label={
+                        mainPrivateBytes !== null
+                          ? "Footprint (Main)"
+                          : "RSS (Main)"
+                      }
+                      used={mainPrivateBytes ?? metrics.mainProcess.rss}
+                      total={
+                        (mainPrivateBytes ?? metrics.mainProcess.rss) * 1.25
+                      }
+                      detail={
+                        mainPrivateBytes !== null
+                          ? `${formatBytes(mainPrivateBytes)} · RSS ${formatBytes(metrics.mainProcess.rss)}`
+                          : formatBytes(metrics.mainProcess.rss)
+                      }
+                    />
+
+                    {rendererMemory ? (
+                      <UsageBar
+                        label="Renderer heap"
+                        used={rendererMemory.heap.usedHeapSize}
+                        total={rendererMemory.heap.totalHeapSize}
+                        detail={`${formatKB(
+                          rendererMemory.heap.usedHeapSize,
+                        )} / ${formatKB(rendererMemory.heap.totalHeapSize)}`}
+                      />
+                    ) : null}
+
+                    <div className={sx(resourceStyles.detailGrid)}>
+                      {rendererMemory ? (
+                        <>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            Renderer memory
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {formatKB(
+                              rendererMemory.process.residentSet ??
+                                rendererMemory.process.private,
+                            )}
+                          </span>
+                        </>
+                      ) : null}
+                      {rendererMemory ? (
+                        <>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            Blink allocated
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {formatKB(rendererMemory.blink.allocated)}
+                          </span>
+                        </>
+                      ) : null}
+                      <span className={sx(resourceStyles.detailKey)}>
+                        Renderer stalls
+                      </span>
+                      <span
+                        className={sx(
+                          resourceStyles.detailValuePlain,
+                          metrics.renderer.currentlyUnresponsive
+                            ? resourceStyles.detailValueDanger
+                            : resourceStyles.detailValueMuted,
+                        )}
                       >
+                        {metrics.renderer.unresponsiveEvents}
+                        {metrics.renderer.currentlyUnresponsive
+                          ? " active"
+                          : ""}
+                      </span>
+                      <span className={sx(resourceStyles.detailKey)}>
+                        Renderer exits
+                      </span>
+                      <span
+                        className={sx(
+                          resourceStyles.detailValue,
+                          resourceStyles.truncated,
+                        )}
+                      >
+                        {metrics.renderer.renderProcessGoneEvents}
+                        {metrics.renderer.lastRenderProcessGoneReason
+                          ? ` · ${metrics.renderer.lastRenderProcessGoneReason}`
+                          : ""}
+                      </span>
+                    </div>
+
+                    {recentMetrics && recentMetrics.sampleCount > 1 ? (
+                      <div className={sx(resourceStyles.group)}>
+                        <div className={sx(resourceStyles.groupHead)}>
+                          <span className={sx(resourceStyles.groupTitle)}>
+                            Recent pressure
+                          </span>
+                          <span className={sx(resourceStyles.groupMeta)}>
+                            {Math.max(
+                              1,
+                              Math.round(recentMetrics.durationMs / 1_000),
+                            )}
+                            s · {recentMetrics.sampleCount} samples
+                          </span>
+                        </div>
+                        <div className={sx(resourceStyles.detailGrid)}>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            App renderer CPU
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {recentMetrics.rendererCpuAverage.toFixed(1)}% avg ·{" "}
+                            {recentMetrics.rendererCpuPeak.toFixed(1)}% peak
+                          </span>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            GPU CPU
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {recentMetrics.gpuCpuAverage.toFixed(1)}% avg ·{" "}
+                            {recentMetrics.gpuCpuPeak.toFixed(1)}% peak
+                          </span>
+                          {recentMetrics.rendererHeapDeltaKB != null ? (
+                            <>
+                              <span className={sx(resourceStyles.detailKey)}>
+                                Renderer heap change
+                              </span>
+                              <span className={sx(resourceStyles.detailValue)}>
+                                {formatSignedKB(
+                                  recentMetrics.rendererHeapDeltaKB,
+                                )}
+                              </span>
+                            </>
+                          ) : null}
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {metrics.hostService ? (
+                      <div className={sx(resourceStyles.group)}>
+                        <div className={sx(resourceStyles.groupHead)}>
+                          <span className={sx(resourceStyles.groupTitle)}>
+                            Host service
+                          </span>
+                          <span className={sx(resourceStyles.groupMeta)}>
+                            {formatBytes(metrics.hostService.memory.rss)} RSS
+                          </span>
+                        </div>
+                        <div className={sx(resourceStyles.detailGrid)}>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            All descendants
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {metrics.hostService.childProcesses.length} ·{" "}
+                            {formatBytes(childProcessRss)}
+                          </span>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            ↳ Provider trees (subset)
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {providerChildProcesses.length} ·{" "}
+                            {formatBytes(providerChildRss)}
+                          </span>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            PTY sessions
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {metrics.hostService.terminalSessions}
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Lens lifecycle and bounded-log cardinalities */}
+                    <div className={sx(resourceStyles.group)}>
+                      <div className={sx(resourceStyles.groupHead)}>
+                        <span className={sx(resourceStyles.groupTitle)}>
+                          Lens resources
+                        </span>
+                        <span className={sx(resourceStyles.groupMeta)}>
+                          {metrics.lens.sessions} sessions ·{" "}
+                          {metrics.lens.visibleSessions} visible
+                        </span>
+                      </div>
+                      <div className={sx(resourceStyles.detailGrid)}>
+                        <span className={sx(resourceStyles.detailKey)}>
+                          Diagnostics
+                        </span>
+                        <span className={sx(resourceStyles.detailValue)}>
+                          {metrics.lens.diagnosticsSessions} active
+                        </span>
+                        <span className={sx(resourceStyles.detailKey)}>
+                          MCP sessions
+                        </span>
+                        <span className={sx(resourceStyles.detailValue)}>
+                          {metrics.lens.managedByMcpSessions}
+                        </span>
+                        <span className={sx(resourceStyles.detailKey)}>
+                          Hidden guests
+                        </span>
+                        <span className={sx(resourceStyles.detailValue)}>
+                          {metrics.lens.sessions - metrics.lens.visibleSessions}
+                        </span>
+                        <span className={sx(resourceStyles.detailKey)}>
+                          Guest working set
+                        </span>
+                        <span className={sx(resourceStyles.detailValue)}>
+                          {formatKB(lensWorkingSetKB)}
+                        </span>
+                        <span className={sx(resourceStyles.detailKey)}>
+                          Buffered logs
+                        </span>
+                        <span className={sx(resourceStyles.detailValue)}>
+                          {metrics.lens.consoleEntries} C ·{" "}
+                          {metrics.lens.networkEntries} N ·{" "}
+                          {metrics.lens.downloadEntries} D
+                        </span>
+                        <span className={sx(resourceStyles.detailKey)}>
+                          Auth popups
+                        </span>
+                        <span className={sx(resourceStyles.detailValue)}>
+                          {metrics.lens.authPopups}
+                        </span>
+                        <span className={sx(resourceStyles.detailKey)}>
+                          CDP active / closing
+                        </span>
+                        <span className={sx(resourceStyles.detailValue)}>
+                          {metrics.lens.cdpControllers} /{" "}
+                          {metrics.lens.cdpClosingControllers}
+                        </span>
+                        <span className={sx(resourceStyles.detailKey)}>
+                          CDP in-flight / timeouts
+                        </span>
                         <span
                           className={sx(
-                            resourceStyles.processDot,
-                            processColor[proc.type] ?? processTypeStyles.other,
+                            resourceStyles.detailValuePlain,
+                            metrics.lens.cdpCloseDrainTimeouts > 0
+                              ? resourceStyles.detailValueWarning
+                              : resourceStyles.detailValueMuted,
                           )}
-                        />
-                        <span className={sx(resourceStyles.processName)}>
-                          {proc.role === "other"
-                            ? (processLabel[proc.type] ?? proc.type)
-                            : processRoleLabel[proc.role]}
+                        >
+                          {metrics.lens.cdpInFlightCommands} /{" "}
+                          {metrics.lens.cdpCloseDrainTimeouts}
                         </span>
-                        <span className={sx(resourceStyles.processMemory)}>
-                          {formatKB(proc.memory.workingSetSizeKB)}
-                        </span>
-                        {proc.cpu.percentCPUUsage > 0.1 && (
-                          <span className={sx(resourceStyles.processCpu)}>
-                            {proc.cpu.percentCPUUsage.toFixed(1)}%
-                          </span>
-                        )}
                       </div>
-                    ))}
-                </div>
-              </div>
+                    </div>
 
-              {/* External / ArrayBuffers detail */}
-              <div className={sx(resourceStyles.group)}>
-                <div className={sx(resourceStyles.externalRow)}>
-                  <span className={sx(resourceStyles.detailKey)}>External</span>
-                  <span className={sx(resourceStyles.externalValue)}>
-                    {formatBytes(metrics.mainProcess.external)}
-                  </span>
-                </div>
-                <div className={sx(resourceStyles.externalRowSpaced)}>
-                  <span className={sx(resourceStyles.detailKey)}>ArrayBuffers</span>
-                  <span className={sx(resourceStyles.externalValue)}>
-                    {formatBytes(metrics.mainProcess.arrayBuffers)}
-                  </span>
-                </div>
+                    {metrics.persistence ? (
+                      <div className={sx(resourceStyles.group)}>
+                        <div className={sx(resourceStyles.groupTitleBlock)}>
+                          Persistence
+                        </div>
+                        <div className={sx(resourceStyles.detailGrid)}>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            SQLite used
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {formatBytes(metrics.persistence.usedBytes)}
+                          </span>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            File / reclaimable
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {formatBytes(metrics.persistence.fileBytes)} /{" "}
+                            {formatBytes(
+                              metrics.persistence.freePages *
+                                metrics.persistence.pageSizeBytes,
+                            )}
+                          </span>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            Incremental vacuum
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {metrics.persistence.autoVacuum === 2
+                              ? "on"
+                              : "pending"}
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {storageReport ? (
+                      <div className={sx(resourceStyles.group)}>
+                        <div className={sx(resourceStyles.groupHead)}>
+                          <span className={sx(resourceStyles.groupTitle)}>
+                            Storage
+                          </span>
+                          <span className={sx(resourceStyles.groupMeta)}>
+                            {formatBytes(
+                              storageReport.totals.partitionBytes +
+                                storageReport.totals.staleDatabaseBytes,
+                            )}{" "}
+                            on disk
+                          </span>
+                        </div>
+                        <div className={sx(resourceStyles.detailGrid)}>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            Lens partitions
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {storageReport.partitions.length} ·{" "}
+                            {formatBytes(storageReport.totals.partitionBytes)}
+                          </span>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            Orphaned
+                          </span>
+                          <span
+                            className={sx(
+                              storageReport.totals.orphanedPartitionCount > 0
+                                ? resourceStyles.detailValueWarning
+                                : resourceStyles.detailValue,
+                            )}
+                          >
+                            {storageReport.totals.orphanedPartitionCount} ·{" "}
+                            {formatBytes(
+                              storageReport.totals.orphanedPartitionBytes,
+                            )}
+                          </span>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            Oversized caches
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {storageReport.totals.oversizedCacheCount} ·{" "}
+                            {formatBytes(
+                              storageReport.totals.oversizedCacheBytes,
+                            )}
+                          </span>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            Stale DB files
+                          </span>
+                          <span
+                            className={sx(
+                              storageReport.staleDatabaseFiles.length > 0
+                                ? resourceStyles.detailValueWarning
+                                : resourceStyles.detailValue,
+                            )}
+                          >
+                            {storageReport.staleDatabaseFiles.length} ·{" "}
+                            {formatBytes(
+                              storageReport.totals.staleDatabaseBytes,
+                            )}
+                          </span>
+                        </div>
+                        <div className={sx(resourceStyles.storageActions)}>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            disabled={storageBusy}
+                            onClick={() => void runStorageCleanup("reclaim")}
+                          >
+                            {storageBusy ? "Cleaning…" : "Clean up"}
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            disabled={storageBusy}
+                            onClick={() =>
+                              void runStorageCleanup("clear-all-caches")
+                            }
+                          >
+                            Clear Lens caches
+                          </Button>
+                        </div>
+                        {storageMessage ? (
+                          <div className={sx(resourceStyles.storageMessage)}>
+                            {storageMessage}
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
+
+                    {latestWorkspaceSwitch ? (
+                      <div className={sx(resourceStyles.group)}>
+                        <div className={sx(resourceStyles.groupHead)}>
+                          <span className={sx(resourceStyles.groupTitle)}>
+                            Last workspace switch
+                          </span>
+                          <span className={sx(resourceStyles.groupMeta)}>
+                            {latestWorkspaceSwitch.cacheHit
+                              ? "cache"
+                              : "storage"}
+                          </span>
+                        </div>
+                        <div className={sx(resourceStyles.detailGrid)}>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            Interactive
+                          </span>
+                          <span
+                            className={sx(resourceStyles.detailValueStrong)}
+                          >
+                            {formatDuration(latestWorkspaceSwitch.totalMs)}
+                          </span>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            Outgoing save
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {formatDuration(latestWorkspaceSwitch.flushMs)}
+                          </span>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            Shell load
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {formatDuration(latestWorkspaceSwitch.shellMs)}
+                          </span>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            Files ready
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {formatDuration(latestWorkspaceSwitch.filesMs)}
+                          </span>
+                          <span className={sx(resourceStyles.detailKey)}>
+                            Messages ready
+                          </span>
+                          <span className={sx(resourceStyles.detailValue)}>
+                            {formatDuration(latestWorkspaceSwitch.messagesMs)}
+                          </span>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    {/* Process breakdown */}
+                    <div>
+                      <div className={sx(resourceStyles.processHead)}>
+                        <HardDrive
+                          className={sx(resourceStyles.processHeadIcon)}
+                        />
+                        <span className={sx(resourceStyles.groupTitle)}>
+                          Processes ({metrics.processes.length})
+                        </span>
+                      </div>
+                      <div className={sx(resourceStyles.processList)}>
+                        {metrics.processes
+                          .slice()
+                          .sort(
+                            (a, b) =>
+                              b.memory.workingSetSizeKB -
+                              a.memory.workingSetSizeKB,
+                          )
+                          .map((proc) => (
+                            <div
+                              key={proc.pid}
+                              className={sx(
+                                resourceStyles.processRow,
+                                transition.colors,
+                              )}
+                            >
+                              <span
+                                className={sx(
+                                  resourceStyles.processDot,
+                                  processColor[proc.type] ??
+                                    processTypeStyles.other,
+                                )}
+                              />
+                              <span className={sx(resourceStyles.processName)}>
+                                {proc.role === "other"
+                                  ? (processLabel[proc.type] ?? proc.type)
+                                  : processRoleLabel[proc.role]}
+                              </span>
+                              <span
+                                className={sx(resourceStyles.processMemory)}
+                              >
+                                {formatKB(proc.memory.workingSetSizeKB)}
+                              </span>
+                              {proc.cpu.percentCPUUsage > 0.1 && (
+                                <span className={sx(resourceStyles.processCpu)}>
+                                  {proc.cpu.percentCPUUsage.toFixed(1)}%
+                                </span>
+                              )}
+                            </div>
+                          ))}
+                      </div>
+                    </div>
+
+                    {/* External / ArrayBuffers detail */}
+                    <div className={sx(resourceStyles.group)}>
+                      <div className={sx(resourceStyles.externalRow)}>
+                        <span className={sx(resourceStyles.detailKey)}>
+                          External
+                        </span>
+                        <span className={sx(resourceStyles.externalValue)}>
+                          {formatBytes(metrics.mainProcess.external)}
+                        </span>
+                      </div>
+                      <div className={sx(resourceStyles.externalRowSpaced)}>
+                        <span className={sx(resourceStyles.detailKey)}>
+                          ArrayBuffers
+                        </span>
+                        <span className={sx(resourceStyles.externalValue)}>
+                          {formatBytes(metrics.mainProcess.arrayBuffers)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </section>
               </div>
-                </div>
-              </details>
-            </div>
-          )}
-        </div>
-      </PopoverContent>
-    </Popover>
-    <WorkspaceCleanupDialog open={cleanupOpen} onOpenChange={setCleanupOpen} />
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+      <WorkspaceCleanupDialog
+        open={cleanupOpen}
+        onOpenChange={setCleanupOpen}
+      />
     </>
   );
 }
