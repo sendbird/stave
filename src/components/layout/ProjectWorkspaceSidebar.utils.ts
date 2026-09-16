@@ -607,6 +607,10 @@ export function summarizeWorkspaceTaskTitle(title: string) {
   return `${clipped.trimEnd()}…`;
 }
 
+/**
+ * Child-task cadence. The workspace row uses `spinner` so the parent
+ * container and these streaming rows do not share one mark.
+ */
 export function resolveWorkspaceProgressTaskLoaderVariant(
   status: FleetTaskStatus,
 ) {

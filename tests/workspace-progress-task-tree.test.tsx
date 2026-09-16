@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import { toProviderWaveToneClass } from "@/components/ai-elements/provider-wave-tone.styles";
 import { WorkspaceProgressTaskTreeView } from "@/components/layout/WorkspaceProgressTaskTree";
 import { workspaceProgressTaskTreeStyles } from "@/components/layout/workspace-progress-task-tree.styles";
 import { sx } from "@/components/ads/utils/stylex";
@@ -34,6 +35,9 @@ describe("WorkspaceProgressTaskTreeView", () => {
     expect(html).toContain("Stream the workspace tree");
     expect(html).toContain("Later cleanup");
     expect(html).toContain('data-loader-variant="pulse"');
+    expect(html).toContain(
+      toProviderWaveToneClass({ providerId: "claude-code" }),
+    );
     expect(html).toContain("claude-color.svg");
     expect(html).toContain("codex-color.svg");
     // One-depth list: no indent-guide border, only the parent-row inset.

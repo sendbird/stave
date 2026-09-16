@@ -12,6 +12,7 @@ import { Loader } from "@/components/ui";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { sx } from "@/components/ads/utils/stylex";
 import type { FleetTaskStatus } from "@/lib/fleet/task-status";
+import { toProviderWaveToneClass } from "@/components/ai-elements/provider-wave-tone.styles";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import type { ChatMessage, Task } from "@/types/chat";
 import { useAppStore } from "@/store/app.store";
@@ -33,13 +34,20 @@ const STATUS_LABEL: Record<FleetTaskStatus, string> = {
   idle: "Idle",
 };
 
-function StatusMark(args: { status: FleetTaskStatus }) {
+function StatusMark(args: {
+  status: FleetTaskStatus;
+  providerId: WorkspaceProgressTaskItem["providerId"];
+}) {
   const loaderVariant = resolveWorkspaceProgressTaskLoaderVariant(args.status);
   if (loaderVariant) {
     return (
       <Loader
         aria-hidden
-        className={sx(statusTone[args.status])}
+        className={
+          args.status === "running"
+            ? toProviderWaveToneClass({ providerId: args.providerId })
+            : sx(statusTone[args.status])
+        }
         size="xs"
         variant={loaderVariant}
       />
@@ -119,10 +127,16 @@ export function WorkspaceProgressTaskTreeView(args: {
             <ProviderMark providerId={item.providerId} />
             <span className={sx(styles.rowTitle)}>{item.title}</span>
             <span
-              className={sx(styles.statusSlot, statusTone[item.status])}
+              className={sx(
+                styles.statusSlot,
+                item.status !== "running" && statusTone[item.status],
+              )}
               title={statusLabel}
             >
-              <StatusMark status={item.status} />
+              <StatusMark
+                status={item.status}
+                providerId={item.providerId}
+              />
               <VisuallyHidden>{statusLabel}</VisuallyHidden>
             </span>
           </AdsButton>
