@@ -5,6 +5,8 @@ import { afterEach, beforeAll, describe, expect, mock, test } from "bun:test";
 // is no active session, and — critically — never delete the active session on
 // success (the turn keeps streaming, so abort/steer-again must still work).
 
+const TEST_WORKSPACE_CWD = "/tmp/stave-provider-runtime-test";
+
 const actualClaudeRuntime = await import(
   "../electron/providers/claude-sdk-runtime"
 );
@@ -125,7 +127,12 @@ describe("providerRuntime.steerTurn", () => {
     holder.rejectSteer = true;
     const turnId = "turn-steer-reject";
     const started = providerRuntime.startTurnStream(
-      { providerId: "claude-code", prompt: "run", turnId },
+      {
+        cwd: TEST_WORKSPACE_CWD,
+        providerId: "claude-code",
+        prompt: "run",
+        turnId,
+      },
       { bufferEvents: true },
     );
     expect(started.ok).toBe(true);
@@ -141,7 +148,12 @@ describe("providerRuntime.steerTurn", () => {
   test("success delivers text and keeps the active session alive", async () => {
     const turnId = "turn-steer-ok";
     const started = providerRuntime.startTurnStream(
-      { providerId: "claude-code", prompt: "run", turnId },
+      {
+        cwd: TEST_WORKSPACE_CWD,
+        providerId: "claude-code",
+        prompt: "run",
+        turnId,
+      },
       { bufferEvents: true },
     );
     expect(started.ok).toBe(true);
@@ -177,7 +189,12 @@ describe("providerRuntime.steerTurn", () => {
     process.env.STAVE_ENABLE_MID_TURN_STEERING = "";
     const turnId = "turn-steer-disabled";
     const started = providerRuntime.startTurnStream(
-      { providerId: "claude-code", prompt: "run", turnId },
+      {
+        cwd: TEST_WORKSPACE_CWD,
+        providerId: "claude-code",
+        prompt: "run",
+        turnId,
+      },
       { bufferEvents: true },
     );
     expect(started.ok).toBe(true);
@@ -195,7 +212,12 @@ describe("providerRuntime.steerTurn", () => {
     process.env.STAVE_ENABLE_MID_TURN_STEERING = "";
     const turnId = "turn-steer-setting-enabled";
     const started = providerRuntime.startTurnStream(
-      { providerId: "claude-code", prompt: "run", turnId },
+      {
+        cwd: TEST_WORKSPACE_CWD,
+        providerId: "claude-code",
+        prompt: "run",
+        turnId,
+      },
       { bufferEvents: true },
     );
     expect(started.ok).toBe(true);
@@ -216,7 +238,12 @@ describe("providerRuntime.steerTurn", () => {
     process.env.STAVE_ENABLE_MID_TURN_STEERING = "";
     const turnId = "turn-steer-setting-disabled";
     const started = providerRuntime.startTurnStream(
-      { providerId: "claude-code", prompt: "run", turnId },
+      {
+        cwd: TEST_WORKSPACE_CWD,
+        providerId: "claude-code",
+        prompt: "run",
+        turnId,
+      },
       { bufferEvents: true },
     );
     expect(started.ok).toBe(true);
