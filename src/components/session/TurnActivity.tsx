@@ -1534,10 +1534,9 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                   />
                 ) : null}
               </DelegationsBlock>
-              {/* Outcome facts last — changes, verification, usage, headroom.
-                  Elapsed is already in the header and the agent count is the
-                  block above, so neither tile repeats here. */}
-              {props.executionSummary ? (
+              {/* Docked and floating keep the tiles in the scrolling list.
+                  The panel pins them to the rail floor below. */}
+              {variant !== "panel" && props.executionSummary ? (
                 <TaskExecutionSummarySurface
                   compact
                   summary={props.executionSummary}
@@ -1548,6 +1547,16 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
               ) : null}
             </div>
           </div>
+        ) : null}
+        {isListOpen && variant === "panel" && props.executionSummary ? (
+          <TaskExecutionSummarySurface
+            compact
+            layout="panel"
+            summary={props.executionSummary}
+            showLatestActivity={false}
+            omitKeys={["elapsed", "agents"]}
+            xstyle={styles.summaryPinned}
+          />
         ) : null}
       </section>
     </div>

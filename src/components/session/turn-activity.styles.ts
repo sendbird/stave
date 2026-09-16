@@ -56,6 +56,7 @@ export const turnActivityStyles = stylex.create({
   },
   stackPanel: {
     display: "flex",
+    flex: 1,
     flexDirection: "column",
     height: "100%",
     minHeight: 0,
@@ -270,6 +271,17 @@ export const turnActivityStyles = stylex.create({
   },
   listInner: {
     paddingBlock: 6,
+    paddingInline: 6,
+  },
+  // Outcome tiles leave the scrolling list in the panel so they sit on the
+  // rail floor while the activity rows use the leftover height.
+  summaryPinned: {
+    borderTopColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 50%, transparent)`,
+    borderTopStyle: "solid",
+    borderTopWidth: vars["--ads-border-width-hairline"],
+    flexShrink: 0,
+    minWidth: 0,
+    paddingBlock: vars["--ads-space-8"],
     paddingInline: 6,
   },
   childBlock: {
