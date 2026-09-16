@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 
 import { extractJiraIssueUrlReference } from "../../../src/lib/crane-connector/jira-reference";
+import { proposeDispatchWorkspaceLabel } from "../../../src/lib/crane-connector/workspace-label";
 import type {
   CraneDispatchRuntimeChoice,
   CraneDispatchWorkspaceChoice,
@@ -72,6 +73,7 @@ export interface TrackerTaskKickoffDependencies {
   createWorkspace(args: {
     projectPath: string;
     name: string;
+    label?: string;
     mode: "branch";
     fromBranch?: string;
     fromBranchKind?: "local" | "remote";
@@ -203,7 +205,12 @@ export async function kickoffTrackerTask(
 
   // Jira, or Crane without write-back: the run is tracked in Stave alone.
   const project = await assertProjectRegistered(deps, args.projectPath);
-  const workspaceId = await resolveWorkspaceId(deps, project, args.workspace);
+  const workspaceId = await resolveWorkspaceId(
+    deps,
+    project,
+    args.workspace,
+    task.title,
+  );
 
   await registerIssues(deps, workspaceId, args.source, task);
 
@@ -286,6 +293,7 @@ async function resolveWorkspaceId(
     workspaces: Array<{ id: string }>;
   },
   workspace: CraneDispatchWorkspaceChoice,
+  issueTitle: string,
 ): Promise<string> {
   if (workspace.strategy === "existing") {
     const existing = project.workspaces.find(
@@ -300,6 +308,10 @@ async function resolveWorkspaceId(
     const created = await deps.createWorkspace({
       projectPath: project.projectPath,
       name: workspace.branchName,
+      label:
+        workspace.workspaceLabel?.trim() ||
+        proposeDispatchWorkspaceLabel(issueTitle) ||
+        undefined,
       mode: "branch",
       fromBranch: project.defaultBranch,
       fromBranchKind: "remote",

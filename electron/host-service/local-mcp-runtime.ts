@@ -4,6 +4,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { buildCanonicalConversationRequest } from "../../src/lib/providers/canonical-request";
 import { getDefaultModelForProvider } from "../../src/lib/providers/model-catalog";
+import { resolveTurnModelInfo } from "../../src/lib/providers/turn-model-info";
 import { getProviderSessionCursor } from "../../src/lib/providers/provider-sessions";
 import type {
   CanonicalRetrievedContextPart,
@@ -2284,6 +2285,8 @@ export async function registerProject(args: {
 export async function createWorkspace(args: {
   projectPath: string;
   name: string;
+  /** Human-facing sidebar label. Falls back to the derived branch name. */
+  label?: string;
   mode: "branch" | "clean";
   fromBranch?: string;
   fromBranchKind?: "local" | "remote";
@@ -2304,6 +2307,7 @@ export async function createWorkspace(args: {
   if (!branchName) {
     throw new Error("Workspace branch name is invalid.");
   }
+  const workspaceDisplayName = args.label?.trim() || branchName;
 
   const existingWorkspace =
     toWorkspaceList(project).find(
@@ -2494,7 +2498,7 @@ export async function createWorkspace(args: {
   const snapshot = createEmptyWorkspaceSnapshot();
   store.upsertWorkspace({
     id: workspaceId,
-    name: branchName,
+    name: workspaceDisplayName,
     snapshot: snapshot as never,
   });
   cacheWorkspaceSession(
@@ -2509,7 +2513,7 @@ export async function createWorkspace(args: {
     activeWorkspaceId: workspaceId,
     workspaces: [
       ...project.workspaces,
-      { id: workspaceId, name: branchName, updatedAt: now },
+      { id: workspaceId, name: workspaceDisplayName, updatedAt: now },
     ],
     workspaceBranchById: {
       ...project.workspaceBranchById,
@@ -2539,7 +2543,7 @@ export async function createWorkspace(args: {
   const notice = buildWorkspaceCreationNotice({ notices });
   return {
     workspaceId,
-    workspaceName: branchName,
+    workspaceName: workspaceDisplayName,
     workspacePath,
     branch: branchName,
     projectPath,
@@ -2901,6 +2905,18 @@ export async function runTask(args: {
     turnId,
     provider,
     activeModel: model,
+    // Same chip facts a composer turn records: effort, Fast, and the
+    // catalog name that peels `1M` off a `[1m]` model id. Host-owned turns
+    // reload from this persisted row, so omitting it left the footer on the
+    // model name alone.
+    ...(args.runtimeOptions
+      ? {
+          modelInfo: resolveTurnModelInfo({
+            providerId: provider,
+            runtimeOptions: args.runtimeOptions,
+          }),
+        }
+      : {}),
     content: args.prompt,
   });
   session = cacheWorkspaceSession(args.workspaceId, {
@@ -2908,6 +2924,7 @@ export async function runTask(args: {
     activeTaskId: task.id,
     tasks: pendingState.tasks,
     messagesByTask: pendingState.messagesByTask,
+    messageCountByTask: pendingState.messageCountByTask,
     activeTurnIdsByTask: pendingState.activeTurnIdsByTask,
   });
   session = trimResidentTaskMessages({

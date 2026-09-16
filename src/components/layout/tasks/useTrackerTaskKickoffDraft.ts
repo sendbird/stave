@@ -6,6 +6,7 @@ import {
   type DispatchRuntimeDraft,
   type DispatchWorkspaceStrategy,
 } from "@/components/layout/dispatch-runtime";
+import { proposeDispatchWorkspaceLabel } from "@/lib/crane-connector/workspace-label";
 import { proposeTrackerTaskBranchName } from "@/lib/tracker-tasks/branch-name";
 import {
   kickoffTrackerTask,
@@ -48,6 +49,8 @@ export interface TrackerTaskKickoffDraft {
   setWorkspaceId: (workspaceId: string) => void;
   branchName: string;
   setBranchName: (branchName: string) => void;
+  workspaceLabel: string;
+  setWorkspaceLabel: (workspaceLabel: string) => void;
   instruction: string;
   setInstruction: (instruction: string) => void;
   resetInstruction: () => void;
@@ -87,6 +90,7 @@ export function useTrackerTaskKickoffDraft(args: {
     useState<DispatchWorkspaceStrategy>("new");
   const [workspaceId, setWorkspaceId] = useState("");
   const [branchName, setBranchName] = useState("");
+  const [workspaceLabel, setWorkspaceLabel] = useState("");
   const [instruction, setInstruction] = useState("");
   const [startMode, setStartMode] = useState<TrackerTaskStartMode>("run");
   const [rememberDefaults, setRememberDefaults] = useState(false);
@@ -149,6 +153,7 @@ export function useTrackerTaskKickoffDraft(args: {
         }),
       }),
     );
+    setWorkspaceLabel(proposeDispatchWorkspaceLabel(task.title));
     setStartMode(currentSettings.trackerTasks.defaultKickoffStartMode);
     setRememberDefaults(false);
     setCraneWriteBack(
@@ -255,7 +260,13 @@ export function useTrackerTaskKickoffDraft(args: {
         projectPath,
         workspace:
           workspaceStrategy === "new"
-            ? { strategy: "new", branchName: branchName.trim() }
+            ? {
+                strategy: "new",
+                branchName: branchName.trim(),
+                ...(workspaceLabel.trim()
+                  ? { workspaceLabel: workspaceLabel.trim() }
+                  : {}),
+              }
             : { strategy: "existing", workspaceId },
         runtime: runtime.buildRuntimeChoice(),
         instruction: instruction.trim(),
@@ -289,6 +300,8 @@ export function useTrackerTaskKickoffDraft(args: {
     setWorkspaceId,
     branchName,
     setBranchName,
+    workspaceLabel,
+    setWorkspaceLabel,
     instruction,
     setInstruction,
     resetInstruction: () => {

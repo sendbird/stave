@@ -272,6 +272,7 @@ export const CraneDispatchWorkspaceChoiceSchema = z.discriminatedUnion(
       .object({
         strategy: z.literal("new"),
         branchName: z.string().trim().min(1).max(160),
+        workspaceLabel: z.string().trim().min(1).max(80).optional(),
       })
       .strict(),
     z

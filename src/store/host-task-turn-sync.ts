@@ -29,6 +29,49 @@ import {
 } from "@/store/workspace-session-state";
 import { TASK_MESSAGES_PAGE_SIZE } from "@/store/task-message-loading";
 import { trimPersistedMessageWindow } from "@/store/resident-message-budget";
+import type { ChatMessage } from "@/types/chat";
+
+/**
+ * Snapshot hydration seals `isStreaming` so a crashed restore cannot leave an
+ * open CoT. Host-owned turns reload that same page mid-turn, which would
+ * otherwise show cleaned interim below a still-running turn. Reopen only the
+ * unfinished assistant bubble for the live turn.
+ */
+export function restoreActiveTurnStreaming(args: {
+  messages: ChatMessage[];
+  activeTurnId: string | undefined;
+}): ChatMessage[] {
+  if (!args.activeTurnId) {
+    return args.messages;
+  }
+
+  let targetIndex = -1;
+  for (let index = args.messages.length - 1; index >= 0; index -= 1) {
+    const message = args.messages[index];
+    if (!message || message.role !== "assistant") {
+      continue;
+    }
+    if (message.turnId && message.turnId !== args.activeTurnId) {
+      continue;
+    }
+    // Plan / history splits finalize the prior bubble. Do not reopen it.
+    if (message.completedAt) {
+      continue;
+    }
+    targetIndex = index;
+    break;
+  }
+  if (targetIndex < 0) {
+    return args.messages;
+  }
+  const target = args.messages[targetIndex];
+  if (!target || target.isStreaming) {
+    return args.messages;
+  }
+  const next = args.messages.slice();
+  next[targetIndex] = { ...target, isStreaming: true };
+  return next;
+}
 
 type HostTaskTurnStoreState = Parameters<
   typeof createWorkspaceSessionStateFromAppState
@@ -69,6 +112,7 @@ export async function loadHostTaskTurn(
       taskId: update.taskId,
       limit: TASK_MESSAGES_PAGE_SIZE,
       offset: 0,
+      preserveStreaming: !update.done,
     }),
   ]);
   if (!shell || !shell.tasks.some((task) => task.id === update.taskId)) {
@@ -142,7 +186,12 @@ function mergePersistedTaskIntoSession(args: {
         : {}),
       messagesByTask: {
         ...args.currentSession.messagesByTask,
-        [args.update.taskId]: args.loaded.messages,
+        [args.update.taskId]: restoreActiveTurnStreaming({
+          messages: args.loaded.messages,
+          activeTurnId: args.update.done
+            ? undefined
+            : args.update.turnId,
+        }),
       },
       messageCountByTask: {
         ...args.currentSession.messageCountByTask,

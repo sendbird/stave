@@ -132,6 +132,8 @@ export function TrackerTaskKickoffSheet(props: TrackerTaskKickoffSheetProps) {
             onWorkspaceIdChange={draft.setWorkspaceId}
             branchName={draft.branchName}
             onBranchNameChange={draft.setBranchName}
+            workspaceLabel={draft.workspaceLabel}
+            onWorkspaceLabelChange={draft.setWorkspaceLabel}
           />
 
           <section

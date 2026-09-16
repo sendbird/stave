@@ -64,10 +64,20 @@ export function useTrackerTaskActions(args: {
       if (!target.taskId) {
         // A staged kickoff has a workspace but no task yet, so the useful move
         // is to open that workspace rather than fail silently.
-        void useAppStore
-          .getState()
-          .switchWorkspace({ workspaceId: target.workspaceId })
-          .then(closeSurface)
+        void (async () => {
+          const store = useAppStore.getState();
+          if (
+            !store.workspaces.some(
+              (workspace) => workspace.id === target.workspaceId,
+            )
+          ) {
+            await store.refreshWorkspaces();
+          }
+          await useAppStore
+            .getState()
+            .switchWorkspace({ workspaceId: target.workspaceId });
+          closeSurface();
+        })()
           .catch(() => {
             toast.error("Could not open the workspace.");
           });
@@ -121,7 +131,16 @@ export function useTrackerTaskActions(args: {
       // Staging is a composer draft, which only the renderer can create: main
       // hands back the title and prompt and the workspace it prepared.
       try {
-        await store.switchWorkspace({ workspaceId: result.workspaceId });
+        if (
+          !store.workspaces.some(
+            (workspace) => workspace.id === result.workspaceId,
+          )
+        ) {
+          await store.refreshWorkspaces();
+        }
+        await useAppStore
+          .getState()
+          .switchWorkspace({ workspaceId: result.workspaceId });
       } catch {
         toast.error("Prepared the workspace, but could not open it.");
         return;

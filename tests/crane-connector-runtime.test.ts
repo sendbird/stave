@@ -84,6 +84,7 @@ function createHarness(options?: {
   const jobUpdates: unknown[] = [];
   const timers: Array<() => void> = [];
   const runCalls: unknown[] = [];
+  const createWorkspaceCalls: unknown[] = [];
   const registerIssueCalls: unknown[] = [];
   const releasedTasks: unknown[] = [];
   const taskStatusCalls: unknown[] = [];
@@ -252,14 +253,17 @@ function createHarness(options?: {
         ],
       },
     ],
-    createWorkspace: async () => ({
-      workspaceId: "workspace-crane",
-      workspaceName: "crane/crane-42",
-      workspacePath: "/tmp/project/.stave/workspaces/crane-42",
-      branch: "crane/crane-42",
-      projectPath: "/tmp/project",
-      projectName: "project",
-    }),
+    createWorkspace: async (args: unknown) => {
+      createWorkspaceCalls.push(args);
+      return {
+        workspaceId: "workspace-crane",
+        workspaceName: "crane/crane-42",
+        workspacePath: "/tmp/project/.stave/workspaces/crane-42",
+        branch: "crane/crane-42",
+        projectPath: "/tmp/project",
+        projectName: "project",
+      };
+    },
     runTask: async (args: unknown) => {
       runCalls.push(args);
       return {
@@ -352,6 +356,7 @@ function createHarness(options?: {
     receipts,
     registerIssueCalls,
     releasedTasks,
+    createWorkspaceCalls,
     runCalls,
     runtime,
     runNextTimer,
@@ -553,6 +558,10 @@ describe("CraneConnectorRuntime", () => {
       },
     });
 
+    expect(harness.createWorkspaceCalls[0]).toMatchObject({
+      name: "crane/dfe-2898",
+      label: "Fix the connector",
+    });
     expect(harness.runCalls[0]).toMatchObject({
       title: "DFE-2898: Fix the connector",
     });

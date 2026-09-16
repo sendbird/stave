@@ -3,7 +3,10 @@ import {
   MAX_FILE_CONTEXT_CONTENT_CHARS,
   MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS,
 } from "@/lib/file-context-sanitization";
-import { normalizeMessagesForSnapshot } from "@/lib/task-context/message-normalization";
+import {
+  normalizeMessagesForSnapshot,
+  sanitizeMessagesForLoad,
+} from "@/lib/task-context/message-normalization";
 import { trimLoadedTaskMessages } from "@/store/task-message-loading";
 
 describe("normalizeMessagesForSnapshot", () => {
@@ -213,6 +216,81 @@ describe("normalizeMessagesForSnapshot", () => {
     expect(normalizedPart.description.length).toBeLessThanOrEqual(
       MAX_PROVIDER_APPROVAL_DESCRIPTION_CHARS,
     );
+  });
+});
+
+describe("sanitizeMessagesForLoad", () => {
+  test("keeps a live assistant turn streaming", () => {
+    const sanitized = sanitizeMessagesForLoad({
+      messagesByTask: {
+        "task-1": [
+          {
+            id: "m-1",
+            role: "assistant",
+            model: "claude-sonnet",
+            providerId: "claude-code",
+            content: "Inspecting the repo.",
+            isStreaming: true,
+            parts: [
+              { type: "thinking", text: "Checking files.", isStreaming: true },
+              {
+                type: "tool_use",
+                toolName: "Read",
+                input: "src/app.ts",
+                state: "input-streaming",
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(sanitized["task-1"]?.[0]?.isStreaming).toBe(true);
+    expect(sanitized["task-1"]?.[0]?.parts).toEqual([
+      { type: "thinking", text: "Checking files.", isStreaming: true },
+      {
+        type: "tool_use",
+        toolName: "Read",
+        input: "src/app.ts",
+        state: "input-streaming",
+      },
+    ]);
+  });
+
+  test("snapshot sealing still ends streaming flags", () => {
+    const normalized = normalizeMessagesForSnapshot({
+      messagesByTask: {
+        "task-1": [
+          {
+            id: "m-1",
+            role: "assistant",
+            model: "claude-sonnet",
+            providerId: "claude-code",
+            content: "Inspecting the repo.",
+            isStreaming: true,
+            parts: [
+              { type: "thinking", text: "Checking files.", isStreaming: true },
+              {
+                type: "tool_use",
+                toolName: "Read",
+                input: "src/app.ts",
+                state: "input-streaming",
+              },
+            ],
+          },
+        ],
+      },
+    });
+
+    expect(normalized["task-1"]?.[0]?.isStreaming).toBe(false);
+    expect(normalized["task-1"]?.[0]?.parts[0]).toMatchObject({
+      type: "thinking",
+      isStreaming: false,
+    });
+    expect(normalized["task-1"]?.[0]?.parts[1]).toMatchObject({
+      type: "tool_use",
+      state: "input-available",
+    });
   });
 });
 

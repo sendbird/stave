@@ -149,4 +149,76 @@ describe("routine result navigation", () => {
       messages.map((message) => message.content),
     );
   });
+
+  test("refreshes the workspace list before focusing a host-created workspace", async () => {
+    const localStorage = createMemoryStorage();
+    let refreshCount = 0;
+    let switchedWorkspaceId: string | null = null;
+    (globalThis as { window?: unknown }).window = {
+      localStorage,
+      setTimeout: globalThis.setTimeout.bind(globalThis),
+      clearTimeout: globalThis.clearTimeout.bind(globalThis),
+      api: {
+        persistence: {
+          listWorkspaces: async () => ({ ok: true, rows: [] }),
+          loadWorkspace: async () => ({ ok: true, snapshot: null }),
+          upsertWorkspace: async () => ({ ok: true }),
+        },
+      },
+    };
+
+    const { useAppStore } = await import("../src/store/app.store");
+    const initialState = useAppStore.getInitialState();
+    const currentWorkspace = {
+      id: "routine-workspace",
+      name: "Main",
+      updatedAt: "2026-07-23T00:00:00.000Z",
+    };
+    useAppStore.setState({
+      ...initialState,
+      hasHydratedWorkspaces: true,
+      projectPath: "/tmp/routine-project",
+      projectName: "routine-project",
+      workspaces: [currentWorkspace],
+      activeWorkspaceId: "routine-workspace",
+      workspacePathById: {
+        "routine-workspace": "/tmp/routine-project",
+      },
+      workspaceBranchById: { "routine-workspace": "main" },
+      workspaceDefaultById: { "routine-workspace": true },
+      tasks: [],
+      activeTaskId: "",
+      refreshWorkspaces: async () => {
+        refreshCount += 1;
+        useAppStore.setState((current) => ({
+          workspaces: [
+            ...current.workspaces,
+            {
+              id: "workspace-new",
+              name: "Fix the connector",
+              updatedAt: "2026-07-23T00:01:00.000Z",
+            },
+          ],
+          workspacePathById: {
+            ...current.workspacePathById,
+            "workspace-new": "/tmp/routine-project/.stave/workspaces/new",
+          },
+        }));
+      },
+      switchWorkspace: async ({ workspaceId }) => {
+        switchedWorkspaceId = workspaceId;
+        useAppStore.setState({ activeWorkspaceId: workspaceId });
+      },
+    });
+
+    await useAppStore.getState().focusTaskAttention({
+      taskId: "task-new",
+      workspaceId: "workspace-new",
+      projectPath: "/tmp/routine-project",
+    });
+
+    expect(refreshCount).toBe(1);
+    expect(switchedWorkspaceId).toBe("workspace-new");
+    expect(useAppStore.getState().activeWorkspaceId).toBe("workspace-new");
+  });
 });

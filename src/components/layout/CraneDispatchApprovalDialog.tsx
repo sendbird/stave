@@ -35,6 +35,7 @@ import {
   buildCraneDispatchBranchName,
   resolveCraneJiraReference,
 } from "@/lib/crane-connector/jira-reference";
+import { proposeDispatchWorkspaceLabel } from "@/lib/crane-connector/workspace-label";
 import {
   findMappedCraneTeamRuntime,
   findMappedStaveProjectPath,
@@ -58,6 +59,7 @@ export function CraneDispatchApprovalDialog() {
     useState<DispatchWorkspaceStrategy>("new");
   const [workspaceId, setWorkspaceId] = useState("");
   const [branchName, setBranchName] = useState("");
+  const [workspaceLabel, setWorkspaceLabel] = useState("");
   const runtime = useDispatchRuntimeDraft({
     settings,
     providerAvailability,
@@ -118,6 +120,7 @@ export function CraneDispatchApprovalDialog() {
     setWorkspaceStrategy("new");
     setWorkspaceId("");
     setBranchName(buildCraneDispatchBranchName(approval.job));
+    setWorkspaceLabel(proposeDispatchWorkspaceLabel(approval.job.issue.title));
     seed({
       settings: currentSettings,
       draftProvider: store.draftProvider,
@@ -205,7 +208,13 @@ export function CraneDispatchApprovalDialog() {
         projectPath,
         workspace:
           workspaceStrategy === "new"
-            ? { strategy: "new", branchName: branchName.trim() }
+            ? {
+                strategy: "new",
+                branchName: branchName.trim(),
+                ...(workspaceLabel.trim()
+                  ? { workspaceLabel: workspaceLabel.trim() }
+                  : {}),
+              }
             : { strategy: "existing", workspaceId },
         runtime: runtime.buildRuntimeChoice(),
       });
@@ -372,6 +381,8 @@ export function CraneDispatchApprovalDialog() {
             onWorkspaceIdChange={setWorkspaceId}
             branchName={branchName}
             onBranchNameChange={setBranchName}
+            workspaceLabel={workspaceLabel}
+            onWorkspaceLabelChange={setWorkspaceLabel}
           />
 
           <DispatchRuntimeFields

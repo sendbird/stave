@@ -25,6 +25,28 @@ function normalizeMessagePart(args: {
   return sanitizeMessagePartPayload(part);
 }
 
+/**
+ * Sanitize durable message payloads without sealing a live turn. Host-owned
+ * turns reload from SQLite on every event; sealing here would collapse CoT and
+ * promote interim text as if the turn had already finished.
+ */
+export function sanitizeMessagesForLoad(args: {
+  messagesByTask: Record<string, ChatMessage[]>;
+}): Record<string, ChatMessage[]> {
+  const out: Record<string, ChatMessage[]> = {};
+
+  for (const [taskId, messages] of Object.entries(args.messagesByTask)) {
+    out[taskId] = messages.map((message) =>
+      sanitizeChatMessagePayload({
+        ...message,
+        parts: message.parts.map((part) => sanitizeMessagePartPayload(part)),
+      }),
+    );
+  }
+
+  return out;
+}
+
 export function normalizeMessagesForSnapshot(args: {
   messagesByTask: Record<string, ChatMessage[]>;
 }): Record<string, ChatMessage[]> {

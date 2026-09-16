@@ -528,6 +528,18 @@ function openMessageAfterPlan(args: {
   };
 }
 
+function lastAssistantModelInfo(
+  messages: ChatMessage[],
+): TurnModelInfo | undefined {
+  for (let index = messages.length - 1; index >= 0; index -= 1) {
+    const message = messages[index];
+    if (message?.role === "assistant" && message.modelInfo) {
+      return message.modelInfo;
+    }
+  }
+  return undefined;
+}
+
 function createStreamingAssistantMessage(args: {
   taskId: string;
   count: number;
@@ -1189,12 +1201,14 @@ export function replayProviderEventsToTaskState(args: {
             current[targetIndex]?.turnId !== args.turnId &&
             !current[targetIndex]?.isStreaming))
       ) {
+        const inheritedModelInfo = lastAssistantModelInfo(current);
         const assistant = createStreamingAssistantMessage({
           taskId: args.taskId,
           count: current.length + messageIndexOffset,
           provider: args.provider,
           model: args.model,
           turnId: args.turnId,
+          ...(inheritedModelInfo ? { modelInfo: inheritedModelInfo } : {}),
         });
         current = [...current, assistant];
         targetIndex = current.length - 1;
@@ -1257,12 +1271,14 @@ export function replayProviderEventsToTaskState(args: {
         target.turnId !== args.turnId &&
         (target.turnId || !target.isStreaming))
     ) {
+      const inheritedModelInfo = lastAssistantModelInfo(current);
       target = createStreamingAssistantMessage({
         taskId: args.taskId,
         count: current.length + messageIndexOffset,
         provider: args.provider,
         model: args.model,
         turnId: args.turnId,
+        ...(inheritedModelInfo ? { modelInfo: inheritedModelInfo } : {}),
       });
       current = [...current, target];
       changed = true;
