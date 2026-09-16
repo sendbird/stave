@@ -4,6 +4,7 @@ import type {
 } from "../lib/providers/provider.types";
 import type { AppSettings } from "./app-settings";
 import type { WorkspaceSessionState } from "./workspace-session-state";
+import type { PromptDraftRuntimeOverrides } from "../types/chat";
 import {
   buildProviderBrowserFallbackPrompt,
   isPlainWebFetchToolName,
@@ -32,6 +33,7 @@ export function createWebFetchAuthWallTracker(context: {
   prompt: string;
   turnOrigin: "conversation" | "utility";
   runtimeOptions: ProviderRuntimeOptions;
+  runtimeOverrides?: PromptDraftRuntimeOverrides;
 }) {
   const urlByToolUseId = new Map<string, string | null>();
   const blockedUrls = new Set<string>();
@@ -126,6 +128,7 @@ interface ProviderBrowserFallbackStoreSnapshot {
     content: string;
     turnOrigin: "conversation" | "utility";
     preservePromptDraft?: boolean;
+    runtimeOverrides?: PromptDraftRuntimeOverrides;
   }) => Promise<unknown>;
 }
 
@@ -176,5 +179,6 @@ export function maybeStartProviderBrowserFallbackTurn<
     }),
     turnOrigin: "utility",
     preservePromptDraft: true,
+    runtimeOverrides: context.runtimeOverrides,
   });
 }

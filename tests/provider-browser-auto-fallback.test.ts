@@ -151,7 +151,11 @@ describe("maybeStartProviderBrowserFallbackTurn", () => {
   };
 
   const stubStore = (autoFallback: boolean) => {
-    const sent: Array<{ content: string; turnOrigin: string }> = [];
+    const sent: Array<{
+      content: string;
+      turnOrigin: string;
+      runtimeOverrides?: { autoRouting?: boolean };
+    }> = [];
     return {
       sent,
       getState: () => ({
@@ -182,6 +186,17 @@ describe("maybeStartProviderBrowserFallbackTurn", () => {
     );
     // A Stave-authored turn must not re-run the task's armed Advisor.
     expect(store.sent[0]?.turnOrigin).toBe("utility");
+  });
+
+  test("retries with the completed turn's Auto selection", () => {
+    const store = stubStore(true);
+    maybeStartProviderBrowserFallbackTurn(store.getState, {
+      taskId: "task-1",
+      events: [{ type: "done", stop_reason: "end_turn" }],
+      tracker: blockedTracker({ runtimeOverrides: { autoRouting: true } }),
+      session: null,
+    });
+    expect(store.sent[0]?.runtimeOverrides).toEqual({ autoRouting: true });
   });
 
   test("stays silent when the setting is off", () => {

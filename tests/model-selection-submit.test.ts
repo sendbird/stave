@@ -5,7 +5,10 @@ import { describe, expect, test } from "bun:test";
 import { buildModelSelectionRuntimeOverrides } from "@/lib/providers/model-effort";
 import { defaultSettings } from "@/store/app-settings";
 import { buildPromptDraftForSend } from "@/store/prompt-draft-send";
-import { resolvePromptDraftRuntimeState } from "@/store/prompt-draft-runtime";
+import {
+  applyAutoRoutingPlanMode,
+  resolvePromptDraftRuntimeState,
+} from "@/store/prompt-draft-runtime";
 import { buildProviderRuntimeOptions } from "@/store/provider-runtime-options";
 import { RuntimeOptionsObjectSchema } from "../electron/main/ipc/schemas";
 import { buildCodexTurnStartParams } from "../electron/providers/codex-app-server-params";
@@ -177,5 +180,102 @@ describe("queued effort snapshots", () => {
       queuedTurn: legacy,
     });
     expect(sent.runtimeOverrides?.codexReasoningEffort).toBe("high");
+    expect(sent.runtimeOverrides?.autoRouting).toBe(false);
+    expect(sent.runtimeOverrides?.modelProviderId).toBe("codex");
+  });
+
+  test("Stave Auto queue items do not pin Cursor Auto and keep routing on send", () => {
+    const queued = buildQueuedTurnFromDraft({
+      draft: {
+        text: "Queued auto follow-up",
+        attachedFilePaths: [],
+        attachments: [],
+        runtimeOverrides: { autoRouting: true, cursorEffort: "medium" },
+      },
+      providerId: "cursor",
+      model: "auto",
+      autoRouting: true,
+      settings: defaultSettings,
+    });
+    expect(queued).toMatchObject({
+      autoRouting: true,
+      content: "Queued auto follow-up",
+    });
+    expect(queued.providerId).toBeUndefined();
+    expect(queued.model).toBeUndefined();
+    expect(queued.effort).toBeUndefined();
+
+    const submitted = buildPromptDraftForSend({
+      content: queued.content,
+      sourceDraft: {
+        text: "Composer switched to Cursor",
+        attachedFilePaths: [],
+        attachments: [],
+        runtimeOverrides: {
+          autoRouting: false,
+          model: "auto",
+          modelProviderId: "cursor",
+          cursorEffort: "high",
+        },
+        queuedTurns: [queued],
+      },
+      queuedTurn: queued,
+    });
+    expect(submitted.runtimeOverrides?.autoRouting).toBe(true);
+    expect(submitted.runtimeOverrides?.model).toBeUndefined();
+    expect(submitted.runtimeOverrides?.modelProviderId).toBeUndefined();
+  });
+
+  test("Stave Auto keeps queue-time plan intent and applies it to the routed provider", () => {
+    const queued = buildQueuedTurnFromDraft({
+      draft: {
+        text: "Plan the migration",
+        attachedFilePaths: [],
+        attachments: [],
+        runtimeOverrides: {
+          autoRouting: true,
+          autoRoutingPlanMode: true,
+          cursorMode: "plan",
+        },
+      },
+      autoRouting: true,
+    });
+    expect(queued.autoRoutingPlanMode).toBe(true);
+    const submitted = buildPromptDraftForSend({
+      content: queued.content,
+      sourceDraft: {
+        text: "",
+        attachedFilePaths: [],
+        attachments: [],
+        runtimeOverrides: { autoRouting: true, autoRoutingPlanMode: false },
+      },
+      queuedTurn: queued,
+    });
+    expect(submitted.runtimeOverrides?.autoRoutingPlanMode).toBe(true);
+    const runtimeState = resolvePromptDraftRuntimeState({
+      promptDraft: submitted,
+      fallback: defaultSettings,
+    });
+    expect(
+      applyAutoRoutingPlanMode({
+        providerId: "codex",
+        runtimeOverrides: submitted.runtimeOverrides,
+        runtimeState,
+      }).codexPlanMode,
+    ).toBe(true);
+    expect(
+      applyAutoRoutingPlanMode({
+        providerId: "claude-code",
+        runtimeOverrides: submitted.runtimeOverrides,
+        runtimeState,
+      }).claudePermissionMode,
+    ).toBe("plan");
+    expect(
+      applyAutoRoutingPlanMode({
+        providerId: "codex",
+        runtimeOverrides: { autoRouting: true, autoRoutingPlanMode: false },
+        runtimeState: { ...runtimeState, codexPlanMode: true },
+      }).codexPlanMode,
+    ).toBe(false);
   });
 });

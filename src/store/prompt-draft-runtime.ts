@@ -21,6 +21,39 @@ export interface ResolvedPromptDraftRuntimeState {
   boundSecretIds?: string[];
 }
 
+export function applyAutoRoutingPlanMode(args: {
+  providerId: ProviderId;
+  runtimeOverrides?: PromptDraftRuntimeOverrides;
+  runtimeState: ResolvedPromptDraftRuntimeState;
+}): ResolvedPromptDraftRuntimeState {
+  if (args.runtimeOverrides?.autoRouting !== true) {
+    return args.runtimeState;
+  }
+  const planMode = args.runtimeOverrides.autoRoutingPlanMode === true;
+  return {
+    ...args.runtimeState,
+    ...(args.providerId === "claude-code"
+      ? {
+          claudePermissionMode: planMode
+            ? ("plan" as const)
+            : args.runtimeState.claudePermissionMode === "plan"
+              ? (args.runtimeState.claudePermissionModeBeforePlan ?? "auto")
+              : args.runtimeState.claudePermissionMode,
+        }
+      : {}),
+    ...(args.providerId === "codex" ? { codexPlanMode: planMode } : {}),
+    ...(args.providerId === "cursor"
+      ? {
+          cursorMode: planMode
+            ? ("plan" as const)
+            : args.runtimeState.cursorMode === "plan"
+              ? ("agent" as const)
+              : args.runtimeState.cursorMode,
+        }
+      : {}),
+  };
+}
+
 export function resolvePromptDraftRuntimeState(args: {
   promptDraft?: { runtimeOverrides?: PromptDraftRuntimeOverrides } | null;
   fallback: Omit<ResolvedPromptDraftRuntimeState, "cursorMode"> & {
@@ -312,6 +345,7 @@ export function arePromptDraftRuntimeOverridesEqual(
     left?.cursorFastMode === right?.cursorFastMode &&
     left?.kiroEffort === right?.kiroEffort &&
     left?.autoRouting === right?.autoRouting &&
+    left?.autoRoutingPlanMode === right?.autoRoutingPlanMode &&
     left?.advisorEnabled === right?.advisorEnabled &&
     areAdvisorTargetsEqual(left?.advisorTarget, right?.advisorTarget) &&
     areAdvisorTargetsByProviderEqual(

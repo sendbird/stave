@@ -102,6 +102,8 @@ export interface PromptDraftRuntimeOverrides {
   cursorFastMode?: boolean;
   kiroEffort?: "low" | "medium" | "high" | "xhigh" | "max";
   autoRouting?: boolean;
+  /** Plan intent that follows whichever provider Stave Auto selects. */
+  autoRoutingPlanMode?: boolean;
   model?: string;
   /**
    * Provider identity for `model`. Required for catalogs whose model ids
@@ -174,9 +176,10 @@ export interface PromptDraftQueuedTurn {
   attachments: Attachment[];
   /**
    * Provider selected in the composer at the moment this turn was queued.
-   * Auto and manual dispatch run the turn on this provider, so changing the
-   * selector while another turn streams never retargets already-queued turns.
-   * Absent on legacy queue items, which keep following the task's provider.
+   * Manual dispatch runs the turn on this provider, so changing the selector
+   * while another turn streams never retargets already-queued turns.
+   * Absent on legacy queue items, which keep following the task's provider,
+   * and on Stave Auto items which re-route at dispatch instead.
    */
   providerId?: ProviderId;
   /**
@@ -187,6 +190,14 @@ export interface PromptDraftQueuedTurn {
   model?: string;
   /** Effort selected at queue time; absent on legacy queue items. */
   effort?: PromptDraftRuntimeOverrides["codexReasoningEffort"];
+  /**
+   * Composer was on Stave Auto when this turn was queued. Dispatch re-runs
+   * the router instead of pinning the task's current provider/model — that
+   * pin would otherwise freeze Cursor's own `auto` model as "Cursor Auto".
+   */
+  autoRouting?: boolean;
+  /** Queue-time plan intent for a Stave Auto turn. */
+  autoRoutingPlanMode?: boolean;
 }
 
 export interface PromptDraftBatchItem {

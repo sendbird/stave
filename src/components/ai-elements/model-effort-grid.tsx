@@ -41,7 +41,13 @@ function getCellColor(args: {
 }) {
   const range = Math.max(args.count - 1, 1);
   const mix = Math.round(24 + (args.index / range) * 66);
-  return `color-mix(in oklch, ${PROVIDER_ACCENT_COLORS[args.providerId]} ${mix}%, var(--popover))`;
+  // Mixed toward `transparent`, not toward the popover surface. The ADS
+  // neutrals are warm (oklch hue ~89) and most provider accents are not, so
+  // mixing the two in oklch rotates the hue the long way round: Codex's ramp
+  // left olive and arrived cyan. Alpha over the same surface keeps one hue for
+  // every provider — Claude only looked right because orange sits near the
+  // neutral's hue to begin with.
+  return `color-mix(in oklch, ${PROVIDER_ACCENT_COLORS[args.providerId]} ${mix}%, transparent)`;
 }
 
 export function ModelEffortGrid(args: {

@@ -88,4 +88,29 @@ describe("queued turn dispatch labels", () => {
       caption: "Sends with the task's current model",
     });
   });
+
+  test("labels a Stave Auto queue item without calling it Cursor Auto", () => {
+    expect(
+      describeQueuedTurnDispatch({
+        queuedTurn: { autoRouting: true },
+        selection: staveAuto,
+        modelOptions: [cursorAuto],
+      }),
+    ).toEqual({
+      targetLabel: "Stave Auto",
+      composerLabel: "Stave Auto",
+      mismatchesComposer: false,
+      caption: "Sends as Stave Auto",
+    });
+  });
+
+  test("warns when the composer left Stave Auto after the item was queued", () => {
+    expect(
+      describeQueuedTurnDispatch({
+        queuedTurn: { autoRouting: true },
+        selection: claudeOpus,
+        modelOptions: [claudeOpus],
+      }).caption,
+    ).toBe("Sends as Stave Auto, not Claude Opus 4.6");
+  });
 });

@@ -101,6 +101,18 @@ if (preview === "resource-manager") {
       );
     },
   );
+} else if (preview === "model-auto-tab") {
+  void import("@/dev/model-auto-tab-preview").then(
+    ({ ModelAutoTabPreview }) => {
+      root.render(
+        <StrictMode>
+          <StaveDesignProvider>
+            <ModelAutoTabPreview />
+          </StaveDesignProvider>
+        </StrictMode>,
+      );
+    },
+  );
 } else if (preview === "composer-frame") {
   void import("@/dev/composer-frame-preview").then(
     ({ ComposerFramePreviewApp }) => {

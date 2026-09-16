@@ -27,6 +27,7 @@ import { useAppStore } from "@/store/app.store";
 import { sx } from "@/components/ads/utils/stylex";
 import { modelEffortSelectorStyles as styles } from "./model-effort-selector.styles";
 import { SelectionRail } from "@/components/system/SelectionRail";
+import { AutoRoutingProfileList } from "./auto-routing-profile-list";
 import { CursorModelConfigList } from "./cursor-model-config-list";
 import { ModelEffortGrid } from "./model-effort-grid";
 import { ModelIcon } from "./model-icon";
@@ -54,6 +55,14 @@ import {
   shouldOpenModelSelector,
   type ModelSelectorOption,
 } from "./model-selector.utils";
+
+/**
+ * Auto is a rail tab, not a provider. It sits last, below every provider, and
+ * owns its own panel: the router picks the provider itself, so it has no model
+ * list to show and nothing to search.
+ */
+const AUTO_TAB = "auto" as const;
+type RailValue = ProviderId | typeof AUTO_TAB;
 
 export interface ModelSelectorCatalogState {
   status: "idle" | "loading" | "ready" | "error";
@@ -254,6 +263,12 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [showAllModels, setShowAllModels] = useState(false);
+  // Two pieces of state on purpose: `railValue` is the tab that is showing, and
+  // `providerId` remembers the last *provider* tab so leaving Auto and coming
+  // back lands on the model list the user was reading, not on a reset.
+  const [railValue, setRailValue] = useState<RailValue>(
+    args.value.isAuto ? AUTO_TAB : args.value.providerId,
+  );
   const [providerId, setProviderId] = useState<ProviderId>(
     args.value.providerId,
   );
@@ -292,6 +307,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   });
   const cursorParameterized = usesCursorParameterizedPicker(args.options);
   const autoOption = args.options.find((option) => option.isAuto);
+  const isAutoTab = railValue === AUTO_TAB;
   const providerIds = useMemo(
     () =>
       listProviderIds().filter((candidate) =>
@@ -406,11 +422,14 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
         ? getCursorModelPresentation(args.value).label
         : args.value.label;
 
-  const showProvider = (nextProviderId: ProviderId) => {
-    if (nextProviderId === providerId) {
+  const showTab = (next: RailValue) => {
+    if (next === railValue) {
       return;
     }
-    setProviderId(nextProviderId);
+    setRailValue(next);
+    if (next !== AUTO_TAB) {
+      setProviderId(next);
+    }
     setQuery("");
     setShowAllModels(false);
   };
@@ -477,6 +496,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       return;
     }
     resetHandledForOpenRef.current = true;
+    setRailValue(args.value.isAuto ? AUTO_TAB : args.value.providerId);
     setProviderId(
       args.value.isAuto
         ? (providerIds[0] ?? "claude-code")
@@ -581,102 +601,120 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
           className="model-effort-popover"
         >
           <Tabs
-            value={providerId}
-            onValueChange={(value) => showProvider(value as ProviderId)}
+            value={railValue}
+            onValueChange={(value) => showTab(value as RailValue)}
             orientation="vertical"
             className={sx(styles.tabs)}
           >
             <SelectionRail
               label="Model provider"
-              value={providerId}
-              onPreview={(value) => showProvider(value as ProviderId)}
-              items={providerIds.map((candidate) => {
-                const providerModels = args.options.filter(
-                  (option) => !option.isAuto && option.providerId === candidate,
-                );
-                return {
-                  value: candidate,
-                  label: getProviderLabel({ providerId: candidate }),
-                  icon: (
-                    <ModelIcon
-                      providerId={candidate}
-                      className={sx(styles.railIcon)}
-                    />
-                  ),
-                  count:
-                    candidate === "cursor"
-                      ? groupCursorModelOptions(providerModels).length
-                      : providerModels.length,
-                };
-              })}
+              value={railValue}
+              onPreview={(value) => showTab(value as RailValue)}
+              items={[
+                ...providerIds.map((candidate) => {
+                  const providerModels = args.options.filter(
+                    (option) =>
+                      !option.isAuto && option.providerId === candidate,
+                  );
+                  return {
+                    value: candidate as string,
+                    label: getProviderLabel({ providerId: candidate }),
+                    icon: (
+                      <ModelIcon
+                        providerId={candidate}
+                        className={sx(styles.railIcon)}
+                      />
+                    ),
+                    count:
+                      candidate === "cursor"
+                        ? groupCursorModelOptions(providerModels).length
+                        : providerModels.length,
+                  };
+                }),
+                // Last, below every provider: Auto spans them rather than
+                // sitting among them.
+                ...(autoOption
+                  ? [
+                      {
+                        value: AUTO_TAB,
+                        label: "Stave Auto",
+                        icon: (
+                          <Sparkles
+                            className={sx(styles.railAutoIcon)}
+                            aria-hidden="true"
+                          />
+                        ),
+                      },
+                    ]
+                  : []),
+              ]}
             />
 
             <div className={sx(styles.panel)}>
-              <div className={sx(styles.searchBar)}>
-                <div className={sx(styles.searchField)}>
-                  <Search
-                    className={sx(styles.searchIcon)}
-                    aria-hidden="true"
-                  />
-                  <Input
-                    autoFocus
-                    value={query}
-                    onChange={(event) => setQuery(event.target.value)}
-                    aria-label="Search models"
-                    placeholder="Search models"
-                    className={sx(styles.searchInput)}
-                  />
+              {isAutoTab ? null : (
+                <div className={sx(styles.searchBar)}>
+                  <div className={sx(styles.searchField)}>
+                    <Search
+                      className={sx(styles.searchIcon)}
+                      aria-hidden="true"
+                    />
+                    <Input
+                      autoFocus
+                      value={query}
+                      onChange={(event) => setQuery(event.target.value)}
+                      aria-label="Search models"
+                      placeholder="Search models"
+                      className={sx(styles.searchInput)}
+                    />
+                  </div>
+                  {args.onRefreshCatalogs && catalog && isRuntimeCatalog ? (
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      aria-label="Refresh model catalog"
+                      title="Refresh model catalog"
+                      disabled={args.disabled || catalog.status === "loading"}
+                      onClick={() => args.onRefreshCatalogs?.()}
+                      className={sx(styles.actionButton)}
+                    >
+                      <RefreshCcw
+                        className={sx(
+                          styles.refreshIcon,
+                          catalog.status === "loading" &&
+                            styles.refreshIconSpinning,
+                        )}
+                        aria-hidden="true"
+                      />
+                      <span className={sx(styles.refreshLabel)}>Refresh</span>
+                    </Button>
+                  ) : null}
                 </div>
-                {args.onRefreshCatalogs && catalog && isRuntimeCatalog ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Refresh model catalog"
-                    title="Refresh model catalog"
-                    disabled={args.disabled || catalog.status === "loading"}
-                    onClick={() => args.onRefreshCatalogs?.()}
-                    className={sx(styles.actionButton)}
-                  >
-                    <RefreshCcw
-                      className={sx(
-                        styles.refreshIcon,
-                        catalog.status === "loading" &&
-                          styles.refreshIconSpinning,
-                      )}
-                      aria-hidden="true"
-                    />
-                    <span className={sx(styles.refreshLabel)}>Refresh</span>
-                  </Button>
-                ) : null}
-                {autoOption ? (
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="sm"
-                    aria-label="Stave Auto"
-                    aria-pressed={Boolean(args.value.isAuto)}
-                    disabled={args.disabled || !autoOption.available}
-                    onClick={() => chooseModel(autoOption)}
-                    className={sx(
-                      styles.actionButtonAuto,
-                      args.value.isAuto && styles.actionButtonAutoActive,
-                    )}
-                  >
-                    <Sparkles
-                      className={sx(styles.autoIcon)}
-                      aria-hidden="true"
-                    />
-                    Auto
-                  </Button>
-                ) : null}
-              </div>
+              )}
 
-              <CatalogNotice
-                catalog={catalog}
-                selectedMissing={selectedMissing}
-                onRefresh={args.onRefreshCatalogs}
-              />
+              {isAutoTab ? null : (
+                <CatalogNotice
+                  catalog={catalog}
+                  selectedMissing={selectedMissing}
+                  onRefresh={args.onRefreshCatalogs}
+                />
+              )}
+
+              {autoOption ? (
+                <TabsContent value={AUTO_TAB} xstyle={styles.tabContentAuto}>
+                  {isAutoTab ? (
+                    <AutoRoutingProfileList
+                      {...(autoOption.description
+                        ? { description: autoOption.description }
+                        : {})}
+                      available={autoOption.available}
+                      selected={Boolean(args.value.isAuto)}
+                      disabled={args.disabled}
+                      onChoose={() => chooseModel(autoOption)}
+                    />
+                  ) : null}
+                </TabsContent>
+              ) : null}
 
               {providerIds.map((candidate) => (
                 <TabsContent
@@ -741,7 +779,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                 </TabsContent>
               ))}
 
-              {canToggleAllModels ? (
+              {canToggleAllModels && !isAutoTab ? (
                 <div className={sx(styles.showAllFooter)}>
                   <AdsButton
                     layout="host"

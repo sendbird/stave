@@ -40,7 +40,11 @@ function getEffortShortLabel(label: string) {
 function getEffortColor(index: number) {
   const range = Math.max(CURSOR_MODEL_EFFORT_OPTIONS.length - 1, 1);
   const mix = Math.round(24 + (index / range) * 66);
-  return `color-mix(in oklch, ${CURSOR_ACCENT_COLOR} ${mix}%, var(--popover))`;
+  // Alpha over the surface, not a mix toward it — see `getCellColor` in
+  // model-effort-grid.tsx for why mixing a provider accent into the warm ADS
+  // neutral rotates the hue. Kept identical here so the two effort ramps in the
+  // same popover stay in step.
+  return `color-mix(in oklch, ${CURSOR_ACCENT_COLOR} ${mix}%, transparent)`;
 }
 
 function getAnchorVariant(args: {

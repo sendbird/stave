@@ -333,6 +333,7 @@ const PromptDraftRuntimeOverridesSchema = z.object({
     ])
     .optional(),
   autoRouting: z.boolean().optional(),
+  autoRoutingPlanMode: z.boolean().optional(),
   boundSecretIds: z.array(z.string().uuid()).optional(),
   // Per-task Advisor arming. `advisorEnabled` is stored separately from
   // `advisorTarget` so turning the Advisor off keeps the remembered model.
@@ -475,6 +476,8 @@ const PromptDraftQueuedTurnSchema = z
     effort: PromptDraftRuntimeOverridesSchema.shape.codexReasoningEffort.catch(
       undefined,
     ),
+    autoRouting: z.boolean().optional().catch(undefined),
+    autoRoutingPlanMode: z.boolean().optional().catch(undefined),
   })
   .strict();
 

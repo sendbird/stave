@@ -195,18 +195,6 @@ export const modelEffortSelectorStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
-  actionButtonAuto: {
-    height: vars["--ads-control-height"],
-    flexShrink: 0,
-    gap: "0.375rem",
-    paddingInline: vars["--ads-space-8"],
-    fontSize: vars["--ads-font-size-caption"],
-    color: vars["--ads-color-text-muted"],
-  },
-  actionButtonAutoActive: {
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-accent"]} 10%, transparent)`,
-    color: vars["--ads-color-accent"],
-  },
   refreshIcon: { width: "0.875rem", height: "0.875rem" },
   refreshIconSpinning: {
     animationName: spin,
@@ -216,7 +204,6 @@ export const modelEffortSelectorStyles = stylex.create({
     "@media (prefers-reduced-motion: reduce)": { animationName: "none" },
   },
   refreshLabel: { display: { default: "none", [mq480]: "inline" } },
-  autoIcon: { width: "0.875rem", height: "0.875rem" },
 
   hint: {
     flexShrink: 0,
@@ -273,6 +260,14 @@ export const modelEffortSelectorStyles = stylex.create({
     minHeight: 0,
     overflowY: "auto",
     overscrollBehavior: "contain",
+  },
+  // The Auto tab owns the whole panel (no search row above it), so its content
+  // stretches instead of scrolling: all four profile rows stay in view.
+  tabContentAuto: {
+    display: "flex",
+    minHeight: 0,
+    flex: 1,
+    flexDirection: "column",
   },
   empty: {
     display: "flex",
@@ -400,4 +395,9 @@ export const modelEffortSelectorStyles = stylex.create({
     color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 75%, transparent)`,
   },
   railIcon: { width: vars["--ads-control-icon-size-sm"], height: vars["--ads-control-icon-size-sm"] },
+  railAutoIcon: {
+    width: vars["--ads-control-icon-size-sm"],
+    height: vars["--ads-control-icon-size-sm"],
+    color: vars["--ads-color-accent"],
+  },
 });

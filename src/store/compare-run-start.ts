@@ -114,6 +114,7 @@ export async function launchCompareRunVariants(args: {
         args.setTaskRuntimeOverrides({
           taskId: candidate.taskId,
           runtimeOverrides: {
+            autoRouting: false,
             model,
             ...buildModelEffortRuntimeOverrides({
               providerId: variant.provider,

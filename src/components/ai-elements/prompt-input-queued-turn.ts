@@ -6,7 +6,10 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 import type { PromptDraftQueuedTurn } from "@/types/chat";
 import type { ModelSelectorOption } from "./model-selector.utils";
 
-type QueuedTurnTarget = Pick<PromptDraftQueuedTurn, "providerId" | "model">;
+type QueuedTurnTarget = Pick<
+  PromptDraftQueuedTurn,
+  "providerId" | "model" | "autoRouting"
+>;
 type ComposerSelection = Pick<
   ModelSelectorOption,
   "providerId" | "model" | "label" | "isAuto"
@@ -44,6 +47,9 @@ export function formatQueuedTurnTargetLabel(args: {
     "providerId" | "model" | "label"
   >[];
 }) {
+  if (args.queuedTurn.autoRouting) {
+    return "Stave Auto";
+  }
   if (!args.queuedTurn.providerId) {
     return null;
   }
@@ -74,8 +80,14 @@ export function queuedTurnMismatchesComposer(args: {
   queuedTurn: QueuedTurnTarget;
   selection: ComposerSelection;
 }) {
-  if (!args.queuedTurn.providerId || args.selection.isAuto) {
-    return Boolean(args.queuedTurn.providerId && args.selection.isAuto);
+  if (args.queuedTurn.autoRouting) {
+    return args.selection.isAuto !== true;
+  }
+  if (!args.queuedTurn.providerId) {
+    return false;
+  }
+  if (args.selection.isAuto) {
+    return true;
   }
   return (
     args.queuedTurn.providerId !== args.selection.providerId ||

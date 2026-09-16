@@ -50,23 +50,64 @@ export function buildPromptDraftForSend(args: {
     ...(args.runtimeOverrides
       ? { runtimeOverrides: args.runtimeOverrides }
       : undefined),
-    ...(args.queuedTurn?.effort && args.queuedTurn.providerId
-      ? {
-          runtimeOverrides: {
-            ...(args.runtimeOverrides ??
-              (args.storedDraft ?? args.sourceDraft).runtimeOverrides),
-            // A queued selection must not inherit a later switch to Auto.
-            autoRouting: false,
-            ...buildModelEffortRuntimeOverrides({
-              providerId: args.queuedTurn.providerId,
-              model: args.queuedTurn.model ?? "",
-              effort: args.queuedTurn.effort,
-            }),
-          },
-        }
-      : {}),
+    ...queuedTurnDispatchOverrides(args),
     queuedNextTurn: undefined,
   });
+}
+
+function queuedTurnDispatchOverrides(args: {
+  queuedTurn?: PromptDraftQueuedTurn;
+  runtimeOverrides?: PromptDraftRuntimeOverrides;
+  sourceDraft: PromptDraft;
+  storedDraft?: PromptDraft;
+}): { runtimeOverrides: PromptDraftRuntimeOverrides } | Record<string, never> {
+  const queuedTurn = args.queuedTurn;
+  if (!queuedTurn) {
+    return {};
+  }
+  const baseOverrides =
+    args.runtimeOverrides ??
+    (args.storedDraft ?? args.sourceDraft).runtimeOverrides;
+  if (queuedTurn.autoRouting) {
+    const {
+      model: _model,
+      modelProviderId: _modelProviderId,
+      ...rest
+    } = baseOverrides ?? {};
+    return {
+      runtimeOverrides: {
+        ...rest,
+        autoRouting: true,
+        autoRoutingPlanMode: queuedTurn.autoRoutingPlanMode === true,
+      },
+    };
+  }
+  if (!queuedTurn.providerId) {
+    return {};
+  }
+  const {
+    model: _model,
+    modelProviderId: _modelProviderId,
+    autoRoutingPlanMode: _autoRoutingPlanMode,
+    ...rest
+  } = baseOverrides ?? {};
+  return {
+    runtimeOverrides: {
+      ...rest,
+      // A pinned provider/model must not inherit a later switch to Auto.
+      autoRouting: false,
+      ...(queuedTurn.model
+        ? { model: queuedTurn.model, modelProviderId: queuedTurn.providerId }
+        : {}),
+      ...(queuedTurn.effort
+        ? buildModelEffortRuntimeOverrides({
+            providerId: queuedTurn.providerId,
+            model: queuedTurn.model ?? "",
+            effort: queuedTurn.effort,
+          })
+        : {}),
+    },
+  };
 }
 
 export function resolvePromptDraftSendState(args: {
