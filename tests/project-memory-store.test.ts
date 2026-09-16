@@ -10,6 +10,14 @@ import { buildProjectMemoryRetrievedContextPart } from "../src/lib/task-context/
 
 const PROJECT_P = "/tmp/stave-memory/project-p";
 const PROJECT_Q = "/tmp/stave-memory/project-q";
+function enableCollection(database: Database) {
+  for (const projectPath of [PROJECT_P, PROJECT_Q]) {
+    database.prepare(`INSERT INTO project_memory_settings
+      (project_path, settings_json, collection_opt_in) VALUES (?, ?, 1)`)
+      .run(projectPath, JSON.stringify({ collectAutomatically: true }));
+  }
+}
+
 const NOW = Date.parse("2026-09-03T00:00:00.000Z");
 
 function seedDistinctFacts(args: {
@@ -50,6 +58,7 @@ describe("ProjectMemoryStore", () => {
   beforeEach(() => {
     database = new Database(":memory:");
     store = new ProjectMemoryStore(database);
+    enableCollection(database);
   });
 
   test("uses the FTS5 trigram index when the SQLite build has it", () => {
@@ -297,7 +306,9 @@ describe("ProjectMemoryStore", () => {
 describe("curated memory lifecycle", () => {
   function setup() {
     const database = new Database(":memory:");
-    return { database, store: new ProjectMemoryStore(database) };
+    const store = new ProjectMemoryStore(database);
+    enableCollection(database);
+    return { database, store };
   }
 
   test("candidates never enter recall, including matching and repeated extraction", () => {

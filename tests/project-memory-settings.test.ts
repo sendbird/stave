@@ -20,6 +20,13 @@ describe("project memory controls", () => {
   });
   afterEach(() => db.close());
 
+  function enableCollection(projectPath = PROJECT) {
+    db.prepare(
+      `INSERT INTO project_memory_settings
+      (project_path, settings_json, collection_opt_in) VALUES (?, ?, 1)`,
+    ).run(projectPath, JSON.stringify({ collectAutomatically: true }));
+  }
+
   const candidate = (overrides: Record<string, unknown> = {}) => ({
     projectPath: PROJECT,
     kind: "gotcha" as const,
@@ -27,6 +34,95 @@ describe("project memory controls", () => {
     confidence: 0.6,
     now: NOW,
     ...overrides,
+  });
+
+  test("new projects reject both summary and agent saves until explicit opt-in", () => {
+    expect(store.settings.get(PROJECT).collectAutomatically).toBe(false);
+    expect(
+      buildMemoryCollectionInstruction(store.settings.get(PROJECT)),
+    ).toContain("durableFacts: []");
+    for (const confidence of [0.6, 0.9]) {
+      expect(store.remember(candidate({ confidence }))).toBeNull();
+    }
+    const settings = store.settings.save({
+      projectPath: PROJECT,
+      expectedRevision: 0,
+      patch: { collectAutomatically: true },
+    });
+    expect(
+      new ProjectMemoryStore(db).settings.get(PROJECT).collectAutomatically,
+    ).toBe(true);
+    expect(store.settings.get(OTHER).collectAutomatically).toBe(false);
+    expect(store.remember(candidate({ collectionRevision: 0 }))).toBeNull();
+    expect(
+      store.remember(candidate({ collectionRevision: settings.revision })),
+    ).not.toBeNull();
+    expect(
+      store.remember(
+        candidate({ confidence: 0.9, content: "Keep stable task ownership." }),
+      ),
+    ).not.toBeNull();
+    store.settings.save({
+      projectPath: PROJECT,
+      expectedRevision: 1,
+      patch: { collectAutomatically: false },
+    });
+    expect(
+      store.remember(
+        candidate({ collectionRevision: 1, content: "In-flight candidate." }),
+      ),
+    ).toBeNull();
+    expect(
+      store.remember(
+        candidate({ confidence: 0.9, content: "Agent write after disabling." }),
+      ),
+    ).toBeNull();
+    expect(store.list({ projectPath: PROJECT })).toHaveLength(2);
+  });
+
+  test("legacy enabled defaults require fresh consent without losing settings or memories", () => {
+    enableCollection();
+    const memory = store.remember(candidate({ confidence: 0.9 }))!.memory;
+    // Recreate the pre-opt-in settings table, including a saved enabled default.
+    db.exec("DROP TABLE project_memory_settings");
+    db.exec(`CREATE TABLE project_memory_settings (
+      project_path TEXT PRIMARY KEY, settings_json TEXT NOT NULL,
+      revision INTEGER NOT NULL DEFAULT 0, reset_before INTEGER NOT NULL DEFAULT 0
+    )`);
+    db.prepare("INSERT INTO project_memory_settings VALUES (?, ?, 4, 123)").run(
+      PROJECT,
+      JSON.stringify({
+        collectAutomatically: true,
+        useMemory: false,
+        collectionTemplate: "Only lasting decisions.",
+      }),
+    );
+    store = new ProjectMemoryStore(db);
+    expect(store.settings.get(PROJECT)).toMatchObject({
+      collectAutomatically: false,
+      useMemory: false,
+      revision: 4,
+      resetBefore: 123,
+      collectionTemplate: "Only lasting decisions.",
+    });
+    expect(store.get(memory.id)?.content).toBe(memory.content);
+    expect(store.remember(candidate({ confidence: 0.9 }))).toBeNull();
+    store.settings.save({
+      projectPath: PROJECT,
+      expectedRevision: 4,
+      patch: { useMemory: true },
+    });
+    expect(
+      new ProjectMemoryStore(db).settings.get(PROJECT).collectAutomatically,
+    ).toBe(false);
+    store.settings.save({
+      projectPath: PROJECT,
+      expectedRevision: 5,
+      patch: { collectAutomatically: true },
+    });
+    expect(
+      new ProjectMemoryStore(db).settings.get(PROJECT).collectAutomatically,
+    ).toBe(true);
   });
 
   test("persists project-specific controls and rejects stale settings saves", () => {
@@ -55,6 +151,7 @@ describe("project memory controls", () => {
   });
 
   test("recall and collection can be disabled independently without losing saved rows", () => {
+    enableCollection();
     store.remember(candidate({ confidence: 0.9, recallMode: "core" }));
     store.settings.save({
       projectPath: PROJECT,
@@ -88,14 +185,15 @@ describe("project memory controls", () => {
     expect(
       store.remember(
         candidate({
-          content: "Explicit knowledge can still be saved.",
+          content: "Agent saves also require collection to be enabled.",
           confidence: 0.9,
         }),
       ),
-    ).not.toBeNull();
+    ).toBeNull();
   });
 
   test("enforces allowed kinds even when a generated candidate ignores its prompt", () => {
+    enableCollection();
     store.settings.save({
       projectPath: PROJECT,
       expectedRevision: 0,
@@ -118,6 +216,7 @@ describe("project memory controls", () => {
   });
 
   test("clears candidates only and invalidates pending extraction without affecting another project", () => {
+    enableCollection();
     store.remember(candidate());
     store.remember(
       candidate({
@@ -126,6 +225,7 @@ describe("project memory controls", () => {
         recallMode: "core",
       }),
     );
+    enableCollection(OTHER);
     store.remember(candidate({ projectPath: OTHER }));
     expect(
       store.settings.clear({
@@ -150,6 +250,7 @@ describe("project memory controls", () => {
   });
 
   test("reset blocks old and unknown source turns even after the new revision is read", () => {
+    enableCollection();
     store.remember(candidate({ confidence: 0.9 }));
     store.settings.save({
       projectPath: PROJECT,
@@ -217,6 +318,7 @@ describe("project memory controls", () => {
 test("custom collection guidance retains bounded output and kind constraints", () => {
   const instruction = buildMemoryCollectionInstruction({
     ...DEFAULT_PROJECT_MEMORY_SETTINGS,
+    collectAutomatically: true,
     kinds: ["decision", "gotcha"],
     collectionTemplate:
       "Focus on database migration pitfalls; exclude visual styling.",

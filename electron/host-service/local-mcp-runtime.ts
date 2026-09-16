@@ -1058,7 +1058,7 @@ export async function rememberProjectMemory(args: {
     sourceTaskId: args.taskId ?? null,
   });
   if (!result) {
-    // A soft-deleted duplicate: the user removed this fact on purpose.
+    // Collection is disabled or the user previously removed this fact.
     return { projectPath, outcome: "rejected", memory: null };
   }
   return { projectPath, outcome: result.outcome, memory: result.memory };

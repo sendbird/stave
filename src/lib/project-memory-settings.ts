@@ -35,7 +35,7 @@ export interface ProjectMemorySettings {
 
 export const DEFAULT_PROJECT_MEMORY_SETTINGS: ProjectMemorySettings = {
   useMemory: true,
-  collectAutomatically: true,
+  collectAutomatically: false,
   kinds: [...PROJECT_MEMORY_KINDS],
   collectionTemplate: DEFAULT_MEMORY_COLLECTION_TEMPLATE,
   revision: 0,

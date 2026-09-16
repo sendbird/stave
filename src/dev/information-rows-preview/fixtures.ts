@@ -1,4 +1,8 @@
 import {
+  DEFAULT_PROJECT_MEMORY_SETTINGS,
+  type ProjectMemorySettingsPatch,
+} from "@/lib/project-memory-settings";
+import {
   PROJECT_MEMORY_AUTO_CONFIDENCE,
   PROJECT_MEMORY_EXPLICIT_CONFIDENCE,
   type ProjectMemory,
@@ -86,6 +90,7 @@ export function installInformationRowPreviewApi() {
     createDirectory: async () => ({ ok: true }),
   };
 
+  let settings = { ...DEFAULT_PROJECT_MEMORY_SETTINGS };
   api.projectMemory = {
     list: async () => ({ ok: true, items: memories }),
     update: async (patch: {
@@ -112,7 +117,24 @@ export function installInformationRowPreviewApi() {
       memories = memories.filter((item) => item.id !== args.id);
       return { ok: true };
     },
-    getSettings: async () => ({ ok: true, settings: null }),
+    getSettings: async () => ({ ok: true, settings }),
+    saveSettings: async (args: {
+      patch: ProjectMemorySettingsPatch;
+      expectedRevision: number;
+    }) => {
+      if (args.expectedRevision !== settings.revision)
+        return {
+          ok: false,
+          message:
+            "Memory settings changed elsewhere. Reload before saving again.",
+        };
+      settings = {
+        ...settings,
+        ...args.patch,
+        revision: settings.revision + 1,
+      };
+      return { ok: true, settings };
+    },
   };
 
   (window as unknown as { api?: unknown }).api = api;

@@ -1286,6 +1286,9 @@ describe("local MCP project memory curation", () => {
     const { Database } = await import("bun:sqlite");
     const { ProjectMemoryStore } = await import("../electron/persistence/project-memory-store");
     const store = new ProjectMemoryStore(new Database(":memory:"));
+    for (const projectPath of [PROJECT_PATH, "/tmp/other-project"]) {
+      store.settings.save({ projectPath, expectedRevision: 0, patch: { collectAutomatically: true } });
+    }
     const methods = {
       rememberProjectMemory: store.remember.bind(store),
       updateProjectMemory: store.update.bind(store),

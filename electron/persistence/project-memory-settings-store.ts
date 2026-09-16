@@ -9,6 +9,7 @@ interface Database {
   exec(sql: string): unknown;
   prepare(sql: string): {
     get(...args: unknown[]): unknown;
+    all(...args: unknown[]): unknown[];
     run(...args: unknown[]): { changes?: number | bigint };
   };
 }
@@ -23,15 +24,37 @@ export class ProjectMemorySettingsStore {
       revision INTEGER NOT NULL DEFAULT 0,
       reset_before INTEGER NOT NULL DEFAULT 0
     )`);
+    // Older saves included the then-enabled default, so they are not proof
+    // that the user chose collection. Require a fresh choice after upgrading.
+    this.db.exec("BEGIN IMMEDIATE");
+    try {
+      const columns = this.db
+        .prepare("PRAGMA table_info(project_memory_settings)")
+        .all() as Array<{ name: string }>;
+      if (!columns.some((column) => column.name === "collection_opt_in")) {
+        this.db.exec(
+          "ALTER TABLE project_memory_settings ADD COLUMN collection_opt_in INTEGER NOT NULL DEFAULT 0",
+        );
+      }
+      this.db.exec("COMMIT");
+    } catch (error) {
+      this.db.exec("ROLLBACK");
+      throw error;
+    }
   }
 
   get(projectPath: string): ProjectMemorySettings {
     const row = this.db
       .prepare("SELECT * FROM project_memory_settings WHERE project_path = ?")
       .get(projectPath) as
-      | { settings_json: string; revision: number; reset_before: number }
+      | {
+          settings_json: string;
+          revision: number;
+          reset_before: number;
+          collection_opt_in: number;
+        }
       | undefined;
-    return {
+    const settings = {
       ...DEFAULT_PROJECT_MEMORY_SETTINGS,
       kinds: [...DEFAULT_PROJECT_MEMORY_SETTINGS.kinds],
       ...(row
@@ -39,6 +62,11 @@ export class ProjectMemorySettingsStore {
         : {}),
       revision: row?.revision ?? 0,
       resetBefore: row?.reset_before ?? 0,
+    };
+    return {
+      ...settings,
+      collectAutomatically:
+        row?.collection_opt_in === 1 && settings.collectAutomatically,
     };
   }
 
@@ -98,10 +126,17 @@ export class ProjectMemorySettingsStore {
     const { revision, resetBefore, ...values } = settings;
     this.db
       .prepare(
-        `INSERT INTO project_memory_settings (project_path, settings_json, revision, reset_before)
-      VALUES (?, ?, ?, ?) ON CONFLICT(project_path) DO UPDATE SET
-      settings_json = excluded.settings_json, revision = excluded.revision, reset_before = excluded.reset_before`,
+        `INSERT INTO project_memory_settings (project_path, settings_json, revision, reset_before, collection_opt_in)
+      VALUES (?, ?, ?, ?, ?) ON CONFLICT(project_path) DO UPDATE SET
+      settings_json = excluded.settings_json, revision = excluded.revision, reset_before = excluded.reset_before,
+      collection_opt_in = excluded.collection_opt_in`,
       )
-      .run(projectPath, JSON.stringify(values), revision, resetBefore);
+      .run(
+        projectPath,
+        JSON.stringify(values),
+        revision,
+        resetBefore,
+        settings.collectAutomatically ? 1 : 0,
+      );
   }
 }
