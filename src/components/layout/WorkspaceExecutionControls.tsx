@@ -7,6 +7,7 @@ import { managerStyles as styles } from "./resource-manager.styles";
 
 export function WorkspaceExecutionControls() {
   const workspaces = useAppStore((s) => s.workspaces);
+  const activeWorkspaceId = useAppStore((s) => s.activeWorkspaceId);
   const paths = useAppStore((s) => s.workspacePathById);
   const [states, setStates] = useState<WorkspaceExecutionState[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -53,7 +54,13 @@ export function WorkspaceExecutionControls() {
     <h3 className={sx(styles.heading)}>Workspace execution</h3>
     <div className={sx(styles.detail)}>
       <p className={sx(styles.muted)}>Stop terminals and managed services without removing the workspace. Running tasks and scripts must finish first. The stop lasts until you resume or the runtime restarts.</p>
-      {workspaces.map((workspace) => {
+      {workspaces
+        .filter(
+          (workspace) =>
+            workspace.id === activeWorkspaceId ||
+            states.some((entry) => entry.workspaceId === workspace.id),
+        )
+        .map((workspace) => {
         const state = states.find((entry) => entry.workspaceId === workspace.id);
         return <div key={workspace.id} className={sx(styles.section)}>
           <div className={sx(styles.process)}>

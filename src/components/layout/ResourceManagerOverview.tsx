@@ -6,6 +6,7 @@ import { useAppStore } from "@/store/app.store";
 import {
   formatResourceBytes,
   resourcePageLabel,
+  shouldShowResourceWorkspace,
   uniqueResourceProcesses,
   type ResourceProcess,
 } from "@/lib/performance/resource-manager";
@@ -32,6 +33,7 @@ export function ResourceManagerOverview({
   const recentProjects = useAppStore((s) => s.recentProjects);
   const tasks = useAppStore((s) => s.tasks);
   const projectName = useAppStore((s) => s.projectName);
+  const activeWorkspaceId = useAppStore((s) => s.activeWorkspaceId);
   const [releaseTarget, setReleaseTarget] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
@@ -141,6 +143,7 @@ export function ResourceManagerOverview({
     }
   }
   const unique = uniqueResourceProcesses(processes);
+  const lensWorkspaceIds = metrics.lens.guests.map((guest) => guest.workspaceId);
   const groups = new Map<string, ResourceProcess[]>();
   for (const process of unique) {
     const owners = [
@@ -268,7 +271,16 @@ export function ResourceManagerOverview({
               </tr>
             </thead>
             <tbody>
-              {[...names].map(([id, name]) => {
+              {[...names]
+                .filter(([id]) =>
+                  shouldShowResourceWorkspace({
+                    workspaceId: id,
+                    activeWorkspaceId,
+                    processes: unique,
+                    lensWorkspaceIds,
+                  }),
+                )
+                .map(([id, name]) => {
                 const own = groups.get(id);
                 const shared =
                   groups
@@ -300,8 +312,9 @@ export function ResourceManagerOverview({
           </table>
         </div>
         <span className={sx(styles.muted)}>
-          — means no attributed process in this snapshot. Shared RSS is shown
-          for each associated workspace; do not add those values together.
+          Only the current workspace and workspaces with attributed RSS or a
+          Lens page are listed. Shared RSS is shown for each associated
+          workspace; do not add those values together.
         </span>
       </div>
       <h3 className={sx(styles.heading)}>Processes · largest groups first</h3>

@@ -24,3 +24,19 @@ export function resourcePageLabel(url: string): string {
     return "Lens page";
   }
 }
+
+/** Current workspace, or any workspace with attributed RSS or a Lens page. */
+export function shouldShowResourceWorkspace(args: {
+  workspaceId: string;
+  activeWorkspaceId?: string;
+  processes: readonly ResourceProcess[];
+  lensWorkspaceIds: readonly string[];
+}): boolean {
+  if (args.workspaceId === args.activeWorkspaceId) return true;
+  if (args.lensWorkspaceIds.includes(args.workspaceId)) return true;
+  return args.processes.some(
+    (process) =>
+      process.rssBytes > 0 &&
+      process.owners?.some((owner) => owner.workspaceId === args.workspaceId),
+  );
+}
