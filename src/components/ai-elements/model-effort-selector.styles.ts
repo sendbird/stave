@@ -256,8 +256,12 @@ export const modelEffortSelectorStyles = stylex.create({
   retryIcon: { width: "0.75rem", height: "0.75rem" },
 
   /* ---- tab content scroller ---- */
+  // The panel's only scrollport, in both axes. The effort grid deliberately has
+  // no inner horizontal scroller: a nested one would capture its sticky column
+  // header and stop it pinning while this box scrolls.
   tabContent: {
     minHeight: 0,
+    overflowX: "auto",
     overflowY: "auto",
     overscrollBehavior: "contain",
   },

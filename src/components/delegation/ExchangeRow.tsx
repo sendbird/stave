@@ -115,12 +115,12 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
         type="button"
         aria-expanded={expanded}
         aria-controls={detailId}
-        className={sx(
+        xstyle={[
           surfaceChrome.quietIconButton,
           focusRing.ring,
           transition.control,
           styles.rowHeader,
-        )}
+        ]}
         title={`${exchange.title} · ${status.label} — ${exchange.ask}`}
         data-turn-activity-opens={opensConsultLog ? "advisor-consult-log" : undefined}
         onClick={toggle}

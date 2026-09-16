@@ -176,7 +176,7 @@ export function ModelEffortGrid(args: {
           } as CSSProperties
         }
       >
-        <div role="row" className={sx(styles.contents)}>
+        <div role="row" className={sx(styles.headerRow)}>
           <span role="columnheader" className={sx(styles.columnHeaderModel)}>
             Model
           </span>
