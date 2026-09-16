@@ -1,3 +1,15 @@
+## [0.19.1](https://github.com/sendbird/stave/compare/v0.19.0...v0.19.1) (2026-09-16)
+
+### Bug Fixes
+
+* Stack Turn Activity outcome tiles one per row when the rail is narrower than 24rem, and keep the 2x2 grid above that width.
+* Hide idle project and recent-project workspaces from Resource Manager, and show execution stop/resume only for the current workspace or one that already has a stop state.
+* Snap palette changes when switching theme presets instead of easing inherited colors for 120ms.
+* Keep the workspace-row loader on the theme primary spinner, and color each running child-task pulse with that task's provider brand.
+
+### References
+
+* [#540](https://github.com/sendbird/stave/pull/540), [#541](https://github.com/sendbird/stave/pull/541), [#542](https://github.com/sendbird/stave/pull/542), [#543](https://github.com/sendbird/stave/pull/543)
 ## [0.19.0](https://github.com/sendbird/stave/compare/v0.18.5...v0.19.0) (2026-09-16)
 
 ### Features
