@@ -17,7 +17,10 @@ import {
   selectNotificationIdsForWorkspaces,
 } from "@/lib/notifications/notification-state";
 import type { AppNotification } from "@/lib/notifications/notification.types";
-import { buildNotificationExpiresAt } from "@/lib/notifications/notification.types";
+import {
+  MAX_NOTIFICATION_HISTORY,
+  buildNotificationExpiresAt,
+} from "@/lib/notifications/notification.types";
 
 interface NotificationSliceState {
   notifications: AppNotification[];
@@ -204,7 +207,9 @@ export async function hydrateNotificationsAction(
     );
   }
   try {
-    const notifications = await listPersistedNotifications({ limit: 500 });
+    const notifications = await listPersistedNotifications({
+      limit: MAX_NOTIFICATION_HISTORY,
+    });
     deps.set(() => ({ notifications }));
     await reconcileOrphanedNotificationsAction(deps);
   } catch (error) {

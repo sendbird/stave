@@ -6,10 +6,12 @@ import type {
   AppNotificationCreateInput,
 } from "@/lib/notifications/notification.types";
 import {
+  MAX_NOTIFICATION_HISTORY,
   buildNotificationExpiresAt,
   isNotificationHistoryClearable,
   isNotificationPendingAttention,
   sortNotificationsNewestFirst,
+  trimNotificationsToHistoryLimit,
 } from "@/lib/notifications/notification.types";
 
 const ProviderIdSchema = z.preprocess(
@@ -324,11 +326,13 @@ function pruneFallbackRows(now: string) {
   const rows = loadFallbackRows();
   // Migrate old outcomes before retention can remove their only source.
   for (const row of rows) captureBrowserResult(toPublicNotification(row));
-  const nextRows = rows.filter(
-    (row) =>
-      isNotificationPendingAttention(row) ||
-      !row.expiresAt ||
-      row.expiresAt > now,
+  const nextRows = trimNotificationsToHistoryLimit(
+    rows.filter(
+      (row) =>
+        isNotificationPendingAttention(row) ||
+        !row.expiresAt ||
+        row.expiresAt > now,
+    ),
   );
   if (nextRows.length !== rows.length) {
     saveFallbackRows(nextRows);
@@ -365,7 +369,16 @@ export async function listNotifications(args?: {
     const pending = sorted.filter(isPendingAttentionNotification);
     const regular = sorted
       .filter((notification) => !isPendingAttentionNotification(notification))
-      .slice(0, Math.max(1, args?.limit ?? 100));
+      .slice(
+        0,
+        Math.max(
+          1,
+          Math.min(
+            MAX_NOTIFICATION_HISTORY,
+            args?.limit ?? MAX_NOTIFICATION_HISTORY,
+          ),
+        ),
+      );
     return sortNotificationsNewestFirst([...pending, ...regular]);
   }
 
@@ -405,7 +418,7 @@ export async function createNotification(args: {
       return { inserted: false, notification: toPublicNotification(existing) };
     }
     captureBrowserResult(toPublicNotification(candidate));
-    const nextRows = sortNotificationsNewestFirst([candidate, ...rows]);
+    const nextRows = trimNotificationsToHistoryLimit([candidate, ...rows]);
     saveFallbackRows(nextRows);
     return { inserted: true, notification: toPublicNotification(candidate) };
   }

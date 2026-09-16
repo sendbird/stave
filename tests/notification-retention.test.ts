@@ -73,6 +73,45 @@ describe("notification retention", () => {
     ]);
   });
 
+  test("keeps only the newest 50 notifications plus unresolved attention", async () => {
+    await createNotification({
+      notification: {
+        id: "approval-old",
+        kind: "task.approval_requested",
+        title: "Approve",
+        body: "Waiting",
+        workspaceId: "workspace-1",
+        taskId: "task-1",
+        action: { type: "approval", requestId: "approval-1" },
+        payload: {},
+        createdAt: "2026-08-30T00:00:00.000Z",
+      },
+    });
+
+    for (let index = 0; index < 60; index += 1) {
+      await createNotification({
+        notification: {
+          id: `completed-${String(index).padStart(2, "0")}`,
+          kind: "task.turn_completed",
+          title: "Completed",
+          body: "Done",
+          workspaceId: "workspace-1",
+          taskId: "task-1",
+          payload: {},
+          createdAt: `2026-08-30T01:${String(index).padStart(2, "0")}:00.000Z`,
+        },
+      });
+    }
+
+    const ids = (await listNotifications()).map(
+      (notification) => notification.id,
+    );
+    expect(ids).toHaveLength(51);
+    expect(ids).toContain("approval-old");
+    expect(ids).toContain("completed-59");
+    expect(ids).not.toContain("completed-09");
+  });
+
   test("prunes read history after seven days but preserves unresolved attention", async () => {
     await createNotification({
       notification: {

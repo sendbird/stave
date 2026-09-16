@@ -14,6 +14,8 @@ The notification center lives in the top bar behind the bell icon.
 
 Notifications stay in the app even if you close and reopen Stave, and even if the originating task has been archived.
 
+Stave keeps the 50 most recent notifications and deletes older ones automatically. Approval and input requests that are still waiting for you are never deleted by this limit, no matter how old they are.
+
 ## Open The Center
 
 - Click the bell icon in the top bar.
