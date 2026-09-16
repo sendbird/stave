@@ -119,6 +119,8 @@ export interface WorkGraphTreeProps {
    * appear; sending the reader elsewhere to find out is the same as not saying.
    */
   controlErrorByNodeKey?: Readonly<Record<string, string>>;
+  /** Wrap labels and details instead of clipping them to one or two lines. */
+  expandCopy?: boolean;
   className?: string;
 }
 
@@ -194,6 +196,7 @@ export const WorkGraphTree = memo(function WorkGraphTree(
             onControl={props.onControl}
             onSelectTool={props.onSelectTool}
             controlError={props.controlErrorByNodeKey?.[row.key] ?? null}
+            expandCopy={props.expandCopy}
           />
         ))}
       </div>
@@ -232,6 +235,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
   onControl,
   onSelectTool,
   controlError,
+  expandCopy,
 }: {
   row: WorkGraphTreeRow;
   now: number;
@@ -240,6 +244,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
   onControl?: (request: WorkGraphControlRequest) => void;
   onSelectTool?: (toolUseId: string) => void;
   controlError?: string | null;
+  expandCopy?: boolean;
 }) {
   const { node } = row;
   const controls = resolveWorkGraphControls({
@@ -277,10 +282,13 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
         <p
           className={sx(
             styles.labelLine,
+            expandCopy && styles.labelLineExpanded,
             isTerminalWorkGraphStatus(node.status) && styles.labelLineTerminal,
           )}
         >
-          <span className={sx(styles.label)}>{node.label}</span>
+          <span className={sx(styles.label, expandCopy && styles.labelExpanded)}>
+            {node.label}
+          </span>
           {node.badge ? (
             <span className={sx(styles.badge, styles.badgeNeutral)}>
               {node.badge}
@@ -292,7 +300,11 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
             </span>
           ) : null}
         </p>
-        {detail ? <p className={sx(styles.detail)}>{detail}</p> : null}
+        {detail ? (
+          <p className={sx(styles.detail, expandCopy && styles.detailExpanded)}>
+            {detail}
+          </p>
+        ) : null}
         {controlError ? (
           <p
             role="status"

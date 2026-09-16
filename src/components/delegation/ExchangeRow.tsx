@@ -58,6 +58,8 @@ export interface ExchangeRowProps {
   onToggle?: (expanded: boolean) => void;
   /** Draws the tree rail for a row nested under the primary. */
   nested?: boolean;
+  /** Wrap title and ask instead of clipping them to one line. */
+  expandCopy?: boolean;
   /** Extra detail sections, forwarded to `ExchangeDetail`. */
   detailChildren?: ReactNode;
   extraActions?: ReactNode;
@@ -103,6 +105,7 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
         props.nested && styles.rowNested,
       )}
       data-testid={props["data-testid"] ?? "exchange-row"}
+      data-copy={props.expandCopy ? "expanded" : undefined}
       data-exchange-id={exchange.id}
       data-exchange-kind={exchange.kind}
       data-exchange-status={exchange.outcome.status}
@@ -134,6 +137,7 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
             <span
               className={sx(
                 styles.rowTitle,
+                props.expandCopy && styles.rowTitleExpanded,
                 exchange.outcome.status === "returned" && styles.rowTitleDone,
               )}
             >
@@ -146,7 +150,14 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
               effort={exchange.identity.effort}
             />
           </span>
-          <span className={sx(styles.rowAsk)}>{exchange.ask}</span>
+          <span
+            className={sx(
+              styles.rowAsk,
+              props.expandCopy && styles.rowAskExpanded,
+            )}
+          >
+            {exchange.ask}
+          </span>
         </span>
         <span className={sx(styles.rowAside)}>
           {elapsedMs !== null ? (

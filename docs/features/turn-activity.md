@@ -58,6 +58,9 @@ need more room to follow a busy turn.
   column is filled for both providers instead of only for Claude.
 - In `Panel`, each work row also shows how far into the turn it started, such
   as `+1m 30s`. The docked shelf is one composer width and omits that column.
+- In `Panel`, tool, event, and agent rows wrap titles and details so a long
+  path or command stays readable. The docked shelf keeps each field to one
+  ellipsized line.
 
 ### Provider-Specific Detail
 

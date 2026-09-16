@@ -1499,6 +1499,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                   onSelectTool={props.onSelectTool}
                   onOpenAdvisorLog={props.onOpenAdvisorLog}
                   showStartOffset={variant === "panel"}
+                  expandCopy={variant === "panel"}
                 />
               ))}
               {/* One "Agents" block: delegations the user armed (advisor,
@@ -1508,6 +1509,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                 exchanges={delegationExchanges}
                 nowMs={props.activity?.completedAt ?? now}
                 nested
+                expandCopy={variant === "panel"}
                 onAction={handleDelegationAction}
                 renderExtraActions={renderDelegationExtraActions}
                 statusNoteFor={delegationStatusNoteFor}
@@ -1531,6 +1533,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                     controlErrorByNodeKey={props.workGraphControlErrorByNodeKey}
                     className={sx(styles.childBlockNested)}
                     showHeading={!hasDelegationRows}
+                    expandCopy={variant === "panel"}
                   />
                 ) : null}
               </DelegationsBlock>
@@ -1619,6 +1622,7 @@ const TurnActivityRow = memo(function TurnActivityRow({
   onSelectTool,
   onOpenAdvisorLog,
   showStartOffset,
+  expandCopy,
 }: {
   item: TurnActivityItem;
   onSelectTool?: (toolUseId: string) => void;
@@ -1628,6 +1632,11 @@ const TurnActivityRow = memo(function TurnActivityRow({
    * shelf is one composer-width line and cannot spare the column.
    */
   showStartOffset?: boolean;
+  /**
+   * The right-rail panel has height to spare, so titles and details wrap
+   * instead of staying on one ellipsized line.
+   */
+  expandCopy?: boolean;
 }) {
   const detail =
     item.detail && item.detail !== item.title ? item.detail : undefined;
@@ -1659,10 +1668,15 @@ const TurnActivityRow = memo(function TurnActivityRow({
         <p
           className={sx(
             styles.rowTitleLine,
+            expandCopy && styles.rowTitleLineExpanded,
             isCompleted && styles.rowTitleLineDone,
           )}
         >
-          <span className={sx(styles.rowTitle)}>{item.title}</span>
+          <span
+            className={sx(styles.rowTitle, expandCopy && styles.rowTitleExpanded)}
+          >
+            {item.title}
+          </span>
           {item.badge ? (
             <Badge variant="outline" className={sx(styles.rowBadge)}>
               {item.badge}
@@ -1670,20 +1684,36 @@ const TurnActivityRow = memo(function TurnActivityRow({
           ) : null}
         </p>
         {detail || providerDetail ? (
-          // Normalized detail and raw provider detail share one line so a row
-          // never grows past two, but they are typographically distinct: the
-          // provider half is monospaced, dimmer, and fenced off by a hairline
-          // rule, so it reads as the provider talking rather than as Stave's
-          // own description of the step.
-          <p className={sx(styles.rowDetailLine)}>
+          // Docked keeps both halves on one ellipsized line. The panel wraps
+          // them so a long path or command stays readable. They stay
+          // typographically distinct: the provider half is monospaced, dimmer,
+          // and fenced off by a hairline rule.
+          <p
+            className={sx(
+              styles.rowDetailLine,
+              expandCopy && styles.rowDetailLineExpanded,
+            )}
+          >
             {detail ? (
-              <span className={sx(styles.rowDetail)}>{detail}</span>
+              <span
+                className={sx(
+                  styles.rowDetail,
+                  expandCopy && styles.rowDetailExpanded,
+                )}
+              >
+                {detail}
+              </span>
             ) : null}
             {detail && providerDetail ? (
               <span aria-hidden className={sx(styles.rowDetailRule)} />
             ) : null}
             {providerDetail ? (
-              <span className={sx(styles.rowProviderDetail)}>
+              <span
+                className={sx(
+                  styles.rowProviderDetail,
+                  expandCopy && styles.rowProviderDetailExpanded,
+                )}
+              >
                 {providerDetail}
               </span>
             ) : null}
@@ -1715,6 +1745,7 @@ const TurnActivityRow = memo(function TurnActivityRow({
     return (
       <div
         data-turn-activity-item-id={item.id}
+        data-copy={expandCopy ? "expanded" : undefined}
         className={sx(styles.row, styles.rowMotion)}
         title={baseTitle}
       >
@@ -1728,6 +1759,7 @@ const TurnActivityRow = memo(function TurnActivityRow({
       layout="host"
       type="button"
       data-turn-activity-item-id={item.id}
+      data-copy={expandCopy ? "expanded" : undefined}
       // `revealable` stays tool-only: it means "the transcript has this call".
       {...(handler.reveal
         ? { "data-turn-activity-revealable": "true" }

@@ -333,6 +333,20 @@ export const turnActivityStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  // Panel rows can spend height on the path or command. Docked stays one line.
+  rowTitleLineExpanded: {
+    alignItems: "flex-start",
+    flexWrap: "wrap",
+  },
+  rowTitleExpanded: {
+    display: "-webkit-box",
+    overflow: "hidden",
+    overflowWrap: "anywhere",
+    textOverflow: "unset",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 3,
+    whiteSpace: "normal",
+  },
   rowBadge: {
     flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],
@@ -354,6 +368,19 @@ export const turnActivityStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  rowDetailLineExpanded: {
+    alignItems: "flex-start",
+    flexWrap: "wrap",
+  },
+  rowDetailExpanded: {
+    display: "-webkit-box",
+    overflow: "hidden",
+    overflowWrap: "anywhere",
+    textOverflow: "unset",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 4,
+    whiteSpace: "normal",
+  },
   rowDetailRule: {
     backgroundColor: vars["--ads-color-border"],
     flexShrink: 0,
@@ -367,6 +394,15 @@ export const turnActivityStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+  },
+  rowProviderDetailExpanded: {
+    display: "-webkit-box",
+    overflow: "hidden",
+    overflowWrap: "anywhere",
+    textOverflow: "unset",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 3,
+    whiteSpace: "normal",
   },
   rowStartOffset: {
     color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 70%, transparent)`,

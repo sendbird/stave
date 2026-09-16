@@ -10,6 +10,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { collaborationPreviewStyles as cp } from "./collaboration-preview.styles";
 import type { ChatMessage } from "@/types/chat";
 import { createWorkGraph } from "@/lib/work-graph/work-graph-reducer";
+import { buildAutoRoutingDecisionRecord } from "@/store/auto-routing";
 const target = {
   taskId: "preview-parent",
   workspaceId: "preview-workspace",
@@ -138,18 +139,76 @@ function CollaborationPreviewContent() {
                   "tool-1": {
                     id: "tool-1",
                     kind: "tool" as const,
-                    status: "running" as const,
-                    title: "Review Lens diagnostics",
-                    detail: "Inspecting CDP object lifecycle",
+                    status: "completed" as const,
+                    title: "Read filedelegation.styles.ts",
+                    detail:
+                      "src/components/delegation/delegation.styles.ts",
+                    toolName: "Read",
                     toolUseId: "tool-1",
-                    progressMessages: ["Inspecting CDP object lifecycle"],
-                    startedAt: Date.now() - 8_000,
+                    progressMessages: [],
+                    startedAt: Date.now() - 80_000,
+                    updatedAt: Date.now() - 79_000,
+                    elapsedSeconds: 1,
+                  },
+                  "tool-2": {
+                    id: "tool-2",
+                    kind: "tool" as const,
+                    status: "running" as const,
+                    title: "Search",
+                    detail:
+                      "fix__turn-activity-panel-cards--1g4ubf5/src/components/session/TurnActivity.tsx",
+                    toolName: "Grep",
+                    toolUseId: "tool-2",
+                    progressMessages: [],
+                    startedAt: Date.now() - 79_000,
                     updatedAt: Date.now(),
                     elapsedSeconds: 8,
                   },
+                  "tool-3": {
+                    id: "tool-3",
+                    kind: "tool" as const,
+                    status: "running" as const,
+                    title: "Search",
+                    detail:
+                      "fix__turn-activity-panel-cards--1g4ubf5/src/components/auto-routing/RouteTrace.tsx",
+                    toolName: "Grep",
+                    toolUseId: "tool-3",
+                    progressMessages: [],
+                    startedAt: Date.now() - 78_000,
+                    updatedAt: Date.now(),
+                    elapsedSeconds: 6,
+                  },
                 },
-                orderedWorkItemIds: ["tool-1"],
+                orderedWorkItemIds: ["tool-1", "tool-2", "tool-3"],
               },
+            },
+            autoRoutingDecisionByTask: {
+              [target.taskId]: buildAutoRoutingDecisionRecord({
+                resolvedAt: new Date(Date.now() - 13_000).toISOString(),
+                decision: {
+                  providerId: "cursor",
+                  model: "auto",
+                  role: "primary",
+                  taskType: "implementation",
+                  taskClass: "implement",
+                  tier: "standard",
+                  confidence: 0.82,
+                  source: "heuristic",
+                  rationale: "implement",
+                  ruleId: "implement",
+                  ruleReason: "Implementation on the default Cursor model",
+                  stance: "balanced",
+                  signals: {
+                    taskClass: "implement",
+                    complexity: "medium",
+                    sensitive: false,
+                    fileContextCount: 2,
+                  },
+                  providerChanged: false,
+                  stick: false,
+                },
+                prompt: "Fix the turn activity panel cards",
+              }),
             },
             settings: {
               ...useAppStore.getState().settings,

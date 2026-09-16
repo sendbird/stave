@@ -786,6 +786,61 @@ describe("TurnActivity", () => {
     expect(docked).toContain("4s");
   });
 
+  test("wraps row copy in the panel and keeps the shelf on one line", () => {
+    const longPath = "fix__turn-activity-panel-cards--1g4ubf5/src/components/delegation/delegation.styles.ts";
+    const props = {
+      activeTurnId: "turn-copy",
+      activity: {
+        turnId: "turn-copy",
+        providerId: "claude-code" as const,
+        startedAt: 1_000,
+        lastEventAt: 2_000,
+        stalledAt: null,
+        pendingInteraction: null,
+        workItemsById: {},
+        orderedWorkItemIds: [],
+      },
+      isPlanPreparing: false,
+      workItems: [
+        {
+          id: "tool-read",
+          kind: "tool" as const,
+          status: "completed" as const,
+          title: `Read ${longPath}`,
+          detail: longPath,
+          toolName: "Read",
+          progressMessages: [],
+          startedAt: 1_000,
+          updatedAt: 2_000,
+        },
+      ],
+      todos: [],
+    };
+
+    const panel = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        ...props,
+        variant: "panel",
+        placement: "panel",
+      }),
+    );
+    expect(panel).toContain('data-copy="expanded"');
+    expect(panel).toContain(longPath);
+    expect(panel).toContain(sx(turnActivityStyles.rowTitleExpanded));
+    expect(panel).toContain(sx(turnActivityStyles.rowDetailExpanded));
+
+    const docked = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        ...props,
+        variant: "docked",
+        placement: "docked",
+      }),
+    );
+    expect(docked).not.toContain('data-copy="expanded"');
+    expect(docked).toContain(longPath);
+    expect(docked).not.toContain(sx(turnActivityStyles.rowTitleExpanded));
+  });
+
   test("renders the armed Advisor in the shelf before any consult", () => {
     const html = renderToStaticMarkup(
       createElement(TurnActivitySurface, {
