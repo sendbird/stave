@@ -46,6 +46,13 @@ export interface AppNotificationCreateInput extends Omit<
 
 export const DEFAULT_READ_NOTIFICATION_RETENTION_MS = 7 * 24 * 60 * 60 * 1_000;
 
+/**
+ * Hard cap on retained notification history. Anything past the newest entries
+ * is deleted automatically. Unresolved attention notifications are exempt:
+ * their request is still answerable, so dropping one would strand the task.
+ */
+export const MAX_NOTIFICATION_HISTORY = 50;
+
 export function isNotificationAttentionKind(kind: AppNotificationKind) {
   return (
     kind === "task.approval_requested" || kind === "task.user_input_requested"
@@ -100,4 +107,27 @@ export function sortNotificationsNewestFirst<
     }
     return right.createdAt.localeCompare(left.createdAt);
   });
+}
+
+/**
+ * Keeps the newest `limit` notifications plus every unresolved attention
+ * notification, and drops the rest. Returned newest-first.
+ */
+export function trimNotificationsToHistoryLimit<
+  T extends Pick<AppNotification, "createdAt" | "id" | "kind" | "resolvedAt">,
+>(notifications: T[], limit: number = MAX_NOTIFICATION_HISTORY) {
+  const maxHistory = Math.max(1, limit);
+  const kept: T[] = [];
+  let retained = 0;
+  for (const notification of sortNotificationsNewestFirst(notifications)) {
+    if (isNotificationPendingAttention(notification)) {
+      kept.push(notification);
+      continue;
+    }
+    if (retained < maxHistory) {
+      kept.push(notification);
+      retained += 1;
+    }
+  }
+  return kept;
 }

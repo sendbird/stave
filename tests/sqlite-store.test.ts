@@ -1289,6 +1289,51 @@ describe("SqliteStore", () => {
   );
 
   nativeSqliteTest(
+    "caps notification history at 50 rows but keeps unresolved attention",
+    async () => {
+      const SqliteStore = await loadSqliteStore();
+      const store = new SqliteStore({ dbPath });
+
+      store.createNotification({
+        notification: {
+          id: "notification-approval-old",
+          kind: "task.approval_requested",
+          title: "Approve",
+          body: "Waiting",
+          workspaceId: "workspace-1",
+          taskId: "task-1",
+          action: { type: "approval", requestId: "approval-1" },
+          createdAt: "2026-03-06T00:00:00.000Z",
+        },
+      });
+
+      for (let index = 0; index < 60; index += 1) {
+        store.createNotification({
+          notification: {
+            id: `notification-completed-${String(index).padStart(2, "0")}`,
+            kind: "task.turn_completed",
+            title: "Completed",
+            body: "Done",
+            workspaceId: "workspace-1",
+            taskId: "task-1",
+            createdAt: `2026-03-06T01:${String(index).padStart(2, "0")}:00.000Z`,
+          },
+        });
+      }
+
+      const ids = store
+        .listNotifications()
+        .map((notification) => notification.id);
+      expect(ids).toHaveLength(51);
+      expect(ids).toContain("notification-approval-old");
+      expect(ids).toContain("notification-completed-59");
+      expect(ids).not.toContain("notification-completed-09");
+
+      store.close();
+    },
+  );
+
+  nativeSqliteTest(
     "stores notification history with dedupe and read state",
     async () => {
       const SqliteStore = await loadSqliteStore();

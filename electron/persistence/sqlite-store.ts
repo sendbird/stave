@@ -39,7 +39,10 @@ import { parsePersistedTurnUsage } from "./turn-usage";
 import type { PersistenceBootstrapStatus } from "../../src/lib/persistence/bootstrap-status";
 import { IDLE_PERSISTENCE_BOOTSTRAP_STATUS } from "../../src/lib/persistence/bootstrap-status";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
-import { buildNotificationExpiresAt } from "../../src/lib/notifications/notification.types";
+import {
+  MAX_NOTIFICATION_HISTORY,
+  buildNotificationExpiresAt,
+} from "../../src/lib/notifications/notification.types";
 import {
   createEmptyRoutineState,
   normalizeRoutineState,
@@ -1482,6 +1485,7 @@ export class SqliteStore {
       );
 
     if (result.changes > 0) {
+      this.trimNotificationHistory();
       return {
         inserted: true,
         notification: this.getNotificationById(notification.id),
@@ -1501,11 +1505,48 @@ export class SqliteStore {
     };
   }
 
+  /**
+   * Enforces the retained-history cap. Unresolved attention notifications are
+   * never dropped: their request is still answerable, so they stay outside the
+   * cap just like they stay outside expiry-based pruning.
+   */
+  private trimNotificationHistory(limit = MAX_NOTIFICATION_HISTORY): number {
+    const maxHistory = Math.max(1, limit);
+    const result = this.db
+      .prepare(
+        `
+      DELETE FROM notifications
+      WHERE NOT (
+          kind IN ('task.approval_requested', 'task.user_input_requested')
+          AND resolved_at IS NULL
+        )
+        AND id NOT IN (
+          SELECT id
+          FROM notifications
+          WHERE NOT (
+            kind IN ('task.approval_requested', 'task.user_input_requested')
+            AND resolved_at IS NULL
+          )
+          ORDER BY created_at DESC, id DESC
+          LIMIT ?
+        )
+    `,
+      )
+      .run(maxHistory);
+    return result.changes;
+  }
+
   listNotifications(args?: {
     limit?: number;
     unreadOnly?: boolean;
   }): PersistenceNotificationRecord[] {
-    const limit = Math.max(1, Math.min(500, args?.limit ?? 100));
+    const limit = Math.max(
+      1,
+      Math.min(
+        MAX_NOTIFICATION_HISTORY,
+        args?.limit ?? MAX_NOTIFICATION_HISTORY,
+      ),
+    );
     const unreadOnly = args?.unreadOnly === true;
     const pendingAttentionPredicate = `
       kind IN ('task.approval_requested', 'task.user_input_requested')
@@ -1627,7 +1668,7 @@ export class SqliteStore {
     `,
       )
       .run(now);
-    return result.changes;
+    return result.changes + this.trimNotificationHistory();
   }
 
   deleteNotificationsForWorkspaces(args: { workspaceIds: string[] }): number {
