@@ -22,6 +22,7 @@ export {
   BUILTIN_CUSTOM_THEMES,
 
   // DOM application
+  THEME_CHANGING_CLASS,
   applyThemeClass,
   applyThemeOverrides,
   applyCustomTheme,

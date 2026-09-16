@@ -4,12 +4,61 @@
 
 import type { CustomThemeDefinition, ThemeModeName, ThemeOverrideValues, ThemeTokenName } from "./types";
 
+/**
+ * Root class held for the paint of a token swap. Surfaces that transition
+ * `background-color` / `border-color` / `color` would otherwise interpolate
+ * every inherited custom property for `--ads-motion-duration-fast` (120ms),
+ * which reads as a stalled theme change. Hover and press motion return when
+ * the class lifts. Keep in step with `html.theme-changing` in `globals.css`.
+ */
+export const THEME_CHANGING_CLASS = "theme-changing";
+
+function withInstantThemePaint(apply: () => void) {
+  if (typeof document === "undefined") {
+    apply();
+    return;
+  }
+
+  const root = document.documentElement;
+  const alreadyChanging = root.classList.contains(THEME_CHANGING_CLASS);
+  if (!alreadyChanging) {
+    root.classList.add(THEME_CHANGING_CLASS);
+    // Force the no-transition rule into computed style before token writes,
+    // otherwise the class and the new colors land in one frame and interpolate.
+    void root.offsetWidth;
+  }
+
+  apply();
+
+  if (alreadyChanging) {
+    return;
+  }
+
+  const release = () => {
+    root.classList.remove(THEME_CHANGING_CLASS);
+  };
+  const raf =
+    typeof requestAnimationFrame === "function"
+      ? requestAnimationFrame
+      : (callback: FrameRequestCallback) =>
+          setTimeout(() => callback(0), 0) as unknown as number;
+  raf(() => {
+    raf(release);
+  });
+}
+
 /** Toggle the `.dark` class on the document root element. */
 export function applyThemeClass(args: { enabled: boolean }) {
   if (typeof document === "undefined") {
     return;
   }
-  document.documentElement.classList.toggle("dark", args.enabled);
+  const root = document.documentElement;
+  if (root.classList.contains("dark") === args.enabled) {
+    return;
+  }
+  withInstantThemePaint(() => {
+    root.classList.toggle("dark", args.enabled);
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -47,22 +96,24 @@ export function applyThemeOverrides(args: {
     return;
   }
 
-  const styleId = "stave-theme-overrides";
-  const css = buildThemeOverrideCss({ themeOverrides: args.themeOverrides });
-  let element = document.getElementById(styleId) as HTMLStyleElement | null;
+  withInstantThemePaint(() => {
+    const styleId = "stave-theme-overrides";
+    const css = buildThemeOverrideCss({ themeOverrides: args.themeOverrides });
+    let element = document.getElementById(styleId) as HTMLStyleElement | null;
 
-  if (!css) {
-    element?.remove();
-    return;
-  }
+    if (!css) {
+      element?.remove();
+      return;
+    }
 
-  if (!element) {
-    element = document.createElement("style");
-    element.id = styleId;
-    document.head.appendChild(element);
-  }
+    if (!element) {
+      element = document.createElement("style");
+      element.id = styleId;
+      document.head.appendChild(element);
+    }
 
-  element.textContent = css;
+    element.textContent = css;
+  });
 }
 
 // ---------------------------------------------------------------------------
@@ -104,34 +155,36 @@ export function applyCustomTheme(args: {
     return;
   }
 
-  const styleId = "stave-custom-theme";
-  let element = document.getElementById(styleId) as HTMLStyleElement | null;
+  withInstantThemePaint(() => {
+    const styleId = "stave-custom-theme";
+    let element = document.getElementById(styleId) as HTMLStyleElement | null;
 
-  if (!args.theme) {
-    element?.remove();
-    return;
-  }
-
-  const css = buildCustomThemeCss({ theme: args.theme });
-
-  if (!css) {
-    element?.remove();
-    return;
-  }
-
-  if (!element) {
-    element = document.createElement("style");
-    element.id = styleId;
-    // Ensure custom-theme styles sit *before* manual overrides in the cascade.
-    const overridesElement = document.getElementById("stave-theme-overrides");
-    if (overridesElement) {
-      document.head.insertBefore(element, overridesElement);
-    } else {
-      document.head.appendChild(element);
+    if (!args.theme) {
+      element?.remove();
+      return;
     }
-  }
 
-  element.textContent = css;
+    const css = buildCustomThemeCss({ theme: args.theme });
+
+    if (!css) {
+      element?.remove();
+      return;
+    }
+
+    if (!element) {
+      element = document.createElement("style");
+      element.id = styleId;
+      // Ensure custom-theme styles sit *before* manual overrides in the cascade.
+      const overridesElement = document.getElementById("stave-theme-overrides");
+      if (overridesElement) {
+        document.head.insertBefore(element, overridesElement);
+      } else {
+        document.head.appendChild(element);
+      }
+    }
+
+    element.textContent = css;
+  });
 }
 
 // ---------------------------------------------------------------------------
