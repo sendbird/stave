@@ -89,6 +89,7 @@ async function generate(policy: ProjectMemorySettings | null) {
 test("summary generation uses the saved collection template in its existing call and forwards its revision", async () => {
   const result = await generate({
     ...DEFAULT_PROJECT_MEMORY_SETTINGS,
+    collectAutomatically: true,
     revision: 7,
     collectionTemplate: "Collect session recovery pitfalls only.",
   });
