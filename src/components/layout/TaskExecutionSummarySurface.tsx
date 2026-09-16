@@ -115,7 +115,7 @@ function SummaryMetricTile(args: {
     <div
       className={sx(styles.tile, args.compact && styles.tileCompact)}
       data-metric={descriptor.key}
-      title={descriptor.detail}
+      title={joinDetails([descriptor.label, descriptor.detail])}
     >
       <div className={sx(styles.tileHead)}>
         <Icon
@@ -360,6 +360,11 @@ export function TaskExecutionSummarySurface(args: {
   summary: TaskExecutionSummary;
   compact?: boolean;
   showLatestActivity?: boolean;
+  /**
+   * Compact grids only. `shelf` is two-up until the host is wide; `panel` is
+   * one row of four until the rail is wide enough for two-up tiles.
+   */
+  layout?: "shelf" | "panel";
   /** Kept for callers that still hand this surface a global/utility class. */
   className?: string;
   xstyle?: StyleXValue;
@@ -367,6 +372,7 @@ export function TaskExecutionSummarySurface(args: {
   omitKeys?: readonly SummaryMetricDescriptor["key"][];
 }) {
   const showLatestActivity = args.showLatestActivity ?? true;
+  const layout = args.layout ?? "shelf";
   const omit = new Set(args.omitKeys ?? []);
   const descriptors = buildMetricDescriptors(args.summary).filter(
     (descriptor) => !omit.has(descriptor.key),
@@ -384,6 +390,7 @@ export function TaskExecutionSummarySurface(args: {
     <section
       className={cx(sx(styles.root, args.xstyle), args.className)}
       aria-label="Task execution summary"
+      data-summary-layout={layout}
     >
       {showLatestActivity ? (
         <LatestActivityRow
@@ -395,7 +402,11 @@ export function TaskExecutionSummarySurface(args: {
         className={sx(
           styles.grid,
           showLatestActivity && styles.gridSpaced,
-          args.compact ? styles.gridCompact : styles.gridMedium,
+          args.compact
+            ? layout === "panel"
+              ? styles.gridPanel
+              : styles.gridCompact
+            : styles.gridMedium,
         )}
       >
         {descriptors.map((descriptor) => (

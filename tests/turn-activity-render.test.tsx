@@ -8,6 +8,85 @@ import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 import { buildAutoRoutingDecisionRecord } from "@/store/auto-routing";
 
 describe("TurnActivity", () => {
+  test("pins the execution summary to the panel floor and keeps it in the shelf list", () => {
+    const executionSummary = buildTaskExecutionSummary({
+      providerId: "codex",
+      messages: [
+        {
+          id: "assistant-summary",
+          role: "assistant",
+          model: "gpt-5.6",
+          providerId: "codex",
+          content: "Implemented Fleet controls.",
+          startedAt: "2026-07-31T00:00:00.000Z",
+          completedAt: "2026-07-31T00:00:02.000Z",
+          usage: { inputTokens: 100, outputTokens: 20 },
+          parts: [
+            {
+              type: "code_diff",
+              filePath: "src/Fleet.tsx",
+              oldContent: "",
+              newContent: "export const Fleet = true;\n",
+              status: "accepted",
+            },
+          ],
+        },
+      ],
+    });
+    const baseProps = {
+      activeTurnId: "turn-summary",
+      activity: {
+        turnId: "turn-summary",
+        providerId: "codex" as const,
+        startedAt: 1_000,
+        lastEventAt: 2_000,
+        stalledAt: null,
+        pendingInteraction: null,
+        workItemsById: {},
+        orderedWorkItemIds: [],
+      },
+      isPlanPreparing: false,
+      workItems: [],
+      todos: [],
+      executionSummary,
+    };
+
+    const panel = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        ...baseProps,
+        variant: "panel",
+        placement: "panel",
+      }),
+    );
+    expect(panel).toContain('data-summary-layout="panel"');
+    expect(panel).toContain("Task execution summary");
+    expect(panel.indexOf('data-testid="turn-activity-list"')).toBeLessThan(
+      panel.indexOf('data-summary-layout="panel"'),
+    );
+    const pinnedClass = sx(turnActivityStyles.summaryPinned);
+    for (const token of pinnedClass.split(/\s+/)) {
+      expect(panel).toContain(token);
+    }
+    // Sibling of the scrolling list, not a descendant: the list wrapper
+    // closes before the pinned summary section opens.
+    expect(panel).toMatch(
+      /data-testid="turn-activity-list"[\s\S]*<\/div>\s*<section[^>]*data-summary-layout="panel"/,
+    );
+
+    const docked = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        ...baseProps,
+        variant: "docked",
+        placement: "docked",
+      }),
+    );
+    expect(docked).toContain('data-summary-layout="shelf"');
+    expect(docked).not.toContain('data-summary-layout="panel"');
+    expect(docked).not.toMatch(
+      /data-testid="turn-activity-list"[\s\S]*<\/div>\s*<section[^>]*data-summary-layout=/,
+    );
+  });
+
   test("reuses the task execution summary in the expanded shelf", () => {
     const executionSummary = buildTaskExecutionSummary({
       providerId: "codex",

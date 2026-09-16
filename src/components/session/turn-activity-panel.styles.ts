@@ -29,7 +29,9 @@ export const turnActivityPanelStyles = stylex.create({
     lineHeight: "1.25rem",
   },
   body: {
+    display: "flex",
     flex: 1,
+    flexDirection: "column",
     minHeight: 0,
   },
 });

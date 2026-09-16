@@ -9,6 +9,7 @@ import { useAppStore } from "@/store/app.store";
 import { sx } from "@/components/ads/utils/stylex";
 import { collaborationPreviewStyles as cp } from "./collaboration-preview.styles";
 import type { ChatMessage } from "@/types/chat";
+import { createWorkGraph } from "@/lib/work-graph/work-graph-reducer";
 const target = {
   taskId: "preview-parent",
   workspaceId: "preview-workspace",
@@ -73,12 +74,34 @@ export function CollaborationPreview() {
 }
 function CollaborationPreviewContent() {
   const [dark, setDark] = useState(true);
+  const search = new URLSearchParams(location.search);
+  const inspector = search.has("inspector");
+  const panelWidth = Number(search.get("panelWidth"));
   // Keep the root class in the same commit as the preview control state so the
   // top-level design provider observes one coherent palette change.
   useLayoutEffect(() => {
     applyThemeClass({ enabled: dark });
   }, [dark]);
   useEffect(() => {
+    const inspectorMessage = inspector
+      ? {
+          ...message,
+          turnId: "preview-turn",
+          startedAt: "2026-07-31T00:00:00.000Z",
+          completedAt: "2026-07-31T00:00:08.000Z",
+          usage: { inputTokens: 1200, outputTokens: 400 },
+          parts: [
+            ...message.parts,
+            {
+              type: "code_diff" as const,
+              filePath: "src/Fleet.tsx",
+              oldContent: "",
+              newContent: "export const Fleet = true;\n",
+              status: "accepted" as const,
+            },
+          ],
+        }
+      : message;
     useAppStore.setState({
       activeWorkspaceId: target.workspaceId,
       activeTaskId: target.taskId,
@@ -94,9 +117,48 @@ function CollaborationPreviewContent() {
           controlOwner: "stave",
         },
       ],
-      messagesByTask: { [target.taskId]: [message] },
+      messagesByTask: { [target.taskId]: [inspectorMessage] },
+      ...(inspector
+        ? {
+            activeTurnIdsByTask: { [target.taskId]: "preview-turn" },
+            providerTurnActivityByTask: {
+              [target.taskId]: {
+                turnId: "preview-turn",
+                providerId: "codex" as const,
+                startedAt: Date.now() - 12_000,
+                lastEventAt: Date.now(),
+                stalledAt: null,
+                pendingInteraction: null,
+                workGraph: createWorkGraph({
+                  turnId: "preview-turn",
+                  providerId: "codex",
+                  startedAt: Date.now() - 12_000,
+                }),
+                workItemsById: {
+                  "tool-1": {
+                    id: "tool-1",
+                    kind: "tool" as const,
+                    status: "running" as const,
+                    title: "Review Lens diagnostics",
+                    detail: "Inspecting CDP object lifecycle",
+                    toolUseId: "tool-1",
+                    progressMessages: ["Inspecting CDP object lifecycle"],
+                    startedAt: Date.now() - 8_000,
+                    updatedAt: Date.now(),
+                    elapsedSeconds: 8,
+                  },
+                },
+                orderedWorkItemIds: ["tool-1"],
+              },
+            },
+            settings: {
+              ...useAppStore.getState().settings,
+              turnActivityPlacement: "panel" as const,
+            },
+          }
+        : {}),
     });
-  }, []);
+  }, [inspector]);
   return (
     <main className={sx(cp.page)}>
       <div className={sx(cp.container)}>
@@ -108,13 +170,20 @@ function CollaborationPreviewContent() {
             {dark ? "Light theme" : "Dark theme"}
           </ActionButton>
         </div>
-        {new URLSearchParams(location.search).has("resultReview") ? (
+        {search.has("resultReview") ? (
           <TaskResultReviews
             workspaceId={target.workspaceId}
             taskId={target.taskId}
           />
-        ) : new URLSearchParams(location.search).has("inspector") ? (
-          <div className={sx(cp.inspectorHost)}>
+        ) : inspector ? (
+          <div
+            className={sx(cp.inspectorHost)}
+            style={
+              Number.isFinite(panelWidth) && panelWidth > 0
+                ? { width: panelWidth }
+                : undefined
+            }
+          >
             <TurnActivityPanel />
           </div>
         ) : (

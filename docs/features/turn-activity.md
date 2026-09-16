@@ -139,6 +139,11 @@ The activity list ends with a six-tile metrics grid: `Elapsed`, `Changes`,
 `Verification`, `Usage`, `Agents`, and `Headroom`. `Headroom` combines the
 remaining context tokens and the account limit usage, so the grid divides
 evenly across the 2-, 3-, and 6-column layouts instead of leaving a stray tile.
+In `Panel`, the four outcome tiles (`Changes`, `Verification`, `Usage`,
+`Headroom`) sit on the rail floor instead of scrolling with the rows. They
+stay two-up while the rail is at least `24rem` wide, and collapse to one row
+of four when it is narrower. A cramped tile keeps its label for assistive
+tech and the hover title, and shows only the icon and value.
 
 - A tone color marks a tile that needs attention: failed verification, a
   blocked agent, or low context or account headroom.
