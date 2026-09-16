@@ -12,11 +12,9 @@ const MEDIUM = "@media (min-width: 40rem)";
 const WIDE_SHELF = "@container (min-width: 40rem)";
 /**
  * Two-up tiles need about this much rail before labels like "Verification"
- * stop clipping. Narrower than that, the panel footer becomes one row of four.
+ * stop clipping. Narrower than that, the panel footer stacks one tile per row.
  */
 const PANEL_TWO_UP = "@container (min-width: 24rem)";
-/** A four-across footer tile cannot keep the uppercase label. */
-const CRAMPED_TILE = "@container (max-width: 6rem)";
 
 export const summaryStyles = stylex.create({
   root: {
@@ -46,11 +44,11 @@ export const summaryStyles = stylex.create({
       [WIDE_SHELF]: "repeat(4, minmax(0, 1fr))",
     },
   },
-  // Panel footer is the opposite compact rule: a single row while the rail is
-  // squeezed, two-up once each tile has room for its label.
+  // Panel footer: one tile per row while the rail is squeezed, two-up once
+  // each tile has room for its label.
   gridPanel: {
     gridTemplateColumns: {
-      default: "repeat(4, minmax(0, 1fr))",
+      default: "minmax(0, 1fr)",
       [PANEL_TWO_UP]: "repeat(2, minmax(0, 1fr))",
     },
   },
@@ -60,12 +58,10 @@ export const summaryStyles = stylex.create({
     borderRadius: vars["--ads-radius-panel"],
     borderStyle: "solid",
     borderWidth: vars["--ads-border-width-hairline"],
-    containerType: "inline-size",
     display: "flex",
     flexDirection: "column",
     justifyContent: "space-between",
     minWidth: 0,
-    position: "relative",
     paddingBlock: 10,
     paddingInline: vars["--ads-space-12"],
   },
@@ -89,26 +85,7 @@ export const summaryStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-semibold"],
     letterSpacing: "0.1em",
-    overflow: {
-      default: "hidden",
-      [CRAMPED_TILE]: "hidden",
-    },
-    position: {
-      default: "static",
-      [CRAMPED_TILE]: "absolute",
-    },
-    blockSize: {
-      default: "auto",
-      [CRAMPED_TILE]: 1,
-    },
-    inlineSize: {
-      default: "auto",
-      [CRAMPED_TILE]: 1,
-    },
-    clipPath: {
-      default: "none",
-      [CRAMPED_TILE]: "inset(50%)",
-    },
+    overflow: "hidden",
     textOverflow: "ellipsis",
     textTransform: "uppercase",
     whiteSpace: "nowrap",

@@ -75,6 +75,19 @@ export const workGraphTreeStyles = stylex.create({
     whiteSpace: "nowrap",
     fontWeight: vars["--ads-font-weight-medium"],
   },
+  labelExpanded: {
+    display: "-webkit-box",
+    overflow: "hidden",
+    overflowWrap: "anywhere",
+    textOverflow: "unset",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 3,
+    whiteSpace: "normal",
+  },
+  labelLineExpanded: {
+    alignItems: "flex-start",
+    flexWrap: "wrap",
+  },
   detail: {
     display: "-webkit-box",
     WebkitLineClamp: 2,
@@ -84,6 +97,10 @@ export const workGraphTreeStyles = stylex.create({
     lineHeight: "1rem",
     color: vars["--ads-color-text-muted"],
     margin: 0,
+  },
+  detailExpanded: {
+    overflowWrap: "anywhere",
+    WebkitLineClamp: 4,
   },
   // An error the user has to read, so it takes the status/alert step. The
   // 16px clamp line was sized for Micro and would crop 14px descenders.

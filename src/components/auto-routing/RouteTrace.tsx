@@ -243,19 +243,22 @@ export function RouteTrace(props: RouteTraceProps) {
       data-testid={props["data-testid"] ?? "route-trace"}
       data-collapsed={collapsed ? "true" : undefined}
     >
-      <div className={sx(styles.header)}>
+      <div className={sx(styles.header)} data-testid="route-trace-header">
         <h3 className={sx(styles.title)}>
-          Route
+          <span className={sx(styles.titleLead)}>Route</span>
+          <span className={sx(styles.titleSep)} aria-hidden>
+            ·
+          </span>
           <span className={sx(styles.titleMuted)}>
-            {" · "}
-            <AgentIdentity
-              providerId={decision.providerId}
-              model={decision.model}
-              effort={effort}
-              compact
-            />
-            {" ← "}
-            {ruleLabel}
+            <span className={sx(styles.titleIdentity)}>
+              <AgentIdentity
+                providerId={decision.providerId}
+                model={decision.model}
+                effort={effort}
+                compact
+              />
+            </span>
+            <span className={sx(styles.titleRule)}>← {ruleLabel}</span>
           </span>
         </h3>
         <Button

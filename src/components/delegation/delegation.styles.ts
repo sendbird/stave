@@ -25,6 +25,7 @@ export const delegationStyles = stylex.create({
     overflow: "hidden",
   },
   identityIcon: {
+    display: "block",
     flexShrink: 0,
     height: 14,
     objectFit: "contain",
@@ -256,6 +257,16 @@ export const delegationStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  rowTitleExpanded: {
+    display: "-webkit-box",
+    flexShrink: 1,
+    overflow: "hidden",
+    overflowWrap: "anywhere",
+    textOverflow: "unset",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 3,
+    whiteSpace: "normal",
+  },
   rowTitleDone: {
     color: vars["--ads-color-text-muted"],
   },
@@ -267,6 +278,16 @@ export const delegationStyles = stylex.create({
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
+  },
+  rowAskExpanded: {
+    display: "-webkit-box",
+    lineHeight: vars["--ads-line-height-normal"],
+    overflow: "hidden",
+    overflowWrap: "anywhere",
+    textOverflow: "unset",
+    WebkitBoxOrient: "vertical",
+    WebkitLineClamp: 4,
+    whiteSpace: "normal",
   },
   rowAside: {
     alignItems: "flex-end",

@@ -75,6 +75,11 @@ export interface DelegationsBlockProps {
   busyExchangeId?: string | null;
   /** Rows that open expanded on first render. */
   defaultExpandedIds?: ReadonlySet<string>;
+  /**
+   * Let title and ask wrap. The right-rail panel has height for this; the
+   * docked shelf keeps each field to one ellipsized line.
+   */
+  expandCopy?: boolean;
   className?: string;
   /** Rendered after the rows, e.g. the agent tree. */
   children?: ReactNode;
@@ -125,6 +130,7 @@ export function DelegationsBlock(props: DelegationsBlockProps) {
             exchange={exchange}
             nowMs={nowMs}
             nested={props.nested}
+            expandCopy={props.expandCopy}
             onAction={props.onAction}
             defaultExpanded={props.defaultExpandedIds?.has(exchange.id)}
             extraActions={props.renderExtraActions?.(exchange)}

@@ -361,8 +361,8 @@ export function TaskExecutionSummarySurface(args: {
   compact?: boolean;
   showLatestActivity?: boolean;
   /**
-   * Compact grids only. `shelf` is two-up until the host is wide; `panel` is
-   * one row of four until the rail is wide enough for two-up tiles.
+   * Compact grids only. `shelf` is two-up until the host is wide; `panel`
+   * stacks one tile per row until the rail is wide enough for two-up tiles.
    */
   layout?: "shelf" | "panel";
   /** Kept for callers that still hand this surface a global/utility class. */

@@ -6,6 +6,8 @@ import {
   isRoutedDecision,
   RouteTrace,
 } from "@/components/auto-routing";
+import { routeTraceStyles } from "@/components/auto-routing/route-trace.styles";
+import { sx } from "@/components/ads/utils/stylex";
 import {
   buildAutoRoutingDecisionRecord,
   type AutoRoutingDecision,
@@ -98,6 +100,14 @@ describe("RouteTrace", () => {
     const html = render(buildDecision());
     expect(html).toContain('data-signal="budget" data-decisive="true"');
     expect(html).toContain("Kiro unavailable");
+  });
+
+  test("keeps the header identity on one aligned row", () => {
+    const html = render(buildDecision(), { defaultCollapsed: true });
+    expect(html).toContain('data-testid="route-trace-header"');
+    expect(html).toContain(sx(routeTraceStyles.title));
+    expect(html).toContain(sx(routeTraceStyles.titleIdentity));
+    expect(html).toContain("← implement");
   });
 
   test("folds to the one-line answer when collapsed", () => {
