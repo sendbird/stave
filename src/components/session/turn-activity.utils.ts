@@ -208,6 +208,35 @@ export function describeRetainedTurnHeadline(outcome: RetainedTurnOutcome) {
 }
 
 /**
+ * The mark a turn comes to rest on, or `null` while it is still in flight.
+ *
+ * A finished turn used to keep its loader and merely stop it, which froze the
+ * animation on whichever frame happened to be drawn — a cadence mark held
+ * mid-stride reads as a stalled turn, not a finished one. Every other ended
+ * activity in the app (a reasoning block, a tool row) swaps its loader for a
+ * static glyph, so the shelf header does the same and this resolver decides
+ * which glyph that is.
+ */
+export function resolveTurnActivityRestMark(args: {
+  replayOutcome?: RetainedTurnOutcome;
+  activity: Pick<
+    ProviderTurnActivitySnapshot,
+    "completedAt" | "turnError"
+  > | null;
+}): RetainedTurnOutcome | null {
+  if (args.replayOutcome) {
+    return args.replayOutcome;
+  }
+  // The live snapshot outlives its turn during the failure-linger window, and
+  // it is paused there too; treat that as at rest rather than waiting for the
+  // retained copy to arrive.
+  if (args.activity?.completedAt != null) {
+    return args.activity.turnError ? "failed" : "completed";
+  }
+  return null;
+}
+
+/**
  * Map the turn-level lifecycle to the shared loader vocabulary. Keep this
  * separate from the surface so the state mapping stays deterministic and
  * testable as provider activity grows.

@@ -549,7 +549,7 @@ const WorkspaceLeadingStatusIcon = memo(
           aria-hidden
           className={respondingToneClass}
           size="xs"
-          variant="spinner"
+          variant="matrix"
         />
       );
     }

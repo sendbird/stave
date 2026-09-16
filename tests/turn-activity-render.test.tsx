@@ -87,6 +87,67 @@ describe("TurnActivity", () => {
     );
   });
 
+  test("swaps the header loader for an outcome glyph once the turn ends", () => {
+    const liveProps = {
+      activeTurnId: "turn-rest",
+      activity: {
+        turnId: "turn-rest",
+        providerId: "claude-code" as const,
+        startedAt: 1_000,
+        lastEventAt: 2_000,
+        stalledAt: null,
+        pendingInteraction: null,
+        workItemsById: {},
+        orderedWorkItemIds: [],
+      },
+      isPlanPreparing: false,
+      workItems: [],
+      todos: [],
+    };
+
+    const live = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        ...liveProps,
+        variant: "panel" as const,
+        placement: "panel" as const,
+      }),
+    );
+    expect(live).toContain('data-testid="turn-activity-loader"');
+    expect(live).not.toContain("data-rest-mark");
+
+    // A replayed turn is at rest: a paused loader would hold whichever frame
+    // it stopped on, so the header shows the outcome instead.
+    const replayed = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        ...liveProps,
+        activeTurnId: null,
+        activity: { ...liveProps.activity, completedAt: 3_000 },
+        replayOutcome: "completed" as const,
+        variant: "panel" as const,
+        placement: "panel" as const,
+      }),
+    );
+    expect(replayed).toContain('data-rest-mark="completed"');
+    const restSlot = replayed.slice(
+      replayed.indexOf('data-testid="turn-activity-loader"'),
+    );
+    expect(restSlot.slice(0, restSlot.indexOf("</span>"))).not.toContain(
+      "stave-loader",
+    );
+
+    const failed = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        ...liveProps,
+        activeTurnId: null,
+        activity: { ...liveProps.activity, completedAt: 3_000 },
+        replayOutcome: "failed" as const,
+        variant: "panel" as const,
+        placement: "panel" as const,
+      }),
+    );
+    expect(failed).toContain('data-rest-mark="failed"');
+  });
+
   test("reuses the task execution summary in the expanded shelf", () => {
     const executionSummary = buildTaskExecutionSummary({
       providerId: "codex",

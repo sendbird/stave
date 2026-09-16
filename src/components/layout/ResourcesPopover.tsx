@@ -269,6 +269,16 @@ export function MemoryUsagePopover({
   const [storageMessage, setStorageMessage] = useState<string | null>(null);
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const samplesRef = useRef<ResourceMetricSample[]>([]);
+  /**
+   * A dialog opened with the mouse must not hand its trigger a keyboard focus
+   * ring on the way out. Escape *is* keyboard input, so when focus returns to
+   * the trigger the browser matches `:focus-visible` and paints a ring around a
+   * button nobody tabbed to — it then sits there until the next click. Focus
+   * still returns to the trigger; only the ring is withheld, and only until the
+   * control is left or the keyboard is actually used on it.
+   */
+  const openedByPointerRef = useRef(false);
+  const [ringSuppressed, setRingSuppressed] = useState(false);
 
   const fetchMetrics = useCallback(async () => {
     try {
@@ -420,7 +430,15 @@ export function MemoryUsagePopover({
 
   return (
     <>
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog
+        open={open}
+        onOpenChange={(nextOpen) => {
+          if (!nextOpen && openedByPointerRef.current) {
+            setRingSuppressed(true);
+          }
+          setOpen(nextOpen);
+        }}
+      >
         <Tooltip>
           <TooltipTrigger
             render={<span className={sx(resourceStyles.tooltipAnchor)} />}
@@ -440,8 +458,17 @@ export function MemoryUsagePopover({
                             ? resourceStyles.triggerRailCollapsed
                             : resourceStyles.triggerRailExpanded,
                         ],
+                    ringSuppressed && resourceStyles.triggerRingSuppressed,
                   ]}
                   aria-label="Resource Manager"
+                  onPointerDown={() => {
+                    openedByPointerRef.current = true;
+                  }}
+                  onKeyDown={() => {
+                    openedByPointerRef.current = false;
+                    setRingSuppressed(false);
+                  }}
+                  onBlur={() => setRingSuppressed(false)}
                 />
               }
             >

@@ -1,5 +1,11 @@
-import { Circle, CircleAlert, CircleCheck, CirclePause } from "lucide-react";
-import { useMemo } from "react";
+import {
+  ChevronDown,
+  Circle,
+  CircleAlert,
+  CircleCheck,
+  CirclePause,
+} from "lucide-react";
+import { useMemo, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   classifyProviderTurnStopReason,
@@ -7,17 +13,40 @@ import {
   type RetainedTurnActivity,
 } from "@/lib/providers/turn-status";
 import * as stylex from "@stylexjs/stylex";
-import { Badge } from "../ads/components/Badge";
-import { Loader } from "../ads/components/Loader";
 import { focusRing } from "../ads/recipes/focus-ring";
 import { vars } from "../ads/tokens/tokens.stylex";
 import { sx } from "../ads/utils/stylex";
+import { ModelIcon } from "@/components/ai-elements/model-icon";
+import { toHumanModelName } from "@/lib/providers/model-catalog";
 import { useAppStore } from "@/store/app.store";
 import type { ChatMessage } from "@/types/chat";
-import { ModelResolutionSummary } from "./ModelResolutionSummary";
+import type {
+  AutoRoutingModelResolution,
+  ProviderId,
+} from "@/lib/providers/provider.types";
+import {
+  formatActualRunModel,
+  ModelResolutionSummary,
+  type ActualRunModel,
+} from "./ModelResolutionSummary";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
-type RunStatus = {
+
+const ICONED_PROVIDER_IDS: ReadonlySet<string> = new Set<ProviderId>([
+  "claude-code",
+  "codex",
+  "cursor",
+  "kiro",
+]);
+
+/** A recorded run can name a provider the catalog has no mark for. */
+function toIconedProviderId(providerId: string): ProviderId | null {
+  return ICONED_PROVIDER_IDS.has(providerId)
+    ? (providerId as ProviderId)
+    : null;
+}
+
+export type RunStatus = {
   label: string;
   detail?: string;
   tone: "active" | "waiting" | "success" | "danger" | "neutral";
@@ -91,10 +120,8 @@ function resolveRunStatus(args: {
   return { label: "No run yet", tone: "neutral" };
 }
 
-function StatusIcon({ tone }: { tone: RunStatus["tone"] }) {
-  if (tone === "active") {
-    return <Loader size="sm" tone="accent" aria-hidden />;
-  }
+/** Only the resting tones reach this: a live run is announced by the shelf. */
+function StatusIcon({ tone }: { tone: Exclude<RunStatus["tone"], "active"> }) {
   if (tone === "waiting") {
     return <CirclePause className={sx(styles.icon)} aria-hidden />;
   }
@@ -200,44 +227,98 @@ export function TaskRunOverview() {
   }
 
   return (
+    <TaskRunOverviewView
+      title={title}
+      status={status}
+      actualModel={actualModel}
+      resolution={resolution}
+      runTurnId={runTurnId}
+    />
+  );
+}
+
+/**
+ * The run header itself, free of the store so the layout can be rendered in a
+ * test: one line that names the run on the left and what ran it on the right,
+ * doubling as the disclosure for the full model resolution.
+ */
+export function TaskRunOverviewView(props: {
+  title: string;
+  status: RunStatus;
+  actualModel: ActualRunModel | null;
+  resolution?: AutoRoutingModelResolution;
+  runTurnId?: string | null;
+}) {
+  const { actualModel, resolution, runTurnId, status, title } = props;
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const modelMark = actualModel
+    ? {
+        providerId: toIconedProviderId(actualModel.providerId),
+        label: formatActualRunModel(actualModel),
+      }
+    : resolution
+      ? {
+          providerId: resolution.selectedProviderId,
+          label:
+            toHumanModelName({ model: resolution.selectedModel }) ||
+            resolution.selectedModel,
+        }
+      : null;
+  // "Running" repeats what the activity headline below already says in words,
+  // so the status only speaks when the run ended or needs something.
+  const restingTone = status.tone === "active" ? null : status.tone;
+  const hasModelDetails = Boolean(actualModel || resolution);
+
+  const headerRow = (
+    <>
+      <span className={sx(styles.titleContainer)}>
+        <h3 id="task-run-overview-title" className={sx(styles.title)}>
+          {title}
+        </h3>
+        {restingTone ? (
+          <span
+            role="status"
+            className={sx(styles.status, statusTones[restingTone])}
+          >
+            <StatusIcon tone={restingTone} />
+            {status.label}
+          </span>
+        ) : null}
+      </span>
+      {modelMark ? (
+        <span className={sx(styles.model)} title={modelMark.label}>
+          {modelMark.providerId ? (
+            <ModelIcon
+              providerId={modelMark.providerId}
+              className={sx(styles.modelIcon)}
+            />
+          ) : null}
+          <span className={sx(styles.modelName)}>{modelMark.label}</span>
+        </span>
+      ) : null}
+    </>
+  );
+
+  return (
     <section
       aria-labelledby="task-run-overview-title"
       className={sx(styles.panel)}
       data-testid="task-run-overview"
     >
-      <div className={sx(styles.header)}>
-        <div className={sx(styles.titleContainer)}>
-          <h3 id="task-run-overview-title" className={sx(styles.title)}>
-            {title}
-          </h3>
-        </div>
-        <Badge
-          role="status"
-          variant="outline"
-          tone={
-            status.tone === "active"
-              ? "accent"
-              : status.tone === "waiting"
-                ? "warning"
-                : status.tone
-          }
-        >
-          <StatusIcon tone={status.tone} />
-          {status.label}
-        </Badge>
-      </div>
-
-      {status.detail ? (
-        <p className={sx(styles.detail)}>{status.detail}</p>
-      ) : null}
-
-      {actualModel || resolution ? (
+      {hasModelDetails ? (
         <details
           key={runTurnId ?? "unknown"}
           className={sx(styles.modelDetails)}
+          onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
         >
-          <summary className={sx(styles.disclosure, focusRing.ring)}>
-            Model details
+          <summary
+            className={sx(styles.header, styles.disclosure, focusRing.ring)}
+          >
+            {headerRow}
+            <ChevronDown
+              aria-hidden
+              className={sx(styles.chevron, detailsOpen && styles.chevronOpen)}
+            />
           </summary>
           <div className={sx(styles.modelContent)}>
             <ModelResolutionSummary
@@ -246,6 +327,12 @@ export function TaskRunOverview() {
             />
           </div>
         </details>
+      ) : (
+        <div className={sx(styles.header)}>{headerRow}</div>
+      )}
+
+      {status.detail ? (
+        <p className={sx(styles.detail)}>{status.detail}</p>
       ) : null}
     </section>
   );
@@ -261,19 +348,56 @@ const styles = stylex.create({
     borderBottomColor: vars["--ads-color-border-subtle"],
     padding: vars["--ads-space-12"],
   },
+  // One line: what the run is on the left, what ran it on the right. The
+  // disclosure marker sits in the same row so opening model details does not
+  // cost a second line of chrome.
   header: {
     display: "flex",
-    alignItems: "flex-start",
+    alignItems: "center",
     justifyContent: "space-between",
-    gap: vars["--ads-space-12"],
+    gap: vars["--ads-space-8"],
+    minWidth: 0,
   },
-  titleContainer: { minWidth: 0 },
+  titleContainer: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    gap: vars["--ads-space-8"],
+    minWidth: 0,
+  },
   title: {
+    color: vars["--ads-color-text"],
     fontSize: vars["--ads-font-size-body"],
     lineHeight: vars["--ads-line-height-normal"],
     fontWeight: vars["--ads-font-weight-medium"],
+    whiteSpace: "nowrap",
   },
-  icon: { width: 16, height: 16, flexShrink: 0 },
+  status: {
+    alignItems: "center",
+    display: "flex",
+    flexShrink: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--ads-space-4"],
+  },
+  icon: { width: 14, height: 14, flexShrink: 0 },
+  // The run's identity, not a status: the provider mark and the model name
+  // read as one object, so they share the right edge the badge used to hold.
+  model: {
+    alignItems: "center",
+    color: vars["--ads-color-text-muted"],
+    display: "flex",
+    fontSize: vars["--ads-font-size-caption"],
+    gap: vars["--ads-space-4"],
+    // Holds that edge however short the title beside it is.
+    marginInlineStart: "auto",
+    minWidth: 0,
+  },
+  modelIcon: { width: 14, height: 14, flexShrink: 0 },
+  modelName: {
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
   detail: {
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1.25rem",
@@ -283,7 +407,29 @@ const styles = stylex.create({
   disclosure: {
     cursor: "pointer",
     borderRadius: vars["--ads-radius-mark"],
-    color: vars["--ads-color-text-muted"],
+    listStyle: "none",
+    "::-webkit-details-marker": { display: "none" },
   },
+  chevron: {
+    color: vars["--ads-color-text-muted"],
+    flexShrink: 0,
+    height: 14,
+    transform: "rotate(0deg)",
+    transitionDuration: {
+      default: vars["--ads-motion-duration-quick"],
+      "@media (prefers-reduced-motion: reduce)": "0ms",
+    },
+    transitionProperty: "transform",
+    transitionTimingFunction: vars["--ads-motion-ease-standard"],
+    width: 14,
+  },
+  chevronOpen: { transform: "rotate(180deg)" },
   modelContent: { paddingTop: vars["--ads-space-8"] },
+});
+
+const statusTones = stylex.create({
+  waiting: { color: vars["--ads-color-warning"] },
+  success: { color: vars["--ads-color-success"] },
+  danger: { color: vars["--ads-color-danger"] },
+  neutral: { color: vars["--ads-color-text-muted"] },
 });

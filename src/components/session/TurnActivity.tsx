@@ -13,8 +13,11 @@ import {
   type ReactNode,
 } from "react";
 import {
+  CheckCircle2,
   ChevronDown,
   ChevronUp,
+  CircleAlert,
+  CircleSlash,
   PanelBottomClose,
   PanelRight,
   PictureInPicture2,
@@ -71,6 +74,7 @@ import {
   resolveTurnActivityHiddenSeverity,
   resolveTurnActivityLoaderVariant,
   resolveTurnActivityReplay,
+  resolveTurnActivityRestMark,
   resolveTurnActivitySummary,
   resolveTurnActivityVisibility,
   type TurnActivityItem,
@@ -964,6 +968,38 @@ interface TurnActivitySurfaceProps {
   frameInset?: boolean;
 }
 
+/**
+ * What the header's leading slot holds once the turn is over: the outcome, as
+ * a static glyph, in the place the cadence mark ran. A paused loader keeps
+ * whichever animation frame it stopped on, so "finished" was drawn as a
+ * half-complete stride — the same reason a reasoning block swaps its loader
+ * for a `Brain` when it stops streaming.
+ */
+function TurnRestMark({ outcome }: { outcome: RetainedTurnOutcome }) {
+  if (outcome === "failed") {
+    return (
+      <CircleAlert
+        aria-hidden
+        className={sx(styles.restMark, styles.restMarkDanger)}
+      />
+    );
+  }
+  if (outcome === "stopped") {
+    return (
+      <CircleSlash
+        aria-hidden
+        className={sx(styles.restMark, styles.restMarkMuted)}
+      />
+    );
+  }
+  return (
+    <CheckCircle2
+      aria-hidden
+      className={sx(styles.restMark, styles.restMarkSuccess)}
+    />
+  );
+}
+
 export const TurnActivitySurface = memo(function TurnActivitySurface(
   props: TurnActivitySurfaceProps,
 ) {
@@ -1255,6 +1291,12 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
     isPlanPreparing: props.isPlanPreparing,
     workItems: props.workItems,
   });
+  // A turn that has ended rests on its outcome glyph instead of a frozen
+  // cadence frame.
+  const restMark = resolveTurnActivityRestMark({
+    replayOutcome: props.replayOutcome,
+    activity: props.activity,
+  });
   // Attention states name themselves better than any count can, so they keep
   // the summary label even while the list is open.
   const needsAttention =
@@ -1351,26 +1393,27 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         >
           <span
             data-testid="turn-activity-loader"
+            data-rest-mark={restMark ?? undefined}
             className={sx(styles.loaderSlot)}
           >
-            <Loader
-              aria-hidden
-              cadence="reduced"
-              className={
-                props.activity
-                  ? toProviderWaveToneClass({
-                      providerId: props.activity.providerId,
-                    })
-                  : sx(styles.loaderInk)
-              }
-              paused={
-                isStalled ||
-                props.activity?.pendingInteraction != null ||
-                props.activity?.completedAt != null
-              }
-              size="sm"
-              variant={loaderVariant}
-            />
+            {restMark ? (
+              <TurnRestMark outcome={restMark} />
+            ) : (
+              <Loader
+                aria-hidden
+                cadence="reduced"
+                className={
+                  props.activity
+                    ? toProviderWaveToneClass({
+                        providerId: props.activity.providerId,
+                      })
+                    : sx(styles.loaderInk)
+                }
+                paused={isStalled || props.activity?.pendingInteraction != null}
+                size="sm"
+                variant={loaderVariant}
+              />
+            )}
           </span>
           <h2 className={sx(styles.srOnly)}>
             {props.replayOutcome ? "Last turn activity" : "Turn activity"}

@@ -162,6 +162,21 @@ export const turnActivityStyles = stylex.create({
   loaderInk: {
     color: vars["--ads-color-text"],
   },
+  // The ended-turn glyph, sized to sit in the same 24px slot the `sm` loader
+  // ran in, so the header does not shift when the turn comes to rest.
+  restMark: {
+    height: 18,
+    width: 18,
+  },
+  restMarkSuccess: {
+    color: vars["--ads-color-success"],
+  },
+  restMarkDanger: {
+    color: vars["--ads-color-danger"],
+  },
+  restMarkMuted: {
+    color: vars["--ads-color-text-muted"],
+  },
   // Visually hidden but present for AT — used where the element's tag matters
   // (the `<h2>` heading) so the ADS VisuallyHidden span cannot substitute.
   srOnly: {

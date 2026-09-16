@@ -608,7 +608,7 @@ export function summarizeWorkspaceTaskTitle(title: string) {
 }
 
 /**
- * Child-task cadence. The workspace row uses `spinner` so the parent
+ * Child-task cadence. The workspace row uses `matrix` so the parent
  * container and these streaming rows do not share one mark.
  */
 export function resolveWorkspaceProgressTaskLoaderVariant(
