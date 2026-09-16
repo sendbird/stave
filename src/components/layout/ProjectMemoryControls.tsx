@@ -191,11 +191,11 @@ export function ProjectMemoryControls({
             </label>
             <label className={sx(styles.toggleRow)}>
               <span>
-                Collect memory candidates
+                Collect project memory
                 <span className={sx(styles.toggleHint)}>
-                  Use completed-turn summaries to suggest memories. Requires
-                  Background AI → Turn summary. Explicit agent saves remain
-                  available.
+                  Off by default. Allow agents to save project knowledge and
+                  completed-turn summaries to suggest candidates. Suggestions
+                  require Background AI → Turn summary.
                 </span>
               </span>
               <Switch

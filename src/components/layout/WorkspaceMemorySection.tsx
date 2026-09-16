@@ -27,6 +27,7 @@ import {
 } from "./ProjectMemoryControls";
 import { informationRow } from "./information-row.styles";
 import { workspaceMemorySectionStyles as styles } from "./workspace-memory-section.styles";
+import { MemoryCollectionInvitation } from "./MemoryCollectionInvitation";
 
 const RECALL_LABELS = {
   candidate: "Candidate · not used yet",
@@ -152,6 +153,7 @@ export function WorkspaceMemorySection(props: {
     );
   return (
     <div className={sx(styles.root)}>
+      <MemoryCollectionInvitation key={projectPath} projectPath={projectPath} />
       <details className={sx(styles.controls)}>
         <summary className={sx(styles.controlsSummary)}>
           Memory settings and actions
@@ -179,7 +181,8 @@ export function WorkspaceMemorySection(props: {
       )}
       {!loading && !error && !items.length && (
         <p className={sx(styles.empty)}>
-          No memories yet. Ask the agent to remember a lasting project decision.
+          No memories yet. Once collection is enabled, ask the agent to remember
+          a lasting project decision.
         </p>
       )}
       {items.length > 0 ? (

@@ -18,9 +18,10 @@ function setApi(projectMemory: unknown) {
 describe("project memory turn boundary", () => {
   test("current work selects curated memory, and every provider receives the same bounded context", async () => {
     const store = new ProjectMemoryStore(new Database(":memory:"));
+    store.settings.save({ projectPath: "/tmp/project", expectedRevision: 0, patch: { collectAutomatically: true } });
     store.remember({ projectPath: "/tmp/project", kind: "gotcha", content: "Terminal snapshots need stable slot keys.", confidence: 0.9 });
     store.remember({ projectPath: "/tmp/project", kind: "fact", content: "Composer uses derived colors.", confidence: 0.9 });
-    store.remember({ projectPath: "/tmp/project", kind: "fact", content: "Terminal candidate should not be recalled.", confidence: 0.6 });
+    store.remember({ projectPath: "/tmp/project", kind: "fact", content: "Terminal candidate should not be recalled.", confidence: 0.6, collectionRevision: 1 });
     setApi({ recall: async (args: { projectPath: string; query: string }) => ({ ok: true, items: store.recall(args) }) });
     const prompt = "Investigate terminal snapshots";
     const part = await recallProjectMemoryRetrievedContext({ projectPath: "/tmp/project", history: [{ role: "user", content: "Review the composer" }], prompt });

@@ -296,9 +296,11 @@ export class ProjectMemoryStore {
     const kind = ProjectMemoryKindSchema.parse(args.kind);
     const confidence = clampConfidence(args.confidence);
     const policy = this.settings.get(args.projectPath);
+    // Agent tool writes and summary extraction share the user's opt-in.
+    if (!policy.collectAutomatically) return null;
     const automatic = confidence < 0.7;
     if (automatic && (
-      !policy.collectAutomatically || !policy.kinds.includes(kind) ||
+      !policy.kinds.includes(kind) ||
       (args.collectionRevision ?? 0) !== policy.revision ||
       (policy.resetBefore > 0 && (!args.sourceCreatedAt || args.sourceCreatedAt <= policy.resetBefore))
     )) return null;

@@ -1053,7 +1053,7 @@ function createToolServer(options?: {
     "stave_remember",
     {
       description:
-        "Curate reusable project knowledge. Search stave_list_project_memories first. Pass memoryId to replace or consolidate an existing memory, including a candidate; forget superseded ids. Save durable user corrections, non-obvious conventions or verified pitfalls, never completion logs, temporary status, or facts easily read from code. Default contextual memories are recalled only for matching requests. Reserve core for at most three short project-wide essentials. AGENTS.md and current user instructions win.",
+        "Curate reusable project knowledge. New saves require the user to enable Collect project memory in Settings > Memory; it is off by default. Do not ask to enable it repeatedly or work around disabled collection. Search stave_list_project_memories first. Pass memoryId to replace or consolidate an existing memory, including a candidate; forget superseded ids. Save durable user corrections, non-obvious conventions or verified pitfalls, never completion logs, temporary status, or facts easily read from code. Default contextual memories are recalled only for matching requests. Reserve core for at most three short project-wide essentials. AGENTS.md and current user instructions win.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id (scopes the project)."),
         kind: ProjectMemoryKindSchema.describe(

@@ -33,9 +33,12 @@ actions** in Information > Memory. Settings apply across that project's workspac
 
 - **Use project memory** controls automatic inclusion in new turns. Switching it
   off preserves stored entries; explicit agent lookup and editing remain available.
-- **Collect memory candidates** controls extraction from completed-turn summaries.
-  It requires the Turn summary lane in Background AI. It does not start an extra
-  model call or disable explicit saves by agents.
+- **Collect project memory** is off by default. Enable it explicitly for each
+  project to allow new agent saves and candidate extraction from completed-turn
+  summaries. Suggestions require the Turn summary lane in Background AI; enabling
+  collection does not start an extra model call. Existing entries remain readable,
+  editable and available for recall according to **Use project memory**.
+  Information > Memory offers **Enable memory collection**, using the same setting.
 - **What to collect** limits automatic candidates to selected kinds: decisions,
   conventions, pitfalls or stable facts. Selecting none stops candidate collection.
 - **Collection template** customizes what to prioritize and exclude. The default
@@ -94,6 +97,11 @@ Existing rows are preserved. Curating or forgetting candidates makes room.
 Candidate writes never refresh the confirmation date of curated knowledge.
 
 ## Upgrade and boundaries
+
+Collection requires a new explicit choice after upgrading: older saved `true`
+values also contained the previous default and cannot establish user opt-in.
+Existing entries, recall preferences and collection templates are preserved.
+Enabling or disabling collection invalidates pending summary writes by revision.
 
 An additive database migration classifies existing high-confidence entries as
 contextual and lower-confidence entries as candidates. No old entry becomes core
