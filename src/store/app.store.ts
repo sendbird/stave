@@ -1603,14 +1603,6 @@ export const useAppStore = create<AppState>()(
         const hasActiveTurn = Boolean(
           task && runtimeTarget?.session.activeTurnIdsByTask[task.id],
         );
-        if (hasActiveTurn && submitIntent === "steer") {
-          const accountUsageBlock = await guardSendAgainstAccountUsage(
-            get,
-            providerOverride ?? task?.provider ?? state.draftProvider ?? "claude-code",
-            { cachedOnly: submitIntent !== "steer" },
-          );
-          if (accountUsageBlock) return accountUsageBlock;
-        }
 
         if (!task) {
           const seededTaskId = crypto.randomUUID();
@@ -1817,6 +1809,24 @@ export const useAppStore = create<AppState>()(
           }) === "stalled";
         if (activeTurnId && activeTurnStalled) {
           get().abortTaskTurn({ taskId: resolvedTaskId });
+        }
+        // Steer is the one dispatch path that opens a provider reservation
+        // synchronously right after the off-limits check below. Run the
+        // account-usage guard here, before that window, so its `await` never
+        // interleaves with a concurrent steer racing for the same queued item.
+        if (activeTurnId && !activeTurnStalled && submitIntent === "steer") {
+          const activeTurnAssistantMessage = [...existingHistory]
+            .reverse()
+            .find(
+              (message) =>
+                message.turnId === activeTurnId && message.role === "assistant",
+            );
+          const steerAccountUsageBlock = await guardSendAgainstAccountUsage(
+            get,
+            providerOverride ?? task?.provider ?? state.draftProvider ?? "claude-code",
+            { model: activeTurnAssistantMessage?.model },
+          );
+          if (steerAccountUsageBlock) return steerAccountUsageBlock;
         }
         // A queued item dispatched during a live turn is already in line to
         // auto-dispatch, so sending it here would duplicate it — unless the
@@ -2143,6 +2153,7 @@ export const useAppStore = create<AppState>()(
             const accountUsageBlock = await guardSendAgainstAccountUsage(
               get,
               provider,
+              { model: activeModel },
             );
             if (accountUsageBlock) {
               submittedPromptDraft.restore();

@@ -94,14 +94,6 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
     if (!summaryLane.enabled) {
       return;
     }
-    if (
-      isAccountUsageBlockingFromState({
-        providerId: summaryLane.providerId,
-        state,
-      })
-    ) {
-      return;
-    }
     // A turn that produced no assistant prose has nothing to summarize; the
     // model would only restate the user's own request back at them.
     if (
@@ -174,6 +166,7 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
         if (
           isAccountUsageBlockingFromState({
             providerId,
+            model,
             state: deps.getState(),
           })
         ) {

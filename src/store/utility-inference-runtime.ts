@@ -42,6 +42,7 @@ export function createUtilityRouteClassifier(args: {
     if (
       isAccountUsageBlockingFromState({
         providerId: utilityProviderId,
+        model: args.context.utilityModel,
         state: useAppStore.getState(),
       })
     ) {
@@ -98,6 +99,7 @@ export function maybeSuggestUtilityTaskName(args: {
     args.lane &&
     isAccountUsageBlockingFromState({
       providerId: args.lane.providerId,
+      model: args.lane.model,
       state: useAppStore.getState(),
     })
   ) {

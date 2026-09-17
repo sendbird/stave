@@ -8,6 +8,7 @@ import type {
   ProviderId,
   RateLimitsSnapshotResponse,
 } from "@/lib/providers/provider.types";
+import { getCursorModelBaseId } from "@/lib/providers/cursor-model-id";
 
 export const ACCOUNT_USAGE_BLOCK_THRESHOLD = 100;
 
@@ -65,7 +66,11 @@ function compareUsageWindows(
 
 function collectClaudeWindows(
   snapshot: ClaudeUsageSnapshot,
+  model?: string,
 ): AccountUsageLimitWindow[] {
+  const knownNonFableModel = /^(?:claude-)?(?:sonnet|opus|haiku)(?:$|[-.])/i.test(
+    model?.trim() ?? "",
+  );
   return [
     snapshot.session
       ? { label: "Session", usedPercent: snapshot.session.usedPercent, resetsAt: snapshot.session.resetsAt }
@@ -73,7 +78,7 @@ function collectClaudeWindows(
     snapshot.weekly
       ? { label: "Weekly", usedPercent: snapshot.weekly.usedPercent, resetsAt: snapshot.weekly.resetsAt }
       : null,
-    snapshot.fableWeekly
+    snapshot.fableWeekly && !knownNonFableModel
       ? {
           label: "Model weekly",
           usedPercent: snapshot.fableWeekly.usedPercent,
@@ -85,9 +90,23 @@ function collectClaudeWindows(
 
 function collectCodexWindows(
   buckets: readonly CodexRateLimitSnapshot[],
+  model?: string,
 ): AccountUsageLimitWindow[] {
   const windows: AccountUsageLimitWindow[] = [];
   for (const bucket of buckets) {
+    // The separately named Spark quota does not constrain standard models.
+    // Shared and unknown buckets remain binding: the protocol does not expose
+    // a complete model-to-bucket mapping. Other names may describe model groups.
+    const isSparkBucket =
+      bucket.limitName?.trim().toLowerCase() === "gpt-5.3-codex-spark";
+    if (
+      model?.trim() &&
+      isSparkBucket &&
+      /^gpt-/i.test(model.trim()) &&
+      !/spark/i.test(model)
+    ) {
+      continue;
+    }
     const label = bucket.limitName?.trim() || bucket.limitId?.trim() || "Codex";
     if (bucket.primary) {
       windows.push({
@@ -142,6 +161,7 @@ function collectAccountWindows(
  */
 export function collectProviderAccountUsageWindows(args: {
   providerId: ProviderId;
+  model?: string;
   snapshot: RateLimitsSnapshotResponse | null | undefined;
 }): AccountUsageLimitWindow[] | null {
   const snapshot = args.snapshot;
@@ -151,25 +171,49 @@ export function collectProviderAccountUsageWindows(args: {
   if (args.providerId === "claude-code") {
     return snapshot.claude.source === "unavailable"
       ? null
-      : collectClaudeWindows(snapshot.claude);
+      : collectClaudeWindows(snapshot.claude, args.model);
   }
   if (args.providerId === "codex") {
     return snapshot.codex.source === "unavailable"
       ? null
-      : collectCodexWindows(snapshot.codex.buckets);
+      : collectCodexWindows(snapshot.codex.buckets, args.model);
   }
   if (args.providerId === "cursor") {
-    return !snapshot.cursor || snapshot.cursor.source === "unavailable"
+    if (!snapshot.cursor || snapshot.cursor.source === "unavailable") {
+      return null;
+    }
+    const model = getCursorModelBaseId(args.model ?? "").toLowerCase();
+    // Named models consume separate pools. Auto can route into either pool;
+    // absent model/pool data retains the conservative account-wide check.
+    const poolId = !model || model === "auto" || model.startsWith("auto-")
       ? null
+      : model.startsWith("composer-") || /^grok-4[.-][56](?:$|-)/.test(model)
+        ? "cursor-models"
+        : "other-models";
+    const pool = snapshot.cursor.buckets.find((bucket) => bucket.id === poolId);
+    return pool
+      ? collectAccountWindows(null, [pool], "Monthly")
       : collectAccountWindows(snapshot.cursor.monthly, snapshot.cursor.buckets, "Monthly");
   }
-  return !snapshot.kiro || snapshot.kiro.source === "unavailable"
-    ? null
-    : collectAccountWindows(snapshot.kiro.monthly, snapshot.kiro.buckets, "Monthly");
+  if (!snapshot.kiro || snapshot.kiro.source === "unavailable") {
+    return null;
+  }
+  // CREDIT is the included plan allocation. Bonus/add-on/resource breakdowns
+  // are not simultaneous account limits. Prefer the raw bucket so older
+  // cached snapshots with a synthetic maximum in `monthly` are safe too.
+  const credits = snapshot.kiro.buckets.filter((bucket) =>
+    /^credits?$/i.test(bucket.id),
+  );
+  return collectAccountWindows(
+    snapshot.kiro.buckets.length === 0 ? snapshot.kiro.monthly : null,
+    credits,
+    "Monthly",
+  );
 }
 
 export function resolveTightestAccountUsageWindow(args: {
   providerId: ProviderId;
+  model?: string;
   snapshot: RateLimitsSnapshotResponse | null | undefined;
 }): AccountUsageLimitWindow | null {
   const windows = collectProviderAccountUsageWindows(args);
@@ -225,6 +269,7 @@ function formatResetPhrase(resetsAt: number | null, now: number): string {
 
 export function resolveAccountUsageBlock(args: {
   providerId: ProviderId;
+  model?: string;
   snapshot: RateLimitsSnapshotResponse | null | undefined;
   now?: number;
 }): AccountUsageBlock | null {
@@ -258,6 +303,7 @@ export function resolveAccountUsageBlock(args: {
 
 export function isAccountUsageBlockingProvider(args: {
   providerId: ProviderId;
+  model?: string;
   enabled: boolean;
   snapshot: RateLimitsSnapshotResponse | null | undefined;
   now?: number;
@@ -266,6 +312,7 @@ export function isAccountUsageBlockingProvider(args: {
     args.enabled &&
     resolveAccountUsageBlock({
       providerId: args.providerId,
+      model: args.model,
       snapshot: args.snapshot,
       now: args.now,
     }) != null
