@@ -53,6 +53,7 @@ import {
   taskScrollAnchorCache,
 } from "@/store/task-scroll.utils";
 import type { ChatMessage, MessagePart } from "@/types/chat";
+import type { PromptCacheTurnSnapshot } from "@/lib/providers/usage-cache";
 import type { ClaudeFileRewindResponse } from "@/lib/providers/provider.types";
 import { useShallow } from "zustand/react/shallow";
 import {
@@ -151,6 +152,23 @@ interface MessageRowProps {
     usage?: ChatMessage["usage"];
     delegatedUsage?: ChatMessage["delegatedUsage"];
   };
+  /** Previous assistant turn of this task, for prompt-cache miss detection. */
+  previousAssistantTurn?: PromptCacheTurnSnapshot | null;
+}
+
+/**
+ * The slice of an assistant message that cache-miss detection compares. Kept
+ * to primitives so a memoized row only re-renders when one of them changes.
+ */
+function toPromptCacheTurnSnapshot(
+  message: ChatMessage,
+): PromptCacheTurnSnapshot {
+  return {
+    providerId: message.providerId,
+    model: message.model,
+    nativeSessionId: message.nativeProviderSessionId ?? null,
+    usage: message.usage ?? null,
+  };
 }
 
 const MessageRow = memo(function MessageRow(args: MessageRowProps) {
@@ -164,6 +182,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     traceExpansionMode,
     threadActionState,
     message,
+    previousAssistantTurn,
   } = args;
   const showRespondingWave =
     Boolean(activeTurnId) &&
@@ -417,6 +436,8 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
                   delegatedUsage={message.delegatedUsage}
                   providerId={message.providerId}
                   model={message.model}
+                  nativeProviderSessionId={message.nativeProviderSessionId}
+                  previousTurn={previousAssistantTurn}
                 />
               ) : null}
               {message.role === "assistant" && threadActionState ? (
@@ -664,6 +685,23 @@ function ChatPanelMessageList(props: {
       ),
     [visibleMessages],
   );
+  // Each assistant turn is compared with the assistant turn before it so the
+  // usage badge can name a prompt-cache miss and its likely cause. Snapshots
+  // are memoized per message id so a memoized row keeps its identity.
+  const previousAssistantTurnByMessageId = useMemo(() => {
+    const map = new Map<string, PromptCacheTurnSnapshot | null>();
+    let previous: PromptCacheTurnSnapshot | null = null;
+    for (const message of visibleMessages) {
+      if (message.role !== "assistant") {
+        continue;
+      }
+      map.set(message.id, previous);
+      if (message.usage) {
+        previous = toPromptCacheTurnSnapshot(message);
+      }
+    }
+    return map;
+  }, [visibleMessages]);
   const restoreAnchor = taskScrollAnchorCache.get(scrollContextKey);
   const restoreItemIndex = restoreAnchor
     ? messageIndexById.get(restoreAnchor.messageId)
@@ -960,6 +998,9 @@ function ChatPanelMessageList(props: {
                 traceExpansionMode={traceExpansionMode}
                 threadActionState={threadActionStateByMessageId.get(message.id)}
                 message={message}
+                previousAssistantTurn={previousAssistantTurnByMessageId.get(
+                  message.id,
+                )}
               />
             )}
           />

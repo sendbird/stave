@@ -13,7 +13,10 @@ import { sx } from "@/components/ads/utils/stylex";
 import { messageUsageSummaryStyles as styles } from "./message-usage-summary.styles";
 import {
   computePromptCacheStats,
+  detectPromptCacheMiss,
   formatCacheHitLabel,
+  formatPromptCacheMissLabel,
+  type PromptCacheTurnSnapshot,
 } from "@/lib/providers/usage-cache";
 import type { DelegatedExecutionUsage } from "@/lib/providers/provider.types";
 import type { ChatMessage } from "@/types/chat";
@@ -234,6 +237,7 @@ function TurnUsageDetails(props: {
   tokensReported: boolean;
   providerId?: ChatMessage["providerId"];
   model?: string;
+  cacheMissLabel?: string | null;
 }) {
   const usage = props.usage;
   const tokensReported = props.tokensReported;
@@ -245,6 +249,7 @@ function TurnUsageDetails(props: {
     usage,
   });
   const cacheHitLabel = tokensReported ? formatCacheHitLabel(cacheStats) : null;
+  const cacheMissLabel = tokensReported ? props.cacheMissLabel : null;
   const providerName =
     props.providerId && props.providerId !== "user"
       ? getProviderLabel({ providerId: props.providerId })
@@ -286,6 +291,12 @@ function TurnUsageDetails(props: {
             <>
               <span className={sx(styles.metricLabel)}>Cache hit</span>
               <span className={sx(styles.metricValue)}>{cacheHitLabel}</span>
+            </>
+          ) : null}
+          {cacheMissLabel ? (
+            <>
+              <span className={sx(styles.metricLabel)}>Cache miss</span>
+              <span className={sx(styles.metricValue)}>{cacheMissLabel}</span>
             </>
           ) : null}
           {usage.cacheReadTokens ? (
@@ -369,6 +380,10 @@ export function MessageUsageSummary(props: {
   delegatedUsage?: readonly DelegatedExecutionUsage[];
   providerId?: ChatMessage["providerId"];
   model?: string;
+  /** Native session the turn ran in; a change from the previous turn is a miss cause. */
+  nativeProviderSessionId?: string;
+  /** The previous assistant turn of the same task, for cache-miss detection. */
+  previousTurn?: PromptCacheTurnSnapshot | null;
 }) {
   const tooltipId = useId();
   const usage = props.usage;
@@ -416,9 +431,24 @@ export function MessageUsageSummary(props: {
       usage,
     }),
   );
+  // A miss is the one cache number that asks the user to act (the model or
+  // session changed, or the cache went cold), so it is named, not just counted.
+  const cacheMiss =
+    usage && tokensReported && props.previousTurn
+      ? detectPromptCacheMiss({
+          previous: props.previousTurn,
+          current: {
+            providerId: props.providerId ?? null,
+            model: props.model ?? null,
+            nativeSessionId: props.nativeProviderSessionId ?? null,
+            usage,
+          },
+        })
+      : null;
+  const cacheMissLabel = cacheMiss ? formatPromptCacheMissLabel(cacheMiss) : null;
   const accessibleLabel =
     usage && tokensReported
-      ? `Turn usage details${providerLabel}: ${usage.inputTokens.toLocaleString()} input tokens, ${usage.outputTokens.toLocaleString()} output tokens${summaryCacheHitLabel ? `, ${summaryCacheHitLabel}` : ""}${delegatedUsage.length ? `, ${delegatedLabel}` : ""}`
+      ? `Turn usage details${providerLabel}: ${usage.inputTokens.toLocaleString()} input tokens, ${usage.outputTokens.toLocaleString()} output tokens${summaryCacheHitLabel ? `, ${summaryCacheHitLabel}` : ""}${cacheMissLabel ? `, cache miss (${cacheMissLabel})` : ""}${delegatedUsage.length ? `, ${delegatedLabel}` : ""}`
       : delegatedUsage.length
         ? `Turn usage details${providerLabel}: ${delegatedLabel}`
         : `Turn usage details${providerLabel}: token usage not reported by the provider`;
@@ -501,6 +531,7 @@ export function MessageUsageSummary(props: {
               tokensReported={tokensReported}
               providerId={props.providerId}
               model={props.model}
+              cacheMissLabel={cacheMissLabel}
             />
           ) : null}
           <DelegatedUsageDetails

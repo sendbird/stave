@@ -92,6 +92,54 @@ describe("MessageUsageSummary", () => {
     expect(cursor).not.toContain("cached");
   });
 
+  test("names a prompt-cache miss and its likely cause", () => {
+    const html = renderToStaticMarkup(
+      createElement(MessageUsageSummary, {
+        providerId: "claude-code",
+        model: "claude-sonnet-5",
+        nativeProviderSessionId: "session-1",
+        usage: {
+          inputTokens: 1000,
+          outputTokens: 500,
+          cacheReadTokens: 120000,
+          cacheCreationTokens: 45000,
+        },
+        previousTurn: {
+          providerId: "claude-code",
+          model: "claude-opus-5",
+          nativeSessionId: "session-1",
+          usage: {
+            inputTokens: 500,
+            outputTokens: 300,
+            cacheReadTokens: 40000,
+            cacheCreationTokens: 1200,
+            contextUsedTokens: 42000,
+          },
+        },
+      }),
+    );
+
+    // The tooltip body only mounts on hover; the accessible label carries the
+    // same finding so keyboard and screen-reader users get it too.
+    expect(html).toContain(
+      "cache miss (likely cause: model changed (claude-opus-5 → claude-sonnet-5) · 45,000 tokens re-cached)",
+    );
+
+    // No previous turn: nothing to compare with, so nothing is claimed.
+    const first = renderToStaticMarkup(
+      createElement(MessageUsageSummary, {
+        providerId: "claude-code",
+        model: "claude-sonnet-5",
+        usage: {
+          inputTokens: 1000,
+          outputTokens: 500,
+          cacheCreationTokens: 45000,
+        },
+      }),
+    );
+    expect(first).not.toContain("cache miss");
+  });
+
   test("omits unconfirmed delegated placeholders", () => {
     const html = renderToStaticMarkup(
       createElement(MessageUsageSummary, {

@@ -5,6 +5,7 @@ import type {
 } from "../../src/lib/providers/provider.types";
 import { getProviderNativeSlashCommandInput } from "../../src/lib/providers/provider-request-translators";
 import {
+  STAVE_CURRENT_TASK_AWARENESS_SOURCE_ID,
   STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
 } from "../../src/lib/task-context/current-task-awareness";
 import { STAVE_PROJECT_MEMORY_SOURCE_ID } from "../../src/lib/task-context/project-memory";
@@ -14,8 +15,14 @@ import { STAVE_PROJECT_MEMORY_SOURCE_ID } from "../../src/lib/task-context/proje
  * therefore re-sent verbatim even when nothing about them changed. Unlike the
  * first-turn-only blocks, these *can* change, so they cannot simply be dropped
  * on a primed session — they are compared instead.
+ *
+ * The identity block is here too: project, workspace and task rarely change
+ * within a session, yet it was re-sent in full ahead of every user input. The
+ * `[Stave Workspace Context]` header keeps the workspace and task ids on every
+ * turn, so the pointer never leaves the agent without an id to act on.
  */
 export const DEDUPABLE_RETRIEVED_CONTEXT_SOURCE_IDS = [
+  STAVE_CURRENT_TASK_AWARENESS_SOURCE_ID,
   STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
   STAVE_PROJECT_MEMORY_SOURCE_ID,
 ] as const;

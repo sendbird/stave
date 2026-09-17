@@ -267,6 +267,13 @@ function buildLadder(args: {
       }
     }
   }
+  if (route.cacheHeldModel) {
+    // The step-down was undone to keep the previous turn's prompt cache.
+    const held = pickRungForTier(rungs, route.tier);
+    if (held !== cursorIndex) {
+      rungs[held]?.notes.push("kept for prompt cache");
+    }
+  }
   return rungs;
 }
 

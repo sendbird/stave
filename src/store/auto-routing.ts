@@ -12,6 +12,7 @@ import {
 import { resolveTightestAccountUsageWindow } from "@/lib/providers/account-usage-block";
 import {
   inferProviderIdFromModel,
+  isAutoModelId,
   listProviderIds,
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
@@ -643,6 +644,23 @@ export function findLastAssistantProvider(
   return null;
 }
 
+/** Concrete model behind the most recent managed-provider assistant turn. */
+export function findLastAssistantModel(
+  history: readonly AutoRoutingHistoryMessage[],
+): string | null {
+  for (let index = history.length - 1; index >= 0; index -= 1) {
+    const message = history[index];
+    if (
+      message?.role === "assistant" &&
+      (message.providerId === "claude-code" || message.providerId === "codex")
+    ) {
+      const model = message.model?.trim();
+      return model && !isAutoModelId({ model }) ? model : null;
+    }
+  }
+  return null;
+}
+
 function countAssistantProviderTurns(
   history: readonly AutoRoutingHistoryMessage[],
 ) {
@@ -838,6 +856,7 @@ export function computeRouterSignals(args: {
         ? { providerAvailability: args.providerAvailability }
         : {}),
       lastAssistantProvider,
+      lastAssistantModel: findLastAssistantModel(args.history),
       currentProviderId: args.currentProviderId,
       ...(args.currentModel ? { currentModel: args.currentModel } : {}),
     },

@@ -836,6 +836,12 @@ export interface RouterSignals {
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
   /** Provider that produced the most recent assistant turn, when any. */
   lastAssistantProvider?: ProviderId | null;
+  /**
+   * Model that produced the most recent assistant turn, when any. Prompt
+   * caches are model-scoped, so a primary route that merely steps down from
+   * this model re-reads the whole conversation at the uncached rate.
+   */
+  lastAssistantModel?: string | null;
   /** Provider the task (or the primary, for delegated roles) runs on. */
   currentProviderId: ProviderId;
   /** Model the primary is pinned to; lets the advisor avoid answering itself. */
@@ -860,6 +866,12 @@ export interface ResolvedRoute {
    * model keeps its prompt cache across effort changes.
    */
   budgetHeldModel: boolean;
+  /**
+   * True when the primary kept the previous turn's model instead of the
+   * cheaper pick, because switching would have re-read the whole conversation
+   * uncached. Escalations to a stronger model are never held.
+   */
+  cacheHeldModel: boolean;
 }
 
 export interface ResolveRouteArgs {
@@ -1192,6 +1204,33 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       }
     }
 
+    // Cache stickiness. A model switch mid-task re-reads the whole
+    // conversation at the uncached rate, which for a long task dwarfs the
+    // per-turn saving of a cheaper model. Keep the previous turn's model when
+    // the pick is merely a step down to a weaker rung on the same provider;
+    // stepping *up* is a quality decision and always goes through, and the
+    // hard budget ceiling (−2) still forces the cheapest model.
+    let cacheHeldModel = false;
+    const lastModel = signals.lastAssistantModel?.trim();
+    if (
+      role === "primary" &&
+      budgetShift !== -2 &&
+      lastModel &&
+      lastModel !== model &&
+      signals.lastAssistantProvider === providerId &&
+      models.includes(lastModel)
+    ) {
+      const lastTier = resolveRouteTierForModel(lastModel);
+      if (routeTierIndex(lastTier) <= routeTierIndex(tier)) {
+        model = lastModel;
+        tier = lastTier;
+        cacheHeldModel = true;
+        reasonParts.push(
+          `Kept ${toHumanModelName({ model: lastModel })} from the previous turn so the conversation's prompt cache stays warm.`,
+        );
+      }
+    }
+
     const effort = resolveEffort({
       providerId,
       model,
@@ -1214,6 +1253,7 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       stanceShift: stance.shift,
       budgetShift,
       budgetHeldModel,
+      cacheHeldModel,
     };
   }
 
@@ -1234,6 +1274,7 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
     stanceShift: stance.shift,
     budgetShift,
     budgetHeldModel: false,
+    cacheHeldModel: false,
   };
 }
 

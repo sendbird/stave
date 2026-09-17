@@ -1,4 +1,5 @@
-import { stat } from "node:fs/promises";
+import { createHash } from "node:crypto";
+import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
 
@@ -146,13 +147,132 @@ export function getCodexMcpConfigPaths(args: CodexMcpConfigPathOptions) {
   return [...groups.globalPaths, ...groups.projectPaths];
 }
 
+const MCP_KEY_PATTERN = /mcp/i;
+
+/** Files whose every byte describes MCP wiring, so the whole document counts. */
+const WHOLE_DOCUMENT_MCP_BASENAMES: ReadonlySet<string> = new Set([
+  ".mcp.json",
+  "local-mcp.json",
+]);
+
+function stableStringify(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((entry) => stableStringify(entry)).join(",")}]`;
+  }
+  const record = asRecord(value);
+  if (!record) {
+    return JSON.stringify(value) ?? "null";
+  }
+  return `{${Object.keys(record)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableStringify(record[key])}`)
+    .join(",")}}`;
+}
+
+/**
+ * Keep only the subtrees that can change a provider's MCP catalog: any key
+ * whose name mentions MCP (`mcpServers`, `disabledMcpServers`,
+ * `enabledMcpjsonServers`, …) at any depth. The CLI state file and the
+ * settings files carry far more than that — permission grants, tips shown,
+ * last-used timestamps — and each of those writes used to look like a config
+ * change.
+ */
+function projectMcpJson(value: unknown): unknown {
+  if (Array.isArray(value)) {
+    const projected = value
+      .map((entry) => projectMcpJson(entry))
+      .filter((entry) => entry !== undefined);
+    return projected.length > 0 ? projected : undefined;
+  }
+  const record = asRecord(value);
+  if (!record) {
+    return undefined;
+  }
+  const projected: Record<string, unknown> = {};
+  for (const [key, entry] of Object.entries(record)) {
+    if (MCP_KEY_PATTERN.test(key)) {
+      projected[key] = entry;
+      continue;
+    }
+    const nested = projectMcpJson(entry);
+    if (nested !== undefined) {
+      projected[key] = nested;
+    }
+  }
+  return Object.keys(projected).length > 0 ? projected : undefined;
+}
+
+/**
+ * Codex config is TOML. Keep the `[mcp_servers.*]` tables (and any top-level
+ * `*mcp*` key); everything else — model, approval policy, features — is
+ * irrelevant to the MCP catalog a thread snapshotted.
+ */
+function projectMcpToml(content: string): string {
+  const kept: string[] = [];
+  let inMcpTable = false;
+  for (const rawLine of content.split(/\r?\n/)) {
+    const line = rawLine.trim();
+    const header = /^\[\[?\s*([^\]]+?)\s*\]?\]$/.exec(line);
+    if (header) {
+      inMcpTable = MCP_KEY_PATTERN.test(header[1] ?? "");
+      if (inMcpTable) {
+        kept.push(line);
+      }
+      continue;
+    }
+    if (line.length === 0 || line.startsWith("#")) {
+      continue;
+    }
+    if (inMcpTable || /^[\w.-]*mcp[\w.-]*\s*=/i.test(line)) {
+      kept.push(line);
+    }
+  }
+  return kept.join("\n");
+}
+
+/**
+ * Reduce a config file to the bytes that can change the MCP catalog. Anything
+ * unparseable falls back to the raw content, which is still stricter than the
+ * mtime the tracker compared before: a rewrite with identical bytes stays
+ * invisible.
+ */
+export function projectMcpConfigContent(args: {
+  filePath: string;
+  content: string;
+}): string {
+  const basename = path.basename(args.filePath);
+  const extension = path.extname(basename).toLowerCase();
+  if (extension === ".json") {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(args.content);
+    } catch {
+      return args.content;
+    }
+    if (WHOLE_DOCUMENT_MCP_BASENAMES.has(basename)) {
+      return stableStringify(parsed);
+    }
+    return stableStringify(projectMcpJson(parsed) ?? null);
+  }
+  if (extension === ".toml") {
+    return projectMcpToml(args.content);
+  }
+  return args.content;
+}
+
 async function getMcpConfigFingerprint(paths: readonly string[]) {
   const metadata = await Promise.all(
     paths.map(async (filePath) => {
       try {
-        const fileMetadata = await stat(filePath);
+        const [fileMetadata, content] = await Promise.all([
+          stat(filePath),
+          readFile(filePath, "utf8"),
+        ]);
+        const digest = createHash("sha1")
+          .update(projectMcpConfigContent({ filePath, content }))
+          .digest("hex");
         return {
-          fingerprint: `${filePath}:${fileMetadata.mtimeMs}:${fileMetadata.size}`,
+          fingerprint: `${filePath}:${digest}`,
           modifiedAt: fileMetadata.mtimeMs,
         };
       } catch (error) {

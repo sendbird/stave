@@ -1145,7 +1145,7 @@ export function ProvidersSection() {
               />
               <SwitchField
                 title="Prompt Suggestions"
-                description="Enables Claude SDK prompt_suggestion events after completed turns."
+                description="Offers follow-up prompt chips after each completed turn. Costs one extra lightweight request per turn on top of the turn itself; background lanes never request suggestions."
                 checked={claudePromptSuggestions}
                 onCheckedChange={(checked) =>
                   updateSettings({

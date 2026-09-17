@@ -267,9 +267,10 @@ function buildLatestTurnSummaryLine(info: WorkspaceInformationState) {
   return line.trim().length > 0 ? truncateText(line) : null;
 }
 
+// The plan-directory and plan-file conventions are not repeated here: the
+// `[Stave Workspace Context]` header of the same first-turn prompt already
+// states them (`workspacePlanDirectory`, `newWorkspacePlanFiles`).
 const WORKSPACE_CONVENTION_LINES = [
-  "- new workspace plan files belong under `.stave/context/plans`",
-  "- use `.stave/context/plans/<taskIdPrefix>_<timestamp>.md` for new plan markdown files",
   "- When you discover a Jira issue, pull request, Confluence page, Figma design, Slack thread, Storybook link, or deploy preview URL that this workspace's work relates to (mentioned by the user, found while working, or created by you), register it with the matching `stave_add_workspace_*` tool automatically without being asked. Registration is idempotent: duplicates are detected by canonical identity (e.g. Jira issue key, PR number) and merged into the existing entry, so re-registering is safe — never add the same Jira issue key or PR twice yourself, and prefer passing the issue key/URL as-is over reformatting it.",
 ];
 

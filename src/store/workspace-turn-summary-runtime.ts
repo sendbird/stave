@@ -188,7 +188,6 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
                 claudeMaxTurns: 1,
                 claudePermissionMode: "dontAsk" as const,
                 claudeAgentProgressSummaries: false,
-                claudeFastMode: true,
               }
             : providerId === "codex"
               ? {
@@ -199,7 +198,6 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
                   codexReasoningSummary: "none" as const,
                   codexShowRawReasoning: false,
                   codexPlanMode: false,
-                  codexFastMode: true,
                 }
               : {}),
           ...(supportsExplicitEffort({ providerId, model })

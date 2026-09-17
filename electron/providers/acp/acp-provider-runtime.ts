@@ -1,5 +1,6 @@
 import type { ProviderId } from "../../../src/lib/providers/provider.types";
 import { STAVE_MCP_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS } from "../../../src/lib/task-context/current-task-awareness";
+import { dedupeRetrievedContextForSession } from "../retrieved-context-dedup";
 import {
   buildProviderTurnPrompt,
   filterPromptRetrievedContext,
@@ -702,7 +703,7 @@ export async function streamAcpProviderTurn(args: {
     const hasEmbeddedStaveLocalMcp = (profile.mcpServers ?? []).some(
       isAcpStaveLocalMcpServer,
     );
-    const promptConversation = conversationForPrompt
+    const filteredPromptConversation = conversationForPrompt
       ? filterPromptRetrievedContext({
           conversation: conversationForPrompt,
           excludedSourceIds: hasEmbeddedStaveLocalMcp
@@ -710,6 +711,14 @@ export async function streamAcpProviderTurn(args: {
             : [...STAVE_MCP_SCOPED_RETRIEVED_CONTEXT_SOURCE_IDS],
         })
       : conversationForPrompt;
+    // Same collapse the managed runtimes apply: a block the resumed session
+    // already holds byte-for-byte becomes a one-line pointer. Committed only
+    // after the agent accepted the prompt.
+    const retrievedContextDedup = dedupeRetrievedContextForSession({
+      conversation: filteredPromptConversation,
+      activeResumeSessionId: session.resumed ? session.sessionId : null,
+    });
+    const promptConversation = retrievedContextDedup.conversation;
     const prompt = buildProviderTurnPrompt({
       providerId: profile.providerId,
       prompt: turn.prompt,
@@ -762,6 +771,7 @@ export async function streamAcpProviderTurn(args: {
     } finally {
       promptInFlight = false;
     }
+    retrievedContextDedup.commit();
     const promptUsage =
       normalizeAcpPromptUsage(result.usage) ??
       normalizeAcpPromptUsage(result._meta?.usage);

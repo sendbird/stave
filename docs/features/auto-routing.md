@@ -23,7 +23,8 @@ prompt + context ──▶ Signals ──▶ Task class ──▶ Role table × 
    - `skill` from a leading slash command such as `/ship` or `/ci-fix`.
    - `budgetUsedPercent` from the tightest usage window of the current
      provider (`rateLimitsSnapshot`).
-   - `lastAssistantProvider` for provider stickiness.
+   - `lastAssistantProvider` for provider stickiness, and
+     `lastAssistantModel` for cache stickiness (step 7).
 2. **Task classes**: `plan`, `implement`, `quick-edit`, `debug`, `review`,
    `ci-fix`, `docs`, `research`, `safety-critical`.
 3. **Role table** (`src/lib/providers/auto-routing-profile.ts`): ordered
@@ -48,6 +49,12 @@ prompt + context ──▶ Signals ──▶ Task class ──▶ Role table × 
 6. **Budget guard**: above `stepDownAt` the route steps down one effort when
    the model keeps its prompt cache across effort changes (Fable 5.1, Opus 5),
    otherwise one rung; above `cheapestAt` the cheapest eligible model runs.
+7. **Cache stickiness**: prompt caches are model-scoped, so switching the
+   primary's model mid-task re-reads the whole conversation at the uncached
+   rate. When a primary route would only step *down* from the model that
+   answered the previous turn (same provider, still eligible), the previous
+   model is kept and the decision says so (`cacheHeldModel`). Escalations to a
+   stronger rung and the `cheapestAt` ceiling still switch.
 
 ## Starter profiles
 

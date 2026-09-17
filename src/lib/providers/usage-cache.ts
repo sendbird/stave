@@ -104,3 +104,128 @@ export function formatCacheHitLabel(stats: PromptCacheStats) {
     ? null
     : `${stats.cacheHitPercent}% cached`;
 }
+
+/**
+ * Below this many re-cached tokens a rebuild is noise (the turn's own new
+ * content is always written to cache), not a miss worth naming.
+ */
+export const PROMPT_CACHE_MISS_MIN_TOKENS = 2_000;
+
+/**
+ * Share of the previous context that must have been rewritten before the turn
+ * counts as a rebuild rather than ordinary growth.
+ */
+export const PROMPT_CACHE_MISS_MIN_SHARE = 0.9;
+
+export type PromptCacheMissCause =
+  | "provider_changed"
+  | "model_changed"
+  | "session_changed"
+  | "context_rebuilt";
+
+export interface PromptCacheMiss {
+  cause: PromptCacheMissCause;
+  /** Tokens written back to the cache this turn. */
+  rebuiltTokens: number;
+  previousModel?: string;
+  model?: string;
+}
+
+export interface PromptCacheTurnSnapshot {
+  providerId?: ProviderId | "user" | null;
+  model?: string | null;
+  /** Native provider session or thread the turn ran in. */
+  nativeSessionId?: string | null;
+  usage?:
+    | (PromptCacheUsageInput & { contextUsedTokens?: number | null })
+    | null;
+}
+
+/**
+ * Name the likely reason a turn re-read its conversation uncached.
+ *
+ * Stave sees per-turn totals, not per-request usage, so the rebuild itself is
+ * inferred: the turn wrote back at least {@link PROMPT_CACHE_MISS_MIN_SHARE}
+ * of the previous turn's context. The *cause* is not inferred — a provider,
+ * model or native-session change between two assistant turns is a fact Stave
+ * holds, and each of those invalidates the cache by construction. When such a
+ * fact exists the miss is reported even without the size signal, because a
+ * tool-heavy turn's cumulative cache reads can hide a cold first request.
+ */
+export function detectPromptCacheMiss(args: {
+  previous?: PromptCacheTurnSnapshot | null;
+  current: PromptCacheTurnSnapshot;
+}): PromptCacheMiss | null {
+  const previous = args.previous;
+  const current = args.current;
+  const currentProvider =
+    current.providerId && current.providerId !== "user"
+      ? current.providerId
+      : null;
+  if (!previous || !currentProvider) {
+    return null;
+  }
+  const stats = computePromptCacheStats({
+    providerId: currentProvider,
+    usage: current.usage,
+  });
+  if (!stats.cacheReported) {
+    return null;
+  }
+  const previousProvider =
+    previous.providerId && previous.providerId !== "user"
+      ? previous.providerId
+      : null;
+  const previousModel = previous.model?.trim() || undefined;
+  const model = current.model?.trim() || undefined;
+  const rebuiltTokens = stats.cacheCreationTokens;
+  const base = {
+    rebuiltTokens,
+    ...(previousModel ? { previousModel } : {}),
+    ...(model ? { model } : {}),
+  };
+
+  if (previousProvider && previousProvider !== currentProvider) {
+    return { cause: "provider_changed", ...base };
+  }
+  if (previousModel && model && previousModel !== model) {
+    return { cause: "model_changed", ...base };
+  }
+  const previousSession = previous.nativeSessionId?.trim();
+  const session = current.nativeSessionId?.trim();
+  if (previousSession && session && previousSession !== session) {
+    return { cause: "session_changed", ...base };
+  }
+
+  const previousContext = toCount(previous.usage?.contextUsedTokens);
+  if (
+    previousContext >= PROMPT_CACHE_MISS_MIN_TOKENS &&
+    rebuiltTokens >= PROMPT_CACHE_MISS_MIN_TOKENS &&
+    rebuiltTokens >= previousContext * PROMPT_CACHE_MISS_MIN_SHARE &&
+    stats.cachedTokens < previousContext
+  ) {
+    return { cause: "context_rebuilt", ...base };
+  }
+  return null;
+}
+
+/** `"likely cause: model changed (claude-opus-5 → claude-sonnet-5)"`. */
+export function formatPromptCacheMissLabel(miss: PromptCacheMiss) {
+  const tokens = miss.rebuiltTokens > 0
+    ? ` · ${miss.rebuiltTokens.toLocaleString()} tokens re-cached`
+    : "";
+  switch (miss.cause) {
+    case "provider_changed":
+      return `likely cause: provider changed${tokens}`;
+    case "model_changed":
+      return `likely cause: model changed${
+        miss.previousModel && miss.model
+          ? ` (${miss.previousModel} → ${miss.model})`
+          : ""
+      }${tokens}`;
+    case "session_changed":
+      return `likely cause: new provider session${tokens}`;
+    case "context_rebuilt":
+      return `context re-read uncached${tokens}`;
+  }
+}
