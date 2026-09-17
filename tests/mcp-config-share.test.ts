@@ -11,6 +11,7 @@ import {
   summarizeMcpShareResults,
 } from "@/lib/providers/mcp-config-share";
 import type { McpServerConfigDraft } from "@/lib/providers/mcp-config.types";
+import { CURSOR_SLACK_MCP_CLIENT_ID } from "@/lib/providers/slack-hosted-mcp";
 import { __mcpConfigManagementTest } from "../electron/providers/mcp-config-management";
 
 const stdioDraft: McpServerConfigDraft = {
@@ -99,6 +100,49 @@ describe("shared MCP install planning", () => {
         "codex",
       ),
     ).toThrow("SSE");
+  });
+
+  test("keeps a Kiro Slack app client id and strips it from Cursor", () => {
+    const plan = planMcpSharedInstall({
+      draft: {
+        provider: "kiro",
+        scope: "user",
+        name: "slack",
+        transport: "http",
+        url: "https://mcp.slack.com/mcp",
+        envVars: [],
+        headerEnvBindings: [],
+        oauthClientId: "9988776655.4433221100",
+        enabled: true,
+      },
+      installProviders: ["cursor", "kiro"],
+    });
+
+    expect(
+      plan.drafts.find((draft) => draft.provider === "cursor")?.oauthClientId,
+    ).toBeUndefined();
+    expect(
+      plan.drafts.find((draft) => draft.provider === "kiro")?.oauthClientId,
+    ).toBe("9988776655.4433221100");
+  });
+
+  test("refuses to copy Cursor's published Slack client id onto Kiro", () => {
+    expect(() =>
+      adaptMcpDraftForProvider(
+        {
+          provider: "cursor",
+          scope: "user",
+          name: "slack",
+          transport: "http",
+          url: "https://mcp.slack.com/mcp",
+          envVars: [],
+          headerEnvBindings: [],
+          oauthClientId: CURSOR_SLACK_MCP_CLIENT_ID,
+          enabled: true,
+        },
+        "kiro",
+      ),
+    ).toThrow("cannot reuse Cursor's published Slack client ID");
   });
 
   test("encodes and decodes a multi-provider revision", () => {

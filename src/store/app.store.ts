@@ -1696,6 +1696,22 @@ export const useAppStore = create<AppState>()(
         if (!taskWorkspaceId) {
           return { status: "blocked" } satisfies SendUserMessageResult;
         }
+        // `resolveTaskWorkspaceContext` deliberately returns no cwd when the
+        // task's workspace has no known path, so the turn cannot borrow another
+        // workspace's folder. Stop the send here: dispatching without a cwd
+        // would run the task wherever the host process happens to live.
+        if (!workspaceCwd) {
+          const message =
+            "This task's workspace folder could not be resolved, so the turn would run outside the workspace. Reopen or relink the workspace and send again.";
+          toast.warning("Workspace folder unavailable", {
+            description: message,
+          });
+          return {
+            status: "blocked",
+            reason: "workspace-path-missing",
+            message,
+          } satisfies SendUserMessageResult;
+        }
         const taskWorkspaceSession =
           getWorkspaceSessionForState({
             state,
