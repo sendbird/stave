@@ -33,6 +33,9 @@ import type {
 import {
   buildMcpConfigDraft,
   createInitialMcpConfigForm,
+  formNeedsKiroSlackOAuthClientId,
+  formShowsKiroOAuthClientIdField,
+  formUsesCursorOfficialSlackClient,
   resolveMcpInstallProviders,
   validateMcpConfigForm,
 } from "@/lib/providers/mcp-config-form";
@@ -566,7 +569,20 @@ export function McpServerConfigEditorDialog(props: {
                     </div>
                   ) : null}
                   {!editing || form.replaceUrl ? (
-                    <FormField label="URL" htmlFor={`${baseId}-url`}>
+                    <FormField
+                      label="URL"
+                      htmlFor={`${baseId}-url`}
+                      description={
+                        formUsesCursorOfficialSlackClient(form) &&
+                        formNeedsKiroSlackOAuthClientId(form)
+                          ? "Cursor writes Slack's published Cursor client ID. Kiro needs the client ID from your Slack app."
+                          : formUsesCursorOfficialSlackClient(form)
+                            ? "Stave writes Slack's published Cursor MCP client ID. Use Sign in on the Cursor card after applying."
+                            : formNeedsKiroSlackOAuthClientId(form)
+                              ? "Kiro needs the OAuth client ID from your Slack app. Cursor's Slack client ID cannot be reused."
+                              : undefined
+                      }
+                    >
                       <Input
                         id={`${baseId}-url`}
                         type="url"
@@ -577,6 +593,35 @@ export function McpServerConfigEditorDialog(props: {
                           setForm((current) => ({
                             ...current,
                             url: event.target.value,
+                          }))
+                        }
+                      />
+                    </FormField>
+                  ) : null}
+                  {formShowsKiroOAuthClientIdField(form) ? (
+                    <FormField
+                      label={
+                        formNeedsKiroSlackOAuthClientId(form)
+                          ? "Slack app client ID"
+                          : "OAuth client ID"
+                      }
+                      htmlFor={`${baseId}-oauth-client-id`}
+                      description={
+                        formNeedsKiroSlackOAuthClientId(form)
+                          ? "Required for Kiro. Paste oauth.clientId from your Slack app. This is not a secret."
+                          : "Optional public client ID written to Kiro as oauth.clientId. Never enter a client secret."
+                      }
+                    >
+                      <Input
+                        id={`${baseId}-oauth-client-id`}
+                        value={form.oauthClientId}
+                        placeholder="1234567890.1234567890"
+                        spellCheck={false}
+                        autoComplete="off"
+                        onChange={(event) =>
+                          setForm((current) => ({
+                            ...current,
+                            oauthClientId: event.target.value,
                           }))
                         }
                       />

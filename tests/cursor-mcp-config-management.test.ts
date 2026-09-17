@@ -6,6 +6,7 @@ import {
   applyCursorMcpServerConfigMutation,
   previewCursorMcpServerConfigMutation,
 } from "../electron/providers/cursor-mcp-config-management";
+import { CURSOR_SLACK_MCP_CLIENT_ID } from "@/lib/providers/slack-hosted-mcp";
 
 const temporaryDirectories: string[] = [];
 
@@ -44,10 +45,10 @@ describe("Cursor MCP configuration management", () => {
       urlRedacted: true,
       bearerTokenEnvVar: "SLACK_TOKEN",
       headerEnvBindings: [{ name: "X-Team", envVar: "SLACK_TEAM" }],
+      oauthClientId: "public-client-id",
       hiddenValueCount: 3,
     });
     expect(JSON.stringify(snapshot)).not.toContain("private");
-    expect(JSON.stringify(snapshot)).not.toContain("public-client-id");
     expect(JSON.stringify(snapshot)).not.toContain("literal-secret");
   });
 
@@ -156,6 +157,49 @@ describe("Cursor MCP configuration management", () => {
     });
 
     expect(disabled).toMatchObject({ disabled: true });
+  });
+
+  test("writes Slack's published Cursor client id for hosted Slack MCP", () => {
+    const created = __cursorMcpConfigManagementTest.buildCursorServerEntry({
+      operation: "create",
+      draft: {
+        provider: "cursor",
+        scope: "user",
+        name: "slack",
+        transport: "http",
+        url: "https://mcp.slack.com/mcp",
+        envVars: [],
+        headerEnvBindings: [],
+        enabled: true,
+      },
+    });
+
+    expect(created).toEqual({
+      url: "https://mcp.slack.com/mcp",
+      auth: { CLIENT_ID: CURSOR_SLACK_MCP_CLIENT_ID },
+    });
+  });
+
+  test("does not copy a caller-supplied client id onto hosted Slack MCP", () => {
+    const created = __cursorMcpConfigManagementTest.buildCursorServerEntry({
+      operation: "create",
+      draft: {
+        provider: "cursor",
+        scope: "user",
+        name: "slack",
+        transport: "http",
+        url: "https://mcp.slack.com/mcp",
+        envVars: [],
+        headerEnvBindings: [],
+        oauthClientId: "9988776655.4433221100",
+        enabled: true,
+      },
+    });
+
+    expect(created).toEqual({
+      url: "https://mcp.slack.com/mcp",
+      auth: { CLIENT_ID: CURSOR_SLACK_MCP_CLIENT_ID },
+    });
   });
 
   test("rejects literal project credentials but accepts ${env:NAME}", () => {

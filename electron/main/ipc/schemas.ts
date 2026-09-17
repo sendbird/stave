@@ -14,6 +14,11 @@ import {
   ENV_VAR_NAME_PATTERN,
   MAX_BOUND_SECRETS,
 } from "../../../src/lib/secrets/secrets";
+import {
+  isSlackHostedMcpUrl,
+  OAUTH_CLIENT_ID_MAX_LENGTH,
+  OAUTH_CLIENT_ID_PATTERN,
+} from "../../../src/lib/providers/slack-hosted-mcp";
 export {
   SecondaryRunCancelArgsSchema,
   SecondaryRunClaimArgsSchema,
@@ -139,6 +144,13 @@ export const McpServerConfigDraftSchema = z
           .strict(),
       )
       .max(100),
+    oauthClientId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(OAUTH_CLIENT_ID_MAX_LENGTH)
+      .regex(OAUTH_CLIENT_ID_PATTERN)
+      .optional(),
     enabled: z.boolean(),
   })
   .strict()
@@ -177,6 +189,19 @@ export const McpServerConfigDraftSchema = z
         path: ["command"],
         message: "A stdio MCP server requires a command.",
       });
+    }
+    if (
+      draft.provider === "kiro" &&
+      draft.transport !== "stdio" &&
+      isSlackHostedMcpUrl(draft.url)
+    ) {
+      if (!draft.oauthClientId) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["oauthClientId"],
+          message: "Kiro Slack MCP requires a Slack app OAuth client ID.",
+        });
+      }
     }
   });
 

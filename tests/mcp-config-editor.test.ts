@@ -5,6 +5,7 @@ import {
   parseMcpHeaderBindings,
   resolveMcpInstallProviders,
   validateMcpConfigForm,
+  type McpConfigFormState,
 } from "@/lib/providers/mcp-config-form";
 import type { McpServerConfigSnapshot } from "@/lib/providers/mcp-config.types";
 
@@ -87,5 +88,40 @@ describe("MCP configuration editor", () => {
         workspaceCwd: "/tmp/workspace",
       }),
     ).toThrow("invalid name");
+  });
+
+  test("requires a Slack app client id when Kiro is a Slack MCP target", () => {
+    const form = {
+      ...createInitialMcpConfigForm(),
+      provider: "kiro" as const,
+      installProviders: ["kiro"] as McpConfigFormState["installProviders"],
+      transport: "http" as const,
+      name: "slack",
+      url: "https://mcp.slack.com/mcp",
+    };
+
+    expect(() =>
+      validateMcpConfigForm({ form, editing: false }),
+    ).toThrow("requires a Slack app OAuth client ID");
+    expect(() =>
+      validateMcpConfigForm({
+        form: { ...form, oauthClientId: "9988776655.4433221100" },
+        editing: false,
+      }),
+    ).not.toThrow();
+  });
+
+  test("does not require a client id for Cursor hosted Slack MCP", () => {
+    const form = {
+      ...createInitialMcpConfigForm(),
+      provider: "cursor" as const,
+      installProviders: ["cursor"] as McpConfigFormState["installProviders"],
+      transport: "http" as const,
+      name: "slack",
+      url: "https://mcp.slack.com/mcp",
+    };
+
+    expect(() => validateMcpConfigForm({ form, editing: false })).not.toThrow();
+    expect(buildMcpConfigDraft({ form, editing: false }).oauthClientId).toBeUndefined();
   });
 });
