@@ -62,6 +62,7 @@ export function createIntentGuardRunner(deps: {
       !lane.enabled ||
       isAccountUsageBlockingFromState({
         providerId: lane.providerId,
+        model: lane.model,
         state,
       })
     ) {

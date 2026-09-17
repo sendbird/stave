@@ -39,7 +39,7 @@ describe("Cursor account usage mapping", () => {
 });
 
 describe("Kiro account usage mapping", () => {
-  test("maps credit breakdowns and chooses the tightest monthly limit", () => {
+  test("maps credit breakdowns and uses the included monthly credit limit", () => {
     expect(
       mapKiroUsageResponse({
         success: true,

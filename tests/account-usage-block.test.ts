@@ -54,6 +54,43 @@ describe("isAccountUsageWindowExhausted", () => {
 });
 
 describe("resolveAccountUsageBlock", () => {
+  test("keeps named model pools independent in both directions", () => {
+    const limits = snapshot({
+      cursor: {
+        source: "dashboard",
+        planType: "pro",
+        monthly: { usedPercent: 100, resetsAt: FUTURE, used: 20, limit: 20 },
+        buckets: [
+          { id: "cursor-models", label: "Cursor models", usedPercent: 20, resetsAt: FUTURE, used: null, limit: null, unit: null },
+          { id: "other-models", label: "Other models", usedPercent: 100, resetsAt: FUTURE, used: null, limit: null, unit: null },
+        ],
+        error: null,
+      },
+    });
+    const check = (model?: string) => resolveAccountUsageBlock({
+      providerId: "cursor", model, snapshot: limits, now: NOW_MS,
+    });
+    for (const model of ["grok-4.5", "grok-4.6[reasoning=high]", "composer-2.5", "composer-2-5-fast[fast=true]"]) {
+      expect(check(model)).toBeNull();
+    }
+    for (const model of ["claude-opus-5", "gpt-5", "grok-4"]) {
+      expect(check(model)?.windowLabel).toBe("Other models");
+    }
+    // Routing and provider-level indicators still consider every window.
+    for (const model of [undefined, "", "auto", "auto-smart[optimize_for=balanced]"]) {
+      expect(check(model)).not.toBeNull();
+    }
+    limits.cursor.buckets[0]!.usedPercent = 100;
+    limits.cursor.buckets[1]!.usedPercent = 20;
+    expect(check("grok-4.6")?.windowLabel).toBe("Cursor models");
+    expect(check("claude-opus-5")).toBeNull();
+    limits.cursor.buckets[0]!.resetsAt = PAST;
+    expect(check("grok-4.6")).toBeNull();
+    // Older and partial snapshots must not silently disable the limit guard.
+    limits.cursor.buckets = [];
+    expect(check("grok-4.6")?.windowLabel).toBe("Monthly");
+  });
+
   test("does not block when usage data is unavailable", () => {
     expect(
       resolveAccountUsageBlock({

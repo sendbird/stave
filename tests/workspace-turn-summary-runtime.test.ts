@@ -6,6 +6,7 @@ import {
   type ProjectMemorySettings,
 } from "../src/lib/project-memory-settings";
 import type { AppState } from "../src/store/app-store.types";
+import { emptyRateLimitsSnapshot } from "../src/lib/providers/account-usage-block";
 
 const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
 afterEach(() => {
@@ -14,8 +15,12 @@ afterEach(() => {
   else Reflect.deleteProperty(globalThis, "window");
 });
 
-async function generate(policy: ProjectMemorySettings | null) {
+async function generate(
+  policy: ProjectMemorySettings | null,
+  statePatch: Partial<AppState> = {},
+) {
   const prompts: string[] = [];
+  const models: (string | undefined)[] = [];
   const writes: unknown[] = [];
   const summaries: unknown[] = [];
   Object.defineProperty(globalThis, "window", {
@@ -27,8 +32,9 @@ async function generate(policy: ProjectMemorySettings | null) {
             policy ? { ok: true, settings: policy } : { ok: false },
         },
         provider: {
-          streamTurn: (args: { prompt: string }) => {
+          streamTurn: (args: { prompt: string; runtimeOptions?: { model?: string } }) => {
             prompts.push(args.prompt);
+            models.push(args.runtimeOptions?.model);
             return [];
           },
         },
@@ -41,6 +47,7 @@ async function generate(policy: ProjectMemorySettings | null) {
     workspacePathById: { workspace: "/tmp/memory-summary/worktree" },
     workspaceDefaultById: {},
     settings: defaultSettings,
+    ...statePatch,
     workspaceRuntimeCacheById: {
       workspace: {
         workspaceInformation: {},
@@ -83,8 +90,38 @@ async function generate(policy: ProjectMemorySettings | null) {
   });
   run({ workspaceId: "workspace", taskId: "task", turnId: "turn" });
   await done.promise;
-  return { prompts, writes, summaries };
+  return { prompts, models, writes, summaries };
 }
+
+test("summary tries an available fallback when the preferred model quota is exhausted", async () => {
+  const snapshot = emptyRateLimitsSnapshot();
+  snapshot.claude = {
+    source: "oauth",
+    session: { usedPercent: 10, resetsAt: null },
+    weekly: { usedPercent: 20, resetsAt: null },
+    fableWeekly: { usedPercent: 100, resetsAt: null },
+    error: null,
+  };
+  const result = await generate(null, {
+    rateLimitsSnapshot: snapshot,
+    settings: {
+      ...defaultSettings,
+      blockTurnsWhenAccountLimitReached: true,
+      auxiliaryInferencePolicy: {
+        ...defaultSettings.auxiliaryInferencePolicy,
+        turnSummary: {
+          ...defaultSettings.auxiliaryInferencePolicy.turnSummary,
+          enabled: true,
+          providerId: "claude-code",
+          model: "claude-fable-5-1",
+          fallbackModel: "claude-sonnet-4-6",
+        },
+      },
+    },
+  });
+  expect(result.models).toEqual(["claude-sonnet-4-6"]);
+  expect(result.summaries).toHaveLength(1);
+});
 
 test("summary generation uses the saved collection template in its existing call and forwards its revision", async () => {
   const result = await generate({

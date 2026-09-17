@@ -1603,14 +1603,6 @@ export const useAppStore = create<AppState>()(
         const hasActiveTurn = Boolean(
           task && runtimeTarget?.session.activeTurnIdsByTask[task.id],
         );
-        if (hasActiveTurn && submitIntent === "steer") {
-          const accountUsageBlock = await guardSendAgainstAccountUsage(
-            get,
-            providerOverride ?? task?.provider ?? state.draftProvider ?? "claude-code",
-            { cachedOnly: submitIntent !== "steer" },
-          );
-          if (accountUsageBlock) return accountUsageBlock;
-        }
 
         if (!task) {
           const seededTaskId = crypto.randomUUID();
@@ -1868,6 +1860,16 @@ export const useAppStore = create<AppState>()(
             } satisfies SendUserMessageResult;
           }
           const activeTurnProvider = steeringContext.providerId;
+          const activeTurnMessage = [...existingHistory].reverse().find(
+            (message) =>
+              message.turnId === activeTurnId && message.role === "assistant",
+          );
+          const accountUsageBlock = await guardSendAgainstAccountUsage(
+            get,
+            activeTurnProvider,
+            { model: activeTurnMessage?.model },
+          );
+          if (accountUsageBlock) return accountUsageBlock;
           const clientMessageId = crypto.randomUUID();
           const steerResult = await steerQueueReservations.submitSteer({
             taskId: resolvedTaskId,
@@ -2143,6 +2145,7 @@ export const useAppStore = create<AppState>()(
             const accountUsageBlock = await guardSendAgainstAccountUsage(
               get,
               provider,
+              { model: activeModel },
             );
             if (accountUsageBlock) {
               submittedPromptDraft.restore();

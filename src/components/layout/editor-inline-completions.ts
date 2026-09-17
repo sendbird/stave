@@ -577,6 +577,7 @@ export function configureInlineCompletions(args: {
             if (
               isAccountUsageBlockingFromState({
                 providerId: inlineCompletionLane.providerId,
+                model: inlineCompletionLane.model,
                 state: useAppStore.getState(),
               })
             ) {

@@ -43,6 +43,27 @@ function harness(usedPercent = 20) {
 }
 
 describe("submit usage-check latency", () => {
+  test("dispatch checks the selected model pool instead of an exhausted sibling pool", async () => {
+    const h = harness();
+    h.state.rateLimitsSnapshot!.cursor = {
+      source: "dashboard",
+      planType: "pro",
+      monthly: { usedPercent: 100, resetsAt: null, used: 20, limit: 20 },
+      buckets: [
+        { id: "cursor-models", label: "Cursor models", usedPercent: 20, resetsAt: null, used: null, limit: null, unit: null },
+        { id: "other-models", label: "Other models", usedPercent: 100, resetsAt: null, used: null, limit: null, unit: null },
+      ],
+      error: null,
+    };
+    expect(await guardSendAgainstAccountUsage(h.get, "cursor", {
+      model: "grok-4.6[reasoning=high]",
+    })).toBeNull();
+    expect(h.refreshes()).toBe(0);
+    expect(await guardSendAgainstAccountUsage(h.get, "cursor", {
+      model: "claude-opus-5",
+    })).toMatchObject({ status: "blocked", reason: "account-limit" });
+  });
+
   test("a recent snapshot with headroom does not wait for another network request", async () => {
     const h = harness();
     expect(await guardSendAgainstAccountUsage(h.get, "codex")).toBeNull();

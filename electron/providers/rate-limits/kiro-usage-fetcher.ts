@@ -139,18 +139,16 @@ export function mapKiroUsageResponse(raw: unknown): KiroUsageSnapshot | null {
       };
     },
   );
-  const mostUsed = [...buckets].sort(
-    (left, right) => right.usedPercent - left.usedPercent,
-  )[0];
+  const includedCredits = buckets.find((bucket) => /^credits?$/i.test(bucket.id));
   return {
     source: "acp",
     planName: data.planName ?? null,
-    monthly: mostUsed
+    monthly: includedCredits
       ? {
-          usedPercent: mostUsed.usedPercent,
-          resetsAt: mostUsed.resetsAt,
-          used: mostUsed.used,
-          limit: mostUsed.limit,
+          usedPercent: includedCredits.usedPercent,
+          resetsAt: includedCredits.resetsAt,
+          used: includedCredits.used,
+          limit: includedCredits.limit,
         }
       : null,
     buckets,

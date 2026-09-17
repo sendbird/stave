@@ -791,6 +791,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         prDescriptionLane.enabled &&
         !isAccountUsageBlockingFromState({
           providerId: prDescriptionLane.providerId,
+          model: prDescriptionLane.model,
           state: useAppStore.getState(),
         }),
     );
@@ -1113,6 +1114,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       !options.skipReview &&
       !isAccountUsageBlockingFromState({
         providerId: prePrReviewLane.providerId,
+        model: prePrReviewLane.model,
         state: useAppStore.getState(),
       })
     ) {
