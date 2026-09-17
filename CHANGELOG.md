@@ -1,3 +1,19 @@
+## [0.19.3](https://github.com/sendbird/stave/compare/v0.19.2...v0.19.3) (2026-09-17)
+
+### Features
+
+* Compare MCP-relevant config by content hash instead of file mtime and size, so unrelated settings or identical manifests no longer discard task sessions.
+* Resume Codex threads across instruction edits with a one-time refresh block instead of a cold start, keep Auto on the previous model for same-provider step-downs, and collapse unchanged current-task-awareness to a one-line pointer.
+* Show the likely prompt-cache miss cause and re-cached token count on message usage badges, and publish a short local MCP instructions string.
+
+### Bug Fixes
+
+* Let the prompt-suggestions setting only turn suggestions off, and stop auxiliary lanes, turn summaries, and kickoff suggestions from requesting provider fast modes.
+* Default inline completion to off for new background-AI policies. Stored policies stay as they are.
+
+### References
+
+* [#555](https://github.com/sendbird/stave/pull/555)
 ## [0.19.2](https://github.com/sendbird/stave/compare/v0.19.1...v0.19.2) (2026-09-17)
 
 ### Features
