@@ -6,6 +6,7 @@
 * Cap retained notification history at 50 entries and auto-delete older ones, while exempting unresolved approval and input requests.
 * Use a matrix loader on in-progress workspace rows, collapse the Turn Activity current-run header to one line with the model on the right, and swap a finished turn's paused loader for a static result glyph.
 * Add Resource Manager memory and Electron CPU trends, process counts, uptime, and labeled pressure gauges.
+* Write Slack's published public OAuth client ID for Cursor Slack hosted MCP, and require a caller Slack app client ID for Kiro while refusing Cursor's ID on install or share.
 
 ### Bug Fixes
 
@@ -14,6 +15,7 @@
 * Report the real GitHub merge outcome, derive Open PR status from `mergeStateStatus` first, remap a disallowed merge method, and run server-side branch updates.
 * Scope account-limit blocking to the selected model's usage pool so one exhausted quota no longer blocks unrelated models.
 * Close Resource Manager with Esc without leaving a residual focus ring on a mouse-opened trigger.
+* Refuse a task turn when the workspace folder is missing or not absolute, so providers cannot fall back to the host process directory.
 
 ### Breaking Changes
 
@@ -21,7 +23,7 @@
 
 ### References
 
-* [#545](https://github.com/sendbird/stave/pull/545), [#546](https://github.com/sendbird/stave/pull/546), [#547](https://github.com/sendbird/stave/pull/547), [#550](https://github.com/sendbird/stave/pull/550), [#551](https://github.com/sendbird/stave/pull/551), [#552](https://github.com/sendbird/stave/pull/552), [#553](https://github.com/sendbird/stave/pull/553)
+* [#545](https://github.com/sendbird/stave/pull/545), [#546](https://github.com/sendbird/stave/pull/546), [#547](https://github.com/sendbird/stave/pull/547), [#548](https://github.com/sendbird/stave/pull/548), [#549](https://github.com/sendbird/stave/pull/549), [#550](https://github.com/sendbird/stave/pull/550), [#551](https://github.com/sendbird/stave/pull/551), [#552](https://github.com/sendbird/stave/pull/552), [#553](https://github.com/sendbird/stave/pull/553)
 ## [0.19.1](https://github.com/sendbird/stave/compare/v0.19.0...v0.19.1) (2026-09-16)
 
 ### Bug Fixes
