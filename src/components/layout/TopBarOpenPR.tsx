@@ -89,6 +89,7 @@ import {
   type WorkspacePrStatus,
   PR_STATUS_VISUAL,
   PR_STATUS_ACTIONS,
+  describePrStatusHint,
 } from "@/lib/pr-status";
 import {
   prCreateButtonStyles,
@@ -489,6 +490,17 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   const [dialogMergeMethod, setDialogMergeMethod] =
     useState<ConcretePrMergeMethod>("squash");
   const [dialogAutoMerge, setDialogAutoMerge] = useState(false);
+  // Merge PR confirmation
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false);
+  const [mergeDialogLoading, setMergeDialogLoading] = useState(false);
+  const [mergeDialogMethod, setMergeDialogMethod] =
+    useState<ConcretePrMergeMethod>("squash");
+  const [mergeDialogRepoSettings, setMergeDialogRepoSettings] =
+    useState<RepoMergeSettings>();
+  const [mergeDialogError, setMergeDialogError] = useState<string | null>(
+    null,
+  );
+  const prActionOperationIdRef = useRef(0);
   const suggestionRequestIdRef = useRef(0);
   const submitOperationIdRef = useRef(0);
   const userDeselectedPathsRef = useRef(new Set<string>());
@@ -1482,6 +1494,19 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     });
     if (!isCurrentOperation()) return;
 
+    if (!prResult.ok && prResult.existingPrUrl) {
+      // The cached status was stale: GitHub already has a PR for this branch.
+      resetCreatePrDialogState({ closeDialog: true });
+      toast.info("A pull request already exists for this branch", {
+        description: prResult.existingPrUrl,
+      });
+      fetchStatus();
+      if (openExternal) {
+        void openExternal({ url: prResult.existingPrUrl }).catch(() => {});
+      }
+      return;
+    }
+
     if (!prResult.ok) {
       setInlineNotice({
         tone: "error",
@@ -1639,6 +1664,30 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
   // PR Action handlers
   // -------------------------------------------------------------------------
 
+  /**
+   * Pins a PR action to the workspace it started in. Switching workspaces
+   * while `gh` runs must not paint the other workspace's badge or refresh
+   * the wrong PR.
+   */
+  function beginPrAction() {
+    const operationId = prActionOperationIdRef.current + 1;
+    prActionOperationIdRef.current = operationId;
+    const workspaceId = activeWorkspaceId;
+    const cwd = workspaceCwd;
+    return {
+      cwd,
+      isCurrent: () =>
+        prActionOperationIdRef.current === operationId &&
+        activeWorkspaceIdRef.current === workspaceId &&
+        workspaceCwdRef.current === cwd,
+      refresh: () => {
+        if (workspaceId) {
+          void fetchWorkspacePrStatus({ workspaceId });
+        }
+      },
+    };
+  }
+
   async function handleMarkReady() {
     const setPrReady = window.api?.sourceControl?.setPrReady;
     if (!setPrReady) {
@@ -1646,41 +1695,116 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       return;
     }
 
+    const action = beginPrAction();
     setStep("action");
-    const result = await setPrReady({ cwd: workspaceCwd });
-    setStep("idle");
+    let result: Awaited<ReturnType<typeof setPrReady>>;
+    try {
+      result = await setPrReady({ cwd: action.cwd });
+    } finally {
+      // The PR may have changed either way; never leave the badge stale.
+      action.refresh();
+      if (action.isCurrent()) setStep("idle");
+    }
+    if (!action.isCurrent()) return;
 
     if (!result.ok) {
       toast.error("Failed to mark PR as ready", { description: result.stderr });
       return;
     }
     toast.success("PR marked as ready for review");
-    fetchStatus();
   }
 
-  async function handleMerge() {
+  async function openMergeDialog() {
+    const mergePr = window.api?.sourceControl?.mergePr;
+    if (!mergePr) {
+      toast.error("Bridge unavailable");
+      return;
+    }
+    const action = beginPrAction();
+    const configured = resolveCreatePrMergeState({
+      preferredMethod: createPrMergeMethod,
+      autoMergeEnabled: false,
+    });
+    setMergeDialogMethod(configured.mergeMethod);
+    setMergeDialogRepoSettings(undefined);
+    setMergeDialogError(null);
+    setMergeDialogLoading(true);
+    setMergeDialogOpen(true);
+
+    const getRepoMergeSettings =
+      window.api?.sourceControl?.getRepoMergeSettings;
+    const settingsResult = getRepoMergeSettings
+      ? await getRepoMergeSettings({ cwd: action.cwd }).catch(() => undefined)
+      : undefined;
+    if (!action.isCurrent()) return;
+    const repoSettings = settingsResult?.ok
+      ? {
+          squashMergeAllowed: settingsResult.squashMergeAllowed === true,
+          mergeCommitAllowed: settingsResult.mergeCommitAllowed === true,
+          rebaseMergeAllowed: settingsResult.rebaseMergeAllowed === true,
+          autoMergeAllowed: settingsResult.autoMergeAllowed === true,
+        }
+      : undefined;
+    setMergeDialogRepoSettings(repoSettings);
+    setMergeDialogMethod(
+      resolveCreatePrMergeState({
+        preferredMethod: createPrMergeMethod,
+        autoMergeEnabled: false,
+        repoSettings,
+      }).mergeMethod,
+    );
+    setMergeDialogLoading(false);
+  }
+
+  async function handleConfirmMerge() {
     const mergePr = window.api?.sourceControl?.mergePr;
     if (!mergePr) {
       toast.error("Bridge unavailable");
       return;
     }
 
+    const action = beginPrAction();
+    const expectedHeadOid = prInfo?.pr?.headRefOid ?? null;
+    setMergeDialogError(null);
     setStep("action");
-    // "default" is resolved to a repository-allowed strategy in the host
-    // service: `gh pr merge` requires an explicit --merge/--rebase/--squash
-    // flag because it runs without a TTY here.
-    const result = await mergePr({
-      method: createPrMergeMethod,
-      cwd: workspaceCwd,
-    });
+    let result: Awaited<ReturnType<typeof mergePr>>;
+    try {
+      // The dialog already resolved the method against repository settings;
+      // the host re-checks and pins the merge to the head commit shown here.
+      result = await mergePr({
+        method: mergeDialogMethod,
+        expectedHeadOid,
+        cwd: action.cwd,
+      });
+    } catch (error) {
+      if (!action.isCurrent()) return;
+      setStep("idle");
+      setMergeDialogError(
+        error instanceof Error ? error.message : "Merge request failed.",
+      );
+      action.refresh();
+      return;
+    }
+    action.refresh();
+    if (!action.isCurrent()) return;
     setStep("idle");
 
     if (!result.ok) {
-      toast.error("Merge failed", { description: result.stderr });
+      setMergeDialogError(result.stderr || "gh pr merge failed.");
       return;
     }
-    toast.success("PR merged successfully");
-    fetchStatus();
+    setMergeDialogOpen(false);
+    if (result.warning) {
+      toast.warning("PR merged with warnings", {
+        description: result.warning,
+      });
+    } else {
+      toast.success("PR merged successfully", {
+        description: result.remoteBranchDeleted
+          ? `Merged with ${result.mergeMethod ?? mergeDialogMethod}; remote branch deleted.`
+          : `Merged with ${result.mergeMethod ?? mergeDialogMethod}.`,
+      });
+    }
   }
 
   async function handleUpdateBranch() {
@@ -1690,16 +1814,37 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       return;
     }
 
+    const action = beginPrAction();
     setStep("action");
-    const result = await updatePrBranch({ cwd: workspaceCwd });
-    setStep("idle");
+    let result: Awaited<ReturnType<typeof updatePrBranch>>;
+    try {
+      result = await updatePrBranch({ cwd: action.cwd });
+    } finally {
+      action.refresh();
+      if (action.isCurrent()) setStep("idle");
+    }
+    if (!action.isCurrent()) return;
 
     if (!result.ok) {
       toast.error("Branch update failed", { description: result.stderr });
       return;
     }
-    toast.success("Branch updated");
-    fetchStatus();
+    if (result.warning) {
+      toast.warning("Branch updated on GitHub", {
+        description: result.warning,
+      });
+      return;
+    }
+    toast.success(
+      result.remoteUpdated
+        ? "Branch updated"
+        : "Branch already up to date",
+      {
+        description: result.localSynced
+          ? "The PR branch and this worktree now include the latest base branch."
+          : undefined,
+      },
+    );
   }
 
   async function handleContinueWorkspace(args: {
@@ -1755,7 +1900,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         void handleMarkReady();
         break;
       case "merge":
-        void handleMerge();
+        void openMergeDialog();
         break;
       case "update_branch":
         void handleUpdateBranch();
@@ -1821,9 +1966,19 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     prStatus === "merged" || prStatus === "closed_unmerged";
   const isContinueDisabled = isBusy || continuingWorkspace || hasRespondingTask;
   const effectiveTargetBranch = targetBranch.trim() || defaultBaseBranch;
+  const prStatusError = prInfo?.lastError ?? null;
+  const prStatusHint = prInfo?.pr ? describePrStatusHint(prInfo.pr) : null;
   const createPrTooltip = hasRespondingTask
     ? "Pause or finish the running task before creating a pull request"
-    : "Create a pull request on GitHub";
+    : prStatusError
+      ? `PR status could not be refreshed (${prStatusError}). A pull request may already exist for this branch.`
+      : "Create a pull request on GitHub";
+  const mergeDialogAllowedMethods = resolveCreatePrMergeState({
+    preferredMethod: mergeDialogMethod,
+    autoMergeEnabled: false,
+    repoSettings: mergeDialogRepoSettings,
+  }).allowedMethods;
+  const mergeDialogHeadOid = prInfo?.pr?.headRefOid ?? null;
   const continueTooltip = hasRespondingTask
     ? "Pause or finish the running task before continuing into a new workspace"
     : "Create a new workspace and attach a continuation brief from this completed branch";
@@ -1983,6 +2138,10 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
               </TooltipTrigger>
               <TooltipContent side="bottom">
                 PR #{prInfo?.pr?.number ?? "?"}: {visual.label}
+                {prStatusHint ? ` — ${prStatusHint}` : ""}
+                {prStatusError
+                  ? ` (status may be stale: ${prStatusError})`
+                  : ""}
               </TooltipContent>
             </Tooltip>
 
@@ -2494,6 +2653,158 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
               )}
             </form>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* --- Merge PR confirmation --- */}
+      <Dialog
+        open={mergeDialogOpen}
+        onOpenChange={(open, eventDetails) => {
+          if (!open && step === "action") {
+            eventDetails.cancel();
+            return;
+          }
+          setMergeDialogOpen(open);
+        }}
+      >
+        <DialogContent showCloseButton={step !== "action"}>
+          <DialogHeader>
+            <DialogTitle>Merge Pull Request</DialogTitle>
+            <DialogDescription>
+              #{prInfo?.pr?.number} {prInfo?.pr?.title}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className={sx(openPrStyles.formBody)}>
+            <div className={sx(openPrStyles.branchCard)}>
+              <div className={sx(openPrStyles.branchGrid)}>
+                <div className={sx(openPrStyles.branchField)}>
+                  <p className={FIELD_LABEL_CLASS}>From</p>
+                  <div className={sx(openPrStyles.branchReadout)}>
+                    <GitBranch
+                      {...stylex.props(openPrStyles.branchReadoutIcon)}
+                    />
+                    <span className={sx(openPrStyles.truncate)}>
+                      {prInfo?.pr?.headRefName || currentBranch || "HEAD"}
+                    </span>
+                  </div>
+                </div>
+                <ArrowRight
+                  {...stylex.props(openPrStyles.branchArrow)}
+                  aria-hidden="true"
+                />
+                <div className={sx(openPrStyles.branchField)}>
+                  <p className={FIELD_LABEL_CLASS}>Into</p>
+                  <div className={sx(openPrStyles.branchReadout)}>
+                    <GitBranch
+                      {...stylex.props(openPrStyles.branchReadoutIcon)}
+                    />
+                    <span className={sx(openPrStyles.truncate)}>
+                      {prInfo?.pr?.baseRefName || defaultBaseBranch}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className={sx(openPrStyles.mergeCard)}>
+              <p className={FIELD_LABEL_CLASS}>Merge behavior</p>
+              <div className={sx(openPrStyles.settingRow)}>
+                <div className={sx(openPrStyles.minWidthZero)}>
+                  <label
+                    className={sx(openPrStyles.settingLabel)}
+                    htmlFor="merge-pr-method"
+                  >
+                    Merge method
+                  </label>
+                  <p className={sx(openPrStyles.settingHint)}>
+                    {mergeDialogLoading
+                      ? "Checking which methods the repository allows…"
+                      : mergeDialogRepoSettings
+                        ? "Limited to methods the repository allows."
+                        : "Repository settings unavailable; GitHub decides."}
+                  </p>
+                </div>
+                <Select
+                  value={mergeDialogMethod}
+                  onValueChange={(value) =>
+                    setMergeDialogMethod(value as ConcretePrMergeMethod)
+                  }
+                  disabled={mergeDialogLoading || step === "action"}
+                >
+                  <SelectTrigger
+                    id="merge-pr-method"
+                    className={sx(openPrStyles.mergeMethodTrigger)}
+                  >
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem
+                      value="squash"
+                      disabled={!mergeDialogAllowedMethods.squash}
+                    >
+                      Squash
+                      {mergeDialogAllowedMethods.squash ? "" : " (not allowed)"}
+                    </SelectItem>
+                    <SelectItem
+                      value="merge"
+                      disabled={!mergeDialogAllowedMethods.merge}
+                    >
+                      Merge commit
+                      {mergeDialogAllowedMethods.merge ? "" : " (not allowed)"}
+                    </SelectItem>
+                    <SelectItem
+                      value="rebase"
+                      disabled={!mergeDialogAllowedMethods.rebase}
+                    >
+                      Rebase
+                      {mergeDialogAllowedMethods.rebase ? "" : " (not allowed)"}
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div
+                {...stylex.props(openPrStyles.divider)}
+                aria-hidden="true"
+              />
+              <p className={sx(openPrStyles.settingHint)}>
+                {mergeDialogHeadOid
+                  ? `Merges only if the PR head is still ${mergeDialogHeadOid.slice(0, 7)}. Refresh first if you pushed since.`
+                  : "Head commit unknown; the merge will not be pinned to a specific commit."}
+              </p>
+            </div>
+
+            {mergeDialogError ? (
+              <InlineNoticeBanner
+                notice={{
+                  tone: "error",
+                  title: "Merge failed",
+                  description: mergeDialogError,
+                }}
+              />
+            ) : null}
+          </div>
+
+          <DialogFooter className={sx(openPrStyles.dialogFooter)}>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setMergeDialogOpen(false)}
+              disabled={step === "action"}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleConfirmMerge()}
+              disabled={mergeDialogLoading || step === "action"}
+            >
+              {step === "action" ? (
+                <Loader aria-hidden size="xs" variant="persist" />
+              ) : null}
+              Merge PR
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

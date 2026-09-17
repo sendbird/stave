@@ -969,6 +969,7 @@ export interface HostServiceRequestMap {
   };
   "scm.merge-pr": {
     method?: "default" | "merge" | "squash" | "rebase";
+    expectedHeadOid?: string | null;
     cwd?: string;
   };
   "scm.update-pr-branch": {

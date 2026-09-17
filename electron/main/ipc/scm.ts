@@ -331,6 +331,7 @@ export function registerScmHandlers() {
       _event,
       args: {
         method?: "default" | "merge" | "squash" | "rebase";
+        expectedHeadOid?: string | null;
         cwd?: string;
       },
     ) => invokeHostService("scm.merge-pr", args),

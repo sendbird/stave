@@ -37,18 +37,30 @@ type WorkspacePrStatus =
 
 Raw GitHub fields → single enum, evaluated top to bottom (first match wins):
 
-| Priority | Condition                                     | Status              |
-| -------- | --------------------------------------------- | ------------------- |
-| 1        | `mergedAt` set or `state = MERGED`            | `merged`            |
-| 2        | `state = CLOSED`                              | `closed_unmerged`   |
-| 3        | `isDraft = true`                              | `draft`             |
-| 4        | `mergeable = CONFLICTING`                     | `merge_conflict`    |
-| 5        | `mergeStateStatus = BEHIND`                   | `behind_base`       |
-| 6        | `reviewDecision = CHANGES_REQUESTED`          | `changes_requested` |
-| 7        | `checksRollup = FAILURE`                      | `checks_failed`     |
-| 8        | `checksRollup = PENDING`                      | `checks_pending`    |
-| 9        | `reviewDecision` is empty / `REVIEW_REQUIRED` | `review_required`   |
-| 10       | everything else                               | `ready_to_merge`    |
+| Priority | Condition                                                          | Status              |
+| -------- | ------------------------------------------------------------------ | ------------------- |
+| 1        | `mergedAt` set or `state = MERGED`                                 | `merged`            |
+| 2        | `state = CLOSED`                                                   | `closed_unmerged`   |
+| 3        | `isDraft = true`                                                   | `draft`             |
+| 4        | `mergeable = CONFLICTING` or `mergeStateStatus = DIRTY`            | `merge_conflict`    |
+| 5        | `mergeStateStatus = BEHIND`                                        | `behind_base`       |
+| 6        | `reviewDecision = CHANGES_REQUESTED`                               | `changes_requested` |
+| 7        | `checksRollup = FAILURE` or `mergeStateStatus = UNSTABLE`          | `checks_failed`     |
+| 8        | `checksRollup = PENDING`                                           | `checks_pending`    |
+| 9        | `mergeStateStatus = CLEAN / HAS_HOOKS` and `reviewDecision = REVIEW_REQUIRED` | `review_required` |
+| 10       | `mergeStateStatus = CLEAN / HAS_HOOKS` (approved or no review requirement) | `ready_to_merge` |
+| 11       | `mergeStateStatus = BLOCKED` and `reviewDecision = APPROVED`       | `blocked`           |
+| 12       | `mergeStateStatus = BLOCKED` otherwise                             | `review_required`   |
+| 13       | `mergeStateStatus = UNKNOWN` and `reviewDecision = APPROVED`       | `checks_pending`    |
+| 14       | everything else (GitHub still computing mergeability)              | `review_required`   |
+
+`mergeStateStatus` is GitHub's own merge gate: it already folds in branch
+protection (required reviewers, conversation resolution, required checks that
+never reported, rulesets). `ready_to_merge` is therefore only reported when
+GitHub itself would accept `gh pr merge`, and an empty `reviewDecision` (the
+repository requires no reviews) no longer pins the badge on "Review required".
+`blocked` covers the approved-but-still-protected case; `describePrStatusHint()`
+supplies the tooltip copy for it.
 
 ### Raw GitHub Fields
 
@@ -79,6 +91,7 @@ The `statusCheckRollup` array is collapsed into a single `"SUCCESS" | "FAILURE" 
 | `checks_failed`     | `GitPullRequest`            | `destructive` |
 | `merge_conflict`    | `GitCompareArrows`          | `destructive` |
 | `behind_base`       | `GitBranch`                 | `warning`     |
+| `blocked`           | `GitPullRequest`            | `warning`     |
 | `ready_to_merge`    | `GitMerge`                  | `success`     |
 | `merged`            | `GitMerge`                  | `success`     |
 | `closed_unmerged`   | `GitPullRequestClosed`      | `muted`       |
@@ -143,12 +156,12 @@ gh pr view --json ...
 
 | Handler                     | CLI Command                                    | Purpose                                            |
 | --------------------------- | ---------------------------------------------- | -------------------------------------------------- |
-| `scm:get-pr-status`         | `gh pr view --json ...`                        | Fetch PR metadata + derive checks rollup           |
+| `scm:get-pr-status`         | `gh pr list --head <branch> --state open --json ...`, falling back to `gh pr view --json ...` | Prefer the open PR for the branch; a merged/closed PR is dropped when local `HEAD` already has commits it never saw (branch name reused) |
 | `scm:get-pr-status-for-url` | `gh pr view <url> --json ...`                  | Fetch metadata for a manually linked GitHub PR URL |
 | `scm:set-pr-ready`          | `gh pr ready`                                  | Convert draft → ready for review                   |
-| `scm:merge-pr`              | `gh pr merge [--<method>] --delete-branch`     | Merge with the configured strategy and delete the remote branch |
-| `scm:update-pr-branch`      | `git fetch origin && git rebase origin/<base>` | Rebase head onto latest base                       |
-| `scm:create-pr`              | `gh pr create` (+ optional `gh pr merge --auto [--<method>]`) | Create a ready PR and optionally queue auto-merge |
+| `scm:merge-pr`              | `gh pr merge --<method> [--match-head-commit <oid>]`, then `gh pr view` + `git push origin --delete <head>` | Merge with a repository-allowed strategy pinned to the head commit shown in the UI. The result is read back from GitHub, so a non-zero `gh` exit after the merge (local cleanup fails in linked worktrees) still reports `merged: true`; remote branch deletion is best-effort |
+| `scm:update-pr-branch`      | `gh pr update-branch`, then `git fetch origin && git merge --ff-only origin/<head>` when the worktree is clean | Update the PR branch on GitHub (this is what clears `BEHIND`), then fast-forward the local worktree; a dirty worktree is left untouched with a warning |
+| `scm:create-pr`              | `gh pr create` (+ optional `gh pr merge --auto [--<method>]`) | Create a ready PR and optionally queue auto-merge. A "pull request already exists" refusal returns `existingPrUrl` so the UI can refresh and open the existing PR |
 
 All handlers check `gh auth status` before executing.
 
@@ -159,7 +172,15 @@ All handlers check `gh auth status` before executing.
 | Active workspace (TopBar) | 60 seconds | `useEffect` interval         |
 | All workspaces (Sidebar)  | 5 minutes  | `useEffect` interval         |
 | Manual                    | On demand  | Dropdown "Refresh" item      |
-| After action              | Immediate  | Post-create/merge/mark-ready |
+| After action              | Immediate  | Post-create/merge/mark-ready/update-branch, on success and failure |
+
+When a refresh fails (gh missing, unauthenticated, network), the last known PR
+is kept and `WorkspacePrInfo.lastError` records the reason; the top bar tooltip
+says the status may be stale instead of flipping to "Create PR".
+
+**Merge PR** opens a confirmation dialog first. It resolves the configured merge
+method against the repository's allowed methods, shows the head commit the
+merge is pinned to, and reports GitHub's outcome rather than `gh`'s exit code.
 
 PR info is **transient state** — not persisted in `RecentProjectState` or SQLite.
 Each session fetches fresh from GitHub on mount.
@@ -184,6 +205,7 @@ The top bar button changes based on status:
 | `checks_failed`     | —              | Open on GitHub, Refresh                |
 | `merge_conflict`    | —              | Open on GitHub, Refresh                |
 | `behind_base`       | Update Branch  | Open on GitHub, Refresh                |
+| `blocked`           | —              | Open on GitHub, Refresh                |
 | `ready_to_merge`    | Merge PR       | Open on GitHub, Refresh                |
 | `merged`            | —              | View on GitHub                         |
 | `closed_unmerged`   | —              | View on GitHub                         |

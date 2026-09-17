@@ -457,6 +457,7 @@ export function mapFleetPrAttentionKind(
     case "draft":
     case "review_required":
     case "checks_pending":
+    case "blocked":
     case "merged":
     case "closed_unmerged":
       return null;
