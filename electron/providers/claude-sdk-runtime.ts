@@ -2282,10 +2282,14 @@ export function buildClaudeQueryOptions(args: {
       : {}),
     ...(args.resume ? { resume: args.resume } : {}),
     ...(args.includePartialMessages ? { includePartialMessages: true } : {}),
+    // The Settings toggle can only turn suggestions off. Callers that pass
+    // `false` (aux lanes, secondary runs, control queries) must stay off even
+    // when the user's setting is on, otherwise every background query would
+    // spend a suggestion request nobody can see.
     promptSuggestions:
-      args.runtimeOptions?.claudePromptSuggestions ??
-      args.promptSuggestions ??
-      false,
+      args.promptSuggestions === true
+        ? (args.runtimeOptions?.claudePromptSuggestions ?? true)
+        : false,
     cwd: args.cwd,
     ...(args.resourceOwner ? { spawnClaudeCodeProcess: (options: Parameters<NonNullable<Options["spawnClaudeCodeProcess"]>>[0]) => {
       const child = spawnResourceProcess(options.command, options.args, {

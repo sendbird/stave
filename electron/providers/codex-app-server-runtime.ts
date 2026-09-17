@@ -81,7 +81,10 @@ import {
 import { readPrimaryStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
 import { resolveBoundSecretEnv } from "../main/browser/secret-service";
 import {
+  buildCodexDeveloperInstructions,
+  buildCodexInstructionProfileKey,
   buildCodexThreadKey,
+  resolveCodexInstructionRefresh,
   resolveCodexWorkerProfile,
 } from "./codex-runtime-config";
 import {
@@ -223,6 +226,9 @@ export {
 
 const threadIdByTask = new Map<string, string>();
 const threadExecutableByTask = new Map<string, string>();
+// Instruction profile each live thread last saw; a change becomes a one-time
+// refresh block on the next turn instead of rotating the thread (in-memory).
+const instructionProfileByThreadKey = new Map<string, string>();
 const clientByExecutablePath = new Map<string, CodexAppServerClient>();
 const codexGlobalMcpConfigRefreshTracker = new McpConfigRefreshTracker();
 const codexProjectMcpConfigRefreshTracker = new McpConfigRefreshTracker();
@@ -1069,6 +1075,7 @@ function restartCodexAppServerForMcpConfigChange(executablePath: string) {
     if (threadExecutablePath === executablePath) {
       threadIdByTask.delete(threadKey);
       threadExecutableByTask.delete(threadKey);
+      instructionProfileByThreadKey.delete(threadKey);
     }
   }
   freshCodexThreadExecutables.add(executablePath);
@@ -1134,7 +1141,7 @@ async function ensureCodexThread(args: {
    * its read-only contract. Mirrors the Claude adapter's gate.
    */
   secondaryReadOnly?: boolean;
-  /** Resolved before keying: it decides the instruction hash. */
+  /** Gates the Lens instruction block; see `buildCodexDeveloperInstructions`. */
   hasStaveLocalMcp?: boolean;
 }) {
   const threadKey = buildCodexThreadKey({
@@ -1142,9 +1149,13 @@ async function ensureCodexThread(args: {
     cwd: args.cwd,
     runtimeOptions: args.runtimeOptions,
     boundSecretFingerprint: args.boundSecretFingerprint,
+  });
+  const instructionArgs = {
+    runtimeOptions: args.runtimeOptions,
     ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
     ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
-  });
+  };
+  const instructionProfile = buildCodexInstructionProfileKey(instructionArgs);
   const resumeThreadId = args.ephemeral
     ? undefined
     : resolveThreadId({
@@ -1200,18 +1211,27 @@ async function ensureCodexThread(args: {
         );
     const threadId = response.thread.id;
     releaseThread ??= await args.client.threadLifetime.acquire(threadId);
+    let instructionRefresh: string | null = null;
     if (!args.ephemeral) {
       rememberThreadId({
         threadKey,
         threadId,
         executablePath: args.executablePath,
       });
+      instructionRefresh = resolveCodexInstructionRefresh({
+        resumed: Boolean(resumeThreadId),
+        previousProfile: instructionProfileByThreadKey.get(threadKey),
+        currentProfile: instructionProfile,
+        developerInstructions: buildCodexDeveloperInstructions(instructionArgs),
+      });
+      instructionProfileByThreadKey.set(threadKey, instructionProfile);
     }
     return {
       threadId,
       threadKey,
       resumedThreadId: resumeThreadId ?? null,
       releaseThread,
+      instructionRefresh,
     };
   } catch (error) {
     releaseThread?.();
@@ -1225,6 +1245,7 @@ export function cleanupCodexAppServerTask(taskId: string) {
     if (threadKey.startsWith(keyPrefix)) {
       threadIdByTask.delete(threadKey);
       threadExecutableByTask.delete(threadKey);
+      instructionProfileByThreadKey.delete(threadKey);
     }
   }
 }
@@ -2444,8 +2465,10 @@ export async function streamCodexWithAppServer(
     let threadId: string;
     let resumedThreadId: string | null;
     let releaseThread: () => void;
+    let instructionRefresh: string | null;
     try {
-      ({ threadId, resumedThreadId, releaseThread } = await ensureCodexThread({
+      ({ threadId, resumedThreadId, releaseThread, instructionRefresh } =
+        await ensureCodexThread({
         client,
         input: args.prompt,
         executablePath: codexExecutablePath,
@@ -3885,7 +3908,9 @@ export async function streamCodexWithAppServer(
           buildCodexTurnStartParams({
             threadId,
             cwd: runtimeCwd,
-            prompt: providerPrompt,
+            prompt: instructionRefresh
+              ? `${instructionRefresh}\n\n${providerPrompt}`
+              : providerPrompt,
             runtimeOptions,
             nativeImageItems: turnInput.nativeImageItems,
           }),

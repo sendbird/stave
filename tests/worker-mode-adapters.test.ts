@@ -258,7 +258,7 @@ describe("Codex worker developer instructions", () => {
     expect(off).not.toContain("Worker mode");
   });
 
-  test("worker changes rotate the instruction profile key so resume cannot mismatch", () => {
+  test("worker changes rotate the instruction profile key so a resumed thread gets a refresh", () => {
     const base = buildCodexInstructionProfileKey({
       runtimeOptions: { model: "gpt-5.6-sol" },
     });

@@ -11,6 +11,7 @@ import path from "node:path";
 import { app } from "electron";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { buildStaveLocalMcpServerInstructions } from "./stave-mcp-server-instructions";
 import { z } from "zod";
 import type {
   StaveLocalMcpConfig,
@@ -349,10 +350,17 @@ function createToolServer(options?: {
   browserToolsEnabled?: boolean;
   collaborationGrants?: StaveCollaborationGrants;
 }) {
-  const server = new McpServer({
-    name: "stave-local-mcp",
-    version: app.getVersion(),
-  });
+  const server = new McpServer(
+    {
+      name: "stave-local-mcp",
+      version: app.getVersion(),
+    },
+    {
+      instructions: buildStaveLocalMcpServerInstructions({
+        browserToolsEnabled: options?.browserToolsEnabled !== false,
+      }),
+    },
+  );
 
   server.registerTool(
     "stave_list_projects",

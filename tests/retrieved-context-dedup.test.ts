@@ -32,9 +32,9 @@ function buildConversation(args: {
       },
       {
         type: "retrieved_context",
-        sourceId: "stave:current-task-awareness",
-        title: "Current Stave Task Context",
-        content: "identity block",
+        sourceId: "stave:advisor",
+        title: "Advisor",
+        content: "advisor block",
       },
     ],
   };
@@ -95,8 +95,8 @@ describe("dedupeRetrievedContextForSession", () => {
       second.conversation?.contextParts.some(
         (part) =>
           part.type === "retrieved_context" &&
-          part.sourceId === "stave:current-task-awareness" &&
-          part.content === "identity block",
+          part.sourceId === "stave:advisor" &&
+          part.content === "advisor block",
       ),
     ).toBe(true);
   });

@@ -91,7 +91,10 @@ export const DEFAULT_AUXILIARY_INFERENCE_POLICY: AuxiliaryInferencePolicy = {
   utility: { enabled: true, model: null, maxProviderAttempts: 2 },
   prDescription: { enabled: true, model: null },
   prePrReview: { enabled: true, model: null },
-  inlineCompletion: { enabled: true, model: null },
+  // Off by default: it fires on a ~100-200 ms typing pause with up to 12K
+  // characters of surrounding code and no reusable prompt prefix, so on a
+  // metered plan it is the one lane that can outspend the user's own turns.
+  inlineCompletion: { enabled: false, model: null },
 };
 
 /**
@@ -388,7 +391,9 @@ export function buildReadOnlyAuxRuntimeOptions(args: {
           claudeMaxTurns: 1,
           claudePermissionMode: "dontAsk" as const,
           claudeAgentProgressSummaries: false,
-          claudeFastMode: true,
+          // No fast mode: it is premium-priced on the models that honor it,
+          // and a background lane must never cost more per token than the
+          // user's own turn.
         }
       : {
           codexApprovalPolicy: "never" as const,
@@ -398,7 +403,6 @@ export function buildReadOnlyAuxRuntimeOptions(args: {
           codexReasoningSummary: "none" as const,
           codexShowRawReasoning: false,
           codexPlanMode: false,
-          codexFastMode: true,
         }),
   };
 }

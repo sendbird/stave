@@ -254,18 +254,56 @@ export function buildCodexThreadKey(args: {
   cwd: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   boundSecretFingerprint?: string;
-  secondaryReadOnly?: boolean;
-  hasStaveLocalMcp?: boolean;
 }) {
   const model = args.runtimeOptions?.model?.trim() || "default";
   const mode = args.runtimeOptions?.codexPlanMode ? "plan" : "chat";
-  // The developer instructions are hashed into the key, so anything that
-  // changes them — including whether the Lens block is present — belongs here.
-  const instructionProfile = buildCodexInstructionProfileKey({
-    runtimeOptions: args.runtimeOptions,
-    ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
-    ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
-  });
+  // The developer instructions are deliberately NOT part of the key. A Codex
+  // thread only re-renders `developer_instructions` when it builds a fresh
+  // context window (first turn or compaction), so rotating the thread on every
+  // instruction change used to pay a full cold start for a response-style
+  // tweak or a Lens toggle. Instead the runtime tracks the instruction profile
+  // each thread last saw and sends `buildCodexInstructionRefreshBlock` on the
+  // next turn when it differs — the history prefix (and its cache) survives.
   const secretFingerprint = args.boundSecretFingerprint ?? "none";
-  return `${args.taskId ?? "default"}:${args.cwd}:${model}:${mode}:${instructionProfile}:${secretFingerprint}`;
+  return `${args.taskId ?? "default"}:${args.cwd}:${model}:${mode}:${secretFingerprint}`;
+}
+
+export const CODEX_INSTRUCTION_REFRESH_HEADER = "[Stave Instructions Update]";
+
+/**
+ * One-time prompt block that carries changed developer instructions into a
+ * resumed thread. Codex does not re-render `developer_instructions` on
+ * `thread/resume`; the block is prepended to the next user turn only, so the
+ * model sees the current contract without the thread being restarted.
+ */
+export function buildCodexInstructionRefreshBlock(developerInstructions: string) {
+  return [
+    CODEX_INSTRUCTION_REFRESH_HEADER,
+    "The developer instructions for this thread changed after it started. The following replaces the developer instructions you were given earlier; follow this version from now on.",
+    "",
+    developerInstructions.trim(),
+  ].join("\n");
+}
+
+/**
+ * Decide whether a resumed thread needs the refresh block.
+ *
+ * - a thread that was just started saw the current instructions: no refresh
+ * - a resumed thread whose recorded profile matches: no refresh
+ * - a resumed thread with a different or unknown profile (for example after
+ *   an app restart, when the in-memory record is gone): refresh once
+ */
+export function resolveCodexInstructionRefresh(args: {
+  resumed: boolean;
+  previousProfile: string | undefined;
+  currentProfile: string;
+  developerInstructions: string | undefined;
+}) {
+  if (!args.resumed || !args.developerInstructions) {
+    return null;
+  }
+  if (args.previousProfile === args.currentProfile) {
+    return null;
+  }
+  return buildCodexInstructionRefreshBlock(args.developerInstructions);
 }

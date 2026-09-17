@@ -208,7 +208,6 @@ export function createWorkspaceKickoffResolver(args: {
                 claudeMaxTurns: mcpServers.length > 0 ? 8 : 1,
                 claudePermissionMode: "dontAsk" as const,
                 claudeAgentProgressSummaries: false,
-                claudeFastMode: true,
               }
             : providerId === "codex"
               ? {
@@ -219,7 +218,6 @@ export function createWorkspaceKickoffResolver(args: {
                   codexReasoningSummary: "none" as const,
                   codexShowRawReasoning: false,
                   codexPlanMode: false,
-                  codexFastMode: true,
                 }
               : {}),
         };

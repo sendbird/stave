@@ -1860,6 +1860,37 @@ describe("resolveClaudeAgentProgressSummaries", () => {
 });
 
 describe("buildClaudeQueryOptions", () => {
+  test("lets the prompt-suggestions setting only turn suggestions off", () => {
+    const base = { cwd: workspaceRoot, claudeExecutablePath: "" };
+    // Conversation turn follows the setting, defaulting to on.
+    expect(
+      buildClaudeQueryOptions({ ...base, promptSuggestions: true })
+        .promptSuggestions,
+    ).toBe(true);
+    expect(
+      buildClaudeQueryOptions({
+        ...base,
+        promptSuggestions: true,
+        runtimeOptions: { claudePromptSuggestions: false },
+      }).promptSuggestions,
+    ).toBe(false);
+    // Aux lanes and control queries pass false; the setting must not re-enable
+    // a suggestion request nobody can see.
+    expect(
+      buildClaudeQueryOptions({
+        ...base,
+        promptSuggestions: false,
+        runtimeOptions: { claudePromptSuggestions: true },
+      }).promptSuggestions,
+    ).toBe(false);
+    expect(
+      buildClaudeQueryOptions({
+        ...base,
+        runtimeOptions: { claudePromptSuggestions: true },
+      }).promptSuggestions,
+    ).toBe(false);
+  });
+
   test("enables Claude's native Chrome integration only when requested", () => {
     const enabled = buildClaudeQueryOptions({
       cwd: workspaceRoot,

@@ -41,9 +41,12 @@ import {
   buildCodexDeveloperInstructions,
   buildCodexNativeBrowserTurnConfigOverrides,
   buildCodexInstructionProfileKey,
+  buildCodexThreadKey,
+  CODEX_INSTRUCTION_REFRESH_HEADER,
   CODEX_STAVE_LENS_INSTRUCTIONS,
   CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS,
   isCodexNativeBrowserPluginEnabled,
+  resolveCodexInstructionRefresh,
   resolveCodexNativeBrowserPluginEnabled,
 } from "../electron/providers/codex-runtime-config";
 import { mapCodexHookCatalogGroups } from "../electron/providers/codex-snapshot-mappers";
@@ -832,12 +835,87 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
     expect(withLens.length).toBeGreaterThan(withoutLens.length);
   });
 
-  test("keys the thread on whether Lens guidance is present", () => {
-    // The instructions are hashed into the thread key, so a thread must never
-    // resume with a different instruction set than it started with.
+  test("rotates the instruction profile, not the thread, when Lens guidance toggles", () => {
+    // The profile still changes so the runtime can detect it...
     expect(buildCodexInstructionProfileKey({})).not.toBe(
       buildCodexInstructionProfileKey({ hasStaveLocalMcp: true }),
     );
+    // ...but the thread key ignores instructions entirely: a Lens toggle, a
+    // response-style edit, or a worker change must not cold-start the thread.
+    const base = {
+      taskId: "task-1",
+      cwd: "/tmp/project",
+      runtimeOptions: { model: "gpt-5.6-sol", responseStylePrompt: "Be terse." },
+    };
+    expect(buildCodexThreadKey(base)).toBe(
+      buildCodexThreadKey({
+        ...base,
+        runtimeOptions: { model: "gpt-5.6-sol", responseStylePrompt: "Be verbose." },
+      }),
+    );
+    // Model, plan mode, and bound secrets still rotate it.
+    expect(buildCodexThreadKey(base)).not.toBe(
+      buildCodexThreadKey({ ...base, runtimeOptions: { model: "gpt-5.6-terra" } }),
+    );
+    expect(buildCodexThreadKey(base)).not.toBe(
+      buildCodexThreadKey({
+        ...base,
+        runtimeOptions: { ...base.runtimeOptions, codexPlanMode: true },
+      }),
+    );
+    expect(buildCodexThreadKey(base)).not.toBe(
+      buildCodexThreadKey({ ...base, boundSecretFingerprint: "abc" }),
+    );
+  });
+
+  test("sends a one-time refresh block only when a resumed thread's instructions changed", () => {
+    const instructions = "Follow the new style.";
+    // Fresh thread: it already saw the current instructions.
+    expect(
+      resolveCodexInstructionRefresh({
+        resumed: false,
+        previousProfile: undefined,
+        currentProfile: "b",
+        developerInstructions: instructions,
+      }),
+    ).toBeNull();
+    // Resumed with the same profile: nothing to say.
+    expect(
+      resolveCodexInstructionRefresh({
+        resumed: true,
+        previousProfile: "a",
+        currentProfile: "a",
+        developerInstructions: instructions,
+      }),
+    ).toBeNull();
+    // Resumed with a changed profile: the block replaces the earlier contract.
+    const changed = resolveCodexInstructionRefresh({
+      resumed: true,
+      previousProfile: "a",
+      currentProfile: "b",
+      developerInstructions: instructions,
+    });
+    expect(changed).toStartWith(CODEX_INSTRUCTION_REFRESH_HEADER);
+    expect(changed).toContain("replaces the developer instructions");
+    expect(changed).toEndWith(instructions);
+    // Unknown previous profile (app restart): refresh once rather than guess.
+    expect(
+      resolveCodexInstructionRefresh({
+        resumed: true,
+        previousProfile: undefined,
+        currentProfile: "b",
+        developerInstructions: instructions,
+      }),
+    ).toBe(changed);
+    // No instructions at all: nothing to carry.
+    expect(
+      resolveCodexInstructionRefresh({
+        resumed: true,
+        previousProfile: "a",
+        currentProfile: "b",
+        developerInstructions: undefined,
+      }),
+    ).toBeNull();
   });
 
   test("forwards the plugin disable override through thread/start config", () => {

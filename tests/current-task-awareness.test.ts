@@ -133,9 +133,10 @@ describe("buildCurrentTaskAwarenessRetrievedContextParts", () => {
 
     const guidance = contentBySourceId(parts, STAVE_WORKSPACE_GUIDANCE_SOURCE_ID);
     expect(guidance).toContain("Workspace Conventions:");
-    expect(guidance).toContain(
-      "new workspace plan files belong under `.stave/context/plans`",
-    );
+    expect(guidance).toContain("register it with the matching `stave_add_workspace_*` tool");
+    // The plan-file conventions live in the `[Stave Workspace Context]` header
+    // of the same prompt; repeating them here paid for them twice.
+    expect(guidance).not.toContain("new workspace plan files belong under");
     expect(guidance).toContain("Token Budget Guidance:");
     expect(guidance).toContain(
       "Do not call `stave_get_workspace_information` just to re-read fields already shown here.",

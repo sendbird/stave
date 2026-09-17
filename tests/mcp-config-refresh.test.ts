@@ -8,6 +8,7 @@ import {
   getCodexMcpConfigPaths,
   getStaveLocalMcpManifestPath,
   McpConfigRefreshTracker,
+  projectMcpConfigContent,
 } from "../electron/providers/mcp-config-refresh";
 
 const tempDirectories: string[] = [];
@@ -233,5 +234,117 @@ describe("MCP config refresh tracking", () => {
     await writeFile(configPath, "[mcp_servers.crane]\n");
     expect((await tracker.check(args)).changed).toBe(false);
     expect((await tracker.check({ ...args, force: true })).changed).toBe(true);
+  });
+
+  test("ignores rewrites that leave the MCP catalog untouched", async () => {
+    // The CLI rewrites its state and settings files for reasons unrelated to
+    // MCP (permission grants, tips shown, last-used timestamps). Each of those
+    // used to rotate every resumed session in scope: a cold prompt cache plus
+    // a full history replay, for a change the provider would not even see.
+    const directory = await makeTempDirectory();
+    const settingsPath = path.join(directory, "settings.json");
+    const statePath = path.join(directory, ".claude.json");
+    const tracker = new McpConfigRefreshTracker();
+    const args = {
+      scopeKey: "claude:unrelated",
+      paths: [settingsPath, statePath],
+    };
+
+    await writeFile(
+      settingsPath,
+      JSON.stringify({
+        permissions: { allow: ["Bash(git:*)"] },
+        mcpServers: { crane: { url: "http://one" } },
+      }),
+    );
+    await writeFile(
+      statePath,
+      JSON.stringify({
+        numStartups: 4,
+        projects: { "/tmp/workspace": { mcpServers: {}, lastCost: 1 } },
+      }),
+    );
+    expect((await tracker.check(args)).changed).toBe(false);
+
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await writeFile(
+      settingsPath,
+      JSON.stringify({
+        permissions: { allow: ["Bash(git:*)", "Bash(bun:*)"] },
+        mcpServers: { crane: { url: "http://one" } },
+      }),
+    );
+    await writeFile(
+      statePath,
+      JSON.stringify({
+        numStartups: 5,
+        projects: { "/tmp/workspace": { lastCost: 2, mcpServers: {} } },
+      }),
+    );
+    expect((await tracker.check(args)).changed).toBe(false);
+
+    await writeFile(
+      statePath,
+      JSON.stringify({
+        numStartups: 5,
+        projects: {
+          "/tmp/workspace": {
+            lastCost: 2,
+            mcpServers: { ibis: { url: "http://two" } },
+          },
+        },
+      }),
+    );
+    expect((await tracker.check(args)).changed).toBe(true);
+  });
+
+  test("ignores Codex config edits outside the mcp_servers tables", async () => {
+    const directory = await makeTempDirectory();
+    const configPath = path.join(directory, "config.toml");
+    const tracker = new McpConfigRefreshTracker();
+    const args = { scopeKey: "codex:unrelated", paths: [configPath] };
+
+    await writeFile(
+      configPath,
+      'model = "gpt-5.5"\n\n[mcp_servers.crane]\nurl = "http://one"\n',
+    );
+    expect((await tracker.check(args)).changed).toBe(false);
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    await writeFile(
+      configPath,
+      'model = "gpt-5.6-sol"\napproval_policy = "never"\n\n[mcp_servers.crane]\nurl = "http://one"\n',
+    );
+    expect((await tracker.check(args)).changed).toBe(false);
+    await writeFile(
+      configPath,
+      'model = "gpt-5.6-sol"\n\n[mcp_servers.crane]\nurl = "http://one"\n[mcp_servers.crane.env]\nTOKEN = "x"\n',
+    );
+    expect((await tracker.check(args)).changed).toBe(true);
+  });
+
+  test("treats the stave-local manifest and .mcp.json as whole documents", () => {
+    expect(
+      projectMcpConfigContent({
+        filePath: getStaveLocalMcpManifestPath(),
+        content: '{"url":"http://127.0.0.1:1","token":"a"}',
+      }),
+    ).not.toBe(
+      projectMcpConfigContent({
+        filePath: getStaveLocalMcpManifestPath(),
+        content: '{"url":"http://127.0.0.1:2","token":"a"}',
+      }),
+    );
+    // Key order is not a change.
+    expect(
+      projectMcpConfigContent({
+        filePath: "/tmp/workspace/.mcp.json",
+        content: '{"mcpServers":{"a":{"url":"x"}},"other":1}',
+      }),
+    ).toBe(
+      projectMcpConfigContent({
+        filePath: "/tmp/workspace/.mcp.json",
+        content: '{"other":1,"mcpServers":{"a":{"url":"x"}}}',
+      }),
+    );
   });
 });

@@ -623,10 +623,12 @@ Luna remains available as a top-level Codex model, but it reports
 blocks Luna as a Worker before dispatch instead of promising a worker the
 runtime will fail to create.
 
-Worker config travels on both `thread/start` and `thread/resume`, and the worker
-model and effort are part of the developer instructions that feed
-`buildCodexInstructionProfileKey`, so changing the worker rotates the thread key
-and cannot resume a thread configured for a different worker.
+Worker config travels on both `thread/start` and `thread/resume`. The worker
+model and effort are also part of the developer instructions that feed
+`buildCodexInstructionProfileKey`; changing the worker does not rotate the
+thread, but the next turn on that thread carries a one-time
+`[Stave Instructions Update]` block with the new brief (see the prompt injection
+note below).
 Codex counts the primary in its session concurrency limit, so Stave configures
 two total slots: one primary plus the single foreground Worker.
 
@@ -773,7 +775,7 @@ funnel `buildLegacyPromptFromCanonicalRequest` — rather than at each builder.
 
 | Source id                      | Contents                                                        | Sent when                               |
 | ------------------------------ | --------------------------------------------------------------- | --------------------------------------- |
-| `stave:current-task-awareness` | Project/workspace/task identity, other visible tasks            | Every turn (identity can change)        |
+| `stave:current-task-awareness` | Project/workspace/task identity, other visible tasks            | Every turn, deduplicated when unchanged |
 | `stave:workspace-guidance`     | Workspace conventions, token-budget guidance, handoff procedure | First turn only                         |
 | `stave:workspace-information`  | The Information panel dump                                      | Every turn, deduplicated when unchanged |
 | `stave:latest-turn-summary`    | The Information panel's latest-turn recap                       | First turn only                         |
@@ -874,7 +876,7 @@ Claude-specific runtime controls come from the UI and runtime options:
 - sandbox credential file paths and environment-variable names (deny-only)
 - setting sources
 - task budget
-- prompt suggestions
+- prompt suggestions (Settings toggle, default on; it can only turn suggestions off — background lanes, secondary runs, and control queries never request them regardless of the setting)
 - agent progress summaries
 - subagent text forwarding
 - file checkpointing
@@ -984,7 +986,8 @@ Codex prompt injection note:
 - Stave now forwards response-style and project/system prompt overrides through Codex `developer_instructions` config instead of prepending visible `<system>` blocks to each user turn.
 - Task history, selected text-file context, skill context, and retrieved context still render into the provider prompt body because they are part of the actual turn payload rather than hidden session config. Supported image attachments use the native image items described above, while the prompt keeps only their labels and fallback instructions.
 - Stave always appends native browser-tooling guidance (`CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS`) to `developer_instructions`. It directs Codex to use ordinary web search for general research and, for explicit interactive `@web` requests, to use `cua_repl` with only the external Chrome surface. The in-app browser and desktop UI surfaces exposed by that tool do not satisfy `@web`. The provider-native browser stays unavailable to plan mode, unattended automation, and secondary read-only analysis. Stave does not force-enable a disabled Chrome plugin and does not persist a browser connection status. It still disables the unrelated ChatGPT desktop bundled `browser@openai-bundled` plugin per thread via the `plugins."browser@openai-bundled".enabled = false` config override. See `electron/providers/codex-runtime-config.ts` and [Provider Browser Access](../features/provider-browser-access.md).
-- Lens guidance (`CODEX_STAVE_LENS_INSTRUCTIONS`) is appended **only when the thread will actually see `stave_lens_*` tools**: the local MCP must be registered with Codex *and* `browserToolsEnabled` must still be on. Without it there are no `stave_lens_*` tools, so the block would describe tools that do not exist. Because `developer_instructions` are hashed into the Codex thread key, `hasStaveLocalMcp` is resolved *before* `buildThreadKey` and is part of `buildCodexInstructionProfileKey` — a thread never resumes with an instruction set it was not started with.
+- Lens guidance (`CODEX_STAVE_LENS_INSTRUCTIONS`) is appended **only when the thread will actually see `stave_lens_*` tools**: the local MCP must be registered with Codex *and* `browserToolsEnabled` must still be on. Without it there are no `stave_lens_*` tools, so the block would describe tools that do not exist. `hasStaveLocalMcp` is resolved before the thread is keyed and is part of `buildCodexInstructionProfileKey`, so toggling it is detected like any other instruction change.
+- The developer instructions are **not** part of the Codex thread key. Codex only re-renders `developer_instructions` when it builds a new context window (first turn or compaction), never on a plain `thread/resume`, so a key that included them paid a full cold start — the entire history re-sent with no prompt cache — for a response-style edit, a Lens toggle, or a worker change. Instead the runtime remembers the instruction profile each live thread last received (`buildCodexInstructionProfileKey`). When a resumed thread's profile differs, or is unknown because the app restarted, the next user turn is prefixed once with `[Stave Instructions Update]` followed by the current developer instructions, marked as replacing the earlier ones. The block is attached only to what the model receives; slash-command detection still runs on the bare prompt. Model, plan mode, cwd, and bound-secret fingerprint still rotate the thread.
 
 Codex event mapping:
 

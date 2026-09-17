@@ -519,6 +519,66 @@ describe("pricing", () => {
     }
   });
 
+  test("keeps the previous turn's model when the route only steps down", () => {
+    // Opus answered the last turn; a docs turn would route to the balanced
+    // model. The conversation's cache is scoped to Opus, so the cheaper pick
+    // would re-read every prior token uncached — the model is held instead.
+    const held = resolveRoute({
+      profile: balanced,
+      role: "primary",
+      signals: signals({
+        taskClass: "docs",
+        lastAssistantProvider: "claude-code",
+        lastAssistantModel: DEFAULT_CLAUDE_OPUS_MODEL,
+      }),
+    });
+    expect(held).toMatchObject({
+      model: DEFAULT_CLAUDE_OPUS_MODEL,
+      cacheHeldModel: true,
+    });
+    expect(held.reason).toContain("prompt cache stays warm");
+
+    // Stepping up is a quality decision and goes through.
+    const escalated = resolveRoute({
+      profile: balanced,
+      role: "primary",
+      signals: signals({
+        taskClass: "plan",
+        lastAssistantProvider: "claude-code",
+        lastAssistantModel: DEFAULT_CLAUDE_SONNET_MODEL,
+      }),
+    });
+    expect(escalated.cacheHeldModel).toBe(false);
+    expect(escalated.model).not.toBe(DEFAULT_CLAUDE_SONNET_MODEL);
+
+    // The hard budget ceiling still forces the cheapest model.
+    const ceiling = resolveRoute({
+      profile: balanced,
+      role: "primary",
+      signals: signals({
+        taskClass: "implement",
+        budgetUsedPercent: 98,
+        lastAssistantProvider: "claude-code",
+        lastAssistantModel: DEFAULT_CLAUDE_OPUS_MODEL,
+      }),
+    });
+    expect(ceiling.cacheHeldModel).toBe(false);
+    expect(ceiling.model).not.toBe(DEFAULT_CLAUDE_OPUS_MODEL);
+
+    // A model the route's provider cannot run is never held.
+    const foreignModel = resolveRoute({
+      profile: balanced,
+      role: "primary",
+      signals: signals({
+        taskClass: "docs",
+        lastAssistantProvider: "claude-code",
+        lastAssistantModel: "gpt-5.6-sol",
+      }),
+    });
+    expect(foreignModel.cacheHeldModel).toBe(false);
+    expect(foreignModel.providerId).toBe("claude-code");
+  });
+
   test("buildRoleSignals fills the defaults delegated roles need", () => {
     expect(buildRoleSignals({ currentProviderId: "codex" })).toMatchObject({
       taskClass: "implement",

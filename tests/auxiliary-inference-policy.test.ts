@@ -20,7 +20,17 @@ describe("auxiliary inference policy defaults", () => {
       // A resolved model is a light-tier pick; `null` defers to the runtime's
       // own (already cheap) default. Neither reads the primary model setting.
       expect(runtime.model === null || runtime.model.length > 0).toBe(true);
-      expect(runtime.enabled).toBe(true);
+      // Inline completion is the one lane that is opt-in: it fires on every
+      // typing pause with no reusable prompt prefix.
+      expect(runtime.enabled).toBe(lane !== "inlineCompletion");
+    }
+  });
+
+  test("background lanes never request premium fast mode", () => {
+    for (const providerId of ["claude-code", "codex"] as const) {
+      const options = buildReadOnlyAuxRuntimeOptions({ providerId });
+      expect(options.claudeFastMode).toBeUndefined();
+      expect(options.codexFastMode).toBeUndefined();
     }
   });
 
