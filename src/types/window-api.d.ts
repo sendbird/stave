@@ -1622,6 +1622,8 @@ interface WindowSourceControlApi {
     autoMergeEnabled?: boolean;
     autoMergeUnsupported?: boolean;
     merged?: boolean;
+    /** Set when gh refused because this branch already has an open PR. */
+    existingPrUrl?: string;
     stderr?: string;
   }>;
   getRepoMergeSettings?: (args: { cwd?: string }) => Promise<{
@@ -1680,11 +1682,29 @@ interface WindowSourceControlApi {
   setPrReady?: (args: { cwd?: string }) => Promise<SourceControlCommandResult>;
   mergePr?: (args: {
     method?: "default" | "merge" | "squash" | "rebase";
+    /** Head commit the PR must still point at (`--match-head-commit`). */
+    expectedHeadOid?: string | null;
     cwd?: string;
-  }) => Promise<SourceControlCommandResult>;
-  updatePrBranch?: (args: {
-    cwd?: string;
-  }) => Promise<SourceControlCommandResult>;
+  }) => Promise<{
+    ok: boolean;
+    code?: number;
+    stdout?: string;
+    stderr?: string;
+    /** GitHub reports the PR as merged, even if gh exited non-zero afterwards. */
+    merged?: boolean;
+    mergeMethod?: "merge" | "squash" | "rebase";
+    remoteBranchDeleted?: boolean;
+    warning?: string;
+  }>;
+  updatePrBranch?: (args: { cwd?: string }) => Promise<{
+    ok: boolean;
+    code?: number;
+    stdout?: string;
+    stderr?: string;
+    remoteUpdated?: boolean;
+    localSynced?: boolean;
+    warning?: string;
+  }>;
 }
 
 interface WindowPersistenceApi {

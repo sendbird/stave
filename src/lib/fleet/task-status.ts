@@ -275,6 +275,7 @@ export function deriveFleetLifecycleStatus(args: {
   if (
     args.prStatus === "review_required" ||
     args.prStatus === "checks_pending" ||
+    args.prStatus === "blocked" ||
     args.prStatus === "ready_to_merge"
   ) {
     return "in-review";

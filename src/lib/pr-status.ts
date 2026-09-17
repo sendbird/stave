@@ -12,6 +12,7 @@ export type WorkspacePrStatus =
   | "checks_failed"
   | "merge_conflict"
   | "behind_base"
+  | "blocked"
   | "ready_to_merge"
   | "merged"
   | "closed_unmerged";
@@ -64,6 +65,12 @@ export interface WorkspacePrInfo {
   derived: WorkspacePrStatus;
   /** Epoch-ms of last successful fetch. */
   lastFetched: number;
+  /**
+   * Why the most recent refresh failed (gh missing, unauthenticated, network).
+   * `pr`/`derived` keep the last known value so the UI can say "status may be
+   * stale" instead of pretending the branch has no PR.
+   */
+  lastError?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -79,25 +86,55 @@ export function derivePrStatus(pr: GitHubPrPayload): WorkspacePrStatus {
   if (pr.isDraft) return "draft";
 
   // 3. Blocking conditions (highest urgency first)
-  if (pr.mergeable === "CONFLICTING") return "merge_conflict";
+  if (pr.mergeable === "CONFLICTING" || pr.mergeStateStatus === "DIRTY") {
+    return "merge_conflict";
+  }
   if (pr.mergeStateStatus === "BEHIND") return "behind_base";
   if (pr.reviewDecision === "CHANGES_REQUESTED") return "changes_requested";
 
-  // 4. Checks
-  if (pr.checksRollup === "FAILURE") return "checks_failed";
+  // 4. Checks. UNSTABLE means a non-required check failed; GitHub still allows
+  // the merge but the failure deserves attention before anyone clicks merge.
+  if (pr.checksRollup === "FAILURE" || pr.mergeStateStatus === "UNSTABLE") {
+    return "checks_failed";
+  }
   if (pr.checksRollup === "PENDING") return "checks_pending";
 
-  // 5. Review gate
-  if (
-    pr.reviewDecision === "REVIEW_REQUIRED" ||
-    pr.reviewDecision === "" ||
-    pr.reviewDecision === null
-  ) {
-    return "review_required";
+  // 5. GitHub's own merge gate. `mergeStateStatus` already folds in branch
+  // protection (required reviewers, conversation resolution, required checks
+  // that never reported, rulesets), so it decides whether "Merge PR" can work.
+  switch (pr.mergeStateStatus) {
+    case "CLEAN":
+    case "HAS_HOOKS":
+      // An explicit review request still shows as review-required; an empty
+      // decision means the repository does not require reviews at all.
+      return pr.reviewDecision === "REVIEW_REQUIRED"
+        ? "review_required"
+        : "ready_to_merge";
+    case "BLOCKED":
+      return pr.reviewDecision === "APPROVED" ? "blocked" : "review_required";
+    default:
+      break;
   }
 
-  // 6. All green
-  return "ready_to_merge";
+  // 6. UNKNOWN: GitHub is still computing mergeability (typically right after a
+  // push). Never claim readiness from stale review data alone.
+  if (pr.reviewDecision === "APPROVED") return "checks_pending";
+  return "review_required";
+}
+
+/** Short explanation for statuses where the label alone is not actionable. */
+export function describePrStatusHint(pr: GitHubPrPayload): string | null {
+  const status = derivePrStatus(pr);
+  if (status === "blocked") {
+    return "GitHub branch protection is still blocking this merge (required reviewers, unresolved conversations, or required checks that have not reported).";
+  }
+  if (status === "checks_pending" && pr.checksRollup !== "PENDING") {
+    return "GitHub is still computing mergeability for the latest push.";
+  }
+  if (status === "review_required" && pr.mergeStateStatus === "BLOCKED") {
+    return "GitHub requires an approving review before this can merge.";
+  }
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -124,6 +161,7 @@ export const PR_STATUS_VISUAL: Record<WorkspacePrStatus, PrStatusVisual> = {
   checks_failed:     { icon: "GitPullRequest",            tone: "danger",    label: "Checks failed" },
   merge_conflict:    { icon: "GitCompareArrows",          tone: "danger",    label: "Merge conflict" },
   behind_base:       { icon: "GitBranch",                 tone: "attention", label: "Behind base" },
+  blocked:           { icon: "GitPullRequest",            tone: "attention", label: "Merge blocked" },
   ready_to_merge:    { icon: "GitMerge",                  tone: "open",      label: "Ready to merge" },
   merged:            { icon: "GitMerge",                  tone: "done",      label: "Merged" },
   closed_unmerged:   { icon: "GitPullRequestClosed",      tone: "closed",    label: "Closed" },
@@ -184,6 +222,10 @@ export const PR_STATUS_ACTIONS: Record<WorkspacePrStatus, { primary: PrActionCon
   },
   behind_base: {
     primary: { key: "update_branch", label: "Update Branch" },
+    secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
+  },
+  blocked: {
+    primary: null,
     secondary: [{ key: "open_github", label: "Open on GitHub", variant: "ghost" }, { key: "refresh", label: "Refresh", variant: "ghost" }],
   },
   ready_to_merge: {

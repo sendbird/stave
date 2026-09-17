@@ -19,6 +19,7 @@ import type {
 import { parseWorktreePathByBranch } from "../../src/lib/source-control-worktrees";
 import type {
   ConcretePrMergeMethod,
+  GitHubPrPayload,
   PrMergeMethod,
 } from "../../src/lib/pr-status";
 import type { DetachedCheckoutResult } from "../main/types";
@@ -150,13 +151,190 @@ export async function discardSourceControlPath(args: {
   };
 }
 
+type ScmCommandRunner = typeof runCommandArgs;
+
+function parseGitHubPrPayload(raw: Record<string, unknown>): GitHubPrPayload {
+  let checksRollup: "SUCCESS" | "FAILURE" | "PENDING" | null = null;
+  const checks: unknown[] = Array.isArray(raw.statusCheckRollup)
+    ? raw.statusCheckRollup
+    : [];
+  if (checks.length > 0) {
+    const latestCheckRunByName = new Map<string, Record<string, unknown>>();
+    const nonCheckRuns: Array<Record<string, unknown>> = [];
+    for (const check of checks as Array<Record<string, unknown>>) {
+      if (
+        check.__typename === "CheckRun" &&
+        typeof check.name === "string" &&
+        check.name
+      ) {
+        const existing = latestCheckRunByName.get(check.name);
+        if (!existing) {
+          latestCheckRunByName.set(check.name, check);
+        } else {
+          const existingTime =
+            typeof existing.startedAt === "string"
+              ? new Date(existing.startedAt).getTime()
+              : 0;
+          const currentTime =
+            typeof check.startedAt === "string"
+              ? new Date(check.startedAt).getTime()
+              : 0;
+          if (currentTime > existingTime) {
+            latestCheckRunByName.set(check.name, check);
+          }
+        }
+      } else {
+        nonCheckRuns.push(check);
+      }
+    }
+    const dedupedChecks = [...latestCheckRunByName.values(), ...nonCheckRuns];
+
+    const hasFailure = dedupedChecks.some((check) => {
+      if (check.__typename === "CheckRun") {
+        return (
+          check.conclusion === "FAILURE" ||
+          check.conclusion === "CANCELLED" ||
+          check.conclusion === "TIMED_OUT" ||
+          check.conclusion === "ACTION_REQUIRED"
+        );
+      }
+      if (check.__typename === "StatusContext") {
+        return check.state === "FAILURE" || check.state === "ERROR";
+      }
+      return false;
+    });
+    if (hasFailure) {
+      checksRollup = "FAILURE";
+    } else {
+      const hasPending = dedupedChecks.some((check) => {
+        if (check.__typename === "CheckRun") {
+          return check.status !== "COMPLETED";
+        }
+        if (check.__typename === "StatusContext") {
+          return check.state === "PENDING" || check.state === "EXPECTED";
+        }
+        return false;
+      });
+      checksRollup = hasPending ? "PENDING" : "SUCCESS";
+    }
+  }
+
+  const payload: GitHubPrPayload = {
+    number: typeof raw.number === "number" ? raw.number : 0,
+    title: typeof raw.title === "string" ? raw.title : "",
+    state: (raw.state as GitHubPrPayload["state"] | undefined) ?? "OPEN",
+    isDraft: Boolean(raw.isDraft),
+    url: typeof raw.url === "string" ? raw.url : "",
+    reviewDecision:
+      (raw.reviewDecision as GitHubPrPayload["reviewDecision"] | undefined) ??
+      null,
+    mergeable:
+      (raw.mergeable as GitHubPrPayload["mergeable"] | undefined) ?? "UNKNOWN",
+    mergeStateStatus:
+      (raw.mergeStateStatus as GitHubPrPayload["mergeStateStatus"] | undefined) ??
+      "UNKNOWN",
+    checksRollup,
+    mergedAt: typeof raw.mergedAt === "string" ? raw.mergedAt : null,
+    baseRefName: typeof raw.baseRefName === "string" ? raw.baseRefName : "",
+    headRefName: typeof raw.headRefName === "string" ? raw.headRefName : "",
+    headRefOid:
+      typeof raw.headRefOid === "string" && raw.headRefOid
+        ? raw.headRefOid
+        : null,
+  };
+  return payload;
+}
+
+async function resolveCurrentScmBranch(args: {
+  cwd?: string;
+  runCommand?: ScmCommandRunner;
+}) {
+  const result = await (args.runCommand ?? runCommandArgs)({
+    command: "git",
+    commandArgs: ["rev-parse", "--abbrev-ref", "HEAD"],
+    cwd: args.cwd,
+  });
+  const branch = result.ok ? result.stdout.trim() : "";
+  return branch && branch !== "HEAD" ? branch : null;
+}
+
+/**
+ * `gh pr view` without a number resolves the most recent PR for the branch
+ * across every state, so a branch name reused after a merge keeps reporting
+ * the old merged PR. When local HEAD has commits the terminal PR never saw,
+ * the branch has moved on and the PR no longer describes this workspace.
+ */
+export function isTerminalPullRequestSuperseded(ancestorCheck: {
+  ok: boolean;
+  code: number;
+}) {
+  if (ancestorCheck.ok) {
+    return false;
+  }
+  // Exit 1 = HEAD is not an ancestor of the PR head. Any other exit (unknown
+  // object, not a repository) is inconclusive, so keep the PR.
+  return ancestorCheck.code === 1;
+}
+
 export async function fetchGitHubPrStatus(args: {
   cwd?: string;
   target?: string;
+  runCommand?: ScmCommandRunner;
 }) {
-  const authResult = await ensureGhAuth({ cwd: args.cwd });
+  const run = args.runCommand ?? runCommandArgs;
+  const authResult = await ensureGhAuth({
+    cwd: args.cwd,
+    runCommand: args.runCommand,
+  });
   if (!authResult.ok) {
-    return { ok: false, pr: null, stderr: "GitHub CLI is not authenticated." };
+    return {
+      ok: false,
+      pr: null,
+      stderr: describeGhAuthFailure(authResult),
+    };
+  }
+
+  if (!args.target) {
+    // Prefer the open PR for this branch; the state-agnostic `gh pr view`
+    // lookup below is only a fallback for merged/closed history.
+    const branch = await resolveCurrentScmBranch({
+      cwd: args.cwd,
+      runCommand: args.runCommand,
+    });
+    if (branch) {
+      const listResult = await run({
+        command: "gh",
+        commandArgs: [
+          "pr",
+          "list",
+          "--head",
+          branch,
+          "--state",
+          "open",
+          "--limit",
+          "1",
+          "--json",
+          GITHUB_PR_JSON_FIELDS,
+        ],
+        cwd: args.cwd,
+      });
+      invalidateCachedGhAuthOnFailure(listResult, args.cwd);
+      if (listResult.ok) {
+        try {
+          const items = JSON.parse(listResult.stdout);
+          const first = Array.isArray(items) ? items[0] : null;
+          if (first && typeof first === "object") {
+            return {
+              ok: true,
+              pr: parseGitHubPrPayload(first as Record<string, unknown>),
+              stderr: "",
+            };
+          }
+        } catch {
+          // Fall through to `gh pr view`.
+        }
+      }
+    }
   }
 
   const commandArgs = ["pr", "view"];
@@ -165,7 +343,7 @@ export async function fetchGitHubPrStatus(args: {
   }
   commandArgs.push("--json", GITHUB_PR_JSON_FIELDS);
 
-  const result = await runCommandArgs({
+  const result = await run({
     command: "gh",
     commandArgs,
     cwd: args.cwd,
@@ -183,99 +361,25 @@ export async function fetchGitHubPrStatus(args: {
     return { ok: false, pr: null, stderr: result.stderr };
   }
 
+  let pr: ReturnType<typeof parseGitHubPrPayload>;
   try {
-    const raw = JSON.parse(result.stdout);
-
-    let checksRollup: "SUCCESS" | "FAILURE" | "PENDING" | null = null;
-    const checks: unknown[] = Array.isArray(raw.statusCheckRollup)
-      ? raw.statusCheckRollup
-      : [];
-    if (checks.length > 0) {
-      const latestCheckRunByName = new Map<string, Record<string, unknown>>();
-      const nonCheckRuns: Array<Record<string, unknown>> = [];
-      for (const check of checks as Array<Record<string, unknown>>) {
-        if (
-          check.__typename === "CheckRun" &&
-          typeof check.name === "string" &&
-          check.name
-        ) {
-          const existing = latestCheckRunByName.get(check.name);
-          if (!existing) {
-            latestCheckRunByName.set(check.name, check);
-          } else {
-            const existingTime =
-              typeof existing.startedAt === "string"
-                ? new Date(existing.startedAt).getTime()
-                : 0;
-            const currentTime =
-              typeof check.startedAt === "string"
-                ? new Date(check.startedAt).getTime()
-                : 0;
-            if (currentTime > existingTime) {
-              latestCheckRunByName.set(check.name, check);
-            }
-          }
-        } else {
-          nonCheckRuns.push(check);
-        }
-      }
-      const dedupedChecks = [...latestCheckRunByName.values(), ...nonCheckRuns];
-
-      const hasFailure = dedupedChecks.some((check) => {
-        if (check.__typename === "CheckRun") {
-          return (
-            check.conclusion === "FAILURE" ||
-            check.conclusion === "CANCELLED" ||
-            check.conclusion === "TIMED_OUT" ||
-            check.conclusion === "ACTION_REQUIRED"
-          );
-        }
-        if (check.__typename === "StatusContext") {
-          return check.state === "FAILURE" || check.state === "ERROR";
-        }
-        return false;
-      });
-      if (hasFailure) {
-        checksRollup = "FAILURE";
-      } else {
-        const hasPending = dedupedChecks.some((check) => {
-          if (check.__typename === "CheckRun") {
-            return check.status !== "COMPLETED";
-          }
-          if (check.__typename === "StatusContext") {
-            return check.state === "PENDING" || check.state === "EXPECTED";
-          }
-          return false;
-        });
-        checksRollup = hasPending ? "PENDING" : "SUCCESS";
-      }
-    }
-
-    return {
-      ok: true,
-      pr: {
-        number: raw.number ?? 0,
-        title: raw.title ?? "",
-        state: raw.state ?? "OPEN",
-        isDraft: Boolean(raw.isDraft),
-        url: raw.url ?? "",
-        reviewDecision: raw.reviewDecision ?? null,
-        mergeable: raw.mergeable ?? "UNKNOWN",
-        mergeStateStatus: raw.mergeStateStatus ?? "UNKNOWN",
-        checksRollup,
-        mergedAt: raw.mergedAt ?? null,
-        baseRefName: raw.baseRefName ?? "",
-        headRefName: raw.headRefName ?? "",
-        headRefOid:
-          typeof raw.headRefOid === "string" && raw.headRefOid
-            ? raw.headRefOid
-            : null,
-      },
-      stderr: "",
-    };
+    pr = parseGitHubPrPayload(JSON.parse(result.stdout));
   } catch {
     return { ok: false, pr: null, stderr: "Failed to parse PR status JSON." };
   }
+
+  if (!args.target && pr.state !== "OPEN" && pr.headRefOid) {
+    const ancestorCheck = await run({
+      command: "git",
+      commandArgs: ["merge-base", "--is-ancestor", "HEAD", pr.headRefOid],
+      cwd: args.cwd,
+    });
+    if (isTerminalPullRequestSuperseded(ancestorCheck)) {
+      return { ok: true, pr: null, stderr: "" };
+    }
+  }
+
+  return { ok: true, pr, stderr: "" };
 }
 
 export async function getScmStatus(args: { cwd?: string }) {
@@ -1613,7 +1717,7 @@ export function pushScmBranch(args: {
 export async function setScmPrReady(args: { cwd?: string }) {
   const authResult = await ensureGhAuth({ cwd: args.cwd });
   if (!authResult.ok) {
-    return { ok: false, stderr: "GitHub CLI is not authenticated." };
+    return { ok: false, stderr: describeGhAuthFailure(authResult) };
   }
   const result = await runCommandArgs({
     command: "gh",
@@ -1624,65 +1728,297 @@ export async function setScmPrReady(args: { cwd?: string }) {
   return result;
 }
 
+interface PullRequestMergeSnapshot {
+  state: string;
+  mergedAt: string | null;
+  headRefName: string;
+}
+
+async function readPullRequestMergeSnapshot(args: {
+  cwd?: string;
+  run: ScmCommandRunner;
+}): Promise<PullRequestMergeSnapshot | null> {
+  const result = await args.run({
+    command: "gh",
+    commandArgs: ["pr", "view", "--json", "state,mergedAt,headRefName"],
+    cwd: args.cwd,
+  });
+  if (!result.ok) {
+    return null;
+  }
+  try {
+    const raw = JSON.parse(result.stdout) as Record<string, unknown>;
+    return {
+      state: typeof raw.state === "string" ? raw.state : "",
+      mergedAt: typeof raw.mergedAt === "string" ? raw.mergedAt : null,
+      headRefName: typeof raw.headRefName === "string" ? raw.headRefName : "",
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function isPullRequestMergedSnapshot(
+  snapshot: PullRequestMergeSnapshot | null,
+) {
+  return Boolean(snapshot && (snapshot.state === "MERGED" || snapshot.mergedAt));
+}
+
+export interface DirectPullRequestMergeResult {
+  ok: boolean;
+  code: number;
+  stdout: string;
+  stderr: string;
+  merged: boolean;
+  mergeMethod: ConcretePrMergeMethod;
+  remoteBranchDeleted: boolean;
+  warning?: string;
+}
+
+/**
+ * Merges the current branch's PR and reports the *GitHub* outcome. `gh` runs in
+ * a linked worktree here, so any local cleanup it attempts after the merge can
+ * fail (the base branch is checked out elsewhere); a non-zero exit therefore
+ * is not proof that the merge failed and is re-checked against the PR state.
+ */
+async function runDirectPullRequestMerge(args: {
+  method: ConcretePrMergeMethod;
+  cwd?: string;
+  expectedHeadOid?: string | null;
+  deleteRemoteBranch?: boolean;
+  run: ScmCommandRunner;
+}): Promise<DirectPullRequestMergeResult> {
+  const mergeResult = await args.run({
+    command: "gh",
+    commandArgs: buildMergePullRequestArgs(args.method, {
+      matchHeadCommit: args.expectedHeadOid,
+    }),
+    cwd: args.cwd,
+  });
+  invalidateCachedGhAuthOnFailure(mergeResult, args.cwd);
+  const mergeDetail = `${mergeResult.stderr}\n${mergeResult.stdout}`.trim();
+
+  const snapshot = await readPullRequestMergeSnapshot({
+    cwd: args.cwd,
+    run: args.run,
+  });
+  let warning: string | undefined;
+  if (!mergeResult.ok) {
+    if (!isPullRequestMergedSnapshot(snapshot)) {
+      return {
+        ok: false,
+        code: mergeResult.code,
+        stdout: mergeResult.stdout,
+        stderr: mergeDetail || "gh pr merge failed.",
+        merged: false,
+        mergeMethod: args.method,
+        remoteBranchDeleted: false,
+      };
+    }
+    warning = `GitHub merged the pull request, but gh exited with an error afterwards: ${mergeDetail || "unknown error"}`;
+  }
+
+  let remoteBranchDeleted = false;
+  if (args.deleteRemoteBranch !== false && snapshot?.headRefName) {
+    const deleteResult = await args.run({
+      command: "git",
+      commandArgs: ["push", "origin", "--delete", snapshot.headRefName],
+      cwd: args.cwd,
+    });
+    const deleteDetail = `${deleteResult.stderr}\n${deleteResult.stdout}`;
+    // GitHub may already have auto-deleted the head branch.
+    remoteBranchDeleted =
+      deleteResult.ok || /remote ref does not exist/i.test(deleteDetail);
+    if (!remoteBranchDeleted) {
+      warning = [
+        warning,
+        `Merged, but the remote branch ${snapshot.headRefName} could not be deleted: ${deleteDetail.trim() || "git push --delete failed."}`,
+      ]
+        .filter(Boolean)
+        .join(" ");
+    }
+  }
+
+  return {
+    ok: true,
+    code: 0,
+    stdout: mergeResult.stdout,
+    stderr: "",
+    merged: true,
+    mergeMethod: args.method,
+    remoteBranchDeleted,
+    warning,
+  };
+}
+
 export async function mergeScmPr(args: {
   method?: PrMergeMethod;
   cwd?: string;
-}) {
-  const authResult = await ensureGhAuth({ cwd: args.cwd });
+  /** Head commit the PR must still point at; guards against merging a newer push. */
+  expectedHeadOid?: string | null;
+  deleteRemoteBranch?: boolean;
+  runCommand?: ScmCommandRunner;
+}): Promise<DirectPullRequestMergeResult | { ok: false; stderr: string }> {
+  const run = args.runCommand ?? runCommandArgs;
+  const authResult = await ensureGhAuth({
+    cwd: args.cwd,
+    runCommand: args.runCommand,
+  });
   if (!authResult.ok) {
-    return { ok: false, stderr: "GitHub CLI is not authenticated." };
+    return { ok: false, stderr: describeGhAuthFailure(authResult) };
   }
-  const method = await resolveScmMergeMethod({
+  const { method, remapped } = await resolveScmMergeMethod({
     method: args.method,
     cwd: args.cwd,
+    runCommand: args.runCommand,
   });
-  const result = await runCommandArgs({
-    command: "gh",
-    commandArgs: buildMergePullRequestArgs(method),
+  const result = await runDirectPullRequestMerge({
+    method,
     cwd: args.cwd,
+    expectedHeadOid: args.expectedHeadOid,
+    deleteRemoteBranch: args.deleteRemoteBranch,
+    run,
   });
-  invalidateCachedGhAuthOnFailure(result, args.cwd);
+  if (remapped) {
+    const note = `The repository does not allow ${args.method} merges, so ${method} was used instead.`;
+    if (result.ok) {
+      result.warning = [note, result.warning].filter(Boolean).join(" ");
+    } else {
+      result.stderr = `${note} ${result.stderr}`.trim();
+    }
+  }
   return result;
 }
 
-export async function updateScmPrBranch(args: { cwd?: string }) {
-  const authResult = await ensureGhAuth({ cwd: args.cwd });
+export interface UpdatePullRequestBranchResult {
+  ok: boolean;
+  code: number;
+  stdout: string;
+  stderr: string;
+  /** GitHub accepted the update (false when the branch was already current). */
+  remoteUpdated: boolean;
+  /** The local worktree fast-forwarded to the updated head. */
+  localSynced: boolean;
+  warning?: string;
+}
+
+export function isPullRequestBranchAlreadyCurrent(detail: string) {
+  return /already up.?to.?date|already contains|nothing to update/i.test(detail);
+}
+
+/**
+ * Update the PR branch on GitHub (merge commit from base, no history rewrite),
+ * then fast-forward the local worktree when it is clean. Doing the update
+ * server-side is what actually clears GitHub's BEHIND state; a local-only
+ * rebase never reaches the PR.
+ */
+export async function updateScmPrBranch(args: {
+  cwd?: string;
+  runCommand?: ScmCommandRunner;
+}): Promise<UpdatePullRequestBranchResult> {
+  const run = args.runCommand ?? runCommandArgs;
+  const failure = (
+    stderr: string,
+    partial?: Partial<UpdatePullRequestBranchResult>,
+  ): UpdatePullRequestBranchResult => ({
+    ok: false,
+    code: -1,
+    stdout: "",
+    stderr,
+    remoteUpdated: false,
+    localSynced: false,
+    ...partial,
+  });
+
+  const authResult = await ensureGhAuth({
+    cwd: args.cwd,
+    runCommand: args.runCommand,
+  });
   if (!authResult.ok) {
-    return {
-      ok: false,
-      code: -1,
-      stdout: "",
-      stderr: "GitHub CLI is not authenticated.",
-    };
+    return failure(describeGhAuthFailure(authResult));
   }
 
-  const baseResult = await runCommandArgs({
+  const viewResult = await run({
     command: "gh",
-    commandArgs: ["pr", "view", "--json", "baseRefName", "-q", ".baseRefName"],
+    commandArgs: ["pr", "view", "--json", "headRefName,baseRefName"],
     cwd: args.cwd,
   });
-  invalidateCachedGhAuthOnFailure(baseResult, args.cwd);
-  const baseBranch = baseResult.ok ? baseResult.stdout.trim() : "main";
-
-  const fetchResult = await runCommandArgs({
-    command: "git",
-    commandArgs: ["fetch", "origin"],
-    cwd: args.cwd,
-  });
-  if (!fetchResult.ok) {
-    return {
-      ok: false,
-      code: fetchResult.code,
-      stdout: fetchResult.stdout,
-      stderr: fetchResult.stderr || "git fetch failed.",
-    };
+  invalidateCachedGhAuthOnFailure(viewResult, args.cwd);
+  if (!viewResult.ok) {
+    return failure(
+      viewResult.stderr.trim() ||
+        "Could not resolve the pull request for this branch.",
+      { code: viewResult.code },
+    );
+  }
+  let headRefName = "";
+  try {
+    const raw = JSON.parse(viewResult.stdout) as Record<string, unknown>;
+    headRefName = typeof raw.headRefName === "string" ? raw.headRefName : "";
+  } catch {
+    return failure("Failed to parse pull request details.");
+  }
+  if (!headRefName) {
+    return failure("The pull request has no head branch.");
   }
 
-  return runCommandArgs({
-    command: "git",
-    commandArgs: ["rebase", `origin/${baseBranch}`],
+  const updateResult = await run({
+    command: "gh",
+    commandArgs: ["pr", "update-branch"],
     cwd: args.cwd,
   });
+  invalidateCachedGhAuthOnFailure(updateResult, args.cwd);
+  const updateDetail = `${updateResult.stderr}\n${updateResult.stdout}`.trim();
+  const alreadyCurrent = isPullRequestBranchAlreadyCurrent(updateDetail);
+  if (!updateResult.ok && !alreadyCurrent) {
+    return failure(updateDetail || "gh pr update-branch failed.", {
+      code: updateResult.code,
+      stdout: updateResult.stdout,
+    });
+  }
+
+  const statusResult = await run({
+    command: "git",
+    commandArgs: ["status", "--porcelain"],
+    cwd: args.cwd,
+  });
+  let localSynced = false;
+  let warning: string | undefined;
+  if (!statusResult.ok || statusResult.stdout.trim().length > 0) {
+    warning =
+      "The branch was updated on GitHub. Commit or stash local changes, then pull to sync this worktree.";
+  } else {
+    const fetchResult = await run({
+      command: "git",
+      commandArgs: ["fetch", "origin"],
+      cwd: args.cwd,
+    });
+    if (!fetchResult.ok) {
+      warning =
+        "The branch was updated on GitHub, but fetching it locally failed. Pull manually to sync this worktree.";
+    } else {
+      const ffResult = await run({
+        command: "git",
+        commandArgs: ["merge", "--ff-only", `origin/${headRefName}`],
+        cwd: args.cwd,
+      });
+      localSynced = ffResult.ok;
+      if (!ffResult.ok) {
+        warning =
+          "The branch was updated on GitHub, but the local branch could not fast-forward. Pull manually to sync this worktree.";
+      }
+    }
+  }
+
+  return {
+    ok: true,
+    code: 0,
+    stdout: updateResult.stdout,
+    stderr: "",
+    remoteUpdated: !alreadyCurrent,
+    localSynced,
+    warning,
+  };
 }
 
 export function buildCreatePullRequestArgs(args: {
@@ -1711,13 +2047,24 @@ export function buildCreatePullRequestArgs(args: {
 export function buildAutoMergePullRequestArgs(
   method: ConcretePrMergeMethod = "squash",
 ) {
+  // With --auto, gh does not touch the local checkout; --delete-branch only
+  // asks GitHub to remove the remote branch once the queued merge lands.
   return ["pr", "merge", "--auto", `--${method}`, "--delete-branch"];
 }
 
 export function buildMergePullRequestArgs(
   method: ConcretePrMergeMethod = "squash",
+  options?: { matchHeadCommit?: string | null },
 ) {
-  return ["pr", "merge", `--${method}`, "--delete-branch"];
+  // No --delete-branch: after merging, gh would try to check out the base
+  // branch in this worktree, which fails when the base is checked out in the
+  // primary worktree and turns a successful merge into a non-zero exit.
+  // Remote deletion is handled separately after the merge is confirmed.
+  const commandArgs = ["pr", "merge", `--${method}`];
+  if (options?.matchHeadCommit) {
+    commandArgs.push("--match-head-commit", options.matchHeadCommit);
+  }
+  return commandArgs;
 }
 
 export function classifyAutoMergeFailure(stderr: string) {
@@ -1734,6 +2081,14 @@ export function classifyAutoMergeFailure(stderr: string) {
   return "other" as const;
 }
 
+/** `gh pr create` refuses to duplicate a PR and prints the existing URL. */
+export function parseExistingPullRequestUrl(detail: string) {
+  if (!/already exists/i.test(detail)) {
+    return null;
+  }
+  return detail.match(/https?:\/\/\S+\/pull\/\d+/)?.[0] ?? null;
+}
+
 const REPO_MERGE_SETTINGS_TTL_MS = 10 * 60_000;
 const repoMergeSettingsCache = new Map<
   string,
@@ -1748,14 +2103,21 @@ const repoMergeSettingsCache = new Map<
   }
 >();
 
-export async function fetchRepoMergeSettings(args: { cwd?: string }) {
+export async function fetchRepoMergeSettings(args: {
+  cwd?: string;
+  runCommand?: ScmCommandRunner;
+}) {
+  const run = args.runCommand ?? runCommandArgs;
   const cacheKey = resolveCommandCwd({ cwd: args.cwd });
   const cached = repoMergeSettingsCache.get(cacheKey);
   if (cached && cached.expiresAt > Date.now()) {
     return { ok: true as const, ...cached.settings, stderr: "" };
   }
 
-  const authResult = await ensureGhAuth({ cwd: args.cwd });
+  const authResult = await ensureGhAuth({
+    cwd: args.cwd,
+    runCommand: args.runCommand,
+  });
   if (!authResult.ok) {
     return {
       ok: false as const,
@@ -1763,7 +2125,7 @@ export async function fetchRepoMergeSettings(args: { cwd?: string }) {
     };
   }
 
-  const result = await runCommandArgs({
+  const result = await run({
     command: "gh",
     commandArgs: ["api", "repos/{owner}/{repo}"],
     cwd: args.cwd,
@@ -1806,7 +2168,9 @@ const MERGE_METHOD_PREFERENCE = ["squash", "merge", "rebase"] as const;
  * `gh pr merge` refuses to run without an explicit strategy flag when it is not
  * attached to a TTY, so "default" has to be resolved to a concrete strategy
  * before the command is spawned. The repository's allowed merge methods decide
- * which one wins; when they cannot be read we fall back to squash.
+ * which one wins — an explicit choice the repository forbids would only make
+ * GitHub reject the merge, so it is remapped too. Falls back to squash when
+ * the settings cannot be read.
  */
 export function pickAllowedMergeMethod(args: {
   method?: PrMergeMethod;
@@ -1816,31 +2180,36 @@ export function pickAllowedMergeMethod(args: {
     rebaseMergeAllowed?: boolean;
   };
 }): ConcretePrMergeMethod {
-  if (args.method && args.method !== "default") {
-    return args.method;
-  }
   const allowed: Record<ConcretePrMergeMethod, boolean> = {
     squash: args.settings?.squashMergeAllowed ?? true,
     merge: args.settings?.mergeCommitAllowed ?? true,
     rebase: args.settings?.rebaseMergeAllowed ?? true,
   };
+  if (args.method && args.method !== "default" && allowed[args.method]) {
+    return args.method;
+  }
   return MERGE_METHOD_PREFERENCE.find((method) => allowed[method]) ?? "squash";
 }
 
 async function resolveScmMergeMethod(args: {
   method?: PrMergeMethod;
   cwd?: string;
-}): Promise<ConcretePrMergeMethod> {
-  if (args.method && args.method !== "default") {
-    return args.method;
-  }
-  const settings = await fetchRepoMergeSettings({ cwd: args.cwd }).catch(
-    () => undefined,
-  );
-  return pickAllowedMergeMethod({
+  runCommand?: ScmCommandRunner;
+}): Promise<{ method: ConcretePrMergeMethod; remapped: boolean }> {
+  const settings = await fetchRepoMergeSettings({
+    cwd: args.cwd,
+    runCommand: args.runCommand,
+  }).catch(() => undefined);
+  const method = pickAllowedMergeMethod({
     method: args.method,
     settings: settings?.ok ? settings : undefined,
   });
+  return {
+    method,
+    remapped: Boolean(
+      args.method && args.method !== "default" && args.method !== method,
+    ),
+  };
 }
 
 export async function createScmPullRequest(args: {
@@ -1851,6 +2220,7 @@ export async function createScmPullRequest(args: {
   autoMerge?: boolean;
   mergeMethod?: PrMergeMethod;
   cwd?: string;
+  runCommand?: ScmCommandRunner;
 }) {
   const {
     title,
@@ -1861,7 +2231,8 @@ export async function createScmPullRequest(args: {
     mergeMethod = "default",
     cwd,
   } = args;
-  const authResult = await ensureGhAuth({ cwd });
+  const run = args.runCommand ?? runCommandArgs;
+  const authResult = await ensureGhAuth({ cwd, runCommand: args.runCommand });
   if (!authResult.ok) {
     return {
       ok: false,
@@ -1876,7 +2247,7 @@ export async function createScmPullRequest(args: {
     draft,
   });
 
-  const result = await runCommandArgs({ command: "gh", commandArgs, cwd });
+  const result = await run({ command: "gh", commandArgs, cwd });
   invalidateCachedGhAuthOnFailure(result, cwd);
 
   if (!result.ok) {
@@ -1894,6 +2265,14 @@ export async function createScmPullRequest(args: {
         stderr: "GitHub CLI is not authenticated. Run `gh auth login` first.",
       };
     }
+    const existingPrUrl = parseExistingPullRequestUrl(stderr);
+    if (existingPrUrl) {
+      return {
+        ok: false,
+        stderr: "A pull request for this branch already exists.",
+        existingPrUrl,
+      };
+    }
     return { ok: false, stderr: stderr || "Failed to create pull request." };
   }
 
@@ -1902,11 +2281,12 @@ export async function createScmPullRequest(args: {
     return { ok: true, prUrl, autoMergeEnabled: false, stderr: "" };
   }
 
-  const resolvedMergeMethod = await resolveScmMergeMethod({
+  const { method: resolvedMergeMethod } = await resolveScmMergeMethod({
     method: mergeMethod,
     cwd,
+    runCommand: args.runCommand,
   });
-  const autoMergeResult = await runCommandArgs({
+  const autoMergeResult = await run({
     command: "gh",
     commandArgs: buildAutoMergePullRequestArgs(resolvedMergeMethod),
     cwd,
@@ -1917,19 +2297,19 @@ export async function createScmPullRequest(args: {
       `${autoMergeResult.stderr}\n${autoMergeResult.stdout}`.trim();
     const failure = classifyAutoMergeFailure(autoMergeStderr);
     if (failure === "clean-status") {
-      const mergeResult = await runCommandArgs({
-        command: "gh",
-        commandArgs: buildMergePullRequestArgs(resolvedMergeMethod),
+      // Nothing is pending, so GitHub refuses to *queue* a merge; merge now.
+      const mergeResult = await runDirectPullRequestMerge({
+        method: resolvedMergeMethod,
         cwd,
+        run,
       });
-      invalidateCachedGhAuthOnFailure(mergeResult, cwd);
       if (mergeResult.ok) {
         return {
           ok: true,
           prUrl,
           autoMergeEnabled: false,
           merged: true,
-          stderr: "",
+          stderr: mergeResult.warning ?? "",
         };
       }
     }

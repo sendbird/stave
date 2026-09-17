@@ -217,7 +217,40 @@ export function createSupportActions(args: {
 
       try {
         const result = await getPrStatus({ cwd });
-        if (!result.ok) return;
+        if (!result.ok) {
+          // Keep the last known PR so the badge does not flip to "Create PR"
+          // just because gh is unavailable; surface the reason instead.
+          const lastError = result.stderr?.trim() || "PR status unavailable.";
+          set((s) => {
+            if (
+              s.workspaceDefaultById[workspaceId] ||
+              !isWorkspaceTargetCurrent({
+                state: s,
+                workspaceId,
+                workspacePath: cwd,
+                projectPath,
+              })
+            ) {
+              return s;
+            }
+            const previous = s.workspacePrInfoById[workspaceId];
+            if (previous?.lastError === lastError) {
+              return s;
+            }
+            return {
+              workspacePrInfoById: {
+                ...s.workspacePrInfoById,
+                [workspaceId]: {
+                  pr: previous?.pr ?? null,
+                  derived: previous?.derived ?? "no_pr",
+                  lastFetched: previous?.lastFetched ?? 0,
+                  lastError,
+                },
+              },
+            };
+          });
+          return;
+        }
 
         const pr = result.pr as GitHubPrPayload | null;
         const derived = pr ? derivePrStatus(pr) : ("no_pr" as const);

@@ -2486,6 +2486,7 @@ contextBridge.exposeInMainWorld("api", {
         autoMergeEnabled?: boolean;
         autoMergeUnsupported?: boolean;
         merged?: boolean;
+        existingPrUrl?: string;
         stderr?: string;
       }>,
     getRepoMergeSettings: (args: { cwd?: string }) =>
@@ -2588,6 +2589,7 @@ contextBridge.exposeInMainWorld("api", {
       }>,
     mergePr: (args: {
       method?: "default" | "merge" | "squash" | "rebase";
+      expectedHeadOid?: string | null;
       cwd?: string;
     }) =>
       ipcRenderer.invoke("scm:merge-pr", args) as Promise<{
@@ -2595,6 +2597,10 @@ contextBridge.exposeInMainWorld("api", {
         code?: number;
         stdout?: string;
         stderr?: string;
+        merged?: boolean;
+        mergeMethod?: "merge" | "squash" | "rebase";
+        remoteBranchDeleted?: boolean;
+        warning?: string;
       }>,
     updatePrBranch: (args: { cwd?: string }) =>
       ipcRenderer.invoke("scm:update-pr-branch", args) as Promise<{
@@ -2602,6 +2608,9 @@ contextBridge.exposeInMainWorld("api", {
         code?: number;
         stdout?: string;
         stderr?: string;
+        remoteUpdated?: boolean;
+        localSynced?: boolean;
+        warning?: string;
       }>,
   },
   window: {
