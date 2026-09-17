@@ -2,11 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
 
 export const resultStyles = stylex.create({
-  panel: {
-    minWidth: 0,
-    backgroundColor: vars["--ads-color-canvas"],
-    padding: vars["--ads-space-12"],
-  },
+  // The right rail already paints the surface and pads it. Repeating both here
+  // drew a second card inside the first one, so the panel owns layout only.
+  panel: { minWidth: 0 },
   heading: {
     marginBottom: vars["--ads-space-8"],
     fontSize: vars["--ads-font-size-body"],
@@ -96,6 +94,11 @@ export const resultStyles = stylex.create({
     paddingInline: vars["--ads-space-12"],
     paddingBottom: vars["--ads-space-8"],
   },
+  // A saved answer has no length bound of its own, so an expanded run used to
+  // push every later run — and the panel footer — kilopixels down the scroller.
+  // The cap belongs to the payload: the row header and the follow-up action
+  // stay on screen while the answer scrolls inside its own box.
+  evidenceViewport: { minWidth: 0 },
   rowActions: {
     display: "flex",
     flexWrap: "wrap",

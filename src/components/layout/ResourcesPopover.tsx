@@ -7,11 +7,10 @@ import {
 } from "@/components/ui/dialog";
 import {
   Activity,
-  Clock,
-  Cpu,
   HardDrive,
-  MemoryStick,
   RefreshCw,
+  Search,
+  Trash2,
   X,
 } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -27,15 +26,23 @@ import {
   type ResourceMetricSample,
   type ResourceMetricSummary,
 } from "@/lib/performance/resource-metric-history";
+import {
+  formatBytes,
+  formatDuration,
+  formatKB,
+  formatSignedKB,
+} from "@/lib/performance/resource-format";
+import {
+  appFootprintKB,
+  appWorkingSetKB,
+  hostServiceProcesses,
+} from "@/lib/performance/resource-manager";
 import { getLatestWorkspaceSwitchPerformance } from "@/lib/performance/workspace-switch-metrics";
 import type { StorageCleanupReport } from "@/lib/storage-cleanup/storage-cleanup-policy";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx, type StyleXValue } from "@/components/ads/utils/stylex";
-import {
-  processTypeStyles,
-  resourceStyles,
-  usageRampStyles,
-} from "./resources-popover.styles";
+import { processTypeStyles, resourceStyles } from "./resources-popover.styles";
+import { ResourceDashboard } from "./ResourceDashboard";
 import { ResourceManagerOverview } from "./ResourceManagerOverview";
 import { WorkspaceCleanupDialog } from "./WorkspaceCleanupDialog";
 import { managerStyles } from "./resource-manager.styles";
@@ -55,6 +62,7 @@ export interface AppMetrics {
     /** Private (non-shared) footprint; excludes pages already released to the OS. */
     privateBytes: number | null;
     sharedBytes: number | null;
+    heapSizeLimit: number;
     heapTotal: number;
     heapUsed: number;
     external: number;
@@ -135,6 +143,7 @@ export interface AppMetrics {
     fileBytes: number;
     autoVacuum: number;
   } | null;
+  systemMemory: { totalKB: number; freeKB: number } | null;
   uptimeSeconds: number;
 }
 
@@ -173,77 +182,6 @@ const processColor: Record<string, StyleXValue> = {
   GPU: processTypeStyles.GPU,
   Utility: processTypeStyles.Utility,
 };
-
-function formatBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  if (bytes < 1024 * 1024 * 1024)
-    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-  return `${(bytes / (1024 * 1024 * 1024)).toFixed(2)} GB`;
-}
-
-function formatKB(kb: number): string {
-  return formatBytes(kb * 1024);
-}
-
-function formatSignedKB(kb: number): string {
-  if (kb === 0) return "0 B";
-  return `${kb > 0 ? "+" : "−"}${formatKB(Math.abs(kb))}`;
-}
-
-function formatUptime(seconds: number): string {
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  const s = Math.floor(seconds % 60);
-  if (h > 0) return `${h}h ${m}m`;
-  if (m > 0) return `${m}m ${s}s`;
-  return `${s}s`;
-}
-
-function formatDuration(milliseconds: number | undefined): string {
-  if (milliseconds === undefined) return "—";
-  if (milliseconds < 1_000) return `${Math.round(milliseconds)} ms`;
-  return `${(milliseconds / 1_000).toFixed(2)} s`;
-}
-
-function barColor(ratio: number): StyleXValue {
-  if (ratio < 0.6) return usageRampStyles.healthy;
-  if (ratio < 0.85) return usageRampStyles.watch;
-  return usageRampStyles.saturated;
-}
-
-function UsageBar({
-  used,
-  total,
-  label,
-  detail,
-}: {
-  used: number;
-  total: number;
-  label: string;
-  detail: string;
-}) {
-  const ratio = total > 0 ? used / total : 0;
-  return (
-    <div className={sx(resourceStyles.usageBar)}>
-      <div className={sx(resourceStyles.usageBarHead)}>
-        <span className={sx(resourceStyles.usageBarLabel)}>{label}</span>
-        <span className={sx(resourceStyles.usageBarDetail)}>{detail}</span>
-      </div>
-      <div className={sx(resourceStyles.usageBarTrack)}>
-        <div
-          className={sx(
-            resourceStyles.usageBarFill,
-            transition.bar,
-            transition.motionDurationEmphasis,
-            barColor(ratio),
-          )}
-          style={{ width: `${Math.min(ratio * 100, 100)}%` }}
-        />
-      </div>
-    </div>
-  );
-}
 
 export function MemoryUsagePopover({
   collapsed,
@@ -299,15 +237,28 @@ export function MemoryUsagePopover({
         const gpuCpuPercent = appResult.value.processes
           .filter((process) => process.role === "gpu")
           .reduce((sum, process) => sum + process.cpu.percentCPUUsage, 0);
-        const rendererHeapUsedKB =
-          rendererResult.status === "fulfilled" && rendererResult.value
-            ? rendererResult.value.heap.usedHeapSize
-            : null;
+        const renderer =
+          rendererResult.status === "fulfilled" ? rendererResult.value : null;
+        const rendererHeapUsedKB = renderer?.heap.usedHeapSize ?? null;
         samplesRef.current = appendResourceMetricSample(samplesRef.current, {
           sampledAt: Date.now(),
           rendererCpuPercent,
           gpuCpuPercent,
           rendererHeapUsedKB,
+          totalCpuPercent: appResult.value.processes.reduce(
+            (sum, process) => sum + process.cpu.percentCPUUsage,
+            0,
+          ),
+          totalFootprintKB: appFootprintKB({
+            processes: appResult.value.processes,
+            hostProcesses: hostServiceProcesses(appResult.value.hostService),
+            mainPrivateBytes: appResult.value.mainProcess.privateBytes,
+            hostRendererPrivateBytes:
+              appResult.value.hostRendererMemory?.privateBytes ??
+              (typeof renderer?.process.private === "number"
+                ? renderer.process.private * 1024
+                : null),
+          }),
         });
         setRecentMetrics(summarizeResourceMetricSamples(samplesRef.current));
       }
@@ -394,25 +345,37 @@ export function MemoryUsagePopover({
     (typeof rendererMemory?.process.private === "number"
       ? rendererMemory.process.private * 1024
       : null);
-  const totalWorkingSetKB =
-    metrics?.processes.reduce((sum, p) => sum + p.memory.workingSetSizeKB, 0) ??
-    0;
-  const totalFootprintKB =
-    metrics?.processes.reduce((sum, p) => {
-      if (p.role === "main" && mainPrivateBytes !== null) {
-        return sum + mainPrivateBytes / 1024;
-      }
-      if (p.role === "host-renderer" && hostRendererPrivateBytes !== null) {
-        return sum + hostRendererPrivateBytes / 1024;
-      }
-      return sum + p.memory.workingSetSizeKB;
-    }, 0) ?? 0;
+  const hostProcesses = hostServiceProcesses(metrics?.hostService ?? null);
+  const totalWorkingSetKB = metrics
+    ? appWorkingSetKB({ processes: metrics.processes, hostProcesses })
+    : 0;
+  const totalFootprintKB = metrics
+    ? appFootprintKB({
+        processes: metrics.processes,
+        hostProcesses,
+        mainPrivateBytes,
+        hostRendererPrivateBytes,
+      })
+    : 0;
   const totalCpu =
     metrics?.processes.reduce((sum, p) => sum + p.cpu.percentCPUUsage, 0) ?? 0;
   const latestWorkspaceSwitch = getLatestWorkspaceSwitchPerformance();
   const lensWorkingSetKB =
     metrics?.processes
       .filter((process) => process.role === "lens-guest")
+      .reduce((sum, process) => sum + process.memory.workingSetSizeKB, 0) ?? 0;
+  /**
+   * The budget governs *hidden* guests only — a visible tab is never evicted —
+   * so charging visible pages against it would report a permanent overrun.
+   */
+  const hiddenLensPids = new Set(
+    metrics?.lens.guests
+      .filter((guest) => !guest.visible && guest.pid !== null)
+      .map((guest) => guest.pid) ?? [],
+  );
+  const hiddenLensWorkingSetKB =
+    metrics?.processes
+      .filter((process) => hiddenLensPids.has(process.pid))
       .reduce((sum, process) => sum + process.memory.workingSetSizeKB, 0) ?? 0;
   const childProcessRss =
     metrics?.hostService?.childProcesses.reduce(
@@ -528,35 +491,59 @@ export function MemoryUsagePopover({
             </div>
           </div>
 
+          {/*
+            The dashboard sits above the view switcher rather than inside a
+            tab: the headline reading is the same question in both views, and
+            duplicating it per tab would make the two views disagree whenever
+            one of them was not the one being watched.
+          */}
+          {metrics ? (
+            <ResourceDashboard
+              metrics={metrics}
+              rendererMemory={rendererMemory}
+              recent={recentMetrics}
+              totalFootprintKB={totalFootprintKB}
+              totalWorkingSetKB={totalWorkingSetKB}
+              totalCpuPercent={totalCpu}
+              hiddenLensWorkingSetKB={hiddenLensWorkingSetKB}
+              hostProcessCount={hostProcesses.length}
+            />
+          ) : null}
+
           <div className={sx(managerStyles.toolbar)}>
             <div
-              className={sx(managerStyles.actions)}
+              className={sx(managerStyles.segmented)}
               role="group"
               aria-label="Resource view"
             >
               <Button
+                size="sm"
                 variant={view === "usage" ? "secondary" : "ghost"}
                 aria-pressed={view === "usage"}
+                xstyle={managerStyles.segment}
                 onClick={() => setView("usage")}
               >
                 Workspaces and processes
               </Button>
               <Button
+                size="sm"
                 variant={view === "diagnostics" ? "secondary" : "ghost"}
                 aria-pressed={view === "diagnostics"}
+                xstyle={managerStyles.segment}
                 onClick={() => setView("diagnostics")}
               >
                 Diagnostics and storage
               </Button>
             </div>
             <Button
-              variant="secondary"
+              variant="outline"
               size="sm"
               onClick={() => {
                 setOpen(false);
                 setCleanupOpen(true);
               }}
             >
+              <Trash2 className={sx(resourceStyles.refreshIcon)} />
               Clean up workspaces
             </Button>
           </div>
@@ -583,95 +570,30 @@ export function MemoryUsagePopover({
                 >
                   <div className={sx(resourceStyles.stack)}>
                     <Button
-                      variant="secondary"
+                      variant="outline"
                       size="sm"
                       onClick={() => void fetchStorageReport()}
                     >
+                      <Search className={sx(resourceStyles.refreshIcon)} />
                       Scan app storage
                     </Button>
-                    {/* Summary row */}
-                    <div className={sx(resourceStyles.summaryGrid)}>
-                      <div className={sx(resourceStyles.summaryTile)}>
-                        <div className={sx(resourceStyles.summaryTileIconRow)}>
-                          <MemoryStick
-                            className={sx(resourceStyles.summaryTileIcon)}
-                          />
-                        </div>
-                        <div className={sx(resourceStyles.summaryTileValue)}>
-                          {formatKB(totalFootprintKB)}
-                        </div>
-                        <div className={sx(resourceStyles.summaryTileLabel)}>
-                          {totalFootprintKB !== totalWorkingSetKB
-                            ? `Electron · RSS ${formatKB(totalWorkingSetKB)}`
-                            : "Electron"}
-                        </div>
-                      </div>
-                      <div className={sx(resourceStyles.summaryTile)}>
-                        <div className={sx(resourceStyles.summaryTileIconRow)}>
-                          <Cpu className={sx(resourceStyles.summaryTileIcon)} />
-                        </div>
-                        <div className={sx(resourceStyles.summaryTileValue)}>
-                          {totalCpu.toFixed(1)}%
-                        </div>
-                        <div className={sx(resourceStyles.summaryTileLabel)}>
-                          CPU
-                        </div>
-                      </div>
-                      <div className={sx(resourceStyles.summaryTile)}>
-                        <div className={sx(resourceStyles.summaryTileIconRow)}>
-                          <Clock
-                            className={sx(resourceStyles.summaryTileIcon)}
-                          />
-                        </div>
-                        <div className={sx(resourceStyles.summaryTileValue)}>
-                          {formatUptime(metrics.uptimeSeconds)}
-                        </div>
-                        <div className={sx(resourceStyles.summaryTileLabel)}>
-                          Uptime
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Heap usage bar */}
-                    <UsageBar
-                      label="JS Heap"
-                      used={metrics.mainProcess.heapUsed}
-                      total={metrics.mainProcess.heapTotal}
-                      detail={`${formatBytes(
-                        metrics.mainProcess.heapUsed,
-                      )} / ${formatBytes(metrics.mainProcess.heapTotal)}`}
-                    />
-
-                    {/* Main footprint bar (private bytes; RSS shown for reference) */}
-                    <UsageBar
-                      label={
-                        mainPrivateBytes !== null
-                          ? "Footprint (Main)"
-                          : "RSS (Main)"
-                      }
-                      used={mainPrivateBytes ?? metrics.mainProcess.rss}
-                      total={
-                        (mainPrivateBytes ?? metrics.mainProcess.rss) * 1.25
-                      }
-                      detail={
-                        mainPrivateBytes !== null
-                          ? `${formatBytes(mainPrivateBytes)} · RSS ${formatBytes(metrics.mainProcess.rss)}`
-                          : formatBytes(metrics.mainProcess.rss)
-                      }
-                    />
-
-                    {rendererMemory ? (
-                      <UsageBar
-                        label="Renderer heap"
-                        used={rendererMemory.heap.usedHeapSize}
-                        total={rendererMemory.heap.totalHeapSize}
-                        detail={`${formatKB(
-                          rendererMemory.heap.usedHeapSize,
-                        )} / ${formatKB(rendererMemory.heap.totalHeapSize)}`}
-                      />
-                    ) : null}
-
                     <div className={sx(resourceStyles.detailGrid)}>
+                      <span className={sx(resourceStyles.detailKey)}>
+                        Main process
+                      </span>
+                      <span className={sx(resourceStyles.detailValue)}>
+                        {mainPrivateBytes !== null
+                          ? `${formatBytes(mainPrivateBytes)} · RSS ${formatBytes(metrics.mainProcess.rss)}`
+                          : `RSS ${formatBytes(metrics.mainProcess.rss)}`}
+                      </span>
+                      <span className={sx(resourceStyles.detailKey)}>
+                        App footprint
+                      </span>
+                      <span className={sx(resourceStyles.detailValue)}>
+                        {totalFootprintKB !== totalWorkingSetKB
+                          ? `${formatKB(totalFootprintKB)} · RSS ${formatKB(totalWorkingSetKB)}`
+                          : formatKB(totalFootprintKB)}
+                      </span>
                       {rendererMemory ? (
                         <>
                           <span className={sx(resourceStyles.detailKey)}>
@@ -979,11 +901,14 @@ export function MemoryUsagePopover({
                         </div>
                         <div className={sx(resourceStyles.storageActions)}>
                           <Button
-                            variant="secondary"
+                            variant="outline"
                             size="sm"
                             disabled={storageBusy}
                             onClick={() => void runStorageCleanup("reclaim")}
                           >
+                            <Trash2
+                              className={sx(resourceStyles.refreshIcon)}
+                            />
                             {storageBusy ? "Cleaning…" : "Clean up"}
                           </Button>
                           <Button

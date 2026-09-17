@@ -12,6 +12,7 @@ import {
 } from "@/lib/performance/resource-manager";
 import type { AppMetrics } from "./ResourcesPopover";
 import { managerStyles as styles } from "./resource-manager.styles";
+import { shareStyles } from "./resource-dashboard.styles";
 
 const labels = {
   main: "Main",
@@ -143,7 +144,9 @@ export function ResourceManagerOverview({
     }
   }
   const unique = uniqueResourceProcesses(processes);
-  const lensWorkspaceIds = metrics.lens.guests.map((guest) => guest.workspaceId);
+  const lensWorkspaceIds = metrics.lens.guests.map(
+    (guest) => guest.workspaceId,
+  );
   const groups = new Map<string, ResourceProcess[]>();
   for (const process of unique) {
     const owners = [
@@ -165,10 +168,6 @@ export function ResourceManagerOverview({
     groups.set(owner, group);
   }
   const total = unique.reduce((sum, p) => sum + p.rssBytes, 0);
-  const cpu = metrics.processes.reduce(
-    (sum, p) => sum + p.cpu.percentCPUUsage,
-    0,
-  );
   useEffect(() => {
     setHistory((previous) =>
       [
@@ -223,14 +222,11 @@ export function ResourceManagerOverview({
   };
   return (
     <section className={sx(styles.section)} aria-label="Resource manager">
-      <div className={sx(styles.toolbar)}>
-        <strong className={sx(styles.headline)}>
-          {formatResourceBytes(total)} RSS
-        </strong>
-        <span className={sx(styles.muted)}>
-          {cpu.toFixed(1)}% Electron CPU · {unique.length} processes
-        </span>
-      </div>
+      {/*
+        The headline total, CPU and process count moved to the dashboard above,
+        which both views share. Repeating them here produced two numbers for the
+        same question that were computed differently and disagreed.
+      */}
       <span className={sx(styles.muted)}>
         Measured RSS, counted once per PID. Shared app memory cannot be split by
         workspace or task.
@@ -243,20 +239,8 @@ export function ResourceManagerOverview({
       )}
       {metrics.lens.memoryBudgetKB !== undefined && (
         <span className={sx(styles.muted)}>
-          Hidden Lens budget:{" "}
-          {formatResourceBytes(metrics.lens.memoryBudgetKB * 1024)} · Based on
-          device RAM. Recently reopened pages get a cooldown.
-        </span>
-      )}
-
-      {history.length > 1 && (
-        <span className={sx(styles.muted)}>
-          Recent RSS: {formatResourceBytes(history[0]!.bytes)} →{" "}
-          {formatResourceBytes(total)} · Peak{" "}
-          {formatResourceBytes(
-            Math.max(...history.map((sample) => sample.bytes)),
-          )}
-          . Up to 120 recent observations.
+          The hidden Lens budget above is based on device RAM. Recently reopened
+          pages get a cooldown before they can be released again.
         </span>
       )}
       <h3 className={sx(styles.heading)}>Workspace memory</h3>
@@ -281,33 +265,47 @@ export function ResourceManagerOverview({
                   }),
                 )
                 .map(([id, name]) => {
-                const own = groups.get(id);
-                const shared =
-                  groups
-                    .get("shared")
-                    ?.filter(
-                      (p) =>
-                        p.owners?.some((o) => o.workspaceId === id) ||
-                        metrics.lens.guests.some(
-                          (g) => g.pid === p.pid && g.workspaceId === id,
-                        ),
-                    ) ?? [];
-                const sum = (items: ResourceProcess[]) =>
-                  items.reduce((total, p) => total + p.rssBytes, 0);
-                return (
-                  <tr key={id} className={sx(styles.dataRow)}>
-                    <th scope="row" className={sx(styles.identityCell)}>
-                      {name}
-                    </th>
-                    <td className={sx(styles.numericCell)}>
-                      {own ? formatResourceBytes(sum(own)) : "—"}
-                    </td>
-                    <td className={sx(styles.numericCell)}>
-                      {shared.length ? formatResourceBytes(sum(shared)) : "—"}
-                    </td>
-                  </tr>
-                );
-              })}
+                  const own = groups.get(id);
+                  const shared =
+                    groups
+                      .get("shared")
+                      ?.filter(
+                        (p) =>
+                          p.owners?.some((o) => o.workspaceId === id) ||
+                          metrics.lens.guests.some(
+                            (g) => g.pid === p.pid && g.workspaceId === id,
+                          ),
+                      ) ?? [];
+                  const sum = (items: ResourceProcess[]) =>
+                    items.reduce((total, p) => total + p.rssBytes, 0);
+                  const attributed = own ? sum(own) : 0;
+                  return (
+                    <tr key={id} className={sx(styles.dataRow)}>
+                      <th scope="row" className={sx(styles.identityCell)}>
+                        {name}
+                        {/*
+                        Magnitude, so one hue for every row: a ramp keyed to
+                        size would re-encode the bar length as color and spend
+                        the only free channel on what the bar already says.
+                      */}
+                        <div className={sx(shareStyles.track)} aria-hidden>
+                          <div
+                            className={sx(shareStyles.fill)}
+                            style={{
+                              width: `${total > 0 ? Math.min((attributed / total) * 100, 100) : 0}%`,
+                            }}
+                          />
+                        </div>
+                      </th>
+                      <td className={sx(styles.numericCell)}>
+                        {own ? formatResourceBytes(attributed) : "—"}
+                      </td>
+                      <td className={sx(styles.numericCell)}>
+                        {shared.length ? formatResourceBytes(sum(shared)) : "—"}
+                      </td>
+                    </tr>
+                  );
+                })}
             </tbody>
           </table>
         </div>

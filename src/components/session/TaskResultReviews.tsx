@@ -11,6 +11,7 @@ import {
 } from "@/components/ui/accordion";
 import { ActionButton } from "@/components/system/ActionButton";
 import { Badge } from "@/components/ads/components/Badge";
+import { CappedViewport } from "@/components/ads/components/CappedViewport";
 import { useResultReviews } from "@/lib/reviews/useResultReviews";
 import { setResultReviewed } from "@/lib/reviews/result-review-client";
 import type { ResultReview } from "@/lib/reviews/result-review";
@@ -26,6 +27,13 @@ import { formatRelativeTime } from "@/components/layout/automation-center/automa
 
 const PAGE_SIZE = 20;
 type Filter = "all" | "pending";
+
+/**
+ * The cap on one expanded run's saved evidence. Viewport-relative so a tall
+ * window shows more, bounded in rem so a short one still leaves the next run
+ * and the panel footer reachable without a long scroll back.
+ */
+const EVIDENCE_MAX_HEIGHT = "min(50vh, 28rem)";
 
 /**
  * The saved answer, files and file snapshots of one run. Mounted only while
@@ -218,7 +226,15 @@ function RunHistoryRow(props: {
         </ActionButton>
       </div>
       <AccordionContent mount="lazy" className={sx(styles.rowDetails)}>
-        <RunEvidence result={result} />
+        <CappedViewport
+          role="group"
+          tabIndex={0}
+          label="Saved run evidence"
+          maxBlockSize={EVIDENCE_MAX_HEIGHT}
+          xstyle={styles.evidenceViewport}
+        >
+          <RunEvidence result={result} />
+        </CappedViewport>
         <div className={sx(styles.rowActions)}>
           <ActionButton size="xs" onClick={props.onFollowUp}>
             Request changes

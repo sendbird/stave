@@ -2680,6 +2680,7 @@ contextBridge.exposeInMainWorld("api", {
           rss: number;
           privateBytes: number | null;
           sharedBytes: number | null;
+          heapSizeLimit: number;
           heapTotal: number;
           heapUsed: number;
           external: number;
@@ -2750,6 +2751,7 @@ contextBridge.exposeInMainWorld("api", {
           fileBytes: number;
           autoVacuum: number;
         } | null;
+        systemMemory: { totalKB: number; freeKB: number } | null;
         uptimeSeconds: number;
       }>,
     getRendererMemory: async () => ({

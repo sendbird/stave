@@ -2,6 +2,14 @@
 
 Resource Manager shows process memory, Lens ownership, and controls for releasing hidden pages or cleaning up inactive workspaces. Open it from the memory usage indicator.
 
+## Read the dashboard
+
+The summary remains visible above both views. Memory footprint and RSS include the same Electron and host-service process tree, counting overlapping PIDs once. Footprint substitutes private memory where available; RSS retains working-set measurements. **Electron CPU** covers only Electron processes, not provider or terminal descendants.
+
+Heap gauges compare usage with the V8 heap size limit, not the currently allocated heap. The hidden Lens gauge compares hidden-page RSS with the configured budget. Gauges warn at 60% and 85%; app memory warns at 25% and 40% of device RAM, or 4 GiB and 8 GiB when capacity is unavailable. Electron CPU warns at 60% and 120%. These are application thresholds, not an operating-system pressure measurement.
+
+Status icons and text accompany warning colors. Trends cover up to the last minute of samples collected while the dialog is open. **Workspaces and processes** shows attribution and page controls; **Diagnostics and storage** shows detailed measurements and storage actions.
+
 ## Manage Lens memory
 
 1. Expand a workspace to inspect its Lens pages and processes.
