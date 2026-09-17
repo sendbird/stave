@@ -151,7 +151,7 @@ export async function discardSourceControlPath(args: {
   };
 }
 
-type ScmCommandRunner = typeof runCommandArgs;
+export type ScmCommandRunner = typeof runCommandArgs;
 
 function parseGitHubPrPayload(raw: Record<string, unknown>): GitHubPrPayload {
   let checksRollup: "SUCCESS" | "FAILURE" | "PENDING" | null = null;
@@ -622,8 +622,6 @@ const SCM_COMMIT_DIFF_OUTPUT_LIMIT = 512 * 1024;
 const SCM_SERIALIZED_RESULT_LIMIT = 1_500_000;
 const GRAPH_REF_CONTROL_CHAR_PATTERN = /[\x00-\x1f\x7f]/;
 const GRAPH_HASH_PATTERN = /^[0-9a-f]{7,64}$/i;
-
-export type ScmCommandRunner = typeof runCommandArgs;
 
 interface ScmRuntimeDependencies {
   runCommand?: ScmCommandRunner;
