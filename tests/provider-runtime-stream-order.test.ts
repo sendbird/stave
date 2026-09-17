@@ -9,8 +9,11 @@ import {
   startProviderTurnActivity,
 } from "@/lib/providers/turn-status";
 
+const TEST_WORKSPACE_CWD = "/tmp/stave-provider-runtime-test";
+
 let releaseQuietTurn: (() => void) | undefined;
 let onQuietTurnStarted: (() => void) | undefined;
+let codexAdapterCalls = 0;
 
 const actualClaudeRuntime =
   await import("../electron/providers/claude-sdk-runtime");
@@ -53,6 +56,7 @@ mock.module("../electron/providers/codex-app-server-runtime", () => ({
     prompt?: string;
     onEvent?: (event: { type: string }) => void;
   }) => {
+    codexAdapterCalls += 1;
     if (args.prompt === "quiet-turn") {
       await new Promise<void>((resolve) => {
         releaseQuietTurn = resolve;
@@ -113,6 +117,7 @@ describe("providerRuntime.startTurnStream", () => {
       onQuietTurnStarted = resolve;
     });
     const started = providerRuntime.startTurnStream({
+      cwd: TEST_WORKSPACE_CWD,
       providerId: "codex",
       prompt: "quiet-turn",
     });
@@ -146,7 +151,7 @@ describe("providerRuntime.startTurnStream", () => {
     }) as typeof setTimeout);
     const done = new Promise<void>((resolve) => {
       providerRuntime.startTurnStream(
-        { providerId: "codex", prompt: "smoke" },
+        { cwd: TEST_WORKSPACE_CWD, providerId: "codex", prompt: "smoke" },
         { bufferEvents: true, onDone: resolve },
       );
     });
@@ -173,6 +178,7 @@ describe("providerRuntime.startTurnStream", () => {
 
     const started = providerRuntime.startTurnStream(
       {
+        cwd: TEST_WORKSPACE_CWD,
         providerId: "codex",
         prompt: "smoke",
       },
@@ -218,6 +224,7 @@ describe("providerRuntime.startTurnStream", () => {
       });
       const started = providerRuntime.startTurnStream(
         {
+          cwd: TEST_WORKSPACE_CWD,
           providerId,
           prompt: "runtime-fallback",
         },
@@ -274,6 +281,7 @@ describe("providerRuntime.startTurnStream", () => {
 
     const started = providerRuntime.startTurnStream(
       {
+        cwd: TEST_WORKSPACE_CWD,
         providerId: "codex",
         prompt: "smoke",
       },
@@ -334,6 +342,7 @@ describe("providerRuntime.startTurnStream", () => {
 
     const started = providerRuntime.startTurnStream(
       {
+        cwd: TEST_WORKSPACE_CWD,
         providerId: "codex",
         prompt: "smoke",
       },
@@ -378,6 +387,7 @@ describe("providerRuntime.startTurnStream", () => {
 
     const started = providerRuntime.startTurnStream(
       {
+        cwd: TEST_WORKSPACE_CWD,
         providerId: "codex",
         prompt: "tool-partials",
       },
@@ -414,6 +424,7 @@ describe("providerRuntime.startTurnStream", () => {
 
   test("shutdown clears buffered polling streams", async () => {
     const started = providerRuntime.startTurnStream({
+      cwd: TEST_WORKSPACE_CWD,
       providerId: "codex",
       prompt: "smoke",
     });
@@ -448,4 +459,44 @@ test("all provider entrypoints refuse stopped workspace execution", async () => 
       await expect(providerRuntime.streamTurn(args)).rejects.toThrow("stopped");
     }
   } finally { workspaceExecutionGate.resume(target.workspaceId); }
+});
+
+describe("provider turn workspace folder guard", () => {
+  // A turn writes files and runs git inside `cwd`. Before this guard each
+  // adapter quietly fell back to the host process directory, so a task whose
+  // workspace path was missing ran against an unrelated checkout.
+  test.each([
+    ["missing", undefined],
+    ["empty", ""],
+    ["relative", "relative/workspace"],
+  ])("refuses a turn with a %s workspace folder", async (_label, cwd) => {
+    const callsBefore = codexAdapterCalls;
+    const events = await providerRuntime.streamTurn({
+      providerId: "codex",
+      prompt: "smoke",
+      ...(cwd === undefined ? {} : { cwd }),
+    });
+
+    expect(codexAdapterCalls).toBe(callsBefore);
+    expect(events).toEqual([
+      {
+        type: "error",
+        message: expect.stringContaining("no resolved workspace folder"),
+        recoverable: false,
+      },
+      { type: "done", stop_reason: "runtime_failure" },
+    ]);
+  });
+
+  test("runs the turn when an absolute workspace folder is supplied", async () => {
+    const callsBefore = codexAdapterCalls;
+    const events = await providerRuntime.streamTurn({
+      cwd: TEST_WORKSPACE_CWD,
+      providerId: "codex",
+      prompt: "smoke",
+    });
+
+    expect(codexAdapterCalls).toBe(callsBefore + 1);
+    expect(events.at(-1)).toEqual({ type: "done" });
+  });
 });

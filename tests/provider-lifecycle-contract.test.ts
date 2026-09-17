@@ -2,6 +2,8 @@ import { afterEach, describe, expect, mock, test } from "bun:test";
 import type { BridgeEvent, ProviderId } from "../electron/providers/types";
 import type { ProviderRuntimeOptions } from "../src/lib/providers/provider.types";
 
+const TEST_WORKSPACE_CWD = "/tmp/stave-provider-runtime-test";
+
 type Scenario =
   | "duplicate-terminal"
   | "missing-terminal"
@@ -186,6 +188,7 @@ function runStream(args: {
   const turnId = `${args.providerId}-${adapterState.scenario}`;
   providerRuntime.startTurnStream(
     {
+      cwd: TEST_WORKSPACE_CWD,
       providerId: args.providerId,
       prompt: "test lifecycle",
       turnId,

@@ -90,7 +90,10 @@ export interface SkillCatalogState {
 export type SendUserMessageResult =
   | {
       status: "blocked";
-      reason?: "account-limit" | "auto-routing-disabled";
+      reason?:
+        | "account-limit"
+        | "auto-routing-disabled"
+        | "workspace-path-missing";
       message?: string;
     }
   | { status: "queued"; taskId: string; workspaceId: string }

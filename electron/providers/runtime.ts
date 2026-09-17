@@ -39,6 +39,7 @@ import {
   listCodexSlashCommands,
 } from "../../src/lib/providers/codex-command-catalog";
 import { randomUUID } from "node:crypto";
+import path from "node:path";
 import { runExecutableProbe } from "./runtime-shared";
 import {
   createEmptyProviderRuntimeCapabilities,
@@ -780,6 +781,21 @@ async function runProviderTurnImpl(
     lastCompletedLifecycleSnapshot = lifecycle.snapshot();
     return lifecycle.events();
   };
+  // A turn runs shell commands, file writes and git operations inside `cwd`.
+  // Each adapter used to fall back to the host process directory when the
+  // caller supplied no workspace path, which silently pointed a task at an
+  // unrelated checkout. Refuse the turn here instead, once, for every provider.
+  if (!args.cwd || !path.isAbsolute(args.cwd)) {
+    lifecycle.emit({
+      type: "error",
+      message:
+        "Provider turn refused: the task has no resolved workspace folder " +
+        `(cwd=${JSON.stringify(args.cwd ?? null)}). ` +
+        "Reopen or relink the workspace so the turn runs inside it.",
+      recoverable: false,
+    });
+    return finishLifecycle("runtime_failure");
+  }
   const turnId = args.turnId ?? randomUUID();
   let abortRequested = false;
   let revokeCollaborationGrants = () => {};

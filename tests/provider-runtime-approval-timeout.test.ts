@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
+const TEST_WORKSPACE_CWD = "/tmp/stave-provider-runtime-test";
+
 // Task B integration: a turn that emits an `approval` event must pause its
 // turn-level timeout until the approval is delivered (or the stream ends
 // some other way). The provider adapter is mocked to emit an approval event
@@ -124,6 +126,7 @@ describe("providerRuntime pausable turn timeout", () => {
 
     const started = providerRuntime.startTurnStream(
       {
+        cwd: TEST_WORKSPACE_CWD,
         providerId: "claude-code",
         prompt: "approve me",
         turnId,

@@ -4,6 +4,8 @@ import type { BridgeEvent, StreamTurnArgs } from "../electron/providers/types";
 import type { CodexModelCatalogEntry } from "../src/lib/providers/provider.types";
 import { DEFAULT_ADVISOR_CONSULT_LIMIT } from "../src/lib/providers/advisor";
 
+const TEST_WORKSPACE_CWD = "/tmp/stave-provider-runtime-test";
+
 const actualClaudeRuntime =
   await import("../electron/providers/claude-sdk-runtime");
 const actualCodexRuntime =
@@ -191,6 +193,7 @@ async function runBufferedTurn(args?: {
   const started = providerRuntime.startTurnStream(
     {
       turnId: "advisor-runtime-turn",
+      cwd: TEST_WORKSPACE_CWD,
       providerId: primaryProviderId,
       prompt: "Implement the provider-neutral Advisor.",
       conversation: args?.conversation ?? createConversation(primaryProviderId),

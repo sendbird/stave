@@ -1,5 +1,7 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
+const TEST_WORKSPACE_CWD = "/tmp/stave-provider-runtime-test";
+
 // Task C regression: respondApproval/respondUserInput must surface rich
 // diagnostic context (pending request ids, active turn ids) when delivery
 // fails, and emit a bridge warning into the active stream so the renderer
@@ -138,6 +140,7 @@ describe("providerRuntime.respondApproval / respondUserInput miss diagnostics", 
     const turnId = "turn-c-approval";
     const started = providerRuntime.startTurnStream(
       {
+        cwd: TEST_WORKSPACE_CWD,
         providerId: "claude-code",
         prompt: "please approve",
         turnId,
@@ -184,6 +187,7 @@ describe("providerRuntime.respondApproval / respondUserInput miss diagnostics", 
     const turnId = "turn-c-user-input";
     const started = providerRuntime.startTurnStream(
       {
+        cwd: TEST_WORKSPACE_CWD,
         providerId: "claude-code",
         prompt: "please answer",
         turnId,
