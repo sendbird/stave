@@ -352,10 +352,29 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
       data-testid="delegations-panel"
       {...stylex.props(styles.minZero, styles.panelStack)}
     >
-      <div {...stylex.props(styles.rowBetween)}>
-        <p {...stylex.props(styles.body, styles.muted)}>
-          Every advisor consult, worker run and delegated task for this task
-        </p>
+      <p {...stylex.props(styles.body, styles.muted)}>
+        Every advisor consult, worker run and delegated task for this task
+      </p>
+
+      <div {...stylex.props(styles.toolbar)}>
+        <div
+          role="group"
+          aria-label="Filter delegations"
+          className={sx(delegationStyles.filterRow)}
+        >
+          {FILTERS.map((option) => (
+            <ActionButton
+              key={option.id}
+              size="xs"
+              weight={filter === option.id ? "secondary" : "quiet"}
+              aria-pressed={filter === option.id}
+              data-delegation-filter={option.id}
+              onClick={() => setFilter(option.id)}
+            >
+              {option.label}
+            </ActionButton>
+          ))}
+        </div>
         {exporting ? (
           <ActionButton size="xs" tone="danger" onClick={cancelExport}>
             Cancel export
@@ -379,25 +398,6 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
           {exportNotice.text}
         </p>
       ) : null}
-
-      <div
-        role="group"
-        aria-label="Filter delegations"
-        className={sx(delegationStyles.filterRow)}
-      >
-        {FILTERS.map((option) => (
-          <ActionButton
-            key={option.id}
-            size="xs"
-            weight={filter === option.id ? "secondary" : "quiet"}
-            aria-pressed={filter === option.id}
-            data-delegation-filter={option.id}
-            onClick={() => setFilter(option.id)}
-          >
-            {option.label}
-          </ActionButton>
-        ))}
-      </div>
 
       {listing.loading ? (
         <p role="status" {...stylex.props(styles.body, styles.muted)}>
@@ -444,13 +444,14 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
         </section>
       ) : null}
 
-      <div {...stylex.props(styles.sectionDivider)}>
+      <CollaborationHistoryControls history={history} exchangeKind="all" />
+
+      <div {...stylex.props(styles.composerDock)}>
         <DelegateTaskForm
           key={target.taskId}
           target={target}
           onCreated={listing.actions.refresh}
         />
-        <CollaborationHistoryControls history={history} exchangeKind="all" />
       </div>
     </section>
   );

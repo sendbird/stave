@@ -59,7 +59,11 @@ export const collaborationStyles = stylex.create({
     alignItems: "center",
     gap: vars["--ads-space-8"],
   },
-  rowBetween: {
+  // One control row for the panel: the filters that narrow the list and the
+  // export that saves it. `Export report` used to hang off the end of the
+  // panel's description sentence, which read as a caption with a button glued
+  // to it; prose and controls are now separate rows.
+  toolbar: {
     display: "flex",
     flexWrap: "wrap",
     alignItems: "center",
@@ -69,6 +73,24 @@ export const collaborationStyles = stylex.create({
     borderBottomStyle: "solid",
     borderBottomColor: vars["--ads-color-border"],
     paddingBottom: vars["--ads-space-12"],
+  },
+  /**
+   * The composer dock at the foot of the panel. Everything above it is a
+   * record of work that already happened; this is where new work starts, so it
+   * gets its own tinted surface and sits after the last history block instead
+   * of interrupting the list with a form.
+   */
+  composerDock: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-12"],
+    marginTop: vars["--ads-space-8"],
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-control"],
+    backgroundColor: vars["--ads-color-surface-tint"],
+    padding: vars["--ads-space-16"],
   },
   wrap: { display: "flex", flexWrap: "wrap", gap: vars["--ads-space-8"] },
   // Panel prose, not a caption: `body` carries every status line, alert and

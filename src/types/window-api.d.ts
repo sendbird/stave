@@ -2202,6 +2202,7 @@ interface AppMetricsResult {
     /** Private (non-shared) footprint; excludes pages already released to the OS. */
     privateBytes: number | null;
     sharedBytes: number | null;
+    heapSizeLimit: number;
     heapTotal: number;
     heapUsed: number;
     external: number;
@@ -2272,6 +2273,8 @@ interface AppMetricsResult {
     fileBytes: number;
     autoVacuum: number;
   } | null;
+  /** Device capacity; `null` when the platform cannot report it. */
+  systemMemory: { totalKB: number; freeKB: number } | null;
   uptimeSeconds: number;
 }
 

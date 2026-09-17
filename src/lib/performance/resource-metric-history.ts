@@ -6,6 +6,10 @@ export interface ResourceMetricSample {
   rendererCpuPercent: number;
   gpuCpuPercent: number;
   rendererHeapUsedKB: number | null;
+  /** Whole-app footprint at the sample, for the dashboard trend strip. */
+  totalFootprintKB?: number | null;
+  /** CPU summed across Electron processes, matching the dashboard's headline. */
+  totalCpuPercent?: number | null;
 }
 
 export interface ResourceMetricSummary {
@@ -16,6 +20,13 @@ export interface ResourceMetricSummary {
   gpuCpuAverage: number;
   gpuCpuPeak: number;
   rendererHeapDeltaKB: number | null;
+  /** Oldest-to-newest footprint readings; empty when none were recorded. */
+  footprintSeriesKB: number[];
+  footprintDeltaKB: number | null;
+  footprintPeakKB: number | null;
+  /** Total CPU per sample, oldest first; empty when none were recorded. */
+  cpuSeriesPercent: number[];
+  cpuPeakPercent: number | null;
 }
 
 export function appendResourceMetricSample(
@@ -24,9 +35,10 @@ export function appendResourceMetricSample(
   windowMs = RESOURCE_METRIC_HISTORY_WINDOW_MS,
 ): ResourceMetricSample[] {
   const cutoff = sample.sampledAt - Math.max(0, windowMs);
-  return [...samples.filter((entry) => entry.sampledAt >= cutoff), sample].slice(
-    -RESOURCE_METRIC_HISTORY_LIMIT,
-  );
+  return [
+    ...samples.filter((entry) => entry.sampledAt >= cutoff),
+    sample,
+  ].slice(-RESOURCE_METRIC_HISTORY_LIMIT);
 }
 
 function average(values: number[]) {
@@ -44,6 +56,12 @@ export function summarizeResourceMetricSamples(
   const heapSamples = samples.flatMap((sample) =>
     sample.rendererHeapUsedKB == null ? [] : [sample.rendererHeapUsedKB],
   );
+  const footprintSeriesKB = samples.flatMap((sample) =>
+    sample.totalFootprintKB == null ? [] : [sample.totalFootprintKB],
+  );
+  const cpuSeriesPercent = samples.flatMap((sample) =>
+    sample.totalCpuPercent == null ? [] : [sample.totalCpuPercent],
+  );
   return {
     sampleCount: samples.length,
     durationMs: Math.max(
@@ -58,5 +76,18 @@ export function summarizeResourceMetricSamples(
       heapSamples.length > 1
         ? heapSamples[heapSamples.length - 1]! - heapSamples[0]!
         : null,
+    footprintSeriesKB,
+    footprintDeltaKB:
+      footprintSeriesKB.length > 1
+        ? footprintSeriesKB[footprintSeriesKB.length - 1]! -
+          footprintSeriesKB[0]!
+        : null,
+    footprintPeakKB: footprintSeriesKB.length
+      ? Math.max(...footprintSeriesKB)
+      : null,
+    cpuSeriesPercent,
+    cpuPeakPercent: cpuSeriesPercent.length
+      ? Math.max(...cpuSeriesPercent)
+      : null,
   };
 }

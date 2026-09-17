@@ -44,7 +44,47 @@ describe("resource metric history", () => {
       gpuCpuAverage: 20,
       gpuCpuPeak: 30,
       rendererHeapDeltaKB: 45,
+      footprintSeriesKB: [],
+      footprintDeltaKB: null,
+      footprintPeakKB: null,
+      cpuSeriesPercent: [],
+      cpuPeakPercent: null,
     });
+  });
+
+  test("summarizes the footprint and total-CPU series when recorded", () => {
+    const summary = summarizeResourceMetricSamples([
+      {
+        ...sample(1_000, 5, 1, 100),
+        totalFootprintKB: 1_000,
+        totalCpuPercent: 12,
+      },
+      {
+        ...sample(4_000, 5, 1, 100),
+        totalFootprintKB: 1_400,
+        totalCpuPercent: 31,
+      },
+      {
+        ...sample(7_000, 5, 1, 100),
+        totalFootprintKB: 1_200,
+        totalCpuPercent: 8,
+      },
+    ]);
+    expect(summary?.footprintSeriesKB).toEqual([1_000, 1_400, 1_200]);
+    expect(summary?.footprintDeltaKB).toBe(200);
+    expect(summary?.footprintPeakKB).toBe(1_400);
+    expect(summary?.cpuSeriesPercent).toEqual([12, 31, 8]);
+    expect(summary?.cpuPeakPercent).toBe(31);
+  });
+
+  test("omits a footprint series when no sample carried one", () => {
+    const summary = summarizeResourceMetricSamples([
+      sample(1_000, 0, 0, null),
+      sample(2_000, 0, 0, null),
+    ]);
+    expect(summary?.footprintSeriesKB).toEqual([]);
+    expect(summary?.footprintDeltaKB).toBeNull();
+    expect(summary?.cpuPeakPercent).toBeNull();
   });
 
   test("does not invent a heap trend from one available sample", () => {

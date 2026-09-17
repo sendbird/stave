@@ -1,3 +1,4 @@
+import { getHeapStatistics } from "node:v8";
 import { app, ipcMain } from "electron";
 import {
   getBrowserResourceMetrics,
@@ -14,12 +15,7 @@ import { invokeHostService } from "../host-service-client";
 import type { HostServiceResourceMetrics } from "../../host-service/protocol";
 
 export type AppProcessRole =
-  | "main"
-  | "host-renderer"
-  | "lens-guest"
-  | "gpu"
-  | "utility"
-  | "other";
+  "main" | "host-renderer" | "lens-guest" | "gpu" | "utility" | "other";
 
 export interface AppMetricsResult {
   processes: Array<{
@@ -44,6 +40,7 @@ export interface AppMetricsResult {
      */
     privateBytes: number | null;
     sharedBytes: number | null;
+    heapSizeLimit: number;
     heapTotal: number;
     heapUsed: number;
     external: number;
@@ -58,7 +55,23 @@ export interface AppMetricsResult {
   lens: BrowserResourceMetrics;
   renderer: RendererHealthMetrics;
   persistence: SqliteStorageMetrics | null;
+  /**
+   * Device capacity, so the app's footprint can be reported as a share of the
+   * machine instead of as a bare number nobody can calibrate. `free` is
+   * reported for completeness but is not a pressure signal on macOS, where it
+   * excludes reclaimable cache.
+   */
+  systemMemory: { totalKB: number; freeKB: number } | null;
   uptimeSeconds: number;
+}
+
+function readSystemMemory(): AppMetricsResult["systemMemory"] {
+  try {
+    const info = process.getSystemMemoryInfo();
+    return info.total > 0 ? { totalKB: info.total, freeKB: info.free } : null;
+  } catch {
+    return null;
+  }
 }
 
 export function registerMetricsHandlers() {
@@ -69,9 +82,7 @@ export function registerMetricsHandlers() {
       const mainMemory = process.memoryUsage();
       const lens = getBrowserResourceMetrics();
       const lensGuestPids = new Set(
-        lens.guests.flatMap((guest) =>
-          guest.pid === null ? [] : [guest.pid],
-        ),
+        lens.guests.flatMap((guest) => (guest.pid === null ? [] : [guest.pid])),
       );
       const mainWindow = getMainWindow();
       let hostRendererPid: number | null = null;
@@ -131,6 +142,7 @@ export function registerMetricsHandlers() {
           rss: mainMemory.rss,
           privateBytes: mainPrivateBytes,
           sharedBytes: mainSharedBytes,
+          heapSizeLimit: getHeapStatistics().heap_size_limit,
           heapTotal: mainMemory.heapTotal,
           heapUsed: mainMemory.heapUsed,
           external: mainMemory.external,
@@ -144,6 +156,7 @@ export function registerMetricsHandlers() {
         lens,
         renderer: getRendererHealthMetrics(),
         persistence: getPersistenceStorageMetrics(),
+        systemMemory: readSystemMemory(),
         uptimeSeconds: process.uptime(),
       };
     },

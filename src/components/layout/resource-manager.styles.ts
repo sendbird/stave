@@ -106,6 +106,27 @@ export const managerStyles = stylex.create({
     gap: 12,
     flexWrap: "wrap",
   },
+  /**
+   * The view switcher's track. Without it the selected view and the actions
+   * beside it were the same filled button, so "Workspaces and processes" and
+   * "Clean up workspaces" read as two items of one kind. The track says the
+   * buttons inside it pick a view; the actions outside it stay `outline`, so
+   * "which one changes what I am looking at" is answered by the container
+   * rather than by reading the labels.
+   */
+  segmented: {
+    display: "flex",
+    alignItems: "center",
+    gap: 2,
+    padding: 2,
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-control"],
+    backgroundColor: vars["--ads-color-surface-tint"],
+  },
+  /** Flat inside the track: an elevated tab would fight the track's own edge. */
+  segment: { boxShadow: "none" },
   muted: {
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],
