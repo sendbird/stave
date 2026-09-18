@@ -275,9 +275,19 @@ the same catalog over ACP stdio via the bundled proxy. User CLI MCP
 auto-registration in Settings → Developer is optional for these internal turns.
 Secondary read-only runs and nested Worker lanes do not receive this connection.
 
-The server exposes collaboration tools only on connections carrying the
-corresponding grant. Unscoped CLI connections and disabled turns keep ordinary
-workspace tools but expose neither `stave_consult_advisor` nor `stave_run_worker`.
+The server exposes collaboration tools only on scoped connections. Unscoped
+CLI connections keep ordinary workspace tools but expose neither
+`stave_consult_advisor` nor `stave_run_worker`. Codex retains an Advisor channel
+after its first activation so subsequent on/off changes can reuse the native
+thread and its history. The first activation on a thread without that catalog
+starts a fresh thread with available conversation history; host restart or
+task cleanup can require another initialization. Calls on a retained channel
+must include the current public `turnId` from the latest Advisor briefing.
+The host checks both the channel and turn ID before spending consultation
+budget. Off, stopped, completed, missing-ID and stale-turn calls are rejected.
+The channel key stays out of prompts. Turns without a task ID get independent
+keys and never share the retained channel. These rules preserve session reuse;
+they do not guarantee a particular provider cache hit rate.
 Codex and Claude use their native agent mechanisms for Worker mode; only Cursor
 and Kiro receive an MCP Worker grant. Grants are replaced on each turn (including
 resume), revoked on stop or completion, and checked by the host before execution.

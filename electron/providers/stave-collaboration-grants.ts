@@ -1,6 +1,8 @@
-/** Host-owned capabilities. Never include these in prompts or renderer options. */
+/** Host-owned collaboration channels. Never include them in prompts or renderer options. */
 export type StaveCollaborationGrants = {
   consultKey?: string;
+  /** Whether the stable consult channel has an active grant this turn. */
+  advisorArmed?: boolean;
   workerKey?: string;
 };
 
