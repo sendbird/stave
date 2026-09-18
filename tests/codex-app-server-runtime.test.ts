@@ -49,6 +49,7 @@ import {
   resolveCodexInstructionRefresh,
   resolveCodexNativeBrowserPluginEnabled,
 } from "../electron/providers/codex-runtime-config";
+import { shouldStartFreshCodexCollaborationThread } from "../electron/providers/codex-thread-session";
 import { mapCodexHookCatalogGroups } from "../electron/providers/codex-snapshot-mappers";
 import { normalizeCodexTokenUsage } from "../electron/providers/codex-token-usage";
 import {
@@ -866,6 +867,50 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
     expect(buildCodexThreadKey(base)).not.toBe(
       buildCodexThreadKey({ ...base, boundSecretFingerprint: "abc" }),
     );
+  });
+
+  test("starts a fresh thread when turn-scoped collaboration grants change", () => {
+    expect(
+      shouldStartFreshCodexCollaborationThread({
+        resumeThreadId: "thread-without-advisor",
+        previousProfile: "none",
+        currentProfile: '["advisor-key",""]',
+      }),
+    ).toBe(true);
+    expect(
+      shouldStartFreshCodexCollaborationThread({
+        resumeThreadId: "thread-with-advisor",
+        previousProfile: '["advisor-key",""]',
+        currentProfile: "none",
+      }),
+    ).toBe(true);
+    expect(
+      shouldStartFreshCodexCollaborationThread({
+        resumeThreadId: "persisted-thread-after-restart",
+        currentProfile: '["advisor-key",""]',
+      }),
+    ).toBe(true);
+    expect(
+      shouldStartFreshCodexCollaborationThread({
+        resumeThreadId: "stable-thread",
+        previousProfile: "none",
+        currentProfile: "none",
+      }),
+    ).toBe(false);
+    expect(
+      shouldStartFreshCodexCollaborationThread({
+        resumeThreadId: "advisor-channel-thread",
+        previousProfile: '["advisor-key",""]',
+        currentProfile: '["advisor-key",""]',
+      }),
+    ).toBe(false);
+    expect(
+      shouldStartFreshCodexCollaborationThread({
+        resumeThreadId: "stale-advisor-channel-thread",
+        previousProfile: '["old-advisor-key",""]',
+        currentProfile: '["new-advisor-key",""]',
+      }),
+    ).toBe(true);
   });
 
   test("sends a one-time refresh block only when a resumed thread's instructions changed", () => {

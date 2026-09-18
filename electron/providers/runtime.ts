@@ -96,6 +96,24 @@ const COMPLETED_STREAM_TTL_MS = 60 * 1000;
 const ACTIVE_STREAM_RETAINED_BYTES_MAX = 512 * 1024;
 const BATCH_TURN_RETAINED_BYTES_MAX = 2 * 1024 * 1024;
 const DEFAULT_PROVIDER_TASK_KEY = "default";
+const codexAdvisorChannelKeyByTask = new Map<string, string>();
+
+function getProviderTaskKey(taskId?: string) {
+  return taskId?.trim() || DEFAULT_PROVIDER_TASK_KEY;
+}
+
+function getOrCreateCodexAdvisorChannelKey(taskId?: string) {
+  if (!taskId?.trim()) return randomUUID();
+  const taskKey = getProviderTaskKey(taskId);
+  const existing = codexAdvisorChannelKeyByTask.get(taskKey);
+  if (existing) {
+    return existing;
+  }
+  const consultKey = randomUUID();
+  codexAdvisorChannelKeyByTask.set(taskKey, consultKey);
+  return consultKey;
+}
+
 type TurnTimeoutController = {
   promise: Promise<null>;
   /**
@@ -438,6 +456,7 @@ function appendStreamEvent(session: ActiveStreamSession, event: BridgeEvent) {
 }
 
 function cleanupProviderTaskState(taskId: string) {
+  codexAdvisorChannelKeyByTask.delete(getProviderTaskKey(taskId));
   cleanupAdvisorSessionsForTask(taskId);
   cleanupAcpWorkerSessionsForTask(taskId);
   cleanupClaudeTask(taskId);
@@ -889,10 +908,21 @@ async function runProviderTurnImpl(
       downstream?.(event);
     };
 
+  const retainedCodexAdvisorChannelKey =
+    args.taskId?.trim() &&
+    args.executionPolicy !== "secondary-read-only" &&
+    args.providerId === "codex"
+      ? codexAdvisorChannelKeyByTask.get(getProviderTaskKey(args.taskId))
+      : undefined;
   let effectiveArgs: typeof args = {
     ...args,
     runtimeOptions: withoutAdvisorTarget(args.runtimeOptions),
-    staveCollaborationGrants: {},
+    staveCollaborationGrants: retainedCodexAdvisorChannelKey
+      ? {
+          consultKey: retainedCodexAdvisorChannelKey,
+          advisorArmed: false,
+        }
+      : {},
     ...(args.conversation
       ? {
           conversation: {
@@ -937,13 +967,17 @@ async function runProviderTurnImpl(
     // the `stave_consult_advisor` Local MCP tool on its scoped connection whenever
     // it wants a second opinion; each consult streams its own
     // `advisor_activity` exchange into this turn.
-    const consultKey = randomUUID();
+    const consultKey =
+      args.providerId === "codex"
+        ? getOrCreateCodexAdvisorChannelKey(args.taskId)
+        : randomUUID();
     const consultLimit = normalizeAdvisorConsultLimit(
       args.runtimeOptions?.advisorConsultLimit,
     );
     advisorGrantHandle = registerAdvisorConsultGrant({
       consultKey,
       turnId,
+      requireTurnId: args.providerId === "codex" && Boolean(args.taskId?.trim()),
       ...(args.taskId ? { taskId: args.taskId } : {}),
       target: advisorTarget,
       primaryProviderId: args.providerId,
@@ -997,11 +1031,12 @@ async function runProviderTurnImpl(
       conversation: effectiveArgs.conversation,
       target: advisorTarget,
       consultLimit,
+      turnId,
     });
     effectiveArgs = {
       ...effectiveArgs,
       conversation: injection.conversation,
-      staveCollaborationGrants: { consultKey },
+      staveCollaborationGrants: { consultKey, advisorArmed: true },
     };
   }
 
@@ -1643,6 +1678,7 @@ export const providerRuntime: ProviderRuntime = {
     if (completedStreamExpiryTimer) clearTimeout(completedStreamExpiryTimer);
     completedStreamExpiryTimer = null;
     activeTurnPromises.clear();
+    codexAdvisorChannelKeyByTask.clear();
     cleanupProviderTaskState(DEFAULT_PROVIDER_TASK_KEY);
     for (const taskId of taskIds) {
       cleanupProviderTaskState(taskId);

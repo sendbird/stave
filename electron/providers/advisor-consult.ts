@@ -103,14 +103,17 @@ function forgetAdvisorSessionLane(key: string | null) {
  * Advisor on demand.
  *
  * The grant is minted by the shared provider runtime when a turn starts with an
- * armed Advisor, and the opaque `consultKey` is what the primary's briefing
- * carries. Everything the consult needs to bill, display, and pace itself flows
- * back through the callbacks registered here — the Local MCP handler never
- * touches the turn directly.
+ * armed Advisor. Codex may reuse the opaque `consultKey` as a stable MCP
+ * channel identity, but this registry entry is still replaced for each turn
+ * and revoked on every terminal path. Everything the consult needs to bill,
+ * display, and pace itself flows back through the callbacks registered here —
+ * the Local MCP handler never touches the turn directly.
  */
 export type AdvisorConsultGrant = {
   consultKey: string;
   turnId: string;
+  /** Stable channels must reject requests from earlier turns. */
+  requireTurnId?: boolean;
   taskId?: string;
   target: AdvisorTarget;
   primaryProviderId: ProviderId;
@@ -180,7 +183,9 @@ export function registerAdvisorConsultGrant(
     consultKey: grant.consultKey,
     revoke: () => {
       active.revoked = true;
-      grantsByKey.delete(grant.consultKey);
+      if (grantsByKey.get(grant.consultKey) === active) {
+        grantsByKey.delete(grant.consultKey);
+      }
       active.inFlightAbort?.();
     },
     skipInFlight: () => {
@@ -261,7 +266,12 @@ export async function consultAdvisor(
   args: AdvisorConsultRequest,
 ): Promise<AdvisorConsultOutcome> {
   const grant = grantsByKey.get(args.consultKey);
-  if (!grant || grant.revoked) {
+  if (
+    !grant ||
+    grant.revoked ||
+    (grant.requireTurnId && args.turnId === undefined) ||
+    (args.turnId !== undefined && args.turnId !== grant.turnId)
+  ) {
     return {
       ok: false,
       code: "unknown-consult-key",

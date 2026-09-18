@@ -177,6 +177,7 @@ function createConversation(
 }
 
 async function runBufferedTurn(args?: {
+  taskId?: string;
   primaryProviderId?: "claude-code" | "codex";
   advisorTarget?: {
     providerId: "claude-code" | "codex";
@@ -193,6 +194,7 @@ async function runBufferedTurn(args?: {
   const started = providerRuntime.startTurnStream(
     {
       turnId: "advisor-runtime-turn",
+      taskId: args?.taskId,
       cwd: TEST_WORKSPACE_CWD,
       providerId: primaryProviderId,
       prompt: "Implement the provider-neutral Advisor.",
@@ -330,6 +332,7 @@ describe("provider runtime on-demand Advisor integration", () => {
       expect(briefing?.content).toContain(CONSULT_TOOL_NAME);
       expect(briefing?.content).toContain(advisorTarget.model);
       expect(captureConsultKey(primaryTurn)).toMatch(/^[0-9a-f-]{36}$/);
+      expect(primaryTurn?.staveCollaborationGrants?.advisorArmed).toBe(true);
 
       // The adapter must never see the advisor wiring options.
       expect(primaryTurn?.runtimeOptions).not.toHaveProperty("advisorTarget");
@@ -360,14 +363,29 @@ describe("provider runtime on-demand Advisor integration", () => {
     ]);
   });
 
-  test("turning Advisor off removes a retained briefing and transport capability", async () => {
-    await runBufferedTurn({ advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" } });
+  test("Codex retains its consult channel while revoking the turn grant", async () => {
+    await runBufferedTurn({
+      taskId: "stable-channel-task",
+      advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
+    });
     const previous = primaryTurn?.conversation;
     const oldKey = captureConsultKey(primaryTurn);
-    await runBufferedTurn({ conversation: previous });
+    await runBufferedTurn({ taskId: "stable-channel-task", conversation: previous });
     expect(briefingPart(primaryTurn?.conversation)).toBeUndefined();
-    expect(primaryTurn?.staveCollaborationGrants).toEqual({});
-    expect(await consultAdvisor({ consultKey: oldKey, question: "Old connection" })).toMatchObject({ ok: false });
+    expect(primaryTurn?.staveCollaborationGrants).toEqual({
+      consultKey: oldKey,
+      advisorArmed: false,
+    });
+    expect(
+      await consultAdvisor({ consultKey: oldKey, question: "Old connection" }),
+    ).toMatchObject({ ok: false });
+
+    await runBufferedTurn({
+      taskId: "stable-channel-task",
+      advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
+    });
+    expect(captureConsultKey(primaryTurn)).toBe(oldKey);
+    expect(primaryTurn?.staveCollaborationGrants?.advisorArmed).toBe(true);
   });
 
   test("injects no briefing for a non-chat turn", async () => {
@@ -379,6 +397,16 @@ describe("provider runtime on-demand Advisor integration", () => {
     expect(briefingPart(primaryTurn?.conversation)).toBeUndefined();
   });
 
+  test("Codex turns without a task ID never reuse an Advisor channel", async () => {
+    const advisorTarget = { providerId: "codex" as const, model: "gpt-5.6-terra" };
+    await runBufferedTurn({ advisorTarget });
+    const firstKey = captureConsultKey(primaryTurn);
+    await runBufferedTurn({ advisorTarget });
+    expect(captureConsultKey(primaryTurn)).not.toBe(firstKey);
+    await runBufferedTurn();
+    expect(primaryTurn?.staveCollaborationGrants).toEqual({});
+  });
+
   test("injects no briefing for an unsupported advisor target", async () => {
     await runBufferedTurn({
       advisorTarget: {
@@ -388,6 +416,23 @@ describe("provider runtime on-demand Advisor integration", () => {
     });
 
     expect(briefingPart(primaryTurn?.conversation)).toBeUndefined();
+  });
+
+  test("task-scoped Codex calls require the turn ID delivered in the briefing", async () => {
+    const keys: string[] = [];
+    duringPrimaryTurn = async (args) => {
+      const consultKey = captureConsultKey(args);
+      keys.push(consultKey);
+      const part = briefingPart(args.conversation);
+      expect(part?.type === "retrieved_context" && part.content).toContain('turnId: "advisor-runtime-turn"');
+      expect(await consultAdvisor({ consultKey, question: "Missing ID" })).toMatchObject({ ok: false });
+      expect(await consultAdvisor({ consultKey, turnId: "previous-turn", question: "Stale ID" })).toMatchObject({ ok: false });
+      expect(await consultAdvisor({ consultKey, turnId: "advisor-runtime-turn", question: "Current ID" })).toMatchObject({ ok: true });
+    };
+    const advisorTarget = { providerId: "codex" as const, model: "gpt-5.6-terra" };
+    await runBufferedTurn({ taskId: "task-one", advisorTarget });
+    await runBufferedTurn({ taskId: "task-two", advisorTarget });
+    expect(keys[0]).not.toBe(keys[1]);
   });
 
   test("does not stack a second briefing onto a retried conversation", async () => {

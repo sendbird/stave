@@ -185,6 +185,12 @@ import {
 } from "./codex-runtime-config";
 import { prepareCodexImageAwareTurnInput } from "./native-image-input";
 import {
+  forgetCodexThreadSessionsForExecutable,
+  forgetCodexThreadSessionsForTask,
+  rememberCodexThreadSession,
+  resolveCodexThreadSession,
+} from "./codex-thread-session";
+import {
   normalizeCodexTokenUsage,
   normalizeCodexContextUsage,
 } from "./codex-token-usage";
@@ -224,8 +230,6 @@ export {
   shouldAutoApproveStaveLocalMcpElicitation,
 } from "./codex-elicitation-mapping";
 
-const threadIdByTask = new Map<string, string>();
-const threadExecutableByTask = new Map<string, string>();
 // Instruction profile each live thread last saw; a change becomes a one-time
 // refresh block on the next turn instead of rotating the thread (in-memory).
 const instructionProfileByThreadKey = new Map<string, string>();
@@ -463,29 +467,6 @@ function buildCodexMcpToolCallInputEvent(
       ? { workerExecution }
       : {}),
   };
-}
-
-function resolveThreadId(args: {
-  threadKey: string;
-  executablePath: string;
-  fallbackThreadId?: string;
-}) {
-  return threadExecutableByTask.get(args.threadKey) === args.executablePath
-    ? (threadIdByTask.get(args.threadKey) ?? args.fallbackThreadId?.trim())
-    : args.fallbackThreadId?.trim();
-}
-
-function rememberThreadId(args: {
-  threadKey: string;
-  threadId?: string;
-  executablePath: string;
-}) {
-  const nextThreadId = args.threadId?.trim();
-  if (!nextThreadId) {
-    return;
-  }
-  threadIdByTask.set(args.threadKey, nextThreadId);
-  threadExecutableByTask.set(args.threadKey, args.executablePath);
 }
 
 function resolveCodexResumeThreadFallback(args: {
@@ -1071,12 +1052,10 @@ function restartCodexAppServerForMcpConfigChange(executablePath: string) {
     .get(executablePath)
     ?.dispose("Restarting Codex App Server after MCP configuration change.");
   clientByExecutablePath.delete(executablePath);
-  for (const [threadKey, threadExecutablePath] of threadExecutableByTask) {
-    if (threadExecutablePath === executablePath) {
-      threadIdByTask.delete(threadKey);
-      threadExecutableByTask.delete(threadKey);
-      instructionProfileByThreadKey.delete(threadKey);
-    }
+  for (const threadKey of forgetCodexThreadSessionsForExecutable(
+    executablePath,
+  )) {
+    instructionProfileByThreadKey.delete(threadKey);
   }
   freshCodexThreadExecutables.add(executablePath);
 }
@@ -1143,6 +1122,7 @@ async function ensureCodexThread(args: {
   secondaryReadOnly?: boolean;
   /** Gates the Lens instruction block; see `buildCodexDeveloperInstructions`. */
   hasStaveLocalMcp?: boolean;
+  collaborationGrants?: StreamTurnArgs["staveCollaborationGrants"];
 }) {
   const threadKey = buildCodexThreadKey({
     taskId: args.taskId,
@@ -1156,18 +1136,18 @@ async function ensureCodexThread(args: {
     ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
   };
   const instructionProfile = buildCodexInstructionProfileKey(instructionArgs);
-  const resumeThreadId = args.ephemeral
-    ? undefined
-    : resolveThreadId({
-        threadKey,
-        executablePath: args.executablePath,
-        fallbackThreadId: freshCodexThreadExecutables.has(args.executablePath)
-          ? undefined
-          : resolveCodexResumeThreadFallback({
-              conversation: args.conversation,
-              runtimeOptions: args.runtimeOptions,
-            }),
-      });
+  const resumeThreadId = resolveCodexThreadSession({
+    threadKey,
+    executablePath: args.executablePath,
+    ephemeral: args.ephemeral,
+    collaborationGrants: args.collaborationGrants,
+    fallbackThreadId: freshCodexThreadExecutables.has(args.executablePath)
+      ? undefined
+      : resolveCodexResumeThreadFallback({
+          conversation: args.conversation,
+          runtimeOptions: args.runtimeOptions,
+        }),
+  });
 
   requireCompactResumeSession(
     args.conversation?.input.content ?? args.input ?? "",
@@ -1213,10 +1193,11 @@ async function ensureCodexThread(args: {
     releaseThread ??= await args.client.threadLifetime.acquire(threadId);
     let instructionRefresh: string | null = null;
     if (!args.ephemeral) {
-      rememberThreadId({
+      rememberCodexThreadSession({
         threadKey,
         threadId,
         executablePath: args.executablePath,
+        collaborationGrants: args.collaborationGrants,
       });
       instructionRefresh = resolveCodexInstructionRefresh({
         resumed: Boolean(resumeThreadId),
@@ -1240,13 +1221,8 @@ async function ensureCodexThread(args: {
 }
 
 export function cleanupCodexAppServerTask(taskId: string) {
-  const keyPrefix = `${taskId}:`;
-  for (const threadKey of threadIdByTask.keys()) {
-    if (threadKey.startsWith(keyPrefix)) {
-      threadIdByTask.delete(threadKey);
-      threadExecutableByTask.delete(threadKey);
-      instructionProfileByThreadKey.delete(threadKey);
-    }
+  for (const threadKey of forgetCodexThreadSessionsForTask(taskId)) {
+    instructionProfileByThreadKey.delete(threadKey);
   }
 }
 
@@ -2427,7 +2403,7 @@ export async function streamCodexWithAppServer(
         ? null
         : await readPrimaryStaveLocalMcpManifest();
     if (
-      args.staveCollaborationGrants?.consultKey &&
+      args.staveCollaborationGrants?.advisorArmed &&
       !staveLocalMcpManifest &&
       !secondaryReadOnly
     ) {
@@ -2469,19 +2445,20 @@ export async function streamCodexWithAppServer(
     try {
       ({ threadId, resumedThreadId, releaseThread, instructionRefresh } =
         await ensureCodexThread({
-        client,
-        input: args.prompt,
-        executablePath: codexExecutablePath,
-        taskId: args.taskId,
-        cwd: runtimeCwd,
-        conversation: args.conversation,
-        runtimeOptions,
-        ephemeral: secondaryReadOnly,
-        configOverrides: mergedConfigOverrides,
-        boundSecretFingerprint,
-        secondaryReadOnly,
-        hasStaveLocalMcp: hasStaveLensTools,
-      }));
+          client,
+          input: args.prompt,
+          executablePath: codexExecutablePath,
+          taskId: args.taskId,
+          cwd: runtimeCwd,
+          conversation: args.conversation,
+          runtimeOptions,
+          ephemeral: secondaryReadOnly,
+          configOverrides: mergedConfigOverrides,
+          boundSecretFingerprint,
+          secondaryReadOnly,
+          hasStaveLocalMcp: hasStaveLensTools,
+          collaborationGrants: args.staveCollaborationGrants,
+        }));
     } catch (error) {
       const events = buildCodexTerminalFailureEvents({
         message: error instanceof Error ? error.message : String(error),

@@ -8,7 +8,7 @@ import {
 import type { StaveCollaborationGrants } from "../providers/stave-collaboration-grants";
 import type { consultAdvisor, runAcpWorker } from "./stave-mcp-service";
 
-/** The request connection selects the capability; model arguments cannot override it. */
+/** The request connection selects the channel; the host validates its active turn grant. */
 export function registerCollaborationTools(
   server: McpServer,
   grants: StaveCollaborationGrants,
@@ -28,8 +28,11 @@ export function registerCollaborationTools(
       "stave_consult_advisor",
       {
         description:
-          "Consult the on-demand Advisor armed for the current turn: a separate read-only model that answers one question with advice. Stave supplies this turn's authorization automatically; each turn has a limited consult budget.",
+          "Consult the on-demand Advisor when it is armed for the current turn: a separate read-only model that answers one question with advice. Stave supplies authorization automatically; calls without an active turn grant are rejected.",
         inputSchema: {
+          turnId: z.string().min(1).max(200).optional().describe(
+            "Copy the current turnId from the latest Advisor briefing. Required for a reused Advisor channel; never reuse an earlier turn ID.",
+          ),
           question: z
             .string()
             .min(1)
@@ -45,10 +48,11 @@ export function registerCollaborationTools(
           ),
         },
       },
-      async ({ question, context, evidence }) =>
+      async ({ question, context, evidence, turnId }) =>
         toStructuredResult({
           consult: await consultAdvisor({
             consultKey,
+            ...(turnId ? { turnId } : {}),
             question,
             ...(context ? { context } : {}),
             ...(evidence ? { evidence } : {}),

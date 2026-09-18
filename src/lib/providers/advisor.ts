@@ -777,6 +777,7 @@ export function boundAdvisorAdvice(value: string) {
 export function buildAdvisorConsultBriefing(args: {
   target: AdvisorTarget;
   consultLimit: number;
+  turnId?: string;
 }) {
   const advisorLabel = `${getProviderLabel({
     providerId: args.target.providerId,
@@ -785,6 +786,7 @@ export function buildAdvisorConsultBriefing(args: {
     `An on-demand Advisor is armed for this turn: ${advisorLabel}. It is a separate read-only model with no tool or repository access.`,
     `When you want a second opinion on a design decision, a risky change, or a plan you are unsure about, call the \`${ADVISOR_CONSULT_TOOL_NAME}\` tool (Stave Local MCP) with:`,
     "- question: what you want advice on (be specific)",
+    ...(args.turnId ? [`- turnId: ${JSON.stringify(args.turnId)}. Copy this current turn ID exactly; earlier turn IDs are invalid. This ID alone does not authorize a consultation.`] : []),
     "- context: optional background for this question; earlier Advisor exchanges from this task may be present, but are not evidence of the current file state",
     "- evidence: optional structured constraints, diffRef, excerpts ({source, content}), checks ({command, status: passed/failed/not-run, output}), and missingEvidence. Include the relevant code/diff and actual check results you have; explicitly list missing evidence instead of guessing. Do not include secrets.",
     `You may consult at most ${args.consultLimit} time${args.consultLimit === 1 ? "" : "s"} this turn. Consults cost real tokens: prefer one well-framed question over many small ones, and skip consulting entirely for routine work.`,
@@ -803,10 +805,12 @@ export function appendAdvisorConsultBriefing(args: {
   conversation: CanonicalConversationRequest;
   target: AdvisorTarget;
   consultLimit: number;
+  turnId?: string;
 }): AdvisorBriefingInjection {
   const content = buildAdvisorConsultBriefing({
     target: args.target,
     consultLimit: args.consultLimit,
+    turnId: args.turnId,
   });
   const contextParts = [
     ...args.conversation.contextParts,

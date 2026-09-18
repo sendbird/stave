@@ -39,6 +39,8 @@ export type AdvisorEvidence = z.infer<typeof AdvisorEvidenceSchema>;
 
 export type AdvisorConsultRequest = {
   consultKey: string;
+  /** Public correlation ID; authorization still comes from the MCP channel. */
+  turnId?: string;
   question: string;
   context?: string;
   evidence?: AdvisorEvidence;
