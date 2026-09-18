@@ -60,6 +60,7 @@ export interface DelegationIdentity {
   providerId?: ProviderId;
   model?: string;
   effort?: string;
+  modelEvidence?: "requested" | "configured" | "reported";
   source?: DelegationIdentitySource;
   rationale?: string;
 }
@@ -143,6 +144,7 @@ export interface DelegationExchangeRef {
   entryKey?: string;
   turnId?: string;
   nodeKey?: string;
+  agentId?: string;
 }
 
 export interface DelegationExchange {
@@ -361,6 +363,7 @@ export function fromWorkerExchange(
       ...(providerId ? { providerId } : {}),
       ...(model ? { model } : {}),
       ...(execution?.workerEffort ? { effort: execution.workerEffort } : {}),
+      modelEvidence: execution?.runtimeWorkerModel || row.runtimeModel ? "reported" : "configured",
       ...(source ? { source } : {}),
       ...(rationale ? { rationale } : {}),
     },
@@ -460,6 +463,7 @@ export function fromChildTask(
     title: child.delegationKey,
     identity: {
       role: "Child task",
+      modelEvidence: "requested",
       providerId: child.providerId,
       ...(child.requestedModel ? { model: child.requestedModel } : {}),
       ...(child.requestedEffort ? { effort: child.requestedEffort } : {}),
@@ -504,6 +508,9 @@ export function fromWorkGraphNode(
     title: node.badge ? `${node.badge} · ${node.label}` : node.label,
     identity: {
       role: "Subagent",
+      model: node.model,
+      effort: node.effort,
+      modelEvidence: node.modelEvidence,
       ...(graph ? { providerId: graph.providerId } : {}),
       source: "provider-default",
     },
@@ -530,6 +537,7 @@ export function fromWorkGraphNode(
     },
     ref: {
       nodeKey: node.key,
+      agentId: node.agentId,
       ...(node.spawnedByToolUseId
         ? { toolUseId: node.spawnedByToolUseId }
         : {}),

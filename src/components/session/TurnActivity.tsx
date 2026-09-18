@@ -1,3 +1,4 @@
+import { ActivityDetailDialog, type ActivityDetailSelection } from "./ActivityDetailDialog";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   memo,
@@ -1003,6 +1004,8 @@ function TurnRestMark({ outcome }: { outcome: RetainedTurnOutcome }) {
 export const TurnActivitySurface = memo(function TurnActivitySurface(
   props: TurnActivitySurfaceProps,
 ) {
+  const [detailSelection, setDetailSelection] = useState<ActivityDetailSelection | null>(null);
+
   const variant = props.variant ?? "docked";
   const expandedByDefault = props.expandedByDefault ?? true;
   const [expandedOverride, setExpandedOverride] = useState<boolean | null>(
@@ -1540,6 +1543,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                   key={item.id}
                   item={item}
                   onSelectTool={props.onSelectTool}
+                  onInspect={props.taskId && item.id !== "advisor" ? () => setDetailSelection({ title: item.title, toolUseId: item.toolUseId, detail: [item.detail, item.providerDetail].filter(Boolean).join("\n") }) : undefined}
                   onOpenAdvisorLog={props.onOpenAdvisorLog}
                   showStartOffset={variant === "panel"}
                   expandCopy={variant === "panel"}
@@ -1554,6 +1558,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                 nested
                 expandCopy={variant === "panel"}
                 onAction={handleDelegationAction}
+                onInspect={exchange => setDetailSelection({ title: exchange.title, exchange })}
                 renderExtraActions={renderDelegationExtraActions}
                 statusNoteFor={delegationStatusNoteFor}
                 busyExchangeId={
@@ -1573,6 +1578,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                     }
                     onControl={props.onWorkGraphControl}
                     onSelectTool={props.onSelectTool}
+                    onInspectAgent={node => setDetailSelection({ title: node.label, nodeKey: node.key })}
                     controlErrorByNodeKey={props.workGraphControlErrorByNodeKey}
                     className={sx(styles.childBlockNested)}
                     showHeading={!hasDelegationRows}
@@ -1605,6 +1611,13 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
           />
         ) : null}
       </section>
+      {detailSelection && props.taskId ? <ActivityDetailDialog
+        key={detailSelection.nodeKey ?? detailSelection.exchange?.id ?? detailSelection.toolUseId ?? detailSelection.title}
+        selection={detailSelection.exchange ? { ...detailSelection, exchange: delegationExchanges.find(exchange => exchange.id === detailSelection.exchange?.id) ?? detailSelection.exchange } : detailSelection}
+        taskId={props.taskId} workspaceId={props.workspaceId ?? undefined} projectPath={props.projectPath ?? undefined}
+        onAction={handleDelegationAction} renderExtraActions={renderDelegationExtraActions} statusNoteFor={delegationStatusNoteFor}
+        graph={props.workGraph} onClose={() => setDetailSelection(null)} onShowInConversation={props.onSelectTool}
+      /> : null}
     </div>
   );
 });
@@ -1663,12 +1676,14 @@ function TurnActivityPlacementControls(props: {
 const TurnActivityRow = memo(function TurnActivityRow({
   item,
   onSelectTool,
+  onInspect,
   onOpenAdvisorLog,
   showStartOffset,
   expandCopy,
 }: {
   item: TurnActivityItem;
   onSelectTool?: (toolUseId: string) => void;
+  onInspect?: () => void;
   onOpenAdvisorLog?: (entryKey?: string) => void;
   /**
    * Roomy placements also print where in the turn the row started. The docked
@@ -1689,7 +1704,7 @@ const TurnActivityRow = memo(function TurnActivityRow({
       : undefined;
   const isCompleted = item.status === "completed";
   const activation = resolveTurnActivityRowActivation(item);
-  const handler =
+  const handler = onInspect ? { onClick: onInspect, reveal: false } :
     activation?.kind === "tool" && onSelectTool
       ? { onClick: () => onSelectTool(activation.toolUseId), reveal: true }
       : activation?.kind === "advisor-log" && onOpenAdvisorLog

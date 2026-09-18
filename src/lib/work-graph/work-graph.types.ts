@@ -115,6 +115,9 @@ export interface AgentNode {
   label: string;
   /** Subagent flavor (`Explore`, `Plan`, …) when the spawn named one. */
   badge?: string;
+  model?: string;
+  effort?: string;
+  modelEvidence?: "requested" | "configured" | "reported";
   status: WorkGraphStatus;
   startedAt: number;
   updatedAt: number;

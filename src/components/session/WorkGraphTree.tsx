@@ -1,3 +1,4 @@
+import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { transition } from "@/components/ads/recipes/transition";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { memo, useId, useMemo, useState } from "react";
@@ -108,6 +109,7 @@ export interface WorkGraphTreeProps {
    */
   onControl?: (request: WorkGraphControlRequest) => void;
   /** Reveal the spawning tool call in the transcript when the graph knows it. */
+  onInspectAgent?: (node: AgentNode) => void;
   onSelectTool?: (toolUseId: string) => void;
   /** Hidden when a host block already titles the tree (the Agents block). */
   showHeading?: boolean;
@@ -196,6 +198,7 @@ export const WorkGraphTree = memo(function WorkGraphTree(
             liveIdentities={liveIdentities}
             onControl={props.onControl}
             onSelectTool={props.onSelectTool}
+            onInspectAgent={props.onInspectAgent}
             controlError={props.controlErrorByNodeKey?.[row.key] ?? null}
             expandCopy={props.expandCopy}
           />
@@ -240,6 +243,7 @@ export const WorkGraphTree = memo(function WorkGraphTree(
               liveIdentities={liveIdentities}
               onControl={props.onControl}
               onSelectTool={props.onSelectTool}
+              onInspectAgent={props.onInspectAgent}
               controlError={props.controlErrorByNodeKey?.[row.key] ?? null}
               expandCopy={props.expandCopy}
             />
@@ -257,6 +261,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
   liveIdentities,
   onControl,
   onSelectTool,
+  onInspectAgent,
   controlError,
   expandCopy,
 }: {
@@ -265,6 +270,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
   capabilities: ProviderWorkGraphCapabilities;
   liveIdentities: ReadonlySet<string>;
   onControl?: (request: WorkGraphControlRequest) => void;
+  onInspectAgent?: (node: AgentNode) => void;
   onSelectTool?: (toolUseId: string) => void;
   controlError?: string | null;
   expandCopy?: boolean;
@@ -312,6 +318,8 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
           <span className={sx(styles.label, expandCopy && styles.labelExpanded)}>
             {node.label}
           </span>
+          <AgentIdentity compact model={node.model} effort={node.effort} />
+          {node.modelEvidence ? <span className={sx(styles.badge)}>{node.modelEvidence}</span> : null}
           {node.badge ? (
             <span className={sx(styles.badge, styles.badgeNeutral)}>
               {node.badge}
@@ -359,7 +367,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
           WORK_GRAPH_ROW_INSET_PX + row.depth * WORK_GRAPH_INDENT_PX,
       }}
     >
-      {revealToolUseId ? (
+      {onInspectAgent || revealToolUseId ? (
         <AdsButton
           layout="host"
           type="button"
@@ -370,7 +378,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
             hostSurface.inertChrome,
           ]}
           title={`${title} — show in conversation`}
-          onClick={() => onSelectTool?.(revealToolUseId)}
+          onClick={() => onInspectAgent ? onInspectAgent(node) : revealToolUseId && onSelectTool?.(revealToolUseId)}
         >
           {body}
         </AdsButton>

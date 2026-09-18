@@ -1,3 +1,4 @@
+import { readAgentHistory } from "./providers/agent-history";
 import { realpathSync } from "node:fs";
 import { workspaceExecutionGate } from "./shared/workspace-execution-gate";
 import { WorkspaceExecutionArgsSchema } from "../src/lib/performance/workspace-execution";
@@ -1776,6 +1777,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.rename-codex-thread":
       await respond(request.id, await renameCodexThread(request.params));
+      return;
+    case "provider.read-agent-history":
+      await respond(request.id, await readAgentHistory(request.params));
       return;
     case "provider.read-codex-thread":
       await respond(request.id, await readCodexThread(request.params));

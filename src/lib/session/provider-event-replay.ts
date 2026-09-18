@@ -89,6 +89,9 @@ function createThinkingPart(args: {
 }
 
 function createToolPart(args: {
+  agentId?: string;
+  ownerAgentId?: string;
+  parentToolUseId?: string;
   toolUseId?: string;
   toolName: string;
   input: string;
@@ -98,6 +101,9 @@ function createToolPart(args: {
 }): ToolUsePart {
   return sanitizeMessagePartPayload({
     type: "tool_use",
+    agentId: args.agentId,
+    ownerAgentId: args.ownerAgentId,
+    parentToolUseId: args.parentToolUseId,
     toolUseId: args.toolUseId,
     toolName: args.toolName,
     input: args.input,
@@ -348,6 +354,9 @@ function normalizeEventToPart(args: {
     }
     case "tool":
       return createToolPart({
+        agentId: event.agentId,
+        ownerAgentId: event.ownerAgentId,
+        parentToolUseId: event.parentToolUseId,
         toolUseId: event.toolUseId,
         toolName: event.toolName,
         input: event.input,

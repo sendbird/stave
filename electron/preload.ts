@@ -1,3 +1,4 @@
+import type { AgentHistoryRequest, AgentHistoryResponse } from "../src/lib/providers/agent-history";
 import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../src/lib/performance/workspace-execution";
 import type { PromptEnhancementContext } from "../src/lib/providers/prompt-enhancement-context";
 import type { ProjectMemoryControlsApi } from "../src/lib/project-memory-settings";
@@ -1311,7 +1312,9 @@ contextBridge.exposeInMainWorld("api", {
         "provider:rename-codex-thread",
         args,
       ) as Promise<CodexMutationResponse>,
+    readAgentHistory: (args: AgentHistoryRequest) => ipcRenderer.invoke("provider:read-agent-history", args) as Promise<AgentHistoryResponse>,
     readCodexThread: (args: {
+    includeTurns?: boolean;
       threadId: string;
       runtimeOptions?: StreamTurnArgs["runtimeOptions"];
     }) =>

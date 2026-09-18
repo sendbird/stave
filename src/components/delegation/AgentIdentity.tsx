@@ -27,6 +27,7 @@ export interface AgentIdentityProps {
   source?: DelegationIdentitySource | null;
   /** One line, no wrapping, effort folded into the text: for list rows. */
   compact?: boolean;
+  modelEvidence?: "requested" | "configured" | "reported";
   /** Renders the source badge (`Auto` / `Preset` / `Explicit`). */
   showSource?: boolean;
   className?: string;
@@ -100,6 +101,7 @@ export function AgentIdentity(props: AgentIdentityProps) {
           {identity.effortLabel}
         </Badge>
       ) : null}
+      {props.modelEvidence ? <span className={sx(styles.identityModelMuted)}>({props.modelEvidence})</span> : null}
       {props.showSource && props.source ? (
         <Badge
           variant="soft"

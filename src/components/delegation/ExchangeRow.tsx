@@ -51,6 +51,7 @@ const ROW_ICON: Record<DelegationExchange["kind"], TurnActivityIconKey> = {
 export interface ExchangeRowProps {
   exchange: DelegationExchange;
   nowMs: number;
+  onInspect?: (exchange: DelegationExchange) => void;
   onAction?: (action: DelegationActionId, exchange: DelegationExchange) => void;
   /** Controlled expansion; omit to let the row own it. */
   expanded?: boolean;
@@ -76,7 +77,7 @@ export interface ExchangeRowProps {
 export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
   const { exchange, nowMs } = props;
   const [ownExpanded, setOwnExpanded] = useState(props.defaultExpanded ?? false);
-  const expanded = props.expanded ?? ownExpanded;
+  const expanded = !props.onInspect && (props.expanded ?? ownExpanded);
   const detailId = useId();
   const status = describeExchangeStatus(exchange.outcome.status);
   const live = !status.settled;
@@ -113,8 +114,9 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
       <AdsButton
         layout="host"
         type="button"
-        aria-expanded={expanded}
-        aria-controls={detailId}
+        aria-expanded={props.onInspect ? undefined : expanded}
+        aria-haspopup={props.onInspect ? "dialog" : undefined}
+        aria-controls={props.onInspect ? undefined : detailId}
         xstyle={[
           surfaceChrome.quietIconButton,
           focusRing.ring,
@@ -123,7 +125,7 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
         ]}
         title={`${exchange.title} · ${status.label} — ${exchange.ask}`}
         data-turn-activity-opens={opensConsultLog ? "advisor-consult-log" : undefined}
-        onClick={toggle}
+        onClick={() => props.onInspect ? props.onInspect(exchange) : toggle()}
       >
         <span className={sx(styles.rowStatusSlot)}>
           <TurnActivityStatusIcon
@@ -148,6 +150,7 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
               providerId={exchange.identity.providerId}
               model={exchange.identity.model}
               effort={exchange.identity.effort}
+              modelEvidence={exchange.identity.modelEvidence}
             />
           </span>
           <span

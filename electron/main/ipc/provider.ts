@@ -1,6 +1,7 @@
 import { ipcMain, webContents } from "electron";
 import { invokeHostService, onHostServiceEvent } from "../host-service-client";
 import {
+  AgentHistoryRequestSchema,
   AbortTurnArgsSchema,
   ApprovalResponseArgsSchema,
   ClassifyRouteArgsSchema,
@@ -773,6 +774,12 @@ export function registerProviderHandlers() {
       };
     }
     return invokeHostService("provider.rename-codex-thread", parsedArgs.data);
+  });
+
+  ipcMain.handle("provider:read-agent-history", (_event, args: unknown) => {
+    const parsed = AgentHistoryRequestSchema.safeParse(args);
+    if (!parsed.success) return { ok: false, detail: "Invalid agent history request.", entries: [] };
+    return invokeHostService("provider.read-agent-history", parsed.data);
   });
 
   ipcMain.handle("provider:read-codex-thread", (_event, args: unknown) => {
