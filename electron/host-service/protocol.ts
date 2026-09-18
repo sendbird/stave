@@ -1,3 +1,4 @@
+import type { AgentHistoryRequest, AgentHistoryResponse } from "../../src/lib/providers/agent-history";
 import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../../src/lib/performance/workspace-execution";
 import type {
   CliSessionCreateSessionArgs,
@@ -744,7 +745,9 @@ export interface HostServiceRequestMap {
     name: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
+  "provider.read-agent-history": AgentHistoryRequest;
   "provider.read-codex-thread": {
+    includeTurns?: boolean;
     threadId: string;
     runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
@@ -1091,6 +1094,7 @@ export interface HostServiceResponseMap {
   "provider.read-codex-mcp-resource": CodexMcpResourceReadResponse;
   "provider.start-cursor-mcp-oauth-login": CursorMcpOauthLoginResponse;
   "provider.rename-codex-thread": CodexMutationResponse;
+  "provider.read-agent-history": AgentHistoryResponse;
   "provider.read-codex-thread": CodexThreadReadResponse;
   "provider.fork-codex-thread": CodexThreadForkResponse;
   "provider.archive-codex-thread": CodexMutationResponse;

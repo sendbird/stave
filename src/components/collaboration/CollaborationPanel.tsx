@@ -1,3 +1,4 @@
+import { ActivityDetailDialog, type ActivityDetailSelection } from "@/components/session/ActivityDetailDialog";
 import type { ChatMessage, ToolUsePart } from "@/types/chat";
 import { CollaborationHistoryControls } from "./CollaborationHistoryControls";
 import { selectWorkerExchanges } from "@/lib/collaboration/worker-exchanges";
@@ -89,6 +90,7 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
     tone: "error" | "status";
   } | null>(null);
   const exportAbortRef = useRef<AbortController | null>(null);
+  const [detailSelection, setDetailSelection] = useState<ActivityDetailSelection | null>(null);
   const history = useCollaborationHistory({
     workspaceId: target.workspaceId,
     taskId: target.taskId,
@@ -421,6 +423,7 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
           onAction={handleAction}
           renderExtraActions={renderExtraActions}
           statusNoteFor={statusNoteFor}
+          onInspect={exchange => setDetailSelection({ title: exchange.title, exchange })}
           data-testid="delegations-list"
         />
       ) : !listing.loading && !history.loading ? (
@@ -440,6 +443,7 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
             graph={activity.workGraph}
             now={nowMs}
             capabilities={NO_WORK_GRAPH_CAPABILITIES}
+            onInspectAgent={node => setDetailSelection({ title: node.label, nodeKey: node.key })}
           />
         </section>
       ) : null}
@@ -453,6 +457,14 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
           onCreated={listing.actions.refresh}
         />
       </div>
+      {detailSelection ? <ActivityDetailDialog
+        key={detailSelection.nodeKey ?? detailSelection.exchange?.id ?? detailSelection.title}
+        selection={detailSelection.exchange ? { ...detailSelection, exchange: exchanges.find(exchange => exchange.id === detailSelection.exchange?.id) ?? detailSelection.exchange } : detailSelection}
+        taskId={target.taskId} workspaceId={target.workspaceId} projectPath={target.projectPath}
+        onAction={handleAction} renderExtraActions={renderExtraActions} statusNoteFor={statusNoteFor}
+        graph={activity?.workGraph} onClose={() => setDetailSelection(null)}
+        onShowInConversation={toolUseId => focusTranscriptTool({ taskId: target.taskId, toolUseId })}
+      /> : null}
     </section>
   );
 }

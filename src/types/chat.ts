@@ -247,6 +247,9 @@ export interface ThinkingPart extends MessagePartBase {
 }
 
 export interface ToolUsePart extends MessagePartBase {
+  agentId?: string;
+  ownerAgentId?: string;
+  parentToolUseId?: string;
   type: "tool_use";
   toolUseId?: string;
   toolName: string;

@@ -1808,6 +1808,7 @@ export async function renameCodexThread(args: {
 }
 
 export async function readCodexThread(args: {
+  includeTurns?: boolean;
   threadId: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
 }): Promise<CodexThreadReadResponse> {
@@ -1815,6 +1816,7 @@ export async function readCodexThread(args: {
     const client = getCodexAppServerClientFromRuntimeOptions(args);
     const response = await client.request<any>("thread/read", {
       threadId: args.threadId,
+      ...(args.includeTurns ? { includeTurns: true } : {}),
     });
     const rawThread =
       response?.thread && typeof response.thread === "object"

@@ -73,6 +73,9 @@ const WorkerExecutionMetadataSchema = z.object({
 
 const ToolUsePartSchema = z.object({
   type: z.literal("tool_use"),
+  agentId: z.string().optional(),
+  ownerAgentId: z.string().optional(),
+  parentToolUseId: z.string().optional(),
   toolUseId: z.string().optional(),
   toolName: z.string(),
   input: z.string(),

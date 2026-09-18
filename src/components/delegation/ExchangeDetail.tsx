@@ -90,6 +90,8 @@ export function ExchangeDetail(props: ExchangeDetailProps) {
   const resultText = exchange.outcome.result;
 
   const setupItems: KeyValueItem[] = [];
+  if (exchange.identity.modelEvidence) setupItems.push({ key: "modelEvidence", label: "Model source", value: exchange.identity.modelEvidence });
+  if (exchange.kind !== "advisor") setupItems.push({ key: "effortEvidence", label: "Effort source", value: exchange.identity.effort ? "Requested or configured; runtime execution not reported" : "Not reported" });
   if (exchange.kind === "advisor" || exchange.setup.isolation) {
     setupItems.push({
       key: "isolation",

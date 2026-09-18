@@ -13,6 +13,8 @@ type CollabToolCallItem = {
   receiverThreadIds?: string[] | null;
   newThreadId?: string | null;
   prompt?: string | null;
+  model?: string | null;
+  reasoningEffort?: string | null;
   agentStatus?: unknown;
   agentsStates?: unknown;
 };
@@ -63,6 +65,8 @@ function buildCollabInput(
       serialize({
         description: prompt.split("\n", 1)[0]?.slice(0, 160) || toolName,
         ...(prompt ? { prompt } : {}),
+        ...(item.model ? { model: item.model } : {}),
+        ...(item.reasoningEffort ? { reasoning_effort: item.reasoningEffort } : {}),
         ...(item.receiverThreadId
           ? { receiverThreadId: item.receiverThreadId }
           : {}),
@@ -157,7 +161,9 @@ export function createCodexWorkerActivityMapper(args: {
   function buildCollabIdentity(item: CollabToolCallItem) {
     const newThreadId =
       typeof item.newThreadId === "string" ? item.newThreadId.trim() : "";
-    return { agentId: newThreadId, parentToolUseId: "" };
+    const spawnedThreadId = item.tool === "spawnAgent" || item.tool === "spawn_agent"
+      ? item.receiverThreadIds?.[0]?.trim() ?? "" : "";
+    return { agentId: newThreadId || spawnedThreadId, parentToolUseId: "" };
   }
 
   return {

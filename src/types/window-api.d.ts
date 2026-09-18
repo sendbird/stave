@@ -1,3 +1,4 @@
+import type { AgentHistoryRequest, AgentHistoryResponse } from "../lib/providers/agent-history";
 import type { PromptEnhancementContext } from "@/lib/providers/prompt-enhancement-context";
 import type { ProjectMemoryControlsApi } from "@/lib/project-memory-settings";
 import type {
@@ -485,7 +486,9 @@ interface WindowProviderApi {
     name: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<CodexMutationResponse>;
+  readAgentHistory?: (args: AgentHistoryRequest) => Promise<AgentHistoryResponse>;
   readCodexThread?: (args: {
+    includeTurns?: boolean;
     threadId: string;
     runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<CodexThreadReadResponse>;

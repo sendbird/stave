@@ -1,3 +1,4 @@
+export { AgentHistoryRequestSchema } from "../../../src/lib/providers/agent-history";
 export { WorkspaceExecutionArgsSchema } from "../../../src/lib/performance/workspace-execution";
 import { WorkspaceSnapshotSchema } from "../../../src/lib/task-context/schemas";
 import { WORKER_PRESET_IDS } from "../../../src/lib/providers/worker-preset-ids";
@@ -1662,6 +1663,7 @@ export const CodexThreadRenameArgsSchema = z
 
 export const CodexThreadReadArgsSchema = z
   .object({
+    includeTurns: z.boolean().optional(),
     threadId: z.string().min(1).max(200),
     runtimeOptions: RuntimeOptionsSchema,
   })

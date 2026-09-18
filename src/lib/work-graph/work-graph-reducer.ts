@@ -63,6 +63,17 @@ import {
  * later with a description must replace it, while a spawn arriving with an
  * empty input must not overwrite a description already on the node.
  */
+function resolveAgentExecution(event: Extract<NormalizedProviderEvent, { type: "tool" }>): Partial<AgentNode> {
+  const input = parseToolInput(event.input);
+  const worker = event.workerExecution;
+  const model = worker?.runtimeWorkerModel ?? worker?.resolvedWorkerModel ?? worker?.workerModel ?? input?.model;
+  const effort = worker?.workerEffort ?? input?.reasoning_effort ?? input?.effort;
+  return {
+    ...(typeof model === "string" && model ? { model, modelEvidence: worker?.runtimeWorkerModel ? "reported" as const : worker ? "configured" as const : "requested" as const } : {}),
+    ...(typeof effort === "string" && effort ? { effort } : {}),
+  };
+}
+
 const UNNAMED_AGENT_LABEL = "Agent";
 
 /**
@@ -290,6 +301,9 @@ function upsertNode(
       parentKey: resolveAcyclicParentKey(graph, key, patch.parentKey) ?? null,
       label: patch.label ?? UNNAMED_AGENT_LABEL,
       badge: patch.badge,
+      model: patch.model,
+      effort: patch.effort,
+      modelEvidence: patch.modelEvidence,
       status: patch.status ?? "running",
       startedAt: patch.startedAt ?? now,
       updatedAt: now,
@@ -328,6 +342,9 @@ function upsertNode(
         : existing.parentKey,
     label: patch.label ?? existing.label,
     badge: patch.badge ?? existing.badge,
+    model: patch.model ?? existing.model,
+    effort: patch.effort ?? existing.effort,
+    modelEvidence: patch.modelEvidence ?? existing.modelEvidence,
     status,
     // An authoritative patch replaces rather than falls back: a child that is
     // running again has no completion time and no failure reason, and carrying
@@ -367,6 +384,9 @@ function isNodeUnchanged(previous: AgentNode, next: AgentNode) {
     previous.parentKey === next.parentKey &&
     previous.label === next.label &&
     previous.badge === next.badge &&
+    previous.model === next.model &&
+    previous.effort === next.effort &&
+    previous.modelEvidence === next.modelEvidence &&
     previous.status === next.status &&
     previous.completedAt === next.completedAt &&
     previous.progress === next.progress &&
@@ -637,6 +657,9 @@ function promoteToolCallNode(args: {
         ? existing.label
         : callNode.label,
     badge: existing?.badge ?? callNode.badge,
+    model: existing?.model ?? callNode.model,
+    effort: existing?.effort ?? callNode.effort,
+    modelEvidence: existing?.modelEvidence ?? callNode.modelEvidence,
     // A result may already have settled the call while the agent node was still
     // reporting progress. Terminal wins either way: the work is over.
     status: isTerminalWorkGraphStatus(callNode.status)
@@ -925,6 +948,7 @@ export function reduceWorkGraphEvent(
                 true,
               ),
               badge: resolveSubagentBadge(event.input),
+              ...resolveAgentExecution(event),
               status,
             },
             now,

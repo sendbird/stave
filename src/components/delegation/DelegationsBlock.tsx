@@ -63,6 +63,7 @@ export function resolveDelegationSpanMs(
 export interface DelegationsBlockProps {
   exchanges: readonly DelegationExchange[];
   nowMs: number;
+  onInspect?: (exchange: DelegationExchange) => void;
   onAction?: (action: DelegationActionId, exchange: DelegationExchange) => void;
   /** Header title; counts and elapsed are appended. */
   title?: string;
@@ -132,6 +133,7 @@ export function DelegationsBlock(props: DelegationsBlockProps) {
             nested={props.nested}
             expandCopy={props.expandCopy}
             onAction={props.onAction}
+            onInspect={exchange.kind === "advisor" ? undefined : props.onInspect}
             defaultExpanded={props.defaultExpandedIds?.has(exchange.id)}
             extraActions={props.renderExtraActions?.(exchange)}
             statusNote={props.statusNoteFor?.(exchange)}
