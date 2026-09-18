@@ -162,12 +162,13 @@ export const WorkGraphTree = memo(function WorkGraphTree(
     }
     return keys;
   }, [graph, rows]);
-  const visibleRows = useMemo(
-    () =>
-      showCompleted
-        ? rows
-        : rows.filter((row) => !collapsibleCompletedKeys.has(row.key)),
-    [collapsibleCompletedKeys, rows, showCompleted],
+  const activeRows = useMemo(
+    () => rows.filter((row) => !collapsibleCompletedKeys.has(row.key)),
+    [collapsibleCompletedKeys, rows],
+  );
+  const completedRows = useMemo(
+    () => rows.filter((row) => collapsibleCompletedKeys.has(row.key)),
+    [collapsibleCompletedKeys, rows],
   );
 
   // A turn without delegated agents renders nothing at all: an empty labelled
@@ -185,8 +186,8 @@ export const WorkGraphTree = memo(function WorkGraphTree(
       {props.showHeading !== false ? (
         <h3 className={sx(styles.heading)}>Agent tree</h3>
       ) : null}
-      <div id={completedRowsId} className={sx(styles.list)}>
-        {visibleRows.map((row) => (
+      <div className={sx(styles.list)}>
+        {activeRows.map((row) => (
           <WorkGraphTreeNodeRow
             key={row.key}
             row={row}
@@ -222,6 +223,28 @@ export const WorkGraphTree = memo(function WorkGraphTree(
           )}
           {collapsibleCompletedKeys.size} done
         </Button>
+      ) : null}
+      {collapsibleCompletedKeys.size > 0 ? (
+        <div
+          id={completedRowsId}
+          className={sx(styles.list)}
+          data-testid="work-graph-completed-rows"
+          hidden={!showCompleted}
+        >
+          {completedRows.map((row) => (
+            <WorkGraphTreeNodeRow
+              key={row.key}
+              row={row}
+              now={props.now}
+              capabilities={props.capabilities}
+              liveIdentities={liveIdentities}
+              onControl={props.onControl}
+              onSelectTool={props.onSelectTool}
+              controlError={props.controlErrorByNodeKey?.[row.key] ?? null}
+              expandCopy={props.expandCopy}
+            />
+          ))}
+        </div>
       ) : null}
     </section>
   );

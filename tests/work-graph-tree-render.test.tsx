@@ -333,10 +333,15 @@ describe("WorkGraphTree", () => {
     });
 
     expect(html).toContain("Live audit");
-    expect(html).not.toContain("Finished audit");
+    expect(html).toContain("Finished audit");
     expect(html).toContain('data-testid="work-graph-completed-toggle"');
+    expect(html).toContain('data-testid="work-graph-completed-rows" hidden=""');
     expect(html).toContain('aria-expanded="false"');
     expect(html).toContain("1 done");
+    expect(html.indexOf("Live audit")).toBeLessThan(html.indexOf("1 done"));
+    expect(html.indexOf("1 done")).toBeLessThan(
+      html.indexOf("Finished audit"),
+    );
   });
 
   test("keeps a completed parent visible while its child is still active", () => {

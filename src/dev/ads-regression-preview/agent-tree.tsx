@@ -52,7 +52,17 @@ function fixtureGraph(): WorkGraph {
   });
   const rootKey = providerAgentNodeKey("codex", "preview-root");
   const childKey = providerAgentNodeKey("codex", "preview-child");
+  const completedKey = providerAgentNodeKey("codex", "preview-completed");
   const nodes = [
+    node({
+      key: completedKey,
+      agentId: "preview-completed",
+      label: "Review the completed task activity ordering",
+      status: "completed",
+      startedAt: 500,
+      updatedAt: 2_500,
+      completedAt: 2_500,
+    }),
     node({
       key: rootKey,
       agentId: "preview-root",
