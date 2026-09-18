@@ -136,6 +136,7 @@ import {
 import { startCursorMcpOauthLogin } from "./providers/cursor-mcp-oauth";
 import {
   classifyUtilityRoute,
+  cancelUtilityRouteClassification,
   enhanceUtilityPrompt,
   suggestUtilityCommitMessage,
   suggestUtilityTaskName,
@@ -1813,6 +1814,10 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
       return;
     case "provider.suggest-task-name":
       await respond(request.id, await suggestUtilityTaskName(request.params));
+      return;
+    case "provider.cancel-route-classification":
+      cancelUtilityRouteClassification(request.params.requestId);
+      await respond(request.id, undefined);
       return;
     case "provider.classify-route":
       await respond(request.id, await classifyUtilityRoute(request.params));

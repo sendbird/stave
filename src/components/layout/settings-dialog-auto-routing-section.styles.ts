@@ -33,10 +33,7 @@ export const autoRoutingSectionStyles = stylex.create({
   signalsGrid: {
     display: "grid",
     gap: vars["--ads-space-8"],
-    gridTemplateColumns: {
-      default: "1fr",
-      "@media (min-width: 768px)": "repeat(2, minmax(0, 1fr))",
-    },
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 16rem), 1fr))",
   },
   roleGroup: {
     display: "flex",
@@ -105,10 +102,7 @@ export const autoRoutingSectionStyles = stylex.create({
   ruleGrid: {
     display: "grid",
     gap: vars["--ads-space-8"],
-    gridTemplateColumns: {
-      default: "repeat(2, minmax(0, 1fr))",
-      "@media (min-width: 900px)": "repeat(4, minmax(0, 1fr))",
-    },
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 10rem), 1fr))",
   },
   ruleField: {
     display: "flex",
@@ -117,10 +111,7 @@ export const autoRoutingSectionStyles = stylex.create({
     minInlineSize: 0,
   },
   ruleFieldWide: {
-    gridColumn: {
-      default: "span 2",
-      "@media (min-width: 900px)": "span 4",
-    },
+    gridColumn: "1 / -1",
   },
   ruleFieldLabel: {
     color: vars["--ads-color-text-muted"],

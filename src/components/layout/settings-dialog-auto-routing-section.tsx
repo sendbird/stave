@@ -3,6 +3,7 @@ import { ArrowDown, ArrowUp, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Badge, Textarea } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
 import { RouteFlow } from "@/components/auto-routing";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { Switch } from "@/components/ui/switch";
 import {
   Select,
@@ -13,8 +14,7 @@ import {
 } from "@/components/ui/select";
 import {
   cloneProfileAsCustom,
-  buildStarterProfile,
-  CUSTOM_PROFILE_ID,
+  buildStarterRules,
   formatResolvedRouteLabel,
   isStarterProfileId,
   listEligibleRouteModels,
@@ -26,7 +26,6 @@ import {
   STANCE_DESCRIPTIONS,
   STANCE_LABELS,
   STANCES,
-  STARTER_PROFILE_IDS,
   TASK_CLASS_LABELS,
   TASK_CLASSES,
   withStance,
@@ -428,11 +427,15 @@ export function SettingsAutoRoutingSection(props: {
       rateLimitsSnapshot,
       providerAvailability,
     });
-    const route = resolveRoute({ profile, role: testRole, signals });
-    return { route, signals, summary: summarizeRouterSignals(signals) };
+    try {
+      const route = resolveRoute({ profile, role: testRole, signals });
+      return { route, signals, summary: summarizeRouterSignals(signals), error: null };
+    } catch (error) {
+      return { route: null, signals, summary: summarizeRouterSignals(signals),
+        error: error instanceof Error ? error.message : "No eligible route is available." };
+    }
   }, [profile, providerAvailability, rateLimitsSnapshot, testPrompt, testProvider, testRole]);
 
-  const profileChoice = isStarterProfileId(profile.id) ? profile.id : CUSTOM_PROFILE_ID;
 
   return (
     <SectionStack>
@@ -440,7 +443,7 @@ export function SettingsAutoRoutingSection(props: {
         id={AUTO_ROUTING_SETTING_FIELD_ID}
         tabIndex={-1}
         title="Auto (Model Router)"
-        description="When the composer is on Auto, Stave reads the prompt's signals, classifies the task, and picks the provider, model, and effort from a role table you own. The same table decides Advisor, Worker, and delegated defaults left on Auto."
+        description="Auto uses a model to understand intent, complexity, risk, and conversation context before choosing an eligible model and effort."
         titleAccessory={
           <Badge variant={autoRoutingEnabled ? "secondary" : "outline"}>
             {autoRoutingEnabled ? "On" : "Off"}
@@ -453,51 +456,14 @@ export function SettingsAutoRoutingSection(props: {
           checked={autoRoutingEnabled}
           onCheckedChange={(checked) => updateSettings({ patch: { autoRoutingEnabled: checked } })}
         />
-        <LabeledField
-          title="Profile"
-          description="Starters share one role table and differ only by stance. Editing any rule clones the starter into a Custom profile."
-        >
-          <ChoiceButtons
-            columns={2}
-            value={profileChoice}
-            onChange={(value) => {
-              if (isStarterProfileId(value)) {
-                const starter = buildStarterProfile(value);
-                commit({
-                  ...starter,
-                  eligibleModelsByProvider: profile.eligibleModelsByProvider,
-                });
-                return;
-              }
-              if (profileChoice !== CUSTOM_PROFILE_ID) {
-                commit(cloneProfileAsCustom(profile));
-              }
-            }}
-            options={[
-              ...STARTER_PROFILE_IDS.map((id) => {
-                const starter = buildStarterProfile(id);
-                return {
-                  value: id as string,
-                  label: STANCE_LABELS[starter.stance],
-                  description: STANCE_DESCRIPTIONS[starter.stance],
-                };
-              }),
-              {
-                value: CUSTOM_PROFILE_ID,
-                label: "Custom (edit)",
-                description: "Your own copy of the role table.",
-              },
-            ]}
-          />
-        </LabeledField>
-        <LabeledField
-          title="Stance"
-          description="Modulates every route: cost-saver steps one rung and one effort down, quality-first steps one rung up at the rule's effort."
+        <LabeledField layout="stacked"
+          title="Preference"
+          description="Balance cost and quality while keeping the capability required by the task. Saved rules and model choices are preserved."
         >
           <ChoiceButtons
             columns={3}
             value={profile.stance}
-            onChange={(stance: Stance) => edit((draft) => withStance(draft, stance))}
+            onChange={(stance: Stance) => commit(withStance(profile, stance))}
             options={STANCES.map((stance) => ({
               value: stance,
               label: STANCE_LABELS[stance],
@@ -505,9 +471,59 @@ export function SettingsAutoRoutingSection(props: {
           />
           <p className={sx(styles.stanceNote)}>{STANCE_DESCRIPTIONS[profile.stance]}</p>
         </LabeledField>
-        <LabeledField
+      </SettingsCard>
+      <SettingsCard
+        title="Eligible models"
+        description="Which catalog models a route may land on. Empty means every model of that provider. Stance and budget steps stay inside this set."
+      >
+        <div className={sx(styles.chipGroup)}>
+          {(["claude-code", "codex"] as const).map((providerId) => {
+            const selected = profile.eligibleModelsByProvider[providerId] ?? [];
+            return (
+              <LabeledField layout="stacked"
+                key={providerId}
+                title={`${getProviderLabel({ providerId })} eligible models`}
+              >
+                <ToggleChipGroup
+                  allLabel="All"
+                  onSelectAll={() =>
+                    edit((draft) => {
+                      const { [providerId]: _dropped, ...rest } = draft.eligibleModelsByProvider;
+                      return { ...draft, eligibleModelsByProvider: rest };
+                    })
+                  }
+                  selected={selected}
+                  onToggle={(model) =>
+                    edit((draft) => ({
+                      ...draft,
+                      eligibleModelsByProvider: {
+                        ...draft.eligibleModelsByProvider,
+                        [providerId]: selected.includes(model)
+                          ? selected.filter((entry) => entry !== model)
+                          : [...selected, model],
+                      },
+                    }))
+                  }
+                  options={(modelsByProvider[providerId] ?? []).map((model) => ({
+                    value: model,
+                    label: modelLabel(model),
+                  }))}
+                />
+              </LabeledField>
+            );
+          })}
+        </div>
+      </SettingsCard>
+
+      <Accordion>
+        <AccordionItem value="advanced">
+          <AccordionTrigger>Advanced settings</AccordionTrigger>
+          <AccordionContent>
+            <SectionStack>
+      <SettingsCard title="Routing controls" description="Model classification, budget thresholds, and routing signals.">
+        <LabeledField layout="stacked"
           title="Budget guard"
-          description="Reads the tightest account usage window. Past the first threshold every route steps down one effort (models that keep their cache) or one rung; past the second, the cheapest eligible model runs."
+          description="Reads the tightest account usage window. Past the first threshold every route steps down one effort (models that keep their cache) or one rung; past the second, use the least expensive eligible model that meets the task requirements."
         >
           <div className={sx(styles.thresholdRow)}>
             <div className={sx(styles.thresholdField)}>
@@ -546,11 +562,11 @@ export function SettingsAutoRoutingSection(props: {
             </div>
           </div>
         </LabeledField>
-        <LabeledField title="Signals" description="Which inputs the router is allowed to read.">
+        <LabeledField layout="stacked" title="Signals" description="Which inputs the router is allowed to read.">
           <div className={sx(styles.signalsGrid)}>
             <SwitchField
-              title="Classifier"
-              description="Ask the Utility AI to classify low-confidence prompts."
+              title="Model intent classification"
+              description="Enabled by default. Uses the configured Utility model and waits up to 30 seconds. Failure uses a conservative local route; turning this off uses local rules only."
               checked={profile.signals.classifier}
               onCheckedChange={(classifier) =>
                 edit((draft) => ({ ...draft, signals: { ...draft.signals, classifier } }))
@@ -598,6 +614,10 @@ export function SettingsAutoRoutingSection(props: {
         title="Role table"
         description="Ordered rules per role. Conditions are ANDed; the first enabled match decides the route, and its reason is what the composer shows."
       >
+        <Button type="button" variant="quiet" size="sm"
+          onClick={() => edit((draft) => ({ ...draft, rules: buildStarterRules() }))}>
+          Reset rules to defaults
+        </Button>
         {ROUTER_ROLES.map((role) => (
           <div key={role} className={sx(styles.roleGroup)}>
             <div className={sx(styles.roleHeader)}>
@@ -676,51 +696,8 @@ export function SettingsAutoRoutingSection(props: {
       </SettingsCard>
 
       <SettingsCard
-        title="Eligible models"
-        description="Which catalog models a route may land on. Empty means every model of that provider. Stance and budget steps stay inside this set."
-      >
-        <div className={sx(styles.chipGroup)}>
-          {(["claude-code", "codex"] as const).map((providerId) => {
-            const selected = profile.eligibleModelsByProvider[providerId] ?? [];
-            return (
-              <LabeledField
-                key={providerId}
-                title={`${getProviderLabel({ providerId })} eligible models`}
-              >
-                <ToggleChipGroup
-                  allLabel="All"
-                  onSelectAll={() =>
-                    edit((draft) => {
-                      const { [providerId]: _dropped, ...rest } = draft.eligibleModelsByProvider;
-                      return { ...draft, eligibleModelsByProvider: rest };
-                    })
-                  }
-                  selected={selected}
-                  onToggle={(model) =>
-                    edit((draft) => ({
-                      ...draft,
-                      eligibleModelsByProvider: {
-                        ...draft.eligibleModelsByProvider,
-                        [providerId]: selected.includes(model)
-                          ? selected.filter((entry) => entry !== model)
-                          : [...selected, model],
-                      },
-                    }))
-                  }
-                  options={(modelsByProvider[providerId] ?? []).map((model) => ({
-                    value: model,
-                    label: modelLabel(model),
-                  }))}
-                />
-              </LabeledField>
-            );
-          })}
-        </div>
-      </SettingsCard>
-
-      <SettingsCard
-        title="Dry run"
-        description="Paste a prompt to see the route the current table would pick. Runs the same pure resolver as the composer; nothing is sent anywhere."
+        title="Rule preview"
+        description="Preview the local rules with heuristic signals. No AI call is made; model classification can produce a different route."
         titleAccessory={<Sparkles className={sx(styles.icon)} aria-hidden="true" />}
       >
         <Textarea
@@ -754,7 +731,8 @@ export function SettingsAutoRoutingSection(props: {
             />
           </RuleField>
         </div>
-        {dryRun ? (
+        {dryRun?.error ? <p role="status">{dryRun.error}</p> : null}
+        {dryRun?.route ? (
           <dl className={sx(styles.testerResult)}>
             <dt className={sx(styles.testerKey)}>Route</dt>
             <dd className={sx(styles.testerRoute)}>
@@ -779,7 +757,7 @@ export function SettingsAutoRoutingSection(props: {
             </dd>
           </dl>
         ) : null}
-        {dryRun ? (
+        {dryRun?.route ? (
           <RouteFlow
             profile={profile}
             signals={dryRun.signals}
@@ -792,6 +770,10 @@ export function SettingsAutoRoutingSection(props: {
           />
         ) : null}
       </SettingsCard>
+            </SectionStack>
+          </AccordionContent>
+        </AccordionItem>
+      </Accordion>
     </SectionStack>
   );
 }

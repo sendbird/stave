@@ -1,6 +1,6 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { Check, Sparkles } from "lucide-react";
-import { type CSSProperties, type KeyboardEvent, useMemo, useRef } from "react";
+import { type CSSProperties, type KeyboardEvent, useRef } from "react";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   buildStarterProfile,
@@ -9,6 +9,7 @@ import {
   isStarterProfileId,
   STANCE_DESCRIPTIONS,
   STANCE_LABELS,
+  withStance,
   type AutoRoutingProfile,
   type StarterProfileId,
 } from "@/lib/providers/auto-routing-profile";
@@ -21,7 +22,7 @@ import { autoRoutingProfileListStyles as styles } from "./auto-routing-profile-l
  * dial that modulates every route it picks.
  *
  * Balanced comes first because it is the default profile and the safest
- * starting point. The two directional alternatives follow it, then Custom.
+ * starting point. The two directional alternatives follow it.
  */
 const PROFILE_ROWS: readonly {
   id: StarterProfileId | typeof CUSTOM_PROFILE_ID;
@@ -43,11 +44,7 @@ const PROFILE_ROWS: readonly {
     label: STANCE_LABELS["quality-first"],
     description: STANCE_DESCRIPTIONS["quality-first"],
   },
-  {
-    id: CUSTOM_PROFILE_ID,
-    label: "Custom",
-    description: "Your own copy of the role table. Edit it in Settings › Auto.",
-  },
+
 ];
 
 /**
@@ -66,20 +63,15 @@ function swatchColor(index: number, count: number) {
 }
 
 /**
- * Switching to a starter keeps the eligible-model allowlist, which is a
- * provider-level preference rather than part of the stance. Switching to Custom
- * clones whatever profile is live, matching Settings › Auto's own Profile
- * control so the two surfaces never disagree about what a click means.
+ * Changing preference preserves saved rules, signals, and eligible models.
+ * The legacy Custom action still clones a starter for older callers.
  */
 export function resolveNextProfile(args: {
   profile: AutoRoutingProfile;
   id: StarterProfileId | typeof CUSTOM_PROFILE_ID;
 }): AutoRoutingProfile | null {
   if (isStarterProfileId(args.id)) {
-    return {
-      ...buildStarterProfile(args.id),
-      eligibleModelsByProvider: args.profile.eligibleModelsByProvider,
-    };
+    return withStance(args.profile, buildStarterProfile(args.id).stance);
   }
   return isStarterProfileId(args.profile.id)
     ? cloneProfileAsCustom(args.profile)
@@ -97,18 +89,8 @@ export function AutoRoutingProfileList(args: {
   const profile = useAppStore((state) => state.settings.autoRoutingProfile);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const rowRefs = useRef(new Map<string, HTMLElement>());
-  const activeId = isStarterProfileId(profile.id)
-    ? profile.id
-    : CUSTOM_PROFILE_ID;
-  const rows = useMemo(
-    () =>
-      PROFILE_ROWS.map((row) =>
-        row.id === CUSTOM_PROFILE_ID && !isStarterProfileId(profile.id)
-          ? { ...row, label: profile.name || row.label }
-          : row,
-      ),
-    [profile.id, profile.name],
-  );
+  const activeId = `starter-${profile.stance}`;
+  const rows = PROFILE_ROWS;
   const selectedIndex = rows.findIndex((row) => row.id === activeId);
   const tabStopIndex = selectedIndex >= 0 ? selectedIndex : 0;
 
@@ -158,10 +140,10 @@ export function AutoRoutingProfileList(args: {
         </div>
       )}
 
-      <div className={sx(styles.sectionLabel)}>Profile</div>
+      <div className={sx(styles.sectionLabel)}>Preference</div>
       <div
         role="listbox"
-        aria-label="Auto routing profile"
+        aria-label="Auto routing preference"
         className={sx(styles.list)}
       >
         {rows.map((row, rowIndex) => {

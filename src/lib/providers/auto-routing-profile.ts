@@ -22,7 +22,7 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 /* Schema                                                                     */
 /* -------------------------------------------------------------------------- */
 
-export const AUTO_ROUTING_PROFILE_VERSION = 2 as const;
+export const AUTO_ROUTING_PROFILE_VERSION = 4 as const;
 
 export const TASK_CLASSES = [
   "plan",
@@ -230,9 +230,9 @@ export const STANCE_LABELS: Readonly<Record<Stance, string>> = {
 };
 
 export const STANCE_DESCRIPTIONS: Readonly<Record<Stance, string>> = {
-  "cost-saver": "Every route steps one rung and one effort down.",
-  balanced: "Routes run exactly as the role table says.",
-  "quality-first": "Every route steps one rung up at the rule's effort.",
+  "cost-saver": "Favor lower cost while meeting the task capability requirements.",
+  balanced: "Balance model capability and cost for the task.",
+  "quality-first": "Favor stronger eligible models without raising effort unnecessarily.",
 };
 
 const STANCE_SHIFT: Readonly<Record<Stance, -1 | 0 | 1>> = {
@@ -287,15 +287,21 @@ export function applyStance(profile: AutoRoutingProfile): AppliedStance {
   };
 }
 
-/** Switch stance and adopt its default budget thresholds in one edit. */
+/** Change preference while preserving manually customized budget thresholds. */
 export function withStance(
   profile: AutoRoutingProfile,
   stance: Stance,
 ): AutoRoutingProfile {
   return {
     ...profile,
+    ...(isStarterProfileId(profile.id)
+      ? { id: `starter-${stance}`, name: STANCE_LABELS[stance] }
+      : {}),
     stance,
-    budgetGuard: { ...STANCE_BUDGET_GUARD[stance] },
+    budgetGuard: profile.budgetGuard.stepDownAt === STANCE_BUDGET_GUARD[profile.stance].stepDownAt
+      && profile.budgetGuard.cheapestAt === STANCE_BUDGET_GUARD[profile.stance].cheapestAt
+      ? { ...STANCE_BUDGET_GUARD[stance] }
+      : { ...profile.budgetGuard },
   };
 }
 
@@ -341,112 +347,24 @@ function rule(
 /** One shared role table; the three starters differ only by stance. */
 export function buildStarterRules(): RouteRule[] {
   return [
-    // Delegated roles first: a rule without a role never reaches them, so
-    // these are the only rows that decide advisor and delegate defaults.
-    rule(
-      "advisor-default",
-      { role: "advisor" },
+    rule("advisor-default", { role: "advisor" },
       { providerId: "alternate-provider", tier: "frontier", effort: "medium" },
-      "A second opinion comes from the other provider's most capable model.",
-    ),
-    rule(
-      "delegate-default",
-      { role: "delegate" },
+      "A second opinion uses a capable model from another available provider."),
+    rule("delegate-default", { role: "delegate" },
       { providerId: "any-eligible", effort: "medium" },
-      "Delegated tasks start on the provider's default model at medium effort.",
-    ),
-    rule(
-      "budget-cheapest",
-      { budgetUsedAtLeast: 97 },
-      { providerId: "any-eligible", tier: "light" },
-      "The usage window is nearly exhausted, so the cheapest eligible model runs.",
-    ),
-    rule(
-      "safety-critical",
-      { taskClass: "safety-critical" },
+      "Delegated tasks start on the provider default at medium effort."),
+    rule("safety-critical", { taskClass: "safety-critical" },
       { providerId: "any-eligible", tier: "frontier", effort: "medium" },
-      "Sensitive changes go to the most capable model.",
-    ),
-    rule(
-      "skill-ship",
-      { skill: ["ship"] },
-      { providerId: "any-eligible", tier: "light" },
-      "Shipping is a routine skill flow; a light model handles it.",
-    ),
-    rule(
-      "plan",
-      { taskClass: "plan" },
-      { providerId: "any-eligible", tier: "frontier", effort: "medium" },
-      "Planning and architecture use the most capable model.",
-    ),
-    rule(
-      "research",
-      { taskClass: "research" },
-      { providerId: "any-eligible", tier: "frontier", effort: "medium" },
-      "Open-ended research benefits from the most capable model.",
-    ),
-    // Coding classes share one flagship model and differ only by effort, so a
-    // task that drifts between quick edits and deep debugging keeps its cache.
-    rule(
-      "implement-deep",
-      { taskClass: "implement", complexity: "high" },
-      { providerId: "any-eligible", tier: "flagship", effort: "xhigh" },
-      "Demanding implementation runs on the flagship model at xhigh effort.",
-    ),
-    rule(
-      "implement-light",
-      { taskClass: "implement", complexity: "low" },
-      { providerId: "any-eligible", tier: "flagship", effort: "medium" },
-      "Simple implementation runs on the flagship model at medium effort.",
-    ),
-    rule(
-      "implement",
-      { taskClass: "implement" },
+      "Sensitive changes require the most capable eligible model."),
+    rule("complex", { complexity: "high" },
       { providerId: "any-eligible", tier: "flagship", effort: "high" },
-      "Implementation runs on the flagship model at high effort.",
-    ),
-    rule(
-      "debug-deep",
-      { taskClass: "debug", complexity: "high" },
-      { providerId: "any-eligible", tier: "flagship", effort: "xhigh" },
-      "Hard debugging runs on the flagship model at xhigh effort.",
-    ),
-    rule(
-      "debug-light",
-      { taskClass: "debug", complexity: "low" },
-      { providerId: "any-eligible", tier: "flagship", effort: "medium" },
-      "Simple debugging runs on the flagship model at medium effort.",
-    ),
-    rule(
-      "debug",
-      { taskClass: "debug" },
-      { providerId: "any-eligible", tier: "flagship", effort: "high" },
-      "Debugging runs on the flagship model at high effort.",
-    ),
-    rule(
-      "review",
-      { taskClass: "review" },
-      { providerId: "alternate-provider", tier: "flagship", effort: "high" },
-      "Review runs on the other provider's flagship so the check is cross-model.",
-    ),
-    rule(
-      "quick-edit",
-      { taskClass: "quick-edit" },
-      { providerId: "any-eligible", tier: "flagship", effort: "medium" },
-      "Small edits stay on the flagship model at medium effort so the cache survives.",
-    ),
-    rule(
-      "docs",
-      { taskClass: "docs" },
+      "Complex work requires a capable model."),
+    rule("standard", { complexity: "medium" },
       { providerId: "any-eligible", tier: "balanced", effort: "medium" },
-      "Documentation and copy run on the balanced model at medium effort.",
-    ),
-    rule(
-      "ci-fix",
-      { taskClass: "ci-fix" },
-      { providerId: "any-eligible", tier: "flagship", effort: "medium" },
-      "CI fixes need the repo in context; the flagship at medium effort handles them.",
-    ),
+      "Ordinary work uses a balanced model."),
+    rule("bounded", { complexity: "low" },
+      { providerId: "any-eligible", tier: "light", effort: "medium" },
+      "A clearly bounded task can use a fast, light model."),
   ];
 }
 
@@ -462,7 +380,7 @@ function buildDefaultFallbacks(): Record<ProviderId, RouteFallback> {
 
 export function buildDefaultSignalToggles(): RouterSignalToggles {
   return {
-    classifier: false,
+    classifier: true,
     skillRouting: true,
     budgetGuard: true,
     safetyEscalation: true,
@@ -719,7 +637,7 @@ export function validateProfile(value: unknown): AutoRoutingProfile {
   const defaults = buildDefaultSignalToggles();
   const signals: RouterSignalToggles = {
     classifier:
-      typeof rawSignals.classifier === "boolean"
+      candidate.version === AUTO_ROUTING_PROFILE_VERSION && typeof rawSignals.classifier === "boolean"
         ? rawSignals.classifier
         : defaults.classifier,
     skillRouting:
@@ -772,7 +690,7 @@ export interface LegacyAutoRoutingSettings {
 }
 
 /**
- * Builds a v2 profile from the v1 flags: the objective slider becomes a
+ * Builds the current profile from legacy flags: the objective slider becomes a
  * stance, the switch toggles become signal toggles, and the eligible chip lists
  * carry over unchanged. The role table itself is the shared starter.
  */
@@ -802,10 +720,8 @@ export function migrateLegacyAutoSettings(
     },
     signals: {
       ...defaults,
-      classifier:
-        typeof settings.autoRoutingUseClassifier === "boolean"
-          ? settings.autoRoutingUseClassifier
-          : defaults.classifier,
+      // Model-first routing replaces the legacy opt-in behavior.
+      classifier: true,
       safetyEscalation:
         typeof settings.autoRoutingSafetyEscalation === "boolean"
           ? settings.autoRoutingSafetyEscalation
@@ -823,6 +739,9 @@ export function migrateLegacyAutoSettings(
 /* -------------------------------------------------------------------------- */
 
 export interface RouterSignals {
+  /** Conservative capability floor when classification cannot establish scope. */
+  uncertain?: boolean;
+  newTask?: boolean;
   taskClass: TaskClass;
   complexity: RouteComplexity;
   sensitive: boolean;
@@ -1070,7 +989,7 @@ function resolveProviderCandidates(args: {
     return ordered([alternate, otherProvider(alternate)]);
   }
   if (args.selector === "any-eligible") {
-    return ordered([pinned]);
+    return args.providerSwitch ? ordered([pinned]) : [pinned].filter((id) => isAvailable(id, availability));
   }
   if (!isAvailable(args.selector, availability)) {
     return args.providerSwitch ? ordered([pinned]) : [];
@@ -1096,6 +1015,11 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
   const stance = applyStance(profile);
   const budgetUsed = signals.budgetUsedPercent;
   const guardOn = profile.signals.budgetGuard && typeof budgetUsed === "number";
+  const minimumTier: RouteTier = role !== "primary" ? "light" : signals.sensitive && profile.signals.safetyEscalation
+    ? "frontier"
+    : signals.uncertain || signals.complexity === "high" ? "flagship"
+    : signals.complexity === "medium" ? "balanced" : "light";
+  const satisfiesFloor = (model: string) => routeTierIndex(resolveRouteTierForModel(model)) <= routeTierIndex(minimumTier);
   const budgetShift: ResolvedRoute["budgetShift"] = !guardOn
     ? 0
     : budgetUsed >= profile.budgetGuard.cheapestAt
@@ -1108,7 +1032,7 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
     ruleMatches({
       rule: entry,
       role,
-      signals,
+      signals: role === "primary" && signals.uncertain ? { ...signals, complexity: "high" } : signals,
       skillRouting: profile.signals.skillRouting,
     }),
   );
@@ -1122,6 +1046,9 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
   }).filter((providerId) => eligibleForRole(role, providerId));
 
   const reasonParts: string[] = [];
+  if (role === "primary" && signals.uncertain) {
+    reasonParts.push("Uncertain intent keeps a capable model and avoids an unsupported downgrade.");
+  }
   const baseReason = matched?.reason ?? "";
   // Quality-first climbs a rung but keeps the rule's effort; cost-saver still
   // lowers both, matching "lower effort before the model".
@@ -1132,7 +1059,7 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       profile,
       providerId,
       runtimeModels: args.runtimeModelsByProvider?.[providerId],
-    });
+    }).filter(satisfiesFloor);
     if (models.length === 0) {
       continue;
     }
@@ -1155,7 +1082,7 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
       tier = cheapest.tier;
       model = cheapest.model;
       reasonParts.push(
-        `Usage is at ${Math.round(budgetUsed ?? 0)}%, so the cheapest eligible model runs.`,
+        `Usage is at ${Math.round(budgetUsed ?? 0)}%, so the least expensive model meeting the task requirements runs.`,
       );
     } else {
       const requestedTier =
@@ -1192,14 +1119,14 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
         reasonParts.push(
           stance.shift > 0
             ? "Quality-first stance stepped the route up."
-            : "Cost-saver stance stepped the route down.",
+            : "Cost-saver preference applied within the task capability floor.",
         );
       }
       if (budgetShift === -1) {
         reasonParts.push(
           budgetHeldModel
             ? `Usage is at ${Math.round(budgetUsed ?? 0)}%, so effort stepped down while the model keeps its cache.`
-            : `Usage is at ${Math.round(budgetUsed ?? 0)}%, so the route stepped one rung down.`,
+            : `Usage is at ${Math.round(budgetUsed ?? 0)}%, so the route favors lower cost within the task capability floor.`,
         );
       }
     }
@@ -1214,7 +1141,8 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
     const lastModel = signals.lastAssistantModel?.trim();
     if (
       role === "primary" &&
-      budgetShift !== -2 &&
+      (budgetShift !== -2 || signals.uncertain) &&
+      !signals.newTask &&
       lastModel &&
       lastModel !== model &&
       signals.lastAssistantProvider === providerId &&
@@ -1257,28 +1185,10 @@ export function resolveRoute(args: ResolveRouteArgs): ResolvedRoute {
     };
   }
 
-  // Nothing eligible anywhere: the provider fallback keeps the turn alive.
-  const providerId = candidates[0] ?? signals.currentProviderId;
-  const fallback = profile.fallbacks[providerId] ?? {
-    model: getDefaultModelForProvider({ providerId }),
-  };
-  return {
-    role,
-    providerId,
-    model: fallback.model,
-    ...(fallback.effort ? { effort: fallback.effort } : {}),
-    tier: resolveRouteTierForModel(fallback.model),
-    taskClass: signals.taskClass,
-    ruleId: null,
-    reason: `No eligible model was available; ${toHumanModelName({ model: fallback.model })} is the provider fallback.`,
-    stanceShift: stance.shift,
-    budgetShift,
-    budgetHeldModel: false,
-    cacheHeldModel: false,
-  };
+  throw new Error("No available allowed model meets this task's capability requirements. Adjust Auto's allowed models or choose a model manually.");
 }
 
-/** Default signals for roles that resolve without a prompt (advisor, delegate). */
+
 export function buildRoleSignals(args: {
   currentProviderId: ProviderId;
   currentModel?: string;

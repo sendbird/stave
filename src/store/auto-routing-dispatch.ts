@@ -1,3 +1,4 @@
+import { toast } from "@/lib/notifications/toast";
 import { resolveAdvisorAutoTarget } from "@/lib/providers/advisor";
 import type {
   AutoRoutingModelResolution,
@@ -22,6 +23,15 @@ type RoutingState = Pick<
   AppState,
   "settings" | "rateLimitsSnapshot" | "providerAvailability"
 >;
+
+const pendingAutoRoutes = new Map<string, AbortController>();
+
+export function cancelPendingAutoRouting(taskId: string): boolean {
+  const controller = pendingAutoRoutes.get(taskId);
+  if (!controller) return false;
+  controller.abort();
+  return true;
+}
 
 export function isAutoRoutingUnavailableForSend(args: {
   promptDraft: PromptDraft;
@@ -49,6 +59,7 @@ export async function resolveAutoRoutingForSend(args: {
   history: readonly ChatMessage[];
   fileContextCount: number;
   workspaceCwd: string | undefined;
+  taskId?: string;
 }): Promise<AutoRoutingDecision | null> {
   const { state, promptDraft } = args;
   if (
@@ -57,8 +68,9 @@ export async function resolveAutoRoutingForSend(args: {
   ) {
     return null;
   }
-  const classifyRoute = state.settings.autoRoutingUseClassifier
+  const classifyRoute = (state.settings.autoRoutingProfile.signals.classifier && state.settings.auxiliaryInferencePolicy.utility.enabled)
     ? createUtilityRouteClassifier({
+        cacheScope: `${args.workspaceCwd ?? ""}:${args.taskId ?? ""}`,
         context: buildUtilityInferenceContext({
           cwd: args.workspaceCwd,
           provider: args.provider,
@@ -67,42 +79,69 @@ export async function resolveAutoRoutingForSend(args: {
         }),
       })
     : undefined;
-  return resolveAutoRoutingDecision({
-    settings: {
-      autoRoutingEnabled: state.settings.autoRoutingEnabled,
-      autoRoutingUseClassifier: state.settings.autoRoutingUseClassifier,
-      autoRoutingObjective: state.settings.autoRoutingObjective,
-      autoRoutingSafetyEscalation: state.settings.autoRoutingSafetyEscalation,
-      autoRoutingAllowProviderSwitch:
-        state.settings.autoRoutingAllowProviderSwitch,
-      autoRoutingEligibleClaudeModels:
-        state.settings.autoRoutingEligibleClaudeModels,
-      autoRoutingEligibleCodexModels:
-        state.settings.autoRoutingEligibleCodexModels,
-      autoRoutingProfile: state.settings.autoRoutingProfile,
-    },
-    runtimeOverrides: promptDraft.runtimeOverrides,
-    currentProviderId: args.provider,
-    currentModel: args.activeModel,
-    prompt: args.prompt,
-    history: args.history.map((message) => ({
-      role: message.role,
-      content: message.content,
-      providerId:
-        message.providerId === "claude-code" || message.providerId === "codex"
-          ? message.providerId
-          : undefined,
-      model: message.model,
-    })),
-    fileContextCount: args.fileContextCount,
-    phase:
-      promptDraft.runtimeOverrides?.autoRoutingPlanMode === true
-        ? "plan"
-        : "execute",
-    rateLimitsSnapshot: state.rateLimitsSnapshot,
-    providerAvailability: state.providerAvailability,
-    classifyRoute,
-  });
+  const controller = new AbortController();
+  if (args.taskId) {
+    if (pendingAutoRoutes.has(args.taskId)) throw new DOMException("Auto routing is already pending", "AbortError");
+    pendingAutoRoutes.set(args.taskId, controller);
+  }
+  let noticeId: string | undefined;
+  const noticeTimer = classifyRoute ? setTimeout(() => {
+    noticeId = toast.info("Choosing a model for this request", {
+      description: "Auto is classifying the task before starting.",
+      duration: 0,
+      action: { label: "Cancel", onClick: () => controller.abort() },
+    });
+  }, 500) : undefined;
+  try {
+    const decision = await resolveAutoRoutingDecision({
+      signal: controller.signal,
+      settings: {
+        autoRoutingEnabled: state.settings.autoRoutingEnabled,
+        autoRoutingUseClassifier: state.settings.autoRoutingUseClassifier,
+        autoRoutingObjective: state.settings.autoRoutingObjective,
+        autoRoutingSafetyEscalation: state.settings.autoRoutingSafetyEscalation,
+        autoRoutingAllowProviderSwitch:
+          state.settings.autoRoutingAllowProviderSwitch,
+        autoRoutingEligibleClaudeModels:
+          state.settings.autoRoutingEligibleClaudeModels,
+        autoRoutingEligibleCodexModels:
+          state.settings.autoRoutingEligibleCodexModels,
+        autoRoutingProfile: state.settings.autoRoutingProfile,
+      },
+      runtimeOverrides: promptDraft.runtimeOverrides,
+      currentProviderId: args.provider,
+      currentModel: args.activeModel,
+      prompt: args.prompt,
+      history: args.history.map((message) => ({
+        role: message.role,
+        content: message.content,
+        providerId:
+          message.providerId === "claude-code" || message.providerId === "codex"
+            ? message.providerId
+            : undefined,
+        model: message.model,
+      })),
+      fileContextCount: args.fileContextCount,
+      phase:
+        promptDraft.runtimeOverrides?.autoRoutingPlanMode === true
+          ? "plan"
+          : "execute",
+      rateLimitsSnapshot: state.rateLimitsSnapshot,
+      providerAvailability: state.providerAvailability,
+      classifyRoute,
+    });
+    if (controller.signal.aborted) throw new DOMException("Auto routing cancelled", "AbortError");
+    if (decision.source === "classifier_fallback") {
+      toast.warning("Model classification unavailable", {
+        description: "Auto selected a conservative route using local rules.",
+      });
+    }
+    return decision;
+  } finally {
+    clearTimeout(noticeTimer);
+    if (noticeId) toast.dismiss(noticeId);
+    if (args.taskId && pendingAutoRoutes.get(args.taskId) === controller) pendingAutoRoutes.delete(args.taskId);
+  }
 }
 
 /**

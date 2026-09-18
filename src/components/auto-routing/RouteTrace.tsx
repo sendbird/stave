@@ -190,7 +190,7 @@ export function RouteTrace(props: RouteTraceProps) {
           </span>
           <span className={sx(styles.caption)}>
             {toSourceLabel(decision.source)}
-            {decision.confidence < 1
+            {decision.confidence !== null && decision.source === "classifier" && decision.confidence < 1
               ? ` · ${Math.round(decision.confidence * 100)}% sure`
               : null}
           </span>

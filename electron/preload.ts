@@ -36,6 +36,7 @@ import type {
 } from "../src/lib/providers/provider.types";
 import type {
   RouteClassification,
+  RouteClassificationRequest,
   UtilityInferenceContext,
   UtilityInferenceMetadata,
 } from "../src/lib/providers/utility-inference";
@@ -1418,22 +1419,14 @@ contextBridge.exposeInMainWorld("api", {
         utility: UtilityInferenceMetadata;
       }>,
     classifyRoute: (
-      args: UtilityInferenceContext & {
-        prompt: string;
-        history?: Array<{
-          role: "user" | "assistant";
-          content: string;
-          providerId?: ProviderId;
-          model?: string;
-        }>;
-        fileContextCount?: number;
-      },
+      args: RouteClassificationRequest,
     ) =>
       ipcRenderer.invoke("provider:classify-route", args) as Promise<{
         ok: boolean;
         classification?: RouteClassification;
         utility: UtilityInferenceMetadata;
       }>,
+    cancelRouteClassification: (args: { requestId: string }) => ipcRenderer.invoke("provider:cancel-route-classification", args) as Promise<void>,
     enhancePrompt: (
       args: UtilityInferenceContext &
         Omit<PromptEnhancementContext, "repoGuidance"> & { prompt: string },

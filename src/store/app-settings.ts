@@ -666,7 +666,7 @@ export const defaultSettings: AppSettings = {
   promptEnhancementLearnFromEdits: true,
   promptEnhancementExemplars: [],
   autoRoutingEnabled: false,
-  autoRoutingUseClassifier: false,
+  autoRoutingUseClassifier: true,
   autoRoutingObjective: 0.5,
   autoRoutingSafetyEscalation: true,
   autoRoutingAllowProviderSwitch: false,

@@ -24,7 +24,7 @@ export const AutoRoutingModelResolutionSchema = z
       z.literal("classifier_fallback"),
     ]),
     rationale: z.string().trim().min(1).max(4_000),
-    confidence: z.number().finite().min(0).max(1),
+    confidence: z.number().finite().min(0).max(1).nullable(),
     taskType: z.union([
       z.literal("quick_edit"),
       z.literal("plan"),

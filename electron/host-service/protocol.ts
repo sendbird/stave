@@ -51,6 +51,7 @@ import type {
 } from "../../src/lib/providers/provider.types";
 import type {
   RouteClassification,
+  RouteClassificationRequest,
   UtilityInferenceContext,
   UtilityInferenceMetadata,
 } from "../../src/lib/providers/utility-inference";
@@ -286,16 +287,7 @@ export interface HostProviderSuggestTaskNameResult {
   utility: UtilityInferenceMetadata;
 }
 
-export interface HostProviderClassifyRouteArgs extends UtilityInferenceContext {
-  prompt: string;
-  history?: Array<{
-    role: "user" | "assistant";
-    content: string;
-    providerId?: StreamTurnArgs["providerId"];
-    model?: string;
-  }>;
-  fileContextCount?: number;
-}
+export type HostProviderClassifyRouteArgs = RouteClassificationRequest;
 
 export interface HostProviderClassifyRouteResult {
   ok: boolean;
@@ -805,6 +797,7 @@ export interface HostServiceRequestMap {
   };
   "provider.suggest-task-name": HostProviderSuggestTaskNameArgs;
   "provider.classify-route": HostProviderClassifyRouteArgs;
+  "provider.cancel-route-classification": { requestId: string };
   "provider.enhance-prompt": HostProviderEnhancePromptArgs;
   "provider.suggest-commit-message": HostProviderSuggestCommitMessageArgs;
   "provider.suggest-pr-description": HostProviderSuggestPRDescriptionArgs;
@@ -1106,6 +1099,7 @@ export interface HostServiceResponseMap {
   "provider.batch-write-codex-config": CodexMutationResponse;
   "provider.suggest-task-name": HostProviderSuggestTaskNameResult;
   "provider.classify-route": HostProviderClassifyRouteResult;
+  "provider.cancel-route-classification": void;
   "provider.enhance-prompt": HostProviderEnhancePromptResult;
   "provider.suggest-commit-message": HostProviderSuggestCommitMessageResult;
   "provider.suggest-pr-description": HostProviderSuggestPRDescriptionResult;

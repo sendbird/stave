@@ -411,6 +411,8 @@ export const SuggestTaskNameArgsSchema = z
 
 export const ClassifyRouteArgsSchema = z
   .object({
+    requestId: z.string().uuid().optional(),
+    phase: z.enum(["plan", "execute"]).optional(),
     cwd: z.string().max(4096).optional(),
     utilityProviderId: z.enum(["auto", "claude-code", "codex"]).optional(),
     activeProviderId: ProviderIdSchema.optional(),
@@ -434,6 +436,8 @@ export const ClassifyRouteArgsSchema = z
     fileContextCount: z.number().int().min(0).max(200).optional(),
   })
   .strict();
+
+export const CancelRouteClassificationArgsSchema = z.object({ requestId: z.string().uuid() }).strict();
 
 export const EnhancePromptArgsSchema = z
   .object({

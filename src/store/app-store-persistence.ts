@@ -374,7 +374,7 @@ export function createAppStorePersistenceOptions() {
         normalizeAutoRoutingEligibleModels(raw.autoRoutingEligibleClaudeModels);
       state.settings.autoRoutingEligibleCodexModels =
         normalizeAutoRoutingEligibleModels(raw.autoRoutingEligibleCodexModels);
-      // v1 flags become a v2 role table once; afterwards the profile is the
+      // Legacy flags become the current role table; afterwards the profile is the
       // source of truth and the flags only mirror its stance and chip lists.
       state.settings.autoRoutingProfile =
         raw.autoRoutingProfile === undefined
@@ -387,6 +387,8 @@ export function createAppStorePersistenceOptions() {
               autoRoutingEligibleCodexModels: raw.autoRoutingEligibleCodexModels,
             })
           : validateProfile(raw.autoRoutingProfile);
+      state.settings.autoRoutingUseClassifier =
+        state.settings.autoRoutingProfile.signals.classifier;
       state.settings.promptCommentShortcut = normalizePromptCommentShortcut(
         raw.promptCommentShortcut,
       );

@@ -1,106 +1,106 @@
 # Auto (Model Router)
 
-Stave Auto chooses the provider, model, and effort for a turn so users of
-several providers do not have to pick a model for every prompt. The router is a
-small, inspectable table rather than a black box: every decision names the rule
-that fired and the signals it saw, and the table is the user's to edit.
+Stave Auto picks an eligible provider, model, and effort for each turn.
+It uses existing Stave models and requires no additional service or model
+installation. Auto itself remains opt-in.
 
-## Pipeline
+## Default behavior
 
-```
-prompt + context ──▶ Signals ──▶ Task class ──▶ Role table × Stance ──▶ Route
-                                                        │
-                                              budget guard, eligibility,
-                                              provider fallback
-```
+Model classification is on by default. The Utility model reads the bounded
+request and recent conversation, then deterministic rules choose a model:
 
-1. **Signals** (`src/store/auto-routing.ts`)
-   - `taskClass` from keyword heuristics (English and Korean) and, for
-     low-confidence prompts, an optional utility-model classifier.
-   - `complexity` from prompt length and attached file context.
-   - `sensitive` for auth, secrets, payments, migrations, and production
-     wording (safety escalation).
-   - `skill` from a leading slash command such as `/ship` or `/ci-fix`.
-   - `budgetUsedPercent` from the tightest usage window of the current
-     provider (`rateLimitsSnapshot`).
-   - `lastAssistantProvider` for provider stickiness, and
-     `lastAssistantModel` for cache stickiness (step 7).
-2. **Task classes**: `plan`, `implement`, `quick-edit`, `debug`, `review`,
-   `ci-fix`, `docs`, `research`, `safety-critical`.
-3. **Role table** (`src/lib/providers/auto-routing-profile.ts`): ordered
-   rules `{ when, then, reason }`. `when` filters on task class, role, skill,
-   complexity, sensitivity, and budget use; `then` names a provider (or
-   `any-eligible` / `alternate-provider`), a tier or model, and an effort.
-   The first enabled rule that matches wins; otherwise the provider fallback
-   runs.
-4. **Roles**: the same table routes the `primary` turn, the `advisor` target,
-   the `worker` model, and `delegate` (child task) defaults. Rules without a
-   `role` filter apply to the primary only.
-   Advisor Auto uses the current user prompt's heuristic task class,
-   complexity, sensitivity, skill, and attached file count at send time, even
-   when the primary model is manually selected. The resolved Advisor stays
-   fixed for that turn; individual consult questions do not reroute it. Custom
-   Advisor rules can use those signals; the starter's default remains unchanged.
-5. **Stance**: `cost-saver`, `balanced`, or `quality-first`. The stance
-   shifts every route one rung down or up and moves the budget-guard
-   thresholds. Cost-saver also lowers effort one step; quality-first keeps the
-   rule's effort, since a stronger model at a deeper effort double-charges.
-   A profile is a role table plus a stance.
-6. **Budget guard**: above `stepDownAt` the route steps down one effort when
-   the model keeps its prompt cache across effort changes (Fable 5.1, Opus 5),
-   otherwise one rung; above `cheapestAt` the cheapest eligible model runs.
-7. **Cache stickiness**: prompt caches are model-scoped, so switching the
-   primary's model mid-task re-reads the whole conversation at the uncached
-   rate. When a primary route would only step *down* from the model that
-   answered the previous turn (same provider, still eligible), the previous
-   model is kept and the decision says so (`cacheHeldModel`). Escalations to a
-   stronger rung and the `cheapestAt` ceiling still switch.
+| Work | Default capability | Effort |
+| --- | --- | --- |
+| Clearly bounded edits or explanations | Light | Medium |
+| Ordinary connected work | Balanced | Medium |
+| Complex or uncertain work | Flagship or stronger | High |
+| Sensitive changes, with safety escalation enabled | Frontier | Medium |
 
-## Starter profiles
+Short wording alone does not prove that a task is easy. Explicit short
+continuations reuse recent user context and keep a capable model. Local
+sensitive-word matching is deliberately conservative; a discussion of a
+sensitive topic can therefore escalate when model classification is disabled or unavailable.
 
-Three starters share one role table and differ only by stance. Users clone a
-starter into a custom profile and edit rules, fallbacks, eligible models, and
-thresholds.
+The current provider stays selected unless switching is enabled or a custom
+rule explicitly selects another provider. Reviews and slash commands do not
+automatically change providers or force a light model.
 
-| Task class / role | Route | Effort | Why |
-| --- | --- | --- | --- |
-| plan, research, safety-critical | frontier | medium | Most capable model where judgment matters |
-| implement, debug | flagship | high (xhigh at high complexity, medium at low) | Strong execution; complexity moves effort, not the model |
-| quick-edit, ci-fix | flagship | medium | Same model as implement so the prompt cache survives; edits need the repo in context |
-| review | flagship on the other provider | high | Cross-model check |
-| docs | balanced | medium | Prose on the cost step-down model |
-| `/ship` | light | medium | Routine publication flow |
-| advisor role | frontier on the other provider | medium | A genuine second opinion |
-| delegate role | provider default | medium | Predictable child tasks |
+Balanced, Cost-saver, and Quality-first adjust the route within its capability
+requirements. Usage thresholds can reduce effort or model cost, but cannot
+override the primary task's capability floor. If no allowed available model
+meets that floor, Auto reports a routing error instead of silently using an
+underpowered or disallowed model.
 
-Coding classes share one flagship model and differ only by effort. Both
-vendors advise lowering effort before lowering the model, a model switch
-always invalidates the prompt cache, and a light model given a deep budget
-mostly buys tokens (Luna scores 41% on 8-needle MRCR whatever the effort).
-When a rule names a tier without an effort, the router's ladder applies:
-frontier medium, flagship high, balanced high, light medium. The manual model
-picker's defaults in `MODEL_CAPABILITIES` follow the same vendor-recommended
-values.
+The previous eligible model stays selected when the next route would only
+downgrade it on the same provider. A clearly new task, an escalation, or the
+hard budget threshold can change it. Uncertain continuations preserve the
+capable previous model even at that threshold.
 
-## Where decisions are shown
+## Model intent classification
 
-- Composer Auto pill: `Auto · Balanced` before the first routed turn, then
-  `Auto → Opus 5 · High`; the tooltip carries the rule reason and signals.
-- Model resolution summary on the turn: routed target, task class · stance,
-  source, rule, and signals.
-- Settings › Auto (Model Router): profile picker, stance, role-table editor,
-  budget guard, signals, eligible models, and a dry-run tester that resolves a
-  pasted prompt without calling any provider.
+Auto uses the configured Utility model for intent classification by default.
+Advanced settings can explicitly disable it for local-only routing. If no
+model or provider is configured, it uses Codex's existing Utility default
+(Luna). The classifier returns strictly validated intent, complexity,
+risk, continuity, and evidence codes. It never selects tools, permissions,
+approval policy, or execution mode.
 
-## Settings and persistence
+Each request has a 30-second deadline including readiness checks, one selected
+provider, and at most one model execution. Unavailable authentication, invalid
+JSON, timeout, or failure produces a conservative local route. Cancellation
+interrupts classification and prevents the primary turn from starting.
+Classification adds latency; the deadline is not a model speed guarantee. A
+progress notice appears after 500ms with a Cancel action. Failures show an
+explicit fallback notice. Successful classifications determine the route even
+when they take several seconds.
 
-`settings.autoRoutingProfile` stores the versioned profile
-(`AUTO_ROUTING_PROFILE_VERSION`). Legacy flags (`autoRoutingObjective`,
-eligible-model lists, classifier and escalation toggles) migrate into the
-profile on load; `autoRoutingEnabled` remains the kill switch.
+Only bounded context is sent: up to 4,000 prompt characters and the last six
+messages with up to 500 characters each. Successful results are cached for
+60 seconds for the exact bounded input, selected model, workspace, and task;
+failures are not cached. The cache holds at most 64 entries. Readiness checks
+share concurrent requests and cache positive results for 30 seconds, with
+invalidation after runner failures.
 
-## Pricing
+Codex classification uses a fresh ephemeral thread on the shared App Server.
+Its reduced instructions omit project guidance and restrict skill context.
+Shell, image, apps, web, and configured MCP tools remain disabled. Primary
+secrets and resume IDs are not forwarded. No classifier conversation or
+background keep-alive model loop accumulates tokens between requests.
+Other utility calls and primary sessions keep their existing behavior.
 
-`MODEL_PRICING` records list prices where known, for display and ordering. When
-a model has no entry (runtime catalogs, unknown ids) the router falls back to
-tier order.
+## Settings and saved profiles
+
+The composer shows three preferences. Settings shows the enable switch,
+preference, and eligible models first. Advanced settings contains budget and
+signal controls, model classification, the usage wizard, rule editing,
+and a local rule preview. The preview makes no AI call and can differ from an
+classifier result.
+
+Changing preference preserves saved rules, signals, eligible models, and
+manually customized budget thresholds. Existing saved rules survive profile
+validation. **Reset rules to defaults** explicitly replaces them with the
+current six-rule table while preserving other settings.
+
+The table has four primary rules (sensitive, complex, ordinary, bounded), an
+Advisor default, and a delegated-task default. Worker defaults remain under
+the Worker preset unless a Worker rule is configured. Custom rules can still
+match task class, skill, role, complexity, sensitivity, and usage. Their
+primary routes obey eligibility and capability requirements.
+
+The usage wizard inserts inferred class and skill rules before generic
+complexity defaults, while keeping safety rules ahead of those suggestions.
+Historical model choice is evidence of preference, not proof of quality.
+
+## Decision records
+
+The composer and turn details show the chosen model, effort, rule, signals,
+and classification source. Routed decisions do not display invented
+confidence percentages. Manual selections and disabled Auto retain their
+existing behavior, and the selected model still passes the ordinary
+account-usage guard before execution.
+
+Profile version 4 enables model-first classification for legacy settings and
+older profiles, while retaining saved custom tables and model eligibility. An
+explicit classification opt-out saved in version 4 is respected. Auto itself
+remains off unless the user enables it. Model prices, where
+available, are used for display and ordering rather than promised savings.
