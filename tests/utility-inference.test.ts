@@ -13,6 +13,7 @@ import {
   UTILITY_CODEX_FAST_MODE,
   UTILITY_CODEX_REASONING_EFFORT,
   parseRouteClassification,
+  resolveRouteClassificationTarget,
 } from "../src/lib/providers/utility-inference";
 
 function createRunners(args: {
@@ -134,6 +135,24 @@ describe("parseRouteClassification", () => {
         '{"taskType":"unknown","complexity":"high","recommendedTier":"heavy","confidence":0.82}',
       ),
     ).toBeNull();
+  });
+});
+
+describe("resolveRouteClassificationTarget", () => {
+  test("preserves an explicit supported provider and its configured model", () => {
+    expect(
+      resolveRouteClassificationTarget({
+        utilityProviderId: "claude-code",
+        utilityModel: "claude-haiku-4-5",
+      }),
+    ).toEqual({ providerId: "claude-code", model: "claude-haiku-4-5" });
+  });
+
+  test("defaults to Codex when no provider or model is configured", () => {
+    expect(resolveRouteClassificationTarget({})).toEqual({
+      providerId: "codex",
+      model: "gpt-5.6-luna",
+    });
   });
 });
 

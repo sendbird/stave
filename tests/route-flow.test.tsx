@@ -13,8 +13,57 @@ import { computeRouterSignals, summarizeRouterSignals } from "@/store/auto-routi
 const PLAN_PROMPT =
   "Plan how to move the terminal host to a single close pipeline. Which modules change, in what order, and what could break?";
 
-function renderPlanFlow(options: { compact?: boolean } = {}) {
+function buildRouteFlowProfile() {
   const profile = buildStarterProfile("balanced");
+  profile.rules = [
+    {
+      id: "safety-critical",
+      when: { taskClass: "safety-critical", sensitive: true },
+      then: { providerId: "any-eligible" },
+      reason: "Escalate safety-critical work.",
+      enabled: true,
+    },
+    {
+      id: "skill-ship",
+      when: { skill: ["ship"] },
+      then: { providerId: "any-eligible" },
+      reason: "Use the shipping route.",
+      enabled: true,
+    },
+    {
+      id: "budget-cheapest",
+      when: { budgetUsedAtLeast: 97 },
+      then: { providerId: "any-eligible" },
+      reason: "Use the cheapest route at the budget limit.",
+      enabled: true,
+    },
+    {
+      id: "plan",
+      when: { taskClass: "plan" },
+      then: { providerId: "any-eligible" },
+      reason: "Route planning work.",
+      enabled: true,
+    },
+    {
+      id: "implement",
+      when: { taskClass: "implement" },
+      then: { providerId: "any-eligible" },
+      reason: "Route implementation work.",
+      enabled: true,
+    },
+    {
+      id: "advisor-default",
+      when: { role: "advisor" },
+      then: { providerId: "any-eligible" },
+      reason: "Route advisor work.",
+      enabled: true,
+    },
+  ];
+  return profile;
+}
+
+function renderPlanFlow(options: { compact?: boolean } = {}) {
+  const profile = buildRouteFlowProfile();
   const { signals } = computeRouterSignals({
     prompt: PLAN_PROMPT,
     fileContextCount: 0,
@@ -101,7 +150,7 @@ describe("RouteFlow", () => {
   });
 
   test("shows a lit fallback node when no rule matched", () => {
-    const profile = buildStarterProfile("balanced");
+    const profile = buildRouteFlowProfile();
     profile.rules = profile.rules.filter((rule) => rule.id !== "plan");
     const { signals } = computeRouterSignals({
       prompt: PLAN_PROMPT,

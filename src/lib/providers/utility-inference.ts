@@ -84,9 +84,15 @@ export type UtilityInferenceContext = {
 /** One predictable classifier target, shared by usage guarding and execution. */
 export function resolveRouteClassificationTarget(context: UtilityInferenceContext) {
   const configured = context.utilityModel?.trim();
-  const providerId = context.utilityProviderId === "claude-code" || context.utilityProviderId === "codex"
-    ? context.utilityProviderId
-    : configured ? inferProviderIdFromModel({ model: configured }) : "codex";
+  const inferredProviderId = configured
+    ? inferProviderIdFromModel({ model: configured })
+    : undefined;
+  const providerId: Exclude<UtilityInferenceProvider, "auto"> =
+    context.utilityProviderId === "claude-code" || context.utilityProviderId === "codex"
+      ? context.utilityProviderId
+      : inferredProviderId === "claude-code" || inferredProviderId === "codex"
+        ? inferredProviderId
+        : "codex";
   const model = configured && inferProviderIdFromModel({ model: configured }) === providerId
     ? configured : getUtilityInferenceCapability({ providerId }).defaultModel;
   return { providerId, model };
