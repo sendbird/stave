@@ -5,15 +5,18 @@
 * Classify Auto intent with the Utility model before choosing an execution model, migrate existing profiles to model-first routing while keeping custom rules, and allow an explicit opt-out on the new profile version.
 * Open a read-only detail dialog from a subagent, worker, or child-task row with the assignment, live or saved activity, result, and model/effort labelled as requested, configured, or runtime-reported.
 * Recover a crashed Lens session on retry, preserve login-popup opener links and POST data, add DevTools for the current page, and enrich inspect with React component metadata plus faster pointer tracking.
+* Select numbered Lens page pins in the feedback editor, drop unchecked comments before send, keep intent/priority in secondary options, and pause or resume agent access from trusted renderer controls so resume cannot revive older command leases.
+* Compare sent Lens feedback with a fresh visible target capture — page identity, viewport, unique selection, and movement — before showing evidence, and keep bounded memory-only session captures in expanded browser tool details.
 
 ### Bug Fixes
 
 * Render completed agent rows below the "N done" toggle in the Task Activity work graph.
 * Expose `stave_consult_advisor` when a Codex native thread is reused, instead of only showing the Advisor notice.
+* Discard pending Lens annotation images when their comment is removed or the owning view changes.
 
 ### References
 
-* [#557](https://github.com/sendbird/stave/pull/557), [#558](https://github.com/sendbird/stave/pull/558), [#559](https://github.com/sendbird/stave/pull/559), [#560](https://github.com/sendbird/stave/pull/560), [#561](https://github.com/sendbird/stave/pull/561)
+* [#557](https://github.com/sendbird/stave/pull/557), [#558](https://github.com/sendbird/stave/pull/558), [#559](https://github.com/sendbird/stave/pull/559), [#560](https://github.com/sendbird/stave/pull/560), [#561](https://github.com/sendbird/stave/pull/561), [#563](https://github.com/sendbird/stave/pull/563)
 ## [0.19.3](https://github.com/sendbird/stave/compare/v0.19.2...v0.19.3) (2026-09-17)
 
 ### Features
