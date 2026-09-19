@@ -29,7 +29,7 @@ export interface AutoRoutingModelResolution {
   selectedModel: string;
   source: "heuristic" | "classifier" | "classifier_fallback";
   rationale: string;
-  confidence: number;
+  confidence: number | null;
   taskType:
     | "quick_edit"
     | "plan"

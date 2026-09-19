@@ -1,9 +1,10 @@
+import { boundRouteIntentInput, ROUTE_INTENT_VERSION, RouteIntentResultSchema } from "@/lib/providers/route-intent";
 import {
   buildSuggestTaskNamePayload,
   normalizeSuggestedTaskTitle,
   shouldSuggestTaskName,
 } from "@/lib/tasks";
-import type { UtilityInferenceContext } from "@/lib/providers/utility-inference";
+import { resolveRouteClassificationTarget, type UtilityInferenceContext } from "@/lib/providers/utility-inference";
 import type { AuxLaneRuntime } from "@/lib/providers/auxiliary-inference-policy";
 import {
   reportUtilityInferenceError,
@@ -17,11 +18,15 @@ import type { ChatMessage, Task } from "@/types/chat";
 import { isAccountUsageBlockingFromState } from "@/store/account-usage-guard";
 import { useAppStore } from "@/store/app.store";
 
+const routeCache = new Map<string, { result: AutoRoutingClassifierResult; expiresAt: number }>();
+
 export function createUtilityRouteClassifier(args: {
+  cacheScope?: string;
   context: UtilityInferenceContext;
 }):
   | ((
       request: AutoRoutingClassifierRequest,
+      signal?: AbortSignal,
     ) => Promise<AutoRoutingClassifierResult | null>)
   | undefined {
   const classifyRoute = window.api?.provider?.classifyRoute;
@@ -33,51 +38,50 @@ export function createUtilityRouteClassifier(args: {
     return undefined;
   }
 
-  return async (request) => {
-    const utilityProviderId =
-      args.context.utilityProviderId === "claude-code" ||
-      args.context.utilityProviderId === "codex"
-        ? args.context.utilityProviderId
-        : (args.context.activeProviderId ?? "claude-code");
+  return async (request, signal) => {
+    if (signal?.aborted) return null;
+    const input = boundRouteIntentInput(request);
+    const target = resolveRouteClassificationTarget(args.context);
+    const cacheKey = JSON.stringify([args.cacheScope, ROUTE_INTENT_VERSION, target.providerId, target.model, input]);
+    const cached = args.cacheScope ? routeCache.get(cacheKey) : undefined;
+    if (cached && cached.expiresAt > Date.now()) return cached.result;
+    const requestId = crypto.randomUUID();
+    const cancel = () => { void window.api?.provider?.cancelRouteClassification?.({ requestId }).catch(() => {}); };
+
     if (
       isAccountUsageBlockingFromState({
-        providerId: utilityProviderId,
-        model: args.context.utilityModel,
+        providerId: target.providerId,
+        model: target.model,
         state: useAppStore.getState(),
       })
     ) {
       return null;
     }
+    signal?.addEventListener("abort", cancel, { once: true });
     try {
-      const result = await classifyRoute({
-        ...args.context,
-        prompt: request.prompt,
-        history: request.history.map((message) => ({
-          role: message.role,
-          content: message.content,
-          providerId:
-            message.providerId === "claude-code" ||
-            message.providerId === "codex"
-              ? message.providerId
-              : undefined,
-          model: message.model,
-        })),
-        fileContextCount: request.fileContextCount,
-      });
+      if (signal?.aborted) return null;
+      const result = await classifyRoute({ ...args.context, ...input, requestId });
+      if (signal?.aborted) return null;
       reportUtilityInferenceOutcome({
         feature: "route-classification",
         ok: result.ok,
         utility: result.utility,
       });
-      return result.ok && result.classification
-        ? { ...result.classification }
-        : null;
+      const parsed = RouteIntentResultSchema.safeParse(result.classification);
+      if (!result.ok || !parsed.success) return null;
+      if (args.cacheScope) {
+        routeCache.set(cacheKey, { result: parsed.data, expiresAt: Date.now() + 60_000 });
+        if (routeCache.size > 64) routeCache.delete(routeCache.keys().next().value!);
+      }
+      return parsed.data;
     } catch (error) {
       reportUtilityInferenceError({
         feature: "route-classification",
         error,
       });
       return null;
+    } finally {
+      signal?.removeEventListener("abort", cancel);
     }
   };
 }

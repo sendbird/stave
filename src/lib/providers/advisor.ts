@@ -101,33 +101,37 @@ export function resolveAdvisorAutoTarget(args: {
   if (!isAutoAdvisorTarget(args.target)) {
     return args.target;
   }
-  const route = resolveRoute({
-    profile: args.profile,
-    role: "advisor",
-    signals: {
-      ...buildRoleSignals({
+  try {
+    const route = resolveRoute({
+      profile: args.profile,
+      role: "advisor",
+      signals: {
+        ...buildRoleSignals({
+          currentProviderId: args.primaryProviderId,
+          currentModel: args.primaryModel,
+          budgetUsedPercent: args.budgetUsedPercent,
+          providerAvailability: args.providerAvailability,
+        }),
+        ...args.signals,
         currentProviderId: args.primaryProviderId,
         currentModel: args.primaryModel,
-        budgetUsedPercent: args.budgetUsedPercent,
-        providerAvailability: args.providerAvailability,
-      }),
-      ...args.signals,
-      currentProviderId: args.primaryProviderId,
-      currentModel: args.primaryModel,
-    },
-  });
-  if (route.providerId !== "claude-code" && route.providerId !== "codex") {
+      },
+    });
+    if (route.providerId !== "claude-code" && route.providerId !== "codex") {
+      return null;
+    }
+    const effort = normalizeAdvisorEffort({
+      providerId: route.providerId,
+      value: route.effort,
+    });
+    return {
+      providerId: route.providerId,
+      model: route.model,
+      ...(effort ? { effort } : {}),
+    };
+  } catch {
     return null;
   }
-  const effort = normalizeAdvisorEffort({
-    providerId: route.providerId,
-    value: route.effort,
-  });
-  return {
-    providerId: route.providerId,
-    model: route.model,
-    ...(effort ? { effort } : {}),
-  };
 }
 
 /**

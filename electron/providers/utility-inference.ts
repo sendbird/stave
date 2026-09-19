@@ -1,3 +1,4 @@
+import { ROUTE_CLASSIFICATION_DEADLINE_MS } from "../../src/lib/providers/route-intent";
 import fs from "node:fs/promises";
 import path from "node:path";
 import {
@@ -6,6 +7,7 @@ import {
 } from "../../src/lib/providers/prompt-enhancement-context";
 import type {
   RouteClassification,
+  RouteClassificationRequest,
   UtilityInferenceContext,
   UtilityInferenceMetadata,
   UtilityInferenceSelectionReason,
@@ -22,7 +24,9 @@ import {
   parseCommitMessageInference,
   parsePromptEnhancementInference,
   parseRouteClassification,
+  resolveRouteClassificationTarget,
   parseTaskNameInference,
+  createUnavailableUtilityInferenceMetadata,
 } from "../../src/lib/providers/utility-inference";
 import {
   getUtilityInferenceCapability,
@@ -32,6 +36,7 @@ import { inspectUtilityRunnerReadiness } from "../main/utils/tooling-status";
 import { runAcpUtilityPrompt } from "./acp/acp-utility-prompt";
 import { runClaudeReadOnlyPrompt } from "./claude-sdk-runtime";
 import { runCodexReadOnlyPrompt } from "./codex-app-server-runtime";
+import { createUtilityReadinessCache } from "./utility-readiness-cache";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
 
 type ReadOnlyPromptResult = {
@@ -48,6 +53,8 @@ export type UtilityInferenceRunners = Record<
     cwd?: string;
     prompt: string;
     model: string;
+    signal?: AbortSignal;
+    routeClassification?: boolean;
     runtimeOptions?: UtilityInferenceContext["runtimeOptions"];
   }) => Promise<ReadOnlyPromptResult>
 >;
@@ -128,17 +135,35 @@ export function resolveUtilityMaxProviderAttempts(
   );
 }
 
+const utilityReadinessCache = createUtilityReadinessCache();
+
+function utilityReadinessKey(args: {
+  providerId: UtilityRunnerProviderId;
+  runtimeOptions?: UtilityInferenceContext["runtimeOptions"];
+}) {
+  const options = args.runtimeOptions;
+  return JSON.stringify([
+    args.providerId,
+    options?.claudeBinaryPath,
+    options?.codexBinaryPath,
+    options?.cursorBinaryPath,
+    options?.kiroBinaryPath,
+  ]);
+}
+
 export async function defaultUtilityAuthGate(args: {
   providerId: UtilityRunnerProviderId;
   runtimeOptions?: UtilityInferenceContext["runtimeOptions"];
 }) {
-  return inspectUtilityRunnerReadiness({
-    providerId: args.providerId,
-    claudeBinaryPath: args.runtimeOptions?.claudeBinaryPath,
-    codexBinaryPath: args.runtimeOptions?.codexBinaryPath,
-    cursorBinaryPath: args.runtimeOptions?.cursorBinaryPath,
-    kiroBinaryPath: args.runtimeOptions?.kiroBinaryPath,
-  });
+  return utilityReadinessCache.get(utilityReadinessKey(args), () =>
+    inspectUtilityRunnerReadiness({
+      providerId: args.providerId,
+      claudeBinaryPath: args.runtimeOptions?.claudeBinaryPath,
+      codexBinaryPath: args.runtimeOptions?.codexBinaryPath,
+      cursorBinaryPath: args.runtimeOptions?.cursorBinaryPath,
+      kiroBinaryPath: args.runtimeOptions?.kiroBinaryPath,
+    }),
+  );
 }
 
 function allowAllAuthGate(): Promise<{ ready: boolean }> {
@@ -175,6 +200,7 @@ function defaultRunners(): UtilityInferenceRunners {
         prompt: args.prompt,
         model: args.model,
         runtimeOptions: args.runtimeOptions,
+        signal: args.signal,
       });
       return {
         ok: result.ok,
@@ -191,6 +217,7 @@ function defaultRunners(): UtilityInferenceRunners {
         prompt: args.prompt,
         model: args.model,
         runtimeOptions: args.runtimeOptions,
+        signal: args.signal,
       });
       return {
         ok: result.ok,
@@ -209,6 +236,8 @@ async function executeUtilityInference<T>(args: {
   parse: (text: string) => T | null;
   runners?: UtilityInferenceRunners;
   authGate?: UtilityInferenceAuthGate;
+  signal?: AbortSignal;
+  routeClassification?: boolean;
 }): Promise<{ value: T | null; utility: UtilityInferenceMetadata }> {
   const attempts: UtilityInferenceMetadata["attempts"] = [];
   const runners = args.runners ?? defaultRunners();
@@ -217,7 +246,8 @@ async function executeUtilityInference<T>(args: {
 
   const maxAttempts = resolveUtilityMaxProviderAttempts(args.context);
   let executedRuns = 0;
-  for (const candidate of resolveUtilityInferenceCandidates(args.context)) {
+  for (const candidate of resolveUtilityInferenceCandidates(args.context).slice(0, args.routeClassification ? 1 : undefined)) {
+    if (args.signal?.aborted) break;
     if (executedRuns >= maxAttempts) {
       break;
     }
@@ -247,7 +277,7 @@ async function executeUtilityInference<T>(args: {
         candidate.providerId
         ? configuredModel
         : capability.defaultModel;
-    if (hasAttemptedRunner) {
+    if (hasAttemptedRunner || args.signal) {
       const auth = await authGate({
         providerId: candidate.providerId,
         runtimeOptions: args.context.runtimeOptions,
@@ -262,6 +292,7 @@ async function executeUtilityInference<T>(args: {
         continue;
       }
     }
+    if (args.signal?.aborted) break;
     try {
       hasAttemptedRunner = true;
       executedRuns += 1;
@@ -270,7 +301,16 @@ async function executeUtilityInference<T>(args: {
         prompt: args.prompt,
         model,
         runtimeOptions: args.context.runtimeOptions,
+        signal: args.signal,
+        ...(args.routeClassification ? { routeClassification: true } : {}),
       });
+      if (!result.ok && !result.aborted && !args.signal?.aborted) {
+        utilityReadinessCache.invalidate(utilityReadinessKey({
+          providerId: candidate.providerId,
+          runtimeOptions: args.context.runtimeOptions,
+        }));
+      }
+      if (args.signal?.aborted) break;
       const parsed = result.ok && result.text ? args.parse(result.text) : null;
       const effectiveModel = result.resolvedModel ?? model;
       attempts.push({
@@ -295,6 +335,12 @@ async function executeUtilityInference<T>(args: {
         };
       }
     } catch (error) {
+      if (!args.signal?.aborted) {
+        utilityReadinessCache.invalidate(utilityReadinessKey({
+          providerId: candidate.providerId,
+          runtimeOptions: args.context.runtimeOptions,
+        }));
+      }
       attempts.push({
         providerId: candidate.providerId,
         model,
@@ -344,36 +390,63 @@ export async function suggestUtilityTaskName(
   };
 }
 
+const routeClassificationControllers = new Map<string, AbortController>();
+
+export function cancelUtilityRouteClassification(requestId: string) {
+  routeClassificationControllers.get(requestId)?.abort();
+}
+
 export async function classifyUtilityRoute(
-  args: UtilityInferenceContext & {
-    prompt: string;
-    history?: Array<{
-      role: "user" | "assistant";
-      content: string;
-      providerId?: ProviderId;
-      model?: string;
-    }>;
-    fileContextCount?: number;
-  },
+  args: RouteClassificationRequest,
   runners?: UtilityInferenceRunners,
   authGate?: UtilityInferenceAuthGate,
-): Promise<{
-  ok: boolean;
-  classification?: RouteClassification;
-  utility: UtilityInferenceMetadata;
-}> {
-  const result = await executeUtilityInference({
-    context: args,
-    prompt: buildRouteClassificationPrompt(args),
-    parse: parseRouteClassification,
-    runners,
-    authGate,
-  });
-  return {
-    ok: result.value !== null,
-    classification: result.value ?? undefined,
-    utility: result.utility,
+): Promise<{ ok: boolean; classification?: RouteClassification; utility: UtilityInferenceMetadata }> {
+  const controller = new AbortController();
+  if (args.requestId) {
+    routeClassificationControllers.get(args.requestId)?.abort();
+    routeClassificationControllers.set(args.requestId, controller);
+  }
+  const unavailable = {
+    value: null,
+    utility: createUnavailableUtilityInferenceMetadata("Route classification was cancelled or exceeded its deadline."),
   };
+  const interrupted = new Promise<typeof unavailable>((resolve) => {
+    controller.signal.addEventListener("abort", () => resolve(unavailable), { once: true });
+  });
+  const timeout = setTimeout(() => controller.abort(), ROUTE_CLASSIFICATION_DEADLINE_MS);
+  try {
+    // Classification is an isolated utility operation. Only installation paths
+    // cross from primary runtime settings; never secrets, sessions, or tools.
+    const options = args.runtimeOptions;
+    const target = resolveRouteClassificationTarget(args);
+    const result = await Promise.race([
+      executeUtilityInference({
+        context: {
+          ...args,
+          utilityProviderId: target.providerId,
+          utilityModel: target.model,
+          utilityMaxProviderAttempts: 1,
+          runtimeOptions: {
+            claudeBinaryPath: options?.claudeBinaryPath,
+            codexBinaryPath: options?.codexBinaryPath,
+            cursorBinaryPath: options?.cursorBinaryPath,
+            kiroBinaryPath: options?.kiroBinaryPath,
+          },
+        },
+        prompt: buildRouteClassificationPrompt(args),
+        parse: parseRouteClassification,
+        routeClassification: true,
+        runners, authGate, signal: controller.signal,
+      }),
+      interrupted,
+    ]);
+    return { ok: result.value !== null, classification: result.value ?? undefined, utility: result.utility };
+  } finally {
+    clearTimeout(timeout);
+    if (args.requestId && routeClassificationControllers.get(args.requestId) === controller) {
+      routeClassificationControllers.delete(args.requestId);
+    }
+  }
 }
 
 export async function suggestUtilityCommitMessage(

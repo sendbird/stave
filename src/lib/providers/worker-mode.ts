@@ -954,34 +954,38 @@ export function resolveRoutedWorkerModel(args: {
   runtimeModels?: readonly string[];
   budgetUsedPercent?: number;
 }): { model: string; effort: WorkerEffort | null; ruleId: string; reason: string } | null {
-  const route = resolveRoute({
-    profile: args.profile,
-    role: "worker",
-    signals: buildRoleSignals({
-      currentProviderId: args.providerId,
-      currentModel: args.primaryModel,
-      budgetUsedPercent: args.budgetUsedPercent,
-    }),
-    runtimeModelsByProvider: args.runtimeModels
-      ? { [args.providerId]: args.runtimeModels }
-      : undefined,
-  });
-  if (
-    !route.ruleId ||
-    route.providerId !== args.providerId ||
-    !isWorkerCapableModel({
-      providerId: args.providerId,
-      model: route.model,
-      runtimeModels: args.runtimeModels,
-    })
-  ) {
+  try {
+    const route = resolveRoute({
+      profile: args.profile,
+      role: "worker",
+      signals: buildRoleSignals({
+        currentProviderId: args.providerId,
+        currentModel: args.primaryModel,
+        budgetUsedPercent: args.budgetUsedPercent,
+      }),
+      runtimeModelsByProvider: args.runtimeModels
+        ? { [args.providerId]: args.runtimeModels }
+        : undefined,
+    });
+    if (
+      !route.ruleId ||
+      route.providerId !== args.providerId ||
+      !isWorkerCapableModel({
+        providerId: args.providerId,
+        model: route.model,
+        runtimeModels: args.runtimeModels,
+      })
+    ) {
+      return null;
+    }
+    const effort =
+      route.effort && WORKER_EFFORT_ORDER.includes(route.effort as WorkerEffort)
+        ? (route.effort as WorkerEffort)
+        : null;
+    return { model: route.model, effort, ruleId: route.ruleId, reason: route.reason };
+  } catch {
     return null;
   }
-  const effort =
-    route.effort && WORKER_EFFORT_ORDER.includes(route.effort as WorkerEffort)
-      ? (route.effort as WorkerEffort)
-      : null;
-  return { model: route.model, effort, ruleId: route.ruleId, reason: route.reason };
 }
 
 /**

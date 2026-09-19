@@ -290,7 +290,7 @@ describe("buildProfileFromUsage", () => {
     expect(profile.name).toBe(USAGE_PROFILE_NAME);
 
     const plan = findRule(profile.rules, (rule) => rule.when.taskClass === "plan");
-    expect(plan.id).toBe("plan");
+    expect(plan.id).toBe("usage-plan");
     expect(plan.then).toEqual({
       providerId: "claude-code",
       model: DEFAULT_CLAUDE_OPUS_MODEL,
@@ -316,16 +316,14 @@ describe("buildProfileFromUsage", () => {
       model: DEFAULT_CLAUDE_HAIKU_MODEL,
     });
 
-    // Two debug samples sit under the default minimum of three.
-    const debug = findRule(profile.rules, (rule) => rule.when.taskClass === "debug");
-    expect(debug.then).toEqual({
-      providerId: "any-eligible",
-      tier: "flagship",
-      effort: "high",
-    });
+    // Insufficient samples retain generic complexity defaults.
+    expect(profile.rules.some((rule) => rule.when.taskClass === "debug")).toBe(false);
+    expect(profile.rules.find((rule) => rule.id === "complex")).toEqual(
+      base.rules.find((rule) => rule.id === "complex"),
+    );
 
     const ship = findRule(profile.rules, (rule) => rule.when.skill?.[0] === "ship");
-    expect(ship.id).toBe("skill-ship");
+    expect(ship.id).toBe("usage-skill-ship");
     expect(ship.then).toEqual({
       providerId: "claude-code",
       model: DEFAULT_CLAUDE_HAIKU_MODEL,
@@ -343,7 +341,6 @@ describe("buildProfileFromUsage", () => {
     expect(planChange).toEqual({
       kind: "rule",
       taskClass: "plan",
-      before: "Frontier tier · Medium",
       after: "Claude Opus 5 (Claude) · Medium",
       evidence: "You usually run plan prompts on Claude Opus 5 (5 of 6 turns)",
     });
@@ -352,7 +349,7 @@ describe("buildProfileFromUsage", () => {
     expect(profile.stance).toBe("balanced");
   });
 
-  test("keeps role and budget rules first, then skills, safety, classes", () => {
+  test("keeps safety ahead of inferred rules and complexity defaults last", () => {
     const base = buildStarterProfile("starter-balanced");
     const { profile } = buildProfileFromUsage(analyzeUsage(buildFixture()), {
       base,
@@ -361,10 +358,11 @@ describe("buildProfileFromUsage", () => {
     const ids = profile.rules.map((rule) => rule.id);
     const indexOf = (id: string) => ids.indexOf(id);
     expect(indexOf("advisor-default")).toBe(0);
-    expect(indexOf("budget-cheapest")).toBeLessThan(indexOf("skill-ship"));
-    expect(indexOf("skill-ship")).toBeLessThan(indexOf("safety-critical"));
-    expect(indexOf("safety-critical")).toBeLessThan(indexOf("plan"));
-    expect(profile.rules).toHaveLength(base.rules.length);
+    expect(indexOf("delegate-default")).toBeLessThan(indexOf("safety-critical"));
+    expect(indexOf("safety-critical")).toBeLessThan(indexOf("usage-skill-ship"));
+    expect(indexOf("usage-skill-ship")).toBeLessThan(indexOf("usage-plan"));
+    expect(indexOf("usage-plan")).toBeLessThan(indexOf("complex"));
+    expect(profile.rules).toHaveLength(base.rules.length + 5);
   });
 
   test("inserts a new skill rule when the base has none", () => {
@@ -415,8 +413,10 @@ describe("buildProfileFromUsage", () => {
     expect(changes.map(wizardChangeKey)).toEqual(["class:debug"]);
     const debug = findRule(profile.rules, (rule) => rule.when.taskClass === "debug");
     expect(debug.then.model).toBe(DEFAULT_CLAUDE_SONNET_MODEL);
-    const plan = findRule(profile.rules, (rule) => rule.when.taskClass === "plan");
-    expect(plan.then.model).toBeUndefined();
+    expect(profile.rules.some((rule) => rule.when.taskClass === "plan")).toBe(false);
+    expect(profile.rules.find((rule) => rule.id === "standard")).toEqual(
+      base.rules.find((rule) => rule.id === "standard"),
+    );
   });
 
   test("empty analysis produces no changes and an untouched rule table", () => {

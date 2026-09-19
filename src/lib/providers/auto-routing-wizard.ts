@@ -529,8 +529,7 @@ function includesSkill(include: WizardInclude | undefined, skill: string) {
 
 /**
  * Proposes a custom profile from the analysis. Rule order after the rebuild:
- * role/budget rules from the base first, then skill rules, then the
- * safety-critical class rule, then the remaining class rules.
+ * role/budget rules first, then safety, skills, classes, and complexity defaults.
  */
 export function buildProfileFromUsage(
   analysis: UsageAnalysis,
@@ -542,6 +541,7 @@ export function buildProfileFromUsage(
   profile.name = opts.name ?? USAGE_PROFILE_NAME;
 
   const head: RouteRule[] = [];
+  const complexityRules: RouteRule[] = [];
   let skillRules: RouteRule[] = [];
   let safetyRules: RouteRule[] = [];
   let classRules: RouteRule[] = [];
@@ -552,6 +552,8 @@ export function buildProfileFromUsage(
       safetyRules.push(entry);
     } else if (entry.when.taskClass) {
       classRules.push(entry);
+    } else if (!entry.when.role && entry.when.complexity) {
+      complexityRules.push(entry);
     } else {
       head.push(entry);
     }
@@ -624,7 +626,7 @@ export function buildProfileFromUsage(
   // Only regroup when a rule actually changed; an empty analysis leaves the
   // base table byte-for-byte intact.
   if (changes.length > 0) {
-    profile.rules = [...head, ...skillRules, ...safetyRules, ...classRules];
+    profile.rules = [...head, ...safetyRules, ...skillRules, ...classRules, ...complexityRules];
   }
 
   if (

@@ -2152,6 +2152,7 @@ export const useAppStore = create<AppState>()(
           }
 
           const autoRoutingDecision = await resolveAutoRoutingForSend({
+            taskId: resolvedTaskId,
             state,
             promptDraft,
             provider,
@@ -2161,6 +2162,14 @@ export const useAppStore = create<AppState>()(
             fileContextCount: resolvedFileContexts.length,
             workspaceCwd,
           });
+          const afterRouting = get();
+          const routedSession = getWorkspaceSessionForState({ state: afterRouting, workspaceId: taskWorkspaceId });
+          if (!routedSession?.tasks.some((entry) => entry.id === resolvedTaskId)
+            || routedSession.activeTurnIdsByTask[resolvedTaskId]
+            || (autoRoutingDecision && !afterRouting.settings.autoRoutingEnabled)) {
+            submittedPromptDraft.restore();
+            return { status: "blocked" } satisfies SendUserMessageResult;
+          }
           if (autoRoutingDecision) {
             provider = autoRoutingDecision.providerId;
             activeModel = autoRoutingDecision.model;
@@ -2998,6 +3007,10 @@ export const useAppStore = create<AppState>()(
             turnId,
           } satisfies SendUserMessageResult;
         } catch (error) {
+          if (error instanceof Error && error.name === "AbortError") {
+            submittedPromptDraft.restore();
+            return { status: "blocked" } satisfies SendUserMessageResult;
+          }
           if (
             queuedTurnToSend ||
             turnOrigin !== "conversation" ||

@@ -44,6 +44,7 @@ import type {
 } from "@/lib/providers/provider.types";
 import type {
   RouteClassification,
+  RouteClassificationRequest,
   UtilityInferenceContext,
   UtilityInferenceMetadata,
 } from "@/lib/providers/utility-inference";
@@ -556,21 +557,13 @@ interface WindowProviderApi {
     utility: UtilityInferenceMetadata;
   }>;
   classifyRoute?: (
-    args: UtilityInferenceContext & {
-      prompt: string;
-      history?: Array<{
-        role: "user" | "assistant";
-        content: string;
-        providerId?: ProviderId;
-        model?: string;
-      }>;
-      fileContextCount?: number;
-    },
+    args: RouteClassificationRequest,
   ) => Promise<{
     ok: boolean;
     classification?: RouteClassification;
     utility: UtilityInferenceMetadata;
   }>;
+  cancelRouteClassification?: (args: { requestId: string }) => Promise<void>;
   /** Rewrites a draft prompt in an isolated, read-only utility turn. */
   enhancePrompt?: (
     args: UtilityInferenceContext &

@@ -108,6 +108,7 @@ import {
 import { mapCodexThreadForkResponse } from "./codex-thread-actions";
 import { isRecord } from "./codex-app-server-json";
 import { DEFAULT_READ_ONLY_PROMPT_LABEL } from "./read-only-prompt-labels";
+import { buildCodexRouteClassificationThreadStartParams } from "./codex-route-classification";
 import {
   buildCodexTerminalFailureEvents,
   resolveCodexTurnCompletionStopReason,
@@ -2160,6 +2161,9 @@ export async function runCodexReadOnlyPrompt(
   });
   return runCodexReadOnlyPromptWithClient({
     ...args,
+    ...(args.routeClassification
+      ? { isolated: true, resumeSessionId: undefined, preserveSession: false }
+      : {}),
     label,
     runtimeCwd,
     request: <T>(method: string, params: unknown) =>
@@ -2167,7 +2171,9 @@ export async function runCodexReadOnlyPrompt(
     respond: (requestId, result) =>
       client.respond(requestId as JsonRpcId, result),
     subscribe: (listener) => client.subscribe(listener),
-    buildThreadStartParams: buildCodexThreadStartParams,
+    buildThreadStartParams: args.routeClassification
+      ? buildCodexRouteClassificationThreadStartParams
+      : buildCodexThreadStartParams,
     buildThreadResumeParams: buildCodexThreadResumeParams,
     buildTurnStartParams: buildCodexTurnStartParams,
   });

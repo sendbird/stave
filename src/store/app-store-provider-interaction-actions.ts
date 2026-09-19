@@ -1,3 +1,4 @@
+import { cancelPendingAutoRouting } from "./auto-routing-dispatch";
 import type { StoreApi } from "zustand";
 import {
   applyChildTasksToProviderTurnActivity,
@@ -184,6 +185,7 @@ export function createProviderInteractionActions(args: {
       set({ providerTurnActivityByTask });
     },
     abortTaskTurn: ({ taskId }) => {
+      if (cancelPendingAutoRouting(taskId)) return;
       const stateBefore = get();
       const runtimeTarget = resolveTaskRuntimeTarget({
         state: stateBefore,

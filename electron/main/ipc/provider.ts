@@ -5,6 +5,7 @@ import {
   AbortTurnArgsSchema,
   ApprovalResponseArgsSchema,
   ClassifyRouteArgsSchema,
+  CancelRouteClassificationArgsSchema,
   ClaudeFileRewindArgsSchema,
   ClaudeMcpOauthLoginArgsSchema,
   ClaudeRuntimeActionArgsSchema,
@@ -923,6 +924,12 @@ export function registerProviderHandlers() {
       };
     }
     return invokeHostService("provider.classify-route", parsed.data);
+  });
+
+  ipcMain.handle("provider:cancel-route-classification", (_event, args: unknown) => {
+    const parsed = CancelRouteClassificationArgsSchema.safeParse(args);
+    if (!parsed.success) return;
+    return invokeHostService("provider.cancel-route-classification", parsed.data);
   });
 
   ipcMain.handle("provider:enhance-prompt", (_event, args: unknown) => {

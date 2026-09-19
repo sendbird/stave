@@ -55,6 +55,8 @@ export type CodexReadOnlyPromptArgs = {
   runtimeOptions?: RuntimeOptions;
   signal?: AbortSignal;
   isolated?: boolean;
+  /** Host-owned mode for bounded route classification, never a primary turn. */
+  routeClassification?: boolean;
   /** Native session for the same isolated role lane, never the primary. */
   resumeSessionId?: string;
   /** Keeps a successful role lane available for a later bounded call. */

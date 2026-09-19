@@ -1,3 +1,4 @@
+import { boundRouteIntentInput, RouteIntentResultSchema, ROUTE_CLASSIFICATION_DEADLINE_MS, type RouteIntentResult } from "@/lib/providers/route-intent";
 import {
   type AutoRoutingProfile,
   migrateLegacyAutoSettings,
@@ -26,12 +27,10 @@ import type {
 } from "@/lib/providers/provider.types";
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 
-export const AUTO_ROUTING_CONFIDENCE_THRESHOLD = 0.7;
-export const AUTO_ROUTING_CLASSIFIER_TIMEOUT_MS = 800;
+export const AUTO_ROUTING_CLASSIFIER_TIMEOUT_MS = ROUTE_CLASSIFICATION_DEADLINE_MS;
 export const AUTO_ROUTING_TINY_PROMPT_TOKEN_LIMIT = 12;
 export const AUTO_ROUTING_FILE_CONTEXT_TIER_UP_THRESHOLD = 4;
 export const AUTO_ROUTING_LONG_PROMPT_TOKEN_LIMIT = 120;
-export const AUTO_ROUTING_PROMPT_HASH_CACHE_LIMIT = 64;
 export const AUTO_ROUTING_PROVIDER_SWITCH_MIN_ASSISTANT_TURNS = 3;
 
 const MODEL_TIERS = [
@@ -40,16 +39,6 @@ const MODEL_TIERS = [
   "heavy",
   "frontier",
 ] as const satisfies readonly ModelTier[];
-
-const TASK_TYPES = [
-  "quick_edit",
-  "plan",
-  "implementation",
-  "debug",
-  "review",
-  "general",
-  "safety",
-] as const satisfies readonly TaskType[];
 
 const SENSITIVE_DOMAIN_PATTERNS = [
   /\bauth(?:entication|orization)?\b/i,
@@ -204,16 +193,10 @@ export interface AutoRoutingClassifierRequest {
   prompt: string;
   history: readonly AutoRoutingHistoryMessage[];
   fileContextCount: number;
+  phase?: "plan" | "execute";
 }
 
-export interface AutoRoutingClassifierResult {
-  taskType: TaskType;
-  complexity: "low" | "medium" | "high";
-  recommendedTier: ModelTier;
-  confidence: number;
-  rationale?: string;
-  stick?: boolean;
-}
+export type AutoRoutingClassifierResult = RouteIntentResult;
 
 /** Compact, serialisable signal summary carried on every decision. */
 export interface AutoRoutingSignalSummary {
@@ -234,7 +217,7 @@ export interface AutoRoutingDecision {
   taskType: TaskType;
   taskClass: TaskClass;
   tier: ModelTier;
-  confidence: number;
+  confidence: number | null;
   source:
     | "disabled"
     | "manual"
@@ -295,8 +278,10 @@ export interface ResolveAutoRoutingDecisionArgs {
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
   runtimeModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
   classifierTimeoutMs?: number;
+  signal?: AbortSignal;
   classifyRoute?: (
     args: AutoRoutingClassifierRequest,
+    signal?: AbortSignal,
   ) => Promise<AutoRoutingClassifierResult | null>;
 }
 
@@ -311,7 +296,6 @@ interface HeuristicRoute {
   rationale: string;
 }
 
-const classifierCache = new Map<string, AutoRoutingClassifierResult | null>();
 
 function clamp(value: number, min: number, max: number) {
   if (!Number.isFinite(value)) {
@@ -415,89 +399,33 @@ export function detectPromptSkill(prompt: string): string | undefined {
   return match?.[1]?.toLowerCase();
 }
 
-function hashClassifierPrompt(args: AutoRoutingClassifierRequest) {
-  const historyTail = args.history
-    .slice(-6)
-    .map((message) => `${message.role}:${message.providerId ?? ""}:${message.content}`)
-    .join("\n");
-  return `${args.fileContextCount}\n${args.prompt}\n${historyTail}`;
-}
-
-function rememberClassifierResult(
-  key: string,
-  result: AutoRoutingClassifierResult | null,
-) {
-  // A timeout or malformed verdict is not a fact about the prompt; caching it
-  // would pin every later attempt to the fallback path.
-  if (result === null) {
-    return;
-  }
-  classifierCache.set(key, result);
-  if (classifierCache.size <= AUTO_ROUTING_PROMPT_HASH_CACHE_LIMIT) {
-    return;
-  }
-  const oldestKey = classifierCache.keys().next().value;
-  if (oldestKey) {
-    classifierCache.delete(oldestKey);
-  }
-}
-
-function normalizeClassifierResult(
-  result: AutoRoutingClassifierResult | null,
-): AutoRoutingClassifierResult | null {
-  if (!result) {
-    return null;
-  }
-  if (!TASK_TYPES.includes(result.taskType)) {
-    return null;
-  }
-  if (!MODEL_TIERS.includes(result.recommendedTier)) {
-    return null;
-  }
-  return {
-    taskType: result.taskType,
-    complexity:
-      result.complexity === "low" ||
-      result.complexity === "medium" ||
-      result.complexity === "high"
-        ? result.complexity
-        : "medium",
-    recommendedTier: result.recommendedTier,
-    confidence: clamp(result.confidence, 0, 1),
-    rationale: result.rationale,
-    stick: result.stick === true,
-  };
-}
-
 async function classifyWithTimeout(args: {
   request: AutoRoutingClassifierRequest;
   classifyRoute: NonNullable<ResolveAutoRoutingDecisionArgs["classifyRoute"]>;
   timeoutMs: number;
+  signal?: AbortSignal;
 }) {
-  const cacheKey = hashClassifierPrompt(args.request);
-  if (classifierCache.has(cacheKey)) {
-    return classifierCache.get(cacheKey) ?? null;
-  }
-
-  let timeoutHandle: ReturnType<typeof setTimeout> | null = null;
-  const timeout = new Promise<null>((resolve) => {
-    timeoutHandle = setTimeout(() => resolve(null), args.timeoutMs);
-  });
-
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  args.signal?.addEventListener("abort", abort, { once: true });
+  if (args.signal?.aborted) controller.abort();
+  let finish: (value: null) => void = () => {};
+  const cancelled = new Promise<null>((resolve) => { finish = resolve; });
+  controller.signal.addEventListener("abort", () => finish(null), { once: true });
+  const timer = setTimeout(abort, args.timeoutMs);
   try {
+    if (controller.signal.aborted) return null;
     const result = await Promise.race([
-      args.classifyRoute(args.request).then(normalizeClassifierResult),
-      timeout,
+      args.classifyRoute({ ...args.request, ...boundRouteIntentInput(args.request) }, controller.signal),
+      cancelled,
     ]);
-    rememberClassifierResult(cacheKey, result);
-    return result;
+    const parsed = RouteIntentResultSchema.safeParse(result);
+    return parsed.success ? parsed.data : null;
   } catch {
-    rememberClassifierResult(cacheKey, null);
     return null;
   } finally {
-    if (timeoutHandle) {
-      clearTimeout(timeoutHandle);
-    }
+    clearTimeout(timer);
+    args.signal?.removeEventListener("abort", abort);
   }
 }
 
@@ -507,7 +435,9 @@ export function resolveHeuristicRoute(args: {
   safetyEscalation: boolean;
   skillRouting?: boolean;
 }): HeuristicRoute {
-  const prompt = args.prompt.trim();
+  const prompt = args.prompt.trim()
+    .replace(/(?:리뷰|검토)(?:는|를)?\s*(?:하지\s*말고|말고|하지\s*마)/g, "")
+    .replace(/\b(?:do not|don't|skip)\s+(?:review|audit)(?:ing)?\b/gi, "");
   const tokenCount = countPromptTokens(prompt);
   const isTiny =
     tokenCount > 0 &&
@@ -564,17 +494,16 @@ export function resolveHeuristicRoute(args: {
     tier = args.fileContextCount > 0 ? "heavy" : "standard";
     confidence = 0.76;
     rationale = "implementation keywords";
-  } else if (isTiny) {
-    taskType = "quick_edit";
-    tier = "light";
-    confidence = 0.78;
-    rationale = "tiny prompt";
   } else if (matchesAny(prompt, RESEARCH_PATTERNS)) {
     taskType = "plan";
     taskClass = "research";
-    tier = "heavy";
+    tier = isTiny ? "light" : "standard";
     confidence = 0.72;
     rationale = "research keywords";
+  } else {
+    // Shortness alone does not prove that the work is bounded.
+    tier = "heavy";
+    rationale = "uncertain intent";
   }
 
   if (args.fileContextCount > 0 && tier === "light") {
@@ -610,7 +539,9 @@ export function resolveHeuristicRoute(args: {
   }
 
   const complexity: RouteComplexity =
-    isTiny
+    rationale.startsWith("uncertain intent")
+      ? "high"
+      : isTiny && (taskType === "quick_edit" || taskClass === "research")
       ? "low"
       : tokenCount >= AUTO_ROUTING_LONG_PROMPT_TOKEN_LIMIT ||
           args.fileContextCount >= AUTO_ROUTING_FILE_CONTEXT_TIER_UP_THRESHOLD
@@ -679,9 +610,6 @@ export function resolveProviderStickiness(args: {
   suggestedProviderId?: ProviderId;
 }) {
   const lastAssistantProvider = findLastAssistantProvider(args.history);
-  if (args.history.length === 0) {
-    return "claude-code" satisfies ProviderId;
-  }
   if (args.classifierStick) {
     return lastAssistantProvider ?? args.currentProviderId;
   }
@@ -763,7 +691,7 @@ function buildDecision(args: {
   taskType: TaskType;
   taskClass?: TaskClass;
   tier: ModelTier;
-  confidence: number;
+  confidence: number | null;
   source: AutoRoutingDecision["source"];
   rationale: string;
   ruleId?: string | null;
@@ -821,8 +749,12 @@ export function computeRouterSignals(args: {
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
   classifier?: AutoRoutingClassifierResult | null;
 }): { signals: RouterSignals; heuristic: HeuristicRoute } {
+  const continuing = /^(?:계속(?:해|해줘|해봐|하자)?|진행(?:해|해줘|해봐)?|ㅇㅇ|응|네|continue|go ahead|proceed)[.!\s]*$/i.test(args.prompt.trim());
+  const priorPrompt = continuing
+    ? args.history.slice(-6).reverse().find((message) => message.role === "user")?.content
+    : undefined;
   const heuristic = resolveHeuristicRoute({
-    prompt: args.prompt,
+    prompt: priorPrompt ? priorPrompt.slice(0, 4000) : args.prompt,
     fileContextCount: args.fileContextCount,
     safetyEscalation: args.profile.signals.safetyEscalation,
     skillRouting: args.profile.signals.skillRouting,
@@ -832,19 +764,29 @@ export function computeRouterSignals(args: {
   );
   const lastAssistantProvider = findLastAssistantProvider(args.history);
   const budgetProvider = lastAssistantProvider ?? args.currentProviderId;
-  const taskClass = args.classifier
-    ? heuristic.skill && heuristic.rationale.startsWith("/")
-      ? heuristic.taskClass
-      : taskTypeToTaskClass(args.classifier.taskType, {
-          tiny: heuristic.complexity === "low",
-        })
+  const classification = args.classifier;
+  const intentClass: Record<RouteIntentResult["intent"], TaskClass> = {
+    plan: "plan", implement: "implement", debug: "debug", review: "review",
+    explain: "research", research: "research", write: "docs", unknown: "implement",
+  };
+  const sensitive = classification
+    ? classification.risk === "high"
+    : heuristic.sensitive;
+  const taskClass = classification
+    ? sensitive && args.profile.signals.safetyEscalation
+      ? "safety-critical"
+      : intentClass[classification.intent]
     : heuristic.taskClass;
   return {
     heuristic,
     signals: {
       taskClass,
-      complexity: args.classifier?.complexity ?? heuristic.complexity,
-      sensitive: heuristic.sensitive,
+      complexity: classification
+        ? classification.complexity === "unknown" ? "high" : classification.complexity
+        : heuristic.complexity,
+      sensitive,
+      uncertain: classification ? classification.risk === "unknown" || classification.intent === "unknown" || classification.complexity === "unknown" : continuing || heuristic.rationale.startsWith("uncertain intent"),
+      newTask: classification?.continuity === "new",
       ...(heuristic.skill ? { skill: heuristic.skill } : {}),
       ...(args.phase ? { phase: args.phase } : {}),
       fileContextCount: args.fileContextCount,
@@ -950,42 +892,40 @@ export async function resolveAutoRoutingDecision(
     });
   }
 
+  if (args.signal?.aborted) throw new DOMException("Auto routing cancelled", "AbortError");
   const profile = resolveAutoRoutingProfile(args.settings);
   const fileContextCount = Math.max(0, args.fileContextCount ?? 0);
-  const preliminary = resolveHeuristicRoute({
-    prompt: args.prompt,
-    fileContextCount,
-    safetyEscalation: profile.signals.safetyEscalation,
-    skillRouting: profile.signals.skillRouting,
-  });
+
 
   let classifier: AutoRoutingClassifierResult | null = null;
-  let source: AutoRoutingDecision["source"] = "heuristic";
+  let source: AutoRoutingDecision["source"] = profile.signals.classifier ? "classifier_fallback" : "heuristic";
   let classifierStick = false;
   if (
     profile.signals.classifier &&
-    args.classifyRoute &&
-    preliminary.confidence < AUTO_ROUTING_CONFIDENCE_THRESHOLD
+    args.classifyRoute
   ) {
     classifier = await classifyWithTimeout({
       request: {
         prompt: args.prompt,
         history: args.history,
         fileContextCount,
+        phase: args.phase,
       },
+      signal: args.signal,
       classifyRoute: args.classifyRoute,
       timeoutMs:
         args.classifierTimeoutMs ?? AUTO_ROUTING_CLASSIFIER_TIMEOUT_MS,
     });
     if (classifier) {
       source = "classifier";
-      classifierStick = classifier.stick === true;
+      classifierStick = classifier.continuity !== "new";
     } else {
       source = "classifier_fallback";
       classifierStick = true;
     }
   }
 
+  if (args.signal?.aborted) throw new DOMException("Auto routing cancelled", "AbortError");
   const { signals, heuristic } = computeRouterSignals({
     prompt: args.prompt,
     fileContextCount,
@@ -1014,13 +954,17 @@ export async function resolveAutoRoutingDecision(
     role: "primary",
     signals: {
       ...signals,
+      uncertain: signals.uncertain || source === "classifier_fallback",
+      lastAssistantModel: signals.lastAssistantModel ?? (source === "classifier_fallback" ? args.currentModel : undefined),
       lastAssistantProvider: pinnedProvider,
     },
     runtimeModelsByProvider: args.runtimeModelsByProvider,
   });
 
-  const confidence = classifier?.confidence ?? heuristic.confidence;
-  const rationale = classifier?.rationale ?? heuristic.rationale;
+  const confidence = null;
+  const rationale = classifier
+    ? `${classifier.intent}, ${classifier.complexity} complexity, ${classifier.risk} risk, ${classifier.continuity}`
+    : source === "classifier_fallback" ? "Classification unavailable; conservative routing" : heuristic.rationale;
 
   return buildDecision({
     providerId: route.providerId,
