@@ -1,3 +1,4 @@
+import { getLensPointerScript } from "./browser-pointer";
 // ---------------------------------------------------------------------------
 // Element picker – injectable script for a Lens guest page
 // Returns a stringified JS to inject via webContents.executeJavaScript().
@@ -32,6 +33,7 @@ export function getElementPickerScript(
   }
 
   const documentId = ${documentId};
+  ${getLensPointerScript()}
   ${getLensElementContextScript()}
 
   return new Promise((resolve) => {
@@ -46,7 +48,7 @@ export function getElementPickerScript(
     Object.assign(overlay.style, {
       position: "fixed", pointerEvents: "none", zIndex: "2147483647",
       border: "2px solid #3b82f6", background: "rgba(59,130,246,0.12)",
-      borderRadius: "3px", transition: "all 80ms ease",
+      borderRadius: "3px",
       top: "0", left: "0", width: "0", height: "0",
     });
     (document.body || document.documentElement).appendChild(overlay);
@@ -61,8 +63,8 @@ export function getElementPickerScript(
     });
     (document.body || document.documentElement).appendChild(label);
 
-    function onMouseMove(e) {
-      const el = document.elementFromPoint(e.clientX, e.clientY);
+    const pointer = stavePointerTracker(function renderHover(e) {
+      const el = staveElementAtPoint(e.clientX, e.clientY, e.altKey);
       if (!el || el === overlay || el === label) return;
       const r = el.getBoundingClientRect();
       Object.assign(overlay.style, {
@@ -72,17 +74,18 @@ export function getElementPickerScript(
       const tag = el.tagName.toLowerCase();
       const id = el.id ? "#" + el.id : "";
       const cls = el.classList.length ? "." + Array.from(el.classList).join(".") : "";
-      label.textContent = tag + id + cls + "  " + Math.round(r.width) + "x" + Math.round(r.height);
+      const name = staveAccessibleName(el);
+      label.textContent = tag + id + (name ? " · " + staveBoundText(name, 80) : cls.slice(0, 100)) + "  " + Math.round(r.width) + "x" + Math.round(r.height) + " · Alt: parent";
       label.style.display = "block";
-      label.style.top = Math.max(0, r.top - 22) + "px";
-      label.style.left = r.left + "px";
-    }
+      stavePositionLabel(label, r);
+    });
+    function onMouseMove(e) { pointer.move(e); }
 
     function onClick(e) {
       e.preventDefault();
-      e.stopPropagation();
+      e.stopImmediatePropagation();
 
-      const el = document.elementFromPoint(e.clientX, e.clientY);
+      const el = staveElementAtPoint(e.clientX, e.clientY, e.altKey);
       if (!el) { finish(null); return; }
 
       const r = el.getBoundingClientRect();
@@ -117,6 +120,7 @@ export function getElementPickerScript(
         window.clearTimeout(timeoutId);
         timeoutId = 0;
       }
+      pointer.dispose();
       document.removeEventListener("mousemove", onMouseMove, true);
       document.removeEventListener("click", onClick, true);
       document.removeEventListener("keydown", onKeyDown, true);

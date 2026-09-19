@@ -692,15 +692,15 @@ test("lens screenshot dropdown trigger is not clipped", async ({ page }) => {
   // The Lens rail button opens (or creates) a lens pane tab.
   await expect(page.getByTestId("lens-surface-panel")).toBeVisible();
   const screenshotButton = page.getByRole("button", {
-    name: "Save screenshot",
+    name: "More browser tools",
   });
   await expect(screenshotButton).toBeEnabled();
   await expect
     .poll(async () => (await screenshotButton.boundingBox())?.width ?? 0)
-    .toBeGreaterThan(34);
+    .toBeGreaterThanOrEqual(28);
   await screenshotButton.click();
-  await expect(page.getByRole("menuitem", { name: "Viewport" })).toBeVisible();
-  await expect(page.getByRole("menuitem", { name: "Full Page" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Save viewport screenshot" })).toBeVisible();
+  await expect(page.getByRole("menuitem", { name: "Save full page screenshot" })).toBeVisible();
 });
 
 test("lens CDP approval stays app-wide without an open Lens tab", async ({

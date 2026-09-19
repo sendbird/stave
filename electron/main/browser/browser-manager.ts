@@ -485,7 +485,7 @@ function openLensAuthPopup(args: {
   workspaceId: string;
   lensSessionId: string;
   ownerWebContentsId: number;
-}): void {
+}): Electron.WindowOpenHandlerResponse {
   const ownerSession = sessions.get(
     sessionKey(args.workspaceId, args.lensSessionId),
   );
@@ -494,7 +494,7 @@ function openLensAuthPopup(args: {
     ownerSession.webContentsId !== args.ownerWebContentsId ||
     !isCurrentBrowserSession(ownerSession)
   ) {
-    return;
+    return { action: "deny" };
   }
   if (ownerSession.authPopups.size >= MAX_LENS_AUTH_POPUPS) {
     pushGuestConsoleEntry(
@@ -507,16 +507,16 @@ function openLensAuthPopup(args: {
       },
       args.lensSessionId,
     );
-    return;
+    return { action: "deny" };
   }
 
-  if (!isHttpOrHttpsUrl(args.url)) {
+  if (args.url !== "about:blank" && !isHttpOrHttpsUrl(args.url)) {
     void openExternalWithFallback({ url: args.url });
-    return;
+    return { action: "deny" };
   }
 
   try {
-    assertNavigationAllowed(args.url);
+    if (args.url !== "about:blank") assertNavigationAllowed(args.url);
   } catch (err) {
     pushGuestConsoleEntry(
       args.workspaceId,
@@ -528,145 +528,111 @@ function openLensAuthPopup(args: {
       },
       args.lensSessionId,
     );
-    return;
+    return { action: "deny" };
   }
 
-  const popup = new BrowserWindow({
-    parent: args.parent,
-    modal: false,
-    width: 520,
-    height: 720,
-    title: "Lens Sign-in",
-    autoHideMenuBar: true,
-    webPreferences: {
-      preload: lensGuestPreloadPath,
-      session: args.session,
-      contextIsolation: true,
-      nodeIntegration: false,
-      sandbox: true,
-      webSecurity: true,
-      allowRunningInsecureContent: false,
-    },
-  });
-
-  const session = ownerSession;
-  if (!isCurrentBrowserSession(session)) {
-    popup.destroy();
-    return;
-  }
-  const popupWebContentsId = popup.webContents.id;
-  session.authPopups.add(popup);
-  webContentsSessionIndex.set(popupWebContentsId, session);
-  popup.on("closed", () => {
-    session.authPopups.delete(popup);
-    if (webContentsSessionIndex.get(popupWebContentsId) === session) {
-      webContentsSessionIndex.delete(popupWebContentsId);
-    }
-  });
-
-  popup.webContents.on("will-navigate", (event, targetUrl) => {
-    if (!isCurrentBrowserSession(session)) {
-      event.preventDefault();
-      return;
-    }
-    if (!isHttpOrHttpsUrl(targetUrl)) {
-      event.preventDefault();
-      void openExternalWithFallback({ url: targetUrl });
-      return;
-    }
-
-    try {
-      assertNavigationAllowed(targetUrl);
-    } catch (err) {
-      event.preventDefault();
-      pushGuestConsoleEntry(
-        args.workspaceId,
-        {
-          level: "warn",
-          text: `Lens popup navigation blocked: ${
-            err instanceof Error ? err.message : String(err)
-          }`,
-          timestamp: new Date().toISOString(),
-          source: targetUrl,
+  return {
+    action: "allow",
+    createWindow: (options) => {
+      const popup = new BrowserWindow({
+        ...options,
+        parent: args.parent,
+        modal: false,
+        width: 520,
+        height: 720,
+        title: "Lens Sign-in",
+        autoHideMenuBar: true,
+        webPreferences: {
+          ...options.webPreferences,
+          preload: lensGuestPreloadPath,
+          session: args.session,
+          contextIsolation: true,
+          nodeIntegration: false,
+          sandbox: true,
+          webSecurity: true,
+          allowRunningInsecureContent: false,
         },
-        args.lensSessionId,
-      );
-    }
-  });
+      });
 
-  popup.webContents.on("did-stop-loading", () => {
-    setTimeout(() => {
-      if (popup.isDestroyed() || !isCurrentBrowserSession(session)) {
-        return;
-      }
-      void fillLensCredentialForWebContents(popup.webContents, {
-        autoFillOnly: true,
-      }).catch((error) => {
-        if (popup.isDestroyed() || !isCurrentBrowserSession(session)) {
+      const session = ownerSession;
+      const popupWebContentsId = popup.webContents.id;
+      session.authPopups.add(popup);
+      webContentsSessionIndex.set(popupWebContentsId, session);
+      popup.on("closed", () => {
+        session.authPopups.delete(popup);
+        if (webContentsSessionIndex.get(popupWebContentsId) === session) {
+          webContentsSessionIndex.delete(popupWebContentsId);
+        }
+      });
+
+      const guardNavigation = (event: Electron.Event, targetUrl: string) => {
+        if (!isCurrentBrowserSession(session)) {
+          event.preventDefault();
           return;
         }
-        pushConsoleEntry(
-          args.workspaceId,
-          {
-            level: "warn",
-            text: `Saved Lens account fill failed: ${
-              error instanceof Error ? error.message : String(error)
-            }`,
-            timestamp: new Date().toISOString(),
-            source: popup.webContents.getURL(),
-          },
-          args.lensSessionId,
-        );
+        if (targetUrl !== "about:blank" && !isHttpOrHttpsUrl(targetUrl)) {
+          event.preventDefault();
+          void openExternalWithFallback({ url: targetUrl });
+          return;
+        }
+
+        try {
+          if (targetUrl !== "about:blank") assertNavigationAllowed(targetUrl);
+        } catch (err) {
+          event.preventDefault();
+          pushGuestConsoleEntry(
+            args.workspaceId,
+            {
+              level: "warn",
+              text: `Lens popup navigation blocked: ${
+                err instanceof Error ? err.message : String(err)
+              }`,
+              timestamp: new Date().toISOString(),
+              source: targetUrl,
+            },
+            args.lensSessionId,
+          );
+        }
+      };
+
+      popup.webContents.on("will-navigate", guardNavigation);
+      popup.webContents.on("will-redirect", guardNavigation);
+
+      popup.webContents.on("did-stop-loading", () => {
+        setTimeout(() => {
+          if (popup.isDestroyed() || !isCurrentBrowserSession(session)) {
+            return;
+          }
+          void fillLensCredentialForWebContents(popup.webContents, {
+            autoFillOnly: true,
+          }).catch((error) => {
+            if (popup.isDestroyed() || !isCurrentBrowserSession(session)) {
+              return;
+            }
+            pushConsoleEntry(
+              args.workspaceId,
+              {
+                level: "warn",
+                text: `Saved Lens account fill failed: ${
+                  error instanceof Error ? error.message : String(error)
+                }`,
+                timestamp: new Date().toISOString(),
+                source: popup.webContents.getURL(),
+              },
+              args.lensSessionId,
+            );
+          });
+        }, 300);
       });
-    }, 300);
-  });
 
-  popup.webContents.setWindowOpenHandler(({ url }) => {
-    if (!isCurrentBrowserSession(session)) {
-      return { action: "deny" };
-    }
-    if (!isHttpOrHttpsUrl(url)) {
-      void openExternalWithFallback({ url });
-      return { action: "deny" };
-    }
-
-    try {
-      assertNavigationAllowed(url);
-    } catch (err) {
-      pushGuestConsoleEntry(
-        args.workspaceId,
-        {
-          level: "warn",
-          text: `Lens popup blocked: ${err instanceof Error ? err.message : String(err)}`,
-          timestamp: new Date().toISOString(),
-          source: url,
-        },
-        args.lensSessionId,
+      popup.webContents.setWindowOpenHandler(({ url }) =>
+        openLensAuthPopup({ ...args, url }),
       );
-      return { action: "deny" };
-    }
-
-    void popup.webContents.loadURL(url).catch(() => undefined);
-    return { action: "deny" };
-  });
-
-  void popup.webContents.loadURL(args.url).catch((err) => {
-    if (isCurrentBrowserSession(session)) {
-      pushGuestConsoleEntry(
-        args.workspaceId,
-        {
-          level: "error",
-          text: `Lens popup failed: ${err instanceof Error ? err.message : String(err)}`,
-          timestamp: new Date().toISOString(),
-          source: args.url,
-        },
-        args.lensSessionId,
-      );
-    }
-    if (!popup.isDestroyed()) {
-      popup.close();
-    }
-  });
+      // Electron performs the original navigation, preserving opener, referrer and
+      // POST body. Loading the URL ourselves would silently turn it into a GET.
+      return popup.webContents;
+    },
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -991,20 +957,17 @@ function wireBrowserSession(args: {
   registerPartitionNetworkDispatch(ses, sessionProfile.partition);
   ensurePartitionDownloadDispatch(ses, sessionProfile.partition);
 
-  // Open external links in system browser instead of navigating.
   webContents.setWindowOpenHandler(({ url }) => {
-    const win = getMainWindow();
-    if (win) {
-      openLensAuthPopup({
-        parent: win,
-        session: ses,
-        url,
-        workspaceId,
-        lensSessionId,
-        ownerWebContentsId: webContents.id,
-      });
-    }
-    return { action: "deny" as const };
+    const parent = getMainWindow();
+    if (!parent) return { action: "deny" };
+    return openLensAuthPopup({
+      parent,
+      session: ses,
+      url,
+      workspaceId,
+      lensSessionId,
+      ownerWebContentsId: webContents.id,
+    });
   });
 
   const session: BrowserSessionState = {

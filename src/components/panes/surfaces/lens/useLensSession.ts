@@ -50,6 +50,8 @@ export type LensSessionHandle = {
   goBack: () => void;
   goForward: () => void;
   reload: () => void;
+  stop: () => void;
+  openDevTools: () => void;
   navigate: (url: string) => Promise<void>;
   onSubmit: (event: FormEvent) => void;
   onUrlKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
@@ -186,6 +188,8 @@ export function useLensSession(args: {
    * exhausts the budget and stops with a toast instead of churning forever.
    */
   const rebuildAttemptsRef = useRef(0);
+  const sessionReadyRef = useRef(false);
+  const pendingNavigationRef = useRef<string | null>(null);
   /** An eviction waiting for this panel to be looked at again. */
   const deferredRebuildRef = useRef(false);
   /** Pending rebuild/stability timers, cleared when the effect re-runs. */
@@ -211,6 +215,7 @@ export function useLensSession(args: {
   }, []);
 
   useEffect(() => {
+    sessionReadyRef.current = false;
     callbacksRef.current.onSessionReset();
     // Not covered by `applyNavigationState`: a load that is not in progress is
     // not the same as a load that never failed.
@@ -262,7 +267,19 @@ export function useLensSession(args: {
         rebuildAttemptsRef.current = 0;
       }, STABLE_MS);
 
+      sessionReadyRef.current = true;
       await attachGuest();
+      if (!cancelled && pendingNavigationRef.current) {
+        const target = pendingNavigationRef.current;
+        pendingNavigationRef.current = null;
+        const result = await lensApi?.navigate?.({
+          workspaceId,
+          lensSessionId,
+          url: target,
+        });
+        if (!result?.ok)
+          setLastLoadError(result?.message ?? "Could not load the page.");
+      }
 
       const stateResult = await lensApi?.getState?.({
         workspaceId,
@@ -285,7 +302,16 @@ export function useLensSession(args: {
           annotationsResult.annotations ?? [],
         );
       }
-    })();
+    })().catch((error: unknown) => {
+      if (!cancelled) {
+        sessionReadyRef.current = false;
+        setLastLoadError(
+          error instanceof Error
+            ? error.message
+            : "Could not open Lens. Reload to retry.",
+        );
+      }
+    });
 
     return () => {
       cancelled = true;
@@ -352,48 +378,52 @@ export function useLensSession(args: {
       return;
     }
 
-    const unsubscribe = window.api?.lens?.subscribeSessionClosed?.((payload) => {
-      if (!matchesSession(payload, workspaceId, lensSessionId)) {
-        return;
-      }
-      /*
-       * A session ended under a tab that is still open — a crashed guest, an
-       * agent force-close, or a teardown from a panel generation that raced
-       * this one's remount. Rebuild it, through the shared bounded budget: the
-       * panel is still here, so leaving it sessionless would strand it, but a
-       * page that dies on every load must not loop forever.
-       *
-       * Deferred one macrotask so a genuine tab close (which fires this event
-       * too, just before the tab leaves) settles first: by the next tick this
-       * panel has either unmounted or confirmed, through its own prop, that its
-       * tab is still open. A `setTimeout(0)` inside `scheduleRebuild` provides
-       * that same settle.
-       */
-      const recovery = resolveLensSessionCloseRecovery({
-        reason: payload.reason,
-        isPresented: isPresentedRef.current,
-      });
-      if (recovery === "none") {
-        // The tab is going away with it; there is nothing to restore onto.
-        return;
-      }
-      if (recovery === "rebuild-when-presented") {
+    const unsubscribe = window.api?.lens?.subscribeSessionClosed?.(
+      (payload) => {
+        if (!matchesSession(payload, workspaceId, lensSessionId)) {
+          return;
+        }
         /*
-         * Reclaimed by the hidden-guest cap, under a tab nobody is looking at.
-         * The rebuild waits until this panel is presented, which is also the
-         * first moment the page matters. Not charged to the recovery budget: an
-         * eviction is a policy decision, not a failure.
+         * A session ended under a tab that is still open — a crashed guest, an
+         * agent force-close, or a teardown from a panel generation that raced
+         * this one's remount. Rebuild it, through the shared bounded budget: the
+         * panel is still here, so leaving it sessionless would strand it, but a
+         * page that dies on every load must not loop forever.
+         *
+         * Deferred one macrotask so a genuine tab close (which fires this event
+         * too, just before the tab leaves) settles first: by the next tick this
+         * panel has either unmounted or confirmed, through its own prop, that its
+         * tab is still open. A `setTimeout(0)` inside `scheduleRebuild` provides
+         * that same settle.
          */
-        deferredRebuildRef.current = true;
-        return;
-      }
-      if (!scheduleRebuild(0) && isTabOpenRef.current) {
-        toast.error("Lens keeps closing", {
-          description:
-            "The page ended repeatedly right after opening. Reload the tab to try again.",
+        sessionReadyRef.current = false;
+        setIsLoading(false);
+        const recovery = resolveLensSessionCloseRecovery({
+          reason: payload.reason,
+          isPresented: isPresentedRef.current,
         });
-      }
-    });
+        if (recovery === "none") {
+          // The tab is going away with it; there is nothing to restore onto.
+          return;
+        }
+        if (recovery === "rebuild-when-presented") {
+          /*
+           * Reclaimed by the hidden-guest cap, under a tab nobody is looking at.
+           * The rebuild waits until this panel is presented, which is also the
+           * first moment the page matters. Not charged to the recovery budget: an
+           * eviction is a policy decision, not a failure.
+           */
+          deferredRebuildRef.current = true;
+          return;
+        }
+        if (!scheduleRebuild(0) && isTabOpenRef.current) {
+          toast.error("Lens keeps closing", {
+            description:
+              "The page ended repeatedly right after opening. Reload the tab to try again.",
+          });
+        }
+      },
+    );
 
     return () => {
       unsubscribe?.();
@@ -427,6 +457,13 @@ export function useLensSession(args: {
     };
   }, [applyNavigationState, hasLensApi, lensSessionId, workspaceId]);
 
+  const retrySession = useCallback(() => {
+    rebuildAttemptsRef.current = 0;
+    deferredRebuildRef.current = false;
+    setLastLoadError(null);
+    setSessionGeneration((generation) => generation + 1);
+  }, []);
+
   const navigate = useCallback(
     async (targetUrl: string) => {
       if (!workspaceId || !targetUrl.trim()) {
@@ -440,6 +477,11 @@ export function useLensSession(args: {
         return;
       }
 
+      if (!sessionReadyRef.current) {
+        pendingNavigationRef.current = targetUrl.trim();
+        retrySession();
+        return;
+      }
       setLastLoadError(null);
       try {
         const result = await window.api?.lens?.navigate?.({
@@ -448,13 +490,18 @@ export function useLensSession(args: {
           url: targetUrl.trim(),
         });
         if (!result?.ok) {
-          setLastLoadError(result?.message ?? "Lens could not load that address. Check the address and retry.");
+          setLastLoadError(
+            result?.message ??
+              "Lens could not load that address. Check the address and retry.",
+          );
         }
       } catch {
-        setLastLoadError("The browser connection was interrupted. Retry loading the page.");
+        setLastLoadError(
+          "The browser connection was interrupted. Retry loading the page.",
+        );
       }
     },
-    [hasLensApi, lensSessionId, workspaceId],
+    [hasLensApi, lensSessionId, workspaceId, retrySession],
   );
 
   const onSubmit = useCallback(
@@ -476,21 +523,46 @@ export function useLensSession(args: {
     [url],
   );
 
-  const navigateHistory = useCallback((action: "goBack" | "goForward" | "reload") => {
-    if (!workspaceId) return;
-    setLastLoadError(null);
-    void (async () => {
-      try {
-        const result = await window.api?.lens?.[action]?.({ workspaceId, lensSessionId });
-        if (!result?.ok) setLastLoadError("Lens could not update the page. Check the address and retry.");
-      } catch {
-        setLastLoadError("The browser connection was interrupted. Retry loading the page.");
-      }
-    })();
-  }, [lensSessionId, workspaceId]);
-  const goBack = useCallback(() => navigateHistory("goBack"), [navigateHistory]);
-  const goForward = useCallback(() => navigateHistory("goForward"), [navigateHistory]);
-  const reload = useCallback(() => navigateHistory("reload"), [navigateHistory]);
+  const navigateHistory = useCallback(
+    (action: "goBack" | "goForward" | "reload" | "stop" | "openDevTools") => {
+      if (!workspaceId) return;
+      setLastLoadError(null);
+      void (async () => {
+        try {
+          const result = await window.api?.lens?.[action]?.({
+            workspaceId,
+            lensSessionId,
+          });
+          if (!result?.ok)
+            setLastLoadError(
+              "Lens could not update the page. Check the address and retry.",
+            );
+        } catch {
+          setLastLoadError(
+            "The browser connection was interrupted. Retry loading the page.",
+          );
+        }
+      })();
+    },
+    [lensSessionId, workspaceId],
+  );
+  const goBack = useCallback(
+    () => navigateHistory("goBack"),
+    [navigateHistory],
+  );
+  const goForward = useCallback(
+    () => navigateHistory("goForward"),
+    [navigateHistory],
+  );
+  const reload = useCallback(() => {
+    if (!sessionReadyRef.current) retrySession();
+    else navigateHistory("reload");
+  }, [navigateHistory, retrySession]);
+  const stop = useCallback(() => navigateHistory("stop"), [navigateHistory]);
+  const openDevTools = useCallback(
+    () => navigateHistory("openDevTools"),
+    [navigateHistory],
+  );
 
   return {
     canGoBack,
@@ -505,6 +577,8 @@ export function useLensSession(args: {
     navigate,
     onUrlKeyDown,
     reload,
+    stop,
+    openDevTools,
     setInputUrl,
     setLastLoadError,
     url,

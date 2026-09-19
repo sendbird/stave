@@ -1,3 +1,4 @@
+import { getLensPointerScript } from "./browser-pointer";
 // ---------------------------------------------------------------------------
 // Box-model inspect overlay - injectable script for a Lens guest page.
 //
@@ -19,6 +20,7 @@ export function getBoxInspectScript(): string {
     try { window.__staveTeardownInspect(); } catch (_) { /* ignore */ }
   }
 
+  ${getLensPointerScript()}
   ${getLensBoxModelScript()}
 
   const RING_Z = "2147483645";
@@ -239,8 +241,8 @@ export function getBoxInspectScript(): string {
     }
   }
 
-  function onMove(e) {
-    const el = document.elementFromPoint(e.clientX, e.clientY);
+  const pointer = stavePointerTracker(function renderHover(e) {
+    const el = staveElementAtPoint(e.clientX, e.clientY, e.altKey);
     if (!el || isOwnNode(el)) return;
     const info = renderRings(el);
     if (!info) return;
@@ -250,10 +252,11 @@ export function getBoxInspectScript(): string {
     } else {
       clearMeasure();
     }
-  }
+  });
+  function onMove(e) { pointer.move(e); }
 
   function onClick(e) {
-    const el = document.elementFromPoint(e.clientX, e.clientY);
+    const el = staveElementAtPoint(e.clientX, e.clientY, e.altKey);
     if (!el || isOwnNode(el)) return;
     e.preventDefault();
     e.stopPropagation();
@@ -301,6 +304,7 @@ export function getBoxInspectScript(): string {
 
   window.__staveInspectActive = true;
   window.__staveTeardownInspect = function () {
+    pointer.dispose();
     document.removeEventListener("mousemove", onMove, true);
     document.removeEventListener("click", onClick, true);
     document.removeEventListener("keydown", onKey, true);
