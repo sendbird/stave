@@ -400,7 +400,7 @@ test("panel chrome opens over the page without hiding it", async () => {
   // The behaviour the whole rendering-model change is for. With the guest
   // composited above the renderer, a 200x80 dropdown could only be shown by
   // blanking the entire preview; here it is ordinary stacking.
-  const trigger = stave.page.getByRole("button", { name: "Save screenshot" });
+  const trigger = stave.page.getByRole("button", { name: "More browser tools" });
   await expect(trigger).toBeEnabled();
   await trigger.click();
 

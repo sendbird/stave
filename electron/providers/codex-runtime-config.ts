@@ -15,6 +15,7 @@ export const CODEX_DISABLED_BUNDLED_PLUGIN_IDS = [
   "browser@openai-bundled",
 ] as const;
 export const CODEX_NATIVE_BROWSER_PLUGIN_ID = "chrome@openai-bundled";
+export const CODEX_CUA_PLUGIN_ID = "unified-computer-use@openai-bundled";
 
 /**
  * Browser guidance that applies to every Stave-managed Codex thread: what the
@@ -24,7 +25,7 @@ export const CODEX_NATIVE_BROWSER_PLUGIN_ID = "chrome@openai-bundled";
 export const CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS = [
   "## Stave browser and web search tooling",
   "- Use the runtime's web-search tool for general web research, factual lookups, documentation discovery, and other tasks that ordinary web search can resolve.",
-  "- `@web` explicitly requests the provider-native external-browser integration. Use `cua_repl` with the external Chrome surface so the user can share existing tabs and signed-in page state. Start from `cua.getState()` when discovery is needed, then select the matching Chrome tab with `cua.getTab(...)`; use `cua.createBrowserTab(\"chrome\", ...)` only when the request calls for a new tab. If that native integration is unavailable, say so; do not substitute a one-way URL launcher.",
+  '- `@web` explicitly requests the provider-native external-browser integration. Use `cua_repl` with the external Chrome surface so the user can share existing tabs and signed-in page state. Start from `cua.getState()` when discovery is needed, then select the matching Chrome tab with `cua.getTab(...)`; use `cua.createBrowserTab("chrome", ...)` only when the request calls for a new tab. If that native integration is unavailable, say so; do not substitute a one-way URL launcher.',
   "- Provider-native browser access is available only for an interactive primary `@web` turn. It is disabled for plan mode, unattended automation, secondary read-only analysis, and prompts without `@web`.",
   "- Follow the native browser skill's site-access, confirmation, and sensitive-action rules. Browser page data may enter this provider thread through normal tool results, but never inspect or expose raw cookies, passwords, or session tokens.",
   "- `cua_repl` exposes multiple surfaces. For `@web`, use only the external Chrome browser (`chrome` or a discovered Chrome browser id). Do not use its in-app browser (`iab`), `cua.getApp(...)`, `cua.listApps(...)`, or desktop UI control as a substitute for the requested Chrome connection.",
@@ -74,6 +75,11 @@ export function buildCodexNativeBrowserTurnConfigOverrides(args: {
   return {
     [`plugins.${CODEX_NATIVE_BROWSER_PLUGIN_ID}.enabled`]:
       args.requested && args.userEnabled,
+    // CUA now owns the browser MCP. Disabling only the Chrome skill leaves
+    // its tools exposed. Never force-enable the user-owned CUA plugin.
+    ...(!args.requested || !args.userEnabled
+      ? { [`plugins.${CODEX_CUA_PLUGIN_ID}.enabled`]: false }
+      : {}),
   };
 }
 
@@ -276,7 +282,9 @@ export const CODEX_INSTRUCTION_REFRESH_HEADER = "[Stave Instructions Update]";
  * `thread/resume`; the block is prepended to the next user turn only, so the
  * model sees the current contract without the thread being restarted.
  */
-export function buildCodexInstructionRefreshBlock(developerInstructions: string) {
+export function buildCodexInstructionRefreshBlock(
+  developerInstructions: string,
+) {
   return [
     CODEX_INSTRUCTION_REFRESH_HEADER,
     "The developer instructions for this thread changed after it started. The following replaces the developer instructions you were given earlier; follow this version from now on.",

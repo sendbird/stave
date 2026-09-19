@@ -2943,6 +2943,16 @@ contextBridge.exposeInMainWorld("api", {
         ok: boolean;
         message?: string;
       }>,
+    stop: (args: { workspaceId: string; lensSessionId?: string }) =>
+      ipcRenderer.invoke("lens:stop", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
+    openDevTools: (args: { workspaceId: string; lensSessionId?: string }) =>
+      ipcRenderer.invoke("lens:open-devtools", args) as Promise<{
+        ok: boolean;
+        message?: string;
+      }>,
     reload: (args: { workspaceId: string; lensSessionId?: string }) =>
       ipcRenderer.invoke("lens:reload", args) as Promise<{
         ok: boolean;

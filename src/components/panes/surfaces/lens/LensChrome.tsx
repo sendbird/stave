@@ -5,16 +5,15 @@ import { CountBadge } from "@/components/system/CountBadge";
 import {
   ArrowLeft,
   ArrowRight,
-  Camera,
-  ChevronDown,
   Crosshair,
-  Download,
   Globe,
   Highlighter,
   Monitor,
+  MoreHorizontal,
+  Square,
+  CodeXml,
   Network,
   RotateCw,
-  Ruler,
   Terminal,
   X,
 } from "lucide-react";
@@ -31,14 +30,11 @@ import {
   InputGroupAddon,
   InputGroupButton,
   InputGroupInput,
-  Loader,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui";
-import {
-  LENS_TOOL_ICON_CLASS,
-} from "@/components/panes/surfaces/lens/LensLogDetail";
+import { LENS_TOOL_ICON_CLASS } from "@/components/panes/surfaces/lens/LensLogDetail";
 import type { LensOverlayModesHandle } from "@/components/panes/surfaces/lens/useLensOverlayModes";
 import { LENS_LOG_LIMIT, type LensPanelTab } from "@/lib/lens/lens-log-format";
 import type { LensDownloadEntry } from "@/lib/lens/lens.types";
@@ -58,6 +54,8 @@ export type LensChromeNavigation = {
   goBack: () => void;
   goForward: () => void;
   reload: () => void;
+  stop: () => void;
+  openDevTools: () => void;
   onSubmit: (event: FormEvent) => void;
   onUrlKeyDown: (event: KeyboardEvent<HTMLInputElement>) => void;
   urlInputRef: RefObject<HTMLInputElement | null>;
@@ -133,6 +131,8 @@ export function LensChrome(props: {
     goBack,
     goForward,
     reload,
+    stop,
+    openDevTools,
     onSubmit: handleSubmit,
     onUrlKeyDown: handleUrlKeyDown,
     urlInputRef,
@@ -203,18 +203,20 @@ export function LensChrome(props: {
                 variant="ghost"
                 xstyle={chromeStyles.toolInactive}
                 disabled={!hasLensApi}
-                onClick={reload}
+                onClick={isLoading ? stop : reload}
                 aria-label={isLoading ? "Stop loading" : "Reload page"}
               />
             }
           >
             {isLoading ? (
-              <Loader aria-hidden size="xs" variant="scan" />
+              <Square className={LENS_TOOL_ICON_CLASS} />
             ) : (
               <RotateCw className={LENS_TOOL_ICON_CLASS} />
             )}
           </TooltipTrigger>
-          <TooltipContent>{isLoading ? "Loading" : "Reload"}</TooltipContent>
+          <TooltipContent>
+            {isLoading ? "Stop loading" : "Reload"}
+          </TooltipContent>
         </Tooltip>
 
         <form onSubmit={handleSubmit} className={sx(chromeStyles.addressForm)}>
@@ -234,6 +236,7 @@ export function LensChrome(props: {
             <InputGroupInput
               ref={urlInputRef}
               type="text"
+              aria-label="Page address"
               value={inputUrl}
               onChange={(event) => setInputUrl(event.target.value)}
               onKeyDown={handleUrlKeyDown}
@@ -255,7 +258,10 @@ export function LensChrome(props: {
               disabled={!hasLensApi}
             />
             {inputUrl ? (
-              <InputGroupAddon align="inline-end" xstyle={chromeStyles.addressEnd}>
+              <InputGroupAddon
+                align="inline-end"
+                xstyle={chromeStyles.addressEnd}
+              >
                 <InputGroupButton
                   size="icon-sm"
                   aria-label="Clear address"
@@ -267,7 +273,8 @@ export function LensChrome(props: {
             ) : null}
           </InputGroup>
         </form>
-
+      </div>
+      <div className={sx(chromeStyles.row)}>
         <div className={sx(chromeStyles.modes)}>
           {[
             {
@@ -388,107 +395,67 @@ export function LensChrome(props: {
               <Button
                 type="button"
                 size="icon-sm"
-                variant={isBoxInspectActive ? "secondary" : "outline"}
-                xstyle={[
-                  isBoxInspectActive
-                    ? chromeStyles.toolActive
-                    : chromeStyles.toolInactive,
-                ]}
+                variant="ghost"
                 disabled={lensPageActionDisabled}
-                onClick={() => {
-                  void toggleBoxInspect();
-                }}
-                aria-label="Toggle box-model inspect"
-                aria-pressed={isBoxInspectActive}
+                onClick={openDevTools}
+                aria-label="Open developer tools"
               />
             }
           >
-            <Ruler className={LENS_TOOL_ICON_CLASS} />
+            <CodeXml className={LENS_TOOL_ICON_CLASS} />
           </TooltipTrigger>
-          <TooltipContent className={sx(chromeStyles.help)}>
-            Inspect padding, border &amp; margin on hover. Click an element,
-            then hover another to measure the gap between them.
-          </TooltipContent>
+          <TooltipContent>Developer tools</TooltipContent>
         </Tooltip>
-
         <DropdownMenu onOpenChange={setFloatingSurfaceOpen}>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      type="button"
-                      size="sm"
-                      variant="outline"
-                      disabled={lensPageActionDisabled}
-                      aria-label="Save screenshot"
-                      xstyle={[chromeStyles.captureButton, chromeStyles.toolInactive]}
-                    />
-                  }
-                />
-              }
-            >
-              <Camera className={LENS_TOOL_ICON_CLASS} />
-              <ChevronDown className={sx(chromeStyles.chevron)} />
-            </TooltipTrigger>
-            <TooltipContent>Screenshot</TooltipContent>
-          </Tooltip>
-          <DropdownMenuContent align="end" xstyle={chromeStyles.captureMenu}>
+          <DropdownMenuTrigger
+            render={
+              <Button
+                type="button"
+                size="icon-sm"
+                variant="ghost"
+                disabled={!hasLensApi}
+                aria-label="More browser tools"
+              />
+            }
+          >
+            <MoreHorizontal className={LENS_TOOL_ICON_CLASS} />
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" xstyle={chromeStyles.downloadsMenu}>
             <DropdownMenuItem
+              disabled={lensPageActionDisabled}
+              onSelect={() => {
+                void toggleBoxInspect();
+              }}
+            >
+              {isBoxInspectActive ? "Stop measuring" : "Measure spacing"}
+            </DropdownMenuItem>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={lensPageActionDisabled}
               onSelect={() => {
                 void saveScreenshot(false);
               }}
             >
-              Viewport
+              Save viewport screenshot
             </DropdownMenuItem>
             <DropdownMenuItem
+              disabled={lensPageActionDisabled}
               onSelect={() => {
                 void saveScreenshot(true);
               }}
             >
-              Full Page
+              Save full page screenshot
             </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <DropdownMenu onOpenChange={setFloatingSurfaceOpen}>
-          <Tooltip>
-            <TooltipTrigger
-              render={
-                <DropdownMenuTrigger
-                  render={
-                    <Button
-                      type="button"
-                      size="icon-sm"
-                      variant={downloads.length > 0 ? "secondary" : "outline"}
-                      xstyle={
-                        downloads.length > 0
-                          ? undefined
-                          : chromeStyles.toolInactive
-                      }
-                      disabled={!hasLensApi}
-                      aria-label="Downloads"
-                    />
-                  }
-                />
-              }
-            >
-              <Download className={LENS_TOOL_ICON_CLASS} />
-            </TooltipTrigger>
-            <TooltipContent>Downloads</TooltipContent>
-          </Tooltip>
-          <DropdownMenuContent align="end" xstyle={chromeStyles.downloadsMenu}>
-            <DropdownMenuLabel>Downloads</DropdownMenuLabel>
             <DropdownMenuItem
               disabled={lensPageActionDisabled}
               onSelect={() => {
                 void downloadPageAssets();
               }}
             >
-              Download Page Assets
+              Download page assets
             </DropdownMenuItem>
             <DropdownMenuSeparator />
+            <DropdownMenuLabel>Recent downloads</DropdownMenuLabel>
             {downloads.length > 0 ? (
               downloads
                 .slice(-5)

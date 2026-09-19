@@ -17,7 +17,8 @@ copy browser credentials into Stave.
   tool can expose an in-app browser and desktop UI control, but those surfaces
   do not satisfy `@web`. Stave disables the Chrome plugin for turns without
   interactive `@web`, and does not force-enable a plugin that the user
-  disabled.
+  disabled. The shared `unified-computer-use` plugin is also disabled on turns
+  without browser access; disabling only the Chrome skill would leave its MCP tools available.
 
 The browser extension, provider CLI, and the user's existing Chrome profile own
 the live connection. Stave only asks the provider to use that connection for
@@ -91,3 +92,13 @@ install it, enable it, or grant site access from Settings.
   fallback widens that to a per-host and post-failure opt-in, and is itself
   off by default and configured only in Settings.
 - Stave does not expose a separate browser-control IPC or Local MCP tool.
+
+## Initialization troubleshooting
+
+If the tool reports `CUA_REPL_ENABLED_SURFACES is required` before it can list
+browsers, check that the installed plugin launcher matches the bundled CUA
+runtime. Older launchers can omit the REPL environment forwarding expected by
+a newer runtime and call an obsolete initialization API. Refresh the plugin
+through its owning application and start a new provider session. Do not fix
+this by granting extra browser or desktop permissions. Stave does not rewrite
+provider-owned plugin files as part of normal turn startup.

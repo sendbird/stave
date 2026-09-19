@@ -2684,6 +2684,14 @@ interface WindowLensApi {
     workspaceId: string;
     lensSessionId?: string;
   }) => Promise<{ ok: boolean }>;
+  stop?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
+  openDevTools?: (args: {
+    workspaceId: string;
+    lensSessionId?: string;
+  }) => Promise<{ ok: boolean; message?: string }>;
   reload?: (args: {
     workspaceId: string;
     lensSessionId?: string;

@@ -1,3 +1,4 @@
+import { getLensPointerScript } from "./browser-pointer";
 import { getLensStyleCaptureScript } from "./browser-style-capture";
 import type { LensAnnotation } from "../../../src/lib/lens/lens.types";
 import { getLensElementContextScript } from "./browser-element-context";
@@ -45,7 +46,6 @@ export function getAnnotationOverlayScript(
     border: "2px solid #22c55e",
     background: "rgba(34,197,94,0.12)",
     borderRadius: "3px",
-    transition: "all 70ms ease",
     display: "none",
   });
   shadowRoot.appendChild(hover);
@@ -93,6 +93,7 @@ export function getAnnotationOverlayScript(
   let dragStart = null;
   let captureActive = true;
 
+  ${getLensPointerScript()}
   ${getLensElementContextScript()}
 
   function emit(type, annotation) {
@@ -578,11 +579,10 @@ export function getAnnotationOverlayScript(
     input.focus();
   }
 
-  function onMouseMove(event) {
-    if (!event.isTrusted) return;
+  const pointer = stavePointerTracker(function renderHover(event) {
     if (!captureActive) return;
     if (pendingInput || dragStart) return;
-    const el = document.elementFromPoint(event.clientX, event.clientY);
+    const el = staveElementAtPoint(event.clientX, event.clientY, event.altKey);
     if (!el || isOverlayNode(el)) return;
     hoverElement = el;
     const r = el.getBoundingClientRect();
@@ -596,8 +596,10 @@ export function getAnnotationOverlayScript(
     label.textContent =
       el.tagName.toLowerCase() + " " + Math.round(r.width) + "x" + Math.round(r.height);
     label.style.display = "block";
-    label.style.top = Math.max(0, r.top - 22) + "px";
-    label.style.left = r.left + "px";
+    stavePositionLabel(label, r);
+  });
+  function onMouseMove(event) {
+    if (event.isTrusted) pointer.move(event);
   }
 
   function onMouseDown(event) {
@@ -663,7 +665,7 @@ export function getAnnotationOverlayScript(
     if (isOverlayNode(event.target) || pendingInput || dragStart) return;
     event.preventDefault();
     event.stopPropagation();
-    const el = hoverElement || document.elementFromPoint(event.clientX, event.clientY);
+    const el = staveElementAtPoint(event.clientX, event.clientY, event.altKey);
     if (!el || isOverlayNode(el)) return;
     const rect = staveRectToPlain(el.getBoundingClientRect());
     showCommentInput(
@@ -705,6 +707,7 @@ export function getAnnotationOverlayScript(
   }
 
   function teardown() {
+    pointer.dispose();
     document.removeEventListener("mousemove", onMouseMove, true);
     document.removeEventListener("mousedown", onMouseDown, true);
     document.removeEventListener("mousemove", onDragMove, true);

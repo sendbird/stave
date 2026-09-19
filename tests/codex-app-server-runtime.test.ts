@@ -691,6 +691,7 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
       }),
     ).toEqual({
       "plugins.chrome@openai-bundled.enabled": false,
+      "plugins.unified-computer-use@openai-bundled.enabled": false,
     });
     expect(
       buildCodexNativeBrowserTurnConfigOverrides({
@@ -703,7 +704,8 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
         requested: true,
         userEnabled: false,
       }),
-    ).toEqual({ "plugins.chrome@openai-bundled.enabled": false });
+    ).toEqual({ "plugins.chrome@openai-bundled.enabled": false,
+      "plugins.unified-computer-use@openai-bundled.enabled": false });
   });
 
   test("reads the user's native Chrome plugin setting from App Server inventory", () => {

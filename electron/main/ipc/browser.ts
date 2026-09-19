@@ -1,3 +1,4 @@
+import { readLensComponentContext } from "../browser/browser-component-context";
 import { setBrowserSessionSleeping } from "../browser/browser-manager";
 import { LensSleepArgsSchema } from "./schemas";
 // ---------------------------------------------------------------------------
@@ -581,6 +582,29 @@ export function registerBrowserHandlers() {
     },
   );
 
+  for (const action of ["stop", "open-devtools"] as const) {
+    handleLens(`lens:${action}`, async (_event, input: unknown) => {
+      const parsed = LensSessionTargetArgsSchema.safeParse(input);
+      if (!parsed.success)
+        return { ok: false, message: "Invalid Lens session" };
+      const wc = resolveWebContents(
+        parsed.data.workspaceId,
+        parsed.data.lensSessionId,
+      );
+      if (!wc) return { ok: false, message: "No browser session" };
+      try {
+        if (action === "stop") wc.stop();
+        else wc.openDevTools({ mode: "detach", activate: true });
+        return { ok: true };
+      } catch (error) {
+        return {
+          ok: false,
+          message: error instanceof Error ? error.message : String(error),
+        };
+      }
+    });
+  }
+
   // ---- Get current state ----
   handleLens(
     "lens:get-state",
@@ -1135,7 +1159,25 @@ export function registerBrowserHandlers() {
         return { ok: true };
       }
       assertLensDocumentIdentity(session, documentId);
-      const result = normalizeElementPickerResultForSession(session, rawResult);
+      let result = normalizeElementPickerResultForSession(session, rawResult);
+      if (args.options?.extractDebugSource && result.selector) {
+        const metadata = await readLensComponentContext(
+          session.webContents,
+          result.selector,
+        );
+        assertLensDocumentIdentity(session, documentId);
+        if (metadata) {
+          try {
+            result = normalizeElementPickerResultForSession(session, {
+              ...result,
+              ...metadata,
+              anchor: { ...result.anchor, ...metadata },
+            });
+          } catch {
+            /* Optional page metadata must not discard a valid selection. */
+          }
+        }
+      }
       return { ok: true, result };
     } catch (err) {
       return {

@@ -191,16 +191,23 @@ export function getLensElementContextScript(): string {
       return { debugSource: null, componentNameChain: null };
     }
     try {
-      const fiberKey = Object.keys(element).find(
+      let owner = element;
+      let fiberKey;
+      for (let depth = 0; owner && depth < 12; depth += 1, owner = owner.parentElement) {
+        fiberKey = Object.keys(owner).find(
         (key) =>
           key.startsWith("__reactFiber$") ||
           key.startsWith("__reactInternalInstance$"),
       );
-      if (!fiberKey) {
-        return { debugSource: null, componentNameChain: null };
+        if (fiberKey) break;
+      }
+      if (!fiberKey || !owner) {
+        const named = element.closest("[data-component-name], [data-component]");
+        const name = named && (named.getAttribute("data-component-name") || named.getAttribute("data-component"));
+        return { debugSource: null, componentNameChain: name ? [staveBoundText(name, 200)] : null };
       }
 
-      let fiber = element[fiberKey];
+      let fiber = owner[fiberKey];
       let debugSource = null;
       for (let index = 0; index < 10 && fiber; index += 1) {
         if (fiber._debugSource) {
@@ -215,14 +222,14 @@ export function getLensElementContextScript(): string {
       }
 
       const componentNameChain = [];
-      fiber = element[fiberKey];
+      fiber = owner[fiberKey];
       for (let index = 0; index < 24 && fiber; index += 1) {
         const type = fiber.type;
         const name =
           typeof type === "function"
             ? type.displayName || type.name
             : type && typeof type === "object"
-              ? type.displayName || type.name
+              ? type.displayName || type.name || type.render?.displayName || type.render?.name || type.type?.displayName || type.type?.name
               : null;
         if (
           typeof name === "string" &&

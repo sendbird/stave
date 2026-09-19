@@ -57,7 +57,10 @@ describe("Codex config override keys", () => {
         requested: false,
         userEnabled: true,
       }),
-    ).toEqual({ "plugins.chrome@openai-bundled.enabled": false });
+    ).toEqual({
+      "plugins.chrome@openai-bundled.enabled": false,
+      "plugins.unified-computer-use@openai-bundled.enabled": false,
+    });
   });
 
   test("the unattended automation MCP URL addresses the real server entry", () => {

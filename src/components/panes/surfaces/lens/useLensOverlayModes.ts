@@ -238,6 +238,61 @@ export function useLensOverlayModes(args: {
       toast.success("Lens selection added", {
         description: "Element details were appended to the active task draft.",
       });
+      // Text is available immediately. A refused or failed optional capture
+      // must not discard it or retry a permission request automatically.
+      const selected = result.result as ElementPickerResult;
+      if (selected.page?.documentId) {
+        const rect = selected.boundingBox;
+        try {
+          const screenshot = await window.api?.lens?.screenshot?.({
+            workspaceId,
+            lensSessionId,
+            options: {
+              clip: {
+                x: Math.max(0, Math.round(rect.x)),
+                y: Math.max(0, Math.round(rect.y)),
+                width: Math.max(1, Math.round(rect.width)),
+                height: Math.max(1, Math.round(rect.height)),
+              },
+              documentId: selected.page.documentId,
+            },
+          });
+          if (
+            screenshot?.ok &&
+            screenshot.dataUrl &&
+            screenshot.documentId === selected.page.documentId
+          ) {
+            const store = useAppStore.getState();
+            const draft = store.promptDraftByTask[activeTaskId];
+            // Do not resurrect a selection the user already sent or removed.
+            if (draft?.text.includes(selectionText)) {
+              store.updatePromptDraft({
+                taskId: activeTaskId,
+                patch: {
+                  attachments: [
+                    ...draft.attachments,
+                    {
+                      kind: "image",
+                      id: `lens-selection:${crypto.randomUUID()}`,
+                      dataUrl: screenshot.dataUrl,
+                      label: `Lens: ${selected.tagName}`,
+                    },
+                  ],
+                },
+              });
+            }
+          }
+        } catch {
+          /* The selection remains usable without an image. */
+        }
+      }
+    } catch (error) {
+      toast.error("Element picker failed", {
+        description:
+          error instanceof Error
+            ? error.message
+            : "The page is no longer available.",
+      });
     } finally {
       setIsPickerActive(false);
     }
