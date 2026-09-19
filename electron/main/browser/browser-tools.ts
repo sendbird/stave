@@ -1,3 +1,5 @@
+import { controlledLensTools } from "./browser-controlled-tools";
+import { assertLensAutomationAllowed } from "./browser-automation-control";
 // ---------------------------------------------------------------------------
 // MCP browser tools – registered on the existing stave-mcp-server
 //
@@ -144,7 +146,8 @@ function truncateWithMarker(value: string, maxChars: number) {
 // Registration
 // ---------------------------------------------------------------------------
 
-export function registerBrowserTools(server: McpServer): void {
+export function registerBrowserTools(rawServer: McpServer): void {
+  const server = controlledLensTools(rawServer);
   // ---- Open session ----
   server.registerTool(
     "stave_lens_open_session",
@@ -1145,6 +1148,7 @@ export function registerBrowserTools(server: McpServer): void {
         "stave_lens_reload",
         undefined,
         async () => {
+          assertLensAutomationAllowed();
           if (ignoreCache) {
             session.webContents.reloadIgnoringCache();
           } else {

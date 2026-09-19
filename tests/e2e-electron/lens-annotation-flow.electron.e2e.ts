@@ -294,6 +294,14 @@ test("a real visual comment becomes a task draft attachment", async ({}, testInf
     });
 
   const tray = stave.page.getByRole("region", { name: "Visual feedback draft" });
+  await tray.getByText("Choose comments to keep (1)", { exact: true }).click();
+  const keep = tray.getByRole("checkbox");
+  await expect(keep).toBeChecked();
+  await keep.uncheck();
+  await expect(tray.getByRole("button", { name: "Remove 1 unchecked comments" })).toBeVisible();
+  await keep.check();
+  await expect(tray.getByRole("button", { name: "Remove 1 unchecked comments" })).toHaveCount(0);
+  await tray.getByText("Choose comments to keep (1)", { exact: true }).click();
   await expect(tray.getByLabel("Requested change")).toHaveValue(COMMENT);
   await tray.getByLabel("Requested change").fill("Discard this edit");
   await tray.getByRole("button", { name: "Cancel", exact: true }).click();
@@ -360,4 +368,60 @@ test("sent feedback replays from persistence beside the changed preview", async 
   await review.getByRole("button", { name: "Reload to check changes" }).click();
   await expect(review.getByRole("img")).toBeVisible();
   await review.screenshot({ path: testInfo.outputPath("lens-sent-feedback.png") });
+});
+
+test("direct interaction blocks agent actions and resumes only with user control", async () => {
+  const control = stave.page.getByRole("region", { name: "Lens browser control" });
+  await control.getByRole("button", { name: "Pause agent access" }).click();
+  await expect(control.getByRole("button", { name: "Resume agent access" })).toBeVisible();
+  const denied = await callTool("stave_lens_evaluate", { expression: "document.body.dataset.agentWrite = 'blocked'" });
+  expect(denied.isError).toBe(true);
+  expect(denied.text).toContain("paused");
+  expect(await findGuestPage()!.evaluate(() => document.body.dataset.agentWrite)).toBeUndefined();
+  // User-owned IPC remains usable while MCP is paused.
+  const userCapture = await stave.page.evaluate(async (args) => window.api.lens!.screenshot!(args), { workspaceId: E2E_WORKSPACE_ID, lensSessionId: E2E_LENS_SESSION_ID });
+  expect(userCapture.ok).toBe(true);
+  await control.getByRole("button", { name: "Resume agent access" }).click();
+  const allowed = await callTool("stave_lens_evaluate", { expression: "document.body.dataset.agentWrite = 'resumed'" });
+  expect(allowed.isError).toBe(false);
+  expect(await findGuestPage()!.evaluate(() => document.body.dataset.agentWrite)).toBe("resumed");
+  const status = await stave.page.evaluate(async (args) => window.api.lens!.getAutomation(args), { workspaceId: E2E_WORKSPACE_ID, lensSessionId: E2E_LENS_SESSION_ID, includePreview: true });
+  expect(status.state?.running).toBe(0);
+  expect(status.state?.preview).toMatch(/^data:image\/jpeg;base64,/);
+});
+
+test("comparison validates the target and viewport instead of claiming automatic resolution", async () => {
+  const loaded = await stave.page.evaluate(async ({ workspaceId, taskId }) => window.api.persistence!.loadTaskMessages!({ workspaceId, taskId }), { workspaceId: E2E_WORKSPACE_ID, taskId });
+  const parts = loaded?.page.messages.flatMap((message) => message.displayParts ?? []) ?? [];
+  const part = parts.find((item) => (item.type === "image_context" || item.type === "text") && item.lensFeedback);
+  if (!part || (part.type !== "image_context" && part.type !== "text") || !part.lensFeedback) throw new Error("No sent feedback");
+  const annotation = structuredClone(part.lensFeedback.annotation);
+  const evaluate = (expression: string) => stave.page.evaluate(async (args) => window.api.lens!.evaluate!(args), { workspaceId: E2E_WORKSPACE_ID, lensSessionId: E2E_LENS_SESSION_ID, expression });
+  const viewport = async () => (await evaluate("({ width: innerWidth, height: innerHeight, devicePixelRatio })")).result as typeof annotation.review.page.viewport;
+  // The preceding takeover test removes a line of control chrome. Wait for
+  // the renderer's measured guest bounds to settle before sampling geometry.
+  let previous = "";
+  let stable = 0;
+  await expect.poll(async () => {
+    const current = JSON.stringify(await viewport());
+    stable = current === previous ? stable + 1 : 0;
+    previous = current;
+    return stable;
+  }, { intervals: [100] }).toBeGreaterThanOrEqual(3);
+  // Qualify main's comparison contract using the fixture's current viewport.
+  annotation.review.page.viewport = await viewport();
+  const target = { workspaceId: E2E_WORKSPACE_ID, lensSessionId: E2E_LENS_SESSION_ID, annotation };
+  const result = await stave.page.evaluate(async (args) => window.api.lens!.compareAnnotation(args), target);
+  expect(result.ok, result.message + " expected=" + JSON.stringify(annotation.review.page.viewport) + " current=" + JSON.stringify(await viewport())).toBe(true);
+  expect(result.dataUrl).toMatch(/^data:image\/png;base64,/);
+  annotation.review.page.viewport.width++;
+  const resized = await stave.page.evaluate(async (args) => window.api.lens!.compareAnnotation(args), target);
+  expect(resized.ok).toBe(false);
+  expect(resized.message).toContain("viewport");
+  annotation.review.page.viewport.width--;
+  await evaluate("document.querySelector('#target').remove()");
+  annotation.review.page.viewport = await viewport();
+  const missing = await stave.page.evaluate(async (args) => window.api.lens!.compareAnnotation(args), target);
+  expect(missing.ok).toBe(false);
+  expect(missing.message).toContain("missing");
 });

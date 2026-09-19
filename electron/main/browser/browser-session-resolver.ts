@@ -1,3 +1,4 @@
+import { bindLensAutomation } from "./browser-automation-control";
 import {
   DEFAULT_LENS_SESSION_ID,
   markBrowserSessionAgentTouched,
@@ -81,6 +82,7 @@ export async function acquireMcpBrowserSession(
    * this is the same rule at the layer that can skip it.
    */
   if (existing && !existing.webContents.isDestroyed()) {
+    bindLensAutomation(existing);
     markBrowserSessionAgentTouched(existing);
     return { session: existing, created: false };
   }
@@ -117,5 +119,6 @@ export async function acquireMcpBrowserSession(
   } else {
     markBrowserSessionAgentTouched(result.session);
   }
+  bindLensAutomation(result.session);
   return result;
 }

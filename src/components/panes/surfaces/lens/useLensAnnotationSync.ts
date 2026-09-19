@@ -56,6 +56,9 @@ export function useLensAnnotationSync(args: {
       return;
     }
 
+    let cancelled = false;
+    const pendingCaptures = new Set<string>();
+
     const captureAnnotationScreenshot = async (annotation: LensAnnotation) => {
       if (!activeTaskId) {
         return;
@@ -90,6 +93,7 @@ export function useLensAnnotationSync(args: {
         },
       });
       if (
+        cancelled || !pendingCaptures.delete(annotation.id) ||
         !result?.ok ||
         !result.dataUrl ||
         result.documentId !== annotation.review.page.documentId
@@ -131,6 +135,7 @@ export function useLensAnnotationSync(args: {
         }
 
         if (payload.type === "clear") {
+          pendingCaptures.clear();
           setAnnotations([]);
           return;
         }
@@ -139,6 +144,7 @@ export function useLensAnnotationSync(args: {
           payload.annotation &&
           payload.documentId === payload.annotation.review.page.documentId
         ) {
+          pendingCaptures.delete(payload.annotation.id);
           setAnnotations((current) =>
             current.filter(
               (annotation) => annotation.id !== payload.annotation?.id,
@@ -161,13 +167,16 @@ export function useLensAnnotationSync(args: {
             ),
           );
           if (payload.type === "add") {
-            void captureAnnotationScreenshot(payload.annotation);
+            pendingCaptures.add(payload.annotation.id);
+            void captureAnnotationScreenshot(payload.annotation).catch(() => pendingCaptures.delete(payload.annotation!.id));
           }
         }
       },
     );
 
     return () => {
+      cancelled = true;
+      pendingCaptures.clear();
       unsubscribe?.();
     };
   }, [activeTaskId, hasLensApi, lensSessionId, workspaceId]);

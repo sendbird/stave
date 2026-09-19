@@ -241,7 +241,7 @@ const ElementPickerInputSchema = z
 const AnnotationEventInputSchema = z.discriminatedUnion("type", [
   z
     .object({
-      type: z.enum(["add", "update", "remove"]),
+      type: z.enum(["add", "update", "remove", "select"]),
       documentId: z.string(),
       annotation: z
         .unknown()
@@ -948,7 +948,8 @@ export function normalizeLensAnnotationEventPayload(
   if (
     parsed.data.type === "add" ||
     parsed.data.type === "update" ||
-    parsed.data.type === "remove"
+    parsed.data.type === "remove" ||
+    parsed.data.type === "select"
   ) {
     return {
       type: parsed.data.type,
