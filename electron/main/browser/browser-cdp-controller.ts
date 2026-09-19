@@ -1,3 +1,4 @@
+import { assertLensAutomationAllowed } from "./browser-automation-control";
 import { webContents } from "electron";
 import {
   createCdpCommandBarrier,
@@ -190,12 +191,14 @@ export async function sendCdpCommand(
   method: string,
   params?: Record<string, unknown>,
 ): Promise<unknown> {
+  assertLensAutomationAllowed();
   ensureCdpAttached(webContentsId);
   const controller = getOrCreateController(webContentsId);
   const release = controller.commandBarrier.acquire();
   try {
     if (controller.sleeping) await setCdpPageSleeping(webContentsId, false);
     await controller.lifecycleChange.catch(() => undefined);
+    assertLensAutomationAllowed();
     return await requireWebContents(webContentsId).debugger.sendCommand(
       method,
       params,
@@ -239,6 +242,7 @@ export function subscribeCdpMessages(
   webContentsId: number,
   listener: CdpMessageListener,
 ): () => void {
+  assertLensAutomationAllowed();
   ensureCdpAttached(webContentsId);
   const controller = getOrCreateController(webContentsId);
   controller.detachRequested = false;
@@ -250,6 +254,7 @@ export function subscribeCdpDetach(
   webContentsId: number,
   listener: CdpDetachListener,
 ): () => void {
+  assertLensAutomationAllowed();
   ensureCdpAttached(webContentsId);
   const controller = getOrCreateController(webContentsId);
   controller.detachRequested = false;

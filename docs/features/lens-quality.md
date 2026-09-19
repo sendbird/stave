@@ -34,6 +34,23 @@ measured by completed workflows rather than the number of controls.
 
 ## Explicit limits
 
+- Visual feedback drafts let users edit requests and remove unchecked comments
+  before sending. Intent and priority are secondary options in the page overlay.
+- Pause agent access blocks new Lens MCP calls and invalidates pending command
+  leases in main. Resuming does not revive an older lease. User-owned Lens IPC
+  remains usable; already dispatched page JavaScript or network requests cannot
+  be undone by pausing.
+- Expanded browser tool details show the latest session capture, not a replay
+  of that historical call. Captures are memory-only, limited to eight images of
+  at most 256 KB each, and do not continuously stream the page.
+- Sent feedback can compare its original image with a fresh target capture.
+  Comparison requires the recorded viewport and a unique visible target; missing
+  or ambiguous targets require reselection. Users must confirm target identity
+  and mark resolution themselves. Resolution markers currently last only while
+  that target remains open in the review view, and reset on page navigation.
+- The captured page address excludes query parameters and fragments. Matching
+  its address or selector alone never establishes that the issue is resolved.
+
 - Source file and line information depends on metadata supplied by the page;
   production builds may provide none.
 - Shadow roots and cross-origin frames remain selection boundaries until

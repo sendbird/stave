@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { LensToolPreview } from "@/components/panes/surfaces/lens/LensAutomationStatus";
 import { Check, Copy } from "lucide-react";
 import {
   CompactingIndicator,
@@ -138,6 +139,7 @@ export function MessagePartRenderer(args: {
             elapsedSeconds={part.elapsedSeconds}
           />
           <ToolContent>
+            <LensToolPreview toolName={part.toolName} input={part.input} />
             <ToolInput input={part.input} />
             {(part.state !== "input-streaming" || part.output?.trim()) && (
               <ToolOutput

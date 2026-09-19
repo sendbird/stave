@@ -2,6 +2,9 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "../../../ads/tokens/tokens.stylex";
 
 export const feedbackStyles = stylex.create({
+  automation: { padding: vars["--ads-space-8"], flexShrink: 0, borderBottomWidth: vars["--ads-border-width-hairline"], borderBottomStyle: "solid", borderBottomColor: vars["--ads-color-border"], backgroundColor: vars["--ads-color-canvas"] },
+  preview: { display: "block", maxWidth: "100%", maxHeight: 240, objectFit: "contain", borderRadius: vars["--ads-radius-mark"] },
+  comparison: { display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 160px), 1fr))", gap: vars["--ads-space-8"] },
   tray: { maxHeight: "45%", flexShrink: 0, overflow: "auto", borderTopWidth: vars["--ads-border-width-hairline"], borderTopStyle: "solid", borderTopColor: vars["--ads-color-border"], backgroundColor: vars["--ads-color-canvas"], padding: vars["--ads-space-12"] },
   header: { display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: vars["--ads-space-8"] },
   headingGroup: { minWidth: 0 },

@@ -1,8 +1,11 @@
 import { feedbackStyles } from "./lens-feedback.styles";
+import { LensFeedbackComparison } from "./LensFeedbackComparison";
+import { LensFeedbackSelection } from "./LensFeedbackSelection";
 import { sx } from "../../../ads/utils/stylex";
 import { getSentLensFeedback } from "@/lib/lens/lens-feedback-history";
 import { ImageLightbox } from "@/components/ui/image-lightbox";
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { matchesSession } from "@/lib/lens/lens-log-format";
 import { Button } from "@/components/ads/components/Button";
 import { Textarea } from "@/components/ads/components/Textarea";
 import { useAppStore } from "@/store/app.store";
@@ -39,6 +42,10 @@ export function LensFeedbackTray({
   );
   const [previewOpen, setPreviewOpen] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  useEffect(() => window.api?.lens?.subscribeAnnotationEvents?.((event) => {
+    if (event.type === "select" && matchesSession(event, workspaceId, lensSessionId) && event.documentId === event.annotation?.review.page.documentId)
+      setSelectedId(event.annotation?.id ?? null);
+  }), [workspaceId, lensSessionId]);
   const draftAttachment = draft?.attachments.find((item) =>
     isTargetLensAnnotationsAttachment(item, { workspaceId, lensSessionId }),
   );
@@ -157,6 +164,7 @@ export function LensFeedbackTray({
           </Button>
         ))}
       </div>
+      {!sent ? <LensFeedbackSelection key={attachment.annotations[0]?.review.page.documentId} workspaceId={workspaceId} lensSessionId={lensSessionId} annotations={attachment.annotations} /> : null}
       <div className={sx(feedbackStyles.capture)}>
         {screenshot?.kind === "image" ? (
           <Button
@@ -195,6 +203,7 @@ export function LensFeedbackTray({
           onSave={saveComment}
         />
       )}
+      {sent ? <LensFeedbackComparison key={selected.id} workspaceId={workspaceId} lensSessionId={lensSessionId} annotation={selected} original={screenshot?.kind === "image" ? screenshot.dataUrl : undefined} /> : null}
       {screenshot?.kind === "image" ? (
         <ImageLightbox
           open={previewOpen}
@@ -227,6 +236,7 @@ function FeedbackEditor({
         <div className={sx(feedbackStyles.editorActions)}>
           <Button
             size="xs"
+            disabled={!edit.trim()}
             onClick={() => {
               onSave(annotation, edit);
               setEdit(null);

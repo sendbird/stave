@@ -192,7 +192,15 @@ export function getAnnotationOverlayScript(
       transform: "translate(-2px, -18px)",
     });
 
-    const badge = document.createElement("span");
+    const badge = document.createElement("button");
+    badge.type = "button";
+    badge.setAttribute("aria-label", "Review visual comment " + String(annotation.pin));
+    badge.addEventListener("click", (event) => {
+      if (!isTrustedOverlayEvent(event)) return;
+      event.preventDefault();
+      event.stopPropagation();
+      emit("select", annotation);
+    });
     badge.textContent = String(annotation.pin);
     badge.title = annotation.comment;
     Object.assign(badge.style, {
@@ -207,7 +215,7 @@ export function getAnnotationOverlayScript(
       color: "#052e16",
       fontSize: "12px",
       fontWeight: "700",
-      cursor: "default",
+      cursor: "pointer",
     });
 
     const del = document.createElement("button");
@@ -569,8 +577,13 @@ export function getAnnotationOverlayScript(
     });
     add.addEventListener("click", submitComment);
 
-    controls.appendChild(intent);
-    controls.appendChild(priority);
+    const advanced = document.createElement("details");
+    const summary = document.createElement("summary");
+    summary.textContent = "Options";
+    advanced.appendChild(summary);
+    advanced.appendChild(intent);
+    advanced.appendChild(priority);
+    controls.appendChild(advanced);
     controls.appendChild(add);
     panel.appendChild(input);
     panel.appendChild(controls);

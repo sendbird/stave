@@ -16,6 +16,7 @@ import {
   type LensPanelTab,
 } from "@/lib/lens/lens-log-format";
 import { LensFeedbackTray } from "./lens/LensFeedbackTray";
+import { LensAutomationStatus } from "./lens/LensAutomationStatus";
 import { LensChrome } from "@/components/panes/surfaces/lens/LensChrome";
 import { LensConsoleWorkbench } from "@/components/panes/surfaces/lens/LensConsoleWorkbench";
 import { LensNetworkWorkbench } from "@/components/panes/surfaces/lens/LensNetworkWorkbench";
@@ -332,6 +333,7 @@ function LensSessionSurface(args: {
           picker={{ disabled: pickerDisabled, tooltip: pickerTooltip }}
         />
 
+        <LensAutomationStatus key={workspaceId} workspaceId={workspaceId} lensSessionId={lensSessionId} />
         {/*
           Carries the page background behind the guest, so the moment before a
           page paints reads as part of the page rather than as a hole.
