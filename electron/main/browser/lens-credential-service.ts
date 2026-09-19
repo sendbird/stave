@@ -1,3 +1,4 @@
+import { assertLensAutomationAllowed } from "./browser-automation-control";
 import { app, safeStorage } from "electron";
 import path from "node:path";
 import type {
@@ -130,6 +131,7 @@ export async function fillLensCredentialForWebContents(
     };
   }
 
+  assertLensAutomationAllowed();
   const result = (await webContents.executeJavaScript(
     buildCredentialFillScript({
       username: credential.username,

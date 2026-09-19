@@ -40,6 +40,10 @@ export function applyLensAnnotationEvent(
   if (!event.documentId || event.documentId !== state.documentId) {
     return false;
   }
+  if (event.type === "select") {
+    return event.annotation?.review.page.documentId === state.documentId &&
+      state.annotations.some((annotation) => annotation.id === event.annotation?.id);
+  }
 
   if (
     (event.type === "add" || event.type === "update") &&

@@ -1,3 +1,4 @@
+import { registerLensReviewHandlers } from "./lens-review";
 import { readLensComponentContext } from "../browser/browser-component-context";
 import { setBrowserSessionSleeping } from "../browser/browser-manager";
 import { LensSleepArgsSchema } from "./schemas";
@@ -179,6 +180,7 @@ function handleLens(
 }
 
 export function registerBrowserHandlers() {
+  registerLensReviewHandlers();
   // ---- Saved accounts: secrets stay in the Electron main-process vault ----
   handleLens("lens:list-credentials", async () => {
     try {

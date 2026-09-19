@@ -635,7 +635,7 @@ export interface LensAnnotation {
 }
 
 export type LensAnnotationEventType =
-  "add" | "update" | "remove" | "clear" | "submit";
+  "add" | "update" | "remove" | "clear" | "submit" | "select";
 
 export interface LensAnnotationEventPayload {
   workspaceId: string;
@@ -644,7 +644,7 @@ export interface LensAnnotationEventPayload {
   /** Main-issued identity of the page document that produced this event. */
   documentId?: string;
   type: LensAnnotationEventType;
-  /** Present for add/update/remove. */
+  /** Present for add/update/remove/select. */
   annotation?: LensAnnotation;
   /** Present for submit: the full batch the user chose to send. */
   annotations?: LensAnnotation[];

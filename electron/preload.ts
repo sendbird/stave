@@ -1,3 +1,4 @@
+import { lensReviewApi } from "./lens-review-preload";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../src/lib/providers/agent-history";
 import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../src/lib/performance/workspace-execution";
 import type { PromptEnhancementContext } from "../src/lib/providers/prompt-enhancement-context";
@@ -2809,6 +2810,7 @@ contextBridge.exposeInMainWorld("api", {
       }>,
   },
   lens: {
+    ...lensReviewApi,
     listCredentials: () =>
       ipcRenderer.invoke("lens:list-credentials") as Promise<{
         ok: boolean;

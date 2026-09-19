@@ -70,6 +70,15 @@ function state(): LensAnnotationDocumentState {
   };
 }
 
+it("selects an existing pin without replacing edited evidence or accepting stale pins", () => {
+  const current = state();
+  const previous = current.annotations;
+  expect(applyLensAnnotationEvent(current, { type: "select", documentId: "document-old", annotation: annotation("document-old") })).toBe(true);
+  expect(current.annotations).toBe(previous);
+  expect(applyLensAnnotationEvent(current, { type: "select", documentId: "document-new", annotation: annotation("document-new") })).toBe(false);
+  expect(applyLensAnnotationEvent(current, { type: "select", documentId: "document-old", annotation: { ...annotation("document-old"), id: "unknown" } })).toBe(false);
+});
+
 function browserSession(): BrowserSessionState {
   return {
     documentId: "document-old",

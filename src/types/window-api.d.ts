@@ -1,3 +1,4 @@
+import type { LensReviewApi } from "@/lib/lens/lens-review.types";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../lib/providers/agent-history";
 import type { PromptEnhancementContext } from "@/lib/providers/prompt-enhancement-context";
 import type { ProjectMemoryControlsApi } from "@/lib/project-memory-settings";
@@ -2533,7 +2534,7 @@ interface LensAnnotation {
   review: LensVisualReviewEnvelope;
 }
 
-type LensAnnotationEventType = "add" | "update" | "remove" | "clear" | "submit";
+type LensAnnotationEventType = import("@/lib/lens/lens.types").LensAnnotationEventType;
 
 interface LensAnnotationEventPayload {
   workspaceId: string;
@@ -2581,7 +2582,7 @@ interface WindowSecretsApi {
   }) => Promise<{ ok: boolean; value?: string; message?: string }>;
 }
 
-interface WindowLensApi {
+interface WindowLensApi extends LensReviewApi {
   listCredentials?: () => Promise<{
     ok: boolean;
     credentials: LensCredentialMetadata[];
