@@ -43,11 +43,19 @@ and namespaced question, plan, todo, task, and image notifications. Renderer
 and IPC contracts continue to use normalized Stave events rather than exposing
 ACP wire payloads.
 
-Cursor Agent can also stall when its Connect-RPC HTTP/2 keepalive fails with
-`RetriableError: [unavailable] PING timed out`. That is an Agent-to-backend
-network drop, not an ACP framing error and not a Stave setting. The Cursor
-profile treats that stderr as a failed turn so `session/prompt` does not hang
-until the stall watchdog. There is no ACP option that selects HTTP/1.1 or
+Cursor Agent can also stall when its Connect-RPC HTTP/2 stream to the Agent
+backend fails. The CLI writes a `RetriableError` envelope — `PING timed out`,
+`NGHTTP2_INTERNAL_ERROR`, a generic `[unavailable]` / `[internal]` drop, or
+`[resource_exhausted]` — either on stderr or as the last line of an ACP
+assistant text chunk that still answers `session/prompt` with `end_turn`.
+That is an Agent-to-backend network drop, not an ACP framing error and not a
+Stave setting. The Cursor profile classifies the envelope, does not append
+`agent login` help, and does not keep the raw line as assistant text.
+Stderr drops fail the turn immediately because the process is already dying.
+A last-line text `stream_drop` gets one same-session continuation; capacity
+does not auto-retry. Either way a terminal transport or capacity failure
+offers Resume, which starts a new turn that inspects the workspace before
+continuing unfinished work. There is no ACP option that selects HTTP/1.1 or
 relaxes the Agent ping timeout.
 
 ACP tool calls are also renamed before they reach the renderer. Agents put prose

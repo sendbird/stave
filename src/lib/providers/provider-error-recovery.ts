@@ -11,6 +11,7 @@ export interface ProviderErrorNotice {
   message: string;
   guidance: string;
   capacityFailure: boolean;
+  transportFailure: boolean;
 }
 
 export function parseProviderErrorNotice(
@@ -32,7 +33,18 @@ export function parseProviderErrorNotice(
     capacityFailure:
       normalized.includes("server_overloaded") ||
       normalized.includes("at capacity") ||
-      normalized.includes("model is overloaded"),
+      normalized.includes("model is overloaded") ||
+      normalized.includes("resource_exhausted") ||
+      normalized.includes("service limit"),
+    transportFailure:
+      normalized.includes("ping timed out") ||
+      normalized.includes("keepalive") ||
+      normalized.includes("nghttp2") ||
+      normalized.includes("network drop") ||
+      normalized.includes("stream lost") ||
+      normalized.includes("stream closed") ||
+      normalized.includes("stream dropped") ||
+      normalized.includes("retriable backend"),
   };
 }
 
@@ -63,7 +75,7 @@ export function isProviderFailureRecoveryEligible(args: {
   terminalStopReason?: string;
 }) {
   return (
-    args.notice.capacityFailure &&
+    (args.notice.capacityFailure || args.notice.transportFailure) &&
     isTerminalProviderFailureStopReason(args.terminalStopReason)
   );
 }

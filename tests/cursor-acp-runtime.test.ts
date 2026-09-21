@@ -1,7 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import path from "node:path";
 import {
+  CURSOR_AGENT_CAPACITY_MESSAGE,
   CURSOR_AGENT_PING_TIMEOUT_MESSAGE,
+  CURSOR_AGENT_STREAM_CLOSED_MESSAGE,
   isCursorAgentPingTimeout,
 } from "../electron/providers/cursor/cursor-agent-transport";
 import {
@@ -754,6 +756,94 @@ describe("Cursor ACP runtime", () => {
     expect(isCursorAgentPingTimeout("ACP process closed by Stave.")).toBe(
       false,
     );
+  });
+
+  test("continues the same session when Cursor writes a PING timeout as assistant text", async () => {
+    const events = await streamCursorWithAcp(createTurnArgs("text-ping-timeout"));
+    const error = events.find((event) => event.type === "error");
+    expect(error).toMatchObject({
+      type: "error",
+      recoverable: true,
+    });
+    if (error?.type !== "error") {
+      throw new Error("Expected a PING timeout error event.");
+    }
+    expect(error.message).toContain(CURSOR_AGENT_PING_TIMEOUT_MESSAGE);
+    expect(error.message).not.toContain("agent login");
+    expect(
+      events.some(
+        (event) =>
+          event.type === "text" && event.text.includes("Wrote the first file."),
+      ),
+    ).toBe(true);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "text" && event.text.includes("RetriableError"),
+      ),
+    ).toBe(false);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "text" && event.text.includes("continued after the drop"),
+      ),
+    ).toBe(true);
+    expect(events.filter((event) => event.type === "done")).toEqual([
+      { type: "done", stop_reason: "end_turn" },
+    ]);
+  });
+
+  test("continues the same session after an NGHTTP2 stream close in assistant text", async () => {
+    const events = await streamCursorWithAcp(createTurnArgs("text-nghttp2"));
+    const error = events.find((event) => event.type === "error");
+    if (error?.type !== "error") {
+      throw new Error("Expected an NGHTTP2 error event.");
+    }
+    expect(error.message).toContain(CURSOR_AGENT_STREAM_CLOSED_MESSAGE);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "text" && event.text.includes("RetriableError"),
+      ),
+    ).toBe(false);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "text" &&
+          event.text.includes("continued after the stream closed"),
+      ),
+    ).toBe(true);
+    expect(events.filter((event) => event.type === "done")).toEqual([
+      { type: "done", stop_reason: "end_turn" },
+    ]);
+  });
+
+  test("ends a capacity drop as a failed turn without auto-retry", async () => {
+    const events = await streamCursorWithAcp(createTurnArgs("text-capacity"));
+    const error = events.find((event) => event.type === "error");
+    if (error?.type !== "error") {
+      throw new Error("Expected a capacity error event.");
+    }
+    expect(error.message).toContain(CURSOR_AGENT_CAPACITY_MESSAGE);
+    expect(error.message).not.toContain("agent login");
+    expect(events.filter((event) => event.type === "done")).toEqual([
+      { type: "done", stop_reason: "runtime_failure" },
+    ]);
+  });
+
+  test("does not treat a PING mention in ordinary prose as a transport drop", async () => {
+    const events = await streamCursorWithAcp(createTurnArgs("text-mention-only"));
+    expect(events.filter((event) => event.type === "error")).toEqual([]);
+    expect(
+      events.some(
+        (event) =>
+          event.type === "text" &&
+          event.text.includes("Continue the investigation."),
+      ),
+    ).toBe(true);
+    expect(events.filter((event) => event.type === "done")).toEqual([
+      { type: "done", stop_reason: "end_turn" },
+    ]);
   });
 
   test("cancels the ACP prompt and emits one user-abort terminal", async () => {

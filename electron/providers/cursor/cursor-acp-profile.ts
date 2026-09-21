@@ -19,7 +19,12 @@ import {
   AcpProtocolError,
   type AcpInboundRequestHandler,
 } from "../acp/acp-protocol";
-import { describeCursorAgentTransportFailure } from "./cursor-agent-transport";
+import {
+  describeCursorAgentTransportFailure,
+  inspectCursorAgentTransportFailure,
+  isCursorAgentTransportRetryable,
+  stripCursorAgentTextTransportEnvelope,
+} from "./cursor-agent-transport";
 import {
   buildCursorAgentEnv,
   resolveCursorAgentExecutablePath,
@@ -86,6 +91,18 @@ function interpretCursorAgentStderr(accumulated: string, chunk: string) {
 
 function interpretCursorAgentFailure(error: Error, stderr: string) {
   return describeCursorAgentTransportFailure(`${error.message}\n${stderr}`);
+}
+
+function interpretCursorAgentText(text: string) {
+  const failure = inspectCursorAgentTransportFailure(text, "agent-text");
+  if (!failure) {
+    return null;
+  }
+  return {
+    message: failure.message,
+    retryable: isCursorAgentTransportRetryable(failure),
+    visibleText: stripCursorAgentTextTransportEnvelope(text),
+  };
 }
 
 function unavailableEvents(message: string): BridgeEvent[] {
@@ -374,6 +391,7 @@ export async function streamCursorWithAcp(
       authenticationHelp: "Run `agent login` if authentication has expired.",
       interpretStderr: interpretCursorAgentStderr,
       interpretFailure: interpretCursorAgentFailure,
+      interpretAgentText: interpretCursorAgentText,
       decisionTimeoutMs: parsePositiveIntEnv({
         value: process.env.STAVE_CURSOR_APPROVAL_TIMEOUT_MS,
         fallback: CURSOR_APPROVAL_TIMEOUT_DEFAULT_MS,
@@ -446,6 +464,7 @@ export async function streamCursorWorkerWithAcp(args: {
       authenticationHelp: "Run `agent login` if authentication has expired.",
       interpretStderr: interpretCursorAgentStderr,
       interpretFailure: interpretCursorAgentFailure,
+      interpretAgentText: interpretCursorAgentText,
       decisionTimeoutMs: parsePositiveIntEnv({
         value: process.env.STAVE_CURSOR_APPROVAL_TIMEOUT_MS,
         fallback: CURSOR_APPROVAL_TIMEOUT_DEFAULT_MS,

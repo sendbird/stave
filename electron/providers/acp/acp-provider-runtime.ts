@@ -9,6 +9,7 @@ import {
 import { isAcpStaveLocalMcpServer } from "../../main/stave-local-mcp-manifest";
 import { isAlwaysAllowedStaveLocalMcpTool } from "../stave-local-mcp-approval";
 import { createBoundedBridgeEventCollector } from "../provider-buffering";
+import { buildProviderFailureContinuationPrompt } from "../../../src/lib/providers/provider-error-recovery";
 import { PROVIDER_STEER_ACK_TIMEOUT_MS } from "../../../src/lib/providers/steer-delivery";
 import type {
   BridgeEvent,
@@ -127,6 +128,16 @@ export interface AcpProviderRuntimeProfile {
   interpretStderr?: (accumulated: string, chunk: string) => Error | void;
   /** Rewrite a raw ACP failure into a user-facing stream error, or null. */
   interpretFailure?: (error: Error, stderr: string) => string | null;
+  /**
+   * Inspect an assistant text chunk. Return a user-facing transport failure
+   * when the agent wrote a backend drop into the transcript instead of
+   * stderr. `retryable` allows one same-session continuation.
+   */
+  interpretAgentText?: (text: string) => {
+    message: string;
+    retryable: boolean;
+    visibleText?: string;
+  } | null;
   decisionTimeoutMs: number;
   /** Distinguishes nested ACP requests from the primary process on one turn. */
   requestIdScope?: string;
@@ -171,6 +182,19 @@ function listConfigOptionValues(
     }
   }
   return values;
+}
+
+function shouldAppendAuthenticationHelp(message: string) {
+  if (
+    /PING timed out|RetriableError|NGHTTP2|resource_exhausted|keepalive|line limit|timed out after/i.test(
+      message,
+    )
+  ) {
+    return false;
+  }
+  return /not authenticated|authentication|login expired|agent login/i.test(
+    message,
+  );
 }
 
 function serializeApprovalInput(input: unknown) {
@@ -393,6 +417,10 @@ export async function streamAcpProviderTurn(args: {
   // already persisted that transcript on the earlier turn. Accepting the
   // replay here would append the previous turn onto this one.
   let acceptLiveSessionUpdates = false;
+  let agentTextTransportFailure: {
+    message: string;
+    retryable: boolean;
+  } | null = null;
   const client = new AcpProtocolClient({
     command: profile.command,
     args: profile.commandArgs,
@@ -405,7 +433,25 @@ export async function streamAcpProviderTurn(args: {
         method === "session/update" || method === "session/notification";
       if (isSessionUpdate) {
         if (acceptLiveSessionUpdates) {
-          mapper.mapNotification(params).forEach(emit);
+          for (const event of mapper.mapNotification(params)) {
+            if (event.type === "text" && profile.interpretAgentText) {
+              const failure = profile.interpretAgentText(event.text);
+              if (failure) {
+                agentTextTransportFailure = failure;
+                const visibleText = failure.visibleText?.trimEnd() ?? "";
+                if (visibleText) {
+                  emit({ ...event, text: visibleText });
+                }
+                emit({
+                  type: "error",
+                  message: `${profile.displayName} provider stream failed: ${failure.message}`,
+                  recoverable: true,
+                });
+                continue;
+              }
+            }
+            emit(event);
+          }
         }
         return true;
       }
@@ -768,6 +814,19 @@ export async function streamAcpProviderTurn(args: {
         legacyContentPrompt: [{ type: "text", text: prompt }],
         parameterName: profile.promptParameterName,
       });
+      if (
+        agentTextTransportFailure?.retryable &&
+        !abortRequested
+      ) {
+        const continuation = buildProviderFailureContinuationPrompt();
+        agentTextTransportFailure = null;
+        result = await client.prompt({
+          sessionId: session.sessionId,
+          prompt: [{ type: "text", text: continuation }],
+          legacyContentPrompt: [{ type: "text", text: continuation }],
+          parameterName: profile.promptParameterName,
+        });
+      }
     } finally {
       promptInFlight = false;
     }
@@ -787,7 +846,9 @@ export async function streamAcpProviderTurn(args: {
       stop_reason:
         abortRequested || result.stopReason === "cancelled"
           ? "user_abort"
-          : result.stopReason,
+          : agentTextTransportFailure
+            ? "runtime_failure"
+            : result.stopReason,
     });
   } catch (error) {
     if (cancelFallback) {
@@ -803,11 +864,14 @@ export async function streamAcpProviderTurn(args: {
         error instanceof Error ? error : new Error(rawMessage),
         client.stderr,
       );
+      const fallbackMessage = shouldAppendAuthenticationHelp(rawMessage)
+        ? `${profile.displayName} provider stream failed: ${rawMessage}. ${profile.authenticationHelp}`
+        : `${profile.displayName} provider stream failed: ${rawMessage}`;
       emit({
         type: "error",
         message: interpreted
           ? `${profile.displayName} provider stream failed: ${interpreted}`
-          : `${profile.displayName} provider stream failed: ${rawMessage}. ${profile.authenticationHelp}`,
+          : fallbackMessage,
         recoverable: true,
       });
       emit({ type: "done", stop_reason: "runtime_failure" });

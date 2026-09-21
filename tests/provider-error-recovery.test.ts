@@ -18,6 +18,7 @@ describe("provider error recovery", () => {
       message: "Selected model is at capacity. (status: 503)",
       guidance: "Retry later, or choose another model before resuming.",
       capacityFailure: true,
+      transportFailure: false,
     });
   });
 
@@ -75,6 +76,27 @@ describe("provider error recovery", () => {
         terminalStopReason: "failed",
       }),
     ).toBe(true);
+  });
+
+  test("offers recovery after a Cursor agent transport drop", () => {
+    const notice = parseProviderErrorNotice(
+      "[error] Cursor provider stream failed: Cursor's agent stream lost its server keepalive (PING timed out). This is a Cursor Agent network drop, not a Stave protocol error. Retry the turn.",
+    );
+    if (!notice) throw new Error("Expected transport notice");
+    expect(notice.transportFailure).toBe(true);
+    expect(notice.capacityFailure).toBe(false);
+    expect(
+      isProviderFailureRecoveryEligible({
+        notice,
+        terminalStopReason: "runtime_failure",
+      }),
+    ).toBe(true);
+    expect(
+      isProviderFailureRecoveryEligible({
+        notice,
+        terminalStopReason: "end_turn",
+      }),
+    ).toBe(false);
   });
 
   test("retains terminal failure evidence across workspace schema parsing", () => {

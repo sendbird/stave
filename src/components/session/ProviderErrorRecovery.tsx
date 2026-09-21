@@ -121,7 +121,13 @@ export function ProviderErrorRecovery(props: {
   return (
     <div
       className={sx(styles.root)}
-      data-provider-error={notice.capacityFailure ? "capacity" : "terminal"}
+      data-provider-error={
+        notice.capacityFailure
+          ? "capacity"
+          : notice.transportFailure
+            ? "transport"
+            : "terminal"
+      }
     >
       {!props.hideMessage ? (
         <div className={sx(styles.messageRow)}>

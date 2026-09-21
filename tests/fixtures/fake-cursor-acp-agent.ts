@@ -4,6 +4,7 @@ const scenario = process.argv[2] ?? "standard";
 const input = createInterface({ input: process.stdin, crlfDelay: Infinity });
 let pendingPromptId: unknown;
 let pendingServerRequestId: string | null = null;
+let promptCount = 0;
 
 function send(message: Record<string, unknown>) {
   process.stdout.write(`${JSON.stringify(message)}\n`);
@@ -247,8 +248,78 @@ input.on("line", (line) => {
   }
 
   pendingPromptId = id;
+  promptCount += 1;
   if (scenario === "ping-timeout") {
     process.stderr.write("RetriableError: [unavailable] PING timed out\n");
+    return;
+  }
+  if (scenario === "text-ping-timeout") {
+    if (promptCount === 1) {
+      update({
+        sessionUpdate: "agent_message_chunk",
+        content: {
+          type: "text",
+          text: "Wrote the first file.\n\nError: RetriableError: [unavailable] PING timed out",
+        },
+      });
+      finishPrompt();
+      return;
+    }
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: {
+        type: "text",
+        text: "continued after the drop",
+      },
+    });
+    finishPrompt();
+    return;
+  }
+  if (scenario === "text-nghttp2") {
+    if (promptCount === 1) {
+      update({
+        sessionUpdate: "agent_message_chunk",
+        content: {
+          type: "text",
+          text: "\n\nError: RetriableError: [internal] Stream closed with error code NGHTTP2_INTERNAL_ERROR",
+        },
+      });
+      finishPrompt();
+      return;
+    }
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: {
+        type: "text",
+        text: "continued after the stream closed",
+      },
+    });
+    finishPrompt();
+    return;
+  }
+  if (scenario === "text-capacity") {
+    if (promptCount > 1) {
+      throw new Error("capacity transport should not auto-retry");
+    }
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: {
+        type: "text",
+        text: "\n\nError: RetriableError: [resource_exhausted] Error",
+      },
+    });
+    finishPrompt();
+    return;
+  }
+  if (scenario === "text-mention-only") {
+    update({
+      sessionUpdate: "agent_message_chunk",
+      content: {
+        type: "text",
+        text: "The docs mention PING timed out as a keepalive drop.\nContinue the investigation.",
+      },
+    });
+    finishPrompt();
     return;
   }
   if (scenario === "echo-session") {
