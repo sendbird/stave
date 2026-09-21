@@ -417,10 +417,13 @@ export async function streamAcpProviderTurn(args: {
   // already persisted that transcript on the earlier turn. Accepting the
   // replay here would append the previous turn onto this one.
   let acceptLiveSessionUpdates = false;
-  let agentTextTransportFailure: {
-    message: string;
-    retryable: boolean;
-  } | null = null;
+  type AgentTextTransportFailure = { message: string; retryable: boolean };
+  // Assigned only inside the onNotification closure below, which TypeScript's
+  // control-flow analysis does not treat as reachable. Read through this typed
+  // accessor so access sites see the declared type instead of a narrowed null.
+  let agentTextTransportFailureState: AgentTextTransportFailure | null = null;
+  const readAgentTextTransportFailure = (): AgentTextTransportFailure | null =>
+    agentTextTransportFailureState;
   const client = new AcpProtocolClient({
     command: profile.command,
     args: profile.commandArgs,
@@ -437,7 +440,7 @@ export async function streamAcpProviderTurn(args: {
             if (event.type === "text" && profile.interpretAgentText) {
               const failure = profile.interpretAgentText(event.text);
               if (failure) {
-                agentTextTransportFailure = failure;
+                agentTextTransportFailureState = failure;
                 const visibleText = failure.visibleText?.trimEnd() ?? "";
                 if (visibleText) {
                   emit({ ...event, text: visibleText });
@@ -815,11 +818,11 @@ export async function streamAcpProviderTurn(args: {
         parameterName: profile.promptParameterName,
       });
       if (
-        agentTextTransportFailure?.retryable &&
+        readAgentTextTransportFailure()?.retryable &&
         !abortRequested
       ) {
         const continuation = buildProviderFailureContinuationPrompt();
-        agentTextTransportFailure = null;
+        agentTextTransportFailureState = null;
         result = await client.prompt({
           sessionId: session.sessionId,
           prompt: [{ type: "text", text: continuation }],
@@ -846,7 +849,7 @@ export async function streamAcpProviderTurn(args: {
       stop_reason:
         abortRequested || result.stopReason === "cancelled"
           ? "user_abort"
-          : agentTextTransportFailure
+          : readAgentTextTransportFailure()
             ? "runtime_failure"
             : result.stopReason,
     });
