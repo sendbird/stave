@@ -14,9 +14,13 @@ baseline or its ACP integration.
   advertises `sessionCapabilities.resume`.
 - NDJSON framing: accept stdout lines up to 32 MiB; drop a larger line and
   keep the process. ACP has no client-negotiated payload-size option.
-- Cursor Agent stderr `PING timed out` / `RetriableError: [unavailable]` ends
-  the in-flight turn as a recoverable network drop. Do not map it to login
-  help.
+- Cursor Agent `RetriableError` envelopes (`PING timed out`,
+  `NGHTTP2_INTERNAL_ERROR`, generic `[unavailable]` / `[internal]`,
+  `[resource_exhausted]`) on stderr or as the last assistant-text line are
+  recoverable transport or capacity failures. Do not map them to login help
+  or keep the raw envelope as assistant text. Same-session auto-retry is
+  one continuation for `stream_drop` only; Resume starts a new turn after a
+  terminal failure.
 - Modes: `agent`, `plan`, `ask`
 - Model config id: `model`; Stave defaults to `auto`
 - Model catalog: the `model` options returned by `session/new`. Initialize
