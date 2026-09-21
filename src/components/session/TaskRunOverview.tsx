@@ -1,11 +1,5 @@
-import {
-  ChevronDown,
-  Circle,
-  CircleAlert,
-  CircleCheck,
-  CirclePause,
-} from "lucide-react";
-import { useMemo, useState } from "react";
+import { Circle, CircleAlert, CircleCheck, CirclePause } from "lucide-react";
+import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
 import {
   classifyProviderTurnStopReason,
@@ -239,8 +233,8 @@ export function TaskRunOverview() {
 
 /**
  * The run header itself, free of the store so the layout can be rendered in a
- * test: one line that names the run on the left and what ran it on the right,
- * doubling as the disclosure for the full model resolution.
+ * test: a stable summary that names the run on the left and what ran it on the
+ * right. Auto-routing rationale remains available in a separate disclosure.
  */
 export function TaskRunOverviewView(props: {
   title: string;
@@ -250,7 +244,6 @@ export function TaskRunOverviewView(props: {
   runTurnId?: string | null;
 }) {
   const { actualModel, resolution, runTurnId, status, title } = props;
-  const [detailsOpen, setDetailsOpen] = useState(false);
   const modelMark = actualModel
     ? {
         providerId: toIconedProviderId(actualModel.providerId),
@@ -267,7 +260,7 @@ export function TaskRunOverviewView(props: {
   // "Running" repeats what the activity headline below already says in words,
   // so the status only speaks when the run ended or needs something.
   const restingTone = status.tone === "active" ? null : status.tone;
-  const hasModelDetails = Boolean(actualModel || resolution);
+  const hasRoutingDetails = Boolean(resolution);
 
   const headerRow = (
     <>
@@ -305,34 +298,27 @@ export function TaskRunOverviewView(props: {
       className={sx(styles.panel)}
       data-testid="task-run-overview"
     >
-      {hasModelDetails ? (
+      <div className={sx(styles.header)}>{headerRow}</div>
+
+      {status.detail ? (
+        <p className={sx(styles.detail)}>{status.detail}</p>
+      ) : null}
+      {hasRoutingDetails ? (
         <details
           key={runTurnId ?? "unknown"}
           className={sx(styles.modelDetails)}
-          onToggle={(event) => setDetailsOpen(event.currentTarget.open)}
         >
-          <summary
-            className={sx(styles.header, styles.disclosure, focusRing.ring)}
-          >
-            {headerRow}
-            <ChevronDown
-              aria-hidden
-              className={sx(styles.chevron, detailsOpen && styles.chevronOpen)}
-            />
+          <summary className={sx(styles.disclosure, focusRing.ring)}>
+            Routing details
           </summary>
           <div className={sx(styles.modelContent)}>
             <ModelResolutionSummary
               actual={actualModel}
               resolution={resolution}
+              showModelFacts={false}
             />
           </div>
         </details>
-      ) : (
-        <div className={sx(styles.header)}>{headerRow}</div>
-      )}
-
-      {status.detail ? (
-        <p className={sx(styles.detail)}>{status.detail}</p>
       ) : null}
     </section>
   );
@@ -348,12 +334,12 @@ const styles = stylex.create({
     borderBottomColor: vars["--ads-color-border-subtle"],
     padding: vars["--ads-space-12"],
   },
-  // One line: what the run is on the left, what ran it on the right. The
-  // disclosure marker sits in the same row so opening model details does not
-  // cost a second line of chrome.
+  // What the run is on the left, what ran it on the right. Long model names
+  // may wrap onto another line instead of clipping in a narrow panel.
   header: {
     display: "flex",
     alignItems: "center",
+    flexWrap: "wrap",
     justifyContent: "space-between",
     gap: vars["--ads-space-8"],
     minWidth: 0,
@@ -394,9 +380,9 @@ const styles = stylex.create({
   },
   modelIcon: { width: 14, height: 14, flexShrink: 0 },
   modelName: {
-    overflow: "hidden",
-    textOverflow: "ellipsis",
-    whiteSpace: "nowrap",
+    overflowWrap: "break-word",
+    textAlign: "end",
+    whiteSpace: "normal",
   },
   detail: {
     fontSize: vars["--ads-font-size-caption"],
@@ -407,23 +393,8 @@ const styles = stylex.create({
   disclosure: {
     cursor: "pointer",
     borderRadius: vars["--ads-radius-mark"],
-    listStyle: "none",
-    "::-webkit-details-marker": { display: "none" },
-  },
-  chevron: {
     color: vars["--ads-color-text-muted"],
-    flexShrink: 0,
-    height: 14,
-    transform: "rotate(0deg)",
-    transitionDuration: {
-      default: vars["--ads-motion-duration-quick"],
-      "@media (prefers-reduced-motion: reduce)": "0ms",
-    },
-    transitionProperty: "transform",
-    transitionTimingFunction: vars["--ads-motion-ease-standard"],
-    width: 14,
   },
-  chevronOpen: { transform: "rotate(180deg)" },
   modelContent: { paddingTop: vars["--ads-space-8"] },
 });
 

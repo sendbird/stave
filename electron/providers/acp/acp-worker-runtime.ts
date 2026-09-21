@@ -247,6 +247,10 @@ function formatWorkerTimeout(timeoutMs: number) {
     : `${Math.max(1, Math.round(timeoutMs / 1_000))} seconds`;
 }
 
+function namespaceWorkerToolUseId(workerAgentId: string, toolUseId: string) {
+  return `${workerAgentId}:tool:${toolUseId}`;
+}
+
 function emitWorkerEvent(args: {
   grant: ActiveGrant;
   event: BridgeEvent;
@@ -273,7 +277,57 @@ function emitWorkerEvent(args: {
   if (event.type === "tool") {
     args.grant.emit({
       ...event,
+      ...(event.toolUseId
+        ? {
+            toolUseId: namespaceWorkerToolUseId(
+              args.workerAgentId,
+              event.toolUseId,
+            ),
+          }
+        : {}),
+      ...(event.parentToolUseId
+        ? {
+            parentToolUseId: namespaceWorkerToolUseId(
+              args.workerAgentId,
+              event.parentToolUseId,
+            ),
+          }
+        : {}),
       workerExecution: args.workerExecution,
+      ownerAgentId: event.ownerAgentId ?? args.workerAgentId,
+    });
+    return;
+  }
+  if (event.type === "tool_result") {
+    // Results correlate to the owned tool event by tool-use id; the normalized
+    // event shape intentionally carries no separate owner.
+    args.grant.emit({
+      ...event,
+      tool_use_id: namespaceWorkerToolUseId(
+        args.workerAgentId,
+        event.tool_use_id,
+      ),
+    });
+    return;
+  }
+  if (event.type === "tool_progress") {
+    args.grant.emit({
+      ...event,
+      toolUseId: namespaceWorkerToolUseId(args.workerAgentId, event.toolUseId),
+    });
+    return;
+  }
+  if (event.type === "subagent_progress") {
+    args.grant.emit({
+      ...event,
+      ...(event.toolUseId
+        ? {
+            toolUseId: namespaceWorkerToolUseId(
+              args.workerAgentId,
+              event.toolUseId,
+            ),
+          }
+        : {}),
       ownerAgentId: event.ownerAgentId ?? args.workerAgentId,
     });
     return;

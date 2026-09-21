@@ -79,6 +79,7 @@ function renderTree(args: {
   capabilities?: ProviderWorkGraphCapabilities;
   controlErrorByNodeKey?: Record<string, string>;
   onSelectTool?: (toolUseId: string) => void;
+  onInspectAgent?: (node: AgentNode) => void;
 }) {
   return renderToStaticMarkup(
     createElement(WorkGraphTree, {
@@ -87,6 +88,7 @@ function renderTree(args: {
       capabilities: args.capabilities ?? ALL_CAPABILITIES,
       onControl: () => {},
       ...(args.onSelectTool ? { onSelectTool: args.onSelectTool } : {}),
+      ...(args.onInspectAgent ? { onInspectAgent: args.onInspectAgent } : {}),
       ...(args.controlErrorByNodeKey
         ? { controlErrorByNodeKey: args.controlErrorByNodeKey }
         : {}),
@@ -312,6 +314,24 @@ describe("WorkGraphTree", () => {
     // Static rendering cannot dispatch the click; the callback stays untouched
     // until the rendered button is activated in the browser.
     expect(selected).toEqual([]);
+  });
+
+  test("labels an inspectable node as activity instead of transcript navigation", () => {
+    const html = renderTree({
+      graph: graphOf([
+        agentNode({
+          key: providerAgentNodeKey("claude-code", "agent_inspect"),
+          agentId: "agent_inspect",
+          spawnedByToolUseId: "toolu_inspect",
+          label: "Inspect the runtime",
+        }),
+      ]),
+      onSelectTool: () => {},
+      onInspectAgent: () => {},
+    });
+
+    expect(html).toContain("Inspect the runtime — view activity");
+    expect(html).not.toContain("Inspect the runtime — show in conversation");
   });
 
   test("collapses completed branches while active agents remain", () => {

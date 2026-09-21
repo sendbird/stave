@@ -1089,6 +1089,170 @@ describe("Codex worker activity identity mapping", () => {
     expect(mapper.agentIdForToolUseId("activity-1")).toBe("thread-worker-1");
   });
 
+  test("forwards namespaced child tools without turning worker text into the parent answer", () => {
+    const mapper = createMapper();
+    mapper.mapStarted(startedActivity);
+
+    const started = mapper.mapForeignNotification({
+      method: "item/started",
+      threadId: "thread-worker-1",
+      params: {
+        item: {
+          id: "command-1",
+          type: "commandExecution",
+          command: "bun test",
+        },
+      },
+    });
+    const delta = mapper.mapForeignNotification({
+      method: "item/commandExecution/outputDelta",
+      threadId: "thread-worker-1",
+      params: { itemId: "command-1", delta: "17 pass" },
+    });
+    const completed = mapper.mapForeignNotification({
+      method: "item/completed",
+      threadId: "thread-worker-1",
+      params: {
+        item: {
+          id: "command-1",
+          type: "commandExecution",
+          command: "bun test",
+          aggregatedOutput: "17 pass\n0 fail",
+          status: "completed",
+        },
+      },
+    });
+
+    const childToolId = "child:15:thread-worker-1:command-1";
+    expect(started.events).toEqual([{
+      type: "tool",
+      toolUseId: childToolId,
+      toolName: "bash",
+      input: "bun test",
+      state: "input-available",
+      ownerAgentId: "thread-worker-1",
+      parentToolUseId: "activity-1",
+    }]);
+    expect(delta.events).toEqual([{
+      type: "tool_result",
+      tool_use_id: childToolId,
+      output: "17 pass",
+      isPartial: true,
+    }]);
+    expect(completed.events).toEqual([{
+      type: "tool_result",
+      tool_use_id: childToolId,
+      output: "17 pass\n0 fail",
+    }]);
+    expect([...started.events, ...delta.events, ...completed.events].some(
+      event => event.type === "text",
+    )).toBe(false);
+  });
+
+  test("opens a child tool when only its completion notification arrives", () => {
+    const mapper = createMapper();
+    mapper.mapStarted(startedActivity);
+
+    const completed = mapper.mapForeignNotification({
+      method: "item/completed",
+      threadId: "thread-worker-1",
+      params: {
+        item: {
+          id: "mcp-1",
+          type: "mcpToolCall",
+          server: "repo",
+          tool: "search",
+          arguments: { query: "ActivityDetailDialog" },
+          result: { matches: 1 },
+          status: "completed",
+        },
+      },
+    });
+
+    const childToolId = "child:15:thread-worker-1:mcp-1";
+    expect(completed.events).toEqual([
+      {
+        type: "tool",
+        toolUseId: childToolId,
+        toolName: "repo:search",
+        input: '{"query":"ActivityDetailDialog"}',
+        state: "input-available",
+        ownerAgentId: "thread-worker-1",
+        parentToolUseId: "activity-1",
+      },
+      {
+        type: "tool_result",
+        tool_use_id: childToolId,
+        output: '{"matches":1}',
+      },
+    ]);
+  });
+
+  test("drops orphan child deltas and namespaces the same item id per child", () => {
+    const mapper = createMapper();
+    mapper.mapStarted(startedActivity);
+    mapper.mapStarted({
+      id: "activity-2",
+      type: "subAgentActivity",
+      kind: "started",
+      agentThreadId: "thread-worker-2",
+      agentPath: "/root/second",
+    });
+
+    expect(mapper.mapForeignNotification({
+      method: "item/commandExecution/outputDelta",
+      threadId: "thread-worker-1",
+      params: { itemId: "shared", delta: "orphan" },
+    }).events).toEqual([]);
+    const first = mapper.mapForeignNotification({
+      method: "item/started",
+      threadId: "thread-worker-1",
+      params: { item: { id: "shared", type: "commandExecution", command: "one" } },
+    });
+    const second = mapper.mapForeignNotification({
+      method: "item/started",
+      threadId: "thread-worker-2",
+      params: { item: { id: "shared", type: "commandExecution", command: "two" } },
+    });
+
+    expect(first.events[0]).toMatchObject({
+      type: "tool",
+      toolUseId: "child:15:thread-worker-1:shared",
+      ownerAgentId: "thread-worker-1",
+    });
+    expect(second.events[0]).toMatchObject({
+      type: "tool",
+      toolUseId: "child:15:thread-worker-2:shared",
+      ownerAgentId: "thread-worker-2",
+    });
+  });
+
+  test("marks a child MCP error as failed when status is absent", () => {
+    const mapper = createMapper();
+    mapper.mapStarted(startedActivity);
+
+    const completed = mapper.mapForeignNotification({
+      method: "item/completed",
+      threadId: "thread-worker-1",
+      params: {
+        item: {
+          id: "mcp-error",
+          type: "mcpToolCall",
+          server: "repo",
+          tool: "search",
+          error: { message: "Search failed" },
+        },
+      },
+    });
+
+    expect(completed.events.at(-1)).toEqual({
+      type: "tool_result",
+      tool_use_id: "child:15:thread-worker-1:mcp-error",
+      output: "[error] Search failed",
+      isError: true,
+    });
+  });
+
   test("clears both directions of the child thread link on the final answer", () => {
     const mapper = createMapper();
     mapper.mapStarted(startedActivity);

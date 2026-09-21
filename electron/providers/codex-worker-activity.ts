@@ -1,6 +1,6 @@
 import type { WorkerExecutionMetadata } from "../../src/lib/providers/worker-mode";
 import type { BridgeEvent } from "./types";
-import { truncateBufferedText } from "./provider-buffering";
+import { appendBoundedText, truncateBufferedText } from "./provider-buffering";
 import { isRecord } from "./codex-app-server-json";
 import { toText } from "./utils";
 
@@ -29,6 +29,21 @@ type SubAgentActivityItem = {
 
 type MappingResult = { handled: boolean; events: BridgeEvent[] };
 
+type ForeignToolItem = {
+  id?: string;
+  type?: string;
+  command?: string;
+  aggregatedOutput?: string | null;
+  status?: string;
+  server?: string;
+  tool?: string;
+  arguments?: unknown;
+  result?: unknown;
+  error?: { message?: string | null } | null;
+  query?: string;
+  changes?: Array<{ path?: string }>;
+};
+
 function serialize(value: unknown) {
   if (typeof value === "string") return value;
   try {
@@ -40,6 +55,56 @@ function serialize(value: unknown) {
 
 function truncate(value: string, maxBytes: number) {
   return truncateBufferedText({ value, maxBytes });
+}
+
+/** Child item ids are provider-local, so keep them out of the parent id space. */
+function foreignToolUseId(threadId: string, itemId: string) {
+  return `child:${threadId.length}:${threadId}:${itemId}`;
+}
+
+function describeForeignTool(item: ForeignToolItem) {
+  switch (item.type) {
+    case "commandExecution":
+      return { name: "bash", input: item.command ?? "" };
+    case "mcpToolCall":
+      return {
+        name: `${item.server ?? "mcp"}:${item.tool ?? "tool"}`,
+        input: serialize(item.arguments),
+      };
+    case "fileChange": {
+      const paths = (item.changes ?? []).flatMap(change =>
+        typeof change.path === "string" && change.path.trim()
+          ? [change.path.trim()]
+          : [],
+      );
+      return { name: "fileChange", input: serialize({ paths }) };
+    }
+    case "webSearch":
+      return { name: "web_search", input: item.query ?? "" };
+    default:
+      return null;
+  }
+}
+
+function foreignToolOutput(item: ForeignToolItem, bufferedOutput: string) {
+  switch (item.type) {
+    case "commandExecution":
+      return typeof item.aggregatedOutput === "string"
+        ? item.aggregatedOutput
+        : bufferedOutput;
+    case "mcpToolCall":
+      return item.error?.message
+        ? `[error] ${item.error.message}`
+        : toText(item.result ?? "");
+    case "fileChange":
+      return (item.changes ?? [])
+        .flatMap(change => typeof change.path === "string" ? [change.path] : [])
+        .join("\n");
+    case "webSearch":
+      return "";
+    default:
+      return bufferedOutput;
+  }
 }
 
 function buildCollabInput(
@@ -129,6 +194,8 @@ export function createCodexWorkerActivityMapper(args: {
   // sibling.
   const toolIdByChildThreadId = new Map<string, string>();
   const childThreadIdByToolId = new Map<string, string>();
+  const startedForeignToolIds = new Set<string>();
+  const foreignToolOutputById = new Map<string, string>();
 
   function linkChildThread(childThreadId: string, toolUseId: string) {
     if (!childThreadId || !toolUseId) return;
@@ -286,6 +353,82 @@ export function createCodexWorkerActivityMapper(args: {
       if (!toolUseId) return { handled: false, events: [] };
       // The foreign thread id *is* Codex's `agentThreadId` for this worker.
       const agentId = input.threadId;
+      if (input.method === "item/started") {
+        const item = isRecord(input.params.item)
+          ? input.params.item as ForeignToolItem
+          : null;
+        const itemId = typeof item?.id === "string" ? item.id : "";
+        const described = item ? describeForeignTool(item) : null;
+        if (!itemId || !described) return { handled: true, events: [] };
+        const nestedToolUseId = foreignToolUseId(input.threadId, itemId);
+        if (startedForeignToolIds.has(nestedToolUseId)) {
+          return { handled: true, events: [] };
+        }
+        startedForeignToolIds.add(nestedToolUseId);
+        return {
+          handled: true,
+          events: [{
+            type: "tool",
+            toolUseId: nestedToolUseId,
+            toolName: described.name,
+            input: truncate(described.input, args.inputMaxBytes),
+            state: "input-available",
+            ownerAgentId: agentId,
+            parentToolUseId: toolUseId,
+          }],
+        };
+      }
+      if (input.method === "item/commandExecution/outputDelta") {
+        const itemId = typeof input.params.itemId === "string"
+          ? input.params.itemId
+          : "";
+        const delta = typeof input.params.delta === "string"
+          ? input.params.delta
+          : "";
+        if (!itemId || !delta) return { handled: true, events: [] };
+        const nestedToolUseId = foreignToolUseId(input.threadId, itemId);
+        if (!startedForeignToolIds.has(nestedToolUseId)) {
+          return { handled: true, events: [] };
+        }
+        const output = appendBoundedText({
+          current: foreignToolOutputById.get(nestedToolUseId) ?? "",
+          chunk: delta,
+          maxBytes: args.outputMaxBytes,
+          keep: "suffix",
+        });
+        foreignToolOutputById.set(nestedToolUseId, output);
+        return {
+          handled: true,
+          events: [{
+            type: "tool_result",
+            tool_use_id: nestedToolUseId,
+            output,
+            isPartial: true,
+          }],
+        };
+      }
+      if (input.method === "item/mcpToolCall/progress") {
+        const itemId = typeof input.params.itemId === "string"
+          ? input.params.itemId
+          : "";
+        const message = typeof input.params.message === "string"
+          ? input.params.message
+          : "";
+        if (!itemId || !message) return { handled: true, events: [] };
+        const nestedToolUseId = foreignToolUseId(input.threadId, itemId);
+        if (!startedForeignToolIds.has(nestedToolUseId)) {
+          return { handled: true, events: [] };
+        }
+        return {
+          handled: true,
+          events: [{
+            type: "tool_result",
+            tool_use_id: nestedToolUseId,
+            output: truncate(message, args.outputMaxBytes),
+            isPartial: true,
+          }],
+        };
+      }
       if (input.method === "item/completed") {
         const item = isRecord(input.params.item) ? input.params.item : null;
         const text = typeof item?.text === "string" ? item.text : "";
@@ -311,6 +454,43 @@ export function createCodexWorkerActivityMapper(args: {
                 type: "tool_result",
                 tool_use_id: toolUseId,
                 output: truncate(text, args.outputMaxBytes),
+              },
+            ],
+          };
+        }
+        const foreignItem = item as ForeignToolItem | null;
+        const itemId = typeof foreignItem?.id === "string" ? foreignItem.id : "";
+        const described = foreignItem ? describeForeignTool(foreignItem) : null;
+        if (itemId && described && foreignItem) {
+          const nestedToolUseId = foreignToolUseId(input.threadId, itemId);
+          const alreadyStarted = startedForeignToolIds.delete(nestedToolUseId);
+          const bufferedOutput = foreignToolOutputById.get(nestedToolUseId) ?? "";
+          foreignToolOutputById.delete(nestedToolUseId);
+          const failed = foreignItem.status === "failed" ||
+            foreignItem.status === "declined" ||
+            Boolean(foreignItem.error?.message);
+          return {
+            handled: true,
+            events: [
+              ...(!alreadyStarted
+                ? [{
+                    type: "tool" as const,
+                    toolUseId: nestedToolUseId,
+                    toolName: described.name,
+                    input: truncate(described.input, args.inputMaxBytes),
+                    state: "input-available" as const,
+                    ownerAgentId: agentId,
+                    parentToolUseId: toolUseId,
+                  }]
+                : []),
+              {
+                type: "tool_result",
+                tool_use_id: nestedToolUseId,
+                output: truncate(
+                  foreignToolOutput(foreignItem, bufferedOutput),
+                  args.outputMaxBytes,
+                ),
+                ...(failed ? { isError: true } : {}),
               },
             ],
           };

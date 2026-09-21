@@ -164,6 +164,115 @@ describe("turn-scoped ACP Worker runtime", () => {
     );
   });
 
+  test("forwards worker tool results and progress without leaking worker text", async () => {
+    const emitted: BridgeEvent[] = [];
+    createGrant({
+      emitted,
+      runCursor: async (args) => {
+        const events: BridgeEvent[] = [
+          {
+            type: "tool",
+            toolUseId: "nested-tool-1",
+            toolName: "Read",
+            input: "src/example.ts",
+            state: "input-available",
+            parentToolUseId: "nested-parent-1",
+          },
+          {
+            type: "tool_progress",
+            toolUseId: "nested-tool-1",
+            toolName: "Read",
+            elapsedSeconds: 2,
+          },
+          {
+            type: "subagent_progress",
+            toolUseId: "nested-agent-1",
+            agentId: "provider-agent-1",
+            content: "Checking the affected call sites.",
+          },
+          {
+            type: "subagent_progress",
+            toolUseId: "nested-agent-2",
+            agentId: "provider-agent-2",
+            ownerAgentId: "provider-owner-2",
+            content: "Running the focused checks.",
+          },
+          {
+            type: "tool_result",
+            tool_use_id: "nested-tool-1",
+            output: "export const value = 1;",
+          },
+          { type: "text", text: "Worker-only final answer." },
+          { type: "thinking", text: "Private worker reasoning." },
+          { type: "done", stop_reason: "end_turn" },
+        ];
+        events.forEach((event) => args.onEvent?.(event));
+        return events;
+      },
+    });
+
+    const outcome = await runAcpWorker({
+      workerKey: "worker-key",
+      task: "Inspect the affected call sites.",
+    });
+    const workerAgentId = emitted.find(
+      (event) => event.type === "tool" && event.toolName === "Worker",
+    )?.agentId;
+    const nestedToolUseId = `${workerAgentId}:tool:nested-tool-1`;
+
+    expect(outcome).toMatchObject({
+      ok: true,
+      result: "Worker-only final answer.",
+    });
+    expect(workerAgentId).toStartWith("stave-worker:");
+    expect(emitted).toContainEqual(
+      expect.objectContaining({
+        type: "tool",
+        toolUseId: nestedToolUseId,
+        parentToolUseId: `${workerAgentId}:tool:nested-parent-1`,
+        ownerAgentId: workerAgentId,
+        workerExecution: expect.objectContaining({ providerId: "cursor" }),
+      }),
+    );
+    expect(emitted).toContainEqual({
+      type: "tool_progress",
+      toolUseId: nestedToolUseId,
+      toolName: "Read",
+      elapsedSeconds: 2,
+    });
+    expect(emitted).toContainEqual({
+      type: "tool_result",
+      tool_use_id: nestedToolUseId,
+      output: "export const value = 1;",
+    });
+    expect(emitted).toContainEqual({
+      type: "subagent_progress",
+      toolUseId: `${workerAgentId}:tool:nested-agent-1`,
+      agentId: "provider-agent-1",
+      ownerAgentId: workerAgentId,
+      content: "Checking the affected call sites.",
+    });
+    expect(emitted).toContainEqual({
+      type: "subagent_progress",
+      toolUseId: `${workerAgentId}:tool:nested-agent-2`,
+      agentId: "provider-agent-2",
+      ownerAgentId: "provider-owner-2",
+      content: "Running the focused checks.",
+    });
+    expect(emitted.some((event) => event.type === "text")).toBe(false);
+    expect(emitted.some((event) => event.type === "thinking")).toBe(false);
+    expect(
+      emitted.some(
+        (event) =>
+          (event.type === "tool" && event.toolUseId === "nested-tool-1") ||
+          (event.type === "tool_progress" &&
+            event.toolUseId === "nested-tool-1") ||
+          (event.type === "tool_result" &&
+            event.tool_use_id === "nested-tool-1"),
+      ),
+    ).toBe(false);
+  });
+
   test("does not publish a usage row when the provider session never starts", async () => {
     const emitted: BridgeEvent[] = [];
     createGrant({

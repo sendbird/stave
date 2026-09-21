@@ -354,6 +354,14 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
       data-testid="delegations-panel"
       {...stylex.props(styles.minZero, styles.panelStack)}
     >
+      <div {...stylex.props(styles.delegateEntry)}>
+        <DelegateTaskForm
+          key={target.taskId}
+          target={target}
+          onCreated={listing.actions.refresh}
+        />
+      </div>
+
       <p {...stylex.props(styles.body, styles.muted)}>
         Every advisor consult, worker run and delegated task for this task
       </p>
@@ -429,7 +437,7 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
       ) : !listing.loading && !history.loading ? (
         <p className={sx(delegationStyles.empty)}>
           {filter === "all"
-            ? "No delegations yet. Arm the Advisor or Worker in the composer, or delegate a task below."
+            ? "No delegations yet. Arm the Advisor or Worker in the composer, or delegate a task above."
             : "Nothing matches this filter in the current conversation or the saved slice."}
         </p>
       ) : null}
@@ -450,13 +458,6 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
 
       <CollaborationHistoryControls history={history} exchangeKind="all" />
 
-      <div {...stylex.props(styles.composerDock)}>
-        <DelegateTaskForm
-          key={target.taskId}
-          target={target}
-          onCreated={listing.actions.refresh}
-        />
-      </div>
       {detailSelection ? <ActivityDetailDialog
         key={detailSelection.nodeKey ?? detailSelection.exchange?.id ?? detailSelection.title}
         selection={detailSelection.exchange ? { ...detailSelection, exchange: exchanges.find(exchange => exchange.id === detailSelection.exchange?.id) ?? detailSelection.exchange } : detailSelection}
