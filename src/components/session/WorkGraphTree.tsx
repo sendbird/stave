@@ -377,7 +377,7 @@ const WorkGraphTreeNodeRow = memo(function WorkGraphTreeNodeRow({
             styles.contentRevealable,
             hostSurface.inertChrome,
           ]}
-          title={`${title} — show in conversation`}
+          title={`${title} — ${onInspectAgent ? "view activity" : "show in conversation"}`}
           onClick={() => onInspectAgent ? onInspectAgent(node) : revealToolUseId && onSelectTool?.(revealToolUseId)}
         >
           {body}

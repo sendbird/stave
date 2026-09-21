@@ -450,6 +450,7 @@ export function DelegateTaskForm({
               </label>
               <AdsTextarea
                 id={`${formId}-prompt`}
+                autoFocus
                 required
                 maxLength={100000}
                 rows={4}

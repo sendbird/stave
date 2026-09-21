@@ -37,8 +37,8 @@ export const resultStyles = stylex.create({
     gap: vars["--ads-space-8"],
   },
   // Collapsed rows are a scan list: one toggle button owns the whole text
-  // block so the click target is the row, and the summary clamps to two
-  // lines until the run is opened.
+  // block so the click target is the row. The result leads, then compact
+  // outcome, time and review metadata explain it.
   rowMain: {
     display: "flex",
     alignItems: "flex-start",
@@ -85,7 +85,6 @@ export const resultStyles = stylex.create({
     WebkitLineClamp: 2,
     WebkitBoxOrient: "vertical",
     overflow: "hidden",
-    color: vars["--ads-color-text-muted"],
   },
   rowDetails: {
     display: "flex",

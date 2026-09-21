@@ -63,30 +63,51 @@ export function formatActualRunModel(actual: ActualRunModel) {
 export function ModelResolutionSummary(props: {
   actual: ActualRunModel | null;
   resolution?: AutoRoutingModelResolution;
+  /** Hide run identity and a routed target that the surrounding header repeats. */
+  showModelFacts?: boolean;
 }) {
+  const showModelFacts = props.showModelFacts !== false;
   if (!props.actual && !props.resolution) {
     return (
       <p className={sx(styles.caption)}>Actual model has not been reported</p>
     );
   }
   const actualLabel = props.actual ? formatActualRunModel(props.actual) : null;
+  const showRoutedTarget = Boolean(
+    props.resolution &&
+    (showModelFacts ||
+      (props.actual &&
+        (props.actual.providerId !== props.resolution.selectedProviderId ||
+          props.actual.model !== props.resolution.selectedModel))),
+  );
 
   return (
     <dl className={sx(styles.modelFacts)}>
-      <dt className={sx(styles.muted)}>Run model</dt>
-      <dd className={sx(styles.modelValue)} title={actualLabel ?? undefined}>
-        {actualLabel ?? "Not reported"}
-      </dd>
-      {props.resolution ? (
+      {showModelFacts ? (
         <>
-          <dt className={sx(styles.muted)}>Routed target</dt>
+          <dt className={sx(styles.muted)}>Run model</dt>
           <dd
             className={sx(styles.modelValue)}
-            title={`${toProviderLabel(props.resolution.selectedProviderId)} · ${props.resolution.selectedModel}`}
+            title={actualLabel ?? undefined}
           >
-            {toHumanModelName({ model: props.resolution.selectedModel }) ||
-              `${toProviderLabel(props.resolution.selectedProviderId)} · ${props.resolution.selectedModel}`}
+            {actualLabel ?? "Not reported"}
           </dd>
+        </>
+      ) : null}
+      {props.resolution ? (
+        <>
+          {showRoutedTarget ? (
+            <>
+              <dt className={sx(styles.muted)}>Routed target</dt>
+              <dd
+                className={sx(styles.modelValue)}
+                title={`${toProviderLabel(props.resolution.selectedProviderId)} · ${props.resolution.selectedModel}`}
+              >
+                {toHumanModelName({ model: props.resolution.selectedModel }) ||
+                  `${toProviderLabel(props.resolution.selectedProviderId)} · ${props.resolution.selectedModel}`}
+              </dd>
+            </>
+          ) : null}
           {props.resolution.taskClass ? (
             <>
               <dt className={sx(styles.muted)}>Task</dt>

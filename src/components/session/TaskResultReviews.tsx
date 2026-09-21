@@ -138,7 +138,7 @@ function RunEvidence(props: { result: ResultReview }) {
   );
 }
 
-function RunHistoryRow(props: {
+export function RunHistoryRow(props: {
   result: ResultReview;
   expanded: boolean;
   busy: boolean;
@@ -167,17 +167,25 @@ function RunHistoryRow(props: {
             >
               <ChevronRight size={14} />
             </span>
-            <span
-              className={sx(
-                styles.outcomeIcon,
-                failed ? styles.outcomeFailed : styles.outcomeFinished,
-              )}
-              aria-hidden="true"
-            >
-              {failed ? <CircleAlert size={14} /> : <CircleCheck size={14} />}
-            </span>
             <span className={sx(styles.rowText)}>
+              <span
+                className={sx(
+                  styles.summary,
+                  !props.expanded && styles.summaryClamped,
+                )}
+              >
+                {summary}
+              </span>
               <span className={sx(styles.rowMeta)}>
+                <span
+                  className={sx(
+                    styles.outcomeIcon,
+                    failed ? styles.outcomeFailed : styles.outcomeFinished,
+                  )}
+                  aria-hidden="true"
+                >
+                  {failed ? <CircleAlert size={14} /> : <CircleCheck size={14} />}
+                </span>
                 <span className={sx(styles.status)}>
                   {failed ? "Failed" : "Finished"}
                 </span>
@@ -197,14 +205,6 @@ function RunHistoryRow(props: {
                     Not reviewed
                   </Badge>
                 )}
-              </span>
-              <span
-                className={sx(
-                  styles.summary,
-                  !props.expanded && styles.summaryClamped,
-                )}
-              >
-                {summary}
               </span>
             </span>
           </span>

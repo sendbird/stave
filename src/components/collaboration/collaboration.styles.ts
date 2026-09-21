@@ -74,23 +74,15 @@ export const collaborationStyles = stylex.create({
     borderBottomColor: vars["--ads-color-border"],
     paddingBottom: vars["--ads-space-12"],
   },
-  /**
-   * The composer dock at the foot of the panel. Everything above it is a
-   * record of work that already happened; this is where new work starts, so it
-   * gets its own tinted surface and sits after the last history block instead
-   * of interrupting the list with a form.
-   */
-  composerDock: {
+  // New work starts before the historical list. A single divider keeps this
+  // entry distinct without adding another card surface inside the right rail.
+  delegateEntry: {
     display: "flex",
     flexDirection: "column",
-    gap: vars["--ads-space-12"],
-    marginTop: vars["--ads-space-8"],
-    borderWidth: 1,
-    borderStyle: "solid",
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-control"],
-    backgroundColor: vars["--ads-color-surface-tint"],
-    padding: vars["--ads-space-16"],
+    paddingBottom: vars["--ads-space-16"],
+    borderBottomWidth: 1,
+    borderBottomStyle: "solid",
+    borderBottomColor: vars["--ads-color-border"],
   },
   wrap: { display: "flex", flexWrap: "wrap", gap: vars["--ads-space-8"] },
   // Panel prose, not a caption: `body` carries every status line, alert and
