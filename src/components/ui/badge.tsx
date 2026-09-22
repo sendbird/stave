@@ -1,16 +1,21 @@
 import { mergeProps } from "@base-ui/react/merge-props";
 import { useRender } from "@base-ui/react/use-render";
 import {
+  badgeStyles,
   badgeToneStyles,
   badgeOutlineToneStyles,
+  type BadgeSize,
   type BadgeTone,
   type BadgeVariant,
 } from "../ads/components/Badge";
-import { sx, cx } from "../ads/utils/stylex";
+import { withTruncatingLabels } from "../ads/components/truncating-label";
+import { themeProps, themeSlotProps } from "../ads/theming/theme-props";
+import { sx, cx, type XstyleProp } from "../ads/utils/stylex";
 import { transition } from "../ads/recipes/transition";
 import {
   statusChip,
   statusChipSizeStyles,
+  statusChipSolidToneStyles,
 } from "../ads/recipes/status-chip";
 
 /**
@@ -61,9 +66,10 @@ const isLegacyVariant = (
  */
 export type BadgeShimProps = {
   className?: string;
+  size?: BadgeSize;
   tone?: BadgeTone;
   variant?: LegacyVariant | BadgeVariant | null;
-};
+} & XstyleProp;
 
 function resolveBadge(variant: LegacyVariant | BadgeVariant, tone?: BadgeTone) {
   const resolved = isLegacyVariant(variant)
@@ -75,42 +81,52 @@ function resolveBadge(variant: LegacyVariant | BadgeVariant, tone?: BadgeTone) {
 export function badgeVariants({
   className,
   tone,
+  size = "md",
+  xstyle,
   variant = "default",
 }: BadgeShimProps = {}) {
   const resolved = resolveBadge(variant ?? "default", tone);
-  // ADS moved the chip's box and its `outline` edge out of `Badge`'s own
-  // `styles` and into `recipes/status-chip`, and gained a `size` axis whose
-  // `md` rung now carries the font size and inline padding the old `root` held.
-  // This class-only path composes the same three keys the component does, so a
-  // `badgeVariants()` string and a rendered `<Badge>` keep painting alike.
+  // Keep class-only consumers on the same size and tone recipes.
   return cx(
     sx(
       statusChip.root,
-      statusChipSizeStyles.md,
+      statusChipSizeStyles[size],
       transition.colors,
       resolved.variant === "outline" && statusChip.outline,
       resolved.variant === "outline"
         ? badgeOutlineToneStyles[resolved.tone]
-        : badgeToneStyles[resolved.tone],
+        : resolved.variant === "solid"
+          ? statusChipSolidToneStyles[resolved.tone === "warm" ? "warning" : resolved.tone]
+          : badgeToneStyles[resolved.tone],
+      xstyle,
     ),
     className,
   );
 }
 
 export function Badge({
+  children,
   className,
   render,
+  size = "md",
   tone,
   variant = "default",
+  xstyle,
   ...props
-}: useRender.ComponentProps<"span"> & Pick<BadgeShimProps, "tone" | "variant">) {
+}: useRender.ComponentProps<"span"> & BadgeShimProps) {
+  const resolved = resolveBadge(variant ?? "default", tone);
+  const theme = themeProps("badge", { ...resolved, size });
   return useRender({
     defaultTagName: "span",
     render,
     props: mergeProps<"span">(
-      { className: badgeVariants({ className, tone, variant }) },
+      {
+        ...theme,
+        className: cx(badgeVariants({ className, tone, variant, size, xstyle }), theme.className),
+        children: withTruncatingLabels(children, badgeStyles.label, themeSlotProps("badge", "label")),
+      },
       props,
     ),
-    state: { slot: "badge", variant },
+    state: { slot: "badge" },
   });
 }

@@ -286,6 +286,26 @@ function storybookAccessBadgeVariant(
     : ("outline" as const);
 }
 
+export function StorybookAccessBadges({
+  access,
+}: { access?: WorkspaceStorybookResourceAccess | null }) {
+  const label = formatStorybookAccessBadgeLabel(access);
+  return (
+    <>
+      {label ? (
+        <Badge size="sm" variant={storybookAccessBadgeVariant(access)} xstyle={[styles.chip, styles.chipAccess]}>
+          {label}
+        </Badge>
+      ) : null}
+      {access?.externalRepo ? (
+        <Badge size="sm" variant="outline" xstyle={[styles.chip, styles.chipRepo]} title={access.externalRepo}>
+          <span className={sx(styles.chipRepoLabel)}>repo {access.externalRepo}</span>
+        </Badge>
+      ) : null}
+    </>
+  );
+}
+
 async function fetchLinkedPullRequestPreview(args: {
   cwd: string;
   url: string;
@@ -600,7 +620,7 @@ function SectionHeader(props: {
 // Inline link row — compact clickable item for Jira/Figma/GitHub
 // ---------------------------------------------------------------------------
 
-function InlineLinkRow(props: {
+export function InlineLinkRow(props: {
   icon: ReactNode;
   label: string;
   sublabel?: string;
@@ -838,14 +858,14 @@ export function GitHubPrRow(props: {
         </div>
         <div className={sx(informationRow.meta)}>
           <span className={sx(informationRow.metaNumeric)}>#{props.number}</span>
-          <Badge
+          <Badge size="sm"
             tone="neutral"
-            className={sx(styles.chipStatus, prToneBadgeStyles[visual.tone])}
+            xstyle={[styles.chipStatus, prToneBadgeStyles[visual.tone]]}
           >
             {visual.label}
           </Badge>
           {props.isCurrent ? (
-            <Badge variant="outline" className={sx(styles.chipTight)}>
+            <Badge size="sm" variant="outline" xstyle={styles.chipTight}>
               Current branch
             </Badge>
           ) : null}
@@ -2291,9 +2311,9 @@ export function WorkspaceInformationPanel() {
                           }
                           badge={
                             issue.status.trim() ? (
-                              <Badge
+                              <Badge size="sm"
                                 variant="outline"
-                                className={sx(styles.chip)}
+                                xstyle={styles.chip}
                               >
                                 {issue.status.trim()}
                               </Badge>
@@ -2429,9 +2449,9 @@ export function WorkspaceInformationPanel() {
                           }
                           badge={
                             issue.status.trim() ? (
-                              <Badge
+                              <Badge size="sm"
                                 variant="outline"
-                                className={sx(styles.chip)}
+                                xstyle={styles.chip}
                               >
                                 {issue.status.trim()}
                               </Badge>
@@ -2631,8 +2651,6 @@ export function WorkspaceInformationPanel() {
                           resource.access ??
                           inferStorybookResourceAccess(resource.url) ??
                           null;
-                        const accessBadgeLabel =
-                          formatStorybookAccessBadgeLabel(access);
                         const sublabel = host
                           ? `${host}${storybookRef?.storyPath ? ` · ${storybookRef.storyPath}` : ""}`
                           : storybookRef?.storyPath || undefined;
@@ -2686,36 +2704,7 @@ export function WorkspaceInformationPanel() {
                             }
                             label={title}
                             sublabel={sublabel}
-                            badge={
-                              accessBadgeLabel || access?.externalRepo ? (
-                                <>
-                                  {accessBadgeLabel ? (
-                                    <Badge
-                                      variant={storybookAccessBadgeVariant(
-                                        access,
-                                      )}
-                                      className={sx(styles.chip)}
-                                    >
-                                      {accessBadgeLabel}
-                                    </Badge>
-                                  ) : null}
-                                  {access?.externalRepo ? (
-                                    <Badge
-                                      variant="outline"
-                                      className={sx(
-                                        styles.chip,
-                                        styles.chipRepo,
-                                      )}
-                                      title={access.externalRepo}
-                                    >
-                                      <span className={sx(styles.chipRepoLabel)}>
-                                        repo {access.externalRepo}
-                                      </span>
-                                    </Badge>
-                                  ) : null}
-                                </>
-                              ) : null
-                            }
+                            badge={<StorybookAccessBadges access={access} />}
                             url={resource.url}
                             onRemove={() =>
                               patchWorkspaceInformation((current) => ({

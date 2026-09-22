@@ -12,8 +12,10 @@ import { sx } from "../utils/stylex";
  * `text-overflow`, and the `overflow`/`white-space` pair on the root clips the
  * label mid-glyph instead of eliding it.
  *
- * Only text children are wrapped. Element children stay direct flex items so
- * the root's `gap` between the label and its neighbours is unchanged.
+ * Only text children are wrapped. Adjacent strings and numbers are one phrase,
+ * so `{count}{" "}file` ellipsizes as a single label instead of three flex
+ * items. Element children stay direct flex items so the root's `gap` between
+ * the label and its neighbours is unchanged.
  *
  * `Badge` was fixed for this and kept the helper private; `Combobox.Chip` had
  * the same root shape, was never fixed, and overflowed its field on a long
@@ -24,7 +26,19 @@ export function withTruncatingLabels(
   labelStyle: Parameters<typeof sx>[0],
   slotProps?: Record<string, unknown>,
 ): React.ReactNode {
-  return React.Children.map(children, (child) =>
+  const grouped: React.ReactNode[] = [];
+  React.Children.forEach(children, (child) => {
+    const previous = grouped[grouped.length - 1];
+    if (
+      (typeof child === "string" || typeof child === "number") &&
+      (typeof previous === "string" || typeof previous === "number")
+    ) {
+      grouped[grouped.length - 1] = String(previous) + String(child);
+      return;
+    }
+    grouped.push(child);
+  });
+  return React.Children.map(grouped, (child) =>
     typeof child === "string" || typeof child === "number" ? (
       <span className={sx(labelStyle)} {...slotProps}>
         {child}
