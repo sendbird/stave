@@ -635,7 +635,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
             value={railValue}
             onValueChange={(value) => showTab(value as RailValue)}
             orientation="vertical"
-            className={sx(styles.tabs)}
+            xstyle={styles.tabs}
           >
             <SelectionRail
               label="Model provider"

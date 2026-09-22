@@ -50,6 +50,7 @@ const styles = stylex.create({
     display: "flex",
     flexDirection: "column",
     flexShrink: 0,
+    alignSelf: "stretch",
     width: { default: 128, "@media (max-width: 479px)": 48 },
     padding: 4,
     gap: 4,
