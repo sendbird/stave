@@ -9,43 +9,35 @@ const spin = stylex.keyframes({
 
 export const codexStyles = stylex.create({
   // ---- DenseMetric --------------------------------------------------------
+  // A label over a value, no box: the section card around the group is the
+  // only frame these facts need. Tone colors the value, not the tile, so a
+  // healthy row reads as plain text.
   metric: {
-    borderRadius: vars["--ads-radius-frame"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    borderColor: vars["--ads-color-border-strong"],
-    paddingInline: vars["--ads-space-12"],
-    paddingBlock: vars["--ads-space-12"],
-  },
-  metricSuccess: {
-    borderColor: vars["--ads-color-success-border"],
-    backgroundColor: vars["--ads-color-success-soft"],
-  },
-  metricWarning: {
-    borderColor: vars["--ads-color-warning-border"],
-    backgroundColor: vars["--ads-color-warning-soft"],
-  },
-  metricMuted: {
-    borderColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-  },
-  metricDefault: {
-    borderColor: vars["--ads-color-border"],
-    backgroundColor: vars["--ads-color-canvas"],
+    minWidth: 0,
   },
   metricLabel: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    letterSpacing: "0.18em",
-    textTransform: "uppercase",
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-regular"],
   },
   metricValue: {
     color: vars["--ads-color-text"],
-    fontSize: vars["--ads-font-size-lead"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    letterSpacing: "-0.01em",
-    marginBlockStart: vars["--ads-space-4"],
+    fontSize: vars["--ads-font-size-body"],
+    fontVariantNumeric: "tabular-nums",
+    fontWeight: vars["--ads-font-weight-medium"],
+    marginBlockStart: vars["--ads-space-2"],
+    overflow: "hidden",
+    textOverflow: "ellipsis",
+    whiteSpace: "nowrap",
+  },
+  metricValueSuccess: {
+    color: vars["--ads-color-success-text"],
+  },
+  metricValueWarning: {
+    color: vars["--ads-color-warning-text"],
+  },
+  metricValueMuted: {
+    color: vars["--ads-color-text-muted"],
   },
 
   // ---- DenseSection -------------------------------------------------------
@@ -321,13 +313,14 @@ export const codexStyles = stylex.create({
     gap: vars["--ads-space-12"],
   },
   metricsGrid: {
+    columnGap: vars["--ads-space-16"],
     display: "grid",
-    gap: vars["--ads-space-8"],
     gridTemplateColumns: {
-      default: "1fr",
-      "@media (min-width: 640px)": "repeat(2, minmax(0, 1fr))",
+      default: "repeat(2, minmax(0, 1fr))",
+      "@media (min-width: 640px)": "repeat(3, minmax(0, 1fr))",
       "@media (min-width: 1280px)": "repeat(6, minmax(0, 1fr))",
     },
+    rowGap: vars["--ads-space-12"],
   },
   twoColGrid1: {
     display: "grid",
@@ -718,10 +711,14 @@ export const codexStyles = stylex.create({
     blockSize: vars["--ads-space-8"],
   },
   progressFill: {
-    backgroundColor: vars["--ads-color-accent"],
     borderRadius: vars["--ads-radius-full"],
     blockSize: vars["--ads-space-8"],
   },
+  // Same ramp as the status bar usage meter: a rate limit has a real
+  // denominator, so the bar is a reading, not an accent.
+  progressFillOk: { backgroundColor: vars["--ads-color-success"] },
+  progressFillWarn: { backgroundColor: vars["--ads-color-warning"] },
+  progressFillDanger: { backgroundColor: vars["--ads-color-danger"] },
 
   // ---- Skill/chip rows ----------------------------------------------------
   chipWrapMt2: {

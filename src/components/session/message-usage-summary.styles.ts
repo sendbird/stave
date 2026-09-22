@@ -47,7 +47,11 @@ export const messageUsageSummaryStyles = stylex.create({
     rowGap: "0.125rem",
   },
   metricLabel: { color: invertedMuted },
-  metricValue: { textAlign: "right", fontFamily: vars["--ads-font-mono"] },
+  metricValue: {
+    textAlign: "right",
+    fontFamily: vars["--ads-font-mono"],
+    fontVariantNumeric: "tabular-nums",
+  },
   turnTotal: {
     display: "flex",
     flexDirection: "column",
@@ -75,6 +79,7 @@ export const messageUsageSummaryStyles = stylex.create({
     display: "inline-flex",
     alignItems: "center",
     gap: "0.125rem",
+    fontVariantNumeric: "tabular-nums",
   },
   triggerIcon: { width: 10, height: 10 },
   tooltipContent: {

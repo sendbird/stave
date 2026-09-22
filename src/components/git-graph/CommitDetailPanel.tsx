@@ -174,18 +174,25 @@ function SignatureMetadata({ signature }: { signature: GraphCommitSignature }) {
 
 function WorkingTreeSummary({ summary }: { summary: GraphWorkingTreeSummary }) {
   const items = [
-    ["Staged", summary.staged, styles.toneSuccess],
-    ["Changed", summary.unstaged, styles.toneWarning],
-    ["Untracked", summary.untracked, styles.toneInfo],
-    ["Conflicts", summary.conflicts, styles.toneDanger],
+    ["staged", summary.staged, false],
+    ["changed", summary.unstaged, false],
+    ["untracked", summary.untracked, false],
+    ["conflicts", summary.conflicts, true],
   ] as const;
   return (
-    <div className={sx(styles.summaryGrid)}>
-      {items.map(([label, count, tone]) => (
-        <div key={label} className={sx(styles.summaryCell)}>
-          <div className={sx(styles.summaryCount, tone)}>{count}</div>
-          <div className={sx(styles.summaryLabel)}>{label}</div>
-        </div>
+    <div className={sx(styles.summaryRow)}>
+      {items.map(([label, count, isConflict]) => (
+        <span key={label} className={sx(styles.summaryItem)}>
+          <span
+            className={sx(
+              styles.summaryCount,
+              isConflict && count > 0 && styles.summaryCountConflicts,
+            )}
+          >
+            {count}
+          </span>
+          {label}
+        </span>
       ))}
     </div>
   );

@@ -183,16 +183,17 @@ export const compareRunPrepareDialogStyles = stylex.create({
     display: "flex",
     gap: vars["--ads-space-12"],
   },
+  // The glyph sits inline at the heading's cap height; a tinted well around
+  // it was decoration with no state behind it.
   judgeMark: {
     alignItems: "center",
-    backgroundColor: vars["--ads-color-accent-soft"],
-    borderRadius: vars["--ads-radius-control"],
-    color: vars["--ads-color-accent"],
+    color: vars["--ads-color-text-muted"],
     display: "flex",
     flexShrink: 0,
-    height: 36,
+    height: 20,
     justifyContent: "center",
-    width: 36,
+    marginTop: 1,
+    width: 20,
   },
   judgeIntroText: {
     display: "flex",

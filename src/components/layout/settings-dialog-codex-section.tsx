@@ -128,26 +128,39 @@ function parseJsonInput(value: string) {
   }
 }
 
+/** Thresholds match `StatusBarUsageSegment`: 60% is watch, 85% is tight. */
+function rateLimitFillStyle(usedPercent: number | null | undefined) {
+  if (usedPercent == null || !Number.isFinite(usedPercent)) {
+    return codexStyles.progressFillOk;
+  }
+  if (usedPercent >= 85) return codexStyles.progressFillDanger;
+  if (usedPercent >= 60) return codexStyles.progressFillWarn;
+  return codexStyles.progressFillOk;
+}
+
 function DenseMetric(args: {
   label: string;
   value: string;
   tone?: "default" | "muted" | "success" | "warning";
 }) {
   return (
-    <div
-      className={sx(
-        codexStyles.metric,
-        args.tone === "success"
-          ? codexStyles.metricSuccess
-          : args.tone === "warning"
-            ? codexStyles.metricWarning
-            : args.tone === "muted"
-              ? codexStyles.metricMuted
-              : codexStyles.metricDefault,
-      )}
-    >
+    <div className={sx(codexStyles.metric)}>
       <p className={sx(codexStyles.metricLabel)}>{args.label}</p>
-      <p className={sx(codexStyles.metricValue)}>{args.value}</p>
+      <p
+        className={sx(
+          codexStyles.metricValue,
+          args.tone === "success"
+            ? codexStyles.metricValueSuccess
+            : args.tone === "warning"
+              ? codexStyles.metricValueWarning
+              : args.tone === "muted"
+                ? codexStyles.metricValueMuted
+                : null,
+        )}
+        title={args.value}
+      >
+        {args.value}
+      </p>
     </div>
   );
 }
@@ -1475,7 +1488,10 @@ export function CodexSection() {
                                   </div>
                                   <div className={sx(codexStyles.progressTrack)}>
                                     <div
-                                      className={sx(codexStyles.progressFill)}
+                                      className={sx(
+                                        codexStyles.progressFill,
+                                        rateLimitFillStyle(bucket?.usedPercent),
+                                      )}
                                       style={{
                                         width: `${getPercentWidth(bucket?.usedPercent)}%`,
                                       }}

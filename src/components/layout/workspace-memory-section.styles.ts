@@ -81,7 +81,11 @@ export const workspaceMemorySectionStyles = stylex.create({
     minHeight: 112,
     resize: "vertical",
   },
-  counter: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
+  counter: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
+  },
   controlRow: {
     display: "flex",
     flexWrap: "wrap",

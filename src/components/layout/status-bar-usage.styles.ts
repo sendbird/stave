@@ -29,6 +29,7 @@ export const statusBarUsageStyles = stylex.create({
     color: vars["--ads-color-text-subtle"],
     flexShrink: 0,
     fontFamily: vars["--ads-font-mono"],
+    fontVariantNumeric: "tabular-nums",
   },
   meterTrack: {
     backgroundColor: vars["--ads-color-overlay-pressed"],

@@ -54,6 +54,7 @@ const styles = stylex.create({
     borderWidth: vars["--ads-border-width-hairline"],
     display: "inline-flex",
     fontSize: vars["--ads-font-size-micro"],
+    fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--ads-font-weight-semibold"],
     justifyContent: "center",
     // `1` and not a token: the pill is a single glyph row whose box is set by

@@ -48,10 +48,7 @@ import {
   type FleetBoardFilter,
   type FleetWorkspaceActivity,
 } from "@/lib/fleet/workspace-activity";
-import {
-  PR_STATUS_VISUAL,
-  type WorkspacePrStatus,
-} from "@/lib/pr-status";
+import { PR_STATUS_VISUAL, type WorkspacePrStatus } from "@/lib/pr-status";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import {
@@ -124,25 +121,24 @@ function getStatusPriority(status: FleetDisplayStatus) {
 
 const FLEET_STATUS_VISUAL: Record<
   FleetDisplayStatus,
-  { label: string; icon: ReactNode; tone: StyleXValue; rail: StyleXValue }
+  { label: string; icon: ReactNode; tone: StyleXValue }
 > = {
   "waiting-input": {
     label: "Awaiting input",
     icon: <UserRound className={sx(styles.statusIcon)} aria-hidden="true" />,
     tone: styles.toneWarning,
-    rail: styles.railWarning,
   },
   "waiting-approval": {
     label: "Awaiting approval",
     icon: <ShieldCheck className={sx(styles.statusIcon)} aria-hidden="true" />,
     tone: styles.toneWarning,
-    rail: styles.railWarning,
   },
   error: {
     label: "Error",
-    icon: <AlertTriangle className={sx(styles.statusIcon)} aria-hidden="true" />,
+    icon: (
+      <AlertTriangle className={sx(styles.statusIcon)} aria-hidden="true" />
+    ),
     tone: styles.toneDanger,
-    rail: styles.railDanger,
   },
   running: {
     label: "Running",
@@ -151,19 +147,16 @@ const FLEET_STATUS_VISUAL: Record<
     // half of it.
     icon: <Loader aria-hidden="true" size="xs" variant="pulse" />,
     tone: styles.toneAccent,
-    rail: styles.railAccent,
   },
   idle: {
     label: "Idle",
     icon: <CircleDashed className={sx(styles.statusIcon)} aria-hidden="true" />,
     tone: styles.toneMuted,
-    rail: styles.railNeutral,
   },
   unknown: {
     label: "Not loaded",
     icon: <CircleDashed className={sx(styles.statusIcon)} aria-hidden="true" />,
     tone: styles.toneMuted,
-    rail: styles.railUnknown,
   },
 };
 
@@ -503,21 +496,12 @@ export function FleetWorkspaceCard(args: {
   }
 
   const branchLabel = formatBranchLabel(args.workspace.branch);
-  const accent =
-    activity === "live"
-      ? styles.accentLive
-      : hasBlockingAttention
-        ? styles.accentBlocking
-        : activity === "dormant"
-          ? styles.accentDormant
-          : styles.accentQuiet;
 
   return (
     <article
       className={sx(
         styles.card,
         transition.colors,
-        accent,
         activity === "dormant" && styles.cardDormant,
         expandedRow && styles.cardExpanded,
       )}
@@ -581,7 +565,6 @@ export function FleetWorkspaceCard(args: {
                     xstyle={[
                       styles.taskRow,
                       focusRing.ringInset,
-                      visual.rail,
                       isExpanded && styles.taskRowExpanded,
                     ]}
                     aria-expanded={isExpanded}

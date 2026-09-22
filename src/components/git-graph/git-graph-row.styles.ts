@@ -96,12 +96,14 @@ export const gitGraphRowStyles = stylex.create({
     paddingInline: 6,
     paddingBlock: 2,
     fontSize: vars["--ads-font-size-micro"],
+    fontVariantNumeric: "tabular-nums",
     color: vars["--ads-color-text-muted"],
   },
   workingTreeConflicts: {
     fontSize: vars["--ads-font-size-micro"],
+    fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--ads-font-weight-medium"],
-    color: vars["--ads-color-danger"],
+    color: vars["--ads-color-danger-text"],
   },
   refList: {
     display: "flex",

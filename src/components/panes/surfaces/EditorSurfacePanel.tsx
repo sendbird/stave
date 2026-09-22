@@ -924,10 +924,7 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
             <div className={sx(styles.emptyHost)}>
               <Empty className={sx(styles.empty)}>
                 <EmptyHeader className={sx(styles.emptyHeader)}>
-                  <EmptyMedia
-                    variant="icon"
-                    xstyle={styles.emptyIcon}
-                  >
+                  <EmptyMedia variant="icon">
                     <FileCode2 strokeWidth={1.5} />
                   </EmptyMedia>
                   <div className={sx(styles.emptyText)}>
@@ -945,10 +942,7 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
             <div className={sx(styles.emptyHost)}>
               <Empty className={sx(styles.empty)}>
                 <EmptyHeader className={sx(styles.emptyHeader)}>
-                  <EmptyMedia
-                    variant="icon"
-                    xstyle={styles.emptyIcon}
-                  >
+                  <EmptyMedia variant="icon">
                     <Loader aria-hidden size="md" variant="scan" />
                   </EmptyMedia>
                   <div className={sx(styles.emptyText)}>
@@ -1146,11 +1140,6 @@ viewport: {minHeight:0,flex:1,overflow:"hidden"},
 emptyHost: {display:"flex",height:"100%",alignItems:"center",justifyContent:"center",backgroundColor:"var(--editor)",padding:24},
 empty: {borderWidth:0,backgroundColor:"transparent",padding:0},
 emptyHeader: {gap:12},
-// Logical names, matching the keys ADS `emptyStateStyles.media` declares
-// (`inlineSize: 48` / `minBlockSize: 48`). StyleX treats `width` and
-// `inlineSize` as distinct atomic properties, so the physical spelling left
-// the ADS inline size live and rendered a 48x56 non-square medallion.
-emptyIcon: {inlineSize:56,blockSize:56,minBlockSize:56,borderRadius:vars["--ads-radius-frame"],backgroundColor:vars["--ads-color-accent-soft"],color:vars["--ads-color-accent"]},
 emptyText: {display:"flex",flexDirection:"column",gap:vars["--ads-space-4"]},
 title: {fontSize:vars["--ads-font-size-heading"],lineHeight:vars["--ads-line-height-heading"],fontWeight:vars["--ads-font-weight-semibold"]},
 // `maxInlineSize`, again matching the logical box ADS's description owns.

@@ -215,17 +215,9 @@ function WorkingTreeStatus({
     );
   }
   const entries = [
-    { label: "staged", value: summary.staged, tone: styles.statusEntryStaged },
-    {
-      label: "changed",
-      value: summary.unstaged,
-      tone: styles.statusEntryChanged,
-    },
-    {
-      label: "untracked",
-      value: summary.untracked,
-      tone: styles.statusEntryUntracked,
-    },
+    { label: "staged", value: summary.staged, tone: null },
+    { label: "changed", value: summary.unstaged, tone: null },
+    { label: "untracked", value: summary.untracked, tone: null },
     {
       label: "conflicts",
       value: summary.conflicts,

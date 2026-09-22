@@ -189,7 +189,11 @@ export const changesStyles = stylex.create({
   // Micro (on the ramp) rather than Caption: the count is a subscript on the
   // label, and this strip is the one that had to fight overflow in a 300px
   // rail — a rung up here buys nothing and costs width per tab.
-  tabCount: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-micro"] },
+  tabCount: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-micro"],
+    fontVariantNumeric: "tabular-nums",
+  },
   tabAlert: { color: vars["--ads-color-danger-text"], fontSize: vars["--ads-font-size-micro"] },
   // Grid rows, not flex children: the panel row is already `minmax(0, 1fr)`,
   // so the pane only has to stop being a scroll container of its own and let
@@ -530,6 +534,7 @@ export const changesStyles = stylex.create({
   summaryCount: {
     color: vars["--ads-color-text"],
     fontSize: vars["--ads-font-size-body"],
+    fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--ads-font-weight-medium"],
   },
   busyLoader: { color: vars["--ads-color-text-muted"], flexShrink: 0 },
@@ -759,7 +764,11 @@ export const changesStyles = stylex.create({
     justifyContent: "space-between",
     paddingInline: vars["--ads-space-4"],
   },
-  historyCount: { color: vars["--ads-color-text-muted"], fontSize: vars["--ads-font-size-caption"] },
+  historyCount: {
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
+  },
   historyList: { display: "flex", flexDirection: "column" },
   historyRow: {
     backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
