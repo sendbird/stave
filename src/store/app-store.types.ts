@@ -318,9 +318,13 @@ export interface AppState
     initCommand?: string;
     useRootNodeModulesSymlink?: boolean;
     initialTaskTitle?: string;
+    initialTaskProvider?: ProviderId;
+    initialPromptDraft?: PromptDraft;
     workspaceInformation?: WorkspaceInformationState;
   }) => Promise<{
     ok: boolean;
+    workspaceId?: string;
+    taskId?: string;
     message?: string;
     noticeLevel?: "success" | "warning";
   }>;

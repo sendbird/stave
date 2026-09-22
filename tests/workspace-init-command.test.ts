@@ -91,9 +91,17 @@ describe("new workspace init command", () => {
       mode: "branch",
       fromBranch: "origin/main",
       fromBranchKind: "remote",
+      initialTaskProvider: "codex",
+      initialPromptDraft: { text: "Keep the public API.", attachedFilePaths: [], attachments: [], runtimeOverrides: { model: "gpt-5.6-sol", autoRouting: false } },
     });
 
-    expect(result).toEqual({ ok: true });
+    const createdState = useAppStore.getState();
+    expect(result.taskId).toBe(createdState.activeTaskId!);
+    expect(result.workspaceId).toBe(createdState.activeWorkspaceId);
+    expect(createdState.tasks.find((task) => task.id === result.taskId)?.provider).toBe("codex");
+    expect(createdState.promptDraftByTask[result.taskId!]?.text).toBe("Keep the public API.");
+    expect(createdState.promptDraftByTask[result.taskId!]?.runtimeOverrides?.model).toBe("gpt-5.6-sol");
+    expect(result).toMatchObject({ ok: true });
     const workspacePath = `/tmp/stave-project/.stave/workspaces/${toWorkspaceFolderName(
       {
         branch: "feature/remote-bootstrap",
@@ -335,7 +343,7 @@ describe("new workspace init command", () => {
       fromBranch: "main",
     });
 
-    expect(result).toEqual({ ok: true });
+    expect(result).toMatchObject({ ok: true });
     const state = useAppStore.getState();
     const workspace = state.workspaces[0];
     expect(workspace?.name).toBe("Customer quota");

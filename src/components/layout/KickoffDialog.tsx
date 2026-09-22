@@ -1,3 +1,4 @@
+import { KickoffBriefEditor } from "./KickoffBriefEditor";
 import {
   AlertTriangle,
   ArrowLeft,
@@ -13,6 +14,7 @@ import { useShallow } from "zustand/react/shallow";
 import {
   buildModelSelectorOptions,
   buildModelSelectorValue,
+  buildRecommendedModelSelectorOptions,
   ModelSelector,
   type ModelSelectorOption,
 } from "@/components/ai-elements/model-selector";
@@ -21,6 +23,8 @@ import { resolveDefaultCreateWorkspaceBaseBranch } from "@/components/layout/Cre
 import {
   buildKickoffFirstTaskRuntimeOverrides,
   canApplyKickoffDialogOpenChange,
+  describeKickoffProviderFallback,
+  resolveKickoffFirstTaskSelection,
 } from "@/components/layout/KickoffDialog.utils";
 import {
   Accordion,
@@ -50,6 +54,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
+  getProviderLabel,
   listProviderIdsForCapability,
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
@@ -210,18 +215,22 @@ export function KickoffDialog(props: {
       state.kickoffWorkspace,
     ]),
   );
-  const defaultFirstTaskModel =
-    draftProvider === "claude-code"
-      ? settings.modelClaude
-      : settings.modelCodex;
+  const defaultFirstTask = resolveKickoffFirstTaskSelection({
+    draftProvider,
+    eligibleProviderIds: KICKOFF_PROVIDER_IDS,
+    modelClaude: settings.modelClaude,
+    modelCodex: settings.modelCodex,
+  });
+  const defaultFirstTaskProvider = defaultFirstTask.providerId;
+  const defaultFirstTaskModel = defaultFirstTask.model;
   const defaultFirstTaskEffort = resolveFirstTaskEffort({
     settings,
-    providerId: draftProvider,
+    providerId: defaultFirstTaskProvider,
     model: defaultFirstTaskModel,
   });
   const defaultFirstTaskFastMode = resolveFirstTaskFastMode({
     settings,
-    providerId: draftProvider,
+    providerId: defaultFirstTaskProvider,
     model: defaultFirstTaskModel,
   });
   const [phase, setPhase] = useState<KickoffPhase>("source");
@@ -242,8 +251,9 @@ export function KickoffDialog(props: {
   const [remoteBranches, setRemoteBranches] = useState<string[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [startFirstTask, setStartFirstTask] = useState(true);
-  const [firstTaskProvider, setFirstTaskProvider] =
-    useState<ProviderId>(draftProvider);
+  const [firstTaskProvider, setFirstTaskProvider] = useState<ProviderId>(
+    defaultFirstTaskProvider,
+  );
   const [firstTaskModel, setFirstTaskModel] = useState(defaultFirstTaskModel);
   const [firstTaskEffort, setFirstTaskEffort] = useState<FirstTaskEffort>(
     defaultFirstTaskEffort,
@@ -280,6 +290,25 @@ export function KickoffDialog(props: {
       }),
     [codexModelCatalog.models, providerAvailability],
   );
+  const recommendedFirstTaskModels = useMemo(
+    () =>
+      buildRecommendedModelSelectorOptions({
+        options: firstTaskModelOptions,
+      }),
+    [firstTaskModelOptions],
+  );
+  const providerFallbackHint = describeKickoffProviderFallback({
+    draftProvider,
+    eligibleProviderIds: KICKOFF_PROVIDER_IDS,
+    draftLabel: getProviderLabel({
+      providerId: draftProvider,
+      variant: "short",
+    }),
+    fallbackLabel: getProviderLabel({
+      providerId: defaultFirstTaskProvider,
+      variant: "short",
+    }),
+  });
   const selectedFirstTaskModel = useMemo(
     () =>
       buildModelSelectorValue({
@@ -318,7 +347,7 @@ export function KickoffDialog(props: {
     setCreating(false);
     setError(null);
     setStartFirstTask(true);
-    setFirstTaskProvider(draftProvider);
+    setFirstTaskProvider(defaultFirstTaskProvider);
     setFirstTaskModel(defaultFirstTaskModel);
     setFirstTaskEffort(defaultFirstTaskEffort);
     setFirstTaskFastMode(defaultFirstTaskFastMode);
@@ -328,7 +357,7 @@ export function KickoffDialog(props: {
     defaultFirstTaskEffort,
     defaultFirstTaskFastMode,
     defaultFirstTaskModel,
-    draftProvider,
+    defaultFirstTaskProvider,
     props.open,
   ]);
 
@@ -731,12 +760,17 @@ export function KickoffDialog(props: {
                   <div className={sx(kickoffStyles.degradedNote)}>
                     <AlertTriangle className={sx(kickoffStyles.degradedIcon)} />
                     <p className={sx(kickoffStyles.degradedCopy)}>
-                      This proposal uses deterministic URL and text parsing.
-                      Review the fields before creating the workspace.
+                      {draft.resolutionNote ?? "AI interpretation was unavailable. Review the task before starting."}
                     </p>
                   </div>
                 ) : null}
 
+                {draft.sourceEvidence ? (
+                  <p className={sx(kickoffStyles.hint)}>
+                    {draft.sourceEvidence.detail}
+                    {draft.sourceEvidence.truncated ? " The interpretation used shortened input. The full supplied input remains in the first-task prompt." : ""}
+                  </p>
+                ) : null}
                 <section
                   className={sx(kickoffStyles.section)}
                   aria-labelledby="kickoff-workspace-heading"
@@ -754,25 +788,46 @@ export function KickoffDialog(props: {
                     </p>
                   </div>
                   <div className={sx(kickoffStyles.twoColumn)}>
-                    <label className={sx(kickoffStyles.labeledField)}>
-                      Branch name
+                    <div className={sx(kickoffStyles.labeledField)}>
+                      <label
+                        htmlFor="kickoff-branch-name"
+                        className={sx(kickoffStyles.label)}
+                      >
+                        Branch name
+                      </label>
                       <Input
+                        id="kickoff-branch-name"
                         value={draft.branchName}
                         onChange={(event) =>
                           setDraft({ ...draft, branchName: event.target.value })
                         }
+                        aria-describedby="kickoff-branch-note"
                         aria-invalid={!sanitizedBranchName}
                         xstyle={kickoffStyles.monoInput}
                       />
-                      <span className={sx(kickoffStyles.fieldNote)}>
+                      <p
+                        id="kickoff-branch-note"
+                        className={sx(
+                          sanitizedBranchName
+                            ? kickoffStyles.fieldNote
+                            : kickoffStyles.errorHint,
+                        )}
+                        role={sanitizedBranchName ? undefined : "alert"}
+                      >
                         {sanitizedBranchName
                           ? `Creates ${sanitizedBranchName}`
                           : "Enter a valid git branch name."}
-                      </span>
-                    </label>
-                    <label className={sx(kickoffStyles.labeledField)}>
-                      Workspace label
+                      </p>
+                    </div>
+                    <div className={sx(kickoffStyles.labeledField)}>
+                      <label
+                        htmlFor="kickoff-workspace-label"
+                        className={sx(kickoffStyles.label)}
+                      >
+                        Workspace label
+                      </label>
                       <Input
+                        id="kickoff-workspace-label"
                         value={draft.workspaceLabel}
                         onChange={(event) =>
                           setDraft({
@@ -781,7 +836,7 @@ export function KickoffDialog(props: {
                           })
                         }
                       />
-                    </label>
+                    </div>
                   </div>
                   <div className={sx(kickoffStyles.field)}>
                     <p className={sx(kickoffStyles.label)}>Base branch</p>
@@ -953,9 +1008,17 @@ export function KickoffDialog(props: {
                     </Accordion>
                   )}
                   <div className={sx(kickoffStyles.splitSection)}>
-                    <label className={sx(kickoffStyles.labeledField)}>
-                      Notes
+                    <div className={sx(kickoffStyles.field)}>
+                      <div className={sx(kickoffStyles.todoHeaderRow)}>
+                        <label
+                          htmlFor="kickoff-notes"
+                          className={sx(kickoffStyles.label)}
+                        >
+                          Notes
+                        </label>
+                      </div>
                       <Textarea
+                        id="kickoff-notes"
                         value={draft.notes}
                         onChange={(event) =>
                           setDraft({ ...draft, notes: event.target.value })
@@ -963,7 +1026,7 @@ export function KickoffDialog(props: {
                         placeholder="Optional workspace notes"
                         xstyle={kickoffStyles.notesTextarea}
                       />
-                    </label>
+                    </div>
                     <div className={sx(kickoffStyles.field)}>
                       <div className={sx(kickoffStyles.todoHeaderRow)}>
                         <p className={sx(kickoffStyles.label)}>Todos</p>
@@ -1057,23 +1120,19 @@ export function KickoffDialog(props: {
                       </label>
                       <Switch
                         id="kickoff-start-task"
+                        aria-label="Start now"
                         checked={startFirstTask}
                         onCheckedChange={setStartFirstTask}
                       />
                     </div>
                   </div>
-                  <div
-                    className={sx(
-                      firstTaskProvider === "codex"
-                        ? kickoffStyles.runtimeGridWithFast
-                        : kickoffStyles.runtimeGrid,
-                    )}
-                  >
+                  <div className={sx(kickoffStyles.runtimeGrid)}>
                     <div className={sx(kickoffStyles.field)}>
                       <p className={sx(kickoffStyles.label)}>Model</p>
                       <ModelSelector
                         value={selectedFirstTaskModel}
                         options={firstTaskModelOptions}
+                        recommendedOptions={recommendedFirstTaskModels}
                         disabled={creating}
                         onSelect={({ selection }) =>
                           handleFirstTaskModelSelect(selection)
@@ -1086,74 +1145,85 @@ export function KickoffDialog(props: {
                         menuClassName={sx(kickoffStyles.modelSelectorMenu)}
                       />
                     </div>
-                    <div className={sx(kickoffStyles.field)}>
-                      <p
-                        id="kickoff-first-task-effort-label"
-                        className={sx(kickoffStyles.label)}
-                      >
-                        Effort
-                      </p>
-                      <Select
-                        value={effectiveFirstTaskEffort}
-                        onValueChange={(value) =>
-                          setFirstTaskEffort(value as FirstTaskEffort)
-                        }
-                      >
-                        <SelectTrigger
-                          className={sx(kickoffStyles.fullWidth)}
-                          aria-labelledby="kickoff-first-task-effort-label"
-                        >
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {firstTaskEffortOptions.map((option) => (
-                            <SelectItem key={option.value} value={option.value}>
-                              {option.label}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    {firstTaskProvider === "codex" ? (
+                    <div className={sx(kickoffStyles.runtimeSide)}>
                       <div className={sx(kickoffStyles.field)}>
                         <p
-                          id="kickoff-first-task-fast-label"
+                          id="kickoff-first-task-effort-label"
                           className={sx(kickoffStyles.label)}
                         >
-                          Fast mode
+                          Effort
                         </p>
                         <Select
-                          value={firstTaskFastMode ? "on" : "off"}
+                          value={effectiveFirstTaskEffort}
                           onValueChange={(value) =>
-                            setFirstTaskFastMode(value === "on")
+                            setFirstTaskEffort(value as FirstTaskEffort)
                           }
                         >
                           <SelectTrigger
                             className={sx(kickoffStyles.fullWidth)}
-                            aria-labelledby="kickoff-first-task-fast-label"
+                            aria-labelledby="kickoff-first-task-effort-label"
                           >
                             <SelectValue />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="off">Off</SelectItem>
-                            <SelectItem value="on">On</SelectItem>
+                            {firstTaskEffortOptions.map((option) => (
+                              <SelectItem
+                                key={option.value}
+                                value={option.value}
+                              >
+                                {option.label}
+                              </SelectItem>
+                            ))}
                           </SelectContent>
                         </Select>
                       </div>
-                    ) : null}
+                      {firstTaskProvider === "codex" ? (
+                        <div className={sx(kickoffStyles.field)}>
+                          <p
+                            id="kickoff-first-task-fast-label"
+                            className={sx(kickoffStyles.label)}
+                          >
+                            Fast mode
+                          </p>
+                          <Select
+                            value={firstTaskFastMode ? "on" : "off"}
+                            onValueChange={(value) =>
+                              setFirstTaskFastMode(value === "on")
+                            }
+                          >
+                            <SelectTrigger
+                              className={sx(kickoffStyles.fullWidth)}
+                              aria-labelledby="kickoff-first-task-fast-label"
+                            >
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="off">Off</SelectItem>
+                              <SelectItem value="on">On</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      ) : null}
+                    </div>
                   </div>
                   {!firstTaskProviderAvailable ? (
                     <p className={sx(kickoffStyles.errorHint)} role="alert">
                       This provider is unavailable. Choose another model before
                       starting the task.
                     </p>
-                  ) : (
+                  ) : null}
+                  {providerFallbackHint ? (
+                    <p className={sx(kickoffStyles.hint)}>
+                      {providerFallbackHint}
+                    </p>
+                  ) : null}
+                  {firstTaskProviderAvailable ? (
                     <p className={sx(kickoffStyles.hint)}>
                       {firstTaskProvider === "codex"
                         ? "The model, effort, and Fast mode stay attached to this task, even if you leave the prompt ready instead of starting now."
                         : "The model and effort stay attached to this task, even if you leave the prompt ready instead of starting now."}
                     </p>
-                  )}
+                  ) : null}
                   <label className={sx(kickoffStyles.labeledField)}>
                     Task title
                     <Input
@@ -1190,6 +1260,7 @@ export function KickoffDialog(props: {
                       xstyle={kickoffStyles.instructionsTextarea}
                     />
                   </label>
+                  <KickoffBriefEditor draft={draft} extraInstructions={extraInstructions} onChange={setDraft} />
                 </section>
 
                 {error ? (

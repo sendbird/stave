@@ -1,7 +1,10 @@
+import { buildKickoffFirstTaskPrompt } from "@/lib/kickoff-brief";
 import { describe, expect, test } from "bun:test";
 import {
   buildKickoffFirstTaskRuntimeOverrides,
   canApplyKickoffDialogOpenChange,
+  describeKickoffProviderFallback,
+  resolveKickoffFirstTaskSelection,
 } from "@/components/layout/KickoffDialog.utils";
 import {
   DEFAULT_KICKOFF_SOURCE_CONFIGS,
@@ -19,15 +22,73 @@ import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 
 describe("workspace kickoff", () => {
   test("keeps the dialog open while kickoff work is in progress", () => {
+    expect(canApplyKickoffDialogOpenChange({ open: false, busy: true })).toBe(
+      false,
+    );
+    expect(canApplyKickoffDialogOpenChange({ open: false, busy: false })).toBe(
+      true,
+    );
+    expect(canApplyKickoffDialogOpenChange({ open: true, busy: true })).toBe(
+      true,
+    );
+  });
+
+  test("keeps an eligible draft provider and pairs an ineligible one with Codex", () => {
+    const eligibleProviderIds = ["claude-code", "codex"] as const;
     expect(
-      canApplyKickoffDialogOpenChange({ open: false, busy: true }),
-    ).toBe(false);
+      resolveKickoffFirstTaskSelection({
+        draftProvider: "claude-code",
+        eligibleProviderIds,
+        modelClaude: "claude-opus-4-8",
+        modelCodex: "gpt-5.6-sol",
+      }),
+    ).toEqual({ providerId: "claude-code", model: "claude-opus-4-8" });
     expect(
-      canApplyKickoffDialogOpenChange({ open: false, busy: false }),
-    ).toBe(true);
+      resolveKickoffFirstTaskSelection({
+        draftProvider: "codex",
+        eligibleProviderIds,
+        modelClaude: "claude-opus-4-8",
+        modelCodex: "gpt-5.6-sol",
+      }),
+    ).toEqual({ providerId: "codex", model: "gpt-5.6-sol" });
     expect(
-      canApplyKickoffDialogOpenChange({ open: true, busy: true }),
-    ).toBe(true);
+      resolveKickoffFirstTaskSelection({
+        draftProvider: "cursor",
+        eligibleProviderIds,
+        modelClaude: "claude-opus-4-8",
+        modelCodex: "gpt-5.6-sol",
+      }),
+    ).toEqual({ providerId: "codex", model: "gpt-5.6-sol" });
+    expect(
+      resolveKickoffFirstTaskSelection({
+        draftProvider: "kiro",
+        eligibleProviderIds: ["claude-code"],
+        modelClaude: "claude-opus-4-8",
+        modelCodex: "gpt-5.6-sol",
+      }),
+    ).toEqual({ providerId: "claude-code", model: "claude-opus-4-8" });
+  });
+
+  test("explains an ineligible draft provider and stays quiet for an eligible one", () => {
+    const eligibleProviderIds = ["claude-code", "codex"] as const;
+    expect(
+      describeKickoffProviderFallback({
+        draftProvider: "codex",
+        eligibleProviderIds,
+        draftLabel: "Codex",
+        fallbackLabel: "Codex",
+      }),
+    ).toBeNull();
+    expect(
+      describeKickoffProviderFallback({
+        draftProvider: "cursor",
+        eligibleProviderIds,
+        draftLabel: "Cursor",
+        fallbackLabel: "Codex",
+      }),
+    ).toBe(
+      "Cursor can't start the first task, so this opens on your Codex model.",
+    );
   });
 
   test("adds Fast mode only to Codex first-task runtime overrides", () => {
@@ -248,10 +309,12 @@ describe("workspace kickoff", () => {
         fromBranch?: string;
         fromBranchKind?: "local" | "remote";
         initialTaskTitle?: string;
+        initialTaskProvider?: ProviderId;
         workspaceInformation?: WorkspaceInformationState;
       }) => {
         createdInformation = args.workspaceInformation;
-        return { ok: true };
+        selectedTaskProvider = args.initialTaskProvider;
+        return { ok: true, taskId: "task-1", workspaceId: "workspace-1" };
       },
       setTaskProvider: (args: { taskId: string; provider: ProviderId }) => {
         selectedTaskProvider = args.provider;
@@ -266,7 +329,12 @@ describe("workspace kickoff", () => {
         sentPrompt = args.content;
         sentProvider = args.providerOverride;
         sentRuntimeOverrides = args.runtimeOverrides;
-        return { status: "sent" };
+        return {
+          status: "started" as const,
+          taskId: "task-1",
+          workspaceId: "workspace-1",
+          turnId: "turn-1",
+        };
       },
     };
 
@@ -313,7 +381,12 @@ describe("workspace kickoff", () => {
     let sendCount = 0;
     const state = {
       activeTaskId: "task-1" as string | null,
-      createWorkspace: async () => ({ ok: true }),
+      createWorkspace: async (args: {
+        initialPromptDraft?: typeof promptDraftPatch;
+      }) => {
+        promptDraftPatch = args.initialPromptDraft;
+        return { ok: true, taskId: "task-1", workspaceId: "workspace-1" };
+      },
       setTaskProvider: () => undefined,
       updatePromptDraft: (args: {
         taskId: string;
@@ -326,7 +399,12 @@ describe("workspace kickoff", () => {
       },
       sendUserMessage: async () => {
         sendCount += 1;
-        return { status: "sent" };
+        return {
+          status: "started" as const,
+          taskId: "task-1",
+          workspaceId: "workspace-1",
+          turnId: "turn-1",
+        };
       },
     };
 
@@ -347,7 +425,7 @@ describe("workspace kickoff", () => {
 
     expect(result.ok).toBe(true);
     expect(sendCount).toBe(0);
-    expect(promptDraftPatch?.text).toBe(proposal.firstTaskPrompt);
+    expect(promptDraftPatch?.text).toBe(buildKickoffFirstTaskPrompt(proposal));
     expect(promptDraftPatch?.runtimeOverrides).toEqual({
       autoRouting: false,
       model: "gpt-5.6-terra",

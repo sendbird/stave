@@ -212,6 +212,7 @@ export const kickoffStyles = stylex.create({
   errorHint: {
     marginBlock: 0,
     fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-regular"],
     lineHeight: vars["--ads-line-height-normal"],
     color: vars["--ads-color-danger-text"],
   },
@@ -270,6 +271,7 @@ export const kickoffStyles = stylex.create({
   },
   twoColumn: {
     display: "grid",
+    alignItems: "start",
     gap: vars["--ads-space-16"],
     gridTemplateColumns: {
       default: "minmax(0, 1fr)",
@@ -278,6 +280,7 @@ export const kickoffStyles = stylex.create({
   },
   labeledField: {
     display: "grid",
+    alignContent: "start",
     gap: vars["--ads-space-8"],
     fontSize: vars["--ads-font-size-body"],
     fontWeight: vars["--ads-font-weight-medium"],
@@ -292,6 +295,7 @@ export const kickoffStyles = stylex.create({
     fontFamily: vars["--ads-font-mono"],
   },
   fieldNote: {
+    marginBlock: 0,
     fontSize: vars["--ads-font-size-caption"],
     fontWeight: vars["--ads-font-weight-regular"],
     color: vars["--ads-color-text-muted"],
@@ -410,6 +414,7 @@ export const kickoffStyles = stylex.create({
   },
   splitSection: {
     display: "grid",
+    alignItems: "start",
     gap: vars["--ads-space-16"],
     borderTopWidth: vars["--ads-border-width-hairline"],
     borderTopStyle: "solid",
@@ -450,19 +455,17 @@ export const kickoffStyles = stylex.create({
   },
   runtimeGrid: {
     display: "grid",
+    alignItems: "start",
     gap: vars["--ads-space-16"],
     gridTemplateColumns: {
       default: "minmax(0, 1fr)",
       "@media (min-width: 40rem)": "minmax(0, 1fr) 10rem",
     },
   },
-  runtimeGridWithFast: {
+  runtimeSide: {
     display: "grid",
+    alignContent: "start",
     gap: vars["--ads-space-16"],
-    gridTemplateColumns: {
-      default: "minmax(0, 1fr)",
-      "@media (min-width: 40rem)": "minmax(0, 1fr) 10rem 10rem",
-    },
   },
   fullWidth: {
     width: "100%",

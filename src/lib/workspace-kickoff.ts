@@ -1,3 +1,8 @@
+import type { KickoffBrief, KickoffSourceEvidence } from "@/lib/kickoff-brief";
+import {
+  normalizeKickoffBrief,
+  buildKickoffSourceEvidence,
+} from "@/lib/kickoff-brief";
 import {
   createEmptyWorkspaceInformation,
   createWorkspaceAmplifyLink,
@@ -61,6 +66,14 @@ export interface KickoffPanelEntry {
 }
 
 export interface KickoffProposalDraft {
+  brief?: KickoffBrief;
+  sourceEvidence?: KickoffSourceEvidence;
+  resolutionNote?: string;
+  resolutionTiming?: {
+    sourceReadMs: number;
+    attemptDurationsMs: number[];
+    totalMs: number;
+  };
   branchName: string;
   workspaceLabel: string;
   sourceSummary: string;
@@ -440,6 +453,11 @@ export function parseKickoffProposalResponse(args: {
     const firstTaskTitle =
       normalizeString(parsed.firstTaskTitle) || sourceSummary;
     return {
+      brief: normalizeKickoffBrief(parsed.brief),
+      sourceEvidence: {
+        ...buildKickoffSourceEvidence(args.classification.input),
+        truncated: args.classification.input.length > MAX_SOURCE_CONTEXT_CHARS,
+      },
       branchName,
       workspaceLabel:
         normalizeString(parsed.workspaceLabel) || firstTaskTitle || branchName,
@@ -555,6 +573,10 @@ export function buildDeterministicKickoffProposal(args: {
     : args.classification.input;
 
   return {
+    brief: normalizeKickoffBrief(null),
+    sourceEvidence: buildKickoffSourceEvidence(args.classification.input),
+    resolutionNote:
+      "AI interpretation was skipped. Review the task before starting.",
     branchName,
     workspaceLabel: sourceSummary.slice(0, 80),
     sourceSummary,
