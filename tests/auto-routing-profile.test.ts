@@ -122,8 +122,21 @@ describe("resolveRoute", () => {
       .toThrow("No available allowed model");
     expect(resolveRoute({ profile: { ...profile, signals: { ...profile.signals, providerSwitch: true } },
       role: "primary", signals: signals({ complexity: "high" }) }).providerId).toBe("codex");
+  });
+
+  test("an unavailable provider fails over even though provider switching is off", () => {
+    // Provider switching governs discretionary routing. A provider that cannot
+    // run the turn at all — uninstalled, or its account usage exhausted — is a
+    // hard constraint, so the route moves instead of resolving to nothing.
+    expect(balanced.signals.providerSwitch).toBe(false);
+    expect(resolveRoute({ profile: balanced, role: "primary",
+      signals: signals({ providerAvailability: { "claude-code": false } }) }).providerId)
+      .toBe("codex");
+    // With every provider gone there is nothing to fail over to, so the
+    // configuration error still surfaces rather than picking a blocked route.
     expect(() => resolveRoute({ profile: balanced, role: "primary",
-      signals: signals({ providerAvailability: { "claude-code": false } }) })).toThrow();
+      signals: signals({ providerAvailability: { "claude-code": false, codex: false } }) }))
+      .toThrow("No available allowed model");
   });
 
   test("usage first reduces cache-preserving effort and then respects the capability floor", () => {

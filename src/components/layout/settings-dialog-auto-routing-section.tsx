@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { ArrowDown, ArrowUp, Plus, Sparkles, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Plus, Sparkles, Trash2 } from "lucide-react";
 import { Badge, Textarea } from "@/components/ui";
 import { Button } from "@/components/ads/components/Button";
 import { RouteFlow } from "@/components/auto-routing";
@@ -53,6 +53,7 @@ import {
 } from "@/store/auto-routing";
 import { useAppStore } from "@/store/app.store";
 import { sx } from "@/components/ads/utils/stylex";
+import { transition } from "@/components/ads/recipes/transition";
 import {
   ChoiceButtons,
   DraftInput,
@@ -68,6 +69,7 @@ import type { UsageSample } from "@/lib/providers/auto-routing-wizard";
 
 export const AUTO_ROUTING_SETTING_FIELD_ID = "settings-field-auto-routing";
 
+const ADVANCED_SECTION_VALUE = "advanced";
 const ANY_VALUE = "__any__";
 const DEFAULT_VALUE = "__default__";
 const PROVIDER_SELECTORS: ReadonlyArray<{ value: RouteProviderSelector; label: string }> = [
@@ -372,6 +374,7 @@ export function SettingsAutoRoutingSection(props: {
   /** Dev previews feed the usage wizard fixture prompts instead of history. */
   wizardSamples?: UsageSample[];
 } = {}) {
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const autoRoutingEnabled = useAppStore((state) => state.settings.autoRoutingEnabled);
   const profile = useAppStore((state) => state.settings.autoRoutingProfile);
   const codexBinaryPath = useAppStore((state) => state.settings.codexBinaryPath);
@@ -515,10 +518,34 @@ export function SettingsAutoRoutingSection(props: {
         </div>
       </SettingsCard>
 
-      <Accordion>
-        <AccordionItem value="advanced">
-          <AccordionTrigger>Advanced settings</AccordionTrigger>
-          <AccordionContent>
+      {/*
+        Controlled so the chevron can follow the open state from here. ADS's
+        shared rotation rule keys off `data-open` on the trigger, but Base UI
+        puts `data-open` on the header and gives the trigger `data-panel-open`,
+        so that rule never matches. Owning the state locally keeps the fix out
+        of the vendored ADS source.
+      */}
+      <Accordion
+        value={advancedOpen ? [ADVANCED_SECTION_VALUE] : []}
+        onValueChange={(value) =>
+          setAdvancedOpen(
+            (value as readonly unknown[]).includes(ADVANCED_SECTION_VALUE),
+          )
+        }
+      >
+        <AccordionItem value={ADVANCED_SECTION_VALUE}>
+          <AccordionTrigger className={sx(styles.advancedTrigger)}>
+            <span className={sx(styles.advancedTitle)}>Advanced settings</span>
+            <ChevronDown
+              aria-hidden
+              className={sx(
+                styles.advancedChevron,
+                transition.transform,
+                advancedOpen && styles.advancedChevronOpen,
+              )}
+            />
+          </AccordionTrigger>
+          <AccordionContent className={sx(styles.advancedPanel)}>
             <SectionStack>
       <SettingsCard title="Routing controls" description="Model classification, budget thresholds, and routing signals.">
         <LabeledField layout="stacked"
@@ -598,7 +625,7 @@ export function SettingsAutoRoutingSection(props: {
             />
             <SwitchField
               title="Provider switch"
-              description="Allow a pinned provider that is unavailable to hand over to another one mid-task."
+              description="Let a route move to the other provider by preference mid-task. A provider that cannot run the turn — unavailable, or its account usage spent — hands over either way."
               checked={profile.signals.providerSwitch}
               onCheckedChange={(providerSwitch) =>
                 edit((draft) => ({ ...draft, signals: { ...draft.signals, providerSwitch } }))

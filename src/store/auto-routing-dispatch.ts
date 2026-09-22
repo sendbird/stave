@@ -13,6 +13,7 @@ import {
   computeRouterSignals,
   resolveAutoRoutingDecision,
   resolveBudgetUsedPercentByProvider,
+  resolveRoutingProviderAvailability,
   type AutoRoutingDecision,
 } from "@/store/auto-routing";
 import { buildUtilityInferenceContext } from "@/store/provider-runtime-options";
@@ -161,13 +162,21 @@ export function resolveDelegatedRuntimeOverrides(args: {
   const budgetUsedPercentByProvider = resolveBudgetUsedPercentByProvider(
     state.rateLimitsSnapshot,
   );
+  // An advisor consult runs a real turn, so it has to respect the same
+  // usage-exhaustion failover the primary route uses.
+  const routingAvailability =
+    resolveRoutingProviderAvailability({
+      profile: state.settings.autoRoutingProfile,
+      providerAvailability: state.providerAvailability,
+      rateLimitsSnapshot: state.rateLimitsSnapshot,
+    }) ?? state.providerAvailability;
   const advisorTarget = resolveAdvisorAutoTarget({
     target: overrides?.advisorTarget ?? state.settings.advisorTarget,
     profile: state.settings.autoRoutingProfile,
     primaryProviderId: provider,
     primaryModel: args.activeModel,
     budgetUsedPercent: budgetUsedPercentByProvider[provider],
-    providerAvailability: state.providerAvailability,
+    providerAvailability: routingAvailability,
     signals: computeRouterSignals({
       prompt: args.prompt,
       fileContextCount: args.fileContextCount,
