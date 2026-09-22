@@ -284,6 +284,107 @@ describe("TurnActivity", () => {
     expect(html).not.toContain("Standard");
   });
 
+  test("reads headroom as room left and colors the diff", () => {
+    const executionSummary = buildTaskExecutionSummary({
+      providerId: "codex",
+      messages: [
+        {
+          id: "assistant-stats",
+          role: "assistant",
+          model: "gpt-5.6",
+          providerId: "codex",
+          content: "Updated the panel.",
+          usage: { inputTokens: 80, outputTokens: 20 },
+          parts: [
+            {
+              type: "code_diff",
+              filePath: "src/Fleet.tsx",
+              oldContent: "const a = 1;\n",
+              newContent: "const a = 2;\nconst b = 3;\n",
+              status: "accepted",
+            },
+          ],
+        },
+      ],
+      rateLimits: {
+        claude: {
+          source: "oauth",
+          session: { usedPercent: 18, resetsAt: 10 },
+          weekly: { usedPercent: 72, resetsAt: 20 },
+          fableWeekly: null,
+          error: null,
+        },
+        codex: {
+          source: "rpc",
+          buckets: [
+            {
+              limitId: "standard",
+              limitName: "Standard",
+              planType: "pro",
+              primary: {
+                usedPercent: 42,
+                windowDurationMins: 300,
+                resetsAt: 30,
+              },
+              secondary: {
+                usedPercent: 67,
+                windowDurationMins: 10_080,
+                resetsAt: 40,
+              },
+              individualLimit: null,
+              credits: null,
+            },
+          ],
+          error: null,
+        },
+        cursor: {
+          source: "unavailable",
+          planType: null,
+          monthly: null,
+          buckets: [],
+          error: "not loaded",
+        },
+        kiro: {
+          source: "unavailable",
+          planName: null,
+          monthly: null,
+          buckets: [],
+          overagesEnabled: null,
+          error: "not loaded",
+        },
+      },
+    });
+    const html = renderToStaticMarkup(
+      createElement(TurnActivitySurface, {
+        activeTurnId: "turn-stats",
+        activity: {
+          turnId: "turn-stats",
+          providerId: "codex",
+          startedAt: 1_000,
+          lastEventAt: 2_000,
+          stalledAt: null,
+          pendingInteraction: null,
+          workItemsById: {},
+          orderedWorkItemIds: [],
+        },
+        isPlanPreparing: false,
+        workItems: [],
+        todos: [],
+        executionSummary,
+        variant: "panel",
+        placement: "panel",
+      }),
+    );
+
+    expect(html).toContain("1 file");
+    expect(html).toContain("+2");
+    expect(html).toContain("−1");
+    expect(html).toContain("33% left");
+    expect(html).toContain("67% used");
+    expect(html).toContain('role="meter"');
+    expect(html).not.toContain("% limit");
+  });
+
   test("surfaces Kiro context percent and credits instead of a zero-token turn", () => {
     const executionSummary = buildTaskExecutionSummary({
       providerId: "kiro",
