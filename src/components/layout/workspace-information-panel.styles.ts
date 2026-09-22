@@ -395,6 +395,7 @@ export const workspaceInformationPanelStyles = stylex.create({
     paddingBlock: 0,
     paddingInline: 6,
   },
+  chipAccess: { flexShrink: 0 },
   chipRepo: { maxWidth: "9rem" },
   chipRepoLabel: {
     overflow: "hidden",

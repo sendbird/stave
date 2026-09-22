@@ -1,10 +1,13 @@
 import { useEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 
+import { Badge as AdsBadge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
-import { GitHubPrRow } from "@/components/layout/WorkspaceInformationPanel";
+import { Globe } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { GitHubPrRow, InlineLinkRow, StorybookAccessBadges } from "@/components/layout/WorkspaceInformationPanel";
 import { WorkspacePlansSection } from "@/components/layout/WorkspacePlansSection";
 import { WorkspaceMemorySection } from "@/components/layout/WorkspaceMemorySection";
 import { informationRow } from "@/components/layout/information-row.styles";
@@ -52,7 +55,28 @@ export function InformationRowsPreview() {
         </p>
       </header>
 
-      <div className={sx(styles.rail)}>
+      <div className={sx(styles.rail)} data-review-information-rail="">
+        <section className={sx(styles.section)} data-review-storybook="">
+          <h2 className={sx(styles.label)}>Storybook</h2>
+          {(["requires_github_auth", "public"] as const).map((kind) => (
+            <InlineLinkRow
+              key={kind}
+              icon={<Globe size={16} />}
+              label="Companion Rich UI — long component title"
+              sublabel="preview.example.com · /story/companion-rich-ui"
+              badge={<StorybookAccessBadges access={{ kind, provider: "github-pages", readableVia: "github_cli", sourceHint: "Preview fixture", externalRepo: "example/very-long-component-repository" }} />}
+              url="https://preview.example.com"
+              onRemove={() => {}}
+            />
+          ))}
+        </section>
+        <section className={sx(styles.section)} data-review-badges="">
+          <h2 className={sx(styles.label)}>Badge compatibility</h2>
+          <Badge variant="warning">Long status text that must stay inside its badge even in a narrow sidebar</Badge>
+          <Badge variant="solid" tone="danger" data-review-shim-solid="">Blocked</Badge>
+          <AdsBadge variant="solid" tone="danger" data-review-ads-solid="">Blocked</AdsBadge>
+        </section>
+
         <section className={sx(styles.section)}>
           <h2 className={sx(styles.label)}>Pull requests</h2>
           <div className={sx(informationRow.list)}>
