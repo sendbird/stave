@@ -80,6 +80,55 @@ The editable proposal contains:
 - first task provider model, reasoning effort, Codex Fast mode, title, and prompt
 - optional additional instructions for the first task
 
+## Task details and source coverage
+
+`Review task details` lets you edit decisions, constraints and excluded scope,
+completion criteria, and open questions. Empty sections are optional. These
+fields and additional instructions are included in the first task itself,
+independently of the Information panel context budget. `Preview full first-task
+prompt` shows the same text that is saved or sent.
+
+The proposal distinguishes pasted text, an unverified reference, and a Jira
+read through the connected site. Jira reads include the connector's bounded
+title and description, not comments or linked pages. Links to a different Jira
+site are not resolved against the signed-in site. Other sources retain their
+configured MCP path, but tool-produced claims alone do not verify source coverage.
+
+Interpretation uses at most 12,000 characters of pasted source and 12,000 of
+retrieved Jira text. The complete supplied input and connector-returned text
+remain in the first-task prompt, and shortened interpretation is indicated.
+AI resolution accepts up to 80,000 input characters. Skip AI preserves the
+supplied text without model interpretation. Existing custom prompt templates
+remain supported; the previous default gains the new task-detail fields.
+
+## Bounded resolution and recovery
+
+Resolution allows a maximum of two model attempts, up to 30 seconds each within
+a 60-second overall window including source acquisition. Source acquisition
+has a 10-second UI deadline; an already-issued Jira read can finish in the
+background under the connector's own HTTP timeout. Late results are ignored.
+Cancellation releases the dialog and requests cancellation of provider work.
+
+Without configured source MCP servers, interpretation uses the existing durable
+secondary-run executor with a 32 KiB output limit and 512-event limit. With
+configured MCP servers, the existing provider path is retained with a provider
+timeout and response validation; its IPC response is still collected before
+validation. The shared secondary policy is not relaxed to allow MCP access.
+Skip AI, unavailable interpretation, timeout, and unusable model output have
+separate preview explanations. Source-read, per-attempt, and total durations
+are retained on the proposal for diagnostics; no source body is logged.
+
+The initial prompt, provider, and runtime overrides are saved with the workspace
+before its first send. Startup addresses the created task by its returned ID.
+If a send is blocked, the prompt stays ready. If submission cannot be confirmed,
+open the created task and check its messages before sending again. Kickoff does
+not automatically repeat a send or create another workspace after that failure.
+Workspace initialization warnings remain visible alongside startup warnings.
+
+For local visual checks, `?stavePreview=kickoff` renders the real dialog with
+fixture project state and disables workspace creation. It does not verify live
+provider execution or connector authentication.
+
 ## Related Docs
 
 - [Project Instructions](project-instructions.md)

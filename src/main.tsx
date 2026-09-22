@@ -29,7 +29,11 @@ function resolveDevPreview(): string | null {
 const root = createRoot(document.getElementById("root")!);
 const preview = import.meta.env.DEV ? resolveDevPreview() : null;
 
-if (preview === "resource-manager") {
+if (preview === "kickoff") {
+  void import("@/dev/kickoff-preview").then(({ KickoffPreview }) => {
+    root.render(<StrictMode><StaveDesignProvider><KickoffPreview /></StaveDesignProvider></StrictMode>);
+  });
+} else if (preview === "resource-manager") {
   void import("@/dev/resource-manager-preview").then(({ ResourceManagerPreview }) => {
     root.render(<StrictMode><StaveDesignProvider><ResourceManagerPreview /></StaveDesignProvider></StrictMode>);
   });

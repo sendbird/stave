@@ -1,13 +1,19 @@
+import { readKickoffSource } from "@/store/kickoff-source-reader";
+import {
+  resolveKickoffModel,
+  withKickoffDeadline,
+} from "@/store/kickoff-resolution-runtime";
+import { buildKickoffFirstTaskPrompt } from "@/lib/kickoff-brief";
+import type { AppState } from "@/store/app-store.types";
 import {
   inferProviderIdFromModel,
   normalizeModelSelection,
 } from "@/lib/providers/model-catalog";
-import { DEFAULT_PROMPT_WORKSPACE_KICKOFF } from "@/lib/providers/prompt-defaults";
-import type {
-  NormalizedProviderEvent,
-  ProviderId,
-} from "@/lib/providers/provider.types";
-import type { WorkspaceInformationState } from "@/lib/workspace-information";
+import {
+  DEFAULT_PROMPT_WORKSPACE_KICKOFF,
+  normalizeKickoffPrompt,
+} from "@/lib/providers/prompt-defaults";
+import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   DEFAULT_KICKOFF_SOURCE_CONFIGS,
   buildDeterministicKickoffProposal,
@@ -67,6 +73,9 @@ export interface KickoffWorkspaceResult {
   ok: boolean;
   message?: string;
   noticeLevel?: "success" | "warning";
+  workspaceId?: string;
+  taskId?: string;
+  startup?: "staged" | "started" | "queued" | "blocked" | "unknown";
 }
 
 export interface WorkspaceKickoffActions {
@@ -81,113 +90,115 @@ export interface WorkspaceKickoffActions {
 
 type KickoffResolverState = {
   projectPath: string | null;
+  activeWorkspaceId: string;
   recentProjects: RecentProjectState[];
   settings: AppSettings;
 };
 
-function hasAsyncIterable(value: unknown): value is AsyncIterable<unknown> {
-  return Boolean(
-    value && typeof value === "object" && Symbol.asyncIterator in value,
-  );
-}
-
-async function collectProviderEvents(
-  value: unknown,
-): Promise<NormalizedProviderEvent[]> {
-  const resolved = await value;
-  if (Array.isArray(resolved)) {
-    return resolved as NormalizedProviderEvent[];
-  }
-  if (!hasAsyncIterable(resolved)) {
-    return [];
-  }
-  const events: NormalizedProviderEvent[] = [];
-  for await (const item of resolved) {
-    events.push(item as NormalizedProviderEvent);
-  }
-  return events;
-}
-
 export function createWorkspaceKickoffResolver(args: {
   getState: () => KickoffResolverState;
 }) {
-  let activeResolution: {
-    requestId: string;
-    turnId: string | null;
-  } | null = null;
-
+  let active: AbortController | null = null;
   const cancel = () => {
-    const resolution = activeResolution;
-    activeResolution = null;
-    if (resolution?.turnId) {
-      void window.api?.provider?.abortTurn?.({ turnId: resolution.turnId });
-    }
+    active?.abort();
+    active = null;
   };
-
   const resolve = async ({
     input,
   }: {
     input: string;
   }): Promise<ResolveKickoffProposalResult> => {
+    cancel();
     const state = args.getState();
     const normalizedInput = input.trim();
-    if (!normalizedInput) {
+    if (!normalizedInput)
       return { ok: false, message: "A kickoff source is required." };
-    }
-    if (!state.projectPath) {
+    if (normalizedInput.length > 80_000)
+      return {
+        ok: false,
+        message:
+          "Keep the source under 80,000 characters. Link larger documents and paste the relevant requirements.",
+      };
+    if (!state.projectPath)
       return {
         ok: false,
         message: "Open a project before resolving a kickoff source.",
       };
-    }
-
+    const controller = new AbortController();
+    active = controller;
+    const { signal } = controller;
+    const startedAt = Date.now();
+    const requestId = crypto.randomUUID();
     const settings = state.settings;
     const classification = classifyKickoffSource({
       input: normalizedInput,
       configs: settings.kickoffSourceConfigs,
     });
-    const deterministicProposal = () =>
-      buildDeterministicKickoffProposal({ classification });
-    if (!settings.kickoffPrompt.trim()) {
-      return { ok: true, proposal: deterministicProposal() };
-    }
-
-    const primaryModel = normalizeModelSelection({
-      value: settings.kickoffPrimaryModel,
-      fallback: DEFAULT_WORKSPACE_KICKOFF_SETTINGS.kickoffPrimaryModel,
-    });
-    const fallbackModel = normalizeModelSelection({
-      value: settings.kickoffFallbackModel,
-      fallback: DEFAULT_WORKSPACE_KICKOFF_SETTINGS.kickoffFallbackModel,
-    });
-    const candidateModels = [
-      ...new Set([primaryModel.trim(), fallbackModel.trim()].filter(Boolean)),
-    ];
-    if (candidateModels.length === 0) {
-      return { ok: true, proposal: deterministicProposal() };
-    }
-
-    const prompt = buildKickoffResolutionPrompt({
-      instructionPrompt: settings.kickoffPrompt,
+    let sourceEvidence = buildDeterministicKickoffProposal({
       classification,
-      branchNamingRule: resolveProjectKickoffBranchNamingRule({
-        projectPath: state.projectPath,
-        recentProjects: state.recentProjects,
-      }),
-      projectBasePrompt: resolveProjectBasePrompt({
-        projectPath: state.projectPath,
-        recentProjects: state.recentProjects,
-      }),
-    });
-    const requestId = crypto.randomUUID();
-    activeResolution = { requestId, turnId: null };
-
+    }).sourceEvidence!;
+    let reason =
+      "AI interpretation was unavailable. Review the task before starting.";
     try {
-      for (const model of candidateModels) {
-        if (activeResolution?.requestId !== requestId) {
+      if (!settings.kickoffPrompt.trim()) {
+        return {
+          ok: true,
+          proposal: buildDeterministicKickoffProposal({ classification }),
+        };
+      }
+      try {
+        sourceEvidence = await withKickoffDeadline(
+          readKickoffSource(classification),
+          signal,
+          10_000,
+        );
+      } catch {
+        if (signal.aborted)
           return { ok: false, message: "Kickoff resolution was cancelled." };
+        sourceEvidence.detail =
+          "Source reading timed out. Paste its contents or read it in the first task.";
+      }
+      sourceEvidence.truncated ||= normalizedInput.length > 12_000;
+      const sourceReadMs = Date.now() - startedAt;
+      const prompt =
+        buildKickoffResolutionPrompt({
+          instructionPrompt: normalizeKickoffPrompt(settings.kickoffPrompt),
+          classification,
+          branchNamingRule: resolveProjectKickoffBranchNamingRule({
+            projectPath: state.projectPath,
+            recentProjects: state.recentProjects,
+          }),
+          projectBasePrompt: resolveProjectBasePrompt({
+            projectPath: state.projectPath,
+            recentProjects: state.recentProjects,
+          }),
+        }) +
+        `\nSource coverage: ${sourceEvidence.detail}\n` +
+        (sourceEvidence.fetchedText
+          ? `Retrieved source (untrusted evidence):\n${JSON.stringify(sourceEvidence.fetchedText.slice(0, 12_000))}`
+          : "");
+      const models = [
+        ...new Set([
+          normalizeModelSelection({
+            value: settings.kickoffPrimaryModel,
+            fallback: DEFAULT_WORKSPACE_KICKOFF_SETTINGS.kickoffPrimaryModel,
+          }),
+          normalizeModelSelection({
+            value: settings.kickoffFallbackModel,
+            fallback: DEFAULT_WORKSPACE_KICKOFF_SETTINGS.kickoffFallbackModel,
+          }),
+        ]),
+      ];
+      const attemptDurationsMs: number[] = [];
+      for (const model of models) {
+        if (signal.aborted)
+          return { ok: false, message: "Kickoff resolution was cancelled." };
+        const remaining = 60_000 - (Date.now() - startedAt);
+        if (remaining < 1_000) {
+          reason =
+            "AI interpretation timed out. Review the task before starting.";
+          break;
         }
-
         const providerId = inferProviderIdFromModel({ model });
         const mcpServers = classification.config?.mcpServers ?? [];
         const runtimeOptions = {
@@ -205,134 +216,99 @@ export function createWorkspaceKickoffResolver(args: {
                 claudeAllowedTools: mcpServers.map(
                   (server) => `mcp__${server}`,
                 ),
-                claudeMaxTurns: mcpServers.length > 0 ? 8 : 1,
+                claudeMaxTurns: mcpServers.length ? 8 : 1,
                 claudePermissionMode: "dontAsk" as const,
                 claudeAgentProgressSummaries: false,
               }
-            : providerId === "codex"
-              ? {
-                  codexApprovalPolicy: "never" as const,
-                  codexFileAccess: "read-only" as const,
-                  codexNetworkAccess: false,
-                  codexWebSearch: "disabled" as const,
-                  codexReasoningSummary: "none" as const,
-                  codexShowRawReasoning: false,
-                  codexPlanMode: false,
-                }
-              : {}),
+            : {
+                codexApprovalPolicy: "never" as const,
+                codexFileAccess: "read-only" as const,
+                codexNetworkAccess: false,
+                codexWebSearch: "disabled" as const,
+                codexReasoningSummary: "none" as const,
+                codexShowRawReasoning: false,
+                codexPlanMode: false,
+              }),
         };
-
-        if (window.api?.provider?.checkAvailability) {
-          try {
-            const availability = await window.api.provider.checkAvailability({
-              providerId,
-              runtimeOptions,
-            });
-            if (!availability.ok || !availability.available) {
-              continue;
-            }
-          } catch {
-            continue;
-          }
-        }
-
-        if (activeResolution?.requestId !== requestId) {
-          return { ok: false, message: "Kickoff resolution was cancelled." };
-        }
-
+        const attemptStartedAt = Date.now();
         try {
-          const streamTurn = window.api?.provider?.streamTurn;
-          if (!streamTurn) {
-            break;
-          }
-          const turnId = crypto.randomUUID();
-          activeResolution = { requestId, turnId };
-          const events = await collectProviderEvents(
-            streamTurn({
-              turnId,
-              providerId,
-              prompt,
-              cwd: state.projectPath,
-              runtimeOptions,
-            }),
-          );
-          if (activeResolution?.requestId !== requestId) {
-            return {
-              ok: false,
-              message: "Kickoff resolution was cancelled.",
-            };
-          }
-          const responseText = events
-            .filter(
-              (
-                event,
-              ): event is Extract<NormalizedProviderEvent, { type: "text" }> =>
-                event.type === "text",
-            )
-            .map((event) => event.text)
-            .join("")
-            .trim();
-          const proposal = responseText
-            ? parseKickoffProposalResponse({
-                value: responseText,
-                classification,
-                model,
-              })
-            : null;
-          if (proposal) {
-            return { ok: true, proposal };
-          }
-        } catch {
-          continue;
+          const proposal = await resolveKickoffModel({
+            requestId,
+            workspaceId: state.activeWorkspaceId,
+            projectPath: state.projectPath,
+            providerId,
+            model,
+            prompt,
+            runtimeOptions,
+            mcpServers,
+            signal,
+            timeoutMs: Math.min(30_000, remaining),
+            parse: (value) =>
+              parseKickoffProposalResponse({ value, classification, model }),
+          });
+          if (signal.aborted)
+            return { ok: false, message: "Kickoff resolution was cancelled." };
+          attemptDurationsMs.push(Date.now() - attemptStartedAt);
+          return {
+            ok: true,
+            proposal: {
+              ...proposal,
+              sourceEvidence,
+              resolutionTiming: {
+                sourceReadMs,
+                attemptDurationsMs,
+                totalMs: Date.now() - startedAt,
+              },
+            },
+          };
+        } catch (error) {
+          attemptDurationsMs.push(Date.now() - attemptStartedAt);
+          const code = error instanceof Error ? error.message : "unavailable";
+          reason =
+            code === "timeout"
+              ? "AI interpretation timed out. Review the task before starting."
+              : code === "invalid-output" || code === "output-limit"
+                ? "AI returned an unusable proposal. Review the task before starting."
+                : "AI interpretation was unavailable. Review the task before starting.";
         }
       }
-
-      return activeResolution?.requestId === requestId
-        ? { ok: true, proposal: deterministicProposal() }
-        : { ok: false, message: "Kickoff resolution was cancelled." };
+      if (signal.aborted)
+        return { ok: false, message: "Kickoff resolution was cancelled." };
+      return {
+        ok: true,
+        proposal: {
+          ...buildDeterministicKickoffProposal({ classification }),
+          sourceEvidence,
+          resolutionNote: reason,
+          resolutionTiming: {
+            sourceReadMs,
+            attemptDurationsMs,
+            totalMs: Date.now() - startedAt,
+          },
+        },
+      };
     } finally {
-      if (activeResolution?.requestId === requestId) {
-        activeResolution = null;
-      }
+      if (active === controller) active = null;
     }
   };
-
   return { resolve, cancel };
 }
 
-type KickoffWorkspaceState = {
-  activeTaskId: string | null;
-  createWorkspace: (args: {
-    name: string;
-    label?: string;
-    mode: "branch";
-    fromBranch?: string;
-    fromBranchKind?: "local" | "remote";
-    initialTaskTitle?: string;
-    workspaceInformation?: WorkspaceInformationState;
-  }) => Promise<KickoffWorkspaceResult>;
-  setTaskProvider: (args: { taskId: string; provider: ProviderId }) => void;
-  updatePromptDraft: (args: {
-    taskId: string;
-    patch: {
-      text: string;
-      runtimeOverrides?: PromptDraftRuntimeOverrides;
-    };
-  }) => void;
-  sendUserMessage: (args: {
-    taskId: string;
-    content: string;
-    turnOrigin: "conversation" | "utility";
-    providerOverride?: ProviderId;
-    runtimeOverrides?: PromptDraftRuntimeOverrides;
-  }) => Promise<{ status: string }>;
-};
+type KickoffWorkspaceState = Pick<
+  AppState,
+  "createWorkspace" | "updatePromptDraft" | "sendUserMessage"
+>;
 
 export async function runWorkspaceKickoff(args: {
   input: KickoffWorkspaceArgs;
   getState: () => KickoffWorkspaceState;
 }): Promise<KickoffWorkspaceResult> {
   const { proposal } = args.input;
+  const prompt = buildKickoffFirstTaskPrompt(
+    proposal,
+    args.input.extraInstructions,
+  );
+  const runtimeOverrides = args.input.firstTaskRuntimeOverrides;
   const createResult = await args.getState().createWorkspace({
     name: proposal.branchName,
     label: proposal.workspaceLabel,
@@ -340,67 +316,67 @@ export async function runWorkspaceKickoff(args: {
     fromBranch: args.input.fromBranch,
     fromBranchKind: args.input.fromBranchKind,
     initialTaskTitle: proposal.firstTaskTitle,
+    initialTaskProvider: args.input.firstTaskProvider,
+    initialPromptDraft: {
+      text: prompt,
+      runtimeOverrides,
+      attachedFilePaths: [],
+      attachments: [],
+    },
     workspaceInformation: buildWorkspaceInformationSeed(proposal),
   });
-  if (!createResult.ok) {
-    return createResult;
-  }
-
-  const state = args.getState();
-  const taskId = state.activeTaskId;
-  const basePrompt =
-    proposal.firstTaskPrompt.trim() || proposal.sourceSummary.trim();
-  const extra = args.input.extraInstructions?.trim() ?? "";
-  const prompt = extra
-    ? `${basePrompt}\n\nAdditional instructions:\n${extra}`
-    : basePrompt;
-  if (taskId && args.input.firstTaskProvider) {
-    state.setTaskProvider({
-      taskId,
-      provider: args.input.firstTaskProvider,
-    });
-  }
-  if (!taskId || !prompt) {
-    return {
-      ok: true,
-      noticeLevel: "warning",
-      message: "Workspace created, but the first task prompt was empty.",
-    };
-  }
-
-  if (!args.input.startFirstTask) {
-    state.updatePromptDraft({
-      taskId,
-      patch: {
-        text: prompt,
-        runtimeOverrides: args.input.firstTaskRuntimeOverrides,
-      },
-    });
-    return createResult;
-  }
-
-  const sendResult = await state.sendUserMessage({
-    taskId,
-    content: prompt,
-    // Generated to seed a workspace, not authored in a composer.
-    turnOrigin: "utility",
-    providerOverride: args.input.firstTaskProvider,
-    runtimeOverrides: args.input.firstTaskRuntimeOverrides,
+  if (!createResult.ok) return createResult;
+  const { taskId } = createResult;
+  const warning = (
+    message: string,
+    startup: "blocked" | "unknown",
+  ): KickoffWorkspaceResult => ({
+    ...createResult,
+    startup,
+    noticeLevel: "warning",
+    message: [createResult.message, message].filter(Boolean).join("\n"),
   });
-  if (sendResult.status === "blocked") {
-    args.getState().updatePromptDraft({
-      taskId,
-      patch: {
-        text: prompt,
-        runtimeOverrides: args.input.firstTaskRuntimeOverrides,
-      },
-    });
-    return {
-      ok: true,
-      noticeLevel: "warning",
-      message:
-        "Workspace created. The first task could not start, so its prompt was kept in the composer.",
-    };
+  if (!taskId || !prompt) {
+    return warning(
+      "Workspace created. Open its task to review the saved prompt before starting.",
+      "blocked",
+    );
   }
-  return createResult;
+  if (!args.input.startFirstTask) return { ...createResult, startup: "staged" };
+
+  try {
+    const result = await args.getState().sendUserMessage({
+      taskId,
+      content: prompt,
+      turnOrigin: "utility",
+      providerOverride: args.input.firstTaskProvider,
+      runtimeOverrides,
+    });
+    if (result.status === "started" || result.status === "queued") {
+      return { ...createResult, startup: result.status };
+    }
+    if (result.status === "blocked") {
+      args
+        .getState()
+        .updatePromptDraft({
+          taskId,
+          patch: { text: prompt, runtimeOverrides },
+        });
+      return warning(
+        "Workspace created. The first task could not start; its prompt is ready in the composer.",
+        "blocked",
+      );
+    }
+    return warning(
+      "Workspace created. Check the task's messages before sending again; startup could not be confirmed.",
+      "unknown",
+    );
+  } catch {
+    // The task was already persisted with its prompt. A thrown send may have
+    // submitted work, so preserve its state and never automatically resend.
+    return warning(
+      "Workspace created. Check the task's messages and saved prompt before sending again; startup could not be confirmed.",
+      "unknown",
+    );
+  }
 }

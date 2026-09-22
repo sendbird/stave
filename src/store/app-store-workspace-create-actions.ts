@@ -81,6 +81,8 @@ export function createWorkspaceCreateActions(args: {
       initCommand,
       useRootNodeModulesSymlink: requestedRootNodeModulesSymlink,
       initialTaskTitle,
+      initialTaskProvider,
+      initialPromptDraft,
       workspaceInformation,
     }) => {
       const trimmed = name.trim();
@@ -216,7 +218,7 @@ export function createWorkspaceCreateActions(args: {
       const seededTask: Task = {
         id: crypto.randomUUID(),
         title: (initialTaskTitle ?? "").trim() || "New Task",
-        provider: current.draftProvider,
+        provider: initialTaskProvider ?? current.draftProvider,
         updatedAt: buildRecentTimestamp(),
         unread: false,
         archivedAt: null,
@@ -229,7 +231,9 @@ export function createWorkspaceCreateActions(args: {
         messagesByTask: {
           [seededTask.id]: [],
         },
-        promptDraftByTask: empty.promptDraftByTask,
+        promptDraftByTask: initialPromptDraft
+          ? { ...empty.promptDraftByTask, [seededTask.id]: initialPromptDraft }
+          : empty.promptDraftByTask,
         workspaceInformation,
         editorTabs: empty.editorTabs,
         activeEditorTabId: empty.activeEditorTabId,
@@ -429,7 +433,7 @@ export function createWorkspaceCreateActions(args: {
       const creationNotice = buildWorkspaceCreationNotice({
         notices: creationNotices,
       });
-      return creationNotice ? { ok: true, ...creationNotice } : { ok: true };
+      return { ok: true, workspaceId, taskId: seededTask.id, ...creationNotice };
     },
     kickoffWorkspace: (input) => runWorkspaceKickoff({ input, getState: get }),
     importWorkspaceFromWorktree: async ({ worktreePath, label }) => {
