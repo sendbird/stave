@@ -206,10 +206,11 @@ export function WorkspaceResumeBrief(props: {
       <Accordion
         value={openSections}
         onValueChange={(value) => setOpenSections(value as string[])}
+        xstyle={panelStyles.sectionList}
       >
         <AccordionItem
           value="instructions"
-          className={sx(panelStyles.sectionItem, panelStyles.sectionItemFirst)}
+          xstyle={[panelStyles.sectionItem, panelStyles.sectionItemFirst]}
         >
           <div className={sx(panelStyles.sectionRow)}>
             <AccordionTrigger

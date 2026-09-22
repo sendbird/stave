@@ -529,11 +529,11 @@ function SectionHeader(props: {
       ref={setRowElement}
       style={style}
       value={props.value}
-      className={sx(
+      xstyle={[
         styles.sectionItem,
         props.first && styles.sectionItemFirst,
         isDragging && styles.sectionItemDragging,
-      )}
+      ]}
     >
       <div className={sx(styles.sectionRow)}>
         <AccordionTrigger
@@ -1715,6 +1715,7 @@ export function WorkspaceInformationPanel() {
               <SectionOpenContext.Provider value={openSectionSet}>
               <Accordion
                 multiple
+                xstyle={styles.sectionList}
                 value={openSections}
                 onValueChange={(value) =>
                   setOpenSections(value as WorkspaceInformationSectionId[])

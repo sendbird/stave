@@ -35,10 +35,18 @@ export const workspaceInformationPanelStyles = stylex.create({
   },
 
   // ---- section header ----------------------------------------------------
+  // The shared accordion root separates rows with a gap and rounds each item.
+  // A bottom rule on that rounded box bends at the corners, and the gap
+  // detaches it from the next row, so themes where the subtle border is a
+  // soft translucent ink draw a drop shadow under every section.
+  sectionList: {
+    gap: 0,
+  },
   sectionItem: {
     borderBottomColor: vars["--ads-color-border-subtle"],
     borderBottomStyle: "solid",
     borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderRadius: 0,
     position: "relative",
   },
   sectionItemFirst: { borderTopWidth: 0 },
