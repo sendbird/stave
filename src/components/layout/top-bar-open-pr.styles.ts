@@ -15,8 +15,9 @@ export const openPrStyles = stylex.create({
   // --- Top-bar triggers ---------------------------------------------------
   // Composed after `topBarControlStyles.control`, which owns the 32px height,
   // `space8` gutter/gap, and the caption/medium label shared by the whole top
-  // bar row. Only the border and the disabled fade are local here, because the
-  // tone styles below repaint the fill per PR state.
+  // bar row. Only the border and the disabled fade are local here, because a
+  // colored PR tone repaints the fill. The neutral Draft trigger does not: it
+  // composes `topBarControlStyles.surface` so it matches the row.
   trigger: {
     borderStyle: "solid",
     borderWidth: vars["--ads-border-width-hairline"],

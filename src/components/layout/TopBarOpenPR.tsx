@@ -2114,7 +2114,13 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
                       xstyle={[
                         topBarControlStyles.control,
                         openPrStyles.trigger,
-                        badgeToneStyle,
+                        // Draft is the neutral tone. A badge fill here is a
+                        // different chip from the branch switcher and Commit
+                        // graph beside it; those share `surface`. Colored
+                        // tones keep the status fill.
+                        visual.tone === "neutral"
+                          ? topBarControlStyles.surface
+                          : badgeToneStyle,
                       ]}
                       style={props.noDragStyle}
                       disabled={isBusy || continuingWorkspace}
