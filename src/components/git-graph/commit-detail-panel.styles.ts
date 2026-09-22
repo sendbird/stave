@@ -122,9 +122,6 @@ export const commitDetailPanelStyles = stylex.create({
   toneWarning: {
     color: vars["--ads-color-warning-text"],
   },
-  toneInfo: {
-    color: vars["--ads-color-info-text"],
-  },
   toneDanger: {
     color: vars["--ads-color-danger-text"],
   },
@@ -143,28 +140,28 @@ export const commitDetailPanelStyles = stylex.create({
     lineHeight: "20px",
     color: `color-mix(in oklch, ${vars["--ads-color-text"]} 80%, transparent)`,
   },
-  summaryGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
-    gap: 6,
+  // Four counts in one line, not four tiles: staged/changed/untracked are
+  // bookkeeping and stay muted; only a conflict is a state that gets color.
+  summaryRow: {
+    columnGap: vars["--ads-space-12"],
+    display: "flex",
+    flexWrap: "wrap",
+    fontSize: vars["--ads-font-size-caption"],
+    rowGap: vars["--ads-space-4"],
   },
-  summaryCell: {
-    borderRadius: vars["--ads-radius-control"],
-    borderWidth: vars["--ads-border-width-hairline"],
-    borderStyle: "solid",
-    borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 55%, transparent)`,
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-canvas-subtle"]} 20%, transparent)`,
-    paddingInline: vars["--ads-space-8"],
-    paddingBlock: 6,
+  summaryItem: {
+    alignItems: "baseline",
+    color: vars["--ads-color-text-muted"],
+    display: "inline-flex",
+    gap: vars["--ads-space-4"],
   },
   summaryCount: {
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-semibold"],
+    color: vars["--ads-color-text"],
     fontVariantNumeric: "tabular-nums",
+    fontWeight: vars["--ads-font-weight-semibold"],
   },
-  summaryLabel: {
-    fontSize: vars["--ads-font-size-micro"],
-    color: vars["--ads-color-text-muted"],
+  summaryCountConflicts: {
+    color: vars["--ads-color-danger-text"],
   },
   filesHeader: {
     display: "flex",

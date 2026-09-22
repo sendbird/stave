@@ -23,29 +23,10 @@ export const cardStyles = stylex.create({
     minWidth: 0,
     overflow: "hidden",
     position: "relative",
-    // The activity rail: a 2px cap along the card's top edge, tinted by the
-    // `accent*` styles below.
-    "::before": {
-      content: '""',
-      height: 2,
-      insetInlineEnd: 0,
-      insetInlineStart: 0,
-      position: "absolute",
-      top: 0,
-    },
   },
-  accentLive: {
-    "::before": { backgroundColor: vars["--ads-color-accent"] },
-  },
-  accentBlocking: {
-    "::before": { backgroundColor: vars["--ads-color-warning"] },
-  },
-  accentDormant: {
-    "::before": { backgroundColor: vars["--ads-color-border"] },
-  },
-  accentQuiet: {
-    "::before": { backgroundColor: vars["--ads-color-border-subtle"] },
-  },
+  // Activity is already stated three times inside the card (the per-task
+  // status glyph and word, the footer timestamp, and this dim); a colored
+  // cap on the card edge would be a fourth.
   cardDormant: {
     opacity: {
       default: 0.7,
@@ -157,34 +138,9 @@ export const cardStyles = stylex.create({
       default: null,
       ":focus-visible": vars["--ads-z-index-panel"],
     },
-    // Per-task status rail, tinted by the `rail*` styles below.
-    "::before": {
-      borderRadius: vars["--ads-radius-full"],
-      bottom: 6,
-      content: '""',
-      insetInlineStart: 6,
-      position: "absolute",
-      top: 6,
-      width: 2,
-    },
   },
   taskRowExpanded: {
     backgroundColor: vars["--ads-color-selection-fill"],
-  },
-  railWarning: {
-    "::before": { backgroundColor: vars["--ads-color-warning"] },
-  },
-  railDanger: {
-    "::before": { backgroundColor: vars["--ads-color-danger"] },
-  },
-  railAccent: {
-    "::before": { backgroundColor: vars["--ads-color-accent"] },
-  },
-  railNeutral: {
-    "::before": { backgroundColor: vars["--ads-color-border"] },
-  },
-  railUnknown: {
-    "::before": { backgroundColor: vars["--ads-color-border-subtle"] },
   },
   providerMark: {
     alignItems: "center",

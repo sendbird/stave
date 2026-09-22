@@ -27,10 +27,12 @@ export const goalStatusStyles = stylex.create({
     backgroundColor: `color-mix(in oklch, ${vars["--ads-color-warning"]} 12%, transparent)`,
     color: vars["--ads-color-warning-text"],
   },
+  // "No verdict yet" is not a state worth a color: the strip stays on the
+  // neutral surface until success or warning has something to say.
   toneDefault: {
-    borderColor: `color-mix(in oklch, ${vars["--ads-color-accent"]} 20%, transparent)`,
-    backgroundColor: `color-mix(in oklch, ${vars["--ads-color-accent"]} 6%, transparent)`,
-    color: vars["--ads-color-accent"],
+    borderColor: vars["--ads-color-border"],
+    backgroundColor: vars["--ads-color-surface"],
+    color: vars["--ads-color-text-muted"],
   },
   header: {
     display: "flex",
@@ -62,6 +64,7 @@ export const goalStatusStyles = stylex.create({
   meta: {
     flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
     color: vars["--ads-color-text-muted"],
   },
   progressTrack: {
@@ -79,5 +82,5 @@ export const goalStatusStyles = stylex.create({
   },
   progressFillSuccess: { backgroundColor: vars["--ads-color-success-border"] },
   progressFillWarning: { backgroundColor: vars["--ads-color-warning"] },
-  progressFillDefault: { backgroundColor: vars["--ads-color-accent"] },
+  progressFillDefault: { backgroundColor: vars["--ads-color-text-muted"] },
 });

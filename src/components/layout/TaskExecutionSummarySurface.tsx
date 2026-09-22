@@ -13,14 +13,14 @@ import type {
   TaskExecutionMetricProvenance,
   TaskExecutionSummary,
 } from "@/lib/fleet/task-execution-summary";
-import { Badge } from "@/components/ads/components/Badge";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { cx, sx, type StyleXValue } from "@/components/ads/utils/stylex";
 import { summaryStyles as styles } from "./task-execution-summary.styles";
 
-type MetricTone = "default" | "info" | "success" | "warning" | "danger";
-type StatAccent = "info" | "success" | "warning" | "danger" | "muted";
+type MetricTone = "default" | "success" | "warning" | "danger";
 type PartTone = MetricTone | "added" | "removed";
+/** The meter stays neutral until the reading itself is a concern. */
+type MeterTone = "neutral" | "warning" | "danger";
 
 /**
  * One tile of the summary grid.
@@ -37,16 +37,19 @@ interface StatPart {
 interface StatMeter {
   usedPercent: number;
   label: string;
-  tone: Exclude<MetricTone, "default">;
+  tone: MeterTone;
 }
 
 /**
  * One tile of the summary grid.
  *
- * `figure` is the hero readout ("4 files", "41% left"). `parts` are the
- * colored facts under it (a diff, a cache rate, how much of the limit is
- * used). An empty tile has neither: it keeps the honest fallback sentence
- * at caption size so it does not pretend to be a measurement.
+ * `figure` is the readout ("4 files", "41% left"). `parts` are the small
+ * facts under it (a diff, a cache rate, how much of the limit is used).
+ * Color is reserved for state: the figure only leaves the text color when
+ * the reading is a pass, a warning, or a failure, so a grid of healthy
+ * numbers stays monochrome. An empty tile has neither: it keeps the honest
+ * fallback sentence at caption size so it does not pretend to be a
+ * measurement.
  */
 interface SummaryMetricDescriptor {
   key: string;
@@ -54,13 +57,11 @@ interface SummaryMetricDescriptor {
   label: string;
   /** Full phrase for the tooltip. The visible readout is figure plus parts. */
   value: string;
-  accent: StatAccent;
   figureTone: MetricTone;
   provenance: TaskExecutionMetricProvenance;
   detail?: string;
   figure?: string;
   parts: StatPart[];
-  badge?: { label: string; tone: "success" | "warning" | "danger" };
   meter?: StatMeter;
 }
 
@@ -94,7 +95,6 @@ function provenanceLabel(provenance: TaskExecutionMetricProvenance) {
 
 const FIGURE_TONE: Record<MetricTone, StyleXValue> = {
   default: styles.figureDefault,
-  info: styles.toneInfo,
   success: styles.toneSuccess,
   warning: styles.toneWarning,
   danger: styles.toneDanger,
@@ -102,7 +102,6 @@ const FIGURE_TONE: Record<MetricTone, StyleXValue> = {
 
 const PART_TONE: Record<PartTone, StyleXValue> = {
   default: styles.toneDefault,
-  info: styles.toneInfo,
   success: styles.toneSuccess,
   warning: styles.toneWarning,
   danger: styles.toneDanger,
@@ -110,32 +109,8 @@ const PART_TONE: Record<PartTone, StyleXValue> = {
   removed: styles.toneRemoved,
 };
 
-const ACCENT_BAR: Record<Exclude<StatAccent, "muted">, StyleXValue> = {
-  info: styles.accentInfo,
-  success: styles.accentSuccess,
-  warning: styles.accentWarning,
-  danger: styles.accentDanger,
-};
-
-const ICON_WELL: Record<StatAccent, StyleXValue> = {
-  muted: styles.wellMuted,
-  info: styles.wellInfo,
-  success: styles.wellSuccess,
-  warning: styles.wellWarning,
-  danger: styles.wellDanger,
-};
-
-const ICON_TONE: Record<StatAccent, StyleXValue> = {
-  muted: styles.iconMuted,
-  info: styles.iconInfo,
-  success: styles.iconSuccess,
-  warning: styles.iconWarning,
-  danger: styles.iconDanger,
-};
-
-const METER_FILL: Record<StatMeter["tone"], StyleXValue> = {
-  info: styles.meterInfo,
-  success: styles.meterSuccess,
+const METER_FILL: Record<MeterTone, StyleXValue> = {
+  neutral: styles.meterNeutral,
   warning: styles.meterWarning,
   danger: styles.meterDanger,
 };
@@ -203,31 +178,10 @@ function SummaryMetricTile(args: {
         descriptor.detail,
       ])}
     >
-      {descriptor.accent !== "muted" ? (
-        <span
-          className={sx(styles.accentBar, ACCENT_BAR[descriptor.accent])}
-          aria-hidden="true"
-        />
-      ) : null}
       <div className={sx(styles.tileHead)}>
-        <span className={sx(styles.iconWell, ICON_WELL[descriptor.accent])}>
-          <Icon
-            className={sx(styles.tileIcon, ICON_TONE[descriptor.accent])}
-            aria-hidden="true"
-          />
-        </span>
+        <Icon className={sx(styles.tileIcon)} aria-hidden="true" />
         <dt className={sx(styles.tileLabel)}>{descriptor.label}</dt>
-        {descriptor.badge ? (
-          <span className={sx(styles.headAside)}>
-            <Badge size="sm" tone={descriptor.badge.tone} variant="soft">
-              {descriptor.badge.label}
-            </Badge>
-          </span>
-        ) : descriptor.provenance === "derived" ? (
-          <span className={sx(styles.headAside)}>
-            <ProvenanceDot provenance={descriptor.provenance} />
-          </span>
-        ) : null}
+        <ProvenanceDot provenance={descriptor.provenance} />
       </div>
       {descriptor.figure ? (
         <dd className={sx(styles.readout)}>
@@ -298,10 +252,10 @@ interface HeadroomFact {
  * One scale for both constraints: the bar and the number change together.
  * 75% used is the warning, 90% is the point where the run is about to stop.
  */
-function pressureTone(usedPercent: number): StatMeter["tone"] {
+function pressureTone(usedPercent: number): MeterTone {
   if (usedPercent >= 90) return "danger";
   if (usedPercent >= 75) return "warning";
-  return "info";
+  return "neutral";
 }
 
 function contextHeadroomFact(
@@ -368,10 +322,13 @@ function buildHeadroomDescriptor(
   });
   const primary = facts[0];
   const secondary = facts[1];
-  const provenance: TaskExecutionMetricProvenance =
-    primary ? "reported" : "unavailable";
-  const tone: StatMeter["tone"] | "info" =
-    primary?.usedPercent != null ? pressureTone(primary.usedPercent) : "info";
+  const provenance: TaskExecutionMetricProvenance = primary
+    ? "reported"
+    : "unavailable";
+  const tone: MeterTone =
+    primary?.usedPercent != null
+      ? pressureTone(primary.usedPercent)
+      : "neutral";
   const parts: StatPart[] = [];
   if (primary?.usedLabel) {
     parts.push({ text: primary.usedLabel, tone: "default" });
@@ -396,8 +353,7 @@ function buildHeadroomDescriptor(
     key: "headroom",
     icon: Gauge,
     label: "Headroom",
-    accent: primary ? tone : "muted",
-    figureTone: primary ? tone : "default",
+    figureTone: tone === "neutral" ? "default" : tone,
     provenance,
     value,
     figure: primary?.figure,
@@ -406,7 +362,7 @@ function buildHeadroomDescriptor(
       primary?.usedPercent != null
         ? {
             usedPercent: primary.usedPercent,
-            tone: pressureTone(primary.usedPercent),
+            tone,
             label:
               joinDetails([primary.usedLabel ?? undefined, primary.figure]) ??
               primary.figure,
@@ -424,9 +380,10 @@ function buildHeadroomDescriptor(
   };
 }
 
-function verificationBadge(
-  status: "pass" | "warn" | "fail",
-): NonNullable<SummaryMetricDescriptor["badge"]> {
+function verificationOutcome(status: "pass" | "warn" | "fail"): {
+  label: string;
+  tone: Exclude<MetricTone, "default">;
+} {
   switch (status) {
     case "pass":
       return { label: "Passed", tone: "success" };
@@ -466,7 +423,7 @@ function buildUsageReadout(
         : null;
   const parts: StatPart[] = [];
   if (cacheLabel) {
-    parts.push({ text: cacheLabel, tone: "info" });
+    parts.push({ text: cacheLabel, tone: "default" });
   }
   if (tokenLabel && costLabel) {
     parts.push({ text: costLabel, tone: "default" });
@@ -502,8 +459,8 @@ function buildMetricDescriptors(
   } else if (changes?.partial) {
     diffParts.push({ text: "Partial", tone: "warning" });
   }
-  const verificationStatus = verification
-    ? verificationBadge(verification.status)
+  const verificationOutcomeLabel = verification
+    ? verificationOutcome(verification.status)
     : null;
   const agentParts: StatPart[] = [];
   if (agents && agents.blockedCount > 0) {
@@ -520,26 +477,21 @@ function buildMetricDescriptors(
     agents.runningCount > 0 &&
     agents.runningCount < agents.totalCount
   ) {
-    agentParts.push({ text: `${agents.runningCount} running`, tone: "info" });
+    agentParts.push({
+      text: `${agents.runningCount} running`,
+      tone: "default",
+    });
   }
-  const agentAccent: StatAccent = !agents
-    ? "muted"
-    : agents.blockedCount > 0
-      ? "warning"
-      : agents.failedCount > 0
-        ? "danger"
-        : "info";
   return [
     {
       key: "elapsed",
       icon: Clock3,
       label: "Elapsed",
-      accent: elapsed ? "info" : "muted",
       figureTone: "default",
       provenance: summary.elapsed.provenance,
       detail: summary.elapsed.detail,
       figure: elapsed ? formatDuration(elapsed.milliseconds) : undefined,
-      parts: elapsed?.running ? [{ text: "Running", tone: "info" }] : [],
+      parts: elapsed?.running ? [{ text: "Running", tone: "default" }] : [],
       value: elapsed
         ? `${formatDuration(elapsed.milliseconds)}${elapsed.running ? " · running" : ""}`
         : "Not reported",
@@ -548,7 +500,6 @@ function buildMetricDescriptors(
       key: "changes",
       icon: FileDiff,
       label: "Changes",
-      accent: changes ? "info" : "muted",
       figureTone: "default",
       provenance: summary.changes.provenance,
       detail: summary.changes.detail,
@@ -566,15 +517,20 @@ function buildMetricDescriptors(
       key: "verification",
       icon: BadgeCheck,
       label: "Verification",
-      accent: verificationStatus?.tone ?? "muted",
-      figureTone: verificationStatus?.tone ?? "default",
+      // The outcome is the figure: it is the one word this reader came for.
+      // The count is context under it.
+      figureTone: verificationOutcomeLabel?.tone ?? "default",
       provenance: summary.verification.provenance,
       detail: summary.verification.detail,
-      figure: verification
-        ? `${verification.executedEntries}/${verification.totalEntries}`
-        : undefined,
-      parts: [],
-      badge: verificationStatus ?? undefined,
+      figure: verificationOutcomeLabel?.label,
+      parts: verification
+        ? [
+            {
+              text: `${verification.executedEntries}/${verification.totalEntries} ran`,
+              tone: "default",
+            },
+          ]
+        : [],
       value: verification
         ? `${verification.status} · ${verification.executedEntries}/${verification.totalEntries}`
         : "Not reported",
@@ -583,7 +539,6 @@ function buildMetricDescriptors(
       key: "usage",
       icon: Coins,
       label: "Usage",
-      accent: usageReadout?.figure ? "info" : "muted",
       figureTone: "default",
       provenance: summary.usage.provenance,
       detail: summary.usage.detail,
@@ -595,9 +550,6 @@ function buildMetricDescriptors(
       key: "agents",
       icon: Network,
       label: "Agents",
-      // A blocked agent outranks a failed one here: the failure is already
-      // history, while the block is the thing this reader can still clear.
-      accent: agentAccent,
       figureTone: "default",
       provenance: summary.agents.provenance,
       detail: summary.agents.detail,
@@ -631,7 +583,10 @@ function LatestActivityRow(args: {
         >
           {latest?.label ?? "No activity reported"}
           {latest?.detail ? (
-            <span className={sx(styles.activityDetail)}> · {latest.detail}</span>
+            <span className={sx(styles.activityDetail)}>
+              {" "}
+              · {latest.detail}
+            </span>
           ) : null}
         </p>
       </div>

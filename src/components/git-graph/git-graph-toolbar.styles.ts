@@ -122,18 +122,12 @@ export const gitGraphToolbarStyles = stylex.create({
     alignItems: "center",
     gap: 6,
   },
+  // One ink for bookkeeping counts; the danger tone is reserved for the
+  // entry that needs a hand (conflicts).
   statusEntry: {
+    color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-micro"],
     fontVariantNumeric: "tabular-nums",
-  },
-  statusEntryStaged: {
-    color: vars["--ads-color-success-text"],
-  },
-  statusEntryChanged: {
-    color: vars["--ads-color-warning-text"],
-  },
-  statusEntryUntracked: {
-    color: vars["--ads-color-info-text"],
   },
   statusEntryConflicts: {
     color: vars["--ads-color-danger-text"],

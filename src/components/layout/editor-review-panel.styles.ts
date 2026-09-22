@@ -11,8 +11,6 @@ export const editorReviewPanelStyles = stylex.create({
   thread: {
     backgroundColor: "var(--editor)",
     borderColor: vars["--ads-color-border"],
-    borderLeftColor: vars["--ads-color-accent"],
-    borderLeftWidth: 2,
     borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
     borderWidth: vars["--ads-border-width-hairline"],

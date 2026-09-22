@@ -23,7 +23,12 @@ export type EmptyStateProps = Omit<React.ComponentProps<"section">, "title"> & {
   /** Decorative icon rendered in a tone-aware medallion (hidden from assistive tech). */
   icon?: React.ReactNode;
   title: React.ReactNode;
-  /** Semantic color family for the icon medallion. @default "accent" */
+  /**
+   * Semantic color family for the icon medallion. Neutral by default: an
+   * empty state is the absence of data, not a brand moment, so the tint only
+   * appears when a caller names the state (or the invitation) that earns it.
+   * @default "neutral"
+   */
   tone?: EmptyStateTone;
   /** Container treatment. Use plain when a parent already owns the surface. @default "card" */
   variant?: "card" | "plain";
@@ -80,7 +85,7 @@ export function EmptyStateHeader({
 }
 
 export type EmptyStateMediaProps = Omit<IconTileProps, "shape" | "size"> & {
-  /** Semantic color family for an icon medallion. @default "accent" */
+  /** Semantic color family for an icon medallion. @default "neutral" */
   tone?: EmptyStateTone;
 };
 
@@ -91,7 +96,7 @@ export type EmptyStateMediaProps = Omit<IconTileProps, "shape" | "size"> & {
  */
 export function EmptyStateMedia({
   className,
-  tone = "accent",
+  tone = "neutral",
   xstyle,
   ...props
 }: EmptyStateMediaProps) {
@@ -177,7 +182,7 @@ function EmptyStateConvenience({
   headingLevel = 3,
   icon,
   title,
-  tone = "accent",
+  tone = "neutral",
   variant = "card",
   xstyle,
   ...props

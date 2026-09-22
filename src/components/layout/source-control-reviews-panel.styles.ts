@@ -216,6 +216,7 @@ export const reviewsStyles = stylex.create({
     flexShrink: 0,
     fontFamily: vars["--ads-font-mono"],
     fontSize: vars["--ads-font-size-micro"],
+    fontVariantNumeric: "tabular-nums",
   },
   additions: { color: vars["--ads-color-diff-added-text"] },
   deletions: { color: vars["--ads-color-diff-removed-text"] },

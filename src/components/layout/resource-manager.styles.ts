@@ -84,7 +84,6 @@ export const managerStyles = stylex.create({
     fontWeight: 500,
   },
   resourceDialog: { padding: 12, gap: 8, overflow: "hidden" },
-  headline: { fontSize: 24, fontFamily: vars["--ads-font-mono"] },
   heading: {
     display: "flex",
     justifyContent: "space-between",

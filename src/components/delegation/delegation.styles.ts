@@ -122,6 +122,7 @@ export const delegationStyles = stylex.create({
   gridValue: {
     color: vars["--ads-color-text"],
     fontSize: vars["--ads-font-size-body"],
+    fontVariantNumeric: "tabular-nums",
     lineHeight: vars["--ads-line-height-normal"],
     margin: 0,
     overflowWrap: "break-word",
@@ -395,6 +396,7 @@ export const delegationStyles = stylex.create({
   },
   blockCounts: {
     color: vars["--ads-color-text-muted"],
+    fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--ads-font-weight-regular"],
   },
   blockElapsed: {

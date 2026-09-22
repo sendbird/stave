@@ -62,22 +62,15 @@ export const mcpSectionStyles = stylex.create({
   signInButton: {
     marginBlockStart: vars["--ads-space-12"],
   },
+  // Three counts in a row, unboxed: the section is already a card, and a
+  // tile per integer made each one look like a dashboard widget.
   statsGrid: {
+    columnGap: vars["--ads-space-16"],
     display: "grid",
-    gap: vars["--ads-space-8"],
-    gridTemplateColumns: {
-      default: "1fr",
-      "@media (min-width: 640px)": "repeat(3, minmax(0, 1fr))",
-    },
+    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
   },
   statCard: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-control"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    paddingBlock: vars["--ads-space-8"],
-    paddingInline: vars["--ads-space-12"],
+    minWidth: 0,
   },
   statLabel: {
     color: vars["--ads-color-text-muted"],
@@ -85,10 +78,10 @@ export const mcpSectionStyles = stylex.create({
   },
   statValue: {
     color: vars["--ads-color-text"],
-    fontFamily: vars["--ads-font-mono"],
     fontSize: vars["--ads-font-size-body"],
+    fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--ads-font-weight-medium"],
-    marginBlockStart: vars["--ads-space-4"],
+    marginBlockStart: vars["--ads-space-2"],
   },
   availabilityBox: {
     backgroundColor: vars["--ads-color-canvas-subtle"],

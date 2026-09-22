@@ -278,26 +278,25 @@ export const compareRunPanelStyles = stylex.create({
     backgroundColor: vars["--ads-color-warning-soft"],
     borderBottomColor: vars["--ads-color-warning-border"],
   },
+  // A completed judge is the resting state of this banner, not an alert:
+  // it keeps the neutral surface and lets the title and score speak.
   judgeCompleted: {
-    backgroundColor: vars["--ads-color-accent-soft"],
+    backgroundColor: vars["--ads-color-surface"],
     borderBottomColor: vars["--ads-color-border"],
   },
   judgeMark: {
     alignItems: "center",
-    borderRadius: vars["--ads-radius-control"],
     display: "flex",
     flexShrink: 0,
-    height: 32,
+    height: 20,
     justifyContent: "center",
-    marginTop: 2,
-    width: 32,
+    marginTop: 1,
+    width: 20,
   },
   judgeMarkNeutral: {
-    backgroundColor: vars["--ads-color-surface-tint"],
     color: vars["--ads-color-text-muted"],
   },
   judgeMarkFailed: {
-    backgroundColor: vars["--ads-color-warning-soft"],
     color: vars["--ads-color-warning-text"],
   },
   judgeBody: {
@@ -320,6 +319,7 @@ export const compareRunPanelStyles = stylex.create({
     color: vars["--ads-color-text"],
     fontFamily: vars["--ads-font-mono"],
     fontSize: vars["--ads-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--ads-font-weight-semibold"],
   },
   judgeMeta: {
@@ -414,8 +414,10 @@ export const compareRunPanelStyles = stylex.create({
     borderLeftStyle: "solid",
     borderLeftWidth: vars["--ads-border-width-hairline"],
   },
+  // The recommendation is named by `recommendedTag`; a wash behind the whole
+  // column would say it a second time and tint every score in it.
   variantRecommended: {
-    backgroundColor: vars["--ads-color-accent-soft"],
+    backgroundColor: vars["--ads-color-surface"],
   },
   variantHeader: {
     backgroundColor: vars["--ads-color-surface"],
@@ -478,9 +480,9 @@ export const compareRunPanelStyles = stylex.create({
     color: vars["--ads-color-success-text"],
   },
   statusCompleted: {
-    backgroundColor: vars["--ads-color-accent-soft"],
-    borderColor: vars["--ads-color-border"],
-    color: vars["--ads-color-accent"],
+    backgroundColor: vars["--ads-color-success-soft"],
+    borderColor: vars["--ads-color-success-border"],
+    color: vars["--ads-color-success-text"],
   },
   statusRunning: {
     backgroundColor: vars["--ads-color-warning-soft"],
@@ -520,6 +522,7 @@ export const compareRunPanelStyles = stylex.create({
     flexShrink: 0,
     fontFamily: vars["--ads-font-mono"],
     fontSize: vars["--ads-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--ads-font-weight-semibold"],
   },
   variantMetaRow: {
@@ -528,6 +531,7 @@ export const compareRunPanelStyles = stylex.create({
     display: "flex",
     flexWrap: "wrap",
     fontSize: vars["--ads-font-size-micro"],
+    fontVariantNumeric: "tabular-nums",
     marginTop: vars["--ads-space-12"],
     rowGap: vars["--ads-space-4"],
   },
@@ -632,15 +636,14 @@ export const compareRunPanelStyles = stylex.create({
   },
   assessmentHeadLabel: {
     color: vars["--ads-color-text-muted"],
-    fontSize: vars["--ads-font-size-micro"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    letterSpacing: "0.08em",
-    textTransform: "uppercase",
+    fontSize: vars["--ads-font-size-caption"],
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   assessmentScore: {
     color: vars["--ads-color-text"],
     fontFamily: vars["--ads-font-mono"],
     fontSize: vars["--ads-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--ads-font-weight-semibold"],
   },
   assessmentSummary: {
@@ -691,6 +694,7 @@ export const compareRunPanelStyles = stylex.create({
     color: vars["--ads-color-text"],
     fontFamily: vars["--ads-font-mono"],
     fontSize: vars["--ads-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--ads-font-weight-semibold"],
   },
   risk: {

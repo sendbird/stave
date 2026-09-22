@@ -20,6 +20,7 @@ export const resourceStyles = stylex.create({
   },
   usageBarDetail: {
     fontFamily: vars["--ads-font-mono"],
+    fontVariantNumeric: "tabular-nums",
     color: vars["--ads-color-text"],
   },
   usageBarTrack: {
@@ -184,43 +185,6 @@ export const resourceStyles = stylex.create({
     display: "grid",
     gap: vars["--ads-space-16"],
   },
-  summaryGrid: {
-    display: "grid",
-    gridTemplateColumns: "repeat(3, minmax(0, 1fr))",
-    gap: vars["--ads-space-8"],
-  },
-  summaryTile: {
-    borderRadius: vars["--ads-radius-control"],
-    borderWidth: vars["--ads-border-width-hairline"],
-    borderStyle: "solid",
-    borderColor: vars["--ads-color-border-subtle"],
-    backgroundColor: vars["--ads-color-surface-tint"],
-    paddingInline: 10,
-    paddingBlock: vars["--ads-space-8"],
-    textAlign: "center",
-  },
-  summaryTileIconRow: {
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    gap: vars["--ads-space-4"],
-  },
-  summaryTileIcon: {
-    width: 12,
-    height: 12,
-    color: vars["--ads-color-text-muted"],
-  },
-  summaryTileValue: {
-    marginBlockStart: vars["--ads-space-4"],
-    fontFamily: vars["--ads-font-mono"],
-    fontSize: vars["--ads-font-size-body"],
-    fontWeight: vars["--ads-font-weight-semibold"],
-    color: vars["--ads-color-text"],
-  },
-  summaryTileLabel: {
-    fontSize: vars["--ads-font-size-micro"],
-    color: vars["--ads-color-text-muted"],
-  },
   detailGrid: {
     display: "grid",
     gridTemplateColumns: "repeat(2, minmax(0, 1fr))",
@@ -234,16 +198,19 @@ export const resourceStyles = stylex.create({
   detailValue: {
     textAlign: "right",
     fontFamily: vars["--ads-font-mono"],
+    fontVariantNumeric: "tabular-nums",
     color: vars["--ads-color-text-subtle"],
   },
   detailValueStrong: {
     textAlign: "right",
     fontFamily: vars["--ads-font-mono"],
+    fontVariantNumeric: "tabular-nums",
     color: vars["--ads-color-text"],
   },
   detailValuePlain: {
     textAlign: "right",
     fontFamily: vars["--ads-font-mono"],
+    fontVariantNumeric: "tabular-nums",
   },
   detailValueDanger: {
     color: vars["--ads-color-danger-text"],

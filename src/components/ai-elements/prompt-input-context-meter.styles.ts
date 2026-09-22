@@ -6,7 +6,10 @@ export const contextMeterStyles = stylex.create({
     height: 32,
     gap: 6,
     paddingInline: vars["--ads-space-8"],
-    color: { default: vars["--ads-color-text-muted"], ":hover": vars["--ads-color-text"] },
+    color: {
+      default: vars["--ads-color-text-muted"],
+      ":hover": vars["--ads-color-text"],
+    },
   },
   track: {
     height: 6,
@@ -53,7 +56,11 @@ export const contextMeterStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
   },
   metricTerm: { color: vars["--ads-color-text-muted"] },
-  metricValue: { textAlign: "right", fontFamily: vars["--ads-font-mono"] },
+  metricValue: {
+    textAlign: "right",
+    fontFamily: vars["--ads-font-mono"],
+    fontVariantNumeric: "tabular-nums",
+  },
   compactButton: {
     marginTop: vars["--ads-space-12"],
     width: "100%",

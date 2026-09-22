@@ -37,7 +37,8 @@ export const todoStyles = stylex.create({
   },
   headerCount: {
     marginLeft: vars["--ads-space-2"],
-    fontSize: "0.75em",
+    fontSize: vars["--ads-font-size-caption"],
+    fontVariantNumeric: "tabular-nums",
     fontWeight: vars["--ads-font-weight-regular"],
     color: vars["--ads-color-text-muted"],
   },
@@ -73,7 +74,9 @@ export const todoStyles = stylex.create({
     flexShrink: 0,
   },
   itemIconSuccess: { color: vars["--ads-color-success"] },
-  itemIconMuted: { color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 50%, transparent)` },
+  itemIconMuted: {
+    color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 50%, transparent)`,
+  },
   itemIconLoader: {
     marginTop: vars["--ads-space-2"],
     color: vars["--ads-color-accent"],

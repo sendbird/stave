@@ -76,9 +76,9 @@ export const dashboardStyles = stylex.create({
    * mono/tabular treatment stays on the tables below, where it earns its keep.
    */
   tileValue: {
-    fontSize: 22,
-    fontWeight: 600,
-    lineHeight: 1.1,
+    fontSize: vars["--ads-font-size-heading"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    lineHeight: vars["--ads-line-height-heading"],
     letterSpacing: "-0.01em",
     color: vars["--ads-color-text"],
     overflow: "hidden",

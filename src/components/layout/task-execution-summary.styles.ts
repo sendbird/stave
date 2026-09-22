@@ -65,83 +65,25 @@ export const summaryStyles = stylex.create({
     overflow: "hidden",
     paddingBlock: 10,
     paddingInline: vars["--ads-space-12"],
-    position: "relative",
   },
   tileCompact: {
     paddingBlock: vars["--ads-space-8"],
     paddingInline: 10,
   },
-  /**
-   * Identity color for a stat that has a reading. An empty tile stays
-   * border-only so "Not reported" does not compete with a real number.
-   */
-  accentBar: {
-    insetBlock: 0,
-    insetInlineStart: 0,
-    position: "absolute",
-    width: 3,
-  },
-  accentInfo: {
-    backgroundColor: vars["--ads-color-info"],
-  },
-  accentSuccess: {
-    backgroundColor: vars["--ads-color-success"],
-  },
-  accentWarning: {
-    backgroundColor: vars["--ads-color-warning"],
-  },
-  accentDanger: {
-    backgroundColor: vars["--ads-color-danger"],
-  },
+  // The head is a quiet caption row: a small muted glyph, the label, and the
+  // provenance dot pushed to the far edge. Nothing in it carries color; the
+  // figure below does that, and only when it has a state to report.
   tileHead: {
     alignItems: "center",
     display: "flex",
     gap: 6,
     minWidth: 0,
   },
-  iconWell: {
-    alignItems: "center",
-    borderRadius: vars["--ads-radius-control"],
-    display: "flex",
-    flexShrink: 0,
-    height: 22,
-    justifyContent: "center",
-    width: 22,
-  },
-  wellMuted: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-  },
-  wellInfo: {
-    backgroundColor: vars["--ads-color-info-soft"],
-  },
-  wellSuccess: {
-    backgroundColor: vars["--ads-color-success-soft"],
-  },
-  wellWarning: {
-    backgroundColor: vars["--ads-color-warning-soft"],
-  },
-  wellDanger: {
-    backgroundColor: vars["--ads-color-danger-soft"],
-  },
   tileIcon: {
-    flexShrink: 0,
-    height: 13,
-    width: 13,
-  },
-  iconMuted: {
     color: vars["--ads-color-text-muted"],
-  },
-  iconInfo: {
-    color: vars["--ads-color-info"],
-  },
-  iconSuccess: {
-    color: vars["--ads-color-success"],
-  },
-  iconWarning: {
-    color: vars["--ads-color-warning"],
-  },
-  iconDanger: {
-    color: vars["--ads-color-danger"],
+    flexShrink: 0,
+    height: 12,
+    width: 12,
   },
   tileLabel: {
     color: vars["--ads-color-text-muted"],
@@ -152,10 +94,6 @@ export const summaryStyles = stylex.create({
     textOverflow: "ellipsis",
     textTransform: "uppercase",
     whiteSpace: "nowrap",
-  },
-  headAside: {
-    flexShrink: 0,
-    marginInlineStart: "auto",
   },
   readout: {
     display: "flex",
@@ -202,13 +140,10 @@ export const summaryStyles = stylex.create({
   part: {
     fontSize: vars["--ads-font-size-caption"],
     fontVariantNumeric: "tabular-nums",
-    fontWeight: vars["--ads-font-weight-semibold"],
+    fontWeight: vars["--ads-font-weight-medium"],
   },
   toneDefault: {
     color: vars["--ads-color-text-muted"],
-  },
-  toneInfo: {
-    color: vars["--ads-color-info-text"],
   },
   toneSuccess: {
     color: vars["--ads-color-success-text"],
@@ -225,10 +160,14 @@ export const summaryStyles = stylex.create({
   toneRemoved: {
     color: vars["--ads-color-diff-removed-text"],
   },
+  // A hairline meter, not a progress bar: it sits under the figure as a
+  // second reading of the same number and stays in the text color until
+  // the headroom is actually tight.
   meterTrack: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
+    backgroundColor: vars["--ads-color-border"],
     borderRadius: vars["--ads-radius-full"],
-    height: 6,
+    height: 2,
+    marginTop: vars["--ads-space-2"],
     overflow: "hidden",
     width: "100%",
   },
@@ -236,15 +175,9 @@ export const summaryStyles = stylex.create({
     borderRadius: vars["--ads-radius-full"],
     height: "100%",
   },
-  meterInfo: {
+  meterNeutral: {
     backgroundColor: {
-      default: vars["--ads-color-info"],
-      "@media (forced-colors: active)": "CanvasText",
-    },
-  },
-  meterSuccess: {
-    backgroundColor: {
-      default: vars["--ads-color-success"],
+      default: vars["--ads-color-text-muted"],
       "@media (forced-colors: active)": "CanvasText",
     },
   },
@@ -264,6 +197,7 @@ export const summaryStyles = stylex.create({
     borderRadius: vars["--ads-radius-full"],
     flexShrink: 0,
     height: 6,
+    marginInlineStart: "auto",
     width: 6,
   },
   provenanceReported: {
