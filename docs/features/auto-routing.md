@@ -36,6 +36,20 @@ downgrade it on the same provider. A clearly new task, an escalation, or the
 hard budget threshold can change it. Uncertain continuations preserve the
 capable previous model even at that threshold.
 
+## Provider failover
+
+Provider switching is a preference about discretionary routing, so with it off
+Auto stays on the provider already running the task. Availability is not a
+preference: a provider that cannot run the turn — its CLI unavailable, or its
+account usage exhausted — is skipped and Auto routes to one that can, whether
+or not provider switching is enabled.
+
+Exhaustion is judged per model, so a spent model-specific window does not
+retire the whole provider while other allowed models there still have
+headroom. When no provider has headroom, Auto keeps its ordinary route and the
+account usage guard reports the block and its reset time, rather than Auto
+failing to produce a route at all.
+
 ## Model intent classification
 
 Auto uses the configured Utility model for intent classification by default.

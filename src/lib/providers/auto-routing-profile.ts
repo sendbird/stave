@@ -988,11 +988,17 @@ function resolveProviderCandidates(args: {
         : "claude-code";
     return ordered([alternate, otherProvider(alternate)]);
   }
+  // Provider switching is a *preference* about discretionary routing, so with
+  // it off Auto stays on the pinned provider. Availability is not a preference:
+  // an uninstalled or usage-exhausted provider cannot run the turn, so Auto
+  // fails over to one that can rather than resolving to no candidate at all.
   if (args.selector === "any-eligible") {
-    return args.providerSwitch ? ordered([pinned]) : [pinned].filter((id) => isAvailable(id, availability));
+    return args.providerSwitch || !isAvailable(pinned, availability)
+      ? ordered([pinned])
+      : [pinned];
   }
   if (!isAvailable(args.selector, availability)) {
-    return args.providerSwitch ? ordered([pinned]) : [];
+    return ordered([pinned]);
   }
   return [args.selector];
 }

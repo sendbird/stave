@@ -4,6 +4,39 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 
 /** Auto (Model Router) settings section: role table, stance, tester. */
 export const autoRoutingSectionStyles = stylex.create({
+  // The advanced disclosure sits in the same column as the settings cards, so
+  // it carries their hairline rule and inline padding. ADS's compound
+  // Accordion.Trigger renders only what it is given — the title span and the
+  // chevron affordance belong to the call site.
+  advancedTrigger: {
+    borderTopColor: vars["--ads-color-border"],
+    borderTopStyle: "solid",
+    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderRadius: vars["--ads-space-0"],
+    paddingBlock: vars["--ads-space-20"],
+    paddingInline: vars["--ads-space-0"],
+  },
+  advancedTitle: {
+    color: "inherit",
+    fontSize: vars["--ads-font-size-lead"],
+    fontWeight: vars["--ads-font-weight-semibold"],
+    letterSpacing: "-0.015em",
+    lineHeight: vars["--ads-line-height-normal"],
+    minInlineSize: 0,
+    overflowWrap: "anywhere",
+  },
+  advancedChevron: {
+    blockSize: vars["--ads-control-icon-size-sm"],
+    color: vars["--ads-color-text-muted"],
+    flexShrink: 0,
+    inlineSize: vars["--ads-control-icon-size-sm"],
+  },
+  advancedChevronOpen: {
+    transform: "rotate(180deg)",
+  },
+  advancedPanel: {
+    paddingBlockEnd: vars["--ads-space-8"],
+  },
   stanceNote: {
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-caption"],

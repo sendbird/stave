@@ -1,6 +1,7 @@
 import { boundRouteIntentInput, RouteIntentResultSchema, ROUTE_CLASSIFICATION_DEADLINE_MS, type RouteIntentResult } from "@/lib/providers/route-intent";
 import {
   type AutoRoutingProfile,
+  listEligibleRouteModels,
   migrateLegacyAutoSettings,
   resolveRoute,
   type ResolvedRoute,
@@ -10,7 +11,10 @@ import {
   type Stance,
   type TaskClass,
 } from "@/lib/providers/auto-routing-profile";
-import { resolveTightestAccountUsageWindow } from "@/lib/providers/account-usage-block";
+import {
+  resolveAccountUsageBlock,
+  resolveTightestAccountUsageWindow,
+} from "@/lib/providers/account-usage-block";
 import {
   inferProviderIdFromModel,
   isAutoModelId,
@@ -645,6 +649,71 @@ export function resolveBudgetUsedPercentByProvider(
   return result;
 }
 
+/**
+ * Availability as routing should see it: install/auth availability minus the
+ * providers whose account usage is exhausted.
+ *
+ * An exhausted account cannot run the turn at all, so Auto has to route around
+ * it instead of picking a model the send guard rejects a moment later — that
+ * rejection is what made an exhausted provider look like Auto doing nothing.
+ * The check is per model: a provider drops out only when *every* model Auto is
+ * allowed to pick there is blocked, so an exhausted model-specific window
+ * (Claude's Fable weekly, Codex's Spark bucket) does not retire the provider.
+ *
+ * When that would leave nothing to route to, the usage filter is dropped and
+ * the base availability stands: the account-usage guard then reports the block
+ * with its reset time, which is more useful than Auto failing to find a route.
+ */
+export function resolveRoutingProviderAvailability(args: {
+  profile: AutoRoutingProfile;
+  providerAvailability?: Partial<Record<ProviderId, boolean>>;
+  rateLimitsSnapshot?: RateLimitsSnapshotResponse | null;
+  runtimeModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
+  now?: number;
+}): Partial<Record<ProviderId, boolean>> | undefined {
+  const base = args.providerAvailability;
+  if (!args.rateLimitsSnapshot) {
+    return base;
+  }
+  const isBaseAvailable = (providerId: ProviderId) =>
+    base?.[providerId] !== false;
+  const isExhausted = (providerId: ProviderId) => {
+    const models = listEligibleRouteModels({
+      profile: args.profile,
+      providerId,
+      runtimeModels: args.runtimeModelsByProvider?.[providerId],
+    });
+    const blocked = (model?: string) =>
+      resolveAccountUsageBlock({
+        providerId,
+        ...(model ? { model } : {}),
+        snapshot: args.rateLimitsSnapshot,
+        ...(args.now != null ? { now: args.now } : {}),
+      }) != null;
+    return models.length === 0
+      ? blocked()
+      : models.every((model) => blocked(model));
+  };
+  const exhausted = listProviderIds().filter(
+    (providerId) => isBaseAvailable(providerId) && isExhausted(providerId),
+  );
+  if (exhausted.length === 0) {
+    return base;
+  }
+  const remaining = listProviderIds().filter(
+    (providerId) =>
+      isBaseAvailable(providerId) && !exhausted.includes(providerId),
+  );
+  if (remaining.length === 0) {
+    return base;
+  }
+  const next: Partial<Record<ProviderId, boolean>> = { ...(base ?? {}) };
+  for (const providerId of exhausted) {
+    next[providerId] = false;
+  }
+  return next;
+}
+
 export function resolveAutoRoutingProfile(
   settings: AutoRoutingSettings,
 ): AutoRoutingProfile {
@@ -747,6 +816,7 @@ export function computeRouterSignals(args: {
   phase?: "plan" | "execute";
   rateLimitsSnapshot?: RateLimitsSnapshotResponse | null;
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
+  runtimeModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
   classifier?: AutoRoutingClassifierResult | null;
 }): { signals: RouterSignals; heuristic: HeuristicRoute } {
   const continuing = /^(?:계속(?:해|해줘|해봐|하자)?|진행(?:해|해줘|해봐)?|ㅇㅇ|응|네|continue|go ahead|proceed)[.!\s]*$/i.test(args.prompt.trim());
@@ -762,6 +832,18 @@ export function computeRouterSignals(args: {
   const budgetByProvider = resolveBudgetUsedPercentByProvider(
     args.rateLimitsSnapshot,
   );
+  const routingAvailability = resolveRoutingProviderAvailability({
+    profile: args.profile,
+    ...(args.providerAvailability
+      ? { providerAvailability: args.providerAvailability }
+      : {}),
+    ...(args.rateLimitsSnapshot
+      ? { rateLimitsSnapshot: args.rateLimitsSnapshot }
+      : {}),
+    ...(args.runtimeModelsByProvider
+      ? { runtimeModelsByProvider: args.runtimeModelsByProvider }
+      : {}),
+  });
   const lastAssistantProvider = findLastAssistantProvider(args.history);
   const budgetProvider = lastAssistantProvider ?? args.currentProviderId;
   const classification = args.classifier;
@@ -794,8 +876,8 @@ export function computeRouterSignals(args: {
         ? { budgetUsedPercent: budgetByProvider[budgetProvider] }
         : {}),
       budgetUsedPercentByProvider: budgetByProvider,
-      ...(args.providerAvailability
-        ? { providerAvailability: args.providerAvailability }
+      ...(routingAvailability
+        ? { providerAvailability: routingAvailability }
         : {}),
       lastAssistantProvider,
       lastAssistantModel: findLastAssistantModel(args.history),
@@ -936,6 +1018,7 @@ export async function resolveAutoRoutingDecision(
     phase: args.phase,
     rateLimitsSnapshot: args.rateLimitsSnapshot,
     providerAvailability: args.providerAvailability,
+    runtimeModelsByProvider: args.runtimeModelsByProvider,
     classifier,
   });
 
