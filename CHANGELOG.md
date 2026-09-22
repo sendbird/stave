@@ -1,3 +1,26 @@
+## [0.19.5](https://github.com/sendbird/stave/compare/v0.19.4...v0.19.5) (2026-09-22)
+
+### Features
+
+* Show live turn events for delegated agents and workers, including Codex and ACP tool progress, move the delegation entry to the top of Collaboration, and render Markdown task results with the summary first.
+* Add Ayu Dark, Selenized Light, Selenized Dark, Modus Operandi Tinted, and Modus Vivendi Tinted.
+
+### Bug Fixes
+
+* Keep a fixed model summary on Turn Activity, drop the duplicated model, effort, and Fast block, collapse historical logs, and stop auto-follow when the user scrolls up.
+* Treat a Cursor Agent HTTP/2 drop as a resumable runtime failure, strip the raw `RetriableError` line from the transcript, and offer Resume instead of recording the drop as a finished answer.
+* Fail Auto over to a provider that still has account headroom, judged per model, and show the Auto settings Advanced disclosure title and chevron.
+* Match the draft PR trigger to the top-bar surface, point selection fills at each palette's selection color, stretch a short model list to the bottom of the popover, straighten Information section rules, and keep Information chips on one 20px line.
+* Save the reviewed kickoff prompt and runtime selection before the first turn, and keep the created task when that send is blocked.
+* Show task activity metrics as a figure, a colored diff, and remaining headroom.
+
+### Breaking Changes
+
+* A saved Nightfox selection no longer resolves. The app drops that custom theme layer and shows the base light or dark theme until another theme is chosen.
+
+### References
+
+* [#564](https://github.com/sendbird/stave/pull/564), [#565](https://github.com/sendbird/stave/pull/565), [#566](https://github.com/sendbird/stave/pull/566), [#567](https://github.com/sendbird/stave/pull/567), [#568](https://github.com/sendbird/stave/pull/568), [#569](https://github.com/sendbird/stave/pull/569), [#570](https://github.com/sendbird/stave/pull/570), [#571](https://github.com/sendbird/stave/pull/571), [#572](https://github.com/sendbird/stave/pull/572)
 ## [0.19.4](https://github.com/sendbird/stave/compare/v0.19.3...v0.19.4) (2026-09-19)
 
 ### Features
