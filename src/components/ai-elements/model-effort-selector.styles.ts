@@ -145,9 +145,12 @@ export const modelEffortSelectorStyles = stylex.create({
     // surfaces — the widest ambient layer in the system on composer chrome.
     padding: 0,
   },
-  // ADS vertical Tabs.Root shrink-wraps the rail to its own tab content
-  // (`alignItems: start`). This selector's provider rail must instead span the
-  // full popover height, matching the original flex layout, so stretch it.
+  // ADS vertical tabs shrink-wrap the rail: `alignItems: start`, an implicit
+  // auto row, and `alignContent: start`. This popover has a fixed height, so
+  // that row stays as tall as the model list and the rail's canvas stops
+  // short when only a few models are showing. One `1fr` row is safe here —
+  // the list and the panel are the only two grid children — and `alignItems`
+  // has to be passed as `xstyle` so it wins over the root's `start`.
   tabs: {
     minHeight: 0,
     minWidth: 0,
@@ -155,6 +158,7 @@ export const modelEffortSelectorStyles = stylex.create({
     columnGap: 0,
     rowGap: 0,
     alignItems: "stretch",
+    gridTemplateRows: "minmax(0, 1fr)",
   },
   panel: {
     display: "flex",
