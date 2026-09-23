@@ -100,10 +100,10 @@ test("delegate form opens with the routed assignee summarised and the model cont
   expect(html.match(/<select/g)?.length).toBe(1);
   expect(html).not.toContain(">Effort<");
   expect(html).toContain(">Change<");
-  expect(html).toContain('data-agent-identity="GPT-5.6 Sol · Medium"');
+  expect(html).toContain('data-agent-identity="GPT-6 Sol · Medium"');
   expect(html).toContain(">Auto<");
   expect(html).toContain(
-    "Auto → GPT-5.6 Sol · Medium effort (Auto) · Guided · Separate worktree",
+    "Auto → GPT-6 Sol · Medium effort (Auto) · Guided · Separate worktree",
   );
   expect(html).not.toContain("Codex · Auto →");
 });
