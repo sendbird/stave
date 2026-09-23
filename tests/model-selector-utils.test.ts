@@ -179,12 +179,12 @@ describe("model selector utils", () => {
     });
     const sol = options.find((option) => option.model === "gpt-6-sol");
     expect(sol).toBeDefined();
-    expect(sol?.description).toBe("Flagship model");
+    expect(sol?.description).toContain("Flagship model");
     expect(sol?.isDefault).toBe(true);
 
-    // Other models without enrichment should have no description
+    // Models without enrichment still show runtime compatibility guidance.
     const luna = options.find((option) => option.model === "gpt-6-luna");
-    expect(luna?.description).toBeUndefined();
+    expect(luna?.description).toContain("version and account");
     expect(luna?.isDefault).toBeUndefined();
   });
 
@@ -207,4 +207,13 @@ describe("model selector utils", () => {
       { key: "cursor:gpt-shared", label: "Cursor Shared High Fast" },
     ]);
   });
+});
+
+test("Opus 5.5 variants advertise their CLI requirement alongside runtime descriptions", () => {
+  const options = buildModelSelectorOptions({ providerIds: ["claude-code"], enrichmentByModel: new Map([["claude-opus-5-5", { description: "Runtime catalog" }]]) });
+  for (const model of ["claude-opus-5-5", "claude-opus-5-5[1m]"]) {
+    expect(options.find(option => option.model === model)?.description).toContain("2.1.280");
+  }
+  expect(options.find(option => option.model === "claude-opus-5-5")?.description).toContain("Runtime catalog");
+  expect(options.find(option => option.model === "claude-haiku-4-5")?.description).toBeUndefined();
 });

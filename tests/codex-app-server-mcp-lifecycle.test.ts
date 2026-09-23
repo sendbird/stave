@@ -18,7 +18,7 @@ class FakeStream extends EventEmitter {
 }
 
 type FakeScenario =
-  "full-lifecycle" | "completed-only" | "native-collab" | "command-streaming";
+  "full-lifecycle" | "completed-only" | "native-collab" | "command-streaming" | "model-reroute";
 
 class FakeChild extends EventEmitter {
   stdout = new FakeStream();
@@ -90,7 +90,7 @@ class FakeChild extends EventEmitter {
             message.method === "thread/resume") &&
           message.id != null
         ) {
-          this.emitResponse(message.id, { thread: { id: "thread-1" } });
+          this.emitResponse(message.id, { thread: { id: "thread-1" }, ...(this.scenario === "model-reroute" ? { model: "gpt-5.6-sol" } : {}) });
           continue;
         }
         if (message.method === "mcpServerStatus/list" && message.id != null) {
@@ -143,6 +143,18 @@ class FakeChild extends EventEmitter {
             if (this.scenario === "command-streaming") {
               this.emitCommandStreamingLifecycle();
               return;
+            }
+            if (this.scenario === "model-reroute") {
+              for (const [threadId, turnId, toModel] of [
+                ["other-thread", "turn-1", "wrong-thread-model"],
+                ["thread-1", "other-turn", "wrong-turn-model"],
+                ["thread-1", "turn-1", "gpt-6-astra"],
+              ]) {
+                this.emitJson({ jsonrpc: "2.0", method: "model/rerouted", params: {
+                  threadId, turnId, fromModel: "gpt-5.6-sol", toModel,
+                  reason: "highRiskCyberActivity",
+                } });
+              }
             }
             this.emitMcpLifecycle();
           });
@@ -1368,4 +1380,16 @@ describe("Codex worker activity identity mapping", () => {
     expect(collab.events[0]).not.toHaveProperty("agentId");
     expect(collab.events[0]).not.toHaveProperty("parentToolUseId");
   });
+});
+
+
+test("surfaces thread resolution and rerouting only for the active Codex turn", async () => {
+  const events = await streamScenario("model-reroute", { model: "gpt-6-sol" }, ["model_resolved", "system"]);
+  expect(events.filter(event => event.type === "model_resolved")).toEqual([
+    { type: "model_resolved", resolvedProviderId: "codex", resolvedModel: "gpt-5.6-sol" },
+    { type: "model_resolved", resolvedProviderId: "codex", resolvedModel: "gpt-6-astra" },
+  ]);
+  expect(JSON.stringify(events)).not.toContain("wrong-thread-model");
+  expect(JSON.stringify(events)).not.toContain("wrong-turn-model");
+  expect(JSON.stringify(events)).toContain("high-risk cyber activity policy");
 });

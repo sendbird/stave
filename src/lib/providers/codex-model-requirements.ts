@@ -1,0 +1,2 @@
+export const CODEX_MODEL_UPDATE_GUIDANCE = "Update Codex using its original installation method, then retry. For npm installs, run `npm install -g @openai/codex@latest`; for Homebrew, run `brew upgrade --cask codex`.";
+export const CODEX_MODEL_AVAILABILITY_GUIDANCE = "Model availability depends on your Codex version and account. A catalog entry does not confirm runtime support. " + CODEX_MODEL_UPDATE_GUIDANCE;

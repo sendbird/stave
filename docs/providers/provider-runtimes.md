@@ -1475,3 +1475,21 @@ shortcut/preset seeds. Customized presets, other selected models, explicit
 effort overrides, and historical turns keep their saved values. Cursor and
 Kiro continue to use their own runtime-advertised catalogs. Provider account
 and client rollout still determine whether a newly listed model can run.
+
+Opus 5.5 (including the 1M variant) requires Claude Code **2.1.280 or newer**.
+Run `claude update`, or update the Claude desktop app, then retry. A catalog
+entry does not establish compatibility with the installed runtime. Stave shows
+this requirement in the model selector and Tooling settings. When Claude reports
+a fallback, the conversation records the requested and actual models, with
+version requirements when the provider supplies them. Actual assistant model
+changes are also surfaced when the CLI omits a fallback event; in that case,
+the cause is explicitly unknown. The response model label follows the actual
+model. This fallback observation is specific to Claude.
+
+Codex also surfaces model changes from `thread/start` and `thread/resume`
+responses and `model/rerouted` notifications, updating the response model label.
+Notifications are scoped to the active thread and turn. Recognized reroute reasons
+are shown without treating policy routing as a version failure. Unsupported-model
+and outdated-client errors retain the provider's message (including any minimum
+version) and add installation-specific update guidance. No unverified minimum
+version is assigned to GPT-6 Sol or Luna. See the [CLI installation guide](https://learn.chatgpt.com/docs/codex/cli).
