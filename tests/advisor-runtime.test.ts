@@ -63,17 +63,17 @@ describe("runAdvisorCall", () => {
     } satisfies AdvisorRunnerDependencies;
 
     const result = await runAdvisorCall({
-      ...callArgs({ providerId: "codex", model: "gpt-5.6-sol" }),
+      ...callArgs({ providerId: "codex", model: "gpt-6-sol" }),
       runners,
     });
 
     expect(result.status).toBe("completed");
     expect(received).toMatchObject({
-      model: "gpt-5.6-sol",
+      model: "gpt-6-sol",
       isolated: true,
       runtimeOptions: {
-        model: "gpt-5.6-sol",
-        codexReasoningEffort: "high",
+        model: "gpt-6-sol",
+        codexReasoningEffort: "medium",
       },
     });
   });
@@ -344,13 +344,13 @@ describe("advisor effort", () => {
       runners,
     });
     await runAdvisorCall({
-      ...callArgs({ providerId: "codex", model: "gpt-5.6-sol" }),
+      ...callArgs({ providerId: "codex", model: "gpt-6-sol" }),
       runners,
     });
 
-    // Vendor default ladder: Fable defaults to "medium", Sol to "high".
+    // Vendor default ladder: Fable and GPT-6 Sol default to "medium".
     expect(claudeEffort).toBe("medium");
-    expect(codexEffort).toBe("high");
+    expect(codexEffort).toBe("medium");
   });
 
   test("a pinned tier is what the runner is actually asked for", async () => {
@@ -366,7 +366,7 @@ describe("advisor effort", () => {
     await runAdvisorCall({
       ...callArgs({
         providerId: "codex",
-        model: "gpt-5.6-sol",
+        model: "gpt-6-sol",
         effort: "low",
       }),
       runners,
@@ -388,7 +388,7 @@ describe("advisor effort", () => {
     await runAdvisorCall({
       ...callArgs({
         providerId: "codex",
-        model: "gpt-5.6-luna",
+        model: "gpt-6-luna",
         effort: "ultra",
       }),
       runners,
@@ -405,7 +405,7 @@ describe("advisor lifecycle events report the effort that ran", () => {
   test("started and outcome both carry the resolved tier", () => {
     const target = {
       providerId: "codex" as const,
-      model: "gpt-5.6-sol",
+      model: "gpt-6-sol",
       effort: "low" as const,
     };
     expect(buildAdvisorStartedEvent({ ...primary, target })).toMatchObject({
@@ -436,7 +436,7 @@ describe("advisor lifecycle events report the effort that ran", () => {
         ...primary,
         target: {
           providerId: "codex",
-          model: "gpt-5.6-luna",
+          model: "gpt-6-luna",
           effort: "ultra",
         },
       }),
@@ -452,7 +452,7 @@ describe("advisor lifecycle events report the effort that ran", () => {
   test("both lifecycle events carry the consult exchange identity", () => {
     const target = {
       providerId: "codex" as const,
-      model: "gpt-5.6-sol",
+      model: "gpt-6-sol",
     };
     const consult = {
       exchangeId: "exchange-1",
