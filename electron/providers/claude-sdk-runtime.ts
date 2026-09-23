@@ -1,3 +1,4 @@
+import { createClaudeModelResolutionTracker } from "./claude-model-resolution";
 import { spawn as spawnResourceProcess } from "node:child_process";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
 import { createClaudeContextUsageTracker } from "./claude-context-usage";
@@ -5895,6 +5896,7 @@ export async function streamClaudeWithSdk(
     const claudeDebugStream =
       args.runtimeOptions?.debug ?? process.env.STAVE_CLAUDE_DEBUG === "1";
     const subagentTracker = new SubagentProgressTracker();
+    const trackModelResolution = createClaudeModelResolutionTracker(args.runtimeOptions?.model);
     const recoverableStream = recoverClaudeStreamBeforeInitialTurnWork({
       initialStream: queryResult,
       isAbortRequested: () => abortRequested,
@@ -6031,13 +6033,16 @@ export async function streamClaudeWithSdk(
         // turn — the correct behavior once the response has finished.
         inputQueue?.close();
       }
-      let normalizedEvents = mapClaudeMessageToEvents({
-        message,
-        claudeDebugStream,
-        cwd: runtimeCwd,
-        planState: planStreamState,
-        ownerAgentIdResolver: subagentTracker,
-      });
+      let normalizedEvents = [
+        ...trackModelResolution(message),
+        ...mapClaudeMessageToEvents({
+          message,
+          claudeDebugStream,
+          cwd: runtimeCwd,
+          planState: planStreamState,
+          ownerAgentIdResolver: subagentTracker,
+        }),
+      ];
       const contextUsage = trackContextUsage(message);
       if (contextUsage) normalizedEvents.push(contextUsage);
       compactTracker.observe(normalizedEvents);

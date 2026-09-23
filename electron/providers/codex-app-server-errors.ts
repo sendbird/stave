@@ -1,3 +1,4 @@
+import { CODEX_MODEL_UPDATE_GUIDANCE } from "../../src/lib/providers/codex-model-requirements";
 /**
  * User-facing error formatting for Codex App Server failures.
  *
@@ -16,6 +17,13 @@ export function toCodexUserFacingErrorMessage(args: { message: string }) {
   const message = formatCodexAppServerErrorMessage(args.message);
   const lower = message.toLowerCase();
   const rawLower = args.message.toLowerCase();
+  if (
+    /(?:codex|client|cli).*(?:version.*(?:too old|not supported)|outdated)/i.test(message)
+    || /requires? (?:codex|client|cli) (?:version )?\d/i.test(message)
+    || /model.*(?:not supported|not available|does not exist|unsupported)/i.test(message)
+  ) {
+    return `${message}\n${CODEX_MODEL_UPDATE_GUIDANCE} Model access can also depend on your account.`;
+  }
   if (
     rawLower.includes("server_overloaded") ||
     lower.includes("at capacity") ||

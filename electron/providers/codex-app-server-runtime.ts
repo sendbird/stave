@@ -1,3 +1,4 @@
+import { createCodexModelResolutionTracker } from "./codex-model-resolution";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
 import {
   summarizeCodexAppServerDebugMessage,
@@ -1160,7 +1161,7 @@ async function ensureCodexThread(args: {
     : undefined;
   try {
     const response = resumeThreadId
-      ? await args.client.request<{ thread: { id: string } }>("thread/resume", {
+      ? await args.client.request<{ thread: { id: string }; model?: string }>("thread/resume", {
           ...buildCodexThreadResumeParams({
             threadId: resumeThreadId,
             cwd: args.cwd,
@@ -1173,7 +1174,7 @@ async function ensureCodexThread(args: {
             ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
           }),
         })
-      : await args.client.request<{ thread: { id: string } }>(
+      : await args.client.request<{ thread: { id: string }; model?: string }>(
           "thread/start",
           buildCodexThreadStartParams({
             cwd: args.cwd,
@@ -1211,6 +1212,7 @@ async function ensureCodexThread(args: {
     return {
       threadId,
       threadKey,
+      resolvedModel: response.model,
       resumedThreadId: resumeThreadId ?? null,
       releaseThread,
       instructionRefresh,
@@ -2446,12 +2448,13 @@ export async function streamCodexWithAppServer(
       hasEmbeddedStaveLocalMcp,
     );
 
+    let resolvedModel: string | undefined;
     let threadId: string;
     let resumedThreadId: string | null;
     let releaseThread: () => void;
     let instructionRefresh: string | null;
     try {
-      ({ threadId, resumedThreadId, releaseThread, instructionRefresh } =
+      ({ threadId, resumedThreadId, releaseThread, instructionRefresh, resolvedModel } =
         await ensureCodexThread({
           client,
           input: args.prompt,
@@ -2511,6 +2514,8 @@ export async function streamCodexWithAppServer(
         return events;
       };
 
+      const modelResolution = createCodexModelResolutionTracker(runtimeOptions?.model);
+      emitBridgeEvents(modelResolution.resolve(resolvedModel));
       emitBridgeEvents(buildCodexThreadStartedEvents({ threadId }));
       const syncedGoalEvent = await readCodexGoalStatusEvent({
         client,
@@ -3244,6 +3249,11 @@ export async function streamCodexWithAppServer(
           return;
         }
         switch (message.method) {
+          case "model/rerouted":
+            if (eventThreadId === threadId) {
+              emitBridgeEvents(modelResolution.noteReroute(params, appServerTurnId));
+            }
+            return;
           case "hook/started":
           case "hook/completed": {
             if (!codexCapabilities.hooks.lifecycleEvents) {
@@ -3754,6 +3764,9 @@ export async function streamCodexWithAppServer(
             }
           }
           case "turn/completed": {
+            if (!appServerTurnId && typeof params.turnId === "string") {
+              emitBridgeEvents(modelResolution.flush(params.turnId));
+            }
             const turn = params.turn as
               | {
                   status?: string;
@@ -3923,6 +3936,7 @@ export async function streamCodexWithAppServer(
         }
 
         appServerTurnId = turnResponse.turn.id;
+        emitBridgeEvents(modelResolution.flush(appServerTurnId));
         turnInput.commitRetrievedContextDedup();
         emitBridgeEvent({
           type: "provider_turn",

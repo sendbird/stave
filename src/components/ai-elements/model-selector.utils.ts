@@ -1,3 +1,5 @@
+import { CODEX_MODEL_AVAILABILITY_GUIDANCE } from "@/lib/providers/codex-model-requirements";
+import { getClaudeModelVersionGuidance } from "@/lib/providers/claude-model-requirements";
 import {
   getSdkModelOptions,
   inferProviderIdFromModel,
@@ -49,7 +51,12 @@ function buildModelSelectorOption(args: {
     providerId: args.providerId,
     model: args.model,
     label: args.label ?? toHumanModelName({ model: args.model }),
-    description: args.description,
+    description: [
+      args.description,
+      args.providerId === "claude-code"
+        ? getClaudeModelVersionGuidance(args.model)
+        : args.providerId === "codex" ? CODEX_MODEL_AVAILABILITY_GUIDANCE : undefined,
+    ].filter(Boolean).join(" ") || undefined,
     isDefault: args.isDefault,
     defaultEffort: args.defaultEffort,
     supportedEfforts: args.supportedEfforts,
