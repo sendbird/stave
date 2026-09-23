@@ -137,8 +137,8 @@ describe("normalizeTaskPreset", () => {
       label: "Opus 4.8",
     });
     expect(preset.id).toBe("default-claude-opus-5-task");
-    expect(preset.model).toBe("claude-opus-5");
-    expect(preset.label).toBe("Opus 5");
+    expect(preset.model).toBe("claude-opus-5-5");
+    expect(preset.label).toBe("Opus 5.5");
   });
 });
 
@@ -217,4 +217,15 @@ describe("preset shortcuts", () => {
     expect(getTaskPresetShortcutLabel(8)).toBe("9");
     expect(getTaskPresetShortcutLabel(9)).toBeNull();
   });
+});
+
+
+test("keeps custom presets pinned to previous-generation models", () => {
+  for (const [provider, model] of [
+    ["codex", "gpt-5.6-sol"], ["codex", "gpt-5.6-luna"],
+    ["claude-code", "claude-opus-5"], ["claude-code", "claude-opus-5[1m]"],
+  ] as const) {
+    expect(normalizeTaskPreset({ id: "custom", label: "Pinned", kind: "task",
+      provider, model }).model).toBe(model);
+  }
 });

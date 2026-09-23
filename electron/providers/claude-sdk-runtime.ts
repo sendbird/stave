@@ -2015,7 +2015,12 @@ function emitClaudeApprovalTimeoutBridgeEvent(args: {
 
 function toClaudeThinkingConfig(
   thinkingMode?: "adaptive" | "enabled" | "disabled",
+  model?: string,
 ) {
+  // Opus 5.5 rejects both disabled and budget-based thinking.
+  if (model?.split("[")[0] === "claude-opus-5-5") {
+    return { type: "adaptive" as const };
+  }
   if (thinkingMode === "adaptive") {
     return { type: "adaptive" as const };
   }
@@ -2191,6 +2196,7 @@ export function buildClaudeQueryOptions(args: {
       : undefined;
   const thinking = toClaudeThinkingConfig(
     args.runtimeOptions?.claudeThinkingMode,
+    args.runtimeOptions?.model,
   );
   const agentProgressSummaries = resolveClaudeAgentProgressSummaries(
     args.runtimeOptions?.claudeAgentProgressSummaries,

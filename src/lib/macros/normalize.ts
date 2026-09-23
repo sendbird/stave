@@ -1,4 +1,4 @@
-import { getDefaultModelForProvider } from "@/lib/providers/model-catalog";
+import { getDefaultModelForProvider, getModelCapability } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
   clampModelEffort,
@@ -72,7 +72,8 @@ function normalizeMacroRuntime(input: unknown): MacroRuntime | undefined {
   const allowedModels = listModelsForPresetProvider(pinnedProviderId);
   const rawModel =
     typeof candidate.model === "string" ? candidate.model.trim() : "";
-  const model = allowedModels.includes(rawModel)
+  const model = (allowedModels.includes(rawModel) ||
+    getModelCapability({ model: rawModel })?.providerId === pinnedProviderId)
     ? rawModel
     : getDefaultModelForProvider({ providerId: pinnedProviderId });
   const requestedEffort = isModelEffort(candidate.effort)

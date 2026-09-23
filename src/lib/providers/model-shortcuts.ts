@@ -36,7 +36,7 @@ export const MODEL_SHORTCUT_SLOT_LABELS = [
  */
 export const DEFAULT_MODEL_SHORTCUT_KEYS = [
   `claude-code:${DEFAULT_CLAUDE_OPUS_MODEL}`,
-  "codex:gpt-5.6-sol",
+  "codex:gpt-6-sol",
   `claude-code:${CLAUDE_FABLE_MODEL}`,
   "codex:gpt-6-astra",
   "",

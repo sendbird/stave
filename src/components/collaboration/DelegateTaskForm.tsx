@@ -6,6 +6,7 @@ import {
   CLAUDE_SDK_MODEL_OPTIONS,
   CODEX_MODEL_OPTIONS,
   getProviderLabel,
+  getDefaultModelForProvider,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import {
@@ -598,9 +599,7 @@ export function DelegateTaskForm({
                           change({ model: event.target.value })
                         }
                         placeholder={
-                          draft.providerId === "codex"
-                            ? "gpt-5.6-terra"
-                            : "claude-opus-5"
+                          getDefaultModelForProvider({ providerId: draft.providerId })
                         }
                       />
                       <span {...stylex.props(form.caption)}>

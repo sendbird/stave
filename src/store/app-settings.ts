@@ -767,8 +767,8 @@ export const defaultSettings: AppSettings = {
   trackerTasks: { ...DEFAULT_TRACKER_TASKS_SETTINGS },
   claudeSettingSources: ["project"],
   // Matches `resolveDefaultClaudeEffortForModel` for the default model
-  // (Opus 5). Keep the two in step when either changes.
-  claudeEffort: "high",
+  // (Opus 5.5). Keep the two in step when either changes.
+  claudeEffort: "medium",
   claudeThinkingMode: "adaptive",
   claudeAgentProgressSummaries: false,
   claudePromptSuggestions: true,
@@ -792,7 +792,7 @@ export const defaultSettings: AppSettings = {
   codexBinaryPath: "",
   // Matches `resolveDefaultCodexEffortForModel` for the default model
   // (GPT-5.6 Sol). Keep the two in step when either changes.
-  codexReasoningEffort: "high",
+  codexReasoningEffort: "medium",
   codexWebSearch: "live",
   codexAppToolApprovalMode: "inherit",
   codexShowRawReasoning: false,

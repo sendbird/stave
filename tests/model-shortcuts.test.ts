@@ -14,8 +14,8 @@ import {
 describe("model shortcuts", () => {
   test("fills missing slots from the default shortcut map", () => {
     expect(normalizeModelShortcutKeys()).toEqual(DEFAULT_MODEL_SHORTCUT_KEYS);
-    expect(normalizeModelShortcutKeys(["codex:gpt-5.6-luna", ""])).toEqual([
-      "codex:gpt-5.6-luna",
+    expect(normalizeModelShortcutKeys(["codex:gpt-6-luna", ""])).toEqual([
+      "codex:gpt-6-luna",
       "",
       "claude-code:claude-fable-5-1",
       "codex:gpt-6-astra",
@@ -28,9 +28,9 @@ describe("model shortcuts", () => {
     ]);
   });
 
-  test("upgrades persisted Opus 4.8 shortcuts to Opus 5", () => {
+  test("upgrades persisted Opus 4.8 shortcuts to Opus 5.5", () => {
     expect(normalizeModelShortcutKeys(["claude-code:claude-opus-4-8"])[0]).toBe(
-      "claude-code:claude-opus-5",
+      "claude-code:claude-opus-5-5",
     );
   });
 
@@ -78,7 +78,7 @@ describe("model shortcuts", () => {
   test("finds assigned model options and skips unavailable mappings", () => {
     const options = [
       {
-        key: "claude-code:claude-opus-5",
+        key: "claude-code:claude-opus-5-5",
         available: true,
       },
       {
@@ -115,7 +115,7 @@ describe("model shortcuts", () => {
     ).toEqual(["low", "medium", "high", "xhigh", "max"]);
     expect(
       listModelShortcutEffortOptions({
-        shortcutKey: "codex:gpt-5.6-luna",
+        shortcutKey: "codex:gpt-6-luna",
       }).map((option) => option.value),
     ).toEqual(["low", "medium", "high", "xhigh", "max"]);
     expect(
@@ -133,13 +133,13 @@ describe("model shortcuts", () => {
   test("resolves only supported effort overrides for a shortcut slot", () => {
     expect(
       resolveModelShortcutEffort({
-        shortcutKey: "codex:gpt-5.6-luna",
+        shortcutKey: "codex:gpt-6-luna",
         effort: "max",
       }),
     ).toBe("max");
     expect(
       resolveModelShortcutEffort({
-        shortcutKey: "codex:gpt-5.6-luna",
+        shortcutKey: "codex:gpt-6-luna",
         effort: "ultra",
       }),
     ).toBeUndefined();

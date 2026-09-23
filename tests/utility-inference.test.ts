@@ -151,7 +151,7 @@ describe("resolveRouteClassificationTarget", () => {
   test("defaults to Codex when no provider or model is configured", () => {
     expect(resolveRouteClassificationTarget({})).toEqual({
       providerId: "codex",
-      model: "gpt-5.6-luna",
+      model: "gpt-6-luna",
     });
   });
 });
@@ -347,7 +347,7 @@ describe("provider-neutral utility inference", () => {
     // model id onto it would fail the call outright.
     expect(result.utility.attempts[1]).toMatchObject({
       providerId: "codex",
-      model: "gpt-5.6-luna",
+      model: "gpt-6-luna",
     });
   });
 

@@ -61,11 +61,11 @@ describe("Advisor settings migration", () => {
     ],
     [
       "claude-sonnet-4-6",
-      { providerId: "claude-code", model: "claude-opus-5" },
+      { providerId: "claude-code", model: "claude-opus-5-5" },
     ],
     [
       "claude-opus-5[1m]",
-      { providerId: "claude-code", model: "claude-opus-5" },
+      { providerId: "claude-code", model: "claude-opus-5-5" },
     ],
     [
       "claude-fable-5-1",

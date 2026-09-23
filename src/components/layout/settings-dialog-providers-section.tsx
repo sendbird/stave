@@ -1261,7 +1261,7 @@ export function ProvidersSection() {
               </LabeledField>
               <LabeledField
                 title="Fallback Models"
-                description="Comma-separated Claude fallback models used when the primary model is overloaded or unavailable. Opus 5 automatically falls back to Opus 4.8 when left blank."
+                description="Comma-separated Claude fallback models used when the primary model is overloaded or unavailable. Opus 5.5 automatically falls back to Opus 4.8 when left blank."
               >
                 <DraftInput
                   xstyle={providersStyles.field}

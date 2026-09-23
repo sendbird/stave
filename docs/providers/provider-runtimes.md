@@ -1454,3 +1454,24 @@ warning as a window approaches its limit, and the setting that blocks starting a
 turn once an account limit is reached all keep working. The block decision reads
 from the cached snapshot and only pays for a fresh read near the limit, which is
 the case the floor above still allows.
+
+
+## September 2026 model catalog
+
+The primary Codex catalog includes GPT-6 Astra, GPT-6 Sol, GPT-5.6 Terra
+(the balanced tier), and GPT-6 Luna. New tasks default to GPT-6 Sol;
+utility inference and light-tier routing use GPT-6 Luna. Codex Sol supports
+Low through Ultra, while Luna caps at Max. Both start at Medium unless the
+runtime catalog reports another default. See the [Codex model guide](https://learn.chatgpt.com/docs/models).
+
+Claude defaults to `claude-opus-5-5` at Medium effort. The existing 1M variant
+and Opus 4.8 overload fallback remain available. Opus 5.5 rejects disabled or
+budget-based thinking, so the SDK adapter sends adaptive thinking for this
+model even when an older setting requests another mode. See the
+[Opus 5.5 migration guide](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide).
+
+A one-time settings migration updates previous default models and untouched
+shortcut/preset seeds. Customized presets, other selected models, explicit
+effort overrides, and historical turns keep their saved values. Cursor and
+Kiro continue to use their own runtime-advertised catalogs. Provider account
+and client rollout still determine whether a newly listed model can run.

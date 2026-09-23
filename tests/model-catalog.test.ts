@@ -44,15 +44,15 @@ describe("model catalog", () => {
   test("includes the verified Codex model set led by GPT-6 Astra", () => {
     expect(CODEX_MODEL_OPTIONS).toEqual([
       "gpt-6-astra",
-      "gpt-5.6-sol",
+      "gpt-6-sol",
       "gpt-5.6-terra",
-      "gpt-5.6-luna",
+      "gpt-6-luna",
     ]);
   });
 
   test("includes GPT-6 Astra without making it the Codex default", () => {
     expect(getDefaultModelForProvider({ providerId: "codex" })).toBe(
-      "gpt-5.6-sol",
+      "gpt-6-sol",
     );
     expect(getDefaultModelForProvider({ providerId: "codex" })).not.toBe(
       "gpt-6-astra",
@@ -77,9 +77,9 @@ describe("model catalog", () => {
 
   test("formats current GPT models with canonical labels", () => {
     expect(toHumanModelName({ model: "gpt-6-astra" })).toBe("GPT-6 Astra");
-    expect(toHumanModelName({ model: "gpt-5.6-sol" })).toBe("GPT-5.6 Sol");
+    expect(toHumanModelName({ model: "gpt-6-sol" })).toBe("GPT-6 Sol");
     expect(toHumanModelName({ model: "gpt-5.6-terra" })).toBe("GPT-5.6 Terra");
-    expect(toHumanModelName({ model: "gpt-5.6-luna" })).toBe("GPT-5.6 Luna");
+    expect(toHumanModelName({ model: "gpt-6-luna" })).toBe("GPT-6 Luna");
     expect(toHumanModelName({ model: "gpt-5.5" })).toBe("GPT-5.5");
     expect(toHumanModelName({ model: "claude-sonnet-5" })).toBe(
       "Claude Sonnet 5",
@@ -117,7 +117,7 @@ describe("model catalog", () => {
       DEFAULT_CLAUDE_OPUS_MODEL,
     );
     expect(getDefaultModelForProvider({ providerId: "codex" })).toBe(
-      "gpt-5.6-sol",
+      "gpt-6-sol",
     );
   });
 
@@ -133,7 +133,7 @@ describe("model catalog", () => {
     ).toBe("medium");
     expect(
       resolveDefaultClaudeEffortForModel({ model: DEFAULT_CLAUDE_OPUS_MODEL }),
-    ).toBe("high");
+    ).toBe("medium");
     expect(
       resolveDefaultClaudeEffortForModel({ model: "claude-opus-4-7[1m]" }),
     ).toBe("high");
@@ -159,13 +159,13 @@ describe("model catalog", () => {
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-6-astra" })).toBe(
       "medium",
     );
-    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-sol" })).toBe(
-      "high",
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-6-sol" })).toBe(
+      "medium",
     );
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-terra" })).toBe(
       "high",
     );
-    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-luna" })).toBe(
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-6-luna" })).toBe(
       "medium",
     );
     // Legacy GPT-5.5 keeps the xhigh cap it was verified at.
@@ -206,7 +206,7 @@ describe("model catalog", () => {
     expect(listCodexReasoningEffortsForModel({ model: "gpt-6-astra" })).toEqual(
       ["low", "medium", "high", "xhigh", "max", "ultra"],
     );
-    expect(listCodexReasoningEffortsForModel({ model: "gpt-5.6-sol" })).toEqual(
+    expect(listCodexReasoningEffortsForModel({ model: "gpt-6-sol" })).toEqual(
       ["low", "medium", "high", "xhigh", "max", "ultra"],
     );
     expect(
@@ -214,7 +214,7 @@ describe("model catalog", () => {
     ).toEqual(["low", "medium", "high", "xhigh", "max", "ultra"]);
     // Luna has no "ultra" tier.
     expect(
-      listCodexReasoningEffortsForModel({ model: "gpt-5.6-luna" }),
+      listCodexReasoningEffortsForModel({ model: "gpt-6-luna" }),
     ).toEqual(["low", "medium", "high", "xhigh", "max"]);
     // GPT-5.5 caps out at "xhigh" (no "max"/"ultra").
     expect(listCodexReasoningEffortsForModel({ model: "gpt-5.5" })).toEqual([
@@ -244,11 +244,11 @@ describe("model catalog", () => {
     // "ultra" carried over from Sol isn't valid for Luna — step down to the
     // nearest lower supported value ("max"), not straight to the default.
     expect(
-      clampCodexEffortToModel({ model: "gpt-5.6-luna", effort: "ultra" }),
+      clampCodexEffortToModel({ model: "gpt-6-luna", effort: "ultra" }),
     ).toBe("max");
     // Already-supported values pass through unchanged.
     expect(
-      clampCodexEffortToModel({ model: "gpt-5.6-luna", effort: "high" }),
+      clampCodexEffortToModel({ model: "gpt-6-luna", effort: "high" }),
     ).toBe("high");
     // GPT-5.5 caps at "xhigh" — "max" clamps down to it.
     expect(clampCodexEffortToModel({ model: "gpt-5.5", effort: "max" })).toBe(
@@ -264,7 +264,7 @@ describe("model catalog", () => {
       );
     }
     expect(listModelCapabilities({ providerId: "codex" }).length).toBe(
-      CODEX_MODEL_OPTIONS.length + 1,
+      CODEX_MODEL_OPTIONS.length + 3,
     );
   });
 
@@ -276,7 +276,7 @@ describe("model catalog", () => {
       resolveTierModel({ providerId: "claude-code", tier: "frontier" }),
     ).toBe(CLAUDE_FABLE_MODEL);
     expect(resolveTierModel({ providerId: "codex", tier: "light" })).toBe(
-      "gpt-5.6-luna",
+      "gpt-6-luna",
     );
     expect(resolveTierModel({ providerId: "codex", tier: "frontier" })).toBe(
       "gpt-6-astra",
@@ -325,13 +325,13 @@ describe("model catalog", () => {
     );
     expect(
       upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-6[1m]" }),
-    ).toBe("claude-opus-5[1m]");
+    ).toBe("claude-opus-5-5[1m]");
     expect(upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-8" })).toBe(
       DEFAULT_CLAUDE_OPUS_MODEL,
     );
     expect(
       upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-8[1m]" }),
-    ).toBe("claude-opus-5[1m]");
+    ).toBe("claude-opus-5-5[1m]");
     expect(
       upgradeSettingsScopedClaudeModel({ model: "claude-opus-4-6-fast" }),
     ).toBe("claude-opus-4-6-fast");
@@ -355,7 +355,7 @@ describe("model catalog", () => {
       "claude-opus-4-8",
     );
     expect(
-      resolveDefaultClaudeFallbackModel({ model: "claude-opus-5[1m]" }),
+      resolveDefaultClaudeFallbackModel({ model: "claude-opus-5-5[1m]" }),
     ).toBe("claude-opus-4-8[1m]");
     expect(
       resolveDefaultClaudeFallbackModel({ model: "claude-sonnet-5" }),
@@ -472,7 +472,7 @@ describe("model catalog", () => {
 
     test("toHumanModelName still returns static names when no dynamic entry exists", () => {
       expect(toHumanModelName({ model: DEFAULT_CLAUDE_OPUS_MODEL })).toBe(
-        "Claude Opus 5",
+        "Claude Opus 5.5",
       );
     });
 

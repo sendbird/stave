@@ -1860,6 +1860,23 @@ describe("resolveClaudeAgentProgressSummaries", () => {
 });
 
 describe("buildClaudeQueryOptions", () => {
+  test("uses adaptive thinking for Opus 5.5 even with a saved legacy mode", () => {
+    for (const model of ["claude-opus-5-5", "claude-opus-5-5[1m]"]) {
+      for (const claudeThinkingMode of ["disabled", "enabled", "adaptive"] as const) {
+        expect(buildClaudeQueryOptions({
+          cwd: workspaceRoot,
+          claudeExecutablePath: "",
+          runtimeOptions: { model, claudeThinkingMode },
+        }).thinking).toEqual({ type: "adaptive" });
+      }
+    }
+    expect(buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      runtimeOptions: { model: "claude-opus-5", claudeThinkingMode: "disabled" },
+    }).thinking).toEqual({ type: "disabled" });
+  });
+
   test("lets the prompt-suggestions setting only turn suggestions off", () => {
     const base = { cwd: workspaceRoot, claudeExecutablePath: "" };
     // Conversation turn follows the setting, defaulting to on.

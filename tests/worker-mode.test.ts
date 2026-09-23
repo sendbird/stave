@@ -122,8 +122,9 @@ describe("worker capability table", () => {
     // "v2"`, which is what the `spawn_agent` subagent pool requires.
     expect(listWorkerPrimaryModels("codex")).toEqual([
       "gpt-6-astra",
-      "gpt-5.6-sol",
+      "gpt-6-sol",
       "gpt-5.6-terra",
+      "gpt-5.6-sol",
     ]);
     expect(
       canPrimaryOrchestrateWorker({
@@ -170,6 +171,7 @@ describe("worker capability table", () => {
   test("Codex Luna and Astra remain models but are not worker-capable", () => {
     expect(listWorkerModelOptions("codex")).toEqual([
       "gpt-5.6-terra",
+      "gpt-6-sol",
       "gpt-5.6-sol",
     ]);
     expect(
@@ -256,7 +258,7 @@ describe("resolveWorkerProfile", () => {
     const resolution = resolveWorkerProfile({
       providerId: "codex",
       primaryModel: "gpt-5.6-sol",
-      intent: intent({ workerModel: "gpt-5.6-luna" }),
+      intent: intent({ workerModel: "gpt-6-luna" }),
     });
     expect(resolution.status).toBe("unavailable");
     if (resolution.status === "unavailable")
@@ -293,7 +295,7 @@ describe("resolveWorkerProfile", () => {
       primaryModel: "claude-opus-5",
       // Present in the Claude catalog but deliberately absent from the worker
       // list.
-      intent: intent({ workerModel: "claude-opus-5[1m]" }),
+      intent: intent({ workerModel: "claude-opus-5-5[1m]" }),
     });
     expect(resolution.status).toBe("unavailable");
     if (resolution.status === "unavailable") {

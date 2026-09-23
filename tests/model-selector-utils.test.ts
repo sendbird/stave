@@ -109,8 +109,8 @@ describe("model selector utils", () => {
         (option) => option.key,
       ),
     ).toEqual([
-      "claude-code:claude-opus-5",
-      "codex:gpt-5.6-sol",
+      "claude-code:claude-opus-5-5",
+      "codex:gpt-6-sol",
       "claude-code:claude-fable-5-1",
       "codex:gpt-6-astra",
     ]);
@@ -171,19 +171,19 @@ describe("model selector utils", () => {
 
   test("passes enrichment data (description, isDefault) into built options", () => {
     const enrichment = new Map([
-      ["gpt-5.6-sol", { description: "Flagship model", isDefault: true }],
+      ["gpt-6-sol", { description: "Flagship model", isDefault: true }],
     ]);
     const options = buildModelSelectorOptions({
       providerIds: ["codex"],
       enrichmentByModel: enrichment,
     });
-    const sol = options.find((option) => option.model === "gpt-5.6-sol");
+    const sol = options.find((option) => option.model === "gpt-6-sol");
     expect(sol).toBeDefined();
     expect(sol?.description).toBe("Flagship model");
     expect(sol?.isDefault).toBe(true);
 
     // Other models without enrichment should have no description
-    const luna = options.find((option) => option.model === "gpt-5.6-luna");
+    const luna = options.find((option) => option.model === "gpt-6-luna");
     expect(luna?.description).toBeUndefined();
     expect(luna?.isDefault).toBeUndefined();
   });

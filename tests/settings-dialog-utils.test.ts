@@ -146,7 +146,7 @@ describe("settings field registry", () => {
     expect(matchesSettingsField(advisor!, "codex model")).toBe(true);
     expect(searchSettingsFields("read only")).toEqual([advisor!]);
     expect(searchSettingsFields("sonnet 5")).toEqual([advisor!]);
-    expect(searchSettingsFields("gpt-5.6-sol")).toEqual([advisor!]);
+    expect(searchSettingsFields("gpt-6-sol")).toEqual([advisor!]);
   });
 
   test("finds the shared account-usage stop by usage and credits terms", () => {

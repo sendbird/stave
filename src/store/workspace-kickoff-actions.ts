@@ -48,7 +48,7 @@ export const DEFAULT_WORKSPACE_KICKOFF_SETTINGS: WorkspaceKickoffSettings = {
   kickoffSourceConfigs: normalizeKickoffSourceConfigs(
     DEFAULT_KICKOFF_SOURCE_CONFIGS,
   ),
-  kickoffPrimaryModel: "gpt-5.6-luna",
+  kickoffPrimaryModel: "gpt-6-luna",
   kickoffFallbackModel: "claude-haiku-4-5",
   kickoffPrompt: DEFAULT_PROMPT_WORKSPACE_KICKOFF,
 };

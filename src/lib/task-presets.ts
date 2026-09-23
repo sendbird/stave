@@ -4,6 +4,7 @@ import {
   DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL,
   DEFAULT_CLAUDE_OPUS_MODEL,
   getDefaultModelForProvider,
+  getModelCapability,
   getProviderLabel,
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
@@ -128,17 +129,17 @@ export const TASK_PRESET_SHORTCUT_SLOT_LABELS = [
 export const DEFAULT_TASK_PRESETS: readonly TaskPreset[] = [
   {
     id: "default-claude-opus-5-task",
-    label: "Opus 5",
+    label: "Opus 5.5",
     kind: "task",
     provider: "claude-code",
     model: DEFAULT_CLAUDE_OPUS_MODEL,
   },
   {
     id: "default-gpt-5-6-task",
-    label: "GPT-5.6",
+    label: "GPT-6 Sol",
     kind: "task",
     provider: "codex",
-    model: "gpt-5.6-sol",
+    model: "gpt-6-sol",
   },
   {
     id: "default-claude-cli-session",
@@ -209,7 +210,8 @@ export function normalizeTaskPreset(input: Partial<TaskPreset>): TaskPreset {
   const model =
     kind === "cli-session"
       ? undefined
-      : allowedModels.includes(candidateModel)
+      : allowedModels.includes(candidateModel) ||
+          getModelCapability({ model: candidateModel })?.providerId === provider
         ? candidateModel
         : getDefaultModelForProvider({ providerId: provider });
 
@@ -234,7 +236,7 @@ export function normalizeTaskPreset(input: Partial<TaskPreset>): TaskPreset {
     rawCandidateModel.toLowerCase() === DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL &&
     trimmedLabel === "Opus 4.8";
   const label = isLegacyDefaultOpusPreset
-    ? "Opus 5"
+    ? "Opus 5.5"
     : trimmedLabel.length > 0
       ? trimmedLabel
       : buildDefaultPresetLabel({ kind, provider, model });
