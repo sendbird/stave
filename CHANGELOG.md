@@ -1,3 +1,20 @@
+## [0.19.6](https://github.com/sendbird/stave/compare/v0.19.5...v0.19.6) (2026-09-23)
+
+### Features
+
+* Make GPT-6 Sol and Claude Opus 5.5 the default models, and use GPT-6 Luna for light routing and background inference. Update recommended shortcuts, task presets, effort options, and model prices.
+* Migrate untouched model defaults once while preserving historical conversations and custom macros and presets pinned to previous models.
+
+### Bug Fixes
+
+* Use adaptive thinking for Opus 5.5 even when a saved setting requests disabled or budget-based thinking.
+* Simplify task, fleet, settings, compare, and Git metric surfaces by removing decorative bars and icon backgrounds; reserve color for meaningful states and warnings.
+* Keep changing numeric readouts aligned with tabular figures, and make empty-state icons neutral by default.
+
+### References
+
+* [#574](https://github.com/sendbird/stave/pull/574), [#575](https://github.com/sendbird/stave/pull/575), [#576](https://github.com/sendbird/stave/pull/576)
+
 ## [0.19.5](https://github.com/sendbird/stave/compare/v0.19.4...v0.19.5) (2026-09-22)
 
 ### Features
