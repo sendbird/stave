@@ -1,14 +1,37 @@
-import { describe, expect, test } from "bun:test";
+import { afterEach, describe, expect, test } from "bun:test";
 import {
+  fetchCursorUsageSnapshot,
   mapCursorUsageResponse,
   readCursorMacKeychainToken,
 } from "../electron/providers/rate-limits/cursor-usage-fetcher";
 import { mapKiroUsageResponse } from "../electron/providers/rate-limits/kiro-usage-fetcher";
 
+const originalFetch = globalThis.fetch;
+
+function stubCursorUsageApi(statusByToken: Record<string, number>): string[] {
+  const requestedTokens: string[] = [];
+  globalThis.fetch = (async (_url: unknown, init?: RequestInit) => {
+    const token = String(
+      (init?.headers as Record<string, string>).Authorization,
+    ).replace("Bearer ", "");
+    requestedTokens.push(token);
+    const status = statusByToken[token] ?? 500;
+    return new Response(
+      JSON.stringify({ planUsage: { totalPercentUsed: 25 } }),
+      { status },
+    );
+  }) as typeof fetch;
+  return requestedTokens;
+}
+
 describe("Cursor account usage mapping", () => {
-  test("reads the Agent login from its account-qualified macOS Keychain entry", () => {
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  test("reads the Agent login from its account-qualified macOS Keychain entry", async () => {
     expect(
-      readCursorMacKeychainToken((args) => {
+      await readCursorMacKeychainToken(async (args) => {
         expect(args).toEqual([
           "find-generic-password",
           "-s",
@@ -22,17 +45,57 @@ describe("Cursor account usage mapping", () => {
     ).toBe("saved-token");
   });
 
-  test("skips Keychain outside macOS and tolerates an unavailable entry", () => {
+  test("skips Keychain outside macOS and tolerates an unavailable entry", async () => {
     expect(
-      readCursorMacKeychainToken(() => {
+      await readCursorMacKeychainToken(async () => {
         throw new Error("should not read Keychain");
       }, "linux"),
     ).toBeNull();
     expect(
-      readCursorMacKeychainToken(() => {
+      await readCursorMacKeychainToken(async () => {
         throw new Error("entry unavailable");
       }, "darwin"),
     ).toBeNull();
+  });
+
+  test("falls back to the next credential when a token is rejected", async () => {
+    const requestedTokens = stubCursorUsageApi({
+      "stale-agent": 401,
+      "valid-ide": 200,
+    });
+    const snapshot = await fetchCursorUsageSnapshot([
+      () => "stale-agent",
+      () => null,
+      () => "stale-agent",
+      () => "valid-ide",
+    ]);
+    expect(snapshot).toMatchObject({ source: "dashboard" });
+    expect(requestedTokens).toEqual(["stale-agent", "valid-ide"]);
+  });
+
+  test("reports expired sign-in only after every credential is rejected", async () => {
+    stubCursorUsageApi({ "stale-agent": 401, "stale-ide": 403 });
+    const snapshot = await fetchCursorUsageSnapshot([
+      () => "stale-agent",
+      () => "stale-ide",
+    ]);
+    expect(snapshot).toMatchObject({
+      source: "unavailable",
+      error: "Cursor sign-in expired. Sign in again and retry.",
+    });
+  });
+
+  test("does not retry other credentials on non-auth failures", async () => {
+    const requestedTokens = stubCursorUsageApi({ "agent-token": 500 });
+    const snapshot = await fetchCursorUsageSnapshot([
+      () => "agent-token",
+      () => "ide-token",
+    ]);
+    expect(snapshot).toMatchObject({
+      source: "unavailable",
+      error: "Cursor usage request failed (HTTP 500).",
+    });
+    expect(requestedTokens).toEqual(["agent-token"]);
   });
 
   test("maps monthly spend and model buckets", () => {
