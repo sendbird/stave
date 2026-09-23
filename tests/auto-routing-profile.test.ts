@@ -85,7 +85,7 @@ describe("resolveRoute", () => {
         .toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "high", ruleId: "complex" });
       expect(resolveRoute({ profile: balanced, role: "primary",
         signals: signals({ taskClass, complexity: "low", currentProviderId: "codex" }) }))
-        .toMatchObject({ model: "gpt-5.6-luna", effort: "medium", ruleId: "bounded" });
+        .toMatchObject({ model: "gpt-6-luna", effort: "medium", ruleId: "bounded" });
     }
   });
 
@@ -190,7 +190,7 @@ describe("resolveRoute", () => {
     });
     expect(delegate).toMatchObject({
       providerId: "codex",
-      model: "gpt-5.6-sol",
+      model: "gpt-6-sol",
       effort: "medium",
       ruleId: "delegate-default",
     });
@@ -231,9 +231,9 @@ describe("resolveRoute", () => {
 
   test("formatResolvedRouteLabel drops the vendor prefix", () => {
     expect(formatResolvedRouteLabel({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "high" })).toBe(
-      "Opus 5 · High",
+      "Opus 5.5 · High",
     );
-    expect(formatResolvedRouteLabel({ model: "gpt-5.6-luna" })).toBe("GPT-5.6 Luna");
+    expect(formatResolvedRouteLabel({ model: "gpt-6-luna" })).toBe("GPT-6 Luna");
   });
 });
 
@@ -255,7 +255,7 @@ describe("role helpers", () => {
         primaryModel: DEFAULT_CLAUDE_OPUS_MODEL,
       }),
     ).toEqual({ providerId: "codex", model: "gpt-6-astra", effort: "medium" });
-    const pinned = { providerId: "codex" as const, model: "gpt-5.6-sol" };
+    const pinned = { providerId: "codex" as const, model: "gpt-6-sol" };
     expect(
       resolveAdvisorAutoTarget({ target: pinned, profile: balanced, primaryProviderId: "claude-code" }),
     ).toBe(pinned);
@@ -324,7 +324,7 @@ describe("role helpers", () => {
       resolveRoutedWorkerModel({
         profile: routed,
         providerId: "codex",
-        primaryModel: "gpt-5.6-sol",
+        primaryModel: "gpt-6-sol",
       }),
     ).toBeNull();
   });
@@ -382,8 +382,8 @@ describe("validation and migration", () => {
 
 describe("pricing", () => {
   test("picker models carry list prices; runtime-catalog providers do not", () => {
-    expect(formatModelPrice(DEFAULT_CLAUDE_OPUS_MODEL)).toBe("$5 / $25");
-    expect(formatModelPrice("gpt-5.6-luna")).toBe("$0.2 / $1.2");
+    expect(formatModelPrice(DEFAULT_CLAUDE_OPUS_MODEL)).toBe("$4 / $20");
+    expect(formatModelPrice("gpt-6-luna")).toBe("$0.1 / $0.5");
     expect(formatModelPrice("auto")).toBeNull();
     for (const price of Object.values(MODEL_PRICING)) {
       expect(price?.source.startsWith("https://")).toBe(true);
@@ -443,7 +443,7 @@ describe("pricing", () => {
       signals: signals({
         taskClass: "docs",
         lastAssistantProvider: "claude-code",
-        lastAssistantModel: "gpt-5.6-sol",
+        lastAssistantModel: "gpt-6-sol",
       }),
     });
     expect(foreignModel.cacheHeldModel).toBe(false);

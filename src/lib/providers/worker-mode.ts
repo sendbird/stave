@@ -287,6 +287,8 @@ const WORKER_CAPABILITIES: Readonly<
     executionAdapter: "native",
     primaries: [
       CLAUDE_FABLE_MODEL,
+      "claude-opus-5",
+      "claude-opus-5[1m]",
       DEFAULT_CLAUDE_OPUS_MODEL,
       DEFAULT_CLAUDE_OPUS_1M_MODEL,
       DEFAULT_CLAUDE_SONNET_MODEL,
@@ -297,6 +299,7 @@ const WORKER_CAPABILITIES: Readonly<
       DEFAULT_CLAUDE_SONNET_1M_MODEL,
       "claude-haiku-4-5",
       DEFAULT_CLAUDE_OPUS_MODEL,
+      "claude-opus-5",
       CLAUDE_FABLE_MODEL,
     ],
     toolsEnforced: true,
@@ -305,8 +308,8 @@ const WORKER_CAPABILITIES: Readonly<
   },
   codex: {
     executionAdapter: "native",
-    primaries: ["gpt-6-astra", "gpt-5.6-sol", "gpt-5.6-terra"],
-    workers: ["gpt-5.6-terra", "gpt-5.6-sol"],
+    primaries: ["gpt-6-astra", "gpt-6-sol", "gpt-5.6-terra", "gpt-5.6-sol"],
+    workers: ["gpt-5.6-terra", "gpt-6-sol", "gpt-5.6-sol"],
     // Codex carries worker copy through developer instructions; there is no
     // per-subagent tool allowlist, so a preset's tool list is advisory prose.
     toolsEnforced: false,

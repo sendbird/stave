@@ -17,7 +17,7 @@ import type { TaskPreset } from "@/lib/task-presets";
  * default") without re-firing later if the user deliberately picks that value
  * again.
  */
-export const SETTINGS_MODEL_MIGRATION_VERSION = 1;
+export const SETTINGS_MODEL_MIGRATION_VERSION = 2;
 
 /**
  * v1 (GPT-6 Astra release) — the per-provider defaults moved from Sonnet 5 to
@@ -34,7 +34,7 @@ const PREVIOUS_CLAUDE_DEFAULT_MODEL = DEFAULT_CLAUDE_SONNET_MODEL;
 const PREVIOUS_CODEX_DEFAULT_MODEL = "gpt-5.6-terra";
 
 const PREVIOUS_MODEL_SHORTCUT_KEYS: readonly string[] = [
-  `claude-code:${DEFAULT_CLAUDE_OPUS_MODEL}`,
+  "claude-code:claude-opus-5",
   "codex:gpt-5.6-terra",
   "codex:gpt-5.6-sol",
   "",
@@ -146,13 +146,13 @@ function isUntouchedPreviousCodexPreset(preset: TaskPreset) {
  * settings snapshot. Safe to call on every load: once the snapshot's version
  * has caught up with this build it returns the input unchanged.
  */
-export function migrateSettingsModelDefaults(
+function migrateV1(
   input: SettingsModelMigrationInput,
 ): SettingsModelMigrationResult {
   const fromVersion = Math.max(0, Math.trunc(input.fromVersion ?? 0));
-  if (fromVersion >= SETTINGS_MODEL_MIGRATION_VERSION) {
+  if (fromVersion >= 1) {
     return {
-      version: SETTINGS_MODEL_MIGRATION_VERSION,
+      version: 1,
       changed: false,
       modelClaude: input.modelClaude,
       modelCodex: input.modelCodex,
@@ -163,10 +163,8 @@ export function migrateSettingsModelDefaults(
     };
   }
 
-  const nextClaudeDefault = getDefaultModelForProvider({
-    providerId: "claude-code",
-  });
-  const nextCodexDefault = getDefaultModelForProvider({ providerId: "codex" });
+  const nextClaudeDefault = "claude-opus-5";
+  const nextCodexDefault = "gpt-5.6-sol";
 
   const modelClaude =
     input.modelClaude.trim() === PREVIOUS_CLAUDE_DEFAULT_MODEL
@@ -195,7 +193,7 @@ export function migrateSettingsModelDefaults(
     input.modelShortcutKeys,
   );
   const modelShortcutKeys = shortcutsWereUntouched
-    ? [...DEFAULT_MODEL_SHORTCUT_KEYS]
+    ? [...V1_MODEL_SHORTCUT_KEYS]
     : [...input.modelShortcutKeys];
 
   let presetsChanged = false;
@@ -208,7 +206,7 @@ export function migrateSettingsModelDefaults(
   });
 
   return {
-    version: SETTINGS_MODEL_MIGRATION_VERSION,
+    version: 1,
     changed:
       modelClaude !== input.modelClaude ||
       modelCodex !== input.modelCodex ||
@@ -223,4 +221,74 @@ export function migrateSettingsModelDefaults(
     modelShortcutKeys,
     taskPresets,
   };
+}
+
+// Freeze historical seeds: importing live defaults into old migrations makes
+// customized settings indistinguishable from an untouched seed on later loads.
+const V1_MODEL_SHORTCUT_KEYS = [
+  "claude-code:claude-opus-5",
+  "codex:gpt-5.6-sol",
+  "claude-code:claude-fable-5-1",
+  "codex:gpt-6-astra",
+  "",
+  "",
+  "",
+  "",
+  "",
+  "",
+];
+
+export function migrateSettingsModelDefaults(
+  input: SettingsModelMigrationInput,
+): SettingsModelMigrationResult {
+  const result = migrateV1(input);
+  if ((input.fromVersion ?? 0) >= SETTINGS_MODEL_MIGRATION_VERSION) {
+    return { ...result, version: SETTINGS_MODEL_MIGRATION_VERSION };
+  }
+  if (result.modelClaude === "claude-opus-5") {
+    result.modelClaude = DEFAULT_CLAUDE_OPUS_MODEL;
+    if (result.claudeEffort === "high") {
+      result.claudeEffort = "medium";
+    }
+    result.changed = true;
+  }
+  if (result.modelCodex === "gpt-5.6-sol") {
+    result.modelCodex = getDefaultModelForProvider({ providerId: "codex" });
+    if (result.codexReasoningEffort === "high") {
+      result.codexReasoningEffort = "medium";
+    }
+    result.changed = true;
+  }
+  if (
+    result.modelShortcutKeys.length === V1_MODEL_SHORTCUT_KEYS.length &&
+    result.modelShortcutKeys.every(
+      (key, index) => key === V1_MODEL_SHORTCUT_KEYS[index],
+    )
+  ) {
+    result.modelShortcutKeys = [...DEFAULT_MODEL_SHORTCUT_KEYS];
+    result.changed = true;
+  }
+  result.taskPresets = result.taskPresets.map((preset) => {
+    if (preset.kind !== "task" || preset.effort) return preset;
+    if (
+      preset.id === "default-claude-opus-5-task" &&
+      preset.provider === "claude-code" &&
+      preset.label === "Opus 5" &&
+      preset.model === "claude-opus-5"
+    ) {
+      result.changed = true;
+      return { ...preset, model: DEFAULT_CLAUDE_OPUS_MODEL, label: "Opus 5.5" };
+    }
+    if (
+      preset.id === "default-gpt-5-6-task" &&
+      preset.provider === "codex" &&
+      preset.label === "GPT-5.6" &&
+      preset.model === "gpt-5.6-sol"
+    ) {
+      result.changed = true;
+      return { ...preset, model: "gpt-6-sol", label: "GPT-6 Sol" };
+    }
+    return preset;
+  });
+  return { ...result, version: SETTINGS_MODEL_MIGRATION_VERSION };
 }

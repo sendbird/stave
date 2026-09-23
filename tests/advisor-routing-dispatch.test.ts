@@ -74,7 +74,7 @@ test("Advisor Auto uses request signals even with a manually selected primary", 
     effort: "high",
   });
   expect(route("Review the layout")).toMatchObject({
-    model: "gpt-5.6-sol",
+    model: "gpt-6-sol",
     effort: "high",
   });
   expect(route("Implement this feature", 5)).toMatchObject({

@@ -33,7 +33,7 @@ test("default Auto dispatch uses the classifier bridge and preserves Plan intent
     });
     expect(calls).toBe(1);
     expect(phase).toBe("plan");
-    expect(decision).toMatchObject({ source: "classifier", model: "gpt-5.6-luna" });
+    expect(decision).toMatchObject({ source: "classifier", model: "gpt-6-luna" });
   } finally {
     globalThis.window = previousWindow;
   }
@@ -81,7 +81,7 @@ test("cancelled classification never returns a dispatch decision and permits a f
     expect(cancelPendingAutoRouting(args.taskId)).toBe(false);
     const next = await resolveAutoRoutingForSend({ ...args, state: { ...args.state,
       settings: { ...args.state.settings, autoRoutingProfile: { ...profile, signals: { ...profile.signals, classifier: false } } } } });
-    expect(next?.model).toBe("gpt-5.6-luna");
+    expect(next?.model).toBe("gpt-6-luna");
     expect(next?.source).toBe("heuristic");
   } finally {
     cancelPendingAutoRouting(args.taskId);

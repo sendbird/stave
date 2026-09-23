@@ -54,8 +54,8 @@ describe("settings model default migration", () => {
     const result = migrateSettingsModelDefaults(preMigrationSnapshot());
 
     expect(result.changed).toBe(true);
-    expect(result.modelClaude).toBe("claude-opus-5");
-    expect(result.modelCodex).toBe("gpt-5.6-sol");
+    expect(result.modelClaude).toBe("claude-opus-5-5");
+    expect(result.modelCodex).toBe("gpt-6-sol");
     expect(result.version).toBe(SETTINGS_MODEL_MIGRATION_VERSION);
   });
 
@@ -64,8 +64,8 @@ describe("settings model default migration", () => {
 
     expect(result.modelShortcutKeys).toEqual([...DEFAULT_MODEL_SHORTCUT_KEYS]);
     expect(result.modelShortcutKeys.slice(0, 4)).toEqual([
-      "claude-code:claude-opus-5",
-      "codex:gpt-5.6-sol",
+      "claude-code:claude-opus-5-5",
+      "codex:gpt-6-sol",
       "claude-code:claude-fable-5-1",
       "codex:gpt-6-astra",
     ]);
@@ -76,7 +76,7 @@ describe("settings model default migration", () => {
 
     expect(result.taskPresets[0]).toMatchObject({
       id: "default-gpt-5-6-task",
-      model: "gpt-5.6-sol",
+      model: "gpt-6-sol",
     });
   });
 
@@ -85,8 +85,8 @@ describe("settings model default migration", () => {
     // they follow their model to Opus 5 and Sol at the new default rung.
     const result = migrateSettingsModelDefaults(preMigrationSnapshot());
 
-    expect(result.claudeEffort).toBe("high");
-    expect(result.codexReasoningEffort).toBe("high");
+    expect(result.claudeEffort).toBe("medium");
+    expect(result.codexReasoningEffort).toBe("medium");
   });
 
   test("re-pitches an untuned effort even when the model does not move", () => {
@@ -209,7 +209,7 @@ describe("settings model default migration", () => {
       }),
     );
 
-    expect(result.modelCodex).toBe("gpt-5.6-sol");
+    expect(result.modelCodex).toBe("gpt-6-sol");
     expect(result.codexReasoningEffort).not.toBe("xhigh");
   });
 
@@ -222,5 +222,35 @@ describe("settings model default migration", () => {
     );
 
     expect(result.codexReasoningEffort).toBe("max");
+  });
+});
+
+
+describe("September model migration", () => {
+  test("updates v1 defaults once and preserves explicit effort and custom presets", () => {
+    const input = {
+      ...preMigrationSnapshot(), fromVersion: 1,
+      modelClaude: "claude-opus-5", modelCodex: "gpt-5.6-sol",
+      claudeEffort: "xhigh", codexReasoningEffort: "max",
+      modelShortcutKeys: ["claude-code:claude-opus-5", "codex:gpt-5.6-sol",
+        "claude-code:claude-fable-5-1", "codex:gpt-6-astra", "", "", "", "", "", ""],
+      taskPresets: [
+        { ...PREVIOUS_CODEX_PRESET, model: "gpt-5.6-sol" },
+        { ...PREVIOUS_CODEX_PRESET, id: "custom", model: "gpt-5.6-sol" },
+      ],
+    };
+    const result = migrateSettingsModelDefaults(input);
+    expect(result.modelClaude).toBe("claude-opus-5-5");
+    expect(result.modelCodex).toBe("gpt-6-sol");
+    expect(result.claudeEffort).toBe("xhigh");
+    expect(result.codexReasoningEffort).toBe("max");
+    expect(result.modelShortcutKeys).toEqual([...DEFAULT_MODEL_SHORTCUT_KEYS]);
+    expect(result.taskPresets[0]).toMatchObject({ model: "gpt-6-sol", label: "GPT-6 Sol" });
+    expect(result.taskPresets[1]).toEqual(input.taskPresets[1]);
+    const again = migrateSettingsModelDefaults({ ...result, fromVersion: result.version,
+      modelCodex: "gpt-5.6-sol", modelClaude: "claude-opus-5" });
+    expect(again.changed).toBe(false);
+    expect(again.modelCodex).toBe("gpt-5.6-sol");
+    expect(again.modelClaude).toBe("claude-opus-5");
   });
 });

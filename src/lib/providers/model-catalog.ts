@@ -9,8 +9,8 @@ const CODEX_COLOR_ICON_URL = `${import.meta.env.BASE_URL}codex-color.svg`;
 const CURSOR_COLOR_ICON_URL = `${import.meta.env.BASE_URL}cursor-color.svg`;
 const KIRO_COLOR_ICON_URL = `${import.meta.env.BASE_URL}kiro-color.svg`;
 export const STAVE_LOGO_URL = `${import.meta.env.BASE_URL}stave-logo.svg`;
-export const DEFAULT_CLAUDE_OPUS_MODEL = "claude-opus-5";
-export const DEFAULT_CLAUDE_OPUS_1M_MODEL = "claude-opus-5[1m]";
+export const DEFAULT_CLAUDE_OPUS_MODEL = "claude-opus-5-5";
+export const DEFAULT_CLAUDE_OPUS_1M_MODEL = "claude-opus-5-5[1m]";
 export const DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL = "claude-opus-4-8";
 export const DEFAULT_CLAUDE_OPUS_1M_FALLBACK_MODEL = "claude-opus-4-8[1m]";
 export const CLAUDE_FABLE_MODEL = "claude-fable-5-1";
@@ -36,7 +36,7 @@ const LEGACY_AUTOMATIC_CLAUDE_MODELS: Record<string, string> = {
 };
 
 // Source: https://platform.claude.com/docs/en/about-claude/models/overview
-// Latest models comparison (as of 2026-07-25)
+// Latest models comparison (as of 2026-09-23)
 // The [1m] suffix activates the 1M-token context window; the Claude SDK
 // parses it and auto-injects the `context-1m-2025-08-07` beta header.
 export const CLAUDE_SDK_MODEL_OPTIONS = [
@@ -50,21 +50,14 @@ export const CLAUDE_SDK_MODEL_OPTIONS = [
   DEFAULT_CLAUDE_HAIKU_MODEL,
 ] as const;
 
-// Source:
-// - local `codex app-server` / CLI baseline support
-// - https://developers.openai.com/codex/models (GPT-5.6 family, 2026-07-09)
-// - verified against codex-cli 0.153.2 `model/list` (2026-09-05): the server
-//   catalog leads with gpt-6-astra (marked `isDefault`, supports every effort
-//   through "ultra") ahead of gpt-5.6-sol/terra/luna and legacy models.
-// GPT-6 ships Astra as the frontier model; GPT-5.6 remains as Sol (flagship),
-// Terra (balanced), and Luna (fast/cheap). Previous-generation variants stay
-// recognizable in historical records but are intentionally absent from the
-// primary picker.
+// Primary catalog verified against https://learn.chatgpt.com/docs/models
+// on 2026-09-23. Terra remains the balanced tier; previous Sol/Luna IDs stay
+// recognizable in historical records and explicit settings.
 export const CODEX_MODEL_OPTIONS = [
   "gpt-6-astra",
-  "gpt-5.6-sol",
+  "gpt-6-sol",
   "gpt-5.6-terra",
-  "gpt-5.6-luna",
+  "gpt-6-luna",
 ] as const;
 
 const CODEX_PICKER_MODEL_SET: ReadonlySet<string> = new Set(
@@ -72,7 +65,7 @@ const CODEX_PICKER_MODEL_SET: ReadonlySet<string> = new Set(
 );
 
 /**
- * True only for the GPT-5.6 trio Stave surfaces in model pickers. A runtime
+ * True only for the primary models Stave surfaces in model pickers. A runtime
  * `model/list` response still ships previous- and next-generation entries; we
  * keep them resolvable for historical records and manual overrides, but they
  * must never widen the picker beyond this catalog.
@@ -158,7 +151,7 @@ export const PROVIDER_DESCRIPTORS = [
     fallbackLabel: "O",
     models: CODEX_MODEL_OPTIONS,
     modelCatalogSource: "runtime",
-    defaultModel: "gpt-5.6-sol",
+    defaultModel: "gpt-6-sol",
     sessionLabel: "Codex thread ID",
     capabilities: {
       primaryTurns: true,
@@ -176,7 +169,7 @@ export const PROVIDER_DESCRIPTORS = [
       },
       utilityInference: {
         supported: true,
-        defaultModel: "gpt-5.6-luna",
+        defaultModel: "gpt-6-luna",
       },
     },
   },
@@ -506,7 +499,7 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
   // Default effort follows each vendor's own recommendation for the model:
   //
   //   frontier (Fable, Astra)    medium
-  //   flagship (Opus 5, Sol)     high
+  //   flagship (Opus 5.5, Sol 6) medium
   //   balanced (Sonnet 5, Terra) high
   //   light    (Luna)            medium
   //
@@ -533,11 +526,25 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     model: DEFAULT_CLAUDE_OPUS_MODEL,
     tier: "frontier",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultClaudeEffort: "high",
+    defaultClaudeEffort: "medium",
   },
   [DEFAULT_CLAUDE_OPUS_1M_MODEL]: {
     providerId: "claude-code",
     model: DEFAULT_CLAUDE_OPUS_1M_MODEL,
+    tier: "frontier",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultClaudeEffort: "medium",
+  },
+  "claude-opus-5": {
+    providerId: "claude-code",
+    model: "claude-opus-5",
+    tier: "frontier",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultClaudeEffort: "high",
+  },
+  "claude-opus-5[1m]": {
+    providerId: "claude-code",
+    model: "claude-opus-5[1m]",
     tier: "frontier",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
     defaultClaudeEffort: "high",
@@ -594,6 +601,24 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
       "max",
       "ultra",
     ],
+  },
+  // Codex supports Ultra for Sol, while Luna caps at Max. The API's
+  // reasoning scale differs; use the Codex documentation for this adapter.
+  "gpt-6-sol": {
+    providerId: "codex",
+    model: "gpt-6-sol",
+    tier: "frontier",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultCodexReasoningEffort: "medium",
+    supportedCodexReasoningEfforts: ALL_CODEX_REASONING_EFFORTS,
+  },
+  "gpt-6-luna": {
+    providerId: "codex",
+    model: "gpt-6-luna",
+    tier: "light",
+    taskTypes: ["quick_edit", "general"],
+    defaultCodexReasoningEffort: "medium",
+    supportedCodexReasoningEfforts: ["low", "medium", "high", "xhigh", "max"],
   },
   "gpt-5.6-sol": {
     providerId: "codex",
@@ -740,10 +765,16 @@ export function resolveDefaultClaudeFallbackModel(args: {
   model: string;
 }): string | undefined {
   const normalizedModel = args.model.trim().toLowerCase();
-  if (normalizedModel === DEFAULT_CLAUDE_OPUS_MODEL) {
+  if (
+    normalizedModel === DEFAULT_CLAUDE_OPUS_MODEL ||
+    normalizedModel === "claude-opus-5"
+  ) {
     return DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL;
   }
-  if (normalizedModel === DEFAULT_CLAUDE_OPUS_1M_MODEL) {
+  if (
+    normalizedModel === DEFAULT_CLAUDE_OPUS_1M_MODEL ||
+    normalizedModel === "claude-opus-5[1m]"
+  ) {
     return DEFAULT_CLAUDE_OPUS_1M_FALLBACK_MODEL;
   }
   return undefined;
@@ -757,6 +788,12 @@ export function resolveDefaultClaudeEffortForModel(args: {
   // must be tested before Opus so the shared frontier tier does not drag it up
   // a rung.
   if (normalizedModel.includes("fable")) {
+    return "medium";
+  }
+  if (
+    normalizedModel === DEFAULT_CLAUDE_OPUS_MODEL ||
+    normalizedModel === DEFAULT_CLAUDE_OPUS_1M_MODEL
+  ) {
     return "medium";
   }
   if (normalizedModel.includes("opus")) {
@@ -1052,17 +1089,29 @@ export const MODEL_PRICING: Partial<Record<string, ModelPrice>> = {
     asOf: "2026-09-14",
   },
   [DEFAULT_CLAUDE_OPUS_MODEL]: {
+    inputPerMTok: 4,
+    outputPerMTok: 20,
+    source: CLAUDE_PRICING_SOURCE,
+    asOf: "2026-09-23",
+  },
+  [DEFAULT_CLAUDE_OPUS_1M_MODEL]: {
+    inputPerMTok: 4,
+    outputPerMTok: 20,
+    source: CLAUDE_PRICING_SOURCE,
+    asOf: "2026-09-23",
+    note: "The 1M context window bills at the standard rate.",
+  },
+  "claude-opus-5": {
     inputPerMTok: 5,
     outputPerMTok: 25,
     source: CLAUDE_PRICING_SOURCE,
     asOf: "2026-09-14",
   },
-  [DEFAULT_CLAUDE_OPUS_1M_MODEL]: {
+  "claude-opus-5[1m]": {
     inputPerMTok: 5,
     outputPerMTok: 25,
     source: CLAUDE_PRICING_SOURCE,
     asOf: "2026-09-14",
-    note: "The 1M context window bills at the standard rate.",
   },
   [DEFAULT_CLAUDE_SONNET_MODEL]: {
     inputPerMTok: 2,
@@ -1088,6 +1137,19 @@ export const MODEL_PRICING: Partial<Record<string, ModelPrice>> = {
     outputPerMTok: 50,
     source: CODEX_PRICING_SOURCE,
     asOf: "2026-09-14",
+  },
+  "gpt-6-sol": {
+    inputPerMTok: 2,
+    outputPerMTok: 10,
+    source: CODEX_PRICING_SOURCE,
+    asOf: "2026-09-23",
+    note: "Standard price below the 272K input-token threshold.",
+  },
+  "gpt-6-luna": {
+    inputPerMTok: 0.1,
+    outputPerMTok: 0.5,
+    source: CODEX_PRICING_SOURCE,
+    asOf: "2026-09-23",
   },
   "gpt-5.6-sol": {
     inputPerMTok: 4,
@@ -1147,12 +1209,14 @@ export function toHumanModelName(args: { model: string }) {
   const known: Record<string, string> = {
     [CLAUDE_FABLE_MODEL]: "Claude Fable 5.1",
     "claude-fable-5": "Claude Fable 5",
-    [DEFAULT_CLAUDE_OPUS_MODEL]: "Claude Opus 5",
-    [DEFAULT_CLAUDE_OPUS_1M_MODEL]: "Claude Opus 5 (1M)",
+    [DEFAULT_CLAUDE_OPUS_MODEL]: "Claude Opus 5.5",
+    [DEFAULT_CLAUDE_OPUS_1M_MODEL]: "Claude Opus 5.5 (1M)",
     // Legacy labels kept so historical chat/turn records still render a
     // recognizable name after the preset options migrated.
     [DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL]: "Claude Opus 4.8",
     [DEFAULT_CLAUDE_OPUS_1M_FALLBACK_MODEL]: "Claude Opus 4.8 (1M)",
+    "claude-opus-5": "Claude Opus 5",
+    "claude-opus-5[1m]": "Claude Opus 5 (1M)",
     "claude-opus-4-7": "Claude Opus 4.7",
     "claude-opus-4-7[1m]": "Claude Opus 4.7 (1M)",
     "claude-opus-4-6": "Claude Opus 4.6",
@@ -1164,6 +1228,8 @@ export function toHumanModelName(args: { model: string }) {
     "claude-sonnet-4-6[1m]": "Claude Sonnet 4.6 (1M)",
     [DEFAULT_CLAUDE_HAIKU_MODEL]: "Claude Haiku 4.5",
     "gpt-6-astra": "GPT-6 Astra",
+    "gpt-6-sol": "GPT-6 Sol",
+    "gpt-6-luna": "GPT-6 Luna",
     "gpt-5.6-sol": "GPT-5.6 Sol",
     "gpt-5.6-terra": "GPT-5.6 Terra",
     "gpt-5.6-luna": "GPT-5.6 Luna",

@@ -219,7 +219,7 @@ describe("analyzeUsage", () => {
   test("writes human insights from the aggregates", () => {
     const analysis = analyzeUsage(buildFixture());
 
-    expect(analysis.insights).toContain("You ran 5 of 6 Plan prompts on Claude Opus 5");
+    expect(analysis.insights).toContain("You ran 5 of 6 Plan prompts on Claude Opus 5.5");
     expect(analysis.insights).toContain(
       "/ship goes to Claude Haiku 4.5 every time (3 runs)",
     );
@@ -297,7 +297,7 @@ describe("buildProfileFromUsage", () => {
       effort: "medium",
     });
     expect(plan.reason).toBe(
-      "You usually run plan prompts on Claude Opus 5 (5 of 6 turns)",
+      "You usually run plan prompts on Claude Opus 5.5 (5 of 6 turns)",
     );
 
     const implement = findRule(
@@ -341,8 +341,8 @@ describe("buildProfileFromUsage", () => {
     expect(planChange).toEqual({
       kind: "rule",
       taskClass: "plan",
-      after: "Claude Opus 5 (Claude) · Medium",
-      evidence: "You usually run plan prompts on Claude Opus 5 (5 of 6 turns)",
+      after: "Claude Opus 5.5 (Claude) · Medium",
+      evidence: "You usually run plan prompts on Claude Opus 5.5 (5 of 6 turns)",
     });
     // The balanced fixture keeps the balanced base stance.
     expect(changes.some((change) => change.kind === "stance")).toBe(false);

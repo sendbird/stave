@@ -48,7 +48,7 @@ describe("auxiliary inference policy defaults", () => {
         policy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
         activeProviderId: "codex",
       }).model,
-    ).toBe("gpt-5.6-luna");
+    ).toBe("gpt-6-luna");
   });
 
   test("falls back to the other provider for the turn summary", () => {
@@ -61,7 +61,7 @@ describe("auxiliary inference policy defaults", () => {
         policy: DEFAULT_AUXILIARY_INFERENCE_POLICY,
         activeProviderId: "claude-code",
       }).fallbackModel,
-    ).toBe("gpt-5.6-luna");
+    ).toBe("gpt-6-luna");
     expect(
       resolveAuxLaneRuntime({
         lane: "turnSummary",

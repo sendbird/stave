@@ -143,6 +143,8 @@ const ROUTE_TIER_BY_MODEL: Readonly<Record<string, RouteTier>> = {
   [DEFAULT_CLAUDE_SONNET_1M_MODEL]: "balanced",
   [DEFAULT_CLAUDE_HAIKU_MODEL]: "light",
   "gpt-6-astra": "frontier",
+  "gpt-6-sol": "flagship",
+  "gpt-6-luna": "light",
   "gpt-5.6-sol": "flagship",
   "gpt-5.5": "flagship",
   "gpt-5.6-terra": "balanced",

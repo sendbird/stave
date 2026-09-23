@@ -15,8 +15,8 @@ const CODEX_MODEL_CACHE_TTL_MS = 5 * 60 * 1000;
 
 /**
  * Intersection of the Stave model catalog and the App Server's dynamic
- * `model/list` result. The picker is pinned to the GPT-5.6 trio: the static
- * catalog keeps all three selectable even when the installed Codex binary
+ * `model/list` result. The picker is pinned to the primary catalog: the static
+ * catalog keeps new models selectable even when the installed Codex binary
  * still reports an older lineup, and server-only models (previous
  * generations, experimental IDs) are dropped instead of appended.
  */

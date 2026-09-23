@@ -304,7 +304,7 @@ describe("resolveAutoRoutingDecision", () => {
       },
     });
     expect(decision.source).toBe("classifier");
-    expect(decision.model).toBe("gpt-5.6-luna");
+    expect(decision.model).toBe("gpt-6-luna");
   });
 
   test("manual model override short-circuits auto routing", async () => {
