@@ -1,8 +1,40 @@
 import { describe, expect, test } from "bun:test";
-import { mapCursorUsageResponse } from "../electron/providers/rate-limits/cursor-usage-fetcher";
+import {
+  mapCursorUsageResponse,
+  readCursorMacKeychainToken,
+} from "../electron/providers/rate-limits/cursor-usage-fetcher";
 import { mapKiroUsageResponse } from "../electron/providers/rate-limits/kiro-usage-fetcher";
 
 describe("Cursor account usage mapping", () => {
+  test("reads the Agent login from its account-qualified macOS Keychain entry", () => {
+    expect(
+      readCursorMacKeychainToken((args) => {
+        expect(args).toEqual([
+          "find-generic-password",
+          "-s",
+          "cursor-access-token",
+          "-a",
+          "cursor-user",
+          "-w",
+        ]);
+        return "saved-token\n";
+      }, "darwin"),
+    ).toBe("saved-token");
+  });
+
+  test("skips Keychain outside macOS and tolerates an unavailable entry", () => {
+    expect(
+      readCursorMacKeychainToken(() => {
+        throw new Error("should not read Keychain");
+      }, "linux"),
+    ).toBeNull();
+    expect(
+      readCursorMacKeychainToken(() => {
+        throw new Error("entry unavailable");
+      }, "darwin"),
+    ).toBeNull();
+  });
+
   test("maps monthly spend and model buckets", () => {
     expect(
       mapCursorUsageResponse({

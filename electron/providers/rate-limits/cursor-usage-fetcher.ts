@@ -1,3 +1,4 @@
+import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -12,6 +13,8 @@ const CURSOR_USAGE_URL =
   "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage";
 const REQUEST_TIMEOUT_MS = 10_000;
 const CURSOR_ACCESS_TOKEN_KEY = "cursorAuth/accessToken";
+const CURSOR_AGENT_KEYCHAIN_SERVICE = "cursor-access-token";
+const CURSOR_AGENT_KEYCHAIN_ACCOUNT = "cursor-user";
 
 type CursorDashboardUsage = {
   totalPercentUsed?: unknown;
@@ -185,6 +188,34 @@ function parseStoredToken(value: unknown): string | null {
   }
 }
 
+export function readCursorMacKeychainToken(
+  readPassword: (args: string[]) => string = (args) =>
+    execFileSync("/usr/bin/security", args, {
+      encoding: "utf8",
+      timeout: 3_000,
+      stdio: ["ignore", "pipe", "ignore"],
+    }),
+  platform = process.platform,
+): string | null {
+  if (platform !== "darwin") {
+    return null;
+  }
+  try {
+    return parseStoredToken(
+      readPassword([
+        "find-generic-password",
+        "-s",
+        CURSOR_AGENT_KEYCHAIN_SERVICE,
+        "-a",
+        CURSOR_AGENT_KEYCHAIN_ACCOUNT,
+        "-w",
+      ]).trim(),
+    );
+  } catch {
+    return null;
+  }
+}
+
 function readCursorAgentToken(): string | null {
   try {
     const raw: unknown = JSON.parse(
@@ -221,7 +252,10 @@ function readCursorIdeToken(): string | null {
 }
 
 export async function fetchCursorUsageSnapshot(): Promise<CursorUsageSnapshot> {
-  const accessToken = readCursorAgentToken() ?? readCursorIdeToken();
+  const accessToken =
+    readCursorMacKeychainToken() ??
+    readCursorAgentToken() ??
+    readCursorIdeToken();
   if (!accessToken) {
     return unavailable("Sign in to Cursor Agent or Cursor IDE to view usage.");
   }
