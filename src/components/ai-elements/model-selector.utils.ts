@@ -1,4 +1,3 @@
-import { CODEX_MODEL_AVAILABILITY_GUIDANCE } from "@/lib/providers/codex-model-requirements";
 import { getClaudeModelVersionGuidance } from "@/lib/providers/claude-model-requirements";
 import {
   getSdkModelOptions,
@@ -55,7 +54,7 @@ function buildModelSelectorOption(args: {
       args.description,
       args.providerId === "claude-code"
         ? getClaudeModelVersionGuidance(args.model)
-        : args.providerId === "codex" ? CODEX_MODEL_AVAILABILITY_GUIDANCE : undefined,
+        : args.providerId === "codex" && !args.description ? "Runtime support unconfirmed. You can still select this model." : undefined,
     ].filter(Boolean).join(" ") || undefined,
     isDefault: args.isDefault,
     defaultEffort: args.defaultEffort,
@@ -68,6 +67,7 @@ export function buildModelSelectorValue(args: {
   model: string;
   providerId?: ProviderId;
   label?: string;
+  description?: string;
   available?: boolean;
 }): ModelSelectorOption {
   const model = args.model.trim();
@@ -80,6 +80,7 @@ export function buildModelSelectorValue(args: {
     // a provider mark from "" made Background AI look pinned to Claude.
     label: args.label ?? (model ? undefined : "Default"),
     available: args.available,
+    description: args.description,
   });
 }
 

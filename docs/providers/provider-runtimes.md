@@ -1493,3 +1493,14 @@ are shown without treating policy routing as a version failure. Unsupported-mode
 and outdated-client errors retain the provider's message (including any minimum
 version) and add installation-specific update guidance. No unverified minimum
 version is assigned to GPT-6 Sol or Luna. See the [CLI installation guide](https://learn.chatgpt.com/docs/codex/cli).
+
+Model selection remains non-blocking when runtime support is unknown. Codex
+picker descriptions distinguish entries advertised by the current runtime from
+static entries whose support is unconfirmed; an advertised entry is not a
+promise of account access. Installation guidance remains in Tooling settings
+and compatibility errors rather than being repeated on every picker row.
+Provider model-change events also carry optional `modelExecution` evidence
+(requested model, reported model, and reason). Replay and saved messages preserve
+it across same-turn message splits. The run overview exposes the evidence inside
+a closed Model details disclosure without adding a confirmation step. Older
+messages remain valid without this optional evidence.

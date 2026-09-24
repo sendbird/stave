@@ -481,6 +481,7 @@ function inheritNativeTurnIdentity(args: {
       ? {
           providerId: from.providerId,
           model: from.model,
+          ...(from.modelExecution ? { modelExecution: from.modelExecution } : {}),
           ...(from.modelResolution
             ? { modelResolution: from.modelResolution }
             : {}),
@@ -919,6 +920,7 @@ export function appendProviderEventToAssistant(args: {
       ...message,
       providerId: args.event.resolvedProviderId,
       model: args.event.resolvedModel,
+      ...(args.event.modelExecution ? { modelExecution: args.event.modelExecution } : {}),
       ...(args.event.modelResolution
         ? { modelResolution: args.event.modelResolution }
         : {}),

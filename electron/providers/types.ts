@@ -1,3 +1,4 @@
+import type { ModelExecution } from "../../src/lib/providers/model-execution";
 import type { StaveCollaborationGrants } from "./stave-collaboration-grants";
 import type {
   AdvisorActivityPhase,
@@ -325,6 +326,7 @@ export type BridgeEvent =
       type: "model_resolved";
       resolvedProviderId: ProviderId;
       resolvedModel: string;
+      modelExecution?: ModelExecution;
     }
   | { type: "error"; message: string; recoverable: boolean }
   | { type: "done"; stop_reason?: string };

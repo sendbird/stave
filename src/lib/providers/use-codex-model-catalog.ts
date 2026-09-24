@@ -107,7 +107,10 @@ async function loadCodexModelCatalog(args: {
             ? { codexBinaryPath: args.binaryPath.trim() }
             : undefined,
       });
-      const visibleEntries = result.models.filter((model) => !model.hidden);
+      const visibleEntries = result.models.filter((model) => !model.hidden).map(entry => ({
+        ...entry,
+        description: [result.ok ? "Listed by the current Codex runtime." : "Runtime support unconfirmed.", entry.description].filter(Boolean).join(" "),
+      }));
       const models = visibleEntries
         .map((model) => model.model.trim())
         .filter(Boolean);

@@ -117,3 +117,20 @@ describe("TaskRunOverviewView", () => {
     expect(html).not.toContain("<summary");
   });
 });
+
+
+test("keeps manual model changes in a closed disclosure without adding confirmation controls", () => {
+  const html = renderToStaticMarkup(createElement(TaskRunOverviewView, {
+    title: "Last run", status: { label: "Completed", tone: "success" }, runTurnId: "turn-1",
+    actualModel: { providerId: "codex", model: "gpt-6-luna", modelExecution: {
+      requestedModel: "gpt-6-sol", actualModel: "gpt-6-luna", reason: "The runtime selected a different model.",
+    } },
+  }));
+  expect(html).toContain("Model details");
+  expect(html).toContain("Requested model");
+  expect(html).toContain("GPT-6 Sol");
+  expect(html).toContain("GPT-6 Luna");
+  expect(html).toContain("The runtime selected a different model.");
+  expect(html).not.toMatch(/<details[^>]*open/);
+  expect(html).not.toContain("<button");
+});

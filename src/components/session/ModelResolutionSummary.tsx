@@ -1,3 +1,4 @@
+import type { ModelExecution } from "@/lib/providers/model-execution";
 import { sx } from "../ads/utils/stylex";
 import { resultStyles as styles } from "./result-review.styles";
 import type {
@@ -33,6 +34,7 @@ export interface ActualRunModel {
   model: string;
   /** Effort / fast-mode the run was dispatched with, when the record kept it. */
   modelInfo?: TurnModelInfo;
+  modelExecution?: ModelExecution;
 }
 
 /**
@@ -92,6 +94,14 @@ export function ModelResolutionSummary(props: {
           >
             {actualLabel ?? "Not reported"}
           </dd>
+        </>
+      ) : null}
+      {props.actual?.modelExecution ? (
+        <>
+          <dt className={sx(styles.muted)}>Requested model</dt>
+          <dd className={sx(styles.modelValue)}>{toHumanModelName({ model: props.actual.modelExecution.requestedModel })}</dd>
+          <dt className={sx(styles.muted)}>Model change</dt>
+          <dd className={sx(styles.modelReason)}>{props.actual.modelExecution.reason}</dd>
         </>
       ) : null}
       {props.resolution ? (

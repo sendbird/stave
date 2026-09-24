@@ -1,3 +1,4 @@
+import { ModelExecutionSchema } from "./model-execution";
 import { AutoRoutingModelResolutionSchema } from "./model-resolution";
 import { WORKER_PRESET_IDS } from "./worker-preset-ids";
 import { z } from "zod";
@@ -386,6 +387,7 @@ const ModelResolvedEventSchema = z.object({
   resolvedProviderId: ProviderIdSchema,
   resolvedModel: z.string(),
   modelResolution: AutoRoutingModelResolutionSchema.optional(),
+  modelExecution: ModelExecutionSchema.optional(),
 });
 
 const SubagentProgressEventSchema = z.object({

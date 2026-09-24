@@ -93,3 +93,11 @@ describe("mergeProviderModelCatalogEntries", () => {
     expect(merged.map((item) => item.model)).toContain("auto");
   });
 });
+
+
+test("distinguishes listed Codex models from unconfirmed static models without removing either", () => {
+  const merged = mergeProviderModelCatalogEntries({ providerId: "codex", dynamicEntries: [entry({ model: "gpt-6-sol", description: "Provider description" })] });
+  expect(merged.find(item => item.model === "gpt-6-sol")?.description).toContain("Listed by the current Codex runtime");
+  expect(merged.find(item => item.model === "gpt-6-sol")?.description).toContain("Provider description");
+  expect(merged.find(item => item.model === "gpt-6-luna")?.description).toContain("Runtime support unconfirmed");
+});

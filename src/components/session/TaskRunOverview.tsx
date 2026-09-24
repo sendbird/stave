@@ -207,6 +207,7 @@ export function TaskRunOverview() {
           providerId: message.providerId,
           model: message.model,
           modelInfo: message.modelInfo,
+          modelExecution: message.modelExecution,
         }
       : null;
   const hasRun = Boolean(activeTurnId || message || activity || retained);
@@ -260,7 +261,7 @@ export function TaskRunOverviewView(props: {
   // "Running" repeats what the activity headline below already says in words,
   // so the status only speaks when the run ended or needs something.
   const restingTone = status.tone === "active" ? null : status.tone;
-  const hasRoutingDetails = Boolean(resolution);
+  const hasRoutingDetails = Boolean(resolution || actualModel?.modelExecution);
 
   const headerRow = (
     <>
@@ -309,7 +310,7 @@ export function TaskRunOverviewView(props: {
           className={sx(styles.modelDetails)}
         >
           <summary className={sx(styles.disclosure, focusRing.ring)}>
-            Routing details
+            {resolution ? "Routing details" : "Model details"}
           </summary>
           <div className={sx(styles.modelContent)}>
             <ModelResolutionSummary

@@ -145,6 +145,16 @@ describe("model capability toggles", () => {
       ),
     );
   });
+  test("Opus 5.5 shows its 1M state only in the separate context toggle", async () => {
+    const html = await renderCapabilityControl({
+      providerId: "claude-code", model: "claude-opus-5-5[1m]",
+      extraModels: ["claude-opus-5-5"],
+    });
+    expect(html).toContain('aria-label="1M context: On"');
+    expect(html).toContain("Claude Opus 5.5");
+    expect(html).not.toContain("Claude Opus 5.5 (1M)");
+  });
+
 });
 
 afterEach(() => {

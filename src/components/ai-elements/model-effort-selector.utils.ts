@@ -179,7 +179,12 @@ export function getCursorModelPresentation(
   option: ModelSelectorOption,
 ): CursorModelPresentation {
   if (option.providerId !== "cursor") {
-    return { label: option.label, capabilities: [] };
+    return {
+      label: option.providerId === "claude-code"
+        ? getClaudeContextBaseLabel(option.label)
+        : option.label,
+      capabilities: [],
+    };
   }
   // A label still carrying bracket syntax is the humanized raw id, which is
   // what a model outside the loaded catalog falls back to. Describing the id
