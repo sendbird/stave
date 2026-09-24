@@ -9,7 +9,7 @@ const assistant = (model: string, extra = {}) => ({ type: "assistant", parent_to
 test("version rejection surfaces models, minimum version and recovery without raw error payload", () => {
   const track = createClaudeModelResolutionTracker("claude-opus-5-5");
   const events = track({ type: "system", subtype: "model_fallback", originalModel: "claude-opus-5-5", fallbackModel: "claude-opus-4-8", content: 'Claude Code 2.1.276 does not support this model; version 2.1.280 or newer is required. claude_code_version_too_old request_id=private' });
-  expect(events[0]).toEqual({ type: "model_resolved", resolvedProviderId: "claude-code", resolvedModel: "claude-opus-4-8" });
+  expect(events[0]).toMatchObject({ type: "model_resolved", resolvedProviderId: "claude-code", resolvedModel: "claude-opus-4-8", modelExecution: { requestedModel: "claude-opus-5-5", actualModel: "claude-opus-4-8" } });
   const notice = events[1];
   expect(notice?.type).toBe("system");
   if (notice?.type !== "system") throw new Error("Missing notice");

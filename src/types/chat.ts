@@ -1,3 +1,4 @@
+import type { ModelExecution } from "@/lib/providers/model-execution";
 import type { LensAnnotation } from "@/lib/lens/lens.types";
 // Type-only, and `provider.types` imports this module the same way, so the
 // cycle is erased at compile time rather than existing at runtime.
@@ -385,6 +386,7 @@ export interface ChatMessage {
   modelInfo?: TurnModelInfo;
   /** Explanation captured for an automatic primary-model routing decision. */
   modelResolution?: AutoRoutingModelResolution;
+  modelExecution?: ModelExecution;
   content: string;
   displayContent?: string;
   startedAt?: string;

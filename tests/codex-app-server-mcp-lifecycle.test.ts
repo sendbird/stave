@@ -1385,7 +1385,7 @@ describe("Codex worker activity identity mapping", () => {
 
 test("surfaces thread resolution and rerouting only for the active Codex turn", async () => {
   const events = await streamScenario("model-reroute", { model: "gpt-6-sol" }, ["model_resolved", "system"]);
-  expect(events.filter(event => event.type === "model_resolved")).toEqual([
+  expect(events.filter(event => event.type === "model_resolved")).toMatchObject([
     { type: "model_resolved", resolvedProviderId: "codex", resolvedModel: "gpt-5.6-sol" },
     { type: "model_resolved", resolvedProviderId: "codex", resolvedModel: "gpt-6-astra" },
   ]);

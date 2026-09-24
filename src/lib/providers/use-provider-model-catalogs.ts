@@ -42,7 +42,7 @@ function fallbackEntries(providerId: ProviderId): ProviderModelCatalogEntry[] {
   return getSdkModelOptions({ providerId }).map((model) => ({
     model,
     displayName: toHumanModelName({ model }),
-    description: "",
+    description: providerId === "codex" ? "Runtime support unconfirmed. You can still select this model." : "",
     hidden: false,
     isDefault: model === descriptor.defaultModel,
     defaultEffort: null,
@@ -110,9 +110,9 @@ export function mergeProviderModelCatalogEntries(args: {
     if (!model || entry.hidden || model === runtimeAuto?.model.trim()) {
       continue;
     }
-    // Codex pickers stay pinned to the GPT-5.6 trio in the static catalog.
+    // Codex pickers stay pinned to the primary static catalog.
     // A runtime `model/list` may still advertise previous-generation or
-    // experimental IDs; they may enrich the three catalog entries but must
+    // experimental IDs; they may enrich the catalog entries but must
     // never add rows of their own.
     if (args.providerId === "codex" && !isCodexPickerModel(model)) {
       continue;
@@ -120,6 +120,7 @@ export function mergeProviderModelCatalogEntries(args: {
     merged.set(model, {
       ...entry,
       model,
+      ...(args.providerId === "codex" ? { description: ["Listed by the current Codex runtime.", entry.description].filter(Boolean).join(" ") } : {}),
       // `auto` is the default row for these providers; leaving the runtime's
       // moving default set here would reshuffle the picker's featured rows
       // every time the session's selection changed.
@@ -221,7 +222,7 @@ export async function loadProviderModelCatalog(args: {
       });
       const entries = mergeProviderModelCatalogEntries({
         providerId: args.providerId,
-        dynamicEntries: result.models,
+        dynamicEntries: result.ok ? result.models : [],
       });
       registerCatalogMetadata({
         providerId: args.providerId,

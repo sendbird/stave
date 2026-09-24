@@ -22,6 +22,10 @@ export function createCodexModelResolutionTracker(requestedModel?: string) {
       const explanation = reason === "highRiskCyberActivity"
         ? "Codex rerouted this turn under its high-risk cyber activity policy."
         : "Codex selected a different model; the runtime did not provide a recognized reason.";
+      const resolved = events[0];
+      if (resolved?.type === "model_resolved") {
+        resolved.modelExecution = { requestedModel: modelId(requestedModel) ?? previous, actualModel: actual, reason: explanation };
+      }
       events.push({ type: "system", content: `Model changed: ${previous} → ${actual}.\n${explanation}` });
     }
     return events;

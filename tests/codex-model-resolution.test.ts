@@ -1,3 +1,4 @@
+import { ChatMessageSchema } from "../src/lib/task-context/schemas";
 import { expect, test } from "bun:test";
 import { createCodexModelResolutionTracker } from "../electron/providers/codex-model-resolution";
 import { toCodexUserFacingErrorMessage } from "../electron/providers/codex-app-server-errors";
@@ -52,6 +53,15 @@ test("compatibility errors retain supplied minimum versions and provide installa
 
 test("Codex selector explains availability without inventing a minimum version", () => {
   const option = buildModelSelectorOptions({ providerIds: ["codex"] }).find(option => option.model === "gpt-6-sol");
-  expect(option?.description).toContain("version and account");
-  expect(option?.description).toContain("original installation method");
+  expect(option?.description).toContain("Runtime support unconfirmed");
+  expect(option?.description).toContain("You can still select this model");
+});
+
+
+test("execution evidence survives schema persistence and a same-turn plan split", () => {
+  const track = createCodexModelResolutionTracker("gpt-6-sol");
+  const events = track.resolve("gpt-6-luna");
+  const state = replayProviderEventsToTaskState({ taskId: "task", messages: [], provider: "codex", model: "gpt-6-sol", events: [...events, { type: "plan_ready", planText: "Implement the requested change." }, { type: "text", text: "Complete." }, { type: "done" }] });
+  const saved = ChatMessageSchema.parse(JSON.parse(JSON.stringify(state.messages.at(-1))));
+  expect(saved.modelExecution).toMatchObject({ requestedModel: "gpt-6-sol", actualModel: "gpt-6-luna" });
 });

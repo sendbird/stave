@@ -1,3 +1,4 @@
+import { ModelExecutionSchema } from "@/lib/providers/model-execution";
 import { WORKER_PRESET_IDS } from "../providers/worker-preset-ids";
 import {
   PersistedLensAnnotationSchema,
@@ -530,6 +531,7 @@ export const ChatMessageSchema = z.object({
   nativeProviderTurnId: z.string().optional(),
   turnId: z.string().optional(),
   modelResolution: AutoRoutingModelResolutionSchema.optional().catch(undefined),
+  modelExecution: ModelExecutionSchema.optional().catch(undefined),
   modelInfo: z
     .object({
       effort: z.union([

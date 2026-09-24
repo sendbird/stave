@@ -1,3 +1,4 @@
+import { buildModelSelectorValue } from "@/components/ai-elements/model-selector.utils";
 import { describe, expect, test } from "bun:test";
 import {
   collapseClaudeContextOptions,
@@ -422,4 +423,19 @@ describe("model effort selector utilities", () => {
     );
     expect(getClaudeContextBaseLabel("Claude Fable 5")).toBe("Claude Fable 5");
   });
+});
+
+
+test("Claude context variants keep one base model label and a reversible context toggle", () => {
+  for (const model of ["claude-opus-5-5", "claude-opus-5", "claude-sonnet-5"]) {
+    const base = buildModelSelectorValue({ providerId: "claude-code", model });
+    const extended = buildModelSelectorValue({ providerId: "claude-code", model: `${model}[1m]` });
+    const options = [base, extended];
+    const collapsed = collapseClaudeContextOptions({ options, context1M: true });
+    expect(collapsed).toHaveLength(1);
+    expect(collapsed[0]?.model).toBe(`${model}[1m]`);
+    expect(getCursorModelPresentation(collapsed[0]!).label).toBe(base.label);
+    expect(supportsClaudeContextToggle({ options, option: extended })).toBe(true);
+    expect(resolveClaudeContextOption({ options, option: extended, context1M: false }).model).toBe(model);
+  }
 });

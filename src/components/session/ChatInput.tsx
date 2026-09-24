@@ -2765,6 +2765,7 @@ function BaseChatInput() {
         label: providerModelCatalogs.catalogs[
           activeProvider
         ].entries.find((entry) => entry.model === activeModel)?.displayName,
+        description: providerModelCatalogs.catalogs[activeProvider].entries.find((entry) => entry.model === activeModel)?.description,
         available: activeProviderAvailable,
       });
   const modelEnrichment = useMemo(() => {

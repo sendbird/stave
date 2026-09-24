@@ -1,3 +1,4 @@
+import type { ModelExecution } from "./model-execution";
 import type {
   CodeDiffPart,
   FileContextPart,
@@ -1160,6 +1161,7 @@ export type NormalizedProviderEvent =
       type: "model_resolved";
       resolvedProviderId: ProviderId;
       resolvedModel: string;
+      modelExecution?: ModelExecution;
       /** Present only for Stave's automatic primary-model routing decision. */
       modelResolution?: AutoRoutingModelResolution;
     }

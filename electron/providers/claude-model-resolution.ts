@@ -35,6 +35,10 @@ export function createClaudeModelResolutionTracker(requestedModel?: string) {
     const guidance = versionError && minimum
       ? `Requires Claude Code ${minimum[1]} or newer. Run \`claude update\`, or update the Claude desktop app, then retry.`
       : getClaudeModelVersionGuidance(previous);
+    const resolved = events[0];
+    if (resolved?.type === "model_resolved") {
+      resolved.modelExecution = { requestedModel: modelId(requestedModel) ?? previous, actualModel: actual, reason: reason };
+    }
     events.push({ type: "system", content: `Model changed: ${previous} → ${actual}.\n${reason}${guidance ? ` ${guidance}` : ""}` });
     return events;
   };

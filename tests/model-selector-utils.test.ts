@@ -184,7 +184,7 @@ describe("model selector utils", () => {
 
     // Models without enrichment still show runtime compatibility guidance.
     const luna = options.find((option) => option.model === "gpt-6-luna");
-    expect(luna?.description).toContain("version and account");
+    expect(luna?.description).toContain("Runtime support unconfirmed");
     expect(luna?.isDefault).toBeUndefined();
   });
 
