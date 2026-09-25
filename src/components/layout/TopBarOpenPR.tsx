@@ -1,8 +1,4 @@
-import { Checkbox } from "@/components/ads/components/Checkbox";
 import { Button as AdsButton } from "@/components/ads/components/Button";
-import { Skeleton } from "@/components/ads/components/Skeleton";
-import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
-import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import * as stylex from "@stylexjs/stylex";
 import {
@@ -16,19 +12,21 @@ import {
 import { useShallow } from "zustand/react/shallow";
 import {
   ArrowRight,
-  CheckCircle2,
-  ChevronRight,
   ExternalLink,
   GitBranch,
   GitPullRequest,
-  Info,
   MessageSquare,
   RefreshCw,
-  TriangleAlert,
 } from "lucide-react";
 import { ContinueWorkspaceDialog } from "@/components/layout/ContinueWorkspaceDialog";
 import { PrContextDialog } from "@/components/layout/PrContextDialog";
-import { CreateWorkspaceBranchPicker } from "@/components/layout/CreateWorkspaceBranchPicker";
+import { CreatePullRequestDialog } from "@/components/layout/pull-request/CreatePullRequestDialog";
+import {
+  FIELD_LABEL_CLASS,
+  InlineNoticeBanner,
+  type InlineNotice,
+  type ScmStatusItem,
+} from "@/components/layout/pull-request/create-pr-dialog-panels";
 import {
   Button,
   DropdownMenu,
@@ -37,15 +35,12 @@ import {
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
-  Input,
   Loader,
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-  Switch,
-  Textarea,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -65,7 +60,6 @@ import {
   isReasonablePullRequestTitle,
 } from "@/lib/source-control-pr";
 import {
-  canApplyCreatePrDialogOpenChange,
   canSubmitCreatePr,
   buildDriftSelectedFilePaths,
   haveSameCreatePrFileScope,
@@ -161,295 +155,7 @@ function describeGitHubAuthFailure(result: {
 // Types
 // ---------------------------------------------------------------------------
 
-interface ScmStatusItem {
-  path: string;
-  code: string;
-}
-
-type InlineNoticeTone = "info" | "success" | "warning" | "error";
-
-interface InlineNotice {
-  tone: InlineNoticeTone;
-  title: string;
-  description?: string;
-}
-
 type Step = CreatePrDialogStep;
-
-/**
- * Single label language for every field inside the Create PR dialog so labels,
- * controls, and card padding line up on one grid.
- */
-const FIELD_LABEL_CLASS = sx(openPrStyles.fieldLabel);
-
-function InlineNoticeBanner(props: { notice: InlineNotice }) {
-  const toneStyle =
-    props.notice.tone === "success"
-      ? openPrStyles.noticeSuccess
-      : props.notice.tone === "warning"
-        ? openPrStyles.noticeWarning
-        : props.notice.tone === "error"
-          ? openPrStyles.noticeError
-          : openPrStyles.noticeInfo;
-
-  const Icon =
-    props.notice.tone === "success"
-      ? CheckCircle2
-      : props.notice.tone === "warning" || props.notice.tone === "error"
-        ? TriangleAlert
-        : Info;
-
-  return (
-    <div
-      className={sx(openPrStyles.notice, toneStyle)}
-      role="status"
-      aria-live="polite"
-    >
-      <Icon {...stylex.props(openPrStyles.noticeIcon)} />
-      <div className={sx(openPrStyles.noticeBody)}>
-        <p className={sx(openPrStyles.noticeTitle)}>{props.notice.title}</p>
-        {props.notice.description ? (
-          <p className={sx(openPrStyles.noticeDescription)}>
-            {props.notice.description}
-          </p>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function CreatePrLoadingSplash(props: {
-  currentBranch?: string;
-  baseBranch: string;
-}) {
-  return (
-    <div className={sx(openPrStyles.splash)} role="status" aria-live="polite">
-      <div className={sx(openPrStyles.splashCard)}>
-        <div className={sx(openPrStyles.splashRow)}>
-          <div className={sx(openPrStyles.splashMark)}>
-            <Loader
-              aria-hidden
-              className={sx(openPrStyles.splashLoader)}
-              size="xs"
-              variant="scan"
-            />
-          </div>
-          <div className={sx(openPrStyles.splashCopy)}>
-            <p className={sx(openPrStyles.splashTitle)}>Preparing a PR draft</p>
-            <p className={sx(openPrStyles.splashText)}>
-              Reviewing {props.currentBranch ?? "HEAD"} against{" "}
-              {props.baseBranch}, recent commits, and workspace PR guidance.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className={sx(openPrStyles.skeletonCard)}>
-        <div className={sx(openPrStyles.skeletonGroup)}>
-          <Skeleton height={14} radius="9999px" width={56} />
-          <Skeleton height={36} radius="0.5rem" width="100%" />
-        </div>
-
-        <div className={sx(openPrStyles.skeletonGroup)}>
-          <Skeleton height={14} radius="9999px" width={96} />
-          <div className={sx(openPrStyles.skeletonBlock)}>
-            <Skeleton height={12} radius="9999px" width="91.666667%" />
-            <Skeleton height={12} radius="9999px" width="80%" />
-            <Skeleton height={12} radius="9999px" width="60%" />
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function formatReviewFindingLocation(finding: PrePrReviewFinding) {
-  return finding.line ? `${finding.file}:${finding.line}` : finding.file;
-}
-
-function formatReviewFindingKind(kind: PrePrReviewFinding["kind"]) {
-  return kind.replace(/_/g, " ");
-}
-
-function getReviewSeverityStyle(severity: PrePrReviewFinding["severity"]) {
-  if (severity === "critical" || severity === "high") {
-    return openPrStyles.tagDanger;
-  }
-  if (severity === "medium") {
-    return openPrStyles.tagWarning;
-  }
-  return openPrStyles.tagNeutral;
-}
-
-function PrePrReviewFindingsPanel(props: {
-  findings: PrePrReviewFinding[];
-  truncated?: boolean;
-}) {
-  if (props.findings.length === 0) {
-    return null;
-  }
-
-  return (
-    <div className={sx(openPrStyles.panel, openPrStyles.panelWarning)}>
-      <div className={sx(openPrStyles.panelHead)}>
-        <TriangleAlert
-          {...stylex.props(
-            openPrStyles.panelIcon,
-            openPrStyles.panelIconWarning,
-          )}
-        />
-        <div className={sx(openPrStyles.panelCopy)}>
-          <p className={sx(openPrStyles.panelTitle)}>
-            AI review found {props.findings.length} issue
-            {props.findings.length === 1 ? "" : "s"}
-          </p>
-          <p className={sx(openPrStyles.panelText)}>
-            Stop to fix these before opening the PR, or proceed if they are not
-            relevant.
-            {props.truncated ? " The review used a truncated diff." : ""}
-          </p>
-        </div>
-      </div>
-
-      <div className={sx(openPrStyles.panelList)}>
-        {props.findings.map((finding, index) => (
-          <div
-            key={`${finding.file}:${finding.line ?? "file"}:${index}`}
-            className={sx(openPrStyles.panelItem)}
-          >
-            <div className={sx(openPrStyles.panelItemTags)}>
-              <span
-                className={sx(
-                  openPrStyles.tag,
-                  getReviewSeverityStyle(finding.severity),
-                )}
-              >
-                {finding.severity}
-              </span>
-              <span className={sx(openPrStyles.tag, openPrStyles.tagNeutral)}>
-                {formatReviewFindingKind(finding.kind)}
-              </span>
-              <span className={sx(openPrStyles.tagLocation)}>
-                {formatReviewFindingLocation(finding)}
-              </span>
-            </div>
-            <p className={sx(openPrStyles.panelItemMessage)}>
-              {finding.message}
-            </p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function PrePrVerificationPanel(props: {
-  failures: Array<{ scriptId: string; message: string; blocking: boolean }>;
-  blocking: boolean;
-}) {
-  if (props.failures.length === 0) {
-    return null;
-  }
-
-  const containerStyle = props.blocking
-    ? openPrStyles.panelDanger
-    : openPrStyles.panelWarning;
-  const iconStyle = props.blocking
-    ? openPrStyles.panelIconDanger
-    : openPrStyles.panelIconWarning;
-
-  return (
-    <div className={sx(openPrStyles.panel, containerStyle)}>
-      <div className={sx(openPrStyles.panelHead)}>
-        <TriangleAlert {...stylex.props(openPrStyles.panelIcon, iconStyle)} />
-        <div className={sx(openPrStyles.panelCopy)}>
-          <p className={sx(openPrStyles.panelTitle)}>
-            Verification {props.blocking ? "failed" : "reported warnings"} —{" "}
-            {props.failures.length} check
-            {props.failures.length === 1 ? "" : "s"}
-          </p>
-          <p className={sx(openPrStyles.panelText)}>
-            {props.blocking
-              ? "Blocking pr.beforeOpen checks failed. Fix them before opening the PR."
-              : "These pr.beforeOpen checks are non-blocking — proceed anyway, or stop to fix them first."}
-          </p>
-        </div>
-      </div>
-
-      <div className={sx(openPrStyles.panelList)}>
-        {props.failures.map((failure, index) => (
-          <div
-            key={`${failure.scriptId}:${index}`}
-            className={sx(openPrStyles.panelItem)}
-          >
-            <div className={sx(openPrStyles.panelItemTags)}>
-              <span className={sx(openPrStyles.tag, openPrStyles.tagNeutral)}>
-                {failure.scriptId}
-              </span>
-              <span
-                className={sx(
-                  openPrStyles.tag,
-                  failure.blocking
-                    ? openPrStyles.tagOutlineDanger
-                    : openPrStyles.tagOutlineWarning,
-                )}
-              >
-                {failure.blocking ? "blocking" : "non-blocking"}
-              </span>
-            </div>
-            <p className={sx(openPrStyles.panelItemMessage)}>
-              {failure.message}
-            </p>
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function PullRequestBranchFields(props: {
-  currentBranch?: string;
-  defaultBranch: string;
-  disabled?: boolean;
-  loading?: boolean;
-  onTargetBranchChange: (branch: string) => void;
-  targetBranch: string;
-  targetBranchOptions: string[];
-}) {
-  const headBranch = props.currentBranch?.trim() || "HEAD";
-
-  return (
-    <div className={sx(openPrStyles.branchCard)}>
-      <div className={sx(openPrStyles.branchGrid)}>
-        <div className={sx(openPrStyles.branchField)}>
-          <p className={FIELD_LABEL_CLASS}>From</p>
-          <div className={sx(openPrStyles.branchReadout)}>
-            <GitBranch {...stylex.props(openPrStyles.branchReadoutIcon)} />
-            <span className={sx(openPrStyles.truncate)}>{headBranch}</span>
-          </div>
-        </div>
-
-        <ArrowRight
-          {...stylex.props(openPrStyles.branchArrow)}
-          aria-hidden="true"
-        />
-
-        <div className={sx(openPrStyles.branchField)}>
-          <p className={FIELD_LABEL_CLASS}>Into</p>
-          <CreateWorkspaceBranchPicker
-            value={props.targetBranch}
-            defaultBranch={props.defaultBranch}
-            disabled={props.disabled}
-            localBranches={[]}
-            loading={props.loading}
-            remoteBranches={props.targetBranchOptions}
-            onChange={props.onTargetBranchChange}
-          />
-        </div>
-      </div>
-    </div>
-  );
-}
 
 // ---------------------------------------------------------------------------
 // Component
@@ -1662,6 +1368,19 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     });
   }
 
+  function handleCreatePrFileChecked(path: string, checked: boolean) {
+    if (checked) {
+      userDeselectedPathsRef.current.delete(path);
+    } else {
+      userDeselectedPathsRef.current.add(path);
+    }
+    setSelectedFilePaths((paths) =>
+      checked
+        ? [...new Set([...paths, path])]
+        : paths.filter((selectedPath) => selectedPath !== path),
+    );
+  }
+
   // -------------------------------------------------------------------------
   // PR Action handlers
   // -------------------------------------------------------------------------
@@ -1946,6 +1665,11 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     selectedFileCount: selectedFilePaths.length,
     commitMessage,
   });
+  const fallbackCommitMessage = generateFallbackCommitMessage(
+    selectedFilePaths.length > 0
+      ? changedFiles.filter((file) => selectedFilePaths.includes(file.path))
+      : changedFiles,
+  );
   const statusLabel =
     step === "loading"
       ? "Loading..."
@@ -2263,406 +1987,64 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
         </div>
       )}
 
-      {/* --- PR Creation Dialog --- */}
-      <Dialog
-        open={dialogOpen}
-        onOpenChange={(open, eventDetails) => {
-          if (!canApplyCreatePrDialogOpenChange({ open, isDialogBusy })) {
-            eventDetails.cancel();
-            return;
-          }
-          if (open) {
-            setDialogOpen(true);
-            return;
-          }
-          resetCreatePrDialogState({ closeDialog: true });
+      <CreatePullRequestDialog
+        dialog={{
+          open: dialogOpen,
+          step,
+          busy: isDialogBusy,
+          onOpen: () => setDialogOpen(true),
+          onClose: () => resetCreatePrDialogState({ closeDialog: true }),
         }}
-      >
-        <DialogContent
-          xstyle={openPrStyles.dialogSurface}
-          showCloseButton={!isDialogBusy}
-        >
-          <DialogHeader>
-            <DialogTitle>Create Pull Request</DialogTitle>
-            <VisuallyHidden>
-              <DialogDescription>
-                Create a pull request from {currentBranch ?? "HEAD"} into{" "}
-                {effectiveTargetBranch}
-              </DialogDescription>
-            </VisuallyHidden>
-          </DialogHeader>
-
-          {step === "loading" ? (
-            <div className={sx(openPrStyles.loadingSlot)}>
-              <CreatePrLoadingSplash
-                currentBranch={currentBranch}
-                baseBranch={effectiveTargetBranch}
-              />
-            </div>
-          ) : (
-            <form className={sx(openPrStyles.form)} onSubmit={handleFormSubmit}>
-              <div className={sx(openPrStyles.formBody)}>
-                <PullRequestBranchFields
-                  currentBranch={currentBranch}
-                  defaultBranch={defaultBaseBranch}
-                  disabled={isDialogBusy}
-                  loading={loadingTargetBranches}
-                  targetBranch={effectiveTargetBranch}
-                  targetBranchOptions={targetBranchOptions}
-                  onTargetBranchChange={(nextBranch) => {
-                    setTargetBranch(nextBranch);
-                  }}
-                />
-
-                <div className={sx(openPrStyles.mergeCard)}>
-                  <p className={FIELD_LABEL_CLASS}>Merge behavior</p>
-
-                  <div className={sx(openPrStyles.settingRow)}>
-                    <div className={sx(openPrStyles.minWidthZero)}>
-                      <label
-                        className={sx(openPrStyles.settingLabel)}
-                        htmlFor="create-pr-merge-method"
-                      >
-                        Merge method
-                      </label>
-                      <p className={sx(openPrStyles.settingHint)}>
-                        Used when the PR is merged.
-                      </p>
-                    </div>
-                    <Select
-                      value={dialogMergeMethod}
-                      onValueChange={(value) =>
-                        setDialogMergeMethod(value as ConcretePrMergeMethod)
-                      }
-                      disabled={isDialogBusy}
-                    >
-                      <SelectTrigger
-                        id="create-pr-merge-method"
-                        className={sx(openPrStyles.mergeMethodTrigger)}
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem
-                          value="squash"
-                          disabled={
-                            repoMergeSettings?.squashMergeAllowed === false
-                          }
-                        >
-                          Squash
-                          {repoMergeSettings?.squashMergeAllowed === false
-                            ? " (not allowed)"
-                            : ""}
-                        </SelectItem>
-                        <SelectItem
-                          value="merge"
-                          disabled={
-                            repoMergeSettings?.mergeCommitAllowed === false
-                          }
-                        >
-                          Merge commit
-                          {repoMergeSettings?.mergeCommitAllowed === false
-                            ? " (not allowed)"
-                            : ""}
-                        </SelectItem>
-                        <SelectItem
-                          value="rebase"
-                          disabled={
-                            repoMergeSettings?.rebaseMergeAllowed === false
-                          }
-                        >
-                          Rebase
-                          {repoMergeSettings?.rebaseMergeAllowed === false
-                            ? " (not allowed)"
-                            : ""}
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div
-                    {...stylex.props(openPrStyles.divider)}
-                    aria-hidden="true"
-                  />
-
-                  <div className={sx(openPrStyles.settingRow)}>
-                    <div className={sx(openPrStyles.minWidthZero)}>
-                      <label
-                        className={sx(openPrStyles.settingLabel)}
-                        htmlFor="create-pr-auto-merge"
-                      >
-                        Auto-merge
-                      </label>
-                      <p className={sx(openPrStyles.settingHint)}>
-                        {repoMergeSettings?.autoMergeAllowed === false
-                          ? "Disabled by repository settings."
-                          : "Merge automatically after required checks pass."}
-                      </p>
-                    </div>
-                    <Switch
-                      id="create-pr-auto-merge"
-                      className={sx(openPrStyles.autoMergeSwitch)}
-                      checked={dialogAutoMerge}
-                      onCheckedChange={setDialogAutoMerge}
-                      disabled={
-                        isDialogBusy ||
-                        repoMergeSettings?.autoMergeAllowed === false
-                      }
-                    />
-                  </div>
-                </div>
-
-                {inlineNotice ? (
-                  <InlineNoticeBanner notice={inlineNotice} />
-                ) : null}
-                <PrePrReviewFindingsPanel
-                  findings={reviewFindings}
-                  truncated={reviewDiffTruncated}
-                />
-                <PrePrVerificationPanel
-                  failures={verificationFailures}
-                  blocking={verificationBlocking}
-                />
-
-                {/* PR Title */}
-                <div className={sx(openPrStyles.field)}>
-                  <label
-                    className={sx(openPrStyles.settingLabel)}
-                    htmlFor="pr-title-input"
-                  >
-                    Title
-                  </label>
-                  <Input
-                    autoFocus
-                    id="pr-title-input"
-                    xstyle={openPrStyles.textInput}
-                    placeholder="PR title"
-                    value={prTitle}
-                    onChange={(e) => {
-                      setPrTitle(e.target.value);
-                    }}
-                    disabled={isDialogBusy}
-                    aria-invalid={isTitleInvalid}
-                  />
-                  {isTitleInvalid ? (
-                    <p className={sx(openPrStyles.fieldError)}>
-                      Use a lowercase Conventional Commit title, for example{" "}
-                      <code>fix(topbar): stabilize create pr flow</code>.
-                    </p>
-                  ) : null}
-                </div>
-
-                {/* PR Description */}
-                <div
-                  className={sx(
-                    openPrStyles.field,
-                    openPrStyles.fieldMinWidthZero,
-                  )}
-                >
-                  <label
-                    className={sx(openPrStyles.settingLabel)}
-                    htmlFor="pr-body-input"
-                  >
-                    Description
-                  </label>
-                  <Textarea
-                    id="pr-body-input"
-                    xstyle={openPrStyles.bodyTextarea}
-                    rows={6}
-                    wrap="soft"
-                    placeholder="Describe your changes..."
-                    value={prBody}
-                    onChange={(e) => {
-                      setPrBody(e.target.value);
-                    }}
-                    disabled={isDialogBusy}
-                  />
-                </div>
-
-                {/* Uncommitted Changes */}
-                {changedFiles.length > 0 && (
-                  <div className={sx(openPrStyles.field)}>
-                    <AdsButton
-                      layout="host"
-                      type="button"
-                      xstyle={openPrStyles.changesToggle}
-                      onClick={() => setChangesExpanded((v) => !v)}
-                      aria-expanded={changesExpanded}
-                      aria-controls="create-pr-changed-files"
-                    >
-                      {/* One rotating chevron: the ternary swapped the DOM
-                          node, so the arrow popped 90° instead of turning. */}
-                      <ChevronRight
-                        className={sx(
-                          changesExpanded && openPrStyles.changesChevronOpen,
-                          transition.transform,
-                        )}
-                      />
-                      <span className={sx(openPrStyles.changesCountLabel)}>
-                        {changedFiles.length} uncommitted file
-                        {changedFiles.length !== 1 ? "s" : ""}
-                      </span>
-                      <span className={sx(openPrStyles.changesHint)}>
-                        all files selected by default
-                      </span>
-                    </AdsButton>
-
-                    <div
-                      id="create-pr-changed-files"
-                      className={sx(openPrStyles.minWidthZero)}
-                    >
-                      {changesExpanded && (
-                        <div
-                          className={sx(
-                            openPrStyles.field,
-                            openPrStyles.fieldMinWidthZero,
-                          )}
-                        >
-                          <div className={sx(openPrStyles.changesList)}>
-                            {changedFiles.map((file) => (
-                              <label
-                                key={file.path}
-                                // A hover wash on a selectable file row, on a
-                                // `<label>` — no ADS control underneath it to
-                                // supply the fade the rest of the dialog's rows
-                                // have.
-                                className={sx(
-                                  openPrStyles.changesRow,
-                                  transition.colors,
-                                )}
-                              >
-                                <Checkbox
-                                  controlOnly
-                                  checked={selectedFilePaths.includes(
-                                    file.path,
-                                  )}
-                                  onCheckedChange={(checked) => {
-                                    if (checked) {
-                                      userDeselectedPathsRef.current.delete(
-                                        file.path,
-                                      );
-                                    } else {
-                                      userDeselectedPathsRef.current.add(
-                                        file.path,
-                                      );
-                                    }
-                                    setSelectedFilePaths((paths) =>
-                                      checked
-                                        ? [...new Set([...paths, file.path])]
-                                        : paths.filter(
-                                            (path) => path !== file.path,
-                                          ),
-                                    );
-                                  }}
-                                  disabled={isDialogBusy}
-                                  aria-label={`Include ${file.path} in the automatic commit`}
-                                />
-                                <span className={sx(openPrStyles.changesCode)}>
-                                  {file.code}
-                                </span>
-                                <span className={sx(openPrStyles.changesPath)}>
-                                  {file.path}
-                                </span>
-                              </label>
-                            ))}
-                          </div>
-
-                          {selectedFilePaths.length === 0 ? (
-                            <p className={sx(openPrStyles.fieldHint)}>
-                              Select at least one file to enable automatic
-                              commit. Unselected files will remain untouched.
-                            </p>
-                          ) : null}
-
-                          <div
-                            className={sx(
-                              openPrStyles.field,
-                              openPrStyles.fieldMinWidthZero,
-                            )}
-                          >
-                            <label
-                              className={FIELD_LABEL_CLASS}
-                              htmlFor="commit-message-input"
-                            >
-                              Commit message
-                            </label>
-                            <Input
-                              id="commit-message-input"
-                              xstyle={openPrStyles.textInput}
-                              placeholder={generateFallbackCommitMessage(
-                                selectedFilePaths.length > 0
-                                  ? changedFiles.filter((file) =>
-                                      selectedFilePaths.includes(file.path),
-                                    )
-                                  : changedFiles,
-                              )}
-                              value={commitMessage}
-                              onChange={(e) => setCommitMessage(e.target.value)}
-                              disabled={isDialogBusy}
-                              aria-invalid={isCommitMessageInvalid}
-                            />
-                            {isCommitMessageInvalid ? (
-                              <p className={sx(openPrStyles.fieldErrorTight)}>
-                                Use a Conventional Commit message such as{" "}
-                                <code>
-                                  fix(topbar): stabilize create pr flow
-                                </code>
-                                .
-                              </p>
-                            ) : null}
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {step === "reviewing" && reviewFindings.length > 0 ? (
-                <DialogFooter className={sx(openPrStyles.dialogFooter)}>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleStopAfterReview}
-                  >
-                    Stop and fix
-                  </Button>
-                  <Button type="button" onClick={handleProceedAfterReview}>
-                    Proceed anyway
-                  </Button>
-                </DialogFooter>
-              ) : verificationFailures.length > 0 ? (
-                <DialogFooter className={sx(openPrStyles.dialogFooter)}>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={handleStopAfterVerification}
-                  >
-                    Stop and fix
-                  </Button>
-                  {verificationBlocking ? null : (
-                    <Button
-                      type="button"
-                      onClick={handleProceedAfterVerification}
-                    >
-                      Proceed anyway
-                    </Button>
-                  )}
-                </DialogFooter>
-              ) : (
-                <DialogFooter className={sx(openPrStyles.dialogFooter)}>
-                  <Button type="submit" disabled={!canSubmitPr || isDialogBusy}>
-                    {isCreatePrSubmitting ? (
-                      <Loader aria-hidden size="xs" variant="persist" />
-                    ) : null}
-                    Create PR
-                  </Button>
-                </DialogFooter>
-              )}
-            </form>
-          )}
-        </DialogContent>
-      </Dialog>
+        branch={{
+          currentBranch,
+          defaultBranch: defaultBaseBranch,
+          targetBranch: effectiveTargetBranch,
+          options: targetBranchOptions,
+          loading: loadingTargetBranches,
+          onTargetBranchChange: setTargetBranch,
+        }}
+        merge={{
+          method: dialogMergeMethod,
+          autoMerge: dialogAutoMerge,
+          repoSettings: repoMergeSettings,
+          onMethodChange: setDialogMergeMethod,
+          onAutoMergeChange: setDialogAutoMerge,
+        }}
+        draft={{
+          title: prTitle,
+          body: prBody,
+          notice: inlineNotice,
+          titleInvalid: isTitleInvalid,
+          onTitleChange: setPrTitle,
+          onBodyChange: setPrBody,
+        }}
+        changes={{
+          files: changedFiles,
+          selectedFilePaths,
+          expanded: changesExpanded,
+          commitMessage,
+          commitMessageInvalid: isCommitMessageInvalid,
+          fallbackCommitMessage,
+          onExpandedChange: setChangesExpanded,
+          onFileCheckedChange: handleCreatePrFileChecked,
+          onCommitMessageChange: setCommitMessage,
+        }}
+        review={{
+          findings: reviewFindings,
+          diffTruncated: reviewDiffTruncated,
+          verificationFailures,
+          verificationBlocking,
+          onStopAfterReview: handleStopAfterReview,
+          onProceedAfterReview: handleProceedAfterReview,
+          onStopAfterVerification: handleStopAfterVerification,
+          onProceedAfterVerification: handleProceedAfterVerification,
+        }}
+        submit={{
+          canSubmit: canSubmitPr,
+          submitting: isCreatePrSubmitting,
+          onSubmit: handleFormSubmit,
+        }}
+      />
 
       {/* --- Merge PR confirmation --- */}
       <Dialog

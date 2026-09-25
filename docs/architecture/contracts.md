@@ -11,6 +11,9 @@ When a task touches provider turn payloads, chat parts, runtime options, replay 
 - `electron/preload.ts`
 - `src/types/window-api.d.ts`
 - `electron/main/ipc/schemas.ts`
+- `electron/main/ipc/provider-runtime-schemas.ts` for provider IDs and runtime options
+- `electron/main/ipc/provider-conversation-schemas.ts` for conversation payloads and `StreamTurnArgsSchema`
+- `src/store/app-store-send-user-message.ts` when the renderer send action is involved
 - producer and consumer call sites such as `src/store/app.store.ts`
 
 ## Event Replay Contract
@@ -130,6 +133,20 @@ Regression coverage lives in `tests/host-persistence-efficiency.test.ts`,
 `tests/workspace-runtime-state.test.ts`; the manifest gate is
 `persistence-host-write-boundary` in `config/reliability-gates.json`.
 
+## Local MCP Workspace Information Contract
+
+`electron/host-service/local-mcp-workspace-information.ts` owns validation and
+Information transformations for notes, todos, linked resources, custom fields,
+and Storybook access. It receives read/update ports from
+`electron/host-service/local-mcp-runtime.ts`; it does not own a session cache or
+persist directly.
+
+The runtime keeps the public API and the update sequence: refresh the resident
+session from persistence, resolve workspace registration, apply the updater,
+cache the result, await queued persistence, then notify listeners. Preserve
+workspace identity and rejection propagation across this boundary. Project
+memory operations remain in the runtime.
+
 ## Workspace File Index Contract
 
 The current workspace file list is a path index, not a symbol graph.
@@ -167,7 +184,8 @@ When changing PR status fetching, derivation, or UI rendering:
 - `src/types/window-api.d.ts` — type definitions for the PR status and creation methods
 - `src/store/app.store.ts` — `workspacePrInfoById`, `fetchWorkspacePrStatus`, `fetchAllWorkspacePrStatuses`
 - `src/components/layout/PrStatusIcon.tsx` — icon lookup and color mapping
-- `src/components/layout/TopBarOpenPR.tsx` — PR hub trigger, dropdown, creation dialog
+- `src/components/layout/TopBarOpenPR.tsx` — PR hub, async lifecycle, status actions, creation sequencing and cancellation
+- `src/components/layout/pull-request/CreatePullRequestDialog.tsx` and `create-pr-dialog-panels.tsx` — creation form and status presentation
 - `src/components/layout/ProjectWorkspaceSidebar.tsx` — sidebar icon rendering
 
 See `docs/features/workspace-pr-status.md` for the full architecture reference.
@@ -185,7 +203,7 @@ When changing how PR review threads or failed-CI evidence are attached to a task
 - `electron/preload.ts` / `src/types/window-api.d.ts` — `fetchPrContextIndex`, `fetchPrCheckLogs`
 - `src/components/layout/PrContextDialog.tsx` — the selection UI
 - `src/components/session/TaskSourceContextNotice.tsx` — attachment read-out, stale banner, remove
-- `src/store/app.store.ts` — withholds stale PR context from the turn
+- `src/store/app-store-send-user-message.ts` — withholds stale PR context from the turn
 
 See `docs/features/pr-context-attachment.md` for the full architecture reference.
 

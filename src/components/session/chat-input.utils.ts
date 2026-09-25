@@ -1,4 +1,11 @@
-import type { ChatMessage } from "@/types/chat";
+import type { ChatMessage, PromptDraft } from "@/types/chat";
+
+export const EMPTY_PROMPT_DRAFT: PromptDraft = {
+  text: "",
+  attachedFilePaths: [],
+  attachments: [],
+};
+export const EMPTY_MESSAGES: ChatMessage[] = [];
 
 export function getPromptHistoryEntries(messages: ChatMessage[]) {
   const entries: string[] = [];

@@ -1,0 +1,36 @@
+# Code Organization
+
+Start with `AGENTS.md`, then use `entrypoints.md` to find the relevant owner.
+Follow `contracts.md` only when the change crosses a process or provider
+boundary. File size alone does not determine ownership; preserve the existing
+behavior and the full contract when moving logic. Keep a cohesive component
+together when a move would only add a hop for local presentation helpers or
+would require threading shared state through new props.
+
+| Domain                           | Owner and boundary                                                                                                                                                                                                                                  | Focused tests to start with                                                                                                                        |
+| -------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Conversation send                | `src/store/app-store-send-user-message.ts` owns the send action; `src/store/app.store.ts` wires it into Zustand                                                                                                                                     | `tests/failed-send-recovery.test.ts`, `tests/task-stream-switch-regression.test.ts`, `tests/provider-request-sanitization.test.ts`                 |
+| Composer                         | `src/components/session/ChatInput.tsx` owns task state; `src/components/session/ChatInputComposer.tsx` owns controls and composition; `chat-input.utils.ts` holds shared decisions                                                                  | `tests/chat-input.runtime.test.ts`, `tests/chat-input-utils.test.ts`; `tests/e2e-electron/composer-interaction.electron.e2e.ts` covers interaction |
+| IPC provider options             | `electron/main/ipc/provider-runtime-schemas.ts` owns provider IDs and runtime options; `schemas.ts` exports the public entrypoint                                                                                                                   | `tests/ipc-schemas.test.ts`, `tests/provider-runtime-contracts.test.ts`                                                                            |
+| IPC conversation                 | `electron/main/ipc/provider-conversation-schemas.ts` owns turn payload validation; `schemas.ts` exports `StreamTurnArgsSchema`                                                                                                                      | `tests/ipc-schemas.test.ts`                                                                                                                        |
+| Claude permissions and questions | `electron/providers/claude-permission-policy.ts` owns permission decisions; `claude-user-input.ts` maps questions and answers; `claude-sdk-runtime.ts` orchestrates the turn                                                                        | `tests/claude-sdk-runtime.test.ts`                                                                                                                 |
+| Codex settings snapshot          | `electron/providers/codex-app-server-snapshot.ts` collects settings and model catalog data; `codex-app-server-runtime.ts` keeps the public facade and turn lifecycle                                                                                | `tests/codex-app-server-snapshot.test.ts`, `tests/codex-app-server-runtime.test.ts`                                                                |
+| Notification persistence         | `electron/persistence/notification-store.ts` owns notification SQL and cleanup; `sqlite-store.ts` delegates through its persistence facade                                                                                                          | `tests/notification-store.test.ts` (direct SQL behavior)                                                                                           |
+| Settings content                 | `src/components/layout/settings-dialog-sections.tsx` dispatches to section modules such as `src/components/layout/settings-sections/settings-dialog-chat-section.tsx`; `src/components/layout/settings-dialog.shared.tsx` holds shared presentation | `tests/settings-controls-a11y.test.tsx` (shared controls), `tests/custom-theme.test.ts` (theme data); section rendering needs separate validation  |
+| Workspace Information            | `src/components/layout/WorkspaceInformationPanel.tsx` owns section state; `workspace-information-link-rows.tsx`, `workspace-information-custom-fields.tsx`, and `workspace-information-notes.tsx` own their visible content                         | `tests/workspace-information.test.ts` covers data operations; section rendering needs separate validation                                          |
+| Project/workspace sidebar        | `src/components/layout/ProjectWorkspaceSidebar.tsx` owns shell state and selection; `workspace-sidebar-rows.tsx` owns row presentation and local behavior; `ProjectWorkspaceSidebar.utils.ts` holds pure decisions                                  | `tests/project-workspace-sidebar.test.ts` covers utilities; `tests/e2e/sidebar-work-queue-lanes.e2e.ts` covers rendered lanes                      |
+
+Additional focused owners:
+
+| Domain | Owner and boundary | Focused tests to start with |
+| --- | --- | --- |
+| Codex settings UI | `src/components/layout/settings-dialog-codex-section.tsx` owns requests, selection, drafts, and mutations; `codex-settings/` contains the five tab views and shared presentation | `tests/e2e/codex-settings-refactor.e2e.ts` exercises the parent against a mocked provider bridge |
+| PR creation UI | `src/components/layout/TopBarOpenPR.tsx` owns the async flow and cancellation; `pull-request/CreatePullRequestDialog.tsx` and `create-pr-dialog-panels.tsx` render the form and review/verification feedback | `tests/topbar-open-pr.utils.test.ts` covers decisions; `tests/e2e/create-pr-dialog.e2e.ts` exercises the parent against a mocked SCM bridge |
+| Local MCP Information | `electron/host-service/local-mcp-workspace-information.ts` owns validation and transformations; `local-mcp-runtime.ts` retains resident state, persistence, and notifications | `tests/local-mcp-workspace-information.test.ts`, `tests/local-mcp-runtime-run-task.test.ts` |
+
+For a structure inventory, run `node scripts/codebase-structure.mjs`. Use
+`--ref HEAD` for a stable Git-tree baseline and `--json` for deterministic
+per-file rows. It counts physical lines in selected tracked and non-ignored
+untracked text files, separating declarations and generated files. Its listed
+roots and extensions define the coverage; binary assets and lockfiles are
+excluded. `bun run check:max-lines-ratchet` remains the enforcement gate.

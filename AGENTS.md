@@ -47,10 +47,15 @@ Stave is an installable product. Do not bake author-specific machine state into 
 High-signal files:
 
 - `src/store/app.store.ts`: central Zustand store
+- `src/store/app-store-send-user-message.ts`: conversation send action
 - `electron/providers/claude-sdk-runtime.ts`: Claude runtime adapter
+- `electron/providers/claude-permission-policy.ts`, `claude-user-input.ts`: Claude permission and question handling
 - `electron/providers/codex-app-server-runtime.ts`: Codex App Server runtime adapter
+- `electron/providers/codex-app-server-snapshot.ts`: Codex settings snapshot and model catalog collection
 - `src/types/window-api.d.ts`: renderer-to-main IPC contract
 - `electron/preload.ts`: exposed renderer bridge
+
+For extracted code owners and focused tests, see `docs/architecture/code-organization.md`.
 
 ## UI And Theme Guardrails
 
@@ -103,6 +108,8 @@ Required check files:
 - `src/types/window-api.d.ts`
 - `electron/preload.ts`
 - `electron/main/ipc/schemas.ts`
+- `electron/main/ipc/provider-runtime-schemas.ts`
+- `electron/main/ipc/provider-conversation-schemas.ts`
 - `electron/host-service/cli-session-launch.ts`
 - `src/lib/terminal/standalone-cli.ts`
 - call sites such as `src/store/app.store.ts`

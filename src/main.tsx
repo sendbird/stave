@@ -117,6 +117,24 @@ if (preview === "kickoff") {
       );
     },
   );
+} else if (preview === "codex-settings") {
+  void import("@/dev/codex-settings-preview").then(
+    ({ CodexSettingsPreview }) => {
+      root.render(
+        <StaveDesignProvider>
+          <CodexSettingsPreview />
+        </StaveDesignProvider>,
+      );
+    },
+  );
+} else if (preview === "create-pr") {
+  void import("@/dev/create-pr-preview").then(({ CreatePrPreview }) => {
+    root.render(
+      <StaveDesignProvider>
+        <CreatePrPreview />
+      </StaveDesignProvider>,
+    );
+  });
 } else if (preview === "composer-frame") {
   void import("@/dev/composer-frame-preview").then(
     ({ ComposerFramePreviewApp }) => {

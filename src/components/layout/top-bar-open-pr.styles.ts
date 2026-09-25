@@ -351,14 +351,25 @@ export const openPrStyles = stylex.create({
 
   // --- Dialog body --------------------------------------------------------
   dialogSurface: {
-    maxWidth: { default: null, "@media (min-width: 40rem)": "32rem" },
-    minWidth: 0,
-  },
-  loadingSlot: { minWidth: 0, paddingInlineEnd: vars["--ads-space-4"] },
-  form: {
     display: "flex",
     flexDirection: "column",
+    maxBlockSize: "calc(100dvh - 2rem)",
+    maxWidth: { default: null, "@media (min-width: 40rem)": "32rem" },
+    minWidth: 0,
+    overflow: "hidden",
+  },
+  loadingSlot: {
+    minBlockSize: 0,
+    minWidth: 0,
+    overflowY: "auto",
+    paddingInlineEnd: vars["--ads-space-4"],
+  },
+  form: {
+    display: "flex",
+    flex: "1 1 auto",
+    flexDirection: "column",
     gap: vars["--ads-space-16"],
+    minBlockSize: 0,
     minWidth: 0,
   },
   formBody: {
@@ -367,6 +378,11 @@ export const openPrStyles = stylex.create({
     gap: vars["--ads-space-16"],
     minWidth: 0,
     paddingInlineEnd: vars["--ads-space-4"],
+  },
+  createFormBodyScroll: {
+    flex: "1 1 auto",
+    minBlockSize: 0,
+    overflowY: "auto",
   },
   mergeCard: {
     backgroundColor: vars["--ads-color-canvas-subtle"],
