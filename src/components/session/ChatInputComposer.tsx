@@ -2280,4 +2280,3 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     </div>
   );
 }
-

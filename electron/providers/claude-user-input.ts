@@ -483,4 +483,3 @@ export function mapClaudeUserDialogToUserInput(request: Parameters<OnUserDialog>
     ],
   };
 }
-

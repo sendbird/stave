@@ -519,4 +519,3 @@ export function resolveTrustedApprovalInput(args: {
   }
   return undefined;
 }
-
