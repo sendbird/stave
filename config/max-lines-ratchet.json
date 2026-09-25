@@ -14,7 +14,7 @@
     "electron/providers/claude-sdk-runtime.ts": 4484,
     "electron/providers/claude-event-mapping.ts": 897,
     "electron/providers/claude-user-input.ts": 487,
-    "electron/providers/codex-app-server-runtime.ts": 3540,
+    "electron/providers/codex-app-server-runtime.ts": 3543,
     "electron/providers/codex-app-server-pending-request.ts": 80,
     "electron/providers/codex-orphan-turn-cleanup.ts": 93,
     "electron/providers/codex-turn-notification-gate.ts": 79,

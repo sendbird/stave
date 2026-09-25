@@ -25,6 +25,12 @@ facade. Codex server-request presentation lives in
 pending-request registration, timeout scheduling, and response handling.
 These are provider-specific adapters, not interchangeable protocol mappings.
 
+Tool results identify an earlier tool call with `tool_use_id`. Their normalized
+payload does not repeat `ownerAgentId`: renderer replay merges output into the
+existing tool part, preserving its owner, and the work-graph reducer updates
+the matching work item. Trace both consumers before changing this contract;
+the missing owner field on a result alone does not mean attribution was lost.
+
 Codex cancellation can precede the `turn/start` response. An immediate UI
 `user_abort` event does not prove that native execution has stopped. Keep
 same-thread retries behind `codex-orphan-turn-cleanup.ts` until the matching

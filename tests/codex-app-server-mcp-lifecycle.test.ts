@@ -18,13 +18,19 @@ class FakeStream extends EventEmitter {
 }
 
 type FakeScenario =
-  "full-lifecycle" | "completed-only" | "native-collab" | "command-streaming" | "model-reroute" | "early-turn-notifications" | "delayed-abort-start" | "hung-abort-start";
+  "full-lifecycle" | "completed-only" | "native-collab" | "command-streaming" | "model-reroute" | "early-turn-notifications" | "delayed-abort-start" | "hung-abort-start" | "hung-postack-interrupt" | "hung-postack-interrupt-request";
 
 class FakeChild extends EventEmitter {
   stdout = new FakeStream();
   stderr = new FakeStream();
   killed = false;
   private delayedTurnStartId: number | null = null;
+  private turnStartCount = 0;
+  get nativeThreadId() {
+    if (this.scenario === "hung-postack-interrupt") return "thread-postack-ack";
+    if (this.scenario === "hung-postack-interrupt-request") return "thread-postack-noack";
+    return this.scenario === "hung-abort-start" ? "thread-hung" : "thread-1";
+  }
   receivedMessages: Array<{
     id?: number;
     method?: string;
@@ -91,7 +97,7 @@ class FakeChild extends EventEmitter {
             message.method === "thread/resume") &&
           message.id != null
         ) {
-          this.emitResponse(message.id, { thread: { id: this.scenario === "hung-abort-start" ? "thread-hung" : "thread-1" }, ...(this.scenario === "model-reroute" ? { model: "gpt-5.6-sol" } : {}) });
+          this.emitResponse(message.id, { thread: { id: this.nativeThreadId }, ...(this.scenario === "model-reroute" ? { model: "gpt-5.6-sol" } : {}) });
           continue;
         }
         if (message.method === "mcpServerStatus/list" && message.id != null) {
@@ -105,6 +111,7 @@ class FakeChild extends EventEmitter {
           continue;
         }
         if (message.method === "turn/interrupt" && message.id != null) {
+          if (this.scenario === "hung-postack-interrupt-request") continue;
           this.emitResponse(message.id, {});
           if (this.scenario === "delayed-abort-start" || this.scenario === "hung-abort-start") {
             queueMicrotask(() => this.emitJson({ jsonrpc: "2.0", method: "turn/completed", params: {
@@ -140,6 +147,16 @@ class FakeChild extends EventEmitter {
           continue;
         }
         if (message.method === "turn/start" && message.id != null) {
+          if (this.scenario === "hung-postack-interrupt" || this.scenario === "hung-postack-interrupt-request") {
+            const turnId = `turn-${++this.turnStartCount}`;
+            this.emitResponse(message.id, { turn: { id: turnId } });
+            if (this.turnStartCount > 1) queueMicrotask(() => this.emitJson({
+              jsonrpc: "2.0", method: "turn/completed", params: {
+                threadId: this.nativeThreadId, turn: { id: turnId, status: "completed" },
+              },
+            }));
+            continue;
+          }
           if (this.scenario === "delayed-abort-start" || this.scenario === "hung-abort-start") {
             if (this.delayedTurnStartId === null) {
               this.delayedTurnStartId = message.id;
@@ -444,6 +461,16 @@ const DEFAULT_SCENARIO_EVENT_TYPES = [
   "tool_result",
 ];
 
+async function awaitUnrefDeadline<T>(promise: Promise<T>): Promise<T> {
+  // The runtime timer is unref'd; keep this fake process test alive until it fires.
+  const keepAlive = setInterval(() => {}, 100);
+  try {
+    return await promise;
+  } finally {
+    clearInterval(keepAlive);
+  }
+}
+
 async function streamScenario(
   scenario: FakeScenario,
   runtimeOptions: ProviderRuntimeOptions = {},
@@ -569,7 +596,7 @@ describe("Codex App Server MCP lifecycle mapping", () => {
       }
       expect(aborter).toBeFunction();
       aborter!();
-      const cancelEvents = await first;
+      const cancelEvents = await awaitUnrefDeadline(first);
       expect(cancelEvents?.some((event) => event.type === "done" && event.stop_reason === "user_abort")).toBe(true);
       const retryEvents = await runtime.streamCodexWithAppServer({
         ...args,
@@ -584,6 +611,45 @@ describe("Codex App Server MCP lifecycle mapping", () => {
       runtime.disposeAllCodexAppServerClients();
     }
   }, 20_000);
+
+  for (const scenario of ["hung-postack-interrupt", "hung-postack-interrupt-request"] as const) {
+    test(`quarantines a post-ack turn when ${scenario} never completes natively`, async () => {
+      nextScenario = scenario;
+      const runtime = await import(
+        `../electron/providers/codex-app-server-runtime?postack-interrupt=${Date.now()}-${Math.random()}`
+      );
+      const args = {
+        providerId: "codex" as const,
+        taskId: `task-${scenario}`,
+        cwd: process.cwd(),
+        runtimeOptions: { codexBinaryPath: `/tmp/fake-codex-${scenario}` },
+      };
+      let aborter: (() => void) | null = null;
+      try {
+        const first = await awaitUnrefDeadline(runtime.streamCodexWithAppServer({
+          ...args,
+          prompt: "Stop after turn/start acknowledges",
+          registerAbort: (callback) => { aborter = callback; },
+          onEvent: (event) => {
+            if (event.type === "provider_turn") aborter?.();
+          },
+        }));
+        expect(first?.some((event) => event.type === "done" && event.stop_reason === "user_abort")).toBe(true);
+        const sessionId = fakeChildren.at(-1)!.nativeThreadId;
+        const retry = await runtime.streamCodexWithAppServer({
+          ...args,
+          prompt: "Unsafe explicit resume after unresolved post-ack interrupt",
+          runtimeOptions: { ...args.runtimeOptions, codexResumeThreadId: sessionId },
+        });
+        expect(retry?.some((event) => event.type === "error" &&
+          event.message.includes("Previous Codex turn is still stopping"))).toBe(true);
+        expect(fakeChildren.at(-1)?.receivedMessages.filter((message) =>
+          message.method === "thread/resume")).toHaveLength(0);
+      } finally {
+        runtime.disposeAllCodexAppServerClients();
+      }
+    }, 20_000);
+  }
 
   test("releases idle threads, retires the process, and resumes the same persisted thread", async () => {
     const timers = new Map<

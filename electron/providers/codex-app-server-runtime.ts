@@ -3334,9 +3334,10 @@ export async function streamCodexWithAppServer(
       // ── Register abort BEFORE turn/start so the user can cancel at any
       // point, including while the turn/start request is still in flight. ──
       args.registerAbort?.(() => {
+        if (completed || abortRequested) return;
         abortRequested = true;
+        interruptedCleanup.finish ??= beginCodexInterruptedThreadCleanup(threadId);
         if (!appServerTurnId) {
-          interruptedCleanup.finish ??= beginCodexInterruptedThreadCleanup(threadId);
           // turn/start hasn't resolved yet — no turnId to interrupt.
           // Resolve the wait so the Promise.race below exits.
           emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
@@ -3361,8 +3362,9 @@ export async function streamCodexWithAppServer(
           .request("turn/interrupt", {
             threadId,
             turnId: appServerTurnId,
-          })
+          }, { signal: orphanRequestAbortController.signal })
           .catch((error) => {
+            if (orphanRequestAbortController.signal.aborted) return;
             console.warn(
               "[provider-runtime] Codex app-server interrupt request failed",
               {
@@ -3461,7 +3463,7 @@ export async function streamCodexWithAppServer(
             .request("turn/interrupt", {
               threadId,
               turnId: appServerTurnId,
-            })
+            }, { signal: orphanRequestAbortController.signal })
             .catch(() => {});
         }
 
@@ -3492,6 +3494,7 @@ export async function streamCodexWithAppServer(
         emitBridgeEvent({ type: "done", stop_reason: "runtime_failure" });
         return finalizeCollectedEvents();
       } finally {
+        orphanRequestAbortController.abort();
         clearInterruptFallback();
         unsubscribeProcessExit();
         // Reject any pending approval/input requests so the Codex app-server

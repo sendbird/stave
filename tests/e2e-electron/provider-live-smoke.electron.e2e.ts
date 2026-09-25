@@ -302,3 +302,218 @@ test("live Codex cancellation, retry, and session resume survive an Electron res
     });
   }
 });
+
+test("live Codex stops after output starts and retries on the same native session", async () => {
+  test.setTimeout(120_000);
+  const projectPath = await mkdtemp(path.join(tmpdir(), "stave-codex-mid-output-"));
+  const stave = await launchStave();
+  try {
+    const result = await stave.page.evaluate(async (cwd) => {
+      const turnId = "native-mid-output-cancel";
+      const options = {
+        codexFileAccess: "read-only" as const,
+        codexNetworkAccess: false,
+        codexApprovalPolicy: "never" as const,
+        providerTimeoutMs: 45_000,
+      };
+      const started = await window.api.provider!.startPushTurn!({
+        providerId: "codex",
+        turnId,
+        cwd,
+        prompt: "Begin with STAVE_STREAM_BEGIN. Then write 200 numbered lines, each containing a different short sentence. Do not call tools.",
+        runtimeOptions: options,
+      });
+      if (!started.ok) throw new Error("Codex stream did not start");
+
+      let cursor = 0;
+      let sessionId: string | null = null;
+      let textBeforeAbort = "";
+      let finishedBeforeAbort = false;
+      const deadline = Date.now() + 30_000;
+      while (Date.now() < deadline && !textBeforeAbort && !finishedBeforeAbort) {
+        const batch = await window.api.provider!.readStreamTurn!({ streamId: started.streamId, cursor });
+        cursor = batch.cursor;
+        for (const event of batch.events) {
+          if (event.type === "provider_session") sessionId = event.nativeSessionId;
+          if (event.type === "text") textBeforeAbort += event.text;
+        }
+        finishedBeforeAbort = batch.done;
+        if (!textBeforeAbort && !finishedBeforeAbort) {
+          await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+      }
+      if (!textBeforeAbort || !sessionId || finishedBeforeAbort) {
+        return { sawOutput: Boolean(textBeforeAbort), finishedBeforeAbort, hasSession: Boolean(sessionId) };
+      }
+
+      const abort = await window.api.provider!.abortTurn!({ turnId });
+      let stopReason: string | null = null;
+      const finishBy = Date.now() + 20_000;
+      while (Date.now() < finishBy) {
+        const batch = await window.api.provider!.readStreamTurn!({ streamId: started.streamId, cursor });
+        cursor = batch.cursor;
+        for (const event of batch.events) {
+          if (event.type === "done") stopReason = event.stop_reason ?? null;
+        }
+        if (batch.done) break;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+
+      const raw = await window.api.provider!.streamTurn!({
+        providerId: "codex",
+        turnId: "native-mid-output-retry",
+        cwd,
+        prompt: "The prior response was canceled. Reply with exactly STAVE_MID_OUTPUT_RETRY_OK. Do not call tools.",
+        runtimeOptions: { ...options, codexResumeThreadId: sessionId },
+      });
+      const events = Array.isArray(raw) ? raw : [];
+      const answer = events.filter((event) => event.type === "text")
+        .map((event) => (event as { text: string }).text).join("").trim();
+      const retrySession = events.find((event) => event.type === "provider_session") as
+        | { nativeSessionId: string } | undefined;
+      return {
+        sawOutput: true,
+        finishedBeforeAbort,
+        hasSession: true,
+        abortOk: abort.ok,
+        stopReason,
+        retryExact: answer === "STAVE_MID_OUTPUT_RETRY_OK",
+        retryAnswerLength: answer.length,
+        leakedCanceledOutput: answer.includes("STAVE_STREAM_BEGIN"),
+        sameSession: retrySession?.nativeSessionId === sessionId,
+        usage: events.some((event) => event.type === "usage"),
+        done: events.some((event) => event.type === "done"),
+        errors: events.filter((event) => event.type === "error")
+          .map((event) => (event as { code?: string }).code ?? "unclassified"),
+      };
+    }, projectPath);
+    console.log(`codex mid-output cancel/retry: ${JSON.stringify(result)}`);
+    expect(result).toMatchObject({
+      sawOutput: true,
+      finishedBeforeAbort: false,
+      hasSession: true,
+      abortOk: true,
+      stopReason: "user_abort",
+      retryExact: true,
+      leakedCanceledOutput: false,
+      sameSession: true,
+      usage: true,
+      done: true,
+      errors: [],
+    });
+  } finally {
+    await stave.close();
+    await rm(projectPath, { recursive: true, force: true });
+  }
+});
+
+test("live Claude cancellation resumes across an Electron restart", async () => {
+  test.setTimeout(150_000);
+  const projectPath = await mkdtemp(path.join(tmpdir(), "stave-claude-resume-"));
+  const userDataDir = await mkdtemp(path.join(tmpdir(), "stave-claude-profile-"));
+  let stave: StaveApp | null = null;
+  try {
+    stave = await launchStave({ userDataDir });
+    const cancelled = await stave.page.evaluate(async (cwd) => {
+      const turnId = "native-claude-cancel";
+      const started = await window.api.provider!.startPushTurn!({
+        providerId: "claude-code",
+        turnId,
+        cwd,
+        prompt: "Think for several seconds, then reply STAVE_CLAUDE_CANCEL_IF_NOT_STOPPED. Do not call tools.",
+        runtimeOptions: {
+          claudePermissionMode: "dontAsk",
+          claudeMaxTurns: 1,
+          providerTimeoutMs: 45_000,
+        },
+      });
+      if (!started.ok) throw new Error("Claude stream did not start");
+      let cursor = 0;
+      let sessionId: string | null = null;
+      let doneBeforeAbort = false;
+      const deadline = Date.now() + 20_000;
+      while (Date.now() < deadline && !sessionId && !doneBeforeAbort) {
+        const batch = await window.api.provider!.readStreamTurn!({ streamId: started.streamId, cursor });
+        cursor = batch.cursor;
+        const session = batch.events.find((event) => event.type === "provider_session") as
+          | { nativeSessionId: string } | undefined;
+        sessionId = session?.nativeSessionId ?? null;
+        doneBeforeAbort = batch.done;
+        if (!sessionId && !doneBeforeAbort) await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      if (!sessionId || doneBeforeAbort) return { hasSession: Boolean(sessionId), doneBeforeAbort };
+      const abort = await window.api.provider!.abortTurn!({ turnId });
+      let stopReason: string | null = null;
+      const finishBy = Date.now() + 20_000;
+      while (Date.now() < finishBy) {
+        const batch = await window.api.provider!.readStreamTurn!({ streamId: started.streamId, cursor });
+        cursor = batch.cursor;
+        for (const event of batch.events) {
+          if (event.type === "done") stopReason = event.stop_reason ?? null;
+        }
+        if (batch.done) break;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      return { hasSession: true, doneBeforeAbort, abortOk: abort.ok, stopReason, sessionId };
+    }, projectPath);
+    console.log(`claude cancel: ${JSON.stringify({
+      hasSession: cancelled.hasSession,
+      doneBeforeAbort: cancelled.doneBeforeAbort,
+      abortOk: "abortOk" in cancelled ? cancelled.abortOk : null,
+      stopReason: "stopReason" in cancelled ? cancelled.stopReason : null,
+    })}`);
+    expect(cancelled).toMatchObject({
+      hasSession: true,
+      doneBeforeAbort: false,
+      abortOk: true,
+      stopReason: "user_abort",
+    });
+    if (!("sessionId" in cancelled) || !cancelled.sessionId) throw new Error("Missing Claude session");
+
+    const resume = async (sessionId: string, turnId: string, marker: string) =>
+      stave!.page.evaluate(async ({ cwd, sessionId, turnId, marker }) => {
+        const raw = await window.api.provider!.streamTurn!({
+          providerId: "claude-code",
+          turnId,
+          cwd,
+          prompt: `Reply with exactly ${marker}. Do not call tools.`,
+          runtimeOptions: {
+            claudeResumeSessionId: sessionId,
+            claudePermissionMode: "dontAsk",
+            claudeMaxTurns: 1,
+            providerTimeoutMs: 45_000,
+          },
+        });
+        const events = Array.isArray(raw) ? raw : [];
+        const answer = events.filter((event) => event.type === "text")
+          .map((event) => (event as { text: string }).text).join("").trim();
+        const session = events.find((event) => event.type === "provider_session") as
+          | { nativeSessionId: string } | undefined;
+        return {
+          exact: answer === marker,
+          answerLength: answer.length,
+          hasCancelledMarker: answer.includes("STAVE_CLAUDE_CANCEL_IF_NOT_STOPPED"),
+          sameSession: session?.nativeSessionId === sessionId,
+          usage: events.some((event) => event.type === "usage"),
+          done: events.some((event) => event.type === "done"),
+          errors: events.filter((event) => event.type === "error")
+            .map((event) => (event as { code?: string }).code ?? "unclassified"),
+        };
+      }, { cwd: projectPath, sessionId, turnId, marker });
+
+    const resumed = await resume(cancelled.sessionId, "native-claude-retry", "STAVE_CLAUDE_RETRY_OK");
+    console.log(`claude same-process resume: ${JSON.stringify(resumed)}`);
+    expect(resumed).toMatchObject({ exact: true, hasCancelledMarker: false, sameSession: true, usage: true, done: true, errors: [] });
+
+    await stave.close();
+    stave = null;
+    stave = await launchStave({ userDataDir });
+    const restored = await resume(cancelled.sessionId, "native-claude-restored", "STAVE_CLAUDE_RESTORED_OK");
+    console.log(`claude restart resume: ${JSON.stringify(restored)}`);
+    expect(restored).toMatchObject({ exact: true, hasCancelledMarker: false, sameSession: true, usage: true, done: true, errors: [] });
+  } finally {
+    await stave?.close();
+    await rm(projectPath, { recursive: true, force: true });
+    await rm(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
+  }
+});
