@@ -1,4 +1,6 @@
 import { createCodexModelResolutionTracker } from "./codex-model-resolution";
+import { createCodexTurnNotificationGate } from "./codex-turn-notification-gate";
+import { beginCodexInterruptedThreadCleanup, canResumeCodexThreadAfterInterrupt, createCodexOrphanTurnCleanup } from "./codex-orphan-turn-cleanup";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
 import {
   summarizeCodexAppServerDebugMessage,
@@ -565,11 +567,12 @@ class CodexAppServerClient {
   async request<T = unknown>(
     method: string,
     params: unknown,
-    options?: { timeoutMs?: number },
+    options?: { timeoutMs?: number; signal?: AbortSignal },
   ): Promise<T> {
     this.lifetime.suspend();
     try {
       await this.ensureStarted();
+      if (options?.signal?.aborted) throw new Error(`Codex App Server ${method} was canceled.`);
       // JSON-RPC carries unknown data; the caller owns the response contract.
       return (await this.sendRequest(method, params, options)) as T;
     } finally {
@@ -792,7 +795,7 @@ class CodexAppServerClient {
   private async sendRequest(
     method: string,
     params: unknown,
-    options?: { timeoutMs?: number },
+    options?: { timeoutMs?: number; signal?: AbortSignal },
   ): Promise<unknown> {
     const child = this.process;
     if (!child) {
@@ -801,14 +804,19 @@ class CodexAppServerClient {
 
     const requestId = this.nextRequestId++;
     return new Promise<unknown>((resolve, reject) => {
-      registerPendingCodexAppServerResponse({
+      const registered = registerPendingCodexAppServerResponse({
         pendingResponses: this.pendingResponses,
         requestId,
         method,
         timeoutMs: options?.timeoutMs,
+        signal: options?.signal,
         resolve,
         reject,
       });
+      if (!registered) {
+        reject(new Error(`Codex App Server ${method} was canceled.`));
+        return;
+      }
       const wrote = this.writeToProcessStdin(child, {
         jsonrpc: "2.0",
         id: requestId,
@@ -1067,7 +1075,7 @@ async function ensureCodexThread(args: {
     ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
   };
   const instructionProfile = buildCodexInstructionProfileKey(instructionArgs);
-  const resumeThreadId = resolveCodexThreadSession({
+  let resumeThreadId = resolveCodexThreadSession({
     threadKey,
     executablePath: args.executablePath,
     ephemeral: args.ephemeral,
@@ -1079,6 +1087,12 @@ async function ensureCodexThread(args: {
           runtimeOptions: args.runtimeOptions,
         }),
   });
+  if (resumeThreadId && !(await canResumeCodexThreadAfterInterrupt(resumeThreadId))) {
+    if (args.runtimeOptions?.codexResumeThreadId?.trim()) {
+      throw new Error("Previous Codex turn is still stopping. Start a new session to continue safely.");
+    }
+    resumeThreadId = undefined;
+  }
 
   requireCompactResumeSession(
     args.conversation?.input.content ?? args.input ?? "",
@@ -2197,6 +2211,8 @@ export async function streamCodexWithAppServer(
       } | null = null;
       let lastUsageEmitAt = 0;
       let appServerTurnId = "";
+      const turnNotificationGate = createCodexTurnNotificationGate<JsonRpcMessage>();
+      const interruptedCleanup: { finish: ((safe: boolean) => void) | null } = { finish: null };
       let abortRequested = false;
       let completed = false;
       let resolveTurnCompletion: (() => void) | null = null;
@@ -2523,7 +2539,7 @@ export async function streamCodexWithAppServer(
         }
       });
 
-      const unsubscribe = client.subscribe((message) => {
+      const handleAppServerMessage = (message: JsonRpcMessage) => {
         if (codexDebug && shouldDebugCodexAppServerMessage(message)) {
           console.debug("[codex-app-server-runtime] raw lifecycle message", {
             activeThreadId: threadId,
@@ -2700,6 +2716,7 @@ export async function streamCodexWithAppServer(
         const eventThreadId =
           typeof params.threadId === "string" ? params.threadId : "";
         if (eventThreadId && eventThreadId !== threadId) {
+          if (!appServerTurnId) return turnNotificationGate.holdForeign(message);
           const mapped = workerActivity.mapForeignNotification({
             method: message.method,
             threadId: eventThreadId,
@@ -2708,13 +2725,7 @@ export async function streamCodexWithAppServer(
           emitBridgeEvents(mapped.events);
           return;
         }
-        if (
-          typeof params.turnId === "string" &&
-          appServerTurnId &&
-          params.turnId !== appServerTurnId
-        ) {
-          return;
-        }
+        if (!turnNotificationGate.shouldDeliver(message, appServerTurnId)) return;
         switch (message.method) {
           case "model/rerouted":
             if (eventThreadId === threadId) {
@@ -3288,8 +3299,16 @@ export async function streamCodexWithAppServer(
           default:
             return;
         }
+      };
+      const unsubscribe = client.subscribe(handleAppServerMessage);
+      const orphanRequestAbortController = new AbortController();
+      const orphanCleanup = createCodexOrphanTurnCleanup<JsonRpcMessage>({
+        threadId,
+        subscribe: (listener) => client.subscribe(listener),
+        interrupt: (turnId) => client.request("turn/interrupt", { threadId, turnId },
+          { signal: orphanRequestAbortController.signal }),
+        graceMs: APP_SERVER_INTERRUPT_GRACE_MS,
       });
-
       // ── Process-death listener: resolve waitForTurnCompletion if the app
       // server exits unexpectedly so the turn never hangs forever. ──
       const unsubscribeProcessExit = client.onProcessExit((exitMessage) => {
@@ -3317,6 +3336,7 @@ export async function streamCodexWithAppServer(
       args.registerAbort?.(() => {
         abortRequested = true;
         if (!appServerTurnId) {
+          interruptedCleanup.finish ??= beginCodexInterruptedThreadCleanup(threadId);
           // turn/start hasn't resolved yet — no turnId to interrupt.
           // Resolve the wait so the Promise.race below exits.
           emitBridgeEvent({ type: "done", stop_reason: "user_abort" });
@@ -3353,8 +3373,11 @@ export async function streamCodexWithAppServer(
             );
           });
       });
-
       try {
+        if (abortRequested) {
+          interruptedCleanup.finish?.(true);
+          return finalizeCollectedEvents();
+        }
         const gitRef = resolveGitHeadRef({ cwd: runtimeCwd });
         emitBridgeEvent({
           type: "system",
@@ -3379,6 +3402,7 @@ export async function streamCodexWithAppServer(
             runtimeOptions,
             nativeImageItems: turnInput.nativeImageItems,
           }),
+          { signal: orphanRequestAbortController.signal },
         );
 
         const turnResponse = await Promise.race([
@@ -3389,16 +3413,9 @@ export async function streamCodexWithAppServer(
         // If waitForTurnCompletion won the race (abort or process death during
         // turn/start), clean up the orphaned turn/start and return.
         if (turnResponse == null || completed) {
-          void turnStartPromise
-            .then((resolved) => {
-              void client
-                .request("turn/interrupt", {
-                  threadId,
-                  turnId: resolved.turn.id,
-                })
-                .catch(() => {});
-            })
-            .catch(() => {});
+          const safe = await orphanCleanup.settle(turnStartPromise);
+          orphanRequestAbortController.abort();
+          interruptedCleanup.finish?.(safe);
           return finalizeCollectedEvents();
         }
 
@@ -3420,6 +3437,7 @@ export async function streamCodexWithAppServer(
             targetRole: "assistant",
           });
         }
+        turnNotificationGate.takePending(appServerTurnId).forEach(handleAppServerMessage);
         if (codexDebug) {
           console.debug("[codex-app-server-runtime] turn/start acknowledged", {
             threadId,
@@ -3501,6 +3519,9 @@ export async function streamCodexWithAppServer(
           pendingUserInputRequests.delete(id);
         }
         await elicitationPauseController.endAll();
+        interruptedCleanup.finish?.(!abortRequested || orphanCleanup.hasCompleted(appServerTurnId));
+        orphanCleanup.dispose();
+        turnNotificationGate.clear();
         unsubscribe();
       }
     } finally {

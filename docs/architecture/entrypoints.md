@@ -24,6 +24,11 @@ approval/question presentation, use
 `electron/providers/codex-server-request-mapping.ts`; pending requests, timers,
 auto-approval, cancellation, and responses stay in the runtime adapter.
 
+For Codex cancel/retry races, inspect
+`electron/providers/codex-orphan-turn-cleanup.ts` and its runtime call sites.
+`codex-turn-notification-gate.ts` filters notifications by the acknowledged
+turn; `codex-app-server-pending-request.ts` owns local RPC wait cancellation.
+
 For Codex settings snapshots or the model catalog, start at
 `electron/providers/codex-app-server-snapshot.ts` and follow its facade in
 `electron/providers/codex-app-server-runtime.ts`. Turn execution remains in the

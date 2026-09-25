@@ -69,6 +69,27 @@ Use the smallest relevant check set for the change, then run the full gate befor
 - `bun run build:desktop`
 - `bun run test:ci`
 
+Native SQLite tests can be skipped by Bun when the installed module targets
+Electron's ABI. Run the same store tests inside Electron's Node runtime:
+
+```bash
+bun scripts/run-native-sqlite-tests.mjs
+```
+
+After `bun run build:desktop`, run a focused desktop spec with
+`bun run test:e2e:electron tests/e2e-electron/notification-persistence.electron.e2e.ts`.
+These tests use temporary profiles. Provider authentication is checked separately:
+
+```bash
+STAVE_LIVE_PROVIDER_SMOKE=1 bun run test:e2e:electron tests/e2e-electron/provider-live-smoke.electron.e2e.ts
+```
+
+The live smoke requires configured Claude and Codex accounts and makes billable
+provider turns. It is skipped by default. It checks fresh turns for both
+providers and Codex cancellation during startup, retry, and session resume
+across an Electron restart. It does not establish cancellation during generated
+output or equivalent lifecycle coverage for Claude.
+
 ## Packaged Desktop Runs And Packaging
 
 Primary local packaged run:

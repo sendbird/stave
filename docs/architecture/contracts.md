@@ -25,6 +25,15 @@ facade. Codex server-request presentation lives in
 pending-request registration, timeout scheduling, and response handling.
 These are provider-specific adapters, not interchangeable protocol mappings.
 
+Codex cancellation can precede the `turn/start` response. An immediate UI
+`user_abort` event does not prove that native execution has stopped. Keep
+same-thread retries behind `codex-orphan-turn-cleanup.ts` until the matching
+native completion arrives; quarantine unresolved threads after the grace
+period, including explicit resume attempts. Abandoning a local RPC wait does
+not cancel server execution or justify ending other turns on the shared client.
+Early notifications must preserve matching current-turn and child-event order
+through `codex-turn-notification-gate.ts`.
+
 When adding or renaming a normalized provider event:
 
 - update `NormalizedProviderEvent` in `src/lib/providers/provider.types.ts`
