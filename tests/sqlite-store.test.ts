@@ -129,16 +129,25 @@ describe("SqliteStore", () => {
       const reopened = new SqliteStore({ dbPath });
       const summaries = reopened.listWorkspaceSummaries();
       const loaded = reopened.loadWorkspaceSnapshot({ workspaceId: "ws-1" });
-      reopened.close();
 
       expect(summaries).toHaveLength(1);
       expect(summaries[0]?.id).toBe("ws-1");
-      expect(loaded).toEqual(snapshot);
+      const { version: _version, ...persistedFields } = snapshot;
+      expect(loaded).toMatchObject(persistedFields);
+      expect(loaded).toMatchObject({
+        activeEditorTabId: null,
+        editorTabs: [],
+        promptDraftByTask: {},
+        providerSessionByTask: {},
+        reviewCommentsByTask: {},
+        terminalDocked: false,
+      });
       expect(
         reopened.listTurns({ workspaceId: "ws-1", taskId: "task-1" })[0],
       ).toMatchObject({
         id: turnId,
       });
+      reopened.close();
     },
   );
 
@@ -349,6 +358,11 @@ describe("SqliteStore", () => {
         JSON.stringify({ type: "text", text: "legacy" }),
         "artifact-legacy",
         "2026-03-06T01:00:01.000Z",
+      );
+      // The first open created the one-time marker. Simulate a database from
+      // before that migration so the next open must perform the purge.
+      db.prepare("DELETE FROM app_state WHERE key = ?").run(
+        "legacy_turn_journal_purged_v1",
       );
       db.close();
 
@@ -1003,6 +1017,7 @@ describe("SqliteStore", () => {
             "claude-code": "session-claude",
           },
         },
+        reviewCommentsByTask: {},
         messageCountByTask: {
           "task-1": 1,
           "task-2": 0,

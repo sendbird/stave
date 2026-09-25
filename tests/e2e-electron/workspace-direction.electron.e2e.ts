@@ -54,9 +54,9 @@ test("maintained direction and an unsaved draft survive a full application resta
     await direction()
       .getByLabel("Instructions for all tasks", { exact: true })
       .fill("Unsaved follow-up: inspect Lens recovery.");
-    await expect(
-      direction().getByText("Draft saved on this device", { exact: true }),
-    ).toBeVisible();
+    await expect(direction().getByRole("status")).toContainText(
+      "Draft kept on this device",
+    );
     const toggle = direction().getByRole("button", {
       name: "Shared instructions",
       exact: true,

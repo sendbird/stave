@@ -17,6 +17,12 @@ test("a rejected workspace write stays visible and retry saves the current draft
     await stave.page.getByRole("button", { name: "New Task", exact: true }).click();
     const editor = stave.page.locator('[data-prompt-lexical-editor="true"]');
     await expect(editor).toBeVisible();
+    const workspaceId = await stave.page.evaluate(async () =>
+      (await window.api.persistence!.listWorkspaces!()).rows[0]!.id,
+    );
+    await expect.poll(() => stave.page.evaluate(async (id) =>
+      Boolean((await window.api.persistence!.loadWorkspaceShell!({ workspaceId: id })).shell?.activeTaskId),
+    workspaceId)).toBe(true);
 
     // Inject rejection at the main IPC boundary in this throwaway process.
     // Everything from autosave through the notice and retry remains real.
@@ -30,12 +36,13 @@ test("a rejected workspace write stays visible and retry saves the current draft
       ipcMain.handle(key, () => ({ ok: false }));
     });
     await editor.fill("Keep this draft after a failed save.");
-    const notice = stave.page.getByRole("alert", { name: "Unsaved workspace changes" });
+    const notice = stave.page.getByText("Some workspace changes could not be saved.", { exact: true }).first();
+    const retrySave = stave.page.getByText("Retry save", { exact: true });
     await expect(notice).toBeVisible({ timeout: 10_000 });
     await editor.fill("Save the latest draft after recovery.");
     await stave.page.screenshot({ path: testInfo.outputPath("unsaved-workspace-notice.png") });
-    await notice.getByRole("button", { name: "Retry save" }).click();
-    await expect(notice.getByRole("button", { name: "Retry save" })).toBeEnabled();
+    await retrySave.click();
+    await expect(retrySave).toBeEnabled();
     await expect(notice).toBeVisible();
 
     await stave.app.evaluate(({ ipcMain }) => {
@@ -45,7 +52,7 @@ test("a rejected workspace write stays visible and retry saves the current draft
       handlers.set("persistence:upsert-workspace", original);
       handlers.delete("stave-e2e:original-workspace-write");
     });
-    await notice.getByRole("button", { name: "Retry save" }).click();
+    await retrySave.click();
     await expect(notice).toHaveCount(0);
     await stave.page.reload();
     await expect(editor).toContainText("Save the latest draft after recovery.");
