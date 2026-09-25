@@ -1,11 +1,5 @@
 import type { ChatMessage, ToolUsePart } from "@/types/chat";
 
-export interface TodoFloaterProgressSnapshot {
-  totalCount: number;
-  hasPendingTodos: boolean;
-  hasInProgressTodos: boolean;
-}
-
 /**
  * Scan messages in reverse to find the latest TodoWrite tool_use part from the
  * current turn only. A normal user message ends the scan so TodoWrite output
@@ -42,29 +36,4 @@ export function findLatestTodoPart(
     }
   }
   return null;
-}
-
-export function resolveTodoFloaterVisibility(args: {
-  progress: TodoFloaterProgressSnapshot | null;
-  todoState?: ToolUsePart["state"];
-  isTurnActive: boolean;
-  lingering: boolean;
-  planViewerVisible: boolean;
-}) {
-  if (args.planViewerVisible || !args.progress) {
-    return false;
-  }
-
-  const isPartStillLive =
-    args.todoState === "input-streaming" ||
-    args.todoState === "input-available";
-  const hasActiveTodos =
-    args.progress.totalCount > 0 &&
-    (args.progress.hasPendingTodos || args.progress.hasInProgressTodos);
-  const wantVisible =
-    args.isTurnActive &&
-    args.progress.totalCount > 0 &&
-    (hasActiveTodos || isPartStillLive);
-
-  return wantVisible || args.lingering;
 }
