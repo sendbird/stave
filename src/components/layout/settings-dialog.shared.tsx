@@ -21,6 +21,7 @@ import {
   PopoverTitle,
   PopoverTrigger,
   Switch,
+  Textarea,
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -47,6 +48,39 @@ import { settingsSharedStyles as styles } from "./settings-dialog.shared.styles"
 const SettingsControlLabelContext = createContext<string | null>(null);
 const TOGGLE_ALL_VALUE = "__stave_toggle_all__";
 
+type DraftTextareaProps = Omit<
+  ComponentPropsWithoutRef<typeof Textarea>,
+  "value" | "defaultValue" | "onChange"
+> & {
+  value: string;
+  onCommit: (value: string) => void;
+};
+
+export const DraftTextarea = memo(function DraftTextarea(
+  args: DraftTextareaProps,
+) {
+  const { value, onCommit, onBlur, ...textareaProps } = args;
+  const [draft, setDraft] = useState(value);
+
+  useEffect(() => {
+    setDraft(value);
+  }, [value]);
+
+  return (
+    <Textarea
+      {...textareaProps}
+      value={draft}
+      onChange={(event) => setDraft(event.target.value)}
+      onBlur={(event) => {
+        if (event.target.value !== value) {
+          onCommit(event.target.value);
+        }
+        onBlur?.(event);
+      }}
+    />
+  );
+});
+
 export function readInt(value: string, fallback: number) {
   const parsed = Number.parseInt(value, 10);
   return Number.isNaN(parsed) ? fallback : parsed;
@@ -71,9 +105,7 @@ export function StatusBadge(args: {
         ? "warning"
         : "danger";
 
-  return (
-    <Badge tone={tone}>{args.label}</Badge>
-  );
+  return <Badge tone={tone}>{args.label}</Badge>;
 }
 
 export function InfoRow(args: {
@@ -491,9 +523,7 @@ export function SettingsFieldGuide(args: {
             ))}
           </div>
         ) : null}
-        {args.note ? (
-          <p className={sx(styles.guideNote)}>{args.note}</p>
-        ) : null}
+        {args.note ? <p className={sx(styles.guideNote)}>{args.note}</p> : null}
       </PopoverContent>
     </Popover>
   );

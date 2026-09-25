@@ -18,12 +18,19 @@ class FakeStream extends EventEmitter {
 }
 
 type FakeScenario =
-  "full-lifecycle" | "completed-only" | "native-collab" | "command-streaming" | "model-reroute";
+  "full-lifecycle" | "completed-only" | "native-collab" | "command-streaming" | "model-reroute" | "early-turn-notifications" | "delayed-abort-start" | "hung-abort-start" | "hung-postack-interrupt" | "hung-postack-interrupt-request";
 
 class FakeChild extends EventEmitter {
   stdout = new FakeStream();
   stderr = new FakeStream();
   killed = false;
+  private delayedTurnStartId: number | null = null;
+  private turnStartCount = 0;
+  get nativeThreadId() {
+    if (this.scenario === "hung-postack-interrupt") return "thread-postack-ack";
+    if (this.scenario === "hung-postack-interrupt-request") return "thread-postack-noack";
+    return this.scenario === "hung-abort-start" ? "thread-hung" : "thread-1";
+  }
   receivedMessages: Array<{
     id?: number;
     method?: string;
@@ -90,7 +97,7 @@ class FakeChild extends EventEmitter {
             message.method === "thread/resume") &&
           message.id != null
         ) {
-          this.emitResponse(message.id, { thread: { id: "thread-1" }, ...(this.scenario === "model-reroute" ? { model: "gpt-5.6-sol" } : {}) });
+          this.emitResponse(message.id, { thread: { id: this.nativeThreadId }, ...(this.scenario === "model-reroute" ? { model: "gpt-5.6-sol" } : {}) });
           continue;
         }
         if (message.method === "mcpServerStatus/list" && message.id != null) {
@@ -104,7 +111,13 @@ class FakeChild extends EventEmitter {
           continue;
         }
         if (message.method === "turn/interrupt" && message.id != null) {
+          if (this.scenario === "hung-postack-interrupt-request") continue;
           this.emitResponse(message.id, {});
+          if (this.scenario === "delayed-abort-start" || this.scenario === "hung-abort-start") {
+            queueMicrotask(() => this.emitJson({ jsonrpc: "2.0", method: "turn/completed", params: {
+              threadId: "thread-1", turn: { id: "turn-1", status: "interrupted" },
+            } }));
+          }
           continue;
         }
         if (message.method === "thread/unsubscribe" && message.id != null) {
@@ -134,8 +147,48 @@ class FakeChild extends EventEmitter {
           continue;
         }
         if (message.method === "turn/start" && message.id != null) {
+          if (this.scenario === "hung-postack-interrupt" || this.scenario === "hung-postack-interrupt-request") {
+            const turnId = `turn-${++this.turnStartCount}`;
+            this.emitResponse(message.id, { turn: { id: turnId } });
+            if (this.turnStartCount > 1) queueMicrotask(() => this.emitJson({
+              jsonrpc: "2.0", method: "turn/completed", params: {
+                threadId: this.nativeThreadId, turn: { id: turnId, status: "completed" },
+              },
+            }));
+            continue;
+          }
+          if (this.scenario === "delayed-abort-start" || this.scenario === "hung-abort-start") {
+            if (this.delayedTurnStartId === null) {
+              this.delayedTurnStartId = message.id;
+              continue;
+            }
+            this.emitResponse(message.id, { turn: { id: "turn-2" } });
+            queueMicrotask(() => this.emitJson({ jsonrpc: "2.0", method: "turn/completed", params: {
+              threadId: "thread-1", turn: { id: "turn-2", status: "completed" },
+            } }));
+            continue;
+          }
+          if (this.scenario === "early-turn-notifications") {
+            for (const [turnId, delta] of [
+              ["prior-turn", "STALE_TEXT"],
+              ["turn-1", "CURRENT_TEXT"],
+            ]) {
+              this.emitJson({ jsonrpc: "2.0", method: "item/agentMessage/delta", params: {
+                threadId: "thread-1", turnId, itemId: `message-${turnId}`, delta,
+              } });
+            }
+            this.emitJson({ jsonrpc: "2.0", method: "turn/completed", params: {
+              threadId: "thread-1", turn: { id: "prior-turn", status: "completed" },
+            } });
+          }
           this.emitResponse(message.id, { turn: { id: "turn-1" } });
           queueMicrotask(() => {
+            if (this.scenario === "early-turn-notifications") {
+              this.emitJson({ jsonrpc: "2.0", method: "turn/completed", params: {
+                threadId: "thread-1", turn: { id: "turn-1", status: "completed" },
+              } });
+              return;
+            }
             if (this.scenario === "native-collab") {
               this.emitCollabLifecycle();
               return;
@@ -168,6 +221,11 @@ class FakeChild extends EventEmitter {
   kill() {
     this.killed = true;
     return true;
+  }
+
+  acknowledgeDelayedTurnStart() {
+    if (this.delayedTurnStartId === null) throw new Error("No delayed turn/start request");
+    this.emitResponse(this.delayedTurnStartId, { turn: { id: "turn-1" } });
   }
 
   private emitResponse(id: number, result: unknown) {
@@ -403,6 +461,16 @@ const DEFAULT_SCENARIO_EVENT_TYPES = [
   "tool_result",
 ];
 
+async function awaitUnrefDeadline<T>(promise: Promise<T>): Promise<T> {
+  // The runtime timer is unref'd; keep this fake process test alive until it fires.
+  const keepAlive = setInterval(() => {}, 100);
+  try {
+    return await promise;
+  } finally {
+    clearInterval(keepAlive);
+  }
+}
+
 async function streamScenario(
   scenario: FakeScenario,
   runtimeOptions: ProviderRuntimeOptions = {},
@@ -426,6 +494,163 @@ async function streamScenario(
 }
 
 describe("Codex App Server MCP lifecycle mapping", () => {
+  test("routes pre-ack text and completion to the acknowledged turn", async () => {
+    nextScenario = "early-turn-notifications";
+    const runtime = await import(
+      `../electron/providers/codex-app-server-runtime?early-turn=${Date.now()}-${Math.random()}`
+    );
+    const events = await runtime.streamCodexWithAppServer({
+      providerId: "codex",
+      taskId: "task-early-turn",
+      prompt: "Current turn",
+      cwd: process.cwd(),
+      runtimeOptions: { codexBinaryPath: "/tmp/fake-codex-early-turn" },
+    });
+    expect(events?.filter((event) => event.type === "text").map((event) => event.text)).toEqual(["CURRENT_TEXT"]);
+    expect(events?.findIndex((event) => event.type === "provider_turn")).toBeLessThan(
+      events!.findIndex((event) => event.type === "text"),
+    );
+    expect(events?.filter((event) => event.type === "done")).toHaveLength(1);
+  });
+
+  test("does not submit a turn when cancellation preceded abort registration", async () => {
+    const runtime = await import(
+      `../electron/providers/codex-app-server-runtime?prestart-abort=${Date.now()}-${Math.random()}`
+    );
+    const events = await runtime.streamCodexWithAppServer({
+      providerId: "codex",
+      taskId: "task-prestart-abort",
+      prompt: "A canceled prompt must not reach turn/start",
+      cwd: process.cwd(),
+      runtimeOptions: { codexBinaryPath: "/tmp/fake-codex-prestart-abort" },
+      registerAbort: (aborter) => aborter(),
+    });
+    expect(fakeChildren.at(-1)?.receivedMessages.some((message) =>
+      message.method === "turn/start"
+    )).toBe(false);
+    expect(events?.some((event) => event.type === "done" &&
+      event.stop_reason === "user_abort"
+    )).toBe(true);
+  });
+
+  test("waits for a delayed interrupted start to finish before resuming its thread", async () => {
+    nextScenario = "delayed-abort-start";
+    const runtime = await import(
+      `../electron/providers/codex-app-server-runtime?delayed-abort=${Date.now()}-${Math.random()}`
+    );
+    const args = {
+      providerId: "codex" as const,
+      taskId: "task-delayed-abort",
+      cwd: process.cwd(),
+      runtimeOptions: { codexBinaryPath: "/tmp/fake-codex-delayed-abort" },
+    };
+    let aborter: (() => void) | null = null;
+    try {
+      const first = runtime.streamCodexWithAppServer({
+        ...args,
+        prompt: "Cancel before turn/start is acknowledged",
+        registerAbort: (callback) => { aborter = callback; },
+      });
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        if (fakeChildren.at(-1)?.receivedMessages.some((message) => message.method === "turn/start")) break;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      expect(aborter).toBeFunction();
+      aborter!();
+      const second = runtime.streamCodexWithAppServer({ ...args, prompt: "Next turn" });
+      await new Promise((resolve) => setTimeout(resolve, 30));
+      const child = fakeChildren.at(-1)!;
+      expect(child.receivedMessages.some((message) => message.method === "thread/resume")).toBe(false);
+      child.acknowledgeDelayedTurnStart();
+      const [cancelEvents, retryEvents] = await Promise.all([first, second]);
+      const methods = child.receivedMessages.map((message) => message.method);
+      expect(methods.indexOf("turn/interrupt")).toBeLessThan(methods.indexOf("thread/resume"));
+      expect(cancelEvents?.some((event) => event.type === "done" && event.stop_reason === "user_abort")).toBe(true);
+      expect(retryEvents?.some((event) => event.type === "done")).toBe(true);
+    } finally {
+      runtime.disposeAllCodexAppServerClients();
+    }
+  }, 15_000);
+
+  test("quarantines a turn whose start never settles and rejects explicit resume", async () => {
+    nextScenario = "hung-abort-start";
+    const runtime = await import(
+      `../electron/providers/codex-app-server-runtime?timed-out-abort=${Date.now()}-${Math.random()}`
+    );
+    const args = {
+      providerId: "codex" as const,
+      taskId: "task-timed-out-abort",
+      cwd: process.cwd(),
+      runtimeOptions: { codexBinaryPath: "/tmp/fake-codex-timed-out-abort" },
+    };
+    let aborter: (() => void) | null = null;
+    try {
+      const first = runtime.streamCodexWithAppServer({
+        ...args,
+        prompt: "Cancel a hung turn/start",
+        registerAbort: (callback) => { aborter = callback; },
+      });
+      for (let attempt = 0; attempt < 100; attempt += 1) {
+        if (fakeChildren.at(-1)?.receivedMessages.some((message) => message.method === "turn/start")) break;
+        await new Promise((resolve) => setTimeout(resolve, 10));
+      }
+      expect(aborter).toBeFunction();
+      aborter!();
+      const cancelEvents = await awaitUnrefDeadline(first);
+      expect(cancelEvents?.some((event) => event.type === "done" && event.stop_reason === "user_abort")).toBe(true);
+      const retryEvents = await runtime.streamCodexWithAppServer({
+        ...args,
+        prompt: "Unsafe explicit resume",
+        runtimeOptions: { ...args.runtimeOptions, codexResumeThreadId: "thread-hung" },
+      });
+      expect(retryEvents?.some((event) => event.type === "error" &&
+        event.message.includes("Previous Codex turn is still stopping"))).toBe(true);
+      expect(fakeChildren.at(-1)?.receivedMessages.filter((message) =>
+        message.method === "turn/start")).toHaveLength(1);
+    } finally {
+      runtime.disposeAllCodexAppServerClients();
+    }
+  }, 20_000);
+
+  for (const scenario of ["hung-postack-interrupt", "hung-postack-interrupt-request"] as const) {
+    test(`quarantines a post-ack turn when ${scenario} never completes natively`, async () => {
+      nextScenario = scenario;
+      const runtime = await import(
+        `../electron/providers/codex-app-server-runtime?postack-interrupt=${Date.now()}-${Math.random()}`
+      );
+      const args = {
+        providerId: "codex" as const,
+        taskId: `task-${scenario}`,
+        cwd: process.cwd(),
+        runtimeOptions: { codexBinaryPath: `/tmp/fake-codex-${scenario}` },
+      };
+      let aborter: (() => void) | null = null;
+      try {
+        const first = await awaitUnrefDeadline(runtime.streamCodexWithAppServer({
+          ...args,
+          prompt: "Stop after turn/start acknowledges",
+          registerAbort: (callback) => { aborter = callback; },
+          onEvent: (event) => {
+            if (event.type === "provider_turn") aborter?.();
+          },
+        }));
+        expect(first?.some((event) => event.type === "done" && event.stop_reason === "user_abort")).toBe(true);
+        const sessionId = fakeChildren.at(-1)!.nativeThreadId;
+        const retry = await runtime.streamCodexWithAppServer({
+          ...args,
+          prompt: "Unsafe explicit resume after unresolved post-ack interrupt",
+          runtimeOptions: { ...args.runtimeOptions, codexResumeThreadId: sessionId },
+        });
+        expect(retry?.some((event) => event.type === "error" &&
+          event.message.includes("Previous Codex turn is still stopping"))).toBe(true);
+        expect(fakeChildren.at(-1)?.receivedMessages.filter((message) =>
+          message.method === "thread/resume")).toHaveLength(0);
+      } finally {
+        runtime.disposeAllCodexAppServerClients();
+      }
+    }, 20_000);
+  }
+
   test("releases idle threads, retires the process, and resumes the same persisted thread", async () => {
     const timers = new Map<
       ReturnType<typeof setTimeout>,

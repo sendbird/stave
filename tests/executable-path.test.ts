@@ -117,6 +117,8 @@ test("async CLI discovery ranks slow version-manager candidates before a synchro
   const codexExecutablePath = path.join(binDirectory, "codex");
   const claudeCountPath = path.join(nvmDirectory, "claude-version-launches");
   const codexCountPath = path.join(nvmDirectory, "codex-version-launches");
+  const shellPath = path.join(nvmDirectory, "login-shell");
+  writeFileSync(shellPath, '#!/bin/sh\nexec /bin/sh -c "$2"\n');
   writeFileSync(
     executablePath,
     `#!/bin/sh\necho launch >> '${claudeCountPath}'\nsleep 0.1\nprintf '999.0.0\\n'\n`,
@@ -127,13 +129,16 @@ test("async CLI discovery ranks slow version-manager candidates before a synchro
   );
   chmodSync(executablePath, 0o755);
   chmodSync(codexExecutablePath, 0o755);
+  chmodSync(shellPath, 0o755);
   const originalNvmDir = process.env.NVM_DIR;
+  const originalShell = process.env.SHELL;
   const originalClaudePath = process.env.STAVE_CLAUDE_CLI_PATH;
   const originalClaudeCommand = process.env.STAVE_CLAUDE_CMD;
   __resetExecutablePathCachesForTests();
   __resetCliExecutableDiscoveryForTests();
   try {
     process.env.NVM_DIR = nvmDirectory;
+    process.env.SHELL = shellPath;
     delete process.env.STAVE_CLAUDE_CLI_PATH;
     delete process.env.STAVE_CLAUDE_CMD;
     let timerRan = false;
@@ -150,6 +155,8 @@ test("async CLI discovery ranks slow version-manager candidates before a synchro
   } finally {
     if (originalNvmDir === undefined) delete process.env.NVM_DIR;
     else process.env.NVM_DIR = originalNvmDir;
+    if (originalShell === undefined) delete process.env.SHELL;
+    else process.env.SHELL = originalShell;
     if (originalClaudePath === undefined)
       delete process.env.STAVE_CLAUDE_CLI_PATH;
     else process.env.STAVE_CLAUDE_CLI_PATH = originalClaudePath;

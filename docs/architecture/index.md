@@ -2,20 +2,21 @@
 
 This file is the fast entrypoint for codebase orientation.
 
-## Read Order
+## Read As Needed
 
-1. `AGENTS.md` for repo policy, boundaries, and contract guardrails
-2. `docs/architecture/runtime.md` for runtime topology
-3. `docs/architecture/conversation-flow.md` for turn lifecycle
-4. `docs/providers/provider-runtimes.md` for provider-specific paths
-5. `docs/architecture/entrypoints.md` for task-to-file routing
-6. `docs/architecture/contracts.md` for multi-file contract checklists
-7. `docs/architecture/agent-platform-taxonomy.md` before adding anything that runs, schedules, delegates, or displays work
-8. `docs/architecture/run-core.md` before adding durable secondary execution consumers
-9. `docs/architecture/workspace-integrity.md` before changing project/workspace/task ownership or hydration logic
-10. `docs/architecture/chat-message-rendering.md` before changing assistant message UI semantics
-11. `docs/architecture/agent-message-ux-catalog.md` for the provider-event-to-UX matrix and Preview baseline
-12. `docs/architecture/session-cursor.md` for provider switch-back delta history and safe fresh-session fallback
+1. Read `AGENTS.md` for repository policy and boundary guardrails.
+2. Use `docs/architecture/entrypoints.md` to find the first files for the task.
+3. Open only the matching reference: `runtime.md` for process topology,
+   `conversation-flow.md` for turn lifecycle, `contracts.md` for a cross-process
+   change, or `docs/providers/provider-runtimes.md` for provider behavior.
+
+Other references have narrower triggers: `agent-platform-taxonomy.md` for new
+execution, scheduling, delegation, or work-display concepts; `run-core.md` for
+durable secondary execution; `workspace-integrity.md` for ownership or
+hydration; `chat-message-rendering.md` and `agent-message-ux-catalog.md` for
+assistant message presentation; and `session-cursor.md` for provider history
+resumption. `code-organization.md` maps recently extracted owners and their
+focused tests.
 
 ## Top-Level Layout
 

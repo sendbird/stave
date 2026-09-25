@@ -1134,6 +1134,32 @@ describe("local MCP runtime runTask", () => {
 });
 
 describe("local MCP runtime Information panel auto-fill and dedup", () => {
+  test("Information mutation persists before publishing its update", async () => {
+    const observed: Array<{ workspaceId: string; notes: string; persistedNotes: string | undefined }> = [];
+    runtime.setLocalMcpEventListener((event) => {
+      if (event.type !== "workspace-information-updated") return;
+      observed.push({
+        workspaceId: event.payload.workspaceId,
+        notes: event.payload.workspaceInformation.notes,
+        persistedNotes: (persistedWorkspaceInformationById.get(event.payload.workspaceId) as { notes?: string } | undefined)?.notes,
+      });
+    });
+    try {
+      const result = await runtime.replaceWorkspaceNotes({
+        workspaceId: WORKSPACE_ID,
+        notes: "Persist before notifying",
+      });
+      expect(result.workspaceInformation.notes).toBe("Persist before notifying");
+      expect(observed.at(-1)).toEqual({
+        workspaceId: WORKSPACE_ID,
+        notes: "Persist before notifying",
+        persistedNotes: "Persist before notifying",
+      });
+    } finally {
+      runtime.setLocalMcpEventListener(null);
+    }
+  });
+
   test("runTask auto-registers resources detected in the prompt", async () => {
     const result = await runtime.runTask({
       workspaceId: WORKSPACE_ID,

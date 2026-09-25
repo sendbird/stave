@@ -13,7 +13,7 @@ import {
 import { Button, Input, Loader, Textarea, toast } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { SettingsCard } from "./settings-dialog.shared";
+import { SectionStack, SettingsCard } from "./settings-dialog.shared";
 import { secretsStyles as styles } from "./settings-dialog-secrets.styles";
 import type { SecretMetadata } from "@/lib/secrets/secrets";
 
@@ -464,5 +464,13 @@ export function SecretsSettingsCard() {
         onCancel={() => setDeletingId(null)}
       />
     </>
+  );
+}
+
+export function SecretsSection() {
+  return (
+    <SectionStack>
+      <SecretsSettingsCard />
+    </SectionStack>
   );
 }

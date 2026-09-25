@@ -7,7 +7,7 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { Globe } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { GitHubPrRow, InlineLinkRow, StorybookAccessBadges } from "@/components/layout/WorkspaceInformationPanel";
+import { GitHubPrRow, InlineLinkRow, StorybookAccessBadges } from "@/components/layout/workspace-information/workspace-information-link-rows";
 import { WorkspacePlansSection } from "@/components/layout/WorkspacePlansSection";
 import { WorkspaceMemorySection } from "@/components/layout/WorkspaceMemorySection";
 import { informationRow } from "@/components/layout/information-row.styles";

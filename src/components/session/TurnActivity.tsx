@@ -46,7 +46,7 @@ import {
   useChildTasks,
   type ChildTaskListingSource,
 } from "@/components/session/useChildTasks";
-import { findLatestTodoPart } from "@/components/session/todo-floater.utils";
+import { findLatestTodoPart } from "@/components/session/turn-todo.utils";
 import {
   getTurnActivityStatusLabel,
   TurnActivityStatusIcon,

@@ -999,6 +999,13 @@ High-level flow:
 5. `turn/start` streams App Server notifications into the same `BridgeEvent` format used by Claude.
 6. File changes are post-processed through `turn-diff-tracker.ts` so the UI can render diffs.
 
+Cancellation blocks reuse of the native thread until the matching `turn/completed`
+arrives, whether stop happened before or after `turn/start` acknowledged. If the
+App Server never confirms completion within the bounded grace period, Stave
+quarantines that thread: an explicit resume reports an error and an automatic
+retry starts a fresh thread. Pending interrupt RPCs are cleared when the local
+turn closes.
+
 Codex prompt injection note:
 
 - Stave now forwards response-style and project/system prompt overrides through Codex `developer_instructions` config instead of prepending visible `<system>` blocks to each user turn.

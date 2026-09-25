@@ -1,4 +1,6 @@
 import { createCodexModelResolutionTracker } from "./codex-model-resolution";
+import { createCodexTurnNotificationGate } from "./codex-turn-notification-gate";
+import { beginCodexInterruptedThreadCleanup, canResumeCodexThreadAfterInterrupt, createCodexOrphanTurnCleanup } from "./codex-orphan-turn-cleanup";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
 import {
   summarizeCodexAppServerDebugMessage,
@@ -22,14 +24,12 @@ import type {
   ConnectedToolStatusResponse,
 } from "../../src/lib/providers/connected-tool-status";
 import type {
-  CodexAppServerSnapshot,
   CodexAppServerSnapshotResponse,
   CodexExternalAgentConfigMigrationItem,
   CodexModelCatalogResponse,
   CodexMutationResponse,
   CodexPluginDetailResponse,
   CodexPluginInstallResponse,
-  CodexPluginMarketplaceSnapshot,
   CodexReviewStartResponse,
   CodexThreadForkResponse,
   CodexThreadReadResponse,
@@ -48,7 +48,6 @@ import {
 export { resolveCodexChatgptAuthTokensRefreshResponse };
 import { describeJsonRpcLinePrefix } from "../shared/json-rpc-line";
 import { stripReservedSecretEnvNames } from "../../src/lib/secrets/secrets";
-import { mapCodexUserInputQuestions } from "./codex-user-input-mapping";
 import { createTurnDiffTracker } from "./turn-diff-tracker";
 import { toText } from "./utils";
 import {
@@ -129,25 +128,18 @@ import {
   runCodexCompactSlashCommand,
   runCodexGoalSlashCommand,
 } from "./codex-goal-commands";
+import { recordCodexRateLimits } from "./codex-rate-limits-cache";
 import {
-  recordCodexRateLimits,
-  requestCodexRateLimitBuckets,
-} from "./codex-rate-limits-cache";
-import {
-  mapCodexConfigSnapshot,
-  mapCodexHookCatalogGroups,
-  mapCodexMcpStatusSnapshot,
-  mapCodexModelCatalogEntry,
   mapCodexPluginDetail,
-  mapCodexPluginSummary,
   mapCodexRateLimitBuckets,
-  mapCodexSkillCatalogGroups,
   mapCodexThreadSnapshot,
 } from "./codex-snapshot-mappers";
 import {
+  collectCodexAppServerSnapshot,
+  listCodexModelCatalogEntries,
+} from "./codex-app-server-snapshot";
+import {
   coerceElicitationAnswer,
-  mapCodexElicitationToApproval,
-  mapCodexElicitationToUserInput,
   shouldAutoApproveStaveLocalMcpElicitation,
   type ElicitationFieldDescriptor,
 } from "./codex-elicitation-mapping";
@@ -176,6 +168,7 @@ import {
   emitCodexFileChangeEvents,
 } from "./codex-file-change-mapping";
 import { createCodexAppServerElicitationPauseController } from "./codex-elicitation-pause";
+import { mapCodexServerRequestPresentation } from "./codex-server-request-mapping";
 import { createCodexWorkerActivityMapper } from "./codex-worker-activity";
 import {
   parseProviderBrowserDomains,
@@ -315,17 +308,6 @@ type JsonRpcMessage = {
   result?: unknown;
   error?: { code?: number; message?: string; data?: unknown };
 };
-
-type ServerRequestMethod =
-  | "item/commandExecution/requestApproval"
-  | "item/fileChange/requestApproval"
-  | "item/permissions/requestApproval"
-  | "item/tool/requestUserInput"
-  | "mcpServer/elicitation/request"
-  | "applyPatchApproval"
-  | "execCommandApproval"
-  | "item/tool/call"
-  | "account/chatgptAuthTokens/refresh";
 
 interface PendingApprovalRequest {
   serverRequestId: JsonRpcId;
@@ -505,57 +487,6 @@ export function resolveCodexExecutablePath(
   });
 }
 
-function buildApprovalDescription(args: {
-  method: ServerRequestMethod;
-  params: Record<string, unknown>;
-}) {
-  const reason =
-    typeof args.params.reason === "string" &&
-    args.params.reason.trim().length > 0
-      ? args.params.reason.trim()
-      : null;
-  if (
-    typeof args.params.command === "string" &&
-    args.params.command.trim().length > 0
-  ) {
-    return reason ? `${args.params.command}\n\n${reason}` : args.params.command;
-  }
-  if (args.method === "item/fileChange/requestApproval") {
-    const grantRoot =
-      typeof args.params.grantRoot === "string"
-        ? args.params.grantRoot.trim()
-        : "";
-    if (grantRoot) {
-      return reason
-        ? `${reason}\n\nGrant root: ${grantRoot}`
-        : `Grant root: ${grantRoot}`;
-    }
-  }
-  return reason ?? `Codex requested approval for ${args.method}.`;
-}
-
-function buildApprovalInput(args: { params: Record<string, unknown> }) {
-  return typeof args.params.command === "string" &&
-    args.params.command.trim().length > 0
-    ? args.params.command.trim()
-    : undefined;
-}
-
-function mapApprovalToolName(method: ServerRequestMethod) {
-  switch (method) {
-    case "item/commandExecution/requestApproval":
-    case "execCommandApproval":
-      return "bash";
-    case "item/fileChange/requestApproval":
-    case "applyPatchApproval":
-      return "apply_patch";
-    case "item/permissions/requestApproval":
-      return "permissions";
-    default:
-      return method;
-  }
-}
-
 function shouldDebugCodexAppServerMessage(message: JsonRpcMessage) {
   return (
     message.method === "error" ||
@@ -636,11 +567,12 @@ class CodexAppServerClient {
   async request<T = unknown>(
     method: string,
     params: unknown,
-    options?: { timeoutMs?: number },
+    options?: { timeoutMs?: number; signal?: AbortSignal },
   ): Promise<T> {
     this.lifetime.suspend();
     try {
       await this.ensureStarted();
+      if (options?.signal?.aborted) throw new Error(`Codex App Server ${method} was canceled.`);
       // JSON-RPC carries unknown data; the caller owns the response contract.
       return (await this.sendRequest(method, params, options)) as T;
     } finally {
@@ -863,7 +795,7 @@ class CodexAppServerClient {
   private async sendRequest(
     method: string,
     params: unknown,
-    options?: { timeoutMs?: number },
+    options?: { timeoutMs?: number; signal?: AbortSignal },
   ): Promise<unknown> {
     const child = this.process;
     if (!child) {
@@ -872,14 +804,19 @@ class CodexAppServerClient {
 
     const requestId = this.nextRequestId++;
     return new Promise<unknown>((resolve, reject) => {
-      registerPendingCodexAppServerResponse({
+      const registered = registerPendingCodexAppServerResponse({
         pendingResponses: this.pendingResponses,
         requestId,
         method,
         timeoutMs: options?.timeoutMs,
+        signal: options?.signal,
         resolve,
         reject,
       });
+      if (!registered) {
+        reject(new Error(`Codex App Server ${method} was canceled.`));
+        return;
+      }
       const wrote = this.writeToProcessStdin(child, {
         jsonrpc: "2.0",
         id: requestId,
@@ -1138,7 +1075,7 @@ async function ensureCodexThread(args: {
     ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
   };
   const instructionProfile = buildCodexInstructionProfileKey(instructionArgs);
-  const resumeThreadId = resolveCodexThreadSession({
+  let resumeThreadId = resolveCodexThreadSession({
     threadKey,
     executablePath: args.executablePath,
     ephemeral: args.ephemeral,
@@ -1150,6 +1087,12 @@ async function ensureCodexThread(args: {
           runtimeOptions: args.runtimeOptions,
         }),
   });
+  if (resumeThreadId && !(await canResumeCodexThreadAfterInterrupt(resumeThreadId))) {
+    if (args.runtimeOptions?.codexResumeThreadId?.trim()) {
+      throw new Error("Previous Codex turn is still stopping. Start a new session to continue safely.");
+    }
+    resumeThreadId = undefined;
+  }
 
   requireCompactResumeSession(
     args.conversation?.input.content ?? args.input ?? "",
@@ -1259,42 +1202,6 @@ export const applyCodexMcpServerConfigMutation =
   codexMcpManagement.applyConfigMutation;
 export const readCodexMcpShareDraft = codexMcpManagement.readShareDraft;
 
-async function listPaginatedCodexData<T>(args: {
-  client: CodexAppServerClient;
-  method: string;
-  params?: Record<string, unknown>;
-  maxPages?: number;
-  signal?: AbortSignal;
-}): Promise<T[]> {
-  const results: T[] = [];
-  let cursor: string | null = null;
-  let pages = 0;
-  const maxPages = args.maxPages ?? 10;
-  while (pages < maxPages) {
-    // Checked per page rather than only up front: a sweep can run for up to
-    // `maxPages` round trips, and a caller that has already been cancelled
-    // should not keep paying for the rest of them.
-    if (args.signal?.aborted) {
-      break;
-    }
-    const response: { data?: T[]; nextCursor?: string | null } =
-      await args.client.request<{
-        data?: T[];
-        nextCursor?: string | null;
-      }>(args.method, {
-        ...(args.params ?? {}),
-        ...(cursor ? { cursor } : {}),
-      });
-    results.push(...(response.data ?? []));
-    cursor = response.nextCursor ?? null;
-    pages += 1;
-    if (!cursor) {
-      break;
-    }
-  }
-  return results;
-}
-
 export async function getCodexModelCatalog(args: {
   cwd?: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -1307,19 +1214,14 @@ export async function getCodexModelCatalog(args: {
 }): Promise<CodexModelCatalogResponse> {
   try {
     const client = getCodexAppServerClientFromRuntimeOptions(args);
-    const models = await listPaginatedCodexData<any>({
+    const models = await listCodexModelCatalogEntries({
       client,
-      method: "model/list",
-      params: {
-        includeHidden: false,
-        limit: 100,
-      },
-      ...(args.signal ? { signal: args.signal } : {}),
+      signal: args.signal,
     });
     return {
       ok: true,
       detail: "Loaded Codex model catalog from App Server.",
-      models: models.map(mapCodexModelCatalogEntry),
+      models,
     };
   } catch (error) {
     return {
@@ -1345,297 +1247,11 @@ export async function getCodexAppServerSnapshot(args: {
     const capabilities = executablePath
       ? getCodexVersionCapabilities(executablePath)
       : null;
-    const snapshot: CodexAppServerSnapshot = {
-      account: null,
-      rateLimits: [],
-      skills: [],
-      hooks: [],
-      pluginMarketplaces: [],
-      plugins: [],
-      pluginMarketplaceLoadErrors: [],
-      apps: [],
-      experimentalFeatures: [],
-      mcpServers: [],
-      threads: [],
-      archivedThreads: [],
-      config: null,
-      configRequirements: null,
-      externalAgentConfigItems: [],
-    };
-    const sectionErrors: Record<string, string> = {};
-    let loadedSectionCount = 0;
-
-    const loadSection = async (key: string, loader: () => Promise<void>) => {
-      try {
-        await loader();
-        loadedSectionCount += 1;
-      } catch (error) {
-        sectionErrors[key] = toCodexUserFacingErrorMessage({
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
-    };
-
-    await Promise.all([
-      loadSection("account", async () => {
-        const response = await client.request<any>("account/read", {
-          refreshToken: false,
-        });
-        const account = response?.account;
-        snapshot.account = {
-          type: typeof account?.type === "string" ? account.type : "unknown",
-          email: typeof account?.email === "string" ? account.email : null,
-          planType:
-            typeof account?.planType === "string" ? account.planType : null,
-          requiresOpenaiAuth: Boolean(response?.requiresOpenaiAuth),
-        };
-      }),
-      loadSection("rateLimits", async () => {
-        snapshot.rateLimits = await requestCodexRateLimitBuckets(client);
-      }),
-      loadSection("skills", async () => {
-        const response = await client.request<any>("skills/list", {
-          cwds: [cwd],
-          forceReload: false,
-        });
-        snapshot.skills = mapCodexSkillCatalogGroups(response?.data, cwd);
-      }),
-      ...(capabilities?.hooks.inventory
-        ? [
-            loadSection("hooks", async () => {
-              const response = await client.request<any>("hooks/list", {
-                cwds: [cwd],
-              });
-              snapshot.hooks = mapCodexHookCatalogGroups(response?.data, cwd);
-            }),
-          ]
-        : []),
-      loadSection("plugins", async () => {
-        const response = await client.request<any>("plugin/list", {
-          cwds: [cwd],
-          forceRemoteSync: false,
-        });
-        snapshot.pluginMarketplaces = Array.isArray(response?.marketplaces)
-          ? response.marketplaces.map(
-              (marketplace: any): CodexPluginMarketplaceSnapshot => ({
-                name: String(marketplace?.name ?? ""),
-                path: String(marketplace?.path ?? ""),
-                displayName:
-                  typeof marketplace?.interface?.displayName === "string"
-                    ? marketplace.interface.displayName
-                    : null,
-              }),
-            )
-          : [];
-        snapshot.plugins = Array.isArray(response?.marketplaces)
-          ? response.marketplaces.flatMap((marketplace: any) =>
-              Array.isArray(marketplace?.plugins)
-                ? marketplace.plugins.map((plugin: any) =>
-                    mapCodexPluginSummary(plugin, marketplace),
-                  )
-                : [],
-            )
-          : [];
-        snapshot.pluginMarketplaceLoadErrors = Array.isArray(
-          response?.marketplaceLoadErrors,
-        )
-          ? response.marketplaceLoadErrors.map((error: any) =>
-              typeof error?.message === "string"
-                ? error.message
-                : JSON.stringify(error ?? {}),
-            )
-          : [];
-      }),
-      loadSection("apps", async () => {
-        const apps = await listPaginatedCodexData<any>({
-          client,
-          method: "app/list",
-          params: { limit: 100, forceRefetch: false },
-        });
-        snapshot.apps = apps.map((app: any) => ({
-          id: String(app?.id ?? ""),
-          name: String(app?.name ?? ""),
-          description:
-            typeof app?.description === "string" ? app.description : null,
-          logoUrl: typeof app?.logoUrl === "string" ? app.logoUrl : null,
-          logoUrlDark:
-            typeof app?.logoUrlDark === "string" ? app.logoUrlDark : null,
-          distributionChannel:
-            typeof app?.distributionChannel === "string"
-              ? app.distributionChannel
-              : null,
-          installUrl:
-            typeof app?.installUrl === "string" ? app.installUrl : null,
-          isAccessible: Boolean(app?.isAccessible),
-          isEnabled: Boolean(app?.isEnabled),
-          pluginDisplayNames: Array.isArray(app?.pluginDisplayNames)
-            ? app.pluginDisplayNames
-                .map((name: unknown) => String(name ?? "").trim())
-                .filter(Boolean)
-            : [],
-          labels:
-            app?.labels && typeof app.labels === "object"
-              ? Object.fromEntries(
-                  Object.entries(app.labels).map(([key, value]) => [
-                    key,
-                    String(value ?? ""),
-                  ]),
-                )
-              : null,
-        }));
-      }),
-      loadSection("experimentalFeatures", async () => {
-        const features = await listPaginatedCodexData<any>({
-          client,
-          method: "experimentalFeature/list",
-          params: { limit: 100 },
-        });
-        snapshot.experimentalFeatures = features.map((feature: any) => ({
-          name: String(feature?.name ?? ""),
-          stage: typeof feature?.stage === "string" ? feature.stage : "unknown",
-          displayName:
-            typeof feature?.displayName === "string"
-              ? feature.displayName
-              : null,
-          description:
-            typeof feature?.description === "string"
-              ? feature.description
-              : null,
-          announcement:
-            typeof feature?.announcement === "string"
-              ? feature.announcement
-              : null,
-          enabled: Boolean(feature?.enabled),
-          defaultEnabled: Boolean(feature?.defaultEnabled),
-        }));
-      }),
-      loadSection("mcpServers", async () => {
-        const response = await client.request<{ data?: any[] }>(
-          "mcpServerStatus/list",
-          {
-            detail: "full",
-          },
-        );
-        snapshot.mcpServers = (response.data ?? []).map(
-          mapCodexMcpStatusSnapshot,
-        );
-      }),
-      loadSection("threads", async () => {
-        const threads = await listPaginatedCodexData<any>({
-          client,
-          method: "thread/list",
-          params: {
-            cwd,
-            archived: false,
-            limit: 100,
-          },
-        });
-        snapshot.threads = threads.map((thread: any) =>
-          mapCodexThreadSnapshot(thread, false),
-        );
-      }),
-      loadSection("archivedThreads", async () => {
-        const threads = await listPaginatedCodexData<any>({
-          client,
-          method: "thread/list",
-          params: {
-            cwd,
-            archived: true,
-            limit: 100,
-          },
-        });
-        snapshot.archivedThreads = threads.map((thread: any) =>
-          mapCodexThreadSnapshot(thread, true),
-        );
-      }),
-      loadSection("config", async () => {
-        const response = await client.request<any>("config/read", {
-          includeLayers: true,
-          cwd,
-        });
-        snapshot.config = mapCodexConfigSnapshot(response);
-      }),
-      loadSection("configRequirements", async () => {
-        const response = await client.request<any>(
-          "configRequirements/read",
-          {},
-        );
-        snapshot.configRequirements = response?.requirements
-          ? {
-              allowedApprovalPolicies: Array.isArray(
-                response.requirements.allowedApprovalPolicies,
-              )
-                ? response.requirements.allowedApprovalPolicies.map(
-                    (entry: unknown) => String(entry ?? ""),
-                  )
-                : null,
-              allowedSandboxModes: Array.isArray(
-                response.requirements.allowedSandboxModes,
-              )
-                ? response.requirements.allowedSandboxModes.map(
-                    (entry: unknown) => String(entry ?? ""),
-                  )
-                : null,
-              allowedWebSearchModes: Array.isArray(
-                response.requirements.allowedWebSearchModes,
-              )
-                ? response.requirements.allowedWebSearchModes.map(
-                    (entry: unknown) => String(entry ?? ""),
-                  )
-                : null,
-              featureRequirements:
-                response.requirements.featureRequirements &&
-                typeof response.requirements.featureRequirements === "object"
-                  ? Object.fromEntries(
-                      Object.entries(
-                        response.requirements.featureRequirements,
-                      ).map(([key, value]) => [key, Boolean(value)]),
-                    )
-                  : null,
-              enforceResidency:
-                typeof response.requirements.enforceResidency === "string"
-                  ? response.requirements.enforceResidency
-                  : null,
-            }
-          : null;
-      }),
-      loadSection("externalAgentConfig", async () => {
-        const response = await client.request<any>(
-          "externalAgentConfig/detect",
-          {
-            includeHome: true,
-            cwds: [cwd],
-          },
-        );
-        snapshot.externalAgentConfigItems = Array.isArray(response?.items)
-          ? response.items.map(
-              (item: any): CodexExternalAgentConfigMigrationItem => ({
-                itemType: String(item?.itemType ?? ""),
-                description: String(item?.description ?? ""),
-                cwd: typeof item?.cwd === "string" ? item.cwd : null,
-              }),
-            )
-          : [];
-      }),
-    ]);
-
-    if (loadedSectionCount === 0) {
-      return {
-        ok: false,
-        detail: "Failed to load Codex App Server snapshot.",
-        sectionErrors,
-      };
-    }
-
-    return {
-      ok: true,
-      detail:
-        Object.keys(sectionErrors).length === 0
-          ? "Loaded Codex App Server snapshot."
-          : `Loaded Codex App Server snapshot with ${Object.keys(sectionErrors).length} section error(s).`,
-      sectionErrors,
-      snapshot,
-    };
+    return await collectCodexAppServerSnapshot({
+      client,
+      cwd,
+      hooksInventory: Boolean(capabilities?.hooks.inventory),
+    });
   } catch (error) {
     return {
       ok: false,
@@ -2595,6 +2211,8 @@ export async function streamCodexWithAppServer(
       } | null = null;
       let lastUsageEmitAt = 0;
       let appServerTurnId = "";
+      const turnNotificationGate = createCodexTurnNotificationGate<JsonRpcMessage>();
+      const interruptedCleanup: { finish: ((safe: boolean) => void) | null } = { finish: null };
       let abortRequested = false;
       let completed = false;
       let resolveTurnCompletion: (() => void) | null = null;
@@ -2921,7 +2539,7 @@ export async function streamCodexWithAppServer(
         }
       });
 
-      const unsubscribe = client.subscribe((message) => {
+      const handleAppServerMessage = (message: JsonRpcMessage) => {
         if (codexDebug && shouldDebugCodexAppServerMessage(message)) {
           console.debug("[codex-app-server-runtime] raw lifecycle message", {
             activeThreadId: threadId,
@@ -2972,203 +2590,68 @@ export async function streamCodexWithAppServer(
             });
             return;
           }
-          switch (message.method as ServerRequestMethod) {
-            case "item/commandExecution/requestApproval": {
-              const params = (message.params ?? {}) as Record<string, unknown>;
-              const approvalInput = buildApprovalInput({ params });
-              pendingApprovalRequests.set(requestId, {
-                serverRequestId: message.id as JsonRpcId,
-                responseKind: "commandExecution",
-              });
-              void elicitationPauseController.begin(requestId);
-              scheduleApprovalAutoDecline({ requestId, toolName: "bash" });
-              emitBridgeEvent({
-                type: "approval",
-                toolName: "bash",
-                requestId,
-                description: buildApprovalDescription({
-                  method: "item/commandExecution/requestApproval",
-                  params,
-                }),
-                ...(approvalInput ? { input: approvalInput } : {}),
-              });
-              return;
-            }
-            case "item/fileChange/requestApproval": {
-              const params = (message.params ?? {}) as Record<string, unknown>;
-              pendingApprovalRequests.set(requestId, {
-                serverRequestId: message.id as JsonRpcId,
-                responseKind: "fileChange",
-              });
-              void elicitationPauseController.begin(requestId);
-              scheduleApprovalAutoDecline({
-                requestId,
-                toolName: "apply_patch",
-              });
-              emitBridgeEvent({
-                type: "approval",
-                toolName: "apply_patch",
-                requestId,
-                description: buildApprovalDescription({
-                  method: "item/fileChange/requestApproval",
-                  params,
-                }),
-              });
-              return;
-            }
-            case "item/permissions/requestApproval": {
-              const params = (message.params ?? {}) as Record<string, unknown>;
-              pendingApprovalRequests.set(requestId, {
-                serverRequestId: message.id as JsonRpcId,
-                responseKind: "permissions",
-                permissions:
-                  typeof params.permissions === "object" && params.permissions
-                    ? (params.permissions as PendingApprovalRequest["permissions"])
-                    : null,
-              });
-              void elicitationPauseController.begin(requestId);
-              scheduleApprovalAutoDecline({
-                requestId,
-                toolName: "permissions",
-              });
-              emitBridgeEvent({
-                type: "approval",
-                toolName: "permissions",
-                requestId,
-                description: buildApprovalDescription({
-                  method: "item/permissions/requestApproval",
-                  params,
-                }),
-              });
-              return;
-            }
-            case "applyPatchApproval":
-            case "execCommandApproval": {
-              const params = (message.params ?? {}) as Record<string, unknown>;
-              const approvalInput = buildApprovalInput({ params });
-              pendingApprovalRequests.set(requestId, {
-                serverRequestId: message.id as JsonRpcId,
-                responseKind: "review",
-              });
-              void elicitationPauseController.begin(requestId);
-              scheduleApprovalAutoDecline({
-                requestId,
-                toolName: mapApprovalToolName(
-                  message.method as ServerRequestMethod,
-                ),
-              });
-              emitBridgeEvent({
-                type: "approval",
-                toolName: mapApprovalToolName(
-                  message.method as ServerRequestMethod,
-                ),
-                requestId,
-                description: buildApprovalDescription({
-                  method: message.method as ServerRequestMethod,
-                  params,
-                }),
-                ...(approvalInput ? { input: approvalInput } : {}),
-              });
-              return;
-            }
-            case "item/tool/requestUserInput": {
-              const params = (message.params ?? {}) as Record<string, unknown>;
-              const questions = Array.isArray(params.questions)
-                ? mapCodexUserInputQuestions(
-                    params.questions as Array<Record<string, unknown>>,
-                  )
-                : [];
-              pendingUserInputRequests.set(requestId, {
-                serverRequestId: message.id as JsonRpcId,
-                responseKind: "tool",
-              });
-              void elicitationPauseController.begin(requestId);
-              scheduleUserInputAutoDecline({
-                requestId,
-                toolName: "request_user_input",
-              });
-              emitBridgeEvent({
-                type: "user_input",
-                toolName: "request_user_input",
-                requestId,
-                questions,
-              });
-              return;
-            }
-            case "mcpServer/elicitation/request": {
-              const params = (message.params ?? {}) as Record<string, unknown>;
-              const approval = mapCodexElicitationToApproval(params);
-              if (
-                approval &&
-                shouldAutoApproveStaveLocalMcpElicitation({
-                  enabled:
-                    runtimeOptions?.codexAutoApproveStaveLocalMcpTools === true,
-                  params,
-                })
-              ) {
-                void client
-                  .respond(message.id as JsonRpcId, { action: "accept" })
-                  .catch((error) => {
-                    emitBridgeEvent({
-                      type: "error",
-                      message: `Codex could not auto-approve ${approval.toolName}: ${
-                        error instanceof Error ? error.message : String(error)
-                      }`,
-                      recoverable: true,
-                    });
-                  });
-                return;
-              }
-              if (approval) {
-                pendingApprovalRequests.set(requestId, {
-                  serverRequestId: message.id as JsonRpcId,
-                  responseKind: "elicitation",
-                });
-                void elicitationPauseController.begin(requestId);
-                scheduleApprovalAutoDecline({
-                  requestId,
-                  toolName: approval.toolName,
-                });
-                emitBridgeEvent({
-                  type: "approval",
-                  toolName: approval.toolName,
-                  requestId,
-                  description: approval.description,
-                });
-                return;
-              }
-              const elicitation = mapCodexElicitationToUserInput(params);
-              if (!elicitation) {
+          const params = (message.params ?? {}) as Record<string, unknown>;
+          const presentation = mapCodexServerRequestPresentation({
+            method: message.method,
+            params,
+            requestId,
+          });
+          if (
+            message.method === "mcpServer/elicitation/request" &&
+            presentation?.kind === "approval" &&
+            shouldAutoApproveStaveLocalMcpElicitation({
+              enabled:
+                runtimeOptions?.codexAutoApproveStaveLocalMcpTools === true,
+              params,
+            })
+          ) {
+            void client
+              .respond(message.id as JsonRpcId, { action: "accept" })
+              .catch((error) => {
                 emitBridgeEvent({
                   type: "error",
-                  message:
-                    "Codex MCP elicitation could not be rendered by Stave.",
+                  message: `Codex could not auto-approve ${presentation.event.toolName}: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
                   recoverable: true,
                 });
-                void client.respond(message.id as JsonRpcId, {
-                  action: "cancel",
-                });
-                return;
-              }
-              pendingUserInputRequests.set(requestId, {
-                serverRequestId: message.id as JsonRpcId,
-                responseKind: "elicitation",
-                elicitationMode: elicitation.mode,
-                elicitationFields: elicitation.fields,
               });
-              void elicitationPauseController.begin(requestId);
-              scheduleUserInputAutoDecline({
-                requestId,
-                toolName: "mcp_elicitation",
-              });
-              emitBridgeEvent({
-                type: "user_input",
-                toolName: "mcp_elicitation",
-                requestId,
-                questions: elicitation.questions,
-              });
-              return;
-            }
+            return;
+          }
+          if (presentation?.kind === "approval") {
+            pendingApprovalRequests.set(requestId, {
+              serverRequestId: message.id as JsonRpcId,
+              ...presentation.pending,
+            });
+            void elicitationPauseController.begin(requestId);
+            scheduleApprovalAutoDecline({
+              requestId,
+              toolName: presentation.event.toolName,
+            });
+            emitBridgeEvent(presentation.event);
+            return;
+          }
+          if (presentation?.kind === "user_input") {
+            pendingUserInputRequests.set(requestId, {
+              serverRequestId: message.id as JsonRpcId,
+              ...presentation.pending,
+            });
+            void elicitationPauseController.begin(requestId);
+            scheduleUserInputAutoDecline({
+              requestId,
+              toolName: presentation.event.toolName,
+            });
+            emitBridgeEvent(presentation.event);
+            return;
+          }
+          if (presentation?.kind === "unrenderable") {
+            emitBridgeEvent(presentation.event);
+            void client.respond(message.id as JsonRpcId, {
+              action: "cancel",
+            });
+            return;
+          }
+          switch (message.method) {
             case "item/tool/call":
               emitBridgeEvent({
                 type: "error",
@@ -3233,6 +2716,7 @@ export async function streamCodexWithAppServer(
         const eventThreadId =
           typeof params.threadId === "string" ? params.threadId : "";
         if (eventThreadId && eventThreadId !== threadId) {
+          if (!appServerTurnId) return turnNotificationGate.holdForeign(message);
           const mapped = workerActivity.mapForeignNotification({
             method: message.method,
             threadId: eventThreadId,
@@ -3241,13 +2725,7 @@ export async function streamCodexWithAppServer(
           emitBridgeEvents(mapped.events);
           return;
         }
-        if (
-          typeof params.turnId === "string" &&
-          appServerTurnId &&
-          params.turnId !== appServerTurnId
-        ) {
-          return;
-        }
+        if (!turnNotificationGate.shouldDeliver(message, appServerTurnId)) return;
         switch (message.method) {
           case "model/rerouted":
             if (eventThreadId === threadId) {
@@ -3741,7 +3219,7 @@ export async function streamCodexWithAppServer(
               }
               case "todo_list": {
                 // Mirror the legacy codex-sdk runtime: surface Codex's todo_list
-                // items as a TodoWrite tool_use bridge event so the TodoFloater
+                // items as a TodoWrite tool_use bridge event so the task todo view
                 // (which scans for toolName === "TodoWrite") can render them.
                 const todoItem = item as {
                   items?: Array<{ text?: string; completed?: boolean }>;
@@ -3821,8 +3299,16 @@ export async function streamCodexWithAppServer(
           default:
             return;
         }
+      };
+      const unsubscribe = client.subscribe(handleAppServerMessage);
+      const orphanRequestAbortController = new AbortController();
+      const orphanCleanup = createCodexOrphanTurnCleanup<JsonRpcMessage>({
+        threadId,
+        subscribe: (listener) => client.subscribe(listener),
+        interrupt: (turnId) => client.request("turn/interrupt", { threadId, turnId },
+          { signal: orphanRequestAbortController.signal }),
+        graceMs: APP_SERVER_INTERRUPT_GRACE_MS,
       });
-
       // ── Process-death listener: resolve waitForTurnCompletion if the app
       // server exits unexpectedly so the turn never hangs forever. ──
       const unsubscribeProcessExit = client.onProcessExit((exitMessage) => {
@@ -3848,7 +3334,9 @@ export async function streamCodexWithAppServer(
       // ── Register abort BEFORE turn/start so the user can cancel at any
       // point, including while the turn/start request is still in flight. ──
       args.registerAbort?.(() => {
+        if (completed || abortRequested) return;
         abortRequested = true;
+        interruptedCleanup.finish ??= beginCodexInterruptedThreadCleanup(threadId);
         if (!appServerTurnId) {
           // turn/start hasn't resolved yet — no turnId to interrupt.
           // Resolve the wait so the Promise.race below exits.
@@ -3874,8 +3362,9 @@ export async function streamCodexWithAppServer(
           .request("turn/interrupt", {
             threadId,
             turnId: appServerTurnId,
-          })
+          }, { signal: orphanRequestAbortController.signal })
           .catch((error) => {
+            if (orphanRequestAbortController.signal.aborted) return;
             console.warn(
               "[provider-runtime] Codex app-server interrupt request failed",
               {
@@ -3886,8 +3375,11 @@ export async function streamCodexWithAppServer(
             );
           });
       });
-
       try {
+        if (abortRequested) {
+          interruptedCleanup.finish?.(true);
+          return finalizeCollectedEvents();
+        }
         const gitRef = resolveGitHeadRef({ cwd: runtimeCwd });
         emitBridgeEvent({
           type: "system",
@@ -3912,6 +3404,7 @@ export async function streamCodexWithAppServer(
             runtimeOptions,
             nativeImageItems: turnInput.nativeImageItems,
           }),
+          { signal: orphanRequestAbortController.signal },
         );
 
         const turnResponse = await Promise.race([
@@ -3922,16 +3415,9 @@ export async function streamCodexWithAppServer(
         // If waitForTurnCompletion won the race (abort or process death during
         // turn/start), clean up the orphaned turn/start and return.
         if (turnResponse == null || completed) {
-          void turnStartPromise
-            .then((resolved) => {
-              void client
-                .request("turn/interrupt", {
-                  threadId,
-                  turnId: resolved.turn.id,
-                })
-                .catch(() => {});
-            })
-            .catch(() => {});
+          const safe = await orphanCleanup.settle(turnStartPromise);
+          orphanRequestAbortController.abort();
+          interruptedCleanup.finish?.(safe);
           return finalizeCollectedEvents();
         }
 
@@ -3953,6 +3439,7 @@ export async function streamCodexWithAppServer(
             targetRole: "assistant",
           });
         }
+        turnNotificationGate.takePending(appServerTurnId).forEach(handleAppServerMessage);
         if (codexDebug) {
           console.debug("[codex-app-server-runtime] turn/start acknowledged", {
             threadId,
@@ -3976,7 +3463,7 @@ export async function streamCodexWithAppServer(
             .request("turn/interrupt", {
               threadId,
               turnId: appServerTurnId,
-            })
+            }, { signal: orphanRequestAbortController.signal })
             .catch(() => {});
         }
 
@@ -4007,6 +3494,7 @@ export async function streamCodexWithAppServer(
         emitBridgeEvent({ type: "done", stop_reason: "runtime_failure" });
         return finalizeCollectedEvents();
       } finally {
+        orphanRequestAbortController.abort();
         clearInterruptFallback();
         unsubscribeProcessExit();
         // Reject any pending approval/input requests so the Codex app-server
@@ -4034,6 +3522,9 @@ export async function streamCodexWithAppServer(
           pendingUserInputRequests.delete(id);
         }
         await elicitationPauseController.endAll();
+        interruptedCleanup.finish?.(!abortRequested || orphanCleanup.hasCompleted(appServerTurnId));
+        orphanCleanup.dispose();
+        turnNotificationGate.clear();
         unsubscribe();
       }
     } finally {

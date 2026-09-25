@@ -5,6 +5,7 @@ See [AGENTS.md](./AGENTS.md) for the authoritative repository policy.
 ## Practical Notes
 
 - Read targeted sections of [`src/store/app.store.ts`](src/store/app.store.ts) instead of loading the whole file at once.
+- Use [`docs/architecture/entrypoints.md`](docs/architecture/entrypoints.md) to route a task to its owner; [`docs/architecture/code-organization.md`](docs/architecture/code-organization.md) maps extracted owners to focused tests.
 - When changing provider runtimes, review both [`electron/providers/claude-sdk-runtime.ts`](electron/providers/claude-sdk-runtime.ts) and [`electron/providers/codex-app-server-runtime.ts`](electron/providers/codex-app-server-runtime.ts) for symmetry unless the change is intentionally provider-specific.
 - Use Bun commands and `bunx --bun`.
 - After code changes, run `bun run typecheck` plus the smallest relevant focused tests before finishing.

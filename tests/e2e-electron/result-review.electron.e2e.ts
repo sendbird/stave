@@ -119,6 +119,7 @@ test("result review survives notification cleanup and renderer restart, with exp
     ).toHaveCount(0);
     const editor = stave.page.locator('[data-prompt-lexical-editor="true"]');
     await editor.fill("Keep my existing note.");
+    await results.getByText("The saved result survives notification cleanup.").click();
     await results
       .getByRole("button", { name: "Request changes", exact: true })
       .click();
@@ -128,7 +129,7 @@ test("result review survives notification cleanup and renderer restart, with exp
       "Added to your draft",
     );
     await expect(
-      results.getByText("· Not reviewed", { exact: true }),
+      results.getByText("Not reviewed", { exact: true }),
     ).toBeVisible();
     await expect(
       results.getByText("The saved result survives notification cleanup."),
@@ -138,14 +139,14 @@ test("result review survives notification cleanup and renderer restart, with exp
         exact: true,
       }),
     ).toBeVisible();
-    await results.getByText("Execution reference", { exact: true }).click();
+    await results.getByText("Run details", { exact: true }).click();
     await expect(
       results.getByText("A small scoped edit fits this route.", {
         exact: true,
       }),
     ).toBeVisible();
     await expect(
-      results.getByText("Codex · Routed model", { exact: true }),
+      results.getByText("Routed model", { exact: true }),
     ).toBeVisible();
     await expect(
       results.getByText("docs/result.md", { exact: true }),
@@ -166,7 +167,7 @@ test("result review survives notification cleanup and renderer restart, with exp
       .getByRole("button", { name: "Mark reviewed", exact: true })
       .click();
     await expect(
-      results.getByRole("button", { name: "Reopen review", exact: true }),
+      results.getByRole("button", { name: "Reopen", exact: true }),
     ).toBeVisible();
     await stave.page.reload();
     // Wait for the restored task before inspecting its persisted panel layout.
@@ -179,14 +180,15 @@ test("result review survives notification cleanup and renderer restart, with exp
     ).toBeVisible();
     await resultsShortcut.click();
     await expect(
-      results.getByRole("button", { name: "Reopen review", exact: true }),
+      results.getByRole("button", { name: "Reopen", exact: true }),
     ).toBeVisible();
     await results
-      .getByRole("button", { name: "Reopen review", exact: true })
+      .getByRole("button", { name: "Reopen", exact: true })
       .click();
     await expect(
       results.getByRole("button", { name: "Mark reviewed", exact: true }),
     ).toBeVisible();
+    await results.getByText("The saved result survives notification cleanup.").click();
     await expect(
       results.getByText("The captured answer remains attached to this run.", {
         exact: true,
@@ -218,6 +220,7 @@ test("result review survives notification cleanup and renderer restart, with exp
     await stave.page.setViewportSize({ width: 900, height: 720 });
     // The user's selected destination survives the responsive shell remount.
     await expect(results).toBeVisible();
+    await results.getByText("The saved result survives notification cleanup.").click();
     await results
       .locator("summary")
       .filter({ hasText: /^docs\/result\.md$/ })

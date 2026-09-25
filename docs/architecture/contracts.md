@@ -11,9 +11,34 @@ When a task touches provider turn payloads, chat parts, runtime options, replay 
 - `electron/preload.ts`
 - `src/types/window-api.d.ts`
 - `electron/main/ipc/schemas.ts`
+- `electron/main/ipc/provider-runtime-schemas.ts` for provider IDs and runtime options
+- `electron/main/ipc/provider-conversation-schemas.ts` for conversation payloads and `StreamTurnArgsSchema`
+- `src/store/app-store-send-user-message.ts` when the renderer send action is involved
 - producer and consumer call sites such as `src/store/app.store.ts`
 
 ## Event Replay Contract
+
+Claude SDK translation lives in `electron/providers/claude-event-mapping.ts`,
+with rate-limit observation and mutable turn state retained by its runtime
+facade. Codex server-request presentation lives in
+`electron/providers/codex-server-request-mapping.ts`; the runtime retains
+pending-request registration, timeout scheduling, and response handling.
+These are provider-specific adapters, not interchangeable protocol mappings.
+
+Tool results identify an earlier tool call with `tool_use_id`. Their normalized
+payload does not repeat `ownerAgentId`: renderer replay merges output into the
+existing tool part, preserving its owner, and the work-graph reducer updates
+the matching work item. Trace both consumers before changing this contract;
+the missing owner field on a result alone does not mean attribution was lost.
+
+Codex cancellation can precede the `turn/start` response. An immediate UI
+`user_abort` event does not prove that native execution has stopped. Keep
+same-thread retries behind `codex-orphan-turn-cleanup.ts` until the matching
+native completion arrives; quarantine unresolved threads after the grace
+period, including explicit resume attempts. Abandoning a local RPC wait does
+not cancel server execution or justify ending other turns on the shared client.
+Early notifications must preserve matching current-turn and child-event order
+through `codex-turn-notification-gate.ts`.
 
 When adding or renaming a normalized provider event:
 
@@ -130,6 +155,20 @@ Regression coverage lives in `tests/host-persistence-efficiency.test.ts`,
 `tests/workspace-runtime-state.test.ts`; the manifest gate is
 `persistence-host-write-boundary` in `config/reliability-gates.json`.
 
+## Local MCP Workspace Information Contract
+
+`electron/host-service/local-mcp-workspace-information.ts` owns validation and
+Information transformations for notes, todos, linked resources, custom fields,
+and Storybook access. It receives read/update ports from
+`electron/host-service/local-mcp-runtime.ts`; it does not own a session cache or
+persist directly.
+
+The runtime keeps the public API and the update sequence: refresh the resident
+session from persistence, resolve workspace registration, apply the updater,
+cache the result, await queued persistence, then notify listeners. Preserve
+workspace identity and rejection propagation across this boundary. Project
+memory operations remain in the runtime.
+
 ## Workspace File Index Contract
 
 The current workspace file list is a path index, not a symbol graph.
@@ -167,7 +206,8 @@ When changing PR status fetching, derivation, or UI rendering:
 - `src/types/window-api.d.ts` — type definitions for the PR status and creation methods
 - `src/store/app.store.ts` — `workspacePrInfoById`, `fetchWorkspacePrStatus`, `fetchAllWorkspacePrStatuses`
 - `src/components/layout/PrStatusIcon.tsx` — icon lookup and color mapping
-- `src/components/layout/TopBarOpenPR.tsx` — PR hub trigger, dropdown, creation dialog
+- `src/components/layout/TopBarOpenPR.tsx` — PR hub, async lifecycle, status actions, creation sequencing and cancellation
+- `src/components/layout/pull-request/CreatePullRequestDialog.tsx` and `create-pr-dialog-panels.tsx` — creation form and status presentation
 - `src/components/layout/ProjectWorkspaceSidebar.tsx` — sidebar icon rendering
 
 See `docs/features/workspace-pr-status.md` for the full architecture reference.
@@ -185,7 +225,7 @@ When changing how PR review threads or failed-CI evidence are attached to a task
 - `electron/preload.ts` / `src/types/window-api.d.ts` — `fetchPrContextIndex`, `fetchPrCheckLogs`
 - `src/components/layout/PrContextDialog.tsx` — the selection UI
 - `src/components/session/TaskSourceContextNotice.tsx` — attachment read-out, stale banner, remove
-- `src/store/app.store.ts` — withholds stale PR context from the turn
+- `src/store/app-store-send-user-message.ts` — withholds stale PR context from the turn
 
 See `docs/features/pr-context-attachment.md` for the full architecture reference.
 

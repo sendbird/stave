@@ -23,7 +23,7 @@ const prContextRuntimeSource = read(
 );
 const prContextDialogSource = read("src/components/layout/PrContextDialog.tsx");
 const topBarPrSource = read("src/components/layout/TopBarOpenPR.tsx");
-const appStoreSource = read("src/store/app.store.ts");
+const sendUserMessageSource = read("src/store/app-store-send-user-message.ts");
 
 const CHANNELS = [
   {
@@ -194,8 +194,8 @@ describe("PR context ships with its consumer", () => {
   });
 
   test("turn assembly withholds stale PR context", () => {
-    expect(appStoreSource).toContain("partitionStalePrContexts");
-    expect(appStoreSource).toContain("...freshSourceContexts,");
-    expect(appStoreSource).not.toContain("...(task.sourceContexts ?? []),");
+    expect(sendUserMessageSource).toContain("partitionStalePrContexts");
+    expect(sendUserMessageSource).toContain("...freshSourceContexts,");
+    expect(sendUserMessageSource).not.toContain("...(task.sourceContexts ?? []),");
   });
 });

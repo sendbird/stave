@@ -10,6 +10,7 @@ import {
   readUsageReadState,
 } from "../electron/providers/rate-limits/usage-read-policy";
 import type { ClaudeUsageSnapshot } from "../src/lib/providers/provider.types";
+import { mapClaudeMessageToEvents } from "../electron/providers/claude-sdk-runtime";
 
 const NOW = 7_000_000;
 
@@ -96,6 +97,42 @@ describe("claude turn-time rate-limit observations", () => {
 describe("observations folded into the shared read cache", () => {
   beforeEach(() => {
     clearUsageReadState();
+  });
+
+  test("an allowed SDK event still updates the usage meter without a chat event", async () => {
+    let reads = 0;
+    const request = async () => {
+      reads += 1;
+      return snapshot();
+    };
+    await readProviderUsage({
+      key: "claude-code",
+      request,
+      classify: () => "ok" as const,
+      now: NOW,
+    });
+
+    expect(
+      mapClaudeMessageToEvents({
+        message: {
+          type: "rate_limit_event",
+          rate_limit_info: {
+            status: "allowed",
+            rateLimitType: "five_hour",
+            utilization: 0.73,
+          },
+        } as never,
+        claudeDebugStream: false,
+      }),
+    ).toEqual([]);
+    const cached = await readProviderUsage({
+      key: "claude-code",
+      request,
+      classify: () => "ok" as const,
+      now: Date.now(),
+    });
+    expect(cached.session?.usedPercent).toBe(73);
+    expect(reads).toBe(1);
   });
 
   test("an observation is ignored until a real read established a snapshot", () => {
