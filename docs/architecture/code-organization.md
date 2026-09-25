@@ -24,6 +24,8 @@ Additional focused owners:
 
 | Domain | Owner and boundary | Focused tests to start with |
 | --- | --- | --- |
+| Claude SDK events | `electron/providers/claude-event-mapping.ts` translates SDK events using supplied tracker/plan state; `claude-sdk-runtime.ts` owns turn state and rate-limit observation side effects | `tests/claude-sdk-runtime.test.ts`, `tests/claude-rate-limits-observation.test.ts` |
+| Codex server requests | `electron/providers/codex-server-request-mapping.ts` maps approval/question presentation and response metadata; `codex-app-server-runtime.ts` owns filtering, pending requests, timers, auth, and responses | `tests/codex-server-request-mapping.test.ts`, `tests/codex-app-server-runtime.test.ts` |
 | Codex settings UI | `src/components/layout/settings-dialog-codex-section.tsx` owns requests, selection, drafts, and mutations; `codex-settings/` contains the five tab views and shared presentation | `tests/e2e/codex-settings-refactor.e2e.ts` exercises the parent against a mocked provider bridge |
 | PR creation UI | `src/components/layout/TopBarOpenPR.tsx` owns the async flow and cancellation; `pull-request/CreatePullRequestDialog.tsx` and `create-pr-dialog-panels.tsx` render the form and review/verification feedback | `tests/topbar-open-pr.utils.test.ts` covers decisions; `tests/e2e/create-pr-dialog.e2e.ts` exercises the parent against a mocked SCM bridge |
 | Local MCP Information | `electron/host-service/local-mcp-workspace-information.ts` owns validation and transformations; `local-mcp-runtime.ts` retains resident state, persistence, and notifications | `tests/local-mcp-workspace-information.test.ts`, `tests/local-mcp-runtime-run-task.test.ts` |

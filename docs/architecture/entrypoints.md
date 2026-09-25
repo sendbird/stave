@@ -17,6 +17,13 @@ Read in this order:
    `electron/providers/claude-user-input.ts`
 5. If the request crosses IPC, follow the IPC route below
 
+For Claude SDK event translation, use
+`electron/providers/claude-event-mapping.ts`. Its runtime facade retains
+rate-limit observations and the turn-owned tracker and plan state. For Codex
+approval/question presentation, use
+`electron/providers/codex-server-request-mapping.ts`; pending requests, timers,
+auto-approval, cancellation, and responses stay in the runtime adapter.
+
 For Codex settings snapshots or the model catalog, start at
 `electron/providers/codex-app-server-snapshot.ts` and follow its facade in
 `electron/providers/codex-app-server-runtime.ts`. Turn execution remains in the

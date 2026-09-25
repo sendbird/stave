@@ -46,7 +46,6 @@ import {
 export { resolveCodexChatgptAuthTokensRefreshResponse };
 import { describeJsonRpcLinePrefix } from "../shared/json-rpc-line";
 import { stripReservedSecretEnvNames } from "../../src/lib/secrets/secrets";
-import { mapCodexUserInputQuestions } from "./codex-user-input-mapping";
 import { createTurnDiffTracker } from "./turn-diff-tracker";
 import { toText } from "./utils";
 import {
@@ -139,8 +138,6 @@ import {
 } from "./codex-app-server-snapshot";
 import {
   coerceElicitationAnswer,
-  mapCodexElicitationToApproval,
-  mapCodexElicitationToUserInput,
   shouldAutoApproveStaveLocalMcpElicitation,
   type ElicitationFieldDescriptor,
 } from "./codex-elicitation-mapping";
@@ -169,6 +166,7 @@ import {
   emitCodexFileChangeEvents,
 } from "./codex-file-change-mapping";
 import { createCodexAppServerElicitationPauseController } from "./codex-elicitation-pause";
+import { mapCodexServerRequestPresentation } from "./codex-server-request-mapping";
 import { createCodexWorkerActivityMapper } from "./codex-worker-activity";
 import {
   parseProviderBrowserDomains,
@@ -308,17 +306,6 @@ type JsonRpcMessage = {
   result?: unknown;
   error?: { code?: number; message?: string; data?: unknown };
 };
-
-type ServerRequestMethod =
-  | "item/commandExecution/requestApproval"
-  | "item/fileChange/requestApproval"
-  | "item/permissions/requestApproval"
-  | "item/tool/requestUserInput"
-  | "mcpServer/elicitation/request"
-  | "applyPatchApproval"
-  | "execCommandApproval"
-  | "item/tool/call"
-  | "account/chatgptAuthTokens/refresh";
 
 interface PendingApprovalRequest {
   serverRequestId: JsonRpcId;
@@ -496,57 +483,6 @@ export function resolveCodexExecutablePath(
   return resolveCodexCliExecutablePath({
     explicitPath: args.explicitPath,
   });
-}
-
-function buildApprovalDescription(args: {
-  method: ServerRequestMethod;
-  params: Record<string, unknown>;
-}) {
-  const reason =
-    typeof args.params.reason === "string" &&
-    args.params.reason.trim().length > 0
-      ? args.params.reason.trim()
-      : null;
-  if (
-    typeof args.params.command === "string" &&
-    args.params.command.trim().length > 0
-  ) {
-    return reason ? `${args.params.command}\n\n${reason}` : args.params.command;
-  }
-  if (args.method === "item/fileChange/requestApproval") {
-    const grantRoot =
-      typeof args.params.grantRoot === "string"
-        ? args.params.grantRoot.trim()
-        : "";
-    if (grantRoot) {
-      return reason
-        ? `${reason}\n\nGrant root: ${grantRoot}`
-        : `Grant root: ${grantRoot}`;
-    }
-  }
-  return reason ?? `Codex requested approval for ${args.method}.`;
-}
-
-function buildApprovalInput(args: { params: Record<string, unknown> }) {
-  return typeof args.params.command === "string" &&
-    args.params.command.trim().length > 0
-    ? args.params.command.trim()
-    : undefined;
-}
-
-function mapApprovalToolName(method: ServerRequestMethod) {
-  switch (method) {
-    case "item/commandExecution/requestApproval":
-    case "execCommandApproval":
-      return "bash";
-    case "item/fileChange/requestApproval":
-    case "applyPatchApproval":
-      return "apply_patch";
-    case "item/permissions/requestApproval":
-      return "permissions";
-    default:
-      return method;
-  }
 }
 
 function shouldDebugCodexAppServerMessage(message: JsonRpcMessage) {
@@ -2638,203 +2574,68 @@ export async function streamCodexWithAppServer(
             });
             return;
           }
-          switch (message.method as ServerRequestMethod) {
-            case "item/commandExecution/requestApproval": {
-              const params = (message.params ?? {}) as Record<string, unknown>;
-              const approvalInput = buildApprovalInput({ params });
-              pendingApprovalRequests.set(requestId, {
-                serverRequestId: message.id as JsonRpcId,
-                responseKind: "commandExecution",
-              });
-              void elicitationPauseController.begin(requestId);
-              scheduleApprovalAutoDecline({ requestId, toolName: "bash" });
-              emitBridgeEvent({
-                type: "approval",
-                toolName: "bash",
-                requestId,
-                description: buildApprovalDescription({
-                  method: "item/commandExecution/requestApproval",
-                  params,
-                }),
-                ...(approvalInput ? { input: approvalInput } : {}),
-              });
-              return;
-            }
-            case "item/fileChange/requestApproval": {
-              const params = (message.params ?? {}) as Record<string, unknown>;
-              pendingApprovalRequests.set(requestId, {
-                serverRequestId: message.id as JsonRpcId,
-                responseKind: "fileChange",
-              });
-              void elicitationPauseController.begin(requestId);
-              scheduleApprovalAutoDecline({
-                requestId,
-                toolName: "apply_patch",
-              });
-              emitBridgeEvent({
-                type: "approval",
-                toolName: "apply_patch",
-                requestId,
-                description: buildApprovalDescription({
-                  method: "item/fileChange/requestApproval",
-                  params,
-                }),
-              });
-              return;
-            }
-            case "item/permissions/requestApproval": {
-              const params = (message.params ?? {}) as Record<string, unknown>;
-              pendingApprovalRequests.set(requestId, {
-                serverRequestId: message.id as JsonRpcId,
-                responseKind: "permissions",
-                permissions:
-                  typeof params.permissions === "object" && params.permissions
-                    ? (params.permissions as PendingApprovalRequest["permissions"])
-                    : null,
-              });
-              void elicitationPauseController.begin(requestId);
-              scheduleApprovalAutoDecline({
-                requestId,
-                toolName: "permissions",
-              });
-              emitBridgeEvent({
-                type: "approval",
-                toolName: "permissions",
-                requestId,
-                description: buildApprovalDescription({
-                  method: "item/permissions/requestApproval",
-                  params,
-                }),
-              });
-              return;
-            }
-            case "applyPatchApproval":
-            case "execCommandApproval": {
-              const params = (message.params ?? {}) as Record<string, unknown>;
-              const approvalInput = buildApprovalInput({ params });
-              pendingApprovalRequests.set(requestId, {
-                serverRequestId: message.id as JsonRpcId,
-                responseKind: "review",
-              });
-              void elicitationPauseController.begin(requestId);
-              scheduleApprovalAutoDecline({
-                requestId,
-                toolName: mapApprovalToolName(
-                  message.method as ServerRequestMethod,
-                ),
-              });
-              emitBridgeEvent({
-                type: "approval",
-                toolName: mapApprovalToolName(
-                  message.method as ServerRequestMethod,
-                ),
-                requestId,
-                description: buildApprovalDescription({
-                  method: message.method as ServerRequestMethod,
-                  params,
-                }),
-                ...(approvalInput ? { input: approvalInput } : {}),
-              });
-              return;
-            }
-            case "item/tool/requestUserInput": {
-              const params = (message.params ?? {}) as Record<string, unknown>;
-              const questions = Array.isArray(params.questions)
-                ? mapCodexUserInputQuestions(
-                    params.questions as Array<Record<string, unknown>>,
-                  )
-                : [];
-              pendingUserInputRequests.set(requestId, {
-                serverRequestId: message.id as JsonRpcId,
-                responseKind: "tool",
-              });
-              void elicitationPauseController.begin(requestId);
-              scheduleUserInputAutoDecline({
-                requestId,
-                toolName: "request_user_input",
-              });
-              emitBridgeEvent({
-                type: "user_input",
-                toolName: "request_user_input",
-                requestId,
-                questions,
-              });
-              return;
-            }
-            case "mcpServer/elicitation/request": {
-              const params = (message.params ?? {}) as Record<string, unknown>;
-              const approval = mapCodexElicitationToApproval(params);
-              if (
-                approval &&
-                shouldAutoApproveStaveLocalMcpElicitation({
-                  enabled:
-                    runtimeOptions?.codexAutoApproveStaveLocalMcpTools === true,
-                  params,
-                })
-              ) {
-                void client
-                  .respond(message.id as JsonRpcId, { action: "accept" })
-                  .catch((error) => {
-                    emitBridgeEvent({
-                      type: "error",
-                      message: `Codex could not auto-approve ${approval.toolName}: ${
-                        error instanceof Error ? error.message : String(error)
-                      }`,
-                      recoverable: true,
-                    });
-                  });
-                return;
-              }
-              if (approval) {
-                pendingApprovalRequests.set(requestId, {
-                  serverRequestId: message.id as JsonRpcId,
-                  responseKind: "elicitation",
-                });
-                void elicitationPauseController.begin(requestId);
-                scheduleApprovalAutoDecline({
-                  requestId,
-                  toolName: approval.toolName,
-                });
-                emitBridgeEvent({
-                  type: "approval",
-                  toolName: approval.toolName,
-                  requestId,
-                  description: approval.description,
-                });
-                return;
-              }
-              const elicitation = mapCodexElicitationToUserInput(params);
-              if (!elicitation) {
+          const params = (message.params ?? {}) as Record<string, unknown>;
+          const presentation = mapCodexServerRequestPresentation({
+            method: message.method,
+            params,
+            requestId,
+          });
+          if (
+            message.method === "mcpServer/elicitation/request" &&
+            presentation?.kind === "approval" &&
+            shouldAutoApproveStaveLocalMcpElicitation({
+              enabled:
+                runtimeOptions?.codexAutoApproveStaveLocalMcpTools === true,
+              params,
+            })
+          ) {
+            void client
+              .respond(message.id as JsonRpcId, { action: "accept" })
+              .catch((error) => {
                 emitBridgeEvent({
                   type: "error",
-                  message:
-                    "Codex MCP elicitation could not be rendered by Stave.",
+                  message: `Codex could not auto-approve ${presentation.event.toolName}: ${
+                    error instanceof Error ? error.message : String(error)
+                  }`,
                   recoverable: true,
                 });
-                void client.respond(message.id as JsonRpcId, {
-                  action: "cancel",
-                });
-                return;
-              }
-              pendingUserInputRequests.set(requestId, {
-                serverRequestId: message.id as JsonRpcId,
-                responseKind: "elicitation",
-                elicitationMode: elicitation.mode,
-                elicitationFields: elicitation.fields,
               });
-              void elicitationPauseController.begin(requestId);
-              scheduleUserInputAutoDecline({
-                requestId,
-                toolName: "mcp_elicitation",
-              });
-              emitBridgeEvent({
-                type: "user_input",
-                toolName: "mcp_elicitation",
-                requestId,
-                questions: elicitation.questions,
-              });
-              return;
-            }
+            return;
+          }
+          if (presentation?.kind === "approval") {
+            pendingApprovalRequests.set(requestId, {
+              serverRequestId: message.id as JsonRpcId,
+              ...presentation.pending,
+            });
+            void elicitationPauseController.begin(requestId);
+            scheduleApprovalAutoDecline({
+              requestId,
+              toolName: presentation.event.toolName,
+            });
+            emitBridgeEvent(presentation.event);
+            return;
+          }
+          if (presentation?.kind === "user_input") {
+            pendingUserInputRequests.set(requestId, {
+              serverRequestId: message.id as JsonRpcId,
+              ...presentation.pending,
+            });
+            void elicitationPauseController.begin(requestId);
+            scheduleUserInputAutoDecline({
+              requestId,
+              toolName: presentation.event.toolName,
+            });
+            emitBridgeEvent(presentation.event);
+            return;
+          }
+          if (presentation?.kind === "unrenderable") {
+            emitBridgeEvent(presentation.event);
+            void client.respond(message.id as JsonRpcId, {
+              action: "cancel",
+            });
+            return;
+          }
+          switch (message.method) {
             case "item/tool/call":
               emitBridgeEvent({
                 type: "error",
@@ -3407,7 +3208,7 @@ export async function streamCodexWithAppServer(
               }
               case "todo_list": {
                 // Mirror the legacy codex-sdk runtime: surface Codex's todo_list
-                // items as a TodoWrite tool_use bridge event so the TodoFloater
+                // items as a TodoWrite tool_use bridge event so the task todo view
                 // (which scans for toolName === "TodoWrite") can render them.
                 const todoItem = item as {
                   items?: Array<{ text?: string; completed?: boolean }>;

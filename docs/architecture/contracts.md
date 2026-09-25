@@ -18,6 +18,13 @@ When a task touches provider turn payloads, chat parts, runtime options, replay 
 
 ## Event Replay Contract
 
+Claude SDK translation lives in `electron/providers/claude-event-mapping.ts`,
+with rate-limit observation and mutable turn state retained by its runtime
+facade. Codex server-request presentation lives in
+`electron/providers/codex-server-request-mapping.ts`; the runtime retains
+pending-request registration, timeout scheduling, and response handling.
+These are provider-specific adapters, not interchangeable protocol mappings.
+
 When adding or renaming a normalized provider event:
 
 - update `NormalizedProviderEvent` in `src/lib/providers/provider.types.ts`
