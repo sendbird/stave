@@ -123,10 +123,19 @@ describe("usage read CLI boundary", () => {
         cursor: async () => {
           throw new Error("token database is locked");
         },
+        kiro: async () => ({
+          source: "acp" as const,
+          planName: "Test plan",
+          monthly: null,
+          buckets: [],
+          overagesEnabled: false,
+          error: null,
+        }),
       },
     });
     expect(snapshot.cursor.source).toBe("unavailable");
     expect(snapshot.claude.source).toBe("oauth");
     expect(snapshot.codex.source).toBe("rpc");
+    expect(snapshot.kiro.source).toBe("acp");
   });
 });
