@@ -1,6 +1,9 @@
 # Entrypoints
 
-Use this file when the task starts with "where should I look first?"
+Use this file when the task starts with "where should I look first?" Pick the
+matching route, then read the owner and the specific boundary the question
+crosses. The numbered paths are a map, not a required reading checklist. Use a
+targeted `rg` on those paths before listing or searching whole directories.
 
 ## Request Routing
 
@@ -23,6 +26,10 @@ rate-limit observations and the turn-owned tracker and plan state. For Codex
 approval/question presentation, use
 `electron/providers/codex-server-request-mapping.ts`; pending requests, timers,
 auto-approval, cancellation, and responses stay in the runtime adapter.
+When checking what a normalized event does in the UI, continue through
+`src/lib/session/provider-event-replay.ts` or
+`src/lib/work-graph/work-graph-reducer.ts`. An event's own fields do not by
+themselves establish how the consumer associates it with an earlier event.
 
 For Codex cancel/retry races, inspect
 `electron/providers/codex-orphan-turn-cleanup.ts` and its runtime call sites.
@@ -36,10 +43,17 @@ runtime adapter.
 
 ### Sending a conversation turn
 
-1. `src/components/session/ChatInput.tsx` for submission
-2. `src/store/app-store-send-user-message.ts` for the send action
-3. `src/store/app.store.ts` for the store wiring
-4. `docs/architecture/conversation-flow.md` for the full lifecycle
+1. `src/store/app-store-send-user-message.ts` for turn assembly and the send action
+2. `src/components/session/ChatInput.tsx` when the submission UI matters
+3. `src/store/app.store.ts` when the store wiring matters
+4. `docs/architecture/conversation-flow.md` when the full lifecycle matters
+
+For task-attached source material, follow its producer, the shared data or IPC
+contract, then the send action that consumes it. PR review and check evidence
+uses `src/lib/pr-context.ts` for attachment/provenance rules and
+`docs/features/pr-context-attachment.md` for the user flow. Start with
+`tests/pr-context.test.ts` for those rules; add the IPC or send-path tests only
+when the changed boundary requires them.
 
 ### Notifications and persistence
 
@@ -151,7 +165,7 @@ Read in this order:
 - Identify the producer
 - Cross the bridge or contract boundary
 - Follow the consumer
-- Check tests that mention the same event or type
+- Check focused tests for the behavior at the boundary being changed
 
 ### "Why did this schema change break runtime?"
 
