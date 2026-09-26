@@ -542,6 +542,10 @@ export type Mission = z.infer<typeof MissionSchema>;
 export const MISSION_EVENT_KINDS = [
   "mission-started",
   "turn-started",
+  /** The turn a `turn-started` event led to, written once it exists. */
+  "turn-linked",
+  /** A `turn-started` event whose turn never started. */
+  "turn-failed",
   "report",
   "sign-off",
   "changes-requested",
@@ -593,6 +597,16 @@ export interface MissionEventDraft {
   detail: Record<string, unknown>;
 }
 
+/**
+ * The stage attempt a mission turn works on. The host keeps it with the turn's
+ * mission grant and resolves reports against it; the model never passes it.
+ */
+export interface MissionStageIdentity {
+  missionId: string;
+  stageId: string;
+  attempt: number;
+}
+
 /** Guards the turn the supervisor starts for one stage attempt. */
 export function buildMissionTurnKey(args: {
   missionId: string;
@@ -601,6 +615,18 @@ export function buildMissionTurnKey(args: {
   turn: number;
 }) {
   return `${args.missionId}:${args.stageId}:${args.attempt}:turn:${args.turn}`;
+}
+
+/**
+ * Keys of the event that settles a `turn-started` event: `linked` names the
+ * turn that started, `failed` records that none did. A `turn-started` event
+ * with neither is a start Stave was interrupted in the middle of.
+ */
+export function buildMissionTurnOutcomeKey(
+  turnKey: string,
+  outcome: "linked" | "failed",
+) {
+  return `${turnKey}:${outcome}`;
 }
 
 /**
@@ -712,6 +738,8 @@ export function replaceStageRecord(
 }
 
 export type MissionCommandErrorCode =
+  /** A mission cannot start or change runtime on this task right now. */
+  | "refused"
   | "not-active"
   | "stale-identity"
   | "invalid-state"

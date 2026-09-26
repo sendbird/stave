@@ -148,6 +148,7 @@ import type {
   AutomationUpsertInput,
 } from "@/lib/automations";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
+import type { MissionsBridgeApi } from "@/lib/missions/api";
 import type { PromptDraft } from "@/types/chat";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import type {
@@ -2980,6 +2981,7 @@ interface WindowApi {
   jiraConnector?: WindowJiraConnectorApi;
   taskControl?: WindowTaskControlApi;
   automations?: WindowAutomationsApi;
+  missions?: MissionsBridgeApi;
   lsp?: WindowLspApi;
   eslint?: WindowEslintApi;
   diagnostics?: WindowDiagnosticsApi;

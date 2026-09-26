@@ -19,6 +19,10 @@ import type {
   GitHubPrReviewSubmitResult,
 } from "../../src/lib/github-pr-review";
 import type { AdvisorConsultOutcome } from "../providers/advisor-consult";
+import type {
+  MissionChangedEvent,
+  MissionInvokeResult,
+} from "../../src/lib/missions/api";
 import type { AdvisorConsultRequest } from "../../src/lib/providers/advisor-evidence";
 import type { AcpWorkerOutcome } from "../providers/acp/acp-worker-runtime";
 import type {
@@ -483,6 +487,28 @@ export type HostLocalMcpAction =
 
 export type HostWakeUpAction =
   "list" | "get" | "create" | "update" | "pause" | "resume" | "remove";
+
+/**
+ * Mission actions. The last three serve the stage-reporting tools and carry a
+ * mission grant key instead of a mission id.
+ */
+export type HostMissionAction =
+  | "start"
+  | "list"
+  | "get"
+  | "sign-off"
+  | "request-changes"
+  | "skip-stage"
+  | "retry-stage"
+  | "pause"
+  | "resume"
+  | "take-over"
+  | "accept-runtime"
+  | "note-user-turn"
+  | "cancel"
+  | "get-for-grant"
+  | "report-stage"
+  | "block-stage";
 
 export type HostAutomationAction =
   | "list"
@@ -996,6 +1022,10 @@ export interface HostServiceRequestMap {
     action: HostWakeUpAction;
     args: unknown;
   };
+  "mission.invoke": {
+    action: HostMissionAction;
+    args: unknown;
+  };
 }
 
 export interface HostServiceResponseMap {
@@ -1189,6 +1219,7 @@ export interface HostServiceResponseMap {
   "task.stop": HostTaskStopResult;
   "automation.invoke": unknown;
   "wake-up.invoke": unknown;
+  "mission.invoke": MissionInvokeResult<unknown>;
 }
 
 export interface HostServiceEventMap {
@@ -1217,6 +1248,7 @@ export interface HostServiceEventMap {
       authorizationToken: string;
     }>;
   };
+  "mission.changed": MissionChangedEvent;
 }
 
 export type HostServiceMethod = keyof HostServiceRequestMap;

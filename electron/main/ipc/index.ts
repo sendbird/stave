@@ -10,6 +10,7 @@ import { registerEslintHandlers } from "./eslint";
 import { registerMartinSyncHandlers } from "./martin-sync";
 import { registerLspHandlers } from "./lsp";
 import { registerMetricsHandlers } from "./metrics";
+import { registerMissionHandlers } from "./missions";
 import { registerNotificationHandlers } from "./notifications";
 import { registerPersistenceHandlers } from "./persistence";
 import { registerRepositoryMemoryHandlers } from "./project-memory";
@@ -33,6 +34,7 @@ export function registerHandlers() {
   registerProviderHandlers();
   registerRunHandlers();
   registerAutomationHandlers();
+  registerMissionHandlers();
   registerPersistenceHandlers();
   registerRepositoryMemoryHandlers();
   registerTerminalHandlers();

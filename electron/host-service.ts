@@ -76,6 +76,9 @@ import * as localMcpRuntime from "./host-service/local-mcp-runtime";
 import { runSupervisedTurn } from "./host-service/supervised-turn";
 import { createAutomationRuntime } from "./host-service/automation-runtime";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
+import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
+import { createHostMissionRuntime } from "./host-service/supervision/mission-host";
+import { invokeMissionRuntime } from "./host-service/supervision/mission-runtime";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
 import { createCursorChatId } from "./host-service/cursor-chat-id";
 import { readHostServiceResourceMetrics } from "./host-service/resource-metrics";
@@ -566,6 +569,11 @@ const automationRuntime = createAutomationRuntime({
     emitEvent("automation.unattended-authorizations-changed", payload);
   },
 });
+const missionRuntime = createHostMissionRuntime({
+  emitChanged: (event) => {
+    emitEvent("mission.changed", event);
+  },
+});
 const wakeUpRuntime = createWakeUpRuntime({
   persistence: ensureHostServicePersistenceReady(),
   getTaskSupervisionSnapshot: localMcpRuntime.getTaskSupervisionSnapshot,
@@ -574,11 +582,14 @@ const wakeUpRuntime = createWakeUpRuntime({
   // capability probe reports `unsupported` and a completion wake-up is
   // refused rather than left waiting for an event that never arrives.
   listCompletedDelegatedRuns: ({ taskId }) =>
-    localMcpRuntime.listTaskCompletionSignals({ taskId }),
+    listTaskCompletionSignals({ taskId }),
   // A consumed receipt that never became a turn has to surface somewhere, or
   // "exactly one follow-up turn or one terminal notification" quietly becomes
   // neither.
   notifyWakeUpFailed: localMcpRuntime.notifyWakeUpFailed,
+  // A mission owns its lead task's automatic turns while it runs.
+  getActiveMissionForTask: (taskId) =>
+    missionRuntime.getActiveMissionForTask(taskId),
 });
 setWorkspaceScriptEventListener((envelope) => {
   emitEvent("workspace-scripts.event", envelope);
@@ -589,6 +600,9 @@ localMcpRuntime.setLocalMcpEventListener((event) => {
     return;
   }
   emitEvent("local-mcp.task-turn-updated", event.payload);
+  if (event.payload.done) {
+    missionRuntime.notifyTaskTurnFinished({ taskId: event.payload.taskId });
+  }
 });
 
 async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
@@ -970,6 +984,9 @@ function startPushProviderTurn(args: StreamTurnArgs) {
               },
             );
           }
+          // A reply during a mission is guidance for the current stage; the
+          // mission picks it up now instead of at its next interval.
+          missionRuntime.notifyTaskTurnFinished({ taskId: args.taskId });
         }
       },
     },
@@ -1326,6 +1343,7 @@ async function shutdown() {
   localMcpRuntime.setLocalMcpEventListener(null);
   automationRuntime.stop();
   wakeUpRuntime.stop();
+  missionRuntime.stop();
   const infrastructureCleanup = Promise.allSettled([
     terminalRuntime.cleanupAll(),
     cleanupAllScriptProcesses(),
@@ -2039,6 +2057,16 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         ),
       );
       return;
+    case "mission.invoke":
+      await respond(
+        request.id,
+        await invokeMissionRuntime(
+          missionRuntime,
+          request.params.action,
+          request.params.args,
+        ),
+      );
+      return;
     default:
       request satisfies never;
   }
@@ -2059,6 +2087,7 @@ async function main() {
   void prepareCliExecutableDiscovery();
   automationRuntime.start();
   wakeUpRuntime.start();
+  missionRuntime.start();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
     maxBufferBytes: HOST_SERVICE_STDIN_BUFFER_MAX_BYTES,

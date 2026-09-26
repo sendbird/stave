@@ -132,6 +132,11 @@ import type {
   AutomationUpsertInput,
 } from "../src/lib/automations";
 import type { WorkspaceInformationReferenceOption } from "../src/lib/workspace-information-references";
+import {
+  MISSION_IPC,
+  type MissionChangedEvent,
+  type MissionsBridgeApi,
+} from "../src/lib/missions/api";
 import type {
   AppNotification,
   AppNotificationCreateInput,
@@ -748,6 +753,35 @@ ipcRenderer.on(
     }
   },
 );
+
+const missionChangedSubscribers = new Set<(payload: MissionChangedEvent) => void>();
+ipcRenderer.on(MISSION_IPC.changed, (_event, payload: MissionChangedEvent) => {
+  for (const subscriber of missionChangedSubscribers) {
+    subscriber(payload);
+  }
+});
+
+const missionsApi: MissionsBridgeApi = {
+  start: (args) => ipcRenderer.invoke(MISSION_IPC.start, args),
+  list: (args) => ipcRenderer.invoke(MISSION_IPC.list, args ?? {}),
+  get: (args) => ipcRenderer.invoke(MISSION_IPC.get, args),
+  signOff: (args) => ipcRenderer.invoke(MISSION_IPC.signOff, args),
+  requestChanges: (args) => ipcRenderer.invoke(MISSION_IPC.requestChanges, args),
+  skipStage: (args) => ipcRenderer.invoke(MISSION_IPC.skipStage, args),
+  retryStage: (args) => ipcRenderer.invoke(MISSION_IPC.retryStage, args),
+  pause: (args) => ipcRenderer.invoke(MISSION_IPC.pause, args),
+  resume: (args) => ipcRenderer.invoke(MISSION_IPC.resume, args),
+  takeOver: (args) => ipcRenderer.invoke(MISSION_IPC.takeOver, args),
+  acceptRuntime: (args) => ipcRenderer.invoke(MISSION_IPC.acceptRuntime, args),
+  noteUserTurn: (args) => ipcRenderer.invoke(MISSION_IPC.noteUserTurn, args),
+  cancel: (args) => ipcRenderer.invoke(MISSION_IPC.cancel, args),
+  subscribeChanged: (listener) => {
+    missionChangedSubscribers.add(listener);
+    return () => {
+      missionChangedSubscribers.delete(listener);
+    };
+  },
+};
 
 const persistenceBootstrapStatusSubscribers = new Set<
   (payload: PersistenceBootstrapStatus) => void
@@ -2151,6 +2185,7 @@ contextBridge.exposeInMainWorld("api", {
         message?: string;
       }>,
   },
+  missions: missionsApi,
   automations: {
     setProviderTimeout: (args: { providerTimeoutMs: number }) =>
       ipcRenderer.invoke("automations:set-provider-timeout", args) as Promise<{

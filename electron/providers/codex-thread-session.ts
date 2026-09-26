@@ -9,8 +9,9 @@ const NO_COLLABORATION_PROFILE = "none";
 function buildCollaborationProfile(grants?: StaveCollaborationGrants) {
   const consultKey = grants?.consultKey ?? "";
   const workerKey = grants?.workerKey ?? "";
-  return consultKey || workerKey
-    ? JSON.stringify([consultKey, workerKey])
+  const missionKey = grants?.missionKey ?? "";
+  return consultKey || workerKey || missionKey
+    ? JSON.stringify([consultKey, workerKey, missionKey])
     : NO_COLLABORATION_PROFILE;
 }
 

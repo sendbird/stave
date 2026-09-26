@@ -305,6 +305,18 @@ cannot attach Local MCP stops with a setup error instead of starting a primary
 that cannot use the promised tool. Previous collaboration briefings are replaced
 when retrying a canonical request, and removed when the feature is disabled.
 
+A mission turn carries a mission grant on the same header and environment path
+(`x-stave-mission-key`, `STAVE_MISSION_GRANT_KEY`). Only the host's mission
+supervisor sets the `missionStage` that mints it; the renderer's turn schema
+rejects the field. The grant names one stage attempt, the Local MCP server
+exposes `stave_get_mission`, `stave_report_stage` and `stave_block_stage` only
+on a connection that carries a key, and the host resolves the mission, stage
+and attempt from the key's active grant, so the tools take no ids. Turn end
+revokes the grant. Claude gets a fresh key per turn. Codex keeps one key per
+task, like the Advisor channel, so later turns resume the same thread; the key
+resolves to nothing outside a mission turn. Missions run on Claude and Codex
+only.
+
 Control is split deliberately: the **user** decides who answers, at what
 effort, and how often (the per-turn consult budget,
 `advisorConsultLimit`, default 5, clamp 1–20); the **model** decides when a

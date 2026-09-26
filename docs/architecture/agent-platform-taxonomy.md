@@ -178,14 +178,16 @@ than one table with two meanings.
 
 A mission is the second supervisor entry. `src/lib/missions/policy.ts` holds
 its pure decision order, `electron/persistence/mission-store.ts` stores it in
-`missions` / `mission_stages` / `mission_events`, and the mission runtime in
-the host service executes it beside the wake-up runtime, starting turns
-through the same `runSupervisedTurn` path under the same safety rules. Like a
-wake-up it adds turns to one existing task and records no claims, leases or
-receipts; it *reads* delegated-task completions and PR checks and writes only
-its own rows. It never completes a stage because a turn ended: only the
-agent's stage report, or the result of a Stave action Stave performed itself,
-completes one.
+`missions` / `mission_stages` / `mission_events`, and
+`electron/host-service/supervision/mission-runtime.ts` executes it beside the
+wake-up runtime, starting turns through the same `runSupervisedTurn` path under
+the same safety rules. Like a wake-up it adds turns to one existing task and
+records no claims, leases or receipts; it *reads* delegated-task completions and
+PR checks and writes only its own rows. It never completes a stage because a
+turn ended: only the agent's stage report, or the result of a Stave action
+Stave performed itself, completes one. The agent reports through Local MCP
+tools that exist only under the turn's mission grant, which names the stage
+attempt, so a report cannot name another stage.
 
 Wake-ups and missions share one rule, owned by
 `src/lib/supervision/automatic-turn-owner.ts`: a task has at most one source of

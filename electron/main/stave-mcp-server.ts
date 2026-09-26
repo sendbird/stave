@@ -31,6 +31,12 @@ import {
   RepositoryMemoryKindSchema,
 } from "../../src/lib/project-memory";
 import { registerCollaborationTools } from "./stave-collaboration-tools";
+import { registerMissionTools } from "./stave-mission-tools";
+import {
+  blockMissionStage,
+  getMissionForGrant,
+  reportMissionStage,
+} from "./missions-service";
 import {
   readCollaborationGrantHeaders,
   type StaveCollaborationGrants,
@@ -617,6 +623,11 @@ function createToolServer(options?: {
   registerCollaborationTools(server, options?.collaborationGrants ?? {}, {
     consultAdvisor,
     runAcpWorker,
+  });
+  registerMissionTools(server, options?.collaborationGrants ?? {}, {
+    getMissionForGrant,
+    reportMissionStage,
+    blockMissionStage,
   });
 
   server.registerTool(

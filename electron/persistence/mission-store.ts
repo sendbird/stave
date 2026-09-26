@@ -22,6 +22,7 @@ import {
   type MissionChange,
   type MissionEvent,
   type MissionEventDraft,
+  type MissionEventKind,
   type MissionStageRecord,
 } from "../../src/lib/missions/domain";
 import { SECOND_MISSION_REFUSAL } from "../../src/lib/supervision/automatic-turn-owner";
@@ -480,6 +481,43 @@ export class MissionStore {
       )
       .all(workspaceId, Math.max(1, Math.min(limit, 200))) as MissionRow[];
     return parseEach(rows, parseMissionRow, "mission");
+  }
+
+  /** The newest missions across every workspace, for surfaces that span them. */
+  listRecentMissions(limit = 50): Mission[] {
+    const rows = this.db
+      .prepare("SELECT * FROM missions ORDER BY created_at DESC LIMIT ?")
+      .all(Math.max(1, Math.min(limit, 200))) as MissionRow[];
+    return parseEach(rows, parseMissionRow, "mission");
+  }
+
+  /**
+   * One mission's events of the given kinds, in sequence order. Keyed kinds
+   * are never pruned, so this is complete for them.
+   */
+  listEventsByKind(missionId: string, kinds: readonly MissionEventKind[]): MissionEvent[] {
+    if (kinds.length === 0) return [];
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM mission_events
+         WHERE mission_id = ? AND kind IN (${kinds.map(() => "?").join(", ")})
+         ORDER BY sequence ASC LIMIT ?`,
+      )
+      .all(missionId, ...kinds, MISSION_LIMITS.maxRetainedEvents) as MissionEventRow[];
+    return parseEach(rows, parseEventRow, "mission event");
+  }
+
+  /** The newest events of one mission, oldest first. */
+  listRecentEvents(missionId: string, limit = 200): MissionEvent[] {
+    const rows = this.db
+      .prepare(
+        `SELECT * FROM (
+           SELECT * FROM mission_events WHERE mission_id = ?
+           ORDER BY sequence DESC LIMIT ?
+         ) ORDER BY sequence ASC`,
+      )
+      .all(missionId, Math.max(1, Math.min(limit, MISSION_LIMITS.maxRetainedEvents))) as MissionEventRow[];
+    return parseEach(rows, parseEventRow, "mission event");
   }
 
   /** Events in sequence order, optionally after a sequence the caller has seen. */

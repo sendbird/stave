@@ -1,6 +1,7 @@
 import {
   collaborationGrantHeaders,
   ADVISOR_GRANT_ENV,
+  MISSION_GRANT_ENV,
   WORKER_GRANT_ENV,
   type StaveCollaborationGrants,
 } from "../providers/stave-collaboration-grants";
@@ -91,7 +92,7 @@ function toStaveLocalMcpTransport(
     headers: {
       Authorization: `Bearer ${manifest.token}`,
       // Turn-scoped grants only. Persistent Claude Code settings must not
-      // receive empty keys that look like live Worker/Advisor capability.
+      // receive empty keys that look like live Worker/Advisor/mission capability.
       ...(options?.collaborationGrants
         ? collaborationGrantHeaders(options.collaborationGrants)
         : {}),
@@ -144,6 +145,10 @@ export function toAcpStdioMcpServerConfig(
       {
         name: WORKER_GRANT_ENV,
         value: options?.collaborationGrants?.workerKey ?? "",
+      },
+      {
+        name: MISSION_GRANT_ENV,
+        value: options?.collaborationGrants?.missionKey ?? "",
       },
       ...(allowedToolNames.length > 0
         ? [

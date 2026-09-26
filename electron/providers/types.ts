@@ -1,5 +1,6 @@
 import type { ModelExecution } from "../../src/lib/providers/model-execution";
 import type { StaveCollaborationGrants } from "./stave-collaboration-grants";
+import type { MissionStageIdentity } from "../../src/lib/missions/domain";
 import type {
   AdvisorActivityPhase,
   AdvisorEffort,
@@ -53,6 +54,12 @@ export interface StreamTurnArgs {
   unattendedAutomation?: {
     authorizationToken: string;
   };
+  /**
+   * Set only by the mission supervisor. The runtime mints a mission grant for
+   * this stage attempt so the turn can report it. Host-owned like the grants
+   * above: never part of the renderer IPC schema.
+   */
+  missionStage?: MissionStageIdentity;
   providerId: ProviderId;
   prompt: string;
   conversation?: CanonicalConversationRequest;

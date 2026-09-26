@@ -182,6 +182,18 @@ describe("AI stages", () => {
     expect(decide(second.next, observe({ lastEndedTurn: turn({ turnId: "turn-2" }) }))).toEqual({ action: "idle" });
   });
 
+  test("a stage stuck before any turn ended waits instead of replaying its start", () => {
+    const stuck = patchCurrent(afterFirstTurn(), {
+      status: "stuck",
+      detail: "Stave stopped before this stage's turn started.",
+    });
+    expect(decide(stuck)).toEqual({ action: "idle" });
+    // A reply in the task still resumes it.
+    expect(
+      decide(stuck, observe({ lastEndedTurn: turn({ turnId: "user-1", startedBy: "user" }) })),
+    ).toMatchObject({ action: "start-stage-turn", reason: "continue-after-user" });
+  });
+
   test("3. unreachable reporting blocks instead of nudging, and the stage resumes when it returns", () => {
     const aggregate = missionFixture();
     const down = step(aggregate, observe({ reportingAvailable: false }));

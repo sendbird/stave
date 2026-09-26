@@ -57,6 +57,7 @@ import type {
   TrackerIssueStaveLink,
 } from "../../src/lib/tracker-issues/types";
 import { WakeUpStore } from "./wake-up-store";
+import { MissionStore } from "./mission-store";
 import { AutomationStateStore } from "./automation-state-store";
 import { RepositoryMemoryStore } from "./project-memory-store";
 import { ResultReviewStore } from "./result-review-store";
@@ -178,6 +179,7 @@ export class SqliteStore {
   readonly fleetAttentionSnoozes: FleetAttentionSnoozeStore;
   readonly directionDrafts: WorkspaceDirectionDraftStore;
   readonly delegationDrafts: DelegationDraftStore;
+  readonly missions: MissionStore;
   private _closed = false;
   private readonly runMaintenance: boolean;
   private maintenanceStart: NodeJS.Immediate | null = null;
@@ -227,16 +229,12 @@ export class SqliteStore {
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
     this.trackerIssues = new TrackerIssuesStore(this.db, {
-      onUnreadableTaskRow: ({ source, taskRef }) => {
-        console.warn(
-          "[persistence] skipped an unreadable tracker issue row",
-          source,
-          taskRef,
-        );
-      },
+      onUnreadableTaskRow: ({ source, taskRef }) =>
+        console.warn("[persistence] skipped an unreadable tracker issue row", source, taskRef),
     });
     this.martinSyncOutbox = new MartinSyncOutboxStore(this.db);
     this.wakeUps = new WakeUpStore(this.db);
+    this.missions = new MissionStore(this.db);
     this.automationState = new AutomationStateStore(this.db);
     this.repositoryMemories = new RepositoryMemoryStore(this.db);
     if (this.runMaintenance) {

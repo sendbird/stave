@@ -206,7 +206,8 @@ forward, so a pruned instant can never come due twice.
 - [`src/lib/supervision/wake-up-policy.ts`](../../src/lib/supervision/wake-up-policy.ts) — schemas, catch-up walk, decision policy, transitions. Pure.
 - [`electron/host-service/wake-up-runtime.ts`](../../electron/host-service/wake-up-runtime.ts) — the tick, the serialized operation chain, the boot sweep.
 - [`electron/persistence/wake-up-store.ts`](../../electron/persistence/wake-up-store.ts) — `wake_ups`, `wake_up_occurrences`.
-- [`electron/host-service/local-mcp-runtime.ts`](../../electron/host-service/local-mcp-runtime.ts) — `getTaskSupervisionSnapshot`, `listTaskCompletionSignals`.
+- [`electron/host-service/local-mcp-runtime.ts`](../../electron/host-service/local-mcp-runtime.ts) — `getTaskSupervisionSnapshot`.
+- [`electron/host-service/delegated-task-signals.ts`](../../electron/host-service/delegated-task-signals.ts) — `listTaskCompletionSignals`.
 - [`electron/host-service/supervised-turn.ts`](../../electron/host-service/supervised-turn.ts) — `runSupervisedTurn`, the only way a supervisor starts a turn.
 - [`electron/main/wake-up-service.ts`](../../electron/main/wake-up-service.ts) — the main-process bridge.
 

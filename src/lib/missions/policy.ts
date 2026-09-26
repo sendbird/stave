@@ -225,6 +225,9 @@ function decideAiStage(
     return startTurn({ mission, record, observation, reason: "reporting-restored" });
   }
   if (!last) {
+    // A stage marked stuck before any turn ended (its turn never started)
+    // waits for Retry or a reply instead of replaying the start.
+    if (record.status === "stuck") return { action: "idle" };
     return startTurn({ mission, record, observation, reason: "stage-start" });
   }
   if (last.startedBy === "user") {

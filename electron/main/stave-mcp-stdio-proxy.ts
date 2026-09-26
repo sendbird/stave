@@ -26,6 +26,7 @@ import { STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS } from "./stave-local-mcp-manifest";
 import {
   collaborationGrantHeaders,
   ADVISOR_GRANT_ENV,
+  MISSION_GRANT_ENV,
   WORKER_GRANT_ENV,
 } from "../providers/stave-collaboration-grants";
 
@@ -196,6 +197,7 @@ async function postToMcp(
         ...collaborationGrantHeaders({
           consultKey: process.env[ADVISOR_GRANT_ENV],
           workerKey: process.env[WORKER_GRANT_ENV],
+          missionKey: process.env[MISSION_GRANT_ENV],
         }),
       },
       body: JSON.stringify(body),
