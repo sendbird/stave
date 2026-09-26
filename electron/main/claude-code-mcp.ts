@@ -5,19 +5,24 @@ import type {
   ClaudeCodeMcpRegistrationStatus,
   StaveLocalMcpManifest,
 } from "../../src/lib/local-mcp";
+import { resolveLoginShellEnvVarValuesAsync } from "../providers/executable-path";
+import { getClaudeStateFilePath } from "../providers/mcp-config-refresh";
 import {
   STAVE_LOCAL_MCP_SERVER_NAME,
-  toClaudeCodeSettingsMcpServerEntry,
+  toClaudeCodeUserMcpServerEntry,
 } from "./stave-local-mcp-manifest";
 
-interface ClaudeCodeSettingsTransportRecord {
+/**
+ * Claude Code's user-scope MCP servers live in the `.claude.json` state file
+ * inside its config dir, as flat `{ type, url, headers }` records — the same
+ * shape `claude mcp add --scope user` writes. `settings.json` `mcpServers` is
+ * not read for user-scope servers, so an entry written there is invisible to
+ * the CLI even though it parses cleanly.
+ */
+interface ClaudeCodeUserMcpServerRecord {
   type?: string;
   url?: string;
   headers?: Record<string, string>;
-}
-
-interface ClaudeCodeSettingsMcpServerRecord {
-  transport?: ClaudeCodeSettingsTransportRecord;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -37,27 +42,22 @@ function toStringRecord(value: unknown) {
   );
 }
 
-function extractManagedServerRecord(value: unknown): ClaudeCodeSettingsMcpServerRecord | null {
+function extractManagedServerRecord(value: unknown): ClaudeCodeUserMcpServerRecord | null {
   if (!isRecord(value)) {
     return null;
   }
-  const transport = isRecord(value.transport) ? value.transport : null;
   return {
-    ...(transport ? {
-      transport: {
-        ...(typeof transport.type === "string" ? { type: transport.type } : {}),
-        ...(typeof transport.url === "string" ? { url: transport.url } : {}),
-        ...(isRecord(transport.headers) ? { headers: toStringRecord(transport.headers) } : {}),
-      },
-    } : {}),
+    ...(typeof value.type === "string" ? { type: value.type } : {}),
+    ...(typeof value.url === "string" ? { url: value.url } : {}),
+    ...(isRecord(value.headers) ? { headers: toStringRecord(value.headers) } : {}),
   };
 }
 
-function getManagedServerRecord(settings: Record<string, unknown>) {
-  if (!isRecord(settings.mcpServers)) {
+function getManagedServerRecord(document: Record<string, unknown>) {
+  if (!isRecord(document.mcpServers)) {
     return null;
   }
-  return extractManagedServerRecord(settings.mcpServers[STAVE_LOCAL_MCP_SERVER_NAME]);
+  return extractManagedServerRecord(document.mcpServers[STAVE_LOCAL_MCP_SERVER_NAME]);
 }
 
 function buildExpectedHeaders(manifest: StaveLocalMcpManifest) {
@@ -67,28 +67,24 @@ function buildExpectedHeaders(manifest: StaveLocalMcpManifest) {
 }
 
 function matchesManifest(args: {
-  current: ClaudeCodeSettingsMcpServerRecord | null;
+  current: ClaudeCodeUserMcpServerRecord | null;
   manifest: StaveLocalMcpManifest | null;
 }) {
   if (!args.current || !args.manifest) {
     return false;
   }
-  const transport = args.current.transport;
-  if (!transport) {
-    return false;
-  }
   const expectedHeaders = buildExpectedHeaders(args.manifest);
-  return transport.type === "http"
-    && transport.url === args.manifest.url
-    && transport.headers?.Authorization === expectedHeaders.Authorization;
+  return args.current.type === "http"
+    && args.current.url === args.manifest.url
+    && args.current.headers?.Authorization === expectedHeaders.Authorization;
 }
 
-async function readSettingsDocument(settingsPath: string) {
+async function readJsonDocument(filePath: string) {
   try {
-    const raw = await fs.readFile(settingsPath, "utf8");
+    const raw = await fs.readFile(filePath, "utf8");
     const parsed = JSON.parse(raw) as unknown;
     if (!isRecord(parsed)) {
-      throw new Error("Claude Code settings root must be a JSON object.");
+      throw new Error("Claude Code config root must be a JSON object.");
     }
     return parsed;
   } catch (error) {
@@ -99,20 +95,62 @@ async function readSettingsDocument(settingsPath: string) {
   }
 }
 
-async function writeSettingsDocument(args: {
-  settingsPath: string;
-  settings: Record<string, unknown>;
+async function writeJsonDocument(args: {
+  filePath: string;
+  document: Record<string, unknown>;
 }) {
-  await fs.mkdir(path.dirname(args.settingsPath), { recursive: true });
+  await fs.mkdir(path.dirname(args.filePath), { recursive: true });
   await fs.writeFile(
-    args.settingsPath,
-    `${JSON.stringify(args.settings, null, 2)}\n`,
+    args.filePath,
+    `${JSON.stringify(args.document, null, 2)}\n`,
     { mode: 0o600 },
   );
 }
 
-export function getClaudeCodeSettingsPath() {
-  return path.join(homedir(), ".claude", "settings.json");
+/**
+ * Resolve Claude Code's explicitly configured config dir the way the CLI does:
+ * `CLAUDE_CONFIG_DIR` from the process, then from the login shell. Stave's
+ * host process is a GUI app and does not inherit shell exports, so a user who
+ * relocated their config dir has done it in the shell. Returns `null` when
+ * nothing is set so callers apply the CLI's own defaults, which differ per
+ * file: `~/.claude.json` for state, `~/.claude/` for settings.
+ */
+export async function resolveClaudeCodeConfigDir(): Promise<string | null> {
+  const fromProcess = process.env.CLAUDE_CONFIG_DIR?.trim();
+  if (fromProcess && path.isAbsolute(fromProcess)) {
+    return fromProcess;
+  }
+  const shellValues = await resolveLoginShellEnvVarValuesAsync({
+    keys: ["CLAUDE_CONFIG_DIR"],
+  });
+  const fromShell = shellValues.CLAUDE_CONFIG_DIR?.trim();
+  if (fromShell && path.isAbsolute(fromShell)) {
+    return fromShell;
+  }
+  return null;
+}
+
+/** User-scope MCP config file the CLI actually reads. */
+export async function getClaudeCodeUserConfigPath() {
+  return getClaudeStateFilePath({
+    claudeConfigDir: (await resolveClaudeCodeConfigDir()) ?? undefined,
+  });
+}
+
+/**
+ * Files earlier Stave releases wrote the managed entry into. The CLI never
+ * read `mcpServers` from these for user-scope servers, so the entry there is
+ * dead weight — but it also made the Settings status report success while
+ * `claude mcp list` showed nothing. Removing it keeps the two honest.
+ */
+export async function getLegacyClaudeCodeSettingsPaths() {
+  const configDir =
+    (await resolveClaudeCodeConfigDir()) ?? path.join(homedir(), ".claude");
+  const candidates = [
+    path.join(configDir, "settings.json"),
+    path.join(homedir(), ".claude", "settings.json"),
+  ];
+  return Array.from(new Set(candidates));
 }
 
 function buildRegistrationDetail(args: {
@@ -128,23 +166,23 @@ function buildRegistrationDetail(args: {
     return "Local MCP is not currently running, so there is no Claude Code MCP entry to install.";
   }
   if (args.installed && args.matchesCurrentManifest) {
-    return "Claude Code user settings include the current Stave MCP entry.";
+    return "Claude Code user MCP config includes the current Stave MCP entry.";
   }
   if (args.installed) {
-    return "Claude Code user settings include a stale Stave MCP entry that no longer matches the running server.";
+    return "Claude Code user MCP config includes a stale Stave MCP entry that no longer matches the running server.";
   }
-  return "Claude Code user settings do not currently include the Stave MCP entry.";
+  return "Claude Code user MCP config does not currently include the Stave MCP entry.";
 }
 
 export async function getClaudeCodeMcpRegistrationStatus(args: {
   autoRegister: boolean;
   manifest: StaveLocalMcpManifest | null;
-  settingsPath?: string;
+  configPath?: string;
 }): Promise<ClaudeCodeMcpRegistrationStatus> {
-  const settingsPath = args.settingsPath ?? getClaudeCodeSettingsPath();
+  const configPath = args.configPath ?? await getClaudeCodeUserConfigPath();
   try {
-    const settings = await readSettingsDocument(settingsPath);
-    const current = getManagedServerRecord(settings);
+    const document = await readJsonDocument(configPath);
+    const current = getManagedServerRecord(document);
     const installed = current !== null;
     const matchesCurrentManifest = matchesManifest({
       current,
@@ -152,11 +190,11 @@ export async function getClaudeCodeMcpRegistrationStatus(args: {
     });
     return {
       autoRegister: args.autoRegister,
-      configPath: settingsPath,
+      configPath,
       installed,
       matchesCurrentManifest,
-      transportType: current?.transport?.type ?? null,
-      url: current?.transport?.url ?? null,
+      transportType: current?.type ?? null,
+      url: current?.url ?? null,
       detail: buildRegistrationDetail({
         autoRegister: args.autoRegister,
         installed,
@@ -170,7 +208,7 @@ export async function getClaudeCodeMcpRegistrationStatus(args: {
       : "Failed to inspect Claude Code MCP registration.";
     return {
       autoRegister: args.autoRegister,
-      configPath: settingsPath,
+      configPath,
       installed: false,
       matchesCurrentManifest: false,
       transportType: null,
@@ -181,42 +219,84 @@ export async function getClaudeCodeMcpRegistrationStatus(args: {
   }
 }
 
+/**
+ * Drop the managed entry from a legacy settings file. Only the Stave key is
+ * touched; every other value — including other servers a user configured
+ * there — is preserved byte-for-byte in structure. A missing or unrelated
+ * file is left alone entirely.
+ */
+export async function removeLegacyClaudeCodeSettingsEntry(settingsPath: string) {
+  let settings: Record<string, unknown>;
+  try {
+    settings = await readJsonDocument(settingsPath);
+  } catch {
+    // Not ours to fix: a malformed settings file must not block registration.
+    return false;
+  }
+  if (
+    !isRecord(settings.mcpServers)
+    || !(STAVE_LOCAL_MCP_SERVER_NAME in settings.mcpServers)
+  ) {
+    return false;
+  }
+  const remainingServers = { ...settings.mcpServers };
+  delete remainingServers[STAVE_LOCAL_MCP_SERVER_NAME];
+  const nextSettings: Record<string, unknown> = { ...settings };
+  if (Object.keys(remainingServers).length > 0) {
+    nextSettings.mcpServers = remainingServers;
+  } else {
+    delete nextSettings.mcpServers;
+  }
+  await writeJsonDocument({ filePath: settingsPath, document: nextSettings });
+  return true;
+}
+
 export async function syncClaudeCodeMcpRegistration(args: {
   autoRegister: boolean;
   manifest: StaveLocalMcpManifest | null;
-  settingsPath?: string;
+  configPath?: string;
+  legacySettingsPaths?: readonly string[];
 }) {
-  const settingsPath = args.settingsPath ?? getClaudeCodeSettingsPath();
+  const configPath = args.configPath ?? await getClaudeCodeUserConfigPath();
+  const legacySettingsPaths =
+    args.legacySettingsPaths ?? await getLegacyClaudeCodeSettingsPaths();
   try {
-    const settings = await readSettingsDocument(settingsPath);
-    const currentMcpServers = isRecord(settings.mcpServers)
-      ? { ...settings.mcpServers }
+    const document = await readJsonDocument(configPath);
+    const currentMcpServers = isRecord(document.mcpServers)
+      ? { ...document.mcpServers }
       : {};
 
     if (args.autoRegister && args.manifest) {
-      currentMcpServers[STAVE_LOCAL_MCP_SERVER_NAME] = toClaudeCodeSettingsMcpServerEntry(args.manifest);
+      currentMcpServers[STAVE_LOCAL_MCP_SERVER_NAME] = toClaudeCodeUserMcpServerEntry(args.manifest);
     } else {
       delete currentMcpServers[STAVE_LOCAL_MCP_SERVER_NAME];
     }
 
-    const nextSettings: Record<string, unknown> = { ...settings };
+    const nextDocument: Record<string, unknown> = { ...document };
     if (Object.keys(currentMcpServers).length > 0) {
-      nextSettings.mcpServers = currentMcpServers;
+      nextDocument.mcpServers = currentMcpServers;
     } else {
-      delete nextSettings.mcpServers;
+      delete nextDocument.mcpServers;
     }
 
-    await writeSettingsDocument({
-      settingsPath,
-      settings: nextSettings,
+    await writeJsonDocument({
+      filePath: configPath,
+      document: nextDocument,
     });
+
+    for (const settingsPath of legacySettingsPaths) {
+      if (settingsPath === configPath) {
+        continue;
+      }
+      await removeLegacyClaudeCodeSettingsEntry(settingsPath);
+    }
   } catch (error) {
     const detail = error instanceof Error
       ? error.message
       : "Failed to update Claude Code MCP registration.";
     return {
       autoRegister: args.autoRegister,
-      configPath: settingsPath,
+      configPath,
       installed: false,
       matchesCurrentManifest: false,
       transportType: null,
@@ -229,6 +309,6 @@ export async function syncClaudeCodeMcpRegistration(args: {
   return getClaudeCodeMcpRegistrationStatus({
     autoRegister: args.autoRegister,
     manifest: args.manifest,
-    settingsPath,
+    configPath,
   });
 }

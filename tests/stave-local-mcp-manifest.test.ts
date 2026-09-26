@@ -3,7 +3,7 @@ import {
   STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS,
   isAcpStaveLocalMcpServer,
   toAcpStdioMcpServerConfig,
-  toClaudeCodeSettingsMcpServerEntry,
+  toClaudeCodeUserMcpServerEntry,
   toClaudeSdkMcpServerConfig,
   withUnattendedAutomationAuthorization,
 } from "../electron/main/stave-local-mcp-manifest";
@@ -131,12 +131,16 @@ describe("Stave Local MCP unattended automation authorization", () => {
     expect(sdkConfig.timeout).toBe(STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS);
     expect(sdkConfig.timeout).toBeGreaterThan(60_000);
 
-    // The settings-file shape stays untouched on purpose: the field is only
+    // The user-config shape stays untouched on purpose: the field is only
     // confirmed for the SDK option, and this entry lives in a file Stave does
-    // not own.
-    const settingsTransport = toClaudeCodeSettingsMcpServerEntry(manifest).transport;
-    expect(settingsTransport).not.toHaveProperty("timeout");
-    expect(settingsTransport.headers).toEqual({
+    // not own. The record is flat — no `transport` wrapper — because that is
+    // the only shape the CLI reads from user-scope config.
+    const userEntry = toClaudeCodeUserMcpServerEntry(manifest);
+    expect(userEntry).not.toHaveProperty("timeout");
+    expect(userEntry).not.toHaveProperty("transport");
+    expect(userEntry.type).toBe("http");
+    expect(userEntry.url).toBe(manifest.url);
+    expect(userEntry.headers).toEqual({
       Authorization: "Bearer manifest-token-placeholder",
     });
   });

@@ -58,7 +58,7 @@ You can manage:
 
 - `Server`: turn the local MCP server on or off
 - `Port`: defaults to a fixed localhost port so the endpoint survives restarts. Set another fixed port, or `0` for automatic selection. If a fixed port is already taken, Stave falls back to an automatic one and records the real endpoint in the manifest
-- `Claude Code`: automatically add or remove Stave's managed MCP entry in `~/.claude/settings.json`
+- `Claude Code`: automatically add or remove Stave's managed user-scope MCP entry in Claude Code's `.claude.json` (inside `CLAUDE_CONFIG_DIR`, or `~/.claude.json` when unset)
 - `Codex`: automatically add or remove Stave's managed MCP entry in `~/.codex/config.toml`
 - `Token`: the Bearer token required by local clients
 - `Rotate`: immediately replace the token and restart the server
@@ -70,7 +70,9 @@ Both `Claude Code` and `Codex` auto-registration toggles are opt-in and default 
 
 When `Claude Code` is on, Stave also keeps a user-scoped `stave-local-mcp` entry in:
 
-- `~/.claude/settings.json`
+- `<CLAUDE_CONFIG_DIR>/.claude.json`, or `~/.claude.json` when `CLAUDE_CONFIG_DIR` is unset
+
+This is the same file and shape `claude mcp add --transport http --scope user` writes, so the entry appears in `claude mcp list`. Stave resolves `CLAUDE_CONFIG_DIR` from the host process environment first and then from the login shell, matching how the CLI locates its own config. Earlier releases wrote the entry into `settings.json` under `mcpServers`; the CLI does not read user-scope servers from there, so Stave now removes that stale entry when it syncs.
 
 Turning that setting off removes only Stave's managed entry. Other Claude Code MCP servers remain untouched.
 
@@ -99,7 +101,7 @@ The manifest includes:
 - `url` and `token` for loopback HTTP clients
 - `stdioProxyScript` for subprocess-based clients that should launch `node <stdioProxyScript>`
 
-If `Claude Code` auto-registration is enabled, Stave also keeps the current loopback URL and bearer token synced into `~/.claude/settings.json` under `mcpServers.stave-local-mcp`.
+If `Claude Code` auto-registration is enabled, Stave also keeps the current loopback URL and bearer token synced into Claude Code's user-scope `.claude.json` under `mcpServers.stave-local-mcp`.
 
 If `Codex` auto-registration is enabled, Stave also keeps the current loopback URL synced into `~/.codex/config.toml` under `[mcp_servers.stave-local]`.
 
@@ -271,7 +273,8 @@ The token is wrong or stale. Copy the token again from Settings or rotate it and
 ### Claude Code does not see the Stave MCP tools
 
 - confirm `Claude Code` is enabled in `Settings → Providers → Stave`
-- inspect `~/.claude/settings.json` and verify `mcpServers.stave-local-mcp` exists
+- run `claude mcp get stave-local-mcp`; if it reports no such server, inspect `<CLAUDE_CONFIG_DIR>/.claude.json` (or `~/.claude.json` when unset) and verify `mcpServers.stave-local-mcp` is a flat `{ "type": "http", "url", "headers" }` record
+- if your shell exports `CLAUDE_CONFIG_DIR`, confirm Stave wrote to that directory and not to `~/.claude`
 - refresh Claude Code or restart it after Stave rewrites the MCP entry
 - if you turned the toggle off intentionally, Stave removes the managed Claude Code entry by design
 
