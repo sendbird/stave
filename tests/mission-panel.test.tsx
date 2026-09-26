@@ -70,27 +70,35 @@ function renderPanel(detail: MissionDetail) {
 }
 
 describe("Mission panel", () => {
-  test("goal, status and done-when come before the stage cards", () => {
+  test("the goal heads the panel, then status, done-when and the stage timeline", () => {
     const html = renderPanel(detailAtBuild());
-    const order = ["Goal", "Add CSV export", "Status", "Done when", "Export button exists", "1. Understand"];
+    const order = ["Mission · Request → PR", "Add CSV export", "Running", "Done when", "Export button exists", ">Stages<"];
     const positions = order.map((text) => html.indexOf(text));
     expect(positions.every((position) => position >= 0)).toBe(true);
     expect([...positions].sort((a, b) => a - b)).toEqual(positions);
+    expect(html.indexOf("Understand", html.indexOf(">Stages<"))).toBeGreaterThan(-1);
     expect(html).toContain("Signed off by you at");
-    expect(html).toContain("not verified");
+    expect(html).toContain("Not verified");
+    expect(html).toContain("Stage 2 of 6");
+    // The timeline is a list with the current stage marked.
+    expect(html).toContain('role="list"');
+    expect(html.match(/role="listitem"[^>]*aria-current="step"/g)).toHaveLength(1);
   });
 
-  test("the current stage opens with its instruction; controls follow the state", () => {
+  test("the current stage opens and says what to expect; controls follow the state", () => {
     const running = renderPanel(detailAtBuild());
-    expect(running).toContain("Implement the smallest complete change");
-    expect(running).toContain("Pause");
-    expect(running).toContain("Cancel mission");
-    expect(running).not.toContain("Resume");
+    expect(running).toContain("In progress");
+    expect(running).toContain("Instruction");
+    // The instruction is folded until asked for.
+    expect(running).not.toContain("Implement the smallest complete change");
+    expect(running).toContain(">Pause<");
+    expect(running).toContain('aria-label="More mission actions"');
+    expect(running).not.toContain(">Resume<");
 
     const paused = renderPanel(
       detailAtBuild("running", { state: "paused", pauseReason: "paused-by-user", reasonDetail: "Paused by the user." }),
     );
-    expect(paused).toContain("Resume");
+    expect(paused).toContain(">Resume<");
     expect(paused).not.toContain(">Pause<");
 
     const runtime = renderPanel(
@@ -100,14 +108,16 @@ describe("Mission panel", () => {
         reasonDetail: "The lead task now runs on codex:gpt-6.",
       }),
     );
-    expect(runtime).toContain("Apply to remaining stages");
-    expect(runtime).not.toContain("Resume");
+    expect(runtime).toContain("Use it for the remaining stages");
+    expect(runtime).toContain("The lead task now runs on codex:gpt-6.");
+    expect(runtime).not.toContain(">Resume<");
   });
 
   test("a finished mission is static and shows no controls", () => {
     const html = renderPanel(detailAtBuild("running", { state: "completed" }));
-    expect(html).not.toContain("Cancel mission");
-    expect(html).toContain("Mission complete");
+    expect(html).not.toContain("More mission actions");
+    expect(html).not.toContain(">Pause<");
+    expect(html).toContain("Completed");
   });
 });
 
@@ -136,7 +146,8 @@ describe("sign-off card", () => {
         onReviewChanges: () => {},
       }),
     );
-    expect(html).toContain("Build — waiting for your sign-off");
+    expect(html).toContain("Ready to start Build?");
+    expect(html).toContain("Stage 2 of 6");
     expect(html).toContain("Start Build");
     expect(html).toContain("Review changes");
     expect(html).toContain("Ask for changes");

@@ -143,6 +143,7 @@ import type {
 import { useShallow } from "zustand/react/shallow";
 import { buildChatInputGoalStatus } from "./chat-input.runtime";
 import { ChatInputApprovalQueue } from "./chat-input-approval-queue";
+import { MissionSignOffSlot } from "@/components/missions/SignOffCard";
 import { ManagedTaskTakeoverNotice } from "./ManagedTaskTakeoverNotice";
 import {
   resolveManagedTaskComposerAccess,
@@ -1611,7 +1612,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
               });
             }}
           />
-        ) : null}
+        ) : <MissionSignOffSlot />}
         {isSteerSubmitting ? (
           <div
             className={sx(chatInputStyles.steerRow)}

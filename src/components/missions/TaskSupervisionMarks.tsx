@@ -22,16 +22,25 @@ export const TaskSupervisionMarks = memo(function TaskSupervisionMarks(props: { 
     currentStageRecord(mission!).status === "awaiting-sign-off";
   const wakeUpShown = wakeUp && wakeUp.summary.state !== "stopped";
   if (!missionActive && !wakeUpShown) return null;
+  const missionLabel = waitingOnUser
+    ? "Mission waits for your sign-off"
+    : mission?.mission.state === "paused"
+      ? "Mission paused"
+      : "Mission running";
   return (
-    <span className={sx(styles.chipLabel)}>
+    <span className={sx(styles.inline)}>
       {missionActive ? (
         waitingOnUser ? (
-          <Hand role="img" aria-label="Mission waits for your sign-off" className={sx(styles.icon, styles.toneWaiting)}>
-            <title>Mission waits for your sign-off</title>
+          <Hand role="img" aria-label={missionLabel} className={sx(styles.icon, styles.toneWaiting)}>
+            <title>{missionLabel}</title>
           </Hand>
         ) : (
-          <Target role="img" aria-label="Mission running" className={sx(styles.icon, styles.toneActive)}>
-            <title>{mission!.mission.state === "paused" ? "Mission paused" : "Mission running"}</title>
+          <Target
+            role="img"
+            aria-label={missionLabel}
+            className={sx(styles.icon, mission?.mission.state === "paused" ? styles.toneIdle : styles.toneActive)}
+          >
+            <title>{missionLabel}</title>
           </Target>
         )
       ) : null}

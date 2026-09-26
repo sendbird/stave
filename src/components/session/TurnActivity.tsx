@@ -112,8 +112,6 @@ import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
 import type { TurnActivityPlacement } from "@/store/app-settings";
 import { MissionBar } from "@/components/missions/MissionBar";
-import { MissionComposerChip } from "@/components/missions/MissionComposerChip";
-import { MissionSignOffSlot } from "@/components/missions/SignOffCard";
 import { useAppStore } from "@/store/app.store";
 import type { TurnActivityFloatPosition } from "@/store/layout.utils";
 import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
@@ -222,17 +220,21 @@ export function TurnActivity(props: {
     (state) => state.settings.turnActivityPlacement,
   );
   // The Mission bar heads the activity, and stays up between turns. The
-  // floating card is the turn shelf alone, so with it the bar stays docked.
-  // The sign-off card and the reply chip always sit at the composer.
+  // floating card is the turn shelf alone, so with it the bar stays docked,
+  // where it tucks under the turn shelf or the composer like a shelf of its
+  // own. Sign-offs sit in the composer's approval slot.
   const missionHost = placement === "panel" ? "panel" : "docked";
   return (
     <>
-      {host === missionHost ? <MissionBar /> : null}
-      {host === "docked" ? <MissionSignOffSlot /> : null}
+      {host === missionHost ? (
+        <MissionBar
+          variant={host === "panel" ? "panel" : "docked"}
+          framed={props.frameInset}
+        />
+      ) : null}
       {placement === host ? (
         <ActiveTurnActivity key={host} {...props} host={host} />
       ) : null}
-      {host === "docked" ? <MissionComposerChip /> : null}
     </>
   );
 }

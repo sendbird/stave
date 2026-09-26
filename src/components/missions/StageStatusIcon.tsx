@@ -7,7 +7,7 @@ import {
   Hand,
   type LucideIcon,
 } from "lucide-react";
-import { sx } from "@/components/ads/utils/stylex";
+import { sx, type XstyleProp } from "@/components/ads/utils/stylex";
 import type { StageTone } from "@/lib/missions/mission-view";
 import { missionStyles as styles } from "./missions.styles";
 
@@ -20,7 +20,7 @@ const TONE_ICONS: Record<StageTone, LucideIcon> = {
   skipped: CircleMinus,
 };
 
-const TONE_STYLES = {
+export const STAGE_TONE_STYLES = {
   done: styles.toneDone,
   active: styles.toneActive,
   waiting: styles.toneWaiting,
@@ -30,7 +30,11 @@ const TONE_STYLES = {
 } as const;
 
 /** An icon for a stage tone. Always paired with text by the caller. */
-export function StageStatusIcon({ tone }: { tone: StageTone }) {
-  const Icon = TONE_ICONS[tone];
-  return <Icon aria-hidden className={sx(styles.icon, TONE_STYLES[tone])} />;
+export function StageStatusIcon({
+  tone,
+  icon,
+  xstyle,
+}: { tone: StageTone; /** Replaces the tone's glyph, keeping its color. */ icon?: LucideIcon } & XstyleProp) {
+  const Icon = icon ?? TONE_ICONS[tone];
+  return <Icon aria-hidden className={sx(styles.icon, STAGE_TONE_STYLES[tone], xstyle)} />;
 }

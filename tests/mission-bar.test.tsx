@@ -58,37 +58,60 @@ function render(detail: MissionDetail, nowPhrase: string | null = null) {
 }
 
 describe("Mission bar", () => {
-  test("the stepper is an ordered list with the current stage marked", () => {
+  test("the stage track is an ordered list with the current stage marked", () => {
     const html = render(detailAtBuild());
-    expect(html).toContain('<ol');
-    expect(html).toContain('aria-current="step"');
+    expect(html).toContain("<ol");
     expect(html.match(/aria-current="step"/g)).toHaveLength(1);
-    expect(html).toContain("2. Build");
-    expect(html).toContain("Request → PR · Add CSV export to the billing page.");
-    expect(html).toContain("Plan and publishing · 20m");
+    expect(html).toContain("2. Build — Running");
+    // The bar spends its width on the present; identity is in the title.
+    expect(html).toContain('title="Request → PR · Add CSV export to the billing page."');
+    expect(html).toContain("Stage 2 of 6");
   });
 
-  test("a stage that asks first carries a marker, and every status has text", () => {
+  test("a stage that asks first is marked, and every status has text", () => {
     const html = render(detailAtBuild());
-    // Build asks after the plan stage; Ready for review asks under the default.
-    expect(html.match(/aria-label="asks you first"/g)?.length).toBeGreaterThanOrEqual(1);
-    expect(html).toContain("— Done");
-    expect(html).toContain("— Running");
+    expect(html).toContain(", asks you first");
+    expect(html).toContain("1. Understand — Done");
+    expect(html).toContain("3. Verify — Not started");
   });
 
-  test("while a turn runs the Now line speaks plainly; otherwise the wait is named and aged", () => {
+  test("while a turn runs the Now phrase leads; otherwise the state is named and aged", () => {
     expect(render(detailAtBuild(), "Running the tests")).toContain("Running the tests");
     const waiting = render(detailAtBuild("awaiting-sign-off"));
-    expect(waiting).toContain("Waiting for your sign-off · 15m");
+    expect(waiting).toContain(">Build<");
+    expect(waiting).toContain("Waiting for your sign-off");
+    expect(waiting).toContain(" · 15m");
     expect(waiting).toContain("Waiting for your sign-off: Build");
-    expect(render(detailAtBuild("blocked"))).toContain("Blocked · Which plan gets the export?");
+    const blocked = render(detailAtBuild("blocked"));
+    expect(blocked).toContain("Blocked");
+    expect(blocked).toContain("Which plan gets the export?");
   });
 
-  test("a narrow bar collapses to the current stage and its position", () => {
-    expect(render(detailAtBuild())).toContain("Build · 2 of 6");
+  test("the controls follow the mission: Take over while it runs, Resume after", () => {
+    const actions = { onTakeOver: () => {}, onResume: () => {}, onOpenPanel: () => {} };
+    const running = renderToStaticMarkup(
+      createElement(MissionBarView, { detail: detailAtBuild(), nowPhrase: null, now: NOW, reducedMotion: false, actions }),
+    );
+    expect(running).toContain(">Take over<");
+    expect(running).toContain('aria-label="Open the Mission panel"');
+    expect(running).not.toContain(">Resume<");
+    const base = detailAtBuild();
+    const takenOver = renderToStaticMarkup(
+      createElement(MissionBarView, {
+        detail: { ...base, mission: { ...base.mission, state: "paused", pauseReason: "taken-over" } },
+        nowPhrase: null,
+        now: NOW,
+        reducedMotion: false,
+        actions,
+      }),
+    );
+    expect(takenOver).toContain(">Resume<");
+    expect(takenOver).toContain("You took over");
+    expect(takenOver).toContain("2. Build — Paused");
+    expect(takenOver).not.toContain(">Take over<");
   });
 
-  test("the live region announces the stage, not the Now line", () => {
+  test("the live region announces the stage, not the Now phrase", () => {
     const html = render(detailAtBuild(), "Running the tests");
     expect(html).toMatch(/aria-live="polite"[^>]*>Stage 2 of 6: Build</);
   });

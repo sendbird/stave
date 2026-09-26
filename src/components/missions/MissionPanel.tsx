@@ -1,31 +1,48 @@
 import { useEffect, useMemo } from "react";
+import { CircleCheck, CircleDashed, CircleX, Ellipsis, Pause, Play, Target } from "lucide-react";
+import { Badge } from "@/components/ads/components/Badge";
+import { Button } from "@/components/ads/components/Button";
+import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
+import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
+import { StepRail } from "@/components/ads/components/StepRail";
 import { sx } from "@/components/ads/utils/stylex";
-import { ActionButton } from "@/components/system/ActionButton";
 import { TeamSection } from "@/components/team/TeamSection";
 import type { CollaborationTarget } from "@/components/team/DelegateTaskForm";
 import type { MissionDetail } from "@/lib/missions/api";
 import { currentStageRecord, isActiveMissionState, latestStageRecord } from "@/lib/missions/domain";
 import {
   describeCheckIns,
-  describeMissionHeadline,
+  describeMissionBadge,
+  describeMissionStatusLine,
   formatAge,
+  MISSION_PERMISSION_LABELS,
   projectMissionStages,
 } from "@/lib/missions/mission-view";
 import type { AcceptanceCriterion } from "@/lib/playbooks/stage-prompt";
+import { getProviderLabel } from "@/lib/providers/model-catalog";
 import { useAppStore } from "@/store/app.store";
 import { useMissionsStore, useTaskMission } from "@/store/missions-store";
 import { MissionReportView } from "./MissionReportView";
-import { useMissionReportActions } from "./useMissionReportActions";
+import { useMissionReportActions, type MissionReportActions } from "./useMissionReportActions";
 import { WakeUpSection } from "./WakeUpSection";
 import { StageCard } from "./StageCard";
-import { useNow } from "./useMission";
+import { StageTrack } from "./StageTrack";
+import { useNow, usePrefersReducedMotion } from "./useMission";
 import { missionStyles as styles } from "./missions.styles";
 
-const CRITERION_LABELS: Record<AcceptanceCriterion["status"], string> = {
-  met: "met",
-  unmet: "unmet",
-  unverified: "not verified",
-};
+const CRITERION_PRESENTATION = {
+  met: { label: "Met", icon: CircleCheck, tone: styles.toneDone },
+  unmet: { label: "Not met", icon: CircleX, tone: styles.toneAttention },
+  unverified: { label: "Not verified", icon: CircleDashed, tone: styles.toneIdle },
+} as const satisfies Record<AcceptanceCriterion["status"], unknown>;
+
+const TILE_TONES = {
+  accent: "accent",
+  warning: "warning",
+  danger: "danger",
+  success: "success",
+  neutral: "neutral",
+} as const;
 
 /** The latest acceptance criteria any stage reported, in playbook order. */
 function latestCriteria(detail: MissionDetail): AcceptanceCriterion[] {
@@ -46,111 +63,218 @@ function latestSignOffTime(detail: MissionDetail) {
   return null;
 }
 
+const formatClock = (iso: string) =>
+  new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+
 export function MissionDetailView(props: {
   detail: MissionDetail;
   now: number;
   onCommand: ReturnType<typeof useMissionsStore.getState>["runCommand"];
   onShowTool?: (toolCallId: string) => void;
-  reportActions?: import("./useMissionReportActions").MissionReportActions;
+  reportActions?: MissionReportActions;
+  reducedMotion?: boolean;
   busy?: boolean;
   failure?: string | null;
 }) {
   const { detail, now, onCommand } = props;
   const { mission } = detail;
   const rows = useMemo(() => projectMissionStages(detail, new Date(now)), [detail, now]);
-  const headline = describeMissionHeadline(detail);
+  const line = describeMissionStatusLine(detail);
+  const badge = describeMissionBadge(detail);
   const active = isActiveMissionState(mission.state);
   const record = active ? currentStageRecord(detail) : null;
   const identity = record ? { missionId: mission.id, stageId: record.stageId, attempt: record.attempt } : null;
   const criteria = latestCriteria(detail);
   const signedOffAt = latestSignOffTime(detail);
   const userPause = mission.pauseReason === "paused-by-user" || mission.pauseReason === "taken-over";
+  const current = rows[mission.currentStageIndex]!;
+  // The badge already names the state; the line beside it says where and why.
+  const statusText = active
+    ? [
+        line.title === badge.label ? null : line.title,
+        line.state === badge.label ? null : line.state,
+        line.detail,
+        formatAge(now - Date.parse(line.since)),
+      ]
+        .filter(Boolean)
+        .join(" · ")
+    : (mission.reasonDetail ?? `Ended at ${formatClock(mission.updatedAt)}`);
   return (
     <section className={sx(styles.panel)} aria-label={`Mission: ${mission.playbook.name}`} data-testid="mission-panel">
-      <div className={sx(styles.panelHeader)}>
-        <h2 className={sx(styles.panelTitle)}>Mission · {mission.playbook.name}</h2>
-        {active ? (
-          <div className={sx(styles.actions)}>
-            {mission.state === "running" ? (
-              <ActionButton size="xs" weight="quiet" disabled={props.busy} onClick={() => void onCommand("pause", { missionId: mission.id })}>
-                Pause
-              </ActionButton>
-            ) : null}
-            {mission.state === "paused" && userPause ? (
-              <ActionButton size="xs" disabled={props.busy} onClick={() => void onCommand("resume", { missionId: mission.id })}>
-                Resume
-              </ActionButton>
-            ) : null}
-            {mission.pauseReason === "runtime-changed" ? (
-              <ActionButton size="xs" disabled={props.busy} onClick={() => void onCommand("acceptRuntime", { missionId: mission.id })}>
-                Apply to remaining stages
-              </ActionButton>
-            ) : null}
-            <ActionButton size="xs" weight="quiet" disabled={props.busy} onClick={() => void onCommand("cancel", { missionId: mission.id })}>
-              Cancel mission
-            </ActionButton>
+      <header className={sx(styles.head)}>
+        <div className={sx(styles.headRow)}>
+          <IconTile size="sm" tone={TILE_TONES[badge.tone]}>
+            <Target size={iconTileGlyphSizes.sm} />
+          </IconTile>
+          <div className={sx(styles.headText)}>
+            <p className={sx(styles.eyebrow)}>Mission · {mission.playbook.name}</p>
+            <h2 className={sx(styles.title)} title={mission.assignment}>
+              {mission.assignment}
+            </h2>
+          </div>
+          {active ? (
+            <div className={sx(styles.headActions)}>
+              {mission.state === "running" ? (
+                <Button
+                  variant="quiet"
+                  size="xs"
+                  disabled={props.busy}
+                  onClick={() => void onCommand("pause", { missionId: mission.id })}
+                >
+                  <Pause aria-hidden />
+                  Pause
+                </Button>
+              ) : null}
+              {mission.state === "paused" && userPause ? (
+                <Button
+                  variant="secondary"
+                  size="xs"
+                  disabled={props.busy}
+                  onClick={() => void onCommand("resume", { missionId: mission.id })}
+                >
+                  <Play aria-hidden />
+                  Resume
+                </Button>
+              ) : null}
+              <DropdownMenu
+                placement="bottom-end"
+                triggerAsChild
+                trigger={
+                  <Button variant="quiet" size="iconSm" iconOnly aria-label="More mission actions">
+                    <Ellipsis aria-hidden />
+                  </Button>
+                }
+                groups={[
+                  {
+                    items: [
+                      {
+                        label: "Cancel mission",
+                        tone: "danger",
+                        disabled: props.busy,
+                        onSelect: () => void onCommand("cancel", { missionId: mission.id }),
+                      },
+                    ],
+                  },
+                ]}
+              />
+            </div>
+          ) : null}
+        </div>
+        <div className={sx(styles.statusRow)}>
+          <Badge size="sm" tone={badge.tone} dot xstyle={styles.badge}>
+            {badge.label}
+          </Badge>
+          <span className={sx(styles.statusText)} title={statusText}>
+            {statusText}
+          </span>
+          <span className={sx(styles.statusMeta)}>
+            {active ? `Stage ${current.index + 1} of ${rows.length}` : `${rows.length} stages`}
+          </span>
+        </div>
+        <StageTrack
+          rows={rows}
+          labels="never"
+          size="md"
+          live={active && !props.reducedMotion && mission.state === "running"}
+          paused={mission.state === "paused"}
+        />
+        {mission.pauseReason === "runtime-changed" ? (
+          <div className={sx(styles.callout, styles.calloutNeutral)}>
+            <span>{mission.reasonDetail ?? "The task's model changed since the mission started."}</span>
+            <div className={sx(styles.actions)}>
+              <Button
+                size="xs"
+                variant="secondary"
+                disabled={props.busy}
+                onClick={() => void onCommand("acceptRuntime", { missionId: mission.id })}
+              >
+                Use it for the remaining stages
+              </Button>
+            </div>
           </div>
         ) : null}
-      </div>
-      <dl className={sx(styles.facts)}>
-        <dt className={sx(styles.factLabel)}>Goal</dt>
-        <dd className={sx(styles.factValue)}>{mission.assignment}</dd>
-        <dt className={sx(styles.factLabel)}>Status</dt>
-        <dd className={sx(styles.factValue)}>
-          {headline.text}
-          {active ? ` · ${formatAge(now - Date.parse(headline.since))}` : ""}
-        </dd>
-        <dt className={sx(styles.factLabel)}>Check-ins</dt>
-        <dd className={sx(styles.factValue)}>{describeCheckIns(mission)}</dd>
-        {criteria.length > 0 ? (
-          <>
-            <dt className={sx(styles.factLabel)}>Done when</dt>
-            <dd className={sx(styles.factValue)}>
-              {signedOffAt ? (
-                <p className={sx(styles.notice)}>
-                  Signed off by you at {new Date(signedOffAt).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" })}
-                </p>
-              ) : null}
-              <ul className={sx(styles.list)}>
-                {criteria.map((criterion) => (
-                  <li key={criterion.text}>
-                    {criterion.text} — <span className={sx(styles.factLabel)}>{CRITERION_LABELS[criterion.status]}</span>
-                  </li>
-                ))}
-              </ul>
-            </dd>
-          </>
-        ) : null}
-      </dl>
+      </header>
+
       {props.failure ? (
         <p className={sx(styles.error)} role="alert">
           {props.failure}
         </p>
       ) : null}
-      <ol className={sx(styles.list)} aria-label="Stages">
-        {rows.map((row) => (
-          <StageCard
-            key={row.stage.id}
-            row={row}
-            busy={props.busy}
-            onShowTool={props.onShowTool}
-            {...(row.current && identity
-              ? {
-                  onRetry: () => void onCommand("retryStage", identity),
-                  onSkip: () => void onCommand("skipStage", identity),
-                }
-              : {})}
-          />
-        ))}
-      </ol>
-      {detail.report ? <MissionReportView report={detail.report} actions={props.reportActions} /> : null}
+
+      {criteria.length > 0 ? (
+        <section className={sx(styles.section)} aria-label="Done when">
+          <div className={sx(styles.sectionHeader)}>
+            <h3 className={sx(styles.sectionTitle)}>Done when</h3>
+            {signedOffAt ? (
+              <span className={sx(styles.sectionAside)}>Signed off by you at {formatClock(signedOffAt)}</span>
+            ) : null}
+          </div>
+          <ul className={sx(styles.list)}>
+            {criteria.map((criterion) => {
+              const presentation = CRITERION_PRESENTATION[criterion.status];
+              const Icon = presentation.icon;
+              return (
+                <li key={criterion.text} className={sx(styles.check)}>
+                  <span className={sx(styles.checkMark)}>
+                    <Icon aria-hidden className={sx(styles.icon, presentation.tone)} />
+                  </span>
+                  <span className={sx(styles.checkText)}>{criterion.text}</span>
+                  <span className={sx(styles.checkState)}>{presentation.label}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </section>
+      ) : null}
+
+      <section className={sx(styles.section)} aria-label="Stages">
+        <div className={sx(styles.sectionHeader)}>
+          <h3 className={sx(styles.sectionTitle)}>Stages</h3>
+          <span className={sx(styles.sectionAside)}>{describeCheckIns(mission)}</span>
+        </div>
+        <StepRail density="compact" role="list">
+          {rows.map((row) => (
+            <StageCard
+              key={row.stage.id}
+              row={row}
+              last={row.index === rows.length - 1}
+              busy={props.busy}
+              onShowTool={props.onShowTool}
+              {...(row.current && identity
+                ? {
+                    onRetry: () => void onCommand("retryStage", identity),
+                    onSkip: () => void onCommand("skipStage", identity),
+                  }
+                : {})}
+            />
+          ))}
+        </StepRail>
+      </section>
+
+      {detail.report ? (
+        <MissionReportView report={detail.report} actions={props.reportActions} context="panel" />
+      ) : null}
+
+      <section className={sx(styles.section, styles.sectionRule)} aria-label="Mission details">
+        <dl className={sx(styles.facts)}>
+          <dt className={sx(styles.factLabel)}>Runs with</dt>
+          <dd className={sx(styles.factValue)}>
+            {getProviderLabel({ providerId: mission.fingerprint.providerId })} · {mission.fingerprint.model} ·{" "}
+            {MISSION_PERMISSION_LABELS[mission.consent.permissionMode]} permissions
+          </dd>
+          <dt className={sx(styles.factLabel)}>Started</dt>
+          <dd className={sx(styles.factValue)}>
+            {formatClock(mission.createdAt)} · {formatAge(now - Date.parse(mission.createdAt))} ago
+          </dd>
+        </dl>
+      </section>
     </section>
   );
 }
 
 /**
- * The right rail's Mission panel: the task's mission on top, and the team
- * (Advisor, workers, delegated tasks) below it.
+ * The right rail's Mission panel: the task's mission on top, its wake-up, and
+ * the team (Advisor, workers, delegated tasks) below.
  */
 export function MissionPanel(props: {
   workspaceId: string;
@@ -168,6 +292,7 @@ export function MissionPanel(props: {
   const reportActions = useMissionReportActions(detail);
   const active = Boolean(detail && isActiveMissionState(detail.mission.state));
   const now = useNow(active);
+  const reducedMotion = usePrefersReducedMotion();
   // A finished mission's report is built on request; fetch it once.
   const needsReport = Boolean(detail && !active && !detail.report);
   useEffect(() => {
@@ -181,21 +306,27 @@ export function MissionPanel(props: {
           now={now}
           busy={busy}
           failure={failure}
+          reducedMotion={reducedMotion}
           onCommand={runCommand}
           reportActions={reportActions}
           onShowTool={(toolUseId) => focusTranscriptTool({ taskId: props.taskId, toolUseId })}
         />
       ) : (
-        <p className={sx(styles.notice)}>This task has no mission. A mission runs a playbook on this task stage by stage.</p>
+        <section className={sx(styles.section)} aria-label="Mission">
+          <p className={sx(styles.notice)}>
+            No mission on this task. A mission carries a playbook through its stages and stops only where you
+            asked to sign off.
+          </p>
+        </section>
       )}
       <WakeUpSection workspaceId={props.workspaceId} taskId={props.taskId} />
-      <div className={sx(styles.section)}>
+      <section className={sx(styles.section, styles.sectionRule)} aria-label="Team">
         {props.team ? (
           <TeamSection target={props.team} />
         ) : (
           <p className={sx(styles.notice)}>{props.teamUnavailableReason}</p>
         )}
-      </div>
+      </section>
     </div>
   );
 }

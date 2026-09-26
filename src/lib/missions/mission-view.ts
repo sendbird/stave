@@ -168,6 +168,122 @@ export function describeMissionHeadline(detail: MissionDetail): MissionHeadline 
   }
 }
 
+export interface MissionStatusLine {
+  /** The lead words: the current stage, or "Paused". */
+  title: string;
+  /** The state word when it is not plain progress: "Blocked", "Waiting for your sign-off". */
+  state: string | null;
+  /** What the stage is doing, or why it waits. */
+  detail: string | null;
+  tone: StageTone;
+  /** When the state this line names began, for the age. */
+  since: string;
+  /** A turn does the work now, so the Now phrase may replace the detail. */
+  live: boolean;
+}
+
+/**
+ * The mission's line: the stage in view, its state and why, for example
+ * `Verify` · `Blocked` · `Which breakpoint…`. The Mission bar shows it in
+ * full; the panel shows the state as a badge and the rest beside it.
+ */
+export function describeMissionStatusLine(detail: MissionDetail): MissionStatusLine {
+  const { mission } = detail;
+  const headline = describeMissionHeadline(detail);
+  const since = headline.since;
+  const stage = mission.playbook.stages[mission.currentStageIndex]!;
+  const line = (patch: Partial<MissionStatusLine> & Pick<MissionStatusLine, "tone">): MissionStatusLine => ({
+    title: stage.title,
+    state: null,
+    detail: null,
+    since,
+    live: false,
+    ...patch,
+  });
+  if (mission.state === "paused") {
+    const userPause = mission.pauseReason === "paused-by-user" || mission.pauseReason === "taken-over";
+    return line({
+      title: "Paused",
+      detail:
+        mission.pauseReason === "taken-over"
+          ? "You took over · replies are yours until you resume"
+          : mission.pauseReason === "paused-by-user"
+            ? `Paused by you before ${stage.title}`
+            : headline.text,
+      tone: userPause ? "waiting" : "attention",
+    });
+  }
+  if (mission.state !== "running") {
+    return line({ title: headline.text, tone: headline.tone === "done" ? "done" : "skipped" });
+  }
+  const record = latestStageRecord(detail.stages, stage.id);
+  switch (record?.status ?? "pending") {
+    case "awaiting-sign-off":
+      return line({ state: "Waiting for your sign-off", tone: "waiting" });
+    case "blocked":
+      return record?.blockReason === "reporting-unavailable"
+        ? line({ state: "Reporting unavailable", detail: "Stave's local tools are unreachable", tone: "attention" })
+        : line({ state: "Blocked", detail: record?.detail ?? "waiting for you", tone: "attention" });
+    case "stuck":
+      return line({ state: "Stuck", detail: record?.detail ?? "the stage stopped moving", tone: "attention" });
+    case "running": {
+      if (stage.kind === "ai") return line({ detail: "Working", tone: "active", live: true });
+      const action =
+        stage.action.type === "watch-checks"
+          ? headline.text
+          : stage.action.type === "open-draft-pr"
+            ? "Stave is opening the draft PR"
+            : "Stave is marking the PR ready for review";
+      return line({ detail: action, tone: "active" });
+    }
+    case "pending":
+    case "completed":
+    case "skipped":
+    case "cancelled":
+      return line({ detail: "Starting", tone: "active" });
+  }
+}
+
+export type MissionBadgeTone = "accent" | "warning" | "danger" | "success" | "neutral";
+
+/** The one-word state a mission wears: Running, Needs you, Blocked, Paused… */
+export function describeMissionBadge(detail: MissionDetail): { label: string; tone: MissionBadgeTone } {
+  const { mission } = detail;
+  switch (mission.state) {
+    case "completed":
+      return { label: "Completed", tone: "success" };
+    case "cancelled":
+      return { label: "Cancelled", tone: "neutral" };
+    case "stopped":
+      return { label: "Stopped", tone: "danger" };
+    case "paused":
+      return { label: "Paused", tone: "warning" };
+    case "running":
+      break;
+  }
+  const stage = mission.playbook.stages[mission.currentStageIndex]!;
+  switch (latestStageRecord(detail.stages, stage.id)?.status ?? "pending") {
+    case "awaiting-sign-off":
+      return { label: "Needs you", tone: "warning" };
+    case "blocked":
+      return { label: "Blocked", tone: "danger" };
+    case "stuck":
+      return { label: "Stuck", tone: "danger" };
+    case "running":
+    case "pending":
+    case "completed":
+    case "skipped":
+    case "cancelled":
+      return { label: "Running", tone: "accent" };
+  }
+}
+
+export const MISSION_PERMISSION_LABELS: Record<Mission["consent"]["permissionMode"], string> = {
+  auto: "Auto",
+  guided: "Guided",
+  manual: "Manual",
+};
+
 export function describeCheckIns(mission: Mission) {
   return CHECK_IN_LABELS[mission.consent.checkIns];
 }

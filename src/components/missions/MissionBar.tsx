@@ -1,24 +1,31 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Hand, Target } from "lucide-react";
-import { sx } from "@/components/ads/utils/stylex";
+import { CirclePause, PanelRightOpen } from "lucide-react";
+import { Button } from "@/components/ads/components/Button";
+import { TextShimmer } from "@/components/ads/components/TextShimmer";
+import { Tooltip } from "@/components/ads/components/Tooltip";
+import { cx, sx } from "@/components/ads/utils/stylex";
 import type { MissionDetail } from "@/lib/missions/api";
 import { isActiveMissionState } from "@/lib/missions/domain";
 import {
-  describeCheckIns,
-  describeMissionHeadline,
+  describeMissionStatusLine,
   formatAge,
   projectMissionStages,
-  STAGE_STATUS_PRESENTATION,
   type MissionStageRow,
 } from "@/lib/missions/mission-view";
 import { describeToolActivity, nextNowLine, NOW_LINE_MIN_INTERVAL_MS, type NowLineState } from "@/lib/missions/now-line";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { useAppStore } from "@/store/app.store";
+import { useMissionsStore } from "@/store/missions-store";
 import { StageStatusIcon } from "./StageStatusIcon";
+import { StageTrack } from "./StageTrack";
 import { useNow, usePrefersReducedMotion, useScopedTaskMission } from "./useMission";
-import { missionStyles as styles } from "./missions.styles";
+import { missionBarStyles as styles } from "./mission-bar.styles";
+import { missionStyles } from "./missions.styles";
 
 const STAGE_HOLD_MS = 3_000;
+
+export const TAKE_OVER_HINT =
+  "Your replies guide this stage and the mission carries on. Take over pauses the mission so you can steer it yourself.";
 
 /** The phrase for the running turn's latest tool call, or null. */
 export function selectNowPhrase(activity: ProviderTurnActivitySnapshot | undefined): string | null {
@@ -54,11 +61,19 @@ function useNowLine(candidate: string | null) {
   return state?.text ?? null;
 }
 
-/** "Build done · 4 files +82 −17", shown briefly when a stage completes. */
-function describeCompletedStage(row: MissionStageRow): string {
+/** "4 files +82 −17", for the moment a stage completes. */
+function describeCompletedChange(row: MissionStageRow): string | null {
   const diff = row.record?.facts?.diff;
-  const change = diff && diff.filesChanged > 0 ? ` · ${diff.filesChanged} files +${diff.insertions} −${diff.deletions}` : "";
-  return `${row.stage.title} done${change}`;
+  return diff && diff.filesChanged > 0
+    ? `${diff.filesChanged} ${diff.filesChanged === 1 ? "file" : "files"} +${diff.insertions} −${diff.deletions}`
+    : null;
+}
+
+export interface MissionBarActions {
+  onTakeOver?: () => void;
+  onResume?: () => void;
+  onOpenPanel?: () => void;
+  busy?: boolean;
 }
 
 export function MissionBarView(props: {
@@ -66,16 +81,20 @@ export function MissionBarView(props: {
   nowPhrase: string | null;
   now: number;
   reducedMotion: boolean;
+  /** `docked` is a shelf over the composer; `panel` a flat header in the Activity panel. */
+  variant?: "docked" | "panel";
+  /** Docked inside the composer frame, which owns the final tuck. */
+  framed?: boolean;
+  actions?: MissionBarActions;
 }) {
-  const { detail, now } = props;
+  const { detail, now, actions = {}, variant = "docked" } = props;
   const { mission } = detail;
   const rows = useMemo(() => projectMissionStages(detail, new Date(now)), [detail, now]);
   const current = rows[mission.currentStageIndex]!;
-  const headline = describeMissionHeadline(detail);
-  const turnRunning = current.status === "running" && props.nowPhrase !== null;
+  const line = describeMissionStatusLine(detail);
 
   // The completed stage holds for a moment before the next takes over.
-  const [held, setHeld] = useState<string | null>(null);
+  const [held, setHeld] = useState<{ title: string; detail: string | null } | null>(null);
   const previousIndex = useRef(mission.currentStageIndex);
   useEffect(() => {
     const before = previousIndex.current;
@@ -83,7 +102,7 @@ export function MissionBarView(props: {
     if (props.reducedMotion || mission.currentStageIndex <= before) return;
     const finished = rows[before];
     if (!finished || finished.status !== "completed") return;
-    setHeld(describeCompletedStage(finished));
+    setHeld({ title: `${finished.stage.title} done`, detail: describeCompletedChange(finished) });
     const timer = window.setTimeout(() => setHeld(null), STAGE_HOLD_MS);
     return () => window.clearTimeout(timer);
   }, [mission.currentStageIndex, props.reducedMotion, rows]);
@@ -94,49 +113,118 @@ export function MissionBarView(props: {
       ? `Waiting for your sign-off: ${current.stage.title}`
       : `Stage ${current.index + 1} of ${rows.length}: ${current.stage.title}`;
 
-  const statusText = held ?? (turnRunning ? props.nowPhrase : headline.text);
-  // Waits name themselves; only live work and a completed stage take a label.
-  const statusLabel = held ? "Done" : turnRunning ? "Now" : null;
-  const age = held || turnRunning ? null : formatAge(now - Date.parse(headline.since));
+  const showNow = !held && line.live && props.nowPhrase !== null;
+  const title = held?.title ?? line.title;
+  const state = held ? null : line.state;
+  const detailText = held ? held.detail : showNow ? props.nowPhrase : line.detail;
+  const age = held || showNow ? null : formatAge(now - Date.parse(line.since));
+  const paused = mission.state === "paused";
+  const userPaused = paused && (mission.pauseReason === "paused-by-user" || mission.pauseReason === "taken-over");
+  const elapsed = formatAge(now - Date.parse(mission.createdAt));
+
   return (
-    <section className={sx(styles.bar)} aria-label={`Mission: ${mission.playbook.name}`} data-testid="mission-bar">
-      <div className={sx(styles.barHeader)}>
-        <Target aria-hidden className={sx(styles.icon, styles.toneActive)} />
-        <span className={sx(styles.barTitle)} title={mission.assignment}>
-          {mission.playbook.name} · {mission.assignment.split("\n")[0]}
-        </span>
-        <span className={sx(styles.barMeta)}>
-          {describeCheckIns(mission)} · {formatAge(now - Date.parse(mission.createdAt))}
-        </span>
-      </div>
-      <ol className={sx(styles.stepper)} aria-label="Stages">
-        {rows.map((row) => (
-          <li
-            key={row.stage.id}
-            className={sx(styles.step, row.current && styles.stepCurrent)}
-            aria-current={row.current ? "step" : undefined}
-          >
-            <StageStatusIcon tone={STAGE_STATUS_PRESENTATION[row.status].tone} />
-            {row.index + 1}. {row.stage.title}
-            <span className={sx(styles.visuallyHidden)}> — {STAGE_STATUS_PRESENTATION[row.status].label}</span>
-            {row.asksFirst && (row.status === "pending" || row.status === "awaiting-sign-off") ? (
-              <Hand aria-label="asks you first" className={sx(styles.icon, styles.toneWaiting)} />
+    <section
+      className={cx(
+        variant === "docked" ? "turn-activity-surface" : undefined,
+        sx(
+          variant === "docked" ? styles.tray : styles.flat,
+          variant === "docked" && (props.framed ? styles.trayFramed : styles.trayStandalone),
+        ),
+      )}
+      aria-label={`Mission: ${mission.playbook.name}`}
+      title={`${mission.playbook.name} · ${mission.assignment.split("\n")[0]}`}
+      data-testid="mission-bar"
+    >
+      <div className={sx(styles.sizer)}>
+        <div className={sx(styles.header)}>
+          <span className={sx(styles.mark)}>
+            <StageStatusIcon
+              tone={held ? "done" : line.tone}
+              icon={paused && !held ? CirclePause : undefined}
+              xstyle={styles.markIcon}
+            />
+          </span>
+          <p className={sx(styles.headline)}>
+            <span className={sx(styles.headlineTitle)}>{title}</span>
+            {state ? (
+              <span
+                className={sx(
+                  line.tone === "attention"
+                    ? styles.headlineAttention
+                    : line.tone === "waiting"
+                      ? styles.headlineWaiting
+                      : styles.headlineState,
+                )}
+              >
+                {" · "}
+                {state}
+              </span>
             ) : null}
-          </li>
-        ))}
-      </ol>
-      <p className={sx(styles.stepperCompact)}>
-        <StageStatusIcon tone={STAGE_STATUS_PRESENTATION[current.status].tone} />
-        {current.stage.title} · {current.index + 1} of {rows.length}
-      </p>
-      <p className={sx(styles.nowRow)}>
-        {statusLabel ? <span className={sx(styles.nowLabel)}>{statusLabel}</span> : null}
-        <span className={sx(styles.nowText)} title={statusText ?? undefined}>
-          {statusText}
-          {age ? ` · ${age}` : ""}
-        </span>
-      </p>
-      <p className={sx(styles.visuallyHidden)} aria-live="polite">
+            {detailText || age ? (
+              <span className={sx(styles.headlineDetail)}>
+                {detailText ? " · " : ""}
+                {showNow && detailText ? (
+                  <TextShimmer active={!props.reducedMotion}>{detailText}</TextShimmer>
+                ) : (
+                  detailText
+                )}
+                {age ? ` · ${age}` : ""}
+              </span>
+            ) : null}
+          </p>
+          <span className={sx(styles.meta)}>
+            <span>
+              <span aria-hidden>
+                {current.index + 1}/{rows.length}
+              </span>
+              <span className={sx(missionStyles.visuallyHidden)}>
+                Stage {current.index + 1} of {rows.length}
+              </span>
+            </span>
+            <span className={sx(styles.metaWide)} title="Time since the mission started">
+              {elapsed}
+            </span>
+          </span>
+          <span className={sx(styles.actions)}>
+            {mission.state === "running" && actions.onTakeOver ? (
+              <Tooltip content={TAKE_OVER_HINT}>
+                <Button
+                  variant="quiet"
+                  size="xs"
+                  disabled={actions.busy}
+                  onClick={actions.onTakeOver}
+                  xstyle={styles.quietButton}
+                >
+                  Take over
+                </Button>
+              </Tooltip>
+            ) : null}
+            {userPaused && actions.onResume ? (
+              <Button variant="secondary" size="xs" disabled={actions.busy} onClick={actions.onResume}>
+                Resume
+              </Button>
+            ) : null}
+            {actions.onOpenPanel ? (
+              <Tooltip content="Open the Mission panel">
+                <Button
+                  variant="quiet"
+                  size="iconSm"
+                  iconOnly
+                  aria-label="Open the Mission panel"
+                  onClick={actions.onOpenPanel}
+                  xstyle={styles.quietButton}
+                >
+                  <PanelRightOpen aria-hidden />
+                </Button>
+              </Tooltip>
+            ) : null}
+          </span>
+        </div>
+      </div>
+      <div className={sx(styles.track)}>
+        <StageTrack rows={rows} live={!props.reducedMotion && !paused} paused={paused} />
+      </div>
+      <p className={sx(missionStyles.visuallyHidden)} aria-live="polite">
         {announcement}
       </p>
     </section>
@@ -144,7 +232,7 @@ export function MissionBarView(props: {
 }
 
 /** The Mission bar for the scoped task: shown while its mission is active. */
-export function MissionBar() {
+export function MissionBar(props: { variant?: "docked" | "panel"; framed?: boolean }) {
   const { detail, taskId } = useScopedTaskMission();
   const active = Boolean(detail && isActiveMissionState(detail.mission.state));
   const nowPhrase = useAppStore((state) =>
@@ -153,6 +241,25 @@ export function MissionBar() {
   const shownPhrase = useNowLine(nowPhrase);
   const now = useNow(active);
   const reducedMotion = usePrefersReducedMotion();
+  const runCommand = useMissionsStore((state) => state.runCommand);
+  const missionId = detail?.mission.id ?? "";
+  const busy = useMissionsStore((state) => Boolean(state.pendingByMission[missionId]));
+  const setLayout = useAppStore((state) => state.setLayout);
   if (!detail || !active) return null;
-  return <MissionBarView detail={detail} nowPhrase={shownPhrase} now={now} reducedMotion={reducedMotion} />;
+  return (
+    <MissionBarView
+      detail={detail}
+      nowPhrase={shownPhrase}
+      now={now}
+      reducedMotion={reducedMotion}
+      variant={props.variant}
+      framed={props.framed}
+      actions={{
+        busy,
+        onTakeOver: () => void runCommand("takeOver", { missionId }),
+        onResume: () => void runCommand("resume", { missionId }),
+        onOpenPanel: () => setLayout({ patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "mission" } }),
+      }}
+    />
+  );
 }

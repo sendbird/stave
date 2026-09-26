@@ -38,16 +38,30 @@ const REPORT: MissionReport = {
   leftBehind: ["Branch feat/billing is pushed."],
 };
 
-test("the report leads with outcome and length, then decisions, open items and what was left", () => {
+test("the report leads with outcome and figures, then decisions, open items and what was left", () => {
   const html = renderToStaticMarkup(createElement(MissionReportView, { report: REPORT }));
-  expect(html).toContain("Mission stopped · 34m · 11 turns");
+  expect(html).toContain("Mission stopped");
+  expect(html).toMatch(/Duration<\/dt><dd[^>]*>34m/);
+  expect(html).toMatch(/Turns<\/dt><dd[^>]*>11/);
+  expect(html).toMatch(/Verified<\/dt><dd[^>]*>1/);
   expect(html).toContain("The lead task was archived.");
+  expect(html).toContain("Opened draft PR #612");
   expect(html).toContain("Container query");
-  expect(html).toContain("Safari 16 — unverified");
-  expect(html).not.toContain("Table scrolls below 768px — met");
+  expect(html).toContain("Safari 16");
+  expect(html).toContain("Not verified");
+  expect(html).not.toContain("Table scrolls below 768px");
   expect(html).toContain("Branch feat/billing is pushed.");
   // Verified by Stave comes first.
   expect(html.indexOf("Typecheck")).toBeLessThan(html.indexOf("Visual check at 375px"));
+  expect(html).toContain("Copy Markdown");
+});
+
+test("under the Mission panel the report leaves the outcome and open items to the panel header", () => {
+  const html = renderToStaticMarkup(createElement(MissionReportView, { report: REPORT, context: "panel" }));
+  expect(html).not.toContain("Mission stopped");
+  expect(html).not.toContain("The lead task was archived.");
+  expect(html).not.toContain("Safari 16");
+  expect(html).toContain("Container query");
   expect(html).toContain("Copy Markdown");
 });
 
