@@ -116,15 +116,13 @@ export function SiteHeader({
               <Search className={sx(s.icon)} />
             </Button>
           ) : null}
-          <Button asChild size="icon" variant="ghost">
-            <a
-              aria-label="Stave on GitHub"
-              href={REPO_URL}
-              rel="noreferrer"
-              target="_blank"
-            >
-              <GithubIcon className={sx(s.icon)} />
-            </a>
+          <Button
+            size="icon"
+            variant="ghost"
+            aria-label="Stave on GitHub"
+            render={<a href={REPO_URL} rel="noreferrer" target="_blank" />}
+          >
+            <GithubIcon className={sx(s.icon)} />
           </Button>
           <ThemeToggle />
         </div>

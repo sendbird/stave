@@ -62,16 +62,11 @@ export function ThemeToggle({ className }: { className?: string }) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          aria-label="Toggle theme"
-          className={className}
-          size="icon"
-          variant="ghost"
-        >
-          <Sun className={cx(sx(s.icon), "site-theme-sun")} />
-          <Moon className={cx(sx(s.icon), "site-theme-moon")} />
-        </Button>
+      <DropdownMenuTrigger
+        render={<Button aria-label="Toggle theme" className={className} size="icon" variant="ghost" />}
+      >
+        <Sun className={cx(sx(s.icon), "site-theme-sun")} />
+        <Moon className={cx(sx(s.icon), "site-theme-moon")} />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className={sx(s.menuContent)}>
         <DropdownMenuItem onSelect={() => update("light")}>
