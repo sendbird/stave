@@ -462,6 +462,16 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
           continue;
         }
         case "wake-coordinator": {
+          const dayAgo = now().getTime() - 24 * 60 * 60_000;
+          const recentWakes = store
+            .listEvents(project.id)
+            .filter((event) => event.kind === "coordinator-woken" && Date.parse(event.createdAt) > dayAgo).length;
+          if (recentWakes >= PROJECT_LIMITS.maxCoordinatorWakesPerDay) {
+            const detail = `The coordinator took ${recentWakes} automatic turns today. Resume the project to let it continue.`;
+            updateProject(project, { state: "paused", reasonDetail: detail }, { kind: "paused", detail: { reason: "wake-cap" } });
+            await deps.notifyProjectProblem?.({ project, detail: `${project.name} paused: ${detail}` });
+            return;
+          }
           rememberDecisions(project, decision.changes);
           await wakeCoordinator(
             project,

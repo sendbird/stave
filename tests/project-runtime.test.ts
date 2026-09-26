@@ -23,6 +23,8 @@ function createHarness(options: { askBeforeStarting?: boolean; parallelLimit?: n
   const coordinators: Array<ReadonlyArray<{ taskId: string; projectId: string }>> = [];
   let coordinatorBusy = false;
   let workspaceCounter = 0;
+  let turnError: Error | null = null;
+  const problems: string[] = [];
 
   const runtime = createProjectRuntime({
     store,
@@ -49,8 +51,12 @@ function createHarness(options: { askBeforeStarting?: boolean; parallelLimit?: n
       activeTurnId: coordinatorBusy ? "busy-turn" : null,
     }),
     runSupervisedTurn: async (turn) => {
+      if (turnError) throw turnError;
       turns.push(turn);
       return { turnId: `turn-${turns.length}` };
+    },
+    notifyProjectProblem: ({ detail }) => {
+      problems.push(detail);
     },
     resolveRepositoryPath: async () => "/tmp/repo",
     createMissionWorkspace: async ({ name }) => {
@@ -90,8 +96,12 @@ function createHarness(options: { askBeforeStarting?: boolean; parallelLimit?: n
     coordinators,
     grants,
     createProject,
+    problems,
     setBusy: (busy: boolean) => {
       coordinatorBusy = busy;
+    },
+    setTurnError: (error: Error | null) => {
+      turnError = error;
     },
     advance: (ms = 1_000) => {
       clock = new Date(clock.getTime() + ms);
@@ -235,5 +245,48 @@ describe("project runtime", () => {
     await harness.runtime.requestTick();
     expect(harness.started).toHaveLength(0);
     expect(harness.store.getProposal(proposal.id)).toMatchObject({ state: "failed" });
+  });
+
+  test("changes of several missions coalesce into one coordinator turn after it frees up", async () => {
+    const harness = createHarness({ askBeforeStarting: false });
+    const projectId = await harness.createProject();
+    for (const key of ["a", "b"]) {
+      await harness.runtime.startMissionForGrant({
+        projectKey: "project-key",
+        input: { playbookId: "request-to-pr", assignment: `Part ${key}.`, startKey: key },
+      });
+    }
+    await harness.runtime.requestTick();
+    harness.setBusy(true);
+    for (const missionId of ["mission-1", "mission-2"]) {
+      const aggregate = harness.missions.getAggregate(missionId)!;
+      harness.missions.apply({ mission: { ...aggregate.mission, state: "cancelled" }, upserts: [], events: [] }, MISSION_NOW);
+      harness.runtime.notifyMissionChanged({ missionId });
+    }
+    await harness.runtime.requestTick();
+    expect(harness.turns).toHaveLength(1);
+    harness.setBusy(false);
+    await harness.runtime.requestTick();
+    expect(harness.turns).toHaveLength(2);
+    expect(harness.turns[1]!.prompt).toContain("Part a. (mission-1) cancelled");
+    expect(harness.turns[1]!.prompt).toContain("Part b. (mission-2) cancelled");
+    expect(harness.store.listEvents(projectId).filter((event) => event.kind === "coordinator-woken")).toHaveLength(2);
+  });
+
+  test("a wake that cannot start tells the user and is not retried in a loop", async () => {
+    const harness = createHarness({ askBeforeStarting: false });
+    const projectId = await harness.createProject();
+    await harness.runtime.startMissionForGrant({
+      projectKey: "project-key",
+      input: { playbookId: "request-to-pr", assignment: "Part a.", startKey: "a" },
+    });
+    await harness.runtime.requestTick();
+    const aggregate = harness.missions.getAggregate("mission-1")!;
+    harness.missions.apply({ mission: { ...aggregate.mission, state: "cancelled" }, upserts: [], events: [] }, MISSION_NOW);
+    harness.setTurnError(new Error("The provider is not signed in."));
+    await harness.runtime.requestTick();
+    await harness.runtime.requestTick();
+    expect(harness.problems).toEqual([expect.stringContaining("could not wake: The provider is not signed in.")]);
+    expect(harness.store.listEvents(projectId).filter((event) => event.kind === "coordinator-wake-failed")).toHaveLength(1);
   });
 });

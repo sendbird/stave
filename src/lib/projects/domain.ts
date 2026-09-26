@@ -21,6 +21,8 @@ export const PROJECT_LIMITS = {
   defaultParallel: 2,
   maxEventDetailChars: 8_000,
   maxMemories: 200,
+  /** Automatic coordinator turns a project may take in a day before it pauses. */
+  maxCoordinatorWakesPerDay: 24,
 } as const;
 
 const IdSchema = z.string().trim().min(1).max(200);

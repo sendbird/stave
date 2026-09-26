@@ -574,6 +574,8 @@ const automationRuntime = createAutomationRuntime({
 const missionRuntime = createHostMissionRuntime({
   emitChanged: (event) => {
     emitEvent("mission.changed", event);
+    // A project follows its missions: a change may wake its coordinator.
+    projectRuntime.notifyMissionChanged({ missionId: event.missionId });
   },
 });
 const projectRuntime = createHostProjectRuntime({
