@@ -25,6 +25,15 @@ Use these words in code, UI copy, and plans. Do not introduce synonyms.
 | Wake-up | A supervised turn added to an existing task on a schedule or when its delegated work finishes. Code, tables and Local MCP tools say `wakeUp` / `wake_up`; the older word "heartbeat" is retired for this feature. Provider and Crane "heartbeats" are unrelated. |
 | Delegated task | A durable Stave task created on another task's behalf, possibly on the other provider or in its own worktree, recorded on the run ledger. The relation stays parent/child (`parentTaskId`); the older words "child task" are retired. Run ids keep the persisted `child-task:<parent>:<key>` format. |
 | Issue | A ticket from a connected tracker (Jira, Crane), listed on the Issues surface and started as a Stave task from there. Code: `TrackerIssue`. "Task" is reserved for Stave conversations; Crane's own API keeps calling its items tasks. |
+| Repository | A registered folder that holds workspaces. Code: `repositoryPath`. The older word "project" is retired for it. |
+| Playbook | A saved way of working: ordered stages, each with an instruction and a "Done when" condition. It grants no permissions. Code: `src/lib/playbooks/`. |
+| Stage | One step of a playbook: an AI stage (a turn with an instruction) or a Stave action (open a draft PR, watch checks, mark ready), which Stave performs itself. |
+| Check-ins | How often a mission stops for the user's sign-off: every stage, plan and publishing (the default), or only when stuck. |
+| Sign-off | The user's approval before a stage starts. "Ask for changes" reruns the previous AI stage with feedback. |
+| Mission | One run of a playbook on one lead task the user already owns. Code: `src/lib/missions/`. |
+| Stage report | What the agent reports for a stage through `stave_report_stage` or `stave_block_stage`. Its evidence is "Verified by Stave" only when Stave saw the cited call succeed; otherwise "Agent reported". |
+| Mission report | The summary a mission leaves when it ends: stages, decisions, evidence, links, and, for a partial run, what it left behind. |
+| Project | Reserved for the goal-level coordinator that starts parallel missions. Not a registered folder. |
 
 Lane names for workspace state are fixed and ordered:
 `action-required` > `in-progress` > `in-review` > `idle`.
@@ -109,7 +118,7 @@ Fleet-scoped, read plus control, no new execution semantics.
 | Fleet | The cross-workspace surface: attention inbox, workspace cards, task control |
 | Task control plane | Identity (`repositoryPath + workspaceId + taskId + turnId`) and staleness validation for remote actions |
 | Task execution summary | Provenance-tagged scorecard; missing data is never rendered as zero |
-| Sidebar work queue | The same lane model as one of the sidebar's two views (`Projects` / `Work queue`) |
+| Sidebar work queue | The same lane model as one of the sidebar's two views (`Repositories` / `Work queue`) |
 | Run ledger (run core) | Durable bookkeeping for delegated execution: runs, steps, receipts, idempotency, claims |
 
 The run ledger is shared machinery, not a feature. Compare Judge is its first
@@ -125,6 +134,7 @@ reason. Two axes:
 | --- | --- | --- |
 | Time — run again | — | Automation (new task per occurrence) / Wake-up (same task, same session) |
 | Delegation — hand work off | Worker (Layer 1) | Delegated tasks (cross-provider, normal tasks + ledger receipts) |
+| Procedure — follow a playbook | — | Mission (same task, ordered stages, sign-offs) |
 
 Automation is the only concept that lives outside a task: it mints tasks.
 Everything else in this layer attaches to one existing task.
@@ -166,6 +176,23 @@ ledger, never the reverse, and never through the coordinator — is what keeps
 "records wake-ups" and "records delegated execution" separate concepts rather
 than one table with two meanings.
 
+A mission is the second supervisor entry. `src/lib/missions/policy.ts` holds
+its pure decision order, `electron/persistence/mission-store.ts` stores it in
+`missions` / `mission_stages` / `mission_events`, and the mission runtime in
+the host service executes it beside the wake-up runtime, starting turns
+through the same `runSupervisedTurn` path under the same safety rules. Like a
+wake-up it adds turns to one existing task and records no claims, leases or
+receipts; it *reads* delegated-task completions and PR checks and writes only
+its own rows. It never completes a stage because a turn ended: only the
+agent's stage report, or the result of a Stave action Stave performed itself,
+completes one.
+
+Wake-ups and missions share one rule, owned by
+`src/lib/supervision/automatic-turn-owner.ts`: a task has at most one source of
+automatic turns. While a mission is running or paused, the task's wake-up
+pauses with `mission-active` and resumes on its own when the mission ends, and
+a new wake-up on that task is refused.
+
 ## Boundary Statements
 
 These are the statements that keep the layers from collapsing into each other.
@@ -182,10 +209,20 @@ whose name repeats it.
    order.
 7. A work graph node names a worker, never a call; a call-derived node is never
    offered a per-agent control.
+8. A mission advances exactly one lead task and never creates a task.
+9. A stage completes only through a recorded stage report or a Stave action
+   result; an ended turn alone never completes a stage.
+10. A saved playbook never grants permissions; every mission start records its
+    own consent.
+11. At most one supervisor entry starts automatic turns on a task at a time.
 
-Every statement is now fully asserted; none is forward-looking any more. The two
-that were written ahead of their capability landed inside the boundary rather
-than beside it, which is what recording them early was for:
+Statement 10 is recorded ahead of its gate: the mission record already carries
+the consent it was started with, and the stage sign-off already asks before any
+external effect the consent does not list; the gate is registered with the
+Start sheet that collects that consent. Every other statement is fully
+asserted. The two statements that were earlier written ahead of their
+capability landed inside the boundary rather than beside it, which is what
+recording them early was for:
 
 - Statement 2 is asserted from both sides: an automation definition cannot name a
   task, and a wake-up definition must name one and cannot carry the fields

@@ -19,6 +19,7 @@
  */
 import { z } from "zod";
 import type { ProviderId } from "../providers/provider.types";
+import { MISSION_ACTIVE_WAKE_UP_DETAIL } from "./automatic-turn-owner";
 import {
   computeNextAutomationRunAt,
   AutomationScheduleSchema,
@@ -296,6 +297,11 @@ export const WAKE_UP_PAUSE_REASONS = [
   "awaiting-user-input",
   "runtime-changed",
   "task-identity-changed",
+  /**
+   * A mission owns this task's automatic turns (see
+   * `automatic-turn-owner.ts`). Clears on its own when the mission ends.
+   */
+  "mission-active",
 ] as const;
 export const WakeUpPauseReasonSchema = z.enum(
   WAKE_UP_PAUSE_REASONS,
@@ -334,6 +340,7 @@ const AUTOMATIC_PAUSE_REASONS = new Set<WakeUpPauseReason>([
   "awaiting-user-input",
   "runtime-changed",
   "task-identity-changed",
+  "mission-active",
 ]);
 
 /** A pause the supervisor set itself, and can therefore clear itself. */
@@ -613,6 +620,11 @@ export interface WakeUpObservation {
    * "was this already handled" a single question with a single answer.
    */
   completions: TaskCompletionSignal[];
+  /**
+   * A mission is running or paused on this task. It owns the task's automatic
+   * turns, so the wake-up pauses until it ends.
+   */
+  missionActive: boolean;
 }
 
 export type WakeUpDecision =
@@ -746,6 +758,17 @@ export function decideWakeUpAction(args: {
   //    then auto-resume a wake-up the user deliberately switched off.
   if (wakeUp.state === "paused" && wakeUp.pauseReason === "paused-by-user") {
     return { action: "idle" };
+  }
+
+  // One source of automatic turns per task: a mission outranks a wake-up.
+  if (observation.missionActive) {
+    return wakeUp.state === "paused" && wakeUp.pauseReason === "mission-active"
+      ? { action: "idle" }
+      : {
+          action: "pause",
+          reason: "mission-active",
+          detail: MISSION_ACTIVE_WAKE_UP_DETAIL,
+        };
   }
 
   // 3. Conditions that pause. Checked before dueness so the state is visible

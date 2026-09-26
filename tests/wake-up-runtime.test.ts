@@ -69,6 +69,7 @@ function createHarness(args?: {
   let intervalCallback: (() => void) | null = null;
   let turnCounter = 0;
   let runError: Error | null = null;
+  let activeMissionTaskId: string | null = null;
   const runCalls: Array<{
     workspaceId: string;
     taskId: string;
@@ -118,6 +119,8 @@ function createHarness(args?: {
       },
     },
     getTaskSupervisionSnapshot: async () => snapshot,
+    getActiveMissionForTask: (taskId) =>
+      taskId === activeMissionTaskId ? { id: "mission-1" } : null,
     ...(args?.omitCompletionReader
       ? {}
       : {
@@ -168,6 +171,9 @@ function createHarness(args?: {
     },
     setRunError: (error: Error | null) => {
       runError = error;
+    },
+    setActiveMissionTask: (taskId: string | null) => {
+      activeMissionTaskId = taskId;
     },
     setCompletions: (next: TaskCompletionSignal[]) => {
       completions = next;
@@ -1247,5 +1253,43 @@ describe("completion idempotency survives history pruning", () => {
     // floor it would read as brand new and wake the task a second time.
     expect(harness.getRunCalls()).toHaveLength(1);
     expect(harness.store.get(wakeUp.id)!.occurrenceCount).toBe(1);
+  });
+});
+
+describe("one source of automatic turns per task", () => {
+  test("at most one supervisor entry starts automatic turns on a task at a time: a mission pauses the wake-up and it resumes afterwards", async () => {
+    const harness = createHarness();
+    const wakeUp = await harness.runtime.create(createInput());
+    harness.runtime.start();
+    await harness.drain();
+
+    harness.setActiveMissionTask("task-1");
+    harness.setNow("2026-08-10T01:00:00.000Z");
+    await harness.tick();
+
+    expect(harness.getRunCalls()).toEqual([]);
+    const paused = harness.store.get(wakeUp.id)!;
+    expect(paused.state).toBe("paused");
+    expect(paused.pauseReason).toBe("mission-active");
+    await expect(harness.runtime.resume({ id: wakeUp.id })).rejects.toThrow(
+      "running a mission",
+    );
+
+    harness.setActiveMissionTask(null);
+    await harness.tick();
+    expect(harness.store.get(wakeUp.id)?.state).toBe("scheduled");
+  });
+
+  test("creating or updating a wake-up on a mission's lead task is refused with a sentence", async () => {
+    const harness = createHarness();
+    const wakeUp = await harness.runtime.create(createInput());
+    harness.setActiveMissionTask("task-1");
+
+    await expect(harness.runtime.update({ id: wakeUp.id, input: createInput() })).rejects.toThrow(
+      "This task is running a mission, which starts its turns. Add a wake-up after the mission ends.",
+    );
+    harness.store.remove(wakeUp.id);
+    await expect(harness.runtime.create(createInput())).rejects.toThrow("running a mission");
+    expect(harness.store.list()).toEqual([]);
   });
 });

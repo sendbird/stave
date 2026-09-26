@@ -63,6 +63,7 @@ function observe(
     identity: { ok: true },
     completionObservability: "stave_owned",
     completions: [],
+    missionActive: false,
     ...overrides,
   };
 }

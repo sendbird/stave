@@ -18,6 +18,22 @@ import {
   SIDEBAR_WORK_QUEUE_LANE_ORDER,
   buildSidebarWorkQueueLanes,
 } from "../src/lib/fleet/sidebar-work-queue";
+import { MissionStore } from "../electron/persistence/mission-store";
+import { MissionStartInputSchema } from "../src/lib/missions/domain";
+import {
+  MISSION_DECISION_EFFECTS,
+  decideMissionAction,
+} from "../src/lib/missions/policy";
+import { resolveAutomaticTurnOwner } from "../src/lib/supervision/automatic-turn-owner";
+import { createWakeUp, decideWakeUpAction } from "../src/lib/supervision/wake-up-policy";
+import {
+  COMPLETE_REPORT,
+  MISSION_NOW,
+  missionFixture,
+  observe as observeMission,
+  patchCurrent,
+  turn,
+} from "./fixtures/mission-fixtures";
 
 /**
  * Boundary gates for `docs/architecture/agent-platform-taxonomy.md`.
@@ -309,5 +325,112 @@ describe("Agent platform boundaries", () => {
       expect(claude.workGraph.interrupt).toBe(false);
       expect(claude.workGraph.stop).toBe(false);
     }
+  });
+
+  test("a mission advances exactly one lead task and never creates a task", () => {
+    // Starting a mission names an existing task. A field that could name a new
+    // task, workspace or environment would turn it into an automation.
+    const startKeys = Object.keys(MissionStartInputSchema.shape);
+    expect(startKeys).toContain("leadTaskId");
+    expect(startKeys.filter((key) => /^(name|title|environment|repositoryPath|taskId|prompt)$/.test(key))).toEqual([]);
+    // No supervisor decision creates anything; each advances the lead task.
+    expect(
+      Object.keys(MISSION_DECISION_EFFECTS).filter((action) => /create|mint|spawn|new/i.test(action)),
+    ).toEqual([]);
+    for (const file of [
+      "src/lib/missions/domain.ts",
+      "src/lib/missions/policy.ts",
+      "src/lib/missions/commands.ts",
+      "electron/persistence/mission-store.ts",
+    ]) {
+      const creators = importedModules(readSource(file)).filter((specifier) =>
+        /host-service|local-mcp|workspace-create|create-workspace|runs\//.test(specifier ?? ""),
+      );
+      expect({ file, creators }).toEqual({ file, creators: [] });
+    }
+  });
+
+  test("a stage completes only through a recorded stage report or a Stave action result; an ended turn alone never completes a stage", () => {
+    const started = patchCurrent(missionFixture(), { status: "running", startedAt: MISSION_NOW.toISOString() });
+    const decide = (aggregate: typeof started, observation = observeMission()) =>
+      decideMissionAction({ aggregate, observation, now: MISSION_NOW }).action;
+
+    for (const nudged of [false, true]) {
+      for (const lastEndedTurn of [turn(), turn({ startedBy: "user" })]) {
+        for (const reportingAvailable of [true, false]) {
+          expect(
+            decide(patchCurrent(started, { nudged }), observeMission({ lastEndedTurn, reportingAvailable })),
+          ).not.toBe("complete-stage");
+        }
+      }
+    }
+    expect(
+      decide(patchCurrent(started, { report: COMPLETE_REPORT, reportRevision: 1 }), observeMission({ lastEndedTurn: turn() })),
+    ).toBe("complete-stage");
+
+    const atAction = missionFixture();
+    const actionStage = {
+      mission: { ...atAction.mission, currentStageIndex: 3 },
+      stages: [...atAction.stages, { ...atAction.stages[0]!, stageId: "open-draft-pr", status: "running" as const }],
+    };
+    expect(decide(actionStage, observeMission({ actionOutcome: { status: "in-progress" } }))).toBe("execute-action");
+    expect(
+      decide(
+        actionStage,
+        observeMission({
+          actionOutcome: {
+            status: "succeeded",
+            result: { type: "open-draft-pr", prUrl: "https://github.com/o/r/pull/1", prNumber: 1, created: true },
+          },
+        }),
+      ),
+    ).toBe("complete-stage");
+  });
+
+  test("at most one supervisor entry starts automatic turns on a task at a time", () => {
+    // A mission owns its lead task's automatic turns...
+    expect(
+      resolveAutomaticTurnOwner({ activeMission: { id: "mission-1" }, wakeUp: { id: "wake-1", state: "scheduled" } }),
+    ).toEqual({ kind: "mission", missionId: "mission-1" });
+    // ...so the task's due wake-up pauses rather than firing beside it...
+    const wakeUp = createWakeUp({
+      id: "wake-1",
+      input: {
+        workspaceId: "ws-1",
+        taskId: "task-1",
+        prompt: "Re-check CI.",
+        trigger: { kind: "schedule", schedule: { every: 1, unit: "hours" } },
+        maxOccurrences: null,
+        expiresAt: null,
+      },
+      repositoryPath: "/tmp/repo",
+      fingerprint: { providerId: "claude-code", model: "sonnet" },
+      now: new Date(MISSION_NOW.getTime() - 2 * 60 * 60 * 1000),
+    });
+    expect(
+      decideWakeUpAction({
+        wakeUp,
+        observation: {
+          workspaceAvailable: true,
+          taskExists: true,
+          taskArchived: false,
+          hasActiveTurn: false,
+          pendingApprovalCount: 0,
+          pendingUserInputCount: 0,
+          fingerprint: { providerId: "claude-code", model: "sonnet" },
+          identity: { ok: true },
+          completionObservability: "stave_owned",
+          completions: [],
+          missionActive: true,
+        },
+        now: MISSION_NOW,
+      }),
+    ).toMatchObject({ action: "pause", reason: "mission-active" });
+    // ...and a task never has two active missions.
+    const store = new MissionStore(new Database(":memory:"));
+    const first = missionFixture({ id: "mission-1" });
+    const second = missionFixture({ id: "mission-2" });
+    expect(store.create({ mission: first.mission, upserts: first.stages, events: [] }, MISSION_NOW)).toEqual({ ok: true });
+    expect(store.create({ mission: second.mission, upserts: second.stages, events: [] }, MISSION_NOW).ok).toBe(false);
   });
 });
