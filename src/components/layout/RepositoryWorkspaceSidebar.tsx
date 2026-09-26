@@ -5,7 +5,6 @@ import {
   ChevronRight,
   FolderOpen,
   FolderTree,
-  LayoutGrid,
   ListChecks,
   PanelLeft,
   Plus,
@@ -74,7 +73,7 @@ import { type SidebarWorkQueueLane } from "@/lib/fleet/sidebar-work-queue";
 import { isDelegatedTask, isTaskArchived } from "@/lib/tasks";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import { useSidebarWorkQueueGroups } from "./useSidebarWorkQueueGroups";
-import { SidebarPrimaryNav } from "./SidebarPrimaryNav";
+import { SidebarPrimaryNav, SidebarPrimaryNavCollapsed } from "./SidebarPrimaryNav";
 import { useAppStore } from "@/store/app.store";
 import type { SidebarNavView } from "@/store/app-settings";
 import type { WorkspaceSidebarItemDisplayMode } from "@/store/layout.utils";
@@ -195,8 +194,6 @@ export function RepositoryWorkspaceSidebar(args: {
     updateSettings,
     fetchAllWorkspacePrStatuses,
     hydrateWorkspaces,
-    activeAppSurface,
-    openFleetView,
     activeTasks,
     messagesByTask,
     activeTurnIdsByTask,
@@ -245,8 +242,6 @@ export function RepositoryWorkspaceSidebar(args: {
         state.updateSettings,
         state.fetchAllWorkspacePrStatuses,
         state.hydrateWorkspaces,
-        state.activeAppSurface,
-        state.openFleetView,
         state.tasks,
         state.messagesByTask,
         state.activeTurnIdsByTask,
@@ -748,29 +743,7 @@ export function RepositoryWorkspaceSidebar(args: {
                   </TooltipTrigger>
                   <TooltipContent side="right">Open Repository</TooltipContent>
                 </Tooltip>
-                {sidebarShowFleetView ? (
-                  <Tooltip>
-                    <TooltipTrigger
-                      render={
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          xstyle={[
-                            repositorySidebarStyles.collapsedButton,
-                            activeAppSurface.kind === "fleet-view"
-                              ? repositorySidebarStyles.collapsedButtonActive
-                              : repositorySidebarStyles.collapsedButtonIdle,
-                          ]}
-                          onClick={() => openFleetView()}
-                          aria-label="open-fleet-view"
-                        />
-                      }
-                    >
-                      <LayoutGrid className={sx(repositorySidebarStyles.iconMd)} />
-                    </TooltipTrigger>
-                    <TooltipContent side="right">Fleet View</TooltipContent>
-                  </Tooltip>
-                ) : null}
+                <SidebarPrimaryNavCollapsed showFleetView={sidebarShowFleetView} />
               </div>
             ) : (
               <div className={sx(repositorySidebarStyles.chromeTrailing)}>

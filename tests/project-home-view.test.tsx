@@ -131,3 +131,10 @@ test("the command palette opens projects and starts a new one", () => {
   expect(ids).toContain("projects.open");
   expect(ids).toContain("projects.new");
 });
+
+test("the collapsed sidebar keeps Projects one click away", async () => {
+  const { SidebarPrimaryNavCollapsed } = await import("../src/components/layout/SidebarPrimaryNav");
+  const html = renderToStaticMarkup(createElement(SidebarPrimaryNavCollapsed, { showFleetView: true }));
+  expect(html).toContain('aria-label="open-fleet-view"');
+  expect(html).toContain('aria-label="Projects"');
+});

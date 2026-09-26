@@ -5,6 +5,7 @@ import { transition } from "@/components/ads/recipes/transition";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { repositorySidebarStyles } from "@/components/layout/repository-workspace-sidebar.styles";
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { isOpenProjectState } from "@/lib/projects/domain";
 import { useAppStore } from "@/store/app.store";
 import { countProjectNeeds, useProjectsStore } from "@/store/projects-store";
@@ -89,7 +90,68 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   );
 }
 
+/** The collapsed sidebar's rail: Fleet View and Projects as icons, a dot when a project needs you. */
+export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
+  const surface = useAppStore((state) => state.activeAppSurface.kind);
+  const openFleetView = useAppStore((state) => state.openFleetView);
+  const openProjects = useAppStore((state) => state.openProjects);
+  const projects = useProjectsStore((state) => state.projects);
+  const details = useProjectsStore((state) => state.details);
+  const needs = projects
+    .filter((project) => isOpenProjectState(project.state))
+    .reduce((sum, project) => sum + countProjectNeeds(details[project.id]), 0);
+  const railButton = (active: boolean) => [
+    repositorySidebarStyles.collapsedButton,
+    styles.railButton,
+    active ? repositorySidebarStyles.collapsedButtonActive : repositorySidebarStyles.collapsedButtonIdle,
+  ];
+  return (
+    <>
+      {props.showFleetView ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button variant="ghost" size="sm" xstyle={railButton(surface === "fleet-view")} onClick={() => openFleetView()} aria-label="open-fleet-view" />
+            }
+          >
+            <LayoutGrid className={sx(repositorySidebarStyles.iconMd)} />
+          </TooltipTrigger>
+          <TooltipContent side="right">Fleet View</TooltipContent>
+        </Tooltip>
+      ) : null}
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="sm"
+              xstyle={railButton(surface === "projects")}
+              onClick={() => openProjects()}
+              aria-label={needs > 0 ? `Projects, ${needs} need you` : "Projects"}
+            />
+          }
+        >
+          <FolderKanban className={sx(repositorySidebarStyles.iconMd)} />
+          {needs > 0 ? <span aria-hidden className={sx(styles.railDot)} /> : null}
+        </TooltipTrigger>
+        <TooltipContent side="right">{needs > 0 ? `Projects · ${needs} need you` : "Projects"}</TooltipContent>
+      </Tooltip>
+    </>
+  );
+}
+
 const styles = stylex.create({
+  railButton: { position: "relative" },
+  railDot: {
+    position: "absolute",
+    top: 5,
+    insetInlineEnd: 5,
+    width: 7,
+    height: 7,
+    borderRadius: vars["--ads-radius-full"],
+    backgroundColor: vars["--ads-color-warning"],
+    boxShadow: `0 0 0 2px ${vars["--ads-color-canvas"]}`,
+  },
   label: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textAlign: "start" },
   projectRow: { height: 28, paddingInlineStart: vars["--ads-space-24"], fontSize: vars["--ads-font-size-caption"] },
   dot: { flex: "0 0 auto", width: 6, height: 6, borderRadius: vars["--ads-radius-full"] },

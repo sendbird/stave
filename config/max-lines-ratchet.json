@@ -43,7 +43,7 @@
     "src/components/layout/TopBarOpenPR.tsx": 2223,
     "src/components/layout/pull-request/CreatePullRequestDialog.tsx": 536,
     "src/components/layout/pull-request/create-pr-dialog-panels.tsx": 300,
-    "src/components/layout/RepositoryWorkspaceSidebar.tsx": 2085,
+    "src/components/layout/RepositoryWorkspaceSidebar.tsx": 2058,
     "src/components/layout/workspace-information/workspace-information-custom-fields.tsx": 241,
     "src/components/layout/workspace-information/workspace-information-link-rows.tsx": 573,
     "src/components/layout/workspace-information/workspace-information-notes.tsx": 134,
