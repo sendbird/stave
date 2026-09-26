@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { BookOpen, Target } from "lucide-react";
+import { BookOpen, FolderKanban, Target } from "lucide-react";
 import {
   registerCommandPaletteContributor,
   type CommandPaletteAction,
@@ -8,6 +8,7 @@ import { isActiveMissionState } from "@/lib/missions/domain";
 import { useAppStore } from "@/store/app.store";
 import { missionTaskKey, useMissionsStore } from "@/store/missions-store";
 import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
+import { useProjectsStore } from "@/store/projects-store";
 
 /** The command palette's mission entries, read fresh each time it opens. */
 export function buildMissionCommandActions(): CommandPaletteAction[] {
@@ -33,6 +34,27 @@ export function buildMissionCommandActions(): CommandPaletteAction[] {
       },
     });
   }
+  actions.push({
+    id: "projects.open",
+    title: "Open projects",
+    subtitle: "Goals that take several missions",
+    group: "navigation",
+    icon: FolderKanban,
+    keywords: ["project", "goal", "coordinator", "missions"],
+    run: () => useAppStore.getState().openProjects(),
+  });
+  actions.push({
+    id: "projects.new",
+    title: "New project…",
+    subtitle: "Brief a goal; a coordinator plans the missions",
+    group: "task",
+    icon: FolderKanban,
+    keywords: ["project", "goal", "coordinator", "plan"],
+    run: () => {
+      useProjectsStore.getState().requestNewProject(true);
+      useAppStore.getState().openProjects();
+    },
+  });
   actions.push({
     id: "playbooks.manage",
     title: "Manage playbooks",

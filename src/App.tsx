@@ -3,6 +3,7 @@ import { useWakeUpSync } from "@/store/wake-ups-store";
 import { useMissionCommands } from "@/components/missions/useMissionCommands";
 import { useFleetMissionSync } from "@/store/fleet-missions-store";
 import { usePlaybookSync } from "@/lib/projects/usePlaybookSync";
+import { useProjectsSync } from "@/store/projects-store";
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { WorkspaceSaveNotice } from "@/components/layout/WorkspaceSaveNotice";
@@ -52,6 +53,7 @@ export default function App() {
   useMissionCommands();
   useFleetMissionSync();
   usePlaybookSync();
+  useProjectsSync();
 
   useEffect(() => {
     const subscribeTaskTurnUpdates =

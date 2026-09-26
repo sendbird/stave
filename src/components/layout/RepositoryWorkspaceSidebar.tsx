@@ -74,6 +74,7 @@ import { type SidebarWorkQueueLane } from "@/lib/fleet/sidebar-work-queue";
 import { isDelegatedTask, isTaskArchived } from "@/lib/tasks";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import { useSidebarWorkQueueGroups } from "./useSidebarWorkQueueGroups";
+import { SidebarPrimaryNav } from "./SidebarPrimaryNav";
 import { useAppStore } from "@/store/app.store";
 import type { SidebarNavView } from "@/store/app-settings";
 import type { WorkspaceSidebarItemDisplayMode } from "@/store/layout.utils";
@@ -872,27 +873,10 @@ export function RepositoryWorkspaceSidebar(args: {
               <div
                 className={sx(
                   repositorySidebarStyles.navStack,
-                  sidebarShowFleetView && repositorySidebarStyles.navStackSpaced,
+                  repositorySidebarStyles.navStackSpaced,
                 )}
               >
-                {sidebarShowFleetView ? (
-                  <AdsButton
-                    layout="host"
-                    type="button"
-                    onClick={() => openFleetView()}
-                    aria-label="open-fleet-view"
-                    xstyle={[
-                      repositorySidebarStyles.navButton,
-                      transition.colors,
-                      activeAppSurface.kind === "fleet-view"
-                        ? repositorySidebarStyles.navButtonActive
-                        : repositorySidebarStyles.navButtonIdle,
-                    ]}
-                  >
-                    <LayoutGrid className={sx(repositorySidebarStyles.iconMd)} />
-                    Fleet View
-                  </AdsButton>
-                ) : null}
+                <SidebarPrimaryNav showFleetView={sidebarShowFleetView} />
               </div>
               <div
                 className={sx(repositorySidebarStyles.viewBar, panelBarStyles.bar)}

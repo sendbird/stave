@@ -14,6 +14,7 @@ import { GlobalCommandPalette } from "@/components/layout/GlobalCommandPalette";
 import { TopBar } from "@/components/layout/TopBar";
 import { FleetView } from "@/components/layout/FleetView";
 import { AutomationCenterView } from "@/components/layout/automation-center/AutomationCenterView";
+import { ProjectsView } from "@/components/projects/ProjectsView";
 import {
   COLLAPSED_REPOSITORY_SIDEBAR_WIDTH,
   RepositoryWorkspaceSidebar,
@@ -1267,8 +1268,9 @@ export function AppShell() {
   const showFleetView = activeAppSurface.kind === "fleet-view";
   const showAutomationCenter = activeAppSurface.kind === "automation-center";
   const showIssues = activeAppSurface.kind === "issues";
+  const showProjects = activeAppSurface.kind === "projects";
   const showWorkspaceSurface =
-    !showFleetView && !showAutomationCenter && !showIssues;
+    !showFleetView && !showAutomationCenter && !showIssues && !showProjects;
 
   return (
     <div className={sx(appShellStyles.root)}>
@@ -1439,6 +1441,8 @@ export function AppShell() {
                     <FleetView />
                   ) : showAutomationCenter ? (
                     <AutomationCenterView />
+                  ) : showProjects ? (
+                    <ProjectsView />
                   ) : showIssues ? (
                     <Suspense
                       fallback={

@@ -1,7 +1,7 @@
 {
   "version": 1,
   "files": {
-    "electron/host-service/local-mcp-runtime.ts": 2758,
+    "electron/host-service/local-mcp-runtime.ts": 2740,
     "electron/host-service/local-mcp-workspace-information.ts": 751,
     "electron/host-service/terminal-runtime.ts": 1170,
     "electron/main/browser/browser-webview-attach.ts": 800,
@@ -9,7 +9,7 @@
     "electron/main/ipc/provider-runtime-schemas.ts": 267,
     "electron/main/ipc/schemas.ts": 1620,
     "electron/persistence/notification-store.ts": 488,
-    "electron/persistence/sqlite-store.ts": 3042,
+    "electron/persistence/sqlite-store.ts": 3041,
     "electron/providers/claude-permission-policy.ts": 523,
     "electron/providers/claude-sdk-runtime.ts": 4484,
     "electron/providers/claude-event-mapping.ts": 897,
@@ -43,7 +43,7 @@
     "src/components/layout/TopBarOpenPR.tsx": 2223,
     "src/components/layout/pull-request/CreatePullRequestDialog.tsx": 536,
     "src/components/layout/pull-request/create-pr-dialog-panels.tsx": 300,
-    "src/components/layout/RepositoryWorkspaceSidebar.tsx": 2101,
+    "src/components/layout/RepositoryWorkspaceSidebar.tsx": 2085,
     "src/components/layout/workspace-information/workspace-information-custom-fields.tsx": 241,
     "src/components/layout/workspace-information/workspace-information-link-rows.tsx": 573,
     "src/components/layout/workspace-information/workspace-information-notes.tsx": 134,
