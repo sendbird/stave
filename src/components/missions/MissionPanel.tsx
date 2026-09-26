@@ -5,6 +5,7 @@ import { Button } from "@/components/ads/components/Button";
 import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
 import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
 import { StepRail } from "@/components/ads/components/StepRail";
+import { describeUsageLong } from "@/lib/missions/usage";
 import { sx } from "@/components/ads/utils/stylex";
 import { TeamSection } from "@/components/team/TeamSection";
 import type { CollaborationTarget } from "@/components/team/DelegateTaskForm";
@@ -269,6 +270,12 @@ export function MissionDetailView(props: {
             {describeTurnBudget(mission).text}
             {describeTurnBudget(mission).nearLimit && active ? " — close to the limit; the mission stops there" : ""}
           </dd>
+          {detail.usage ? (
+            <>
+              <dt className={sx(styles.factLabel)}>Spent</dt>
+              <dd className={sx(styles.factValue)}>{describeUsageLong(detail.usage) ?? "Nothing reported yet"}</dd>
+            </>
+          ) : null}
           <dt className={sx(styles.factLabel)}>Started</dt>
           <dd className={sx(styles.factValue)}>
             {formatClock(mission.createdAt)} · {formatAge(now - Date.parse(mission.createdAt))} ago

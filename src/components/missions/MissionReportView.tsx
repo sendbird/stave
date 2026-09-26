@@ -2,6 +2,7 @@ import { useState } from "react";
 import { ArrowUpRight, BookmarkPlus, CircleCheck, CircleMinus, CircleX, Copy, GitPullRequestArrow } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
+import { describeUsageShort } from "@/lib/missions/usage";
 import { sx } from "@/components/ads/utils/stylex";
 import type { MissionReport } from "@/lib/missions/report";
 import { describeMissionMetrics, formatMissionReportMarkdown } from "@/lib/missions/report-markdown";
@@ -58,6 +59,7 @@ export function MissionReportView({
   const open = report.acceptanceCriteria.filter((criterion) => criterion.status !== "met");
   const completedStages = report.stages.filter((stage) => stage.status === "completed").length;
   const duration = formatAge(Date.parse(report.endedAt) - Date.parse(report.startedAt));
+  const spent = describeUsageShort(report.usage);
   return (
     <section
       className={sx(styles.section, styles.sectionRoomy, standalone ? null : styles.sectionRule)}
@@ -88,6 +90,7 @@ export function MissionReportView({
             ["Stages", `${completedStages}/${report.stages.length}`],
             ["Turns", String(report.turnCount)],
             ["Verified", String(verifiedCount)],
+            ...(spent ? ([["Spent", spent]] as const) : []),
           ] as const
         ).map(([label, value]) => (
           <div key={label} className={sx(styles.statTile)}>

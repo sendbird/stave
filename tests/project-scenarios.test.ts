@@ -96,6 +96,16 @@ function world() {
       resolveWorkspacePath: async (workspaceId) => `/tmp/acme-${workspaceId}`,
       readHeadSha: async () => "abc",
       collectStageFacts: async () => EMPTY_STAGE_FACTS,
+      // Every mission turn reports usage once it ends: Claude with a cost, Codex tokens only.
+      readTurnUsage: ({ taskId, turnId }) => {
+        const turn = turns.find((row) => row.id === turnId);
+        if (!turn) return null;
+        const codex = taskProviders.get(taskId) === "codex";
+        return {
+          completed: Boolean(turn.completedAt),
+          usage: turn.completedAt ? { inputTokens: 10_000, outputTokens: 1_000, ...(codex ? {} : { totalCostUsd: 0.25 }) } : null,
+        };
+      },
       readProjectContext: (projectId) => {
         const project = projects.getProject(projectId);
         return project
@@ -113,6 +123,7 @@ function world() {
       missions,
       startMission: (input, options) => missionRuntime.startMission(input, options),
       getMissionReport: async (missionId) => (await missionRuntime.get({ missionId })).report,
+      getMissionUsage: (missionId) => missionRuntime.readUsage({ missionId }),
       getTaskSnapshot: async ({ taskId }) => ({
         exists: true,
         archived: false,
@@ -267,6 +278,12 @@ describe("project scenarios", () => {
     const missions = w.missions.listMissionsForProject(projectId);
     expect(missions.map((mission) => mission.state)).toEqual(["completed", "completed"]);
     expect(w.coordinatorTurns).toHaveLength(1);
+    // What they spent: two ended turns each, cost only where the provider reports one.
+    const views = (await w.project.get({ projectId })).missions;
+    const byWorkspace = (id: string) => views.find((view) => view.workspaceId === id)!;
+    expect(byWorkspace("ws-project-billing").usage).toMatchObject({ turns: 2, measuredTurns: 2, costUsd: 0.5 });
+    expect(byWorkspace("ws-project-settings").usage).toMatchObject({ turns: 2, measuredTurns: 2, costUsd: null, inputTokens: 20_000 });
+    expect((await w.mission.get({ missionId: byWorkspace("ws-project-billing").missionId })).report?.usage?.costUsd).toBe(0.5);
 
     // P2: when the coordinator frees up, one wake carries both missions.
     w.setCoordinatorTurnOpen(false);

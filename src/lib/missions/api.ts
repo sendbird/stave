@@ -16,6 +16,7 @@ import type {
   MissionState,
 } from "./domain";
 import type { MissionReport } from "./report";
+import type { MissionUsage } from "./usage";
 
 /** IPC channels behind `window.api.missions`, keyed by bridge method. */
 export const MISSION_IPC = Object.freeze({
@@ -79,6 +80,8 @@ export interface MissionDetail {
   events: MissionEvent[];
   /** Present on `get` once the mission has ended; null otherwise. */
   report: MissionReport | null;
+  /** What the mission's turns spent so far, when the host reads usage. */
+  usage?: MissionUsage;
 }
 
 /** Why a mission command failed; `failed` is anything unexpected. */

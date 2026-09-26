@@ -128,6 +128,7 @@ function detail(
       ...events,
     ],
     report: null,
+    usage: { turns: 5, measuredTurns: 5, inputTokens: 148_000, outputTokens: 21_400, costUsd: 0.84 },
   };
 }
 
@@ -166,6 +167,7 @@ const completed: MissionDetail = {
     endedAt: new Date(at(34)),
   }),
 };
+completed.report = { ...completed.report!, usage: { turns: 11, measuredTurns: 11, inputTokens: 402_000, outputTokens: 51_000, costUsd: 2.37 } };
 
 const noop = (async () => ({ ok: true, mission: null })) as never;
 

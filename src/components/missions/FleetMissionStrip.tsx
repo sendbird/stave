@@ -7,6 +7,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import type { MissionDetail } from "@/lib/missions/api";
 import { isActiveMissionState } from "@/lib/missions/domain";
 import { describeMissionStatusLine, projectMissionStages } from "@/lib/missions/mission-view";
+import { describeUsageShort } from "@/lib/missions/usage";
 import { useFleetMissionsStore } from "@/store/fleet-missions-store";
 import { StageStatusIcon } from "./StageStatusIcon";
 import { StageTrack } from "./StageTrack";
@@ -32,6 +33,7 @@ export function FleetMissionStrip(props: { workspaceId: string; onOpen: (taskId:
   const line = describeMissionStatusLine(detail);
   const paused = detail.mission.state === "paused";
   const current = rows[detail.mission.currentStageIndex]!;
+  const spent = describeUsageShort(detail.usage);
   return (
     <Button
       layout="host"
@@ -54,6 +56,7 @@ export function FleetMissionStrip(props: { workspaceId: string; onOpen: (taskId:
         </span>
         <span className={sx(styles.position)}>
           {current.index + 1}/{rows.length}
+          {spent ? ` · ${spent}` : ""}
         </span>
       </span>
       <StageTrack rows={rows} labels="never" live={false} paused={paused} />

@@ -22,6 +22,7 @@ import {
   type MissionStartInput,
 } from "../../../src/lib/missions/domain";
 import type { MissionReport } from "../../../src/lib/missions/report";
+import type { MissionUsage } from "../../../src/lib/missions/usage";
 import type { Playbook } from "../../../src/lib/playbooks/schema";
 import { PLAYBOOK_STARTERS, createPlaybookFromStarter } from "../../../src/lib/playbooks/starters";
 import type {
@@ -102,6 +103,8 @@ export interface ProjectRuntimeDependencies {
   startMission: (input: MissionStartInput, options: { projectId: string }) => Promise<MissionDetail>;
   /** The report of a mission that ended, or null while it runs. */
   getMissionReport: (missionId: string) => Promise<MissionReport | null>;
+  /** What a mission's turns spent so far; absent or null when usage is unknown. */
+  getMissionUsage?: (missionId: string) => MissionUsage | null;
   getTaskSnapshot: (args: { workspaceId: string; taskId: string }) => Promise<CoordinatorSnapshot>;
   runSupervisedTurn: (args: {
     workspaceId: string;
@@ -293,6 +296,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
         providerId: mission.fingerprint.providerId,
         updatedAt: mission.updatedAt,
         report,
+        usage: deps.getMissionUsage?.(mission.id) ?? null,
       });
       for (const link of report?.links ?? []) {
         library.push({

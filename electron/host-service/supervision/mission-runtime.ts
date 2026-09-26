@@ -90,6 +90,7 @@ import {
   formatMissionReportMarkdown,
   mergeReportIntoPullRequestBody,
 } from "../../../src/lib/missions/report-markdown";
+import { sumTurnUsage, type MissionUsage, type TurnUsageSample } from "../../../src/lib/missions/usage";
 import type { CanonicalRetrievedContextPart, ProviderRuntimeOptions } from "../../../src/lib/providers/provider.types";
 import type { MissionStore } from "../../persistence/mission-store";
 import type { MissionStageGrant } from "../../providers/mission-grants";
@@ -192,6 +193,15 @@ export interface MissionRuntimeDependencies {
    * null otherwise. Recalled only by missions of that project.
    */
   readProjectContext?: (projectId: string) => string | null;
+  /**
+   * A turn's provider-reported usage and whether it has ended; null for an
+   * unknown turn. Absent: missions show no spend.
+   */
+  readTurnUsage?: (args: {
+    workspaceId: string;
+    taskId: string;
+    turnId: string;
+  }) => { completed: boolean; usage: TurnUsageSample | null } | null;
   emitChanged?: (event: MissionChangedEvent) => void;
   now?: () => Date;
   setInterval?: typeof globalThis.setInterval;
@@ -220,6 +230,8 @@ export interface MissionRuntime {
   startMission: (input: MissionStartInput, options?: { projectId?: string }) => Promise<MissionDetail>;
   list: (args?: MissionListArgs) => Promise<{ missions: Mission[] }>;
   get: (args: MissionIdArgs) => Promise<MissionDetail>;
+  /** What the mission's turns spent; null for an unknown mission or no usage reader. */
+  readUsage: (args: MissionIdArgs) => MissionUsage | null;
   signOff: (args: MissionStageRef) => Promise<MissionDetail>;
   requestChanges: (args: MissionRequestChangesArgs) => Promise<MissionDetail>;
   skipStage: (args: MissionStageRef) => Promise<MissionDetail>;
@@ -328,13 +340,30 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     return ids;
   }
 
+  /** Usage of turns that ended never changes; read each once. */
+  const endedTurnUsage = new Map<string, TurnUsageSample | null>();
+
+  function usageOf(mission: Mission): MissionUsage | undefined {
+    const read = deps.readTurnUsage;
+    if (!read) return undefined;
+    const samples = [...turnIdsFor(mission.id)].map((turnId) => {
+      if (endedTurnUsage.has(turnId)) return endedTurnUsage.get(turnId)!;
+      const row = read({ workspaceId: mission.workspaceId, taskId: mission.leadTaskId, turnId });
+      if (row?.completed) endedTurnUsage.set(turnId, row.usage);
+      return row?.usage ?? null;
+    });
+    return sumTurnUsage(samples);
+  }
+
   function detailOf(missionId: string, report: MissionReport | null = null): MissionDetail {
     const aggregate = requireAggregate(missionId);
+    const usage = usageOf(aggregate.mission);
     return {
       mission: aggregate.mission,
       stages: aggregate.stages,
       events: store.listRecentEvents(missionId, DETAIL_EVENT_LIMIT),
-      report,
+      report: report && usage ? { ...report, usage } : report,
+      ...(usage ? { usage } : {}),
     };
   }
 
@@ -925,6 +954,10 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         : store.listRecentMissions(args.limit),
     }),
     get: getDetail,
+    readUsage: ({ missionId }) => {
+      const aggregate = store.getAggregate(missionId);
+      return aggregate ? (usageOf(aggregate.mission) ?? null) : null;
+    },
     addReportToPullRequest: async ({ missionId }) => {
       const detail = await getDetail({ missionId });
       if (!detail.report) refuse("The report is ready once the mission ends.");

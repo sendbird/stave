@@ -21,7 +21,7 @@ async function resolveRepositoryPath(workspaceId: string) {
 }
 
 export function createHostProjectRuntime(args: {
-  missionRuntime: Pick<MissionRuntime, "startMission" | "get">;
+  missionRuntime: Pick<MissionRuntime, "startMission" | "get" | "readUsage">;
   emitChanged: (event: ProjectChangedEvent) => void;
 }) {
   const persistence = ensureHostServicePersistenceReady();
@@ -30,6 +30,7 @@ export function createHostProjectRuntime(args: {
     missions: persistence.missions,
     startMission: (input, options) => args.missionRuntime.startMission(input, options),
     getMissionReport: async (missionId) => (await args.missionRuntime.get({ missionId })).report,
+    getMissionUsage: (missionId) => args.missionRuntime.readUsage({ missionId }),
     getTaskSnapshot: async (target) => {
       const snapshot = await localMcpRuntime.getTaskSupervisionSnapshot(target);
       return {

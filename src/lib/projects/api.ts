@@ -1,6 +1,7 @@
 /**
  * The renderer ↔ host contract for projects: `window.api.projects`.
  */
+import type { MissionUsage } from "@/lib/missions/usage";
 import type { MissionReport } from "@/lib/missions/report";
 import type { MissionState, StageStatus } from "@/lib/missions/domain";
 import type { Playbook } from "@/lib/playbooks/schema";
@@ -44,6 +45,8 @@ export interface ProjectMissionView {
   providerId: string;
   updatedAt: string;
   report: MissionReport | null;
+  /** What the mission's turns spent so far; null when unknown. */
+  usage?: MissionUsage | null;
 }
 
 /** A link the project collected, from a mission's report. */

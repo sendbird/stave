@@ -49,6 +49,7 @@ function mission(patch: Partial<ProjectMissionView>): ProjectMissionView {
     providerId: "claude-code",
     updatedAt: iso(3),
     report: null,
+    usage: { turns: 6, measuredTurns: 6, inputTokens: 180_000, outputTokens: 22_000, costUsd: patch.providerId === "codex" ? null : 1.12 },
     ...patch,
   };
 }

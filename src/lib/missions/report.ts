@@ -4,6 +4,7 @@
  * partial report also lists what the mission left behind.
  */
 import type { AcceptanceCriterion } from "@/lib/playbooks/stage-prompt";
+import type { MissionUsage } from "./usage";
 import {
   latestStageRecord,
   type MissionAggregate,
@@ -71,6 +72,8 @@ export interface MissionReport {
   leftBehind: string[];
   /** Present when the report was built with the mission's events. */
   metrics?: MissionMetrics;
+  /** What the mission's turns spent, when the host reads usage. */
+  usage?: MissionUsage;
 }
 
 const WAIT_START_KINDS = new Set(["stage-completed", "stage-skipped", "resumed", "mission-started"]);

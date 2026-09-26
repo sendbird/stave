@@ -4,6 +4,7 @@ import { Hand } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
+import { describeUsageShort } from "@/lib/missions/usage";
 import { sx } from "@/components/ads/utils/stylex";
 import { Textarea } from "@/components/ui/textarea";
 import type { MissionDetail } from "@/lib/missions/api";
@@ -62,6 +63,7 @@ export function SignOffCard(props: {
     .some((row) => row.stage.kind === "ai");
   const previousReport = previous?.record?.report;
   const budget = describeTurnBudget(detail.mission);
+  const spent = describeUsageShort(detail.usage);
   return (
     <section
       className={sx(styles.card)}
@@ -79,6 +81,7 @@ export function SignOffCard(props: {
             </p>
             <span className={sx(styles.position, budget.nearLimit && styles.positionWarn)} title="Turns this mission has used of its limit">
               Stage {current.index + 1} of {rows.length} · {budget.text}
+              {spent ? ` · ${spent}` : ""}
             </span>
           </div>
           {summary ? <p className={sx(styles.summary)}>{summary}</p> : null}

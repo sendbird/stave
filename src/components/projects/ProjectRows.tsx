@@ -11,6 +11,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
+import { describeUsageShort } from "@/lib/missions/usage";
 import type { ProjectMissionView } from "@/lib/projects/api";
 import type { MissionProposal } from "@/lib/projects/domain";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
@@ -80,6 +81,7 @@ export function MissionRow(props: { mission: ProjectMissionView; onOpen: () => v
   const { mission } = props;
   const { Mark, tone, text, waiting, troubled } = describeMission(mission);
   const pr = mission.report?.links.find((link) => /\/pull\/\d+/.test(link.url));
+  const spent = describeUsageShort(mission.usage);
   return (
     <li className={sx(styles.row)}>
       <span className={sx(styles.rowMark)}>
@@ -93,6 +95,7 @@ export function MissionRow(props: { mission: ProjectMissionView; onOpen: () => v
           <span className={sx(waiting && styles.rowWaiting, troubled && styles.rowAttention)}>{text}</span>
           {" · "}
           {getProviderLabel({ providerId: mission.providerId as ProviderId })}
+          {spent ? ` · ${spent}` : ""}
         </span>
       </span>
       <MiniTrack mission={mission} />

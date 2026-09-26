@@ -113,6 +113,10 @@ export function createHostMissionRuntime(args: {
         memories: persistence.projects.listMemories(projectId, { acceptedOnly: true }),
       });
     },
+    readTurnUsage: ({ workspaceId, taskId, turnId }) => {
+      const [turn] = persistence.listTurns({ workspaceId, taskId, turnId });
+      return turn ? { completed: Boolean(turn.completedAt), usage: turn.usage ?? null } : null;
+    },
     emitChanged: args.emitChanged,
   });
 }

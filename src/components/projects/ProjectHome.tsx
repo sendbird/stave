@@ -16,6 +16,7 @@ import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
 import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
 import { sx } from "@/components/ads/utils/stylex";
 import { formatAge } from "@/lib/missions/mission-view";
+import { addMissionUsage, describeUsageLong, describeUsageShort } from "@/lib/missions/usage";
 import type { ProjectDetail } from "@/lib/projects/api";
 import { useAppStore } from "@/store/app.store";
 import { countProjectNeeds, useProjectsStore } from "@/store/projects-store";
@@ -56,6 +57,8 @@ export function ProjectHome({ detail }: { detail: ProjectDetail }) {
   const lastWake = [...detail.events].reverse().find((event) => event.kind === "coordinator-woken");
   const badge = STATE_BADGE[project.state];
   const needs = countProjectNeeds(detail);
+  const totalUsage = addMissionUsage(detail.missions.map((mission) => mission.usage));
+  const spent = describeUsageShort(totalUsage);
 
   return (
     <div className={sx(styles.scroll)}>
@@ -82,6 +85,11 @@ export function ProjectHome({ detail }: { detail: ProjectDetail }) {
               <span className={sx(styles.stat)}>
                 <span className={sx(styles.statStrong)}>{done.length}</span> done
               </span>
+              {spent ? (
+                <span className={sx(styles.stat)} title={describeUsageLong(totalUsage) ?? undefined}>
+                  <span className={sx(styles.statStrong)}>{spent}</span> spent
+                </span>
+              ) : null}
               <span className={sx(styles.stat, styles.statQuiet)}>
                 {project.settings.askBeforeStarting ? (
                   <ShieldCheck aria-hidden className={sx(styles.icon)} />
