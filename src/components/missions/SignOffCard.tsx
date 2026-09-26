@@ -8,25 +8,19 @@ import { sx } from "@/components/ads/utils/stylex";
 import { Textarea } from "@/components/ui/textarea";
 import type { MissionDetail } from "@/lib/missions/api";
 import { currentStageRecord, MISSION_LIMITS } from "@/lib/missions/domain";
-import { projectMissionStages, type MissionStageRow } from "@/lib/missions/mission-view";
+import {
+  describeSignOffAction,
+  describeTurnBudget,
+  projectMissionStages,
+  summarizePreviousStage,
+} from "@/lib/missions/mission-view";
+
+export { describeSignOffAction, summarizePreviousStage };
 import type { PlaybookStage } from "@/lib/playbooks/schema";
 import { useAppStore } from "@/store/app.store";
 import { useMissionsStore } from "@/store/missions-store";
 import { useScopedTaskMission } from "./useMission";
 import { missionStyles } from "./missions.styles";
-
-/** The primary button names what happens when it is pressed. */
-export function describeSignOffAction(stage: PlaybookStage): string {
-  if (stage.kind === "ai") return `Start ${stage.title}`;
-  switch (stage.action.type) {
-    case "open-draft-pr":
-      return "Open the draft PR";
-    case "watch-checks":
-      return "Start watching checks";
-    case "mark-pr-ready":
-      return "Mark ready for review";
-  }
-}
 
 /** The card's title: the decision, asked plainly. */
 export function describeSignOffQuestion(stage: PlaybookStage): string {
@@ -39,19 +33,6 @@ export function describeSignOffQuestion(stage: PlaybookStage): string {
     case "mark-pr-ready":
       return "Ready to request review?";
   }
-}
-
-/** What the card cites: the stage before it, in one line. */
-export function summarizePreviousStage(row: MissionStageRow | undefined): string | null {
-  if (!row?.record) return null;
-  const parts: string[] = [`${row.stage.title} ${row.status === "completed" ? "done" : row.status}`];
-  const diff = row.record.facts?.diff;
-  if (diff && diff.filesChanged > 0) {
-    parts.push(`${diff.filesChanged} ${diff.filesChanged === 1 ? "file" : "files"} +${diff.insertions} −${diff.deletions}`);
-  }
-  const verified = row.evidence.filter((item) => item.source === "stave").length;
-  if (verified > 0) parts.push(`${verified} verified by Stave`);
-  return parts.join(" · ");
 }
 
 /**
@@ -80,6 +61,7 @@ export function SignOffCard(props: {
     .slice(0, detail.mission.currentStageIndex)
     .some((row) => row.stage.kind === "ai");
   const previousReport = previous?.record?.report;
+  const budget = describeTurnBudget(detail.mission);
   return (
     <section
       className={sx(styles.card)}
@@ -95,8 +77,8 @@ export function SignOffCard(props: {
             <p id={titleId} className={sx(styles.title)}>
               {describeSignOffQuestion(current.stage)}
             </p>
-            <span className={sx(styles.position)}>
-              Stage {current.index + 1} of {rows.length}
+            <span className={sx(styles.position, budget.nearLimit && styles.positionWarn)} title="Turns this mission has used of its limit">
+              Stage {current.index + 1} of {rows.length} · {budget.text}
             </span>
           </div>
           {summary ? <p className={sx(styles.summary)}>{summary}</p> : null}
@@ -227,6 +209,7 @@ const styles = stylex.create({
     color: vars["--ads-color-text-subtle"],
     fontVariantNumeric: "tabular-nums",
   },
+  positionWarn: { color: vars["--ads-color-warning-text"] },
   summary: {
     margin: 0,
     fontSize: vars["--ads-font-size-caption"],

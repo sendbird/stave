@@ -90,6 +90,9 @@ const REPOSITORY_ATTENTION_ALERT_LABEL: Record<FleetAttentionKind, string> = {
   "pr-behind-base": "PR behind base",
   "result-ready": "result ready",
   "pr-ready-to-merge": "PR ready to merge",
+  "mission-sign-off": "mission sign-off",
+  "mission-blocked": "mission blocked",
+  "mission-stuck": "mission stuck",
 };
 
 function formatRepositoryAttentionAlertLabel(args: {

@@ -19,6 +19,7 @@ import {
 } from "@/lib/notifications/notification-sound";
 import { useAppStore } from "@/store/app.store";
 import { StandaloneCliSettingsCard } from "@/components/layout/settings-dialog-standalone-cli-card";
+import { DesktopNotificationsCard } from "./settings-dialog-desktop-notifications-card";
 import {
   ChoiceButtons,
   LabeledField,
@@ -278,7 +279,6 @@ function NotificationSoundControls({
 export function GeneralSection() {
   const [
     confirmBeforeClose,
-    nativeNotificationsEnabled,
     notificationSoundEnabled,
     notificationSoundPreset,
     notificationSoundVolume,
@@ -296,7 +296,6 @@ export function GeneralSection() {
       (state) =>
         [
           state.settings.confirmBeforeClose,
-          state.settings.nativeNotificationsEnabled,
           state.settings.notificationSoundEnabled,
           state.settings.notificationSoundPreset,
           state.settings.notificationSoundVolume,
@@ -456,19 +455,7 @@ export function GeneralSection() {
             }
           />
         </SettingsCard>
-        <SettingsCard
-          title="Desktop Notifications"
-          description="Show task completion, approval, and input requests through the operating system."
-        >
-          <SwitchField
-            title="Native Notifications"
-            description="Notify you when a task needs attention outside the active workspace."
-            checked={nativeNotificationsEnabled}
-            onCheckedChange={(checked) =>
-              updateSettings({ patch: { nativeNotificationsEnabled: checked } })
-            }
-          />
-        </SettingsCard>
+        <DesktopNotificationsCard />
       </SectionStack>
     </>
   );

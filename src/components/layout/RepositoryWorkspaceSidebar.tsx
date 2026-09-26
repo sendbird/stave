@@ -70,13 +70,10 @@ import {
   compareFleetTaskStatus,
   type FleetTaskStatus,
 } from "@/lib/fleet/task-status";
-import {
-  buildSidebarWorkQueueLanes,
-  type SidebarWorkQueueLane,
-  type SidebarWorkQueueSignals,
-} from "@/lib/fleet/sidebar-work-queue";
+import { type SidebarWorkQueueLane } from "@/lib/fleet/sidebar-work-queue";
 import { isDelegatedTask, isTaskArchived } from "@/lib/tasks";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
+import { useSidebarWorkQueueGroups } from "./useSidebarWorkQueueGroups";
 import { useAppStore } from "@/store/app.store";
 import type { SidebarNavView } from "@/store/app-settings";
 import type { WorkspaceSidebarItemDisplayMode } from "@/store/layout.utils";
@@ -454,24 +451,10 @@ export function RepositoryWorkspaceSidebar(args: {
       workspaceFleetStatusById,
     ],
   );
-  // Lane grouping runs here, outside the Zustand selector, so the store never
-  // hands out a freshly built object on every subscriber notification. The
-  // ranking itself already happened above; this only names the reason a row is
-  // in the list. `highestAttentionByWorkspaceId` folds PR state into need kinds, so
-  // no PR subscription is needed at this level.
-  const workQueueGroups = useMemo(() => {
-    const signalsByWorkspaceId: Record<string, SidebarWorkQueueSignals> = {};
-    for (const entry of workQueueEntries) {
-      signalsByWorkspaceId[entry.workspaceId] = {
-        attentionKind: highestAttentionByWorkspaceId[entry.workspaceId]?.kind,
-        status: entry.status,
-      };
-    }
-    return buildSidebarWorkQueueLanes({
-      entries: workQueueEntries,
-      signalsByWorkspaceId,
-    });
-  }, [workQueueEntries, highestAttentionByWorkspaceId]);
+  const workQueueGroups = useSidebarWorkQueueGroups({
+    entries: workQueueEntries,
+    highestAttentionByWorkspaceId,
+  });
   // Collapsing a repository hides its workspace rows, so the repository row carries
   // the rolled-up alert for anything blocking inside it.
   const attentionAlertByRepositoryPath = useMemo(() => {

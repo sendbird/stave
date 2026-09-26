@@ -13,6 +13,8 @@ export const NOTIFICATION_TOAST_DURATIONS_MS = {
   turnFailed: 8000,
   approvalRequested: 8000,
   userInputRequested: 8000,
+  missionAttention: 10000,
+  missionCompleted: 6000,
 } as const;
 
 export interface NotificationToastOptions {
@@ -102,6 +104,10 @@ export function buildNotificationDetail(
   if (notification.kind === "task.user_input_requested") {
     return formatUserInputNotificationDetail(notification.payload);
   }
+  if (notification.kind.startsWith("mission.")) {
+    const detail = notification.payload.detail;
+    return typeof detail === "string" && detail.trim() ? detail.trim() : null;
+  }
 
   return null;
 }
@@ -110,7 +116,8 @@ export function buildNotificationToastOptions(
   notification: Pick<
     AppNotification,
     "kind" | "payload" | "taskTitle" | "workspaceName"
-  >,
+  > &
+    Partial<Pick<AppNotification, "title">>,
 ): NotificationToastOptions {
   const label =
     notification.taskTitle?.trim() ||
@@ -146,6 +153,32 @@ export function buildNotificationToastOptions(
       title: `Approval needed — ${label}`,
       description,
       duration: NOTIFICATION_TOAST_DURATIONS_MS.approvalRequested,
+      closeButton: true,
+      dismissible: true,
+    };
+  }
+
+  if (notification.kind === "mission.completed") {
+    return {
+      tone: "success",
+      title: notification.title ?? label,
+      description,
+      duration: NOTIFICATION_TOAST_DURATIONS_MS.missionCompleted,
+      closeButton: true,
+      dismissible: true,
+    };
+  }
+
+  if (
+    notification.kind === "mission.sign_off_requested" ||
+    notification.kind === "mission.blocked" ||
+    notification.kind === "mission.stuck"
+  ) {
+    return {
+      tone: notification.kind === "mission.sign_off_requested" ? "warning" : "error",
+      title: notification.title ?? label,
+      description,
+      duration: NOTIFICATION_TOAST_DURATIONS_MS.missionAttention,
       closeButton: true,
       dismissible: true,
     };

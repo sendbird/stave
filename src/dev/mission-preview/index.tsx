@@ -8,6 +8,8 @@ import { MissionDetailView } from "@/components/missions/MissionPanel";
 import { MissionReportView } from "@/components/missions/MissionReportView";
 import { SignOffCard } from "@/components/missions/SignOffCard";
 import { StageDividerView } from "@/components/missions/StageDivider";
+import { FleetMissionStrip } from "@/components/missions/FleetMissionStrip";
+import { useFleetMissionsStore } from "@/store/fleet-missions-store";
 import { WakeUpSectionView } from "@/components/missions/WakeUpSection";
 import type { WakeUp } from "@/lib/supervision/wake-up-policy";
 import type { MissionDetail } from "@/lib/missions/api";
@@ -174,6 +176,20 @@ const previewWakeUp = {
   trigger: { kind: "schedule", schedule: { every: 1, unit: "hours" } },
 } as unknown as WakeUp;
 
+function seedFleetMissions() {
+  const as = (detail: MissionDetail, id: string, workspaceId: string) => ({
+    ...detail,
+    mission: { ...detail.mission, id, workspaceId },
+  });
+  useFleetMissionsStore.setState({
+    details: {
+      "fleet-sign-off": as(signOff, "fleet-sign-off", "fleet-a"),
+      "fleet-live": as(live, "fleet-live", "fleet-b"),
+      "fleet-stuck": as(stuck, "fleet-stuck", "fleet-c"),
+    },
+  });
+}
+
 export function MissionPreview() {
   const [dark, setDark] = useState(() => new URLSearchParams(window.location.search).get("theme") === "dark");
   useLayoutEffect(() => {
@@ -181,6 +197,7 @@ export function MissionPreview() {
   }, [dark]);
   const now = Date.now();
   const actions = { onTakeOver: () => {}, onResume: () => {}, onOpenPanel: () => {} };
+  useLayoutEffect(seedFleetMissions, []);
   return (
     <main className={sx(styles.page)}>
       <div className={sx(styles.container)}>
@@ -238,6 +255,22 @@ export function MissionPreview() {
           <div className={sx(styles.composerStack)}>
             <MissionBarView detail={live} nowPhrase="Editing files" now={now} reducedMotion actions={actions} />
             <MockComposer placeholder="Reply…" />
+          </div>
+        </section>
+
+        <section className={sx(styles.case)} data-preview-case="Fleet">
+          <p className={sx(styles.caption)}>Fleet workspace cards</p>
+          <div className={sx(styles.fleet)}>
+            {(["fleet-a", "fleet-b", "fleet-c"] as const).map((workspaceId, index) => (
+              <div key={workspaceId} className={sx(styles.fleetCard)}>
+                <div className={sx(styles.fleetHeader)}>
+                  <strong>{["billing-overflow", "csv-export", "header-refactor"][index]}</strong>
+                  <span className={sx(styles.caption)}>acme/app</span>
+                </div>
+                <FleetMissionStrip workspaceId={workspaceId} onOpen={() => {}} />
+                <div className={sx(styles.fleetTasks)}>1 task</div>
+              </div>
+            ))}
           </div>
         </section>
 
@@ -370,6 +403,26 @@ const styles = stylex.create({
     borderColor: vars["--ads-color-border"],
     borderRadius: vars["--ads-radius-panel"],
     backgroundColor: vars["--ads-color-surface"],
+  },
+  fleet: { display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(16rem, 1fr))", gap: vars["--ads-space-12"] },
+  fleetCard: {
+    display: "flex",
+    flexDirection: "column",
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: vars["--ads-color-border"],
+    borderRadius: vars["--ads-radius-panel"],
+    backgroundColor: vars["--ads-color-surface"],
+    overflow: "hidden",
+  },
+  fleetHeader: { display: "flex", flexDirection: "column", gap: 2, padding: vars["--ads-space-12"], fontSize: vars["--ads-font-size-body"] },
+  fleetTasks: {
+    padding: vars["--ads-space-12"],
+    borderTopWidth: 1,
+    borderTopStyle: "solid",
+    borderTopColor: vars["--ads-color-border-subtle"],
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
   },
   shelf: {
     position: "relative",

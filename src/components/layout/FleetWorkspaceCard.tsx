@@ -1,3 +1,4 @@
+import { FleetMissionStrip } from "@/components/missions/FleetMissionStrip";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   AlertTriangle,
@@ -537,6 +538,17 @@ export function FleetWorkspaceCard(args: {
         </div>
         <FleetCardPrBadge status={prStatus} />
       </div>
+
+      <FleetMissionStrip
+        workspaceId={args.workspace.id}
+        onOpen={(taskId) =>
+          args.onOpenTask({
+            repositoryPath: args.repositoryPath,
+            workspaceId: args.workspace.id,
+            taskId,
+          })
+        }
+      />
 
       <div className={sx(styles.tasks)}>
         {rows.length === 0 ? (

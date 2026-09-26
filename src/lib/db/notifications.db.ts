@@ -6,6 +6,7 @@ import type {
   AppNotificationCreateInput,
 } from "@/lib/notifications/notification.types";
 import {
+  APP_NOTIFICATION_KINDS,
   MAX_NOTIFICATION_HISTORY,
   buildNotificationExpiresAt,
   isNotificationHistoryClearable,
@@ -37,12 +38,7 @@ const AppNotificationActionSchema = z.discriminatedUnion("type", [
 const AppNotificationSchema = z
   .object({
     id: z.string(),
-    kind: z.union([
-      z.literal("task.turn_completed"),
-      z.literal("task.turn_failed"),
-      z.literal("task.approval_requested"),
-      z.literal("task.user_input_requested"),
-    ]),
+    kind: z.enum(APP_NOTIFICATION_KINDS),
     title: z.string(),
     body: z.string(),
     repositoryPath: z.string().nullable().optional(),
@@ -65,12 +61,7 @@ const AppNotificationSchema = z
 const AppNotificationCreateInputSchema = z
   .object({
     id: z.string(),
-    kind: z.union([
-      z.literal("task.turn_completed"),
-      z.literal("task.turn_failed"),
-      z.literal("task.approval_requested"),
-      z.literal("task.user_input_requested"),
-    ]),
+    kind: z.enum(APP_NOTIFICATION_KINDS),
     title: z.string(),
     body: z.string(),
     repositoryPath: z.string().nullable().optional(),

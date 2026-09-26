@@ -3,8 +3,10 @@
  * workspace's other signals and keeps the highest-priority lane, so a
  * workspace still lands in exactly one lane.
  */
-import type { SidebarWorkQueueLane } from "@/lib/fleet/sidebar-work-queue";
+import { SIDEBAR_WORK_QUEUE_LANE_ORDER, type SidebarWorkQueueLane } from "@/lib/fleet/sidebar-work-queue";
+import type { MissionDetail } from "./api";
 import {
+  currentStageRecord,
   isAutomaticMissionPause,
   type MissionPauseReason,
   type MissionState,
@@ -46,4 +48,28 @@ export function missionWorkQueueLane(input: MissionLaneInput): SidebarWorkQueueL
     case "cancelled":
       return input.hasOpenPullRequestAwaitingReview ? "in-review" : "idle";
   }
+}
+
+/**
+ * The lane each workspace's missions ask for, the most urgent one when a
+ * workspace holds several. An ended mission's review lane needs its report,
+ * so ended missions are read as having nothing open.
+ */
+export function missionLanesByWorkspace(details: Iterable<MissionDetail>): Record<string, SidebarWorkQueueLane> {
+  const lanes: Record<string, SidebarWorkQueueLane> = {};
+  for (const detail of details) {
+    const { mission } = detail;
+    const lane = missionWorkQueueLane({
+      state: mission.state,
+      pauseReason: mission.pauseReason,
+      currentStageStatus: currentStageRecord(detail).status,
+      hasOpenPullRequestAwaitingReview: false,
+    });
+    if (!lane) continue;
+    const current = lanes[mission.workspaceId];
+    if (!current || SIDEBAR_WORK_QUEUE_LANE_ORDER.indexOf(lane) < SIDEBAR_WORK_QUEUE_LANE_ORDER.indexOf(current)) {
+      lanes[mission.workspaceId] = lane;
+    }
+  }
+  return lanes;
 }

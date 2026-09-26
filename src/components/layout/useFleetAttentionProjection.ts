@@ -4,6 +4,7 @@ import {
   buildFleetAttentionProjection,
   getFleetAttentionTaskKey,
   type FleetLiveWorkspaceInput,
+  type FleetMissionInput,
   type FleetPrWorkspaceInput,
 } from "@/lib/fleet/attention-projection";
 import { loadWorkspaceShellSummary } from "@/lib/db/workspaces.db";
@@ -13,6 +14,7 @@ import type { Task } from "@/types/chat";
 import { hasDurableResultReviewStore } from "@/lib/reviews/result-review-client";
 import { useResultReviews } from "@/lib/reviews/useResultReviews";
 import { useFleetAttentionSnoozes } from "@/lib/fleet/useFleetAttentionSnoozes";
+import { useFleetMissionsStore } from "@/store/fleet-missions-store";
 
 interface FleetWorkspaceIdentity {
   repositoryPath: string;
@@ -77,6 +79,7 @@ export function useFleetAttentionProjection() {
     ),
   );
 
+  const missionDetails = useFleetMissionsStore((state) => state.details);
   const reviewWorkspaceIds = useMemo(() => Array.from(new Set([
     ...workspaces.map((workspace) => workspace.id),
     ...recentRepositories.flatMap((repository) => repository.workspaces.map((workspace) => workspace.id)),
@@ -227,7 +230,23 @@ export function useFleetAttentionProjection() {
       }
     }
 
+    const missions: FleetMissionInput[] = [];
+    for (const detail of Object.values(missionDetails)) {
+      const identity = identityByWorkspaceId.get(detail.mission.workspaceId);
+      if (!identity) continue;
+      const tasks =
+        identity.workspaceId === activeWorkspaceId
+          ? activeTasks
+          : workspaceRuntimeCacheById[identity.workspaceId]?.tasks;
+      missions.push({
+        ...identity,
+        detail,
+        taskTitle: tasks?.find((task) => task.id === detail.mission.leadTaskId)?.title,
+      });
+    }
+
     const projection = buildFleetAttentionProjection({
+      missions,
       notifications,
       resultReviews: durableResultStore ? reviews.page.results : undefined,
       liveWorkspaces,
@@ -273,5 +292,6 @@ export function useFleetAttentionProjection() {
     snoozes.activeIds,
     snoozes.error,
     snoozes.refresh,
+    missionDetails,
   ]);
 }

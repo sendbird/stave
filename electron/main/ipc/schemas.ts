@@ -1,6 +1,7 @@
 export { AgentHistoryRequestSchema } from "../../../src/lib/providers/agent-history";
 export { WorkspaceExecutionArgsSchema } from "../../../src/lib/performance/workspace-execution";
 import { WorkspaceSnapshotSchema } from "../../../src/lib/task-context/schemas";
+import { APP_NOTIFICATION_KINDS } from "../../../src/lib/notifications/notification.types";
 import { z } from "zod";
 import {
   MAX_PROVIDER_TIMEOUT_MS,
@@ -1325,12 +1326,7 @@ const NotificationPayloadSchema = z.record(z.string(), z.unknown());
 export const NotificationRecordSchema = z
   .object({
     id: z.string().min(1).max(200),
-    kind: z.union([
-      z.literal("task.turn_completed"),
-      z.literal("task.turn_failed"),
-      z.literal("task.approval_requested"),
-      z.literal("task.user_input_requested"),
-    ]),
+    kind: z.enum(APP_NOTIFICATION_KINDS),
     title: z.string().min(1).max(500),
     body: z.string().max(5000),
     repositoryPath: z.string().max(4096).nullable().optional(),

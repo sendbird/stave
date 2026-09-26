@@ -284,6 +284,40 @@ export const MISSION_PERMISSION_LABELS: Record<Mission["consent"]["permissionMod
   manual: "Manual",
 };
 
+/** The primary button names what happens when it is pressed. */
+export function describeSignOffAction(stage: PlaybookStage): string {
+  if (stage.kind === "ai") return `Start ${stage.title}`;
+  switch (stage.action.type) {
+    case "open-draft-pr":
+      return "Open the draft PR";
+    case "watch-checks":
+      return "Start watching checks";
+    case "mark-pr-ready":
+      return "Mark ready for review";
+  }
+}
+
+/** What the card cites: the stage before it, in one line. */
+export function summarizePreviousStage(row: MissionStageRow | undefined): string | null {
+  if (!row?.record) return null;
+  const parts: string[] = [`${row.stage.title} ${row.status === "completed" ? "done" : row.status}`];
+  const diff = row.record.facts?.diff;
+  if (diff && diff.filesChanged > 0) {
+    parts.push(`${diff.filesChanged} ${diff.filesChanged === 1 ? "file" : "files"} +${diff.insertions} −${diff.deletions}`);
+  }
+  const verified = row.evidence.filter((item) => item.source === "stave").length;
+  if (verified > 0) parts.push(`${verified} verified by Stave`);
+  return parts.join(" · ");
+}
+
+/** "5 of 40 turns", and whether the mission is close to its turn limit. */
+export function describeTurnBudget(mission: Pick<Mission, "turnCount" | "maxTurns">) {
+  return {
+    text: `${mission.turnCount} of ${mission.maxTurns} turns`,
+    nearLimit: mission.turnCount >= Math.ceil(mission.maxTurns * 0.8),
+  };
+}
+
 export function describeCheckIns(mission: Mission) {
   return CHECK_IN_LABELS[mission.consent.checkIns];
 }

@@ -8,7 +8,10 @@ import {
   playNotificationSound,
 } from "@/lib/notifications/notification-sound";
 import type { AppNotificationCreateInput } from "@/lib/notifications/notification.types";
-import { isNotificationAttentionKind } from "@/lib/notifications/notification.types";
+import {
+  isMissionAttentionNotificationKind,
+  isNotificationAttentionKind,
+} from "@/lib/notifications/notification.types";
 import { showNotificationToast } from "@/store/app-notification-builders";
 import type { AppState } from "@/store/app-store.types";
 import { createNotificationAttentionSync } from "@/store/notification-attention-sync";
@@ -56,6 +59,11 @@ export function createAppStoreNotificationRuntime(args: {
           notification: result.notification!,
         }),
       }));
+      // A mission notification is raised again whenever the watcher looks;
+      // only its first store is announced.
+      if (!result.inserted && result.notification.kind.startsWith("mission.")) {
+        return result.notification;
+      }
       const unreadCount = get().notifications.filter(
         (item) => !item.readAt,
       ).length;
@@ -73,12 +81,13 @@ export function createAppStoreNotificationRuntime(args: {
         attentionNotificationSoundMode,
         attentionNotificationSoundCustomAudioData,
       } = get().settings;
-      const isAttentionKind = isNotificationAttentionKind(
-        result.notification.kind,
-      );
+      const isAttentionKind =
+        isNotificationAttentionKind(result.notification.kind) ||
+        isMissionAttentionNotificationKind(result.notification.kind);
       const isCompletionKind =
         result.notification.kind === "task.turn_completed" ||
-        result.notification.kind === "task.turn_failed";
+        result.notification.kind === "task.turn_failed" ||
+        result.notification.kind === "mission.completed";
       if (isAttentionKind && attentionNotificationSoundEnabled) {
         // "AI needs you" cue: question (user_input) or approval request. Uses a
         // dedicated player instance so its cooldown is independent from the
@@ -151,8 +160,24 @@ export function createAppStoreNotificationRuntime(args: {
     }
   };
 
+  registeredPersistNotifications = persistNotifications;
   return {
     attentionSync,
     persistNotifications,
   };
+}
+
+let registeredPersistNotifications:
+  | ((notifications: AppNotificationCreateInput[]) => Promise<void>)
+  | null = null;
+
+/**
+ * Raises notifications from outside the app store — the mission watcher, for
+ * example — through the same path as turn notifications: stored once per
+ * dedupe key, with the sound, the OS notification and the toast.
+ */
+export function persistRendererNotifications(
+  notifications: AppNotificationCreateInput[],
+) {
+  return registeredPersistNotifications?.(notifications) ?? Promise.resolve();
 }

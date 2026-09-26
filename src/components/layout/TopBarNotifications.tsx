@@ -7,6 +7,7 @@ import {
   CircleCheck,
   CircleX,
   ShieldAlert,
+  Target,
   Archive,
   Trash2,
 } from "lucide-react";
@@ -61,6 +62,26 @@ function NotificationKindIcon({ kind }: { kind: AppNotification["kind"] }) {
         className={sx(
           notificationsStyles.kindIcon,
           notificationsStyles.kindIconWarning,
+        )}
+      />
+    );
+  }
+  if (kind === "mission.sign_off_requested") {
+    return (
+      <Target
+        className={sx(
+          notificationsStyles.kindIcon,
+          notificationsStyles.kindIconWarning,
+        )}
+      />
+    );
+  }
+  if (kind === "mission.blocked" || kind === "mission.stuck") {
+    return (
+      <Target
+        className={sx(
+          notificationsStyles.kindIcon,
+          notificationsStyles.kindIconDanger,
         )}
       />
     );

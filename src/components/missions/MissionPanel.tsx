@@ -14,6 +14,7 @@ import {
   describeCheckIns,
   describeMissionBadge,
   describeMissionStatusLine,
+  describeTurnBudget,
   formatAge,
   MISSION_PERMISSION_LABELS,
   projectMissionStages,
@@ -262,6 +263,11 @@ export function MissionDetailView(props: {
           <dd className={sx(styles.factValue)}>
             {getProviderLabel({ providerId: mission.fingerprint.providerId })} · {mission.fingerprint.model} ·{" "}
             {MISSION_PERMISSION_LABELS[mission.consent.permissionMode]} permissions
+          </dd>
+          <dt className={sx(styles.factLabel)}>Turns</dt>
+          <dd className={sx(styles.factValue, describeTurnBudget(mission).nearLimit && styles.toneWaiting)}>
+            {describeTurnBudget(mission).text}
+            {describeTurnBudget(mission).nearLimit && active ? " — close to the limit; the mission stops there" : ""}
           </dd>
           <dt className={sx(styles.factLabel)}>Started</dt>
           <dd className={sx(styles.factValue)}>

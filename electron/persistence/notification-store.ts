@@ -6,6 +6,7 @@ import {
 } from "../../src/lib/notifications/notification.types";
 import type {
   PersistenceNotificationCreateInput,
+  PersistenceNotificationKind,
   PersistenceNotificationRecord,
   PersistenceRepositoryRegistryEntry,
 } from "./types";
@@ -13,11 +14,7 @@ import { selectOrphanedNotificationWorkspaceIds } from "./notification-orphans";
 
 interface NotificationRow {
   id: string;
-  kind:
-    | "task.turn_completed"
-    | "task.turn_failed"
-    | "task.approval_requested"
-    | "task.user_input_requested";
+  kind: PersistenceNotificationKind;
   title: string;
   body: string;
   project_path: string | null;
