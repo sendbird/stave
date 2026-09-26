@@ -1184,7 +1184,7 @@ async function capturePlaybooks(browser) {
 
 async function captureProjects(browser) {
   console.log("[capture] projects");
-  const { context, page } = await openPreview(browser, "projects", { width: 1440, height: 1180 });
+  const { context, page } = await openPreview(browser, "projects", { width: 1440, height: 1040 });
   await captureElement(page, page.getByTestId("projects-view"), "projects.png");
   await context.close();
 }

@@ -1,11 +1,16 @@
 import * as React from "react";
 import {
   ArrowRight,
+  BookOpen,
+  CalendarClock,
   Command as CommandIcon,
+  FolderKanban,
+  GitFork,
   Inbox,
   ScanEye,
   ShieldCheck,
   Sparkles,
+  Target,
   TerminalSquare,
   Workflow,
 } from "lucide-react";
@@ -72,8 +77,44 @@ const FEATURES = [
   {
     title: "One inbox for every workspace",
     description:
-      "Fleet's \"Action required\" rail lists pending questions, approvals, failed runs, and PR blockers across all your workspaces.",
+      "Fleet's \"Action required\" rail lists pending questions, approvals, mission sign-offs, failed runs, and PR blockers across all your workspaces.",
     icon: Inbox,
+  },
+  {
+    title: "Automations and wake-ups",
+    description:
+      "Run a task on a schedule in its own workspace, or let an existing task pick itself back up when its checks or delegated work finish.",
+    icon: CalendarClock,
+  },
+  {
+    title: "Delegate to the other provider",
+    description:
+      "Hand part of a task to a delegated task — on Claude or Codex, in its own worktree if you like — and get its result back in the thread.",
+    icon: GitFork,
+  },
+];
+
+const HANDOFF_STEPS = [
+  {
+    title: "Save how you work as a playbook",
+    description:
+      "The stages you would otherwise prompt one by one — understand, build, verify, open a PR — each with when it is done and whether it asks you first.",
+    href: "./docs/playbooks/",
+    icon: BookOpen,
+  },
+  {
+    title: "Hand a task to a mission",
+    description:
+      "Stave runs each stage, opens the draft PR and watches its checks, and stops only at the sign-offs you chose — with evidence it verified itself.",
+    href: "./docs/missions/",
+    icon: Target,
+  },
+  {
+    title: "Give a bigger goal to a project",
+    description:
+      "A coordinator breaks the goal into missions on separate worktrees, reads their reports and proposes what comes next. You approve and review.",
+    href: "./docs/projects/",
+    icon: FolderKanban,
   },
 ];
 
@@ -121,14 +162,12 @@ export function LandingPage({ data: _data }: { data: SiteData }) {
               safety settings you can actually see.
             </p>
             <div className={sx(s.actionRow)}>
-              <Button asChild size="lg">
-                <a href={INSTALL_HREF}>
-                  Install Stave
-                  <ArrowRight className={sx(s.actionIcon)} />
-                </a>
+              <Button size="lg" render={<a href={INSTALL_HREF} />}>
+                Install Stave
+                <ArrowRight className={sx(s.actionIcon)} />
               </Button>
-              <Button asChild size="lg" variant="outline">
-                <a href={DOCS_HREF}>Read the docs</a>
+              <Button size="lg" variant="outline" render={<a href={DOCS_HREF} />}>
+                Read the docs
               </Button>
             </div>
             <div className={sx(s.hint)}>
@@ -186,6 +225,42 @@ export function LandingPage({ data: _data }: { data: SiteData }) {
           </div>
         </section>
 
+        {/* Hand off outcomes */}
+        <section className={sx(s.handoffSection)}>
+          <div className={sx(s.featuresInner)}>
+            <div className={sx(s.sectionHeader)}>
+              <h2 className={sx(s.sectionTitle)}>
+                Hand off outcomes, not prompts.
+              </h2>
+              <p className={sx(s.sectionLead)}>
+                Missions carry a task through the stages you saved and stop
+                only where you asked. Projects take the goals that need several
+                of them.
+              </p>
+            </div>
+            <div className={sx(s.handoffGrid)}>
+              <ol className={sx(s.handoffSteps)}>
+                {HANDOFF_STEPS.map((step, index) => (
+                  <HandoffStep key={step.title} index={index + 1} {...step} />
+                ))}
+              </ol>
+              <div className={sx(s.shotWindow)}>
+                <div className={sx(s.shotTitlebar)}>
+                  <span className={sx(s.shotDot)} />
+                  <span className={sx(s.shotDot)} />
+                  <span className={sx(s.shotDot)} />
+                </div>
+                <img
+                  alt="A project home: what needs you, the coordinator's summary, and missions that need you, run and are done"
+                  className={sx(s.shotImage)}
+                  loading="lazy"
+                  src="./docs/screenshots/projects.png"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
         {/* Start here */}
         <section className={sx(s.startSection)}>
           <div className={sx(s.startInner)}>
@@ -219,14 +294,12 @@ export function LandingPage({ data: _data }: { data: SiteData }) {
                 minutes.
               </p>
               <div className={sx(s.actionRow)}>
-                <Button asChild size="lg">
-                  <a href={INSTALL_HREF}>
-                    Install Stave
-                    <ArrowRight className={sx(s.actionIcon)} />
-                  </a>
+                <Button size="lg" render={<a href={INSTALL_HREF} />}>
+                  Install Stave
+                  <ArrowRight className={sx(s.actionIcon)} />
                 </Button>
-                <Button asChild size="lg" variant="outline">
-                  <a href={DOCS_HREF}>Browse the docs</a>
+                <Button size="lg" variant="outline" render={<a href={DOCS_HREF} />}>
+                  Browse the docs
                 </Button>
               </div>
             </div>
@@ -256,6 +329,38 @@ function FeatureCard({
       <h3 className={sx(s.featureTitle)}>{title}</h3>
       <p className={sx(s.featureDescription)}>{description}</p>
     </div>
+  );
+}
+
+function HandoffStep({
+  index,
+  title,
+  description,
+  href,
+  icon: Icon,
+}: {
+  index: number;
+  title: string;
+  description: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+}) {
+  return (
+    <li>
+      <a className={sx(s.handoffStep)} href={href}>
+        <span className={sx(s.handoffIndex)} aria-hidden="true">
+          {index}
+        </span>
+        <span className={sx(s.handoffText)}>
+          <span className={sx(s.handoffTitle)}>
+            <Icon className={sx(s.handoffIcon)} />
+            {title}
+          </span>
+          <span className={sx(s.featureDescription)}>{description}</span>
+        </span>
+        <ArrowRight className={sx(s.handoffArrow)} />
+      </a>
+    </li>
   );
 }
 

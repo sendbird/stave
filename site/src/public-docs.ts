@@ -110,9 +110,43 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
     ],
   },
   {
+    id: "missions-and-projects",
+    title: "Missions and Projects",
+    docs: [
+      {
+        routePath: "missions",
+        sourcePath: "docs/features/missions.md",
+        title: "Missions",
+        description:
+          "Hand an outcome to a playbook: Stave runs each stage, opens the PR, watches checks and stops only where you sign off.",
+      },
+      {
+        routePath: "playbooks",
+        sourcePath: "docs/features/playbooks.md",
+        title: "Playbooks",
+        description:
+          "Save the stages you would otherwise prompt one by one, with where missions should ask you first.",
+      },
+      {
+        routePath: "projects",
+        sourcePath: "docs/features/projects.md",
+        title: "Projects",
+        description:
+          "Brief a goal that takes several missions; a coordinator plans them, you approve, sign off and review.",
+      },
+    ],
+  },
+  {
     id: "workspace",
     title: "Workspace",
     docs: [
+      {
+        routePath: "workspace-kickoff",
+        sourcePath: "docs/features/workspace-kickoff.md",
+        title: "Workspace Kickoff",
+        description:
+          "Create a workspace from an issue, a link or a prompt, review the proposed branch and task, and optionally hand it to a mission.",
+      },
       {
         routePath: "repository-instructions",
         sourcePath: "docs/features/repository-instructions.md",
@@ -144,25 +178,11 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Schedule recurring Claude or Codex tasks with their own environment, model, permissions, and Information resources.",
       },
       {
-        routePath: "missions",
-        sourcePath: "docs/features/missions.md",
-        title: "Missions",
+        routePath: "wake-ups",
+        sourcePath: "docs/features/wake-ups.md",
+        title: "Wake-ups",
         description:
-          "Hand an outcome to a playbook: Stave runs each stage, opens the PR, watches checks and stops only where you sign off.",
-      },
-      {
-        routePath: "playbooks",
-        sourcePath: "docs/features/playbooks.md",
-        title: "Playbooks",
-        description:
-          "Save the stages you would otherwise prompt one by one, with where missions should ask you first.",
-      },
-      {
-        routePath: "projects",
-        sourcePath: "docs/features/projects.md",
-        title: "Projects",
-        description:
-          "Brief a goal that takes several missions; a coordinator plans them, you approve, sign off and review.",
+          "Resume an existing task on a schedule or when the work it delegated finishes, in the same provider session.",
       },
       {
         routePath: "delegated-tasks",
