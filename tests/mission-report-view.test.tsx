@@ -1,0 +1,65 @@
+import { expect, test } from "bun:test";
+import { createElement } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { MissionReportView } from "../src/components/missions/MissionReportView";
+import type { MissionReport } from "../src/lib/missions/report";
+import { formatMissionReportMarkdown } from "../src/lib/missions/report-markdown";
+
+const REPORT: MissionReport = {
+  missionId: "mission-1",
+  playbookName: "Request → PR",
+  assignment: "Add CSV export to the billing page.",
+  outcome: "stopped",
+  reason: "The lead task was archived.",
+  startedAt: "2026-09-26T10:00:00.000Z",
+  endedAt: "2026-09-26T10:34:00.000Z",
+  turnCount: 11,
+  stages: [
+    {
+      stageId: "verify",
+      title: "Verify",
+      kind: "ai",
+      status: "completed",
+      attempts: 1,
+      summary: "Checks pass.",
+      decisions: [{ decision: "Container query", reason: "Keeps SSR stable." }],
+      evidence: [
+        { label: "Visual check at 375px", kind: "observation", source: "agent" },
+        { label: "Typecheck", kind: "check", command: "bun run typecheck", source: "stave" },
+      ],
+      detail: null,
+    },
+  ],
+  acceptanceCriteria: [
+    { text: "Table scrolls below 768px", status: "met" },
+    { text: "Safari 16", status: "unverified" },
+  ],
+  links: [{ label: "Opened draft PR #612", url: "https://github.com/acme/app/pull/612", source: "stave" }],
+  leftBehind: ["Branch feat/billing is pushed."],
+};
+
+test("the report leads with outcome and length, then decisions, open items and what was left", () => {
+  const html = renderToStaticMarkup(createElement(MissionReportView, { report: REPORT }));
+  expect(html).toContain("Mission stopped · 34m · 11 turns");
+  expect(html).toContain("The lead task was archived.");
+  expect(html).toContain("Container query");
+  expect(html).toContain("Safari 16 — unverified");
+  expect(html).not.toContain("Table scrolls below 768px — met");
+  expect(html).toContain("Branch feat/billing is pushed.");
+  // Verified by Stave comes first.
+  expect(html.indexOf("Typecheck")).toBeLessThan(html.indexOf("Visual check at 375px"));
+  expect(html).toContain("Copy Markdown");
+});
+
+test("the Markdown copy carries the same story", () => {
+  const markdown = formatMissionReportMarkdown(REPORT);
+  expect(markdown).toContain("## Mission stopped · 34m · 11 turns");
+  expect(markdown).toContain("**Request → PR:** Add CSV export to the billing page.");
+  expect(markdown).toContain("- **Verify** — completed: Checks pass.");
+  expect(markdown).toContain("  - Decision: Container query — Keeps SSR stable.");
+  expect(markdown).toContain("  - Verified by Stave: Typecheck (`bun run typecheck`)");
+  expect(markdown).toContain("- [x] Table scrolls below 768px");
+  expect(markdown).toContain("- [?] Safari 16");
+  expect(markdown).toContain("- [Opened draft PR #612](https://github.com/acme/app/pull/612) — Verified by Stave");
+  expect(markdown).toContain("### Left behind\n- Branch feat/billing is pushed.");
+});

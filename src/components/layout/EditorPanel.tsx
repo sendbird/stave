@@ -1110,7 +1110,7 @@ export function EditorPanel(props: EditorPanelProps) {
             <WorkspaceScriptsPanel onOpenSettings={props.onOpenSettings} />
           ) : null}
           {rightTab === "activity" ? <TurnActivityPanel /> : null}
-          {rightTab === "results" || rightTab === "collaboration" ? <TaskWorkPanel kind={rightTab} /> : null}
+          {rightTab === "results" || rightTab === "mission" ? <TaskWorkPanel kind={rightTab} /> : null}
         </RightRailPanelShell>
       </div>
       <ConfirmDialog

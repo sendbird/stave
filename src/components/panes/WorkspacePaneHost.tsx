@@ -496,8 +496,8 @@ function buildTabContextMenuItems(
     });
     if (!isManagedTask) {
       items.push({
-        label: "View collaboration",
-        action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "collaboration"),
+        label: "View mission",
+        action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "mission"),
       });
     }
     if (isManagedTask) {

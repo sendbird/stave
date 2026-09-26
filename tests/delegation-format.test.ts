@@ -13,7 +13,7 @@ import {
 import { formatAdvisorDuration } from "@/lib/providers/advisor-activity";
 import { formatTurnActivityElapsedSeconds } from "@/components/session/turn-activity.utils";
 import { describeAdvisorParticipant } from "@/components/session/advisor-exchange.utils";
-import { describeDelegationPlan } from "@/components/collaboration/DelegateTaskForm";
+import { describeDelegationPlan } from "@/components/team/DelegateTaskForm";
 import { createEmptyDelegationDraft } from "@/lib/collaboration/delegation-draft";
 
 describe("formatExchangeDuration", () => {

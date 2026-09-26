@@ -4,7 +4,7 @@ import {
   describeDelegateAssignee,
   describeDelegationPlan,
   type RoutedDelegateDefaults,
-} from "@/components/collaboration/DelegateTaskForm";
+} from "@/components/team/DelegateTaskForm";
 import { createEmptyDelegationDraft } from "@/lib/collaboration/delegation-draft";
 
 const routed: RoutedDelegateDefaults = {

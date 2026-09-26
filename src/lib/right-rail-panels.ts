@@ -5,7 +5,7 @@ import {
   Info,
   SearchCheck,
   FileCheck2,
-  Users,
+  Target,
   type LucideIcon,
 } from "lucide-react";
 import { WORKSPACE_TOOLS_PRESENTATION } from "@/lib/workspace-tools-presentation";
@@ -18,7 +18,7 @@ export type RightRailPanelId =
   | "scripts"
   | "activity"
   | "results"
-  | "collaboration";
+  | "mission";
 
 /** Panels the right rail actually renders as sidebar overlays. */
 export const RIGHT_RAIL_PANEL_IDS: readonly RightRailPanelId[] = [
@@ -29,7 +29,7 @@ export const RIGHT_RAIL_PANEL_IDS: readonly RightRailPanelId[] = [
   "scripts",
   "activity",
   "results",
-  "collaboration",
+  "mission",
 ];
 
 export const RIGHT_RAIL_PANEL_TITLES: Record<RightRailPanelId, string> = {
@@ -40,7 +40,7 @@ export const RIGHT_RAIL_PANEL_TITLES: Record<RightRailPanelId, string> = {
   scripts: WORKSPACE_TOOLS_PRESENTATION.label,
   activity: "Turn Activity",
   results: "Task Results",
-  collaboration: "Task Collaboration",
+  mission: "Mission",
 };
 
 export const RIGHT_RAIL_PANEL_ICONS: Record<RightRailPanelId, LucideIcon> = {
@@ -51,5 +51,5 @@ export const RIGHT_RAIL_PANEL_ICONS: Record<RightRailPanelId, LucideIcon> = {
   scripts: WORKSPACE_TOOLS_PRESENTATION.icon,
   activity: Activity,
   results: FileCheck2,
-  collaboration: Users,
+  mission: Target,
 };

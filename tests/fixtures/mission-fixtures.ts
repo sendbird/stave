@@ -121,3 +121,32 @@ export const COMPLETE_REPORT = {
   reportedAt: "2026-09-26T10:02:00.000Z",
   turnId: "turn-1",
 };
+
+let eventSequence = 0;
+
+/** A mission event for view tests. */
+export function missionEvent(
+  kind: import("../../src/lib/missions/domain").MissionEventKind,
+  detail: Record<string, unknown>,
+  overrides: { idempotencyKey?: string | null; createdAt?: string } = {},
+): import("../../src/lib/missions/domain").MissionEvent {
+  eventSequence += 1;
+  return {
+    id: `event-${eventSequence}`,
+    missionId: "mission-1",
+    sequence: eventSequence,
+    kind,
+    idempotencyKey: overrides.idempotencyKey ?? null,
+    detail,
+    createdAt: overrides.createdAt ?? MISSION_NOW.toISOString(),
+  };
+}
+
+/** A `MissionDetail` as the renderer receives it. */
+export function missionDetail(
+  aggregate: MissionAggregate,
+  events: import("../../src/lib/missions/domain").MissionEvent[] = [],
+  report: import("../../src/lib/missions/report").MissionReport | null = null,
+): import("../../src/lib/missions/api").MissionDetail {
+  return { mission: aggregate.mission, stages: aggregate.stages, events, report };
+}

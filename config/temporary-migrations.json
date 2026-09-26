@@ -77,6 +77,18 @@
       ]
     },
     {
+      "id": "right-rail-mission-panel",
+      "description": "Maps a saved right-rail layout that names the old collaboration panel id to the Mission panel, so the panel a user left open survives the rename.",
+      "introducedAfter": "0.19.7",
+      "removeInVersion": "0.22.0",
+      "files": [
+        "src/store/layout.utils.ts"
+      ],
+      "tests": [
+        "tests/right-rail-panel-migration.test.ts"
+      ]
+    },
+    {
       "id": "rename-vocabulary-codemod",
       "description": "Replays the vocabulary renames (routine to automation, task heartbeat to wake-up, child task to delegated task, tracker task to tracker issue, project to repository, and later renames) on branches that started before they landed.",
       "introducedAfter": "0.19.6",

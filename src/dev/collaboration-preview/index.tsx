@@ -1,7 +1,7 @@
 import { ChildListingProbe } from "./listing-probe";
 import { TaskResultReviews } from "@/components/session/TaskResultReviews";
 import { useEffect, useLayoutEffect, useState } from "react";
-import { CollaborationPanel } from "@/components/collaboration/CollaborationPanel";
+import { TeamSection } from "@/components/team/TeamSection";
 import { TurnActivityPanel } from "@/components/session/TurnActivityPanel";
 import { ActionButton } from "@/components/system/ActionButton";
 import { applyThemeClass } from "@/lib/themes/apply";
@@ -246,7 +246,7 @@ function CollaborationPreviewContent() {
             <TurnActivityPanel />
           </div>
         ) : (
-          <CollaborationPanel target={target} />
+          <TeamSection target={target} />
         )}
       </div>
     </main>

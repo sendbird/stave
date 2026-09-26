@@ -82,7 +82,7 @@ function collectWorkerExecutions(messages: readonly ChatMessage[]) {
  * rows, live first. Mounted only on demand; no hidden polling, chat cloning,
  * or secondary executor.
  */
-export function CollaborationPanel({ target }: { target: CollaborationTarget }) {
+export function TeamSection({ target }: { target: CollaborationTarget }) {
   const [filter, setFilter] = useState<DelegationFilter>("all");
   const [exporting, setExporting] = useState(false);
   const [exportNotice, setExportNotice] = useState<{

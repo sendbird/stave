@@ -71,6 +71,16 @@ if (preview === "kickoff") {
       );
     },
   );
+} else if (preview === "mission") {
+  void import("@/dev/mission-preview").then(({ MissionPreview }) => {
+    root.render(
+      <StrictMode>
+        <StaveDesignProvider>
+          <MissionPreview />
+        </StaveDesignProvider>
+      </StrictMode>,
+    );
+  });
 } else if (preview === "collaboration") {
   void import("@/dev/collaboration-preview").then(
     ({ CollaborationPreview }) => {

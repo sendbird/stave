@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { CollaborationPanel } from "@/components/collaboration/CollaborationPanel";
+import { TeamSection } from "@/components/team/TeamSection";
 import { ExchangeRow } from "@/components/delegation/ExchangeRow";
 import { AdvisorExchangeCard } from "@/components/session/AdvisorExchangeMonitor";
 import { TurnActivity } from "@/components/session/TurnActivity";
@@ -502,7 +502,7 @@ export function AdvisorWorkerLivePreview() {
             </div>
             <div className={sx(styles.stack)}>
               <p className={sx(styles.label)}>Right rail · Delegations panel</p>
-              <CollaborationPanel target={target} />
+              <TeamSection target={target} />
             </div>
           </div>
           <AutoRouterPreviewSection

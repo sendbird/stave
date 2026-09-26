@@ -1,3 +1,4 @@
+import { useMissionSync } from "@/store/missions-store";
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { WorkspaceSaveNotice } from "@/components/layout/WorkspaceSaveNotice";
@@ -41,6 +42,7 @@ export default function App() {
   useLensGuestHost();
   useLensSessionPresentationRequests();
   useLensSessionClosedEvents();
+  useMissionSync();
 
   useEffect(() => {
     const subscribeTaskTurnUpdates =

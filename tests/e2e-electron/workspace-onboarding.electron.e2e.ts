@@ -43,7 +43,7 @@ test("first-run project action and task examples remain keyboard accessible", as
       stave.page.getByRole("tablist", { name: "Task inspection" }),
     ).toHaveCount(0);
     await stave.page
-      .getByRole("button", { name: "Task Collaboration", exact: true })
+      .getByRole("button", { name: "Mission", exact: true })
       .click();
     await expect(
       stave.page.getByRole("heading", { name: "Delegated tasks", exact: true }),
@@ -88,7 +88,7 @@ test("first-run project action and task examples remain keyboard accessible", as
       stave.page.getByRole("button", { name: "Export report", exact: true }),
     ).toHaveCount(0);
     await stave.page
-      .getByRole("button", { name: "Task Collaboration", exact: true })
+      .getByRole("button", { name: "Mission", exact: true })
       .click();
     await stave.page.screenshot({
       path: testInfo.outputPath("task-collaboration.png"),

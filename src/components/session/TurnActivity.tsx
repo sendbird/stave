@@ -111,6 +111,9 @@ import { buildDelegatedTaskExpectedIdentity } from "@/lib/runs/delegated-task-vi
 import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
 import type { TurnActivityPlacement } from "@/store/app-settings";
+import { MissionBar } from "@/components/missions/MissionBar";
+import { MissionComposerChip } from "@/components/missions/MissionComposerChip";
+import { MissionSignOffSlot } from "@/components/missions/SignOffCard";
 import { useAppStore } from "@/store/app.store";
 import type { TurnActivityFloatPosition } from "@/store/layout.utils";
 import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
@@ -218,8 +221,20 @@ export function TurnActivity(props: {
   const placement = useAppStore(
     (state) => state.settings.turnActivityPlacement,
   );
-  if (placement !== host) return null;
-  return <ActiveTurnActivity key={host} {...props} host={host} />;
+  // The Mission bar heads the activity, and stays up between turns. The
+  // floating card is the turn shelf alone, so with it the bar stays docked.
+  // The sign-off card and the reply chip always sit at the composer.
+  const missionHost = placement === "panel" ? "panel" : "docked";
+  return (
+    <>
+      {host === missionHost ? <MissionBar /> : null}
+      {host === "docked" ? <MissionSignOffSlot /> : null}
+      {placement === host ? (
+        <ActiveTurnActivity key={host} {...props} host={host} />
+      ) : null}
+      {host === "docked" ? <MissionComposerChip /> : null}
+    </>
+  );
 }
 
 // Gate before the subscriptions, projections and effects. An inactive host

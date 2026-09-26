@@ -18,6 +18,8 @@ import type { ResultReview } from "@/lib/reviews/result-review";
 import { useAppStore } from "@/store/app.store";
 import type { RightRailPanelId } from "@/lib/right-rail-panels";
 import { ResultFileSnapshots } from "./ResultFileSnapshots";
+import { MissionReportView } from "@/components/missions/MissionReportView";
+import { useTaskMission } from "@/store/missions-store";
 import {
   formatActualRunModel,
   ModelResolutionSummary,
@@ -248,6 +250,12 @@ export function RunHistoryRow(props: {
   );
 }
 
+/** The task's latest finished mission report heads its results. */
+function TaskMissionReport(props: { workspaceId: string; taskId: string }) {
+  const detail = useTaskMission(props.workspaceId, props.taskId);
+  return detail?.report ? <MissionReportView report={detail.report} /> : null;
+}
+
 export function TaskResultReviews(props: {
   workspaceId: string;
   taskId: string;
@@ -337,6 +345,7 @@ export function TaskResultReviews(props: {
 
   return (
     <section aria-label="Task results" className={sx(styles.panel)}>
+      <TaskMissionReport workspaceId={props.workspaceId} taskId={props.taskId} />
       <div className={sx(styles.header)}>
         <h3 className={sx(styles.heading)}>Run history</h3>
         <p className={sx(styles.introduction)}>

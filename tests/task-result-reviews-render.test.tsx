@@ -5,8 +5,8 @@ import {
   RunHistoryRow,
   TaskResultReviews,
 } from "@/components/session/TaskResultReviews";
-import { DelegateTaskForm } from "@/components/collaboration/DelegateTaskForm";
-import { CollaborationPanel } from "@/components/collaboration/CollaborationPanel";
+import { DelegateTaskForm } from "@/components/team/DelegateTaskForm";
+import { TeamSection } from "@/components/team/TeamSection";
 import { Accordion } from "@/components/ui/accordion";
 import type { ResultReview } from "@/lib/reviews/result-review";
 
@@ -73,7 +73,7 @@ test("delegate form mounts collapsed behind a body-size header and toggle", () =
 
 test("collaboration puts the delegation entry before history controls", () => {
   const html = renderToStaticMarkup(
-    createElement(CollaborationPanel, {
+    createElement(TeamSection, {
       target: { taskId: "t", workspaceId: "w", repositoryPath: "/tmp/p" },
     }),
   );

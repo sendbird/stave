@@ -76,6 +76,7 @@ import {
 import { AssistantMessageBody } from "./message/assistant-trace";
 import { TaskStartGuide } from "./TaskStartGuide";
 import { SessionLoadingState } from "./SessionLoadingState";
+import { StageDivider } from "@/components/missions/StageDivider";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import {
   buildConversationTurnActionStateByMessageId,
@@ -154,6 +155,8 @@ interface MessageRowProps {
   };
   /** Previous assistant turn of this task, for prompt-cache miss detection. */
   previousAssistantTurn?: PromptCacheTurnSnapshot | null;
+  /** On a user message: the turn it started, for a mission stage divider. */
+  startedTurnId?: string;
 }
 
 /**
@@ -183,6 +186,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     threadActionState,
     message,
     previousAssistantTurn,
+    startedTurnId,
   } = args;
   const showRespondingWave =
     Boolean(activeTurnId) &&
@@ -329,6 +333,9 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
       }
       className={sx(isFirst && styles.rowFirst)}
     >
+      {message.role === "user" ? (
+        <StageDivider taskId={taskId} turnId={startedTurnId} />
+      ) : null}
       <Message from={message.role}>
         <div
           className={sx(
@@ -702,6 +709,21 @@ function ChatPanelMessageList(props: {
     }
     return map;
   }, [visibleMessages]);
+  // A user message starts the turn of the assistant message after it. Mission
+  // stage dividers are keyed by that turn.
+  const startedTurnIdByUserMessageId = useMemo(() => {
+    const map = new Map<string, string>();
+    let pendingUserMessageId: string | null = null;
+    for (const message of visibleMessages) {
+      if (message.role === "user") {
+        pendingUserMessageId = message.id;
+      } else if (pendingUserMessageId && message.turnId) {
+        map.set(pendingUserMessageId, message.turnId);
+        pendingUserMessageId = null;
+      }
+    }
+    return map;
+  }, [visibleMessages]);
   const restoreAnchor = taskScrollAnchorCache.get(scrollContextKey);
   const restoreItemIndex = restoreAnchor
     ? messageIndexById.get(restoreAnchor.messageId)
@@ -1001,6 +1023,7 @@ function ChatPanelMessageList(props: {
                 previousAssistantTurn={previousAssistantTurnByMessageId.get(
                   message.id,
                 )}
+                startedTurnId={startedTurnIdByUserMessageId.get(message.id)}
               />
             )}
           />
