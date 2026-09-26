@@ -271,6 +271,22 @@
         "electron/main/persistence-flush-gate.ts",
         "src/store/workspace-runtime-state.ts"
       ]
+    },
+    {
+      "id": "mission-start-consent",
+      "title": "A saved playbook never grants permissions; every mission start records its own consent",
+      "invariant": "Starting a mission sends the check-ins, permission mode and external-effect go-aheads chosen in the Start sheet; the mission stores that consent, its turns take permissions from mission.consent only (never from the playbook's saved defaults), and an external effect the consent does not list always waits for sign-off.",
+      "testFiles": [
+        "tests/mission-start-consent.test.ts",
+        "tests/pre-start-checks.test.ts"
+      ],
+      "assertionRefs": [
+        "docs/architecture/agent-platform-taxonomy.md",
+        "src/lib/missions/start-sheet.ts",
+        "src/lib/missions/policy.ts",
+        "src/components/missions/StartMissionSheet.tsx",
+        "electron/host-service/supervision/mission-runtime.ts"
+      ]
     }
   ]
 }

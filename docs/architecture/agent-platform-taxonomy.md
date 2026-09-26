@@ -218,10 +218,9 @@ whose name repeats it.
     own consent.
 11. At most one supervisor entry starts automatic turns on a task at a time.
 
-Statement 10 is recorded ahead of its gate: the mission record already carries
-the consent it was started with, and the stage sign-off already asks before any
-external effect the consent does not list; the gate is registered with the
-Start sheet that collects that consent. Every other statement is fully
+Statement 10 is asserted at the Start sheet: the consent chosen there is what
+the mission stores and what its turns run with, and the playbook's saved
+permission default only preselects the sheet. Every statement is fully
 asserted. The two statements that were earlier written ahead of their
 capability landed inside the boundary rather than beside it, which is what
 recording them early was for:

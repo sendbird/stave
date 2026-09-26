@@ -145,7 +145,22 @@ export const MISSION_DECISION_EFFECTS: Record<MissionDecisionAction, string> = {
  * with an external effect the user did not authorize at start always asks.
  */
 export function resolveMissionStageSignOff(mission: Mission, index: number): SignOff {
-  const stage = playbookStageAt(mission, index);
+  playbookStageAt(mission, index);
+  return resolveConsentStageSignOff(mission, index);
+}
+
+/**
+ * The sign-off a stage gets under a start's consent: a stage that writes
+ * outside the workspace without the user's go-ahead always asks; the rest
+ * follow the chosen check-ins. The Start sheet previews missions with this
+ * same rule, so what it shows is what the mission does.
+ */
+export function resolveConsentStageSignOff(
+  mission: Pick<Mission, "playbook"> & { consent: Pick<Mission["consent"], "checkIns" | "authorizedEffectStageIds"> },
+  index: number,
+): SignOff {
+  const stage = mission.playbook.stages[index];
+  if (!stage) throw new RangeError(`Stage index ${index} is outside the playbook.`);
   if (
     stageHasExternalEffect(stage) &&
     !mission.consent.authorizedEffectStageIds.includes(stage.id)

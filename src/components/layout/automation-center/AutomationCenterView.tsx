@@ -70,10 +70,12 @@ import {
 } from "./automation-center.utils";
 import { automationStyles } from "./automation-center.styles";
 import { centerStyles } from "./automation-center-view.styles";
+import { PlaybooksTab } from "@/components/playbooks/PlaybooksTab";
+import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
 
 const ALL_AUTOMATIONS = "all";
 
-type AutomationCenterTab = "automations" | "runs";
+type AutomationCenterTab = "automations" | "runs" | "playbooks";
 
 function Detail(props: { label: string; value: string }) {
   return (
@@ -127,6 +129,11 @@ export function AutomationCenterView() {
     runs: [],
   });
   const [activeTab, setActiveTab] = useState<AutomationCenterTab>("automations");
+  const playbookCount = useAppStore((state) => state.settings.playbooks.length);
+  const playbooksRequested = usePlaybooksUiStore((state) => state.centerRequest !== null);
+  useEffect(() => {
+    if (playbooksRequested) setActiveTab("playbooks");
+  }, [playbooksRequested]);
   const [selectedAutomationId, setSelectedAutomationId] = useState<string | null>(
     null,
   );
@@ -612,18 +619,21 @@ export function AutomationCenterView() {
             <h1 className={sx(centerStyles.headerTitle)}>Automations</h1>
           </div>
           <p className={sx(centerStyles.headerSubtitle)}>
-            Schedule repeatable agent work and inspect run history.
+            Schedule repeatable agent work, save playbooks for missions, and
+            inspect run history.
           </p>
         </div>
         <div className={sx(centerStyles.headerActions)}>
-          <Button
-            size="sm"
-            xstyle={centerStyles.headerButton}
-            onClick={startCreate}
-          >
-            <Plus className={sx(centerStyles.buttonIcon)} />
-            New automation
-          </Button>
+          {activeTab === "playbooks" ? null : (
+            <Button
+              size="sm"
+              xstyle={centerStyles.headerButton}
+              onClick={startCreate}
+            >
+              <Plus className={sx(centerStyles.buttonIcon)} />
+              New automation
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -668,6 +678,7 @@ export function AutomationCenterView() {
             [
               ["automations", `Automations · ${snapshot.automations.length}`],
               ["runs", `Run history · ${snapshot.runs.length}`],
+              ["playbooks", `Playbooks · ${playbookCount}`],
             ] as const
           ).map(([id, label]) => (
             <ActionButton
@@ -686,6 +697,13 @@ export function AutomationCenterView() {
           <p className={sx(centerStyles.toolbarNote)}>
             Runs while Stave is open. After reopening, one missed occurrence is
             caught up.
+          </p>
+        ) : null}
+
+        {activeTab === "playbooks" ? (
+          <p className={sx(centerStyles.toolbarNote)}>
+            Saved ways of working. A mission runs one on a task, stage by
+            stage.
           </p>
         ) : null}
 
@@ -745,7 +763,9 @@ export function AutomationCenterView() {
         </div>
       ) : null}
 
-      {showLoadingState ? (
+      {activeTab === "playbooks" ? (
+        <PlaybooksTab />
+      ) : showLoadingState ? (
         <div
           className={sx(centerStyles.loadingPane)}
           role="status"

@@ -17,6 +17,7 @@ import type {
   MissionCommandResponse,
   MissionDetail,
   MissionFailureCode,
+  MissionStartArgs,
   MissionsBridgeApi,
 } from "@/lib/missions/api";
 import { isActiveMissionState, type Mission } from "@/lib/missions/domain";
@@ -54,6 +55,11 @@ interface MissionsState {
     command: A,
     args: Parameters<MissionsBridgeApi[A]>[0],
   ) => Promise<MissionCommandResponse>;
+  /**
+   * Starts a mission. When the answer is lost on the way back, it looks for
+   * the mission before reporting a failure, so a retry never starts a second.
+   */
+  startMission: (input: MissionStartArgs) => Promise<MissionCommandResponse>;
 }
 
 export function missionTaskKey(workspaceId: string, taskId: string) {
@@ -147,6 +153,35 @@ export const useMissionsStore = create<MissionsState>()((set, get) => {
       const response = await api.get({ missionId }).catch(() => null);
       const detail = response?.ok ? response.mission : null;
       if (detail && detail.mission.workspaceId === get().workspaceId) storeDetail(detail);
+    },
+
+    startMission: async (input) => {
+      const api = missionsApi();
+      if (!api) return { ok: false, mission: null, code: "failed", message: "Missions need the desktop app." };
+      try {
+        const response = await api.start(input);
+        if (response.ok && response.mission) storeDetail(response.mission);
+        return response;
+      } catch {
+        // The start may have reached the host. Look before calling it failed.
+        const listed = await api.list({ workspaceId: input.workspaceId }).catch(() => null);
+        const started = listed?.ok
+          ? listed.missions.find(
+              (mission) => mission.leadTaskId === input.leadTaskId && isActiveMissionState(mission.state),
+            )
+          : undefined;
+        const detail = started ? await api.get({ missionId: started.id }).catch(() => null) : null;
+        if (detail?.ok && detail.mission) {
+          storeDetail(detail.mission);
+          return { ok: true, mission: detail.mission };
+        }
+        return {
+          ok: false,
+          mission: null,
+          code: "failed",
+          message: "Stave could not confirm that the mission started. Check the Mission panel before trying again.",
+        };
+      }
     },
 
     runCommand: async (command, args) => {

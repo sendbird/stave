@@ -13,6 +13,7 @@ import {
   SlidersHorizontal,
   Sparkles,
   Square,
+  Target,
   Trash2,
   UserRound,
   WandSparkles,
@@ -117,6 +118,12 @@ import {
   getActiveMacroTokenMatch,
 } from "@/lib/macros/token";
 import type { Macro, MacroTokenMatch } from "@/lib/macros/types";
+import {
+  HandOffControl,
+  playbookIdOfPaletteEntry,
+  playbookPaletteEntries,
+  useOpenHandOff,
+} from "@/components/session/HandOffControl";
 import { sx, cx } from "../ads/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import {
@@ -1253,13 +1260,29 @@ export function PromptInput(args: PromptInputProps) {
       }),
     [caretIndex, value],
   );
+  // `!shortcut` finds playbooks next to macros; choosing one hands off.
+  const playbooks = useAppStore((state) => state.settings.playbooks);
+  const openHandOff = useOpenHandOff({
+    clearComposer: () => {
+      valueRef.current = "";
+      onValueChange("");
+    },
+  });
+  const handOffAvailable = openHandOff !== null;
+  const paletteMacros = useMemo(
+    () =>
+      handOffAvailable
+        ? [...(macros ?? []), ...playbookPaletteEntries(playbooks)]
+        : (macros ?? []),
+    [handOffAvailable, macros, playbooks],
+  );
   const filteredMacroItems = useMemo(
     () =>
       filterMacroEntries({
-        macros: macros ?? [],
+        macros: paletteMacros,
         query: activeMacroToken?.query ?? "",
       }),
-    [activeMacroToken?.query, macros],
+    [activeMacroToken?.query, paletteMacros],
   );
   const filteredWorkspaceInformationItems = useMemo(() => {
     const query = deferredWorkspaceInformationQuery.trim().toLowerCase();
@@ -2174,6 +2197,21 @@ export function PromptInput(args: PromptInputProps) {
   function applyMacroSelection(item: Macro) {
     const match = resolveMacroTokenSelection();
     pendingMacroTokenRef.current = null;
+    const playbookId = playbookIdOfPaletteEntry(item);
+    if (playbookId) {
+      // The rest of the draft becomes the assignment; the token goes away.
+      const currentValue = valueRef.current;
+      const nextValue = match
+        ? `${currentValue.slice(0, match.start)}${currentValue.slice(match.end)}`.trim()
+        : currentValue;
+      valueRef.current = nextValue;
+      onValueChange(nextValue);
+      setSuppressedAutocompleteValue({ palette: "macro", value: nextValue });
+      setDismissedMacroToken(match?.token ?? `!${item.slug}`);
+      setSelectedMacroIndex(NO_COMMAND_SELECTION);
+      openHandOff?.({ assignment: nextValue, playbookId });
+      return;
+    }
     if (!onMacroSelect) {
       return;
     }
@@ -2317,6 +2355,14 @@ export function PromptInput(args: PromptInputProps) {
   if (!hasReviewControl) unavailableComposerControls.push("review");
   if (!secretsControl) unavailableComposerControls.push("secrets");
   if (!macroControl) unavailableComposerControls.push("macro");
+  const handOffControl =
+    openHandOff && !minimal ? (
+      <HandOffControl
+        disabled={interactionsDisabled}
+        onClick={() => openHandOff({ assignment: valueRef.current })}
+      />
+    ) : null;
+  if (!handOffControl) unavailableComposerControls.push("handOff");
   if (!compareControl) unavailableComposerControls.push("compare");
   if (!hasRuntimeContent) unavailableComposerControls.push("runtime");
 
@@ -2427,6 +2473,7 @@ export function PromptInput(args: PromptInputProps) {
     ) : null,
     secrets: secretsControl,
     macro: macroControl,
+    handOff: handOffControl,
     compare: compareControl,
     runtime: hasRuntimeContent ? (
       isMobile ? (
@@ -3450,8 +3497,8 @@ export function PromptInput(args: PromptInputProps) {
                   ) : activePalette === "macro" &&
                     filteredMacroItems.length === 0 ? (
                     <CommandEmpty>
-                      {macros && macros.length > 0
-                        ? "No matching macro."
+                      {paletteMacros.length > 0
+                        ? "No matching macro or playbook."
                         : "No macros yet. Add one in Settings → Macros."}
                     </CommandEmpty>
                   ) : activePalette === "command" &&
@@ -3689,7 +3736,13 @@ export function PromptInput(args: PromptInputProps) {
                       ) : null}
                       {activePalette === "macro" &&
                       indexedMacroItems.length > 0 ? (
-                        <CommandGroup heading="Macros">
+                        <CommandGroup
+                          heading={
+                            indexedMacroItems.some(({ item }) => playbookIdOfPaletteEntry(item))
+                              ? "Macros and playbooks"
+                              : "Macros"
+                          }
+                        >
                           {indexedMacroItems.map(({ item, index }) => (
                             <CommandItem
                               key={item.id}
@@ -3704,7 +3757,11 @@ export function PromptInput(args: PromptInputProps) {
                               onSelect={() => applyMacroSelection(item)}
                             >
                               <div className={sx(promptInputStyles.iconWrap)}>
-                                <Zap className={sx(promptInputStyles.iconMuted)} />
+                                {playbookIdOfPaletteEntry(item) ? (
+                                  <Target className={sx(promptInputStyles.iconMuted)} />
+                                ) : (
+                                  <Zap className={sx(promptInputStyles.iconMuted)} />
+                                )}
                               </div>
                               <div className={sx(promptInputStyles.flex1Min)}>
                                 <div className={sx(promptInputStyles.rowCenterMin)}>

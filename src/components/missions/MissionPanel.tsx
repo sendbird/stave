@@ -22,6 +22,7 @@ import type { AcceptanceCriterion } from "@/lib/playbooks/stage-prompt";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import { useAppStore } from "@/store/app.store";
 import { useMissionsStore, useTaskMission } from "@/store/missions-store";
+import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
 import { MissionReportView } from "./MissionReportView";
 import { useMissionReportActions, type MissionReportActions } from "./useMissionReportActions";
 import { WakeUpSection } from "./WakeUpSection";
@@ -272,6 +273,45 @@ export function MissionDetailView(props: {
   );
 }
 
+/** No mission yet: what a mission is, and the way to start one. */
+function HandOffEmptyState(props: { workspaceId: string; taskId: string }) {
+  const provider = useAppStore((state) => state.tasks.find((task) => task.id === props.taskId)?.provider ?? null);
+  const draft = useAppStore((state) => state.promptDraftByTask[props.taskId]?.text ?? "");
+  const openStartSheet = usePlaybooksUiStore((state) => state.openStartSheet);
+  const openPlaybooks = usePlaybooksUiStore((state) => state.openPlaybooks);
+  const supported = provider === "claude-code" || provider === "codex";
+  return (
+    <section className={sx(styles.empty)} aria-label="Mission">
+      <IconTile size="md" tone="accent">
+        <Target size={iconTileGlyphSizes.md} />
+      </IconTile>
+      <div className={sx(styles.headText)}>
+        <h2 className={sx(styles.title)}>Hand this task off</h2>
+        <p className={sx(styles.notice)}>
+          A mission carries the task through a playbook — understand, build, verify, open a PR — and stops only
+          where you ask to sign off.
+        </p>
+      </div>
+      <div className={sx(styles.actions)}>
+        <Button
+          size="sm"
+          disabled={!supported}
+          title={supported ? undefined : "Missions run on Claude and Codex tasks."}
+          onClick={() =>
+            openStartSheet({ workspaceId: props.workspaceId, taskId: props.taskId, assignment: draft })
+          }
+        >
+          <Target aria-hidden />
+          Start a mission
+        </Button>
+        <Button variant="quiet" size="sm" onClick={() => openPlaybooks()}>
+          Manage playbooks
+        </Button>
+      </div>
+    </section>
+  );
+}
+
 /**
  * The right rail's Mission panel: the task's mission on top, its wake-up, and
  * the team (Advisor, workers, delegated tasks) below.
@@ -312,12 +352,7 @@ export function MissionPanel(props: {
           onShowTool={(toolUseId) => focusTranscriptTool({ taskId: props.taskId, toolUseId })}
         />
       ) : (
-        <section className={sx(styles.section)} aria-label="Mission">
-          <p className={sx(styles.notice)}>
-            No mission on this task. A mission carries a playbook through its stages and stops only where you
-            asked to sign off.
-          </p>
-        </section>
+        <HandOffEmptyState workspaceId={props.workspaceId} taskId={props.taskId} />
       )}
       <WakeUpSection workspaceId={props.workspaceId} taskId={props.taskId} />
       <section className={sx(styles.section, styles.sectionRule)} aria-label="Team">

@@ -12,6 +12,7 @@ import type {
   TrackerIssueKickoffResult,
 } from "@/lib/tracker-issues/types";
 import { useAppStore } from "@/store/app.store";
+import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
 
 export interface TrackerIssueActions {
   /** Files a ticket into the active workspace's Information panel. */
@@ -25,6 +26,7 @@ export interface TrackerIssueActions {
   completeKickoff: (args: {
     task: TrackerIssue;
     result: TrackerIssueKickoffResult;
+    playbookChoice?: string | null;
   }) => Promise<void>;
   refresh: (source?: TrackerSourceId) => void;
 }
@@ -102,6 +104,8 @@ export function useTrackerIssueActions(args: {
     async (kickoff: {
       task: TrackerIssue;
       result: TrackerIssueKickoffResult;
+      /** Set when the ticket becomes a mission, confirmed in the Start sheet. */
+      playbookChoice?: string | null;
     }) => {
       const { result, task } = kickoff;
       const store = useAppStore.getState();
@@ -164,6 +168,16 @@ export function useTrackerIssueActions(args: {
         taskId,
       }).catch(() => undefined);
       closeSurface();
+      if (kickoff.playbookChoice) {
+        usePlaybooksUiStore.getState().openStartSheet({
+          workspaceId: result.workspaceId,
+          taskId,
+          playbookId: kickoff.playbookChoice,
+          assignment: result.staged.prompt,
+          fromComposerDraft: true,
+        });
+        return;
+      }
       toast.success(`Staged ${task.key}`, {
         description: "Review the prompt, then send it.",
       });

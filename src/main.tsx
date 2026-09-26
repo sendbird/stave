@@ -71,6 +71,16 @@ if (preview === "kickoff") {
       );
     },
   );
+} else if (preview === "playbooks") {
+  void import("@/dev/playbooks-preview").then(({ PlaybooksPreview }) => {
+    root.render(
+      <StrictMode>
+        <StaveDesignProvider>
+          <PlaybooksPreview />
+        </StaveDesignProvider>
+      </StrictMode>,
+    );
+  });
 } else if (preview === "mission") {
   void import("@/dev/mission-preview").then(({ MissionPreview }) => {
     root.render(

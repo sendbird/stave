@@ -411,9 +411,9 @@ export function IssuesView(props: { onClose: () => void }) {
       <TrackerIssueKickoffSheet
         item={kickoffItem}
         onClose={() => setKickoffKey(null)}
-        onKickedOff={(result) => {
+        onKickedOff={(result, playbookChoice) => {
           if (kickoffItem) {
-            void actions.completeKickoff({ task: kickoffItem.task, result });
+            void actions.completeKickoff({ task: kickoffItem.task, result, playbookChoice });
           }
         }}
       />

@@ -1,11 +1,13 @@
 import { useMissionSync } from "@/store/missions-store";
 import { useWakeUpSync } from "@/store/wake-ups-store";
+import { useMissionCommands } from "@/components/missions/useMissionCommands";
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { WorkspaceSaveNotice } from "@/components/layout/WorkspaceSaveNotice";
 import { flushPendingSnapshotPersists } from "@/store/workspace-session-state";
 import { LensCdpApprovalDialog } from "@/components/layout/LensCdpApprovalDialog";
 import { CraneDispatchApprovalDialog } from "@/components/layout/CraneDispatchApprovalDialog";
+import { StartMissionSheetHost } from "@/components/missions/StartMissionSheet";
 import { useLensGuestHost } from "@/components/panes/useLensGuestHost";
 import { useLensSessionClosedEvents } from "@/components/panes/useLensSessionClosedEvents";
 import { useLensSessionPresentationRequests } from "@/components/panes/useLensSessionPresentationRequests";
@@ -45,6 +47,7 @@ export default function App() {
   useLensSessionClosedEvents();
   useMissionSync();
   useWakeUpSync();
+  useMissionCommands();
 
   useEffect(() => {
     const subscribeTaskTurnUpdates =
@@ -475,6 +478,7 @@ export default function App() {
       <AppShell />
       <WorkspaceSaveNotice />
       <LensCdpApprovalDialog />
+      <StartMissionSheetHost />
       <CraneDispatchApprovalDialog />
     </TooltipProvider>
   );

@@ -97,6 +97,18 @@ export const missionStyles = stylex.create({
   statusText: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   statusMeta: { flex: "0 0 auto", fontVariantNumeric: "tabular-nums", whiteSpace: "nowrap" },
 
+  empty: {
+    display: "flex",
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: vars["--ads-space-12"],
+    padding: vars["--ads-space-16"],
+    borderRadius: vars["--ads-radius-panel"],
+    borderWidth: vars["--ads-border-width-hairline"],
+    borderStyle: "dashed",
+    borderColor: vars["--ads-color-border"],
+  },
+
   /* Sections --------------------------------------------------------------- */
   section: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], minWidth: 0 },
   sectionRoomy: { gap: vars["--ads-space-12"] },
