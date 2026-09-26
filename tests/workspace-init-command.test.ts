@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   buildImportedWorktreeWorkspaceId,
   toWorkspaceFolderName,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 
 const originalWindow = globalThis.window;
 

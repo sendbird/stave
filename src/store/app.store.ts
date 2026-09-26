@@ -5,7 +5,7 @@ import { type PersistedTurnSummary } from "@/lib/db/turns.db";
 import { workspaceFsAdapter } from "@/lib/fs";
 import { loadTaskMessagesPage } from "@/lib/db/workspaces.db";
 import type { NormalizedProviderEvent } from "@/lib/providers/provider.types";
-import { rememberTurnDurableFacts } from "@/store/project-memory-runtime";
+import { rememberTurnDurableFacts } from "@/store/repository-memory-runtime";
 import {
   type ScriptTrigger,
   buildTurnVerificationResult,
@@ -35,7 +35,7 @@ import {
   logWorkspaceSwitchMetric,
 } from "@/store/app-store-workspace-management-actions";
 import { createWorkspaceCreateActions } from "@/store/app-store-workspace-create-actions";
-import { createRepositoryActions } from "@/store/app-store-project-actions";
+import { createRepositoryActions } from "@/store/app-store-repository-actions";
 import {
   createWorkspaceHydrationActions,
   loadWorkspaceSessionFromPersistence,
@@ -92,7 +92,7 @@ import {
 import {
   registerTaskWorkspaceOwnership,
   resolveWorkspaceName,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 import {
   createDefaultProviderAvailability,
   defaultSettings,
@@ -122,7 +122,7 @@ export type {
   CustomThemeDefinition,
   ThemeValidationResult,
 } from "@/lib/themes";
-export type { RecentRepositoryState as RecentProjectState } from "@/store/project.utils";
+export type { RecentRepositoryState as RecentProjectState } from "@/store/repository.utils";
 // This module stays the public entry point for the app store, so settings and
 // archive-cleanup names that moved into sibling modules are re-exported here.
 export type { AppSettings } from "@/store/app-settings";

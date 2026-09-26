@@ -16,13 +16,13 @@ import {
   normalizeRepositoryWorkspaceInitCommand,
   normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference,
   type RecentRepositoryState,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 import {
   REPOSITORY_COLOR_OPTIONS,
   REPOSITORY_ICON_OPTIONS,
   RepositoryColorSwatch,
   RepositoryIdentityMark,
-} from "@/components/layout/project-appearance";
+} from "@/components/layout/repository-appearance";
 import { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
 import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
 import { LabeledField, SettingsCard } from "../settings-dialog.shared";

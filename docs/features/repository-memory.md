@@ -116,7 +116,7 @@ Renderer and host turns use the same query and retrieved-context builders before
 provider dispatch. Provider sessions retain the existing content-hash deduplication.
 Memory lookup failure omits the block without failing the user turn.
 
-Implementation: `src/lib/project-memory.ts`,
-`src/lib/task-context/project-memory.ts`,
-`electron/persistence/project-memory-store.ts`, and
+Implementation: `src/lib/repository-memory.ts`,
+`src/lib/task-context/repository-memory.ts`,
+`electron/persistence/repository-memory-store.ts`, and
 `src/components/layout/WorkspaceMemorySection.tsx`.

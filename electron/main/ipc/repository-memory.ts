@@ -3,9 +3,9 @@ import {
   RepositoryMemorySettingsArgsSchema,
   RepositoryMemorySaveSettingsArgsSchema,
   RepositoryMemoryClearArgsSchema,
-} from "../../../src/lib/project-memory-settings";
-import { resolveRepositoryMemoryConfidence } from "../../../src/lib/project-memory";
-import type { RepositoryMemoryRememberResult } from "../../../src/lib/project-memory";
+} from "../../../src/lib/repository-memory-settings";
+import { resolveRepositoryMemoryConfidence } from "../../../src/lib/repository-memory";
+import type { RepositoryMemoryRememberResult } from "../../../src/lib/repository-memory";
 import {
   ProjectMemoryDeleteArgsSchema,
   ProjectMemoryListArgsSchema,
@@ -29,7 +29,7 @@ function failureMessage(error: unknown) {
  */
 export function registerRepositoryMemoryHandlers() {
   ipcMain.handle(
-    "project-memory:get-settings",
+    "repository-memory:get-settings",
     async (_event, args: unknown) => {
       try {
         const { repositoryPath } = RepositoryMemorySettingsArgsSchema.parse(args);
@@ -45,7 +45,7 @@ export function registerRepositoryMemoryHandlers() {
     },
   );
   ipcMain.handle(
-    "project-memory:save-settings",
+    "repository-memory:save-settings",
     async (_event, args: unknown) => {
       try {
         const parsed = RepositoryMemorySaveSettingsArgsSchema.parse(args);
@@ -60,7 +60,7 @@ export function registerRepositoryMemoryHandlers() {
       }
     },
   );
-  ipcMain.handle("project-memory:clear", async (_event, args: unknown) => {
+  ipcMain.handle("repository-memory:clear", async (_event, args: unknown) => {
     try {
       const parsed = RepositoryMemoryClearArgsSchema.parse(args);
       return {
@@ -71,7 +71,7 @@ export function registerRepositoryMemoryHandlers() {
       return { ok: false, message: failureMessage(error) };
     }
   });
-  ipcMain.handle("project-memory:list", async (_event, args: unknown) => {
+  ipcMain.handle("repository-memory:list", async (_event, args: unknown) => {
     const parsed = ProjectMemoryListArgsSchema.safeParse(args);
     if (!parsed.success) {
       return { ok: false, items: [], message: "Invalid project memory list." };
@@ -84,7 +84,7 @@ export function registerRepositoryMemoryHandlers() {
     }
   });
 
-  ipcMain.handle("project-memory:recall", async (_event, args: unknown) => {
+  ipcMain.handle("repository-memory:recall", async (_event, args: unknown) => {
     const parsed = ProjectMemoryRecallArgsSchema.safeParse(args);
     if (!parsed.success) {
       return {
@@ -101,7 +101,7 @@ export function registerRepositoryMemoryHandlers() {
     }
   });
 
-  ipcMain.handle("project-memory:remember", async (_event, args: unknown) => {
+  ipcMain.handle("repository-memory:remember", async (_event, args: unknown) => {
     const parsed = ProjectMemoryRememberArgsSchema.safeParse(args);
     if (!parsed.success) {
       return {
@@ -134,7 +134,7 @@ export function registerRepositoryMemoryHandlers() {
     }
   });
 
-  ipcMain.handle("project-memory:update", async (_event, args: unknown) => {
+  ipcMain.handle("repository-memory:update", async (_event, args: unknown) => {
     const parsed = ProjectMemoryUpdateArgsSchema.safeParse(args);
     if (!parsed.success) {
       return { ok: false, message: "Invalid project memory update." };
@@ -147,7 +147,7 @@ export function registerRepositoryMemoryHandlers() {
     }
   });
 
-  ipcMain.handle("project-memory:delete", async (_event, args: unknown) => {
+  ipcMain.handle("repository-memory:delete", async (_event, args: unknown) => {
     const parsed = ProjectMemoryDeleteArgsSchema.safeParse(args);
     if (!parsed.success) {
       return { ok: false, message: "Invalid project memory delete." };

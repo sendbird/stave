@@ -114,7 +114,7 @@ import {
   normalizeRepositoryDisplayName,
   normalizeRepositoryWorkspaceInitCommand,
   normalizeRecentRepositoryStates,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 import {
   normalizeClaudeSettingSources,
   normalizeClaudeTaskBudgetTokens,

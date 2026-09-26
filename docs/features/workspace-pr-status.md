@@ -146,7 +146,7 @@ gh pr view --json ...
 | Window API types   | `src/types/window-api.d.ts`                           | Type definitions for the PR status and creation methods                                                                   |
 | Store              | `src/store/app.store.ts`                              | `workspacePrInfoById`, `fetchWorkspacePrStatus`, `fetchAllWorkspacePrStatuses`, `continueWorkspaceFromSummary` |
 | Icon component     | `src/components/layout/PrStatusIcon.tsx`              | Reusable icon renderer: status → Lucide icon + color                                                          |
-| Sidebar            | `src/components/layout/ProjectWorkspaceSidebar.tsx`   | Renders `PrStatusIcon` for non-default workspaces                                                             |
+| Sidebar            | `src/components/layout/RepositoryWorkspaceSidebar.tsx`   | Renders `PrStatusIcon` for non-default workspaces                                                             |
 | TopBar hub         | `src/components/layout/TopBarOpenPR.tsx`              | PR status badge, dropdown actions, creation dialog, and continue entry for completed workspaces               |
 | Continue dialog    | `src/components/layout/ContinueWorkspaceDialog.tsx`   | New workspace handoff dialog for completed PR workspaces                                                      |
 | Information panel  | `src/components/layout/WorkspaceInformationPanel.tsx` | Shows the current branch PR plus related manual PR URLs resolved through GitHub metadata when available       |

@@ -6,7 +6,7 @@ import {
   buildRepositoryNvmShellConfigOverrides,
   buildRepositoryShellEnv,
   resolveRepositoryNvmEnvironment,
-} from "../electron/shared/project-node-env";
+} from "../electron/shared/repository-node-env";
 
 const createdPaths: string[] = [];
 
@@ -17,7 +17,7 @@ function createFixture(args: {
 }) {
   const root = path.join(
     tmpdir(),
-    `stave-project-node-env-${process.pid}-${Date.now()}-${createdPaths.length}`,
+    `stave-repository-node-env-${process.pid}-${Date.now()}-${createdPaths.length}`,
   );
   const repositoryPath = path.join(root, "project");
   const cwd = args.nested

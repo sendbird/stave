@@ -24,7 +24,7 @@ import {
   retainTaskWorkspaceOwnership,
   upsertRecentRepositoryState,
   type RecentRepositoryState,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 import {
   rememberCachedWorkspaceFiles,
   removeCachedWorkspaceFiles,

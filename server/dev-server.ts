@@ -20,7 +20,7 @@ import type {
 import { streamClaudeWithSdk } from "../electron/providers/claude-sdk-runtime";
 import { streamCodexWithAppServer } from "../electron/providers/codex-app-server-runtime";
 import { withoutAdvisorTarget } from "../src/lib/providers/advisor";
-import { buildRepositoryShellEnv } from "../electron/shared/project-node-env";
+import { buildRepositoryShellEnv } from "../electron/shared/repository-node-env";
 import {
   checkoutDefaultBranchDetached,
   checkoutScmBranch,

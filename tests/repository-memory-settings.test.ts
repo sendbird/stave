@@ -1,11 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { RepositoryMemoryStore } from "../electron/persistence/project-memory-store";
+import { RepositoryMemoryStore } from "../electron/persistence/repository-memory-store";
 import {
   buildMemoryCollectionInstruction,
   DEFAULT_REPOSITORY_MEMORY_SETTINGS,
   RepositoryMemorySettingsPatchSchema,
-} from "../src/lib/project-memory-settings";
+} from "../src/lib/repository-memory-settings";
 
 const REPOSITORY = "/tmp/memory/settings";
 const OTHER = "/tmp/memory/other";

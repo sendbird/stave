@@ -21,7 +21,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { panelBarStyles } from "@/components/layout/panel-bar.constants";
-import { repositorySidebarStyles } from "@/components/layout/project-workspace-sidebar.styles";
+import { repositorySidebarStyles } from "@/components/layout/repository-workspace-sidebar.styles";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { transition } from "@/components/ads/recipes/transition";
 import { cx, sx } from "@/components/ads/utils/stylex";
@@ -37,7 +37,7 @@ import {
   WORKSPACE_SHORTCUT_COUNT,
   type RepositorySidebarAttentionAlert,
   type RepositorySidebarCollapsedRepositoryView,
-} from "@/components/layout/ProjectWorkspaceSidebar.utils";
+} from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { isEditableShortcutTarget } from "@/components/layout/app-shell.shortcuts";
 import { CreateWorkspaceDialog } from "@/components/layout/CreateWorkspaceDialog";
 import { OpenPathDialog } from "@/components/layout/OpenPathDialog";
@@ -47,7 +47,7 @@ import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { WorkspaceIdentityMark } from "@/components/layout/workspace-accent";
 import { WorkspaceAccountLimitIcon } from "@/components/layout/WorkspaceAccountLimitIcon";
 import { WorkspaceProgressTaskTree } from "@/components/layout/WorkspaceProgressTaskTree";
-import { RepositoryIdentityMark } from "@/components/layout/project-appearance";
+import { RepositoryIdentityMark } from "@/components/layout/repository-appearance";
 import { useSortableListMonitor } from "@/hooks/use-sortable-list";
 import {
   Button,

@@ -2,7 +2,7 @@ import {
   findPendingApprovalMessageByRequestId,
   findPendingUserInputMessageByRequestId,
 } from "@/store/provider-message.utils";
-import type { RecentRepositoryState } from "@/store/project.utils";
+import type { RecentRepositoryState } from "@/store/repository.utils";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 import type { ChatMessage } from "@/types/chat";
 

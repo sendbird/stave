@@ -19,7 +19,7 @@ import {
   type ReactNode,
 } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { repositorySidebarStyles } from "@/components/layout/project-workspace-sidebar.styles";
+import { repositorySidebarStyles } from "@/components/layout/repository-workspace-sidebar.styles";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
@@ -32,7 +32,7 @@ import {
   getWorkspaceRespondingCountVisibilityStyle,
   type RepositorySidebarAttentionAlert,
   type SidebarWorkQueueEntry,
-} from "@/components/layout/ProjectWorkspaceSidebar.utils";
+} from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { WorkspaceShortcutChip } from "@/components/layout/WorkspaceShortcutChip";
 import { WorkspaceIdentityMark } from "@/components/layout/workspace-accent";
@@ -68,7 +68,7 @@ import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { useAppStore } from "@/store/app.store";
-import { isDefaultWorkspaceName } from "@/store/project.utils";
+import { isDefaultWorkspaceName } from "@/store/repository.utils";
 import type { ChatMessage, Task } from "@/types/chat";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];

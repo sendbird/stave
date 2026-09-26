@@ -4,8 +4,8 @@ import {
   parseWorkspaceTurnSummaryResponse,
 } from "@/lib/workspace-turn-summary";
 import type { WorkspaceTurnSummary } from "@/lib/workspace-information";
-import type { RepositoryMemoryFactInput } from "@/lib/project-memory";
-import { buildMemoryCollectionInstruction } from "@/lib/project-memory-settings";
+import type { RepositoryMemoryFactInput } from "@/lib/repository-memory";
+import { buildMemoryCollectionInstruction } from "@/lib/repository-memory-settings";
 import { inferProviderIdFromModel } from "@/lib/providers/model-catalog";
 import {
   resolveAuxLaneRuntime,

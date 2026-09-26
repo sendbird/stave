@@ -26,7 +26,7 @@ import type {
   WorkspaceScriptStatusEntry,
 } from "../../../src/lib/workspace-scripts/types";
 import { buildExecutableLookupEnv } from "../../providers/executable-path";
-import { buildRepositoryShellEnv } from "../../shared/project-node-env";
+import { buildRepositoryShellEnv } from "../../shared/repository-node-env";
 import {
   deleteWorkspaceScriptProcess,
   getWorkspaceScriptStatusesForWorkspace,

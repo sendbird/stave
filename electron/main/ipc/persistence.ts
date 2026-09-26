@@ -251,7 +251,7 @@ export function registerPersistenceHandlers() {
     },
   );
 
-  ipcMain.handle("persistence:load-project-registry", async () => {
+  ipcMain.handle("persistence:load-repository-registry", async () => {
     const store = await ensurePersistenceReady();
     const repositories = store.loadRepositoryRegistry();
     return { ok: true, projects: repositories, activeRepositoryPath: store.loadActiveRepositoryPath() };
@@ -275,7 +275,7 @@ export function registerPersistenceHandlers() {
   );
 
   ipcMain.handle(
-    "persistence:save-project-registry",
+    "persistence:save-repository-registry",
     async (_event, args: unknown) => {
       const parsedArgs = SaveRepositoryRegistryArgsSchema.safeParse(args);
       if (!parsedArgs.success) {

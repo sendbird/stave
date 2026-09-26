@@ -20,7 +20,7 @@ import {
   normalizeRepositoryAppearanceIcon,
   type RepositoryAppearanceColorId,
   type RepositoryAppearanceIconId,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 
 export const REPOSITORY_ICON_OPTIONS: ReadonlyArray<{
   id: RepositoryAppearanceIconId;

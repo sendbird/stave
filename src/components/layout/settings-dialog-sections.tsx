@@ -1,4 +1,4 @@
-import { RepositoryMemorySettingsSection } from "./ProjectMemoryControls";
+import { RepositoryMemorySettingsSection } from "./RepositoryMemoryControls";
 import { CraneConnectorSettingsSection } from "@/components/layout/settings-dialog-crane-connector";
 import { JiraConnectorSettingsSection } from "@/components/layout/settings-dialog-jira-connector";
 import { MartinSyncSettingsSection } from "@/components/layout/settings-dialog-martin-sync";
@@ -8,7 +8,7 @@ import { SettingsAutoRoutingSection } from "@/components/layout/settings-dialog-
 import { type SectionId } from "@/components/layout/settings-dialog.schema";
 import { sx } from "@/components/ads/utils/stylex";
 import { settingsSectionsStyles as styles } from "./settings-dialog-sections.styles";
-import { type RecentRepositoryState } from "@/store/project.utils";
+import { type RecentRepositoryState } from "@/store/repository.utils";
 import { ChangelogSection } from "./settings-dialog-changelog-section";
 import { DeveloperSection } from "./settings-dialog-developer-section";
 import { PresetsSection } from "./settings-dialog-presets-section";
@@ -22,7 +22,7 @@ import { ScriptsSection } from "./settings-dialog-scripts-section";
 import { ThemeSection } from "./settings-sections/settings-dialog-theme-section";
 import { GeneralSection } from "./settings-sections/settings-dialog-general-section";
 import { CommandPaletteSection } from "./settings-sections/settings-dialog-command-palette-section";
-import { RepositoriesSection } from "./settings-sections/settings-dialog-projects-section";
+import { RepositoriesSection } from "./settings-sections/settings-dialog-repositories-section";
 import { TerminalSection } from "./settings-sections/settings-dialog-terminal-section";
 import { ModelsSection } from "./settings-sections/settings-dialog-models-section";
 import { ChatSection } from "./settings-sections/settings-dialog-chat-section";

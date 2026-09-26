@@ -1,12 +1,12 @@
 import {
   DEFAULT_REPOSITORY_MEMORY_SETTINGS,
   type RepositoryMemorySettingsPatch,
-} from "@/lib/project-memory-settings";
+} from "@/lib/repository-memory-settings";
 import {
   REPOSITORY_MEMORY_AUTO_CONFIDENCE,
   REPOSITORY_MEMORY_EXPLICIT_CONFIDENCE,
   type RepositoryMemory,
-} from "@/lib/project-memory";
+} from "@/lib/repository-memory";
 
 /**
  * The slice of `window.api` the plan and memory lists read.

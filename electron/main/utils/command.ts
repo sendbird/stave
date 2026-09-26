@@ -6,7 +6,7 @@ import {
   parseSourceControlStatusLines,
 } from "../../../src/lib/source-control-status";
 import { buildExecutableLookupEnv } from "../../providers/executable-path";
-import { buildRepositoryShellEnv } from "../../shared/project-node-env";
+import { buildRepositoryShellEnv } from "../../shared/repository-node-env";
 import type { CommandResult, SourceControlStatusItem } from "../types";
 
 const COMMAND_OUTPUT_LIMIT = 128_000;

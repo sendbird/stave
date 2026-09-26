@@ -63,7 +63,7 @@ slot key (`electron/host-service/terminal-runtime.ts:723`), and the zod
 schema requires nothing more than a non-empty string
 (`electron/main/ipc/schemas.ts:567`). Real workspace ids take exactly four
 shapes — `""`, `"base"`, `"base:<hash>"`, `"worktree:<hash>"` — and the hash
-alphabet is `[0-9a-z]` (`src/store/project.utils.ts:673`). A sentinel that
+alphabet is `[0-9a-z]` (`src/store/repository.utils.ts:673`). A sentinel that
 is neither of the two literals nor prefixed by them therefore cannot collide,
 in either direction, with any real id.
 

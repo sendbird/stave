@@ -1,10 +1,10 @@
 import { afterEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { RepositoryMemoryStore } from "../electron/persistence/project-memory-store";
-import { recallRepositoryMemoryRetrievedContext, rememberTurnDurableFacts } from "../src/store/project-memory-runtime";
+import { RepositoryMemoryStore } from "../electron/persistence/repository-memory-store";
+import { recallRepositoryMemoryRetrievedContext, rememberTurnDurableFacts } from "../src/store/repository-memory-runtime";
 import { buildCanonicalConversationRequest, buildLegacyPromptFromCanonicalRequest } from "../src/lib/providers/canonical-request";
 import { StreamTurnArgsSchema } from "../electron/main/ipc/schemas";
-import { resolveRepositoryMemoryRecallQuery } from "../src/lib/task-context/project-memory";
+import { resolveRepositoryMemoryRecallQuery } from "../src/lib/task-context/repository-memory";
 
 const previousWindow = Object.getOwnPropertyDescriptor(globalThis, "window");
 afterEach(() => {

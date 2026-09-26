@@ -56,7 +56,7 @@ import {
   type WorkspaceTodoItem,
 } from "@/lib/workspace-information";
 import { useAppStore } from "@/store/app.store";
-import { isDefaultWorkspaceName } from "@/store/project.utils";
+import { isDefaultWorkspaceName } from "@/store/repository.utils";
 import type { ChatMessage, Task } from "@/types/chat";
 
 const EMPTY_TASKS: Task[] = [];

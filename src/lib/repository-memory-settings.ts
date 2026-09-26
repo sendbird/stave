@@ -2,7 +2,7 @@ import { z } from "zod";
 import {
   RepositoryMemoryKindSchema,
   REPOSITORY_MEMORY_KINDS,
-} from "./project-memory";
+} from "./repository-memory";
 
 export const DEFAULT_MEMORY_COLLECTION_TEMPLATE = [
   "Remember reusable repository knowledge that prevents repeated mistakes.",

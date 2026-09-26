@@ -1,6 +1,6 @@
 import type { WorkspaceSummary } from "@/lib/db/workspaces.db";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
-import { areStringArraysEqual } from "@/store/project.utils";
+import { areStringArraysEqual } from "@/store/repository.utils";
 
 export function getCachedWorkspaceFiles(args: {
   workspacePath?: string | null;

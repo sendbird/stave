@@ -3,7 +3,7 @@ import {
   RepositoryMemorySettingsPatchSchema,
   type RepositoryMemorySettings,
   type RepositoryMemorySettingsPatch,
-} from "../../src/lib/project-memory-settings";
+} from "../../src/lib/repository-memory-settings";
 
 interface Database {
   exec(sql: string): unknown;

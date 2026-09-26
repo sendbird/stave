@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { buildWorkspaceHoverPreview } from "@/components/layout/ProjectWorkspaceSidebar.utils";
+import { buildWorkspaceHoverPreview } from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { selectFleetOpenTasks } from "@/lib/fleet/workspace-activity";
 import {
   filterTasksByName,

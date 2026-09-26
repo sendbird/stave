@@ -208,7 +208,7 @@ When changing PR status fetching, derivation, or UI rendering:
 - `src/components/layout/PrStatusIcon.tsx` — icon lookup and color mapping
 - `src/components/layout/TopBarOpenPR.tsx` — PR hub, async lifecycle, status actions, creation sequencing and cancellation
 - `src/components/layout/pull-request/CreatePullRequestDialog.tsx` and `create-pr-dialog-panels.tsx` — creation form and status presentation
-- `src/components/layout/ProjectWorkspaceSidebar.tsx` — sidebar icon rendering
+- `src/components/layout/RepositoryWorkspaceSidebar.tsx` — sidebar icon rendering
 
 See `docs/features/workspace-pr-status.md` for the full architecture reference.
 
@@ -278,13 +278,13 @@ See `docs/features/issues.md` for the user-facing guide.
 When changing project selection, workspace hydration, worktree import, notification deep-linking, or task ownership:
 
 - read `docs/architecture/workspace-integrity.md` first
-- inspect `src/store/project.utils.ts`
+- inspect `src/store/repository.utils.ts`
 - inspect `src/store/app.store.ts`
 - inspect the current consumer surfaces under `src/components/layout/`
 - verify default workspace selection is path-aware, not flag-only
 - verify rehydrate logic self-heals corrupted current state and persisted registry state
 - verify task-scoped git / filesystem actions resolve cwd from task ownership, not from the currently selected workspace
-- add or update regressions in `tests/project-utils.test.ts`, `tests/workspace-integrity-regression.test.ts`, and `tests/bridge-persistence-regression.test.ts`
+- add or update regressions in `tests/repository-utils.test.ts`, `tests/workspace-integrity-regression.test.ts`, and `tests/bridge-persistence-regression.test.ts`
 
 ## Minimum Verification
 

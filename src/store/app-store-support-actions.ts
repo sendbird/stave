@@ -35,7 +35,7 @@ import {
   markAllNotificationsReadAction,
   markNotificationReadAction,
 } from "@/store/notification-actions";
-import { areStringArraysEqual } from "@/store/project.utils";
+import { areStringArraysEqual } from "@/store/repository.utils";
 import { findPendingApprovalMessageByRequestId } from "@/store/provider-message.utils";
 import {
   isWorkspaceTargetCurrent,

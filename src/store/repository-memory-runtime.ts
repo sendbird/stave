@@ -1,10 +1,10 @@
 import type { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
-import type { RepositoryMemoryFactInput } from "@/lib/project-memory";
+import type { RepositoryMemoryFactInput } from "@/lib/repository-memory";
 import { buildDelegatedTaskReceiptsRetrievedContext } from "@/lib/task-context/delegated-task-receipts";
 import {
   buildRepositoryMemoryRetrievedContextPart,
   resolveRepositoryMemoryRecallQuery,
-} from "@/lib/task-context/project-memory";
+} from "@/lib/task-context/repository-memory";
 import type { ChatMessage } from "@/types/chat";
 
 /**

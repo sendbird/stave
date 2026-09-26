@@ -17,7 +17,7 @@ import { AutomationCenterView } from "@/components/layout/automation-center/Auto
 import {
   COLLAPSED_REPOSITORY_SIDEBAR_WIDTH,
   RepositoryWorkspaceSidebar,
-} from "@/components/layout/ProjectWorkspaceSidebar";
+} from "@/components/layout/RepositoryWorkspaceSidebar";
 import { PresetBar } from "@/components/layout/PresetBar";
 import { WorkspacePaneHost } from "@/components/panes/WorkspacePaneHost";
 import {

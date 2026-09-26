@@ -11,7 +11,7 @@
  * rule is identical on both index paths and unit-testable without SQLite.
  */
 import { randomUUID } from "node:crypto";
-import { RepositoryMemorySettingsStore } from "./project-memory-settings-store";
+import { RepositoryMemorySettingsStore } from "./repository-memory-settings-store";
 import {
   REPOSITORY_MEMORY_CONTENT_MAX_CHARS,
   REPOSITORY_MEMORY_INJECTION_MAX_ITEMS,
@@ -30,7 +30,7 @@ import {
   type RepositoryMemoryRecallMode,
   type RepositoryMemorySearchOptions,
   type RepositoryMemoryRememberResult,
-} from "../../src/lib/project-memory";
+} from "../../src/lib/repository-memory";
 
 interface RepositoryMemoryStatement {
   get: (...params: unknown[]) => unknown;

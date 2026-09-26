@@ -5,7 +5,7 @@ import {
 } from "@/lib/providers/provider.types";
 import { resolveAuxLaneRuntime } from "@/lib/providers/auxiliary-inference-policy";
 import { eventsIndicateFileEdits } from "@/lib/providers/tool-names";
-import { collectTurnStartRetrievedContextParts } from "@/store/project-memory-runtime";
+import { collectTurnStartRetrievedContextParts } from "@/store/repository-memory-runtime";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "@/lib/task-context/current-task-awareness";
 import { buildReferencedTaskRetrievedContext } from "@/lib/task-context/referenced-task-context";
 import {
@@ -119,7 +119,7 @@ import {
   resolveRepositoryBasePrompt,
   resolveWorkspaceName,
   resolveTaskWorkspaceContext,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 import {
   buildApprovalNotificationInputs,
   buildTaskTurnCompletedNotificationInput,
@@ -1021,7 +1021,7 @@ export function createSendUserMessageAction(args: {
         ...freshSourceContexts,
       ];
       // ── Project memory + delegated task receipts ───────────────────────────
-      // Both are cross-turn state read from main; see project-memory-runtime.
+      // Both are cross-turn state read from main; see repository-memory-runtime.
       retrievedContextParts.push(
         ...(await collectTurnStartRetrievedContextParts({
           repositoryPath: state.repositoryPath,

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "bun:test";
 import { sx } from "../src/components/ads/utils/stylex";
-import { repositorySidebarStyles } from "../src/components/layout/project-workspace-sidebar.styles";
+import { repositorySidebarStyles } from "../src/components/layout/repository-workspace-sidebar.styles";
 import type { FleetAttentionItem } from "../src/lib/fleet/attention-projection";
 import { FLEET_ATTENTION_PRIORITY } from "../src/lib/fleet/attention-projection";
 import {
@@ -20,7 +20,7 @@ import {
   resolveWorkspaceProgressTaskLoaderVariant,
   summarizeWorkspaceTaskTitle,
   WORKSPACE_SHORTCUT_COUNT,
-} from "../src/components/layout/ProjectWorkspaceSidebar.utils";
+} from "../src/components/layout/RepositoryWorkspaceSidebar.utils";
 
 describe("getWorkspaceLeadingAttentionKind", () => {
   test("keeps completed results from replacing the workspace identity icon", () => {
@@ -260,7 +260,7 @@ describe("workspace hover action visibility", () => {
   // mouse click would latch open).
   const sidebarStylesSource = readFileSync(
     new URL(
-      "../src/components/layout/project-workspace-sidebar.styles.ts",
+      "../src/components/layout/repository-workspace-sidebar.styles.ts",
       import.meta.url,
     ),
     "utf8",

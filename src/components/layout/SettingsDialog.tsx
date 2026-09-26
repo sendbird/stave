@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/sidebar";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { useAppStore } from "@/store/app.store";
-import { captureCurrentRepositoryState } from "@/store/project.utils";
+import { captureCurrentRepositoryState } from "@/store/repository.utils";
 import {
   matchesSettingsSection,
   settingsSectionGroups,

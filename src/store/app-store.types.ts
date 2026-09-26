@@ -49,7 +49,7 @@ import type { AutoRoutingDecisionRecord } from "@/store/auto-routing";
 import type { AppActiveSurface, AppSurfaceActions } from "@/store/app-surface";
 import type { FailedOutgoingSendsByTask } from "@/store/failed-send-recovery";
 import type { LayoutState } from "@/store/layout.utils";
-import type { RecentRepositoryState } from "@/store/project.utils";
+import type { RecentRepositoryState } from "@/store/repository.utils";
 import type { TaskScrollToLatestRequest } from "@/store/task-scroll.utils";
 import type { WorkspaceKickoffActions } from "@/store/workspace-kickoff-actions";
 import type {
@@ -71,7 +71,7 @@ import type { ReviewComment, ReviewCommentSide } from "@/types/review";
 import type {
   RepositoryAppearanceColorId,
   RepositoryAppearanceIconId,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 
 export type NotificationContextOpenResult =
   | { status: "opened" }

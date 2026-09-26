@@ -15,7 +15,7 @@ import {
   buildLinkedWorktreeSymlinkPath,
   normalizeArchivedWorkspacePaths,
   type RecentRepositoryState,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 import { closeTerminalSessionsForWorkspaces } from "@/store/workspace-terminal-cleanup";
 
 const activeWorkspaceArchiveCleanups = new Set<Promise<void>>();

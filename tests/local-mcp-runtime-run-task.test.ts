@@ -1310,7 +1310,7 @@ describe("local MCP runtime archived-task persistence", () => {
 describe("local MCP project memory curation", () => {
   test("search and same-id curation stay scoped to the workspace project", async () => {
     const { Database } = await import("bun:sqlite");
-    const { RepositoryMemoryStore } = await import("../electron/persistence/project-memory-store");
+    const { RepositoryMemoryStore } = await import("../electron/persistence/repository-memory-store");
     const store = new RepositoryMemoryStore(new Database(":memory:"));
     for (const repositoryPath of [REPOSITORY_PATH, "/tmp/other-project"]) {
       store.settings.save({ repositoryPath, expectedRevision: 0, patch: { collectAutomatically: true } });

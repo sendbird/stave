@@ -45,7 +45,7 @@ import {
   toWorkspaceFolderName,
   upsertRecentRepositoryState,
   type RecentRepositoryState,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 import {
   getArchivedWorktreePathSetForRepository,
   getLinkedWorktreePathSetForRepository,

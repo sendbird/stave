@@ -11,12 +11,12 @@ import {
   orderRepositoryMemoriesForInjection,
   repositoryMemorySimilarity,
   type RepositoryMemory,
-} from "../src/lib/project-memory";
+} from "../src/lib/repository-memory";
 import {
   STAVE_REPOSITORY_MEMORY_SOURCE_ID,
   buildRepositoryMemoryRetrievedContextPart,
   resolveRepositoryMemoryRecallQuery,
-} from "../src/lib/task-context/project-memory";
+} from "../src/lib/task-context/repository-memory";
 
 const NOW = Date.parse("2026-09-03T00:00:00.000Z");
 

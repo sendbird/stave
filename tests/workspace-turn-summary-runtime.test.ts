@@ -4,7 +4,7 @@ import { defaultSettings } from "../src/store/app-settings";
 import {
   DEFAULT_REPOSITORY_MEMORY_SETTINGS,
   type RepositoryMemorySettings,
-} from "../src/lib/project-memory-settings";
+} from "../src/lib/repository-memory-settings";
 import type { AppState } from "../src/store/app-store.types";
 import { emptyRateLimitsSnapshot } from "../src/lib/providers/account-usage-block";
 

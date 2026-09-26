@@ -1,12 +1,12 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { RepositoryMemoryStore } from "../electron/persistence/project-memory-store";
+import { RepositoryMemoryStore } from "../electron/persistence/repository-memory-store";
 import {
   REPOSITORY_MEMORY_INJECTION_MAX_CHARS,
   REPOSITORY_MEMORY_INJECTION_MAX_ITEMS,
   REPOSITORY_MEMORY_STALE_AFTER_MS,
-} from "../src/lib/project-memory";
-import { buildRepositoryMemoryRetrievedContextPart } from "../src/lib/task-context/project-memory";
+} from "../src/lib/repository-memory";
+import { buildRepositoryMemoryRetrievedContextPart } from "../src/lib/task-context/repository-memory";
 
 const REPOSITORY_P = "/tmp/stave-memory/project-p";
 const REPOSITORY_Q = "/tmp/stave-memory/project-q";

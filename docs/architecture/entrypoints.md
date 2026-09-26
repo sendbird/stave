@@ -77,9 +77,9 @@ from persistence, the write queue, and update notifications.
 
 ### Project and workspace sidebar
 
-1. `src/components/layout/ProjectWorkspaceSidebar.tsx` for shell state, drag and selection wiring
+1. `src/components/layout/RepositoryWorkspaceSidebar.tsx` for shell state, drag and selection wiring
 2. `src/components/layout/workspace-sidebar-rows.tsx` for row presentation and row-local behavior
-3. `src/components/layout/ProjectWorkspaceSidebar.utils.ts` for pure sidebar decisions
+3. `src/components/layout/RepositoryWorkspaceSidebar.utils.ts` for pure sidebar decisions
 4. `docs/architecture/workspace-integrity.md` when changing workspace ownership or hydration
 
 ### Settings content
@@ -124,7 +124,7 @@ Read in this order:
 2. `src/components/layout/file-search-utils.ts`
 3. `src/lib/fs/electron-fs.adapter.ts`
 4. `electron/main/utils/filesystem.ts`
-5. `docs/ui/project-workspace-task-shell.md`
+5. `docs/ui/repository-workspace-task-shell.md`
 
 ### IPC and preload contract changes
 

@@ -20,7 +20,7 @@ import {
 import { resolveCommandCwd } from "../main/utils/command";
 import { byteLengthUtf8 } from "../shared/bounded-text";
 import { ensureUtf8Locale } from "../shared/utf8-locale";
-import { buildRepositoryShellEnv } from "../shared/project-node-env";
+import { buildRepositoryShellEnv } from "../shared/repository-node-env";
 import { Osc133Parser } from "../../src/lib/terminal/osc133";
 import { appendAbsoluteCursorPosition } from "../../src/lib/terminal/snapshot";
 import type {

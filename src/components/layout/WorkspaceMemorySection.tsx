@@ -20,11 +20,11 @@ import {
   REPOSITORY_MEMORY_CONTENT_MAX_CHARS,
   type RepositoryMemory,
   type RepositoryMemoryUpdateArgs,
-} from "@/lib/project-memory";
+} from "@/lib/repository-memory";
 import {
   RepositoryMemoryControls,
   REPOSITORY_MEMORY_CHANGED_EVENT,
-} from "./ProjectMemoryControls";
+} from "./RepositoryMemoryControls";
 import { informationRow } from "./information-row.styles";
 import { workspaceMemorySectionStyles as styles } from "./workspace-memory-section.styles";
 import { MemoryCollectionInvitation } from "./MemoryCollectionInvitation";

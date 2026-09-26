@@ -31,7 +31,7 @@ import {
   summarizeWorkspaceInitCommand,
   toShellPathArgument,
   toWorkspaceFolderName,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 import { archivedWorktreePaths } from "@/store/workspace-archive-cleanup";
 import { rememberCachedWorkspaceFiles } from "@/store/workspace-file-cache";
 import { runWorkspaceKickoff } from "@/store/workspace-kickoff-actions";

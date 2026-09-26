@@ -4,7 +4,7 @@ import {
   REPOSITORY_MEMORY_KINDS,
   normalizeRepositoryMemoryContent,
   type RepositoryMemoryFactInput,
-} from "@/lib/project-memory";
+} from "@/lib/repository-memory";
 
 const MAX_CONTEXT_CHARS = 4_000;
 const MAX_SUMMARY_CHARS = 180;

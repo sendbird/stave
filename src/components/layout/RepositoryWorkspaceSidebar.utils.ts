@@ -3,7 +3,7 @@ import type {
   FleetAttentionKind,
   FleetAttentionTier,
 } from "@/lib/fleet/attention-projection";
-import { repositorySidebarStyles } from "@/components/layout/project-workspace-sidebar.styles";
+import { repositorySidebarStyles } from "@/components/layout/repository-workspace-sidebar.styles";
 import { getFleetAttentionTier } from "@/lib/fleet/attention-projection";
 import {
   classifyTaskStatus,
@@ -25,7 +25,7 @@ import {
   isDefaultWorkspaceName,
   type RepositoryAppearanceColorId,
   type RepositoryAppearanceIconId,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 
 export interface RepositorySidebarWorkspaceView {
   id: string;
@@ -422,7 +422,7 @@ const SIDEBAR_WORK_QUEUE_STATUS_RANK: Record<FleetTaskStatus, number> = {
 /**
  * Ranks every workspace for the sidebar Work queue view.
  *
- * used by: `src/components/layout/ProjectWorkspaceSidebar.tsx` (Work queue
+ * used by: `src/components/layout/RepositoryWorkspaceSidebar.tsx` (Work queue
  * view), `tests/repository-workspace-sidebar.test.ts`.
  *
  * Every workspace is returned, uncapped. The Work queue is one of the two

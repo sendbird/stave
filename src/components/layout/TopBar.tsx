@@ -43,7 +43,7 @@ import { TopBarIssues } from "@/components/layout/TopBarIssues";
 import { TopBarStandaloneCli } from "@/components/layout/TopBarStandaloneCli";
 import { TopBarUpdate } from "@/components/layout/TopBarUpdate";
 import { TopBarWindowControls } from "@/components/layout/TopBarWindowControls";
-import { formatWorkspacePathLabel } from "@/store/project.utils";
+import { formatWorkspacePathLabel } from "@/store/repository.utils";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";

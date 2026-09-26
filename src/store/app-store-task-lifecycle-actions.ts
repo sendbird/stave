@@ -19,7 +19,7 @@ import {
   buildRecentTimestamp,
 } from "@/store/chat-state-helpers";
 import type { NotificationAttentionSync } from "@/store/notification-attention-sync";
-import { resolveTaskWorkspaceContext } from "@/store/project.utils";
+import { resolveTaskWorkspaceContext } from "@/store/repository.utils";
 import { trimLoadedTaskMessages } from "@/store/task-message-loading";
 import { removeTaskTurnRuntimeEntries } from "@/store/task-turn-runtime-cleanup";
 import { removePaneTabMetaEntry } from "@/store/workspace-pane-state";

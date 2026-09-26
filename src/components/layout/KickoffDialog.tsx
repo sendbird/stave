@@ -73,7 +73,7 @@ import {
 } from "@/lib/workspace-kickoff";
 import { WORKSPACE_INFORMATION_SECTION_LABELS } from "@/lib/workspace-information-sections";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
-import { sanitizeBranchName } from "@/store/project.utils";
+import { sanitizeBranchName } from "@/store/repository.utils";
 import { sx } from "@/components/ads/utils/stylex";
 import { kickoffStyles } from "@/components/layout/kickoff-dialog.styles";
 import { useAppStore, type AppSettings } from "@/store/app.store";

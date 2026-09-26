@@ -34,7 +34,7 @@ import {
   resolveRepositoryBasePrompt,
   resolveRepositoryKickoffBranchNamingRule,
   type RecentRepositoryState,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 import { buildProviderRuntimeOptions } from "@/store/provider-runtime-options";
 
 export interface WorkspaceKickoffSettings {

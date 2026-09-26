@@ -12,7 +12,7 @@ import {
 } from "./codex-runtime-config";
 import { buildExecutableLookupEnv } from "./executable-path";
 import { parseBooleanEnv } from "./runtime-shared";
-import { buildRepositoryNvmShellConfigOverrides } from "../shared/project-node-env";
+import { buildRepositoryNvmShellConfigOverrides } from "../shared/repository-node-env";
 import { isRecord } from "./codex-app-server-json";
 import type { CodexNativeImageItem } from "./native-image-input";
 

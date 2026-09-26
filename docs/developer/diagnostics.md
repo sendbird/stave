@@ -4,7 +4,7 @@
 
 Stave includes an opt-in React render profiler around the main hot UI surfaces:
 
-- `ProjectWorkspaceSidebar`
+- `RepositoryWorkspaceSidebar`
 - `ChatPanel`
 - `ChatInput`
 - `EditorPanel`
@@ -77,7 +77,7 @@ The embedded local MCP HTTP server still runs in Electron main, but project regi
 
 - check main-process logs for `[host-service]` stderr lines
 - verify the built desktop app includes `out/main/host-service.js`
-- smoke-test the child directly with `node out/main/host-service.js`, then send a `local-mcp.invoke` request such as `list-known-projects` and confirm a structured response arrives
+- smoke-test the child directly with `node out/main/host-service.js`, then send a `local-mcp.invoke` request such as `list-known-repositories` and confirm a structured response arrives
 - inspect `electron/main/stave-mcp-service.ts`, `electron/main/host-service-client.ts`, `electron/host-service.ts`, and `electron/host-service/local-mcp-runtime.ts` before changing the embedded MCP HTTP server or renderer workspace-information store code
 - if workspace-information updates stop reaching the UI while MCP calls still succeed, inspect the `local-mcp.workspace-information-updated` host-service event bridge and the preload subscriber wiring before changing renderer panel code
 

@@ -25,7 +25,7 @@ import {
 } from "@/lib/workspace-information";
 import { formatWorkspaceInfoTaskSeedPrompt } from "@/lib/workspace-information-task-seed";
 import { extractJsonObject } from "@/lib/workspace-turn-summary";
-import { sanitizeBranchName } from "@/store/project.utils";
+import { sanitizeBranchName } from "@/store/repository.utils";
 
 const MAX_SOURCE_CONTEXT_CHARS = 12_000;
 const MAX_REPOSITORY_PROMPT_CHARS = 8_000;

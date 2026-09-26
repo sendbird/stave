@@ -68,7 +68,7 @@ import {
   toWorkspaceFolderName,
   upsertRecentRepositoryState,
   type RecentRepositoryState,
-} from "../../src/store/project.utils";
+} from "../../src/store/repository.utils";
 import {
   buildWorkspaceSessionState,
   buildWorkspaceSessionStateFromShell,
@@ -117,11 +117,11 @@ import {
   resolveRepositoryMemoryConfidence,
   type RepositoryMemory,
   type RepositoryMemoryKind,
-} from "../../src/lib/project-memory";
+} from "../../src/lib/repository-memory";
 import {
   buildRepositoryMemoryRetrievedContextPart,
   resolveRepositoryMemoryRecallQuery,
-} from "../../src/lib/task-context/project-memory";
+} from "../../src/lib/task-context/repository-memory";
 import { createKeyedAsyncQueue } from "./keyed-async-queue";
 import {
   createLocalMcpTurnJournal,
@@ -900,7 +900,7 @@ export async function rememberRepositoryMemory(args: {
 }
 
 /** `stave_list_repository_memories`: ids + content, so `stave_forget` has something to target. */
-export async function listRepositoryMemories(args: { workspaceId: string } & import("../../src/lib/project-memory").RepositoryMemorySearchOptions) {
+export async function listRepositoryMemories(args: { workspaceId: string } & import("../../src/lib/repository-memory").RepositoryMemorySearchOptions) {
   const repositoryPath = await resolveRepositoryPathForWorkspace(args.workspaceId);
   const store = ensureHostServicePersistenceReady();
   const { workspaceId: _workspaceId, ...options } = args;

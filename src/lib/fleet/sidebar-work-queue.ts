@@ -7,7 +7,7 @@ import { hasFleetTaskAttentionStatus } from "./task-status";
  * Sidebar work queue: the lane model behind the left sidebar's `Work queue`
  * view.
  *
- * used by: `src/components/layout/ProjectWorkspaceSidebar.tsx` (Work queue
+ * used by: `src/components/layout/RepositoryWorkspaceSidebar.tsx` (Work queue
  * view), `tests/fleet-sidebar-work-queue.test.ts`.
  *
  * The sidebar's other view, the project tree, sorts workspaces by where they

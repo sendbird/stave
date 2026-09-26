@@ -7,7 +7,7 @@ import {
   buildWorkspaceProgressTaskItems,
   resolveWorkspaceProgressTaskLoaderVariant,
   type WorkspaceProgressTaskItem,
-} from "@/components/layout/ProjectWorkspaceSidebar.utils";
+} from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { Loader } from "@/components/ui";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { sx } from "@/components/ads/utils/stylex";

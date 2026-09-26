@@ -67,7 +67,7 @@ See `docs/architecture/workspace-integrity.md` before changing the shell, hydrat
 
 ### UI Components
 
-- `ProjectWorkspaceSidebar`
+- `RepositoryWorkspaceSidebar`
   - renders `recentProjects` plus the current repository as a collapsible repository tree
   - hosts the Stave app menu in a compact top-left header beside the collapse control
   - can collapse into a narrow rail
@@ -137,7 +137,7 @@ See `docs/architecture/workspace-integrity.md` before changing the shell, hydrat
 - `src/components/layout/TopBar.tsx`
 - `src/components/layout/EditorPanel.tsx`
 - `src/components/session/ChatArea.tsx`
-- `src/components/layout/ProjectWorkspaceSidebar.tsx`
+- `src/components/layout/RepositoryWorkspaceSidebar.tsx`
 - `src/components/panes/WorkspacePaneHost.tsx`
 - `src/components/panes/PaneTabChip.tsx`
 - `src/components/layout/RightRail.tsx`

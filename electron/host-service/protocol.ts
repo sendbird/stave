@@ -452,8 +452,8 @@ export interface HostScmPrStatusResult {
 }
 
 export type HostLocalMcpAction =
-  | "list-known-projects"
-  | "register-project"
+  | "list-known-repositories"
+  | "register-repository"
   | "create-workspace"
   | "run-task"
   | "get-task-status"
@@ -481,9 +481,9 @@ export type HostLocalMcpAction =
   | "update-workspace-storybook-resource-access"
   | "add-workspace-slack-thread"
   | "add-workspace-amplify-link"
-  | "remember-project-memory"
-  | "forget-project-memory"
-  | "list-project-memories";
+  | "remember-repository-memory"
+  | "forget-repository-memory"
+  | "list-repository-memories";
 
 export type HostWakeUpAction =
   "list" | "get" | "create" | "update" | "pause" | "resume" | "remove";

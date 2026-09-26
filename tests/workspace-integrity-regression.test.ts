@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createJSONStorage } from "zustand/middleware";
-import { buildRepositoryDefaultWorkspaceId } from "@/store/project.utils";
+import { buildRepositoryDefaultWorkspaceId } from "@/store/repository.utils";
 import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
 
 interface StorageLike {

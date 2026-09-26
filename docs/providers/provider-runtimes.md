@@ -838,8 +838,8 @@ Rules:
   `PROJECT_MEMORY_INJECTION_MAX_ITEMS` rows / `PROJECT_MEMORY_INJECTION_MAX_CHARS`
   characters, and deduplicated per session like the Information panel block.
   See [Repository memory](../features/repository-memory.md),
-  `src/lib/task-context/project-memory.ts` and
-  `electron/persistence/project-memory-store.ts`.
+  `src/lib/task-context/repository-memory.ts` and
+  `electron/persistence/repository-memory-store.ts`.
 
 Claude's system prompt keeps its own cache boundary
 (`SYSTEM_PROMPT_DYNAMIC_BOUNDARY`); nothing here changes that.

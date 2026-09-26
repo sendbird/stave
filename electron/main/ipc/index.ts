@@ -13,7 +13,7 @@ import { registerMetricsHandlers } from "./metrics";
 import { registerMissionHandlers } from "./missions";
 import { registerNotificationHandlers } from "./notifications";
 import { registerPersistenceHandlers } from "./persistence";
-import { registerRepositoryMemoryHandlers } from "./project-memory";
+import { registerRepositoryMemoryHandlers } from "./repository-memory";
 import { registerProviderHandlers } from "./provider";
 import { registerRunHandlers } from "./runs";
 import { registerAutomationHandlers } from "./automations";

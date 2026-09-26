@@ -3,9 +3,9 @@ import { Brain } from "lucide-react";
 import { iconTileGlyphSizes } from "@/components/ads/components/IconTile";
 import { EmptyState } from "@/components/ads/components/EmptyState";
 import { Button } from "@/components/ui";
-import type { RepositoryMemorySettings } from "@/lib/project-memory-settings";
+import type { RepositoryMemorySettings } from "@/lib/repository-memory-settings";
 import { sx } from "@/components/ads/utils/stylex";
-import { REPOSITORY_MEMORY_CHANGED_EVENT } from "./ProjectMemoryControls";
+import { REPOSITORY_MEMORY_CHANGED_EVENT } from "./RepositoryMemoryControls";
 import { workspaceMemorySectionStyles as styles } from "./workspace-memory-section.styles";
 
 /** Mounted with the project path as its key to isolate in-flight saves. */

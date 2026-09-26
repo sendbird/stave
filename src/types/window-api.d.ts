@@ -1,7 +1,7 @@
 import type { LensReviewApi } from "@/lib/lens/lens-review.types";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../lib/providers/agent-history";
 import type { PromptEnhancementContext } from "@/lib/providers/prompt-enhancement-context";
-import type { RepositoryMemoryControlsApi } from "@/lib/project-memory-settings";
+import type { RepositoryMemoryControlsApi } from "@/lib/repository-memory-settings";
 import type {
   RepositoryMemory,
   RepositoryMemoryDeleteArgs,
@@ -10,7 +10,7 @@ import type {
   RepositoryMemoryRememberArgs,
   RepositoryMemoryRememberResult,
   RepositoryMemoryUpdateArgs,
-} from "@/lib/project-memory";
+} from "@/lib/repository-memory";
 import type {
   CodexAppServerSnapshotResponse,
   CodexModelCatalogResponse,

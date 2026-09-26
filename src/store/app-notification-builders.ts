@@ -34,7 +34,7 @@ import {
   resolveRepositoryForWorkspaceId,
   resolveWorkspaceName,
   type RecentRepositoryState,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 
 /**

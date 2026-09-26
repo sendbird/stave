@@ -9,16 +9,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui";
-import { REPOSITORY_MEMORY_KINDS } from "@/lib/project-memory";
+import { REPOSITORY_MEMORY_KINDS } from "@/lib/repository-memory";
 import {
   DEFAULT_REPOSITORY_MEMORY_SETTINGS,
   type RepositoryMemorySettings,
-} from "@/lib/project-memory-settings";
+} from "@/lib/repository-memory-settings";
 import { sx } from "@/components/ads/utils/stylex";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { repositoryMemoryControlsStyles as styles } from "./ProjectMemoryControls.styles";
+import { repositoryMemoryControlsStyles as styles } from "./RepositoryMemoryControls.styles";
 
-export const REPOSITORY_MEMORY_CHANGED_EVENT = "stave:project-memory-changed";
+export const REPOSITORY_MEMORY_CHANGED_EVENT = "stave:repository-memory-changed";
 const KIND_DESCRIPTIONS = {
   decision: "Decisions and their rationale",
   convention: "Conventions and preferences",

@@ -26,11 +26,11 @@ import {
   toWorkspaceFolderName,
   updateCurrentRepositoryTextPreference,
   updateCurrentRepositoryAppearance,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 import {
   filterRepositorySidebarRepositories,
   formatWorkspaceDisplayName,
-} from "@/components/layout/ProjectWorkspaceSidebar.utils";
+} from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 
 const REPOSITORY_PATH = "/tmp/workspace/stave";
 const FOREIGN_REPOSITORY_PATH = "/tmp/sbdashboard";

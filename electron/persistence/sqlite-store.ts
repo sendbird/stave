@@ -59,13 +59,13 @@ import type {
 import { WakeUpStore } from "./wake-up-store";
 import { MissionStore } from "./mission-store";
 import { AutomationStateStore } from "./automation-state-store";
-import { RepositoryMemoryStore } from "./project-memory-store";
+import { RepositoryMemoryStore } from "./repository-memory-store";
 import { ResultReviewStore } from "./result-review-store";
 import { NotificationStore } from "./notification-store";
 import { FleetAttentionSnoozeStore } from "./fleet-attention-snooze-store";
 import { WorkspaceDirectionDraftStore } from "./workspace-direction-drafts";
 import { DelegationDraftStore } from "./delegation-drafts";
-import type { RepositoryMemoryKind } from "../../src/lib/project-memory";
+import type { RepositoryMemoryKind } from "../../src/lib/repository-memory";
 import type {
   WakeUp,
   WakeUpOccurrence,
@@ -2899,7 +2899,7 @@ export class SqliteStore {
     return this.repositoryMemories.get(id);
   }
 
-  searchRepositoryMemories(args: { repositoryPath: string } & import("../../src/lib/project-memory").RepositoryMemorySearchOptions) {
+  searchRepositoryMemories(args: { repositoryPath: string } & import("../../src/lib/repository-memory").RepositoryMemorySearchOptions) {
     return this.repositoryMemories.search(args);
   }
 
@@ -2908,7 +2908,7 @@ export class SqliteStore {
     kind: RepositoryMemoryKind;
     content: string;
     confidence: number;
-    recallMode?: import("../../src/lib/project-memory").RepositoryMemoryRecallMode;
+    recallMode?: import("../../src/lib/repository-memory").RepositoryMemoryRecallMode;
     sourceTaskId?: string | null;
     sourceTurnId?: string | null;
     collectionRevision?: number;
@@ -2937,7 +2937,7 @@ export class SqliteStore {
   updateRepositoryMemory(args: {
     id: string;
     repositoryPath: string;
-    recallMode?: import("../../src/lib/project-memory").RepositoryMemoryRecallMode;
+    recallMode?: import("../../src/lib/repository-memory").RepositoryMemoryRecallMode;
     kind?: RepositoryMemoryKind;
     content?: string;
   }) {

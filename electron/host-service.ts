@@ -607,9 +607,9 @@ localMcpRuntime.setLocalMcpEventListener((event) => {
 
 async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
   switch (action) {
-    case "list-known-projects":
+    case "list-known-repositories":
       return localMcpRuntime.listKnownRepositories();
-    case "register-project":
+    case "register-repository":
       return localMcpRuntime.registerRepository(
         args as Parameters<typeof localMcpRuntime.registerRepository>[0],
       );
@@ -653,15 +653,15 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return localMcpRuntime.appendWorkspaceNotes(
         args as Parameters<typeof localMcpRuntime.appendWorkspaceNotes>[0],
       );
-    case "remember-project-memory":
+    case "remember-repository-memory":
       return localMcpRuntime.rememberRepositoryMemory(
         args as Parameters<typeof localMcpRuntime.rememberRepositoryMemory>[0],
       );
-    case "forget-project-memory":
+    case "forget-repository-memory":
       return localMcpRuntime.forgetRepositoryMemory(
         args as Parameters<typeof localMcpRuntime.forgetRepositoryMemory>[0],
       );
-    case "list-project-memories":
+    case "list-repository-memories":
       return localMcpRuntime.listRepositoryMemories(
         args as Parameters<typeof localMcpRuntime.listRepositoryMemories>[0],
       );

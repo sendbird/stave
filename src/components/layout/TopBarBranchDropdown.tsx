@@ -37,7 +37,7 @@ import { useAppStore } from "@/store/app.store";
 import { layoutShellStyles } from "./layout-shell.styles";
 import { branchDropdownStyles } from "./top-bar-branch-dropdown.styles";
 import { topBarControlStyles } from "./top-bar.styles";
-import { formatWorkspacePathLabel } from "@/store/project.utils";
+import { formatWorkspacePathLabel } from "@/store/repository.utils";
 import {
   buildTopBarBranchGroups,
   resolveDefaultBranchDrift,

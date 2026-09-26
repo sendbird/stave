@@ -29,7 +29,7 @@ import { WakeUpUpsertInputSchema } from "../../src/lib/supervision/wake-up-polic
 import {
   REPOSITORY_MEMORY_CONTENT_MAX_CHARS,
   RepositoryMemoryKindSchema,
-} from "../../src/lib/project-memory";
+} from "../../src/lib/repository-memory";
 import { registerCollaborationTools } from "./stave-collaboration-tools";
 import { registerMissionTools } from "./stave-mission-tools";
 import {

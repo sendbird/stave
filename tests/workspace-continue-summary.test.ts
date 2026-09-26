@@ -3,7 +3,7 @@ import {
   buildWorkspaceContinueSummaryFilePath,
   buildWorkspaceContinueSummaryMarkdown,
 } from "../src/lib/workspace-continue";
-import { buildContinueWorkspaceBranchName, toWorkspaceFolderName } from "../src/store/project.utils";
+import { buildContinueWorkspaceBranchName, toWorkspaceFolderName } from "../src/store/repository.utils";
 
 const originalWindow = globalThis.window;
 

@@ -68,7 +68,7 @@ import {
   updateCurrentRepositoryAppearance,
   updateCurrentRepositoryTextPreference,
   upsertRecentRepositoryState,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 import {
   normalizeClaudeSettingSources,
   normalizeClaudeTaskBudgetTokens,

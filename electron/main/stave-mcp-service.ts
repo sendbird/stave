@@ -111,26 +111,26 @@ export async function appendWorkspaceNotes(args: {
 
 export async function rememberRepositoryMemory(args: {
   workspaceId: string;
-  kind: import("../../src/lib/project-memory").RepositoryMemoryKind;
+  kind: import("../../src/lib/repository-memory").RepositoryMemoryKind;
   content: string;
   memoryId?: string;
   recallMode?: "contextual" | "core";
   taskId?: string;
 }) {
   return invokeLocalMcp<import("../host-service/local-mcp-runtime").RepositoryMemoryRememberToolResult>(
-    "remember-project-memory",
+    "remember-repository-memory",
     args,
   );
 }
 
-export async function listRepositoryMemories(args: { workspaceId: string } & import("../../src/lib/project-memory").RepositoryMemorySearchOptions) {
+export async function listRepositoryMemories(args: { workspaceId: string } & import("../../src/lib/repository-memory").RepositoryMemorySearchOptions) {
   return invokeLocalMcp<
     Awaited<
       ReturnType<
         typeof import("../host-service/local-mcp-runtime").listRepositoryMemories
       >
     >
-  >("list-project-memories", args);
+  >("list-repository-memories", args);
 }
 
 export async function forgetRepositoryMemory(args: {
@@ -138,7 +138,7 @@ export async function forgetRepositoryMemory(args: {
   memoryId: string;
 }) {
   return invokeLocalMcp<import("../host-service/local-mcp-runtime").RepositoryMemoryForgetToolResult>(
-    "forget-project-memory",
+    "forget-repository-memory",
     args,
   );
 }
@@ -384,7 +384,7 @@ export async function registerRepository(args: {
 }) {
   return invokeLocalMcp<
     import("../host-service/local-mcp-runtime").RegisteredRepositoryInfo
-  >("register-project", args);
+  >("register-repository", args);
 }
 
 export async function createWorkspace(args: {
@@ -539,5 +539,5 @@ export async function respondUserInput(args: {
 export async function listKnownRepositories() {
   return invokeLocalMcp<
     import("../host-service/local-mcp-runtime").RegisteredRepositoryInfo[]
-  >("list-known-projects", undefined);
+  >("list-known-repositories", undefined);
 }

@@ -2,7 +2,7 @@ import { lensReviewApi } from "./lens-review-preload";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../src/lib/providers/agent-history";
 import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../src/lib/performance/workspace-execution";
 import type { PromptEnhancementContext } from "../src/lib/providers/prompt-enhancement-context";
-import type { RepositoryMemoryControlsApi } from "../src/lib/project-memory-settings";
+import type { RepositoryMemoryControlsApi } from "../src/lib/repository-memory-settings";
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   CodexAppServerSnapshotResponse,
@@ -114,7 +114,7 @@ import type {
   RepositoryMemoryRememberArgs,
   RepositoryMemoryRememberResult,
   RepositoryMemoryUpdateArgs,
-} from "../src/lib/project-memory";
+} from "../src/lib/repository-memory";
 import type {
   JiraConnectorPublicStatus,
   JiraConnectorSetCredentialArgs,
@@ -1563,13 +1563,13 @@ contextBridge.exposeInMainWorld("api", {
     }) =>
       ipcRenderer.invoke("persistence:load-workspace-editor-tab-bodies", args),
     loadRepositoryRegistry: () =>
-      ipcRenderer.invoke("persistence:load-project-registry"),
+      ipcRenderer.invoke("persistence:load-repository-registry"),
     upsertWorkspace: (args: { id: string; name: string; snapshot: unknown }) =>
       ipcRenderer.invoke("persistence:upsert-workspace", args),
     saveRepositoryRegistry: (args: {
       repositories: unknown[];
       activeRepositoryPath?: string | null;
-    }) => ipcRenderer.invoke("persistence:save-project-registry", args),
+    }) => ipcRenderer.invoke("persistence:save-repository-registry", args),
     /**
      * Quit-time flush handshake. `onFlushRequested` fires when main is about to
      * tear down persistence; the renderer performs its ordinary async snapshot
@@ -2018,45 +2018,45 @@ contextBridge.exposeInMainWorld("api", {
     getSettings: (
       args: Parameters<RepositoryMemoryControlsApi["getSettings"]>[0],
     ) =>
-      ipcRenderer.invoke("project-memory:get-settings", args) as ReturnType<
+      ipcRenderer.invoke("repository-memory:get-settings", args) as ReturnType<
         RepositoryMemoryControlsApi["getSettings"]
       >,
     saveSettings: (
       args: Parameters<RepositoryMemoryControlsApi["saveSettings"]>[0],
     ) =>
-      ipcRenderer.invoke("project-memory:save-settings", args) as ReturnType<
+      ipcRenderer.invoke("repository-memory:save-settings", args) as ReturnType<
         RepositoryMemoryControlsApi["saveSettings"]
       >,
     clear: (args: Parameters<RepositoryMemoryControlsApi["clear"]>[0]) =>
-      ipcRenderer.invoke("project-memory:clear", args) as ReturnType<
+      ipcRenderer.invoke("repository-memory:clear", args) as ReturnType<
         RepositoryMemoryControlsApi["clear"]
       >,
     list: (args: RepositoryMemoryListArgs) =>
-      ipcRenderer.invoke("project-memory:list", args) as Promise<{
+      ipcRenderer.invoke("repository-memory:list", args) as Promise<{
         ok: boolean;
         items: RepositoryMemory[];
         message?: string;
       }>,
     recall: (args: RepositoryMemoryRecallArgs) =>
-      ipcRenderer.invoke("project-memory:recall", args) as Promise<{
+      ipcRenderer.invoke("repository-memory:recall", args) as Promise<{
         ok: boolean;
         items: RepositoryMemory[];
         message?: string;
       }>,
     remember: (args: RepositoryMemoryRememberArgs) =>
-      ipcRenderer.invoke("project-memory:remember", args) as Promise<{
+      ipcRenderer.invoke("repository-memory:remember", args) as Promise<{
         ok: boolean;
         results: RepositoryMemoryRememberResult[];
         message?: string;
       }>,
     update: (args: RepositoryMemoryUpdateArgs) =>
-      ipcRenderer.invoke("project-memory:update", args) as Promise<{
+      ipcRenderer.invoke("repository-memory:update", args) as Promise<{
         ok: boolean;
         memory?: RepositoryMemory | null;
         message?: string;
       }>,
     delete: (args: RepositoryMemoryDeleteArgs) =>
-      ipcRenderer.invoke("project-memory:delete", args) as Promise<{
+      ipcRenderer.invoke("repository-memory:delete", args) as Promise<{
         ok: boolean;
         deleted?: boolean;
         message?: string;

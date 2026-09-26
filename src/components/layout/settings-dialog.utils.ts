@@ -1,4 +1,4 @@
-import type { RecentRepositoryState } from "@/store/project.utils";
+import type { RecentRepositoryState } from "@/store/repository.utils";
 
 function normalizeRepositoryPath(value?: string | null) {
   const normalized = value?.trim();

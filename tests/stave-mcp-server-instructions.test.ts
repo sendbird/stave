@@ -37,7 +37,7 @@ describe("tool names in free text", () => {
     ].join("\n");
     const texts = [
       buildStaveLocalMcpServerInstructions(),
-      await readFile("src/lib/task-context/project-memory.ts", "utf8"),
+      await readFile("src/lib/task-context/repository-memory.ts", "utf8"),
     ];
     const named = new Set(texts.flatMap((text) => text.match(/\bstave_[a-z]+(?:_[a-z]+)*\b/g) ?? []));
     expect(named.size).toBeGreaterThan(0);

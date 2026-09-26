@@ -9,7 +9,7 @@ import {
 import {
   resolveCurrentRepositoryDefaultWorkspaceId,
   type RecentRepositoryState,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 
 export interface AutomationEnvironmentOption {
   value: string;

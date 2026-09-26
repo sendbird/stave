@@ -1620,4 +1620,4 @@ export {
   RepositoryMemoryRecallArgsSchema as ProjectMemoryRecallArgsSchema,
   RepositoryMemoryRememberArgsSchema as ProjectMemoryRememberArgsSchema,
   RepositoryMemoryUpdateArgsSchema as ProjectMemoryUpdateArgsSchema,
-} from "../../../src/lib/project-memory";
+} from "../../../src/lib/repository-memory";

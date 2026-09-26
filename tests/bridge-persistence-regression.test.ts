@@ -16,7 +16,7 @@ import {
   createWorkspaceSnapshot,
   flushPendingSnapshotPersists,
 } from "@/store/workspace-session-state";
-import { buildRepositoryDefaultWorkspaceId } from "@/store/project.utils";
+import { buildRepositoryDefaultWorkspaceId } from "@/store/repository.utils";
 import { resolveInitialLatestTaskMessagesPageSize } from "@/store/task-message-loading";
 import {
   createNotification,
@@ -3501,7 +3501,7 @@ describe("workspace store hydration ordering", () => {
     const upsertCalls: Array<{ id: string; name: string; snapshot: unknown }> =
       [];
     const { buildImportedWorktreeWorkspaceId } =
-      await import("../src/store/project.utils");
+      await import("../src/store/repository.utils");
     const importedWorkspaceId = buildImportedWorktreeWorkspaceId({
       repositoryPath: "/tmp/stave-project",
       worktreePath: "/tmp/stave-project/.stave/workspaces/feature__perf",

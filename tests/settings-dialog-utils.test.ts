@@ -9,7 +9,7 @@ import {
   settingDefinitions,
 } from "@/components/layout/settings-dialog.registry";
 import { resolveSettingsRepositorySelection } from "@/components/layout/settings-dialog.utils";
-import type { RecentRepositoryState } from "@/store/project.utils";
+import type { RecentRepositoryState } from "@/store/repository.utils";
 
 function createRepository(args: {
   repositoryPath: string;

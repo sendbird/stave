@@ -8,7 +8,7 @@ import {
   STAVE_CURRENT_TASK_AWARENESS_SOURCE_ID,
   STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
 } from "../../src/lib/task-context/current-task-awareness";
-import { STAVE_REPOSITORY_MEMORY_SOURCE_ID } from "../../src/lib/task-context/project-memory";
+import { STAVE_REPOSITORY_MEMORY_SOURCE_ID } from "../../src/lib/task-context/repository-memory";
 
 /**
  * Retrieved-context sources that are rebuilt from live state every turn and are

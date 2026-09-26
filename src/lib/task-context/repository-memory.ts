@@ -5,7 +5,7 @@ import {
   capRepositoryMemoriesForInjection,
   formatRepositoryMemoryLine,
   type RepositoryMemory,
-} from "@/lib/project-memory";
+} from "@/lib/repository-memory";
 
 export const STAVE_REPOSITORY_MEMORY_SOURCE_ID = "stave:project-memory";
 

@@ -30,7 +30,7 @@ import type {
   TrackerIssueStartMode,
 } from "@/lib/tracker-issues/types";
 import { useAppStore } from "@/store/app.store";
-import { resolveRepositoryKickoffBranchNamingRule } from "@/store/project.utils";
+import { resolveRepositoryKickoffBranchNamingRule } from "@/store/repository.utils";
 
 /**
  * Draft state for one tracker kickoff.
