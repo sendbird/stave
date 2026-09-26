@@ -185,20 +185,18 @@ export async function resolveAcpStaveLocalMcpServers(args?: {
 }
 
 /**
- * Entry for a user's Claude Code settings file.
+ * User-scope entry for Claude Code's `.claude.json` state file — the same flat
+ * `{ type, url, headers }` record `claude mcp add --scope user` writes. The
+ * CLI does not read a nested `transport` wrapper, and it does not read
+ * `mcpServers` from `settings.json` for user-scope servers at all; either
+ * mistake leaves the server absent from `claude mcp list`.
  *
  * Deliberately carries no `timeout`. The field is confirmed only for the SDK's
- * `mcpServers` option, where the client reads it directly off the server config
- * object. This shape nests the connection under `transport`, and whether the
- * CLI reads a per-server timeout from inside or beside that wrapper is
- * unverified — writing it at the wrong level would either be silently ignored
- * or risk the CLI rejecting a settings file Stave does not own, which is a
- * worse outcome than the deadline it would have fixed.
+ * `mcpServers` option; whether the CLI honors it from persisted user config is
+ * unverified, and this is a file Stave does not own.
  */
-export function toClaudeCodeSettingsMcpServerEntry(
+export function toClaudeCodeUserMcpServerEntry(
   manifest: StaveLocalMcpManifest,
 ) {
-  return {
-    transport: toStaveLocalMcpTransport(manifest),
-  };
+  return toStaveLocalMcpTransport(manifest);
 }

@@ -841,7 +841,7 @@ export function LocalMcpServerCard() {
 
           <SwitchField
             title="Claude Code"
-            description="Opt-in and off by default. When enabled, Stave manages only its own MCP entry in `~/.claude/settings.json` for the external Claude Code app. This does not affect Stave's internal Claude runtime."
+            description="Opt-in and off by default. When enabled, Stave manages only its own user-scope MCP entry in Claude Code's `.claude.json` (under `CLAUDE_CONFIG_DIR`, or `~/.claude.json`) for the external Claude Code app. This does not affect Stave's internal Claude runtime."
             checked={config.claudeCodeAutoRegister}
             onCheckedChange={(checked) =>
               void applyConfigPatch({ claudeCodeAutoRegister: checked })
