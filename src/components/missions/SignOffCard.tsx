@@ -196,7 +196,16 @@ const styles = stylex.create({
   header: { display: "flex", alignItems: "flex-start", gap: vars["--ads-space-8"], minWidth: 0 },
   tile: { flex: "0 0 auto" },
   body: { display: "flex", flexDirection: "column", gap: vars["--ads-space-2"], flex: "1 1 auto", minWidth: 0 },
-  titleRow: { display: "flex", alignItems: "baseline", gap: vars["--ads-space-8"], minHeight: 24, minWidth: 0 },
+  // The position wraps under the question when the card is narrow.
+  titleRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "baseline",
+    columnGap: vars["--ads-space-8"],
+    rowGap: 0,
+    minHeight: 24,
+    minWidth: 0,
+  },
   title: {
     flex: "1 1 auto",
     margin: 0,
@@ -208,6 +217,8 @@ const styles = stylex.create({
   },
   position: {
     flex: "0 0 auto",
+    marginInlineStart: "auto",
+    whiteSpace: "nowrap",
     fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-subtle"],
     fontVariantNumeric: "tabular-nums",
