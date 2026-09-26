@@ -202,8 +202,16 @@ type StaveAction =
 | Plan and publishing | the stage after a `plan` stage, `publish` stages and `mark-pr-ready` |
 | Only when stuck | nothing; blockers and stuck stages still stop |
 
+Starting a mission signs off its first stage, so the first stage never waits,
+even under Every stage.
+
 A draft PR is created automatically under the default because it is reversible
 and invisible to reviewers; making it ready for review is the publishing step.
+
+A playbook opens a draft PR at most once, and `watch-checks` and
+`mark-pr-ready` come after that stage. A playbook without an `open-draft-pr`
+stage acts on the workspace's existing pull request, so its missions start only
+where one exists (Fix failing checks, Address review).
 
 Playbooks live in their own settings key and limit, not in the macro list. The
 prototype's recipes were never released, so no data migration is needed; its

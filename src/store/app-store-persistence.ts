@@ -53,6 +53,10 @@ import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import { normalizePrePrReviewProvider } from "@/lib/source-control-review";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import { normalizePersistedMacros } from "@/lib/macros/normalize";
+import {
+  normalizePersistedPlaybooks,
+  warnPlaybookDiagnostics,
+} from "@/lib/playbooks/normalize";
 import { normalizePersistedTaskPresets } from "@/lib/task-presets";
 import {
   DEFAULT_TERMINAL_FONT_FAMILY,
@@ -333,6 +337,9 @@ export function createAppStorePersistenceOptions() {
         raw.taskPresets,
       );
       state.settings.macros = normalizePersistedMacros(raw.macros);
+      const restoredPlaybooks = normalizePersistedPlaybooks(raw.playbooks);
+      warnPlaybookDiagnostics(restoredPlaybooks.diagnostics);
+      state.settings.playbooks = restoredPlaybooks.playbooks;
       state.settings.modelShortcutKeys = normalizeModelShortcutKeys(
         raw.modelShortcutKeys,
       );

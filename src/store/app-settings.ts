@@ -58,6 +58,7 @@ import {
   type PrePrReviewProviderId,
 } from "@/lib/source-control-review";
 import type { Macro } from "@/lib/macros/types";
+import type { Playbook } from "@/lib/playbooks/schema";
 import type { PromptEnhancementExemplar } from "@/lib/providers/prompt-enhancement-context";
 import { cloneDefaultTaskPresets, type TaskPreset } from "@/lib/task-presets";
 import {
@@ -238,6 +239,11 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * draft and may pin a per-turn model + effort override.
    */
   macros: Macro[];
+  /**
+   * Saved playbooks: ordered stages a mission runs on one lead task. Kept
+   * apart from macros, with their own limit and validation.
+   */
+  playbooks: Playbook[];
   permissionMode: "require-approval" | "auto-safe";
   trustedTools: string[];
   skillsEnabled: boolean;
@@ -675,6 +681,7 @@ export const defaultSettings: AppSettings = {
   autoRoutingProfile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
   taskPresets: cloneDefaultTaskPresets(),
   macros: [],
+  playbooks: [],
   permissionMode: "auto-safe",
   trustedTools: [],
   skillsEnabled: true,

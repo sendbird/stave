@@ -22,6 +22,10 @@ import {
 import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import { normalizePersistedMacros } from "@/lib/macros/normalize";
+import {
+  normalizePersistedPlaybooks,
+  warnPlaybookDiagnostics,
+} from "@/lib/playbooks/normalize";
 import { normalizePersistedTaskPresets } from "@/lib/task-presets";
 import {
   applyCustomTheme,
@@ -69,6 +73,12 @@ import {
   normalizeClaudeSettingSources,
   normalizeClaudeTaskBudgetTokens,
 } from "@/store/provider-runtime-options";
+
+function normalizePlaybookPatch(value: unknown) {
+  const { playbooks, diagnostics } = normalizePersistedPlaybooks(value);
+  warnPlaybookDiagnostics(diagnostics);
+  return playbooks;
+}
 
 type SettingsActionKey =
   | "clearAutoRoutingDecision"
@@ -521,6 +531,9 @@ export function createSettingsActions(args: {
           : {
               macros: normalizePersistedMacros(patch.macros),
             }),
+        ...(patch.playbooks === undefined
+          ? {}
+          : { playbooks: normalizePlaybookPatch(patch.playbooks) }),
         ...(patch.lensSessionScope === undefined
           ? {}
           : {
