@@ -242,8 +242,8 @@ export const settingsSections = [
     ],
   },
   {
-    id: "tasks",
-    label: "Tasks",
+    id: "issues",
+    label: "Issues",
     icon: ListTodo,
     description:
       "Assigned ticket list defaults: starting view, refresh cadence, and how a kickoff begins.",
@@ -395,7 +395,7 @@ export const settingsSectionGroups: Array<{ label: string; ids: SectionId[] }> =
         "autoRouting",
         "mcp",
         "integrations",
-        "tasks",
+        "issues",
         "kickoff",
         "auxiliaryInference",
         "prompts",

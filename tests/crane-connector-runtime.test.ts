@@ -1028,7 +1028,7 @@ describe("CraneConnectorRuntime", () => {
       workspaceId: "workspace-crane",
       taskId: "task-crane",
     });
-    // No approval handshake: the user already answered in the Tasks surface.
+    // No approval handshake: the user already answered in the Issues surface.
     expect(harness.approvals).toHaveLength(0);
     expect(harness.receipts).toEqual([{ state: "running" }]);
     // The claim reserved sequence 4, so the first receipt has to land on it.

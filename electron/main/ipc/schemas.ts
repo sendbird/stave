@@ -55,14 +55,14 @@ export {
   MartinWorkspaceArgsSchema,
 } from "../../../src/lib/martin-sync/types";
 export {
-  TrackerTaskAttachStaveTaskArgsSchema,
-  TrackerTaskKickoffArgsSchema,
-  TrackerTaskRefArgsSchema,
-  TrackerTasksListArgsSchema,
-  TrackerTasksRefreshArgsSchema,
-  TrackerTasksSurfaceVisibleArgsSchema,
-} from "../../../src/lib/tracker-tasks/types";
-export { TrackerTasksSettingsSchema as TrackerTasksConfigureArgsSchema } from "../../../src/lib/tracker-tasks/settings";
+  TrackerIssueAttachStaveTaskArgsSchema,
+  TrackerIssueKickoffArgsSchema,
+  TrackerIssueRefArgsSchema,
+  TrackerIssuesListArgsSchema,
+  TrackerIssuesRefreshArgsSchema,
+  TrackerIssuesSurfaceVisibleArgsSchema,
+} from "../../../src/lib/tracker-issues/types";
+export { TrackerIssuesSettingsSchema as TrackerIssuesConfigureArgsSchema } from "../../../src/lib/tracker-issues/settings";
 export {
   JiraConnectorConfigureArgsSchema,
   JiraConnectorSetCredentialArgsSchema,

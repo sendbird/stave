@@ -39,8 +39,33 @@
       ]
     },
     {
+      "id": "tracker-issue-tables",
+      "description": "Renames the tracker_tasks_cache and tracker_task_kickoffs tables and their indexes to the tracker issue names.",
+      "introducedAfter": "0.19.6",
+      "removeInVersion": "0.22.0",
+      "files": [
+        "electron/persistence/tracker-issues-store.ts"
+      ],
+      "tests": [
+        "tests/tracker-issue-migrations.test.ts"
+      ]
+    },
+    {
+      "id": "issue-tracker-settings",
+      "description": "Moves the trackerTasks setting, the navigation.tasks shortcut override, legacy command palette recents and the stave.tracker-tasks.* local view keys to the Issues names.",
+      "introducedAfter": "0.19.6",
+      "removeInVersion": "0.22.0",
+      "files": [
+        "src/lib/tracker-issues/legacy-settings.ts",
+        "src/store/app-store-persistence.ts"
+      ],
+      "tests": [
+        "tests/tracker-issue-migrations.test.ts"
+      ]
+    },
+    {
       "id": "rename-vocabulary-codemod",
-      "description": "Replays the vocabulary renames (routine to automation, task heartbeat to wake-up, child task to delegated task, and later renames) on branches that started before they landed.",
+      "description": "Replays the vocabulary renames (routine to automation, task heartbeat to wake-up, child task to delegated task, tracker task to tracker issue, and later renames) on branches that started before they landed.",
       "introducedAfter": "0.19.6",
       "removeInVersion": "0.22.0",
       "files": [

@@ -130,8 +130,8 @@ export interface CommandPaletteCommandHandlers {
   openFleetView: () => void;
   openGitGraph: () => void;
   openAutomationCenter: () => void;
-  openTasks: () => void;
-  refreshTrackerTasks: () => Promise<void> | void;
+  openIssues: () => void;
+  refreshTrackerIssues: () => Promise<void> | void;
   openKeyboardShortcuts: () => void;
   openProject: (projectPath: string) => Promise<void> | void;
   openSettings: (options?: {
@@ -411,8 +411,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     }),
   },
   {
-    id: "navigation.tasks",
-    title: "Open Tasks",
+    id: "navigation.issues",
+    title: "Open Issues",
     description: "Open assigned tracker tickets and start a run from one.",
     group: "navigation",
     icon: ListTodo,
@@ -427,8 +427,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     ],
     shortcut: (modifierLabel) => `${modifierLabel}+K T`,
     build: (args) => ({
-      id: "navigation.tasks",
-      title: "Open Tasks",
+      id: "navigation.issues",
+      title: "Open Issues",
       subtitle: "Review assigned tickets and start a run from one.",
       group: "navigation",
       icon: ListTodo,
@@ -442,25 +442,25 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
         "due",
       ],
       shortcut: `${args.modifierLabel}+K T`,
-      run: args.commands.openTasks,
+      run: args.commands.openIssues,
       source: "core",
     }),
   },
   {
-    id: "tracker.refresh-tasks",
-    title: "Refresh Tasks",
+    id: "tracker.refresh-issues",
+    title: "Refresh Issues",
     description: "Re-poll every connected tracker for assigned tickets.",
     group: "navigation",
     icon: RefreshCw,
     keywords: ["refresh", "tasks", "tickets", "tracker", "sync"],
     build: (args) => ({
-      id: "tracker.refresh-tasks",
-      title: "Refresh Tasks",
+      id: "tracker.refresh-issues",
+      title: "Refresh Issues",
       subtitle: "Re-poll connected trackers for assigned tickets.",
       group: "navigation",
       icon: RefreshCw,
       keywords: ["refresh", "tasks", "tickets", "tracker", "sync"],
-      run: args.commands.refreshTrackerTasks,
+      run: args.commands.refreshTrackerIssues,
       source: "core",
     }),
   },

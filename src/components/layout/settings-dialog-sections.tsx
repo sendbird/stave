@@ -2,7 +2,7 @@ import { ProjectMemorySettingsSection } from "./ProjectMemoryControls";
 import { CraneConnectorSettingsSection } from "@/components/layout/settings-dialog-crane-connector";
 import { JiraConnectorSettingsSection } from "@/components/layout/settings-dialog-jira-connector";
 import { MartinSyncSettingsSection } from "@/components/layout/settings-dialog-martin-sync";
-import { TrackerTasksSettingsSection } from "@/components/layout/settings-dialog-tasks-section";
+import { IssueTrackerSettingsSection } from "@/components/layout/settings-dialog-issues-section";
 import { SettingsAuxiliaryInferenceSection } from "@/components/layout/settings-dialog-auxiliary-inference-section";
 import { SettingsAutoRoutingSection } from "@/components/layout/settings-dialog-auto-routing-section";
 import { type SectionId } from "@/components/layout/settings-dialog.schema";
@@ -93,8 +93,8 @@ export function SettingsDialogSectionContent(args: {
           <MartinSyncSettingsSection />
         </div>
       );
-    case "tasks":
-      return <TrackerTasksSettingsSection />;
+    case "issues":
+      return <IssueTrackerSettingsSection />;
     case "kickoff":
       return <KickoffSection />;
     case "auxiliaryInference":

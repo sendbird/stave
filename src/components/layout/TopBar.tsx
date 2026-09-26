@@ -39,7 +39,7 @@ import { TopBarFleetAttention } from "@/components/layout/TopBarFleetAttention";
 import { TopBarNotifications } from "@/components/layout/TopBarNotifications";
 import { TopBarOpenPR } from "@/components/layout/TopBarOpenPR";
 import { TopBarAutomations } from "@/components/layout/TopBarAutomations";
-import { TopBarTasks } from "@/components/layout/TopBarTasks";
+import { TopBarIssues } from "@/components/layout/TopBarIssues";
 import { TopBarStandaloneCli } from "@/components/layout/TopBarStandaloneCli";
 import { TopBarUpdate } from "@/components/layout/TopBarUpdate";
 import { TopBarWindowControls } from "@/components/layout/TopBarWindowControls";
@@ -315,7 +315,7 @@ export function TopBar() {
         {hasProjectContext ? (
           <TopBarFleetAttention noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         ) : null}
-        <TopBarTasks noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
+        <TopBarIssues noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         <TopBarAutomations noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         <TopBarStandaloneCli noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         {hasProjectContext ? (

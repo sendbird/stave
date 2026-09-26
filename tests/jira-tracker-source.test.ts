@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 
-import { createJiraTrackerSource } from "../electron/main/tracker-tasks/jira-source";
+import { createJiraTrackerSource } from "../electron/main/tracker-issues/jira-source";
 
 const SITE_URL = "https://example.atlassian.net";
 

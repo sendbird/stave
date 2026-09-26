@@ -115,7 +115,7 @@ export function buildPreviewUsageSamples(now: number): UsageSample[] {
     ["Outline a plan for provider failover when Kiro is signed out.", "codex", "gpt-6-astra", "high", 6],
     ["Implement the close-request drain in electron/terminal/host.ts.", "claude-code", "claude-sonnet-5", "high", 12],
     ["Add a regression test for duplicate close requests and make it pass.", "claude-code", "claude-sonnet-5", "high", 11],
-    ["Implement the Delegations panel filter row with All/Advisor/Worker/Tasks.", "codex", "gpt-5.6-sol", "high", 8],
+    ["Implement the Delegations panel filter row with All/Advisor/Worker/Delegated.", "codex", "gpt-5.6-sol", "high", 8],
     ["Build the exchange row so it expands into the shared detail body.", "claude-code", "claude-sonnet-5", "high", 5],
     ["Wire the wizard's apply step to updateSettings.", "claude-code", "claude-sonnet-5", "medium", 2],
     ["Review this diff for race conditions in the close ordering.", "codex", "gpt-5.6-sol", "high", 11],

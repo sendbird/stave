@@ -39,6 +39,13 @@ interface ScopedRules {
 interface RuleSet {
   description: string;
   fileRenames: ReadonlyArray<readonly [from: string, to: string]>;
+  /**
+   * Applied in order to every tracked path; a path that changes is moved.
+   * Useful for whole directories and families of test files.
+   */
+  pathRenames?: readonly Replacement[];
+  /** Tracked paths that keep their name even when a path rule matches. */
+  keepPaths?: readonly string[];
   /** Exact phrases where the old word keeps its ordinary meaning. */
   protectedPhrases: readonly string[];
   replacements: readonly Replacement[];
@@ -289,6 +296,108 @@ const RULE_SETS: Record<string, RuleSet> = {
       [/\bchild task\b/g, "delegated task"],
     ],
   },
+  issues: {
+    description: "Tracker task → Tracker issue (the Tasks surface becomes Issues)",
+    fileRenames: [],
+    pathRenames: [
+      [/^src\/lib\/tracker-tasks\//, "src/lib/tracker-issues/"],
+      [/^electron\/main\/tracker-tasks\//, "electron/main/tracker-issues/"],
+      [/^src\/components\/layout\/tasks\//, "src/components/layout/issues/"],
+      [/tracker-tasks/g, "tracker-issues"],
+      [/tracker-task/g, "tracker-issue"],
+      [/TrackerTasks/g, "TrackerIssues"],
+      [/TrackerTask/g, "TrackerIssue"],
+      [/\/Tasks(Board|PeekPanel|SurfaceHeader|Toolbar|View)\.tsx$/, "/Issues$1.tsx"],
+      [/\/tasks-(layout|row)\./, "/issues-$1."],
+      [/TopBarTasks/, "TopBarIssues"],
+      [/settings-dialog-tasks-section/, "settings-dialog-issues-section"],
+      [/^docs\/features\/tasks\.md$/, "docs/features/issues.md"],
+      [/^tests\/e2e\/tasks-design-system/, "tests/e2e/issues-design-system"],
+    ],
+    // A dated cross-repository record keeps the name the other repository links to.
+    keepPaths: ["docs/superpowers/plans/2026-09-03-tracker-tasks-atelier.md"],
+    protectedPhrases: [
+      "2026-09-03-tracker-tasks-atelier",
+      // Crane's own vocabulary and wire contract stay as Crane names them.
+      "crane-tasks",
+    ],
+    replacements: [
+      [/layout\/tasks\//g, "layout/issues/"],
+      [/"\.\/tasks\//g, '"./issues/'],
+      [/\/Tasks(Board|PeekPanel|SurfaceHeader|Toolbar|View)\b/g, "/Issues$1"],
+      [/\/tasks-(layout|row)\./g, "/issues-$1."],
+      [/TopBarTasks/g, "TopBarIssues"],
+      [/settings-dialog-tasks-section/g, "settings-dialog-issues-section"],
+      [/TrackerTasksSettingsSection/g, "IssueTrackerSettingsSection"],
+      [/features\/tasks\.md/g, "features/issues.md"],
+      [/\(tasks\.md\)/g, "(issues.md)"],
+      [/e2e\/tasks-design-system/g, "e2e/issues-design-system"],
+      [/\bTasks Guide\b/g, "Issues Guide"],
+      [/\bTasks surface\b/g, "Issues surface"],
+      [/TRACKER_TASKS/g, "TRACKER_ISSUES"],
+      [/TRACKER_TASK/g, "TRACKER_ISSUE"],
+      [/TrackerTasks/g, "TrackerIssues"],
+      [/TrackerTask/g, "TrackerIssue"],
+      [/trackerTasks/g, "trackerIssues"],
+      [/trackerTask/g, "trackerIssue"],
+      [/tracker_tasks/g, "tracker_issues"],
+      [/tracker_task/g, "tracker_issue"],
+      [/tracker-tasks/g, "tracker-issues"],
+      [/tracker-task/g, "tracker-issue"],
+      [/\bTracker tasks\b/g, "Tracker issues"],
+      [/\btracker tasks\b/g, "tracker issues"],
+      [/\bTracker task\b/g, "Tracker issue"],
+      [/\btracker task\b/g, "tracker issue"],
+    ],
+    scoped: {
+      files: [
+        "src/store/app-surface.ts",
+        "src/components/layout/AppShell.tsx",
+        "src/components/layout/TopBar.tsx",
+        "src/components/layout/TopBarIssues.tsx",
+        "src/components/layout/command-palette-registry.ts",
+        "src/components/layout/KeyboardShortcutsDrawer.tsx",
+        "src/components/layout/settings-dialog.registry.ts",
+        "src/components/layout/settings-dialog.schema.ts",
+        "src/components/layout/settings-dialog-sections.tsx",
+        "src/components/layout/settings-dialog-issues-section.tsx",
+        "src/lib/app-shortcuts.ts",
+        "src/components/layout/issues/IssuesBoard.tsx",
+        "src/components/layout/issues/IssuesPeekPanel.tsx",
+        "src/components/layout/issues/IssuesSurfaceHeader.tsx",
+        "src/components/layout/issues/IssuesToolbar.tsx",
+        "src/components/layout/issues/IssuesView.tsx",
+        "src/dev/ads-regression-preview/index.tsx",
+        "tests/app-shortcuts.test.ts",
+        "tests/command-palette.test.ts",
+        "tests/tracker-issues-board-view.test.tsx",
+        "tests/tracker-issues-peek-panel.test.tsx",
+        "tests/e2e/issues-design-system.e2e.ts",
+      ],
+      identifierRules: [
+        [/TasksView/g, "IssuesView"],
+        [/TasksBoard/g, "IssuesBoard"],
+        [/TasksToolbar/g, "IssuesToolbar"],
+        [/TasksSurfaceHeader/g, "IssuesSurfaceHeader"],
+        [/TasksPeekPanel/g, "IssuesPeekPanel"],
+        [/TasksPeekDock/g, "IssuesPeekDock"],
+        [/openTasks/g, "openIssues"],
+        [/closeTasks/g, "closeIssues"],
+        [/toggleTasks/g, "toggleIssues"],
+        [/TASKS_APP_SURFACE/g, "ISSUES_APP_SURFACE"],
+        [/showTasks/g, "showIssues"],
+        [/isTasksActive/g, "isIssuesActive"],
+      ],
+      proseRules: [
+        [/\bOpen Tasks\b/g, "Open Issues"],
+        [/\bRefresh Tasks\b/g, "Refresh Issues"],
+        [/\bnavigation\.tasks\b/g, "navigation.issues"],
+        [/\btracker\.refresh-tasks\b/g, "tracker.refresh-issues"],
+        [/Settings → Tasks/g, "Settings → Issues"],
+        [/^(\s*)Tasks(\s*)$/g, "$1Issues$2"],
+      ],
+    },
+  },
 };
 
 function run(command: string, args: string[]) {
@@ -455,7 +564,15 @@ function main() {
   }
 
   const renamedPath = new Map<string, string>();
-  for (const [from, to] of rules.fileRenames) {
+  const plannedRenames: Array<readonly [string, string]> = [...rules.fileRenames];
+  if (rules.pathRenames?.length) {
+    for (const file of run("git", ["ls-files"]).split("\n")) {
+      if (!file || rules.keepPaths?.includes(file)) continue;
+      const next = applyReplacements(file, rules.pathRenames);
+      if (next !== file) plannedRenames.push([file, next]);
+    }
+  }
+  for (const [from, to] of plannedRenames) {
     if (!existsSync(from)) continue;
     if (existsSync(to)) throw new Error(`Refusing to overwrite ${to}`);
     console.log(`${dryRun ? "would move" : "move"} ${from} -> ${to}`);

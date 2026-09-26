@@ -96,7 +96,7 @@ Pairing codes are exchanged once and are not stored in Stave settings.
 ### Start A Crane Issue From Stave
 
 The flow above is Crane-initiated: someone clicks *Run in Stave* in Crane and the
-approval dialog appears here. The [Tasks surface](tasks.md) is the reverse
+approval dialog appears here. The [Issues surface](issues.md) is the reverse
 direction. It lists the Crane tickets assigned to you and starts the run from
 Stave, using the same connector pairing and the same `crane` scope.
 

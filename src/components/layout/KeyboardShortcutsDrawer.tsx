@@ -260,7 +260,7 @@ export function KeyboardShortcutsDrawer({
   const sections = useMemo<ShortcutSection[]>(
     () => [
       {
-        title: "Tasks",
+        title: "Issues",
         description:
           "Create conversations and move around the current workspace.",
         shortcuts: [

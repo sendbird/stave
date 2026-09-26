@@ -367,7 +367,7 @@ describe("kickoff execution", () => {
           },
         }),
       },
-      trackerTasks: {
+      trackerIssues: {
         getDetail: async () => {
           reads++;
           return {

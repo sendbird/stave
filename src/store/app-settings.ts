@@ -102,9 +102,9 @@ import {
   type JiraConnectorSettings,
 } from "@/lib/jira-connector/types";
 import {
-  DEFAULT_TRACKER_TASKS_SETTINGS,
-  type TrackerTasksSettings,
-} from "@/lib/tracker-tasks/settings";
+  DEFAULT_TRACKER_ISSUES_SETTINGS,
+  type TrackerIssuesSettings,
+} from "@/lib/tracker-issues/settings";
 import {
   DEFAULT_WORKSPACE_KICKOFF_SETTINGS,
   type WorkspaceKickoffSettings,
@@ -390,8 +390,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * the email and API token never leave the Electron main vault.
    */
   jiraConnector: JiraConnectorSettings;
-  /** Tasks surface defaults: view, refresh cadence, and kickoff start mode. */
-  trackerTasks: TrackerTasksSettings;
+  /** Issues surface defaults: view, refresh cadence, and kickoff start mode. */
+  trackerIssues: TrackerIssuesSettings;
   claudeSettingSources: ClaudeSettingSource[];
   claudeEffort: "low" | "medium" | "high" | "xhigh" | "max";
   claudeThinkingMode: "adaptive" | "enabled" | "disabled";
@@ -764,7 +764,7 @@ export const defaultSettings: AppSettings = {
     ...DEFAULT_JIRA_CONNECTOR_SETTINGS,
     projectMappings: [],
   },
-  trackerTasks: { ...DEFAULT_TRACKER_TASKS_SETTINGS },
+  trackerIssues: { ...DEFAULT_TRACKER_ISSUES_SETTINGS },
   claudeSettingSources: ["project"],
   // Matches `resolveDefaultClaudeEffortForModel` for the default model
   // (Opus 5.5). Keep the two in step when either changes.

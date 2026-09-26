@@ -93,19 +93,19 @@ import type {
 } from "../src/lib/martin-sync/types";
 import type {
   TrackerSourceId,
-  TrackerTaskAttachStaveTaskArgs,
-  TrackerTaskDetail,
-  TrackerTaskKickoffArgs,
-  TrackerTaskKickoffResult,
-  TrackerTaskListItem,
-  TrackerTaskRefArgs,
-  TrackerTaskStaveLink,
-  TrackerTasksListArgs,
-  TrackerTasksPublicStatus,
-  TrackerTasksRefreshArgs,
-  TrackerTasksSurfaceVisibleArgs,
-} from "../src/lib/tracker-tasks/types";
-import type { TrackerTasksSettings } from "../src/lib/tracker-tasks/settings";
+  TrackerIssueAttachStaveTaskArgs,
+  TrackerIssueDetail,
+  TrackerIssueKickoffArgs,
+  TrackerIssueKickoffResult,
+  TrackerIssueListItem,
+  TrackerIssueRefArgs,
+  TrackerIssueStaveLink,
+  TrackerIssuesListArgs,
+  TrackerIssuesPublicStatus,
+  TrackerIssuesRefreshArgs,
+  TrackerIssuesSurfaceVisibleArgs,
+} from "../src/lib/tracker-issues/types";
+import type { TrackerIssuesSettings } from "../src/lib/tracker-issues/settings";
 import type {
   ProjectMemory,
   ProjectMemoryDeleteArgs,
@@ -316,14 +316,14 @@ const pendingCraneDispatchApprovals = new Map<
   string,
   CraneDispatchApprovalRequest
 >();
-const trackerTasksStatusSubscribers = new Set<
-  (payload: TrackerTasksPublicStatus) => void
+const trackerIssuesStatusSubscribers = new Set<
+  (payload: TrackerIssuesPublicStatus) => void
 >();
-const trackerTasksCacheUpdatedSubscribers = new Set<
+const trackerIssuesCacheUpdatedSubscribers = new Set<
   (payload: { source: TrackerSourceId }) => void
 >();
-const trackerTasksKickoffUpdatedSubscribers = new Set<
-  (payload: TrackerTaskStaveLink) => void
+const trackerIssuesKickoffUpdatedSubscribers = new Set<
+  (payload: TrackerIssueStaveLink) => void
 >();
 
 ipcRenderer.on(
@@ -375,25 +375,25 @@ ipcRenderer.on(
   },
 );
 ipcRenderer.on(
-  "tracker-tasks:status",
-  (_event, payload: TrackerTasksPublicStatus) => {
-    for (const subscriber of trackerTasksStatusSubscribers) {
+  "tracker-issues:status",
+  (_event, payload: TrackerIssuesPublicStatus) => {
+    for (const subscriber of trackerIssuesStatusSubscribers) {
       subscriber(payload);
     }
   },
 );
 ipcRenderer.on(
-  "tracker-tasks:cache-updated",
+  "tracker-issues:cache-updated",
   (_event, payload: { source: TrackerSourceId }) => {
-    for (const subscriber of trackerTasksCacheUpdatedSubscribers) {
+    for (const subscriber of trackerIssuesCacheUpdatedSubscribers) {
       subscriber(payload);
     }
   },
 );
 ipcRenderer.on(
-  "tracker-tasks:kickoff-updated",
-  (_event, payload: TrackerTaskStaveLink) => {
-    for (const subscriber of trackerTasksKickoffUpdatedSubscribers) {
+  "tracker-issues:kickoff-updated",
+  (_event, payload: TrackerIssueStaveLink) => {
+    for (const subscriber of trackerIssuesKickoffUpdatedSubscribers) {
       subscriber(payload);
     }
   },
@@ -2028,72 +2028,72 @@ contextBridge.exposeInMainWorld("api", {
         message?: string;
       }>,
   },
-  trackerTasks: {
+  trackerIssues: {
     getStatus: () =>
-      ipcRenderer.invoke("tracker-tasks:get-status") as Promise<{
+      ipcRenderer.invoke("tracker-issues:get-status") as Promise<{
         ok: boolean;
-        status?: TrackerTasksPublicStatus;
+        status?: TrackerIssuesPublicStatus;
         message?: string;
       }>,
-    list: (args: TrackerTasksListArgs = {}) =>
-      ipcRenderer.invoke("tracker-tasks:list", args) as Promise<{
+    list: (args: TrackerIssuesListArgs = {}) =>
+      ipcRenderer.invoke("tracker-issues:list", args) as Promise<{
         ok: boolean;
-        items: TrackerTaskListItem[];
+        items: TrackerIssueListItem[];
         message?: string;
       }>,
-    refresh: (args: TrackerTasksRefreshArgs = {}) =>
-      ipcRenderer.invoke("tracker-tasks:refresh", args) as Promise<{
+    refresh: (args: TrackerIssuesRefreshArgs = {}) =>
+      ipcRenderer.invoke("tracker-issues:refresh", args) as Promise<{
         ok: boolean;
-        status?: TrackerTasksPublicStatus;
+        status?: TrackerIssuesPublicStatus;
         message?: string;
       }>,
-    getDetail: (args: TrackerTaskRefArgs) =>
-      ipcRenderer.invoke("tracker-tasks:get-detail", args) as Promise<{
+    getDetail: (args: TrackerIssueRefArgs) =>
+      ipcRenderer.invoke("tracker-issues:get-detail", args) as Promise<{
         ok: boolean;
-        detail?: TrackerTaskDetail;
+        detail?: TrackerIssueDetail;
         message?: string;
       }>,
-    kickoff: (args: TrackerTaskKickoffArgs) =>
-      ipcRenderer.invoke("tracker-tasks:kickoff", args) as Promise<{
+    kickoff: (args: TrackerIssueKickoffArgs) =>
+      ipcRenderer.invoke("tracker-issues:kickoff", args) as Promise<{
         ok: boolean;
-        result?: TrackerTaskKickoffResult;
+        result?: TrackerIssueKickoffResult;
         message?: string;
       }>,
-    attachStaveTask: (args: TrackerTaskAttachStaveTaskArgs) =>
-      ipcRenderer.invoke("tracker-tasks:attach-stave-task", args) as Promise<{
+    attachStaveTask: (args: TrackerIssueAttachStaveTaskArgs) =>
+      ipcRenderer.invoke("tracker-issues:attach-stave-task", args) as Promise<{
         ok: boolean;
-        link?: TrackerTaskStaveLink | null;
+        link?: TrackerIssueStaveLink | null;
         message?: string;
       }>,
-    setSurfaceVisible: (args: TrackerTasksSurfaceVisibleArgs) =>
-      ipcRenderer.invoke("tracker-tasks:set-surface-visible", args) as Promise<{
+    setSurfaceVisible: (args: TrackerIssuesSurfaceVisibleArgs) =>
+      ipcRenderer.invoke("tracker-issues:set-surface-visible", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
-    configure: (args: TrackerTasksSettings) =>
-      ipcRenderer.invoke("tracker-tasks:configure", args) as Promise<{
+    configure: (args: TrackerIssuesSettings) =>
+      ipcRenderer.invoke("tracker-issues:configure", args) as Promise<{
         ok: boolean;
-        status?: TrackerTasksPublicStatus;
+        status?: TrackerIssuesPublicStatus;
         message?: string;
       }>,
-    onStatus: (listener: (payload: TrackerTasksPublicStatus) => void) => {
-      trackerTasksStatusSubscribers.add(listener);
+    onStatus: (listener: (payload: TrackerIssuesPublicStatus) => void) => {
+      trackerIssuesStatusSubscribers.add(listener);
       return () => {
-        trackerTasksStatusSubscribers.delete(listener);
+        trackerIssuesStatusSubscribers.delete(listener);
       };
     },
     onCacheUpdated: (
       listener: (payload: { source: TrackerSourceId }) => void,
     ) => {
-      trackerTasksCacheUpdatedSubscribers.add(listener);
+      trackerIssuesCacheUpdatedSubscribers.add(listener);
       return () => {
-        trackerTasksCacheUpdatedSubscribers.delete(listener);
+        trackerIssuesCacheUpdatedSubscribers.delete(listener);
       };
     },
-    onKickoffUpdated: (listener: (payload: TrackerTaskStaveLink) => void) => {
-      trackerTasksKickoffUpdatedSubscribers.add(listener);
+    onKickoffUpdated: (listener: (payload: TrackerIssueStaveLink) => void) => {
+      trackerIssuesKickoffUpdatedSubscribers.add(listener);
       return () => {
-        trackerTasksKickoffUpdatedSubscribers.delete(listener);
+        trackerIssuesKickoffUpdatedSubscribers.delete(listener);
       };
     },
   },

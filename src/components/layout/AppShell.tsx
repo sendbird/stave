@@ -42,7 +42,7 @@ import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import { appShellStyles } from "@/components/layout/app-shell.styles";
 import { isTaskArchived } from "@/lib/tasks";
-import { refreshTrackerTasks } from "@/lib/tracker-tasks/client-state";
+import { refreshTrackerIssues } from "@/lib/tracker-issues/client-state";
 import { resolveTaskPresetShortcutSlot } from "@/lib/task-presets";
 import { RenderProfiler } from "@/lib/render-profiler";
 import {
@@ -102,9 +102,9 @@ const KickoffDialog = lazy(() =>
 );
 // Lazy on purpose: the tracker list, its filters, and the kickoff form are dead
 // weight for the majority of sessions that never open the surface.
-const TasksView = lazy(() =>
-  import("./tasks/TasksView").then((module) => ({
-    default: module.TasksView,
+const IssuesView = lazy(() =>
+  import("./issues/IssuesView").then((module) => ({
+    default: module.IssuesView,
   })),
 );
 
@@ -148,8 +148,8 @@ export function AppShell() {
     refreshWorkspaces,
     openFleetView,
     openAutomationCenter,
-    openTasks,
-    closeTasks,
+    openIssues,
+    closeIssues,
     openProject,
     switchWorkspace,
     abortTaskTurn,
@@ -192,8 +192,8 @@ export function AppShell() {
           state.refreshWorkspaces,
           state.openFleetView,
           state.openAutomationCenter,
-          state.openTasks,
-          state.closeTasks,
+          state.openIssues,
+          state.closeIssues,
           state.openProject,
           state.switchWorkspace,
           state.abortTaskTurn,
@@ -625,8 +625,8 @@ export function AppShell() {
         case "navigation.automation-center":
           store.toggleAutomationCenter();
           return;
-        case "navigation.tasks":
-          store.toggleTasks();
+        case "navigation.issues":
+          store.toggleIssues();
           return;
         case "view.toggle-workspace-sidebar":
           store.setLayout({
@@ -1143,8 +1143,8 @@ export function AppShell() {
         openFleetView: () => openFleetView(),
         openGitGraph: focusOrCreateGitGraphSurface,
         openAutomationCenter: () => openAutomationCenter(),
-        openTasks: () => openTasks(),
-        refreshTrackerTasks: () => refreshTrackerTasks().then(() => undefined),
+        openIssues: () => openIssues(),
+        refreshTrackerIssues: () => refreshTrackerIssues().then(() => undefined),
         openKeyboardShortcuts: handleOpenKeyboardShortcuts,
         openProject: (nextProjectPath: string) =>
           openProject({ projectPath: nextProjectPath }),
@@ -1235,7 +1235,7 @@ export function AppShell() {
       modifierLabel,
       openFleetView,
       openAutomationCenter,
-      openTasks,
+      openIssues,
       handleStartCompareRun,
       openProject,
       projectPath,
@@ -1266,9 +1266,9 @@ export function AppShell() {
   );
   const showFleetView = activeAppSurface.kind === "fleet-view";
   const showAutomationCenter = activeAppSurface.kind === "automation-center";
-  const showTasks = activeAppSurface.kind === "tasks";
+  const showIssues = activeAppSurface.kind === "issues";
   const showWorkspaceSurface =
-    !showFleetView && !showAutomationCenter && !showTasks;
+    !showFleetView && !showAutomationCenter && !showIssues;
 
   return (
     <div className={sx(appShellStyles.root)}>
@@ -1439,7 +1439,7 @@ export function AppShell() {
                     <FleetView />
                   ) : showAutomationCenter ? (
                     <AutomationCenterView />
-                  ) : showTasks ? (
+                  ) : showIssues ? (
                     <Suspense
                       fallback={
                         <div className={sx(appShellStyles.suspenseCenter)}>
@@ -1447,7 +1447,7 @@ export function AppShell() {
                         </div>
                       }
                     >
-                      <TasksView onClose={closeTasks} />
+                      <IssuesView onClose={closeIssues} />
                     </Suspense>
                   ) : (
                     <div className={sx(appShellStyles.paneHostFrame)}>

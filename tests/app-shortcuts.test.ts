@@ -74,14 +74,14 @@ describe("app shortcuts", () => {
   test("binds Tasks to a key no other action already owns", () => {
     const normalized = normalizeAppShortcutKeys();
 
-    expect(normalized["navigation.tasks"]).toBe("t");
+    expect(normalized["navigation.issues"]).toBe("t");
     const owners = APP_SHORTCUT_DEFINITIONS.filter(
       (definition) => normalized[definition.commandId] === "t",
     );
     expect(owners).toHaveLength(1);
     expect(
       resolveAppShortcutAction({ key: "t", shortcutKeys: normalized }),
-    ).toBe("navigation.tasks");
+    ).toBe("navigation.issues");
   });
 
   test("assigns every default chord key exactly once", () => {

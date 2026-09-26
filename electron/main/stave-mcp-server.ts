@@ -115,12 +115,12 @@ import {
   refreshMartinContext,
   unlinkMartinProject,
 } from "./martin-sync/project-link";
-import { listTrackerTasks, refreshTrackerTasks } from "./tracker-tasks/service";
+import { listTrackerIssues, refreshTrackerIssues } from "./tracker-issues/service";
 import {
   TRACKER_SOURCE_IDS,
   TRACKER_STATUS_CATEGORIES,
-  type TrackerTaskListItem,
-} from "../../src/lib/tracker-tasks/types";
+  type TrackerIssueListItem,
+} from "../../src/lib/tracker-issues/types";
 
 let httpServer: Server | null = null;
 let manifestPaths: string[] = [];
@@ -138,8 +138,8 @@ function toStructuredResult<T>(value: T) {
   };
 }
 
-/** Rows a single `stave_list_tracker_tasks` call returns when none is asked for. */
-const DEFAULT_TRACKER_TASK_TOOL_LIMIT = 20;
+/** Rows a single `stave_list_tracker_issues` call returns when none is asked for. */
+const DEFAULT_TRACKER_ISSUE_TOOL_LIMIT = 20;
 
 function toTextResult(text: string) {
   return {
@@ -160,7 +160,7 @@ function toTextResult(text: string) {
  * them serialized would cost more context than the answer is worth, so the
  * fields a person scans are flattened into a single line instead.
  */
-function formatTrackerTaskLine(item: TrackerTaskListItem) {
+function formatTrackerIssueLine(item: TrackerIssueListItem) {
   const { task } = item;
   // The newest link is the live one: a retry appends rather than replaces.
   const staveLink = item.staveLinks.at(-1);
@@ -434,7 +434,7 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_list_tracker_tasks",
+    "stave_list_tracker_issues",
     {
       description:
         "List the tracker tickets Stave has cached for the signed-in user. Read-only; optionally refreshes the cache from the configured sources first.",
@@ -462,9 +462,9 @@ function createToolServer(options?: {
     },
     async ({ source, statusCategories, search, limit, refresh }) => {
       if (refresh) {
-        await refreshTrackerTasks({ source });
+        await refreshTrackerIssues({ source });
       }
-      const cached = listTrackerTasks({ source });
+      const cached = listTrackerIssues({ source });
       const wanted =
         statusCategories && statusCategories.length > 0
           ? new Set(statusCategories)
@@ -482,13 +482,13 @@ function createToolServer(options?: {
           task.title.toLowerCase().includes(needle)
         );
       });
-      const shown = matched.slice(0, limit ?? DEFAULT_TRACKER_TASK_TOOL_LIMIT);
+      const shown = matched.slice(0, limit ?? DEFAULT_TRACKER_ISSUE_TOOL_LIMIT);
       if (shown.length === 0) {
-        return toTextResult("No tracker tasks matched.");
+        return toTextResult("No tracker issues matched.");
       }
-      const header = `${shown.length} of ${matched.length} matching tracker tasks (${cached.length} cached).`;
+      const header = `${shown.length} of ${matched.length} matching tracker issues (${cached.length} cached).`;
       return toTextResult(
-        [header, ...shown.map(formatTrackerTaskLine)].join("\n"),
+        [header, ...shown.map(formatTrackerIssueLine)].join("\n"),
       );
     },
   );

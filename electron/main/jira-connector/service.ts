@@ -150,7 +150,7 @@ export async function clearJiraCredential(): Promise<JiraConnectorPublicStatus> 
  * Validate the saved credential *and* the saved query.
  *
  * Checking identity alone made a broken JQL pass: the token was fine, so the
- * test said "connected" and the Tasks list stayed silently empty. Running the
+ * test said "connected" and the Issues list stayed silently empty. Running the
  * query for a single row costs one more request and turns that into a named
  * error the Settings card and the list can both show. No new reply field is
  * needed — a rejected query lands in `lastErrorCode`, which the public status

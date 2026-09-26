@@ -41,9 +41,9 @@ function sendToRenderer(channel: string, payload: unknown) {
  * its failure must never break Crane dispatch.
  */
 function forwardJobUpdateToTracker(update: CraneDispatchJobUpdate) {
-  void import("../tracker-tasks/service")
-    .then(({ getTrackerTasksRuntime }) => {
-      getTrackerTasksRuntime().noteCraneJobUpdate(update);
+  void import("../tracker-issues/service")
+    .then(({ getTrackerIssuesRuntime }) => {
+      getTrackerIssuesRuntime().noteCraneJobUpdate(update);
     })
     .catch((error) => {
       console.error(

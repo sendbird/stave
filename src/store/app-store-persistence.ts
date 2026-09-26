@@ -3,7 +3,9 @@ import { normalizePersistedCompareRuns } from "@/lib/compare-runs";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
 import { normalizeJiraConnectorSettings } from "@/lib/jira-connector/types";
-import { normalizeTrackerTasksSettings } from "@/lib/tracker-tasks/settings";
+import { normalizeTrackerIssuesSettings } from "@/lib/tracker-issues/settings";
+// temporary-migration: issue-tracker-settings
+import { migrateLegacyIssueTrackerSettings } from "@/lib/tracker-issues/legacy-settings";
 import {
   mergeWorkspaceActivityStamps,
   pruneWorkspaceActivityStamps,
@@ -176,6 +178,8 @@ export function createAppStorePersistenceOptions() {
         return;
       }
       const persistedSettings = state.settings;
+      // temporary-migration: issue-tracker-settings
+      migrateLegacyIssueTrackerSettings(persistedSettings);
       state.activeAppSurface = normalizeAppActiveSurface(
         state.activeAppSurface,
       );
@@ -197,8 +201,8 @@ export function createAppStorePersistenceOptions() {
       state.settings.jiraConnector = normalizeJiraConnectorSettings(
         raw.jiraConnector,
       );
-      state.settings.trackerTasks = normalizeTrackerTasksSettings(
-        raw.trackerTasks,
+      state.settings.trackerIssues = normalizeTrackerIssuesSettings(
+        raw.trackerIssues,
       );
       state.compareRunsById = normalizePersistedCompareRuns({
         runsById: state.compareRunsById,

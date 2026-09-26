@@ -4,12 +4,12 @@ import path from "node:path";
 import { z } from "zod";
 import { JiraConnectorPublicStatusSchema } from "../src/lib/jira-connector/types";
 import {
-  TrackerTaskDetailSchema,
-  TrackerTaskKickoffResultSchema,
-  TrackerTaskListItemSchema,
-  TrackerTaskStaveLinkSchema,
-  TrackerTasksPublicStatusSchema,
-} from "../src/lib/tracker-tasks/types";
+  TrackerIssueDetailSchema,
+  TrackerIssueKickoffResultSchema,
+  TrackerIssueListItemSchema,
+  TrackerIssueStaveLinkSchema,
+  TrackerIssuesPublicStatusSchema,
+} from "../src/lib/tracker-issues/types";
 
 /**
  * The tracker credential boundary.
@@ -140,11 +140,11 @@ function returnExpressions(source: string): string[] {
 describe("tracker credential boundary", () => {
   test("no tracker IPC result schema can describe a credential field", () => {
     const resultSchemas: Array<[string, z.ZodType]> = [
-      ["TrackerTasksPublicStatusSchema", TrackerTasksPublicStatusSchema],
-      ["TrackerTaskListItemSchema", TrackerTaskListItemSchema],
-      ["TrackerTaskDetailSchema", TrackerTaskDetailSchema],
-      ["TrackerTaskStaveLinkSchema", TrackerTaskStaveLinkSchema],
-      ["TrackerTaskKickoffResultSchema", TrackerTaskKickoffResultSchema],
+      ["TrackerIssuesPublicStatusSchema", TrackerIssuesPublicStatusSchema],
+      ["TrackerIssueListItemSchema", TrackerIssueListItemSchema],
+      ["TrackerIssueDetailSchema", TrackerIssueDetailSchema],
+      ["TrackerIssueStaveLinkSchema", TrackerIssueStaveLinkSchema],
+      ["TrackerIssueKickoffResultSchema", TrackerIssueKickoffResultSchema],
     ];
     for (const [name, schema] of resultSchemas) {
       expect([name, ...credentialKeyPaths(schema)]).toEqual([name]);

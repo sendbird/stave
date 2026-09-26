@@ -81,19 +81,19 @@ import type {
 } from "@/lib/atelier-connector/types";
 import type {
   TrackerSourceId,
-  TrackerTaskAttachStaveTaskArgs,
-  TrackerTaskDetail,
-  TrackerTaskKickoffArgs,
-  TrackerTaskKickoffResult,
-  TrackerTaskListItem,
-  TrackerTaskRefArgs,
-  TrackerTaskStaveLink,
-  TrackerTasksListArgs,
-  TrackerTasksPublicStatus,
-  TrackerTasksRefreshArgs,
-  TrackerTasksSurfaceVisibleArgs,
-} from "@/lib/tracker-tasks/types";
-import type { TrackerTasksSettings } from "@/lib/tracker-tasks/settings";
+  TrackerIssueAttachStaveTaskArgs,
+  TrackerIssueDetail,
+  TrackerIssueKickoffArgs,
+  TrackerIssueKickoffResult,
+  TrackerIssueListItem,
+  TrackerIssueRefArgs,
+  TrackerIssueStaveLink,
+  TrackerIssuesListArgs,
+  TrackerIssuesPublicStatus,
+  TrackerIssuesRefreshArgs,
+  TrackerIssuesSurfaceVisibleArgs,
+} from "@/lib/tracker-issues/types";
+import type { TrackerIssuesSettings } from "@/lib/tracker-issues/settings";
 import type {
   JiraConnectorPublicStatus,
   JiraConnectorSetCredentialArgs,
@@ -962,54 +962,54 @@ interface WindowProjectMemoryApi extends Partial<ProjectMemoryControlsApi> {
   }>;
 }
 
-interface WindowTrackerTasksApi {
+interface WindowTrackerIssuesApi {
   getStatus?: () => Promise<{
     ok: boolean;
-    status?: TrackerTasksPublicStatus;
+    status?: TrackerIssuesPublicStatus;
     message?: string;
   }>;
-  list?: (args?: TrackerTasksListArgs) => Promise<{
+  list?: (args?: TrackerIssuesListArgs) => Promise<{
     ok: boolean;
-    items: TrackerTaskListItem[];
+    items: TrackerIssueListItem[];
     message?: string;
   }>;
-  refresh?: (args?: TrackerTasksRefreshArgs) => Promise<{
+  refresh?: (args?: TrackerIssuesRefreshArgs) => Promise<{
     ok: boolean;
-    status?: TrackerTasksPublicStatus;
+    status?: TrackerIssuesPublicStatus;
     message?: string;
   }>;
-  getDetail?: (args: TrackerTaskRefArgs) => Promise<{
+  getDetail?: (args: TrackerIssueRefArgs) => Promise<{
     ok: boolean;
-    detail?: TrackerTaskDetail;
+    detail?: TrackerIssueDetail;
     message?: string;
   }>;
-  kickoff?: (args: TrackerTaskKickoffArgs) => Promise<{
+  kickoff?: (args: TrackerIssueKickoffArgs) => Promise<{
     ok: boolean;
-    result?: TrackerTaskKickoffResult;
+    result?: TrackerIssueKickoffResult;
     message?: string;
   }>;
-  attachStaveTask?: (args: TrackerTaskAttachStaveTaskArgs) => Promise<{
+  attachStaveTask?: (args: TrackerIssueAttachStaveTaskArgs) => Promise<{
     ok: boolean;
-    link?: TrackerTaskStaveLink | null;
+    link?: TrackerIssueStaveLink | null;
     message?: string;
   }>;
-  setSurfaceVisible?: (args: TrackerTasksSurfaceVisibleArgs) => Promise<{
+  setSurfaceVisible?: (args: TrackerIssuesSurfaceVisibleArgs) => Promise<{
     ok: boolean;
     message?: string;
   }>;
-  configure?: (args: TrackerTasksSettings) => Promise<{
+  configure?: (args: TrackerIssuesSettings) => Promise<{
     ok: boolean;
-    status?: TrackerTasksPublicStatus;
+    status?: TrackerIssuesPublicStatus;
     message?: string;
   }>;
   onStatus?: (
-    listener: (payload: TrackerTasksPublicStatus) => void,
+    listener: (payload: TrackerIssuesPublicStatus) => void,
   ) => () => void;
   onCacheUpdated?: (
     listener: (payload: { source: TrackerSourceId }) => void,
   ) => () => void;
   onKickoffUpdated?: (
-    listener: (payload: TrackerTaskStaveLink) => void,
+    listener: (payload: TrackerIssueStaveLink) => void,
   ) => () => void;
 }
 
@@ -2975,7 +2975,7 @@ interface WindowApi {
   atelierConnector?: WindowAtelierConnectorApi;
   martinSync?: WindowMartinSyncApi;
   craneConnector?: WindowCraneConnectorApi;
-  trackerTasks?: WindowTrackerTasksApi;
+  trackerIssues?: WindowTrackerIssuesApi;
   projectMemory?: WindowProjectMemoryApi;
   jiraConnector?: WindowJiraConnectorApi;
   taskControl?: WindowTaskControlApi;

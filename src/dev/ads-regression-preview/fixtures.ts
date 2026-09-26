@@ -1,5 +1,5 @@
 import type { AppNotification } from "@/lib/notifications/notification.types";
-import type { TrackerTaskListItem } from "@/lib/tracker-tasks/types";
+import type { TrackerIssueListItem } from "@/lib/tracker-issues/types";
 
 export const notifications: AppNotification[] = Array.from(
   { length: 335 },
@@ -23,7 +23,7 @@ export const notifications: AppNotification[] = Array.from(
   }),
 );
 
-export const tickets: TrackerTaskListItem[] = [
+export const tickets: TrackerIssueListItem[] = [
   {
     title:
       "Preserve a long task title when the board is embedded beside a detail panel",

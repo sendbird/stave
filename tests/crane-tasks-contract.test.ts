@@ -5,14 +5,14 @@ import {
   CraneTaskJobClaimRequestV1Schema,
   parseCraneTaskDetailResponseV1,
   parseCraneTaskListResponseV1,
-  toTrackerTaskDetailFromCrane,
-  toTrackerTaskFromCrane,
-} from "../src/lib/tracker-tasks/contract";
+  toTrackerIssueDetailFromCrane,
+  toTrackerIssueFromCrane,
+} from "../src/lib/tracker-issues/contract";
 import { CraneStaveJobV1Schema } from "../src/lib/crane-connector/contract";
 import {
-  TrackerTaskDetailSchema,
-  TrackerTaskSchema,
-} from "../src/lib/tracker-tasks/types";
+  TrackerIssueDetailSchema,
+  TrackerIssueSchema,
+} from "../src/lib/tracker-issues/types";
 
 const fixtureDirectory = new URL("./fixtures/crane-tasks-v1/", import.meta.url);
 
@@ -25,7 +25,7 @@ function issueMessages(error: { issues: { message: string }[] }) {
 }
 
 describe("Crane tasks V1 contract", () => {
-  test("maps every shared list fixture row into a valid tracker task", async () => {
+  test("maps every shared list fixture row into a valid tracker issue", async () => {
     const parsed = parseCraneTaskListResponseV1(
       await readFixture("task-list.json"),
     );
@@ -36,12 +36,12 @@ describe("Crane tasks V1 contract", () => {
     expect(parsed.data.nextCursor).toBe("crn_cursor_page_2");
     for (const row of parsed.data.tasks) {
       expect(
-        TrackerTaskSchema.safeParse(toTrackerTaskFromCrane(row)).success,
+        TrackerIssueSchema.safeParse(toTrackerIssueFromCrane(row)).success,
       ).toBe(true);
     }
 
     const [withJira, withoutProject, withSubtasks] = parsed.data.tasks.map(
-      toTrackerTaskFromCrane,
+      toTrackerIssueFromCrane,
     );
     expect(withJira?.links).toEqual([
       {
@@ -74,8 +74,8 @@ describe("Crane tasks V1 contract", () => {
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
 
-    const detail = toTrackerTaskDetailFromCrane(parsed.data.task);
-    expect(TrackerTaskDetailSchema.safeParse(detail).success).toBe(true);
+    const detail = toTrackerIssueDetailFromCrane(parsed.data.task);
+    expect(TrackerIssueDetailSchema.safeParse(detail).success).toBe(true);
     expect(detail.description.split("\n\n").length).toBeGreaterThan(2);
     expect(detail.description).toContain("## Expected");
   });
@@ -213,7 +213,7 @@ describe("Crane tasks V1 contract against the server's own fixtures", () => {
     if (list.success) {
       for (const row of list.data.tasks) {
         expect(
-          TrackerTaskSchema.safeParse(toTrackerTaskFromCrane(row)).success,
+          TrackerIssueSchema.safeParse(toTrackerIssueFromCrane(row)).success,
         ).toBe(true);
       }
     }
@@ -224,8 +224,8 @@ describe("Crane tasks V1 contract against the server's own fixtures", () => {
     expect(detail.success).toBe(true);
     if (detail.success) {
       expect(
-        TrackerTaskDetailSchema.safeParse(
-          toTrackerTaskDetailFromCrane(detail.data.task),
+        TrackerIssueDetailSchema.safeParse(
+          toTrackerIssueDetailFromCrane(detail.data.task),
         ).success,
       ).toBe(true);
     }
@@ -305,9 +305,9 @@ describe("Crane tasks V1 intake tolerance", () => {
     });
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
-    const task = toTrackerTaskFromCrane(parsed.data.tasks[0]!);
+    const task = toTrackerIssueFromCrane(parsed.data.tasks[0]!);
     expect(task.assignee?.name).toBe("stave@example.test");
-    expect(TrackerTaskSchema.safeParse(task).success).toBe(true);
+    expect(TrackerIssueSchema.safeParse(task).success).toBe(true);
   });
 
   test("falls back to the account id when there is no name or email", async () => {
@@ -317,7 +317,7 @@ describe("Crane tasks V1 intake tolerance", () => {
     });
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
-    const task = toTrackerTaskFromCrane(parsed.data.tasks[0]!);
+    const task = toTrackerIssueFromCrane(parsed.data.tasks[0]!);
     expect(task.assignee?.name).toBe(parsed.data.tasks[0]!.assignee!.id);
   });
 
@@ -328,9 +328,9 @@ describe("Crane tasks V1 intake tolerance", () => {
       });
       expect(parsed.success).toBe(true);
       if (!parsed.success) continue;
-      const task = toTrackerTaskFromCrane(parsed.data.tasks[0]!);
+      const task = toTrackerIssueFromCrane(parsed.data.tasks[0]!);
       expect(task.assignee?.avatarUrl).toBeUndefined();
-      expect(TrackerTaskSchema.safeParse(task).success).toBe(true);
+      expect(TrackerIssueSchema.safeParse(task).success).toBe(true);
     }
   });
 
@@ -340,7 +340,7 @@ describe("Crane tasks V1 intake tolerance", () => {
     });
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
-    expect(toTrackerTaskFromCrane(parsed.data.tasks[0]!).assignee?.avatarUrl).toBe(
+    expect(toTrackerIssueFromCrane(parsed.data.tasks[0]!).assignee?.avatarUrl).toBe(
       "https://cdn.example.test/a.png",
     );
   });
@@ -351,7 +351,7 @@ describe("Crane tasks V1 intake tolerance", () => {
     });
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
-    expect(toTrackerTaskFromCrane(parsed.data.tasks[0]!).project).toBeNull();
+    expect(toTrackerIssueFromCrane(parsed.data.tasks[0]!).project).toBeNull();
   });
 
   test("accepts a label name at the server's cap", async () => {
@@ -361,9 +361,9 @@ describe("Crane tasks V1 intake tolerance", () => {
     });
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
-    const task = toTrackerTaskFromCrane(parsed.data.tasks[0]!);
+    const task = toTrackerIssueFromCrane(parsed.data.tasks[0]!);
     expect(task.labels[0]?.name).toBe(name);
-    expect(TrackerTaskSchema.safeParse(task).success).toBe(true);
+    expect(TrackerIssueSchema.safeParse(task).success).toBe(true);
   });
 
   test("clamps an uncapped subtask count into the model's bound", async () => {
@@ -373,9 +373,9 @@ describe("Crane tasks V1 intake tolerance", () => {
     });
     expect(parsed.success).toBe(true);
     if (!parsed.success) return;
-    const task = toTrackerTaskFromCrane(parsed.data.tasks[0]!);
+    const task = toTrackerIssueFromCrane(parsed.data.tasks[0]!);
     expect(task.subtasks).toEqual({ count: 10_000, done: 10_000 });
-    expect(TrackerTaskSchema.safeParse(task).success).toBe(true);
+    expect(TrackerIssueSchema.safeParse(task).success).toBe(true);
   });
 
   test("still rejects a ticket link that is not https", async () => {

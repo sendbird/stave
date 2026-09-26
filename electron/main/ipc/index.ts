@@ -23,7 +23,7 @@ import { registerStorageHandlers } from "./storage";
 import { registerTerminalHandlers } from "./terminal";
 import { registerTaskControlHandlers } from "./task-control";
 import { registerToolingHandlers } from "./tooling";
-import { registerTrackerTasksHandlers } from "./tracker-tasks";
+import { registerTrackerIssuesHandlers } from "./tracker-issues";
 import { registerWindowHandlers } from "./window";
 import { registerWorkspaceScriptHandlers } from "./workspace-scripts";
 
@@ -53,7 +53,7 @@ export function registerHandlers() {
   registerCraneConnectorHandlers();
   registerMartinSyncHandlers();
   registerJiraConnectorHandlers();
-  registerTrackerTasksHandlers();
+  registerTrackerIssuesHandlers();
   registerBrowserHandlers();
   registerSecretHandlers();
 }

@@ -254,24 +254,24 @@ See `docs/features/wake-ups.md` for the full architecture reference.
 
 When changing how tracker tickets are read, cached, or turned into a local run:
 
-- `src/lib/tracker-tasks/types.ts` — the normalized ticket, sync status, kickoff link, and every IPC argument schema (pure; the shared vocabulary for both halves)
-- `src/lib/tracker-tasks/contract.ts` — the `crane-tasks-v1` wire contract the Atelier route is implemented against, plus the row mapper
+- `src/lib/tracker-issues/types.ts` — the normalized ticket, sync status, kickoff link, and every IPC argument schema (pure; the shared vocabulary for both halves)
+- `src/lib/tracker-issues/contract.ts` — the `crane-tasks-v1` wire contract the Atelier route is implemented against, plus the row mapper
 - `src/lib/jira-connector/types.ts` and `mapping.ts` — the Jira settings document, its public status, and the issue mapper
 - `electron/main/atelier-connector/http-client.ts` — `listCraneTasks`, `getCraneTask`, `createCraneTaskJob`
 - `electron/main/jira-connector/` — the credential vault, the HTTP client, and the main-process service
-- `electron/main/tracker-tasks/` — the source adapters, the refresh runtime, the kickoff flow, and the service that wires them to Crane job updates
-- `electron/persistence/tracker-tasks-store.ts` — `tracker_tasks_cache`, `tracker_task_kickoffs`
-- `electron/main/ipc/tracker-tasks.ts` and `electron/main/ipc/jira-connector.ts` — the only renderer entry points
-- `src/lib/tracker-tasks/client-store.ts` — the renderer mirror; filtering, grouping, and sorting stay out of it on purpose
-- `src/components/layout/tasks/` — the surface
+- `electron/main/tracker-issues/` — the source adapters, the refresh runtime, the kickoff flow, and the service that wires them to Crane job updates
+- `electron/persistence/tracker-issues-store.ts` — `tracker_issues_cache`, `tracker_issue_kickoffs`
+- `electron/main/ipc/tracker-issues.ts` and `electron/main/ipc/jira-connector.ts` — the only renderer entry points
+- `src/lib/tracker-issues/client-store.ts` — the renderer mirror; filtering, grouping, and sorting stay out of it on purpose
+- `src/components/layout/issues/` — the surface
 
 Three invariants hold across that path:
 
 - A tracker credential travels renderer-to-main only. Public status carries account identity at most, never an email, a token, or a connector secret, and the preload bridge exposes no getter. This is the `tracker-credentials-stay-in-main` gate.
-- A ticket's own fields are untrusted remote text. A label colour reaches an inline style only through `isSafeCssColor`, a ticket URL is opened by the shell bridge rather than by renderer navigation, and the body reaches a provider only inside the retrieved-context part built by `buildTrackerTaskRetrievedContext`, behind its untrusted-content preamble.
-- Crane write-back is opt-in and status-only, and it is impossible for a staged prompt: `TrackerTaskKickoffArgsSchema` refuses `craneWriteBack` unless the source is Crane and the run starts now.
+- A ticket's own fields are untrusted remote text. A label colour reaches an inline style only through `isSafeCssColor`, a ticket URL is opened by the shell bridge rather than by renderer navigation, and the body reaches a provider only inside the retrieved-context part built by `buildTrackerIssueRetrievedContext`, behind its untrusted-content preamble.
+- Crane write-back is opt-in and status-only, and it is impossible for a staged prompt: `TrackerIssueKickoffArgsSchema` refuses `craneWriteBack` unless the source is Crane and the run starts now.
 
-See `docs/features/tasks.md` for the user-facing guide.
+See `docs/features/issues.md` for the user-facing guide.
 
 ## Project / Workspace Integrity Contract
 

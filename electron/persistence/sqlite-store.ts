@@ -50,12 +50,12 @@ import {
   CraneJobBindingStore,
   type LocalCraneJobBinding,
 } from "./crane-job-binding-store";
-import { TrackerTasksStore } from "./tracker-tasks-store";
+import { TrackerIssuesStore } from "./tracker-issues-store";
 import type {
   TrackerSourceId,
-  TrackerTask,
-  TrackerTaskStaveLink,
-} from "../../src/lib/tracker-tasks/types";
+  TrackerIssue,
+  TrackerIssueStaveLink,
+} from "../../src/lib/tracker-issues/types";
 import { WakeUpStore } from "./wake-up-store";
 import { AutomationStateStore } from "./automation-state-store";
 import { ProjectMemoryStore } from "./project-memory-store";
@@ -168,7 +168,7 @@ export class SqliteStore {
   private artifactRootDir: string;
   private runLedger: RunLedgerStore;
   private craneJobBindings: CraneJobBindingStore;
-  private trackerTasks: TrackerTasksStore;
+  private trackerIssues: TrackerIssuesStore;
   private martinSyncOutbox: MartinSyncOutboxStore;
   private wakeUps: WakeUpStore;
   private automationState: AutomationStateStore;
@@ -226,10 +226,10 @@ export class SqliteStore {
     this.delegationDrafts = new DelegationDraftStore(this.db);
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
-    this.trackerTasks = new TrackerTasksStore(this.db, {
+    this.trackerIssues = new TrackerIssuesStore(this.db, {
       onUnreadableTaskRow: ({ source, taskRef }) => {
         console.warn(
-          "[persistence] skipped an unreadable tracker task row",
+          "[persistence] skipped an unreadable tracker issue row",
           source,
           taskRef,
         );
@@ -2745,49 +2745,49 @@ export class SqliteStore {
 
   replaceTrackerSourceTasks(
     source: TrackerSourceId,
-    tasks: TrackerTask[],
+    tasks: TrackerIssue[],
     fetchedAt: string,
   ) {
-    return this.trackerTasks.replaceSourceTasks(source, tasks, fetchedAt);
+    return this.trackerIssues.replaceSourceTasks(source, tasks, fetchedAt);
   }
 
   listTrackerSourceTasks(source?: TrackerSourceId) {
-    return this.trackerTasks.listSourceTasks(source);
+    return this.trackerIssues.listSourceTasks(source);
   }
 
-  getTrackerTask(source: TrackerSourceId, taskRef: string) {
-    return this.trackerTasks.getTask(source, taskRef);
+  getTrackerIssue(source: TrackerSourceId, taskRef: string) {
+    return this.trackerIssues.getTask(source, taskRef);
   }
 
-  countUnreadableTrackerTaskRows() {
-    return this.trackerTasks.getUnreadableTaskRowCount();
+  countUnreadableTrackerIssueRows() {
+    return this.trackerIssues.getUnreadableTaskRowCount();
   }
 
-  upsertTrackerTaskKickoff(link: TrackerTaskStaveLink) {
-    return this.trackerTasks.upsertKickoff(link);
+  upsertTrackerIssueKickoff(link: TrackerIssueStaveLink) {
+    return this.trackerIssues.upsertKickoff(link);
   }
 
-  listTrackerTaskKickoffs(args?: {
+  listTrackerIssueKickoffs(args?: {
     source?: TrackerSourceId;
     taskRefs?: string[];
   }) {
-    return this.trackerTasks.listKickoffs(args);
+    return this.trackerIssues.listKickoffs(args);
   }
 
-  findTrackerTaskKickoffByCraneJobId(craneJobId: string) {
-    return this.trackerTasks.findKickoffByCraneJobId(craneJobId);
+  findTrackerIssueKickoffByCraneJobId(craneJobId: string) {
+    return this.trackerIssues.findKickoffByCraneJobId(craneJobId);
   }
 
-  findTrackerTaskKickoffByStaveTask(taskId: string) {
-    return this.trackerTasks.findKickoffByStaveTask(taskId);
+  findTrackerIssueKickoffByStaveTask(taskId: string) {
+    return this.trackerIssues.findKickoffByStaveTask(taskId);
   }
 
-  findLatestTrackerTaskKickoff(source: TrackerSourceId, taskRef: string) {
-    return this.trackerTasks.findLatestKickoffForTask(source, taskRef);
+  findLatestTrackerIssueKickoff(source: TrackerSourceId, taskRef: string) {
+    return this.trackerIssues.findLatestKickoffForTask(source, taskRef);
   }
 
-  pruneTrackerTaskKickoffs(cutoff: string) {
-    return this.trackerTasks.pruneKickoffsBefore(cutoff);
+  pruneTrackerIssueKickoffs(cutoff: string) {
+    return this.trackerIssues.pruneKickoffsBefore(cutoff);
   }
 
   enqueueMartinOutboxEntry(input: {

@@ -14,9 +14,9 @@ import {
   JiraConnectorSettingsSchema,
 } from "@/lib/jira-connector/types";
 import {
-  DEFAULT_TRACKER_TASKS_SETTINGS,
-  TrackerTasksSettingsSchema,
-} from "@/lib/tracker-tasks/settings";
+  DEFAULT_TRACKER_ISSUES_SETTINGS,
+  TrackerIssuesSettingsSchema,
+} from "@/lib/tracker-issues/settings";
 import {
   AuxiliaryInferencePolicySchema,
   DEFAULT_AUXILIARY_INFERENCE_POLICY,
@@ -471,12 +471,12 @@ export const settingDefinitions = [
     importExport: "exclude",
   } satisfies SettingDefinition<"jiraConnector">,
   {
-    key: "trackerTasks",
-    sectionId: "tasks",
-    fieldId: "settings-field-tracker-tasks",
-    title: "Tasks",
+    key: "trackerIssues",
+    sectionId: "issues",
+    fieldId: "settings-field-tracker-issues",
+    title: "Issues",
     description:
-      "Opens on tickets assigned to you. Choose which trackers Tasks reads, the first tab, the refresh interval, and whether a kickoff starts immediately.",
+      "Opens on tickets assigned to you. Choose which trackers Issues reads, the first tab, the refresh interval, and whether a kickoff starts immediately.",
     keywords: [
       "tasks",
       "tickets",
@@ -493,13 +493,13 @@ export const settingDefinitions = [
       "crane",
       "source",
     ],
-    schema: TrackerTasksSettingsSchema,
-    defaultValue: { ...DEFAULT_TRACKER_TASKS_SETTINGS },
+    schema: TrackerIssuesSettingsSchema,
+    defaultValue: { ...DEFAULT_TRACKER_ISSUES_SETTINGS },
     scope: "app",
     sensitivity: "plain",
     applyMode: "immediate",
     importExport: "include",
-  } satisfies SettingDefinition<"trackerTasks">,
+  } satisfies SettingDefinition<"trackerIssues">,
   {
     key: "martinSync",
     sectionId: "integrations",
