@@ -209,7 +209,8 @@ export interface MissionRuntime {
   /** Forwarded when a host-run turn finishes, so the mission reacts at once. */
   notifyTaskTurnFinished: (args: { taskId: string }) => void;
   getActiveMissionForTask: (taskId: string) => Mission | null;
-  startMission: (input: MissionStartInput) => Promise<MissionDetail>;
+  /** `projectId` is set only by the project runtime, for a mission a project started. */
+  startMission: (input: MissionStartInput, options?: { projectId?: string }) => Promise<MissionDetail>;
   list: (args?: MissionListArgs) => Promise<{ missions: Mission[] }>;
   get: (args: MissionIdArgs) => Promise<MissionDetail>;
   signOff: (args: MissionStageRef) => Promise<MissionDetail>;
@@ -863,7 +864,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
       if (store.getActiveMissionForTask(taskId)) void requestTick();
     },
     getActiveMissionForTask: (taskId) => store.getActiveMissionForTask(taskId),
-    startMission: (rawInput) =>
+    startMission: (rawInput, options) =>
       enqueue(async () => {
         const input = MissionStartInputSchema.parse(rawInput);
         const existing = store.getActiveMissionForTask(input.leadTaskId);
@@ -893,6 +894,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
           repositoryPath: snapshot.repositoryPath,
           fingerprint: { providerId: snapshot.providerId, model: snapshot.model },
           now: now(),
+          projectId: options?.projectId ?? null,
         });
         const created = store.create(change, now());
         if (!created.ok) refuse(created.message);

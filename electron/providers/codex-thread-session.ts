@@ -10,9 +10,10 @@ function buildGrantProfile(grants?: StaveTurnGrants) {
   const consultKey = grants?.consultKey ?? "";
   const workerKey = grants?.workerKey ?? "";
   const missionKey = grants?.missionKey ?? "";
-  return consultKey || workerKey || missionKey
-    ? JSON.stringify([consultKey, workerKey, missionKey])
-    : NO_GRANT_PROFILE;
+  const projectKey = grants?.projectKey ?? "";
+  if (!consultKey && !workerKey && !missionKey && !projectKey) return NO_GRANT_PROFILE;
+  // The project key is appended only when present, so existing profiles keep their shape.
+  return JSON.stringify(projectKey ? [consultKey, workerKey, missionKey, projectKey] : [consultKey, workerKey, missionKey]);
 }
 
 export function shouldStartFreshCodexGrantThread(args: {

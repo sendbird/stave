@@ -150,6 +150,7 @@ import type {
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
 import type { MissionsBridgeApi } from "@/lib/missions/api";
 import type { WakeUpsBridgeApi } from "@/lib/supervision/wake-up-bridge";
+import type { ProjectsBridgeApi } from "@/lib/projects/api";
 import type { PromptDraft } from "@/types/chat";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import type {
@@ -2984,6 +2985,7 @@ interface WindowApi {
   automations?: WindowAutomationsApi;
   missions?: MissionsBridgeApi;
   wakeUps?: WakeUpsBridgeApi;
+  projects?: ProjectsBridgeApi;
   lsp?: WindowLspApi;
   eslint?: WindowEslintApi;
   diagnostics?: WindowDiagnosticsApi;

@@ -27,6 +27,7 @@ import {
   turnGrantHeaders,
   ADVISOR_GRANT_ENV,
   MISSION_GRANT_ENV,
+  PROJECT_GRANT_ENV,
   WORKER_GRANT_ENV,
 } from "../providers/stave-turn-grants";
 
@@ -198,6 +199,7 @@ async function postToMcp(
           consultKey: process.env[ADVISOR_GRANT_ENV],
           workerKey: process.env[WORKER_GRANT_ENV],
           missionKey: process.env[MISSION_GRANT_ENV],
+          projectKey: process.env[PROJECT_GRANT_ENV],
         }),
       },
       body: JSON.stringify(body),

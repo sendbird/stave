@@ -23,6 +23,7 @@ import type {
   MissionChangedEvent,
   MissionInvokeResult,
 } from "../../src/lib/missions/api";
+import type { ProjectChangedEvent, ProjectInvokeResult } from "../../src/lib/projects/api";
 import type { AdvisorConsultRequest } from "../../src/lib/providers/advisor-evidence";
 import type { AcpWorkerOutcome } from "../providers/acp/acp-worker-runtime";
 import type {
@@ -510,6 +511,27 @@ export type HostMissionAction =
   | "get-for-grant"
   | "report-stage"
   | "block-stage";
+
+/**
+ * Project actions. The last four serve the coordinator's tools and carry a
+ * project grant key instead of a project id.
+ */
+export type HostProjectAction =
+  | "list"
+  | "get"
+  | "create"
+  | "approve-proposal"
+  | "reject-proposal"
+  | "pause"
+  | "resume"
+  | "end"
+  | "update-settings"
+  | "set-memory-status"
+  | "sync-playbooks"
+  | "get-for-grant"
+  | "start-mission-for-grant"
+  | "get-mission-report-for-grant"
+  | "note-for-grant";
 
 export type HostAutomationAction =
   | "list"
@@ -1027,6 +1049,10 @@ export interface HostServiceRequestMap {
     action: HostMissionAction;
     args: unknown;
   };
+  "project.invoke": {
+    action: HostProjectAction;
+    args: unknown;
+  };
 }
 
 export interface HostServiceResponseMap {
@@ -1221,6 +1247,7 @@ export interface HostServiceResponseMap {
   "automation.invoke": unknown;
   "wake-up.invoke": unknown;
   "mission.invoke": MissionInvokeResult<unknown>;
+  "project.invoke": ProjectInvokeResult<unknown>;
 }
 
 export interface HostServiceEventMap {
@@ -1250,6 +1277,7 @@ export interface HostServiceEventMap {
     }>;
   };
   "mission.changed": MissionChangedEvent;
+  "project.changed": ProjectChangedEvent;
   "wake-up.changed": { wakeUpId: string; workspaceId: string; taskId: string };
 }
 

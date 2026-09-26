@@ -32,6 +32,13 @@ import {
 } from "../../src/lib/repository-memory";
 import { registerCollaborationTools } from "./stave-collaboration-tools";
 import { registerMissionTools } from "./stave-mission-tools";
+import { registerProjectTools } from "./stave-project-tools";
+import {
+  getProjectForGrant,
+  getProjectMissionReport,
+  noteProject,
+  startProjectMission,
+} from "./projects-service";
 import {
   blockMissionStage,
   getMissionForGrant,
@@ -628,6 +635,12 @@ function createToolServer(options?: {
     getMissionForGrant,
     reportMissionStage,
     blockMissionStage,
+  });
+  registerProjectTools(server, options?.turnGrants ?? {}, {
+    getProjectForGrant,
+    startProjectMission,
+    getProjectMissionReport,
+    noteProject,
   });
 
   server.registerTool(

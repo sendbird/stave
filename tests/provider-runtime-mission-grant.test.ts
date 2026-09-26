@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, mock, test } from "bun:test";
 import type { BridgeEvent, StreamTurnArgs } from "../electron/providers/types";
 import type { MissionStageGrant } from "../electron/providers/mission-grants";
+import type { ProjectGrant } from "../electron/providers/project-grants";
 
 const TEST_WORKSPACE_CWD = "/tmp/stave-provider-runtime-mission-test";
 
@@ -10,6 +11,7 @@ const actualCodexRuntime = await import("../electron/providers/codex-app-server-
 let primaryTurns: StreamTurnArgs[] = [];
 /** The grant each turn's key resolved to while that turn was running. */
 let grantsDuringTurn: Array<MissionStageGrant | null> = [];
+let projectGrantsDuringTurn: Array<ProjectGrant | null> = [];
 
 async function streamPrimary(
   args: StreamTurnArgs & {
@@ -21,6 +23,8 @@ async function streamPrimary(
   args.registerAbort?.(() => {});
   const key = args.staveTurnGrants?.missionKey;
   grantsDuringTurn.push(key ? resolveMissionGrant(key) : null);
+  const projectKey = args.staveTurnGrants?.projectKey;
+  projectGrantsDuringTurn.push(projectKey ? resolveProjectGrant(projectKey) : null);
   const events: BridgeEvent[] = [{ type: "done", stop_reason: "end_turn" }];
   events.forEach((event) => args.onEvent?.(event));
   return events;
@@ -48,6 +52,9 @@ mock.module("../electron/providers/connected-tool-status", () => ({
 const { providerRuntime } = await import("../electron/providers/runtime");
 const { resolveMissionGrant, clearMissionGrantsForTest } = await import(
   "../electron/providers/mission-grants"
+);
+const { resolveProjectGrant, setProjectCoordinatorTasks, clearProjectGrantsForTest } = await import(
+  "../electron/providers/project-grants"
 );
 
 const STAGE = { missionId: "mission-1", stageId: "draft", attempt: 1 };
@@ -82,7 +89,9 @@ async function runTurn(args: {
 afterEach(() => {
   primaryTurns = [];
   grantsDuringTurn = [];
+  projectGrantsDuringTurn = [];
   clearMissionGrantsForTest();
+  clearProjectGrantsForTest();
   providerRuntime.cleanupTask({ taskId: "task-1" });
   providerRuntime.cleanupTask({ taskId: "task-2" });
 });
@@ -141,5 +150,37 @@ describe("provider runtime mission grants", () => {
       executionPolicy: "secondary-read-only",
     });
     expect(secondary.staveTurnGrants?.missionKey).toBeUndefined();
+  });
+});
+
+describe("provider runtime project grants", () => {
+  for (const providerId of ["claude-code", "codex"] as const) {
+    test(`${providerId} gives every coordinator turn a project grant and revokes it when the turn ends`, async () => {
+      setProjectCoordinatorTasks([{ taskId: "task-1", projectId: "project-1" }]);
+      const turn = await runTurn({ providerId, turnId: `${providerId}-coord` });
+      const key = turn.staveTurnGrants?.projectKey;
+      expect(key).toBeTruthy();
+      expect(turn.prompt).not.toContain(key!);
+      expect(projectGrantsDuringTurn[0]).toEqual({ projectId: "project-1", taskId: "task-1", turnId: `${providerId}-coord` });
+      expect(resolveProjectGrant(key!)).toBeNull();
+    });
+  }
+
+  test("only coordinator tasks get one, never on secondary runs; Codex keeps one channel per task", async () => {
+    setProjectCoordinatorTasks([{ taskId: "task-1", projectId: "project-1" }]);
+    const other = await runTurn({ providerId: "claude-code", turnId: "o1", taskId: "task-2" });
+    expect(other.staveTurnGrants?.projectKey).toBeUndefined();
+    const secondary = await runTurn({ providerId: "claude-code", turnId: "s2", executionPolicy: "secondary-read-only" });
+    expect(secondary.staveTurnGrants?.projectKey).toBeUndefined();
+
+    const first = await runTurn({ providerId: "codex", turnId: "x5" });
+    const second = await runTurn({ providerId: "codex", turnId: "x6" });
+    expect(second.staveTurnGrants?.projectKey).toBe(first.staveTurnGrants?.projectKey);
+
+    // Once the project ends, the channel stays for the thread but resolves to nothing.
+    setProjectCoordinatorTasks([]);
+    const after = await runTurn({ providerId: "codex", turnId: "x7" });
+    expect(after.staveTurnGrants?.projectKey).toBe(first.staveTurnGrants?.projectKey);
+    expect(projectGrantsDuringTurn.at(-1)).toBeNull();
   });
 });

@@ -138,6 +138,11 @@ import {
   type MissionsBridgeApi,
 } from "../src/lib/missions/api";
 import {
+  PROJECT_IPC,
+  type ProjectChangedEvent,
+  type ProjectsBridgeApi,
+} from "../src/lib/projects/api";
+import {
   WAKE_UP_IPC,
   type WakeUpChangedEvent,
   type WakeUpsBridgeApi,
@@ -804,6 +809,33 @@ const wakeUpsApi: WakeUpsBridgeApi = {
     wakeUpChangedSubscribers.add(listener);
     return () => {
       wakeUpChangedSubscribers.delete(listener);
+    };
+  },
+};
+
+const projectChangedSubscribers = new Set<(payload: ProjectChangedEvent) => void>();
+ipcRenderer.on(PROJECT_IPC.changed, (_event, payload: ProjectChangedEvent) => {
+  for (const subscriber of projectChangedSubscribers) {
+    subscriber(payload);
+  }
+});
+
+const projectsApi: ProjectsBridgeApi = {
+  list: (args) => ipcRenderer.invoke(PROJECT_IPC.list, args),
+  get: (args) => ipcRenderer.invoke(PROJECT_IPC.get, args),
+  create: (args) => ipcRenderer.invoke(PROJECT_IPC.create, args),
+  approveProposal: (args) => ipcRenderer.invoke(PROJECT_IPC.approveProposal, args),
+  rejectProposal: (args) => ipcRenderer.invoke(PROJECT_IPC.rejectProposal, args),
+  pause: (args) => ipcRenderer.invoke(PROJECT_IPC.pause, args),
+  resume: (args) => ipcRenderer.invoke(PROJECT_IPC.resume, args),
+  end: (args) => ipcRenderer.invoke(PROJECT_IPC.end, args),
+  updateSettings: (args) => ipcRenderer.invoke(PROJECT_IPC.updateSettings, args),
+  setMemoryStatus: (args) => ipcRenderer.invoke(PROJECT_IPC.setMemoryStatus, args),
+  syncPlaybooks: (args) => ipcRenderer.invoke(PROJECT_IPC.syncPlaybooks, args),
+  subscribeChanged: (listener) => {
+    projectChangedSubscribers.add(listener);
+    return () => {
+      projectChangedSubscribers.delete(listener);
     };
   },
 };
@@ -2212,6 +2244,7 @@ contextBridge.exposeInMainWorld("api", {
   },
   missions: missionsApi,
   wakeUps: wakeUpsApi,
+  projects: projectsApi,
   automations: {
     setProviderTimeout: (args: { providerTimeoutMs: number }) =>
       ipcRenderer.invoke("automations:set-provider-timeout", args) as Promise<{

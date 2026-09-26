@@ -79,6 +79,8 @@ import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
 import { createHostMissionRuntime } from "./host-service/supervision/mission-host";
 import { invokeMissionRuntime } from "./host-service/supervision/mission-runtime";
+import { createHostProjectRuntime } from "./host-service/supervision/project-host";
+import { invokeProjectAction } from "./host-service/supervision/project-runtime";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
 import { createCursorChatId } from "./host-service/cursor-chat-id";
 import { readHostServiceResourceMetrics } from "./host-service/resource-metrics";
@@ -572,6 +574,12 @@ const automationRuntime = createAutomationRuntime({
 const missionRuntime = createHostMissionRuntime({
   emitChanged: (event) => {
     emitEvent("mission.changed", event);
+  },
+});
+const projectRuntime = createHostProjectRuntime({
+  missionRuntime,
+  emitChanged: (event) => {
+    emitEvent("project.changed", event);
   },
 });
 const wakeUpRuntime = createWakeUpRuntime({
@@ -1347,6 +1355,7 @@ async function shutdown() {
   automationRuntime.stop();
   wakeUpRuntime.stop();
   missionRuntime.stop();
+  projectRuntime.stop();
   const infrastructureCleanup = Promise.allSettled([
     terminalRuntime.cleanupAll(),
     cleanupAllScriptProcesses(),
@@ -2070,6 +2079,16 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         ),
       );
       return;
+    case "project.invoke":
+      await respond(
+        request.id,
+        await invokeProjectAction(
+          projectRuntime,
+          request.params.action,
+          request.params.args,
+        ),
+      );
+      return;
     default:
       request satisfies never;
   }
@@ -2091,6 +2110,7 @@ async function main() {
   automationRuntime.start();
   wakeUpRuntime.start();
   missionRuntime.start();
+  projectRuntime.start();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
     maxBufferBytes: HOST_SERVICE_STDIN_BUFFER_MAX_BYTES,

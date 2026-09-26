@@ -63,6 +63,7 @@ import type { CanonicalRetrievedContextPart, ProviderRuntimeOptions } from "../.
 import type { ProjectStore } from "../../persistence/project-store";
 import type { MissionStore } from "../../persistence/mission-store";
 import type { ProjectGrant } from "../../providers/project-grants";
+import type { HostProjectAction } from "../protocol";
 
 const DEFAULT_TICK_MS = 10_000;
 const MAX_ACTIONS_PER_PROJECT_TICK = 8;
@@ -131,7 +132,7 @@ export interface ProjectRuntime {
   stop: () => void;
   requestTick: () => Promise<void>;
   /** A mission changed; ticks when it belongs to a project. */
-  notifyMissionChanged: (args: { missionId: string; projectId: string | null }) => void;
+  notifyMissionChanged: (args: { missionId: string }) => void;
   list: (args?: { openOnly?: boolean }) => Promise<{ projects: Project[] }>;
   get: (args: { projectId: string }) => Promise<ProjectDetail>;
   create: (args: unknown) => Promise<ProjectDetail>;
@@ -525,8 +526,8 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
       timer = null;
     },
     requestTick: () => enqueue(tick),
-    notifyMissionChanged: ({ projectId }) => {
-      if (projectId) void runtime.requestTick();
+    notifyMissionChanged: ({ missionId }) => {
+      if (deps.missions.getAggregate(missionId)?.mission.projectId) void runtime.requestTick();
     },
 
     list: async (args = {}) => ({ projects: store.listProjects(args) }),
@@ -754,3 +755,48 @@ export async function invokeProjectRuntime<T>(work: () => Promise<T>): Promise<P
   }
 }
 
+/** Routes a host `project.invoke` request to the runtime. */
+export function invokeProjectAction(
+  runtime: ProjectRuntime,
+  action: HostProjectAction,
+  args: unknown,
+): Promise<ProjectInvokeResult<unknown>> {
+  return invokeProjectRuntime(() => dispatchProject(runtime, action, args));
+}
+
+function dispatchProject(runtime: ProjectRuntime, action: HostProjectAction, args: unknown): Promise<unknown> {
+  // The main process validates renderer arguments; tools pass their key.
+  const value = (args ?? {}) as never;
+  switch (action) {
+    case "list":
+      return runtime.list(value);
+    case "get":
+      return runtime.get(value);
+    case "create":
+      return runtime.create(args);
+    case "approve-proposal":
+      return runtime.approveProposal(value);
+    case "reject-proposal":
+      return runtime.rejectProposal(value);
+    case "pause":
+      return runtime.pause(value);
+    case "resume":
+      return runtime.resume(value);
+    case "end":
+      return runtime.end(value);
+    case "update-settings":
+      return runtime.updateSettings(value);
+    case "set-memory-status":
+      return runtime.setMemoryStatus(value);
+    case "sync-playbooks":
+      return runtime.syncPlaybooks(value);
+    case "get-for-grant":
+      return runtime.getForGrant(value);
+    case "start-mission-for-grant":
+      return runtime.startMissionForGrant(value);
+    case "get-mission-report-for-grant":
+      return runtime.getMissionReportForGrant(value);
+    case "note-for-grant":
+      return runtime.noteForGrant(value);
+  }
+}

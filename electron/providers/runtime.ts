@@ -76,6 +76,7 @@ import {
 } from "./acp/acp-worker-runtime";
 import { getProviderModelCatalog } from "./provider-model-catalog";
 import { registerMissionGrant } from "./mission-grants";
+import { projectIdForCoordinatorTask, registerProjectGrant } from "./project-grants";
 import { createProviderApprovalRouter } from "./provider-approval-router";
 import {
   WORKER_BRIEFING_SOURCE_ID,
@@ -105,6 +106,8 @@ const codexAdvisorChannelKeyByTask = new Map<string, string>();
  * sending it with no active grant behind it.
  */
 const codexMissionChannelKeyByTask = new Map<string, string>();
+/** Same reason as the mission key: a coordinator's Codex thread keeps one project key. */
+const codexProjectChannelKeyByTask = new Map<string, string>();
 
 function getProviderTaskKey(taskId?: string) {
   return taskId?.trim() || DEFAULT_PROVIDER_TASK_KEY;
@@ -120,6 +123,15 @@ function getOrCreateCodexAdvisorChannelKey(taskId?: string) {
   const consultKey = randomUUID();
   codexAdvisorChannelKeyByTask.set(taskKey, consultKey);
   return consultKey;
+}
+
+function getOrCreateCodexProjectChannelKey(taskId: string) {
+  const taskKey = getProviderTaskKey(taskId);
+  const existing = codexProjectChannelKeyByTask.get(taskKey);
+  if (existing) return existing;
+  const projectKey = randomUUID();
+  codexProjectChannelKeyByTask.set(taskKey, projectKey);
+  return projectKey;
 }
 
 function getOrCreateCodexMissionChannelKey(taskId: string) {
@@ -475,6 +487,7 @@ function appendStreamEvent(session: ActiveStreamSession, event: BridgeEvent) {
 function cleanupProviderTaskState(taskId: string) {
   codexAdvisorChannelKeyByTask.delete(getProviderTaskKey(taskId));
   codexMissionChannelKeyByTask.delete(getProviderTaskKey(taskId));
+  codexProjectChannelKeyByTask.delete(getProviderTaskKey(taskId));
   cleanupAdvisorSessionsForTask(taskId);
   cleanupAcpWorkerSessionsForTask(taskId);
   cleanupClaudeTask(taskId);
@@ -937,6 +950,9 @@ async function runProviderTurnImpl(
   const retainedCodexMissionChannelKey = retainsCodexChannels
     ? codexMissionChannelKeyByTask.get(getProviderTaskKey(args.taskId))
     : undefined;
+  const retainedCodexProjectChannelKey = retainsCodexChannels
+    ? codexProjectChannelKeyByTask.get(getProviderTaskKey(args.taskId))
+    : undefined;
   let effectiveArgs: typeof args = {
     ...args,
     runtimeOptions: withoutAdvisorTarget(args.runtimeOptions),
@@ -946,6 +962,9 @@ async function runProviderTurnImpl(
         : {}),
       ...(retainedCodexMissionChannelKey
         ? { missionKey: retainedCodexMissionChannelKey }
+        : {}),
+      ...(retainedCodexProjectChannelKey
+        ? { projectKey: retainedCodexProjectChannelKey }
         : {}),
     },
     ...(args.conversation
@@ -1220,11 +1239,38 @@ async function runProviderTurnImpl(
       missionKey,
     };
   }
+  // Every turn on a project's coordinator task may act for the project
+  // through Local MCP; the host resolves the project from the key.
+  let projectGrantHandle: ReturnType<typeof registerProjectGrant> | null = null;
+  const coordinatedProjectId = projectIdForCoordinatorTask(missionTaskId);
+  if (
+    coordinatedProjectId &&
+    missionTaskId &&
+    args.executionPolicy !== "secondary-read-only" &&
+    (args.providerId === "claude-code" || args.providerId === "codex")
+  ) {
+    const projectKey =
+      args.providerId === "codex"
+        ? getOrCreateCodexProjectChannelKey(missionTaskId)
+        : randomUUID();
+    projectGrantHandle = registerProjectGrant({
+      projectKey,
+      projectId: coordinatedProjectId,
+      taskId: missionTaskId,
+      turnId,
+    });
+    effectiveArgs.staveTurnGrants = {
+      ...effectiveArgs.staveTurnGrants,
+      projectKey,
+    };
+  }
   revokeTurnGrants = () => {
     revokeAdvisorGrant();
     revokeAcpWorkerGrant();
     missionGrantHandle?.revoke();
     missionGrantHandle = null;
+    projectGrantHandle?.revoke();
+    projectGrantHandle = null;
   };
   if (abortRequested) revokeTurnGrants();
   const emitMissingReturnedEvents = (events: BridgeEvent[]) => {
@@ -1734,6 +1780,7 @@ export const providerRuntime: ProviderRuntime = {
     activeTurnPromises.clear();
     codexAdvisorChannelKeyByTask.clear();
     codexMissionChannelKeyByTask.clear();
+    codexProjectChannelKeyByTask.clear();
     cleanupProviderTaskState(DEFAULT_PROVIDER_TASK_KEY);
     for (const taskId of taskIds) {
       cleanupProviderTaskState(taskId);
