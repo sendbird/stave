@@ -1,3 +1,23 @@
+## [0.19.7](https://github.com/sendbird/stave/compare/v0.19.6...v0.19.7) (2026-09-26)
+
+### Features
+
+* Distinguish Codex models listed by the current runtime from static entries whose support is unconfirmed, while keeping unconfirmed models selectable.
+* Keep the requested model, actual model, and change reason on provider events and messages, and show them inside the model-details disclosure.
+
+### Bug Fixes
+
+* Register the Stave Local MCP entry for Claude Code in the user-scope `.claude.json` file the CLI actually reads, honoring `CLAUDE_CONFIG_DIR`, and remove the unread entry earlier releases wrote to `settings.json`. Terminal and Standalone CLI Claude sessions can now connect to `stave-local-mcp`, and the Settings status matches what `claude mcp list` reports.
+* Record requested and actual models when Claude or Codex runs a different model, including Claude responses that omit a fallback event.
+* Show that Opus 5.5 requires Claude Code 2.1.280 or newer in the model selector and Tooling settings, and append installation-specific update guidance to Codex compatibility errors.
+* Keep Claude picker labels on the base model name so the 1M context option stays on its side toggle.
+* Wait for native completion before reusing interrupted Codex threads, quarantine unresolved cancellations, and release abandoned local RPC waits without stopping unrelated turns.
+* Keep Settings command-list keys unique across repeated categories, and keep the pull request creation dialog actions reachable in short viewports.
+
+### References
+
+* [#579](https://github.com/sendbird/stave/pull/579), [#580](https://github.com/sendbird/stave/pull/580), [#581](https://github.com/sendbird/stave/pull/581), [#582](https://github.com/sendbird/stave/pull/582)
+
 ## [0.19.6](https://github.com/sendbird/stave/compare/v0.19.5...v0.19.6) (2026-09-23)
 
 ### Features
