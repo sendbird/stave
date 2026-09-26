@@ -58,6 +58,7 @@ import type {
 } from "../../src/lib/tracker-issues/types";
 import { WakeUpStore } from "./wake-up-store";
 import { MissionStore } from "./mission-store";
+import { ProjectStore } from "./project-store";
 import { AutomationStateStore } from "./automation-state-store";
 import { RepositoryMemoryStore } from "./repository-memory-store";
 import { ResultReviewStore } from "./result-review-store";
@@ -180,16 +181,13 @@ export class SqliteStore {
   readonly directionDrafts: WorkspaceDirectionDraftStore;
   readonly delegationDrafts: DelegationDraftStore;
   readonly missions: MissionStore;
+  readonly projects: ProjectStore;
   private _closed = false;
   private readonly runMaintenance: boolean;
   private maintenanceStart: NodeJS.Immediate | null = null;
-  private onBootstrapStatusChange?: (
-    status: PersistenceBootstrapStatus,
-  ) => void;
+  private onBootstrapStatusChange?: (status: PersistenceBootstrapStatus) => void;
 
-  get closed() {
-    return this._closed;
-  }
+  get closed() { return this._closed; }
 
   constructor(args: {
     dbPath: string;
@@ -235,6 +233,7 @@ export class SqliteStore {
     this.martinSyncOutbox = new MartinSyncOutboxStore(this.db);
     this.wakeUps = new WakeUpStore(this.db);
     this.missions = new MissionStore(this.db);
+    this.projects = new ProjectStore(this.db);
     this.automationState = new AutomationStateStore(this.db);
     this.repositoryMemories = new RepositoryMemoryStore(this.db);
     if (this.runMaintenance) {

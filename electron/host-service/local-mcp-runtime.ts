@@ -91,6 +91,7 @@ import {
   findPendingApprovalMessageByRequestId,
   findPendingUserInputMessageByRequestId,
 } from "../../src/store/provider-message.utils";
+import { findPendingApprovals, findPendingUserInputs } from "./local-mcp-pending";
 import type {
   ChatMessage,
   Task,
@@ -981,54 +982,6 @@ function buildTaskTitleFromPrompt(prompt: string) {
       .find(Boolean)
       ?.slice(0, 48) || "New Task"
   );
-}
-
-function findPendingApprovals(messages: ChatMessage[]) {
-  const pending: Array<{
-    messageId: string;
-    requestId: string;
-    toolName: string;
-    description: string;
-  }> = [];
-
-  for (const message of messages) {
-    const approvalPart = findLatestPendingApprovalPart({ message });
-    if (!approvalPart) {
-      continue;
-    }
-    pending.push({
-      messageId: message.id,
-      requestId: approvalPart.requestId,
-      toolName: approvalPart.toolName,
-      description: approvalPart.description,
-    });
-  }
-
-  return pending;
-}
-
-function findPendingUserInputs(messages: ChatMessage[]) {
-  const pending: Array<{
-    messageId: string;
-    requestId: string;
-    toolName: string;
-    questionCount: number;
-  }> = [];
-
-  for (const message of messages) {
-    const userInputPart = findLatestPendingUserInputPart({ message });
-    if (!userInputPart) {
-      continue;
-    }
-    pending.push({
-      messageId: message.id,
-      requestId: userInputPart.requestId,
-      toolName: userInputPart.toolName,
-      questionCount: userInputPart.questions.length,
-    });
-  }
-
-  return pending;
 }
 
 async function persistNotification(notification: AppNotificationCreateInput) {
@@ -2340,6 +2293,35 @@ export async function getTaskSupervisionSnapshot(args: {
  * notification surface for no new decision. The dedupe key carries the reason
  * so a repeated failure of the same kind collapses into one row.
  */
+/**
+ * Adds a task to a workspace without starting a turn, for a supervisor that
+ * starts the first turn itself (a project starting a mission on a new task).
+ */
+export async function createIdleTask(args: { workspaceId: string; title: string; provider: ProviderId }) {
+  const { repositories } = await loadNormalizedRepositories();
+  const registration = findWorkspaceRegistration({ repositories, workspaceId: args.workspaceId });
+  if (!registration) throw new Error(`Workspace not found: ${args.workspaceId}`);
+  const session = await loadWorkspaceSession(args.workspaceId);
+  const task = {
+    id: randomUUID(),
+    title: args.title.trim().slice(0, 80) || "Mission",
+    provider: args.provider,
+    updatedAt: buildRecentTimestamp(),
+    unread: false,
+    archivedAt: null,
+    controlMode: "interactive",
+    controlOwner: "stave",
+  } satisfies Task;
+  const next = cacheWorkspaceSession(args.workspaceId, {
+    ...session,
+    tasks: [task, ...session.tasks],
+    messagesByTask: { ...session.messagesByTask, [task.id]: [] },
+    nativeSessionReadyByTask: { ...session.nativeSessionReadyByTask, [task.id]: false },
+  });
+  await queueWorkspaceSessionPersist({ workspaceId: args.workspaceId, workspaceName: registration.workspace.name, session: next });
+  return { taskId: task.id };
+}
+
 export async function notifySupervisorProblem(args: {
   workspaceId: string;
   taskId: string;

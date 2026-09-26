@@ -217,6 +217,8 @@ whose name repeats it.
 10. A saved playbook never grants permissions; every mission start records its
     own consent.
 11. At most one supervisor entry starts automatic turns on a task at a time.
+12. A project starts work only as missions through intake; its coordinator
+    edits no files.
 
 Statement 10 is asserted at the Start sheet: the consent chosen there is what
 the mission stores and what its turns run with, and the playbook's saved

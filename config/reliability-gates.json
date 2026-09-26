@@ -287,6 +287,22 @@
         "src/components/missions/StartMissionSheet.tsx",
         "electron/host-service/supervision/mission-runtime.ts"
       ]
+    },
+    {
+      "id": "project-boundaries",
+      "title": "A project starts work only as missions through intake; its coordinator edits no files",
+      "invariant": "The project runtime starts work only by creating a worktree and a task and starting a mission on it (never a free-form turn on another task); the only turns it starts itself are on the project's coordinator task, and those run with edits disallowed on Claude and a read-only sandbox on Codex; a coordinator's start key never starts a second mission.",
+      "testFiles": [
+        "tests/project-boundaries.test.ts",
+        "tests/project-policy.test.ts",
+        "tests/project-store.test.ts"
+      ],
+      "assertionRefs": [
+        "docs/architecture/agent-platform-taxonomy.md",
+        "src/lib/projects/policy.ts",
+        "src/lib/projects/briefing.ts",
+        "electron/host-service/supervision/project-runtime.ts"
+      ]
     }
   ]
 }

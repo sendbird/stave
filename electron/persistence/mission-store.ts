@@ -484,6 +484,14 @@ export class MissionStore {
   }
 
   /** The newest missions across every workspace, for surfaces that span them. */
+  /** The missions a project started, newest first. */
+  listMissionsForProject(projectId: string, limit = 100): Mission[] {
+    const rows = this.db
+      .prepare("SELECT * FROM missions WHERE project_id = ? ORDER BY created_at DESC LIMIT ?")
+      .all(projectId, Math.max(1, Math.min(limit, 200))) as MissionRow[];
+    return parseEach(rows, parseMissionRow, "mission");
+  }
+
   listRecentMissions(limit = 50): Mission[] {
     const rows = this.db
       .prepare("SELECT * FROM missions ORDER BY created_at DESC LIMIT ?")
