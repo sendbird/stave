@@ -62,7 +62,7 @@ silently overwriting another window's changes.
 
 ## Agent curation
 
-Use `stave_list_project_memories` with a `query` before saving related knowledge.
+Use `stave_list_repository_memories` with a `query` before saving related knowledge.
 It returns at most 12 entries with ids, usage modes and confirmation dates.
 Use `recallMode: "candidate"` to review suggestions; a candidate is not evidence
 that a claim is true. Pass `nextOffset` back as `offset` to continue browsing.

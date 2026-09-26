@@ -1072,7 +1072,7 @@ function createToolServer(options?: {
     "stave_remember",
     {
       description:
-        "Curate reusable project knowledge. New saves require the user to enable Collect project memory in Settings > Memory; it is off by default. Do not ask to enable it repeatedly or work around disabled collection. Search stave_list_project_memories first. Pass memoryId to replace or consolidate an existing memory, including a candidate; forget superseded ids. Save durable user corrections, non-obvious conventions or verified pitfalls, never completion logs, temporary status, or facts easily read from code. Default contextual memories are recalled only for matching requests. Reserve core for at most three short project-wide essentials. AGENTS.md and current user instructions win.",
+        "Curate reusable project knowledge. New saves require the user to enable Collect project memory in Settings > Memory; it is off by default. Do not ask to enable it repeatedly or work around disabled collection. Search stave_list_repository_memories first. Pass memoryId to replace or consolidate an existing memory, including a candidate; forget superseded ids. Save durable user corrections, non-obvious conventions or verified pitfalls, never completion logs, temporary status, or facts easily read from code. Default contextual memories are recalled only for matching requests. Reserve core for at most three short project-wide essentials. AGENTS.md and current user instructions win.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id (scopes the project)."),
         kind: RepositoryMemoryKindSchema.describe(
@@ -1129,7 +1129,7 @@ function createToolServer(options?: {
     "stave_forget",
     {
       description:
-        "Forget (soft-delete) a project memory by id. Get ids from `stave_list_project_memories` or from a `stave_remember` result; a forgotten fact is not re-added by automatic extraction.",
+        "Forget (soft-delete) a project memory by id. Get ids from `stave_list_repository_memories` or from a `stave_remember` result; a forgotten fact is not re-added by automatic extraction.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id (scopes the project)."),
         memoryId: z.string().min(1).describe("Project memory id."),

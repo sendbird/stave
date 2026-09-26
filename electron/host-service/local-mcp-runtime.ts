@@ -899,7 +899,7 @@ export async function rememberRepositoryMemory(args: {
   return { repositoryPath, outcome: result.outcome, memory: result.memory };
 }
 
-/** `stave_list_project_memories`: ids + content, so `stave_forget` has something to target. */
+/** `stave_list_repository_memories`: ids + content, so `stave_forget` has something to target. */
 export async function listRepositoryMemories(args: { workspaceId: string } & import("../../src/lib/project-memory").RepositoryMemorySearchOptions) {
   const repositoryPath = await resolveRepositoryPathForWorkspace(args.workspaceId);
   const store = ensureHostServicePersistenceReady();

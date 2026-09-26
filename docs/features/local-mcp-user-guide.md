@@ -114,7 +114,7 @@ If `Codex` auto-registration is enabled, Stave also keeps the current loopback U
    - if the host can reach loopback HTTP directly, connect to the manifest `url` with `Authorization: Bearer <token>`
    - if the host cannot reach `127.0.0.1` directly, launch `node <stdioProxyScript>` and use it as the MCP stdio server
 5. Call tools in this order:
-   - `stave_register_project`
+   - `stave_register_repository`
    - `stave_create_workspace`
    - `stave_run_task`
    - `stave_get_task`
@@ -156,7 +156,7 @@ entries are always included. The injected block is capped at six entries /
 
 - `stave_remember` — `{ workspaceId, kind: decision|convention|gotcha|fact, content, memoryId?, recallMode?: contextual|core }`; pass an existing id to revise or promote it
 - `stave_forget` — `{ workspaceId, memoryId }`
-- `stave_list_project_memories` — `{ workspaceId, query?, recallMode?, offset? }`, returns up to 12 entries and `nextOffset` for continued retrieval
+- `stave_list_repository_memories` — `{ workspaceId, query?, recallMode?, offset? }`, returns up to 12 entries and `nextOffset` for continued retrieval
 
 To read the tracker tickets Stave has cached for the signed-in user:
 
