@@ -43,7 +43,7 @@ export function resolveManagedTaskRuntimeOptions(args: {
   runtimeOptions?: ProviderRuntimeOptions;
   /**
    * Settings.providerTimeoutMs as seen by the host (synced through the
-   * routine timeout key). Caller-supplied `runtimeOptions.providerTimeoutMs`
+   * automation timeout key). Caller-supplied `runtimeOptions.providerTimeoutMs`
    * still wins; this is only the managed-task fallback.
    */
   defaultProviderTimeoutMs?: number;

@@ -293,7 +293,7 @@ const fakeStore = {
   // `persistTaskTurnDelta` declines so the caller migrates via the
   // whole-snapshot write below.
   persistTaskTurnDelta: () => ({ ok: false, messageCount: 0 }),
-  loadRoutineProviderTimeoutMs: () => persistedProviderTimeoutMs,
+  loadAutomationProviderTimeoutMs: () => persistedProviderTimeoutMs,
   upsertWorkspace: ({
     id,
     snapshot,
@@ -590,7 +590,7 @@ describe("local MCP runtime runTask", () => {
     }
   });
 
-  test("injects explicitly attached Information references into routine turns", async () => {
+  test("injects explicitly attached Information references into automation turns", async () => {
     await runtime.replaceWorkspaceNotes({
       workspaceId: WORKSPACE_ID,
       notes: "Treat the release branch as read-only.",
@@ -621,7 +621,7 @@ describe("local MCP runtime runTask", () => {
       };
     };
     const informationPart = call.conversation?.contextParts?.find(
-      (part) => part.sourceId === "stave:routine-information-references",
+      (part) => part.sourceId === "stave:automation-information-references",
     );
 
     expect(informationPart?.content).toContain(
@@ -1125,7 +1125,7 @@ describe("local MCP runtime runTask", () => {
       };
     };
     const informationPart = call.conversation?.contextParts?.find(
-      (part) => part.sourceId === "stave:routine-information-references",
+      (part) => part.sourceId === "stave:automation-information-references",
     );
     expect(informationPart?.content).toContain(
       "Use the renderer's newest persisted instructions.",

@@ -74,7 +74,7 @@ describe("normalizeMessagesForSnapshot", () => {
     // Old builds persisted part types the current MessagePart union no longer
     // includes (for example "stave_processing"). Snapshot normalization runs
     // inside the host-service persist queue, so a crash here silently drops
-    // the whole workspace persist — including routine-created tasks.
+    // the whole workspace persist — including automation-created tasks.
     const legacyPart = {
       type: "stave_processing",
       strategy: "direct",

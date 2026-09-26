@@ -649,10 +649,10 @@ export function createSettingsActions(args: {
 
       if (normalizedPatch.providerTimeoutMs !== undefined) {
         const providerTimeoutMs = get().settings.providerTimeoutMs;
-        const setProviderTimeout = window.api?.routines?.setProviderTimeout;
+        const setProviderTimeout = window.api?.automations?.setProviderTimeout;
         if (setProviderTimeout) {
           void setProviderTimeout({ providerTimeoutMs }).catch((error) => {
-            console.warn("[routines] failed to sync provider timeout", error);
+            console.warn("[automations] failed to sync provider timeout", error);
           });
         }
       }

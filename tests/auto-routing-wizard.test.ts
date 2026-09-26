@@ -35,7 +35,7 @@ const PLAN_PROMPTS = [
   "Plan how we should split the monolith into packages",
   "Outline an architecture plan for the offline cache",
   "Plan the rollout of the new theme editor step by step",
-  "Design the approach for the routine scheduler refactor",
+  "Design the approach for the automation scheduler refactor",
 ];
 const IMPLEMENT_PROMPTS = [
   "Implement the settings dialog for routing profiles",

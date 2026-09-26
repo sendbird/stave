@@ -253,7 +253,7 @@ export const centerStyles = stylex.create({
     padding: vars["--ads-space-12"],
   },
   cardList: { display: "grid", gap: vars["--ads-space-8"] },
-  routineCard: {
+  automationCard: {
     backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
     borderColor: vars["--ads-color-border-subtle"],
     borderRadius: vars["--ads-radius-control"],
@@ -263,20 +263,20 @@ export const centerStyles = stylex.create({
     padding: 10,
     textAlign: "left",
   },
-  routineCardActive: {
+  automationCardActive: {
     backgroundColor: accent(8),
     borderColor: accent(50),
   },
-  routineCardHead: { alignItems: "center", display: "flex", gap: vars["--ads-space-8"] },
-  routineDot: {
+  automationCardHead: { alignItems: "center", display: "flex", gap: vars["--ads-space-8"] },
+  automationDot: {
     blockSize: 8,
     borderRadius: vars["--ads-radius-full"],
     flexShrink: 0,
     inlineSize: 8,
   },
-  routineDotOn: { backgroundColor: vars["--ads-color-success"] },
-  routineDotOff: { backgroundColor: vars["--ads-color-text-muted"] },
-  routineName: {
+  automationDotOn: { backgroundColor: vars["--ads-color-success"] },
+  automationDotOff: { backgroundColor: vars["--ads-color-text-muted"] },
+  automationName: {
     color: vars["--ads-color-text"],
     flexGrow: 1,
     flexShrink: 1,
@@ -287,7 +287,7 @@ export const centerStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  routineMeta: {
+  automationMeta: {
     alignItems: "center",
     color: vars["--ads-color-text-muted"],
     display: "flex",
@@ -296,12 +296,12 @@ export const centerStyles = stylex.create({
     justifyContent: "space-between",
     marginBlockStart: vars["--ads-space-4"],
   },
-  routineMetaText: {
+  automationMetaText: {
     overflow: "hidden",
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  routineMetaModel: {
+  automationMetaModel: {
     flexShrink: 0,
     overflow: "hidden",
     textOverflow: "ellipsis",

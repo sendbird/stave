@@ -6,33 +6,33 @@ import type {
 } from "@/lib/providers/provider.types";
 import type { WorkspaceInformationReference } from "@/lib/workspace-information-references";
 
-export const ROUTINE_SCHEDULE_UNITS = [
+export const AUTOMATION_SCHEDULE_UNITS = [
   "minutes",
   "hours",
   "days",
   "weeks",
 ] as const;
 
-export const RoutineScheduleUnitSchema = z.enum(ROUTINE_SCHEDULE_UNITS);
-export type RoutineScheduleUnit = z.infer<typeof RoutineScheduleUnitSchema>;
+export const AutomationScheduleUnitSchema = z.enum(AUTOMATION_SCHEDULE_UNITS);
+export type AutomationScheduleUnit = z.infer<typeof AutomationScheduleUnitSchema>;
 
-export const RoutineScheduleTimeSchema = z
+export const AutomationScheduleTimeSchema = z
   .object({
     hour: z.number().int().min(0).max(23),
     minute: z.number().int().min(0).max(59),
   })
   .strict();
-export type RoutineScheduleTime = z.infer<typeof RoutineScheduleTimeSchema>;
+export type AutomationScheduleTime = z.infer<typeof AutomationScheduleTimeSchema>;
 
-export const RoutineScheduleSchema = z
+export const AutomationScheduleSchema = z
   .object({
     every: z.number().int().min(1).max(999),
-    unit: RoutineScheduleUnitSchema,
+    unit: AutomationScheduleUnitSchema,
     /**
      * Optional local start time for day/week schedules. When set, runs snap to
      * this time of day instead of "interval after the previous run".
      */
-    at: RoutineScheduleTimeSchema.optional(),
+    at: AutomationScheduleTimeSchema.optional(),
     /**
      * Optional local weekday (0 = Sunday … 6 = Saturday) for week schedules.
      * Requires `at` so an anchored week schedule always has a concrete time.
@@ -104,7 +104,7 @@ export const RoutineScheduleSchema = z
       });
     }
   });
-export type RoutineSchedule = z.infer<typeof RoutineScheduleSchema>;
+export type AutomationSchedule = z.infer<typeof AutomationScheduleSchema>;
 
 export const AUTOMATION_TRUST_POLICIES = [
   "review-required",
@@ -114,7 +114,7 @@ export const AUTOMATION_TRUST_POLICIES = [
 export const AutomationTrustPolicySchema = z.enum(AUTOMATION_TRUST_POLICIES);
 export type AutomationTrustPolicy = z.infer<typeof AutomationTrustPolicySchema>;
 
-export const RoutineEnvironmentInputSchema = z
+export const AutomationEnvironmentInputSchema = z
   .object({
     kind: z.literal("repository"),
     workspaceId: z.string().min(1),
@@ -123,14 +123,14 @@ export const RoutineEnvironmentInputSchema = z
     label: z.string().min(1),
   })
   .strict();
-export type RoutineEnvironmentInput = z.infer<
-  typeof RoutineEnvironmentInputSchema
+export type AutomationEnvironmentInput = z.infer<
+  typeof AutomationEnvironmentInputSchema
 >;
 
-export const RoutineEnvironmentSchema = RoutineEnvironmentInputSchema;
-export type RoutineEnvironment = z.infer<typeof RoutineEnvironmentSchema>;
+export const AutomationEnvironmentSchema = AutomationEnvironmentInputSchema;
+export type AutomationEnvironment = z.infer<typeof AutomationEnvironmentSchema>;
 
-export const ROUTINE_INFORMATION_RESOURCE_KINDS = [
+export const AUTOMATION_INFORMATION_RESOURCE_KINDS = [
   "notes",
   "todo",
   "pull_request",
@@ -142,11 +142,11 @@ export const ROUTINE_INFORMATION_RESOURCE_KINDS = [
   "figma",
   "custom",
 ] as const;
-export type RoutineInformationResourceKind =
-  (typeof ROUTINE_INFORMATION_RESOURCE_KINDS)[number];
+export type AutomationInformationResourceKind =
+  (typeof AUTOMATION_INFORMATION_RESOURCE_KINDS)[number];
 
-const RoutineInformationWorkspaceIdSchema = z.string().min(1).max(4096);
-const RoutineInformationUrlSchema = z
+const AutomationInformationWorkspaceIdSchema = z.string().min(1).max(4096);
+const AutomationInformationUrlSchema = z
   .string()
   .trim()
   .min(1)
@@ -159,65 +159,65 @@ const RoutineInformationUrlSchema = z
       return false;
     }
   }, "A valid http(s) URL is required.");
-const RoutineInformationTitleSchema = z.string().trim().max(500).optional();
-const RoutineInformationNoteSchema = z.string().trim().max(10_000).optional();
-const RoutineInformationExternalResourceBaseSchema = z.object({
-  workspaceId: RoutineInformationWorkspaceIdSchema,
-  url: RoutineInformationUrlSchema,
-  title: RoutineInformationTitleSchema,
-  note: RoutineInformationNoteSchema,
+const AutomationInformationTitleSchema = z.string().trim().max(500).optional();
+const AutomationInformationNoteSchema = z.string().trim().max(10_000).optional();
+const AutomationInformationExternalResourceBaseSchema = z.object({
+  workspaceId: AutomationInformationWorkspaceIdSchema,
+  url: AutomationInformationUrlSchema,
+  title: AutomationInformationTitleSchema,
+  note: AutomationInformationNoteSchema,
 });
 
-export const RoutineInformationResourceCreateInputSchema = z.discriminatedUnion(
+export const AutomationInformationResourceCreateInputSchema = z.discriminatedUnion(
   "kind",
   [
     z
       .object({
         kind: z.literal("notes"),
-        workspaceId: RoutineInformationWorkspaceIdSchema,
+        workspaceId: AutomationInformationWorkspaceIdSchema,
         text: z.string().trim().min(1).max(100_000),
       })
       .strict(),
     z
       .object({
         kind: z.literal("todo"),
-        workspaceId: RoutineInformationWorkspaceIdSchema,
+        workspaceId: AutomationInformationWorkspaceIdSchema,
         text: z.string().trim().min(1).max(10_000),
       })
       .strict(),
-    RoutineInformationExternalResourceBaseSchema.extend({
+    AutomationInformationExternalResourceBaseSchema.extend({
       kind: z.literal("pull_request"),
       status: z
         .enum(["planned", "open", "review", "merged", "closed"])
         .optional(),
     }).strict(),
-    RoutineInformationExternalResourceBaseSchema.extend({
+    AutomationInformationExternalResourceBaseSchema.extend({
       kind: z.literal("jira"),
       issueKey: z.string().trim().max(100).optional(),
       status: z.string().trim().max(200).optional(),
     }).strict(),
-    RoutineInformationExternalResourceBaseSchema.extend({
+    AutomationInformationExternalResourceBaseSchema.extend({
       kind: z.literal("confluence"),
       spaceKey: z.string().trim().max(100).optional(),
     }).strict(),
-    RoutineInformationExternalResourceBaseSchema.extend({
+    AutomationInformationExternalResourceBaseSchema.extend({
       kind: z.literal("storybook"),
     }).strict(),
-    RoutineInformationExternalResourceBaseSchema.extend({
+    AutomationInformationExternalResourceBaseSchema.extend({
       kind: z.literal("amplify"),
     }).strict(),
-    RoutineInformationExternalResourceBaseSchema.extend({
+    AutomationInformationExternalResourceBaseSchema.extend({
       kind: z.literal("slack"),
       channelName: z.string().trim().max(200).optional(),
     }).strict(),
-    RoutineInformationExternalResourceBaseSchema.extend({
+    AutomationInformationExternalResourceBaseSchema.extend({
       kind: z.literal("figma"),
       nodeId: z.string().trim().max(500).optional(),
     }).strict(),
     z
       .object({
         kind: z.literal("custom"),
-        workspaceId: RoutineInformationWorkspaceIdSchema,
+        workspaceId: AutomationInformationWorkspaceIdSchema,
         label: z.string().trim().min(1).max(500),
         fieldType: z.enum([
           "text",
@@ -236,11 +236,11 @@ export const RoutineInformationResourceCreateInputSchema = z.discriminatedUnion(
       .strict(),
   ],
 );
-export type RoutineInformationResourceCreateInput = z.infer<
-  typeof RoutineInformationResourceCreateInputSchema
+export type AutomationInformationResourceCreateInput = z.infer<
+  typeof AutomationInformationResourceCreateInputSchema
 >;
 
-export const RoutineInformationReferenceSchema = z
+export const AutomationInformationReferenceSchema = z
   .object({
     section: z.enum([
       "turn-summary",
@@ -263,7 +263,7 @@ export const RoutineInformationReferenceSchema = z
   })
   .strict();
 
-const ClaudeRoutineRuntimeSchema = z
+const ClaudeAutomationRuntimeSchema = z
   .object({
     provider: z.literal("claude-code"),
     model: z.string().min(1),
@@ -282,7 +282,7 @@ const ClaudeRoutineRuntimeSchema = z
   })
   .strict();
 
-const CodexRoutineRuntimeSchema = z
+const CodexAutomationRuntimeSchema = z
   .object({
     provider: z.literal("codex"),
     model: z.string().min(1),
@@ -294,43 +294,43 @@ const CodexRoutineRuntimeSchema = z
   })
   .strict();
 
-export const RoutineRuntimeConfigSchema = z.discriminatedUnion("provider", [
-  ClaudeRoutineRuntimeSchema,
-  CodexRoutineRuntimeSchema,
+export const AutomationRuntimeConfigSchema = z.discriminatedUnion("provider", [
+  ClaudeAutomationRuntimeSchema,
+  CodexAutomationRuntimeSchema,
 ]);
-export type RoutineRuntimeConfig = z.infer<typeof RoutineRuntimeConfigSchema>;
+export type AutomationRuntimeConfig = z.infer<typeof AutomationRuntimeConfigSchema>;
 
-export const RoutineUpsertInputSchema = z
+export const AutomationUpsertInputSchema = z
   .object({
     name: z.string().trim().min(1).max(120),
     prompt: z.string().trim().min(1).max(100_000),
     enabled: z.boolean(),
-    schedule: RoutineScheduleSchema,
-    environment: RoutineEnvironmentInputSchema,
-    runtime: RoutineRuntimeConfigSchema,
+    schedule: AutomationScheduleSchema,
+    environment: AutomationEnvironmentInputSchema,
+    runtime: AutomationRuntimeConfigSchema,
     trustPolicy: AutomationTrustPolicySchema.default("review-required"),
     maxConcurrentRuns: z.number().int().min(1).max(8).default(1),
     informationReferences: z
-      .array(RoutineInformationReferenceSchema)
+      .array(AutomationInformationReferenceSchema)
       .max(100)
       .default([]),
   })
   .strict();
-export type RoutineUpsertInput = z.infer<typeof RoutineUpsertInputSchema>;
+export type AutomationUpsertInput = z.infer<typeof AutomationUpsertInputSchema>;
 
-export const RoutineSpecSchema = RoutineUpsertInputSchema.omit({
+export const AutomationSpecSchema = AutomationUpsertInputSchema.omit({
   environment: true,
 }).extend({
   id: z.string().min(1),
-  environment: RoutineEnvironmentSchema,
+  environment: AutomationEnvironmentSchema,
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
   lastRunAt: z.string().datetime().nullable(),
   nextRunAt: z.string().datetime().nullable(),
 });
-export type RoutineSpec = z.infer<typeof RoutineSpecSchema>;
+export type AutomationSpec = z.infer<typeof AutomationSpecSchema>;
 
-export const ROUTINE_RUN_STATUSES = [
+export const AUTOMATION_RUN_STATUSES = [
   "running",
   "waiting",
   "completed",
@@ -338,18 +338,18 @@ export const ROUTINE_RUN_STATUSES = [
   "skipped",
 ] as const;
 
-export const RoutineRunStatusSchema = z.enum(ROUTINE_RUN_STATUSES);
-export type RoutineRunStatus = z.infer<typeof RoutineRunStatusSchema>;
+export const AutomationRunStatusSchema = z.enum(AUTOMATION_RUN_STATUSES);
+export type AutomationRunStatus = z.infer<typeof AutomationRunStatusSchema>;
 
-export const RoutineRunSchema = z
+export const AutomationRunSchema = z
   .object({
     id: z.string().min(1),
-    routineId: z.string().min(1),
+    automationId: z.string().min(1),
     workspaceId: z.string().min(1),
     projectPath: z.string().min(1),
     taskId: z.string().nullable(),
     turnId: z.string().nullable(),
-    status: RoutineRunStatusSchema,
+    status: AutomationRunStatusSchema,
     trigger: z.enum(["scheduled", "manual"]),
     scheduledFor: z.string().datetime().nullable(),
     startedAt: z.string().datetime(),
@@ -364,53 +364,53 @@ export const RoutineRunSchema = z
     trustPolicy: AutomationTrustPolicySchema.default("review-required"),
   })
   .strict();
-export type RoutineRun = z.infer<typeof RoutineRunSchema>;
+export type AutomationRun = z.infer<typeof AutomationRunSchema>;
 
-export const RoutineStateSchema = z
+export const AutomationStateSchema = z
   .object({
     version: z.literal(1),
-    routines: z.array(RoutineSpecSchema),
-    runs: z.array(RoutineRunSchema),
+    automations: z.array(AutomationSpecSchema),
+    runs: z.array(AutomationRunSchema),
   })
   .strict();
-export type RoutineState = z.infer<typeof RoutineStateSchema>;
+export type AutomationState = z.infer<typeof AutomationStateSchema>;
 
-export interface RoutineSnapshot {
-  routines: RoutineSpec[];
-  runs: RoutineRun[];
+export interface AutomationSnapshot {
+  automations: AutomationSpec[];
+  runs: AutomationRun[];
 }
 
-const ROUTINE_SCHEDULE_UNIT_MS: Record<RoutineScheduleUnit, number> = {
+const AUTOMATION_SCHEDULE_UNIT_MS: Record<AutomationScheduleUnit, number> = {
   minutes: 60_000,
   hours: 60 * 60_000,
   days: 24 * 60 * 60_000,
   weeks: 7 * 24 * 60 * 60_000,
 };
 
-export const MAX_ROUTINE_RUNS_PER_ROUTINE = 50;
+export const MAX_AUTOMATION_RUNS_PER_AUTOMATION = 50;
 
-export function createEmptyRoutineState(): RoutineState {
+export function createEmptyAutomationState(): AutomationState {
   return {
     version: 1,
-    routines: [],
+    automations: [],
     runs: [],
   };
 }
 
-export function normalizeRoutineState(value: unknown): RoutineState {
-  const parsed = RoutineStateSchema.safeParse(value);
-  return parsed.success ? parsed.data : createEmptyRoutineState();
+export function normalizeAutomationState(value: unknown): AutomationState {
+  const parsed = AutomationStateSchema.safeParse(value);
+  return parsed.success ? parsed.data : createEmptyAutomationState();
 }
 
-export function getRoutineScheduleIntervalMs(schedule: RoutineSchedule) {
-  return schedule.every * ROUTINE_SCHEDULE_UNIT_MS[schedule.unit];
+export function getAutomationScheduleIntervalMs(schedule: AutomationSchedule) {
+  return schedule.every * AUTOMATION_SCHEDULE_UNIT_MS[schedule.unit];
 }
 
 /**
  * The local weekdays a week schedule targets, in ascending order. Returns an
  * empty list when the schedule is not anchored to any specific weekday.
  */
-export function getRoutineScheduleWeekdays(schedule: RoutineSchedule) {
+export function getAutomationScheduleWeekdays(schedule: AutomationSchedule) {
   if (schedule.unit !== "weeks") {
     return [];
   }
@@ -420,8 +420,8 @@ export function getRoutineScheduleWeekdays(schedule: RoutineSchedule) {
   return schedule.weekday === undefined ? [] : [schedule.weekday];
 }
 
-export function computeNextRoutineRunAt(args: {
-  schedule: RoutineSchedule;
+export function computeNextAutomationRunAt(args: {
+  schedule: AutomationSchedule;
   after: Date | string | number;
 }) {
   const after = args.after instanceof Date ? args.after : new Date(args.after);
@@ -430,7 +430,7 @@ export function computeNextRoutineRunAt(args: {
     schedule.at && (schedule.unit === "days" || schedule.unit === "weeks");
   if (!anchored || !schedule.at) {
     return new Date(
-      after.getTime() + getRoutineScheduleIntervalMs(schedule),
+      after.getTime() + getAutomationScheduleIntervalMs(schedule),
     ).toISOString();
   }
 
@@ -455,7 +455,7 @@ export function computeNextRoutineRunAt(args: {
     return candidate;
   };
 
-  const weekdays = getRoutineScheduleWeekdays(schedule);
+  const weekdays = getAutomationScheduleWeekdays(schedule);
   if (weekdays.length === 0) {
     return computeForWeekday(undefined).toISOString();
   }
@@ -466,7 +466,7 @@ export function computeNextRoutineRunAt(args: {
   return earliest.toISOString();
 }
 
-export const ROUTINE_WEEKDAY_LABELS = [
+export const AUTOMATION_WEEKDAY_LABELS = [
   "Sun",
   "Mon",
   "Tue",
@@ -476,14 +476,14 @@ export const ROUTINE_WEEKDAY_LABELS = [
   "Sat",
 ] as const;
 
-export function formatRoutineScheduleTime(at: RoutineScheduleTime) {
+export function formatAutomationScheduleTime(at: AutomationScheduleTime) {
   const hour = String(at.hour).padStart(2, "0");
   const minute = String(at.minute).padStart(2, "0");
   return `${hour}:${minute}`;
 }
 
-export const ROUTINE_WORKWEEK_WEEKDAYS = [1, 2, 3, 4, 5] as const;
-export const ROUTINE_WEEKEND_WEEKDAYS = [0, 6] as const;
+export const AUTOMATION_WORKWEEK_WEEKDAYS = [1, 2, 3, 4, 5] as const;
+export const AUTOMATION_WEEKEND_WEEKDAYS = [0, 6] as const;
 
 function sameWeekdaySet(weekdays: number[], expected: readonly number[]) {
   return (
@@ -492,21 +492,21 @@ function sameWeekdaySet(weekdays: number[], expected: readonly number[]) {
   );
 }
 
-function formatRoutineWeekdaySet(weekdays: number[]) {
+function formatAutomationWeekdaySet(weekdays: number[]) {
   if (weekdays.length === 7) {
     return "day";
   }
-  if (sameWeekdaySet(weekdays, ROUTINE_WORKWEEK_WEEKDAYS)) {
+  if (sameWeekdaySet(weekdays, AUTOMATION_WORKWEEK_WEEKDAYS)) {
     return "weekday";
   }
-  if (sameWeekdaySet(weekdays, ROUTINE_WEEKEND_WEEKDAYS)) {
+  if (sameWeekdaySet(weekdays, AUTOMATION_WEEKEND_WEEKDAYS)) {
     return "weekend day";
   }
-  return weekdays.map((weekday) => ROUTINE_WEEKDAY_LABELS[weekday]).join(", ");
+  return weekdays.map((weekday) => AUTOMATION_WEEKDAY_LABELS[weekday]).join(", ");
 }
 
-export function formatRoutineSchedule(schedule: RoutineSchedule) {
-  const labels: Record<RoutineScheduleUnit, [string, string]> = {
+export function formatAutomationSchedule(schedule: AutomationSchedule) {
+  const labels: Record<AutomationScheduleUnit, [string, string]> = {
     minutes: ["minute", "minutes"],
     hours: ["hour", "hours"],
     days: ["day", "days"],
@@ -514,18 +514,18 @@ export function formatRoutineSchedule(schedule: RoutineSchedule) {
   };
   const at =
     schedule.at && (schedule.unit === "days" || schedule.unit === "weeks")
-      ? ` at ${formatRoutineScheduleTime(schedule.at)}`
+      ? ` at ${formatAutomationScheduleTime(schedule.at)}`
       : "";
 
   // Multi-weekday week schedules read better as "Every weekday at 09:00" than
   // as "Every 1 week on Mon, Tue, Wed, Thu, Fri at 09:00".
   if (schedule.unit === "weeks" && schedule.weekdays?.length) {
-    const weekdays = getRoutineScheduleWeekdays(schedule);
-    const set = formatRoutineWeekdaySet(weekdays);
+    const weekdays = getAutomationScheduleWeekdays(schedule);
+    const set = formatAutomationWeekdaySet(weekdays);
     if (schedule.every === 1) {
       return weekdays.length === 7 ||
-        sameWeekdaySet(weekdays, ROUTINE_WORKWEEK_WEEKDAYS) ||
-        sameWeekdaySet(weekdays, ROUTINE_WEEKEND_WEEKDAYS)
+        sameWeekdaySet(weekdays, AUTOMATION_WORKWEEK_WEEKDAYS) ||
+        sameWeekdaySet(weekdays, AUTOMATION_WEEKEND_WEEKDAYS)
         ? `Every ${set}${at}`
         : `Every week on ${set}${at}`;
     }
@@ -538,12 +538,12 @@ export function formatRoutineSchedule(schedule: RoutineSchedule) {
   }`;
   const weekday =
     schedule.unit === "weeks" && schedule.weekday !== undefined
-      ? ` on ${ROUTINE_WEEKDAY_LABELS[schedule.weekday]}`
+      ? ` on ${AUTOMATION_WEEKDAY_LABELS[schedule.weekday]}`
       : "";
   return `${base}${weekday}${at}`;
 }
 
-export const DEFAULT_ROUTINE_SCHEDULE_TIME: RoutineScheduleTime = {
+export const DEFAULT_AUTOMATION_SCHEDULE_TIME: AutomationScheduleTime = {
   hour: 9,
   minute: 0,
 };
@@ -553,7 +553,7 @@ export const DEFAULT_ROUTINE_SCHEDULE_TIME: RoutineScheduleTime = {
  * `custom` keeps the raw every/unit/weekday editor available as an escape
  * hatch, and `manual` means "saved prompt, Run now only".
  */
-export const ROUTINE_CADENCE_PRESETS = [
+export const AUTOMATION_CADENCE_PRESETS = [
   "manual",
   "every-15-minutes",
   "hourly",
@@ -563,10 +563,10 @@ export const ROUTINE_CADENCE_PRESETS = [
   "weekly",
   "custom",
 ] as const;
-export type RoutineCadencePreset = (typeof ROUTINE_CADENCE_PRESETS)[number];
+export type AutomationCadencePreset = (typeof AUTOMATION_CADENCE_PRESETS)[number];
 
-export const ROUTINE_CADENCE_PRESENTATION: Record<
-  RoutineCadencePreset,
+export const AUTOMATION_CADENCE_PRESENTATION: Record<
+  AutomationCadencePreset,
   { label: string; detail: string }
 > = {
   manual: { label: "Manual only", detail: "Runs when you press Run now." },
@@ -582,13 +582,13 @@ export const ROUTINE_CADENCE_PRESENTATION: Record<
   custom: { label: "Custom", detail: "Set the interval and days yourself." },
 };
 
-export function applyRoutineCadencePreset(args: {
-  preset: RoutineCadencePreset;
-  schedule: RoutineSchedule;
+export function applyAutomationCadencePreset(args: {
+  preset: AutomationCadencePreset;
+  schedule: AutomationSchedule;
   enabled: boolean;
-}): { schedule: RoutineSchedule; enabled: boolean } {
-  const at = args.schedule.at ?? DEFAULT_ROUTINE_SCHEDULE_TIME;
-  const currentWeekdays = getRoutineScheduleWeekdays(args.schedule);
+}): { schedule: AutomationSchedule; enabled: boolean } {
+  const at = args.schedule.at ?? DEFAULT_AUTOMATION_SCHEDULE_TIME;
+  const currentWeekdays = getAutomationScheduleWeekdays(args.schedule);
   switch (args.preset) {
     case "manual":
       // Keep the schedule so re-enabling restores the previous cadence.
@@ -605,7 +605,7 @@ export function applyRoutineCadencePreset(args: {
           every: 1,
           unit: "weeks",
           at,
-          weekdays: [...ROUTINE_WORKWEEK_WEEKDAYS],
+          weekdays: [...AUTOMATION_WORKWEEK_WEEKDAYS],
         },
         enabled: true,
       };
@@ -615,7 +615,7 @@ export function applyRoutineCadencePreset(args: {
           every: 1,
           unit: "weeks",
           at,
-          weekdays: [...ROUTINE_WEEKEND_WEEKDAYS],
+          weekdays: [...AUTOMATION_WEEKEND_WEEKDAYS],
         },
         enabled: true,
       };
@@ -634,10 +634,10 @@ export function applyRoutineCadencePreset(args: {
   }
 }
 
-export function detectRoutineCadencePreset(args: {
-  schedule: RoutineSchedule;
+export function detectAutomationCadencePreset(args: {
+  schedule: AutomationSchedule;
   enabled: boolean;
-}): RoutineCadencePreset {
+}): AutomationCadencePreset {
   if (!args.enabled) {
     return "manual";
   }
@@ -657,11 +657,11 @@ export function detectRoutineCadencePreset(args: {
   if (schedule.unit !== "weeks") {
     return "custom";
   }
-  const weekdays = getRoutineScheduleWeekdays(schedule);
-  if (sameWeekdaySet(weekdays, ROUTINE_WORKWEEK_WEEKDAYS)) {
+  const weekdays = getAutomationScheduleWeekdays(schedule);
+  if (sameWeekdaySet(weekdays, AUTOMATION_WORKWEEK_WEEKDAYS)) {
     return "weekdays";
   }
-  if (sameWeekdaySet(weekdays, ROUTINE_WEEKEND_WEEKDAYS)) {
+  if (sameWeekdaySet(weekdays, AUTOMATION_WEEKEND_WEEKDAYS)) {
     return "weekends";
   }
   return weekdays.length > 0 ? "weekly" : "custom";
@@ -747,9 +747,9 @@ export function formatAutomationTrustPolicy(policy: AutomationTrustPolicy) {
  * permission values the scheduler silently discards.
  */
 export function applyAutomationTrustPolicyToRuntime(
-  runtime: RoutineRuntimeConfig,
+  runtime: AutomationRuntimeConfig,
   policy: AutomationTrustPolicy,
-): RoutineRuntimeConfig {
+): AutomationRuntimeConfig {
   if (policy === "workspace-trusted") {
     return runtime;
   }
@@ -779,7 +779,7 @@ export function applyAutomationTrustPolicyToRuntime(
 }
 
 export function formatAutomationRuntimePermissions(
-  runtime: RoutineRuntimeConfig,
+  runtime: AutomationRuntimeConfig,
 ) {
   if (runtime.provider === "codex") {
     return [
@@ -797,9 +797,9 @@ export function formatAutomationRuntimePermissions(
   ].join(" · ");
 }
 
-export function createDefaultRoutineRuntime(
+export function createDefaultAutomationRuntime(
   provider: ProviderId,
-): RoutineRuntimeConfig {
+): AutomationRuntimeConfig {
   if (provider === "codex") {
     return {
       provider: "codex",
@@ -822,8 +822,8 @@ export function createDefaultRoutineRuntime(
   };
 }
 
-export function routineRuntimeToProviderOptions(
-  runtime: RoutineRuntimeConfig,
+export function automationRuntimeToProviderOptions(
+  runtime: AutomationRuntimeConfig,
 ): ProviderRuntimeOptions {
   if (runtime.provider === "codex") {
     return {
@@ -846,21 +846,21 @@ export function routineRuntimeToProviderOptions(
   };
 }
 
-export function pruneRoutineRuns(runs: RoutineRun[]) {
-  const countByRoutine = new Map<string, number>();
+export function pruneAutomationRuns(runs: AutomationRun[]) {
+  const countByAutomation = new Map<string, number>();
   return [...runs]
     .sort((left, right) => right.startedAt.localeCompare(left.startedAt))
     .filter((run) => {
-      const count = countByRoutine.get(run.routineId) ?? 0;
-      if (count >= MAX_ROUTINE_RUNS_PER_ROUTINE) {
+      const count = countByAutomation.get(run.automationId) ?? 0;
+      if (count >= MAX_AUTOMATION_RUNS_PER_AUTOMATION) {
         return false;
       }
-      countByRoutine.set(run.routineId, count + 1);
+      countByAutomation.set(run.automationId, count + 1);
       return true;
     });
 }
 
-export function getRoutineInformationReferenceKey(
+export function getAutomationInformationReferenceKey(
   reference: WorkspaceInformationReference,
 ) {
   return reference.scope === "section"

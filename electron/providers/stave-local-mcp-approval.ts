@@ -12,7 +12,7 @@
  * runtimes answer it the same way.
  *
  * Membership rule: a tool belongs here when it only reads Stave state or edits
- * the workspace's own metadata (notes, todos, resources, routine definitions).
+ * the workspace's own metadata (notes, todos, resources, automation definitions).
  * Anything that spends tokens, starts an agent, or stops one does not — those
  * stay on each provider's normal approval path.
  */
@@ -45,13 +45,13 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   // Reading the tracker cache is local and read-only. Starting a run from a
   // ticket is not, so kickoff has no tool at all and stays a user action.
   "stave_list_tracker_tasks",
-  "stave_list_routines",
-  "stave_create_routine",
-  "stave_update_routine",
-  "stave_remove_routine",
-  "stave_set_routine_enabled",
-  "stave_list_routine_information_references",
-  "stave_create_routine_information_resource",
+  "stave_list_automations",
+  "stave_create_automation",
+  "stave_update_automation",
+  "stave_remove_automation",
+  "stave_set_automation_enabled",
+  "stave_list_automation_information_references",
+  "stave_create_automation_information_resource",
   // Reading delegation state is safe. Creating a child task and stopping one
   // are not, so `stave_delegate_task` and `stave_stop_child_task` stay on the
   // approval path alongside `stave_run_task`.
@@ -63,9 +63,9 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   // would break the "quick second opinion" flow the feature exists for. The
   // consult itself is read-only and tool-less.
   "stave_consult_advisor",
-  // Same line the routine tools sit on: defining or pausing scheduled work only
+  // Same line the automation tools sit on: defining or pausing scheduled work only
   // edits a definition, so it belongs here, while anything that starts a turn
-  // right now (`stave_run_routine_now`) does not. A heartbeat has no immediate
+  // right now (`stave_run_automation_now`) does not. A heartbeat has no immediate
   // trigger at all, so all six of its tools are definition edits.
   "stave_list_task_heartbeats",
   "stave_get_task_heartbeat",

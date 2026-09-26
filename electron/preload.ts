@@ -125,12 +125,12 @@ import type {
   WorkspaceInformationState,
 } from "../src/lib/workspace-information";
 import type {
-  RoutineInformationResourceCreateInput,
-  RoutineRun,
-  RoutineSnapshot,
-  RoutineSpec,
-  RoutineUpsertInput,
-} from "../src/lib/routines";
+  AutomationInformationResourceCreateInput,
+  AutomationRun,
+  AutomationSnapshot,
+  AutomationSpec,
+  AutomationUpsertInput,
+} from "../src/lib/automations";
 import type { WorkspaceInformationReferenceOption } from "../src/lib/workspace-information-references";
 import type {
   AppNotification,
@@ -2151,50 +2151,50 @@ contextBridge.exposeInMainWorld("api", {
         message?: string;
       }>,
   },
-  routines: {
+  automations: {
     setProviderTimeout: (args: { providerTimeoutMs: number }) =>
-      ipcRenderer.invoke("routines:set-provider-timeout", args) as Promise<{
+      ipcRenderer.invoke("automations:set-provider-timeout", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
     list: () =>
-      ipcRenderer.invoke("routines:list") as Promise<{
+      ipcRenderer.invoke("automations:list") as Promise<{
         ok: boolean;
-        snapshot: RoutineSnapshot;
+        snapshot: AutomationSnapshot;
         message?: string;
       }>,
-    create: (input: RoutineUpsertInput) =>
-      ipcRenderer.invoke("routines:create", input) as Promise<{
+    create: (input: AutomationUpsertInput) =>
+      ipcRenderer.invoke("automations:create", input) as Promise<{
         ok: boolean;
-        routine: RoutineSpec | null;
+        automation: AutomationSpec | null;
         message?: string;
       }>,
-    update: (args: { id: string; input: RoutineUpsertInput }) =>
-      ipcRenderer.invoke("routines:update", args) as Promise<{
+    update: (args: { id: string; input: AutomationUpsertInput }) =>
+      ipcRenderer.invoke("automations:update", args) as Promise<{
         ok: boolean;
-        routine: RoutineSpec | null;
+        automation: AutomationSpec | null;
         message?: string;
       }>,
     remove: (args: { id: string }) =>
-      ipcRenderer.invoke("routines:remove", args) as Promise<{
+      ipcRenderer.invoke("automations:remove", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
     setEnabled: (args: { id: string; enabled: boolean }) =>
-      ipcRenderer.invoke("routines:set-enabled", args) as Promise<{
+      ipcRenderer.invoke("automations:set-enabled", args) as Promise<{
         ok: boolean;
-        routine: RoutineSpec | null;
+        automation: AutomationSpec | null;
         message?: string;
       }>,
     runNow: (args: { id: string }) =>
-      ipcRenderer.invoke("routines:run-now", args) as Promise<{
+      ipcRenderer.invoke("automations:run-now", args) as Promise<{
         ok: boolean;
-        run: RoutineRun | null;
+        run: AutomationRun | null;
         message?: string;
       }>,
-    createInformationResource: (input: RoutineInformationResourceCreateInput) =>
+    createInformationResource: (input: AutomationInformationResourceCreateInput) =>
       ipcRenderer.invoke(
-        "routines:create-information-resource",
+        "automations:create-information-resource",
         input,
       ) as Promise<{
         ok: boolean;
@@ -2204,7 +2204,7 @@ contextBridge.exposeInMainWorld("api", {
       }>,
     listInformationReferences: (args: { workspaceId: string }) =>
       ipcRenderer.invoke(
-        "routines:list-information-references",
+        "automations:list-information-references",
         args,
       ) as Promise<{
         ok: boolean;

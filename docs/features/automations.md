@@ -1,21 +1,21 @@
-# Routines
+# Automations
 
 ## Summary
 
-- Routines schedule repeatable Claude or Codex work from Stave.
+- Automations schedule repeatable Claude or Codex work from Stave.
 - Each run creates a normal task conversation, so you can inspect the result, answer an approval request, or continue the work manually.
 
 ## When To Use It
 
-- Use a routine for recurring repository reviews, status summaries, maintenance checks, or other prompts that should run at a regular interval.
+- Use an automation for recurring repository reviews, status summaries, maintenance checks, or other prompts that should run at a regular interval.
 - Use Workspace Scripts instead when the work is a deterministic shell command or long-running local service rather than an AI task.
 
 ## Before You Start
 
 - Open the Stave desktop app and configure the provider you want to use.
-- Open or register the repository where the routine should run.
+- Open or register the repository where the automation should run.
 - Add reusable notes, todos, or linked resources to the repository's Default
-  Workspace Information panel if the routine needs them.
+  Workspace Information panel if the automation needs them.
 
 ## Quick Start
 
@@ -77,7 +77,7 @@ full recorded result or error, and the instructions the run was given.
 
 ## Common Workflows
 
-### Create Or Edit A Routine
+### Create Or Edit An Automation
 
 1. Enter a name and the full prompt that should be sent on each run.
 2. Pick a cadence. See [Cadence](#cadence) below.
@@ -88,7 +88,7 @@ full recorded result or error, and the instructions the run was given.
 6. Select `Add Information resource`, choose Notes, Todo, Pull request, Jira,
    Confluence, Storybook, Amplify, Slack, Figma, or Custom field, then complete
    that resource type's input form. Stave creates the entry in the repository's
-   Default Workspace and attaches it to the routine immediately. The editor
+   Default Workspace and attaches it to the automation immediately. The editor
    shows each attached resource with its context summary and removal control.
 7. Save the automation. Use `Edit` later to change the same specification.
 
@@ -130,9 +130,9 @@ editor never shows a value the scheduler would silently discard.
 Information references are resolved from the latest persisted Default
 Workspace Information panel values when a run starts. Renaming or updating an
 attached note or resource therefore changes the context used by future runs
-without requiring a new routine.
+without requiring a new automation.
 
-### Run And Inspect A Routine
+### Run And Inspect An Automation
 
 1. Use `Run now`, or leave scheduled runs enabled and wait for the next occurrence.
 2. Watch the latest run status in the automation list and on the automation detail pane.
@@ -142,16 +142,16 @@ without requiring a new routine.
 
 ## Files And Data
 
-- Routine definitions and the latest 50 run records per routine are stored in Stave's local SQLite application data.
+- Automation definitions and the latest 50 run records per automation are stored in Stave's local SQLite application data.
 - Each occurrence is also stored as a normal, user-owned task in the selected
   repository's Default Workspace.
-- Deleting a routine does not delete those task conversations.
+- Deleting an automation does not delete those task conversations.
 
 ## Limitations And Advanced Options
 
-- Scheduled runs execute only while the Stave desktop app is open. Stave does not currently install an operating-system background job or launch itself for a due routine.
-- If Stave was closed when an interval became due, the routine runs once after Stave opens and schedules the next interval from that time. It does not replay every missed occurrence.
-- A routine does not start a second overlapping run. If the previous run is still active when the next interval is due, that occurrence is recorded as skipped.
+- Scheduled runs execute only while the Stave desktop app is open. Stave does not currently install an operating-system background job or launch itself for a due automation.
+- If Stave was closed when an interval became due, the automation runs once after Stave opens and schedules the next interval from that time. It does not replay every missed occurrence.
+- An automation does not start a second overlapping run. If the previous run is still active when the next interval is due, that occurrence is recorded as skipped.
 - Live Lens browser state is not attachable because it is not a durable Information resource.
 
 ## Troubleshooting

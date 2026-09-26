@@ -186,7 +186,7 @@
     "src/components/layout/FleetWorkspaceCard.tsx": 0,
     "src/components/layout/PresetBar.tsx": 0,
     "src/components/layout/ProjectWorkspaceSidebar.tsx": 0,
-    "src/components/layout/RoutineInformationResourceCreator.tsx": 0,
+    "src/components/layout/AutomationInformationResourceCreator.tsx": 0,
     "src/components/layout/SourceControlReviewsPanel.tsx": 0,
     "src/components/layout/TopBar.tsx": 0,
     "src/components/layout/TopBarBranchDropdown.tsx": 0,

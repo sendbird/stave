@@ -1,36 +1,36 @@
 import { describe, expect, test } from "bun:test";
 import {
   applyAutomationTrustPolicyToRuntime,
-  applyRoutineCadencePreset,
+  applyAutomationCadencePreset,
   automationPermissionModeToTrustPolicy,
   automationTrustPolicyToPermissionMode,
-  detectRoutineCadencePreset,
+  detectAutomationCadencePreset,
   AUTOMATION_PERMISSION_MODES,
-  MAX_ROUTINE_RUNS_PER_ROUTINE,
-  ROUTINE_CADENCE_PRESETS,
-  computeNextRoutineRunAt,
-  createDefaultRoutineRuntime,
-  formatRoutineSchedule,
-  normalizeRoutineState,
-  pruneRoutineRuns,
-  routineRuntimeToProviderOptions,
-  RoutineInformationResourceCreateInputSchema,
-  RoutineUpsertInputSchema,
-  type RoutineRun,
-} from "@/lib/routines";
+  MAX_AUTOMATION_RUNS_PER_AUTOMATION,
+  AUTOMATION_CADENCE_PRESETS,
+  computeNextAutomationRunAt,
+  createDefaultAutomationRuntime,
+  formatAutomationSchedule,
+  normalizeAutomationState,
+  pruneAutomationRuns,
+  automationRuntimeToProviderOptions,
+  AutomationInformationResourceCreateInputSchema,
+  AutomationUpsertInputSchema,
+  type AutomationRun,
+} from "@/lib/automations";
 
-describe("routine schedule", () => {
+describe("automation schedule", () => {
   test("computes the next interval without replaying missed periods", () => {
     expect(
-      computeNextRoutineRunAt({
+      computeNextAutomationRunAt({
         schedule: { every: 2, unit: "hours" },
         after: "2026-07-23T00:00:00.000Z",
       }),
     ).toBe("2026-07-23T02:00:00.000Z");
-    expect(formatRoutineSchedule({ every: 1, unit: "days" })).toBe(
+    expect(formatAutomationSchedule({ every: 1, unit: "days" })).toBe(
       "Every 1 day",
     );
-    expect(formatRoutineSchedule({ every: 3, unit: "weeks" })).toBe(
+    expect(formatAutomationSchedule({ every: 3, unit: "weeks" })).toBe(
       "Every 3 weeks",
     );
   });
@@ -42,19 +42,19 @@ describe("routine schedule", () => {
     const at = { hour: 9, minute: 30 };
 
     expect(
-      computeNextRoutineRunAt({
+      computeNextAutomationRunAt({
         schedule: { every: 1, unit: "days", at },
         after: beforeStart,
       }),
     ).toBe(new Date(2026, 0, 13, 9, 30).toISOString());
     expect(
-      computeNextRoutineRunAt({
+      computeNextAutomationRunAt({
         schedule: { every: 1, unit: "days", at },
         after: afterStart,
       }),
     ).toBe(new Date(2026, 0, 14, 9, 30).toISOString());
     expect(
-      computeNextRoutineRunAt({
+      computeNextAutomationRunAt({
         schedule: { every: 3, unit: "days", at },
         after: afterStart,
       }),
@@ -68,21 +68,21 @@ describe("routine schedule", () => {
 
     // Monday (1) has already passed this week → next Monday.
     expect(
-      computeNextRoutineRunAt({
+      computeNextAutomationRunAt({
         schedule: { every: 1, unit: "weeks", at, weekday: 1 },
         after: tuesday,
       }),
     ).toBe(new Date(2026, 0, 19, 9, 0).toISOString());
     // Friday (5) is still ahead this week.
     expect(
-      computeNextRoutineRunAt({
+      computeNextAutomationRunAt({
         schedule: { every: 1, unit: "weeks", at, weekday: 5 },
         after: tuesday,
       }),
     ).toBe(new Date(2026, 0, 16, 9, 0).toISOString());
     // Same weekday, time already passed → skip a full period.
     expect(
-      computeNextRoutineRunAt({
+      computeNextAutomationRunAt({
         schedule: { every: 2, unit: "weeks", at, weekday: 2 },
         after: tuesday,
       }),
@@ -91,14 +91,14 @@ describe("routine schedule", () => {
 
   test("formats schedule anchors", () => {
     expect(
-      formatRoutineSchedule({
+      formatAutomationSchedule({
         every: 1,
         unit: "days",
         at: { hour: 9, minute: 5 },
       }),
     ).toBe("Every 1 day at 09:05");
     expect(
-      formatRoutineSchedule({
+      formatAutomationSchedule({
         every: 2,
         unit: "weeks",
         at: { hour: 14, minute: 30 },
@@ -108,14 +108,14 @@ describe("routine schedule", () => {
   });
 });
 
-describe("routine multi-weekday schedules", () => {
+describe("automation multi-weekday schedules", () => {
   const at = { hour: 9, minute: 0 };
 
   test("fires on whichever targeted weekday comes first", () => {
     // 2026-01-13 is a Tuesday (local), 10:00 — past today's 09:00 anchor.
     const tuesday = new Date(2026, 0, 13, 10, 0);
     expect(
-      computeNextRoutineRunAt({
+      computeNextAutomationRunAt({
         schedule: {
           every: 1,
           unit: "weeks",
@@ -127,7 +127,7 @@ describe("routine multi-weekday schedules", () => {
       // Wednesday is the next weekday ahead.
     ).toBe(new Date(2026, 0, 14, 9, 0).toISOString());
     expect(
-      computeNextRoutineRunAt({
+      computeNextAutomationRunAt({
         schedule: { every: 1, unit: "weeks", at, weekdays: [0, 6] },
         after: tuesday,
       }),
@@ -138,12 +138,12 @@ describe("routine multi-weekday schedules", () => {
   test("matches the single-weekday result for a one-day set", () => {
     const tuesday = new Date(2026, 0, 13, 10, 0);
     expect(
-      computeNextRoutineRunAt({
+      computeNextAutomationRunAt({
         schedule: { every: 1, unit: "weeks", at, weekdays: [5] },
         after: tuesday,
       }),
     ).toBe(
-      computeNextRoutineRunAt({
+      computeNextAutomationRunAt({
         schedule: { every: 1, unit: "weeks", at, weekday: 5 },
         after: tuesday,
       }),
@@ -152,7 +152,7 @@ describe("routine multi-weekday schedules", () => {
 
   test("formats common weekday sets as plain language", () => {
     expect(
-      formatRoutineSchedule({
+      formatAutomationSchedule({
         every: 1,
         unit: "weeks",
         at,
@@ -160,13 +160,13 @@ describe("routine multi-weekday schedules", () => {
       }),
     ).toBe("Every weekday at 09:00");
     expect(
-      formatRoutineSchedule({ every: 1, unit: "weeks", at, weekdays: [0, 6] }),
+      formatAutomationSchedule({ every: 1, unit: "weeks", at, weekdays: [0, 6] }),
     ).toBe("Every weekend day at 09:00");
     expect(
-      formatRoutineSchedule({ every: 1, unit: "weeks", at, weekdays: [1, 3] }),
+      formatAutomationSchedule({ every: 1, unit: "weeks", at, weekdays: [1, 3] }),
     ).toBe("Every week on Mon, Wed at 09:00");
     expect(
-      formatRoutineSchedule({ every: 2, unit: "weeks", at, weekdays: [1, 3] }),
+      formatAutomationSchedule({ every: 2, unit: "weeks", at, weekdays: [1, 3] }),
     ).toBe("Every 2 weeks on Mon, Wed at 09:00");
   });
 
@@ -182,38 +182,38 @@ describe("routine multi-weekday schedules", () => {
         projectPath: "/tmp/project",
         label: "Project",
       },
-      runtime: createDefaultRoutineRuntime("codex"),
+      runtime: createDefaultAutomationRuntime("codex"),
     };
     // Missing start time.
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...base,
         schedule: { every: 1, unit: "weeks", weekdays: [1, 2] },
       }).success,
     ).toBe(false);
     // Wrong unit.
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...base,
         schedule: { every: 1, unit: "days", at, weekdays: [1, 2] },
       }).success,
     ).toBe(false);
     // Duplicate days.
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...base,
         schedule: { every: 1, unit: "weeks", at, weekdays: [1, 1] },
       }).success,
     ).toBe(false);
     // Both day sources at once.
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...base,
         schedule: { every: 1, unit: "weeks", at, weekday: 1, weekdays: [2] },
       }).success,
     ).toBe(false);
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...base,
         schedule: { every: 1, unit: "weeks", at, weekdays: [1, 2] },
       }).success,
@@ -221,7 +221,7 @@ describe("routine multi-weekday schedules", () => {
   });
 });
 
-describe("routine cadence presets", () => {
+describe("automation cadence presets", () => {
   const dailySchedule = {
     every: 1,
     unit: "days" as const,
@@ -229,17 +229,17 @@ describe("routine cadence presets", () => {
   };
 
   test("round-trips every preset it can express", () => {
-    for (const preset of ROUTINE_CADENCE_PRESETS) {
+    for (const preset of AUTOMATION_CADENCE_PRESETS) {
       if (preset === "custom") {
         continue;
       }
-      const applied = applyRoutineCadencePreset({
+      const applied = applyAutomationCadencePreset({
         preset,
         schedule: dailySchedule,
         enabled: true,
       });
       expect(
-        detectRoutineCadencePreset({
+        detectAutomationCadencePreset({
           schedule: applied.schedule,
           enabled: applied.enabled,
         }),
@@ -248,14 +248,14 @@ describe("routine cadence presets", () => {
   });
 
   test("produces schedules the spec schema accepts", () => {
-    for (const preset of ROUTINE_CADENCE_PRESETS) {
-      const applied = applyRoutineCadencePreset({
+    for (const preset of AUTOMATION_CADENCE_PRESETS) {
+      const applied = applyAutomationCadencePreset({
         preset,
         schedule: dailySchedule,
         enabled: true,
       });
       expect(
-        RoutineUpsertInputSchema.safeParse({
+        AutomationUpsertInputSchema.safeParse({
           name: "Preset",
           prompt: "Do the thing.",
           enabled: applied.enabled,
@@ -267,14 +267,14 @@ describe("routine cadence presets", () => {
             projectPath: "/tmp/project",
             label: "Project",
           },
-          runtime: createDefaultRoutineRuntime("codex"),
+          runtime: createDefaultAutomationRuntime("codex"),
         }).success,
       ).toBe(true);
     }
   });
 
   test("manual keeps the schedule so re-enabling restores the cadence", () => {
-    const applied = applyRoutineCadencePreset({
+    const applied = applyAutomationCadencePreset({
       preset: "manual",
       schedule: dailySchedule,
       enabled: true,
@@ -282,13 +282,13 @@ describe("routine cadence presets", () => {
     expect(applied.enabled).toBe(false);
     expect(applied.schedule).toEqual(dailySchedule);
     expect(
-      detectRoutineCadencePreset({ schedule: dailySchedule, enabled: false }),
+      detectAutomationCadencePreset({ schedule: dailySchedule, enabled: false }),
     ).toBe("manual");
   });
 
   test("falls back to custom for hand-tuned intervals", () => {
     expect(
-      detectRoutineCadencePreset({
+      detectAutomationCadencePreset({
         schedule: { every: 3, unit: "hours" },
         enabled: true,
       }),
@@ -308,7 +308,7 @@ describe("automation permission modes", () => {
   });
 
   test("normalizes the runtime to what the host runtime enforces", () => {
-    const codex = createDefaultRoutineRuntime("codex");
+    const codex = createDefaultAutomationRuntime("codex");
     expect(
       applyAutomationTrustPolicyToRuntime(codex, "unattended"),
     ).toMatchObject({ approvalPolicy: "never" });
@@ -319,7 +319,7 @@ describe("automation permission modes", () => {
     // Unattended runs bypass rather than deny: `dontAsk` used to be wired here
     // and silently blocked Bash, file edits, and third-party MCP servers.
     const claude = {
-      ...createDefaultRoutineRuntime("claude-code"),
+      ...createDefaultAutomationRuntime("claude-code"),
       permissionMode: "acceptEdits" as const,
       allowDangerouslySkipPermissions: false,
       allowUnsandboxedCommands: true,
@@ -342,7 +342,7 @@ describe("automation permission modes", () => {
 
   test("leaves hand-configured runtimes untouched", () => {
     const claude = {
-      ...createDefaultRoutineRuntime("claude-code"),
+      ...createDefaultAutomationRuntime("claude-code"),
       permissionMode: "bypassPermissions" as const,
     };
     expect(
@@ -351,7 +351,7 @@ describe("automation permission modes", () => {
   });
 });
 
-describe("routine spec validation", () => {
+describe("automation spec validation", () => {
   const validInput = {
     name: "Daily review",
     prompt: "Review the latest changes.",
@@ -364,7 +364,7 @@ describe("routine spec validation", () => {
       projectPath: "/tmp/project",
       label: "Project",
     },
-    runtime: createDefaultRoutineRuntime("codex"),
+    runtime: createDefaultAutomationRuntime("codex"),
     informationReferences: [
       {
         section: "notes" as const,
@@ -375,13 +375,13 @@ describe("routine spec validation", () => {
     ],
   };
 
-  test("accepts a complete editable routine spec", () => {
-    expect(RoutineUpsertInputSchema.safeParse(validInput).success).toBe(true);
+  test("accepts a complete editable automation spec", () => {
+    expect(AutomationUpsertInputSchema.safeParse(validInput).success).toBe(true);
   });
 
   test("rejects workspace and folder execution targets", () => {
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...validInput,
         environment: {
           ...validInput.environment,
@@ -390,7 +390,7 @@ describe("routine spec validation", () => {
       }).success,
     ).toBe(false);
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...validInput,
         environment: {
           ...validInput.environment,
@@ -402,27 +402,27 @@ describe("routine spec validation", () => {
 
   test("accepts provider-specific plan and on-failure permission modes", () => {
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...validInput,
         runtime: {
-          ...createDefaultRoutineRuntime("claude-code"),
+          ...createDefaultAutomationRuntime("claude-code"),
           permissionMode: "plan",
         },
       }).success,
     ).toBe(true);
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...validInput,
         runtime: {
-          ...createDefaultRoutineRuntime("codex"),
+          ...createDefaultAutomationRuntime("codex"),
           approvalPolicy: "on-failure",
         },
       }).success,
     ).toBe(true);
   });
 
-  test("rejects Lens because background routines only attach Information resources", () => {
-    const parsed = RoutineUpsertInputSchema.safeParse({
+  test("rejects Lens because background automations only attach Information resources", () => {
+    const parsed = AutomationUpsertInputSchema.safeParse({
       ...validInput,
       informationReferences: [
         {
@@ -438,13 +438,13 @@ describe("routine spec validation", () => {
 
   test("rejects empty prompts and invalid intervals", () => {
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...validInput,
         prompt: "",
       }).success,
     ).toBe(false);
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...validInput,
         schedule: { every: 0, unit: "minutes" },
       }).success,
@@ -453,7 +453,7 @@ describe("routine spec validation", () => {
 
   test("restricts schedule anchors to day and week schedules", () => {
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...validInput,
         schedule: {
           every: 1,
@@ -463,7 +463,7 @@ describe("routine spec validation", () => {
       }).success,
     ).toBe(true);
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...validInput,
         schedule: {
           every: 1,
@@ -475,7 +475,7 @@ describe("routine spec validation", () => {
     ).toBe(true);
     // Start time is meaningless for minute/hour intervals.
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...validInput,
         schedule: {
           every: 30,
@@ -486,7 +486,7 @@ describe("routine spec validation", () => {
     ).toBe(false);
     // A weekday anchor requires a week schedule and a start time.
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...validInput,
         schedule: {
           every: 1,
@@ -497,7 +497,7 @@ describe("routine spec validation", () => {
       }).success,
     ).toBe(false);
     expect(
-      RoutineUpsertInputSchema.safeParse({
+      AutomationUpsertInputSchema.safeParse({
         ...validInput,
         schedule: { every: 1, unit: "weeks", weekday: 1 },
       }).success,
@@ -505,7 +505,7 @@ describe("routine spec validation", () => {
   });
 });
 
-describe("routine Information resource validation", () => {
+describe("automation Information resource validation", () => {
   test("accepts each resource-specific create payload", () => {
     const workspaceId = "ws-1";
     const inputs = [
@@ -563,21 +563,21 @@ describe("routine Information resource validation", () => {
 
     for (const input of inputs) {
       expect(
-        RoutineInformationResourceCreateInputSchema.safeParse(input).success,
+        AutomationInformationResourceCreateInputSchema.safeParse(input).success,
       ).toBe(true);
     }
   });
 
   test("rejects missing content and non-http resource URLs", () => {
     expect(
-      RoutineInformationResourceCreateInputSchema.safeParse({
+      AutomationInformationResourceCreateInputSchema.safeParse({
         kind: "notes",
         workspaceId: "ws-1",
         text: " ",
       }).success,
     ).toBe(false);
     expect(
-      RoutineInformationResourceCreateInputSchema.safeParse({
+      AutomationInformationResourceCreateInputSchema.safeParse({
         kind: "figma",
         workspaceId: "ws-1",
         url: "file:///tmp/design.fig",
@@ -586,10 +586,10 @@ describe("routine Information resource validation", () => {
   });
 });
 
-describe("routine runtime options", () => {
+describe("automation runtime options", () => {
   test("maps Codex permissions and effort onto the provider contract", () => {
     const runtime = {
-      ...createDefaultRoutineRuntime("codex"),
+      ...createDefaultAutomationRuntime("codex"),
       provider: "codex" as const,
       effort: "ultra" as const,
       fileAccess: "danger-full-access" as const,
@@ -597,7 +597,7 @@ describe("routine runtime options", () => {
       networkAccess: true,
       webSearch: "live" as const,
     };
-    expect(routineRuntimeToProviderOptions(runtime)).toEqual({
+    expect(automationRuntimeToProviderOptions(runtime)).toEqual({
       model: runtime.model,
       codexReasoningEffort: "ultra",
       codexFileAccess: "danger-full-access",
@@ -609,7 +609,7 @@ describe("routine runtime options", () => {
 
   test("maps Claude permissions and effort onto the provider contract", () => {
     const runtime = {
-      ...createDefaultRoutineRuntime("claude-code"),
+      ...createDefaultAutomationRuntime("claude-code"),
       provider: "claude-code" as const,
       effort: "max" as const,
       permissionMode: "plan" as const,
@@ -617,7 +617,7 @@ describe("routine runtime options", () => {
       allowUnsandboxedCommands: false,
       allowDangerouslySkipPermissions: true,
     };
-    expect(routineRuntimeToProviderOptions(runtime)).toEqual({
+    expect(automationRuntimeToProviderOptions(runtime)).toEqual({
       model: runtime.model,
       claudeEffort: "max",
       claudePermissionMode: "plan",
@@ -628,19 +628,19 @@ describe("routine runtime options", () => {
   });
 });
 
-describe("routine persistence normalization", () => {
+describe("automation persistence normalization", () => {
   test("falls back to an empty versioned state for invalid data", () => {
-    expect(normalizeRoutineState({ version: 99 })).toEqual({
+    expect(normalizeAutomationState({ version: 99 })).toEqual({
       version: 1,
-      routines: [],
+      automations: [],
       runs: [],
     });
   });
 
-  test("keeps only the newest bounded run history per routine", () => {
-    const runs: RoutineRun[] = Array.from({ length: 55 }, (_, index) => ({
+  test("keeps only the newest bounded run history per automation", () => {
+    const runs: AutomationRun[] = Array.from({ length: 55 }, (_, index) => ({
       id: `run-${index}`,
-      routineId: "routine-1",
+      automationId: "automation-1",
       workspaceId: "ws-1",
       projectPath: "/tmp/project",
       taskId: `task-${index}`,
@@ -656,8 +656,8 @@ describe("routine persistence normalization", () => {
       trustPolicy: "review-required",
     }));
 
-    const pruned = pruneRoutineRuns(runs);
-    expect(pruned).toHaveLength(MAX_ROUTINE_RUNS_PER_ROUTINE);
+    const pruned = pruneAutomationRuns(runs);
+    expect(pruned).toHaveLength(MAX_AUTOMATION_RUNS_PER_AUTOMATION);
     expect(pruned[0]?.id).toBe("run-54");
     expect(pruned.at(-1)?.id).toBe("run-5");
   });

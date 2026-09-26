@@ -47,7 +47,7 @@ export interface StreamTurnArgs {
   turnId?: string;
   executionPolicy?: "secondary-read-only";
   /**
-   * Host-owned capability for one unattended routine turn. This is never part
+   * Host-owned capability for one unattended automation turn. This is never part
    * of the renderer IPC schema or persisted runtime options.
    */
   unattendedAutomation?: {

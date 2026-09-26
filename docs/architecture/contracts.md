@@ -112,7 +112,7 @@ See `docs/architecture/run-core.md` for lifecycle and extension guidance.
 ## Workspace Persistence Ownership Contract
 
 Two writers reach the workspace tables: the renderer (via IPC to main) and
-host-service (Local MCP turns, routines, heartbeats). They own different
+host-service (Local MCP turns, automations, heartbeats). They own different
 fields, and the boundary is enforced in code rather than by convention.
 
 Current path:

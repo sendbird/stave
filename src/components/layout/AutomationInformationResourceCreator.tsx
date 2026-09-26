@@ -38,15 +38,15 @@ import {
 } from "@/components/ui/dialog";
 import { Switch } from "@/components/ui/switch";
 import {
-  RoutineInformationResourceCreateInputSchema,
-  type RoutineInformationResourceCreateInput,
-  type RoutineInformationResourceKind,
-} from "@/lib/routines";
+  AutomationInformationResourceCreateInputSchema,
+  type AutomationInformationResourceCreateInput,
+  type AutomationInformationResourceKind,
+} from "@/lib/automations";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
-import { resourceCreatorStyles } from "./routine-information-resource-creator.styles";
+import { resourceCreatorStyles } from "./automation-information-resource-creator.styles";
 
 interface ResourceTypeDefinition {
-  kind: RoutineInformationResourceKind;
+  kind: AutomationInformationResourceKind;
   label: string;
   description: string;
   icon: LucideIcon;
@@ -156,7 +156,7 @@ const EMPTY_RESOURCE_DRAFT: ResourceDraft = {
   customOptions: "",
 };
 
-const URL_PLACEHOLDERS: Partial<Record<RoutineInformationResourceKind, string>> =
+const URL_PLACEHOLDERS: Partial<Record<AutomationInformationResourceKind, string>> =
   {
     pull_request: "https://github.com/org/repo/pull/123",
     jira: "https://example.atlassian.net/browse/PROJ-123",
@@ -203,11 +203,11 @@ function buildCustomFieldValue(draft: ResourceDraft) {
   return draft.customValue;
 }
 
-function buildRoutineInformationResourceCreateInput(args: {
+function buildAutomationInformationResourceCreateInput(args: {
   workspaceId: string;
-  kind: RoutineInformationResourceKind;
+  kind: AutomationInformationResourceKind;
   draft: ResourceDraft;
-}): RoutineInformationResourceCreateInput | null {
+}): AutomationInformationResourceCreateInput | null {
   const { workspaceId, kind, draft } = args;
   let candidate: unknown;
 
@@ -251,7 +251,7 @@ function buildRoutineInformationResourceCreateInput(args: {
     };
   }
 
-  const parsed = RoutineInformationResourceCreateInputSchema.safeParse(candidate);
+  const parsed = AutomationInformationResourceCreateInputSchema.safeParse(candidate);
   return parsed.success ? parsed.data : null;
 }
 
@@ -275,7 +275,7 @@ function Field(props: {
 
 function ExternalResourceFields(props: {
   kind: Exclude<
-    RoutineInformationResourceKind,
+    AutomationInformationResourceKind,
     "notes" | "todo" | "custom"
   >;
   draft: ResourceDraft;
@@ -384,7 +384,7 @@ function ExternalResourceFields(props: {
         <Textarea
           value={props.draft.note}
           onChange={(event) => props.onChange({ note: event.target.value })}
-          placeholder="How this resource should guide the routine"
+          placeholder="How this resource should guide the automation"
           xstyle={resourceCreatorStyles.noteTextarea}
         />
       </Field>
@@ -446,14 +446,14 @@ function CustomFieldValue(props: {
   );
 }
 
-export function RoutineInformationResourceCreator(props: {
+export function AutomationInformationResourceCreator(props: {
   workspaceId: string;
   repositoryLabel: string;
   disabled?: boolean;
   onCreated: (option: WorkspaceInformationReferenceOption) => void;
 }) {
   const [open, setOpen] = useState(false);
-  const [kind, setKind] = useState<RoutineInformationResourceKind | null>(null);
+  const [kind, setKind] = useState<AutomationInformationResourceKind | null>(null);
   const [draft, setDraft] = useState<ResourceDraft>(EMPTY_RESOURCE_DRAFT);
   const [creating, setCreating] = useState(false);
   const [error, setError] = useState("");
@@ -462,7 +462,7 @@ export function RoutineInformationResourceCreator(props: {
   const input =
     kind == null
       ? null
-      : buildRoutineInformationResourceCreateInput({
+      : buildAutomationInformationResourceCreateInput({
           workspaceId: props.workspaceId,
           kind,
           draft,
@@ -475,7 +475,7 @@ export function RoutineInformationResourceCreator(props: {
     setError("");
   }
 
-  function selectKind(nextKind: RoutineInformationResourceKind) {
+  function selectKind(nextKind: AutomationInformationResourceKind) {
     setKind(nextKind);
     setDraft(EMPTY_RESOURCE_DRAFT);
     setError("");
@@ -493,7 +493,7 @@ export function RoutineInformationResourceCreator(props: {
       return;
     }
     const createInformationResource =
-      window.api?.routines?.createInformationResource;
+      window.api?.automations?.createInformationResource;
     if (!createInformationResource) {
       setError("Information resource creation is unavailable.");
       return;
@@ -573,8 +573,8 @@ export function RoutineInformationResourceCreator(props: {
               </DialogTitle>
               <DialogDescription className={sx(resourceCreatorStyles.headerDescription)}>
                 {definition
-                  ? `Create it in ${props.repositoryLabel} Default Workspace and attach it to this routine.`
-                  : "Choose the resource type you want to create for this routine."}
+                  ? `Create it in ${props.repositoryLabel} Default Workspace and attach it to this automation.`
+                  : "Choose the resource type you want to create for this automation."}
               </DialogDescription>
             </div>
           </div>
@@ -597,7 +597,7 @@ export function RoutineInformationResourceCreator(props: {
                     placeholder={
                       kind === "notes"
                         ? "Context or instructions for every run"
-                        : "An item the routine should keep in context"
+                        : "An item the automation should keep in context"
                     }
                     xstyle={resourceCreatorStyles.bodyTextarea}
                   />

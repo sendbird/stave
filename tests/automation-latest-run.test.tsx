@@ -2,12 +2,12 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { AutomationLatestRun } from "@/components/layout/automation-center/AutomationLatestRun";
-import type { RoutineRun } from "@/lib/routines";
+import type { AutomationRun } from "@/lib/automations";
 
-function buildRun(overrides: Partial<RoutineRun> = {}): RoutineRun {
+function buildRun(overrides: Partial<AutomationRun> = {}): AutomationRun {
   return {
     id: "run-1",
-    routineId: "routine-1",
+    automationId: "automation-1",
     workspaceId: "workspace-1",
     projectPath: "/tmp/project",
     taskId: "task-1",
@@ -25,7 +25,7 @@ function buildRun(overrides: Partial<RoutineRun> = {}): RoutineRun {
   };
 }
 
-function renderSummary(run: RoutineRun | null) {
+function renderSummary(run: AutomationRun | null) {
   return renderToStaticMarkup(
     createElement(AutomationLatestRun, {
       run,

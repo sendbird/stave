@@ -18,8 +18,8 @@ import {
   McpServerConfigMutationArgsSchema,
   RateLimitsSnapshotArgsSchema,
   ReviewDiffArgsSchema,
-  RoutineInformationResourceCreateArgsSchema,
-  RoutineProviderTimeoutArgsSchema,
+  AutomationInformationResourceCreateArgsSchema,
+  AutomationProviderTimeoutArgsSchema,
   SetNotificationBadgeArgsSchema,
   ShowNativeNotificationArgsSchema,
   StageFilesArgsSchema,
@@ -248,13 +248,13 @@ describe("provider IPC schemas", () => {
     ).toBe(false);
   });
 
-  test("accepts routine Information resource creation", () => {
+  test("accepts automation Information resource creation", () => {
     expect(
-      RoutineInformationResourceCreateArgsSchema.safeParse({
+      AutomationInformationResourceCreateArgsSchema.safeParse({
         kind: "figma",
         workspaceId: "ws-default",
         url: "https://www.figma.com/design/file-key/example?node-id=1-2",
-        title: "Routine design",
+        title: "Automation design",
         nodeId: "1:2",
         note: "Use this design as implementation context.",
       }).success,
@@ -263,12 +263,12 @@ describe("provider IPC schemas", () => {
 
   test("accepts an automation provider timeout up to 24 hours", () => {
     expect(
-      RoutineProviderTimeoutArgsSchema.safeParse({
+      AutomationProviderTimeoutArgsSchema.safeParse({
         providerTimeoutMs: 86_400_000,
       }).success,
     ).toBe(true);
     expect(
-      RoutineProviderTimeoutArgsSchema.safeParse({
+      AutomationProviderTimeoutArgsSchema.safeParse({
         providerTimeoutMs: 86_400_001,
       }).success,
     ).toBe(false);

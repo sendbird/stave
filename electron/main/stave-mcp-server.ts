@@ -22,9 +22,9 @@ import type {
   StaveLocalMcpStatus,
 } from "../../src/lib/local-mcp";
 import {
-  RoutineInformationResourceCreateInputSchema,
-  RoutineUpsertInputSchema,
-} from "../../src/lib/routines";
+  AutomationInformationResourceCreateInputSchema,
+  AutomationUpsertInputSchema,
+} from "../../src/lib/automations";
 import { TaskHeartbeatUpsertInputSchema } from "../../src/lib/automation/task-supervisor";
 import {
   PROJECT_MEMORY_CONTENT_MAX_CHARS,
@@ -41,15 +41,15 @@ import {
   updateStaveLocalMcpConfig,
 } from "./stave-mcp-config";
 import {
-  createRoutineInformationResource,
-  createRoutine,
-  listRoutineInformationReferences,
-  listRoutines,
-  removeRoutine,
-  runRoutineNow,
-  setRoutineEnabled,
-  updateRoutine,
-} from "./routine-service";
+  createAutomationInformationResource,
+  createAutomation,
+  listAutomationInformationReferences,
+  listAutomations,
+  removeAutomation,
+  runAutomationNow,
+  setAutomationEnabled,
+  updateAutomation,
+} from "./automation-service";
 import { RuntimeOptionsObjectSchema } from "./ipc/schemas";
 import { ChildTaskFollowUpArgsSchema } from "../../src/lib/runs/child-task";
 import { getChildTaskCoordinator } from "./runs/child-task-coordinator-instance";
@@ -804,7 +804,7 @@ function createToolServer(options?: {
     "stave_create_task_heartbeat",
     {
       description:
-        "Attach a heartbeat to an existing task so it wakes in the same session — on a schedule, or when work that task delegated finishes. Use a schedule trigger for standing checks such as re-checking CI on its pull request, and a completion trigger to pick a task back up when its child tasks return. To run something on a schedule in a NEW task each time, create a routine instead.",
+        "Attach a heartbeat to an existing task so it wakes in the same session — on a schedule, or when work that task delegated finishes. Use a schedule trigger for standing checks such as re-checking CI on its pull request, and a completion trigger to pick a task back up when its child tasks return. To run something on a schedule in a NEW task each time, create an automation instead.",
       inputSchema: {
         input: TaskHeartbeatUpsertInputSchema.describe(
           "Heartbeat definition. `taskId` must name a task that already exists. A completion trigger without `maxOccurrences` is capped by default so the wake chain cannot recurse forever.",
@@ -868,47 +868,47 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_list_routines",
+    "stave_list_automations",
     {
       description:
-        "List saved Stave routines and their recent run history so an agent can inspect existing routine specs before creating, updating, or deleting them.",
+        "List saved Stave automations and their recent run history so an agent can inspect existing automation specs before creating, updating, or deleting them.",
     },
     async () =>
       toStructuredResult({
-        routines: await listRoutines(),
+        automations: await listAutomations(),
       }),
   );
 
   server.registerTool(
-    "stave_create_routine",
+    "stave_create_automation",
     {
       description:
-        "Create a saved Stave routine from a complete routine spec. Use this when a user asks the AI to set up a recurring Claude or Codex workflow.",
+        "Create a saved Stave automation from a complete automation spec. Use this when a user asks the AI to set up a recurring Claude or Codex workflow.",
       inputSchema: {
-        input: RoutineUpsertInputSchema.describe("Complete routine spec."),
+        input: AutomationUpsertInputSchema.describe("Complete automation spec."),
       },
     },
     async ({ input }) =>
       toStructuredResult({
-        routine: await createRoutine(input),
+        automation: await createAutomation(input),
       }),
   );
 
   server.registerTool(
-    "stave_update_routine",
+    "stave_update_automation",
     {
       description:
-        "Replace an existing Stave routine spec by id. Use this after listing routines and selecting the target routine to edit.",
+        "Replace an existing Stave automation spec by id. Use this after listing automations and selecting the target automation to edit.",
       inputSchema: {
-        id: z.string().min(1).describe("Routine id."),
-        input: RoutineUpsertInputSchema.describe(
-          "Complete next routine spec that should replace the saved one.",
+        id: z.string().min(1).describe("Automation id."),
+        input: AutomationUpsertInputSchema.describe(
+          "Complete next automation spec that should replace the saved one.",
         ),
       },
     },
     async ({ id, input }) =>
       toStructuredResult({
-        routine: await updateRoutine({
+        automation: await updateAutomation({
           id,
           input,
         }),
@@ -916,37 +916,37 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_remove_routine",
+    "stave_remove_automation",
     {
       description:
-        "Delete a saved Stave routine by id. This removes the routine definition and its routine-history entries, but not the task conversations created by earlier runs.",
+        "Delete a saved Stave automation by id. This removes the automation definition and its automation-history entries, but not the task conversations created by earlier runs.",
       inputSchema: {
-        id: z.string().min(1).describe("Routine id."),
+        id: z.string().min(1).describe("Automation id."),
       },
     },
     async ({ id }) =>
       toStructuredResult({
-        result: await removeRoutine({
+        result: await removeAutomation({
           id,
         }),
       }),
   );
 
   server.registerTool(
-    "stave_set_routine_enabled",
+    "stave_set_automation_enabled",
     {
       description:
-        "Pause or resume a saved Stave routine without deleting it by setting its enabled flag.",
+        "Pause or resume a saved Stave automation without deleting it by setting its enabled flag.",
       inputSchema: {
-        id: z.string().min(1).describe("Routine id."),
+        id: z.string().min(1).describe("Automation id."),
         enabled: z
           .boolean()
-          .describe("Whether the routine should remain scheduled."),
+          .describe("Whether the automation should remain scheduled."),
       },
     },
     async ({ id, enabled }) =>
       toStructuredResult({
-        routine: await setRoutineEnabled({
+        automation: await setAutomationEnabled({
           id,
           enabled,
         }),
@@ -954,53 +954,53 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_run_routine_now",
+    "stave_run_automation_now",
     {
       description:
-        "Trigger an immediate manual run for a saved Stave routine by id.",
+        "Trigger an immediate manual run for a saved Stave automation by id.",
       inputSchema: {
-        id: z.string().min(1).describe("Routine id."),
+        id: z.string().min(1).describe("Automation id."),
       },
     },
     async ({ id }) =>
       toStructuredResult({
-        run: await runRoutineNow({
+        run: await runAutomationNow({
           id,
         }),
       }),
   );
 
   server.registerTool(
-    "stave_list_routine_information_references",
+    "stave_list_automation_information_references",
     {
       description:
-        "List attachable Information panel references for the target workspace so an agent can reuse notes, todos, and linked resources in a routine spec.",
+        "List attachable Information panel references for the target workspace so an agent can reuse notes, todos, and linked resources in an automation spec.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id."),
       },
     },
     async ({ workspaceId }) =>
       toStructuredResult({
-        options: await listRoutineInformationReferences({
+        options: await listAutomationInformationReferences({
           workspaceId,
         }),
       }),
   );
 
   server.registerTool(
-    "stave_create_routine_information_resource",
+    "stave_create_automation_information_resource",
     {
       description:
-        "Create a new Information panel item and return the routine attachment reference for it. Use this when the requested routine spec needs notes, todos, or linked resources that do not exist yet.",
+        "Create a new Information panel item and return the automation attachment reference for it. Use this when the requested automation spec needs notes, todos, or linked resources that do not exist yet.",
       inputSchema: {
-        input: RoutineInformationResourceCreateInputSchema.describe(
-          "Information resource payload to create and attach to a routine.",
+        input: AutomationInformationResourceCreateInputSchema.describe(
+          "Information resource payload to create and attach to an automation.",
         ),
       },
     },
     async ({ input }) =>
       toStructuredResult({
-        result: await createRoutineInformationResource(input),
+        result: await createAutomationInformationResource(input),
       }),
   );
 

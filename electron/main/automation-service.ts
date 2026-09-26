@@ -1,11 +1,11 @@
-import type { HostRoutineAction } from "../host-service/protocol";
+import type { HostAutomationAction } from "../host-service/protocol";
 import type {
-  RoutineInformationResourceCreateInput,
-  RoutineRun,
-  RoutineSnapshot,
-  RoutineSpec,
-  RoutineUpsertInput,
-} from "../../src/lib/routines";
+  AutomationInformationResourceCreateInput,
+  AutomationRun,
+  AutomationSnapshot,
+  AutomationSpec,
+  AutomationUpsertInput,
+} from "../../src/lib/automations";
 import {
   buildWorkspaceInformationReferenceOptions,
   type WorkspaceInformationReferenceOption,
@@ -25,21 +25,21 @@ import {
   appendWorkspaceNotes,
 } from "./stave-mcp-service";
 
-let routineEventBridgeRegistered = false;
+let automationEventBridgeRegistered = false;
 
 /**
  * Keeps the main process aware of in-flight unattended runs. Security gates that
  * would otherwise prompt the renderer (Lens CDP host access) need this because
  * the MCP tool call itself carries no automation identity.
  */
-function ensureRoutineEventBridge() {
-  if (routineEventBridgeRegistered) {
+function ensureAutomationEventBridge() {
+  if (automationEventBridgeRegistered) {
     return;
   }
-  routineEventBridgeRegistered = true;
+  automationEventBridgeRegistered = true;
   setUnattendedAutomationAuthorizations([]);
   onHostServiceEvent(
-    "routine.unattended-automations-changed",
+    "automation.unattended-authorizations-changed",
     ({ authorizations }) => {
       setUnattendedAutomationAuthorizations(authorizations);
     },
@@ -49,53 +49,53 @@ function ensureRoutineEventBridge() {
   });
 }
 
-ensureRoutineEventBridge();
+ensureAutomationEventBridge();
 
-async function invokeRoutine<TResult>(
-  action: HostRoutineAction,
+async function invokeAutomation<TResult>(
+  action: HostAutomationAction,
   args: unknown,
 ) {
-  ensureRoutineEventBridge();
-  return invokeHostService("routine.invoke", {
+  ensureAutomationEventBridge();
+  return invokeHostService("automation.invoke", {
     action,
     args,
   }, action === "list" ? { timeoutMs: 15_000 } : undefined) as Promise<TResult>;
 }
 
-export function listRoutines() {
-  return invokeRoutine<RoutineSnapshot>("list", {});
+export function listAutomations() {
+  return invokeAutomation<AutomationSnapshot>("list", {});
 }
 
-export function createRoutine(input: RoutineUpsertInput) {
-  return invokeRoutine<RoutineSpec>("create", input);
+export function createAutomation(input: AutomationUpsertInput) {
+  return invokeAutomation<AutomationSpec>("create", input);
 }
 
-export function updateRoutine(args: { id: string; input: RoutineUpsertInput }) {
-  return invokeRoutine<RoutineSpec>("update", args);
+export function updateAutomation(args: { id: string; input: AutomationUpsertInput }) {
+  return invokeAutomation<AutomationSpec>("update", args);
 }
 
-export function removeRoutine(args: { id: string }) {
-  return invokeRoutine<{ ok: true; id: string }>("remove", args);
+export function removeAutomation(args: { id: string }) {
+  return invokeAutomation<{ ok: true; id: string }>("remove", args);
 }
 
-export function setRoutineEnabled(args: { id: string; enabled: boolean }) {
-  return invokeRoutine<RoutineSpec>("set-enabled", args);
+export function setAutomationEnabled(args: { id: string; enabled: boolean }) {
+  return invokeAutomation<AutomationSpec>("set-enabled", args);
 }
 
-export function setRoutineProviderTimeoutMs(args: {
+export function setAutomationProviderTimeoutMs(args: {
   providerTimeoutMs: number;
 }) {
-  return invokeRoutine<void>("set-provider-timeout", args);
+  return invokeAutomation<void>("set-provider-timeout", args);
 }
 
-export function runRoutineNow(args: { id: string }) {
-  return invokeRoutine<RoutineRun>("run-now", args);
+export function runAutomationNow(args: { id: string }) {
+  return invokeAutomation<AutomationRun>("run-now", args);
 }
 
-export function listRoutineInformationReferences(args: {
+export function listAutomationInformationReferences(args: {
   workspaceId: string;
 }) {
-  return invokeRoutine<WorkspaceInformationReferenceOption[]>(
+  return invokeAutomation<WorkspaceInformationReferenceOption[]>(
     "list-information-references",
     args,
   );
@@ -122,8 +122,8 @@ function requireInformationReference(args: {
   return option;
 }
 
-export async function createRoutineInformationResource(
-  input: RoutineInformationResourceCreateInput,
+export async function createAutomationInformationResource(
+  input: AutomationInformationResourceCreateInput,
 ) {
   if (input.kind === "notes") {
     const result = await appendWorkspaceNotes({

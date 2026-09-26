@@ -484,7 +484,7 @@ export type HostLocalMcpAction =
 export type HostTaskSupervisorAction =
   "list" | "get" | "create" | "update" | "pause" | "resume" | "remove";
 
-export type HostRoutineAction =
+export type HostAutomationAction =
   | "list"
   | "create"
   | "update"
@@ -988,8 +988,8 @@ export interface HostServiceRequestMap {
   "crane.release-task-control": HostCraneReleaseTaskControlArgs;
   "task.take-over": HostTaskTakeOverArgs;
   "task.stop": HostTaskStopArgs;
-  "routine.invoke": {
-    action: HostRoutineAction;
+  "automation.invoke": {
+    action: HostAutomationAction;
     args: unknown;
   };
   "task-supervisor.invoke": {
@@ -1187,7 +1187,7 @@ export interface HostServiceResponseMap {
   "crane.release-task-control": HostCraneReleaseTaskControlResult;
   "task.take-over": HostTaskTakeOverResult;
   "task.stop": HostTaskStopResult;
-  "routine.invoke": unknown;
+  "automation.invoke": unknown;
   "task-supervisor.invoke": unknown;
 }
 
@@ -1211,7 +1211,7 @@ export interface HostServiceEventMap {
     workspaceInformation: WorkspaceInformationState;
   };
   "local-mcp.task-turn-updated": LocalMcpTaskTurnUpdate;
-  "routine.unattended-automations-changed": {
+  "automation.unattended-authorizations-changed": {
     authorizations: Array<{
       workspaceId: string;
       authorizationToken: string;

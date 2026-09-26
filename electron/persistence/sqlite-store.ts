@@ -38,11 +38,7 @@ import { parsePersistedTurnUsage } from "./turn-usage";
 import type { PersistenceBootstrapStatus } from "../../src/lib/persistence/bootstrap-status";
 import { IDLE_PERSISTENCE_BOOTSTRAP_STATUS } from "../../src/lib/persistence/bootstrap-status";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
-import {
-  createEmptyRoutineState,
-  normalizeRoutineState,
-  type RoutineState,
-} from "../../src/lib/routines";
+import type { AutomationState } from "../../src/lib/automations";
 import type { BridgeEvent } from "../providers/types";
 import {
   parseTurnEventPayload,
@@ -61,6 +57,7 @@ import type {
   TrackerTaskStaveLink,
 } from "../../src/lib/tracker-tasks/types";
 import { TaskHeartbeatStore } from "./task-heartbeat-store";
+import { AutomationStateStore } from "./automation-state-store";
 import { ProjectMemoryStore } from "./project-memory-store";
 import { ResultReviewStore } from "./result-review-store";
 import { NotificationStore } from "./notification-store";
@@ -158,8 +155,6 @@ const PERSISTENCE_COMPACTION_BATCH_SIZE = 2_000;
 const INCREMENTAL_VACUUM_PAGES_PER_MAINTENANCE = 4_096;
 
 const LEGACY_TURN_EVENT_ARTIFACT_KIND = "turn_event_payload";
-const ROUTINE_STATE_KEY = "routine_state_v1";
-const ROUTINE_PROVIDER_TIMEOUT_KEY = "routine_provider_timeout_ms_v1";
 
 function normalizePersistedProviderId(
   providerId: ProviderId | "stave",
@@ -176,6 +171,7 @@ export class SqliteStore {
   private trackerTasks: TrackerTasksStore;
   private martinSyncOutbox: MartinSyncOutboxStore;
   private taskHeartbeats: TaskHeartbeatStore;
+  private automationState: AutomationStateStore;
   private projectMemories: ProjectMemoryStore;
   private notifications: NotificationStore;
   readonly resultReviews: ResultReviewStore;
@@ -241,6 +237,7 @@ export class SqliteStore {
     });
     this.martinSyncOutbox = new MartinSyncOutboxStore(this.db);
     this.taskHeartbeats = new TaskHeartbeatStore(this.db);
+    this.automationState = new AutomationStateStore(this.db);
     this.projectMemories = new ProjectMemoryStore(this.db);
     if (this.runMaintenance) {
       this.maintenanceStart = setImmediate(() => {
@@ -1692,70 +1689,20 @@ export class SqliteStore {
     })();
   }
 
-  loadRoutineState(): RoutineState {
-    const row = this.db
-      .prepare("SELECT value_json FROM app_state WHERE key = ?")
-      .get(ROUTINE_STATE_KEY) as JsonValueRow | undefined;
-    if (!row) {
-      return createEmptyRoutineState();
-    }
-    try {
-      return normalizeRoutineState(JSON.parse(row.value_json));
-    } catch {
-      return createEmptyRoutineState();
-    }
+  loadAutomationState(): AutomationState {
+    return this.automationState.loadState();
   }
 
-  saveRoutineState(args: { state: RoutineState }) {
-    const now = new Date().toISOString();
-    const state = normalizeRoutineState(args.state);
-    this.db
-      .prepare(
-        `
-      INSERT INTO app_state (key, value_json, updated_at)
-      VALUES (?, ?, ?)
-      ON CONFLICT(key) DO UPDATE SET
-        value_json = excluded.value_json,
-        updated_at = excluded.updated_at
-    `,
-      )
-      .run(ROUTINE_STATE_KEY, JSON.stringify(state), now);
+  saveAutomationState(args: { state: AutomationState }) {
+    this.automationState.saveState(args.state);
   }
 
-  loadRoutineProviderTimeoutMs() {
-    const row = this.db
-      .prepare("SELECT value_json FROM app_state WHERE key = ?")
-      .get(ROUTINE_PROVIDER_TIMEOUT_KEY) as JsonValueRow | undefined;
-    if (!row) {
-      return null;
-    }
-    try {
-      const value = JSON.parse(row.value_json);
-      return typeof value === "number" && Number.isInteger(value)
-        ? value
-        : null;
-    } catch {
-      return null;
-    }
+  loadAutomationProviderTimeoutMs() {
+    return this.automationState.loadProviderTimeoutMs();
   }
 
-  saveRoutineProviderTimeoutMs(args: { providerTimeoutMs: number }) {
-    const now = new Date().toISOString();
-    this.db
-      .prepare(
-        `
-      INSERT INTO app_state (key, value_json, updated_at)
-      VALUES (?, ?, ?)
-      ON CONFLICT(key) DO UPDATE SET
-        value_json = excluded.value_json,
-        updated_at = excluded.updated_at
-    `,
-      )
-      .run(
-        ROUTINE_PROVIDER_TIMEOUT_KEY,
-        JSON.stringify(args.providerTimeoutMs),
-        now,
-      );
+  saveAutomationProviderTimeoutMs(args: { providerTimeoutMs: number }) {
+    this.automationState.saveProviderTimeoutMs(args.providerTimeoutMs);
   }
 
   getRunAggregate(args: Parameters<RunLedgerStore["getAggregate"]>[0]) {

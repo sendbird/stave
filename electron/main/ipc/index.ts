@@ -15,7 +15,7 @@ import { registerPersistenceHandlers } from "./persistence";
 import { registerProjectMemoryHandlers } from "./project-memory";
 import { registerProviderHandlers } from "./provider";
 import { registerRunHandlers } from "./runs";
-import { registerRoutineHandlers } from "./routines";
+import { registerAutomationHandlers } from "./automations";
 import { registerScmHandlers } from "./scm";
 import { registerSecretHandlers } from "./secrets";
 import { registerSkillsHandlers } from "./skills";
@@ -32,7 +32,7 @@ export function registerHandlers() {
   registerDiagnosticsHandlers();
   registerProviderHandlers();
   registerRunHandlers();
-  registerRoutineHandlers();
+  registerAutomationHandlers();
   registerPersistenceHandlers();
   registerProjectMemoryHandlers();
   registerTerminalHandlers();

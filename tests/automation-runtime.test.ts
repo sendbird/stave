@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { createRoutineRuntime } from "../electron/host-service/routine-runtime";
+import { createAutomationRuntime } from "../electron/host-service/automation-runtime";
 import {
-  createDefaultRoutineRuntime,
-  createEmptyRoutineState,
-  type RoutineState,
-  type RoutineUpsertInput,
-} from "@/lib/routines";
+  createDefaultAutomationRuntime,
+  createEmptyAutomationState,
+  type AutomationState,
+  type AutomationUpsertInput,
+} from "@/lib/automations";
 import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
 
 function createInput(
-  overrides: Partial<RoutineUpsertInput> = {},
-): RoutineUpsertInput {
+  overrides: Partial<AutomationUpsertInput> = {},
+): AutomationUpsertInput {
   return {
     name: "Repository review",
     prompt: "Review the repository and summarize risks.",
@@ -23,7 +23,7 @@ function createInput(
       projectPath: "/tmp/project",
       label: "Project",
     },
-    runtime: createDefaultRoutineRuntime("codex"),
+    runtime: createDefaultAutomationRuntime("codex"),
     trustPolicy: "review-required",
     maxConcurrentRuns: 1,
     informationReferences: [],
@@ -32,11 +32,11 @@ function createInput(
 }
 
 function createHarness(args?: {
-  initialState?: RoutineState;
+  initialState?: AutomationState;
   initialNow?: string;
   beforeRunTask?: () => Promise<void>;
 }) {
-  let state = structuredClone(args?.initialState ?? createEmptyRoutineState());
+  let state = structuredClone(args?.initialState ?? createEmptyAutomationState());
   let currentNow = new Date(args?.initialNow ?? "2026-07-23T00:00:00.000Z");
   let intervalCallback: (() => Promise<void>) | null = null;
   const completedTurnIds: string[] = [];
@@ -57,14 +57,14 @@ function createHarness(args?: {
     pendingUserInputs: [] as unknown[],
   };
 
-  const runtime = createRoutineRuntime({
+  const runtime = createAutomationRuntime({
     persistence: {
-      loadRoutineState: () => structuredClone(state),
-      saveRoutineState: ({ state: nextState }) => {
+      loadAutomationState: () => structuredClone(state),
+      saveAutomationState: ({ state: nextState }) => {
         state = structuredClone(nextState);
       },
-      loadRoutineProviderTimeoutMs: () => null,
-      saveRoutineProviderTimeoutMs: () => {},
+      loadAutomationProviderTimeoutMs: () => null,
+      saveAutomationProviderTimeoutMs: () => {},
       completeTurn: ({ id }) => {
         completedTurnIds.push(id);
       },
@@ -130,8 +130,8 @@ test("a pending launch does not hide committed runs, and stopped queued ticks ca
   const harness = createHarness({ beforeRunTask: () => blocked });
   harness.runtime.start();
   await harness.tick();
-  const routine = await harness.runtime.create(createInput({ enabled: true }));
-  const running = harness.runtime.runNow({ id: routine.id });
+  const automation = await harness.runtime.create(createInput({ enabled: true }));
+  const running = harness.runtime.runNow({ id: automation.id });
   await Promise.resolve();
   let timer: ReturnType<typeof setTimeout> | undefined;
   try {
@@ -155,12 +155,12 @@ test("a pending launch does not hide committed runs, and stopped queued ticks ca
   }
 });
 
-describe("routine host runtime", () => {
+describe("automation host runtime", () => {
   test("persists the selected repository default environment", async () => {
     const harness = createHarness();
-    const routine = await harness.runtime.create(createInput());
+    const automation = await harness.runtime.create(createInput());
 
-    expect(routine.environment).toEqual({
+    expect(automation.environment).toEqual({
       kind: "repository",
       workspaceId: "ws-1",
       path: "/tmp/project",
@@ -172,11 +172,11 @@ describe("routine host runtime", () => {
   test("runs each occurrence as a user-owned task and captures its result", async () => {
     const harness = createHarness();
     harness.runtime.start();
-    const routine = await harness.runtime.create(createInput());
-    const run = await harness.runtime.runNow({ id: routine.id });
+    const automation = await harness.runtime.create(createInput());
+    const run = await harness.runtime.runNow({ id: automation.id });
 
     expect(run).toMatchObject({
-      routineId: routine.id,
+      automationId: automation.id,
       projectPath: "/tmp/project",
       taskId: "task-1",
       turnId: "turn-1",
@@ -213,11 +213,11 @@ describe("routine host runtime", () => {
 
   test("keeps each run linked to the environment where it started", async () => {
     const harness = createHarness();
-    const routine = await harness.runtime.create(createInput());
-    const run = await harness.runtime.runNow({ id: routine.id });
+    const automation = await harness.runtime.create(createInput());
+    const run = await harness.runtime.runNow({ id: automation.id });
 
     await harness.runtime.update({
-      id: routine.id,
+      id: automation.id,
       input: createInput({
         environment: {
           kind: "repository",
@@ -231,7 +231,7 @@ describe("routine host runtime", () => {
 
     expect(run.projectPath).toBe("/tmp/project");
     expect(harness.getState().runs[0]?.projectPath).toBe("/tmp/project");
-    expect(harness.getState().routines[0]?.environment.projectPath).toBe(
+    expect(harness.getState().automations[0]?.environment.projectPath).toBe(
       "/tmp/other",
     );
   });
@@ -239,8 +239,8 @@ describe("routine host runtime", () => {
   test("marks a completed provider turn with a terminal error as failed", async () => {
     const harness = createHarness();
     harness.runtime.start();
-    const routine = await harness.runtime.create(createInput());
-    await harness.runtime.runNow({ id: routine.id });
+    const automation = await harness.runtime.create(createInput());
+    await harness.runtime.runNow({ id: automation.id });
 
     harness.setTaskStatus({
       activeTurnId: null,
@@ -258,33 +258,33 @@ describe("routine host runtime", () => {
     harness.runtime.stop();
   });
 
-  test("does not delete a routine while one of its runs is active", async () => {
+  test("does not delete an automation while one of its runs is active", async () => {
     const harness = createHarness();
-    const routine = await harness.runtime.create(createInput());
-    await harness.runtime.runNow({ id: routine.id });
+    const automation = await harness.runtime.create(createInput());
+    await harness.runtime.runNow({ id: automation.id });
 
-    await expect(harness.runtime.remove({ id: routine.id })).rejects.toThrow(
+    await expect(harness.runtime.remove({ id: automation.id })).rejects.toThrow(
       "Wait for the active run",
     );
   });
 
-  test("runs a missed due routine once and advances from the current time", async () => {
+  test("runs a missed due automation once and advances from the current time", async () => {
     const harness = createHarness();
     harness.runtime.start();
-    const routine = await harness.runtime.create(
+    const automation = await harness.runtime.create(
       createInput({
         enabled: true,
         schedule: { every: 1, unit: "minutes" },
       }),
     );
 
-    expect(routine.nextRunAt).toBe("2026-07-23T00:01:00.000Z");
+    expect(automation.nextRunAt).toBe("2026-07-23T00:01:00.000Z");
     harness.setNow("2026-07-23T04:00:00.000Z");
     await harness.tick();
 
     const next = harness
       .getState()
-      .routines.find((candidate) => candidate.id === routine.id);
+      .automations.find((candidate) => candidate.id === automation.id);
     expect(harness.getRunTaskCalls()).toHaveLength(1);
     expect(next?.nextRunAt).toBe("2026-07-23T04:01:00.000Z");
     harness.runtime.stop();
@@ -292,18 +292,18 @@ describe("routine host runtime", () => {
 
   test("keeps the existing cadence when a future run is started manually", async () => {
     const harness = createHarness();
-    const routine = await harness.runtime.create(
+    const automation = await harness.runtime.create(
       createInput({
         enabled: true,
         schedule: { every: 1, unit: "hours" },
       }),
     );
-    expect(routine.nextRunAt).toBe("2026-07-23T01:00:00.000Z");
+    expect(automation.nextRunAt).toBe("2026-07-23T01:00:00.000Z");
 
     harness.setNow("2026-07-23T00:30:00.000Z");
-    await harness.runtime.runNow({ id: routine.id });
+    await harness.runtime.runNow({ id: automation.id });
 
-    expect(harness.getState().routines[0]?.nextRunAt).toBe(
+    expect(harness.getState().automations[0]?.nextRunAt).toBe(
       "2026-07-23T01:00:00.000Z",
     );
   });
@@ -311,35 +311,35 @@ describe("routine host runtime", () => {
   test("records and advances a scheduled occurrence beyond its concurrency limit", async () => {
     const harness = createHarness();
     harness.runtime.start();
-    const routine = await harness.runtime.create(
+    const automation = await harness.runtime.create(
       createInput({
         enabled: true,
         schedule: { every: 1, unit: "minutes" },
       }),
     );
-    await harness.runtime.runNow({ id: routine.id });
+    await harness.runtime.runNow({ id: automation.id });
 
     harness.setNow("2026-07-23T00:01:00.000Z");
     await harness.tick();
 
     expect(harness.getState().runs).toHaveLength(2);
     expect(harness.getState().runs[0]).toMatchObject({
-      routineId: routine.id,
+      automationId: automation.id,
       status: "skipped",
       error:
         "Skipped because the automation reached its concurrency limit (1).",
     });
-    expect(harness.getState().routines[0]?.nextRunAt).toBe(
+    expect(harness.getState().automations[0]?.nextRunAt).toBe(
       "2026-07-23T00:02:00.000Z",
     );
     harness.runtime.stop();
   });
 
   test("marks in-flight runs interrupted when the host restarts", async () => {
-    const initialState = createEmptyRoutineState();
+    const initialState = createEmptyAutomationState();
     initialState.runs.push({
       id: "run-1",
-      routineId: "routine-1",
+      automationId: "automation-1",
       workspaceId: "ws-1",
       projectPath: "/tmp/project",
       taskId: "task-1",
@@ -361,7 +361,7 @@ describe("routine host runtime", () => {
 
     expect(harness.getState().runs[0]).toMatchObject({
       status: "failed",
-      error: "Stave closed before this routine run completed.",
+      error: "Stave closed before this automation run completed.",
     });
     expect(harness.getCompletedTurnIds()).toEqual(["turn-1"]);
     harness.runtime.stop();
@@ -387,7 +387,7 @@ describe("routine host runtime", () => {
       createInput({
         trustPolicy: "unattended",
         runtime: {
-          ...createDefaultRoutineRuntime("codex"),
+          ...createDefaultAutomationRuntime("codex"),
           approvalPolicy: "on-request",
         },
       }),
@@ -414,7 +414,7 @@ describe("routine host runtime", () => {
       createInput({
         trustPolicy: "unattended",
         runtime: {
-          ...createDefaultRoutineRuntime("claude-code"),
+          ...createDefaultAutomationRuntime("claude-code"),
           permissionMode: "acceptEdits",
           allowUnsandboxedCommands: true,
         },
@@ -438,7 +438,7 @@ describe("routine host runtime", () => {
       createInput({
         trustPolicy: "review-required",
         runtime: {
-          ...createDefaultRoutineRuntime("claude-code"),
+          ...createDefaultAutomationRuntime("claude-code"),
           permissionMode: "bypassPermissions",
           allowDangerouslySkipPermissions: true,
           allowUnsandboxedCommands: true,
@@ -516,7 +516,7 @@ describe("routine host runtime", () => {
     const automation = await harness.runtime.create(
       createInput({
         trustPolicy: "review-required",
-        runtime: createDefaultRoutineRuntime("codex"),
+        runtime: createDefaultAutomationRuntime("codex"),
       }),
     );
 

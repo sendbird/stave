@@ -2,7 +2,7 @@ import { ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
 import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui";
-import type { RoutineRun } from "@/lib/routines";
+import type { AutomationRun } from "@/lib/automations";
 import { automationStyles } from "./automation-center.styles";
 import {
   formatDateTime,
@@ -13,9 +13,9 @@ import {
 import { latestRunStyles } from "./automation-latest-run.styles";
 
 export function AutomationLatestRun(props: {
-  run: RoutineRun | null;
-  onOpenTask: (run: RoutineRun) => void;
-  onOpenDetail: (run: RoutineRun) => void;
+  run: AutomationRun | null;
+  onOpenTask: (run: AutomationRun) => void;
+  onOpenDetail: (run: AutomationRun) => void;
 }) {
   const { run } = props;
   if (!run) {

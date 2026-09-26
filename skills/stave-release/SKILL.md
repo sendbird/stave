@@ -58,6 +58,7 @@ Read `references/stave-release-checklist.md` for the exact sequence and repair r
 
 6. Verify before commit.
    - Run `bun run typecheck` at minimum.
+   - Run `bun run check:temporary-migrations` after bumping the version. It fails when a registered temporary migration reached its `removeInVersion`; remove the expired migration code, its listed tests and its registry entry in this release (AGENTS.md, Temporary Migrations) and call it out in the release notes.
    - Run focused tests for changed areas (`bun test` or `bun run test:ci` when scope is broad).
    - Report any verification that could not run.
 
@@ -118,6 +119,7 @@ Read `references/stave-release-checklist.md` for the exact sequence and repair r
 - Do not silently skip changelog review or release-facing doc updates when shipped behavior changed.
 - Do not skip reviewing the release PR diff after opening it.
 - Do not create a local semver tag before the PR is merged. Tag the merged `main` commit after merge.
+- Do not ship a release while `bun run check:temporary-migrations` reports an expired migration, and do not postpone its `removeInVersion` without maintainer approval.
 - If verification fails, stop and surface the failure unless the user explicitly accepts releasing anyway.
 - Do not leave a temporary release worktree behind after a successful PR creation; always remove it and run `git worktree prune`.
 - Do not leave the user's original checkout on `release-x.y.z`; restore or preserve the original branch, usually `main`.

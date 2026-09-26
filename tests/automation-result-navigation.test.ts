@@ -33,11 +33,11 @@ afterEach(() => {
   (globalThis as { window?: unknown }).window = originalWindow;
 });
 
-describe("routine result navigation", () => {
+describe("automation result navigation", () => {
   test("refreshes a host-created task from persistence before selecting it", async () => {
     const localStorage = createMemoryStorage();
     const task = {
-      id: "routine-task-1",
+      id: "automation-task-1",
       title: "Daily review · 2026-07-23, 09:00",
       provider: "codex" as const,
       updatedAt: "2026-07-23T00:00:00.000Z",
@@ -48,7 +48,7 @@ describe("routine result navigation", () => {
     };
     const messages = [
       {
-        id: "routine-user-1",
+        id: "automation-user-1",
         role: "user" as const,
         model: "user",
         providerId: "user" as const,
@@ -56,11 +56,11 @@ describe("routine result navigation", () => {
         parts: [],
       },
       {
-        id: "routine-assistant-1",
+        id: "automation-assistant-1",
         role: "assistant" as const,
         model: "gpt-5.4",
         providerId: "codex" as const,
-        content: "The routine completed successfully.",
+        content: "The automation completed successfully.",
         parts: [],
       },
     ];
@@ -103,21 +103,21 @@ describe("routine result navigation", () => {
     useAppStore.setState({
       ...initialState,
       hasHydratedWorkspaces: true,
-      projectPath: "/tmp/routine-project",
-      projectName: "routine-project",
+      projectPath: "/tmp/automation-project",
+      projectName: "automation-project",
       workspaces: [
         {
-          id: "routine-workspace",
+          id: "automation-workspace",
           name: "Main",
           updatedAt: "2026-07-23T00:00:00.000Z",
         },
       ],
-      activeWorkspaceId: "routine-workspace",
+      activeWorkspaceId: "automation-workspace",
       workspacePathById: {
-        "routine-workspace": "/tmp/routine-project",
+        "automation-workspace": "/tmp/automation-project",
       },
-      workspaceBranchById: { "routine-workspace": "main" },
-      workspaceDefaultById: { "routine-workspace": true },
+      workspaceBranchById: { "automation-workspace": "main" },
+      workspaceDefaultById: { "automation-workspace": true },
       tasks: [],
       activeTaskId: "",
       messagesByTask: {},
@@ -127,8 +127,8 @@ describe("routine result navigation", () => {
 
     await useAppStore.getState().focusTaskAttention({
       taskId: task.id,
-      workspaceId: "routine-workspace",
-      projectPath: "/tmp/routine-project",
+      workspaceId: "automation-workspace",
+      projectPath: "/tmp/automation-project",
       refreshFromPersistence: true,
     });
     await Bun.sleep(25);
@@ -144,7 +144,7 @@ describe("routine result navigation", () => {
       }),
     );
     expect(state.activeTaskId).toBe(task.id);
-    expect(state.taskWorkspaceIdById[task.id]).toBe("routine-workspace");
+    expect(state.taskWorkspaceIdById[task.id]).toBe("automation-workspace");
     expect(state.messagesByTask[task.id]?.map((message) => message.content)).toEqual(
       messages.map((message) => message.content),
     );
@@ -170,22 +170,22 @@ describe("routine result navigation", () => {
     const { useAppStore } = await import("../src/store/app.store");
     const initialState = useAppStore.getInitialState();
     const currentWorkspace = {
-      id: "routine-workspace",
+      id: "automation-workspace",
       name: "Main",
       updatedAt: "2026-07-23T00:00:00.000Z",
     };
     useAppStore.setState({
       ...initialState,
       hasHydratedWorkspaces: true,
-      projectPath: "/tmp/routine-project",
-      projectName: "routine-project",
+      projectPath: "/tmp/automation-project",
+      projectName: "automation-project",
       workspaces: [currentWorkspace],
-      activeWorkspaceId: "routine-workspace",
+      activeWorkspaceId: "automation-workspace",
       workspacePathById: {
-        "routine-workspace": "/tmp/routine-project",
+        "automation-workspace": "/tmp/automation-project",
       },
-      workspaceBranchById: { "routine-workspace": "main" },
-      workspaceDefaultById: { "routine-workspace": true },
+      workspaceBranchById: { "automation-workspace": "main" },
+      workspaceDefaultById: { "automation-workspace": true },
       tasks: [],
       activeTaskId: "",
       refreshWorkspaces: async () => {
@@ -201,7 +201,7 @@ describe("routine result navigation", () => {
           ],
           workspacePathById: {
             ...current.workspacePathById,
-            "workspace-new": "/tmp/routine-project/.stave/workspaces/new",
+            "workspace-new": "/tmp/automation-project/.stave/workspaces/new",
           },
         }));
       },
@@ -214,7 +214,7 @@ describe("routine result navigation", () => {
     await useAppStore.getState().focusTaskAttention({
       taskId: "task-new",
       workspaceId: "workspace-new",
-      projectPath: "/tmp/routine-project",
+      projectPath: "/tmp/automation-project",
     });
 
     expect(refreshCount).toBe(1);

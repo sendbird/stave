@@ -6,10 +6,10 @@ import type {
 import {
   applyAutomationTrustPolicyToRuntime,
   automationPermissionModeToTrustPolicy,
-  createDefaultRoutineRuntime,
-  routineRuntimeToProviderOptions,
-  type RoutineRuntimeConfig,
-} from "@/lib/routines";
+  createDefaultAutomationRuntime,
+  automationRuntimeToProviderOptions,
+  type AutomationRuntimeConfig,
+} from "@/lib/automations";
 import type {
   ChildTaskEffort,
   ChildTaskPermissionProfile,
@@ -22,14 +22,14 @@ import type {
  * that asked for more reasoning than the model offers should get the closest
  * tier below it, not a silent fall back to the default.
  *
- * Omitted effort keeps the routine default the child always ran at, so
+ * Omitted effort keeps the automation default the child always ran at, so
  * existing delegations that never mention effort behave exactly as before.
  */
 function applyChildTaskEffort(args: {
-  base: RoutineRuntimeConfig;
+  base: AutomationRuntimeConfig;
   model: string;
   effort: ChildTaskEffort | undefined;
-}): RoutineRuntimeConfig {
+}): AutomationRuntimeConfig {
   if (args.base.provider === "codex") {
     if (!args.effort) {
       return { ...args.base, model: args.model };
@@ -42,7 +42,7 @@ function applyChildTaskEffort(args: {
       ...args.base,
       model: args.model,
       // Codex's legacy "minimal" tier is not part of the delegation
-      // vocabulary (nor the routine runtime's), so a clamp that lands there
+      // vocabulary (nor the automation runtime's), so a clamp that lands there
       // collapses to "low" exactly as `resolveCodexAppServerReasoningEffort`
       // does downstream.
       effort: clamped === "minimal" ? "low" : clamped,
@@ -75,7 +75,7 @@ export function buildChildTaskRuntimeOptions(args: {
   effort?: ChildTaskEffort;
   permissionProfile: ChildTaskPermissionProfile;
 }): ProviderRuntimeOptions {
-  const base = createDefaultRoutineRuntime(args.providerId);
+  const base = createDefaultAutomationRuntime(args.providerId);
   const trustPolicy = automationPermissionModeToTrustPolicy(
     args.permissionProfile,
   );
@@ -87,9 +87,9 @@ export function buildChildTaskRuntimeOptions(args: {
     }),
     trustPolicy,
   );
-  const options = routineRuntimeToProviderOptions(runtime);
+  const options = automationRuntimeToProviderOptions(runtime);
   if (args.providerId !== "codex") {
-    // The Claude branch of `routineRuntimeToProviderOptions` already states
+    // The Claude branch of `automationRuntimeToProviderOptions` already states
     // every permission field explicitly, so `resolveManagedTaskRuntimeOptions`
     // (which fills gaps with `??`) has nothing left to default.
     return options;
@@ -102,7 +102,7 @@ export function buildChildTaskRuntimeOptions(args: {
   // An unattended child needs `true`: nobody is watching it, and
   // `approvalPolicy: never` does not cover elicitation, which is a separate
   // channel whose unanswered requests are auto-declined on timeout — that would
-  // silently strip the child of every Stave tool. Scheduled routines carry the
+  // silently strip the child of every Stave tool. Scheduled automations carry the
   // same flag for the same reason.
   //
   // A `guided` or `manual` child asked for its approvals to be reviewed, so it

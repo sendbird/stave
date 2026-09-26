@@ -1,16 +1,16 @@
 import { createHash, randomUUID } from "node:crypto";
 import {
-  computeNextRoutineRunAt,
-  normalizeRoutineState,
-  pruneRoutineRuns,
-  routineRuntimeToProviderOptions,
-  RoutineUpsertInputSchema,
-  type RoutineRun,
-  type RoutineSnapshot,
-  type RoutineSpec,
-  type RoutineState,
-  type RoutineUpsertInput,
-} from "../../src/lib/routines";
+  computeNextAutomationRunAt,
+  normalizeAutomationState,
+  pruneAutomationRuns,
+  automationRuntimeToProviderOptions,
+  AutomationUpsertInputSchema,
+  type AutomationRun,
+  type AutomationSnapshot,
+  type AutomationSpec,
+  type AutomationState,
+  type AutomationUpsertInput,
+} from "../../src/lib/automations";
 import {
   buildWorkspaceInformationReferenceOptions,
   type WorkspaceInformationReferenceOption,
@@ -18,20 +18,20 @@ import {
 import type { WorkspaceInformationState } from "../../src/lib/workspace-information";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
 
-const ROUTINE_TICK_INTERVAL_MS = 5_000;
-const ROUTINE_RESULT_PREVIEW_MAX_LENGTH = 1_000;
-const ROUTINE_INTERRUPTED_MESSAGE =
-  "Stave closed before this routine run completed.";
+const AUTOMATION_TICK_INTERVAL_MS = 5_000;
+const AUTOMATION_RESULT_PREVIEW_MAX_LENGTH = 1_000;
+const AUTOMATION_INTERRUPTED_MESSAGE =
+  "Stave closed before this automation run completed.";
 
-interface RoutinePersistence {
-  loadRoutineState: () => RoutineState;
-  saveRoutineState: (args: { state: RoutineState }) => void;
-  loadRoutineProviderTimeoutMs: () => number | null;
-  saveRoutineProviderTimeoutMs: (args: { providerTimeoutMs: number }) => void;
+interface AutomationPersistence {
+  loadAutomationState: () => AutomationState;
+  saveAutomationState: (args: { state: AutomationState }) => void;
+  loadAutomationProviderTimeoutMs: () => number | null;
+  saveAutomationProviderTimeoutMs: (args: { providerTimeoutMs: number }) => void;
   completeTurn: (args: { id: string }) => void;
 }
 
-interface RoutineTaskRunResult {
+interface AutomationTaskRunResult {
   workspaceId: string;
   taskId: string;
   taskTitle: string;
@@ -40,7 +40,7 @@ interface RoutineTaskRunResult {
   model: string;
 }
 
-interface RoutineTaskStatusResult {
+interface AutomationTaskStatusResult {
   workspaceId: string;
   taskId: string;
   activeTurnId: string | null;
@@ -52,26 +52,26 @@ interface RoutineTaskStatusResult {
   pendingUserInputs: unknown[];
 }
 
-interface RoutineRuntimeDependencies {
-  persistence: RoutinePersistence;
+interface AutomationRuntimeDependencies {
+  persistence: AutomationPersistence;
   runTask: (args: {
     workspaceId: string;
     prompt: string;
     title: string;
     provider: ProviderId;
-    runtimeOptions: ReturnType<typeof routineRuntimeToProviderOptions>;
+    runtimeOptions: ReturnType<typeof automationRuntimeToProviderOptions>;
     unattendedAutomation?: {
       authorizationToken: string;
     };
-    informationReferences: RoutineUpsertInput["informationReferences"];
+    informationReferences: AutomationUpsertInput["informationReferences"];
     controlMode: "interactive";
     controlOwner: "stave";
-  }) => Promise<RoutineTaskRunResult>;
+  }) => Promise<AutomationTaskRunResult>;
   getTaskStatus: (args: {
     workspaceId: string;
     taskId: string;
     turnId?: string;
-  }) => Promise<RoutineTaskStatusResult>;
+  }) => Promise<AutomationTaskStatusResult>;
   getWorkspaceInformation: (args: { workspaceId: string }) => Promise<{
     workspaceId: string;
     workspaceInformation: WorkspaceInformationState;
@@ -87,27 +87,27 @@ interface RoutineRuntimeDependencies {
   clearInterval?: typeof globalThis.clearInterval;
 }
 
-export interface RoutineRuntime {
+export interface AutomationRuntime {
   start: () => void;
   stop: () => void;
-  list: () => Promise<RoutineSnapshot>;
-  create: (input: RoutineUpsertInput) => Promise<RoutineSpec>;
+  list: () => Promise<AutomationSnapshot>;
+  create: (input: AutomationUpsertInput) => Promise<AutomationSpec>;
   update: (args: {
     id: string;
-    input: RoutineUpsertInput;
-  }) => Promise<RoutineSpec>;
+    input: AutomationUpsertInput;
+  }) => Promise<AutomationSpec>;
   remove: (args: { id: string }) => Promise<{ ok: true; id: string }>;
-  setEnabled: (args: { id: string; enabled: boolean }) => Promise<RoutineSpec>;
+  setEnabled: (args: { id: string; enabled: boolean }) => Promise<AutomationSpec>;
   setProviderTimeoutMs: (args: { providerTimeoutMs: number }) => void;
-  runNow: (args: { id: string }) => Promise<RoutineRun>;
+  runNow: (args: { id: string }) => Promise<AutomationRun>;
   listInformationReferences: (args: {
     workspaceId: string;
   }) => Promise<WorkspaceInformationReferenceOption[]>;
 }
 
-function toSnapshot(state: RoutineState): RoutineSnapshot {
+function toSnapshot(state: AutomationState): AutomationSnapshot {
   return {
-    routines: [...state.routines].sort((left, right) =>
+    automations: [...state.automations].sort((left, right) =>
       right.updatedAt.localeCompare(left.updatedAt),
     ),
     runs: [...state.runs].sort((left, right) =>
@@ -121,16 +121,16 @@ function truncateResultPreview(value: string | null) {
   if (!normalized) {
     return null;
   }
-  if (normalized.length <= ROUTINE_RESULT_PREVIEW_MAX_LENGTH) {
+  if (normalized.length <= AUTOMATION_RESULT_PREVIEW_MAX_LENGTH) {
     return normalized;
   }
-  return `${normalized.slice(0, ROUTINE_RESULT_PREVIEW_MAX_LENGTH - 1)}…`;
+  return `${normalized.slice(0, AUTOMATION_RESULT_PREVIEW_MAX_LENGTH - 1)}…`;
 }
 
-function countActiveRuns(state: RoutineState, routineId: string) {
+function countActiveRuns(state: AutomationState, automationId: string) {
   return state.runs.filter(
     (run) =>
-      run.routineId === routineId &&
+      run.automationId === automationId &&
       (run.status === "running" || run.status === "waiting"),
   ).length;
 }
@@ -149,15 +149,15 @@ function serializeConfigValue(value: unknown): string {
     .join(",")}}`;
 }
 
-function createAutomationConfigHash(routine: RoutineSpec) {
+function createAutomationConfigHash(automation: AutomationSpec) {
   const executionConfig = {
-    environment: routine.environment,
-    informationReferences: routine.informationReferences,
-    maxConcurrentRuns: routine.maxConcurrentRuns,
-    prompt: routine.prompt,
-    runtime: routine.runtime,
-    schedule: routine.schedule,
-    trustPolicy: routine.trustPolicy,
+    environment: automation.environment,
+    informationReferences: automation.informationReferences,
+    maxConcurrentRuns: automation.maxConcurrentRuns,
+    prompt: automation.prompt,
+    runtime: automation.runtime,
+    schedule: automation.schedule,
+    trustPolicy: automation.trustPolicy,
   };
   return createHash("sha256")
     .update(serializeConfigValue(executionConfig))
@@ -165,26 +165,26 @@ function createAutomationConfigHash(routine: RoutineSpec) {
     .slice(0, 16);
 }
 
-function automationRuntimeToProviderOptions(routine: RoutineSpec) {
-  const options = routineRuntimeToProviderOptions(routine.runtime);
-  if (routine.trustPolicy === "workspace-trusted") {
+function automationSpecToProviderOptions(automation: AutomationSpec) {
+  const options = automationRuntimeToProviderOptions(automation.runtime);
+  if (automation.trustPolicy === "workspace-trusted") {
     return options;
   }
-  if (routine.runtime.provider === "codex") {
+  if (automation.runtime.provider === "codex") {
     return {
       ...options,
-      ...(routine.trustPolicy === "unattended"
+      ...(automation.trustPolicy === "unattended"
         ? { codexAutoApproveStaveLocalMcpTools: true }
         : {}),
       codexApprovalPolicy:
-        routine.trustPolicy === "unattended" ? "never" : "untrusted",
+        automation.trustPolicy === "unattended" ? "never" : "untrusted",
     } as const;
   }
   // A scheduled run has nobody to answer an approval prompt, so an unattended
   // Claude run gets a real bypass. `dontAsk` used to be wired here, but that
   // mode *denies* every tool outside the Stave Local MCP allowlist, which broke
   // Bash, file edits, and third-party MCP servers without ever surfacing why.
-  if (routine.trustPolicy === "unattended") {
+  if (automation.trustPolicy === "unattended") {
     return {
       ...options,
       claudePermissionMode: "bypassPermissions",
@@ -209,7 +209,7 @@ function normalizeProviderTimeoutMs(value: unknown) {
     : null;
 }
 
-function buildRoutineTaskTitle(args: { routine: RoutineSpec; now: Date }) {
+function buildAutomationTaskTitle(args: { automation: AutomationSpec; now: Date }) {
   const timestamp = new Intl.DateTimeFormat("en-CA", {
     year: "numeric",
     month: "2-digit",
@@ -218,12 +218,12 @@ function buildRoutineTaskTitle(args: { routine: RoutineSpec; now: Date }) {
     minute: "2-digit",
     hour12: false,
   }).format(args.now);
-  return `${args.routine.name} · ${timestamp}`;
+  return `${args.automation.name} · ${timestamp}`;
 }
 
-export function createRoutineRuntime(
-  dependencies: RoutineRuntimeDependencies,
-): RoutineRuntime {
+export function createAutomationRuntime(
+  dependencies: AutomationRuntimeDependencies,
+): AutomationRuntime {
   const now = dependencies.now ?? (() => new Date());
   const setIntervalImpl = dependencies.setInterval ?? globalThis.setInterval;
   const clearIntervalImpl =
@@ -238,7 +238,7 @@ export function createRoutineRuntime(
   let queuedTick: Promise<void> | null = null;
   let schedulerGeneration = 0;
   let providerTimeoutMs = normalizeProviderTimeoutMs(
-    dependencies.persistence.loadRoutineProviderTimeoutMs(),
+    dependencies.persistence.loadAutomationProviderTimeoutMs(),
   );
 
   function enqueue<T>(operation: () => Promise<T> | T): Promise<T> {
@@ -251,15 +251,15 @@ export function createRoutineRuntime(
   }
 
   function loadState() {
-    return normalizeRoutineState(dependencies.persistence.loadRoutineState());
+    return normalizeAutomationState(dependencies.persistence.loadAutomationState());
   }
 
-  function saveState(state: RoutineState) {
-    const normalized = normalizeRoutineState({
+  function saveState(state: AutomationState) {
+    const normalized = normalizeAutomationState({
       ...state,
-      runs: pruneRoutineRuns(state.runs),
+      runs: pruneAutomationRuns(state.runs),
     });
-    dependencies.persistence.saveRoutineState({ state: normalized });
+    dependencies.persistence.saveAutomationState({ state: normalized });
     const activeRunIds = new Set(
       normalized.runs
         .filter((run) => run.status === "running" || run.status === "waiting")
@@ -274,7 +274,7 @@ export function createRoutineRuntime(
     return normalized;
   }
 
-  function publishUnattendedAutomations(state: RoutineState) {
+  function publishUnattendedAutomations(state: AutomationState) {
     const emit = dependencies.emitUnattendedAutomationsChanged;
     if (!emit) {
       return;
@@ -302,29 +302,29 @@ export function createRoutineRuntime(
     emit({ authorizations });
   }
 
-  async function startRoutineRun(args: {
-    state: RoutineState;
-    routine: RoutineSpec;
-    trigger: RoutineRun["trigger"];
+  async function startAutomationRun(args: {
+    state: AutomationState;
+    automation: AutomationSpec;
+    trigger: AutomationRun["trigger"];
     scheduledFor: string | null;
   }) {
     const startedAtDate = now();
     const startedAt = startedAtDate.toISOString();
-    const nextRunAt = !args.routine.enabled
+    const nextRunAt = !args.automation.enabled
       ? null
       : args.trigger === "scheduled" ||
-          !args.routine.nextRunAt ||
-          Date.parse(args.routine.nextRunAt) <= startedAtDate.getTime()
-        ? computeNextRoutineRunAt({
-            schedule: args.routine.schedule,
+          !args.automation.nextRunAt ||
+          Date.parse(args.automation.nextRunAt) <= startedAtDate.getTime()
+        ? computeNextAutomationRunAt({
+            schedule: args.automation.schedule,
             after: startedAtDate,
           })
-        : args.routine.nextRunAt;
-    const run: RoutineRun = {
+        : args.automation.nextRunAt;
+    const run: AutomationRun = {
       id: randomUUID(),
-      routineId: args.routine.id,
-      workspaceId: args.routine.environment.workspaceId,
-      projectPath: args.routine.environment.projectPath,
+      automationId: args.automation.id,
+      workspaceId: args.automation.environment.workspaceId,
+      projectPath: args.automation.environment.projectPath,
       taskId: null,
       turnId: null,
       status: "running",
@@ -334,11 +334,11 @@ export function createRoutineRuntime(
       completedAt: null,
       resultPreview: null,
       error: null,
-      configHash: createAutomationConfigHash(args.routine),
-      trustPolicy: args.routine.trustPolicy,
+      configHash: createAutomationConfigHash(args.automation),
+      trustPolicy: args.automation.trustPolicy,
     };
     const unattendedAutomation =
-      args.routine.trustPolicy === "unattended"
+      args.automation.trustPolicy === "unattended"
         ? { authorizationToken: randomUUID() }
         : undefined;
     if (unattendedAutomation) {
@@ -349,37 +349,37 @@ export function createRoutineRuntime(
     }
     let state = saveState({
       ...args.state,
-      routines: args.state.routines.map((routine) =>
-        routine.id === args.routine.id
+      automations: args.state.automations.map((automation) =>
+        automation.id === args.automation.id
           ? {
-              ...routine,
+              ...automation,
               lastRunAt: startedAt,
               nextRunAt,
             }
-          : routine,
+          : automation,
       ),
       runs: [run, ...args.state.runs],
     });
 
     try {
       const taskRun = await dependencies.runTask({
-        workspaceId: args.routine.environment.workspaceId,
-        prompt: args.routine.prompt,
-        title: buildRoutineTaskTitle({
-          routine: args.routine,
+        workspaceId: args.automation.environment.workspaceId,
+        prompt: args.automation.prompt,
+        title: buildAutomationTaskTitle({
+          automation: args.automation,
           now: startedAtDate,
         }),
-        provider: args.routine.runtime.provider,
+        provider: args.automation.runtime.provider,
         runtimeOptions: {
-          ...automationRuntimeToProviderOptions(args.routine),
+          ...automationSpecToProviderOptions(args.automation),
           ...(providerTimeoutMs ? { providerTimeoutMs } : {}),
         },
         ...(unattendedAutomation ? { unattendedAutomation } : {}),
-        informationReferences: args.routine.informationReferences,
+        informationReferences: args.automation.informationReferences,
         controlMode: "interactive",
         controlOwner: "stave",
       });
-      const nextRun: RoutineRun = {
+      const nextRun: AutomationRun = {
         ...run,
         taskId: taskRun.taskId,
         turnId: taskRun.turnId,
@@ -395,14 +395,14 @@ export function createRoutineRuntime(
         run: nextRun,
       };
     } catch (error) {
-      const failedRun: RoutineRun = {
+      const failedRun: AutomationRun = {
         ...run,
         status: "failed",
         completedAt: now().toISOString(),
         error:
           error instanceof Error
             ? error.message
-            : "Failed to start routine run.",
+            : "Failed to start automation run.",
       };
       state = saveState({
         ...state,
@@ -417,7 +417,7 @@ export function createRoutineRuntime(
     }
   }
 
-  async function reconcileRuns(state: RoutineState) {
+  async function reconcileRuns(state: AutomationState) {
     let nextState = state;
     for (const run of state.runs) {
       if (
@@ -477,14 +477,14 @@ export function createRoutineRuntime(
           };
         }
       } catch (error) {
-        const failedRun: RoutineRun = {
+        const failedRun: AutomationRun = {
           ...run,
           status: "failed",
           completedAt: now().toISOString(),
           error:
             error instanceof Error
               ? error.message
-              : "Failed to read routine task status.",
+              : "Failed to read automation task status.",
         };
         nextState = {
           ...nextState,
@@ -506,45 +506,45 @@ export function createRoutineRuntime(
       state = saveState(state);
     }
     const tickNow = now();
-    const dueRoutines = state.routines.filter(
-      (routine) =>
-        routine.enabled &&
-        routine.nextRunAt !== null &&
-        Date.parse(routine.nextRunAt) <= tickNow.getTime(),
+    const dueAutomations = state.automations.filter(
+      (automation) =>
+        automation.enabled &&
+        automation.nextRunAt !== null &&
+        Date.parse(automation.nextRunAt) <= tickNow.getTime(),
     );
 
-    for (const routine of dueRoutines) {
+    for (const automation of dueAutomations) {
       if (generation !== schedulerGeneration) return;
-      const latestRoutine =
-        state.routines.find((candidate) => candidate.id === routine.id) ??
-        routine;
+      const latestAutomation =
+        state.automations.find((candidate) => candidate.id === automation.id) ??
+        automation;
       if (
-        countActiveRuns(state, routine.id) >= latestRoutine.maxConcurrentRuns
+        countActiveRuns(state, automation.id) >= latestAutomation.maxConcurrentRuns
       ) {
-        const skippedRun: RoutineRun = {
+        const skippedRun: AutomationRun = {
           id: randomUUID(),
-          routineId: routine.id,
-          workspaceId: routine.environment.workspaceId,
-          projectPath: routine.environment.projectPath,
+          automationId: automation.id,
+          workspaceId: automation.environment.workspaceId,
+          projectPath: automation.environment.projectPath,
           taskId: null,
           turnId: null,
           status: "skipped",
           trigger: "scheduled",
-          scheduledFor: routine.nextRunAt,
+          scheduledFor: automation.nextRunAt,
           startedAt: tickNow.toISOString(),
           completedAt: tickNow.toISOString(),
           resultPreview: null,
-          error: `Skipped because the automation reached its concurrency limit (${latestRoutine.maxConcurrentRuns}).`,
-          configHash: createAutomationConfigHash(latestRoutine),
-          trustPolicy: latestRoutine.trustPolicy,
+          error: `Skipped because the automation reached its concurrency limit (${latestAutomation.maxConcurrentRuns}).`,
+          configHash: createAutomationConfigHash(latestAutomation),
+          trustPolicy: latestAutomation.trustPolicy,
         };
         state = saveState({
           ...state,
-          routines: state.routines.map((candidate) =>
-            candidate.id === routine.id
+          automations: state.automations.map((candidate) =>
+            candidate.id === automation.id
               ? {
                   ...candidate,
-                  nextRunAt: computeNextRoutineRunAt({
+                  nextRunAt: computeNextAutomationRunAt({
                     schedule: candidate.schedule,
                     after: tickNow,
                   }),
@@ -555,11 +555,11 @@ export function createRoutineRuntime(
         });
         continue;
       }
-      const started = await startRoutineRun({
+      const started = await startAutomationRun({
         state,
-        routine: latestRoutine,
+        automation: latestAutomation,
         trigger: "scheduled",
-        scheduledFor: routine.nextRunAt,
+        scheduledFor: automation.nextRunAt,
       });
       state = started.state;
     }
@@ -591,7 +591,7 @@ export function createRoutineRuntime(
                 ...run,
                 status: "failed",
                 completedAt: interruptedAt,
-                error: ROUTINE_INTERRUPTED_MESSAGE,
+                error: AUTOMATION_INTERRUPTED_MESSAGE,
               }
             : run,
         ),
@@ -604,13 +604,13 @@ export function createRoutineRuntime(
     const enqueueTick = () => {
       if (queuedTick) return queuedTick;
       queuedTick = enqueue(() => tick(generation)).catch((error) => {
-        console.error("[routines] scheduler tick failed", error);
+        console.error("[automations] scheduler tick failed", error);
       }).finally(() => {
         queuedTick = null;
       });
       return queuedTick;
     };
-    intervalHandle = setIntervalImpl(enqueueTick, ROUTINE_TICK_INTERVAL_MS);
+    intervalHandle = setIntervalImpl(enqueueTick, AUTOMATION_TICK_INTERVAL_MS);
     enqueueTick();
   }
 
@@ -632,16 +632,16 @@ export function createRoutineRuntime(
     list: async () => toSnapshot(loadState()),
     create: (rawInput) =>
       enqueue(async () => {
-        const input = RoutineUpsertInputSchema.parse(rawInput);
+        const input = AutomationUpsertInputSchema.parse(rawInput);
         const createdAt = now();
-        const routine: RoutineSpec = {
+        const automation: AutomationSpec = {
           ...input,
           id: randomUUID(),
           createdAt: createdAt.toISOString(),
           updatedAt: createdAt.toISOString(),
           lastRunAt: null,
           nextRunAt: input.enabled
-            ? computeNextRoutineRunAt({
+            ? computeNextAutomationRunAt({
                 schedule: input.schedule,
                 after: createdAt,
               })
@@ -650,27 +650,27 @@ export function createRoutineRuntime(
         const state = loadState();
         saveState({
           ...state,
-          routines: [routine, ...state.routines],
+          automations: [automation, ...state.automations],
         });
-        return routine;
+        return automation;
       }),
     update: ({ id, input: rawInput }) =>
       enqueue(async () => {
-        const input = RoutineUpsertInputSchema.parse(rawInput);
+        const input = AutomationUpsertInputSchema.parse(rawInput);
         const state = loadState();
-        const current = state.routines.find((routine) => routine.id === id);
+        const current = state.automations.find((automation) => automation.id === id);
         if (!current) {
-          throw new Error(`Routine not found: ${id}`);
+          throw new Error(`Automation not found: ${id}`);
         }
         const updatedAt = now();
-        const routine: RoutineSpec = {
+        const automation: AutomationSpec = {
           ...input,
           id,
           createdAt: current.createdAt,
           updatedAt: updatedAt.toISOString(),
           lastRunAt: current.lastRunAt,
           nextRunAt: input.enabled
-            ? computeNextRoutineRunAt({
+            ? computeNextAutomationRunAt({
                 schedule: input.schedule,
                 after: updatedAt,
               })
@@ -678,44 +678,44 @@ export function createRoutineRuntime(
         };
         saveState({
           ...state,
-          routines: state.routines.map((candidate) =>
-            candidate.id === id ? routine : candidate,
+          automations: state.automations.map((candidate) =>
+            candidate.id === id ? automation : candidate,
           ),
         });
-        return routine;
+        return automation;
       }),
     remove: ({ id }) =>
       enqueue(() => {
         const state = loadState();
-        if (!state.routines.some((routine) => routine.id === id)) {
-          throw new Error(`Routine not found: ${id}`);
+        if (!state.automations.some((automation) => automation.id === id)) {
+          throw new Error(`Automation not found: ${id}`);
         }
         if (countActiveRuns(state, id) > 0) {
           throw new Error(
-            "Wait for the active run before deleting this routine.",
+            "Wait for the active run before deleting this automation.",
           );
         }
         saveState({
           ...state,
-          routines: state.routines.filter((routine) => routine.id !== id),
-          runs: state.runs.filter((run) => run.routineId !== id),
+          automations: state.automations.filter((automation) => automation.id !== id),
+          runs: state.runs.filter((run) => run.automationId !== id),
         });
         return { ok: true as const, id };
       }),
     setEnabled: ({ id, enabled }) =>
       enqueue(() => {
         const state = loadState();
-        const current = state.routines.find((routine) => routine.id === id);
+        const current = state.automations.find((automation) => automation.id === id);
         if (!current) {
-          throw new Error(`Routine not found: ${id}`);
+          throw new Error(`Automation not found: ${id}`);
         }
         const updatedAt = now();
-        const routine: RoutineSpec = {
+        const automation: AutomationSpec = {
           ...current,
           enabled,
           updatedAt: updatedAt.toISOString(),
           nextRunAt: enabled
-            ? computeNextRoutineRunAt({
+            ? computeNextAutomationRunAt({
                 schedule: current.schedule,
                 after: updatedAt,
               })
@@ -723,11 +723,11 @@ export function createRoutineRuntime(
         };
         saveState({
           ...state,
-          routines: state.routines.map((candidate) =>
-            candidate.id === id ? routine : candidate,
+          automations: state.automations.map((candidate) =>
+            candidate.id === id ? automation : candidate,
           ),
         });
-        return routine;
+        return automation;
       }),
     setProviderTimeoutMs: ({ providerTimeoutMs: nextProviderTimeoutMs }) => {
       const normalized = normalizeProviderTimeoutMs(nextProviderTimeoutMs);
@@ -735,25 +735,25 @@ export function createRoutineRuntime(
         throw new Error("Invalid provider timeout.");
       }
       providerTimeoutMs = normalized;
-      dependencies.persistence.saveRoutineProviderTimeoutMs({
+      dependencies.persistence.saveAutomationProviderTimeoutMs({
         providerTimeoutMs,
       });
     },
     runNow: ({ id }) =>
       enqueue(async () => {
         const state = loadState();
-        const routine = state.routines.find((candidate) => candidate.id === id);
-        if (!routine) {
-          throw new Error(`Routine not found: ${id}`);
+        const automation = state.automations.find((candidate) => candidate.id === id);
+        if (!automation) {
+          throw new Error(`Automation not found: ${id}`);
         }
-        if (countActiveRuns(state, id) >= routine.maxConcurrentRuns) {
+        if (countActiveRuns(state, id) >= automation.maxConcurrentRuns) {
           throw new Error(
-            `This automation reached its concurrency limit (${routine.maxConcurrentRuns}).`,
+            `This automation reached its concurrency limit (${automation.maxConcurrentRuns}).`,
           );
         }
-        const started = await startRoutineRun({
+        const started = await startAutomationRun({
           state,
-          routine,
+          automation,
           trigger: "manual",
           scheduledFor: null,
         });

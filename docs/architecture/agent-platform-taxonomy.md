@@ -1,7 +1,7 @@
 # Agent Platform Taxonomy And Boundaries
 
 Stave grew several ways to make an agent do more work — Advisor, Worker, Fleet,
-Routines, the run ledger — and each was added for its own reason. This file
+Automations, the run ledger — and each was added for its own reason. This file
 fixes what each one is, what it is not, and which vocabulary the product uses,
 so the next capability lands in the right layer instead of beside a similar one.
 
@@ -21,6 +21,7 @@ Use these words in code, UI copy, and plans. Do not introduce synonyms.
 | Ledger | The durable runs/steps/receipts record in `src/lib/runs/`. It records; it never executes. |
 | Receipt | One bounded record of how something started or ended. Never transcript text, never secrets. |
 | Occurrence | One firing of a schedule. |
+| Automation | A saved prompt and schedule that mints a new task per occurrence. Code, IPC channels and Local MCP tools say `automation`; the older word "routine" is retired. |
 
 Lane names for workspace state are fixed and ordered:
 `action-required` > `in-progress` > `in-review` > `idle`.
@@ -119,10 +120,10 @@ reason. Two axes:
 
 | | Ephemeral | Durable |
 | --- | --- | --- |
-| Time — run again | — | Routine (new task per occurrence) / Heartbeat (same task, same session) |
+| Time — run again | — | Automation (new task per occurrence) / Heartbeat (same task, same session) |
 | Delegation — hand work off | Worker (Layer 1) | Child tasks (cross-provider, normal tasks + ledger receipts) |
 
-Routine is the only concept that lives outside a task: it mints tasks.
+Automation is the only concept that lives outside a task: it mints tasks.
 Everything else in this layer attaches to one existing task.
 
 A child task is a real Stave task created on a parent's behalf, recorded on the
@@ -168,7 +169,7 @@ These are the statements that keep the layers from collapsing into each other.
 Each one is registered in `config/reliability-gates.json` and asserted by a test
 whose name repeats it.
 
-1. A routine never wakes an existing task; its definition cannot target one.
+1. An automation never wakes an existing task; its definition cannot target one.
 2. A heartbeat never creates a task; it only adds a turn to one that exists.
 3. A worker never survives a restart; a child task always does.
 4. The ledger records and never executes; executors execute and never write
@@ -183,7 +184,7 @@ Every statement is now fully asserted; none is forward-looking any more. The two
 that were written ahead of their capability landed inside the boundary rather
 than beside it, which is what recording them early was for:
 
-- Statement 2 is asserted from both sides: a routine definition cannot name a
+- Statement 2 is asserted from both sides: an automation definition cannot name a
   task, and a heartbeat definition must name one and cannot carry the fields
   that would let it mint a task.
 - Statement 3 is asserted by recovery: a child task is reconciled against the

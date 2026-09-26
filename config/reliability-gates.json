@@ -151,7 +151,7 @@
     {
       "id": "agent-platform-boundaries",
       "title": "Agent platform layers stay distinct",
-      "invariant": "A routine cannot target an existing task, a heartbeat must target one and cannot mint one on either trigger, the supervisor records wake-ups without importing the ledger that records delegated execution, the run ledger never imports execution runtimes, the secondary executor never writes ledger rows, a child task survives a restart while a worker never does, utility inference stays mechanical, and the work queue assigns one lane per workspace.",
+      "invariant": "An automation cannot target an existing task, a heartbeat must target one and cannot mint one on either trigger, the supervisor records wake-ups without importing the ledger that records delegated execution, the run ledger never imports execution runtimes, the secondary executor never writes ledger rows, a child task survives a restart while a worker never does, utility inference stays mechanical, and the work queue assigns one lane per workspace.",
       "testFiles": [
         "tests/agent-platform-boundaries.test.ts",
         "tests/child-task-coordinator.test.ts",
@@ -163,7 +163,7 @@
         "electron/main/runs/child-task-coordinator.ts",
         "src/lib/fleet/sidebar-work-queue.ts",
         "src/lib/providers/utility-inference.ts",
-        "src/lib/routines.ts",
+        "src/lib/automations.ts",
         "src/lib/runs/child-task.ts",
         "src/lib/automation/task-supervisor.ts"
       ]

@@ -1,17 +1,17 @@
 import {
-  createDefaultRoutineRuntime,
-  type RoutineEnvironmentInput,
-  type RoutineRun,
-  type RoutineSchedule,
-  type RoutineSpec,
-  type RoutineUpsertInput,
-} from "@/lib/routines";
+  createDefaultAutomationRuntime,
+  type AutomationEnvironmentInput,
+  type AutomationRun,
+  type AutomationSchedule,
+  type AutomationSpec,
+  type AutomationUpsertInput,
+} from "@/lib/automations";
 import {
   resolveCurrentProjectDefaultWorkspaceId,
   type RecentProjectState,
 } from "@/store/project.utils";
 
-export interface RoutineEnvironmentOption {
+export interface AutomationEnvironmentOption {
   value: string;
   workspaceId: string;
   path: string;
@@ -19,7 +19,7 @@ export interface RoutineEnvironmentOption {
   label: string;
 }
 
-export type RoutineProjectSource = Pick<
+export type AutomationProjectSource = Pick<
   RecentProjectState,
   | "projectPath"
   | "projectName"
@@ -28,16 +28,16 @@ export type RoutineProjectSource = Pick<
   | "workspaceDefaultById"
 >;
 
-export function getRoutineErrorMessage(error: unknown, fallback: string) {
+export function getAutomationErrorMessage(error: unknown, fallback: string) {
   return error instanceof Error ? error.message : fallback;
 }
 
 export function buildEnvironmentOptions(args: {
   recentProjects: RecentProjectState[];
-  activeProject: RoutineProjectSource | null;
+  activeProject: AutomationProjectSource | null;
 }) {
-  const options = new Map<string, RoutineEnvironmentOption>();
-  const addProject = (project: RoutineProjectSource) => {
+  const options = new Map<string, AutomationEnvironmentOption>();
+  const addProject = (project: AutomationProjectSource) => {
     const workspaceId = resolveCurrentProjectDefaultWorkspaceId({
       projectPath: project.projectPath,
       workspaces: project.workspaces,
@@ -61,9 +61,9 @@ export function buildEnvironmentOptions(args: {
   );
 }
 
-export function createRoutineDraft(
-  environment: RoutineEnvironmentInput | null,
-): RoutineUpsertInput {
+export function createAutomationDraft(
+  environment: AutomationEnvironmentInput | null,
+): AutomationUpsertInput {
   return {
     name: "",
     prompt: "",
@@ -80,28 +80,28 @@ export function createRoutineDraft(
       projectPath: "",
       label: "",
     },
-    runtime: createDefaultRoutineRuntime("codex"),
+    runtime: createDefaultAutomationRuntime("codex"),
     trustPolicy: "review-required",
     maxConcurrentRuns: 1,
     informationReferences: [],
   };
 }
 
-export function routineToDraft(routine: RoutineSpec): RoutineUpsertInput {
+export function automationToDraft(automation: AutomationSpec): AutomationUpsertInput {
   return {
-    name: routine.name,
-    prompt: routine.prompt,
-    enabled: routine.enabled,
-    schedule: routine.schedule,
-    environment: routine.environment,
-    runtime: routine.runtime,
-    trustPolicy: routine.trustPolicy,
-    maxConcurrentRuns: routine.maxConcurrentRuns,
-    informationReferences: routine.informationReferences,
+    name: automation.name,
+    prompt: automation.prompt,
+    enabled: automation.enabled,
+    schedule: automation.schedule,
+    environment: automation.environment,
+    runtime: automation.runtime,
+    trustPolicy: automation.trustPolicy,
+    maxConcurrentRuns: automation.maxConcurrentRuns,
+    informationReferences: automation.informationReferences,
   };
 }
 
-export function parseRoutineScheduleTime(value: string) {
+export function parseAutomationScheduleTime(value: string) {
   const [hourText, minuteText] = value.split(":");
   const hour = Number(hourText);
   const minute = Number(minuteText);
@@ -120,12 +120,12 @@ export function parseRoutineScheduleTime(value: string) {
 
 /**
  * Drops schedule anchors the target unit cannot represent so the draft always
- * satisfies `RoutineScheduleSchema`.
+ * satisfies `AutomationScheduleSchema`.
  */
-export function applyRoutineScheduleUnit(
-  schedule: RoutineSchedule,
-  unit: RoutineSchedule["unit"],
-): RoutineSchedule {
+export function applyAutomationScheduleUnit(
+  schedule: AutomationSchedule,
+  unit: AutomationSchedule["unit"],
+): AutomationSchedule {
   if (unit === "minutes" || unit === "hours") {
     return { every: schedule.every, unit };
   }
@@ -190,7 +190,7 @@ export function formatRelativeTime(value: string | null, now = Date.now()) {
   return formatter.format(Math.round(deltaMs / scale), unit);
 }
 
-export function formatRunDuration(run: RoutineRun, now = Date.now()) {
+export function formatRunDuration(run: AutomationRun, now = Date.now()) {
   const startedAt = new Date(run.startedAt).getTime();
   if (Number.isNaN(startedAt)) {
     return "—";
@@ -239,7 +239,7 @@ export interface AutomationRunStatusPresentation {
  * ran does not read as a failure.
  */
 export const AUTOMATION_RUN_STATUS_PRESENTATION: Record<
-  RoutineRun["status"],
+  AutomationRun["status"],
   AutomationRunStatusPresentation
 > = {
   running: { label: "Running", tone: "accent" },
@@ -250,7 +250,7 @@ export const AUTOMATION_RUN_STATUS_PRESENTATION: Record<
 };
 
 export function getRunStatusPresentation(
-  status: RoutineRun["status"],
+  status: AutomationRun["status"],
 ): AutomationRunStatusPresentation {
   return (
     AUTOMATION_RUN_STATUS_PRESENTATION[status] ??
@@ -258,7 +258,7 @@ export function getRunStatusPresentation(
   );
 }
 
-export function isActiveRunStatus(status: RoutineRun["status"]) {
+export function isActiveRunStatus(status: AutomationRun["status"]) {
   return status === "running" || status === "waiting";
 }
 
@@ -273,7 +273,7 @@ export type AutomationRunFilter =
   (typeof AUTOMATION_RUN_FILTERS)[number]["value"];
 
 export function matchesRunFilter(
-  run: RoutineRun,
+  run: AutomationRun,
   filter: AutomationRunFilter,
 ): boolean {
   switch (filter) {

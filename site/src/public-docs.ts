@@ -137,9 +137,9 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Inspect Lens memory, sleep or release hidden pages, stop workspace execution, and clean up inactive worktrees.",
       },
       {
-        routePath: "routines",
-        sourcePath: "docs/features/routines.md",
-        title: "Routines",
+        routePath: "automations",
+        sourcePath: "docs/features/automations.md",
+        title: "Automations",
         description:
           "Schedule recurring Claude or Codex tasks with their own environment, model, permissions, and Information resources.",
       },

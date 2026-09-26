@@ -642,13 +642,13 @@ export function createAppStorePersistenceOptions() {
       state.settings.providerTimeoutMs = normalizeProviderTimeoutMs({
         value: state.settings.providerTimeoutMs,
       });
-      const setRoutineProviderTimeout =
-        window.api?.routines?.setProviderTimeout;
-      if (setRoutineProviderTimeout) {
-        void setRoutineProviderTimeout({
+      const setAutomationProviderTimeout =
+        window.api?.automations?.setProviderTimeout;
+      if (setAutomationProviderTimeout) {
+        void setAutomationProviderTimeout({
           providerTimeoutMs: state.settings.providerTimeoutMs,
         }).catch((error) => {
-          console.warn("[routines] failed to restore provider timeout", error);
+          console.warn("[automations] failed to restore provider timeout", error);
         });
       }
       state.settings.codexPlanMode ??= false;

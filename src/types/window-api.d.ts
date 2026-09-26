@@ -141,12 +141,12 @@ import type {
   WorkspaceInformationState,
 } from "@/lib/workspace-information";
 import type {
-  RoutineInformationResourceCreateInput,
-  RoutineRun,
-  RoutineSnapshot,
-  RoutineSpec,
-  RoutineUpsertInput,
-} from "@/lib/routines";
+  AutomationInformationResourceCreateInput,
+  AutomationRun,
+  AutomationSnapshot,
+  AutomationSpec,
+  AutomationUpsertInput,
+} from "@/lib/automations";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
 import type { PromptDraft } from "@/types/chat";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
@@ -1065,24 +1065,24 @@ interface WindowTaskControlApi {
   }>;
 }
 
-interface WindowRoutinesApi {
+interface WindowAutomationsApi {
   setProviderTimeout?: (args: { providerTimeoutMs: number }) => Promise<{
     ok: boolean;
     message?: string;
   }>;
   list?: () => Promise<{
     ok: boolean;
-    snapshot: RoutineSnapshot;
+    snapshot: AutomationSnapshot;
     message?: string;
   }>;
-  create?: (input: RoutineUpsertInput) => Promise<{
+  create?: (input: AutomationUpsertInput) => Promise<{
     ok: boolean;
-    routine: RoutineSpec | null;
+    automation: AutomationSpec | null;
     message?: string;
   }>;
-  update?: (args: { id: string; input: RoutineUpsertInput }) => Promise<{
+  update?: (args: { id: string; input: AutomationUpsertInput }) => Promise<{
     ok: boolean;
-    routine: RoutineSpec | null;
+    automation: AutomationSpec | null;
     message?: string;
   }>;
   remove?: (args: { id: string }) => Promise<{
@@ -1091,16 +1091,16 @@ interface WindowRoutinesApi {
   }>;
   setEnabled?: (args: { id: string; enabled: boolean }) => Promise<{
     ok: boolean;
-    routine: RoutineSpec | null;
+    automation: AutomationSpec | null;
     message?: string;
   }>;
   runNow?: (args: { id: string }) => Promise<{
     ok: boolean;
-    run: RoutineRun | null;
+    run: AutomationRun | null;
     message?: string;
   }>;
   createInformationResource?: (
-    input: RoutineInformationResourceCreateInput,
+    input: AutomationInformationResourceCreateInput,
   ) => Promise<{
     ok: boolean;
     option: WorkspaceInformationReferenceOption | null;
@@ -2979,7 +2979,7 @@ interface WindowApi {
   projectMemory?: WindowProjectMemoryApi;
   jiraConnector?: WindowJiraConnectorApi;
   taskControl?: WindowTaskControlApi;
-  routines?: WindowRoutinesApi;
+  automations?: WindowAutomationsApi;
   lsp?: WindowLspApi;
   eslint?: WindowEslintApi;
   diagnostics?: WindowDiagnosticsApi;

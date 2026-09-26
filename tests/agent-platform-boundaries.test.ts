@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import path from "node:path";
 import { createChildTaskCoordinator } from "../electron/main/runs/child-task-coordinator";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
-import { RoutineUpsertInputSchema } from "../src/lib/routines";
+import { AutomationUpsertInputSchema } from "../src/lib/automations";
 import { TaskHeartbeatUpsertInputSchema } from "../src/lib/automation/task-supervisor";
 import { UTILITY_INFERENCE_FEATURES } from "../src/lib/providers/utility-inference";
 import { resolveProviderRuntimeCapabilities } from "../src/lib/providers/runtime-capabilities";
@@ -40,11 +40,11 @@ function importedModules(source: string) {
 }
 
 describe("Agent platform boundaries", () => {
-  test("a routine never wakes an existing task: its definition cannot target one", () => {
-    // A routine mints a task per occurrence. The moment its input accepts a
+  test("an automation never wakes an existing task: its definition cannot target one", () => {
+    // An automation mints a task per occurrence. The moment its input accepts a
     // taskId it has silently become a heartbeat, which is a different concept
     // with different safety rules (serialization, pause-on-approval, expiry).
-    const definitionKeys = Object.keys(RoutineUpsertInputSchema.shape);
+    const definitionKeys = Object.keys(AutomationUpsertInputSchema.shape);
 
     expect(definitionKeys).not.toContain("taskId");
     expect(definitionKeys.filter((key) => /task/i.test(key))).toEqual([]);
@@ -111,10 +111,10 @@ describe("Agent platform boundaries", () => {
   });
 
   test("a heartbeat never creates a task: it only adds a turn to one that exists", () => {
-    // The mirror of the routine boundary above. A heartbeat definition must
+    // The mirror of the automation boundary above. A heartbeat definition must
     // name the task it wakes, and must not carry the fields that would let it
     // mint one — the moment it grows a name/title/environment it has become a
-    // routine with different safety rules.
+    // automation with different safety rules.
     const definitionKeys = Object.keys(TaskHeartbeatUpsertInputSchema.shape);
 
     expect(definitionKeys).toContain("taskId");

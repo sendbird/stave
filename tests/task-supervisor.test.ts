@@ -89,7 +89,7 @@ describe("task heartbeat definition", () => {
 
     expect(definitionKeys).toContain("taskId");
     expect(definitionKeys).toContain("workspaceId");
-    // A "title" or "name" would mean it can mint a task, which is a routine.
+    // A "title" or "name" would mean it can mint a task, which is an automation.
     expect(
       definitionKeys.filter((key) => /^(name|title|environment)$/.test(key)),
     ).toEqual([]);

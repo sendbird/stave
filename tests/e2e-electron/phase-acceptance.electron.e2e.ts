@@ -21,14 +21,14 @@ test("schedule controls persist without executing and returning from Automations
       trustPolicy: "review-required" as const, maxConcurrentRuns: 1,
       informationReferences: [],
     };
-    const routine = await stave.page.evaluate(async ({ input, projectPath }) => {
+    const automation = await stave.page.evaluate(async ({ input, projectPath }) => {
       const { rows } = await window.api.persistence!.listWorkspaces!();
-      const result = await window.api.routines!.create!({ ...input, environment: {
+      const result = await window.api.automations!.create!({ ...input, environment: {
         kind: "repository", workspaceId: rows[0]!.id, path: projectPath,
         projectPath, label: "Document project",
       }});
-      if (!result.ok || !result.routine) throw new Error(result.message ?? "Routine creation failed");
-      return result.routine;
+      if (!result.ok || !result.automation) throw new Error(result.message ?? "Automation creation failed");
+      return result.automation;
     }, { input, projectPath });
     await stave.page.getByRole("button", { name: "Open Stave menu" }).click();
     await stave.page.getByRole("menuitem", { name: /Command Palette/ }).click();
@@ -43,8 +43,8 @@ test("schedule controls persist without executing and returning from Automations
     await stave.page.screenshot({ path: testInfo.outputPath("schedule-enabled.png") });
     await stave.page.getByRole("button", { name: "Pause schedule", exact: true }).click();
     await expect(stave.page.getByRole("button", { name: "Enable schedule", exact: true })).toBeVisible();
-    const state = await stave.page.evaluate(() => window.api.routines!.list!());
-    expect(state.snapshot.routines.find(item => item.id === routine.id)?.enabled).toBe(false);
+    const state = await stave.page.evaluate(() => window.api.automations!.list!());
+    expect(state.snapshot.automations.find(item => item.id === automation.id)?.enabled).toBe(false);
     expect(state.snapshot.runs).toHaveLength(0);
     await stave.page.getByTitle("Close Automations", { exact: true }).click();
     await expect(editor).toContainText("Draft a document describing the release changes.");

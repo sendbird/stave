@@ -4,12 +4,12 @@ A heartbeat wakes one existing task, in the same provider session — either on 
 schedule or when work that task delegated finishes. It is the "keep going
 without me" answer for work that is already underway — re-check CI on this PR
 every ten minutes, re-read this dashboard every hour, pick the thread back up
-when the child task you handed off returns — as opposed to a routine, which
+when the child task you handed off returns — as opposed to an automation, which
 mints a brand new task per occurrence.
 
 The boundary between the two is fixed in
 [Agent Platform Taxonomy](../architecture/agent-platform-taxonomy.md): **a
-routine never wakes an existing task, and a heartbeat never creates one.**
+automation never wakes an existing task, and a heartbeat never creates one.**
 
 ## What it adds over `runTask`
 
@@ -50,9 +50,9 @@ wins.
 
 ## Schedules
 
-Heartbeats reuse the routine schedule vocabulary — `{ every, unit, at?,
-weekday?, weekdays? }` and `computeNextRoutineRunAt` from
-[`src/lib/routines.ts`](../../src/lib/routines.ts) — so there is one cadence
+Heartbeats reuse the automation schedule vocabulary — `{ every, unit, at?,
+weekday?, weekdays? }` and `computeNextAutomationRunAt` from
+[`src/lib/automations.ts`](../../src/lib/automations.ts) — so there is one cadence
 model across the product and anchored day/week schedules keep their local
 wall-clock time across DST.
 
@@ -75,7 +75,7 @@ What differs is only where dueness comes from:
 | What makes it due? | An instant passed | A delegated run reached a terminal status |
 | What is consumed? | One instant | One `(run, step, attempt, status)` |
 | What bounds it? | Expiry and the occurrence cap | The occurrence cap, which is applied by default |
-| Where does the next one come from? | `computeNextRoutineRunAt` | The ledger, on the next tick |
+| Where does the next one come from? | `computeNextAutomationRunAt` | The ledger, on the next tick |
 
 **Exactly once, however it is delivered.** Each completion is keyed by
 `<heartbeatId>:fired:completion:<runId>:<stepId>:<attempt>:<status>` rather

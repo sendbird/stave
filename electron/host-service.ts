@@ -73,7 +73,7 @@ import {
   submitGitHubPullRequestReview,
 } from "./host-service/github-pr-review-runtime";
 import * as localMcpRuntime from "./host-service/local-mcp-runtime";
-import { createRoutineRuntime } from "./host-service/routine-runtime";
+import { createAutomationRuntime } from "./host-service/automation-runtime";
 import { createTaskSupervisorRuntime } from "./host-service/task-supervisor-runtime";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
 import { createCursorChatId } from "./host-service/cursor-chat-id";
@@ -88,7 +88,7 @@ import type {
   HostServiceEventMap,
   HostServiceEventName,
   HostLocalMcpAction,
-  HostRoutineAction,
+  HostAutomationAction,
   HostTaskSupervisorAction,
   HostServiceMethod,
   HostServiceResponseMap,
@@ -556,13 +556,13 @@ const terminalRuntime = createTerminalRuntime({
   emitEvent,
   persistence: ensureHostServicePersistenceReady(),
 });
-const routineRuntime = createRoutineRuntime({
+const automationRuntime = createAutomationRuntime({
   persistence: ensureHostServicePersistenceReady(),
   runTask: localMcpRuntime.runTask,
   getTaskStatus: localMcpRuntime.getTaskStatus,
   getWorkspaceInformation: localMcpRuntime.getWorkspaceInformation,
   emitUnattendedAutomationsChanged: (payload) => {
-    emitEvent("routine.unattended-automations-changed", payload);
+    emitEvent("automation.unattended-authorizations-changed", payload);
   },
 });
 const taskSupervisorRuntime = createTaskSupervisorRuntime({
@@ -732,41 +732,41 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
   }
 }
 
-async function invokeRoutineAction(action: HostRoutineAction, args: unknown) {
+async function invokeAutomationAction(action: HostAutomationAction, args: unknown) {
   switch (action) {
     case "list":
-      return routineRuntime.list();
+      return automationRuntime.list();
     case "create":
-      return routineRuntime.create(
-        args as Parameters<typeof routineRuntime.create>[0],
+      return automationRuntime.create(
+        args as Parameters<typeof automationRuntime.create>[0],
       );
     case "update":
-      return routineRuntime.update(
-        args as Parameters<typeof routineRuntime.update>[0],
+      return automationRuntime.update(
+        args as Parameters<typeof automationRuntime.update>[0],
       );
     case "remove":
-      return routineRuntime.remove(
-        args as Parameters<typeof routineRuntime.remove>[0],
+      return automationRuntime.remove(
+        args as Parameters<typeof automationRuntime.remove>[0],
       );
     case "set-enabled":
-      return routineRuntime.setEnabled(
-        args as Parameters<typeof routineRuntime.setEnabled>[0],
+      return automationRuntime.setEnabled(
+        args as Parameters<typeof automationRuntime.setEnabled>[0],
       );
     case "set-provider-timeout":
-      return routineRuntime.setProviderTimeoutMs(
-        args as Parameters<typeof routineRuntime.setProviderTimeoutMs>[0],
+      return automationRuntime.setProviderTimeoutMs(
+        args as Parameters<typeof automationRuntime.setProviderTimeoutMs>[0],
       );
     case "run-now":
-      return routineRuntime.runNow(
-        args as Parameters<typeof routineRuntime.runNow>[0],
+      return automationRuntime.runNow(
+        args as Parameters<typeof automationRuntime.runNow>[0],
       );
     case "list-information-references":
-      return routineRuntime.listInformationReferences(
-        args as Parameters<typeof routineRuntime.listInformationReferences>[0],
+      return automationRuntime.listInformationReferences(
+        args as Parameters<typeof automationRuntime.listInformationReferences>[0],
       );
     default:
       action satisfies never;
-      throw new Error(`Unsupported routine action: ${String(action)}`);
+      throw new Error(`Unsupported automation action: ${String(action)}`);
   }
 }
 
@@ -1323,7 +1323,7 @@ async function respondError(id: number, error: unknown) {
 async function shutdown() {
   setWorkspaceScriptEventListener(null);
   localMcpRuntime.setLocalMcpEventListener(null);
-  routineRuntime.stop();
+  automationRuntime.stop();
   taskSupervisorRuntime.stop();
   const infrastructureCleanup = Promise.allSettled([
     terminalRuntime.cleanupAll(),
@@ -2023,10 +2023,10 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         await localMcpRuntime.stopManagedTaskTurn(request.params),
       );
       return;
-    case "routine.invoke":
+    case "automation.invoke":
       await respond(
         request.id,
-        await invokeRoutineAction(request.params.action, request.params.args),
+        await invokeAutomationAction(request.params.action, request.params.args),
       );
       return;
     case "task-supervisor.invoke":
@@ -2056,7 +2056,7 @@ async function main() {
   });
   prewarmClaudeSdk();
   void prepareCliExecutableDiscovery();
-  routineRuntime.start();
+  automationRuntime.start();
   taskSupervisorRuntime.start();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",

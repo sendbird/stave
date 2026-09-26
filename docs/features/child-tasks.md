@@ -18,7 +18,7 @@ told about the child — including after a restart.
 
 Prefer **Worker mode** when the delegated work only needs to last for the
 current turn: a worker is turn-scoped and never survives a restart. Prefer a
-**Routine** when the work should recur on a schedule rather than be handed off
+**Automation** when the work should recur on a schedule rather than be handed off
 once.
 
 ## Before You Start
@@ -261,5 +261,5 @@ may have running at once (default 3, maximum 16).
 - [`docs/architecture/agent-platform-taxonomy.md`](../architecture/agent-platform-taxonomy.md)
 - [`docs/architecture/run-core.md`](../architecture/run-core.md)
 - [`docs/features/local-mcp-user-guide.md`](local-mcp-user-guide.md)
-- [`docs/features/routines.md`](routines.md)
+- [`docs/features/automations.md`](automations.md)
 - [`docs/features/provider-sandbox-and-approval.md`](provider-sandbox-and-approval.md)

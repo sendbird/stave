@@ -220,7 +220,7 @@ const fakeStore = {
     recordCall("createNotification");
     return { inserted: true, notification };
   },
-  loadRoutineProviderTimeoutMs: () => null,
+  loadAutomationProviderTimeoutMs: () => null,
   // Field-scoped turn write. Records the same shape the tests measure, so
   // write volume assertions cover both persistence routes.
   persistTaskTurnDelta: ({

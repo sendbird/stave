@@ -2,7 +2,7 @@
  * Task supervisor domain: the pure half of a heartbeat.
  *
  * A heartbeat wakes one existing task — on a schedule, or when work that task
- * delegated finishes. It never creates a task — that is a routine's job, and
+ * delegated finishes. It never creates a task — that is an automation's job, and
  * the boundary is asserted in `tests/agent-platform-boundaries.test.ts`.
  *
  * Used by:
@@ -20,10 +20,10 @@
 import { z } from "zod";
 import type { ProviderId } from "../providers/provider.types";
 import {
-  computeNextRoutineRunAt,
-  RoutineScheduleSchema,
-  type RoutineSchedule,
-} from "../routines";
+  computeNextAutomationRunAt,
+  AutomationScheduleSchema,
+  type AutomationSchedule,
+} from "../automations";
 
 export const TASK_HEARTBEAT_LIMITS = Object.freeze({
   maxIdChars: 256,
@@ -48,7 +48,7 @@ export const TASK_HEARTBEAT_LIMITS = Object.freeze({
   /**
    * Heartbeat prompts are short standing instructions ("re-check CI, report
    * only on change"), not task briefs, and this row is replayed indefinitely.
-   * Deliberately far below the routine prompt bound.
+   * Deliberately far below the automation prompt bound.
    */
   maxPromptChars: 10_000,
   maxReasonChars: 500,
@@ -143,7 +143,7 @@ export function taskHeartbeatFingerprintsMatch(
 export const TaskHeartbeatScheduleTriggerSchema = z
   .object({
     kind: z.literal("schedule"),
-    schedule: RoutineScheduleSchema,
+    schedule: AutomationScheduleSchema,
   })
   .strict();
 
@@ -346,7 +346,7 @@ export function isAutomaticTaskHeartbeatPause(reason: TaskHeartbeatPauseReason) 
 /* -------------------------------------------------------------------------- */
 
 /**
- * The definition input. Unlike a routine's, this REQUIRES a taskId: a heartbeat
+ * The definition input. Unlike an automation's, this REQUIRES a taskId: a heartbeat
  * only ever adds a turn to a task that already exists.
  */
 export const TaskHeartbeatUpsertInputSchema = z
@@ -519,7 +519,7 @@ export interface DueTaskHeartbeatOccurrences {
  * silently swallowed.
  */
 export function collectDueTaskHeartbeatOccurrences(args: {
-  schedule: RoutineSchedule;
+  schedule: AutomationSchedule;
   nextRunAt: string;
   now: Date;
 }): DueTaskHeartbeatOccurrences {
@@ -539,7 +539,7 @@ export function collectDueTaskHeartbeatOccurrences(args: {
   let steps = 0;
   let exhausted = false;
   for (;;) {
-    const next = computeNextRoutineRunAt({
+    const next = computeNextAutomationRunAt({
       schedule: args.schedule,
       after: cursor,
     });
@@ -552,7 +552,7 @@ export function collectDueTaskHeartbeatOccurrences(args: {
       // Absurdly long downtime for this cadence. Re-anchor to now rather than
       // walk millions of instants; the skip count still reports the gap.
       exhausted = true;
-      cursor = computeNextRoutineRunAt({ schedule: args.schedule, after: args.now });
+      cursor = computeNextAutomationRunAt({ schedule: args.schedule, after: args.now });
       due.push(args.now.toISOString());
       break;
     }
@@ -879,7 +879,7 @@ export function applyTaskHeartbeatDecision(args: {
         // waited an hour on an approval must not fire the moment it is answered.
         nextRunAt:
           heartbeat.trigger.kind === "schedule"
-            ? computeNextRoutineRunAt({
+            ? computeNextAutomationRunAt({
                 schedule: heartbeat.trigger.schedule,
                 after: now,
               })
@@ -1031,7 +1031,7 @@ export function createTaskHeartbeat(args: {
     reasonDetail: null,
     nextRunAt:
       args.input.trigger.kind === "schedule"
-        ? computeNextRoutineRunAt({
+        ? computeNextAutomationRunAt({
             schedule: args.input.trigger.schedule,
             after: args.now,
           })

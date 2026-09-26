@@ -15,9 +15,9 @@ export {
 } from "./provider-runtime-schemas";
 export { StreamTurnArgsSchema } from "./provider-conversation-schemas";
 import {
-  RoutineInformationResourceCreateInputSchema,
-  RoutineUpsertInputSchema,
-} from "../../../src/lib/routines";
+  AutomationInformationResourceCreateInputSchema,
+  AutomationUpsertInputSchema,
+} from "../../../src/lib/automations";
 import { LENS_CAPTURE_LIMITS } from "../../../src/lib/lens/lens-annotation-schema";
 import { PR_CONTEXT_LIMITS } from "../../../src/lib/pr-context";
 import { GITHUB_PR_REVIEW_LIMITS } from "../../../src/lib/github-pr-review";
@@ -69,7 +69,7 @@ export {
   JiraConnectorTestConnectionArgsSchema,
 } from "../../../src/lib/jira-connector/types";
 
-export const RoutineProviderTimeoutArgsSchema = z
+export const AutomationProviderTimeoutArgsSchema = z
   .object({
     providerTimeoutMs: z.number().int().min(1).max(MAX_PROVIDER_TIMEOUT_MS),
   })
@@ -1568,36 +1568,36 @@ export const EslintRequestArgsSchema = z
   })
   .strict();
 
-export const RoutineCreateArgsSchema = RoutineUpsertInputSchema;
+export const AutomationCreateArgsSchema = AutomationUpsertInputSchema;
 
-export const RoutineUpdateArgsSchema = z
+export const AutomationUpdateArgsSchema = z
   .object({
     id: z.string().uuid(),
-    input: RoutineUpsertInputSchema,
+    input: AutomationUpsertInputSchema,
   })
   .strict();
 
-export const RoutineIdArgsSchema = z
+export const AutomationIdArgsSchema = z
   .object({
     id: z.string().uuid(),
   })
   .strict();
 
-export const RoutineSetEnabledArgsSchema = z
+export const AutomationSetEnabledArgsSchema = z
   .object({
     id: z.string().uuid(),
     enabled: z.boolean(),
   })
   .strict();
 
-export const RoutineInformationReferencesArgsSchema = z
+export const AutomationInformationReferencesArgsSchema = z
   .object({
     workspaceId: z.string().min(1).max(4096),
   })
   .strict();
 
-export const RoutineInformationResourceCreateArgsSchema =
-  RoutineInformationResourceCreateInputSchema;
+export const AutomationInformationResourceCreateArgsSchema =
+  AutomationInformationResourceCreateInputSchema;
 
 export const PersistenceFlushCompleteArgsSchema = z
   .object({

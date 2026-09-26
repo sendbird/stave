@@ -1,0 +1,22 @@
+{
+  "version": 1,
+  "policy": "Every entry is code that exists only to read or convert names Stave no longer uses, or to replay a rename on another branch. `bun run check:temporary-migrations` fails once package.json reaches removeInVersion; delete the marked blocks, the listed tests and the entry before that release. See AGENTS.md, Temporary Migrations.",
+  "migrations": [
+    {
+      "id": "automation-app-state-keys",
+      "description": "Moves app_state values saved under routine_state_v1 and routine_provider_timeout_ms_v1 to the automation keys, renaming routines/routineId to automations/automationId.",
+      "introducedAfter": "0.19.6",
+      "removeInVersion": "0.22.0",
+      "files": ["electron/persistence/automation-state-store.ts"],
+      "tests": ["tests/automation-state-migration.test.ts"]
+    },
+    {
+      "id": "rename-vocabulary-codemod",
+      "description": "Replays the vocabulary renames (routine to automation, and later renames) on branches that started before they landed.",
+      "introducedAfter": "0.19.6",
+      "removeInVersion": "0.22.0",
+      "files": ["scripts/codemods/rename-vocabulary.ts"],
+      "tests": []
+    }
+  ]
+}

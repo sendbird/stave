@@ -183,7 +183,7 @@ and under `_meta`, so a later Cursor build that starts reporting usage is
 picked up without a runtime change.
 
 Cursor is intentionally excluded from Advisor, secondary and unattended runs,
-routines, native thread actions, and mid-turn steering. It does have a
+automations, native thread actions, and mid-turn steering. It does have a
 Standalone CLI tab: that surface runs `agent` directly over a PTY and does not
 go through the ACP runtime, so none of the ACP limitations apply to it.
 ACP v1 `session/prompt` is blocking, and the Cursor Agent ACP dispatcher
@@ -244,7 +244,7 @@ usage control and the turn-activity Headroom/Usage tiles show a percentage and
 a credit amount instead of a zero-token turn.
 
 Kiro is intentionally excluded from Advisor, secondary and unattended runs,
-routines, and native thread actions. It does have a Standalone CLI tab: that
+automations, and native thread actions. It does have a Standalone CLI tab: that
 surface runs `kiro-cli chat` directly over a PTY and does not go through the
 ACP runtime, so none of the ACP limitations apply to it. Interactive primary
 turns can steer mid-turn: while `session/prompt` is in flight, Stave sends the

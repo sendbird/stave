@@ -2025,10 +2025,10 @@ export async function runTask(args: {
     informationReferencesContext
       ? {
           type: "retrieved_context",
-          sourceId: "stave:routine-information-references",
-          title: "Routine Information References",
+          sourceId: "stave:automation-information-references",
+          title: "Automation Information References",
           content: [
-            "The routine explicitly attached these Information panel entries.",
+            "The automation explicitly attached these Information panel entries.",
             "Treat section references as the full current section and item references as the specific current item.",
             "",
             informationReferencesContext,
@@ -2164,10 +2164,10 @@ export async function runTask(args: {
                 ? { runtimeOptions: args.runtimeOptions }
                 : {}),
               // The renderer syncs Settings.providerTimeoutMs into this key
-              // via routines.setProviderTimeout. Managed turns run in the
+              // via automations.setProviderTimeout. Managed turns run in the
               // host and otherwise never see that setting.
               defaultProviderTimeoutMs: normalizeProviderTimeoutMs({
-                value: store.loadRoutineProviderTimeoutMs(),
+                value: store.loadAutomationProviderTimeoutMs(),
               }),
             })
           : args.runtimeOptions),
@@ -2364,7 +2364,7 @@ export async function releaseTaskParent(args: {
 /**
  * Everything the task supervisor needs to decide whether a heartbeat may fire.
  *
- * Deliberately separate from `getTaskStatus`: that shape is a routine's view of
+ * Deliberately separate from `getTaskStatus`: that shape is an automation's view of
  * a run it started, while this one answers "is this pre-existing task still the
  * same task, still free, and still on the runtime the heartbeat agreed to".
  * Unlike `getTaskStatus` it reports a missing workspace or task as `exists:

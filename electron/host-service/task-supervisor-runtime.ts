@@ -57,7 +57,7 @@ import type { CanonicalRetrievedContextPart } from "../../src/lib/providers/prov
 import type { TaskSupervisionSnapshot } from "./local-mcp-runtime";
 
 /**
- * Slower than the routine tick: a heartbeat's shortest cadence is a minute, and
+ * Slower than the automation tick: a heartbeat's shortest cadence is a minute, and
  * every tick costs one task read per active heartbeat.
  */
 const TASK_SUPERVISOR_TICK_INTERVAL_MS = 15_000;

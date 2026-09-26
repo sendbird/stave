@@ -11,7 +11,7 @@ import {
 import { layoutShellStyles } from "./layout-shell.styles";
 import { useAppStore } from "@/store/app.store";
 
-export function TopBarRoutines(props: { noDragStyle: CSSProperties }) {
+export function TopBarAutomations(props: { noDragStyle: CSSProperties }) {
   const [toggleAutomationCenter, isAutomationCenterActive] = useAppStore(
     useShallow(
       (state) =>
