@@ -111,6 +111,8 @@ const EMPTY_WORKSPACE_STATE: MissionWorkspaceState = {
   openPullRequest: null,
 };
 
+const PROJECT_MEMORY_SOURCE_ID = "stave:project-memory";
+
 type MissionStorePort = Pick<
   MissionStore,
   | "create"
@@ -185,6 +187,11 @@ export interface MissionRuntimeDependencies {
   }) => Promise<{ ok: true; url: string } | { ok: false; detail: string }>;
   /** Tells the user about a turn the mission could not start. Never throws. */
   notifyMissionProblem?: (args: { mission: Mission; detail: string }) => Promise<void> | void;
+  /**
+   * What the mission's project has decided, for a mission a project started;
+   * null otherwise. Recalled only by missions of that project.
+   */
+  readProjectContext?: (projectId: string) => string | null;
   emitChanged?: (event: MissionChangedEvent) => void;
   now?: () => Date;
   setInterval?: typeof globalThis.setInterval;
@@ -570,7 +577,10 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
           mission.fingerprint.providerId,
           mission.consent.permissionMode,
         ),
-        retrievedContextParts: [buildMissionTurnContextPart({ aggregate: started, reason })],
+        retrievedContextParts: [
+          buildMissionTurnContextPart({ aggregate: started, reason }),
+          ...projectContextParts(started.mission),
+        ],
         ...(actionPrompt === undefined ? { missionStage: identity } : {}),
       });
       turnIdsFor(mission.id).add(turn.turnId);
@@ -642,6 +652,13 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
       });
     }
     return outcome;
+  }
+
+  function projectContextParts(mission: Mission): CanonicalRetrievedContextPart[] {
+    const content = mission.projectId ? deps.readProjectContext?.(mission.projectId) : null;
+    return content
+      ? [{ type: "retrieved_context", sourceId: PROJECT_MEMORY_SOURCE_ID, title: "Project memory", content } as CanonicalRetrievedContextPart]
+      : [];
   }
 
   /** Runs the policy for one mission until it idles or starts a turn. */
