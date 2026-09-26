@@ -10,6 +10,8 @@ approve it, reads their reports when they end and proposes what comes next.
 You brief the goal once and then approve, sign off and review. The coordinator
 never edits files; the work happens in [missions](missions.md).
 
+![A project home: the goal and what needs you, the coordinator's summary, missions in Needs you, Running and Done, and the Memory, Library and Settings tabs](../screenshots/projects.png)
+
 ## When To Use It
 
 - The goal splits into pieces that can run side by side or one after another,
@@ -48,7 +50,8 @@ never edits files; the work happens in [missions](missions.md).
 ### Entry Points
 
 - **Projects** in the sidebar, under Fleet View, with each open project and
-  the number of things that need you.
+  the number of things that need you. With the sidebar collapsed, the
+  Projects icon on the rail has a dot when something needs you.
 - **Open projects** and **New project…** in the command palette.
 - The project count in the Fleet View header.
 
@@ -60,17 +63,20 @@ focus is on the right. On a narrow window a picker replaces the list.
 ### Project home
 
 - **Header**: the name, the state (Active, Paused, Completed, Cancelled) and
-  the goal, then chips for what needs you, what runs and what is done, and
-  how missions start ("You start each mission · up to 2 at once"). **Pause**
+  the goal, then chips for what needs you, what runs, what is done and what
+  the project's missions have spent, and how missions start ("You start each
+  mission · up to 2 at once"). **Pause**
   stops the coordinator's automatic turns and new starts; the ⋯ menu marks
   the goal met or cancels the project.
 - **Coordinator**: its latest summary of the project and when it last woke.
   **Open coordinator** opens its task, where you can talk to it like any
   task.
-- **Needs you**: proposals waiting for **Start mission** or **Dismiss**, and
-  missions that wait for your sign-off or are blocked or stuck (**Review**).
+- **Needs you**: proposals waiting for **Start mission** or **×** (dismiss),
+  and missions that wait for your sign-off or are blocked or stuck
+  (**Review**). A proposal shows where it will run, such as **Codex · GPT-6
+  Sol**; open it to pick another provider or model before starting.
 - **Running** and **Done**: each mission with its playbook, current stage,
-  provider and a stage track. **Open** goes to its task; **PR** opens its
+  provider, what it spent and a stage track. **Open** goes to its task; **PR** opens its
   pull request.
 - **Memory**: decisions from finished missions and the coordinator's notes.
   **Accept** a decision to have later missions follow it; **×** removes it.
@@ -92,6 +98,9 @@ focus is on the right. On a narrow window a picker replaces the list.
 - With **Ask before starting** on, `stave_start_mission` creates a proposal
   you approve. With it off, missions start on their own up to **Missions at
   once**.
+- The coordinator picks each mission's provider and may name a model from the
+  list `stave_get_project` returns; without one the mission runs on the
+  provider's default model. The mission's new task opens on that model.
 - The coordinator's turns are read-only: Claude cannot edit files and Codex
   runs read-only.
 - After 24 automatic turns in a day, the project pauses and tells you;
@@ -102,7 +111,8 @@ focus is on the right. On a narrow window a picker replaces the list.
 ### Run two pieces in parallel
 
 Set **Missions at once** to 2 or more. Approve both proposals; each starts on
-its own worktree, on the provider the coordinator chose for it.
+its own worktree, on the provider and model the coordinator chose for it —
+or the one you picked on the proposal.
 
 ### Carry a decision into later missions
 
@@ -127,13 +137,13 @@ continue on their own; the coordinator stops waking.
 ## Limitations And Advanced Options
 
 - The coordinator edits no files; it plans and follows.
-- A project mission runs on its provider's default model.
+- **Spent** adds up what the project's missions report (see
+  [Missions](missions.md)); the coordinator's own turns are not included.
 - While Stave is closed nothing runs. On relaunch the project continues:
   missions resume where they were, and a start that was interrupted halfway
   is marked failed and reported instead of being started twice.
 - Projects do not yet start from outside events (an assigned issue, failing
-  checks), and there is no per-project usage view.
-- The collapsed sidebar has no Projects entry; use the command palette.
+  checks).
 
 ## Troubleshooting
 
@@ -155,3 +165,4 @@ replayed on its own.
 - [Missions](missions.md)
 - [Playbooks](playbooks.md)
 - [Fleet Action Required](fleet-needs-me.md)
+- [Sidebar Views](sidebar-views.md)

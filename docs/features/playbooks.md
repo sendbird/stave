@@ -4,7 +4,10 @@
 
 A playbook is a saved way of working: the stages you would otherwise prompt one
 by one, each with an instruction and a condition that says when it is done.
-Start a [mission](missions.md) with it and Stave runs the stages for you.
+Start a [mission](missions.md) with it and Stave runs the stages for you. A
+[project](projects.md)'s coordinator picks from the same playbooks.
+
+![The Playbooks tab: saved playbooks on the left, and the selected playbook's check-ins, shortcut, permissions, constraints and stages](../screenshots/playbooks.png)
 
 ## When To Use It
 
@@ -92,3 +95,4 @@ In the Start mission sheet, open **Edit stages for this mission**. Leave
 
 - [Missions](missions.md)
 - [Automations](automations.md)
+- [Projects](projects.md)

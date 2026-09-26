@@ -812,14 +812,16 @@ Phase 1 shipped as designed, with these deviations:
 - **Sign-off card.** Sits in the composer's approval slot, shown when no tool
   approval is pending, and asks a question (**Ready to start Verify?**).
 - **Start sheet.** The assignment comes first; external effects are one
-  checkbox list under the stage rail; **Start at stage** is not built yet (the
-  mission domain has no start index). The Kickoff and Issues paths create the
+  checkbox list under the stage rail; **Start at** picks the first stage, and
+  earlier stages are recorded as skipped. The Kickoff and Issues paths create the
   task, then open the sheet on it, so consent is always collected in the
   sheet.
 - **Builder.** Stave action settings are edited inline in the stage row, not in
   a side pane.
-- **Fleet.** Spend is not shown (no per-mission usage yet); the turn budget and
-  a near-limit warning are shown instead.
+- **Spend.** Summed from the provider-reported usage of the mission's turns:
+  the cost where the provider reports one (Claude), tokens otherwise (Codex),
+  on the sign-off card, the Mission panel, the report and the Fleet strip,
+  beside the turn budget and its near-limit warning.
 - **Metrics.** User replies, nudges, stuck stages and sign-off waits are
   computed from mission events for the report footer; there is no separate
   diagnostics view.
@@ -844,9 +846,10 @@ Phase 3 shipped as designed, with these deviations:
   Needs you, Running and Done lanes on one row grid, then Memory, Library and
   Settings tabs. The coordinator conversation opens in its own task (**Open
   coordinator**) rather than docked beside the board.
-- **Not built yet.** Start conditions on projects, per-project usage, a
-  Projects entry in the collapsed sidebar, and a model choice for project
-  missions (they run on the provider's default model).
+- **Models and spend.** The coordinator may name a model per mission, and the
+  user may change provider and model on a proposal before starting it. The
+  project home adds up what its missions spent.
+- **Not built yet.** Start conditions on projects (Phase 2 triggers).
 - **Restarts.** Quitting stops the runtimes rather than recording a paused
   state. On relaunch missions resume, delivered changes are not re-sent, and
   a start interrupted halfway is marked failed instead of replayed.

@@ -57,10 +57,17 @@ right.
 
 ### Start a mission
 
+![The Start a mission sheet: the assignment, the playbook with Start at and each stage's check-in, check-ins, and the stages that act outside this machine](../screenshots/start-mission-sheet.png)
+
 - **What should this mission achieve?** The assignment. Paste a Slack thread
   or issue link, or describe the outcome.
 - **Playbook** and its stages. Each stage says **Starts now**, **Automatic**
   or **Asks you**; a globe marks a stage that acts outside this machine.
+- **Start at**: begin with a later stage when the earlier work is already
+  done, for example **3. Verify** after you built the change yourself. Earlier
+  stages show **Skipped**, are recorded as not run, and the button says where
+  the mission starts (**Start at Verify — asks before Ready for review**).
+  Starting after **Open draft PR** needs a pull request that already exists.
 - **Check-ins**: **Every stage**, **Plan and publishing** (asks before the
   stage after a plan, before publishing and before requesting review), or
   **Only when stuck**.
@@ -91,9 +98,13 @@ Above the composer while a mission runs:
 
 ### Sign-off
 
+![A sign-off card asking Ready to start Verify?, with what Build produced, the turns used and what the mission spent](../screenshots/mission-sign-off.png)
+
 When a stage waits for you, a card appears where tool approvals appear:
 **Ready to start Verify?**, with what the previous stage produced (files
-changed, evidence Stave verified) and its summary.
+changed, evidence Stave verified) and its summary. Its corner shows the stage,
+the turns used of the limit and what the mission has spent, such as
+**Stage 3 of 6 · 5 of 30 turns · $0.84**.
 
 - The primary button names what happens, such as **Start Verify** or
   **Mark ready for review**.
@@ -101,6 +112,8 @@ changed, evidence Stave verified) and its summary.
 - **Ask for changes** sends a note and runs the last AI stage again.
 
 ### Mission panel
+
+![The Mission panel: goal, state, stage track, acceptance criteria, the stage timeline, and the turns and spend](../screenshots/mission-panel.png)
 
 The Mission tab in the right rail:
 
@@ -113,7 +126,8 @@ The Mission tab in the right rail:
   tool call in the transcript), links, and the instruction it ran with.
 - **Retry stage** and **Skip stage** on a blocked or stuck stage; **Pause**,
   and **Cancel mission** in the **⋯** menu.
-- The turn budget, with a warning close to the limit.
+- The turn budget, with a warning close to the limit, and **Spent**: the cost
+  and tokens the mission's turns used, as the provider reports them.
 
 ### Transcript
 
@@ -123,7 +137,7 @@ A quiet divider marks every turn a mission started, with the reason, such as
 ### Mission report
 
 When a mission ends, its report tops the Mission panel and Task Results:
-outcome, figures (duration, stages, turns, verified evidence), links,
+outcome, figures (duration, stages, turns, verified evidence, what it spent), links,
 decisions, what is still open, what was left behind, and how much the mission
 needed you. **Copy Markdown**, **Add to PR description** and **Save decisions
 to memory** (as memory candidates you review) act on it.
@@ -132,8 +146,8 @@ to memory** (as memory candidates you review) act on it.
 
 - A sign-off, a blocker or a stuck stage appears in Fleet's attention list with
   approvals and questions. A sign-off can be given from the row.
-- Fleet cards show the mission's stage track, and the work queue puts the
-  workspace in **Action required** or **In progress**.
+- Fleet cards show the mission's stage track and what it has spent, and the
+  work queue puts the workspace in **Action required** or **In progress**.
 - Stave notifies once when a mission asks for a sign-off, is blocked, is stuck
   or completes. **Settings → General → Mission Sign-off Reminders** sets when
   a waiting sign-off reminds you again, batched into one notification.
@@ -173,7 +187,12 @@ to memory** (as memory candidates you review) act on it.
   pauses until you accept the new runtime for the remaining stages.
 - Pull request stages use the GitHub CLI and watch every check reported for
   the pull request.
-- Starting at a later stage of a playbook is not supported yet.
+- **Spent** counts the turns the mission started. Claude reports a cost with
+  each turn; Codex reports tokens only, so a Codex mission shows tokens. Turns
+  whose provider reported nothing are counted and named, not guessed. Cache
+  reads are part of the cost but not of the token count.
+- A mission started at a later stage has no acceptance criteria from
+  **Understand**, so its report shows only what the stages that ran reported.
 
 ## Troubleshooting
 

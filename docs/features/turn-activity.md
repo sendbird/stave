@@ -45,6 +45,15 @@ need more room to follow a busy turn.
 - In `Floating`, drag the card header. The position is retained for the next
   session and is kept reachable if the window is resized.
 
+### With A Mission
+
+On a task running a [mission](missions.md), the Mission bar heads the
+activity and stays up between turns: the current stage, what it is doing, and
+**Take over**. With `Docked` or `Floating` it tucks under the turn shelf or the
+composer like a shelf of its own; with `Panel` it sits at the top of the
+panel. A stage that waits for your sign-off asks in the composer's approval
+slot instead.
+
 ### Activity Rows
 
 - A row that stands for a tool call is a button. Choosing it scrolls the
@@ -216,3 +225,4 @@ row when it is narrower.
 
 - [Delegated Tasks](delegated-tasks.md)
 - [Fleet Needs Me](fleet-needs-me.md)
+- [Missions](missions.md)

@@ -26,6 +26,13 @@ immediately. When it is off, the prompt remains ready in the new task composer.
 The selected model, effort, and Codex Fast mode stay attached to that task in
 either case. The Fast dropdown appears only when the first task uses Codex.
 
+To hand the first task to a [mission](missions.md) instead, pick a
+**Playbook** for it (Claude and Codex tasks). Stave creates the workspace and
+the task, then opens **Start a mission** on it with the prompt as the
+assignment, so you confirm the stages and what may run on its own before
+anything starts. **None — run the prompt as one task** keeps the usual
+behavior.
+
 ## Source Configuration
 
 Open `Settings → Kickoff` to configure source matching and resolution.
@@ -134,3 +141,4 @@ provider execution or connector authentication.
 - [Repository Instructions](repository-instructions.md)
 - [Local MCP user guide](local-mcp-user-guide.md)
 - [Workspace Latest Turn Summary](workspace-latest-turn-summary.md)
+- [Missions](missions.md)

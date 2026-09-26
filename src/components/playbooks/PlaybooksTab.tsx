@@ -206,7 +206,7 @@ export function PlaybooksTab() {
   }
 
   return (
-    <div className={sx(styles.tab)}>
+    <div className={sx(styles.tab)} data-testid="playbooks-tab">
       <aside className={sx(styles.master)} aria-label="Playbooks">
         <div className={sx(styles.masterHeader)}>
           <div className={sx(styles.masterSearch)}>

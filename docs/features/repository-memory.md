@@ -110,6 +110,11 @@ summary prompts are preserved; untouched old defaults receive the new candidate
 extraction instructions. The parser enforces the one-candidate limit regardless
 of the configured prompt.
 
+Repository memory is separate from a [project](projects.md)'s memory. Project
+memory holds the decisions a project's missions made and its coordinator's
+notes, and reaches only missions of that project; repository memory reaches
+every task in the repository.
+
 Main and host-service share the persistence implementation. Workspace ownership
 resolves the repository for agent tools; a replacement cannot target another repository.
 Renderer and host turns use the same query and retrieved-context builders before

@@ -915,3 +915,19 @@ As-built (PR 19):
   code-organization rows, design §16 As Built, promoted plan copy.
 - Deviation (P4): quitting stops the runtimes instead of recording a paused
   state; relaunch resumes.
+
+## Follow-ups After The Plan
+
+Built after the twenty changes, closing deviations the As-built notes list:
+
+- [x] `feat(missions): show what missions and projects spend` —
+  `src/lib/missions/usage.ts` sums provider-reported turn usage; the sign-off
+  card, Mission panel, report, Fleet strip and project home show it.
+- [x] `feat(missions): start a mission at a later stage` — **Start at** in the
+  Start sheet; earlier stages are recorded as skipped.
+- [x] `feat(projects): choose the model a project mission runs on` — a model in
+  `stave_start_mission` and a provider/model picker on proposals;
+  `electron/host-service/idle-task.ts` opens the mission's task on it.
+- [x] `feat(projects): add projects to the collapsed sidebar`.
+- [ ] Start conditions on projects wait for the Phase 2 triggers.
+

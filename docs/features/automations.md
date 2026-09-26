@@ -45,8 +45,10 @@
 
 ### Layout
 
-The surface has two tabs, and each one is a list-plus-detail split so the
-automation list and the run history are never stacked in one scroll view.
+The surface has three tabs. The first two are list-plus-detail splits so the
+automation list and the run history are never stacked in one scroll view; the
+third, `Playbooks`, is where the stages missions run are saved and edited (see
+[Playbooks](playbooks.md)).
 
 - `Automations`: the saved automation list on the left, and the selected
   automation's configuration on the right. The detail pane shows the latest run
@@ -181,3 +183,5 @@ without requiring a new automation.
 - [Provider Sandbox and Approval](provider-sandbox-and-approval.md)
 - [Workspace Scripts](workspace-scripts.md)
 - [Latest Turn Summary](workspace-latest-turn-summary.md)
+- [Playbooks](playbooks.md)
+- [Missions](missions.md)

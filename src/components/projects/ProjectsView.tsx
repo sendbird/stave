@@ -146,7 +146,7 @@ export function ProjectsView() {
   }, [detail, select, selected]);
 
   return (
-    <div className={sx(centerStyles.root)}>
+    <div className={sx(centerStyles.root)} data-testid="projects-view">
       <header className={sx(centerStyles.header)}>
         <div className={sx(centerStyles.headerText)}>
           <div className={sx(centerStyles.headerTitleRow)}>
