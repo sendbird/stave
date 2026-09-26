@@ -38,9 +38,9 @@ import {
 import { proposeDispatchWorkspaceLabel } from "@/lib/crane-connector/workspace-label";
 import {
   findMappedCraneTeamRuntime,
-  findMappedStaveProjectPath,
+  findMappedStaveRepositoryPath,
   getCraneTeamKey,
-  updateCraneTeamProjectMapping,
+  updateCraneTeamRepositoryMapping,
 } from "@/lib/crane-connector/project-mapping";
 import { useAppStore } from "@/store/app.store";
 
@@ -48,12 +48,12 @@ export function CraneDispatchApprovalDialog() {
   const { approval } = useCraneConnectorClientState();
   const declineButtonRef = useRef<HTMLButtonElement>(null);
   const [submitting, setSubmitting] = useState(false);
-  const projects = useAppStore((state) => state.recentProjects);
+  const repositories = useAppStore((state) => state.recentRepositories);
   const settings = useAppStore((state) => state.settings);
   const providerAvailability = useAppStore(
     (state) => state.providerAvailability,
   );
-  const [projectPath, setProjectPath] = useState("");
+  const [repositoryPath, setRepositoryPath] = useState("");
   const [rememberTeamDefaults, setRememberTeamDefaults] = useState(false);
   const [workspaceStrategy, setWorkspaceStrategy] =
     useState<DispatchWorkspaceStrategy>("new");
@@ -66,10 +66,10 @@ export function CraneDispatchApprovalDialog() {
     codexCatalogEnabled: approval !== null,
   });
 
-  const selectedProject = useMemo(
+  const selectedRepository = useMemo(
     () =>
-      projects.find((project) => project.projectPath === projectPath) ?? null,
-    [projectPath, projects],
+      repositories.find((repository) => repository.repositoryPath === repositoryPath) ?? null,
+    [repositoryPath, repositories],
   );
   const jiraReference = useMemo(
     () => (approval ? resolveCraneJiraReference(approval.job) : null),
@@ -89,31 +89,31 @@ export function CraneDispatchApprovalDialog() {
     }
     const store = useAppStore.getState();
     const currentSettings = store.settings;
-    const registeredProjects = store.recentProjects;
-    const mappings = currentSettings.craneConnector.projectMappings;
-    const mappedProjectPath = findMappedStaveProjectPath({
+    const registeredRepositories = store.recentRepositories;
+    const mappings = currentSettings.craneConnector.repositoryMappings;
+    const mappedRepositoryPath = findMappedStaveRepositoryPath({
       issueKey: approval.job.issue.key,
       mappings,
-      registeredProjectPaths: registeredProjects.map(
-        (project) => project.projectPath,
+      registeredRepositoryPaths: registeredRepositories.map(
+        (repository) => repository.repositoryPath,
       ),
     });
-    const activeRegisteredProjectPath =
-      store.projectPath &&
-      registeredProjects.some(
-        (project) => project.projectPath === store.projectPath,
+    const activeRegisteredRepositoryPath =
+      store.repositoryPath &&
+      registeredRepositories.some(
+        (repository) => repository.repositoryPath === store.repositoryPath,
       )
-        ? store.projectPath
+        ? store.repositoryPath
         : null;
     const rememberedRuntime = findMappedCraneTeamRuntime({
       issueKey: approval.job.issue.key,
       mappings,
     });
 
-    setProjectPath(
-      mappedProjectPath ??
-        activeRegisteredProjectPath ??
-        registeredProjects[0]?.projectPath ??
+    setRepositoryPath(
+      mappedRepositoryPath ??
+        activeRegisteredRepositoryPath ??
+        registeredRepositories[0]?.repositoryPath ??
         "",
     );
     setRememberTeamDefaults(Boolean(getCraneTeamKey(approval.job.issue.key)));
@@ -188,7 +188,7 @@ export function CraneDispatchApprovalDialog() {
       toast.error("Crane connector controls are unavailable.");
       return;
     }
-    if (!projectPath) {
+    if (!repositoryPath) {
       toast.error("Choose a registered Stave repository.");
       return;
     }
@@ -205,7 +205,7 @@ export function CraneDispatchApprovalDialog() {
     try {
       const result = await approveJob({
         jobId: approval.job.id,
-        projectPath,
+        repositoryPath,
         workspace:
           workspaceStrategy === "new"
             ? {
@@ -232,10 +232,10 @@ export function CraneDispatchApprovalDialog() {
           patch: {
             craneConnector: {
               ...craneConnector,
-              projectMappings: updateCraneTeamProjectMapping({
-                mappings: craneConnector.projectMappings,
+              repositoryMappings: updateCraneTeamRepositoryMapping({
+                mappings: craneConnector.repositoryMappings,
                 teamKey: craneTeamKey,
-                staveProjectPath: rememberTeamDefaults ? projectPath : null,
+                staveProjectPath: rememberTeamDefaults ? repositoryPath : null,
                 runtime: rememberTeamDefaults
                   ? runtime.buildTeamRuntimeMemory()
                   : null,
@@ -249,7 +249,7 @@ export function CraneDispatchApprovalDialog() {
       void useAppStore
         .getState()
         .focusTaskAttention({
-          projectPath,
+          repositoryPath,
           workspaceId: result.workspaceId,
           taskId: result.taskId,
           refreshFromPersistence: true,
@@ -371,10 +371,10 @@ export function CraneDispatchApprovalDialog() {
 
           <DispatchTargetFields
             idPrefix="crane-dispatch"
-            projects={projects}
-            workspaces={selectedProject?.workspaces ?? []}
-            projectPath={projectPath}
-            onProjectPathChange={setProjectPath}
+            repositories={repositories}
+            workspaces={selectedRepository?.workspaces ?? []}
+            repositoryPath={repositoryPath}
+            onRepositoryPathChange={setRepositoryPath}
             workspaceStrategy={workspaceStrategy}
             onWorkspaceStrategyChange={setWorkspaceStrategy}
             workspaceId={workspaceId}
@@ -437,7 +437,7 @@ export function CraneDispatchApprovalDialog() {
             type="button"
             disabled={
               submitting ||
-              !projectPath ||
+              !repositoryPath ||
               !runtime.model.model ||
               // Approving with an unavailable provider fails inside the host
               // runtime, and that failure is terminal for the Crane job.

@@ -340,7 +340,7 @@ describe("tracker issues client state", () => {
     const kickoff = await kickoffTrackerIssue({
       source: "crane",
       taskRef: "a",
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       workspace: { mode: "new" },
       runtime: { provider: "claude-code" },
       instruction: "Fix it",

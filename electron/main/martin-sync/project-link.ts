@@ -8,7 +8,7 @@ import { buildMartinSyncLinks } from "../../../src/lib/martin-sync/links";
 import type { WorkspaceMartinProjectLink } from "../../../src/lib/workspace-information";
 import {
   getWorkspaceInformation,
-  listKnownProjects,
+  listKnownRepositories,
   setWorkspaceMartinProject,
 } from "../stave-mcp-service";
 import { writeMartinContextSnapshot } from "./context-snapshot";
@@ -34,7 +34,7 @@ async function requireMartinClient() {
 }
 
 async function requireWorkspace(workspaceId: string) {
-  const projects = await listKnownProjects();
+  const projects = await listKnownRepositories();
   for (const project of projects) {
     const workspace = project.workspaces.find(
       (candidate) => candidate.id === workspaceId,
@@ -91,7 +91,7 @@ export async function linkMartinProject(args: {
     secret,
     projectRef: args.projectRef,
   });
-  // Archived projects still serve context reads but reject every write with
+  // Archived repositories still serve context reads but reject every write with
   // 409, so linking one would look healthy while nothing could ever sync. The
   // renderer disables archived results; this guards the MCP tool as well.
   if (bundle.project.status === "archived") {
@@ -117,7 +117,7 @@ export async function linkMartinProject(args: {
   });
 
   const runtime = getMartinSyncRuntime();
-  // Anything still queued for a previously linked project can never be
+  // Anything still queued for a previously linked repository can never be
   // delivered now, and its 404/409 responses would hold this workspace's rows
   // on every drain. Drop them before resuming the new mapping.
   runtime.discardWorkspaceEntries({
@@ -166,7 +166,7 @@ export async function unlinkMartinProject(args: {
 
   if (project) {
     // Discard before queueing the farewell event so the unlink notice is the
-    // only row left for this project rather than trailing a dead backlog.
+    // only row left for this repository rather than trailing a dead backlog.
     getMartinSyncRuntime().discardWorkspaceEntries({
       workspaceId: args.workspaceId,
       projectRef: project.ref,
@@ -220,7 +220,7 @@ export async function refreshMartinContext(args: {
     markdown: bundle.markdown,
   });
   const now = new Date().toISOString();
-  // Refreshing an archived project must not clear the stale badge or resume its
+  // Refreshing an archived repository must not clear the stale badge or resume its
   // outbox: reads succeed, but every write still fails with 409.
   const archived = bundle.project.status === "archived";
   const project = createProjectLink({

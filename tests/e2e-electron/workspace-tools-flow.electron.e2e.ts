@@ -5,13 +5,13 @@ import { expect, test } from "@playwright/test";
 import { launchStave } from "./harness/stave-app";
 
 test("workspace tools preserve an unfinished command across views, save it without running, and show its output", async ({}, testInfo) => {
-  const projectPath = await mkdtemp(path.join(tmpdir(), "stave-tools-flow-"));
+  const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-tools-flow-"));
   const stave = await launchStave();
   const errors: string[] = [];
   stave.page.on("pageerror", (error) => errors.push(error.message));
   try {
     await stave.page.getByTestId("workspace-welcome").getByRole("button", { name: "Open a project" }).click();
-    await stave.page.getByPlaceholder("~/projects/my-app").fill(projectPath);
+    await stave.page.getByPlaceholder("~/projects/my-app").fill(repositoryPath);
     await stave.page.getByRole("button", { name: "Open", exact: true }).click();
     await expect(stave.page.getByTestId("workspace-welcome")).toHaveCount(0, { timeout: 15_000 });
     await stave.page.getByRole("button", { name: "Workspace Tools", exact: true }).click();
@@ -27,7 +27,7 @@ test("workspace tools preserve an unfinished command across views, save it witho
     await expect(form.getByLabel("Name", { exact: true })).toHaveValue("Check workspace");
     await form.getByRole("button", { name: "Save command", exact: true }).click();
     await expect(panel.getByText("Check workspace", { exact: true })).toBeVisible();
-    const saved = JSON.parse(await readFile(path.join(projectPath, ".stave/scripts.json"), "utf8"));
+    const saved = JSON.parse(await readFile(path.join(repositoryPath, ".stave/scripts.json"), "utf8"));
     expect(saved.actions["check-workspace"].commands).toEqual(["printf 'workspace tool ready\\n'"]);
     await expect(panel.locator("pre")).toHaveCount(0);
     await panel.getByRole("button", { name: "Run", exact: true }).click();
@@ -56,6 +56,6 @@ test("workspace tools preserve an unfinished command across views, save it witho
     throw error;
   } finally {
     await stave.close();
-    await rm(projectPath, { recursive: true, force: true });
+    await rm(repositoryPath, { recursive: true, force: true });
   }
 });

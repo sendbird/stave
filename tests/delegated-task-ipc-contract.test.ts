@@ -140,7 +140,7 @@ describe("delegated task IPC schemas", () => {
     ).toBe(true);
     expect(
       DelegatedTaskRetryArgsSchema.safeParse({
-        projectPath: "/tmp/project",
+        repositoryPath: "/tmp/project",
         parentWorkspaceId: "workspace-parent-1",
         parentTaskId: "parent-1",
         delegationKey: "review.pass-1",
@@ -179,7 +179,7 @@ describe("delegated task IPC schemas", () => {
     ).toBe(false);
     expect(
       DelegatedTaskRetryArgsSchema.safeParse({
-        projectPath: "/tmp/project",
+        repositoryPath: "/tmp/project",
         parentWorkspaceId: "workspace-parent-1",
         parentTaskId: "parent-1",
         delegationKey: "review.pass-1",

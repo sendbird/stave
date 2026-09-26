@@ -108,8 +108,8 @@ describe("workspace switch archive persistence", () => {
     useAppStore.setState({
       ...useAppStore.getInitialState(),
       hasHydratedWorkspaces: true,
-      projectPath: "/tmp/project-a",
-      projectName: "project-a",
+      repositoryPath: "/tmp/project-a",
+      repositoryName: "project-a",
       workspaces: [
         {
           id: "ws-main",

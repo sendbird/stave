@@ -55,7 +55,7 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
     task ? trackerIssueKey(task.source, task.ref) : "",
   );
   const existingLink = resolvePrimaryTrackerIssueLink(links);
-  const projects = useAppStore((state) => state.recentProjects);
+  const repositories = useAppStore((state) => state.recentRepositories);
   const settings = useAppStore((state) => state.settings);
   const draft = useTrackerIssueKickoffDraft({ task, open: item !== null });
 
@@ -122,10 +122,10 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
 
           <DispatchTargetFields
             idPrefix={ID_PREFIX}
-            projects={projects}
+            repositories={repositories}
             workspaces={draft.workspaces}
-            projectPath={draft.projectPath}
-            onProjectPathChange={draft.setProjectPath}
+            repositoryPath={draft.repositoryPath}
+            onRepositoryPathChange={draft.setRepositoryPath}
             workspaceStrategy={draft.workspaceStrategy}
             onWorkspaceStrategyChange={draft.setWorkspaceStrategy}
             workspaceId={draft.workspaceId}
@@ -288,7 +288,7 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
             type="button"
             disabled={
               draft.submitting ||
-              !draft.projectPath ||
+              !draft.repositoryPath ||
               !draft.runtime.model.model ||
               !draft.runtime.providerAvailable
             }

@@ -89,7 +89,7 @@ export class DelegationDraftStore {
       )
       .run(
         scopeKey,
-        parsedScope.projectPath,
+        parsedScope.repositoryPath,
         parsedScope.workspaceId,
         parsedScope.taskId,
         JSON.stringify(parsedDraft),

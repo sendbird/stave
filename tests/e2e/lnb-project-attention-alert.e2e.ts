@@ -9,7 +9,7 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
   page,
 }, testInfo) => {
   await page.addInitScript(() => {
-    const projectPath = "/tmp/stave-lnb-attention";
+    const repositoryPath = "/tmp/stave-lnb-attention";
     const workspaceId = "ws-lnb-attention";
     const taskId = "task-lnb-attention";
     const workspaceSnapshot = {
@@ -65,8 +65,8 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath,
-          projectName: "stave-lnb-attention",
+          projectPath: repositoryPath,
+          repositoryName: "stave-lnb-attention",
           workspaces: [
             {
               id: workspaceId,
@@ -76,7 +76,7 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
           ],
           activeWorkspaceId: workspaceId,
           workspaceBranchById: { [workspaceId]: "main" },
-          workspacePathById: { [workspaceId]: projectPath },
+          workspacePathById: { [workspaceId]: repositoryPath },
           workspaceDefaultById: { [workspaceId]: true },
           ...workspaceSnapshot,
         },
@@ -91,8 +91,8 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
           kind: "task.approval_requested",
           title: "Approve deployment",
           body: "Allow the deployment command.",
-          projectPath,
-          projectName: "stave-lnb-attention",
+          projectPath: repositoryPath,
+          repositoryName: "stave-lnb-attention",
           workspaceId,
           workspaceName: "lnb-attention",
           taskId,
@@ -195,10 +195,10 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
     });
   expect(await readSlot()).toEqual({ slotOpacity: 1, pointerEvents: "auto" });
 
-  const projectLabel = sidebar
+  const repositoryLabel = sidebar
     .getByText("stave-lnb-attention", { exact: true })
     .first();
-  await projectLabel.hover();
+  await repositoryLabel.hover();
   // Let the 200ms opacity transition settle before sampling.
   await expect
     .poll(async () => (await readSlot()).slotOpacity)
@@ -303,8 +303,8 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
           kind: "task.turn_completed",
           title: "Turn finished",
           body: "The deployment run finished.",
-          projectPath: "/tmp/stave-lnb-attention",
-          projectName: "stave-lnb-attention",
+          repositoryPath: "/tmp/stave-lnb-attention",
+          repositoryName: "stave-lnb-attention",
           workspaceId: "ws-lnb-attention",
           workspaceName: "lnb-attention",
           taskId: "task-lnb-attention",
@@ -343,7 +343,7 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
 
   // Unlike a blocking alert, the review dot is decorative and yields the slot
   // to the row actions on hover.
-  await projectLabel.hover();
+  await repositoryLabel.hover();
   await expect
     .poll(async () => (await readSlot()).slotOpacity)
     .toBeLessThan(0.01);
@@ -371,7 +371,7 @@ test("LNB project row surfaces the rolled-up attention alert", async ({
 
   // Regression guard on the other half of the fix: exempting the alert from the
   // hover fade must not exempt the decorative count too.
-  await projectLabel.hover();
+  await repositoryLabel.hover();
   await expect
     .poll(() =>
       countBadge.evaluate((element) =>

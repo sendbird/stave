@@ -73,7 +73,7 @@ function countCollaborationExchanges(messages: TaskMessagesPage["messages"]) {
 }
 
 /** Project one persisted transcript page and discard the full message payloads. */
-export function projectCollaborationHistoryPage(
+export function repositoryCollaborationHistoryPage(
   page: TaskMessagesPage,
 ): CollaborationHistoryPage {
   const scannedMessageCount = page.messages.length;

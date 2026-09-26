@@ -123,8 +123,8 @@ async function installCliSessionHarness(
         "stave-store",
         JSON.stringify({
           state: {
-            projectPath: "/tmp/stave-project",
-            projectName: "stave-project",
+            repositoryPath: "/tmp/stave-project",
+            repositoryName: "stave-project",
             workspaces: [
               {
                 id: "ws-main",
@@ -502,8 +502,8 @@ test("settings modal and workspace modal open", async ({ page }) => {
     .toBeGreaterThan(0.9);
   await backToApp.click();
 
-  // Hover the sidebar project row itself; the composer workspace bar also
-  // renders the project name, so a bare text match would miss the row.
+  // Hover the sidebar repository row itself; the composer workspace bar also
+  // renders the repository name, so a bare text match would miss the row.
   const newWorkspace = page.getByRole("button", {
     name: "new-workspace-/tmp/stave-project",
   });
@@ -525,8 +525,8 @@ test("right panel tabs switch", async ({ page }) => {
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -607,8 +607,8 @@ test("lens screenshot dropdown trigger is not clipped", async ({ page }) => {
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -711,8 +711,8 @@ test("lens CDP approval stays app-wide without an open Lens tab", async ({
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -891,8 +891,8 @@ test("terminal pane opens with the shared surface inset", async ({ page }) => {
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -1118,12 +1118,12 @@ test("scripts manager waits for default scope and keeps draft entries dirty", as
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
-          recentProjects: [
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
+          recentRepositories: [
             {
-              projectPath: "/tmp/stave-project",
-              projectName: "stave-project",
+              repositoryPath: "/tmp/stave-project",
+              repositoryName: "stave-project",
               lastOpenedAt: "2026-04-05T12:00:00.000Z",
               defaultBranch: "main",
               workspaces: [
@@ -1233,7 +1233,7 @@ test("scripts manager waits for default scope and keeps draft entries dirty", as
                 cwd: "workspace",
                 env: {},
               },
-              project: {
+              repository: {
                 id: "project",
                 label: "Project",
                 cwd: "project",

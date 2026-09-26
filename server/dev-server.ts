@@ -20,7 +20,7 @@ import type {
 import { streamClaudeWithSdk } from "../electron/providers/claude-sdk-runtime";
 import { streamCodexWithAppServer } from "../electron/providers/codex-app-server-runtime";
 import { withoutAdvisorTarget } from "../src/lib/providers/advisor";
-import { buildProjectShellEnv } from "../electron/shared/project-node-env";
+import { buildRepositoryShellEnv } from "../electron/shared/project-node-env";
 import {
   checkoutDefaultBranchDetached,
   checkoutScmBranch,
@@ -135,7 +135,7 @@ async function runCommand(args: {
       cwd,
       stderr: "pipe",
       stdout: "pipe",
-      env: buildProjectShellEnv({ cwd, baseEnv: process.env }),
+      env: buildRepositoryShellEnv({ cwd, baseEnv: process.env }),
     });
     const [stdout, stderr] = await Promise.all([
       new Response(proc.stdout).text(),
@@ -917,7 +917,7 @@ const server = Bun.serve({
         stderr: "pipe",
         stdout: "pipe",
         stdin: "pipe",
-        env: buildProjectShellEnv({ cwd, baseEnv: process.env }),
+        env: buildRepositoryShellEnv({ cwd, baseEnv: process.env }),
       });
       const sessionId = randomUUID();
       const session: TerminalSession = { process: proc, output: "" };
@@ -990,7 +990,7 @@ const server = Bun.serve({
           stdout: "pipe",
           stdin: "pipe",
           env: {
-            ...buildProjectShellEnv({ cwd, baseEnv: process.env }),
+            ...buildRepositoryShellEnv({ cwd, baseEnv: process.env }),
             STAVE_WORKSPACE_PATH: body.workspacePath,
             STAVE_TASK_ID: body.taskId ?? "",
             STAVE_TASK_TITLE: body.taskTitle ?? "",

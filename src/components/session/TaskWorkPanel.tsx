@@ -21,7 +21,7 @@ const Collaboration = lazy(() =>
 export function TaskWorkPanel({ kind }: { kind: "results" | "collaboration" }) {
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
   const taskId = useAppStore((state) => state.activeTaskId);
-  const projectPath = useAppStore((state) => state.projectPath);
+  const repositoryPath = useAppStore((state) => state.repositoryPath);
   const task = useAppStore((state) =>
     state.tasks.find((item) => item.id === state.activeTaskId),
   );
@@ -31,7 +31,7 @@ export function TaskWorkPanel({ kind }: { kind: "results" | "collaboration" }) {
       <p className={sx(styles.empty)}>Open a task to see its {kindLabel}.</p>
     );
   }
-  if (kind === "collaboration" && (!projectPath || isTaskManaged(task))) {
+  if (kind === "collaboration" && (!repositoryPath || isTaskManaged(task))) {
     return (
       <p className={sx(styles.empty)}>
         Delegations are available in a local repository task.
@@ -53,7 +53,7 @@ export function TaskWorkPanel({ kind }: { kind: "results" | "collaboration" }) {
         ) : (
           <Collaboration
             key={`${workspaceId}:${taskId}`}
-            target={{ workspaceId, taskId, projectPath: projectPath! }}
+            target={{ workspaceId, taskId, repositoryPath: repositoryPath! }}
           />
         )}
       </Suspense>

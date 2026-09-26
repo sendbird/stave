@@ -55,7 +55,7 @@ type SupportActionKey =
   | "toggleEditorDiffMode"
   | "toggleEditorMarkdownPreviewMode"
   | "openWorkspacePicker"
-  | "refreshProjectFiles"
+  | "refreshRepositoryFiles"
   | "refreshRateLimits"
   | "refreshProviderAvailability"
   | "refreshSkillCatalog"
@@ -108,31 +108,31 @@ export function createSupportActions(args: {
     notification: AppNotification,
     options: { targetSurface?: "task" | "fleet" } = {},
   ): Promise<NotificationContextOpenResult> => {
-    const projectPath = notification.projectPath?.trim();
-    if (projectPath && projectPath !== get().projectPath) {
-      await get().openProject({ projectPath });
+    const repositoryPath = notification.repositoryPath?.trim();
+    if (repositoryPath && repositoryPath !== get().repositoryPath) {
+      await get().openRepository({ repositoryPath });
     }
 
-    let afterProjectOpen = get();
+    let afterRepositoryOpen = get();
     const workspaceId = notification.workspaceId?.trim();
     if (workspaceId) {
-      let workspaceExists = afterProjectOpen.workspaces.some(
+      let workspaceExists = afterRepositoryOpen.workspaces.some(
         (workspace) => workspace.id === workspaceId,
       );
       if (!workspaceExists) {
         // Another Stave window can create the notifying worktree before this
         // renderer's workspace list sees it.
-        await afterProjectOpen.refreshWorkspaces();
-        afterProjectOpen = get();
-        workspaceExists = afterProjectOpen.workspaces.some(
+        await afterRepositoryOpen.refreshWorkspaces();
+        afterRepositoryOpen = get();
+        workspaceExists = afterRepositoryOpen.workspaces.some(
           (workspace) => workspace.id === workspaceId,
         );
       }
       if (!workspaceExists) {
         return { status: "opened" };
       }
-      if (afterProjectOpen.activeWorkspaceId !== workspaceId) {
-        await afterProjectOpen.switchWorkspace({ workspaceId });
+      if (afterRepositoryOpen.activeWorkspaceId !== workspaceId) {
+        await afterRepositoryOpen.switchWorkspace({ workspaceId });
       }
       if (get().activeWorkspaceId !== workspaceId) {
         return { status: "opened" };
@@ -166,7 +166,7 @@ export function createSupportActions(args: {
       await get().focusTaskAttention({
         taskId,
         workspaceId,
-        projectPath,
+        repositoryPath,
       });
       if (options.targetSurface === "fleet") {
         get().openFleetView();
@@ -178,7 +178,7 @@ export function createSupportActions(args: {
       await get().focusTaskAttention({
         taskId,
         workspaceId,
-        projectPath,
+        repositoryPath,
       });
       get().openFleetView();
       return { status: "opened" };
@@ -210,7 +210,7 @@ export function createSupportActions(args: {
       const cwd = state.workspacePathById[workspaceId];
       if (!cwd) return;
       if (state.workspaceDefaultById[workspaceId]) return;
-      const projectPath = state.projectPath;
+      const repositoryPath = state.repositoryPath;
 
       const getPrStatus = window.api?.sourceControl?.getPrStatus;
       if (!getPrStatus) return;
@@ -228,7 +228,7 @@ export function createSupportActions(args: {
                 state: s,
                 workspaceId,
                 workspacePath: cwd,
-                projectPath,
+                repositoryPath,
               })
             ) {
               return s;
@@ -267,7 +267,7 @@ export function createSupportActions(args: {
               state: s,
               workspaceId,
               workspacePath: cwd,
-              projectPath,
+              repositoryPath,
             })
           ) {
             return s;
@@ -308,7 +308,7 @@ export function createSupportActions(args: {
         ) {
           return [];
         }
-        return [{ wsId, cwd, projectPath: state.projectPath }];
+        return [{ wsId, cwd, repositoryPath: state.repositoryPath }];
       });
       if (targets.length === 0) {
         return;
@@ -334,7 +334,7 @@ export function createSupportActions(args: {
             updates.push([
               target.wsId,
               target.cwd,
-              target.projectPath,
+              target.repositoryPath,
               {
                 pr,
                 derived,
@@ -363,13 +363,13 @@ export function createSupportActions(args: {
       }
       set((s) => {
         const freshUpdates = updates.filter(
-          ([workspaceId, cwd, projectPath]) =>
+          ([workspaceId, cwd, repositoryPath]) =>
             !s.workspaceDefaultById[workspaceId] &&
             isWorkspaceTargetCurrent({
               state: s,
               workspaceId,
               workspacePath: cwd,
-              projectPath,
+              repositoryPath,
             }),
         );
         if (freshUpdates.length === 0) {
@@ -452,18 +452,18 @@ export function createSupportActions(args: {
         return;
       }
       set((state) => ({
-        projectName: root.rootName,
-        projectFiles: root.files,
+        repositoryName: root.rootName,
+        repositoryFiles: root.files,
       }));
     },
-    refreshProjectFiles: async () => {
+    refreshRepositoryFiles: async () => {
       const files = await workspaceFsAdapter.listFiles();
       const state = get();
       const workspacePath = resolveWorkspacePathForId({
         activeWorkspaceId: state.activeWorkspaceId,
         workspacePathById: state.workspacePathById,
         workspaceDefaultById: state.workspaceDefaultById,
-        projectPath: state.projectPath,
+        repositoryPath: state.repositoryPath,
       });
       set((current) => {
         const nextWorkspaceFileCacheByPath = rememberCachedWorkspaceFiles({
@@ -472,13 +472,13 @@ export function createSupportActions(args: {
           files,
         });
         if (
-          areStringArraysEqual(current.projectFiles, files) &&
+          areStringArraysEqual(current.repositoryFiles, files) &&
           nextWorkspaceFileCacheByPath === current.workspaceFileCacheByPath
         ) {
           return current;
         }
         return {
-          projectFiles: files,
+          repositoryFiles: files,
           workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
         };
       });
@@ -594,7 +594,7 @@ export function createSupportActions(args: {
       const getCatalog = window.api?.skills?.getCatalog;
       const fallbackWorkspacePath =
         get().workspacePathById[get().activeWorkspaceId] ??
-        get().projectPath ??
+        get().repositoryPath ??
         null;
       const workspacePath =
         args.workspacePath === undefined

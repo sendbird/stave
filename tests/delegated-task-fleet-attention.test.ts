@@ -82,8 +82,8 @@ function buildLiveWorkspace(
   overrides: Partial<FleetLiveWorkspaceInput> = {},
 ): FleetLiveWorkspaceInput {
   return {
-    projectPath: "/workspace/project",
-    projectName: "Project",
+    repositoryPath: "/workspace/project",
+    repositoryName: "Project",
     workspaceId: "workspace-1",
     workspaceName: "checkout",
     tasks: [],
@@ -102,8 +102,8 @@ function buildNotification(
     kind: "task.approval_requested",
     title: "Review the checkout fix",
     body: "Bash: run tests",
-    projectPath: "/workspace/project",
-    projectName: "Project",
+    repositoryPath: "/workspace/project",
+    repositoryName: "Project",
     workspaceId: "workspace-1",
     workspaceName: "checkout",
     taskId: "task-child",

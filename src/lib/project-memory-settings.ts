@@ -1,7 +1,7 @@
 import { z } from "zod";
 import {
-  ProjectMemoryKindSchema,
-  PROJECT_MEMORY_KINDS,
+  RepositoryMemoryKindSchema,
+  REPOSITORY_MEMORY_KINDS,
 } from "./project-memory";
 
 export const DEFAULT_MEMORY_COLLECTION_TEMPLATE = [
@@ -12,70 +12,70 @@ export const DEFAULT_MEMORY_COLLECTION_TEMPLATE = [
   "Return no candidate when the evidence is uncertain.",
 ].join("\n");
 
-export const ProjectMemorySettingsPatchSchema = z
+export const RepositoryMemorySettingsPatchSchema = z
   .object({
     useMemory: z.boolean().optional(),
     collectAutomatically: z.boolean().optional(),
-    kinds: z.array(ProjectMemoryKindSchema).max(4).optional(),
+    kinds: z.array(RepositoryMemoryKindSchema).max(4).optional(),
     collectionTemplate: z.string().trim().min(1).max(4000).optional(),
   })
   .strict();
-export type ProjectMemorySettingsPatch = z.infer<
-  typeof ProjectMemorySettingsPatchSchema
+export type RepositoryMemorySettingsPatch = z.infer<
+  typeof RepositoryMemorySettingsPatchSchema
 >;
 
-export interface ProjectMemorySettings {
+export interface RepositoryMemorySettings {
   useMemory: boolean;
   collectAutomatically: boolean;
-  kinds: Array<z.infer<typeof ProjectMemoryKindSchema>>;
+  kinds: Array<z.infer<typeof RepositoryMemoryKindSchema>>;
   collectionTemplate: string;
   revision: number;
   resetBefore: number;
 }
 
-export const DEFAULT_PROJECT_MEMORY_SETTINGS: ProjectMemorySettings = {
+export const DEFAULT_REPOSITORY_MEMORY_SETTINGS: RepositoryMemorySettings = {
   useMemory: true,
   collectAutomatically: false,
-  kinds: [...PROJECT_MEMORY_KINDS],
+  kinds: [...REPOSITORY_MEMORY_KINDS],
   collectionTemplate: DEFAULT_MEMORY_COLLECTION_TEMPLATE,
   revision: 0,
   resetBefore: 0,
 };
 
-export const ProjectMemorySettingsArgsSchema = z
+export const RepositoryMemorySettingsArgsSchema = z
   .object({
-    projectPath: z.string().trim().min(1).max(4096),
+    repositoryPath: z.string().trim().min(1).max(4096),
   })
   .strict();
-export const ProjectMemorySaveSettingsArgsSchema =
-  ProjectMemorySettingsArgsSchema.extend({
-    patch: ProjectMemorySettingsPatchSchema,
+export const RepositoryMemorySaveSettingsArgsSchema =
+  RepositoryMemorySettingsArgsSchema.extend({
+    patch: RepositoryMemorySettingsPatchSchema,
     expectedRevision: z.number().int().nonnegative(),
   }).strict();
-export const ProjectMemoryClearArgsSchema =
-  ProjectMemorySettingsArgsSchema.extend({
+export const RepositoryMemoryClearArgsSchema =
+  RepositoryMemorySettingsArgsSchema.extend({
     scope: z.enum(["candidates", "all"]),
   }).strict();
 
-export interface ProjectMemorySettingsResult {
+export interface RepositoryMemorySettingsResult {
   ok: boolean;
-  settings?: ProjectMemorySettings;
+  settings?: RepositoryMemorySettings;
   message?: string;
 }
-export interface ProjectMemoryControlsApi {
+export interface RepositoryMemoryControlsApi {
   getSettings: (
-    args: z.infer<typeof ProjectMemorySettingsArgsSchema>,
-  ) => Promise<ProjectMemorySettingsResult>;
+    args: z.infer<typeof RepositoryMemorySettingsArgsSchema>,
+  ) => Promise<RepositoryMemorySettingsResult>;
   saveSettings: (
-    args: z.infer<typeof ProjectMemorySaveSettingsArgsSchema>,
-  ) => Promise<ProjectMemorySettingsResult>;
+    args: z.infer<typeof RepositoryMemorySaveSettingsArgsSchema>,
+  ) => Promise<RepositoryMemorySettingsResult>;
   clear: (
-    args: z.infer<typeof ProjectMemoryClearArgsSchema>,
+    args: z.infer<typeof RepositoryMemoryClearArgsSchema>,
   ) => Promise<{ ok: boolean; deleted?: number; message?: string }>;
 }
 
 export function buildMemoryCollectionInstruction(
-  settings: ProjectMemorySettings | null,
+  settings: RepositoryMemorySettings | null,
 ) {
   if (!settings?.collectAutomatically || settings.kinds.length === 0) {
     return "Repository memory collection is disabled. Return durableFacts: [] regardless of earlier summary instructions.";

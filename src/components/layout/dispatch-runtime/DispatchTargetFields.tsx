@@ -5,9 +5,9 @@ import { dispatchFieldStyles } from "./dispatch-runtime.styles";
 
 export type DispatchWorkspaceStrategy = "new" | "existing";
 
-export interface DispatchProjectOption {
-  projectPath: string;
-  projectName: string;
+export interface DispatchRepositoryOption {
+  repositoryPath: string;
+  repositoryName: string;
 }
 
 export interface DispatchWorkspaceOption {
@@ -18,11 +18,11 @@ export interface DispatchWorkspaceOption {
 export interface DispatchTargetFieldsProps {
   /** Namespaces every DOM id so two dispatch surfaces can coexist on screen. */
   idPrefix: string;
-  projects: readonly DispatchProjectOption[];
-  /** Workspaces of the selected project, resolved by the caller. */
+  repositories: readonly DispatchRepositoryOption[];
+  /** Workspaces of the selected repository, resolved by the caller. */
   workspaces: readonly DispatchWorkspaceOption[];
-  projectPath: string;
-  onProjectPathChange: (projectPath: string) => void;
+  repositoryPath: string;
+  onRepositoryPathChange: (repositoryPath: string) => void;
   workspaceStrategy: DispatchWorkspaceStrategy;
   onWorkspaceStrategyChange: (strategy: DispatchWorkspaceStrategy) => void;
   workspaceId: string;
@@ -33,7 +33,7 @@ export interface DispatchTargetFieldsProps {
   onWorkspaceLabelChange: (workspaceLabel: string) => void;
 }
 
-/** The "Where it runs" controls: project, workspace strategy, and branch. */
+/** The "Where it runs" controls: repository, workspace strategy, and branch. */
 export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
   const { idPrefix } = props;
   return (
@@ -46,20 +46,20 @@ export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
       </h3>
       <Select
         label="Stave repository"
-        value={props.projectPath}
-        options={props.projects.map((project) => ({
-          value: project.projectPath,
-          label: project.projectName,
+        value={props.repositoryPath}
+        options={props.repositories.map((repository) => ({
+          value: repository.repositoryPath,
+          label: repository.repositoryName,
         }))}
         placeholder="Choose a repository"
         onValueChange={(value) => {
           if (typeof value === "string") {
-            props.onProjectPathChange(value);
+            props.onRepositoryPathChange(value);
           }
         }}
       />
       <p className={sx(dispatchFieldStyles.monoPath)}>
-        {props.projectPath || "No registered repository available"}
+        {props.repositoryPath || "No registered repository available"}
       </p>
       <Select
         label="Workspace"

@@ -7,22 +7,22 @@ import {
   type AutomationUpsertInput,
 } from "@/lib/automations";
 import {
-  resolveCurrentProjectDefaultWorkspaceId,
-  type RecentProjectState,
+  resolveCurrentRepositoryDefaultWorkspaceId,
+  type RecentRepositoryState,
 } from "@/store/project.utils";
 
 export interface AutomationEnvironmentOption {
   value: string;
   workspaceId: string;
   path: string;
-  projectPath: string;
+  repositoryPath: string;
   label: string;
 }
 
-export type AutomationProjectSource = Pick<
-  RecentProjectState,
-  | "projectPath"
-  | "projectName"
+export type AutomationRepositorySource = Pick<
+  RecentRepositoryState,
+  | "repositoryPath"
+  | "repositoryName"
   | "workspaces"
   | "workspacePathById"
   | "workspaceDefaultById"
@@ -33,28 +33,28 @@ export function getAutomationErrorMessage(error: unknown, fallback: string) {
 }
 
 export function buildEnvironmentOptions(args: {
-  recentProjects: RecentProjectState[];
-  activeProject: AutomationProjectSource | null;
+  recentRepositories: RecentRepositoryState[];
+  activeRepository: AutomationRepositorySource | null;
 }) {
   const options = new Map<string, AutomationEnvironmentOption>();
-  const addProject = (project: AutomationProjectSource) => {
-    const workspaceId = resolveCurrentProjectDefaultWorkspaceId({
-      projectPath: project.projectPath,
-      workspaces: project.workspaces,
-      workspaceDefaultById: project.workspaceDefaultById,
-      workspacePathById: project.workspacePathById,
+  const addRepository = (repository: AutomationRepositorySource) => {
+    const workspaceId = resolveCurrentRepositoryDefaultWorkspaceId({
+      repositoryPath: repository.repositoryPath,
+      workspaces: repository.workspaces,
+      workspaceDefaultById: repository.workspaceDefaultById,
+      workspacePathById: repository.workspacePathById,
     });
-    options.set(project.projectPath, {
-      value: `repository:${project.projectPath}`,
+    options.set(repository.repositoryPath, {
+      value: `repository:${repository.repositoryPath}`,
       workspaceId,
-      path: project.projectPath,
-      projectPath: project.projectPath,
-      label: project.projectName,
+      path: repository.repositoryPath,
+      repositoryPath: repository.repositoryPath,
+      label: repository.repositoryName,
     });
   };
-  args.recentProjects.forEach(addProject);
-  if (args.activeProject) {
-    addProject(args.activeProject);
+  args.recentRepositories.forEach(addRepository);
+  if (args.activeRepository) {
+    addRepository(args.activeRepository);
   }
   return [...options.values()].sort((left, right) =>
     left.label.localeCompare(right.label),
@@ -77,7 +77,7 @@ export function createAutomationDraft(
       kind: "repository",
       workspaceId: "",
       path: "",
-      projectPath: "",
+      repositoryPath: "",
       label: "",
     },
     runtime: createDefaultAutomationRuntime("codex"),

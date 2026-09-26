@@ -53,19 +53,19 @@ const ROW_ACTION_OPACITY = "--staveWorkspaceRowActionOpacity";
 const ROW_ACTION_EVENTS = "--staveWorkspaceRowActionEvents";
 const ROW_COUNT_OPACITY = "--staveWorkspaceRowCountOpacity";
 
-const PROJECT_MARK_SCALE = "--staveProjectRowMarkScale";
-const PROJECT_MARK_OPACITY = "--staveProjectRowMarkOpacity";
-const PROJECT_CHEVRON_SCALE = "--staveProjectRowChevronScale";
-const PROJECT_CHEVRON_OPACITY = "--staveProjectRowChevronOpacity";
-const PROJECT_ROW_OPEN = "--staveProjectRowOpen";
-const PROJECT_COUNT_OPACITY = "--staveProjectRowCountOpacity";
-const PROJECT_COUNT_SHIFT = "--staveProjectRowCountShift";
-const PROJECT_COUNT_EVENTS = "--staveProjectRowCountEvents";
-const PROJECT_ACTIONS_OPACITY = "--staveProjectRowActionsOpacity";
-const PROJECT_ACTIONS_SHIFT = "--staveProjectRowActionsShift";
-const PROJECT_ACTIONS_EVENTS = "--staveProjectRowActionsEvents";
+const REPOSITORY_MARK_SCALE = "--staveProjectRowMarkScale";
+const REPOSITORY_MARK_OPACITY = "--staveProjectRowMarkOpacity";
+const REPOSITORY_CHEVRON_SCALE = "--staveProjectRowChevronScale";
+const REPOSITORY_CHEVRON_OPACITY = "--staveProjectRowChevronOpacity";
+const REPOSITORY_ROW_OPEN = "--staveProjectRowOpen";
+const REPOSITORY_COUNT_OPACITY = "--staveProjectRowCountOpacity";
+const REPOSITORY_COUNT_SHIFT = "--staveProjectRowCountShift";
+const REPOSITORY_COUNT_EVENTS = "--staveProjectRowCountEvents";
+const REPOSITORY_ACTIONS_OPACITY = "--staveProjectRowActionsOpacity";
+const REPOSITORY_ACTIONS_SHIFT = "--staveProjectRowActionsShift";
+const REPOSITORY_ACTIONS_EVENTS = "--staveProjectRowActionsEvents";
 
-export const projectSidebarStyles = stylex.create({
+export const repositorySidebarStyles = stylex.create({
   /* ---------------------------------------------------------------- labels */
   defaultBranchChip: {
     borderColor: vars["--ads-color-border"],
@@ -198,7 +198,7 @@ export const projectSidebarStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  queueProject: {
+  queueRepository: {
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],
@@ -687,61 +687,61 @@ export const projectSidebarStyles = stylex.create({
     paddingInline: vars["--ads-space-12"],
   },
 
-  projectStack: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"] },
-  projectSectionDragging: {
+  repositoryStack: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"] },
+  repositorySectionDragging: {
     backgroundColor: vars["--ads-color-selection-fill"],
     borderRadius: vars["--ads-radius-control"],
   },
-  projectHeaderRow: { alignItems: "center", display: "flex", gap: vars["--ads-space-4"] },
+  repositoryHeaderRow: { alignItems: "center", display: "flex", gap: vars["--ads-space-4"] },
 
-  projectRow: {
-    [PROJECT_ROW_OPEN]: { default: "0", ":hover": "1", ":focus-within": "1" },
-    [PROJECT_MARK_SCALE]: {
+  repositoryRow: {
+    [REPOSITORY_ROW_OPEN]: { default: "0", ":hover": "1", ":focus-within": "1" },
+    [REPOSITORY_MARK_SCALE]: {
       default: "1",
       ":hover": "0.75",
       ":focus-within": "0.75",
     },
-    [PROJECT_MARK_OPACITY]: {
+    [REPOSITORY_MARK_OPACITY]: {
       default: "1",
       ":hover": "0",
       ":focus-within": "0",
     },
-    [PROJECT_CHEVRON_SCALE]: {
+    [REPOSITORY_CHEVRON_SCALE]: {
       default: "0.75",
       ":hover": "1",
       ":focus-within": "1",
     },
-    [PROJECT_CHEVRON_OPACITY]: {
+    [REPOSITORY_CHEVRON_OPACITY]: {
       default: "0",
       ":hover": "1",
       ":focus-within": "1",
     },
-    [PROJECT_COUNT_OPACITY]: {
+    [REPOSITORY_COUNT_OPACITY]: {
       default: "1",
       ":hover": "0",
       ":focus-within": "0",
     },
-    [PROJECT_COUNT_SHIFT]: {
+    [REPOSITORY_COUNT_SHIFT]: {
       default: "0px",
       ":hover": "0.25rem",
       ":focus-within": "0.25rem",
     },
-    [PROJECT_COUNT_EVENTS]: {
+    [REPOSITORY_COUNT_EVENTS]: {
       default: "auto",
       ":hover": "none",
       ":focus-within": "none",
     },
-    [PROJECT_ACTIONS_OPACITY]: {
+    [REPOSITORY_ACTIONS_OPACITY]: {
       default: "0",
       ":hover": "1",
       ":focus-within": "1",
     },
-    [PROJECT_ACTIONS_SHIFT]: {
+    [REPOSITORY_ACTIONS_SHIFT]: {
       default: "0.25rem",
       ":hover": "0px",
       ":focus-within": "0px",
     },
-    [PROJECT_ACTIONS_EVENTS]: {
+    [REPOSITORY_ACTIONS_EVENTS]: {
       default: "none",
       ":hover": "auto",
       ":focus-within": "auto",
@@ -763,11 +763,11 @@ export const projectSidebarStyles = stylex.create({
     paddingInline: vars["--ads-space-8"],
     textAlign: "left",
   },
-  projectRowDraggable: {
+  repositoryRowDraggable: {
     cursor: { default: "pointer", ":active": "grabbing" },
   },
-  projectRowDragging: { cursor: "grabbing" },
-  projectToggle: {
+  repositoryRowDragging: { cursor: "grabbing" },
+  repositoryToggle: {
     borderRadius: vars["--ads-radius-control"],
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,
@@ -776,16 +776,16 @@ export const projectSidebarStyles = stylex.create({
     position: "relative",
     width: 32,
   },
-  projectMark: {
+  repositoryMark: {
     height: 28,
-    opacity: `var(${PROJECT_MARK_OPACITY}, 1)`,
-    transform: `scale(var(${PROJECT_MARK_SCALE}, 1))`,
+    opacity: `var(${REPOSITORY_MARK_OPACITY}, 1)`,
+    transform: `scale(var(${REPOSITORY_MARK_SCALE}, 1))`,
     ...revealMotion,
     transitionProperty: "opacity, transform",
     width: 28,
   },
-  projectMarkIcon: { height: 14, width: 14 },
-  projectChevronSlot: {
+  repositoryMarkIcon: { height: 14, width: 14 },
+  repositoryChevronSlot: {
     alignItems: "center",
     display: "flex",
     inset: 0,
@@ -793,21 +793,21 @@ export const projectSidebarStyles = stylex.create({
     pointerEvents: "none",
     position: "absolute",
   },
-  projectChevron: {
+  repositoryChevron: {
     height: 16,
-    opacity: `var(${PROJECT_CHEVRON_OPACITY}, 0)`,
+    opacity: `var(${REPOSITORY_CHEVRON_OPACITY}, 0)`,
     // Same swap-vs-rotate story as `laneChevron`, except here the popped node
     // ALSO threw away the hover-reveal scale mid-flight: the replacement
     // mounted at its resting `0.75` and re-ran the reveal from scratch.
-    transform: `rotate(0deg) scale(var(${PROJECT_CHEVRON_SCALE}, 0.75))`,
+    transform: `rotate(0deg) scale(var(${REPOSITORY_CHEVRON_SCALE}, 0.75))`,
     ...revealMotion,
     transitionProperty: "opacity, transform",
     width: 16,
   },
-  projectChevronOpen: {
-    transform: `rotate(90deg) scale(var(${PROJECT_CHEVRON_SCALE}, 0.75))`,
+  repositoryChevronOpen: {
+    transform: `rotate(90deg) scale(var(${REPOSITORY_CHEVRON_SCALE}, 0.75))`,
   },
-  projectLead: {
+  repositoryLead: {
     alignItems: "center",
     display: "flex",
     flex: 1,
@@ -819,13 +819,13 @@ export const projectSidebarStyles = stylex.create({
   },
   /* Hover reserves room for the absolutely positioned row actions; a pinned
      attention alert needs its own slot beyond them. */
-  projectLeadPinned: {
-    paddingInlineEnd: `calc(var(${PROJECT_ROW_OPEN}, 0) * 7.75rem)`,
+  repositoryLeadPinned: {
+    paddingInlineEnd: `calc(var(${REPOSITORY_ROW_OPEN}, 0) * 7.75rem)`,
   },
-  projectLeadDefault: {
-    paddingInlineEnd: `calc(var(${PROJECT_ROW_OPEN}, 0) * 5.75rem)`,
+  repositoryLeadDefault: {
+    paddingInlineEnd: `calc(var(${REPOSITORY_ROW_OPEN}, 0) * 5.75rem)`,
   },
-  projectName: {
+  repositoryName: {
     flex: 1,
     fontWeight: vars["--ads-font-weight-medium"],
     minWidth: 0,
@@ -833,7 +833,7 @@ export const projectSidebarStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  projectCountSlot: {
+  repositoryCountSlot: {
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
@@ -841,12 +841,12 @@ export const projectSidebarStyles = stylex.create({
     ...revealMotion,
     transitionProperty: "opacity, transform",
   },
-  projectCountSlotYields: {
-    opacity: `var(${PROJECT_COUNT_OPACITY}, 1)`,
-    pointerEvents: `var(${PROJECT_COUNT_EVENTS}, auto)`,
-    transform: `translateX(var(${PROJECT_COUNT_SHIFT}, 0px))`,
+  repositoryCountSlotYields: {
+    opacity: `var(${REPOSITORY_COUNT_OPACITY}, 1)`,
+    pointerEvents: `var(${REPOSITORY_COUNT_EVENTS}, auto)`,
+    transform: `translateX(var(${REPOSITORY_COUNT_SHIFT}, 0px))`,
   },
-  projectCount: {
+  repositoryCount: {
     alignItems: "center",
     backgroundColor: vars["--ads-color-overlay-hover"],
     borderColor: vars["--ads-color-border-subtle"],
@@ -863,32 +863,32 @@ export const projectSidebarStyles = stylex.create({
     minWidth: 20,
     paddingInline: 6,
   },
-  projectActions: {
+  repositoryActions: {
     alignItems: "center",
     display: "flex",
     flexShrink: 0,
     gap: 2,
     insetBlockStart: "50%",
     insetInlineEnd: 0,
-    opacity: `var(${PROJECT_ACTIONS_OPACITY}, 0)`,
-    pointerEvents: `var(${PROJECT_ACTIONS_EVENTS}, none)`,
+    opacity: `var(${REPOSITORY_ACTIONS_OPACITY}, 0)`,
+    pointerEvents: `var(${REPOSITORY_ACTIONS_EVENTS}, none)`,
     position: "absolute",
-    transform: `translateY(-50%) translateX(var(${PROJECT_ACTIONS_SHIFT}, 0.25rem))`,
+    transform: `translateY(-50%) translateX(var(${REPOSITORY_ACTIONS_SHIFT}, 0.25rem))`,
     ...revealMotion,
     transitionProperty: "opacity, transform",
   },
-  projectActionButton: {
+  repositoryActionButton: {
     borderRadius: vars["--ads-radius-control"],
     height: 28,
     padding: 0,
     width: 28,
   },
-  projectDragPreviewMark: {
+  repositoryDragPreviewMark: {
     borderRadius: vars["--ads-radius-control"],
     height: 20,
     width: 20,
   },
-  projectDragPreviewIcon: { height: 12, width: 12 },
+  repositoryDragPreviewIcon: { height: 12, width: 12 },
 
   workspaceList: { paddingBlockEnd: vars["--ads-space-4"], paddingBlockStart: 2 },
   workspaceListInner: {

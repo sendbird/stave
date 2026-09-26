@@ -203,8 +203,8 @@ async function seedDesignShell(page: Page, options: SeedOptions = {}) {
         "stave-store",
         JSON.stringify({
           state: {
-            projectPath: "/tmp/stave-project",
-            projectName: "stave-project",
+            repositoryPath: "/tmp/stave-project",
+            repositoryName: "stave-project",
             workspaces: [
               {
                 id: "ws-main",
@@ -616,13 +616,13 @@ test("Settings search keeps section hierarchy and purpose visible", async ({
   const settingSources = settings.getByRole("group", {
     name: "Setting Sources",
   });
-  const projectSource = settingSources.getByRole("button", {
+  const repositorySource = settingSources.getByRole("button", {
     name: "Project",
   });
   const localSource = settingSources.getByRole("button", { name: "Local" });
-  await expect(projectSource).toHaveAttribute("aria-pressed", "true");
-  await projectSource.focus();
-  await projectSource.press("ArrowRight");
+  await expect(repositorySource).toHaveAttribute("aria-pressed", "true");
+  await repositorySource.focus();
+  await repositorySource.press("ArrowRight");
   await expect(localSource).toBeFocused();
   await localSource.press("Space");
   await expect(localSource).toHaveAttribute("aria-pressed", "true");

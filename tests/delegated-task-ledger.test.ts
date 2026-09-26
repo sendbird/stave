@@ -31,7 +31,7 @@ function createChildRecords(
     kind: "delegated-task",
     origin: { kind: "task", id: PARENT_TASK_ID },
     ownership: {
-      projectPath: "/tmp/stave",
+      repositoryPath: "/tmp/stave",
       workspaceId: "workspace-child",
       taskId: "delegated-task-1",
     },
@@ -71,7 +71,7 @@ function createSecondaryRecords(): { run: RunRecord; step: RunStepRecord } {
     kind: "secondary-provider",
     origin: { kind: "compare-run", id: "compare-1" },
     ownership: {
-      projectPath: "/tmp/stave",
+      repositoryPath: "/tmp/stave",
       workspaceId: "workspace-1",
       taskId: "task-1",
     },

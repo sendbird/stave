@@ -38,7 +38,7 @@ const EMPTY_TASKS: Task[] = [];
  * Archived entries come back through `restoreTask`; merely closed ones only
  * need `selectTask`, which re-adds the pane tab.
  *
- * `workspaceId`/`projectPath` let this be opened for a workspace other than
+ * `workspaceId`/`repositoryPath` let this be opened for a workspace other than
  * the active one (e.g. from the LNB kebab menu) without switching first —
  * browsing reads live store state when the workspace has runtime cache, or
  * falls back to an async persistence fetch. Only reopening needs to switch into
@@ -48,7 +48,7 @@ export function TaskHistoryDrawer(args: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   workspaceId?: string | null;
-  projectPath?: string | null;
+  repositoryPath?: string | null;
 }) {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeWorkspaceId, restoreTask, selectTask] = useAppStore(
@@ -144,8 +144,8 @@ export function TaskHistoryDrawer(args: {
   async function handleReopen(task: Task) {
     if (!isActiveWorkspace && targetWorkspaceId) {
       const store = useAppStore.getState();
-      if (args.projectPath && args.projectPath !== store.projectPath) {
-        await store.openProject({ projectPath: args.projectPath });
+      if (args.repositoryPath && args.repositoryPath !== store.repositoryPath) {
+        await store.openRepository({ repositoryPath: args.repositoryPath });
       }
       await useAppStore.getState().switchWorkspace({
         workspaceId: targetWorkspaceId,

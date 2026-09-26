@@ -29,12 +29,12 @@ function RightRailWorkspaceToolsButton(props: {
   isActive: boolean;
   onClick: () => void;
 }) {
-  const [workspaceId, projectPath, workspacePath, workspaceName, branch] =
+  const [workspaceId, repositoryPath, workspacePath, workspaceName, branch] =
     useAppStore(
       useShallow((state) => {
         const workspaceId = state.activeWorkspaceId;
         const workspacePath =
-          state.workspacePathById[workspaceId] ?? state.projectPath ?? "";
+          state.workspacePathById[workspaceId] ?? state.repositoryPath ?? "";
         const branch = state.workspaceBranchById[workspaceId] ?? "";
         const workspaceName =
           (state.workspaces.find((workspace) => workspace.id === workspaceId)
@@ -43,7 +43,7 @@ function RightRailWorkspaceToolsButton(props: {
           "workspace";
         return [
           workspaceId,
-          state.projectPath,
+          state.repositoryPath,
           workspacePath,
           workspaceName,
           branch || workspaceName,
@@ -51,10 +51,10 @@ function RightRailWorkspaceToolsButton(props: {
       }),
     );
   const runningCount = useRunningWorkspaceProcessCount(
-    workspaceId && projectPath && workspacePath
+    workspaceId && repositoryPath && workspacePath
       ? {
           workspaceId,
-          projectPath,
+          repositoryPath,
           workspacePath,
           workspaceName,
           branch,
@@ -105,7 +105,7 @@ function RightRailWorkspaceToolsButton(props: {
 
 export function RightRail() {
   const [
-    hasProject,
+    hasRepository,
     sidebarOverlayVisible,
     sidebarOverlayTab,
     activeSurfaceKind,
@@ -114,7 +114,7 @@ export function RightRail() {
     useShallow(
       (state) =>
         [
-          Boolean(state.projectPath),
+          Boolean(state.repositoryPath),
           state.layout.sidebarOverlayVisible,
           state.layout.sidebarOverlayTab,
           state.activeSurface.kind,
@@ -158,7 +158,7 @@ export function RightRail() {
               return (
                 <RightRailWorkspaceToolsButton
                   key={panelId}
-                  disabled={!hasProject}
+                  disabled={!hasRepository}
                   isActive={isActive}
                   onClick={() => toggleSidebarTab(panelId)}
                 />
@@ -172,7 +172,7 @@ export function RightRail() {
                   <Button
                     size="sm"
                     variant={isActive ? "default" : "ghost"}
-                    disabled={!hasProject}
+                    disabled={!hasRepository}
                     xstyle={[
                       rightRailStyles.railButton,
                       !isActive && rightRailStyles.railButtonInactive,
@@ -194,7 +194,7 @@ export function RightRail() {
               <Button
                 size="sm"
                 variant={lensActive ? "default" : "ghost"}
-                disabled={!hasProject || !hasLensApi}
+                disabled={!hasRepository || !hasLensApi}
                 xstyle={[
                   rightRailStyles.railButton,
                   !lensActive && rightRailStyles.railButtonInactive,
@@ -215,7 +215,7 @@ export function RightRail() {
                 <Button
                   size="sm"
                   variant={terminalActive ? "default" : "ghost"}
-                  disabled={!hasProject}
+                  disabled={!hasRepository}
                   xstyle={[
                     rightRailStyles.railButton,
                     !terminalActive && rightRailStyles.railButtonInactive,

@@ -62,13 +62,13 @@ describe("new workspace init command", () => {
 
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       defaultBranch: "main",
-      recentProjects: [
+      recentRepositories: [
         {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           lastOpenedAt: "2026-03-26T00:00:00.000Z",
           defaultBranch: "main",
           workspaces: [],
@@ -83,7 +83,7 @@ describe("new workspace init command", () => {
       workspaceBranchById: {},
       workspacePathById: {},
       workspaceDefaultById: {},
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
     const result = await useAppStore.getState().createWorkspace({
@@ -147,13 +147,13 @@ describe("new workspace init command", () => {
 
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       defaultBranch: "main",
-      recentProjects: [
+      recentRepositories: [
         {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           lastOpenedAt: "2026-03-26T00:00:00.000Z",
           defaultBranch: "main",
           workspaces: [],
@@ -168,7 +168,7 @@ describe("new workspace init command", () => {
       workspaceBranchById: {},
       workspacePathById: {},
       workspaceDefaultById: {},
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
     const result = await useAppStore.getState().createWorkspace({
@@ -223,13 +223,13 @@ describe("new workspace init command", () => {
 
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       defaultBranch: "main",
-      recentProjects: [
+      recentRepositories: [
         {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           lastOpenedAt: "2026-03-26T00:00:00.000Z",
           defaultBranch: "main",
           workspaces: [],
@@ -245,7 +245,7 @@ describe("new workspace init command", () => {
       workspaceBranchById: {},
       workspacePathById: {},
       workspaceDefaultById: {},
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
     const result = await useAppStore.getState().createWorkspace({
@@ -277,7 +277,7 @@ describe("new workspace init command", () => {
     expect(useAppStore.getState().workspaces).toHaveLength(1);
     expect(useAppStore.getState().workspaces[0]?.id).toBe(
       buildImportedWorktreeWorkspaceId({
-        projectPath: "/tmp/stave-project",
+        repositoryPath: "/tmp/stave-project",
         worktreePath: workspacePath,
       }),
     );
@@ -312,13 +312,13 @@ describe("new workspace init command", () => {
 
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       defaultBranch: "main",
-      recentProjects: [
+      recentRepositories: [
         {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           lastOpenedAt: "2026-03-26T00:00:00.000Z",
           defaultBranch: "main",
           workspaces: [],
@@ -333,7 +333,7 @@ describe("new workspace init command", () => {
       workspaceBranchById: {},
       workspacePathById: {},
       workspaceDefaultById: {},
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
     const result = await useAppStore.getState().createWorkspace({
@@ -383,13 +383,13 @@ describe("new workspace init command", () => {
 
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       defaultBranch: "main",
-      recentProjects: [
+      recentRepositories: [
         {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           lastOpenedAt: "2026-03-26T00:00:00.000Z",
           defaultBranch: "main",
           workspaces: [],
@@ -406,7 +406,7 @@ describe("new workspace init command", () => {
       workspaceBranchById: {},
       workspacePathById: {},
       workspaceDefaultById: {},
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
     const result = await useAppStore.getState().createWorkspace({
@@ -479,13 +479,13 @@ describe("new workspace init command", () => {
 
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       defaultBranch: "main",
-      recentProjects: [
+      recentRepositories: [
         {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           lastOpenedAt: "2026-03-26T00:00:00.000Z",
           defaultBranch: "main",
           workspaces: [],
@@ -502,7 +502,7 @@ describe("new workspace init command", () => {
       workspaceBranchById: {},
       workspacePathById: {},
       workspaceDefaultById: {},
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
     const result = await useAppStore.getState().createWorkspace({
@@ -563,13 +563,13 @@ describe("new workspace init command", () => {
 
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       defaultBranch: "main",
-      recentProjects: [
+      recentRepositories: [
         {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           lastOpenedAt: "2026-03-26T00:00:00.000Z",
           defaultBranch: "main",
           workspaces: [],
@@ -585,7 +585,7 @@ describe("new workspace init command", () => {
       workspaceBranchById: {},
       workspacePathById: {},
       workspaceDefaultById: {},
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
     const result = await useAppStore.getState().createWorkspace({
@@ -634,16 +634,16 @@ describe("branch case and legacy/new folder coexistence", () => {
 
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       defaultBranch: "main",
-      recentProjects: [],
+      recentRepositories: [],
       workspaces: [],
       activeWorkspaceId: "",
       workspaceBranchById: {},
       workspacePathById: {},
       workspaceDefaultById: {},
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
     const result = await useAppStore.getState().createWorkspace({
@@ -697,16 +697,16 @@ describe("branch case and legacy/new folder coexistence", () => {
 
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       defaultBranch: "main",
-      recentProjects: [],
+      recentRepositories: [],
       workspaces: [],
       activeWorkspaceId: "",
       workspaceBranchById: {},
       workspacePathById: {},
       workspaceDefaultById: {},
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
     await useAppStore
@@ -763,13 +763,13 @@ describe("branch case and legacy/new folder coexistence", () => {
 
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       defaultBranch: "main",
-      recentProjects: [
+      recentRepositories: [
         {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           lastOpenedAt: "2026-04-01T00:00:00.000Z",
           defaultBranch: "main",
           workspaces: [
@@ -796,7 +796,7 @@ describe("branch case and legacy/new folder coexistence", () => {
       workspaceBranchById: { "ws-legacy": "feature/legacy-branch" },
       workspacePathById: { "ws-legacy": legacyPath },
       workspaceDefaultById: { "ws-legacy": false },
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
     const result = await useAppStore.getState().createWorkspace({
@@ -846,13 +846,13 @@ describe("branch case and legacy/new folder coexistence", () => {
     const legacyPath = "/tmp/stave-project/.stave/workspaces/feature__existing";
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       defaultBranch: "main",
-      recentProjects: [
+      recentRepositories: [
         {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           lastOpenedAt: "2026-04-01T00:00:00.000Z",
           defaultBranch: "main",
           workspaces: [
@@ -879,7 +879,7 @@ describe("branch case and legacy/new folder coexistence", () => {
       workspaceBranchById: { "ws-existing": "feature/existing" },
       workspacePathById: { "ws-existing": legacyPath },
       workspaceDefaultById: { "ws-existing": false },
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
     // Create a new workspace with a mixed-case branch name

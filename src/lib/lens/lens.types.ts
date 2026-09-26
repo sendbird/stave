@@ -125,7 +125,7 @@ export interface LensGuestRequiredPayload {
   /** Partition main resolved. The renderer sets it verbatim on the tag. */
   partition: string;
   sessionScope: LensSessionScope;
-  projectKey: string | null;
+  repositoryKey: string | null;
 }
 
 /**
@@ -688,7 +688,7 @@ export interface LensSessionProfileArgs {
   workspaceId: string;
   sessionScope?: LensSessionScope;
   /** Stable project/repository identity. Main hashes this before using it in a partition name. */
-  projectKey?: string | null;
+  repositoryKey?: string | null;
 }
 
 // ---------------------------------------------------------------------------

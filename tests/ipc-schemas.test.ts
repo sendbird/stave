@@ -872,7 +872,7 @@ function kickoffArgs(overrides: Record<string, unknown> = {}) {
   return {
     source: "crane",
     taskRef: "CRN-42",
-    projectPath: "/tmp/project",
+    repositoryPath: "/tmp/project",
     workspace: { strategy: "new", branchName: "tracker/crn-42" },
     runtime: {
       provider: "claude-code",
@@ -1002,7 +1002,7 @@ describe("Jira connector IPC schemas", () => {
       authMode: "cloud-api-token",
       jql: "assignee = currentUser()",
       maxResults: 25,
-      projectMappings: [
+      repositoryMappings: [
         { jiraProjectKey: "PLAT", staveProjectPath: "/tmp/project" },
       ],
     });
@@ -1018,7 +1018,7 @@ describe("Jira connector IPC schemas", () => {
         authMode: "cloud-api-token",
         jql: "assignee = currentUser()",
         maxResults: 25,
-        projectMappings: [],
+        repositoryMappings: [],
         token: "secret-token",
       }).success,
     ).toBe(false);
@@ -1029,7 +1029,7 @@ describe("Jira connector IPC schemas", () => {
         authMode: "cloud-api-token",
         jql: "",
         maxResults: 25,
-        projectMappings: [],
+        repositoryMappings: [],
       }).success,
     ).toBe(false);
   });

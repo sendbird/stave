@@ -314,7 +314,7 @@ export const TrackerIssueKickoffArgsSchema = z
   .object({
     source: z.enum(TRACKER_SOURCE_IDS),
     taskRef: z.string().trim().min(1).max(128),
-    projectPath: z.string().trim().min(1).max(4_096),
+    repositoryPath: z.string().trim().min(1).max(4_096),
     workspace: CraneDispatchWorkspaceChoiceSchema,
     runtime: CraneDispatchRuntimeChoiceSchema,
     instruction: z.string().trim().min(1).max(4_000),

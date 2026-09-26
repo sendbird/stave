@@ -7,14 +7,14 @@ export type ChatAreaViewMode =
   | "conversation";
 
 export function resolveChatAreaViewMode(args: {
-  projectPath: string | null;
+  repositoryPath: string | null;
   hasHydratedWorkspaces: boolean;
   hasAnyWorkspace: boolean;
   hasSelectedWorkspace: boolean;
   hasSelectedTask: boolean;
   activeTaskMessageCount: number;
 }): ChatAreaViewMode {
-  if (!args.projectPath) {
+  if (!args.repositoryPath) {
     return "no_project";
   }
   if (!args.hasHydratedWorkspaces) {
@@ -29,7 +29,7 @@ export function resolveChatAreaViewMode(args: {
   return args.activeTaskMessageCount === 0 ? "empty_task" : "conversation";
 }
 
-export function resolveHydratingProjectCopy(args: {
+export function resolveHydratingRepositoryCopy(args: {
   persistenceBootstrapPhase: "idle" | "purging-legacy-turn-journal";
   persistenceBootstrapMessage: string;
 }) {

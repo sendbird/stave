@@ -93,7 +93,7 @@ export function createCompareActions(args: {
       }
 
       const stateBefore = get();
-      if (!stateBefore.projectPath || !stateBefore.activeWorkspaceId) {
+      if (!stateBefore.repositoryPath || !stateBefore.activeWorkspaceId) {
         return {
           ok: false,
           message: "Open a repository before starting a compare run.",

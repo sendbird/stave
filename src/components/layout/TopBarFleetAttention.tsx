@@ -14,13 +14,13 @@ import { layoutShellStyles } from "./layout-shell.styles";
 import { useAppStore } from "@/store/app.store";
 
 export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
-  const [projectPath, recentProjects, toggleFleetView, isFleetViewActive] =
+  const [repositoryPath, recentRepositories, toggleFleetView, isFleetViewActive] =
     useAppStore(
       useShallow(
         (state) =>
           [
-            state.projectPath,
-            state.recentProjects,
+            state.repositoryPath,
+            state.recentRepositories,
             state.toggleFleetView,
             state.activeAppSurface.kind === "fleet-view",
           ] as const,
@@ -28,7 +28,7 @@ export function TopBarFleetAttention(props: { noDragStyle: CSSProperties }) {
     );
   const { count: attentionCount } = useFleetAttentionProjection();
 
-  if (!projectPath && recentProjects.length === 0) {
+  if (!repositoryPath && recentRepositories.length === 0) {
     return null;
   }
 

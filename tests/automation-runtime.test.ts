@@ -20,7 +20,7 @@ function createInput(
       kind: "repository",
       workspaceId: "ws-1",
       path: "/tmp/project",
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       label: "Project",
     },
     runtime: createDefaultAutomationRuntime("codex"),
@@ -164,7 +164,7 @@ describe("automation host runtime", () => {
       kind: "repository",
       workspaceId: "ws-1",
       path: "/tmp/project",
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       label: "Project",
     });
   });
@@ -177,7 +177,7 @@ describe("automation host runtime", () => {
 
     expect(run).toMatchObject({
       automationId: automation.id,
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       taskId: "task-1",
       turnId: "turn-1",
       status: "running",
@@ -223,15 +223,15 @@ describe("automation host runtime", () => {
           kind: "repository",
           workspaceId: "ws-2",
           path: "/tmp/other",
-          projectPath: "/tmp/other",
+          repositoryPath: "/tmp/other",
           label: "Other",
         },
       }),
     });
 
-    expect(run.projectPath).toBe("/tmp/project");
-    expect(harness.getState().runs[0]?.projectPath).toBe("/tmp/project");
-    expect(harness.getState().automations[0]?.environment.projectPath).toBe(
+    expect(run.repositoryPath).toBe("/tmp/project");
+    expect(harness.getState().runs[0]?.repositoryPath).toBe("/tmp/project");
+    expect(harness.getState().automations[0]?.environment.repositoryPath).toBe(
       "/tmp/other",
     );
   });
@@ -341,7 +341,7 @@ describe("automation host runtime", () => {
       id: "run-1",
       automationId: "automation-1",
       workspaceId: "ws-1",
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       taskId: "task-1",
       turnId: "turn-1",
       status: "running",

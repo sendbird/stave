@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 import { launchStave } from "./harness/stave-app";
 
 test("a crashed renderer offers native recovery and restores acknowledged work without resending", async ({}, testInfo) => {
-  const projectPath = await mkdtemp(
+  const repositoryPath = await mkdtemp(
     path.join(tmpdir(), "stave-renderer-recovery-"),
   );
   const stave = await launchStave();
@@ -14,7 +14,7 @@ test("a crashed renderer offers native recovery and restores acknowledged work w
       .getByTestId("workspace-welcome")
       .getByRole("button", { name: "Open a project" })
       .click();
-    await stave.page.getByPlaceholder("~/projects/my-app").fill(projectPath);
+    await stave.page.getByPlaceholder("~/projects/my-app").fill(repositoryPath);
     await stave.page.getByRole("button", { name: "Open", exact: true }).click();
     await expect(stave.page.getByTestId("workspace-welcome")).toHaveCount(0);
     await stave.page
@@ -178,6 +178,6 @@ test("a crashed renderer offers native recovery and restores acknowledged work w
     });
   } finally {
     await stave.close();
-    await rm(projectPath, { recursive: true, force: true });
+    await rm(repositoryPath, { recursive: true, force: true });
   }
 });

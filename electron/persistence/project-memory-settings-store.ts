@@ -1,8 +1,8 @@
 import {
-  DEFAULT_PROJECT_MEMORY_SETTINGS,
-  ProjectMemorySettingsPatchSchema,
-  type ProjectMemorySettings,
-  type ProjectMemorySettingsPatch,
+  DEFAULT_REPOSITORY_MEMORY_SETTINGS,
+  RepositoryMemorySettingsPatchSchema,
+  type RepositoryMemorySettings,
+  type RepositoryMemorySettingsPatch,
 } from "../../src/lib/project-memory-settings";
 
 interface Database {
@@ -14,7 +14,7 @@ interface Database {
   };
 }
 
-export class ProjectMemorySettingsStore {
+export class RepositoryMemorySettingsStore {
   private readonly db: Database;
   constructor(database: unknown) {
     this.db = database as Database;
@@ -43,10 +43,10 @@ export class ProjectMemorySettingsStore {
     }
   }
 
-  get(projectPath: string): ProjectMemorySettings {
+  get(repositoryPath: string): RepositoryMemorySettings {
     const row = this.db
       .prepare("SELECT * FROM project_memory_settings WHERE project_path = ?")
-      .get(projectPath) as
+      .get(repositoryPath) as
       | {
           settings_json: string;
           revision: number;
@@ -55,10 +55,10 @@ export class ProjectMemorySettingsStore {
         }
       | undefined;
     const settings = {
-      ...DEFAULT_PROJECT_MEMORY_SETTINGS,
-      kinds: [...DEFAULT_PROJECT_MEMORY_SETTINGS.kinds],
+      ...DEFAULT_REPOSITORY_MEMORY_SETTINGS,
+      kinds: [...DEFAULT_REPOSITORY_MEMORY_SETTINGS.kinds],
       ...(row
-        ? ProjectMemorySettingsPatchSchema.parse(JSON.parse(row.settings_json))
+        ? RepositoryMemorySettingsPatchSchema.parse(JSON.parse(row.settings_json))
         : {}),
       revision: row?.revision ?? 0,
       resetBefore: row?.reset_before ?? 0,
@@ -71,21 +71,21 @@ export class ProjectMemorySettingsStore {
   }
 
   save(args: {
-    projectPath: string;
-    patch: ProjectMemorySettingsPatch;
+    repositoryPath: string;
+    patch: RepositoryMemorySettingsPatch;
     expectedRevision: number;
   }) {
-    const patch = ProjectMemorySettingsPatchSchema.parse(args.patch);
+    const patch = RepositoryMemorySettingsPatchSchema.parse(args.patch);
     this.db.exec("BEGIN IMMEDIATE");
     try {
-      const current = this.get(args.projectPath);
+      const current = this.get(args.repositoryPath);
       if (current.revision !== args.expectedRevision) {
         throw new Error(
           "Memory settings changed elsewhere. Reload before saving again.",
         );
       }
       const next = { ...current, ...patch, revision: current.revision + 1 };
-      this.write(args.projectPath, next);
+      this.write(args.repositoryPath, next);
       this.db.exec("COMMIT");
       return next;
     } catch (error) {
@@ -95,21 +95,21 @@ export class ProjectMemorySettingsStore {
   }
 
   clear(args: {
-    projectPath: string;
+    repositoryPath: string;
     scope: "candidates" | "all";
     now?: number;
   }) {
     this.db.exec("BEGIN IMMEDIATE");
     try {
       const now = args.now ?? Date.now();
-      const current = this.get(args.projectPath);
+      const current = this.get(args.repositoryPath);
       const result = this.db
         .prepare(
           `UPDATE project_memories SET deleted_at = ?, updated_at = ?
         WHERE project_path = ? AND deleted_at IS NULL ${args.scope === "candidates" ? "AND recall_mode = 'candidate'" : ""}`,
         )
-        .run(now, now, args.projectPath);
-      this.write(args.projectPath, {
+        .run(now, now, args.repositoryPath);
+      this.write(args.repositoryPath, {
         ...current,
         revision: current.revision + 1,
         resetBefore: Math.max(current.resetBefore, now),
@@ -122,7 +122,7 @@ export class ProjectMemorySettingsStore {
     }
   }
 
-  private write(projectPath: string, settings: ProjectMemorySettings) {
+  private write(repositoryPath: string, settings: RepositoryMemorySettings) {
     const { revision, resetBefore, ...values } = settings;
     this.db
       .prepare(
@@ -132,7 +132,7 @@ export class ProjectMemorySettingsStore {
       collection_opt_in = excluded.collection_opt_in`,
       )
       .run(
-        projectPath,
+        repositoryPath,
         JSON.stringify(values),
         revision,
         resetBefore,

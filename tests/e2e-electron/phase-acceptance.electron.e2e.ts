@@ -5,11 +5,11 @@ import { expect, test } from "@playwright/test";
 import { launchStave } from "./harness/stave-app";
 
 test("schedule controls persist without executing and returning from Automations preserves the task draft", async ({}, testInfo) => {
-  const projectPath = await mkdtemp(path.join(tmpdir(), "stave-acceptance-"));
+  const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-acceptance-"));
   const stave = await launchStave();
   try {
     await stave.page.getByTestId("workspace-welcome").getByRole("button", { name: "Open a project" }).click();
-    await stave.page.getByPlaceholder("~/projects/my-app").fill(projectPath);
+    await stave.page.getByPlaceholder("~/projects/my-app").fill(repositoryPath);
     await stave.page.getByRole("button", { name: "Open", exact: true }).click();
     await stave.page.getByRole("button", { name: "New Task", exact: true }).click();
     const editor = stave.page.locator('[data-prompt-lexical-editor="true"]');
@@ -21,15 +21,15 @@ test("schedule controls persist without executing and returning from Automations
       trustPolicy: "review-required" as const, maxConcurrentRuns: 1,
       informationReferences: [],
     };
-    const automation = await stave.page.evaluate(async ({ input, projectPath }) => {
+    const automation = await stave.page.evaluate(async ({ input, projectPath: repositoryPath }) => {
       const { rows } = await window.api.persistence!.listWorkspaces!();
       const result = await window.api.automations!.create!({ ...input, environment: {
-        kind: "repository", workspaceId: rows[0]!.id, path: projectPath,
-        projectPath, label: "Document project",
+        kind: "repository", workspaceId: rows[0]!.id, path: repositoryPath,
+        repositoryPath, label: "Document project",
       }});
       if (!result.ok || !result.automation) throw new Error(result.message ?? "Automation creation failed");
       return result.automation;
-    }, { input, projectPath });
+    }, { input, projectPath: repositoryPath });
     await stave.page.getByRole("button", { name: "Open Stave menu" }).click();
     await stave.page.getByRole("menuitem", { name: /Command Palette/ }).click();
     const palette = stave.page.getByRole("dialog", { name: "Command Palette" });
@@ -50,6 +50,6 @@ test("schedule controls persist without executing and returning from Automations
     await expect(editor).toContainText("Draft a document describing the release changes.");
   } finally {
     await stave.close();
-    await rm(projectPath, { recursive: true, force: true });
+    await rm(repositoryPath, { recursive: true, force: true });
   }
 });

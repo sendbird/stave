@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 import { launchStave } from "./harness/stave-app";
 
 test("composer keeps its draft through model inspection and records input response", async ({}, testInfo) => {
-  const projectPath = await mkdtemp(path.join(tmpdir(), "stave-composer-"));
+  const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-composer-"));
   const stave = await launchStave();
   const errors: string[] = [];
   stave.page.on("pageerror", (error) => errors.push(error.message));
@@ -14,7 +14,7 @@ test("composer keeps its draft through model inspection and records input respon
       .getByTestId("workspace-welcome")
       .getByRole("button", { name: "Open a project" })
       .click();
-    await stave.page.getByPlaceholder("~/projects/my-app").fill(projectPath);
+    await stave.page.getByPlaceholder("~/projects/my-app").fill(repositoryPath);
     await stave.page.getByRole("button", { name: "Open", exact: true }).click();
     await expect(stave.page.getByTestId("workspace-welcome")).toHaveCount(0);
     await stave.page
@@ -121,6 +121,6 @@ test("composer keeps its draft through model inspection and records input respon
     expect(errors).toEqual([]);
   } finally {
     await stave.close();
-    await rm(projectPath, { recursive: true, force: true });
+    await rm(repositoryPath, { recursive: true, force: true });
   }
 });

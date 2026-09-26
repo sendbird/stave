@@ -377,7 +377,7 @@ export type WakeUpUpsertInput = z.infer<
 
 export const WakeUpSchema = WakeUpUpsertInputSchema.extend({
   id: IdSchema,
-  projectPath: z.string().min(1),
+  repositoryPath: z.string().min(1),
   fingerprint: WakeUpFingerprintSchema,
   state: WakeUpStateSchema,
   pauseReason: WakeUpPauseReasonSchema.nullable(),
@@ -1014,7 +1014,7 @@ export function resolveWakeUpOccurrenceCap(
 export function createWakeUp(args: {
   id: string;
   input: WakeUpUpsertInput;
-  projectPath: string;
+  repositoryPath: string;
   fingerprint: WakeUpFingerprint;
   now: Date;
 }): WakeUp {
@@ -1023,7 +1023,7 @@ export function createWakeUp(args: {
     ...args.input,
     maxOccurrences: resolveWakeUpOccurrenceCap(args.input),
     id: args.id,
-    projectPath: args.projectPath,
+    repositoryPath: args.repositoryPath,
     fingerprint: args.fingerprint,
     state: "scheduled",
     pauseReason: null,

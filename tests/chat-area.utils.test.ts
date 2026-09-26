@@ -1,12 +1,12 @@
 import { describe, expect, test } from "bun:test";
 import {
   resolveChatAreaViewMode,
-  resolveHydratingProjectCopy,
+  resolveHydratingRepositoryCopy,
 } from "@/components/session/chat-area.utils";
 
 describe("chat area loading copy", () => {
   test("uses legacy cleanup messaging while persistence bootstrap is purging", () => {
-    const copy = resolveHydratingProjectCopy({
+    const copy = resolveHydratingRepositoryCopy({
       persistenceBootstrapPhase: "purging-legacy-turn-journal",
       persistenceBootstrapMessage:
         "Cleaning up legacy workspace data from a previous version. This only runs once.",
@@ -20,7 +20,7 @@ describe("chat area loading copy", () => {
   });
 
   test("uses default workspace opening copy when no bootstrap cleanup is active", () => {
-    const copy = resolveHydratingProjectCopy({
+    const copy = resolveHydratingRepositoryCopy({
       persistenceBootstrapPhase: "idle",
       persistenceBootstrapMessage: "",
     });
@@ -36,7 +36,7 @@ describe("chat area view mode", () => {
   test("reports hydrating_project while workspaces are still hydrating", () => {
     expect(
       resolveChatAreaViewMode({
-        projectPath: "/tmp/project",
+        repositoryPath: "/tmp/project",
         hasHydratedWorkspaces: false,
         hasAnyWorkspace: false,
         hasSelectedWorkspace: false,

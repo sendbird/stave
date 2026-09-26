@@ -14,7 +14,7 @@ import { worktreeStatusHasMeaningfulChanges } from "@/lib/workspace-archive-stat
 import {
   buildLinkedWorktreeSymlinkPath,
   normalizeArchivedWorkspacePaths,
-  type RecentProjectState,
+  type RecentRepositoryState,
 } from "@/store/project.utils";
 import { closeTerminalSessionsForWorkspaces } from "@/store/workspace-terminal-cleanup";
 
@@ -34,20 +34,20 @@ export function quoteWorkspaceShellArgument(value: string): string {
  */
 export const archivedWorktreePaths = new Set<string>();
 
-export function getArchivedWorktreePathSetForProject(args: {
-  projectPath?: string | null;
-  recentProjects: RecentProjectState[];
+export function getArchivedWorktreePathSetForRepository(args: {
+  repositoryPath?: string | null;
+  recentRepositories: RecentRepositoryState[];
 }) {
-  const normalizedProjectPath = normalizeComparablePath(args.projectPath);
-  const project = normalizedProjectPath
-    ? (args.recentProjects.find(
+  const normalizedRepositoryPath = normalizeComparablePath(args.repositoryPath);
+  const repository = normalizedRepositoryPath
+    ? (args.recentRepositories.find(
         (item) =>
-          normalizeComparablePath(item.projectPath) === normalizedProjectPath,
+          normalizeComparablePath(item.repositoryPath) === normalizedRepositoryPath,
       ) ?? null)
     : null;
   return new Set([
     ...normalizeArchivedWorkspacePaths({
-      paths: project?.archivedWorkspacePaths,
+      paths: repository?.archivedWorkspacePaths,
     }),
     ...archivedWorktreePaths,
   ]);
@@ -55,24 +55,24 @@ export function getArchivedWorktreePathSetForProject(args: {
 
 /**
  * Normalized worktree paths the user explicitly imported from outside this
- * project checkout ("linked" worktrees). They usually belong to another clone,
- * so the project's `git worktree list` does not report them — without this set
+ * repository checkout ("linked" worktrees). They usually belong to another clone,
+ * so the repository's `git worktree list` does not report them — without this set
  * the stale-workspace cleanup would immediately unregister them again.
  */
-export function getLinkedWorktreePathSetForProject(args: {
-  projectPath?: string | null;
-  recentProjects: RecentProjectState[];
+export function getLinkedWorktreePathSetForRepository(args: {
+  repositoryPath?: string | null;
+  recentRepositories: RecentRepositoryState[];
 }) {
-  const normalizedProjectPath = normalizeComparablePath(args.projectPath);
-  const project = normalizedProjectPath
-    ? (args.recentProjects.find(
+  const normalizedRepositoryPath = normalizeComparablePath(args.repositoryPath);
+  const repository = normalizedRepositoryPath
+    ? (args.recentRepositories.find(
         (item) =>
-          normalizeComparablePath(item.projectPath) === normalizedProjectPath,
+          normalizeComparablePath(item.repositoryPath) === normalizedRepositoryPath,
       ) ?? null)
     : null;
   return new Set(
     normalizeArchivedWorkspacePaths({
-      paths: project?.linkedWorkspacePaths,
+      paths: repository?.linkedWorkspacePaths,
     }),
   );
 }
@@ -181,7 +181,7 @@ export function startWorkspaceArchiveCleanup(args: {
   workspaceName?: string;
   workspacePath?: string;
   workspaceBranch?: string;
-  projectPath?: string | null;
+  repositoryPath?: string | null;
   isLinkedWorktree?: boolean;
   deleteBranch?: boolean;
 }): void {
@@ -236,7 +236,7 @@ async function performWorkspaceArchiveCleanup(args: {
   workspaceName?: string;
   workspacePath?: string;
   workspaceBranch?: string;
-  projectPath?: string | null;
+  repositoryPath?: string | null;
   isLinkedWorktree?: boolean;
   deleteBranch?: boolean;
 }) {
@@ -245,7 +245,7 @@ async function performWorkspaceArchiveCleanup(args: {
     workspaceName,
     workspacePath,
     workspaceBranch,
-    projectPath,
+    repositoryPath,
   } = args;
   const deleteBranch = args.deleteBranch ?? true;
   const warnPreserved = (
@@ -281,17 +281,17 @@ async function performWorkspaceArchiveCleanup(args: {
     );
   }
   const runner = window.api?.terminal?.runCommand;
-  if (runner && projectPath && workspacePath && args.isLinkedWorktree) {
+  if (runner && repositoryPath && workspacePath && args.isLinkedWorktree) {
     // Linked worktrees live outside this checkout and stay owned by whatever
     // created them: never remove the worktree or its branch, only the symlink
     // Stave placed under `.stave/workspaces/`.
     try {
       const symlinkPath = buildLinkedWorktreeSymlinkPath({
-        projectPath,
+        repositoryPath,
         worktreePath: workspacePath,
       });
       await runner({
-        cwd: projectPath,
+        cwd: repositoryPath,
         command: `if [ -L ${quoteWorkspaceShellArgument(symlinkPath)} ]; then rm -- ${quoteWorkspaceShellArgument(symlinkPath)}; fi`,
       });
     } catch (error) {
@@ -301,7 +301,7 @@ async function performWorkspaceArchiveCleanup(args: {
         error,
       );
     }
-  } else if (runner && projectPath && workspacePath) {
+  } else if (runner && repositoryPath && workspacePath) {
     try {
       const hasLocalChanges = await workspaceHasLocalChanges({
         runner,
@@ -350,11 +350,11 @@ async function performWorkspaceArchiveCleanup(args: {
         // resurrects as a rediscovered workspace later.
         const nodeModulesSymlinkPath = `${workspacePath}/node_modules`;
         await runner({
-          cwd: projectPath,
+          cwd: repositoryPath,
           command: `if [ -L ${quoteWorkspaceShellArgument(nodeModulesSymlinkPath)} ]; then rm -- ${quoteWorkspaceShellArgument(nodeModulesSymlinkPath)}; fi`,
         });
         const removeResult = await runner({
-          cwd: projectPath,
+          cwd: repositoryPath,
           command: `git worktree remove -- ${quoteWorkspaceShellArgument(workspacePath)}`,
         });
         didRemoveWorktree = removeResult.ok;
@@ -375,7 +375,7 @@ async function performWorkspaceArchiveCleanup(args: {
           }
         }
         await runner({
-          cwd: projectPath,
+          cwd: repositoryPath,
           command: "git worktree prune",
         });
       }
@@ -395,7 +395,7 @@ async function performWorkspaceArchiveCleanup(args: {
           // Deletion is an explicit opt-in from the archive dialog, so honor
           // it — but only for the branch the worktree actually held.
           const deleteResult = await runner({
-            cwd: projectPath,
+            cwd: repositoryPath,
             command: `git branch -D -- ${quoteWorkspaceShellArgument(branchToDelete)}`,
           });
           if (!deleteResult.ok) {

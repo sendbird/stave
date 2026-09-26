@@ -609,7 +609,7 @@ const ScriptTriggerSchema = z.union([
 
 export const WorkspaceScriptsGetConfigArgsSchema = z
   .object({
-    projectPath: z.string().min(1).max(4096),
+    repositoryPath: z.string().min(1).max(4096),
     workspacePath: z.string().min(1).max(4096),
     userOverridePath: z.string().max(4096).optional(),
   })
@@ -626,7 +626,7 @@ export const WorkspaceScriptsRunEntryArgsSchema = z
     workspaceId: z.string().min(1).max(200),
     scriptId: z.string().min(1).max(200),
     scriptKind: ScriptKindSchema,
-    projectPath: z.string().min(1).max(4096),
+    repositoryPath: z.string().min(1).max(4096),
     workspacePath: z.string().min(1).max(4096),
     workspaceName: z.string().min(1).max(200),
     branch: z.string().min(1).max(200),
@@ -645,7 +645,7 @@ export const WorkspaceScriptsRunHookArgsSchema = z
   .object({
     workspaceId: z.string().min(1).max(200),
     trigger: ScriptTriggerSchema,
-    projectPath: z.string().min(1).max(4096),
+    repositoryPath: z.string().min(1).max(4096),
     workspacePath: z.string().min(1).max(4096),
     workspaceName: z.string().min(1).max(200),
     branch: z.string().min(1).max(200),
@@ -1333,8 +1333,8 @@ export const NotificationRecordSchema = z
     ]),
     title: z.string().min(1).max(500),
     body: z.string().max(5000),
-    projectPath: z.string().max(4096).nullable().optional(),
-    projectName: z.string().max(500).nullable().optional(),
+    repositoryPath: z.string().max(4096).nullable().optional(),
+    repositoryName: z.string().max(500).nullable().optional(),
     workspaceId: z.string().max(200).nullable().optional(),
     workspaceName: z.string().max(500).nullable().optional(),
     taskId: z.string().max(200).nullable().optional(),
@@ -1414,10 +1414,10 @@ export const PersistenceUpsertArgsSchema = z
   })
   .strict();
 
-export const SaveProjectRegistryArgsSchema = z
+export const SaveRepositoryRegistryArgsSchema = z
   .object({
-    projects: z.array(z.record(z.string(), z.unknown())).max(100),
-    activeProjectPath: z.string().trim().min(1).max(4096).nullable().optional(),
+    repositories: z.array(z.record(z.string(), z.unknown())).max(100),
+    activeRepositoryPath: z.string().trim().min(1).max(4096).nullable().optional(),
   })
   .strict();
 
@@ -1615,9 +1615,9 @@ export const StorageCleanupArgsSchema = z
   .strict();
 
 export {
-  ProjectMemoryDeleteArgsSchema,
-  ProjectMemoryListArgsSchema,
-  ProjectMemoryRecallArgsSchema,
-  ProjectMemoryRememberArgsSchema,
-  ProjectMemoryUpdateArgsSchema,
+  RepositoryMemoryDeleteArgsSchema as ProjectMemoryDeleteArgsSchema,
+  RepositoryMemoryListArgsSchema as ProjectMemoryListArgsSchema,
+  RepositoryMemoryRecallArgsSchema as ProjectMemoryRecallArgsSchema,
+  RepositoryMemoryRememberArgsSchema as ProjectMemoryRememberArgsSchema,
+  RepositoryMemoryUpdateArgsSchema as ProjectMemoryUpdateArgsSchema,
 } from "../../../src/lib/project-memory";

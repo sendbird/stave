@@ -125,7 +125,7 @@ describe("task stream switching", () => {
         { id: "ws-main", name: "Main", updatedAt: "2026-03-10T00:00:00.000Z" },
       ],
       activeWorkspaceId: "ws-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },

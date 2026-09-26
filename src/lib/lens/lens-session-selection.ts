@@ -7,8 +7,8 @@ export interface LensSessionSelectionCandidate {
   lastVisibleAt: number;
 }
 
-export interface LensProjectCandidate {
-  projectPath: string;
+export interface LensRepositoryCandidate {
+  repositoryPath: string;
   workspaces: ReadonlyArray<{ id: string }>;
 }
 
@@ -47,11 +47,11 @@ export function selectPreferredLensSession<
   );
 }
 
-export function findLensProjectKeyForWorkspace(
-  projects: ReadonlyArray<LensProjectCandidate>,
+export function findLensRepositoryKeyForWorkspace(
+  repositories: ReadonlyArray<LensRepositoryCandidate>,
   workspaceId: string,
 ): string | undefined {
-  return projects.find((project) =>
-    project.workspaces.some((workspace) => workspace.id === workspaceId),
-  )?.projectPath;
+  return repositories.find((repository) =>
+    repository.workspaces.some((workspace) => workspace.id === workspaceId),
+  )?.repositoryPath;
 }

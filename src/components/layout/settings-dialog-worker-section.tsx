@@ -85,7 +85,7 @@ export function SettingsWorkerSection(args: {
             state.settings.cursorBinaryPath,
             state.settings.kiroBinaryPath,
             state.workspacePathById[state.activeWorkspaceId] ??
-              state.projectPath ??
+              state.repositoryPath ??
               undefined,
           ] as const,
       ),

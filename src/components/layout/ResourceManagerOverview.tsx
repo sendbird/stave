@@ -31,9 +31,9 @@ export function ResourceManagerOverview({
   refresh: () => Promise<void>;
 }) {
   const workspaces = useAppStore((s) => s.workspaces);
-  const recentProjects = useAppStore((s) => s.recentProjects);
+  const recentRepositories = useAppStore((s) => s.recentRepositories);
   const tasks = useAppStore((s) => s.tasks);
-  const projectName = useAppStore((s) => s.projectName);
+  const repositoryName = useAppStore((s) => s.repositoryName);
   const activeWorkspaceId = useAppStore((s) => s.activeWorkspaceId);
   const [releaseTarget, setReleaseTarget] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -103,16 +103,16 @@ export function ResourceManagerOverview({
   };
   const names = useMemo(() => {
     const result = new Map<string, string>();
-    for (const project of recentProjects)
-      for (const workspace of project.workspaces)
-        result.set(workspace.id, `${project.projectName} / ${workspace.name}`);
+    for (const repository of recentRepositories)
+      for (const workspace of repository.workspaces)
+        result.set(workspace.id, `${repository.repositoryName} / ${workspace.name}`);
     for (const workspace of workspaces)
       result.set(
         workspace.id,
-        `${projectName ?? "Repository"} / ${workspace.name}`,
+        `${repositoryName ?? "Repository"} / ${workspace.name}`,
       );
     return result;
-  }, [workspaces, recentProjects, projectName]);
+  }, [workspaces, recentRepositories, repositoryName]);
   const processes: ResourceProcess[] = metrics.processes.map((p) => ({
     pid: p.pid,
     label: p.pid === metrics.hostService?.pid ? "Host service" : labels[p.role],

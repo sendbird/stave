@@ -20,8 +20,8 @@ test.fixme("shows the pick-a-workspace watermark when project exists without sel
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -100,8 +100,8 @@ test("new task button creates a visible task item", async ({ page }) => {
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -155,8 +155,8 @@ test("prompt input is focused after creating a task", async ({ page }) => {
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -224,8 +224,8 @@ test("empty task keeps starting options next to the prompt input", async ({
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -304,8 +304,8 @@ test("shortcut creates a new task in the selected workspace", async ({
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -382,8 +382,8 @@ test("archiving the last active task returns the chat area to the splash state",
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -468,8 +468,8 @@ test("shortcut closes the selected task tab", async ({ page }) => {
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -569,8 +569,8 @@ test("stale streaming message does not show responding wave without an active tu
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -649,8 +649,8 @@ test("streaming-off mode still shows responding wave during active turns", async
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -703,8 +703,8 @@ test("source control tab loads status surface", async ({ page }) => {
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -768,8 +768,8 @@ test("terminal pane opens with session surface", async ({ page }) => {
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -898,8 +898,8 @@ test("workspace switch restores per-workspace task snapshot", async ({
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-alpha",
@@ -1001,8 +1001,8 @@ test("workspace switch with an open terminal keeps the active task surface visib
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-alpha",
@@ -1160,8 +1160,8 @@ test("source control actions update status and history surfaces", async ({
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",
@@ -1337,8 +1337,8 @@ test("terminal sessions stream output over push channel when available", async (
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",

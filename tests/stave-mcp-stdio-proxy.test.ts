@@ -310,7 +310,7 @@ describe("stave-mcp-stdio-proxy", () => {
       jsonrpc: "2.0",
       id: 7,
       method: "tools/call",
-      params: { name: "stave_list_projects", arguments: {} },
+      params: { name: "stave_list_repositories", arguments: {} },
     })}\n`);
     await child.stdin.end();
 

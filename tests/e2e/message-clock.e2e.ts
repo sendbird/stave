@@ -99,8 +99,8 @@ test("updates the live message clock and stops it at completion", async ({
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: workspaceId,

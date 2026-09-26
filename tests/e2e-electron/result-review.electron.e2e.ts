@@ -5,10 +5,10 @@ import { expect, test } from "@playwright/test";
 import { launchStave } from "./harness/stave-app";
 
 test("result review survives notification cleanup and renderer restart, with explicit undo", async ({}, testInfo) => {
-  const projectPath = await mkdtemp(path.join(tmpdir(), "stave-review-"));
-  await mkdir(path.join(projectPath, "docs"));
+  const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-review-"));
+  await mkdir(path.join(repositoryPath, "docs"));
   await writeFile(
-    path.join(projectPath, "docs/result.md"),
+    path.join(repositoryPath, "docs/result.md"),
     "Original run output",
   );
   const stave = await launchStave();
@@ -19,7 +19,7 @@ test("result review survives notification cleanup and renderer restart, with exp
       .getByTestId("workspace-welcome")
       .getByRole("button", { name: "Open a project" })
       .click();
-    await stave.page.getByPlaceholder("~/projects/my-app").fill(projectPath);
+    await stave.page.getByPlaceholder("~/projects/my-app").fill(repositoryPath);
     await stave.page.getByRole("button", { name: "Open", exact: true }).click();
     await expect(stave.page.getByTestId("workspace-welcome")).toHaveCount(0);
     await stave.page
@@ -40,12 +40,12 @@ test("result review survives notification cleanup and renderer restart, with exp
       )
       .toBeGreaterThan(0);
     const scope = await stave.page.evaluate(
-      async ({ projectPath, workspaceId }) => {
+      async ({ projectPath: repositoryPath, workspaceId }) => {
         const response = await window.api.persistence!
           .loadWorkspaceShellSummary!({ workspaceId });
         const taskId = response.summary!.tasks[0]!.id;
         const scope = {
-          projectPath,
+          projectPath: repositoryPath,
           workspaceId,
           taskId,
           turnId: "review-turn",
@@ -57,7 +57,7 @@ test("result review survives notification cleanup and renderer restart, with exp
             kind: "task.turn_completed",
             title: "Review regression",
             body: "The saved result survives notification cleanup.",
-            projectName: "Review project",
+            repositoryName: "Review project",
             workspaceName: "Review workspace",
             taskTitle: "Review regression",
             providerId: "codex",
@@ -102,7 +102,7 @@ test("result review survives notification cleanup and renderer restart, with exp
         window.dispatchEvent(new Event("focus"));
         return scope;
       },
-      { projectPath, workspaceId: workspaceId },
+      { projectPath: repositoryPath, workspaceId: workspaceId },
     );
     const results = stave.page.getByRole("region", { name: "Task results" });
     const resultsShortcut = stave.page.getByRole("button", {
@@ -160,7 +160,7 @@ test("result review survives notification cleanup and renderer restart, with exp
       results.getByLabel("After: docs/result.md", { exact: true }),
     ).toHaveText("Original run output");
     await writeFile(
-      path.join(projectPath, "docs/result.md"),
+      path.join(repositoryPath, "docs/result.md"),
       "Changed after review",
     );
     await results
@@ -252,6 +252,6 @@ test("result review survives notification cleanup and renderer restart, with exp
     throw error;
   } finally {
     await stave.close();
-    await rm(projectPath, { recursive: true, force: true });
+    await rm(repositoryPath, { recursive: true, force: true });
   }
 });

@@ -66,10 +66,10 @@ export function WorkspaceWelcome() {
         open={open}
         onOpenChange={setOpen}
         onSubmitPath={(inputPath) =>
-          useAppStore.getState().openProjectFromPath({ inputPath })
+          useAppStore.getState().openRepositoryFromPath({ inputPath })
         }
         onBrowse={async () => {
-          await useAppStore.getState().createProject({});
+          await useAppStore.getState().createRepository({});
         }}
       />
     </section>

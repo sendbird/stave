@@ -12,7 +12,7 @@ import { invokeHostService, onHostServiceEvent } from "./host-service-client";
 
 export type {
   CreatedWorkspaceInfo,
-  RegisteredProjectInfo,
+  RegisteredRepositoryInfo as RegisteredProjectInfo,
   RegisteredWorkspaceInfo,
   TaskRunResult,
   TaskStatusResult,
@@ -46,7 +46,7 @@ function ensureLocalMcpEventBridge() {
 
 /**
  * Actions with no meaningful upper bound: creating a workspace clones, fetches
- * and runs the project's init command, and running a task hands control to a
+ * and runs the repository's init command, and running a task hands control to a
  * provider turn. Everything else keeps the default host-service backstop so a
  * dropped response surfaces as an error instead of an endless await.
  */
@@ -109,35 +109,35 @@ export async function appendWorkspaceNotes(args: {
   }>("append-workspace-notes", args);
 }
 
-export async function rememberProjectMemory(args: {
+export async function rememberRepositoryMemory(args: {
   workspaceId: string;
-  kind: import("../../src/lib/project-memory").ProjectMemoryKind;
+  kind: import("../../src/lib/project-memory").RepositoryMemoryKind;
   content: string;
   memoryId?: string;
   recallMode?: "contextual" | "core";
   taskId?: string;
 }) {
-  return invokeLocalMcp<import("../host-service/local-mcp-runtime").ProjectMemoryRememberToolResult>(
+  return invokeLocalMcp<import("../host-service/local-mcp-runtime").RepositoryMemoryRememberToolResult>(
     "remember-project-memory",
     args,
   );
 }
 
-export async function listProjectMemories(args: { workspaceId: string } & import("../../src/lib/project-memory").ProjectMemorySearchOptions) {
+export async function listRepositoryMemories(args: { workspaceId: string } & import("../../src/lib/project-memory").RepositoryMemorySearchOptions) {
   return invokeLocalMcp<
     Awaited<
       ReturnType<
-        typeof import("../host-service/local-mcp-runtime").listProjectMemories
+        typeof import("../host-service/local-mcp-runtime").listRepositoryMemories
       >
     >
   >("list-project-memories", args);
 }
 
-export async function forgetProjectMemory(args: {
+export async function forgetRepositoryMemory(args: {
   workspaceId: string;
   memoryId: string;
 }) {
-  return invokeLocalMcp<import("../host-service/local-mcp-runtime").ProjectMemoryForgetToolResult>(
+  return invokeLocalMcp<import("../host-service/local-mcp-runtime").RepositoryMemoryForgetToolResult>(
     "forget-project-memory",
     args,
   );
@@ -377,18 +377,18 @@ export async function addWorkspaceAmplifyLink(args: {
   }>("add-workspace-amplify-link", args);
 }
 
-export async function registerProject(args: {
-  projectPath: string;
-  projectName?: string;
+export async function registerRepository(args: {
+  repositoryPath: string;
+  repositoryName?: string;
   defaultBranch?: string;
 }) {
   return invokeLocalMcp<
-    import("../host-service/local-mcp-runtime").RegisteredProjectInfo
+    import("../host-service/local-mcp-runtime").RegisteredRepositoryInfo
   >("register-project", args);
 }
 
 export async function createWorkspace(args: {
-  projectPath: string;
+  repositoryPath: string;
   name: string;
   label?: string;
   mode: "branch" | "clean";
@@ -536,8 +536,8 @@ export async function respondUserInput(args: {
   }>("respond-user-input", args);
 }
 
-export async function listKnownProjects() {
+export async function listKnownRepositories() {
   return invokeLocalMcp<
-    import("../host-service/local-mcp-runtime").RegisteredProjectInfo[]
+    import("../host-service/local-mcp-runtime").RegisteredRepositoryInfo[]
   >("list-known-projects", undefined);
 }

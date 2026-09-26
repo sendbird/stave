@@ -145,7 +145,7 @@ const craneTaskBodySchema = z.object({
   teamKey: z.string().trim().min(1).max(64),
   teamName: z.string().trim().min(1).max(200),
   projectId: z.string().trim().min(1).max(CRANE_TASKS_LIMITS.id).nullable(),
-  /** The server permits an empty name; the mapper treats it as no project. */
+  /** The server permits an empty name; the mapper treats it as no repository. */
   projectName: z.string().trim().max(200).nullable(),
   assignee: craneTaskAssigneeSchema.nullable(),
   labels: z.array(craneTaskLabelSchema).max(CRANE_TASKS_LIMITS.labels),

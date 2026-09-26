@@ -9,7 +9,7 @@ const CAPACITY_GUIDANCE =
   "Retry later, or choose another model before resuming.";
 
 test("persisted Codex capacity failure stays visible and offers manual recovery after reload", async ({}, testInfo) => {
-  const projectPath = await mkdtemp(path.join(tmpdir(), "stave-capacity-"));
+  const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-capacity-"));
   const stave = await launchStave();
   const rendererErrors: string[] = [];
   stave.page.on("pageerror", (error) => rendererErrors.push(error.message));
@@ -20,7 +20,7 @@ test("persisted Codex capacity failure stays visible and offers manual recovery 
       .getByTestId("workspace-welcome")
       .getByRole("button", { name: "Open a project" })
       .click();
-    await stave.page.getByPlaceholder("~/projects/my-app").fill(projectPath);
+    await stave.page.getByPlaceholder("~/projects/my-app").fill(repositoryPath);
     await stave.page.getByRole("button", { name: "Open", exact: true }).click();
     await expect(stave.page.getByTestId("workspace-welcome")).toHaveCount(0);
     await stave.page
@@ -122,6 +122,6 @@ test("persisted Codex capacity failure stays visible and offers manual recovery 
     expect(rendererErrors).toEqual([]);
   } finally {
     await stave.close();
-    await rm(projectPath, { recursive: true, force: true });
+    await rm(repositoryPath, { recursive: true, force: true });
   }
 });

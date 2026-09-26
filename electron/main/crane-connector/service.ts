@@ -10,7 +10,7 @@ import {
   addWorkspaceJiraIssue,
   createWorkspace,
   getTaskStatus,
-  listKnownProjects,
+  listKnownRepositories,
   releaseLocallyManagedCraneTask,
   runLocallyApprovedCraneTask,
 } from "../stave-mcp-service";
@@ -68,7 +68,7 @@ export function getCraneConnectorRuntime() {
         baseUrl,
         allowInsecureLocalhost,
       }),
-    listKnownProjects,
+    listKnownRepositories,
     createWorkspace: (args) => createWorkspace(args),
     runTask: (args) => runLocallyApprovedCraneTask(args),
     getTaskStatus,

@@ -311,7 +311,7 @@ export async function ensureBrowserSessionGuest(
     lensSessionId,
     partition: sessionProfile.partition,
     sessionScope: sessionProfile.scope,
-    projectKey: options?.projectKey ?? null,
+    repositoryKey: options?.repositoryKey ?? null,
   });
 
   if (options?.restorePreviousUrl !== false) {

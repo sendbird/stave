@@ -160,7 +160,7 @@ export function focusOrCreateGitGraphSurface(): void {
   const store = useAppStore.getState();
   const workspaceId = resolveOpenableGitGraphWorkspaceId({
     activeWorkspaceId: store.activeWorkspaceId,
-    projectPath: store.projectPath,
+    repositoryPath: store.repositoryPath,
     workspaces: store.workspaces,
     workspacePathById: store.workspacePathById,
   });

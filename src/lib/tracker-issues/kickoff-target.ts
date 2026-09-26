@@ -1,11 +1,11 @@
 import {
   findMappedCraneTeamRuntime,
-  findMappedStaveProjectPath,
+  findMappedStaveRepositoryPath,
   getCraneTeamKey,
-  updateCraneTeamProjectMapping,
+  updateCraneTeamRepositoryMapping,
 } from "@/lib/crane-connector/project-mapping";
 import type {
-  CraneProjectMapping,
+  CraneRepositoryMapping,
   CraneTeamRuntimeMemory,
 } from "@/lib/crane-connector/types";
 import type { JiraProjectMapping } from "@/lib/jira-connector/types";
@@ -24,7 +24,7 @@ import {
  * branch per source, and keeps the fallback order in one testable place.
  */
 
-const MAX_PROJECT_MAPPINGS = 100;
+const MAX_REPOSITORY_MAPPINGS = 100;
 const ISSUE_KEY_PATTERN = /^([A-Za-z][A-Za-z0-9_-]{0,63})-\d+$/;
 
 /**
@@ -49,7 +49,7 @@ export function describeTrackerIssueScope(task: TrackerIssue): string | null {
 }
 
 export interface TrackerIssueMappingSettings {
-  craneMappings: readonly CraneProjectMapping[];
+  craneMappings: readonly CraneRepositoryMapping[];
   jiraMappings: readonly JiraProjectMapping[];
 }
 
@@ -75,23 +75,23 @@ function findJiraMapping(
  * ignored rather than preselected: a path Stave cannot open would fail at
  * submit, after the user has already filled in the rest of the form.
  */
-export function findTrackerIssueMappedProjectPath(args: {
+export function findTrackerIssueMappedRepositoryPath(args: {
   task: TrackerIssue;
   settings: TrackerIssueMappingSettings;
-  registeredProjectPaths: readonly string[];
+  registeredRepositoryPaths: readonly string[];
 }): string | null {
   if (args.task.source === "crane") {
-    return findMappedStaveProjectPath({
+    return findMappedStaveRepositoryPath({
       issueKey: args.task.key,
       mappings: args.settings.craneMappings,
-      registeredProjectPaths: args.registeredProjectPaths,
+      registeredRepositoryPaths: args.registeredRepositoryPaths,
     });
   }
   const mapping = findJiraMapping(args.task, args.settings.jiraMappings);
   if (!mapping) {
     return null;
   }
-  return args.registeredProjectPaths.includes(mapping.staveProjectPath)
+  return args.registeredRepositoryPaths.includes(mapping.staveProjectPath)
     ? mapping.staveProjectPath
     : null;
 }
@@ -133,10 +133,10 @@ export function updateJiraProjectMapping(args: {
       ...(args.runtime ? { runtime: args.runtime } : {}),
     },
     ...without,
-  ].slice(0, MAX_PROJECT_MAPPINGS);
+  ].slice(0, MAX_REPOSITORY_MAPPINGS);
 }
 
-export { updateCraneTeamProjectMapping };
+export { updateCraneTeamRepositoryMapping as updateCraneTeamProjectMapping };
 
 /**
  * Last project a kickoff actually used, per source.
@@ -145,10 +145,10 @@ export { updateCraneTeamProjectMapping };
  * one click when lost, and syncing it would put a machine-local path into an
  * exportable settings document.
  */
-export const TRACKER_ISSUES_LAST_PROJECT_STORAGE_KEY =
+export const TRACKER_ISSUES_LAST_REPOSITORY_STORAGE_KEY =
   "stave.tracker-issues.last-project";
 
-export function parseTrackerIssueLastProjects(
+export function parseTrackerIssueLastRepositories(
   raw: string | null,
 ): Partial<Record<TrackerSourceId, string>> {
   if (!raw) {
@@ -173,14 +173,14 @@ export function parseTrackerIssueLastProjects(
   return result;
 }
 
-export function readTrackerIssueLastProject(
+export function readTrackerIssueLastRepository(
   source: TrackerSourceId,
 ): string | null {
   try {
     return (
-      parseTrackerIssueLastProjects(
+      parseTrackerIssueLastRepositories(
         globalThis.localStorage?.getItem(
-          TRACKER_ISSUES_LAST_PROJECT_STORAGE_KEY,
+          TRACKER_ISSUES_LAST_REPOSITORY_STORAGE_KEY,
         ) ?? null,
       )[source] ?? null
     );
@@ -189,19 +189,19 @@ export function readTrackerIssueLastProject(
   }
 }
 
-export function writeTrackerIssueLastProject(
+export function writeTrackerIssueLastRepository(
   source: TrackerSourceId,
-  projectPath: string,
+  repositoryPath: string,
 ): void {
   try {
-    const current = parseTrackerIssueLastProjects(
+    const current = parseTrackerIssueLastRepositories(
       globalThis.localStorage?.getItem(
-        TRACKER_ISSUES_LAST_PROJECT_STORAGE_KEY,
+        TRACKER_ISSUES_LAST_REPOSITORY_STORAGE_KEY,
       ) ?? null,
     );
     globalThis.localStorage?.setItem(
-      TRACKER_ISSUES_LAST_PROJECT_STORAGE_KEY,
-      JSON.stringify({ ...current, [source]: projectPath }),
+      TRACKER_ISSUES_LAST_REPOSITORY_STORAGE_KEY,
+      JSON.stringify({ ...current, [source]: repositoryPath }),
     );
   } catch {
     // A convenience default is not worth surfacing a storage failure for.

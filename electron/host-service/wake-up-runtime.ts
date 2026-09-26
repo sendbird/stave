@@ -391,12 +391,12 @@ export function createWakeUpRuntime(
     // exactly the staleness question the fleet control plane already answers.
     const identity = validateFleetQueueAction({
       expected: {
-        projectPath: wakeUp.projectPath,
+        repositoryPath: wakeUp.repositoryPath,
         workspaceId: wakeUp.workspaceId,
         taskId: wakeUp.taskId,
       },
       current: {
-        projectPath: snapshot.projectPath,
+        repositoryPath: snapshot.repositoryPath,
         workspaceId: snapshot.exists ? snapshot.workspaceId : null,
         taskId: snapshot.exists ? snapshot.taskId : null,
         turnId: snapshot.activeTurnId,
@@ -404,7 +404,7 @@ export function createWakeUpRuntime(
       },
     });
     return {
-      workspaceAvailable: Boolean(snapshot.projectPath),
+      workspaceAvailable: Boolean(snapshot.repositoryPath),
       taskExists: snapshot.exists,
       taskArchived: snapshot.archived,
       hasActiveTurn: Boolean(snapshot.activeTurnId),
@@ -904,7 +904,7 @@ export function createWakeUpRuntime(
     taskId: string;
   }) {
     const snapshot = await dependencies.getTaskSupervisionSnapshot(args);
-    if (!snapshot.exists || !snapshot.projectPath) {
+    if (!snapshot.exists || !snapshot.repositoryPath) {
       throw new Error(`Task not found: ${args.taskId}`);
     }
     if (snapshot.archived) {
@@ -916,7 +916,7 @@ export function createWakeUpRuntime(
     if (snapshot.providerId !== "claude-code" && snapshot.providerId !== "codex") {
       throw new Error("Automatic task wake-ups are available for Claude and Codex tasks.");
     }
-    return { ...snapshot, providerId: snapshot.providerId, model: snapshot.model, projectPath: snapshot.projectPath };
+    return { ...snapshot, providerId: snapshot.providerId, model: snapshot.model, repositoryPath: snapshot.repositoryPath };
   }
 
   /**
@@ -983,7 +983,7 @@ export function createWakeUpRuntime(
           createWakeUp({
             id: randomUUID(),
             input,
-            projectPath: snapshot.projectPath!,
+            repositoryPath: snapshot.repositoryPath!,
             fingerprint: {
               providerId: snapshot.providerId!,
               model: snapshot.model!,
@@ -1022,7 +1022,7 @@ export function createWakeUpRuntime(
         const updated = createWakeUp({
           id: current.id,
           input,
-          projectPath: snapshot.projectPath!,
+          repositoryPath: snapshot.repositoryPath!,
           fingerprint: {
             providerId: snapshot.providerId!,
             model: snapshot.model!,

@@ -6,7 +6,7 @@ import { expect, test } from "@playwright/test";
 import {
   E2E_WORKSPACE_ID,
   launchStave,
-  seedProject,
+  seedRepository,
   type StaveApp,
 } from "./harness/stave-app";
 import {
@@ -30,7 +30,7 @@ import {
  */
 
 let stave: StaveApp;
-let projectDir: string;
+let repositoryDir: string;
 let server: Server;
 let origin: string;
 let endpoint: StaveMcpEndpoint;
@@ -165,7 +165,7 @@ async function navigate(pathname: string): Promise<void> {
 }
 
 test.beforeAll(async () => {
-  projectDir = await mkdtemp(
+  repositoryDir = await mkdtemp(
     path.join(tmpdir(), "stave-lens-boundaries-project-"),
   );
   await startFixtureServer();
@@ -173,8 +173,8 @@ test.beforeAll(async () => {
   await expect(stave.page.getByTestId("workspace-pane-host")).toBeVisible({
     timeout: 30_000,
   });
-  await seedProject(stave.page, {
-    projectPath: projectDir,
+  await seedRepository(stave.page, {
+    repositoryPath: repositoryDir,
     settings: {
       lensCdpApprovedHosts: ["127.0.0.1"],
       lensDeveloperModeCdp: true,
@@ -188,8 +188,8 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await stave?.close();
   await new Promise<void>((resolve) => server?.close(() => resolve()));
-  if (projectDir) {
-    await rm(projectDir, { recursive: true, force: true });
+  if (repositoryDir) {
+    await rm(repositoryDir, { recursive: true, force: true });
   }
 });
 

@@ -349,7 +349,7 @@ describe("fleet task status helpers", () => {
         query: "checkout",
         taskTitle: "Review checkout flow",
         workspaceName: "payments",
-        projectName: "Storefront",
+        repositoryName: "Storefront",
       }),
     ).toBe(true);
     expect(
@@ -359,7 +359,7 @@ describe("fleet task status helpers", () => {
         query: "checkout",
         taskTitle: "Review checkout flow",
         workspaceName: "payments",
-        projectName: "Storefront",
+        repositoryName: "Storefront",
       }),
     ).toBe(false);
     expect(
@@ -369,7 +369,7 @@ describe("fleet task status helpers", () => {
         query: "",
         taskTitle: "Cold task",
         workspaceName: "payments",
-        projectName: "Storefront",
+        repositoryName: "Storefront",
       }),
     ).toBe(false);
   });

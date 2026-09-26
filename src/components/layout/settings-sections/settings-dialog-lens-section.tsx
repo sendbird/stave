@@ -53,7 +53,7 @@ export function LensSection() {
     allowedHosts,
     blockedHosts,
     activeWorkspaceId,
-    projectPath,
+    repositoryPath,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -68,7 +68,7 @@ export function LensSection() {
           state.settings.lensAllowedHosts,
           state.settings.lensBlockedHosts,
           state.activeWorkspaceId,
-          state.projectPath,
+          state.repositoryPath,
         ] as const,
     ),
   );
@@ -103,7 +103,7 @@ export function LensSection() {
         const result = await clearSessionData({
           workspaceId: activeWorkspaceId,
           sessionScope: scope,
-          projectKey: projectPath,
+          repositoryKey: repositoryPath,
         });
         if (!result.ok) {
           toast.error("Failed to clear Lens data", {
@@ -124,7 +124,7 @@ export function LensSection() {
         setClearingScope(null);
       }
     },
-    [activeWorkspaceId, projectPath],
+    [activeWorkspaceId, repositoryPath],
   );
   const addCdpApprovedHost = useCallback(() => {
     const host = normalizeLensHostEntry(cdpHostDraft);
@@ -187,7 +187,7 @@ export function LensSection() {
               tone="danger"
               size="sm"
               disabled={
-                !activeWorkspaceId || !projectPath || clearingScope !== null
+                !activeWorkspaceId || !repositoryPath || clearingScope !== null
               }
               onClick={() => {
                 void clearLensSessionData("project");

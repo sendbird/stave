@@ -61,8 +61,8 @@ This rendered example shows the `Settings → Repositories` section with reposit
 
 ```json
 {
-  "projectPath": "<workspace>/my-repo",
-  "projectBasePrompt": "Prefer bun over npm. Keep docs in sync with user-facing changes."
+  "repositoryPath": "<workspace>/my-repo",
+  "repositoryBasePrompt": "Prefer bun over npm. Keep docs in sync with user-facing changes."
 }
 ```
 

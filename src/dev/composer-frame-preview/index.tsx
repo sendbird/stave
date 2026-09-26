@@ -301,7 +301,7 @@ export function ComposerFramePreviewApp() {
                   frameBottom={
                     framed ? (
                       <ComposerWorkspaceBarView
-                        projectLabel="stave"
+                        repositoryLabel="stave"
                         workspaceLabel="fix-benchmark"
                         folderLabel="fix__benchmark-new-ade--12tr7n2"
                         branchLabel="fix/benchmark-new-ade"

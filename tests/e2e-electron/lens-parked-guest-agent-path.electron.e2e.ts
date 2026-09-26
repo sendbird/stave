@@ -6,7 +6,7 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   E2E_WORKSPACE_ID,
   launchStave,
-  seedProject,
+  seedRepository,
   type StaveApp,
 } from "./harness/stave-app";
 import {
@@ -75,7 +75,7 @@ const RIGHT_B = { r: 255, g: 215, b: 0 };
 
 let stave: StaveApp;
 let endpoint: StaveMcpEndpoint;
-let projectDir: string;
+let repositoryDir: string;
 let server: Server;
 let origin: string;
 
@@ -305,7 +305,7 @@ function expectColor(
 }
 
 test.beforeAll(async () => {
-  projectDir = await mkdtemp(path.join(tmpdir(), "stave-e2e-project-"));
+  repositoryDir = await mkdtemp(path.join(tmpdir(), "stave-e2e-project-"));
   await startFixtureServer();
 
   stave = await launchStave();
@@ -324,8 +324,8 @@ test.beforeAll(async () => {
    * open a panel for this session on the first agent activity and un-park the
    * guest out from under the measurement.
    */
-  await seedProject(stave.page, {
-    projectPath: projectDir,
+  await seedRepository(stave.page, {
+    repositoryPath: repositoryDir,
     settings: {
       lensCdpApprovedHosts: ["127.0.0.1"],
       lensDeveloperModeCdp: true,
@@ -357,8 +357,8 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await stave?.close();
   await new Promise<void>((resolve) => server?.close(() => resolve()));
-  if (projectDir) {
-    await rm(projectDir, { recursive: true, force: true });
+  if (repositoryDir) {
+    await rm(repositoryDir, { recursive: true, force: true });
   }
 });
 

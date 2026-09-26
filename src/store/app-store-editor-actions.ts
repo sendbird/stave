@@ -31,7 +31,7 @@ export function gitGraphTabId(workspaceId: string): string {
 
 export function resolveOpenableGitGraphWorkspaceId(args: {
   activeWorkspaceId: string;
-  projectPath: string | null;
+  repositoryPath: string | null;
   workspaces: ReadonlyArray<{ id: string }>;
   workspacePathById: Record<string, string>;
 }): string | null {
@@ -44,7 +44,7 @@ export function resolveOpenableGitGraphWorkspaceId(args: {
   }
 
   const workspacePath =
-    args.workspacePathById[workspaceId] ?? args.projectPath ?? "";
+    args.workspacePathById[workspaceId] ?? args.repositoryPath ?? "";
   return workspacePath.trim() ? workspaceId : null;
 }
 
@@ -175,14 +175,14 @@ export function createEditorActions(args: {
     if (!body && filePath) {
       const state = get();
       const workspaceRootPath =
-        state.workspacePathById[args.workspaceId] || state.projectPath;
+        state.workspacePathById[args.workspaceId] || state.repositoryPath;
       let fileData = await workspaceFsAdapter.readFile({
         filePath,
       });
       if (!fileData && workspaceRootPath) {
         await workspaceFsAdapter.setRoot?.({
           rootPath: workspaceRootPath,
-          rootName: state.projectName ?? "project",
+          rootName: state.repositoryName ?? "project",
         });
         fileData = await workspaceFsAdapter.readFile({
           filePath,
@@ -378,7 +378,7 @@ export function createEditorActions(args: {
       set((state) => {
         const workspaceId = resolveOpenableGitGraphWorkspaceId({
           activeWorkspaceId: state.activeWorkspaceId,
-          projectPath: state.projectPath,
+          repositoryPath: state.repositoryPath,
           workspaces: state.workspaces,
           workspacePathById: state.workspacePathById,
         });
@@ -428,7 +428,7 @@ export function createEditorActions(args: {
       const state = get();
       const workspaceRootPath =
         state.workspacePathById[state.activeWorkspaceId] ||
-        state.projectPath ||
+        state.repositoryPath ||
         workspaceFsAdapter.getRootPath?.() ||
         undefined;
       const normalizedFilePath = resolveWorkspaceRelativeFilePath({
@@ -469,7 +469,7 @@ export function createEditorActions(args: {
         if (workspaceRootPath) {
           await workspaceFsAdapter.setRoot?.({
             rootPath: workspaceRootPath,
-            rootName: state.projectName ?? "project",
+            rootName: state.repositoryName ?? "project",
           });
           fileData = isImageFile
             ? null
@@ -725,7 +725,7 @@ export function createEditorActions(args: {
         state.settings.editorEslintEnabled
       ) {
         const rootPath =
-          state.workspacePathById[state.activeWorkspaceId] || state.projectPath;
+          state.workspacePathById[state.activeWorkspaceId] || state.repositoryPath;
         if (rootPath) {
           const formatted = await formatWithEslint({
             rootPath,
@@ -751,11 +751,11 @@ export function createEditorActions(args: {
       });
       if (!result.ok) {
         const workspaceRootPath =
-          state.workspacePathById[state.activeWorkspaceId] || state.projectPath;
+          state.workspacePathById[state.activeWorkspaceId] || state.repositoryPath;
         if (workspaceRootPath) {
           await workspaceFsAdapter.setRoot?.({
             rootPath: workspaceRootPath,
-            rootName: state.projectName ?? "project",
+            rootName: state.repositoryName ?? "project",
           });
           result = await workspaceFsAdapter.writeFile({
             filePath: activeTab.filePath,

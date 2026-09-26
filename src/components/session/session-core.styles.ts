@@ -7,7 +7,7 @@ const spin = stylex.keyframes({ to: { transform: "rotate(360deg)" } });
 
 export const sessionCoreStyles = stylex.create({
   workspaceBar: { display: "flex", minWidth: 0, alignItems: "center", gap: vars["--ads-space-8"], overflow: "hidden" },
-  project: { maxWidth: "10rem", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  repository: { maxWidth: "10rem", flexShrink: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   branchGroup: { display: "inline-flex", minWidth: 0, alignItems: "center", gap: 6 },
   branchIcon: { width: 12, height: 12, flexShrink: 0 },
   monoTruncate: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontFamily: vars["--ads-font-mono"] },

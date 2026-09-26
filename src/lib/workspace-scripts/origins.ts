@@ -64,8 +64,8 @@ export function parseScriptsLocalConfigContent(
 export function deriveScriptEntryOrigins(args: {
   workspaceBase: string | null;
   workspaceLocal: string | null;
-  projectBase: string | null;
-  projectLocal: string | null;
+  repositoryBase: string | null;
+  repositoryLocal: string | null;
 }): ScriptEntryOrigins {
   const tiers: Array<{
     tier: ScriptOriginTier;
@@ -79,8 +79,8 @@ export function deriveScriptEntryOrigins(args: {
     },
     {
       tier: "project",
-      base: parseScriptsConfigContent(args.projectBase),
-      local: parseScriptsLocalConfigContent(args.projectLocal),
+      base: parseScriptsConfigContent(args.repositoryBase),
+      local: parseScriptsLocalConfigContent(args.repositoryLocal),
     },
   ];
 

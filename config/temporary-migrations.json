@@ -64,12 +64,26 @@
       ]
     },
     {
-      "id": "rename-vocabulary-codemod",
-      "description": "Replays the vocabulary renames (routine to automation, task heartbeat to wake-up, child task to delegated task, tracker task to tracker issue, and later renames) on branches that started before they landed.",
+      "id": "repository-persisted-state",
+      "description": "Maps the persisted zustand keys recentProjects, projectPath and projectName to the repository names on rehydrate, so the registered-repository list and current selection survive the projects->repositories rename.",
       "introducedAfter": "0.19.6",
       "removeInVersion": "0.22.0",
       "files": [
-        "scripts/codemods/rename-vocabulary.ts"
+        "src/store/legacy-repository-state.ts",
+        "src/store/app-store-persistence.ts"
+      ],
+      "tests": [
+        "tests/legacy-repository-state.test.ts"
+      ]
+    },
+    {
+      "id": "rename-vocabulary-codemod",
+      "description": "Replays the vocabulary renames (routine to automation, task heartbeat to wake-up, child task to delegated task, tracker task to tracker issue, project to repository, and later renames) on branches that started before they landed.",
+      "introducedAfter": "0.19.6",
+      "removeInVersion": "0.22.0",
+      "files": [
+        "scripts/codemods/rename-vocabulary.ts",
+        "scripts/codemods/rename-repositories.ts"
       ],
       "tests": []
     }

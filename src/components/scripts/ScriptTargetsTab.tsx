@@ -48,7 +48,7 @@ export function ScriptTargetsTab(props: {
   );
   const overridableBuiltins = [
     { id: DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE, label: "Workspace" },
-    { id: DEFAULT_SCRIPT_TARGET_IDS.PROJECT, label: "Repository" },
+    { id: DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY, label: "Repository" },
   ].filter((builtin) => !definedIds.has(builtin.id));
 
   return (

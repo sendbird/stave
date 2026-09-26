@@ -59,7 +59,7 @@ const legacyWakeUp = createWakeUp({
     maxOccurrences: null,
     expiresAt: null,
   },
-  projectPath: "/tmp/project",
+  repositoryPath: "/tmp/project",
   fingerprint: { providerId: "claude-code", model: "sonnet" },
   now: NOW,
 });
@@ -79,7 +79,7 @@ function seedLegacyRows() {
       legacyWakeUp.id,
       legacyWakeUp.workspaceId,
       legacyWakeUp.taskId,
-      legacyWakeUp.projectPath,
+      legacyWakeUp.repositoryPath,
       legacyWakeUp.prompt,
       JSON.stringify(legacyWakeUp.trigger),
       JSON.stringify(legacyWakeUp.fingerprint),

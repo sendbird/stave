@@ -59,19 +59,19 @@ export interface TrackerIssueKickoffDependencies {
       leaseExpiresAt: string;
       nextSequence: number;
     };
-    projectPath: string;
+    repositoryPath: string;
     workspace: CraneDispatchWorkspaceChoice;
     runtime: CraneDispatchRuntimeChoice;
   }): Promise<{ jobId: string; workspaceId: string; taskId: string }>;
-  listKnownProjects(): Promise<
+  listKnownRepositories(): Promise<
     Array<{
-      projectPath: string;
+      repositoryPath: string;
       defaultBranch: string;
       workspaces: Array<{ id: string }>;
     }>
   >;
   createWorkspace(args: {
-    projectPath: string;
+    repositoryPath: string;
     name: string;
     label?: string;
     mode: "branch";
@@ -176,12 +176,12 @@ export async function kickoffTrackerIssue(
     } catch {
       throw new TrackerIssueError("crane_claim_failed");
     }
-    await assertProjectRegistered(deps, args.projectPath);
+    await assertRepositoryRegistered(deps, args.repositoryPath);
     let launched: { jobId: string; workspaceId: string; taskId: string };
     try {
       launched = await deps.kickoffClaimedJob({
         claimed,
-        projectPath: args.projectPath,
+        repositoryPath: args.repositoryPath,
         workspace: args.workspace,
         runtime: args.runtime,
       });
@@ -204,10 +204,10 @@ export async function kickoffTrackerIssue(
   }
 
   // Jira, or Crane without write-back: the run is tracked in Stave alone.
-  const project = await assertProjectRegistered(deps, args.projectPath);
+  const repository = await assertRepositoryRegistered(deps, args.repositoryPath);
   const workspaceId = await resolveWorkspaceId(
     deps,
-    project,
+    repository,
     args.workspace,
     task.title,
   );
@@ -267,28 +267,28 @@ export async function kickoffTrackerIssue(
   };
 }
 
-async function assertProjectRegistered(
+async function assertRepositoryRegistered(
   deps: TrackerIssueKickoffDependencies,
-  projectPath: string,
+  repositoryPath: string,
 ): Promise<{
-  projectPath: string;
+  repositoryPath: string;
   defaultBranch: string;
   workspaces: Array<{ id: string }>;
 }> {
-  const projects = await deps.listKnownProjects();
-  const project = projects.find(
-    (candidate) => candidate.projectPath === projectPath,
+  const repositories = await deps.listKnownRepositories();
+  const repository = repositories.find(
+    (candidate) => candidate.repositoryPath === repositoryPath,
   );
-  if (!project) {
+  if (!repository) {
     throw new TrackerIssueError("project_not_registered");
   }
-  return project;
+  return repository;
 }
 
 async function resolveWorkspaceId(
   deps: TrackerIssueKickoffDependencies,
-  project: {
-    projectPath: string;
+  repository: {
+    repositoryPath: string;
     defaultBranch: string;
     workspaces: Array<{ id: string }>;
   },
@@ -296,7 +296,7 @@ async function resolveWorkspaceId(
   issueTitle: string,
 ): Promise<string> {
   if (workspace.strategy === "existing") {
-    const existing = project.workspaces.find(
+    const existing = repository.workspaces.find(
       (candidate) => candidate.id === workspace.workspaceId,
     );
     if (!existing) {
@@ -306,14 +306,14 @@ async function resolveWorkspaceId(
   }
   try {
     const created = await deps.createWorkspace({
-      projectPath: project.projectPath,
+      repositoryPath: repository.repositoryPath,
       name: workspace.branchName,
       label:
         workspace.workspaceLabel?.trim() ||
         proposeDispatchWorkspaceLabel(issueTitle) ||
         undefined,
       mode: "branch",
-      fromBranch: project.defaultBranch,
+      fromBranch: repository.defaultBranch,
       fromBranchKind: "remote",
     });
     return created.workspaceId;

@@ -1,17 +1,17 @@
 import { beforeEach, describe, expect, test } from "bun:test";
 
-import type { CraneProjectMapping } from "@/lib/crane-connector/types";
+import type { CraneRepositoryMapping } from "@/lib/crane-connector/types";
 import type { JiraProjectMapping } from "@/lib/jira-connector/types";
 import {
-  TRACKER_ISSUES_LAST_PROJECT_STORAGE_KEY,
+  TRACKER_ISSUES_LAST_REPOSITORY_STORAGE_KEY,
   describeTrackerIssueScope,
-  findTrackerIssueMappedProjectPath,
+  findTrackerIssueMappedRepositoryPath,
   findTrackerIssueRuntimeMemory,
-  parseTrackerIssueLastProjects,
-  readTrackerIssueLastProject,
+  parseTrackerIssueLastRepositories,
+  readTrackerIssueLastRepository,
   resolveTrackerIssueScopeKey,
   updateJiraProjectMapping,
-  writeTrackerIssueLastProject,
+  writeTrackerIssueLastRepository,
 } from "@/lib/tracker-issues/kickoff-target";
 import type { TrackerIssue } from "@/lib/tracker-issues/types";
 
@@ -41,7 +41,7 @@ function makeTask(overrides: Partial<TrackerIssue> = {}): TrackerIssue {
   };
 }
 
-const CRANE_MAPPINGS: CraneProjectMapping[] = [
+const CRANE_MAPPINGS: CraneRepositoryMapping[] = [
   { craneTeamKey: "PLAT", staveProjectPath: "/tmp/platform" },
 ];
 
@@ -77,23 +77,23 @@ describe("resolveTrackerIssueScopeKey", () => {
   });
 });
 
-describe("findTrackerIssueMappedProjectPath", () => {
+describe("findTrackerIssueMappedRepositoryPath", () => {
   test("uses the Crane team mapping when the project is registered", () => {
     expect(
-      findTrackerIssueMappedProjectPath({
+      findTrackerIssueMappedRepositoryPath({
         task: makeTask(),
         settings: SETTINGS,
-        registeredProjectPaths: ["/tmp/platform"],
+        registeredRepositoryPaths: ["/tmp/platform"],
       }),
     ).toBe("/tmp/platform");
   });
 
   test("uses the Jira project mapping for a Jira ticket", () => {
     expect(
-      findTrackerIssueMappedProjectPath({
+      findTrackerIssueMappedRepositoryPath({
         task: makeTask({ source: "jira", key: "ABC-42", ref: "ABC-42" }),
         settings: SETTINGS,
-        registeredProjectPaths: ["/tmp/abc"],
+        registeredRepositoryPaths: ["/tmp/abc"],
       }),
     ).toBe("/tmp/abc");
   });
@@ -102,20 +102,20 @@ describe("findTrackerIssueMappedProjectPath", () => {
     // Preselecting a path Stave cannot open would fail at submit, after the
     // user filled in the rest of the form.
     expect(
-      findTrackerIssueMappedProjectPath({
+      findTrackerIssueMappedRepositoryPath({
         task: makeTask({ source: "jira", key: "ABC-42", ref: "ABC-42" }),
         settings: SETTINGS,
-        registeredProjectPaths: ["/tmp/other"],
+        registeredRepositoryPaths: ["/tmp/other"],
       }),
     ).toBeNull();
   });
 
   test("returns nothing when no mapping covers the ticket", () => {
     expect(
-      findTrackerIssueMappedProjectPath({
+      findTrackerIssueMappedRepositoryPath({
         task: makeTask({ key: "OTHER-9", ref: "OTHER-9" }),
         settings: SETTINGS,
-        registeredProjectPaths: ["/tmp/platform"],
+        registeredRepositoryPaths: ["/tmp/platform"],
       }),
     ).toBeNull();
   });
@@ -195,22 +195,22 @@ describe("last-used project storage", () => {
   });
 
   test("salvages a corrupt document instead of throwing", () => {
-    expect(parseTrackerIssueLastProjects("not json")).toEqual({});
-    expect(parseTrackerIssueLastProjects("[]")).toEqual({});
-    expect(parseTrackerIssueLastProjects(null)).toEqual({});
-    expect(parseTrackerIssueLastProjects('{"crane":42,"jira":"/tmp/a"}')).toEqual(
+    expect(parseTrackerIssueLastRepositories("not json")).toEqual({});
+    expect(parseTrackerIssueLastRepositories("[]")).toEqual({});
+    expect(parseTrackerIssueLastRepositories(null)).toEqual({});
+    expect(parseTrackerIssueLastRepositories('{"crane":42,"jira":"/tmp/a"}')).toEqual(
       { jira: "/tmp/a" },
     );
   });
 
   test("round-trips one source without clearing the other", () => {
-    writeTrackerIssueLastProject("crane", "/tmp/platform");
-    writeTrackerIssueLastProject("jira", "/tmp/abc");
-    expect(readTrackerIssueLastProject("crane")).toBe("/tmp/platform");
-    expect(readTrackerIssueLastProject("jira")).toBe("/tmp/abc");
+    writeTrackerIssueLastRepository("crane", "/tmp/platform");
+    writeTrackerIssueLastRepository("jira", "/tmp/abc");
+    expect(readTrackerIssueLastRepository("crane")).toBe("/tmp/platform");
+    expect(readTrackerIssueLastRepository("jira")).toBe("/tmp/abc");
   });
 
   test("reports nothing for a source that was never used", () => {
-    expect(readTrackerIssueLastProject("jira")).toBeNull();
+    expect(readTrackerIssueLastRepository("jira")).toBeNull();
   });
 });

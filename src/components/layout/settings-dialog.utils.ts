@@ -1,52 +1,52 @@
-import type { RecentProjectState } from "@/store/project.utils";
+import type { RecentRepositoryState } from "@/store/project.utils";
 
-function normalizeProjectPath(value?: string | null) {
+function normalizeRepositoryPath(value?: string | null) {
   const normalized = value?.trim();
   return normalized ? normalized : null;
 }
 
-function hasProjectPath(args: {
-  projects: RecentProjectState[];
-  projectPath: string | null;
+function hasRepositoryPath(args: {
+  repositories: RecentRepositoryState[];
+  repositoryPath: string | null;
 }) {
-  if (!args.projectPath) {
+  if (!args.repositoryPath) {
     return false;
   }
-  return args.projects.some((project) => project.projectPath === args.projectPath);
+  return args.repositories.some((repository) => repository.repositoryPath === args.repositoryPath);
 }
 
 /**
- * Resolves which project should stay selected in Settings > Projects.
+ * Resolves which repository should stay selected in Settings > Projects.
  */
-export function resolveSettingsProjectSelection(args: {
-  projects: RecentProjectState[];
-  selectedProjectPath?: string | null;
-  highlightedProjectPath?: string | null;
-  currentProjectPath?: string | null;
+export function resolveSettingsRepositorySelection(args: {
+  repositories: RecentRepositoryState[];
+  selectedRepositoryPath?: string | null;
+  highlightedRepositoryPath?: string | null;
+  currentRepositoryPath?: string | null;
   allowHighlightedOverride?: boolean;
 }) {
-  const selectedProjectPath = normalizeProjectPath(args.selectedProjectPath);
-  const highlightedProjectPath = normalizeProjectPath(args.highlightedProjectPath);
-  const currentProjectPath = normalizeProjectPath(args.currentProjectPath);
+  const selectedRepositoryPath = normalizeRepositoryPath(args.selectedRepositoryPath);
+  const highlightedRepositoryPath = normalizeRepositoryPath(args.highlightedRepositoryPath);
+  const currentRepositoryPath = normalizeRepositoryPath(args.currentRepositoryPath);
 
-  if (args.projects.length === 0) {
+  if (args.repositories.length === 0) {
     return null;
   }
 
-  if (hasProjectPath({ projects: args.projects, projectPath: selectedProjectPath })) {
-    return selectedProjectPath;
+  if (hasRepositoryPath({ repositories: args.repositories, repositoryPath: selectedRepositoryPath })) {
+    return selectedRepositoryPath;
   }
 
   if (
     args.allowHighlightedOverride !== false
-    && hasProjectPath({ projects: args.projects, projectPath: highlightedProjectPath })
+    && hasRepositoryPath({ repositories: args.repositories, repositoryPath: highlightedRepositoryPath })
   ) {
-    return highlightedProjectPath;
+    return highlightedRepositoryPath;
   }
 
-  if (hasProjectPath({ projects: args.projects, projectPath: currentProjectPath })) {
-    return currentProjectPath;
+  if (hasRepositoryPath({ repositories: args.repositories, repositoryPath: currentRepositoryPath })) {
+    return currentRepositoryPath;
   }
 
-  return args.projects[0]?.projectPath ?? null;
+  return args.repositories[0]?.repositoryPath ?? null;
 }

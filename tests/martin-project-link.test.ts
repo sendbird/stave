@@ -55,7 +55,7 @@ mock.module("../electron/main/stave-mcp-service", () => ({
       amplifyLinks: [],
     },
   }),
-  listKnownProjects: async () => [
+  listKnownRepositories: async () => [
     {
       workspaces: [
         {

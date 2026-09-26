@@ -38,7 +38,7 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
   page,
 }, testInfo) => {
   await page.addInitScript(() => {
-    const projectPath = "/tmp/stave-fleet-needs";
+    const repositoryPath = "/tmp/stave-fleet-needs";
     const workspaceId = "ws-fleet-needs";
     const taskId = "task-fleet-needs";
     const workspaceSnapshot = {
@@ -95,8 +95,8 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath,
-          projectName: "stave-fleet-needs",
+          projectPath: repositoryPath,
+          repositoryName: "stave-fleet-needs",
           workspaces: [
             {
               id: workspaceId,
@@ -106,7 +106,7 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
           ],
           activeWorkspaceId: workspaceId,
           workspaceBranchById: { [workspaceId]: "main" },
-          workspacePathById: { [workspaceId]: projectPath },
+          workspacePathById: { [workspaceId]: repositoryPath },
           workspaceDefaultById: { [workspaceId]: true },
           ...workspaceSnapshot,
         },
@@ -121,8 +121,8 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
           kind: "task.turn_completed",
           title: "Review summary",
           body: "The provider turn completed.",
-          projectPath,
-          projectName: "stave-fleet-needs",
+          projectPath: repositoryPath,
+          repositoryName: "stave-fleet-needs",
           workspaceId,
           workspaceName: "fleet-needs",
           taskId,
@@ -141,8 +141,8 @@ test("Fleet keeps durable needs actionable across cold workspace state", async (
           kind: "task.approval_requested",
           title: "Approve deployment",
           body: "Allow the deployment command.",
-          projectPath,
-          projectName: "stave-fleet-needs",
+          projectPath: repositoryPath,
+          repositoryName: "stave-fleet-needs",
           workspaceId,
           workspaceName: "fleet-needs",
           taskId,

@@ -61,7 +61,7 @@ export function ActivityDetailDialog(props: {
   selection: ActivityDetailSelection;
   taskId: string;
   workspaceId?: string;
-  projectPath?: string;
+  repositoryPath?: string;
   graph?: WorkGraph | null;
   onClose: () => void;
   onAction?: (action: DelegationActionId, exchange: DelegationExchange) => void;
@@ -120,7 +120,7 @@ export function ActivityDetailDialog(props: {
   const canReadProviderHistory = !delegatedTaskId && Boolean(
     agentId &&
     sessionId &&
-    props.projectPath &&
+    props.repositoryPath &&
     (provider === "codex" || provider === "claude-code"),
   );
   const targetKey = delegatedTaskId
@@ -159,7 +159,7 @@ export function ActivityDetailDialog(props: {
   }, [delegatedTaskId, delegatedWorkspaceId, props.workspaceId, props.taskId, offset, savedRefresh]);
 
   useEffect(() => {
-    if (!canReadProviderHistory || !agentId || !sessionId || !props.projectPath || (provider !== "codex" && provider !== "claude-code")) return;
+    if (!canReadProviderHistory || !agentId || !sessionId || !props.repositoryPath || (provider !== "codex" && provider !== "claude-code")) return;
     let cancelled = false;
     const read = window.api?.provider?.readAgentHistory;
     if (!read) { setError("Agent history is unavailable in this runtime."); return; }
@@ -167,7 +167,7 @@ export function ActivityDetailDialog(props: {
     void (async () => {
       const collected = new Map<string, AgentHistoryEntry>();
       for (let pageOffset = 0; pageOffset <= offset; pageOffset += 100) {
-        const result = await read({ providerId: provider, sessionId, agentId, cwd: props.projectPath!, offset: pageOffset, limit: 100, ...(binary ? { codexBinaryPath: binary } : {}) });
+        const result = await read({ providerId: provider, sessionId, agentId, cwd: props.repositoryPath!, offset: pageOffset, limit: 100, ...(binary ? { codexBinaryPath: binary } : {}) });
         if (cancelled) return;
         setHistoryResponse(result);
         setError(result.ok ? "" : result.detail);
@@ -179,7 +179,7 @@ export function ActivityDetailDialog(props: {
     })().catch(error => { if (!cancelled) setError(String(error)); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
-  }, [agentId, sessionId, provider, props.projectPath, binary, offset, historyRefresh, canReadProviderHistory]);
+  }, [agentId, sessionId, provider, props.repositoryPath, binary, offset, historyRefresh, canReadProviderHistory]);
 
   useEffect(() => {
     if (!live || !canReadProviderHistory || loading) return;

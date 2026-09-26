@@ -216,7 +216,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     workspaceDefaultById,
     workspaceBranchById,
     workspacePathById,
-    projectPath,
+    repositoryPath,
     defaultBranch,
     activeTaskId,
     promptDraftByTask,
@@ -243,7 +243,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
           state.workspaceDefaultById,
           state.workspaceBranchById,
           state.workspacePathById,
-          state.projectPath,
+          state.repositoryPath,
           state.defaultBranch,
           state.activeTaskId,
           state.promptDraftByTask,
@@ -268,7 +268,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
 
   const isDefaultWorkspace = Boolean(workspaceDefaultById[activeWorkspaceId]);
   const workspaceCwd =
-    workspacePathById[activeWorkspaceId] ?? projectPath ?? "";
+    workspacePathById[activeWorkspaceId] ?? repositoryPath ?? "";
   const hasWorkspaceContext = Boolean(activeWorkspaceId && workspaceCwd);
   const currentBranch = workspaceBranchById[activeWorkspaceId];
   const defaultBaseBranch = defaultBranch.trim() || "main";
@@ -938,7 +938,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     if (
       runScriptHook &&
       submitWorkspaceId &&
-      projectPath &&
+      repositoryPath &&
       !options.skipVerification
     ) {
       setStep("action");
@@ -951,7 +951,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
       const hookResult = await runScriptHook({
         workspaceId: submitWorkspaceId,
         trigger: "pr.beforeOpen",
-        projectPath,
+        repositoryPath,
         workspacePath: submitWorkspaceCwd,
         workspaceName: currentBranch ?? "workspace",
         branch: currentBranch ?? selectedTargetBranch,
@@ -1288,11 +1288,11 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     // Refresh PR status to pick up the new PR
     fetchStatus();
 
-    if (runScriptHook && submitWorkspaceId && projectPath) {
+    if (runScriptHook && submitWorkspaceId && repositoryPath) {
       const hookResult = await runScriptHook({
         workspaceId: submitWorkspaceId,
         trigger: "pr.afterOpen",
-        projectPath,
+        repositoryPath,
         workspacePath: submitWorkspaceCwd,
         workspaceName: currentBranch ?? "workspace",
         branch: currentBranch ?? selectedTargetBranch,

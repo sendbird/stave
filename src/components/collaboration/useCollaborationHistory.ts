@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { loadTaskMessagesPage } from "@/lib/db/workspaces.db";
 import {
   COLLABORATION_HISTORY_PAGE_SIZE,
-  projectCollaborationHistoryPage,
+  repositoryCollaborationHistoryPage,
   resolveNewerCollaborationHistoryOffset,
   resolveOlderCollaborationHistoryOffset,
   type CollaborationHistoryPage,
@@ -65,7 +65,7 @@ export function useCollaborationHistory(args: {
         if (requestId !== requestIdRef.current) return;
         setState({
           scopeKey,
-          page: projectCollaborationHistoryPage(loaded),
+          page: repositoryCollaborationHistoryPage(loaded),
           loading: false,
           error: null,
         });

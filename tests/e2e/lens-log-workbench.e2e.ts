@@ -35,8 +35,8 @@ test("Lens buffers paused logs, reveals entry details, and clears persisted hist
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-lens-logs",
-          projectName: "stave-lens-logs",
+          repositoryPath: "/tmp/stave-lens-logs",
+          repositoryName: "stave-lens-logs",
           workspaces: [
             {
               id: workspaceId,

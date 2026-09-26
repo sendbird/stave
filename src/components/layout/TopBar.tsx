@@ -60,7 +60,7 @@ export function TopBar() {
     activeWorkspaceId,
     workspaces,
     workspacePathById,
-    projectPath,
+    repositoryPath,
     workspaceSidebarCollapsed,
     setLayout,
   ] = useAppStore(
@@ -70,24 +70,24 @@ export function TopBar() {
           state.activeWorkspaceId,
           state.workspaces,
           state.workspacePathById,
-          state.projectPath,
+          state.repositoryPath,
           state.layout.workspaceSidebarCollapsed,
           state.setLayout,
         ] as const,
     ),
   );
-  const hasProjectContext = Boolean(projectPath?.trim());
-  const activeWorkspacePath = hasProjectContext
-    ? (workspacePathById[activeWorkspaceId] ?? projectPath ?? "")
+  const hasRepositoryContext = Boolean(repositoryPath?.trim());
+  const activeWorkspacePath = hasRepositoryContext
+    ? (workspacePathById[activeWorkspaceId] ?? repositoryPath ?? "")
     : "";
   const workspacePathLabel = formatWorkspacePathLabel({
     workspacePath: activeWorkspacePath,
-    projectPath,
+    repositoryPath,
   });
   const canOpenGitGraph = Boolean(
     resolveOpenableGitGraphWorkspaceId({
       activeWorkspaceId,
-      projectPath,
+      repositoryPath,
       workspaces,
       workspacePathById,
     }),
@@ -124,7 +124,7 @@ export function TopBar() {
               <TooltipContent side="bottom">Expand Repository List</TooltipContent>
             </Tooltip>
           ) : null}
-          {hasProjectContext && activeWorkspacePath ? (
+          {hasRepositoryContext && activeWorkspacePath ? (
             <div
               className={sx(topBarStyles.pathGroup)}
               style={TOP_BAR_NO_DRAG_STYLE}
@@ -263,10 +263,10 @@ export function TopBar() {
               </DropdownMenu>
             </div>
           ) : null}
-          {hasProjectContext ? (
+          {hasRepositoryContext ? (
             <TopBarBranchDropdown noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
           ) : null}
-          {hasProjectContext ? (
+          {hasRepositoryContext ? (
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -297,7 +297,7 @@ export function TopBar() {
               </TooltipContent>
             </Tooltip>
           ) : null}
-          {hasProjectContext ? (
+          {hasRepositoryContext ? (
             <TopBarOpenPR
               key={`${activeWorkspaceId}:${activeWorkspacePath}`}
               noDragStyle={TOP_BAR_NO_DRAG_STYLE}
@@ -307,18 +307,18 @@ export function TopBar() {
       </div>
       <div className={sx(topBarStyles.trail)}>
         <div className={sx(topBarStyles.searchSlot)}>
-          {hasProjectContext ? (
+          {hasRepositoryContext ? (
             <TopBarFileSearch noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
           ) : null}
         </div>
 
-        {hasProjectContext ? (
+        {hasRepositoryContext ? (
           <TopBarFleetAttention noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         ) : null}
         <TopBarIssues noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         <TopBarAutomations noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         <TopBarStandaloneCli noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
-        {hasProjectContext ? (
+        {hasRepositoryContext ? (
           <TopBarNotifications noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         ) : null}
         <TopBarUpdate noDragStyle={TOP_BAR_NO_DRAG_STYLE} />

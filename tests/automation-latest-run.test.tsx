@@ -9,7 +9,7 @@ function buildRun(overrides: Partial<AutomationRun> = {}): AutomationRun {
     id: "run-1",
     automationId: "automation-1",
     workspaceId: "workspace-1",
-    projectPath: "/tmp/project",
+    repositoryPath: "/tmp/project",
     taskId: "task-1",
     turnId: "turn-1",
     status: "completed",

@@ -21,22 +21,22 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useShallow } from "zustand/react/shallow";
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { panelBarStyles } from "@/components/layout/panel-bar.constants";
-import { projectSidebarStyles } from "@/components/layout/project-workspace-sidebar.styles";
+import { repositorySidebarStyles } from "@/components/layout/project-workspace-sidebar.styles";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { transition } from "@/components/ads/recipes/transition";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import {
   buildCollapsedWorkspaceEntries,
-  buildProjectSidebarAttentionAlert,
+  buildRepositorySidebarAttentionAlert,
   buildSidebarWorkQueueEntries,
   buildWorkspaceArchiveDialogCopy,
-  filterProjectSidebarProjects,
+  filterRepositorySidebarRepositories,
   buildVisibleWorkspaceShortcutTargets,
   getWorkspaceShortcutLabel,
   getWorkspaceLeadingAttentionKind,
   WORKSPACE_SHORTCUT_COUNT,
-  type ProjectSidebarAttentionAlert,
-  type ProjectSidebarCollapsedProjectView,
+  type RepositorySidebarAttentionAlert,
+  type RepositorySidebarCollapsedRepositoryView,
 } from "@/components/layout/ProjectWorkspaceSidebar.utils";
 import { isEditableShortcutTarget } from "@/components/layout/app-shell.shortcuts";
 import { CreateWorkspaceDialog } from "@/components/layout/CreateWorkspaceDialog";
@@ -47,7 +47,7 @@ import type { SectionId } from "@/components/layout/settings-dialog.schema";
 import { WorkspaceIdentityMark } from "@/components/layout/workspace-accent";
 import { WorkspaceAccountLimitIcon } from "@/components/layout/WorkspaceAccountLimitIcon";
 import { WorkspaceProgressTaskTree } from "@/components/layout/WorkspaceProgressTaskTree";
-import { ProjectIdentityMark } from "@/components/layout/project-appearance";
+import { RepositoryIdentityMark } from "@/components/layout/project-appearance";
 import { useSortableListMonitor } from "@/hooks/use-sortable-list";
 import {
   Button,
@@ -80,13 +80,13 @@ import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import { useAppStore } from "@/store/app.store";
 import type { SidebarNavView } from "@/store/app-settings";
 import type { WorkspaceSidebarItemDisplayMode } from "@/store/layout.utils";
-import { getLinkedWorktreePathSetForProject } from "@/store/workspace-archive-cleanup";
+import { getLinkedWorktreePathSetForRepository } from "@/store/workspace-archive-cleanup";
 import {
   isWorkspaceActivationKey,
   WorkspaceHoverPreviewTooltip,
   WorkspaceLeadingStatusIcon,
   WorkQueueRow,
-  ProjectAttentionAlertIcon,
+  RepositoryAttentionAlertIcon,
   WorkspaceRespondingCountBadge,
   InlineWorkspaceLabel,
   WorkspaceExpandedMeta,
@@ -97,11 +97,11 @@ import {
   WorkspaceRowActions,
 } from "./workspace-sidebar-rows";
 
-type ProjectSidebarView = ProjectSidebarCollapsedProjectView;
+type RepositorySidebarView = RepositorySidebarCollapsedRepositoryView;
 
 /**
  * The two sidebar views, in toggle order. Both list the same workspaces, so
- * either is a complete way to navigate — `projects` sorts by where a workspace
+ * either is a complete way to navigate — `repositories` sorts by where a workspace
  * lives, `work-queue` sorts by what it wants from you.
  */
 const SIDEBAR_NAV_VIEW_OPTIONS: readonly {
@@ -112,47 +112,47 @@ const SIDEBAR_NAV_VIEW_OPTIONS: readonly {
   { value: "projects", label: "Repositories", Icon: FolderTree },
   { value: "work-queue", label: "Work queue", Icon: ListChecks },
 ] as const;
-const DEFAULT_COLLAPSED_PROJECT_SIDEBAR_WIDTH = 64;
+const DEFAULT_COLLAPSED_REPOSITORY_SIDEBAR_WIDTH = 64;
 /** Height reserved at the top of the collapsed sidebar for macOS traffic-light buttons. */
 const MAC_TRAFFIC_LIGHT_CLEARANCE = 40;
 /** Keep this aligned with the native traffic-light placement in `electron/main/window.ts`. */
 const MAC_TRAFFIC_LIGHT_LEFT_INSET = 12;
 const MAC_TRAFFIC_LIGHT_CLUSTER_WIDTH = 58;
 const MAC_TRAFFIC_LIGHT_RIGHT_GUTTER = 10;
-export const COLLAPSED_PROJECT_SIDEBAR_WIDTH = IS_MAC
+export const COLLAPSED_REPOSITORY_SIDEBAR_WIDTH = IS_MAC
   ? Math.max(
-      DEFAULT_COLLAPSED_PROJECT_SIDEBAR_WIDTH,
+      DEFAULT_COLLAPSED_REPOSITORY_SIDEBAR_WIDTH,
       MAC_TRAFFIC_LIGHT_LEFT_INSET +
         MAC_TRAFFIC_LIGHT_CLUSTER_WIDTH +
         MAC_TRAFFIC_LIGHT_RIGHT_GUTTER,
     )
-  : DEFAULT_COLLAPSED_PROJECT_SIDEBAR_WIDTH;
+  : DEFAULT_COLLAPSED_REPOSITORY_SIDEBAR_WIDTH;
 
-const PROJECT_SORTABLE_LIST_ID = "sidebar-projects";
+const REPOSITORY_SORTABLE_LIST_ID = "sidebar-projects";
 const WORKSPACE_SORTABLE_LIST_PREFIX = "sidebar-workspaces:";
 
-export function ProjectWorkspaceSidebar(args: {
+export function RepositoryWorkspaceSidebar(args: {
   width: number;
   collapsed: boolean;
   animate?: boolean;
   onOpenCommandPalette: () => void;
   onOpenKeyboardShortcuts: () => void;
   onOpenSettings: (options?: {
-    projectPath?: string | null;
+    repositoryPath?: string | null;
     section?: SectionId;
   }) => void;
   onPreloadSettings: () => void;
-  onKickoffWorkspace: (projectPath: string) => Promise<void> | void;
+  onKickoffWorkspace: (repositoryPath: string) => Promise<void> | void;
 }) {
-  const [collapsedByProjectPath, setCollapsedByProjectPath] = useState<
+  const [collapsedByRepositoryPath, setCollapsedByRepositoryPath] = useState<
     Record<string, boolean>
   >({});
-  // Lane collapse is deliberately session-local, matching `collapsedByProjectPath`:
+  // Lane collapse is deliberately session-local, matching `collapsedByRepositoryPath`:
   // both answer "what am I ignoring right now", not "how do I like my sidebar".
   const [collapsedWorkQueueLanes, setCollapsedWorkQueueLanes] = useState<
     Partial<Record<SidebarWorkQueueLane, boolean>>
   >({});
-  const [busyProjectPath, setBusyProjectPath] = useState<string | null>(null);
+  const [busyRepositoryPath, setBusyRepositoryPath] = useState<string | null>(null);
   const [busyWorkspaceKey, setBusyWorkspaceKey] = useState<string | null>(null);
   const [createWorkspaceOpen, setCreateWorkspaceOpen] = useState(false);
   const [openPathDialogOpen, setOpenPathDialogOpen] = useState(false);
@@ -167,11 +167,11 @@ export function ProjectWorkspaceSidebar(args: {
   );
   const [archiveDeletesBranch, setArchiveDeletesBranch] = useState(true);
   const [
-    currentProjectPath,
-    currentProjectName,
+    currentRepositoryPath,
+    currentRepositoryName,
     workspaces,
     activeWorkspaceId,
-    recentProjects,
+    recentRepositories,
     workspaceDefaultById,
     workspaceBranchById,
     workspacePathById,
@@ -181,14 +181,14 @@ export function ProjectWorkspaceSidebar(args: {
     sidebarShowFleetView,
     sidebarNavView,
     defaultBranch,
-    projectWorkspaceInitCommand,
-    projectUseRootNodeModulesSymlink,
-    createProject,
-    openProjectFromPath,
-    openProject,
-    moveProjectInList,
+    repositoryWorkspaceInitCommand,
+    repositoryUseRootNodeModulesSymlink,
+    createRepository,
+    openRepositoryFromPath,
+    openRepository,
+    moveRepositoryInList,
     switchWorkspace,
-    moveWorkspaceInProjectList,
+    moveWorkspaceInRepositoryList,
     createWorkspace,
     importWorkspaceFromWorktree,
     closeWorkspace,
@@ -207,38 +207,38 @@ export function ProjectWorkspaceSidebar(args: {
   ] = useAppStore(
     useShallow((state) => {
       return [
-        state.projectPath,
-        state.projectName,
+        state.repositoryPath,
+        state.repositoryName,
         state.workspaces,
         state.activeWorkspaceId,
-        state.recentProjects,
+        state.recentRepositories,
         state.workspaceDefaultById,
         state.workspaceBranchById,
         state.workspacePathById,
         state.workspaceBranchById[state.activeWorkspaceId] ?? "main",
         state.workspacePathById[state.activeWorkspaceId] ??
-          state.projectPath ??
+          state.repositoryPath ??
           undefined,
         state.layout.workspaceSidebarItemDisplayMode,
         state.settings.sidebarShowFleetView,
         state.settings.sidebarNavView,
         state.defaultBranch,
-        (state.projectPath
-          ? state.recentProjects.find(
-              (project) => project.projectPath === state.projectPath,
+        (state.repositoryPath
+          ? state.recentRepositories.find(
+              (repository) => repository.repositoryPath === state.repositoryPath,
             )?.newWorkspaceInitCommand
           : "") ?? "",
-        state.projectPath
-          ? state.recentProjects.find(
-              (project) => project.projectPath === state.projectPath,
+        state.repositoryPath
+          ? state.recentRepositories.find(
+              (repository) => repository.repositoryPath === state.repositoryPath,
             )?.newWorkspaceUseRootNodeModulesSymlink === true
           : false,
-        state.createProject,
-        state.openProjectFromPath,
-        state.openProject,
-        state.moveProjectInList,
+        state.createRepository,
+        state.openRepositoryFromPath,
+        state.openRepository,
+        state.moveRepositoryInList,
         state.switchWorkspace,
-        state.moveWorkspaceInProjectList,
+        state.moveWorkspaceInRepositoryList,
         state.createWorkspace,
         state.importWorkspaceFromWorktree,
         state.closeWorkspace,
@@ -261,18 +261,18 @@ export function ProjectWorkspaceSidebar(args: {
     useFleetAttentionProjection();
   const isWorkQueueView = sidebarNavView === "work-queue";
 
-  const projects = useMemo(() => {
-    const rememberedCurrentProject = currentProjectPath
-      ? recentProjects.find(
-          (project) => project.projectPath === currentProjectPath,
+  const repositories = useMemo(() => {
+    const rememberedCurrentRepository = currentRepositoryPath
+      ? recentRepositories.find(
+          (repository) => repository.repositoryPath === currentRepositoryPath,
         )
       : null;
-    const currentProject = currentProjectPath
+    const currentRepository = currentRepositoryPath
       ? ({
-          projectPath: currentProjectPath,
-          projectName: currentProjectName ?? "project",
-          appearanceIcon: rememberedCurrentProject?.appearanceIcon,
-          appearanceColor: rememberedCurrentProject?.appearanceColor,
+          repositoryPath: currentRepositoryPath,
+          repositoryName: currentRepositoryName ?? "project",
+          appearanceIcon: rememberedCurrentRepository?.appearanceIcon,
+          appearanceColor: rememberedCurrentRepository?.appearanceColor,
           workspaces: workspaces.map((workspace) => ({
             id: workspace.id,
             name: workspace.name,
@@ -282,59 +282,59 @@ export function ProjectWorkspaceSidebar(args: {
           workspacePathById,
           activeWorkspaceId,
           isCurrent: true,
-        } satisfies ProjectSidebarView)
+        } satisfies RepositorySidebarView)
       : null;
 
-    const rememberedProjects = recentProjects.map(
-      (project) =>
+    const rememberedRepositories = recentRepositories.map(
+      (repository) =>
         ({
-          projectPath: project.projectPath,
-          projectName: project.projectName,
-          appearanceIcon: project.appearanceIcon,
-          appearanceColor: project.appearanceColor,
-          workspaces: project.workspaces.map((workspace) => ({
+          repositoryPath: repository.repositoryPath,
+          repositoryName: repository.repositoryName,
+          appearanceIcon: repository.appearanceIcon,
+          appearanceColor: repository.appearanceColor,
+          workspaces: repository.workspaces.map((workspace) => ({
             id: workspace.id,
             name: workspace.name,
-            isDefault: Boolean(project.workspaceDefaultById[workspace.id]),
-            branch: project.workspaceBranchById[workspace.id],
+            isDefault: Boolean(repository.workspaceDefaultById[workspace.id]),
+            branch: repository.workspaceBranchById[workspace.id],
           })),
-          workspacePathById: project.workspacePathById,
-          activeWorkspaceId: project.activeWorkspaceId,
-          isCurrent: project.projectPath === currentProjectPath,
-        }) satisfies ProjectSidebarView,
+          workspacePathById: repository.workspacePathById,
+          activeWorkspaceId: repository.activeWorkspaceId,
+          isCurrent: repository.repositoryPath === currentRepositoryPath,
+        }) satisfies RepositorySidebarView,
     );
 
-    if (!currentProject) {
-      return rememberedProjects;
+    if (!currentRepository) {
+      return rememberedRepositories;
     }
 
-    const hasCurrentProject = rememberedProjects.some(
-      (project) => project.projectPath === currentProjectPath,
+    const hasCurrentRepository = rememberedRepositories.some(
+      (repository) => repository.repositoryPath === currentRepositoryPath,
     );
-    if (!hasCurrentProject) {
-      return [...rememberedProjects, currentProject];
+    if (!hasCurrentRepository) {
+      return [...rememberedRepositories, currentRepository];
     }
 
-    return rememberedProjects.map((project) =>
-      project.projectPath === currentProjectPath ? currentProject : project,
+    return rememberedRepositories.map((repository) =>
+      repository.repositoryPath === currentRepositoryPath ? currentRepository : repository,
     );
   }, [
     activeWorkspaceId,
-    currentProjectName,
-    currentProjectPath,
-    recentProjects,
+    currentRepositoryName,
+    currentRepositoryPath,
+    recentRepositories,
     workspaceBranchById,
     workspaceDefaultById,
     workspacePathById,
     workspaces,
   ]);
-  const visibleProjects = useMemo(
+  const visibleRepositories = useMemo(
     () =>
-      filterProjectSidebarProjects({
-        projects,
+      filterRepositorySidebarRepositories({
+        repositories,
         query: workspaceSearchQuery,
       }),
-    [projects, workspaceSearchQuery],
+    [repositories, workspaceSearchQuery],
   );
   // Archive treats linked worktrees as externally owned, so the confirmation
   // must not promise a branch deletion that `performWorkspaceArchiveCleanup`
@@ -346,31 +346,31 @@ export function ProjectWorkspaceSidebar(args: {
     const workspacePath = workspacePathById[workspaceToClose.id];
     const isLinkedWorktree = Boolean(
       workspacePath &&
-      getLinkedWorktreePathSetForProject({
-        projectPath: currentProjectPath,
-        recentProjects,
+      getLinkedWorktreePathSetForRepository({
+        repositoryPath: currentRepositoryPath,
+        recentRepositories,
       }).has(normalizeComparablePath(workspacePath)),
     );
     return buildWorkspaceArchiveDialogCopy({
       workspaceName: workspaceToClose.name,
       isLinkedWorktree,
     });
-  }, [currentProjectPath, recentProjects, workspacePathById, workspaceToClose]);
+  }, [currentRepositoryPath, recentRepositories, workspacePathById, workspaceToClose]);
   const collapsedWorkspaceEntries = useMemo(
     () =>
       buildCollapsedWorkspaceEntries({
-        projects,
+        repositories,
         activeWorkspaceId,
       }),
-    [activeWorkspaceId, projects],
+    [activeWorkspaceId, repositories],
   );
-  const recentProjectLastOpenedAtByPath = useMemo(() => {
+  const recentRepositoryLastOpenedAtByPath = useMemo(() => {
     const map: Record<string, string> = {};
-    for (const project of recentProjects) {
-      map[project.projectPath] = project.lastOpenedAt;
+    for (const repository of recentRepositories) {
+      map[repository.repositoryPath] = repository.lastOpenedAt;
     }
     return map;
-  }, [recentProjects]);
+  }, [recentRepositories]);
   const workspaceFleetStatusById = useMemo(() => {
     const statusById: Record<string, FleetTaskStatus> = {};
     if (!isWorkQueueView) {
@@ -378,10 +378,10 @@ export function ProjectWorkspaceSidebar(args: {
       // pass entirely while the Projects tree is showing.
       return statusById;
     }
-    for (const project of projects) {
-      for (const workspace of project.workspaces) {
+    for (const repository of repositories) {
+      for (const workspace of repository.workspaces) {
         const isActiveWorkspace =
-          project.isCurrent && workspace.id === activeWorkspaceId;
+          repository.isCurrent && workspace.id === activeWorkspaceId;
         const runtimeState = isActiveWorkspace
           ? { tasks: activeTasks, messagesByTask, activeTurnIdsByTask }
           : workspaceRuntimeCacheById[workspace.id];
@@ -415,7 +415,7 @@ export function ProjectWorkspaceSidebar(args: {
     activeTurnIdsByTask,
     activeWorkspaceId,
     messagesByTask,
-    projects,
+    repositories,
     providerTurnActivityByTask,
     isWorkQueueView,
     workspaceRuntimeCacheById,
@@ -424,11 +424,11 @@ export function ProjectWorkspaceSidebar(args: {
     () =>
       isWorkQueueView
         ? buildSidebarWorkQueueEntries({
-            // `visibleProjects`, not `projects`: the search box filters both
+            // `visibleRepositories`, not `repositories`: the search box filters both
             // views through the same predicate, so a query narrows the queue
             // exactly the way it narrows the tree.
-            projects: visibleProjects,
-            recentProjectLastOpenedAtByPath,
+            repositories: visibleRepositories,
+            recentRepositoryLastOpenedAtByPath,
             statusByWorkspaceId: workspaceFleetStatusById,
             // Only needs that show a leading icon may pull a workspace up the
             // order. A reviewed-later result must not outrank a live one with
@@ -448,8 +448,8 @@ export function ProjectWorkspaceSidebar(args: {
     [
       activeWorkspaceId,
       isWorkQueueView,
-      visibleProjects,
-      recentProjectLastOpenedAtByPath,
+      visibleRepositories,
+      recentRepositoryLastOpenedAtByPath,
       highestAttentionByWorkspaceId,
       workspaceFleetStatusById,
     ],
@@ -472,35 +472,35 @@ export function ProjectWorkspaceSidebar(args: {
       signalsByWorkspaceId,
     });
   }, [workQueueEntries, highestAttentionByWorkspaceId]);
-  // Collapsing a project hides its workspace rows, so the project row carries
+  // Collapsing a repository hides its workspace rows, so the repository row carries
   // the rolled-up alert for anything blocking inside it.
-  const attentionAlertByProjectPath = useMemo(() => {
-    const alertByPath: Record<string, ProjectSidebarAttentionAlert> = {};
-    for (const project of projects) {
-      const alert = buildProjectSidebarAttentionAlert({
-        workspaces: project.workspaces,
+  const attentionAlertByRepositoryPath = useMemo(() => {
+    const alertByPath: Record<string, RepositorySidebarAttentionAlert> = {};
+    for (const repository of repositories) {
+      const alert = buildRepositorySidebarAttentionAlert({
+        workspaces: repository.workspaces,
         attentionItemsByWorkspaceId,
       });
       if (alert) {
-        alertByPath[project.projectPath] = alert;
+        alertByPath[repository.repositoryPath] = alert;
       }
     }
     return alertByPath;
-  }, [attentionItemsByWorkspaceId, projects]);
+  }, [attentionItemsByWorkspaceId, repositories]);
   const workspaceShortcutTargets = useMemo(
     () =>
       buildVisibleWorkspaceShortcutTargets({
         collapsed: args.collapsed,
-        collapsedByProjectPath,
-        projects,
+        collapsedByRepositoryPath,
+        repositories,
       }),
-    [args.collapsed, collapsedByProjectPath, projects],
+    [args.collapsed, collapsedByRepositoryPath, repositories],
   );
   const workspaceShortcutLabels = useMemo(
     () =>
       new Map(
         workspaceShortcutTargets.map((target, index) => [
-          `${target.projectPath}:${target.workspaceId}`,
+          `${target.repositoryPath}:${target.workspaceId}`,
           getWorkspaceShortcutLabel(index) ?? "",
         ]),
       ),
@@ -516,13 +516,13 @@ export function ProjectWorkspaceSidebar(args: {
   }, []);
 
   useSortableListMonitor({
-    isListMatch: (listId) => listId === PROJECT_SORTABLE_LIST_ID,
+    isListMatch: (listId) => listId === REPOSITORY_SORTABLE_LIST_ID,
     onReorder: ({ sourceId, targetId, closestEdge }) => {
-      const fromIndex = projects.findIndex(
-        (project) => project.projectPath === sourceId,
+      const fromIndex = repositories.findIndex(
+        (repository) => repository.repositoryPath === sourceId,
       );
-      const targetIndex = projects.findIndex(
-        (project) => project.projectPath === targetId,
+      const targetIndex = repositories.findIndex(
+        (repository) => repository.repositoryPath === targetId,
       );
       if (fromIndex < 0 || targetIndex < 0) {
         return;
@@ -539,11 +539,11 @@ export function ProjectWorkspaceSidebar(args: {
       const direction = destinationIndex > fromIndex ? "down" : "up";
       const steps = Math.abs(destinationIndex - fromIndex);
       for (let step = 0; step < steps; step += 1) {
-        moveProjectInList({ projectPath: sourceId, direction });
+        moveRepositoryInList({ repositoryPath: sourceId, direction });
       }
-      const projectName = projects[fromIndex]?.projectName ?? "Repository";
+      const repositoryName = repositories[fromIndex]?.repositoryName ?? "Repository";
       setReorderAnnouncement(
-        `${projectName} moved to position ${destinationIndex + 1} of ${projects.length}.`,
+        `${repositoryName} moved to position ${destinationIndex + 1} of ${repositories.length}.`,
       );
       suppressNextRowClick();
     },
@@ -552,15 +552,15 @@ export function ProjectWorkspaceSidebar(args: {
   useSortableListMonitor({
     isListMatch: (listId) => listId.startsWith(WORKSPACE_SORTABLE_LIST_PREFIX),
     onReorder: ({ listId, sourceId, targetId, closestEdge }) => {
-      const projectPath = listId.slice(WORKSPACE_SORTABLE_LIST_PREFIX.length);
-      const project = projects.find((item) => item.projectPath === projectPath);
-      if (!project) {
+      const repositoryPath = listId.slice(WORKSPACE_SORTABLE_LIST_PREFIX.length);
+      const repository = repositories.find((item) => item.repositoryPath === repositoryPath);
+      if (!repository) {
         return;
       }
-      const fromIndex = project.workspaces.findIndex(
+      const fromIndex = repository.workspaces.findIndex(
         (workspace) => workspace.id === sourceId,
       );
-      const targetIndex = project.workspaces.findIndex(
+      const targetIndex = repository.workspaces.findIndex(
         (workspace) => workspace.id === targetId,
       );
       if (fromIndex < 0 || targetIndex < 0) {
@@ -578,33 +578,33 @@ export function ProjectWorkspaceSidebar(args: {
       const direction = destinationIndex > fromIndex ? "down" : "up";
       const steps = Math.abs(destinationIndex - fromIndex);
       for (let step = 0; step < steps; step += 1) {
-        moveWorkspaceInProjectList({
-          projectPath,
+        moveWorkspaceInRepositoryList({
+          repositoryPath,
           workspaceId: sourceId,
           direction,
         });
       }
-      const workspaceName = project.workspaces[fromIndex]?.name ?? "Workspace";
+      const workspaceName = repository.workspaces[fromIndex]?.name ?? "Workspace";
       setReorderAnnouncement(
-        `${workspaceName} moved to position ${destinationIndex + 1} of ${project.workspaces.length}.`,
+        `${workspaceName} moved to position ${destinationIndex + 1} of ${repository.workspaces.length}.`,
       );
       suppressNextRowClick();
     },
   });
 
   useEffect(() => {
-    setCollapsedByProjectPath((current) => {
+    setCollapsedByRepositoryPath((current) => {
       let changed = false;
       const next = { ...current };
-      for (const project of projects) {
-        if (!(project.projectPath in next)) {
-          next[project.projectPath] = false;
+      for (const repository of repositories) {
+        if (!(repository.repositoryPath in next)) {
+          next[repository.repositoryPath] = false;
           changed = true;
         }
       }
       return changed ? next : current;
     });
-  }, [projects]);
+  }, [repositories]);
 
   // Fetch PR status for all non-default workspaces on mount and every 5 min.
   useEffect(() => {
@@ -648,27 +648,27 @@ export function ProjectWorkspaceSidebar(args: {
 
       event.preventDefault();
       event.stopPropagation();
-      void handleProjectWorkspaceOpen({
-        projectPath: nextWorkspace.projectPath,
+      void handleRepositoryWorkspaceOpen({
+        repositoryPath: nextWorkspace.repositoryPath,
         workspaceId: nextWorkspace.workspaceId,
       });
     };
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [handleProjectWorkspaceOpen, workspaceShortcutTargets]);
-  async function handleProjectWorkspaceOpen(args: {
-    projectPath: string;
+  }, [handleRepositoryWorkspaceOpen, workspaceShortcutTargets]);
+  async function handleRepositoryWorkspaceOpen(args: {
+    repositoryPath: string;
     workspaceId?: string;
   }) {
     const workspaceKey = args.workspaceId
-      ? `${args.projectPath}:${args.workspaceId}`
+      ? `${args.repositoryPath}:${args.workspaceId}`
       : null;
-    setBusyProjectPath(args.projectPath);
+    setBusyRepositoryPath(args.repositoryPath);
     setBusyWorkspaceKey(workspaceKey);
     try {
-      if (args.projectPath !== useAppStore.getState().projectPath) {
-        await openProject({ projectPath: args.projectPath });
+      if (args.repositoryPath !== useAppStore.getState().repositoryPath) {
+        await openRepository({ repositoryPath: args.repositoryPath });
       }
       if (args.workspaceId) {
         const stateNow = useAppStore.getState();
@@ -680,20 +680,20 @@ export function ProjectWorkspaceSidebar(args: {
         }
       }
     } finally {
-      setBusyProjectPath(null);
+      setBusyRepositoryPath(null);
       setBusyWorkspaceKey(null);
     }
   }
 
-  async function handleCreateWorkspaceRequest(projectPath: string) {
-    setBusyProjectPath(projectPath);
+  async function handleCreateWorkspaceRequest(repositoryPath: string) {
+    setBusyRepositoryPath(repositoryPath);
     try {
-      if (projectPath !== useAppStore.getState().projectPath) {
-        await openProject({ projectPath });
+      if (repositoryPath !== useAppStore.getState().repositoryPath) {
+        await openRepository({ repositoryPath });
       }
       setCreateWorkspaceOpen(true);
     } finally {
-      setBusyProjectPath(null);
+      setBusyRepositoryPath(null);
     }
   }
 
@@ -716,13 +716,13 @@ export function ProjectWorkspaceSidebar(args: {
         className={cx(
           "stave-project-sidebar",
           sx(
-            projectSidebarStyles.aside,
-            args.animate !== false && projectSidebarStyles.asideAnimated,
+            repositorySidebarStyles.aside,
+            args.animate !== false && repositorySidebarStyles.asideAnimated,
           ),
         )}
         style={{
-          width: `${args.collapsed ? COLLAPSED_PROJECT_SIDEBAR_WIDTH : args.width}px`,
-          minWidth: `${args.collapsed ? COLLAPSED_PROJECT_SIDEBAR_WIDTH : args.width}px`,
+          width: `${args.collapsed ? COLLAPSED_REPOSITORY_SIDEBAR_WIDTH : args.width}px`,
+          minWidth: `${args.collapsed ? COLLAPSED_REPOSITORY_SIDEBAR_WIDTH : args.width}px`,
         }}
       >
         <VisuallyHidden aria-live="polite" aria-atomic="true">
@@ -732,10 +732,10 @@ export function ProjectWorkspaceSidebar(args: {
         <div
           data-testid="project-workspace-sidebar-chrome"
           className={sx(
-            projectSidebarStyles.chrome,
+            repositorySidebarStyles.chrome,
             args.collapsed
-              ? projectSidebarStyles.chromeCollapsed
-              : projectSidebarStyles.chromeExpanded,
+              ? repositorySidebarStyles.chromeCollapsed
+              : repositorySidebarStyles.chromeExpanded,
           )}
           style={
             args.collapsed && IS_MAC
@@ -747,20 +747,20 @@ export function ProjectWorkspaceSidebar(args: {
         >
           <TooltipProvider>
             {args.collapsed ? (
-              <div className={sx(projectSidebarStyles.columnCenter)}>
+              <div className={sx(repositorySidebarStyles.columnCenter)}>
                 <Tooltip>
                   <TooltipTrigger
                     render={
                       <Button
                         variant="outline"
                         size="sm"
-                        xstyle={projectSidebarStyles.collapsedPrimaryButton}
+                        xstyle={repositorySidebarStyles.collapsedPrimaryButton}
                         onClick={() => setOpenPathDialogOpen(true)}
                         aria-label="open-project"
                       />
                     }
                   >
-                    <FolderOpen className={sx(projectSidebarStyles.iconMd)} />
+                    <FolderOpen className={sx(repositorySidebarStyles.iconMd)} />
                   </TooltipTrigger>
                   <TooltipContent side="right">Open Repository</TooltipContent>
                 </Tooltip>
@@ -772,31 +772,31 @@ export function ProjectWorkspaceSidebar(args: {
                           variant="ghost"
                           size="sm"
                           xstyle={[
-                            projectSidebarStyles.collapsedButton,
+                            repositorySidebarStyles.collapsedButton,
                             activeAppSurface.kind === "fleet-view"
-                              ? projectSidebarStyles.collapsedButtonActive
-                              : projectSidebarStyles.collapsedButtonIdle,
+                              ? repositorySidebarStyles.collapsedButtonActive
+                              : repositorySidebarStyles.collapsedButtonIdle,
                           ]}
                           onClick={() => openFleetView()}
                           aria-label="open-fleet-view"
                         />
                       }
                     >
-                      <LayoutGrid className={sx(projectSidebarStyles.iconMd)} />
+                      <LayoutGrid className={sx(repositorySidebarStyles.iconMd)} />
                     </TooltipTrigger>
                     <TooltipContent side="right">Fleet View</TooltipContent>
                   </Tooltip>
                 ) : null}
               </div>
             ) : (
-              <div className={sx(projectSidebarStyles.chromeTrailing)}>
+              <div className={sx(repositorySidebarStyles.chromeTrailing)}>
                 <Tooltip>
                   <TooltipTrigger
                     render={
                       <Button
                         variant="ghost"
                         size="sm"
-                        xstyle={projectSidebarStyles.chromeButton}
+                        xstyle={repositorySidebarStyles.chromeButton}
                         onClick={() =>
                           setLayout({
                             patch: { workspaceSidebarCollapsed: true },
@@ -806,7 +806,7 @@ export function ProjectWorkspaceSidebar(args: {
                       />
                     }
                   >
-                    <PanelLeft className={sx(projectSidebarStyles.iconMd)} />
+                    <PanelLeft className={sx(repositorySidebarStyles.iconMd)} />
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
                     Collapse Repository List
@@ -817,24 +817,24 @@ export function ProjectWorkspaceSidebar(args: {
           </TooltipProvider>
         </div>
         {args.collapsed ? (
-          <div className={sx(projectSidebarStyles.scrollArea)}>
+          <div className={sx(repositorySidebarStyles.scrollArea)}>
             <TooltipProvider>
-              <div className={sx(projectSidebarStyles.columnCenterGap)}>
+              <div className={sx(repositorySidebarStyles.columnCenterGap)}>
                 {collapsedWorkspaceEntries.map((entry) => {
-                  const entryKey = `${entry.projectPath}:${entry.workspaceId}`;
+                  const entryKey = `${entry.repositoryPath}:${entry.workspaceId}`;
                   const shortcutLabel = workspaceShortcutLabels.get(entryKey);
                   const workspaceBusy = busyWorkspaceKey === entryKey;
 
                   return (
                     <div
                       key={entryKey}
-                      className={sx(projectSidebarStyles.collapsedEntry)}
+                      className={sx(repositorySidebarStyles.collapsedEntry)}
                     >
-                      {entry.startsProjectGroup ? (
+                      {entry.startsRepositoryGroup ? (
                         <div
                           aria-hidden="true"
                           className={sx(
-                            projectSidebarStyles.collapsedGroupRule,
+                            repositorySidebarStyles.collapsedGroupRule,
                           )}
                         />
                       ) : null}
@@ -842,7 +842,7 @@ export function ProjectWorkspaceSidebar(args: {
                         workspaceId={entry.workspaceId}
                         workspaceName={entry.workspaceName}
                         branch={entry.branch}
-                        projectName={entry.projectName}
+                        repositoryName={entry.repositoryName}
                         shortcutLabel={shortcutLabel}
                         side="right"
                       >
@@ -850,15 +850,15 @@ export function ProjectWorkspaceSidebar(args: {
                           layout="host"
                           type="button"
                           xstyle={[
-                            projectSidebarStyles.collapsedWorkspaceButton,
+                            repositorySidebarStyles.collapsedWorkspaceButton,
                             transition.colors,
                             entry.isActive
-                              ? projectSidebarStyles.collapsedWorkspaceActive
-                              : projectSidebarStyles.collapsedWorkspaceIdle,
+                              ? repositorySidebarStyles.collapsedWorkspaceActive
+                              : repositorySidebarStyles.collapsedWorkspaceIdle,
                           ]}
                           onClick={() =>
-                            void handleProjectWorkspaceOpen({
-                              projectPath: entry.projectPath,
+                            void handleRepositoryWorkspaceOpen({
+                              repositoryPath: entry.repositoryPath,
                               workspaceId: entry.workspaceId,
                             })
                           }
@@ -884,12 +884,12 @@ export function ProjectWorkspaceSidebar(args: {
           </div>
         ) : null}
         {!args.collapsed ? (
-          <div className={sx(projectSidebarStyles.scrollAreaExpanded)}>
+          <div className={sx(repositorySidebarStyles.scrollAreaExpanded)}>
             <TooltipProvider>
               <div
                 className={sx(
-                  projectSidebarStyles.navStack,
-                  sidebarShowFleetView && projectSidebarStyles.navStackSpaced,
+                  repositorySidebarStyles.navStack,
+                  sidebarShowFleetView && repositorySidebarStyles.navStackSpaced,
                 )}
               >
                 {sidebarShowFleetView ? (
@@ -899,25 +899,25 @@ export function ProjectWorkspaceSidebar(args: {
                     onClick={() => openFleetView()}
                     aria-label="open-fleet-view"
                     xstyle={[
-                      projectSidebarStyles.navButton,
+                      repositorySidebarStyles.navButton,
                       transition.colors,
                       activeAppSurface.kind === "fleet-view"
-                        ? projectSidebarStyles.navButtonActive
-                        : projectSidebarStyles.navButtonIdle,
+                        ? repositorySidebarStyles.navButtonActive
+                        : repositorySidebarStyles.navButtonIdle,
                     ]}
                   >
-                    <LayoutGrid className={sx(projectSidebarStyles.iconMd)} />
+                    <LayoutGrid className={sx(repositorySidebarStyles.iconMd)} />
                     Fleet View
                   </AdsButton>
                 ) : null}
               </div>
               <div
-                className={sx(projectSidebarStyles.viewBar, panelBarStyles.bar)}
+                className={sx(repositorySidebarStyles.viewBar, panelBarStyles.bar)}
               >
                 {/* The toggle replaces the old static "Projects" heading: it
                     names the view you are in *and* is the control that leaves
                     it, so the bar never claims one thing while showing another. */}
-                <div className={sx(projectSidebarStyles.viewToggle)}>
+                <div className={sx(repositorySidebarStyles.viewToggle)}>
                   {SIDEBAR_NAV_VIEW_OPTIONS.map((option) => {
                     const isSelected = sidebarNavView === option.value;
                     return (
@@ -929,10 +929,10 @@ export function ProjectWorkspaceSidebar(args: {
                               variant="ghost"
                               size="sm"
                               xstyle={[
-                                projectSidebarStyles.viewToggleButton,
+                                repositorySidebarStyles.viewToggleButton,
                                 isSelected
-                                  ? projectSidebarStyles.viewToggleButtonActive
-                                  : projectSidebarStyles.viewToggleButtonIdle,
+                                  ? repositorySidebarStyles.viewToggleButtonActive
+                                  : repositorySidebarStyles.viewToggleButtonIdle,
                               ]}
                               aria-label={`sidebar-view-${option.value}`}
                               aria-pressed={isSelected}
@@ -945,7 +945,7 @@ export function ProjectWorkspaceSidebar(args: {
                           }
                         >
                           <option.Icon
-                            className={sx(projectSidebarStyles.iconSm)}
+                            className={sx(repositorySidebarStyles.iconSm)}
                           />
                         </TooltipTrigger>
                         <TooltipContent side="top">
@@ -955,7 +955,7 @@ export function ProjectWorkspaceSidebar(args: {
                     );
                   })}
                 </div>
-                <div className={sx(projectSidebarStyles.viewBarActions)}>
+                <div className={sx(repositorySidebarStyles.viewBarActions)}>
                   <Tooltip>
                     <TooltipTrigger
                       render={
@@ -963,13 +963,13 @@ export function ProjectWorkspaceSidebar(args: {
                           type="button"
                           variant="ghost"
                           size="sm"
-                          xstyle={projectSidebarStyles.chromeButtonSidebar}
+                          xstyle={repositorySidebarStyles.chromeButtonSidebar}
                           onClick={() => setOpenPathDialogOpen(true)}
                           aria-label="open-project"
                         />
                       }
                     >
-                      <FolderOpen className={sx(projectSidebarStyles.iconMd)} />
+                      <FolderOpen className={sx(repositorySidebarStyles.iconMd)} />
                     </TooltipTrigger>
                     <TooltipContent side="top">Open Repository</TooltipContent>
                   </Tooltip>
@@ -980,7 +980,7 @@ export function ProjectWorkspaceSidebar(args: {
                         <TooltipTrigger
                           render={
                             <span
-                              className={sx(projectSidebarStyles.triggerHost)}
+                              className={sx(repositorySidebarStyles.triggerHost)}
                             />
                           }
                         >
@@ -991,7 +991,7 @@ export function ProjectWorkspaceSidebar(args: {
                                 variant="ghost"
                                 size="sm"
                                 xstyle={
-                                  projectSidebarStyles.chromeButtonSidebar
+                                  repositorySidebarStyles.chromeButtonSidebar
                                 }
                                 aria-label="workspace-item-display-mode"
                               />
@@ -999,11 +999,11 @@ export function ProjectWorkspaceSidebar(args: {
                           >
                             {workspaceSidebarItemDisplayMode === "expanded" ? (
                               <Rows3
-                                className={sx(projectSidebarStyles.iconMd)}
+                                className={sx(repositorySidebarStyles.iconMd)}
                               />
                             ) : (
                               <Rows2
-                                className={sx(projectSidebarStyles.iconMd)}
+                                className={sx(repositorySidebarStyles.iconMd)}
                               />
                             )}
                           </DropdownMenuTrigger>
@@ -1014,7 +1014,7 @@ export function ProjectWorkspaceSidebar(args: {
                       </Tooltip>
                       <DropdownMenuContent
                         align="end"
-                        xstyle={projectSidebarStyles.displayModeMenu}
+                        xstyle={repositorySidebarStyles.displayModeMenu}
                       >
                         <DropdownMenuLabel>Workspace rows</DropdownMenuLabel>
                         <DropdownMenuSeparator />
@@ -1024,13 +1024,13 @@ export function ProjectWorkspaceSidebar(args: {
                         >
                           <DropdownMenuRadioItem value="expanded">
                             <Rows3
-                              className={sx(projectSidebarStyles.iconMd)}
+                              className={sx(repositorySidebarStyles.iconMd)}
                             />
                             Expanded
                           </DropdownMenuRadioItem>
                           <DropdownMenuRadioItem value="compact">
                             <Rows2
-                              className={sx(projectSidebarStyles.iconMd)}
+                              className={sx(repositorySidebarStyles.iconMd)}
                             />
                             Compact
                           </DropdownMenuRadioItem>
@@ -1040,15 +1040,15 @@ export function ProjectWorkspaceSidebar(args: {
                   )}
                 </div>
               </div>
-              <div className={sx(projectSidebarStyles.searchRow)}>
-                <Search className={sx(projectSidebarStyles.searchIcon)} />
+              <div className={sx(repositorySidebarStyles.searchRow)}>
+                <Search className={sx(repositorySidebarStyles.searchIcon)} />
                 <Input
                   value={workspaceSearchQuery}
                   onChange={(event) =>
                     setWorkspaceSearchQuery(event.target.value)
                   }
                   placeholder="Search labels or branches"
-                  xstyle={projectSidebarStyles.searchInput}
+                  xstyle={repositorySidebarStyles.searchInput}
                   aria-label="search-workspaces"
                 />
                 {workspaceSearchQuery.trim() ? (
@@ -1056,26 +1056,26 @@ export function ProjectWorkspaceSidebar(args: {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    xstyle={projectSidebarStyles.searchClear}
+                    xstyle={repositorySidebarStyles.searchClear}
                     onClick={() => setWorkspaceSearchQuery("")}
                     aria-label="clear-workspace-search"
                   >
-                    <X className={sx(projectSidebarStyles.iconSm)} />
+                    <X className={sx(repositorySidebarStyles.iconSm)} />
                   </Button>
                 ) : null}
               </div>
-              {projects.length === 0 ? (
-                <div className={sx(projectSidebarStyles.emptyState)}>
+              {repositories.length === 0 ? (
+                <div className={sx(repositorySidebarStyles.emptyState)}>
                   No repositories yet.
                 </div>
-              ) : visibleProjects.length === 0 ? (
-                <div className={sx(projectSidebarStyles.emptyState)}>
+              ) : visibleRepositories.length === 0 ? (
+                <div className={sx(repositorySidebarStyles.emptyState)}>
                   No matching workspaces.
                 </div>
               ) : isWorkQueueView ? (
-                <div className={sx(projectSidebarStyles.navStack)}>
+                <div className={sx(repositorySidebarStyles.navStack)}>
                   {workQueueGroups.length === 0 ? (
-                    <div className={sx(projectSidebarStyles.emptyState)}>
+                    <div className={sx(repositorySidebarStyles.emptyState)}>
                       No workspaces yet.
                     </div>
                   ) : (
@@ -1085,7 +1085,7 @@ export function ProjectWorkspaceSidebar(args: {
                       return (
                         <div
                           key={group.lane}
-                          className={sx(projectSidebarStyles.laneStack)}
+                          className={sx(repositorySidebarStyles.laneStack)}
                         >
                           <AdsButton
                             layout="host"
@@ -1099,25 +1099,25 @@ export function ProjectWorkspaceSidebar(args: {
                             aria-label={`work-queue-lane-${group.lane}`}
                             aria-expanded={!laneCollapsed}
                             xstyle={[
-                              projectSidebarStyles.laneButton,
+                              repositorySidebarStyles.laneButton,
                               transition.colors,
                             ]}
                           >
                             <ChevronRight
                               className={sx(
-                                projectSidebarStyles.laneChevron,
+                                repositorySidebarStyles.laneChevron,
                                 !laneCollapsed &&
-                                  projectSidebarStyles.laneChevronOpen,
+                                  repositorySidebarStyles.laneChevronOpen,
                                 transition.transform,
                               )}
                             />
                             <span
-                              className={sx(projectSidebarStyles.laneLabel)}
+                              className={sx(repositorySidebarStyles.laneLabel)}
                             >
                               {group.label}
                             </span>
                             <span
-                              className={sx(projectSidebarStyles.laneCount)}
+                              className={sx(repositorySidebarStyles.laneCount)}
                             >
                               {group.entries.length}
                             </span>
@@ -1134,7 +1134,7 @@ export function ProjectWorkspaceSidebar(args: {
                                     ]?.kind
                                   }
                                   onOpen={(target) =>
-                                    void handleProjectWorkspaceOpen(target)
+                                    void handleRepositoryWorkspaceOpen(target)
                                   }
                                 />
                               ))}
@@ -1145,38 +1145,38 @@ export function ProjectWorkspaceSidebar(args: {
                 </div>
               ) : (
                 <>
-                  <div className={sx(projectSidebarStyles.projectStack)}>
-                    {visibleProjects.map((project) => {
+                  <div className={sx(repositorySidebarStyles.repositoryStack)}>
+                    {visibleRepositories.map((repository) => {
                       const collapsed =
-                        collapsedByProjectPath[project.projectPath] ?? false;
-                      const projectBusy =
-                        busyProjectPath === project.projectPath;
-                      const projectReorderingDisabled =
-                        projectBusy || projects.length < 2;
-                      const projectAttentionAlert =
-                        attentionAlertByProjectPath[project.projectPath];
+                        collapsedByRepositoryPath[repository.repositoryPath] ?? false;
+                      const repositoryBusy =
+                        busyRepositoryPath === repository.repositoryPath;
+                      const repositoryReorderingDisabled =
+                        repositoryBusy || repositories.length < 2;
+                      const repositoryAttentionAlert =
+                        attentionAlertByRepositoryPath[repository.repositoryPath];
                       // Only a blocking alert earns a reserved slot through
                       // hover. A review dot is a passive marker, so it yields to
                       // the row actions the way the workspace count does.
-                      const projectAlertPinnedOnHover =
-                        projectAttentionAlert?.tier === "blocking";
+                      const repositoryAlertPinnedOnHover =
+                        repositoryAttentionAlert?.tier === "blocking";
 
                       return (
                         <SortableSidebarItem
-                          key={project.projectPath}
-                          listId={PROJECT_SORTABLE_LIST_ID}
-                          id={project.projectPath}
-                          disabled={projectReorderingDisabled}
-                          previewTitle={project.projectName}
+                          key={repository.repositoryPath}
+                          listId={REPOSITORY_SORTABLE_LIST_ID}
+                          id={repository.repositoryPath}
+                          disabled={repositoryReorderingDisabled}
+                          previewTitle={repository.repositoryName}
                           previewIcon={
-                            <ProjectIdentityMark
-                              icon={project.appearanceIcon}
-                              color={project.appearanceColor}
+                            <RepositoryIdentityMark
+                              icon={repository.appearanceIcon}
+                              color={repository.appearanceColor}
                               className={sx(
-                                projectSidebarStyles.projectDragPreviewMark,
+                                repositorySidebarStyles.repositoryDragPreviewMark,
                               )}
                               iconClassName={sx(
-                                projectSidebarStyles.projectDragPreviewIcon,
+                                repositorySidebarStyles.repositoryDragPreviewIcon,
                               )}
                             />
                           }
@@ -1186,12 +1186,12 @@ export function ProjectWorkspaceSidebar(args: {
                             <section
                               className={sx(
                                 isDragging &&
-                                  projectSidebarStyles.projectSectionDragging,
+                                  repositorySidebarStyles.repositorySectionDragging,
                               )}
                             >
                               <div
                                 className={sx(
-                                  projectSidebarStyles.projectHeaderRow,
+                                  repositorySidebarStyles.repositoryHeaderRow,
                                 )}
                               >
                                 <div
@@ -1200,16 +1200,16 @@ export function ProjectWorkspaceSidebar(args: {
                                   tabIndex={handleRef ? 0 : undefined}
                                   aria-label={
                                     handleRef
-                                      ? `Reorder repository ${project.projectName}`
+                                      ? `Reorder repository ${repository.repositoryName}`
                                       : undefined
                                   }
                                   aria-keyshortcuts={
-                                    handleRef && !projectReorderingDisabled
+                                    handleRef && !repositoryReorderingDisabled
                                       ? "Alt+ArrowUp Alt+ArrowDown"
                                       : undefined
                                   }
                                   aria-description={
-                                    handleRef && !projectReorderingDisabled
+                                    handleRef && !repositoryReorderingDisabled
                                       ? "Use Alt plus Arrow Up or Arrow Down to reorder."
                                       : undefined
                                   }
@@ -1226,10 +1226,10 @@ export function ProjectWorkspaceSidebar(args: {
                                           event.preventDefault();
                                           event.stopPropagation();
                                           const currentIndex =
-                                            projects.findIndex(
+                                            repositories.findIndex(
                                               (candidate) =>
-                                                candidate.projectPath ===
-                                                project.projectPath,
+                                                candidate.repositoryPath ===
+                                                repository.repositoryPath,
                                             );
                                           const direction =
                                             event.key === "ArrowUp"
@@ -1242,27 +1242,27 @@ export function ProjectWorkspaceSidebar(args: {
                                           if (
                                             currentIndex < 0 ||
                                             nextIndex < 0 ||
-                                            nextIndex >= projects.length
+                                            nextIndex >= repositories.length
                                           ) {
                                             return;
                                           }
-                                          moveProjectInList({
-                                            projectPath: project.projectPath,
+                                          moveRepositoryInList({
+                                            repositoryPath: repository.repositoryPath,
                                             direction,
                                           });
                                           setReorderAnnouncement(
-                                            `${project.projectName} moved to position ${nextIndex + 1} of ${projects.length}.`,
+                                            `${repository.repositoryName} moved to position ${nextIndex + 1} of ${repositories.length}.`,
                                           );
                                         }
                                       : undefined
                                   }
                                   className={sx(
-                                    projectSidebarStyles.projectRow,
+                                    repositorySidebarStyles.repositoryRow,
                                     transition.colors,
                                     handleRef &&
-                                      projectSidebarStyles.projectRowDraggable,
+                                      repositorySidebarStyles.repositoryRowDraggable,
                                     isDragging &&
-                                      projectSidebarStyles.projectRowDragging,
+                                      repositorySidebarStyles.repositoryRowDragging,
                                   )}
                                 >
                                   <Tooltip>
@@ -1273,53 +1273,53 @@ export function ProjectWorkspaceSidebar(args: {
                                           variant="ghost"
                                           size="sm"
                                           xstyle={
-                                            projectSidebarStyles.projectToggle
+                                            repositorySidebarStyles.repositoryToggle
                                           }
                                           onClick={() => {
-                                            setCollapsedByProjectPath(
+                                            setCollapsedByRepositoryPath(
                                               (current) => ({
                                                 ...current,
-                                                [project.projectPath]:
+                                                [repository.repositoryPath]:
                                                   !collapsed,
                                               }),
                                             );
                                           }}
-                                          aria-label={`toggle-project-${project.projectPath}`}
+                                          aria-label={`toggle-project-${repository.repositoryPath}`}
                                           aria-expanded={!collapsed}
                                         />
                                       }
                                     >
-                                      {projectBusy ? (
+                                      {repositoryBusy ? (
                                         <Loader
                                           aria-hidden
                                           className={sx(
-                                            projectSidebarStyles.statusMuted,
+                                            repositorySidebarStyles.statusMuted,
                                           )}
                                           size="xs"
                                           variant="spinner"
                                         />
                                       ) : (
                                         <>
-                                          <ProjectIdentityMark
-                                            icon={project.appearanceIcon}
-                                            color={project.appearanceColor}
+                                          <RepositoryIdentityMark
+                                            icon={repository.appearanceIcon}
+                                            color={repository.appearanceColor}
                                             className={sx(
-                                              projectSidebarStyles.projectMark,
+                                              repositorySidebarStyles.repositoryMark,
                                             )}
                                             iconClassName={sx(
-                                              projectSidebarStyles.projectMarkIcon,
+                                              repositorySidebarStyles.repositoryMarkIcon,
                                             )}
                                           />
                                           <span
                                             className={sx(
-                                              projectSidebarStyles.projectChevronSlot,
+                                              repositorySidebarStyles.repositoryChevronSlot,
                                             )}
                                           >
                                             <ChevronRight
                                               className={sx(
-                                                projectSidebarStyles.projectChevron,
+                                                repositorySidebarStyles.repositoryChevron,
                                                 !collapsed &&
-                                                  projectSidebarStyles.projectChevronOpen,
+                                                  repositorySidebarStyles.repositoryChevronOpen,
                                               )}
                                             />
                                           </span>
@@ -1334,27 +1334,27 @@ export function ProjectWorkspaceSidebar(args: {
                                   </Tooltip>
                                   <div
                                     className={sx(
-                                      projectSidebarStyles.projectLead,
+                                      repositorySidebarStyles.repositoryLead,
                                       // The row actions are absolutely positioned at the inline
                                       // end, so hovering reserves room for them. An attention
                                       // alert stays visible through that hover (unlike the count
                                       // badge it replaces), so it needs its own slot reserved
                                       // beyond the actions or the two would overlap.
-                                      projectAlertPinnedOnHover
-                                        ? projectSidebarStyles.projectLeadPinned
-                                        : projectSidebarStyles.projectLeadDefault,
+                                      repositoryAlertPinnedOnHover
+                                        ? repositorySidebarStyles.repositoryLeadPinned
+                                        : repositorySidebarStyles.repositoryLeadDefault,
                                     )}
                                   >
                                     <span
                                       className={sx(
-                                        projectSidebarStyles.projectName,
+                                        repositorySidebarStyles.repositoryName,
                                       )}
                                     >
-                                      {project.projectName}
+                                      {repository.repositoryName}
                                     </span>
                                     <div
                                       className={sx(
-                                        projectSidebarStyles.projectCountSlot,
+                                        repositorySidebarStyles.repositoryCountSlot,
                                         // The workspace count is decorative, so it yields to the
                                         // row actions on hover. An attention alert must not: the
                                         // moment you reach for the row is exactly when you need to
@@ -1362,29 +1362,29 @@ export function ProjectWorkspaceSidebar(args: {
                                         // slot would also make its tooltip unreachable. The row
                                         // reserves hover padding, so the alert stays clear of the
                                         // absolutely positioned actions.
-                                        !projectAlertPinnedOnHover &&
-                                          projectSidebarStyles.projectCountSlotYields,
+                                        !repositoryAlertPinnedOnHover &&
+                                          repositorySidebarStyles.repositoryCountSlotYields,
                                       )}
                                     >
-                                      {projectAttentionAlert ? (
-                                        <ProjectAttentionAlertIcon
-                                          alert={projectAttentionAlert}
-                                          projectName={project.projectName}
+                                      {repositoryAttentionAlert ? (
+                                        <RepositoryAttentionAlertIcon
+                                          alert={repositoryAttentionAlert}
+                                          repositoryName={repository.repositoryName}
                                         />
                                       ) : (
                                         <span
                                           className={sx(
-                                            projectSidebarStyles.projectCount,
+                                            repositorySidebarStyles.repositoryCount,
                                           )}
-                                          aria-label={`${project.workspaces.length} workspaces`}
+                                          aria-label={`${repository.workspaces.length} workspaces`}
                                         >
-                                          {project.workspaces.length}
+                                          {repository.workspaces.length}
                                         </span>
                                       )}
                                     </div>
                                     <div
                                       className={sx(
-                                        projectSidebarStyles.projectActions,
+                                        repositorySidebarStyles.repositoryActions,
                                       )}
                                     >
                                       <Tooltip>
@@ -1395,21 +1395,21 @@ export function ProjectWorkspaceSidebar(args: {
                                               variant="ghost"
                                               size="sm"
                                               xstyle={
-                                                projectSidebarStyles.projectActionButton
+                                                repositorySidebarStyles.repositoryActionButton
                                               }
-                                              disabled={projectBusy}
+                                              disabled={repositoryBusy}
                                               onClick={() =>
                                                 void args.onKickoffWorkspace(
-                                                  project.projectPath,
+                                                  repository.repositoryPath,
                                                 )
                                               }
-                                              aria-label={`Kick off workspace for ${project.projectName}`}
+                                              aria-label={`Kick off workspace for ${repository.repositoryName}`}
                                             />
                                           }
                                         >
                                           <Rocket
                                             className={sx(
-                                              projectSidebarStyles.iconSm,
+                                              repositorySidebarStyles.iconSm,
                                             )}
                                           />
                                         </TooltipTrigger>
@@ -1425,21 +1425,21 @@ export function ProjectWorkspaceSidebar(args: {
                                               variant="ghost"
                                               size="sm"
                                               xstyle={
-                                                projectSidebarStyles.projectActionButton
+                                                repositorySidebarStyles.repositoryActionButton
                                               }
-                                              disabled={projectBusy}
+                                              disabled={repositoryBusy}
                                               onClick={() =>
                                                 void handleCreateWorkspaceRequest(
-                                                  project.projectPath,
+                                                  repository.repositoryPath,
                                                 )
                                               }
-                                              aria-label={`new-workspace-${project.projectPath}`}
+                                              aria-label={`new-workspace-${repository.repositoryPath}`}
                                             />
                                           }
                                         >
                                           <Plus
                                             className={sx(
-                                              projectSidebarStyles.iconSm,
+                                              repositorySidebarStyles.iconSm,
                                             )}
                                           />
                                         </TooltipTrigger>
@@ -1455,19 +1455,19 @@ export function ProjectWorkspaceSidebar(args: {
                                               variant="ghost"
                                               size="sm"
                                               xstyle={
-                                                projectSidebarStyles.projectActionButton
+                                                repositorySidebarStyles.repositoryActionButton
                                               }
-                                              disabled={projectBusy}
+                                              disabled={repositoryBusy}
                                               onClick={() =>
                                                 void hydrateWorkspaces()
                                               }
-                                              aria-label={`refresh-workspaces-${project.projectPath}`}
+                                              aria-label={`refresh-workspaces-${repository.repositoryPath}`}
                                             />
                                           }
                                         >
                                           <RefreshCw
                                             className={sx(
-                                              projectSidebarStyles.iconSm,
+                                              repositorySidebarStyles.iconSm,
                                             )}
                                           />
                                         </TooltipTrigger>
@@ -1483,9 +1483,9 @@ export function ProjectWorkspaceSidebar(args: {
                                               variant="ghost"
                                               size="sm"
                                               xstyle={
-                                                projectSidebarStyles.projectActionButton
+                                                repositorySidebarStyles.repositoryActionButton
                                               }
-                                              disabled={projectBusy}
+                                              disabled={repositoryBusy}
                                               onMouseEnter={
                                                 args.onPreloadSettings
                                               }
@@ -1493,17 +1493,17 @@ export function ProjectWorkspaceSidebar(args: {
                                               onClick={() =>
                                                 args.onOpenSettings({
                                                   section: "projects",
-                                                  projectPath:
-                                                    project.projectPath,
+                                                  repositoryPath:
+                                                    repository.repositoryPath,
                                                 })
                                               }
-                                              aria-label={`project-settings-${project.projectPath}`}
+                                              aria-label={`project-settings-${repository.repositoryPath}`}
                                             />
                                           }
                                         >
                                           <Settings
                                             className={sx(
-                                              projectSidebarStyles.iconSm,
+                                              repositorySidebarStyles.iconSm,
                                             )}
                                           />
                                         </TooltipTrigger>
@@ -1518,31 +1518,31 @@ export function ProjectWorkspaceSidebar(args: {
                               {!collapsed ? (
                                 <div
                                   className={sx(
-                                    projectSidebarStyles.workspaceList,
+                                    repositorySidebarStyles.workspaceList,
                                   )}
                                 >
                                   <div
                                     className={sx(
-                                      projectSidebarStyles.workspaceListInner,
+                                      repositorySidebarStyles.workspaceListInner,
                                     )}
                                   >
-                                    {project.workspaces.map((workspace) => {
+                                    {repository.workspaces.map((workspace) => {
                                       const workspaceShortcutLabel =
                                         workspaceShortcutLabels.get(
-                                          `${project.projectPath}:${workspace.id}`,
+                                          `${repository.repositoryPath}:${workspace.id}`,
                                         );
                                       const workspaceBusy =
                                         busyWorkspaceKey ===
-                                        `${project.projectPath}:${workspace.id}`;
+                                        `${repository.repositoryPath}:${workspace.id}`;
                                       const isActive =
-                                        project.isCurrent &&
+                                        repository.isCurrent &&
                                         workspace.id === activeWorkspaceId;
                                       const workspaceReorderingDisabled =
-                                        projectBusy ||
+                                        repositoryBusy ||
                                         workspaceBusy ||
-                                        project.workspaces.length < 2;
+                                        repository.workspaces.length < 2;
                                       const canArchiveWorkspace =
-                                        project.isCurrent &&
+                                        repository.isCurrent &&
                                         !workspace.isDefault;
                                       const isExpandedWorkspaceItem =
                                         workspaceSidebarItemDisplayMode ===
@@ -1557,7 +1557,7 @@ export function ProjectWorkspaceSidebar(args: {
                                       return (
                                         <SortableSidebarItem
                                           key={workspace.id}
-                                          listId={`${WORKSPACE_SORTABLE_LIST_PREFIX}${project.projectPath}`}
+                                          listId={`${WORKSPACE_SORTABLE_LIST_PREFIX}${repository.repositoryPath}`}
                                           id={workspace.id}
                                           disabled={workspaceReorderingDisabled}
                                           previewTitle={
@@ -1570,10 +1570,10 @@ export function ProjectWorkspaceSidebar(args: {
                                               workspaceName={workspace.name}
                                               isDefault={workspace.isDefault}
                                               className={sx(
-                                                projectSidebarStyles.identityMark,
+                                                repositorySidebarStyles.identityMark,
                                               )}
                                               iconClassName={sx(
-                                                projectSidebarStyles.identityMarkIcon,
+                                                repositorySidebarStyles.identityMarkIcon,
                                               )}
                                             />
                                           }
@@ -1582,7 +1582,7 @@ export function ProjectWorkspaceSidebar(args: {
                                           {({ handleRef, isDragging }) => (
                                             <div
                                               className={sx(
-                                                projectSidebarStyles.workspaceItem,
+                                                repositorySidebarStyles.workspaceItem,
                                               )}
                                             >
                                               <WorkspaceBorderBeam
@@ -1590,15 +1590,15 @@ export function ProjectWorkspaceSidebar(args: {
                                               >
                                                 <div
                                                   className={sx(
-                                                    projectSidebarStyles.workspaceRow,
+                                                    repositorySidebarStyles.workspaceRow,
                                                     isExpandedWorkspaceItem
-                                                      ? projectSidebarStyles.workspaceRowExpanded
-                                                      : projectSidebarStyles.workspaceRowCompact,
+                                                      ? repositorySidebarStyles.workspaceRowExpanded
+                                                      : repositorySidebarStyles.workspaceRowCompact,
                                                     isActive
-                                                      ? projectSidebarStyles.workspaceRowActive
-                                                      : projectSidebarStyles.workspaceRowIdle,
+                                                      ? repositorySidebarStyles.workspaceRowActive
+                                                      : repositorySidebarStyles.workspaceRowIdle,
                                                     isDragging &&
-                                                      projectSidebarStyles.workspaceRowDragging,
+                                                      repositorySidebarStyles.workspaceRowDragging,
                                                   )}
                                                 >
                                                   <WorkspaceHoverPreviewTooltip
@@ -1630,14 +1630,14 @@ export function ProjectWorkspaceSidebar(args: {
                                                           : undefined
                                                       }
                                                       className={sx(
-                                                        projectSidebarStyles.workspaceOpen,
+                                                        repositorySidebarStyles.workspaceOpen,
                                                         isExpandedWorkspaceItem
-                                                          ? projectSidebarStyles.workspaceOpenExpanded
-                                                          : projectSidebarStyles.workspaceOpenCompact,
+                                                          ? repositorySidebarStyles.workspaceOpenExpanded
+                                                          : repositorySidebarStyles.workspaceOpenCompact,
                                                         handleRef &&
-                                                          projectSidebarStyles.workspaceOpenDraggable,
+                                                          repositorySidebarStyles.workspaceOpenDraggable,
                                                         isDragging &&
-                                                          projectSidebarStyles.workspaceOpenDragging,
+                                                          repositorySidebarStyles.workspaceOpenDragging,
                                                       )}
                                                       onClick={() => {
                                                         if (
@@ -1645,10 +1645,10 @@ export function ProjectWorkspaceSidebar(args: {
                                                         ) {
                                                           return;
                                                         }
-                                                        void handleProjectWorkspaceOpen(
+                                                        void handleRepositoryWorkspaceOpen(
                                                           {
-                                                            projectPath:
-                                                              project.projectPath,
+                                                            repositoryPath:
+                                                              repository.repositoryPath,
                                                             workspaceId:
                                                               workspace.id,
                                                           },
@@ -1670,7 +1670,7 @@ export function ProjectWorkspaceSidebar(args: {
                                                           event.preventDefault();
                                                           event.stopPropagation();
                                                           const currentIndex =
-                                                            project.workspaces.findIndex(
+                                                            repository.workspaces.findIndex(
                                                               (candidate) =>
                                                                 candidate.id ===
                                                                 workspace.id,
@@ -1689,22 +1689,22 @@ export function ProjectWorkspaceSidebar(args: {
                                                             currentIndex < 0 ||
                                                             nextIndex < 0 ||
                                                             nextIndex >=
-                                                              project.workspaces
+                                                              repository.workspaces
                                                                 .length
                                                           ) {
                                                             return;
                                                           }
-                                                          moveWorkspaceInProjectList(
+                                                          moveWorkspaceInRepositoryList(
                                                             {
-                                                              projectPath:
-                                                                project.projectPath,
+                                                              repositoryPath:
+                                                                repository.repositoryPath,
                                                               workspaceId:
                                                                 workspace.id,
                                                               direction,
                                                             },
                                                           );
                                                           setReorderAnnouncement(
-                                                            `${workspace.isDefault ? "Default" : workspace.name} moved to position ${nextIndex + 1} of ${project.workspaces.length}.`,
+                                                            `${workspace.isDefault ? "Default" : workspace.name} moved to position ${nextIndex + 1} of ${repository.workspaces.length}.`,
                                                           );
                                                           return;
                                                         }
@@ -1716,10 +1716,10 @@ export function ProjectWorkspaceSidebar(args: {
                                                           return;
                                                         }
                                                         event.preventDefault();
-                                                        void handleProjectWorkspaceOpen(
+                                                        void handleRepositoryWorkspaceOpen(
                                                           {
-                                                            projectPath:
-                                                              project.projectPath,
+                                                            repositoryPath:
+                                                              repository.repositoryPath,
                                                             workspaceId:
                                                               workspace.id,
                                                           },
@@ -1728,9 +1728,9 @@ export function ProjectWorkspaceSidebar(args: {
                                                     >
                                                       <span
                                                         className={sx(
-                                                          projectSidebarStyles.workspaceLeadSlot,
+                                                          repositorySidebarStyles.workspaceLeadSlot,
                                                           isExpandedWorkspaceItem &&
-                                                            projectSidebarStyles.workspaceLeadSlotExpanded,
+                                                            repositorySidebarStyles.workspaceLeadSlotExpanded,
                                                         )}
                                                       >
                                                         <WorkspaceLeadingStatusIcon
@@ -1776,8 +1776,8 @@ export function ProjectWorkspaceSidebar(args: {
                                                               name,
                                                             }) =>
                                                               renameWorkspace({
-                                                                projectPath:
-                                                                  project.projectPath,
+                                                                repositoryPath:
+                                                                  repository.repositoryPath,
                                                                 workspaceId,
                                                                 name,
                                                               })
@@ -1826,8 +1826,8 @@ export function ProjectWorkspaceSidebar(args: {
                                                             name,
                                                           }) =>
                                                             renameWorkspace({
-                                                              projectPath:
-                                                                project.projectPath,
+                                                              repositoryPath:
+                                                                repository.repositoryPath,
                                                               workspaceId,
                                                               name,
                                                             })
@@ -1853,14 +1853,14 @@ export function ProjectWorkspaceSidebar(args: {
                                                           workspace.id
                                                         ]
                                                       }
-                                                      projectPath={
-                                                        project.projectPath
+                                                      repositoryPath={
+                                                        repository.repositoryPath
                                                       }
                                                       workspacePath={
-                                                        project
+                                                        repository
                                                           .workspacePathById[
                                                           workspace.id
-                                                        ] ?? project.projectPath
+                                                        ] ?? repository.repositoryPath
                                                       }
                                                       canArchiveWorkspace={
                                                         canArchiveWorkspace
@@ -1885,7 +1885,7 @@ export function ProjectWorkspaceSidebar(args: {
                                                     <>
                                                       <div
                                                         className={sx(
-                                                          projectSidebarStyles.workspaceCountHost,
+                                                          repositorySidebarStyles.workspaceCountHost,
                                                         )}
                                                       >
                                                         <WorkspaceRespondingCountBadge
@@ -1915,15 +1915,15 @@ export function ProjectWorkspaceSidebar(args: {
                                                             workspace.id
                                                           ]
                                                         }
-                                                        projectPath={
-                                                          project.projectPath
+                                                        repositoryPath={
+                                                          repository.repositoryPath
                                                         }
                                                         workspacePath={
-                                                          project
+                                                          repository
                                                             .workspacePathById[
                                                             workspace.id
                                                           ] ??
-                                                          project.projectPath
+                                                          repository.repositoryPath
                                                         }
                                                         canArchiveWorkspace={
                                                           canArchiveWorkspace
@@ -1953,8 +1953,8 @@ export function ProjectWorkspaceSidebar(args: {
                                               </WorkspaceBorderBeam>
                                               <WorkspaceProgressTaskTree
                                                 workspaceId={workspace.id}
-                                                projectPath={
-                                                  project.projectPath
+                                                repositoryPath={
+                                                  repository.repositoryPath
                                                 }
                                               />
                                             </div>
@@ -1978,15 +1978,15 @@ export function ProjectWorkspaceSidebar(args: {
         ) : null}
         <div
           className={sx(
-            projectSidebarStyles.footer,
+            repositorySidebarStyles.footer,
             args.collapsed
-              ? projectSidebarStyles.footerCollapsed
-              : projectSidebarStyles.footerExpanded,
+              ? repositorySidebarStyles.footerCollapsed
+              : repositorySidebarStyles.footerExpanded,
           )}
         >
           <TooltipProvider>
             {args.collapsed ? (
-              <div className={sx(projectSidebarStyles.columnCenterGap)}>
+              <div className={sx(repositorySidebarStyles.columnCenterGap)}>
                 <StaveAppMenuButton
                   compact
                   onOpenCommandPalette={args.onOpenCommandPalette}
@@ -1999,7 +1999,7 @@ export function ProjectWorkspaceSidebar(args: {
                       <Button
                         variant="ghost"
                         size="sm"
-                        xstyle={projectSidebarStyles.collapsedButton}
+                        xstyle={repositorySidebarStyles.collapsedButton}
                         aria-label="open-settings"
                         onMouseEnter={args.onPreloadSettings}
                         onFocus={args.onPreloadSettings}
@@ -2007,14 +2007,14 @@ export function ProjectWorkspaceSidebar(args: {
                       />
                     }
                   >
-                    <Settings className={sx(projectSidebarStyles.iconMd)} />
+                    <Settings className={sx(repositorySidebarStyles.iconMd)} />
                   </TooltipTrigger>
                   <TooltipContent side="right">Settings</TooltipContent>
                 </Tooltip>
               </div>
             ) : (
-              <div className={sx(projectSidebarStyles.footerRow)}>
-                <div className={sx(projectSidebarStyles.footerGroup)}>
+              <div className={sx(repositorySidebarStyles.footerRow)}>
+                <div className={sx(repositorySidebarStyles.footerGroup)}>
                   <StaveAppMenuButton
                     compact
                     onOpenCommandPalette={args.onOpenCommandPalette}
@@ -2028,7 +2028,7 @@ export function ProjectWorkspaceSidebar(args: {
                       <Button
                         variant="ghost"
                         size="sm"
-                        xstyle={projectSidebarStyles.chromeButton}
+                        xstyle={repositorySidebarStyles.chromeButton}
                         aria-label="open-settings"
                         onMouseEnter={args.onPreloadSettings}
                         onFocus={args.onPreloadSettings}
@@ -2036,7 +2036,7 @@ export function ProjectWorkspaceSidebar(args: {
                       />
                     }
                   >
-                    <Settings className={sx(projectSidebarStyles.iconSm)} />
+                    <Settings className={sx(repositorySidebarStyles.iconSm)} />
                   </TooltipTrigger>
                   <TooltipContent side="top">Settings</TooltipContent>
                 </Tooltip>
@@ -2073,10 +2073,10 @@ export function ProjectWorkspaceSidebar(args: {
         }}
       >
         {archiveDialogCopy?.canDeleteBranch ? (
-          <label className={sx(projectSidebarStyles.archiveOption)}>
+          <label className={sx(repositorySidebarStyles.archiveOption)}>
             <Checkbox
               controlOnly
-              xstyle={projectSidebarStyles.archiveCheckbox}
+              xstyle={repositorySidebarStyles.archiveCheckbox}
               checked={archiveDeletesBranch}
               disabled={closingWorkspaceId !== null}
               onCheckedChange={(checked) => setArchiveDeletesBranch(checked)}
@@ -2084,8 +2084,8 @@ export function ProjectWorkspaceSidebar(args: {
             <span
               className={sx(
                 archiveDeletesBranch
-                  ? projectSidebarStyles.archiveLabelOn
-                  : projectSidebarStyles.archiveLabelOff,
+                  ? repositorySidebarStyles.archiveLabelOn
+                  : repositorySidebarStyles.archiveLabelOff,
               )}
             >
               Delete the git branch too
@@ -2098,8 +2098,8 @@ export function ProjectWorkspaceSidebar(args: {
         activeBranch={activeWorkspaceBranch}
         defaultBranch={defaultBranch}
         cwd={activeWorkspaceCwd}
-        defaultInitCommand={projectWorkspaceInitCommand}
-        defaultUseRootNodeModulesSymlink={projectUseRootNodeModulesSymlink}
+        defaultInitCommand={repositoryWorkspaceInitCommand}
+        defaultUseRootNodeModulesSymlink={repositoryUseRootNodeModulesSymlink}
         onOpenChange={setCreateWorkspaceOpen}
         onCreateWorkspace={createWorkspace}
         onImportWorkspace={importWorkspaceFromWorktree}
@@ -2107,9 +2107,9 @@ export function ProjectWorkspaceSidebar(args: {
       <OpenPathDialog
         open={openPathDialogOpen}
         onOpenChange={setOpenPathDialogOpen}
-        onSubmitPath={(inputPath) => openProjectFromPath({ inputPath })}
+        onSubmitPath={(inputPath) => openRepositoryFromPath({ inputPath })}
         onBrowse={async () => {
-          await createProject({});
+          await createRepository({});
         }}
       />
     </>

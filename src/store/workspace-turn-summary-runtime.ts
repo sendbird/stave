@@ -4,7 +4,7 @@ import {
   parseWorkspaceTurnSummaryResponse,
 } from "@/lib/workspace-turn-summary";
 import type { WorkspaceTurnSummary } from "@/lib/workspace-information";
-import type { ProjectMemoryFactInput } from "@/lib/project-memory";
+import type { RepositoryMemoryFactInput } from "@/lib/project-memory";
 import { buildMemoryCollectionInstruction } from "@/lib/project-memory-settings";
 import { inferProviderIdFromModel } from "@/lib/providers/model-catalog";
 import {
@@ -37,10 +37,10 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
    * call). Optional so existing callers and tests need no change.
    */
   rememberDurableFacts?: (args: {
-    projectPath: string | null;
+    repositoryPath: string | null;
     taskId: string;
     turnId: string;
-    facts: ProjectMemoryFactInput[];
+    facts: RepositoryMemoryFactInput[];
     collectionRevision?: number;
   }) => void;
   collectProviderEvents: (
@@ -114,7 +114,7 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
       workspaceId: args.workspaceId,
       workspacePathById: state.workspacePathById,
       workspaceDefaultById: state.workspaceDefaultById,
-      projectPath: state.projectPath,
+      repositoryPath: state.repositoryPath,
     });
     const settingsSnapshot = state.settings;
     const candidateModels = [
@@ -146,8 +146,8 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
     );
 
     void (async () => {
-      const memorySettings = state.projectPath && window.api?.projectMemory?.getSettings
-        ? await window.api.projectMemory.getSettings({ projectPath: state.projectPath }).catch(() => null)
+      const memorySettings = state.repositoryPath && window.api?.repositoryMemory?.getSettings
+        ? await window.api.repositoryMemory.getSettings({ repositoryPath: state.repositoryPath }).catch(() => null)
         : null;
       const policy = memorySettings?.ok ? memorySettings.settings ?? null : null;
       const prompt = buildWorkspaceTurnSummaryPrompt({
@@ -276,7 +276,7 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
           });
           if (policy?.collectAutomatically && parsedSummary.durableFacts.length > 0) {
             rememberDurableFacts?.({
-              projectPath: state.projectPath,
+              repositoryPath: state.repositoryPath,
               taskId: args.taskId,
               turnId: args.turnId,
               facts: parsedSummary.durableFacts,

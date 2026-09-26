@@ -15,8 +15,8 @@ import { TopBar } from "@/components/layout/TopBar";
 import { FleetView } from "@/components/layout/FleetView";
 import { AutomationCenterView } from "@/components/layout/automation-center/AutomationCenterView";
 import {
-  COLLAPSED_PROJECT_SIDEBAR_WIDTH,
-  ProjectWorkspaceSidebar,
+  COLLAPSED_REPOSITORY_SIDEBAR_WIDTH,
+  RepositoryWorkspaceSidebar,
 } from "@/components/layout/ProjectWorkspaceSidebar";
 import { PresetBar } from "@/components/layout/PresetBar";
 import { WorkspacePaneHost } from "@/components/panes/WorkspacePaneHost";
@@ -115,8 +115,8 @@ const WORKSPACE_SIDEBAR_MAX_WIDTH = 340;
 export function AppShell() {
   const notifications = useAppStore((state) => state.notifications);
   const [
-    projectPath,
-    projectName,
+    repositoryPath,
+    repositoryName,
     tasks,
     activeTaskId,
     activeAppSurface,
@@ -127,7 +127,7 @@ export function AppShell() {
     workspaceDefaultById,
     workspacePathById,
     workspacePrInfoById,
-    recentProjects,
+    recentRepositories,
     workspaceSidebarWidth,
     workspaceSidebarCollapsed,
     sidebarOverlayVisible,
@@ -144,13 +144,13 @@ export function AppShell() {
     clearTaskSelection,
     setTaskProvider,
     saveActiveEditorTab,
-    refreshProjectFiles,
+    refreshRepositoryFiles,
     refreshWorkspaces,
     openFleetView,
     openAutomationCenter,
     openIssues,
     closeIssues,
-    openProject,
+    openRepository,
     switchWorkspace,
     abortTaskTurn,
     setLayout,
@@ -159,8 +159,8 @@ export function AppShell() {
     useShallow(
       (state) =>
         [
-          state.projectPath,
-          state.projectName,
+          state.repositoryPath,
+          state.repositoryName,
           state.tasks,
           state.activeTaskId,
           state.activeAppSurface,
@@ -171,7 +171,7 @@ export function AppShell() {
           state.workspaceDefaultById,
           state.workspacePathById,
           state.workspacePrInfoById,
-          state.recentProjects,
+          state.recentRepositories,
           state.layout.workspaceSidebarWidth,
           state.layout.workspaceSidebarCollapsed,
           state.layout.sidebarOverlayVisible,
@@ -188,13 +188,13 @@ export function AppShell() {
           state.clearTaskSelection,
           state.setTaskProvider,
           state.saveActiveEditorTab,
-          state.refreshProjectFiles,
+          state.refreshRepositoryFiles,
           state.refreshWorkspaces,
           state.openFleetView,
           state.openAutomationCenter,
           state.openIssues,
           state.closeIssues,
-          state.openProject,
+          state.openRepository,
           state.switchWorkspace,
           state.abortTaskTurn,
           state.setLayout,
@@ -207,7 +207,7 @@ export function AppShell() {
   useEditorPaneFocus();
   // Reading a finished turn in the task window acknowledges its Fleet row.
   useFleetResultAutoReview();
-  const hasProject = Boolean(projectPath);
+  const hasRepository = Boolean(repositoryPath);
   const panelRowRef = useRef<HTMLDivElement>(null);
   const contentRowRef = useRef<HTMLDivElement>(null);
   const pendingLayoutPatchRef = useRef<Partial<LayoutState> | null>(null);
@@ -218,7 +218,7 @@ export function AppShell() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [settingsInitialSection, setSettingsInitialSection] =
     useState<SectionId>("general");
-  const [settingsInitialProjectPath, setSettingsInitialProjectPath] = useState<
+  const [settingsInitialRepositoryPath, setSettingsInitialRepositoryPath] = useState<
     string | null
   >(null);
   const [shortcutsOpen, setShortcutsOpen] = useState(false);
@@ -246,10 +246,10 @@ export function AppShell() {
     void loadSettingsDialog();
   }, []);
   const handleOpenSettings = useCallback(
-    (options?: { projectPath?: string | null; section?: SectionId }) => {
+    (options?: { repositoryPath?: string | null; section?: SectionId }) => {
       handlePreloadSettings();
       setSettingsInitialSection(options?.section ?? "general");
-      setSettingsInitialProjectPath(options?.projectPath ?? null);
+      setSettingsInitialRepositoryPath(options?.repositoryPath ?? null);
       setSettingsOpen(true);
     },
     [handlePreloadSettings],
@@ -258,7 +258,7 @@ export function AppShell() {
     setSettingsOpen(options.open);
     if (!options.open) {
       setSettingsInitialSection("general");
-      setSettingsInitialProjectPath(null);
+      setSettingsInitialRepositoryPath(null);
     }
   }, []);
   const handlePreloadKeyboardShortcuts = useCallback(() => {
@@ -272,20 +272,20 @@ export function AppShell() {
     setCommandPaletteOpen(true);
   }, []);
   const handleOpenKickoff = useCallback(
-    async (targetProjectPath?: string) => {
-      const normalizedTargetPath = targetProjectPath?.trim();
-      if (normalizedTargetPath && normalizedTargetPath !== projectPath) {
-        await openProject({ projectPath: normalizedTargetPath });
+    async (targetRepositoryPath?: string) => {
+      const normalizedTargetPath = targetRepositoryPath?.trim();
+      if (normalizedTargetPath && normalizedTargetPath !== repositoryPath) {
+        await openRepository({ repositoryPath: normalizedTargetPath });
       }
       setCommandPaletteOpen(false);
       setKickoffOpen(true);
     },
-    [openProject, projectPath],
+    [openRepository, repositoryPath],
   );
   const handleOpenExplorerSearch = useCallback(() => {
     const store = useAppStore.getState();
     const searchRootPath =
-      store.workspacePathById[store.activeWorkspaceId] ?? store.projectPath;
+      store.workspacePathById[store.activeWorkspaceId] ?? store.repositoryPath;
     if (!searchRootPath?.trim()) {
       return;
     }
@@ -736,7 +736,7 @@ export function AppShell() {
         !event.shiftKey &&
         event.key.toLowerCase() === "p"
       ) {
-        if (!store.projectPath?.trim()) {
+        if (!store.repositoryPath?.trim()) {
           return;
         }
         event.preventDefault();
@@ -928,11 +928,11 @@ export function AppShell() {
   useEffect(() => {
     const handleOpenSettingsEvent = (event: Event) => {
       const customEvent = event as CustomEvent<{
-        projectPath?: string | null;
+        repositoryPath?: string | null;
         section?: SectionId;
       }>;
       handleOpenSettings({
-        projectPath: customEvent.detail?.projectPath ?? null,
+        repositoryPath: customEvent.detail?.repositoryPath ?? null,
         section: customEvent.detail?.section ?? "general",
       });
     };
@@ -1035,8 +1035,8 @@ export function AppShell() {
     [],
   );
   const activeWorkspacePath =
-    workspacePathById[activeWorkspaceId] ?? projectPath;
-  const hasProjectContext = Boolean(projectPath?.trim());
+    workspacePathById[activeWorkspaceId] ?? repositoryPath;
+  const hasRepositoryContext = Boolean(repositoryPath?.trim());
   const activeWorkspaceName = useMemo(
     () =>
       workspaces.find((workspace) => workspace.id === activeWorkspaceId)
@@ -1046,10 +1046,10 @@ export function AppShell() {
     [activeWorkspaceId, workspaceBranchById, workspaces],
   );
   const scriptsRevision = useScriptsCommandPaletteContributor(
-    activeWorkspaceId && projectPath && activeWorkspacePath
+    activeWorkspaceId && repositoryPath && activeWorkspacePath
       ? {
           workspaceId: activeWorkspaceId,
-          projectPath,
+          repositoryPath,
           workspacePath: activeWorkspacePath,
           workspaceName: activeWorkspaceName,
           branch: workspaceBranchById[activeWorkspaceId] || activeWorkspaceName,
@@ -1082,25 +1082,25 @@ export function AppShell() {
         recentIds: commandPaletteRecentCommandIds,
         showRecent: commandPaletteShowRecent,
       },
-      projectPath,
+      repositoryPath,
       scriptsRevision,
-      projects: (() => {
-        const remembered = recentProjects.map((project) => ({
-          isCurrent: project.projectPath === projectPath,
-          projectName: project.projectName,
-          projectPath: project.projectPath,
+      repositories: (() => {
+        const remembered = recentRepositories.map((repository) => ({
+          isCurrent: repository.repositoryPath === repositoryPath,
+          repositoryName: repository.repositoryName,
+          repositoryPath: repository.repositoryPath,
         }));
         if (
-          !projectPath ||
-          remembered.some((project) => project.projectPath === projectPath)
+          !repositoryPath ||
+          remembered.some((repository) => repository.repositoryPath === repositoryPath)
         ) {
           return remembered;
         }
         return [
           {
             isCurrent: true,
-            projectName: projectName ?? "Current repository",
-            projectPath,
+            repositoryName: repositoryName ?? "Current repository",
+            repositoryPath,
           },
           ...remembered,
         ];
@@ -1146,10 +1146,10 @@ export function AppShell() {
         openIssues: () => openIssues(),
         refreshTrackerIssues: () => refreshTrackerIssues().then(() => undefined),
         openKeyboardShortcuts: handleOpenKeyboardShortcuts,
-        openProject: (nextProjectPath: string) =>
-          openProject({ projectPath: nextProjectPath }),
+        openRepository: (nextRepositoryPath: string) =>
+          openRepository({ repositoryPath: nextRepositoryPath }),
         openSettings: handleOpenSettings,
-        refreshProjectFiles: () => refreshProjectFiles(),
+        refreshRepositoryFiles: () => refreshRepositoryFiles(),
         refreshWorkspaces: () => refreshWorkspaces(),
         revealInFileManager: async (path: string) => {
           await window.api?.shell?.showInFinder?.({ path });
@@ -1237,11 +1237,11 @@ export function AppShell() {
       openAutomationCenter,
       openIssues,
       handleStartCompareRun,
-      openProject,
-      projectPath,
-      projectName,
-      recentProjects,
-      refreshProjectFiles,
+      openRepository,
+      repositoryPath,
+      repositoryName,
+      recentRepositories,
+      refreshRepositoryFiles,
       refreshWorkspaces,
       saveActiveEditorTab,
       scriptsRevision,
@@ -1346,7 +1346,7 @@ export function AppShell() {
           <SettingsDialog
             open={settingsOpen}
             initialSection={settingsInitialSection}
-            initialProjectPath={settingsInitialProjectPath}
+            initialRepositoryPath={settingsInitialRepositoryPath}
             onOpenChange={handleSettingsOpenChange}
           />
         </Suspense>
@@ -1357,8 +1357,8 @@ export function AppShell() {
         </Suspense>
       ) : null}
       <div className={sx(appShellStyles.shellRow)}>
-        <RenderProfiler id="ProjectWorkspaceSidebar">
-          <ProjectWorkspaceSidebar
+        <RenderProfiler id="RepositoryWorkspaceSidebar">
+          <RepositoryWorkspaceSidebar
             width={Math.max(workspaceSidebarWidth, WORKSPACE_SIDEBAR_MIN_WIDTH)}
             collapsed={workspaceSidebarCollapsed}
             animate={!sidebarResizing}
@@ -1366,8 +1366,8 @@ export function AppShell() {
             onOpenKeyboardShortcuts={handleOpenKeyboardShortcuts}
             onOpenSettings={handleOpenSettings}
             onPreloadSettings={handlePreloadSettings}
-            onKickoffWorkspace={(targetProjectPath) =>
-              handleOpenKickoff(targetProjectPath)
+            onKickoffWorkspace={(targetRepositoryPath) =>
+              handleOpenKickoff(targetRepositoryPath)
             }
           />
         </RenderProfiler>
@@ -1431,7 +1431,7 @@ export function AppShell() {
               className={sx(appShellStyles.panelRow)}
             >
               <div className={sx(appShellStyles.mainColumn)}>
-                {hasProject && showWorkspaceSurface && showPresetBar ? (
+                {hasRepository && showWorkspaceSurface && showPresetBar ? (
                   <PresetBar />
                 ) : null}
                 <div className={sx(appShellStyles.mainSurface)}>
@@ -1453,14 +1453,14 @@ export function AppShell() {
                     <div className={sx(appShellStyles.paneHostFrame)}>
                       <div
                         className={sx(appShellStyles.paneHostInert)}
-                        inert={!hasProjectContext}
-                        aria-hidden={!hasProjectContext || undefined}
+                        inert={!hasRepositoryContext}
+                        aria-hidden={!hasRepositoryContext || undefined}
                       >
                         <RenderProfiler id="WorkspacePaneHost" thresholdMs={10}>
                           <WorkspacePaneHost />
                         </RenderProfiler>
                       </div>
-                      {!hasProjectContext ? <WorkspaceWelcome /> : null}
+                      {!hasRepositoryContext ? <WorkspaceWelcome /> : null}
                     </div>
                   )}
                 </div>

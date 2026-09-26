@@ -14,7 +14,7 @@ import { buildAutoRoutingDecisionRecord } from "@/store/auto-routing";
 const target = {
   taskId: "preview-parent",
   workspaceId: "preview-workspace",
-  projectPath: "/tmp/preview-project",
+  repositoryPath: "/tmp/preview-project",
 };
 const message: ChatMessage = {
   id: "preview-message",
@@ -106,7 +106,7 @@ function CollaborationPreviewContent() {
     useAppStore.setState({
       activeWorkspaceId: target.workspaceId,
       activeTaskId: target.taskId,
-      projectPath: target.projectPath,
+      repositoryPath: target.repositoryPath,
       tasks: [
         {
           id: target.taskId,

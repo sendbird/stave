@@ -15,15 +15,15 @@ import {
 } from "@/components/ui";
 import { sx } from "@/components/ads/utils/stylex";
 import {
-  PROJECT_MEMORY_KINDS,
-  PROJECT_MEMORY_RECALL_MODES,
-  PROJECT_MEMORY_CONTENT_MAX_CHARS,
-  type ProjectMemory,
-  type ProjectMemoryUpdateArgs,
+  REPOSITORY_MEMORY_KINDS,
+  REPOSITORY_MEMORY_RECALL_MODES,
+  REPOSITORY_MEMORY_CONTENT_MAX_CHARS,
+  type RepositoryMemory,
+  type RepositoryMemoryUpdateArgs,
 } from "@/lib/project-memory";
 import {
-  ProjectMemoryControls,
-  PROJECT_MEMORY_CHANGED_EVENT,
+  RepositoryMemoryControls,
+  REPOSITORY_MEMORY_CHANGED_EVENT,
 } from "./ProjectMemoryControls";
 import { informationRow } from "./information-row.styles";
 import { workspaceMemorySectionStyles as styles } from "./workspace-memory-section.styles";
@@ -63,24 +63,24 @@ const RECALL_GLYPH = {
 
 
 export function WorkspaceMemorySection(props: {
-  projectPath: string | null;
+  repositoryPath: string | null;
   refreshKey: string;
   onEntriesChange?: (args: { count: number; loading: boolean }) => void;
 }) {
-  const { projectPath, refreshKey, onEntriesChange } = props;
-  const [items, setItems] = useState<ProjectMemory[]>([]);
-  const [loading, setLoading] = useState(Boolean(projectPath));
+  const { repositoryPath, refreshKey, onEntriesChange } = props;
+  const [items, setItems] = useState<RepositoryMemory[]>([]);
+  const [loading, setLoading] = useState(Boolean(repositoryPath));
   const [error, setError] = useState("");
   const generation = useRef(0);
   const reload = useCallback(async () => {
     const request = ++generation.current;
-    if (!projectPath || !window.api?.projectMemory?.list) {
+    if (!repositoryPath || !window.api?.repositoryMemory?.list) {
       setLoading(false);
       return;
     }
     setLoading(true);
     try {
-      const result = await window.api.projectMemory.list({ projectPath });
+      const result = await window.api.repositoryMemory.list({ repositoryPath });
       if (request !== generation.current) return;
       if (!result.ok)
         throw new Error(result.message ?? "Could not load repository memory.");
@@ -94,33 +94,33 @@ export function WorkspaceMemorySection(props: {
     } finally {
       if (request === generation.current) setLoading(false);
     }
-  }, [projectPath]);
+  }, [repositoryPath]);
   useEffect(() => {
     setItems([]);
     void reload();
     const listener = () => {
       void reload();
     };
-    window.addEventListener(PROJECT_MEMORY_CHANGED_EVENT, listener);
+    window.addEventListener(REPOSITORY_MEMORY_CHANGED_EVENT, listener);
     return () => {
       generation.current += 1;
-      window.removeEventListener(PROJECT_MEMORY_CHANGED_EVENT, listener);
+      window.removeEventListener(REPOSITORY_MEMORY_CHANGED_EVENT, listener);
     };
   }, [reload, refreshKey]);
   useEffect(() => {
     onEntriesChange?.({ count: items.length, loading });
   }, [items.length, loading, onEntriesChange]);
-  const update = async (patch: ProjectMemoryUpdateArgs) => {
+  const update = async (patch: RepositoryMemoryUpdateArgs) => {
     const request = generation.current;
     try {
-      const result = await window.api?.projectMemory?.update?.(patch);
+      const result = await window.api?.repositoryMemory?.update?.(patch);
       if (request !== generation.current) return false;
       if (!result?.ok || !result.memory)
         throw new Error(result?.message ?? "Could not save memory.");
       setItems((current) =>
         current.map((item) => (item.id === patch.id ? result.memory! : item)),
       );
-      window.dispatchEvent(new Event(PROJECT_MEMORY_CHANGED_EVENT));
+      window.dispatchEvent(new Event(REPOSITORY_MEMORY_CHANGED_EVENT));
       return true;
     } catch (err) {
       if (request === generation.current)
@@ -133,11 +133,11 @@ export function WorkspaceMemorySection(props: {
   const remove = async (id: string) => {
     const request = generation.current;
     try {
-      const result = await window.api?.projectMemory?.delete?.({ id });
+      const result = await window.api?.repositoryMemory?.delete?.({ id });
       if (request !== generation.current) return;
       if (!result?.ok)
         throw new Error(result?.message ?? "Could not forget memory.");
-      window.dispatchEvent(new Event(PROJECT_MEMORY_CHANGED_EVENT));
+      window.dispatchEvent(new Event(REPOSITORY_MEMORY_CHANGED_EVENT));
     } catch (err) {
       if (request === generation.current)
         toast.error(
@@ -145,7 +145,7 @@ export function WorkspaceMemorySection(props: {
         );
     }
   };
-  if (!projectPath)
+  if (!repositoryPath)
     return (
       <p className={sx(styles.empty)}>
         Open a repository to see its memory.
@@ -153,13 +153,13 @@ export function WorkspaceMemorySection(props: {
     );
   return (
     <div className={sx(styles.root)}>
-      <MemoryCollectionInvitation key={projectPath} projectPath={projectPath} />
+      <MemoryCollectionInvitation key={repositoryPath} repositoryPath={repositoryPath} />
       <details className={sx(styles.controls)}>
         <summary className={sx(styles.controlsSummary)}>
           Memory settings and actions
         </summary>
         <div className={sx(styles.controlsBody)}>
-          <ProjectMemoryControls key={projectPath} projectPath={projectPath} />
+          <RepositoryMemoryControls key={repositoryPath} repositoryPath={repositoryPath} />
         </div>
       </details>
       <p className={sx(styles.hint)}>
@@ -202,8 +202,8 @@ export function WorkspaceMemorySection(props: {
 }
 
 export function MemoryRow(props: {
-  memory: ProjectMemory;
-  onSave: (patch: ProjectMemoryUpdateArgs) => Promise<boolean>;
+  memory: RepositoryMemory;
+  onSave: (patch: RepositoryMemoryUpdateArgs) => Promise<boolean>;
   onRemove: () => Promise<void>;
 }) {
   const { memory } = props;
@@ -224,7 +224,7 @@ export function MemoryRow(props: {
       if (
         await props.onSave({
           id: memory.id,
-          projectPath: memory.projectPath,
+          repositoryPath: memory.repositoryPath,
           content: draft.trim(),
           kind,
           recallMode: mode,
@@ -248,7 +248,7 @@ export function MemoryRow(props: {
     try {
       await props.onSave({
         id: memory.id,
-        projectPath: memory.projectPath,
+        repositoryPath: memory.repositoryPath,
         content: memory.content,
         kind: memory.kind,
         recallMode: "contextual",
@@ -283,13 +283,13 @@ export function MemoryRow(props: {
             value={draft}
             onChange={(event) => setDraft(event.target.value)}
             disabled={busy}
-            maxLength={PROJECT_MEMORY_CONTENT_MAX_CHARS}
+            maxLength={REPOSITORY_MEMORY_CONTENT_MAX_CHARS}
             rows={5}
             xstyle={styles.fieldTextarea}
           />
         </label>
         <p className={sx(styles.counter)}>
-          {draft.length} / {PROJECT_MEMORY_CONTENT_MAX_CHARS} characters
+          {draft.length} / {REPOSITORY_MEMORY_CONTENT_MAX_CHARS} characters
         </p>
         <div className={sx(styles.controlRow)}>
           <Select value={kind} onValueChange={setKind} disabled={busy}>
@@ -300,7 +300,7 @@ export function MemoryRow(props: {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {PROJECT_MEMORY_KINDS.map((value) => (
+              {REPOSITORY_MEMORY_KINDS.map((value) => (
                 <SelectItem key={value} value={value}>
                   {value}
                 </SelectItem>
@@ -315,7 +315,7 @@ export function MemoryRow(props: {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {PROJECT_MEMORY_RECALL_MODES.map((value) => (
+              {REPOSITORY_MEMORY_RECALL_MODES.map((value) => (
                 <SelectItem key={value} value={value}>
                   {RECALL_LABELS[value]}
                 </SelectItem>

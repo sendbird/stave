@@ -293,7 +293,7 @@ export default function App() {
       if (initialBootstrapStatus) {
         setBootstrapStatus(initialBootstrapStatus);
       }
-      await useAppStore.getState().hydrateProjectRegistry();
+      await useAppStore.getState().hydrateRepositoryRegistry();
       if (cancelled) {
         return;
       }
@@ -301,7 +301,7 @@ export default function App() {
       if (cancelled) {
         return;
       }
-      await useAppStore.getState().flushProjectRegistry();
+      await useAppStore.getState().flushRepositoryRegistry();
       if (cancelled) {
         return;
       }
@@ -320,7 +320,7 @@ export default function App() {
       void primeProviderModelCatalogs({
         cwd:
           state.workspacePathById[state.activeWorkspaceId] ??
-          state.projectPath ??
+          state.repositoryPath ??
           undefined,
         runtimeOptions,
       });
@@ -404,7 +404,7 @@ export default function App() {
         try {
           await Promise.all([
             useAppStore.getState().flushActiveWorkspaceSnapshot(),
-            useAppStore.getState().flushProjectRegistry(),
+            useAppStore.getState().flushRepositoryRegistry(),
           ]);
           await flushPendingSnapshotPersists();
           success = true;
@@ -424,7 +424,7 @@ export default function App() {
     const onBeforeUnload = () => {
       void useAppStore.getState().flushActiveWorkspaceSnapshot().catch(() => {});
       void flushPendingSnapshotPersists().catch(() => {});
-      void useAppStore.getState().flushProjectRegistry().catch((error) => {
+      void useAppStore.getState().flushRepositoryRegistry().catch((error) => {
         console.error("[persistence] repository registry save failed", error);
       });
     };
@@ -436,17 +436,17 @@ export default function App() {
     let timer: number | null = null;
     const flush = () => {
       timer = null;
-      void useAppStore.getState().flushProjectRegistry().catch((error) => {
+      void useAppStore.getState().flushRepositoryRegistry().catch((error) => {
         console.error("[persistence] repository registry save failed", error);
       });
     };
     const unsubscribe = useAppStore.subscribe((state, prevState) => {
       if (
-        state.projectPath === prevState.projectPath &&
-        state.projectName === prevState.projectName &&
+        state.repositoryPath === prevState.repositoryPath &&
+        state.repositoryName === prevState.repositoryName &&
         state.activeWorkspaceId === prevState.activeWorkspaceId &&
         state.workspaces === prevState.workspaces &&
-        state.recentProjects === prevState.recentProjects &&
+        state.recentRepositories === prevState.recentRepositories &&
         state.workspaceBranchById === prevState.workspaceBranchById &&
         state.workspacePathById === prevState.workspacePathById &&
         state.workspaceDefaultById === prevState.workspaceDefaultById

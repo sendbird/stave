@@ -15,8 +15,8 @@ import { useResultReviews } from "@/lib/reviews/useResultReviews";
 import { useFleetAttentionSnoozes } from "@/lib/fleet/useFleetAttentionSnoozes";
 
 interface FleetWorkspaceIdentity {
-  projectPath: string;
-  projectName: string;
+  repositoryPath: string;
+  repositoryName: string;
   workspaceId: string;
   workspaceName: string;
 }
@@ -45,10 +45,10 @@ function loadColdWorkspaceTasks(workspaceId: string) {
 
 export function useFleetAttentionProjection() {
   const [
-    currentProjectPath,
-    currentProjectName,
+    currentRepositoryPath,
+    currentRepositoryName,
     workspaces,
-    recentProjects,
+    recentRepositories,
     activeWorkspaceId,
     activeTasks,
     activeMessagesByTask,
@@ -61,10 +61,10 @@ export function useFleetAttentionProjection() {
     useShallow(
       (state) =>
         [
-          state.projectPath,
-          state.projectName,
+          state.repositoryPath,
+          state.repositoryName,
           state.workspaces,
-          state.recentProjects,
+          state.recentRepositories,
           state.activeWorkspaceId,
           state.tasks,
           state.messagesByTask,
@@ -79,8 +79,8 @@ export function useFleetAttentionProjection() {
 
   const reviewWorkspaceIds = useMemo(() => Array.from(new Set([
     ...workspaces.map((workspace) => workspace.id),
-    ...recentProjects.flatMap((project) => project.workspaces.map((workspace) => workspace.id)),
-  ])).sort(), [workspaces, recentProjects]);
+    ...recentRepositories.flatMap((repository) => repository.workspaces.map((workspace) => workspace.id)),
+  ])).sort(), [workspaces, recentRepositories]);
   const reviews = useResultReviews({ pendingOnly: true, limit: 200, workspaceIds: reviewWorkspaceIds, includeEvidence: false });
   /**
    * Handing `resultReviews` to the projection makes durable results own
@@ -96,8 +96,8 @@ export function useFleetAttentionProjection() {
 
   const coldNotificationWorkspaceIds = useMemo(() => {
     const knownWorkspaceIds = new Set(
-      recentProjects.flatMap((project) =>
-        project.workspaces.map((workspace) => workspace.id),
+      recentRepositories.flatMap((repository) =>
+        repository.workspaces.map((workspace) => workspace.id),
       ),
     );
     for (const workspace of workspaces) {
@@ -113,15 +113,15 @@ export function useFleetAttentionProjection() {
     ).filter(
       (workspaceId) =>
         knownWorkspaceIds.has(workspaceId) &&
-        !(currentProjectPath && workspaceId === activeWorkspaceId) &&
+        !(currentRepositoryPath && workspaceId === activeWorkspaceId) &&
         !workspaceRuntimeCacheById[workspaceId],
     );
   }, [
     activeWorkspaceId,
-    currentProjectPath,
+    currentRepositoryPath,
     notifications,
     reviews.page.results,
-    recentProjects,
+    recentRepositories,
     workspaceRuntimeCacheById,
     workspaces,
   ]);
@@ -164,22 +164,22 @@ export function useFleetAttentionProjection() {
   return useMemo(() => {
     const identityByWorkspaceId = new Map<string, FleetWorkspaceIdentity>();
 
-    for (const project of recentProjects) {
-      for (const workspace of project.workspaces) {
+    for (const repository of recentRepositories) {
+      for (const workspace of repository.workspaces) {
         identityByWorkspaceId.set(workspace.id, {
-          projectPath: project.projectPath,
-          projectName: project.projectName,
+          repositoryPath: repository.repositoryPath,
+          repositoryName: repository.repositoryName,
           workspaceId: workspace.id,
           workspaceName: workspace.name,
         });
       }
     }
 
-    if (currentProjectPath) {
+    if (currentRepositoryPath) {
       for (const workspace of workspaces) {
         identityByWorkspaceId.set(workspace.id, {
-          projectPath: currentProjectPath,
-          projectName: currentProjectName ?? "project",
+          repositoryPath: currentRepositoryPath,
+          repositoryName: currentRepositoryName ?? "project",
           workspaceId: workspace.id,
           workspaceName: workspace.name,
         });
@@ -192,7 +192,7 @@ export function useFleetAttentionProjection() {
 
     for (const identity of identityByWorkspaceId.values()) {
       const isActive =
-        identity.projectPath === currentProjectPath &&
+        identity.repositoryPath === currentRepositoryPath &&
         identity.workspaceId === activeWorkspaceId;
       const runtimeState = isActive
         ? {
@@ -258,12 +258,12 @@ export function useFleetAttentionProjection() {
     activeTurnIdsByTask,
     activeWorkspaceId,
     closedTaskKeysFromShell,
-    currentProjectName,
-    currentProjectPath,
+    currentRepositoryName,
+    currentRepositoryPath,
     durableResultStore,
     notifications,
     providerTurnActivityByTask,
-    recentProjects,
+    recentRepositories,
     workspacePrInfoById,
     workspaceRuntimeCacheById,
     workspaces,

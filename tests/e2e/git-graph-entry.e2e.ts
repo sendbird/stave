@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 
-async function seedProject(page: Page, options: { withWorkspace: boolean }) {
+async function seedRepository(page: Page, options: { withWorkspace: boolean }) {
   await page.addInitScript(({ withWorkspace }) => {
     const workspaceId = withWorkspace ? "workspace-1" : "";
     const workspace = {
@@ -30,8 +30,8 @@ async function seedProject(page: Page, options: { withWorkspace: boolean }) {
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           defaultBranch: "main",
           workspaces: withWorkspace ? [workspace] : [],
           activeWorkspaceId: workspaceId,
@@ -83,7 +83,7 @@ async function seedProject(page: Page, options: { withWorkspace: boolean }) {
 test("shows Commit graph beside branch information instead of in the right rail", async ({
   page,
 }) => {
-  await seedProject(page, { withWorkspace: true });
+  await seedRepository(page, { withWorkspace: true });
   await page.goto("/");
 
   const topBarButton = page
@@ -102,7 +102,7 @@ test("shows Commit graph beside branch information instead of in the right rail"
 test("disables Commit graph when there is no active workspace", async ({
   page,
 }) => {
-  await seedProject(page, { withWorkspace: true });
+  await seedRepository(page, { withWorkspace: true });
   await page.goto("/");
   await page.evaluate(async () => {
     const storeModulePath = "/src/store/app.store.ts";

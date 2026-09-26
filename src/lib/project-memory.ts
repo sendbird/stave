@@ -7,52 +7,52 @@ import { z } from "zod";
  * and not a replacement for `AGENTS.md` — human-authored rules win on
  * conflict. Rows are scoped by project path and never read across projects.
  */
-export const PROJECT_MEMORY_KINDS = [
+export const REPOSITORY_MEMORY_KINDS = [
   "decision",
   "convention",
   "gotcha",
   "fact",
 ] as const;
 
-export type ProjectMemoryKind = (typeof PROJECT_MEMORY_KINDS)[number];
+export type RepositoryMemoryKind = (typeof REPOSITORY_MEMORY_KINDS)[number];
 
-export const PROJECT_MEMORY_RECALL_MODES = [
+export const REPOSITORY_MEMORY_RECALL_MODES = [
   "candidate",
   "contextual",
   "core",
 ] as const;
-export const ProjectMemoryRecallModeSchema = z.enum(PROJECT_MEMORY_RECALL_MODES);
-export type ProjectMemoryRecallMode = z.infer<typeof ProjectMemoryRecallModeSchema>;
+export const RepositoryMemoryRecallModeSchema = z.enum(REPOSITORY_MEMORY_RECALL_MODES);
+export type RepositoryMemoryRecallMode = z.infer<typeof RepositoryMemoryRecallModeSchema>;
 
 /** One short sentence. Enforced in the schema and again in the store. */
-export const PROJECT_MEMORY_CONTENT_MAX_CHARS = 280;
+export const REPOSITORY_MEMORY_CONTENT_MAX_CHARS = 280;
 
 /** Explicit `stave_remember` writes start here. */
-export const PROJECT_MEMORY_EXPLICIT_CONFIDENCE = 0.9;
+export const REPOSITORY_MEMORY_EXPLICIT_CONFIDENCE = 0.9;
 /** Facts auto-extracted from the turn summary start here. */
-export const PROJECT_MEMORY_AUTO_CONFIDENCE = 0.6;
+export const REPOSITORY_MEMORY_AUTO_CONFIDENCE = 0.6;
 
 /**
  * Hard cap on the injected block. The cap is enforced in code, not in the
  * prompt: memory must not grow per-turn context no matter how many rows exist.
  */
-export const PROJECT_MEMORY_INJECTION_MAX_ITEMS = 6;
-export const PROJECT_MEMORY_INJECTION_MAX_CHARS = 1200;
-export const PROJECT_MEMORY_CORE_MAX_ITEMS = 3;
-export const PROJECT_MEMORY_CANDIDATE_MAX_ITEMS = 50;
+export const REPOSITORY_MEMORY_INJECTION_MAX_ITEMS = 6;
+export const REPOSITORY_MEMORY_INJECTION_MAX_CHARS = 1200;
+export const REPOSITORY_MEMORY_CORE_MAX_ITEMS = 3;
+export const REPOSITORY_MEMORY_CANDIDATE_MAX_ITEMS = 50;
 
 /**
  * Forgetting rule: an item nobody has confirmed for this long, and that never
  * earned high confidence, drops out of injection. It stays listed in the UI.
  */
-export const PROJECT_MEMORY_STALE_AFTER_MS = 60 * 24 * 60 * 60 * 1000;
-export const PROJECT_MEMORY_STALE_CONFIDENCE_FLOOR = 0.7;
+export const REPOSITORY_MEMORY_STALE_AFTER_MS = 60 * 24 * 60 * 60 * 1000;
+export const REPOSITORY_MEMORY_STALE_CONFIDENCE_FLOOR = 0.7;
 
-export interface ProjectMemory {
+export interface RepositoryMemory {
   id: string;
-  projectPath: string;
-  kind: ProjectMemoryKind;
-  recallMode: ProjectMemoryRecallMode;
+  repositoryPath: string;
+  kind: RepositoryMemoryKind;
+  recallMode: RepositoryMemoryRecallMode;
   content: string;
   sourceTaskId: string | null;
   sourceTurnId: string | null;
@@ -68,51 +68,51 @@ export interface ProjectMemory {
   deletedAt: number | null;
 }
 
-export const ProjectMemoryKindSchema = z.enum(PROJECT_MEMORY_KINDS);
+export const RepositoryMemoryKindSchema = z.enum(REPOSITORY_MEMORY_KINDS);
 
-export const ProjectMemoryContentSchema = z
+export const RepositoryMemoryContentSchema = z
   .string()
   .trim()
   .min(1)
-  .max(PROJECT_MEMORY_CONTENT_MAX_CHARS);
+  .max(REPOSITORY_MEMORY_CONTENT_MAX_CHARS);
 
-export const ProjectMemoryFactInputSchema = z
+export const RepositoryMemoryFactInputSchema = z
   .object({
-    kind: ProjectMemoryKindSchema,
-    content: ProjectMemoryContentSchema,
+    kind: RepositoryMemoryKindSchema,
+    content: RepositoryMemoryContentSchema,
   })
   .strict();
 
-export type ProjectMemoryFactInput = z.infer<typeof ProjectMemoryFactInputSchema>;
+export type RepositoryMemoryFactInput = z.infer<typeof RepositoryMemoryFactInputSchema>;
 
-const ProjectPathSchema = z.string().trim().min(1).max(4096);
+const RepositoryPathSchema = z.string().trim().min(1).max(4096);
 
-export const ProjectMemoryListArgsSchema = z
+export const RepositoryMemoryListArgsSchema = z
   .object({
-    projectPath: ProjectPathSchema,
+    repositoryPath: RepositoryPathSchema,
   })
   .strict();
 
-export const ProjectMemorySearchOptionsSchema = z
+export const RepositoryMemorySearchOptionsSchema = z
   .object({
     query: z.string().trim().max(500).optional(),
-    recallMode: ProjectMemoryRecallModeSchema.optional(),
+    recallMode: RepositoryMemoryRecallModeSchema.optional(),
     offset: z.number().int().min(0).max(100_000).optional(),
   })
   .strict();
-export type ProjectMemorySearchOptions = z.infer<typeof ProjectMemorySearchOptionsSchema>;
+export type RepositoryMemorySearchOptions = z.infer<typeof RepositoryMemorySearchOptionsSchema>;
 
-export const ProjectMemoryRecallArgsSchema = z
+export const RepositoryMemoryRecallArgsSchema = z
   .object({
-    projectPath: ProjectPathSchema,
+    repositoryPath: RepositoryPathSchema,
     query: z.string().max(8_000).optional(),
   })
   .strict();
 
-export const ProjectMemoryRememberArgsSchema = z
+export const RepositoryMemoryRememberArgsSchema = z
   .object({
-    projectPath: ProjectPathSchema,
-    facts: z.array(ProjectMemoryFactInputSchema).min(1).max(8),
+    repositoryPath: RepositoryPathSchema,
+    facts: z.array(RepositoryMemoryFactInputSchema).min(1).max(8),
     source: z.enum(["explicit", "auto"]),
     collectionRevision: z.number().int().nonnegative().optional(),
     sourceTaskId: z.string().min(1).optional(),
@@ -120,73 +120,73 @@ export const ProjectMemoryRememberArgsSchema = z
   })
   .strict();
 
-export const ProjectMemoryUpdateArgsSchema = z
+export const RepositoryMemoryUpdateArgsSchema = z
   .object({
     id: z.string().min(1),
-    projectPath: ProjectPathSchema,
-    recallMode: ProjectMemoryRecallModeSchema.optional(),
-    kind: ProjectMemoryKindSchema.optional(),
-    content: ProjectMemoryContentSchema.optional(),
+    repositoryPath: RepositoryPathSchema,
+    recallMode: RepositoryMemoryRecallModeSchema.optional(),
+    kind: RepositoryMemoryKindSchema.optional(),
+    content: RepositoryMemoryContentSchema.optional(),
   })
   .strict();
 
-export const ProjectMemoryDeleteArgsSchema = z
+export const RepositoryMemoryDeleteArgsSchema = z
   .object({
     id: z.string().min(1),
   })
   .strict();
 
-export type ProjectMemoryListArgs = z.infer<typeof ProjectMemoryListArgsSchema>;
-export type ProjectMemoryRecallArgs = z.infer<
-  typeof ProjectMemoryRecallArgsSchema
+export type RepositoryMemoryListArgs = z.infer<typeof RepositoryMemoryListArgsSchema>;
+export type RepositoryMemoryRecallArgs = z.infer<
+  typeof RepositoryMemoryRecallArgsSchema
 >;
-export type ProjectMemoryRememberArgs = z.infer<
-  typeof ProjectMemoryRememberArgsSchema
+export type RepositoryMemoryRememberArgs = z.infer<
+  typeof RepositoryMemoryRememberArgsSchema
 >;
-export type ProjectMemoryUpdateArgs = z.infer<
-  typeof ProjectMemoryUpdateArgsSchema
+export type RepositoryMemoryUpdateArgs = z.infer<
+  typeof RepositoryMemoryUpdateArgsSchema
 >;
-export type ProjectMemoryDeleteArgs = z.infer<
-  typeof ProjectMemoryDeleteArgsSchema
+export type RepositoryMemoryDeleteArgs = z.infer<
+  typeof RepositoryMemoryDeleteArgsSchema
 >;
 
-export type ProjectMemoryRememberOutcome = "inserted" | "confirmed";
+export type RepositoryMemoryRememberOutcome = "inserted" | "confirmed";
 
-export interface ProjectMemoryRememberResult {
-  memory: ProjectMemory;
-  outcome: ProjectMemoryRememberOutcome;
+export interface RepositoryMemoryRememberResult {
+  memory: RepositoryMemory;
+  outcome: RepositoryMemoryRememberOutcome;
 }
 
-export function normalizeProjectMemoryContent(value: string) {
+export function normalizeRepositoryMemoryContent(value: string) {
   return value.trim().replace(/\s+/g, " ");
 }
 
-export function resolveProjectMemoryConfidence(source: "explicit" | "auto") {
+export function resolveRepositoryMemoryConfidence(source: "explicit" | "auto") {
   return source === "explicit"
-    ? PROJECT_MEMORY_EXPLICIT_CONFIDENCE
-    : PROJECT_MEMORY_AUTO_CONFIDENCE;
+    ? REPOSITORY_MEMORY_EXPLICIT_CONFIDENCE
+    : REPOSITORY_MEMORY_AUTO_CONFIDENCE;
 }
 
-export function isProjectMemoryStale(args: {
-  memory: Pick<ProjectMemory, "confidence" | "lastConfirmedAt">;
+export function isRepositoryMemoryStale(args: {
+  memory: Pick<RepositoryMemory, "confidence" | "lastConfirmedAt">;
   now: number;
 }) {
   return (
-    args.memory.confidence < PROJECT_MEMORY_STALE_CONFIDENCE_FLOOR &&
-    args.now - args.memory.lastConfirmedAt > PROJECT_MEMORY_STALE_AFTER_MS
+    args.memory.confidence < REPOSITORY_MEMORY_STALE_CONFIDENCE_FLOOR &&
+    args.now - args.memory.lastConfirmedAt > REPOSITORY_MEMORY_STALE_AFTER_MS
   );
 }
 
 function comparableText(value: string) {
-  return normalizeProjectMemoryContent(value)
+  return normalizeRepositoryMemoryContent(value)
     .toLowerCase()
     .replace(/[^\p{L}\p{N}\s]/gu, "");
 }
 
 /** Exact normalized equality only: similar wording can reverse a decision. */
-export function isSameProjectMemoryContent(left: string, right: string) {
+export function isSameRepositoryMemoryContent(left: string, right: string) {
   return (
-    normalizeProjectMemoryContent(left) === normalizeProjectMemoryContent(right)
+    normalizeRepositoryMemoryContent(left) === normalizeRepositoryMemoryContent(right)
   );
 }
 
@@ -203,15 +203,15 @@ function trigrams(value: string) {
  * Trigram Jaccard similarity of two contents after whitespace, case and
  * punctuation normalization. Identical normalized text scores 1.
  */
-export function projectMemorySimilarity(left: string, right: string) {
-  return createProjectMemorySimilarityMatcher(left)(right);
+export function repositoryMemorySimilarity(left: string, right: string) {
+  return createRepositoryMemorySimilarityMatcher(left)(right);
 }
 
 /**
- * Same score as `projectMemorySimilarity`, with the left side's trigrams
+ * Same score as `repositoryMemorySimilarity`, with the left side's trigrams
  * computed once so a dedup scan over many candidates stays linear.
  */
-export function createProjectMemorySimilarityMatcher(left: string) {
+export function createRepositoryMemorySimilarityMatcher(left: string) {
   const a = comparableText(left);
   const leftGrams = a ? trigrams(a) : new Set<string>();
   return (right: string) => {
@@ -234,13 +234,13 @@ export function createProjectMemorySimilarityMatcher(left: string) {
   };
 }
 
-export function isProjectMemoryDuplicate(args: {
-  candidate: Pick<ProjectMemory, "kind" | "content">;
-  existing: Pick<ProjectMemory, "kind" | "content">;
+export function isRepositoryMemoryDuplicate(args: {
+  candidate: Pick<RepositoryMemory, "kind" | "content">;
+  existing: Pick<RepositoryMemory, "kind" | "content">;
 }) {
   return (
     args.candidate.kind === args.existing.kind &&
-    isSameProjectMemoryContent(args.candidate.content, args.existing.content)
+    isSameRepositoryMemoryContent(args.candidate.content, args.existing.content)
   );
 }
 
@@ -248,7 +248,7 @@ export function isProjectMemoryDuplicate(args: {
  * Bounded lexical query terms. Two-character terms use substring lookup
  * because the trigram tokenizer cannot match them.
  */
-export function extractProjectMemoryQueryTerms(query: string, maxTerms = 24) {
+export function extractRepositoryMemoryQueryTerms(query: string, maxTerms = 24) {
   const seen = new Set<string>();
   const terms: string[] = [];
   for (const raw of query.toLowerCase().split(/[^\p{L}\p{N}_-]+/u)) {
@@ -271,10 +271,10 @@ const QUERY_STOP_WORDS = new Set([
   "해줘", "해주세요", "수정", "지금", "이번", "작업", "기능",
 ]);
 
-export function formatProjectMemoryLine(
-  memory: Pick<ProjectMemory, "kind" | "content">,
+export function formatRepositoryMemoryLine(
+  memory: Pick<RepositoryMemory, "kind" | "content">,
 ) {
-  return `- (${memory.kind}) ${normalizeProjectMemoryContent(memory.content)}`;
+  return `- (${memory.kind}) ${normalizeRepositoryMemoryContent(memory.content)}`;
 }
 
 /**
@@ -282,21 +282,21 @@ export function formatProjectMemoryLine(
  * same time: at most `maxItems` rows and at most `maxChars` of rendered lines.
  * Order is preserved, so callers put the rows they most want kept first.
  */
-export function capProjectMemoriesForInjection<
-  T extends Pick<ProjectMemory, "kind" | "content">,
+export function capRepositoryMemoriesForInjection<
+  T extends Pick<RepositoryMemory, "kind" | "content">,
 >(
   memories: readonly T[],
   options: { maxItems?: number; maxChars?: number } = {},
 ) {
-  const maxItems = options.maxItems ?? PROJECT_MEMORY_INJECTION_MAX_ITEMS;
-  const maxChars = options.maxChars ?? PROJECT_MEMORY_INJECTION_MAX_CHARS;
+  const maxItems = options.maxItems ?? REPOSITORY_MEMORY_INJECTION_MAX_ITEMS;
+  const maxChars = options.maxChars ?? REPOSITORY_MEMORY_INJECTION_MAX_CHARS;
   const kept: T[] = [];
   let used = 0;
   for (const memory of memories) {
     if (kept.length >= maxItems) {
       break;
     }
-    const lineLength = formatProjectMemoryLine(memory).length + 1;
+    const lineLength = formatRepositoryMemoryLine(memory).length + 1;
     if (used + lineLength > maxChars) {
       continue;
     }
@@ -310,7 +310,7 @@ export function capProjectMemoriesForInjection<
  * Default injection order: strongest, most recently confirmed first. Stale
  * rows are excluded here and in the store query so both paths agree.
  */
-export function orderProjectMemoriesForInjection<T extends ProjectMemory>(
+export function orderRepositoryMemoriesForInjection<T extends RepositoryMemory>(
   memories: readonly T[],
   now: number,
 ) {
@@ -319,7 +319,7 @@ export function orderProjectMemoriesForInjection<T extends ProjectMemory>(
       (memory) =>
         memory.deletedAt === null &&
         memory.recallMode !== "candidate" &&
-        !isProjectMemoryStale({ memory, now }),
+        !isRepositoryMemoryStale({ memory, now }),
     )
     .sort(
       (a, b) =>

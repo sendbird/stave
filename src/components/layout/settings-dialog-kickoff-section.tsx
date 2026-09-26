@@ -179,7 +179,7 @@ function KickoffPromptField(props: {
 
 export function KickoffSection() {
   const [
-    projectPath,
+    repositoryPath,
     sourceConfigs,
     primaryModel,
     fallbackModel,
@@ -187,7 +187,7 @@ export function KickoffSection() {
     updateSettings,
   ] = useAppStore(
     useShallow((state) => [
-      state.projectPath,
+      state.repositoryPath,
       state.settings.kickoffSourceConfigs,
       state.settings.kickoffPrimaryModel,
       state.settings.kickoffFallbackModel,
@@ -211,13 +211,13 @@ export function KickoffSection() {
     }
     setDiscovering(true);
     try {
-      setDiscovery(await discover({ cwd: projectPath ?? undefined }));
+      setDiscovery(await discover({ cwd: repositoryPath ?? undefined }));
     } catch {
       setDiscovery(null);
     } finally {
       setDiscovering(false);
     }
-  }, [projectPath]);
+  }, [repositoryPath]);
 
   useEffect(() => {
     void refreshMcpServers();

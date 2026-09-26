@@ -3,7 +3,7 @@ import { buildTerminalSessionSlotKey } from "@/lib/terminal/types";
 import { worktreeStatusHasMeaningfulChanges } from "@/lib/workspace-archive-status";
 import { workspaceCleanupRecommendation, workspaceCleanupBlocker, parseWorkspaceDiskBytes, worktreeListContainsPath } from "@/lib/workspace-cleanup";
 import { useAppStore } from "@/store/app.store";
-import { getLinkedWorktreePathSetForProject, waitForPendingWorkspaceArchiveCleanups } from "@/store/workspace-archive-cleanup";
+import { getLinkedWorktreePathSetForRepository, waitForPendingWorkspaceArchiveCleanups } from "@/store/workspace-archive-cleanup";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 
 export interface CleanupWorkspaceRow {
@@ -24,19 +24,19 @@ export interface CleanupWorkspaceRow {
 
 export function cleanupWorkspaceRows(): CleanupWorkspaceRow[] {
   const state = useAppStore.getState();
-  const linkedPaths = getLinkedWorktreePathSetForProject({ projectPath: state.projectPath, recentProjects: state.recentProjects });
+  const linkedPaths = getLinkedWorktreePathSetForRepository({ repositoryPath: state.repositoryPath, recentRepositories: state.recentRepositories });
   return state.workspaces.map((w) => ({
     id: w.id, name: w.name, path: state.workspacePathById[w.id] ?? "",
     branch: state.workspaceBranchById[w.id] ?? "",
     lastActive: state.workspaceLastActiveAtById[w.id] ?? null,
     linked: linkedPaths.has(normalizeComparablePath(state.workspacePathById[w.id])),
-    blocker: workspaceCleanupBlocker(state, state.projectPath ?? "", w.id, state.workspacePathById[w.id] ?? ""),
+    blocker: workspaceCleanupBlocker(state, state.repositoryPath ?? "", w.id, state.workspacePathById[w.id] ?? ""),
     checked: false, bytes: null,
   }));
 }
 
-export async function inspectCleanupWorkspace(projectPath: string, row: CleanupWorkspaceRow): Promise<CleanupWorkspaceRow> {
-  const blocker = workspaceCleanupBlocker(useAppStore.getState(), projectPath, row.id, row.path);
+export async function inspectCleanupWorkspace(repositoryPath: string, row: CleanupWorkspaceRow): Promise<CleanupWorkspaceRow> {
+  const blocker = workspaceCleanupBlocker(useAppStore.getState(), repositoryPath, row.id, row.path);
   if (blocker) return { ...row, checked: true, blocker };
   try {
     const runner = window.api?.terminal?.runCommand;
@@ -67,7 +67,7 @@ export async function inspectCleanupWorkspace(projectPath: string, row: CleanupW
     return { ...row, checked: true, lastActive,
       remoteStatus: unpushed === null ? "Upstream comparison unavailable; branch will be kept" : `${unpushed} unpushed commits (local tracking ref)`,
       recommendation: workspaceCleanupRecommendation({ lastActive, prState: pr?.pr?.state, prCheckedAt: pr?.lastFetched, unpushed, now: Date.now() }),
-      blocker: workspaceCleanupBlocker(useAppStore.getState(), projectPath, row.id, row.path) ?? reason };
+      blocker: workspaceCleanupBlocker(useAppStore.getState(), repositoryPath, row.id, row.path) ?? reason };
   } catch (error) {
     return { ...row, checked: true, blocker: error instanceof Error ? error.message : "Check failed" };
   }
@@ -83,18 +83,18 @@ export async function scanCleanupWorkspaceSize(row: CleanupWorkspaceRow): Promis
   }
 }
 
-export async function cleanWorkspace(projectPath: string, row: CleanupWorkspaceRow): Promise<CleanupWorkspaceRow> {
-  const current = await inspectCleanupWorkspace(projectPath, row);
+export async function cleanWorkspace(repositoryPath: string, row: CleanupWorkspaceRow): Promise<CleanupWorkspaceRow> {
+  const current = await inspectCleanupWorkspace(repositoryPath, row);
   if (current.blocker) return current;
   // Re-check synchronously after all asynchronous inspection, before dispatch.
   const state = useAppStore.getState();
-  const blocker = workspaceCleanupBlocker(state, projectPath, row.id, row.path);
+  const blocker = workspaceCleanupBlocker(state, repositoryPath, row.id, row.path);
   if (blocker) return { ...current, blocker };
   await state.closeWorkspace({ workspaceId: row.id, deleteBranch: false, onlyIfInactive: true });
   await waitForPendingWorkspaceArchiveCleanups();
   const archived = !useAppStore.getState().workspaces.some((w) => w.id === row.id);
   if (!archived) return { ...current, blocker: "Workspace was not archived" };
-  const listed = await window.api?.terminal?.runCommand?.({ cwd: projectPath, command: "git worktree list --porcelain -z" });
+  const listed = await window.api?.terminal?.runCommand?.({ cwd: repositoryPath, command: "git worktree list --porcelain -z" });
   const result = row.linked ? "Archived · external files kept" : !listed?.ok ? "Archived · disk removal unverified" : worktreeListContainsPath(listed.stdout, row.path) ? "Archived · worktree kept" : "Worktree removed · branch kept";
   return { ...current, result };
 }

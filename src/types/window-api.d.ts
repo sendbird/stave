@@ -1,15 +1,15 @@
 import type { LensReviewApi } from "@/lib/lens/lens-review.types";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../lib/providers/agent-history";
 import type { PromptEnhancementContext } from "@/lib/providers/prompt-enhancement-context";
-import type { ProjectMemoryControlsApi } from "@/lib/project-memory-settings";
+import type { RepositoryMemoryControlsApi } from "@/lib/project-memory-settings";
 import type {
-  ProjectMemory,
-  ProjectMemoryDeleteArgs,
-  ProjectMemoryListArgs,
-  ProjectMemoryRecallArgs,
-  ProjectMemoryRememberArgs,
-  ProjectMemoryRememberResult,
-  ProjectMemoryUpdateArgs,
+  RepositoryMemory,
+  RepositoryMemoryDeleteArgs,
+  RepositoryMemoryListArgs,
+  RepositoryMemoryRecallArgs,
+  RepositoryMemoryRememberArgs,
+  RepositoryMemoryRememberResult,
+  RepositoryMemoryUpdateArgs,
 } from "@/lib/project-memory";
 import type {
   CodexAppServerSnapshotResponse,
@@ -934,28 +934,28 @@ interface WindowCraneConnectorApi {
   ) => () => void;
 }
 
-interface WindowProjectMemoryApi extends Partial<ProjectMemoryControlsApi> {
-  list?: (args: ProjectMemoryListArgs) => Promise<{
+interface WindowRepositoryMemoryApi extends Partial<RepositoryMemoryControlsApi> {
+  list?: (args: RepositoryMemoryListArgs) => Promise<{
     ok: boolean;
-    items: ProjectMemory[];
+    items: RepositoryMemory[];
     message?: string;
   }>;
-  recall?: (args: ProjectMemoryRecallArgs) => Promise<{
+  recall?: (args: RepositoryMemoryRecallArgs) => Promise<{
     ok: boolean;
-    items: ProjectMemory[];
+    items: RepositoryMemory[];
     message?: string;
   }>;
-  remember?: (args: ProjectMemoryRememberArgs) => Promise<{
+  remember?: (args: RepositoryMemoryRememberArgs) => Promise<{
     ok: boolean;
-    results: ProjectMemoryRememberResult[];
+    results: RepositoryMemoryRememberResult[];
     message?: string;
   }>;
-  update?: (args: ProjectMemoryUpdateArgs) => Promise<{
+  update?: (args: RepositoryMemoryUpdateArgs) => Promise<{
     ok: boolean;
-    memory?: ProjectMemory | null;
+    memory?: RepositoryMemory | null;
     message?: string;
   }>;
-  delete?: (args: ProjectMemoryDeleteArgs) => Promise<{
+  delete?: (args: RepositoryMemoryDeleteArgs) => Promise<{
     ok: boolean;
     deleted?: boolean;
     message?: string;
@@ -1367,7 +1367,7 @@ interface WindowToolingApi {
 
 interface WindowScriptsApi {
   getConfig?: (args: {
-    projectPath: string;
+    repositoryPath: string;
     workspacePath: string;
     userOverridePath?: string;
   }) => Promise<{
@@ -1384,7 +1384,7 @@ interface WindowScriptsApi {
     workspaceId: string;
     scriptId: string;
     scriptKind: ScriptKind;
-    projectPath: string;
+    repositoryPath: string;
     workspacePath: string;
     workspaceName: string;
     branch: string;
@@ -1407,7 +1407,7 @@ interface WindowScriptsApi {
   runHook?: (args: {
     workspaceId: string;
     trigger: ScriptTrigger;
-    projectPath: string;
+    repositoryPath: string;
     workspacePath: string;
     workspaceName: string;
     branch: string;
@@ -1966,10 +1966,10 @@ interface WindowPersistenceApi {
       savedContent?: string;
     }>;
   }>;
-  loadProjectRegistry?: () => Promise<{
+  loadRepositoryRegistry?: () => Promise<{
     ok: boolean;
-    projects: unknown[];
-    activeProjectPath?: string | null;
+    repositories: unknown[];
+    activeRepositoryPath?: string | null;
   }>;
   upsertWorkspace?: (args: {
     id: string;
@@ -2035,9 +2035,9 @@ interface WindowPersistenceApi {
       workspaceInformation?: WorkspaceInformationState;
     };
   }) => Promise<{ ok: boolean }>;
-  saveProjectRegistry?: (args: {
-    projects: unknown[];
-    activeProjectPath?: string | null;
+  saveRepositoryRegistry?: (args: {
+    repositories: unknown[];
+    activeRepositoryPath?: string | null;
   }) => Promise<{ ok: boolean }>;
   closeWorkspace?: (args: { workspaceId: string }) => Promise<{ ok: boolean }>;
   loadDirectionDraft?: (args: {
@@ -2400,7 +2400,7 @@ type LensSessionScope = "project" | "workspace";
 interface LensSessionProfileArgs {
   workspaceId: string;
   sessionScope?: LensSessionScope;
-  projectKey?: string | null;
+  repositoryKey?: string | null;
 }
 
 type LensDownloadState =
@@ -2976,7 +2976,7 @@ interface WindowApi {
   martinSync?: WindowMartinSyncApi;
   craneConnector?: WindowCraneConnectorApi;
   trackerIssues?: WindowTrackerIssuesApi;
-  projectMemory?: WindowProjectMemoryApi;
+  repositoryMemory?: WindowRepositoryMemoryApi;
   jiraConnector?: WindowJiraConnectorApi;
   taskControl?: WindowTaskControlApi;
   automations?: WindowAutomationsApi;

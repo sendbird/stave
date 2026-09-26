@@ -94,7 +94,7 @@ export const DelegatedTaskDelegationKeySchema = z
 
 export const DelegateTaskArgsSchema = z
   .object({
-    projectPath: z.string().trim().min(1).max(4096),
+    repositoryPath: z.string().trim().min(1).max(4096),
     parentWorkspaceId: RunIdSchema,
     parentTaskId: z.string().trim().min(1).max(150),
     delegationKey: DelegatedTaskDelegationKeySchema,
@@ -194,7 +194,7 @@ export type DelegatedTaskDetachArgs = z.infer<typeof DelegatedTaskDetachArgsSche
  */
 export const DelegatedTaskRetryArgsSchema = z
   .object({
-    projectPath: z.string().trim().min(1).max(4096),
+    repositoryPath: z.string().trim().min(1).max(4096),
     parentWorkspaceId: RunIdSchema,
     parentTaskId: z.string().trim().min(1).max(150),
     delegationKey: DelegatedTaskDelegationKeySchema,

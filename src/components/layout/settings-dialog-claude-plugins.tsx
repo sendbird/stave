@@ -68,7 +68,7 @@ export function ClaudeInstalledPluginsField() {
     activeTaskId,
     activeWorkspaceId,
     workspacePathById,
-    projectPath,
+    repositoryPath,
     providerSessionByTask,
     updateSettings,
     refreshProviderCommandCatalog,
@@ -80,7 +80,7 @@ export function ClaudeInstalledPluginsField() {
           state.activeTaskId,
           state.activeWorkspaceId,
           state.workspacePathById,
-          state.projectPath,
+          state.repositoryPath,
           state.providerSessionByTask,
           state.updateSettings,
           state.refreshProviderCommandCatalog,
@@ -102,7 +102,7 @@ export function ClaudeInstalledPluginsField() {
       ? settings.claudePluginOverrides
       : {};
   const workspaceCwd =
-    workspacePathById[activeWorkspaceId] ?? projectPath ?? undefined;
+    workspacePathById[activeWorkspaceId] ?? repositoryPath ?? undefined;
   const runtimeOptions = useMemo(
     () =>
       buildProviderRuntimeOptions({

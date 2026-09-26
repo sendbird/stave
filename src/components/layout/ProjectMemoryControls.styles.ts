@@ -3,7 +3,7 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 
 /** Project-memory settings controls (collection template, kinds, clear/reset). */
-export const projectMemoryControlsStyles = stylex.create({
+export const repositoryMemoryControlsStyles = stylex.create({
   root: {
     display: "flex",
     flexDirection: "column",

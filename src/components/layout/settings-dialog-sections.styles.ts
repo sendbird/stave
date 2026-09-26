@@ -187,7 +187,7 @@ export const settingsSectionsStyles = stylex.create({
   },
 
   // --- project settings panel ---
-  projectHeader: {
+  repositoryHeader: {
     alignItems: "start",
     backgroundColor: vars["--ads-color-surface"],
     borderColor: vars["--ads-color-border"],
@@ -202,14 +202,14 @@ export const settingsSectionsStyles = stylex.create({
     paddingBlock: vars["--ads-space-12"],
     paddingInline: vars["--ads-space-16"],
   },
-  projectHeaderMain: {
+  repositoryHeaderMain: {
     display: "flex",
     flex: 1,
     flexDirection: "column",
     gap: vars["--ads-space-8"],
     minInlineSize: 0,
   },
-  projectTitle: {
+  repositoryTitle: {
     fontSize: vars["--ads-font-size-lead"],
     fontWeight: vars["--ads-font-weight-semibold"],
     letterSpacing: "-0.01em",

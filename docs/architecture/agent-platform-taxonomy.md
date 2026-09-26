@@ -107,7 +107,7 @@ Fleet-scoped, read plus control, no new execution semantics.
 | Concept | Role |
 | --- | --- |
 | Fleet | The cross-workspace surface: attention inbox, workspace cards, task control |
-| Task control plane | Identity (`projectPath + workspaceId + taskId + turnId`) and staleness validation for remote actions |
+| Task control plane | Identity (`repositoryPath + workspaceId + taskId + turnId`) and staleness validation for remote actions |
 | Task execution summary | Provenance-tagged scorecard; missing data is never rendered as zero |
 | Sidebar work queue | The same lane model as one of the sidebar's two views (`Projects` / `Work queue`) |
 | Run ledger (run core) | Durable bookkeeping for delegated execution: runs, steps, receipts, idempotency, claims |

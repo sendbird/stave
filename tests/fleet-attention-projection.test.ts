@@ -46,8 +46,8 @@ function buildNotification(
     kind: "task.approval_requested",
     title: "Review checkout",
     body: "Bash: run tests",
-    projectPath: "/workspace/project",
-    projectName: "Project",
+    repositoryPath: "/workspace/project",
+    repositoryName: "Project",
     workspaceId: "workspace-1",
     workspaceName: "checkout",
     taskId: "task-1",
@@ -72,8 +72,8 @@ function buildLiveWorkspace(
   overrides: Partial<FleetLiveWorkspaceInput> = {},
 ): FleetLiveWorkspaceInput {
   return {
-    projectPath: "/workspace/project",
-    projectName: "Project",
+    repositoryPath: "/workspace/project",
+    repositoryName: "Project",
     workspaceId: "workspace-1",
     workspaceName: "checkout",
     tasks: [buildTask()],
@@ -241,8 +241,8 @@ describe("Fleet attention projection", () => {
       liveWorkspaces: [],
       prWorkspaces: [
         {
-          projectPath: "/workspace/project",
-          projectName: "Project",
+          repositoryPath: "/workspace/project",
+          repositoryName: "Project",
           workspaceId: "workspace-pr-blocker",
           workspaceName: "blocker",
           status: "checks_failed",
@@ -250,8 +250,8 @@ describe("Fleet attention projection", () => {
           updatedAt: "2026-07-26T00:00:00.000Z",
         },
         {
-          projectPath: "/workspace/project",
-          projectName: "Project",
+          repositoryPath: "/workspace/project",
+          repositoryName: "Project",
           workspaceId: "workspace-pr-ready",
           workspaceName: "ready",
           status: "ready_to_merge",
@@ -422,7 +422,7 @@ describe("Fleet attention projection", () => {
   test("omits notifications without an exact navigation target", () => {
     expect(
       collectFleetNotificationAttentionItems([
-        buildNotification({ projectPath: null }),
+        buildNotification({ repositoryPath: null }),
         buildNotification({ workspaceId: null }),
         buildNotification({ taskId: null }),
       ]),
@@ -480,8 +480,8 @@ describe("Fleet attention projection", () => {
       liveWorkspaces: [],
       prWorkspaces: [
         {
-          projectPath: "/workspace/project",
-          projectName: "Project",
+          repositoryPath: "/workspace/project",
+          repositoryName: "Project",
           workspaceId: "workspace-2",
           workspaceName: "docs",
           status: "ready_to_merge",

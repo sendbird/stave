@@ -157,7 +157,7 @@ export function registerWorkspaceScriptHandlers() {
 
       try {
         const config = await resolveScriptsForWorkspace({
-          projectPath: parsed.data.projectPath,
+          repositoryPath: parsed.data.repositoryPath,
           workspacePath: parsed.data.workspacePath,
         });
         const scriptEntry = getScriptEntry(config, {
@@ -171,7 +171,7 @@ export function registerWorkspaceScriptHandlers() {
         return await invokeHostService("workspace-scripts.run-entry", {
           workspaceId: parsed.data.workspaceId,
           scriptEntry,
-          projectPath: parsed.data.projectPath,
+          repositoryPath: parsed.data.repositoryPath,
           workspacePath: parsed.data.workspacePath,
           workspaceName: parsed.data.workspaceName,
           branch: parsed.data.branch,
@@ -208,7 +208,7 @@ export function registerWorkspaceScriptHandlers() {
 
       try {
         const config = await resolveScriptsForWorkspace({
-          projectPath: parsed.data.projectPath,
+          repositoryPath: parsed.data.repositoryPath,
           workspacePath: parsed.data.workspacePath,
         });
         if (!config) {
@@ -227,7 +227,7 @@ export function registerWorkspaceScriptHandlers() {
           workspaceId: parsed.data.workspaceId,
           trigger: parsed.data.trigger,
           config,
-          projectPath: parsed.data.projectPath,
+          repositoryPath: parsed.data.repositoryPath,
           workspacePath: parsed.data.workspacePath,
           workspaceName: parsed.data.workspaceName,
           branch: parsed.data.branch,

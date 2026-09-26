@@ -13,7 +13,7 @@ interface InstalledNodeVersion {
   parts: readonly [number, number, number];
 }
 
-export interface ProjectNvmEnvironment {
+export interface RepositoryNvmEnvironment {
   nvmrcPath: string;
   nvmDir: string;
   version: string;
@@ -193,10 +193,10 @@ function selectInstalledVersion(args: {
   );
 }
 
-export function resolveProjectNvmEnvironment(args: {
+export function resolveRepositoryNvmEnvironment(args: {
   cwd: string;
   baseEnv?: NodeJS.ProcessEnv;
-}): ProjectNvmEnvironment | null {
+}): RepositoryNvmEnvironment | null {
   if (process.platform === "win32") {
     return null;
   }
@@ -245,16 +245,16 @@ export function resolveProjectNvmEnvironment(args: {
   };
 }
 
-export function buildProjectShellEnv(args: {
+export function buildRepositoryShellEnv(args: {
   cwd: string;
   baseEnv?: NodeJS.ProcessEnv;
 }) {
   const env = { ...(args.baseEnv ?? process.env) };
-  const projectNvm = resolveProjectNvmEnvironment({
+  const repositoryNvm = resolveRepositoryNvmEnvironment({
     cwd: args.cwd,
     baseEnv: env,
   });
-  if (!projectNvm) {
+  if (!repositoryNvm) {
     return env;
   }
 
@@ -263,28 +263,28 @@ export function buildProjectShellEnv(args: {
     .map((entry) => entry.trim())
     .filter(Boolean);
   env.PATH = [
-    projectNvm.binPath,
-    ...pathEntries.filter((entry) => entry !== projectNvm.binPath),
+    repositoryNvm.binPath,
+    ...pathEntries.filter((entry) => entry !== repositoryNvm.binPath),
   ].join(path.delimiter);
-  env.NVM_DIR = projectNvm.nvmDir;
-  env.NVM_BIN = projectNvm.binPath;
-  env.NVM_INC = projectNvm.includePath;
+  env.NVM_DIR = repositoryNvm.nvmDir;
+  env.NVM_BIN = repositoryNvm.binPath;
+  env.NVM_INC = repositoryNvm.includePath;
   return env;
 }
 
-export function buildProjectNvmShellConfigOverrides(args: {
+export function buildRepositoryNvmShellConfigOverrides(args: {
   cwd: string;
   baseEnv?: NodeJS.ProcessEnv;
 }): Record<string, string> {
-  const projectNvm = resolveProjectNvmEnvironment(args);
-  if (!projectNvm) {
+  const repositoryNvm = resolveRepositoryNvmEnvironment(args);
+  if (!repositoryNvm) {
     return {};
   }
-  const env = buildProjectShellEnv(args);
+  const env = buildRepositoryShellEnv(args);
   return {
     "shell_environment_policy.set.PATH": env.PATH ?? "",
-    "shell_environment_policy.set.NVM_DIR": projectNvm.nvmDir,
-    "shell_environment_policy.set.NVM_BIN": projectNvm.binPath,
-    "shell_environment_policy.set.NVM_INC": projectNvm.includePath,
+    "shell_environment_policy.set.NVM_DIR": repositoryNvm.nvmDir,
+    "shell_environment_policy.set.NVM_BIN": repositoryNvm.binPath,
+    "shell_environment_policy.set.NVM_INC": repositoryNvm.includePath,
   } satisfies Record<string, string>;
 }

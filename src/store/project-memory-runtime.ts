@@ -1,9 +1,9 @@
 import type { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
-import type { ProjectMemoryFactInput } from "@/lib/project-memory";
+import type { RepositoryMemoryFactInput } from "@/lib/project-memory";
 import { buildDelegatedTaskReceiptsRetrievedContext } from "@/lib/task-context/delegated-task-receipts";
 import {
-  buildProjectMemoryRetrievedContextPart,
-  resolveProjectMemoryRecallQuery,
+  buildRepositoryMemoryRetrievedContextPart,
+  resolveRepositoryMemoryRecallQuery,
 } from "@/lib/task-context/project-memory";
 import type { ChatMessage } from "@/types/chat";
 
@@ -16,21 +16,21 @@ import type { ChatMessage } from "@/types/chat";
  * no block, never a failed turn.
  */
 export async function collectTurnStartRetrievedContextParts(args: {
-  projectPath: string | null;
+  repositoryPath: string | null;
   parentTaskId: string;
   history: readonly Pick<ChatMessage, "role" | "content">[];
   prompt: string;
 }): Promise<CanonicalRetrievedContextPart[]> {
-  const [delegatedTaskSummaries, projectMemoryPart] = await Promise.all([
+  const [delegatedTaskSummaries, repositoryMemoryPart] = await Promise.all([
     window.api?.runs?.listDelegatedTasks?.({
       parentTaskId: args.parentTaskId,
       includeFinished: true,
     }) ?? Promise.resolve([]),
-    recallProjectMemoryRetrievedContext(args),
+    recallRepositoryMemoryRetrievedContext(args),
   ]);
   const parts: CanonicalRetrievedContextPart[] = [];
-  if (projectMemoryPart) {
-    parts.push(projectMemoryPart);
+  if (repositoryMemoryPart) {
+    parts.push(repositoryMemoryPart);
   }
   // A parent that delegated work sees where its children stand before its
   // next turn — identity, phase and reason only, never a child's transcript.
@@ -43,20 +43,20 @@ export async function collectTurnStartRetrievedContextParts(args: {
   return parts;
 }
 
-export async function recallProjectMemoryRetrievedContext(args: {
-  projectPath: string | null;
+export async function recallRepositoryMemoryRetrievedContext(args: {
+  repositoryPath: string | null;
   history: readonly Pick<ChatMessage, "role" | "content">[];
   prompt: string;
 }): Promise<CanonicalRetrievedContextPart | null> {
-  const projectPath = args.projectPath?.trim();
-  const recall = window.api?.projectMemory?.recall;
-  if (!projectPath || !recall) {
+  const repositoryPath = args.repositoryPath?.trim();
+  const recall = window.api?.repositoryMemory?.recall;
+  if (!repositoryPath || !recall) {
     return null;
   }
   try {
     const result = await recall({
-      projectPath,
-      query: resolveProjectMemoryRecallQuery({
+      repositoryPath,
+      query: resolveRepositoryMemoryRecallQuery({
         history: args.history,
         prompt: args.prompt,
       }),
@@ -64,7 +64,7 @@ export async function recallProjectMemoryRetrievedContext(args: {
     if (!result.ok) {
       return null;
     }
-    return buildProjectMemoryRetrievedContextPart({ memories: result.items });
+    return buildRepositoryMemoryRetrievedContextPart({ memories: result.items });
   } catch {
     return null;
   }
@@ -75,19 +75,19 @@ export async function recallProjectMemoryRetrievedContext(args: {
  * confidence. Fire-and-forget: the summary itself has already been applied.
  */
 export function rememberTurnDurableFacts(args: {
-  projectPath: string | null;
+  repositoryPath: string | null;
   taskId: string;
   turnId: string;
-  facts: ProjectMemoryFactInput[];
+  facts: RepositoryMemoryFactInput[];
   collectionRevision?: number;
 }) {
-  const projectPath = args.projectPath?.trim();
-  const remember = window.api?.projectMemory?.remember;
-  if (!projectPath || !remember || args.facts.length === 0) {
+  const repositoryPath = args.repositoryPath?.trim();
+  const remember = window.api?.repositoryMemory?.remember;
+  if (!repositoryPath || !remember || args.facts.length === 0) {
     return;
   }
   void remember({
-    projectPath,
+    repositoryPath,
     facts: args.facts,
     source: "auto",
     sourceTaskId: args.taskId,

@@ -6,6 +6,8 @@ import { normalizeJiraConnectorSettings } from "@/lib/jira-connector/types";
 import { normalizeTrackerIssuesSettings } from "@/lib/tracker-issues/settings";
 // temporary-migration: issue-tracker-settings
 import { migrateLegacyIssueTrackerSettings } from "@/lib/tracker-issues/legacy-settings";
+// temporary-migration: repository-persisted-state
+import { migrateLegacyRepositoryState } from "@/store/legacy-repository-state";
 import {
   mergeWorkspaceActivityStamps,
   pruneWorkspaceActivityStamps,
@@ -102,12 +104,12 @@ import { buildRecentTimestamp } from "@/store/chat-state-helpers";
 import { normalizeProviderTimeoutMs } from "@/store/editor.utils";
 import { normalizeLayoutState } from "@/store/layout.utils";
 import {
-  cloneRecentProjectState,
-  captureCurrentProjectState,
-  normalizeCurrentProjectState,
-  normalizeProjectDisplayName,
-  normalizeProjectWorkspaceInitCommand,
-  normalizeRecentProjectStates,
+  cloneRecentRepositoryState,
+  captureCurrentRepositoryState,
+  normalizeCurrentRepositoryState,
+  normalizeRepositoryDisplayName,
+  normalizeRepositoryWorkspaceInitCommand,
+  normalizeRecentRepositoryStates,
 } from "@/store/project.utils";
 import {
   normalizeClaudeSettingSources,
@@ -147,11 +149,11 @@ export function createAppStorePersistenceOptions() {
       workspaces: state.workspaces,
       activeWorkspaceId: state.activeWorkspaceId,
       activeAppSurface: state.activeAppSurface,
-      projectPath: state.projectPath,
-      recentProjects: captureCurrentProjectState({
-        recentProjects: state.recentProjects,
-        projectPath: state.projectPath,
-        projectName: state.projectName,
+      repositoryPath: state.repositoryPath,
+      recentRepositories: captureCurrentRepositoryState({
+        recentRepositories: state.recentRepositories,
+        repositoryPath: state.repositoryPath,
+        repositoryName: state.repositoryName,
         defaultBranch: state.defaultBranch,
         workspaces: state.workspaces,
         activeWorkspaceId: state.activeWorkspaceId,
@@ -171,12 +173,14 @@ export function createAppStorePersistenceOptions() {
       draftProvider: state.draftProvider,
       layout: state.layout,
       settings: state.settings,
-      projectName: state.projectName,
+      repositoryName: state.repositoryName,
     }),
     onRehydrateStorage: () => (state?: AppState) => {
       if (!state) {
         return;
       }
+      // temporary-migration: repository-persisted-state
+      migrateLegacyRepositoryState(state as unknown as Record<string, unknown>);
       const persistedSettings = state.settings;
       // temporary-migration: issue-tracker-settings
       migrateLegacyIssueTrackerSettings(persistedSettings);
@@ -548,7 +552,7 @@ export function createAppStorePersistenceOptions() {
         raw.createPrMergeMethod === "rebase"
           ? raw.createPrMergeMethod
           : defaultSettings.createPrMergeMethod;
-      const legacyProjectInitCommand = normalizeProjectWorkspaceInitCommand({
+      const legacyRepositoryInitCommand = normalizeRepositoryWorkspaceInitCommand({
         value: raw.newWorkspaceInitCommand,
       });
       delete raw.newWorkspaceInitCommand;
@@ -680,12 +684,12 @@ export function createAppStorePersistenceOptions() {
           ];
         }),
       );
-      state.recentProjects = normalizeRecentProjectStates({
-        projects: state.recentProjects,
+      state.recentRepositories = normalizeRecentRepositoryStates({
+        repositories: state.recentRepositories,
       });
-      const normalizedCurrentProject = normalizeCurrentProjectState({
-        projectPath: state.projectPath,
-        projectName: state.projectName,
+      const normalizedCurrentRepository = normalizeCurrentRepositoryState({
+        repositoryPath: state.repositoryPath,
+        repositoryName: state.repositoryName,
         defaultBranch: state.defaultBranch,
         workspaces: state.workspaces,
         activeWorkspaceId: state.activeWorkspaceId,
@@ -693,58 +697,58 @@ export function createAppStorePersistenceOptions() {
         workspacePathById: state.workspacePathById,
         workspaceDefaultById: state.workspaceDefaultById,
         workspaceLastActiveAtById: state.workspaceLastActiveAtById,
-        recentProjects: state.recentProjects,
+        recentRepositories: state.recentRepositories,
       });
-      if (state.projectPath && normalizedCurrentProject) {
-        state.projectName = normalizeProjectDisplayName({
-          projectPath: normalizedCurrentProject.projectPath,
-          projectName:
-            state.projectName?.trim() || normalizedCurrentProject.projectName,
+      if (state.repositoryPath && normalizedCurrentRepository) {
+        state.repositoryName = normalizeRepositoryDisplayName({
+          repositoryPath: normalizedCurrentRepository.repositoryPath,
+          repositoryName:
+            state.repositoryName?.trim() || normalizedCurrentRepository.repositoryName,
         });
-        state.defaultBranch = normalizedCurrentProject.defaultBranch;
-        state.workspaces = normalizedCurrentProject.workspaces;
-        state.activeWorkspaceId = normalizedCurrentProject.activeWorkspaceId;
+        state.defaultBranch = normalizedCurrentRepository.defaultBranch;
+        state.workspaces = normalizedCurrentRepository.workspaces;
+        state.activeWorkspaceId = normalizedCurrentRepository.activeWorkspaceId;
         state.workspaceBranchById =
-          normalizedCurrentProject.workspaceBranchById;
-        state.workspacePathById = normalizedCurrentProject.workspacePathById;
+          normalizedCurrentRepository.workspaceBranchById;
+        state.workspacePathById = normalizedCurrentRepository.workspacePathById;
         state.workspaceDefaultById =
-          normalizedCurrentProject.workspaceDefaultById;
+          normalizedCurrentRepository.workspaceDefaultById;
         state.workspaceLastActiveAtById = mergeWorkspaceActivityStamps(
           state.workspaceLastActiveAtById,
-          normalizedCurrentProject.workspaceLastActiveAtById,
+          normalizedCurrentRepository.workspaceLastActiveAtById,
         );
-      } else if (state.projectPath) {
+      } else if (state.repositoryPath) {
         state.workspaces = [];
         state.activeWorkspaceId = "";
         state.workspaceBranchById = {};
         state.workspacePathById = {};
         state.workspaceDefaultById = {};
       }
-      // Remembered projects carry their own stamps; fold them in so a Fleet
+      // Remembered repositories carry their own stamps; fold them in so a Fleet
       // board opened before the first workspace switch still ranks correctly.
       // Then drop stamps for workspaces nothing remembers any more: workspace
-      // ids are derived from paths, so a project removed and later re-added
+      // ids are derived from paths, so a repository removed and later re-added
       // would otherwise inherit its own year-old activity and look current.
       const knownWorkspaceIds = new Set([
         ...state.workspaces.map((workspace) => workspace.id),
-        ...state.recentProjects.flatMap((project) =>
-          project.workspaces.map((workspace) => workspace.id),
+        ...state.recentRepositories.flatMap((repository) =>
+          repository.workspaces.map((workspace) => workspace.id),
         ),
       ]);
       state.workspaceLastActiveAtById = pruneWorkspaceActivityStamps({
         current: mergeWorkspaceActivityStamps(
           state.workspaceLastActiveAtById,
-          ...state.recentProjects.map(
-            (project) => project.workspaceLastActiveAtById,
+          ...state.recentRepositories.map(
+            (repository) => repository.workspaceLastActiveAtById,
           ),
         ),
         knownWorkspaceIds,
       });
-      if (legacyProjectInitCommand) {
-        state.recentProjects = state.recentProjects.map((project) => ({
-          ...cloneRecentProjectState(project),
-          newWorkspaceInitCommand: normalizeProjectWorkspaceInitCommand({
-            value: project.newWorkspaceInitCommand || legacyProjectInitCommand,
+      if (legacyRepositoryInitCommand) {
+        state.recentRepositories = state.recentRepositories.map((repository) => ({
+          ...cloneRecentRepositoryState(repository),
+          newWorkspaceInitCommand: normalizeRepositoryWorkspaceInitCommand({
+            value: repository.newWorkspaceInitCommand || legacyRepositoryInitCommand,
           }),
         }));
       }

@@ -10,9 +10,9 @@ import { resolvePathBaseName } from "@/lib/path-utils";
 
 export { resolvePathBaseName } from "@/lib/path-utils";
 
-const MAX_RECENT_PROJECTS = 12;
+const MAX_RECENT_REPOSITORIES = 12;
 
-export const PROJECT_APPEARANCE_ICON_IDS = [
+export const REPOSITORY_APPEARANCE_ICON_IDS = [
   "folder",
   "code",
   "layers",
@@ -27,7 +27,7 @@ export const PROJECT_APPEARANCE_ICON_IDS = [
   "terminal",
 ] as const;
 
-export const PROJECT_APPEARANCE_COLOR_IDS = [
+export const REPOSITORY_APPEARANCE_COLOR_IDS = [
   "blue",
   "violet",
   "emerald",
@@ -36,14 +36,14 @@ export const PROJECT_APPEARANCE_COLOR_IDS = [
   "slate",
 ] as const;
 
-export type ProjectAppearanceIconId =
-  (typeof PROJECT_APPEARANCE_ICON_IDS)[number];
-export type ProjectAppearanceColorId =
-  (typeof PROJECT_APPEARANCE_COLOR_IDS)[number];
+export type RepositoryAppearanceIconId =
+  (typeof REPOSITORY_APPEARANCE_ICON_IDS)[number];
+export type RepositoryAppearanceColorId =
+  (typeof REPOSITORY_APPEARANCE_COLOR_IDS)[number];
 
-export interface RecentProjectState {
-  projectPath: string;
-  projectName: string;
+export interface RecentRepositoryState {
+  repositoryPath: string;
+  repositoryName: string;
   lastOpenedAt: string;
   defaultBranch: string;
   workspaces: WorkspaceSummary[];
@@ -57,31 +57,31 @@ export interface RecentProjectState {
    * cannot tell a live workspace apart from a dormant one.
    */
   workspaceLastActiveAtById?: Record<string, string>;
-  projectBasePrompt?: string;
+  repositoryBasePrompt?: string;
   kickoffBranchNamingRule?: string;
   newWorkspaceInitCommand?: string;
   newWorkspaceUseRootNodeModulesSymlink?: boolean;
-  appearanceIcon?: ProjectAppearanceIconId;
-  appearanceColor?: ProjectAppearanceColorId;
+  appearanceIcon?: RepositoryAppearanceIconId;
+  appearanceColor?: RepositoryAppearanceColorId;
   archivedWorkspacePaths?: string[];
   linkedWorkspacePaths?: string[];
 }
 
-export function normalizeProjectAppearanceIcon(
+export function normalizeRepositoryAppearanceIcon(
   value?: string | null,
-): ProjectAppearanceIconId {
-  return PROJECT_APPEARANCE_ICON_IDS.includes(value as ProjectAppearanceIconId)
-    ? (value as ProjectAppearanceIconId)
+): RepositoryAppearanceIconId {
+  return REPOSITORY_APPEARANCE_ICON_IDS.includes(value as RepositoryAppearanceIconId)
+    ? (value as RepositoryAppearanceIconId)
     : "folder";
 }
 
-export function normalizeProjectAppearanceColor(
+export function normalizeRepositoryAppearanceColor(
   value?: string | null,
-): ProjectAppearanceColorId {
-  return PROJECT_APPEARANCE_COLOR_IDS.includes(
-    value as ProjectAppearanceColorId,
+): RepositoryAppearanceColorId {
+  return REPOSITORY_APPEARANCE_COLOR_IDS.includes(
+    value as RepositoryAppearanceColorId,
   )
-    ? (value as ProjectAppearanceColorId)
+    ? (value as RepositoryAppearanceColorId)
     : "blue";
 }
 
@@ -89,23 +89,23 @@ export function normalizeWorkspaceInitCommand(args: { value?: string | null }) {
   return args.value?.trim() ?? "";
 }
 
-export function normalizeProjectWorkspaceInitCommand(args: {
+export function normalizeRepositoryWorkspaceInitCommand(args: {
   value?: string | null;
 }) {
   return normalizeWorkspaceInitCommand({ value: args.value });
 }
 
-export function normalizeProjectBasePrompt(args: { value?: string | null }) {
+export function normalizeRepositoryBasePrompt(args: { value?: string | null }) {
   return args.value?.trim() ?? "";
 }
 
-export function normalizeProjectKickoffBranchNamingRule(args: {
+export function normalizeRepositoryKickoffBranchNamingRule(args: {
   value?: string | null;
 }) {
   return args.value?.trim() ?? "";
 }
 
-export function normalizeProjectWorkspaceRootNodeModulesSymlinkPreference(args: {
+export function normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference(args: {
   value?: boolean | null;
 }) {
   return args.value === true;
@@ -160,16 +160,16 @@ export async function resolveWorkspaceRemoteBaseBranchTarget(args: {
 
 export function formatWorkspacePathLabel(args: {
   workspacePath?: string;
-  projectPath?: string | null;
+  repositoryPath?: string | null;
 }) {
   const workspacePath = args.workspacePath?.trim();
   if (!workspacePath) {
     return "";
   }
 
-  const projectPath = args.projectPath?.trim();
-  if (projectPath && workspacePath.startsWith(`${projectPath}/`)) {
-    return workspacePath.slice(projectPath.length + 1);
+  const repositoryPath = args.repositoryPath?.trim();
+  if (repositoryPath && workspacePath.startsWith(`${repositoryPath}/`)) {
+    return workspacePath.slice(repositoryPath.length + 1);
   }
 
   return workspacePath;
@@ -179,22 +179,22 @@ export function isDefaultWorkspaceName(value?: string | null) {
   return value?.trim().toLowerCase() === defaultWorkspaceName.toLowerCase();
 }
 
-function findRecentProjectByPath(args: {
-  projectPath?: string | null;
-  recentProjects: RecentProjectState[];
+function findRecentRepositoryByPath(args: {
+  repositoryPath?: string | null;
+  recentRepositories: RecentRepositoryState[];
 }) {
-  const projectPath = args.projectPath?.trim();
-  if (!projectPath) {
+  const repositoryPath = args.repositoryPath?.trim();
+  if (!repositoryPath) {
     return null;
   }
 
   return (
-    args.recentProjects.find((item) => item.projectPath === projectPath) ?? null
+    args.recentRepositories.find((item) => item.repositoryPath === repositoryPath) ?? null
   );
 }
 
-function normalizeRecentProjectPreferences(args: {
-  projectBasePrompt?: string | null;
+function normalizeRecentRepositoryPreferences(args: {
+  repositoryBasePrompt?: string | null;
   kickoffBranchNamingRule?: string | null;
   newWorkspaceInitCommand?: string | null;
   newWorkspaceUseRootNodeModulesSymlink?: boolean | null;
@@ -202,48 +202,48 @@ function normalizeRecentProjectPreferences(args: {
   appearanceColor?: string | null;
 }) {
   return {
-    projectBasePrompt: normalizeProjectBasePrompt({
-      value: args.projectBasePrompt,
+    repositoryBasePrompt: normalizeRepositoryBasePrompt({
+      value: args.repositoryBasePrompt,
     }),
-    kickoffBranchNamingRule: normalizeProjectKickoffBranchNamingRule({
+    kickoffBranchNamingRule: normalizeRepositoryKickoffBranchNamingRule({
       value: args.kickoffBranchNamingRule,
     }),
-    newWorkspaceInitCommand: normalizeProjectWorkspaceInitCommand({
+    newWorkspaceInitCommand: normalizeRepositoryWorkspaceInitCommand({
       value: args.newWorkspaceInitCommand,
     }),
     newWorkspaceUseRootNodeModulesSymlink:
-      normalizeProjectWorkspaceRootNodeModulesSymlinkPreference({
+      normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference({
         value: args.newWorkspaceUseRootNodeModulesSymlink,
       }),
-    appearanceIcon: normalizeProjectAppearanceIcon(args.appearanceIcon),
-    appearanceColor: normalizeProjectAppearanceColor(args.appearanceColor),
+    appearanceIcon: normalizeRepositoryAppearanceIcon(args.appearanceIcon),
+    appearanceColor: normalizeRepositoryAppearanceColor(args.appearanceColor),
   };
 }
 
-export function resolveRecentProjectPreferences(args: {
-  projectPath?: string | null;
-  recentProjects: RecentProjectState[];
+export function resolveRecentRepositoryPreferences(args: {
+  repositoryPath?: string | null;
+  recentRepositories: RecentRepositoryState[];
 }) {
   return {
-    projectBasePrompt: resolveProjectBasePrompt(args),
-    kickoffBranchNamingRule: resolveProjectKickoffBranchNamingRule(args),
-    newWorkspaceInitCommand: resolveProjectWorkspaceInitCommand(args),
+    repositoryBasePrompt: resolveRepositoryBasePrompt(args),
+    kickoffBranchNamingRule: resolveRepositoryKickoffBranchNamingRule(args),
+    newWorkspaceInitCommand: resolveRepositoryWorkspaceInitCommand(args),
     newWorkspaceUseRootNodeModulesSymlink:
-      resolveProjectWorkspaceRootNodeModulesSymlinkPreference(args),
-    appearanceIcon: normalizeProjectAppearanceIcon(
-      findRecentProjectByPath(args)?.appearanceIcon,
+      resolveRepositoryWorkspaceRootNodeModulesSymlinkPreference(args),
+    appearanceIcon: normalizeRepositoryAppearanceIcon(
+      findRecentRepositoryByPath(args)?.appearanceIcon,
     ),
-    appearanceColor: normalizeProjectAppearanceColor(
-      findRecentProjectByPath(args)?.appearanceColor,
+    appearanceColor: normalizeRepositoryAppearanceColor(
+      findRecentRepositoryByPath(args)?.appearanceColor,
     ),
   };
 }
 
-export function updateCurrentProjectAppearance(args: {
+export function updateCurrentRepositoryAppearance(args: {
   state: {
-    recentProjects: RecentProjectState[];
-    projectPath: string | null;
-    projectName: string | null;
+    recentRepositories: RecentRepositoryState[];
+    repositoryPath: string | null;
+    repositoryName: string | null;
     defaultBranch: string;
     workspaces: WorkspaceSummary[];
     activeWorkspaceId: string;
@@ -252,84 +252,84 @@ export function updateCurrentProjectAppearance(args: {
     workspaceDefaultById: Record<string, boolean>;
     workspaceLastActiveAtById?: Record<string, string>;
   };
-  projectPath?: string;
-  icon: ProjectAppearanceIconId;
-  color: ProjectAppearanceColorId;
-}): RecentProjectState[] | null {
-  const projectPath = args.projectPath?.trim() || args.state.projectPath || "";
-  if (!projectPath) {
+  repositoryPath?: string;
+  icon: RepositoryAppearanceIconId;
+  color: RepositoryAppearanceColorId;
+}): RecentRepositoryState[] | null {
+  const repositoryPath = args.repositoryPath?.trim() || args.state.repositoryPath || "";
+  if (!repositoryPath) {
     return null;
   }
-  const projects = captureCurrentProjectState(args.state);
-  const project = projects.find((item) => item.projectPath === projectPath);
-  if (!project) {
+  const repositories = captureCurrentRepositoryState(args.state);
+  const repository = repositories.find((item) => item.repositoryPath === repositoryPath);
+  if (!repository) {
     return null;
   }
-  const appearanceIcon = normalizeProjectAppearanceIcon(args.icon);
-  const appearanceColor = normalizeProjectAppearanceColor(args.color);
+  const appearanceIcon = normalizeRepositoryAppearanceIcon(args.icon);
+  const appearanceColor = normalizeRepositoryAppearanceColor(args.color);
   if (
-    normalizeProjectAppearanceIcon(project.appearanceIcon) === appearanceIcon &&
-    normalizeProjectAppearanceColor(project.appearanceColor) === appearanceColor
+    normalizeRepositoryAppearanceIcon(repository.appearanceIcon) === appearanceIcon &&
+    normalizeRepositoryAppearanceColor(repository.appearanceColor) === appearanceColor
   ) {
     return null;
   }
-  return upsertRecentProjectState({
-    projects,
-    project: {
-      ...cloneRecentProjectState(project),
+  return upsertRecentRepositoryState({
+    repositories,
+    repository: {
+      ...cloneRecentRepositoryState(repository),
       appearanceIcon,
       appearanceColor,
     },
   });
 }
 
-export function resolveProjectWorkspaceInitCommand(args: {
-  projectPath?: string | null;
-  recentProjects: RecentProjectState[];
+export function resolveRepositoryWorkspaceInitCommand(args: {
+  repositoryPath?: string | null;
+  recentRepositories: RecentRepositoryState[];
 }) {
-  const project = findRecentProjectByPath(args);
-  return normalizeProjectWorkspaceInitCommand({
-    value: project?.newWorkspaceInitCommand,
+  const repository = findRecentRepositoryByPath(args);
+  return normalizeRepositoryWorkspaceInitCommand({
+    value: repository?.newWorkspaceInitCommand,
   });
 }
 
-export function resolveProjectWorkspaceRootNodeModulesSymlinkPreference(args: {
-  projectPath?: string | null;
-  recentProjects: RecentProjectState[];
+export function resolveRepositoryWorkspaceRootNodeModulesSymlinkPreference(args: {
+  repositoryPath?: string | null;
+  recentRepositories: RecentRepositoryState[];
 }) {
-  const project = findRecentProjectByPath(args);
-  return normalizeProjectWorkspaceRootNodeModulesSymlinkPreference({
-    value: project?.newWorkspaceUseRootNodeModulesSymlink,
+  const repository = findRecentRepositoryByPath(args);
+  return normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference({
+    value: repository?.newWorkspaceUseRootNodeModulesSymlink,
   });
 }
 
-export function resolveProjectBasePrompt(args: {
-  projectPath?: string | null;
-  recentProjects: RecentProjectState[];
+export function resolveRepositoryBasePrompt(args: {
+  repositoryPath?: string | null;
+  recentRepositories: RecentRepositoryState[];
 }) {
-  const project = findRecentProjectByPath(args);
-  return normalizeProjectBasePrompt({ value: project?.projectBasePrompt });
+  const repository = findRecentRepositoryByPath(args);
+  return normalizeRepositoryBasePrompt({ value: repository?.repositoryBasePrompt });
 }
 
-export function resolveProjectKickoffBranchNamingRule(args: {
-  projectPath?: string | null;
-  recentProjects: RecentProjectState[];
+export function resolveRepositoryKickoffBranchNamingRule(args: {
+  repositoryPath?: string | null;
+  recentRepositories: RecentRepositoryState[];
 }) {
-  const project = findRecentProjectByPath(args);
-  return normalizeProjectKickoffBranchNamingRule({
-    value: project?.kickoffBranchNamingRule,
+  const repository = findRecentRepositoryByPath(args);
+  return normalizeRepositoryKickoffBranchNamingRule({
+    value: repository?.kickoffBranchNamingRule,
   });
 }
 
-type ProjectTextPreference =
-  | { key: "projectBasePrompt"; value: string }
+type RepositoryTextPreference =
+  | { key: "repositoryBasePrompt"; value: string }
   | { key: "kickoffBranchNamingRule"; value: string };
 
-export function updateCurrentProjectTextPreference(args: {
+export function updateCurrentRepositoryTextPreference(args: {
   state: {
-    recentProjects: RecentProjectState[];
-    projectPath: string | null;
-    projectName: string | null;
+    recentRepositories: RecentRepositoryState[];
+    repositoryPath: string | null;
+    repositoryName: string | null;
     defaultBranch: string;
     workspaces: WorkspaceSummary[];
     activeWorkspaceId: string;
@@ -338,30 +338,30 @@ export function updateCurrentProjectTextPreference(args: {
     workspaceDefaultById: Record<string, boolean>;
     workspaceLastActiveAtById?: Record<string, string>;
   };
-  projectPath?: string;
-  preference: ProjectTextPreference;
-}): RecentProjectState[] | null {
-  const projectPath = args.projectPath?.trim() || args.state.projectPath || "";
-  if (!projectPath) {
+  repositoryPath?: string;
+  preference: RepositoryTextPreference;
+}): RecentRepositoryState[] | null {
+  const repositoryPath = args.repositoryPath?.trim() || args.state.repositoryPath || "";
+  if (!repositoryPath) {
     return null;
   }
-  const projects = captureCurrentProjectState(args.state);
-  const project = projects.find((item) => item.projectPath === projectPath);
-  if (!project) {
+  const repositories = captureCurrentRepositoryState(args.state);
+  const repository = repositories.find((item) => item.repositoryPath === repositoryPath);
+  if (!repository) {
     return null;
   }
   const normalize =
-    args.preference.key === "projectBasePrompt"
-      ? normalizeProjectBasePrompt
-      : normalizeProjectKickoffBranchNamingRule;
+    args.preference.key === "repositoryBasePrompt"
+      ? normalizeRepositoryBasePrompt
+      : normalizeRepositoryKickoffBranchNamingRule;
   const nextValue = normalize({ value: args.preference.value });
-  if (normalize({ value: project[args.preference.key] }) === nextValue) {
+  if (normalize({ value: repository[args.preference.key] }) === nextValue) {
     return null;
   }
-  return upsertRecentProjectState({
-    projects,
-    project: {
-      ...cloneRecentProjectState(project),
+  return upsertRecentRepositoryState({
+    repositories,
+    repository: {
+      ...cloneRecentRepositoryState(repository),
       [args.preference.key]: nextValue,
     },
   });
@@ -393,9 +393,9 @@ export function summarizeWorkspaceInitCommand(args: {
 }
 
 export function buildWorkspaceRootNodeModulesSymlinkCommand(args: {
-  projectPath: string;
+  repositoryPath: string;
 }) {
-  const sourcePath = `${args.projectPath}/node_modules`;
+  const sourcePath = `${args.repositoryPath}/node_modules`;
   return [
     "if [ -e node_modules ] || [ -L node_modules ]; then",
     '  echo "node_modules already exists; skipping shared root symlink."',
@@ -462,17 +462,17 @@ function findWorkspaceById(args: {
   );
 }
 
-function findRecentProjectWorkspaceById(args: {
+function findRecentRepositoryWorkspaceById(args: {
   workspaceId: string;
-  recentProjects: RecentProjectState[];
+  recentRepositories: RecentRepositoryState[];
 }) {
-  for (const project of args.recentProjects) {
+  for (const repository of args.recentRepositories) {
     const workspace = findWorkspaceById({
       workspaceId: args.workspaceId,
-      workspaces: project.workspaces,
+      workspaces: repository.workspaces,
     });
     if (workspace) {
-      return { project, workspace };
+      return { project: repository, workspace };
     }
   }
 
@@ -481,8 +481,8 @@ function findRecentProjectWorkspaceById(args: {
 
 export function resolveWorkspaceName(args: {
   state: Pick<
-    { workspaces: WorkspaceSummary[]; recentProjects: RecentProjectState[] },
-    "workspaces" | "recentProjects"
+    { workspaces: WorkspaceSummary[]; recentRepositories: RecentRepositoryState[] },
+    "workspaces" | "recentRepositories"
   >;
   workspaceId: string;
 }) {
@@ -494,9 +494,9 @@ export function resolveWorkspaceName(args: {
     return currentWorkspace.name;
   }
 
-  const recentWorkspace = findRecentProjectWorkspaceById({
+  const recentWorkspace = findRecentRepositoryWorkspaceById({
     workspaceId: args.workspaceId,
-    recentProjects: args.state.recentProjects,
+    recentRepositories: args.state.recentRepositories,
   });
   if (recentWorkspace?.workspace.name) {
     return recentWorkspace.workspace.name;
@@ -505,15 +505,15 @@ export function resolveWorkspaceName(args: {
   return defaultWorkspaceName;
 }
 
-export function resolveProjectForWorkspaceId(args: {
+export function resolveRepositoryForWorkspaceId(args: {
   state: Pick<
     {
-      projectPath: string | null;
-      projectName: string | null;
+      repositoryPath: string | null;
+      repositoryName: string | null;
       workspaces: WorkspaceSummary[];
-      recentProjects: RecentProjectState[];
+      recentRepositories: RecentRepositoryState[];
     },
-    "projectPath" | "projectName" | "workspaces" | "recentProjects"
+    "repositoryPath" | "repositoryName" | "workspaces" | "recentRepositories"
   >;
   workspaceId: string;
 }) {
@@ -521,23 +521,23 @@ export function resolveProjectForWorkspaceId(args: {
     workspaceId: args.workspaceId,
     workspaces: args.state.workspaces,
   });
-  if (args.state.projectPath && currentWorkspace) {
+  if (args.state.repositoryPath && currentWorkspace) {
     return {
-      projectPath: args.state.projectPath,
-      projectName:
-        args.state.projectName ??
-        resolveProjectNameFromPath({ projectPath: args.state.projectPath }),
+      repositoryPath: args.state.repositoryPath,
+      repositoryName:
+        args.state.repositoryName ??
+        resolveRepositoryNameFromPath({ repositoryPath: args.state.repositoryPath }),
     };
   }
 
-  const recentWorkspace = findRecentProjectWorkspaceById({
+  const recentWorkspace = findRecentRepositoryWorkspaceById({
     workspaceId: args.workspaceId,
-    recentProjects: args.state.recentProjects,
+    recentRepositories: args.state.recentRepositories,
   });
   if (recentWorkspace) {
     return {
-      projectPath: recentWorkspace.project.projectPath,
-      projectName: recentWorkspace.project.projectName,
+      repositoryPath: recentWorkspace.project.repositoryPath,
+      repositoryName: recentWorkspace.project.repositoryName,
     };
   }
 
@@ -642,22 +642,22 @@ export function toWorkspaceFolderName(args: {
     .replaceAll(/[^a-z0-9._-]+/g, "-")
     .replaceAll(/^\-|\-$/g, "");
   const readablePrefix = normalized || "workspace";
-  const suffix = hashProjectPath(args.branch).slice(0, 8);
+  const suffix = hashRepositoryPath(args.branch).slice(0, 8);
   return `${readablePrefix}--${suffix}`;
 }
 
-export function resolveProjectNameFromPath(args: { projectPath: string }) {
-  return resolvePathBaseName({ path: args.projectPath, fallback: "project" });
+export function resolveRepositoryNameFromPath(args: { repositoryPath: string }) {
+  return resolvePathBaseName({ path: args.repositoryPath, fallback: "project" });
 }
 
-export function normalizeProjectDisplayName(args: {
-  projectPath: string;
-  projectName?: string | null;
+export function normalizeRepositoryDisplayName(args: {
+  repositoryPath: string;
+  repositoryName?: string | null;
 }) {
-  const fallbackName = resolveProjectNameFromPath({
-    projectPath: args.projectPath,
+  const fallbackName = resolveRepositoryNameFromPath({
+    repositoryPath: args.repositoryPath,
   });
-  const normalized = args.projectName?.trim();
+  const normalized = args.repositoryName?.trim();
   if (!normalized) {
     return fallbackName;
   }
@@ -670,7 +670,7 @@ export function normalizeProjectDisplayName(args: {
   return normalized;
 }
 
-export function hashProjectPath(value: string) {
+export function hashRepositoryPath(value: string) {
   let hash = 2166136261;
   for (let index = 0; index < value.length; index += 1) {
     hash ^= value.charCodeAt(index);
@@ -679,20 +679,20 @@ export function hashProjectPath(value: string) {
   return (hash >>> 0).toString(36);
 }
 
-export function buildProjectDefaultWorkspaceId(args: {
-  projectPath?: string | null;
+export function buildRepositoryDefaultWorkspaceId(args: {
+  repositoryPath?: string | null;
 }) {
-  const projectPath = args.projectPath?.trim();
-  return projectPath
-    ? `base:${hashProjectPath(normalizeComparablePath(projectPath))}`
+  const repositoryPath = args.repositoryPath?.trim();
+  return repositoryPath
+    ? `base:${hashRepositoryPath(normalizeComparablePath(repositoryPath))}`
     : starterWorkspaceId;
 }
 
 export function buildImportedWorktreeWorkspaceId(args: {
-  projectPath: string;
+  repositoryPath: string;
   worktreePath: string;
 }) {
-  return `worktree:${hashProjectPath(`${normalizeComparablePath(args.projectPath)}::${normalizeComparablePath(args.worktreePath)}`)}`;
+  return `worktree:${hashRepositoryPath(`${normalizeComparablePath(args.repositoryPath)}::${normalizeComparablePath(args.worktreePath)}`)}`;
 }
 
 /**
@@ -716,14 +716,14 @@ export function buildLinkedWorktreeFolderName(args: { worktreePath: string }) {
       .toLowerCase()
       .replaceAll(/[^a-z0-9._-]+/g, "-")
       .replaceAll(/^\-|\-$/g, "") || "worktree";
-  return `${readable}--${hashProjectPath(normalizeComparablePath(args.worktreePath))}`;
+  return `${readable}--${hashRepositoryPath(normalizeComparablePath(args.worktreePath))}`;
 }
 
 export function buildLinkedWorktreeSymlinkPath(args: {
-  projectPath: string;
+  repositoryPath: string;
   worktreePath: string;
 }) {
-  return `${args.projectPath}/.stave/workspaces/${buildLinkedWorktreeFolderName(
+  return `${args.repositoryPath}/.stave/workspaces/${buildLinkedWorktreeFolderName(
     {
       worktreePath: args.worktreePath,
     },
@@ -760,8 +760,8 @@ export function mergeArchivedWorkspacePaths(args: {
 }
 
 /**
- * Reconcile archived-workspace tombstones for one project across two durable
- * sources (the SQLite project registry mirror and the localStorage cache).
+ * Reconcile archived-workspace tombstones for one repository across two durable
+ * sources (the SQLite repository registry mirror and the localStorage cache).
  *
  * Losing a tombstone from either source must not resurrect an archived
  * workspace, so the sources are unioned. A stale tombstone must never hide a
@@ -789,20 +789,20 @@ export function resolveImportedWorktreeName(args: {
 }) {
   return (
     args.branch?.trim() ||
-    resolveProjectNameFromPath({ projectPath: args.worktreePath })
+    resolveRepositoryNameFromPath({ repositoryPath: args.worktreePath })
   );
 }
 
-export function resolveCurrentProjectDefaultWorkspaceId(args: {
-  projectPath?: string | null;
+export function resolveCurrentRepositoryDefaultWorkspaceId(args: {
+  repositoryPath?: string | null;
   workspaces: WorkspaceSummary[];
   workspaceDefaultById: Record<string, boolean>;
   workspacePathById?: Record<string, string>;
 }) {
-  const expectedDefaultWorkspaceId = buildProjectDefaultWorkspaceId({
-    projectPath: args.projectPath,
+  const expectedDefaultWorkspaceId = buildRepositoryDefaultWorkspaceId({
+    repositoryPath: args.repositoryPath,
   });
-  const comparableProjectPath = normalizeComparablePath(args.projectPath);
+  const comparableRepositoryPath = normalizeComparablePath(args.repositoryPath);
   const workspaceIds = new Set(
     args.workspaces.map((workspace) => workspace.id),
   );
@@ -830,7 +830,7 @@ export function resolveCurrentProjectDefaultWorkspaceId(args: {
     ) {
       return false;
     }
-    if (!comparableProjectPath) {
+    if (!comparableRepositoryPath) {
       return true;
     }
 
@@ -838,7 +838,7 @@ export function resolveCurrentProjectDefaultWorkspaceId(args: {
       workspacePathById[workspaceId],
     );
     if (comparableWorkspacePath) {
-      return comparableWorkspacePath === comparableProjectPath;
+      return comparableWorkspacePath === comparableRepositoryPath;
     }
 
     if (
@@ -854,11 +854,11 @@ export function resolveCurrentProjectDefaultWorkspaceId(args: {
   if (rememberedDefaultWorkspaceId) {
     return rememberedDefaultWorkspaceId;
   }
-  if (comparableProjectPath) {
+  if (comparableRepositoryPath) {
     const rootWorkspace = args.workspaces.find(
       (workspace) =>
         normalizeComparablePath(workspacePathById[workspace.id]) ===
-        comparableProjectPath,
+        comparableRepositoryPath,
     );
     if (rootWorkspace) {
       return rootWorkspace.id;
@@ -867,9 +867,9 @@ export function resolveCurrentProjectDefaultWorkspaceId(args: {
   const compatibleNamedDefaultWorkspace = args.workspaces.find(
     (workspace) =>
       isDefaultWorkspaceName(workspace.name) &&
-      (!comparableProjectPath ||
+      (!comparableRepositoryPath ||
         normalizeComparablePath(workspacePathById[workspace.id]) ===
-          comparableProjectPath),
+          comparableRepositoryPath),
   );
   return (
     args.workspaces.find((workspace) => workspace.id === starterWorkspaceId)
@@ -879,41 +879,41 @@ export function resolveCurrentProjectDefaultWorkspaceId(args: {
   );
 }
 
-function normalizeRecentProjectStateEntry(
-  project: RecentProjectState,
-): RecentProjectState | null {
-  const projectPath = project?.projectPath?.trim();
-  if (!projectPath) {
+function normalizeRecentRepositoryStateEntry(
+  repository: RecentRepositoryState,
+): RecentRepositoryState | null {
+  const repositoryPath = repository?.repositoryPath?.trim();
+  if (!repositoryPath) {
     return null;
   }
 
-  const lastOpenedAt = project.lastOpenedAt?.trim() || new Date().toISOString();
-  const defaultBranch = project.defaultBranch?.trim() || "main";
-  const workspaceBranchById = { ...(project.workspaceBranchById ?? {}) };
-  const workspacePathById = { ...(project.workspacePathById ?? {}) };
+  const lastOpenedAt = repository.lastOpenedAt?.trim() || new Date().toISOString();
+  const defaultBranch = repository.defaultBranch?.trim() || "main";
+  const workspaceBranchById = { ...(repository.workspaceBranchById ?? {}) };
+  const workspacePathById = { ...(repository.workspacePathById ?? {}) };
   const archivedWorkspacePaths = normalizeArchivedWorkspacePaths({
-    paths: project.archivedWorkspacePaths,
+    paths: repository.archivedWorkspacePaths,
   });
   const linkedWorkspacePaths = normalizeArchivedWorkspacePaths({
-    paths: project.linkedWorkspacePaths,
+    paths: repository.linkedWorkspacePaths,
   });
-  const providedWorkspaces = Array.isArray(project.workspaces)
-    ? project.workspaces.filter((workspace) =>
+  const providedWorkspaces = Array.isArray(repository.workspaces)
+    ? repository.workspaces.filter((workspace) =>
         Boolean(workspace?.id && workspace?.name),
       )
     : [];
-  const defaultWorkspaceId = resolveCurrentProjectDefaultWorkspaceId({
-    projectPath,
+  const defaultWorkspaceId = resolveCurrentRepositoryDefaultWorkspaceId({
+    repositoryPath,
     workspaces: providedWorkspaces,
-    workspaceDefaultById: { ...(project.workspaceDefaultById ?? {}) },
+    workspaceDefaultById: { ...(repository.workspaceDefaultById ?? {}) },
     workspacePathById,
   });
-  const comparableProjectPath = normalizeComparablePath(projectPath);
+  const comparableRepositoryPath = normalizeComparablePath(repositoryPath);
   const defaultWorkspaceSource = providedWorkspaces.find(
     (workspace) =>
       workspace.id === defaultWorkspaceId ||
       normalizeComparablePath(workspacePathById[workspace.id]) ===
-        comparableProjectPath,
+        comparableRepositoryPath,
   );
   const workspaces: WorkspaceSummary[] = [
     {
@@ -928,11 +928,11 @@ function normalizeRecentProjectStateEntry(
     const comparableWorkspacePath = normalizeComparablePath(
       workspacePathById[workspace.id],
     );
-    const representsProjectRoot =
+    const representsRepositoryRoot =
       workspace.id === defaultWorkspaceId ||
-      comparableWorkspacePath === comparableProjectPath ||
+      comparableWorkspacePath === comparableRepositoryPath ||
       isDefaultWorkspaceName(workspace.name);
-    if (representsProjectRoot || seenWorkspaceIds.has(workspace.id)) {
+    if (representsRepositoryRoot || seenWorkspaceIds.has(workspace.id)) {
       continue;
     }
     workspaces.push({
@@ -952,13 +952,13 @@ function normalizeRecentProjectStateEntry(
       defaultBranch,
   };
   const nextWorkspacePathById: Record<string, string> = {
-    [defaultWorkspaceId]: projectPath,
+    [defaultWorkspaceId]: repositoryPath,
   };
   const nextWorkspaceDefaultById: Record<string, boolean> = {
     [defaultWorkspaceId]: true,
   };
   const workspaceLastActiveAtById = {
-    ...(project.workspaceLastActiveAtById ?? {}),
+    ...(repository.workspaceLastActiveAtById ?? {}),
   };
   const nextWorkspaceLastActiveAtById: Record<string, string> = {};
   const defaultLastActiveAt =
@@ -988,16 +988,16 @@ function normalizeRecentProjectStateEntry(
   }
 
   const activeWorkspaceId = workspaces.some(
-    (workspace) => workspace.id === project.activeWorkspaceId,
+    (workspace) => workspace.id === repository.activeWorkspaceId,
   )
-    ? project.activeWorkspaceId
+    ? repository.activeWorkspaceId
     : defaultWorkspaceId;
 
   return {
-    projectPath,
-    projectName: normalizeProjectDisplayName({
-      projectPath,
-      projectName: project.projectName,
+    repositoryPath,
+    repositoryName: normalizeRepositoryDisplayName({
+      repositoryPath,
+      repositoryName: repository.repositoryName,
     }),
     lastOpenedAt,
     defaultBranch,
@@ -1011,21 +1011,21 @@ function normalizeRecentProjectStateEntry(
       : {}),
     ...(archivedWorkspacePaths.length > 0 ? { archivedWorkspacePaths } : {}),
     ...(linkedWorkspacePaths.length > 0 ? { linkedWorkspacePaths } : {}),
-    ...normalizeRecentProjectPreferences({
-      projectBasePrompt: project.projectBasePrompt,
-      kickoffBranchNamingRule: project.kickoffBranchNamingRule,
-      newWorkspaceInitCommand: project.newWorkspaceInitCommand,
+    ...normalizeRecentRepositoryPreferences({
+      repositoryBasePrompt: repository.repositoryBasePrompt,
+      kickoffBranchNamingRule: repository.kickoffBranchNamingRule,
+      newWorkspaceInitCommand: repository.newWorkspaceInitCommand,
       newWorkspaceUseRootNodeModulesSymlink:
-        project.newWorkspaceUseRootNodeModulesSymlink,
-      appearanceIcon: project.appearanceIcon,
-      appearanceColor: project.appearanceColor,
+        repository.newWorkspaceUseRootNodeModulesSymlink,
+      appearanceIcon: repository.appearanceIcon,
+      appearanceColor: repository.appearanceColor,
     }),
   };
 }
 
-export function normalizeCurrentProjectState(args: {
-  projectPath: string | null;
-  projectName: string | null;
+export function normalizeCurrentRepositoryState(args: {
+  repositoryPath: string | null;
+  repositoryName: string | null;
   defaultBranch: string;
   workspaces: WorkspaceSummary[];
   activeWorkspaceId: string;
@@ -1033,40 +1033,40 @@ export function normalizeCurrentProjectState(args: {
   workspacePathById: Record<string, string>;
   workspaceDefaultById: Record<string, boolean>;
   workspaceLastActiveAtById?: Record<string, string>;
-  recentProjects: RecentProjectState[];
+  recentRepositories: RecentRepositoryState[];
 }) {
-  const projectPath = args.projectPath?.trim();
-  if (!projectPath) {
+  const repositoryPath = args.repositoryPath?.trim();
+  if (!repositoryPath) {
     return null;
   }
 
-  const rememberedProject = findRecentProjectByPath({
-    projectPath,
-    recentProjects: args.recentProjects,
+  const rememberedRepository = findRecentRepositoryByPath({
+    repositoryPath,
+    recentRepositories: args.recentRepositories,
   });
-  return normalizeRecentProjectStateEntry({
-    projectPath,
-    projectName:
-      args.projectName?.trim() ||
-      rememberedProject?.projectName ||
-      resolveProjectNameFromPath({ projectPath }),
-    lastOpenedAt: rememberedProject?.lastOpenedAt || new Date().toISOString(),
+  return normalizeRecentRepositoryStateEntry({
+    repositoryPath,
+    repositoryName:
+      args.repositoryName?.trim() ||
+      rememberedRepository?.repositoryName ||
+      resolveRepositoryNameFromPath({ repositoryPath }),
+    lastOpenedAt: rememberedRepository?.lastOpenedAt || new Date().toISOString(),
     defaultBranch:
-      args.defaultBranch || rememberedProject?.defaultBranch || "main",
+      args.defaultBranch || rememberedRepository?.defaultBranch || "main",
     workspaces: args.workspaces,
     activeWorkspaceId: args.activeWorkspaceId,
     workspaceBranchById: args.workspaceBranchById,
     workspacePathById: args.workspacePathById,
     workspaceDefaultById: args.workspaceDefaultById,
     workspaceLastActiveAtById: {
-      ...(rememberedProject?.workspaceLastActiveAtById ?? {}),
+      ...(rememberedRepository?.workspaceLastActiveAtById ?? {}),
       ...(args.workspaceLastActiveAtById ?? {}),
     },
-    projectBasePrompt: rememberedProject?.projectBasePrompt,
-    kickoffBranchNamingRule: rememberedProject?.kickoffBranchNamingRule,
-    newWorkspaceInitCommand: rememberedProject?.newWorkspaceInitCommand,
+    repositoryBasePrompt: rememberedRepository?.repositoryBasePrompt,
+    kickoffBranchNamingRule: rememberedRepository?.kickoffBranchNamingRule,
+    newWorkspaceInitCommand: rememberedRepository?.newWorkspaceInitCommand,
     newWorkspaceUseRootNodeModulesSymlink:
-      rememberedProject?.newWorkspaceUseRootNodeModulesSymlink,
+      rememberedRepository?.newWorkspaceUseRootNodeModulesSymlink,
   });
 }
 
@@ -1076,13 +1076,13 @@ export function resolveTaskWorkspaceContext(args: {
   taskWorkspaceIdById: Record<string, string>;
   workspacePathById: Record<string, string>;
   workspaceDefaultById?: Record<string, boolean>;
-  projectPath?: string | null;
+  repositoryPath?: string | null;
 }) {
   const ownedWorkspaceId = args.taskWorkspaceIdById[args.taskId];
   const workspaceId = ownedWorkspaceId ?? args.activeWorkspaceId;
-  const projectPath = args.projectPath?.trim();
+  const repositoryPath = args.repositoryPath?.trim();
   const workspacePath = args.workspacePathById[workspaceId]?.trim();
-  const canUseProjectRoot =
+  const canUseRepositoryRoot =
     args.workspaceDefaultById?.[workspaceId] === true ||
     ownedWorkspaceId === undefined;
 
@@ -1090,20 +1090,20 @@ export function resolveTaskWorkspaceContext(args: {
     workspaceId,
     cwd:
       workspacePath ||
-      (args.workspaceDefaultById?.[workspaceId] ? projectPath : undefined) ||
-      (canUseProjectRoot ? projectPath : undefined) ||
+      (args.workspaceDefaultById?.[workspaceId] ? repositoryPath : undefined) ||
+      (canUseRepositoryRoot ? repositoryPath : undefined) ||
       undefined,
   };
 }
 
-export function cloneRecentProjectState(
-  project: RecentProjectState,
-): RecentProjectState {
+export function cloneRecentRepositoryState(
+  repository: RecentRepositoryState,
+): RecentRepositoryState {
   const {
     archivedWorkspacePaths: rawArchivedWorkspacePaths,
     linkedWorkspacePaths: rawLinkedWorkspacePaths,
-    ...projectRest
-  } = project;
+    ...repositoryRest
+  } = repository;
   const archivedWorkspacePaths = normalizeArchivedWorkspacePaths({
     paths: rawArchivedWorkspacePaths,
   });
@@ -1111,94 +1111,94 @@ export function cloneRecentProjectState(
     paths: rawLinkedWorkspacePaths,
   });
   return {
-    ...projectRest,
-    workspaces: [...project.workspaces],
-    workspaceBranchById: { ...project.workspaceBranchById },
-    workspacePathById: { ...project.workspacePathById },
-    workspaceDefaultById: { ...project.workspaceDefaultById },
-    ...(project.workspaceLastActiveAtById
+    ...repositoryRest,
+    workspaces: [...repository.workspaces],
+    workspaceBranchById: { ...repository.workspaceBranchById },
+    workspacePathById: { ...repository.workspacePathById },
+    workspaceDefaultById: { ...repository.workspaceDefaultById },
+    ...(repository.workspaceLastActiveAtById
       ? {
-          workspaceLastActiveAtById: { ...project.workspaceLastActiveAtById },
+          workspaceLastActiveAtById: { ...repository.workspaceLastActiveAtById },
         }
       : {}),
     ...(archivedWorkspacePaths.length > 0 ? { archivedWorkspacePaths } : {}),
     ...(linkedWorkspacePaths.length > 0 ? { linkedWorkspacePaths } : {}),
-    ...normalizeRecentProjectPreferences({
-      projectBasePrompt: project.projectBasePrompt,
-      kickoffBranchNamingRule: project.kickoffBranchNamingRule,
-      newWorkspaceInitCommand: project.newWorkspaceInitCommand,
+    ...normalizeRecentRepositoryPreferences({
+      repositoryBasePrompt: repository.repositoryBasePrompt,
+      kickoffBranchNamingRule: repository.kickoffBranchNamingRule,
+      newWorkspaceInitCommand: repository.newWorkspaceInitCommand,
       newWorkspaceUseRootNodeModulesSymlink:
-        project.newWorkspaceUseRootNodeModulesSymlink,
-      appearanceIcon: project.appearanceIcon,
-      appearanceColor: project.appearanceColor,
+        repository.newWorkspaceUseRootNodeModulesSymlink,
+      appearanceIcon: repository.appearanceIcon,
+      appearanceColor: repository.appearanceColor,
     }),
   };
 }
 
-export function normalizeRecentProjectStates(args: {
-  projects?: RecentProjectState[] | null;
+export function normalizeRecentRepositoryStates(args: {
+  repositories?: RecentRepositoryState[] | null;
 }) {
-  let normalizedProjects: RecentProjectState[] = [];
+  let normalizedRepositories: RecentRepositoryState[] = [];
 
-  for (const project of args.projects ?? []) {
-    const normalizedProject = normalizeRecentProjectStateEntry(project);
-    if (!normalizedProject) {
+  for (const repository of args.repositories ?? []) {
+    const normalizedRepository = normalizeRecentRepositoryStateEntry(repository);
+    if (!normalizedRepository) {
       continue;
     }
-    normalizedProjects = upsertRecentProjectState({
-      projects: normalizedProjects,
-      project: normalizedProject,
+    normalizedRepositories = upsertRecentRepositoryState({
+      repositories: normalizedRepositories,
+      repository: normalizedRepository,
     });
   }
 
-  return normalizedProjects;
+  return normalizedRepositories;
 }
 
-export function upsertRecentProjectState(args: {
-  projects: RecentProjectState[];
-  project: RecentProjectState;
+export function upsertRecentRepositoryState(args: {
+  repositories: RecentRepositoryState[];
+  repository: RecentRepositoryState;
 }) {
-  const existingProject = args.projects.find(
-    (item) => item.projectPath === args.project.projectPath,
+  const existingRepository = args.repositories.find(
+    (item) => item.repositoryPath === args.repository.repositoryPath,
   );
-  const normalizedProject = normalizeRecentProjectStateEntry({
-    ...args.project,
+  const normalizedRepository = normalizeRecentRepositoryStateEntry({
+    ...args.repository,
     // Several registry update paths replace the workspace inventory without
     // touching activity metadata. Preserve remembered stamps unless the caller
-    // supplied a freshly captured map, just like the other project-scoped
+    // supplied a freshly captured map, just like the other repository-scoped
     // metadata below.
     workspaceLastActiveAtById:
-      args.project.workspaceLastActiveAtById ??
-      existingProject?.workspaceLastActiveAtById,
+      args.repository.workspaceLastActiveAtById ??
+      existingRepository?.workspaceLastActiveAtById,
     archivedWorkspacePaths:
-      args.project.archivedWorkspacePaths ??
-      existingProject?.archivedWorkspacePaths,
+      args.repository.archivedWorkspacePaths ??
+      existingRepository?.archivedWorkspacePaths,
     linkedWorkspacePaths:
-      args.project.linkedWorkspacePaths ??
-      existingProject?.linkedWorkspacePaths,
+      args.repository.linkedWorkspacePaths ??
+      existingRepository?.linkedWorkspacePaths,
   });
-  if (!normalizedProject) {
-    return args.projects.map((project) => cloneRecentProjectState(project));
+  if (!normalizedRepository) {
+    return args.repositories.map((repository) => cloneRecentRepositoryState(repository));
   }
-  const nextProject = cloneRecentProjectState(normalizedProject);
-  const existingIndex = args.projects.findIndex(
-    (item) => item.projectPath === normalizedProject.projectPath,
+  const nextRepository = cloneRecentRepositoryState(normalizedRepository);
+  const existingIndex = args.repositories.findIndex(
+    (item) => item.repositoryPath === normalizedRepository.repositoryPath,
   );
   if (existingIndex >= 0) {
-    return args.projects.map((item, index) =>
-      index === existingIndex ? nextProject : cloneRecentProjectState(item),
+    return args.repositories.map((item, index) =>
+      index === existingIndex ? nextRepository : cloneRecentRepositoryState(item),
     );
   }
   return [
-    ...args.projects.map((project) => cloneRecentProjectState(project)),
-    nextProject,
-  ].slice(-MAX_RECENT_PROJECTS);
+    ...args.repositories.map((repository) => cloneRecentRepositoryState(repository)),
+    nextRepository,
+  ].slice(-MAX_RECENT_REPOSITORIES);
 }
 
-export function captureCurrentProjectState(args: {
-  recentProjects: RecentProjectState[];
-  projectPath: string | null;
-  projectName: string | null;
+export function captureCurrentRepositoryState(args: {
+  recentRepositories: RecentRepositoryState[];
+  repositoryPath: string | null;
+  repositoryName: string | null;
   defaultBranch: string;
   workspaces: WorkspaceSummary[];
   activeWorkspaceId: string;
@@ -1210,18 +1210,18 @@ export function captureCurrentProjectState(args: {
   archivedWorkspacePathsToRemove?: Array<string | null | undefined>;
   linkedWorkspacePathsToAdd?: Array<string | null | undefined>;
   linkedWorkspacePathsToRemove?: Array<string | null | undefined>;
-}): RecentProjectState[] {
-  if (!args.projectPath) {
-    return args.recentProjects.map((project) =>
-      cloneRecentProjectState(project),
+}): RecentRepositoryState[] {
+  if (!args.repositoryPath) {
+    return args.recentRepositories.map((repository) =>
+      cloneRecentRepositoryState(repository),
     );
   }
-  const rememberedProject = findRecentProjectByPath({
-    projectPath: args.projectPath,
-    recentProjects: args.recentProjects,
+  const rememberedRepository = findRecentRepositoryByPath({
+    repositoryPath: args.repositoryPath,
+    recentRepositories: args.recentRepositories,
   });
   const archivedWorkspacePaths = mergeArchivedWorkspacePaths({
-    current: rememberedProject?.archivedWorkspacePaths,
+    current: rememberedRepository?.archivedWorkspacePaths,
     add: args.archivedWorkspacePathsToAdd,
     remove: args.archivedWorkspacePathsToRemove,
   });
@@ -1230,7 +1230,7 @@ export function captureCurrentProjectState(args: {
     args.archivedWorkspacePathsToAdd !== undefined ||
     args.archivedWorkspacePathsToRemove !== undefined;
   const linkedWorkspacePaths = mergeArchivedWorkspacePaths({
-    current: rememberedProject?.linkedWorkspacePaths,
+    current: rememberedRepository?.linkedWorkspacePaths,
     add: args.linkedWorkspacePathsToAdd,
     remove: args.linkedWorkspacePathsToRemove,
   });
@@ -1238,13 +1238,13 @@ export function captureCurrentProjectState(args: {
     linkedWorkspacePaths.length > 0 ||
     args.linkedWorkspacePathsToAdd !== undefined ||
     args.linkedWorkspacePathsToRemove !== undefined;
-  return upsertRecentProjectState({
-    projects: args.recentProjects,
-    project: {
-      projectPath: args.projectPath,
-      projectName: normalizeProjectDisplayName({
-        projectPath: args.projectPath,
-        projectName: args.projectName,
+  return upsertRecentRepositoryState({
+    repositories: args.recentRepositories,
+    repository: {
+      repositoryPath: args.repositoryPath,
+      repositoryName: normalizeRepositoryDisplayName({
+        repositoryPath: args.repositoryPath,
+        repositoryName: args.repositoryName,
       }),
       lastOpenedAt: new Date().toISOString(),
       defaultBranch: args.defaultBranch,
@@ -1256,14 +1256,14 @@ export function captureCurrentProjectState(args: {
       // Callers that do not track activity must not wipe what is already
       // remembered, so fall back to the stored map instead of an empty one.
       workspaceLastActiveAtById: {
-        ...(rememberedProject?.workspaceLastActiveAtById ?? {}),
+        ...(rememberedRepository?.workspaceLastActiveAtById ?? {}),
         ...(args.workspaceLastActiveAtById ?? {}),
       },
       ...(shouldWriteArchivedWorkspacePaths ? { archivedWorkspacePaths } : {}),
       ...(shouldWriteLinkedWorkspacePaths ? { linkedWorkspacePaths } : {}),
-      ...resolveRecentProjectPreferences({
-        projectPath: args.projectPath,
-        recentProjects: args.recentProjects,
+      ...resolveRecentRepositoryPreferences({
+        repositoryPath: args.repositoryPath,
+        recentRepositories: args.recentRepositories,
       }),
     },
   });

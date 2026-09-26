@@ -73,10 +73,10 @@ export function useDelegatedTasks(args: {
   parentTaskId: string | null | undefined;
   /** Required by retry, which restarts the delegation from the parent. */
   parentWorkspaceId?: string | null;
-  projectPath?: string | null;
+  repositoryPath?: string | null;
   enabled?: boolean;
 }): UseDelegatedTasksResult {
-  const { parentTaskId, parentWorkspaceId, projectPath } = args;
+  const { parentTaskId, parentWorkspaceId, repositoryPath } = args;
   const enabled = args.enabled ?? true;
   const [children, setChildren] =
     useState<readonly DelegatedTaskSummary[]>(EMPTY_CHILDREN);
@@ -190,7 +190,7 @@ export function useDelegatedTasks(args: {
       },
       retry: (input) => {
         const retryDelegatedTask = window.api?.runs?.retryDelegatedTask;
-        if (!parentTaskId || !parentWorkspaceId || !projectPath) {
+        if (!parentTaskId || !parentWorkspaceId || !repositoryPath) {
           return Promise.resolve({
             ok: false,
             error:
@@ -201,7 +201,7 @@ export function useDelegatedTasks(args: {
           retryDelegatedTask
             ? () =>
                 retryDelegatedTask({
-                  projectPath,
+                  repositoryPath,
                   parentWorkspaceId,
                   parentTaskId,
                   delegationKey: input.delegationKey,
@@ -244,7 +244,7 @@ export function useDelegatedTasks(args: {
         void load();
       },
     };
-  }, [load, parentTaskId, parentWorkspaceId, projectPath, runAction]);
+  }, [load, parentTaskId, parentWorkspaceId, repositoryPath, runAction]);
 
   return { children, loading, error, actions };
 }

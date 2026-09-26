@@ -63,7 +63,7 @@ function LensSessionSurface(args: {
   // 19 ref/update loops on tooltip-heavy surfaces like Lens.
   const [
     activeWorkspaceId,
-    projectPath,
+    repositoryPath,
     activeTaskId,
     lensSourceMappingHeuristic,
     lensSourceMappingReactDebugSource,
@@ -74,7 +74,7 @@ function LensSessionSurface(args: {
       (state) =>
         [
           state.activeWorkspaceId,
-          state.projectPath,
+          state.repositoryPath,
           state.activeTaskId,
           state.settings.lensSourceMappingHeuristic,
           state.settings.lensSourceMappingReactDebugSource,
@@ -180,7 +180,7 @@ function LensSessionSurface(args: {
     onAnnotationsRestored: setAnnotations,
     onSessionReset: handleSessionReset,
     onSessionRestored: handleSessionRestored,
-    projectPath,
+    repositoryPath,
     surface,
     workspaceId,
   });

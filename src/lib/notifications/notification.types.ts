@@ -19,8 +19,8 @@ export interface AppNotification {
   kind: AppNotificationKind;
   title: string;
   body: string;
-  projectPath: string | null;
-  projectName: string | null;
+  repositoryPath: string | null;
+  repositoryName: string | null;
   workspaceId: string | null;
   workspaceName: string | null;
   taskId: string | null;

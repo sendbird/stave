@@ -97,8 +97,8 @@ describe("buildCurrentTaskAwarenessRetrievedContextParts", () => {
       workspaceName: "feature/task-awareness",
       workspacePath: "/tmp/stave/.stave/workspaces/feature-task-awareness",
       workspaceBranch: "feature/task-awareness",
-      projectName: "Stave",
-      projectPath: "/tmp/stave",
+      repositoryName: "Stave",
+      repositoryPath: "/tmp/stave",
       taskId: "task-1",
       tasks: [
         createTask({

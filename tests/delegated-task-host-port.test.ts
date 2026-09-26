@@ -20,7 +20,7 @@ import type { DelegateTaskArgs } from "../src/lib/runs/delegated-task";
  * which is where a premature settle would be visible.
  */
 
-const PROJECT_PATH = "/tmp/stave";
+const REPOSITORY_PATH = "/tmp/stave";
 const PARENT_WORKSPACE = "workspace-parent";
 const PARENT_TASK = "parent-task-1";
 const STOP_NOTICE = "Managed run stopped from Stave before completion.";
@@ -83,21 +83,21 @@ function createFakeTaskBackend() {
     },
 
     // ── DelegatedTaskHostPortDependencies ─────────────────────────────────────
-    listKnownProjects: async () => [
+    listKnownRepositories: async () => [
       {
-        projectPath: PROJECT_PATH,
+        repositoryPath: REPOSITORY_PATH,
         workspaces: [
           {
             id: PARENT_WORKSPACE,
-            path: `${PROJECT_PATH}/.stave/workspaces/parent`,
+            path: `${REPOSITORY_PATH}/.stave/workspaces/parent`,
           },
         ],
       },
     ],
-    createWorkspace: async (args: { projectPath: string; name: string }) => ({
+    createWorkspace: async (args: { repositoryPath: string; name: string }) => ({
       workspaceId: `workspace-${args.name}`,
-      workspacePath: `${args.projectPath}/.stave/workspaces/${args.name}`,
-      projectPath: args.projectPath,
+      workspacePath: `${args.repositoryPath}/.stave/workspaces/${args.name}`,
+      repositoryPath: args.repositoryPath,
     }),
     getTaskStatus: async (args: { workspaceId: string; taskId: string }) => {
       if (!knownTaskIds.has(args.taskId)) {
@@ -195,7 +195,7 @@ function delegateArgs(
   overrides: Partial<DelegateTaskArgs> = {},
 ): DelegateTaskArgs {
   return {
-    projectPath: PROJECT_PATH,
+    repositoryPath: REPOSITORY_PATH,
     parentWorkspaceId: PARENT_WORKSPACE,
     parentTaskId: PARENT_TASK,
     delegationKey: "review-docs",

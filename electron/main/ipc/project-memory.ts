@@ -1,11 +1,11 @@
 import { ipcMain } from "electron";
 import {
-  ProjectMemorySettingsArgsSchema,
-  ProjectMemorySaveSettingsArgsSchema,
-  ProjectMemoryClearArgsSchema,
+  RepositoryMemorySettingsArgsSchema,
+  RepositoryMemorySaveSettingsArgsSchema,
+  RepositoryMemoryClearArgsSchema,
 } from "../../../src/lib/project-memory-settings";
-import { resolveProjectMemoryConfidence } from "../../../src/lib/project-memory";
-import type { ProjectMemoryRememberResult } from "../../../src/lib/project-memory";
+import { resolveRepositoryMemoryConfidence } from "../../../src/lib/project-memory";
+import type { RepositoryMemoryRememberResult } from "../../../src/lib/project-memory";
 import {
   ProjectMemoryDeleteArgsSchema,
   ProjectMemoryListArgsSchema,
@@ -27,16 +27,16 @@ function failureMessage(error: unknown) {
  * `stave:project-memory` block, and the auto-extracted facts the turn summary
  * hands back. Agent-side writes go through the Local MCP tools instead.
  */
-export function registerProjectMemoryHandlers() {
+export function registerRepositoryMemoryHandlers() {
   ipcMain.handle(
     "project-memory:get-settings",
     async (_event, args: unknown) => {
       try {
-        const { projectPath } = ProjectMemorySettingsArgsSchema.parse(args);
+        const { repositoryPath } = RepositoryMemorySettingsArgsSchema.parse(args);
         return {
           ok: true,
-          settings: (await ensurePersistenceReady()).getProjectMemorySettings(
-            projectPath,
+          settings: (await ensurePersistenceReady()).getRepositoryMemorySettings(
+            repositoryPath,
           ),
         };
       } catch (error) {
@@ -48,10 +48,10 @@ export function registerProjectMemoryHandlers() {
     "project-memory:save-settings",
     async (_event, args: unknown) => {
       try {
-        const parsed = ProjectMemorySaveSettingsArgsSchema.parse(args);
+        const parsed = RepositoryMemorySaveSettingsArgsSchema.parse(args);
         return {
           ok: true,
-          settings: (await ensurePersistenceReady()).saveProjectMemorySettings(
+          settings: (await ensurePersistenceReady()).saveRepositoryMemorySettings(
             parsed,
           ),
         };
@@ -62,10 +62,10 @@ export function registerProjectMemoryHandlers() {
   );
   ipcMain.handle("project-memory:clear", async (_event, args: unknown) => {
     try {
-      const parsed = ProjectMemoryClearArgsSchema.parse(args);
+      const parsed = RepositoryMemoryClearArgsSchema.parse(args);
       return {
         ok: true,
-        deleted: (await ensurePersistenceReady()).clearProjectMemories(parsed),
+        deleted: (await ensurePersistenceReady()).clearRepositoryMemories(parsed),
       };
     } catch (error) {
       return { ok: false, message: failureMessage(error) };
@@ -78,7 +78,7 @@ export function registerProjectMemoryHandlers() {
     }
     try {
       const store = await ensurePersistenceReady();
-      return { ok: true, items: store.listProjectMemories(parsed.data) };
+      return { ok: true, items: store.listRepositoryMemories(parsed.data) };
     } catch (error) {
       return { ok: false, items: [], message: failureMessage(error) };
     }
@@ -95,7 +95,7 @@ export function registerProjectMemoryHandlers() {
     }
     try {
       const store = await ensurePersistenceReady();
-      return { ok: true, items: store.recallProjectMemories(parsed.data) };
+      return { ok: true, items: store.recallRepositoryMemories(parsed.data) };
     } catch (error) {
       return { ok: false, items: [], message: failureMessage(error) };
     }
@@ -112,11 +112,11 @@ export function registerProjectMemoryHandlers() {
     }
     try {
       const store = await ensurePersistenceReady();
-      const confidence = resolveProjectMemoryConfidence(parsed.data.source);
-      const results: ProjectMemoryRememberResult[] = [];
+      const confidence = resolveRepositoryMemoryConfidence(parsed.data.source);
+      const results: RepositoryMemoryRememberResult[] = [];
       for (const fact of parsed.data.facts) {
-        const result = store.rememberProjectMemory({
-          projectPath: parsed.data.projectPath,
+        const result = store.rememberRepositoryMemory({
+          repositoryPath: parsed.data.repositoryPath,
           kind: fact.kind,
           content: fact.content,
           confidence,
@@ -141,7 +141,7 @@ export function registerProjectMemoryHandlers() {
     }
     try {
       const store = await ensurePersistenceReady();
-      return { ok: true, memory: store.updateProjectMemory(parsed.data) };
+      return { ok: true, memory: store.updateRepositoryMemory(parsed.data) };
     } catch (error) {
       return { ok: false, message: failureMessage(error) };
     }
@@ -154,7 +154,7 @@ export function registerProjectMemoryHandlers() {
     }
     try {
       const store = await ensurePersistenceReady();
-      return { ok: true, deleted: store.deleteProjectMemory(parsed.data.id) };
+      return { ok: true, deleted: store.deleteRepositoryMemory(parsed.data.id) };
     } catch (error) {
       return { ok: false, message: failureMessage(error) };
     }

@@ -123,7 +123,7 @@ export function createTrackerIssueFilter(
 /**
  * The value the Project chip filters on.
  *
- * A ticket may carry a project, a team, both, or neither, and the two trackers
+ * A ticket may carry a repository, a team, both, or neither, and the two trackers
  * disagree about which is the primary grouping. Exporting one rule keeps the
  * chip list and the predicate from drifting apart, which is the classic way a
  * filter ends up selecting a chip that matches zero rows.

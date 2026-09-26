@@ -103,8 +103,8 @@ describe("automation result navigation", () => {
     useAppStore.setState({
       ...initialState,
       hasHydratedWorkspaces: true,
-      projectPath: "/tmp/automation-project",
-      projectName: "automation-project",
+      repositoryPath: "/tmp/automation-project",
+      repositoryName: "automation-project",
       workspaces: [
         {
           id: "automation-workspace",
@@ -128,7 +128,7 @@ describe("automation result navigation", () => {
     await useAppStore.getState().focusTaskAttention({
       taskId: task.id,
       workspaceId: "automation-workspace",
-      projectPath: "/tmp/automation-project",
+      repositoryPath: "/tmp/automation-project",
       refreshFromPersistence: true,
     });
     await Bun.sleep(25);
@@ -177,8 +177,8 @@ describe("automation result navigation", () => {
     useAppStore.setState({
       ...initialState,
       hasHydratedWorkspaces: true,
-      projectPath: "/tmp/automation-project",
-      projectName: "automation-project",
+      repositoryPath: "/tmp/automation-project",
+      repositoryName: "automation-project",
       workspaces: [currentWorkspace],
       activeWorkspaceId: "automation-workspace",
       workspacePathById: {
@@ -214,7 +214,7 @@ describe("automation result navigation", () => {
     await useAppStore.getState().focusTaskAttention({
       taskId: "task-new",
       workspaceId: "workspace-new",
-      projectPath: "/tmp/automation-project",
+      repositoryPath: "/tmp/automation-project",
     });
 
     expect(refreshCount).toBe(1);

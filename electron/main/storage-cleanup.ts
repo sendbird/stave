@@ -62,24 +62,24 @@ async function directorySize(dir: string): Promise<number> {
 async function loadKnownIdentities() {
   const store = await ensurePersistenceReady();
   const knownWorkspaceIds = new Set<string>();
-  const knownProjectHashes = new Set<string>();
+  const knownRepositoryHashes = new Set<string>();
   for (const summary of store.listWorkspaceSummaries()) {
     knownWorkspaceIds.add(summary.id);
   }
-  for (const project of store.loadProjectRegistry()) {
-    knownProjectHashes.add(hashLensProfileKey(project.projectPath));
-    for (const workspace of project.workspaces) {
+  for (const repository of store.loadRepositoryRegistry()) {
+    knownRepositoryHashes.add(hashLensProfileKey(repository.repositoryPath));
+    for (const workspace of repository.workspaces) {
       knownWorkspaceIds.add(workspace.id);
     }
-    for (const workspaceId of Object.keys(project.workspacePathById ?? {})) {
+    for (const workspaceId of Object.keys(repository.workspacePathById ?? {})) {
       knownWorkspaceIds.add(workspaceId);
     }
   }
-  return { knownWorkspaceIds, knownProjectHashes };
+  return { knownWorkspaceIds, knownProjectHashes: knownRepositoryHashes };
 }
 
 export async function collectStorageCleanupReport(): Promise<StorageCleanupReport> {
-  const { knownWorkspaceIds, knownProjectHashes } = await loadKnownIdentities();
+  const { knownWorkspaceIds, knownProjectHashes: knownRepositoryHashes } = await loadKnownIdentities();
   const activePartitions = new Set(listActiveLensPartitions());
   const partitionsDir = userDataPath(PARTITIONS_DIR_NAME);
 
@@ -95,7 +95,7 @@ export async function collectStorageCleanupReport(): Promise<StorageCleanupRepor
   for (const dirName of partitionDirs) {
     const classified = classifyLensPartitionDir(dirName, {
       knownWorkspaceIds,
-      knownProjectHashes,
+      knownRepositoryHashes,
       activePartitions,
     });
     if (!classified) {

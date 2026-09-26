@@ -71,7 +71,7 @@ describe("archive task regression", () => {
       workspaces: [{ id: "ws-main", name: "Main", updatedAt: "2026-03-10T00:00:00.000Z" }],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-1",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },

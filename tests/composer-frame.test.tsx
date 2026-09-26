@@ -88,7 +88,7 @@ describe("ComposerWorkspaceBarView", () => {
   test("hides when there is nothing to orient by", () => {
     const html = renderToStaticMarkup(
       createElement(ComposerWorkspaceBarView, {
-        projectLabel: "",
+        repositoryLabel: "",
         workspaceLabel: "",
         folderLabel: "",
         branchLabel: "",
@@ -100,7 +100,7 @@ describe("ComposerWorkspaceBarView", () => {
   test("shows project and branch, and keeps the rest in the tooltip", () => {
     const html = renderToStaticMarkup(
       createElement(ComposerWorkspaceBarView, {
-        projectLabel: "stave",
+        repositoryLabel: "stave",
         workspaceLabel: "fix-benchmark",
         folderLabel: "fix__benchmark-new-ade--12tr7n2",
         branchLabel: "fix/benchmark-new-ade",
@@ -121,7 +121,7 @@ describe("ComposerWorkspaceBarView", () => {
   test("drops the project when it only repeats the branch", () => {
     const html = renderToStaticMarkup(
       createElement(ComposerWorkspaceBarView, {
-        projectLabel: "stave",
+        repositoryLabel: "stave",
         workspaceLabel: "stave",
         folderLabel: "stave",
         branchLabel: "stave",
@@ -135,7 +135,7 @@ describe("ComposerWorkspaceBarView", () => {
   test("falls back to the workspace name when there is no branch yet", () => {
     const html = renderToStaticMarkup(
       createElement(ComposerWorkspaceBarView, {
-        projectLabel: "stave",
+        repositoryLabel: "stave",
         workspaceLabel: "scratch",
         folderLabel: "scratch",
         branchLabel: "",

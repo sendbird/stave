@@ -86,10 +86,10 @@ function NotificationKindIcon({ kind }: { kind: AppNotification["kind"] }) {
 }
 
 function buildLocationLabel(args: {
-  projectName: string | null;
+  repositoryName: string | null;
   workspaceName: string | null;
 }) {
-  return [args.projectName, args.workspaceName]
+  return [args.repositoryName, args.workspaceName]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value))
     .join(" / ");
@@ -457,7 +457,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                 {visibleNotifications.map((notification) => {
                   const unread = isNotificationUnread(notification);
                   const locationLabel = buildLocationLabel({
-                    projectName: notification.projectName,
+                    repositoryName: notification.repositoryName,
                     workspaceName: notification.workspaceName,
                   });
                   const showApprovalActions =

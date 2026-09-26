@@ -61,7 +61,7 @@ type JiraReply = { ok: boolean; status: JiraConnectorPublicStatus };
 export function JiraConnectorSettingsSection() {
   const connector = useAppStore((state) => state.settings.jiraConnector);
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const projects = useAppStore((state) => state.recentProjects);
+  const repositories = useAppStore((state) => state.recentRepositories);
 
   const [status, setStatus] = useState<JiraConnectorPublicStatus | null>(null);
   const [siteUrl, setSiteUrl] = useState(connector.siteUrl);
@@ -198,13 +198,13 @@ export function JiraConnectorSettingsSection() {
       toast.error("Enter a Jira project key and pick a registered project.");
       return;
     }
-    if (connector.projectMappings.some((row) => row.jiraProjectKey === key)) {
+    if (connector.repositoryMappings.some((row) => row.jiraProjectKey === key)) {
       toast.error(`${key} is already mapped.`);
       return;
     }
     save({
-      projectMappings: [
-        ...connector.projectMappings,
+      repositoryMappings: [
+        ...connector.repositoryMappings,
         { jiraProjectKey: key, staveProjectPath: mappingPath },
       ],
     });
@@ -430,14 +430,14 @@ export function JiraConnectorSettingsSection() {
             ticket starts a run. Local paths never leave this device.
           </p>
 
-          {connector.projectMappings.map((mapping, index) => (
+          {connector.repositoryMappings.map((mapping, index) => (
             <div key={mapping.jiraProjectKey} className={sx(styles.mappingRow)}>
               <Badge variant="secondary">{mapping.jiraProjectKey}</Badge>
               <div className={sx(styles.mappingBody)}>
                 <p className={sx(styles.mappingName)}>
-                  {projects.find(
-                    (p) => p.projectPath === mapping.staveProjectPath,
-                  )?.projectName ?? "Unregistered project"}
+                  {repositories.find(
+                    (p) => p.repositoryPath === mapping.staveProjectPath,
+                  )?.repositoryName ?? "Unregistered project"}
                 </p>
                 <p className={sx(styles.mappingPath)}>
                   {mapping.staveProjectPath}
@@ -455,7 +455,7 @@ export function JiraConnectorSettingsSection() {
                 aria-label={`Remove the ${mapping.jiraProjectKey} project mapping`}
                 onClick={() =>
                   save({
-                    projectMappings: connector.projectMappings.filter(
+                    repositoryMappings: connector.repositoryMappings.filter(
                       (_, position) => position !== index,
                     ),
                   })
@@ -480,12 +480,12 @@ export function JiraConnectorSettingsSection() {
                 <SelectValue placeholder="Select a registered project" />
               </SelectTrigger>
               <SelectContent>
-                {projects.map((project) => (
+                {repositories.map((repository) => (
                   <SelectItem
-                    key={project.projectPath}
-                    value={project.projectPath}
+                    key={repository.repositoryPath}
+                    value={repository.repositoryPath}
                   >
-                    {project.projectName}
+                    {repository.repositoryName}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -835,7 +835,7 @@ export function resolveBrowserSessionReservation(
     sessionProfile: resolveLensSessionProfile({
       workspaceId,
       sessionScope: options?.sessionScope,
-      projectKey: options?.projectKey,
+      repositoryKey: options?.repositoryKey,
     }),
   };
 }
@@ -1056,14 +1056,14 @@ export function bindBrowserSessionGuest(args: {
   lensSessionId?: string;
   guestWebContentsId: number;
   sessionScope?: LensSessionScope;
-  projectKey?: string | null;
+  repositoryKey?: string | null;
 }): BindBrowserSessionGuestResult {
   const { lensSessionId, sessionProfile } = resolveBrowserSessionReservation(
     args.workspaceId,
     {
       lensSessionId: args.lensSessionId,
       sessionScope: args.sessionScope,
-      projectKey: args.projectKey,
+      repositoryKey: args.repositoryKey,
     },
   );
 

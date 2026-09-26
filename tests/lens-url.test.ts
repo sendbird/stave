@@ -93,12 +93,12 @@ describe("resolveLensSessionProfile", () => {
     const first = resolveLensSessionProfile({
       workspaceId: "workspace-a",
       sessionScope: "project",
-      projectKey: "/tmp/stave-project",
+      repositoryKey: "/tmp/stave-project",
     });
     const second = resolveLensSessionProfile({
       workspaceId: "workspace-b",
       sessionScope: "project",
-      projectKey: "/tmp/stave-project",
+      repositoryKey: "/tmp/stave-project",
     });
 
     expect(first.scope).toBe("project");
@@ -111,7 +111,7 @@ describe("resolveLensSessionProfile", () => {
     const profile = resolveLensSessionProfile({
       workspaceId: "workspace-a",
       sessionScope: "workspace",
-      projectKey: "/tmp/stave-project",
+      repositoryKey: "/tmp/stave-project",
     });
 
     expect(profile.scope).toBe("workspace");
@@ -122,7 +122,7 @@ describe("resolveLensSessionProfile", () => {
     const profile = resolveLensSessionProfile({
       workspaceId: "workspace-a",
       sessionScope: "project",
-      projectKey: "",
+      repositoryKey: "",
     });
 
     expect(profile.scope).toBe("workspace");

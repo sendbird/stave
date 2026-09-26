@@ -459,7 +459,7 @@ describe("mapCodexElicitationToUserInput", () => {
     const mapped = mapCodexElicitationToApproval({
       mode: "form",
       message:
-        'Allow the stave-local MCP server to run tool "stave_list_projects"?',
+        'Allow the stave-local MCP server to run tool "stave_list_repositories"?',
       requestedSchema: {
         type: "object",
         properties: {},
@@ -472,7 +472,7 @@ describe("mapCodexElicitationToUserInput", () => {
     });
 
     expect(mapped).toEqual({
-      toolName: "stave_list_projects",
+      toolName: "stave_list_repositories",
       description:
         "List projects already registered in the local Stave desktop app.",
     });

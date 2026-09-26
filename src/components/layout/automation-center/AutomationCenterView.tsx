@@ -93,9 +93,9 @@ function Detail(props: { label: string; value: string }) {
 
 export function AutomationCenterView() {
   const [
-    recentProjects,
-    projectPath,
-    projectName,
+    recentRepositories,
+    repositoryPath,
+    repositoryName,
     workspaces,
     workspacePathById,
     workspaceDefaultById,
@@ -108,9 +108,9 @@ export function AutomationCenterView() {
     useShallow(
       (state) =>
         [
-          state.recentProjects,
-          state.projectPath,
-          state.projectName,
+          state.recentRepositories,
+          state.repositoryPath,
+          state.repositoryName,
           state.workspaces,
           state.workspacePathById,
           state.workspaceDefaultById,
@@ -146,20 +146,20 @@ export function AutomationCenterView() {
   const [error, setError] = useState("");
   const [deleteAutomation, setDeleteAutomation] = useState<AutomationSpec | null>(null);
 
-  const activeProject = useMemo(
+  const activeRepository = useMemo(
     () =>
-      projectPath && projectName
+      repositoryPath && repositoryName
         ? {
-            projectPath,
-            projectName,
+            repositoryPath,
+            repositoryName,
             workspaces,
             workspacePathById,
             workspaceDefaultById,
           }
         : null,
     [
-      projectName,
-      projectPath,
+      repositoryName,
+      repositoryPath,
       workspaceDefaultById,
       workspacePathById,
       workspaces,
@@ -168,25 +168,25 @@ export function AutomationCenterView() {
   const environmentOptions = useMemo(
     () =>
       buildEnvironmentOptions({
-        recentProjects,
-        activeProject,
+        recentRepositories,
+        activeRepository,
       }),
-    [activeProject, recentProjects],
+    [activeRepository, recentRepositories],
   );
   const defaultEnvironment = useMemo<AutomationEnvironmentInput | null>(() => {
     const active =
-      environmentOptions.find((option) => option.projectPath === projectPath) ??
+      environmentOptions.find((option) => option.repositoryPath === repositoryPath) ??
       environmentOptions[0];
     return active
       ? {
           kind: "repository",
           workspaceId: active.workspaceId,
           path: active.path,
-          projectPath: active.projectPath,
+          repositoryPath: active.repositoryPath,
           label: active.label,
         }
       : null;
-  }, [environmentOptions, projectPath]);
+  }, [environmentOptions, repositoryPath]);
 
   const activeLoadScope = useRef(false);
   const loadSequence = useRef(0);
@@ -550,7 +550,7 @@ export function AutomationCenterView() {
       await focusTaskAttention({
         taskId: run.taskId,
         workspaceId: run.workspaceId,
-        projectPath: run.projectPath,
+        repositoryPath: run.repositoryPath,
         refreshFromPersistence: true,
       });
       const opened = useAppStore

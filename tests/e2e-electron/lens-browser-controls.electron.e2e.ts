@@ -8,7 +8,7 @@ import {
   E2E_LENS_SESSION_ID,
   launchStave,
   openLensSurface,
-  seedProject,
+  seedRepository,
   type StaveApp,
 } from "./harness/stave-app";
 
@@ -45,7 +45,7 @@ test.beforeAll(async () => {
     throw new Error("No fixture port");
   origin = `http://127.0.0.1:${address.port}`;
   stave = await launchStave();
-  await seedProject(stave.page, { projectPath: directory });
+  await seedRepository(stave.page, { repositoryPath: directory });
   await openLensSurface(stave.page);
   await expect
     .poll(() =>

@@ -12,7 +12,7 @@ test.skip(
 for (const providerId of ["claude-code", "codex"] as const) {
   test(`live ${providerId} adapter answers a tiny read-only turn`, async () => {
     test.setTimeout(150_000);
-    const projectPath = await mkdtemp(path.join(tmpdir(), "stave-provider-smoke-"));
+    const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-provider-smoke-"));
     const stave = await launchStave();
     try {
       const result = await stave.page.evaluate(async ({ cwd, providerId }) => {
@@ -80,7 +80,7 @@ for (const providerId of ["claude-code", "codex"] as const) {
               category: classifyError("message" in event ? event.message : null),
             })),
         };
-      }, { cwd: projectPath, providerId });
+      }, { cwd: repositoryPath, providerId });
       console.log(`${providerId} live smoke: ${JSON.stringify(result)}`);
       expect(result.available).toBe(true);
       expect(result.eventTypes).toContain("usage");
@@ -88,14 +88,14 @@ for (const providerId of ["claude-code", "codex"] as const) {
       expect(result.answeredExactly).toBe(true);
     } finally {
       await stave.close();
-      await rm(projectPath, { recursive: true, force: true });
+      await rm(repositoryPath, { recursive: true, force: true });
     }
   });
 }
 
 test("live Codex cancellation, retry, and session resume survive an Electron restart", async () => {
   test.setTimeout(150_000);
-  const projectPath = await mkdtemp(path.join(tmpdir(), "stave-provider-resume-"));
+  const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-provider-resume-"));
   const userDataDir = await mkdtemp(path.join(tmpdir(), "stave-provider-profile-"));
   let stave: StaveApp | null = null;
   try {
@@ -159,7 +159,7 @@ test("live Codex cancellation, retry, and session resume survive an Electron res
       }
       return { started: started.ok, aborted: abort.ok, stopReason, sawSession, sessionId,
         sawProviderTurnBeforeAbort, sawTextBeforeAbort, sawDoneBeforeAbort };
-    }, projectPath);
+    }, repositoryPath);
     console.log(`codex cancel smoke: ${JSON.stringify({
       started: cancelled.started,
       aborted: cancelled.aborted,
@@ -221,7 +221,7 @@ test("live Codex cancellation, retry, and session resume survive an Electron res
           typeof event === "object" && event !== null &&
           "type" in event && event.type === "done"),
       };
-    }, projectPath);
+    }, repositoryPath);
     console.log(`codex retry smoke: ${JSON.stringify({
       answeredExactly: first.answeredExactly,
       answerLength: first.answerLength,
@@ -280,7 +280,7 @@ test("live Codex cancellation, retry, and session resume survive an Electron res
           typeof event === "object" && event !== null &&
           "type" in event && event.type === "done"),
       };
-    }, { cwd: projectPath, sessionId: first.sessionId! });
+    }, { cwd: repositoryPath, sessionId: first.sessionId! });
     console.log(`codex resume smoke: ${JSON.stringify({
       answeredExactly: resumed.answeredExactly,
       usage: resumed.usage,
@@ -293,7 +293,7 @@ test("live Codex cancellation, retry, and session resume survive an Electron res
     expect(resumed.sessionId).toBe(first.sessionId);
   } finally {
     await stave?.close();
-    await rm(projectPath, { recursive: true, force: true });
+    await rm(repositoryPath, { recursive: true, force: true });
     await rm(userDataDir, {
       recursive: true,
       force: true,
@@ -305,7 +305,7 @@ test("live Codex cancellation, retry, and session resume survive an Electron res
 
 test("live Codex stops after output starts and retries on the same native session", async () => {
   test.setTimeout(120_000);
-  const projectPath = await mkdtemp(path.join(tmpdir(), "stave-codex-mid-output-"));
+  const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-codex-mid-output-"));
   const stave = await launchStave();
   try {
     const result = await stave.page.evaluate(async (cwd) => {
@@ -386,7 +386,7 @@ test("live Codex stops after output starts and retries on the same native sessio
         errors: events.filter((event) => event.type === "error")
           .map((event) => (event as { code?: string }).code ?? "unclassified"),
       };
-    }, projectPath);
+    }, repositoryPath);
     console.log(`codex mid-output cancel/retry: ${JSON.stringify(result)}`);
     expect(result).toMatchObject({
       sawOutput: true,
@@ -403,13 +403,13 @@ test("live Codex stops after output starts and retries on the same native sessio
     });
   } finally {
     await stave.close();
-    await rm(projectPath, { recursive: true, force: true });
+    await rm(repositoryPath, { recursive: true, force: true });
   }
 });
 
 test("live Claude cancellation resumes across an Electron restart", async () => {
   test.setTimeout(150_000);
-  const projectPath = await mkdtemp(path.join(tmpdir(), "stave-claude-resume-"));
+  const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-claude-resume-"));
   const userDataDir = await mkdtemp(path.join(tmpdir(), "stave-claude-profile-"));
   let stave: StaveApp | null = null;
   try {
@@ -455,7 +455,7 @@ test("live Claude cancellation resumes across an Electron restart", async () => 
         await new Promise((resolve) => setTimeout(resolve, 10));
       }
       return { hasSession: true, doneBeforeAbort, abortOk: abort.ok, stopReason, sessionId };
-    }, projectPath);
+    }, repositoryPath);
     console.log(`claude cancel: ${JSON.stringify({
       hasSession: cancelled.hasSession,
       doneBeforeAbort: cancelled.doneBeforeAbort,
@@ -499,7 +499,7 @@ test("live Claude cancellation resumes across an Electron restart", async () => 
           errors: events.filter((event) => event.type === "error")
             .map((event) => (event as { code?: string }).code ?? "unclassified"),
         };
-      }, { cwd: projectPath, sessionId, turnId, marker });
+      }, { cwd: repositoryPath, sessionId, turnId, marker });
 
     const resumed = await resume(cancelled.sessionId, "native-claude-retry", "STAVE_CLAUDE_RETRY_OK");
     console.log(`claude same-process resume: ${JSON.stringify(resumed)}`);
@@ -513,7 +513,7 @@ test("live Claude cancellation resumes across an Electron restart", async () => 
     expect(restored).toMatchObject({ exact: true, hasCancelledMarker: false, sameSession: true, usage: true, done: true, errors: [] });
   } finally {
     await stave?.close();
-    await rm(projectPath, { recursive: true, force: true });
+    await rm(repositoryPath, { recursive: true, force: true });
     await rm(userDataDir, { recursive: true, force: true, maxRetries: 10, retryDelay: 200 });
   }
 });

@@ -72,7 +72,7 @@ describe("tracker issues and Jira settings registry", () => {
   test("app defaults carry both slices", () => {
     expect(defaultSettings.jiraConnector).toEqual({
       ...DEFAULT_JIRA_CONNECTOR_SETTINGS,
-      projectMappings: [],
+      repositoryMappings: [],
     });
     expect(defaultSettings.jiraConnector.jql).toBe(DEFAULT_JIRA_JQL);
     expect(defaultSettings.trackerIssues).toEqual(
@@ -83,7 +83,7 @@ describe("tracker issues and Jira settings registry", () => {
   test("defaults round-trip through their normalizers", () => {
     expect(
       normalizeJiraConnectorSettings(defaultSettings.jiraConnector),
-    ).toEqual({ ...DEFAULT_JIRA_CONNECTOR_SETTINGS, projectMappings: [] });
+    ).toEqual({ ...DEFAULT_JIRA_CONNECTOR_SETTINGS, repositoryMappings: [] });
     expect(normalizeTrackerIssuesSettings(defaultSettings.trackerIssues)).toEqual(
       DEFAULT_TRACKER_ISSUES_SETTINGS,
     );
@@ -108,7 +108,7 @@ describe("tracker issues and Jira settings registry", () => {
       authMode: "cloud-api-token",
       jql: "assignee = currentUser()",
       maxResults: 25,
-      projectMappings: [
+      repositoryMappings: [
         { jiraProjectKey: "PLAT", staveProjectPath: "/tmp/platform" },
         { jiraProjectKey: 42, staveProjectPath: "" },
         "not a mapping",
@@ -118,7 +118,7 @@ describe("tracker issues and Jira settings registry", () => {
     expect(salvaged.enabled).toBe(true);
     expect(salvaged.siteUrl).toBe("https://tracker.example.com/jira");
     expect(salvaged.maxResults).toBe(25);
-    expect(salvaged.projectMappings).toEqual([
+    expect(salvaged.repositoryMappings).toEqual([
       { jiraProjectKey: "PLAT", staveProjectPath: "/tmp/platform" },
     ]);
   });
@@ -128,7 +128,7 @@ describe("tracker issues and Jira settings registry", () => {
       expect(() => normalizeJiraConnectorSettings(blob)).not.toThrow();
       expect(normalizeJiraConnectorSettings(blob)).toEqual({
         ...DEFAULT_JIRA_CONNECTOR_SETTINGS,
-        projectMappings: [],
+        repositoryMappings: [],
       });
       expect(() => normalizeTrackerIssuesSettings(blob)).not.toThrow();
       expect(normalizeTrackerIssuesSettings(blob)).toEqual(

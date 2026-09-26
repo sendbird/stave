@@ -43,7 +43,7 @@ interface MessageProps extends HTMLAttributes<HTMLDivElement> {
   from: "user" | "assistant";
 }
 
-const EMPTY_PROJECT_FILES: readonly string[] = [];
+const EMPTY_REPOSITORY_FILES: readonly string[] = [];
 const MESSAGE_FILE_PATH_CACHE_KEY = "__staveMessageFilePathCache";
 
 type MessageFilePathCache = {
@@ -59,28 +59,28 @@ const messageFilePathCache =
   globalMessageFilePathCache[MESSAGE_FILE_PATH_CACHE_KEY] ??
   (globalMessageFilePathCache[MESSAGE_FILE_PATH_CACHE_KEY] = {
     hasSubscribed: false,
-    knownFilePaths: getKnownFilePathSet(EMPTY_PROJECT_FILES),
+    knownFilePaths: getKnownFilePathSet(EMPTY_REPOSITORY_FILES),
   });
 
-function syncKnownProjectFilePaths() {
+function syncKnownRepositoryFilePaths() {
   messageFilePathCache.knownFilePaths = getKnownFilePathSet(
-    useAppStore.getState().projectFiles,
+    useAppStore.getState().repositoryFiles,
   );
   if (messageFilePathCache.hasSubscribed) {
     return;
   }
   messageFilePathCache.hasSubscribed = true;
   useAppStore.subscribe((state, prevState) => {
-    if (state.projectFiles === prevState.projectFiles) {
+    if (state.repositoryFiles === prevState.repositoryFiles) {
       return;
     }
     messageFilePathCache.knownFilePaths = getKnownFilePathSet(
-      state.projectFiles,
+      state.repositoryFiles,
     );
   });
 }
 
-syncKnownProjectFilePaths();
+syncKnownRepositoryFilePaths();
 
 export function Message({ from, className, style, ...props }: MessageProps) {
   // `group` and `is-user`/`is-assistant` are a cross-component contract:
@@ -155,7 +155,7 @@ export function MessageResponse({
             state.settings.messageFontSize,
             state.settings.messageCodeFontSize,
             state.workspacePathById[state.activeWorkspaceId] ??
-              state.projectPath ??
+              state.repositoryPath ??
               "",
           ] as const,
       ),

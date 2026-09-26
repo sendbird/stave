@@ -187,7 +187,7 @@ export function KickoffDialog(props: {
   onOpenChange: (open: boolean) => void;
 }) {
   const [
-    projectPath,
+    repositoryPath,
     activeWorkspaceId,
     workspaceBranchById,
     workspacePathById,
@@ -201,7 +201,7 @@ export function KickoffDialog(props: {
     kickoffWorkspace,
   ] = useAppStore(
     useShallow((state) => [
-      state.projectPath,
+      state.repositoryPath,
       state.activeWorkspaceId,
       state.workspaceBranchById,
       state.workspacePathById,
@@ -265,7 +265,7 @@ export function KickoffDialog(props: {
 
   const activeBranch = workspaceBranchById[activeWorkspaceId] ?? defaultBranch;
   const activeWorkspacePath =
-    workspacePathById[activeWorkspaceId] ?? projectPath ?? undefined;
+    workspacePathById[activeWorkspaceId] ?? repositoryPath ?? undefined;
   const classification = useMemo(
     () => classifyKickoffSource({ input: source, configs: sourceConfigs }),
     [source, sourceConfigs],
@@ -370,7 +370,7 @@ export function KickoffDialog(props: {
     const discoverMcpServers = window.api?.provider?.discoverMcpServers;
     if (discoverMcpServers) {
       setMcpDiscoveryPending(true);
-      void discoverMcpServers({ cwd: projectPath ?? undefined })
+      void discoverMcpServers({ cwd: repositoryPath ?? undefined })
         .then((result) => {
           if (cancelled) {
             return;
@@ -440,7 +440,7 @@ export function KickoffDialog(props: {
     activeBranch,
     activeWorkspacePath,
     defaultBranch,
-    projectPath,
+    repositoryPath,
     props.open,
   ]);
 

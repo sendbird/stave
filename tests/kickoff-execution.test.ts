@@ -38,9 +38,9 @@ function install(api: unknown) {
 function resolver() {
   return createWorkspaceKickoffResolver({
     getState: () => ({
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       activeWorkspaceId: "workspace-1",
-      recentProjects: [],
+      recentRepositories: [],
       settings: defaultSettings,
     }),
   });
@@ -340,7 +340,7 @@ describe("kickoff execution", () => {
       resolveKickoffModel({
         requestId: "request",
         workspaceId: "workspace",
-        projectPath: "/tmp/project",
+        repositoryPath: "/tmp/project",
         providerId: "claude-code",
         model: "test",
         prompt: "read",

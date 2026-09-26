@@ -1,9 +1,9 @@
 import type { WorkspaceTurnSummary } from "@/lib/workspace-information";
 import {
-  PROJECT_MEMORY_CONTENT_MAX_CHARS,
-  PROJECT_MEMORY_KINDS,
-  normalizeProjectMemoryContent,
-  type ProjectMemoryFactInput,
+  REPOSITORY_MEMORY_CONTENT_MAX_CHARS,
+  REPOSITORY_MEMORY_KINDS,
+  normalizeRepositoryMemoryContent,
+  type RepositoryMemoryFactInput,
 } from "@/lib/project-memory";
 
 const MAX_CONTEXT_CHARS = 4_000;
@@ -15,7 +15,7 @@ export interface WorkspaceTurnSummaryDraft {
   requestSummary: string;
   workSummary: string;
   /** Project memory candidates the summary model surfaced; empty when none. */
-  durableFacts: ProjectMemoryFactInput[];
+  durableFacts: RepositoryMemoryFactInput[];
 }
 
 /**
@@ -23,11 +23,11 @@ export interface WorkspaceTurnSummaryDraft {
  * the memory content cap. Anything else is dropped silently — a summary that
  * misreads the schema must not turn into stored memory.
  */
-export function parseTurnSummaryDurableFacts(value: unknown): ProjectMemoryFactInput[] {
+export function parseTurnSummaryDurableFacts(value: unknown): RepositoryMemoryFactInput[] {
   if (!Array.isArray(value)) {
     return [];
   }
-  const facts: ProjectMemoryFactInput[] = [];
+  const facts: RepositoryMemoryFactInput[] = [];
   for (const item of value) {
     if (facts.length >= MAX_TURN_SUMMARY_DURABLE_FACTS) {
       break;
@@ -40,15 +40,15 @@ export function parseTurnSummaryDurableFacts(value: unknown): ProjectMemoryFactI
     if (
       typeof kind !== "string" ||
       typeof content !== "string" ||
-      !(PROJECT_MEMORY_KINDS as readonly string[]).includes(kind)
+      !(REPOSITORY_MEMORY_KINDS as readonly string[]).includes(kind)
     ) {
       continue;
     }
-    const normalized = normalizeProjectMemoryContent(content);
-    if (!normalized || normalized.length > PROJECT_MEMORY_CONTENT_MAX_CHARS) {
+    const normalized = normalizeRepositoryMemoryContent(content);
+    if (!normalized || normalized.length > REPOSITORY_MEMORY_CONTENT_MAX_CHARS) {
       continue;
     }
-    facts.push({ kind: kind as ProjectMemoryFactInput["kind"], content: normalized });
+    facts.push({ kind: kind as RepositoryMemoryFactInput["kind"], content: normalized });
   }
   return facts;
 }

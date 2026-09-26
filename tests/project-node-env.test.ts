@@ -3,9 +3,9 @@ import { chmodSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import {
-  buildProjectNvmShellConfigOverrides,
-  buildProjectShellEnv,
-  resolveProjectNvmEnvironment,
+  buildRepositoryNvmShellConfigOverrides,
+  buildRepositoryShellEnv,
+  resolveRepositoryNvmEnvironment,
 } from "../electron/shared/project-node-env";
 
 const createdPaths: string[] = [];
@@ -19,13 +19,13 @@ function createFixture(args: {
     tmpdir(),
     `stave-project-node-env-${process.pid}-${Date.now()}-${createdPaths.length}`,
   );
-  const projectPath = path.join(root, "project");
+  const repositoryPath = path.join(root, "project");
   const cwd = args.nested
-    ? path.join(projectPath, "packages", "app")
-    : projectPath;
+    ? path.join(repositoryPath, "packages", "app")
+    : repositoryPath;
   const nvmDir = path.join(root, "nvm");
   mkdirSync(cwd, { recursive: true });
-  writeFileSync(path.join(projectPath, ".nvmrc"), `${args.nvmrc}\n`);
+  writeFileSync(path.join(repositoryPath, ".nvmrc"), `${args.nvmrc}\n`);
   for (const version of args.versions) {
     const binPath = path.join(nvmDir, "versions", "node", version, "bin");
     mkdirSync(binPath, { recursive: true });
@@ -34,7 +34,7 @@ function createFixture(args: {
     chmodSync(nodePath, 0o755);
   }
   createdPaths.push(root);
-  return { root, projectPath, cwd, nvmDir };
+  return { root, projectPath: repositoryPath, cwd, nvmDir };
 }
 
 afterEach(() => {
@@ -58,7 +58,7 @@ describe("project nvm shell environment", () => {
       "bin",
     );
 
-    const env = buildProjectShellEnv({
+    const env = buildRepositoryShellEnv({
       cwd: fixture.cwd,
       baseEnv: {
         HOME: fixture.root,
@@ -67,7 +67,7 @@ describe("project nvm shell environment", () => {
         PATH: `${staleStaveBin}${path.delimiter}/usr/bin`,
       },
     });
-    const projectBin = path.join(
+    const repositoryBin = path.join(
       fixture.nvmDir,
       "versions",
       "node",
@@ -75,8 +75,8 @@ describe("project nvm shell environment", () => {
       "bin",
     );
 
-    expect(env.PATH?.split(path.delimiter)[0]).toBe(projectBin);
-    expect(env.NVM_BIN).toBe(projectBin);
+    expect(env.PATH?.split(path.delimiter)[0]).toBe(repositoryBin);
+    expect(env.NVM_BIN).toBe(repositoryBin);
     expect(env.NVM_INC).toBe(
       path.join(
         fixture.nvmDir,
@@ -96,7 +96,7 @@ describe("project nvm shell environment", () => {
     });
 
     expect(
-      resolveProjectNvmEnvironment({
+      resolveRepositoryNvmEnvironment({
         cwd: fixture.cwd,
         baseEnv: { HOME: fixture.root, NVM_DIR: fixture.nvmDir },
       })?.version,
@@ -114,7 +114,7 @@ describe("project nvm shell environment", () => {
       PATH: "/stave/node/bin:/usr/bin",
     };
 
-    expect(buildProjectShellEnv({ cwd: fixture.cwd, baseEnv })).toEqual(
+    expect(buildRepositoryShellEnv({ cwd: fixture.cwd, baseEnv })).toEqual(
       baseEnv,
     );
   });
@@ -124,7 +124,7 @@ describe("project nvm shell environment", () => {
       nvmrc: "v20.19.4",
       versions: ["v20.19.4"],
     });
-    const overrides = buildProjectNvmShellConfigOverrides({
+    const overrides = buildRepositoryNvmShellConfigOverrides({
       cwd: fixture.cwd,
       baseEnv: {
         HOME: fixture.root,

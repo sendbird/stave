@@ -159,7 +159,7 @@ export function WorkspaceProgressTaskTreeView(args: {
 export const WorkspaceProgressTaskTree = memo(
   function WorkspaceProgressTaskTree(args: {
     workspaceId: string;
-    projectPath: string;
+    repositoryPath: string;
   }) {
     const [
       tasks,
@@ -221,7 +221,7 @@ export const WorkspaceProgressTaskTree = memo(
           void focusTaskAttention({
             taskId,
             workspaceId: args.workspaceId,
-            projectPath: args.projectPath,
+            repositoryPath: args.repositoryPath,
           });
         }}
       />

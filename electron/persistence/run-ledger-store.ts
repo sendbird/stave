@@ -142,7 +142,7 @@ function mapRunRow(row: RunRow): RunRecord {
       id: row.origin_id,
     },
     ownership: {
-      projectPath: row.project_path,
+      repositoryPath: row.project_path,
       workspaceId: row.workspace_id,
       taskId: row.task_id,
     },
@@ -404,7 +404,7 @@ export class RunLedgerStore {
         run.kind,
         run.origin.kind,
         run.origin.id,
-        run.ownership.projectPath,
+        run.ownership.repositoryPath,
         run.ownership.workspaceId,
         run.ownership.taskId,
         run.status,

@@ -7,7 +7,7 @@ import {
   E2E_LENS_SESSION_ID,
   E2E_WORKSPACE_ID,
   launchStave,
-  seedProject,
+  seedRepository,
   type StaveApp,
 } from "./harness/stave-app";
 import {
@@ -45,7 +45,7 @@ const FIXTURE_HTML = `<!doctype html>
 
 let stave: StaveApp;
 let endpoint: StaveMcpEndpoint;
-let projectDir: string;
+let repositoryDir: string;
 let server: Server;
 let origin: string;
 
@@ -109,15 +109,15 @@ type NetworkPayload = {
 };
 
 test.beforeAll(async () => {
-  projectDir = await mkdtemp(path.join(tmpdir(), "stave-e2e-project-"));
+  repositoryDir = await mkdtemp(path.join(tmpdir(), "stave-e2e-project-"));
   await startFixtureServer();
 
   stave = await launchStave();
   await expect(stave.page.getByTestId("workspace-pane-host")).toBeVisible({
     timeout: 30_000,
   });
-  await seedProject(stave.page, {
-    projectPath: projectDir,
+  await seedRepository(stave.page, {
+    repositoryPath: repositoryDir,
     settings: {
       lensCdpApprovedHosts: ["127.0.0.1"],
       lensDeveloperModeCdp: true,
@@ -172,8 +172,8 @@ test.afterAll(async () => {
   }
   await stave?.close();
   await new Promise<void>((resolve) => server?.close(() => resolve()));
-  if (projectDir) {
-    await rm(projectDir, { recursive: true, force: true });
+  if (repositoryDir) {
+    await rm(repositoryDir, { recursive: true, force: true });
   }
 });
 

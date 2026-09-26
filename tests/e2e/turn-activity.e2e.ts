@@ -99,8 +99,8 @@ test("monitors active agents and tasks in a stacked composer shelf", async ({
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: workspaceId,
@@ -563,8 +563,8 @@ test("keeps activity rows mounted while their status changes", async ({
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: workspaceId,

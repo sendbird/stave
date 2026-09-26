@@ -9,16 +9,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui";
-import { PROJECT_MEMORY_KINDS } from "@/lib/project-memory";
+import { REPOSITORY_MEMORY_KINDS } from "@/lib/project-memory";
 import {
-  DEFAULT_PROJECT_MEMORY_SETTINGS,
-  type ProjectMemorySettings,
+  DEFAULT_REPOSITORY_MEMORY_SETTINGS,
+  type RepositoryMemorySettings,
 } from "@/lib/project-memory-settings";
 import { sx } from "@/components/ads/utils/stylex";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { projectMemoryControlsStyles as styles } from "./ProjectMemoryControls.styles";
+import { repositoryMemoryControlsStyles as styles } from "./ProjectMemoryControls.styles";
 
-export const PROJECT_MEMORY_CHANGED_EVENT = "stave:project-memory-changed";
+export const REPOSITORY_MEMORY_CHANGED_EVENT = "stave:project-memory-changed";
 const KIND_DESCRIPTIONS = {
   decision: "Decisions and their rationale",
   convention: "Conventions and preferences",
@@ -26,13 +26,13 @@ const KIND_DESCRIPTIONS = {
   fact: "Stable repository facts",
 };
 
-export function ProjectMemoryControls({
-  projectPath,
+export function RepositoryMemoryControls({
+  repositoryPath,
 }: {
-  projectPath: string;
+  repositoryPath: string;
 }) {
-  const [saved, setSaved] = useState<ProjectMemorySettings | null>(null);
-  const [draft, setDraft] = useState<ProjectMemorySettings | null>(null);
+  const [saved, setSaved] = useState<RepositoryMemorySettings | null>(null);
+  const [draft, setDraft] = useState<RepositoryMemorySettings | null>(null);
   const [counts, setCounts] = useState({ all: 0, candidates: 0 });
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -44,15 +44,15 @@ export function ProjectMemoryControls({
   );
   const reload = useCallback(async () => {
     const request = ++version.current;
-    const api = window.api?.projectMemory;
+    const api = window.api?.repositoryMemory;
     if (!api?.getSettings || !api.list) {
       setError("Memory controls require the updated desktop application.");
       return;
     }
     try {
       const [settings, list] = await Promise.all([
-        api.getSettings({ projectPath }),
-        api.list({ projectPath }),
+        api.getSettings({ repositoryPath }),
+        api.list({ repositoryPath }),
       ]);
       if (request !== version.current) return;
       if (!settings.ok || !settings.settings || !list.ok)
@@ -79,7 +79,7 @@ export function ProjectMemoryControls({
             : "Could not load memory settings.",
         );
     }
-  }, [projectPath]);
+  }, [repositoryPath]);
   useEffect(() => {
     setSaved(null);
     setDraft(null);
@@ -87,15 +87,15 @@ export function ProjectMemoryControls({
     const changed = () => {
       void reload();
     };
-    window.addEventListener(PROJECT_MEMORY_CHANGED_EVENT, changed);
+    window.addEventListener(REPOSITORY_MEMORY_CHANGED_EVENT, changed);
     return () => {
       version.current += 1;
-      window.removeEventListener(PROJECT_MEMORY_CHANGED_EVENT, changed);
+      window.removeEventListener(REPOSITORY_MEMORY_CHANGED_EVENT, changed);
     };
   }, [reload]);
 
   const save = async () => {
-    const api = window.api?.projectMemory;
+    const api = window.api?.repositoryMemory;
     if (!api?.saveSettings || !draft || !saved) return;
     const request = version.current;
     setBusy(true);
@@ -106,7 +106,7 @@ export function ProjectMemoryControls({
         ...patch
       } = draft;
       const result = await api.saveSettings({
-        projectPath,
+        repositoryPath,
         patch,
         expectedRevision: saved.revision,
       });
@@ -115,7 +115,7 @@ export function ProjectMemoryControls({
         throw new Error(result.message ?? "Could not save settings.");
       setSaved(result.settings);
       setDraft(result.settings);
-      window.dispatchEvent(new Event(PROJECT_MEMORY_CHANGED_EVENT));
+      window.dispatchEvent(new Event(REPOSITORY_MEMORY_CHANGED_EVENT));
     } catch (err) {
       if (request === version.current)
         setError(
@@ -126,17 +126,17 @@ export function ProjectMemoryControls({
     }
   };
   const clear = async () => {
-    const api = window.api?.projectMemory;
+    const api = window.api?.repositoryMemory;
     if (!api?.clear || !clearing) return;
     const request = version.current;
     setBusy(true);
     try {
-      const result = await api.clear({ projectPath, scope: clearing });
+      const result = await api.clear({ repositoryPath, scope: clearing });
       if (request !== version.current) return;
       if (!result.ok)
         throw new Error(result.message ?? "Could not clear memories.");
       setClearing(null);
-      window.dispatchEvent(new Event(PROJECT_MEMORY_CHANGED_EVENT));
+      window.dispatchEvent(new Event(REPOSITORY_MEMORY_CHANGED_EVENT));
     } catch (err) {
       if (request === version.current)
         setError(
@@ -207,7 +207,7 @@ export function ProjectMemoryControls({
             </label>
             <fieldset className={sx(styles.kindsFieldset)}>
               <legend className={sx(styles.legend)}>What to collect</legend>
-              {PROJECT_MEMORY_KINDS.map((kind) => (
+              {REPOSITORY_MEMORY_KINDS.map((kind) => (
                 <label key={kind} className={sx(styles.kindRow)}>
                   <input
                     type="checkbox"
@@ -261,8 +261,8 @@ export function ProjectMemoryControls({
                   setDraft({
                     ...draft,
                     collectionTemplate:
-                      DEFAULT_PROJECT_MEMORY_SETTINGS.collectionTemplate,
-                    kinds: [...DEFAULT_PROJECT_MEMORY_SETTINGS.kinds],
+                      DEFAULT_REPOSITORY_MEMORY_SETTINGS.collectionTemplate,
+                    kinds: [...DEFAULT_REPOSITORY_MEMORY_SETTINGS.kinds],
                   })
                 }
               >
@@ -331,14 +331,14 @@ export function ProjectMemoryControls({
   );
 }
 
-export function ProjectMemorySettingsSection(props: {
-  projects: Array<{ projectPath: string; projectName: string }>;
-  initialProjectPath?: string | null;
+export function RepositoryMemorySettingsSection(props: {
+  repositories: Array<{ repositoryPath: string; repositoryName: string }>;
+  initialRepositoryPath?: string | null;
 }) {
-  const [selected, setSelected] = useState(props.initialProjectPath ?? "");
-  const projectPath = props.projects.some((p) => p.projectPath === selected)
+  const [selected, setSelected] = useState(props.initialRepositoryPath ?? "");
+  const repositoryPath = props.repositories.some((p) => p.repositoryPath === selected)
     ? selected
-    : (props.projects[0]?.projectPath ?? "");
+    : (props.repositories[0]?.repositoryPath ?? "");
   return (
     <section className={sx(styles.section)}>
       <div>
@@ -348,24 +348,24 @@ export function ProjectMemorySettingsSection(props: {
           workspaces.
         </p>
       </div>
-      {projectPath ? (
+      {repositoryPath ? (
         <>
-          <Select value={projectPath} onValueChange={setSelected}>
+          <Select value={repositoryPath} onValueChange={setSelected}>
             <SelectTrigger aria-label="Memory repository">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {props.projects.map((project) => (
+              {props.repositories.map((repository) => (
                 <SelectItem
-                  key={project.projectPath}
-                  value={project.projectPath}
+                  key={repository.repositoryPath}
+                  value={repository.repositoryPath}
                 >
-                  {project.projectName}
+                  {repository.repositoryName}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
-          <ProjectMemoryControls key={projectPath} projectPath={projectPath} />
+          <RepositoryMemoryControls key={repositoryPath} repositoryPath={repositoryPath} />
         </>
       ) : (
         <p className={sx(styles.loading)}>

@@ -10,7 +10,7 @@ import { buildDelegatedTaskRuntimeOptions } from "../src/lib/runs/delegated-task
 import { resolveManagedTaskRuntimeOptions } from "../src/lib/providers/managed-task-runtime";
 import type { DelegateTaskArgs } from "../src/lib/runs/delegated-task";
 
-const PROJECT_PATH = "/tmp/stave";
+const REPOSITORY_PATH = "/tmp/stave";
 const PARENT_WORKSPACE = "workspace-parent";
 const PARENT_TASK = "parent-task-1";
 
@@ -67,7 +67,7 @@ function createHost(
   const knownWorkspaces = new Map(
     Object.entries(
       options.knownWorkspaces ?? {
-        [PARENT_WORKSPACE]: `${PROJECT_PATH}/.stave/workspaces/parent`,
+        [PARENT_WORKSPACE]: `${REPOSITORY_PATH}/.stave/workspaces/parent`,
       },
     ),
   );
@@ -76,15 +76,15 @@ function createHost(
     async resolveWorkspace({ workspaceId }) {
       const workspacePath = knownWorkspaces.get(workspaceId);
       return workspacePath
-        ? { workspaceId, workspacePath, projectPath: PROJECT_PATH }
+        ? { workspaceId, workspacePath, repositoryPath: REPOSITORY_PATH }
         : null;
     },
     async createWorkspace({ name }) {
       createWorkspaceCalls.push({ name });
       const workspaceId = `workspace-${name}`;
-      const workspacePath = `${PROJECT_PATH}/.stave/workspaces/${name}`;
+      const workspacePath = `${REPOSITORY_PATH}/.stave/workspaces/${name}`;
       knownWorkspaces.set(workspaceId, workspacePath);
-      return { workspaceId, workspacePath, projectPath: PROJECT_PATH };
+      return { workspaceId, workspacePath, repositoryPath: REPOSITORY_PATH };
     },
     async getTaskStatus({ taskId }) {
       if (hostUnavailable) {
@@ -150,7 +150,7 @@ function delegateArgs(
   overrides: Partial<DelegateTaskArgs> = {},
 ): DelegateTaskArgs {
   return {
-    projectPath: PROJECT_PATH,
+    repositoryPath: REPOSITORY_PATH,
     parentWorkspaceId: PARENT_WORKSPACE,
     parentTaskId: PARENT_TASK,
     delegationKey: "review-docs",
@@ -249,15 +249,15 @@ describe("delegated task coordinator", () => {
     const unknownWorkspace = await harness.coordinator.delegate(
       delegateArgs({ parentWorkspaceId: "workspace-unknown" }),
     );
-    const foreignProject = await harness.coordinator.delegate(
-      delegateArgs({ projectPath: "/tmp/other-project" }),
+    const foreignRepository = await harness.coordinator.delegate(
+      delegateArgs({ repositoryPath: "/tmp/other-project" }),
     );
     const unknownParent = await harness.coordinator.delegate(
       delegateArgs({ parentTaskId: "parent-task-missing" }),
     );
 
     expect(unknownWorkspace.reason).toBe("invalid-ownership");
-    expect(foreignProject.reason).toBe("invalid-ownership");
+    expect(foreignRepository.reason).toBe("invalid-ownership");
     expect(unknownParent.reason).toBe("invalid-ownership");
     expect(harness.runTaskCalls).toHaveLength(0);
   });
@@ -568,7 +568,7 @@ describe("delegated task coordinator", () => {
     // must not be refused as an input mismatch, and it must not silently swap
     // the child onto a fresh workspace, default model, or default profile.
     const retried = await harness.coordinator.retry({
-      projectPath: PROJECT_PATH,
+      repositoryPath: REPOSITORY_PATH,
       parentWorkspaceId: PARENT_WORKSPACE,
       parentTaskId: PARENT_TASK,
       delegationKey: "review-docs",
@@ -621,7 +621,7 @@ describe("delegated task coordinator", () => {
     });
 
     await harness.coordinator.retry({
-      projectPath: PROJECT_PATH,
+      repositoryPath: REPOSITORY_PATH,
       parentWorkspaceId: PARENT_WORKSPACE,
       parentTaskId: PARENT_TASK,
       delegationKey: "review-docs",
@@ -711,7 +711,7 @@ describe("delegated task coordinator", () => {
       delegationKey: "review-docs",
     });
     await harness.coordinator.retry({
-      projectPath: PROJECT_PATH,
+      repositoryPath: REPOSITORY_PATH,
       parentWorkspaceId: PARENT_WORKSPACE,
       parentTaskId: PARENT_TASK,
       delegationKey: "review-docs",

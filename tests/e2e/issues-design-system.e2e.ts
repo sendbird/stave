@@ -19,7 +19,7 @@ async function seedTasks(page: Page) {
         labels: [{ name: "design" }],
         dueDate: null,
         effort: null,
-        project: null,
+        repository: null,
         team: null,
         parentKey: null,
         subtasks: null,
@@ -62,8 +62,8 @@ async function seedTasks(page: Page) {
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-tasks",
-          projectName: "stave-tasks",
+          repositoryPath: "/tmp/stave-tasks",
+          repositoryName: "stave-tasks",
           workspaces: [
             {
               id: "ws-main",
@@ -75,10 +75,10 @@ async function seedTasks(page: Page) {
           workspaceBranchById: { "ws-main": "main" },
           workspacePathById: { "ws-main": "/tmp/stave-tasks" },
           workspaceDefaultById: { "ws-main": true },
-          recentProjects: [
+          recentRepositories: [
             {
-              projectPath: "/tmp/stave-tasks",
-              projectName: "stave-tasks",
+              repositoryPath: "/tmp/stave-tasks",
+              repositoryName: "stave-tasks",
               workspaces: [{ id: "ws-main", name: "main" }],
             },
           ],

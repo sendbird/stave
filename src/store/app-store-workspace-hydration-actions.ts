@@ -4,10 +4,10 @@ import {
   closeWorkspacePersistence,
   listWorkspaceSummaries,
   loadTaskMessagesPage,
-  loadProjectRegistryState,
+  loadRepositoryRegistryState,
   loadWorkspaceShellForRestore,
   loadWorkspaceShellSummary,
-  saveProjectRegistrySnapshot,
+  saveRepositoryRegistrySnapshot,
   type WorkspaceSummary,
 } from "@/lib/db/workspaces.db";
 import { workspaceFsAdapter } from "@/lib/fs";
@@ -33,22 +33,22 @@ import {
 } from "@/store/notification-actions";
 import {
   buildImportedWorktreeWorkspaceId,
-  captureCurrentProjectState,
-  normalizeProjectDisplayName,
-  normalizeRecentProjectStates,
+  captureCurrentRepositoryState,
+  normalizeRepositoryDisplayName,
+  normalizeRecentRepositoryStates,
   reconcileArchivedWorkspacePaths,
   registerTaskWorkspaceOwnership,
-  resolveCurrentProjectDefaultWorkspaceId,
+  resolveCurrentRepositoryDefaultWorkspaceId,
   resolveImportedWorktreeName,
-  resolveRecentProjectPreferences,
+  resolveRecentRepositoryPreferences,
   retainTaskWorkspaceOwnership,
   toWorkspaceFolderName,
-  upsertRecentProjectState,
-  type RecentProjectState,
+  upsertRecentRepositoryState,
+  type RecentRepositoryState,
 } from "@/store/project.utils";
 import {
-  getArchivedWorktreePathSetForProject,
-  getLinkedWorktreePathSetForProject,
+  getArchivedWorktreePathSetForRepository,
+  getLinkedWorktreePathSetForRepository,
 } from "@/store/workspace-archive-cleanup";
 import {
   rememberCachedWorkspaceFiles,
@@ -111,47 +111,47 @@ function compactLoadedMessagesByTask(args: {
   return changed ? Object.fromEntries(nextEntries) : args.messagesByTask;
 }
 
-function mergeRecentProjectsByPath(args: {
-  persistedProjects: RecentProjectState[];
-  stateProjects: RecentProjectState[];
+function mergeRecentRepositoriesByPath(args: {
+  persistedRepositories: RecentRepositoryState[];
+  stateRepositories: RecentRepositoryState[];
 }) {
-  const persistedProjects = normalizeRecentProjectStates({
-    projects: args.persistedProjects,
+  const persistedRepositories = normalizeRecentRepositoryStates({
+    repositories: args.persistedRepositories,
   });
-  const stateProjects = normalizeRecentProjectStates({
-    projects: args.stateProjects,
+  const stateRepositories = normalizeRecentRepositoryStates({
+    repositories: args.stateRepositories,
   });
-  let merged = persistedProjects;
-  for (const project of stateProjects) {
+  let merged = persistedRepositories;
+  for (const repository of stateRepositories) {
     const existing = merged.find(
-      (item) => item.projectPath === project.projectPath,
+      (item) => item.repositoryPath === repository.repositoryPath,
     );
-    if (!existing || project.lastOpenedAt >= existing.lastOpenedAt) {
-      merged = upsertRecentProjectState({
-        projects: merged,
-        project,
+    if (!existing || repository.lastOpenedAt >= existing.lastOpenedAt) {
+      merged = upsertRecentRepositoryState({
+        repositories: merged,
+        repository,
       });
     }
   }
   // Archive tombstones must survive either durable source losing them —
   // otherwise `refreshWorkspaces` re-discovers a preserved dirty worktree and
-  // the archived workspace resurrects. Union both sources per project, minus
+  // the archived workspace resurrects. Union both sources per repository, minus
   // any path that is registered as a live workspace again.
-  return merged.map((project) => {
-    const persisted = persistedProjects.find(
-      (item) => item.projectPath === project.projectPath,
+  return merged.map((repository) => {
+    const persisted = persistedRepositories.find(
+      (item) => item.repositoryPath === repository.repositoryPath,
     );
-    const fromState = stateProjects.find(
-      (item) => item.projectPath === project.projectPath,
+    const fromState = stateRepositories.find(
+      (item) => item.repositoryPath === repository.repositoryPath,
     );
     const archivedWorkspacePaths = reconcileArchivedWorkspacePaths({
       primary: persisted?.archivedWorkspacePaths,
       secondary: fromState?.archivedWorkspacePaths,
-      workspacePathById: project.workspacePathById,
+      workspacePathById: repository.workspacePathById,
     });
-    const { archivedWorkspacePaths: _current, ...projectRest } = project;
+    const { archivedWorkspacePaths: _current, ...repositoryRest } = repository;
     return {
-      ...projectRest,
+      ...repositoryRest,
       ...(archivedWorkspacePaths.length > 0 ? { archivedWorkspacePaths } : {}),
     };
   });
@@ -254,8 +254,8 @@ export const loadWorkspaceSessionFromPersistence = async (args: {
 };
 
 type WorkspaceHydrationActionKey =
-  | "hydrateProjectRegistry"
-  | "flushProjectRegistry"
+  | "hydrateRepositoryRegistry"
+  | "flushRepositoryRegistry"
   | "hydrateWorkspaces"
   | "refreshWorkspaces"
   | "hydrateNotifications"
@@ -283,80 +283,80 @@ export function createWorkspaceHydrationActions(args: {
   } = args;
 
   return {
-    hydrateProjectRegistry: async () => {
-      const registry = await loadProjectRegistryState();
-      const rawPersistedProjects = registry.projects as RecentProjectState[];
-      const persistedProjects = normalizeRecentProjectStates({
-        projects: rawPersistedProjects,
+    hydrateRepositoryRegistry: async () => {
+      const registry = await loadRepositoryRegistryState();
+      const rawPersistedRepositories = registry.repositories as RecentRepositoryState[];
+      const persistedRepositories = normalizeRecentRepositoryStates({
+        repositories: rawPersistedRepositories,
       });
-      if (persistedProjects.length === 0) {
+      if (persistedRepositories.length === 0) {
         return;
       }
       // Chromium's lightweight selection cache can be absent after a crash.
-      // Restore the acknowledged selection without opening a different project
+      // Restore the acknowledged selection without opening a different repository
       // over a user's in-flight selection. An explicit null stays unselected.
-      const restoredProject = registry.activeProjectPath
-        ? persistedProjects.find((project) => project.projectPath === registry.activeProjectPath)
+      const restoredRepository = registry.activeRepositoryPath
+        ? persistedRepositories.find((repository) => repository.repositoryPath === registry.activeRepositoryPath)
         : undefined;
-      if (!get().projectPath && restoredProject) {
-        set((current) => current.projectPath ? current : ({
-          projectPath: restoredProject.projectPath,
-          projectName: restoredProject.projectName,
-          defaultBranch: restoredProject.defaultBranch,
-          workspaces: restoredProject.workspaces,
-          activeWorkspaceId: restoredProject.activeWorkspaceId,
-          workspaceBranchById: restoredProject.workspaceBranchById,
-          workspacePathById: restoredProject.workspacePathById,
-          workspaceDefaultById: restoredProject.workspaceDefaultById,
-          workspaceLastActiveAtById: restoredProject.workspaceLastActiveAtById ?? {},
+      if (!get().repositoryPath && restoredRepository) {
+        set((current) => current.repositoryPath ? current : ({
+          repositoryPath: restoredRepository.repositoryPath,
+          repositoryName: restoredRepository.repositoryName,
+          defaultBranch: restoredRepository.defaultBranch,
+          workspaces: restoredRepository.workspaces,
+          activeWorkspaceId: restoredRepository.activeWorkspaceId,
+          workspaceBranchById: restoredRepository.workspaceBranchById,
+          workspacePathById: restoredRepository.workspacePathById,
+          workspaceDefaultById: restoredRepository.workspaceDefaultById,
+          workspaceLastActiveAtById: restoredRepository.workspaceLastActiveAtById ?? {},
         }));
       }
       const state = get();
-      const mergedProjects = mergeRecentProjectsByPath({
-        persistedProjects,
-        stateProjects: state.recentProjects,
+      const mergedRepositories = mergeRecentRepositoriesByPath({
+        persistedRepositories,
+        stateRepositories: state.recentRepositories,
       });
-      const currentProject = state.projectPath
-        ? (mergedProjects.find(
-            (project) => project.projectPath === state.projectPath,
+      const currentRepository = state.repositoryPath
+        ? (mergedRepositories.find(
+            (repository) => repository.repositoryPath === state.repositoryPath,
           ) ?? null)
         : null;
       if (
-        currentProject ||
-        mergedProjects.length !== state.recentProjects.length
+        currentRepository ||
+        mergedRepositories.length !== state.recentRepositories.length
       ) {
         set(() => ({
-          recentProjects: mergedProjects,
-          ...(currentProject
+          recentRepositories: mergedRepositories,
+          ...(currentRepository
             ? {
-                projectName: normalizeProjectDisplayName({
-                  projectPath: currentProject.projectPath,
-                  projectName:
-                    state.projectName?.trim() || currentProject.projectName,
+                repositoryName: normalizeRepositoryDisplayName({
+                  repositoryPath: currentRepository.repositoryPath,
+                  repositoryName:
+                    state.repositoryName?.trim() || currentRepository.repositoryName,
                 }),
                 defaultBranch:
-                  state.defaultBranch || currentProject.defaultBranch,
+                  state.defaultBranch || currentRepository.defaultBranch,
               }
             : {}),
         }));
       }
       if (
-        JSON.stringify(rawPersistedProjects) !== JSON.stringify(mergedProjects)
+        JSON.stringify(rawPersistedRepositories) !== JSON.stringify(mergedRepositories)
       ) {
-        await saveProjectRegistrySnapshot({
-          projects: mergedProjects,
+        await saveRepositoryRegistrySnapshot({
+          repositories: mergedRepositories,
         });
       }
     },
-    flushProjectRegistry: async () => {
+    flushRepositoryRegistry: async () => {
       const state = get();
-      const projects = captureCurrentProjectState({
-        recentProjects: state.recentProjects,
-        projectPath: state.projectPath,
-        projectName: state.projectPath
-          ? normalizeProjectDisplayName({
-              projectPath: state.projectPath,
-              projectName: state.projectName,
+      const repositories = captureCurrentRepositoryState({
+        recentRepositories: state.recentRepositories,
+        repositoryPath: state.repositoryPath,
+        repositoryName: state.repositoryPath
+          ? normalizeRepositoryDisplayName({
+              repositoryPath: state.repositoryPath,
+              repositoryName: state.repositoryName,
             })
           : null,
         defaultBranch: state.defaultBranch,
@@ -367,44 +367,44 @@ export function createWorkspaceHydrationActions(args: {
         workspaceDefaultById: state.workspaceDefaultById,
         workspaceLastActiveAtById: state.workspaceLastActiveAtById,
       });
-      await saveProjectRegistrySnapshot({
-        projects,
-        activeProjectPath: state.projectPath,
+      await saveRepositoryRegistrySnapshot({
+        repositories,
+        activeRepositoryPath: state.repositoryPath,
       });
     },
     hydrateWorkspaces: async () => {
       const workspaceIdentityRequestToken = beginWorkspaceIdentityRequest();
-      await get().hydrateProjectRegistry();
+      await get().hydrateRepositoryRegistry();
       let initialRows = await listWorkspaceSummaries();
       const stateBeforeHydrate = get();
-      const currentProject = stateBeforeHydrate.projectPath
-        ? (stateBeforeHydrate.recentProjects.find(
-            (project) => project.projectPath === stateBeforeHydrate.projectPath,
+      const currentRepository = stateBeforeHydrate.repositoryPath
+        ? (stateBeforeHydrate.recentRepositories.find(
+            (repository) => repository.repositoryPath === stateBeforeHydrate.repositoryPath,
           ) ?? null)
         : null;
       const rememberedWorkspaceIds = new Set([
-        ...(currentProject?.workspaces.map((workspace) => workspace.id) ??
+        ...(currentRepository?.workspaces.map((workspace) => workspace.id) ??
           stateBeforeHydrate.workspaces.map((workspace) => workspace.id)),
         ...Object.keys(
-          currentProject?.workspacePathById ??
+          currentRepository?.workspacePathById ??
             stateBeforeHydrate.workspacePathById,
         ),
       ]);
-      const currentProjectDefaultWorkspaceId =
-        resolveCurrentProjectDefaultWorkspaceId({
-          projectPath: stateBeforeHydrate.projectPath,
+      const currentRepositoryDefaultWorkspaceId =
+        resolveCurrentRepositoryDefaultWorkspaceId({
+          repositoryPath: stateBeforeHydrate.repositoryPath,
           workspaces:
-            currentProject?.workspaces ?? stateBeforeHydrate.workspaces,
+            currentRepository?.workspaces ?? stateBeforeHydrate.workspaces,
           workspaceDefaultById:
-            currentProject?.workspaceDefaultById ??
+            currentRepository?.workspaceDefaultById ??
             stateBeforeHydrate.workspaceDefaultById,
           workspacePathById:
-            currentProject?.workspacePathById ??
+            currentRepository?.workspacePathById ??
             stateBeforeHydrate.workspacePathById,
         });
-      if (initialRows.length === 0 && stateBeforeHydrate.projectPath) {
+      if (initialRows.length === 0 && stateBeforeHydrate.repositoryPath) {
         await persistWorkspaceSnapshot({
-          workspaceId: currentProjectDefaultWorkspaceId,
+          workspaceId: currentRepositoryDefaultWorkspaceId,
           workspaceName: defaultWorkspaceName,
           activeTaskId: "",
           tasks: [],
@@ -426,43 +426,43 @@ export function createWorkspaceHydrationActions(args: {
         initialRows.map((workspace) => [workspace.id, workspace] as const),
       );
       const rememberedRows =
-        currentProject?.workspaces ?? stateBeforeHydrate.workspaces;
+        currentRepository?.workspaces ?? stateBeforeHydrate.workspaces;
       let rows =
         rememberedWorkspaceIds.size > 0
           ? rememberedRows.map(
               (workspace) => persistedRowsById.get(workspace.id) ?? workspace,
             )
           : initialRows;
-      if (rows.length === 0 && stateBeforeHydrate.projectPath) {
+      if (rows.length === 0 && stateBeforeHydrate.repositoryPath) {
         rows = [
           {
-            id: currentProjectDefaultWorkspaceId,
+            id: currentRepositoryDefaultWorkspaceId,
             name: defaultWorkspaceName,
             updatedAt: new Date().toISOString(),
           },
         ];
       }
-      const defaultWorkspaceId = resolveCurrentProjectDefaultWorkspaceId({
-        projectPath: stateBeforeHydrate.projectPath,
+      const defaultWorkspaceId = resolveCurrentRepositoryDefaultWorkspaceId({
+        repositoryPath: stateBeforeHydrate.repositoryPath,
         workspaces: rows,
         workspaceDefaultById:
-          currentProject?.workspaceDefaultById ??
+          currentRepository?.workspaceDefaultById ??
           stateBeforeHydrate.workspaceDefaultById,
         workspacePathById:
-          currentProject?.workspacePathById ??
+          currentRepository?.workspacePathById ??
           stateBeforeHydrate.workspacePathById,
       });
       const branchById: Record<string, string> = {
-        ...(currentProject?.workspaceBranchById ??
+        ...(currentRepository?.workspaceBranchById ??
           stateBeforeHydrate.workspaceBranchById),
       };
       const pathById: Record<string, string> = {
-        ...(currentProject?.workspacePathById ??
+        ...(currentRepository?.workspacePathById ??
           stateBeforeHydrate.workspacePathById),
       };
-      const archivedWorktreePathSet = getArchivedWorktreePathSetForProject({
-        projectPath: stateBeforeHydrate.projectPath,
-        recentProjects: stateBeforeHydrate.recentProjects,
+      const archivedWorktreePathSet = getArchivedWorktreePathSetForRepository({
+        repositoryPath: stateBeforeHydrate.repositoryPath,
+        recentRepositories: stateBeforeHydrate.recentRepositories,
       });
       if (archivedWorktreePathSet.size > 0) {
         const archivedRowIds = rows
@@ -472,8 +472,8 @@ export function createWorkspaceHydrationActions(args: {
             }
             const comparablePath = normalizeComparablePath(
               pathById[row.id] ??
-                (stateBeforeHydrate.projectPath
-                  ? `${stateBeforeHydrate.projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`
+                (stateBeforeHydrate.repositoryPath
+                  ? `${stateBeforeHydrate.repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`
                   : null),
             );
             return archivedWorktreePathSet.has(comparablePath);
@@ -491,15 +491,15 @@ export function createWorkspaceHydrationActions(args: {
 
       // Worktree cleanup: remove DB workspaces whose git worktrees no longer exist
       const runner = window.api?.terminal?.runCommand;
-      const projectPath = stateBeforeHydrate.projectPath;
-      const linkedWorktreePathSet = getLinkedWorktreePathSetForProject({
-        projectPath: stateBeforeHydrate.projectPath,
-        recentProjects: stateBeforeHydrate.recentProjects,
+      const repositoryPath = stateBeforeHydrate.repositoryPath;
+      const linkedWorktreePathSet = getLinkedWorktreePathSetForRepository({
+        repositoryPath: stateBeforeHydrate.repositoryPath,
+        recentRepositories: stateBeforeHydrate.recentRepositories,
       });
-      if (runner && projectPath) {
-        await runner({ cwd: projectPath, command: "git worktree prune" });
+      if (runner && repositoryPath) {
+        await runner({ cwd: repositoryPath, command: "git worktree prune" });
         const listResult = await runner({
-          cwd: projectPath,
+          cwd: repositoryPath,
           command: "git worktree list --porcelain",
         });
         if (listResult.ok) {
@@ -511,8 +511,8 @@ export function createWorkspaceHydrationActions(args: {
               const comparablePath = normalizeComparablePath(
                 pathById[row.id] ??
                   (row.id === defaultWorkspaceId
-                    ? projectPath
-                    : `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`),
+                    ? repositoryPath
+                    : `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`),
               );
               const snapshotScore =
                 row.id === defaultWorkspaceId
@@ -554,8 +554,8 @@ export function createWorkspaceHydrationActions(args: {
             const comparablePath = normalizeComparablePath(
               pathById[row.id] ??
                 (row.id === defaultWorkspaceId
-                  ? projectPath
-                  : `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`),
+                  ? repositoryPath
+                  : `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`),
             );
             if (!comparablePath) {
               return true;
@@ -572,7 +572,7 @@ export function createWorkspaceHydrationActions(args: {
             if (row.id === defaultWorkspaceId) continue;
             const wsPath =
               pathById[row.id] ??
-              `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`;
+              `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`;
             const comparableWsPath = normalizeComparablePath(wsPath);
             if (
               !registeredPaths.has(comparableWsPath) &&
@@ -601,8 +601,8 @@ export function createWorkspaceHydrationActions(args: {
             }
             if (!pathById[row.id]) {
               pathById[row.id] = isDefault
-                ? projectPath
-                : `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`;
+                ? repositoryPath
+                : `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`;
             }
           }
 
@@ -612,13 +612,13 @@ export function createWorkspaceHydrationActions(args: {
                 normalizeComparablePath(
                   pathById[row.id] ??
                     (row.id === defaultWorkspaceId
-                      ? projectPath
-                      : `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`),
+                      ? repositoryPath
+                      : `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`),
                 ),
               )
               .filter(Boolean),
           );
-          const currentProjectPath = normalizeComparablePath(projectPath);
+          const currentRepositoryPath = normalizeComparablePath(repositoryPath);
 
           for (const worktree of discoveredWorktrees) {
             const normalizedWorktreePath = normalizeComparablePath(
@@ -627,7 +627,7 @@ export function createWorkspaceHydrationActions(args: {
             if (
               !worktree.branch ||
               !normalizedWorktreePath ||
-              normalizedWorktreePath === currentProjectPath ||
+              normalizedWorktreePath === currentRepositoryPath ||
               knownPaths.has(normalizedWorktreePath) ||
               archivedWorktreePathSet.has(normalizedWorktreePath)
             ) {
@@ -643,8 +643,8 @@ export function createWorkspaceHydrationActions(args: {
                 const comparablePath = normalizeComparablePath(
                   pathById[row.id] ??
                     (row.id === defaultWorkspaceId
-                      ? projectPath
-                      : `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`),
+                      ? repositoryPath
+                      : `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`),
                 );
                 return comparablePath === normalizedWorktreePath;
               }) ?? null;
@@ -656,7 +656,7 @@ export function createWorkspaceHydrationActions(args: {
                 }
                 const comparablePath = normalizeComparablePath(
                   pathById[row.id] ??
-                    `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`,
+                    `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`,
                 );
                 return (
                   comparablePath === normalizedWorktreePath ||
@@ -686,7 +686,7 @@ export function createWorkspaceHydrationActions(args: {
             const workspaceId =
               matchedWorkspace?.id ??
               buildImportedWorktreeWorkspaceId({
-                projectPath,
+                repositoryPath,
                 worktreePath: worktree.path,
               });
             const persistedWorkspace =
@@ -739,10 +739,10 @@ export function createWorkspaceHydrationActions(args: {
             ? stateBeforeHydrate.defaultBranch
             : row.name;
         }
-        if (!pathById[row.id] && projectPath) {
+        if (!pathById[row.id] && repositoryPath) {
           pathById[row.id] = isDefault
-            ? projectPath
-            : `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`;
+            ? repositoryPath
+            : `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: row.name })}`;
         }
       }
 
@@ -772,30 +772,30 @@ export function createWorkspaceHydrationActions(args: {
       });
 
       const preferredWorkspacePath = pathById[preferredWorkspaceId] ?? null;
-      const projectFiles = resolveInitialWorkspaceFiles({
+      const repositoryFiles = resolveInitialWorkspaceFiles({
         workspacePath: preferredWorkspacePath,
-        activeProjectPath: stateBeforeHydrate.projectPath,
-        activeProjectFiles: stateBeforeHydrate.projectFiles,
+        activeRepositoryPath: stateBeforeHydrate.repositoryPath,
+        activeRepositoryFiles: stateBeforeHydrate.repositoryFiles,
         workspaceFileCacheByPath: stateBeforeHydrate.workspaceFileCacheByPath,
       });
       if (preferredWorkspacePath) {
         await workspaceFsAdapter.setRoot?.({
           rootPath: preferredWorkspacePath,
-          rootName: stateBeforeHydrate.projectPath
-            ? normalizeProjectDisplayName({
-                projectPath: stateBeforeHydrate.projectPath,
-                projectName: stateBeforeHydrate.projectName,
+          rootName: stateBeforeHydrate.repositoryPath
+            ? normalizeRepositoryDisplayName({
+                repositoryPath: stateBeforeHydrate.repositoryPath,
+                repositoryName: stateBeforeHydrate.repositoryName,
               })
             : "project",
-          files: projectFiles,
+          files: repositoryFiles,
         });
       }
 
       set((state) => {
         if (
           !isCurrentWorkspaceIdentityRequest(workspaceIdentityRequestToken) ||
-          normalizeComparablePath(state.projectPath) !==
-            normalizeComparablePath(stateBeforeHydrate.projectPath)
+          normalizeComparablePath(state.repositoryPath) !==
+            normalizeComparablePath(stateBeforeHydrate.repositoryPath)
         ) {
           return state;
         }
@@ -818,10 +818,10 @@ export function createWorkspaceHydrationActions(args: {
           .filter((workspace) => !rows.some((row) => row.id === workspace.id))
           .map(
             (workspace) =>
-              (currentProject?.workspacePathById ??
+              (currentRepository?.workspacePathById ??
                 stateBeforeHydrate.workspacePathById)[workspace.id] ??
               (workspace.id === defaultWorkspaceId
-                ? stateBeforeHydrate.projectPath
+                ? stateBeforeHydrate.repositoryPath
                 : null),
           );
 
@@ -832,14 +832,14 @@ export function createWorkspaceHydrationActions(args: {
           taskMessagesLoadingByTask: {},
           workspaces: rows,
           activeWorkspaceId: preferredWorkspaceId,
-          recentProjects: state.projectPath
-            ? upsertRecentProjectState({
-                projects: state.recentProjects,
-                project: {
-                  projectPath: state.projectPath,
-                  projectName: normalizeProjectDisplayName({
-                    projectPath: state.projectPath,
-                    projectName: state.projectName,
+          recentRepositories: state.repositoryPath
+            ? upsertRecentRepositoryState({
+                repositories: state.recentRepositories,
+                repository: {
+                  repositoryPath: state.repositoryPath,
+                  repositoryName: normalizeRepositoryDisplayName({
+                    repositoryPath: state.repositoryPath,
+                    repositoryName: state.repositoryName,
                   }),
                   lastOpenedAt: new Date().toISOString(),
                   defaultBranch: state.defaultBranch,
@@ -850,26 +850,26 @@ export function createWorkspaceHydrationActions(args: {
                   workspaceDefaultById: defaultWorkspaceId
                     ? { [defaultWorkspaceId]: true }
                     : {},
-                  ...resolveRecentProjectPreferences({
-                    projectPath: state.projectPath,
-                    recentProjects: state.recentProjects,
+                  ...resolveRecentRepositoryPreferences({
+                    repositoryPath: state.repositoryPath,
+                    recentRepositories: state.recentRepositories,
                   }),
                 },
               })
-            : state.recentProjects,
+            : state.recentRepositories,
           workspaceDefaultById: defaultWorkspaceId
             ? { [defaultWorkspaceId]: true }
             : {},
           workspaceBranchById: branchById,
           workspacePathById: pathById,
-          projectFiles,
+          repositoryFiles,
           workspaceFileCacheByPath: rememberCachedWorkspaceFiles({
             workspaceFileCacheByPath: removeCachedWorkspaceFiles({
               workspaceFileCacheByPath: state.workspaceFileCacheByPath,
               workspacePaths: staleWorkspacePaths,
             }),
             workspacePath: preferredWorkspacePath,
-            files: projectFiles,
+            files: repositoryFiles,
           }),
           workspaceRuntimeCacheById: nextRuntimeCacheById,
           taskWorkspaceIdById: registerTaskWorkspaceOwnership({
@@ -924,14 +924,14 @@ export function createWorkspaceHydrationActions(args: {
     },
     refreshWorkspaces: async () => {
       const state = get();
-      if (!state.hasHydratedWorkspaces || !state.projectPath) {
+      if (!state.hasHydratedWorkspaces || !state.repositoryPath) {
         return;
       }
       const runner = window.api?.terminal?.runCommand;
       if (!runner) {
         return;
       }
-      const projectPath = state.projectPath;
+      const repositoryPath = state.repositoryPath;
       const persistedRowsById = new Map(
         (await listWorkspaceSummaries()).map(
           (workspace) => [workspace.id, workspace] as const,
@@ -939,9 +939,9 @@ export function createWorkspaceHydrationActions(args: {
       );
 
       // Prune and list current git worktrees.
-      await runner({ cwd: projectPath, command: "git worktree prune" });
+      await runner({ cwd: repositoryPath, command: "git worktree prune" });
       const listResult = await runner({
-        cwd: projectPath,
+        cwd: repositoryPath,
         command: "git worktree list --porcelain",
       });
       if (!listResult.ok) {
@@ -951,19 +951,19 @@ export function createWorkspaceHydrationActions(args: {
         stdout: listResult.stdout,
       });
 
-      const defaultWorkspaceId = resolveCurrentProjectDefaultWorkspaceId({
-        projectPath,
+      const defaultWorkspaceId = resolveCurrentRepositoryDefaultWorkspaceId({
+        repositoryPath,
         workspaces: state.workspaces,
         workspaceDefaultById: state.workspaceDefaultById,
         workspacePathById: state.workspacePathById,
       });
-      const archivedWorktreePathSet = getArchivedWorktreePathSetForProject({
-        projectPath,
-        recentProjects: state.recentProjects,
+      const archivedWorktreePathSet = getArchivedWorktreePathSetForRepository({
+        repositoryPath,
+        recentRepositories: state.recentRepositories,
       });
-      const linkedWorktreePathSet = getLinkedWorktreePathSetForProject({
-        projectPath,
-        recentProjects: state.recentProjects,
+      const linkedWorktreePathSet = getLinkedWorktreePathSetForRepository({
+        repositoryPath,
+        recentRepositories: state.recentRepositories,
       });
 
       // Build set of known workspace paths for quick lookup.
@@ -972,8 +972,8 @@ export function createWorkspaceHydrationActions(args: {
         const wsPath = normalizeComparablePath(
           state.workspacePathById[workspace.id] ??
             (workspace.id === defaultWorkspaceId
-              ? projectPath
-              : `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: workspace.name })}`),
+              ? repositoryPath
+              : `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: workspace.name })}`),
         );
         if (wsPath) {
           knownPathToId.set(wsPath, workspace.id);
@@ -985,7 +985,7 @@ export function createWorkspaceHydrationActions(args: {
           .map((entry) => normalizeComparablePath(entry.path))
           .filter(Boolean),
       );
-      const currentProjectPath = normalizeComparablePath(projectPath);
+      const currentRepositoryPath = normalizeComparablePath(repositoryPath);
 
       // Detect new worktrees not yet tracked as workspaces.
       const newRows: WorkspaceSummary[] = [];
@@ -996,7 +996,7 @@ export function createWorkspaceHydrationActions(args: {
         if (
           !worktree.branch ||
           !normalizedWorktreePath ||
-          normalizedWorktreePath === currentProjectPath ||
+          normalizedWorktreePath === currentRepositoryPath ||
           knownPathToId.has(normalizedWorktreePath) ||
           // Skip worktrees the user archived; re-registering preserved
           // dirty worktrees is the "archive resurrection" bug.
@@ -1010,7 +1010,7 @@ export function createWorkspaceHydrationActions(args: {
           worktreePath: worktree.path,
         });
         const workspaceId = buildImportedWorktreeWorkspaceId({
-          projectPath,
+          repositoryPath,
           worktreePath: worktree.path,
         });
         const persistedWorkspace = persistedRowsById.get(workspaceId);
@@ -1053,7 +1053,7 @@ export function createWorkspaceHydrationActions(args: {
         if (workspace.id === defaultWorkspaceId) continue;
         const wsPath = normalizeComparablePath(
           state.workspacePathById[workspace.id] ??
-            `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: workspace.name })}`,
+            `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: workspace.name })}`,
         );
         if (
           wsPath &&
@@ -1130,18 +1130,18 @@ export function createWorkspaceHydrationActions(args: {
           }),
           workspaceRuntimeCacheById: nextRuntimeCache,
           taskWorkspaceIdById: nextTaskOwnership,
-          recentProjects: current.projectPath
-            ? upsertRecentProjectState({
-                projects: current.recentProjects,
-                project: {
-                  projectPath: current.projectPath,
-                  projectName: normalizeProjectDisplayName({
-                    projectPath: current.projectPath,
-                    projectName: current.projectName,
+          recentRepositories: current.repositoryPath
+            ? upsertRecentRepositoryState({
+                repositories: current.recentRepositories,
+                repository: {
+                  repositoryPath: current.repositoryPath,
+                  repositoryName: normalizeRepositoryDisplayName({
+                    repositoryPath: current.repositoryPath,
+                    repositoryName: current.repositoryName,
                   }),
                   lastOpenedAt:
-                    current.recentProjects.find(
-                      (p) => p.projectPath === current.projectPath,
+                    current.recentRepositories.find(
+                      (p) => p.repositoryPath === current.repositoryPath,
                     )?.lastOpenedAt ?? new Date().toISOString(),
                   defaultBranch: current.defaultBranch,
                   workspaces: nextWorkspaces,
@@ -1149,13 +1149,13 @@ export function createWorkspaceHydrationActions(args: {
                   workspaceBranchById: nextBranch,
                   workspacePathById: nextPath,
                   workspaceDefaultById: nextDefault,
-                  ...resolveRecentProjectPreferences({
-                    projectPath: current.projectPath,
-                    recentProjects: current.recentProjects,
+                  ...resolveRecentRepositoryPreferences({
+                    repositoryPath: current.repositoryPath,
+                    recentRepositories: current.recentRepositories,
                   }),
                 },
               })
-            : current.recentProjects,
+            : current.recentRepositories,
         };
       });
     },

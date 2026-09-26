@@ -2,12 +2,12 @@ import {
   findPendingApprovalMessageByRequestId,
   findPendingUserInputMessageByRequestId,
 } from "@/store/provider-message.utils";
-import type { RecentProjectState } from "@/store/project.utils";
+import type { RecentRepositoryState } from "@/store/project.utils";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 import type { ChatMessage } from "@/types/chat";
 
 export interface FleetTaskControlIdentity {
-  projectPath: string;
+  repositoryPath: string;
   workspaceId: string;
   taskId: string;
   turnId?: string | null;
@@ -21,7 +21,7 @@ export interface FleetInteractionControlIdentity
 }
 
 export interface FleetCurrentTaskControlState {
-  projectPath: string | null;
+  repositoryPath: string | null;
   workspaceId: string | null;
   taskId: string | null;
   turnId: string | null;
@@ -33,10 +33,10 @@ export type FleetControlValidation =
   | { ok: false; reason: string };
 
 interface FleetControlStoreState {
-  projectPath: string | null;
+  repositoryPath: string | null;
   activeWorkspaceId: string;
   workspaces: Array<{ id: string }>;
-  recentProjects: RecentProjectState[];
+  recentRepositories: RecentRepositoryState[];
   tasks: WorkspaceSessionState["tasks"];
   messagesByTask: WorkspaceSessionState["messagesByTask"];
   activeTurnIdsByTask: WorkspaceSessionState["activeTurnIdsByTask"];
@@ -48,25 +48,25 @@ export function resolveFleetCurrentTaskControlState(args: {
   state: FleetControlStoreState;
   expected: FleetTaskControlIdentity;
 }): FleetCurrentTaskControlState {
-  const projectOwnsWorkspace =
-    (args.state.projectPath === args.expected.projectPath &&
+  const repositoryOwnsWorkspace =
+    (args.state.repositoryPath === args.expected.repositoryPath &&
       args.state.workspaces.some(
         (workspace) => workspace.id === args.expected.workspaceId,
       )) ||
-    args.state.recentProjects.some(
-      (project) =>
-        project.projectPath === args.expected.projectPath &&
-        project.workspaces.some(
+    args.state.recentRepositories.some(
+      (repository) =>
+        repository.repositoryPath === args.expected.repositoryPath &&
+        repository.workspaces.some(
           (workspace) => workspace.id === args.expected.workspaceId,
         ),
     );
   const workspaceOwnership =
     args.state.taskWorkspaceIdById[args.expected.taskId];
   const workspaceMatches =
-    projectOwnsWorkspace &&
+    repositoryOwnsWorkspace &&
     (!workspaceOwnership || workspaceOwnership === args.expected.workspaceId);
   const active =
-    args.state.projectPath === args.expected.projectPath &&
+    args.state.repositoryPath === args.expected.repositoryPath &&
     args.state.activeWorkspaceId === args.expected.workspaceId;
   const session = active
     ? {
@@ -82,7 +82,7 @@ export function resolveFleetCurrentTaskControlState(args: {
     );
 
   return {
-    projectPath: projectOwnsWorkspace ? args.expected.projectPath : null,
+    repositoryPath: repositoryOwnsWorkspace ? args.expected.repositoryPath : null,
     workspaceId: workspaceMatches ? args.expected.workspaceId : null,
     taskId: taskMatches ? args.expected.taskId : null,
     turnId: taskMatches
@@ -100,7 +100,7 @@ function validateTaskIdentity(args: {
   requireTurn: boolean;
 }): FleetControlValidation {
   if (
-    args.current.projectPath !== args.expected.projectPath ||
+    args.current.repositoryPath !== args.expected.repositoryPath ||
     args.current.workspaceId !== args.expected.workspaceId ||
     args.current.taskId !== args.expected.taskId
   ) {

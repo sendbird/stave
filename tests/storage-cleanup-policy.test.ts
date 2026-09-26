@@ -26,7 +26,7 @@ function entry(
 describe("classifyLensPartitionDir", () => {
   const context = {
     knownWorkspaceIds: new Set(["base:1abc", "worktree:2def"]),
-    knownProjectHashes: new Set(["aaaaaaaaaaaaaaaaaaaaaaaa"]),
+    knownRepositoryHashes: new Set(["aaaaaaaaaaaaaaaaaaaaaaaa"]),
     activePartitions: new Set(["persist:lens-worktree:2def"]),
   };
 

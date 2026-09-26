@@ -381,12 +381,12 @@ async function openTaskInWorkspace(args: {
   taskId: string;
   /** Omitted for a parent task, whose workspace the store already knows. */
   workspaceId?: string | null;
-  projectPath?: string | null;
+  repositoryPath?: string | null;
 }) {
   await useAppStore.getState().focusTaskAttention({
     taskId: args.taskId,
     workspaceId: args.workspaceId ?? undefined,
-    projectPath: args.projectPath ?? undefined,
+    repositoryPath: args.repositoryPath ?? undefined,
     refreshFromPersistence: true,
   });
   return useAppStore.getState().tasks.some((task) => task.id === args.taskId);
@@ -407,7 +407,7 @@ export interface DelegatedTaskRowController extends DelegatedTaskRowActionHandle
  */
 export function useDelegatedTaskRowController(args: {
   source: DelegatedTaskListingSource;
-  projectPath?: string | null;
+  repositoryPath?: string | null;
 }): DelegatedTaskRowController {
   const { children, actions } = args.source;
   const [errorByDelegationKey, setErrorByDelegationKey] = useState<
@@ -473,13 +473,13 @@ export function useDelegatedTaskRowController(args: {
     [applyResult],
   );
 
-  const projectPath = args.projectPath;
+  const repositoryPath = args.repositoryPath;
   const handleOpen = useCallback(
     (child: DelegatedTaskSummary) => {
       void openTaskInWorkspace({
         taskId: child.delegatedTaskId,
         workspaceId: child.delegatedWorkspaceId,
-        projectPath,
+        repositoryPath,
       })
         .then((opened) => {
           if (opened) {
@@ -497,7 +497,7 @@ export function useDelegatedTaskRowController(args: {
           });
         });
     },
-    [applyResult, projectPath],
+    [applyResult, repositoryPath],
   );
 
   const handleFollowUp = useCallback(
@@ -556,7 +556,7 @@ export function useDelegatedTaskRowController(args: {
 export function DelegatedTaskRows(props: {
   parentTaskId: string | null | undefined;
   parentWorkspaceId?: string | null;
-  projectPath?: string | null;
+  repositoryPath?: string | null;
   enabled?: boolean;
   /**
    * A listing already loaded by an ancestor that needs it for something else
@@ -572,12 +572,12 @@ export function DelegatedTaskRows(props: {
   const ownListing = useDelegatedTasks({
     parentTaskId: props.parentTaskId,
     parentWorkspaceId: props.parentWorkspaceId,
-    projectPath: props.projectPath,
+    repositoryPath: props.repositoryPath,
     enabled: props.source ? false : props.enabled,
   });
   const controller = useDelegatedTaskRowController({
     source: props.source ?? ownListing,
-    projectPath: props.projectPath,
+    repositoryPath: props.repositoryPath,
   });
 
   return (
@@ -603,7 +603,7 @@ export function DelegatedTaskRows(props: {
  */
 export function DelegatedTaskParentBacklink(props: {
   taskId: string | null | undefined;
-  projectPath?: string | null;
+  repositoryPath?: string | null;
   className?: string;
 }) {
   const { taskId } = props;
@@ -663,7 +663,7 @@ export function DelegatedTaskParentBacklink(props: {
         onClick={() => {
           void openTaskInWorkspace({
             taskId: parentTaskId,
-            projectPath: props.projectPath,
+            repositoryPath: props.repositoryPath,
           });
         }}
       >

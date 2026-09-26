@@ -1,34 +1,34 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { ProjectMemoryStore } from "../electron/persistence/project-memory-store";
+import { RepositoryMemoryStore } from "../electron/persistence/project-memory-store";
 import {
   buildMemoryCollectionInstruction,
-  DEFAULT_PROJECT_MEMORY_SETTINGS,
-  ProjectMemorySettingsPatchSchema,
+  DEFAULT_REPOSITORY_MEMORY_SETTINGS,
+  RepositoryMemorySettingsPatchSchema,
 } from "../src/lib/project-memory-settings";
 
-const PROJECT = "/tmp/memory/settings";
+const REPOSITORY = "/tmp/memory/settings";
 const OTHER = "/tmp/memory/other";
 const NOW = 1_800_000_000_000;
 
 describe("project memory controls", () => {
   let db: Database;
-  let store: ProjectMemoryStore;
+  let store: RepositoryMemoryStore;
   beforeEach(() => {
     db = new Database(":memory:");
-    store = new ProjectMemoryStore(db);
+    store = new RepositoryMemoryStore(db);
   });
   afterEach(() => db.close());
 
-  function enableCollection(projectPath = PROJECT) {
+  function enableCollection(repositoryPath = REPOSITORY) {
     db.prepare(
       `INSERT INTO project_memory_settings
       (project_path, settings_json, collection_opt_in) VALUES (?, ?, 1)`,
-    ).run(projectPath, JSON.stringify({ collectAutomatically: true }));
+    ).run(repositoryPath, JSON.stringify({ collectAutomatically: true }));
   }
 
   const candidate = (overrides: Record<string, unknown> = {}) => ({
-    projectPath: PROJECT,
+    repositoryPath: REPOSITORY,
     kind: "gotcha" as const,
     content: "Check the cache epoch before restoring a session.",
     confidence: 0.6,
@@ -37,20 +37,20 @@ describe("project memory controls", () => {
   });
 
   test("new projects reject both summary and agent saves until explicit opt-in", () => {
-    expect(store.settings.get(PROJECT).collectAutomatically).toBe(false);
+    expect(store.settings.get(REPOSITORY).collectAutomatically).toBe(false);
     expect(
-      buildMemoryCollectionInstruction(store.settings.get(PROJECT)),
+      buildMemoryCollectionInstruction(store.settings.get(REPOSITORY)),
     ).toContain("durableFacts: []");
     for (const confidence of [0.6, 0.9]) {
       expect(store.remember(candidate({ confidence }))).toBeNull();
     }
     const settings = store.settings.save({
-      projectPath: PROJECT,
+      repositoryPath: REPOSITORY,
       expectedRevision: 0,
       patch: { collectAutomatically: true },
     });
     expect(
-      new ProjectMemoryStore(db).settings.get(PROJECT).collectAutomatically,
+      new RepositoryMemoryStore(db).settings.get(REPOSITORY).collectAutomatically,
     ).toBe(true);
     expect(store.settings.get(OTHER).collectAutomatically).toBe(false);
     expect(store.remember(candidate({ collectionRevision: 0 }))).toBeNull();
@@ -63,7 +63,7 @@ describe("project memory controls", () => {
       ),
     ).not.toBeNull();
     store.settings.save({
-      projectPath: PROJECT,
+      repositoryPath: REPOSITORY,
       expectedRevision: 1,
       patch: { collectAutomatically: false },
     });
@@ -77,7 +77,7 @@ describe("project memory controls", () => {
         candidate({ confidence: 0.9, content: "Agent write after disabling." }),
       ),
     ).toBeNull();
-    expect(store.list({ projectPath: PROJECT })).toHaveLength(2);
+    expect(store.list({ repositoryPath: REPOSITORY })).toHaveLength(2);
   });
 
   test("legacy enabled defaults require fresh consent without losing settings or memories", () => {
@@ -90,15 +90,15 @@ describe("project memory controls", () => {
       revision INTEGER NOT NULL DEFAULT 0, reset_before INTEGER NOT NULL DEFAULT 0
     )`);
     db.prepare("INSERT INTO project_memory_settings VALUES (?, ?, 4, 123)").run(
-      PROJECT,
+      REPOSITORY,
       JSON.stringify({
         collectAutomatically: true,
         useMemory: false,
         collectionTemplate: "Only lasting decisions.",
       }),
     );
-    store = new ProjectMemoryStore(db);
-    expect(store.settings.get(PROJECT)).toMatchObject({
+    store = new RepositoryMemoryStore(db);
+    expect(store.settings.get(REPOSITORY)).toMatchObject({
       collectAutomatically: false,
       useMemory: false,
       revision: 4,
@@ -108,29 +108,29 @@ describe("project memory controls", () => {
     expect(store.get(memory.id)?.content).toBe(memory.content);
     expect(store.remember(candidate({ confidence: 0.9 }))).toBeNull();
     store.settings.save({
-      projectPath: PROJECT,
+      repositoryPath: REPOSITORY,
       expectedRevision: 4,
       patch: { useMemory: true },
     });
     expect(
-      new ProjectMemoryStore(db).settings.get(PROJECT).collectAutomatically,
+      new RepositoryMemoryStore(db).settings.get(REPOSITORY).collectAutomatically,
     ).toBe(false);
     store.settings.save({
-      projectPath: PROJECT,
+      repositoryPath: REPOSITORY,
       expectedRevision: 5,
       patch: { collectAutomatically: true },
     });
     expect(
-      new ProjectMemoryStore(db).settings.get(PROJECT).collectAutomatically,
+      new RepositoryMemoryStore(db).settings.get(REPOSITORY).collectAutomatically,
     ).toBe(true);
   });
 
   test("persists project-specific controls and rejects stale settings saves", () => {
-    expect(store.settings.get(PROJECT)).toEqual(
-      DEFAULT_PROJECT_MEMORY_SETTINGS,
+    expect(store.settings.get(REPOSITORY)).toEqual(
+      DEFAULT_REPOSITORY_MEMORY_SETTINGS,
     );
     const settings = store.settings.save({
-      projectPath: PROJECT,
+      repositoryPath: REPOSITORY,
       expectedRevision: 0,
       patch: {
         useMemory: false,
@@ -138,27 +138,27 @@ describe("project memory controls", () => {
         collectionTemplate: "Keep recovery pitfalls only.",
       },
     });
-    expect(new ProjectMemoryStore(db).settings.get(PROJECT)).toEqual(settings);
-    expect(store.settings.get(OTHER)).toEqual(DEFAULT_PROJECT_MEMORY_SETTINGS);
+    expect(new RepositoryMemoryStore(db).settings.get(REPOSITORY)).toEqual(settings);
+    expect(store.settings.get(OTHER)).toEqual(DEFAULT_REPOSITORY_MEMORY_SETTINGS);
     expect(() =>
       store.settings.save({
-        projectPath: PROJECT,
+        repositoryPath: REPOSITORY,
         expectedRevision: 0,
         patch: { useMemory: true },
       }),
     ).toThrow("changed elsewhere");
-    expect(store.settings.get(PROJECT)).toEqual(settings);
+    expect(store.settings.get(REPOSITORY)).toEqual(settings);
   });
 
   test("recall and collection can be disabled independently without losing saved rows", () => {
     enableCollection();
     store.remember(candidate({ confidence: 0.9, recallMode: "core" }));
     store.settings.save({
-      projectPath: PROJECT,
+      repositoryPath: REPOSITORY,
       expectedRevision: 0,
       patch: { useMemory: false },
     });
-    expect(store.recall({ projectPath: PROJECT, now: NOW })).toEqual([]);
+    expect(store.recall({ repositoryPath: REPOSITORY, now: NOW })).toEqual([]);
     expect(
       store.remember(
         candidate({
@@ -168,12 +168,12 @@ describe("project memory controls", () => {
       ),
     ).not.toBeNull();
     store.settings.save({
-      projectPath: PROJECT,
+      repositoryPath: REPOSITORY,
       expectedRevision: 1,
       patch: { useMemory: true, collectAutomatically: false },
     });
-    expect(store.recall({ projectPath: PROJECT, now: NOW })).toHaveLength(1);
-    expect(store.list({ projectPath: PROJECT })).toHaveLength(2);
+    expect(store.recall({ repositoryPath: REPOSITORY, now: NOW })).toHaveLength(1);
+    expect(store.list({ repositoryPath: REPOSITORY })).toHaveLength(2);
     expect(
       store.remember(
         candidate({
@@ -195,7 +195,7 @@ describe("project memory controls", () => {
   test("enforces allowed kinds even when a generated candidate ignores its prompt", () => {
     enableCollection();
     store.settings.save({
-      projectPath: PROJECT,
+      repositoryPath: REPOSITORY,
       expectedRevision: 0,
       patch: { kinds: ["gotcha"] },
     });
@@ -204,7 +204,7 @@ describe("project memory controls", () => {
     ).toBeNull();
     expect(store.remember(candidate({ collectionRevision: 1 }))).not.toBeNull();
     store.settings.save({
-      projectPath: PROJECT,
+      repositoryPath: REPOSITORY,
       expectedRevision: 1,
       patch: { kinds: [] },
     });
@@ -226,18 +226,18 @@ describe("project memory controls", () => {
       }),
     );
     enableCollection(OTHER);
-    store.remember(candidate({ projectPath: OTHER }));
+    store.remember(candidate({ repositoryPath: OTHER }));
     expect(
       store.settings.clear({
-        projectPath: PROJECT,
+        repositoryPath: REPOSITORY,
         scope: "candidates",
         now: NOW + 1,
       }),
     ).toBe(1);
     expect(
-      store.list({ projectPath: PROJECT }).map((m) => m.recallMode),
+      store.list({ repositoryPath: REPOSITORY }).map((m) => m.recallMode),
     ).toEqual(["core"]);
-    expect(store.list({ projectPath: OTHER })).toHaveLength(1);
+    expect(store.list({ repositoryPath: OTHER })).toHaveLength(1);
     expect(
       store.remember(
         candidate({
@@ -253,23 +253,23 @@ describe("project memory controls", () => {
     enableCollection();
     store.remember(candidate({ confidence: 0.9 }));
     store.settings.save({
-      projectPath: PROJECT,
+      repositoryPath: REPOSITORY,
       expectedRevision: 0,
       patch: { collectionTemplate: "Remember recovery rules." },
     });
     expect(
       store.settings.clear({
-        projectPath: PROJECT,
+        repositoryPath: REPOSITORY,
         scope: "all",
         now: NOW + 10,
       }),
     ).toBe(1);
-    expect(store.settings.get(PROJECT)).toMatchObject({
+    expect(store.settings.get(REPOSITORY)).toMatchObject({
       revision: 2,
       resetBefore: NOW + 10,
       collectionTemplate: "Remember recovery rules.",
     });
-    expect(store.list({ projectPath: PROJECT })).toEqual([]);
+    expect(store.list({ repositoryPath: REPOSITORY })).toEqual([]);
     for (const sourceCreatedAt of [undefined, null, NOW, NOW + 10]) {
       expect(
         store.remember(
@@ -304,20 +304,20 @@ describe("project memory controls", () => {
 
   test("resetting an empty project still invalidates in-flight extraction", () => {
     expect(
-      store.settings.clear({ projectPath: PROJECT, scope: "all", now: NOW }),
+      store.settings.clear({ repositoryPath: REPOSITORY, scope: "all", now: NOW }),
     ).toBe(0);
     expect(
       store.remember(
         candidate({ collectionRevision: 0, sourceCreatedAt: NOW + 1 }),
       ),
     ).toBeNull();
-    expect(store.settings.get(PROJECT).revision).toBe(1);
+    expect(store.settings.get(REPOSITORY).revision).toBe(1);
   });
 });
 
 test("custom collection guidance retains bounded output and kind constraints", () => {
   const instruction = buildMemoryCollectionInstruction({
-    ...DEFAULT_PROJECT_MEMORY_SETTINGS,
+    ...DEFAULT_REPOSITORY_MEMORY_SETTINGS,
     collectAutomatically: true,
     kinds: ["decision", "gotcha"],
     collectionTemplate:
@@ -330,20 +330,20 @@ test("custom collection guidance retains bounded output and kind constraints", (
   expect(buildMemoryCollectionInstruction(null)).toContain("durableFacts: []");
   expect(
     buildMemoryCollectionInstruction({
-      ...DEFAULT_PROJECT_MEMORY_SETTINGS,
+      ...DEFAULT_REPOSITORY_MEMORY_SETTINGS,
       kinds: [],
     }),
   ).toContain("durableFacts: []");
   expect(
-    ProjectMemorySettingsPatchSchema.safeParse({ collectionTemplate: " " })
+    RepositoryMemorySettingsPatchSchema.safeParse({ collectionTemplate: " " })
       .success,
   ).toBe(false);
   expect(
-    ProjectMemorySettingsPatchSchema.safeParse({
+    RepositoryMemorySettingsPatchSchema.safeParse({
       collectionTemplate: "x".repeat(4001),
     }).success,
   ).toBe(false);
   expect(
-    ProjectMemorySettingsPatchSchema.safeParse({ revision: 5 }).success,
+    RepositoryMemorySettingsPatchSchema.safeParse({ revision: 5 }).success,
   ).toBe(false);
 });

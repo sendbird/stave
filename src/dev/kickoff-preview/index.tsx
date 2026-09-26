@@ -10,8 +10,8 @@ import { useAppStore } from "@/store/app.store";
 
 // The actual dialog, with local fixture state and no worktree/provider writes.
 useAppStore.setState({
-  projectPath: "/tmp/kickoff-preview",
-  projectName: "Kickoff preview",
+  repositoryPath: "/tmp/kickoff-preview",
+  repositoryName: "Kickoff preview",
   defaultBranch: "main",
   draftProvider: "cursor",
   providerAvailability: {

@@ -201,7 +201,7 @@ export function createTerminalActions(args: {
       const state = get();
       const workspaceId = state.activeWorkspaceId;
       const workspacePath =
-        state.workspacePathById[workspaceId] ?? state.projectPath ?? "";
+        state.workspacePathById[workspaceId] ?? state.repositoryPath ?? "";
       const cwd = args?.cwd?.trim() || workspacePath;
       if (!workspaceId || !cwd) {
         return null;
@@ -244,7 +244,7 @@ export function createTerminalActions(args: {
       const state = get();
       const workspaceId = state.activeWorkspaceId;
       const workspacePath =
-        state.workspacePathById[workspaceId] ?? state.projectPath ?? "";
+        state.workspacePathById[workspaceId] ?? state.repositoryPath ?? "";
       if (!workspaceId || !workspacePath) {
         return null;
       }

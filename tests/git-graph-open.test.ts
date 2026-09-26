@@ -6,7 +6,7 @@ describe("resolveOpenableGitGraphWorkspaceId", () => {
     expect(
       resolveOpenableGitGraphWorkspaceId({
         activeWorkspaceId: "workspace-1",
-        projectPath: "/tmp/project",
+        repositoryPath: "/tmp/project",
         workspaces: [{ id: "workspace-1" }],
         workspacePathById: {
           "workspace-1": "/tmp/project/.stave/workspaces/workspace-1",
@@ -17,7 +17,7 @@ describe("resolveOpenableGitGraphWorkspaceId", () => {
 
   test("rejects an empty or stale active workspace", () => {
     const context = {
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       workspaces: [{ id: "workspace-1" }],
       workspacePathById: {
         "workspace-1": "/tmp/project/.stave/workspaces/workspace-1",
@@ -42,7 +42,7 @@ describe("resolveOpenableGitGraphWorkspaceId", () => {
     expect(
       resolveOpenableGitGraphWorkspaceId({
         activeWorkspaceId: "workspace-1",
-        projectPath: null,
+        repositoryPath: null,
         workspaces: [{ id: "workspace-1" }],
         workspacePathById: {},
       }),

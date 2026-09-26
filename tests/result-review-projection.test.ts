@@ -4,8 +4,8 @@ import type { ResultReview } from "../src/lib/reviews/result-review";
 
 const result: ResultReview = {
   id: "result",
-  projectPath: "/tmp/project",
-  projectName: "Project",
+  repositoryPath: "/tmp/project",
+  repositoryName: "Project",
   workspaceId: "workspace",
   workspaceName: "Workspace",
   taskId: "task",

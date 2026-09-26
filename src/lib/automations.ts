@@ -119,7 +119,7 @@ export const AutomationEnvironmentInputSchema = z
     kind: z.literal("repository"),
     workspaceId: z.string().min(1),
     path: z.string().min(1),
-    projectPath: z.string().min(1),
+    repositoryPath: z.string().min(1),
     label: z.string().min(1),
   })
   .strict();
@@ -346,7 +346,7 @@ export const AutomationRunSchema = z
     id: z.string().min(1),
     automationId: z.string().min(1),
     workspaceId: z.string().min(1),
-    projectPath: z.string().min(1),
+    repositoryPath: z.string().min(1),
     taskId: z.string().nullable(),
     turnId: z.string().nullable(),
     status: AutomationRunStatusSchema,

@@ -247,7 +247,7 @@ function ActiveTurnActivity(props: {
     verification,
     rateLimits,
     activeWorkspaceId,
-    projectPath,
+    repositoryPath,
     runtimeCapabilities,
     autoRoutingRecord,
     budgetStepDownAt,
@@ -273,7 +273,7 @@ function ActiveTurnActivity(props: {
       state.turnVerificationByWorkspace[state.activeWorkspaceId] ?? null,
       state.rateLimitsSnapshot,
       state.activeWorkspaceId,
-      state.projectPath,
+      state.repositoryPath,
       state.providerRuntimeCapabilities,
       state.autoRoutingDecisionByTask[taskId] ?? null,
       state.settings.autoRoutingProfile.budgetGuard.stepDownAt,
@@ -417,7 +417,7 @@ function ActiveTurnActivity(props: {
   const delegatedTasks = useDelegatedTasks({
     parentTaskId: taskId,
     parentWorkspaceId: activeWorkspaceId,
-    projectPath,
+    repositoryPath,
     enabled: shouldShow,
   });
   const { children: delegatedTaskRows } = delegatedTasks;
@@ -631,7 +631,7 @@ function ActiveTurnActivity(props: {
       ...(replay ? {} : { onCancelAdvisorConsult: handleCancelAdvisorConsult }),
       taskId,
       workspaceId: activeWorkspaceId,
-      projectPath,
+      repositoryPath,
       ...(replay ? { replayOutcome: replay.outcome } : {}),
     };
   }, [
@@ -654,7 +654,7 @@ function ActiveTurnActivity(props: {
     hasAdvisorConsultLog,
     hasPendingInteractionCard,
     isPlanPreparing,
-    projectPath,
+    repositoryPath,
     replay,
     runtimeCapabilities,
     shouldShow,
@@ -941,7 +941,7 @@ interface TurnActivitySurfaceProps {
   /** Identity of the task this shelf belongs to, used by the delegated-task rows. */
   taskId?: string;
   workspaceId?: string | null;
-  projectPath?: string | null;
+  repositoryPath?: string | null;
   /**
    * Which host chrome to render: the docked shelf tucked under the composer
    * (default), a bordered floating card, or a full-height panel body.
@@ -1110,7 +1110,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   // ── Agents block: every delegation of this turn as exchange rows ──────
   const childController = useDelegatedTaskRowController({
     source: props.delegatedTasks ?? EMPTY_CHILD_SOURCE,
-    projectPath: props.projectPath,
+    repositoryPath: props.repositoryPath,
   });
   const turnConsults = useMemo(
     () =>
@@ -1522,7 +1522,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                   it says what it is doing. */}
               <DelegatedTaskParentBacklink
                 taskId={props.taskId}
-                projectPath={props.projectPath}
+                repositoryPath={props.repositoryPath}
                 className={sx(styles.childBlockLead)}
               />
               {/* Who runs this turn and why, before what they are doing. The
@@ -1614,7 +1614,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
       {detailSelection && props.taskId ? <ActivityDetailDialog
         key={detailSelection.nodeKey ?? detailSelection.exchange?.id ?? detailSelection.toolUseId ?? detailSelection.title}
         selection={detailSelection.exchange ? { ...detailSelection, exchange: delegationExchanges.find(exchange => exchange.id === detailSelection.exchange?.id) ?? detailSelection.exchange } : detailSelection}
-        taskId={props.taskId} workspaceId={props.workspaceId ?? undefined} projectPath={props.projectPath ?? undefined}
+        taskId={props.taskId} workspaceId={props.workspaceId ?? undefined} repositoryPath={props.repositoryPath ?? undefined}
         onAction={handleDelegationAction} renderExtraActions={renderDelegationExtraActions} statusNoteFor={delegationStatusNoteFor}
         graph={props.workGraph} onClose={() => setDetailSelection(null)} onShowInConversation={props.onSelectTool}
       /> : null}

@@ -27,8 +27,8 @@ import {
 } from "../../src/lib/automations";
 import { WakeUpUpsertInputSchema } from "../../src/lib/supervision/wake-up-policy";
 import {
-  PROJECT_MEMORY_CONTENT_MAX_CHARS,
-  ProjectMemoryKindSchema,
+  REPOSITORY_MEMORY_CONTENT_MAX_CHARS,
+  RepositoryMemoryKindSchema,
 } from "../../src/lib/project-memory";
 import { registerCollaborationTools } from "./stave-collaboration-tools";
 import {
@@ -78,17 +78,17 @@ import {
   clearWorkspaceNotes,
   consultAdvisor,
   createWorkspace,
-  forgetProjectMemory,
+  forgetRepositoryMemory,
   getWorkspaceInformation,
   getTaskStatus,
-  listKnownProjects,
-  listProjectMemories,
-  rememberProjectMemory,
+  listKnownRepositories,
+  listRepositoryMemories,
+  rememberRepositoryMemory,
   removeWorkspaceCustomField,
   removeWorkspaceResource,
   removeWorkspaceTodo,
   replaceWorkspaceNotes,
-  registerProject,
+  registerRepository,
   respondApproval,
   respondUserInput,
   runAcpWorker,
@@ -363,14 +363,14 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_list_projects",
+    "stave_list_repositories",
     {
       description:
         "List projects already registered in the local Stave desktop app.",
     },
     async () =>
       toStructuredResult({
-        projects: await listKnownProjects(),
+        repositories: await listKnownRepositories(),
       }),
   );
 
@@ -494,16 +494,16 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_register_project",
+    "stave_register_repository",
     {
       description:
         "Register or refresh a local project in Stave and ensure its default workspace exists.",
       inputSchema: {
-        projectPath: z
+        repositoryPath: z
           .string()
           .min(1)
           .describe("Absolute or user-resolvable path to the repository root."),
-        projectName: z
+        repositoryName: z
           .string()
           .optional()
           .describe("Optional display name override."),
@@ -513,11 +513,11 @@ function createToolServer(options?: {
           .describe("Optional default branch override."),
       },
     },
-    async ({ projectPath, projectName, defaultBranch }) =>
+    async ({ repositoryPath, repositoryName, defaultBranch }) =>
       toStructuredResult({
-        project: await registerProject({
-          projectPath,
-          projectName,
+        repository: await registerRepository({
+          repositoryPath,
+          repositoryName,
           defaultBranch,
         }),
       }),
@@ -529,7 +529,7 @@ function createToolServer(options?: {
       description:
         "Create a git-worktree-backed workspace inside a registered Stave project.",
       inputSchema: {
-        projectPath: z.string().min(1).describe("Project root path."),
+        repositoryPath: z.string().min(1).describe("Project root path."),
         name: z
           .string()
           .min(1)
@@ -625,7 +625,7 @@ function createToolServer(options?: {
       description:
         "Delegate work from this task to a durable child Stave task, optionally on the other provider. The delegation is recorded on the run ledger and identified by `(parentTaskId, delegationKey)`, so calling this twice with the same key returns the same child instead of creating a second one.",
       inputSchema: {
-        projectPath: z
+        repositoryPath: z
           .string()
           .min(1)
           .describe("Project root path that owns the parent workspace."),
@@ -1064,7 +1064,7 @@ function createToolServer(options?: {
         "Curate reusable project knowledge. New saves require the user to enable Collect project memory in Settings > Memory; it is off by default. Do not ask to enable it repeatedly or work around disabled collection. Search stave_list_project_memories first. Pass memoryId to replace or consolidate an existing memory, including a candidate; forget superseded ids. Save durable user corrections, non-obvious conventions or verified pitfalls, never completion logs, temporary status, or facts easily read from code. Default contextual memories are recalled only for matching requests. Reserve core for at most three short project-wide essentials. AGENTS.md and current user instructions win.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id (scopes the project)."),
-        kind: ProjectMemoryKindSchema.describe(
+        kind: RepositoryMemoryKindSchema.describe(
           "decision | convention | gotcha | fact",
         ),
         memoryId: z.string().min(1).optional().describe("Existing memory to revise or promote, scoped to this project."),
@@ -1072,9 +1072,9 @@ function createToolServer(options?: {
         content: z
           .string()
           .min(1)
-          .max(PROJECT_MEMORY_CONTENT_MAX_CHARS)
+          .max(REPOSITORY_MEMORY_CONTENT_MAX_CHARS)
           .describe(
-            `One short sentence, at most ${PROJECT_MEMORY_CONTENT_MAX_CHARS} characters.`,
+            `One short sentence, at most ${REPOSITORY_MEMORY_CONTENT_MAX_CHARS} characters.`,
           ),
         taskId: z
           .string()
@@ -1085,7 +1085,7 @@ function createToolServer(options?: {
     },
     async ({ workspaceId, kind, content, taskId, memoryId, recallMode }) =>
       toStructuredResult({
-        result: await rememberProjectMemory({
+        result: await rememberRepositoryMemory({
           workspaceId,
           kind,
           content,
@@ -1097,7 +1097,7 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_list_project_memories",
+    "stave_list_repository_memories",
     {
       description:
         "Search project memory on demand before saving or when earlier decisions matter. Returns at most 12 entries, ids, recall modes and nextOffset; pass nextOffset as offset for another page. Candidates are unreviewed extraction, not established knowledge. Verify them against evidence before promoting with stave_remember. Consolidate related entries by rewriting one id and forgetting superseded ids.",
@@ -1110,7 +1110,7 @@ function createToolServer(options?: {
     },
     async ({ workspaceId, query, recallMode, offset }) =>
       toStructuredResult({
-        result: await listProjectMemories({ workspaceId, query, recallMode, offset }),
+        result: await listRepositoryMemories({ workspaceId, query, recallMode, offset }),
       }),
   );
 
@@ -1126,7 +1126,7 @@ function createToolServer(options?: {
     },
     async ({ workspaceId, memoryId }) =>
       toStructuredResult({
-        result: await forgetProjectMemory({ workspaceId, memoryId }),
+        result: await forgetRepositoryMemory({ workspaceId, memoryId }),
       }),
   );
 
@@ -1928,7 +1928,7 @@ export async function startStaveMcpServer() {
   // In production the main process lives inside an ASAR archive
   // (app.getAppPath() → ".../app.asar").  The proxy script is unpacked to the
   // parallel ".asar.unpacked" directory so it can be executed by `node`.
-  // In development app.getAppPath() already points to the project root where
+  // In development app.getAppPath() already points to the repository root where
   // out/main/stave-mcp-stdio-proxy.mjs is written by the build step.
   const appPath = app.getAppPath().endsWith(".asar")
     ? app.getAppPath().replace(/\.asar$/, ".asar.unpacked")

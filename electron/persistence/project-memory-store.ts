@@ -11,39 +11,39 @@
  * rule is identical on both index paths and unit-testable without SQLite.
  */
 import { randomUUID } from "node:crypto";
-import { ProjectMemorySettingsStore } from "./project-memory-settings-store";
+import { RepositoryMemorySettingsStore } from "./project-memory-settings-store";
 import {
-  PROJECT_MEMORY_CONTENT_MAX_CHARS,
-  PROJECT_MEMORY_INJECTION_MAX_ITEMS,
-  PROJECT_MEMORY_CORE_MAX_ITEMS,
-  PROJECT_MEMORY_CANDIDATE_MAX_ITEMS,
-  PROJECT_MEMORY_STALE_AFTER_MS,
-  PROJECT_MEMORY_STALE_CONFIDENCE_FLOOR,
-  ProjectMemoryKindSchema,
-  ProjectMemoryRecallModeSchema,
-  ProjectMemorySearchOptionsSchema,
-  isSameProjectMemoryContent,
-  extractProjectMemoryQueryTerms,
-  normalizeProjectMemoryContent,
-  type ProjectMemory,
-  type ProjectMemoryKind,
-  type ProjectMemoryRecallMode,
-  type ProjectMemorySearchOptions,
-  type ProjectMemoryRememberResult,
+  REPOSITORY_MEMORY_CONTENT_MAX_CHARS,
+  REPOSITORY_MEMORY_INJECTION_MAX_ITEMS,
+  REPOSITORY_MEMORY_CORE_MAX_ITEMS,
+  REPOSITORY_MEMORY_CANDIDATE_MAX_ITEMS,
+  REPOSITORY_MEMORY_STALE_AFTER_MS,
+  REPOSITORY_MEMORY_STALE_CONFIDENCE_FLOOR,
+  RepositoryMemoryKindSchema,
+  RepositoryMemoryRecallModeSchema,
+  RepositoryMemorySearchOptionsSchema,
+  isSameRepositoryMemoryContent,
+  extractRepositoryMemoryQueryTerms,
+  normalizeRepositoryMemoryContent,
+  type RepositoryMemory,
+  type RepositoryMemoryKind,
+  type RepositoryMemoryRecallMode,
+  type RepositoryMemorySearchOptions,
+  type RepositoryMemoryRememberResult,
 } from "../../src/lib/project-memory";
 
-interface ProjectMemoryStatement {
+interface RepositoryMemoryStatement {
   get: (...params: unknown[]) => unknown;
   all: (...params: unknown[]) => unknown[];
   run: (...params: unknown[]) => { changes?: number | bigint };
 }
 
-interface ProjectMemoryDatabase {
+interface RepositoryMemoryDatabase {
   exec: (sql: string) => unknown;
-  prepare: (sql: string) => ProjectMemoryStatement;
+  prepare: (sql: string) => RepositoryMemoryStatement;
 }
 
-interface ProjectMemoryRow {
+interface RepositoryMemoryRow {
   id: string;
   project_path: string;
   kind: string;
@@ -73,14 +73,14 @@ const COLUMNS = `
   deleted_at
 `;
 
-export type ProjectMemoryIndexMode = "fts5-trigram" | "fts5" | "like";
+export type RepositoryMemoryIndexMode = "fts5-trigram" | "fts5" | "like";
 
-function parseRow(row: ProjectMemoryRow): ProjectMemory {
+function parseRow(row: RepositoryMemoryRow): RepositoryMemory {
   return {
     id: row.id,
-    projectPath: row.project_path,
-    kind: ProjectMemoryKindSchema.parse(row.kind),
-    recallMode: ProjectMemoryRecallModeSchema.parse(row.recall_mode),
+    repositoryPath: row.project_path,
+    kind: RepositoryMemoryKindSchema.parse(row.kind),
+    recallMode: RepositoryMemoryRecallModeSchema.parse(row.recall_mode),
     content: row.content,
     sourceTaskId: row.source_task_id,
     sourceTurnId: row.source_turn_id,
@@ -100,13 +100,13 @@ function clampConfidence(value: number) {
 }
 
 function assertContent(value: string) {
-  const content = normalizeProjectMemoryContent(value);
+  const content = normalizeRepositoryMemoryContent(value);
   if (!content) {
     throw new Error("Project memory content is required.");
   }
-  if (content.length > PROJECT_MEMORY_CONTENT_MAX_CHARS) {
+  if (content.length > REPOSITORY_MEMORY_CONTENT_MAX_CHARS) {
     throw new Error(
-      `Project memory content must be at most ${PROJECT_MEMORY_CONTENT_MAX_CHARS} characters.`,
+      `Project memory content must be at most ${REPOSITORY_MEMORY_CONTENT_MAX_CHARS} characters.`,
     );
   }
   return content;
@@ -116,15 +116,15 @@ function escapeFtsTerm(term: string) {
   return `"${term.replaceAll('"', '""')}"`;
 }
 
-export class ProjectMemoryStore {
-  readonly settings: ProjectMemorySettingsStore;
-  private readonly db: ProjectMemoryDatabase;
-  private indexMode: ProjectMemoryIndexMode = "like";
+export class RepositoryMemoryStore {
+  readonly settings: RepositoryMemorySettingsStore;
+  private readonly db: RepositoryMemoryDatabase;
+  private indexMode: RepositoryMemoryIndexMode = "like";
 
   constructor(database: unknown) {
-    this.db = database as ProjectMemoryDatabase;
+    this.db = database as RepositoryMemoryDatabase;
     this.bootstrap();
-    this.settings = new ProjectMemorySettingsStore(database);
+    this.settings = new RepositoryMemorySettingsStore(database);
   }
 
   get index() {
@@ -175,7 +175,7 @@ export class ProjectMemoryStore {
         BEFORE ${event} ON project_memories
         WHEN new.recall_mode = 'core' AND new.deleted_at IS NULL
         AND (SELECT count(*) FROM project_memories WHERE project_path = new.project_path
-          AND recall_mode = 'core' AND deleted_at IS NULL AND id != new.id) >= ${PROJECT_MEMORY_CORE_MAX_ITEMS}
+          AND recall_mode = 'core' AND deleted_at IS NULL AND id != new.id) >= ${REPOSITORY_MEMORY_CORE_MAX_ITEMS}
         BEGIN SELECT RAISE(ABORT, 'Core memory is full; consolidate or unpin an existing memory first.'); END;`);
     }
   }
@@ -184,10 +184,10 @@ export class ProjectMemoryStore {
    * External-content FTS table kept in sync by triggers. Trigram first (best
    * for substring and CJK matches), then the default tokenizer, then none.
    */
-  private bootstrapFts(): ProjectMemoryIndexMode {
+  private bootstrapFts(): RepositoryMemoryIndexMode {
     const existed = Boolean(this.db.prepare("SELECT name FROM sqlite_master WHERE name = 'project_memories_fts'").get());
     const attempts: Array<{
-      mode: ProjectMemoryIndexMode;
+      mode: RepositoryMemoryIndexMode;
       tokenize: string;
     }> = [
       { mode: "fts5-trigram", tokenize: ", tokenize='trigram'" },
@@ -229,7 +229,7 @@ export class ProjectMemoryStore {
     return "like";
   }
 
-  list(args: { projectPath: string; includeDeleted?: boolean }) {
+  list(args: { repositoryPath: string; includeDeleted?: boolean }) {
     const rows = this.db
       .prepare(
         `SELECT ${COLUMNS}
@@ -238,24 +238,24 @@ export class ProjectMemoryStore {
            ${args.includeDeleted ? "" : "AND deleted_at IS NULL"}
          ORDER BY confidence DESC, last_confirmed_at DESC, id ASC`,
       )
-      .all(args.projectPath) as ProjectMemoryRow[];
+      .all(args.repositoryPath) as RepositoryMemoryRow[];
     return rows.map(parseRow);
   }
 
-  get(id: string): ProjectMemory | null {
+  get(id: string): RepositoryMemory | null {
     const row = this.db
       .prepare(`SELECT ${COLUMNS} FROM project_memories WHERE id = ?`)
-      .get(id) as ProjectMemoryRow | undefined;
+      .get(id) as RepositoryMemoryRow | undefined;
     return row ? parseRow(row) : null;
   }
 
-  search(args: { projectPath: string } & ProjectMemorySearchOptions) {
-    const { projectPath, ...options } = args;
-    const parsed = ProjectMemorySearchOptionsSchema.parse(options);
-    const terms = extractProjectMemoryQueryTerms(parsed.query ?? "", 8);
+  search(args: { repositoryPath: string } & RepositoryMemorySearchOptions) {
+    const { repositoryPath, ...options } = args;
+    const parsed = RepositoryMemorySearchOptionsSchema.parse(options);
+    const terms = extractRepositoryMemoryQueryTerms(parsed.query ?? "", 8);
     const offset = parsed.offset ?? 0;
     const conditions = ["project_path = ?", "deleted_at IS NULL"];
-    const params: unknown[] = [projectPath];
+    const params: unknown[] = [repositoryPath];
     if (parsed.recallMode) {
       conditions.push("recall_mode = ?");
       params.push(parsed.recallMode);
@@ -267,7 +267,7 @@ export class ProjectMemoryStore {
     }
     const rows = this.db.prepare(`SELECT ${COLUMNS} FROM project_memories
       WHERE ${conditions.join(" AND ")} ORDER BY id ASC LIMIT 13 OFFSET ?`)
-      .all(...params, offset) as ProjectMemoryRow[];
+      .all(...params, offset) as RepositoryMemoryRow[];
     return {
       memories: rows.slice(0, 12).map(parseRow),
       nextOffset: rows.length > 12 ? offset + 12 : null,
@@ -281,21 +281,21 @@ export class ProjectMemoryStore {
    * re-extraction of a fact the user removed does not resurrect it.
    */
   remember(args: {
-    projectPath: string;
-    kind: ProjectMemoryKind;
+    repositoryPath: string;
+    kind: RepositoryMemoryKind;
     content: string;
     confidence: number;
-    recallMode?: ProjectMemoryRecallMode;
+    recallMode?: RepositoryMemoryRecallMode;
     sourceTaskId?: string | null;
     sourceTurnId?: string | null;
     collectionRevision?: number;
     sourceCreatedAt?: number | null;
     now?: number;
-  }): ProjectMemoryRememberResult | null {
+  }): RepositoryMemoryRememberResult | null {
     const content = assertContent(args.content);
-    const kind = ProjectMemoryKindSchema.parse(args.kind);
+    const kind = RepositoryMemoryKindSchema.parse(args.kind);
     const confidence = clampConfidence(args.confidence);
-    const policy = this.settings.get(args.projectPath);
+    const policy = this.settings.get(args.repositoryPath);
     // Agent tool writes and summary extraction share the user's opt-in.
     if (!policy.collectAutomatically) return null;
     const automatic = confidence < 0.7;
@@ -305,17 +305,17 @@ export class ProjectMemoryStore {
       (policy.resetBefore > 0 && (!args.sourceCreatedAt || args.sourceCreatedAt <= policy.resetBefore))
     )) return null;
     const now = args.now ?? Date.now();
-    const recallMode = ProjectMemoryRecallModeSchema.parse(
+    const recallMode = RepositoryMemoryRecallModeSchema.parse(
       confidence < 0.7 ? "candidate" : (args.recallMode ?? "contextual"),
     );
 
     const duplicate = this.dedupCandidates({
-      projectPath: args.projectPath,
+      repositoryPath: args.repositoryPath,
       kind,
       content,
     }).find(
       (existing) =>
-        isSameProjectMemoryContent(existing.content, content),
+        isSameRepositoryMemoryContent(existing.content, content),
     );
 
     if (duplicate) {
@@ -329,7 +329,7 @@ export class ProjectMemoryStore {
       }
       const nextMode = recallMode === "candidate" ? "candidate" :
         (args.recallMode ?? (duplicate.recallMode === "candidate" ? recallMode : duplicate.recallMode));
-      this.assertCoreCapacity(args.projectPath, nextMode, duplicate.id);
+      this.assertCoreCapacity(args.repositoryPath, nextMode, duplicate.id);
       const confirmed = this.db
         .prepare(
           `UPDATE project_memories
@@ -337,7 +337,7 @@ export class ProjectMemoryStore {
            WHERE id = ? AND deleted_at IS NULL
              AND (? = 0 OR COALESCE((SELECT revision FROM project_memory_settings WHERE project_path = ?), 0) = ?)`,
         )
-        .run(nextConfidence, now, now, nextMode, duplicate.id, Number(automatic), args.projectPath, policy.revision);
+        .run(nextConfidence, now, now, nextMode, duplicate.id, Number(automatic), args.repositoryPath, policy.revision);
       if (Number(confirmed.changes ?? 0) === 0) return null;
       return {
         memory: {
@@ -351,16 +351,16 @@ export class ProjectMemoryStore {
       };
     }
 
-    this.assertCoreCapacity(args.projectPath, recallMode);
+    this.assertCoreCapacity(args.repositoryPath, recallMode);
     if (recallMode === "candidate") {
       const count = this.db.prepare(`SELECT count(*) AS count FROM project_memories
-        WHERE project_path = ? AND deleted_at IS NULL AND recall_mode = 'candidate'`).get(args.projectPath) as { count: number };
-      if (count.count >= PROJECT_MEMORY_CANDIDATE_MAX_ITEMS) return null;
+        WHERE project_path = ? AND deleted_at IS NULL AND recall_mode = 'candidate'`).get(args.repositoryPath) as { count: number };
+      if (count.count >= REPOSITORY_MEMORY_CANDIDATE_MAX_ITEMS) return null;
     }
 
-    const memory: ProjectMemory = {
+    const memory: RepositoryMemory = {
       id: randomUUID(),
-      projectPath: args.projectPath,
+      repositoryPath: args.repositoryPath,
       kind,
       recallMode,
       content,
@@ -377,13 +377,13 @@ export class ProjectMemoryStore {
         `INSERT INTO project_memories (${COLUMNS})
          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL
          WHERE (? != 'candidate' OR (SELECT count(*) FROM project_memories
-           WHERE project_path = ? AND deleted_at IS NULL AND recall_mode = 'candidate') < ${PROJECT_MEMORY_CANDIDATE_MAX_ITEMS})
+           WHERE project_path = ? AND deleted_at IS NULL AND recall_mode = 'candidate') < ${REPOSITORY_MEMORY_CANDIDATE_MAX_ITEMS})
          AND NOT EXISTS (SELECT 1 FROM project_memories WHERE project_path = ? AND kind = ? AND content = ?)
          AND (? = 0 OR COALESCE((SELECT revision FROM project_memory_settings WHERE project_path = ?), 0) = ?)`,
       )
       .run(
         memory.id,
-        memory.projectPath,
+        memory.repositoryPath,
         memory.kind,
         memory.recallMode,
         memory.content,
@@ -394,12 +394,12 @@ export class ProjectMemoryStore {
         memory.lastConfirmedAt,
         memory.updatedAt,
         memory.recallMode,
-        memory.projectPath,
-        memory.projectPath,
+        memory.repositoryPath,
+        memory.repositoryPath,
         memory.kind,
         memory.content,
         Number(automatic),
-        args.projectPath,
+        args.repositoryPath,
         policy.revision,
       );
     if (Number(inserted.changes ?? 0) === 0) return null;
@@ -408,35 +408,35 @@ export class ProjectMemoryStore {
 
   /** Stored content is normalized at every write; exact lookup includes tombstones. */
   private dedupCandidates(args: {
-    projectPath: string;
-    kind: ProjectMemoryKind;
+    repositoryPath: string;
+    kind: RepositoryMemoryKind;
     content: string;
-  }): ProjectMemory[] {
+  }): RepositoryMemory[] {
     const rows = this.db.prepare(`SELECT ${COLUMNS} FROM project_memories
       WHERE project_path = ? AND kind = ? AND content = ?
       ORDER BY deleted_at IS NOT NULL, id ASC LIMIT 1`)
-      .all(args.projectPath, args.kind, args.content) as ProjectMemoryRow[];
+      .all(args.repositoryPath, args.kind, args.content) as RepositoryMemoryRow[];
     return rows.map(parseRow);
   }
 
   update(args: {
     id: string;
-    projectPath: string;
-    recallMode?: ProjectMemoryRecallMode;
-    kind?: ProjectMemoryKind;
+    repositoryPath: string;
+    recallMode?: RepositoryMemoryRecallMode;
+    kind?: RepositoryMemoryKind;
     content?: string;
     now?: number;
-  }): ProjectMemory | null {
+  }): RepositoryMemory | null {
     const current = this.get(args.id);
-    if (!current || current.deletedAt !== null || current.projectPath !== args.projectPath) {
+    if (!current || current.deletedAt !== null || current.repositoryPath !== args.repositoryPath) {
       return null;
     }
-    const kind = args.kind ? ProjectMemoryKindSchema.parse(args.kind) : current.kind;
+    const kind = args.kind ? RepositoryMemoryKindSchema.parse(args.kind) : current.kind;
     const content =
       args.content !== undefined ? assertContent(args.content) : current.content;
     const now = args.now ?? Date.now();
-    const recallMode = ProjectMemoryRecallModeSchema.parse(args.recallMode ?? current.recallMode);
-    this.assertCoreCapacity(current.projectPath, recallMode, current.id);
+    const recallMode = RepositoryMemoryRecallModeSchema.parse(args.recallMode ?? current.recallMode);
+    this.assertCoreCapacity(current.repositoryPath, recallMode, current.id);
     const updated = this.db
       .prepare(
         `UPDATE project_memories
@@ -448,12 +448,12 @@ export class ProjectMemoryStore {
     return { ...current, kind, content, recallMode, confidence: 0.9, updatedAt: now, lastConfirmedAt: now };
   }
 
-  private assertCoreCapacity(projectPath: string, mode: ProjectMemoryRecallMode, id = "") {
+  private assertCoreCapacity(repositoryPath: string, mode: RepositoryMemoryRecallMode, id = "") {
     if (mode !== "core") return;
     const row = this.db.prepare(`SELECT count(*) AS count FROM project_memories
-      WHERE project_path = ? AND recall_mode = 'core' AND deleted_at IS NULL AND id != ?`).get(projectPath, id) as { count: number };
-    if (row.count >= PROJECT_MEMORY_CORE_MAX_ITEMS) {
-      throw new Error(`Keep at most ${PROJECT_MEMORY_CORE_MAX_ITEMS} core memories. Merge or change an existing core memory to contextual first.`);
+      WHERE project_path = ? AND recall_mode = 'core' AND deleted_at IS NULL AND id != ?`).get(repositoryPath, id) as { count: number };
+    if (row.count >= REPOSITORY_MEMORY_CORE_MAX_ITEMS) {
+      throw new Error(`Keep at most ${REPOSITORY_MEMORY_CORE_MAX_ITEMS} core memories. Merge or change an existing core memory to contextual first.`);
     }
   }
 
@@ -475,15 +475,15 @@ export class ProjectMemoryStore {
    * The caller applies the character cap on the rendered block.
    */
   recall(args: {
-    projectPath: string;
+    repositoryPath: string;
     query?: string | null;
     limit?: number;
     now?: number;
-  }): ProjectMemory[] {
-    if (!this.settings.get(args.projectPath).useMemory) return [];
+  }): RepositoryMemory[] {
+    if (!this.settings.get(args.repositoryPath).useMemory) return [];
     const now = args.now ?? Date.now();
-    const limit = Math.max(0, Math.min(PROJECT_MEMORY_INJECTION_MAX_ITEMS, Math.floor(args.limit ?? PROJECT_MEMORY_INJECTION_MAX_ITEMS)));
-    const staleBefore = now - PROJECT_MEMORY_STALE_AFTER_MS;
+    const limit = Math.max(0, Math.min(REPOSITORY_MEMORY_INJECTION_MAX_ITEMS, Math.floor(args.limit ?? REPOSITORY_MEMORY_INJECTION_MAX_ITEMS)));
+    const staleBefore = now - REPOSITORY_MEMORY_STALE_AFTER_MS;
     const rows = this.db
       .prepare(
         `SELECT ${COLUMNS}
@@ -493,10 +493,10 @@ export class ProjectMemoryStore {
          ORDER BY confidence DESC, last_confirmed_at DESC, id ASC
          LIMIT ?`,
       )
-      .all(args.projectPath, staleBefore, Math.min(limit, PROJECT_MEMORY_CORE_MAX_ITEMS)) as ProjectMemoryRow[];
+      .all(args.repositoryPath, staleBefore, Math.min(limit, REPOSITORY_MEMORY_CORE_MAX_ITEMS)) as RepositoryMemoryRow[];
     const core = rows.map(parseRow);
     const matched = this.recallByQuery({
-      projectPath: args.projectPath,
+      repositoryPath: args.repositoryPath,
       query: args.query ?? "",
       limit,
       staleBefore,
@@ -506,12 +506,12 @@ export class ProjectMemoryStore {
   }
 
   private recallByQuery(args: {
-    projectPath: string;
+    repositoryPath: string;
     query: string;
     limit: number;
     staleBefore: number;
-  }): ProjectMemory[] {
-    const terms = extractProjectMemoryQueryTerms(args.query);
+  }): RepositoryMemory[] {
+    const terms = extractRepositoryMemoryQueryTerms(args.query);
     if (terms.length === 0) {
       return [];
     }
@@ -530,10 +530,10 @@ export class ProjectMemoryStore {
           )
           .all(
             match,
-            args.projectPath,
+            args.repositoryPath,
             args.staleBefore,
             args.limit,
-          ) as ProjectMemoryRow[];
+          ) as RepositoryMemoryRow[];
         return rows.map(parseRow);
       } catch {
         // Fall back to literal substring lookup.
@@ -550,11 +550,11 @@ export class ProjectMemoryStore {
          LIMIT ?`,
       )
       .all(
-        args.projectPath,
+        args.repositoryPath,
         args.staleBefore,
         ...likeTerms,
         args.limit,
-      ) as ProjectMemoryRow[];
+      ) as RepositoryMemoryRow[];
     return rows.map(parseRow);
   }
 }
@@ -570,6 +570,6 @@ function activeWhereClause(prefix: string) {
   return `${prefix}project_path = ?
       AND ${prefix}deleted_at IS NULL
       AND ${prefix}recall_mode != 'candidate'
-      AND NOT (${prefix}confidence < ${PROJECT_MEMORY_STALE_CONFIDENCE_FLOOR}
+      AND NOT (${prefix}confidence < ${REPOSITORY_MEMORY_STALE_CONFIDENCE_FLOOR}
                AND ${prefix}last_confirmed_at < ?)`;
 }

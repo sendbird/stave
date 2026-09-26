@@ -82,7 +82,7 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
         [
           state.activeWorkspaceId,
           state.workspacePathById[state.activeWorkspaceId] ??
-            state.projectPath ??
+            state.repositoryPath ??
             "",
           state.cliSessionTabs,
           props.cliSessionTabId ?? state.activeCliSessionTabId,

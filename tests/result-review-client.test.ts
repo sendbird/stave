@@ -5,13 +5,13 @@ import type { AppNotification } from "../src/lib/notifications/notification.type
 
 const originalWindow = globalThis.window;
 const notification: AppNotification = {
-  id: "result", projectPath: "/tmp/project", projectName: "Project", workspaceId: "workspace",
+  id: "result", repositoryPath: "/tmp/project", repositoryName: "Project", workspaceId: "workspace",
   workspaceName: "Workspace", taskId: "task", taskTitle: "Task", turnId: "turn",
   kind: "task.turn_completed", title: "Task", body: "Result", providerId: "codex", action: null,
   payload: {}, createdAt: "2026-09-05T00:00:00Z", readAt: "2026-09-05T01:00:00Z",
   expiresAt: "2026-09-06T01:00:00Z",
 };
-const scope = { projectPath: "/tmp/project", workspaceId: "workspace", taskId: "task", turnId: "turn", reviewed: true };
+const scope = { repositoryPath: "/tmp/project", workspaceId: "workspace", taskId: "task", turnId: "turn", reviewed: true };
 beforeEach(() => {
   const values = new Map<string, string>();
   Object.assign(globalThis, { window: { api: undefined, localStorage: {
@@ -52,7 +52,7 @@ test("quota errors do not claim a saved review", async () => {
 test("bulk review clears the browser mirror and refuses a failed desktop write", async () => {
   captureBrowserResult(notification);
   const bulk = {
-    scopes: [{ projectPath: "/tmp/project", workspaceId: "workspace", taskId: "task", turnId: "turn" }],
+    scopes: [{ repositoryPath: "/tmp/project", workspaceId: "workspace", taskId: "task", turnId: "turn" }],
     reviewed: true,
   };
   expect(await setResultsReviewed(bulk)).toBe(1);

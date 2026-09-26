@@ -37,7 +37,7 @@ import {
   addWorkspaceCraneIssue,
   addWorkspaceJiraIssue,
   createWorkspace,
-  listKnownProjects,
+  listKnownRepositories,
   runLocallyApprovedCraneTask,
 } from "../stave-mcp-service";
 import { getMainWindow } from "../window";
@@ -256,7 +256,7 @@ export function kickoffTrackerIssue(
         source.createTaskJobForKickoff(claimArgs),
       kickoffClaimedJob: (kickoffArgs) =>
         getCraneConnectorRuntime().kickoffClaimedJob(kickoffArgs),
-      listKnownProjects,
+      listKnownRepositories,
       createWorkspace: async (workspaceArgs) => {
         const created = await createWorkspace(workspaceArgs);
         return { workspaceId: created.workspaceId };

@@ -226,7 +226,7 @@ function BaseChatInput() {
   const workspaceCwd = useAppStore(
     (state) =>
       state.workspacePathById[state.activeWorkspaceId] ??
-      state.projectPath ??
+      state.repositoryPath ??
       undefined,
   );
   // Current-branch PR identity, so an attached PR-context part can be shown as

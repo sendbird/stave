@@ -13,17 +13,17 @@ import type {
 } from "@/store/app-store-workspace-action-types";
 import { resolveEditorDiffMode } from "@/store/layout.utils";
 import {
-  buildProjectDefaultWorkspaceId,
-  captureCurrentProjectState,
-  cloneRecentProjectState,
+  buildRepositoryDefaultWorkspaceId,
+  captureCurrentRepositoryState,
+  cloneRecentRepositoryState,
   moveArrayItem,
   registerTaskWorkspaceOwnership,
   removeWorkspaceRuntimeCacheEntries,
-  resolveProjectNameFromPath,
-  resolveRecentProjectPreferences,
+  resolveRepositoryNameFromPath,
+  resolveRecentRepositoryPreferences,
   retainTaskWorkspaceOwnership,
-  upsertRecentProjectState,
-  type RecentProjectState,
+  upsertRecentRepositoryState,
+  type RecentRepositoryState,
 } from "@/store/project.utils";
 import {
   rememberCachedWorkspaceFiles,
@@ -49,25 +49,25 @@ import {
 } from "@/store/workspace-session-state";
 import { closeTerminalSessionsForWorkspaces } from "@/store/workspace-terminal-cleanup";
 
-type ProjectActionKey =
-  | "createProject"
-  | "openProjectFromPath"
-  | "openProject"
-  | "removeProjectFromList"
-  | "moveProjectInList";
+type RepositoryActionKey =
+  | "createRepository"
+  | "openRepositoryFromPath"
+  | "openRepository"
+  | "removeRepositoryFromList"
+  | "moveRepositoryInList";
 
-type ProjectActions = Pick<AppState, ProjectActionKey>;
+type RepositoryActions = Pick<AppState, RepositoryActionKey>;
 type StoreSet = StoreApi<AppState>["setState"];
 type StoreGet = StoreApi<AppState>["getState"];
 
-export function createProjectActions(args: {
+export function createRepositoryActions(args: {
   set: StoreSet;
   get: StoreGet;
   loadWorkspaceShellStateFromPersistence: LoadWorkspaceShellStateFromPersistence;
   loadTaskMessagesIntoSession: LoadTaskMessagesIntoSession;
   hydrateWorkspaceMessagesInBackground: HydrateWorkspaceMessagesInBackground;
   refreshWorkspaceFilesInBackground: RefreshWorkspaceFilesInBackground;
-}): ProjectActions {
+}): RepositoryActions {
   const {
     set,
     get,
@@ -77,9 +77,9 @@ export function createProjectActions(args: {
     refreshWorkspaceFilesInBackground,
   } = args;
 
-  const activateProject = async (args: {
-    projectRootPath: string;
-    projectName: string;
+  const activateRepository = async (args: {
+    repositoryRootPath: string;
+    repositoryName: string;
     files: string[];
     defaultBranch: string;
   }) => {
@@ -89,10 +89,10 @@ export function createProjectActions(args: {
       saveActiveWorkspaceRuntimeCacheWithLensCleanup({
         state: stateBeforeSwitch,
       });
-    const rememberedProjects = captureCurrentProjectState({
-      recentProjects: stateBeforeSwitch.recentProjects,
-      projectPath: stateBeforeSwitch.projectPath,
-      projectName: stateBeforeSwitch.projectName,
+    const rememberedRepositories = captureCurrentRepositoryState({
+      recentRepositories: stateBeforeSwitch.recentRepositories,
+      repositoryPath: stateBeforeSwitch.repositoryPath,
+      repositoryName: stateBeforeSwitch.repositoryName,
       defaultBranch: stateBeforeSwitch.defaultBranch,
       workspaces: stateBeforeSwitch.workspaces,
       activeWorkspaceId: stateBeforeSwitch.activeWorkspaceId,
@@ -101,17 +101,17 @@ export function createProjectActions(args: {
       workspaceDefaultById: stateBeforeSwitch.workspaceDefaultById,
       workspaceLastActiveAtById: stateBeforeSwitch.workspaceLastActiveAtById,
     });
-    const existingProject =
-      rememberedProjects.find(
-        (project) => project.projectPath === args.projectRootPath,
+    const existingRepository =
+      rememberedRepositories.find(
+        (repository) => repository.repositoryPath === args.repositoryRootPath,
       ) ?? null;
     const nextWorkspaceFileCacheByPath = rememberCachedWorkspaceFiles({
       workspaceFileCacheByPath: stateBeforeSwitch.workspaceFileCacheByPath,
-      workspacePath: args.projectRootPath,
+      workspacePath: args.repositoryRootPath,
       files: args.files,
     });
 
-    if (stateBeforeSwitch.projectPath === args.projectRootPath) {
+    if (stateBeforeSwitch.repositoryPath === args.repositoryRootPath) {
       set((state) => {
         const workspaceLastActiveAtById = stampWorkspaceActive({
           current: state.workspaceLastActiveAtById,
@@ -121,12 +121,12 @@ export function createProjectActions(args: {
           workspaceLastActiveAtById[state.activeWorkspaceId];
         return {
           workspaceLastActiveAtById,
-          recentProjects: upsertRecentProjectState({
-            projects: rememberedProjects,
-            project: {
-              ...(existingProject ?? {
-                projectPath: args.projectRootPath,
-                projectName: args.projectName,
+          recentRepositories: upsertRecentRepositoryState({
+            repositories: rememberedRepositories,
+            repository: {
+              ...(existingRepository ?? {
+                repositoryPath: args.repositoryRootPath,
+                repositoryName: args.repositoryName,
                 lastOpenedAt: new Date().toISOString(),
                 defaultBranch: args.defaultBranch,
                 workspaces: state.workspaces,
@@ -134,27 +134,27 @@ export function createProjectActions(args: {
                 workspaceBranchById: state.workspaceBranchById,
                 workspacePathById: state.workspacePathById,
                 workspaceDefaultById: state.workspaceDefaultById,
-                ...resolveRecentProjectPreferences({
-                  projectPath: args.projectRootPath,
-                  recentProjects: rememberedProjects,
+                ...resolveRecentRepositoryPreferences({
+                  repositoryPath: args.repositoryRootPath,
+                  recentRepositories: rememberedRepositories,
                 }),
               }),
               ...(activeWorkspaceLastActiveAt
                 ? {
                     workspaceLastActiveAtById: {
-                      ...(existingProject?.workspaceLastActiveAtById ?? {}),
+                      ...(existingRepository?.workspaceLastActiveAtById ?? {}),
                       [state.activeWorkspaceId]: activeWorkspaceLastActiveAt,
                     },
                   }
                 : {}),
-              projectName: args.projectName,
+              repositoryName: args.repositoryName,
               defaultBranch: args.defaultBranch,
               lastOpenedAt: new Date().toISOString(),
             },
           }),
           defaultBranch: args.defaultBranch,
-          projectName: args.projectName,
-          projectFiles: args.files.length > 0 ? args.files : state.projectFiles,
+          repositoryName: args.repositoryName,
+          repositoryFiles: args.files.length > 0 ? args.files : state.repositoryFiles,
           workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
           workspaceRuntimeCacheById: savedWorkspaceRuntimeCacheById,
         };
@@ -163,23 +163,23 @@ export function createProjectActions(args: {
     }
 
     await workspaceFsAdapter.setRoot?.({
-      rootPath: args.projectRootPath,
-      rootName: args.projectName,
+      rootPath: args.repositoryRootPath,
+      rootName: args.repositoryName,
       files: args.files,
     });
 
-    if (existingProject) {
-      const nextProject = {
-        ...cloneRecentProjectState(existingProject),
-        projectName: args.projectName,
+    if (existingRepository) {
+      const nextRepository = {
+        ...cloneRecentRepositoryState(existingRepository),
+        repositoryName: args.repositoryName,
         defaultBranch: args.defaultBranch,
         lastOpenedAt: new Date().toISOString(),
       };
-      const nextProjectWorkspaceIds = nextProject.workspaces.map(
+      const nextRepositoryWorkspaceIds = nextRepository.workspaces.map(
         (workspace) => workspace.id,
       );
-      const cachedActiveWorkspaceState = nextProject.activeWorkspaceId
-        ? savedWorkspaceRuntimeCacheById[nextProject.activeWorkspaceId]
+      const cachedActiveWorkspaceState = nextRepository.activeWorkspaceId
+        ? savedWorkspaceRuntimeCacheById[nextRepository.activeWorkspaceId]
         : undefined;
       const initialWorkspaceState =
         cachedActiveWorkspaceState ??
@@ -187,17 +187,17 @@ export function createProjectActions(args: {
       set((state) => {
         const workspaceLastActiveAtById = stampWorkspaceActive({
           current: state.workspaceLastActiveAtById,
-          workspaceId: nextProject.activeWorkspaceId,
+          workspaceId: nextRepository.activeWorkspaceId,
         });
         const activeWorkspaceLastActiveAt =
-          workspaceLastActiveAtById[nextProject.activeWorkspaceId];
-        const stampedNextProject = {
-          ...nextProject,
+          workspaceLastActiveAtById[nextRepository.activeWorkspaceId];
+        const stampedNextRepository = {
+          ...nextRepository,
           ...(activeWorkspaceLastActiveAt
             ? {
                 workspaceLastActiveAtById: {
-                  ...(nextProject.workspaceLastActiveAtById ?? {}),
-                  [nextProject.activeWorkspaceId]: activeWorkspaceLastActiveAt,
+                  ...(nextRepository.workspaceLastActiveAtById ?? {}),
+                  [nextRepository.activeWorkspaceId]: activeWorkspaceLastActiveAt,
                 },
               }
             : {}),
@@ -207,32 +207,32 @@ export function createProjectActions(args: {
           workspaceSnapshotVersion: 0,
           promptDraftPersistenceVersion: 0,
           taskMessagesLoadingByTask: {},
-          workspaces: nextProject.workspaces,
-          activeWorkspaceId: nextProject.activeWorkspaceId,
-          // Opening a project lands the user in this workspace without going
+          workspaces: nextRepository.workspaces,
+          activeWorkspaceId: nextRepository.activeWorkspaceId,
+          // Opening a repository lands the user in this workspace without going
           // through switchWorkspace, so stamp it here too or the workspace people
           // actually use would look dormant to Fleet.
           workspaceLastActiveAtById,
           activeAppSurface: WORKSPACE_APP_SURFACE,
-          projectPath: args.projectRootPath,
-          recentProjects: upsertRecentProjectState({
-            projects: rememberedProjects,
-            project: stampedNextProject,
+          repositoryPath: args.repositoryRootPath,
+          recentRepositories: upsertRecentRepositoryState({
+            repositories: rememberedRepositories,
+            repository: stampedNextRepository,
           }),
-          defaultBranch: nextProject.defaultBranch,
-          workspaceBranchById: nextProject.workspaceBranchById,
-          workspacePathById: nextProject.workspacePathById,
-          workspaceDefaultById: nextProject.workspaceDefaultById,
-          projectName: args.projectName,
-          projectFiles: args.files,
+          defaultBranch: nextRepository.defaultBranch,
+          workspaceBranchById: nextRepository.workspaceBranchById,
+          workspacePathById: nextRepository.workspacePathById,
+          workspaceDefaultById: nextRepository.workspaceDefaultById,
+          repositoryName: args.repositoryName,
+          repositoryFiles: args.files,
           workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
           workspaceRuntimeCacheById: savedWorkspaceRuntimeCacheById,
           taskWorkspaceIdById: registerTaskWorkspaceOwnership({
             taskWorkspaceIdById: retainTaskWorkspaceOwnership({
               taskWorkspaceIdById: stateBeforeSwitch.taskWorkspaceIdById,
-              workspaceIds: nextProjectWorkspaceIds,
+              workspaceIds: nextRepositoryWorkspaceIds,
             }),
-            workspaceId: nextProject.activeWorkspaceId,
+            workspaceId: nextRepository.activeWorkspaceId,
             tasks: initialWorkspaceState.tasks,
           }),
           ...initialWorkspaceState,
@@ -251,14 +251,14 @@ export function createProjectActions(args: {
       return;
     }
 
-    const defaultWorkspaceId = buildProjectDefaultWorkspaceId({
-      projectPath: args.projectRootPath,
+    const defaultWorkspaceId = buildRepositoryDefaultWorkspaceId({
+      repositoryPath: args.repositoryRootPath,
     });
     const now = new Date().toISOString();
 
     // Check if this workspace already has persisted data before overwriting.
     // When localStorage is cleared (e.g. dev-mode port change or origin switch),
-    // the project won't appear in recentProjects even though the DB still holds
+    // the repository won't appear in recentRepositories even though the DB still holds
     // its tasks and messages.  Loading the existing snapshot prevents data loss.
     const existingShellSummary = await loadWorkspaceShellSummary({
       workspaceId: defaultWorkspaceId,
@@ -321,9 +321,9 @@ export function createProjectActions(args: {
         }),
       });
     }
-    const nextProject = {
-      projectPath: args.projectRootPath,
-      projectName: args.projectName,
+    const nextRepository = {
+      repositoryPath: args.repositoryRootPath,
+      repositoryName: args.repositoryName,
       lastOpenedAt: now,
       defaultBranch: args.defaultBranch,
       workspaces: [
@@ -335,30 +335,30 @@ export function createProjectActions(args: {
       ],
       activeWorkspaceId: defaultWorkspaceId,
       workspaceBranchById: { [defaultWorkspaceId]: args.defaultBranch },
-      workspacePathById: { [defaultWorkspaceId]: args.projectRootPath },
+      workspacePathById: { [defaultWorkspaceId]: args.repositoryRootPath },
       workspaceDefaultById: { [defaultWorkspaceId]: true },
-      projectBasePrompt: "",
+      repositoryBasePrompt: "",
       kickoffBranchNamingRule: "",
       newWorkspaceInitCommand: "",
       newWorkspaceUseRootNodeModulesSymlink: false,
-    } satisfies RecentProjectState;
-    const nextProjectWorkspaceIds = nextProject.workspaces.map(
+    } satisfies RecentRepositoryState;
+    const nextRepositoryWorkspaceIds = nextRepository.workspaces.map(
       (workspace) => workspace.id,
     );
 
     set((state) => {
       const workspaceLastActiveAtById = stampWorkspaceActive({
         current: state.workspaceLastActiveAtById,
-        workspaceId: nextProject.activeWorkspaceId,
+        workspaceId: nextRepository.activeWorkspaceId,
       });
       const activeWorkspaceLastActiveAt =
-        workspaceLastActiveAtById[nextProject.activeWorkspaceId];
-      const stampedNextProject = {
-        ...nextProject,
+        workspaceLastActiveAtById[nextRepository.activeWorkspaceId];
+      const stampedNextRepository = {
+        ...nextRepository,
         ...(activeWorkspaceLastActiveAt
           ? {
               workspaceLastActiveAtById: {
-                [nextProject.activeWorkspaceId]: activeWorkspaceLastActiveAt,
+                [nextRepository.activeWorkspaceId]: activeWorkspaceLastActiveAt,
               },
             }
           : {}),
@@ -366,19 +366,19 @@ export function createProjectActions(args: {
       return {
         hasHydratedWorkspaces: true,
         workspaceSnapshotVersion: 0,
-        workspaces: nextProject.workspaces,
-        activeWorkspaceId: nextProject.activeWorkspaceId,
+        workspaces: nextRepository.workspaces,
+        activeWorkspaceId: nextRepository.activeWorkspaceId,
         workspaceLastActiveAtById,
         activeAppSurface: WORKSPACE_APP_SURFACE,
-        projectPath: args.projectRootPath,
-        recentProjects: upsertRecentProjectState({
-          projects: rememberedProjects,
-          project: stampedNextProject,
+        repositoryPath: args.repositoryRootPath,
+        recentRepositories: upsertRecentRepositoryState({
+          repositories: rememberedRepositories,
+          repository: stampedNextRepository,
         }),
         defaultBranch: args.defaultBranch,
-        workspaceBranchById: nextProject.workspaceBranchById,
-        workspacePathById: nextProject.workspacePathById,
-        workspaceDefaultById: nextProject.workspaceDefaultById,
+        workspaceBranchById: nextRepository.workspaceBranchById,
+        workspacePathById: nextRepository.workspacePathById,
+        workspaceDefaultById: nextRepository.workspaceDefaultById,
         ...workspaceState,
         layout: {
           ...get().layout,
@@ -389,16 +389,16 @@ export function createProjectActions(args: {
           }),
           editorMarkdownPreviewMode: false,
         },
-        projectName: args.projectName,
-        projectFiles: args.files,
+        repositoryName: args.repositoryName,
+        repositoryFiles: args.files,
         workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
         workspaceRuntimeCacheById: savedWorkspaceRuntimeCacheById,
         taskWorkspaceIdById: registerTaskWorkspaceOwnership({
           taskWorkspaceIdById: retainTaskWorkspaceOwnership({
             taskWorkspaceIdById: stateBeforeSwitch.taskWorkspaceIdById,
-            workspaceIds: nextProjectWorkspaceIds,
+            workspaceIds: nextRepositoryWorkspaceIds,
           }),
-          workspaceId: nextProject.activeWorkspaceId,
+          workspaceId: nextRepository.activeWorkspaceId,
           tasks: workspaceState.tasks,
         }),
       };
@@ -417,18 +417,18 @@ export function createProjectActions(args: {
   };
 
   return {
-    createProject: async ({ name }) => {
+    createRepository: async ({ name }) => {
       const root = await workspaceFsAdapter.pickRoot();
       if (!root || !root.rootPath) {
         return;
       }
-      const projectRootPath = root.rootPath;
+      const repositoryRootPath = root.rootPath;
 
       const terminalRun = window.api?.terminal?.runCommand;
       let defaultBranch = "main";
       if (terminalRun) {
         const branchResult = await terminalRun({
-          cwd: projectRootPath,
+          cwd: repositoryRootPath,
           command:
             "git symbolic-ref --short refs/remotes/origin/HEAD || git symbolic-ref --short HEAD || echo main",
         });
@@ -441,18 +441,18 @@ export function createProjectActions(args: {
         }
       }
 
-      const projectName =
+      const repositoryName =
         name?.trim() ||
         root.rootName ||
-        resolveProjectNameFromPath({ projectPath: projectRootPath });
-      await activateProject({
-        projectRootPath,
-        projectName,
+        resolveRepositoryNameFromPath({ repositoryPath: repositoryRootPath });
+      await activateRepository({
+        repositoryRootPath,
+        repositoryName,
         files: root.files,
         defaultBranch,
       });
     },
-    openProjectFromPath: async ({ inputPath }) => {
+    openRepositoryFromPath: async ({ inputPath }) => {
       const resolvePath = window.api?.fs?.resolvePath;
       if (!resolvePath) {
         return { ok: false, stderr: "Filesystem bridge unavailable." };
@@ -462,16 +462,16 @@ export function createProjectActions(args: {
         return { ok: false, stderr: result.stderr || "Invalid path." };
       }
 
-      const projectRootPath = result.rootPath;
-      const projectName =
+      const repositoryRootPath = result.rootPath;
+      const repositoryName =
         result.rootName ||
-        resolveProjectNameFromPath({ projectPath: projectRootPath });
+        resolveRepositoryNameFromPath({ repositoryPath: repositoryRootPath });
 
       const terminalRun = window.api?.terminal?.runCommand;
       let defaultBranch = "main";
       if (terminalRun) {
         const branchResult = await terminalRun({
-          cwd: projectRootPath,
+          cwd: repositoryRootPath,
           command:
             "git symbolic-ref --short refs/remotes/origin/HEAD || git symbolic-ref --short HEAD || echo main",
         });
@@ -484,49 +484,49 @@ export function createProjectActions(args: {
         }
       }
 
-      await activateProject({
-        projectRootPath,
-        projectName,
+      await activateRepository({
+        repositoryRootPath,
+        repositoryName,
         files: result.files ?? [],
         defaultBranch,
       });
       return { ok: true };
     },
-    openProject: async ({ projectPath }) => {
-      const normalizedProjectPath = projectPath.trim();
-      if (!normalizedProjectPath) {
+    openRepository: async ({ repositoryPath }) => {
+      const normalizedRepositoryPath = repositoryPath.trim();
+      if (!normalizedRepositoryPath) {
         return;
       }
 
       const state = get();
-      const rememberedProject = state.recentProjects.find(
-        (project) => project.projectPath === normalizedProjectPath,
+      const rememberedRepository = state.recentRepositories.find(
+        (repository) => repository.repositoryPath === normalizedRepositoryPath,
       );
-      const projectName =
-        rememberedProject?.projectName ||
-        resolveProjectNameFromPath({ projectPath: normalizedProjectPath });
+      const repositoryName =
+        rememberedRepository?.repositoryName ||
+        resolveRepositoryNameFromPath({ repositoryPath: normalizedRepositoryPath });
       const files = resolveInitialWorkspaceFiles({
-        workspacePath: normalizedProjectPath,
-        activeProjectPath: state.projectPath,
-        activeProjectFiles:
-          rememberedProject?.projectPath === state.projectPath
-            ? state.projectFiles
+        workspacePath: normalizedRepositoryPath,
+        activeRepositoryPath: state.repositoryPath,
+        activeRepositoryFiles:
+          rememberedRepository?.repositoryPath === state.repositoryPath
+            ? state.repositoryFiles
             : [],
         workspaceFileCacheByPath: state.workspaceFileCacheByPath,
       });
 
       await workspaceFsAdapter.setRoot?.({
-        rootPath: normalizedProjectPath,
-        rootName: projectName,
+        rootPath: normalizedRepositoryPath,
+        rootName: repositoryName,
         files,
       });
 
-      await activateProject({
-        projectRootPath: normalizedProjectPath,
-        projectName,
+      await activateRepository({
+        repositoryRootPath: normalizedRepositoryPath,
+        repositoryName,
         files,
         defaultBranch:
-          rememberedProject?.defaultBranch || state.defaultBranch || "main",
+          rememberedRepository?.defaultBranch || state.defaultBranch || "main",
       });
 
       const nextState = get();
@@ -534,19 +534,19 @@ export function createProjectActions(args: {
         activeWorkspaceId: nextState.activeWorkspaceId,
         workspacePathById: nextState.workspacePathById,
         workspaceDefaultById: nextState.workspaceDefaultById,
-        projectPath: nextState.projectPath,
+        repositoryPath: nextState.repositoryPath,
       });
       if (nextState.activeWorkspaceId && nextWorkspacePath) {
         const nextCachedFiles = resolveInitialWorkspaceFiles({
           workspacePath: nextWorkspacePath,
-          activeProjectPath: nextState.projectPath,
-          activeProjectFiles: nextState.projectFiles,
+          activeRepositoryPath: nextState.repositoryPath,
+          activeRepositoryFiles: nextState.repositoryFiles,
           workspaceFileCacheByPath: nextState.workspaceFileCacheByPath,
         });
         void Promise.resolve(
           workspaceFsAdapter.setRoot?.({
             rootPath: nextWorkspacePath,
-            rootName: nextState.projectName ?? projectName,
+            rootName: nextState.repositoryName ?? repositoryName,
             files: nextCachedFiles,
           }),
         ).then(() => {
@@ -557,28 +557,28 @@ export function createProjectActions(args: {
         });
       }
     },
-    removeProjectFromList: async ({ projectPath }) => {
-      const normalizedProjectPath = projectPath.trim();
-      if (!normalizedProjectPath) {
+    removeRepositoryFromList: async ({ repositoryPath }) => {
+      const normalizedRepositoryPath = repositoryPath.trim();
+      if (!normalizedRepositoryPath) {
         return;
       }
 
       const stateBefore = get();
-      const isCurrentProject =
-        stateBefore.projectPath === normalizedProjectPath;
-      if (isCurrentProject) {
+      const isCurrentRepository =
+        stateBefore.repositoryPath === normalizedRepositoryPath;
+      if (isCurrentRepository) {
         await get().flushActiveWorkspaceSnapshot();
       }
 
       const currentState = get();
-      const matchingProjectForCleanup = currentState.recentProjects.find(
-        (project) => project.projectPath === normalizedProjectPath,
+      const matchingRepositoryForCleanup = currentState.recentRepositories.find(
+        (repository) => repository.repositoryPath === normalizedRepositoryPath,
       );
       const workspaceIdsForCleanup = [
-        ...(matchingProjectForCleanup?.workspaces.map(
+        ...(matchingRepositoryForCleanup?.workspaces.map(
           (workspace) => workspace.id,
         ) ?? []),
-        ...(isCurrentProject
+        ...(isCurrentRepository
           ? currentState.workspaces.map((workspace) => workspace.id)
           : []),
       ];
@@ -588,13 +588,13 @@ export function createProjectActions(args: {
       });
 
       set((state) => {
-        const matchingProject = state.recentProjects.find(
-          (project) => project.projectPath === normalizedProjectPath,
+        const matchingRepository = state.recentRepositories.find(
+          (repository) => repository.repositoryPath === normalizedRepositoryPath,
         );
         const workspaceIds = new Set<string>([
-          ...(matchingProject?.workspaces.map((workspace) => workspace.id) ??
+          ...(matchingRepository?.workspaces.map((workspace) => workspace.id) ??
             []),
-          ...(isCurrentProject
+          ...(isCurrentRepository
             ? state.workspaces.map((workspace) => workspace.id)
             : []),
         ]);
@@ -605,9 +605,9 @@ export function createProjectActions(args: {
         const nextWorkspaceFileCacheByPath = removeCachedWorkspaceFiles({
           workspaceFileCacheByPath: state.workspaceFileCacheByPath,
           workspacePaths: [
-            normalizedProjectPath,
-            ...Object.values(matchingProject?.workspacePathById ?? {}),
-            ...(isCurrentProject ? Object.values(state.workspacePathById) : []),
+            normalizedRepositoryPath,
+            ...Object.values(matchingRepository?.workspacePathById ?? {}),
+            ...(isCurrentRepository ? Object.values(state.workspacePathById) : []),
           ],
         });
         const nextTaskWorkspaceIdById = Object.fromEntries(
@@ -615,10 +615,10 @@ export function createProjectActions(args: {
             ([, workspaceId]) => !workspaceIds.has(workspaceId),
           ),
         );
-        const nextRecentProjects = state.recentProjects.filter(
-          (project) => project.projectPath !== normalizedProjectPath,
+        const nextRecentRepositories = state.recentRepositories.filter(
+          (repository) => repository.repositoryPath !== normalizedRepositoryPath,
         );
-        // Tasks removed with the project would otherwise strand their turn
+        // Tasks removed with the repository would otherwise strand their turn
         // runtime snapshots and persisted checkpoint/verification entries.
         const removedTaskIds = [
           ...new Set([
@@ -631,7 +631,7 @@ export function createProjectActions(args: {
                 state.workspaceRuntimeCacheById[removedWorkspaceId]?.tasks ?? []
               ).map((task) => task.id),
             ),
-            ...(isCurrentProject ? state.tasks.map((task) => task.id) : []),
+            ...(isCurrentRepository ? state.tasks.map((task) => task.id) : []),
           ]),
         ];
         const turnRuntimePatch = removeTaskTurnRuntimeEntries({
@@ -646,13 +646,13 @@ export function createProjectActions(args: {
           ? { turnVerificationByWorkspace: nextTurnVerificationByWorkspace }
           : {};
 
-        if (!isCurrentProject) {
+        if (!isCurrentRepository) {
           const nextTaskCheckpointById = removeRecordEntries(
             state.taskCheckpointById,
             removedTaskIds,
           );
           return {
-            recentProjects: nextRecentProjects,
+            recentRepositories: nextRecentRepositories,
             workspaceRuntimeCacheById: nextRuntimeCacheById,
             workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
             taskWorkspaceIdById: nextTaskWorkspaceIdById,
@@ -674,14 +674,14 @@ export function createProjectActions(args: {
           workspaceSnapshotVersion: 0,
           workspaces: [],
           activeWorkspaceId: "",
-          projectPath: null,
-          recentProjects: nextRecentProjects,
+          repositoryPath: null,
+          recentRepositories: nextRecentRepositories,
           defaultBranch: "main",
           workspaceBranchById: {},
           workspacePathById: {},
           workspaceDefaultById: {},
-          projectName: null,
-          projectFiles: [],
+          repositoryName: null,
+          repositoryFiles: [],
           workspaceFileCacheByPath: nextWorkspaceFileCacheByPath,
           taskCheckpointById: {},
           workspaceRuntimeCacheById: nextRuntimeCacheById,
@@ -695,17 +695,17 @@ export function createProjectActions(args: {
         };
       });
     },
-    moveProjectInList: ({ projectPath, direction }) => {
-      const normalizedProjectPath = projectPath.trim();
-      if (!normalizedProjectPath) {
+    moveRepositoryInList: ({ repositoryPath, direction }) => {
+      const normalizedRepositoryPath = repositoryPath.trim();
+      if (!normalizedRepositoryPath) {
         return;
       }
 
       set((state) => {
-        const currentProjects = captureCurrentProjectState({
-          recentProjects: state.recentProjects,
-          projectPath: state.projectPath,
-          projectName: state.projectName,
+        const currentRepositories = captureCurrentRepositoryState({
+          recentRepositories: state.recentRepositories,
+          repositoryPath: state.repositoryPath,
+          repositoryName: state.repositoryName,
           defaultBranch: state.defaultBranch,
           workspaces: state.workspaces,
           activeWorkspaceId: state.activeWorkspaceId,
@@ -714,14 +714,14 @@ export function createProjectActions(args: {
           workspaceDefaultById: state.workspaceDefaultById,
           workspaceLastActiveAtById: state.workspaceLastActiveAtById,
         });
-        const fromIndex = currentProjects.findIndex(
-          (project) => project.projectPath === normalizedProjectPath,
+        const fromIndex = currentRepositories.findIndex(
+          (repository) => repository.repositoryPath === normalizedRepositoryPath,
         );
         const toIndex = direction === "up" ? fromIndex - 1 : fromIndex + 1;
-        const nextProjects = moveArrayItem(currentProjects, fromIndex, toIndex);
-        return nextProjects === currentProjects
+        const nextRepositories = moveArrayItem(currentRepositories, fromIndex, toIndex);
+        return nextRepositories === currentRepositories
           ? state
-          : { recentProjects: nextProjects };
+          : { recentRepositories: nextRepositories };
       });
     },
   };

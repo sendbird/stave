@@ -16,14 +16,14 @@ import {
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";
 import {
-  normalizeProjectAppearanceColor,
-  normalizeProjectAppearanceIcon,
-  type ProjectAppearanceColorId,
-  type ProjectAppearanceIconId,
+  normalizeRepositoryAppearanceColor,
+  normalizeRepositoryAppearanceIcon,
+  type RepositoryAppearanceColorId,
+  type RepositoryAppearanceIconId,
 } from "@/store/project.utils";
 
-export const PROJECT_ICON_OPTIONS: ReadonlyArray<{
-  id: ProjectAppearanceIconId;
+export const REPOSITORY_ICON_OPTIONS: ReadonlyArray<{
+  id: RepositoryAppearanceIconId;
   label: string;
   icon: LucideIcon;
 }> = [
@@ -41,8 +41,8 @@ export const PROJECT_ICON_OPTIONS: ReadonlyArray<{
   { id: "terminal", label: "Terminal", icon: SquareTerminal },
 ];
 
-export const PROJECT_COLOR_OPTIONS: ReadonlyArray<{
-  id: ProjectAppearanceColorId;
+export const REPOSITORY_COLOR_OPTIONS: ReadonlyArray<{
+  id: RepositoryAppearanceColorId;
   label: string;
   accent: string;
 }> = [
@@ -54,11 +54,11 @@ export const PROJECT_COLOR_OPTIONS: ReadonlyArray<{
   { id: "slate", label: "Slate", accent: "oklch(0.63 0.05 255)" },
 ];
 
-function getProjectAppearanceTone(color?: ProjectAppearanceColorId | null) {
-  const colorId = normalizeProjectAppearanceColor(color);
+function getRepositoryAppearanceTone(color?: RepositoryAppearanceColorId | null) {
+  const colorId = normalizeRepositoryAppearanceColor(color);
   const accent =
-    PROJECT_COLOR_OPTIONS.find((option) => option.id === colorId)?.accent ??
-    PROJECT_COLOR_OPTIONS[0]!.accent;
+    REPOSITORY_COLOR_OPTIONS.find((option) => option.id === colorId)?.accent ??
+    REPOSITORY_COLOR_OPTIONS[0]!.accent;
   return {
     background: "var(--sidebar-accent)",
     foreground: accent,
@@ -67,40 +67,40 @@ function getProjectAppearanceTone(color?: ProjectAppearanceColorId | null) {
   };
 }
 
-export function ProjectIdentityMark(args: {
-  icon?: ProjectAppearanceIconId | null;
-  color?: ProjectAppearanceColorId | null;
+export function RepositoryIdentityMark(args: {
+  icon?: RepositoryAppearanceIconId | null;
+  color?: RepositoryAppearanceColorId | null;
   className?: string;
   iconClassName?: string;
 }) {
-  const iconId = normalizeProjectAppearanceIcon(args.icon);
+  const iconId = normalizeRepositoryAppearanceIcon(args.icon);
   const Icon =
-    PROJECT_ICON_OPTIONS.find((option) => option.id === iconId)?.icon ??
+    REPOSITORY_ICON_OPTIONS.find((option) => option.id === iconId)?.icon ??
     FolderTree;
-  const tone = getProjectAppearanceTone(args.color);
+  const tone = getRepositoryAppearanceTone(args.color);
 
   return (
     <span
-      className={cx(sx(layoutShellStyles.projectIdentityMark), args.className)}
+      className={cx(sx(layoutShellStyles.repositoryIdentityMark), args.className)}
       style={{
         backgroundColor: tone.background,
         borderColor: tone.border,
         color: tone.foreground,
       }}
     >
-      <Icon className={cx(sx(layoutShellStyles.projectIcon), args.iconClassName)} />
+      <Icon className={cx(sx(layoutShellStyles.repositoryIcon), args.iconClassName)} />
     </span>
   );
 }
 
-export function ProjectColorSwatch(args: {
-  color: ProjectAppearanceColorId;
+export function RepositoryColorSwatch(args: {
+  color: RepositoryAppearanceColorId;
   className?: string;
 }) {
-  const tone = getProjectAppearanceTone(args.color);
+  const tone = getRepositoryAppearanceTone(args.color);
   return (
     <span
-      className={cx(sx(layoutShellStyles.projectColorSwatch), args.className)}
+      className={cx(sx(layoutShellStyles.repositoryColorSwatch), args.className)}
       style={{
         backgroundColor: tone.accent,
         borderColor: tone.border,

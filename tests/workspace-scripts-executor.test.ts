@@ -113,7 +113,7 @@ describe("workspace scripts executor", () => {
       workspaceId: "ws-1",
       workspacePath: "/tmp/workspace",
       workspaceName: "workspace",
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       branch: "fix/test",
       scriptEntry: createServiceScript(),
     });
@@ -143,7 +143,7 @@ describe("workspace scripts executor", () => {
       workspaceId: "ws-1",
       workspacePath: "/tmp/workspace",
       workspaceName: "workspace",
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       branch: "fix/test",
       scriptEntry: createServiceScript(),
     });
@@ -163,7 +163,7 @@ test("a stopped workspace refuses scripts before creating a process", async () =
   const target = { workspaceId: "stopped-script", workspacePath: "/tmp/workspace" };
   await workspaceExecutionGate.stop(target, async () => {});
   try {
-    await expect(runScriptEntry({ ...target, workspaceName: "workspace", projectPath: "/tmp/project", branch: "main", scriptEntry: createServiceScript() })).rejects.toThrow("stopped");
+    await expect(runScriptEntry({ ...target, workspaceName: "workspace", repositoryPath: "/tmp/project", branch: "main", scriptEntry: createServiceScript() })).rejects.toThrow("stopped");
     expect(fakePtys.length).toBe(0);
   } finally { workspaceExecutionGate.resume(target.workspaceId); }
 });

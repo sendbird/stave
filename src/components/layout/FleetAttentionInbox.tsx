@@ -147,7 +147,7 @@ function FleetNeedRow(args: {
   const triggerId = `fleet-attention-trigger-${item.id}`;
   const controlTarget = item.taskId
     ? {
-        projectPath: item.projectPath,
+        repositoryPath: item.repositoryPath,
         workspaceId: item.workspaceId,
         taskId: item.taskId,
         taskTitle: item.taskTitle,
@@ -189,7 +189,7 @@ function FleetNeedRow(args: {
         <span className={sx(styles.rowMeta)}>
           <span className={sx(styles.rowMetaPart)}>{item.workspaceName}</span>
           <span aria-hidden="true">·</span>
-          <span className={sx(styles.rowMetaPart)}>{item.projectName}</span>
+          <span className={sx(styles.rowMetaPart)}>{item.repositoryName}</span>
         </span>
         {detail ? (
           <span className={sx(styles.rowDetail)}>{detail}</span>

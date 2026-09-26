@@ -59,7 +59,7 @@ describe("Crane tasks V1 contract", () => {
     ]);
     expect(withJira?.dueDate).toBe("2026-03-06");
 
-    // A half-set project is treated as no project rather than as a project with
+    // A half-set repository is treated as no repository rather than as a repository with
     // a missing name, which is what the row means.
     expect(withoutProject?.project).toBeNull();
     expect(withoutProject?.assignee).toBeNull();

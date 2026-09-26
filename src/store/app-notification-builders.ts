@@ -3,7 +3,7 @@
  *
  * Extracted verbatim from `@/store/app.store` to keep the store file within the
  * max-lines ratchet. The `state` argument was `Pick<AppState, ...>`; it is now
- * the structurally identical {@link NotificationProjectScopeState}, so every
+ * the structurally identical {@link NotificationRepositoryScopeState}, so every
  * existing call site (which passes the full store state) still type-checks and
  * behaves the same.
  */
@@ -31,21 +31,21 @@ import {
   findPendingUserInputMessageByRequestId,
 } from "@/store/provider-message.utils";
 import {
-  resolveProjectForWorkspaceId,
+  resolveRepositoryForWorkspaceId,
   resolveWorkspaceName,
-  type RecentProjectState,
+  type RecentRepositoryState,
 } from "@/store/project.utils";
 import type { WorkspaceSessionState } from "@/store/workspace-session-state";
 
 /**
  * Project-scoped slice of the app store that notification bodies need in order
- * to name the owning project and workspace.
+ * to name the owning repository and workspace.
  */
-export interface NotificationProjectScopeState {
-  projectPath: string | null;
-  projectName: string | null;
+export interface NotificationRepositoryScopeState {
+  repositoryPath: string | null;
+  repositoryName: string | null;
   workspaces: WorkspaceSummary[];
-  recentProjects: RecentProjectState[];
+  recentRepositories: RecentRepositoryState[];
   rateLimitsSnapshot?: RateLimitsSnapshotResponse | null;
 }
 
@@ -60,7 +60,7 @@ function resolveTaskTitleFromSession(args: {
 }
 
 export function buildTaskTurnCompletedNotificationInput(args: {
-  state: NotificationProjectScopeState;
+  state: NotificationRepositoryScopeState;
   session: WorkspaceSessionState;
   workspaceId: string;
   taskId: string;
@@ -83,19 +83,19 @@ export function buildTaskTurnCompletedNotificationInput(args: {
     return null;
   }
 
-  const project = resolveProjectForWorkspaceId({
+  const repository = resolveRepositoryForWorkspaceId({
     state: {
-      projectPath: args.state.projectPath,
-      projectName: args.state.projectName,
+      repositoryPath: args.state.repositoryPath,
+      repositoryName: args.state.repositoryName,
       workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
+      recentRepositories: args.state.recentRepositories,
     },
     workspaceId: args.workspaceId,
   });
   const workspaceName = resolveWorkspaceName({
     state: {
       workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
+      recentRepositories: args.state.recentRepositories,
     },
     workspaceId: args.workspaceId,
   });
@@ -117,8 +117,8 @@ export function buildTaskTurnCompletedNotificationInput(args: {
     kind: "task.turn_completed",
     title: taskTitle,
     body: `Latest run finished in ${workspaceName}.${reviewFacts.length > 0 ? ` ${reviewFacts.join(" · ")}.` : ""}`,
-    projectPath: project?.projectPath ?? null,
-    projectName: project?.projectName ?? null,
+    repositoryPath: repository?.repositoryPath ?? null,
+    repositoryName: repository?.repositoryName ?? null,
     workspaceId: args.workspaceId,
     workspaceName,
     taskId: args.taskId,
@@ -142,7 +142,7 @@ export function buildTaskTurnCompletedNotificationInput(args: {
 }
 
 export function buildTaskTurnFailedNotificationInput(args: {
-  state: NotificationProjectScopeState;
+  state: NotificationRepositoryScopeState;
   session: WorkspaceSessionState;
   workspaceId: string;
   taskId: string;
@@ -165,19 +165,19 @@ export function buildTaskTurnFailedNotificationInput(args: {
     return null;
   }
 
-  const project = resolveProjectForWorkspaceId({
+  const repository = resolveRepositoryForWorkspaceId({
     state: {
-      projectPath: args.state.projectPath,
-      projectName: args.state.projectName,
+      repositoryPath: args.state.repositoryPath,
+      repositoryName: args.state.repositoryName,
       workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
+      recentRepositories: args.state.recentRepositories,
     },
     workspaceId: args.workspaceId,
   });
   const workspaceName = resolveWorkspaceName({
     state: {
       workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
+      recentRepositories: args.state.recentRepositories,
     },
     workspaceId: args.workspaceId,
   });
@@ -191,8 +191,8 @@ export function buildTaskTurnFailedNotificationInput(args: {
     kind: "task.turn_failed",
     title: taskTitle,
     body: `Latest run failed in ${workspaceName}.`,
-    projectPath: project?.projectPath ?? null,
-    projectName: project?.projectName ?? null,
+    repositoryPath: repository?.repositoryPath ?? null,
+    repositoryName: repository?.repositoryName ?? null,
     workspaceId: args.workspaceId,
     workspaceName,
     taskId: args.taskId,
@@ -209,7 +209,7 @@ export function buildTaskTurnFailedNotificationInput(args: {
 }
 
 export function buildApprovalNotificationInputs(args: {
-  state: NotificationProjectScopeState;
+  state: NotificationRepositoryScopeState;
   session: WorkspaceSessionState;
   workspaceId: string;
   taskId: string;
@@ -231,19 +231,19 @@ export function buildApprovalNotificationInputs(args: {
     return [];
   }
 
-  const project = resolveProjectForWorkspaceId({
+  const repository = resolveRepositoryForWorkspaceId({
     state: {
-      projectPath: args.state.projectPath,
-      projectName: args.state.projectName,
+      repositoryPath: args.state.repositoryPath,
+      repositoryName: args.state.repositoryName,
       workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
+      recentRepositories: args.state.recentRepositories,
     },
     workspaceId: args.workspaceId,
   });
   const workspaceName = resolveWorkspaceName({
     state: {
       workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
+      recentRepositories: args.state.recentRepositories,
     },
     workspaceId: args.workspaceId,
   });
@@ -268,8 +268,8 @@ export function buildApprovalNotificationInputs(args: {
         kind: "task.approval_requested",
         title: taskTitle,
         body: `${event.toolName}: ${event.description}`,
-        projectPath: project?.projectPath ?? null,
-        projectName: project?.projectName ?? null,
+        repositoryPath: repository?.repositoryPath ?? null,
+        repositoryName: repository?.repositoryName ?? null,
         workspaceId: args.workspaceId,
         workspaceName,
         taskId: args.taskId,
@@ -335,7 +335,7 @@ function formatUserInputQuestionSummary(
 }
 
 export function buildUserInputNotificationInputs(args: {
-  state: NotificationProjectScopeState;
+  state: NotificationRepositoryScopeState;
   session: WorkspaceSessionState;
   workspaceId: string;
   taskId: string;
@@ -353,19 +353,19 @@ export function buildUserInputNotificationInputs(args: {
     return [];
   }
 
-  const project = resolveProjectForWorkspaceId({
+  const repository = resolveRepositoryForWorkspaceId({
     state: {
-      projectPath: args.state.projectPath,
-      projectName: args.state.projectName,
+      repositoryPath: args.state.repositoryPath,
+      repositoryName: args.state.repositoryName,
       workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
+      recentRepositories: args.state.recentRepositories,
     },
     workspaceId: args.workspaceId,
   });
   const workspaceName = resolveWorkspaceName({
     state: {
       workspaces: args.state.workspaces,
-      recentProjects: args.state.recentProjects,
+      recentRepositories: args.state.recentRepositories,
     },
     workspaceId: args.workspaceId,
   });
@@ -391,8 +391,8 @@ export function buildUserInputNotificationInputs(args: {
         kind: "task.user_input_requested",
         title: taskTitle,
         body: `${event.toolName}: ${question}`,
-        projectPath: project?.projectPath ?? null,
-        projectName: project?.projectName ?? null,
+        repositoryPath: repository?.repositoryPath ?? null,
+        repositoryName: repository?.repositoryName ?? null,
         workspaceId: args.workspaceId,
         workspaceName,
         taskId: args.taskId,

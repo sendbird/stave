@@ -113,7 +113,7 @@ import type {
 export interface HostWorkspaceScriptRunEntryArgs {
   workspaceId: string;
   scriptEntry: ResolvedWorkspaceScript;
-  projectPath: string;
+  repositoryPath: string;
   workspacePath: string;
   workspaceName: string;
   branch: string;
@@ -125,7 +125,7 @@ export interface HostWorkspaceScriptRunHookArgs {
   workspaceId: string;
   trigger: ScriptTrigger;
   config: ResolvedWorkspaceScriptsConfig;
-  projectPath: string;
+  repositoryPath: string;
   workspacePath: string;
   workspaceName: string;
   branch: string;

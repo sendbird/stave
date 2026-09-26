@@ -26,7 +26,7 @@ import type {
   WorkspaceScriptStatusEntry,
 } from "../../../src/lib/workspace-scripts/types";
 import { buildExecutableLookupEnv } from "../../providers/executable-path";
-import { buildProjectShellEnv } from "../../shared/project-node-env";
+import { buildRepositoryShellEnv } from "../../shared/project-node-env";
 import {
   deleteWorkspaceScriptProcess,
   getWorkspaceScriptStatusesForWorkspace,
@@ -77,7 +77,7 @@ function emitScriptEvent(args: {
 }
 
 function buildScriptEnv(args: {
-  projectPath: string;
+  repositoryPath: string;
   workspaceName: string;
   workspacePath: string;
   branch: string;
@@ -87,11 +87,11 @@ function buildScriptEnv(args: {
 }): NodeJS.ProcessEnv {
   const cwd = resolveScriptCwd(args);
   return {
-    ...buildProjectShellEnv({
+    ...buildRepositoryShellEnv({
       cwd,
       baseEnv: buildExecutableLookupEnv(),
     }),
-    [SCRIPT_ENV_VARS.ROOT_PATH]: args.projectPath,
+    [SCRIPT_ENV_VARS.ROOT_PATH]: args.repositoryPath,
     [SCRIPT_ENV_VARS.WORKSPACE_NAME]: args.workspaceName,
     [SCRIPT_ENV_VARS.WORKSPACE_PATH]: args.workspacePath,
     [SCRIPT_ENV_VARS.BRANCH]: args.branch,
@@ -113,12 +113,12 @@ function buildScriptEnv(args: {
 }
 
 function resolveScriptCwd(args: {
-  projectPath: string;
+  repositoryPath: string;
   workspacePath: string;
   scriptEntry: ResolvedWorkspaceScript;
 }) {
   return args.scriptEntry.target.cwd === "project"
-    ? args.projectPath
+    ? args.repositoryPath
     : args.workspacePath;
 }
 
@@ -235,7 +235,7 @@ export async function stopScriptEntry(args: {
 async function runFiniteScript(args: {
   workspaceId: string;
   scriptEntry: ResolvedWorkspaceScript;
-  projectPath: string;
+  repositoryPath: string;
   workspacePath: string;
   workspaceName: string;
   branch: string;
@@ -418,7 +418,7 @@ async function runFiniteScript(args: {
 async function runServiceScript(args: {
   workspaceId: string;
   scriptEntry: ResolvedWorkspaceScript;
-  projectPath: string;
+  repositoryPath: string;
   workspacePath: string;
   workspaceName: string;
   branch: string;
@@ -503,13 +503,13 @@ async function runServiceScript(args: {
       ? buildOrbitRunArgs({
           commandArgs: orbitCommandArgs,
           orbit: args.scriptEntry.orbit,
-          defaultName: path.basename(args.projectPath),
+          defaultName: path.basename(args.repositoryPath),
         })
       : args.scriptEntry.orbit && orbitCommand
         ? buildOrbitShellWrapperRunArgs({
             command: lastCommand,
             orbit: args.scriptEntry.orbit,
-            defaultName: path.basename(args.projectPath),
+            defaultName: path.basename(args.repositoryPath),
           })
         : null;
   const orbitLaunchSpec =
@@ -592,7 +592,7 @@ async function runServiceScript(args: {
       portlessCommand: orbitCommand,
       orbitArgs: buildOrbitGetArgs({
         orbit: args.scriptEntry.orbit,
-        defaultName: path.basename(args.projectPath),
+        defaultName: path.basename(args.repositoryPath),
       }),
     });
     const orbitUrlResult = spawnSync(
@@ -698,7 +698,7 @@ export async function runScriptEntry(args: Parameters<typeof runScriptEntryImpl>
 async function runScriptEntryImpl(args: {
   workspaceId: string;
   scriptEntry: ResolvedWorkspaceScript;
-  projectPath: string;
+  repositoryPath: string;
   workspacePath: string;
   workspaceName: string;
   branch: string;
@@ -716,7 +716,7 @@ export async function runScriptHook(args: {
   workspaceId: string;
   trigger: ScriptTrigger;
   config: ResolvedWorkspaceScriptsConfig;
-  projectPath: string;
+  repositoryPath: string;
   workspacePath: string;
   workspaceName: string;
   branch: string;
@@ -750,7 +750,7 @@ export async function runScriptHook(args: {
     const result = await runScriptEntry({
       workspaceId: args.workspaceId,
       scriptEntry,
-      projectPath: args.projectPath,
+      repositoryPath: args.repositoryPath,
       workspacePath: args.workspacePath,
       workspaceName: args.workspaceName,
       branch: args.branch,

@@ -2,7 +2,7 @@ import { lensReviewApi } from "./lens-review-preload";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../src/lib/providers/agent-history";
 import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../src/lib/performance/workspace-execution";
 import type { PromptEnhancementContext } from "../src/lib/providers/prompt-enhancement-context";
-import type { ProjectMemoryControlsApi } from "../src/lib/project-memory-settings";
+import type { RepositoryMemoryControlsApi } from "../src/lib/project-memory-settings";
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   CodexAppServerSnapshotResponse,
@@ -107,13 +107,13 @@ import type {
 } from "../src/lib/tracker-issues/types";
 import type { TrackerIssuesSettings } from "../src/lib/tracker-issues/settings";
 import type {
-  ProjectMemory,
-  ProjectMemoryDeleteArgs,
-  ProjectMemoryListArgs,
-  ProjectMemoryRecallArgs,
-  ProjectMemoryRememberArgs,
-  ProjectMemoryRememberResult,
-  ProjectMemoryUpdateArgs,
+  RepositoryMemory,
+  RepositoryMemoryDeleteArgs,
+  RepositoryMemoryListArgs,
+  RepositoryMemoryRecallArgs,
+  RepositoryMemoryRememberArgs,
+  RepositoryMemoryRememberResult,
+  RepositoryMemoryUpdateArgs,
 } from "../src/lib/project-memory";
 import type {
   JiraConnectorPublicStatus,
@@ -840,7 +840,7 @@ ipcRenderer.on("lsp:event", (_event, payload: LspEventPayload) => {
 
 const scriptsApi = {
   getConfig: (args: {
-    projectPath: string;
+    repositoryPath: string;
     workspacePath: string;
     userOverridePath?: string;
   }) =>
@@ -859,7 +859,7 @@ const scriptsApi = {
     workspaceId: string;
     scriptId: string;
     scriptKind: ScriptKind;
-    projectPath: string;
+    repositoryPath: string;
     workspacePath: string;
     workspaceName: string;
     branch: string;
@@ -884,7 +884,7 @@ const scriptsApi = {
   runHook: (args: {
     workspaceId: string;
     trigger: ScriptTrigger;
-    projectPath: string;
+    repositoryPath: string;
     workspacePath: string;
     workspaceName: string;
     branch: string;
@@ -1528,13 +1528,13 @@ contextBridge.exposeInMainWorld("api", {
       tabIds: string[];
     }) =>
       ipcRenderer.invoke("persistence:load-workspace-editor-tab-bodies", args),
-    loadProjectRegistry: () =>
+    loadRepositoryRegistry: () =>
       ipcRenderer.invoke("persistence:load-project-registry"),
     upsertWorkspace: (args: { id: string; name: string; snapshot: unknown }) =>
       ipcRenderer.invoke("persistence:upsert-workspace", args),
-    saveProjectRegistry: (args: {
-      projects: unknown[];
-      activeProjectPath?: string | null;
+    saveRepositoryRegistry: (args: {
+      repositories: unknown[];
+      activeRepositoryPath?: string | null;
     }) => ipcRenderer.invoke("persistence:save-project-registry", args),
     /**
      * Quit-time flush handshake. `onFlushRequested` fires when main is about to
@@ -1980,48 +1980,48 @@ contextBridge.exposeInMainWorld("api", {
       };
     },
   },
-  projectMemory: {
+  repositoryMemory: {
     getSettings: (
-      args: Parameters<ProjectMemoryControlsApi["getSettings"]>[0],
+      args: Parameters<RepositoryMemoryControlsApi["getSettings"]>[0],
     ) =>
       ipcRenderer.invoke("project-memory:get-settings", args) as ReturnType<
-        ProjectMemoryControlsApi["getSettings"]
+        RepositoryMemoryControlsApi["getSettings"]
       >,
     saveSettings: (
-      args: Parameters<ProjectMemoryControlsApi["saveSettings"]>[0],
+      args: Parameters<RepositoryMemoryControlsApi["saveSettings"]>[0],
     ) =>
       ipcRenderer.invoke("project-memory:save-settings", args) as ReturnType<
-        ProjectMemoryControlsApi["saveSettings"]
+        RepositoryMemoryControlsApi["saveSettings"]
       >,
-    clear: (args: Parameters<ProjectMemoryControlsApi["clear"]>[0]) =>
+    clear: (args: Parameters<RepositoryMemoryControlsApi["clear"]>[0]) =>
       ipcRenderer.invoke("project-memory:clear", args) as ReturnType<
-        ProjectMemoryControlsApi["clear"]
+        RepositoryMemoryControlsApi["clear"]
       >,
-    list: (args: ProjectMemoryListArgs) =>
+    list: (args: RepositoryMemoryListArgs) =>
       ipcRenderer.invoke("project-memory:list", args) as Promise<{
         ok: boolean;
-        items: ProjectMemory[];
+        items: RepositoryMemory[];
         message?: string;
       }>,
-    recall: (args: ProjectMemoryRecallArgs) =>
+    recall: (args: RepositoryMemoryRecallArgs) =>
       ipcRenderer.invoke("project-memory:recall", args) as Promise<{
         ok: boolean;
-        items: ProjectMemory[];
+        items: RepositoryMemory[];
         message?: string;
       }>,
-    remember: (args: ProjectMemoryRememberArgs) =>
+    remember: (args: RepositoryMemoryRememberArgs) =>
       ipcRenderer.invoke("project-memory:remember", args) as Promise<{
         ok: boolean;
-        results: ProjectMemoryRememberResult[];
+        results: RepositoryMemoryRememberResult[];
         message?: string;
       }>,
-    update: (args: ProjectMemoryUpdateArgs) =>
+    update: (args: RepositoryMemoryUpdateArgs) =>
       ipcRenderer.invoke("project-memory:update", args) as Promise<{
         ok: boolean;
-        memory?: ProjectMemory | null;
+        memory?: RepositoryMemory | null;
         message?: string;
       }>,
-    delete: (args: ProjectMemoryDeleteArgs) =>
+    delete: (args: RepositoryMemoryDeleteArgs) =>
       ipcRenderer.invoke("project-memory:delete", args) as Promise<{
         ok: boolean;
         deleted?: boolean;

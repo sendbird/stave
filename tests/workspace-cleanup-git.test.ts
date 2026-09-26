@@ -36,7 +36,7 @@ function fixture() {
 
 test("cleanup removes a real clean worktree with literal special characters and keeps its branch", async () => {
   const { root, worktree, git } = fixture();
-  startWorkspaceArchiveCleanup({ workspaceId: "fixture", projectPath: root, workspacePath: worktree, deleteBranch: false });
+  startWorkspaceArchiveCleanup({ workspaceId: "fixture", repositoryPath: root, workspacePath: worktree, deleteBranch: false });
   await waitForPendingWorkspaceArchiveCleanups();
   expect(existsSync(worktree)).toBe(false);
   expect(git("branch", "--list", "feature").trim()).toBe("feature");
@@ -45,7 +45,7 @@ test("cleanup removes a real clean worktree with literal special characters and 
 test("cleanup preserves real uncommitted files and the branch", async () => {
   const { root, worktree, git } = fixture();
   writeFileSync(join(worktree, "unsaved.txt"), "keep this work");
-  startWorkspaceArchiveCleanup({ workspaceId: "fixture-dirty", projectPath: root, workspacePath: worktree, deleteBranch: false });
+  startWorkspaceArchiveCleanup({ workspaceId: "fixture-dirty", repositoryPath: root, workspacePath: worktree, deleteBranch: false });
   await waitForPendingWorkspaceArchiveCleanups();
   expect(existsSync(join(worktree, "unsaved.txt"))).toBe(true);
   expect(git("branch", "--list", "feature")).toContain("feature");

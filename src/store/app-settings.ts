@@ -757,12 +757,12 @@ export const defaultSettings: AppSettings = {
   workerConfigByProvider: {},
   craneConnector: {
     ...DEFAULT_CRANE_CONNECTOR_SETTINGS,
-    projectMappings: [],
+    repositoryMappings: [],
   },
   martinSync: { ...DEFAULT_MARTIN_SYNC_SETTINGS },
   jiraConnector: {
     ...DEFAULT_JIRA_CONNECTOR_SETTINGS,
-    projectMappings: [],
+    repositoryMappings: [],
   },
   trackerIssues: { ...DEFAULT_TRACKER_ISSUES_SETTINGS },
   claudeSettingSources: ["project"],

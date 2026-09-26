@@ -37,12 +37,12 @@ function createContext(
       recentIds: [],
       showRecent: true,
     },
-    projectPath: "/tmp/stave",
-    projects: [
+    repositoryPath: "/tmp/stave",
+    repositories: [
       {
         isCurrent: true,
-        projectName: "Stave",
-        projectPath: "/tmp/stave",
+        repositoryName: "Stave",
+        repositoryPath: "/tmp/stave",
       },
     ],
     tasks: [
@@ -98,9 +98,9 @@ function createContext(
       openIssues: () => {},
       refreshTrackerIssues: async () => {},
       openKeyboardShortcuts: () => {},
-      openProject: async () => {},
+      openRepository: async () => {},
       openSettings: () => {},
-      refreshProjectFiles: async () => {},
+      refreshRepositoryFiles: async () => {},
       refreshWorkspaces: async () => {},
       revealInFileManager: async () => {},
       saveActiveEditor: async () => {},
@@ -327,7 +327,7 @@ describe("command palette registry", () => {
 
   test("hides workspace kickoff without a project", () => {
     const groups = buildCommandPaletteGroups(
-      createContext({ projectPath: null }),
+      createContext({ repositoryPath: null }),
     );
 
     expect(

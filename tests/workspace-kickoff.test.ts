@@ -194,7 +194,7 @@ describe("workspace kickoff", () => {
       instructionPrompt: "Return JSON.",
       classification,
       branchNamingRule: "Use feature/<ticket>.",
-      projectBasePrompt: "Follow AGENTS.md.",
+      repositoryBasePrompt: "Follow AGENTS.md.",
     });
 
     expect(prompt).toContain("Source type: Jira");

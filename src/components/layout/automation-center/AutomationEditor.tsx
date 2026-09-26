@@ -628,8 +628,8 @@ export function AutomationEditor(props: {
   onCancel: () => void;
   onSave: () => void;
 }) {
-  const environmentValue = props.draft.environment.projectPath
-    ? `repository:${props.draft.environment.projectPath}`
+  const environmentValue = props.draft.environment.repositoryPath
+    ? `repository:${props.draft.environment.repositoryPath}`
     : "";
   const selectedReferenceKeys = new Set(
     props.draft.informationReferences.map(getAutomationInformationReferenceKey),
@@ -867,7 +867,7 @@ export function AutomationEditor(props: {
                     kind: "repository",
                     workspaceId: selected.workspaceId,
                     path: selected.path,
-                    projectPath: selected.projectPath,
+                    repositoryPath: selected.repositoryPath,
                     label: selected.label,
                   },
                   informationReferences: [],

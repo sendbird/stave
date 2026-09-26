@@ -16,13 +16,13 @@ import { trackerIssueKey } from "@/lib/tracker-issues/client-store";
 import { buildTrackerIssueInstruction } from "@/lib/tracker-issues/context";
 import {
   describeTrackerIssueScope,
-  findTrackerIssueMappedProjectPath,
+  findTrackerIssueMappedRepositoryPath,
   findTrackerIssueRuntimeMemory,
-  readTrackerIssueLastProject,
+  readTrackerIssueLastRepository,
   resolveTrackerIssueScopeKey,
   updateCraneTeamProjectMapping,
   updateJiraProjectMapping,
-  writeTrackerIssueLastProject,
+  writeTrackerIssueLastRepository,
 } from "@/lib/tracker-issues/kickoff-target";
 import type {
   TrackerIssue,
@@ -30,7 +30,7 @@ import type {
   TrackerIssueStartMode,
 } from "@/lib/tracker-issues/types";
 import { useAppStore } from "@/store/app.store";
-import { resolveProjectKickoffBranchNamingRule } from "@/store/project.utils";
+import { resolveRepositoryKickoffBranchNamingRule } from "@/store/project.utils";
 
 /**
  * Draft state for one tracker kickoff.
@@ -41,8 +41,8 @@ import { resolveProjectKickoffBranchNamingRule } from "@/store/project.utils";
  */
 export interface TrackerIssueKickoffDraft {
   runtime: DispatchRuntimeDraft;
-  projectPath: string;
-  setProjectPath: (projectPath: string) => void;
+  repositoryPath: string;
+  setRepositoryPath: (repositoryPath: string) => void;
   workspaceStrategy: DispatchWorkspaceStrategy;
   setWorkspaceStrategy: (strategy: DispatchWorkspaceStrategy) => void;
   workspaceId: string;
@@ -62,11 +62,11 @@ export interface TrackerIssueKickoffDraft {
   setCraneWriteBack: (enabled: boolean) => void;
   /** Crane connector is on and the ticket came from Crane. */
   craneWriteBackAvailable: boolean;
-  /** Team or project key the "Remember" switch would file defaults under. */
+  /** Team or repository key the "Remember" switch would file defaults under. */
   scopeLabel: string | null;
   submitting: boolean;
   submit: () => Promise<TrackerIssueKickoffResult | null>;
-  /** Workspaces of the selected project, for the existing-workspace picker. */
+  /** Workspaces of the selected repository, for the existing-workspace picker. */
   workspaces: readonly { id: string; name: string }[];
 }
 
@@ -78,14 +78,14 @@ export function useTrackerIssueKickoffDraft(args: {
   const detail = useTrackerIssueDetail(
     task ? trackerIssueKey(task.source, task.ref) : null,
   );
-  const projects = useAppStore((state) => state.recentProjects);
+  const repositories = useAppStore((state) => state.recentRepositories);
   const settings = useAppStore((state) => state.settings);
   const providerAvailability = useAppStore(
     (state) => state.providerAvailability,
   );
 
   const [submitting, setSubmitting] = useState(false);
-  const [projectPath, setProjectPath] = useState("");
+  const [repositoryPath, setRepositoryPath] = useState("");
   const [workspaceStrategy, setWorkspaceStrategy] =
     useState<DispatchWorkspaceStrategy>("new");
   const [workspaceId, setWorkspaceId] = useState("");
@@ -114,42 +114,42 @@ export function useTrackerIssueKickoffDraft(args: {
     }
     const store = useAppStore.getState();
     const currentSettings = store.settings;
-    const registeredProjects = store.recentProjects;
-    const registeredPaths = registeredProjects.map(
-      (project) => project.projectPath,
+    const registeredRepositories = store.recentRepositories;
+    const registeredPaths = registeredRepositories.map(
+      (repository) => repository.repositoryPath,
     );
     const mappingSettings = {
-      craneMappings: currentSettings.craneConnector.projectMappings,
-      jiraMappings: currentSettings.jiraConnector.projectMappings,
+      craneMappings: currentSettings.craneConnector.repositoryMappings,
+      jiraMappings: currentSettings.jiraConnector.repositoryMappings,
     };
-    const lastUsed = readTrackerIssueLastProject(task.source);
+    const lastUsed = readTrackerIssueLastRepository(task.source);
     const activeRegistered =
-      store.projectPath && registeredPaths.includes(store.projectPath)
-        ? store.projectPath
+      store.repositoryPath && registeredPaths.includes(store.repositoryPath)
+        ? store.repositoryPath
         : null;
-    // Mapping first, then the project this source was last kicked off into,
+    // Mapping first, then the repository this source was last kicked off into,
     // then whatever is already open: each step is a weaker signal about where
     // this ticket's work belongs than the one before it.
-    const nextProjectPath =
-      findTrackerIssueMappedProjectPath({
+    const nextRepositoryPath =
+      findTrackerIssueMappedRepositoryPath({
         task,
         settings: mappingSettings,
-        registeredProjectPaths: registeredPaths,
+        registeredRepositoryPaths: registeredPaths,
       }) ??
       (lastUsed && registeredPaths.includes(lastUsed) ? lastUsed : null) ??
       activeRegistered ??
       registeredPaths[0] ??
       "";
 
-    setProjectPath(nextProjectPath);
+    setRepositoryPath(nextRepositoryPath);
     setWorkspaceStrategy("new");
     setWorkspaceId("");
     setBranchName(
       proposeTrackerIssueBranchName({
         task,
-        namingRule: resolveProjectKickoffBranchNamingRule({
-          projectPath: nextProjectPath,
-          recentProjects: registeredProjects,
+        namingRule: resolveRepositoryKickoffBranchNamingRule({
+          repositoryPath: nextRepositoryPath,
+          recentRepositories: registeredRepositories,
         }),
       }),
     );
@@ -186,12 +186,12 @@ export function useTrackerIssueKickoffDraft(args: {
 
   const workspaces = useMemo(
     () =>
-      projects.find((project) => project.projectPath === projectPath)
+      repositories.find((repository) => repository.repositoryPath === repositoryPath)
         ?.workspaces ?? [],
-    [projectPath, projects],
+    [repositoryPath, repositories],
   );
 
-  const rememberIfAsked = (chosenProjectPath: string) => {
+  const rememberIfAsked = (chosenRepositoryPath: string) => {
     const scopeKey = task ? resolveTrackerIssueScopeKey(task) : null;
     if (!task || !scopeKey || !rememberDefaults) {
       return;
@@ -204,10 +204,10 @@ export function useTrackerIssueKickoffDraft(args: {
         patch: {
           craneConnector: {
             ...craneConnector,
-            projectMappings: updateCraneTeamProjectMapping({
-              mappings: craneConnector.projectMappings,
+            repositoryMappings: updateCraneTeamProjectMapping({
+              mappings: craneConnector.repositoryMappings,
               teamKey: scopeKey,
-              staveProjectPath: chosenProjectPath,
+              staveProjectPath: chosenRepositoryPath,
               runtime: memory,
             }),
           },
@@ -220,10 +220,10 @@ export function useTrackerIssueKickoffDraft(args: {
       patch: {
         jiraConnector: {
           ...jiraConnector,
-          projectMappings: updateJiraProjectMapping({
-            mappings: jiraConnector.projectMappings,
+          repositoryMappings: updateJiraProjectMapping({
+            mappings: jiraConnector.repositoryMappings,
             jiraProjectKey: scopeKey,
-            staveProjectPath: chosenProjectPath,
+            staveProjectPath: chosenRepositoryPath,
             runtime: memory,
           }),
         },
@@ -235,7 +235,7 @@ export function useTrackerIssueKickoffDraft(args: {
     if (!task || submitting) {
       return null;
     }
-    if (!projectPath) {
+    if (!repositoryPath) {
       toast.error("Choose a registered Stave repository.");
       return null;
     }
@@ -257,7 +257,7 @@ export function useTrackerIssueKickoffDraft(args: {
       const reply = await kickoffTrackerIssue({
         source: task.source,
         taskRef: task.ref,
-        projectPath,
+        repositoryPath,
         workspace:
           workspaceStrategy === "new"
             ? {
@@ -279,8 +279,8 @@ export function useTrackerIssueKickoffDraft(args: {
         });
         return null;
       }
-      writeTrackerIssueLastProject(task.source, projectPath);
-      rememberIfAsked(projectPath);
+      writeTrackerIssueLastRepository(task.source, repositoryPath);
+      rememberIfAsked(repositoryPath);
       return reply.result;
     } catch {
       toast.error(`Could not start ${task.key}.`);
@@ -292,8 +292,8 @@ export function useTrackerIssueKickoffDraft(args: {
 
   return {
     runtime,
-    projectPath,
-    setProjectPath,
+    repositoryPath,
+    setRepositoryPath,
     workspaceStrategy,
     setWorkspaceStrategy,
     workspaceId,

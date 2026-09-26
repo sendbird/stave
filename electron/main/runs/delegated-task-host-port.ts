@@ -38,21 +38,21 @@ export interface DelegatedTaskHostTaskStatus {
 }
 
 export interface DelegatedTaskHostPortDependencies {
-  listKnownProjects: () => Promise<
+  listKnownRepositories: () => Promise<
     Array<{
-      projectPath: string;
+      repositoryPath: string;
       workspaces: Array<{ id: string; path: string }>;
     }>
   >;
   createWorkspace: (args: {
-    projectPath: string;
+    repositoryPath: string;
     name: string;
     mode: "branch";
     fromBranch?: string;
   }) => Promise<{
     workspaceId: string;
     workspacePath: string;
-    projectPath: string;
+    repositoryPath: string;
   }>;
   getTaskStatus: (args: {
     workspaceId: string;
@@ -184,25 +184,25 @@ export function createDelegatedTaskHostPort(
 
   return {
     async resolveWorkspace({ workspaceId }) {
-      const projects = await dependencies.listKnownProjects();
-      for (const project of projects) {
-        const workspace = project.workspaces.find(
+      const repositories = await dependencies.listKnownRepositories();
+      for (const repository of repositories) {
+        const workspace = repository.workspaces.find(
           (candidate) => candidate.id === workspaceId,
         );
         if (workspace) {
           return {
             workspaceId,
             workspacePath: workspace.path,
-            projectPath: project.projectPath,
+            repositoryPath: repository.repositoryPath,
           };
         }
       }
       return null;
     },
 
-    async createWorkspace({ projectPath, name, fromBranch }) {
+    async createWorkspace({ repositoryPath, name, fromBranch }) {
       const created = await dependencies.createWorkspace({
-        projectPath,
+        repositoryPath,
         name,
         mode: "branch",
         ...(fromBranch ? { fromBranch } : {}),
@@ -210,7 +210,7 @@ export function createDelegatedTaskHostPort(
       return {
         workspaceId: created.workspaceId,
         workspacePath: created.workspacePath,
-        projectPath: created.projectPath,
+        repositoryPath: created.repositoryPath,
       };
     },
 

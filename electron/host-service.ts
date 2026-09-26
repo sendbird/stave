@@ -594,10 +594,10 @@ localMcpRuntime.setLocalMcpEventListener((event) => {
 async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
   switch (action) {
     case "list-known-projects":
-      return localMcpRuntime.listKnownProjects();
+      return localMcpRuntime.listKnownRepositories();
     case "register-project":
-      return localMcpRuntime.registerProject(
-        args as Parameters<typeof localMcpRuntime.registerProject>[0],
+      return localMcpRuntime.registerRepository(
+        args as Parameters<typeof localMcpRuntime.registerRepository>[0],
       );
     case "create-workspace":
       return localMcpRuntime.createWorkspace(
@@ -640,16 +640,16 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
         args as Parameters<typeof localMcpRuntime.appendWorkspaceNotes>[0],
       );
     case "remember-project-memory":
-      return localMcpRuntime.rememberProjectMemory(
-        args as Parameters<typeof localMcpRuntime.rememberProjectMemory>[0],
+      return localMcpRuntime.rememberRepositoryMemory(
+        args as Parameters<typeof localMcpRuntime.rememberRepositoryMemory>[0],
       );
     case "forget-project-memory":
-      return localMcpRuntime.forgetProjectMemory(
-        args as Parameters<typeof localMcpRuntime.forgetProjectMemory>[0],
+      return localMcpRuntime.forgetRepositoryMemory(
+        args as Parameters<typeof localMcpRuntime.forgetRepositoryMemory>[0],
       );
     case "list-project-memories":
-      return localMcpRuntime.listProjectMemories(
-        args as Parameters<typeof localMcpRuntime.listProjectMemories>[0],
+      return localMcpRuntime.listRepositoryMemories(
+        args as Parameters<typeof localMcpRuntime.listRepositoryMemories>[0],
       );
     case "clear-workspace-notes":
       return localMcpRuntime.clearWorkspaceNotes(
@@ -1481,8 +1481,8 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "workspace.execution": {
       try {
         const args = WorkspaceExecutionArgsSchema.parse(request.params);
-        const projects = ensureHostServicePersistenceReady().loadProjectRegistry();
-        const owners = projects.filter((project) => project.workspaces.some((workspace) => workspace.id === args.workspaceId));
+        const repositories = ensureHostServicePersistenceReady().loadRepositoryRegistry();
+        const owners = repositories.filter((repository) => repository.workspaces.some((workspace) => workspace.id === args.workspaceId));
         if (owners.length !== 1 || !owners[0]?.workspacePathById[args.workspaceId] || realpathSync(owners[0].workspacePathById[args.workspaceId]!) !== realpathSync(args.workspacePath)) {
           throw new Error("Workspace ownership changed. Refresh Resource Manager and try again.");
         }

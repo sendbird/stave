@@ -47,17 +47,17 @@ export function captureBrowserResult(notification: AppNotification) {
     notification.kind !== "task.turn_failed"
   )
     return;
-  const { projectPath, workspaceId, taskId, turnId } = notification;
-  if (!projectPath || !workspaceId || !taskId || !turnId) return;
+  const { repositoryPath, workspaceId, taskId, turnId } = notification;
+  if (!repositoryPath || !workspaceId || !taskId || !turnId) return;
   const rows = fallbackRows();
-  const scope = { projectPath, workspaceId, taskId, turnId };
+  const scope = { repositoryPath, workspaceId, taskId, turnId };
   if (rows.some((row) => resultReviewKey(row) === resultReviewKey(scope)))
     return;
   const evidence = ResultEvidenceSchema.safeParse(notification.payload?.resultEvidence);
   const result: ResultReview = {
     ...scope,
     id: notification.id,
-    projectName: notification.projectName ?? "Repository",
+    repositoryName: notification.repositoryName ?? "Repository",
     workspaceName: notification.workspaceName ?? "Workspace",
     taskTitle: notification.taskTitle ?? notification.title,
     summary: notification.body.slice(0, 2000),

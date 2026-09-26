@@ -3,7 +3,7 @@ import type {
   FleetAttentionKind,
   FleetAttentionTier,
 } from "@/lib/fleet/attention-projection";
-import { projectSidebarStyles } from "@/components/layout/project-workspace-sidebar.styles";
+import { repositorySidebarStyles } from "@/components/layout/project-workspace-sidebar.styles";
 import { getFleetAttentionTier } from "@/lib/fleet/attention-projection";
 import {
   classifyTaskStatus,
@@ -23,27 +23,27 @@ import {
 import type { ChatMessage, Task } from "@/types/chat";
 import {
   isDefaultWorkspaceName,
-  type ProjectAppearanceColorId,
-  type ProjectAppearanceIconId,
+  type RepositoryAppearanceColorId,
+  type RepositoryAppearanceIconId,
 } from "@/store/project.utils";
 
-export interface ProjectSidebarWorkspaceView {
+export interface RepositorySidebarWorkspaceView {
   id: string;
   name: string;
   isDefault: boolean;
   branch?: string;
 }
 
-export interface ProjectSidebarCollapsedProjectView {
-  projectPath: string;
-  projectName: string;
-  appearanceIcon?: ProjectAppearanceIconId;
-  appearanceColor?: ProjectAppearanceColorId;
-  workspaces: ProjectSidebarWorkspaceView[];
+export interface RepositorySidebarCollapsedRepositoryView {
+  repositoryPath: string;
+  repositoryName: string;
+  appearanceIcon?: RepositoryAppearanceIconId;
+  appearanceColor?: RepositoryAppearanceColorId;
+  workspaces: RepositorySidebarWorkspaceView[];
   /**
-   * Per-project map of workspace id -> filesystem path. Scoped to THIS
-   * project so non-current project rows resolve their own worktree paths
-   * instead of falling back to the active project's top-level store map.
+   * Per-repository map of workspace id -> filesystem path. Scoped to THIS
+   * repository so non-current repository rows resolve their own worktree paths
+   * instead of falling back to the active repository's top-level store map.
    */
   workspacePathById: Record<string, string>;
   activeWorkspaceId: string;
@@ -61,9 +61,9 @@ export function getWorkspaceLeadingAttentionKind(
 }
 
 /**
- * The project row's attention alert. A collapsed project hides its workspace
+ * The repository row's attention alert. A collapsed repository hides its workspace
  * rows, so a pending question inside one of them would otherwise be invisible
- * until the user expands the project and finds the stalled agent by hand.
+ * until the user expands the repository and finds the stalled agent by hand.
  *
  * Blocking items always win. Review-tier items (a finished result, a PR that is
  * merely ready) are work you have not confirmed yet rather than work that is
@@ -72,7 +72,7 @@ export function getWorkspaceLeadingAttentionKind(
  * leave it lit almost permanently and stop it reading as "an agent is waiting
  * on you".
  */
-export interface ProjectSidebarAttentionAlert {
+export interface RepositorySidebarAttentionAlert {
   kind: FleetAttentionKind;
   tier: FleetAttentionTier;
   attentionItemCount: number;
@@ -80,7 +80,7 @@ export interface ProjectSidebarAttentionAlert {
   label: string;
 }
 
-const PROJECT_ATTENTION_ALERT_LABEL: Record<FleetAttentionKind, string> = {
+const REPOSITORY_ATTENTION_ALERT_LABEL: Record<FleetAttentionKind, string> = {
   "user-input": "answer needed",
   approval: "approval needed",
   "run-failed": "run failed",
@@ -92,12 +92,12 @@ const PROJECT_ATTENTION_ALERT_LABEL: Record<FleetAttentionKind, string> = {
   "pr-ready-to-merge": "PR ready to merge",
 };
 
-function formatProjectAttentionAlertLabel(args: {
+function formatRepositoryAttentionAlertLabel(args: {
   kind: FleetAttentionKind;
   attentionItemCount: number;
   workspaceCount: number;
 }) {
-  const reason = PROJECT_ATTENTION_ALERT_LABEL[args.kind];
+  const reason = REPOSITORY_ATTENTION_ALERT_LABEL[args.kind];
   const scope =
     args.workspaceCount > 1
       ? ` across ${formatCountLabel(args.workspaceCount, "workspace")}`
@@ -120,28 +120,28 @@ function formatCountLabel(count: number, singular: string) {
   return `${count} ${count === 1 ? singular : `${singular}s`}`;
 }
 
-interface ProjectAttentionTierAccumulator {
+interface RepositoryAttentionTierAccumulator {
   topAttentionItem?: FleetAttentionItem;
   attentionItemCount: number;
   workspaceIds: Set<string>;
 }
 
-function createTierAccumulator(): ProjectAttentionTierAccumulator {
+function createTierAccumulator(): RepositoryAttentionTierAccumulator {
   return { attentionItemCount: 0, workspaceIds: new Set<string>() };
 }
 
 /**
- * Rolls a project's workspaces up into a single alert so the collapsed project
+ * Rolls a repository's workspaces up into a single alert so the collapsed repository
  * row can show one indicator instead of a pile of badges.
  *
  * Blocking and review items are accumulated separately and blocking is returned
  * whenever it exists, so an unconfirmed result never masks or inflates the
  * count of an agent that is actually waiting on the user.
  */
-export function buildProjectSidebarAttentionAlert(args: {
-  workspaces: readonly Pick<ProjectSidebarWorkspaceView, "id">[];
+export function buildRepositorySidebarAttentionAlert(args: {
+  workspaces: readonly Pick<RepositorySidebarWorkspaceView, "id">[];
   attentionItemsByWorkspaceId: Record<string, FleetAttentionItem[] | undefined>;
-}): ProjectSidebarAttentionAlert | null {
+}): RepositorySidebarAttentionAlert | null {
   const blocking = createTierAccumulator();
   const review = createTierAccumulator();
 
@@ -156,7 +156,7 @@ export function buildProjectSidebarAttentionAlert(args: {
       target.attentionItemCount += 1;
       target.workspaceIds.add(workspace.id);
       // Lower priority number wins; ties fall back to the older item so the
-      // label stays stable while a project keeps accruing requests.
+      // label stays stable while a repository keeps accruing requests.
       const { topAttentionItem } = target;
       if (
         !topAttentionItem ||
@@ -181,7 +181,7 @@ export function buildProjectSidebarAttentionAlert(args: {
     tier: getFleetAttentionTier(topAttentionItem.kind),
     attentionItemCount: selected.attentionItemCount,
     workspaceCount,
-    label: formatProjectAttentionAlertLabel({
+    label: formatRepositoryAttentionAlertLabel({
       kind: topAttentionItem.kind,
       attentionItemCount: selected.attentionItemCount,
       workspaceCount,
@@ -192,7 +192,7 @@ export function buildProjectSidebarAttentionAlert(args: {
 /**
  * Row actions stay pinned while the workspace is closing; otherwise they follow
  * the row's hover / keyboard-focus reveal, which the row publishes as custom
- * properties (`projectSidebarStyles.workspaceRow`). Keyboard reveal is
+ * properties (`repositorySidebarStyles.workspaceRow`). Keyboard reveal is
  * `:has(:focus-visible)`, not `:focus-within`, so a mouse click on the row does
  * not latch the actions open.
  */
@@ -200,23 +200,23 @@ export function getWorkspaceHoverActionVisibilityStyle(args: {
   isClosing: boolean;
 }) {
   return args.isClosing
-    ? projectSidebarStyles.rowActionsPinned
-    : projectSidebarStyles.rowActionsReveal;
+    ? repositorySidebarStyles.rowActionsPinned
+    : repositorySidebarStyles.rowActionsReveal;
 }
 
 export interface CollapsedWorkspaceEntry {
-  projectPath: string;
-  projectName: string;
+  repositoryPath: string;
+  repositoryName: string;
   workspaceId: string;
   workspaceName: string;
   isDefault: boolean;
   branch?: string;
   isActive: boolean;
-  startsProjectGroup: boolean;
+  startsRepositoryGroup: boolean;
 }
 
 export interface WorkspaceShortcutTarget {
-  projectPath: string;
+  repositoryPath: string;
   workspaceId: string;
 }
 
@@ -297,8 +297,8 @@ export function formatWorkspaceDisplayName(args: {
  * second.
  *
  * The Projects tree can afford `label (branch)` because its rows are nested
- * under a project and indented, so the parenthetical still fits. A queue row is
- * flat and already spends its right edge on the project name, so it gets exactly
+ * under a repository and indented, so the parenthetical still fits. A queue row is
+ * flat and already spends its right edge on the repository name, so it gets exactly
  * one identifier — and the useful one is whatever the user actually named the
  * workspace.
  *
@@ -328,8 +328,8 @@ function normalizeWorkspaceSearchText(value: string) {
 }
 
 export function workspaceMatchesSidebarSearch(args: {
-  workspace: ProjectSidebarWorkspaceView;
-  projectName: string;
+  workspace: RepositorySidebarWorkspaceView;
+  repositoryName: string;
   query: string;
 }) {
   const query = normalizeWorkspaceSearchText(args.query);
@@ -338,7 +338,7 @@ export function workspaceMatchesSidebarSearch(args: {
   }
 
   const searchable = [
-    args.projectName,
+    args.repositoryName,
     args.workspace.name,
     args.workspace.branch ?? "",
     formatWorkspaceDisplayName({
@@ -353,46 +353,46 @@ export function workspaceMatchesSidebarSearch(args: {
   return searchable.includes(query);
 }
 
-export function filterProjectSidebarProjects(args: {
-  projects: ProjectSidebarCollapsedProjectView[];
+export function filterRepositorySidebarRepositories(args: {
+  repositories: RepositorySidebarCollapsedRepositoryView[];
   query: string;
 }) {
   const query = normalizeWorkspaceSearchText(args.query);
   if (!query) {
-    return args.projects;
+    return args.repositories;
   }
 
-  return args.projects
-    .map((project) => ({
-      ...project,
-      workspaces: project.workspaces.filter((workspace) =>
+  return args.repositories
+    .map((repository) => ({
+      ...repository,
+      workspaces: repository.workspaces.filter((workspace) =>
         workspaceMatchesSidebarSearch({
           workspace,
-          projectName: project.projectName,
+          repositoryName: repository.repositoryName,
           query,
         }),
       ),
     }))
-    .filter((project) => project.workspaces.length > 0);
+    .filter((repository) => repository.workspaces.length > 0);
 }
 
 export function buildCollapsedWorkspaceEntries(args: {
-  projects: ProjectSidebarCollapsedProjectView[];
+  repositories: RepositorySidebarCollapsedRepositoryView[];
   activeWorkspaceId: string;
 }): CollapsedWorkspaceEntry[] {
-  return args.projects.reduce<CollapsedWorkspaceEntry[]>((entries, project) => {
-    const startsAfterPreviousProject = entries.length > 0;
+  return args.repositories.reduce<CollapsedWorkspaceEntry[]>((entries, repository) => {
+    const startsAfterPreviousRepository = entries.length > 0;
 
-    for (const [workspaceIndex, workspace] of project.workspaces.entries()) {
+    for (const [workspaceIndex, workspace] of repository.workspaces.entries()) {
       entries.push({
-        projectPath: project.projectPath,
-        projectName: project.projectName,
+        repositoryPath: repository.repositoryPath,
+        repositoryName: repository.repositoryName,
         workspaceId: workspace.id,
         workspaceName: workspace.name,
         isDefault: workspace.isDefault,
         branch: workspace.branch,
-        isActive: project.isCurrent && workspace.id === args.activeWorkspaceId,
-        startsProjectGroup: startsAfterPreviousProject && workspaceIndex === 0,
+        isActive: repository.isCurrent && workspace.id === args.activeWorkspaceId,
+        startsRepositoryGroup: startsAfterPreviousRepository && workspaceIndex === 0,
       });
     }
 
@@ -401,8 +401,8 @@ export function buildCollapsedWorkspaceEntries(args: {
 }
 
 export interface SidebarWorkQueueEntry {
-  projectPath: string;
-  projectName: string;
+  repositoryPath: string;
+  repositoryName: string;
   workspaceId: string;
   workspaceName: string;
   branch?: string;
@@ -423,7 +423,7 @@ const SIDEBAR_WORK_QUEUE_STATUS_RANK: Record<FleetTaskStatus, number> = {
  * Ranks every workspace for the sidebar Work queue view.
  *
  * used by: `src/components/layout/ProjectWorkspaceSidebar.tsx` (Work queue
- * view), `tests/project-workspace-sidebar.test.ts`.
+ * view), `tests/repository-workspace-sidebar.test.ts`.
  *
  * Every workspace is returned, uncapped. The Work queue is one of the two
  * sidebar views rather than a strip above the tree, so it has to be able to
@@ -433,8 +433,8 @@ const SIDEBAR_WORK_QUEUE_STATUS_RANK: Record<FleetTaskStatus, number> = {
  * function only decides the order inside a lane.
  */
 export function buildSidebarWorkQueueEntries(args: {
-  projects: ProjectSidebarCollapsedProjectView[];
-  recentProjectLastOpenedAtByPath: Record<string, string>;
+  repositories: RepositorySidebarCollapsedRepositoryView[];
+  recentRepositoryLastOpenedAtByPath: Record<string, string>;
   statusByWorkspaceId: Record<string, FleetTaskStatus>;
   attentionPriorityByWorkspaceId?: Record<string, number | undefined>;
   activeWorkspaceId: string;
@@ -445,24 +445,24 @@ export function buildSidebarWorkQueueEntries(args: {
     lastOpenedAt: string;
   })[] = [];
 
-  for (const project of args.projects) {
-    for (const workspace of project.workspaces) {
+  for (const repository of args.repositories) {
+    for (const workspace of repository.workspaces) {
       if (seen.has(workspace.id)) {
         continue;
       }
       seen.add(workspace.id);
       entries.push({
-        projectPath: project.projectPath,
-        projectName: project.projectName,
+        repositoryPath: repository.repositoryPath,
+        repositoryName: repository.repositoryName,
         workspaceId: workspace.id,
         workspaceName: workspace.name,
         branch: workspace.branch,
         isDefault: workspace.isDefault,
-        isActive: project.isCurrent && workspace.id === args.activeWorkspaceId,
+        isActive: repository.isCurrent && workspace.id === args.activeWorkspaceId,
         status: args.statusByWorkspaceId[workspace.id] ?? "idle",
         attentionPriority: args.attentionPriorityByWorkspaceId?.[workspace.id],
         lastOpenedAt:
-          args.recentProjectLastOpenedAtByPath[project.projectPath] ?? "",
+          args.recentRepositoryLastOpenedAtByPath[repository.repositoryPath] ?? "",
       });
     }
   }
@@ -499,19 +499,19 @@ export function buildSidebarWorkQueueEntries(args: {
 
 export function buildVisibleWorkspaceShortcutTargets(args: {
   collapsed: boolean;
-  collapsedByProjectPath: Record<string, boolean>;
-  projects: ProjectSidebarCollapsedProjectView[];
+  collapsedByRepositoryPath: Record<string, boolean>;
+  repositories: RepositorySidebarCollapsedRepositoryView[];
 }): WorkspaceShortcutTarget[] {
   const targets: WorkspaceShortcutTarget[] = [];
 
-  for (const project of args.projects) {
-    if (!args.collapsed && args.collapsedByProjectPath[project.projectPath]) {
+  for (const repository of args.repositories) {
+    if (!args.collapsed && args.collapsedByRepositoryPath[repository.repositoryPath]) {
       continue;
     }
 
-    for (const workspace of project.workspaces) {
+    for (const workspace of repository.workspaces) {
       targets.push({
-        projectPath: project.projectPath,
+        repositoryPath: repository.repositoryPath,
         workspaceId: workspace.id,
       });
 
@@ -572,8 +572,8 @@ export function getWorkspaceRespondingCountVisibilityStyle(args: {
   }
 
   return args.isClosing
-    ? projectSidebarStyles.rowCountHidden
-    : projectSidebarStyles.rowCountYields;
+    ? repositorySidebarStyles.rowCountHidden
+    : repositorySidebarStyles.rowCountYields;
 }
 
 const WORKSPACE_PROGRESS_TASK_TITLE_MAX = 42;

@@ -29,7 +29,7 @@ import { toPersistenceTurnUsage } from "../persistence/turn-usage";
 import type { PersistenceTurnUsage } from "../persistence/types";
 import type { AppNotificationCreateInput } from "../../src/lib/notifications/notification.types";
 import {
-  projectLocalMcpTaskTurnActivityEvent,
+  repositoryLocalMcpTaskTurnActivityEvent,
   type LocalMcpTaskTurnUpdate,
 } from "../../src/lib/local-mcp/task-turn-update";
 import { classifyProviderTurnStopReason } from "../../src/lib/providers/turn-status";
@@ -58,26 +58,26 @@ import {
   normalizeProviderTimeoutMs,
 } from "../../src/store/editor.utils";
 import {
-  buildProjectDefaultWorkspaceId,
+  buildRepositoryDefaultWorkspaceId,
   buildImportedWorktreeWorkspaceId,
   buildWorkspaceCreationNotice,
   buildWorkspaceRootNodeModulesSymlinkCommand,
   mergeArchivedWorkspacePaths,
-  normalizeProjectDisplayName,
-  normalizeProjectWorkspaceRootNodeModulesSymlinkPreference,
-  normalizeRecentProjectStates,
+  normalizeRepositoryDisplayName,
+  normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference,
+  normalizeRecentRepositoryStates,
   normalizeWorkspaceInitCommand,
-  resolveCurrentProjectDefaultWorkspaceId,
-  resolveProjectNameFromPath,
-  resolveProjectWorkspaceInitCommand,
-  resolveProjectWorkspaceRootNodeModulesSymlinkPreference,
+  resolveCurrentRepositoryDefaultWorkspaceId,
+  resolveRepositoryNameFromPath,
+  resolveRepositoryWorkspaceInitCommand,
+  resolveRepositoryWorkspaceRootNodeModulesSymlinkPreference,
   resolveWorkspaceRemoteBaseBranchTarget,
   sanitizeBranchName,
   summarizeTerminalCommandDetail,
   summarizeWorkspaceInitCommand,
   toWorkspaceFolderName,
-  upsertRecentProjectState,
-  type RecentProjectState,
+  upsertRecentRepositoryState,
+  type RecentRepositoryState,
 } from "../../src/store/project.utils";
 import {
   buildWorkspaceSessionState,
@@ -122,15 +122,15 @@ import {
 } from "../../src/lib/providers/managed-task-runtime";
 import { ensureHostServicePersistenceReady } from "./persistence";
 import {
-  ProjectMemoryContentSchema,
-  ProjectMemoryKindSchema,
-  resolveProjectMemoryConfidence,
-  type ProjectMemory,
-  type ProjectMemoryKind,
+  RepositoryMemoryContentSchema,
+  RepositoryMemoryKindSchema,
+  resolveRepositoryMemoryConfidence,
+  type RepositoryMemory,
+  type RepositoryMemoryKind,
 } from "../../src/lib/project-memory";
 import {
-  buildProjectMemoryRetrievedContextPart,
-  resolveProjectMemoryRecallQuery,
+  buildRepositoryMemoryRetrievedContextPart,
+  resolveRepositoryMemoryRecallQuery,
 } from "../../src/lib/task-context/project-memory";
 import { createKeyedAsyncQueue } from "./keyed-async-queue";
 import {
@@ -150,9 +150,9 @@ export interface RegisteredWorkspaceInfo {
   isDefault: boolean;
 }
 
-export interface RegisteredProjectInfo {
-  projectPath: string;
-  projectName: string;
+export interface RegisteredRepositoryInfo {
+  repositoryPath: string;
+  repositoryName: string;
   defaultBranch: string;
   activeWorkspaceId: string;
   defaultWorkspaceId: string;
@@ -164,8 +164,8 @@ export interface CreatedWorkspaceInfo {
   workspaceName: string;
   workspacePath: string;
   branch: string;
-  projectPath: string;
-  projectName: string;
+  repositoryPath: string;
+  repositoryName: string;
   noticeLevel?: "success" | "warning";
   message?: string;
 }
@@ -209,7 +209,7 @@ export interface TaskStatusResult {
 export interface TaskSupervisionSnapshot {
   workspaceId: string;
   taskId: string;
-  projectPath: string | null;
+  repositoryPath: string | null;
   exists: boolean;
   archived: boolean;
   providerId: ProviderId | null;
@@ -267,20 +267,20 @@ let localMcpEventListener:
     ) => void)
   | null = null;
 
-function normalizeProjectPath(projectPath: string) {
-  return path.resolve(projectPath.trim());
+function normalizeRepositoryPath(repositoryPath: string) {
+  return path.resolve(repositoryPath.trim());
 }
 
-async function assertDirectoryExists(projectPath: string) {
-  const stat = await fs.stat(projectPath);
+async function assertDirectoryExists(repositoryPath: string) {
+  const stat = await fs.stat(repositoryPath);
   if (!stat.isDirectory()) {
-    throw new Error(`Path is not a directory: ${projectPath}`);
+    throw new Error(`Path is not a directory: ${repositoryPath}`);
   }
 }
 
-async function detectDefaultBranch(projectPath: string) {
+async function detectDefaultBranch(repositoryPath: string) {
   const branchResult = await runCommand({
-    cwd: projectPath,
+    cwd: repositoryPath,
     command:
       "git symbolic-ref --short refs/remotes/origin/HEAD || git symbolic-ref --short HEAD || echo main",
   });
@@ -304,15 +304,15 @@ function decodeTaskMessages(messages: unknown[]): ChatMessage[] {
 }
 
 function toWorkspaceList(
-  project: RecentProjectState,
+  repository: RecentRepositoryState,
 ): RegisteredWorkspaceInfo[] {
-  return project.workspaces.map((workspace) => ({
+  return repository.workspaces.map((workspace) => ({
     id: workspace.id,
     name: workspace.name,
     updatedAt: workspace.updatedAt,
-    path: project.workspacePathById[workspace.id] ?? project.projectPath,
-    branch: project.workspaceBranchById[workspace.id] ?? project.defaultBranch,
-    isDefault: Boolean(project.workspaceDefaultById[workspace.id]),
+    path: repository.workspacePathById[workspace.id] ?? repository.repositoryPath,
+    branch: repository.workspaceBranchById[workspace.id] ?? repository.defaultBranch,
+    isDefault: Boolean(repository.workspaceDefaultById[workspace.id]),
   }));
 }
 
@@ -427,79 +427,79 @@ function queueWorkspaceSessionPersist(args: {
   return tracked;
 }
 
-async function loadNormalizedProjects() {
+async function loadNormalizedRepositories() {
   const store = ensureHostServicePersistenceReady();
   return {
     store,
-    projects: normalizeRecentProjectStates({
-      projects: store.loadProjectRegistry() as RecentProjectState[],
+    repositories: normalizeRecentRepositoryStates({
+      repositories: store.loadRepositoryRegistry() as RecentRepositoryState[],
     }),
   };
 }
 
-async function saveNormalizedProjects(projects: RecentProjectState[]) {
+async function saveNormalizedRepositories(repositories: RecentRepositoryState[]) {
   const store = ensureHostServicePersistenceReady();
-  store.saveProjectRegistry({
-    projects: normalizeRecentProjectStates({ projects }) as never[],
+  store.saveRepositoryRegistry({
+    repositories: normalizeRecentRepositoryStates({ repositories }) as never[],
   });
 }
 
-function findProjectByPath(
-  projects: RecentProjectState[],
-  projectPath: string,
+function findRepositoryByPath(
+  repositories: RecentRepositoryState[],
+  repositoryPath: string,
 ) {
   return (
-    projects.find((project) => project.projectPath === projectPath) ?? null
+    repositories.find((repository) => repository.repositoryPath === repositoryPath) ?? null
   );
 }
 
 function findWorkspaceRegistration(args: {
-  projects: RecentProjectState[];
+  repositories: RecentRepositoryState[];
   workspaceId: string;
 }) {
-  for (const project of args.projects) {
+  for (const repository of args.repositories) {
     const workspace =
-      project.workspaces.find((item) => item.id === args.workspaceId) ?? null;
+      repository.workspaces.find((item) => item.id === args.workspaceId) ?? null;
     if (!workspace) {
       continue;
     }
     return {
-      project,
+      project: repository,
       workspace,
       workspacePath:
-        project.workspacePathById[workspace.id] ?? project.projectPath,
+        repository.workspacePathById[workspace.id] ?? repository.repositoryPath,
       branch:
-        project.workspaceBranchById[workspace.id] ?? project.defaultBranch,
+        repository.workspaceBranchById[workspace.id] ?? repository.defaultBranch,
     };
   }
   return null;
 }
 
-async function ensureProjectRegistryEntry(args: {
-  projectPath: string;
-  projectName?: string;
+async function ensureRepositoryRegistryEntry(args: {
+  repositoryPath: string;
+  repositoryName?: string;
   defaultBranch?: string;
 }) {
-  const projectPath = normalizeProjectPath(args.projectPath);
-  await assertDirectoryExists(projectPath);
-  const resolvedProjectName = normalizeProjectDisplayName({
-    projectPath,
-    projectName:
-      args.projectName?.trim() || resolveProjectNameFromPath({ projectPath }),
+  const repositoryPath = normalizeRepositoryPath(args.repositoryPath);
+  await assertDirectoryExists(repositoryPath);
+  const resolvedRepositoryName = normalizeRepositoryDisplayName({
+    repositoryPath,
+    repositoryName:
+      args.repositoryName?.trim() || resolveRepositoryNameFromPath({ repositoryPath }),
   });
   const defaultBranch =
-    args.defaultBranch?.trim() || (await detectDefaultBranch(projectPath));
+    args.defaultBranch?.trim() || (await detectDefaultBranch(repositoryPath));
   const now = new Date().toISOString();
 
-  const { store, projects } = await loadNormalizedProjects();
-  const existingProject = findProjectByPath(projects, projectPath);
-  const defaultWorkspaceId = existingProject
-    ? resolveCurrentProjectDefaultWorkspaceId({
-        projectPath,
-        workspaces: existingProject.workspaces,
-        workspaceDefaultById: existingProject.workspaceDefaultById,
+  const { store, repositories } = await loadNormalizedRepositories();
+  const existingRepository = findRepositoryByPath(repositories, repositoryPath);
+  const defaultWorkspaceId = existingRepository
+    ? resolveCurrentRepositoryDefaultWorkspaceId({
+        repositoryPath,
+        workspaces: existingRepository.workspaces,
+        workspaceDefaultById: existingRepository.workspaceDefaultById,
       })
-    : buildProjectDefaultWorkspaceId({ projectPath });
+    : buildRepositoryDefaultWorkspaceId({ repositoryPath });
   const existingShell = store.loadWorkspaceShell({
     workspaceId: defaultWorkspaceId,
   });
@@ -512,46 +512,46 @@ async function ensureProjectRegistryEntry(args: {
     });
   }
 
-  const nextProject: RecentProjectState = existingProject
+  const nextRepository: RecentRepositoryState = existingRepository
     ? {
-        ...existingProject,
-        projectName: resolvedProjectName,
+        ...existingRepository,
+        repositoryName: resolvedRepositoryName,
         defaultBranch,
         lastOpenedAt: now,
         activeWorkspaceId:
-          existingProject.activeWorkspaceId || defaultWorkspaceId,
+          existingRepository.activeWorkspaceId || defaultWorkspaceId,
         workspaceBranchById: {
-          ...existingProject.workspaceBranchById,
+          ...existingRepository.workspaceBranchById,
           [defaultWorkspaceId]:
-            existingProject.workspaceBranchById[defaultWorkspaceId] ||
+            existingRepository.workspaceBranchById[defaultWorkspaceId] ||
             defaultBranch,
         },
         workspacePathById: {
-          ...existingProject.workspacePathById,
+          ...existingRepository.workspacePathById,
           [defaultWorkspaceId]:
-            existingProject.workspacePathById[defaultWorkspaceId] ||
-            projectPath,
+            existingRepository.workspacePathById[defaultWorkspaceId] ||
+            repositoryPath,
         },
         workspaceDefaultById: {
-          ...existingProject.workspaceDefaultById,
+          ...existingRepository.workspaceDefaultById,
           [defaultWorkspaceId]: true,
         },
-        workspaces: existingProject.workspaces.some(
+        workspaces: existingRepository.workspaces.some(
           (workspace) => workspace.id === defaultWorkspaceId,
         )
-          ? existingProject.workspaces
+          ? existingRepository.workspaces
           : [
               {
                 id: defaultWorkspaceId,
                 name: defaultWorkspaceName,
                 updatedAt: now,
               },
-              ...existingProject.workspaces,
+              ...existingRepository.workspaces,
             ],
       }
     : {
-        projectPath,
-        projectName: resolvedProjectName,
+        repositoryPath,
+        repositoryName: resolvedRepositoryName,
         lastOpenedAt: now,
         defaultBranch,
         workspaces: [
@@ -563,24 +563,24 @@ async function ensureProjectRegistryEntry(args: {
         ],
         activeWorkspaceId: defaultWorkspaceId,
         workspaceBranchById: { [defaultWorkspaceId]: defaultBranch },
-        workspacePathById: { [defaultWorkspaceId]: projectPath },
+        workspacePathById: { [defaultWorkspaceId]: repositoryPath },
         workspaceDefaultById: { [defaultWorkspaceId]: true },
-        projectBasePrompt: "",
+        repositoryBasePrompt: "",
         newWorkspaceInitCommand: "",
         newWorkspaceUseRootNodeModulesSymlink: false,
       };
 
-  const nextProjects = upsertRecentProjectState({
-    projects,
-    project: nextProject,
+  const nextRepositories = upsertRecentRepositoryState({
+    repositories,
+    repository: nextRepository,
   });
-  await saveNormalizedProjects(nextProjects);
+  await saveNormalizedRepositories(nextRepositories);
 
   return {
-    projectPath,
-    projectName: resolvedProjectName,
+    projectPath: repositoryPath,
+    repositoryName: resolvedRepositoryName,
     defaultBranch,
-    project: nextProject,
+    repository: nextRepository,
     defaultWorkspaceId,
   };
 }
@@ -783,9 +783,9 @@ async function updateWorkspaceInformationState(args: {
     workspaceId: args.workspaceId,
     session: await loadWorkspaceSession(args.workspaceId),
   });
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   const nextWorkspaceInformation = args.updater(session.workspaceInformation);
@@ -845,78 +845,78 @@ export const {
   updateWorkspaceInformationState,
 });
 
-export interface ProjectMemoryRememberToolResult {
-  projectPath: string;
+export interface RepositoryMemoryRememberToolResult {
+  repositoryPath: string;
   outcome: "inserted" | "confirmed" | "updated" | "rejected";
-  memory: ProjectMemory | null;
+  memory: RepositoryMemory | null;
 }
 
-export interface ProjectMemoryForgetToolResult {
-  projectPath: string;
+export interface RepositoryMemoryForgetToolResult {
+  repositoryPath: string;
   memoryId: string;
   forgotten: boolean;
 }
 
-async function resolveProjectPathForWorkspace(workspaceId: string) {
-  const { projects } = await loadNormalizedProjects();
-  const registration = findWorkspaceRegistration({ projects, workspaceId });
+async function resolveRepositoryPathForWorkspace(workspaceId: string) {
+  const { repositories } = await loadNormalizedRepositories();
+  const registration = findWorkspaceRegistration({ repositories, workspaceId });
   if (!registration) {
     throw new Error(`Workspace is not registered to a project: ${workspaceId}`);
   }
-  return registration.project.projectPath;
+  return registration.project.repositoryPath;
 }
 
 /**
- * `stave_remember`: store one project-scoped fact for every future task of the
- * workspace's project. Scope comes from the workspace registration, never from
- * the caller, so a tool call cannot write into another project's memory.
+ * `stave_remember`: store one repository-scoped fact for every future task of the
+ * workspace's repository. Scope comes from the workspace registration, never from
+ * the caller, so a tool call cannot write into another repository's memory.
  */
-export async function rememberProjectMemory(args: {
+export async function rememberRepositoryMemory(args: {
   workspaceId: string;
-  kind: ProjectMemoryKind;
+  kind: RepositoryMemoryKind;
   content: string;
   memoryId?: string;
   recallMode?: "contextual" | "core";
   taskId?: string;
-}): Promise<ProjectMemoryRememberToolResult> {
-  const kind = ProjectMemoryKindSchema.parse(args.kind);
-  const content = ProjectMemoryContentSchema.parse(args.content);
-  const projectPath = await resolveProjectPathForWorkspace(args.workspaceId);
+}): Promise<RepositoryMemoryRememberToolResult> {
+  const kind = RepositoryMemoryKindSchema.parse(args.kind);
+  const content = RepositoryMemoryContentSchema.parse(args.content);
+  const repositoryPath = await resolveRepositoryPathForWorkspace(args.workspaceId);
   const store = ensureHostServicePersistenceReady();
   if (args.memoryId) {
-    const memory = store.updateProjectMemory({
+    const memory = store.updateRepositoryMemory({
       id: args.memoryId,
-      projectPath,
+      repositoryPath,
       kind,
       content,
       recallMode: args.recallMode ?? "contextual",
     });
     if (!memory) throw new Error("Project memory not found in this project.");
-    return { projectPath, outcome: "updated", memory };
+    return { repositoryPath, outcome: "updated", memory };
   }
-  const result = store.rememberProjectMemory({
-    projectPath,
+  const result = store.rememberRepositoryMemory({
+    repositoryPath,
     kind,
     content,
     recallMode: args.recallMode,
-    confidence: resolveProjectMemoryConfidence("explicit"),
+    confidence: resolveRepositoryMemoryConfidence("explicit"),
     sourceTaskId: args.taskId ?? null,
   });
   if (!result) {
     // Collection is disabled or the user previously removed this fact.
-    return { projectPath, outcome: "rejected", memory: null };
+    return { repositoryPath, outcome: "rejected", memory: null };
   }
-  return { projectPath, outcome: result.outcome, memory: result.memory };
+  return { repositoryPath, outcome: result.outcome, memory: result.memory };
 }
 
 /** `stave_list_project_memories`: ids + content, so `stave_forget` has something to target. */
-export async function listProjectMemories(args: { workspaceId: string } & import("../../src/lib/project-memory").ProjectMemorySearchOptions) {
-  const projectPath = await resolveProjectPathForWorkspace(args.workspaceId);
+export async function listRepositoryMemories(args: { workspaceId: string } & import("../../src/lib/project-memory").RepositoryMemorySearchOptions) {
+  const repositoryPath = await resolveRepositoryPathForWorkspace(args.workspaceId);
   const store = ensureHostServicePersistenceReady();
   const { workspaceId: _workspaceId, ...options } = args;
-  const result = store.searchProjectMemories({ projectPath, ...options });
+  const result = store.searchRepositoryMemories({ repositoryPath, ...options });
   return {
-    projectPath,
+    projectPath: repositoryPath,
     nextOffset: result.nextOffset,
     memories: result.memories
       .map(({ id, kind, content, recallMode, lastConfirmedAt }) => ({
@@ -929,54 +929,54 @@ export async function listProjectMemories(args: { workspaceId: string } & import
   };
 }
 
-/** `stave_forget`: soft-delete a memory that belongs to the workspace's project. */
-export async function forgetProjectMemory(args: {
+/** `stave_forget`: soft-delete a memory that belongs to the workspace's repository. */
+export async function forgetRepositoryMemory(args: {
   workspaceId: string;
   memoryId: string;
-}): Promise<ProjectMemoryForgetToolResult> {
-  const projectPath = await resolveProjectPathForWorkspace(args.workspaceId);
+}): Promise<RepositoryMemoryForgetToolResult> {
+  const repositoryPath = await resolveRepositoryPathForWorkspace(args.workspaceId);
   const store = ensureHostServicePersistenceReady();
-  const memory = store.getProjectMemory(args.memoryId);
-  if (!memory || memory.projectPath !== projectPath) {
+  const memory = store.getRepositoryMemory(args.memoryId);
+  if (!memory || memory.repositoryPath !== repositoryPath) {
     throw new Error(
       `Project memory not found in this project: ${args.memoryId}`,
     );
   }
   return {
-    projectPath,
+    repositoryPath,
     memoryId: args.memoryId,
-    forgotten: store.deleteProjectMemory(args.memoryId),
+    forgotten: store.deleteRepositoryMemory(args.memoryId),
   };
 }
 
 /**
- * The `stave:project-memory` block for a host-initiated turn. Memory is a
+ * The `stave:repository-memory` block for a host-initiated turn. Memory is a
  * best-effort aid: a store without the method (test doubles) or a failing
  * query yields no block rather than a failed turn.
  */
-function buildProjectMemoryPartForTurn(args: {
-  projectPath: string;
+function buildRepositoryMemoryPartForTurn(args: {
+  repositoryPath: string;
   history: ChatMessage[];
   prompt: string;
 }): CanonicalRetrievedContextPart | null {
   try {
     const store = ensureHostServicePersistenceReady() as {
-      recallProjectMemories?: (input: {
-        projectPath: string;
+      recallRepositoryMemories?: (input: {
+        repositoryPath: string;
         query?: string | null;
-      }) => ProjectMemory[];
+      }) => RepositoryMemory[];
     };
-    if (typeof store.recallProjectMemories !== "function") {
+    if (typeof store.recallRepositoryMemories !== "function") {
       return null;
     }
-    const memories = store.recallProjectMemories({
-      projectPath: args.projectPath,
-      query: resolveProjectMemoryRecallQuery({
+    const memories = store.recallRepositoryMemories({
+      repositoryPath: args.repositoryPath,
+      query: resolveRepositoryMemoryRecallQuery({
         history: args.history,
         prompt: args.prompt,
       }),
     });
-    return buildProjectMemoryRetrievedContextPart({ memories });
+    return buildRepositoryMemoryRetrievedContextPart({ memories });
   } catch (error) {
     console.warn("[stave-mcp] project memory recall failed", error);
     return null;
@@ -1063,9 +1063,9 @@ async function persistApprovalNotification(args: {
   event: Extract<NormalizedProviderEvent, { type: "approval" }>;
   session: WorkspaceSessionState;
 }) {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   const task =
@@ -1087,8 +1087,8 @@ async function persistApprovalNotification(args: {
     kind: "task.approval_requested",
     title: taskTitle,
     body: `${args.event.toolName}: ${args.event.description}`,
-    projectPath: registration?.project.projectPath ?? null,
-    projectName: registration?.project.projectName ?? null,
+    repositoryPath: registration?.project.repositoryPath ?? null,
+    repositoryName: registration?.project.repositoryName ?? null,
     workspaceId: args.workspaceId,
     workspaceName: registration?.workspace.name ?? null,
     taskId: args.taskId,
@@ -1226,9 +1226,9 @@ async function persistUserInputNotification(args: {
   if (!location) {
     return;
   }
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   const firstQuestion = args.event.questions[0];
@@ -1244,8 +1244,8 @@ async function persistUserInputNotification(args: {
     kind: "task.user_input_requested",
     title: task.title || "Task",
     body: `${args.event.toolName}: ${question}`,
-    projectPath: registration?.project.projectPath ?? null,
-    projectName: registration?.project.projectName ?? null,
+    repositoryPath: registration?.project.repositoryPath ?? null,
+    repositoryName: registration?.project.repositoryName ?? null,
     workspaceId: args.workspaceId,
     workspaceName: registration?.workspace.name ?? null,
     taskId: args.taskId,
@@ -1284,9 +1284,9 @@ async function persistTurnCompletedNotification(args: {
     ? "failed" : classifyProviderTurnStopReason(args.event.stop_reason);
   if (outcome === "cancelled") return;
 
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   const taskTitle =
@@ -1297,8 +1297,8 @@ async function persistTurnCompletedNotification(args: {
     kind: outcome === "failed" ? "task.turn_failed" : "task.turn_completed",
     title: taskTitle,
     body: `Latest run ${outcome === "failed" ? "failed" : "finished"} in ${registration?.workspace.name ?? args.workspaceId}.`,
-    projectPath: registration?.project.projectPath ?? null,
-    projectName: registration?.project.projectName ?? null,
+    repositoryPath: registration?.project.repositoryPath ?? null,
+    repositoryName: registration?.project.repositoryName ?? null,
     workspaceId: args.workspaceId,
     workspaceName: registration?.workspace.name ?? null,
     taskId: args.taskId,
@@ -1448,24 +1448,24 @@ async function handleProviderEvent(args: {
   }
 }
 
-export async function registerProject(args: {
-  projectPath: string;
-  projectName?: string;
+export async function registerRepository(args: {
+  repositoryPath: string;
+  repositoryName?: string;
   defaultBranch?: string;
 }) {
-  const ensured = await ensureProjectRegistryEntry(args);
+  const ensured = await ensureRepositoryRegistryEntry(args);
   return {
-    projectPath: ensured.projectPath,
-    projectName: ensured.project.projectName,
-    defaultBranch: ensured.project.defaultBranch,
-    activeWorkspaceId: ensured.project.activeWorkspaceId,
+    repositoryPath: ensured.projectPath,
+    repositoryName: ensured.repository.repositoryName,
+    defaultBranch: ensured.repository.defaultBranch,
+    activeWorkspaceId: ensured.repository.activeWorkspaceId,
     defaultWorkspaceId: ensured.defaultWorkspaceId,
-    workspaces: toWorkspaceList(ensured.project),
-  } satisfies RegisteredProjectInfo;
+    workspaces: toWorkspaceList(ensured.repository),
+  } satisfies RegisteredRepositoryInfo;
 }
 
 export async function createWorkspace(args: {
-  projectPath: string;
+  repositoryPath: string;
   name: string;
   /** Human-facing sidebar label. Falls back to the derived branch name. */
   label?: string;
@@ -1480,11 +1480,11 @@ export async function createWorkspace(args: {
     throw new Error("Workspace name is required.");
   }
 
-  const ensured = await ensureProjectRegistryEntry({
-    projectPath: args.projectPath,
+  const ensured = await ensureRepositoryRegistryEntry({
+    repositoryPath: args.repositoryPath,
   });
-  const projectPath = ensured.projectPath;
-  const project = ensured.project;
+  const repositoryPath = ensured.projectPath;
+  const repository = ensured.repository;
   const branchName = sanitizeBranchName({ value: trimmedName });
   if (!branchName) {
     throw new Error("Workspace branch name is invalid.");
@@ -1492,12 +1492,12 @@ export async function createWorkspace(args: {
   const workspaceDisplayName = args.label?.trim() || branchName;
 
   const existingWorkspace =
-    toWorkspaceList(project).find(
+    toWorkspaceList(repository).find(
       (workspace) =>
         workspace.branch === branchName ||
         workspace.name === branchName ||
         workspace.path ===
-          `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: branchName, unique: true })}`,
+          `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: branchName, unique: true })}`,
     ) ?? null;
   if (existingWorkspace) {
     return {
@@ -1505,38 +1505,38 @@ export async function createWorkspace(args: {
       workspaceName: existingWorkspace.name,
       workspacePath: existingWorkspace.path,
       branch: existingWorkspace.branch,
-      projectPath,
-      projectName: project.projectName,
+      repositoryPath,
+      repositoryName: repository.repositoryName,
       message: "Workspace already exists.",
       noticeLevel: "warning",
     } satisfies CreatedWorkspaceInfo;
   }
 
-  const workspacePath = `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: branchName, unique: true })}`;
+  const workspacePath = `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: branchName, unique: true })}`;
   const workspaceId = buildImportedWorktreeWorkspaceId({
-    projectPath,
+    repositoryPath,
     worktreePath: workspacePath,
   });
   let baseBranch =
     args.fromBranch?.trim() ||
-    project.defaultBranch ||
+    repository.defaultBranch ||
     ensured.defaultBranch ||
     "main";
   const initCommand = normalizeWorkspaceInitCommand({
     value:
       args.initCommand ??
-      resolveProjectWorkspaceInitCommand({
-        projectPath,
-        recentProjects: [project],
+      resolveRepositoryWorkspaceInitCommand({
+        repositoryPath,
+        recentRepositories: [repository],
       }),
   });
   const useRootNodeModulesSymlink =
     args.useRootNodeModulesSymlink === undefined
-      ? resolveProjectWorkspaceRootNodeModulesSymlinkPreference({
-          projectPath,
-          recentProjects: [project],
+      ? resolveRepositoryWorkspaceRootNodeModulesSymlinkPreference({
+          repositoryPath,
+          recentRepositories: [repository],
         })
-      : normalizeProjectWorkspaceRootNodeModulesSymlinkPreference({
+      : normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference({
           value: args.useRootNodeModulesSymlink,
         });
   const notices: Array<{ level: "success" | "warning"; message: string }> = [];
@@ -1549,7 +1549,7 @@ export async function createWorkspace(args: {
           verifyRef: async (ref) =>
             (
               await runCommandArgs({
-                cwd: projectPath,
+                cwd: repositoryPath,
                 command: "git",
                 commandArgs: ["show-ref", "--verify", "--quiet", ref],
               })
@@ -1558,13 +1558,13 @@ export async function createWorkspace(args: {
       : null;
   if (remoteTarget) {
     const fetchResult = await runCommandArgs({
-      cwd: projectPath,
+      cwd: repositoryPath,
       command: "git",
       commandArgs: ["fetch", remoteTarget.remoteName, "--prune"],
     });
     if (!fetchResult.ok) {
       const localBranchProbe = await runCommandArgs({
-        cwd: projectPath,
+        cwd: repositoryPath,
         command: "git",
         commandArgs: [
           "show-ref",
@@ -1596,11 +1596,11 @@ export async function createWorkspace(args: {
   }
 
   await runCommand({
-    cwd: projectPath,
+    cwd: repositoryPath,
     command: "mkdir -p .stave/workspaces",
   });
   const addResult = await runCommandArgs({
-    cwd: projectPath,
+    cwd: repositoryPath,
     command: "git",
     commandArgs:
       args.mode === "clean"
@@ -1609,7 +1609,7 @@ export async function createWorkspace(args: {
   });
   if (!addResult.ok) {
     const fallbackResult = await runCommandArgs({
-      cwd: projectPath,
+      cwd: repositoryPath,
       command: "git",
       commandArgs: ["worktree", "add", workspacePath, branchName],
     });
@@ -1627,7 +1627,7 @@ export async function createWorkspace(args: {
   if (useRootNodeModulesSymlink) {
     const linkResult = await runCommand({
       cwd: workspacePath,
-      command: buildWorkspaceRootNodeModulesSymlinkCommand({ projectPath }),
+      command: buildWorkspaceRootNodeModulesSymlinkCommand({ repositoryPath }),
     });
     if (linkResult.ok) {
       notices.push({
@@ -1689,36 +1689,36 @@ export async function createWorkspace(args: {
   );
 
   const now = new Date().toISOString();
-  const nextProject: RecentProjectState = {
-    ...project,
+  const nextRepository: RecentRepositoryState = {
+    ...repository,
     lastOpenedAt: now,
     activeWorkspaceId: workspaceId,
     workspaces: [
-      ...project.workspaces,
+      ...repository.workspaces,
       { id: workspaceId, name: workspaceDisplayName, updatedAt: now },
     ],
     workspaceBranchById: {
-      ...project.workspaceBranchById,
+      ...repository.workspaceBranchById,
       [workspaceId]: branchName,
     },
     workspacePathById: {
-      ...project.workspacePathById,
+      ...repository.workspacePathById,
       [workspaceId]: workspacePath,
     },
     workspaceDefaultById: {
-      ...project.workspaceDefaultById,
+      ...repository.workspaceDefaultById,
       [workspaceId]: false,
     },
     archivedWorkspacePaths: mergeArchivedWorkspacePaths({
-      current: project.archivedWorkspacePaths,
+      current: repository.archivedWorkspacePaths,
       remove: [workspacePath],
     }),
   };
-  const { projects } = await loadNormalizedProjects();
-  await saveNormalizedProjects(
-    upsertRecentProjectState({
-      projects,
-      project: nextProject,
+  const { repositories } = await loadNormalizedRepositories();
+  await saveNormalizedRepositories(
+    upsertRecentRepositoryState({
+      repositories,
+      repository: nextRepository,
     }),
   );
 
@@ -1728,8 +1728,8 @@ export async function createWorkspace(args: {
     workspaceName: workspaceDisplayName,
     workspacePath,
     branch: branchName,
-    projectPath,
-    projectName: project.projectName,
+    repositoryPath,
+    repositoryName: repository.repositoryName,
     ...(notice ?? {}),
   } satisfies CreatedWorkspaceInfo;
 }
@@ -1853,9 +1853,9 @@ export async function runTask(args: {
   controlOwner?: TaskControlOwner;
   retrievedContextParts?: CanonicalRetrievedContextPart[];
 }) {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   if (!registration) {
@@ -2040,8 +2040,8 @@ export async function runTask(args: {
   const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
     children: listDelegatedTaskSummaries({ parentTaskId: task.id }),
   });
-  const projectMemoryPart = buildProjectMemoryPartForTurn({
-    projectPath: registration.project.projectPath,
+  const repositoryMemoryPart = buildRepositoryMemoryPartForTurn({
+    repositoryPath: registration.project.repositoryPath,
     history: existingHistory,
     prompt: args.prompt,
   });
@@ -2063,13 +2063,13 @@ export async function runTask(args: {
         workspaceName,
         workspacePath,
         workspaceBranch: registration.branch,
-        projectName: registration.project.projectName,
-        projectPath: registration.project.projectPath,
+        repositoryName: registration.project.repositoryName,
+        repositoryPath: registration.project.repositoryPath,
         taskId: task.id,
         tasks: session.tasks,
         workspaceInformation: session.workspaceInformation,
       }),
-      ...(projectMemoryPart ? [projectMemoryPart] : []),
+      ...(repositoryMemoryPart ? [repositoryMemoryPart] : []),
       ...(delegatedTaskReceiptsPart ? [delegatedTaskReceiptsPart] : []),
       ...(informationReferencesPart ? [informationReferencesPart] : []),
       ...(args.retrievedContextParts ?? []),
@@ -2178,7 +2178,7 @@ export async function runTask(args: {
       onEvent: (event) => {
         sequence += 1;
         const eventSequence = sequence;
-        const activityEvent = projectLocalMcpTaskTurnActivityEvent(event);
+        const activityEvent = repositoryLocalMcpTaskTurnActivityEvent(event);
         void workspaceProviderEventQueue
           .enqueue(args.workspaceId, async () => {
             await handleProviderEvent({
@@ -2331,9 +2331,9 @@ export async function releaseTaskParent(args: {
   workspaceId: string;
   taskId: string;
 }): Promise<{ released: boolean }> {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   if (!registration) {
@@ -2380,7 +2380,7 @@ export async function getTaskSupervisionSnapshot(args: {
   const missing: TaskSupervisionSnapshot = {
     workspaceId: args.workspaceId,
     taskId: args.taskId,
-    projectPath: null,
+    repositoryPath: null,
     exists: false,
     archived: false,
     providerId: null,
@@ -2390,9 +2390,9 @@ export async function getTaskSupervisionSnapshot(args: {
     pendingUserInputCount: 0,
   };
 
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   if (!registration) {
@@ -2402,7 +2402,7 @@ export async function getTaskSupervisionSnapshot(args: {
   const session = await loadWorkspaceSession(args.workspaceId);
   const task = session.tasks.find((item) => item.id === args.taskId);
   if (!task) {
-    return { ...missing, projectPath: registration.project.projectPath };
+    return { ...missing, repositoryPath: registration.project.repositoryPath };
   }
 
   const store = ensureHostServicePersistenceReady();
@@ -2422,7 +2422,7 @@ export async function getTaskSupervisionSnapshot(args: {
   return {
     workspaceId: args.workspaceId,
     taskId: task.id,
-    projectPath: registration.project.projectPath,
+    repositoryPath: registration.project.repositoryPath,
     exists: true,
     archived: Boolean(task.archivedAt),
     providerId: task.provider,
@@ -2450,9 +2450,9 @@ export async function notifyWakeUpFailed(args: {
   triggerKind: "schedule" | "completion";
   detail: string;
 }) {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   const session = await loadWorkspaceSession(args.workspaceId);
@@ -2467,8 +2467,8 @@ export async function notifyWakeUpFailed(args: {
       args.triggerKind === "completion"
         ? `A wake-up could not report finished delegated work: ${args.detail}`
         : `A scheduled wake-up turn could not start: ${args.detail}`,
-    projectPath: registration?.project.projectPath ?? null,
-    projectName: registration?.project.projectName ?? null,
+    repositoryPath: registration?.project.repositoryPath ?? null,
+    repositoryName: registration?.project.repositoryName ?? null,
     workspaceId: args.workspaceId,
     workspaceName: registration?.workspace.name ?? null,
     taskId: args.taskId,
@@ -2490,9 +2490,9 @@ async function releaseManagedTaskControl(args: {
   requiredOwner?: TaskControlOwner;
   sourceContexts?: CanonicalRetrievedContextPart[];
 }) {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   if (!registration) {
@@ -2571,9 +2571,9 @@ export async function stopManagedTaskTurn(args: {
   workspaceId: string;
   taskId: string;
 }) {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   if (!registration) {
@@ -2696,9 +2696,9 @@ export async function respondApproval(args: {
   requestId: string;
   approved: boolean;
 }) {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   if (!registration) {
@@ -2768,9 +2768,9 @@ export async function respondUserInput(args: {
   answers?: Record<string, string>;
   denied?: boolean;
 }) {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   if (!registration) {
@@ -2831,18 +2831,18 @@ export async function respondUserInput(args: {
   });
 }
 
-export async function listKnownProjects() {
-  const { projects } = await loadNormalizedProjects();
-  return projects.map((project) => ({
-    projectPath: project.projectPath,
-    projectName: project.projectName,
-    defaultBranch: project.defaultBranch,
-    activeWorkspaceId: project.activeWorkspaceId,
-    defaultWorkspaceId: resolveCurrentProjectDefaultWorkspaceId({
-      projectPath: project.projectPath,
-      workspaces: project.workspaces,
-      workspaceDefaultById: project.workspaceDefaultById,
+export async function listKnownRepositories() {
+  const { repositories } = await loadNormalizedRepositories();
+  return repositories.map((repository) => ({
+    repositoryPath: repository.repositoryPath,
+    repositoryName: repository.repositoryName,
+    defaultBranch: repository.defaultBranch,
+    activeWorkspaceId: repository.activeWorkspaceId,
+    defaultWorkspaceId: resolveCurrentRepositoryDefaultWorkspaceId({
+      repositoryPath: repository.repositoryPath,
+      workspaces: repository.workspaces,
+      workspaceDefaultById: repository.workspaceDefaultById,
     }),
-    workspaces: toWorkspaceList(project),
+    workspaces: toWorkspaceList(repository),
   }));
 }

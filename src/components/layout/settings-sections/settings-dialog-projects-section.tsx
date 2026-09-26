@@ -9,19 +9,19 @@ import { sx } from "@/components/ads/utils/stylex";
 import { settingsSectionsStyles as styles } from "../settings-dialog-sections.styles";
 import { useAppStore } from "@/store/app.store";
 import {
-  normalizeProjectAppearanceColor,
-  normalizeProjectAppearanceIcon,
-  normalizeProjectBasePrompt,
-  normalizeProjectKickoffBranchNamingRule,
-  normalizeProjectWorkspaceInitCommand,
-  normalizeProjectWorkspaceRootNodeModulesSymlinkPreference,
-  type RecentProjectState,
+  normalizeRepositoryAppearanceColor,
+  normalizeRepositoryAppearanceIcon,
+  normalizeRepositoryBasePrompt,
+  normalizeRepositoryKickoffBranchNamingRule,
+  normalizeRepositoryWorkspaceInitCommand,
+  normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference,
+  type RecentRepositoryState,
 } from "@/store/project.utils";
 import {
-  PROJECT_COLOR_OPTIONS,
-  PROJECT_ICON_OPTIONS,
-  ProjectColorSwatch,
-  ProjectIdentityMark,
+  REPOSITORY_COLOR_OPTIONS,
+  REPOSITORY_ICON_OPTIONS,
+  RepositoryColorSwatch,
+  RepositoryIdentityMark,
 } from "@/components/layout/project-appearance";
 import { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
 import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
@@ -66,62 +66,62 @@ function parseGitRemotes(args: { stdout: string }) {
   return Array.from(remoteStateByName.values());
 }
 
-function ProjectSettingsPanel(args: {
-  project: RecentProjectState;
+function RepositorySettingsPanel(args: {
+  repository: RecentRepositoryState;
   isCurrent: boolean;
-  onRequestRemove: (args: { projectPath: string; projectName: string }) => void;
+  onRequestRemove: (args: { repositoryPath: string; repositoryName: string }) => void;
   onNavigateSection?: (id: SectionId) => void;
 }) {
-  const setProjectBasePrompt = useAppStore(
-    (state) => state.setProjectBasePrompt,
+  const setRepositoryBasePrompt = useAppStore(
+    (state) => state.setRepositoryBasePrompt,
   );
-  const setProjectKickoffBranchNamingRule = useAppStore(
-    (state) => state.setProjectKickoffBranchNamingRule,
+  const setRepositoryKickoffBranchNamingRule = useAppStore(
+    (state) => state.setRepositoryKickoffBranchNamingRule,
   );
-  const setProjectWorkspaceInitCommand = useAppStore(
-    (state) => state.setProjectWorkspaceInitCommand,
+  const setRepositoryWorkspaceInitCommand = useAppStore(
+    (state) => state.setRepositoryWorkspaceInitCommand,
   );
-  const setProjectWorkspaceUseRootNodeModulesSymlink = useAppStore(
-    (state) => state.setProjectWorkspaceUseRootNodeModulesSymlink,
+  const setRepositoryWorkspaceUseRootNodeModulesSymlink = useAppStore(
+    (state) => state.setRepositoryWorkspaceUseRootNodeModulesSymlink,
   );
-  const setProjectAppearance = useAppStore(
-    (state) => state.setProjectAppearance,
+  const setRepositoryAppearance = useAppStore(
+    (state) => state.setRepositoryAppearance,
   );
-  const [currentProjectPath, activeWorkspaceId, workspacePathById] =
+  const [currentRepositoryPath, activeWorkspaceId, workspacePathById] =
     useAppStore(
       useShallow(
         (state) =>
           [
-            state.projectPath,
+            state.repositoryPath,
             state.activeWorkspaceId,
             state.workspacePathById,
           ] as const,
       ),
     );
-  const projectWorkspaceInitCommand = normalizeProjectWorkspaceInitCommand({
-    value: args.project.newWorkspaceInitCommand,
+  const repositoryWorkspaceInitCommand = normalizeRepositoryWorkspaceInitCommand({
+    value: args.repository.newWorkspaceInitCommand,
   });
-  const projectBasePrompt = normalizeProjectBasePrompt({
-    value: args.project.projectBasePrompt,
+  const repositoryBasePrompt = normalizeRepositoryBasePrompt({
+    value: args.repository.repositoryBasePrompt,
   });
-  const kickoffBranchNamingRule = normalizeProjectKickoffBranchNamingRule({
-    value: args.project.kickoffBranchNamingRule,
+  const kickoffBranchNamingRule = normalizeRepositoryKickoffBranchNamingRule({
+    value: args.repository.kickoffBranchNamingRule,
   });
-  const projectUseRootNodeModulesSymlink =
-    normalizeProjectWorkspaceRootNodeModulesSymlinkPreference({
-      value: args.project.newWorkspaceUseRootNodeModulesSymlink,
+  const repositoryUseRootNodeModulesSymlink =
+    normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference({
+      value: args.repository.newWorkspaceUseRootNodeModulesSymlink,
     });
-  const projectAppearanceIcon = normalizeProjectAppearanceIcon(
-    args.project.appearanceIcon,
+  const repositoryAppearanceIcon = normalizeRepositoryAppearanceIcon(
+    args.repository.appearanceIcon,
   );
-  const projectAppearanceColor = normalizeProjectAppearanceColor(
-    args.project.appearanceColor,
+  const repositoryAppearanceColor = normalizeRepositoryAppearanceColor(
+    args.repository.appearanceColor,
   );
   const scriptsWorkspacePath = args.isCurrent
     ? (workspacePathById[activeWorkspaceId] ??
-      currentProjectPath ??
-      args.project.projectPath)
-    : args.project.projectPath;
+      currentRepositoryPath ??
+      args.repository.repositoryPath)
+    : args.repository.repositoryPath;
   const [resolvedScriptsConfig, setResolvedScriptsConfig] =
     useState<ResolvedWorkspaceScriptsConfig | null>(null);
   const [repositoryRefreshNonce, setRepositoryRefreshNonce] = useState(0);
@@ -139,17 +139,17 @@ function ProjectSettingsPanel(args: {
 
   const loadResolvedScriptsConfig = useCallback(async () => {
     const getConfig = window.api?.scripts?.getConfig;
-    if (!getConfig || !args.project.projectPath || !scriptsWorkspacePath) {
+    if (!getConfig || !args.repository.repositoryPath || !scriptsWorkspacePath) {
       setResolvedScriptsConfig(null);
       return;
     }
 
     const result = await getConfig({
-      projectPath: args.project.projectPath,
+      repositoryPath: args.repository.repositoryPath,
       workspacePath: scriptsWorkspacePath,
     });
     setResolvedScriptsConfig(result.ok ? result.config : null);
-  }, [args.project.projectPath, scriptsWorkspacePath]);
+  }, [args.repository.repositoryPath, scriptsWorkspacePath]);
 
   useEffect(() => {
     void loadResolvedScriptsConfig();
@@ -177,11 +177,11 @@ function ProjectSettingsPanel(args: {
     void (async () => {
       const [rootResult, remoteResult] = await Promise.all([
         runCommand({
-          cwd: args.project.projectPath,
+          cwd: args.repository.repositoryPath,
           command: "git rev-parse --show-toplevel",
         }),
         runCommand({
-          cwd: args.project.projectPath,
+          cwd: args.repository.repositoryPath,
           command: "git remote -v",
         }),
       ]);
@@ -205,7 +205,7 @@ function ProjectSettingsPanel(args: {
         rootResult.stdout
           .split("\n")
           .map((line) => line.trim())
-          .find(Boolean) ?? args.project.projectPath;
+          .find(Boolean) ?? args.repository.repositoryPath;
       const remotes = remoteResult.ok
         ? parseGitRemotes({ stdout: remoteResult.stdout })
         : [];
@@ -226,33 +226,33 @@ function ProjectSettingsPanel(args: {
     return () => {
       cancelled = true;
     };
-  }, [args.project.projectPath, repositoryRefreshNonce]);
+  }, [args.repository.repositoryPath, repositoryRefreshNonce]);
 
   return (
     <div className={sx(styles.spaceY4)}>
-      <div className={sx(styles.projectHeader)}>
-        <div className={sx(styles.projectHeaderMain)}>
+      <div className={sx(styles.repositoryHeader)}>
+        <div className={sx(styles.repositoryHeaderMain)}>
           <div className={sx(styles.rowWrapGap2)}>
             <Badge variant="secondary">Repository Settings</Badge>
             {args.isCurrent ? <Badge>Current</Badge> : null}
             <Badge variant="secondary">
-              {args.project.workspaces.length} workspace
-              {args.project.workspaces.length === 1 ? "" : "s"}
+              {args.repository.workspaces.length} workspace
+              {args.repository.workspaces.length === 1 ? "" : "s"}
             </Badge>
             <Badge variant="secondary">
-              default: {args.project.defaultBranch}
+              default: {args.repository.defaultBranch}
             </Badge>
           </div>
           <div className={sx(styles.spaceY1)}>
-            <h4 className={sx(styles.projectTitle)}>
-              {args.project.projectName}
+            <h4 className={sx(styles.repositoryTitle)}>
+              {args.repository.repositoryName}
             </h4>
             <p className={sx(styles.mutedBody)}>
               Review repository-specific workspace defaults, git metadata,
               scripts config, and removal actions for this repository.
             </p>
           </div>
-          <p className={sx(styles.monoPath)}>{args.project.projectPath}</p>
+          <p className={sx(styles.monoPath)}>{args.repository.repositoryPath}</p>
         </div>
         <div className={sx(styles.rowCenter)}>
           <Button
@@ -286,7 +286,7 @@ function ProjectSettingsPanel(args: {
               <legend className={sx(styles.radioVisuallyHidden)}>
                 Repository icon
               </legend>
-              {PROJECT_ICON_OPTIONS.map((option) => (
+              {REPOSITORY_ICON_OPTIONS.map((option) => (
                 <label
                   key={option.id}
                   title={option.label}
@@ -294,23 +294,23 @@ function ProjectSettingsPanel(args: {
                 >
                   <input
                     type="radio"
-                    name={`project-icon-${args.project.projectPath}`}
+                    name={`project-icon-${args.repository.repositoryPath}`}
                     value={option.id}
-                    checked={projectAppearanceIcon === option.id}
+                    checked={repositoryAppearanceIcon === option.id}
                     aria-label={option.label}
                     className={sx(styles.radioVisuallyHidden)}
                     onChange={() =>
-                      setProjectAppearance({
-                        projectPath: args.project.projectPath,
+                      setRepositoryAppearance({
+                        repositoryPath: args.repository.repositoryPath,
                         icon: option.id,
-                        color: projectAppearanceColor,
+                        color: repositoryAppearanceColor,
                       })
                     }
                   />
                   <span
                     className={sx(
                       styles.iconTile,
-                      projectAppearanceIcon === option.id &&
+                      repositoryAppearanceIcon === option.id &&
                         styles.iconTileActive,
                     )}
                   >
@@ -329,7 +329,7 @@ function ProjectSettingsPanel(args: {
               <legend className={sx(styles.radioVisuallyHidden)}>
                 Repository color
               </legend>
-              {PROJECT_COLOR_OPTIONS.map((option) => (
+              {REPOSITORY_COLOR_OPTIONS.map((option) => (
                 <label
                   key={option.id}
                   title={option.label}
@@ -337,15 +337,15 @@ function ProjectSettingsPanel(args: {
                 >
                   <input
                     type="radio"
-                    name={`project-color-${args.project.projectPath}`}
+                    name={`project-color-${args.repository.repositoryPath}`}
                     value={option.id}
-                    checked={projectAppearanceColor === option.id}
+                    checked={repositoryAppearanceColor === option.id}
                     aria-label={option.label}
                     className={sx(styles.radioVisuallyHidden)}
                     onChange={() =>
-                      setProjectAppearance({
-                        projectPath: args.project.projectPath,
-                        icon: projectAppearanceIcon,
+                      setRepositoryAppearance({
+                        repositoryPath: args.repository.repositoryPath,
+                        icon: repositoryAppearanceIcon,
                         color: option.id,
                       })
                     }
@@ -353,11 +353,11 @@ function ProjectSettingsPanel(args: {
                   <span
                     className={sx(
                       styles.colorTile,
-                      projectAppearanceColor === option.id &&
+                      repositoryAppearanceColor === option.id &&
                         styles.colorTileActive,
                     )}
                   >
-                    <ProjectColorSwatch
+                    <RepositoryColorSwatch
                       color={option.id}
                       className={sx(styles.swatchGlyph)}
                     />
@@ -368,13 +368,13 @@ function ProjectSettingsPanel(args: {
           </LabeledField>
         </div>
         <div className={sx(styles.identityPreview)}>
-          <ProjectIdentityMark
-            icon={projectAppearanceIcon}
-            color={projectAppearanceColor}
+          <RepositoryIdentityMark
+            icon={repositoryAppearanceIcon}
+            color={repositoryAppearanceColor}
           />
           <div className={sx(styles.minW0)}>
             <p className={sx(styles.identityName)}>
-              {args.project.projectName}
+              {args.repository.repositoryName}
             </p>
             <p className={sx(styles.identityCaption)}>Sidebar preview</p>
           </div>
@@ -391,10 +391,10 @@ function ProjectSettingsPanel(args: {
         >
           <DraftTextarea
             xstyle={styles.textarea140}
-            value={projectBasePrompt}
+            value={repositoryBasePrompt}
             onCommit={(nextValue) =>
-              setProjectBasePrompt({
-                projectPath: args.project.projectPath,
+              setRepositoryBasePrompt({
+                repositoryPath: args.repository.repositoryPath,
                 prompt: nextValue,
               })
             }
@@ -408,10 +408,10 @@ function ProjectSettingsPanel(args: {
         >
           <DraftTextarea
             xstyle={styles.textarea120Mono}
-            value={projectWorkspaceInitCommand}
+            value={repositoryWorkspaceInitCommand}
             onCommit={(nextValue) =>
-              setProjectWorkspaceInitCommand({
-                projectPath: args.project.projectPath,
+              setRepositoryWorkspaceInitCommand({
+                repositoryPath: args.repository.repositoryPath,
                 command: nextValue,
               })
             }
@@ -427,8 +427,8 @@ function ProjectSettingsPanel(args: {
             xstyle={styles.textarea110}
             value={kickoffBranchNamingRule}
             onCommit={(nextValue) =>
-              setProjectKickoffBranchNamingRule({
-                projectPath: args.project.projectPath,
+              setRepositoryKickoffBranchNamingRule({
+                repositoryPath: args.repository.repositoryPath,
                 rule: nextValue,
               })
             }
@@ -443,16 +443,16 @@ function ProjectSettingsPanel(args: {
           <Button
             layout="host"
             type="button"
-            aria-pressed={projectUseRootNodeModulesSymlink}
+            aria-pressed={repositoryUseRootNodeModulesSymlink}
             onClick={() =>
-              setProjectWorkspaceUseRootNodeModulesSymlink({
-                projectPath: args.project.projectPath,
-                enabled: !projectUseRootNodeModulesSymlink,
+              setRepositoryWorkspaceUseRootNodeModulesSymlink({
+                repositoryPath: args.repository.repositoryPath,
+                enabled: !repositoryUseRootNodeModulesSymlink,
               })
             }
             xstyle={[
               styles.toggleButton,
-              projectUseRootNodeModulesSymlink && styles.toggleButtonActive,
+              repositoryUseRootNodeModulesSymlink && styles.toggleButtonActive,
             ]}
           >
             <div>
@@ -467,10 +467,10 @@ function ProjectSettingsPanel(args: {
             <span
               className={sx(
                 styles.toggleBadge,
-                projectUseRootNodeModulesSymlink && styles.toggleBadgeActive,
+                repositoryUseRootNodeModulesSymlink && styles.toggleBadgeActive,
               )}
             >
-              {projectUseRootNodeModulesSymlink ? "On" : "Off"}
+              {repositoryUseRootNodeModulesSymlink ? "On" : "Off"}
             </span>
           </Button>
         </LabeledField>
@@ -530,8 +530,8 @@ function ProjectSettingsPanel(args: {
               tone="danger"
               onClick={() =>
                 args.onRequestRemove({
-                  projectPath: args.project.projectPath,
-                  projectName: args.project.projectName,
+                  repositoryPath: args.repository.repositoryPath,
+                  repositoryName: args.repository.repositoryName,
                 })
               }
             >
@@ -592,27 +592,27 @@ function ProjectSettingsPanel(args: {
   );
 }
 
-export function ProjectsSection(args: {
-  currentProjectPath?: string | null;
-  projects: RecentProjectState[];
-  selectedProjectPath?: string | null;
+export function RepositoriesSection(args: {
+  currentRepositoryPath?: string | null;
+  repositories: RecentRepositoryState[];
+  selectedRepositoryPath?: string | null;
   onNavigateSection?: (id: SectionId) => void;
 }) {
-  const removeProjectFromList = useAppStore(
-    (state) => state.removeProjectFromList,
+  const removeRepositoryFromList = useAppStore(
+    (state) => state.removeRepositoryFromList,
   );
-  const [projectToRemove, setProjectToRemove] = useState<{
-    projectPath: string;
-    projectName: string;
+  const [repositoryToRemove, setRepositoryToRemove] = useState<{
+    repositoryPath: string;
+    repositoryName: string;
   } | null>(null);
-  const selectedProject =
-    args.projects.find(
-      (project) => project.projectPath === args.selectedProjectPath,
+  const selectedRepository =
+    args.repositories.find(
+      (repository) => repository.repositoryPath === args.selectedRepositoryPath,
     ) ?? null;
 
   return (
     <>
-      {args.projects.length === 0 ? (
+      {args.repositories.length === 0 ? (
         <SettingsCard
           title="No Repositories Yet"
           description="Open a repository from the sidebar to register it here."
@@ -624,13 +624,13 @@ export function ProjectsSection(args: {
         </SettingsCard>
       ) : (
         <div className={sx(styles.minW0)}>
-          {selectedProject ? (
-            <ProjectSettingsPanel
-              project={selectedProject}
+          {selectedRepository ? (
+            <RepositorySettingsPanel
+              repository={selectedRepository}
               isCurrent={
-                selectedProject.projectPath === args.currentProjectPath
+                selectedRepository.repositoryPath === args.currentRepositoryPath
               }
-              onRequestRemove={setProjectToRemove}
+              onRequestRemove={setRepositoryToRemove}
               onNavigateSection={args.onNavigateSection}
             />
           ) : (
@@ -647,23 +647,23 @@ export function ProjectsSection(args: {
         </div>
       )}
       <ConfirmDialog
-        open={Boolean(projectToRemove)}
+        open={Boolean(repositoryToRemove)}
         title="Remove Repository"
         description={
-          projectToRemove
-            ? `Remove "${projectToRemove.projectName}" from Stave's repository list? This does not delete files on disk.`
+          repositoryToRemove
+            ? `Remove "${repositoryToRemove.repositoryName}" from Stave's repository list? This does not delete files on disk.`
             : ""
         }
         confirmLabel="Remove Repository"
-        onCancel={() => setProjectToRemove(null)}
+        onCancel={() => setRepositoryToRemove(null)}
         onConfirm={() => {
-          if (!projectToRemove) {
+          if (!repositoryToRemove) {
             return;
           }
-          void removeProjectFromList({
-            projectPath: projectToRemove.projectPath,
+          void removeRepositoryFromList({
+            repositoryPath: repositoryToRemove.repositoryPath,
           });
-          setProjectToRemove(null);
+          setRepositoryToRemove(null);
         }}
       />
     </>

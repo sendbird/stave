@@ -2,41 +2,41 @@ import { describe, expect, test } from "bun:test";
 import {
   buildLinkedWorktreeFolderName,
   buildLinkedWorktreeSymlinkPath,
-  buildProjectDefaultWorkspaceId,
-  captureCurrentProjectState,
+  buildRepositoryDefaultWorkspaceId,
+  captureCurrentRepositoryState,
   formatWorkspacePathLabel,
   isDefaultWorkspaceName,
-  normalizeCurrentProjectState,
-  normalizeProjectAppearanceColor,
-  normalizeProjectAppearanceIcon,
-  normalizeProjectBasePrompt,
-  normalizeProjectKickoffBranchNamingRule,
-  normalizeProjectDisplayName,
-  normalizeRecentProjectStates,
+  normalizeCurrentRepositoryState,
+  normalizeRepositoryAppearanceColor,
+  normalizeRepositoryAppearanceIcon,
+  normalizeRepositoryBasePrompt,
+  normalizeRepositoryKickoffBranchNamingRule,
+  normalizeRepositoryDisplayName,
+  normalizeRecentRepositoryStates,
   parseRemoteTrackingBranchName,
   reconcileArchivedWorkspacePaths,
   resolvePathBaseName,
-  resolveProjectForWorkspaceId,
+  resolveRepositoryForWorkspaceId,
   resolveWorkspaceRemoteBaseBranchTarget,
   resolveTaskWorkspaceContext,
-  resolveCurrentProjectDefaultWorkspaceId,
+  resolveCurrentRepositoryDefaultWorkspaceId,
   resolveWorkspaceName,
   sanitizeBranchName,
   toShellPathArgument,
   toWorkspaceFolderName,
-  updateCurrentProjectTextPreference,
-  updateCurrentProjectAppearance,
+  updateCurrentRepositoryTextPreference,
+  updateCurrentRepositoryAppearance,
 } from "@/store/project.utils";
 import {
-  filterProjectSidebarProjects,
+  filterRepositorySidebarRepositories,
   formatWorkspaceDisplayName,
 } from "@/components/layout/ProjectWorkspaceSidebar.utils";
 
-const PROJECT_PATH = "/tmp/workspace/stave";
-const FOREIGN_PROJECT_PATH = "/tmp/sbdashboard";
-const FEATURE_WORKSPACE_PATH = `${PROJECT_PATH}/.stave/workspaces/feat__auto-update-on-mac`;
-const DEFAULT_WORKSPACE_ID = buildProjectDefaultWorkspaceId({
-  projectPath: PROJECT_PATH,
+const REPOSITORY_PATH = "/tmp/workspace/stave";
+const FOREIGN_REPOSITORY_PATH = "/tmp/sbdashboard";
+const FEATURE_WORKSPACE_PATH = `${REPOSITORY_PATH}/.stave/workspaces/feat__auto-update-on-mac`;
+const DEFAULT_WORKSPACE_ID = buildRepositoryDefaultWorkspaceId({
+  repositoryPath: REPOSITORY_PATH,
 });
 
 describe("project name normalization", () => {
@@ -82,10 +82,10 @@ describe("project name normalization", () => {
   });
 
   test("filters sidebar workspaces by custom label and branch", () => {
-    const sourceProjects = [
+    const sourceRepositories = [
       {
-        projectPath: PROJECT_PATH,
-        projectName: "stave",
+        repositoryPath: REPOSITORY_PATH,
+        repositoryName: "stave",
         activeWorkspaceId: "ws-1",
         isCurrent: true,
         workspacePathById: {},
@@ -105,19 +105,19 @@ describe("project name normalization", () => {
         ],
       },
     ];
-    const projects = filterProjectSidebarProjects({
+    const repositories = filterRepositorySidebarRepositories({
       query: "quota",
-      projects: sourceProjects,
+      repositories: sourceRepositories,
     });
 
-    expect(projects).toHaveLength(1);
-    expect(projects[0]?.workspaces.map((workspace) => workspace.id)).toEqual([
+    expect(repositories).toHaveLength(1);
+    expect(repositories[0]?.workspaces.map((workspace) => workspace.id)).toEqual([
       "ws-1",
     ]);
     expect(
-      filterProjectSidebarProjects({
+      filterRepositorySidebarRepositories({
         query: "tool-mock",
-        projects: sourceProjects,
+        repositories: sourceRepositories,
       })[0]?.workspaces,
     ).toHaveLength(1);
   });
@@ -141,16 +141,16 @@ describe("project name normalization", () => {
     expect(
       formatWorkspacePathLabel({
         workspacePath: "/tmp/workspace/stave/.stave/workspaces/feat__agent-ui",
-        projectPath: PROJECT_PATH,
+        repositoryPath: REPOSITORY_PATH,
       }),
     ).toBe(".stave/workspaces/feat__agent-ui");
 
     expect(
       formatWorkspacePathLabel({
-        workspacePath: PROJECT_PATH,
-        projectPath: PROJECT_PATH,
+        workspacePath: REPOSITORY_PATH,
+        repositoryPath: REPOSITORY_PATH,
       }),
-    ).toBe(PROJECT_PATH);
+    ).toBe(REPOSITORY_PATH);
   });
 
   test("parses remote tracking branch names into remote and local names", () => {
@@ -194,19 +194,19 @@ describe("project name normalization", () => {
 
   test("replaces the generic placeholder name with the folder basename", () => {
     expect(
-      normalizeProjectDisplayName({
-        projectPath: PROJECT_PATH,
-        projectName: "project",
+      normalizeRepositoryDisplayName({
+        repositoryPath: REPOSITORY_PATH,
+        repositoryName: "project",
       }),
     ).toBe("stave");
   });
 
   test("normalizes persisted recent projects that still carry the placeholder name", () => {
-    const projects = normalizeRecentProjectStates({
-      projects: [
+    const repositories = normalizeRecentRepositoryStates({
+      repositories: [
         {
-          projectPath: PROJECT_PATH,
-          projectName: "project",
+          repositoryPath: REPOSITORY_PATH,
+          repositoryName: "project",
           lastOpenedAt: "2026-03-30T13:35:33.466Z",
           defaultBranch: "main",
           workspaces: [
@@ -218,21 +218,21 @@ describe("project name normalization", () => {
           ],
           activeWorkspaceId: DEFAULT_WORKSPACE_ID,
           workspaceBranchById: { [DEFAULT_WORKSPACE_ID]: "main" },
-          workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+          workspacePathById: { [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH },
           workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
         },
       ],
     });
 
-    expect(projects[0]?.projectName).toBe("stave");
+    expect(repositories[0]?.repositoryName).toBe("stave");
   });
 
   test("trims and preserves the project base prompt", () => {
-    const projects = normalizeRecentProjectStates({
-      projects: [
+    const repositories = normalizeRecentRepositoryStates({
+      repositories: [
         {
-          projectPath: "/tmp/workspace/stave",
-          projectName: "stave",
+          repositoryPath: "/tmp/workspace/stave",
+          repositoryName: "stave",
           lastOpenedAt: "2026-03-30T13:35:33.466Z",
           defaultBranch: "main",
           workspaces: [],
@@ -240,21 +240,21 @@ describe("project name normalization", () => {
           workspaceBranchById: {},
           workspacePathById: {},
           workspaceDefaultById: {},
-          projectBasePrompt: "  Prefer bun over npm.  ",
+          repositoryBasePrompt: "  Prefer bun over npm.  ",
         },
       ],
     });
 
-    expect(projects[0]?.projectBasePrompt).toBe("Prefer bun over npm.");
-    expect(normalizeProjectBasePrompt({ value: undefined })).toBe("");
+    expect(repositories[0]?.repositoryBasePrompt).toBe("Prefer bun over npm.");
+    expect(normalizeRepositoryBasePrompt({ value: undefined })).toBe("");
   });
 
   test("trims and preserves the project kickoff branch naming rule", () => {
-    const projects = normalizeRecentProjectStates({
-      projects: [
+    const repositories = normalizeRecentRepositoryStates({
+      repositories: [
         {
-          projectPath: PROJECT_PATH,
-          projectName: "stave",
+          repositoryPath: REPOSITORY_PATH,
+          repositoryName: "stave",
           lastOpenedAt: "2026-03-30T13:35:33.466Z",
           defaultBranch: "main",
           workspaces: [],
@@ -267,19 +267,19 @@ describe("project name normalization", () => {
       ],
     });
 
-    expect(projects[0]?.kickoffBranchNamingRule).toBe("Use feat/<ticket>.");
-    expect(normalizeProjectKickoffBranchNamingRule({ value: undefined })).toBe(
+    expect(repositories[0]?.kickoffBranchNamingRule).toBe("Use feat/<ticket>.");
+    expect(normalizeRepositoryKickoffBranchNamingRule({ value: undefined })).toBe(
       "",
     );
   });
 
   test("normalizes and updates persisted project appearance", () => {
     const state = {
-      recentProjects: normalizeRecentProjectStates({
-        projects: [
+      recentRepositories: normalizeRecentRepositoryStates({
+        repositories: [
           {
-            projectPath: PROJECT_PATH,
-            projectName: "stave",
+            repositoryPath: REPOSITORY_PATH,
+            repositoryName: "stave",
             lastOpenedAt: "2026-03-30T13:35:33.466Z",
             defaultBranch: "main",
             workspaces: [],
@@ -292,8 +292,8 @@ describe("project name normalization", () => {
           },
         ],
       }),
-      projectPath: PROJECT_PATH,
-      projectName: "stave",
+      repositoryPath: REPOSITORY_PATH,
+      repositoryName: "stave",
       defaultBranch: "main",
       workspaces: [],
       activeWorkspaceId: "",
@@ -302,13 +302,13 @@ describe("project name normalization", () => {
       workspaceDefaultById: {},
     };
 
-    expect(state.recentProjects[0]?.appearanceIcon).toBe("code");
-    expect(state.recentProjects[0]?.appearanceColor).toBe("violet");
-    expect(normalizeProjectAppearanceIcon("terminal")).toBe("terminal");
-    expect(normalizeProjectAppearanceIcon("unknown")).toBe("folder");
-    expect(normalizeProjectAppearanceColor("unknown")).toBe("blue");
+    expect(state.recentRepositories[0]?.appearanceIcon).toBe("code");
+    expect(state.recentRepositories[0]?.appearanceColor).toBe("violet");
+    expect(normalizeRepositoryAppearanceIcon("terminal")).toBe("terminal");
+    expect(normalizeRepositoryAppearanceIcon("unknown")).toBe("folder");
+    expect(normalizeRepositoryAppearanceColor("unknown")).toBe("blue");
 
-    const updated = updateCurrentProjectAppearance({
+    const updated = updateCurrentRepositoryAppearance({
       state,
       icon: "database",
       color: "emerald",
@@ -318,11 +318,11 @@ describe("project name normalization", () => {
   });
 
   test("updates an inactive project appearance and preserves no-op state", () => {
-    const recentProjects = normalizeRecentProjectStates({
-      projects: [
+    const recentRepositories = normalizeRecentRepositoryStates({
+      repositories: [
         {
-          projectPath: PROJECT_PATH,
-          projectName: "stave",
+          repositoryPath: REPOSITORY_PATH,
+          repositoryName: "stave",
           lastOpenedAt: "2026-03-30T13:35:33.466Z",
           defaultBranch: "main",
           workspaces: [],
@@ -332,8 +332,8 @@ describe("project name normalization", () => {
           workspaceDefaultById: {},
         },
         {
-          projectPath: FOREIGN_PROJECT_PATH,
-          projectName: "sbdashboard",
+          repositoryPath: FOREIGN_REPOSITORY_PATH,
+          repositoryName: "sbdashboard",
           lastOpenedAt: "2026-03-29T13:35:33.466Z",
           defaultBranch: "main",
           workspaces: [],
@@ -345,9 +345,9 @@ describe("project name normalization", () => {
       ],
     });
     const state = {
-      recentProjects,
-      projectPath: PROJECT_PATH,
-      projectName: "stave",
+      recentRepositories,
+      repositoryPath: REPOSITORY_PATH,
+      repositoryName: "stave",
       defaultBranch: "main",
       workspaces: [],
       activeWorkspaceId: "",
@@ -356,29 +356,29 @@ describe("project name normalization", () => {
       workspaceDefaultById: {},
     };
 
-    const updated = updateCurrentProjectAppearance({
+    const updated = updateCurrentRepositoryAppearance({
       state,
-      projectPath: FOREIGN_PROJECT_PATH,
+      repositoryPath: FOREIGN_REPOSITORY_PATH,
       icon: "sparkles",
       color: "rose",
     });
     expect(
-      updated?.find((project) => project.projectPath === PROJECT_PATH)
+      updated?.find((repository) => repository.repositoryPath === REPOSITORY_PATH)
         ?.appearanceIcon,
     ).toBe("folder");
     expect(
-      updated?.find((project) => project.projectPath === FOREIGN_PROJECT_PATH)
+      updated?.find((repository) => repository.repositoryPath === FOREIGN_REPOSITORY_PATH)
         ?.appearanceIcon,
     ).toBe("sparkles");
     expect(
-      updated?.find((project) => project.projectPath === FOREIGN_PROJECT_PATH)
+      updated?.find((repository) => repository.repositoryPath === FOREIGN_REPOSITORY_PATH)
         ?.appearanceColor,
     ).toBe("rose");
 
     expect(
-      updateCurrentProjectAppearance({
-        state: { ...state, recentProjects: updated ?? recentProjects },
-        projectPath: FOREIGN_PROJECT_PATH,
+      updateCurrentRepositoryAppearance({
+        state: { ...state, recentRepositories: updated ?? recentRepositories },
+        repositoryPath: FOREIGN_REPOSITORY_PATH,
         icon: "sparkles",
         color: "rose",
       }),
@@ -391,16 +391,16 @@ describe("project name normalization", () => {
       name: "Default Workspace",
       updatedAt: "2026-03-31T13:36:33.211Z",
     };
-    const recentProjects = updateCurrentProjectTextPreference({
+    const recentRepositories = updateCurrentRepositoryTextPreference({
       state: {
-        recentProjects: [],
-        projectPath: PROJECT_PATH,
-        projectName: "stave",
+        recentRepositories: [],
+        repositoryPath: REPOSITORY_PATH,
+        repositoryName: "stave",
         defaultBranch: "main",
         workspaces: [workspace],
         activeWorkspaceId: DEFAULT_WORKSPACE_ID,
         workspaceBranchById: { [DEFAULT_WORKSPACE_ID]: "main" },
-        workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+        workspacePathById: { [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH },
         workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
       },
       preference: {
@@ -409,7 +409,7 @@ describe("project name normalization", () => {
       },
     });
 
-    expect(recentProjects?.[0]?.kickoffBranchNamingRule).toBe(
+    expect(recentRepositories?.[0]?.kickoffBranchNamingRule).toBe(
       "feat/<ticket>-<slug>",
     );
   });
@@ -420,27 +420,27 @@ describe("project name normalization", () => {
       name: "Default Workspace",
       updatedAt: "2026-03-31T13:36:33.211Z",
     };
-    const archivedProjects = captureCurrentProjectState({
-      recentProjects: [],
-      projectPath: PROJECT_PATH,
-      projectName: "stave",
+    const archivedRepositories = captureCurrentRepositoryState({
+      recentRepositories: [],
+      repositoryPath: REPOSITORY_PATH,
+      repositoryName: "stave",
       defaultBranch: "main",
       workspaces: [defaultWorkspace],
       activeWorkspaceId: DEFAULT_WORKSPACE_ID,
       workspaceBranchById: { [DEFAULT_WORKSPACE_ID]: "main" },
-      workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+      workspacePathById: { [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH },
       workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
       archivedWorkspacePathsToAdd: [FEATURE_WORKSPACE_PATH],
     });
 
-    expect(archivedProjects[0]?.archivedWorkspacePaths).toEqual([
+    expect(archivedRepositories[0]?.archivedWorkspacePaths).toEqual([
       FEATURE_WORKSPACE_PATH,
     ]);
 
-    const restoredProjects = captureCurrentProjectState({
-      recentProjects: archivedProjects,
-      projectPath: PROJECT_PATH,
-      projectName: "stave",
+    const restoredRepositories = captureCurrentRepositoryState({
+      recentRepositories: archivedRepositories,
+      repositoryPath: REPOSITORY_PATH,
+      repositoryName: "stave",
       defaultBranch: "main",
       workspaces: [
         defaultWorkspace,
@@ -456,7 +456,7 @@ describe("project name normalization", () => {
         "workspace-feature": "feat/auto-update-on-mac",
       },
       workspacePathById: {
-        [DEFAULT_WORKSPACE_ID]: PROJECT_PATH,
+        [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH,
         "workspace-feature": FEATURE_WORKSPACE_PATH,
       },
       workspaceDefaultById: {
@@ -466,7 +466,7 @@ describe("project name normalization", () => {
       archivedWorkspacePathsToRemove: [FEATURE_WORKSPACE_PATH],
     });
 
-    expect(restoredProjects[0]?.archivedWorkspacePaths).toBeUndefined();
+    expect(restoredRepositories[0]?.archivedWorkspacePaths).toBeUndefined();
   });
 
   test("preserves and clears linked workspace paths", () => {
@@ -476,54 +476,54 @@ describe("project name normalization", () => {
       name: "Default Workspace",
       updatedAt: "2026-03-31T13:36:33.211Z",
     };
-    const linkedProjects = captureCurrentProjectState({
-      recentProjects: [],
-      projectPath: PROJECT_PATH,
-      projectName: "stave",
+    const linkedRepositories = captureCurrentRepositoryState({
+      recentRepositories: [],
+      repositoryPath: REPOSITORY_PATH,
+      repositoryName: "stave",
       defaultBranch: "main",
       workspaces: [defaultWorkspace],
       activeWorkspaceId: DEFAULT_WORKSPACE_ID,
       workspaceBranchById: { [DEFAULT_WORKSPACE_ID]: "main" },
-      workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+      workspacePathById: { [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH },
       workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
       linkedWorkspacePathsToAdd: [linkedWorktreePath],
     });
 
-    expect(linkedProjects[0]?.linkedWorkspacePaths).toEqual([
+    expect(linkedRepositories[0]?.linkedWorkspacePaths).toEqual([
       linkedWorktreePath,
     ]);
 
     // Linked paths must survive an unrelated capture (no add/remove args).
-    const untouchedProjects = captureCurrentProjectState({
-      recentProjects: linkedProjects,
-      projectPath: PROJECT_PATH,
-      projectName: "stave",
+    const untouchedRepositories = captureCurrentRepositoryState({
+      recentRepositories: linkedRepositories,
+      repositoryPath: REPOSITORY_PATH,
+      repositoryName: "stave",
       defaultBranch: "main",
       workspaces: [defaultWorkspace],
       activeWorkspaceId: DEFAULT_WORKSPACE_ID,
       workspaceBranchById: { [DEFAULT_WORKSPACE_ID]: "main" },
-      workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+      workspacePathById: { [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH },
       workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
     });
 
-    expect(untouchedProjects[0]?.linkedWorkspacePaths).toEqual([
+    expect(untouchedRepositories[0]?.linkedWorkspacePaths).toEqual([
       linkedWorktreePath,
     ]);
 
-    const unlinkedProjects = captureCurrentProjectState({
-      recentProjects: untouchedProjects,
-      projectPath: PROJECT_PATH,
-      projectName: "stave",
+    const unlinkedRepositories = captureCurrentRepositoryState({
+      recentRepositories: untouchedRepositories,
+      repositoryPath: REPOSITORY_PATH,
+      repositoryName: "stave",
       defaultBranch: "main",
       workspaces: [defaultWorkspace],
       activeWorkspaceId: DEFAULT_WORKSPACE_ID,
       workspaceBranchById: { [DEFAULT_WORKSPACE_ID]: "main" },
-      workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+      workspacePathById: { [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH },
       workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
       linkedWorkspacePathsToRemove: [linkedWorktreePath],
     });
 
-    expect(unlinkedProjects[0]?.linkedWorkspacePaths).toBeUndefined();
+    expect(unlinkedRepositories[0]?.linkedWorkspacePaths).toBeUndefined();
   });
 
   test("reconcileArchivedWorkspacePaths restores tombstones lost from one source", () => {
@@ -533,25 +533,25 @@ describe("project name normalization", () => {
       reconcileArchivedWorkspacePaths({
         primary: [FEATURE_WORKSPACE_PATH],
         secondary: undefined,
-        workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+        workspacePathById: { [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH },
       }),
     ).toEqual([FEATURE_WORKSPACE_PATH]);
     expect(
       reconcileArchivedWorkspacePaths({
         primary: undefined,
         secondary: [FEATURE_WORKSPACE_PATH],
-        workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+        workspacePathById: { [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH },
       }),
     ).toEqual([FEATURE_WORKSPACE_PATH]);
   });
 
   test("reconcileArchivedWorkspacePaths dedupes and merges both sources", () => {
-    const otherArchivedPath = `${PROJECT_PATH}/.stave/workspaces/fix__other`;
+    const otherArchivedPath = `${REPOSITORY_PATH}/.stave/workspaces/fix__other`;
     expect(
       reconcileArchivedWorkspacePaths({
         primary: [FEATURE_WORKSPACE_PATH, otherArchivedPath],
         secondary: [FEATURE_WORKSPACE_PATH],
-        workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+        workspacePathById: { [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH },
       }),
     ).toEqual([FEATURE_WORKSPACE_PATH, otherArchivedPath]);
   });
@@ -564,7 +564,7 @@ describe("project name normalization", () => {
         primary: [FEATURE_WORKSPACE_PATH],
         secondary: [],
         workspacePathById: {
-          [DEFAULT_WORKSPACE_ID]: PROJECT_PATH,
+          [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH,
           "workspace-feature": FEATURE_WORKSPACE_PATH,
         },
       }),
@@ -573,11 +573,11 @@ describe("project name normalization", () => {
 
   test("keeps linked workspace paths across normalization round-trips", () => {
     const linkedWorktreePath = "/tmp/worktrees/feature-elsewhere";
-    const projects = normalizeRecentProjectStates({
-      projects: [
+    const repositories = normalizeRecentRepositoryStates({
+      repositories: [
         {
-          projectPath: PROJECT_PATH,
-          projectName: "stave",
+          repositoryPath: REPOSITORY_PATH,
+          repositoryName: "stave",
           lastOpenedAt: "2026-03-30T13:35:33.466Z",
           defaultBranch: "main",
           workspaces: [],
@@ -590,13 +590,13 @@ describe("project name normalization", () => {
       ],
     });
 
-    expect(projects[0]?.linkedWorkspacePaths).toEqual([linkedWorktreePath]);
+    expect(repositories[0]?.linkedWorkspacePaths).toEqual([linkedWorktreePath]);
   });
 
   test("rejects a foreign default workspace when its path points at another project", () => {
     expect(
-      resolveCurrentProjectDefaultWorkspaceId({
-        projectPath: PROJECT_PATH,
+      resolveCurrentRepositoryDefaultWorkspaceId({
+        repositoryPath: REPOSITORY_PATH,
         workspaces: [
           {
             id: "base:1i2znya",
@@ -606,22 +606,22 @@ describe("project name normalization", () => {
         ],
         workspaceDefaultById: { "base:1i2znya": true },
         workspacePathById: {
-          "base:1i2znya": FOREIGN_PROJECT_PATH,
+          "base:1i2znya": FOREIGN_REPOSITORY_PATH,
         },
       }),
     ).toBe(
-      buildProjectDefaultWorkspaceId({
-        projectPath: PROJECT_PATH,
+      buildRepositoryDefaultWorkspaceId({
+        repositoryPath: REPOSITORY_PATH,
       }),
     );
   });
 
   test("repairs a corrupted project registry entry whose default workspace came from another project", () => {
-    const projects = normalizeRecentProjectStates({
-      projects: [
+    const repositories = normalizeRecentRepositoryStates({
+      repositories: [
         {
-          projectPath: PROJECT_PATH,
-          projectName: "stave",
+          repositoryPath: REPOSITORY_PATH,
+          repositoryName: "stave",
           lastOpenedAt: "2026-03-31T13:36:33.211Z",
           defaultBranch: "main",
           workspaces: [
@@ -642,7 +642,7 @@ describe("project name normalization", () => {
             "3158a1b0-acfa-4413-b0c3-e5c7c7441c86": "feat/auto-update-on-mac",
           },
           workspacePathById: {
-            "base:1i2znya": FOREIGN_PROJECT_PATH,
+            "base:1i2znya": FOREIGN_REPOSITORY_PATH,
             "3158a1b0-acfa-4413-b0c3-e5c7c7441c86": FEATURE_WORKSPACE_PATH,
           },
           workspaceDefaultById: { "base:1i2znya": true },
@@ -650,10 +650,10 @@ describe("project name normalization", () => {
       ],
     });
 
-    expect(projects).toHaveLength(1);
-    expect(projects[0]).toEqual({
-      projectPath: PROJECT_PATH,
-      projectName: "stave",
+    expect(repositories).toHaveLength(1);
+    expect(repositories[0]).toEqual({
+      repositoryPath: REPOSITORY_PATH,
+      repositoryName: "stave",
       lastOpenedAt: "2026-03-31T13:36:33.211Z",
       defaultBranch: "main",
       workspaces: [
@@ -674,14 +674,14 @@ describe("project name normalization", () => {
         "3158a1b0-acfa-4413-b0c3-e5c7c7441c86": "feat/auto-update-on-mac",
       },
       workspacePathById: {
-        [DEFAULT_WORKSPACE_ID]: PROJECT_PATH,
+        [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH,
         "3158a1b0-acfa-4413-b0c3-e5c7c7441c86": FEATURE_WORKSPACE_PATH,
       },
       workspaceDefaultById: {
         [DEFAULT_WORKSPACE_ID]: true,
         "3158a1b0-acfa-4413-b0c3-e5c7c7441c86": false,
       },
-      projectBasePrompt: "",
+      repositoryBasePrompt: "",
       kickoffBranchNamingRule: "",
       newWorkspaceInitCommand: "",
       newWorkspaceUseRootNodeModulesSymlink: false,
@@ -691,9 +691,9 @@ describe("project name normalization", () => {
   });
 
   test("normalizes the current project workspace state against the repaired registry entry", () => {
-    const normalized = normalizeCurrentProjectState({
-      projectPath: PROJECT_PATH,
-      projectName: "stave",
+    const normalized = normalizeCurrentRepositoryState({
+      repositoryPath: REPOSITORY_PATH,
+      repositoryName: "stave",
       defaultBranch: "main",
       workspaces: [
         {
@@ -704,12 +704,12 @@ describe("project name normalization", () => {
       ],
       activeWorkspaceId: "base:1i2znya",
       workspaceBranchById: { "base:1i2znya": "master" },
-      workspacePathById: { "base:1i2znya": FOREIGN_PROJECT_PATH },
+      workspacePathById: { "base:1i2znya": FOREIGN_REPOSITORY_PATH },
       workspaceDefaultById: { "base:1i2znya": true },
-      recentProjects: [
+      recentRepositories: [
         {
-          projectPath: PROJECT_PATH,
-          projectName: "stave",
+          repositoryPath: REPOSITORY_PATH,
+          repositoryName: "stave",
           lastOpenedAt: "2026-03-31T13:36:33.211Z",
           defaultBranch: "main",
           workspaces: [
@@ -721,7 +721,7 @@ describe("project name normalization", () => {
           ],
           activeWorkspaceId: "base:1i2znya",
           workspaceBranchById: { "base:1i2znya": "master" },
-          workspacePathById: { "base:1i2znya": FOREIGN_PROJECT_PATH },
+          workspacePathById: { "base:1i2znya": FOREIGN_REPOSITORY_PATH },
           workspaceDefaultById: { "base:1i2znya": true },
         },
       ],
@@ -730,7 +730,7 @@ describe("project name normalization", () => {
     expect(normalized).toMatchObject({
       activeWorkspaceId: DEFAULT_WORKSPACE_ID,
       workspaceBranchById: { [DEFAULT_WORKSPACE_ID]: "main" },
-      workspacePathById: { [DEFAULT_WORKSPACE_ID]: PROJECT_PATH },
+      workspacePathById: { [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH },
       workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
     });
   });
@@ -747,10 +747,10 @@ describe("project name normalization", () => {
               updatedAt: "2026-04-16T00:00:00.000Z",
             },
           ],
-          recentProjects: [
+          recentRepositories: [
             {
-              projectPath: "/tmp/other-project",
-              projectName: "other-project",
+              repositoryPath: "/tmp/other-project",
+              repositoryName: "other-project",
               lastOpenedAt: "2026-04-16T00:00:00.000Z",
               defaultBranch: "main",
               workspaces: [
@@ -775,10 +775,10 @@ describe("project name normalization", () => {
         workspaceId: "ws-recent",
         state: {
           workspaces: [],
-          recentProjects: [
+          recentRepositories: [
             {
-              projectPath: "/tmp/other-project",
-              projectName: "other-project",
+              repositoryPath: "/tmp/other-project",
+              repositoryName: "other-project",
               lastOpenedAt: "2026-04-16T00:00:00.000Z",
               defaultBranch: "main",
               workspaces: [
@@ -801,11 +801,11 @@ describe("project name normalization", () => {
 
   test("resolves the owning project for a workspace from current state or recents", () => {
     expect(
-      resolveProjectForWorkspaceId({
+      resolveRepositoryForWorkspaceId({
         workspaceId: "ws-current",
         state: {
-          projectPath: PROJECT_PATH,
-          projectName: "stave",
+          repositoryPath: REPOSITORY_PATH,
+          repositoryName: "stave",
           workspaces: [
             {
               id: "ws-current",
@@ -813,25 +813,25 @@ describe("project name normalization", () => {
               updatedAt: "2026-04-16T00:00:00.000Z",
             },
           ],
-          recentProjects: [],
+          recentRepositories: [],
         },
       }),
     ).toEqual({
-      projectPath: PROJECT_PATH,
-      projectName: "stave",
+      repositoryPath: REPOSITORY_PATH,
+      repositoryName: "stave",
     });
 
     expect(
-      resolveProjectForWorkspaceId({
+      resolveRepositoryForWorkspaceId({
         workspaceId: "ws-recent",
         state: {
-          projectPath: null,
-          projectName: null,
+          repositoryPath: null,
+          repositoryName: null,
           workspaces: [],
-          recentProjects: [
+          recentRepositories: [
             {
-              projectPath: "/tmp/other-project",
-              projectName: "other-project",
+              repositoryPath: "/tmp/other-project",
+              repositoryName: "other-project",
               lastOpenedAt: "2026-04-16T00:00:00.000Z",
               defaultBranch: "main",
               workspaces: [
@@ -850,8 +850,8 @@ describe("project name normalization", () => {
         },
       }),
     ).toEqual({
-      projectPath: "/tmp/other-project",
-      projectName: "other-project",
+      repositoryPath: "/tmp/other-project",
+      repositoryName: "other-project",
     });
   });
 
@@ -866,7 +866,7 @@ describe("project name normalization", () => {
           "ws-owned": "/tmp/owned",
         },
         workspaceDefaultById: { "ws-active": true, "ws-owned": false },
-        projectPath: "/tmp/project",
+        repositoryPath: "/tmp/project",
       }),
     ).toEqual({
       workspaceId: "ws-owned",
@@ -884,7 +884,7 @@ describe("project name normalization", () => {
           "ws-active": "/tmp/active",
         },
         workspaceDefaultById: { "ws-active": false },
-        projectPath: "/tmp/project",
+        repositoryPath: "/tmp/project",
       }),
     ).toEqual({
       workspaceId: "ws-stale",
@@ -1018,10 +1018,10 @@ describe("linked worktree helpers", () => {
 
   test("places the symlink under the project workspaces directory", () => {
     const symlinkPath = buildLinkedWorktreeSymlinkPath({
-      projectPath: PROJECT_PATH,
+      repositoryPath: REPOSITORY_PATH,
       worktreePath: "/tmp/worktrees/feature",
     });
-    expect(symlinkPath.startsWith(`${PROJECT_PATH}/.stave/workspaces/`)).toBe(
+    expect(symlinkPath.startsWith(`${REPOSITORY_PATH}/.stave/workspaces/`)).toBe(
       true,
     );
     expect(
@@ -1055,12 +1055,12 @@ describe("workspace activity stamps", () => {
   const FEATURE_WORKSPACE_ID = "workspace-feature";
 
   function captureWith(
-    overrides: Partial<Parameters<typeof captureCurrentProjectState>[0]> = {},
+    overrides: Partial<Parameters<typeof captureCurrentRepositoryState>[0]> = {},
   ) {
-    return captureCurrentProjectState({
-      recentProjects: [],
-      projectPath: PROJECT_PATH,
-      projectName: "stave",
+    return captureCurrentRepositoryState({
+      recentRepositories: [],
+      repositoryPath: REPOSITORY_PATH,
+      repositoryName: "stave",
       defaultBranch: "main",
       workspaces: [
         {
@@ -1077,7 +1077,7 @@ describe("workspace activity stamps", () => {
       activeWorkspaceId: DEFAULT_WORKSPACE_ID,
       workspaceBranchById: { [DEFAULT_WORKSPACE_ID]: "main" },
       workspacePathById: {
-        [DEFAULT_WORKSPACE_ID]: PROJECT_PATH,
+        [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH,
         [FEATURE_WORKSPACE_ID]: FEATURE_WORKSPACE_PATH,
       },
       workspaceDefaultById: { [DEFAULT_WORKSPACE_ID]: true },
@@ -1086,13 +1086,13 @@ describe("workspace activity stamps", () => {
   }
 
   test("captures per-workspace last-active stamps", () => {
-    const projects = captureWith({
+    const repositories = captureWith({
       workspaceLastActiveAtById: {
         [FEATURE_WORKSPACE_ID]: "2026-04-01T10:00:00.000Z",
       },
     });
 
-    expect(projects[0]?.workspaceLastActiveAtById).toEqual({
+    expect(repositories[0]?.workspaceLastActiveAtById).toEqual({
       [FEATURE_WORKSPACE_ID]: "2026-04-01T10:00:00.000Z",
     });
   });
@@ -1103,10 +1103,10 @@ describe("workspace activity stamps", () => {
         [FEATURE_WORKSPACE_ID]: "2026-04-01T10:00:00.000Z",
       },
     });
-    const recaptured = captureCurrentProjectState({
-      recentProjects: seeded,
-      projectPath: PROJECT_PATH,
-      projectName: "stave",
+    const recaptured = captureCurrentRepositoryState({
+      recentRepositories: seeded,
+      repositoryPath: REPOSITORY_PATH,
+      repositoryName: "stave",
       defaultBranch: "main",
       workspaces: seeded[0]?.workspaces ?? [],
       activeWorkspaceId: DEFAULT_WORKSPACE_ID,
@@ -1121,11 +1121,11 @@ describe("workspace activity stamps", () => {
   });
 
   test("normalization keeps stamps for surviving workspaces and drops the rest", () => {
-    const projects = normalizeRecentProjectStates({
-      projects: [
+    const repositories = normalizeRecentRepositoryStates({
+      repositories: [
         {
-          projectPath: PROJECT_PATH,
-          projectName: "stave",
+          repositoryPath: REPOSITORY_PATH,
+          repositoryName: "stave",
           lastOpenedAt: "2026-03-31T13:36:33.211Z",
           defaultBranch: "main",
           workspaces: [
@@ -1154,16 +1154,16 @@ describe("workspace activity stamps", () => {
       ],
     });
 
-    expect(projects[0]?.workspaceLastActiveAtById).toEqual({
+    expect(repositories[0]?.workspaceLastActiveAtById).toEqual({
       [FEATURE_WORKSPACE_ID]: "2026-04-01T10:00:00.000Z",
     });
   });
 
   test("omits the map entirely when nothing has ever been stamped", () => {
-    const projects = captureWith();
-    expect(projects[0]?.workspaceLastActiveAtById).toBeUndefined();
+    const repositories = captureWith();
+    expect(repositories[0]?.workspaceLastActiveAtById).toBeUndefined();
 
-    const normalized = normalizeRecentProjectStates({ projects });
+    const normalized = normalizeRecentRepositoryStates({ repositories });
     expect(normalized[0]?.workspaceLastActiveAtById).toBeUndefined();
   });
 });

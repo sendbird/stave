@@ -1,12 +1,12 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, test } from "bun:test";
 import { sx } from "../src/components/ads/utils/stylex";
-import { projectSidebarStyles } from "../src/components/layout/project-workspace-sidebar.styles";
+import { repositorySidebarStyles } from "../src/components/layout/project-workspace-sidebar.styles";
 import type { FleetAttentionItem } from "../src/lib/fleet/attention-projection";
 import { FLEET_ATTENTION_PRIORITY } from "../src/lib/fleet/attention-projection";
 import {
   buildCollapsedWorkspaceEntries,
-  buildProjectSidebarAttentionAlert,
+  buildRepositorySidebarAttentionAlert,
   buildSidebarWorkQueueEntries,
   buildWorkspaceArchiveDialogCopy,
   buildWorkspaceHoverPreview,
@@ -41,10 +41,10 @@ describe("buildCollapsedWorkspaceEntries", () => {
   test("marks the first workspace of each later repository for collapsed separators", () => {
     const entries = buildCollapsedWorkspaceEntries({
       activeWorkspaceId: "ws-3",
-      projects: [
+      repositories: [
         {
-          projectPath: "/tmp/project-a",
-          projectName: "project-a",
+          repositoryPath: "/tmp/project-a",
+          repositoryName: "project-a",
           workspaces: [
             {
               id: "ws-1",
@@ -63,8 +63,8 @@ describe("buildCollapsedWorkspaceEntries", () => {
           isCurrent: false,
         },
         {
-          projectPath: "/tmp/project-b",
-          projectName: "project-b",
+          repositoryPath: "/tmp/project-b",
+          repositoryName: "project-b",
           workspaces: [
             {
               id: "ws-3",
@@ -82,30 +82,30 @@ describe("buildCollapsedWorkspaceEntries", () => {
     expect(
       entries.map((entry) => ({
         workspaceId: entry.workspaceId,
-        startsProjectGroup: entry.startsProjectGroup,
+        startsRepositoryGroup: entry.startsRepositoryGroup,
         isActive: entry.isActive,
       })),
     ).toEqual([
-      { workspaceId: "ws-1", startsProjectGroup: false, isActive: false },
-      { workspaceId: "ws-2", startsProjectGroup: false, isActive: false },
-      { workspaceId: "ws-3", startsProjectGroup: true, isActive: true },
+      { workspaceId: "ws-1", startsRepositoryGroup: false, isActive: false },
+      { workspaceId: "ws-2", startsRepositoryGroup: false, isActive: false },
+      { workspaceId: "ws-3", startsRepositoryGroup: true, isActive: true },
     ]);
   });
 
   test("does not create a separator before the first rendered workspace group", () => {
     const entries = buildCollapsedWorkspaceEntries({
       activeWorkspaceId: "ws-2",
-      projects: [
+      repositories: [
         {
-          projectPath: "/tmp/empty-project",
-          projectName: "empty-project",
+          repositoryPath: "/tmp/empty-project",
+          repositoryName: "empty-project",
           workspaces: [],
           activeWorkspaceId: "",
           isCurrent: false,
         },
         {
-          projectPath: "/tmp/project-b",
-          projectName: "project-b",
+          repositoryPath: "/tmp/project-b",
+          repositoryName: "project-b",
           workspaces: [
             {
               id: "ws-2",
@@ -121,7 +121,7 @@ describe("buildCollapsedWorkspaceEntries", () => {
     });
 
     expect(entries).toHaveLength(1);
-    expect(entries[0]?.startsProjectGroup).toBeFalse();
+    expect(entries[0]?.startsRepositoryGroup).toBeFalse();
   });
 });
 
@@ -276,7 +276,7 @@ describe("workspace hover action visibility", () => {
   test("reveals hover actions on hover and keyboard focus-visible, not generic focus-within", () => {
     expect(
       getWorkspaceHoverActionVisibilityStyle({ isClosing: false }),
-    ).toBe(projectSidebarStyles.rowActionsReveal);
+    ).toBe(repositorySidebarStyles.rowActionsReveal);
     expect(workspaceRowBlock).toContain('":hover"');
     expect(workspaceRowBlock).toContain('":has(:focus-visible)"');
     expect(workspaceRowBlock).not.toContain("focus-within");
@@ -284,10 +284,10 @@ describe("workspace hover action visibility", () => {
 
   test("keeps hover actions visible while closing", () => {
     expect(getWorkspaceHoverActionVisibilityStyle({ isClosing: true })).toBe(
-      projectSidebarStyles.rowActionsPinned,
+      repositorySidebarStyles.rowActionsPinned,
     );
-    expect(sx(projectSidebarStyles.rowActionsPinned)).not.toBe(
-      sx(projectSidebarStyles.rowActionsReveal),
+    expect(sx(repositorySidebarStyles.rowActionsPinned)).not.toBe(
+      sx(repositorySidebarStyles.rowActionsReveal),
     );
   });
 });
@@ -299,7 +299,7 @@ describe("workspace responding count visibility", () => {
         hasHoverActions: true,
         isClosing: false,
       }),
-    ).toBe(projectSidebarStyles.rowCountYields);
+    ).toBe(repositorySidebarStyles.rowCountYields);
   });
 
   test("keeps the responding count visible when no hover actions exist", () => {
@@ -317,15 +317,15 @@ describe("workspace responding count visibility", () => {
         hasHoverActions: true,
         isClosing: true,
       }),
-    ).toBe(projectSidebarStyles.rowCountHidden);
+    ).toBe(repositorySidebarStyles.rowCountHidden);
   });
 });
 
 describe("workspace shortcut targets", () => {
-  const projects = [
+  const repositories = [
     {
-      projectPath: "/tmp/project-a",
-      projectName: "project-a",
+      repositoryPath: "/tmp/project-a",
+      repositoryName: "project-a",
       workspaces: [
         {
           id: "ws-1",
@@ -344,8 +344,8 @@ describe("workspace shortcut targets", () => {
       isCurrent: true,
     },
     {
-      projectPath: "/tmp/project-b",
-      projectName: "project-b",
+      repositoryPath: "/tmp/project-b",
+      repositoryName: "project-b",
       workspaces: [
         {
           id: "ws-3",
@@ -368,45 +368,45 @@ describe("workspace shortcut targets", () => {
   test("uses only expanded and visible workspace rows for shortcut order", () => {
     const targets = buildVisibleWorkspaceShortcutTargets({
       collapsed: false,
-      collapsedByProjectPath: {
+      collapsedByRepositoryPath: {
         "/tmp/project-a": false,
         "/tmp/project-b": true,
       },
-      projects: [...projects],
+      repositories: [...repositories],
     });
 
     expect(targets).toEqual([
-      { projectPath: "/tmp/project-a", workspaceId: "ws-1" },
-      { projectPath: "/tmp/project-a", workspaceId: "ws-2" },
+      { repositoryPath: "/tmp/project-a", workspaceId: "ws-1" },
+      { repositoryPath: "/tmp/project-a", workspaceId: "ws-2" },
     ]);
   });
 
   test("uses the collapsed rail order when the sidebar is collapsed", () => {
     const targets = buildVisibleWorkspaceShortcutTargets({
       collapsed: true,
-      collapsedByProjectPath: {
+      collapsedByRepositoryPath: {
         "/tmp/project-a": true,
         "/tmp/project-b": true,
       },
-      projects: [...projects],
+      repositories: [...repositories],
     });
 
     expect(targets).toEqual([
-      { projectPath: "/tmp/project-a", workspaceId: "ws-1" },
-      { projectPath: "/tmp/project-a", workspaceId: "ws-2" },
-      { projectPath: "/tmp/project-b", workspaceId: "ws-3" },
-      { projectPath: "/tmp/project-b", workspaceId: "ws-4" },
+      { repositoryPath: "/tmp/project-a", workspaceId: "ws-1" },
+      { repositoryPath: "/tmp/project-a", workspaceId: "ws-2" },
+      { repositoryPath: "/tmp/project-b", workspaceId: "ws-3" },
+      { repositoryPath: "/tmp/project-b", workspaceId: "ws-4" },
     ]);
   });
 
   test("limits workspace shortcut targets and labels to one through nine", () => {
     const targets = buildVisibleWorkspaceShortcutTargets({
       collapsed: true,
-      collapsedByProjectPath: {},
-      projects: [
+      collapsedByRepositoryPath: {},
+      repositories: [
         {
-          projectPath: "/tmp/project-a",
-          projectName: "project-a",
+          repositoryPath: "/tmp/project-a",
+          repositoryName: "project-a",
           workspaces: Array.from({ length: 12 }, (_, index) => ({
             id: `ws-${index + 1}`,
             name: `workspace-${index + 1}`,
@@ -427,10 +427,10 @@ describe("workspace shortcut targets", () => {
 });
 
 describe("buildSidebarWorkQueueEntries", () => {
-  const baseProjects = [
+  const baseRepositories = [
     {
-      projectPath: "/tmp/project-a",
-      projectName: "project-a",
+      repositoryPath: "/tmp/project-a",
+      repositoryName: "project-a",
       workspaces: [
         { id: "ws-active", name: "active-ws", isDefault: true, branch: "main" },
         {
@@ -450,8 +450,8 @@ describe("buildSidebarWorkQueueEntries", () => {
       isCurrent: true,
     },
     {
-      projectPath: "/tmp/project-b",
-      projectName: "project-b",
+      repositoryPath: "/tmp/project-b",
+      repositoryName: "project-b",
       workspaces: [
         {
           id: "ws-b-recent",
@@ -467,8 +467,8 @@ describe("buildSidebarWorkQueueEntries", () => {
 
   test("ranks the current workspace first, then attention/error/running, then recency", () => {
     const entries = buildSidebarWorkQueueEntries({
-      projects: baseProjects,
-      recentProjectLastOpenedAtByPath: {
+      repositories: baseRepositories,
+      recentRepositoryLastOpenedAtByPath: {
         "/tmp/project-a": "2026-07-01T00:00:00.000Z",
         "/tmp/project-b": "2026-07-05T00:00:00.000Z",
       },
@@ -495,8 +495,8 @@ describe("buildSidebarWorkQueueEntries", () => {
     // workspace were filtered out the user could not reach it without leaving
     // the view, which is the one thing a navigation surface may not do.
     const entries = buildSidebarWorkQueueEntries({
-      projects: baseProjects,
-      recentProjectLastOpenedAtByPath: {},
+      repositories: baseRepositories,
+      recentRepositoryLastOpenedAtByPath: {},
       statusByWorkspaceId: {},
       activeWorkspaceId: "ws-active",
     });
@@ -511,8 +511,8 @@ describe("buildSidebarWorkQueueEntries", () => {
 
   test("orders cold workspaces with durable Fleet attention above quiet ones", () => {
     const entries = buildSidebarWorkQueueEntries({
-      projects: baseProjects,
-      recentProjectLastOpenedAtByPath: {},
+      repositories: baseRepositories,
+      recentRepositoryLastOpenedAtByPath: {},
       statusByWorkspaceId: {},
       attentionPriorityByWorkspaceId: {
         "ws-idle": 1,
@@ -531,8 +531,8 @@ describe("buildSidebarWorkQueueEntries", () => {
 
   test("running and error workspaces outrank idle ones", () => {
     const entries = buildSidebarWorkQueueEntries({
-      projects: baseProjects,
-      recentProjectLastOpenedAtByPath: {},
+      repositories: baseRepositories,
+      recentRepositoryLastOpenedAtByPath: {},
       statusByWorkspaceId: {
         "ws-idle": "error",
         "ws-attention": "running",
@@ -550,17 +550,17 @@ describe("buildSidebarWorkQueueEntries", () => {
 
   test("lists a workspace once even when two repositories claim it", () => {
     const entries = buildSidebarWorkQueueEntries({
-      projects: [
-        baseProjects[0]!,
+      repositories: [
+        baseRepositories[0]!,
         {
-          ...baseProjects[1]!,
+          ...baseRepositories[1]!,
           workspaces: [
-            ...baseProjects[1]!.workspaces,
+            ...baseRepositories[1]!.workspaces,
             { id: "ws-idle", name: "idle-ws", isDefault: false },
           ],
         },
       ],
-      recentProjectLastOpenedAtByPath: {},
+      recentRepositoryLastOpenedAtByPath: {},
       statusByWorkspaceId: {},
       activeWorkspaceId: "ws-active",
     });
@@ -645,7 +645,7 @@ describe("buildWorkspaceArchiveDialogCopy", () => {
   });
 });
 
-describe("buildProjectSidebarAttentionAlert", () => {
+describe("buildRepositorySidebarAttentionAlert", () => {
   function buildAttentionItem(
     overrides: Partial<FleetAttentionItem>,
   ): FleetAttentionItem {
@@ -655,8 +655,8 @@ describe("buildProjectSidebarAttentionAlert", () => {
       priority:
         overrides.priority ??
         FLEET_ATTENTION_PRIORITY[overrides.kind ?? "user-input"],
-      projectPath: "/tmp/project-a",
-      projectName: "project-a",
+      repositoryPath: "/tmp/project-a",
+      repositoryName: "project-a",
       workspaceId: overrides.workspaceId ?? "ws-1",
       workspaceName: "ws-1",
       createdAt: overrides.createdAt ?? "2026-01-01T00:00:00.000Z",
@@ -667,7 +667,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
 
   test("returns no alert when the repository has no needs at all", () => {
     expect(
-      buildProjectSidebarAttentionAlert({
+      buildRepositorySidebarAttentionAlert({
         workspaces: [{ id: "ws-1" }, { id: "ws-2" }],
         attentionItemsByWorkspaceId: {},
       }),
@@ -675,7 +675,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
   });
 
   test("raises an answer-needed alert when the AI is waiting on user input", () => {
-    const alert = buildProjectSidebarAttentionAlert({
+    const alert = buildRepositorySidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }],
       attentionItemsByWorkspaceId: {
         "ws-1": [buildAttentionItem({ kind: "user-input" })],
@@ -689,7 +689,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
   });
 
   test("raises an approval alert when the AI is waiting on a tool approval", () => {
-    const alert = buildProjectSidebarAttentionAlert({
+    const alert = buildRepositorySidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }],
       attentionItemsByWorkspaceId: {
         "ws-1": [buildAttentionItem({ kind: "approval" })],
@@ -701,7 +701,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
   });
 
   test("marks a finished-but-unconfirmed result as a review-tier alert", () => {
-    const alert = buildProjectSidebarAttentionAlert({
+    const alert = buildRepositorySidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }],
       attentionItemsByWorkspaceId: {
         "ws-1": [buildAttentionItem({ kind: "result-ready" })],
@@ -715,7 +715,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
   });
 
   test("labels several review needs without claiming they need attention", () => {
-    const alert = buildProjectSidebarAttentionAlert({
+    const alert = buildRepositorySidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }, { id: "ws-2" }],
       attentionItemsByWorkspaceId: {
         "ws-1": [buildAttentionItem({ kind: "result-ready" })],
@@ -737,7 +737,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
   });
 
   test("keeps a blocking need visible even when review needs sit alongside it", () => {
-    const alert = buildProjectSidebarAttentionAlert({
+    const alert = buildRepositorySidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }],
       attentionItemsByWorkspaceId: {
         "ws-1": [
@@ -753,7 +753,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
   });
 
   test("excludes review needs from the blocking count so the badge stays truthful", () => {
-    const alert = buildProjectSidebarAttentionAlert({
+    const alert = buildRepositorySidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }, { id: "ws-2" }],
       attentionItemsByWorkspaceId: {
         "ws-1": [
@@ -778,7 +778,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
   });
 
   test("tags every blocking alert with the blocking tier", () => {
-    const alert = buildProjectSidebarAttentionAlert({
+    const alert = buildRepositorySidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }],
       attentionItemsByWorkspaceId: {
         "ws-1": [buildAttentionItem({ kind: "user-input" })],
@@ -789,7 +789,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
   });
 
   test("surfaces the most urgent need when a repository blocks in several ways", () => {
-    const alert = buildProjectSidebarAttentionAlert({
+    const alert = buildRepositorySidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }, { id: "ws-2" }],
       attentionItemsByWorkspaceId: {
         "ws-1": [buildAttentionItem({ id: "need-failed", kind: "run-failed" })],
@@ -812,7 +812,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
   });
 
   test("breaks priority ties with the older need so the label stays stable", () => {
-    const alert = buildProjectSidebarAttentionAlert({
+    const alert = buildRepositorySidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }],
       attentionItemsByWorkspaceId: {
         "ws-1": [
@@ -834,7 +834,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
   });
 
   test("counts only needs belonging to the repository's own workspaces", () => {
-    const alert = buildProjectSidebarAttentionAlert({
+    const alert = buildRepositorySidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }],
       attentionItemsByWorkspaceId: {
         "ws-1": [buildAttentionItem({ kind: "approval" })],

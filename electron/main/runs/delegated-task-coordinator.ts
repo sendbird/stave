@@ -129,7 +129,7 @@ export interface DelegatedTaskLedgerPort {
 export interface DelegatedTaskWorkspaceLocation {
   workspaceId: string;
   workspacePath: string;
-  projectPath: string;
+  repositoryPath: string;
 }
 
 export interface DelegatedTaskHostPort {
@@ -137,7 +137,7 @@ export interface DelegatedTaskHostPort {
     workspaceId: string;
   }): Promise<DelegatedTaskWorkspaceLocation | null>;
   createWorkspace(args: {
-    projectPath: string;
+    repositoryPath: string;
     name: string;
     fromBranch?: string;
   }): Promise<DelegatedTaskWorkspaceLocation>;
@@ -229,16 +229,16 @@ function deriveDelegatedTaskId(runId: string) {
   ].join("-");
 }
 
-function isPathOwnedByProject(args: { projectPath: string; cwd: string }) {
-  if (!path.isAbsolute(args.projectPath) || !path.isAbsolute(args.cwd)) {
+function isPathOwnedByRepository(args: { repositoryPath: string; cwd: string }) {
+  if (!path.isAbsolute(args.repositoryPath) || !path.isAbsolute(args.cwd)) {
     return false;
   }
-  const projectPath = path.resolve(args.projectPath);
+  const repositoryPath = path.resolve(args.repositoryPath);
   const cwd = path.resolve(args.cwd);
-  if (projectPath === path.parse(projectPath).root) {
+  if (repositoryPath === path.parse(repositoryPath).root) {
     return false;
   }
-  const relative = path.relative(projectPath, cwd);
+  const relative = path.relative(repositoryPath, cwd);
   return (
     relative === "" ||
     (!relative.startsWith(`..${path.sep}`) &&
@@ -676,7 +676,7 @@ export function createDelegatedTaskCoordinator(
       return args.parentWorkspace;
     }
     return dependencies.host.createWorkspace({
-      projectPath: args.parentWorkspace.projectPath,
+      repositoryPath: args.parentWorkspace.repositoryPath,
       name: args.delegate.workspace.name,
       fromBranch: args.delegate.workspace.fromBranch,
     });
@@ -790,8 +790,8 @@ export function createDelegatedTaskCoordinator(
     });
     if (
       !parentWorkspace ||
-      !isPathOwnedByProject({
-        projectPath: args.projectPath,
+      !isPathOwnedByRepository({
+        repositoryPath: args.repositoryPath,
         cwd: parentWorkspace.workspacePath,
       })
     ) {
@@ -874,7 +874,7 @@ export function createDelegatedTaskCoordinator(
         kind: DELEGATED_TASK_RUN_KIND,
         origin: { kind: "task", id: args.parentTaskId },
         ownership: {
-          projectPath: args.projectPath,
+          repositoryPath: args.repositoryPath,
           workspaceId: delegatedWorkspaceId,
           taskId: delegatedTaskId,
         },
@@ -988,7 +988,7 @@ export function createDelegatedTaskCoordinator(
         reportError(error, { scope: "retry-child", runId: resolved.runId });
       }
       return delegateChild({
-        projectPath: args.projectPath,
+        repositoryPath: args.repositoryPath,
         parentWorkspaceId: args.parentWorkspaceId,
         parentTaskId: args.parentTaskId,
         delegationKey: args.delegationKey,

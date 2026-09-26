@@ -136,7 +136,7 @@ export function createTaskLifecycleActions(args: {
         taskWorkspaceIdById: state.taskWorkspaceIdById,
         workspacePathById: state.workspacePathById,
         workspaceDefaultById: state.workspaceDefaultById,
-        projectPath: state.projectPath,
+        repositoryPath: state.repositoryPath,
       }).cwd;
       const runCommand = window.api?.terminal?.runCommand;
       if (!runCommand || !workspaceCwd) {
@@ -206,7 +206,7 @@ export function createTaskLifecycleActions(args: {
         taskWorkspaceIdById: state.taskWorkspaceIdById,
         workspacePathById: state.workspacePathById,
         workspaceDefaultById: state.workspaceDefaultById,
-        projectPath: state.projectPath,
+        repositoryPath: state.repositoryPath,
       }).cwd;
       const runCommand = window.api?.terminal?.runCommand;
       if (!runCommand || !checkpoint || !workspaceCwd) {
@@ -251,7 +251,7 @@ export function createTaskLifecycleActions(args: {
           ],
         };
         return {
-          projectFiles: files,
+          repositoryFiles: files,
           ...(rollbackResult.ok
             ? clearRestoredTaskProviderSession({
                 state: nextState,
@@ -286,7 +286,7 @@ export function createTaskLifecycleActions(args: {
         state.taskWorkspaceIdById[taskId] ?? state.activeWorkspaceId;
       const workspaceCwd =
         state.workspacePathById[taskWorkspaceId] ||
-        state.projectPath ||
+        state.repositoryPath ||
         undefined;
       const runCommand = window.api?.terminal?.runCommand;
       if (!runCommand) {
@@ -325,7 +325,7 @@ export function createTaskLifecycleActions(args: {
             ],
           };
           return {
-            ...(args.files ? { projectFiles: args.files } : {}),
+            ...(args.files ? { repositoryFiles: args.files } : {}),
             ...(args.resetProviderSession
               ? clearRestoredTaskProviderSession({
                   state: nextState,

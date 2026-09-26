@@ -190,12 +190,12 @@ describe("continueWorkspaceFromSummary", () => {
 
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       defaultBranch: "main",
-      recentProjects: [{
-        projectPath: "/tmp/stave-project",
-        projectName: "stave-project",
+      recentRepositories: [{
+        repositoryPath: "/tmp/stave-project",
+        repositoryName: "stave-project",
         lastOpenedAt: "2026-04-01T00:00:00.000Z",
         defaultBranch: "main",
         workspaces: [{ id: "ws-source", name: "feature/pr-status", updatedAt: "2026-04-01T00:00:00.000Z" }],
@@ -252,7 +252,7 @@ describe("continueWorkspaceFromSummary", () => {
         todos: [{ id: "todo-1", text: "Handle merged workspace continue flow", completed: false }],
         customFields: [],
       },
-      projectFiles: [],
+      repositoryFiles: [],
       taskWorkspaceIdById: { "task-source": "ws-source" },
     });
 
@@ -384,12 +384,12 @@ describe("continueWorkspaceFromSummary", () => {
 
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       defaultBranch: "main",
-      recentProjects: [{
-        projectPath: "/tmp/stave-project",
-        projectName: "stave-project",
+      recentRepositories: [{
+        repositoryPath: "/tmp/stave-project",
+        repositoryName: "stave-project",
         lastOpenedAt: "2026-04-01T00:00:00.000Z",
         defaultBranch: "main",
         workspaces: [{ id: "ws-source", name: "feature/pr-status", updatedAt: "2026-04-01T00:00:00.000Z" }],
@@ -446,7 +446,7 @@ describe("continueWorkspaceFromSummary", () => {
         todos: [],
         customFields: [],
       },
-      projectFiles: [],
+      repositoryFiles: [],
       taskWorkspaceIdById: { "task-source": "ws-source" },
     });
 
@@ -533,12 +533,12 @@ describe("continueWorkspaceFromSummary", () => {
 
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       defaultBranch: "main",
-      recentProjects: [{
-        projectPath: "/tmp/stave-project",
-        projectName: "stave-project",
+      recentRepositories: [{
+        repositoryPath: "/tmp/stave-project",
+        repositoryName: "stave-project",
         lastOpenedAt: "2026-04-01T00:00:00.000Z",
         defaultBranch: "main",
         workspaces: [{ id: "ws-source", name: "feature/pr-status", updatedAt: "2026-04-01T00:00:00.000Z" }],
@@ -595,7 +595,7 @@ describe("continueWorkspaceFromSummary", () => {
         todos: [],
         customFields: [],
       },
-      projectFiles: [],
+      repositoryFiles: [],
       taskWorkspaceIdById: { "task-source": "ws-source" },
     });
 

@@ -14,7 +14,7 @@ type OrbitLensApi = {
     workspaceId: string;
     lensSessionId: string;
     sessionScope?: LensSessionScope;
-    projectKey?: string | null;
+    repositoryKey?: string | null;
   }) => Promise<{ ok: boolean; message?: string }>;
   navigate?: (args: {
     workspaceId: string;
@@ -87,7 +87,7 @@ export function partitionAutomationRuntimeEntries(
 export async function openOrbitUrlWithLensPriority(args: {
   url: string;
   workspaceId?: string | null;
-  projectPath?: string | null;
+  repositoryPath?: string | null;
   lensSessionScope: LensSessionScope;
   lensApi?: OrbitLensApi | null;
   resolveLensSessionId: () => string | null;
@@ -126,7 +126,7 @@ export async function openOrbitUrlWithLensPriority(args: {
       workspaceId: args.workspaceId,
       lensSessionId,
       sessionScope: args.lensSessionScope,
-      projectKey: args.projectPath,
+      repositoryKey: args.repositoryPath,
     });
     if (!openResult.ok) {
       return {

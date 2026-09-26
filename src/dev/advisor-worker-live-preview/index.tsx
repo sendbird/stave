@@ -44,7 +44,7 @@ import {
 const target = {
   taskId: "preview-live-task",
   workspaceId: "preview-live-workspace",
-  projectPath: "/tmp/preview-project",
+  repositoryPath: "/tmp/preview-project",
 };
 const TURN_ID = "preview-live-turn";
 const PRIMARY_PROVIDER = "claude-code" as const;
@@ -390,7 +390,7 @@ export function AdvisorWorkerLivePreview() {
     useAppStore.setState({
       activeWorkspaceId: target.workspaceId,
       activeTaskId: target.taskId,
-      projectPath: target.projectPath,
+      repositoryPath: target.repositoryPath,
       settings: {
         ...state.settings,
         turnActivityPlacement: placement,

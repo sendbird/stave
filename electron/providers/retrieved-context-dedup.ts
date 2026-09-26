@@ -8,7 +8,7 @@ import {
   STAVE_CURRENT_TASK_AWARENESS_SOURCE_ID,
   STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
 } from "../../src/lib/task-context/current-task-awareness";
-import { STAVE_PROJECT_MEMORY_SOURCE_ID } from "../../src/lib/task-context/project-memory";
+import { STAVE_REPOSITORY_MEMORY_SOURCE_ID } from "../../src/lib/task-context/project-memory";
 
 /**
  * Retrieved-context sources that are rebuilt from live state every turn and are
@@ -24,7 +24,7 @@ import { STAVE_PROJECT_MEMORY_SOURCE_ID } from "../../src/lib/task-context/proje
 export const DEDUPABLE_RETRIEVED_CONTEXT_SOURCE_IDS = [
   STAVE_CURRENT_TASK_AWARENESS_SOURCE_ID,
   STAVE_WORKSPACE_INFORMATION_SOURCE_ID,
-  STAVE_PROJECT_MEMORY_SOURCE_ID,
+  STAVE_REPOSITORY_MEMORY_SOURCE_ID,
 ] as const;
 
 /**

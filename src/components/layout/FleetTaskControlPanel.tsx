@@ -108,7 +108,7 @@ export function FleetTaskControlPanel(args: {
   const panelRef = useRef<HTMLElement | null>(null);
   const completionTimerRef = useRef<number | null>(null);
   const [
-    activeProjectPath,
+    activeRepositoryPath,
     activeWorkspaceId,
     activeTasks,
     activeMessagesByTask,
@@ -126,17 +126,17 @@ export function FleetTaskControlPanel(args: {
     useShallow(
       (state) =>
         [
-          state.projectPath,
+          state.repositoryPath,
           state.activeWorkspaceId,
-          state.projectPath === args.target.projectPath &&
+          state.repositoryPath === args.target.repositoryPath &&
           state.activeWorkspaceId === args.target.workspaceId
             ? state.tasks
             : null,
-          state.projectPath === args.target.projectPath &&
+          state.repositoryPath === args.target.repositoryPath &&
           state.activeWorkspaceId === args.target.workspaceId
             ? state.messagesByTask
             : null,
-          state.projectPath === args.target.projectPath &&
+          state.repositoryPath === args.target.repositoryPath &&
           state.activeWorkspaceId === args.target.workspaceId
             ? state.activeTurnIdsByTask
             : null,
@@ -159,7 +159,7 @@ export function FleetTaskControlPanel(args: {
     text: string;
   } | null>(null);
   const isActiveWorkspace =
-    activeProjectPath === args.target.projectPath &&
+    activeRepositoryPath === args.target.repositoryPath &&
     activeWorkspaceId === args.target.workspaceId;
   const tasks = isActiveWorkspace
     ? (activeTasks ?? [])
@@ -209,7 +209,7 @@ export function FleetTaskControlPanel(args: {
   const delegatedTasks = useDelegatedTasks({
     parentTaskId: args.target.taskId,
     parentWorkspaceId: args.target.workspaceId,
-    projectPath: args.target.projectPath,
+    repositoryPath: args.target.repositoryPath,
   });
   const { children: delegatedTaskRows } = delegatedTasks;
   const delegatedTaskSource = useMemo(
@@ -487,13 +487,13 @@ export function FleetTaskControlPanel(args: {
 
       <DelegatedTaskParentBacklink
         taskId={args.target.taskId}
-        projectPath={args.target.projectPath}
+        repositoryPath={args.target.repositoryPath}
         className={sx(styles.section)}
       />
       <DelegatedTaskRows
         parentTaskId={args.target.taskId}
         parentWorkspaceId={args.target.workspaceId}
-        projectPath={args.target.projectPath}
+        repositoryPath={args.target.repositoryPath}
         source={delegatedTaskSource}
         className={sx(styles.section)}
       />

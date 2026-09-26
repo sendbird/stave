@@ -29,7 +29,7 @@ describe("WorkspaceSettingsDialog", () => {
         workspaceId: "ws-1",
         workspaceName: "feature-login",
         branch: "feature/login",
-        projectPath: "/tmp/acme",
+        repositoryPath: "/tmp/acme",
         workspacePath: "/tmp/acme-feature",
       }),
     );

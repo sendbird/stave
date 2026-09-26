@@ -8,7 +8,7 @@ import {
   E2E_WORKSPACE_ID,
   launchStave,
   openLensSurface,
-  seedProject,
+  seedRepository,
   type StaveApp,
 } from "./harness/stave-app";
 import { decodePng, pixelAt } from "./harness/png";
@@ -45,7 +45,7 @@ import { decodePng, pixelAt } from "./harness/png";
  */
 
 let stave: StaveApp;
-let projectDir: string;
+let repositoryDir: string;
 let server: Server;
 let origin: string;
 
@@ -159,14 +159,14 @@ test.beforeAll(async () => {
   // checkout makes it do real git and workspace scanning on startup, which is
   // slow and — more to the point — variable enough to make the shell
   // assertions flaky for reasons that have nothing to do with Lens.
-  projectDir = await mkdtemp(path.join(tmpdir(), "stave-e2e-project-"));
+  repositoryDir = await mkdtemp(path.join(tmpdir(), "stave-e2e-project-"));
   await startFixtureServer();
 
   stave = await launchStave();
   await expect(stave.page.getByTestId("workspace-pane-host")).toBeVisible({
     timeout: 30_000,
   });
-  await seedProject(stave.page, { projectPath: projectDir });
+  await seedRepository(stave.page, { repositoryPath: repositoryDir });
 
   await openLensSurface(stave.page);
   await expect(stave.page.getByRole("region", { name: "Get started with Lens" })).toBeVisible();
@@ -211,8 +211,8 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await stave?.close();
   await new Promise<void>((resolve) => server?.close(() => resolve()));
-  if (projectDir) {
-    await rm(projectDir, { recursive: true, force: true });
+  if (repositoryDir) {
+    await rm(repositoryDir, { recursive: true, force: true });
   }
 });
 

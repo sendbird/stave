@@ -24,7 +24,7 @@ import {
 import type { LocalCraneJobBinding } from "../../persistence/crane-job-binding-store";
 import type {
   CreatedWorkspaceInfo,
-  RegisteredProjectInfo,
+  RegisteredRepositoryInfo,
   TaskRunResult,
   TaskStatusResult,
 } from "../../host-service/local-mcp-runtime";
@@ -72,9 +72,9 @@ interface CraneRuntimeDependencies {
   persistence: CraneBindingPersistence;
   appVersion: string;
   createHttpClient: (baseUrl: string) => CraneConnectorHttpClient;
-  listKnownProjects: () => Promise<RegisteredProjectInfo[]>;
+  listKnownRepositories: () => Promise<RegisteredRepositoryInfo[]>;
   createWorkspace: (args: {
-    projectPath: string;
+    repositoryPath: string;
     name: string;
     label?: string;
     mode: "branch";
@@ -126,7 +126,7 @@ interface CraneRuntimeDependencies {
  * how the binding comes into existence, never in how it launches.
  */
 interface CraneLocalLaunchChoice {
-  projectPath: string;
+  repositoryPath: string;
   workspace: CraneDispatchWorkspaceChoice;
   runtime: CraneDispatchRuntimeChoice;
 }
@@ -475,7 +475,7 @@ export class CraneConnectorRuntime {
   /**
    * Starts a job Stave claimed itself, skipping the remote
    * "offered -> awaiting local approval" handshake: the user picked the ticket,
-   * project, workspace, and runtime here, so the binding is born approved and
+   * repository, workspace, and runtime here, so the binding is born approved and
    * `running` is the first receipt Crane ever sees for it.
    */
   async kickoffClaimedJob(args: {
@@ -485,7 +485,7 @@ export class CraneConnectorRuntime {
       leaseExpiresAt: string;
       nextSequence: number;
     };
-    projectPath: string;
+    repositoryPath: string;
     workspace: CraneDispatchWorkspaceChoice;
     runtime: CraneDispatchRuntimeChoice;
   }): Promise<{ jobId: string; workspaceId: string; taskId: string }> {
@@ -553,7 +553,7 @@ export class CraneConnectorRuntime {
   }
 
   /**
-   * Everything an approved job does locally, from project lookup through the
+   * Everything an approved job does locally, from repository lookup through the
    * first `running` receipt. Shared by the remote approval path and the
    * Stave-started kickoff so both route their pre-run failures through
    * `failBeforeExecution` and therefore always leave Crane a terminal receipt.
@@ -562,12 +562,12 @@ export class CraneConnectorRuntime {
     binding: LocalCraneJobBinding,
     choice: CraneLocalLaunchChoice,
   ) {
-    const projects = await this.dependencies.listKnownProjects();
-    const project =
-      projects.find(
-        (candidate) => candidate.projectPath === choice.projectPath,
+    const repositories = await this.dependencies.listKnownRepositories();
+    const repository =
+      repositories.find(
+        (candidate) => candidate.repositoryPath === choice.repositoryPath,
       ) ?? null;
-    if (!project) {
+    if (!repository) {
       await this.failBeforeExecution(binding, "mapping_missing");
       throw new Error("The selected project is no longer registered in Stave.");
     }
@@ -576,7 +576,7 @@ export class CraneConnectorRuntime {
     try {
       if (choice.workspace.strategy === "existing") {
         const requestedWorkspaceId = choice.workspace.workspaceId;
-        const workspace = project.workspaces.find(
+        const workspace = repository.workspaces.find(
           (candidate) => candidate.id === requestedWorkspaceId,
         );
         if (!workspace) {
@@ -585,14 +585,14 @@ export class CraneConnectorRuntime {
         workspaceId = workspace.id;
       } else {
         const created = await this.dependencies.createWorkspace({
-          projectPath: project.projectPath,
+          repositoryPath: repository.repositoryPath,
           name: choice.workspace.branchName,
           label:
             choice.workspace.workspaceLabel?.trim() ||
             proposeDispatchWorkspaceLabel(binding.job.issue.title) ||
             undefined,
           mode: "branch",
-          fromBranch: project.defaultBranch,
+          fromBranch: repository.defaultBranch,
           fromBranchKind: "remote",
         });
         workspaceId = created.workspaceId;

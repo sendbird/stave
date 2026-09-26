@@ -2,11 +2,11 @@ import type { AppState } from "@/store/app-store.types";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import { isNotificationPendingAttention } from "@/lib/notifications/notification.types";
 
-export type CleanupState = Pick<AppState, "projectPath" | "workspaces" | "workspacePathById" | "workspaceDefaultById" | "activeWorkspaceId" | "activeTurnIdsByTask" | "taskWorkspaceIdById" | "notifications">;
+export type CleanupState = Pick<AppState, "repositoryPath" | "workspaces" | "workspacePathById" | "workspaceDefaultById" | "activeWorkspaceId" | "activeTurnIdsByTask" | "taskWorkspaceIdById" | "notifications">;
 
-export function workspaceCleanupBlocker(state: CleanupState, projectPath: string, workspaceId: string, path: string): string | null {
-  if (state.projectPath !== projectPath || !state.workspaces.some((w) => w.id === workspaceId) || state.workspacePathById[workspaceId] !== path) return "Workspace changed";
-  if (state.workspaceDefaultById[workspaceId] || workspaceId === "base" || normalizeComparablePath(path) === normalizeComparablePath(projectPath)) return "Default workspace";
+export function workspaceCleanupBlocker(state: CleanupState, repositoryPath: string, workspaceId: string, path: string): string | null {
+  if (state.repositoryPath !== repositoryPath || !state.workspaces.some((w) => w.id === workspaceId) || state.workspacePathById[workspaceId] !== path) return "Workspace changed";
+  if (state.workspaceDefaultById[workspaceId] || workspaceId === "base" || normalizeComparablePath(path) === normalizeComparablePath(repositoryPath)) return "Default workspace";
   if (state.activeWorkspaceId === workspaceId) return "Current workspace";
   if (!path) return "Path unavailable";
   if (Object.entries(state.activeTurnIdsByTask).some(([taskId, turnId]) => turnId && state.taskWorkspaceIdById[taskId] === workspaceId)) return "Agent running";

@@ -5,7 +5,7 @@ import { invokeHostService, onHostServiceEvent } from "../host-service-client";
 import {
   createWorkspace,
   getTaskStatus,
-  listKnownProjects,
+  listKnownRepositories,
   releaseTaskParent,
   runTask,
 } from "../stave-mcp-service";
@@ -25,7 +25,7 @@ import { createDelegatedTaskHostPort } from "./delegated-task-host-port";
  */
 
 const host = createDelegatedTaskHostPort({
-  listKnownProjects,
+  listKnownRepositories,
   createWorkspace,
   getTaskStatus,
   startTaskTurn: (args) => runTask(args),

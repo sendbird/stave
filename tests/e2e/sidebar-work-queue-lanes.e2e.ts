@@ -10,8 +10,8 @@ test("the sidebar header toggle swaps the Projects tree for lane-grouped Work qu
   page,
 }) => {
   await page.addInitScript(() => {
-    const projectPath = "/tmp/stave-work-queue-lanes";
-    const otherProjectPath = "/tmp/stave-work-queue-other";
+    const repositoryPath = "/tmp/stave-work-queue-lanes";
+    const otherRepositoryPath = "/tmp/stave-work-queue-other";
     const blockedWorkspaceId = "ws-blocked";
     const idleWorkspaceId = "ws-idle";
     const blockedTaskId = "task-blocked";
@@ -70,8 +70,8 @@ test("the sidebar header toggle swaps the Projects tree for lane-grouped Work qu
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath,
-          projectName: "stave-work-queue-lanes",
+          projectPath: repositoryPath,
+          repositoryName: "stave-work-queue-lanes",
           workspaces: [
             {
               id: blockedWorkspaceId,
@@ -81,12 +81,12 @@ test("the sidebar header toggle swaps the Projects tree for lane-grouped Work qu
           ],
           activeWorkspaceId: blockedWorkspaceId,
           workspaceBranchById: { [blockedWorkspaceId]: "main" },
-          workspacePathById: { [blockedWorkspaceId]: projectPath },
+          workspacePathById: { [blockedWorkspaceId]: repositoryPath },
           workspaceDefaultById: { [blockedWorkspaceId]: true },
-          recentProjects: [
+          recentRepositories: [
             {
-              projectPath: otherProjectPath,
-              projectName: "stave-work-queue-other",
+              repositoryPath: otherRepositoryPath,
+              repositoryName: "stave-work-queue-other",
               lastOpenedAt: "2026-08-01T00:00:00.000Z",
               defaultBranch: "main",
               workspaces: [
@@ -98,7 +98,7 @@ test("the sidebar header toggle swaps the Projects tree for lane-grouped Work qu
               ],
               activeWorkspaceId: idleWorkspaceId,
               workspaceBranchById: { [idleWorkspaceId]: "main" },
-              workspacePathById: { [idleWorkspaceId]: otherProjectPath },
+              workspacePathById: { [idleWorkspaceId]: otherRepositoryPath },
               workspaceDefaultById: { [idleWorkspaceId]: true },
             },
           ],

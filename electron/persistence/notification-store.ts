@@ -7,7 +7,7 @@ import {
 import type {
   PersistenceNotificationCreateInput,
   PersistenceNotificationRecord,
-  PersistenceProjectRegistryEntry,
+  PersistenceRepositoryRegistryEntry,
 } from "./types";
 import { selectOrphanedNotificationWorkspaceIds } from "./notification-orphans";
 
@@ -55,7 +55,7 @@ function normalizeNotificationProviderId(
 export class NotificationStore {
   constructor(
     private readonly db: Database.Database,
-    private readonly loadProjectRegistry: () => PersistenceProjectRegistryEntry[],
+    private readonly loadRepositoryRegistry: () => PersistenceRepositoryRegistryEntry[],
   ) {}
 
   private mapNotificationRow(
@@ -66,8 +66,8 @@ export class NotificationStore {
       kind: row.kind,
       title: row.title,
       body: row.body,
-      projectPath: row.project_path,
-      projectName: row.project_name,
+      repositoryPath: row.project_path,
+      repositoryName: row.project_name,
       workspaceId: row.workspace_id,
       workspaceName: row.workspace_name,
       taskId: row.task_id,
@@ -208,8 +208,8 @@ export class NotificationStore {
         notification.kind,
         notification.title,
         notification.body,
-        notification.projectPath ?? null,
-        notification.projectName ?? null,
+        notification.repositoryPath ?? null,
+        notification.repositoryName ?? null,
         notification.workspaceId ?? null,
         notification.workspaceName ?? null,
         notification.taskId ?? null,
@@ -444,8 +444,8 @@ export class NotificationStore {
     const workspaceRowIds = (
       this.db.prepare("SELECT id FROM workspaces").all() as { id: string }[]
     ).map((row) => row.id);
-    const registryWorkspaceIds = this.loadProjectRegistry().flatMap((project) =>
-      (project.workspaces ?? []).map((workspace) => workspace.id),
+    const registryWorkspaceIds = this.loadRepositoryRegistry().flatMap((repository) =>
+      (repository.workspaces ?? []).map((workspace) => workspace.id),
     );
 
     const workspaceIds = selectOrphanedNotificationWorkspaceIds({

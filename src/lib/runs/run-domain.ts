@@ -59,7 +59,7 @@ export type RunStepKind = z.infer<typeof RunStepKindSchema>;
 
 export const RunOwnershipSchema = z
   .object({
-    projectPath: z.string().trim().min(1).max(4096),
+    repositoryPath: z.string().trim().min(1).max(4096),
     workspaceId: RunIdSchema,
     taskId: RunIdSchema.nullable(),
   })

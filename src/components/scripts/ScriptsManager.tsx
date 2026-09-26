@@ -85,7 +85,7 @@ export interface ScriptsManagerRuntimeProps {
 }
 
 export function ScriptsManager(props: {
-  projectPath: string;
+  repositoryPath: string;
   workspacePath: string;
   resolvedConfig: ResolvedWorkspaceScriptsConfig | null;
   onSaved?: () => Promise<void> | void;
@@ -95,10 +95,10 @@ export function ScriptsManager(props: {
   const scopes = useMemo(
     () =>
       buildEditorScopes({
-        projectPath: props.projectPath,
+        repositoryPath: props.repositoryPath,
         workspacePath: props.workspacePath,
       }),
-    [props.projectPath, props.workspacePath],
+    [props.repositoryPath, props.workspacePath],
   );
   const [selectedScopeId, setSelectedScopeId] =
     useState<ScriptEditorScopeId | null>(null);
@@ -138,10 +138,10 @@ export function ScriptsManager(props: {
   const activeScopeKeyRef = useRef(activeScopeKey);
 
   const runtimeArgs =
-    props.runtime && props.projectPath && props.workspacePath
+    props.runtime && props.repositoryPath && props.workspacePath
       ? {
           workspaceId: props.runtime.workspaceId,
-          projectPath: props.projectPath,
+          repositoryPath: props.repositoryPath,
           workspacePath: props.workspacePath,
           workspaceName: props.runtime.workspaceName,
           branch: props.runtime.branch || props.runtime.workspaceName,
@@ -153,7 +153,7 @@ export function ScriptsManager(props: {
     loadRequestRef.current += 1;
     setInitialScopeResolved(false);
     setSelectedScopeId(null);
-  }, [props.projectPath, props.workspacePath]);
+  }, [props.repositoryPath, props.workspacePath]);
 
   useEffect(() => {
     activeScopeKeyRef.current = activeScopeKey;
@@ -667,9 +667,9 @@ export function ScriptsManager(props: {
         return current;
       }
       const cwd: ScriptTargetScope =
-        id === DEFAULT_SCRIPT_TARGET_IDS.PROJECT ? "project" : "workspace";
+        id === DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY ? "project" : "workspace";
       const label =
-        id === DEFAULT_SCRIPT_TARGET_IDS.PROJECT ? "Repository" : "Workspace";
+        id === DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY ? "Repository" : "Workspace";
       return {
         ...current,
         targets: [

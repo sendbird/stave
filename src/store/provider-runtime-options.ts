@@ -194,12 +194,12 @@ export function normalizeClaudeSettingSources(args: {
   );
 }
 
-export function applyProjectBasePromptToRuntimeOptions(args: {
+export function applyRepositoryBasePromptToRuntimeOptions(args: {
   runtimeOptions: ProviderRuntimeOptions;
-  projectBasePrompt?: string | null;
+  repositoryBasePrompt?: string | null;
 }): ProviderRuntimeOptions {
-  const projectBasePrompt = args.projectBasePrompt?.trim();
-  if (!projectBasePrompt) {
+  const repositoryBasePrompt = args.repositoryBasePrompt?.trim();
+  if (!repositoryBasePrompt) {
     return args.runtimeOptions;
   }
 
@@ -207,8 +207,8 @@ export function applyProjectBasePromptToRuntimeOptions(args: {
   return {
     ...args.runtimeOptions,
     claudeSystemPrompt: currentSystemPrompt
-      ? `${projectBasePrompt}\n\n${currentSystemPrompt}`
-      : projectBasePrompt,
+      ? `${repositoryBasePrompt}\n\n${currentSystemPrompt}`
+      : repositoryBasePrompt,
   };
 }
 

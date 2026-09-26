@@ -89,7 +89,7 @@ function compactToolInput(input: string) {
  * SQLite; this projection carries only the fields needed by the Advisor and
  * Turn activity surfaces.
  */
-export function projectLocalMcpTaskTurnActivityEvent(
+export function repositoryLocalMcpTaskTurnActivityEvent(
   event: NormalizedProviderEvent,
 ): LocalMcpTaskTurnActivityEvent | undefined {
   switch (event.type) {

@@ -41,7 +41,7 @@ function createWakeUpFixture(overrides: Partial<WakeUp> = {}): WakeUp {
     ...createWakeUp({
       id: "hb-1",
       input: createInput(),
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       fingerprint: { providerId: "claude-code", model: "sonnet" },
       now: NOW,
     }),
@@ -761,7 +761,7 @@ describe("completion recursion bound", () => {
     const created = createWakeUp({
       id: "hb-1",
       input: createInput({ trigger: { kind: "completion" }, maxOccurrences: null }),
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       fingerprint: { providerId: "claude-code", model: "sonnet" },
       now: NOW,
     });

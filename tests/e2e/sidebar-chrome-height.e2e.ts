@@ -29,8 +29,8 @@ test("expanded sidebar chrome hairline continues the top bar", async ({
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           defaultBranch: "main",
           workspaces: [workspace],
           activeWorkspaceId: workspaceId,

@@ -89,7 +89,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
     workspaceDefaultById,
     workspaceBranchById,
     workspacePathById,
-    projectPath,
+    repositoryPath,
     setWorkspaceBranch,
   ] = useAppStore(
     useShallow(
@@ -100,7 +100,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
           state.workspaceDefaultById,
           state.workspaceBranchById,
           state.workspacePathById,
-          state.projectPath,
+          state.repositoryPath,
           state.setWorkspaceBranch,
         ] as const,
     ),
@@ -109,7 +109,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
   const isDefaultWorkspace = Boolean(workspaceDefaultById[activeWorkspaceId]);
   const activeWorkspaceBranch = workspaceBranchById[activeWorkspaceId];
   const workspaceCwd =
-    workspacePathById[activeWorkspaceId] ?? projectPath ?? "";
+    workspacePathById[activeWorkspaceId] ?? repositoryPath ?? "";
   const hasWorkspaceContext = Boolean(activeWorkspaceId && workspaceCwd);
   const detectedActualBranch =
     detectedCurrentBranch.workspaceId === activeWorkspaceId
@@ -604,7 +604,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       const attachedPath =
         option.attachedPath ?? worktreePathByBranch[option.localName];
       const message = attachedPath
-        ? `Branch "${option.localName}" is already checked out in ${formatWorkspacePathLabel({ workspacePath: attachedPath, projectPath })}.`
+        ? `Branch "${option.localName}" is already checked out in ${formatWorkspacePathLabel({ workspacePath: attachedPath, repositoryPath })}.`
         : `Branch "${option.localName}" is already checked out in another workspace.`;
       setBranchError(message);
       toast.error("Branch unavailable", { description: message });
@@ -995,7 +995,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
                         const disabled = isBusy || isCurrent || isAttached;
                         const description = getBranchOptionDescription({
                           option,
-                          projectPath,
+                          repositoryPath,
                         });
                         return (
                           <AdsButton
@@ -1087,7 +1087,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
       <TooltipContent side="bottom">
         Branch is managed by this worktree
         {workspaceCwd
-          ? `: ${formatWorkspacePathLabel({ workspacePath: workspaceCwd, projectPath })}`
+          ? `: ${formatWorkspacePathLabel({ workspacePath: workspaceCwd, repositoryPath })}`
           : `: ${currentBranchLabel}`}
       </TooltipContent>
     </Tooltip>
@@ -1096,7 +1096,7 @@ export function TopBarBranchDropdown(props: { noDragStyle: CSSProperties }) {
 
 function getBranchOptionDescription(args: {
   option: TopBarBranchOption;
-  projectPath?: string | null;
+  repositoryPath?: string | null;
 }) {
   if (args.option.state === "current") {
     return "Current branch";
@@ -1105,7 +1105,7 @@ function getBranchOptionDescription(args: {
     return args.option.attachedPath
       ? `Checked out in ${formatWorkspacePathLabel({
           workspacePath: args.option.attachedPath,
-          projectPath: args.projectPath,
+          repositoryPath: args.repositoryPath,
         })}`
       : "Checked out in another workspace";
   }

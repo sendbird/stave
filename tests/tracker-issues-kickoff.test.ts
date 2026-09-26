@@ -36,7 +36,7 @@ const NEW_WORKSPACE: CraneDispatchWorkspaceChoice = {
   branchName: "feature/CRN-1",
 };
 
-const PROJECT_PATH = "/tmp/project";
+const REPOSITORY_PATH = "/tmp/project";
 
 function makeDetail(source: TrackerSourceId, ref = "CRN-1"): TrackerIssueDetail {
   return {
@@ -70,7 +70,7 @@ function makeArgs(
   return {
     source: "crane",
     taskRef: "CRN-1",
-    projectPath: PROJECT_PATH,
+    repositoryPath: REPOSITORY_PATH,
     workspace: NEW_WORKSPACE,
     runtime: RUNTIME,
     instruction: "Work on CRN-1 with a regression test first.",
@@ -120,7 +120,7 @@ const CLAIM: CraneTaskJobClaimResponse = {
 interface HarnessOptions {
   source?: TrackerSourceId;
   craneWriteBackAvailable?: boolean;
-  projectRegistered?: boolean;
+  repositoryRegistered?: boolean;
 }
 
 function makeDeps(options: HarnessOptions = {}) {
@@ -151,12 +151,12 @@ function makeDeps(options: HarnessOptions = {}) {
       calls.kickoffClaimedJob.push(args);
       return { jobId: "job-9", workspaceId: "ws-9", taskId: "task-9" };
     },
-    listKnownProjects: async () =>
-      options.projectRegistered === false
+    listKnownRepositories: async () =>
+      options.repositoryRegistered === false
         ? []
         : [
             {
-              projectPath: PROJECT_PATH,
+              repositoryPath: REPOSITORY_PATH,
               defaultBranch: "main",
               workspaces: [{ id: "ws-existing" }],
             },
@@ -248,7 +248,7 @@ describe("kickoffTrackerIssue stage", () => {
 
 describe("kickoffTrackerIssue failures", () => {
   test("throws project_not_registered for an unknown project", async () => {
-    const { deps } = makeDeps({ source: "jira", projectRegistered: false });
+    const { deps } = makeDeps({ source: "jira", repositoryRegistered: false });
     await expect(
       kickoffTrackerIssue(deps, makeArgs({ source: "jira" })),
     ).rejects.toMatchObject({ code: "project_not_registered" });

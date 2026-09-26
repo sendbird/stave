@@ -43,7 +43,7 @@ import { delegateTaskFormStyles as form } from "./delegate-task-form.styles";
 export interface CollaborationTarget {
   taskId: string;
   workspaceId: string;
-  projectPath: string;
+  repositoryPath: string;
 }
 
 const CUSTOM_MODEL = "__custom__";
@@ -222,11 +222,11 @@ export function DelegateTaskForm({
   const formId = useId();
   const scope = useMemo(
     () => ({
-      projectPath: target.projectPath,
+      repositoryPath: target.repositoryPath,
       workspaceId: target.workspaceId,
       taskId: target.taskId,
     }),
-    [target.projectPath, target.taskId, target.workspaceId],
+    [target.repositoryPath, target.taskId, target.workspaceId],
   );
   const scopeKey = delegationDraftScopeKey(scope);
   const [open, setOpen] = useState(defaultOpen);

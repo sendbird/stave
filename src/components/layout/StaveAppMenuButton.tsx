@@ -37,26 +37,26 @@ export function StaveAppMenuButton(args?: {
   const [open, setOpen] = useState(false);
   const [
     clearTaskSelection,
-    projectPath,
+    repositoryPath,
     isDarkMode,
     setDarkMode,
-    refreshProjectFiles,
+    refreshRepositoryFiles,
   ] = useAppStore(
     useShallow(
       (state) =>
         [
           state.clearTaskSelection,
-          state.projectPath,
+          state.repositoryPath,
           state.isDarkMode,
           state.setDarkMode,
-          state.refreshProjectFiles,
+          state.refreshRepositoryFiles,
         ] as const,
     ),
   );
 
-  const handleRefreshProjectFiles = useCallback(() => {
-    void refreshProjectFiles();
-  }, [refreshProjectFiles]);
+  const handleRefreshRepositoryFiles = useCallback(() => {
+    void refreshRepositoryFiles();
+  }, [refreshRepositoryFiles]);
 
   const handleToggleTheme = useCallback(() => {
     setDarkMode({ enabled: !isDarkMode });
@@ -120,9 +120,9 @@ export function StaveAppMenuButton(args?: {
             </DropdownMenuShortcut>
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          {projectPath ? (
+          {repositoryPath ? (
             <DropdownMenuItem
-              onSelect={handleRefreshProjectFiles}
+              onSelect={handleRefreshRepositoryFiles}
             >
               <RefreshCw {...stylex.props(staveAppMenuStyles.itemIcon)} />
               Refresh repository files

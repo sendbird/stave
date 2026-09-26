@@ -296,7 +296,7 @@ export function TaskResultReviews(props: {
     setSaveError("");
     try {
       await setResultReviewed({
-        projectPath: result.projectPath,
+        repositoryPath: result.repositoryPath,
         workspaceId: result.workspaceId,
         taskId: result.taskId,
         turnId: result.turnId,

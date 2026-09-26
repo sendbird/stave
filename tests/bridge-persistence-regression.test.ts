@@ -16,7 +16,7 @@ import {
   createWorkspaceSnapshot,
   flushPendingSnapshotPersists,
 } from "@/store/workspace-session-state";
-import { buildProjectDefaultWorkspaceId } from "@/store/project.utils";
+import { buildRepositoryDefaultWorkspaceId } from "@/store/project.utils";
 import { resolveInitialLatestTaskMessagesPageSize } from "@/store/task-message-loading";
 import {
   createNotification,
@@ -71,8 +71,8 @@ function buildManagedApprovalState(controlOwner: "stave" | "external") {
   const requestId = "approval-managed";
   return {
     hasHydratedWorkspaces: true,
-    projectPath: "/tmp/stave-project",
-    projectName: "stave-project",
+    repositoryPath: "/tmp/stave-project",
+    repositoryName: "stave-project",
     workspaces: [
       {
         id: "ws-main",
@@ -125,8 +125,8 @@ function buildManagedApprovalState(controlOwner: "stave" | "external") {
         kind: "task.approval_requested" as const,
         title: "Managed task",
         body: "Bash: Run focused tests",
-        projectPath: "/tmp/stave-project",
-        projectName: "stave-project",
+        repositoryPath: "/tmp/stave-project",
+        repositoryName: "stave-project",
         workspaceId: "ws-main",
         workspaceName: "main",
         taskId,
@@ -309,8 +309,8 @@ describe("host task turn synchronization", () => {
             snapshot: null,
           }),
           upsertWorkspace: async () => ({ ok: true }),
-          loadProjectRegistry: async () => ({ ok: true, projects: [] }),
-          saveProjectRegistry: async () => ({ ok: true }),
+          loadRepositoryRegistry: async () => ({ ok: true, repositories: [] }),
+          saveRepositoryRegistry: async () => ({ ok: true }),
           closeWorkspace: async () => ({ ok: true }),
           loadWorkspaceShell: async () => ({
             ok: true,
@@ -365,8 +365,8 @@ describe("host task turn synchronization", () => {
     useAppStore.setState({
       ...initialState,
       hasHydratedWorkspaces: true,
-      projectPath: "/tmp/stave-host-turn",
-      projectName: "stave-host-turn",
+      repositoryPath: "/tmp/stave-host-turn",
+      repositoryName: "stave-host-turn",
       workspaces: [
         {
           id: workspaceId,
@@ -1071,8 +1071,8 @@ describe("workspace persistence fallback", () => {
         kind: "task.turn_completed",
         title: "Refactor notifications",
         body: "Latest run finished in feat/noti.",
-        projectPath: "/tmp/stave-project",
-        projectName: "stave",
+        repositoryPath: "/tmp/stave-project",
+        repositoryName: "stave",
         workspaceId: "ws-1",
         workspaceName: "feat/noti",
         taskId: "task-1",
@@ -1091,8 +1091,8 @@ describe("workspace persistence fallback", () => {
         kind: "task.turn_completed",
         title: "Refactor notifications",
         body: "Latest run finished in feat/noti.",
-        projectPath: "/tmp/stave-project",
-        projectName: "stave",
+        repositoryPath: "/tmp/stave-project",
+        repositoryName: "stave",
         workspaceId: "ws-1",
         workspaceName: "feat/noti",
         taskId: "task-1",
@@ -1129,7 +1129,7 @@ describe("workspace persistence fallback", () => {
 
   test("preserves each project's workspace list when switching projects", async () => {
     const localStorage = createMemoryStorage();
-    const projectRoots = [
+    const repositoryRoots = [
       {
         rootPath: "/tmp/stave-project-a",
         rootName: "project-a",
@@ -1157,7 +1157,7 @@ describe("workspace persistence fallback", () => {
       api: {
         fs: {
           pickRoot: async () => {
-            const root = projectRoots[pickIndex++];
+            const root = repositoryRoots[pickIndex++];
             return root ? { ok: true, ...root } : { ok: false, files: [] };
           },
           listFiles: async ({ rootPath }: { rootPath: string }) => ({
@@ -1179,22 +1179,22 @@ describe("workspace persistence fallback", () => {
     const initialState = useAppStore.getInitialState();
     useAppStore.setState({
       ...initialState,
-      recentProjects: [],
+      recentRepositories: [],
       workspaces: [],
       activeWorkspaceId: "",
-      projectPath: null,
+      repositoryPath: null,
       workspaceBranchById: {},
       workspacePathById: {},
       workspaceDefaultById: {},
-      projectName: null,
-      projectFiles: [],
+      repositoryName: null,
+      repositoryFiles: [],
       hasHydratedWorkspaces: false,
     });
 
-    await useAppStore.getState().createProject({});
+    await useAppStore.getState().createRepository({});
 
-    const stateAfterProjectA = useAppStore.getState();
-    const projectADefaultWorkspaceId = stateAfterProjectA.activeWorkspaceId;
+    const stateAfterRepositoryA = useAppStore.getState();
+    const repositoryADefaultWorkspaceId = stateAfterRepositoryA.activeWorkspaceId;
     const extraWorkspaceId = "ws-a-extra";
     const extraWorkspacePath =
       "/tmp/stave-project-a/.stave/workspaces/feature-a";
@@ -1212,7 +1212,7 @@ describe("workspace persistence fallback", () => {
     });
     useAppStore.setState({
       workspaces: [
-        ...stateAfterProjectA.workspaces,
+        ...stateAfterRepositoryA.workspaces,
         {
           id: extraWorkspaceId,
           name: "feature-a",
@@ -1221,43 +1221,43 @@ describe("workspace persistence fallback", () => {
       ],
       activeWorkspaceId: extraWorkspaceId,
       workspaceBranchById: {
-        ...stateAfterProjectA.workspaceBranchById,
+        ...stateAfterRepositoryA.workspaceBranchById,
         [extraWorkspaceId]: "feature-a",
       },
       workspacePathById: {
-        ...stateAfterProjectA.workspacePathById,
+        ...stateAfterRepositoryA.workspacePathById,
         [extraWorkspaceId]: extraWorkspacePath,
       },
       workspaceDefaultById: {
-        ...stateAfterProjectA.workspaceDefaultById,
+        ...stateAfterRepositoryA.workspaceDefaultById,
         [extraWorkspaceId]: false,
       },
     });
 
-    await useAppStore.getState().createProject({});
-    const stateAfterProjectB = useAppStore.getState();
-    expect(stateAfterProjectB.projectPath).toBe("/tmp/stave-project-b");
-    expect(stateAfterProjectB.workspaces).toHaveLength(1);
+    await useAppStore.getState().createRepository({});
+    const stateAfterRepositoryB = useAppStore.getState();
+    expect(stateAfterRepositoryB.repositoryPath).toBe("/tmp/stave-project-b");
+    expect(stateAfterRepositoryB.workspaces).toHaveLength(1);
 
     await useAppStore
       .getState()
-      .openProject({ projectPath: "/tmp/stave-project-a" });
+      .openRepository({ repositoryPath: "/tmp/stave-project-a" });
 
     const nextState = useAppStore.getState();
-    expect(nextState.projectPath).toBe("/tmp/stave-project-a");
+    expect(nextState.repositoryPath).toBe("/tmp/stave-project-a");
     expect(nextState.activeWorkspaceId).toBe(extraWorkspaceId);
     expect(nextState.workspaces.map((workspace) => workspace.id)).toEqual([
-      projectADefaultWorkspaceId,
+      repositoryADefaultWorkspaceId,
       extraWorkspaceId,
     ]);
     expect(
-      nextState.recentProjects.map((project) => project.projectPath),
+      nextState.recentRepositories.map((repository) => repository.repositoryPath),
     ).toEqual(["/tmp/stave-project-a", "/tmp/stave-project-b"]);
     const activeStamp = nextState.workspaceLastActiveAtById[extraWorkspaceId];
     expect(activeStamp).toBeDefined();
     expect(
-      nextState.recentProjects.find(
-        (project) => project.projectPath === "/tmp/stave-project-a",
+      nextState.recentRepositories.find(
+        (repository) => repository.repositoryPath === "/tmp/stave-project-a",
       )?.workspaceLastActiveAtById?.[extraWorkspaceId],
     ).toBe(activeStamp);
   });
@@ -1277,8 +1277,8 @@ describe("workspace persistence fallback", () => {
     const initialState = useAppStore.getInitialState();
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project-a",
-      projectName: "project-a",
+      repositoryPath: "/tmp/stave-project-a",
+      repositoryName: "project-a",
       defaultBranch: "main",
       workspaces: [
         {
@@ -1294,10 +1294,10 @@ describe("workspace persistence fallback", () => {
         "ws-b": "/tmp/stave-project-b",
       },
       workspaceDefaultById: { "ws-a": true, "ws-b": true },
-      recentProjects: [
+      recentRepositories: [
         {
-          projectPath: "/tmp/stave-project-a",
-          projectName: "project-a",
+          repositoryPath: "/tmp/stave-project-a",
+          repositoryName: "project-a",
           lastOpenedAt: "2026-03-20T00:00:00.000Z",
           defaultBranch: "main",
           workspaces: [
@@ -1313,8 +1313,8 @@ describe("workspace persistence fallback", () => {
           workspaceDefaultById: { "ws-a": true },
         },
         {
-          projectPath: "/tmp/stave-project-b",
-          projectName: "project-b",
+          repositoryPath: "/tmp/stave-project-b",
+          repositoryName: "project-b",
           lastOpenedAt: "2026-03-20T00:00:01.000Z",
           defaultBranch: "main",
           workspaces: [
@@ -1332,27 +1332,27 @@ describe("workspace persistence fallback", () => {
       ],
     });
 
-    useAppStore.getState().moveProjectInList({
-      projectPath: "/tmp/stave-project-b",
+    useAppStore.getState().moveRepositoryInList({
+      repositoryPath: "/tmp/stave-project-b",
       direction: "up",
     });
     expect(
       useAppStore
         .getState()
-        .recentProjects.map((project) => project.projectPath),
+        .recentRepositories.map((repository) => repository.repositoryPath),
     ).toEqual(["/tmp/stave-project-b", "/tmp/stave-project-a"]);
 
     await useAppStore
       .getState()
-      .openProject({ projectPath: "/tmp/stave-project-b" });
+      .openRepository({ repositoryPath: "/tmp/stave-project-b" });
     await useAppStore
       .getState()
-      .openProject({ projectPath: "/tmp/stave-project-a" });
+      .openRepository({ repositoryPath: "/tmp/stave-project-a" });
 
     expect(
       useAppStore
         .getState()
-        .recentProjects.map((project) => project.projectPath),
+        .recentRepositories.map((repository) => repository.repositoryPath),
     ).toEqual(["/tmp/stave-project-b", "/tmp/stave-project-a"]);
   });
 
@@ -1417,8 +1417,8 @@ describe("workspace persistence fallback", () => {
     useAppStore.setState({
       ...initialState,
       hasHydratedWorkspaces: true,
-      projectPath: "/tmp/stave-project-b",
-      projectName: "project-b",
+      repositoryPath: "/tmp/stave-project-b",
+      repositoryName: "project-b",
       defaultBranch: "main",
       workspaces: [
         {
@@ -1431,11 +1431,11 @@ describe("workspace persistence fallback", () => {
       workspaceBranchById: { "ws-b": "main" },
       workspacePathById: { "ws-b": "/tmp/stave-project-b" },
       workspaceDefaultById: { "ws-b": true },
-      projectFiles: ["package.json", "src/b.ts"],
-      recentProjects: [
+      repositoryFiles: ["package.json", "src/b.ts"],
+      recentRepositories: [
         {
-          projectPath: "/tmp/stave-project-a",
-          projectName: "project-a",
+          repositoryPath: "/tmp/stave-project-a",
+          repositoryName: "project-a",
           lastOpenedAt: "2026-03-20T00:00:00.000Z",
           defaultBranch: "main",
           workspaces: [
@@ -1451,8 +1451,8 @@ describe("workspace persistence fallback", () => {
           workspaceDefaultById: { "ws-a": true },
         },
         {
-          projectPath: "/tmp/stave-project-b",
-          projectName: "project-b",
+          repositoryPath: "/tmp/stave-project-b",
+          repositoryName: "project-b",
           lastOpenedAt: "2026-03-20T00:00:01.000Z",
           defaultBranch: "main",
           workspaces: [
@@ -1481,21 +1481,21 @@ describe("workspace persistence fallback", () => {
       },
     });
 
-    let openProjectResolved = false;
-    const openProjectPromise = useAppStore
+    let openRepositoryResolved = false;
+    const openRepositoryPromise = useAppStore
       .getState()
-      .openProject({
-        projectPath: "/tmp/stave-project-a",
+      .openRepository({
+        repositoryPath: "/tmp/stave-project-a",
       })
       .then(() => {
-        openProjectResolved = true;
+        openRepositoryResolved = true;
       });
 
     await hydrateStarted;
 
     const interimState = useAppStore.getState();
-    expect(openProjectResolved).toBe(false);
-    expect(interimState.projectPath).toBe("/tmp/stave-project-a");
+    expect(openRepositoryResolved).toBe(false);
+    expect(interimState.repositoryPath).toBe("/tmp/stave-project-a");
     expect(interimState.activeWorkspaceId).toBe("ws-a");
     expect(interimState.cliSessionTabs).toEqual([cachedCliTab]);
     expect(interimState.activeCliSessionTabId).toBe(cachedCliTab.id);
@@ -1505,7 +1505,7 @@ describe("workspace persistence fallback", () => {
     });
 
     releaseHydrate();
-    await openProjectPromise;
+    await openRepositoryPromise;
 
     const nextState = useAppStore.getState();
     expect(nextState.cliSessionTabs).toEqual([cachedCliTab]);
@@ -1539,8 +1539,8 @@ describe("workspace persistence fallback", () => {
           listWorkspaces: async () => ({ ok: true, rows: [] }),
           loadWorkspace: async () => ({ ok: true, snapshot: null }),
           upsertWorkspace: async () => ({ ok: true }),
-          loadProjectRegistry: async () => ({ ok: true, projects: [] }),
-          saveProjectRegistry: async () => ({ ok: true }),
+          loadRepositoryRegistry: async () => ({ ok: true, repositories: [] }),
+          saveRepositoryRegistry: async () => ({ ok: true }),
         },
       },
     });
@@ -1550,35 +1550,35 @@ describe("workspace persistence fallback", () => {
     useAppStore.setState({
       ...initialState,
       hasHydratedWorkspaces: false,
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
-    let openProjectResolved = false;
-    const openProjectPromise = useAppStore
+    let openRepositoryResolved = false;
+    const openRepositoryPromise = useAppStore
       .getState()
-      .openProject({
-        projectPath: "/tmp/stave-project-open-fast",
+      .openRepository({
+        repositoryPath: "/tmp/stave-project-open-fast",
       })
       .then(() => {
-        openProjectResolved = true;
+        openRepositoryResolved = true;
       });
 
     await Bun.sleep(0);
 
-    expect(openProjectResolved).toBe(true);
-    expect(useAppStore.getState().projectPath).toBe(
+    expect(openRepositoryResolved).toBe(true);
+    expect(useAppStore.getState().repositoryPath).toBe(
       "/tmp/stave-project-open-fast",
     );
-    expect(useAppStore.getState().projectFiles).toEqual([]);
+    expect(useAppStore.getState().repositoryFiles).toEqual([]);
 
     resolveListFiles?.({
       ok: true,
       files: ["package.json", "src/open-fast.ts"],
     });
-    await openProjectPromise;
+    await openRepositoryPromise;
     await Bun.sleep(0);
 
-    expect(useAppStore.getState().projectFiles).toEqual([
+    expect(useAppStore.getState().repositoryFiles).toEqual([
       "package.json",
       "src/open-fast.ts",
     ]);
@@ -1586,9 +1586,9 @@ describe("workspace persistence fallback", () => {
 
   test("openProject eagerly restores latest messages for the active task", async () => {
     const localStorage = createMemoryStorage();
-    const targetProjectPath = "/tmp/stave-project-latest";
-    const targetWorkspaceId = buildProjectDefaultWorkspaceId({
-      projectPath: targetProjectPath,
+    const targetRepositoryPath = "/tmp/stave-project-latest";
+    const targetWorkspaceId = buildRepositoryDefaultWorkspaceId({
+      repositoryPath: targetRepositoryPath,
     });
     const viewportHeightPx = 900;
     const initialLatestCount = resolveInitialLatestTaskMessagesPageSize({
@@ -1647,8 +1647,8 @@ describe("workspace persistence fallback", () => {
     useAppStore.setState({
       ...initialState,
       hasHydratedWorkspaces: true,
-      projectPath: "/tmp/stave-current",
-      projectName: "current",
+      repositoryPath: "/tmp/stave-current",
+      repositoryName: "current",
       defaultBranch: "main",
       workspaces: [
         {
@@ -1664,17 +1664,17 @@ describe("workspace persistence fallback", () => {
       },
       workspacePathById: {
         "ws-current": "/tmp/stave-current",
-        [targetWorkspaceId]: targetProjectPath,
+        [targetWorkspaceId]: targetRepositoryPath,
       },
       workspaceDefaultById: {
         "ws-current": true,
         [targetWorkspaceId]: true,
       },
-      projectFiles: ["package.json"],
-      recentProjects: [
+      repositoryFiles: ["package.json"],
+      recentRepositories: [
         {
-          projectPath: targetProjectPath,
-          projectName: "latest-project",
+          repositoryPath: targetRepositoryPath,
+          repositoryName: "latest-project",
           lastOpenedAt: "2026-04-14T00:00:00.000Z",
           defaultBranch: "main",
           workspaces: [
@@ -1686,7 +1686,7 @@ describe("workspace persistence fallback", () => {
           ],
           activeWorkspaceId: targetWorkspaceId,
           workspaceBranchById: { [targetWorkspaceId]: "main" },
-          workspacePathById: { [targetWorkspaceId]: targetProjectPath },
+          workspacePathById: { [targetWorkspaceId]: targetRepositoryPath },
           workspaceDefaultById: { [targetWorkspaceId]: true },
         },
       ],
@@ -1694,7 +1694,7 @@ describe("workspace persistence fallback", () => {
 
     await useAppStore
       .getState()
-      .openProject({ projectPath: targetProjectPath });
+      .openRepository({ repositoryPath: targetRepositoryPath });
     await Bun.sleep(0);
 
     const nextState = useAppStore.getState();
@@ -1740,8 +1740,8 @@ describe("workspace persistence fallback", () => {
     useAppStore.setState({
       ...initialState,
       hasHydratedWorkspaces: true,
-      projectPath: "/tmp/stave-project-a",
-      projectName: "project-a",
+      repositoryPath: "/tmp/stave-project-a",
+      repositoryName: "project-a",
       defaultBranch: "main",
       workspaces: [
         {
@@ -1772,10 +1772,10 @@ describe("workspace persistence fallback", () => {
         "ws-c": "/tmp/stave-project-a/.stave/workspaces/feature-c",
       },
       workspaceDefaultById: { "ws-a": true, "ws-b": false, "ws-c": false },
-      recentProjects: [
+      recentRepositories: [
         {
-          projectPath: "/tmp/stave-project-a",
-          projectName: "project-a",
+          repositoryPath: "/tmp/stave-project-a",
+          repositoryName: "project-a",
           lastOpenedAt: "2026-03-20T00:00:00.000Z",
           defaultBranch: "main",
           workspaces: [
@@ -1811,8 +1811,8 @@ describe("workspace persistence fallback", () => {
       ],
     });
 
-    useAppStore.getState().moveWorkspaceInProjectList({
-      projectPath: "/tmp/stave-project-a",
+    useAppStore.getState().moveWorkspaceInRepositoryList({
+      repositoryPath: "/tmp/stave-project-a",
       workspaceId: "ws-c",
       direction: "up",
     });
@@ -1915,7 +1915,7 @@ describe("workspace persistence fallback", () => {
         "task-main": 0,
         "task-secondary": 2,
       },
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-main": "/tmp/stave-project",
       },
@@ -2009,7 +2009,7 @@ describe("workspace persistence fallback", () => {
       messageCountByTask: {
         "task-main": 2,
       },
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-main": "/tmp/stave-project",
       },
@@ -2347,7 +2347,7 @@ describe("workspace store hydration ordering", () => {
         { id: "ws-main", name: "Main", updatedAt: "2026-03-09T00:00:00.000Z" },
       ],
       activeWorkspaceId: "ws-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },
@@ -2446,8 +2446,8 @@ describe("workspace store hydration ordering", () => {
         },
       ],
       activeWorkspaceId: "ws-main",
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },
@@ -2477,7 +2477,7 @@ describe("workspace store hydration ordering", () => {
         },
       },
       hasHydratedWorkspaces: false,
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
     await useAppStore.getState().hydrateWorkspaces();
@@ -2569,7 +2569,7 @@ describe("workspace store hydration ordering", () => {
         { id: "ws-main", name: "Main", updatedAt: "2026-03-09T00:00:00.000Z" },
       ],
       activeWorkspaceId: "ws-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },
@@ -2658,19 +2658,19 @@ describe("workspace store hydration ordering", () => {
         },
       ],
       activeWorkspaceId: "ws-main",
-      projectPath: "/tmp/stave-project",
-      projectName: "fixture",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "fixture",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },
-      projectFiles: [],
+      repositoryFiles: [],
       hasHydratedWorkspaces: false,
     });
 
     await useAppStore.getState().hydrateWorkspaces();
     await Bun.sleep(0);
 
-    expect(useAppStore.getState().projectFiles).toEqual(listedFiles);
+    expect(useAppStore.getState().repositoryFiles).toEqual(listedFiles);
   });
 
   test("hydrateWorkspaces does not wait for file refresh on boot", async () => {
@@ -2737,14 +2737,14 @@ describe("workspace store hydration ordering", () => {
         },
       ],
       activeWorkspaceId: "ws-main-fast-hydrate",
-      projectPath: "/tmp/stave-project-fast-hydrate",
-      projectName: "fixture",
+      repositoryPath: "/tmp/stave-project-fast-hydrate",
+      repositoryName: "fixture",
       workspacePathById: {
         "ws-main-fast-hydrate": "/tmp/stave-project-fast-hydrate",
       },
       workspaceBranchById: { "ws-main-fast-hydrate": "main" },
       workspaceDefaultById: { "ws-main-fast-hydrate": true },
-      projectFiles: [],
+      repositoryFiles: [],
       hasHydratedWorkspaces: false,
     });
 
@@ -2759,7 +2759,7 @@ describe("workspace store hydration ordering", () => {
     await Bun.sleep(0);
 
     expect(hydrated).toBe(true);
-    expect(useAppStore.getState().projectFiles).toEqual([]);
+    expect(useAppStore.getState().repositoryFiles).toEqual([]);
 
     resolveListFiles?.({
       ok: true,
@@ -2768,7 +2768,7 @@ describe("workspace store hydration ordering", () => {
     await hydratePromise;
     await Bun.sleep(0);
 
-    expect(useAppStore.getState().projectFiles).toEqual([
+    expect(useAppStore.getState().repositoryFiles).toEqual([
       "package.json",
       "src/boot-fast.ts",
     ]);
@@ -2870,8 +2870,8 @@ describe("workspace store hydration ordering", () => {
           }),
           loadTaskMessages: async () => taskMessagesPromise,
           listLatestWorkspaceTurns: async () => ({ ok: true, turns: [] }),
-          loadProjectRegistry: async () => ({ ok: true, projects: [] }),
-          saveProjectRegistry: async () => ({ ok: true }),
+          loadRepositoryRegistry: async () => ({ ok: true, repositories: [] }),
+          saveRepositoryRegistry: async () => ({ ok: true }),
           upsertWorkspace: async () => ({ ok: true }),
         },
       },
@@ -2890,12 +2890,12 @@ describe("workspace store hydration ordering", () => {
         },
       ],
       activeWorkspaceId: "ws-main-hydrate",
-      projectPath: "/tmp/stave-project-hydrate",
-      projectName: "stave-project-hydrate",
+      repositoryPath: "/tmp/stave-project-hydrate",
+      repositoryName: "stave-project-hydrate",
       workspacePathById: { "ws-main-hydrate": "/tmp/stave-project-hydrate" },
       workspaceBranchById: { "ws-main-hydrate": "main" },
       workspaceDefaultById: { "ws-main-hydrate": true },
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
     let hydrated = false;
@@ -2913,7 +2913,7 @@ describe("workspace store hydration ordering", () => {
     expect(useAppStore.getState().tasks.map((task) => task.id)).toEqual([
       "task-main-hydrate",
     ]);
-    expect(useAppStore.getState().projectFiles).toEqual(["package.json"]);
+    expect(useAppStore.getState().repositoryFiles).toEqual(["package.json"]);
     expect(
       useAppStore.getState().messagesByTask["task-main-hydrate"],
     ).toBeUndefined();
@@ -3062,8 +3062,8 @@ describe("workspace store hydration ordering", () => {
               },
             ],
           }),
-          loadProjectRegistry: async () => ({ ok: true, projects: [] }),
-          saveProjectRegistry: async () => ({ ok: true }),
+          loadRepositoryRegistry: async () => ({ ok: true, repositories: [] }),
+          saveRepositoryRegistry: async () => ({ ok: true }),
           upsertWorkspace: async () => ({ ok: true }),
         },
       },
@@ -3082,14 +3082,14 @@ describe("workspace store hydration ordering", () => {
         },
       ],
       activeWorkspaceId: "ws-main-interrupted",
-      projectPath: "/tmp/stave-project-interrupted",
-      projectName: "stave-project-interrupted",
+      repositoryPath: "/tmp/stave-project-interrupted",
+      repositoryName: "stave-project-interrupted",
       workspacePathById: {
         "ws-main-interrupted": "/tmp/stave-project-interrupted",
       },
       workspaceBranchById: { "ws-main-interrupted": "main" },
       workspaceDefaultById: { "ws-main-interrupted": true },
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
     let hydrated = false;
@@ -3215,7 +3215,7 @@ describe("workspace store hydration ordering", () => {
         { id: "ws-main", name: "Main", updatedAt: "2026-03-09T00:00:00.000Z" },
       ],
       activeWorkspaceId: "ws-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },
@@ -3245,8 +3245,8 @@ describe("workspace store hydration ordering", () => {
     const localStorage = createMemoryStorage();
     const upsertCalls: Array<{ id: string; name: string; snapshot: unknown }> =
       [];
-    const projectPath = "/tmp/stave-project";
-    const defaultWorkspaceId = buildProjectDefaultWorkspaceId({ projectPath });
+    const repositoryPath = "/tmp/stave-project";
+    const defaultWorkspaceId = buildRepositoryDefaultWorkspaceId({ repositoryPath });
     const archivedWorkspacePath =
       "/tmp/stave-project/.stave/workspaces/feature__perf";
 
@@ -3266,12 +3266,12 @@ describe("workspace store hydration ordering", () => {
           }),
           loadWorkspace: async () => ({ ok: true, snapshot: null }),
           listLatestWorkspaceTurns: async () => ({ ok: true, turns: [] }),
-          loadProjectRegistry: async () => ({
+          loadRepositoryRegistry: async () => ({
             ok: true,
-            projects: [
+            repositories: [
               {
-                projectPath,
-                projectName: "stave-project",
+                repositoryPath,
+                repositoryName: "stave-project",
                 lastOpenedAt: "2026-03-10T00:00:00.000Z",
                 defaultBranch: "main",
                 workspaces: [
@@ -3283,13 +3283,13 @@ describe("workspace store hydration ordering", () => {
                 ],
                 activeWorkspaceId: defaultWorkspaceId,
                 workspaceBranchById: { [defaultWorkspaceId]: "main" },
-                workspacePathById: { [defaultWorkspaceId]: projectPath },
+                workspacePathById: { [defaultWorkspaceId]: repositoryPath },
                 workspaceDefaultById: { [defaultWorkspaceId]: true },
                 archivedWorkspacePaths: [archivedWorkspacePath],
               },
             ],
           }),
-          saveProjectRegistry: async () => ({ ok: true }),
+          saveRepositoryRegistry: async () => ({ ok: true }),
           upsertWorkspace: async (args: {
             id: string;
             name: string;
@@ -3340,8 +3340,8 @@ describe("workspace store hydration ordering", () => {
     const initialState = useAppStore.getInitialState();
     useAppStore.setState({
       ...initialState,
-      projectPath,
-      projectName: "stave-project",
+      repositoryPath,
+      repositoryName: "stave-project",
       defaultBranch: "main",
       hasHydratedWorkspaces: false,
     });
@@ -3364,13 +3364,13 @@ describe("workspace store hydration ordering", () => {
     const localStorage = createMemoryStorage();
     const upsertCalls: Array<{ id: string; name: string; snapshot: unknown }> =
       [];
-    const projectPath = "/tmp/stave-project";
-    const defaultWorkspaceId = buildProjectDefaultWorkspaceId({ projectPath });
+    const repositoryPath = "/tmp/stave-project";
+    const defaultWorkspaceId = buildRepositoryDefaultWorkspaceId({ repositoryPath });
     const archivedWorkspacePath =
       "/tmp/stave-project/.stave/workspaces/feature__perf";
-    const registryProject = {
-      projectPath,
-      projectName: "stave-project",
+    const registryRepository = {
+      repositoryPath,
+      repositoryName: "stave-project",
       lastOpenedAt: "2026-03-10T00:00:00.000Z",
       defaultBranch: "main",
       workspaces: [
@@ -3382,7 +3382,7 @@ describe("workspace store hydration ordering", () => {
       ],
       activeWorkspaceId: defaultWorkspaceId,
       workspaceBranchById: { [defaultWorkspaceId]: "main" },
-      workspacePathById: { [defaultWorkspaceId]: projectPath },
+      workspacePathById: { [defaultWorkspaceId]: repositoryPath },
       workspaceDefaultById: { [defaultWorkspaceId]: true },
     };
 
@@ -3403,16 +3403,16 @@ describe("workspace store hydration ordering", () => {
           loadWorkspace: async () => ({ ok: true, snapshot: null }),
           listLatestWorkspaceTurns: async () => ({ ok: true, turns: [] }),
           // The SQLite registry mirror still remembers the tombstone.
-          loadProjectRegistry: async () => ({
+          loadRepositoryRegistry: async () => ({
             ok: true,
-            projects: [
+            repositories: [
               {
-                ...registryProject,
+                ...registryRepository,
                 archivedWorkspacePaths: [archivedWorkspacePath],
               },
             ],
           }),
-          saveProjectRegistry: async () => ({ ok: true }),
+          saveRepositoryRegistry: async () => ({ ok: true }),
           upsertWorkspace: async (args: {
             id: string;
             name: string;
@@ -3463,15 +3463,15 @@ describe("workspace store hydration ordering", () => {
     const initialState = useAppStore.getInitialState();
     useAppStore.setState({
       ...initialState,
-      projectPath,
-      projectName: "stave-project",
+      repositoryPath,
+      repositoryName: "stave-project",
       defaultBranch: "main",
       hasHydratedWorkspaces: false,
       // The localStorage cache lost the tombstone AND looks newer than the
       // registry mirror — the merge must still restore the tombstone.
-      recentProjects: [
+      recentRepositories: [
         {
-          ...registryProject,
+          ...registryRepository,
           lastOpenedAt: "2026-03-11T00:00:00.000Z",
         },
       ],
@@ -3490,8 +3490,8 @@ describe("workspace store hydration ordering", () => {
     ).toBe(false);
     expect(upsertCalls).toHaveLength(0);
     expect(
-      nextState.recentProjects.find(
-        (project) => project.projectPath === projectPath,
+      nextState.recentRepositories.find(
+        (repository) => repository.repositoryPath === repositoryPath,
       )?.archivedWorkspacePaths,
     ).toEqual([archivedWorkspacePath]);
   });
@@ -3503,7 +3503,7 @@ describe("workspace store hydration ordering", () => {
     const { buildImportedWorktreeWorkspaceId } =
       await import("../src/store/project.utils");
     const importedWorkspaceId = buildImportedWorktreeWorkspaceId({
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       worktreePath: "/tmp/stave-project/.stave/workspaces/feature__perf",
     });
 
@@ -3583,7 +3583,7 @@ describe("workspace store hydration ordering", () => {
         { id: "ws-main", name: "Main", updatedAt: "2026-03-09T00:00:00.000Z" },
       ],
       activeWorkspaceId: "ws-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },
@@ -3989,7 +3989,7 @@ describe("workspace store hydration ordering", () => {
       ],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-main": "/tmp/stave-project",
         "ws-alt": "/tmp/stave-project-alt",
@@ -4176,7 +4176,7 @@ describe("workspace store hydration ordering", () => {
       ],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },
@@ -4298,7 +4298,7 @@ describe("workspace store hydration ordering", () => {
       ],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },
@@ -4431,7 +4431,7 @@ describe("workspace store hydration ordering", () => {
       ],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-main": "/tmp/stave-project",
       },
@@ -4595,7 +4595,7 @@ describe("workspace store hydration ordering", () => {
       ],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-main": "/tmp/stave-project",
       },
@@ -4778,7 +4778,7 @@ describe("workspace store hydration ordering", () => {
       ],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },
@@ -4968,7 +4968,7 @@ describe("workspace store hydration ordering", () => {
       ],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-main": "/tmp/stave-project",
         "ws-alt": "/tmp/stave-project-alt",
@@ -5130,7 +5130,7 @@ describe("workspace store hydration ordering", () => {
       ],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },
@@ -5370,7 +5370,7 @@ describe("workspace store hydration ordering", () => {
       ],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },
@@ -5539,7 +5539,7 @@ describe("workspace store hydration ordering", () => {
       ],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },
@@ -5689,7 +5689,7 @@ describe("workspace store hydration ordering", () => {
     });
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave",
+      repositoryPath: "/tmp/stave",
       activeWorkspaceId: "workspace-active",
       tasks: [],
       messagesByTask: {},
@@ -5816,7 +5816,7 @@ describe("workspace store hydration ordering", () => {
       ],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-main": "/tmp/stave-project",
       },
@@ -5958,7 +5958,7 @@ describe("workspace store hydration ordering", () => {
       ],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-main": "/tmp/stave-project",
       },
@@ -6104,7 +6104,7 @@ describe("workspace store hydration ordering", () => {
       ],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-main": "/tmp/stave-project",
         "ws-alt": "/tmp/stave-project-alt",
@@ -6254,8 +6254,8 @@ describe("workspace store hydration ordering", () => {
     useAppStore.setState({
       ...initialState,
       hasHydratedWorkspaces: true,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       workspaces: [
         {
           id: "ws-alpha",
@@ -6433,7 +6433,7 @@ describe("workspace store hydration ordering", () => {
       ],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-main": "/tmp/stave-project",
         "ws-alt": "/tmp/stave-project-alt",
@@ -6646,7 +6646,7 @@ describe("workspace store hydration ordering", () => {
         { id: "ws-beta", name: "beta", updatedAt: "2026-03-10T00:01:00.000Z" },
       ],
       activeWorkspaceId: "ws-alpha",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-alpha": "/tmp/stave-project",
         "ws-beta": "/tmp/stave-project/.stave/workspaces/beta",
@@ -6784,7 +6784,7 @@ describe("workspace store hydration ordering", () => {
         },
       ],
       activeWorkspaceId: "ws-alpha",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-alpha": "/tmp/stave-project",
         "ws-beta": "/tmp/stave-project/.stave/workspaces/beta",
@@ -6956,7 +6956,7 @@ describe("workspace store hydration ordering", () => {
         },
       ],
       activeWorkspaceId: "ws-alpha",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-alpha": "/tmp/stave-project",
         "ws-beta": "/tmp/stave-project/.stave/workspaces/beta",
@@ -7050,8 +7050,8 @@ describe("workspace store hydration ordering", () => {
         },
       ],
       activeWorkspaceId: "ws-alpha-fast",
-      projectPath: "/tmp/stave-project-switch-fast",
-      projectName: "stave-project-switch-fast",
+      repositoryPath: "/tmp/stave-project-switch-fast",
+      repositoryName: "stave-project-switch-fast",
       workspacePathById: {
         "ws-alpha-fast": "/tmp/stave-project-switch-fast",
         "ws-beta-fast": "/tmp/stave-project-switch-fast/.stave/workspaces/beta",
@@ -7077,7 +7077,7 @@ describe("workspace store hydration ordering", () => {
       activeTaskId: "task-alpha-fast",
       messagesByTask: { "task-alpha-fast": [] },
       messageCountByTask: { "task-alpha-fast": 0 },
-      projectFiles: ["alpha-only.ts"],
+      repositoryFiles: ["alpha-only.ts"],
       workspaceRuntimeCacheById: {
         "ws-beta-fast": {
           activeTaskId: "task-beta-fast",
@@ -7129,13 +7129,13 @@ describe("workspace store hydration ordering", () => {
     expect(useAppStore.getState().tasks.map((task) => task.id)).toEqual([
       "task-beta-fast",
     ]);
-    expect(useAppStore.getState().projectFiles).toEqual([]);
+    expect(useAppStore.getState().repositoryFiles).toEqual([]);
 
     resolveListFiles?.({ ok: true, files: ["beta-only.ts"] });
     await switchPromise;
     await Bun.sleep(0);
 
-    expect(useAppStore.getState().projectFiles).toEqual(["beta-only.ts"]);
+    expect(useAppStore.getState().repositoryFiles).toEqual(["beta-only.ts"]);
   });
 
   test("closeWorkspace clears cached files for the closed workspace path", async () => {
@@ -7180,7 +7180,7 @@ describe("workspace store hydration ordering", () => {
         },
       ],
       activeWorkspaceId: "ws-main-close",
-      projectPath: "/tmp/stave-project-close",
+      repositoryPath: "/tmp/stave-project-close",
       workspacePathById: {
         "ws-main-close": "/tmp/stave-project-close",
         "ws-feature-close":
@@ -7309,7 +7309,7 @@ describe("workspace store hydration ordering", () => {
         },
       ],
       activeWorkspaceId: "ws-main-close",
-      projectPath: "/tmp/stave-project-close",
+      repositoryPath: "/tmp/stave-project-close",
       workspacePathById: {
         "ws-main-close": "/tmp/stave-project-close",
         "ws-feature-close": workspacePath,
@@ -7419,7 +7419,7 @@ describe("workspace store hydration ordering", () => {
           },
         ],
         activeWorkspaceId: "ws-main-close",
-        projectPath: "/tmp/stave-project-close",
+        repositoryPath: "/tmp/stave-project-close",
         workspacePathById: {
           "ws-main-close": "/tmp/stave-project-close",
           "ws-feature-close": workspacePath,
@@ -7449,9 +7449,9 @@ describe("workspace store hydration ordering", () => {
 
   test("closeWorkspace persists archived worktree tombstones", async () => {
     const localStorage = createMemoryStorage();
-    const savedProjects: Array<
+    const savedRepositories: Array<
       Array<{
-        projectPath: string;
+        repositoryPath: string;
         archivedWorkspacePaths?: string[];
       }>
     > = [];
@@ -7467,14 +7467,14 @@ describe("workspace store hydration ordering", () => {
             loadWorkspace: async () => ({ ok: true, snapshot: null }),
             upsertWorkspace: async () => ({ ok: true }),
             closeWorkspace: async () => ({ ok: true }),
-            saveProjectRegistry: async ({
-              projects,
+            saveRepositoryRegistry: async ({
+              repositories,
             }: {
-              projects: unknown[];
+              repositories: unknown[];
             }) => {
-              savedProjects.push(
-                projects as Array<{
-                  projectPath: string;
+              savedRepositories.push(
+                repositories as Array<{
+                  repositoryPath: string;
                   archivedWorkspacePaths?: string[];
                 }>,
               );
@@ -7529,8 +7529,8 @@ describe("workspace store hydration ordering", () => {
           },
         ],
         activeWorkspaceId: "ws-main-close",
-        projectPath: "/tmp/stave-project-close",
-        projectName: "stave-project-close",
+        repositoryPath: "/tmp/stave-project-close",
+        repositoryName: "stave-project-close",
         defaultBranch: "main",
         workspacePathById: {
           "ws-main-close": "/tmp/stave-project-close",
@@ -7554,10 +7554,10 @@ describe("workspace store hydration ordering", () => {
       console.warn = originalWarn;
     }
 
-    const savedProject = savedProjects
+    const savedRepository = savedRepositories
       .at(-1)
-      ?.find((project) => project.projectPath === "/tmp/stave-project-close");
-    expect(savedProject?.archivedWorkspacePaths).toEqual([workspacePath]);
+      ?.find((repository) => repository.repositoryPath === "/tmp/stave-project-close");
+    expect(savedRepository?.archivedWorkspacePaths).toEqual([workspacePath]);
   });
 
   test("closeWorkspace cleanup keeps the branch when deleteBranch is opted out", async () => {
@@ -7640,7 +7640,7 @@ describe("workspace store hydration ordering", () => {
           },
         ],
         activeWorkspaceId: "ws-main-close",
-        projectPath: "/tmp/stave-project-close",
+        repositoryPath: "/tmp/stave-project-close",
         workspacePathById: {
           "ws-main-close": "/tmp/stave-project-close",
           "ws-feature-close": workspacePath,
@@ -7740,7 +7740,7 @@ describe("workspace store hydration ordering", () => {
           },
         ],
         activeWorkspaceId: "ws-main-close",
-        projectPath: "/tmp/stave-project-close",
+        repositoryPath: "/tmp/stave-project-close",
         workspacePathById: {
           "ws-main-close": "/tmp/stave-project-close",
           "ws-feature-close": workspacePath,
@@ -7830,7 +7830,7 @@ describe("workspace store hydration ordering", () => {
           },
         ],
         activeWorkspaceId: "ws-main-close",
-        projectPath: "/tmp/stave-project-close",
+        repositoryPath: "/tmp/stave-project-close",
         workspacePathById: {
           "ws-main-close": "/tmp/stave-project-close",
           "ws-feature-close": workspacePath,
@@ -7988,8 +7988,8 @@ describe("workspace store hydration ordering", () => {
         },
       ],
       activeWorkspaceId: "ws-alpha-cold",
-      projectPath: "/tmp/stave-project-cold",
-      projectName: "stave-project-cold",
+      repositoryPath: "/tmp/stave-project-cold",
+      repositoryName: "stave-project-cold",
       workspacePathById: {
         "ws-alpha-cold": "/tmp/stave-project-cold",
         "ws-beta-cold": "/tmp/stave-project-cold/.stave/workspaces/beta",
@@ -8015,7 +8015,7 @@ describe("workspace store hydration ordering", () => {
       activeTaskId: "task-alpha-cold",
       messagesByTask: { "task-alpha-cold": [] },
       messageCountByTask: { "task-alpha-cold": 0 },
-      projectFiles: ["alpha.ts"],
+      repositoryFiles: ["alpha.ts"],
       hasHydratedWorkspaces: true,
     });
 
@@ -8112,12 +8112,12 @@ describe("workspace store hydration ordering", () => {
             ],
           }),
           loadWorkspace: async () => ({ ok: true, snapshot: null }),
-          loadProjectRegistry: async () => ({
+          loadRepositoryRegistry: async () => ({
             ok: true,
-            projects: [
+            repositories: [
               {
-                projectPath: "/tmp/project-alpha",
-                projectName: "project-alpha",
+                repositoryPath: "/tmp/project-alpha",
+                repositoryName: "project-alpha",
                 lastOpenedAt: "2026-03-10T00:00:00.000Z",
                 defaultBranch: "main",
                 workspaces: [
@@ -8146,7 +8146,7 @@ describe("workspace store hydration ordering", () => {
               },
             ],
           }),
-          saveProjectRegistry: async () => ({ ok: true }),
+          saveRepositoryRegistry: async () => ({ ok: true }),
           listLatestWorkspaceTurns: async () => ({ ok: true, turns: [] }),
           closeWorkspace: async ({ workspaceId }: { workspaceId: string }) => {
             closedWorkspaceIds.push(workspaceId);
@@ -8199,8 +8199,8 @@ describe("workspace store hydration ordering", () => {
     const initialState = useAppStore.getInitialState();
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/project-alpha",
-      projectName: "project-alpha",
+      repositoryPath: "/tmp/project-alpha",
+      repositoryName: "project-alpha",
       workspaces: [
         {
           id: "ws-alpha",
@@ -8223,7 +8223,7 @@ describe("workspace store hydration ordering", () => {
         "ws-alpha-feature": "/tmp/project-alpha/.stave/workspaces/feature-a",
       },
       workspaceDefaultById: { "ws-alpha": true },
-      recentProjects: [],
+      recentRepositories: [],
       hasHydratedWorkspaces: false,
     });
 
@@ -8288,7 +8288,7 @@ describe("workspace store hydration ordering", () => {
       hasHydratedWorkspaces: true,
       activeWorkspaceId: "ws-abort-test",
       activeTaskId: "task-abort-1",
-      projectPath: "/tmp/stave-abort-test",
+      repositoryPath: "/tmp/stave-abort-test",
       draftProvider: "codex",
       tasks: [
         {
@@ -8419,7 +8419,7 @@ describe("workspace store hydration ordering", () => {
     });
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave",
+      repositoryPath: "/tmp/stave",
       activeWorkspaceId: "workspace-active",
       tasks: [],
       messagesByTask: {},
@@ -8487,7 +8487,7 @@ describe("workspace store hydration ordering", () => {
       hasHydratedWorkspaces: true,
       activeWorkspaceId: "ws-rollback",
       activeTaskId: "task-rollback",
-      projectPath: "/tmp/stave-rollback",
+      repositoryPath: "/tmp/stave-rollback",
       workspacePathById: {
         "ws-rollback": "/tmp/stave-rollback",
       },
@@ -8567,7 +8567,7 @@ describe("workspace store hydration ordering", () => {
       hasHydratedWorkspaces: true,
       activeWorkspaceId: "ws-compact",
       activeTaskId: "task-compact",
-      projectPath: "/tmp/stave-compact",
+      repositoryPath: "/tmp/stave-compact",
       workspacePathById: {
         "ws-compact": "/tmp/stave-compact",
       },
@@ -8686,7 +8686,7 @@ describe("workspace store hydration ordering", () => {
       hasHydratedWorkspaces: true,
       activeWorkspaceId: "ws-trusted-approval",
       activeTaskId: "task-trusted-approval",
-      projectPath: "/tmp/stave-trusted-approval",
+      repositoryPath: "/tmp/stave-trusted-approval",
       workspacePathById: {
         "ws-trusted-approval": "/tmp/stave-trusted-approval",
       },
@@ -8890,7 +8890,7 @@ describe("workspace store hydration ordering", () => {
       ...useAppStore.getInitialState(),
       hasHydratedWorkspaces: true,
       activeWorkspaceId: "ws-active",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspaces: [
         {
           id: "ws-active",
@@ -8944,7 +8944,7 @@ describe("workspace store hydration ordering", () => {
       hasHydratedWorkspaces: true,
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-1",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },
@@ -9030,7 +9030,7 @@ describe("workspace store hydration ordering", () => {
       hasHydratedWorkspaces: true,
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-exact-request",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       tasks: [
         {
           id: "task-exact-request",
@@ -9252,7 +9252,7 @@ describe("workspace store hydration ordering", () => {
       hasHydratedWorkspaces: true,
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-main": "/tmp/stave-project",
         "ws-alt": "/tmp/stave-project/.stave/workspaces/alt",
@@ -9282,8 +9282,8 @@ describe("workspace store hydration ordering", () => {
           kind: "task.approval_requested",
           title: "Task Alt",
           body: "Approval requested",
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaceId: "ws-alt",
           workspaceName: "Alt Workspace",
           taskId: " task-alt ",
@@ -9428,7 +9428,7 @@ describe("workspace store hydration ordering", () => {
       hasHydratedWorkspaces: true,
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-main": "/tmp/stave-project",
         "ws-alt": "/tmp/stave-project/.stave/workspaces/alt",
@@ -9458,8 +9458,8 @@ describe("workspace store hydration ordering", () => {
           kind: "task.approval_requested",
           title: "Task Main",
           body: "Approval requested",
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaceId: "ws-main",
           workspaceName: "Main Workspace",
           taskId: "task-main",
@@ -9483,8 +9483,8 @@ describe("workspace store hydration ordering", () => {
           kind: "task.approval_requested",
           title: "Task Alt",
           body: "Approval requested",
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaceId: "ws-alt",
           workspaceName: "Alt Workspace",
           taskId: "task-alt",
@@ -9633,7 +9633,7 @@ describe("workspace store hydration ordering", () => {
       hasHydratedWorkspaces: true,
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-main": "/tmp/stave-project",
         "ws-alt": "/tmp/stave-project/.stave/workspaces/alt",

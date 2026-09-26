@@ -37,8 +37,8 @@ test("model shortcuts do not type their digit into the prompt", async ({
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [workspace],
           activeWorkspaceId: workspace.id,
           workspaceBranchById: { [workspace.id]: "main" },

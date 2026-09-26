@@ -98,7 +98,7 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
   const listing = useDelegatedTasks({
     parentTaskId: target.taskId,
     parentWorkspaceId: target.workspaceId,
-    projectPath: target.projectPath,
+    repositoryPath: target.repositoryPath,
   });
   const childSource = useMemo(
     () => ({ children: listing.children, actions: listing.actions }),
@@ -106,7 +106,7 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
   );
   const childController = useDelegatedTaskRowController({
     source: childSource,
-    projectPath: target.projectPath,
+    repositoryPath: target.repositoryPath,
   });
   const consults = useAppStore((s) =>
     selectAdvisorConsultLog(s.advisorConsultLogByTask, target.taskId),
@@ -461,7 +461,7 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
       {detailSelection ? <ActivityDetailDialog
         key={detailSelection.nodeKey ?? detailSelection.exchange?.id ?? detailSelection.title}
         selection={detailSelection.exchange ? { ...detailSelection, exchange: exchanges.find(exchange => exchange.id === detailSelection.exchange?.id) ?? detailSelection.exchange } : detailSelection}
-        taskId={target.taskId} workspaceId={target.workspaceId} projectPath={target.projectPath}
+        taskId={target.taskId} workspaceId={target.workspaceId} repositoryPath={target.repositoryPath}
         onAction={handleAction} renderExtraActions={renderExtraActions} statusNoteFor={statusNoteFor}
         graph={activity?.workGraph} onClose={() => setDetailSelection(null)}
         onShowInConversation={toolUseId => focusTranscriptTool({ taskId: target.taskId, toolUseId })}

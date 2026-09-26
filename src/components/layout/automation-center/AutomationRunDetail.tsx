@@ -172,7 +172,7 @@ export function AutomationRunDetail(props: {
             />
             <DetailRow
               label="Repository"
-              value={automation?.environment.label ?? props.run.projectPath}
+              value={automation?.environment.label ?? props.run.repositoryPath}
             />
             <DetailRow
               label="Model"

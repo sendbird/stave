@@ -124,7 +124,7 @@ export class ResultReviewStore {
 
   setReviewed(args: SetResultReviewedArgs): ResultReview | null {
     const identity = [
-      args.projectPath,
+      args.repositoryPath,
       args.workspaceId,
       args.taskId,
       args.turnId,
@@ -168,7 +168,7 @@ export class ResultReviewStore {
       for (const scope of args.scopes) {
         const result = statement.run(
           ...(args.reviewed ? [reviewedAt] : []),
-          scope.projectPath,
+          scope.repositoryPath,
           scope.workspaceId,
           scope.taskId,
           scope.turnId,

@@ -12,7 +12,7 @@ export {
 export {
   DispatchTargetFields,
   type DispatchTargetFieldsProps,
-  type DispatchProjectOption,
+  type DispatchRepositoryOption as DispatchProjectOption,
   type DispatchWorkspaceOption,
   type DispatchWorkspaceStrategy,
 } from "./DispatchTargetFields";

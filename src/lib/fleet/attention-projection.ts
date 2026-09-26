@@ -59,8 +59,8 @@ export interface FleetAttentionItem {
   id: string;
   kind: FleetAttentionKind;
   priority: number;
-  projectPath: string;
-  projectName: string;
+  repositoryPath: string;
+  repositoryName: string;
   workspaceId: string;
   workspaceName: string;
   taskId?: string;
@@ -78,8 +78,8 @@ export interface FleetAttentionItem {
 }
 
 export interface FleetLiveWorkspaceInput {
-  projectPath: string;
-  projectName: string;
+  repositoryPath: string;
+  repositoryName: string;
   workspaceId: string;
   workspaceName: string;
   tasks: readonly Task[];
@@ -92,8 +92,8 @@ export interface FleetLiveWorkspaceInput {
 }
 
 export interface FleetPrWorkspaceInput {
-  projectPath: string;
-  projectName: string;
+  repositoryPath: string;
+  repositoryName: string;
   workspaceId: string;
   workspaceName: string;
   status: WorkspacePrStatus;
@@ -232,8 +232,8 @@ function buildLiveBase(args: {
   task: Task;
 }) {
   return {
-    projectPath: args.workspace.projectPath,
-    projectName: args.workspace.projectName,
+    repositoryPath: args.workspace.repositoryPath,
+    repositoryName: args.workspace.repositoryName,
     workspaceId: args.workspace.workspaceId,
     workspaceName: args.workspace.workspaceName,
     taskId: args.task.id,
@@ -357,16 +357,16 @@ export function collectFleetNotificationAttentionItems(
   const attentionItems: FleetAttentionItem[] = [];
 
   for (const notification of notifications) {
-    const projectPath = normalizeRequired(notification.projectPath);
+    const repositoryPath = normalizeRequired(notification.repositoryPath);
     const workspaceId = normalizeRequired(notification.workspaceId);
     const taskId = normalizeRequired(notification.taskId);
-    if (!projectPath || !workspaceId || !taskId) {
+    if (!repositoryPath || !workspaceId || !taskId) {
       continue;
     }
 
     const base = {
-      projectPath,
-      projectName: normalizeRequired(notification.projectName) ?? "Repository",
+      repositoryPath,
+      repositoryName: normalizeRequired(notification.repositoryName) ?? "Repository",
       workspaceId,
       workspaceName:
         normalizeRequired(notification.workspaceName) ?? "Workspace",
@@ -480,8 +480,8 @@ export function collectFleetPrAttentionItems(
         }),
         kind,
         priority: FLEET_ATTENTION_PRIORITY[kind],
-        projectPath: workspace.projectPath,
-        projectName: workspace.projectName,
+        repositoryPath: workspace.repositoryPath,
+        repositoryName: workspace.repositoryName,
         workspaceId: workspace.workspaceId,
         workspaceName: workspace.workspaceName,
         createdAt: normalizeTimestamp(workspace.updatedAt),
@@ -589,8 +589,8 @@ export function buildFleetAttentionProjection(args: {
             kind,
             priority: FLEET_ATTENTION_PRIORITY[kind],
             source: "result",
-            projectPath: result.projectPath,
-            projectName: result.projectName,
+            repositoryPath: result.repositoryPath,
+            repositoryName: result.repositoryName,
             workspaceId: result.workspaceId,
             workspaceName: result.workspaceName,
             taskId: result.taskId,

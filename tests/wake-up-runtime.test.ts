@@ -85,7 +85,7 @@ function createHarness(args?: {
   let snapshot: TaskSupervisionSnapshot = {
     workspaceId: "ws-1",
     taskId: "task-1",
-    projectPath: "/tmp/project",
+    repositoryPath: "/tmp/project",
     exists: true,
     archived: false,
     providerId: "claude-code",
@@ -447,7 +447,7 @@ describe("supervisor runtime", () => {
     await harness.drain();
 
     harness.setNow("2026-08-10T01:00:00.000Z");
-    harness.setSnapshot({ exists: false, projectPath: null });
+    harness.setSnapshot({ exists: false, repositoryPath: null });
     await harness.tick();
 
     expect(harness.store.get(wakeUp.id)).toMatchObject({
@@ -456,7 +456,7 @@ describe("supervisor runtime", () => {
     });
 
     // Recoverable: once the workspace reads again it resumes on its own.
-    harness.setSnapshot({ exists: true, projectPath: "/tmp/project" });
+    harness.setSnapshot({ exists: true, repositoryPath: "/tmp/project" });
     harness.setNow("2026-08-10T01:05:00.000Z");
     await harness.tick();
 

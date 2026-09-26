@@ -159,7 +159,7 @@ export function classifyFleetWorkspaceActivity(args: {
  */
 export function isPhantomDefaultWorkspace(args: {
   isDefault: boolean;
-  isCurrentProject: boolean;
+  isCurrentRepository: boolean;
   isActiveWorkspace: boolean;
   openTaskCount: number;
   /** Across every task, archived included — history counts as evidence. */
@@ -176,7 +176,7 @@ export function isPhantomDefaultWorkspace(args: {
   if (!args.isDefault || !args.hasResolvedState) {
     return false;
   }
-  if (args.isCurrentProject || args.isActiveWorkspace || args.hasAttentionItems) {
+  if (args.isCurrentRepository || args.isActiveWorkspace || args.hasAttentionItems) {
     return false;
   }
   if (args.openTaskCount > 0 || args.messageCount > 0) {

@@ -28,7 +28,7 @@ function seedDelegation(database: Database) {
       id: runId,
       kind: "delegated-task",
       origin: { kind: "task", id: "parent-1" },
-      ownership: { projectPath: "/tmp/stave", workspaceId: "ws-child", taskId: "child-1" },
+      ownership: { repositoryPath: "/tmp/stave", workspaceId: "ws-child", taskId: "child-1" },
       policy: {
         maxAttempts: 3,
         timeoutMs: 86_400_000,

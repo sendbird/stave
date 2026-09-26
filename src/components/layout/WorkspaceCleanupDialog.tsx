@@ -10,8 +10,8 @@ import { managerStyles as styles } from "./resource-manager.styles";
 import { cleanupWorkspaceRows, inspectCleanupWorkspace, scanCleanupWorkspaceSize, cleanWorkspace, type CleanupWorkspaceRow } from "./workspace-cleanup-operations";
 
 export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; onOpenChange: (open: boolean) => void }) {
-  const projectPath = useAppStore((s) => s.projectPath);
-  const projectName = useAppStore((s) => s.projectName);
+  const repositoryPath = useAppStore((s) => s.repositoryPath);
+  const repositoryName = useAppStore((s) => s.repositoryName);
   const prInfo = useAppStore((s) => s.workspacePrInfoById);
   const [rows, setRows] = useState<CleanupWorkspaceRow[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
@@ -26,7 +26,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
   const cleanupBusyRef = useRef(false);
 
   const refresh = useCallback(async () => {
-    if (!projectPath || busyRef.current) return;
+    if (!repositoryPath || busyRef.current) return;
     const token = ++generation.current;
     busyRef.current = true;
     setBusy(true); setSelected(new Set()); setConfirming(false); setMessage("");
@@ -35,14 +35,14 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
     try {
       for (const row of next) {
         if (token !== generation.current) return;
-        const checked = await inspectCleanupWorkspace(projectPath, row);
+        const checked = await inspectCleanupWorkspace(repositoryPath, row);
         if (token !== generation.current) return;
         setRows((previous) => previous.map((item) => item.id === row.id ? checked : item));
       }
     } finally {
       if (token === generation.current) { busyRef.current = false; setBusy(false); }
     }
-  }, [projectPath]);
+  }, [repositoryPath]);
 
   useEffect(() => {
     if (open) { busyRef.current = false; void refresh(); }
@@ -75,7 +75,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
   };
 
   const cleanup = async () => {
-    if (!projectPath || busyRef.current || selectedRows.length === 0) return;
+    if (!repositoryPath || busyRef.current || selectedRows.length === 0) return;
     cleanupBusyRef.current = true;
     busyRef.current = true; setBusy(true); setConfirming(false);
     const token = generation.current;
@@ -85,7 +85,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
         if (token !== generation.current) return;
         let result: CleanupWorkspaceRow;
         try {
-          result = await cleanWorkspace(projectPath, row);
+          result = await cleanWorkspace(repositoryPath, row);
         } catch (error) {
           result = { ...row, blocker: error instanceof Error ? error.message : "Cleanup failed" };
         }
@@ -105,7 +105,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
     <DialogContent xstyle={styles.dialog} showCloseButton={!cleanupBusyRef.current}>
       <DialogHeader>
         <DialogTitle>Clean up workspaces</DialogTitle>
-        <DialogDescription>{projectName ?? "Current repository"} · Review inactive workspaces before removing them.</DialogDescription>
+        <DialogDescription>{repositoryName ?? "Current repository"} · Review inactive workspaces before removing them.</DialogDescription>
       </DialogHeader>
       <div className={sx(styles.toolbar)}>
         <span className={sx(styles.muted)}>Disk usage is scanned on request. Nested symlinks are not followed.</span>
@@ -152,7 +152,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
         <div className={sx(styles.actions)}>
           <Button variant="secondary" disabled={busy && cleanupBusyRef.current} onClick={() => confirming ? setConfirming(false) : onOpenChange(false)}>Cancel</Button>
           <Button variant="destructive" disabled={busy || selectedRows.length === 0} onClick={() => {
-            const changed = selectedRows.some((row) => workspaceCleanupBlocker(useAppStore.getState(), projectPath ?? "", row.id, row.path));
+            const changed = selectedRows.some((row) => workspaceCleanupBlocker(useAppStore.getState(), repositoryPath ?? "", row.id, row.path));
             if (changed) { setMessage("Workspace activity changed. Refresh checks before continuing."); setConfirming(false); return; }
             if (confirming) void cleanup(); else setConfirming(true);
           }}>{confirming ? "Confirm cleanup" : `Clean up selected (${selectedRows.length})`}</Button>

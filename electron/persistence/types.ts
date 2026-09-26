@@ -177,9 +177,9 @@ export interface PersistenceTaskMessagesPage {
   hasMoreOlder: boolean;
 }
 
-export interface PersistenceProjectRegistryEntry {
-  projectPath: string;
-  projectName: string;
+export interface PersistenceRepositoryRegistryEntry {
+  repositoryPath: string;
+  repositoryName: string;
   lastOpenedAt: string;
   defaultBranch: string;
   workspaces: Array<{
@@ -191,7 +191,7 @@ export interface PersistenceProjectRegistryEntry {
   workspaceBranchById: Record<string, string>;
   workspacePathById: Record<string, string>;
   workspaceDefaultById: Record<string, boolean>;
-  projectBasePrompt?: string;
+  repositoryBasePrompt?: string;
   newWorkspaceInitCommand?: string;
   newWorkspaceUseRootNodeModulesSymlink?: boolean;
   archivedWorkspacePaths?: string[];
@@ -267,8 +267,8 @@ export interface PersistenceNotificationRecord {
   kind: PersistenceNotificationKind;
   title: string;
   body: string;
-  projectPath: string | null;
-  projectName: string | null;
+  repositoryPath: string | null;
+  repositoryName: string | null;
   workspaceId: string | null;
   workspaceName: string | null;
   taskId: string | null;

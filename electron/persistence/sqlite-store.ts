@@ -21,7 +21,7 @@ import type {
   PersistenceWorkspaceShell,
   PersistenceWorkspaceShellLite,
   PersistenceWorkspaceShellSummary,
-  PersistenceProjectRegistryEntry,
+  PersistenceRepositoryRegistryEntry,
   PersistenceNotificationCreateInput,
   PersistenceNotificationRecord,
   PersistenceTurnSummary,
@@ -58,13 +58,13 @@ import type {
 } from "../../src/lib/tracker-issues/types";
 import { WakeUpStore } from "./wake-up-store";
 import { AutomationStateStore } from "./automation-state-store";
-import { ProjectMemoryStore } from "./project-memory-store";
+import { RepositoryMemoryStore } from "./project-memory-store";
 import { ResultReviewStore } from "./result-review-store";
 import { NotificationStore } from "./notification-store";
 import { FleetAttentionSnoozeStore } from "./fleet-attention-snooze-store";
 import { WorkspaceDirectionDraftStore } from "./workspace-direction-drafts";
 import { DelegationDraftStore } from "./delegation-drafts";
-import type { ProjectMemoryKind } from "../../src/lib/project-memory";
+import type { RepositoryMemoryKind } from "../../src/lib/project-memory";
 import type {
   WakeUp,
   WakeUpOccurrence,
@@ -172,7 +172,7 @@ export class SqliteStore {
   private martinSyncOutbox: MartinSyncOutboxStore;
   private wakeUps: WakeUpStore;
   private automationState: AutomationStateStore;
-  private projectMemories: ProjectMemoryStore;
+  private repositoryMemories: RepositoryMemoryStore;
   private notifications: NotificationStore;
   readonly resultReviews: ResultReviewStore;
   readonly fleetAttentionSnoozes: FleetAttentionSnoozeStore;
@@ -218,7 +218,7 @@ export class SqliteStore {
     this.bootstrap();
     this.notifications = new NotificationStore(
       this.db,
-      () => this.loadProjectRegistry(),
+      () => this.loadRepositoryRegistry(),
     );
     this.resultReviews = new ResultReviewStore(this.db);
     this.fleetAttentionSnoozes = new FleetAttentionSnoozeStore(this.db);
@@ -238,7 +238,7 @@ export class SqliteStore {
     this.martinSyncOutbox = new MartinSyncOutboxStore(this.db);
     this.wakeUps = new WakeUpStore(this.db);
     this.automationState = new AutomationStateStore(this.db);
-    this.projectMemories = new ProjectMemoryStore(this.db);
+    this.repositoryMemories = new RepositoryMemoryStore(this.db);
     if (this.runMaintenance) {
       this.maintenanceStart = setImmediate(() => {
         this.maintenanceStart = null;
@@ -1652,24 +1652,24 @@ export class SqliteStore {
     };
   }
 
-  loadProjectRegistry(): PersistenceProjectRegistryEntry[] {
+  loadRepositoryRegistry(): PersistenceRepositoryRegistryEntry[] {
     const row = this.db
       .prepare("SELECT value_json FROM app_state WHERE key = ?")
       .get("project_registry") as JsonValueRow | undefined;
     if (!row) {
       return [];
     }
-    return JSON.parse(row.value_json) as PersistenceProjectRegistryEntry[];
+    return JSON.parse(row.value_json) as PersistenceRepositoryRegistryEntry[];
   }
 
-  loadActiveProjectPath(): string | null | undefined {
+  loadActiveRepositoryPath(): string | null | undefined {
     const row = this.db.prepare("SELECT value_json FROM app_state WHERE key = ?").get("active_project_path") as JsonValueRow | undefined;
     if (!row) return undefined;
     const value: unknown = JSON.parse(row.value_json);
     return typeof value === "string" ? value : null;
   }
 
-  saveProjectRegistry(args: { projects: PersistenceProjectRegistryEntry[]; activeProjectPath?: string | null }) {
+  saveRepositoryRegistry(args: { repositories: PersistenceRepositoryRegistryEntry[]; activeRepositoryPath?: string | null }) {
     const now = new Date().toISOString();
     const write = this.db
       .prepare(
@@ -1682,9 +1682,9 @@ export class SqliteStore {
     `,
       );
     this.db.transaction(() => {
-      write.run("project_registry", JSON.stringify(args.projects), now);
-      if (args.activeProjectPath !== undefined) {
-        write.run("active_project_path", JSON.stringify(args.activeProjectPath), now);
+      write.run("project_registry", JSON.stringify(args.repositories), now);
+      if (args.activeRepositoryPath !== undefined) {
+        write.run("active_project_path", JSON.stringify(args.activeRepositoryPath), now);
       }
     })();
   }
@@ -2893,24 +2893,24 @@ export class SqliteStore {
     return this.wakeUps.recordOccurrence(occurrence);
   }
 
-  listProjectMemories(args: { projectPath: string; includeDeleted?: boolean }) {
-    return this.projectMemories.list(args);
+  listRepositoryMemories(args: { repositoryPath: string; includeDeleted?: boolean }) {
+    return this.repositoryMemories.list(args);
   }
 
-  getProjectMemory(id: string) {
-    return this.projectMemories.get(id);
+  getRepositoryMemory(id: string) {
+    return this.repositoryMemories.get(id);
   }
 
-  searchProjectMemories(args: { projectPath: string } & import("../../src/lib/project-memory").ProjectMemorySearchOptions) {
-    return this.projectMemories.search(args);
+  searchRepositoryMemories(args: { repositoryPath: string } & import("../../src/lib/project-memory").RepositoryMemorySearchOptions) {
+    return this.repositoryMemories.search(args);
   }
 
-  rememberProjectMemory(args: {
-    projectPath: string;
-    kind: ProjectMemoryKind;
+  rememberRepositoryMemory(args: {
+    repositoryPath: string;
+    kind: RepositoryMemoryKind;
     content: string;
     confidence: number;
-    recallMode?: import("../../src/lib/project-memory").ProjectMemoryRecallMode;
+    recallMode?: import("../../src/lib/project-memory").RepositoryMemoryRecallMode;
     sourceTaskId?: string | null;
     sourceTurnId?: string | null;
     collectionRevision?: number;
@@ -2918,44 +2918,44 @@ export class SqliteStore {
     const turn = args.sourceTurnId
       ? this.db.prepare("SELECT created_at FROM turns WHERE id = ?").get(args.sourceTurnId) as { created_at: string } | undefined
       : undefined;
-    return this.projectMemories.remember({
+    return this.repositoryMemories.remember({
       ...args,
       sourceCreatedAt: turn ? Date.parse(turn.created_at) : null,
     });
   }
 
-  getProjectMemorySettings(projectPath: string) {
-    return this.projectMemories.settings.get(projectPath);
+  getRepositoryMemorySettings(repositoryPath: string) {
+    return this.repositoryMemories.settings.get(repositoryPath);
   }
 
-  saveProjectMemorySettings(args: Parameters<typeof this.projectMemories.settings.save>[0]) {
-    return this.projectMemories.settings.save(args);
+  saveRepositoryMemorySettings(args: Parameters<typeof this.repositoryMemories.settings.save>[0]) {
+    return this.repositoryMemories.settings.save(args);
   }
 
-  clearProjectMemories(args: Parameters<typeof this.projectMemories.settings.clear>[0]) {
-    return this.projectMemories.settings.clear(args);
+  clearRepositoryMemories(args: Parameters<typeof this.repositoryMemories.settings.clear>[0]) {
+    return this.repositoryMemories.settings.clear(args);
   }
 
-  updateProjectMemory(args: {
+  updateRepositoryMemory(args: {
     id: string;
-    projectPath: string;
-    recallMode?: import("../../src/lib/project-memory").ProjectMemoryRecallMode;
-    kind?: ProjectMemoryKind;
+    repositoryPath: string;
+    recallMode?: import("../../src/lib/project-memory").RepositoryMemoryRecallMode;
+    kind?: RepositoryMemoryKind;
     content?: string;
   }) {
-    return this.projectMemories.update(args);
+    return this.repositoryMemories.update(args);
   }
 
-  deleteProjectMemory(id: string) {
-    return this.projectMemories.softDelete({ id });
+  deleteRepositoryMemory(id: string) {
+    return this.repositoryMemories.softDelete({ id });
   }
 
-  recallProjectMemories(args: {
-    projectPath: string;
+  recallRepositoryMemories(args: {
+    repositoryPath: string;
     query?: string | null;
     limit?: number;
   }) {
-    return this.projectMemories.recall(args);
+    return this.repositoryMemories.recall(args);
   }
 
   attachWakeUpOccurrenceTurn(args: { id: string; turnId: string }) {

@@ -52,7 +52,7 @@ import {
 } from "@/lib/compare-runs";
 import { launchReadyCompareJudgesFromStore } from "@/store/compare-run-judge";
 import {
-  applyProjectBasePromptToRuntimeOptions,
+  applyRepositoryBasePromptToRuntimeOptions,
   buildProviderRuntimeOptions,
   buildUtilityInferenceContext,
 } from "@/store/provider-runtime-options";
@@ -116,7 +116,7 @@ import {
   type WorkspaceSessionState,
 } from "@/store/workspace-session-state";
 import {
-  resolveProjectBasePrompt,
+  resolveRepositoryBasePrompt,
   resolveWorkspaceName,
   resolveTaskWorkspaceContext,
 } from "@/store/project.utils";
@@ -386,7 +386,7 @@ export function createSendUserMessageAction(args: {
         taskWorkspaceIdById: state.taskWorkspaceIdById,
         workspacePathById: state.workspacePathById,
         workspaceDefaultById: state.workspaceDefaultById,
-        projectPath: state.projectPath,
+        repositoryPath: state.repositoryPath,
       });
     if (!taskWorkspaceId) {
       return { status: "blocked" } satisfies SendUserMessageResult;
@@ -1012,8 +1012,8 @@ export function createSendUserMessageAction(args: {
           workspaceName: taskWorkspaceSummary?.name ?? null,
           workspacePath: workspaceCwd ?? null,
           workspaceBranch: state.workspaceBranchById[taskWorkspaceId] ?? null,
-          projectName: state.projectName,
-          projectPath: state.projectPath,
+          repositoryName: state.repositoryName,
+          repositoryPath: state.repositoryPath,
           taskId: resolvedTaskId,
           tasks: taskWorkspaceTasks,
           workspaceInformation: taskWorkspaceInformation,
@@ -1024,7 +1024,7 @@ export function createSendUserMessageAction(args: {
       // Both are cross-turn state read from main; see project-memory-runtime.
       retrievedContextParts.push(
         ...(await collectTurnStartRetrievedContextParts({
-          projectPath: state.projectPath,
+          repositoryPath: state.repositoryPath,
           parentTaskId: resolvedTaskId,
           history: latestHistory,
           prompt: normalizedPrompt || promptContent,
@@ -1653,11 +1653,11 @@ export function createSendUserMessageAction(args: {
         taskId: resolvedTaskId,
         workspaceId: taskWorkspaceId,
         cwd: workspaceCwd,
-        runtimeOptions: applyProjectBasePromptToRuntimeOptions({
+        runtimeOptions: applyRepositoryBasePromptToRuntimeOptions({
           runtimeOptions: providerRuntimeOptions,
-          projectBasePrompt: resolveProjectBasePrompt({
-            projectPath: get().projectPath,
-            recentProjects: get().recentProjects,
+          repositoryBasePrompt: resolveRepositoryBasePrompt({
+            repositoryPath: get().repositoryPath,
+            recentRepositories: get().recentRepositories,
           }),
         }),
         onEvent: ({ event }) => providerTurnEventController.handleEvent(event),

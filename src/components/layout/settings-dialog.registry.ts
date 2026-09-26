@@ -425,7 +425,7 @@ export const settingDefinitions = [
       enabled: false,
       baseUrl: "https://atelier.delight-tools.ai",
       pollIntervalSeconds: 15,
-      projectMappings: [],
+      repositoryMappings: [],
     },
     scope: "app",
     sensitivity: "sensitive",
@@ -460,7 +460,7 @@ export const settingDefinitions = [
     // reset a row by assigning it.
     defaultValue: {
       ...DEFAULT_JIRA_CONNECTOR_SETTINGS,
-      projectMappings: [],
+      repositoryMappings: [],
     },
     scope: "app",
     // Sensitive and export-excluded because the site URL plus the mapping table

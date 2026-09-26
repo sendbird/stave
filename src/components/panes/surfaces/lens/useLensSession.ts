@@ -86,7 +86,7 @@ export function useLensSession(args: {
   /** False once the tab has left the store, including via Dockview-side paths. */
   isTabOpen: boolean;
   lensSessionScope: LensSessionScope;
-  projectPath: string | null;
+  repositoryPath: string | null;
   surface: LensSurfaceHostHandle;
   /**
    * Clear every per-generation feature state. Must be synchronous: it runs
@@ -105,7 +105,7 @@ export function useLensSession(args: {
     hasLensApi,
     isTabOpen,
     lensSessionScope,
-    projectPath,
+    repositoryPath,
     surface,
     onSessionReset,
     onSessionRestored,
@@ -238,7 +238,7 @@ export function useLensSession(args: {
         workspaceId,
         lensSessionId,
         sessionScope: lensSessionScope,
-        projectKey: projectPath,
+        repositoryKey: repositoryPath,
       });
       if (cancelled) {
         return;
@@ -367,7 +367,7 @@ export function useLensSession(args: {
     isTabOpen,
     lensSessionId,
     lensSessionScope,
-    projectPath,
+    repositoryPath,
     scheduleRebuild,
     sessionGeneration,
     workspaceId,

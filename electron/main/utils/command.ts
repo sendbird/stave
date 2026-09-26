@@ -6,7 +6,7 @@ import {
   parseSourceControlStatusLines,
 } from "../../../src/lib/source-control-status";
 import { buildExecutableLookupEnv } from "../../providers/executable-path";
-import { buildProjectShellEnv } from "../../shared/project-node-env";
+import { buildRepositoryShellEnv } from "../../shared/project-node-env";
 import type { CommandResult, SourceControlStatusItem } from "../types";
 
 const COMMAND_OUTPUT_LIMIT = 128_000;
@@ -90,7 +90,7 @@ export function runCommand(args: {
 }): Promise<CommandResult> {
   return new Promise<CommandResult>((resolve) => {
     const cwd = resolveCommandCwd({ cwd: args.cwd });
-    const env = buildProjectShellEnv({
+    const env = buildRepositoryShellEnv({
       cwd,
       baseEnv: buildExecutableLookupEnv({
         baseEnv: args.env,
@@ -178,7 +178,7 @@ export function runCommandArgs(args: {
 }): Promise<CommandResult> {
   return new Promise<CommandResult>((resolve) => {
     const cwd = resolveCommandCwd({ cwd: args.cwd });
-    const env = buildProjectShellEnv({
+    const env = buildRepositoryShellEnv({
       cwd,
       baseEnv: buildExecutableLookupEnv({
         baseEnv: args.env,
