@@ -468,9 +468,21 @@ export const MissionStartInputSchema = z
       .max(MISSION_LIMITS.maxTurnsCeiling)
       .default(MISSION_LIMITS.defaultMaxTurns),
     expiresAt: TimestampSchema.nullable().default(null),
+    /**
+     * The stage the mission starts at. Earlier stages are recorded as skipped
+     * and never run — for work already done by hand.
+     */
+    startStageIndex: z.number().int().min(0).default(0),
   })
   .strict()
   .superRefine((input, context) => {
+    if (input.startStageIndex >= input.playbook.stages.length) {
+      context.addIssue({
+        code: "custom",
+        path: ["startStageIndex"],
+        message: "The mission must start at a stage of its playbook.",
+      });
+    }
     const effectIds = new Set(
       listExternalEffectStages(input.playbook).map((stage) => stage.id),
     );
@@ -790,21 +802,32 @@ export function createMission(args: {
     pauseReason: null,
     stopReason: null,
     reasonDetail: null,
-    currentStageIndex: 0,
+    currentStageIndex: input.startStageIndex,
     turnCount: 0,
     maxTurns: input.maxTurns,
     expiresAt: input.expiresAt,
     createdAt: timestamp,
     updatedAt: timestamp,
   });
+  const startStage = playbookStageAt(mission, input.startStageIndex);
+  // Starting later records the earlier stages as skipped, so the rail and the
+  // report say why they never ran.
+  const skipped = mission.playbook.stages.slice(0, input.startStageIndex).map(
+    (stage): MissionStageRecord => ({
+      ...createStageRecord({ missionId: mission.id, stageId: stage.id, attempt: 1 }),
+      status: "skipped",
+      detail: `Not run: the mission started at ${startStage.title}.`,
+      endedAt: timestamp,
+    }),
+  );
   const firstStage = createStageRecord({
     missionId: mission.id,
-    stageId: playbookStageAt(mission, 0).id,
+    stageId: startStage.id,
     attempt: 1,
   });
   return {
     mission,
-    upserts: [firstStage],
+    upserts: [...skipped, firstStage],
     events: [
       {
         kind: "mission-started",
@@ -815,6 +838,7 @@ export function createMission(args: {
           checkIns: mission.consent.checkIns,
           permissionMode: mission.consent.permissionMode,
           authorizedEffectStageIds: mission.consent.authorizedEffectStageIds,
+          ...(input.startStageIndex > 0 ? { startStageId: startStage.id } : {}),
         },
       },
     ],

@@ -15,14 +15,21 @@ export interface StartConsentDraft {
   authorizedEffectStageIds: readonly string[];
 }
 
-/** Indexes of the stages the mission will stop at. Starting signs off the first. */
-export function listMissionStops(playbook: Pick<Playbook, "stages">, consent: StartConsentDraft): number[] {
+/**
+ * Indexes of the stages the mission will stop at. Starting signs off the stage
+ * it starts at; stages before it never run.
+ */
+export function listMissionStops(
+  playbook: Pick<Playbook, "stages">,
+  consent: StartConsentDraft,
+  startStageIndex = 0,
+): number[] {
   const preview = {
     playbook: playbook as Playbook,
     consent: { checkIns: consent.checkIns, authorizedEffectStageIds: [...consent.authorizedEffectStageIds] },
   };
   return playbook.stages.flatMap((_, index) =>
-    index > 0 && resolveConsentStageSignOff(preview, index) === "ask" ? [index] : [],
+    index > startStageIndex && resolveConsentStageSignOff(preview, index) === "ask" ? [index] : [],
   );
 }
 
@@ -32,18 +39,32 @@ function joinTitles(titles: readonly string[]) {
 }
 
 /** "Stave asks you before Build and Ready for review." */
-export function describeMissionStops(playbook: Pick<Playbook, "stages">, consent: StartConsentDraft): string {
-  const stops = listMissionStops(playbook, consent);
+export function describeMissionStops(
+  playbook: Pick<Playbook, "stages">,
+  consent: StartConsentDraft,
+  startStageIndex = 0,
+): string {
+  const stops = listMissionStops(playbook, consent, startStageIndex);
   if (stops.length === 0) return "Stave carries it to the end and stops only if a stage is blocked or stuck.";
   return `Stave asks you before ${joinTitles(stops.map((index) => playbook.stages[index]!.title))}.`;
 }
 
 /** The primary button: what pressing it sets in motion. */
-export function describeStartButton(playbook: Pick<Playbook, "stages">, consent: StartConsentDraft): string {
-  const stops = listMissionStops(playbook, consent);
-  if (stops.length === 0) return "Start — runs to the end";
-  if (stops.length <= 2) return `Start — asks before ${joinTitles(stops.map((index) => playbook.stages[index]!.title))}`;
-  return `Start — asks ${stops.length} times`;
+export function describeStartButton(
+  playbook: Pick<Playbook, "stages">,
+  consent: StartConsentDraft,
+  startStageIndex = 0,
+): string {
+  const stops = listMissionStops(playbook, consent, startStageIndex);
+  const verb = startStageIndex > 0 ? `Start at ${playbook.stages[startStageIndex]?.title ?? "stage"}` : "Start";
+  if (stops.length === 0) return `${verb} — runs to the end`;
+  if (stops.length <= 2) return `${verb} — asks before ${joinTitles(stops.map((index) => playbook.stages[index]!.title))}`;
+  return `${verb} — asks ${stops.length} times`;
+}
+
+/** The stages a mission started at `startStageIndex` will run, for its pre-start checks. */
+export function remainingStages(playbook: Pick<Playbook, "stages">, startStageIndex: number): Pick<Playbook, "stages"> {
+  return { stages: playbook.stages.slice(startStageIndex) };
 }
 
 /** What an external-effect stage writes, for its consent row. */
@@ -71,6 +92,7 @@ export function buildMissionStartInput(args: {
   playbook: Playbook;
   assignment: string;
   consent: StartConsentDraft;
+  startStageIndex?: number;
 }): MissionStartInput {
   const effectIds = new Set(defaultAuthorizedEffects(args.playbook));
   return {
@@ -84,6 +106,7 @@ export function buildMissionStartInput(args: {
       // Consent is recorded per start, for stages this playbook has.
       authorizedEffectStageIds: args.consent.authorizedEffectStageIds.filter((id) => effectIds.has(id)),
     },
+    ...(args.startStageIndex ? { startStageIndex: args.startStageIndex } : {}),
   };
 }
 

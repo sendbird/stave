@@ -32,6 +32,7 @@ import {
   describeMissionStops,
   describeStartButton,
   listMissionStops,
+  remainingStages,
 } from "@/lib/missions/start-sheet";
 import { duplicatePlaybook, groupIssuesByField, upsertPlaybook } from "@/lib/playbooks/library";
 import { parsePlaybook } from "@/lib/playbooks/normalize";
@@ -94,6 +95,7 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
   const [dirtyFileCount, setDirtyFileCount] = useState<number | null>(null);
   const [starting, setStarting] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  const [startIndex, setStartIndex] = useState(0);
 
   // A different playbook starts from its own defaults.
   useEffect(() => {
@@ -102,6 +104,7 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
     setPermissionMode(base?.runtime?.permissionMode ?? "guided");
     setAuthorized(base ? defaultAuthorizedEffects(base) : []);
     setCustomizing(false);
+    setStartIndex(0);
     setSaveAsNew(false);
     setNewName(base ? `${base.name} (edited)`.slice(0, PLAYBOOK_LIMITS.name) : "");
     // Keyed on the choice, not the object: saving a copy must not reset the sheet.
@@ -111,7 +114,10 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
   const providerId = (task?.provider ?? "claude-code") as ProviderId;
   const providerSupported = Boolean(task && MISSION_PROVIDERS.has(providerId));
   const { readiness } = useLocalMcpReadiness({ primaryProviderId: providerId, refreshKey: request.taskId });
-  const usesPullRequests = Boolean(copy?.stages.some((stage) => stage.kind === "action"));
+  // Stages before the one the mission starts at never run, so they need nothing.
+  const startAt = copy ? Math.min(startIndex, copy.stages.length - 1) : 0;
+  const remaining = copy ? remainingStages(copy, startAt) : null;
+  const usesPullRequests = Boolean(remaining?.stages.some((stage) => stage.kind === "action"));
 
   useEffect(() => {
     let cancelled = false;
@@ -148,9 +154,9 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
   }, [usesPullRequests, workspacePath]);
 
   const consent = { checkIns, permissionMode, authorizedEffectStageIds: authorized };
-  const checks = copy
+  const checks = remaining
     ? evaluatePreStartChecks({
-        playbook: copy,
+        playbook: remaining,
         providerSupported,
         reporting: readiness,
         github,
@@ -161,7 +167,7 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
     : [];
   const parsedCopy = copy ? parsePlaybook(copy) : null;
   const effectStages = copy ? copy.stages.filter((stage) => describeExternalEffect(stage) !== null) : [];
-  const stops = copy ? new Set(listMissionStops(copy, consent)) : new Set<number>();
+  const stops = copy ? new Set(listMissionStops(copy, consent, startAt)) : new Set<number>();
   const ready =
     Boolean(copy) &&
     parsedCopy?.ok === true &&
@@ -181,7 +187,14 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
       playbook = created;
     }
     const response = await startMission(
-      buildMissionStartInput({ workspaceId: request.workspaceId, taskId: request.taskId, playbook, assignment, consent }),
+      buildMissionStartInput({
+        workspaceId: request.workspaceId,
+        taskId: request.taskId,
+        playbook,
+        assignment,
+        consent,
+        startStageIndex: startAt,
+      }),
     );
     setStarting(false);
     if (!response.ok) {
@@ -260,13 +273,31 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
               onValueChange={(value) => setPlaybookId(String(value))}
             />
             {copy ? <p className={sx(styles.hint)}>{copy.purpose}</p> : null}
+            {copy && copy.stages.length > 1 ? (
+              <div className={sx(styles.startAt)}>
+                <span className={sx(styles.startAtLabel)}>Start at</span>
+                <div className={sx(styles.startAtSelect)}>
+                  <Select
+                    aria-label="Start at stage"
+                    size="sm"
+                    value={String(startAt)}
+                    options={copy.stages.map((stage, index) => ({ value: String(index), label: `${index + 1}. ${stage.title}` }))}
+                    onValueChange={(value) => setStartIndex(Number(value))}
+                  />
+                </div>
+                {startAt > 0 ? (
+                  <span className={sx(styles.hint)}>Earlier stages are skipped — for work you already did.</span>
+                ) : null}
+              </div>
+            ) : null}
             {copy ? (
               <ol className={sx(styles.rail)} aria-label="Stages">
                 {copy.stages.map((stage, index) => {
                   const effect = describeExternalEffect(stage);
                   const asks = stops.has(index);
+                  const skipped = index < startAt;
                   return (
-                    <li key={stage.id} className={sx(styles.railRow)}>
+                    <li key={stage.id} className={sx(styles.railRow, skipped && styles.railRowSkipped)}>
                       <span className={sx(styles.railIndex)}>{index + 1}</span>
                       <span className={sx(styles.railKind, stage.kind === "action" && styles.railKindAction)}>
                         {stage.kind === "ai" ? <Sparkles aria-hidden className={sx(styles.icon)} /> : <Zap aria-hidden className={sx(styles.icon)} />}
@@ -284,7 +315,9 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
                         ) : null}
                       </span>
                       <span className={sx(styles.railState, asks && styles.railStateAsks)}>
-                        {index === 0 ? (
+                        {skipped ? (
+                          "Skipped"
+                        ) : index === startAt ? (
                           "Starts now"
                         ) : asks ? (
                           <>
@@ -309,7 +342,7 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
               Check-ins
             </h3>
             <Segmented aria-label="Check-ins" value={checkIns} options={CHECK_IN_OPTIONS} onChange={setCheckIns} />
-            <p className={sx(styles.hint)}>{copy ? describeMissionStops(copy, consent) : null}</p>
+            <p className={sx(styles.hint)}>{copy ? describeMissionStops(copy, consent, startAt) : null}</p>
           </section>
 
           {copy && effectStages.length > 0 ? (
@@ -416,7 +449,7 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
             </Button>
             <span className={sx(styles.spacer)} />
             <Button size="sm" disabled={!ready} loading={starting} onClick={() => void start()}>
-              {copy ? describeStartButton(copy, consent) : "Start"}
+              {copy ? describeStartButton(copy, consent, startAt) : "Start"}
             </Button>
           </div>
         </SheetFooter>
@@ -506,6 +539,10 @@ const styles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: "1.25rem",
   },
+  railRowSkipped: { opacity: 0.55 },
+  startAt: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"], flexWrap: "wrap" },
+  startAtLabel: { fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-medium"], color: vars["--ads-color-text"] },
+  startAtSelect: { width: "13rem", maxWidth: "100%" },
   railIndex: { color: vars["--ads-color-text-subtle"], fontVariantNumeric: "tabular-nums", textAlign: "center" },
   railKind: { display: "flex", alignItems: "center", height: "1.25rem", color: vars["--ads-color-text-muted"] },
   railKindAction: { color: vars["--ads-color-accent"] },
