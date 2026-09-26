@@ -75,7 +75,7 @@ import {
   type SidebarWorkQueueLane,
   type SidebarWorkQueueSignals,
 } from "@/lib/fleet/sidebar-work-queue";
-import { isDelegatedChildTask, isTaskArchived } from "@/lib/tasks";
+import { isDelegatedTask, isTaskArchived } from "@/lib/tasks";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
 import { useAppStore } from "@/store/app.store";
 import type { SidebarNavView } from "@/store/app-settings";
@@ -393,7 +393,7 @@ export function ProjectWorkspaceSidebar(args: {
         for (const task of runtimeState.tasks) {
           // A delegated child is surfaced under its parent, so its status must
           // not drive the workspace roll-up on its own.
-          if (isTaskArchived(task) || isDelegatedChildTask(task)) {
+          if (isTaskArchived(task) || isDelegatedTask(task)) {
             continue;
           }
           const status = classifyTaskStatus({

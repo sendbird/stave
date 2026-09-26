@@ -9,7 +9,7 @@ import type { ChatMessage, Task } from "@/types/chat";
 
 /**
  * Externally managed tasks are kept out of Fleet attention on purpose. A
- * delegated child task is the single carve-out: nothing outside Stave is
+ * delegated task is the single carve-out: nothing outside Stave is
  * watching it, and its approval auto-denies if the person who owns the parent
  * never sees the request. These lock both halves — the child gets through, and
  * an ordinary externally managed task still does not.
@@ -29,7 +29,7 @@ function buildTask(overrides: Partial<Task> = {}): Task {
   };
 }
 
-function buildChildTask(overrides: Partial<Task> = {}): Task {
+function buildDelegatedTask(overrides: Partial<Task> = {}): Task {
   return buildTask({
     id: "task-child",
     title: "Review the checkout fix",
@@ -131,7 +131,7 @@ function buildNotification(
 describe("isFleetAttentionSuppressedTask", () => {
   test("suppresses an externally managed task but not a delegated child", () => {
     expect(isFleetAttentionSuppressedTask(buildTask())).toBe(true);
-    expect(isFleetAttentionSuppressedTask(buildChildTask())).toBe(false);
+    expect(isFleetAttentionSuppressedTask(buildDelegatedTask())).toBe(false);
     expect(
       isFleetAttentionSuppressedTask(
         buildTask({ controlMode: "interactive", controlOwner: "stave" }),
@@ -146,7 +146,7 @@ describe("a delegated child's blocked request reaches Fleet", () => {
       notifications: [],
       liveWorkspaces: [
         buildLiveWorkspace({
-          tasks: [buildChildTask()],
+          tasks: [buildDelegatedTask()],
           messagesByTask: { "task-child": [buildUserInputMessage()] },
         }),
       ],
@@ -172,7 +172,7 @@ describe("a delegated child's blocked request reaches Fleet", () => {
       notifications: [],
       liveWorkspaces: [
         buildLiveWorkspace({
-          tasks: [buildChildTask()],
+          tasks: [buildDelegatedTask()],
           messagesByTask: { "task-child": [buildApprovalMessage()] },
         }),
       ],
@@ -209,7 +209,7 @@ describe("a delegated child's blocked request reaches Fleet", () => {
     // live task it belongs to is externally managed.
     const projection = buildFleetAttentionProjection({
       notifications: [buildNotification()],
-      liveWorkspaces: [buildLiveWorkspace({ tasks: [buildChildTask()] })],
+      liveWorkspaces: [buildLiveWorkspace({ tasks: [buildDelegatedTask()] })],
       prWorkspaces: [],
     });
 
@@ -235,7 +235,7 @@ describe("a delegated child's blocked request reaches Fleet", () => {
           },
         }),
       ],
-      liveWorkspaces: [buildLiveWorkspace({ tasks: [buildChildTask()] })],
+      liveWorkspaces: [buildLiveWorkspace({ tasks: [buildDelegatedTask()] })],
       prWorkspaces: [],
     });
 
@@ -306,7 +306,7 @@ describe("the carve-out does not weaken the general rule", () => {
       notifications: [buildNotification()],
       liveWorkspaces: [
         buildLiveWorkspace({
-          tasks: [buildChildTask({ archivedAt: "2026-08-10T02:00:00.000Z" })],
+          tasks: [buildDelegatedTask({ archivedAt: "2026-08-10T02:00:00.000Z" })],
           messagesByTask: { "task-child": [buildApprovalMessage()] },
         }),
       ],

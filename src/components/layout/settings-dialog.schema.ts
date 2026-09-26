@@ -142,6 +142,7 @@ export const settingsSections = [
       // card that explains it.
       "delegation",
       "delegate",
+      "delegated task",
       "child task",
       "worker",
       "usage",

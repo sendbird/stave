@@ -4,7 +4,7 @@ import type { WorkspacePrStatus } from "@/lib/pr-status";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import {
-  isDelegatedChildTask,
+  isDelegatedTask,
   isExternallyManagedTask,
   isTaskArchived,
   isTaskManaged,
@@ -184,17 +184,17 @@ export function getFleetAttentionTaskKey(workspaceId: string, taskId: string) {
  * interaction requests are answered by whoever drives them from outside Stave,
  * so showing them here would ask the user for something the app cannot route.
  *
- * Delegated child tasks are the one carve-out. They are externally managed only
- * because the child-task coordinator creates them that way — nothing outside
+ * Delegated delegated tasks are the one carve-out. They are externally managed only
+ * because the delegated-task coordinator creates them that way — nothing outside
  * Stave is watching them, the person who owns the parent task is the only one
  * who can answer, and an unanswered child approval auto-denies after a few
- * minutes. So a child's request stays visible, attributed to the child task
+ * minutes. So a child's request stays visible, attributed to the delegated task
  * itself and routed to the workspace the child actually runs in.
  */
 export function isFleetAttentionSuppressedTask(
   task: Pick<Task, "controlMode" | "controlOwner" | "parentTaskId">,
 ) {
-  return isExternallyManagedTask(task) && !isDelegatedChildTask(task);
+  return isExternallyManagedTask(task) && !isDelegatedTask(task);
 }
 
 /**
@@ -205,7 +205,7 @@ export function isFleetAttentionSuppressedTask(
  * payloads are not currently written with the control fields, so in practice it
  * declines to suppress and the decision falls to `externalTaskKeys` in
  * `buildFleetAttentionProjection`, which reads live task state. That is the
- * load-bearing filter, and it is where the child-task carve-out actually takes
+ * load-bearing filter, and it is where the delegated-task carve-out actually takes
  * effect. If a payload ever does carry the control fields, a delegated child is
  * still exempted here rather than silently suppressed.
  */

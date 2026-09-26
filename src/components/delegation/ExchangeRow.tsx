@@ -44,7 +44,7 @@ const ROW_STATUS: Record<ExchangeStatus, TurnActivityRowStatus> = {
 const ROW_ICON: Record<DelegationExchange["kind"], TurnActivityIconKey> = {
   advisor: "advisor",
   worker: "subagent",
-  "child-task": "subagent",
+  "delegated-task": "subagent",
   subagent: "subagent",
 };
 

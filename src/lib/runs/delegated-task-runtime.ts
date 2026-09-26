@@ -11,9 +11,9 @@ import {
   type AutomationRuntimeConfig,
 } from "@/lib/automations";
 import type {
-  ChildTaskEffort,
-  ChildTaskPermissionProfile,
-} from "@/lib/runs/child-task";
+  DelegatedTaskEffort,
+  DelegatedTaskPermissionProfile,
+} from "@/lib/runs/delegated-task";
 
 /**
  * Clamps a requested delegation effort to a tier the child's provider and
@@ -25,10 +25,10 @@ import type {
  * Omitted effort keeps the automation default the child always ran at, so
  * existing delegations that never mention effort behave exactly as before.
  */
-function applyChildTaskEffort(args: {
+function applyDelegatedTaskEffort(args: {
   base: AutomationRuntimeConfig;
   model: string;
-  effort: ChildTaskEffort | undefined;
+  effort: DelegatedTaskEffort | undefined;
 }): AutomationRuntimeConfig {
   if (args.base.provider === "codex") {
     if (!args.effort) {
@@ -69,18 +69,18 @@ function applyChildTaskEffort(args: {
  * and its existing trust-policy mapping rather than introducing a second set of
  * permission words.
  */
-export function buildChildTaskRuntimeOptions(args: {
+export function buildDelegatedTaskRuntimeOptions(args: {
   providerId: ProviderId;
   model?: string;
-  effort?: ChildTaskEffort;
-  permissionProfile: ChildTaskPermissionProfile;
+  effort?: DelegatedTaskEffort;
+  permissionProfile: DelegatedTaskPermissionProfile;
 }): ProviderRuntimeOptions {
   const base = createDefaultAutomationRuntime(args.providerId);
   const trustPolicy = automationPermissionModeToTrustPolicy(
     args.permissionProfile,
   );
   const runtime = applyAutomationTrustPolicyToRuntime(
-    applyChildTaskEffort({
+    applyDelegatedTaskEffort({
       base,
       model: args.model ?? base.model,
       effort: args.effort,

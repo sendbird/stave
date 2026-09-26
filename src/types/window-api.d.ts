@@ -212,17 +212,17 @@ import type {
   SecondaryRunTransitionResponse,
 } from "@/lib/runs/secondary-run";
 import type {
-  ChildTaskActionResponse,
-  ChildTaskDelegateArgs,
-  ChildTaskDetachArgs,
-  ChildTaskFollowUpArgs,
-  ChildTaskList,
-  ChildTaskListArgs,
-  ChildTaskLinkArgs,
-  ChildTaskRetryArgs,
-  ChildTaskStopArgs,
-  ChildTaskSummary,
-} from "@/lib/runs/child-task";
+  DelegatedTaskActionResponse,
+  DelegateTaskArgs,
+  DelegatedTaskDetachArgs,
+  DelegatedTaskFollowUpArgs,
+  DelegatedTaskList,
+  DelegatedTaskListArgs,
+  DelegatedTaskLinkArgs,
+  DelegatedTaskRetryArgs,
+  DelegatedTaskStopArgs,
+  DelegatedTaskSummary,
+} from "@/lib/runs/delegated-task";
 
 interface WindowRunsApi {
   claimSecondary?: (
@@ -246,24 +246,24 @@ interface WindowRunsApi {
   listReceipts?: (
     args: SecondaryRunReceiptListArgs,
   ) => Promise<SecondaryRunReceiptList>;
-  delegateChildTask?: (
-    args: ChildTaskDelegateArgs,
-  ) => Promise<ChildTaskActionResponse>;
-  listChildTasks?: (args: ChildTaskListArgs) => Promise<ChildTaskList>;
-  followUpChildTask?: (
-    args: ChildTaskFollowUpArgs,
-  ) => Promise<ChildTaskActionResponse>;
-  retryChildTask?: (
-    args: ChildTaskRetryArgs,
-  ) => Promise<ChildTaskActionResponse>;
-  stopChildTask?: (args: ChildTaskStopArgs) => Promise<ChildTaskActionResponse>;
-  detachChildTask?: (
-    args: ChildTaskDetachArgs,
-  ) => Promise<ChildTaskActionResponse>;
-  getChildTaskLink?: (
-    args: ChildTaskLinkArgs,
-  ) => Promise<ChildTaskSummary | null>;
-  onChildTasksChanged?: (
+  delegateTask?: (
+    args: DelegateTaskArgs,
+  ) => Promise<DelegatedTaskActionResponse>;
+  listDelegatedTasks?: (args: DelegatedTaskListArgs) => Promise<DelegatedTaskList>;
+  followUpDelegatedTask?: (
+    args: DelegatedTaskFollowUpArgs,
+  ) => Promise<DelegatedTaskActionResponse>;
+  retryDelegatedTask?: (
+    args: DelegatedTaskRetryArgs,
+  ) => Promise<DelegatedTaskActionResponse>;
+  stopDelegatedTask?: (args: DelegatedTaskStopArgs) => Promise<DelegatedTaskActionResponse>;
+  detachDelegatedTask?: (
+    args: DelegatedTaskDetachArgs,
+  ) => Promise<DelegatedTaskActionResponse>;
+  getDelegatedTaskLink?: (
+    args: DelegatedTaskLinkArgs,
+  ) => Promise<DelegatedTaskSummary | null>;
+  onDelegatedTasksChanged?: (
     callback: (payload: { parentTaskId: string }) => void,
   ) => () => void;
 }
@@ -1727,7 +1727,7 @@ interface WindowPersistenceApi {
         archivedAt?: string | null;
         controlMode?: "interactive" | "managed";
         controlOwner?: "stave" | "external";
-        /** Delegation link, present only on a delegated child task row. */
+        /** Delegation link, present only on a delegated task row. */
         parentTaskId?: string | null;
       }>;
       promptDraftByTask?: Record<string, PromptDraft>;
@@ -1772,7 +1772,7 @@ interface WindowPersistenceApi {
         archivedAt?: string | null;
         controlMode?: "interactive" | "managed";
         controlOwner?: "stave" | "external";
-        /** Delegation link, present only on a delegated child task row. */
+        /** Delegation link, present only on a delegated task row. */
         parentTaskId?: string | null;
       }>;
       promptDraftByTask?: Record<string, PromptDraft>;
@@ -1817,7 +1817,7 @@ interface WindowPersistenceApi {
         archivedAt?: string | null;
         controlMode?: "interactive" | "managed";
         controlOwner?: "stave" | "external";
-        /** Delegation link, present only on a delegated child task row. */
+        /** Delegation link, present only on a delegated task row. */
         parentTaskId?: string | null;
       }>;
       promptDraftByTask?: Record<string, PromptDraft>;
@@ -1839,7 +1839,7 @@ interface WindowPersistenceApi {
         archivedAt?: string | null;
         controlMode?: "interactive" | "managed";
         controlOwner?: "stave" | "external";
-        /** Delegation link, present only on a delegated child task row. */
+        /** Delegation link, present only on a delegated task row. */
         parentTaskId?: string | null;
       }>;
       messageCountByTask?: Record<string, number>;

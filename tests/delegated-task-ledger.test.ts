@@ -2,11 +2,11 @@ import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
 import {
-  buildChildTaskRunId,
-  buildChildTaskStepId,
-  extractChildTaskDelegationKey,
-  toChildTaskSummary,
-} from "../src/lib/runs/child-task";
+  buildDelegatedTaskRunId,
+  buildDelegatedTaskStepId,
+  extractDelegatedTaskDelegationKey,
+  toDelegatedTaskSummary,
+} from "../src/lib/runs/delegated-task";
 import {
   createPendingRun,
   createPendingRunStep,
@@ -22,18 +22,18 @@ function createChildRecords(
   overrides: { delegationKey?: string; maxTurns?: number } = {},
 ) {
   const delegationKey = overrides.delegationKey ?? "review-docs";
-  const runId = buildChildTaskRunId({
+  const runId = buildDelegatedTaskRunId({
     parentTaskId: PARENT_TASK_ID,
     delegationKey,
   });
   const run = createPendingRun({
     id: runId,
-    kind: "child-task",
+    kind: "delegated-task",
     origin: { kind: "task", id: PARENT_TASK_ID },
     ownership: {
       projectPath: "/tmp/stave",
       workspaceId: "workspace-child",
-      taskId: "child-task-1",
+      taskId: "delegated-task-1",
     },
     policy: {
       maxAttempts: 3,
@@ -43,17 +43,17 @@ function createChildRecords(
       maxEvents: 4_096,
     },
     provenance: {
-      createdBy: "child-task-coordinator",
+      createdBy: "delegated-task-coordinator",
       schemaVersion: RUN_LEDGER_SCHEMA_VERSION,
     },
     now: NOW,
   });
   const step = createPendingRunStep({
-    id: buildChildTaskStepId(runId),
+    id: buildDelegatedTaskStepId(runId),
     runId,
-    kind: "child-task-turn",
+    kind: "delegated-task-turn",
     target: {
-      taskId: "child-task-1",
+      taskId: "delegated-task-1",
       workspaceId: "workspace-child",
       turnId: null,
       providerId: "codex",
@@ -98,7 +98,7 @@ function createSecondaryRecords(): { run: RunRecord; step: RunStepRecord } {
   };
 }
 
-describe("run ledger widening for child tasks", () => {
+describe("run ledger widening for delegated tasks", () => {
   test("persists and reads back a child step's delegation target", () => {
     const store = new RunLedgerStore(new Database(":memory:"));
     const records = createChildRecords();
@@ -117,12 +117,12 @@ describe("run ledger widening for child tasks", () => {
       stepId: records.step.id,
     });
     expect(aggregate?.step.target).toEqual({
-      taskId: "child-task-1",
+      taskId: "delegated-task-1",
       workspaceId: "workspace-child",
       turnId: null,
       providerId: "codex",
     });
-    expect(aggregate?.run.kind).toBe("child-task");
+    expect(aggregate?.run.kind).toBe("delegated-task");
     expect(aggregate?.run.origin).toEqual({
       kind: "task",
       id: PARENT_TASK_ID,
@@ -164,7 +164,7 @@ describe("run ledger widening for child tasks", () => {
       stepId: records.step.id,
     });
     const summary = acceptedAggregate
-      ? toChildTaskSummary({
+      ? toDelegatedTaskSummary({
           ...acceptedAggregate,
           acceptedReceipt,
         })
@@ -337,7 +337,7 @@ describe("run ledger widening for child tasks", () => {
       runId: records.run.id,
       stepId: records.step.id,
       target: {
-        taskId: "child-task-1",
+        taskId: "delegated-task-1",
         workspaceId: "workspace-child",
         turnId: "turn-9",
         providerId: "codex",
@@ -360,7 +360,7 @@ describe("run ledger widening for child tasks", () => {
       store.getAggregate({ runId: records.run.id, stepId: records.step.id })
         ?.step.target,
     ).toEqual({
-      taskId: "child-task-1",
+      taskId: "delegated-task-1",
       workspaceId: "workspace-child",
       turnId: "turn-9",
       providerId: "codex",
@@ -396,7 +396,7 @@ describe("run ledger widening for child tasks", () => {
     });
     const keys = aggregates
       .flatMap((aggregate) => {
-        const summary = toChildTaskSummary(aggregate);
+        const summary = toDelegatedTaskSummary(aggregate);
         return summary ? [summary.delegationKey] : [];
       })
       .sort();
@@ -404,14 +404,14 @@ describe("run ledger widening for child tasks", () => {
     expect(keys).toEqual(["one", "two"]);
   });
 
-  test("a Compare Judge row is never projected as a child task", () => {
+  test("a Compare Judge row is never projected as a delegated task", () => {
     const secondary = createSecondaryRecords();
-    expect(toChildTaskSummary(secondary)).toBeNull();
+    expect(toDelegatedTaskSummary(secondary)).toBeNull();
   });
 
   test("omits requested metadata when a receipt has no matching attempt", () => {
     const records = createChildRecords();
-    const summary = toChildTaskSummary({
+    const summary = toDelegatedTaskSummary({
       ...records,
       acceptedReceipt: {
         type: "accepted",
@@ -427,15 +427,15 @@ describe("run ledger widening for child tasks", () => {
   });
 
   test("a delegation key round-trips through the run id", () => {
-    const runId = buildChildTaskRunId({
+    const runId = buildDelegatedTaskRunId({
       parentTaskId: PARENT_TASK_ID,
       delegationKey: "docs.review-2",
     });
     expect(
-      extractChildTaskDelegationKey({ runId, parentTaskId: PARENT_TASK_ID }),
+      extractDelegatedTaskDelegationKey({ runId, parentTaskId: PARENT_TASK_ID }),
     ).toBe("docs.review-2");
     expect(
-      extractChildTaskDelegationKey({ runId, parentTaskId: "other-parent" }),
+      extractDelegatedTaskDelegationKey({ runId, parentTaskId: "other-parent" }),
     ).toBeNull();
   });
 });

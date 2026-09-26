@@ -34,7 +34,7 @@ export const WORKFLOW_STARTERS = [
     description:
       "Delegate bounded work, collect results, and reconcile decisions.",
     prompt:
-      "Coordinate this work: [describe the outcome].\nIdentify independent assignments with explicit ownership and completion checks. Use durable child tasks for cross-provider work and separate worktrees for independent file edits. Set each task's provider and permissions explicitly. Inspect child status, read their results using the available task tools, reconcile conflicting findings, and verify the integrated outcome. Report assignments, evidence, unresolved questions, and next steps. Do not treat a completed run as verified work.",
+      "Coordinate this work: [describe the outcome].\nIdentify independent assignments with explicit ownership and completion checks. Use durable delegated tasks for cross-provider work and separate worktrees for independent file edits. Set each task's provider and permissions explicitly. Inspect child status, read their results using the available task tools, reconcile conflicting findings, and verify the integrated outcome. Report assignments, evidence, unresolved questions, and next steps. Do not treat a completed run as verified work.",
   },
   {
     id: "review",

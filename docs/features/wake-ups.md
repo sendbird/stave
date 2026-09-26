@@ -4,7 +4,7 @@ A wake-up resumes one existing task, in the same provider session — either on 
 schedule or when work that task delegated finishes. It is the "keep going
 without me" answer for work that is already underway — re-check CI on this PR
 every ten minutes, re-read this dashboard every hour, pick the thread back up
-when the child task you handed off returns — as opposed to an automation, which
+when the delegated task you handed off returns — as opposed to an automation, which
 mints a brand new task per occurrence.
 
 The boundary between the two is fixed in
@@ -63,7 +63,7 @@ The trigger is a discriminated union: `{ kind: "schedule" }` walks a cadence,
 ## Completion
 
 A completion wake-up resumes its task when work that task delegated finishes: a
-child-task run on the run ledger whose origin is this task, reaching a terminal
+delegated-task run on the run ledger whose origin is this task, reaching a terminal
 status (`completed`, `failed`, `cancelled`, `interrupted`). Everything in the
 priority order above applies unchanged — a user's turn still wins, a pending
 approval still pauses, an archived task still stops it.
@@ -95,7 +95,7 @@ window as a burst of wake-ups. Updating a wake-up keeps its `createdAt`, so
 an update never re-opens old work either.
 
 **Detached children signal on ending, not between turns.** A `detached`
-delegation parks in `waiting` while its child task stays open, and `waiting` is
+delegation parks in `waiting` while its delegated task stays open, and `waiting` is
 an active phase — so a detached child's individual turns never appear in the
 completion feed. The delegation becomes a signal only when it settles into a
 terminal status (the parent stops it, it fails, or it is interrupted). A parent
@@ -141,8 +141,8 @@ can be seen for that task and classifies it:
 | `stave_owned` | Stave sees it in its own run-ledger rows. This is what both runtimes classify as today. |
 | `unsupported` | It cannot be seen. Creating a completion wake-up is refused, and an existing one **stops** with `completion-unobservable`. |
 
-Both provider runtimes classify identically, and deliberately so: a child task's
-terminal state is a ledger row written by the child-task coordinator, so neither
+Both provider runtimes classify identically, and deliberately so: a delegated task's
+terminal state is a ledger row written by the delegated-task coordinator, so neither
 runtime is the source and neither can be ahead of the other. That is why the
 probe is a function of the ledger rather than of the provider.
 
@@ -152,7 +152,7 @@ going to wake it, leaving its task looking permanently busy. It stops with a
 stated reason instead. A ledger read that merely *fails* on one tick is not a
 verdict — the wake-up idles and tries again.
 
-The feed is read deeper than `CHILD_TASK_LIST_LIMIT`, which sizes the child-task
+The feed is read deeper than `DELEGATED_TASK_LIST_LIMIT`, which sizes the delegated-task
 panel. The two limits answer different questions: truncating a list a human is
 reading hides rows they can still go and find, while truncating the completion
 feed loses a wake-up permanently, because only what the read returns is ever
@@ -166,7 +166,7 @@ re-reported and deduped; one that aged out of the read unconsumed is gone.
 
 **How the signal arrives, for now.** The supervisor reads the feed on its own
 tick rather than being pushed at: nothing emits a completion event today, and
-adding one means writing to the child-task coordinator — the layer that records
+adding one means writing to the delegated-task coordinator — the layer that records
 delegated execution, which this one is not allowed to reach into. So the ledger
 row stays the single source of truth and the read is a poll. If a native
 completion signal ever lands, it belongs behind the same `TaskCompletionSignal`
@@ -222,8 +222,8 @@ forward, so a pruned instant can never come due twice.
 Two tables, not ledger tables. The run ledger records delegated execution; a
 wake-up records wake-ups on a task the user already owns, with no claim or
 lease semantics. The completion trigger does not blur that: it *reads* terminal
-child-task rows through an injected function and writes only its own occurrence
-rows. The supervisor imports neither the ledger store nor the child-task
+delegated-task rows through an injected function and writes only its own occurrence
+rows. The supervisor imports neither the ledger store nor the delegated-task
 coordinator, and a boundary test keeps it that way.
 
 Turn state that survived a crash is swept at boot: a turn a wake-up started

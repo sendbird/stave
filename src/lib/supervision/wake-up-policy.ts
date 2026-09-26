@@ -149,7 +149,7 @@ export const WakeUpScheduleTriggerSchema = z
 
 /**
  * Wakes the task when work it delegated finishes. "Delegated work" means a
- * child-task run on the run ledger whose origin is this task — the taxonomy's
+ * delegated-task run on the run ledger whose origin is this task — the taxonomy's
  * only durable delegation. It carries no configuration: the task it belongs to
  * already says which children to watch, and a field here would be a second
  * place to get that wrong.
@@ -198,7 +198,7 @@ export type TaskCompletionObservability = z.infer<
  * The capability probe.
  *
  * Today every supported provider classifies `stave_owned`, and deliberately so:
- * a child task's terminal state is a run-ledger row that the child-task
+ * a delegated task's terminal state is a run-ledger row that the delegated-task
  * coordinator writes, and neither runtime emits an event saying "the work I was
  * delegated is done". That is also why this is a function of the ledger rather
  * than of the provider — the two runtimes are symmetric here because the signal
@@ -241,8 +241,8 @@ export const TaskCompletionSignalSchema = z
   .object({
     runId: LedgerIdSchema,
     stepId: LedgerIdSchema,
-    /** Null while the child task was never actually minted. */
-    childTaskId: z
+    /** Null while the delegated task was never actually minted. */
+    delegatedTaskId: z
       .string()
       .trim()
       .max(WAKE_UP_LIMITS.maxLedgerIdChars)

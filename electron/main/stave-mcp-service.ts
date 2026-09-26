@@ -407,7 +407,7 @@ export async function runTask(args: {
   prompt: string;
   taskId?: string;
   title?: string;
-  /** Delegation link stamped on a child task row at creation. */
+  /** Delegation link stamped on a delegated task row at creation. */
   parentTaskId?: string;
   provider?: import("../../src/lib/providers/provider.types").ProviderId;
   runtimeOptions?: import("../../src/lib/providers/provider.types").ProviderRuntimeOptions;
@@ -472,7 +472,7 @@ export async function getTaskStatus(args: {
 }
 
 /**
- * Clears the delegation link on a detached child task so it reappears in
+ * Clears the delegation link on a detached delegated task so it reappears in
  * ordinary workspace task listings instead of staying hidden forever.
  */
 export async function releaseTaskParent(args: {

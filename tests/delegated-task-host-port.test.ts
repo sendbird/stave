@@ -2,14 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
 import {
-  createChildTaskCoordinator,
-  type ChildTaskLedgerPort,
-} from "../electron/main/runs/child-task-coordinator";
+  createDelegatedTaskCoordinator,
+  type DelegatedTaskLedgerPort,
+} from "../electron/main/runs/delegated-task-coordinator";
 import {
-  createChildTaskHostPort,
-  type ChildTaskTurnUpdate,
-} from "../electron/main/runs/child-task-host-port";
-import type { ChildTaskDelegateArgs } from "../src/lib/runs/child-task";
+  createDelegatedTaskHostPort,
+  type DelegatedTaskTurnUpdate,
+} from "../electron/main/runs/delegated-task-host-port";
+import type { DelegateTaskArgs } from "../src/lib/runs/delegated-task";
 
 /**
  * The production adapter between the coordinator and the task machinery. The
@@ -35,7 +35,7 @@ interface FakeTurn {
 
 /** A miniature host: tasks, turns, and the persisted turn-update feed. */
 function createFakeTaskBackend() {
-  const listeners = new Set<(update: ChildTaskTurnUpdate) => void>();
+  const listeners = new Set<(update: DelegatedTaskTurnUpdate) => void>();
   const turnsByTask = new Map<string, FakeTurn[]>();
   const knownTaskIds = new Set<string>([PARENT_TASK]);
   const stopTaskCalls: Array<{ workspaceId: string; taskId: string }> = [];
@@ -82,7 +82,7 @@ function createFakeTaskBackend() {
       endTurn(turn, options.error ?? null);
     },
 
-    // ── ChildTaskHostPortDependencies ─────────────────────────────────────
+    // ── DelegatedTaskHostPortDependencies ─────────────────────────────────────
     listKnownProjects: async () => [
       {
         projectPath: PROJECT_PATH,
@@ -143,7 +143,7 @@ function createFakeTaskBackend() {
       taskId: string;
     }) => ({ released: true }),
     subscribeTaskTurnUpdated: (
-      listener: (update: ChildTaskTurnUpdate) => void,
+      listener: (update: DelegatedTaskTurnUpdate) => void,
     ) => {
       listeners.add(listener);
       return () => {
@@ -153,7 +153,7 @@ function createFakeTaskBackend() {
   };
 }
 
-function createLedgerPort(store: RunLedgerStore): ChildTaskLedgerPort {
+function createLedgerPort(store: RunLedgerStore): DelegatedTaskLedgerPort {
   return {
     getRunAggregate: (args) => store.getAggregate(args),
     claimRunStep: (args) => store.claimStep(args),
@@ -176,9 +176,9 @@ function createHarness() {
   const store = new RunLedgerStore(new Database(":memory:"));
   const backend = createFakeTaskBackend();
   let clock = 0;
-  const coordinator = createChildTaskCoordinator({
+  const coordinator = createDelegatedTaskCoordinator({
     getLedger: () => createLedgerPort(store),
-    host: createChildTaskHostPort({
+    host: createDelegatedTaskHostPort({
       ...backend,
       // Fast poll so the poll backstop cannot slow a test down; the event
       // feed is still what settles these tests.
@@ -192,8 +192,8 @@ function createHarness() {
 }
 
 function delegateArgs(
-  overrides: Partial<ChildTaskDelegateArgs> = {},
-): ChildTaskDelegateArgs {
+  overrides: Partial<DelegateTaskArgs> = {},
+): DelegateTaskArgs {
   return {
     projectPath: PROJECT_PATH,
     parentWorkspaceId: PARENT_WORKSPACE,
@@ -223,7 +223,7 @@ async function getChild(
   return child;
 }
 
-describe("child task host port", () => {
+describe("delegated task host port", () => {
   test("a one-turn delegation settles only after the child's turn ends", async () => {
     const harness = createHarness();
     const response = await harness.coordinator.delegate(delegateArgs());
@@ -239,7 +239,7 @@ describe("child task host port", () => {
 
     const settled = await getChild(harness.coordinator);
     expect(settled.phase).toBe("completed");
-    expect(settled.childTurnId).toBe(turn.turnId);
+    expect(settled.delegatedTurnId).toBe(turn.turnId);
   });
 
   test("a detached delegation parks waiting only after the turn ends", async () => {
@@ -255,7 +255,7 @@ describe("child task host port", () => {
     expect((await getChild(harness.coordinator)).phase).toBe("waiting");
   });
 
-  test("stop during the running turn stops the child task and never records failed", async () => {
+  test("stop during the running turn stops the delegated task and never records failed", async () => {
     const harness = createHarness();
     await harness.coordinator.delegate(delegateArgs());
     await harness.backend.waitForTurnStart(1);
@@ -267,7 +267,7 @@ describe("child task host port", () => {
     await harness.coordinator.waitForInFlight();
 
     expect(stopped.accepted).toBe(true);
-    // The child task was really asked to stop — the durable cancel is not
+    // The delegated task was really asked to stop — the durable cancel is not
     // allowed to leave a ghost provider turn running.
     expect(harness.backend.stopTaskCalls).toHaveLength(1);
     const settled = await getChild(harness.coordinator);
@@ -293,8 +293,8 @@ describe("child task host port", () => {
     // (identity freeze): omitting `expected` is an invalid request, not a
     // permissive default.
     const identityOf = (child: typeof parked) => ({
-      childTaskId: child.childTaskId!,
-      childWorkspaceId: child.childWorkspaceId!,
+      delegatedTaskId: child.delegatedTaskId!,
+      delegatedWorkspaceId: child.delegatedWorkspaceId!,
       attempt: child.attempt,
     });
 
@@ -328,7 +328,7 @@ describe("child task host port", () => {
     await harness.coordinator.waitForInFlight();
     const settled = await getChild(harness.coordinator);
     expect(settled.phase).toBe("waiting");
-    expect(settled.childTurnId).toBe(secondTurn.turnId);
+    expect(settled.delegatedTurnId).toBe(secondTurn.turnId);
     expect(
       harness.store
         .listReceipts({ runId: settled.runId })
@@ -356,9 +356,9 @@ describe("child task host port", () => {
       ...harness.backend,
       subscribeTaskTurnUpdated: () => () => {},
     };
-    const coordinator = createChildTaskCoordinator({
+    const coordinator = createDelegatedTaskCoordinator({
       getLedger: () => createLedgerPort(harness.store),
-      host: createChildTaskHostPort({
+      host: createDelegatedTaskHostPort({
         ...silentBackend,
         pollIntervalMs: 5,
       }),
@@ -375,6 +375,6 @@ describe("child task host port", () => {
       delegationKey: "poll-only",
     });
     expect(settled?.phase).toBe("completed");
-    expect(settled?.childTurnId).toBe(turn.turnId);
+    expect(settled?.delegatedTurnId).toBe(turn.turnId);
   });
 });

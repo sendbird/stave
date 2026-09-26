@@ -19,9 +19,9 @@
  *
  * The completion trigger rides all of the above unchanged. Its only difference
  * is where dueness comes from: instead of walking a schedule it reads the run
- * ledger for child-task runs this task delegated that have reached a terminal
+ * ledger for delegated-task runs this task delegated that have reached a terminal
  * status, and consumes each one exactly once. That read is deliberately a plain
- * injected function — the child-task coordinator emits no completion event, and
+ * injected function — the delegated-task coordinator emits no completion event, and
  * inventing one there would put execution machinery in the ledger's layer.
  *
  * The decision policy itself is pure and lives in
@@ -123,7 +123,7 @@ interface WakeUpRuntimeDependencies {
     detail: string;
   }) => Promise<void> | void;
   /**
-   * Terminal child-task runs this task delegated, read straight off the run
+   * Terminal delegated-task runs this task delegated, read straight off the run
    * ledger. Read-only on purpose: the supervisor records wake-ups, the ledger
    * records delegated execution, and neither writes the other's rows.
    *
@@ -210,7 +210,7 @@ function buildCompletionContextPart(args: {
     ? ` of ${args.wakeUp.maxOccurrences}`
     : "";
   const lines = args.completions.map((completion) => {
-    const who = completion.childTaskId ?? completion.runId;
+    const who = completion.delegatedTaskId ?? completion.runId;
     const why = completion.reason ? ` — ${completion.reason}` : "";
     return `- ${who} (${completion.providerId}): ${completion.status}${why}`;
   });

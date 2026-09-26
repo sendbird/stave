@@ -324,7 +324,7 @@ export function DelegateTaskForm({
 
   async function delegate() {
     if (busyRef.current || !loaded) return;
-    const invoke = window.api?.runs?.delegateChildTask;
+    const invoke = window.api?.runs?.delegateTask;
     if (!invoke) {
       setMessage("Delegation requires the desktop app.");
       return;

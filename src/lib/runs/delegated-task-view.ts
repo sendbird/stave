@@ -1,25 +1,25 @@
 import {
-  CHILD_TASK_DETACHED_REASON,
-  describeChildTaskRejection,
-  isActiveChildTaskPhase,
-  type ChildTaskActionResponse,
-  type ChildTaskExpectedIdentity,
-  type ChildTaskSummary,
-} from "./child-task";
+  DELEGATED_TASK_DETACHED_REASON,
+  describeDelegatedTaskRejection,
+  isActiveDelegatedTaskPhase,
+  type DelegatedTaskActionResponse,
+  type DelegatedTaskExpectedIdentity,
+  type DelegatedTaskSummary,
+} from "./delegated-task";
 
 /**
- * The parent surface's half of the child-task vocabulary: how a delegation
+ * The parent surface's half of the delegated-task vocabulary: how a delegation
  * reads on screen and which identity a control was prepared against. Kept pure
  * and free of React so the wording and the staleness contract can be tested
  * without a renderer, and so both parent surfaces phrase a child the same way.
  */
 
-export type ChildTaskPhaseTone =
+export type DelegatedTaskPhaseTone =
   "active" | "waiting" | "done" | "failed" | "released";
 
-export interface ChildTaskPhaseDescription {
+export interface DelegatedTaskPhaseDescription {
   label: string;
-  tone: ChildTaskPhaseTone;
+  tone: DelegatedTaskPhaseTone;
   /** True while the child cannot progress without a human answer. */
   blocked: boolean;
 }
@@ -31,9 +31,9 @@ export interface ChildTaskPhaseDescription {
  * auto-denies. The signal therefore comes from the interaction the child raised,
  * not from the delegation record.
  */
-export type ChildTaskBlockedKind = "user-input" | "approval";
+export type DelegatedTaskBlockedKind = "user-input" | "approval";
 
-const BLOCKED_LABEL: Record<ChildTaskBlockedKind, string> = {
+const BLOCKED_LABEL: Record<DelegatedTaskBlockedKind, string> = {
   "user-input": "Needs answer",
   approval: "Needs approval",
 };
@@ -42,7 +42,7 @@ const BLOCKED_LABEL: Record<ChildTaskBlockedKind, string> = {
  * Notification kinds a child raises when it is waiting on a person. Keyed by
  * the persisted `AppNotification.kind` so the mapping lives in one place.
  */
-const BLOCKED_KIND_BY_NOTIFICATION: Record<string, ChildTaskBlockedKind> = {
+const BLOCKED_KIND_BY_NOTIFICATION: Record<string, DelegatedTaskBlockedKind> = {
   "task.user_input_requested": "user-input",
   "task.approval_requested": "approval",
 };
@@ -57,21 +57,21 @@ const BLOCKED_KIND_BY_NOTIFICATION: Record<string, ChildTaskBlockedKind> = {
  * question outranks an unanswered approval because answering it is what unblocks
  * the child first.
  */
-export function selectChildTaskBlockedKinds(args: {
-  children: readonly ChildTaskSummary[];
+export function selectDelegatedTaskBlockedKinds(args: {
+  children: readonly DelegatedTaskSummary[];
   notifications: readonly {
     kind: string;
     taskId?: string | null;
     resolvedAt?: string | null;
   }[];
-}): Record<string, ChildTaskBlockedKind> {
+}): Record<string, DelegatedTaskBlockedKind> {
   const activeChildren = args.children.filter((child) =>
-    isActiveChildTaskPhase(child.phase),
+    isActiveDelegatedTaskPhase(child.phase),
   );
   if (activeChildren.length === 0) {
     return {};
   }
-  const blocked: Record<string, ChildTaskBlockedKind> = {};
+  const blocked: Record<string, DelegatedTaskBlockedKind> = {};
   for (const notification of args.notifications) {
     if (notification.resolvedAt) {
       continue;
@@ -81,7 +81,7 @@ export function selectChildTaskBlockedKinds(args: {
       continue;
     }
     for (const child of activeChildren) {
-      if (child.childTaskId !== notification.taskId) {
+      if (child.delegatedTaskId !== notification.taskId) {
         continue;
       }
       if (blocked[child.delegationKey] === "user-input") {
@@ -96,18 +96,18 @@ export function selectChildTaskBlockedKinds(args: {
 /**
  * Stopping and detaching both land the delegation in `cancelled`, but they mean
  * opposite things to the reader: a stop ended the child's work, a detach only
- * ended the parent's claim while the child task carries on. The ledger already
+ * ended the parent's claim while the delegated task carries on. The ledger already
  * records which one happened in the reason, so the row never has to guess.
  *
  * A blocked child overrides the ledger phase outright: "Running" is actively
  * misleading for a child that has been sitting on an unanswered approval, and
  * that request is the only thing the reader can act on.
  */
-export function describeChildTaskPhase(
-  child: ChildTaskSummary,
-  blockedKind?: ChildTaskBlockedKind | null,
-): ChildTaskPhaseDescription {
-  if (blockedKind && isActiveChildTaskPhase(child.phase)) {
+export function describeDelegatedTaskPhase(
+  child: DelegatedTaskSummary,
+  blockedKind?: DelegatedTaskBlockedKind | null,
+): DelegatedTaskPhaseDescription {
+  if (blockedKind && isActiveDelegatedTaskPhase(child.phase)) {
     return {
       label: BLOCKED_LABEL[blockedKind],
       tone: "waiting",
@@ -128,7 +128,7 @@ export function describeChildTaskPhase(
     case "interrupted":
       return { label: "Interrupted", tone: "failed", blocked: false };
     case "cancelled":
-      return child.reason === CHILD_TASK_DETACHED_REASON
+      return child.reason === DELEGATED_TASK_DETACHED_REASON
         ? { label: "Detached", tone: "released", blocked: false }
         : { label: "Stopped", tone: "failed", blocked: false };
   }
@@ -139,18 +139,18 @@ export function describeChildTaskPhase(
  * click prepared against a delegation that has since moved on is refused rather
  * than applied to whatever is there now.
  */
-export function buildChildTaskExpectedIdentity(
-  child: ChildTaskSummary,
-): ChildTaskExpectedIdentity {
+export function buildDelegatedTaskExpectedIdentity(
+  child: DelegatedTaskSummary,
+): DelegatedTaskExpectedIdentity {
   return {
-    childTaskId: child.childTaskId,
-    childWorkspaceId: child.childWorkspaceId,
+    delegatedTaskId: child.delegatedTaskId,
+    delegatedWorkspaceId: child.delegatedWorkspaceId,
     attempt: child.attempt,
     phase: child.phase,
   };
 }
 
-const CHILD_TASK_UNKNOWN_REFUSAL =
+const DELEGATED_TASK_UNKNOWN_REFUSAL =
   "This action was refused. Review the latest child state.";
 
 /**
@@ -158,8 +158,8 @@ const CHILD_TASK_UNKNOWN_REFUSAL =
  * code is only a fallback for responses that predate the message field. A
  * control that fails silently is indistinguishable from one that worked.
  */
-export function resolveChildTaskActionError(
-  response: ChildTaskActionResponse,
+export function resolveDelegatedTaskActionError(
+  response: DelegatedTaskActionResponse,
 ): string | null {
   if (response.accepted) {
     return null;
@@ -168,8 +168,8 @@ export function resolveChildTaskActionError(
     return response.message;
   }
   return response.reason
-    ? describeChildTaskRejection(response.reason)
-    : CHILD_TASK_UNKNOWN_REFUSAL;
+    ? describeDelegatedTaskRejection(response.reason)
+    : DELEGATED_TASK_UNKNOWN_REFUSAL;
 }
 
 /**
@@ -177,9 +177,9 @@ export function resolveChildTaskActionError(
  * key as a stable tiebreak. Sorting a copy keeps the listing response usable
  * as an immutable snapshot.
  */
-export function sortChildTaskRows(
-  children: readonly ChildTaskSummary[],
-): ChildTaskSummary[] {
+export function sortDelegatedTaskRows(
+  children: readonly DelegatedTaskSummary[],
+): DelegatedTaskSummary[] {
   return [...children].sort((left, right) => {
     const byUpdated = right.updatedAt.localeCompare(left.updatedAt);
     return byUpdated !== 0

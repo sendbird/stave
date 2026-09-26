@@ -2,13 +2,13 @@ import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
 import {
-  createChildTaskCoordinator,
-  type ChildTaskHostPort,
-  type ChildTaskLedgerPort,
-} from "../electron/main/runs/child-task-coordinator";
-import { buildChildTaskRuntimeOptions } from "../src/lib/runs/child-task-runtime";
+  createDelegatedTaskCoordinator,
+  type DelegatedTaskHostPort,
+  type DelegatedTaskLedgerPort,
+} from "../electron/main/runs/delegated-task-coordinator";
+import { buildDelegatedTaskRuntimeOptions } from "../src/lib/runs/delegated-task-runtime";
 import { resolveManagedTaskRuntimeOptions } from "../src/lib/providers/managed-task-runtime";
-import type { ChildTaskDelegateArgs } from "../src/lib/runs/child-task";
+import type { DelegateTaskArgs } from "../src/lib/runs/delegated-task";
 
 const PROJECT_PATH = "/tmp/stave";
 const PARENT_WORKSPACE = "workspace-parent";
@@ -30,7 +30,7 @@ const IDLE_STATUS: TaskStatus = {
   latestTurnError: null,
 };
 
-function createLedgerPort(store: RunLedgerStore): ChildTaskLedgerPort {
+function createLedgerPort(store: RunLedgerStore): DelegatedTaskLedgerPort {
   return {
     getRunAggregate: (args) => store.getAggregate(args),
     claimRunStep: (args) => store.claimStep(args),
@@ -72,7 +72,7 @@ function createHost(
     ),
   );
 
-  const host: ChildTaskHostPort = {
+  const host: DelegatedTaskHostPort = {
     async resolveWorkspace({ workspaceId }) {
       const workspacePath = knownWorkspaces.get(workspaceId);
       return workspacePath
@@ -129,7 +129,7 @@ function createHarness(
   const hostHarness = createHost(options);
   let clock = 0;
   const createCoordinator = () =>
-    createChildTaskCoordinator({
+    createDelegatedTaskCoordinator({
       getLedger: () => createLedgerPort(store),
       host: hostHarness.host,
       concurrencyLimit: options.concurrencyLimit ?? 3,
@@ -147,8 +147,8 @@ function createHarness(
 }
 
 function delegateArgs(
-  overrides: Partial<ChildTaskDelegateArgs> = {},
-): ChildTaskDelegateArgs {
+  overrides: Partial<DelegateTaskArgs> = {},
+): DelegateTaskArgs {
   return {
     projectPath: PROJECT_PATH,
     parentWorkspaceId: PARENT_WORKSPACE,
@@ -164,7 +164,7 @@ function delegateArgs(
   };
 }
 
-describe("child task coordinator", () => {
+describe("delegated task coordinator", () => {
   test("a Claude parent delegates to a Codex child and the reverse", async () => {
     for (const providerId of ["codex", "claude-code"] as const) {
       const harness = createHarness();
@@ -180,8 +180,8 @@ describe("child task coordinator", () => {
         providerId,
         permissionProfile: "guided",
         workspaceId: PARENT_WORKSPACE,
-        taskId: response.child?.childTaskId,
-        // Denormalized onto the child task row so listing surfaces can tell a
+        taskId: response.child?.delegatedTaskId,
+        // Denormalized onto the delegated task row so listing surfaces can tell a
         // delegated child from a peer task without reading the ledger.
         parentTaskId: PARENT_TASK,
       });
@@ -190,7 +190,7 @@ describe("child task coordinator", () => {
         delegationKey: `to-${providerId}`,
       });
       expect(settled?.phase).toBe("completed");
-      expect(settled?.childTurnId).toBe("turn-1");
+      expect(settled?.delegatedTurnId).toBe("turn-1");
     }
   });
 
@@ -205,8 +205,8 @@ describe("child task coordinator", () => {
     expect(second.duplicate).toBe(true);
     expect(third.duplicate).toBe(true);
     expect(harness.runTaskCalls).toHaveLength(1);
-    expect(second.child?.childTaskId).toBe(first.child?.childTaskId ?? "");
-    expect(third.child?.childTaskId).toBe(first.child?.childTaskId ?? "");
+    expect(second.child?.delegatedTaskId).toBe(first.child?.delegatedTaskId ?? "");
+    expect(third.child?.delegatedTaskId).toBe(first.child?.delegatedTaskId ?? "");
     expect(await harness.coordinator.list({ parentTaskId: PARENT_TASK })).toHaveLength(
       1,
     );
@@ -273,7 +273,7 @@ describe("child task coordinator", () => {
     await harness.coordinator.waitForInFlight();
 
     expect(harness.createWorkspaceCalls).toEqual([{ name: "docs-review" }]);
-    expect(response.child?.childWorkspaceId).toBe("workspace-docs-review");
+    expect(response.child?.delegatedWorkspaceId).toBe("workspace-docs-review");
     expect(harness.runTaskCalls[0]).toMatchObject({
       workspaceId: "workspace-docs-review",
     });
@@ -301,7 +301,7 @@ describe("child task coordinator", () => {
     expect(stopped.accepted).toBe(true);
     expect(stopped.child?.phase).toBe("cancelled");
     expect(harness.stopTaskCalls).toEqual([
-      { workspaceId: PARENT_WORKSPACE, taskId: started.child?.childTaskId },
+      { workspaceId: PARENT_WORKSPACE, taskId: started.child?.delegatedTaskId },
     ]);
   });
 
@@ -329,8 +329,8 @@ describe("child task coordinator", () => {
       parentTaskId: PARENT_TASK,
       delegationKey: "review-docs",
       expected: {
-        childTaskId: child.childTaskId,
-        childWorkspaceId: child.childWorkspaceId,
+        delegatedTaskId: child.delegatedTaskId,
+        delegatedWorkspaceId: child.delegatedWorkspaceId,
         // The control was drawn before a retry bumped the attempt.
         attempt: child.attempt + 1,
       },
@@ -368,8 +368,8 @@ describe("child task coordinator", () => {
       parentTaskId: PARENT_TASK,
       delegationKey: "review-docs",
       expected: {
-        childTaskId: child.childTaskId,
-        childWorkspaceId: child.childWorkspaceId,
+        delegatedTaskId: child.delegatedTaskId,
+        delegatedWorkspaceId: child.delegatedWorkspaceId,
         attempt: child.attempt,
         phase: child.phase,
       },
@@ -395,14 +395,14 @@ describe("child task coordinator", () => {
       runTask: () => new Promise<{ turnId: string }>(() => {}),
     });
     const started = await harness.coordinator.delegate(delegateArgs());
-    const childTaskId = started.child?.childTaskId ?? "";
+    const delegatedTaskId = started.child?.delegatedTaskId ?? "";
     const restarted = harness.restart();
 
     // Still running after the restart: the ledger must not close the row, but
     // the pass must stay unsettled (deferred) — no watcher in this process
     // will settle the row when the child's turn ends, so reconciliation has to
     // run again on a later read.
-    harness.statusByTaskId.set(childTaskId, {
+    harness.statusByTaskId.set(delegatedTaskId, {
       ...IDLE_STATUS,
       activeTurnId: "turn-live",
     });
@@ -420,8 +420,8 @@ describe("child task coordinator", () => {
     ).toBe("running");
 
     // Finished while Stave was down: reconciled to completed, referencing the
-    // child task rather than carrying its output.
-    harness.statusByTaskId.set(childTaskId, {
+    // delegated task rather than carrying its output.
+    harness.statusByTaskId.set(delegatedTaskId, {
       ok: true,
       activeTurnId: null,
       latestTurnId: "turn-7",
@@ -436,13 +436,13 @@ describe("child task coordinator", () => {
       delegationKey: "review-docs",
     });
     expect(completed?.phase).toBe("completed");
-    expect(completed?.childTurnId).toBe("turn-7");
+    expect(completed?.delegatedTurnId).toBe("turn-7");
     expect(
       harness.store.getAggregate({
         runId: completed?.runId ?? "",
         stepId: completed?.stepId ?? "",
       })?.step.resultArtifactRef,
-    ).toBe(`stave://workspace/${PARENT_WORKSPACE}/task/${childTaskId}/turn/turn-7`);
+    ).toBe(`stave://workspace/${PARENT_WORKSPACE}/task/${delegatedTaskId}/turn/turn-7`);
   });
 
   test("a child that vanished across a restart is interrupted, not forgotten", async () => {
@@ -450,7 +450,7 @@ describe("child task coordinator", () => {
       runTask: () => new Promise<{ turnId: string }>(() => {}),
     });
     const started = await harness.coordinator.delegate(delegateArgs());
-    harness.statusByTaskId.delete(started.child?.childTaskId ?? "");
+    harness.statusByTaskId.delete(started.child?.delegatedTaskId ?? "");
     const restarted = harness.restart();
 
     expect(await restarted.reconcile()).toMatchObject({
@@ -461,7 +461,7 @@ describe("child task coordinator", () => {
       delegationKey: "review-docs",
     });
     expect(reconciled?.phase).toBe("interrupted");
-    expect(reconciled?.reason).toBe("The child task is no longer present.");
+    expect(reconciled?.reason).toBe("The delegated task is no longer present.");
   });
 
   test("an unreachable task runtime defers reconciliation instead of closing the child", async () => {
@@ -469,7 +469,7 @@ describe("child task coordinator", () => {
       runTask: () => new Promise<{ turnId: string }>(() => {}),
     });
     const started = await harness.coordinator.delegate(delegateArgs());
-    const childTaskId = started.child?.childTaskId ?? "";
+    const delegatedTaskId = started.child?.delegatedTaskId ?? "";
     const restarted = harness.restart();
     harness.setHostUnavailable(true);
 
@@ -489,7 +489,7 @@ describe("child task coordinator", () => {
     // Once the task runtime answers again, the deferred pass runs on the next
     // read rather than leaving a stale row behind.
     harness.setHostUnavailable(false);
-    harness.statusByTaskId.set(childTaskId, {
+    harness.statusByTaskId.set(delegatedTaskId, {
       ok: true,
       activeTurnId: null,
       latestTurnId: "turn-3",
@@ -502,7 +502,7 @@ describe("child task coordinator", () => {
     expect(summary.phase).toBe("completed");
   });
 
-  test("a failed delegation retries onto the same child task", async () => {
+  test("a failed delegation retries onto the same delegated task", async () => {
     let attempts = 0;
     const harness = createHarness({
       runTask: async () => {
@@ -533,7 +533,7 @@ describe("child task coordinator", () => {
     expect(failed?.reason).toBe("Provider exploded");
     expect(retried.accepted).toBe(true);
     expect(retried.duplicate).toBe(false);
-    expect(retried.child?.childTaskId).toBe(first.child?.childTaskId ?? "");
+    expect(retried.child?.delegatedTaskId).toBe(first.child?.delegatedTaskId ?? "");
     expect(settled?.phase).toBe("completed");
     expect(settled?.attempt).toBe(2);
   });
@@ -574,8 +574,8 @@ describe("child task coordinator", () => {
       delegationKey: "review-docs",
       prompt: "Try again, and read the checklist first.",
       expected: {
-        childTaskId: failed!.childTaskId,
-        childWorkspaceId: failed!.childWorkspaceId,
+        delegatedTaskId: failed!.delegatedTaskId,
+        delegatedWorkspaceId: failed!.delegatedWorkspaceId,
         attempt: failed!.attempt,
       },
     });
@@ -628,8 +628,8 @@ describe("child task coordinator", () => {
       prompt: "Try again under supervision.",
       permissionProfile: "manual",
       expected: {
-        childTaskId: failed!.childTaskId,
-        childWorkspaceId: failed!.childWorkspaceId,
+        delegatedTaskId: failed!.delegatedTaskId,
+        delegatedWorkspaceId: failed!.delegatedWorkspaceId,
         attempt: failed!.attempt,
       },
     });
@@ -665,12 +665,12 @@ describe("child task coordinator", () => {
       runTask: () => new Promise<{ turnId: string }>(() => {}),
     });
     const started = await harness.coordinator.delegate(delegateArgs());
-    const childTaskId = started.child?.childTaskId ?? "";
+    const delegatedTaskId = started.child?.delegatedTaskId ?? "";
     const restarted = harness.restart();
 
     // Mid-turn: the row stays running, and because no watcher in this process
     // will settle it, the reconcile pass must stay unsettled.
-    harness.statusByTaskId.set(childTaskId, {
+    harness.statusByTaskId.set(delegatedTaskId, {
       ...IDLE_STATUS,
       activeTurnId: "turn-live",
     });
@@ -680,7 +680,7 @@ describe("child task coordinator", () => {
 
     // The turn ends. The next read settles the row instead of leaving a ghost
     // `running` delegation occupying a concurrency slot forever.
-    harness.statusByTaskId.set(childTaskId, {
+    harness.statusByTaskId.set(delegatedTaskId, {
       ok: true,
       activeTurnId: null,
       latestTurnId: "turn-9",
@@ -689,7 +689,7 @@ describe("child task coordinator", () => {
     });
     const [settled] = await restarted.list({ parentTaskId: PARENT_TASK });
     expect(settled.phase).toBe("completed");
-    expect(settled.childTurnId).toBe("turn-9");
+    expect(settled.delegatedTurnId).toBe("turn-9");
   });
 
   test("reconcile never settles a retried attempt with an earlier attempt's turn", async () => {
@@ -717,8 +717,8 @@ describe("child task coordinator", () => {
       delegationKey: "review-docs",
       prompt: "Try again.",
       expected: {
-        childTaskId: failed!.childTaskId,
-        childWorkspaceId: failed!.childWorkspaceId,
+        delegatedTaskId: failed!.delegatedTaskId,
+        delegatedWorkspaceId: failed!.delegatedWorkspaceId,
         attempt: failed!.attempt,
       },
     });
@@ -727,7 +727,7 @@ describe("child task coordinator", () => {
     // The child's only finished turn predates the retry's claim, so it
     // belongs to attempt 1. Settling attempt 2 with it would close the retry
     // with results the retry never produced.
-    harness.statusByTaskId.set(failed!.childTaskId, {
+    harness.statusByTaskId.set(failed!.delegatedTaskId, {
       ok: true,
       activeTurnId: null,
       latestTurnId: "turn-old",
@@ -741,7 +741,7 @@ describe("child task coordinator", () => {
       delegationKey: "review-docs",
     });
     expect(settled?.phase).toBe("interrupted");
-    expect(settled?.childTurnId).not.toBe("turn-old");
+    expect(settled?.delegatedTurnId).not.toBe("turn-old");
   });
 
   test("a follow-up turn writes its own receipt instead of vanishing as a duplicate", async () => {
@@ -753,7 +753,7 @@ describe("child task coordinator", () => {
       delegationKey: "review-docs",
     });
     expect(parked?.phase).toBe("waiting");
-    expect(parked?.childTurnId).toBe("turn-1");
+    expect(parked?.delegatedTurnId).toBe("turn-1");
 
     const followedUp = await harness.coordinator.followUp({
       parentTaskId: PARENT_TASK,
@@ -761,8 +761,8 @@ describe("child task coordinator", () => {
       prompt: "One more pass, please.",
       permissionProfile: "guided",
       expected: {
-        childTaskId: parked!.childTaskId,
-        childWorkspaceId: parked!.childWorkspaceId,
+        delegatedTaskId: parked!.delegatedTaskId,
+        delegatedWorkspaceId: parked!.delegatedWorkspaceId,
         attempt: parked!.attempt,
       },
     });
@@ -776,7 +776,7 @@ describe("child task coordinator", () => {
     expect(settled?.phase).toBe("waiting");
     // The completed follow-up is visible: the turn reference and `updatedAt`
     // both moved, and a second waiting receipt exists.
-    expect(settled?.childTurnId).toBe("turn-2");
+    expect(settled?.delegatedTurnId).toBe("turn-2");
     expect(Date.parse(settled!.updatedAt)).toBeGreaterThan(
       Date.parse(parked!.updatedAt),
     );
@@ -798,8 +798,8 @@ describe("child task coordinator", () => {
     expect(parked?.phase).toBe("waiting");
 
     const identity = {
-      childTaskId: parked!.childTaskId,
-      childWorkspaceId: parked!.childWorkspaceId,
+      delegatedTaskId: parked!.delegatedTaskId,
+      delegatedWorkspaceId: parked!.delegatedWorkspaceId,
       attempt: parked!.attempt,
     };
     const detached = await harness.coordinator.detach({
@@ -817,8 +817,8 @@ describe("child task coordinator", () => {
     // forever — the ghost-session shape detach must not create.
     expect(harness.releaseTaskParentCalls).toEqual([
       {
-        workspaceId: parked!.childWorkspaceId,
-        taskId: parked!.childTaskId,
+        workspaceId: parked!.delegatedWorkspaceId,
+        taskId: parked!.delegatedTaskId,
       },
     ]);
 
@@ -864,11 +864,11 @@ describe("child task coordinator", () => {
 
     expect(Object.keys(summary).sort()).toEqual([
       "attempt",
-      "childTaskId",
-      "childTurnId",
-      "childWorkspaceId",
       "completedAt",
       "createdAt",
+      "delegatedTaskId",
+      "delegatedTurnId",
+      "delegatedWorkspaceId",
       "delegationKey",
       "lifecycle",
       "parentTaskId",
@@ -885,7 +885,7 @@ describe("child task coordinator", () => {
 describe("child permission profiles", () => {
   test("a profile is resolved from itself, never from the parent", () => {
     expect(
-      buildChildTaskRuntimeOptions({
+      buildDelegatedTaskRuntimeOptions({
         providerId: "codex",
         permissionProfile: "guided",
       }),
@@ -895,7 +895,7 @@ describe("child permission profiles", () => {
       codexNetworkAccess: false,
     });
     expect(
-      buildChildTaskRuntimeOptions({
+      buildDelegatedTaskRuntimeOptions({
         providerId: "claude-code",
         permissionProfile: "guided",
       }),
@@ -905,7 +905,7 @@ describe("child permission profiles", () => {
       claudeAllowDangerouslySkipPermissions: false,
     });
     expect(
-      buildChildTaskRuntimeOptions({
+      buildDelegatedTaskRuntimeOptions({
         providerId: "claude-code",
         permissionProfile: "auto",
       }),
@@ -919,7 +919,7 @@ describe("child permission profiles", () => {
     // policy, because elicitation is a separate channel that `never` does not
     // cover and an unanswered request is auto-declined on timeout.
     expect(
-      buildChildTaskRuntimeOptions({
+      buildDelegatedTaskRuntimeOptions({
         providerId: "codex",
         permissionProfile: "auto",
       }),
@@ -928,7 +928,7 @@ describe("child permission profiles", () => {
       codexAutoApproveStaveLocalMcpTools: true,
     });
     expect(
-      buildChildTaskRuntimeOptions({
+      buildDelegatedTaskRuntimeOptions({
         providerId: "claude-code",
         permissionProfile: "auto",
       }),
@@ -941,7 +941,7 @@ describe("child permission profiles", () => {
     // *absent* flag would be defaulted to `true` there and silently override
     // the profile. Only an explicit `false` survives.
     for (const permissionProfile of ["guided", "manual"] as const) {
-      const options = buildChildTaskRuntimeOptions({
+      const options = buildDelegatedTaskRuntimeOptions({
         providerId: "codex",
         permissionProfile,
       });
@@ -958,7 +958,7 @@ describe("child permission profiles", () => {
     expect(
       resolveManagedTaskRuntimeOptions({
         providerId: "codex",
-        runtimeOptions: buildChildTaskRuntimeOptions({
+        runtimeOptions: buildDelegatedTaskRuntimeOptions({
           providerId: "codex",
           permissionProfile: "auto",
         }),
@@ -973,7 +973,7 @@ describe("child permission profiles", () => {
     expect(
       resolveManagedTaskRuntimeOptions({
         providerId: "claude-code",
-        runtimeOptions: buildChildTaskRuntimeOptions({
+        runtimeOptions: buildDelegatedTaskRuntimeOptions({
           providerId: "claude-code",
           permissionProfile: "guided",
         }),
@@ -988,7 +988,7 @@ describe("child permission profiles", () => {
   test("no secret binding can reach a child through its profile", () => {
     for (const permissionProfile of ["auto", "guided", "manual"] as const) {
       for (const providerId of ["claude-code", "codex"] as const) {
-        const options = buildChildTaskRuntimeOptions({
+        const options = buildDelegatedTaskRuntimeOptions({
           providerId,
           permissionProfile,
         });
@@ -1000,7 +1000,7 @@ describe("child permission profiles", () => {
 
   test("an explicit model overrides the provider default", () => {
     expect(
-      buildChildTaskRuntimeOptions({
+      buildDelegatedTaskRuntimeOptions({
         providerId: "codex",
         model: "gpt-5.3-codex",
         permissionProfile: "manual",

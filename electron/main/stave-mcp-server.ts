@@ -51,8 +51,8 @@ import {
   updateAutomation,
 } from "./automation-service";
 import { RuntimeOptionsObjectSchema } from "./ipc/schemas";
-import { ChildTaskFollowUpArgsSchema } from "../../src/lib/runs/child-task";
-import { getChildTaskCoordinator } from "./runs/child-task-coordinator-instance";
+import { DelegatedTaskFollowUpArgsSchema } from "../../src/lib/runs/delegated-task";
+import { getDelegatedTaskCoordinator } from "./runs/delegated-task-coordinator-instance";
 import {
   createWakeUp,
   getWakeUp,
@@ -640,8 +640,8 @@ function createToolServer(options?: {
           .describe(
             "Caller-chosen idempotency key for this delegation, unique within the parent task. Letters, digits, dot, underscore and hyphen only.",
           ),
-        prompt: z.string().min(1).describe("Prompt to run in the child task."),
-        title: z.string().optional().describe("Optional child task title."),
+        prompt: z.string().min(1).describe("Prompt to run in the delegated task."),
+        title: z.string().optional().describe("Optional delegated task title."),
         provider: z
           .enum(["claude-code", "codex"])
           .describe("Provider the child runs on. Required — never inherited."),
@@ -663,7 +663,7 @@ function createToolServer(options?: {
         lifecycle: z
           .enum(["one-turn", "detached"])
           .describe(
-            "`one-turn` finishes the delegation when the child's first turn ends. `detached` keeps the child task open until it is stopped.",
+            "`one-turn` finishes the delegation when the child's first turn ends. `detached` keeps the delegated task open until it is stopped.",
           ),
         workspace: z
           .union([
@@ -688,7 +688,7 @@ function createToolServer(options?: {
     },
     async ({ provider, retry, ...rest }) =>
       toStructuredResult({
-        delegation: await getChildTaskCoordinator().delegate({
+        delegation: await getDelegatedTaskCoordinator().delegate({
           ...rest,
           providerId: provider,
           retry: retry ?? false,
@@ -697,10 +697,10 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_list_child_tasks",
+    "stave_list_delegated_tasks",
     {
       description:
-        "List the child tasks a task delegated, with identity, phase and terminal reason. Never returns a child's transcript.",
+        "List the delegated tasks a task delegated, with identity, phase and terminal reason. Never returns a child's transcript.",
       inputSchema: {
         parentTaskId: z.string().min(1).describe("Id of the delegating task."),
         includeFinished: z
@@ -713,7 +713,7 @@ function createToolServer(options?: {
     },
     async ({ parentTaskId, includeFinished }) =>
       toStructuredResult({
-        children: await getChildTaskCoordinator().list({
+        children: await getDelegatedTaskCoordinator().list({
           parentTaskId,
           includeFinished: includeFinished ?? true,
         }),
@@ -721,10 +721,10 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_stop_child_task",
+    "stave_stop_delegated_task",
     {
       description:
-        "Stop a delegated child task. The ledger row is cancelled durably; the child task is asked to stop as a best effort.",
+        "Stop a delegated task. The ledger row is cancelled durably; the delegated task is asked to stop as a best effort.",
       inputSchema: {
         parentTaskId: z.string().min(1).describe("Id of the delegating task."),
         delegationKey: z
@@ -736,18 +736,18 @@ function createToolServer(options?: {
     },
     async (input) =>
       toStructuredResult({
-        stop: await getChildTaskCoordinator().stop(input),
+        stop: await getDelegatedTaskCoordinator().stop(input),
       }),
   );
 
   server.registerTool(
-    "stave_follow_up_child_task",
+    "stave_follow_up_delegated_task",
     {
-      description: "Continue an owned child task with a bounded follow-up. Read stave_list_child_tasks first and pass its exact identity as expected. Permissions are selected explicitly for this turn. A stale identity is rejected; do not retry with a guessed identity.",
-      inputSchema: ChildTaskFollowUpArgsSchema.shape,
+      description: "Continue an owned delegated task with a bounded follow-up. Read stave_list_delegated_tasks first and pass its exact identity as expected. Permissions are selected explicitly for this turn. A stale identity is rejected; do not retry with a guessed identity.",
+      inputSchema: DelegatedTaskFollowUpArgsSchema.shape,
     },
     async (input) => toStructuredResult({
-      followUp: await getChildTaskCoordinator().followUp(ChildTaskFollowUpArgsSchema.parse(input)),
+      followUp: await getDelegatedTaskCoordinator().followUp(DelegatedTaskFollowUpArgsSchema.parse(input)),
     }),
   );
 
@@ -804,7 +804,7 @@ function createToolServer(options?: {
     "stave_create_wake_up",
     {
       description:
-        "Attach a wake-up to an existing task so it wakes in the same session — on a schedule, or when work that task delegated finishes. Use a schedule trigger for standing checks such as re-checking CI on its pull request, and a completion trigger to pick a task back up when its child tasks return. To run something on a schedule in a NEW task each time, create an automation instead.",
+        "Attach a wake-up to an existing task so it wakes in the same session — on a schedule, or when work that task delegated finishes. Use a schedule trigger for standing checks such as re-checking CI on its pull request, and a completion trigger to pick a task back up when its delegated tasks return. To run something on a schedule in a NEW task each time, create an automation instead.",
       inputSchema: {
         input: WakeUpUpsertInputSchema.describe(
           "Wake-up definition. `taskId` must name a task that already exists. A completion trigger without `maxOccurrences` is capped by default so the wake chain cannot recurse forever.",

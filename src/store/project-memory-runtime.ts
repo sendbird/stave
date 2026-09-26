@@ -1,6 +1,6 @@
 import type { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
 import type { ProjectMemoryFactInput } from "@/lib/project-memory";
-import { buildChildTaskReceiptsRetrievedContext } from "@/lib/task-context/child-task-receipts";
+import { buildDelegatedTaskReceiptsRetrievedContext } from "@/lib/task-context/delegated-task-receipts";
 import {
   buildProjectMemoryRetrievedContextPart,
   resolveProjectMemoryRecallQuery,
@@ -21,8 +21,8 @@ export async function collectTurnStartRetrievedContextParts(args: {
   history: readonly Pick<ChatMessage, "role" | "content">[];
   prompt: string;
 }): Promise<CanonicalRetrievedContextPart[]> {
-  const [childTaskSummaries, projectMemoryPart] = await Promise.all([
-    window.api?.runs?.listChildTasks?.({
+  const [delegatedTaskSummaries, projectMemoryPart] = await Promise.all([
+    window.api?.runs?.listDelegatedTasks?.({
       parentTaskId: args.parentTaskId,
       includeFinished: true,
     }) ?? Promise.resolve([]),
@@ -34,11 +34,11 @@ export async function collectTurnStartRetrievedContextParts(args: {
   }
   // A parent that delegated work sees where its children stand before its
   // next turn — identity, phase and reason only, never a child's transcript.
-  const childTaskReceiptsPart = buildChildTaskReceiptsRetrievedContext({
-    children: childTaskSummaries,
+  const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
+    children: delegatedTaskSummaries,
   });
-  if (childTaskReceiptsPart) {
-    parts.push(childTaskReceiptsPart);
+  if (delegatedTaskReceiptsPart) {
+    parts.push(delegatedTaskReceiptsPart);
   }
   return parts;
 }

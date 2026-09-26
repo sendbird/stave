@@ -1,47 +1,47 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type {
-  ChildTaskActionResponse,
-  ChildTaskExpectedIdentity,
-  ChildTaskSummary,
-} from "@/lib/runs/child-task";
+  DelegatedTaskActionResponse,
+  DelegatedTaskExpectedIdentity,
+  DelegatedTaskSummary,
+} from "@/lib/runs/delegated-task";
 import {
-  resolveChildTaskActionError,
-  sortChildTaskRows,
-} from "@/lib/runs/child-task-view";
+  resolveDelegatedTaskActionError,
+  sortDelegatedTaskRows,
+} from "@/lib/runs/delegated-task-view";
 
 /**
  * Reads the delegations a parent task owns and offers the controls the parent
  * surface exposes for them. The child's transcript is never read here: the
  * ledger only hands back identity, phase and reason, which is all a parent may
- * learn about a child task.
+ * learn about a delegated task.
  */
 
-const EMPTY_CHILDREN: readonly ChildTaskSummary[] = [];
+const EMPTY_CHILDREN: readonly DelegatedTaskSummary[] = [];
 
-const CHILD_TASK_UNAVAILABLE =
-  "Child tasks are not available in this build. Open the desktop app to manage them.";
+const DELEGATED_TASK_UNAVAILABLE =
+  "Delegated tasks are not available in this build. Open the desktop app to manage them.";
 
-export interface ChildTaskActionResult {
+export interface DelegatedTaskActionResult {
   ok: boolean;
   error: string | null;
 }
 
-export interface ChildTaskPromptActionArgs {
+export interface DelegatedTaskPromptActionArgs {
   delegationKey: string;
-  expected: ChildTaskExpectedIdentity;
+  expected: DelegatedTaskExpectedIdentity;
   prompt: string;
 }
 
-export interface ChildTaskStopActionArgs {
+export interface DelegatedTaskStopActionArgs {
   delegationKey: string;
-  expected: ChildTaskExpectedIdentity;
+  expected: DelegatedTaskExpectedIdentity;
 }
 
-export interface ChildTaskActions {
-  followUp: (args: ChildTaskPromptActionArgs) => Promise<ChildTaskActionResult>;
-  retry: (args: ChildTaskPromptActionArgs) => Promise<ChildTaskActionResult>;
-  stop: (args: ChildTaskStopActionArgs) => Promise<ChildTaskActionResult>;
-  detach: (args: ChildTaskStopActionArgs) => Promise<ChildTaskActionResult>;
+export interface DelegatedTaskActions {
+  followUp: (args: DelegatedTaskPromptActionArgs) => Promise<DelegatedTaskActionResult>;
+  retry: (args: DelegatedTaskPromptActionArgs) => Promise<DelegatedTaskActionResult>;
+  stop: (args: DelegatedTaskStopActionArgs) => Promise<DelegatedTaskActionResult>;
+  detach: (args: DelegatedTaskStopActionArgs) => Promise<DelegatedTaskActionResult>;
   refresh: () => void;
 }
 
@@ -53,12 +53,12 @@ export interface ChildTaskActions {
  * on the whole result would re-render on every refresh whether or not the rows
  * changed.
  */
-export interface ChildTaskListingSource {
-  children: readonly ChildTaskSummary[];
-  actions: ChildTaskActions;
+export interface DelegatedTaskListingSource {
+  children: readonly DelegatedTaskSummary[];
+  actions: DelegatedTaskActions;
 }
 
-export interface UseChildTasksResult extends ChildTaskListingSource {
+export interface UseDelegatedTasksResult extends DelegatedTaskListingSource {
   loading: boolean;
   error: string | null;
 }
@@ -66,20 +66,20 @@ export interface UseChildTasksResult extends ChildTaskListingSource {
 function describeThrown(cause: unknown) {
   return cause instanceof Error && cause.message
     ? cause.message
-    : "The child task action could not be delivered.";
+    : "The delegated task action could not be delivered.";
 }
 
-export function useChildTasks(args: {
+export function useDelegatedTasks(args: {
   parentTaskId: string | null | undefined;
   /** Required by retry, which restarts the delegation from the parent. */
   parentWorkspaceId?: string | null;
   projectPath?: string | null;
   enabled?: boolean;
-}): UseChildTasksResult {
+}): UseDelegatedTasksResult {
   const { parentTaskId, parentWorkspaceId, projectPath } = args;
   const enabled = args.enabled ?? true;
   const [children, setChildren] =
-    useState<readonly ChildTaskSummary[]>(EMPTY_CHILDREN);
+    useState<readonly DelegatedTaskSummary[]>(EMPTY_CHILDREN);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const mountedRef = useRef(true);
@@ -99,22 +99,22 @@ export function useChildTasks(args: {
     if (!enabled || !parentTaskId || !mountedRef.current) {
       return;
     }
-    const listChildTasks = window.api?.runs?.listChildTasks;
-    if (!listChildTasks) {
+    const listDelegatedTasks = window.api?.runs?.listDelegatedTasks;
+    if (!listDelegatedTasks) {
       return;
     }
     const sequence = loadSequenceRef.current + 1;
     loadSequenceRef.current = sequence;
     setLoading(true);
     try {
-      const listed = await listChildTasks({
+      const listed = await listDelegatedTasks({
         parentTaskId,
         includeFinished: true,
       });
       if (!mountedRef.current || sequence !== loadSequenceRef.current) {
         return;
       }
-      setChildren(listed.length ? sortChildTaskRows(listed) : EMPTY_CHILDREN);
+      setChildren(listed.length ? sortDelegatedTaskRows(listed) : EMPTY_CHILDREN);
       setError(null);
     } catch (cause) {
       if (!mountedRef.current || sequence !== loadSequenceRef.current) {
@@ -137,7 +137,7 @@ export function useChildTasks(args: {
     if (enabled && parentTaskId) void load();
     const unsubscribe =
       enabled && parentTaskId
-        ? window.api?.runs?.onChildTasksChanged?.((payload) => {
+        ? window.api?.runs?.onDelegatedTasksChanged?.((payload) => {
             if (payload.parentTaskId === parentTaskId) void load();
           })
         : undefined;
@@ -149,12 +149,12 @@ export function useChildTasks(args: {
 
   const runAction = useCallback(
     async (
-      invoke: (() => Promise<ChildTaskActionResponse>) | null,
-    ): Promise<ChildTaskActionResult> => {
+      invoke: (() => Promise<DelegatedTaskActionResponse>) | null,
+    ): Promise<DelegatedTaskActionResult> => {
       if (!invoke) {
-        return { ok: false, error: CHILD_TASK_UNAVAILABLE };
+        return { ok: false, error: DELEGATED_TASK_UNAVAILABLE };
       }
-      let response: ChildTaskActionResponse;
+      let response: DelegatedTaskActionResponse;
       try {
         response = await invoke();
       } catch (cause) {
@@ -163,7 +163,7 @@ export function useChildTasks(args: {
       // A refusal usually means the delegation moved on, so the listing is
       // refreshed either way; the row shows the refusal sentence as-is.
       void load();
-      const refusal = resolveChildTaskActionError(response);
+      const refusal = resolveDelegatedTaskActionError(response);
       return refusal
         ? { ok: false, error: refusal }
         : { ok: true, error: null };
@@ -171,14 +171,14 @@ export function useChildTasks(args: {
     [load],
   );
 
-  const actions = useMemo<ChildTaskActions>(() => {
+  const actions = useMemo<DelegatedTaskActions>(() => {
     return {
       followUp: (input) => {
-        const followUpChildTask = window.api?.runs?.followUpChildTask;
+        const followUpDelegatedTask = window.api?.runs?.followUpDelegatedTask;
         return runAction(
-          parentTaskId && followUpChildTask
+          parentTaskId && followUpDelegatedTask
             ? () =>
-                followUpChildTask({
+                followUpDelegatedTask({
                   parentTaskId,
                   delegationKey: input.delegationKey,
                   prompt: input.prompt,
@@ -189,7 +189,7 @@ export function useChildTasks(args: {
         );
       },
       retry: (input) => {
-        const retryChildTask = window.api?.runs?.retryChildTask;
+        const retryDelegatedTask = window.api?.runs?.retryDelegatedTask;
         if (!parentTaskId || !parentWorkspaceId || !projectPath) {
           return Promise.resolve({
             ok: false,
@@ -198,9 +198,9 @@ export function useChildTasks(args: {
           });
         }
         return runAction(
-          retryChildTask
+          retryDelegatedTask
             ? () =>
-                retryChildTask({
+                retryDelegatedTask({
                   projectPath,
                   parentWorkspaceId,
                   parentTaskId,
@@ -215,11 +215,11 @@ export function useChildTasks(args: {
         );
       },
       stop: (input) => {
-        const stopChildTask = window.api?.runs?.stopChildTask;
+        const stopDelegatedTask = window.api?.runs?.stopDelegatedTask;
         return runAction(
-          parentTaskId && stopChildTask
+          parentTaskId && stopDelegatedTask
             ? () =>
-                stopChildTask({
+                stopDelegatedTask({
                   parentTaskId,
                   delegationKey: input.delegationKey,
                   expected: input.expected,
@@ -228,11 +228,11 @@ export function useChildTasks(args: {
         );
       },
       detach: (input) => {
-        const detachChildTask = window.api?.runs?.detachChildTask;
+        const detachDelegatedTask = window.api?.runs?.detachDelegatedTask;
         return runAction(
-          parentTaskId && detachChildTask
+          parentTaskId && detachDelegatedTask
             ? () =>
-                detachChildTask({
+                detachDelegatedTask({
                   parentTaskId,
                   delegationKey: input.delegationKey,
                   expected: input.expected,

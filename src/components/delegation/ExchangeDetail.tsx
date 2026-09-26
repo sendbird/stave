@@ -32,14 +32,14 @@ const SOURCE_COPY: Record<
 const ASK_LABEL: Record<DelegationExchange["kind"], string> = {
   advisor: "Question asked",
   worker: "Assignment",
-  "child-task": "Delegation",
+  "delegated-task": "Delegation",
   subagent: "Assignment",
 };
 
 const RESULT_LABEL: Record<DelegationExchange["kind"], string> = {
   advisor: "Advice returned",
   worker: "Returned result",
-  "child-task": "Outcome",
+  "delegated-task": "Outcome",
   subagent: "Outcome",
 };
 

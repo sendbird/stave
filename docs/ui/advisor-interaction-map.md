@@ -76,7 +76,7 @@ never happens produces no card to open:
   `AdvisorExchangeSnapshot`, starting at `Advisor armed · 0 consults` when the
   grant is minted and becoming a consult count once the primary asks. This is
   where an unconsulted turn proves the Advisor was live, and where consults are
-  counted alongside subagents and delegated child tasks.
+  counted alongside subagents and delegated tasks.
 - The composer Advisor pill shows an `Unreachable` badge when the Local MCP
   server that carries `stave_consult_advisor` is down. An armed Advisor whose
   tool never reaches the model is otherwise silent: no consult, no card, no

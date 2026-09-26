@@ -73,7 +73,7 @@ function completion(
   return {
     runId: "child-task:task-1:review",
     stepId: "child-task:task-1:review:turn",
-    childTaskId: "task-child-1",
+    delegatedTaskId: "task-child-1",
     providerId: "claude-code",
     status: "completed",
     reason: null,
@@ -529,7 +529,7 @@ describe("idempotency keys", () => {
 
 describe("completion observability", () => {
   test("both provider runtimes classify the same way: completion is a ledger fact", () => {
-    // Symmetry is structural here. A child task's terminal state is a run-ledger
+    // Symmetry is structural here. A delegated task's terminal state is a run-ledger
     // row, so neither runtime is the source and neither can be ahead of the
     // other. A divergence in this expectation means someone made completion
     // provider-specific without saying so.
@@ -630,7 +630,7 @@ describe("completion trigger policy", () => {
       runId: "child-task:task-1:b",
       stepId: "child-task:task-1:b:turn",
       status: "failed",
-      reason: "The child task ran out of attempts.",
+      reason: "The delegated task ran out of attempts.",
       completedAt: "2026-08-09T23:30:00.000Z",
     });
 
@@ -855,7 +855,7 @@ describe("completion idempotency keys", () => {
     // Truncation is the failure mode here, not length: sibling steps of one run
     // share a derived prefix, so a clipped key would make one of them look like
     // the other's duplicate and drop that completion for good.
-    const runId = `child-task:${"p".repeat(WAKE_UP_LIMITS.maxLedgerIdChars - 11)}`;
+    const runId = `delegated-task:${"p".repeat(WAKE_UP_LIMITS.maxLedgerIdChars - 11)}`;
     const key = (stepSuffix: string) =>
       buildWakeUpCompletionIdempotencyKey({
         wakeUpId: "h".repeat(WAKE_UP_LIMITS.maxIdChars),

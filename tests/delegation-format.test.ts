@@ -4,7 +4,7 @@ import {
   describeDeadline,
   describeExchangeStatus,
   exchangeStatusFromAdvisorOutcome,
-  exchangeStatusFromChildTaskPhase,
+  exchangeStatusFromDelegatedTaskPhase,
   exchangeStatusFromToolState,
   exchangeStatusFromWorkGraphStatus,
   formatEffortLabel,
@@ -151,10 +151,10 @@ describe("exchange status vocabulary", () => {
     expect(exchangeStatusFromToolState("input-available")).toBe("running");
   });
 
-  test("adapts child-task phases and graph statuses", () => {
-    expect(exchangeStatusFromChildTaskPhase("waiting")).toBe("running");
-    expect(exchangeStatusFromChildTaskPhase("interrupted")).toBe("failed");
-    expect(exchangeStatusFromChildTaskPhase("cancelled")).toBe("cancelled");
+  test("adapts delegated-task phases and graph statuses", () => {
+    expect(exchangeStatusFromDelegatedTaskPhase("waiting")).toBe("running");
+    expect(exchangeStatusFromDelegatedTaskPhase("interrupted")).toBe("failed");
+    expect(exchangeStatusFromDelegatedTaskPhase("cancelled")).toBe("cancelled");
     expect(exchangeStatusFromWorkGraphStatus("completed")).toBe("returned");
     expect(exchangeStatusFromWorkGraphStatus("cancelled")).toBe("cancelled");
   });

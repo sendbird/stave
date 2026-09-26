@@ -85,7 +85,7 @@ const ROLE_HINTS: Readonly<Record<RouterRole, string>> = {
   primary: "Rules without a role apply here. First match wins, top to bottom.",
   advisor: "Decides the Advisor when its target is left on Auto.",
   worker: "Consulted before the worker preset's own model when the worker is on Auto.",
-  delegate: "Seeds the model and effort a delegated child task starts with.",
+  delegate: "Seeds the model and effort a delegated task starts with.",
 };
 
 function modelLabel(model: string) {

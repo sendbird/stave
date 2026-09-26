@@ -23,6 +23,7 @@ Use these words in code, UI copy, and plans. Do not introduce synonyms.
 | Occurrence | One firing of a schedule. |
 | Automation | A saved prompt and schedule that mints a new task per occurrence. Code, IPC channels and Local MCP tools say `automation`; the older word "routine" is retired. |
 | Wake-up | A supervised turn added to an existing task on a schedule or when its delegated work finishes. Code, tables and Local MCP tools say `wakeUp` / `wake_up`; the older word "heartbeat" is retired for this feature. Provider and Crane "heartbeats" are unrelated. |
+| Delegated task | A durable Stave task created on another task's behalf, possibly on the other provider or in its own worktree, recorded on the run ledger. The relation stays parent/child (`parentTaskId`); the older words "child task" are retired. Run ids keep the persisted `child-task:<parent>:<key>` format. |
 
 Lane names for workspace state are fixed and ordered:
 `action-required` > `in-progress` > `in-review` > `idle`.
@@ -63,7 +64,7 @@ turn. Per-agent message, interrupt, and stop over a *provider-owned* agent are
 gated on `ProviderRuntimeCapabilities.workGraph`; no runtime declares them
 today, which is why they are declared capabilities rather than assumptions. A
 *ledger-owned* child is not gated on them at all: it is a Stave task with its
-own workspace and run, steered through the child-task coordinator against the
+own workspace and run, steered through the delegated-task coordinator against the
 frozen identity, so what the provider can do to its own in-process subagents
 says nothing about it.
 
@@ -71,7 +72,7 @@ Both kinds of node live in one graph, and the delegating call is what joins
 them: `stave_delegate_task` carries the delegation key in its own input, so the
 child hangs off the agent that delegated it rather than floating at the turn
 root. The graph is scoped to a turn, so the parent's full delegation history
-stays with the child task list; only the children this turn delegated join its
+stays with the delegated task list; only the children this turn delegated join its
 fan-out.
 
 Two provider fields answer "which agent" and mean opposite things, so they are
@@ -111,7 +112,7 @@ Fleet-scoped, read plus control, no new execution semantics.
 | Run ledger (run core) | Durable bookkeeping for delegated execution: runs, steps, receipts, idempotency, claims |
 
 The run ledger is shared machinery, not a feature. Compare Judge is its first
-client; durable child tasks are its second. Widen it for a new client instead of
+client; durable delegated tasks are its second. Widen it for a new client instead of
 building a second ledger beside it.
 
 ### Layer 3 — Continuity: keep going without me
@@ -122,24 +123,24 @@ reason. Two axes:
 | | Ephemeral | Durable |
 | --- | --- | --- |
 | Time — run again | — | Automation (new task per occurrence) / Wake-up (same task, same session) |
-| Delegation — hand work off | Worker (Layer 1) | Child tasks (cross-provider, normal tasks + ledger receipts) |
+| Delegation — hand work off | Worker (Layer 1) | Delegated tasks (cross-provider, normal tasks + ledger receipts) |
 
 Automation is the only concept that lives outside a task: it mints tasks.
 Everything else in this layer attaches to one existing task.
 
-A child task is a real Stave task created on a parent's behalf, recorded on the
-run ledger as a `child-task` run with a `task` origin (the parent's id) and one
-`child-task-turn` step per delegated turn. The ledger holds the bookkeeping —
+A delegated task is a real Stave task created on a parent's behalf, recorded on the
+run ledger as a `delegated-task` run with a `task` origin (the parent's id) and one
+`delegated-task-turn` step per delegated turn. The ledger holds the bookkeeping —
 identity, phase, receipts, idempotency — while the normal task machinery creates
 the task and runs its turns. The parent's context receives identity, phase and
 reason; never the child's transcript. See
-`docs/features/child-tasks.md`.
+`docs/features/delegated-tasks.md`.
 
-Child identity is the delegation link, and it is frozen: a child task carries
+Child identity is the delegation link, and it is frozen: a delegated task carries
 `parentTaskId`, and a delegation is named by `parentTaskId + delegationKey`. That
 link is the single source of truth for both directions — the parent's child rows
 and the child's backlink — and for keeping a child out of workspace-level
-listings (`isDelegatedChildTask` in `src/lib/tasks.ts`). Anything built on top of
+listings (`isDelegatedTask` in `src/lib/tasks.ts`). Anything built on top of
 delegation keys off that link rather than re-deriving parentage its own way.
 
 Because identity is frozen, it is also enforceable: every control the parent
@@ -150,13 +151,13 @@ moved on. A control is never applied to whatever replaced the child it meant.
 A wake-up is a supervisor entry: `src/lib/supervision/wake-up-policy.ts`
 holds the policy, `electron/host-service/wake-up-runtime.ts` executes
 it, and `wake_ups` / `wake_up_occurrences` store it. Those are
-deliberately not ledger tables, and the contrast with child tasks above is the
+deliberately not ledger tables, and the contrast with delegated tasks above is the
 reason: the ledger records delegated execution, while a wake-up records
 wake-ups on a task the user already owns — no claim, no lease, no receipts.
 See `docs/features/wake-ups.md`.
 
 A wake-up fires on one of two triggers. A schedule walks a cadence; a
-completion waits for a child-task run of the same parent to reach a terminal
+completion waits for a delegated-task run of the same parent to reach a terminal
 status. The completion trigger is where the two rows above meet without
 merging: the supervisor *reads* the ledger's terminal rows and writes only its
 own occurrence rows, so the direction of that dependency — supervisor reads
@@ -172,7 +173,7 @@ whose name repeats it.
 
 1. An automation never wakes an existing task; its definition cannot target one.
 2. A wake-up never creates a task; it only adds a turn to one that exists.
-3. A worker never survives a restart; a child task always does.
+3. A worker never survives a restart; a delegated task always does.
 4. The ledger records and never executes; executors execute and never write
    ledger rows except through coordinator transitions.
 5. Advisor advises content; utility inference computes metadata.
@@ -188,7 +189,7 @@ than beside it, which is what recording them early was for:
 - Statement 2 is asserted from both sides: an automation definition cannot name a
   task, and a wake-up definition must name one and cannot carry the fields
   that would let it mint a task.
-- Statement 3 is asserted by recovery: a child task is reconciled against the
+- Statement 3 is asserted by recovery: a delegated task is reconciled against the
   live task after a restart rather than closed with the process, while a worker
   has no durable record to reconcile at all.
 

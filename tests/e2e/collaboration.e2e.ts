@@ -103,8 +103,8 @@ test("delegation retries uncertain delivery with the same identity and explicit 
       delegationAcknowledgements: acknowledgedBeforeInvoke,
       api: {
         runs: {
-          listChildTasks: async () => [],
-          delegateChildTask: async (args: { delegationKey?: string }) => {
+          listDelegatedTasks: async () => [],
+          delegateTask: async (args: { delegationKey?: string }) => {
             acknowledgedBeforeInvoke.push(
               Object.keys(localStorage)
                 .filter((key) => key.startsWith("stave:delegation-draft:"))
@@ -236,7 +236,7 @@ test("late listing replies cannot repopulate a disabled subscription", async ({
       releaseListingReplies: () => replies.forEach((resolve) => resolve()),
       api: {
         runs: {
-          listChildTasks: () =>
+          listDelegatedTasks: () =>
             new Promise((resolve) =>
               replies.push(() =>
                 resolve([
@@ -245,9 +245,9 @@ test("late listing replies cannot repopulate a disabled subscription", async ({
                     stepId: "s",
                     parentTaskId: "probe-parent",
                     delegationKey: "review",
-                    childTaskId: "child",
-                    childWorkspaceId: "workspace",
-                    childTurnId: null,
+                    delegatedTaskId: "child",
+                    delegatedWorkspaceId: "workspace",
+                    delegatedTurnId: null,
                     providerId: "codex",
                     lifecycle: "detached",
                     phase: "waiting",

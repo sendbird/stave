@@ -1020,7 +1020,7 @@ export function createSendUserMessageAction(args: {
         }),
         ...freshSourceContexts,
       ];
-      // ── Project memory + child task receipts ───────────────────────────
+      // ── Project memory + delegated task receipts ───────────────────────────
       // Both are cross-turn state read from main; see project-memory-runtime.
       retrievedContextParts.push(
         ...(await collectTurnStartRetrievedContextParts({

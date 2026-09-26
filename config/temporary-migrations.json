@@ -27,8 +27,20 @@
       ]
     },
     {
+      "id": "delegated-task-ledger-kinds",
+      "description": "Rewrites ledger rows written with the child-task run kind, child-task-turn step kind and child-task bookkeeping codes to the delegated-task names. Run ids keep their child-task prefix on purpose.",
+      "introducedAfter": "0.19.6",
+      "removeInVersion": "0.22.0",
+      "files": [
+        "electron/persistence/run-ledger-store.ts"
+      ],
+      "tests": [
+        "tests/delegated-task-ledger-migration.test.ts"
+      ]
+    },
+    {
       "id": "rename-vocabulary-codemod",
-      "description": "Replays the vocabulary renames (routine to automation, task heartbeat to wake-up, and later renames) on branches that started before they landed.",
+      "description": "Replays the vocabulary renames (routine to automation, task heartbeat to wake-up, child task to delegated task, and later renames) on branches that started before they landed.",
       "introducedAfter": "0.19.6",
       "removeInVersion": "0.22.0",
       "files": [

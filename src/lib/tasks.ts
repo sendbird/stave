@@ -54,9 +54,9 @@ export function isTaskArchived(task: Pick<Task, "archivedAt">) {
  *
  * This is a *listing* predicate only. Paths that deliberately walk every task
  * (aborting turns on workspace switch, orphan reaping, persistence
- * reconciliation) must keep seeing child tasks and must not call it.
+ * reconciliation) must keep seeing delegated tasks and must not call it.
  */
-export function isDelegatedChildTask(task: Pick<Task, "parentTaskId">) {
+export function isDelegatedTask(task: Pick<Task, "parentTaskId">) {
   return Boolean(task.parentTaskId);
 }
 
@@ -72,7 +72,7 @@ export function appendOpenTaskTabForHostCreatedTask(args: {
   if (!Array.isArray(args.openTaskTabIds)) {
     return args.openTaskTabIds;
   }
-  if (isTaskArchived(args.task) || isDelegatedChildTask(args.task)) {
+  if (isTaskArchived(args.task) || isDelegatedTask(args.task)) {
     return args.openTaskTabIds;
   }
   if (args.openTaskTabIds.includes(args.task.id)) {
@@ -189,7 +189,7 @@ function matchesTaskFilter(args: {
   // Not filter-dependent: a delegated child is never a peer in this listing,
   // not even under "all". `reorderTasksWithinFilter` shares this predicate, so
   // the reorder mapping stays aligned with what the list actually renders.
-  if (isDelegatedChildTask(args.task)) {
+  if (isDelegatedTask(args.task)) {
     return false;
   }
   if (args.filter === "all") {
@@ -265,7 +265,7 @@ export function reorderTasksWithinFilter(args: {
 export function getTaskCounts(args: {
   tasks: Array<Pick<Task, "archivedAt" | "parentTaskId">>;
 }) {
-  const tasks = args.tasks.filter((task) => !isDelegatedChildTask(task));
+  const tasks = args.tasks.filter((task) => !isDelegatedTask(task));
   const archived = tasks.filter((task) => isTaskArchived(task)).length;
   return {
     active: tasks.length - archived,
@@ -294,7 +294,7 @@ export function selectTaskHistoryEntries(args: {
   tasks: Task[];
   openTaskTabIds: readonly string[] | null;
 }): Task[] {
-  const tasks = args.tasks.filter((task) => !isDelegatedChildTask(task));
+  const tasks = args.tasks.filter((task) => !isDelegatedTask(task));
   const openTaskIds = args.openTaskTabIds
     ? new Set(args.openTaskTabIds)
     : new Set(
@@ -308,8 +308,8 @@ export function selectTaskHistoryEntries(args: {
 export function filterTasksByName(args: { tasks: Task[]; query: string }) {
   // Only reallocate when a child is actually present, so the common case keeps
   // returning the caller's own array reference.
-  const tasks = args.tasks.some((task) => isDelegatedChildTask(task))
-    ? args.tasks.filter((task) => !isDelegatedChildTask(task))
+  const tasks = args.tasks.some((task) => isDelegatedTask(task))
+    ? args.tasks.filter((task) => !isDelegatedTask(task))
     : args.tasks;
   const trimmed = args.query.trim();
   if (!trimmed) {

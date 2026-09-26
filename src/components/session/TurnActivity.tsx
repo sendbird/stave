@@ -24,10 +24,10 @@ import {
   PictureInPicture2,
 } from "lucide-react";
 import {
-  ChildTaskParentBacklink,
-  ChildTaskRowActions,
-  useChildTaskRowController,
-} from "@/components/session/ChildTaskRows";
+  DelegatedTaskParentBacklink,
+  DelegatedTaskRowActions,
+  useDelegatedTaskRowController,
+} from "@/components/session/DelegatedTaskRows";
 import { DelegationsBlock } from "@/components/delegation/DelegationsBlock";
 import { isRoutedDecision, RouteTrace } from "@/components/auto-routing";
 import type { AutoRoutingDecisionRecord } from "@/store/auto-routing";
@@ -43,9 +43,9 @@ import {
 } from "@/components/session/plan-viewer.utils";
 import { useScopedTaskId } from "@/components/session/task-scope-context";
 import {
-  useChildTasks,
-  type ChildTaskListingSource,
-} from "@/components/session/useChildTasks";
+  useDelegatedTasks,
+  type DelegatedTaskListingSource,
+} from "@/components/session/useDelegatedTasks";
 import { findLatestTodoPart } from "@/components/session/turn-todo.utils";
 import {
   getTurnActivityStatusLabel,
@@ -107,7 +107,7 @@ import {
   type ProviderTurnWorkItem,
   type RetainedTurnOutcome,
 } from "@/lib/providers/turn-status";
-import { buildChildTaskExpectedIdentity } from "@/lib/runs/child-task-view";
+import { buildDelegatedTaskExpectedIdentity } from "@/lib/runs/delegated-task-view";
 import { summarizeWorkGraph } from "@/lib/work-graph/work-graph-tree";
 import type { WorkGraph } from "@/lib/work-graph/work-graph.types";
 import type { TurnActivityPlacement } from "@/store/app-settings";
@@ -120,18 +120,18 @@ import { useShallow } from "zustand/react/shallow";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 const EMPTY_CONSULTS: readonly AdvisorConsultLogEntry[] = [];
-const CHILD_TASKS_UNAVAILABLE = {
+const DELEGATED_TASKS_UNAVAILABLE = {
   ok: false as const,
-  error: "Child task controls are unavailable on this surface.",
+  error: "Delegated task controls are unavailable on this surface.",
 };
-/** Stable no-op source for surfaces rendered without a child-task listing. */
-const EMPTY_CHILD_SOURCE: ChildTaskListingSource = {
+/** Stable no-op source for surfaces rendered without a delegated-task listing. */
+const EMPTY_CHILD_SOURCE: DelegatedTaskListingSource = {
   children: [],
   actions: {
-    followUp: async () => CHILD_TASKS_UNAVAILABLE,
-    retry: async () => CHILD_TASKS_UNAVAILABLE,
-    stop: async () => CHILD_TASKS_UNAVAILABLE,
-    detach: async () => CHILD_TASKS_UNAVAILABLE,
+    followUp: async () => DELEGATED_TASKS_UNAVAILABLE,
+    retry: async () => DELEGATED_TASKS_UNAVAILABLE,
+    stop: async () => DELEGATED_TASKS_UNAVAILABLE,
+    detach: async () => DELEGATED_TASKS_UNAVAILABLE,
     refresh: () => {},
   },
 };
@@ -412,32 +412,32 @@ function ActiveTurnActivity(props: {
   });
 
   // Read once here rather than inside the rows: the same listing has to reach
-  // both the child task rows and the turn's graph, and two subscriptions to one
+  // both the delegated task rows and the turn's graph, and two subscriptions to one
   // ledger would double every refetch and let the two views disagree mid-flight.
-  const childTasks = useChildTasks({
+  const delegatedTasks = useDelegatedTasks({
     parentTaskId: taskId,
     parentWorkspaceId: activeWorkspaceId,
     projectPath,
     enabled: shouldShow,
   });
-  const { children: childTaskRows } = childTasks;
+  const { children: delegatedTaskRows } = delegatedTasks;
   // Only the rows and the controls travel down, and they travel as their own
   // object: the hook's result is rebuilt on every render, and its `loading`
   // flag flips twice per refetch, so passing the whole thing would defeat the
   // shelf's memo and re-render every row on a listing nothing read.
-  const childTaskSource = useMemo(
-    () => ({ children: childTaskRows, actions: childTasks.actions }),
-    [childTaskRows, childTasks.actions],
+  const delegatedTaskSource = useMemo(
+    () => ({ children: delegatedTaskRows, actions: delegatedTasks.actions }),
+    [delegatedTaskRows, delegatedTasks.actions],
   );
-  const syncChildTasksIntoTurnGraph = useAppStore(
-    (state) => state.syncChildTasksIntoTurnGraph,
+  const syncDelegatedTasksIntoTurnGraph = useAppStore(
+    (state) => state.syncDelegatedTasksIntoTurnGraph,
   );
   useEffect(() => {
     if (!taskId) {
       return;
     }
-    syncChildTasksIntoTurnGraph({ taskId, children: childTaskRows });
-  }, [childTaskRows, syncChildTasksIntoTurnGraph, taskId]);
+    syncDelegatedTasksIntoTurnGraph({ taskId, children: delegatedTaskRows });
+  }, [delegatedTaskRows, syncDelegatedTasksIntoTurnGraph, taskId]);
 
   // A refusal is the expected outcome here, not the exception: the coordinator
   // re-checks the identity this control was prepared against, which is the
@@ -465,7 +465,7 @@ function ActiveTurnActivity(props: {
     },
     [],
   );
-  const childTaskActions = childTasks.actions;
+  const delegatedTaskActions = delegatedTasks.actions;
   const handleWorkGraphControl = useCallback(
     (request: WorkGraphControlRequest) => {
       const { node } = request;
@@ -479,11 +479,11 @@ function ActiveTurnActivity(props: {
       if (!node.delegationKey) {
         setControlError(
           node.key,
-          "Only a delegated child task can be stopped from this row.",
+          "Only a delegated task can be stopped from this row.",
         );
         return;
       }
-      const child = childTaskRows.find(
+      const child = delegatedTaskRows.find(
         (row) => row.delegationKey === node.delegationKey,
       );
       // The graph learns about a delegation from the turn's own tool call,
@@ -492,26 +492,26 @@ function ActiveTurnActivity(props: {
       if (!child) {
         setControlError(
           node.key,
-          "This child task is still being recorded. Try again in a moment.",
+          "This delegated task is still being recorded. Try again in a moment.",
         );
         return;
       }
       setControlError(node.key, null);
-      void childTaskActions
+      void delegatedTaskActions
         .stop({
           delegationKey: child.delegationKey,
-          expected: buildChildTaskExpectedIdentity(child),
+          expected: buildDelegatedTaskExpectedIdentity(child),
         })
         .then((result) => {
           if (!result.ok) {
             setControlError(
               node.key,
-              result.error ?? "This child task could not be stopped.",
+              result.error ?? "This delegated task could not be stopped.",
             );
           }
         });
     },
-    [childTaskActions, childTaskRows, setControlError],
+    [delegatedTaskActions, delegatedTaskRows, setControlError],
   );
 
   useEffect(() => {
@@ -620,7 +620,7 @@ function ActiveTurnActivity(props: {
         : runtimeCapabilities[activeProvider].workGraph,
       ...(replay ? {} : { onWorkGraphControl: handleWorkGraphControl }),
       workGraphControlErrorByNodeKey: controlErrorByNodeKey,
-      childTasks: childTaskSource,
+      delegatedTasks: delegatedTaskSource,
       expandedByDefault,
       hasPendingInteractionCard,
       executionSummary,
@@ -642,7 +642,7 @@ function ActiveTurnActivity(props: {
     budgetStepDownAt,
     providerAvailability,
     turnAutoRouting,
-    childTaskSource,
+    delegatedTaskSource,
     controlErrorByNodeKey,
     currentActivity,
     expandedByDefault,
@@ -893,7 +893,7 @@ interface TurnActivitySurfaceProps {
    * The parent's delegations, already loaded upstream. Handed down rather than
    * re-read here so the rows and the tree describe the same listing.
    */
-  childTasks?: ChildTaskListingSource;
+  delegatedTasks?: DelegatedTaskListingSource;
   /**
    * Setting-backed default for the expanded list. A manual toggle overrides it
    * for the rest of the turn; the surface is keyed per turn, so the next turn
@@ -938,7 +938,7 @@ interface TurnActivitySurfaceProps {
   /** Usage percent at which the budget guard steps down; marks the chip. */
   autoRoutingBudgetStepDownAt?: number;
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
-  /** Identity of the task this shelf belongs to, used by the child-task rows. */
+  /** Identity of the task this shelf belongs to, used by the delegated-task rows. */
   taskId?: string;
   workspaceId?: string | null;
   projectPath?: string | null;
@@ -1108,8 +1108,8 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   const hasWorkGraphRows = (graphSummary?.totalCount ?? 0) > 0;
 
   // ── Agents block: every delegation of this turn as exchange rows ──────
-  const childController = useChildTaskRowController({
-    source: props.childTasks ?? EMPTY_CHILD_SOURCE,
+  const childController = useDelegatedTaskRowController({
+    source: props.delegatedTasks ?? EMPTY_CHILD_SOURCE,
     projectPath: props.projectPath,
   });
   const turnConsults = useMemo(
@@ -1129,15 +1129,15 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         advisorSnapshot: props.advisorExchange ?? null,
         activeTurnId: props.activeTurnId,
         workerWorkItems: props.workItems,
-        childTasks: childController.children,
+        delegatedTasks: childController.children,
         childBlockedByDelegationKey: childController.blockedByDelegationKey,
         advisorOptions: {
           canCancel: advisorCanCancel,
           hasConsultLog: props.hasAdvisorConsultLog,
         },
       }).map((exchange) =>
-        // The shared child-task action row renders the real controls.
-        exchange.kind === "child-task"
+        // The shared delegated-task action row renders the real controls.
+        exchange.kind === "delegated-task"
           ? { ...exchange, actions: [] }
           : exchange,
       ),
@@ -1190,7 +1190,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
   );
   const renderDelegationExtraActions = useCallback(
     (exchange: DelegationExchange) => {
-      if (exchange.kind !== "child-task" || !exchange.ref.delegationKey) {
+      if (exchange.kind !== "delegated-task" || !exchange.ref.delegationKey) {
         return null;
       }
       const child = childController.children.find(
@@ -1200,7 +1200,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
         return null;
       }
       return (
-        <ChildTaskRowActions
+        <DelegatedTaskRowActions
           child={child}
           busy={childController.busyDelegationKey === child.delegationKey}
           onOpen={childController.onOpen}
@@ -1518,9 +1518,9 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
             )}
           >
             <div className={sx(styles.listInner)}>
-              {/* Where this turn sits: a child task says who delegated it before
+              {/* Where this turn sits: a delegated task says who delegated it before
                   it says what it is doing. */}
-              <ChildTaskParentBacklink
+              <DelegatedTaskParentBacklink
                 taskId={props.taskId}
                 projectPath={props.projectPath}
                 className={sx(styles.childBlockLead)}
@@ -1550,7 +1550,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                 />
               ))}
               {/* One "Agents" block: delegations the user armed (advisor,
-                  worker, child tasks) and the provider's own agent tree share a
+                  worker, delegated tasks) and the provider's own agent tree share a
                   header instead of stacking two lists that both say "agents". */}
               <DelegationsBlock
                 exchanges={delegationExchanges}
@@ -1563,7 +1563,7 @@ export const TurnActivitySurface = memo(function TurnActivitySurface(
                 statusNoteFor={delegationStatusNoteFor}
                 busyExchangeId={
                   childController.busyDelegationKey
-                    ? `child-task:${childController.busyDelegationKey}`
+                    ? `delegated-task:${childController.busyDelegationKey}`
                     : null
                 }
                 defaultExpandedIds={defaultExpandedDelegationIds}

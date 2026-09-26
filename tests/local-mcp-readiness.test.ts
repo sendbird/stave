@@ -150,7 +150,7 @@ describe("local MCP readiness", () => {
     });
 
     expect(
-      describeLocalMcpBlock({ readiness, capability: "Delegated child tasks" }),
-    ).toContain("Delegated child tasks");
+      describeLocalMcpBlock({ readiness, capability: "Delegated delegated tasks" }),
+    ).toContain("Delegated delegated tasks");
   });
 });

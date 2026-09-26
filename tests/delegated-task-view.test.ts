@@ -1,30 +1,30 @@
 import { describe, expect, test } from "bun:test";
 import {
-  CHILD_TASK_DETACHED_REASON,
-  CHILD_TASK_STOPPED_REASON,
-  resolveChildTaskControls,
-  type ChildTaskActionResponse,
-  type ChildTaskSummary,
-} from "@/lib/runs/child-task";
+  DELEGATED_TASK_DETACHED_REASON,
+  DELEGATED_TASK_STOPPED_REASON,
+  resolveDelegatedTaskControls,
+  type DelegatedTaskActionResponse,
+  type DelegatedTaskSummary,
+} from "@/lib/runs/delegated-task";
 import {
-  buildChildTaskExpectedIdentity,
-  describeChildTaskPhase,
-  resolveChildTaskActionError,
-  selectChildTaskBlockedKinds,
-  sortChildTaskRows,
-} from "@/lib/runs/child-task-view";
+  buildDelegatedTaskExpectedIdentity,
+  describeDelegatedTaskPhase,
+  resolveDelegatedTaskActionError,
+  selectDelegatedTaskBlockedKinds,
+  sortDelegatedTaskRows,
+} from "@/lib/runs/delegated-task-view";
 
 function buildChild(
-  overrides: Partial<ChildTaskSummary> = {},
-): ChildTaskSummary {
+  overrides: Partial<DelegatedTaskSummary> = {},
+): DelegatedTaskSummary {
   return {
     runId: "child-task:task-parent:review",
     stepId: "child-task:task-parent:review:turn",
     parentTaskId: "task-parent",
     delegationKey: "review",
-    childTaskId: "task-child",
-    childWorkspaceId: "workspace-child",
-    childTurnId: null,
+    delegatedTaskId: "task-child",
+    delegatedWorkspaceId: "workspace-child",
+    delegatedTurnId: null,
     providerId: "claude-code",
     lifecycle: "detached",
     phase: "running",
@@ -37,44 +37,44 @@ function buildChild(
   };
 }
 
-describe("describeChildTaskPhase", () => {
+describe("describeDelegatedTaskPhase", () => {
   test("names every live and terminal phase", () => {
-    expect(describeChildTaskPhase(buildChild({ phase: "pending" }))).toEqual({
+    expect(describeDelegatedTaskPhase(buildChild({ phase: "pending" }))).toEqual({
       label: "Queued",
       tone: "waiting",
       blocked: false,
     });
-    expect(describeChildTaskPhase(buildChild({ phase: "running" }))).toEqual({
+    expect(describeDelegatedTaskPhase(buildChild({ phase: "running" }))).toEqual({
       label: "Running",
       tone: "active",
       blocked: false,
     });
-    expect(describeChildTaskPhase(buildChild({ phase: "waiting" }))).toEqual({
+    expect(describeDelegatedTaskPhase(buildChild({ phase: "waiting" }))).toEqual({
       label: "Waiting",
       tone: "waiting",
       blocked: false,
     });
-    expect(describeChildTaskPhase(buildChild({ phase: "completed" }))).toEqual({
+    expect(describeDelegatedTaskPhase(buildChild({ phase: "completed" }))).toEqual({
       label: "Completed",
       tone: "done",
       blocked: false,
     });
-    expect(describeChildTaskPhase(buildChild({ phase: "failed" }))).toEqual({
+    expect(describeDelegatedTaskPhase(buildChild({ phase: "failed" }))).toEqual({
       label: "Failed",
       tone: "failed",
       blocked: false,
     });
     expect(
-      describeChildTaskPhase(buildChild({ phase: "interrupted" })),
+      describeDelegatedTaskPhase(buildChild({ phase: "interrupted" })),
     ).toEqual({ label: "Interrupted", tone: "failed", blocked: false });
   });
 
   test("reads a detached delegation apart from a stopped one", () => {
-    const detached = describeChildTaskPhase(
-      buildChild({ phase: "cancelled", reason: CHILD_TASK_DETACHED_REASON }),
+    const detached = describeDelegatedTaskPhase(
+      buildChild({ phase: "cancelled", reason: DELEGATED_TASK_DETACHED_REASON }),
     );
-    const stopped = describeChildTaskPhase(
-      buildChild({ phase: "cancelled", reason: CHILD_TASK_STOPPED_REASON }),
+    const stopped = describeDelegatedTaskPhase(
+      buildChild({ phase: "cancelled", reason: DELEGATED_TASK_STOPPED_REASON }),
     );
 
     expect(detached).toEqual({ label: "Detached", tone: "released", blocked: false });
@@ -85,16 +85,16 @@ describe("describeChildTaskPhase", () => {
 
   test("treats a cancelled delegation without a reason as a stop", () => {
     expect(
-      describeChildTaskPhase(buildChild({ phase: "cancelled", reason: null })),
+      describeDelegatedTaskPhase(buildChild({ phase: "cancelled", reason: null })),
     ).toEqual({ label: "Stopped", tone: "failed", blocked: false });
   });
 
   test("a blocked child reads as needing a person, not as running", () => {
     expect(
-      describeChildTaskPhase(buildChild({ phase: "running" }), "approval"),
+      describeDelegatedTaskPhase(buildChild({ phase: "running" }), "approval"),
     ).toEqual({ label: "Needs approval", tone: "waiting", blocked: true });
     expect(
-      describeChildTaskPhase(buildChild({ phase: "running" }), "user-input"),
+      describeDelegatedTaskPhase(buildChild({ phase: "running" }), "user-input"),
     ).toEqual({ label: "Needs answer", tone: "waiting", blocked: true });
   });
 
@@ -102,12 +102,12 @@ describe("describeChildTaskPhase", () => {
     // A leftover request on a finished child is history, so the terminal phase
     // still wins and the row keeps reading as completed.
     expect(
-      describeChildTaskPhase(buildChild({ phase: "completed" }), "approval"),
+      describeDelegatedTaskPhase(buildChild({ phase: "completed" }), "approval"),
     ).toEqual({ label: "Completed", tone: "done", blocked: false });
   });
 });
 
-describe("selectChildTaskBlockedKinds", () => {
+describe("selectDelegatedTaskBlockedKinds", () => {
   const child = buildChild();
 
   function buildNotification(overrides: Record<string, unknown> = {}) {
@@ -121,7 +121,7 @@ describe("selectChildTaskBlockedKinds", () => {
 
   test("maps an open request onto the delegation that raised it", () => {
     expect(
-      selectChildTaskBlockedKinds({
+      selectDelegatedTaskBlockedKinds({
         children: [child],
         notifications: [buildNotification()],
       }),
@@ -130,7 +130,7 @@ describe("selectChildTaskBlockedKinds", () => {
 
   test("prefers an unanswered question over an unanswered approval", () => {
     expect(
-      selectChildTaskBlockedKinds({
+      selectDelegatedTaskBlockedKinds({
         children: [child],
         notifications: [
           buildNotification(),
@@ -143,7 +143,7 @@ describe("selectChildTaskBlockedKinds", () => {
 
   test("ignores resolved requests, other tasks, and unrelated kinds", () => {
     expect(
-      selectChildTaskBlockedKinds({
+      selectDelegatedTaskBlockedKinds({
         children: [child],
         notifications: [
           buildNotification({ resolvedAt: "2026-08-10T00:00:02.000Z" }),
@@ -157,7 +157,7 @@ describe("selectChildTaskBlockedKinds", () => {
 
   test("a settled delegation cannot be blocked", () => {
     expect(
-      selectChildTaskBlockedKinds({
+      selectDelegatedTaskBlockedKinds({
         children: [buildChild({ phase: "completed" })],
         notifications: [buildNotification()],
       }),
@@ -165,10 +165,10 @@ describe("selectChildTaskBlockedKinds", () => {
   });
 });
 
-describe("resolveChildTaskControls matrix", () => {
+describe("resolveDelegatedTaskControls matrix", () => {
   test("offers follow-up only on a detached child that is waiting", () => {
     expect(
-      resolveChildTaskControls(
+      resolveDelegatedTaskControls(
         buildChild({ lifecycle: "detached", phase: "waiting" }),
       ),
     ).toEqual({
@@ -178,7 +178,7 @@ describe("resolveChildTaskControls matrix", () => {
       canRetry: false,
     });
     expect(
-      resolveChildTaskControls(
+      resolveDelegatedTaskControls(
         buildChild({ lifecycle: "one-turn", phase: "waiting" }),
       ).canFollowUp,
     ).toBe(false);
@@ -186,7 +186,7 @@ describe("resolveChildTaskControls matrix", () => {
 
   test("offers stop and detach while the child is live", () => {
     for (const phase of ["pending", "running", "waiting"] as const) {
-      const controls = resolveChildTaskControls(buildChild({ phase }));
+      const controls = resolveDelegatedTaskControls(buildChild({ phase }));
       expect(controls.canStop).toBe(true);
       expect(controls.canDetach).toBe(true);
       expect(controls.canRetry).toBe(false);
@@ -195,30 +195,30 @@ describe("resolveChildTaskControls matrix", () => {
 
   test("offers retry only on an unfinished ending with attempts left", () => {
     expect(
-      resolveChildTaskControls(buildChild({ phase: "failed", attempt: 0 }))
+      resolveDelegatedTaskControls(buildChild({ phase: "failed", attempt: 0 }))
         .canRetry,
     ).toBe(true);
     expect(
-      resolveChildTaskControls(buildChild({ phase: "interrupted", attempt: 2 }))
+      resolveDelegatedTaskControls(buildChild({ phase: "interrupted", attempt: 2 }))
         .canRetry,
     ).toBe(true);
     expect(
-      resolveChildTaskControls(buildChild({ phase: "failed", attempt: 3 }))
+      resolveDelegatedTaskControls(buildChild({ phase: "failed", attempt: 3 }))
         .canRetry,
     ).toBe(false);
     expect(
-      resolveChildTaskControls(buildChild({ phase: "completed" })).canRetry,
+      resolveDelegatedTaskControls(buildChild({ phase: "completed" })).canRetry,
     ).toBe(false);
     expect(
-      resolveChildTaskControls(
-        buildChild({ phase: "cancelled", reason: CHILD_TASK_DETACHED_REASON }),
+      resolveDelegatedTaskControls(
+        buildChild({ phase: "cancelled", reason: DELEGATED_TASK_DETACHED_REASON }),
       ).canRetry,
     ).toBe(false);
   });
 
   test("offers nothing but Open on a completed child", () => {
     expect(
-      resolveChildTaskControls(buildChild({ phase: "completed" })),
+      resolveDelegatedTaskControls(buildChild({ phase: "completed" })),
     ).toEqual({
       canFollowUp: false,
       canStop: false,
@@ -228,25 +228,25 @@ describe("resolveChildTaskControls matrix", () => {
   });
 });
 
-describe("buildChildTaskExpectedIdentity", () => {
+describe("buildDelegatedTaskExpectedIdentity", () => {
   test("carries the identity the row was rendered against", () => {
     expect(
-      buildChildTaskExpectedIdentity(
+      buildDelegatedTaskExpectedIdentity(
         buildChild({ phase: "waiting", attempt: 1 }),
       ),
     ).toEqual({
-      childTaskId: "task-child",
-      childWorkspaceId: "workspace-child",
+      delegatedTaskId: "task-child",
+      delegatedWorkspaceId: "workspace-child",
       attempt: 1,
       phase: "waiting",
     });
   });
 });
 
-describe("resolveChildTaskActionError", () => {
+describe("resolveDelegatedTaskActionError", () => {
   function buildResponse(
-    overrides: Partial<ChildTaskActionResponse> = {},
-  ): ChildTaskActionResponse {
+    overrides: Partial<DelegatedTaskActionResponse> = {},
+  ): DelegatedTaskActionResponse {
     return {
       accepted: true,
       duplicate: false,
@@ -258,12 +258,12 @@ describe("resolveChildTaskActionError", () => {
   }
 
   test("reports no error for an accepted action", () => {
-    expect(resolveChildTaskActionError(buildResponse())).toBeNull();
+    expect(resolveDelegatedTaskActionError(buildResponse())).toBeNull();
   });
 
   test("surfaces the refusal sentence as-is", () => {
     expect(
-      resolveChildTaskActionError(
+      resolveDelegatedTaskActionError(
         buildResponse({
           accepted: false,
           reason: "stale-identity",
@@ -275,7 +275,7 @@ describe("resolveChildTaskActionError", () => {
 
   test("falls back to the reason's sentence when no message is carried", () => {
     expect(
-      resolveChildTaskActionError(
+      resolveDelegatedTaskActionError(
         buildResponse({ accepted: false, reason: "already-active" }),
       ),
     ).toBe("This child is already running.");
@@ -283,12 +283,12 @@ describe("resolveChildTaskActionError", () => {
 
   test("never lets a refusal pass silently", () => {
     expect(
-      resolveChildTaskActionError(buildResponse({ accepted: false })),
+      resolveDelegatedTaskActionError(buildResponse({ accepted: false })),
     ).toBeTruthy();
   });
 });
 
-describe("sortChildTaskRows", () => {
+describe("sortDelegatedTaskRows", () => {
   test("puts the most recently moved delegation first without mutating input", () => {
     const rows = [
       buildChild({
@@ -300,7 +300,7 @@ describe("sortChildTaskRows", () => {
         updatedAt: "2026-08-10T00:00:09.000Z",
       }),
     ];
-    const sorted = sortChildTaskRows(rows);
+    const sorted = sortDelegatedTaskRows(rows);
 
     expect(sorted.map((row) => row.delegationKey)).toEqual(["newer", "older"]);
     expect(rows.map((row) => row.delegationKey)).toEqual(["older", "newer"]);

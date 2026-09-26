@@ -13,17 +13,17 @@ import type {
   ProviderRuntimeOptions,
 } from "../../src/lib/providers/provider.types";
 import {
-  CHILD_TASK_LIST_LIMIT,
-  isActiveChildTaskPhase,
-  toChildTaskSummary,
-  type ChildTaskSummary,
-} from "../../src/lib/runs/child-task";
+  DELEGATED_TASK_LIST_LIMIT,
+  isActiveDelegatedTaskPhase,
+  toDelegatedTaskSummary,
+  type DelegatedTaskSummary,
+} from "../../src/lib/runs/delegated-task";
 import {
   TaskCompletionStatusSchema,
   WAKE_UP_LIMITS,
   type TaskCompletionSignal,
 } from "../../src/lib/supervision/wake-up-policy";
-import { buildChildTaskReceiptsRetrievedContext } from "../../src/lib/task-context/child-task-receipts";
+import { buildDelegatedTaskReceiptsRetrievedContext } from "../../src/lib/task-context/delegated-task-receipts";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "../../src/lib/task-context/current-task-awareness";
 import { toPersistenceTurnUsage } from "../persistence/turn-usage";
 import type { PersistenceTurnUsage } from "../persistence/types";
@@ -1735,35 +1735,35 @@ export async function createWorkspace(args: {
 }
 
 /**
- * Child-task receipts for one parent, read straight from the ledger. Returns an
+ * Delegated-task receipts for one parent, read straight from the ledger. Returns an
  * empty list rather than throwing: a parent's turn must never fail because its
  * delegation bookkeeping could not be read.
  */
-function listChildTaskSummaries(args: {
+function listDelegatedTaskSummaries(args: {
   parentTaskId: string;
   limit?: number;
-}): ChildTaskSummary[] {
+}): DelegatedTaskSummary[] {
   try {
     return ensureHostServicePersistenceReady()
       .listRunAggregatesByOrigin({
         originKind: "task",
         originId: args.parentTaskId,
-        limit: args.limit ?? CHILD_TASK_LIST_LIMIT,
+        limit: args.limit ?? DELEGATED_TASK_LIST_LIMIT,
       })
       .flatMap((aggregate) => {
-        const summary = toChildTaskSummary(aggregate);
+        const summary = toDelegatedTaskSummary(aggregate);
         return summary ? [summary] : [];
       });
   } catch (error) {
     console.warn(
-      `[stave-mcp] failed to read child task receipts: ${String(error)}`,
+      `[stave-mcp] failed to read delegated task receipts: ${String(error)}`,
     );
     return [];
   }
 }
 
 /**
- * How deep the completion feed reads, as opposed to `CHILD_TASK_LIST_LIMIT`,
+ * How deep the completion feed reads, as opposed to `DELEGATED_TASK_LIST_LIMIT`,
  * which sizes a panel a human is looking at.
  *
  * These two limits answer different questions. Truncating a *display* list
@@ -1787,14 +1787,14 @@ const TASK_COMPLETION_FEED_LIMIT = WAKE_UP_LIMITS.maxCompletionFeedRows;
  * The supervisor's completion feed: delegated runs of one parent that have
  * reached a terminal status.
  *
- * Read-only, and derived from the same ledger rows the child-task surface
+ * Read-only, and derived from the same ledger rows the delegated-task surface
  * shows, so a completion wake-up can never disagree with what the user sees.
  * The supervisor decides what to do with these; this only reports them.
  */
 export function listTaskCompletionSignals(args: {
   taskId: string;
 }): TaskCompletionSignal[] {
-  return listChildTaskSummaries({
+  return listDelegatedTaskSummaries({
     parentTaskId: args.taskId,
     limit: TASK_COMPLETION_FEED_LIMIT,
   }).flatMap((summary) => {
@@ -1803,7 +1803,7 @@ export function listTaskCompletionSignals(args: {
     // delegation settles it into a terminal status. Documented in
     // docs/features/wake-ups.md — a completion wake-up observes
     // delegations that *end*, not detached children between turns.
-    if (isActiveChildTaskPhase(summary.phase)) {
+    if (isActiveDelegatedTaskPhase(summary.phase)) {
       return [];
     }
     const status = TaskCompletionStatusSchema.safeParse(summary.phase);
@@ -1814,7 +1814,7 @@ export function listTaskCompletionSignals(args: {
       {
         runId: summary.runId,
         stepId: summary.stepId,
-        childTaskId: summary.childTaskId,
+        delegatedTaskId: summary.delegatedTaskId,
         providerId: summary.providerId,
         status: status.data,
         reason: summary.reason
@@ -1837,8 +1837,8 @@ export async function runTask(args: {
   taskId?: string;
   title?: string;
   /**
-   * Set only by the child-task coordinator. Denormalizes the run-ledger
-   * delegation link onto the child task row so listing surfaces can tell a
+   * Set only by the delegated-task coordinator. Denormalizes the run-ledger
+   * delegation link onto the delegated task row so listing surfaces can tell a
    * child from a peer task. Ignored when continuing an existing task: the link
    * is frozen at creation.
    */
@@ -1898,8 +1898,8 @@ export async function runTask(args: {
     }
   }
 
-  // A delegation pre-mints its child task id on the run ledger before the
-  // child task exists, so the coordinator path (parentTaskId set) may name a
+  // A delegation pre-mints its delegated task id on the run ledger before the
+  // delegated task exists, so the coordinator path (parentTaskId set) may name a
   // task that is not in this workspace yet — it is created below with that
   // exact id so the ledger row and the task row agree on identity. Every
   // other caller passing taskId means "continue this task", where a miss is
@@ -2037,8 +2037,8 @@ export async function runTask(args: {
       : null;
   // A parent that delegated work sees where its children stand before it takes
   // its next turn — identity, phase and reason, never the child's transcript.
-  const childTaskReceiptsPart = buildChildTaskReceiptsRetrievedContext({
-    children: listChildTaskSummaries({ parentTaskId: task.id }),
+  const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
+    children: listDelegatedTaskSummaries({ parentTaskId: task.id }),
   });
   const projectMemoryPart = buildProjectMemoryPartForTurn({
     projectPath: registration.project.projectPath,
@@ -2070,7 +2070,7 @@ export async function runTask(args: {
         workspaceInformation: session.workspaceInformation,
       }),
       ...(projectMemoryPart ? [projectMemoryPart] : []),
-      ...(childTaskReceiptsPart ? [childTaskReceiptsPart] : []),
+      ...(delegatedTaskReceiptsPart ? [delegatedTaskReceiptsPart] : []),
       ...(informationReferencesPart ? [informationReferencesPart] : []),
       ...(args.retrievedContextParts ?? []),
     ],
@@ -2316,9 +2316,9 @@ export async function getTaskStatus(args: {
 }
 
 /**
- * Clears the delegation link on a child task so it re-enters ordinary
+ * Clears the delegation link on a delegated task so it re-enters ordinary
  * workspace listings. `parentTaskId` is the listing predicate
- * (`isDelegatedChildTask`), so a detached child that kept it would stay hidden
+ * (`isDelegatedTask`), so a detached child that kept it would stay hidden
  * from every workspace-level task listing forever — a possibly still-running
  * session nobody can find once its parent is archived. Detach's contract is
  * "the child carries on as an ordinary task", and this is what makes that

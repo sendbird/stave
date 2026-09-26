@@ -151,40 +151,40 @@
     {
       "id": "agent-platform-boundaries",
       "title": "Agent platform layers stay distinct",
-      "invariant": "An automation cannot target an existing task, a wake-up must target one and cannot mint one on either trigger, the supervisor records wake-ups without importing the ledger that records delegated execution, the run ledger never imports execution runtimes, the secondary executor never writes ledger rows, a child task survives a restart while a worker never does, utility inference stays mechanical, and the work queue assigns one lane per workspace.",
+      "invariant": "An automation cannot target an existing task, a wake-up must target one and cannot mint one on either trigger, the supervisor records wake-ups without importing the ledger that records delegated execution, the run ledger never imports execution runtimes, the secondary executor never writes ledger rows, a delegated task survives a restart while a worker never does, utility inference stays mechanical, and the work queue assigns one lane per workspace.",
       "testFiles": [
         "tests/agent-platform-boundaries.test.ts",
-        "tests/child-task-coordinator.test.ts",
-        "tests/child-task-ledger.test.ts",
+        "tests/delegated-task-coordinator.test.ts",
+        "tests/delegated-task-ledger.test.ts",
         "tests/fleet-sidebar-work-queue.test.ts"
       ],
       "assertionRefs": [
         "docs/architecture/agent-platform-taxonomy.md",
-        "electron/main/runs/child-task-coordinator.ts",
+        "electron/main/runs/delegated-task-coordinator.ts",
         "src/lib/fleet/sidebar-work-queue.ts",
         "src/lib/providers/utility-inference.ts",
         "src/lib/automations.ts",
-        "src/lib/runs/child-task.ts",
+        "src/lib/runs/delegated-task.ts",
         "src/lib/supervision/wake-up-policy.ts"
       ]
     },
     {
-      "id": "child-task-identity",
-      "title": "A child-task control never lands on the wrong child",
-      "invariant": "The delegation link is the only source of child parentage, so a child stays out of workspace-level listings while remaining fully hydrated and openable; every mutating control carries the identity its row was rendered against and is refused with a reason when the child task, workspace, attempt, phase, or turn has moved on; a follow-up never inherits permissions; and every refusal carries a sentence the surface can show as-is.",
+      "id": "delegated-task-identity",
+      "title": "A delegated-task control never lands on the wrong child",
+      "invariant": "The delegation link is the only source of child parentage, so a child stays out of workspace-level listings while remaining fully hydrated and openable; every mutating control carries the identity its row was rendered against and is refused with a reason when the delegated task, workspace, attempt, phase, or turn has moved on; a follow-up never inherits permissions; and every refusal carries a sentence the surface can show as-is.",
       "testFiles": [
-        "tests/child-task-identity-validation.test.ts",
-        "tests/child-task-ipc-contract.test.ts",
-        "tests/child-task-workspace-listing.test.ts",
-        "tests/child-task-rows.test.tsx"
+        "tests/delegated-task-identity-validation.test.ts",
+        "tests/delegated-task-ipc-contract.test.ts",
+        "tests/delegated-task-workspace-listing.test.ts",
+        "tests/delegated-task-rows.test.tsx"
       ],
       "assertionRefs": [
-        "src/lib/runs/child-task.ts",
+        "src/lib/runs/delegated-task.ts",
         "src/lib/tasks.ts",
-        "src/components/session/ChildTaskRows.tsx",
-        "electron/main/runs/child-task-coordinator.ts",
+        "src/components/session/DelegatedTaskRows.tsx",
+        "electron/main/runs/delegated-task-coordinator.ts",
         "electron/main/ipc/runs.ts",
-        "docs/features/child-tasks.md"
+        "docs/features/delegated-tasks.md"
       ]
     },
     {

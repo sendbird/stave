@@ -11,7 +11,7 @@
 - You want to run one of the AI CLIs against a folder you have not set up as a Stave project (a downloads folder, a one-off clone, a script directory).
 - You want the CLI's own terminal UI — including its native approval prompts, plan mode, model selection, and slash commands — rather than a Stave-rendered equivalent.
 - You want a session that survives switching or deleting projects, because it is not attached to any project or workspace.
-- Reach for a real **project** instead when you need Stave-rendered turns, worktrees, plans, the advisor, or child tasks.
+- Reach for a real **project** instead when you need Stave-rendered turns, worktrees, plans, the advisor, or delegated tasks.
 
 ## Before You Start
 
@@ -79,7 +79,7 @@
 - **One folder at a time.** Setting a new folder replaces the one every tab is running against.
 - **Fixed tabs, one per provider.** Claude Code, Codex, Cursor, and Kiro are always shown; you cannot add more tabs or additional folders. A new provider added to Stave gets a tab automatically — see [Adding A Provider](../developer/adding-a-provider.md).
 - **No Stave-rendered approvals, plan mode, or model picker.** The CLI's own interface owns all of that; Stave only hosts the terminal surface.
-- **Not a project.** The folder never appears in the project list or recents, and Standalone CLI does not use worktrees, plans, the advisor, or child tasks.
+- **Not a project.** The folder never appears in the project list or recents, and Standalone CLI does not use worktrees, plans, the advisor, or delegated tasks.
 - **Switching folders starts fresh for every tab.** Changing the folder in Settings restarts all four tabs and discards their conversations.
 - **Cursor resume depends on the network.** See Files And Data above; an offline or signed-out first start means that Cursor conversation is not resumable.
 

@@ -635,7 +635,7 @@ export function buildTurnActivityItems(args: {
   turnStartedAt?: number | null;
   /**
    * This turn's Advisor grant, if one was minted. Rendered here rather than
-   * only in the floating card so subagents, child tasks and consults are all
+   * only in the floating card so subagents, delegated tasks and consults are all
    * countable from the same shelf.
    */
   advisor?: AdvisorExchangeSnapshot | null;

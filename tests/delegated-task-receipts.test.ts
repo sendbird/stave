@@ -1,16 +1,16 @@
 import { describe, expect, test } from "bun:test";
-import { buildChildTaskReceiptsRetrievedContext } from "../src/lib/task-context/child-task-receipts";
-import type { ChildTaskSummary } from "../src/lib/runs/child-task";
+import { buildDelegatedTaskReceiptsRetrievedContext } from "../src/lib/task-context/delegated-task-receipts";
+import type { DelegatedTaskSummary } from "../src/lib/runs/delegated-task";
 
-function summary(overrides: Partial<ChildTaskSummary> = {}): ChildTaskSummary {
+function summary(overrides: Partial<DelegatedTaskSummary> = {}): DelegatedTaskSummary {
   return {
     runId: "child-task:parent-1:docs",
     stepId: "child-task:parent-1:docs:turn",
     parentTaskId: "parent-1",
     delegationKey: "docs",
-    childTaskId: "child-1",
-    childWorkspaceId: "workspace-child",
-    childTurnId: "turn-1",
+    delegatedTaskId: "child-1",
+    delegatedWorkspaceId: "workspace-child",
+    delegatedTurnId: "turn-1",
     providerId: "codex",
     lifecycle: "one-turn",
     phase: "completed",
@@ -23,42 +23,42 @@ function summary(overrides: Partial<ChildTaskSummary> = {}): ChildTaskSummary {
   };
 }
 
-describe("child task receipts context", () => {
+describe("delegated task receipts context", () => {
   test("a task with no delegations injects nothing", () => {
-    expect(buildChildTaskReceiptsRetrievedContext({ children: [] })).toBeNull();
+    expect(buildDelegatedTaskReceiptsRetrievedContext({ children: [] })).toBeNull();
   });
 
   test("renders identity, phase and reason with live children first", () => {
-    const part = buildChildTaskReceiptsRetrievedContext({
+    const part = buildDelegatedTaskReceiptsRetrievedContext({
       children: [
         summary({ delegationKey: "finished", phase: "completed" }),
         summary({
           delegationKey: "live",
           phase: "running",
-          childTaskId: "child-2",
+          delegatedTaskId: "child-2",
           reason: null,
         }),
         summary({
           delegationKey: "broken",
           phase: "failed",
-          childTaskId: "child-3",
+          delegatedTaskId: "child-3",
           reason: "Provider exploded",
         }),
       ],
     });
 
-    expect(part?.sourceId).toBe("stave:child-tasks");
+    expect(part?.sourceId).toBe("stave:delegated-tasks");
     const lines = part?.content.split("\n") ?? [];
     const delegationLines = lines.filter((line) =>
       line.startsWith("- delegation:"),
     );
     expect(delegationLines[0]).toContain("delegation: live");
-    expect(part?.content).toContain("child task: child-3 in workspace");
+    expect(part?.content).toContain("delegated task: child-3 in workspace");
     expect(part?.content).toContain("reason: Provider exploded");
   });
 
   test("carries no child output, only the fields the parent may see", () => {
-    const part = buildChildTaskReceiptsRetrievedContext({
+    const part = buildDelegatedTaskReceiptsRetrievedContext({
       children: [summary({ reason: "Stopped by the parent." })],
     });
 
@@ -89,12 +89,12 @@ describe("child task receipts context", () => {
     const children = Array.from({ length: 23 }, (_, index) =>
       summary({
         delegationKey: `key-${index}`,
-        childTaskId: `child-${index}`,
+        delegatedTaskId: `child-${index}`,
         updatedAt: `2026-08-10T00:${String(index).padStart(2, "0")}:00.000Z`,
       }),
     );
 
-    const part = buildChildTaskReceiptsRetrievedContext({ children });
+    const part = buildDelegatedTaskReceiptsRetrievedContext({ children });
 
     const delegationLines = (part?.content ?? "")
       .split("\n")

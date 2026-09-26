@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { createChildTaskCoordinator } from "../electron/main/runs/child-task-coordinator";
+import { createDelegatedTaskCoordinator } from "../electron/main/runs/delegated-task-coordinator";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
 import { AutomationUpsertInputSchema } from "../src/lib/automations";
 import { WakeUpUpsertInputSchema } from "../src/lib/supervision/wake-up-policy";
@@ -50,20 +50,20 @@ describe("Agent platform boundaries", () => {
     expect(definitionKeys.filter((key) => /task/i.test(key))).toEqual([]);
   });
 
-  test("a worker never survives a restart; a child task always does", async () => {
+  test("a worker never survives a restart; a delegated task always does", async () => {
     // The ledger's blanket restart sweep closes every step whose execution died
-    // with the process. A child task is a real task that may still be running,
+    // with the process. A delegated task is a real task that may still be running,
     // so it is excluded there and reconciled against the live task instead. If
     // that exclusion is ever removed, a surviving child is silently reported as
     // interrupted.
     const ledger = readSource("electron/persistence/run-ledger-store.ts");
-    expect(ledger).toContain("kind != 'child-task-turn'");
+    expect(ledger).toContain("kind != 'delegated-task-turn'");
 
-    // The child-task coordinator owns that recovery, and it asks the live task
+    // The delegated-task coordinator owns that recovery, and it asks the live task
     // what happened rather than assuming.
     const store = new RunLedgerStore(new Database(":memory:"));
     const statusCalls: string[] = [];
-    const coordinator = createChildTaskCoordinator({
+    const coordinator = createDelegatedTaskCoordinator({
       getLedger: () => ({
         getRunAggregate: (args) => store.getAggregate(args),
         claimRunStep: (args) => store.claimStep(args),
@@ -105,7 +105,7 @@ describe("Agent platform boundaries", () => {
     );
     expect(
       workerImports.filter((specifier) =>
-        /run-ledger-store|runs\/child-task|persistence\//.test(specifier),
+        /run-ledger-store|runs\/delegated-task|persistence\//.test(specifier),
       ),
     ).toEqual([]);
   });
@@ -154,7 +154,7 @@ describe("Agent platform boundaries", () => {
 
   test("supervisor tables record wake-ups while the ledger records delegated execution", () => {
     // A wake-up has no claim, no lease, and no receipts. If the supervisor
-    // ever imported the ledger store or the child-task coordinator it would be
+    // ever imported the ledger store or the delegated-task coordinator it would be
     // one refactor away from writing runs — which is the collapse this
     // separation exists to prevent. It reads completions through an injected
     // function precisely so that stays true.
@@ -164,7 +164,7 @@ describe("Agent platform boundaries", () => {
 
     expect(
       importedModules(supervisorRuntime).filter((specifier) =>
-        /run-ledger-store|child-task-coordinator|runs\/run-domain/.test(
+        /run-ledger-store|delegated-task-coordinator|runs\/run-domain/.test(
           specifier ?? "",
         ),
       ),
@@ -180,7 +180,7 @@ describe("Agent platform boundaries", () => {
   test("the ledger records and never executes: run domain and store import no provider runtime", () => {
     for (const file of [
       "src/lib/runs/run-domain.ts",
-      "src/lib/runs/child-task.ts",
+      "src/lib/runs/delegated-task.ts",
       "electron/persistence/run-ledger-store.ts",
     ]) {
       const imports = importedModules(readSource(file));

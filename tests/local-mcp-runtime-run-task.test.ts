@@ -163,7 +163,7 @@ const fakeStore = {
   ],
   loadWorkspaceSnapshot: ({ workspaceId }: { workspaceId: string }) =>
     loadFakeWorkspaceSnapshot(workspaceId),
-  // `runTask` injects child-task receipts into every managed turn. These tests
+  // `runTask` injects delegated-task receipts into every managed turn. These tests
   // delegate nothing, so an empty ledger is the honest answer; without it the
   // runtime falls back and logs a read failure on each run.
   listRunAggregatesByOrigin: () => [],
@@ -430,8 +430,8 @@ describe("local MCP runtime runTask", () => {
     ).toBe("Claude Sonnet 5 · 1M · X-High · Fast");
   });
 
-  test("creates a delegated child task with the ledger's pre-minted id", async () => {
-    // The child-task coordinator claims the ledger row with a derived task id
+  test("creates a delegated task with the ledger's pre-minted id", async () => {
+    // The delegated-task coordinator claims the ledger row with a derived task id
     // before the task exists, then starts the first turn with that id. The
     // delegation path (parentTaskId set) must create the task under that
     // exact id instead of rejecting it as an unknown task.

@@ -20,20 +20,20 @@ interface ActivityMessageState {
 export function selectActivityMessages(args: {
   state: ActivityMessageState;
   parentTaskId: string;
-  childTaskId?: string;
-  childWorkspaceId?: string;
+  delegatedTaskId?: string;
+  delegatedWorkspaceId?: string;
 }): ChatMessage[] {
-  if (!args.childTaskId) {
+  if (!args.delegatedTaskId) {
     return args.state.messagesByTask[args.parentTaskId] ?? [];
   }
-  const workspaceId = args.childWorkspaceId ??
-    args.state.taskWorkspaceIdById[args.childTaskId];
+  const workspaceId = args.delegatedWorkspaceId ??
+    args.state.taskWorkspaceIdById[args.delegatedTaskId];
   if (!workspaceId) return [];
   if (workspaceId === args.state.activeWorkspaceId) {
-    return args.state.messagesByTask[args.childTaskId] ?? [];
+    return args.state.messagesByTask[args.delegatedTaskId] ?? [];
   }
   return args.state.workspaceRuntimeCacheById[workspaceId]
-    ?.messagesByTask[args.childTaskId] ?? [];
+    ?.messagesByTask[args.delegatedTaskId] ?? [];
 }
 
 function describePart(part: MessagePart, role: ChatMessage["role"]) {

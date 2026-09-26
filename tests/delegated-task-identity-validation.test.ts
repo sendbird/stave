@@ -1,21 +1,21 @@
 import { describe, expect, test } from "bun:test";
 import {
-  validateChildTaskIdentity,
-  type ChildTaskSummary,
-} from "@/lib/runs/child-task";
-import { buildChildTaskExpectedIdentity } from "@/lib/runs/child-task-view";
+  validateDelegatedTaskIdentity,
+  type DelegatedTaskSummary,
+} from "@/lib/runs/delegated-task";
+import { buildDelegatedTaskExpectedIdentity } from "@/lib/runs/delegated-task-view";
 
 function buildChild(
-  overrides: Partial<ChildTaskSummary> = {},
-): ChildTaskSummary {
+  overrides: Partial<DelegatedTaskSummary> = {},
+): DelegatedTaskSummary {
   return {
     runId: "child-task:task-parent:review",
     stepId: "child-task:task-parent:review:turn",
     parentTaskId: "task-parent",
     delegationKey: "review",
-    childTaskId: "task-child",
-    childWorkspaceId: "workspace-child",
-    childTurnId: null,
+    delegatedTaskId: "task-child",
+    delegatedWorkspaceId: "workspace-child",
+    delegatedTurnId: null,
     providerId: "claude-code",
     lifecycle: "detached",
     phase: "running",
@@ -34,21 +34,21 @@ function buildChild(
  * identity has since moved is refused with a reason a surface can show, rather
  * than being applied to whatever delegation now occupies the key.
  */
-describe("validateChildTaskIdentity", () => {
+describe("validateDelegatedTaskIdentity", () => {
   test("accepts an identity that still matches the live delegation", () => {
     const child = buildChild();
 
     expect(
-      validateChildTaskIdentity({
-        expected: buildChildTaskExpectedIdentity(child),
+      validateDelegatedTaskIdentity({
+        expected: buildDelegatedTaskExpectedIdentity(child),
         child,
       }),
     ).toEqual({ ok: true });
   });
 
   test("refuses with a reason when the delegation left the ledger", () => {
-    const result = validateChildTaskIdentity({
-      expected: buildChildTaskExpectedIdentity(buildChild()),
+    const result = validateDelegatedTaskIdentity({
+      expected: buildDelegatedTaskExpectedIdentity(buildChild()),
       child: null,
     });
 
@@ -60,10 +60,10 @@ describe("validateChildTaskIdentity", () => {
     expect(result.message.length).toBeGreaterThan(0);
   });
 
-  test("refuses when the delegation key now names a different child task", () => {
-    const result = validateChildTaskIdentity({
-      expected: buildChildTaskExpectedIdentity(buildChild()),
-      child: buildChild({ childTaskId: "task-other-child" }),
+  test("refuses when the delegation key now names a different delegated task", () => {
+    const result = validateDelegatedTaskIdentity({
+      expected: buildDelegatedTaskExpectedIdentity(buildChild()),
+      child: buildChild({ delegatedTaskId: "task-other-child" }),
     });
 
     expect(result.ok).toBe(false);
@@ -75,9 +75,9 @@ describe("validateChildTaskIdentity", () => {
   });
 
   test("refuses when the child moved to a different workspace", () => {
-    const result = validateChildTaskIdentity({
-      expected: buildChildTaskExpectedIdentity(buildChild()),
-      child: buildChild({ childWorkspaceId: "workspace-other" }),
+    const result = validateDelegatedTaskIdentity({
+      expected: buildDelegatedTaskExpectedIdentity(buildChild()),
+      child: buildChild({ delegatedWorkspaceId: "workspace-other" }),
     });
 
     expect(result.ok).toBe(false);
@@ -88,8 +88,8 @@ describe("validateChildTaskIdentity", () => {
   });
 
   test("refuses a control prepared before a retry bumped the attempt", () => {
-    const result = validateChildTaskIdentity({
-      expected: buildChildTaskExpectedIdentity(buildChild({ attempt: 0 })),
+    const result = validateDelegatedTaskIdentity({
+      expected: buildDelegatedTaskExpectedIdentity(buildChild({ attempt: 0 })),
       child: buildChild({ attempt: 1 }),
     });
 
@@ -102,8 +102,8 @@ describe("validateChildTaskIdentity", () => {
   });
 
   test("refuses a control prepared against a phase the child has left", () => {
-    const result = validateChildTaskIdentity({
-      expected: buildChildTaskExpectedIdentity(buildChild({ phase: "running" })),
+    const result = validateDelegatedTaskIdentity({
+      expected: buildDelegatedTaskExpectedIdentity(buildChild({ phase: "running" })),
       child: buildChild({ phase: "completed" }),
     });
 
@@ -118,10 +118,10 @@ describe("validateChildTaskIdentity", () => {
     const child = buildChild({ phase: "completed" });
 
     expect(
-      validateChildTaskIdentity({
+      validateDelegatedTaskIdentity({
         expected: {
-          childTaskId: child.childTaskId,
-          childWorkspaceId: child.childWorkspaceId,
+          delegatedTaskId: child.delegatedTaskId,
+          delegatedWorkspaceId: child.delegatedWorkspaceId,
           attempt: child.attempt,
         },
         child,
@@ -130,14 +130,14 @@ describe("validateChildTaskIdentity", () => {
   });
 
   test("refuses when the child's turn changed under the control", () => {
-    const result = validateChildTaskIdentity({
+    const result = validateDelegatedTaskIdentity({
       expected: {
-        childTaskId: "task-child",
-        childWorkspaceId: "workspace-child",
+        delegatedTaskId: "task-child",
+        delegatedWorkspaceId: "workspace-child",
         attempt: 0,
-        childTurnId: "turn-first",
+        delegatedTurnId: "turn-first",
       },
-      child: buildChild({ childTurnId: "turn-second" }),
+      child: buildChild({ delegatedTurnId: "turn-second" }),
     });
 
     expect(result.ok).toBe(false);
@@ -150,26 +150,26 @@ describe("validateChildTaskIdentity", () => {
 
   test("ignores the turn when the caller did not pin one", () => {
     expect(
-      validateChildTaskIdentity({
+      validateDelegatedTaskIdentity({
         expected: {
-          childTaskId: "task-child",
-          childWorkspaceId: "workspace-child",
+          delegatedTaskId: "task-child",
+          delegatedWorkspaceId: "workspace-child",
           attempt: 0,
         },
-        child: buildChild({ childTurnId: "turn-second" }),
+        child: buildChild({ delegatedTurnId: "turn-second" }),
       }),
     ).toEqual({ ok: true });
   });
 
   test("pins a null turn as a real expectation rather than an absent one", () => {
-    const result = validateChildTaskIdentity({
+    const result = validateDelegatedTaskIdentity({
       expected: {
-        childTaskId: "task-child",
-        childWorkspaceId: "workspace-child",
+        delegatedTaskId: "task-child",
+        delegatedWorkspaceId: "workspace-child",
         attempt: 0,
-        childTurnId: null,
+        delegatedTurnId: null,
       },
-      child: buildChild({ childTurnId: "turn-started" }),
+      child: buildChild({ delegatedTurnId: "turn-started" }),
     });
 
     expect(result.ok).toBe(false);

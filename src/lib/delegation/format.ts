@@ -22,7 +22,7 @@ export {
 
 /**
  * Title-case tier name for any provider's effort token. The Codex option
- * contract is a superset of Claude's scale, so both providers (and child-task
+ * contract is a superset of Claude's scale, so both providers (and delegated-task
  * and worker efforts, which reuse the same tokens) read the same words.
  */
 export function formatEffortLabel(effort: string): string {
@@ -179,11 +179,11 @@ export function exchangeStatusFromToolState(state: string): ExchangeStatus {
 }
 
 /**
- * Child-task phases onto the vocabulary. A cancelled child that was detached
+ * Delegated-task phases onto the vocabulary. A cancelled child that was detached
  * rather than stopped still reads as cancelled: the delegation ended, even if
  * the task carries on as an ordinary one.
  */
-export function exchangeStatusFromChildTaskPhase(
+export function exchangeStatusFromDelegatedTaskPhase(
   phase:
     | "pending"
     | "running"

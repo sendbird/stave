@@ -218,17 +218,17 @@ import type {
   SecondaryRunTransitionResponse,
 } from "../src/lib/runs/secondary-run";
 import type {
-  ChildTaskActionResponse,
-  ChildTaskDelegateArgs,
-  ChildTaskDetachArgs,
-  ChildTaskFollowUpArgs,
-  ChildTaskLinkArgs,
-  ChildTaskList,
-  ChildTaskListArgs,
-  ChildTaskRetryArgs,
-  ChildTaskStopArgs,
-  ChildTaskSummary,
-} from "../src/lib/runs/child-task";
+  DelegatedTaskActionResponse,
+  DelegateTaskArgs,
+  DelegatedTaskDetachArgs,
+  DelegatedTaskFollowUpArgs,
+  DelegatedTaskLinkArgs,
+  DelegatedTaskList,
+  DelegatedTaskListArgs,
+  DelegatedTaskRetryArgs,
+  DelegatedTaskStopArgs,
+  DelegatedTaskSummary,
+} from "../src/lib/runs/delegated-task";
 
 interface ProviderSlashCommand {
   name: string;
@@ -399,14 +399,14 @@ ipcRenderer.on(
   },
 );
 
-const childTaskChangeSubscribers = new Set<
+const delegatedTaskChangeSubscribers = new Set<
   (payload: { parentTaskId: string }) => void
 >();
 
 ipcRenderer.on(
-  "runs:child-tasks-changed",
+  "delegations:changed",
   (_event, payload: { parentTaskId: string }) => {
-    for (const subscriber of childTaskChangeSubscribers) {
+    for (const subscriber of delegatedTaskChangeSubscribers) {
       subscriber(payload);
     }
   },
@@ -999,38 +999,38 @@ contextBridge.exposeInMainWorld("api", {
       args: SecondaryRunReceiptListArgs,
     ): Promise<SecondaryRunReceiptList> =>
       ipcRenderer.invoke("runs:list-receipts", args),
-    delegateChildTask: (
-      args: ChildTaskDelegateArgs,
-    ): Promise<ChildTaskActionResponse> =>
-      ipcRenderer.invoke("runs:delegate-child-task", args),
-    listChildTasks: (args: ChildTaskListArgs): Promise<ChildTaskList> =>
-      ipcRenderer.invoke("runs:list-child-tasks", args),
-    followUpChildTask: (
-      args: ChildTaskFollowUpArgs,
-    ): Promise<ChildTaskActionResponse> =>
-      ipcRenderer.invoke("runs:follow-up-child-task", args),
-    retryChildTask: (
-      args: ChildTaskRetryArgs,
-    ): Promise<ChildTaskActionResponse> =>
-      ipcRenderer.invoke("runs:retry-child-task", args),
-    stopChildTask: (
-      args: ChildTaskStopArgs,
-    ): Promise<ChildTaskActionResponse> =>
-      ipcRenderer.invoke("runs:stop-child-task", args),
-    detachChildTask: (
-      args: ChildTaskDetachArgs,
-    ): Promise<ChildTaskActionResponse> =>
-      ipcRenderer.invoke("runs:detach-child-task", args),
-    getChildTaskLink: (
-      args: ChildTaskLinkArgs,
-    ): Promise<ChildTaskSummary | null> =>
-      ipcRenderer.invoke("runs:get-child-task-link", args),
-    onChildTasksChanged: (
+    delegateTask: (
+      args: DelegateTaskArgs,
+    ): Promise<DelegatedTaskActionResponse> =>
+      ipcRenderer.invoke("delegations:create", args),
+    listDelegatedTasks: (args: DelegatedTaskListArgs): Promise<DelegatedTaskList> =>
+      ipcRenderer.invoke("delegations:list", args),
+    followUpDelegatedTask: (
+      args: DelegatedTaskFollowUpArgs,
+    ): Promise<DelegatedTaskActionResponse> =>
+      ipcRenderer.invoke("delegations:follow-up", args),
+    retryDelegatedTask: (
+      args: DelegatedTaskRetryArgs,
+    ): Promise<DelegatedTaskActionResponse> =>
+      ipcRenderer.invoke("delegations:retry", args),
+    stopDelegatedTask: (
+      args: DelegatedTaskStopArgs,
+    ): Promise<DelegatedTaskActionResponse> =>
+      ipcRenderer.invoke("delegations:stop", args),
+    detachDelegatedTask: (
+      args: DelegatedTaskDetachArgs,
+    ): Promise<DelegatedTaskActionResponse> =>
+      ipcRenderer.invoke("delegations:detach", args),
+    getDelegatedTaskLink: (
+      args: DelegatedTaskLinkArgs,
+    ): Promise<DelegatedTaskSummary | null> =>
+      ipcRenderer.invoke("delegations:get-link", args),
+    onDelegatedTasksChanged: (
       callback: (payload: { parentTaskId: string }) => void,
     ) => {
-      childTaskChangeSubscribers.add(callback);
+      delegatedTaskChangeSubscribers.add(callback);
       return () => {
-        childTaskChangeSubscribers.delete(callback);
+        delegatedTaskChangeSubscribers.delete(callback);
       };
     },
   },

@@ -19,18 +19,18 @@ import {
   type WorkerExecutionMetadata,
 } from "@/lib/providers/worker-mode";
 import type { ProviderTurnWorkItem } from "@/lib/providers/turn-status";
-import type { ChildTaskSummary } from "@/lib/runs/child-task";
+import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import {
-  describeChildTaskPhase,
-  type ChildTaskBlockedKind,
-} from "@/lib/runs/child-task-view";
+  describeDelegatedTaskPhase,
+  type DelegatedTaskBlockedKind,
+} from "@/lib/runs/delegated-task-view";
 import type {
   AgentNode,
   WorkGraph,
 } from "@/lib/work-graph/work-graph.types";
 import {
   exchangeStatusFromAdvisorOutcome,
-  exchangeStatusFromChildTaskPhase,
+  exchangeStatusFromDelegatedTaskPhase,
   exchangeStatusFromToolState,
   exchangeStatusFromWorkGraphStatus,
   isExchangeStatusLive,
@@ -44,7 +44,7 @@ import {
 export type DelegationExchangeKind =
   | "advisor"
   | "worker"
-  | "child-task"
+  | "delegated-task"
   | "subagent";
 
 /** Where the delegate's model came from. */
@@ -55,7 +55,7 @@ export type DelegationIdentitySource =
   | "provider-default";
 
 export interface DelegationIdentity {
-  /** `Advisor`, `Worker`, `Child task`, `Subagent`. */
+  /** `Advisor`, `Worker`, `Delegated task`, `Subagent`. */
   role: string;
   providerId?: ProviderId;
   model?: string;
@@ -139,8 +139,8 @@ export interface DelegationSetup {
 export interface DelegationExchangeRef {
   toolUseId?: string;
   delegationKey?: string;
-  childTaskId?: string;
-  childWorkspaceId?: string;
+  delegatedTaskId?: string;
+  delegatedWorkspaceId?: string;
   entryKey?: string;
   turnId?: string;
   nodeKey?: string;
@@ -439,12 +439,12 @@ function parseIsoMs(value: string | null | undefined): number | undefined {
   return Number.isFinite(ms) ? ms : undefined;
 }
 
-export function fromChildTask(
-  child: ChildTaskSummary,
-  opts?: { blockedKind?: ChildTaskBlockedKind | null; prompt?: string },
+export function fromDelegatedTask(
+  child: DelegatedTaskSummary,
+  opts?: { blockedKind?: DelegatedTaskBlockedKind | null; prompt?: string },
 ): DelegationExchange {
-  const phase = describeChildTaskPhase(child, opts?.blockedKind ?? null);
-  const status: ExchangeStatus = exchangeStatusFromChildTaskPhase(child.phase);
+  const phase = describeDelegatedTaskPhase(child, opts?.blockedKind ?? null);
+  const status: ExchangeStatus = exchangeStatusFromDelegatedTaskPhase(child.phase);
   const failed = status === "failed" || status === "cancelled";
   const actions: DelegationAction[] = [{ id: "open", label: "Open" }];
   const live = child.phase === "pending" || child.phase === "running" || child.phase === "waiting";
@@ -458,11 +458,11 @@ export function fromChildTask(
   const startedAt = parseIsoMs(child.createdAt) ?? null;
   const endedAt = parseIsoMs(child.completedAt);
   return {
-    id: `child-task:${child.delegationKey}`,
-    kind: "child-task",
+    id: `delegated-task:${child.delegationKey}`,
+    kind: "delegated-task",
     title: child.delegationKey,
     identity: {
-      role: "Child task",
+      role: "Delegated task",
       modelEvidence: "requested",
       providerId: child.providerId,
       ...(child.requestedModel ? { model: child.requestedModel } : {}),
@@ -491,8 +491,8 @@ export function fromChildTask(
     },
     ref: {
       delegationKey: child.delegationKey,
-      childTaskId: child.childTaskId,
-      childWorkspaceId: child.childWorkspaceId,
+      delegatedTaskId: child.delegatedTaskId,
+      delegatedWorkspaceId: child.delegatedWorkspaceId,
     },
   };
 }
@@ -542,7 +542,7 @@ export function fromWorkGraphNode(
         ? { toolUseId: node.spawnedByToolUseId }
         : {}),
       ...(node.delegationKey ? { delegationKey: node.delegationKey } : {}),
-      ...(node.childTaskId ? { childTaskId: node.childTaskId } : {}),
+      ...(node.delegatedTaskId ? { delegatedTaskId: node.delegatedTaskId } : {}),
     },
   };
 }
@@ -624,8 +624,8 @@ export interface SelectDelegationExchangesArgs {
   workerExecutionByToolUseId?: Readonly<
     Record<string, WorkerExecutionMetadata | undefined>
   >;
-  childTasks?: readonly ChildTaskSummary[];
-  childBlockedByDelegationKey?: Readonly<Record<string, ChildTaskBlockedKind>>;
+  delegatedTasks?: readonly DelegatedTaskSummary[];
+  childBlockedByDelegationKey?: Readonly<Record<string, DelegatedTaskBlockedKind>>;
   workGraph?: WorkGraph | null;
   /** Include provider subagents from the graph (ledger children are skipped). */
   includeSubagents?: boolean;
@@ -698,9 +698,9 @@ export function selectDelegationExchanges(
     }
     exchanges.push(fromWorkerWorkItem(item));
   }
-  for (const child of args.childTasks ?? []) {
+  for (const child of args.delegatedTasks ?? []) {
     exchanges.push(
-      fromChildTask(child, {
+      fromDelegatedTask(child, {
         blockedKind: args.childBlockedByDelegationKey?.[child.delegationKey] ?? null,
       }),
     );

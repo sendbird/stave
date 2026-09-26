@@ -1,9 +1,9 @@
 import { useState } from "react";
-import { useChildTasks } from "@/components/session/useChildTasks";
+import { useDelegatedTasks } from "@/components/session/useDelegatedTasks";
 /** Development-only lifecycle probe for delayed IPC replies. */
 export function ChildListingProbe() {
   const [enabled, setEnabled] = useState(true);
-  const listing = useChildTasks({ parentTaskId: "probe-parent", enabled });
+  const listing = useDelegatedTasks({ parentTaskId: "probe-parent", enabled });
   return (
     <main>
       <button onClick={() => setEnabled(false)}>Disable listing</button>

@@ -98,7 +98,7 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         sourcePath: "docs/features/turn-activity.md",
         title: "Turn Activity",
         description:
-          "Choose a docked, floating, or right-rail view for following tools, child tasks, todos, and other live turn data.",
+          "Choose a docked, floating, or right-rail view for following tools, delegated tasks, todos, and other live turn data.",
       },
       {
         routePath: "standalone-cli",
@@ -144,11 +144,11 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Schedule recurring Claude or Codex tasks with their own environment, model, permissions, and Information resources.",
       },
       {
-        routePath: "child-tasks",
-        sourcePath: "docs/features/child-tasks.md",
-        title: "Child Tasks",
+        routePath: "delegated-tasks",
+        sourcePath: "docs/features/delegated-tasks.md",
+        title: "Delegated Tasks",
         description:
-          "Delegate work from one task to a durable child task, optionally on the other provider or in its own worktree.",
+          "Delegate work from one task to a durable delegated task, optionally on the other provider or in its own worktree.",
       },
       {
         routePath: "latest-turn-summary",

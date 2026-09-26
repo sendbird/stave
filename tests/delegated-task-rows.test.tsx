@@ -1,25 +1,25 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { ChildTaskRowsSurface } from "@/components/session/ChildTaskRows";
+import { DelegatedTaskRowsSurface } from "@/components/session/DelegatedTaskRows";
 import {
-  CHILD_TASK_DETACHED_REASON,
-  type ChildTaskActionResponse,
-  type ChildTaskSummary,
-} from "@/lib/runs/child-task";
-import { resolveChildTaskActionError } from "@/lib/runs/child-task-view";
+  DELEGATED_TASK_DETACHED_REASON,
+  type DelegatedTaskActionResponse,
+  type DelegatedTaskSummary,
+} from "@/lib/runs/delegated-task";
+import { resolveDelegatedTaskActionError } from "@/lib/runs/delegated-task-view";
 
 function buildChild(
-  overrides: Partial<ChildTaskSummary> = {},
-): ChildTaskSummary {
+  overrides: Partial<DelegatedTaskSummary> = {},
+): DelegatedTaskSummary {
   return {
     runId: "child-task:task-parent:review",
     stepId: "child-task:task-parent:review:turn",
     parentTaskId: "task-parent",
     delegationKey: "review",
-    childTaskId: "task-child",
-    childWorkspaceId: "workspace-child",
-    childTurnId: null,
+    delegatedTaskId: "task-child",
+    delegatedWorkspaceId: "workspace-child",
+    delegatedTurnId: null,
     providerId: "claude-code",
     lifecycle: "detached",
     phase: "waiting",
@@ -33,12 +33,12 @@ function buildChild(
 }
 
 function renderRows(
-  rows: readonly ChildTaskSummary[],
+  rows: readonly DelegatedTaskSummary[],
   errorByDelegationKey?: Record<string, string>,
   blockedByDelegationKey?: Record<string, "user-input" | "approval">,
 ) {
   return renderToStaticMarkup(
-    createElement(ChildTaskRowsSurface, {
+    createElement(DelegatedTaskRowsSurface, {
       rows,
       errorByDelegationKey,
       blockedByDelegationKey,
@@ -52,7 +52,7 @@ function renderRows(
   );
 }
 
-describe("ChildTaskRowsSurface", () => {
+describe("DelegatedTaskRowsSurface", () => {
   test("renders nothing at all when the task has no children", () => {
     expect(renderRows([])).toBe("");
   });
@@ -90,11 +90,11 @@ describe("ChildTaskRowsSurface", () => {
 
   test("reads a detached delegation apart from the row's reason line", () => {
     const html = renderRows([
-      buildChild({ phase: "cancelled", reason: CHILD_TASK_DETACHED_REASON }),
+      buildChild({ phase: "cancelled", reason: DELEGATED_TASK_DETACHED_REASON }),
     ]);
 
     expect(html).toContain("Detached");
-    expect(html).toContain(CHILD_TASK_DETACHED_REASON);
+    expect(html).toContain(DELEGATED_TASK_DETACHED_REASON);
   });
 
   test("shows the attempt only once the delegation has been retried", () => {
@@ -110,7 +110,7 @@ describe("ChildTaskRowsSurface", () => {
     const html = renderRows([running], undefined, { review: "approval" });
     expect(html).toContain("Needs approval");
     expect(html).not.toContain(">Running<");
-    expect(html).toContain('data-child-task-blocked="true"');
+    expect(html).toContain('data-delegated-task-blocked="true"');
     expect(html).toContain("waiting on a tool approval");
   });
 
@@ -126,12 +126,12 @@ describe("ChildTaskRowsSurface", () => {
   test("leaves an unblocked row unmarked", () => {
     const html = renderRows([buildChild({ phase: "running" })]);
 
-    expect(html).not.toContain("data-child-task-blocked");
+    expect(html).not.toContain("data-delegated-task-blocked");
     expect(html).not.toContain("Needs approval");
   });
 
   test("surfaces a refused action's message on the row it was sent from", () => {
-    const refusal: ChildTaskActionResponse = {
+    const refusal: DelegatedTaskActionResponse = {
       accepted: false,
       duplicate: false,
       reason: "stale-identity",
@@ -139,7 +139,7 @@ describe("ChildTaskRowsSurface", () => {
         "The child was retried after this control was shown. Review the latest attempt.",
       child: null,
     };
-    const rowError = resolveChildTaskActionError(refusal);
+    const rowError = resolveDelegatedTaskActionError(refusal);
     expect(rowError).toBe(refusal.message);
 
     const html = renderRows([buildChild()], { review: rowError ?? "" });

@@ -1,8 +1,8 @@
-import { buildChildTaskRuntimeOptions } from "../../../src/lib/runs/child-task-runtime";
-import type { ChildTaskHostPort } from "./child-task-coordinator";
+import { buildDelegatedTaskRuntimeOptions } from "../../../src/lib/runs/delegated-task-runtime";
+import type { DelegatedTaskHostPort } from "./delegated-task-coordinator";
 
 /**
- * The adapter between the child-task coordinator and the real task machinery.
+ * The adapter between the delegated-task coordinator and the real task machinery.
  *
  * Its one non-obvious responsibility is *when* `runTask` resolves. The local
  * MCP `run-task` action resolves as soon as the provider turn has started —
@@ -18,26 +18,26 @@ import type { ChildTaskHostPort } from "./child-task-coordinator";
  * never emitted at all (a hard-stopped turn, a restarted host).
  *
  * Built from injected primitives so tests can drive a fake turn feed; the
- * production wiring lives in `child-task-coordinator-instance.ts`.
+ * production wiring lives in `delegated-task-coordinator-instance.ts`.
  */
 
 const DEFAULT_TURN_END_POLL_INTERVAL_MS = 15_000;
 
-export interface ChildTaskTurnUpdate {
+export interface DelegatedTaskTurnUpdate {
   workspaceId: string;
   taskId: string;
   turnId: string;
   done: boolean;
 }
 
-export interface ChildTaskHostTaskStatus {
+export interface DelegatedTaskHostTaskStatus {
   activeTurnId: string | null;
   latestTurnId: string | null;
   latestTurnCompletedAt: string | null;
   latestTurnError: string | null;
 }
 
-export interface ChildTaskHostPortDependencies {
+export interface DelegatedTaskHostPortDependencies {
   listKnownProjects: () => Promise<
     Array<{
       projectPath: string;
@@ -58,7 +58,7 @@ export interface ChildTaskHostPortDependencies {
     workspaceId: string;
     taskId: string;
     turnId?: string;
-  }) => Promise<ChildTaskHostTaskStatus>;
+  }) => Promise<DelegatedTaskHostTaskStatus>;
   /** Starts a provider turn and resolves at turn start — the MCP contract. */
   startTaskTurn: (args: {
     workspaceId: string;
@@ -67,20 +67,20 @@ export interface ChildTaskHostPortDependencies {
     prompt: string;
     title?: string;
     provider: "claude-code" | "codex";
-    runtimeOptions: ReturnType<typeof buildChildTaskRuntimeOptions>;
+    runtimeOptions: ReturnType<typeof buildDelegatedTaskRuntimeOptions>;
   }) => Promise<{ turnId: string }>;
   stopTask: (args: {
     workspaceId: string;
     taskId: string;
   }) => Promise<unknown>;
-  /** Clears the delegation stamp on a detached child task. */
+  /** Clears the delegation stamp on a detached delegated task. */
   releaseTaskParent: (args: {
     workspaceId: string;
     taskId: string;
   }) => Promise<unknown>;
   /** Push feed of persisted turn updates; returns an unsubscribe. */
   subscribeTaskTurnUpdated: (
-    listener: (update: ChildTaskTurnUpdate) => void,
+    listener: (update: DelegatedTaskTurnUpdate) => void,
   ) => () => void;
   pollIntervalMs?: number;
 }
@@ -90,9 +90,9 @@ function isNotFoundError(error: unknown) {
   return /\bnot found\b/i.test(message);
 }
 
-export function createChildTaskHostPort(
-  dependencies: ChildTaskHostPortDependencies,
-): ChildTaskHostPort {
+export function createDelegatedTaskHostPort(
+  dependencies: DelegatedTaskHostPortDependencies,
+): DelegatedTaskHostPort {
   const pollIntervalMs =
     dependencies.pollIntervalMs ?? DEFAULT_TURN_END_POLL_INTERVAL_MS;
 
@@ -257,7 +257,7 @@ export function createChildTaskHostPort(
         prompt,
         ...(title ? { title } : {}),
         provider: providerId,
-        runtimeOptions: buildChildTaskRuntimeOptions({
+        runtimeOptions: buildDelegatedTaskRuntimeOptions({
           providerId,
           model,
           effort,

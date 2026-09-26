@@ -6,7 +6,7 @@ import {
   getRespondingTasks,
   getTaskCounts,
   getVisibleTasks,
-  isDelegatedChildTask,
+  isDelegatedTask,
   reconcileTasksWithPersistedArchival,
   selectTaskHistoryEntries,
 } from "@/lib/tasks";
@@ -15,7 +15,7 @@ import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
 import type { Task } from "@/types/chat";
 
 /**
- * A delegated child task lives in a workspace task list like any other row, but
+ * A delegated task lives in a workspace task list like any other row, but
  * it is only ever meant to be read under the parent that delegated it. These
  * cover the two halves of that: the listing surfaces drop it, and the paths that
  * deliberately walk every task keep it.
@@ -35,7 +35,7 @@ function buildTask(overrides: Partial<Task> = {}): Task {
   };
 }
 
-function buildChildTask(overrides: Partial<Task> = {}): Task {
+function buildDelegatedTask(overrides: Partial<Task> = {}): Task {
   return buildTask({
     id: "task-child",
     title: "Review the checkout fix",
@@ -47,17 +47,17 @@ function buildChildTask(overrides: Partial<Task> = {}): Task {
   });
 }
 
-describe("isDelegatedChildTask", () => {
+describe("isDelegatedTask", () => {
   test("marks only a task that carries a parent link", () => {
-    expect(isDelegatedChildTask(buildChildTask())).toBe(true);
-    expect(isDelegatedChildTask(buildTask())).toBe(false);
-    expect(isDelegatedChildTask(buildTask({ parentTaskId: null }))).toBe(false);
+    expect(isDelegatedTask(buildDelegatedTask())).toBe(true);
+    expect(isDelegatedTask(buildTask())).toBe(false);
+    expect(isDelegatedTask(buildTask({ parentTaskId: null }))).toBe(false);
   });
 });
 
-describe("workspace task listings exclude delegated child tasks", () => {
+describe("workspace task listings exclude delegated tasks", () => {
   const parent = buildTask();
-  const child = buildChildTask();
+  const child = buildDelegatedTask();
   const tasks = [parent, child];
 
   test("getVisibleTasks drops the child under every filter", () => {
@@ -79,7 +79,7 @@ describe("workspace task listings exclude delegated child tasks", () => {
   });
 
   test("task history never offers a child as a past task", () => {
-    // No open tabs at all, so every non-child task qualifies for history.
+    // No open tabs at all, so every non-delegated task qualifies for history.
     const entries = selectTaskHistoryEntries({ tasks, openTaskTabIds: [] });
     expect(entries.map((task) => task.id)).toEqual(["task-parent"]);
   });
@@ -131,7 +131,7 @@ describe("paths that walk every task still see delegated children", () => {
     // Guards the quit/update warning: a child running a provider turn is real
     // in-flight work, so hiding it from listings must not hide it from here.
     const responding = getRespondingTasks({
-      tasks: [buildTask(), buildChildTask()],
+      tasks: [buildTask(), buildDelegatedTask()],
       activeTurnIdsByTask: { "task-child": "turn-child" },
     });
 
@@ -140,7 +140,7 @@ describe("paths that walk every task still see delegated children", () => {
 
   test("archival reconciliation still reaches a child row", () => {
     const reconciled = reconcileTasksWithPersistedArchival({
-      tasks: [buildTask(), buildChildTask()],
+      tasks: [buildTask(), buildDelegatedTask()],
       persistedTasks: [
         { id: "task-child", archivedAt: "2026-08-10T02:00:00.000Z" },
       ],
@@ -193,7 +193,7 @@ describe("hydration of persisted task rows", () => {
     const [task] = built.tasks;
     expect(built.tasks).toHaveLength(1);
     expect(task?.parentTaskId).toBeUndefined();
-    expect(isDelegatedChildTask(task as Task)).toBe(false);
+    expect(isDelegatedTask(task as Task)).toBe(false);
     // No migration ran, so control normalization is still the only rewrite.
     expect(task?.controlMode).toBe("interactive");
     expect(task?.controlOwner).toBe("stave");

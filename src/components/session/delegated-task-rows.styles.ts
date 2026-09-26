@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 
-export const childTaskRowsStyles = stylex.create({
+export const delegatedTaskRowsStyles = stylex.create({
   row: {
     minWidth: 0,
     borderRadius: vars["--ads-radius-control"],
@@ -55,7 +55,7 @@ export const childTaskRowsStyles = stylex.create({
     fontVariantNumeric: "tabular-nums",
     color: vars["--ads-color-text-muted"],
   },
-  // Consequential prose — why a child task is blocked, why it stopped, what
+  // Consequential prose — why a delegated task is blocked, why it stopped, what
   // failed. Micro is the badge-count step, not a step for text a user has to
   // read to act on.
   blockedHint: {
@@ -161,7 +161,7 @@ export const childTaskRowsStyles = stylex.create({
 });
 
 /** The phase tones, one style object per tone, colors from `vars`. */
-export const childTaskPhaseToneStyles = stylex.create({
+export const delegatedTaskPhaseToneStyles = stylex.create({
   active: {
     borderColor: vars["--ads-color-accent"],
     backgroundColor: vars["--ads-color-accent-soft"],

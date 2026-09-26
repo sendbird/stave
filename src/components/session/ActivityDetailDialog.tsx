@@ -72,21 +72,21 @@ export function ActivityDetailDialog(props: {
   const { selection } = props;
   const node = selection.nodeKey ? props.graph?.nodesByKey[selection.nodeKey] : undefined;
   const exchange = node ? fromWorkGraphNode(node, props.graph) : selection.exchange;
-  const childTaskId = exchange?.ref.childTaskId;
-  const childWorkspaceId = useAppStore(state => childTaskId
-    ? exchange?.ref.childWorkspaceId ?? state.taskWorkspaceIdById[childTaskId]
+  const delegatedTaskId = exchange?.ref.delegatedTaskId;
+  const delegatedWorkspaceId = useAppStore(state => delegatedTaskId
+    ? exchange?.ref.delegatedWorkspaceId ?? state.taskWorkspaceIdById[delegatedTaskId]
     : undefined);
   const childStreamConnected = useAppStore(state => Boolean(
-    childTaskId &&
-    childWorkspaceId &&
-    (state.activeWorkspaceId === childWorkspaceId || state.workspaceRuntimeCacheById[childWorkspaceId]),
+    delegatedTaskId &&
+    delegatedWorkspaceId &&
+    (state.activeWorkspaceId === delegatedWorkspaceId || state.workspaceRuntimeCacheById[delegatedWorkspaceId]),
   ));
   const messages = useAppStore(state => {
     return selectActivityMessages({
       state,
       parentTaskId: props.taskId,
-      childTaskId,
-      childWorkspaceId: exchange?.ref.childWorkspaceId,
+      delegatedTaskId,
+      delegatedWorkspaceId: exchange?.ref.delegatedWorkspaceId,
     });
   });
   const parentMessages = useAppStore(state => state.messagesByTask[props.taskId] ?? EMPTY);
@@ -108,23 +108,23 @@ export function ActivityDetailDialog(props: {
   const [savedLoading, setSavedLoading] = useState(false);
   const allMessages = useMemo(() => {
     const map = new Map(saved.map(message => [message.id, message]));
-    for (const message of childTaskId ? messages : parentMessages) map.set(message.id, message);
+    for (const message of delegatedTaskId ? messages : parentMessages) map.set(message.id, message);
     return [...map.values()];
-  }, [childTaskId, messages, parentMessages, saved]);
+  }, [delegatedTaskId, messages, parentMessages, saved]);
   const tool = allMessages.flatMap(message => message.parts).find(part => part.type === "tool_use" && part.toolUseId === toolUseId);
   const agentId = node?.agentId ?? exchange?.ref.agentId ?? (tool?.type === "tool_use" ? tool.agentId : undefined);
   const provider = exchange?.identity.providerId ?? props.graph?.providerId;
   const cursor = provider ? sessions?.[provider] : undefined;
   const sessionId = typeof cursor === "string" ? cursor : cursor?.nativeSessionId;
   const live = exchange ? ["running", "queued"].includes(exchange.outcome.status) : tool?.type === "tool_use" && ["input-streaming", "input-available"].includes(tool.state);
-  const canReadProviderHistory = !childTaskId && Boolean(
+  const canReadProviderHistory = !delegatedTaskId && Boolean(
     agentId &&
     sessionId &&
     props.projectPath &&
     (provider === "codex" || provider === "claude-code"),
   );
-  const targetKey = childTaskId
-    ? `child:${childWorkspaceId ?? "unknown"}:${childTaskId}`
+  const targetKey = delegatedTaskId
+    ? `child:${delegatedWorkspaceId ?? "unknown"}:${delegatedTaskId}`
     : `agent:${provider ?? "unknown"}:${agentId ?? toolUseId ?? selection.title}`;
 
   useEffect(() => {
@@ -140,23 +140,23 @@ export function ActivityDetailDialog(props: {
 
   useEffect(() => {
     let cancelled = false;
-    const workspaceId = childTaskId ? childWorkspaceId : props.workspaceId;
+    const workspaceId = delegatedTaskId ? delegatedWorkspaceId : props.workspaceId;
     if (!workspaceId) return;
     setSavedLoading(true);
     void (async () => {
       const collected = new Map<string, ChatMessage>();
-      for (let pageOffset = 0; pageOffset <= (childTaskId ? offset : 0); pageOffset += 100) {
-        const page = await loadTaskMessagesPage({ workspaceId, taskId: childTaskId ?? props.taskId, limit: 100, offset: pageOffset, preserveStreaming: true });
+      for (let pageOffset = 0; pageOffset <= (delegatedTaskId ? offset : 0); pageOffset += 100) {
+        const page = await loadTaskMessagesPage({ workspaceId, taskId: delegatedTaskId ?? props.taskId, limit: 100, offset: pageOffset, preserveStreaming: true });
         if (cancelled) return;
         for (const message of [...page.messages].reverse()) collected.set(message.id, message);
-        if (childTaskId) setSavedNextOffset(page.hasMoreOlder ? pageOffset + page.limit : undefined);
+        if (delegatedTaskId) setSavedNextOffset(page.hasMoreOlder ? pageOffset + page.limit : undefined);
         if (!page.hasMoreOlder) break;
       }
       if (!cancelled) setSaved([...collected.values()].reverse());
     })().catch(error => { if (!cancelled) setError(String(error)); })
       .finally(() => { if (!cancelled) setSavedLoading(false); });
     return () => { cancelled = true; };
-  }, [childTaskId, childWorkspaceId, props.workspaceId, props.taskId, offset, savedRefresh]);
+  }, [delegatedTaskId, delegatedWorkspaceId, props.workspaceId, props.taskId, offset, savedRefresh]);
 
   useEffect(() => {
     if (!canReadProviderHistory || !agentId || !sessionId || !props.projectPath || (provider !== "codex" && provider !== "claude-code")) return;
@@ -191,7 +191,7 @@ export function ActivityDetailDialog(props: {
     currentEntries: ActivityLogEntry[];
     providerEntries: ActivityLogEntry[];
   }>(() => {
-    if (childTaskId) {
+    if (delegatedTaskId) {
       return {
         currentEntries: mergeActivityEntries(
           messagesToActivityEntries(saved, "saved"),
@@ -229,7 +229,7 @@ export function ActivityDetailDialog(props: {
       currentEntries: mergeActivityEntries(localEntries, progress),
       providerEntries: providerEntriesToActivityEntries(history),
     };
-  }, [agentId, childTaskId, exchange?.id, exchange?.outcome.progress, history, live, messages, parentMessages, saved, tool, toolUseId]);
+  }, [agentId, delegatedTaskId, exchange?.id, exchange?.outcome.progress, history, live, messages, parentMessages, saved, tool, toolUseId]);
   const entries = useMemo(
     () => [...providerEntries, ...currentEntries],
     [currentEntries, providerEntries],
@@ -245,12 +245,12 @@ export function ActivityDetailDialog(props: {
     : live
       ? "Running"
       : "Recorded";
-  const sourceLabel = childTaskId
+  const sourceLabel = delegatedTaskId
     ? live
       ? childStreamConnected
-        ? "Live child task stream"
+        ? "Live delegated task stream"
         : "Saved child transcript · reconnecting"
-      : "Child task transcript"
+      : "Delegated task transcript"
     : canReadProviderHistory
       ? live
         ? "Provider agent history · refreshes every 4 seconds"
@@ -261,15 +261,15 @@ export function ActivityDetailDialog(props: {
           ? "Waiting for turn events"
           : "Captured turn events";
   const emptyMessage = live
-    ? childTaskId
+    ? delegatedTaskId
       ? childStreamConnected
-        ? "Waiting for the child task’s first event."
+        ? "Waiting for the delegated task’s first event."
         : "No live child events are connected yet. Saved activity remains available."
       : canReadProviderHistory
         ? "Waiting for provider agent events."
         : "No per-agent events have been reported yet. Live status remains available in the activity tree."
     : "No event history was retained for this run. The assignment and returned result remain available below.";
-  const nextOffset = childTaskId ? savedNextOffset : historyResponse?.nextOffset;
+  const nextOffset = delegatedTaskId ? savedNextOffset : historyResponse?.nextOffset;
 
   return <Dialog open onOpenChange={open => { if (!open) props.onClose(); }}>
     <DialogContent xstyle={s.dialog}>
@@ -307,7 +307,7 @@ export function ActivityDetailDialog(props: {
             {filteredCurrentEntries.map((entry, index) => <ActivityEntryRow key={entry.id} entry={entry} initiallyOpen={!query && index === filteredCurrentEntries.length - 1} searching={Boolean(query)} />)}
           </div>
           {nextOffset !== undefined ? <Button variant="outline" disabled={loading || savedLoading} onClick={() => setOffset(nextOffset)}>Load older events</Button> : null}
-          <p className={sx(s.meta)}>{childTaskId ? "The live child transcript is merged with saved history; matching events appear once." : historyResponse?.detail ?? "Only events reported by this runtime are shown."}</p>
+          <p className={sx(s.meta)}>{delegatedTaskId ? "The live child transcript is merged with saved history; matching events appear once." : historyResponse?.detail ?? "Only events reported by this runtime are shown."}</p>
         </section>
         {exchange ? <ExchangeDetail exchange={exchange} nowMs={Date.now()} onAction={props.onAction} extraActions={props.renderExtraActions?.(exchange)} statusNote={props.statusNoteFor?.(exchange)} /> : null}
         {historyResponse?.model || historyResponse?.effort ? <p className={sx(s.meta)}>Thread configuration (may differ from execution): {historyResponse.model ?? "Model not reported"} · {historyResponse.effort ?? "Effort not reported"}. Current or last saved settings, not per-turn execution telemetry.</p> : null}

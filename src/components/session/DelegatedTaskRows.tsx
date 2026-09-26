@@ -14,53 +14,53 @@ import {
   useState,
 } from "react";
 import {
-  useChildTasks,
-  type ChildTaskActionResult,
-  type ChildTaskListingSource,
-} from "@/components/session/useChildTasks";
+  useDelegatedTasks,
+  type DelegatedTaskActionResult,
+  type DelegatedTaskListingSource,
+} from "@/components/session/useDelegatedTasks";
 import { Button, Textarea } from "@/components/ui";
 import { describeAgentIdentity } from "@/lib/delegation/format";
 import { AgentIdentity } from "@/components/delegation/AgentIdentity";
 import { sx, cx } from "@/components/ads/utils/stylex";
 import {
-  childTaskRowsStyles as styles,
-  childTaskPhaseToneStyles,
-} from "./child-task-rows.styles";
+  delegatedTaskRowsStyles as styles,
+  delegatedTaskPhaseToneStyles,
+} from "./delegated-task-rows.styles";
 import {
-  resolveChildTaskControls,
-  type ChildTaskExpectedIdentity,
-  type ChildTaskSummary,
-} from "@/lib/runs/child-task";
+  resolveDelegatedTaskControls,
+  type DelegatedTaskExpectedIdentity,
+  type DelegatedTaskSummary,
+} from "@/lib/runs/delegated-task";
 import {
-  buildChildTaskExpectedIdentity,
-  describeChildTaskPhase,
-  selectChildTaskBlockedKinds,
-  type ChildTaskBlockedKind,
-} from "@/lib/runs/child-task-view";
+  buildDelegatedTaskExpectedIdentity,
+  describeDelegatedTaskPhase,
+  selectDelegatedTaskBlockedKinds,
+  type DelegatedTaskBlockedKind,
+} from "@/lib/runs/delegated-task-view";
 import { useAppStore } from "@/store/app.store";
 
 /**
  * The delegations a parent task owns, listed on the parent's own surface. A row
  * shows who the child is, what phase it is in and why it ended — never the
- * child's transcript, which stays behind the child task's own surfaces.
+ * child's transcript, which stays behind the delegated task's own surfaces.
  */
 
-const BLOCKED_HINT: Record<ChildTaskBlockedKind, string> = {
+const BLOCKED_HINT: Record<DelegatedTaskBlockedKind, string> = {
   "user-input":
-    "This child task asked a question and cannot continue until it is answered.",
+    "This delegated task asked a question and cannot continue until it is answered.",
   approval:
-    "This child task is waiting on a tool approval, which expires if nobody responds.",
+    "This delegated task is waiting on a tool approval, which expires if nobody responds.",
 };
 
-type ChildTaskComposerKind = "follow-up" | "retry";
+type DelegatedTaskComposerKind = "follow-up" | "retry";
 
 const COMPOSER_COPY: Record<
-  ChildTaskComposerKind,
+  DelegatedTaskComposerKind,
   { label: string; placeholder: string; submit: string }
 > = {
   "follow-up": {
     label: "Follow-up turn",
-    placeholder: "What should the child task do next?",
+    placeholder: "What should the delegated task do next?",
     submit: "Send follow-up",
   },
   retry: {
@@ -70,19 +70,19 @@ const COMPOSER_COPY: Record<
   },
 };
 
-export interface ChildTaskRowActionHandlers {
-  onOpen: (child: ChildTaskSummary) => void;
-  onFollowUp: (child: ChildTaskSummary, prompt: string) => void;
-  onRetry: (child: ChildTaskSummary, prompt: string) => void;
-  onStop: (child: ChildTaskSummary) => void;
-  onDetach: (child: ChildTaskSummary) => void;
+export interface DelegatedTaskRowActionHandlers {
+  onOpen: (child: DelegatedTaskSummary) => void;
+  onFollowUp: (child: DelegatedTaskSummary, prompt: string) => void;
+  onRetry: (child: DelegatedTaskSummary, prompt: string) => void;
+  onStop: (child: DelegatedTaskSummary) => void;
+  onDetach: (child: DelegatedTaskSummary) => void;
 }
 
 /**
  * `Requested: GPT-5.3-Codex · High` — what the delegation asked for, through
  * the shared identity vocabulary so the row never prints a raw model id.
  */
-export function describeChildTaskRequest(child: ChildTaskSummary): string | null {
+export function describeDelegatedTaskRequest(child: DelegatedTaskSummary): string | null {
   if (!child.requestedModel && !child.requestedEffort) {
     return null;
   }
@@ -95,24 +95,24 @@ export function describeChildTaskRequest(child: ChildTaskSummary): string | null
 /**
  * The action row for one delegation — Open · Follow-up · Stop · Retry ·
  * Detach — plus the inline prompt composer the follow-up and retry need.
- * Shared by the child-task row here and the child-task exchange detail in the
+ * Shared by the delegated-task row here and the delegated-task exchange detail in the
  * Turn Activity shelf and the Delegations panel, so both surfaces offer the
  * same controls and the same refusals.
  */
-export function ChildTaskRowActions(
+export function DelegatedTaskRowActions(
   props: {
-    child: ChildTaskSummary;
+    child: DelegatedTaskSummary;
     busy: boolean;
-  } & ChildTaskRowActionHandlers,
+  } & DelegatedTaskRowActionHandlers,
 ) {
   const { child } = props;
   const composerId = useId();
-  const [composer, setComposer] = useState<ChildTaskComposerKind | null>(null);
+  const [composer, setComposer] = useState<DelegatedTaskComposerKind | null>(null);
   const [prompt, setPrompt] = useState("");
-  const controls = resolveChildTaskControls(child);
+  const controls = resolveDelegatedTaskControls(child);
   const copy = composer ? COMPOSER_COPY[composer] : null;
 
-  const openComposer = (kind: ChildTaskComposerKind) => {
+  const openComposer = (kind: DelegatedTaskComposerKind) => {
     setComposer((current) => (current === kind ? null : kind));
     setPrompt("");
   };
@@ -133,7 +133,7 @@ export function ChildTaskRowActions(
 
   return (
     <>
-      <div className={sx(styles.actionsRow)} data-testid="child-task-actions">
+      <div className={sx(styles.actionsRow)} data-testid="delegated-task-actions">
         <Button
           type="button"
           size="xs"
@@ -242,22 +242,22 @@ export function ChildTaskRowActions(
   );
 }
 
-function ChildTaskRow(
+function DelegatedTaskRow(
   props: {
-    child: ChildTaskSummary;
+    child: DelegatedTaskSummary;
     busy: boolean;
-    blockedKind?: ChildTaskBlockedKind | null;
+    blockedKind?: DelegatedTaskBlockedKind | null;
     error?: string | null;
-  } & ChildTaskRowActionHandlers,
+  } & DelegatedTaskRowActionHandlers,
 ) {
   const { child } = props;
-  const phase = describeChildTaskPhase(child, props.blockedKind);
-  const requested = describeChildTaskRequest(child);
+  const phase = describeDelegatedTaskPhase(child, props.blockedKind);
+  const requested = describeDelegatedTaskRequest(child);
 
   return (
     <div
-      data-child-task-delegation-key={child.delegationKey}
-      data-child-task-blocked={phase.blocked ? "true" : undefined}
+      data-delegated-task-delegation-key={child.delegationKey}
+      data-delegated-task-blocked={phase.blocked ? "true" : undefined}
       className={sx(
         styles.row,
         phase.blocked ? styles.rowBorderBlocked : styles.rowBorderDefault,
@@ -267,7 +267,7 @@ function ChildTaskRow(
         <span
           className={sx(
             styles.phaseBadge,
-            childTaskPhaseToneStyles[phase.tone],
+            delegatedTaskPhaseToneStyles[phase.tone],
           )}
         >
           {phase.label}
@@ -275,7 +275,7 @@ function ChildTaskRow(
         <span className={sx(styles.delegationName)}>{child.delegationKey}</span>
         <span
           className={sx(styles.metaText)}
-          data-testid="child-task-requested-details"
+          data-testid="delegated-task-requested-details"
           title={requested ? `Requested ${requested}` : undefined}
         >
           <AgentIdentity
@@ -308,7 +308,7 @@ function ChildTaskRow(
         </p>
       ) : null}
 
-      <ChildTaskRowActions
+      <DelegatedTaskRowActions
         child={child}
         busy={props.busy}
         onOpen={props.onOpen}
@@ -321,17 +321,17 @@ function ChildTaskRow(
   );
 }
 
-export interface ChildTaskRowsSurfaceProps {
-  rows: readonly ChildTaskSummary[];
+export interface DelegatedTaskRowsSurfaceProps {
+  rows: readonly DelegatedTaskSummary[];
   errorByDelegationKey?: Readonly<Record<string, string>>;
   /** Delegations currently stalled on a question or a tool approval. */
-  blockedByDelegationKey?: Readonly<Record<string, ChildTaskBlockedKind>>;
+  blockedByDelegationKey?: Readonly<Record<string, DelegatedTaskBlockedKind>>;
   busyDelegationKey?: string | null;
-  onOpen: (child: ChildTaskSummary) => void;
-  onFollowUp: (child: ChildTaskSummary, prompt: string) => void;
-  onRetry: (child: ChildTaskSummary, prompt: string) => void;
-  onStop: (child: ChildTaskSummary) => void;
-  onDetach: (child: ChildTaskSummary) => void;
+  onOpen: (child: DelegatedTaskSummary) => void;
+  onFollowUp: (child: DelegatedTaskSummary, prompt: string) => void;
+  onRetry: (child: DelegatedTaskSummary, prompt: string) => void;
+  onStop: (child: DelegatedTaskSummary) => void;
+  onDetach: (child: DelegatedTaskSummary) => void;
   className?: string;
 }
 
@@ -339,20 +339,20 @@ export interface ChildTaskRowsSurfaceProps {
  * Fully controlled listing, so the same rows render from the turn-activity
  * shelf and from the Fleet control panel without either owning the transport.
  */
-export function ChildTaskRowsSurface(props: ChildTaskRowsSurfaceProps) {
+export function DelegatedTaskRowsSurface(props: DelegatedTaskRowsSurfaceProps) {
   if (!props.rows.length) {
     return null;
   }
   return (
     <section
       className={cx(sx(styles.sectionRoot), props.className)}
-      aria-label="Child tasks"
-      data-testid="child-task-rows"
+      aria-label="Delegated tasks"
+      data-testid="delegated-task-rows"
     >
-      <h3 className={sx(styles.sectionHeading)}>Child tasks</h3>
+      <h3 className={sx(styles.sectionHeading)}>Delegated tasks</h3>
       <div className={sx(styles.sectionList)}>
         {props.rows.map((child) => (
-          <ChildTaskRow
+          <DelegatedTaskRow
             key={child.delegationKey}
             child={child}
             busy={props.busyDelegationKey === child.delegationKey}
@@ -392,23 +392,23 @@ async function openTaskInWorkspace(args: {
   return useAppStore.getState().tasks.some((task) => task.id === args.taskId);
 }
 
-export interface ChildTaskRowController extends ChildTaskRowActionHandlers {
-  children: readonly ChildTaskSummary[];
+export interface DelegatedTaskRowController extends DelegatedTaskRowActionHandlers {
+  children: readonly DelegatedTaskSummary[];
   errorByDelegationKey: Readonly<Record<string, string>>;
-  blockedByDelegationKey: Readonly<Record<string, ChildTaskBlockedKind>>;
+  blockedByDelegationKey: Readonly<Record<string, DelegatedTaskBlockedKind>>;
   busyDelegationKey: string | null;
 }
 
 /**
- * The action plumbing behind a child-task listing: busy/refusal state per
+ * The action plumbing behind a delegated-task listing: busy/refusal state per
  * delegation, blocked-kind derivation, and the five handlers. Owned here so the
  * child rows and the exchange rows in the shelf and the panel run the same
  * actions through the same coordinator, with the same refusals shown.
  */
-export function useChildTaskRowController(args: {
-  source: ChildTaskListingSource;
+export function useDelegatedTaskRowController(args: {
+  source: DelegatedTaskListingSource;
   projectPath?: string | null;
-}): ChildTaskRowController {
+}): DelegatedTaskRowController {
   const { children, actions } = args.source;
   const [errorByDelegationKey, setErrorByDelegationKey] = useState<
     Record<string, string>
@@ -420,7 +420,7 @@ export function useChildTaskRowController(args: {
   // this never hands Zustand a fresh object to compare.
   const notifications = useAppStore((state) => state.notifications);
   const blockedByDelegationKey = useMemo(
-    () => selectChildTaskBlockedKinds({ children, notifications }),
+    () => selectDelegatedTaskBlockedKinds({ children, notifications }),
     [children, notifications],
   );
   const mountedRef = useRef(true);
@@ -433,7 +433,7 @@ export function useChildTaskRowController(args: {
   }, []);
 
   const applyResult = useCallback(
-    (delegationKey: string, result: ChildTaskActionResult) => {
+    (delegationKey: string, result: DelegatedTaskActionResult) => {
       if (!mountedRef.current) {
         return;
       }
@@ -460,13 +460,13 @@ export function useChildTaskRowController(args: {
 
   const runAction = useCallback(
     (
-      child: ChildTaskSummary,
+      child: DelegatedTaskSummary,
       invoke: (
-        expected: ChildTaskExpectedIdentity,
-      ) => Promise<ChildTaskActionResult>,
+        expected: DelegatedTaskExpectedIdentity,
+      ) => Promise<DelegatedTaskActionResult>,
     ) => {
       setBusyDelegationKey(child.delegationKey);
-      void invoke(buildChildTaskExpectedIdentity(child)).then((result) => {
+      void invoke(buildDelegatedTaskExpectedIdentity(child)).then((result) => {
         applyResult(child.delegationKey, result);
       });
     },
@@ -475,10 +475,10 @@ export function useChildTaskRowController(args: {
 
   const projectPath = args.projectPath;
   const handleOpen = useCallback(
-    (child: ChildTaskSummary) => {
+    (child: DelegatedTaskSummary) => {
       void openTaskInWorkspace({
-        taskId: child.childTaskId,
-        workspaceId: child.childWorkspaceId,
+        taskId: child.delegatedTaskId,
+        workspaceId: child.delegatedWorkspaceId,
         projectPath,
       })
         .then((opened) => {
@@ -487,13 +487,13 @@ export function useChildTaskRowController(args: {
           }
           applyResult(child.delegationKey, {
             ok: false,
-            error: "This child task's conversation could not be found.",
+            error: "This delegated task's conversation could not be found.",
           });
         })
         .catch(() => {
           applyResult(child.delegationKey, {
             ok: false,
-            error: "This child task could not be opened.",
+            error: "This delegated task could not be opened.",
           });
         });
     },
@@ -501,7 +501,7 @@ export function useChildTaskRowController(args: {
   );
 
   const handleFollowUp = useCallback(
-    (child: ChildTaskSummary, prompt: string) => {
+    (child: DelegatedTaskSummary, prompt: string) => {
       runAction(child, (expected) =>
         actions.followUp({
           delegationKey: child.delegationKey,
@@ -514,7 +514,7 @@ export function useChildTaskRowController(args: {
   );
 
   const handleRetry = useCallback(
-    (child: ChildTaskSummary, prompt: string) => {
+    (child: DelegatedTaskSummary, prompt: string) => {
       runAction(child, (expected) =>
         actions.retry({ delegationKey: child.delegationKey, expected, prompt }),
       );
@@ -523,7 +523,7 @@ export function useChildTaskRowController(args: {
   );
 
   const handleStop = useCallback(
-    (child: ChildTaskSummary) => {
+    (child: DelegatedTaskSummary) => {
       runAction(child, (expected) =>
         actions.stop({ delegationKey: child.delegationKey, expected }),
       );
@@ -532,7 +532,7 @@ export function useChildTaskRowController(args: {
   );
 
   const handleDetach = useCallback(
-    (child: ChildTaskSummary) => {
+    (child: DelegatedTaskSummary) => {
       runAction(child, (expected) =>
         actions.detach({ delegationKey: child.delegationKey, expected }),
       );
@@ -553,7 +553,7 @@ export function useChildTaskRowController(args: {
   };
 }
 
-export function ChildTaskRows(props: {
+export function DelegatedTaskRows(props: {
   parentTaskId: string | null | undefined;
   parentWorkspaceId?: string | null;
   projectPath?: string | null;
@@ -564,24 +564,24 @@ export function ChildTaskRows(props: {
    * turn's work graph. Passing it down keeps one subscription per parent task
    * instead of one per view, and guarantees both views show the same rows.
    */
-  source?: ChildTaskListingSource;
+  source?: DelegatedTaskListingSource;
   className?: string;
 }) {
   // Disabled rather than skipped: a hook cannot be conditional, and an disabled
-  // `useChildTasks` neither lists nor subscribes.
-  const ownListing = useChildTasks({
+  // `useDelegatedTasks` neither lists nor subscribes.
+  const ownListing = useDelegatedTasks({
     parentTaskId: props.parentTaskId,
     parentWorkspaceId: props.parentWorkspaceId,
     projectPath: props.projectPath,
     enabled: props.source ? false : props.enabled,
   });
-  const controller = useChildTaskRowController({
+  const controller = useDelegatedTaskRowController({
     source: props.source ?? ownListing,
     projectPath: props.projectPath,
   });
 
   return (
-    <ChildTaskRowsSurface
+    <DelegatedTaskRowsSurface
       rows={controller.children}
       errorByDelegationKey={controller.errorByDelegationKey}
       blockedByDelegationKey={controller.blockedByDelegationKey}
@@ -601,13 +601,13 @@ export function ChildTaskRows(props: {
  * the task that delegated this one, with the same navigation the parent uses to
  * reach its children. Renders nothing when the task was not delegated.
  */
-export function ChildTaskParentBacklink(props: {
+export function DelegatedTaskParentBacklink(props: {
   taskId: string | null | undefined;
   projectPath?: string | null;
   className?: string;
 }) {
   const { taskId } = props;
-  const [link, setLink] = useState<ChildTaskSummary | null>(null);
+  const [link, setLink] = useState<DelegatedTaskSummary | null>(null);
   const parentTaskId = link?.parentTaskId ?? null;
   const parentTitle = useAppStore((state) =>
     parentTaskId
@@ -620,13 +620,13 @@ export function ChildTaskParentBacklink(props: {
       setLink(null);
       return;
     }
-    const getChildTaskLink = window.api?.runs?.getChildTaskLink;
-    if (!getChildTaskLink) {
+    const getDelegatedTaskLink = window.api?.runs?.getDelegatedTaskLink;
+    if (!getDelegatedTaskLink) {
       setLink(null);
       return;
     }
     let cancelled = false;
-    void getChildTaskLink({ childTaskId: taskId })
+    void getDelegatedTaskLink({ delegatedTaskId: taskId })
       .then((resolved) => {
         if (!cancelled) {
           setLink(resolved);
@@ -649,7 +649,7 @@ export function ChildTaskParentBacklink(props: {
   return (
     <div
       className={cx(sx(styles.backlink), props.className)}
-      data-testid="child-task-parent-backlink"
+      data-testid="delegated-task-parent-backlink"
     >
       <span className={sx(styles.backlinkLabel)}>Delegated by</span>
       <span className={sx(styles.backlinkTitle)}>

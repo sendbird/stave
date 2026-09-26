@@ -22,10 +22,10 @@ describe("ActivityDetailDialog live child attribution", () => {
     const baseState = {
       activeWorkspaceId: "parent-workspace",
       messagesByTask: { "parent-task": [parent] },
-      taskWorkspaceIdById: { "child-task": "child-workspace" },
+      taskWorkspaceIdById: { "delegated-task": "child-workspace" },
       workspaceRuntimeCacheById: {
         "child-workspace": {
-          messagesByTask: { "child-task": [first] },
+          messagesByTask: { "delegated-task": [first] },
         },
       },
     };
@@ -33,7 +33,7 @@ describe("ActivityDetailDialog live child attribution", () => {
     expect(selectActivityMessages({
       state: baseState,
       parentTaskId: "parent-task",
-      childTaskId: "child-task",
+      delegatedTaskId: "delegated-task",
     })).toEqual([first]);
 
     expect(selectActivityMessages({
@@ -41,12 +41,12 @@ describe("ActivityDetailDialog live child attribution", () => {
         ...baseState,
         workspaceRuntimeCacheById: {
           "child-workspace": {
-            messagesByTask: { "child-task": [first, latest] },
+            messagesByTask: { "delegated-task": [first, latest] },
           },
         },
       },
       parentTaskId: "parent-task",
-      childTaskId: "child-task",
+      delegatedTaskId: "delegated-task",
     })).toEqual([first, latest]);
   });
 
@@ -61,7 +61,7 @@ describe("ActivityDetailDialog live child attribution", () => {
         workspaceRuntimeCacheById: {},
       },
       parentTaskId: "parent-task",
-      childTaskId: "child-task",
+      delegatedTaskId: "delegated-task",
     })).toEqual([]);
   });
 });

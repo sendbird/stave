@@ -544,7 +544,7 @@ export function buildWorkspaceSessionState(args: {
   const empty = createEmptyWorkspaceState();
   // Every persisted task row hydrates, delegated children included. Hiding a
   // child from workspace-level listings is a rendering decision made by
-  // `isDelegatedChildTask`, not a reason to drop its state on load — its
+  // `isDelegatedTask`, not a reason to drop its state on load — its
   // messages and provider session have to survive for the child to be openable.
   const tasks = (args.snapshot?.tasks ?? empty.tasks).map(normalizeTaskControl);
   const providerSessionByTask =

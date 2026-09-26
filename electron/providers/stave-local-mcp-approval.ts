@@ -52,10 +52,10 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   "stave_set_automation_enabled",
   "stave_list_automation_information_references",
   "stave_create_automation_information_resource",
-  // Reading delegation state is safe. Creating a child task and stopping one
-  // are not, so `stave_delegate_task` and `stave_stop_child_task` stay on the
+  // Reading delegation state is safe. Creating a delegated task and stopping one
+  // are not, so `stave_delegate_task` and `stave_stop_delegated_task` stay on the
   // approval path alongside `stave_run_task`.
-  "stave_list_child_tasks",
+  "stave_list_delegated_tasks",
   // The one deliberate exception to the "spends tokens" rule: an Advisor
   // consult can only run against a grant the user armed for this exact turn
   // (composer pill / Alt+A), against the target and per-turn budget the user
@@ -79,9 +79,9 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
  * Reduces a provider-decorated tool name to its bare Stave tool name.
  *
  * Callers hand us wildly different shapes for the same tool: Claude reports
- * `mcp__stave-local-mcp__stave_list_child_tasks`, while Codex elicitation
- * metadata may report `stave-local__stave_list_child_tasks`, a dotted
- * `stave-local.stave_list_child_tasks`, or the bare name. Normalising here
+ * `mcp__stave-local-mcp__stave_list_delegated_tasks`, while Codex elicitation
+ * metadata may report `stave-local__stave_list_delegated_tasks`, a dotted
+ * `stave-local.stave_list_delegated_tasks`, or the bare name. Normalising here
  * keeps that decoding in one place instead of at each call site.
  */
 export function normalizeStaveLocalMcpToolName(toolName: string) {

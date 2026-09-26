@@ -3,7 +3,7 @@
 ## Summary
 
 Turn Activity shows the live work behind the current agent turn, including
-running tools, child tasks, todos, and elapsed time. Choose a compact docked
+running tools, delegated tasks, todos, and elapsed time. Choose a compact docked
 shelf, a larger draggable card, or a full-height right-rail panel when you
 need more room to follow a busy turn.
 
@@ -130,8 +130,8 @@ exactly as the turn left them. The next turn replaces it.
   provider went silent, and a managed task you took over.
 - The elapsed time is the turn's total, not a clock that keeps running.
 - Rows still lead to their tool call in the conversation.
-- The agent tree is read-only here. Child tasks that outlive the turn keep
-  their full controls in the child task rows below it.
+- The agent tree is read-only here. Delegated tasks that outlive the turn keep
+  their full controls in the delegated task rows below it.
 - `Docked` and `Floating` clear when the turn ends, as before. The docked shelf
   has to give the composer its space back, and a floating card would leave a
   finished turn hanging over the chat with no reason to go away.
@@ -159,7 +159,7 @@ row when it is narrower.
 ### Follow a busy turn
 
 1. Select `Panel` from the activity header.
-2. Keep the right rail open while tools and child tasks update.
+2. Keep the right rail open while tools and delegated tasks update.
 3. Return to `Docked` when you only need a compact status indicator.
 
 ### Read a turn back after it ends
@@ -188,7 +188,7 @@ row when it is narrower.
 - `Floating` is positioned within the chat area and may be clamped after a
   window resize so its header remains reachable.
 - A busy turn keeps only its most recent plain tool calls, so the oldest of
-  them leave the list while subagents and child tasks stay. The limit is the
+  them leave the list while subagents and delegated tasks stay. The limit is the
   same in every placement.
 - Choosing a row whose message is no longer loaded in the conversation does
   nothing. Load the older messages first, then choose the row again.
@@ -214,5 +214,5 @@ row when it is narrower.
 
 ## Related Docs
 
-- [Child Tasks](child-tasks.md)
+- [Delegated Tasks](delegated-tasks.md)
 - [Fleet Needs Me](fleet-needs-me.md)

@@ -1,37 +1,37 @@
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
 import {
-  buildChildTaskArtifactRef,
-  buildChildTaskPolicy,
-  buildChildTaskRunId,
-  buildChildTaskStepId,
-  ChildTaskActionResponseSchema,
-  ChildTaskDelegateArgsSchema,
-  ChildTaskDetachArgsSchema,
-  ChildTaskFollowUpArgsSchema,
-  ChildTaskListArgsSchema,
-  ChildTaskListSchema,
-  ChildTaskRetryArgsSchema,
-  ChildTaskStopArgsSchema,
-  ChildTaskSummarySchema,
-  CHILD_TASK_DETACHED_REASON,
-  CHILD_TASK_LIST_LIMIT,
-  CHILD_TASK_RUN_KIND,
-  CHILD_TASK_STEP_KIND,
-  CHILD_TASK_STOPPED_REASON,
-  describeChildTaskRejection,
-  isActiveChildTaskPhase,
-  resolveChildTaskControls,
-  toChildTaskSummary,
-  validateChildTaskIdentity,
-  type ChildTaskActionResponse,
-  type ChildTaskDelegateArgs,
-  type ChildTaskExpectedIdentity,
-  type ChildTaskLifecycle,
-  type ChildTaskPermissionProfile,
-  type ChildTaskRejectionReason,
-  type ChildTaskSummary,
-} from "../../../src/lib/runs/child-task";
+  buildDelegatedTaskArtifactRef,
+  buildDelegatedTaskPolicy,
+  buildDelegatedTaskRunId,
+  buildDelegatedTaskStepId,
+  DelegatedTaskActionResponseSchema,
+  DelegateTaskArgsSchema,
+  DelegatedTaskDetachArgsSchema,
+  DelegatedTaskFollowUpArgsSchema,
+  DelegatedTaskListArgsSchema,
+  DelegatedTaskListSchema,
+  DelegatedTaskRetryArgsSchema,
+  DelegatedTaskStopArgsSchema,
+  DelegatedTaskSummarySchema,
+  DELEGATED_TASK_DETACHED_REASON,
+  DELEGATED_TASK_LIST_LIMIT,
+  DELEGATED_TASK_RUN_KIND,
+  DELEGATED_TASK_STEP_KIND,
+  DELEGATED_TASK_STOPPED_REASON,
+  describeDelegatedTaskRejection,
+  isActiveDelegatedTaskPhase,
+  resolveDelegatedTaskControls,
+  toDelegatedTaskSummary,
+  validateDelegatedTaskIdentity,
+  type DelegatedTaskActionResponse,
+  type DelegateTaskArgs,
+  type DelegatedTaskExpectedIdentity,
+  type DelegatedTaskLifecycle,
+  type DelegatedTaskPermissionProfile,
+  type DelegatedTaskRejectionReason,
+  type DelegatedTaskSummary,
+} from "../../../src/lib/runs/delegated-task";
 import {
   createPendingRun,
   createPendingRunStep,
@@ -44,13 +44,13 @@ import {
 import type { RunLedgerTransitionResult } from "../../persistence/run-ledger-store";
 
 /**
- * The child-task half of the run ledger. It records delegation; it never
- * executes. Creating the child task and running its turns is the normal task
+ * The delegated-task half of the run ledger. It records delegation; it never
+ * executes. Creating the delegated task and running its turns is the normal task
  * machinery's job, reached through the injected host port, so a child is a real
  * Stave task that survives a restart rather than an in-process worker.
  */
 
-export interface ChildTaskLedgerPort {
+export interface DelegatedTaskLedgerPort {
   getRunAggregate(args: { runId: string; stepId: string }): {
     run: RunRecord;
     step: RunStepRecord;
@@ -116,7 +116,7 @@ export interface ChildTaskLedgerPort {
     originId: string;
     limit: number;
   }): Array<{ run: RunRecord; step: RunStepRecord }>;
-  listActiveRunAggregatesByStepKind(args: { kind: "child-task-turn" }): Array<{
+  listActiveRunAggregatesByStepKind(args: { kind: "delegated-task-turn" }): Array<{
     run: RunRecord;
     step: RunStepRecord;
   }>;
@@ -126,21 +126,21 @@ export interface ChildTaskLedgerPort {
   }): Array<{ run: RunRecord; step: RunStepRecord }>;
 }
 
-export interface ChildTaskWorkspaceLocation {
+export interface DelegatedTaskWorkspaceLocation {
   workspaceId: string;
   workspacePath: string;
   projectPath: string;
 }
 
-export interface ChildTaskHostPort {
+export interface DelegatedTaskHostPort {
   resolveWorkspace(args: {
     workspaceId: string;
-  }): Promise<ChildTaskWorkspaceLocation | null>;
+  }): Promise<DelegatedTaskWorkspaceLocation | null>;
   createWorkspace(args: {
     projectPath: string;
     name: string;
     fromBranch?: string;
-  }): Promise<ChildTaskWorkspaceLocation>;
+  }): Promise<DelegatedTaskWorkspaceLocation>;
   /**
    * "The task is gone" and "the task machinery could not be reached" are
    * different answers: the first closes a delegation, the second must never
@@ -164,10 +164,10 @@ export interface ChildTaskHostPort {
     prompt: string;
     providerId: "claude-code" | "codex";
     model?: string;
-    effort?: ChildTaskDelegateArgs["effort"];
-    permissionProfile: ChildTaskDelegateArgs["permissionProfile"];
+    effort?: DelegateTaskArgs["effort"];
+    permissionProfile: DelegateTaskArgs["permissionProfile"];
     /**
-     * Stamped onto the child task row when the row is first created, so the
+     * Stamped onto the delegated task row when the row is first created, so the
      * renderer can tell a delegated child from a peer task without reading the
      * ledger. The ledger remains the source of truth for the delegation itself.
      */
@@ -186,9 +186,9 @@ export interface ChildTaskHostPort {
   }): Promise<unknown>;
 }
 
-interface ChildTaskCoordinatorDependencies {
-  getLedger: (() => ChildTaskLedgerPort) | (() => Promise<ChildTaskLedgerPort>);
-  host: ChildTaskHostPort;
+interface DelegatedTaskCoordinatorDependencies {
+  getLedger: (() => DelegatedTaskLedgerPort) | (() => Promise<DelegatedTaskLedgerPort>);
+  host: DelegatedTaskHostPort;
   concurrencyLimit: number;
   now?: () => string;
   createExecutionId?: () => string;
@@ -196,7 +196,7 @@ interface ChildTaskCoordinatorDependencies {
   onChange?: (args: { parentTaskId: string }) => void;
 }
 
-function hashChildTaskInput(args: ChildTaskDelegateArgs) {
+function hashDelegatedTaskInput(args: DelegateTaskArgs) {
   return createHash("sha256")
     .update(
       JSON.stringify({
@@ -218,7 +218,7 @@ function hashChildTaskInput(args: ChildTaskDelegateArgs) {
  * child's id *before* the task exists, so a crash between the two leaves a
  * recorded child rather than an orphan.
  */
-function deriveChildTaskId(runId: string) {
+function deriveDelegatedTaskId(runId: string) {
   const digest = createHash("sha256").update(runId).digest("hex");
   return [
     digest.slice(0, 8),
@@ -254,7 +254,7 @@ function sanitizeChildError(error: unknown) {
       : typeof error === "string"
         ? error.trim()
         : "";
-  return (message || "The child task failed to start.").slice(0, 1_000);
+  return (message || "The delegated task failed to start.").slice(0, 1_000);
 }
 
 const TRANSITION_REASONS: ReadonlySet<string> = new Set([
@@ -272,14 +272,14 @@ const TRANSITION_REASONS: ReadonlySet<string> = new Set([
   "step-conflict",
 ]);
 
-function toRejectionReason(reason: string): ChildTaskRejectionReason {
+function toRejectionReason(reason: string): DelegatedTaskRejectionReason {
   return TRANSITION_REASONS.has(reason)
-    ? (reason as ChildTaskRejectionReason)
+    ? (reason as DelegatedTaskRejectionReason)
     : "invalid-state";
 }
 
 function acceptedReceiptForRun(
-  ledger: Pick<ChildTaskLedgerPort, "listRunReceipts">,
+  ledger: Pick<DelegatedTaskLedgerPort, "listRunReceipts">,
   runId: string,
   attempt: number,
 ) {
@@ -292,13 +292,13 @@ function acceptedReceiptForRun(
 }
 
 function summaryFromTransition(
-  ledger: Pick<ChildTaskLedgerPort, "listRunReceipts">,
+  ledger: Pick<DelegatedTaskLedgerPort, "listRunReceipts">,
   transition: RunLedgerTransitionResult,
-): ChildTaskSummary | null {
+): DelegatedTaskSummary | null {
   if (!transition.run || !transition.step) {
     return null;
   }
-  return toChildTaskSummary({
+  return toDelegatedTaskSummary({
     run: transition.run,
     step: transition.step,
     acceptedReceipt: acceptedReceiptForRun(
@@ -310,10 +310,10 @@ function summaryFromTransition(
 }
 
 function summaryFromAggregate(
-  ledger: Pick<ChildTaskLedgerPort, "listRunReceipts">,
+  ledger: Pick<DelegatedTaskLedgerPort, "listRunReceipts">,
   aggregate: { run: RunRecord; step: RunStepRecord },
-): ChildTaskSummary | null {
-  return toChildTaskSummary({
+): DelegatedTaskSummary | null {
+  return toDelegatedTaskSummary({
     run: aggregate.run,
     step: aggregate.step,
     acceptedReceipt: acceptedReceiptForRun(
@@ -325,24 +325,24 @@ function summaryFromAggregate(
 }
 
 function rejected(
-  reason: ChildTaskRejectionReason,
-  child: ChildTaskSummary | null = null,
+  reason: DelegatedTaskRejectionReason,
+  child: DelegatedTaskSummary | null = null,
   message?: string,
-): ChildTaskActionResponse {
-  return ChildTaskActionResponseSchema.parse({
+): DelegatedTaskActionResponse {
+  return DelegatedTaskActionResponseSchema.parse({
     accepted: false,
     duplicate: false,
     reason,
-    message: message ?? describeChildTaskRejection(reason),
+    message: message ?? describeDelegatedTaskRejection(reason),
     child,
   });
 }
 
 function accepted(args: {
   duplicate: boolean;
-  child: ChildTaskSummary | null;
-}): ChildTaskActionResponse {
-  return ChildTaskActionResponseSchema.parse({
+  child: DelegatedTaskSummary | null;
+}): DelegatedTaskActionResponse {
+  return DelegatedTaskActionResponseSchema.parse({
     accepted: true,
     duplicate: args.duplicate,
     reason: null,
@@ -351,8 +351,8 @@ function accepted(args: {
   });
 }
 
-export function createChildTaskCoordinator(
-  dependencies: ChildTaskCoordinatorDependencies,
+export function createDelegatedTaskCoordinator(
+  dependencies: DelegatedTaskCoordinatorDependencies,
 ) {
   const now = dependencies.now ?? (() => new Date().toISOString());
   const createExecutionId = dependencies.createExecutionId ?? randomUUID;
@@ -381,15 +381,15 @@ export function createChildTaskCoordinator(
 
   /**
    * Turn the child's terminal outcome into ledger receipts. `one-turn` closes
-   * the run; `detached` parks it in `waiting` so the child task stays open for
+   * the run; `detached` parks it in `waiting` so the delegated task stays open for
    * follow-up turns until the parent stops it.
    */
   const settleAfterTurn = (args: {
-    ledger: ChildTaskLedgerPort;
+    ledger: DelegatedTaskLedgerPort;
     runId: string;
     stepId: string;
     executionId: string;
-    lifecycle: ChildTaskLifecycle;
+    lifecycle: DelegatedTaskLifecycle;
     target: RunStepTarget;
     turnId: string;
     providerId: "claude-code" | "codex";
@@ -420,7 +420,7 @@ export function createChildTaskCoordinator(
       stepId: args.stepId,
       executionId: args.executionId,
       idempotencyKey: `child:${args.executionId}:completed`,
-      resultArtifactRef: buildChildTaskArtifactRef({
+      resultArtifactRef: buildDelegatedTaskArtifactRef({
         workspaceId: args.target.workspaceId,
         taskId: args.target.taskId,
         turnId: args.turnId,
@@ -435,7 +435,7 @@ export function createChildTaskCoordinator(
    * the step, so both go through here and settle the same way.
    */
   const runChildTurn = (args: {
-    ledger: ChildTaskLedgerPort;
+    ledger: DelegatedTaskLedgerPort;
     runId: string;
     stepId: string;
     parentTaskId: string;
@@ -446,9 +446,9 @@ export function createChildTaskCoordinator(
       prompt: string;
       title?: string;
       model?: string;
-      effort?: ChildTaskDelegateArgs["effort"];
-      permissionProfile: ChildTaskPermissionProfile;
-      lifecycle: ChildTaskLifecycle;
+      effort?: DelegateTaskArgs["effort"];
+      permissionProfile: DelegatedTaskPermissionProfile;
+      lifecycle: DelegatedTaskLifecycle;
     };
   }) => {
     const started = (async () => {
@@ -479,7 +479,7 @@ export function createChildTaskCoordinator(
           runId: args.runId,
           stepId: args.stepId,
         });
-        if (current && !isActiveChildTaskPhase(current.step.status)) {
+        if (current && !isActiveDelegatedTaskPhase(current.step.status)) {
           return;
         }
         args.ledger.failRunStep({
@@ -489,7 +489,7 @@ export function createChildTaskCoordinator(
           idempotencyKey: `child:${args.executionId}:failed`,
           error: sanitizeChildError(error),
           detail: {
-            code: "child-task-failure",
+            code: "delegated-task-failure",
             providerId: args.target.providerId,
           },
           now: now(),
@@ -521,7 +521,7 @@ export function createChildTaskCoordinator(
   const reconcile = async () => {
     const ledger = await getLedger();
     const aggregates = ledger.listActiveRunAggregatesByStepKind({
-      kind: CHILD_TASK_STEP_KIND,
+      kind: DELEGATED_TASK_STEP_KIND,
     });
     let reconciled = 0;
     let deferred = 0;
@@ -534,7 +534,7 @@ export function createChildTaskCoordinator(
           runId: aggregate.run.id,
           stepId: aggregate.step.id,
           idempotencyKey: `restart:${aggregate.step.id}`,
-          error: "The delegation lost its child task identity.",
+          error: "The delegation lost its delegated task identity.",
           now: now(),
         });
         reconciled += transition.accepted ? 1 : 0;
@@ -560,7 +560,7 @@ export function createChildTaskCoordinator(
           runId: aggregate.run.id,
           stepId: aggregate.step.id,
           idempotencyKey: `restart:${executionId}`,
-          error: "The child task is no longer present.",
+          error: "The delegated task is no longer present.",
           now: now(),
         });
         reconciled += transition.accepted ? 1 : 0;
@@ -599,7 +599,7 @@ export function createChildTaskCoordinator(
           idempotencyKey: `restart:${executionId}:failed`,
           error: status.latestTurnError,
           detail: {
-            code: "child-task-failure",
+            code: "delegated-task-failure",
             providerId: target.providerId,
           },
           now: now(),
@@ -629,7 +629,7 @@ export function createChildTaskCoordinator(
         runId: aggregate.run.id,
         stepId: aggregate.step.id,
         idempotencyKey: `restart:${executionId}`,
-        error: "Stave restarted before the child task's turn finished.",
+        error: "Stave restarted before the delegated task's turn finished.",
         now: now(),
       });
       reconciled += transition.accepted ? 1 : 0;
@@ -669,8 +669,8 @@ export function createChildTaskCoordinator(
   };
 
   const resolveChildWorkspace = async (args: {
-    delegate: ChildTaskDelegateArgs;
-    parentWorkspace: ChildTaskWorkspaceLocation;
+    delegate: DelegateTaskArgs;
+    parentWorkspace: DelegatedTaskWorkspaceLocation;
   }) => {
     if (args.delegate.workspace.mode === "same-workspace") {
       return args.parentWorkspace;
@@ -692,13 +692,13 @@ export function createChildTaskCoordinator(
   const resolveForAction = async (args: {
     parentTaskId: string;
     delegationKey: string;
-    expected?: ChildTaskExpectedIdentity;
+    expected?: DelegatedTaskExpectedIdentity;
   }) => {
-    const runId = buildChildTaskRunId({
+    const runId = buildDelegatedTaskRunId({
       parentTaskId: args.parentTaskId,
       delegationKey: args.delegationKey,
     });
-    const stepId = buildChildTaskStepId(runId);
+    const stepId = buildDelegatedTaskStepId(runId);
     const ledger = await getLedger();
     await ensureReconciled();
     const aggregate = ledger.getRunAggregate({ runId, stepId });
@@ -707,7 +707,7 @@ export function createChildTaskCoordinator(
       return { ok: false as const, rejection: rejected("not-found") };
     }
     if (args.expected) {
-      const identity = validateChildTaskIdentity({
+      const identity = validateDelegatedTaskIdentity({
         expected: args.expected,
         child,
       });
@@ -760,8 +760,8 @@ export function createChildTaskCoordinator(
 
   const delegateChild = async (
     rawArgs: unknown,
-  ): Promise<ChildTaskActionResponse> => {
-    const parsed = ChildTaskDelegateArgsSchema.safeParse(rawArgs);
+  ): Promise<DelegatedTaskActionResponse> => {
+    const parsed = DelegateTaskArgsSchema.safeParse(rawArgs);
     if (!parsed.success) {
       return rejected("invalid-request");
     }
@@ -772,13 +772,13 @@ export function createChildTaskCoordinator(
   };
 
   const admitDelegation = async (
-    args: ChildTaskDelegateArgs,
-  ): Promise<ChildTaskActionResponse> => {
-    const runId = buildChildTaskRunId({
+    args: DelegateTaskArgs,
+  ): Promise<DelegatedTaskActionResponse> => {
+    const runId = buildDelegatedTaskRunId({
       parentTaskId: args.parentTaskId,
       delegationKey: args.delegationKey,
     });
-    const stepId = buildChildTaskStepId(runId);
+    const stepId = buildDelegatedTaskStepId(runId);
     const ledger = await getLedger();
 
     // ── Parent ownership ────────────────────────────────────────────────
@@ -825,13 +825,13 @@ export function createChildTaskCoordinator(
       .listRunAggregatesByOrigin({
         originKind: "task",
         originId: args.parentTaskId,
-        limit: CHILD_TASK_LIST_LIMIT,
+        limit: DELEGATED_TASK_LIST_LIMIT,
       })
       .flatMap((aggregate) => {
         const summary = summaryFromAggregate(ledger, aggregate);
         return summary && summary.runId !== runId ? [summary] : [];
       })
-      .filter((summary) => isActiveChildTaskPhase(summary.phase));
+      .filter((summary) => isActiveDelegatedTaskPhase(summary.phase));
     if (activeOthers.length >= dependencies.concurrencyLimit) {
       return rejected("concurrency-limit-reached", existingSummary);
     }
@@ -839,30 +839,30 @@ export function createChildTaskCoordinator(
     if (existingSummary && !args.retry) {
       // The same key always names the same child. Re-sending it reports the
       // child that exists instead of starting a second one.
-      if (isActiveChildTaskPhase(existingSummary.phase)) {
+      if (isActiveDelegatedTaskPhase(existingSummary.phase)) {
         return accepted({ duplicate: true, child: existingSummary });
       }
     }
 
     // A retry reuses the workspace the delegation already owns; only a first
     // attempt may cut a new worktree.
-    const childWorkspaceId =
-      existingSummary?.childWorkspaceId ??
+    const delegatedWorkspaceId =
+      existingSummary?.delegatedWorkspaceId ??
       (
         await resolveChildWorkspace({ delegate: args, parentWorkspace }).catch(
           () => null,
         )
       )?.workspaceId;
-    if (!childWorkspaceId) {
+    if (!delegatedWorkspaceId) {
       return rejected("workspace-unavailable", existingSummary);
     }
 
-    const childTaskId =
-      existingSummary?.childTaskId ?? deriveChildTaskId(runId);
+    const delegatedTaskId =
+      existingSummary?.delegatedTaskId ?? deriveDelegatedTaskId(runId);
     const target: RunStepTarget = {
-      taskId: childTaskId,
-      workspaceId: childWorkspaceId,
-      turnId: existingSummary?.childTurnId ?? null,
+      taskId: delegatedTaskId,
+      workspaceId: delegatedWorkspaceId,
+      turnId: existingSummary?.delegatedTurnId ?? null,
       providerId: args.providerId,
     };
     const timestamp = now();
@@ -871,16 +871,16 @@ export function createChildTaskCoordinator(
     const transition = ledger.claimRunStep({
       run: createPendingRun({
         id: runId,
-        kind: CHILD_TASK_RUN_KIND,
+        kind: DELEGATED_TASK_RUN_KIND,
         origin: { kind: "task", id: args.parentTaskId },
         ownership: {
           projectPath: args.projectPath,
-          workspaceId: childWorkspaceId,
-          taskId: childTaskId,
+          workspaceId: delegatedWorkspaceId,
+          taskId: delegatedTaskId,
         },
-        policy: buildChildTaskPolicy(args.lifecycle),
+        policy: buildDelegatedTaskPolicy(args.lifecycle),
         provenance: {
-          createdBy: "child-task-coordinator",
+          createdBy: "delegated-task-coordinator",
           schemaVersion: RUN_LEDGER_SCHEMA_VERSION,
         },
         now: timestamp,
@@ -888,10 +888,10 @@ export function createChildTaskCoordinator(
       step: createPendingRunStep({
         id: stepId,
         runId,
-        kind: CHILD_TASK_STEP_KIND,
+        kind: DELEGATED_TASK_STEP_KIND,
         target,
         dependencyIds: [],
-        inputHash: hashChildTaskInput(args),
+        inputHash: hashDelegatedTaskInput(args),
         now: timestamp,
       }),
       executionId,
@@ -958,8 +958,8 @@ export function createChildTaskCoordinator(
      * delegation rather than a new one borrowing its key — only the prompt is
      * expected to change.
      */
-    async retry(rawArgs: unknown): Promise<ChildTaskActionResponse> {
-      const parsed = ChildTaskRetryArgsSchema.safeParse(rawArgs);
+    async retry(rawArgs: unknown): Promise<DelegatedTaskActionResponse> {
+      const parsed = DelegatedTaskRetryArgsSchema.safeParse(rawArgs);
       if (!parsed.success) {
         return rejected("invalid-request");
       }
@@ -968,7 +968,7 @@ export function createChildTaskCoordinator(
       if (!resolved.ok) {
         return resolved.rejection;
       }
-      if (!resolveChildTaskControls(resolved.child).canRetry) {
+      if (!resolveDelegatedTaskControls(resolved.child).canRetry) {
         return rejected("invalid-state", resolved.child);
       }
       // The first claim receipt carries the inputs the delegation was created
@@ -1006,7 +1006,7 @@ export function createChildTaskCoordinator(
           "guided",
         lifecycle: resolved.child.lifecycle,
         // Inert on a retry — the delegation keeps the workspace it already
-        // owns (`childWorkspaceId` is reused), so a new-worktree delegation
+        // owns (`delegatedWorkspaceId` is reused), so a new-worktree delegation
         // retries inside its original worktree and never cuts a second one.
         workspace: { mode: "same-workspace" },
         retry: true,
@@ -1019,8 +1019,8 @@ export function createChildTaskCoordinator(
      * lifecycle, and the child's own task surface is where its turn-by-turn
      * state lives.
      */
-    async followUp(rawArgs: unknown): Promise<ChildTaskActionResponse> {
-      const parsed = ChildTaskFollowUpArgsSchema.safeParse(rawArgs);
+    async followUp(rawArgs: unknown): Promise<DelegatedTaskActionResponse> {
+      const parsed = DelegatedTaskFollowUpArgsSchema.safeParse(rawArgs);
       if (!parsed.success) {
         return rejected("invalid-request");
       }
@@ -1032,7 +1032,7 @@ export function createChildTaskCoordinator(
       const target = resolved.step.target;
       const executionId = resolved.step.executionId;
       if (
-        !resolveChildTaskControls(resolved.child).canFollowUp ||
+        !resolveDelegatedTaskControls(resolved.child).canFollowUp ||
         !target ||
         !executionId
       ) {
@@ -1060,11 +1060,11 @@ export function createChildTaskCoordinator(
 
     /**
      * Release the delegation and leave the child running. Only the parent's
-     * claim ends here: the child task is never asked to stop, which is the one
+     * claim ends here: the delegated task is never asked to stop, which is the one
      * thing that separates this from `stop`.
      */
-    async detach(rawArgs: unknown): Promise<ChildTaskActionResponse> {
-      const parsed = ChildTaskDetachArgsSchema.safeParse(rawArgs);
+    async detach(rawArgs: unknown): Promise<DelegatedTaskActionResponse> {
+      const parsed = DelegatedTaskDetachArgsSchema.safeParse(rawArgs);
       if (!parsed.success) {
         return rejected("invalid-request");
       }
@@ -1073,7 +1073,7 @@ export function createChildTaskCoordinator(
       if (!resolved.ok) {
         return resolved.rejection;
       }
-      if (!resolveChildTaskControls(resolved.child).canDetach) {
+      if (!resolveDelegatedTaskControls(resolved.child).canDetach) {
         return rejected("invalid-state", resolved.child);
       }
       const transition = resolved.ledger.cancelRunStep({
@@ -1081,10 +1081,10 @@ export function createChildTaskCoordinator(
         stepId: resolved.stepId,
         idempotencyKey: `detach:${args.delegationKey}`,
         detail: {
-          code: "child-task-detached",
+          code: "delegated-task-detached",
           providerId: resolved.child.providerId,
         },
-        error: CHILD_TASK_DETACHED_REASON,
+        error: DELEGATED_TASK_DETACHED_REASON,
         now: now(),
       });
       if (!transition.accepted) {
@@ -1116,9 +1116,9 @@ export function createChildTaskCoordinator(
     },
 
     async list(rawArgs: unknown) {
-      const parsed = ChildTaskListArgsSchema.safeParse(rawArgs);
+      const parsed = DelegatedTaskListArgsSchema.safeParse(rawArgs);
       if (!parsed.success) {
-        return ChildTaskListSchema.parse([]);
+        return DelegatedTaskListSchema.parse([]);
       }
       const ledger = await getLedger();
       await ensureReconciled();
@@ -1126,7 +1126,7 @@ export function createChildTaskCoordinator(
         .listRunAggregatesByOrigin({
           originKind: "task",
           originId: parsed.data.parentTaskId,
-          limit: CHILD_TASK_LIST_LIMIT,
+          limit: DELEGATED_TASK_LIST_LIMIT,
         })
         .flatMap((aggregate) => {
           const summary = summaryFromAggregate(ledger, aggregate);
@@ -1135,13 +1135,13 @@ export function createChildTaskCoordinator(
         .filter(
           (summary) =>
             parsed.data.includeFinished ||
-            isActiveChildTaskPhase(summary.phase),
+            isActiveDelegatedTaskPhase(summary.phase),
         );
-      return ChildTaskListSchema.parse(summaries);
+      return DelegatedTaskListSchema.parse(summaries);
     },
 
-    async stop(rawArgs: unknown): Promise<ChildTaskActionResponse> {
-      const parsed = ChildTaskStopArgsSchema.safeParse(rawArgs);
+    async stop(rawArgs: unknown): Promise<DelegatedTaskActionResponse> {
+      const parsed = DelegatedTaskStopArgsSchema.safeParse(rawArgs);
       if (!parsed.success) {
         return rejected("invalid-request");
       }
@@ -1157,11 +1157,11 @@ export function createChildTaskCoordinator(
         stepId,
         idempotencyKey: `stop:${args.delegationKey}`,
         detail: {
-          code: "child-task-stopped",
+          code: "delegated-task-stopped",
           message: args.reason,
           providerId: target?.providerId,
         },
-        error: args.reason ?? CHILD_TASK_STOPPED_REASON,
+        error: args.reason ?? DELEGATED_TASK_STOPPED_REASON,
         now: now(),
       });
       if (!transition.accepted) {
@@ -1171,7 +1171,7 @@ export function createChildTaskCoordinator(
         );
       }
       if (!transition.duplicate && target) {
-        // Cancelling the ledger row is the durable half; asking the child task
+        // Cancelling the ledger row is the durable half; asking the delegated task
         // to stop is best effort, because a child that already ended is a
         // successful stop.
         await dependencies.host
@@ -1202,20 +1202,20 @@ export function createChildTaskCoordinator(
     },
 
     /**
-     * The delegation that owns a task, seen from the child's side. A child task
+     * The delegation that owns a task, seen from the child's side. A delegated task
      * is an ordinary task, so the only way its own surface can show who
      * delegated it is to ask the ledger.
      */
-    async getParentLink(args: { childTaskId: string }) {
+    async getParentLink(args: { delegatedTaskId: string }) {
       const ledger = await getLedger();
       const summaries = ledger
         .listRunAggregatesByOwnedTask({
-          taskId: args.childTaskId,
-          limit: CHILD_TASK_LIST_LIMIT,
+          taskId: args.delegatedTaskId,
+          limit: DELEGATED_TASK_LIST_LIMIT,
         })
         .flatMap((aggregate) => {
           const summary = summaryFromAggregate(ledger, aggregate);
-          return summary && summary.childTaskId === args.childTaskId
+          return summary && summary.delegatedTaskId === args.delegatedTaskId
             ? [summary]
             : [];
         });
@@ -1223,20 +1223,20 @@ export function createChildTaskCoordinator(
     },
 
     async get(args: { parentTaskId: string; delegationKey: string }) {
-      const runId = buildChildTaskRunId(args);
+      const runId = buildDelegatedTaskRunId(args);
       const ledger = await getLedger();
       const aggregate = ledger.getRunAggregate({
         runId,
-        stepId: buildChildTaskStepId(runId),
+        stepId: buildDelegatedTaskStepId(runId),
       });
       const summary = aggregate
         ? summaryFromAggregate(ledger, aggregate)
         : null;
-      return summary ? ChildTaskSummarySchema.parse(summary) : null;
+      return summary ? DelegatedTaskSummarySchema.parse(summary) : null;
     },
   };
 }
 
-export type ChildTaskCoordinator = ReturnType<
-  typeof createChildTaskCoordinator
+export type DelegatedTaskCoordinator = ReturnType<
+  typeof createDelegatedTaskCoordinator
 >;

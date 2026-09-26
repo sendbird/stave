@@ -185,7 +185,7 @@ describe("mergeTaskTurnDeltaPayload", () => {
     expect(next.openTaskTabIds).toEqual(["task-1", "task-2"]);
   });
 
-  test("does not open a tab for a delegated child task", () => {
+  test("does not open a tab for a delegated task", () => {
     const next = mergeTaskTurnDeltaPayload({
       payload: createPayload(),
       taskId: "task-child",

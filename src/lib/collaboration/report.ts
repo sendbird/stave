@@ -1,7 +1,7 @@
 import type { WorkerExchange } from "./worker-exchanges";
 import type { AdvisorTranscriptExchange } from "./advisor-transcript";
 import type { AdvisorConsultLogEntry } from "@/lib/providers/advisor-consult-log";
-import type { ChildTaskSummary } from "@/lib/runs/child-task";
+import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import type {
   CollaborationHistoryExport,
   CollaborationHistoryPage,
@@ -10,7 +10,7 @@ import type {
 /** A user-exported snapshot, not a promise that transient logs are durable. */
 export function buildCollaborationReport(args: {
   taskId: string;
-  children: readonly ChildTaskSummary[];
+  children: readonly DelegatedTaskSummary[];
   consults: readonly AdvisorConsultLogEntry[];
   now: string;
   workers?: readonly WorkerExchange[];
@@ -49,7 +49,7 @@ export function buildCollaborationReport(args: {
     lines.push(
       "",
       `### ${child.delegationKey}`,
-      `- Task: ${child.childTaskId ?? "Not created"}`,
+      `- Task: ${child.delegatedTaskId ?? "Not created"}`,
       `- Provider: ${child.providerId}`,
       `- Phase: ${child.phase}`,
       `- Detail: ${child.reason ?? "No additional detail"}`,

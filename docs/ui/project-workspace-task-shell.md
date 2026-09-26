@@ -29,7 +29,7 @@ Replace the legacy workspace/task shell with a three-part layout:
 - `Cmd/Ctrl+Shift+1..9` should select the first nine visible workspaces in sidebar order from top to bottom.
 - Task tab close should confirm before archiving.
 - Project delete removes the project from Stave's list only.
-- Workspace rows show a responding indicator if any child task is actively running, including inactive workspaces.
+- Workspace rows show a responding indicator if any delegated task is actively running, including inactive workspaces.
 - Workspace rows should show the responding-task count in the trailing action slot, then swap that slot to the workspace shortcut and `Archive` on row hover.
 - Workspace hover tooltips should show a compact task-summary preview, with inactive uncached workspaces loading shell data only on first tooltip open.
 - Default workspace icons should use a neutral gray chip, while non-default worktree icons should use deterministic name-hashed blue accents.

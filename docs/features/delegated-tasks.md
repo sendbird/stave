@@ -1,8 +1,8 @@
-# Child Tasks
+# Delegated Tasks
 
 ## Summary
 
-A task can delegate work to a **child task**: a real, durable Stave task created
+A task can hand work to a **delegated task**: a real, durable Stave task created
 on its behalf, optionally on the other provider and in its own worktree. The
 delegation is recorded on the run ledger, so the parent can trust what it is
 told about the child — including after a restart.
@@ -17,8 +17,8 @@ told about the child — including after a restart.
   parent's checkout.
 
 Prefer **Worker mode** when the delegated work only needs to last for the
-current turn: a worker is turn-scoped and never survives a restart. Prefer a
-**Automation** when the work should recur on a schedule rather than be handed off
+current turn: a worker is turn-scoped and never survives a restart. Prefer an
+**automation** when the work should recur on a schedule rather than be handed off
 once.
 
 ## Before You Start
@@ -53,10 +53,10 @@ workspace, and the parent gets back the child's identity and phase.
 The task and Fleet collaboration panels use the same coordinator as these
 Local MCP tools:
 
-- `stave_delegate_task` — create (or re-report) a child task.
-- `stave_list_child_tasks` — list what this task delegated.
-- `stave_stop_child_task` — stop one delegation.
-- `stave_follow_up_child_task` — request more work on a waiting, ongoing child,
+- `stave_delegate_task` — create (or re-report) a delegated task.
+- `stave_list_delegated_tasks` — list what this task delegated.
+- `stave_stop_delegated_task` — stop one delegation.
+- `stave_follow_up_delegated_task` — request more work on a waiting, ongoing child,
   using the exact identity returned by the latest listing.
 - `stave_get_task` — collect the latest assistant answer and pending requests.
 
@@ -81,7 +81,7 @@ allows:
 
 | Control | Available when |
 | --- | --- |
-| Open | Always. Navigates to the child task, across workspaces if needed. |
+| Open | Always. Navigates to the delegated task, across workspaces if needed. |
 | Follow-up | The delegation is `detached` and waiting. Sends one more turn. |
 | Stop | The child is still active. Ends the child's work. |
 | Detach | The child is still active. Releases the parent's claim and leaves the child running as an ordinary task. |
@@ -126,7 +126,7 @@ brief is making one decision the request can be read back from. A hidden default
 would move part of that decision somewhere the delegating agent never sees, and
 somewhere the receipt could not prove. Steer them in the request instead —
 "delegate this to a Codex child at `high` effort" — and read the result back in
-the Delegation card or the child task row.
+the Delegation card or the delegated task row.
 
 ## Common Workflows
 
@@ -147,14 +147,14 @@ provider, lifecycle, phase, attempt and terminal reason, and refreshes when the
 delegation changes phase — including phase changes driven by the child's own
 turns, which are pushed rather than polled.
 
-The agent can call `stave_list_child_tasks` for the same summary. It is also
+The agent can call `stave_list_delegated_tasks` for the same summary. It is also
 injected into the parent's context automatically before each of its turns, so an
 agent that delegated work sees where its children stand without asking.
 
 ### Answer A Child's Question
 
 A child that needs an approval or an answer raises it as an ordinary interaction
-request, attributed to the child task and routed to the workspace the child runs
+request, attributed to the delegated task and routed to the workspace the child runs
 in. It appears in Fleet and in the sidebar like any other request.
 
 This matters because nothing outside Stave is watching a child: the person who
@@ -163,9 +163,9 @@ auto-denies after a few minutes.
 
 ### Stop, Detach, Or Retry A Child
 
-Use the child row's controls, or have the agent call `stave_stop_child_task`.
+Use the child row's controls, or have the agent call `stave_stop_delegated_task`.
 
-Stopping cancels the ledger row durably and asks the child task to stop as a best
+Stopping cancels the ledger row durably and asks the delegated task to stop as a best
 effort, because a child that already ended is a successful stop. Detaching is the
 narrower action: it ends only the parent's claim, leaving the child alive as an
 ordinary task nobody is delegating to — including in the task listings: detach
@@ -182,13 +182,13 @@ refuse a *non-retry* delegate under the same key with different inputs.
 ## Files And Data
 
 Delegations live in the run ledger inside Stave's SQLite database, as a
-`child-task` run with a `task` origin and one `child-task-turn` step:
+`delegated-task` run with a `task` origin and one `delegated-task-turn` step:
 
 ```json
 {
   "runId": "child-task:parent-task-1:docs-review",
-  "childTaskId": "6f1c2f1e-1b6b-4d2e-9d21-6f5a0d2c4b77",
-  "childWorkspaceId": "workspace-docs-review",
+  "delegatedTaskId": "6f1c2f1e-1b6b-4d2e-9d21-6f5a0d2c4b77",
+  "delegatedWorkspaceId": "workspace-docs-review",
   "providerId": "codex",
   "lifecycle": "one-turn",
   "phase": "completed",
@@ -196,13 +196,13 @@ Delegations live in the run ledger inside Stave's SQLite database, as a
 }
 ```
 
-Set `STAVE_CHILD_TASK_CONCURRENCY` to change how many children one parent task
+Set `STAVE_DELEGATED_TASK_CONCURRENCY` to change how many children one parent task
 may have running at once (default 3, maximum 16).
 
 ## Limitations And Advanced Options
 
 - A parent never receives the child's transcript. Receipts carry identity, phase
-  and terminal reason only; open the child task to read the conversation.
+  and terminal reason only; open the delegated task to read the conversation.
 - A cancelled delegation is not restarted by `retry`. Use a new delegation key.
 - Watching and steering a child is available in the UI, but *creating* one is
   not: delegation is driven by the MCP tools, so a child is always started by an
@@ -228,7 +228,7 @@ may have running at once (default 3, maximum 16).
 - Symptom: a new delegation is rejected while earlier ones still run.
 - Cause: the parent already has the maximum number of live children.
 - Fix: stop a child, wait for one to finish, or raise
-  `STAVE_CHILD_TASK_CONCURRENCY`.
+  `STAVE_DELEGATED_TASK_CONCURRENCY`.
 
 ### A control was refused with `stale-identity`
 
@@ -241,7 +241,7 @@ may have running at once (default 3, maximum 16).
 
 ### A child's approval was auto-denied before it was noticed
 
-- Symptom: a child task reports a denied action nobody answered.
+- Symptom: a delegated task reports a denied action nobody answered.
 - Cause: child interaction requests expire like any other; an unanswered
   approval auto-denies after a few minutes.
 - Fix: delegate with `permissionProfile: "auto"` for work that should run
@@ -251,10 +251,10 @@ may have running at once (default 3, maximum 16).
 
 - Symptom: a delegation that was running before a restart now reads
   `interrupted`.
-- Cause: on restart Stave compares each delegation against its live child task.
+- Cause: on restart Stave compares each delegation against its live delegated task.
   The child had no active turn and no completed turn to attribute the run to.
 - Fix: re-send the delegation with `retry: true` to start a new attempt on the
-  same child task.
+  same delegated task.
 
 ## Related Docs
 

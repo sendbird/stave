@@ -537,7 +537,7 @@ describe("mapCodexElicitationToUserInput", () => {
     // Read-only / workspace-metadata tools: allowed in every posture, exactly
     // as `resolveClaudePermissionModeDecision` allows them in every mode.
     for (const toolName of [
-      "stave_list_child_tasks",
+      "stave_list_delegated_tasks",
       "stave_get_workspace_information",
       "stave_append_workspace_notes",
       "stave_remember",
@@ -560,7 +560,7 @@ describe("mapCodexElicitationToUserInput", () => {
     // Agent-starting / agent-stopping tools keep following the run's posture.
     for (const toolName of [
       "stave_delegate_task",
-      "stave_stop_child_task",
+      "stave_stop_delegated_task",
       "stave_run_task",
     ]) {
       expect(
@@ -588,9 +588,9 @@ describe("mapCodexElicitationToUserInput", () => {
     });
 
     for (const decorated of [
-      "stave-local__stave_list_child_tasks",
-      "stave-local.stave_list_child_tasks",
-      "  STAVE_LIST_CHILD_TASKS  ",
+      "stave-local__stave_list_delegated_tasks",
+      "stave-local.stave_list_delegated_tasks",
+      "  STAVE_LIST_DELEGATED_TASKS  ",
     ]) {
       expect(
         shouldAutoApproveStaveLocalMcpElicitation({

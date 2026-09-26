@@ -1,4 +1,4 @@
-import { isDelegatedChildTask, isTaskArchived } from "@/lib/tasks";
+import { isDelegatedTask, isTaskArchived } from "@/lib/tasks";
 import type { FleetDisplayStatus } from "@/lib/fleet/task-status";
 import type { Task } from "@/types/chat";
 
@@ -60,7 +60,7 @@ export function selectFleetOpenTasks(
     ? new Set(options.openTaskTabIds)
     : null;
   return tasks.filter((task) => {
-    if (isTaskArchived(task) || isDelegatedChildTask(task)) {
+    if (isTaskArchived(task) || isDelegatedTask(task)) {
       return false;
     }
     if (!openTaskTabIds || openTaskTabIds.has(task.id)) {

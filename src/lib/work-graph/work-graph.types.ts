@@ -53,10 +53,10 @@ export function turnNodeKey(turnId: string) {
 }
 
 /**
- * A child task Stave delegated and owns on the run ledger. Keyed by the
- * delegation key rather than the child task id because the delegation key is
+ * A delegated task Stave delegated and owns on the run ledger. Keyed by the
+ * delegation key rather than the delegated task id because the delegation key is
  * what Stage F froze as the parent's handle on the child: it survives retries
- * that mint a new child task id, so a retried child stays the same node instead
+ * that mint a new delegated task id, so a retried child stays the same node instead
  * of forking the graph.
  */
 export function ledgerNodeKey(delegationKey: string) {
@@ -91,8 +91,8 @@ export interface AgentNode {
   agentId?: string;
   /** Ledger-owned identity, when Stave delegated this child. */
   delegationKey?: string;
-  /** The child task this node runs as, for ledger-owned nodes. */
-  childTaskId?: string;
+  /** The delegated task this node runs as, for ledger-owned nodes. */
+  delegatedTaskId?: string;
   /**
    * Ledger attempt number, for ledger-owned nodes.
    *

@@ -6,10 +6,10 @@ import { selectAdvisorTranscriptExchanges } from "@/lib/collaboration/advisor-tr
 import { loadTaskMessagesPage } from "@/lib/db/workspaces.db";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
-  ChildTaskRowActions,
-  useChildTaskRowController,
-} from "@/components/session/ChildTaskRows";
-import { useChildTasks } from "@/components/session/useChildTasks";
+  DelegatedTaskRowActions,
+  useDelegatedTaskRowController,
+} from "@/components/session/DelegatedTaskRows";
+import { useDelegatedTasks } from "@/components/session/useDelegatedTasks";
 import {
   WorkGraphTree,
   NO_WORK_GRAPH_CAPABILITIES,
@@ -45,20 +45,20 @@ import { sx } from "@/components/ads/utils/stylex";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 
-export type DelegationFilter = "all" | "advisor" | "worker" | "tasks";
+export type DelegationFilter = "all" | "advisor" | "worker" | "delegated";
 
 const FILTERS: ReadonlyArray<{ id: DelegationFilter; label: string }> = [
   { id: "all", label: "All" },
   { id: "advisor", label: "Advisor" },
   { id: "worker", label: "Worker" },
-  { id: "tasks", label: "Tasks" },
+  { id: "delegated", label: "Delegated" },
 ];
 
 const FILTER_KINDS: Record<DelegationFilter, readonly DelegationExchangeKind[]> = {
-  all: ["advisor", "worker", "child-task", "subagent"],
+  all: ["advisor", "worker", "delegated-task", "subagent"],
   advisor: ["advisor"],
   worker: ["worker"],
-  tasks: ["child-task", "subagent"],
+  delegated: ["delegated-task", "subagent"],
 };
 
 /** Execution metadata the live transcript still holds, by tool-use id. */
@@ -95,7 +95,7 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
     workspaceId: target.workspaceId,
     taskId: target.taskId,
   });
-  const listing = useChildTasks({
+  const listing = useDelegatedTasks({
     parentTaskId: target.taskId,
     parentWorkspaceId: target.workspaceId,
     projectPath: target.projectPath,
@@ -104,7 +104,7 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
     () => ({ children: listing.children, actions: listing.actions }),
     [listing.actions, listing.children],
   );
-  const childController = useChildTaskRowController({
+  const childController = useDelegatedTaskRowController({
     source: childSource,
     projectPath: target.projectPath,
   });
@@ -157,7 +157,7 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
         advisorTranscript,
         workers,
         workerExecutionByToolUseId,
-        childTasks: childController.children,
+        delegatedTasks: childController.children,
         childBlockedByDelegationKey: childController.blockedByDelegationKey,
         workGraph: activity?.workGraph ?? null,
         includeSubagents: true,
@@ -215,7 +215,7 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
   );
   const renderExtraActions = useCallback(
     (exchange: DelegationExchange) => {
-      if (exchange.kind !== "child-task" || !exchange.ref.delegationKey) {
+      if (exchange.kind !== "delegated-task" || !exchange.ref.delegationKey) {
         return null;
       }
       const child = childController.children.find(
@@ -225,7 +225,7 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
         return null;
       }
       return (
-        <ChildTaskRowActions
+        <DelegatedTaskRowActions
           child={child}
           busy={childController.busyDelegationKey === child.delegationKey}
           onOpen={childController.onOpen}
@@ -245,13 +245,13 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
         : undefined,
     [childController.errorByDelegationKey],
   );
-  // Child-task rows keep their descriptor list empty here: the shared action
+  // Delegated-task rows keep their descriptor list empty here: the shared action
   // row renders the real controls (with the prompt composer follow-up and
   // retry need), so descriptor buttons would double every control.
   const rows = useMemo(
     () =>
       ordered.map((exchange) =>
-        exchange.kind === "child-task" ? { ...exchange, actions: [] } : exchange,
+        exchange.kind === "delegated-task" ? { ...exchange, actions: [] } : exchange,
       ),
     [ordered],
   );
@@ -344,7 +344,7 @@ export function CollaborationPanel({ target }: { target: CollaborationTarget }) 
   // graph would print "Agent tree" over nothing.
   const workGraph = activity?.workGraph ?? null;
   const showTree =
-    (filter === "all" || filter === "tasks") &&
+    (filter === "all" || filter === "delegated") &&
     workGraph !== null &&
     summarizeWorkGraph(workGraph).totalCount > 0;
 

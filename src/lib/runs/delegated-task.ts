@@ -11,47 +11,47 @@ import {
 } from "./run-domain";
 
 /**
- * Child tasks are the run ledger's second client. A delegation is one durable
+ * Delegated tasks are the run ledger's second client. A delegation is one durable
  * Stave task created on the parent's behalf, possibly on the other provider,
  * with the ledger holding the bookkeeping the parent can trust: one run per
  * delegation, one step per child turn, receipts for every phase change.
  *
  * Everything in this module is pure so both the Electron main coordinator and
  * the renderer can share the vocabulary. Hashing and process access stay in
- * `electron/main/runs/child-task-coordinator.ts`.
+ * `electron/main/runs/delegated-task-coordinator.ts`.
  */
 
-export const CHILD_TASK_RUN_KIND = "child-task" as const;
-export const CHILD_TASK_STEP_KIND = "child-task-turn" as const;
-export const CHILD_TASK_RUN_ID_PREFIX = "child-task";
+export const DELEGATED_TASK_RUN_KIND = "delegated-task" as const;
+export const DELEGATED_TASK_STEP_KIND = "delegated-task-turn" as const;
+export const DELEGATED_TASK_RUN_ID_PREFIX = "child-task";
 
-export const CHILD_TASK_DEFAULT_CONCURRENCY_LIMIT = 3;
-export const CHILD_TASK_MAX_CONCURRENCY_LIMIT = 16;
-export const CHILD_TASK_LIST_LIMIT = 50;
+export const DELEGATED_TASK_DEFAULT_CONCURRENCY_LIMIT = 3;
+export const DELEGATED_TASK_MAX_CONCURRENCY_LIMIT = 16;
+export const DELEGATED_TASK_LIST_LIMIT = 50;
 
 /**
  * A child never inherits the parent's permissions, so the profile is required
  * and expressed in the vocabulary automations already use
  * (`AutomationPermissionMode`). No new synonym, no silent escalation.
  */
-export const ChildTaskPermissionProfileSchema = z.enum([
+export const DelegatedTaskPermissionProfileSchema = z.enum([
   "auto",
   "guided",
   "manual",
 ]);
-export type ChildTaskPermissionProfile = z.infer<
-  typeof ChildTaskPermissionProfileSchema
+export type DelegatedTaskPermissionProfile = z.infer<
+  typeof DelegatedTaskPermissionProfileSchema
 >;
 
 /**
  * `one-turn` closes the run when the child's first turn ends. `detached` parks
- * the run in `waiting` so the child task stays open for follow-up turns until
+ * the run in `waiting` so the delegated task stays open for follow-up turns until
  * the parent stops it.
  */
-export const ChildTaskLifecycleSchema = z.enum(["one-turn", "detached"]);
-export type ChildTaskLifecycle = z.infer<typeof ChildTaskLifecycleSchema>;
+export const DelegatedTaskLifecycleSchema = z.enum(["one-turn", "detached"]);
+export type DelegatedTaskLifecycle = z.infer<typeof DelegatedTaskLifecycleSchema>;
 
-export const ChildTaskWorkspaceStrategySchema = z.discriminatedUnion("mode", [
+export const DelegatedTaskWorkspaceStrategySchema = z.discriminatedUnion("mode", [
   z.object({ mode: z.literal("same-workspace") }).strict(),
   z
     .object({
@@ -61,18 +61,18 @@ export const ChildTaskWorkspaceStrategySchema = z.discriminatedUnion("mode", [
     })
     .strict(),
 ]);
-export type ChildTaskWorkspaceStrategy = z.infer<
-  typeof ChildTaskWorkspaceStrategySchema
+export type DelegatedTaskWorkspaceStrategy = z.infer<
+  typeof DelegatedTaskWorkspaceStrategySchema
 >;
 
 /**
  * The reasoning-effort tier a delegation may ask its child to run at. The
  * vocabulary is the shared provider union — `ultra` is Codex-only and Claude
- * has no such tier — and `buildChildTaskRuntimeOptions` clamps a requested
+ * has no such tier — and `buildDelegatedTaskRuntimeOptions` clamps a requested
  * tier to what the child's provider and model actually accept, stepping down
  * rather than rejecting, exactly as the Advisor's `resolveAdvisorEffort` does.
  */
-export const ChildTaskEffortSchema = z.enum([
+export const DelegatedTaskEffortSchema = z.enum([
   "low",
   "medium",
   "high",
@@ -80,9 +80,9 @@ export const ChildTaskEffortSchema = z.enum([
   "max",
   "ultra",
 ]);
-export type ChildTaskEffort = z.infer<typeof ChildTaskEffortSchema>;
+export type DelegatedTaskEffort = z.infer<typeof DelegatedTaskEffortSchema>;
 
-export const ChildTaskDelegationKeySchema = z
+export const DelegatedTaskDelegationKeySchema = z
   .string()
   .trim()
   .min(1)
@@ -92,20 +92,20 @@ export const ChildTaskDelegationKeySchema = z
     "A delegation key may only contain letters, digits, dot, underscore and hyphen.",
   );
 
-export const ChildTaskDelegateArgsSchema = z
+export const DelegateTaskArgsSchema = z
   .object({
     projectPath: z.string().trim().min(1).max(4096),
     parentWorkspaceId: RunIdSchema,
     parentTaskId: z.string().trim().min(1).max(150),
-    delegationKey: ChildTaskDelegationKeySchema,
+    delegationKey: DelegatedTaskDelegationKeySchema,
     prompt: z.string().trim().min(1).max(100_000),
     title: z.string().trim().min(1).max(200).optional(),
     providerId: z.enum(["claude-code", "codex"]),
     model: z.string().trim().min(1).max(200).optional(),
-    effort: ChildTaskEffortSchema.optional(),
-    permissionProfile: ChildTaskPermissionProfileSchema,
-    lifecycle: ChildTaskLifecycleSchema,
-    workspace: ChildTaskWorkspaceStrategySchema,
+    effort: DelegatedTaskEffortSchema.optional(),
+    permissionProfile: DelegatedTaskPermissionProfileSchema,
+    lifecycle: DelegatedTaskLifecycleSchema,
+    workspace: DelegatedTaskWorkspaceStrategySchema,
     /**
      * Start a fresh attempt on a delegation that already ended without
      * succeeding. Without this a repeat call is a pure duplicate, which is what
@@ -114,74 +114,74 @@ export const ChildTaskDelegateArgsSchema = z
     retry: z.boolean().default(false),
   })
   .strict();
-export type ChildTaskDelegateArgs = z.infer<typeof ChildTaskDelegateArgsSchema>;
+export type DelegateTaskArgs = z.infer<typeof DelegateTaskArgsSchema>;
 
-export const ChildTaskListArgsSchema = z
+export const DelegatedTaskListArgsSchema = z
   .object({
     parentTaskId: z.string().trim().min(1).max(150),
     includeFinished: z.boolean().default(true),
   })
   .strict();
-export type ChildTaskListArgs = z.infer<typeof ChildTaskListArgsSchema>;
+export type DelegatedTaskListArgs = z.infer<typeof DelegatedTaskListArgsSchema>;
 
 /**
- * The identity a control was rendered against. Every child-task control the
+ * The identity a control was rendered against. Every delegated-task control the
  * parent surface offers is prepared from a summary the user was looking at, so
  * the action carries that identity back and is refused when the delegation has
  * moved on in between — a stale click never lands on a child it did not mean.
  */
-export const ChildTaskExpectedIdentitySchema = z
+export const DelegatedTaskExpectedIdentitySchema = z
   .object({
-    childTaskId: RunIdSchema,
-    childWorkspaceId: RunIdSchema,
+    delegatedTaskId: RunIdSchema,
+    delegatedWorkspaceId: RunIdSchema,
     attempt: z.number().int().min(0).max(10),
     phase: RunStatusSchema.optional(),
-    childTurnId: RunIdSchema.nullable().optional(),
+    delegatedTurnId: RunIdSchema.nullable().optional(),
   })
   .strict();
-export type ChildTaskExpectedIdentity = z.infer<
-  typeof ChildTaskExpectedIdentitySchema
+export type DelegatedTaskExpectedIdentity = z.infer<
+  typeof DelegatedTaskExpectedIdentitySchema
 >;
 
-export const ChildTaskStopArgsSchema = z
+export const DelegatedTaskStopArgsSchema = z
   .object({
     parentTaskId: z.string().trim().min(1).max(150),
-    delegationKey: ChildTaskDelegationKeySchema,
+    delegationKey: DelegatedTaskDelegationKeySchema,
     reason: z.string().trim().min(1).max(500).optional(),
-    expected: ChildTaskExpectedIdentitySchema.optional(),
+    expected: DelegatedTaskExpectedIdentitySchema.optional(),
   })
   .strict();
-export type ChildTaskStopArgs = z.infer<typeof ChildTaskStopArgsSchema>;
+export type DelegatedTaskStopArgs = z.infer<typeof DelegatedTaskStopArgsSchema>;
 
 /**
  * One more turn on a child that is still open. A follow-up never inherits the
  * parent's permissions, so the posture is chosen by whoever sends it rather
  * than carried over from the original delegation.
  */
-export const ChildTaskFollowUpArgsSchema = z
+export const DelegatedTaskFollowUpArgsSchema = z
   .object({
     parentTaskId: z.string().trim().min(1).max(150),
-    delegationKey: ChildTaskDelegationKeySchema,
+    delegationKey: DelegatedTaskDelegationKeySchema,
     prompt: z.string().trim().min(1).max(100_000),
-    permissionProfile: ChildTaskPermissionProfileSchema.default("guided"),
-    expected: ChildTaskExpectedIdentitySchema,
+    permissionProfile: DelegatedTaskPermissionProfileSchema.default("guided"),
+    expected: DelegatedTaskExpectedIdentitySchema,
   })
   .strict();
-export type ChildTaskFollowUpArgs = z.infer<typeof ChildTaskFollowUpArgsSchema>;
+export type DelegatedTaskFollowUpArgs = z.infer<typeof DelegatedTaskFollowUpArgsSchema>;
 
 /**
- * Release the delegation while leaving the child task alive. Stopping ends the
+ * Release the delegation while leaving the delegated task alive. Stopping ends the
  * child's work; detaching only ends the parent's claim on it, so the child
  * carries on as an ordinary task nobody is delegating to any more.
  */
-export const ChildTaskDetachArgsSchema = z
+export const DelegatedTaskDetachArgsSchema = z
   .object({
     parentTaskId: z.string().trim().min(1).max(150),
-    delegationKey: ChildTaskDelegationKeySchema,
-    expected: ChildTaskExpectedIdentitySchema,
+    delegationKey: DelegatedTaskDelegationKeySchema,
+    expected: DelegatedTaskExpectedIdentitySchema,
   })
   .strict();
-export type ChildTaskDetachArgs = z.infer<typeof ChildTaskDetachArgsSchema>;
+export type DelegatedTaskDetachArgs = z.infer<typeof DelegatedTaskDetachArgsSchema>;
 
 /**
  * A fresh attempt on a delegation that ended without succeeding. Provider,
@@ -192,46 +192,46 @@ export type ChildTaskDetachArgs = z.infer<typeof ChildTaskDetachArgsSchema>;
  * profile the delegation was originally created with. Sending one is an
  * explicit override.
  */
-export const ChildTaskRetryArgsSchema = z
+export const DelegatedTaskRetryArgsSchema = z
   .object({
     projectPath: z.string().trim().min(1).max(4096),
     parentWorkspaceId: RunIdSchema,
     parentTaskId: z.string().trim().min(1).max(150),
-    delegationKey: ChildTaskDelegationKeySchema,
+    delegationKey: DelegatedTaskDelegationKeySchema,
     prompt: z.string().trim().min(1).max(100_000),
-    permissionProfile: ChildTaskPermissionProfileSchema.optional(),
-    expected: ChildTaskExpectedIdentitySchema,
+    permissionProfile: DelegatedTaskPermissionProfileSchema.optional(),
+    expected: DelegatedTaskExpectedIdentitySchema,
   })
   .strict();
-export type ChildTaskRetryArgs = z.infer<typeof ChildTaskRetryArgsSchema>;
+export type DelegatedTaskRetryArgs = z.infer<typeof DelegatedTaskRetryArgsSchema>;
 
-export const ChildTaskLinkArgsSchema = z
-  .object({ childTaskId: RunIdSchema })
+export const DelegatedTaskLinkArgsSchema = z
+  .object({ delegatedTaskId: RunIdSchema })
   .strict();
-export type ChildTaskLinkArgs = z.infer<typeof ChildTaskLinkArgsSchema>;
+export type DelegatedTaskLinkArgs = z.infer<typeof DelegatedTaskLinkArgsSchema>;
 
-export const CHILD_TASK_DETACHED_REASON =
-  "Detached from the parent task; the child task keeps running on its own.";
-export const CHILD_TASK_STOPPED_REASON = "Stopped from the parent task.";
+export const DELEGATED_TASK_DETACHED_REASON =
+  "Detached from the parent task; the delegated task keeps running on its own.";
+export const DELEGATED_TASK_STOPPED_REASON = "Stopped from the parent task.";
 
 /**
  * What the parent is allowed to learn about a child: who it is, what phase it
  * is in, and why it ended. Never the child's transcript.
  */
-export const ChildTaskSummarySchema = z
+export const DelegatedTaskSummarySchema = z
   .object({
     runId: RunIdSchema,
     stepId: RunIdSchema,
     parentTaskId: z.string().trim().min(1).max(150),
-    delegationKey: ChildTaskDelegationKeySchema,
-    childTaskId: RunIdSchema,
-    childWorkspaceId: RunIdSchema,
-    childTurnId: RunIdSchema.nullable(),
+    delegationKey: DelegatedTaskDelegationKeySchema,
+    delegatedTaskId: RunIdSchema,
+    delegatedWorkspaceId: RunIdSchema,
+    delegatedTurnId: RunIdSchema.nullable(),
     providerId: z.enum(["claude-code", "codex"]),
     /** The model and effort the delegation asked for at admission time. */
     requestedModel: z.string().trim().min(1).max(200).optional(),
-    requestedEffort: ChildTaskEffortSchema.optional(),
-    lifecycle: ChildTaskLifecycleSchema,
+    requestedEffort: DelegatedTaskEffortSchema.optional(),
+    lifecycle: DelegatedTaskLifecycleSchema,
     phase: RunStatusSchema,
     reason: z.string().max(1_000).nullable(),
     attempt: z.number().int().min(0).max(10),
@@ -240,9 +240,9 @@ export const ChildTaskSummarySchema = z
     completedAt: z.string().datetime().nullable(),
   })
   .strict();
-export type ChildTaskSummary = z.infer<typeof ChildTaskSummarySchema>;
+export type DelegatedTaskSummary = z.infer<typeof DelegatedTaskSummarySchema>;
 
-export const ChildTaskRejectionReasonSchema = z.enum([
+export const DelegatedTaskRejectionReasonSchema = z.enum([
   "already-active",
   "already-completed",
   "attempt-limit-reached",
@@ -259,40 +259,40 @@ export const ChildTaskRejectionReasonSchema = z.enum([
   "step-conflict",
   "workspace-unavailable",
 ]);
-export type ChildTaskRejectionReason = z.infer<
-  typeof ChildTaskRejectionReasonSchema
+export type DelegatedTaskRejectionReason = z.infer<
+  typeof DelegatedTaskRejectionReasonSchema
 >;
 
 /**
- * Every child-task action answers in the same shape, and a refusal always
+ * Every delegated-task action answers in the same shape, and a refusal always
  * carries a sentence the surface can show as-is. A control that fails silently
  * is indistinguishable from one that worked.
  */
-export const ChildTaskActionResponseSchema = z
+export const DelegatedTaskActionResponseSchema = z
   .object({
     accepted: z.boolean(),
     duplicate: z.boolean(),
-    reason: ChildTaskRejectionReasonSchema.nullable(),
+    reason: DelegatedTaskRejectionReasonSchema.nullable(),
     message: z.string().max(500).nullable().default(null),
-    child: ChildTaskSummarySchema.nullable(),
+    child: DelegatedTaskSummarySchema.nullable(),
   })
   .strict();
-export type ChildTaskActionResponse = z.infer<
-  typeof ChildTaskActionResponseSchema
+export type DelegatedTaskActionResponse = z.infer<
+  typeof DelegatedTaskActionResponseSchema
 >;
 
-export const ChildTaskDelegateResponseSchema = ChildTaskActionResponseSchema;
-export type ChildTaskDelegateResponse = ChildTaskActionResponse;
+export const DelegatedTaskDelegateResponseSchema = DelegatedTaskActionResponseSchema;
+export type DelegatedTaskDelegateResponse = DelegatedTaskActionResponse;
 
-export const ChildTaskStopResponseSchema = ChildTaskActionResponseSchema;
-export type ChildTaskStopResponse = ChildTaskActionResponse;
+export const DelegatedTaskStopResponseSchema = DelegatedTaskActionResponseSchema;
+export type DelegatedTaskStopResponse = DelegatedTaskActionResponse;
 
-export const ChildTaskListSchema = z.array(ChildTaskSummarySchema);
-export type ChildTaskList = z.infer<typeof ChildTaskListSchema>;
+export const DelegatedTaskListSchema = z.array(DelegatedTaskSummarySchema);
+export type DelegatedTaskList = z.infer<typeof DelegatedTaskListSchema>;
 
 const ACTIVE_CHILD_PHASES = new Set(["pending", "running", "waiting"]);
 
-export function isActiveChildTaskPhase(phase: ChildTaskSummary["phase"]) {
+export function isActiveDelegatedTaskPhase(phase: DelegatedTaskSummary["phase"]) {
   return ACTIVE_CHILD_PHASES.has(phase);
 }
 
@@ -305,31 +305,31 @@ export function isActiveChildTaskPhase(phase: ChildTaskSummary["phase"]) {
  * The parent task id is known by every caller that reads these rows, so the
  * delegation key is recovered by stripping the prefix rather than by parsing.
  */
-export function buildChildTaskRunId(args: {
+export function buildDelegatedTaskRunId(args: {
   parentTaskId: string;
   delegationKey: string;
 }) {
-  return `${CHILD_TASK_RUN_ID_PREFIX}:${args.parentTaskId}:${args.delegationKey}`;
+  return `${DELEGATED_TASK_RUN_ID_PREFIX}:${args.parentTaskId}:${args.delegationKey}`;
 }
 
-export function buildChildTaskStepId(runId: string) {
+export function buildDelegatedTaskStepId(runId: string) {
   return `${runId}:turn`;
 }
 
-export function extractChildTaskDelegationKey(args: {
+export function extractDelegatedTaskDelegationKey(args: {
   runId: string;
   parentTaskId: string;
 }) {
-  const prefix = `${CHILD_TASK_RUN_ID_PREFIX}:${args.parentTaskId}:`;
+  const prefix = `${DELEGATED_TASK_RUN_ID_PREFIX}:${args.parentTaskId}:`;
   return args.runId.startsWith(prefix) ? args.runId.slice(prefix.length) : null;
 }
 
 /**
- * A completed child step points at the child task, never at its output. The
+ * A completed child step points at the delegated task, never at its output. The
  * parent follows the reference through the normal task surfaces if it wants the
  * conversation.
  */
-export function buildChildTaskArtifactRef(args: {
+export function buildDelegatedTaskArtifactRef(args: {
   workspaceId: string;
   taskId: string;
   turnId: string | null;
@@ -338,7 +338,7 @@ export function buildChildTaskArtifactRef(args: {
   return args.turnId ? `${base}/turn/${args.turnId}` : base;
 }
 
-export function buildChildTaskPolicy(lifecycle: ChildTaskLifecycle): RunPolicy {
+export function buildDelegatedTaskPolicy(lifecycle: DelegatedTaskLifecycle): RunPolicy {
   return {
     maxAttempts: 3,
     timeoutMs: 86_400_000,
@@ -348,13 +348,13 @@ export function buildChildTaskPolicy(lifecycle: ChildTaskLifecycle): RunPolicy {
   };
 }
 
-export function resolveChildTaskLifecycle(
+export function resolveDelegatedTaskLifecycle(
   policy: RunPolicy,
-): ChildTaskLifecycle {
+): DelegatedTaskLifecycle {
   return policy.maxTurns > 1 ? "detached" : "one-turn";
 }
 
-export function resolveChildTaskConcurrencyLimit(
+export function resolveDelegatedTaskConcurrencyLimit(
   raw: string | number | undefined | null,
 ): number {
   const parsed = typeof raw === "string" ? Number.parseInt(raw, 10) : raw;
@@ -362,32 +362,32 @@ export function resolveChildTaskConcurrencyLimit(
     typeof parsed !== "number" ||
     !Number.isInteger(parsed) ||
     parsed < 1 ||
-    parsed > CHILD_TASK_MAX_CONCURRENCY_LIMIT
+    parsed > DELEGATED_TASK_MAX_CONCURRENCY_LIMIT
   ) {
-    return CHILD_TASK_DEFAULT_CONCURRENCY_LIMIT;
+    return DELEGATED_TASK_DEFAULT_CONCURRENCY_LIMIT;
   }
   return parsed;
 }
 
 /**
  * Everything the ledger knows about one delegation, projected down to what the
- * parent may see. Returns null for rows that are not child-task rows so a
+ * parent may see. Returns null for rows that are not delegated-task rows so a
  * widened ledger can never leak a Compare Judge run into a child listing.
  */
-export function toChildTaskSummary(args: {
+export function toDelegatedTaskSummary(args: {
   run: RunRecord;
   step: RunStepRecord;
   acceptedReceipt?: Pick<RunReceiptRecord, "type" | "detail"> | null;
-}): ChildTaskSummary | null {
+}): DelegatedTaskSummary | null {
   const run = RunRecordSchema.parse(args.run);
   const step = RunStepRecordSchema.parse(args.step);
-  if (run.kind !== CHILD_TASK_RUN_KIND || step.kind !== CHILD_TASK_STEP_KIND) {
+  if (run.kind !== DELEGATED_TASK_RUN_KIND || step.kind !== DELEGATED_TASK_STEP_KIND) {
     return null;
   }
   if (run.origin.kind !== "task" || !step.target) {
     return null;
   }
-  const delegationKey = extractChildTaskDelegationKey({
+  const delegationKey = extractDelegatedTaskDelegationKey({
     runId: run.id,
     parentTaskId: run.origin.id,
   });
@@ -399,11 +399,11 @@ export function toChildTaskSummary(args: {
     args.acceptedReceipt.detail?.attempt === step.attempt
       ? args.acceptedReceipt.detail
       : null;
-  const requestedModel = ChildTaskSummarySchema.shape.requestedModel.safeParse(
+  const requestedModel = DelegatedTaskSummarySchema.shape.requestedModel.safeParse(
     acceptedDetail?.model,
   );
   const requestedEffort =
-    ChildTaskSummarySchema.shape.requestedEffort.safeParse(
+    DelegatedTaskSummarySchema.shape.requestedEffort.safeParse(
       acceptedDetail?.effort,
     );
   const requested = {
@@ -414,17 +414,17 @@ export function toChildTaskSummary(args: {
       ? { requestedEffort: requestedEffort.data }
       : {}),
   };
-  const parsed = ChildTaskSummarySchema.safeParse({
+  const parsed = DelegatedTaskSummarySchema.safeParse({
     runId: run.id,
     stepId: step.id,
     parentTaskId: run.origin.id,
     delegationKey,
-    childTaskId: step.target.taskId,
-    childWorkspaceId: step.target.workspaceId,
-    childTurnId: step.target.turnId,
+    delegatedTaskId: step.target.taskId,
+    delegatedWorkspaceId: step.target.workspaceId,
+    delegatedTurnId: step.target.turnId,
     providerId: step.target.providerId,
     ...requested,
-    lifecycle: resolveChildTaskLifecycle(run.policy),
+    lifecycle: resolveDelegatedTaskLifecycle(run.policy),
     phase: step.status,
     reason: step.error ?? run.error,
     attempt: step.attempt,
@@ -435,9 +435,9 @@ export function toChildTaskSummary(args: {
   return parsed.success ? parsed.data : null;
 }
 
-export type ChildTaskIdentityValidation =
+export type DelegatedTaskIdentityValidation =
   | { ok: true }
-  | { ok: false; reason: ChildTaskRejectionReason; message: string };
+  | { ok: false; reason: DelegatedTaskRejectionReason; message: string };
 
 /**
  * Compare the identity a control was rendered against with the delegation as it
@@ -445,10 +445,10 @@ export type ChildTaskIdentityValidation =
  * remote task actions: an action prepared against an identity that has since
  * moved is refused with a reason, never applied to whatever is there instead.
  */
-export function validateChildTaskIdentity(args: {
-  expected: ChildTaskExpectedIdentity;
-  child: ChildTaskSummary | null;
-}): ChildTaskIdentityValidation {
+export function validateDelegatedTaskIdentity(args: {
+  expected: DelegatedTaskExpectedIdentity;
+  child: DelegatedTaskSummary | null;
+}): DelegatedTaskIdentityValidation {
   if (!args.child) {
     return {
       ok: false,
@@ -458,14 +458,14 @@ export function validateChildTaskIdentity(args: {
     };
   }
   if (
-    args.child.childTaskId !== args.expected.childTaskId ||
-    args.child.childWorkspaceId !== args.expected.childWorkspaceId
+    args.child.delegatedTaskId !== args.expected.delegatedTaskId ||
+    args.child.delegatedWorkspaceId !== args.expected.delegatedWorkspaceId
   ) {
     return {
       ok: false,
       reason: "stale-identity",
       message:
-        "This delegation now points at a different child task. Refresh the parent task.",
+        "This delegation now points at a different delegated task. Refresh the parent task.",
     };
   }
   if (args.child.attempt !== args.expected.attempt) {
@@ -485,8 +485,8 @@ export function validateChildTaskIdentity(args: {
     };
   }
   if (
-    args.expected.childTurnId !== undefined &&
-    args.child.childTurnId !== args.expected.childTurnId
+    args.expected.delegatedTurnId !== undefined &&
+    args.child.delegatedTurnId !== args.expected.delegatedTurnId
   ) {
     return {
       ok: false,
@@ -498,7 +498,7 @@ export function validateChildTaskIdentity(args: {
   return { ok: true };
 }
 
-const CHILD_TASK_REJECTION_MESSAGES: Record<ChildTaskRejectionReason, string> =
+const DELEGATED_TASK_REJECTION_MESSAGES: Record<DelegatedTaskRejectionReason, string> =
   {
     "already-active": "This child is already running.",
     "already-completed": "This delegation already finished.",
@@ -527,16 +527,16 @@ const CHILD_TASK_REJECTION_MESSAGES: Record<ChildTaskRejectionReason, string> =
       "The child's workspace could not be reached. Try again once it is available.",
   };
 
-export function describeChildTaskRejection(reason: ChildTaskRejectionReason) {
-  return CHILD_TASK_REJECTION_MESSAGES[reason];
+export function describeDelegatedTaskRejection(reason: DelegatedTaskRejectionReason) {
+  return DELEGATED_TASK_REJECTION_MESSAGES[reason];
 }
 
 /**
  * Which controls a child row may offer, derived from the delegation alone so
  * the parent surface and the coordinator never disagree about what is possible.
  */
-export function resolveChildTaskControls(child: ChildTaskSummary) {
-  const active = isActiveChildTaskPhase(child.phase);
+export function resolveDelegatedTaskControls(child: DelegatedTaskSummary) {
+  const active = isActiveDelegatedTaskPhase(child.phase);
   return {
     canFollowUp: child.lifecycle === "detached" && child.phase === "waiting",
     canStop: active,
@@ -545,6 +545,6 @@ export function resolveChildTaskControls(child: ChildTaskSummary) {
       !active &&
       child.phase !== "completed" &&
       child.phase !== "cancelled" &&
-      child.attempt < buildChildTaskPolicy(child.lifecycle).maxAttempts,
+      child.attempt < buildDelegatedTaskPolicy(child.lifecycle).maxAttempts,
   };
 }

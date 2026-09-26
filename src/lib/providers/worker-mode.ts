@@ -1271,7 +1271,7 @@ export function buildAcpWorkerPrompt(args: {
       args.profile.tools?.length
         ? `Use only the equivalent of these tool capabilities: ${args.profile.tools.join(", ")}. `
         : ""
-    }Do not launch another Worker or a durable child task. Never ask the user a question; report a blocker in the result instead.${maxTurnsGuidance}`,
+    }Do not launch another Worker or a durable delegated task. Never ask the user a question; report a blocker in the result instead.${maxTurnsGuidance}`,
     `# Delegated task\n\n${args.task.trim().slice(0, WORKER_TASK_MAX_CHARS)}`,
     ...(context
       ? [`# Supplied context\n\n${context.slice(0, WORKER_CONTEXT_MAX_CHARS)}`]

@@ -1,17 +1,17 @@
 import { describe, expect, test } from "bun:test";
 
-import { buildChildTaskRuntimeOptions } from "../src/lib/runs/child-task-runtime";
+import { buildDelegatedTaskRuntimeOptions } from "../src/lib/runs/delegated-task-runtime";
 
-describe("child task runtime effort", () => {
+describe("delegated task runtime effort", () => {
   test("omitted effort keeps the automation default", () => {
     expect(
-      buildChildTaskRuntimeOptions({
+      buildDelegatedTaskRuntimeOptions({
         providerId: "claude-code",
         permissionProfile: "guided",
       }).claudeEffort,
     ).toBe("medium");
     expect(
-      buildChildTaskRuntimeOptions({
+      buildDelegatedTaskRuntimeOptions({
         providerId: "codex",
         permissionProfile: "guided",
       }).codexReasoningEffort,
@@ -20,7 +20,7 @@ describe("child task runtime effort", () => {
 
   test("an explicit effort reaches the child's runtime options", () => {
     expect(
-      buildChildTaskRuntimeOptions({
+      buildDelegatedTaskRuntimeOptions({
         providerId: "claude-code",
         model: "claude-fable-5-20260620",
         effort: "xhigh",
@@ -28,7 +28,7 @@ describe("child task runtime effort", () => {
       }).claudeEffort,
     ).toBe("xhigh");
     expect(
-      buildChildTaskRuntimeOptions({
+      buildDelegatedTaskRuntimeOptions({
         providerId: "codex",
         model: "gpt-5.6-sol",
         effort: "ultra",
@@ -40,7 +40,7 @@ describe("child task runtime effort", () => {
   test("effort is clamped to what the provider and model accept", () => {
     // Claude has no "ultra" tier: the nearest tier below is "max".
     expect(
-      buildChildTaskRuntimeOptions({
+      buildDelegatedTaskRuntimeOptions({
         providerId: "claude-code",
         effort: "ultra",
         permissionProfile: "guided",
@@ -49,7 +49,7 @@ describe("child task runtime effort", () => {
     // Luna is the GPT-5.6 variant that rejects "ultra": step down to "max"
     // rather than silently reverting to the default tier.
     expect(
-      buildChildTaskRuntimeOptions({
+      buildDelegatedTaskRuntimeOptions({
         providerId: "codex",
         model: "gpt-5.6-luna",
         effort: "ultra",
@@ -58,7 +58,7 @@ describe("child task runtime effort", () => {
     ).toBe("max");
     // GPT-5.5 tops out at "xhigh".
     expect(
-      buildChildTaskRuntimeOptions({
+      buildDelegatedTaskRuntimeOptions({
         providerId: "codex",
         model: "gpt-5.5",
         effort: "max",

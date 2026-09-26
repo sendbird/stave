@@ -1,7 +1,7 @@
 import { cancelPendingAutoRouting } from "./auto-routing-dispatch";
 import type { StoreApi } from "zustand";
 import {
-  applyChildTasksToProviderTurnActivity,
+  applyDelegatedTasksToProviderTurnActivity,
   clearProviderTurnActivity,
   markProviderTurnInteractionResolved,
   retainRetiredTurnActivity,
@@ -51,7 +51,7 @@ type ProviderInteractionActionKey =
   | "setAdvisorConsultVerdict"
   | "resolveApproval"
   | "resolveUserInput"
-  | "syncChildTasksIntoTurnGraph";
+  | "syncDelegatedTasksIntoTurnGraph";
 
 type ProviderInteractionActions = Pick<AppState, ProviderInteractionActionKey>;
 type StoreSet = StoreApi<AppState>["setState"];
@@ -166,13 +166,13 @@ export function createProviderInteractionActions(args: {
         advisorVerdictTallyByModel: next.tallyByModel,
       });
     },
-    syncChildTasksIntoTurnGraph: ({ taskId, children }) => {
+    syncDelegatedTasksIntoTurnGraph: ({ taskId, children }) => {
       // Computed before `set` rather than inside it: returning the same state
       // from the updater suppresses the subscriber notification but not the
       // persist middleware, which serializes and writes the store on every
-      // `set` regardless. This runs on every child-task change event and is
+      // `set` regardless. This runs on every delegated-task change event and is
       // usually a no-op, so it must not reach `set` at all.
-      const providerTurnActivityByTask = applyChildTasksToProviderTurnActivity({
+      const providerTurnActivityByTask = applyDelegatedTasksToProviderTurnActivity({
         activityByTask: get().providerTurnActivityByTask,
         taskId,
         children,

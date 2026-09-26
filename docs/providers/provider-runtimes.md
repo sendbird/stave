@@ -754,7 +754,7 @@ the user explicitly chooses another advertised model.
   `agents.*` overrides nor the worker brief in `developer_instructions` are sent.
   A secondary run is a bounded analysis pass; delegating would escape both its
   turn budget and its read-only contract.
-- Cross-provider or durable delegation remains a Child Task. Worker mode never
+- Cross-provider or durable delegation remains a Delegated Task. Worker mode never
   switches provider, and its bounded role-session reuse is not a durable child
   task or an independently scheduled execution.
 - Only per-turn and per-thread runtime configuration is used. No provider config

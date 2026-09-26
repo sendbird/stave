@@ -408,7 +408,7 @@ export function mapCodexElicitationToApproval(params: Record<string, unknown>) {
  * The always-allowed set is checked before that flag so read-only and
  * workspace-metadata tools behave the same as they do under Claude, which
  * allows them in every permission mode. Without this, a Codex run with any
- * tightened sandbox setting prompted for `stave_list_child_tasks` while the
+ * tightened sandbox setting prompted for `stave_list_delegated_tasks` while the
  * identical Claude run did not.
  */
 export function shouldAutoApproveStaveLocalMcpElicitation(args: {

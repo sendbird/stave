@@ -4,21 +4,21 @@ import {
   SecondaryRunTransitionResponseSchema,
 } from "../../../src/lib/runs/secondary-run";
 import {
-  ChildTaskActionResponseSchema,
-  ChildTaskDelegateArgsSchema,
-  ChildTaskDetachArgsSchema,
-  ChildTaskFollowUpArgsSchema,
-  ChildTaskLinkArgsSchema,
-  ChildTaskListArgsSchema,
-  ChildTaskRetryArgsSchema,
-  ChildTaskStopArgsSchema,
-  describeChildTaskRejection,
-} from "../../../src/lib/runs/child-task";
+  DelegatedTaskActionResponseSchema,
+  DelegateTaskArgsSchema,
+  DelegatedTaskDetachArgsSchema,
+  DelegatedTaskFollowUpArgsSchema,
+  DelegatedTaskLinkArgsSchema,
+  DelegatedTaskListArgsSchema,
+  DelegatedTaskRetryArgsSchema,
+  DelegatedTaskStopArgsSchema,
+  describeDelegatedTaskRejection,
+} from "../../../src/lib/runs/delegated-task";
 import { invokeHostService } from "../host-service-client";
 import {
-  getChildTaskCoordinator,
-  reconcileChildTasks,
-} from "../runs/child-task-coordinator-instance";
+  getDelegatedTaskCoordinator,
+  reconcileDelegatedTasks,
+} from "../runs/delegated-task-coordinator-instance";
 import { createSecondaryRunCoordinator } from "../runs/secondary-run-coordinator";
 import { ensurePersistenceReady } from "../state";
 import {
@@ -48,12 +48,12 @@ function invalidTransitionResponse() {
   });
 }
 
-function invalidChildTaskResponse() {
-  return ChildTaskActionResponseSchema.parse({
+function invalidDelegatedTaskResponse() {
+  return DelegatedTaskActionResponseSchema.parse({
     accepted: false,
     duplicate: false,
     reason: "invalid-request",
-    message: describeChildTaskRejection("invalid-request"),
+    message: describeDelegatedTaskRejection("invalid-request"),
     child: null,
   });
 }
@@ -68,11 +68,11 @@ function invalidExecuteResponse() {
 }
 
 export function registerRunHandlers() {
-  // Child tasks outlive the app, so restart recovery has to ask the live task
+  // Delegated tasks outlive the app, so restart recovery has to ask the live task
   // what happened instead of assuming the delegation died with the process.
   // Deliberately not awaited: handler registration must not wait on the host
   // service, and an unreconciled row stays visible as `running` until it is.
-  void reconcileChildTasks();
+  void reconcileDelegatedTasks();
 
   ipcMain.handle("runs:claim-secondary", async (_event, rawArgs: unknown) => {
     const args = SecondaryRunClaimArgsSchema.safeParse(rawArgs);
@@ -125,16 +125,16 @@ export function registerRunHandlers() {
   // The renderer reads child summaries when it assembles a parent turn, so a
   // parent driven from the UI sees its children's lifecycle without having to
   // ask for it.
-  ipcMain.handle("runs:delegate-child-task", async (_event, rawArgs: unknown) => {
-    const args = ChildTaskDelegateArgsSchema.safeParse(rawArgs);
+  ipcMain.handle("delegations:create", async (_event, rawArgs: unknown) => {
+    const args = DelegateTaskArgsSchema.safeParse(rawArgs);
     return args.success
-      ? await getChildTaskCoordinator().delegate(args.data)
-      : invalidChildTaskResponse();
+      ? await getDelegatedTaskCoordinator().delegate(args.data)
+      : invalidDelegatedTaskResponse();
   });
 
-  ipcMain.handle("runs:list-child-tasks", async (_event, rawArgs: unknown) => {
-    const args = ChildTaskListArgsSchema.safeParse(rawArgs);
-    return args.success ? await getChildTaskCoordinator().list(args.data) : [];
+  ipcMain.handle("delegations:list", async (_event, rawArgs: unknown) => {
+    const args = DelegatedTaskListArgsSchema.safeParse(rawArgs);
+    return args.success ? await getDelegatedTaskCoordinator().list(args.data) : [];
   });
 
   // The parent's own controls. Each one carries the identity its row was
@@ -142,44 +142,44 @@ export function registerRunHandlers() {
   // delegation that has since moved on rather than apply it to whatever
   // replaced it.
   ipcMain.handle(
-    "runs:follow-up-child-task",
+    "delegations:follow-up",
     async (_event, rawArgs: unknown) => {
-      const args = ChildTaskFollowUpArgsSchema.safeParse(rawArgs);
+      const args = DelegatedTaskFollowUpArgsSchema.safeParse(rawArgs);
       return args.success
-        ? await getChildTaskCoordinator().followUp(args.data)
-        : invalidChildTaskResponse();
+        ? await getDelegatedTaskCoordinator().followUp(args.data)
+        : invalidDelegatedTaskResponse();
     },
   );
 
-  ipcMain.handle("runs:retry-child-task", async (_event, rawArgs: unknown) => {
-    const args = ChildTaskRetryArgsSchema.safeParse(rawArgs);
+  ipcMain.handle("delegations:retry", async (_event, rawArgs: unknown) => {
+    const args = DelegatedTaskRetryArgsSchema.safeParse(rawArgs);
     return args.success
-      ? await getChildTaskCoordinator().retry(args.data)
-      : invalidChildTaskResponse();
+      ? await getDelegatedTaskCoordinator().retry(args.data)
+      : invalidDelegatedTaskResponse();
   });
 
-  ipcMain.handle("runs:stop-child-task", async (_event, rawArgs: unknown) => {
-    const args = ChildTaskStopArgsSchema.safeParse(rawArgs);
+  ipcMain.handle("delegations:stop", async (_event, rawArgs: unknown) => {
+    const args = DelegatedTaskStopArgsSchema.safeParse(rawArgs);
     return args.success
-      ? await getChildTaskCoordinator().stop(args.data)
-      : invalidChildTaskResponse();
+      ? await getDelegatedTaskCoordinator().stop(args.data)
+      : invalidDelegatedTaskResponse();
   });
 
   // Seen from the child's side: which delegation, if any, owns this task.
   ipcMain.handle(
-    "runs:get-child-task-link",
+    "delegations:get-link",
     async (_event, rawArgs: unknown) => {
-      const args = ChildTaskLinkArgsSchema.safeParse(rawArgs);
+      const args = DelegatedTaskLinkArgsSchema.safeParse(rawArgs);
       return args.success
-        ? await getChildTaskCoordinator().getParentLink(args.data)
+        ? await getDelegatedTaskCoordinator().getParentLink(args.data)
         : null;
     },
   );
 
-  ipcMain.handle("runs:detach-child-task", async (_event, rawArgs: unknown) => {
-    const args = ChildTaskDetachArgsSchema.safeParse(rawArgs);
+  ipcMain.handle("delegations:detach", async (_event, rawArgs: unknown) => {
+    const args = DelegatedTaskDetachArgsSchema.safeParse(rawArgs);
     return args.success
-      ? await getChildTaskCoordinator().detach(args.data)
-      : invalidChildTaskResponse();
+      ? await getDelegatedTaskCoordinator().detach(args.data)
+      : invalidDelegatedTaskResponse();
   });
 }

@@ -24,7 +24,7 @@ import type {
   RetainedTurnActivityByTask,
 } from "@/lib/providers/turn-status";
 import type { WorkspacePrInfo } from "@/lib/pr-status";
-import type { ChildTaskSummary } from "@/lib/runs/child-task";
+import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import type { TurnIntentComplianceResult } from "@/lib/source-control-review";
 import type { SkillCatalogEntry, SkillCatalogRoot } from "@/lib/skills/types";
 import type { Macro, MacroTokenMatch } from "@/lib/macros/types";
@@ -695,7 +695,7 @@ export interface AppState
   }) => Promise<SendUserMessageResult>;
   abortTaskTurn: (args: { taskId: string }) => void;
   /**
-   * Publish a parent's child-task listing into its active turn's work graph.
+   * Publish a parent's delegated-task listing into its active turn's work graph.
    *
    * The listing is read by the surface that shows it, but the graph is where
    * both the Turn Activity tree and Fleet's agent count come from — so it has to
@@ -703,9 +703,9 @@ export interface AppState
    * would report different fan-outs for the same turn. A no-op when the task has
    * no live turn, and reference-stable when the listing has not changed.
    */
-  syncChildTasksIntoTurnGraph: (args: {
+  syncDelegatedTasksIntoTurnGraph: (args: {
     taskId: string;
-    children: readonly ChildTaskSummary[];
+    children: readonly DelegatedTaskSummary[];
   }) => void;
   /**
    * Cancels only the Advisor preflight for the task's active turn. The primary

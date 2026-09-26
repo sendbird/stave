@@ -19,7 +19,7 @@ function completionSignal(
   return {
     runId: "child-task:task-1:review",
     stepId: "child-task:task-1:review:turn",
-    childTaskId: "task-child-1",
+    delegatedTaskId: "task-child-1",
     providerId: "claude-code",
     status: "completed",
     reason: null,
@@ -749,15 +749,15 @@ describe("supervisor runtime — completion trigger", () => {
         completionSignal({
           runId: "child-task:task-1:a",
           stepId: "child-task:task-1:a:turn",
-          childTaskId: "task-child-a",
+          delegatedTaskId: "task-child-a",
           completedAt: "2026-08-10T00:10:00.000Z",
         }),
         completionSignal({
           runId: "child-task:task-1:b",
           stepId: "child-task:task-1:b:turn",
-          childTaskId: "task-child-b",
+          delegatedTaskId: "task-child-b",
           status: "failed",
-          reason: "The child task ran out of attempts.",
+          reason: "The delegated task ran out of attempts.",
           completedAt: "2026-08-10T00:20:00.000Z",
         }),
       ],
@@ -784,7 +784,7 @@ describe("supervisor runtime — completion trigger", () => {
     expect(context.content).toContain("task-child-a");
     expect(context.content).toContain("task-child-b");
     expect(context.content).toContain("failed");
-    expect(context.content).toContain("The child task ran out of attempts.");
+    expect(context.content).toContain("The delegated task ran out of attempts.");
   });
 
   test("a completion that arrives later wakes the task again", async () => {
@@ -797,7 +797,7 @@ describe("supervisor runtime — completion trigger", () => {
       completionSignal({
         runId: "child-task:task-1:second",
         stepId: "child-task:task-1:second:turn",
-        childTaskId: "task-child-2",
+        delegatedTaskId: "task-child-2",
         completedAt: "2026-08-10T02:00:00.000Z",
       }),
     ]);
@@ -1145,7 +1145,7 @@ describe("supervisor runtime — completion trigger", () => {
       completionSignal({
         runId: "child-task:task-1:fresh",
         stepId: "child-task:task-1:fresh:turn",
-        childTaskId: "task-child-fresh",
+        delegatedTaskId: "task-child-fresh",
         completedAt: "2026-08-10T01:00:00.000Z",
       }),
     ]);

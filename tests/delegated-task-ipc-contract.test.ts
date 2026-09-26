@@ -2,16 +2,16 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
-  ChildTaskActionResponseSchema,
-  ChildTaskDetachArgsSchema,
-  ChildTaskFollowUpArgsSchema,
-  ChildTaskLinkArgsSchema,
-  ChildTaskListArgsSchema,
-  ChildTaskRejectionReasonSchema,
-  ChildTaskRetryArgsSchema,
-  ChildTaskStopArgsSchema,
-  describeChildTaskRejection,
-} from "../src/lib/runs/child-task";
+  DelegatedTaskActionResponseSchema,
+  DelegatedTaskDetachArgsSchema,
+  DelegatedTaskFollowUpArgsSchema,
+  DelegatedTaskLinkArgsSchema,
+  DelegatedTaskListArgsSchema,
+  DelegatedTaskRejectionReasonSchema,
+  DelegatedTaskRetryArgsSchema,
+  DelegatedTaskStopArgsSchema,
+  describeDelegatedTaskRejection,
+} from "../src/lib/runs/delegated-task";
 
 const root = path.resolve(import.meta.dir, "..");
 
@@ -37,50 +37,50 @@ const mainSource = read("electron/main/ipc/runs.ts");
 const preloadSource = read("electron/preload.ts");
 const windowApiSource = read("src/types/window-api.d.ts");
 const coordinatorInstanceSource = read(
-  "electron/main/runs/child-task-coordinator-instance.ts",
+  "electron/main/runs/delegated-task-coordinator-instance.ts",
 );
 
 /**
- * The child-task controls only exist as a chain: a renderer method, a preload
+ * The delegated-task controls only exist as a chain: a renderer method, a preload
  * binding, and a main handler that re-validates. If one link names a channel
  * the others do not, the control fails at runtime in a way typecheck cannot
  * see — so the channel names are compared as sets rather than trusted.
  */
-const CHILD_TASK_CHANNELS = [
-  "runs:delegate-child-task",
-  "runs:detach-child-task",
-  "runs:follow-up-child-task",
-  "runs:get-child-task-link",
-  "runs:list-child-tasks",
-  "runs:retry-child-task",
-  "runs:stop-child-task",
+const DELEGATED_TASK_CHANNELS = [
+  "delegations:create",
+  "delegations:detach",
+  "delegations:follow-up",
+  "delegations:get-link",
+  "delegations:list",
+  "delegations:retry",
+  "delegations:stop",
 ] as const;
 
-describe("child task IPC chain", () => {
+describe("delegated task IPC chain", () => {
   test("every control is handled in main and bridged through preload", () => {
     const handled = collect(
       mainSource,
-      /ipcMain\.handle\(\s*"(runs:[a-z-]*child-task[a-z-]*)"/g,
+      /ipcMain\.handle\(\s*"(delegations:[a-z-]+)"/g,
     );
     const bridged = collect(
       preloadSource,
-      /ipcRenderer\.invoke\(\s*"(runs:[a-z-]*child-task[a-z-]*)"/g,
+      /ipcRenderer\.invoke\(\s*"(delegations:[a-z-]+)"/g,
     );
 
-    expect(handled).toEqual([...CHILD_TASK_CHANNELS]);
-    expect(bridged).toEqual([...CHILD_TASK_CHANNELS]);
+    expect(handled).toEqual([...DELEGATED_TASK_CHANNELS]);
+    expect(bridged).toEqual([...DELEGATED_TASK_CHANNELS]);
   });
 
   test("every bridged control is declared on the renderer contract", () => {
     for (const method of [
-      "delegateChildTask",
-      "listChildTasks",
-      "followUpChildTask",
-      "retryChildTask",
-      "stopChildTask",
-      "detachChildTask",
-      "getChildTaskLink",
-      "onChildTasksChanged",
+      "delegateTask",
+      "listDelegatedTasks",
+      "followUpDelegatedTask",
+      "retryDelegatedTask",
+      "stopDelegatedTask",
+      "detachDelegatedTask",
+      "getDelegatedTaskLink",
+      "onDelegatedTasksChanged",
     ]) {
       expect(preloadSource, `preload is missing ${method}`).toContain(
         `${method}:`,
@@ -96,27 +96,27 @@ describe("child task IPC chain", () => {
     // started, so this one travels as a push rather than an invoke — and it
     // must skip destroyed windows instead of throwing during teardown.
     expect(coordinatorInstanceSource).toContain(
-      'contents.send("runs:child-tasks-changed"',
+      'contents.send("delegations:changed"',
     );
     expect(coordinatorInstanceSource).toContain("contents.isDestroyed()");
-    expect(preloadSource).toContain('"runs:child-tasks-changed"');
-    expect(mainSource).not.toContain("runs:child-tasks-changed");
+    expect(preloadSource).toContain('"delegations:changed"');
+    expect(mainSource).not.toContain("delegations:changed");
   });
 });
 
-describe("child task IPC schemas", () => {
+describe("delegated task IPC schemas", () => {
   const expected = {
-    childTaskId: "child-1",
-    childWorkspaceId: "workspace-child-1",
+    delegatedTaskId: "child-1",
+    delegatedWorkspaceId: "workspace-child-1",
     attempt: 1,
   };
 
   test("accept the requests the parent surface actually sends", () => {
     expect(
-      ChildTaskListArgsSchema.parse({ parentTaskId: "parent-1" }),
+      DelegatedTaskListArgsSchema.parse({ parentTaskId: "parent-1" }),
     ).toEqual({ parentTaskId: "parent-1", includeFinished: true });
     expect(
-      ChildTaskFollowUpArgsSchema.safeParse({
+      DelegatedTaskFollowUpArgsSchema.safeParse({
         parentTaskId: "parent-1",
         delegationKey: "review.pass-1",
         prompt: "One more pass, please.",
@@ -124,7 +124,7 @@ describe("child task IPC schemas", () => {
       }).success,
     ).toBe(true);
     expect(
-      ChildTaskStopArgsSchema.safeParse({
+      DelegatedTaskStopArgsSchema.safeParse({
         parentTaskId: "parent-1",
         delegationKey: "review.pass-1",
         reason: "No longer needed.",
@@ -132,14 +132,14 @@ describe("child task IPC schemas", () => {
       }).success,
     ).toBe(true);
     expect(
-      ChildTaskDetachArgsSchema.safeParse({
+      DelegatedTaskDetachArgsSchema.safeParse({
         parentTaskId: "parent-1",
         delegationKey: "review.pass-1",
         expected,
       }).success,
     ).toBe(true);
     expect(
-      ChildTaskRetryArgsSchema.safeParse({
+      DelegatedTaskRetryArgsSchema.safeParse({
         projectPath: "/tmp/project",
         parentWorkspaceId: "workspace-parent-1",
         parentTaskId: "parent-1",
@@ -149,12 +149,12 @@ describe("child task IPC schemas", () => {
       }).success,
     ).toBe(true);
     expect(
-      ChildTaskLinkArgsSchema.safeParse({ childTaskId: "child-1" }).success,
+      DelegatedTaskLinkArgsSchema.safeParse({ delegatedTaskId: "child-1" }).success,
     ).toBe(true);
   });
 
   test("a follow-up defaults to guided rather than inheriting permissions", () => {
-    const parsed = ChildTaskFollowUpArgsSchema.parse({
+    const parsed = DelegatedTaskFollowUpArgsSchema.parse({
       parentTaskId: "parent-1",
       delegationKey: "review.pass-1",
       prompt: "One more pass, please.",
@@ -165,20 +165,20 @@ describe("child task IPC schemas", () => {
 
   test("mutating controls cannot be sent without an expected identity", () => {
     expect(
-      ChildTaskFollowUpArgsSchema.safeParse({
+      DelegatedTaskFollowUpArgsSchema.safeParse({
         parentTaskId: "parent-1",
         delegationKey: "review.pass-1",
         prompt: "One more pass, please.",
       }).success,
     ).toBe(false);
     expect(
-      ChildTaskDetachArgsSchema.safeParse({
+      DelegatedTaskDetachArgsSchema.safeParse({
         parentTaskId: "parent-1",
         delegationKey: "review.pass-1",
       }).success,
     ).toBe(false);
     expect(
-      ChildTaskRetryArgsSchema.safeParse({
+      DelegatedTaskRetryArgsSchema.safeParse({
         projectPath: "/tmp/project",
         parentWorkspaceId: "workspace-parent-1",
         parentTaskId: "parent-1",
@@ -190,7 +190,7 @@ describe("child task IPC schemas", () => {
 
   test("reject renderer-only extras instead of forwarding them", () => {
     expect(
-      ChildTaskStopArgsSchema.safeParse({
+      DelegatedTaskStopArgsSchema.safeParse({
         parentTaskId: "parent-1",
         delegationKey: "review.pass-1",
         expected,
@@ -198,7 +198,7 @@ describe("child task IPC schemas", () => {
       }).success,
     ).toBe(false);
     expect(
-      ChildTaskListArgsSchema.safeParse({
+      DelegatedTaskListArgsSchema.safeParse({
         parentTaskId: "parent-1",
         limit: 10,
       }).success,
@@ -207,7 +207,7 @@ describe("child task IPC schemas", () => {
 
   test("reject a delegation key that could collide with ledger key syntax", () => {
     expect(
-      ChildTaskStopArgsSchema.safeParse({
+      DelegatedTaskStopArgsSchema.safeParse({
         parentTaskId: "parent-1",
         delegationKey: "review pass/1",
         expected,
@@ -216,11 +216,11 @@ describe("child task IPC schemas", () => {
   });
 
   test("a refusal always carries a sentence the surface can show as-is", () => {
-    for (const reason of ChildTaskRejectionReasonSchema.options) {
-      const message = describeChildTaskRejection(reason);
+    for (const reason of DelegatedTaskRejectionReasonSchema.options) {
+      const message = describeDelegatedTaskRejection(reason);
       expect(message, `missing message for ${reason}`).toBeTruthy();
       expect(message.length).toBeLessThanOrEqual(500);
-      const response = ChildTaskActionResponseSchema.parse({
+      const response = DelegatedTaskActionResponseSchema.parse({
         accepted: false,
         duplicate: false,
         reason,
@@ -232,7 +232,7 @@ describe("child task IPC schemas", () => {
   });
 
   test("an action response defaults its message rather than omitting the field", () => {
-    const parsed = ChildTaskActionResponseSchema.parse({
+    const parsed = DelegatedTaskActionResponseSchema.parse({
       accepted: true,
       duplicate: false,
       reason: null,

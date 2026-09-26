@@ -52,15 +52,15 @@ test("first-run project action and task examples remain keyboard accessible", as
     const endpoint = await waitForStaveMcpEndpoint(stave.userDataDir);
     const followUp = await callStaveMcpTool(
       endpoint,
-      "stave_follow_up_child_task",
+      "stave_follow_up_delegated_task",
       {
         parentTaskId: "missing-parent",
         delegationKey: "missing",
         prompt: "Review the previous result.",
         permissionProfile: "guided",
         expected: {
-          childTaskId: "missing-child",
-          childWorkspaceId: "missing-workspace",
+          delegatedTaskId: "missing-child",
+          delegatedWorkspaceId: "missing-workspace",
           attempt: 0,
         },
       },

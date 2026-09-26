@@ -312,7 +312,7 @@ export const settingDefinitions = [
     fieldId: "settings-field-auxiliary-inference",
     title: "Background AI",
     description:
-      "Per-lane switch, provider, and model for the background calls Stave makes on your behalf: intent guard, turn summary, task naming, utility inference, PR description, pre-PR review, inline completion, and delegated child tasks.",
+      "Per-lane switch, provider, and model for the background calls Stave makes on your behalf: intent guard, turn summary, task naming, utility inference, PR description, pre-PR review, inline completion, and delegated tasks.",
     keywords: [
       "background ai",
       "auxiliary",
@@ -329,7 +329,7 @@ export const settingDefinitions = [
       "pr description",
       "pre-pr review",
       "inline completion",
-      "child task",
+      "delegated task",
       "delegation model",
     ],
     schema: AuxiliaryInferencePolicySchema,

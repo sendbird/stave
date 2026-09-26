@@ -1,8 +1,8 @@
 import type { CanonicalRetrievedContextPart } from "@/lib/providers/provider.types";
 import {
-  isActiveChildTaskPhase,
-  type ChildTaskSummary,
-} from "@/lib/runs/child-task";
+  isActiveDelegatedTaskPhase,
+  type DelegatedTaskSummary,
+} from "@/lib/runs/delegated-task";
 
 const MAX_RENDERED_CHILDREN = 20;
 
@@ -13,18 +13,18 @@ function truncate(value: string, maxLength: number) {
 /**
  * The parent's view of what it delegated: who the child is, what phase it is in
  * and why it ended. The child's transcript is deliberately absent — a parent
- * that wants the conversation opens the child task, and a receipt that carried
+ * that wants the conversation opens the delegated task, and a receipt that carried
  * output would make the ledger a second, unbounded message store.
  */
-export function buildChildTaskReceiptsRetrievedContext(args: {
-  children: ChildTaskSummary[];
+export function buildDelegatedTaskReceiptsRetrievedContext(args: {
+  children: DelegatedTaskSummary[];
 }): CanonicalRetrievedContextPart | null {
   if (args.children.length === 0) {
     return null;
   }
   const ordered = [...args.children].sort((left, right) => {
-    const leftActive = isActiveChildTaskPhase(left.phase) ? 0 : 1;
-    const rightActive = isActiveChildTaskPhase(right.phase) ? 0 : 1;
+    const leftActive = isActiveDelegatedTaskPhase(left.phase) ? 0 : 1;
+    const rightActive = isActiveDelegatedTaskPhase(right.phase) ? 0 : 1;
     return (
       leftActive - rightActive || right.updatedAt.localeCompare(left.updatedAt)
     );
@@ -37,7 +37,7 @@ export function buildChildTaskReceiptsRetrievedContext(args: {
       `lifecycle: ${child.lifecycle}`,
       `provider: ${child.providerId}`,
     ].join(" | ");
-    const identity = `  child task: ${child.childTaskId} in workspace ${child.childWorkspaceId}`;
+    const identity = `  delegated task: ${child.delegatedTaskId} in workspace ${child.delegatedWorkspaceId}`;
     const reason = child.reason
       ? [`  reason: ${truncate(child.reason, 300)}`]
       : [];
@@ -47,13 +47,13 @@ export function buildChildTaskReceiptsRetrievedContext(args: {
 
   return {
     type: "retrieved_context",
-    sourceId: "stave:child-tasks",
-    title: "Delegated Child Tasks",
+    sourceId: "stave:delegated-tasks",
+    title: "Delegated Delegated Tasks",
     content: [
-      "Child tasks this task delegated, as recorded on the run ledger.",
+      "Delegated tasks this task delegated, as recorded on the run ledger.",
       "Identity, phase and reason only — a child's transcript is never included here.",
-      "Use `stave_list_child_tasks` for a fresh read and `stave_stop_child_task` to stop one.",
-      "Read `stave_get_task` with the child task and workspace ids to collect its latest answer. Use `stave_follow_up_child_task` with the fresh expected identity to request clarification or further work. Review results before reporting the parent complete.",
+      "Use `stave_list_delegated_tasks` for a fresh read and `stave_stop_delegated_task` to stop one.",
+      "Read `stave_get_task` with the delegated task and workspace ids to collect its latest answer. Use `stave_follow_up_delegated_task` with the fresh expected identity to request clarification or further work. Review results before reporting the parent complete.",
       "",
       ...lines,
       ...(omitted > 0 ? ["", `(${omitted} older delegations omitted)`] : []),

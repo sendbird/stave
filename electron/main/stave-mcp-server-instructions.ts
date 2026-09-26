@@ -15,7 +15,7 @@ export function buildStaveLocalMcpServerInstructions(options?: {
 }) {
   const lines = [
     "Tools for the Stave desktop app that is running this session.",
-    "Families: stave_*_workspace_* manage the workspace Information panel (notes, todos, custom fields, linked Jira/PR/Figma/Slack/Storybook resources; registration is idempotent by key/URL); stave_remember/stave_forget/stave_list_project_memories manage project memory; stave_create_workspace, stave_run_task, stave_delegate_task and stave_*_child_task* create and drive tasks; stave_*_automation* and stave_*_wake_up* manage scheduled work; stave_respond_approval/stave_respond_user_input answer pending prompts.",
+    "Families: stave_*_workspace_* manage the workspace Information panel (notes, todos, custom fields, linked Jira/PR/Figma/Slack/Storybook resources; registration is idempotent by key/URL); stave_remember/stave_forget/stave_list_project_memories manage project memory; stave_create_workspace, stave_run_task, stave_delegate_task and stave_*_delegated_task* create and drive tasks; stave_*_automation* and stave_*_wake_up* manage scheduled work; stave_respond_approval/stave_respond_user_input answer pending prompts.",
     "Context already injected into the prompt as [Retrieved Context] or [Stave Workspace Context] is current; do not call stave_get_workspace_information just to re-read it.",
   ];
   if (options?.browserToolsEnabled !== false) {

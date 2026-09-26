@@ -17,7 +17,7 @@ import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import {
   getRespondingProviderId,
-  isDelegatedChildTask,
+  isDelegatedTask,
   isTaskArchived,
 } from "@/lib/tasks";
 import type { ChatMessage, Task } from "@/types/chat";
@@ -247,7 +247,7 @@ export function buildWorkspaceHoverPreview(args: {
   activeTurnIdsByTask?: Record<string, string | undefined>;
 }): WorkspaceHoverPreview {
   const visibleTasks = [...args.tasks]
-    .filter((task) => !isTaskArchived(task) && !isDelegatedChildTask(task))
+    .filter((task) => !isTaskArchived(task) && !isDelegatedTask(task))
     .sort(
       (left, right) =>
         parseTaskUpdatedAt(right.updatedAt) -
@@ -608,7 +608,7 @@ export function summarizeWorkspaceTaskTitle(title: string) {
 }
 
 /**
- * Child-task cadence. The workspace row uses `matrix` so the parent
+ * Delegated-task cadence. The workspace row uses `matrix` so the parent
  * container and these streaming rows do not share one mark.
  */
 export function resolveWorkspaceProgressTaskLoaderVariant(
