@@ -7,6 +7,7 @@ import type { AcceptanceCriterion } from "@/lib/playbooks/stage-prompt";
 import {
   latestStageRecord,
   type MissionAggregate,
+  type MissionEvent,
   type StageStatus,
 } from "./domain";
 import {
@@ -36,6 +37,24 @@ export interface MissionReportLink {
   source: EvidenceSource;
 }
 
+/**
+ * How much the mission needed you and how it went, from its events: the
+ * figures the design asks to watch per provider when tuning nudges and
+ * check-ins.
+ */
+export interface MissionMetrics {
+  providerId: string;
+  /** Messages you sent in the lead task while the mission ran. */
+  userReplies: number;
+  /** Reminders to report a stage after a turn ended without one. */
+  nudges: number;
+  stuckStages: number;
+  signOffs: number;
+  /** Average and longest time a sign-off waited for you. */
+  signOffWaitAverageMs: number | null;
+  signOffWaitLongestMs: number | null;
+}
+
 export interface MissionReport {
   missionId: string;
   playbookName: string;
@@ -50,6 +69,35 @@ export interface MissionReport {
   links: MissionReportLink[];
   /** Only on a partial report: work that outlives the mission. */
   leftBehind: string[];
+  /** Present when the report was built with the mission's events. */
+  metrics?: MissionMetrics;
+}
+
+const WAIT_START_KINDS = new Set(["stage-completed", "stage-skipped", "resumed", "mission-started"]);
+
+export function computeMissionMetrics(args: {
+  providerId: string;
+  events: readonly MissionEvent[];
+}): MissionMetrics {
+  const count = (kind: MissionEvent["kind"]) => args.events.filter((event) => event.kind === kind).length;
+  const waits: number[] = [];
+  let waitStartedAt: number | null = null;
+  for (const event of args.events) {
+    if (WAIT_START_KINDS.has(event.kind)) waitStartedAt = Date.parse(event.createdAt);
+    if (event.kind === "sign-off" && waitStartedAt !== null) {
+      waits.push(Math.max(0, Date.parse(event.createdAt) - waitStartedAt));
+      waitStartedAt = null;
+    }
+  }
+  return {
+    providerId: args.providerId,
+    userReplies: count("user-turn"),
+    nudges: count("nudge"),
+    stuckStages: count("stage-stuck"),
+    signOffs: count("sign-off"),
+    signOffWaitAverageMs: waits.length ? Math.round(waits.reduce((sum, wait) => sum + wait, 0) / waits.length) : null,
+    signOffWaitLongestMs: waits.length ? Math.max(...waits) : null,
+  };
 }
 
 /** What the workspace holds when the mission ends, read by the runtime. */
@@ -63,6 +111,8 @@ export function buildMissionReport(args: {
   aggregate: MissionAggregate;
   workspace: MissionWorkspaceState;
   endedAt: Date;
+  /** The mission's events, oldest first, for the metrics. */
+  events?: readonly MissionEvent[];
 }): MissionReport {
   const { mission, stages: records } = args.aggregate;
   if (mission.state !== "completed" && mission.state !== "cancelled" && mission.state !== "stopped") {
@@ -138,5 +188,8 @@ export function buildMissionReport(args: {
     acceptanceCriteria,
     links: [...links.values()],
     leftBehind,
+    ...(args.events
+      ? { metrics: computeMissionMetrics({ providerId: mission.fingerprint.providerId, events: args.events }) }
+      : {}),
   };
 }

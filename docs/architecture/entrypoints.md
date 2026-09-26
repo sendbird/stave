@@ -105,6 +105,21 @@ under `src/components/layout/codex-settings/` receive that state and callbacks;
 3. `src/lib/pr-status.ts` for normalized status and available actions
 4. `docs/architecture/contracts.md` for the PR bridge and context contracts
 
+### Missions and playbooks
+
+1. `src/lib/missions/policy.ts` for the pure supervisor decision and
+   `src/lib/missions/domain.ts` for mission state and consent
+2. `electron/host-service/supervision/mission-runtime.ts` for the host loop
+   that starts stage turns, and `mission-actions.ts` for the Stave actions
+   (draft PR, checks, ready for review)
+3. `src/store/missions-store.ts` (the workspace in view) and
+   `src/store/fleet-missions-store.ts` (every workspace, notifications) for
+   renderer state
+4. `src/components/missions/` for the Mission bar, panel, sign-off card and
+   Start sheet, and `src/components/playbooks/` for the Playbooks tab
+5. `docs/features/missions.md` and `docs/features/playbooks.md` for the user
+   flow
+
 ### Prompt input, skills, and quick controls
 
 Read in this order:

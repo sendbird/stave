@@ -4,7 +4,7 @@ import { Button } from "@/components/ads/components/Button";
 import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
 import { sx } from "@/components/ads/utils/stylex";
 import type { MissionReport } from "@/lib/missions/report";
-import { formatMissionReportMarkdown } from "@/lib/missions/report-markdown";
+import { describeMissionMetrics, formatMissionReportMarkdown } from "@/lib/missions/report-markdown";
 import { formatAge } from "@/lib/missions/mission-view";
 import { EvidenceList } from "./EvidenceList";
 import type { MissionReportActions } from "./useMissionReportActions";
@@ -159,6 +159,11 @@ export function MissionReportView({
           <p className={sx(styles.groupLabel)}>Evidence</p>
           <EvidenceList evidence={verifiedFirst} />
         </div>
+      ) : null}
+      {report.metrics ? (
+        <p className={sx(styles.notice)} data-testid="mission-metrics">
+          {describeMissionMetrics(report.metrics)}
+        </p>
       ) : null}
       <div className={sx(styles.actions)}>
         <Button

@@ -6,7 +6,26 @@
  */
 import { formatAge } from "./mission-view";
 import { EVIDENCE_SOURCE_LABELS } from "./evidence";
-import type { MissionReport } from "./report";
+import type { MissionMetrics, MissionReport } from "./report";
+
+/** "2 replies from you · 1 reminder to report · sign-offs waited 12m on average (longest 20m)". */
+export function describeMissionMetrics(metrics: MissionMetrics): string {
+  const parts = [
+    `${metrics.userReplies} ${metrics.userReplies === 1 ? "reply" : "replies"} from you`,
+    `${metrics.nudges} ${metrics.nudges === 1 ? "reminder" : "reminders"} to report`,
+    `${metrics.stuckStages} stuck`,
+  ];
+  if (metrics.signOffWaitAverageMs !== null && metrics.signOffWaitLongestMs !== null) {
+    const average = formatAge(metrics.signOffWaitAverageMs);
+    const longest = formatAge(metrics.signOffWaitLongestMs);
+    parts.push(
+      `${metrics.signOffs} ${metrics.signOffs === 1 ? "sign-off" : "sign-offs"} waited ${average} on average${
+        metrics.signOffs > 1 ? ` (longest ${longest})` : ""
+      }`,
+    );
+  }
+  return parts.join(" · ");
+}
 
 const OUTCOME_TITLES: Record<MissionReport["outcome"], string> = {
   completed: "Mission complete",
@@ -55,6 +74,9 @@ export function formatMissionReportMarkdown(report: MissionReport): string {
   if (report.leftBehind.length > 0) {
     lines.push("", "### Left behind");
     for (const item of report.leftBehind) lines.push(`- ${item}`);
+  }
+  if (report.metrics) {
+    lines.push("", `_${describeMissionMetrics(report.metrics)}_`);
   }
   return `${lines.join("\n")}\n`;
 }

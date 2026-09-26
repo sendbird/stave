@@ -58,6 +58,7 @@ import {
   createMission,
   currentStageRecord,
   EMPTY_STAGE_FACTS,
+  MISSION_LIMITS,
   isActiveMissionState,
   MissionCommandError,
   MissionStartInputSchema,
@@ -806,7 +807,12 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     }
     return detailOf(
       missionId,
-      buildMissionReport({ aggregate, workspace, endedAt: new Date(mission.updatedAt) }),
+      buildMissionReport({
+        aggregate,
+        workspace,
+        endedAt: new Date(mission.updatedAt),
+        events: store.listRecentEvents(missionId, MISSION_LIMITS.maxRetainedEvents),
+      }),
     );
   }
 

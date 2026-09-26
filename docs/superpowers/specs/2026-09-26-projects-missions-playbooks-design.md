@@ -1,8 +1,10 @@
 # Projects, Missions And Playbooks — Design
 
 **Date:** 2026-09-26
-**Status:** Approved for implementation. The PR-by-PR execution plan is kept
-with the task until its files exist; an as-built copy lands in
+**Status:** Phase 1 (missions and playbooks) implemented; see
+[Missions](../../features/missions.md) and [Playbooks](../../features/playbooks.md).
+Deviations from this design are listed in §15. The PR-by-PR execution plan is
+kept with the task until its files exist; an as-built copy lands in
 `docs/superpowers/plans/` with the final PR.
 **Scope:** Product concept, vocabulary, UX and architecture placement. Phase 1
 (missions) is specified to acceptance level; Projects (Phase 3) are specified
@@ -798,3 +800,27 @@ Acceptance:
 - **Slack latency.** Triage is scheduled, not real time.
 - **Phase 1 size.** The supervisor is the critical path. UI work can proceed
   against fixtures in parallel.
+
+## 15. As Built (Phase 1)
+
+Phase 1 shipped as designed, with these deviations:
+
+- **Mission bar.** A shelf that tucks under the turn shelf or the composer
+  rather than a header inside it; it leads with the current stage and what it
+  is doing, and the mission's name and assignment are in the panel. The
+  separate reply chip became **Take over** / **Resume** on the bar.
+- **Sign-off card.** Sits in the composer's approval slot, shown when no tool
+  approval is pending, and asks a question (**Ready to start Verify?**).
+- **Start sheet.** The assignment comes first; external effects are one
+  checkbox list under the stage rail; **Start at stage** is not built yet (the
+  mission domain has no start index). The Kickoff and Issues paths create the
+  task, then open the sheet on it, so consent is always collected in the
+  sheet.
+- **Builder.** Stave action settings are edited inline in the stage row, not in
+  a side pane.
+- **Fleet.** Spend is not shown (no per-mission usage yet); the turn budget and
+  a near-limit warning are shown instead.
+- **Metrics.** User replies, nudges, stuck stages and sign-off waits are
+  computed from mission events for the report footer; there is no separate
+  diagnostics view.
+

@@ -77,3 +77,39 @@ test("the Markdown copy carries the same story", () => {
   expect(markdown).toContain("- [Opened draft PR #612](https://github.com/acme/app/pull/612) — Verified by Stave");
   expect(markdown).toContain("### Left behind\n- Branch feat/billing is pushed.");
 });
+
+
+test("the report footer says how much the mission needed you", async () => {
+  const { computeMissionMetrics } = await import("../src/lib/missions/report");
+  const { describeMissionMetrics } = await import("../src/lib/missions/report-markdown");
+  const at = (minute: number) => new Date(Date.parse("2026-09-26T10:00:00.000Z") + minute * 60_000).toISOString();
+  const event = (kind: string, minute: number) =>
+    ({ id: `${kind}-${minute}`, missionId: "m", sequence: minute, kind, idempotencyKey: null, detail: {}, createdAt: at(minute) }) as never;
+  const metrics = computeMissionMetrics({
+    providerId: "codex",
+    events: [
+      event("mission-started", 0),
+      event("stage-completed", 3),
+      event("sign-off", 15),
+      event("user-turn", 16),
+      event("nudge", 20),
+      event("stage-completed", 30),
+      event("sign-off", 34),
+    ],
+  });
+  expect(metrics).toMatchObject({
+    providerId: "codex",
+    userReplies: 1,
+    nudges: 1,
+    stuckStages: 0,
+    signOffs: 2,
+    signOffWaitAverageMs: 8 * 60_000,
+    signOffWaitLongestMs: 12 * 60_000,
+  });
+  expect(describeMissionMetrics(metrics)).toBe(
+    "1 reply from you · 1 reminder to report · 0 stuck · 2 sign-offs waited 8m on average (longest 12m)",
+  );
+  const html = renderToStaticMarkup(createElement(MissionReportView, { report: { ...REPORT, metrics } }));
+  expect(html).toContain("2 sign-offs waited 8m on average");
+  expect(formatMissionReportMarkdown({ ...REPORT, metrics })).toContain("_1 reply from you");
+});
