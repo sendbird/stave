@@ -180,7 +180,9 @@ export function ProjectHome({ detail }: { detail: ProjectDetail }) {
               key={proposal.id}
               proposal={proposal}
               busy={busy}
-              onApprove={() => void runCommand("approveProposal", { projectId: project.id, proposalId: proposal.id })}
+              onApprove={(runsOn) =>
+                void runCommand("approveProposal", { projectId: project.id, proposalId: proposal.id, ...runsOn })
+              }
               onReject={() => void runCommand("rejectProposal", { projectId: project.id, proposalId: proposal.id })}
             />
           ))}

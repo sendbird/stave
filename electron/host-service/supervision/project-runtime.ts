@@ -23,6 +23,7 @@ import {
 } from "../../../src/lib/missions/domain";
 import type { MissionReport } from "../../../src/lib/missions/report";
 import type { MissionUsage } from "../../../src/lib/missions/usage";
+import { isProjectMissionModel, PROJECT_MISSION_MODELS } from "../../../src/lib/projects/models";
 import type { Playbook } from "../../../src/lib/playbooks/schema";
 import { PLAYBOOK_STARTERS, createPlaybookFromStarter } from "../../../src/lib/playbooks/starters";
 import type {
@@ -49,6 +50,7 @@ import {
   ProjectSettingsSchema,
   StartMissionToolInputSchema,
   type MissionProposal,
+  type MissionProviderId,
   type Project,
   type ProjectMemory,
   type ProjectSettings,
@@ -118,7 +120,13 @@ export interface ProjectRuntimeDependencies {
   resolveRepositoryPath: (workspaceId: string) => Promise<string | null>;
   /** Intake: a new worktree for a mission. */
   createMissionWorkspace: (args: { repositoryPath: string; name: string; label: string }) => Promise<{ workspaceId: string }>;
-  createIdleTask: (args: { workspaceId: string; title: string; provider: "claude-code" | "codex" }) => Promise<{ taskId: string }>;
+  createIdleTask: (args: {
+    workspaceId: string;
+    title: string;
+    provider: "claude-code" | "codex";
+    /** The model the task's composer starts on; absent for the provider default. */
+    model?: string | null;
+  }) => Promise<{ taskId: string }>;
   resolveProjectGrant: (projectKey: string) => ProjectGrant | null;
   /** Tells the provider runtime which tasks coordinate projects, so their turns get a project grant. */
   setCoordinatorTasks: (entries: ReadonlyArray<{ taskId: string; projectId: string }>) => void;
@@ -139,7 +147,8 @@ export interface ProjectRuntime {
   list: (args?: { openOnly?: boolean }) => Promise<{ projects: Project[] }>;
   get: (args: { projectId: string }) => Promise<ProjectDetail>;
   create: (args: unknown) => Promise<ProjectDetail>;
-  approveProposal: (args: { projectId: string; proposalId: string }) => Promise<ProjectDetail>;
+  /** With `providerId` or `model`, the user changed where the proposal runs before starting it. */
+  approveProposal: (args: ProposalApproval) => Promise<ProjectDetail>;
   rejectProposal: (args: { projectId: string; proposalId: string }) => Promise<ProjectDetail>;
   pause: (args: { projectId: string }) => Promise<ProjectDetail>;
   resume: (args: { projectId: string }) => Promise<ProjectDetail>;
@@ -155,6 +164,19 @@ export interface ProjectRuntime {
 
 function refuse(message: string, code: "not-found" | "refused" | "stale" = "refused"): never {
   throw new ProjectCommandError(code, message);
+}
+
+function requireMissionModel(providerId: MissionProviderId, model: string) {
+  if (!isProjectMissionModel(providerId, model)) {
+    refuse(`"${model}" is not a ${providerId === "codex" ? "Codex" : "Claude"} model Stave offers. Use one of: ${PROJECT_MISSION_MODELS[providerId].join(", ")}.`);
+  }
+}
+
+export interface ProposalApproval {
+  projectId: string;
+  proposalId: string;
+  providerId?: MissionProviderId;
+  model?: string | null;
 }
 
 function firstLine(text: string, max = 80) {
@@ -347,6 +369,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
         workspaceId,
         title: firstLine(proposal.assignment, 60),
         provider: proposal.providerId,
+        model: proposal.model,
       });
       const detail = await deps.startMission(
         {
@@ -590,12 +613,16 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
         return detailOf(project.id);
       }),
 
-    approveProposal: ({ projectId, proposalId }) =>
+    approveProposal: ({ projectId, proposalId, providerId, model }) =>
       enqueue(async () => {
         const proposal = store.getProposal(proposalId);
         if (!proposal || proposal.projectId !== projectId) refuse("The proposal was not found.", "not-found");
         if (proposal.state !== "pending") refuse("This proposal was already decided.", "stale");
-        store.upsertProposal({ ...proposal, state: "approved", updatedAt: now().toISOString() });
+        const runsOn = providerId ?? proposal.providerId;
+        // A new provider without a model means that provider's default.
+        const runsModel = model !== undefined ? model : providerId && providerId !== proposal.providerId ? null : proposal.model;
+        if (runsModel) requireMissionModel(runsOn, runsModel);
+        store.upsertProposal({ ...proposal, providerId: runsOn, model: runsModel, state: "approved", updatedAt: now().toISOString() });
         store.recordEvent(projectId, { kind: "proposal-approved", detail: { proposalId } }, now());
         emit(requireProject(projectId));
         await tickProject(projectId);
@@ -687,6 +714,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
         if (!playbook) refuse(`No playbook "${input.playbookId}". Read the options with stave_get_project.`);
         const coordinator = await deps.getTaskSnapshot(project.coordinator);
         const providerId = input.providerId ?? (coordinator.providerId === "codex" ? "codex" : "claude-code");
+        if (input.model) requireMissionModel(providerId, input.model);
         const timestamp = now().toISOString();
         const proposal: MissionProposal = {
           id: randomUUID(),
@@ -695,7 +723,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
           playbook,
           assignment: input.assignment,
           providerId,
-          model: null,
+          model: input.model ?? null,
           worktreeName: input.worktreeName ? slugForWorktree(input.worktreeName) : null,
           state: project.settings.askBeforeStarting ? "pending" : "approved",
           workspaceId: null,

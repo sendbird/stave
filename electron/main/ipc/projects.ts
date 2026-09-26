@@ -2,7 +2,7 @@ import { ipcMain } from "electron";
 import { z } from "zod";
 import { PROJECT_IPC, type ProjectDetail, type ProjectResponse } from "../../../src/lib/projects/api";
 import type { Project } from "../../../src/lib/projects/domain";
-import { MEMORY_STATUSES, ProjectCreateInputSchema, ProjectSettingsSchema } from "../../../src/lib/projects/domain";
+import { MEMORY_STATUSES, MISSION_PROVIDERS, ProjectCreateInputSchema, ProjectSettingsSchema } from "../../../src/lib/projects/domain";
 import { PlaybookSchema } from "../../../src/lib/playbooks/schema";
 import type { HostProjectAction } from "../../host-service/protocol";
 import { ensureProjectEventBridge, invokeProject } from "../projects-service";
@@ -10,6 +10,10 @@ import { ensureProjectEventBridge, invokeProject } from "../projects-service";
 const IdSchema = z.string().trim().min(1).max(200);
 const ProjectIdArgsSchema = z.object({ projectId: IdSchema }).strict();
 const ProposalArgsSchema = z.object({ projectId: IdSchema, proposalId: IdSchema }).strict();
+const ApproveArgsSchema = ProposalArgsSchema.extend({
+  providerId: z.enum(MISSION_PROVIDERS).optional(),
+  model: z.string().trim().min(1).max(120).nullable().optional(),
+}).strict();
 const EndArgsSchema = z.object({ projectId: IdSchema, outcome: z.enum(["completed", "cancelled"]) }).strict();
 const SettingsArgsSchema = z.object({ projectId: IdSchema, settings: ProjectSettingsSchema.partial() }).strict();
 const MemoryArgsSchema = z
@@ -44,7 +48,7 @@ export function registerProjectHandlers() {
   ensureProjectEventBridge();
   handleCommand(PROJECT_IPC.get, "get", ProjectIdArgsSchema);
   handleCommand(PROJECT_IPC.create, "create", ProjectCreateInputSchema);
-  handleCommand(PROJECT_IPC.approveProposal, "approve-proposal", ProposalArgsSchema);
+  handleCommand(PROJECT_IPC.approveProposal, "approve-proposal", ApproveArgsSchema);
   handleCommand(PROJECT_IPC.rejectProposal, "reject-proposal", ProposalArgsSchema);
   handleCommand(PROJECT_IPC.pause, "pause", ProjectIdArgsSchema);
   handleCommand(PROJECT_IPC.resume, "resume", ProjectIdArgsSchema);

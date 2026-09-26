@@ -1,3 +1,4 @@
+import { useState } from "react";
 import type * as React from "react";
 import {
   CircleCheck,
@@ -5,16 +6,21 @@ import {
   CircleDot,
   CircleMinus,
   CircleX,
+  ChevronDown,
   GitPullRequest,
   Hand,
   TriangleAlert,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
+import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { describeUsageShort } from "@/lib/missions/usage";
 import type { ProjectMissionView } from "@/lib/projects/api";
-import type { MissionProposal } from "@/lib/projects/domain";
-import { getProviderLabel } from "@/lib/providers/model-catalog";
+import { MISSION_PROVIDERS, type MissionProposal, type MissionProviderId } from "@/lib/projects/domain";
+import { defaultProjectMissionModel, PROJECT_MISSION_MODELS } from "@/lib/projects/models";
+import { getProviderLabel, toHumanModelName } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { projectStyles as styles } from "./projects.styles";
 
@@ -114,11 +120,28 @@ export function MissionRow(props: { mission: ProjectMissionView; onOpen: () => v
   );
 }
 
-export function ProposalRow(props: { proposal: MissionProposal; busy: boolean; onApprove: () => void; onReject: () => void }) {
+type RunsOn = { providerId: MissionProviderId; model: string | null };
+
+/** "Claude · Claude Opus 5.5": where a proposal runs, the provider default when it names no model. */
+function describeRunsOn(runsOn: RunsOn) {
+  const model = runsOn.model ?? defaultProjectMissionModel(runsOn.providerId);
+  return `${getProviderLabel({ providerId: runsOn.providerId })} · ${toHumanModelName({ model })}`;
+}
+
+export function ProposalRow(props: {
+  proposal: MissionProposal;
+  busy: boolean;
+  /** `runsOn` is present when the user changed the provider or model. */
+  onApprove: (runsOn?: RunsOn) => void;
+  onReject: () => void;
+}) {
   const { proposal } = props;
   const stages = proposal.playbook.stages.length;
+  const proposed: RunsOn = { providerId: proposal.providerId, model: proposal.model };
+  const [runsOn, setRunsOn] = useState<RunsOn>(proposed);
+  const changed = runsOn.providerId !== proposed.providerId || runsOn.model !== proposed.model;
   return (
-    <li className={sx(styles.row)}>
+    <li className={sx(styles.row, styles.rowCompact)}>
       <span className={sx(styles.rowMark)}>
         <CircleDashed aria-hidden className={sx(styles.icon, styles.toneWaiting)} />
       </span>
@@ -128,14 +151,36 @@ export function ProposalRow(props: { proposal: MissionProposal; busy: boolean; o
         </span>
         <span className={sx(styles.rowMeta)}>
           <span className={sx(styles.rowWaiting)}>Proposed</span>
-          {` · ${proposal.playbook.name} · ${stages} ${stages === 1 ? "stage" : "stages"} · ${getProviderLabel({ providerId: proposal.providerId })}`}
+          {` · ${proposal.playbook.name} · ${stages} ${stages === 1 ? "stage" : "stages"}`}
         </span>
       </span>
-      <span className={sx(styles.rowActions, styles.rowActionsWide)}>
-        <Button variant="quiet" size="xs" disabled={props.busy} onClick={props.onReject}>
-          Dismiss
-        </Button>
-        <Button size="xs" disabled={props.busy} onClick={props.onApprove}>
+      <span className={sx(styles.rowActions)}>
+        <DropdownMenu
+          placement="bottom-end"
+          triggerAsChild
+          trigger={
+            <Button variant="quiet" size="xs" disabled={props.busy} aria-label={`Runs on ${describeRunsOn(runsOn)}. Change`}>
+              {describeRunsOn(runsOn)}
+              <ChevronDown aria-hidden />
+            </Button>
+          }
+          groups={MISSION_PROVIDERS.map((providerId) => ({
+            label: getProviderLabel({ providerId }),
+            items: PROJECT_MISSION_MODELS[providerId].map((model) => ({
+              label: toHumanModelName({ model }),
+              selected:
+                runsOn.providerId === providerId &&
+                (runsOn.model ?? defaultProjectMissionModel(providerId)) === model,
+              onSelect: () => setRunsOn({ providerId, model }),
+            })),
+          }))}
+        />
+        <Tooltip content="Dismiss this proposal">
+          <Button variant="quiet" size="xs" iconOnly aria-label="Dismiss this proposal" disabled={props.busy} onClick={props.onReject}>
+            <X aria-hidden />
+          </Button>
+        </Tooltip>
+        <Button size="xs" disabled={props.busy} onClick={() => props.onApprove(changed ? runsOn : undefined)}>
           Start mission
         </Button>
       </span>

@@ -19,6 +19,7 @@ function createHarness(options: { askBeforeStarting?: boolean; parallelLimit?: n
   const grants = new Map<string, ProjectGrant>();
   const turns: Array<Parameters<ProjectRuntimeDependencies["runSupervisedTurn"]>[0]> = [];
   const workspaces: string[] = [];
+  const idleTasks: Array<{ provider: string; model?: string | null }> = [];
   const started: Array<{ input: MissionStartInput; projectId: string }> = [];
   const coordinators: Array<ReadonlyArray<{ taskId: string; projectId: string }>> = [];
   let coordinatorBusy = false;
@@ -64,7 +65,10 @@ function createHarness(options: { askBeforeStarting?: boolean; parallelLimit?: n
       workspaces.push(name);
       return { workspaceId: `ws-mission-${workspaceCounter}` };
     },
-    createIdleTask: async ({ workspaceId }) => ({ taskId: `task-${workspaceId}` }),
+    createIdleTask: async ({ workspaceId, provider, model }) => {
+      idleTasks.push({ provider, model });
+      return { taskId: `task-${workspaceId}` };
+    },
     resolveProjectGrant: (key) => grants.get(key) ?? null,
     setCoordinatorTasks: (entries) => coordinators.push(entries),
     now: () => clock,
@@ -92,6 +96,7 @@ function createHarness(options: { askBeforeStarting?: boolean; parallelLimit?: n
     missions,
     turns,
     workspaces,
+    idleTasks,
     started,
     coordinators,
     grants,
@@ -288,5 +293,37 @@ describe("project runtime", () => {
     await harness.runtime.requestTick();
     expect(harness.problems).toEqual([expect.stringContaining("could not wake: The provider is not signed in.")]);
     expect(harness.store.listEvents(projectId).filter((event) => event.kind === "coordinator-wake-failed")).toHaveLength(1);
+  });
+
+  test("a coordinator may name a model; the user may change provider and model before starting", async () => {
+    const harness = createHarness();
+    const projectId = await harness.createProject();
+    const refused = await invokeProjectRuntime(() =>
+      harness.runtime.startMissionForGrant({
+        projectKey: "project-key",
+        input: { playbookId: "request-to-pr", assignment: "Part a.", providerId: "codex", model: "claude-sonnet-5", startKey: "a" },
+      }),
+    );
+    expect(refused).toMatchObject({ ok: false, code: "refused" });
+    expect((refused as { message: string }).message).toContain("is not a Codex model");
+
+    await harness.runtime.startMissionForGrant({
+      projectKey: "project-key",
+      input: { playbookId: "request-to-pr", assignment: "Part b.", providerId: "codex", model: "gpt-6-luna", startKey: "b" },
+    });
+    const proposal = harness.store.listProposals(projectId)[0]!;
+    expect(proposal).toMatchObject({ providerId: "codex", model: "gpt-6-luna" });
+    // Switching provider without a model falls back to that provider's default.
+    await harness.runtime.approveProposal({ projectId, proposalId: proposal.id, providerId: "claude-code" });
+    expect(harness.idleTasks.at(-1)).toEqual({ provider: "claude-code", model: null });
+    expect(harness.store.getProposal(proposal.id)).toMatchObject({ providerId: "claude-code", model: null, state: "started" });
+
+    await harness.runtime.startMissionForGrant({
+      projectKey: "project-key",
+      input: { playbookId: "request-to-pr", assignment: "Part c.", startKey: "c" },
+    });
+    const next = harness.store.listProposals(projectId).find((entry) => entry.startKey === "c")!;
+    await harness.runtime.approveProposal({ projectId, proposalId: next.id, providerId: "codex", model: "gpt-6-sol" });
+    expect(harness.idleTasks.at(-1)).toEqual({ provider: "codex", model: "gpt-6-sol" });
   });
 });

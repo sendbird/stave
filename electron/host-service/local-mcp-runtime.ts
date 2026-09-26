@@ -4,6 +4,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { buildCanonicalConversationRequest } from "../../src/lib/providers/canonical-request";
 import { getDefaultModelForProvider } from "../../src/lib/providers/model-catalog";
+import { addIdleTask, resolveTaskModel } from "./idle-task";
 import { resolveTurnModelInfo } from "../../src/lib/providers/turn-model-info";
 import { getProviderSessionCursor } from "../../src/lib/providers/provider-sessions";
 import type {
@@ -2262,11 +2263,6 @@ export async function getTaskSupervisionSnapshot(args: {
       limit: 40,
     })?.messages ?? session.messagesByTask[args.taskId] ?? []);
 
-  // The model a task actually runs on is only recorded per message. Fall back
-  // to the provider default, which is what `runTask` itself would resolve.
-  const latestModel = [...messages]
-    .reverse()
-    .find((message) => Boolean(message.model))?.model;
 
   return {
     workspaceId: args.workspaceId,
@@ -2275,9 +2271,7 @@ export async function getTaskSupervisionSnapshot(args: {
     exists: true,
     archived: Boolean(task.archivedAt),
     providerId: task.provider,
-    model:
-      latestModel?.trim() ||
-      getDefaultModelForProvider({ providerId: task.provider }),
+    model: resolveTaskModel({ messages, draft: session.promptDraftByTask[task.id], providerId: task.provider }),
     activeTurnId: session.activeTurnIdsByTask[task.id] ?? null,
     pendingApprovalCount: findPendingApprovals(messages).length,
     pendingUserInputCount: findPendingUserInputs(messages).length,
@@ -2297,29 +2291,14 @@ export async function getTaskSupervisionSnapshot(args: {
  * Adds a task to a workspace without starting a turn, for a supervisor that
  * starts the first turn itself (a project starting a mission on a new task).
  */
-export async function createIdleTask(args: { workspaceId: string; title: string; provider: ProviderId }) {
+export async function createIdleTask(args: { workspaceId: string; title: string; provider: ProviderId; model?: string | null }) {
   const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({ repositories, workspaceId: args.workspaceId });
   if (!registration) throw new Error(`Workspace not found: ${args.workspaceId}`);
-  const session = await loadWorkspaceSession(args.workspaceId);
-  const task = {
-    id: randomUUID(),
-    title: args.title.trim().slice(0, 80) || "Mission",
-    provider: args.provider,
-    updatedAt: buildRecentTimestamp(),
-    unread: false,
-    archivedAt: null,
-    controlMode: "interactive",
-    controlOwner: "stave",
-  } satisfies Task;
-  const next = cacheWorkspaceSession(args.workspaceId, {
-    ...session,
-    tasks: [task, ...session.tasks],
-    messagesByTask: { ...session.messagesByTask, [task.id]: [] },
-    nativeSessionReadyByTask: { ...session.nativeSessionReadyByTask, [task.id]: false },
-  });
+  const added = addIdleTask(await loadWorkspaceSession(args.workspaceId), args);
+  const next = cacheWorkspaceSession(args.workspaceId, added.session);
   await queueWorkspaceSessionPersist({ workspaceId: args.workspaceId, workspaceName: registration.workspace.name, session: next });
-  return { taskId: task.id };
+  return { taskId: added.taskId };
 }
 
 export async function notifySupervisorProblem(args: {

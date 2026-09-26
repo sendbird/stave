@@ -177,6 +177,13 @@ export const StartMissionToolInputSchema = z
     playbookId: z.string().trim().min(1).max(120).describe("A saved playbook id or a template id from stave_get_project."),
     assignment: z.string().trim().min(1).max(PROJECT_LIMITS.assignment).describe("What this mission should achieve."),
     providerId: z.enum(MISSION_PROVIDERS).optional().describe("Claude or Codex; defaults to the coordinator's provider."),
+    model: z
+      .string()
+      .trim()
+      .min(1)
+      .max(120)
+      .optional()
+      .describe("A model id from stave_get_project's models for that provider; defaults to the provider's default model."),
     worktreeName: z
       .string()
       .trim()

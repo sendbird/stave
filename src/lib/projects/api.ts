@@ -7,6 +7,7 @@ import type { MissionState, StageStatus } from "@/lib/missions/domain";
 import type { Playbook } from "@/lib/playbooks/schema";
 import type {
   MissionProposal,
+  MissionProviderId,
   Project,
   ProjectCreateInput,
   ProjectEvent,
@@ -92,7 +93,13 @@ export interface ProjectsBridgeApi {
   list: (args?: { openOnly?: boolean }) => Promise<{ ok: boolean; projects: Project[]; message?: string }>;
   get: (args: { projectId: string }) => Promise<ProjectResponse>;
   create: (args: ProjectCreateInput) => Promise<ProjectResponse>;
-  approveProposal: (args: { projectId: string; proposalId: string }) => Promise<ProjectResponse>;
+  /** `providerId` and `model` change where the proposal runs before it starts; a null model is the provider default. */
+  approveProposal: (args: {
+    projectId: string;
+    proposalId: string;
+    providerId?: MissionProviderId;
+    model?: string | null;
+  }) => Promise<ProjectResponse>;
   rejectProposal: (args: { projectId: string; proposalId: string }) => Promise<ProjectResponse>;
   pause: (args: { projectId: string }) => Promise<ProjectResponse>;
   resume: (args: { projectId: string }) => Promise<ProjectResponse>;
