@@ -109,7 +109,7 @@ export function ResourceManagerOverview({
     for (const workspace of workspaces)
       result.set(
         workspace.id,
-        `${projectName ?? "Project"} / ${workspace.name}`,
+        `${projectName ?? "Repository"} / ${workspace.name}`,
       );
     return result;
   }, [workspaces, recentProjects, projectName]);

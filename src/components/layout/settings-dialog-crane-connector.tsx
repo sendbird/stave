@@ -448,17 +448,17 @@ export function CraneConnectorSettingsSection() {
 
           <div className={sx(styles.infoNote)}>
             {registeredProjectCount > 0
-              ? `${registeredProjectCount} registered project${registeredProjectCount === 1 ? "" : "s"} can be selected per incoming job.`
-              : "Register a local Stave project before approving a Crane job."}{" "}
+              ? `${registeredProjectCount} registered repository${registeredProjectCount === 1 ? "" : "s"} can be selected per incoming job.`
+              : "Register a local Stave repository before approving a Crane job."}{" "}
             Local paths are never sent to Crane.
           </div>
 
           {connector.projectMappings.length > 0 ? (
             <div className={sx(styles.mappings)}>
               <div>
-                <h4 className={sx(styles.panelTitle)}>Project mappings</h4>
+                <h4 className={sx(styles.panelTitle)}>Repository mappings</h4>
                 <p className={sx(styles.panelHint)}>
-                  Incoming issue teams preselect these local Stave projects. The
+                  Incoming issue teams preselect these local Stave repositories. The
                   mapping never leaves this device.
                 </p>
               </div>
@@ -468,7 +468,7 @@ export function CraneConnectorSettingsSection() {
                     registeredProjects.find(
                       (project) =>
                         project.projectPath === mapping.staveProjectPath,
-                    )?.projectName ?? "Unregistered project";
+                    )?.projectName ?? "Unregistered repository";
                   const routeLabel =
                     mapping.craneTeamKey ??
                     mapping.craneProjectId ??
@@ -489,7 +489,7 @@ export function CraneConnectorSettingsSection() {
                         type="button"
                         size="icon-sm"
                         variant="ghost"
-                        aria-label={`Remove ${routeLabel} project mapping`}
+                        aria-label={`Remove ${routeLabel} repository mapping`}
                         onClick={() =>
                           saveConnector({
                             projectMappings: connector.projectMappings.filter(

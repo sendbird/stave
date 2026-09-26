@@ -139,7 +139,7 @@ function KickoffPromptField(props: {
   return (
     <LabeledField
       title="Resolution prompt"
-      description="Instructs the one-shot resolver. Source metadata, project instructions, and branch naming rules are appended automatically. Empty skips AI resolution."
+      description="Instructs the one-shot resolver. Source metadata, repository instructions, and branch naming rules are appended automatically. Empty skips AI resolution."
     >
       <div className={sx(kickoffSectionStyles.promptField)}>
         <Textarea

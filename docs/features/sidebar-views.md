@@ -2,8 +2,8 @@
 
 ## Summary
 
-The left sidebar has two views and shows one at a time. `Projects` is the
-project → workspace tree: it sorts by where a workspace lives. `Work queue`
+The left sidebar has two views and shows one at a time. `Repositories` is the
+repository → workspace tree: it sorts by where a workspace lives. `Work queue`
 groups every workspace into attention lanes: it sorts by what the workspace
 wants from you. A toggle in the sidebar header swaps between them, and the
 sidebar reopens in whichever view you used last.
@@ -13,17 +13,17 @@ to navigate. Switching is a change of question, not a change of scope.
 
 ## When To Use It
 
-- Use `Projects` when you know where you are going — you want a specific
-  project's workspace, or you want to reorder, rename, or archive one.
+- Use `Repositories` when you know where you are going — you want a specific
+  repository's workspace, or you want to reorder, rename, or archive one.
 - Use `Work queue` when you want the app to tell you where to go — which agents
   are blocked, which are still running, which finished and are waiting for a
   look.
-- Use Fleet View instead when you want the full cross-project detail view rather
+- Use Fleet View instead when you want the full cross-repository detail view rather
   than a navigation surface.
 
 ## Before You Start
 
-- Open at least one project in Stave.
+- Open at least one repository in Stave.
 - Expand the left sidebar (the toggle lives in the sidebar's own header bar and
   is hidden while the sidebar is collapsed to its icon rail).
 
@@ -32,21 +32,21 @@ to navigate. Switching is a change of question, not a change of scope.
 1. Expand the left sidebar. The two-button toggle sits at the left of the bar
    above the search box.
 2. Click the checklist icon to switch to `Work queue`. Lane headings replace the
-   project tree.
-3. Click any row to open that workspace, switching projects if needed.
-4. Click the folder-tree icon to go back to `Projects`.
+   repository tree.
+3. Click any row to open that workspace, switching repositories if needed.
+4. Click the folder-tree icon to go back to `Repositories`.
 
 ## Interface Walkthrough
 
 ### Entry Points
 
-- Sidebar header bar: the `Projects` / `Work queue` toggle.
+- Sidebar header bar: the `Repositories` / `Work queue` toggle.
 - `Settings → Design → Sidebar → Sidebar View`: the same two choices. Both
   controls write the same preference, so neither can disagree with the other.
 
-### Projects View
+### Repositories View
 
-The project → workspace tree, unchanged: drag to reorder, rename in place, the
+The repository → workspace tree, unchanged: drag to reorder, rename in place, the
 `⋮` row menu for task history, workspace settings, and archive, and the row
 density menu (`Expanded` / `Compact`) in the header bar.
 
@@ -63,13 +63,13 @@ Every workspace, grouped into four lanes in fixed priority order:
 
 - Inside a lane, rows are ordered: the workspace you are standing in first, then
   the most urgent attention item, then status, then most recently opened
-  project.
+  repository.
 - A workspace appears in exactly one lane, and an empty lane renders no header.
 - Each lane header shows its row count and collapses on click. Collapsing is
   session-local — it answers "what am I ignoring right now", not "how do I like
-  my sidebar" — so it resets on restart, the same way collapsed projects do.
-- The trailing text on a row is the project name. The queue is the one view that
-  interleaves projects, so it has to state in text what the tree states by
+  my sidebar" — so it resets on restart, the same way collapsed repositories do.
+- The trailing text on a row is the repository name. The queue is the one view that
+  interleaves repositories, so it has to state in text what the tree states by
   position.
 
 ### Search
@@ -81,14 +81,14 @@ the queue exactly the way it narrows the tree.
 
 - The current view is stored as a single preference and persists across
   restarts. The header toggle and the settings control write the same key.
-- An unrecognized stored value falls back to `Projects`.
+- An unrecognized stored value falls back to `Repositories`.
 
 ## Limitations And Advanced Options
 
 - The collapsed icon rail shows one flat list regardless of view; the toggle is
   an expanded-sidebar control.
 - Row actions (`⋮` menu, drag-to-reorder, rename in place) exist only in
-  `Projects`. Open the workspace from the queue and use the tree, Fleet View, or
+  `Repositories`. Open the workspace from the queue and use the tree, Fleet View, or
   workspace settings for those.
 - The `Work queue` lanes are derived from attention items and task state only.
   The last lane is `Idle`, not `Done`: a merged PR and a workspace nobody has

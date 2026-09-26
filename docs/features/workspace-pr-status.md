@@ -278,4 +278,4 @@ interface WorkspacePrInfo {
 - **Close/Reopen PR**: `gh pr close` / `gh pr reopen`
 - **Webhook-based updates**: Replace polling with GitHub webhook push for real-time status
 - **Archive workspace on merge**: Prompt user to archive workspace after PR is merged
-- **Cross-project PR view**: Aggregate PR status across all recent projects in sidebar
+- **Cross-repository PR view**: Aggregate PR status across all recent repositories in sidebar

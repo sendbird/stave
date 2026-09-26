@@ -105,7 +105,7 @@ export function WorkspaceCleanupDialog({ open, onOpenChange }: { open: boolean; 
     <DialogContent xstyle={styles.dialog} showCloseButton={!cleanupBusyRef.current}>
       <DialogHeader>
         <DialogTitle>Clean up workspaces</DialogTitle>
-        <DialogDescription>{projectName ?? "Current project"} · Review inactive workspaces before removing them.</DialogDescription>
+        <DialogDescription>{projectName ?? "Current repository"} · Review inactive workspaces before removing them.</DialogDescription>
       </DialogHeader>
       <div className={sx(styles.toolbar)}>
         <span className={sx(styles.muted)}>Disk usage is scanned on request. Nested symlinks are not followed.</span>

@@ -196,7 +196,7 @@ function ProjectSettingsPanel(args: {
           remotes: [],
           detail:
             rootResult.stderr?.trim() ||
-            "This project is unavailable or is not a git repository.",
+            "This repository folder is unavailable or is no longer a git repository.",
         });
         return;
       }
@@ -233,7 +233,7 @@ function ProjectSettingsPanel(args: {
       <div className={sx(styles.projectHeader)}>
         <div className={sx(styles.projectHeaderMain)}>
           <div className={sx(styles.rowWrapGap2)}>
-            <Badge variant="secondary">Project Settings</Badge>
+            <Badge variant="secondary">Repository Settings</Badge>
             {args.isCurrent ? <Badge>Current</Badge> : null}
             <Badge variant="secondary">
               {args.project.workspaces.length} workspace
@@ -249,7 +249,7 @@ function ProjectSettingsPanel(args: {
             </h4>
             <p className={sx(styles.mutedBody)}>
               Review repository-specific workspace defaults, git metadata,
-              scripts config, and removal actions for this project.
+              scripts config, and removal actions for this repository.
             </p>
           </div>
           <p className={sx(styles.monoPath)}>{args.project.projectPath}</p>
@@ -274,8 +274,8 @@ function ProjectSettingsPanel(args: {
       </div>
 
       <SettingsCard
-        title="Project Appearance"
-        description="Give each project a stable visual identity across the sidebar and project switcher."
+        title="Repository Appearance"
+        description="Give each repository a stable visual identity across the sidebar and repository switcher."
       >
         <div className={sx(styles.appearanceGrid)}>
           <LabeledField
@@ -284,7 +284,7 @@ function ProjectSettingsPanel(args: {
           >
             <fieldset className={sx(styles.fieldset)}>
               <legend className={sx(styles.radioVisuallyHidden)}>
-                Project icon
+                Repository icon
               </legend>
               {PROJECT_ICON_OPTIONS.map((option) => (
                 <label
@@ -323,11 +323,11 @@ function ProjectSettingsPanel(args: {
 
           <LabeledField
             title="Color"
-            description="Color applies to the project icon while the surrounding surface follows the active theme."
+            description="Color applies to the repository icon while the surrounding surface follows the active theme."
           >
             <fieldset className={sx(styles.fieldset)}>
               <legend className={sx(styles.radioVisuallyHidden)}>
-                Project color
+                Repository color
               </legend>
               {PROJECT_COLOR_OPTIONS.map((option) => (
                 <label
@@ -383,11 +383,11 @@ function ProjectSettingsPanel(args: {
 
       <SettingsCard
         title="Repository Settings"
-        description="Repository-specific defaults, git metadata, and list management for this project."
+        description="Repository-specific defaults, git metadata, and list management for this repository."
       >
         <LabeledField
-          title="Project Instructions"
-          description="Prepended to every Claude and Codex turn for this project. Use it for repo-specific guardrails, tooling preferences, and workflow rules."
+          title="Repository Instructions"
+          description="Prepended to every Claude and Codex turn for this repository. Use it for repo-specific guardrails, tooling preferences, and workflow rules."
         >
           <DraftTextarea
             xstyle={styles.textarea140}
@@ -421,7 +421,7 @@ function ProjectSettingsPanel(args: {
 
         <LabeledField
           title="Kickoff Branch Naming Rule"
-          description="Included in workspace kickoff resolution for this project. Use it to encode repository-specific prefixes, ticket conventions, or casing rules."
+          description="Included in workspace kickoff resolution for this repository. Use it to encode repository-specific prefixes, ticket conventions, or casing rules."
         >
           <DraftTextarea
             xstyle={styles.textarea110}
@@ -517,9 +517,9 @@ function ProjectSettingsPanel(args: {
         <div className={sx(styles.dangerZone)}>
           <div className={sx(styles.dangerRow)}>
             <div className={sx(styles.spaceY1)}>
-              <p className={sx(styles.dangerTitle)}>Remove project</p>
+              <p className={sx(styles.dangerTitle)}>Remove repository</p>
               <p className={sx(styles.mutedBody)}>
-                Removes this project from Stave&apos;s registered project list
+                Removes this repository from Stave&apos;s registered repository list
                 without deleting files on disk.
               </p>
             </div>
@@ -536,7 +536,7 @@ function ProjectSettingsPanel(args: {
               }
             >
               <Trash2 className={sx(styles.iconMd)} />
-              Remove project
+              Remove repository
             </Button>
           </div>
         </div>
@@ -544,7 +544,7 @@ function ProjectSettingsPanel(args: {
 
       <SettingsCard
         title={WORKSPACE_TOOLS_LABEL}
-        description="One-shot commands, long-running processes, lifecycle triggers, and execution environments for this project."
+        description="One-shot commands, long-running processes, lifecycle triggers, and execution environments for this repository."
         titleAccessory={
           <Button
             type="button"
@@ -614,11 +614,11 @@ export function ProjectsSection(args: {
     <>
       {args.projects.length === 0 ? (
         <SettingsCard
-          title="No Projects Yet"
-          description="Open a project from the sidebar to register it here."
+          title="No Repositories Yet"
+          description="Open a repository from the sidebar to register it here."
         >
           <p className={sx(styles.mutedBody)}>
-            Registered projects will show their repository defaults and metadata
+            Registered repositories will show their repository defaults and metadata
             in this section.
           </p>
         </SettingsCard>
@@ -635,11 +635,11 @@ export function ProjectsSection(args: {
             />
           ) : (
             <SettingsCard
-              title="Project Details"
-              description="Choose a project from the Settings sidebar to open its settings panel."
+              title="Repository Details"
+              description="Choose a repository from the Settings sidebar to open its settings panel."
             >
               <p className={sx(styles.mutedBody)}>
-                Pick a project from the sidebar to inspect its workspace
+                Pick a repository from the sidebar to inspect its workspace
                 defaults and repository metadata.
               </p>
             </SettingsCard>
@@ -648,13 +648,13 @@ export function ProjectsSection(args: {
       )}
       <ConfirmDialog
         open={Boolean(projectToRemove)}
-        title="Remove Project"
+        title="Remove Repository"
         description={
           projectToRemove
-            ? `Remove "${projectToRemove.projectName}" from Stave's project list? This does not delete files on disk.`
+            ? `Remove "${projectToRemove.projectName}" from Stave's repository list? This does not delete files on disk.`
             : ""
         }
-        confirmLabel="Remove Project"
+        confirmLabel="Remove Repository"
         onCancel={() => setProjectToRemove(null)}
         onConfirm={() => {
           if (!projectToRemove) {

@@ -52,7 +52,7 @@ export function WorkspaceToolQuickAdd(props: {
       })();
     }}>
       <label htmlFor={`${id}-name`} className={sx(toolStyles.fieldLabel)}>Name</label>
-      <AdsInput id={`${id}-name`} autoFocus maxLength={200} value={label} onChange={(e) => setLabel(e.target.value)} placeholder={process ? "Dev server" : "Check the project"} />
+      <AdsInput id={`${id}-name`} autoFocus maxLength={200} value={label} onChange={(e) => setLabel(e.target.value)} placeholder={process ? "Dev server" : "Check the repository"} />
       <label htmlFor={`${id}-command`} className={sx(toolStyles.fieldLabel)}>Command</label>
       <AdsTextarea id={`${id}-command`} required maxLength={16_000} value={command} onChange={(e) => setCommand(e.target.value)} placeholder={process ? "bun run dev" : "bun run typecheck"} xstyle={toolStyles.commandInput} />
       <p className={sx(toolStyles.muted)}>Saved to this workspace. You choose when to {process ? "start it" : "run it"}. Advanced targets, environment and triggers are available in settings.</p>

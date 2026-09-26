@@ -1,8 +1,8 @@
 # Language Intelligence
 
-Stave's built-in editor understands TypeScript, JavaScript, and Python. This page explains how to turn the advanced project-aware layer on and what to do if macOS blocks file access.
+Stave's built-in editor understands TypeScript, JavaScript, and Python. This page explains how to turn the advanced repository-aware layer on and what to do if macOS blocks file access.
 
-![Settings dialog showing the Project Language Servers card with TypeScript and Python commands](../screenshots/language-intelligence.png)
+![Settings dialog showing the Repository Language Servers card with TypeScript and Python commands](../screenshots/language-intelligence.png)
 
 ## What You Get Out Of The Box
 
@@ -12,20 +12,20 @@ TypeScript and JavaScript work immediately with lightweight Monaco support for t
 - lightweight diagnostics for the open file
 - compiler options loaded from the workspace `tsconfig.json`
 
-This keeps file opening fast in large workspaces. Stave does not mirror the full project source tree or `node_modules` type graph into Monaco.
+This keeps file opening fast in large workspaces. Stave does not mirror the full repository source tree or `node_modules` type graph into Monaco.
 
-For project-aware behavior, turn on Project Language Servers. With LSP enabled, you get:
+For repository-aware behavior, turn on Repository Language Servers. With LSP enabled, you get:
 
-- module resolution based on your project config
+- module resolution based on your repository config
 - hover info
 - completion
 - go to definition
 
-The LSP path follows the same basic shape as VS Code: opened documents are synced to a language server, and the language server resolves the rest of the project from the filesystem.
+The LSP path follows the same basic shape as VS Code: opened documents are synced to a language server, and the language server resolves the rest of the repository from the filesystem.
 
-## Turning On Project Language Servers
+## Turning On Repository Language Servers
 
-For deeper, project-aware intelligence, Stave can also run real language servers (LSP) in the background.
+For deeper, repository-aware intelligence, Stave can also run real language servers (LSP) in the background.
 
 Supported today:
 
@@ -43,7 +43,7 @@ When enabled, Stave starts one language-server session per workspace root and fo
    npm install -g pyright
    ```
 2. Open `Settings > Editor`.
-3. Toggle on `Project Language Servers`.
+3. Toggle on `Repository Language Servers`.
 4. If Stave does not auto-detect the binary, paste the exact command in the per-language override field.
 5. Reopen the file to see the new diagnostics and completions.
 
@@ -60,16 +60,16 @@ When enabled, Stave starts one language-server session per workspace root and fo
 
 - Rename, references, and code actions
 - Nested per-package config discovery inside monorepos
-- Project LSPs for languages beyond TypeScript, JavaScript, and Python
+- Repository LSPs for languages beyond TypeScript, JavaScript, and Python
 
 ## macOS Keeps Asking For File Access
 
-If your project lives in `~/Desktop`, `~/Documents`, `~/Downloads`, or iCloud Drive, macOS may prompt you to allow Stave to read those folders. Stave needs access for normal editor, search, and language-server operations.
+If your repository lives in `~/Desktop`, `~/Documents`, `~/Downloads`, or iCloud Drive, macOS may prompt you to allow Stave to read those folders. Stave needs access for normal editor, search, and language-server operations.
 
 - Packaged release builds: approve the prompt once and macOS remembers it.
 - Development builds: the prompt can return after every rebuild. Grant folder access in `System Settings > Privacy & Security > Files and Folders > Stave` to suppress it.
 
-If you would rather skip the prompt entirely, keep your projects outside those protected folders (for example, under `~/projects` instead of `~/Documents`).
+If you would rather skip the prompt entirely, keep your repositories outside those protected folders (for example, under `~/projects` instead of `~/Documents`).
 
 For the full checklist on managing these prompts, see [macOS Folder Access](macos-folder-access-prompts.md).
 
@@ -77,7 +77,7 @@ For the full checklist on managing these prompts, see [macOS Folder Access](maco
 
 ### Diagnostics Did Not Improve After Enabling LSP
 
-- Symptom: toggling `Project Language Servers` did not change anything in the editor.
+- Symptom: toggling `Repository Language Servers` did not change anything in the editor.
 - Cause: the language-server binary is not on your `PATH`, or the command override is wrong.
 - Fix: open a terminal and run the command listed in the override field. If it prints "command not found", install the server or point the override at the absolute path.
 
@@ -85,13 +85,13 @@ For the full checklist on managing these prompts, see [macOS Folder Access](maco
 
 - Symptom: Python files only get basic highlighting.
 - Cause: Stave only runs a Python LSP when one is configured and enabled.
-- Fix: install `pyright` or `basedpyright`, toggle `Project Language Servers` on, and confirm the Python command override.
+- Fix: install `pyright` or `basedpyright`, toggle `Repository Language Servers` on, and confirm the Python command override.
 
 ### TypeScript Paths From `tsconfig.json` Are Not Respected
 
 - Symptom: go-to-definition fails for path aliases like `@/components/...`.
 - Cause: the current TypeScript workspace root does not include the relevant `tsconfig.json`, or path discovery is not yet implemented for the nested package.
-- Fix: open the project at the root that contains the `tsconfig.json` with the path mapping, or rely on direct relative imports while nested package config is not supported.
+- Fix: open the repository at the root that contains the `tsconfig.json` with the path mapping, or rely on direct relative imports while nested package config is not supported.
 
 ## Related Docs
 

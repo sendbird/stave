@@ -96,7 +96,7 @@ export function createCompareActions(args: {
       if (!stateBefore.projectPath || !stateBefore.activeWorkspaceId) {
         return {
           ok: false,
-          message: "Open a project before starting a compare run.",
+          message: "Open a repository before starting a compare run.",
         };
       }
 

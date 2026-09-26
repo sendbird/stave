@@ -425,7 +425,7 @@ export default function App() {
       void useAppStore.getState().flushActiveWorkspaceSnapshot().catch(() => {});
       void flushPendingSnapshotPersists().catch(() => {});
       void useAppStore.getState().flushProjectRegistry().catch((error) => {
-        console.error("[persistence] project registry save failed", error);
+        console.error("[persistence] repository registry save failed", error);
       });
     };
     window.addEventListener("beforeunload", onBeforeUnload);
@@ -437,7 +437,7 @@ export default function App() {
     const flush = () => {
       timer = null;
       void useAppStore.getState().flushProjectRegistry().catch((error) => {
-        console.error("[persistence] project registry save failed", error);
+        console.error("[persistence] repository registry save failed", error);
       });
     };
     const unsubscribe = useAppStore.subscribe((state, prevState) => {

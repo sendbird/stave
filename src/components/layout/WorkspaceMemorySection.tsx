@@ -83,13 +83,13 @@ export function WorkspaceMemorySection(props: {
       const result = await window.api.projectMemory.list({ projectPath });
       if (request !== generation.current) return;
       if (!result.ok)
-        throw new Error(result.message ?? "Could not load project memory.");
+        throw new Error(result.message ?? "Could not load repository memory.");
       setItems(result.items);
       setError("");
     } catch (err) {
       if (request === generation.current)
         setError(
-          err instanceof Error ? err.message : "Could not load project memory.",
+          err instanceof Error ? err.message : "Could not load repository memory.",
         );
     } finally {
       if (request === generation.current) setLoading(false);
@@ -148,7 +148,7 @@ export function WorkspaceMemorySection(props: {
   if (!projectPath)
     return (
       <p className={sx(styles.empty)}>
-        Open a project to see its memory.
+        Open a repository to see its memory.
       </p>
     );
   return (
@@ -182,7 +182,7 @@ export function WorkspaceMemorySection(props: {
       {!loading && !error && !items.length && (
         <p className={sx(styles.empty)}>
           No memories yet. Once collection is enabled, ask the agent to remember
-          a lasting project decision.
+          a lasting repository decision.
         </p>
       )}
       {items.length > 0 ? (
@@ -428,7 +428,7 @@ export function MemoryRow(props: {
       <ConfirmDialog
         open={confirmingForget}
         title="Forget this memory?"
-        description={`"${memory.content}" will be removed from this project's memory. This cannot be undone.`}
+        description={`"${memory.content}" will be removed from this repository's memory. This cannot be undone.`}
         confirmLabel="Forget memory"
         loading={busy}
         onConfirm={async () => {

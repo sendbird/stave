@@ -34,7 +34,7 @@ export function TaskWorkPanel({ kind }: { kind: "results" | "collaboration" }) {
   if (kind === "collaboration" && (!projectPath || isTaskManaged(task))) {
     return (
       <p className={sx(styles.empty)}>
-        Delegations are available in a local project task.
+        Delegations are available in a local repository task.
       </p>
     );
   }

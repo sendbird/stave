@@ -64,7 +64,7 @@ export function buildEditorScopes(args: {
   const scopes: ScriptEditorScope[] = [
     {
       id: "project",
-      label: "Project Config",
+      label: "Repository Config",
       description:
         "Shared execution config stored in `.stave/scripts.json` for the repository.",
       rootPath: args.projectPath,
@@ -106,7 +106,7 @@ export function targetLabel(
 export function buildEditorTargetOptions(state: ScriptEditorState) {
   const next = new Map<string, string>([
     [DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE, "Workspace"],
-    [DEFAULT_SCRIPT_TARGET_IDS.PROJECT, "Project"],
+    [DEFAULT_SCRIPT_TARGET_IDS.PROJECT, "Repository"],
   ]);
 
   for (const target of state.targets) {

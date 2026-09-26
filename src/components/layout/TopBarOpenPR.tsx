@@ -766,7 +766,7 @@ export function TopBarOpenPR(props: { noDragStyle: CSSProperties }) {
     if (!isReasonablePullRequestTitle(title)) {
       setInlineNotice({
         tone: "error",
-        title: "PR title must use the project convention",
+        title: "PR title must use the repository convention",
         description:
           "Use a lowercase Conventional Commit title such as `fix(topbar): stabilize create pr flow`.",
       });

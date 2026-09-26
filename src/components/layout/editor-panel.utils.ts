@@ -284,7 +284,7 @@ export function buildSourceControlItemViewModel(args: { item: SourceControlStatu
   const fileName = workingTreeSegments.at(-1) ?? displayPath.workingTreePath ?? displayPath.displayPath;
   const directoryLabel = workingTreeSegments.length > 1
     ? workingTreeSegments.slice(0, -1).join("/")
-    : "project root";
+    : "repository root";
   const hasStagedChanges = hasSourceControlStagedChanges({ item: args.item });
   const hasUnstagedChanges = hasSourceControlUnstagedChanges({ item: args.item });
   const isConflict = hasSourceControlConflicts({ item: args.item });

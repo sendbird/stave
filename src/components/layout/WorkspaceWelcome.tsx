@@ -26,14 +26,14 @@ export function WorkspaceWelcome() {
             From a task to a result you can trust.
           </h1>
           <p className={sx(styles.lede)}>
-            Use agents in your local projects. Keep tickets, notes, code, and
+            Use agents in your local repositories. Keep tickets, notes, code, and
             evidence together so you can pick up where you left off.
           </p>
         </div>
         <div className={sx(styles.action)}>
           <ActionButton weight="primary" size="lg" onClick={() => setOpen(true)}>
             <FolderOpen aria-hidden="true" className={sx(styles.actionIcon)} />
-            Open a project
+            Open a repository
           </ActionButton>
           <p className={sx(styles.actionHint)}>
             Choose a folder on your computer. You can connect Jira or Crane

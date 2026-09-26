@@ -339,7 +339,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                                     onClick={() => setActiveSection("projects")}
                                     icon={<Folder />}
                                   >
-                                    No projects yet
+                                    No repositories yet
                                   </SidebarMenuButton>
                                 </SidebarMenuItem>
                               ) : (

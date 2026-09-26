@@ -194,7 +194,7 @@ export function useDelegatedTasks(args: {
           return Promise.resolve({
             ok: false,
             error:
-              "Retry needs the parent task's project and workspace. Open the parent task and try again.",
+              "Retry needs the parent task's repository and workspace. Open the parent task and try again.",
           });
         }
         return runAction(

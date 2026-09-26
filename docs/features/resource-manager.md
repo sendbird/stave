@@ -36,7 +36,7 @@ Reopening a released page grants a two-minute cooldown. Repeated reopenings with
 
 ## Stop workspace execution
 
-Expand **Workspace execution**, choose **Stop execution**, review the shutdown warning, and confirm. The host validates the workspace against the project registry and refuses to stop it while a provider turn or script invocation is running or starting.
+Expand **Workspace execution**, choose **Stop execution**, review the shutdown warning, and confirm. The host validates the workspace against the repository registry and refuses to stop it while a provider turn or script invocation is running or starting.
 
 Once admitted, the host blocks new provider turns, terminal and CLI sessions, and workspace scripts before closing that workspace's PTYs and managed services. Terminal screen snapshots, code, conversations, and tab definitions are retained. Another workspace's sessions remain running. Lens pages have separate sleep and release controls; unknown or externally detached processes are not killed by ancestry guesses.
 

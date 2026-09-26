@@ -129,9 +129,9 @@ export function ScriptsSection(props: {
             <EmptyMedia>
               <Sparkles className={sx(scriptsSectionStyles.emptyIcon)} />
             </EmptyMedia>
-            <EmptyTitle>No projects yet</EmptyTitle>
+            <EmptyTitle>No repositories yet</EmptyTitle>
             <EmptyDescription>
-              Open a project from the sidebar to configure its processes and
+              Open a repository from the sidebar to configure its processes and
               commands.
             </EmptyDescription>
           </EmptyHeader>
@@ -140,14 +140,14 @@ export function ScriptsSection(props: {
         <>
           <label className={sx(scriptsSectionStyles.projectLabel)}>
             <span className={sx(scriptsSectionStyles.projectLabelText)}>
-              Configuration project
+              Configuration repository
             </span>
             <Select
               value={selectedProjectPath ?? undefined}
               onValueChange={(value) => setSelectedProjectPath(value)}
             >
               <SelectTrigger className={sx(scriptsSectionStyles.triggerFull)}>
-                <SelectValue placeholder="Select a project">
+                <SelectValue placeholder="Select a repository">
                   {selectedProjectLabel}
                 </SelectValue>
               </SelectTrigger>

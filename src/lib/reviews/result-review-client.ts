@@ -57,7 +57,7 @@ export function captureBrowserResult(notification: AppNotification) {
   const result: ResultReview = {
     ...scope,
     id: notification.id,
-    projectName: notification.projectName ?? "Project",
+    projectName: notification.projectName ?? "Repository",
     workspaceName: notification.workspaceName ?? "Workspace",
     taskTitle: notification.taskTitle ?? notification.title,
     summary: notification.body.slice(0, 2000),

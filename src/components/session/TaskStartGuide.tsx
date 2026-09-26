@@ -19,7 +19,7 @@ const STARTING_POINTS = [
     title: "Understand or decide",
     description: "Explore code, investigate a problem, or compare options.",
     example:
-      "Explain how this project works, identify the risks, and recommend a next step. Cite the files or sources behind your conclusions.",
+      "Explain how this repository works, identify the risks, and recommend a next step. Cite the files or sources behind your conclusions.",
   },
   {
     title: "Build or fix",

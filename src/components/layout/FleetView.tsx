@@ -809,7 +809,7 @@ export function FleetView() {
                   </EmptyMedia>
                   <EmptyTitle>No Workspaces</EmptyTitle>
                   <EmptyDescription>
-                    Open a project or workspace to see agent activity here.
+                    Open a repository or workspace to see agent activity here.
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
@@ -960,7 +960,7 @@ export function FleetView() {
                       </span>
                     ) : null}
                     {suppressedDefaultCount > 0 ? (
-                      <span title="Remembered projects always carry a default workspace row. These have no tasks, no messages, and no recorded activity.">
+                      <span title="Remembered repositories always carry a default workspace row. These have no tasks, no messages, and no recorded activity.">
                         {hiddenDormantCount > 0 ? "· " : ""}
                         {suppressedDefaultCount} unused default
                         {suppressedDefaultCount === 1 ? "" : "s"} suppressed

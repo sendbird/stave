@@ -62,7 +62,7 @@ export const CLAUDE_EFFORT_OPTIONS = [
 >[];
 
 export const CLAUDE_SETTING_SOURCE_OPTIONS = [
-  { value: "project", label: "Project" },
+  { value: "project", label: "Repository" },
   { value: "local", label: "Local" },
   { value: "user", label: "User" },
 ] as const satisfies readonly SelectOption<ClaudeSettingSource>[];

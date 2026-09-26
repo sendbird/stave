@@ -121,7 +121,7 @@ export function TopBar() {
               >
                 <PanelLeft />
               </TooltipTrigger>
-              <TooltipContent side="bottom">Expand Project List</TooltipContent>
+              <TooltipContent side="bottom">Expand Repository List</TooltipContent>
             </Tooltip>
           ) : null}
           {hasProjectContext && activeWorkspacePath ? (

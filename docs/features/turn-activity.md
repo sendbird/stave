@@ -199,7 +199,7 @@ row when it is narrower.
   lives in the conversation itself, not here: the stored turn journal keeps
   only terminal events once a turn closes, so there is nothing to rebuild an
   older activity list from.
-- A task that is archived, or whose workspace or project is removed, drops its
+- A task that is archived, or whose workspace or repository is removed, drops its
   last turn with it.
 
 ## Troubleshooting

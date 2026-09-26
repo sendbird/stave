@@ -189,7 +189,7 @@ export function CraneDispatchApprovalDialog() {
       return;
     }
     if (!projectPath) {
-      toast.error("Choose a registered Stave project.");
+      toast.error("Choose a registered Stave repository.");
       return;
     }
     if (workspaceStrategy === "existing" && !workspaceId) {

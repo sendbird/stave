@@ -98,7 +98,7 @@ function OriginLabel(props: { origin?: ScriptEntryOrigin }) {
   }
   return (
     <span>
-      {props.origin.tier === "workspace" ? "Workspace" : "Project"}
+      {props.origin.tier === "workspace" ? "Workspace" : "Repository"}
       {props.origin.localOverride ? " + local override" : ""}
     </span>
   );

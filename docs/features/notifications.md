@@ -1,6 +1,6 @@
 # Notifications
 
-Stave has an in-app notification center that tracks task activity across every project and workspace you have open, so you can step away from a task and still know when it needs you again.
+Stave has an in-app notification center that tracks task activity across every repository and workspace you have open, so you can step away from a task and still know when it needs you again.
 
 ![Notifications popover with unread task updates and approval requests](../screenshots/notifications.png)
 
@@ -36,7 +36,7 @@ If you prefer, the task itself also shows a pending-approval card above the comp
 ## Jump Back To A Task
 
 - Click a notification.
-- Stave switches to the right project, workspace, and task.
+- Stave switches to the right repository, workspace, and task.
 - If the task was archived, Stave asks you to restore it before reopening.
 
 ## Success Sound

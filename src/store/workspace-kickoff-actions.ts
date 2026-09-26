@@ -122,7 +122,7 @@ export function createWorkspaceKickoffResolver(args: {
     if (!state.projectPath)
       return {
         ok: false,
-        message: "Open a project before resolving a kickoff source.",
+        message: "Open a repository before resolving a kickoff source.",
       };
     const controller = new AbortController();
     active = controller;

@@ -238,7 +238,7 @@ export function EditorPanel(props: EditorPanelProps) {
         : filteredScmItems.length > 0
       ? "Stage files to prepare the next commit."
       : "Working tree is clean.";
-  const explorerProjectName = projectName?.trim() || "Project";
+  const explorerProjectName = projectName?.trim() || "Repository";
   const rightTab = sidebarOverlayTab;
 
   function updateExplorerDirectoryState(

@@ -366,7 +366,7 @@ export function collectFleetNotificationAttentionItems(
 
     const base = {
       projectPath,
-      projectName: normalizeRequired(notification.projectName) ?? "Project",
+      projectName: normalizeRequired(notification.projectName) ?? "Repository",
       workspaceId,
       workspaceName:
         normalizeRequired(notification.workspaceName) ?? "Workspace",

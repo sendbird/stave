@@ -12,13 +12,13 @@ server.
 - `Add server` offers Claude, Codex, Cursor, and Kiro as installation targets.
 - `Add to Claude`, `Add to Codex`, `Add to Cursor`, and `Add to Kiro` copy a safe,
   renderer-visible description into a missing provider.
-- Claude supports `user`, `project`, and `local project` scopes.
+- Claude supports `user`, `project`, and `local repository` scopes.
 - Codex currently supports `user` scope only.
 - Cursor supports `user` and `project` scopes, stored in
   `~/.cursor/mcp.json` and `<workspace>/.cursor/mcp.json` respectively.
 - Kiro supports `user` and `project` scopes, stored in
   `~/.kiro/settings/mcp.json` and `<workspace>/.kiro/settings/mcp.json`.
-- A Claude local-project entry becomes a Cursor or Kiro project entry, or a
+- A Claude local-repository entry becomes a Cursor or Kiro project entry, or a
   Codex user entry, when copied.
 - Codex does not accept SSE entries. Cursor and Kiro can store stdio, HTTP, and
   SSE entries natively.
@@ -86,7 +86,7 @@ does not support dynamic client registration on that endpoint.
 2. Enable `Cursor`. Disable the other targets unless they also need their own
    native copy. If Kiro is also selected, enter your Slack app client ID in the
    Kiro field; Cursor does not reuse that value.
-3. Choose `User` for all workspaces or `Project` for only the current workspace.
+3. Choose `User` for all workspaces or `Repository` for only the current workspace.
 4. Name the server `slack`, choose `HTTP`, and enter `https://mcp.slack.com/mcp`.
 5. Leave bearer-token and header fields empty.
 6. Review and apply the change. Stave writes Slack's published Cursor MCP client
@@ -155,7 +155,7 @@ then use `Sign in` in Stave or run:
 agent mcp login slack
 ```
 
-Do not put the literal client secret in `mcp.json`, especially in a project
+Do not put the literal client secret in `mcp.json`, especially in a repository
 file. Stave refuses to rewrite a Cursor project file containing a literal
 credential-like value.
 
@@ -211,7 +211,7 @@ One-click sharing refuses a remote URL with hidden user information, query
 details, a fragment, or invalid syntax. Add that destination manually so an
 opaque URL cannot cross provider boundaries without review.
 
-Project-scope Claude, Cursor, and Kiro writes are refused when the destination
+Repository-scope Claude, Cursor, and Kiro writes are refused when the destination
 contains a literal credential-like value. Replace it with the provider's
 environment-reference syntax before editing the file in Stave.
 

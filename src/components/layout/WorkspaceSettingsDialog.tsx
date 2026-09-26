@@ -132,7 +132,7 @@ export function WorkspaceSettingsContent(props: {
             ? "Default workspace labels are fixed."
             : props.branch
               ? `Shown as ${normalizedLabel || "label"} (${props.branch}).`
-              : "Shown in the project sidebar."}
+              : "Shown in the repository sidebar."}
         </p>
         {labelMessage ? (
           <p className={sx(styles.labelHint)}>{labelMessage}</p>

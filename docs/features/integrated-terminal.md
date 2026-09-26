@@ -31,10 +31,10 @@ Good for:
 
 ## Before You Start
 
-- Open a project or workspace in Stave first.
+- Open a repository or workspace in Stave first.
 - The terminal starts from the active workspace path.
-- If the project has an `.nvmrc` and that Node version is installed under nvm,
-  Stave puts the project's Node `bin` directory ahead of the Node version that
+- If the repository has an `.nvmrc` and that Node version is installed under nvm,
+  Stave puts the repository's Node `bin` directory ahead of the Node version that
   launched Stave. This also applies to workspace scripts and provider shell
   commands.
 - If you want Claude or Codex CLI sessions, make sure the relevant CLI is already available to the desktop app.

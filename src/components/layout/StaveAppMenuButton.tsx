@@ -125,7 +125,7 @@ export function StaveAppMenuButton(args?: {
               onSelect={handleRefreshProjectFiles}
             >
               <RefreshCw {...stylex.props(staveAppMenuStyles.itemIcon)} />
-              Refresh project files
+              Refresh repository files
             </DropdownMenuItem>
           ) : null}
           <DropdownMenuItem onSelect={handleToggleTheme}>

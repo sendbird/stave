@@ -76,7 +76,7 @@ share concurrent requests and cache positive results for 30 seconds, with
 invalidation after runner failures.
 
 Codex classification uses a fresh ephemeral thread on the shared App Server.
-Its reduced instructions omit project guidance and restrict skill context.
+Its reduced instructions omit repository guidance and restrict skill context.
 Shell, image, apps, web, and configured MCP tools remain disabled. Primary
 secrets and resume IDs are not forwarded. No classifier conversation or
 background keep-alive model loop accumulates tokens between requests.

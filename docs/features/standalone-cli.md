@@ -2,16 +2,16 @@
 
 ## Summary
 
-- Standalone CLI is a popover, anchored to a top-bar button, that runs the real `claude`, `codex`, `agent` (Cursor), and `kiro-cli` executables in a folder of your choice, without registering that folder as a project.
+- Standalone CLI is a popover, anchored to a top-bar button, that runs the real `claude`, `codex`, `agent` (Cursor), and `kiro-cli` executables in a folder of your choice, without registering that folder as a repository.
 - It has one fixed tab per AI provider — **Claude Code**, **Codex**, **Cursor**, and **Kiro** — each a full terminal session for that provider's own CLI.
 - Reach for it when you want the CLI's native interface — its own approvals, plan mode, model picker, and slash commands — instead of anything Stave renders.
 
 ## When To Use It
 
-- You want to run one of the AI CLIs against a folder you have not set up as a Stave project (a downloads folder, a one-off clone, a script directory).
+- You want to run one of the AI CLIs against a folder you have not set up as a Stave repository (a downloads folder, a one-off clone, a script directory).
 - You want the CLI's own terminal UI — including its native approval prompts, plan mode, model selection, and slash commands — rather than a Stave-rendered equivalent.
-- You want a session that survives switching or deleting projects, because it is not attached to any project or workspace.
-- Reach for a real **project** instead when you need Stave-rendered turns, worktrees, plans, the advisor, or delegated tasks.
+- You want a session that survives switching or deleting repositories, because it is not attached to any repository or workspace.
+- Reach for a real **repository** instead when you need Stave-rendered turns, worktrees, plans, the advisor, or delegated tasks.
 
 ## Before You Start
 
@@ -22,7 +22,7 @@
 ## Quick Start
 
 1. Open `Settings > General`, go to the **Standalone CLI** card, and set an absolute folder path (type it or click **Browse**).
-2. Click the terminal icon on the top bar to open the panel. It is there even with no project open.
+2. Click the terminal icon on the top bar to open the panel. It is there even with no repository open.
 3. Use the tab bar in the panel header to pick **Claude Code**, **Codex**, **Cursor**, or **Kiro**.
 4. Type directly into the terminal, exactly as you would in a regular shell running that CLI.
 
@@ -30,7 +30,7 @@
 
 ### Entry Points
 
-- The top-bar terminal button opens the panel below itself. It is never disabled and always present, even on the empty "no project" screen. Opening it with no folder set shows an empty state with an **Open Settings** button instead of a terminal.
+- The top-bar terminal button opens the panel below itself. It is never disabled and always present, even on the empty "no repository" screen. Opening it with no folder set shows an empty state with an **Open Settings** button instead of a terminal.
 
 ### Key Controls
 
@@ -66,7 +66,7 @@
 
 ## Files And Data
 
-- The folder path lives in your app settings, not in the project registry, so it never appears in your project list or recents.
+- The folder path lives in your app settings, not in the repository registry, so it never appears in your repository list or recents.
 - Each tab's native CLI session id is persisted, so after quitting and relaunching the app, the tabs resume their prior conversations in the same folder via the CLI's own resume mechanism. How the id is obtained differs per CLI:
   - **Claude Code** — Stave issues the id up front (`--session-id`) and resumes with `--resume`.
   - **Codex** — the id is discovered after launch by scanning `~/.agents/codex/sessions`; resume is `codex resume <id>`.
@@ -79,7 +79,7 @@
 - **One folder at a time.** Setting a new folder replaces the one every tab is running against.
 - **Fixed tabs, one per provider.** Claude Code, Codex, Cursor, and Kiro are always shown; you cannot add more tabs or additional folders. A new provider added to Stave gets a tab automatically — see [Adding A Provider](../developer/adding-a-provider.md).
 - **No Stave-rendered approvals, plan mode, or model picker.** The CLI's own interface owns all of that; Stave only hosts the terminal surface.
-- **Not a project.** The folder never appears in the project list or recents, and Standalone CLI does not use worktrees, plans, the advisor, or delegated tasks.
+- **Not a repository.** The folder never appears in the repository list or recents, and Standalone CLI does not use worktrees, plans, the advisor, or delegated tasks.
 - **Switching folders starts fresh for every tab.** Changing the folder in Settings restarts all four tabs and discards their conversations.
 - **Cursor resume depends on the network.** See Files And Data above; an offline or signed-out first start means that Cursor conversation is not resumable.
 

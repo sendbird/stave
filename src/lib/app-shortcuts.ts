@@ -62,7 +62,7 @@ export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
   {
     commandId: "view.toggle-workspace-sidebar",
     title: "Toggle workspace sidebar",
-    description: "Collapse or expand the left project and workspace list.",
+    description: "Collapse or expand the left repository and workspace list.",
     defaultKey: "b",
   },
   {

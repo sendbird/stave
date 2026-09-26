@@ -43,7 +43,7 @@ describe("ScriptsManager scope safety", () => {
 
     expect(buildEditorTargetOptions(state)).toEqual([
       { id: "workspace", label: "Workspace" },
-      { id: "project", label: "Project" },
+      { id: "project", label: "Repository" },
       { id: "ci", label: "CI" },
     ]);
     expect(buildEditorHookCandidates(state)).toEqual([

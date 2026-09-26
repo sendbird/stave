@@ -93,8 +93,8 @@ const START_ITEMS = [
   {
     title: "Make it yours",
     description:
-      "Save project instructions, configure scripts, and adopt advanced features only when you need them.",
-    href: "./docs/project-instructions/",
+      "Save repository instructions, configure scripts, and adopt advanced features only when you need them.",
+    href: "./docs/repository-instructions/",
   },
 ];
 

@@ -113,7 +113,7 @@ export function LensSection() {
         }
         toast.success(
           scope === "project"
-            ? "Project Lens data cleared"
+            ? "Repository Lens data cleared"
             : "Workspace Lens data cleared",
         );
       } catch (err) {
@@ -165,9 +165,9 @@ export function LensSection() {
             options={[
               {
                 value: "project",
-                label: "Project profile",
+                label: "Repository profile",
                 description:
-                  "Share Lens sign-in across workspaces for this project.",
+                  "Share Lens sign-in across workspaces for this repository.",
               },
               {
                 value: "workspace",
@@ -199,7 +199,7 @@ export function LensSection() {
               ) : (
                 <Trash2 className={sx(styles.iconSm)} />
               )}
-              Clear project data
+              Clear repository data
             </Button>
             <Button
               type="button"
@@ -261,7 +261,7 @@ export function LensSection() {
         >
           <SwitchField
             title="Heuristic Search"
-            description="AI uses class names, text content, and IDs to search for source files via grep. Recommended for most projects."
+            description="AI uses class names, text content, and IDs to search for source files via grep. Recommended for most repositories."
             checked={heuristic}
             onCheckedChange={(checked) =>
               updateSettings({

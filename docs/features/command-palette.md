@@ -25,8 +25,8 @@ The palette is global. You do not need to focus the chat composer first.
 
 - quick open a file
 - go home
-- switch task, workspace, or project
-- refresh project files or workspaces
+- switch task, workspace, or repository
+- refresh repository files or workspaces
 
 ### View
 

@@ -108,7 +108,7 @@ export const CraneProjectMappingSchema = z
     if (!value.craneTeamKey && !value.craneProjectId) {
       context.addIssue({
         code: "custom",
-        message: "A Crane team key or project id is required.",
+        message: "A Crane team key or repository id is required.",
       });
     }
   });

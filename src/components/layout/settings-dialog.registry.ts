@@ -418,7 +418,7 @@ export const settingDefinitions = [
       "remote",
       "integration",
       "outbound",
-      "project mapping",
+      "repository mapping",
     ],
     schema: CraneConnectorSettingsSchema,
     defaultValue: {
@@ -438,7 +438,7 @@ export const settingDefinitions = [
     fieldId: "settings-field-jira-connector",
     title: "Jira connector",
     description:
-      "Read your assigned Jira Cloud issues over outbound HTTPS and map Jira projects to local Stave projects.",
+      "Read your assigned Jira Cloud issues over outbound HTTPS and map Jira projects to local Stave repositories.",
     keywords: [
       "jira",
       "jira cloud",
@@ -452,7 +452,7 @@ export const settingDefinitions = [
       "tracker",
       "integration",
       "outbound",
-      "project mapping",
+      "repository mapping",
     ],
     schema: JiraConnectorSettingsSchema,
     // Spread rather than shared: the frozen default carries a frozen mappings
@@ -530,7 +530,7 @@ export const settingDefinitions = [
     fieldId: STANDALONE_CLI_SETTING_FIELD_ID,
     title: "Standalone CLI folder",
     description:
-      "Absolute folder the Standalone CLI overlay runs every AI CLI in, without registering it as a project.",
+      "Absolute folder the Standalone CLI overlay runs every AI CLI in, without registering it as a repository.",
     keywords: [
       "standalone",
       "cli",

@@ -396,7 +396,7 @@ export function buildKickoffResolutionPrompt(args: {
     args.projectBasePrompt?.trim()
       ? [
           "",
-          "Project instructions:",
+          "Repository instructions:",
           truncate(args.projectBasePrompt, MAX_PROJECT_PROMPT_CHARS),
         ].join("\n")
       : "",

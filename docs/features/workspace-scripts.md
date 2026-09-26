@@ -3,7 +3,7 @@
 ## Summary
 
 - Workspace Scripts let Stave run workspace actions, long-running services, and lifecycle hooks from the right rail.
-- The Scripts Manager now lives under `Settings > Projects`, where it provides a lightweight GUI for editing shared `actions`, `services`, and `hooks` in `.stave/scripts.json` without exposing a raw JSON editor.
+- The Scripts Manager now lives under `Settings > Repositories`, where it provides a lightweight GUI for editing shared `actions`, `services`, and `hooks` in `.stave/scripts.json` without exposing a raw JSON editor.
 - Script execution now runs through the isolated desktop host-service child process, which keeps long-lived output and hook churn off the Electron main-process event loop.
 
 ![Scripts runtime panel showing actions, services, and hook wiring](../screenshots/scripts-panel.png)
@@ -18,16 +18,16 @@ This rendered example shows the right-rail Scripts runtime with a running local 
 
 ## Before You Start
 
-- Open a project in Stave and select a workspace.
+- Open a repository in Stave and select a workspace.
 - Make sure the workspace has write access to its `.stave/` folder.
-- If you need project-wide scripts, decide whether the config should live in the repository root or in the active workspace.
-- Workspace-level shared config is editable when that project is the current project in Stave.
+- If you need repository-wide scripts, decide whether the config should live in the repository root or in the active workspace.
+- Workspace-level shared config is editable when that repository is the current repository in Stave.
 
 ## Quick Start
 
-1. Open `Settings > Projects`.
-2. Select the project, then use `Scripts Manager`.
-3. Choose `Project Config` or `Workspace Config`.
+1. Open `Settings > Repositories`.
+2. Select the repository, then use `Scripts Manager`.
+3. Choose `Repository Config` or `Workspace Config`.
 4. Add an `Action` or `Service`, fill in the id, target, and commands, then save.
 5. Add hook links if the script should run from `task.created`, `task.archiving`, `turn.started`, `turn.completed`, `pr.beforeOpen`, or `pr.afterOpen`.
 6. Open the right rail `Scripts` tab to run the entry and verify the merged runtime for the current workspace.
@@ -36,9 +36,9 @@ This rendered example shows the right-rail Scripts runtime with a running local 
 
 ### Entry Points
 
-- Open `Settings > Projects`, select a project, and edit shared scripts config in `Scripts Manager`.
+- Open `Settings > Repositories`, select a repository, and edit shared scripts config in `Scripts Manager`.
 - Open the right rail and select the `Scripts` tab to inspect the merged runtime for the active workspace.
-- The runtime panel shows the resolved actions, services, hooks, config paths, and quick access back to project settings.
+- The runtime panel shows the resolved actions, services, hooks, config paths, and quick access back to repository settings.
 
 ### Key Controls
 
@@ -49,25 +49,25 @@ This rendered example shows the right-rail Scripts runtime with a running local 
 - `Save`: writes the selected shared config file.
 - `Reload`: re-reads the selected config file from disk.
 - `Discard`: throws away unsaved GUI changes and reloads the file.
-- `Edit Config`: opens `Settings > Projects` from the right-rail runtime panel.
+- `Edit Config`: opens `Settings > Repositories` from the right-rail runtime panel.
 - `Refresh`: reloads the effective runtime for the active workspace.
 
 ## Common Workflows
 
 ### Create An Action
 
-1. Open `Settings > Projects` and click `Add Action`.
+1. Open `Settings > Repositories` and click `Add Action`.
 2. Set a stable `ID` such as `bootstrap` or `test-ci`.
 3. Add a label and description if the default generated name is not enough.
 4. Choose a `Target`:
    - `Workspace` runs inside the active workspace path.
-   - `Project` runs in the repository root.
+   - `Repository` runs in the repository root.
 5. Enter one shell command per line in `Commands`.
 6. Save, then run the action from the right-rail `Scripts Runtime`.
 
 ### Create A Service
 
-1. Open `Settings > Projects` and click `Add Service`.
+1. Open `Settings > Repositories` and click `Add Service`.
 2. Enter the service id and one or more commands.
 3. Set `Restart on run` if Stave should replace an existing running process when you run it again.
 4. Enable `Use Orbit` when the service should run through `portless` and expose an Orbit URL.
@@ -80,7 +80,7 @@ If the command relies on shell-only syntax such as `&&`, pipes, redirects, comma
 
 ### Wire A Hook
 
-1. Open `Settings > Projects` and scroll to `Hooks`.
+1. Open `Settings > Repositories` and scroll to `Hooks`.
 2. Find the trigger you need.
 3. Toggle `Enabled` on the action or service you want linked.
 4. Leave `Blocking` on when failures should stop the parent workflow, or turn it off for best-effort execution.
@@ -88,16 +88,16 @@ If the command relies on shell-only syntax such as `&&`, pipes, redirects, comma
 
 ### Verify The Runtime
 
-1. Save the manager changes in `Settings > Projects`.
+1. Save the manager changes in `Settings > Repositories`.
 2. Open the right rail `Scripts` tab and use `Refresh`.
 3. Run the target action, service, or hook.
 4. Inspect the live status badge, error message, and log output in the panel.
 
 ## Files And Data
 
-- Shared project config: `<project>/.stave/scripts.json`
+- Shared repository config: `<repository>/.stave/scripts.json`
 - Shared workspace config: `<workspace>/.stave/scripts.json`
-- Optional advanced local override: `<project-or-workspace>/.stave/scripts.local.json`
+- Optional advanced local override: `<repository-or-workspace>/.stave/scripts.local.json`
 
 Minimal shared config example:
 
@@ -146,21 +146,21 @@ Minimal shared config example:
 - Orbit services require `Workspace` as the target.
 - Legacy `workspace.created` and `workspace.archiving` hooks remain supported for older configs, but new script flows should prefer task and turn triggers.
 - If you need custom target definitions, per-developer overrides, or unsupported JSON fields, edit the file manually.
-- When both workspace and project shared configs exist, the workspace shared config wins for the active workspace.
+- When both workspace and repository shared configs exist, the workspace shared config wins for the active workspace.
 
 ## Troubleshooting
 
 ### The Manager Shows A File Error
 
-- Symptom: `Settings > Projects > Scripts Manager` shows invalid JSON or schema errors.
+- Symptom: `Settings > Repositories > Scripts Manager` shows invalid JSON or schema errors.
 - Cause: the existing config file is not valid `version: 2` scripts JSON.
 - Fix: correct the file manually, then reload the manager.
 
 ### The Runtime View Does Not Change After Saving
 
 - Symptom: the right-rail `Scripts Runtime` still shows older entries.
-- Cause: a higher-priority workspace shared config is overriding the project shared config for the current workspace.
-- Fix: check the selected `Config Scope` in `Settings > Projects`, then refresh the runtime panel.
+- Cause: a higher-priority workspace shared config is overriding the repository shared config for the current workspace.
+- Fix: check the selected `Config Scope` in `Settings > Repositories`, then refresh the runtime panel.
 
 ### An Orbit Service Still Crashes With `port already in use`
 
@@ -176,6 +176,6 @@ Minimal shared config example:
 
 ## Related Docs
 
-- [Project Instructions](project-instructions.md)
+- [Repository Instructions](repository-instructions.md)
 - [Local MCP user guide](local-mcp-user-guide.md)
 - [Command Palette](command-palette.md)

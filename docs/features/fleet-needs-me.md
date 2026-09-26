@@ -13,7 +13,7 @@ optional shortcuts on top of that.
 
 ## When To Use It
 
-- Use Fleet when several projects or workspaces are active at once.
+- Use Fleet when several repositories or workspaces are active at once.
 - Use it to find the next task that needs a response without opening every
   workspace.
 - Use the notification center when you want notification history rather than a
@@ -21,7 +21,7 @@ optional shortcuts on top of that.
 
 ## Before You Start
 
-- Open at least one project in Stave.
+- Open at least one repository in Stave.
 - Keep notifications enabled if you want closed or unloaded workspaces to stay
   represented after their live runtime state is no longer loaded.
 - Connect GitHub PR status for workspaces where you want review blockers and
@@ -101,9 +101,9 @@ optional shortcuts on top of that.
 
 ### Review A Cold Workspace
 
-1. Open Fleet after restarting Stave or switching away from a project.
+1. Open Fleet after restarting Stave or switching away from a repository.
 2. Select a durable notification-backed item.
-3. Stave opens the matching project, workspace, and task before showing the
+3. Stave opens the matching repository, workspace, and task before showing the
    request or result.
 
 ## Files And Data
@@ -127,7 +127,7 @@ optional shortcuts on top of that.
   window shows that the request is no longer waiting.
 - Fleet records the last deliberate workspace activity separately from
   snapshot-write timestamps, so an untouched remembered workspace can become
-  dormant without making the whole project look recently active.
+  dormant without making the whole repository look recently active.
 - Stave-owned managed requests can still be answered from the task,
   notification, or Fleet shortcut. Externally owned managed requests are not
   exposed as Stave actions.

@@ -23,7 +23,7 @@ const KIND_DESCRIPTIONS = {
   decision: "Decisions and their rationale",
   convention: "Conventions and preferences",
   gotcha: "Pitfalls and lessons",
-  fact: "Stable project facts",
+  fact: "Stable repository facts",
 };
 
 export function ProjectMemoryControls({
@@ -176,7 +176,7 @@ export function ProjectMemoryControls({
           <fieldset disabled={busy} className={sx(styles.fieldset)}>
             <label className={sx(styles.toggleRow)}>
               <span>
-                Use project memory
+                Use repository memory
                 <span className={sx(styles.toggleHint)}>
                   Include relevant saved knowledge in new turns. Turning this
                   off keeps stored memories.
@@ -191,9 +191,9 @@ export function ProjectMemoryControls({
             </label>
             <label className={sx(styles.toggleRow)}>
               <span>
-                Collect project memory
+                Collect repository memory
                 <span className={sx(styles.toggleHint)}>
-                  Off by default. Allow agents to save project knowledge and
+                  Off by default. Allow agents to save repository knowledge and
                   completed-turn summaries to suggest candidates. Suggestions
                   require Background AI → Turn summary.
                 </span>
@@ -273,7 +273,7 @@ export function ProjectMemoryControls({
           <div className={sx(styles.footer)}>
             <p className={sx(styles.footerCount)}>
               {counts.all} memories · {counts.candidates} candidates in this
-              project
+              repository
             </p>
             <div className={sx(styles.footerActions)}>
               <Button
@@ -296,7 +296,7 @@ export function ProjectMemoryControls({
                   setClearing("all");
                 }}
               >
-                Reset project memory
+                Reset repository memory
               </Button>
             </div>
           </div>
@@ -308,13 +308,13 @@ export function ProjectMemoryControls({
         title={
           clearing === "candidates"
             ? `Clear ${counts.candidates} candidates?`
-            : `Reset ${counts.all} project memories?`
+            : `Reset ${counts.all} repository memories?`
         }
-        description="This applies only to this project and cannot be undone here. Older turns and pending automatic collection will not refill cleared memories. Content already sent to an ongoing conversation remains there. Collection settings are kept."
+        description="This applies only to this repository and cannot be undone here. Older turns and pending automatic collection will not refill cleared memories. Content already sent to an ongoing conversation remains there. Collection settings are kept."
         confirmLabel={
           clearing === "candidates"
             ? "Clear candidates"
-            : "Reset project memory"
+            : "Reset repository memory"
         }
         onConfirm={() => void clear()}
         onCancel={() => {
@@ -342,16 +342,16 @@ export function ProjectMemorySettingsSection(props: {
   return (
     <section className={sx(styles.section)}>
       <div>
-        <h2 className={sx(styles.sectionTitle)}>Project memory</h2>
+        <h2 className={sx(styles.sectionTitle)}>Repository memory</h2>
         <p className={sx(styles.sectionLead)}>
-          Choose how this project collects and recalls knowledge across its
+          Choose how this repository collects and recalls knowledge across its
           workspaces.
         </p>
       </div>
       {projectPath ? (
         <>
           <Select value={projectPath} onValueChange={setSelected}>
-            <SelectTrigger aria-label="Memory project">
+            <SelectTrigger aria-label="Memory repository">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -369,7 +369,7 @@ export function ProjectMemorySettingsSection(props: {
         </>
       ) : (
         <p className={sx(styles.loading)}>
-          Open a project to configure memory.
+          Open a repository to configure memory.
         </p>
       )}
     </section>

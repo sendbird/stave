@@ -45,13 +45,13 @@ export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
         Where it runs
       </h3>
       <Select
-        label="Stave project"
+        label="Stave repository"
         value={props.projectPath}
         options={props.projects.map((project) => ({
           value: project.projectPath,
           label: project.projectName,
         }))}
-        placeholder="Choose a project"
+        placeholder="Choose a repository"
         onValueChange={(value) => {
           if (typeof value === "string") {
             props.onProjectPathChange(value);
@@ -59,7 +59,7 @@ export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
         }}
       />
       <p className={sx(dispatchFieldStyles.monoPath)}>
-        {props.projectPath || "No registered project available"}
+        {props.projectPath || "No registered repository available"}
       </p>
       <Select
         label="Workspace"
@@ -90,7 +90,7 @@ export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
               autoComplete="off"
             />
             <p className={sx(dispatchFieldStyles.hint)}>
-              Based on the selected project&apos;s remote default branch.
+              Based on the selected repository&apos;s remote default branch.
             </p>
           </div>
           <div className={sx(dispatchFieldStyles.field)}>
@@ -109,7 +109,7 @@ export function DispatchTargetFields(props: DispatchTargetFieldsProps) {
               autoComplete="off"
             />
             <p className={sx(dispatchFieldStyles.hint)}>
-              Shown in the project workspace list. Prefilled from the issue
+              Shown in the repository workspace list. Prefilled from the issue
               title.
             </p>
           </div>

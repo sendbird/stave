@@ -27,7 +27,7 @@ describe("chat area loading copy", () => {
 
     expect(copy).toEqual({
       title: "Opening workspace",
-      description: "Loading tasks and recent conversation state for this project.",
+      description: "Loading tasks and recent conversation state for this repository.",
     });
   });
 });

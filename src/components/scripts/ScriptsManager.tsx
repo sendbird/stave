@@ -669,7 +669,7 @@ export function ScriptsManager(props: {
       const cwd: ScriptTargetScope =
         id === DEFAULT_SCRIPT_TARGET_IDS.PROJECT ? "project" : "workspace";
       const label =
-        id === DEFAULT_SCRIPT_TARGET_IDS.PROJECT ? "Project" : "Workspace";
+        id === DEFAULT_SCRIPT_TARGET_IDS.PROJECT ? "Repository" : "Workspace";
       return {
         ...current,
         targets: [
@@ -988,8 +988,8 @@ export function ScriptsManager(props: {
                 </TooltipTrigger>
                 <TooltipContent className={sx(managerStyles.tooltipContent)}>
                   {selectedScope.id === "workspace"
-                    ? "Workspace config overrides the project shared config for this workspace."
-                    : "Project config is the shared fallback. If a workspace-level config exists, it wins for the active workspace."}
+                    ? "Workspace config overrides the repository shared config for this workspace."
+                    : "Repository config is the shared fallback. If a workspace-level config exists, it wins for the active workspace."}
                 </TooltipContent>
               </Tooltip>
             </TooltipProvider>

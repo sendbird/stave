@@ -12,8 +12,8 @@ produces a usable preview.
 
 ## Quick Start
 
-1. Open a project in Stave.
-2. Select the sparkle action next to the project's new-workspace action, or run
+1. Open a repository in Stave.
+2. Select the sparkle action next to the repository's new-workspace action, or run
    `Kick off Workspace` from the command palette.
 3. Paste a source URL, issue key, report, or task description.
 4. Select `Resolve source`, or `Skip AI` for deterministic parsing.
@@ -46,11 +46,11 @@ MCP server names must match servers discovered from the current Claude project
 configuration or Codex user configuration. Missing servers are shown in the UI
 but do not block preview or workspace creation.
 
-## Project Branch Rules
+## Repository Branch Rules
 
 Set a repository-specific naming rule under
-`Settings → Projects → Kickoff Branch Naming Rule`. The resolver receives this
-rule together with the project's normal instructions. The preview always shows
+`Settings → Repositories → Kickoff Branch Naming Rule`. The resolver receives this
+rule together with the repository's normal instructions. The preview always shows
 the sanitized git branch before creation.
 
 ## Information Panel Sections
@@ -126,11 +126,11 @@ not automatically repeat a send or create another workspace after that failure.
 Workspace initialization warnings remain visible alongside startup warnings.
 
 For local visual checks, `?stavePreview=kickoff` renders the real dialog with
-fixture project state and disables workspace creation. It does not verify live
+fixture repository state and disables workspace creation. It does not verify live
 provider execution or connector authentication.
 
 ## Related Docs
 
-- [Project Instructions](project-instructions.md)
+- [Repository Instructions](repository-instructions.md)
 - [Local MCP user guide](local-mcp-user-guide.md)
 - [Workspace Latest Turn Summary](workspace-latest-turn-summary.md)

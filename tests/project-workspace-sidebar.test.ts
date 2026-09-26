@@ -38,7 +38,7 @@ describe("getWorkspaceLeadingAttentionKind", () => {
 });
 
 describe("buildCollapsedWorkspaceEntries", () => {
-  test("marks the first workspace of each later project for collapsed separators", () => {
+  test("marks the first workspace of each later repository for collapsed separators", () => {
     const entries = buildCollapsedWorkspaceEntries({
       activeWorkspaceId: "ws-3",
       projects: [
@@ -548,7 +548,7 @@ describe("buildSidebarWorkQueueEntries", () => {
     ]);
   });
 
-  test("lists a workspace once even when two projects claim it", () => {
+  test("lists a workspace once even when two repositories claim it", () => {
     const entries = buildSidebarWorkQueueEntries({
       projects: [
         baseProjects[0]!,
@@ -640,7 +640,7 @@ describe("buildWorkspaceArchiveDialogCopy", () => {
 
     expect(copy.canDeleteBranch).toBe(false);
     expect(copy.description).toBe(
-      'Archive workspace "imported"? It is a linked worktree owned outside this project, so Stave only removes its shortcut — the worktree and its git branch stay untouched.',
+      'Archive workspace "imported"? It is a linked worktree owned outside this repository, so Stave only removes its shortcut — the worktree and its git branch stay untouched.',
     );
   });
 });
@@ -665,7 +665,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
     } as FleetAttentionItem;
   }
 
-  test("returns no alert when the project has no needs at all", () => {
+  test("returns no alert when the repository has no needs at all", () => {
     expect(
       buildProjectSidebarAttentionAlert({
         workspaces: [{ id: "ws-1" }, { id: "ws-2" }],
@@ -788,7 +788,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
     expect(alert?.tier).toBe("blocking");
   });
 
-  test("surfaces the most urgent need when a project blocks in several ways", () => {
+  test("surfaces the most urgent need when a repository blocks in several ways", () => {
     const alert = buildProjectSidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }, { id: "ws-2" }],
       attentionItemsByWorkspaceId: {
@@ -833,7 +833,7 @@ describe("buildProjectSidebarAttentionAlert", () => {
     expect(alert?.kind).toBe("pr-merge-conflict");
   });
 
-  test("counts only needs belonging to the project's own workspaces", () => {
+  test("counts only needs belonging to the repository's own workspaces", () => {
     const alert = buildProjectSidebarAttentionAlert({
       workspaces: [{ id: "ws-1" }],
       attentionItemsByWorkspaceId: {

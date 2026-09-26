@@ -1099,7 +1099,7 @@ export function AppShell() {
         return [
           {
             isCurrent: true,
-            projectName: projectName ?? "Current project",
+            projectName: projectName ?? "Current repository",
             projectPath,
           },
           ...remembered,

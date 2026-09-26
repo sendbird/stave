@@ -26,8 +26,8 @@ once.
 - Use **Collaboration & workflows → Team** in a task or Fleet control panel.
   Agent-driven delegation additionally requires the Stave Local MCP server
   (Settings → Local MCP).
-- The parent task's workspace must belong to a registered project. A delegation
-  is refused when the parent task, its workspace, and the project path do not
+- The parent task's workspace must belong to a registered repository. A delegation
+  is refused when the parent task, its workspace, and the repository path do not
   agree.
 
 ## Quick Start
@@ -218,7 +218,7 @@ may have running at once (default 3, maximum 16).
 
 - Symptom: `stave_delegate_task` returns `accepted: false`,
   `reason: "invalid-ownership"`.
-- Cause: the parent task id, the parent workspace id, and the project path do
+- Cause: the parent task id, the parent workspace id, and the repository path do
   not describe the same place.
 - Fix: read them from the current task's context block rather than assembling
   them by hand.

@@ -94,7 +94,7 @@ export function createWorkspaceCreateActions(args: {
       if (!current.projectPath) {
         return {
           ok: false,
-          message: "Open a project before creating a workspace.",
+          message: "Open a repository before creating a workspace.",
         };
       }
       const nextRuntimeCacheById =
@@ -447,7 +447,7 @@ export function createWorkspaceCreateActions(args: {
       if (!projectPath) {
         return {
           ok: false,
-          message: "Open a project before linking a worktree.",
+          message: "Open a repository before linking a worktree.",
         };
       }
       const runner = window.api?.terminal?.runCommand;
@@ -485,7 +485,7 @@ export function createWorkspaceCreateActions(args: {
         return {
           ok: false,
           message:
-            "That path is the project root, which is already available as the default workspace.",
+            "That path is the repository root, which is already available as the default workspace.",
         };
       }
       const existingWorkspaceId = Object.entries(

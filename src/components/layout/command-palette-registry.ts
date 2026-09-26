@@ -309,7 +309,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     build: (args) => ({
       id: "navigation.home",
       title: "Go Home",
-      subtitle: "Return to the project overview.",
+      subtitle: "Return to the repository overview.",
       group: "navigation",
       icon: Home,
       keywords: ["home", "dashboard", "clear task selection"],
@@ -596,17 +596,17 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     description: "Collapse or expand the left workspace sidebar.",
     group: "view",
     icon: PanelLeft,
-    keywords: ["sidebar", "project list", "collapse"],
+    keywords: ["sidebar", "repository list", "collapse"],
     shortcut: (modifierLabel) => `${modifierLabel}+B`,
     build: (args) => ({
       id: "view.toggle-workspace-sidebar",
       title: args.layout.workspaceSidebarCollapsed
         ? "Expand Workspace Sidebar"
         : "Collapse Workspace Sidebar",
-      subtitle: "Toggle the left project and workspace list.",
+      subtitle: "Toggle the left repository and workspace list.",
       group: "view",
       icon: PanelLeft,
-      keywords: ["sidebar", "project list", "collapse"],
+      keywords: ["sidebar", "repository list", "collapse"],
       shortcut: `${args.modifierLabel}+B`,
       run: args.commands.toggleWorkspaceSidebar,
       source: "core",
@@ -1096,7 +1096,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "workspace.refresh-files",
-    title: "Refresh Project Files",
+    title: "Refresh Repository Files",
     description: "Rescan the active workspace file list.",
     group: "navigation",
     icon: RefreshCw,
@@ -1105,7 +1105,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       args.projectPath
         ? {
             id: "workspace.refresh-files",
-            title: "Refresh Project Files",
+            title: "Refresh Repository Files",
             subtitle: "Rescan the active workspace file list.",
             group: "navigation",
             icon: RefreshCw,
@@ -1118,7 +1118,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   {
     id: "workspace.refresh-workspaces",
     title: "Refresh Workspaces",
-    description: "Rediscover project workspaces and PR state.",
+    description: "Rediscover repository workspaces and PR state.",
     group: "navigation",
     icon: RefreshCw,
     keywords: ["refresh", "workspace", "worktree"],
@@ -1127,7 +1127,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
         ? {
             id: "workspace.refresh-workspaces",
             title: "Refresh Workspaces",
-            subtitle: "Rediscover workspaces for the current project.",
+            subtitle: "Rediscover workspaces for the current repository.",
             group: "navigation",
             icon: RefreshCw,
             keywords: ["refresh", "workspace", "worktree"],
@@ -1268,12 +1268,12 @@ function buildDynamicActions(
   for (const project of args.projects) {
     actions.push({
       id: `project.open.${project.projectPath}`,
-      title: `Open Project: ${project.projectName}`,
-      subtitle: project.isCurrent ? "Current project" : project.projectPath,
+      title: `Open Repository: ${project.projectName}`,
+      subtitle: project.isCurrent ? "Current repository" : project.projectPath,
       group: "navigation",
       icon: LibraryBig,
       keywords: [
-        "open project",
+        "open repository",
         "project",
         project.projectName,
         project.projectPath,
@@ -1329,7 +1329,7 @@ export function resolveCommandPaletteContextRelevance(args: {
     );
     return !project || project.isCurrent
       ? null
-      : { label: "Recent project", score: 52 };
+      : { label: "Recent repository", score: 52 };
   }
 
   if (action.id === "task.stop-active-turn" && context.hasActiveTurn) {
@@ -1403,7 +1403,7 @@ export function resolveCommandPaletteContextRelevance(args: {
       action.id === "view.search-in-files") &&
     context.projectPath
   ) {
-    return { label: "Current project", score: 80 };
+    return { label: "Current repository", score: 80 };
   }
 
   if (

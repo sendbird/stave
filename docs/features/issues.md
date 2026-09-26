@@ -2,7 +2,7 @@
 
 ## Summary
 
-Issues is a top-level surface that lists the tracker tickets assigned to you — from Crane and from Jira Cloud — and lets you start a local Stave run from one without leaving the app. You pick the project, the workspace, the provider and the autonomy level, edit the instruction, and either start the turn immediately or stage the prompt in the composer.
+Issues is a top-level surface that lists the tracker tickets assigned to you — from Crane and from Jira Cloud — and lets you start a local Stave run from one without leaving the app. You pick the repository, the workspace, the provider and the autonomy level, edit the instruction, and either start the turn immediately or stage the prompt in the composer.
 
 ## When To Use It
 
@@ -22,7 +22,7 @@ At least one tracker has to be connected, and that tracker has to be turned on u
 
 - **Jira Cloud** — in `Settings → Integrations → Jira`, enable the connector and enter your site URL, your account email, and an API token. **Test connection** checks the credential *and* runs your saved JQL, so a query that no longer parses is reported there rather than showing up as a silently empty list. The token is validated once, then stored encrypted by the OS keychain and read only by the desktop main process. Neither the token nor the email is ever readable back by the app window.
 - **Crane** — pair this installation in `Settings → Integrations → Crane`. Issues reuses the existing connector secret and its `crane` scope; there is nothing extra to authorize. Turning Crane off in Issues leaves pairing and dispatched jobs alone.
-- A **registered Stave project** is required to kick off, because a run needs a repository and a worktree.
+- A **registered Stave repository** is required to kick off, because a run needs a repository and a worktree.
 - Issues is desktop-only. The browser dev build shows an explanatory empty state instead.
 
 ## Quick Start
@@ -30,7 +30,7 @@ At least one tracker has to be connected, and that tracker has to be turned on u
 1. Press `Cmd+K` then `T`, or click the checklist icon in the top bar.
 2. Use `j` / `k` to move through the list, or type `/` and search for a key.
 3. Press `Cmd+Enter` on the highlighted ticket.
-4. Confirm the project and the proposed branch, review the instruction, and choose **Start in Stave**.
+4. Confirm the repository and the proposed branch, review the instruction, and choose **Start in Stave**.
 
 The workspace is created, the ticket is filed in the workspace Information panel, and Stave jumps to the new task with the turn already running.
 
@@ -72,9 +72,9 @@ Keys are ignored while you are typing in a field, and while the kickoff sheet is
 ### Kick Off A Ticket
 
 1. Select the ticket and press `Enter`.
-2. **Where it runs** — the project defaults to the mapping for the ticket's team or Jira project, then to the project you last used for that source, then to the open project. Choose a new workspace (the branch name is proposed from the ticket key and title, and honours the project's branch naming rule) or an existing one.
+2. **Where it runs** — the repository defaults to the mapping for the ticket's team or Jira project, then to the repository you last used for that source, then to the open repository. Choose a new workspace (the branch name is proposed from the ticket key and title, and honours the repository's branch naming rule) or an existing one.
 3. **What to do** — the instruction is prefilled from the ticket title, link, and description. Edit it freely; *Reset to ticket* restores the generated text.
-4. **How it runs** — provider, model, reasoning effort, autonomy preset, and Advisor, exactly as in the Crane approval dialog. *Remember for `<SCOPE>`* stores the project and model choice for that team or Jira project; access levels always re-derive from your current settings.
+4. **How it runs** — provider, model, reasoning effort, autonomy preset, and Advisor, exactly as in the Crane approval dialog. *Remember for `<SCOPE>`* stores the repository and model choice for that team or Jira project; access levels always re-derive from your current settings.
 5. **How it starts** — *Start now* runs the turn immediately. *Stage prompt only* prepares the workspace and drops the prompt in the composer for you to send.
 6. For a Crane ticket, *Report progress to Crane* registers a Crane job so the ticket shows as running in Stave. It is available only when the run starts now, and only while the Crane connector is on.
 
@@ -92,8 +92,8 @@ Right-click a row and choose **Attach to `<workspace>`**. The ticket is register
 
 - Cached tickets and kickoff links live in the Stave SQLite database (`tracker_issues_cache`, `tracker_issue_kickoffs`). They hold ticket fields and run state, never credentials.
 - The Jira credential lives in its own encrypted document in the app's user-data directory. Only ciphertext is written, and the vault refuses to write at all when OS encryption is unavailable.
-- View state (tab, layout, group, sort, source selection, peek width) and the last-used project per source live in `localStorage`, so they are not part of settings export.
-- Settings live under `trackerIssues` (which sources Issues reads, default view, refresh interval, default start mode) and `jiraConnector` (enabled, site URL, JQL, page size, project mappings) in the Stave settings document.
+- View state (tab, layout, group, sort, source selection, peek width) and the last-used repository per source live in `localStorage`, so they are not part of settings export.
+- Settings live under `trackerIssues` (which sources Issues reads, default view, refresh interval, default start mode) and `jiraConnector` (enabled, site URL, JQL, page size, repository mappings) in the Stave settings document.
 
 **Egress:** Stave reads from your trackers. The only thing it writes back is Crane job lifecycle state — status, sequence, timestamps, and safe error codes — and only when you leave *Report progress to Crane* on. Prompts, responses, reasoning, file contents, paths, diffs, and credentials never leave the machine. Jira is read-only; no status transition, comment, or worklog is ever written.
 
@@ -138,11 +138,11 @@ Right-click a row and choose **Attach to `<workspace>`**. The ticket is register
 - Cause: `unauthorized` means the credential was rejected; `invalid_jql` means the saved query no longer parses; `rate_limited` means the tracker is throttling.
 - Fix: use Retry for a transient failure. For `unauthorized`, replace the Jira API token; for `invalid_jql`, fix or reset the query in Settings.
 
-### Kickoff fails with "project is not registered"
+### Kickoff fails with "repository is not registered"
 
 - Symptom: the sheet stays open with an error toast.
-- Cause: the mapped project path is no longer a registered Stave project.
-- Fix: pick a registered project in the sheet, or re-add the project, then update the mapping in `Settings → Integrations`.
+- Cause: the mapped repository path is no longer a registered Stave repository.
+- Fix: pick a registered repository in the sheet, or re-add the repository, then update the mapping in `Settings → Integrations`.
 
 ### The list is empty but the tracker has my tickets
 

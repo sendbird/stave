@@ -76,7 +76,7 @@ export function StandaloneCliSettingsCard() {
       id={STANDALONE_CLI_SETTING_FIELD_ID}
       tabIndex={-1}
       title="Standalone CLI"
-      description="Run Claude Code, Codex, Cursor, and Kiro against one folder without registering it as a project."
+      description="Run Claude Code, Codex, Cursor, and Kiro against one folder without registering it as a repository."
     >
       <LabeledField
         title="Standalone CLI Folder"

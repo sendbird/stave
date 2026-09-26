@@ -40,7 +40,7 @@ export function createDefaultScriptTargets(): Record<string, ResolvedScriptTarge
     },
     [DEFAULT_SCRIPT_TARGET_IDS.PROJECT]: {
       id: DEFAULT_SCRIPT_TARGET_IDS.PROJECT,
-      label: "Project",
+      label: "Repository",
       cwd: "project",
       env: {},
     },

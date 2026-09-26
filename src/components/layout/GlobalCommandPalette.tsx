@@ -173,7 +173,7 @@ export function GlobalCommandPalette(args: GlobalCommandPaletteProps) {
               <p className={sx(commandPaletteStyles.emptyHint)}>
                 {query.trim()
                   ? "Try an action, destination, task, workspace, or a shorter phrase."
-                  : "Open a project or task to make its contextual commands available."}
+                  : "Open a repository or task to make its contextual commands available."}
               </p>
             </CommandEmpty>
           ) : null}

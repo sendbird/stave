@@ -38,7 +38,7 @@ may ask for site access or confirmation before it reads or changes a page.
 
 `@web` is intentionally unavailable to unattended automations, plan-mode turns,
 and secondary read-only analysis. Use ordinary web search for public research,
-or Lens when the current project's rendered UI needs workspace-scoped visual
+or Lens when the current repository's rendered UI needs workspace-scoped visual
 inspection.
 
 ## Automatic fallback

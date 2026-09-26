@@ -809,7 +809,7 @@ export async function loadProjectRegistryState(): Promise<{ projects: unknown[];
   }
   const response = await persistence.loadProjectRegistry();
   if (!response.ok) {
-    throw new Error("Failed to load project registry from persistence bridge.");
+    throw new Error("Failed to load repository registry from persistence bridge.");
   }
   return { projects: Array.isArray(response.projects) ? response.projects : [], activeProjectPath: response.activeProjectPath };
 }
@@ -827,7 +827,7 @@ export async function saveProjectRegistrySnapshot(args: {
     activeProjectPath: args.activeProjectPath,
   });
   if (!response.ok) {
-    throw new Error("Failed to save project registry via persistence bridge.");
+    throw new Error("Failed to save repository registry via persistence bridge.");
   }
 }
 

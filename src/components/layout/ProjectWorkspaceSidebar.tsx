@@ -109,7 +109,7 @@ const SIDEBAR_NAV_VIEW_OPTIONS: readonly {
   label: string;
   Icon: typeof FolderTree;
 }[] = [
-  { value: "projects", label: "Projects", Icon: FolderTree },
+  { value: "projects", label: "Repositories", Icon: FolderTree },
   { value: "work-queue", label: "Work queue", Icon: ListChecks },
 ] as const;
 const DEFAULT_COLLAPSED_PROJECT_SIDEBAR_WIDTH = 64;
@@ -541,7 +541,7 @@ export function ProjectWorkspaceSidebar(args: {
       for (let step = 0; step < steps; step += 1) {
         moveProjectInList({ projectPath: sourceId, direction });
       }
-      const projectName = projects[fromIndex]?.projectName ?? "Project";
+      const projectName = projects[fromIndex]?.projectName ?? "Repository";
       setReorderAnnouncement(
         `${projectName} moved to position ${destinationIndex + 1} of ${projects.length}.`,
       );
@@ -762,7 +762,7 @@ export function ProjectWorkspaceSidebar(args: {
                   >
                     <FolderOpen className={sx(projectSidebarStyles.iconMd)} />
                   </TooltipTrigger>
-                  <TooltipContent side="right">Open Project</TooltipContent>
+                  <TooltipContent side="right">Open Repository</TooltipContent>
                 </Tooltip>
                 {sidebarShowFleetView ? (
                   <Tooltip>
@@ -809,7 +809,7 @@ export function ProjectWorkspaceSidebar(args: {
                     <PanelLeft className={sx(projectSidebarStyles.iconMd)} />
                   </TooltipTrigger>
                   <TooltipContent side="bottom">
-                    Collapse Project List
+                    Collapse Repository List
                   </TooltipContent>
                 </Tooltip>
               </div>
@@ -971,7 +971,7 @@ export function ProjectWorkspaceSidebar(args: {
                     >
                       <FolderOpen className={sx(projectSidebarStyles.iconMd)} />
                     </TooltipTrigger>
-                    <TooltipContent side="top">Open Project</TooltipContent>
+                    <TooltipContent side="top">Open Repository</TooltipContent>
                   </Tooltip>
                   {/* Row density is a tree-only concern; the queue has one row shape. */}
                   {isWorkQueueView ? null : (
@@ -1066,7 +1066,7 @@ export function ProjectWorkspaceSidebar(args: {
               </div>
               {projects.length === 0 ? (
                 <div className={sx(projectSidebarStyles.emptyState)}>
-                  No projects yet.
+                  No repositories yet.
                 </div>
               ) : visibleProjects.length === 0 ? (
                 <div className={sx(projectSidebarStyles.emptyState)}>
@@ -1200,7 +1200,7 @@ export function ProjectWorkspaceSidebar(args: {
                                   tabIndex={handleRef ? 0 : undefined}
                                   aria-label={
                                     handleRef
-                                      ? `Reorder project ${project.projectName}`
+                                      ? `Reorder repository ${project.projectName}`
                                       : undefined
                                   }
                                   aria-keyshortcuts={
@@ -1328,8 +1328,8 @@ export function ProjectWorkspaceSidebar(args: {
                                     </TooltipTrigger>
                                     <TooltipContent side="right">
                                       {collapsed
-                                        ? "Expand project"
-                                        : "Collapse project"}
+                                        ? "Expand repository"
+                                        : "Collapse repository"}
                                     </TooltipContent>
                                   </Tooltip>
                                   <div
@@ -1508,7 +1508,7 @@ export function ProjectWorkspaceSidebar(args: {
                                           />
                                         </TooltipTrigger>
                                         <TooltipContent side="top">
-                                          Project settings
+                                          Repository settings
                                         </TooltipContent>
                                       </Tooltip>
                                     </div>

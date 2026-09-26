@@ -114,11 +114,11 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
     title: "Workspace",
     docs: [
       {
-        routePath: "project-instructions",
-        sourcePath: "docs/features/project-instructions.md",
-        title: "Project Instructions",
+        routePath: "repository-instructions",
+        sourcePath: "docs/features/repository-instructions.md",
+        title: "Repository Instructions",
         description:
-          "Save repository-level rules once so every task in that project starts with the same guidance.",
+          "Save repository-level rules once so every task in that repository starts with the same guidance.",
         previewImage: "screenshots/project-instructions.png",
       },
       {
@@ -166,11 +166,11 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "See every model call Stave makes on your behalf, switch each one off, and choose the provider and model it runs on.",
       },
       {
-        routePath: "project-memory",
-        sourcePath: "docs/features/project-memory.md",
-        title: "Project Memory",
+        routePath: "repository-memory",
+        sourcePath: "docs/features/repository-memory.md",
+        title: "Repository Memory",
         description:
-          "Carry durable decisions, conventions, and gotchas across workspaces of the same project as a curated recall aid.",
+          "Carry durable decisions, conventions, and gotchas across workspaces of the same repository as a curated recall aid.",
       },
       {
         routePath: "notifications",

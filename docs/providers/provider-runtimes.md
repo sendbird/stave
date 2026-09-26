@@ -825,7 +825,7 @@ Rules:
   summary candidates stay out of recall until curated. The block is capped at
   `PROJECT_MEMORY_INJECTION_MAX_ITEMS` rows / `PROJECT_MEMORY_INJECTION_MAX_CHARS`
   characters, and deduplicated per session like the Information panel block.
-  See [Project memory](../features/project-memory.md),
+  See [Repository memory](../features/repository-memory.md),
   `src/lib/task-context/project-memory.ts` and
   `electron/persistence/project-memory-store.ts`.
 

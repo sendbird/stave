@@ -829,7 +829,7 @@ export function WorkspaceExplorerPanel(props: {
                 </Button>
               </div>
               <p className={sx(explorerStyles.createHint)}>
-                Enter a path relative to the project root. Press Enter to create
+                Enter a path relative to the repository root. Press Enter to create
                 or Esc to cancel.
               </p>
             </form>

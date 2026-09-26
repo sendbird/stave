@@ -77,7 +77,7 @@ Recommended next steps:
 - Issues surface listing assigned Crane and Jira Cloud tickets with one-click local kickoff
 - workspace-scoped notes, todos, saved plans, PR links, Jira, Figma, Confluence, and Slack references
 - scheduled Claude and Codex automations with per-run results, repository selection, and reusable Information context
-- git worktree-aware project and workspace management
+- git worktree-aware repository and workspace management
 - editable workspace kickoff proposals from external sources and prompts
 - Fleet `Action required` inbox for questions, approvals, failed runs, results, and PR blockers across every workspace
 - notifications, attachments, skill selection, custom model shortcuts, and theme presets

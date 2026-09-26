@@ -236,7 +236,7 @@ export function useTrackerIssueKickoffDraft(args: {
       return null;
     }
     if (!projectPath) {
-      toast.error("Choose a registered Stave project.");
+      toast.error("Choose a registered Stave repository.");
       return null;
     }
     if (workspaceStrategy === "existing" && !workspaceId) {

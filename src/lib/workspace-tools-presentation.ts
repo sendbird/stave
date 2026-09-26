@@ -22,7 +22,7 @@ export const WORKSPACE_TOOLS_PRESENTATION: {
  */
 export const WORKSPACE_TOOLS_VIEWS = [
   { id: "processes", label: "Processes", description: "Start a dev server or other long-running process. Closing this panel leaves it running." },
-  { id: "commands", label: "Commands", description: "Run a saved check, build, or project command and inspect its output." },
+  { id: "commands", label: "Commands", description: "Run a saved check, build, or repository command and inspect its output." },
   { id: "triggers", label: "Triggers", description: "Choose which commands run when work starts, finishes, or changes. You can also run a trigger now." },
   { id: "runs", label: "Runs", description: "Review recent output and failures from commands and processes in this workspace." },
 ] as const;

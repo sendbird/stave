@@ -1,6 +1,6 @@
-# Project memory
+# Repository memory
 
-Project memory carries reusable knowledge across workspaces of the same project.
+Repository memory carries reusable knowledge across workspaces of the same repository.
 It is a recall aid, not a transcript or a replacement for repository instructions.
 Current user instructions, checked-in guidance and verified evidence take priority.
 
@@ -18,7 +18,7 @@ There are three usage modes in Information > Memory:
   propose at most one candidate. Repeated extraction never promotes it.
 - **When relevant**: curated knowledge, recalled only when the current request
   matches its text. This is the default for explicit agent writes.
-- **Always include**: a project-wide essential, included even without a query
+- **Always include**: a repository-wide essential, included even without a query
   match. At most three live entries can use this mode.
 
 Users can edit an entry, change its usage or forget it. Editing candidate text
@@ -28,16 +28,16 @@ Entries display their complete text. **Edit memory** opens a multiline editor;
 
 ## Settings and cleanup
 
-Open **Settings > Memory** and select a project, or expand **Memory settings and
-actions** in Information > Memory. Settings apply across that project's workspaces.
+Open **Settings > Memory** and select a repository, or expand **Memory settings and
+actions** in Information > Memory. Settings apply across that repository's workspaces.
 
-- **Use project memory** controls automatic inclusion in new turns. Switching it
+- **Use repository memory** controls automatic inclusion in new turns. Switching it
   off preserves stored entries; explicit agent lookup and editing remain available.
-- **Collect project memory** is off by default. Enable it explicitly for each
-  project to allow new agent saves and candidate extraction from completed-turn
+- **Collect repository memory** is off by default. Enable it explicitly for each
+  repository to allow new agent saves and candidate extraction from completed-turn
   summaries. Suggestions require the Turn summary lane in Background AI; enabling
   collection does not start an extra model call. Existing entries remain readable,
-  editable and available for recall according to **Use project memory**.
+  editable and available for recall according to **Use repository memory**.
   Information > Memory offers **Enable memory collection**, using the same setting.
 - **What to collect** limits automatic candidates to selected kinds: decisions,
   conventions, pitfalls or stable facts. Selecting none stops candidate collection.
@@ -47,13 +47,13 @@ actions** in Information > Memory. Settings apply across that project's workspac
   draft; choose **Save settings** to apply it. Candidate and recall limits remain
   enforced regardless of the template.
 
-**Clear candidates** removes only unreviewed entries. **Reset project memory**
-removes all entries in the selected project while preserving collection settings.
+**Clear candidates** removes only unreviewed entries. **Reset repository memory**
+removes all entries in the selected repository while preserving collection settings.
 Both actions ask for confirmation and invalidate pending extraction. Automatic
 collection from turns started at or before the clear is rejected, even if the
 summary runs later or uses different wording. Turns started afterward can collect
 new candidates. The database retains deletion markers to prevent exact duplicates
-from returning. Other projects are unaffected.
+from returning. Other repositories are unaffected.
 
 These actions cannot remove text already sent to an ongoing provider conversation.
 Start a new conversation when you need context without that earlier memory text.
@@ -92,7 +92,7 @@ user message. The lookup is lexical (FTS where available, literal substring
 fallback), so translated or semantically related wording may require an explicit
 tool search. No embeddings or full transcript retrieval are involved.
 
-New automatic candidates stop accumulating at 50 live candidates per project.
+New automatic candidates stop accumulating at 50 live candidates per repository.
 Existing rows are preserved. Curating or forgetting candidates makes room.
 Candidate writes never refresh the confirmation date of curated knowledge.
 
@@ -111,7 +111,7 @@ extraction instructions. The parser enforces the one-candidate limit regardless
 of the configured prompt.
 
 Main and host-service share the persistence implementation. Workspace ownership
-resolves the project for agent tools; a replacement cannot target another project.
+resolves the repository for agent tools; a replacement cannot target another repository.
 Renderer and host turns use the same query and retrieved-context builders before
 provider dispatch. Provider sessions retain the existing content-hash deduplication.
 Memory lookup failure omits the block without failing the user turn.

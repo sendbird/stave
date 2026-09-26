@@ -82,9 +82,9 @@ export function MemoryCollectionInvitation({
         <Brain size={iconTileGlyphSizes.xl} />
       </EmptyState.Media>
       <EmptyState.Header>
-        <EmptyState.Title>Try project memory</EmptyState.Title>
+        <EmptyState.Title>Try repository memory</EmptyState.Title>
         <EmptyState.Description>
-          Keep useful decisions and lessons across this project’s workspaces.
+          Keep useful decisions and lessons across this repository’s workspaces.
           Collection is off until you enable it. Summary suggestions stay out of
           conversations until reviewed.
         </EmptyState.Description>

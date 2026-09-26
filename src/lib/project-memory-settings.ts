@@ -5,7 +5,7 @@ import {
 } from "./project-memory";
 
 export const DEFAULT_MEMORY_COLLECTION_TEMPLATE = [
-  "Remember reusable project knowledge that prevents repeated mistakes.",
+  "Remember reusable repository knowledge that prevents repeated mistakes.",
   "Prioritize explicit user corrections, lasting decisions with their rationale, and verified non-obvious pitfalls.",
   "State when the knowledge applies and why it matters in one short sentence.",
   "Exclude completion logs, temporary status, unchanged settings, code inventories, detailed styling values, and facts easily read from repository files.",
@@ -78,10 +78,10 @@ export function buildMemoryCollectionInstruction(
   settings: ProjectMemorySettings | null,
 ) {
   if (!settings?.collectAutomatically || settings.kinds.length === 0) {
-    return "Project memory collection is disabled. Return durableFacts: [] regardless of earlier summary instructions.";
+    return "Repository memory collection is disabled. Return durableFacts: [] regardless of earlier summary instructions.";
   }
   return [
-    "Project memory collection policy (replaces earlier durableFacts guidance only):",
+    "Repository memory collection policy (replaces earlier durableFacts guidance only):",
     settings.collectionTemplate,
     `Allowed kinds: ${settings.kinds.join(", ")}.`,
     "Return at most one candidate in durableFacts using {kind, content}. Content must be under 200 characters. Candidates require separate curation; never include credentials or secrets.",

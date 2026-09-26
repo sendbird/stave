@@ -59,9 +59,9 @@ export const settingsSections = [
   },
   {
     id: "projects",
-    label: "Projects",
+    label: "Repositories",
     icon: Folder,
-    description: "Project-level paths, setup prompts, and workspace defaults.",
+    description: "Repository-level paths, setup prompts, and workspace defaults.",
     keywords: ["repo", "repository", "root", "workspaces"],
   },
   {
@@ -238,7 +238,7 @@ export const settingsSections = [
       "jql",
       "api token",
       "issue tracker",
-      "project mapping",
+      "repository mapping",
     ],
   },
   {
@@ -301,7 +301,7 @@ export const settingsSections = [
     id: "memory",
     label: "Memory",
     icon: Brain,
-    description: "Project memory collection, recall, templates, and reset controls.",
+    description: "Repository memory collection, recall, templates, and reset controls.",
     keywords: ["memory", "remember", "forget", "candidate", "collection", "template", "reset"],
   },
   {
@@ -384,7 +384,7 @@ export const settingsSectionGroups: Array<{ label: string; ids: SectionId[] }> =
   [
     { label: "Workspace", ids: ["general"] },
     { label: "Appearance", ids: ["theme", "chat", "editor", "terminal"] },
-    { label: "Projects", ids: ["projects", "scripts"] },
+    { label: "Repositories", ids: ["projects", "scripts"] },
     {
       label: "AI & Agents",
       ids: [

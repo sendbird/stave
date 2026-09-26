@@ -270,7 +270,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
             <EmptyMedia variant="icon">
               <FolderOpen strokeWidth={1.25} />
             </EmptyMedia>
-            <EmptyTitle>Open a Project</EmptyTitle>
+            <EmptyTitle>Open a Repository</EmptyTitle>
             <EmptyDescription>
               Select a local repository folder to get started.
             </EmptyDescription>

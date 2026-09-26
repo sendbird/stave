@@ -141,7 +141,7 @@ export function EditorSection() {
         </SettingsCard>
 
         <SettingsCard
-          title="Project Language Servers"
+          title="Repository Language Servers"
           description="LSP-backed intelligence for TypeScript/JavaScript and Python. Uses Electron-managed stdio language-server sessions per active workspace."
         >
           <SwitchField
@@ -182,7 +182,7 @@ export function EditorSection() {
         <SettingsCard title="ESLint">
           <SwitchField
             title="Enable ESLint"
-            description="Reads ESLint config from the opened project and shows diagnostics in the editor. Requires ESLint installed in the project's node_modules."
+            description="Reads ESLint config from the opened repository and shows diagnostics in the editor. Requires ESLint installed in the repository's node_modules."
             checked={editorEslintEnabled}
             onCheckedChange={(checked) =>
               updateSettings({ patch: { editorEslintEnabled: checked } })

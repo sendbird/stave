@@ -549,7 +549,7 @@ export function buildWorkspaceArchiveDialogCopy(args: {
   if (args.isLinkedWorktree) {
     return {
       canDeleteBranch: false,
-      description: `Archive workspace "${args.workspaceName}"? It is a linked worktree owned outside this project, so Stave only removes its shortcut — the worktree and its git branch stay untouched.`,
+      description: `Archive workspace "${args.workspaceName}"? It is a linked worktree owned outside this repository, so Stave only removes its shortcut — the worktree and its git branch stay untouched.`,
     };
   }
 
