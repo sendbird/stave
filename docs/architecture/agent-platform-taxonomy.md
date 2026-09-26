@@ -22,6 +22,7 @@ Use these words in code, UI copy, and plans. Do not introduce synonyms.
 | Receipt | One bounded record of how something started or ended. Never transcript text, never secrets. |
 | Occurrence | One firing of a schedule. |
 | Automation | A saved prompt and schedule that mints a new task per occurrence. Code, IPC channels and Local MCP tools say `automation`; the older word "routine" is retired. |
+| Wake-up | A supervised turn added to an existing task on a schedule or when its delegated work finishes. Code, tables and Local MCP tools say `wakeUp` / `wake_up`; the older word "heartbeat" is retired for this feature. Provider and Crane "heartbeats" are unrelated. |
 
 Lane names for workspace state are fixed and ordered:
 `action-required` > `in-progress` > `in-review` > `idle`.
@@ -120,7 +121,7 @@ reason. Two axes:
 
 | | Ephemeral | Durable |
 | --- | --- | --- |
-| Time — run again | — | Automation (new task per occurrence) / Heartbeat (same task, same session) |
+| Time — run again | — | Automation (new task per occurrence) / Wake-up (same task, same session) |
 | Delegation — hand work off | Worker (Layer 1) | Child tasks (cross-provider, normal tasks + ledger receipts) |
 
 Automation is the only concept that lives outside a task: it mints tasks.
@@ -146,15 +147,15 @@ offers on a child carries the identity its row was rendered against, and the
 coordinator refuses the action with `stale-identity` when the delegation has
 moved on. A control is never applied to whatever replaced the child it meant.
 
-A heartbeat is a task supervisor entry: `src/lib/automation/task-supervisor.ts`
-holds the policy, `electron/host-service/task-supervisor-runtime.ts` executes
-it, and `task_heartbeats` / `task_heartbeat_occurrences` store it. Those are
+A wake-up is a supervisor entry: `src/lib/supervision/wake-up-policy.ts`
+holds the policy, `electron/host-service/wake-up-runtime.ts` executes
+it, and `wake_ups` / `wake_up_occurrences` store it. Those are
 deliberately not ledger tables, and the contrast with child tasks above is the
-reason: the ledger records delegated execution, while a heartbeat records
+reason: the ledger records delegated execution, while a wake-up records
 wake-ups on a task the user already owns — no claim, no lease, no receipts.
-See `docs/features/task-heartbeats.md`.
+See `docs/features/wake-ups.md`.
 
-A heartbeat wakes on one of two triggers. A schedule walks a cadence; a
+A wake-up fires on one of two triggers. A schedule walks a cadence; a
 completion waits for a child-task run of the same parent to reach a terminal
 status. The completion trigger is where the two rows above meet without
 merging: the supervisor *reads* the ledger's terminal rows and writes only its
@@ -170,7 +171,7 @@ Each one is registered in `config/reliability-gates.json` and asserted by a test
 whose name repeats it.
 
 1. An automation never wakes an existing task; its definition cannot target one.
-2. A heartbeat never creates a task; it only adds a turn to one that exists.
+2. A wake-up never creates a task; it only adds a turn to one that exists.
 3. A worker never survives a restart; a child task always does.
 4. The ledger records and never executes; executors execute and never write
    ledger rows except through coordinator transitions.
@@ -185,7 +186,7 @@ that were written ahead of their capability landed inside the boundary rather
 than beside it, which is what recording them early was for:
 
 - Statement 2 is asserted from both sides: an automation definition cannot name a
-  task, and a heartbeat definition must name one and cannot carry the fields
+  task, and a wake-up definition must name one and cannot carry the fields
   that would let it mint a task.
 - Statement 3 is asserted by recovery: a child task is reconciled against the
   live task after a restart rather than closed with the process, while a worker

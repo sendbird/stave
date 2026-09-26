@@ -1,13 +1,13 @@
 /**
- * Task supervisor domain: the pure half of a heartbeat.
+ * Supervisor domain: the pure half of a wake-up.
  *
- * A heartbeat wakes one existing task — on a schedule, or when work that task
+ * A wake-up resumes one existing task — on a schedule, or when work that task
  * delegated finishes. It never creates a task — that is an automation's job, and
  * the boundary is asserted in `tests/agent-platform-boundaries.test.ts`.
  *
  * Used by:
- * - `electron/host-service/task-supervisor-runtime.ts` (the only executor)
- * - `electron/persistence/task-heartbeat-store.ts` (row parsing)
+ * - `electron/host-service/wake-up-runtime.ts` (the only executor)
+ * - `electron/persistence/wake-up-store.ts` (row parsing)
  * - `electron/main/stave-mcp-server.ts` (MCP tool input schema)
  *
  * Everything here is pure: no clock, no I/O, no store. The runtime supplies
@@ -25,7 +25,7 @@ import {
   type AutomationSchedule,
 } from "../automations";
 
-export const TASK_HEARTBEAT_LIMITS = Object.freeze({
+export const WAKE_UP_LIMITS = Object.freeze({
   maxIdChars: 256,
   /**
    * Widths for ids the supervisor *reads* rather than mints, which must match
@@ -33,12 +33,12 @@ export const TASK_HEARTBEAT_LIMITS = Object.freeze({
    * run id is derived (`child-task:<parentTaskId>:<delegationKey>`) and so runs
    * legitimately longer than a UUID; validating it against `maxIdChars` would
    * reject a legal row, and rejecting the read looks exactly like "nothing
-   * finished" — the silent forever-scheduled heartbeat this stage exists to
+   * finished" — the silent forever-scheduled wake-up this stage exists to
    * prevent.
    */
   maxLedgerIdChars: 300,
   /**
-   * Wide enough that a completion key — heartbeat id, outcome, run id, step id,
+   * Wide enough that a completion key — wake-up id, outcome, run id, step id,
    * status, and the `:error` marker — always fits whole. Truncating it would be
    * worse than rejecting it: two steps of one run share a derived prefix, so a
    * clipped key could collide with a sibling's and drop that completion as an
@@ -46,7 +46,7 @@ export const TASK_HEARTBEAT_LIMITS = Object.freeze({
    */
   maxIdempotencyKeyChars: 1_024,
   /**
-   * Heartbeat prompts are short standing instructions ("re-check CI, report
+   * Wake-up prompts are short standing instructions ("re-check CI, report
    * only on change"), not task briefs, and this row is replayed indefinitely.
    * Deliberately far below the automation prompt bound.
    */
@@ -57,7 +57,7 @@ export const TASK_HEARTBEAT_LIMITS = Object.freeze({
   maxRecordedSkips: 64,
   /** Hard bound on the catch-up walk so a year offline cannot spin the tick. */
   maxCatchUpSteps: 10_000,
-  /** Occurrence rows retained per heartbeat. */
+  /** Occurrence rows retained per wake-up. */
   maxRetainedOccurrences: 100,
   /**
    * `fired` rows retained regardless of the cap above, because for a completion
@@ -67,7 +67,7 @@ export const TASK_HEARTBEAT_LIMITS = Object.freeze({
    * never be able to crowd one out, hence a separate floor comfortably above
    * the ledger's list limit.
    *
-   * A scheduled heartbeat does not need this — its instants only move forward,
+   * A scheduled wake-up does not need this — its instants only move forward,
    * so a pruned instant can never come due again.
    */
   minRetainedFiredOccurrences: 256,
@@ -78,13 +78,13 @@ export const TASK_HEARTBEAT_LIMITS = Object.freeze({
    * still have its consumed receipt retained. A feed wider than the retention
    * would let pruning evict a consumed completion's receipt while the ledger
    * still reports it — which reads as brand new and wakes the task twice.
-   * `tests/task-supervisor.test.ts` pins the inequality.
+   * `tests/wake-up-policy.test.ts` pins the inequality.
    */
   maxCompletionFeedRows: 128,
   /**
-   * A completion heartbeat has no cadence to run out, and the turn it wakes can
+   * A completion wake-up has no cadence to run out, and the turn it wakes can
    * delegate more work — which finishes, which wakes it again. An uncapped one
-   * is therefore an unbounded recursion, so a completion heartbeat created
+   * is therefore an unbounded recursion, so a completion wake-up created
    * without a cap gets this one and stops with `occurrence-cap-reached` rather
    * than running forever.
    */
@@ -93,42 +93,42 @@ export const TASK_HEARTBEAT_LIMITS = Object.freeze({
   maxCoalescedCompletions: 20,
 });
 
-const IdSchema = z.string().trim().min(1).max(TASK_HEARTBEAT_LIMITS.maxIdChars);
+const IdSchema = z.string().trim().min(1).max(WAKE_UP_LIMITS.maxIdChars);
 /** Ids that originate in the run ledger. See `maxLedgerIdChars`. */
 const LedgerIdSchema = z
   .string()
   .trim()
   .min(1)
-  .max(TASK_HEARTBEAT_LIMITS.maxLedgerIdChars);
+  .max(WAKE_UP_LIMITS.maxLedgerIdChars);
 
 /* -------------------------------------------------------------------------- */
 /* Identity                                                                    */
 /* -------------------------------------------------------------------------- */
 
 /**
- * The provider identity a heartbeat was created against. If the task's identity
- * drifts from this, the heartbeat pauses instead of firing a turn into a
+ * The provider identity a wake-up was created against. If the task's identity
+ * drifts from this, the wake-up pauses instead of firing a turn into a
  * runtime the user never agreed to.
  */
-export const TaskHeartbeatFingerprintSchema = z
+export const WakeUpFingerprintSchema = z
   .object({
     providerId: z.enum(["claude-code", "codex"]),
     model: z.string().trim().min(1).max(200),
   })
   .strict();
-export type TaskHeartbeatFingerprint = z.infer<
-  typeof TaskHeartbeatFingerprintSchema
+export type WakeUpFingerprint = z.infer<
+  typeof WakeUpFingerprintSchema
 >;
 
-export function formatTaskHeartbeatFingerprint(
-  fingerprint: TaskHeartbeatFingerprint,
+export function formatWakeUpFingerprint(
+  fingerprint: WakeUpFingerprint,
 ) {
   return `${fingerprint.providerId}:${fingerprint.model}`;
 }
 
-export function taskHeartbeatFingerprintsMatch(
-  left: TaskHeartbeatFingerprint,
-  right: TaskHeartbeatFingerprint,
+export function wakeUpFingerprintsMatch(
+  left: WakeUpFingerprint,
+  right: WakeUpFingerprint,
 ) {
   return (
     left.providerId === right.providerId &&
@@ -140,7 +140,7 @@ export function taskHeartbeatFingerprintsMatch(
 /* Trigger                                                                     */
 /* -------------------------------------------------------------------------- */
 
-export const TaskHeartbeatScheduleTriggerSchema = z
+export const WakeUpScheduleTriggerSchema = z
   .object({
     kind: z.literal("schedule"),
     schedule: AutomationScheduleSchema,
@@ -154,17 +154,17 @@ export const TaskHeartbeatScheduleTriggerSchema = z
  * already says which children to watch, and a field here would be a second
  * place to get that wrong.
  */
-export const TaskHeartbeatCompletionTriggerSchema = z
+export const WakeUpCompletionTriggerSchema = z
   .object({
     kind: z.literal("completion"),
   })
   .strict();
 
-export const TaskHeartbeatTriggerSchema = z.discriminatedUnion("kind", [
-  TaskHeartbeatScheduleTriggerSchema,
-  TaskHeartbeatCompletionTriggerSchema,
+export const WakeUpTriggerSchema = z.discriminatedUnion("kind", [
+  WakeUpScheduleTriggerSchema,
+  WakeUpCompletionTriggerSchema,
 ]);
-export type TaskHeartbeatTrigger = z.infer<typeof TaskHeartbeatTriggerSchema>;
+export type WakeUpTrigger = z.infer<typeof WakeUpTriggerSchema>;
 
 /* -------------------------------------------------------------------------- */
 /* Completion observability                                                    */
@@ -177,7 +177,7 @@ export type TaskHeartbeatTrigger = z.infer<typeof TaskHeartbeatTriggerSchema>;
  * - `stave_owned`: Stave sees it in its own durable records, not the runtime's.
  * - `unsupported`: it cannot be seen at all.
  *
- * The third value is the point of the enum. A completion heartbeat that cannot
+ * The third value is the point of the enum. A completion wake-up that cannot
  * observe completion would sit `scheduled` forever and leave its task looking
  * permanently busy, so it is refused at creation and stopped with
  * `completion-unobservable` if it ever loses observability — never silence.
@@ -245,11 +245,11 @@ export const TaskCompletionSignalSchema = z
     childTaskId: z
       .string()
       .trim()
-      .max(TASK_HEARTBEAT_LIMITS.maxLedgerIdChars)
+      .max(WAKE_UP_LIMITS.maxLedgerIdChars)
       .nullable(),
-    providerId: TaskHeartbeatFingerprintSchema.shape.providerId,
+    providerId: WakeUpFingerprintSchema.shape.providerId,
     status: TaskCompletionStatusSchema,
-    reason: z.string().max(TASK_HEARTBEAT_LIMITS.maxReasonChars).nullable(),
+    reason: z.string().max(WAKE_UP_LIMITS.maxReasonChars).nullable(),
     completedAt: z.string().datetime(),
     /**
      * The ledger step's attempt when it settled. A retried delegation reuses
@@ -282,54 +282,54 @@ export function buildTaskCompletionSignalKey(signal: {
 /* State                                                                       */
 /* -------------------------------------------------------------------------- */
 
-export const TASK_HEARTBEAT_STATES = ["scheduled", "paused", "stopped"] as const;
-export const TaskHeartbeatStateSchema = z.enum(TASK_HEARTBEAT_STATES);
-export type TaskHeartbeatState = z.infer<typeof TaskHeartbeatStateSchema>;
+export const WAKE_UP_STATES = ["scheduled", "paused", "stopped"] as const;
+export const WakeUpStateSchema = z.enum(WAKE_UP_STATES);
+export type WakeUpState = z.infer<typeof WakeUpStateSchema>;
 
 /**
  * Only `paused-by-user` is cleared by hand. The rest describe a condition the
  * supervisor is watching, and it resumes on its own once the condition lifts.
  */
-export const TASK_HEARTBEAT_PAUSE_REASONS = [
+export const WAKE_UP_PAUSE_REASONS = [
   "paused-by-user",
   "awaiting-approval",
   "awaiting-user-input",
   "runtime-changed",
   "task-identity-changed",
 ] as const;
-export const TaskHeartbeatPauseReasonSchema = z.enum(
-  TASK_HEARTBEAT_PAUSE_REASONS,
+export const WakeUpPauseReasonSchema = z.enum(
+  WAKE_UP_PAUSE_REASONS,
 );
-export type TaskHeartbeatPauseReason = z.infer<
-  typeof TaskHeartbeatPauseReasonSchema
+export type WakeUpPauseReason = z.infer<
+  typeof WakeUpPauseReasonSchema
 >;
 
 /**
- * All terminal. There is no user-initiated stop: removing a heartbeat deletes
+ * All terminal. There is no user-initiated stop: removing a wake-up deletes
  * it, so a stopped one always means the supervisor ended it for a stated
  * reason, and resuming it is refused rather than silently ignoring that reason.
  */
-export const TASK_HEARTBEAT_STOP_REASONS = [
+export const WAKE_UP_STOP_REASONS = [
   "expired",
   "occurrence-cap-reached",
   "task-unavailable",
   /**
-   * Completion cannot be observed for this task, so this heartbeat would wait
+   * Completion cannot be observed for this task, so this wake-up would wait
    * forever. Terminal rather than paused: observability is a property of how
    * Stave is wired, not a condition that lifts on its own while the supervisor
-   * watches, and a silent forever-scheduled heartbeat is the exact failure this
+   * watches, and a silent forever-scheduled wake-up is the exact failure this
    * layer exists to prevent.
    */
   "completion-unobservable",
 ] as const;
-export const TaskHeartbeatStopReasonSchema = z.enum(
-  TASK_HEARTBEAT_STOP_REASONS,
+export const WakeUpStopReasonSchema = z.enum(
+  WAKE_UP_STOP_REASONS,
 );
-export type TaskHeartbeatStopReason = z.infer<
-  typeof TaskHeartbeatStopReasonSchema
+export type WakeUpStopReason = z.infer<
+  typeof WakeUpStopReasonSchema
 >;
 
-const AUTOMATIC_PAUSE_REASONS = new Set<TaskHeartbeatPauseReason>([
+const AUTOMATIC_PAUSE_REASONS = new Set<WakeUpPauseReason>([
   "awaiting-approval",
   "awaiting-user-input",
   "runtime-changed",
@@ -337,7 +337,7 @@ const AUTOMATIC_PAUSE_REASONS = new Set<TaskHeartbeatPauseReason>([
 ]);
 
 /** A pause the supervisor set itself, and can therefore clear itself. */
-export function isAutomaticTaskHeartbeatPause(reason: TaskHeartbeatPauseReason) {
+export function isAutomaticWakeUpPause(reason: WakeUpPauseReason) {
   return AUTOMATIC_PAUSE_REASONS.has(reason);
 }
 
@@ -346,10 +346,10 @@ export function isAutomaticTaskHeartbeatPause(reason: TaskHeartbeatPauseReason) 
 /* -------------------------------------------------------------------------- */
 
 /**
- * The definition input. Unlike an automation's, this REQUIRES a taskId: a heartbeat
+ * The definition input. Unlike an automation's, this REQUIRES a taskId: a wake-up
  * only ever adds a turn to a task that already exists.
  */
-export const TaskHeartbeatUpsertInputSchema = z
+export const WakeUpUpsertInputSchema = z
   .object({
     workspaceId: IdSchema,
     taskId: IdSchema,
@@ -357,35 +357,35 @@ export const TaskHeartbeatUpsertInputSchema = z
       .string()
       .trim()
       .min(1)
-      .max(TASK_HEARTBEAT_LIMITS.maxPromptChars),
-    trigger: TaskHeartbeatTriggerSchema,
+      .max(WAKE_UP_LIMITS.maxPromptChars),
+    trigger: WakeUpTriggerSchema,
     /** Stop after this many fired occurrences. `null` means no cap. */
     maxOccurrences: z
       .number()
       .int()
       .min(1)
-      .max(TASK_HEARTBEAT_LIMITS.maxOccurrenceCap)
+      .max(WAKE_UP_LIMITS.maxOccurrenceCap)
       .nullable()
       .default(null),
     /** Stop once the next occurrence would land after this instant. */
     expiresAt: z.string().datetime().nullable().default(null),
   })
   .strict();
-export type TaskHeartbeatUpsertInput = z.infer<
-  typeof TaskHeartbeatUpsertInputSchema
+export type WakeUpUpsertInput = z.infer<
+  typeof WakeUpUpsertInputSchema
 >;
 
-export const TaskHeartbeatSchema = TaskHeartbeatUpsertInputSchema.extend({
+export const WakeUpSchema = WakeUpUpsertInputSchema.extend({
   id: IdSchema,
   projectPath: z.string().min(1),
-  fingerprint: TaskHeartbeatFingerprintSchema,
-  state: TaskHeartbeatStateSchema,
-  pauseReason: TaskHeartbeatPauseReasonSchema.nullable(),
-  stopReason: TaskHeartbeatStopReasonSchema.nullable(),
+  fingerprint: WakeUpFingerprintSchema,
+  state: WakeUpStateSchema,
+  pauseReason: WakeUpPauseReasonSchema.nullable(),
+  stopReason: WakeUpStopReasonSchema.nullable(),
   /** The human sentence behind `pauseReason` / `stopReason`. */
   reasonDetail: z
     .string()
-    .max(TASK_HEARTBEAT_LIMITS.maxReasonChars)
+    .max(WAKE_UP_LIMITS.maxReasonChars)
     .nullable(),
   nextRunAt: z.string().datetime().nullable(),
   lastOccurrenceAt: z.string().datetime().nullable(),
@@ -393,81 +393,81 @@ export const TaskHeartbeatSchema = TaskHeartbeatUpsertInputSchema.extend({
   skippedCount: z.number().int().min(0),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
-}).superRefine((heartbeat, context) => {
-  // A non-running heartbeat that cannot say why is the failure mode this whole
+}).superRefine((wakeUp, context) => {
+  // A non-running wake-up that cannot say why is the failure mode this whole
   // layer exists to prevent, so it is a parse error rather than a UI fallback.
-  if (heartbeat.state === "paused" && !heartbeat.pauseReason) {
+  if (wakeUp.state === "paused" && !wakeUp.pauseReason) {
     context.addIssue({
       code: "custom",
       path: ["pauseReason"],
-      message: "A paused heartbeat must carry a pause reason.",
+      message: "A paused wake-up must carry a pause reason.",
     });
   }
-  if (heartbeat.state === "stopped" && !heartbeat.stopReason) {
+  if (wakeUp.state === "stopped" && !wakeUp.stopReason) {
     context.addIssue({
       code: "custom",
       path: ["stopReason"],
-      message: "A stopped heartbeat must carry a stop reason.",
+      message: "A stopped wake-up must carry a stop reason.",
     });
   }
-  if (heartbeat.state === "scheduled" && (heartbeat.pauseReason || heartbeat.stopReason)) {
+  if (wakeUp.state === "scheduled" && (wakeUp.pauseReason || wakeUp.stopReason)) {
     context.addIssue({
       code: "custom",
       path: ["state"],
-      message: "A scheduled heartbeat carries no pause or stop reason.",
+      message: "A scheduled wake-up carries no pause or stop reason.",
     });
   }
 });
-export type TaskHeartbeat = z.infer<typeof TaskHeartbeatSchema>;
+export type WakeUp = z.infer<typeof WakeUpSchema>;
 
 /* -------------------------------------------------------------------------- */
 /* Occurrence                                                                  */
 /* -------------------------------------------------------------------------- */
 
-export const TASK_HEARTBEAT_OCCURRENCE_OUTCOMES = [
+export const WAKE_UP_OCCURRENCE_OUTCOMES = [
   "fired",
   "deferred",
   "skipped",
 ] as const;
-export const TaskHeartbeatOccurrenceOutcomeSchema = z.enum(
-  TASK_HEARTBEAT_OCCURRENCE_OUTCOMES,
+export const WakeUpOccurrenceOutcomeSchema = z.enum(
+  WAKE_UP_OCCURRENCE_OUTCOMES,
 );
-export type TaskHeartbeatOccurrenceOutcome = z.infer<
-  typeof TaskHeartbeatOccurrenceOutcomeSchema
+export type WakeUpOccurrenceOutcome = z.infer<
+  typeof WakeUpOccurrenceOutcomeSchema
 >;
 
-export const TaskHeartbeatOccurrenceSchema = z
+export const WakeUpOccurrenceSchema = z
   .object({
     id: IdSchema,
-    heartbeatId: IdSchema,
+    wakeUpId: IdSchema,
     /**
-     * Stable per (heartbeat, outcome, scheduled instant). The store's unique
+     * Stable per (wake-up, outcome, scheduled instant). The store's unique
      * index turns a duplicate delivery — a double tick, a replayed catch-up —
      * into a no-op instead of a second turn.
      */
     idempotencyKey: z
       .string()
       .min(1)
-      .max(TASK_HEARTBEAT_LIMITS.maxIdempotencyKeyChars),
+      .max(WAKE_UP_LIMITS.maxIdempotencyKeyChars),
     workspaceId: IdSchema,
     taskId: IdSchema,
     turnId: IdSchema.nullable(),
-    outcome: TaskHeartbeatOccurrenceOutcomeSchema,
-    reason: z.string().max(TASK_HEARTBEAT_LIMITS.maxReasonChars).nullable(),
+    outcome: WakeUpOccurrenceOutcomeSchema,
+    reason: z.string().max(WAKE_UP_LIMITS.maxReasonChars).nullable(),
     scheduledFor: z.string().datetime(),
     recordedAt: z.string().datetime(),
   })
   .strict();
-export type TaskHeartbeatOccurrence = z.infer<
-  typeof TaskHeartbeatOccurrenceSchema
+export type WakeUpOccurrence = z.infer<
+  typeof WakeUpOccurrenceSchema
 >;
 
-export function buildTaskHeartbeatIdempotencyKey(args: {
-  heartbeatId: string;
-  outcome: TaskHeartbeatOccurrenceOutcome;
+export function buildWakeUpIdempotencyKey(args: {
+  wakeUpId: string;
+  outcome: WakeUpOccurrenceOutcome;
   scheduledFor: string;
 }) {
-  return `${args.heartbeatId}:${args.outcome}:${args.scheduledFor}`;
+  return `${args.wakeUpId}:${args.outcome}:${args.scheduledFor}`;
 }
 
 /**
@@ -479,12 +479,12 @@ export function buildTaskHeartbeatIdempotencyKey(args: {
  * clipping it would make two steps of one run — which share a derived prefix —
  * collide and lose a completion to a false duplicate.
  */
-export function buildTaskHeartbeatCompletionIdempotencyKey(args: {
-  heartbeatId: string;
-  outcome: TaskHeartbeatOccurrenceOutcome;
+export function buildWakeUpCompletionIdempotencyKey(args: {
+  wakeUpId: string;
+  outcome: WakeUpOccurrenceOutcome;
   signalKey: string;
 }) {
-  return `${args.heartbeatId}:${args.outcome}:completion:${args.signalKey}`;
+  return `${args.wakeUpId}:${args.outcome}:completion:${args.signalKey}`;
 }
 
 /**
@@ -492,7 +492,7 @@ export function buildTaskHeartbeatCompletionIdempotencyKey(args: {
  * a boot sweep can tell "this completion was reported" from "this completion
  * was consumed and then dropped on the floor".
  */
-export function buildTaskHeartbeatUnreportedKey(idempotencyKey: string) {
+export function buildWakeUpUnreportedKey(idempotencyKey: string) {
   return `${idempotencyKey}:error`;
 }
 
@@ -500,7 +500,7 @@ export function buildTaskHeartbeatUnreportedKey(idempotencyKey: string) {
 /* Schedule walking                                                            */
 /* -------------------------------------------------------------------------- */
 
-export interface DueTaskHeartbeatOccurrences {
+export interface DueWakeUpOccurrences {
   /** The single instant that fires: the most recent one that came due. */
   dueAt: string | null;
   /** Earlier instants that came due while nothing was firing. Oldest first. */
@@ -512,17 +512,17 @@ export interface DueTaskHeartbeatOccurrences {
 }
 
 /**
- * Catch-up, done once. After a restart (or a long pause) a heartbeat can have
+ * Catch-up, done once. After a restart (or a long pause) a wake-up can have
  * many instants in the past. Only the latest one fires — replaying a backlog of
  * turns into a live task is the opposite of what the user asked for — and the
  * earlier ones are recorded as skipped so the gap is visible rather than
  * silently swallowed.
  */
-export function collectDueTaskHeartbeatOccurrences(args: {
+export function collectDueWakeUpOccurrences(args: {
   schedule: AutomationSchedule;
   nextRunAt: string;
   now: Date;
-}): DueTaskHeartbeatOccurrences {
+}): DueWakeUpOccurrences {
   const nowMs = args.now.getTime();
   const firstDueMs = Date.parse(args.nextRunAt);
   if (!Number.isFinite(firstDueMs) || firstDueMs > nowMs) {
@@ -548,7 +548,7 @@ export function collectDueTaskHeartbeatOccurrences(args: {
       break;
     }
     steps += 1;
-    if (steps >= TASK_HEARTBEAT_LIMITS.maxCatchUpSteps) {
+    if (steps >= WAKE_UP_LIMITS.maxCatchUpSteps) {
       // Absurdly long downtime for this cadence. Re-anchor to now rather than
       // walk millions of instants; the skip count still reports the gap.
       exhausted = true;
@@ -563,11 +563,11 @@ export function collectDueTaskHeartbeatOccurrences(args: {
   const dueAt = due[due.length - 1] ?? null;
   const skipped = due.slice(0, -1);
   const truncated =
-    exhausted || skipped.length > TASK_HEARTBEAT_LIMITS.maxRecordedSkips;
+    exhausted || skipped.length > WAKE_UP_LIMITS.maxRecordedSkips;
   return {
     dueAt,
     skippedAt: truncated
-      ? skipped.slice(-TASK_HEARTBEAT_LIMITS.maxRecordedSkips)
+      ? skipped.slice(-WAKE_UP_LIMITS.maxRecordedSkips)
       : skipped,
     truncated,
     nextRunAt: cursor,
@@ -579,22 +579,22 @@ export function collectDueTaskHeartbeatOccurrences(args: {
 /* -------------------------------------------------------------------------- */
 
 /** What the runtime observed about the task this tick. */
-export interface TaskHeartbeatObservation {
+export interface WakeUpObservation {
   /**
    * False when the workspace itself could not be resolved. Kept separate from
    * `taskExists` on purpose: a workspace that is momentarily unreadable is a
    * recoverable pause, while a task that is genuinely gone is terminal, and
-   * conflating them would let a transient read delete a heartbeat for good.
+   * conflating them would let a transient read delete a wake-up for good.
    */
   workspaceAvailable: boolean;
   /** False when the workspace loaded but no longer contains the task. */
   taskExists: boolean;
   taskArchived: boolean;
-  /** A turn is streaming right now. A user turn always wins over a heartbeat. */
+  /** A turn is streaming right now. A user turn always wins over a wake-up. */
   hasActiveTurn: boolean;
   pendingApprovalCount: number;
   pendingUserInputCount: number;
-  fingerprint: TaskHeartbeatFingerprint | null;
+  fingerprint: WakeUpFingerprint | null;
   /**
    * Result of `validateFleetQueueAction` against the live task. The supervisor
    * queues work onto a task from outside the task, which is exactly the
@@ -603,7 +603,7 @@ export interface TaskHeartbeatObservation {
   identity: { ok: true } | { ok: false; reason: string };
   /**
    * How completion can be seen for this task right now. Meaningless for a
-   * schedule heartbeat, which never reads it.
+   * schedule wake-up, which never reads it.
    */
   completionObservability: TaskCompletionObservability;
   /**
@@ -615,7 +615,7 @@ export interface TaskHeartbeatObservation {
   completions: TaskCompletionSignal[];
 }
 
-export type TaskHeartbeatDecision =
+export type WakeUpDecision =
   | { action: "idle" }
   | { action: "resume" }
   | { action: "defer"; dueAt: string; detail: string }
@@ -636,8 +636,8 @@ export type TaskHeartbeatDecision =
       completions: TaskCompletionSignal[];
       observedAt: string;
     }
-  | { action: "pause"; reason: TaskHeartbeatPauseReason; detail: string }
-  | { action: "stop"; reason: TaskHeartbeatStopReason; detail: string };
+  | { action: "pause"; reason: WakeUpPauseReason; detail: string }
+  | { action: "stop"; reason: WakeUpStopReason; detail: string };
 
 /** Oldest first, with the signal key as a tiebreak so batching is deterministic. */
 function compareCompletionSignals(
@@ -674,18 +674,18 @@ function latestCompletionInstant(
  * The whole safety policy, in priority order. Read top to bottom: stop beats
  * pause, pause beats defer, defer beats fire.
  */
-export function decideTaskHeartbeatAction(args: {
-  heartbeat: TaskHeartbeat;
-  observation: TaskHeartbeatObservation;
+export function decideWakeUpAction(args: {
+  wakeUp: WakeUp;
+  observation: WakeUpObservation;
   now: Date;
-}): TaskHeartbeatDecision {
-  const { heartbeat, observation, now } = args;
+}): WakeUpDecision {
+  const { wakeUp, observation, now } = args;
 
-  if (heartbeat.state === "stopped") {
+  if (wakeUp.state === "stopped") {
     return { action: "idle" };
   }
 
-  // 1. Terminal conditions. A stopped heartbeat never wakes again, so these are
+  // 1. Terminal conditions. A stopped wake-up never wakes again, so these are
   //    checked before anything that could resume it. They are only trusted when
   //    the workspace actually loaded — see `workspaceAvailable`.
   if (!observation.workspaceAvailable) {
@@ -699,52 +699,52 @@ export function decideTaskHeartbeatAction(args: {
     return {
       action: "stop",
       reason: "task-unavailable",
-      detail: "The task this heartbeat watches no longer exists.",
+      detail: "The task this wake-up watches no longer exists.",
     };
   }
   if (observation.taskArchived) {
     return {
       action: "stop",
       reason: "task-unavailable",
-      detail: "The task this heartbeat watches was archived.",
+      detail: "The task this wake-up watches was archived.",
     };
   }
-  // A completion heartbeat that cannot observe completion never fires. Saying so
-  // is the whole point: the alternative is a heartbeat that reads `scheduled`
+  // A completion wake-up that cannot observe completion never fires. Saying so
+  // is the whole point: the alternative is a wake-up that reads `scheduled`
   // forever while nothing is ever going to wake it.
   if (
-    heartbeat.trigger.kind === "completion" &&
+    wakeUp.trigger.kind === "completion" &&
     observation.completionObservability === "unsupported"
   ) {
     return {
       action: "stop",
       reason: "completion-unobservable",
       detail:
-        "Stave cannot observe when this task's delegated work finishes, so this heartbeat would never fire.",
+        "Stave cannot observe when this task's delegated work finishes, so this wake-up would never fire.",
     };
   }
-  if (heartbeat.expiresAt && Date.parse(heartbeat.expiresAt) <= now.getTime()) {
+  if (wakeUp.expiresAt && Date.parse(wakeUp.expiresAt) <= now.getTime()) {
     return {
       action: "stop",
       reason: "expired",
-      detail: `This heartbeat expired at ${heartbeat.expiresAt}.`,
+      detail: `This wake-up expired at ${wakeUp.expiresAt}.`,
     };
   }
   if (
-    heartbeat.maxOccurrences !== null &&
-    heartbeat.occurrenceCount >= heartbeat.maxOccurrences
+    wakeUp.maxOccurrences !== null &&
+    wakeUp.occurrenceCount >= wakeUp.maxOccurrences
   ) {
     return {
       action: "stop",
       reason: "occurrence-cap-reached",
-      detail: `This heartbeat reached its limit of ${heartbeat.maxOccurrences} occurrences.`,
+      detail: `This wake-up reached its limit of ${wakeUp.maxOccurrences} occurrences.`,
     };
   }
 
   // 2. A manual pause outranks every automatic one. Without this a pending
   //    approval would overwrite the user's pause reason, and answering it would
-  //    then auto-resume a heartbeat the user deliberately switched off.
-  if (heartbeat.state === "paused" && heartbeat.pauseReason === "paused-by-user") {
+  //    then auto-resume a wake-up the user deliberately switched off.
+  if (wakeUp.state === "paused" && wakeUp.pauseReason === "paused-by-user") {
     return { action: "idle" };
   }
 
@@ -759,12 +759,12 @@ export function decideTaskHeartbeatAction(args: {
   }
   if (
     observation.fingerprint &&
-    !taskHeartbeatFingerprintsMatch(heartbeat.fingerprint, observation.fingerprint)
+    !wakeUpFingerprintsMatch(wakeUp.fingerprint, observation.fingerprint)
   ) {
     return {
       action: "pause",
       reason: "runtime-changed",
-      detail: `The task now runs on ${formatTaskHeartbeatFingerprint(observation.fingerprint)}, not ${formatTaskHeartbeatFingerprint(heartbeat.fingerprint)}. Resume to accept the change.`,
+      detail: `The task now runs on ${formatWakeUpFingerprint(observation.fingerprint)}, not ${formatWakeUpFingerprint(wakeUp.fingerprint)}. Resume to accept the change.`,
     };
   }
   if (observation.pendingApprovalCount > 0) {
@@ -784,18 +784,18 @@ export function decideTaskHeartbeatAction(args: {
 
   // 4. Nothing is blocking. An automatic pause has served its purpose and the
   //    supervisor clears it; a manual pause was already handled above.
-  if (heartbeat.state === "paused") {
-    if (heartbeat.pauseReason && isAutomaticTaskHeartbeatPause(heartbeat.pauseReason)) {
+  if (wakeUp.state === "paused") {
+    if (wakeUp.pauseReason && isAutomaticWakeUpPause(wakeUp.pauseReason)) {
       return { action: "resume" };
     }
     return { action: "idle" };
   }
 
   // 5. Completion. Its dueness question is "did anything finish that this
-  //    heartbeat has not already consumed", and the runtime has answered it by
+  //    wake-up has not already consumed", and the runtime has answered it by
   //    the time we get here. Everything above — stop, pause, and the deferral
   //    below — applies to a completion wake-up exactly as to a scheduled one.
-  if (heartbeat.trigger.kind === "completion") {
+  if (wakeUp.trigger.kind === "completion") {
     if (observation.completions.length === 0) {
       return { action: "idle" };
     }
@@ -815,18 +815,18 @@ export function decideTaskHeartbeatAction(args: {
       // order, one wake-up per tick, instead of building one unbounded prompt.
       completions: [...observation.completions]
         .sort(compareCompletionSignals)
-        .slice(0, TASK_HEARTBEAT_LIMITS.maxCoalescedCompletions),
+        .slice(0, WAKE_UP_LIMITS.maxCoalescedCompletions),
       observedAt: now.toISOString(),
     };
   }
 
-  if (!heartbeat.nextRunAt) {
+  if (!wakeUp.nextRunAt) {
     return { action: "idle" };
   }
 
-  const due = collectDueTaskHeartbeatOccurrences({
-    schedule: heartbeat.trigger.schedule,
-    nextRunAt: heartbeat.nextRunAt,
+  const due = collectDueWakeUpOccurrences({
+    schedule: wakeUp.trigger.schedule,
+    nextRunAt: wakeUp.nextRunAt,
     now,
   });
   if (!due.dueAt) {
@@ -834,12 +834,12 @@ export function decideTaskHeartbeatAction(args: {
   }
 
   // 6. The user's turn always wins. Deferring keeps the instant unconsumed, so
-  //    the heartbeat fires as soon as the task is free instead of losing a beat.
+  //    the wake-up fires as soon as the task is free instead of losing a beat.
   if (observation.hasActiveTurn) {
     return {
       action: "defer",
       dueAt: due.dueAt,
-      detail: "The task is mid-turn; the heartbeat waits for it to finish.",
+      detail: "The task is mid-turn; the wake-up waits for it to finish.",
     };
   }
 
@@ -856,31 +856,31 @@ export function decideTaskHeartbeatAction(args: {
 /* Transitions                                                                 */
 /* -------------------------------------------------------------------------- */
 
-export function applyTaskHeartbeatDecision(args: {
-  heartbeat: TaskHeartbeat;
-  decision: TaskHeartbeatDecision;
+export function applyWakeUpDecision(args: {
+  wakeUp: WakeUp;
+  decision: WakeUpDecision;
   now: Date;
-}): TaskHeartbeat {
-  const { heartbeat, decision, now } = args;
+}): WakeUp {
+  const { wakeUp, decision, now } = args;
   const updatedAt = now.toISOString();
 
   switch (decision.action) {
     case "idle":
     case "defer":
-      return heartbeat;
+      return wakeUp;
     case "resume":
       return {
-        ...heartbeat,
+        ...wakeUp,
         state: "scheduled",
         pauseReason: null,
         stopReason: null,
         reasonDetail: null,
-        // Resume from now rather than from the stale instant: a heartbeat that
+        // Resume from now rather than from the stale instant: a wake-up that
         // waited an hour on an approval must not fire the moment it is answered.
         nextRunAt:
-          heartbeat.trigger.kind === "schedule"
+          wakeUp.trigger.kind === "schedule"
             ? computeNextAutomationRunAt({
-                schedule: heartbeat.trigger.schedule,
+                schedule: wakeUp.trigger.schedule,
                 after: now,
               })
             : null,
@@ -888,34 +888,34 @@ export function applyTaskHeartbeatDecision(args: {
       };
     case "pause":
       return {
-        ...heartbeat,
+        ...wakeUp,
         state: "paused",
         pauseReason: decision.reason,
         stopReason: null,
         reasonDetail: decision.detail.slice(
           0,
-          TASK_HEARTBEAT_LIMITS.maxReasonChars,
+          WAKE_UP_LIMITS.maxReasonChars,
         ),
         updatedAt,
       };
     case "stop":
       return {
-        ...heartbeat,
+        ...wakeUp,
         state: "stopped",
         pauseReason: null,
         stopReason: decision.reason,
         reasonDetail: decision.detail.slice(
           0,
-          TASK_HEARTBEAT_LIMITS.maxReasonChars,
+          WAKE_UP_LIMITS.maxReasonChars,
         ),
         nextRunAt: null,
         updatedAt,
       };
     case "fire": {
-      const occurrenceCount = heartbeat.occurrenceCount + 1;
-      const skippedCount = heartbeat.skippedCount + decision.skippedAt.length;
-      const fired: TaskHeartbeat = {
-        ...heartbeat,
+      const occurrenceCount = wakeUp.occurrenceCount + 1;
+      const skippedCount = wakeUp.skippedCount + decision.skippedAt.length;
+      const fired: WakeUp = {
+        ...wakeUp,
         state: "scheduled",
         pauseReason: null,
         stopReason: null,
@@ -936,7 +936,7 @@ export function applyTaskHeartbeatDecision(args: {
           ...fired,
           state: "stopped",
           stopReason: "occurrence-cap-reached",
-          reasonDetail: `This heartbeat reached its limit of ${fired.maxOccurrences} occurrences.`,
+          reasonDetail: `This wake-up reached its limit of ${fired.maxOccurrences} occurrences.`,
           nextRunAt: null,
         };
       }
@@ -948,7 +948,7 @@ export function applyTaskHeartbeatDecision(args: {
           ...fired,
           state: "stopped",
           stopReason: "expired",
-          reasonDetail: `This heartbeat expired at ${fired.expiresAt}.`,
+          reasonDetail: `This wake-up expired at ${fired.expiresAt}.`,
           nextRunAt: null,
         };
       }
@@ -958,17 +958,17 @@ export function applyTaskHeartbeatDecision(args: {
       // One wake-up, however many children it folded in. The cap therefore
       // bounds *turns*, which is the thing that recurses — a parent that
       // delegates ten children and is woken once has spent one occurrence.
-      const occurrenceCount = heartbeat.occurrenceCount + 1;
+      const occurrenceCount = wakeUp.occurrenceCount + 1;
       const latest = decision.completions[decision.completions.length - 1];
-      const woken: TaskHeartbeat = {
-        ...heartbeat,
+      const woken: WakeUp = {
+        ...wakeUp,
         state: "scheduled",
         pauseReason: null,
         stopReason: null,
         reasonDetail: null,
         occurrenceCount,
         lastOccurrenceAt: latest?.completedAt ?? decision.observedAt,
-        // A completion heartbeat has no cadence, so there is no next instant to
+        // A completion wake-up has no cadence, so there is no next instant to
         // advertise. It waits on the ledger, not on the clock.
         nextRunAt: null,
         updatedAt,
@@ -981,47 +981,47 @@ export function applyTaskHeartbeatDecision(args: {
           ...woken,
           state: "stopped",
           stopReason: "occurrence-cap-reached",
-          reasonDetail: `This heartbeat reached its limit of ${woken.maxOccurrences} occurrences.`,
+          reasonDetail: `This wake-up reached its limit of ${woken.maxOccurrences} occurrences.`,
         };
       }
       return woken;
     }
     default:
       decision satisfies never;
-      return heartbeat;
+      return wakeUp;
   }
 }
 
 /**
- * A schedule heartbeat may legitimately run forever — the user chose a cadence
- * and can see it. A completion heartbeat cannot: the turn it wakes can delegate
+ * A schedule wake-up may legitimately run forever — the user chose a cadence
+ * and can see it. A completion wake-up cannot: the turn it wakes can delegate
  * more work, whose completion wakes it again, and nothing in that loop involves
- * the user. So an uncapped completion heartbeat gets the default cap, which is
+ * the user. So an uncapped completion wake-up gets the default cap, which is
  * the whole of the recursion bound: the chain always ends, always with the
  * stated `occurrence-cap-reached` reason.
  */
-export function resolveTaskHeartbeatOccurrenceCap(
-  input: Pick<TaskHeartbeatUpsertInput, "trigger" | "maxOccurrences">,
+export function resolveWakeUpOccurrenceCap(
+  input: Pick<WakeUpUpsertInput, "trigger" | "maxOccurrences">,
 ) {
   if (input.trigger.kind !== "completion") {
     return input.maxOccurrences;
   }
   return (
-    input.maxOccurrences ?? TASK_HEARTBEAT_LIMITS.defaultCompletionOccurrenceCap
+    input.maxOccurrences ?? WAKE_UP_LIMITS.defaultCompletionOccurrenceCap
   );
 }
 
-export function createTaskHeartbeat(args: {
+export function createWakeUp(args: {
   id: string;
-  input: TaskHeartbeatUpsertInput;
+  input: WakeUpUpsertInput;
   projectPath: string;
-  fingerprint: TaskHeartbeatFingerprint;
+  fingerprint: WakeUpFingerprint;
   now: Date;
-}): TaskHeartbeat {
+}): WakeUp {
   const timestamp = args.now.toISOString();
-  return TaskHeartbeatSchema.parse({
+  return WakeUpSchema.parse({
     ...args.input,
-    maxOccurrences: resolveTaskHeartbeatOccurrenceCap(args.input),
+    maxOccurrences: resolveWakeUpOccurrenceCap(args.input),
     id: args.id,
     projectPath: args.projectPath,
     fingerprint: args.fingerprint,
@@ -1048,15 +1048,15 @@ export function createTaskHeartbeat(args: {
 /* Surfacing                                                                   */
 /* -------------------------------------------------------------------------- */
 
-export interface TaskHeartbeatSummary {
-  heartbeatId: string;
+export interface WakeUpSummary {
+  wakeUpId: string;
   taskId: string;
   /**
-   * A completion heartbeat has no `nextRunAt`, so without this the surface
+   * A completion wake-up has no `nextRunAt`, so without this the surface
    * cannot tell "waiting on delegated work" from "scheduled but broken".
    */
-  triggerKind: TaskHeartbeatTrigger["kind"];
-  state: TaskHeartbeatState;
+  triggerKind: WakeUpTrigger["kind"];
+  state: WakeUpState;
   reason: string | null;
   nextRunAt: string | null;
   occurrenceCount: number;
@@ -1067,17 +1067,17 @@ export interface TaskHeartbeatSummary {
  * The shape the fleet surfaces read. Kept here so the renderer never has to
  * reconstruct a reason sentence from enum values.
  */
-export function summarizeTaskHeartbeat(
-  heartbeat: TaskHeartbeat,
-): TaskHeartbeatSummary {
+export function summarizeWakeUp(
+  wakeUp: WakeUp,
+): WakeUpSummary {
   return {
-    heartbeatId: heartbeat.id,
-    taskId: heartbeat.taskId,
-    triggerKind: heartbeat.trigger.kind,
-    state: heartbeat.state,
-    reason: heartbeat.reasonDetail,
-    nextRunAt: heartbeat.state === "scheduled" ? heartbeat.nextRunAt : null,
-    occurrenceCount: heartbeat.occurrenceCount,
-    skippedCount: heartbeat.skippedCount,
+    wakeUpId: wakeUp.id,
+    taskId: wakeUp.taskId,
+    triggerKind: wakeUp.trigger.kind,
+    state: wakeUp.state,
+    reason: wakeUp.reasonDetail,
+    nextRunAt: wakeUp.state === "scheduled" ? wakeUp.nextRunAt : null,
+    occurrenceCount: wakeUp.occurrenceCount,
+    skippedCount: wakeUp.skippedCount,
   };
 }

@@ -56,7 +56,7 @@ import type {
   TrackerTask,
   TrackerTaskStaveLink,
 } from "../../src/lib/tracker-tasks/types";
-import { TaskHeartbeatStore } from "./task-heartbeat-store";
+import { WakeUpStore } from "./wake-up-store";
 import { AutomationStateStore } from "./automation-state-store";
 import { ProjectMemoryStore } from "./project-memory-store";
 import { ResultReviewStore } from "./result-review-store";
@@ -66,9 +66,9 @@ import { WorkspaceDirectionDraftStore } from "./workspace-direction-drafts";
 import { DelegationDraftStore } from "./delegation-drafts";
 import type { ProjectMemoryKind } from "../../src/lib/project-memory";
 import type {
-  TaskHeartbeat,
-  TaskHeartbeatOccurrence,
-} from "../../src/lib/automation/task-supervisor";
+  WakeUp,
+  WakeUpOccurrence,
+} from "../../src/lib/supervision/wake-up-policy";
 import {
   MartinSyncOutboxStore,
   type MartinOutboxEntry,
@@ -170,7 +170,7 @@ export class SqliteStore {
   private craneJobBindings: CraneJobBindingStore;
   private trackerTasks: TrackerTasksStore;
   private martinSyncOutbox: MartinSyncOutboxStore;
-  private taskHeartbeats: TaskHeartbeatStore;
+  private wakeUps: WakeUpStore;
   private automationState: AutomationStateStore;
   private projectMemories: ProjectMemoryStore;
   private notifications: NotificationStore;
@@ -236,7 +236,7 @@ export class SqliteStore {
       },
     });
     this.martinSyncOutbox = new MartinSyncOutboxStore(this.db);
-    this.taskHeartbeats = new TaskHeartbeatStore(this.db);
+    this.wakeUps = new WakeUpStore(this.db);
     this.automationState = new AutomationStateStore(this.db);
     this.projectMemories = new ProjectMemoryStore(this.db);
     if (this.runMaintenance) {
@@ -2392,7 +2392,7 @@ export class SqliteStore {
   /**
    * Closes a turn only when it is still open, reporting whether it did.
    *
-   * The task supervisor's boot sweep needs this: a turn a heartbeat started
+   * The supervisor's boot sweep needs this: a turn a wake-up started
    * before Stave was killed stays `completed_at IS NULL` forever, and every
    * later occurrence would defer behind it. Unlike `completeTurn` this never
    * rewrites the timestamp of a turn that really did finish.
@@ -2861,36 +2861,36 @@ export class SqliteStore {
     return this.martinSyncOutbox.pruneDeliveredBefore(cutoff);
   }
 
-  listTaskHeartbeats() {
-    return this.taskHeartbeats.list();
+  listWakeUps() {
+    return this.wakeUps.list();
   }
 
-  listActiveTaskHeartbeats() {
-    return this.taskHeartbeats.listActive();
+  listActiveWakeUps() {
+    return this.wakeUps.listActive();
   }
 
-  listTaskHeartbeatsForWorkspace(workspaceId: string) {
-    return this.taskHeartbeats.listForWorkspace(workspaceId);
+  listWakeUpsForWorkspace(workspaceId: string) {
+    return this.wakeUps.listForWorkspace(workspaceId);
   }
 
-  getTaskHeartbeat(id: string) {
-    return this.taskHeartbeats.get(id);
+  getWakeUp(id: string) {
+    return this.wakeUps.get(id);
   }
 
-  getTaskHeartbeatByTaskId(taskId: string) {
-    return this.taskHeartbeats.getByTaskId(taskId);
+  getWakeUpByTaskId(taskId: string) {
+    return this.wakeUps.getByTaskId(taskId);
   }
 
-  upsertTaskHeartbeat(heartbeat: TaskHeartbeat) {
-    return this.taskHeartbeats.upsert(heartbeat);
+  upsertWakeUp(wakeUp: WakeUp) {
+    return this.wakeUps.upsert(wakeUp);
   }
 
-  removeTaskHeartbeat(id: string) {
-    return this.taskHeartbeats.remove(id);
+  removeWakeUp(id: string) {
+    return this.wakeUps.remove(id);
   }
 
-  recordTaskHeartbeatOccurrence(occurrence: TaskHeartbeatOccurrence) {
-    return this.taskHeartbeats.recordOccurrence(occurrence);
+  recordWakeUpOccurrence(occurrence: WakeUpOccurrence) {
+    return this.wakeUps.recordOccurrence(occurrence);
   }
 
   listProjectMemories(args: { projectPath: string; includeDeleted?: boolean }) {
@@ -2958,16 +2958,16 @@ export class SqliteStore {
     return this.projectMemories.recall(args);
   }
 
-  attachTaskHeartbeatOccurrenceTurn(args: { id: string; turnId: string }) {
-    return this.taskHeartbeats.attachOccurrenceTurn(args);
+  attachWakeUpOccurrenceTurn(args: { id: string; turnId: string }) {
+    return this.wakeUps.attachOccurrenceTurn(args);
   }
 
-  listTaskHeartbeatOccurrences(args: { heartbeatId: string; limit?: number }) {
-    return this.taskHeartbeats.listOccurrences(args);
+  listWakeUpOccurrences(args: { wakeUpId: string; limit?: number }) {
+    return this.wakeUps.listOccurrences(args);
   }
 
-  pruneTaskHeartbeatOccurrences(args: { heartbeatId: string; keep?: number }) {
-    return this.taskHeartbeats.pruneOccurrences(args);
+  pruneWakeUpOccurrences(args: { wakeUpId: string; keep?: number }) {
+    return this.wakeUps.pruneOccurrences(args);
   }
 
   getStorageMetrics(): SqliteStorageMetrics {

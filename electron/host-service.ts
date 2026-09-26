@@ -73,8 +73,9 @@ import {
   submitGitHubPullRequestReview,
 } from "./host-service/github-pr-review-runtime";
 import * as localMcpRuntime from "./host-service/local-mcp-runtime";
+import { runSupervisedTurn } from "./host-service/supervised-turn";
 import { createAutomationRuntime } from "./host-service/automation-runtime";
-import { createTaskSupervisorRuntime } from "./host-service/task-supervisor-runtime";
+import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
 import { createCursorChatId } from "./host-service/cursor-chat-id";
 import { readHostServiceResourceMetrics } from "./host-service/resource-metrics";
@@ -89,7 +90,7 @@ import type {
   HostServiceEventName,
   HostLocalMcpAction,
   HostAutomationAction,
-  HostTaskSupervisorAction,
+  HostWakeUpAction,
   HostServiceMethod,
   HostServiceResponseMap,
 } from "./host-service/protocol";
@@ -565,19 +566,19 @@ const automationRuntime = createAutomationRuntime({
     emitEvent("automation.unattended-authorizations-changed", payload);
   },
 });
-const taskSupervisorRuntime = createTaskSupervisorRuntime({
+const wakeUpRuntime = createWakeUpRuntime({
   persistence: ensureHostServicePersistenceReady(),
   getTaskSupervisionSnapshot: localMcpRuntime.getTaskSupervisionSnapshot,
-  runHeartbeatTurn: localMcpRuntime.runHeartbeatTurn,
+  runSupervisedTurn,
   // Wiring this is what makes completion observable at all: without it the
-  // capability probe reports `unsupported` and a completion heartbeat is
+  // capability probe reports `unsupported` and a completion wake-up is
   // refused rather than left waiting for an event that never arrives.
   listCompletedDelegatedRuns: ({ taskId }) =>
     localMcpRuntime.listTaskCompletionSignals({ taskId }),
   // A consumed receipt that never became a turn has to surface somewhere, or
   // "exactly one follow-up turn or one terminal notification" quietly becomes
   // neither.
-  notifyHeartbeatWakeFailed: localMcpRuntime.notifyHeartbeatWakeFailed,
+  notifyWakeUpFailed: localMcpRuntime.notifyWakeUpFailed,
 });
 setWorkspaceScriptEventListener((envelope) => {
   emitEvent("workspace-scripts.event", envelope);
@@ -770,42 +771,42 @@ async function invokeAutomationAction(action: HostAutomationAction, args: unknow
   }
 }
 
-async function invokeTaskSupervisorAction(
-  action: HostTaskSupervisorAction,
+async function invokeWakeUpAction(
+  action: HostWakeUpAction,
   args: unknown,
 ) {
   switch (action) {
     case "list":
-      return taskSupervisorRuntime.list(
-        args as Parameters<typeof taskSupervisorRuntime.list>[0],
+      return wakeUpRuntime.list(
+        args as Parameters<typeof wakeUpRuntime.list>[0],
       );
     case "get":
-      return taskSupervisorRuntime.get(
-        args as Parameters<typeof taskSupervisorRuntime.get>[0],
+      return wakeUpRuntime.get(
+        args as Parameters<typeof wakeUpRuntime.get>[0],
       );
     case "create":
-      return taskSupervisorRuntime.create(
-        args as Parameters<typeof taskSupervisorRuntime.create>[0],
+      return wakeUpRuntime.create(
+        args as Parameters<typeof wakeUpRuntime.create>[0],
       );
     case "update":
-      return taskSupervisorRuntime.update(
-        args as Parameters<typeof taskSupervisorRuntime.update>[0],
+      return wakeUpRuntime.update(
+        args as Parameters<typeof wakeUpRuntime.update>[0],
       );
     case "pause":
-      return taskSupervisorRuntime.pause(
-        args as Parameters<typeof taskSupervisorRuntime.pause>[0],
+      return wakeUpRuntime.pause(
+        args as Parameters<typeof wakeUpRuntime.pause>[0],
       );
     case "resume":
-      return taskSupervisorRuntime.resume(
-        args as Parameters<typeof taskSupervisorRuntime.resume>[0],
+      return wakeUpRuntime.resume(
+        args as Parameters<typeof wakeUpRuntime.resume>[0],
       );
     case "remove":
-      return taskSupervisorRuntime.remove(
-        args as Parameters<typeof taskSupervisorRuntime.remove>[0],
+      return wakeUpRuntime.remove(
+        args as Parameters<typeof wakeUpRuntime.remove>[0],
       );
     default:
       action satisfies never;
-      throw new Error(`Unsupported task supervisor action: ${String(action)}`);
+      throw new Error(`Unsupported supervisor action: ${String(action)}`);
   }
 }
 
@@ -1324,7 +1325,7 @@ async function shutdown() {
   setWorkspaceScriptEventListener(null);
   localMcpRuntime.setLocalMcpEventListener(null);
   automationRuntime.stop();
-  taskSupervisorRuntime.stop();
+  wakeUpRuntime.stop();
   const infrastructureCleanup = Promise.allSettled([
     terminalRuntime.cleanupAll(),
     cleanupAllScriptProcesses(),
@@ -2029,10 +2030,10 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         await invokeAutomationAction(request.params.action, request.params.args),
       );
       return;
-    case "task-supervisor.invoke":
+    case "wake-up.invoke":
       await respond(
         request.id,
-        await invokeTaskSupervisorAction(
+        await invokeWakeUpAction(
           request.params.action,
           request.params.args,
         ),
@@ -2057,7 +2058,7 @@ async function main() {
   prewarmClaudeSdk();
   void prepareCliExecutableDiscovery();
   automationRuntime.start();
-  taskSupervisorRuntime.start();
+  wakeUpRuntime.start();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
     maxBufferBytes: HOST_SERVICE_STDIN_BUFFER_MAX_BYTES,

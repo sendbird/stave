@@ -1,33 +1,33 @@
 /**
- * Durable storage for task heartbeats and their occurrences.
+ * Durable storage for wake-ups and their occurrences.
  *
  * Used by: `electron/persistence/sqlite-store.ts` (delegation) and, through it,
- * `electron/host-service/task-supervisor-runtime.ts`.
+ * `electron/host-service/wake-up-runtime.ts`.
  *
  * These are deliberately NOT ledger tables. The run ledger records delegated
- * execution — runs, steps, receipts. A heartbeat records wake-ups on a task the
+ * execution — runs, steps, receipts. A wake-up records wake-ups on a task the
  * user already owns, which has a different lifetime and no claim semantics.
  */
 import {
-  TaskHeartbeatOccurrenceSchema,
-  TaskHeartbeatSchema,
-  TASK_HEARTBEAT_LIMITS,
-  type TaskHeartbeat,
-  type TaskHeartbeatOccurrence,
-} from "../../src/lib/automation/task-supervisor";
+  WakeUpOccurrenceSchema,
+  WakeUpSchema,
+  WAKE_UP_LIMITS,
+  type WakeUp,
+  type WakeUpOccurrence,
+} from "../../src/lib/supervision/wake-up-policy";
 
-interface TaskHeartbeatStatement {
+interface WakeUpStatement {
   get: (...params: unknown[]) => unknown;
   all: (...params: unknown[]) => unknown[];
   run: (...params: unknown[]) => { changes?: number | bigint };
 }
 
-interface TaskHeartbeatDatabase {
+interface WakeUpDatabase {
   exec: (sql: string) => unknown;
-  prepare: (sql: string) => TaskHeartbeatStatement;
+  prepare: (sql: string) => WakeUpStatement;
 }
 
-interface TaskHeartbeatRow {
+interface WakeUpRow {
   id: string;
   workspace_id: string;
   task_id: string;
@@ -49,9 +49,9 @@ interface TaskHeartbeatRow {
   updated_at: string;
 }
 
-interface TaskHeartbeatOccurrenceRow {
+interface WakeUpOccurrenceRow {
   id: string;
-  heartbeat_id: string;
+  wake_up_id: string;
   idempotency_key: string;
   workspace_id: string;
   task_id: string;
@@ -62,7 +62,7 @@ interface TaskHeartbeatOccurrenceRow {
   recorded_at: string;
 }
 
-const HEARTBEAT_COLUMNS = `
+const WAKE_UP_COLUMNS = `
   id,
   workspace_id,
   task_id,
@@ -86,7 +86,7 @@ const HEARTBEAT_COLUMNS = `
 
 const OCCURRENCE_COLUMNS = `
   id,
-  heartbeat_id,
+  wake_up_id,
   idempotency_key,
   workspace_id,
   task_id,
@@ -97,8 +97,8 @@ const OCCURRENCE_COLUMNS = `
   recorded_at
 `;
 
-function parseHeartbeatRow(row: TaskHeartbeatRow): TaskHeartbeat {
-  return TaskHeartbeatSchema.parse({
+function parseWakeUpRow(row: WakeUpRow): WakeUp {
+  return WakeUpSchema.parse({
     id: row.id,
     workspaceId: row.workspace_id,
     taskId: row.task_id,
@@ -122,11 +122,11 @@ function parseHeartbeatRow(row: TaskHeartbeatRow): TaskHeartbeat {
 }
 
 function parseOccurrenceRow(
-  row: TaskHeartbeatOccurrenceRow,
-): TaskHeartbeatOccurrence {
-  return TaskHeartbeatOccurrenceSchema.parse({
+  row: WakeUpOccurrenceRow,
+): WakeUpOccurrence {
+  return WakeUpOccurrenceSchema.parse({
     id: row.id,
-    heartbeatId: row.heartbeat_id,
+    wakeUpId: row.wake_up_id,
     idempotencyKey: row.idempotency_key,
     workspaceId: row.workspace_id,
     taskId: row.task_id,
@@ -138,17 +138,87 @@ function parseOccurrenceRow(
   });
 }
 
-export class TaskHeartbeatStore {
-  private readonly db: TaskHeartbeatDatabase;
+// temporary-migration: wake-up-tables
+/** Names written before wake-ups were renamed from task heartbeats. */
+const LEGACY_WAKE_UP_TABLES = [
+  ["task_heartbeats", "wake_ups"],
+  ["task_heartbeat_occurrences", "wake_up_occurrences"],
+] as const;
+const LEGACY_WAKE_UP_INDEXES = [
+  "idx_task_heartbeats_task",
+  "idx_task_heartbeats_due",
+  "idx_task_heartbeat_occurrence_key",
+  "idx_task_heartbeat_occurrences_recent",
+];
+
+/**
+ * Renames the legacy tables, the occurrence table's legacy `heartbeat_id`
+ * column and drops the legacy index names (the bootstrap recreates them under
+ * the new names). Runs before the bootstrap, once: afterwards no legacy name
+ * exists. If an empty new table was already created next to a legacy one, the
+ * legacy data wins; if both hold rows, the legacy table is left untouched and
+ * reported rather than merged.
+ */
+export function migrateLegacyWakeUpTables(db: WakeUpDatabase) {
+  const tableExists = (name: string) =>
+    Boolean(
+      db
+        .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+        .get(name),
+    );
+  const rowCount = (name: string) =>
+    (db.prepare(`SELECT COUNT(*) AS count FROM ${name}`).get() as { count: number })
+      .count;
+  db.exec("SAVEPOINT legacy_wake_up_tables");
+  try {
+    for (const [legacy, current] of LEGACY_WAKE_UP_TABLES) {
+      if (!tableExists(legacy)) continue;
+      if (tableExists(current)) {
+        if (rowCount(current) > 0) {
+          console.warn(
+            `[persistence] kept legacy table ${legacy}: ${current} already has rows`,
+          );
+          continue;
+        }
+        db.exec(`DROP TABLE ${current}`);
+      }
+      db.exec(`ALTER TABLE ${legacy} RENAME TO ${current}`);
+    }
+    const occurrenceColumns = tableExists("wake_up_occurrences")
+      ? (db.prepare("PRAGMA table_info(wake_up_occurrences)").all() as Array<{
+          name: string;
+        }>)
+      : [];
+    if (occurrenceColumns.some((column) => column.name === "heartbeat_id")) {
+      db.exec(
+        "ALTER TABLE wake_up_occurrences RENAME COLUMN heartbeat_id TO wake_up_id",
+      );
+    }
+    for (const index of LEGACY_WAKE_UP_INDEXES) {
+      db.exec(`DROP INDEX IF EXISTS ${index}`);
+    }
+    db.exec("RELEASE legacy_wake_up_tables");
+  } catch (error) {
+    db.exec("ROLLBACK TO legacy_wake_up_tables");
+    db.exec("RELEASE legacy_wake_up_tables");
+    throw error;
+  }
+}
+// end temporary-migration: wake-up-tables
+
+export class WakeUpStore {
+  private readonly db: WakeUpDatabase;
 
   constructor(database: unknown) {
-    this.db = database as TaskHeartbeatDatabase;
+    this.db = database as WakeUpDatabase;
+    // temporary-migration: wake-up-tables
+    migrateLegacyWakeUpTables(this.db);
     this.bootstrap();
   }
 
   private bootstrap() {
     this.db.exec(`
-      CREATE TABLE IF NOT EXISTS task_heartbeats (
+      CREATE TABLE IF NOT EXISTS wake_ups (
         id TEXT PRIMARY KEY,
         workspace_id TEXT NOT NULL,
         task_id TEXT NOT NULL,
@@ -170,15 +240,15 @@ export class TaskHeartbeatStore {
         updated_at TEXT NOT NULL
       );
 
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_task_heartbeats_task
-        ON task_heartbeats (task_id);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_wake_ups_task
+        ON wake_ups (task_id);
 
-      CREATE INDEX IF NOT EXISTS idx_task_heartbeats_due
-        ON task_heartbeats (state, next_run_at);
+      CREATE INDEX IF NOT EXISTS idx_wake_ups_due
+        ON wake_ups (state, next_run_at);
 
-      CREATE TABLE IF NOT EXISTS task_heartbeat_occurrences (
+      CREATE TABLE IF NOT EXISTS wake_up_occurrences (
         id TEXT PRIMARY KEY,
-        heartbeat_id TEXT NOT NULL,
+        wake_up_id TEXT NOT NULL,
         idempotency_key TEXT NOT NULL,
         workspace_id TEXT NOT NULL,
         task_id TEXT NOT NULL,
@@ -189,73 +259,73 @@ export class TaskHeartbeatStore {
         recorded_at TEXT NOT NULL
       );
 
-      CREATE UNIQUE INDEX IF NOT EXISTS idx_task_heartbeat_occurrence_key
-        ON task_heartbeat_occurrences (heartbeat_id, idempotency_key);
+      CREATE UNIQUE INDEX IF NOT EXISTS idx_wake_up_occurrence_key
+        ON wake_up_occurrences (wake_up_id, idempotency_key);
 
-      CREATE INDEX IF NOT EXISTS idx_task_heartbeat_occurrences_recent
-        ON task_heartbeat_occurrences (heartbeat_id, recorded_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_wake_up_occurrences_recent
+        ON wake_up_occurrences (wake_up_id, recorded_at DESC);
     `);
   }
 
-  list(): TaskHeartbeat[] {
+  list(): WakeUp[] {
     const rows = this.db
       .prepare(
-        `SELECT ${HEARTBEAT_COLUMNS}
-         FROM task_heartbeats
+        `SELECT ${WAKE_UP_COLUMNS}
+         FROM wake_ups
          ORDER BY created_at DESC, id ASC`,
       )
-      .all() as TaskHeartbeatRow[];
-    return rows.map(parseHeartbeatRow);
+      .all() as WakeUpRow[];
+    return rows.map(parseWakeUpRow);
   }
 
   /** Everything the scheduler still has to look at. */
-  listActive(): TaskHeartbeat[] {
+  listActive(): WakeUp[] {
     const rows = this.db
       .prepare(
-        `SELECT ${HEARTBEAT_COLUMNS}
-         FROM task_heartbeats
+        `SELECT ${WAKE_UP_COLUMNS}
+         FROM wake_ups
          WHERE state != 'stopped'
          ORDER BY created_at ASC, id ASC`,
       )
-      .all() as TaskHeartbeatRow[];
-    return rows.map(parseHeartbeatRow);
+      .all() as WakeUpRow[];
+    return rows.map(parseWakeUpRow);
   }
 
-  listForWorkspace(workspaceId: string): TaskHeartbeat[] {
+  listForWorkspace(workspaceId: string): WakeUp[] {
     const rows = this.db
       .prepare(
-        `SELECT ${HEARTBEAT_COLUMNS}
-         FROM task_heartbeats
+        `SELECT ${WAKE_UP_COLUMNS}
+         FROM wake_ups
          WHERE workspace_id = ?
          ORDER BY created_at DESC, id ASC`,
       )
-      .all(workspaceId) as TaskHeartbeatRow[];
-    return rows.map(parseHeartbeatRow);
+      .all(workspaceId) as WakeUpRow[];
+    return rows.map(parseWakeUpRow);
   }
 
-  get(id: string): TaskHeartbeat | null {
+  get(id: string): WakeUp | null {
     const row = this.db
       .prepare(
-        `SELECT ${HEARTBEAT_COLUMNS} FROM task_heartbeats WHERE id = ?`,
+        `SELECT ${WAKE_UP_COLUMNS} FROM wake_ups WHERE id = ?`,
       )
-      .get(id) as TaskHeartbeatRow | undefined;
-    return row ? parseHeartbeatRow(row) : null;
+      .get(id) as WakeUpRow | undefined;
+    return row ? parseWakeUpRow(row) : null;
   }
 
-  getByTaskId(taskId: string): TaskHeartbeat | null {
+  getByTaskId(taskId: string): WakeUp | null {
     const row = this.db
       .prepare(
-        `SELECT ${HEARTBEAT_COLUMNS} FROM task_heartbeats WHERE task_id = ?`,
+        `SELECT ${WAKE_UP_COLUMNS} FROM wake_ups WHERE task_id = ?`,
       )
-      .get(taskId) as TaskHeartbeatRow | undefined;
-    return row ? parseHeartbeatRow(row) : null;
+      .get(taskId) as WakeUpRow | undefined;
+    return row ? parseWakeUpRow(row) : null;
   }
 
-  upsert(input: TaskHeartbeat): TaskHeartbeat {
-    const heartbeat = TaskHeartbeatSchema.parse(input);
+  upsert(input: WakeUp): WakeUp {
+    const wakeUp = WakeUpSchema.parse(input);
     this.db
       .prepare(
-        `INSERT INTO task_heartbeats (
+        `INSERT INTO wake_ups (
            id,
            workspace_id,
            task_id,
@@ -293,51 +363,51 @@ export class TaskHeartbeatStore {
            updated_at = excluded.updated_at`,
       )
       .run(
-        heartbeat.id,
-        heartbeat.workspaceId,
-        heartbeat.taskId,
-        heartbeat.projectPath,
-        heartbeat.prompt,
-        JSON.stringify(heartbeat.trigger),
-        JSON.stringify(heartbeat.fingerprint),
-        heartbeat.state,
-        heartbeat.pauseReason,
-        heartbeat.stopReason,
-        heartbeat.reasonDetail,
-        heartbeat.nextRunAt,
-        heartbeat.lastOccurrenceAt,
-        heartbeat.occurrenceCount,
-        heartbeat.skippedCount,
-        heartbeat.maxOccurrences,
-        heartbeat.expiresAt,
-        heartbeat.createdAt,
-        heartbeat.updatedAt,
+        wakeUp.id,
+        wakeUp.workspaceId,
+        wakeUp.taskId,
+        wakeUp.projectPath,
+        wakeUp.prompt,
+        JSON.stringify(wakeUp.trigger),
+        JSON.stringify(wakeUp.fingerprint),
+        wakeUp.state,
+        wakeUp.pauseReason,
+        wakeUp.stopReason,
+        wakeUp.reasonDetail,
+        wakeUp.nextRunAt,
+        wakeUp.lastOccurrenceAt,
+        wakeUp.occurrenceCount,
+        wakeUp.skippedCount,
+        wakeUp.maxOccurrences,
+        wakeUp.expiresAt,
+        wakeUp.createdAt,
+        wakeUp.updatedAt,
       );
-    return this.get(heartbeat.id)!;
+    return this.get(wakeUp.id)!;
   }
 
   remove(id: string): boolean {
     this.db
-      .prepare("DELETE FROM task_heartbeat_occurrences WHERE heartbeat_id = ?")
+      .prepare("DELETE FROM wake_up_occurrences WHERE wake_up_id = ?")
       .run(id);
     const result = this.db
-      .prepare("DELETE FROM task_heartbeats WHERE id = ?")
+      .prepare("DELETE FROM wake_ups WHERE id = ?")
       .run(id);
     return Number(result.changes ?? 0) > 0;
   }
 
   /**
    * Records one occurrence, or reports that it already exists. The unique index
-   * on (heartbeat_id, idempotency_key) is what makes a duplicate delivery
+   * on (wake_up_id, idempotency_key) is what makes a duplicate delivery
    * harmless: `false` means "this instant was already handled, do not fire".
    */
-  recordOccurrence(occurrence: TaskHeartbeatOccurrence): boolean {
-    const parsed = TaskHeartbeatOccurrenceSchema.parse(occurrence);
+  recordOccurrence(occurrence: WakeUpOccurrence): boolean {
+    const parsed = WakeUpOccurrenceSchema.parse(occurrence);
     const result = this.db
       .prepare(
-        `INSERT INTO task_heartbeat_occurrences (
+        `INSERT INTO wake_up_occurrences (
            id,
-           heartbeat_id,
+           wake_up_id,
            idempotency_key,
            workspace_id,
            task_id,
@@ -347,11 +417,11 @@ export class TaskHeartbeatStore {
            scheduled_for,
            recorded_at
          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-         ON CONFLICT(heartbeat_id, idempotency_key) DO NOTHING`,
+         ON CONFLICT(wake_up_id, idempotency_key) DO NOTHING`,
       )
       .run(
         parsed.id,
-        parsed.heartbeatId,
+        parsed.wakeUpId,
         parsed.idempotencyKey,
         parsed.workspaceId,
         parsed.taskId,
@@ -366,14 +436,14 @@ export class TaskHeartbeatStore {
 
   attachOccurrenceTurn(args: { id: string; turnId: string }) {
     this.db
-      .prepare("UPDATE task_heartbeat_occurrences SET turn_id = ? WHERE id = ?")
+      .prepare("UPDATE wake_up_occurrences SET turn_id = ? WHERE id = ?")
       .run(args.turnId, args.id);
   }
 
   listOccurrences(args: {
-    heartbeatId: string;
+    wakeUpId: string;
     limit?: number;
-  }): TaskHeartbeatOccurrence[] {
+  }): WakeUpOccurrence[] {
     // The clamp must cover everything pruning can retain: up to
     // `maxRetainedOccurrences` recent rows PLUS up to
     // `minRetainedFiredOccurrences` protected `fired` rows. Clamping to the
@@ -382,18 +452,18 @@ export class TaskHeartbeatStore {
     // same duplicate wake the retention floor exists to prevent.
     const limit = Math.min(
       Math.max(args.limit ?? 20, 1),
-      TASK_HEARTBEAT_LIMITS.maxRetainedOccurrences +
-        TASK_HEARTBEAT_LIMITS.minRetainedFiredOccurrences,
+      WAKE_UP_LIMITS.maxRetainedOccurrences +
+        WAKE_UP_LIMITS.minRetainedFiredOccurrences,
     );
     const rows = this.db
       .prepare(
         `SELECT ${OCCURRENCE_COLUMNS}
-         FROM task_heartbeat_occurrences
-         WHERE heartbeat_id = ?
+         FROM wake_up_occurrences
+         WHERE wake_up_id = ?
          ORDER BY recorded_at DESC, id DESC
          LIMIT ?`,
       )
-      .all(args.heartbeatId, limit) as TaskHeartbeatOccurrenceRow[];
+      .all(args.wakeUpId, limit) as WakeUpOccurrenceRow[];
     return rows.map(parseOccurrenceRow);
   }
 
@@ -401,7 +471,7 @@ export class TaskHeartbeatStore {
    * History pruning, with one exemption: `fired` rows survive past the general
    * cap up to `keepFired`.
    *
-   * They are not kept for display. A completion heartbeat asks "have I already
+   * They are not kept for display. A completion wake-up asks "have I already
    * consumed this finished child" by looking for that child's `fired` row, and
    * the ledger goes on reporting the child for as long as it sits in the
    * ledger's own list window. If a burst of `deferred` rows pushed that one
@@ -409,36 +479,36 @@ export class TaskHeartbeatStore {
    * and wake the task a second time.
    */
   pruneOccurrences(args: {
-    heartbeatId: string;
+    wakeUpId: string;
     keep?: number;
     keepFired?: number;
   }): number {
     const keep = Math.max(
-      args.keep ?? TASK_HEARTBEAT_LIMITS.maxRetainedOccurrences,
+      args.keep ?? WAKE_UP_LIMITS.maxRetainedOccurrences,
       1,
     );
     const keepFired = Math.max(
-      args.keepFired ?? TASK_HEARTBEAT_LIMITS.minRetainedFiredOccurrences,
+      args.keepFired ?? WAKE_UP_LIMITS.minRetainedFiredOccurrences,
       1,
     );
     const result = this.db
       .prepare(
-        `DELETE FROM task_heartbeat_occurrences
-         WHERE heartbeat_id = ?
+        `DELETE FROM wake_up_occurrences
+         WHERE wake_up_id = ?
            AND id NOT IN (
-             SELECT id FROM task_heartbeat_occurrences
-             WHERE heartbeat_id = ?
+             SELECT id FROM wake_up_occurrences
+             WHERE wake_up_id = ?
              ORDER BY recorded_at DESC, id DESC
              LIMIT ?
            )
            AND id NOT IN (
-             SELECT id FROM task_heartbeat_occurrences
-             WHERE heartbeat_id = ? AND outcome = 'fired'
+             SELECT id FROM wake_up_occurrences
+             WHERE wake_up_id = ? AND outcome = 'fired'
              ORDER BY recorded_at DESC, id DESC
              LIMIT ?
            )`,
       )
-      .run(args.heartbeatId, args.heartbeatId, keep, args.heartbeatId, keepFired);
+      .run(args.wakeUpId, args.wakeUpId, keep, args.wakeUpId, keepFired);
     return Number(result.changes ?? 0);
   }
 }

@@ -20,9 +20,9 @@ import {
 } from "../../src/lib/runs/child-task";
 import {
   TaskCompletionStatusSchema,
-  TASK_HEARTBEAT_LIMITS,
+  WAKE_UP_LIMITS,
   type TaskCompletionSignal,
-} from "../../src/lib/automation/task-supervisor";
+} from "../../src/lib/supervision/wake-up-policy";
 import { buildChildTaskReceiptsRetrievedContext } from "../../src/lib/task-context/child-task-receipts";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "../../src/lib/task-context/current-task-awareness";
 import { toPersistenceTurnUsage } from "../persistence/turn-usage";
@@ -205,7 +205,7 @@ export interface TaskStatusResult {
   }>;
 }
 
-/** The task supervisor's read of one task. See `getTaskSupervisionSnapshot`. */
+/** The supervisor's read of one task. See `getTaskSupervisionSnapshot`. */
 export interface TaskSupervisionSnapshot {
   workspaceId: string;
   taskId: string;
@@ -1781,10 +1781,10 @@ function listChildTaskSummaries(args: {
  * constant lives beside the retention limits so the inequality is pinned by a
  * test rather than re-derived here.
  */
-const TASK_COMPLETION_FEED_LIMIT = TASK_HEARTBEAT_LIMITS.maxCompletionFeedRows;
+const TASK_COMPLETION_FEED_LIMIT = WAKE_UP_LIMITS.maxCompletionFeedRows;
 
 /**
- * The task supervisor's completion feed: delegated runs of one parent that have
+ * The supervisor's completion feed: delegated runs of one parent that have
  * reached a terminal status.
  *
  * Read-only, and derived from the same ledger rows the child-task surface
@@ -1801,7 +1801,7 @@ export function listTaskCompletionSignals(args: {
     // `waiting` is an active phase, so a detached child that parked open
     // after its turn never appears here: only stopping or detaching the
     // delegation settles it into a terminal status. Documented in
-    // docs/features/task-heartbeats.md — a completion heartbeat observes
+    // docs/features/wake-ups.md — a completion wake-up observes
     // delegations that *end*, not detached children between turns.
     if (isActiveChildTaskPhase(summary.phase)) {
       return [];
@@ -1818,7 +1818,7 @@ export function listTaskCompletionSignals(args: {
         providerId: summary.providerId,
         status: status.data,
         reason: summary.reason
-          ? summary.reason.slice(0, TASK_HEARTBEAT_LIMITS.maxReasonChars)
+          ? summary.reason.slice(0, WAKE_UP_LIMITS.maxReasonChars)
           : null,
         // A terminal step without a `completedAt` is a reconciled one; its
         // `updatedAt` is the instant it settled.
@@ -2362,16 +2362,16 @@ export async function releaseTaskParent(args: {
 }
 
 /**
- * Everything the task supervisor needs to decide whether a heartbeat may fire.
+ * Everything the supervisor needs to decide whether a wake-up may fire.
  *
  * Deliberately separate from `getTaskStatus`: that shape is an automation's view of
  * a run it started, while this one answers "is this pre-existing task still the
- * same task, still free, and still on the runtime the heartbeat agreed to".
+ * same task, still free, and still on the runtime the wake-up agreed to".
  * Unlike `getTaskStatus` it reports a missing workspace or task as `exists:
  * false` rather than throwing, because a deleted task is a normal terminal
- * outcome for a heartbeat, not an error.
+ * outcome for a wake-up, not an error.
  *
- * Used by: `electron/host-service/task-supervisor-runtime.ts`.
+ * Used by: `electron/host-service/wake-up-runtime.ts`.
  */
 export async function getTaskSupervisionSnapshot(args: {
   workspaceId: string;
@@ -2436,45 +2436,7 @@ export async function getTaskSupervisionSnapshot(args: {
 }
 
 /**
- * A heartbeat turn. Identical to a user turn except that it always targets an
- * existing task and always keeps the task interactive and Stave-owned — waking
- * a task must never quietly hand its control to an external owner.
- *
- * Used by: `electron/host-service/task-supervisor-runtime.ts`.
- */
-export async function runHeartbeatTurn(args: {
-  workspaceId: string;
-  taskId: string;
-  prompt: string;
-  /**
-   * The runtime identity the supervisor validated against live task state on
-   * this very tick. Passed explicitly rather than left to `runTask`'s default,
-   * because "wake this task" means wake it as itself — a Codex task resumed
-   * under the Claude default would be a different agent answering.
-   */
-  fingerprint?: { providerId: ProviderId; model: string };
-  retrievedContextParts?: CanonicalRetrievedContextPart[];
-}) {
-  return runTask({
-    workspaceId: args.workspaceId,
-    taskId: args.taskId,
-    prompt: args.prompt,
-    controlMode: "interactive",
-    controlOwner: "stave",
-    ...(args.fingerprint
-      ? {
-          provider: args.fingerprint.providerId,
-          runtimeOptions: { model: args.fingerprint.model },
-        }
-      : {}),
-    ...(args.retrievedContextParts
-      ? { retrievedContextParts: args.retrievedContextParts }
-      : {}),
-  });
-}
-
-/**
- * The terminal notification half of a heartbeat's contract: a wake-up that
+ * The terminal notification half of a wake-up's contract: a wake-up that
  * consumed its receipt but never reached the task.
  *
  * `task.turn_failed` rather than a new kind — from the user's side that is
@@ -2482,7 +2444,7 @@ export async function runHeartbeatTurn(args: {
  * notification surface for no new decision. The dedupe key is the occurrence's
  * own reason so a repeated failure of the same wake-up collapses into one row.
  */
-export async function notifyHeartbeatWakeFailed(args: {
+export async function notifyWakeUpFailed(args: {
   workspaceId: string;
   taskId: string;
   triggerKind: "schedule" | "completion";
@@ -2503,8 +2465,8 @@ export async function notifyHeartbeatWakeFailed(args: {
     title: taskTitle,
     body:
       args.triggerKind === "completion"
-        ? `A heartbeat could not report finished delegated work: ${args.detail}`
-        : `A scheduled heartbeat turn could not start: ${args.detail}`,
+        ? `A wake-up could not report finished delegated work: ${args.detail}`
+        : `A scheduled wake-up turn could not start: ${args.detail}`,
     projectPath: registration?.project.projectPath ?? null,
     projectName: registration?.project.projectName ?? null,
     workspaceId: args.workspaceId,
@@ -2515,10 +2477,10 @@ export async function notifyHeartbeatWakeFailed(args: {
     providerId: task?.provider ?? null,
     action: null,
     payload: {
-      source: "task-heartbeat",
+      source: "wake-up",
       triggerKind: args.triggerKind,
     },
-    dedupeKey: `task-heartbeat.wake_failed:${args.taskId}:${args.detail}`,
+    dedupeKey: `wake-up.wake_failed:${args.taskId}:${args.detail}`,
   });
 }
 

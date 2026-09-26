@@ -1,6 +1,6 @@
-# Task Heartbeats
+# Wake-ups
 
-A heartbeat wakes one existing task, in the same provider session — either on a
+A wake-up resumes one existing task, in the same provider session — either on a
 schedule or when work that task delegated finishes. It is the "keep going
 without me" answer for work that is already underway — re-check CI on this PR
 every ten minutes, re-read this dashboard every hour, pick the thread back up
@@ -8,13 +8,13 @@ when the child task you handed off returns — as opposed to an automation, whic
 mints a brand new task per occurrence.
 
 The boundary between the two is fixed in
-[Agent Platform Taxonomy](../architecture/agent-platform-taxonomy.md): **a
-automation never wakes an existing task, and a heartbeat never creates one.**
+[Agent Platform Taxonomy](../architecture/agent-platform-taxonomy.md): **an
+automation never wakes an existing task, and a wake-up never creates one.**
 
 ## What it adds over `runTask`
 
 `runTask(taskId)` could already add a turn to an existing task. Everything a
-heartbeat adds is safety around doing that unattended:
+wake-up adds is safety around doing that unattended:
 
 | Situation | What happens |
 | --- | --- |
@@ -29,14 +29,14 @@ heartbeat adds is safety around doing that unattended:
 | The same instant, or the same finished child, is delivered twice | The occurrence's idempotency key makes the second a no-op. |
 | Completion cannot be observed for the task | **Stop**, `completion-unobservable`, rather than waiting for an event that will never arrive. |
 
-Paused and stopped states always carry a reason. A stopped heartbeat is
+Paused and stopped states always carry a reason. A stopped wake-up is
 terminal: resuming it is refused, because resuming would silently ignore the
 reason it stopped. Add a new one instead.
 
 ## Priority order
 
 The policy is a single ordered decision, in
-[`src/lib/automation/task-supervisor.ts`](../../src/lib/automation/task-supervisor.ts):
+[`src/lib/supervision/wake-up-policy.ts`](../../src/lib/supervision/wake-up-policy.ts):
 
 1. Terminal conditions (task gone, archived, expired, capped) — **stop**
 2. Blocking conditions (identity, runtime, approval, question) — **pause**
@@ -50,19 +50,19 @@ wins.
 
 ## Schedules
 
-Heartbeats reuse the automation schedule vocabulary — `{ every, unit, at?,
+Wake-ups reuse the automation schedule vocabulary — `{ every, unit, at?,
 weekday?, weekdays? }` and `computeNextAutomationRunAt` from
 [`src/lib/automations.ts`](../../src/lib/automations.ts) — so there is one cadence
 model across the product and anchored day/week schedules keep their local
 wall-clock time across DST.
 
 The trigger is a discriminated union: `{ kind: "schedule" }` walks a cadence,
-`{ kind: "completion" }` waits on delegated work. A completion heartbeat has no
+`{ kind: "completion" }` waits on delegated work. A completion wake-up has no
 `nextRunAt` at all — it waits on the ledger, not on the clock.
 
 ## Completion
 
-A completion heartbeat wakes its task when work that task delegated finishes: a
+A completion wake-up resumes its task when work that task delegated finishes: a
 child-task run on the run ledger whose origin is this task, reaching a terminal
 status (`completed`, `failed`, `cancelled`, `interrupted`). Everything in the
 priority order above applies unchanged — a user's turn still wins, a pending
@@ -78,7 +78,7 @@ What differs is only where dueness comes from:
 | Where does the next one come from? | `computeNextAutomationRunAt` | The ledger, on the next tick |
 
 **Exactly once, however it is delivered.** Each completion is keyed by
-`<heartbeatId>:fired:completion:<runId>:<stepId>:<attempt>:<status>` rather
+`<wakeUpId>:fired:completion:<runId>:<stepId>:<attempt>:<status>` rather
 than by an instant, because two children can finish in the same millisecond and
 a timestamp key would silently drop one of them. The attempt is part of the key
 because a retried delegation reuses its run and step ids: without it, a retry
@@ -86,12 +86,12 @@ that fails again would be deduped against the first attempt's wake-up and the
 parent would never hear about it. The occurrence row is the guard: if nothing
 new was accepted, no turn starts at all.
 
-**Only work that finishes after the heartbeat exists counts.** Completions
-whose terminal instant predates the heartbeat's `createdAt` are never
-signalable. Without that baseline, creating a completion heartbeat on a task
+**Only work that finishes after the wake-up exists counts.** Completions
+whose terminal instant predates the wake-up's `createdAt` are never
+signalable. Without that baseline, creating a completion wake-up on a task
 with old finished delegations — or re-creating one whose stopped predecessor's
 history was just deleted — would consume every old receipt still in the feed
-window as a burst of wake-ups. Updating a heartbeat keeps its `createdAt`, so
+window as a burst of wake-ups. Updating a wake-up keeps its `createdAt`, so
 an update never re-opens old work either.
 
 **Detached children signal on ending, not between turns.** A `detached`
@@ -126,31 +126,31 @@ lost wake-up is marked so it is reported once, not once per restart.
 
 **Bounded recursion.** The turn a completion wakes can delegate more work, whose
 completion wakes it again, and nobody in that loop is the user. So a completion
-heartbeat created without `maxOccurrences` gets a default cap of 20 and stops
-with `occurrence-cap-reached`. A schedule heartbeat is still allowed to run
+wake-up created without `maxOccurrences` gets a default cap of 20 and stops
+with `occurrence-cap-reached`. A schedule wake-up is still allowed to run
 forever — the user chose a cadence and can see it.
 
 ### Observability
 
-Before a completion heartbeat is created, the supervisor probes how completion
+Before a completion wake-up is created, the supervisor probes how completion
 can be seen for that task and classifies it:
 
 | Classification | Meaning |
 | --- | --- |
 | `provider_event` | The runtime reports that delegated work finished. Nothing returns this yet. |
 | `stave_owned` | Stave sees it in its own run-ledger rows. This is what both runtimes classify as today. |
-| `unsupported` | It cannot be seen. Creating a completion heartbeat is refused, and an existing one **stops** with `completion-unobservable`. |
+| `unsupported` | It cannot be seen. Creating a completion wake-up is refused, and an existing one **stops** with `completion-unobservable`. |
 
 Both provider runtimes classify identically, and deliberately so: a child task's
 terminal state is a ledger row written by the child-task coordinator, so neither
 runtime is the source and neither can be ahead of the other. That is why the
 probe is a function of the ledger rather than of the provider.
 
-The `unsupported` branch is the point of the enum. A completion heartbeat that
+The `unsupported` branch is the point of the enum. A completion wake-up that
 cannot observe completion would read `scheduled` forever while nothing was ever
 going to wake it, leaving its task looking permanently busy. It stops with a
 stated reason instead. A ledger read that merely *fails* on one tick is not a
-verdict — the heartbeat idles and tries again.
+verdict — the wake-up idles and tries again.
 
 The feed is read deeper than `CHILD_TASK_LIST_LIMIT`, which sizes the child-task
 panel. The two limits answer different questions: truncating a list a human is
@@ -175,7 +175,7 @@ none of the consume-exactly-once machinery does.
 
 ### Identity
 
-A wake-up runs on the heartbeat's fingerprint — the provider and model it was
+A wake-up runs on the wake-up's fingerprint — the provider and model it was
 created against, which the decision policy has already refused to fire on unless
 they still match the task's live ones. That identity is passed explicitly rather
 than left to `runTask`'s default, because "wake this task" means wake it as
@@ -185,13 +185,13 @@ agent into the same conversation, mid-thread.
 ## Occurrences
 
 Every firing, deferral, and skip is recorded with an idempotency key of
-`<heartbeatId>:<outcome>:<scheduledFor>`, or, for a completion,
-`<heartbeatId>:<outcome>:completion:<runId>:<stepId>:<attempt>:<status>`. A
-unique index on `(heartbeat_id, idempotency_key)` turns a duplicate delivery
+`<wakeUpId>:<outcome>:<scheduledFor>`, or, for a completion,
+`<wakeUpId>:<outcome>:completion:<runId>:<stepId>:<attempt>:<status>`. A
+unique index on `(wake_up_id, idempotency_key)` turns a duplicate delivery
 into a no-op, and it means repeated deferrals of one instant collapse into a
 single row rather than one per tick.
 
-Occurrence history is pruned to the most recent 100 per heartbeat, with one
+Occurrence history is pruned to the most recent 100 per wake-up, with one
 exemption: `fired` rows survive past that cap, up to 256. For a completion they
 are not history but the idempotency guard itself — the ledger keeps reporting a
 finished child for as long as it sits in its own list window, so a burst of
@@ -201,30 +201,31 @@ forward, so a pruned instant can never come due twice.
 
 ## Files
 
-- [`src/lib/automation/task-supervisor.ts`](../../src/lib/automation/task-supervisor.ts) — schemas, catch-up walk, decision policy, transitions. Pure.
-- [`electron/host-service/task-supervisor-runtime.ts`](../../electron/host-service/task-supervisor-runtime.ts) — the tick, the serialized operation chain, the boot sweep.
-- [`electron/persistence/task-heartbeat-store.ts`](../../electron/persistence/task-heartbeat-store.ts) — `task_heartbeats`, `task_heartbeat_occurrences`.
-- [`electron/host-service/local-mcp-runtime.ts`](../../electron/host-service/local-mcp-runtime.ts) — `getTaskSupervisionSnapshot`, `runHeartbeatTurn`, `listTaskCompletionSignals`.
-- [`electron/main/task-supervisor-service.ts`](../../electron/main/task-supervisor-service.ts) — the main-process bridge.
+- [`src/lib/supervision/wake-up-policy.ts`](../../src/lib/supervision/wake-up-policy.ts) — schemas, catch-up walk, decision policy, transitions. Pure.
+- [`electron/host-service/wake-up-runtime.ts`](../../electron/host-service/wake-up-runtime.ts) — the tick, the serialized operation chain, the boot sweep.
+- [`electron/persistence/wake-up-store.ts`](../../electron/persistence/wake-up-store.ts) — `wake_ups`, `wake_up_occurrences`.
+- [`electron/host-service/local-mcp-runtime.ts`](../../electron/host-service/local-mcp-runtime.ts) — `getTaskSupervisionSnapshot`, `listTaskCompletionSignals`.
+- [`electron/host-service/supervised-turn.ts`](../../electron/host-service/supervised-turn.ts) — `runSupervisedTurn`, the only way a supervisor starts a turn.
+- [`electron/main/wake-up-service.ts`](../../electron/main/wake-up-service.ts) — the main-process bridge.
 
 ## MCP tools
 
-- `stave_list_task_heartbeats` — optionally scoped to a workspace
-- `stave_get_task_heartbeat` — one heartbeat plus recent occurrences and their reasons
-- `stave_create_task_heartbeat` — requires an existing `taskId`
-- `stave_update_task_heartbeat` — also re-accepts the task's current runtime; refused for a stopped heartbeat (add a new one instead), and switching trigger kinds resets the fired count so the new trigger's cap starts unspent
-- `stave_set_task_heartbeat_paused` — pause or resume
-- `stave_remove_task_heartbeat` — deletes the heartbeat and its history
+- `stave_list_wake_ups` — optionally scoped to a workspace
+- `stave_get_wake_up` — one wake-up plus recent occurrences and their reasons
+- `stave_create_wake_up` — requires an existing `taskId`
+- `stave_update_wake_up` — also re-accepts the task's current runtime; refused for a stopped wake-up (add a new one instead), and switching trigger kinds resets the fired count so the new trigger's cap starts unspent
+- `stave_set_wake_up_paused` — pause or resume
+- `stave_remove_wake_up` — deletes the wake-up and its history
 
 ## Storage
 
 Two tables, not ledger tables. The run ledger records delegated execution; a
-heartbeat records wake-ups on a task the user already owns, with no claim or
+wake-up records wake-ups on a task the user already owns, with no claim or
 lease semantics. The completion trigger does not blur that: it *reads* terminal
 child-task rows through an injected function and writes only its own occurrence
 rows. The supervisor imports neither the ledger store nor the child-task
 coordinator, and a boundary test keeps it that way.
 
-Turn state that survived a crash is swept at boot: a turn a heartbeat started
+Turn state that survived a crash is swept at boot: a turn a wake-up started
 before Stave was killed stays open in SQLite, and without the sweep every later
 occurrence would defer behind a turn that will never finish.

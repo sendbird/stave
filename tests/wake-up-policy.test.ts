@@ -1,30 +1,30 @@
 import { describe, expect, test } from "bun:test";
 import {
-  applyTaskHeartbeatDecision,
+  applyWakeUpDecision,
   buildTaskCompletionSignalKey,
-  buildTaskHeartbeatCompletionIdempotencyKey,
-  buildTaskHeartbeatIdempotencyKey,
-  buildTaskHeartbeatUnreportedKey,
+  buildWakeUpCompletionIdempotencyKey,
+  buildWakeUpIdempotencyKey,
+  buildWakeUpUnreportedKey,
   classifyTaskCompletionObservability,
-  collectDueTaskHeartbeatOccurrences,
-  createTaskHeartbeat,
-  decideTaskHeartbeatAction,
-  resolveTaskHeartbeatOccurrenceCap,
-  summarizeTaskHeartbeat,
-  TaskHeartbeatOccurrenceSchema,
-  TaskHeartbeatUpsertInputSchema,
-  TASK_HEARTBEAT_LIMITS,
+  collectDueWakeUpOccurrences,
+  createWakeUp,
+  decideWakeUpAction,
+  resolveWakeUpOccurrenceCap,
+  summarizeWakeUp,
+  WakeUpOccurrenceSchema,
+  WakeUpUpsertInputSchema,
+  WAKE_UP_LIMITS,
   type TaskCompletionSignal,
-  type TaskHeartbeat,
-  type TaskHeartbeatObservation,
-  type TaskHeartbeatUpsertInput,
-} from "@/lib/automation/task-supervisor";
+  type WakeUp,
+  type WakeUpObservation,
+  type WakeUpUpsertInput,
+} from "@/lib/supervision/wake-up-policy";
 
 const NOW = new Date("2026-08-10T00:00:00.000Z");
 
 function createInput(
-  overrides: Partial<TaskHeartbeatUpsertInput> = {},
-): TaskHeartbeatUpsertInput {
+  overrides: Partial<WakeUpUpsertInput> = {},
+): WakeUpUpsertInput {
   return {
     workspaceId: "ws-1",
     taskId: "task-1",
@@ -36,9 +36,9 @@ function createInput(
   };
 }
 
-function createHeartbeat(overrides: Partial<TaskHeartbeat> = {}): TaskHeartbeat {
+function createWakeUpFixture(overrides: Partial<WakeUp> = {}): WakeUp {
   return {
-    ...createTaskHeartbeat({
+    ...createWakeUp({
       id: "hb-1",
       input: createInput(),
       projectPath: "/tmp/project",
@@ -50,8 +50,8 @@ function createHeartbeat(overrides: Partial<TaskHeartbeat> = {}): TaskHeartbeat 
 }
 
 function observe(
-  overrides: Partial<TaskHeartbeatObservation> = {},
-): TaskHeartbeatObservation {
+  overrides: Partial<WakeUpObservation> = {},
+): WakeUpObservation {
   return {
     workspaceAvailable: true,
     taskExists: true,
@@ -83,9 +83,9 @@ function completion(
   };
 }
 
-describe("task heartbeat definition", () => {
-  test("a heartbeat never creates a task: its definition must target one", () => {
-    const definitionKeys = Object.keys(TaskHeartbeatUpsertInputSchema.shape);
+describe("wake-up definition", () => {
+  test("a wake-up never creates a task: its definition must target one", () => {
+    const definitionKeys = Object.keys(WakeUpUpsertInputSchema.shape);
 
     expect(definitionKeys).toContain("taskId");
     expect(definitionKeys).toContain("workspaceId");
@@ -94,7 +94,7 @@ describe("task heartbeat definition", () => {
       definitionKeys.filter((key) => /^(name|title|environment)$/.test(key)),
     ).toEqual([]);
     expect(
-      TaskHeartbeatUpsertInputSchema.safeParse({
+      WakeUpUpsertInputSchema.safeParse({
         ...createInput(),
         taskId: "",
       }).success,
@@ -102,7 +102,7 @@ describe("task heartbeat definition", () => {
   });
 
   test("rejects unknown keys so a stale caller cannot smuggle a task title", () => {
-    const parsed = TaskHeartbeatUpsertInputSchema.safeParse({
+    const parsed = WakeUpUpsertInputSchema.safeParse({
       ...createInput(),
       title: "Mint me a task",
     });
@@ -110,20 +110,20 @@ describe("task heartbeat definition", () => {
     expect(parsed.success).toBe(false);
   });
 
-  test("a new heartbeat is scheduled with no reason attached", () => {
-    const heartbeat = createHeartbeat();
+  test("a new wake-up is scheduled with no reason attached", () => {
+    const wakeUp = createWakeUpFixture();
 
-    expect(heartbeat.state).toBe("scheduled");
-    expect(heartbeat.pauseReason).toBeNull();
-    expect(heartbeat.stopReason).toBeNull();
-    expect(heartbeat.nextRunAt).toBe("2026-08-10T01:00:00.000Z");
-    expect(heartbeat.occurrenceCount).toBe(0);
+    expect(wakeUp.state).toBe("scheduled");
+    expect(wakeUp.pauseReason).toBeNull();
+    expect(wakeUp.stopReason).toBeNull();
+    expect(wakeUp.nextRunAt).toBe("2026-08-10T01:00:00.000Z");
+    expect(wakeUp.occurrenceCount).toBe(0);
   });
 });
 
 describe("catch-up", () => {
   test("fires the latest missed instant only and records the earlier ones", () => {
-    const due = collectDueTaskHeartbeatOccurrences({
+    const due = collectDueWakeUpOccurrences({
       schedule: { every: 1, unit: "hours" },
       nextRunAt: "2026-08-10T01:00:00.000Z",
       now: new Date("2026-08-10T04:30:00.000Z"),
@@ -140,7 +140,7 @@ describe("catch-up", () => {
   });
 
   test("reports nothing due before the scheduled instant", () => {
-    const due = collectDueTaskHeartbeatOccurrences({
+    const due = collectDueWakeUpOccurrences({
       schedule: { every: 1, unit: "hours" },
       nextRunAt: "2026-08-10T01:00:00.000Z",
       now: new Date("2026-08-10T00:59:59.000Z"),
@@ -152,7 +152,7 @@ describe("catch-up", () => {
   });
 
   test("bounds the recorded skips after a long outage instead of replaying them", () => {
-    const due = collectDueTaskHeartbeatOccurrences({
+    const due = collectDueWakeUpOccurrences({
       schedule: { every: 1, unit: "minutes" },
       nextRunAt: "2026-08-01T00:00:00.000Z",
       now: new Date("2026-08-10T00:00:00.000Z"),
@@ -160,7 +160,7 @@ describe("catch-up", () => {
 
     expect(due.dueAt).toBe("2026-08-10T00:00:00.000Z");
     expect(due.truncated).toBe(true);
-    expect(due.skippedAt.length).toBe(TASK_HEARTBEAT_LIMITS.maxRecordedSkips);
+    expect(due.skippedAt.length).toBe(WAKE_UP_LIMITS.maxRecordedSkips);
     // Still exactly one occurrence fires, no matter how long the gap was.
     expect(due.nextRunAt).toBe("2026-08-10T00:01:00.000Z");
   });
@@ -168,8 +168,8 @@ describe("catch-up", () => {
 
 describe("decision priority", () => {
   test("fires when the task is free and the instant is due", () => {
-    const decision = decideTaskHeartbeatAction({
-      heartbeat: createHeartbeat(),
+    const decision = decideWakeUpAction({
+      wakeUp: createWakeUpFixture(),
       observation: observe(),
       now: new Date("2026-08-10T01:00:00.000Z"),
     });
@@ -182,8 +182,8 @@ describe("decision priority", () => {
   });
 
   test("defers to a user turn instead of racing it", () => {
-    const decision = decideTaskHeartbeatAction({
-      heartbeat: createHeartbeat(),
+    const decision = decideWakeUpAction({
+      wakeUp: createWakeUpFixture(),
       observation: observe({ hasActiveTurn: true }),
       now: new Date("2026-08-10T01:00:00.000Z"),
     });
@@ -195,22 +195,22 @@ describe("decision priority", () => {
   });
 
   test("a deferred instant is not consumed: the same instant fires once free", () => {
-    const heartbeat = createHeartbeat();
-    const deferred = decideTaskHeartbeatAction({
-      heartbeat,
+    const wakeUp = createWakeUpFixture();
+    const deferred = decideWakeUpAction({
+      wakeUp,
       observation: observe({ hasActiveTurn: true }),
       now: new Date("2026-08-10T01:00:00.000Z"),
     });
-    const after = applyTaskHeartbeatDecision({
-      heartbeat,
+    const after = applyWakeUpDecision({
+      wakeUp,
       decision: deferred,
       now: new Date("2026-08-10T01:00:00.000Z"),
     });
 
-    expect(after.nextRunAt).toBe(heartbeat.nextRunAt);
+    expect(after.nextRunAt).toBe(wakeUp.nextRunAt);
     expect(
-      decideTaskHeartbeatAction({
-        heartbeat: after,
+      decideWakeUpAction({
+        wakeUp: after,
         observation: observe(),
         now: new Date("2026-08-10T01:00:10.000Z"),
       }),
@@ -218,8 +218,8 @@ describe("decision priority", () => {
   });
 
   test("pauses while an approval is pending, even before the instant is due", () => {
-    const decision = decideTaskHeartbeatAction({
-      heartbeat: createHeartbeat(),
+    const decision = decideWakeUpAction({
+      wakeUp: createWakeUpFixture(),
       observation: observe({ pendingApprovalCount: 1 }),
       now: new Date("2026-08-10T00:30:00.000Z"),
     });
@@ -232,17 +232,17 @@ describe("decision priority", () => {
 
   test("pauses while a question is pending", () => {
     expect(
-      decideTaskHeartbeatAction({
-        heartbeat: createHeartbeat(),
+      decideWakeUpAction({
+        wakeUp: createWakeUpFixture(),
         observation: observe({ pendingUserInputCount: 2 }),
         now: new Date("2026-08-10T01:00:00.000Z"),
       }),
     ).toMatchObject({ action: "pause", reason: "awaiting-user-input" });
   });
 
-  test("pauses when the provider runtime the heartbeat agreed to changed", () => {
-    const decision = decideTaskHeartbeatAction({
-      heartbeat: createHeartbeat(),
+  test("pauses when the provider runtime the wake-up agreed to changed", () => {
+    const decision = decideWakeUpAction({
+      wakeUp: createWakeUpFixture(),
       observation: observe({
         fingerprint: { providerId: "codex", model: "gpt-5" },
       }),
@@ -254,8 +254,8 @@ describe("decision priority", () => {
   });
 
   test("pauses when the fleet control plane rejects the task identity", () => {
-    const decision = decideTaskHeartbeatAction({
-      heartbeat: createHeartbeat(),
+    const decision = decideWakeUpAction({
+      wakeUp: createWakeUpFixture(),
       observation: observe({
         identity: { ok: false, reason: "This task moved or is no longer loaded." },
       }),
@@ -270,12 +270,12 @@ describe("decision priority", () => {
   });
 
   test("clears its own pause once the condition lifts, but not a manual one", () => {
-    const auto = createHeartbeat({
+    const auto = createWakeUpFixture({
       state: "paused",
       pauseReason: "awaiting-approval",
       reasonDetail: "The task is waiting on an approval.",
     });
-    const manual = createHeartbeat({
+    const manual = createWakeUpFixture({
       state: "paused",
       pauseReason: "paused-by-user",
       reasonDetail: "Paused by the user.",
@@ -283,23 +283,23 @@ describe("decision priority", () => {
     const now = new Date("2026-08-10T01:00:00.000Z");
 
     expect(
-      decideTaskHeartbeatAction({ heartbeat: auto, observation: observe(), now }),
+      decideWakeUpAction({ wakeUp: auto, observation: observe(), now }),
     ).toEqual({ action: "resume" });
     expect(
-      decideTaskHeartbeatAction({ heartbeat: manual, observation: observe(), now }),
+      decideWakeUpAction({ wakeUp: manual, observation: observe(), now }),
     ).toEqual({ action: "idle" });
   });
 
-  test("a resumed heartbeat schedules from now rather than firing a backlog", () => {
-    const paused = createHeartbeat({
+  test("a resumed wake-up schedules from now rather than firing a backlog", () => {
+    const paused = createWakeUpFixture({
       state: "paused",
       pauseReason: "awaiting-approval",
       reasonDetail: "The task is waiting on an approval.",
     });
     const resumedAt = new Date("2026-08-10T05:30:00.000Z");
 
-    const resumed = applyTaskHeartbeatDecision({
-      heartbeat: paused,
+    const resumed = applyWakeUpDecision({
+      wakeUp: paused,
       decision: { action: "resume" },
       now: resumedAt,
     });
@@ -318,15 +318,15 @@ describe("decision priority", () => {
     const now = new Date("2026-08-10T01:00:00.000Z");
 
     expect(
-      decideTaskHeartbeatAction({
-        heartbeat: createHeartbeat(),
+      decideWakeUpAction({
+        wakeUp: createWakeUpFixture(),
         observation: { ...blocked, taskExists: false },
         now,
       }),
     ).toMatchObject({ action: "stop", reason: "task-unavailable" });
     expect(
-      decideTaskHeartbeatAction({
-        heartbeat: createHeartbeat(),
+      decideWakeUpAction({
+        wakeUp: createWakeUpFixture(),
         observation: { ...blocked, taskArchived: true },
         now,
       }),
@@ -336,9 +336,9 @@ describe("decision priority", () => {
   test("pauses rather than stopping when the workspace itself is unreadable", () => {
     // A momentarily unresolvable workspace must stay recoverable. Stopping is
     // terminal and refuses to resume, so a transient read would destroy the
-    // heartbeat with no way back.
-    const decision = decideTaskHeartbeatAction({
-      heartbeat: createHeartbeat(),
+    // wake-up with no way back.
+    const decision = decideWakeUpAction({
+      wakeUp: createWakeUpFixture(),
       observation: observe({ workspaceAvailable: false, taskExists: false }),
       now: new Date("2026-08-10T01:00:00.000Z"),
     });
@@ -350,7 +350,7 @@ describe("decision priority", () => {
   });
 
   test("a manual pause is never overwritten by a condition that would auto-resume", () => {
-    const manual = createHeartbeat({
+    const manual = createWakeUpFixture({
       state: "paused",
       pauseReason: "paused-by-user",
       reasonDetail: "Paused by the user.",
@@ -359,8 +359,8 @@ describe("decision priority", () => {
     // An approval arrives while the user has it switched off. If this became
     // `awaiting-approval`, answering the approval would silently resume it.
     expect(
-      decideTaskHeartbeatAction({
-        heartbeat: manual,
+      decideWakeUpAction({
+        wakeUp: manual,
         observation: observe({ pendingApprovalCount: 1 }),
         now: new Date("2026-08-10T01:00:00.000Z"),
       }),
@@ -368,8 +368,8 @@ describe("decision priority", () => {
 
     // A terminal condition still outranks it.
     expect(
-      decideTaskHeartbeatAction({
-        heartbeat: manual,
+      decideWakeUpAction({
+        wakeUp: manual,
         observation: observe({ taskArchived: true }),
         now: new Date("2026-08-10T01:00:00.000Z"),
       }),
@@ -377,8 +377,8 @@ describe("decision priority", () => {
   });
 
   test("stops on expiry", () => {
-    const decision = decideTaskHeartbeatAction({
-      heartbeat: createHeartbeat({ expiresAt: "2026-08-10T00:30:00.000Z" }),
+    const decision = decideWakeUpAction({
+      wakeUp: createWakeUpFixture({ expiresAt: "2026-08-10T00:30:00.000Z" }),
       observation: observe(),
       now: new Date("2026-08-10T01:00:00.000Z"),
     });
@@ -387,8 +387,8 @@ describe("decision priority", () => {
   });
 
   test("stops on the occurrence cap", () => {
-    const decision = decideTaskHeartbeatAction({
-      heartbeat: createHeartbeat({ maxOccurrences: 2, occurrenceCount: 2 }),
+    const decision = decideWakeUpAction({
+      wakeUp: createWakeUpFixture({ maxOccurrences: 2, occurrenceCount: 2 }),
       observation: observe(),
       now: new Date("2026-08-10T01:00:00.000Z"),
     });
@@ -400,14 +400,14 @@ describe("decision priority", () => {
   });
 
   test("a completion trigger with nothing finished idles, even with a stale nextRunAt", () => {
-    const heartbeat = createHeartbeat({
+    const wakeUp = createWakeUpFixture({
       trigger: { kind: "completion" },
       nextRunAt: "2026-08-10T00:00:00.000Z",
     });
 
     expect(
-      decideTaskHeartbeatAction({
-        heartbeat,
+      decideWakeUpAction({
+        wakeUp,
         observation: observe(),
         now: new Date("2026-08-10T09:00:00.000Z"),
       }),
@@ -417,10 +417,10 @@ describe("decision priority", () => {
 
 describe("transitions", () => {
   test("firing advances the schedule and counts the skipped instants", () => {
-    const heartbeat = createHeartbeat();
+    const wakeUp = createWakeUpFixture();
 
-    const fired = applyTaskHeartbeatDecision({
-      heartbeat,
+    const fired = applyWakeUpDecision({
+      wakeUp,
       decision: {
         action: "fire",
         dueAt: "2026-08-10T04:00:00.000Z",
@@ -439,8 +439,8 @@ describe("transitions", () => {
   });
 
   test("the capped occurrence and its terminal reason land together", () => {
-    const fired = applyTaskHeartbeatDecision({
-      heartbeat: createHeartbeat({ maxOccurrences: 1 }),
+    const fired = applyWakeUpDecision({
+      wakeUp: createWakeUpFixture({ maxOccurrences: 1 }),
       decision: {
         action: "fire",
         dueAt: "2026-08-10T01:00:00.000Z",
@@ -459,8 +459,8 @@ describe("transitions", () => {
   });
 
   test("stops rather than scheduling an instant past the expiry", () => {
-    const fired = applyTaskHeartbeatDecision({
-      heartbeat: createHeartbeat({ expiresAt: "2026-08-10T01:30:00.000Z" }),
+    const fired = applyWakeUpDecision({
+      wakeUp: createWakeUpFixture({ expiresAt: "2026-08-10T01:30:00.000Z" }),
       decision: {
         action: "fire",
         dueAt: "2026-08-10T01:00:00.000Z",
@@ -477,22 +477,22 @@ describe("transitions", () => {
   });
 
   test("every non-running state carries a reason a person can read", () => {
-    const stopped = applyTaskHeartbeatDecision({
-      heartbeat: createHeartbeat(),
+    const stopped = applyWakeUpDecision({
+      wakeUp: createWakeUpFixture(),
       decision: {
         action: "stop",
         reason: "task-unavailable",
-        detail: "The task this heartbeat watches was archived.",
+        detail: "The task this wake-up watches was archived.",
       },
       now: NOW,
     });
 
-    expect(summarizeTaskHeartbeat(stopped)).toEqual({
-      heartbeatId: "hb-1",
+    expect(summarizeWakeUp(stopped)).toEqual({
+      wakeUpId: "hb-1",
       taskId: "task-1",
       triggerKind: "schedule",
       state: "stopped",
-      reason: "The task this heartbeat watches was archived.",
+      reason: "The task this wake-up watches was archived.",
       nextRunAt: null,
       occurrenceCount: 0,
       skippedCount: 0,
@@ -501,16 +501,16 @@ describe("transitions", () => {
 });
 
 describe("idempotency keys", () => {
-  test("are stable per heartbeat, outcome, and instant", () => {
-    const key = buildTaskHeartbeatIdempotencyKey({
-      heartbeatId: "hb-1",
+  test("are stable per wake-up, outcome, and instant", () => {
+    const key = buildWakeUpIdempotencyKey({
+      wakeUpId: "hb-1",
       outcome: "fired",
       scheduledFor: "2026-08-10T01:00:00.000Z",
     });
 
     expect(key).toBe(
-      buildTaskHeartbeatIdempotencyKey({
-        heartbeatId: "hb-1",
+      buildWakeUpIdempotencyKey({
+        wakeUpId: "hb-1",
         outcome: "fired",
         scheduledFor: "2026-08-10T01:00:00.000Z",
       }),
@@ -518,8 +518,8 @@ describe("idempotency keys", () => {
     // A deferral and a firing of the same instant are different records, so a
     // deferred instant can still fire later without colliding.
     expect(key).not.toBe(
-      buildTaskHeartbeatIdempotencyKey({
-        heartbeatId: "hb-1",
+      buildWakeUpIdempotencyKey({
+        wakeUpId: "hb-1",
         outcome: "deferred",
         scheduledFor: "2026-08-10T01:00:00.000Z",
       }),
@@ -552,35 +552,35 @@ describe("completion observability", () => {
     ).toBe("unsupported");
   });
 
-  test("an unobservable completion heartbeat stops with a stated reason, never silence", () => {
-    const heartbeat = createHeartbeat({
+  test("an unobservable completion wake-up stops with a stated reason, never silence", () => {
+    const wakeUp = createWakeUpFixture({
       trigger: { kind: "completion" },
       nextRunAt: null,
     });
 
-    const decision = decideTaskHeartbeatAction({
-      heartbeat,
+    const decision = decideWakeUpAction({
+      wakeUp,
       observation: observe({ completionObservability: "unsupported" }),
       now: NOW,
     });
 
     expect(decision.action).toBe("stop");
     expect(decision).toMatchObject({ reason: "completion-unobservable" });
-    const stopped = applyTaskHeartbeatDecision({ heartbeat, decision, now: NOW });
+    const stopped = applyWakeUpDecision({ wakeUp, decision, now: NOW });
     expect(stopped.state).toBe("stopped");
-    // The failure this whole layer exists to prevent is a heartbeat that cannot
+    // The failure this whole layer exists to prevent is a wake-up that cannot
     // say why it is not running.
-    expect(summarizeTaskHeartbeat(stopped).reason).toContain(
+    expect(summarizeWakeUp(stopped).reason).toContain(
       "cannot observe",
     );
-    expect(summarizeTaskHeartbeat(stopped).nextRunAt).toBeNull();
+    expect(summarizeWakeUp(stopped).nextRunAt).toBeNull();
   });
 
-  test("a schedule heartbeat ignores observability entirely", () => {
-    const heartbeat = createHeartbeat({ nextRunAt: "2026-08-09T23:00:00.000Z" });
+  test("a schedule wake-up ignores observability entirely", () => {
+    const wakeUp = createWakeUpFixture({ nextRunAt: "2026-08-09T23:00:00.000Z" });
 
-    const decision = decideTaskHeartbeatAction({
-      heartbeat,
+    const decision = decideWakeUpAction({
+      wakeUp,
       observation: observe({ completionObservability: "unsupported" }),
       now: NOW,
     });
@@ -590,8 +590,8 @@ describe("completion observability", () => {
 });
 
 describe("completion trigger policy", () => {
-  function completionHeartbeat(overrides: Partial<TaskHeartbeat> = {}) {
-    return createHeartbeat({
+  function completionWakeUp(overrides: Partial<WakeUp> = {}) {
+    return createWakeUpFixture({
       trigger: { kind: "completion" },
       nextRunAt: null,
       maxOccurrences: null,
@@ -601,8 +601,8 @@ describe("completion trigger policy", () => {
 
   test("nothing finished means nothing happens", () => {
     expect(
-      decideTaskHeartbeatAction({
-        heartbeat: completionHeartbeat(),
+      decideWakeUpAction({
+        wakeUp: completionWakeUp(),
         observation: observe(),
         now: NOW,
       }).action,
@@ -610,8 +610,8 @@ describe("completion trigger policy", () => {
   });
 
   test("finished delegated work wakes the task once", () => {
-    const decision = decideTaskHeartbeatAction({
-      heartbeat: completionHeartbeat(),
+    const decision = decideWakeUpAction({
+      wakeUp: completionWakeUp(),
       observation: observe({ completions: [completion()] }),
       now: NOW,
     });
@@ -634,8 +634,8 @@ describe("completion trigger policy", () => {
       completedAt: "2026-08-09T23:30:00.000Z",
     });
 
-    const decision = decideTaskHeartbeatAction({
-      heartbeat: completionHeartbeat(),
+    const decision = decideWakeUpAction({
+      wakeUp: completionWakeUp(),
       observation: observe({ completions: [newer, older] }),
       now: NOW,
     });
@@ -646,8 +646,8 @@ describe("completion trigger policy", () => {
     expect(decision.completions).toEqual([older, newer]);
 
     // Two children finishing must not become two unattended turns.
-    const woken = applyTaskHeartbeatDecision({
-      heartbeat: completionHeartbeat(),
+    const woken = applyWakeUpDecision({
+      wakeUp: completionWakeUp(),
       decision,
       now: NOW,
     });
@@ -657,8 +657,8 @@ describe("completion trigger policy", () => {
   });
 
   test("the user's turn still wins: a completion defers without being consumed", () => {
-    const decision = decideTaskHeartbeatAction({
-      heartbeat: completionHeartbeat(),
+    const decision = decideWakeUpAction({
+      wakeUp: completionWakeUp(),
       observation: observe({
         hasActiveTurn: true,
         completions: [completion()],
@@ -670,17 +670,17 @@ describe("completion trigger policy", () => {
     // Deferring changes nothing, so the same completion is still pending next
     // tick rather than being lost to the active turn.
     expect(
-      applyTaskHeartbeatDecision({
-        heartbeat: completionHeartbeat(),
+      applyWakeUpDecision({
+        wakeUp: completionWakeUp(),
         decision,
         now: NOW,
       }).occurrenceCount,
     ).toBe(0);
   });
 
-  test("a pending approval pauses a completion heartbeat exactly as a scheduled one", () => {
-    const decision = decideTaskHeartbeatAction({
-      heartbeat: completionHeartbeat(),
+  test("a pending approval pauses a completion wake-up exactly as a scheduled one", () => {
+    const decision = decideWakeUpAction({
+      wakeUp: completionWakeUp(),
       observation: observe({
         pendingApprovalCount: 1,
         completions: [completion()],
@@ -694,9 +694,9 @@ describe("completion trigger policy", () => {
     });
   });
 
-  test("a drifted runtime pauses a completion heartbeat before it can fire", () => {
-    const decision = decideTaskHeartbeatAction({
-      heartbeat: completionHeartbeat(),
+  test("a drifted runtime pauses a completion wake-up before it can fire", () => {
+    const decision = decideWakeUpAction({
+      wakeUp: completionWakeUp(),
       observation: observe({
         fingerprint: { providerId: "codex", model: "gpt-5" },
         completions: [completion()],
@@ -710,9 +710,9 @@ describe("completion trigger policy", () => {
     });
   });
 
-  test("an archived task stops a completion heartbeat before observability is even asked", () => {
-    const decision = decideTaskHeartbeatAction({
-      heartbeat: completionHeartbeat(),
+  test("an archived task stops a completion wake-up before observability is even asked", () => {
+    const decision = decideWakeUpAction({
+      wakeUp: completionWakeUp(),
       observation: observe({
         taskArchived: true,
         completionObservability: "unsupported",
@@ -729,7 +729,7 @@ describe("completion trigger policy", () => {
 
   test("a completion batch larger than the coalescing bound consumes in order", () => {
     const many = Array.from(
-      { length: TASK_HEARTBEAT_LIMITS.maxCoalescedCompletions + 3 },
+      { length: WAKE_UP_LIMITS.maxCoalescedCompletions + 3 },
       (_unused, index) =>
         completion({
           runId: `child-task:task-1:${index}`,
@@ -740,8 +740,8 @@ describe("completion trigger policy", () => {
         }),
     );
 
-    const decision = decideTaskHeartbeatAction({
-      heartbeat: completionHeartbeat(),
+    const decision = decideWakeUpAction({
+      wakeUp: completionWakeUp(),
       observation: observe({ completions: many }),
       now: NOW,
     });
@@ -750,15 +750,15 @@ describe("completion trigger policy", () => {
       throw new Error(`expected fire-completion, got ${decision.action}`);
     }
     expect(decision.completions).toHaveLength(
-      TASK_HEARTBEAT_LIMITS.maxCoalescedCompletions,
+      WAKE_UP_LIMITS.maxCoalescedCompletions,
     );
     expect(decision.completions[0]).toEqual(many[0]!);
   });
 });
 
 describe("completion recursion bound", () => {
-  test("an uncapped completion heartbeat gets the default cap", () => {
-    const created = createTaskHeartbeat({
+  test("an uncapped completion wake-up gets the default cap", () => {
+    const created = createWakeUp({
       id: "hb-1",
       input: createInput({ trigger: { kind: "completion" }, maxOccurrences: null }),
       projectPath: "/tmp/project",
@@ -767,13 +767,13 @@ describe("completion recursion bound", () => {
     });
 
     expect(created.maxOccurrences).toBe(
-      TASK_HEARTBEAT_LIMITS.defaultCompletionOccurrenceCap,
+      WAKE_UP_LIMITS.defaultCompletionOccurrenceCap,
     );
     expect(created.nextRunAt).toBeNull();
-    // A schedule heartbeat is still allowed to run forever: the user chose a
+    // A schedule wake-up is still allowed to run forever: the user chose a
     // cadence and can see it. Only the self-feeding trigger is bounded.
     expect(
-      resolveTaskHeartbeatOccurrenceCap({
+      resolveWakeUpOccurrenceCap({
         trigger: { kind: "schedule", schedule: { every: 1, unit: "hours" } },
         maxOccurrences: null,
       }),
@@ -782,7 +782,7 @@ describe("completion recursion bound", () => {
 
   test("an explicit cap is respected", () => {
     expect(
-      resolveTaskHeartbeatOccurrenceCap({
+      resolveWakeUpOccurrenceCap({
         trigger: { kind: "completion" },
         maxOccurrences: 3,
       }),
@@ -790,19 +790,19 @@ describe("completion recursion bound", () => {
   });
 
   test("the wake chain always ends with a stated reason", () => {
-    const heartbeat = createHeartbeat({
+    const wakeUp = createWakeUpFixture({
       trigger: { kind: "completion" },
       nextRunAt: null,
       maxOccurrences: 1,
       occurrenceCount: 0,
     });
 
-    const decision = decideTaskHeartbeatAction({
-      heartbeat,
+    const decision = decideWakeUpAction({
+      wakeUp,
       observation: observe({ completions: [completion()] }),
       now: NOW,
     });
-    const woken = applyTaskHeartbeatDecision({ heartbeat, decision, now: NOW });
+    const woken = applyWakeUpDecision({ wakeUp, decision, now: NOW });
 
     expect(woken.state).toBe("stopped");
     expect(woken.stopReason).toBe("occurrence-cap-reached");
@@ -824,8 +824,8 @@ describe("completion idempotency keys", () => {
     });
 
     const key = (signal: TaskCompletionSignal) =>
-      buildTaskHeartbeatCompletionIdempotencyKey({
-        heartbeatId: "hb-1",
+      buildWakeUpCompletionIdempotencyKey({
+        wakeUpId: "hb-1",
         outcome: "fired",
         signalKey: buildTaskCompletionSignalKey(signal),
       });
@@ -846,8 +846,8 @@ describe("completion idempotency keys", () => {
     // The retained `fired` rows are the idempotency guard for everything the
     // feed can still report. Inverting this inequality lets pruning resurrect
     // a consumed completion, which wakes the task twice.
-    expect(TASK_HEARTBEAT_LIMITS.maxCompletionFeedRows).toBeLessThanOrEqual(
-      TASK_HEARTBEAT_LIMITS.minRetainedFiredOccurrences,
+    expect(WAKE_UP_LIMITS.maxCompletionFeedRows).toBeLessThanOrEqual(
+      WAKE_UP_LIMITS.minRetainedFiredOccurrences,
     );
   });
 
@@ -855,14 +855,14 @@ describe("completion idempotency keys", () => {
     // Truncation is the failure mode here, not length: sibling steps of one run
     // share a derived prefix, so a clipped key would make one of them look like
     // the other's duplicate and drop that completion for good.
-    const runId = `child-task:${"p".repeat(TASK_HEARTBEAT_LIMITS.maxLedgerIdChars - 11)}`;
+    const runId = `child-task:${"p".repeat(WAKE_UP_LIMITS.maxLedgerIdChars - 11)}`;
     const key = (stepSuffix: string) =>
-      buildTaskHeartbeatCompletionIdempotencyKey({
-        heartbeatId: "h".repeat(TASK_HEARTBEAT_LIMITS.maxIdChars),
+      buildWakeUpCompletionIdempotencyKey({
+        wakeUpId: "h".repeat(WAKE_UP_LIMITS.maxIdChars),
         outcome: "fired",
         signalKey: buildTaskCompletionSignalKey({
           runId,
-          stepId: `${runId.slice(0, TASK_HEARTBEAT_LIMITS.maxLedgerIdChars - 2)}:${stepSuffix}`,
+          stepId: `${runId.slice(0, WAKE_UP_LIMITS.maxLedgerIdChars - 2)}:${stepSuffix}`,
           status: "interrupted",
         }),
       });
@@ -870,12 +870,12 @@ describe("completion idempotency keys", () => {
     expect(key("a")).not.toBe(key("b"));
     // The occurrence row must accept it, or the write fails instead of colliding.
     expect(key("a").length).toBeLessThanOrEqual(
-      TASK_HEARTBEAT_LIMITS.maxIdempotencyKeyChars,
+      WAKE_UP_LIMITS.maxIdempotencyKeyChars,
     );
     expect(() =>
-      TaskHeartbeatOccurrenceSchema.parse({
+      WakeUpOccurrenceSchema.parse({
         id: "occ-1",
-        heartbeatId: "hb-1",
+        wakeUpId: "hb-1",
         idempotencyKey: key("a"),
         workspaceId: "ws-1",
         taskId: "task-1",
@@ -889,15 +889,15 @@ describe("completion idempotency keys", () => {
   });
 
   test("an unreported marker is derived from the key it marks", () => {
-    const consumed = buildTaskHeartbeatCompletionIdempotencyKey({
-      heartbeatId: "hb-1",
+    const consumed = buildWakeUpCompletionIdempotencyKey({
+      wakeUpId: "hb-1",
       outcome: "fired",
       signalKey: buildTaskCompletionSignalKey(completion({})),
     });
 
     // The boot sweep finds a lost wake-up by looking for the absence of this
     // row, so it has to be computable from the consumed row alone.
-    expect(buildTaskHeartbeatUnreportedKey(consumed)).toBe(`${consumed}:error`);
-    expect(buildTaskHeartbeatUnreportedKey(consumed)).not.toBe(consumed);
+    expect(buildWakeUpUnreportedKey(consumed)).toBe(`${consumed}:error`);
+    expect(buildWakeUpUnreportedKey(consumed)).not.toBe(consumed);
   });
 });

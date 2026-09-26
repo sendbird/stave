@@ -5,7 +5,7 @@ import path from "node:path";
 import { createChildTaskCoordinator } from "../electron/main/runs/child-task-coordinator";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
 import { AutomationUpsertInputSchema } from "../src/lib/automations";
-import { TaskHeartbeatUpsertInputSchema } from "../src/lib/automation/task-supervisor";
+import { WakeUpUpsertInputSchema } from "../src/lib/supervision/wake-up-policy";
 import { UTILITY_INFERENCE_FEATURES } from "../src/lib/providers/utility-inference";
 import { resolveProviderRuntimeCapabilities } from "../src/lib/providers/runtime-capabilities";
 import {
@@ -42,7 +42,7 @@ function importedModules(source: string) {
 describe("Agent platform boundaries", () => {
   test("an automation never wakes an existing task: its definition cannot target one", () => {
     // An automation mints a task per occurrence. The moment its input accepts a
-    // taskId it has silently become a heartbeat, which is a different concept
+    // taskId it has silently become a wake-up, which is a different concept
     // with different safety rules (serialization, pause-on-approval, expiry).
     const definitionKeys = Object.keys(AutomationUpsertInputSchema.shape);
 
@@ -110,12 +110,12 @@ describe("Agent platform boundaries", () => {
     ).toEqual([]);
   });
 
-  test("a heartbeat never creates a task: it only adds a turn to one that exists", () => {
-    // The mirror of the automation boundary above. A heartbeat definition must
+  test("a wake-up never creates a task: it only adds a turn to one that exists", () => {
+    // The mirror of the automation boundary above. A wake-up definition must
     // name the task it wakes, and must not carry the fields that would let it
     // mint one — the moment it grows a name/title/environment it has become a
     // automation with different safety rules.
-    const definitionKeys = Object.keys(TaskHeartbeatUpsertInputSchema.shape);
+    const definitionKeys = Object.keys(WakeUpUpsertInputSchema.shape);
 
     expect(definitionKeys).toContain("taskId");
     expect(
@@ -123,7 +123,7 @@ describe("Agent platform boundaries", () => {
     ).toEqual([]);
     // A blank taskId would make it mint a task through `runTask`'s create path.
     expect(
-      TaskHeartbeatUpsertInputSchema.safeParse({
+      WakeUpUpsertInputSchema.safeParse({
         workspaceId: "ws-1",
         taskId: "",
         prompt: "Re-check CI.",
@@ -136,14 +136,14 @@ describe("Agent platform boundaries", () => {
     // The completion trigger is the second way into the same wake-up path, so
     // the boundary above has to hold for it too — including that it carries no
     // definition of its own that could describe a task to create.
-    const completionTrigger = TaskHeartbeatUpsertInputSchema.shape.trigger.options.find(
+    const completionTrigger = WakeUpUpsertInputSchema.shape.trigger.options.find(
       (option) => option.shape.kind.value === "completion",
     );
 
     expect(completionTrigger).toBeDefined();
     expect(Object.keys(completionTrigger!.shape)).toEqual(["kind"]);
     expect(
-      TaskHeartbeatUpsertInputSchema.safeParse({
+      WakeUpUpsertInputSchema.safeParse({
         workspaceId: "ws-1",
         taskId: "",
         prompt: "Fold the delegated result in.",
@@ -153,13 +153,13 @@ describe("Agent platform boundaries", () => {
   });
 
   test("supervisor tables record wake-ups while the ledger records delegated execution", () => {
-    // A heartbeat has no claim, no lease, and no receipts. If the supervisor
+    // A wake-up has no claim, no lease, and no receipts. If the supervisor
     // ever imported the ledger store or the child-task coordinator it would be
     // one refactor away from writing runs — which is the collapse this
     // separation exists to prevent. It reads completions through an injected
     // function precisely so that stays true.
     const supervisorRuntime = readSource(
-      "electron/host-service/task-supervisor-runtime.ts",
+      "electron/host-service/wake-up-runtime.ts",
     );
 
     expect(
@@ -171,7 +171,7 @@ describe("Agent platform boundaries", () => {
     ).toEqual([]);
     // And the pure policy stays pure: no ledger vocabulary at all.
     expect(
-      importedModules(readSource("src/lib/automation/task-supervisor.ts")).filter(
+      importedModules(readSource("src/lib/supervision/wake-up-policy.ts")).filter(
         (specifier) => /runs\/|persistence\/|host-service/.test(specifier ?? ""),
       ),
     ).toEqual([]);
@@ -255,7 +255,7 @@ describe("Agent platform boundaries", () => {
       const imports = importedModules(readSource(module));
       expect(
         imports.filter((specifier) =>
-          /task-supervisor|secondary-run|run-ledger-store|persistence\/|electron\//.test(
+          /supervision\/|wake-up|secondary-run|run-ledger-store|persistence\/|electron\//.test(
             specifier,
           ),
         ),

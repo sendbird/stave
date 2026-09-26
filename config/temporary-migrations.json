@@ -7,15 +7,33 @@
       "description": "Moves app_state values saved under routine_state_v1 and routine_provider_timeout_ms_v1 to the automation keys, renaming routines/routineId to automations/automationId.",
       "introducedAfter": "0.19.6",
       "removeInVersion": "0.22.0",
-      "files": ["electron/persistence/automation-state-store.ts"],
-      "tests": ["tests/automation-state-migration.test.ts"]
+      "files": [
+        "electron/persistence/automation-state-store.ts"
+      ],
+      "tests": [
+        "tests/automation-state-migration.test.ts"
+      ]
+    },
+    {
+      "id": "wake-up-tables",
+      "description": "Renames the task_heartbeats and task_heartbeat_occurrences tables, the heartbeat_id column and their indexes to the wake-up names.",
+      "introducedAfter": "0.19.6",
+      "removeInVersion": "0.22.0",
+      "files": [
+        "electron/persistence/wake-up-store.ts"
+      ],
+      "tests": [
+        "tests/wake-up-store-migration.test.ts"
+      ]
     },
     {
       "id": "rename-vocabulary-codemod",
-      "description": "Replays the vocabulary renames (routine to automation, and later renames) on branches that started before they landed.",
+      "description": "Replays the vocabulary renames (routine to automation, task heartbeat to wake-up, and later renames) on branches that started before they landed.",
       "introducedAfter": "0.19.6",
       "removeInVersion": "0.22.0",
-      "files": ["scripts/codemods/rename-vocabulary.ts"],
+      "files": [
+        "scripts/codemods/rename-vocabulary.ts"
+      ],
       "tests": []
     }
   ]

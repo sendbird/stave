@@ -112,7 +112,7 @@ See `docs/architecture/run-core.md` for lifecycle and extension guidance.
 ## Workspace Persistence Ownership Contract
 
 Two writers reach the workspace tables: the renderer (via IPC to main) and
-host-service (Local MCP turns, automations, heartbeats). They own different
+host-service (Local MCP turns, automations, wake-ups). They own different
 fields, and the boundary is enforced in code rather than by convention.
 
 Current path:
@@ -231,23 +231,24 @@ See `docs/features/pr-context-attachment.md` for the full architecture reference
 
 ## Task Supervisor Contract
 
-When changing how a heartbeat wakes an existing task:
+When changing how a wake-up resumes an existing task:
 
-- `src/lib/automation/task-supervisor.ts` — schemas, catch-up walk, decision priority, transitions (pure; no clock, no I/O)
-- `electron/persistence/task-heartbeat-store.ts` — `task_heartbeats`, `task_heartbeat_occurrences`, the idempotency index
-- `electron/host-service/task-supervisor-runtime.ts` — the tick, the serialized operation chain, the boot sweep
-- `electron/host-service/local-mcp-runtime.ts` — `getTaskSupervisionSnapshot` (the observation) and `runHeartbeatTurn` (the only executor)
-- `electron/host-service/protocol.ts` — `task-supervisor.invoke` (request **and** result maps)
+- `src/lib/supervision/wake-up-policy.ts` — schemas, catch-up walk, decision priority, transitions (pure; no clock, no I/O)
+- `electron/persistence/wake-up-store.ts` — `wake_ups`, `wake_up_occurrences`, the idempotency index
+- `electron/host-service/wake-up-runtime.ts` — the tick, the serialized operation chain, the boot sweep
+- `electron/host-service/local-mcp-runtime.ts` — `getTaskSupervisionSnapshot` (the observation)
+- `electron/host-service/supervised-turn.ts` — `runSupervisedTurn` (the only executor)
+- `electron/host-service/protocol.ts` — `wake-up.invoke` (request **and** result maps)
 - `electron/host-service.ts` — construction, `start`/`stop`, the dispatch arm
-- `electron/main/task-supervisor-service.ts` — the main-process bridge
-- `electron/main/stave-mcp-server.ts` — the `stave_*_task_heartbeat` tools
+- `electron/main/wake-up-service.ts` — the main-process bridge
+- `electron/main/stave-mcp-server.ts` — the `stave_*_wake_up` tools
 
 A change to the defer / pause / stop priority order is a change to the
-`task-supervisor-safety` gate, and a change to what a heartbeat definition may
+`wake-up-safety` gate, and a change to what a wake-up definition may
 contain is a change to the `agent-platform-boundaries` gate. Both are asserted
 by name in their tests.
 
-See `docs/features/task-heartbeats.md` for the full architecture reference.
+See `docs/features/wake-ups.md` for the full architecture reference.
 
 ## Tracker Tasks Contract
 

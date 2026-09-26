@@ -1,9 +1,9 @@
 /**
- * Task supervisor: wakes existing tasks safely — on a schedule, or when work
+ * Supervisor: wakes existing tasks safely — on a schedule, or when work
  * they delegated finishes.
  *
  * Used by: `electron/host-service.ts` (constructs it, starts and stops it, and
- * dispatches `task-supervisor.invoke` actions to it).
+ * dispatches `wake-up.invoke` actions to it).
  *
  * `runTask(taskId)` can already add a turn to an existing task in the same
  * provider session. What it lacks — and what lives here — is everything that
@@ -25,76 +25,76 @@
  * inventing one there would put execution machinery in the ledger's layer.
  *
  * The decision policy itself is pure and lives in
- * `src/lib/automation/task-supervisor.ts`; this file is the I/O around it.
+ * `src/lib/supervision/wake-up-policy.ts`; this file is the I/O around it.
  */
 import { randomUUID } from "node:crypto";
 import {
-  applyTaskHeartbeatDecision,
+  applyWakeUpDecision,
   buildTaskCompletionSignalKey,
-  buildTaskHeartbeatCompletionIdempotencyKey,
-  buildTaskHeartbeatIdempotencyKey,
-  buildTaskHeartbeatUnreportedKey,
+  buildWakeUpCompletionIdempotencyKey,
+  buildWakeUpIdempotencyKey,
+  buildWakeUpUnreportedKey,
   classifyTaskCompletionObservability,
-  createTaskHeartbeat,
-  decideTaskHeartbeatAction,
-  summarizeTaskHeartbeat,
+  createWakeUp,
+  decideWakeUpAction,
+  summarizeWakeUp,
   TaskCompletionSignalSchema,
-  TaskHeartbeatUpsertInputSchema,
-  TASK_HEARTBEAT_LIMITS,
+  WakeUpUpsertInputSchema,
+  WAKE_UP_LIMITS,
   type TaskCompletionObservability,
   type TaskCompletionSignal,
-  type TaskHeartbeat,
-  type TaskHeartbeatDecision,
-  type TaskHeartbeatObservation,
-  type TaskHeartbeatOccurrence,
-  type TaskHeartbeatOccurrenceOutcome,
-  type TaskHeartbeatSummary,
-  type TaskHeartbeatTrigger,
-  type TaskHeartbeatUpsertInput,
-} from "../../src/lib/automation/task-supervisor";
+  type WakeUp,
+  type WakeUpDecision,
+  type WakeUpObservation,
+  type WakeUpOccurrence,
+  type WakeUpOccurrenceOutcome,
+  type WakeUpSummary,
+  type WakeUpTrigger,
+  type WakeUpUpsertInput,
+} from "../../src/lib/supervision/wake-up-policy";
 import { validateFleetQueueAction } from "../../src/lib/fleet/control-plane";
 import type { CanonicalRetrievedContextPart } from "../../src/lib/providers/provider.types";
 import type { TaskSupervisionSnapshot } from "./local-mcp-runtime";
 
 /**
- * Slower than the automation tick: a heartbeat's shortest cadence is a minute, and
- * every tick costs one task read per active heartbeat.
+ * Slower than the automation tick: a wake-up's shortest cadence is a minute, and
+ * every tick costs one task read per active wake-up.
  */
-const TASK_SUPERVISOR_TICK_INTERVAL_MS = 15_000;
+const WAKE_UP_TICK_INTERVAL_MS = 15_000;
 
-interface TaskSupervisorPersistence {
-  listTaskHeartbeats: () => TaskHeartbeat[];
-  listActiveTaskHeartbeats: () => TaskHeartbeat[];
-  listTaskHeartbeatsForWorkspace: (workspaceId: string) => TaskHeartbeat[];
-  getTaskHeartbeat: (id: string) => TaskHeartbeat | null;
-  getTaskHeartbeatByTaskId: (taskId: string) => TaskHeartbeat | null;
-  upsertTaskHeartbeat: (heartbeat: TaskHeartbeat) => TaskHeartbeat;
-  removeTaskHeartbeat: (id: string) => boolean;
-  recordTaskHeartbeatOccurrence: (
-    occurrence: TaskHeartbeatOccurrence,
+interface WakeUpPersistence {
+  listWakeUps: () => WakeUp[];
+  listActiveWakeUps: () => WakeUp[];
+  listWakeUpsForWorkspace: (workspaceId: string) => WakeUp[];
+  getWakeUp: (id: string) => WakeUp | null;
+  getWakeUpByTaskId: (taskId: string) => WakeUp | null;
+  upsertWakeUp: (wakeUp: WakeUp) => WakeUp;
+  removeWakeUp: (id: string) => boolean;
+  recordWakeUpOccurrence: (
+    occurrence: WakeUpOccurrence,
   ) => boolean;
-  attachTaskHeartbeatOccurrenceTurn: (args: {
+  attachWakeUpOccurrenceTurn: (args: {
     id: string;
     turnId: string;
   }) => void;
-  listTaskHeartbeatOccurrences: (args: {
-    heartbeatId: string;
+  listWakeUpOccurrences: (args: {
+    wakeUpId: string;
     limit?: number;
-  }) => TaskHeartbeatOccurrence[];
-  pruneTaskHeartbeatOccurrences: (args: {
-    heartbeatId: string;
+  }) => WakeUpOccurrence[];
+  pruneWakeUpOccurrences: (args: {
+    wakeUpId: string;
     keep?: number;
   }) => number;
   completeInterruptedTurn: (args: { id: string }) => boolean;
 }
 
-interface TaskSupervisorRuntimeDependencies {
-  persistence: TaskSupervisorPersistence;
+interface WakeUpRuntimeDependencies {
+  persistence: WakeUpPersistence;
   getTaskSupervisionSnapshot: (args: {
     workspaceId: string;
     taskId: string;
   }) => Promise<TaskSupervisionSnapshot>;
-  runHeartbeatTurn: (args: {
+  runSupervisedTurn: (args: {
     workspaceId: string;
     taskId: string;
     prompt: string;
@@ -104,7 +104,7 @@ interface TaskSupervisorRuntimeDependencies {
      * passing it is what keeps a Codex task from being resumed under the
      * caller's default provider.
      */
-    fingerprint?: { providerId: TaskHeartbeat["fingerprint"]["providerId"]; model: string };
+    fingerprint?: { providerId: WakeUp["fingerprint"]["providerId"]; model: string };
     retrievedContextParts?: CanonicalRetrievedContextPart[];
   }) => Promise<{ turnId: string }>;
   /**
@@ -116,10 +116,10 @@ interface TaskSupervisorRuntimeDependencies {
    * Optional so tests and headless callers can omit it; when it is absent the
    * failure is still recorded as an occurrence with its reason.
    */
-  notifyHeartbeatWakeFailed?: (args: {
+  notifyWakeUpFailed?: (args: {
     workspaceId: string;
     taskId: string;
-    triggerKind: TaskHeartbeatTrigger["kind"];
+    triggerKind: WakeUpTrigger["kind"];
     detail: string;
   }) => Promise<void> | void;
   /**
@@ -128,7 +128,7 @@ interface TaskSupervisorRuntimeDependencies {
    * records delegated execution, and neither writes the other's rows.
    *
    * Absent means completion cannot be observed at all, which is what makes the
-   * probe return `unsupported` rather than leaving a heartbeat waiting forever.
+   * probe return `unsupported` rather than leaving a wake-up waiting forever.
    */
   listCompletedDelegatedRuns?: (args: {
     workspaceId: string;
@@ -139,55 +139,55 @@ interface TaskSupervisorRuntimeDependencies {
   clearInterval?: typeof globalThis.clearInterval;
 }
 
-export interface TaskHeartbeatSnapshot {
-  heartbeats: TaskHeartbeat[];
-  summaries: TaskHeartbeatSummary[];
+export interface WakeUpSnapshot {
+  wakeUps: WakeUp[];
+  summaries: WakeUpSummary[];
 }
 
-export interface TaskSupervisorRuntime {
+export interface WakeUpRuntime {
   start: () => void;
   stop: () => void;
-  list: (args?: { workspaceId?: string }) => Promise<TaskHeartbeatSnapshot>;
+  list: (args?: { workspaceId?: string }) => Promise<WakeUpSnapshot>;
   get: (args: { id: string }) => Promise<{
-    heartbeat: TaskHeartbeat;
-    occurrences: TaskHeartbeatOccurrence[];
+    wakeUp: WakeUp;
+    occurrences: WakeUpOccurrence[];
   }>;
-  create: (input: TaskHeartbeatUpsertInput) => Promise<TaskHeartbeat>;
+  create: (input: WakeUpUpsertInput) => Promise<WakeUp>;
   update: (args: {
     id: string;
-    input: TaskHeartbeatUpsertInput;
-  }) => Promise<TaskHeartbeat>;
-  pause: (args: { id: string }) => Promise<TaskHeartbeat>;
-  resume: (args: { id: string }) => Promise<TaskHeartbeat>;
+    input: WakeUpUpsertInput;
+  }) => Promise<WakeUp>;
+  pause: (args: { id: string }) => Promise<WakeUp>;
+  resume: (args: { id: string }) => Promise<WakeUp>;
   remove: (args: { id: string }) => Promise<{ ok: true; id: string }>;
 }
 
-function toSnapshot(heartbeats: TaskHeartbeat[]): TaskHeartbeatSnapshot {
+function toSnapshot(wakeUps: WakeUp[]): WakeUpSnapshot {
   return {
-    heartbeats,
-    summaries: heartbeats.map(summarizeTaskHeartbeat),
+    wakeUps,
+    summaries: wakeUps.map(summarizeWakeUp),
   };
 }
 
 /**
- * Tells the woken model what woke it. Without this a heartbeat turn is
+ * Tells the woken model what woke it. Without this a wake-up turn is
  * indistinguishable from the user typing, and the model asks questions nobody
  * is present to answer.
  */
-function buildHeartbeatContextPart(args: {
-  heartbeat: TaskHeartbeat;
+function buildWakeUpContextPart(args: {
+  wakeUp: WakeUp;
   dueAt: string;
   occurrenceNumber: number;
 }): CanonicalRetrievedContextPart {
-  const cap = args.heartbeat.maxOccurrences
-    ? ` of ${args.heartbeat.maxOccurrences}`
+  const cap = args.wakeUp.maxOccurrences
+    ? ` of ${args.wakeUp.maxOccurrences}`
     : "";
   return {
     type: "retrieved_context",
-    sourceId: "stave:task-heartbeat",
+    sourceId: "stave:wake-up",
     title: "Scheduled Wake",
     content: [
-      "A Stave heartbeat started this turn on a schedule. The user did not type this message and may not be watching.",
+      "A Stave wake-up started this turn on a schedule. The user did not type this message and may not be watching.",
       `This is occurrence ${args.occurrenceNumber}${cap}, scheduled for ${args.dueAt}.`,
       "Report material changes only. Do not ask a question you cannot get answered — if you are blocked, say what is blocking you and stop.",
     ].join("\n"),
@@ -202,12 +202,12 @@ function buildHeartbeatContextPart(args: {
  * a wake-up honours it.
  */
 function buildCompletionContextPart(args: {
-  heartbeat: TaskHeartbeat;
+  wakeUp: WakeUp;
   completions: TaskCompletionSignal[];
   occurrenceNumber: number;
 }): CanonicalRetrievedContextPart {
-  const cap = args.heartbeat.maxOccurrences
-    ? ` of ${args.heartbeat.maxOccurrences}`
+  const cap = args.wakeUp.maxOccurrences
+    ? ` of ${args.wakeUp.maxOccurrences}`
     : "";
   const lines = args.completions.map((completion) => {
     const who = completion.childTaskId ?? completion.runId;
@@ -216,10 +216,10 @@ function buildCompletionContextPart(args: {
   });
   return {
     type: "retrieved_context",
-    sourceId: "stave:task-heartbeat",
+    sourceId: "stave:wake-up",
     title: "Delegated Work Finished",
     content: [
-      "A Stave heartbeat started this turn because work this task delegated finished. The user did not type this message and may not be watching.",
+      "A Stave wake-up started this turn because work this task delegated finished. The user did not type this message and may not be watching.",
       `This is occurrence ${args.occurrenceNumber}${cap}.`,
       args.completions.length === 1
         ? "One delegated run finished:"
@@ -231,9 +231,9 @@ function buildCompletionContextPart(args: {
   };
 }
 
-export function createTaskSupervisorRuntime(
-  dependencies: TaskSupervisorRuntimeDependencies,
-): TaskSupervisorRuntime {
+export function createWakeUpRuntime(
+  dependencies: WakeUpRuntimeDependencies,
+): WakeUpRuntime {
   const now = dependencies.now ?? (() => new Date());
   const setIntervalImpl = dependencies.setInterval ?? globalThis.setInterval;
   const clearIntervalImpl =
@@ -256,12 +256,12 @@ export function createTaskSupervisorRuntime(
     return next;
   }
 
-  function requireHeartbeat(id: string) {
-    const heartbeat = persistence.getTaskHeartbeat(id);
-    if (!heartbeat) {
-      throw new Error(`Heartbeat not found: ${id}`);
+  function requireWakeUp(id: string) {
+    const wakeUp = persistence.getWakeUp(id);
+    if (!wakeUp) {
+      throw new Error(`Wake-up not found: ${id}`);
     }
-    return heartbeat;
+    return wakeUp;
   }
 
   /**
@@ -280,7 +280,7 @@ export function createTaskSupervisorRuntime(
   }
 
   /**
-   * Terminal delegated runs this heartbeat has not already consumed.
+   * Terminal delegated runs this wake-up has not already consumed.
    *
    * The durable occurrence rows are the filter. Attempting the write is the
    * authoritative guard (the store's unique index settles races), but filtering
@@ -288,19 +288,19 @@ export function createTaskSupervisorRuntime(
    * row while the task happens to be mid-turn.
    */
   function selectUnconsumedCompletions(args: {
-    heartbeat: TaskHeartbeat;
+    wakeUp: WakeUp;
     signals: TaskCompletionSignal[];
   }) {
     const consumed = new Set(
       persistence
-        .listTaskHeartbeatOccurrences({
-          heartbeatId: args.heartbeat.id,
+        .listWakeUpOccurrences({
+          wakeUpId: args.wakeUp.id,
           // Wide enough to reach every `fired` row the store protects, even
           // when a burst of deferrals sits in front of them. Reading a shorter
           // window would reintroduce exactly the duplicate this guards against.
           limit:
-            TASK_HEARTBEAT_LIMITS.maxRetainedOccurrences +
-            TASK_HEARTBEAT_LIMITS.minRetainedFiredOccurrences,
+            WAKE_UP_LIMITS.maxRetainedOccurrences +
+            WAKE_UP_LIMITS.minRetainedFiredOccurrences,
         })
         .filter((occurrence) => occurrence.outcome === "fired")
         .map((occurrence) => occurrence.idempotencyKey),
@@ -308,8 +308,8 @@ export function createTaskSupervisorRuntime(
     return args.signals.filter((signal) => {
       if (
         consumed.has(
-          buildTaskHeartbeatCompletionIdempotencyKey({
-            heartbeatId: args.heartbeat.id,
+          buildWakeUpCompletionIdempotencyKey({
+            wakeUpId: args.wakeUp.id,
             outcome: "fired",
             signalKey: buildTaskCompletionSignalKey(signal),
           }),
@@ -325,8 +325,8 @@ export function createTaskSupervisorRuntime(
       if (
         signal.attempt <= 1 &&
         consumed.has(
-          buildTaskHeartbeatCompletionIdempotencyKey({
-            heartbeatId: args.heartbeat.id,
+          buildWakeUpCompletionIdempotencyKey({
+            wakeUpId: args.wakeUp.id,
             outcome: "fired",
             signalKey: `${signal.runId}:${signal.stepId}:${signal.status}`,
           }),
@@ -338,8 +338,8 @@ export function createTaskSupervisorRuntime(
     });
   }
 
-  async function readCompletions(heartbeat: TaskHeartbeat) {
-    if (heartbeat.trigger.kind !== "completion") {
+  async function readCompletions(wakeUp: WakeUp) {
+    if (wakeUp.trigger.kind !== "completion") {
       return [];
     }
     const read = dependencies.listCompletedDelegatedRuns;
@@ -350,50 +350,50 @@ export function createTaskSupervisorRuntime(
     try {
       signals = (
         await read({
-          workspaceId: heartbeat.workspaceId,
-          taskId: heartbeat.taskId,
+          workspaceId: wakeUp.workspaceId,
+          taskId: wakeUp.taskId,
         })
       ).map((signal) => TaskCompletionSignalSchema.parse(signal));
     } catch (error) {
       // A ledger read that fails this tick is not an observability verdict — the
-      // heartbeat idles and tries again rather than stopping for good over a
+      // wake-up idles and tries again rather than stopping for good over a
       // transient error.
-      console.warn("[task-supervisor] failed to read delegated completions", error, {
-        heartbeatId: heartbeat.id,
-        taskId: heartbeat.taskId,
+      console.warn("[wake-ups] failed to read delegated completions", error, {
+        wakeUpId: wakeUp.id,
+        taskId: wakeUp.taskId,
       });
       return [];
     }
-    // Only work that reached a terminal state after this heartbeat existed is
+    // Only work that reached a terminal state after this wake-up existed is
     // signalable. Without the baseline, a freshly created (or re-created)
-    // completion heartbeat has no occurrence rows at all, so every old
+    // completion wake-up has no occurrence rows at all, so every old
     // terminal receipt still inside the feed window would read as new and the
     // creation itself would trigger a burst of wake-ups for work that finished
-    // long ago. `createdAt` survives updates, so an updated heartbeat keeps
+    // long ago. `createdAt` survives updates, so an updated wake-up keeps
     // its original baseline and its consumed receipts.
-    const baseline = Date.parse(heartbeat.createdAt);
+    const baseline = Date.parse(wakeUp.createdAt);
     const eligible = Number.isFinite(baseline)
       ? signals.filter((signal) => {
           const completedAt = Date.parse(signal.completedAt);
           return !Number.isFinite(completedAt) || completedAt >= baseline;
         })
       : signals;
-    return selectUnconsumedCompletions({ heartbeat, signals: eligible });
+    return selectUnconsumedCompletions({ wakeUp, signals: eligible });
   }
 
   function buildObservation(args: {
-    heartbeat: TaskHeartbeat;
+    wakeUp: WakeUp;
     snapshot: TaskSupervisionSnapshot;
     completions: TaskCompletionSignal[];
-  }): TaskHeartbeatObservation {
-    const { heartbeat, snapshot } = args;
+  }): WakeUpObservation {
+    const { wakeUp, snapshot } = args;
     // The supervisor queues work onto a task from outside that task, which is
     // exactly the staleness question the fleet control plane already answers.
     const identity = validateFleetQueueAction({
       expected: {
-        projectPath: heartbeat.projectPath,
-        workspaceId: heartbeat.workspaceId,
-        taskId: heartbeat.taskId,
+        projectPath: wakeUp.projectPath,
+        workspaceId: wakeUp.workspaceId,
+        taskId: wakeUp.taskId,
       },
       current: {
         projectPath: snapshot.projectPath,
@@ -421,30 +421,30 @@ export function createTaskSupervisorRuntime(
   }
 
   function recordOccurrence(args: {
-    heartbeat: TaskHeartbeat;
-    outcome: TaskHeartbeatOccurrenceOutcome;
+    wakeUp: WakeUp;
+    outcome: WakeUpOccurrenceOutcome;
     scheduledFor: string;
     reason: string | null;
   }) {
-    const occurrence: TaskHeartbeatOccurrence = {
+    const occurrence: WakeUpOccurrence = {
       id: randomUUID(),
-      heartbeatId: args.heartbeat.id,
-      idempotencyKey: buildTaskHeartbeatIdempotencyKey({
-        heartbeatId: args.heartbeat.id,
+      wakeUpId: args.wakeUp.id,
+      idempotencyKey: buildWakeUpIdempotencyKey({
+        wakeUpId: args.wakeUp.id,
         outcome: args.outcome,
         scheduledFor: args.scheduledFor,
       }),
-      workspaceId: args.heartbeat.workspaceId,
-      taskId: args.heartbeat.taskId,
+      workspaceId: args.wakeUp.workspaceId,
+      taskId: args.wakeUp.taskId,
       turnId: null,
       outcome: args.outcome,
       reason: args.reason
-        ? args.reason.slice(0, TASK_HEARTBEAT_LIMITS.maxReasonChars)
+        ? args.reason.slice(0, WAKE_UP_LIMITS.maxReasonChars)
         : null,
       scheduledFor: args.scheduledFor,
       recordedAt: now().toISOString(),
     };
-    const recorded = persistence.recordTaskHeartbeatOccurrence(occurrence);
+    const recorded = persistence.recordWakeUpOccurrence(occurrence);
     return { recorded, occurrence };
   }
 
@@ -454,29 +454,29 @@ export function createTaskSupervisorRuntime(
    * consumed by an earlier wake-up, so it must not contribute to another turn.
    */
   function recordCompletionOccurrence(args: {
-    heartbeat: TaskHeartbeat;
+    wakeUp: WakeUp;
     signal: TaskCompletionSignal;
   }) {
-    const occurrence: TaskHeartbeatOccurrence = {
+    const occurrence: WakeUpOccurrence = {
       id: randomUUID(),
-      heartbeatId: args.heartbeat.id,
-      idempotencyKey: buildTaskHeartbeatCompletionIdempotencyKey({
-        heartbeatId: args.heartbeat.id,
+      wakeUpId: args.wakeUp.id,
+      idempotencyKey: buildWakeUpCompletionIdempotencyKey({
+        wakeUpId: args.wakeUp.id,
         outcome: "fired",
         signalKey: buildTaskCompletionSignalKey(args.signal),
       }),
-      workspaceId: args.heartbeat.workspaceId,
-      taskId: args.heartbeat.taskId,
+      workspaceId: args.wakeUp.workspaceId,
+      taskId: args.wakeUp.taskId,
       turnId: null,
       outcome: "fired",
       reason: `Delegated run ${args.signal.runId} ${args.signal.status}.`.slice(
         0,
-        TASK_HEARTBEAT_LIMITS.maxReasonChars,
+        WAKE_UP_LIMITS.maxReasonChars,
       ),
       scheduledFor: args.signal.completedAt,
       recordedAt: now().toISOString(),
     };
-    const recorded = persistence.recordTaskHeartbeatOccurrence(occurrence);
+    const recorded = persistence.recordWakeUpOccurrence(occurrence);
     return { recorded, occurrence };
   }
 
@@ -489,18 +489,18 @@ export function createTaskSupervisorRuntime(
    * being delivered.
    */
   function recordUnreportedOccurrence(args: {
-    occurrence: TaskHeartbeatOccurrence;
+    occurrence: WakeUpOccurrence;
     detail: string;
   }) {
-    persistence.recordTaskHeartbeatOccurrence({
+    persistence.recordWakeUpOccurrence({
       ...args.occurrence,
       id: randomUUID(),
-      idempotencyKey: buildTaskHeartbeatUnreportedKey(
+      idempotencyKey: buildWakeUpUnreportedKey(
         args.occurrence.idempotencyKey,
       ),
       turnId: null,
       outcome: "skipped",
-      reason: args.detail.slice(0, TASK_HEARTBEAT_LIMITS.maxReasonChars),
+      reason: args.detail.slice(0, WAKE_UP_LIMITS.maxReasonChars),
       recordedAt: now().toISOString(),
     });
   }
@@ -510,27 +510,27 @@ export function createTaskSupervisorRuntime(
    *
    * Never allowed to throw: the occurrence rows are already written by the time
    * this runs, and a failed notification must not turn one lost wake-up into a
-   * failed tick that also skips every other heartbeat.
+   * failed tick that also skips every other wake-up.
    */
   async function reportWakeFailure(args: {
-    heartbeat: TaskHeartbeat;
+    wakeUp: WakeUp;
     detail: string;
   }) {
-    const notify = dependencies.notifyHeartbeatWakeFailed;
+    const notify = dependencies.notifyWakeUpFailed;
     if (!notify) {
       return;
     }
     try {
       await notify({
-        workspaceId: args.heartbeat.workspaceId,
-        taskId: args.heartbeat.taskId,
-        triggerKind: args.heartbeat.trigger.kind,
-        detail: args.detail.slice(0, TASK_HEARTBEAT_LIMITS.maxReasonChars),
+        workspaceId: args.wakeUp.workspaceId,
+        taskId: args.wakeUp.taskId,
+        triggerKind: args.wakeUp.trigger.kind,
+        detail: args.detail.slice(0, WAKE_UP_LIMITS.maxReasonChars),
       });
     } catch (error) {
-      console.warn("[task-supervisor] failed to report a lost wake-up", error, {
-        heartbeatId: args.heartbeat.id,
-        taskId: args.heartbeat.taskId,
+      console.warn("[wake-ups] failed to report a lost wake-up", error, {
+        wakeUpId: args.wakeUp.id,
+        taskId: args.wakeUp.taskId,
       });
     }
   }
@@ -539,7 +539,7 @@ export function createTaskSupervisorRuntime(
     return error instanceof Error ? error.message : fallback;
   }
 
-  function persistIfChanged(previous: TaskHeartbeat, next: TaskHeartbeat) {
+  function persistIfChanged(previous: WakeUp, next: WakeUp) {
     if (
       previous.state === next.state &&
       previous.pauseReason === next.pauseReason &&
@@ -551,10 +551,10 @@ export function createTaskSupervisorRuntime(
       previous.lastOccurrenceAt === next.lastOccurrenceAt
     ) {
       // Nothing moved. Rewriting the row every tick would churn `updatedAt` and
-      // make every heartbeat look freshly changed in the UI.
+      // make every wake-up look freshly changed in the UI.
       return previous;
     }
-    return persistence.upsertTaskHeartbeat(next);
+    return persistence.upsertWakeUp(next);
   }
 
   /**
@@ -566,16 +566,16 @@ export function createTaskSupervisorRuntime(
    * occurrence rows decide, not the caller and not the tick.
    */
   async function fireCompletion(args: {
-    heartbeat: TaskHeartbeat;
-    decision: Extract<TaskHeartbeatDecision, { action: "fire-completion" }>;
+    wakeUp: WakeUp;
+    decision: Extract<WakeUpDecision, { action: "fire-completion" }>;
   }) {
-    const { heartbeat, decision } = args;
+    const { wakeUp, decision } = args;
     const consumed: Array<{
-      occurrence: TaskHeartbeatOccurrence;
+      occurrence: WakeUpOccurrence;
       signal: TaskCompletionSignal;
     }> = [];
     for (const signal of decision.completions) {
-      const recorded = recordCompletionOccurrence({ heartbeat, signal });
+      const recorded = recordCompletionOccurrence({ wakeUp, signal });
       if (recorded.recorded) {
         consumed.push({ occurrence: recorded.occurrence, signal });
       }
@@ -583,13 +583,13 @@ export function createTaskSupervisorRuntime(
     if (consumed.length === 0) {
       // Every completion in this batch had already been handled. Do not start a
       // second turn and do not spend an occurrence on it.
-      return heartbeat;
+      return wakeUp;
     }
 
     const woken = persistIfChanged(
-      heartbeat,
-      applyTaskHeartbeatDecision({
-        heartbeat,
+      wakeUp,
+      applyWakeUpDecision({
+        wakeUp,
         decision: {
           ...decision,
           completions: consumed.map((entry) => entry.signal),
@@ -599,21 +599,21 @@ export function createTaskSupervisorRuntime(
     );
 
     try {
-      const turn = await dependencies.runHeartbeatTurn({
-        workspaceId: heartbeat.workspaceId,
-        taskId: heartbeat.taskId,
-        prompt: heartbeat.prompt,
-        fingerprint: heartbeat.fingerprint,
+      const turn = await dependencies.runSupervisedTurn({
+        workspaceId: wakeUp.workspaceId,
+        taskId: wakeUp.taskId,
+        prompt: wakeUp.prompt,
+        fingerprint: wakeUp.fingerprint,
         retrievedContextParts: [
           buildCompletionContextPart({
-            heartbeat,
+            wakeUp,
             completions: consumed.map((entry) => entry.signal),
             occurrenceNumber: woken.occurrenceCount,
           }),
         ],
       });
       for (const entry of consumed) {
-        persistence.attachTaskHeartbeatOccurrenceTurn({
+        persistence.attachWakeUpOccurrenceTurn({
           id: entry.occurrence.id,
           turnId: turn.turnId,
         });
@@ -632,57 +632,57 @@ export function createTaskSupervisorRuntime(
         recordUnreportedOccurrence({ occurrence: entry.occurrence, detail });
       }
       await reportWakeFailure({
-        heartbeat,
+        wakeUp,
         detail: `${consumed.length === 1 ? "A finished delegated run" : `${consumed.length} finished delegated runs`} could not be reported to this task: ${detail}`,
       });
     }
-    persistence.pruneTaskHeartbeatOccurrences({ heartbeatId: heartbeat.id });
+    persistence.pruneWakeUpOccurrences({ wakeUpId: wakeUp.id });
     return woken;
   }
 
-  async function evaluate(heartbeat: TaskHeartbeat) {
+  async function evaluate(wakeUp: WakeUp) {
     const snapshot = await dependencies.getTaskSupervisionSnapshot({
-      workspaceId: heartbeat.workspaceId,
-      taskId: heartbeat.taskId,
+      workspaceId: wakeUp.workspaceId,
+      taskId: wakeUp.taskId,
     });
-    const completions = await readCompletions(heartbeat);
-    const decision = decideTaskHeartbeatAction({
-      heartbeat,
-      observation: buildObservation({ heartbeat, snapshot, completions }),
+    const completions = await readCompletions(wakeUp);
+    const decision = decideWakeUpAction({
+      wakeUp,
+      observation: buildObservation({ wakeUp, snapshot, completions }),
       now: now(),
     });
 
     if (decision.action === "idle") {
-      return heartbeat;
+      return wakeUp;
     }
 
     if (decision.action === "defer") {
       // Collapsed by idempotency key, so a long user turn leaves one row per
       // missed instant rather than one per tick.
       const deferred = recordOccurrence({
-        heartbeat,
+        wakeUp,
         outcome: "deferred",
         scheduledFor: decision.dueAt,
         reason: decision.detail,
       });
       if (deferred.recorded) {
-        // The fire paths prune after themselves, but a heartbeat can defer for
+        // The fire paths prune after themselves, but a wake-up can defer for
         // a very long time without ever firing — pruning here keeps its
         // history bounded instead of growing one row per missed instant
         // forever. The `fired` retention floor is unaffected.
-        persistence.pruneTaskHeartbeatOccurrences({ heartbeatId: heartbeat.id });
+        persistence.pruneWakeUpOccurrences({ wakeUpId: wakeUp.id });
       }
-      return heartbeat;
+      return wakeUp;
     }
 
     if (decision.action === "fire-completion") {
-      return await fireCompletion({ heartbeat, decision });
+      return await fireCompletion({ wakeUp, decision });
     }
 
     if (decision.action !== "fire") {
       return persistIfChanged(
-        heartbeat,
-        applyTaskHeartbeatDecision({ heartbeat, decision, now: now() }),
+        wakeUp,
+        applyWakeUpDecision({ wakeUp, decision, now: now() }),
       );
     }
 
@@ -693,9 +693,9 @@ export function createTaskSupervisorRuntime(
       // turn; one without was missed while Stave was not running at all.
       const deferredKeys = new Set(
         persistence
-          .listTaskHeartbeatOccurrences({
-            heartbeatId: heartbeat.id,
-            limit: TASK_HEARTBEAT_LIMITS.maxRetainedOccurrences,
+          .listWakeUpOccurrences({
+            wakeUpId: wakeUp.id,
+            limit: WAKE_UP_LIMITS.maxRetainedOccurrences,
           })
           .filter((occurrence) => occurrence.outcome === "deferred")
           .map((occurrence) => occurrence.idempotencyKey),
@@ -705,14 +705,14 @@ export function createTaskSupervisorRuntime(
         : "";
       for (const skippedAt of decision.skippedAt) {
         const wasDeferred = deferredKeys.has(
-          buildTaskHeartbeatIdempotencyKey({
-            heartbeatId: heartbeat.id,
+          buildWakeUpIdempotencyKey({
+            wakeUpId: wakeUp.id,
             outcome: "deferred",
             scheduledFor: skippedAt,
           }),
         );
         recordOccurrence({
-          heartbeat,
+          wakeUp,
           outcome: "skipped",
           scheduledFor: skippedAt,
           reason: `${
@@ -725,7 +725,7 @@ export function createTaskSupervisorRuntime(
     }
 
     const fired = recordOccurrence({
-      heartbeat,
+      wakeUp,
       outcome: "fired",
       scheduledFor: decision.dueAt,
       reason: null,
@@ -733,80 +733,80 @@ export function createTaskSupervisorRuntime(
     if (!fired.recorded) {
       // The occurrence row is the idempotency guard: this instant was already
       // handled by an earlier delivery. Advance the schedule so the duplicate
-      // cannot wedge the heartbeat, but do not start a second turn and do not
+      // cannot wedge the wake-up, but do not start a second turn and do not
       // count it again — that would burn a slot of the occurrence cap.
-      return persistIfChanged(heartbeat, {
-        ...heartbeat,
+      return persistIfChanged(wakeUp, {
+        ...wakeUp,
         nextRunAt: decision.nextRunAt,
         updatedAt: now().toISOString(),
       });
     }
     const advanced = persistIfChanged(
-      heartbeat,
-      applyTaskHeartbeatDecision({ heartbeat, decision, now: now() }),
+      wakeUp,
+      applyWakeUpDecision({ wakeUp, decision, now: now() }),
     );
 
     try {
-      const turn = await dependencies.runHeartbeatTurn({
-        workspaceId: heartbeat.workspaceId,
-        taskId: heartbeat.taskId,
-        prompt: heartbeat.prompt,
-        fingerprint: heartbeat.fingerprint,
+      const turn = await dependencies.runSupervisedTurn({
+        workspaceId: wakeUp.workspaceId,
+        taskId: wakeUp.taskId,
+        prompt: wakeUp.prompt,
+        fingerprint: wakeUp.fingerprint,
         retrievedContextParts: [
-          buildHeartbeatContextPart({
-            heartbeat,
+          buildWakeUpContextPart({
+            wakeUp,
             dueAt: decision.dueAt,
             occurrenceNumber: advanced.occurrenceCount,
           }),
         ],
       });
-      persistence.attachTaskHeartbeatOccurrenceTurn({
+      persistence.attachWakeUpOccurrenceTurn({
         id: fired.occurrence.id,
         turnId: turn.turnId,
       });
     } catch (error) {
       // A failed start is not terminal: the task may simply have begun a turn
       // between the snapshot and the call. The reason is recorded and the next
-      // tick re-evaluates from live state, which stops the heartbeat if the
+      // tick re-evaluates from live state, which stops the wake-up if the
       // task really is gone. This instant is spent either way, so the human
       // hears about it rather than reading a `scheduled` row that quietly
       // skipped a beat.
       const detail = describeTurnFailure(
         error,
-        "Failed to start the heartbeat turn.",
+        "Failed to start the wake-up turn.",
       );
       recordUnreportedOccurrence({ occurrence: fired.occurrence, detail });
       await reportWakeFailure({
-        heartbeat,
+        wakeUp,
         detail: `A scheduled wake-up for ${decision.dueAt} could not start: ${detail}`,
       });
     }
-    persistence.pruneTaskHeartbeatOccurrences({ heartbeatId: heartbeat.id });
+    persistence.pruneWakeUpOccurrences({ wakeUpId: wakeUp.id });
     return advanced;
   }
 
   async function tick() {
-    for (const heartbeat of persistence.listActiveTaskHeartbeats()) {
+    for (const wakeUp of persistence.listActiveWakeUps()) {
       try {
-        await evaluate(heartbeat);
+        await evaluate(wakeUp);
       } catch (error) {
-        console.error("[task-supervisor] heartbeat evaluation failed", error, {
-          heartbeatId: heartbeat.id,
-          taskId: heartbeat.taskId,
+        console.error("[wake-ups] wake-up evaluation failed", error, {
+          wakeUpId: wakeUp.id,
+          taskId: wakeUp.taskId,
         });
       }
     }
   }
 
   /**
-   * Boot sweep. A turn a heartbeat started before Stave was killed is still
+   * Boot sweep. A turn a wake-up started before Stave was killed is still
    * open in SQLite, so `hasActiveTurn` would be true forever and every later
    * occurrence would defer behind a turn that will never finish.
    */
-  function closeInterruptedHeartbeatTurns() {
-    for (const heartbeat of persistence.listActiveTaskHeartbeats()) {
+  function closeInterruptedWakeUpTurns() {
+    for (const wakeUp of persistence.listActiveWakeUps()) {
       const latest = persistence
-        .listTaskHeartbeatOccurrences({ heartbeatId: heartbeat.id, limit: 5 })
+        .listWakeUpOccurrences({ wakeUpId: wakeUp.id, limit: 5 })
         .find((occurrence) => occurrence.outcome === "fired" && occurrence.turnId);
       if (latest?.turnId) {
         persistence.completeInterruptedTurn({ id: latest.turnId });
@@ -823,13 +823,13 @@ export function createTaskSupervisorRuntime(
    * unreported sibling can only be that. Marking it is what keeps this
    * report-once rather than once per restart.
    */
-  async function reportInterruptedHeartbeatWakes() {
-    for (const heartbeat of persistence.listActiveTaskHeartbeats()) {
-      const occurrences = persistence.listTaskHeartbeatOccurrences({
-        heartbeatId: heartbeat.id,
+  async function reportInterruptedWakeUps() {
+    for (const wakeUp of persistence.listActiveWakeUps()) {
+      const occurrences = persistence.listWakeUpOccurrences({
+        wakeUpId: wakeUp.id,
         limit:
-          TASK_HEARTBEAT_LIMITS.maxRetainedOccurrences +
-          TASK_HEARTBEAT_LIMITS.minRetainedFiredOccurrences,
+          WAKE_UP_LIMITS.maxRetainedOccurrences +
+          WAKE_UP_LIMITS.minRetainedFiredOccurrences,
       });
       const alreadyReported = new Set(
         occurrences.map((occurrence) => occurrence.idempotencyKey),
@@ -839,7 +839,7 @@ export function createTaskSupervisorRuntime(
           occurrence.outcome === "fired" &&
           !occurrence.turnId &&
           !alreadyReported.has(
-            buildTaskHeartbeatUnreportedKey(occurrence.idempotencyKey),
+            buildWakeUpUnreportedKey(occurrence.idempotencyKey),
           ),
       );
       if (lost.length === 0) {
@@ -851,7 +851,7 @@ export function createTaskSupervisorRuntime(
         recordUnreportedOccurrence({ occurrence, detail });
       }
       await reportWakeFailure({
-        heartbeat,
+        wakeUp,
         detail: `${lost.length === 1 ? "One wake-up" : `${lost.length} wake-ups`} were lost when Stave stopped: ${detail}`,
       });
     }
@@ -863,29 +863,29 @@ export function createTaskSupervisorRuntime(
     }
     try {
       // The boot sweep must not be able to keep the supervisor from starting:
-      // one unreadable heartbeat row would otherwise take every heartbeat (and
+      // one unreadable wake-up row would otherwise take every wake-up (and
       // the host service's startup path) down with it.
-      closeInterruptedHeartbeatTurns();
+      closeInterruptedWakeUpTurns();
     } catch (error) {
       console.error(
-        "[task-supervisor] failed to close interrupted heartbeat turns",
+        "[wake-ups] failed to close interrupted wake-up turns",
         error,
       );
     }
-    void enqueue(reportInterruptedHeartbeatWakes).catch((error) => {
+    void enqueue(reportInterruptedWakeUps).catch((error) => {
       console.error(
-        "[task-supervisor] failed to report interrupted wake-ups",
+        "[wake-ups] failed to report interrupted wake-ups",
         error,
       );
     });
     const enqueueTick = () => {
       void enqueue(tick).catch((error) => {
-        console.error("[task-supervisor] tick failed", error);
+        console.error("[wake-ups] tick failed", error);
       });
     };
     intervalHandle = setIntervalImpl(
       enqueueTick,
-      TASK_SUPERVISOR_TICK_INTERVAL_MS,
+      WAKE_UP_TICK_INTERVAL_MS,
     );
     // The first tick performs the restart catch-up: the latest missed instant
     // fires and the earlier ones land as skipped occurrences.
@@ -920,12 +920,12 @@ export function createTaskSupervisorRuntime(
   }
 
   /**
-   * Refuse up front rather than accept a heartbeat that could never fire. The
+   * Refuse up front rather than accept a wake-up that could never fire. The
    * decision policy would stop it on the very next tick anyway; failing here
    * gives the caller the reason instead of a row that dies silently.
    */
   function requireObservableCompletion(args: {
-    trigger: TaskHeartbeatUpsertInput["trigger"];
+    trigger: WakeUpUpsertInput["trigger"];
     snapshot: TaskSupervisionSnapshot;
   }) {
     if (args.trigger.kind !== "completion") {
@@ -933,7 +933,7 @@ export function createTaskSupervisorRuntime(
     }
     if (probeCompletionObservability(args.snapshot) === "unsupported") {
       throw new Error(
-        "Stave cannot observe when this task's delegated work finishes, so a completion heartbeat would never fire. Use a schedule trigger.",
+        "Stave cannot observe when this task's delegated work finishes, so a completion wake-up would never fire. Use a schedule trigger.",
       );
     }
   }
@@ -945,28 +945,28 @@ export function createTaskSupervisorRuntime(
       enqueue(() =>
         toSnapshot(
           args?.workspaceId
-            ? persistence.listTaskHeartbeatsForWorkspace(args.workspaceId)
-            : persistence.listTaskHeartbeats(),
+            ? persistence.listWakeUpsForWorkspace(args.workspaceId)
+            : persistence.listWakeUps(),
         ),
       ),
     get: ({ id }) =>
       enqueue(() => {
-        const heartbeat = requireHeartbeat(id);
+        const wakeUp = requireWakeUp(id);
         return {
-          heartbeat,
-          occurrences: persistence.listTaskHeartbeatOccurrences({
-            heartbeatId: id,
+          wakeUp,
+          occurrences: persistence.listWakeUpOccurrences({
+            wakeUpId: id,
             limit: 20,
           }),
         };
       }),
     create: (rawInput) =>
       enqueue(async () => {
-        const input = TaskHeartbeatUpsertInputSchema.parse(rawInput);
-        const existing = persistence.getTaskHeartbeatByTaskId(input.taskId);
+        const input = WakeUpUpsertInputSchema.parse(rawInput);
+        const existing = persistence.getWakeUpByTaskId(input.taskId);
         if (existing && existing.state !== "stopped") {
           throw new Error(
-            "This task already has a heartbeat. Update or remove it first.",
+            "This task already has a wake-up. Update or remove it first.",
           );
         }
         const snapshot = await requireSupervisableTask({
@@ -975,12 +975,12 @@ export function createTaskSupervisorRuntime(
         });
         requireObservableCompletion({ trigger: input.trigger, snapshot });
         if (existing) {
-          // A stopped heartbeat is terminal but still occupies the task. Adding
+          // A stopped wake-up is terminal but still occupies the task. Adding
           // a new one replaces it rather than resurrecting a stale reason.
-          persistence.removeTaskHeartbeat(existing.id);
+          persistence.removeWakeUp(existing.id);
         }
-        return persistence.upsertTaskHeartbeat(
-          createTaskHeartbeat({
+        return persistence.upsertWakeUp(
+          createWakeUp({
             id: randomUUID(),
             input,
             projectPath: snapshot.projectPath!,
@@ -994,14 +994,14 @@ export function createTaskSupervisorRuntime(
       }),
     update: ({ id, input: rawInput }) =>
       enqueue(async () => {
-        const input = TaskHeartbeatUpsertInputSchema.parse(rawInput);
-        const current = requireHeartbeat(id);
+        const input = WakeUpUpsertInputSchema.parse(rawInput);
+        const current = requireWakeUp(id);
         if (current.state === "stopped") {
-          // Matches `resume`: a stopped heartbeat is terminal for a stated
+          // Matches `resume`: a stopped wake-up is terminal for a stated
           // reason, and an update quietly rescheduling it would erase that
-          // reason. Creating a fresh heartbeat replaces a stopped one instead.
+          // reason. Creating a fresh wake-up replaces a stopped one instead.
           throw new Error(
-            `This heartbeat stopped for good: ${current.reasonDetail ?? current.stopReason}. Add a new one instead.`,
+            `This wake-up stopped for good: ${current.reasonDetail ?? current.stopReason}. Add a new one instead.`,
           );
         }
         if (
@@ -1009,7 +1009,7 @@ export function createTaskSupervisorRuntime(
           input.workspaceId !== current.workspaceId
         ) {
           throw new Error(
-            "A heartbeat cannot be moved to another task. Remove it and add one there.",
+            "A wake-up cannot be moved to another task. Remove it and add one there.",
           );
         }
         const snapshot = await requireSupervisableTask({
@@ -1019,7 +1019,7 @@ export function createTaskSupervisorRuntime(
         requireObservableCompletion({ trigger: input.trigger, snapshot });
         // An update is a fresh agreement: it re-captures the runtime identity
         // and clears any pause, including a runtime-changed one.
-        const updated = createTaskHeartbeat({
+        const updated = createWakeUp({
           id: current.id,
           input,
           projectPath: snapshot.projectPath!,
@@ -1029,7 +1029,7 @@ export function createTaskSupervisorRuntime(
           },
           now: now(),
         });
-        return persistence.upsertTaskHeartbeat({
+        return persistence.upsertWakeUp({
           ...updated,
           createdAt: current.createdAt,
           // Switching trigger kinds resets the fired count: a schedule that
@@ -1045,11 +1045,11 @@ export function createTaskSupervisorRuntime(
       }),
     pause: ({ id }) =>
       enqueue(() => {
-        const current = requireHeartbeat(id);
+        const current = requireWakeUp(id);
         if (current.state === "stopped") {
-          throw new Error("This heartbeat already stopped.");
+          throw new Error("This wake-up already stopped.");
         }
-        return persistence.upsertTaskHeartbeat({
+        return persistence.upsertWakeUp({
           ...current,
           state: "paused",
           pauseReason: "paused-by-user",
@@ -1060,15 +1060,15 @@ export function createTaskSupervisorRuntime(
       }),
     resume: ({ id }) =>
       enqueue(() => {
-        const current = requireHeartbeat(id);
+        const current = requireWakeUp(id);
         if (current.state === "stopped") {
           throw new Error(
-            `This heartbeat stopped for good: ${current.reasonDetail ?? current.stopReason}. Add a new one instead.`,
+            `This wake-up stopped for good: ${current.reasonDetail ?? current.stopReason}. Add a new one instead.`,
           );
         }
-        return persistence.upsertTaskHeartbeat(
-          applyTaskHeartbeatDecision({
-            heartbeat: current,
+        return persistence.upsertWakeUp(
+          applyWakeUpDecision({
+            wakeUp: current,
             decision: { action: "resume" },
             now: now(),
           }),
@@ -1076,8 +1076,8 @@ export function createTaskSupervisorRuntime(
       }),
     remove: ({ id }) =>
       enqueue(() => {
-        requireHeartbeat(id);
-        persistence.removeTaskHeartbeat(id);
+        requireWakeUp(id);
+        persistence.removeWakeUp(id);
         return { ok: true as const, id };
       }),
   };

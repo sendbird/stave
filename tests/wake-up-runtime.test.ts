@@ -1,17 +1,17 @@
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { randomUUID } from "node:crypto";
-import { createTaskSupervisorRuntime } from "../electron/host-service/task-supervisor-runtime";
-import { TaskHeartbeatStore } from "../electron/persistence/task-heartbeat-store";
+import { createWakeUpRuntime } from "../electron/host-service/wake-up-runtime";
+import { WakeUpStore } from "../electron/persistence/wake-up-store";
 import type { TaskSupervisionSnapshot } from "../electron/host-service/local-mcp-runtime";
 import {
   buildTaskCompletionSignalKey,
-  buildTaskHeartbeatCompletionIdempotencyKey,
-  buildTaskHeartbeatIdempotencyKey,
-  TASK_HEARTBEAT_LIMITS,
+  buildWakeUpCompletionIdempotencyKey,
+  buildWakeUpIdempotencyKey,
+  WAKE_UP_LIMITS,
   type TaskCompletionSignal,
-  type TaskHeartbeatUpsertInput,
-} from "@/lib/automation/task-supervisor";
+  type WakeUpUpsertInput,
+} from "@/lib/supervision/wake-up-policy";
 
 function completionSignal(
   overrides: Partial<TaskCompletionSignal> = {},
@@ -23,8 +23,8 @@ function completionSignal(
     providerId: "claude-code",
     status: "completed",
     reason: null,
-    // After the harness's default heartbeat creation instant (00:00): only
-    // work that finishes after the heartbeat exists is signalable.
+    // After the harness's default wake-up creation instant (00:00): only
+    // work that finishes after the wake-up exists is signalable.
     completedAt: "2026-08-10T00:30:00.000Z",
     attempt: 1,
     ...overrides,
@@ -32,8 +32,8 @@ function completionSignal(
 }
 
 function createInput(
-  overrides: Partial<TaskHeartbeatUpsertInput> = {},
-): TaskHeartbeatUpsertInput {
+  overrides: Partial<WakeUpUpsertInput> = {},
+): WakeUpUpsertInput {
   return {
     workspaceId: "ws-1",
     taskId: "task-1",
@@ -45,7 +45,7 @@ function createInput(
   };
 }
 
-test("unsupported automatic wake-up providers are rejected before saving a heartbeat", async () => {
+test("unsupported automatic wake-up providers are rejected before saving a wake-up", async () => {
   for (const providerId of ["cursor", "kiro"] as const) {
     const harness = createHarness();
     harness.setSnapshot({ providerId });
@@ -61,7 +61,7 @@ function createHarness(args?: {
   completions?: TaskCompletionSignal[];
   omitCompletionReader?: boolean;
 }) {
-  const store = new TaskHeartbeatStore(new Database(":memory:"));
+  const store = new WakeUpStore(new Database(":memory:"));
   let completions: TaskCompletionSignal[] = args?.completions ?? [];
   let completionError: Error | null = null;
   let completionReads = 0;
@@ -95,22 +95,22 @@ function createHarness(args?: {
     pendingUserInputCount: 0,
   };
 
-  const runtime = createTaskSupervisorRuntime({
+  const runtime = createWakeUpRuntime({
     persistence: {
-      listTaskHeartbeats: () => store.list(),
-      listActiveTaskHeartbeats: () => store.listActive(),
-      listTaskHeartbeatsForWorkspace: (workspaceId) =>
+      listWakeUps: () => store.list(),
+      listActiveWakeUps: () => store.listActive(),
+      listWakeUpsForWorkspace: (workspaceId) =>
         store.listForWorkspace(workspaceId),
-      getTaskHeartbeat: (id) => store.get(id),
-      getTaskHeartbeatByTaskId: (taskId) => store.getByTaskId(taskId),
-      upsertTaskHeartbeat: (heartbeat) => store.upsert(heartbeat),
-      removeTaskHeartbeat: (id) => store.remove(id),
-      recordTaskHeartbeatOccurrence: (occurrence) =>
+      getWakeUp: (id) => store.get(id),
+      getWakeUpByTaskId: (taskId) => store.getByTaskId(taskId),
+      upsertWakeUp: (wakeUp) => store.upsert(wakeUp),
+      removeWakeUp: (id) => store.remove(id),
+      recordWakeUpOccurrence: (occurrence) =>
         store.recordOccurrence(occurrence),
-      attachTaskHeartbeatOccurrenceTurn: (attachArgs) =>
+      attachWakeUpOccurrenceTurn: (attachArgs) =>
         store.attachOccurrenceTurn(attachArgs),
-      listTaskHeartbeatOccurrences: (listArgs) => store.listOccurrences(listArgs),
-      pruneTaskHeartbeatOccurrences: (pruneArgs) =>
+      listWakeUpOccurrences: (listArgs) => store.listOccurrences(listArgs),
+      pruneWakeUpOccurrences: (pruneArgs) =>
         store.pruneOccurrences(pruneArgs),
       completeInterruptedTurn: ({ id }) => {
         completedTurnIds.push(id);
@@ -129,7 +129,7 @@ function createHarness(args?: {
             return completions;
           },
         }),
-    runHeartbeatTurn: async (runArgs) => {
+    runSupervisedTurn: async (runArgs) => {
       runCalls.push(runArgs);
       if (runError) {
         throw runError;
@@ -137,7 +137,7 @@ function createHarness(args?: {
       turnCounter += 1;
       return { turnId: `turn-${turnCounter}` };
     },
-    notifyHeartbeatWakeFailed: (failure) => {
+    notifyWakeUpFailed: (failure) => {
       wakeFailures.push({
         taskId: failure.taskId,
         triggerKind: failure.triggerKind,
@@ -187,10 +187,10 @@ function createHarness(args?: {
   };
 }
 
-describe("task supervisor runtime", () => {
+describe("supervisor runtime", () => {
   test("wakes the existing task when the instant comes due", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(createInput());
+    const wakeUp = await harness.runtime.create(createInput());
     harness.runtime.start();
     await harness.drain();
 
@@ -207,14 +207,14 @@ describe("task supervisor runtime", () => {
     // The woken model is told it was woken, so it does not ask a question
     // nobody is present to answer.
     expect(JSON.stringify(calls[0]?.retrievedContextParts)).toContain(
-      "stave:task-heartbeat",
+      "stave:wake-up",
     );
 
-    const stored = harness.store.get(heartbeat.id);
+    const stored = harness.store.get(wakeUp.id);
     expect(stored?.occurrenceCount).toBe(1);
     expect(stored?.nextRunAt).toBe("2026-08-10T02:00:00.000Z");
     const occurrences = harness.store.listOccurrences({
-      heartbeatId: heartbeat.id,
+      wakeUpId: wakeUp.id,
     });
     expect(occurrences.length).toBe(1);
     expect(occurrences[0]).toMatchObject({
@@ -238,7 +238,7 @@ describe("task supervisor runtime", () => {
 
   test("defers to the user's turn, then fires that same instant once free", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(createInput());
+    const wakeUp = await harness.runtime.create(createInput());
     harness.runtime.start();
     await harness.drain();
 
@@ -250,10 +250,10 @@ describe("task supervisor runtime", () => {
     expect(harness.getRunCalls().length).toBe(0);
     // Repeated deferrals of one instant collapse into a single record.
     const deferred = harness.store
-      .listOccurrences({ heartbeatId: heartbeat.id })
+      .listOccurrences({ wakeUpId: wakeUp.id })
       .filter((occurrence) => occurrence.outcome === "deferred");
     expect(deferred.length).toBe(1);
-    expect(harness.store.get(heartbeat.id)?.nextRunAt).toBe(
+    expect(harness.store.get(wakeUp.id)?.nextRunAt).toBe(
       "2026-08-10T01:00:00.000Z",
     );
 
@@ -264,14 +264,14 @@ describe("task supervisor runtime", () => {
     expect(harness.getRunCalls().length).toBe(1);
     expect(
       harness.store
-        .listOccurrences({ heartbeatId: heartbeat.id })
+        .listOccurrences({ wakeUpId: wakeUp.id })
         .find((occurrence) => occurrence.outcome === "fired")?.scheduledFor,
     ).toBe("2026-08-10T01:00:00.000Z");
   });
 
   test("pauses while an approval is pending and resumes itself once answered", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(createInput());
+    const wakeUp = await harness.runtime.create(createInput());
     harness.runtime.start();
     await harness.drain();
 
@@ -280,7 +280,7 @@ describe("task supervisor runtime", () => {
     await harness.tick();
 
     expect(harness.getRunCalls().length).toBe(0);
-    expect(harness.store.get(heartbeat.id)).toMatchObject({
+    expect(harness.store.get(wakeUp.id)).toMatchObject({
       state: "paused",
       pauseReason: "awaiting-approval",
       reasonDetail: "The task is waiting on an approval.",
@@ -290,7 +290,7 @@ describe("task supervisor runtime", () => {
     harness.setNow("2026-08-10T01:10:00.000Z");
     await harness.tick();
 
-    expect(harness.store.get(heartbeat.id)).toMatchObject({
+    expect(harness.store.get(wakeUp.id)).toMatchObject({
       state: "scheduled",
       pauseReason: null,
       // Rescheduled from the resume, not fired as a backlog.
@@ -301,7 +301,7 @@ describe("task supervisor runtime", () => {
 
   test("pauses when the task's provider runtime changed, until an update re-accepts it", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(createInput());
+    const wakeUp = await harness.runtime.create(createInput());
     harness.runtime.start();
     await harness.drain();
 
@@ -310,17 +310,17 @@ describe("task supervisor runtime", () => {
     await harness.tick();
 
     expect(harness.getRunCalls().length).toBe(0);
-    expect(harness.store.get(heartbeat.id)).toMatchObject({
+    expect(harness.store.get(wakeUp.id)).toMatchObject({
       state: "paused",
       pauseReason: "runtime-changed",
     });
 
     // It must not clear itself: the user has to agree to the new runtime.
     await harness.tick();
-    expect(harness.store.get(heartbeat.id)?.state).toBe("paused");
+    expect(harness.store.get(wakeUp.id)?.state).toBe("paused");
 
-    await harness.runtime.update({ id: heartbeat.id, input: createInput() });
-    expect(harness.store.get(heartbeat.id)).toMatchObject({
+    await harness.runtime.update({ id: wakeUp.id, input: createInput() });
+    expect(harness.store.get(wakeUp.id)).toMatchObject({
       state: "scheduled",
       pauseReason: null,
       fingerprint: { providerId: "codex", model: "gpt-5" },
@@ -329,7 +329,7 @@ describe("task supervisor runtime", () => {
 
   test("stops with a reason when the task is archived, and never wakes again", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(createInput());
+    const wakeUp = await harness.runtime.create(createInput());
     harness.runtime.start();
     await harness.drain();
 
@@ -337,7 +337,7 @@ describe("task supervisor runtime", () => {
     harness.setSnapshot({ archived: true });
     await harness.tick();
 
-    expect(harness.store.get(heartbeat.id)).toMatchObject({
+    expect(harness.store.get(wakeUp.id)).toMatchObject({
       state: "stopped",
       stopReason: "task-unavailable",
       nextRunAt: null,
@@ -348,12 +348,12 @@ describe("task supervisor runtime", () => {
     await harness.tick();
 
     expect(harness.getRunCalls().length).toBe(0);
-    expect(harness.store.get(heartbeat.id)?.state).toBe("stopped");
+    expect(harness.store.get(wakeUp.id)?.state).toBe("stopped");
   });
 
   test("stops once the occurrence cap is reached", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(
+    const wakeUp = await harness.runtime.create(
       createInput({ maxOccurrences: 1 }),
     );
     harness.runtime.start();
@@ -365,7 +365,7 @@ describe("task supervisor runtime", () => {
     await harness.tick();
 
     expect(harness.getRunCalls().length).toBe(1);
-    expect(harness.store.get(heartbeat.id)).toMatchObject({
+    expect(harness.store.get(wakeUp.id)).toMatchObject({
       state: "stopped",
       stopReason: "occurrence-cap-reached",
     });
@@ -373,7 +373,7 @@ describe("task supervisor runtime", () => {
 
   test("a restart catches up exactly once: latest instant fires, earlier ones are skipped", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(createInput());
+    const wakeUp = await harness.runtime.create(createInput());
 
     // Stave was closed from 00:00 to 04:30. Four instants came due.
     harness.setNow("2026-08-10T04:30:00.000Z");
@@ -382,7 +382,7 @@ describe("task supervisor runtime", () => {
 
     expect(harness.getRunCalls().length).toBe(1);
     const occurrences = harness.store.listOccurrences({
-      heartbeatId: heartbeat.id,
+      wakeUpId: wakeUp.id,
     });
     expect(
       occurrences.filter((occurrence) => occurrence.outcome === "fired"),
@@ -397,7 +397,7 @@ describe("task supervisor runtime", () => {
       "2026-08-10T02:00:00.000Z",
       "2026-08-10T03:00:00.000Z",
     ]);
-    expect(harness.store.get(heartbeat.id)).toMatchObject({
+    expect(harness.store.get(wakeUp.id)).toMatchObject({
       occurrenceCount: 1,
       skippedCount: 3,
       nextRunAt: "2026-08-10T05:00:00.000Z",
@@ -406,16 +406,16 @@ describe("task supervisor runtime", () => {
 
   test("a duplicate delivery of one instant starts only one turn", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(createInput());
+    const wakeUp = await harness.runtime.create(createInput());
     harness.runtime.start();
     await harness.drain();
 
     // Simulate the same instant already having been delivered and recorded.
     harness.store.recordOccurrence({
       id: randomUUID(),
-      heartbeatId: heartbeat.id,
-      idempotencyKey: buildTaskHeartbeatIdempotencyKey({
-        heartbeatId: heartbeat.id,
+      wakeUpId: wakeUp.id,
+      idempotencyKey: buildWakeUpIdempotencyKey({
+        wakeUpId: wakeUp.id,
         outcome: "fired",
         scheduledFor: "2026-08-10T01:00:00.000Z",
       }),
@@ -432,9 +432,9 @@ describe("task supervisor runtime", () => {
     await harness.tick();
 
     expect(harness.getRunCalls().length).toBe(0);
-    // The schedule still advances, so the duplicate cannot wedge the heartbeat,
+    // The schedule still advances, so the duplicate cannot wedge the wake-up,
     // but it must not consume a slot of the occurrence cap either.
-    expect(harness.store.get(heartbeat.id)).toMatchObject({
+    expect(harness.store.get(wakeUp.id)).toMatchObject({
       nextRunAt: "2026-08-10T02:00:00.000Z",
       occurrenceCount: 0,
     });
@@ -442,7 +442,7 @@ describe("task supervisor runtime", () => {
 
   test("a workspace that momentarily fails to load pauses instead of stopping", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(createInput());
+    const wakeUp = await harness.runtime.create(createInput());
     harness.runtime.start();
     await harness.drain();
 
@@ -450,7 +450,7 @@ describe("task supervisor runtime", () => {
     harness.setSnapshot({ exists: false, projectPath: null });
     await harness.tick();
 
-    expect(harness.store.get(heartbeat.id)).toMatchObject({
+    expect(harness.store.get(wakeUp.id)).toMatchObject({
       state: "paused",
       pauseReason: "task-identity-changed",
     });
@@ -460,7 +460,7 @@ describe("task supervisor runtime", () => {
     harness.setNow("2026-08-10T01:05:00.000Z");
     await harness.tick();
 
-    expect(harness.store.get(heartbeat.id)).toMatchObject({
+    expect(harness.store.get(wakeUp.id)).toMatchObject({
       state: "scheduled",
       pauseReason: null,
     });
@@ -468,31 +468,31 @@ describe("task supervisor runtime", () => {
 
   test("an approval arriving during a manual pause does not later auto-resume it", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(createInput());
+    const wakeUp = await harness.runtime.create(createInput());
     harness.runtime.start();
     await harness.drain();
 
-    await harness.runtime.pause({ id: heartbeat.id });
+    await harness.runtime.pause({ id: wakeUp.id });
     harness.setSnapshot({ pendingApprovalCount: 1 });
     harness.setNow("2026-08-10T01:00:00.000Z");
     await harness.tick();
 
-    expect(harness.store.get(heartbeat.id)?.pauseReason).toBe("paused-by-user");
+    expect(harness.store.get(wakeUp.id)?.pauseReason).toBe("paused-by-user");
 
     harness.setSnapshot({ pendingApprovalCount: 0 });
     harness.setNow("2026-08-10T02:00:00.000Z");
     await harness.tick();
 
-    expect(harness.store.get(heartbeat.id)).toMatchObject({
+    expect(harness.store.get(wakeUp.id)).toMatchObject({
       state: "paused",
       pauseReason: "paused-by-user",
     });
     expect(harness.getRunCalls().length).toBe(0);
   });
 
-  test("a failed start is recorded but does not stop the heartbeat", async () => {
+  test("a failed start is recorded but does not stop the wake-up", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(createInput());
+    const wakeUp = await harness.runtime.create(createInput());
     harness.runtime.start();
     await harness.drain();
 
@@ -500,10 +500,10 @@ describe("task supervisor runtime", () => {
     harness.setNow("2026-08-10T01:00:00.000Z");
     await harness.tick();
 
-    expect(harness.store.get(heartbeat.id)?.state).toBe("scheduled");
+    expect(harness.store.get(wakeUp.id)?.state).toBe("scheduled");
     expect(
       harness.store
-        .listOccurrences({ heartbeatId: heartbeat.id })
+        .listOccurrences({ wakeUpId: wakeUp.id })
         .find((occurrence) => occurrence.outcome === "skipped")?.reason,
     ).toContain("active turn");
 
@@ -514,9 +514,9 @@ describe("task supervisor runtime", () => {
     expect(harness.getRunCalls().length).toBe(2);
   });
 
-  test("closes a turn interrupted by a restart so the heartbeat is not stuck deferring", async () => {
+  test("closes a turn interrupted by a restart so the wake-up is not stuck deferring", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(createInput());
+    const wakeUp = await harness.runtime.create(createInput());
     harness.runtime.start();
     await harness.drain();
     harness.setNow("2026-08-10T01:00:00.000Z");
@@ -527,25 +527,25 @@ describe("task supervisor runtime", () => {
     await harness.drain();
 
     expect(harness.getCompletedTurnIds()).toContain("turn-1");
-    expect(harness.store.get(heartbeat.id)?.state).toBe("scheduled");
+    expect(harness.store.get(wakeUp.id)?.state).toBe("scheduled");
   });
 
-  test("refuses a second heartbeat on the same task", async () => {
+  test("refuses a second wake-up on the same task", async () => {
     const harness = createHarness();
     await harness.runtime.create(createInput());
 
     await expect(harness.runtime.create(createInput())).rejects.toThrow(
-      "already has a heartbeat",
+      "already has a wake-up",
     );
   });
 
-  test("refuses to move a heartbeat to another task", async () => {
+  test("refuses to move a wake-up to another task", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(createInput());
+    const wakeUp = await harness.runtime.create(createInput());
 
     await expect(
       harness.runtime.update({
-        id: heartbeat.id,
+        id: wakeUp.id,
         input: createInput({ taskId: "task-2" }),
       }),
     ).rejects.toThrow("cannot be moved");
@@ -554,15 +554,15 @@ describe("task supervisor runtime", () => {
   test("accepts a completion trigger and gives it no schedule to run on", async () => {
     const harness = createHarness();
 
-    const heartbeat = await harness.runtime.create(
+    const wakeUp = await harness.runtime.create(
       createInput({ trigger: { kind: "completion" } }),
     );
 
-    expect(heartbeat.trigger.kind).toBe("completion");
-    expect(heartbeat.nextRunAt).toBeNull();
+    expect(wakeUp.trigger.kind).toBe("completion");
+    expect(wakeUp.nextRunAt).toBeNull();
   });
 
-  test("refuses to create a heartbeat for a task that does not exist", async () => {
+  test("refuses to create a wake-up for a task that does not exist", async () => {
     const harness = createHarness();
     harness.setSnapshot({ exists: false });
 
@@ -573,30 +573,30 @@ describe("task supervisor runtime", () => {
 
   test("a manual pause survives ticks and only a manual resume clears it", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(createInput());
+    const wakeUp = await harness.runtime.create(createInput());
     harness.runtime.start();
     await harness.drain();
 
-    await harness.runtime.pause({ id: heartbeat.id });
+    await harness.runtime.pause({ id: wakeUp.id });
     harness.setNow("2026-08-10T02:00:00.000Z");
     await harness.tick();
 
     expect(harness.getRunCalls().length).toBe(0);
-    expect(harness.store.get(heartbeat.id)).toMatchObject({
+    expect(harness.store.get(wakeUp.id)).toMatchObject({
       state: "paused",
       pauseReason: "paused-by-user",
     });
 
-    await harness.runtime.resume({ id: heartbeat.id });
-    expect(harness.store.get(heartbeat.id)).toMatchObject({
+    await harness.runtime.resume({ id: wakeUp.id });
+    expect(harness.store.get(wakeUp.id)).toMatchObject({
       state: "scheduled",
       nextRunAt: "2026-08-10T03:00:00.000Z",
     });
   });
 
-  test("refuses to resume a heartbeat that stopped for good", async () => {
+  test("refuses to resume a wake-up that stopped for good", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(
+    const wakeUp = await harness.runtime.create(
       createInput({ maxOccurrences: 1 }),
     );
     harness.runtime.start();
@@ -604,36 +604,36 @@ describe("task supervisor runtime", () => {
     harness.setNow("2026-08-10T01:00:00.000Z");
     await harness.tick();
 
-    await expect(harness.runtime.resume({ id: heartbeat.id })).rejects.toThrow(
+    await expect(harness.runtime.resume({ id: wakeUp.id })).rejects.toThrow(
       "stopped for good",
     );
   });
 
-  test("removing a heartbeat clears its occurrence history", async () => {
+  test("removing a wake-up clears its occurrence history", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(createInput());
+    const wakeUp = await harness.runtime.create(createInput());
     harness.runtime.start();
     await harness.drain();
     harness.setNow("2026-08-10T01:00:00.000Z");
     await harness.tick();
 
-    await harness.runtime.remove({ id: heartbeat.id });
+    await harness.runtime.remove({ id: wakeUp.id });
 
-    expect(harness.store.get(heartbeat.id)).toBeNull();
+    expect(harness.store.get(wakeUp.id)).toBeNull();
     expect(
-      harness.store.listOccurrences({ heartbeatId: heartbeat.id }),
+      harness.store.listOccurrences({ wakeUpId: wakeUp.id }),
     ).toEqual([]);
   });
 });
 
-describe("task heartbeat store", () => {
+describe("wake-up store", () => {
   test("records an instant once, however many times it is delivered", () => {
-    const store = new TaskHeartbeatStore(new Database(":memory:"));
+    const store = new WakeUpStore(new Database(":memory:"));
     const occurrence = {
       id: randomUUID(),
-      heartbeatId: "hb-1",
-      idempotencyKey: buildTaskHeartbeatIdempotencyKey({
-        heartbeatId: "hb-1",
+      wakeUpId: "hb-1",
+      idempotencyKey: buildWakeUpIdempotencyKey({
+        wakeUpId: "hb-1",
         outcome: "fired" as const,
         scheduledFor: "2026-08-10T01:00:00.000Z",
       }),
@@ -650,13 +650,13 @@ describe("task heartbeat store", () => {
     expect(store.recordOccurrence({ ...occurrence, id: randomUUID() })).toBe(
       false,
     );
-    expect(store.listOccurrences({ heartbeatId: "hb-1" }).length).toBe(1);
+    expect(store.listOccurrences({ wakeUpId: "hb-1" }).length).toBe(1);
   });
 });
 
-describe("task supervisor runtime — completion trigger", () => {
+describe("supervisor runtime — completion trigger", () => {
   const completionInput = (
-    overrides: Partial<TaskHeartbeatUpsertInput> = {},
+    overrides: Partial<WakeUpUpsertInput> = {},
   ) =>
     createInput({
       trigger: { kind: "completion" },
@@ -685,13 +685,13 @@ describe("task supervisor runtime — completion trigger", () => {
     const stored = harness.store.getByTaskId("task-1")!;
     expect(stored.occurrenceCount).toBe(1);
     expect(stored.state).toBe("scheduled");
-    // A completion heartbeat waits on the ledger, not on the clock.
+    // A completion wake-up waits on the ledger, not on the clock.
     expect(stored.nextRunAt).toBeNull();
   });
 
   test("the same completion delivered again is a no-op", async () => {
     const harness = createHarness({ completions: [completionSignal()] });
-    const heartbeat = await harness.runtime.create(completionInput());
+    const wakeUp = await harness.runtime.create(completionInput());
 
     await arm(harness);
     await harness.tick();
@@ -700,15 +700,15 @@ describe("task supervisor runtime — completion trigger", () => {
 
     // Three ticks, one durable completion, one turn. This is the guarantee.
     expect(harness.getRunCalls()).toHaveLength(1);
-    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(1);
+    expect(harness.store.get(wakeUp.id)!.occurrenceCount).toBe(1);
     const fired = harness.store
-      .listOccurrences({ heartbeatId: heartbeat.id })
+      .listOccurrences({ wakeUpId: wakeUp.id })
       .filter((occurrence) => occurrence.outcome === "fired");
     expect(fired).toHaveLength(1);
     expect(fired[0]?.turnId).toBe("turn-1");
     expect(fired[0]?.idempotencyKey).toBe(
-      buildTaskHeartbeatCompletionIdempotencyKey({
-        heartbeatId: heartbeat.id,
+      buildWakeUpCompletionIdempotencyKey({
+        wakeUpId: wakeUp.id,
         outcome: "fired",
         signalKey: buildTaskCompletionSignalKey(completionSignal()),
       }),
@@ -717,14 +717,14 @@ describe("task supervisor runtime — completion trigger", () => {
 
   test("a duplicate row already in the store cannot start a second turn", async () => {
     const harness = createHarness({ completions: [completionSignal()] });
-    const heartbeat = await harness.runtime.create(completionInput());
+    const wakeUp = await harness.runtime.create(completionInput());
     // A delivery recorded before this process started: the durable row exists,
     // so the completion is already spent.
     harness.store.recordOccurrence({
       id: randomUUID(),
-      heartbeatId: heartbeat.id,
-      idempotencyKey: buildTaskHeartbeatCompletionIdempotencyKey({
-        heartbeatId: heartbeat.id,
+      wakeUpId: wakeUp.id,
+      idempotencyKey: buildWakeUpCompletionIdempotencyKey({
+        wakeUpId: wakeUp.id,
         outcome: "fired",
         signalKey: buildTaskCompletionSignalKey(completionSignal()),
       }),
@@ -740,7 +740,7 @@ describe("task supervisor runtime — completion trigger", () => {
     await arm(harness);
 
     expect(harness.getRunCalls()).toHaveLength(0);
-    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(0);
+    expect(harness.store.get(wakeUp.id)!.occurrenceCount).toBe(0);
   });
 
   test("several completions in one tick coalesce into a single turn", async () => {
@@ -762,16 +762,16 @@ describe("task supervisor runtime — completion trigger", () => {
         }),
       ],
     });
-    const heartbeat = await harness.runtime.create(completionInput());
+    const wakeUp = await harness.runtime.create(completionInput());
 
     await arm(harness);
 
     expect(harness.getRunCalls()).toHaveLength(1);
     // One wake-up, but both completions are durably consumed so neither can
     // wake the task a second time.
-    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(1);
+    expect(harness.store.get(wakeUp.id)!.occurrenceCount).toBe(1);
     const fired = harness.store
-      .listOccurrences({ heartbeatId: heartbeat.id })
+      .listOccurrences({ wakeUpId: wakeUp.id })
       .filter((occurrence) => occurrence.outcome === "fired");
     expect(fired).toHaveLength(2);
     expect(fired.every((occurrence) => occurrence.turnId === "turn-1")).toBe(true);
@@ -789,7 +789,7 @@ describe("task supervisor runtime — completion trigger", () => {
 
   test("a completion that arrives later wakes the task again", async () => {
     const harness = createHarness({ completions: [completionSignal()] });
-    const heartbeat = await harness.runtime.create(completionInput());
+    const wakeUp = await harness.runtime.create(completionInput());
     await arm(harness);
 
     harness.setCompletions([
@@ -805,7 +805,7 @@ describe("task supervisor runtime — completion trigger", () => {
     await harness.tick();
 
     expect(harness.getRunCalls()).toHaveLength(2);
-    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(2);
+    expect(harness.store.get(wakeUp.id)!.occurrenceCount).toBe(2);
     // The already-consumed one did not ride along a second time.
     const second = harness.getRunCalls()[1]?.retrievedContextParts?.[0] as {
       content: string;
@@ -829,13 +829,13 @@ describe("task supervisor runtime — completion trigger", () => {
         ],
       });
       harness.setSnapshot({ providerId, model: "any-model" });
-      const heartbeat = await harness.runtime.create(completionInput());
+      const wakeUp = await harness.runtime.create(completionInput());
       await arm(harness);
       await harness.tick();
 
       results.push({
         runs: harness.getRunCalls().length,
-        occurrences: harness.store.get(heartbeat.id)!.occurrenceCount,
+        occurrences: harness.store.get(wakeUp.id)!.occurrenceCount,
       });
     }
 
@@ -848,16 +848,16 @@ describe("task supervisor runtime — completion trigger", () => {
 
   test("the user's turn wins: a completion defers and is not consumed", async () => {
     const harness = createHarness({ completions: [completionSignal()] });
-    const heartbeat = await harness.runtime.create(completionInput());
+    const wakeUp = await harness.runtime.create(completionInput());
     harness.setSnapshot({ activeTurnId: "user-turn-1" });
 
     await arm(harness);
 
     expect(harness.getRunCalls()).toHaveLength(0);
-    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(0);
+    expect(harness.store.get(wakeUp.id)!.occurrenceCount).toBe(0);
     expect(
       harness.store
-        .listOccurrences({ heartbeatId: heartbeat.id })
+        .listOccurrences({ wakeUpId: wakeUp.id })
         .map((occurrence) => occurrence.outcome),
     ).toEqual(["deferred"]);
 
@@ -866,18 +866,18 @@ describe("task supervisor runtime — completion trigger", () => {
 
     // Deferring did not spend the completion, so it fires once the task frees.
     expect(harness.getRunCalls()).toHaveLength(1);
-    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(1);
+    expect(harness.store.get(wakeUp.id)!.occurrenceCount).toBe(1);
   });
 
   test("a pending approval pauses instead of piling a completion turn on", async () => {
     const harness = createHarness({ completions: [completionSignal()] });
-    const heartbeat = await harness.runtime.create(completionInput());
+    const wakeUp = await harness.runtime.create(completionInput());
     harness.setSnapshot({ pendingApprovalCount: 1 });
 
     await arm(harness);
 
     expect(harness.getRunCalls()).toHaveLength(0);
-    expect(harness.store.get(heartbeat.id)).toMatchObject({
+    expect(harness.store.get(wakeUp.id)).toMatchObject({
       state: "paused",
       pauseReason: "awaiting-approval",
     });
@@ -892,19 +892,19 @@ describe("task supervisor runtime — completion trigger", () => {
 
   test("the occurrence cap ends the wake chain with a stated reason", async () => {
     const harness = createHarness({ completions: [completionSignal()] });
-    const heartbeat = await harness.runtime.create(
+    const wakeUp = await harness.runtime.create(
       completionInput({ maxOccurrences: 1 }),
     );
 
     await arm(harness);
 
-    expect(harness.store.get(heartbeat.id)).toMatchObject({
+    expect(harness.store.get(wakeUp.id)).toMatchObject({
       state: "stopped",
       stopReason: "occurrence-cap-reached",
     });
-    expect(harness.store.get(heartbeat.id)!.reasonDetail).toContain("limit of 1");
+    expect(harness.store.get(wakeUp.id)!.reasonDetail).toContain("limit of 1");
 
-    // A stopped heartbeat never wakes again, however much work finishes.
+    // A stopped wake-up never wakes again, however much work finishes.
     harness.setCompletions([
       completionSignal(),
       completionSignal({
@@ -917,18 +917,18 @@ describe("task supervisor runtime — completion trigger", () => {
     expect(harness.getRunCalls()).toHaveLength(1);
   });
 
-  test("an uncapped completion heartbeat is bounded anyway", async () => {
+  test("an uncapped completion wake-up is bounded anyway", async () => {
     const harness = createHarness();
-    const heartbeat = await harness.runtime.create(
+    const wakeUp = await harness.runtime.create(
       completionInput({ maxOccurrences: null }),
     );
 
-    expect(heartbeat.maxOccurrences).toBe(
-      TASK_HEARTBEAT_LIMITS.defaultCompletionOccurrenceCap,
+    expect(wakeUp.maxOccurrences).toBe(
+      WAKE_UP_LIMITS.defaultCompletionOccurrenceCap,
     );
   });
 
-  test("an unobservable completion heartbeat is refused rather than left waiting", async () => {
+  test("an unobservable completion wake-up is refused rather than left waiting", async () => {
     const harness = createHarness({ omitCompletionReader: true });
 
     await expect(harness.runtime.create(completionInput())).rejects.toThrow(
@@ -937,7 +937,7 @@ describe("task supervisor runtime — completion trigger", () => {
     expect(harness.store.getByTaskId("task-1")).toBeNull();
   });
 
-  test("a heartbeat that loses observability stops with an explicit reason, not silence", async () => {
+  test("a wake-up that loses observability stops with an explicit reason, not silence", async () => {
     const observable = createHarness({ completions: [completionSignal()] });
     const created = await observable.runtime.create(completionInput());
 
@@ -956,13 +956,13 @@ describe("task supervisor runtime — completion trigger", () => {
 
   test("a transient ledger read failure idles rather than stopping for good", async () => {
     const harness = createHarness({ completions: [completionSignal()] });
-    const heartbeat = await harness.runtime.create(completionInput());
+    const wakeUp = await harness.runtime.create(completionInput());
     harness.setCompletionError(new Error("database is locked"));
 
     await arm(harness);
 
     // Observability is about wiring, not about one failed read.
-    expect(harness.store.get(heartbeat.id)!.state).toBe("scheduled");
+    expect(harness.store.get(wakeUp.id)!.state).toBe("scheduled");
     expect(harness.getRunCalls()).toHaveLength(0);
 
     harness.setCompletionError(null);
@@ -970,16 +970,16 @@ describe("task supervisor runtime — completion trigger", () => {
     expect(harness.getRunCalls()).toHaveLength(1);
   });
 
-  test("a failed completion turn records why and leaves the heartbeat live", async () => {
+  test("a failed completion turn records why and leaves the wake-up live", async () => {
     const harness = createHarness({ completions: [completionSignal()] });
-    const heartbeat = await harness.runtime.create(completionInput());
+    const wakeUp = await harness.runtime.create(completionInput());
     harness.setRunError(new Error("The task started a turn just now."));
 
     await arm(harness);
 
-    expect(harness.store.get(heartbeat.id)!.state).toBe("scheduled");
+    expect(harness.store.get(wakeUp.id)!.state).toBe("scheduled");
     const skipped = harness.store
-      .listOccurrences({ heartbeatId: heartbeat.id })
+      .listOccurrences({ wakeUpId: wakeUp.id })
       .find((occurrence) => occurrence.outcome === "skipped");
     expect(skipped?.reason).toBe("The task started a turn just now.");
 
@@ -992,7 +992,7 @@ describe("task supervisor runtime — completion trigger", () => {
 
   test("a consumed completion that never became a turn is reported, not swallowed", async () => {
     const harness = createHarness({ completions: [completionSignal()] });
-    const heartbeat = await harness.runtime.create(completionInput());
+    const wakeUp = await harness.runtime.create(completionInput());
     harness.setRunError(new Error("The task started a turn just now."));
 
     await arm(harness);
@@ -1009,28 +1009,28 @@ describe("task supervisor runtime — completion trigger", () => {
     );
     // Marked against the consumed row itself, which is how the boot sweep tells
     // a reported failure from a wake-up lost to a crash.
-    const consumedKey = buildTaskHeartbeatCompletionIdempotencyKey({
-      heartbeatId: heartbeat.id,
+    const consumedKey = buildWakeUpCompletionIdempotencyKey({
+      wakeUpId: wakeUp.id,
       outcome: "fired",
       signalKey: buildTaskCompletionSignalKey(completionSignal()),
     });
     expect(
       harness.store
-        .listOccurrences({ heartbeatId: heartbeat.id })
+        .listOccurrences({ wakeUpId: wakeUp.id })
         .map((occurrence) => occurrence.idempotencyKey),
     ).toContain(`${consumedKey}:error`);
   });
 
   test("a wake-up lost to a crash is reported once at the next boot", async () => {
     const harness = createHarness({ completions: [completionSignal()] });
-    const heartbeat = await harness.runtime.create(completionInput());
+    const wakeUp = await harness.runtime.create(completionInput());
     // Exactly the crash window: the occurrence was written, then the process
-    // died before `runHeartbeatTurn` could attach a turn to it.
+    // died before `runSupervisedTurn` could attach a turn to it.
     harness.store.recordOccurrence({
       id: randomUUID(),
-      heartbeatId: heartbeat.id,
-      idempotencyKey: buildTaskHeartbeatCompletionIdempotencyKey({
-        heartbeatId: heartbeat.id,
+      wakeUpId: wakeUp.id,
+      idempotencyKey: buildWakeUpCompletionIdempotencyKey({
+        wakeUpId: wakeUp.id,
         outcome: "fired",
         signalKey: buildTaskCompletionSignalKey(completionSignal()),
       }),
@@ -1073,7 +1073,7 @@ describe("task supervisor runtime — completion trigger", () => {
     });
   });
 
-  test("a schedule heartbeat never reads the ledger", async () => {
+  test("a schedule wake-up never reads the ledger", async () => {
     const harness = createHarness({ completions: [completionSignal()] });
     await harness.runtime.create(createInput());
 
@@ -1085,13 +1085,13 @@ describe("task supervisor runtime — completion trigger", () => {
     expect(harness.getCompletionReads()).toBe(0);
   });
 
-  test("a completion heartbeat still cannot be moved to another task", async () => {
+  test("a completion wake-up still cannot be moved to another task", async () => {
     const harness = createHarness({ completions: [] });
-    const heartbeat = await harness.runtime.create(completionInput());
+    const wakeUp = await harness.runtime.create(completionInput());
 
     await expect(
       harness.runtime.update({
-        id: heartbeat.id,
+        id: wakeUp.id,
         input: completionInput({ taskId: "task-2" }),
       }),
     ).rejects.toThrow(/cannot be moved/i);
@@ -1110,7 +1110,7 @@ describe("task supervisor runtime — completion trigger", () => {
     const harness = createHarness({
       completions: [failure(1, "2026-08-10T00:30:00.000Z")],
     });
-    const heartbeat = await harness.runtime.create(completionInput());
+    const wakeUp = await harness.runtime.create(completionInput());
     await arm(harness);
 
     expect(harness.getRunCalls()).toHaveLength(1);
@@ -1120,26 +1120,26 @@ describe("task supervisor runtime — completion trigger", () => {
     await harness.tick();
 
     expect(harness.getRunCalls()).toHaveLength(2);
-    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(2);
+    expect(harness.store.get(wakeUp.id)!.occurrenceCount).toBe(2);
     // Re-delivering the retried failure is still a no-op.
     await harness.tick();
     expect(harness.getRunCalls()).toHaveLength(2);
   });
 
-  test("creating a completion heartbeat does not consume work that finished before it", async () => {
+  test("creating a completion wake-up does not consume work that finished before it", async () => {
     const stale = completionSignal({
       completedAt: "2026-08-09T20:00:00.000Z",
     });
     const harness = createHarness({ completions: [stale] });
-    const heartbeat = await harness.runtime.create(completionInput());
+    const wakeUp = await harness.runtime.create(completionInput());
     await arm(harness);
 
-    // The child finished before the heartbeat existed, so creation must not
+    // The child finished before the wake-up existed, so creation must not
     // trigger a burst of wake-ups for old receipts.
     expect(harness.getRunCalls()).toHaveLength(0);
-    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(0);
+    expect(harness.store.get(wakeUp.id)!.occurrenceCount).toBe(0);
 
-    // Work finishing after the heartbeat exists still wakes it.
+    // Work finishing after the wake-up exists still wakes it.
     harness.setCompletions([
       stale,
       completionSignal({
@@ -1160,44 +1160,44 @@ describe("task supervisor runtime — completion trigger", () => {
     expect(context.content).not.toContain("task-child-1");
   });
 
-  test("a stopped heartbeat refuses an update instead of resurrecting", async () => {
+  test("a stopped wake-up refuses an update instead of resurrecting", async () => {
     const harness = createHarness({ completions: [completionSignal()] });
-    const heartbeat = await harness.runtime.create(
+    const wakeUp = await harness.runtime.create(
       completionInput({ maxOccurrences: 1 }),
     );
     await arm(harness);
 
-    expect(harness.store.get(heartbeat.id)!.state).toBe("stopped");
+    expect(harness.store.get(wakeUp.id)!.state).toBe("stopped");
     await expect(
-      harness.runtime.update({ id: heartbeat.id, input: completionInput() }),
+      harness.runtime.update({ id: wakeUp.id, input: completionInput() }),
     ).rejects.toThrow(/stopped for good/i);
-    expect(harness.store.get(heartbeat.id)!.state).toBe("stopped");
+    expect(harness.store.get(wakeUp.id)!.state).toBe("stopped");
   });
 
   test("switching trigger kinds resets the fired count against the new cap", async () => {
     const harness = createHarness({ completions: [] });
-    const heartbeat = await harness.runtime.create(createInput());
+    const wakeUp = await harness.runtime.create(createInput());
     harness.runtime.start();
     await harness.drain();
     harness.setNow("2026-08-10T01:00:00.000Z");
     await harness.tick();
 
-    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(1);
+    expect(harness.store.get(wakeUp.id)!.occurrenceCount).toBe(1);
 
     // A schedule that already fired must not arrive at the completion
     // trigger's default cap partly spent.
     await harness.runtime.update({
-      id: heartbeat.id,
+      id: wakeUp.id,
       input: completionInput(),
     });
-    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(0);
+    expect(harness.store.get(wakeUp.id)!.occurrenceCount).toBe(0);
 
     // Same-kind updates keep the count.
     await harness.runtime.update({
-      id: heartbeat.id,
+      id: wakeUp.id,
       input: completionInput(),
     });
-    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(0);
+    expect(harness.store.get(wakeUp.id)!.occurrenceCount).toBe(0);
   });
 });
 
@@ -1210,7 +1210,7 @@ describe("completion idempotency survives history pruning", () => {
 
   test("a burst of deferrals cannot evict the row that proves a completion was consumed", async () => {
     const harness = createHarness({ completions: [completionSignal()] });
-    const heartbeat = await harness.runtime.create(
+    const wakeUp = await harness.runtime.create(
       createInput({
         trigger: { kind: "completion" },
         prompt: "Delegated work finished.",
@@ -1225,7 +1225,7 @@ describe("completion idempotency survives history pruning", () => {
     for (let index = 0; index < 150; index += 1) {
       harness.store.recordOccurrence({
         id: randomUUID(),
-        heartbeatId: heartbeat.id,
+        wakeUpId: wakeUp.id,
         idempotencyKey: `noise-${index}`,
         workspaceId: "ws-1",
         taskId: "task-1",
@@ -1238,7 +1238,7 @@ describe("completion idempotency survives history pruning", () => {
         ).toISOString(),
       });
     }
-    harness.store.pruneOccurrences({ heartbeatId: heartbeat.id });
+    harness.store.pruneOccurrences({ wakeUpId: wakeUp.id });
 
     harness.setNow("2026-08-10T05:00:00.000Z");
     await harness.tick();
@@ -1246,6 +1246,6 @@ describe("completion idempotency survives history pruning", () => {
     // The completion is still reported by the ledger. Without the fired-row
     // floor it would read as brand new and wake the task a second time.
     expect(harness.getRunCalls()).toHaveLength(1);
-    expect(harness.store.get(heartbeat.id)!.occurrenceCount).toBe(1);
+    expect(harness.store.get(wakeUp.id)!.occurrenceCount).toBe(1);
   });
 });

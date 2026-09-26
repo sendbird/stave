@@ -9,14 +9,32 @@
  * IPC channels and tool names in tracked text files. It deliberately leaves
  * persisted legacy names, history (CHANGELOG) and design records alone;
  * the data migrations that read old names live in the product code and are
- * registered in `config/temporary-migrations.json`. Prose that uses the old
- * word in its ordinary English sense is protected phrase by phrase, so always
- * review the diff after a run.
+ * registered in `config/temporary-migrations.json`.
+ *
+ * Two kinds of rules exist:
+ * - `replacements` are unambiguous compounds (`TaskHeartbeat`, `routine`)
+ *   rewritten everywhere.
+ * - `scoped` rules handle a bare word that also has other meanings elsewhere
+ *   (a Crane job "heartbeat", a Jira "project"). They run only in the listed
+ *   files, and TypeScript sources are parsed so identifiers get code casing
+ *   (`wakeUp`) while comments and strings get prose (`wake-up`).
+ *
+ * Prose that keeps the old word in its ordinary sense is protected phrase by
+ * phrase. Always review the diff and the collision report after a run.
  */
 import { spawnSync } from "node:child_process";
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
+import path from "node:path";
+import ts from "typescript";
 
 type Replacement = readonly [pattern: RegExp, replacement: string];
+
+interface ScopedRules {
+  /** Paths after this rule set's file renames. */
+  files: readonly string[];
+  identifierRules: readonly Replacement[];
+  proseRules: readonly Replacement[];
+}
 
 interface RuleSet {
   description: string;
@@ -24,8 +42,7 @@ interface RuleSet {
   /** Exact phrases where the old word keeps its ordinary meaning. */
   protectedPhrases: readonly string[];
   replacements: readonly Replacement[];
-  /** Matches identifiers that contain the old word, for the collision report. */
-  identifierPattern: RegExp;
+  scoped?: ScopedRules;
 }
 
 const ALWAYS_EXCLUDED = [
@@ -37,6 +54,40 @@ const ALWAYS_EXCLUDED = [
 ];
 
 const TEXT_FILE = /\.(?:ts|tsx|mts|cts|js|mjs|cjs|json|md|yml|yaml|css|html)$/;
+const MARKER_KEYWORD = ["temporary", "migration"].join("-");
+/**
+ * A marked migration block (from its `<keyword>: <id>` line to its
+ * `end <keyword>: <id>` line) holds legacy names on purpose and is never
+ * rewritten. Tests that exist only for a registered migration are skipped for
+ * the same reason.
+ */
+const MARKED_BLOCK = new RegExp(
+  `^[^\\n]*(?<!end )${MARKER_KEYWORD}: ([a-z0-9-]+)[^\\n]*\\n[\\s\\S]*?^[^\\n]*end ${MARKER_KEYWORD}: \\1[^\\n]*$`,
+  "gm",
+);
+
+function registeredMigrationTests() {
+  const registryPath = "config/temporary-migrations.json";
+  if (!existsSync(registryPath)) return new Set<string>();
+  const registry = JSON.parse(readFileSync(registryPath, "utf8")) as {
+    migrations?: Array<{ tests?: string[] }>;
+  };
+  return new Set((registry.migrations ?? []).flatMap((entry) => entry.tests ?? []));
+}
+
+/** Swaps marked blocks for inert comments while `transform` runs. */
+function withMarkedBlocksProtected(source: string, transform: (text: string) => string) {
+  const blocks: string[] = [];
+  const masked = source.replace(MARKED_BLOCK, (block) => {
+    blocks.push(block);
+    return `/*\u0000BLOCK_${blocks.length - 1}\u0000*/`;
+  });
+  return transform(masked).replace(
+    /\/\*\u0000BLOCK_(\d+)\u0000\*\//g,
+    (_, index: string) => blocks[Number(index)],
+  );
+}
+const SCRIPT_FILE = /\.(?:ts|tsx|mts|cts|js|mjs|cjs)$/;
 
 const RULE_SETS: Record<string, RuleSet> = {
   automations: {
@@ -71,14 +122,101 @@ const RULE_SETS: Record<string, RuleSet> = {
       'word "routine" is retired',
     ],
     replacements: [
-      [/\ba routine\b/g, "an automation"],
-      [/\bA routine\b/g, "An automation"],
-      [/\bA Routine\b/g, "An Automation"],
+      [/\ba(\s+)routine\b/g, "an$1automation"],
+      [/\bA(\s+)routine\b/g, "An$1automation"],
+      [/\bA(\s+)Routine\b/g, "An$1Automation"],
       [/ROUTINE/g, "AUTOMATION"],
       [/Routine/g, "Automation"],
       [/routine(?!ly)/g, "automation"],
     ],
-    identifierPattern: /[A-Za-z0-9_$]*(?:ROUTINE|Routine|routine(?!ly))[A-Za-z0-9_$]*/g,
+  },
+  "wake-ups": {
+    description: "Task heartbeat → Wake-up",
+    fileRenames: [
+      ["src/lib/automation/task-supervisor.ts", "src/lib/supervision/wake-up-policy.ts"],
+      ["electron/host-service/task-supervisor-runtime.ts", "electron/host-service/wake-up-runtime.ts"],
+      ["electron/main/task-supervisor-service.ts", "electron/main/wake-up-service.ts"],
+      ["electron/persistence/task-heartbeat-store.ts", "electron/persistence/wake-up-store.ts"],
+      ["tests/task-supervisor.test.ts", "tests/wake-up-policy.test.ts"],
+      ["tests/task-supervisor-runtime.test.ts", "tests/wake-up-runtime.test.ts"],
+      ["docs/features/task-heartbeats.md", "docs/features/wake-ups.md"],
+    ],
+    protectedPhrases: [
+      // Provider and advisor progress ticks keep their own name.
+      "progress heartbeat",
+      // The taxonomy records that the old word is retired.
+      'word "heartbeat" is retired',
+      'Crane "heartbeats"',
+    ],
+    replacements: [
+      [/automation\/task-supervisor/g, "supervision/wake-up-policy"],
+      [/task-supervisor-runtime/g, "wake-up-runtime"],
+      [/task-supervisor-service/g, "wake-up-service"],
+      [/task-supervisor\.invoke/g, "wake-up.invoke"],
+      [/task-supervisor-safety/g, "wake-up-safety"],
+      [/tests\/task-supervisor\.test/g, "tests/wake-up-policy.test"],
+      [/createTaskSupervisorRuntime/g, "createWakeUpRuntime"],
+      [/TaskSupervisorRuntime/g, "WakeUpRuntime"],
+      [/taskSupervisorRuntime/g, "wakeUpRuntime"],
+      [/invokeTaskSupervisorAction/g, "invokeWakeUpAction"],
+      [/invokeTaskSupervisor/g, "invokeWakeUp"],
+      [/HostTaskSupervisorAction/g, "HostWakeUpAction"],
+      [/TaskSupervisorPersistence/g, "WakeUpPersistence"],
+      [/TASK_SUPERVISOR_TICK_INTERVAL_MS/g, "WAKE_UP_TICK_INTERVAL_MS"],
+      [/TaskHeartbeat/g, "WakeUp"],
+      [/taskHeartbeat/g, "wakeUp"],
+      [/TASK_HEARTBEAT/g, "WAKE_UP"],
+      [/task_heartbeat/g, "wake_up"],
+      [/task-heartbeat/g, "wake-up"],
+      [/heartbeat_id/g, "wake_up_id"],
+    ],
+    scoped: {
+      files: [
+        "config/reliability-gates.json",
+        "docs/architecture/agent-platform-taxonomy.md",
+        "docs/architecture/contracts.md",
+        "docs/architecture/index.md",
+        "docs/features/wake-ups.md",
+        "electron/host-service.ts",
+        "electron/host-service/local-mcp-runtime.ts",
+        "electron/host-service/protocol.ts",
+        "electron/host-service/wake-up-runtime.ts",
+        "electron/main/host-service-request-timeouts.ts",
+        "electron/main/stave-mcp-server-instructions.ts",
+        "electron/main/stave-mcp-server.ts",
+        "electron/main/wake-up-service.ts",
+        "electron/persistence/sqlite-store.ts",
+        "electron/persistence/wake-up-store.ts",
+        "electron/providers/stave-local-mcp-approval.ts",
+        "src/lib/supervision/wake-up-policy.ts",
+        "src/lib/tool-display-name.ts",
+        "tests/agent-platform-boundaries.test.ts",
+        "tests/wake-up-runtime.test.ts",
+        "tests/wake-up-policy.test.ts",
+      ],
+      identifierRules: [
+        [/runHeartbeatTurn/g, "runSupervisedTurn"],
+        [/HeartbeatWakeFailed/g, "WakeUpFailed"],
+        [/InterruptedHeartbeatWakes/g, "InterruptedWakeUps"],
+        [/HEARTBEAT/g, "WAKE_UP"],
+        [/Heartbeat/g, "WakeUp"],
+        [/heartbeat/g, "wakeUp"],
+      ],
+      proseRules: [
+        [/\bTask Heartbeats\b/g, "Wake-ups"],
+        [/\bTask heartbeats\b/g, "Wake-ups"],
+        [/\btask heartbeats\b/g, "wake-ups"],
+        [/\bTask Heartbeat\b/g, "Wake-up"],
+        [/\bTask heartbeat\b/g, "Wake-up"],
+        [/\btask heartbeat\b/g, "wake-up"],
+        [/\bHeartbeats\b/g, "Wake-ups"],
+        [/\bheartbeats\b/g, "wake-ups"],
+        [/\bHeartbeat\b/g, "Wake-up"],
+        [/\bheartbeat\b/g, "wake-up"],
+        [/\bTask supervisor\b/g, "Supervisor"],
+        [/\btask supervisor\b/g, "supervisor"],
+      ],
+    },
   },
 };
 
@@ -90,44 +228,148 @@ function run(command: string, args: string[]) {
   return result.stdout;
 }
 
-function applyRules(source: string, rules: RuleSet) {
-  const placeholders = rules.protectedPhrases.map(
-    (_, index) => `\u0000PROTECTED_${index}\u0000`,
-  );
+function withProtectedPhrases(
+  source: string,
+  phrases: readonly string[],
+  transform: (text: string) => string,
+) {
+  const placeholders = phrases.map((_, index) => `\u0000PROTECTED_${index}\u0000`);
   let text = source;
-  rules.protectedPhrases.forEach((phrase, index) => {
+  phrases.forEach((phrase, index) => {
     text = text.split(phrase).join(placeholders[index]);
   });
-  for (const [pattern, replacement] of rules.replacements) {
-    text = text.replace(pattern, replacement);
-  }
-  rules.protectedPhrases.forEach((phrase, index) => {
+  text = transform(text);
+  phrases.forEach((phrase, index) => {
     text = text.split(placeholders[index]).join(phrase);
   });
   return text;
 }
 
+function applyReplacements(text: string, replacements: readonly Replacement[]) {
+  let next = text;
+  for (const [pattern, replacement] of replacements) {
+    next = next.replace(pattern, replacement);
+  }
+  return next;
+}
+
+function applyRules(source: string, rules: RuleSet) {
+  return withProtectedPhrases(source, rules.protectedPhrases, (text) =>
+    applyReplacements(text, rules.replacements),
+  );
+}
+
+interface Edit {
+  start: number;
+  end: number;
+  text: string;
+}
+
+/** Identifiers get code casing; comments, strings and JSX text get prose. */
+function applyScopedToScript(file: string, source: string, rules: RuleSet) {
+  const scoped = rules.scoped!;
+  const kind = file.endsWith(".tsx")
+    ? ts.ScriptKind.TSX
+    : /\.(?:js|mjs|cjs)$/.test(file)
+      ? ts.ScriptKind.JS
+      : ts.ScriptKind.TS;
+  const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true, kind);
+  const edits: Edit[] = [];
+  const prose = (start: number, end: number) => {
+    const original = source.slice(start, end);
+    const next = withProtectedPhrases(original, rules.protectedPhrases, (text) =>
+      applyReplacements(text, scoped.proseRules),
+    );
+    if (next !== original) edits.push({ start, end, text: next });
+  };
+  const seenComments = new Set<number>();
+  const comments = (ranges: ts.CommentRange[] | undefined) => {
+    for (const range of ranges ?? []) {
+      if (seenComments.has(range.pos)) continue;
+      seenComments.add(range.pos);
+      prose(range.pos, range.end);
+    }
+  };
+  const visit = (node: ts.Node) => {
+    comments(ts.getLeadingCommentRanges(source, node.pos));
+    comments(ts.getTrailingCommentRanges(source, node.end));
+    if (ts.isIdentifier(node) || ts.isPrivateIdentifier(node)) {
+      const start = node.getStart(sourceFile);
+      const original = source.slice(start, node.end);
+      const next = applyReplacements(original, scoped.identifierRules);
+      if (next !== original) edits.push({ start, end: node.end, text: next });
+    } else if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) {
+      prose(node.getStart(sourceFile) + 1, node.end - 1);
+    } else if (ts.isTemplateHead(node) || ts.isTemplateMiddle(node)) {
+      prose(node.getStart(sourceFile) + 1, node.end - 2);
+    } else if (ts.isTemplateTail(node)) {
+      prose(node.getStart(sourceFile) + 1, node.end - 1);
+    } else if (ts.isJsxText(node)) {
+      prose(node.getStart(sourceFile), node.end);
+    }
+    ts.forEachChild(node, visit);
+  };
+  visit(sourceFile);
+  comments(ts.getLeadingCommentRanges(source, sourceFile.endOfFileToken.pos));
+  edits.sort((left, right) => right.start - left.start);
+  let text = source;
+  for (const edit of edits) {
+    text = text.slice(0, edit.start) + edit.text + text.slice(edit.end);
+  }
+  return text;
+}
+
+function applyScoped(file: string, source: string, rules: RuleSet) {
+  if (!rules.scoped?.files.includes(file)) return source;
+  if (SCRIPT_FILE.test(file)) return applyScopedToScript(file, source, rules);
+  return withProtectedPhrases(source, rules.protectedPhrases, (text) =>
+    applyReplacements(text, rules.scoped!.proseRules),
+  );
+}
+
 /**
- * Lists identifiers whose renamed form already exists. A rename that lands on
- * an existing name can silently merge two bindings (for example a local
- * helper shadowing the import it wraps), so every hit must be resolved by hand
- * before or right after the run.
+ * Reports identifiers that a rename would merge. Per script file, every
+ * identifier is renamed as the run would rename it; a collision is two
+ * different names becoming one, or a name becoming one that already exists
+ * in the file (for example a local helper wrapping the import it would now
+ * shadow). Every hit must be resolved by hand, because the merged file often
+ * still type-checks.
  */
-function reportCollisions(files: string[], rules: RuleSet) {
-  const sourceByFile = new Map(files.map((file) => [file, readFileSync(file, "utf8")]));
-  const oldTokens = new Set<string>();
-  const existingTokens = new Set<string>();
-  for (const source of sourceByFile.values()) {
-    for (const match of source.matchAll(rules.identifierPattern)) oldTokens.add(match[0]);
-    for (const match of source.matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/g)) existingTokens.add(match[0]);
+function reportCollisions(
+  files: string[],
+  rules: RuleSet,
+  scopePathOf: (file: string) => string,
+) {
+  let count = 0;
+  for (const file of files) {
+    if (!SCRIPT_FILE.test(file)) continue;
+    // Marked migration blocks hold legacy names on purpose.
+    const source = readFileSync(file, "utf8").replace(MARKED_BLOCK, "");
+    const sourceFile = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+    const identifiers = new Set<string>();
+    const visit = (node: ts.Node) => {
+      if (ts.isIdentifier(node) || ts.isPrivateIdentifier(node)) identifiers.add(node.text);
+      ts.forEachChild(node, visit);
+    };
+    visit(sourceFile);
+    const inScope = rules.scoped?.files.includes(scopePathOf(file)) ?? false;
+    const originalsByRenamed = new Map<string, Set<string>>();
+    for (const identifier of identifiers) {
+      const global = applyRules(identifier, rules);
+      const renamed = inScope
+        ? applyReplacements(global, rules.scoped!.identifierRules)
+        : global;
+      const originals = originalsByRenamed.get(renamed) ?? new Set<string>();
+      originals.add(identifier);
+      originalsByRenamed.set(renamed, originals);
+    }
+    for (const [renamed, originals] of originalsByRenamed) {
+      if (originals.size < 2) continue;
+      count += 1;
+      console.warn(`collision: ${file}: ${[...originals].join(" + ")} -> ${renamed}`);
+    }
   }
-  const collisions = [...oldTokens]
-    .map((token) => [token, applyRules(token, rules)] as const)
-    .filter(([token, renamed]) => renamed !== token && existingTokens.has(renamed));
-  for (const [token, renamed] of collisions) {
-    console.warn(`collision: ${token} -> ${renamed} already exists; review every use`);
-  }
-  return collisions.length;
+  return count;
 }
 
 function main() {
@@ -141,13 +383,19 @@ function main() {
     process.exit(2);
   }
 
+  const renamedPath = new Map<string, string>();
   for (const [from, to] of rules.fileRenames) {
     if (!existsSync(from)) continue;
     if (existsSync(to)) throw new Error(`Refusing to overwrite ${to}`);
     console.log(`${dryRun ? "would move" : "move"} ${from} -> ${to}`);
-    if (!dryRun) run("git", ["mv", from, to]);
+    renamedPath.set(from, to);
+    if (!dryRun) {
+      mkdirSync(path.dirname(to), { recursive: true });
+      run("git", ["mv", from, to]);
+    }
   }
 
+  const migrationTests = registeredMigrationTests();
   const files = run("git", ["ls-files"])
     .split("\n")
     .filter(
@@ -155,13 +403,18 @@ function main() {
         file &&
         TEXT_FILE.test(file) &&
         !ALWAYS_EXCLUDED.some((pattern) => pattern.test(file)) &&
+        !migrationTests.has(file) &&
         existsSync(file),
     );
-  const collisions = reportCollisions(files, rules);
+  const collisions = reportCollisions(files, rules, (file) => renamedPath.get(file) ?? file);
   let changed = 0;
   for (const file of files) {
     const source = readFileSync(file, "utf8");
-    const next = applyRules(source, rules);
+    // In a dry run the file has not moved, so scope lookups use its new path.
+    const scopePath = renamedPath.get(file) ?? file;
+    const next = withMarkedBlocksProtected(source, (text) =>
+      applyScoped(scopePath, applyRules(text, rules), rules),
+    );
     if (next === source) continue;
     changed += 1;
     console.log(`${dryRun ? "would rewrite" : "rewrite"} ${file}`);

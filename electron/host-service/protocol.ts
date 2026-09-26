@@ -481,7 +481,7 @@ export type HostLocalMcpAction =
   | "forget-project-memory"
   | "list-project-memories";
 
-export type HostTaskSupervisorAction =
+export type HostWakeUpAction =
   "list" | "get" | "create" | "update" | "pause" | "resume" | "remove";
 
 export type HostAutomationAction =
@@ -992,8 +992,8 @@ export interface HostServiceRequestMap {
     action: HostAutomationAction;
     args: unknown;
   };
-  "task-supervisor.invoke": {
-    action: HostTaskSupervisorAction;
+  "wake-up.invoke": {
+    action: HostWakeUpAction;
     args: unknown;
   };
 }
@@ -1188,7 +1188,7 @@ export interface HostServiceResponseMap {
   "task.take-over": HostTaskTakeOverResult;
   "task.stop": HostTaskStopResult;
   "automation.invoke": unknown;
-  "task-supervisor.invoke": unknown;
+  "wake-up.invoke": unknown;
 }
 
 export interface HostServiceEventMap {

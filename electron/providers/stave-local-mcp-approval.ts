@@ -65,14 +65,14 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   "stave_consult_advisor",
   // Same line the automation tools sit on: defining or pausing scheduled work only
   // edits a definition, so it belongs here, while anything that starts a turn
-  // right now (`stave_run_automation_now`) does not. A heartbeat has no immediate
+  // right now (`stave_run_automation_now`) does not. A wake-up has no immediate
   // trigger at all, so all six of its tools are definition edits.
-  "stave_list_task_heartbeats",
-  "stave_get_task_heartbeat",
-  "stave_create_task_heartbeat",
-  "stave_update_task_heartbeat",
-  "stave_set_task_heartbeat_paused",
-  "stave_remove_task_heartbeat",
+  "stave_list_wake_ups",
+  "stave_get_wake_up",
+  "stave_create_wake_up",
+  "stave_update_wake_up",
+  "stave_set_wake_up_paused",
+  "stave_remove_wake_up",
 ]);
 
 /**

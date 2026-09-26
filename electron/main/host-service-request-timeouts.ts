@@ -51,7 +51,7 @@ const HOST_SERVICE_REQUEST_TIMEOUT_OVERRIDES_MS: Partial<
   "runs.execute-secondary": null,
   "crane.run-task": null,
   "automation.invoke": null,
-  "task-supervisor.invoke": null,
+  "wake-up.invoke": null,
   "workspace-scripts.run-entry": null,
   "workspace-scripts.run-hook": null,
 };
