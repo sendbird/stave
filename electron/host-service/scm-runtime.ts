@@ -17,6 +17,7 @@ import type {
   GraphResult,
 } from "../../src/lib/git-graph/types";
 import { parseWorktreePathByBranch } from "../../src/lib/source-control-worktrees";
+import type { PullRequestCheck } from "../../src/lib/missions/checks";
 import type {
   ConcretePrMergeMethod,
   GitHubPrPayload,
@@ -380,6 +381,72 @@ export async function fetchGitHubPrStatus(args: {
   }
 
   return { ok: true, pr, stderr: "" };
+}
+
+/**
+ * The raw check rows of a pull request, for a mission's Watch checks action.
+ * `gh pr checks` exits non-zero while checks fail or are pending, so the rows
+ * are read from stdout whenever it parses; a branch with no checks at all is
+ * an empty list, not a failure.
+ */
+export async function readPullRequestChecks(args: {
+  cwd?: string;
+  target?: string;
+  runCommand?: ScmCommandRunner;
+}): Promise<
+  | { ok: true; checks: PullRequestCheck[] }
+  | { ok: false; stderr: string }
+> {
+  const run = args.runCommand ?? runCommandArgs;
+  const authResult = await ensureGhAuth({ cwd: args.cwd, runCommand: args.runCommand });
+  if (!authResult.ok) {
+    return { ok: false, stderr: describeGhAuthFailure(authResult) };
+  }
+  const result = await run({
+    command: "gh",
+    commandArgs: [
+      "pr",
+      "checks",
+      ...(args.target ? [args.target] : []),
+      "--json",
+      "name,state,link,startedAt",
+    ],
+    cwd: args.cwd,
+  });
+  invalidateCachedGhAuthOnFailure(result, args.cwd);
+  const stdout = result.stdout.trim();
+  if (stdout.startsWith("[")) {
+    try {
+      const rows = JSON.parse(stdout) as unknown[];
+      return {
+        ok: true,
+        checks: rows.flatMap((row): PullRequestCheck[] => {
+          if (!row || typeof row !== "object") return [];
+          const value = row as Record<string, unknown>;
+          if (typeof value.name !== "string" || typeof value.state !== "string") return [];
+          return [
+            {
+              name: value.name,
+              state: value.state,
+              ...(typeof value.link === "string" && value.link ? { link: value.link } : {}),
+              ...(typeof value.startedAt === "string" && value.startedAt
+                ? { startedAt: value.startedAt }
+                : {}),
+            },
+          ];
+        }),
+      };
+    } catch {
+      // Fall through to the stderr classification below.
+    }
+  }
+  if (/no checks reported/i.test(`${result.stderr}\n${result.stdout}`)) {
+    return { ok: true, checks: [] };
+  }
+  return {
+    ok: false,
+    stderr: result.stderr.trim() || "Failed to read the pull request's checks.",
+  };
 }
 
 export async function getScmStatus(args: { cwd?: string }) {

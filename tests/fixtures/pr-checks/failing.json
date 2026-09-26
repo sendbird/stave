@@ -1,0 +1,5 @@
+[
+  {"name":"typecheck","state":"SUCCESS","link":"https://github.com/acme/app/actions/runs/2/job/21","startedAt":"2026-09-26T10:00:00Z"},
+  {"name":"unit tests","state":"FAILURE","link":"https://github.com/acme/app/actions/runs/2/job/22","startedAt":"2026-09-26T10:00:00Z"},
+  {"name":"lint","state":"IN_PROGRESS","link":"https://github.com/acme/app/actions/runs/2/job/23","startedAt":"2026-09-26T10:00:00Z"}
+]

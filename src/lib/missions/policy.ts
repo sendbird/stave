@@ -67,7 +67,13 @@ export type ActionOutcome =
   | { status: "in-progress" }
   | { status: "succeeded"; result: ActionResult }
   | { status: "failed"; detail: string }
-  | { status: "stuck"; detail: string };
+  | { status: "stuck"; detail: string }
+  /**
+   * The action needs an AI turn before it can go on, such as a repair turn
+   * for failing checks. The turn counts against the mission's turn cap and
+   * reports nothing; the action observes its effect afterwards.
+   */
+  | { status: "needs-turn"; reason: "repair-checks"; prompt: string; detail: string };
 
 export interface MissionObservation {
   leadTask: LeadTaskObservation;
@@ -108,6 +114,7 @@ export type MissionDecision =
   | { action: "nudge" }
   | { action: "mark-stuck"; detail: string }
   | { action: "execute-action"; stageIndex: number }
+  | { action: "start-action-turn"; stageIndex: number; attempt: number }
   | { action: "complete-stage"; next: "sign-off" | "start" | "finish" };
 
 export type MissionDecisionAction = MissionDecision["action"];
@@ -128,6 +135,7 @@ export const MISSION_DECISION_EFFECTS: Record<MissionDecisionAction, string> = {
   nudge: "Start one reminder turn asking the agent to report.",
   "mark-stuck": "Mark the current stage stuck.",
   "execute-action": "Run the current Stave action.",
+  "start-action-turn": "Start a turn the current Stave action asked for, such as a checks repair.",
   "complete-stage": "Complete the current stage and move on.",
 };
 
@@ -267,6 +275,14 @@ function decideActionStage(
       return { action: "block", reason: "action-failed", detail: clampReason(outcome.detail) };
     case "stuck":
       return { action: "mark-stuck", detail: clampReason(outcome.detail) };
+    case "needs-turn":
+      return (
+        turnCapStop(mission) ?? {
+          action: "start-action-turn",
+          stageIndex: mission.currentStageIndex,
+          attempt: record.attempt,
+        }
+      );
   }
 }
 
@@ -542,6 +558,12 @@ export function applyMissionDecision(args: {
         ],
       };
     }
+    case "start-action-turn":
+      return {
+        mission: withMission(mission, { turnCount: mission.turnCount + 1 }, now),
+        upserts: [],
+        events: [],
+      };
     case "execute-action": {
       const record = currentStageRecord(aggregate);
       if (record.status === "running") return unchanged;

@@ -127,7 +127,9 @@ function createHarness(options: {
       advance();
       turns.unshift({ id: turnId, createdAt: clock.toISOString(), completedAt: null });
       // What the provider runtime does: a grant for this turn's stage attempt.
-      grants.set(`key-${turnId}`, { ...args.missionStage, turnId, taskId: args.taskId });
+      if (args.missionStage) {
+        grants.set(`key-${turnId}`, { ...args.missionStage, turnId, taskId: args.taskId });
+      }
       return { turnId };
     },
     completeInterruptedTurn: (turnId) => {
@@ -557,6 +559,62 @@ describe("mission runtime: Stave action stages", () => {
       url: "https://github.com/acme/app/pull/9",
       source: "stave",
     });
+  });
+});
+
+describe("mission runtime: turns an action asks for", () => {
+  test("a repair turn counts against the cap, reports nothing, and hands back to the action", async () => {
+    const outcomes: ActionOutcome[] = [
+      {
+        status: "needs-turn",
+        reason: "repair-checks",
+        prompt: "These checks fail on the pull request: unit tests.",
+        detail: "Checks failed: unit tests.",
+      },
+      { status: "in-progress" },
+      {
+        status: "succeeded",
+        result: { type: "watch-checks", outcome: "passed", checks: [{ name: "unit tests", state: "SUCCESS" }] },
+      },
+    ];
+    let actionCalls = 0;
+    const harness = createHarness({
+      performAction: async () => outcomes[Math.min(actionCalls++, outcomes.length - 1)]!,
+    });
+    const missionId = await startedMission(
+      harness,
+      startInput({
+        playbook: playbook([
+          DRAFT,
+          { id: "watch", title: "Watch checks", kind: "action", action: { type: "watch-checks", repairAttempts: 2, timeoutMinutes: 30 } },
+        ]),
+        consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["watch"] },
+      }),
+    );
+    await harness.runtime.reportStage({ missionKey: "key-turn-1", report: COMPLETE });
+    harness.endTurn("turn-1");
+    await harness.tick();
+
+    expect(actionCalls).toBe(1);
+    expect(harness.runCalls).toHaveLength(2);
+    const repair = harness.runCalls[1]!;
+    expect(repair.prompt).toBe("These checks fail on the pull request: unit tests.");
+    expect(repair.missionStage).toBeUndefined();
+    expect(repair.retrievedContextParts[0]?.content).toContain("Checks failed on the pull request");
+    expect(harness.aggregate(missionId).mission.turnCount).toBe(2);
+    expect(harness.current(missionId)).toMatchObject({ stageId: "watch", status: "running" });
+
+    // The action is not called while the repair turn runs.
+    await harness.tick();
+    expect(actionCalls).toBe(1);
+
+    harness.endTurn("turn-2");
+    await harness.tick();
+    expect(actionCalls).toBe(2);
+    expect(harness.aggregate(missionId).mission.state).toBe("running");
+    await harness.tick();
+    expect(actionCalls).toBe(3);
+    expect(harness.aggregate(missionId).mission.state).toBe("completed");
   });
 });
 

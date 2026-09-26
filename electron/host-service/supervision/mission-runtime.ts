@@ -145,7 +145,8 @@ export interface MissionRuntimeDependencies {
     fingerprint: MissionFingerprint;
     runtimeOptions: ProviderRuntimeOptions;
     retrievedContextParts: CanonicalRetrievedContextPart[];
-    missionStage: MissionStageRef;
+    /** Absent for a turn a Stave action asked for: it reports no stage. */
+    missionStage?: MissionStageRef;
   }) => Promise<{ turnId: string }>;
   /** Closes a turn left open by a stopped host; true when it was open. */
   completeInterruptedTurn: (turnId: string) => boolean;
@@ -493,10 +494,19 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     }
   }
 
-  async function startStageTurn(
+  /**
+   * Starts one mission turn. Stage turns carry the stage identity, which mints
+   * the reporting grant; a turn a Stave action asked for reports nothing and
+   * carries none.
+   */
+  async function startMissionTurn(
     aggregate: MissionAggregate,
-    decision: Extract<MissionDecision, { action: "start-stage-turn" | "nudge" }>,
+    decision: Extract<
+      MissionDecision,
+      { action: "start-stage-turn" | "nudge" | "start-action-turn" }
+    >,
     reason: MissionTurnReason,
+    actionPrompt?: string,
   ) {
     const { mission } = aggregate;
     const before = currentStageRecord(aggregate);
@@ -531,18 +541,21 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
       ],
     });
     const identity = { missionId: mission.id, stageId: before.stageId, attempt: before.attempt };
+    const prompt =
+      actionPrompt ??
+      (reason === "nudge" ? buildStageNudgePrompt(started) : compileMissionStagePrompt(started));
     try {
       const turn = await deps.runSupervisedTurn({
         workspaceId: mission.workspaceId,
         taskId: mission.leadTaskId,
-        prompt: reason === "nudge" ? buildStageNudgePrompt(started) : compileMissionStagePrompt(started),
+        prompt,
         fingerprint: mission.fingerprint,
         runtimeOptions: missionPermissionRuntimeOptions(
           mission.fingerprint.providerId,
           mission.consent.permissionMode,
         ),
         retrievedContextParts: [buildMissionTurnContextPart({ aggregate: started, reason })],
-        missionStage: identity,
+        ...(actionPrompt === undefined ? { missionStage: identity } : {}),
       });
       turnIdsFor(mission.id).add(turn.turnId);
       userTurnIntents.delete(mission.id);
@@ -570,7 +583,24 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     }
   }
 
-  async function executeAction(aggregate: MissionAggregate, decision: MissionDecision) {
+  /** Starts the turn the current action asked for; the action resumes after it. */
+  async function startActionTurn(
+    aggregate: MissionAggregate,
+    decision: Extract<MissionDecision, { action: "start-action-turn" }>,
+  ) {
+    const key = stageKey(currentStageRecord(aggregate));
+    const requested = actionOutcomes.get(key);
+    if (requested?.status !== "needs-turn") return;
+    // Consumed here, so the finished turn leads back to the action instead of
+    // asking for another turn.
+    actionOutcomes.set(key, { status: "in-progress" });
+    await startMissionTurn(aggregate, decision, requested.reason, requested.prompt);
+  }
+
+  async function executeAction(
+    aggregate: MissionAggregate,
+    decision: MissionDecision,
+  ): Promise<ActionOutcome> {
     const change = applyMissionDecision({ aggregate, decision, now: now() });
     const current = hasEffect(change, aggregate) ? applyChange(change) : aggregate;
     const record = currentStageRecord(current);
@@ -595,6 +625,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         events: [],
       });
     }
+    return outcome;
   }
 
   /** Runs the policy for one mission until it idles or starts a turn. */
@@ -613,14 +644,20 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         case "wait":
           return;
         case "start-stage-turn":
-          await startStageTurn(aggregate, decision, decision.reason);
+          await startMissionTurn(aggregate, decision, decision.reason);
           return;
         case "nudge":
-          await startStageTurn(aggregate, decision, "nudge");
+          await startMissionTurn(aggregate, decision, "nudge");
           return;
-        case "execute-action":
-          await executeAction(aggregate, decision);
+        case "start-action-turn":
+          await startActionTurn(aggregate, decision);
+          return;
+        case "execute-action": {
+          // An action still underway changes nothing until the next tick.
+          const outcome = await executeAction(aggregate, decision);
+          if (outcome.status === "in-progress") return;
           break;
+        }
         case "stop":
         case "pause":
         case "resume":

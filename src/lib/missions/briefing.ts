@@ -38,8 +38,11 @@ export const MISSION_TOOL_NAMES = Object.freeze({
 
 export const MISSION_CONTEXT_SOURCE_ID = "stave:mission";
 
-/** Why the supervisor started a turn: a stage turn or the one reminder. */
-export type MissionTurnReason = StageTurnReason | "nudge";
+/**
+ * Why the supervisor started a turn: a stage turn, the one reminder, or a
+ * turn a Stave action asked for.
+ */
+export type MissionTurnReason = StageTurnReason | "nudge" | "repair-checks";
 
 const TURN_REASON_LINES: Record<MissionTurnReason, string> = {
   "stage-start": "This turn starts the stage.",
@@ -48,7 +51,12 @@ const TURN_REASON_LINES: Record<MissionTurnReason, string> = {
   "reporting-restored":
     "Stave's local tools are reachable again, so this turn resumes the stage.",
   nudge: "The previous turn ended without a stage report.",
+  "repair-checks": "Checks failed on the pull request, so the Watch checks action asked for a repair.",
 };
+
+const STAGE_TURN_CLOSING = `Before this turn ends, report through \`${MISSION_TOOL_NAMES.report}\`, or \`${MISSION_TOOL_NAMES.block}\` when you cannot finish. Do not ask a question you cannot get answered.`;
+const ACTION_TURN_CLOSING =
+  "Commit your fix before this turn ends. Stave pushes the branch and watches the checks again afterwards; this turn reports no stage. Do not ask a question you cannot get answered.";
 
 /** Summaries of the stages before the current one, in playbook order. */
 export function collectPriorStageSummaries(
@@ -143,7 +151,7 @@ export function buildMissionTurnContextPart(args: {
       "A Stave mission started this turn. The user did not type this message and may not be watching.",
       `Playbook: ${mission.playbook.name}. Stage ${mission.currentStageIndex + 1} of ${mission.playbook.stages.length}: ${stage.title}, attempt ${record.attempt}.`,
       TURN_REASON_LINES[args.reason],
-      `Before this turn ends, report through \`${MISSION_TOOL_NAMES.report}\`, or \`${MISSION_TOOL_NAMES.block}\` when you cannot finish. Do not ask a question you cannot get answered.`,
+      args.reason === "repair-checks" ? ACTION_TURN_CLOSING : STAGE_TURN_CLOSING,
     ].join("\n"),
   };
 }

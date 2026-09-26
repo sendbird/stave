@@ -14,6 +14,8 @@ import { ensureHostServicePersistenceReady } from "../persistence";
 import { fetchGitHubPrStatus } from "../scm-runtime";
 import { runSupervisedTurn } from "../supervised-turn";
 import { createLocalMcpReachabilityProbe } from "./local-mcp-reachability";
+import { createMissionActionExecutor } from "./mission-actions";
+import { createScmMissionPort } from "./mission-scm";
 import { createMissionRuntime } from "./mission-runtime";
 import {
   collectStageFacts,
@@ -39,6 +41,11 @@ export function createHostMissionRuntime(args: {
   const persistence = ensureHostServicePersistenceReady();
   const reachability = createLocalMcpReachabilityProbe({
     readManifest: readPrimaryStaveLocalMcpManifest,
+  });
+  const performAction = createMissionActionExecutor({
+    store: persistence.missions,
+    scm: createScmMissionPort(),
+    resolveWorkspacePath,
   });
   return createMissionRuntime({
     store: persistence.missions,
@@ -79,6 +86,7 @@ export function createHostMissionRuntime(args: {
             : null;
         },
       }),
+    performAction,
     notifyMissionProblem: ({ mission, detail }) =>
       localMcpRuntime.notifySupervisorProblem({
         workspaceId: mission.workspaceId,

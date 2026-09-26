@@ -285,6 +285,29 @@ describe("Stave action stages", () => {
     ).toMatchObject({ action: "mark-stuck" });
   });
 
+  test("an action that needs a turn gets one, counted against the turn cap", () => {
+    const executing = step(atOpenDraftPr()).next;
+    const needsTurn = {
+      actionOutcome: {
+        status: "needs-turn" as const,
+        reason: "repair-checks" as const,
+        prompt: "Fix unit tests.",
+        detail: "Checks failed: unit tests.",
+      },
+    };
+    const repair = step(executing, observe(needsTurn));
+    expect(repair.decision).toEqual({ action: "start-action-turn", stageIndex: 3, attempt: 1 });
+    expect(repair.next.mission.turnCount).toBe(executing.mission.turnCount + 1);
+    expect(currentStageRecord(repair.next).status).toBe("running");
+
+    const capped = { ...executing, mission: { ...executing.mission, turnCount: executing.mission.maxTurns } };
+    expect(decide(capped, observe(needsTurn))).toMatchObject({ action: "stop", reason: "turn-cap-reached" });
+    // A running repair turn keeps the action idle.
+    expect(
+      decide(executing, observe({ ...needsTurn, leadTask: { activeTurn: turn({ turnId: "repair-1" }) } })),
+    ).toEqual({ action: "idle" });
+  });
+
   test("completing the last stage completes the mission", () => {
     const playbook = starterPlaybook("fix-failing-checks");
     let aggregate = missionFixture({ playbook });
