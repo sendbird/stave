@@ -506,6 +506,7 @@ export type HostMissionAction =
   | "accept-runtime"
   | "note-user-turn"
   | "cancel"
+  | "add-report-to-pr"
   | "get-for-grant"
   | "report-stage"
   | "block-stage";
@@ -1249,6 +1250,7 @@ export interface HostServiceEventMap {
     }>;
   };
   "mission.changed": MissionChangedEvent;
+  "wake-up.changed": { wakeUpId: string; workspaceId: string; taskId: string };
 }
 
 export type HostServiceMethod = keyof HostServiceRequestMap;

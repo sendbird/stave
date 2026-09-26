@@ -85,6 +85,10 @@ import {
   type MissionReport,
   type MissionWorkspaceState,
 } from "../../../src/lib/missions/report";
+import {
+  formatMissionReportMarkdown,
+  mergeReportIntoPullRequestBody,
+} from "../../../src/lib/missions/report-markdown";
 import type { CanonicalRetrievedContextPart, ProviderRuntimeOptions } from "../../../src/lib/providers/provider.types";
 import type { MissionStore } from "../../persistence/mission-store";
 import type { MissionStageGrant } from "../../providers/mission-grants";
@@ -170,6 +174,14 @@ export interface MissionRuntimeDependencies {
    * wired, in which case an action stage blocks with a sentence.
    */
   performAction?: (args: { aggregate: MissionAggregate }) => Promise<ActionOutcome>;
+  /**
+   * Updates the workspace's pull request body with `merge(currentBody)`. Used
+   * only for the explicit "Add to PR description" action.
+   */
+  updatePullRequestBody?: (args: {
+    cwd: string;
+    merge: (body: string) => string;
+  }) => Promise<{ ok: true; url: string } | { ok: false; detail: string }>;
   /** Tells the user about a turn the mission could not start. Never throws. */
   notifyMissionProblem?: (args: { mission: Mission; detail: string }) => Promise<void> | void;
   emitChanged?: (event: MissionChangedEvent) => void;
@@ -209,6 +221,8 @@ export interface MissionRuntime {
   acceptRuntime: (args: MissionIdArgs) => Promise<MissionDetail>;
   noteUserTurn: (args: MissionNoteUserTurnArgs) => Promise<MissionDetail>;
   cancel: (args: MissionIdArgs) => Promise<MissionDetail>;
+  /** Adds the ended mission's report to its pull request body. */
+  addReportToPullRequest: (args: MissionIdArgs) => Promise<{ prUrl: string }>;
   getForGrant: (args: { missionKey: string }) => Promise<MissionBriefing>;
   reportStage: (args: { missionKey: string; report: unknown }) => Promise<MissionReportReceipt>;
   blockStage: (args: { missionKey: string; block: unknown }) => Promise<MissionReportReceipt>;
@@ -781,6 +795,21 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     }
   }
 
+  async function getDetail({ missionId }: MissionIdArgs): Promise<MissionDetail> {
+    const aggregate = requireAggregate(missionId);
+    const { mission } = aggregate;
+    if (isActiveMissionState(mission.state)) return detailOf(missionId);
+    let workspace = EMPTY_WORKSPACE_STATE;
+    if (mission.state !== "completed" && deps.readWorkspaceState) {
+      const cwd = await deps.resolveWorkspacePath(mission.workspaceId).catch(() => null);
+      workspace = await deps.readWorkspaceState(cwd).catch(() => EMPTY_WORKSPACE_STATE);
+    }
+    return detailOf(
+      missionId,
+      buildMissionReport({ aggregate, workspace, endedAt: new Date(mission.updatedAt) }),
+    );
+  }
+
   /** A user command: one pure transition, applied, then a tick to act on it. */
   function command(
     missionId: string,
@@ -870,19 +899,21 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         ? store.listMissionsForWorkspace(args.workspaceId, args.limit)
         : store.listRecentMissions(args.limit),
     }),
-    get: async ({ missionId }) => {
-      const aggregate = requireAggregate(missionId);
-      const { mission } = aggregate;
-      if (isActiveMissionState(mission.state)) return detailOf(missionId);
-      let workspace = EMPTY_WORKSPACE_STATE;
-      if (mission.state !== "completed" && deps.readWorkspaceState) {
-        const cwd = await deps.resolveWorkspacePath(mission.workspaceId).catch(() => null);
-        workspace = await deps.readWorkspaceState(cwd).catch(() => EMPTY_WORKSPACE_STATE);
-      }
-      return detailOf(
-        missionId,
-        buildMissionReport({ aggregate, workspace, endedAt: new Date(mission.updatedAt) }),
-      );
+    get: getDetail,
+    addReportToPullRequest: async ({ missionId }) => {
+      const detail = await getDetail({ missionId });
+      if (!detail.report) refuse("The report is ready once the mission ends.");
+      const update = deps.updatePullRequestBody;
+      if (!update) refuse("This version of Stave cannot edit pull requests.");
+      const cwd = await deps.resolveWorkspacePath(detail.mission.workspaceId);
+      if (!cwd) refuse("The workspace folder could not be found.");
+      const markdown = formatMissionReportMarkdown(detail.report);
+      const result = await update({
+        cwd,
+        merge: (body) => mergeReportIntoPullRequestBody(body, markdown),
+      });
+      if (!result.ok) refuse(result.detail);
+      return { prUrl: result.url };
     },
     signOff: (args) =>
       command(args.missionId, (aggregate) =>
@@ -1061,6 +1092,8 @@ function dispatch(runtime: MissionRuntime, action: HostMissionAction, args: unkn
       return runtime.noteUserTurn(args as MissionNoteUserTurnArgs);
     case "cancel":
       return runtime.cancel(args as MissionIdArgs);
+    case "add-report-to-pr":
+      return runtime.addReportToPullRequest(args as MissionIdArgs);
     case "get-for-grant":
       return runtime.getForGrant(args as { missionKey: string });
     case "report-stage":

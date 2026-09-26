@@ -11,7 +11,7 @@ import { resolveMissionGrant } from "../../providers/mission-grants";
 import { countActiveDelegatedTasks } from "../delegated-task-signals";
 import * as localMcpRuntime from "../local-mcp-runtime";
 import { ensureHostServicePersistenceReady } from "../persistence";
-import { fetchGitHubPrStatus } from "../scm-runtime";
+import { fetchGitHubPrStatus, readScmPrBody, updateScmPrBody } from "../scm-runtime";
 import { runSupervisedTurn } from "../supervised-turn";
 import { createLocalMcpReachabilityProbe } from "./local-mcp-reachability";
 import { createMissionActionExecutor } from "./mission-actions";
@@ -87,6 +87,15 @@ export function createHostMissionRuntime(args: {
         },
       }),
     performAction,
+    updatePullRequestBody: async ({ cwd, merge }) => {
+      const current = await readScmPrBody({ cwd });
+      if (!current.ok) return { ok: false, detail: current.stderr };
+      if (current.state && current.state !== "OPEN") {
+        return { ok: false, detail: "The pull request is no longer open." };
+      }
+      const updated = await updateScmPrBody({ cwd, body: merge(current.body) });
+      return updated.ok ? { ok: true, url: current.url } : { ok: false, detail: updated.stderr };
+    },
     notifyMissionProblem: ({ mission, detail }) =>
       localMcpRuntime.notifySupervisorProblem({
         workspaceId: mission.workspaceId,

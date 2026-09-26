@@ -15,6 +15,8 @@ import type { AcceptanceCriterion } from "@/lib/playbooks/stage-prompt";
 import { useAppStore } from "@/store/app.store";
 import { useMissionsStore, useTaskMission } from "@/store/missions-store";
 import { MissionReportView } from "./MissionReportView";
+import { useMissionReportActions } from "./useMissionReportActions";
+import { WakeUpSection } from "./WakeUpSection";
 import { StageCard } from "./StageCard";
 import { useNow } from "./useMission";
 import { missionStyles as styles } from "./missions.styles";
@@ -49,6 +51,7 @@ export function MissionDetailView(props: {
   now: number;
   onCommand: ReturnType<typeof useMissionsStore.getState>["runCommand"];
   onShowTool?: (toolCallId: string) => void;
+  reportActions?: import("./useMissionReportActions").MissionReportActions;
   busy?: boolean;
   failure?: string | null;
 }) {
@@ -140,7 +143,7 @@ export function MissionDetailView(props: {
           />
         ))}
       </ol>
-      {detail.report ? <MissionReportView report={detail.report} /> : null}
+      {detail.report ? <MissionReportView report={detail.report} actions={props.reportActions} /> : null}
     </section>
   );
 }
@@ -162,6 +165,7 @@ export function MissionPanel(props: {
   const busy = useMissionsStore((state) => Boolean(state.pendingByMission[missionId]));
   const failure = useMissionsStore((state) => state.failureByMission[missionId]?.message ?? null);
   const focusTranscriptTool = useAppStore((state) => state.focusTranscriptTool);
+  const reportActions = useMissionReportActions(detail);
   const active = Boolean(detail && isActiveMissionState(detail.mission.state));
   const now = useNow(active);
   // A finished mission's report is built on request; fetch it once.
@@ -178,11 +182,13 @@ export function MissionPanel(props: {
           busy={busy}
           failure={failure}
           onCommand={runCommand}
+          reportActions={reportActions}
           onShowTool={(toolUseId) => focusTranscriptTool({ taskId: props.taskId, toolUseId })}
         />
       ) : (
         <p className={sx(styles.notice)}>This task has no mission. A mission runs a playbook on this task stage by stage.</p>
       )}
+      <WakeUpSection workspaceId={props.workspaceId} taskId={props.taskId} />
       <div className={sx(styles.section)}>
         {props.team ? (
           <TeamSection target={props.team} />

@@ -1779,6 +1779,58 @@ export function pushScmBranch(args: {
   });
 }
 
+/** The branch's pull request body, for an explicit, user-initiated edit. */
+export async function readScmPrBody(args: {
+  cwd?: string;
+  runCommand?: ScmCommandRunner;
+}): Promise<{ ok: true; body: string; url: string; state: string } | { ok: false; stderr: string }> {
+  const run = args.runCommand ?? runCommandArgs;
+  const authResult = await ensureGhAuth({ cwd: args.cwd, runCommand: args.runCommand });
+  if (!authResult.ok) return { ok: false, stderr: describeGhAuthFailure(authResult) };
+  const result = await run({
+    command: "gh",
+    commandArgs: ["pr", "view", "--json", "body,url,state"],
+    cwd: args.cwd,
+  });
+  invalidateCachedGhAuthOnFailure(result, args.cwd);
+  if (!result.ok) {
+    return {
+      ok: false,
+      stderr: /no pull requests found|no open pull requests/i.test(result.stderr)
+        ? "This branch has no pull request."
+        : result.stderr.trim() || "Failed to read the pull request.",
+    };
+  }
+  try {
+    const parsed = JSON.parse(result.stdout) as { body?: unknown; url?: unknown; state?: unknown };
+    return {
+      ok: true,
+      body: typeof parsed.body === "string" ? parsed.body : "",
+      url: typeof parsed.url === "string" ? parsed.url : "",
+      state: typeof parsed.state === "string" ? parsed.state : "",
+    };
+  } catch {
+    return { ok: false, stderr: "Failed to parse the pull request." };
+  }
+}
+
+export async function updateScmPrBody(args: {
+  cwd?: string;
+  body: string;
+  runCommand?: ScmCommandRunner;
+}): Promise<{ ok: true } | { ok: false; stderr: string }> {
+  const run = args.runCommand ?? runCommandArgs;
+  const result = await run({
+    command: "gh",
+    commandArgs: ["pr", "edit", "--body", args.body],
+    cwd: args.cwd,
+  });
+  invalidateCachedGhAuthOnFailure(result, args.cwd);
+  return result.ok
+    ? { ok: true }
+    : { ok: false, stderr: result.stderr.trim() || "Failed to update the pull request." };
+}
+
 export async function setScmPrReady(args: { cwd?: string }) {
   const authResult = await ensureGhAuth({ cwd: args.cwd });
   if (!authResult.ok) {

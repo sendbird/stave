@@ -137,6 +137,11 @@ import {
   type MissionChangedEvent,
   type MissionsBridgeApi,
 } from "../src/lib/missions/api";
+import {
+  WAKE_UP_IPC,
+  type WakeUpChangedEvent,
+  type WakeUpsBridgeApi,
+} from "../src/lib/supervision/wake-up-bridge";
 import type {
   AppNotification,
   AppNotificationCreateInput,
@@ -775,10 +780,30 @@ const missionsApi: MissionsBridgeApi = {
   acceptRuntime: (args) => ipcRenderer.invoke(MISSION_IPC.acceptRuntime, args),
   noteUserTurn: (args) => ipcRenderer.invoke(MISSION_IPC.noteUserTurn, args),
   cancel: (args) => ipcRenderer.invoke(MISSION_IPC.cancel, args),
+  addReportToPullRequest: (args) => ipcRenderer.invoke(MISSION_IPC.addReportToPullRequest, args),
   subscribeChanged: (listener) => {
     missionChangedSubscribers.add(listener);
     return () => {
       missionChangedSubscribers.delete(listener);
+    };
+  },
+};
+
+const wakeUpChangedSubscribers = new Set<(payload: WakeUpChangedEvent) => void>();
+ipcRenderer.on(WAKE_UP_IPC.changed, (_event, payload: WakeUpChangedEvent) => {
+  for (const subscriber of wakeUpChangedSubscribers) {
+    subscriber(payload);
+  }
+});
+
+const wakeUpsApi: WakeUpsBridgeApi = {
+  list: (args) => ipcRenderer.invoke(WAKE_UP_IPC.list, args),
+  setPaused: (args) => ipcRenderer.invoke(WAKE_UP_IPC.setPaused, args),
+  remove: (args) => ipcRenderer.invoke(WAKE_UP_IPC.remove, args),
+  subscribeChanged: (listener) => {
+    wakeUpChangedSubscribers.add(listener);
+    return () => {
+      wakeUpChangedSubscribers.delete(listener);
     };
   },
 };
@@ -2186,6 +2211,7 @@ contextBridge.exposeInMainWorld("api", {
       }>,
   },
   missions: missionsApi,
+  wakeUps: wakeUpsApi,
   automations: {
     setProviderTimeout: (args: { providerTimeoutMs: number }) =>
       ipcRenderer.invoke("automations:set-provider-timeout", args) as Promise<{

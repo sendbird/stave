@@ -83,6 +83,7 @@ function createHarness(args?: {
     detail: string;
   }> = [];
   const completedTurnIds: string[] = [];
+  const changes: Array<{ wakeUpId: string; workspaceId: string; taskId: string }> = [];
   let snapshot: TaskSupervisionSnapshot = {
     workspaceId: "ws-1",
     taskId: "task-1",
@@ -140,6 +141,9 @@ function createHarness(args?: {
       turnCounter += 1;
       return { turnId: `turn-${turnCounter}` };
     },
+    emitChanged: (event) => {
+      changes.push(event);
+    },
     notifyWakeUpFailed: (failure) => {
       wakeFailures.push({
         taskId: failure.taskId,
@@ -163,6 +167,7 @@ function createHarness(args?: {
     getRunCalls: () => runCalls,
     getWakeFailures: () => wakeFailures,
     getCompletedTurnIds: () => completedTurnIds,
+    getChanges: () => changes,
     setNow: (value: string) => {
       currentNow = new Date(value);
     },
@@ -194,6 +199,18 @@ function createHarness(args?: {
 }
 
 describe("supervisor runtime", () => {
+  test("announces every write and removal so task surfaces refresh", async () => {
+    const harness = createHarness();
+    const wakeUp = await harness.runtime.create(createInput());
+    await harness.runtime.pause({ id: wakeUp.id });
+    await harness.runtime.remove({ id: wakeUp.id });
+    expect(harness.getChanges()).toEqual([
+      { wakeUpId: wakeUp.id, workspaceId: "ws-1", taskId: "task-1" },
+      { wakeUpId: wakeUp.id, workspaceId: "ws-1", taskId: "task-1" },
+      { wakeUpId: wakeUp.id, workspaceId: "ws-1", taskId: "task-1" },
+    ]);
+  });
+
   test("wakes the existing task when the instant comes due", async () => {
     const harness = createHarness();
     const wakeUp = await harness.runtime.create(createInput());

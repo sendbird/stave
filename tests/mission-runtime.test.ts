@@ -82,6 +82,7 @@ function createHarness(options: {
   store?: MissionStore;
   hangTurnStarts?: boolean;
   performAction?: MissionRuntimeDependencies["performAction"];
+  updatePullRequestBody?: MissionRuntimeDependencies["updatePullRequestBody"];
 } = {}) {
   const store = options.store ?? new MissionStore(new Database(":memory:"));
   let clock = new Date(START);
@@ -151,6 +152,7 @@ function createHarness(options: {
       openPullRequest: { url: "https://github.com/acme/app/pull/7", number: 7, isDraft: true },
     }),
     ...(options.performAction ? { performAction: options.performAction } : {}),
+    ...(options.updatePullRequestBody ? { updatePullRequestBody: options.updatePullRequestBody } : {}),
     notifyMissionProblem: ({ detail }) => {
       notifications.push(detail);
     },
@@ -615,6 +617,30 @@ describe("mission runtime: turns an action asks for", () => {
     await harness.tick();
     expect(actionCalls).toBe(3);
     expect(harness.aggregate(missionId).mission.state).toBe("completed");
+  });
+});
+
+describe("mission runtime: report actions", () => {
+  test("adds the ended mission's report to its pull request, and only then", async () => {
+    let body = "## Summary\nAdds export.";
+    const harness = createHarness({
+      updatePullRequestBody: async ({ merge }) => {
+        body = merge(body);
+        return { ok: true, url: "https://github.com/acme/app/pull/7" };
+      },
+    });
+    const missionId = await startedMission(harness);
+    await expect(harness.runtime.addReportToPullRequest({ missionId })).rejects.toThrow(
+      "once the mission ends",
+    );
+    await harness.runtime.cancel({ missionId });
+    expect(await harness.runtime.addReportToPullRequest({ missionId })).toEqual({
+      prUrl: "https://github.com/acme/app/pull/7",
+    });
+    expect(body).toContain("<!-- stave:mission-report -->");
+    expect(body).toContain("Mission cancelled");
+    await harness.runtime.addReportToPullRequest({ missionId });
+    expect(body.split("<!-- stave:mission-report -->")).toHaveLength(2);
   });
 });
 

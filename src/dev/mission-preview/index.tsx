@@ -7,6 +7,8 @@ import { MissionBarView } from "@/components/missions/MissionBar";
 import { MissionDetailView } from "@/components/missions/MissionPanel";
 import { MissionReportView } from "@/components/missions/MissionReportView";
 import { SignOffCard } from "@/components/missions/SignOffCard";
+import { WakeUpSectionView } from "@/components/missions/WakeUpSection";
+import type { WakeUp } from "@/lib/supervision/wake-up-policy";
 import { missionStyles } from "@/components/missions/missions.styles";
 import type { MissionDetail } from "@/lib/missions/api";
 import {
@@ -160,6 +162,13 @@ const completed: MissionDetail = {
 
 const noop = (async () => ({ ok: true, mission: null })) as never;
 
+const previewWakeUp = {
+  id: "wake-preview",
+  workspaceId: "preview-workspace",
+  taskId: "preview-task",
+  trigger: { kind: "schedule", schedule: { every: 1, unit: "hours" } },
+} as unknown as WakeUp;
+
 export function MissionPreview() {
   const [dark, setDark] = useState(() => new URLSearchParams(window.location.search).get("theme") === "dark");
   useLayoutEffect(() => {
@@ -207,7 +216,52 @@ export function MissionPreview() {
         </section>
         <section className={sx(styles.case, styles.rail)} data-preview-case="Report only">
           <p className={sx(styles.caption)}>Mission report in Task Results</p>
-          <MissionReportView report={completed.report!} />
+          <MissionReportView
+            report={completed.report!}
+            actions={{
+              addToPullRequest: async () => "Added the report to the pull request description.",
+              saveDecisions: async () => "Saved 2 decisions as memory candidates. Review them in Memory.",
+            }}
+          />
+        </section>
+        <section className={sx(styles.case, styles.rail)} data-preview-case="Wake-ups">
+          <p className={sx(styles.caption)}>Wake-ups in the Mission panel</p>
+          <WakeUpSectionView
+            entry={{
+              wakeUp: previewWakeUp,
+              summary: {
+                wakeUpId: "wake-preview",
+                taskId: "preview-task",
+                triggerKind: "schedule",
+                state: "scheduled",
+                reason: null,
+                nextRunAt: new Date(now + 12 * 60_000).toISOString(),
+                occurrenceCount: 3,
+                skippedCount: 1,
+              },
+            }}
+            now={now}
+            onSetPaused={() => {}}
+            onRemove={() => {}}
+          />
+          <WakeUpSectionView
+            entry={{
+              wakeUp: previewWakeUp,
+              summary: {
+                wakeUpId: "wake-preview",
+                taskId: "preview-task",
+                triggerKind: "schedule",
+                state: "paused",
+                reason: "A mission is running on this task. This wake-up resumes when the mission ends.",
+                nextRunAt: null,
+                occurrenceCount: 3,
+                skippedCount: 1,
+              },
+            }}
+            now={now}
+            onSetPaused={() => {}}
+            onRemove={() => {}}
+          />
         </section>
       </div>
     </main>

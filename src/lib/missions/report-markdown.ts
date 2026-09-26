@@ -58,3 +58,21 @@ export function formatMissionReportMarkdown(report: MissionReport): string {
   }
   return `${lines.join("\n")}\n`;
 }
+
+const REPORT_START = "<!-- stave:mission-report -->";
+const REPORT_END = "<!-- /stave:mission-report -->";
+
+/**
+ * The pull request body with the Mission report section added, or replaced
+ * when an earlier report is already there, so adding it twice never repeats.
+ */
+export function mergeReportIntoPullRequestBody(body: string, reportMarkdown: string): string {
+  const section = `${REPORT_START}\n${reportMarkdown.trim()}\n${REPORT_END}`;
+  const start = body.indexOf(REPORT_START);
+  const end = body.indexOf(REPORT_END);
+  if (start !== -1 && end > start) {
+    return `${body.slice(0, start)}${section}${body.slice(end + REPORT_END.length)}`;
+  }
+  const trimmed = body.trimEnd();
+  return trimmed ? `${trimmed}\n\n${section}\n` : `${section}\n`;
+}

@@ -5,6 +5,7 @@ import {
   type MissionCommandResponse,
   type MissionDetail,
   type MissionListResponse,
+  type MissionReportPublishResponse,
 } from "../../../src/lib/missions/api";
 import type { Mission } from "../../../src/lib/missions/domain";
 import type { HostMissionAction } from "../../host-service/protocol";
@@ -82,6 +83,24 @@ export function registerMissionHandlers() {
   handleCommand(MISSION_IPC.acceptRuntime, "accept-runtime", MissionIdArgsSchema);
   handleCommand(MISSION_IPC.noteUserTurn, "note-user-turn", MissionNoteUserTurnArgsSchema);
   handleCommand(MISSION_IPC.cancel, "cancel", MissionIdArgsSchema);
+
+  ipcMain.handle(
+    MISSION_IPC.addReportToPullRequest,
+    async (_event, args: unknown): Promise<MissionReportPublishResponse> => {
+      const parsed = MissionIdArgsSchema.safeParse(args);
+      if (!parsed.success) {
+        return { ok: false, code: "invalid-args", message: describeInvalidArgs(parsed.error) };
+      }
+      try {
+        const result = await invokeMission<{ prUrl: string }>("add-report-to-pr", parsed.data);
+        return result.ok
+          ? { ok: true, prUrl: result.value.prUrl }
+          : { ok: false, code: result.code, message: result.message };
+      } catch (error) {
+        return { ok: false, code: "failed", message: errorMessage(error, "Failed to update the pull request.") };
+      }
+    },
+  );
 
   ipcMain.handle(MISSION_IPC.list, async (_event, args: unknown): Promise<MissionListResponse> => {
     const parsed = MissionListArgsSchema.safeParse(args ?? {});

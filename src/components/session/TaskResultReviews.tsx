@@ -19,6 +19,7 @@ import { useAppStore } from "@/store/app.store";
 import type { RightRailPanelId } from "@/lib/right-rail-panels";
 import { ResultFileSnapshots } from "./ResultFileSnapshots";
 import { MissionReportView } from "@/components/missions/MissionReportView";
+import { useMissionReportActions } from "@/components/missions/useMissionReportActions";
 import { useTaskMission } from "@/store/missions-store";
 import {
   formatActualRunModel,
@@ -253,7 +254,8 @@ export function RunHistoryRow(props: {
 /** The task's latest finished mission report heads its results. */
 function TaskMissionReport(props: { workspaceId: string; taskId: string }) {
   const detail = useTaskMission(props.workspaceId, props.taskId);
-  return detail?.report ? <MissionReportView report={detail.report} /> : null;
+  const actions = useMissionReportActions(detail);
+  return detail?.report ? <MissionReportView report={detail.report} actions={actions} /> : null;
 }
 
 export function TaskResultReviews(props: {

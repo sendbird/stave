@@ -4,14 +4,32 @@ import { ActionButton } from "@/components/system/ActionButton";
 import type { MissionReport } from "@/lib/missions/report";
 import { describeReportTitle, formatMissionReportMarkdown } from "@/lib/missions/report-markdown";
 import { EvidenceList } from "./EvidenceList";
+import type { MissionReportActions } from "./useMissionReportActions";
 import { missionStyles as styles } from "./missions.styles";
 
 /**
  * The Mission report: what the mission did, why, and what proves it. Static:
  * a finished mission never animates.
  */
-export function MissionReportView({ report }: { report: MissionReport }) {
-  const [copyNotice, setCopyNotice] = useState<string | null>(null);
+export function MissionReportView({
+  report,
+  actions = {},
+}: {
+  report: MissionReport;
+  actions?: MissionReportActions;
+}) {
+  const [notice, setNotice] = useState<{ text: string; error: boolean } | null>(null);
+  const [running, setRunning] = useState<"pr" | "memory" | null>(null);
+  const runAction = async (which: "pr" | "memory", action: () => Promise<string>) => {
+    setRunning(which);
+    try {
+      setNotice({ text: await action(), error: false });
+    } catch (error) {
+      setNotice({ text: error instanceof Error ? error.message : "That did not work.", error: true });
+    } finally {
+      setRunning(null);
+    }
+  };
   const evidence = report.stages.flatMap((stage) => stage.evidence);
   const verifiedFirst = [...evidence].sort(
     (left, right) => Number(right.source === "stave") - Number(left.source === "stave"),
@@ -84,19 +102,37 @@ export function MissionReportView({ report }: { report: MissionReport }) {
             void navigator.clipboard
               .writeText(formatMissionReportMarkdown(report))
               .then(
-                () => setCopyNotice("Copied the report as Markdown."),
-                () => setCopyNotice("The clipboard is unavailable."),
+                () => setNotice({ text: "Copied the report as Markdown.", error: false }),
+                () => setNotice({ text: "The clipboard is unavailable.", error: true }),
               );
           }}
         >
           Copy Markdown
         </ActionButton>
-        {copyNotice ? (
-          <span className={sx(styles.notice)} role="status">
-            {copyNotice}
-          </span>
+        {actions.addToPullRequest ? (
+          <ActionButton
+            size="xs"
+            disabled={running !== null}
+            onClick={() => void runAction("pr", actions.addToPullRequest!)}
+          >
+            {running === "pr" ? "Adding…" : "Add to PR description"}
+          </ActionButton>
+        ) : null}
+        {actions.saveDecisions ? (
+          <ActionButton
+            size="xs"
+            disabled={running !== null}
+            onClick={() => void runAction("memory", actions.saveDecisions!)}
+          >
+            {running === "memory" ? "Saving…" : "Save decisions to memory"}
+          </ActionButton>
         ) : null}
       </div>
+      {notice ? (
+        <p className={sx(notice.error ? styles.error : styles.notice)} role={notice.error ? "alert" : "status"}>
+          {notice.text}
+        </p>
+      ) : null}
     </section>
   );
 }

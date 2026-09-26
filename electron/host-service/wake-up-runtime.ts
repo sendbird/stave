@@ -142,6 +142,11 @@ interface WakeUpRuntimeDependencies {
    * refused. Absent means no missions are wired in.
    */
   getActiveMissionForTask?: (taskId: string) => { id: string } | null;
+  /**
+   * Announces a wake-up that was written or removed, so the task surfaces
+   * that list wake-ups refresh. Never throws into the runtime.
+   */
+  emitChanged?: (event: { wakeUpId: string; workspaceId: string; taskId: string }) => void;
   now?: () => Date;
   setInterval?: typeof globalThis.setInterval;
   clearInterval?: typeof globalThis.clearInterval;
@@ -246,7 +251,31 @@ export function createWakeUpRuntime(
   const setIntervalImpl = dependencies.setInterval ?? globalThis.setInterval;
   const clearIntervalImpl =
     dependencies.clearInterval ?? globalThis.clearInterval;
-  const { persistence } = dependencies;
+  const persistence: WakeUpPersistence = {
+    ...dependencies.persistence,
+    upsertWakeUp: (wakeUp) => {
+      const written = dependencies.persistence.upsertWakeUp(wakeUp);
+      announce(written);
+      return written;
+    },
+    removeWakeUp: (id) => {
+      const existing = dependencies.persistence.getWakeUp(id);
+      const removed = dependencies.persistence.removeWakeUp(id);
+      if (existing) announce(existing);
+      return removed;
+    },
+  };
+  function announce(wakeUp: Pick<WakeUp, "id" | "workspaceId" | "taskId">) {
+    try {
+      dependencies.emitChanged?.({
+        wakeUpId: wakeUp.id,
+        workspaceId: wakeUp.workspaceId,
+        taskId: wakeUp.taskId,
+      });
+    } catch (error) {
+      console.warn("[wake-ups] failed to announce a wake-up change", error);
+    }
+  }
   let intervalHandle: ReturnType<typeof globalThis.setInterval> | null = null;
   let operationChain = Promise.resolve();
 

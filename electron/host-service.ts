@@ -590,6 +590,9 @@ const wakeUpRuntime = createWakeUpRuntime({
   // A mission owns its lead task's automatic turns while it runs.
   getActiveMissionForTask: (taskId) =>
     missionRuntime.getActiveMissionForTask(taskId),
+  emitChanged: (event) => {
+    emitEvent("wake-up.changed", event);
+  },
 });
 setWorkspaceScriptEventListener((envelope) => {
   emitEvent("workspace-scripts.event", envelope);

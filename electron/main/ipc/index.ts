@@ -11,6 +11,7 @@ import { registerMartinSyncHandlers } from "./martin-sync";
 import { registerLspHandlers } from "./lsp";
 import { registerMetricsHandlers } from "./metrics";
 import { registerMissionHandlers } from "./missions";
+import { registerWakeUpHandlers } from "./wake-ups";
 import { registerNotificationHandlers } from "./notifications";
 import { registerPersistenceHandlers } from "./persistence";
 import { registerRepositoryMemoryHandlers } from "./repository-memory";
@@ -35,6 +36,7 @@ export function registerHandlers() {
   registerRunHandlers();
   registerAutomationHandlers();
   registerMissionHandlers();
+  registerWakeUpHandlers();
   registerPersistenceHandlers();
   registerRepositoryMemoryHandlers();
   registerTerminalHandlers();

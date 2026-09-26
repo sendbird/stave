@@ -32,6 +32,7 @@ export const MISSION_IPC = Object.freeze({
   acceptRuntime: "missions:accept-runtime",
   noteUserTurn: "missions:note-user-turn",
   cancel: "missions:cancel",
+  addReportToPullRequest: "missions:add-report-to-pr",
   /** Main → renderer: a `MissionChangedEvent`. */
   changed: "missions:changed",
 });
@@ -95,6 +96,13 @@ export interface MissionCommandResponse {
   message?: string;
 }
 
+export interface MissionReportPublishResponse {
+  ok: boolean;
+  prUrl?: string;
+  code?: MissionFailureCode;
+  message?: string;
+}
+
 export interface MissionListResponse {
   ok: boolean;
   missions: Mission[];
@@ -127,5 +135,7 @@ export interface MissionsBridgeApi {
   acceptRuntime: (args: MissionIdArgs) => Promise<MissionCommandResponse>;
   noteUserTurn: (args: MissionNoteUserTurnArgs) => Promise<MissionCommandResponse>;
   cancel: (args: MissionIdArgs) => Promise<MissionCommandResponse>;
+  /** Adds the ended mission's report to its pull request, on request. */
+  addReportToPullRequest: (args: MissionIdArgs) => Promise<MissionReportPublishResponse>;
   subscribeChanged: (listener: (event: MissionChangedEvent) => void) => () => void;
 }
