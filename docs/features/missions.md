@@ -201,6 +201,7 @@ to memory** (as memory candidates you review) act on it.
 ## Related Docs
 
 - [Playbooks](playbooks.md)
+- [Projects](projects.md) — goals that take several missions, planned by a coordinator
 - [Wake-ups](wake-ups.md) — a mission pauses its task's wake-up while it runs
 - [Notifications](notifications.md)
 - [Agent Platform Taxonomy](../architecture/agent-platform-taxonomy.md)

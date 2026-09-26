@@ -158,6 +158,13 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Save the stages you would otherwise prompt one by one, with where missions should ask you first.",
       },
       {
+        routePath: "projects",
+        sourcePath: "docs/features/projects.md",
+        title: "Projects",
+        description:
+          "Brief a goal that takes several missions; a coordinator plans them, you approve, sign off and review.",
+      },
+      {
         routePath: "delegated-tasks",
         sourcePath: "docs/features/delegated-tasks.md",
         title: "Delegated Tasks",

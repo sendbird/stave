@@ -120,6 +120,21 @@ under `src/components/layout/codex-settings/` receive that state and callbacks;
 5. `docs/features/missions.md` and `docs/features/playbooks.md` for the user
    flow
 
+### Projects
+
+1. `src/lib/projects/policy.ts` for the pure project decision (start an
+   approved proposal, wake the coordinator) and `src/lib/projects/domain.ts`
+   for projects, proposals, memory and limits
+2. `electron/host-service/supervision/project-runtime.ts` for the host loop,
+   and `src/lib/projects/briefing.ts` for the coordinator's instruction,
+   read-only runtime options and tool names
+3. `electron/persistence/project-store.ts` for storage and
+   `electron/providers/project-grants.ts` for the per-turn project grant
+4. `src/store/projects-store.ts` for renderer state and
+   `src/components/projects/` for the Projects view, project home and New
+   project dialog
+5. `docs/features/projects.md` for the user flow
+
 ### Prompt input, skills, and quick controls
 
 Read in this order:

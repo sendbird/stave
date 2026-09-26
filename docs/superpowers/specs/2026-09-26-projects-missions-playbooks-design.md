@@ -824,3 +824,29 @@ Phase 1 shipped as designed, with these deviations:
   computed from mission events for the report footer; there is no separate
   diagnostics view.
 
+
+## 16. As Built (Phase 3)
+
+Phase 3 shipped as designed, with these deviations:
+
+- **Coordinator.** An ordinary Claude or Codex task that the project runtime
+  wakes, not a mission running a coordination playbook; there is no
+  coordination starter. Its turns are read-only and carry a project grant, so
+  the project tools exist only there.
+- **Proposals.** `stave_start_mission` records a proposal keyed by the
+  coordinator's start key; approving it (or **Ask before starting** off)
+  starts an ordinary mission that records its project. There is no separate
+  project-missions table.
+- **Wakes.** The coordinator wakes when a mission ends, waits for a sign-off,
+  or is blocked or stuck. Changes that land during its turn arrive together in
+  the next one, and 24 automatic turns in a day pause the project.
+- **Project home.** One reading column — header, coordinator summary, then
+  Needs you, Running and Done lanes on one row grid, then Memory, Library and
+  Settings tabs. The coordinator conversation opens in its own task (**Open
+  coordinator**) rather than docked beside the board.
+- **Not built yet.** Start conditions on projects, per-project usage, a
+  Projects entry in the collapsed sidebar, and a model choice for project
+  missions (they run on the provider's default model).
+- **Restarts.** Quitting stops the runtimes rather than recording a paused
+  state. On relaunch missions resume, delivered changes are not re-sent, and
+  a start interrupted halfway is marked failed instead of replayed.
