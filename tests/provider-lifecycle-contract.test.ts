@@ -13,7 +13,7 @@ type Scenario =
 
 type AdapterArgs = {
   prompt?: string;
-  staveCollaborationGrants?: { workerKey?: string; consultKey?: string };
+  staveTurnGrants?: { workerKey?: string; consultKey?: string };
   onEvent?: (event: BridgeEvent) => void;
   registerAbort?: (abort: () => void) => void;
   registerApprovalResponder?: (responder: () => { ok: true }) => void;
@@ -321,7 +321,7 @@ for (const providerId of ["cursor", "kiro"] as const) {
 
     expect(adapterState.lastArgs?.prompt).toContain("stave_run_worker");
     const workerKey =
-      adapterState.lastArgs?.staveCollaborationGrants?.workerKey;
+      adapterState.lastArgs?.staveTurnGrants?.workerKey;
     expect(adapterState.lastArgs?.prompt).not.toContain(workerKey!);
     expect(workerKey).toBeTruthy();
     expect(
@@ -331,7 +331,7 @@ for (const providerId of ["cursor", "kiro"] as const) {
       }),
     ).toMatchObject({ ok: false, code: "unknown-worker-key" });
     await runStream({ providerId }).done;
-    expect(adapterState.lastArgs?.staveCollaborationGrants).toEqual({});
+    expect(adapterState.lastArgs?.staveTurnGrants).toEqual({});
     expect(adapterState.lastArgs?.prompt).not.toContain("Worker mode is on");
   });
 }
@@ -351,7 +351,7 @@ test("Stop revokes a Worker connection before the primary finishes exiting", asy
     },
   });
   await new Promise((resolve) => setTimeout(resolve, 0));
-  const workerKey = adapterState.lastArgs?.staveCollaborationGrants?.workerKey;
+  const workerKey = adapterState.lastArgs?.staveTurnGrants?.workerKey;
   expect(workerKey).toBeTruthy();
   expect(providerRuntime.abortTurn({ turnId: turn.turnId }).ok).toBe(true);
   expect(

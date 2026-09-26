@@ -5,10 +5,10 @@ import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { registerCollaborationTools } from "../electron/main/stave-collaboration-tools";
 import type { AdvisorConsultRequest } from "../src/lib/providers/advisor-evidence";
 import {
-  collaborationGrantHeaders,
-  readCollaborationGrantHeaders,
-  type StaveCollaborationGrants,
-} from "../electron/providers/stave-collaboration-grants";
+  turnGrantHeaders,
+  readTurnGrantHeaders,
+  type StaveTurnGrants,
+} from "../electron/providers/stave-turn-grants";
 import {
   registerAcpWorkerGrant,
   runAcpWorker,
@@ -23,7 +23,7 @@ afterEach(async () => {
 });
 
 async function connect(
-  grants: StaveCollaborationGrants,
+  grants: StaveTurnGrants,
   onConsult = (_key: string, _request: AdvisorConsultRequest) => {},
 ) {
   const server = new McpServer({ name: "test-stave", version: "1" });
@@ -32,7 +32,7 @@ async function connect(
   }));
   registerCollaborationTools(
     server,
-    readCollaborationGrantHeaders(collaborationGrantHeaders(grants)),
+    readTurnGrantHeaders(turnGrantHeaders(grants)),
     {
       runAcpWorker,
       consultAdvisor: async (request) => {

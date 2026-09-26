@@ -49,7 +49,7 @@ import {
   resolveCodexInstructionRefresh,
   resolveCodexNativeBrowserPluginEnabled,
 } from "../electron/providers/codex-runtime-config";
-import { shouldStartFreshCodexCollaborationThread } from "../electron/providers/codex-thread-session";
+import { shouldStartFreshCodexGrantThread } from "../electron/providers/codex-thread-session";
 import { mapCodexHookCatalogGroups } from "../electron/providers/codex-snapshot-mappers";
 import { normalizeCodexTokenUsage } from "../electron/providers/codex-token-usage";
 import {
@@ -873,41 +873,41 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
 
   test("starts a fresh thread when turn-scoped collaboration grants change", () => {
     expect(
-      shouldStartFreshCodexCollaborationThread({
+      shouldStartFreshCodexGrantThread({
         resumeThreadId: "thread-without-advisor",
         previousProfile: "none",
         currentProfile: '["advisor-key",""]',
       }),
     ).toBe(true);
     expect(
-      shouldStartFreshCodexCollaborationThread({
+      shouldStartFreshCodexGrantThread({
         resumeThreadId: "thread-with-advisor",
         previousProfile: '["advisor-key",""]',
         currentProfile: "none",
       }),
     ).toBe(true);
     expect(
-      shouldStartFreshCodexCollaborationThread({
+      shouldStartFreshCodexGrantThread({
         resumeThreadId: "persisted-thread-after-restart",
         currentProfile: '["advisor-key",""]',
       }),
     ).toBe(true);
     expect(
-      shouldStartFreshCodexCollaborationThread({
+      shouldStartFreshCodexGrantThread({
         resumeThreadId: "stable-thread",
         previousProfile: "none",
         currentProfile: "none",
       }),
     ).toBe(false);
     expect(
-      shouldStartFreshCodexCollaborationThread({
+      shouldStartFreshCodexGrantThread({
         resumeThreadId: "advisor-channel-thread",
         previousProfile: '["advisor-key",""]',
         currentProfile: '["advisor-key",""]',
       }),
     ).toBe(false);
     expect(
-      shouldStartFreshCodexCollaborationThread({
+      shouldStartFreshCodexGrantThread({
         resumeThreadId: "stale-advisor-channel-thread",
         previousProfile: '["old-advisor-key",""]',
         currentProfile: '["new-advisor-key",""]',

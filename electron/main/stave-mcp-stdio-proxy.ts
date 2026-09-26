@@ -24,11 +24,11 @@ import path from "node:path";
 import { Utf8LineBuffer } from "../shared/utf8-line-buffer";
 import { STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS } from "./stave-local-mcp-manifest";
 import {
-  collaborationGrantHeaders,
+  turnGrantHeaders,
   ADVISOR_GRANT_ENV,
   MISSION_GRANT_ENV,
   WORKER_GRANT_ENV,
-} from "../providers/stave-collaboration-grants";
+} from "../providers/stave-turn-grants";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -194,7 +194,7 @@ async function postToMcp(
         "accept": "application/json, text/event-stream",
         "content-type": "application/json",
         "authorization": `Bearer ${token}`,
-        ...collaborationGrantHeaders({
+        ...turnGrantHeaders({
           consultKey: process.env[ADVISOR_GRANT_ENV],
           workerKey: process.env[WORKER_GRANT_ENV],
           missionKey: process.env[MISSION_GRANT_ENV],

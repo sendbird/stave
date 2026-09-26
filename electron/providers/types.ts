@@ -1,5 +1,5 @@
 import type { ModelExecution } from "../../src/lib/providers/model-execution";
-import type { StaveCollaborationGrants } from "./stave-collaboration-grants";
+import type { StaveTurnGrants } from "./stave-turn-grants";
 import type { MissionStageIdentity } from "../../src/lib/missions/domain";
 import type {
   AdvisorActivityPhase,
@@ -44,7 +44,7 @@ export interface ProviderCommandCatalogResult {
 
 export interface StreamTurnArgs {
   /** Minted inside the host runtime; excluded from renderer IPC and prompts. */
-  staveCollaborationGrants?: StaveCollaborationGrants;
+  staveTurnGrants?: StaveTurnGrants;
   turnId?: string;
   executionPolicy?: "secondary-read-only";
   /**

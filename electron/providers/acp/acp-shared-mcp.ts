@@ -1,4 +1,4 @@
-import type { StaveCollaborationGrants } from "../stave-collaboration-grants";
+import type { StaveTurnGrants } from "../stave-turn-grants";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import { homedir } from "node:os";
@@ -579,11 +579,11 @@ export async function resolveAcpSharedMcpServers(args: {
  */
 export async function resolveAcpEmbeddedStaveLocalMcpServers(args?: {
   requiredForWorker?: boolean;
-  collaborationGrants?: StaveCollaborationGrants;
+  turnGrants?: StaveTurnGrants;
 }) {
   const servers = await resolveAcpStaveLocalMcpServers({
     allowedToolNames: [],
-    collaborationGrants: args?.collaborationGrants,
+    turnGrants: args?.turnGrants,
   });
   return {
     servers,

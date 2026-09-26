@@ -8,7 +8,7 @@ import {
 test("Codex reuses a stable Advisor channel without retaining its active grant", () => {
   const threadKey = "advisor-session-task:/tmp/project:gpt-6-astra:chat:none";
   const executablePath = "/tmp/codex";
-  const collaborationGrants = {
+  const turnGrants = {
     consultKey: "stable-advisor-channel",
     advisorArmed: true,
   };
@@ -18,7 +18,7 @@ test("Codex reuses a stable Advisor channel without retaining its active grant",
       threadKey,
       executablePath,
       fallbackThreadId: "thread-without-advisor",
-      collaborationGrants,
+      turnGrants,
     }),
   ).toBeUndefined();
 
@@ -26,14 +26,14 @@ test("Codex reuses a stable Advisor channel without retaining its active grant",
     threadKey,
     threadId: "thread-with-advisor-channel",
     executablePath,
-    collaborationGrants,
+    turnGrants,
   });
 
   expect(
     resolveCodexThreadSession({
       threadKey,
       executablePath,
-      collaborationGrants: {
+      turnGrants: {
         consultKey: "stable-advisor-channel",
         advisorArmed: false,
       },
@@ -44,7 +44,7 @@ test("Codex reuses a stable Advisor channel without retaining its active grant",
     resolveCodexThreadSession({
       threadKey,
       executablePath,
-      collaborationGrants: {
+      turnGrants: {
         consultKey: "stable-advisor-channel",
         advisorArmed: true,
       },
@@ -69,20 +69,20 @@ test("Codex keeps its thread across mission turns on a stable mission channel", 
   // The first mission turn adds the reporting tools, which a resumed thread
   // would not see, so it starts a fresh thread once.
   expect(
-    resolveCodexThreadSession({ threadKey, executablePath, collaborationGrants: missionChannel }),
+    resolveCodexThreadSession({ threadKey, executablePath, turnGrants: missionChannel }),
   ).toBeUndefined();
 
   rememberCodexThreadSession({
     threadKey,
     threadId: "thread-with-mission-channel",
     executablePath,
-    collaborationGrants: missionChannel,
+    turnGrants: missionChannel,
   });
   // Later stage turns, and ordinary turns that keep sending the same key,
   // resume that thread.
-  for (const collaborationGrants of [missionChannel, { ...missionChannel, consultKey: undefined }]) {
+  for (const turnGrants of [missionChannel, { ...missionChannel, consultKey: undefined }]) {
     expect(
-      resolveCodexThreadSession({ threadKey, executablePath, collaborationGrants }),
+      resolveCodexThreadSession({ threadKey, executablePath, turnGrants }),
     ).toBe("thread-with-mission-channel");
   }
 

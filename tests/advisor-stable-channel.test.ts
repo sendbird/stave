@@ -39,7 +39,7 @@ test("one MCP connection serves successive grants but rejects stale, missing, di
     } });
     return result.structuredContent?.consult;
   };
-  const session = { threadKey: "stable-task:/tmp/project:astra:chat:none", executablePath: "/tmp/codex", collaborationGrants: { consultKey: channel } };
+  const session = { threadKey: "stable-task:/tmp/project:astra:chat:none", executablePath: "/tmp/codex", turnGrants: { consultKey: channel } };
   try {
     expect((await client.listTools()).tools.map(t => t.name)).toContain("stave_consult_advisor");
     expect(await call("first")).toMatchObject({ ok: false });
@@ -49,7 +49,7 @@ test("one MCP connection serves successive grants but rejects stale, missing, di
     expect(await call("first")).toMatchObject({ ok: true });
     first.revoke();
     expect(await call("first")).toMatchObject({ ok: false });
-    expect(resolveCodexThreadSession({ ...session, collaborationGrants: { consultKey: channel, advisorArmed: false } })).toBe("with-advisor");
+    expect(resolveCodexThreadSession({ ...session, turnGrants: { consultKey: channel, advisorArmed: false } })).toBe("with-advisor");
     const second = arm("second");
     first.revoke(); // Late cleanup must not delete the new grant.
     arm("foreign", "other-task-channel");

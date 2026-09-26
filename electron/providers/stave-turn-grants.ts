@@ -1,5 +1,5 @@
 /** Host-owned turn channels. Never include them in prompts or renderer options. */
-export type StaveCollaborationGrants = {
+export type StaveTurnGrants = {
   consultKey?: string;
   /** Whether the stable consult channel has an active grant this turn. */
   advisorArmed?: boolean;
@@ -18,7 +18,7 @@ export const ADVISOR_GRANT_ENV = "STAVE_ADVISOR_GRANT_KEY";
 export const WORKER_GRANT_ENV = "STAVE_WORKER_GRANT_KEY";
 export const MISSION_GRANT_ENV = "STAVE_MISSION_GRANT_KEY";
 
-export function collaborationGrantHeaders(grants?: StaveCollaborationGrants) {
+export function turnGrantHeaders(grants?: StaveTurnGrants) {
   // Explicit empty values clear capabilities retained by resumed MCP clients.
   return {
     [ADVISOR_GRANT_HEADER]: grants?.consultKey ?? "",
@@ -27,9 +27,9 @@ export function collaborationGrantHeaders(grants?: StaveCollaborationGrants) {
   };
 }
 
-export function readCollaborationGrantHeaders(
+export function readTurnGrantHeaders(
   headers: Record<string, string | string[] | undefined>,
-): StaveCollaborationGrants {
+): StaveTurnGrants {
   const read = (name: string) => {
     const value = headers[name];
     return typeof value === "string" ? value.trim() || undefined : undefined;

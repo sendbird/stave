@@ -59,7 +59,7 @@ describe("Codex turn-scoped Local MCP", () => {
         staveLocalMcpManifest: manifest,
         secondaryReadOnly: false,
         secretShellOverrides: {},
-        collaborationGrants: { consultKey, missionKey },
+        turnGrants: { consultKey, missionKey },
       });
       for (const params of [
         buildCodexThreadStartParams({ cwd: "/tmp/project", configOverrides }),
@@ -89,7 +89,7 @@ describe("Codex turn-scoped Local MCP", () => {
         secondaryReadOnly: true,
         secretShellOverrides: {},
         unattendedAutomationAuthorizationToken: "automation-placeholder",
-        collaborationGrants: { consultKey: "must-not-reach-secondary" },
+        turnGrants: { consultKey: "must-not-reach-secondary" },
       }),
     ).toEqual(base);
   });

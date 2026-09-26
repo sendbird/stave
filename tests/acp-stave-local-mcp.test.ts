@@ -159,7 +159,7 @@ describe("ACP Stave Local MCP embedding", () => {
           cursorMode: "agent",
           cursorBinaryPath: process.execPath,
         },
-        staveCollaborationGrants: { workerKey: "worker-grant" },
+        staveTurnGrants: { workerKey: "worker-grant" },
         acpArgsForTest: [cursorFixturePath, "echo-session"],
       }),
     );
@@ -214,7 +214,7 @@ describe("ACP Stave Local MCP embedding", () => {
         cursorMode: "agent",
         cursorBinaryPath: process.execPath,
       },
-      staveCollaborationGrants: { workerKey: "worker-grant" },
+      staveTurnGrants: { workerKey: "worker-grant" },
       acpArgsForTest: [cursorFixturePath, "standard"],
       onEvent: (event) => {
         observed.push(event);

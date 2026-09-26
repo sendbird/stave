@@ -1061,7 +1061,7 @@ async function ensureCodexThread(args: {
   secondaryReadOnly?: boolean;
   /** Gates the Lens instruction block; see `buildCodexDeveloperInstructions`. */
   hasStaveLocalMcp?: boolean;
-  collaborationGrants?: StreamTurnArgs["staveCollaborationGrants"];
+  turnGrants?: StreamTurnArgs["staveTurnGrants"];
 }) {
   const threadKey = buildCodexThreadKey({
     taskId: args.taskId,
@@ -1079,7 +1079,7 @@ async function ensureCodexThread(args: {
     threadKey,
     executablePath: args.executablePath,
     ephemeral: args.ephemeral,
-    collaborationGrants: args.collaborationGrants,
+    turnGrants: args.turnGrants,
     fallbackThreadId: freshCodexThreadExecutables.has(args.executablePath)
       ? undefined
       : resolveCodexResumeThreadFallback({
@@ -1142,7 +1142,7 @@ async function ensureCodexThread(args: {
         threadKey,
         threadId,
         executablePath: args.executablePath,
-        collaborationGrants: args.collaborationGrants,
+        turnGrants: args.turnGrants,
       });
       instructionRefresh = resolveCodexInstructionRefresh({
         resumed: Boolean(resumeThreadId),
@@ -2029,7 +2029,7 @@ export async function streamCodexWithAppServer(
         ? null
         : await readPrimaryStaveLocalMcpManifest();
     if (
-      args.staveCollaborationGrants?.advisorArmed &&
+      args.staveTurnGrants?.advisorArmed &&
       !staveLocalMcpManifest &&
       !secondaryReadOnly
     ) {
@@ -2050,7 +2050,7 @@ export async function streamCodexWithAppServer(
       },
       secretShellOverrides,
       staveLocalMcpManifest,
-      collaborationGrants: args.staveCollaborationGrants,
+      turnGrants: args.staveTurnGrants,
       secondaryReadOnly,
       unattendedAutomationAuthorizationToken:
         args.unattendedAutomation?.authorizationToken,
@@ -2084,7 +2084,7 @@ export async function streamCodexWithAppServer(
           boundSecretFingerprint,
           secondaryReadOnly,
           hasStaveLocalMcp: hasStaveLensTools,
-          collaborationGrants: args.staveCollaborationGrants,
+          turnGrants: args.staveTurnGrants,
         }));
     } catch (error) {
       const events = buildCodexTerminalFailureEvents({

@@ -38,9 +38,9 @@ import {
   reportMissionStage,
 } from "./missions-service";
 import {
-  readCollaborationGrantHeaders,
-  type StaveCollaborationGrants,
-} from "../providers/stave-collaboration-grants";
+  readTurnGrantHeaders,
+  type StaveTurnGrants,
+} from "../providers/stave-turn-grants";
 import {
   getStaveLocalMcpConfigPath,
   readStaveLocalMcpConfig,
@@ -354,7 +354,7 @@ async function removeManifestFiles() {
 
 function createToolServer(options?: {
   browserToolsEnabled?: boolean;
-  collaborationGrants?: StaveCollaborationGrants;
+  turnGrants?: StaveTurnGrants;
 }) {
   const server = new McpServer(
     {
@@ -620,11 +620,11 @@ function createToolServer(options?: {
       }),
   );
 
-  registerCollaborationTools(server, options?.collaborationGrants ?? {}, {
+  registerCollaborationTools(server, options?.turnGrants ?? {}, {
     consultAdvisor,
     runAcpWorker,
   });
-  registerMissionTools(server, options?.collaborationGrants ?? {}, {
+  registerMissionTools(server, options?.turnGrants ?? {}, {
     getMissionForGrant,
     reportMissionStage,
     blockMissionStage,
@@ -1852,7 +1852,7 @@ export async function startStaveMcpServer() {
       const body = req.method === "POST" ? await readJsonBody(req) : undefined;
       const server = createToolServer({
         browserToolsEnabled: browserToolsEnabled,
-        collaborationGrants: readCollaborationGrantHeaders(req.headers),
+        turnGrants: readTurnGrantHeaders(req.headers),
       });
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,

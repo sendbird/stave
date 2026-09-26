@@ -835,14 +835,14 @@ async function runProviderTurnImpl(
   }
   const turnId = args.turnId ?? randomUUID();
   let abortRequested = false;
-  let revokeCollaborationGrants = () => {};
+  let revokeTurnGrants = () => {};
   let activePhaseAborter: (() => void) | null = null;
   const abortTurn = () => {
     if (abortRequested) {
       return;
     }
     abortRequested = true;
-    revokeCollaborationGrants();
+    revokeTurnGrants();
     activePhaseAborter?.();
   };
   const registerPhaseAborter = (aborter: () => void) => {
@@ -940,7 +940,7 @@ async function runProviderTurnImpl(
   let effectiveArgs: typeof args = {
     ...args,
     runtimeOptions: withoutAdvisorTarget(args.runtimeOptions),
-    staveCollaborationGrants: {
+    staveTurnGrants: {
       ...(retainedCodexAdvisorChannelKey
         ? { consultKey: retainedCodexAdvisorChannelKey, advisorArmed: false }
         : {}),
@@ -1061,8 +1061,8 @@ async function runProviderTurnImpl(
     effectiveArgs = {
       ...effectiveArgs,
       conversation: injection.conversation,
-      staveCollaborationGrants: {
-        ...effectiveArgs.staveCollaborationGrants,
+      staveTurnGrants: {
+        ...effectiveArgs.staveTurnGrants,
         consultKey,
         advisorArmed: true,
       },
@@ -1165,8 +1165,8 @@ async function runProviderTurnImpl(
     });
   }
   if (acpWorkerGrant) {
-    effectiveArgs.staveCollaborationGrants = {
-      ...effectiveArgs.staveCollaborationGrants,
+    effectiveArgs.staveTurnGrants = {
+      ...effectiveArgs.staveTurnGrants,
       workerKey: acpWorkerGrant.workerKey,
     };
     acpWorkerGrantHandle = registerAcpWorkerGrant({
@@ -1215,18 +1215,18 @@ async function runProviderTurnImpl(
       turnId,
       taskId: missionTaskId,
     });
-    effectiveArgs.staveCollaborationGrants = {
-      ...effectiveArgs.staveCollaborationGrants,
+    effectiveArgs.staveTurnGrants = {
+      ...effectiveArgs.staveTurnGrants,
       missionKey,
     };
   }
-  revokeCollaborationGrants = () => {
+  revokeTurnGrants = () => {
     revokeAdvisorGrant();
     revokeAcpWorkerGrant();
     missionGrantHandle?.revoke();
     missionGrantHandle = null;
   };
-  if (abortRequested) revokeCollaborationGrants();
+  if (abortRequested) revokeTurnGrants();
   const emitMissingReturnedEvents = (events: BridgeEvent[]) => {
     const emittedCounts = new Map<string, number>();
     for (const event of emittedPrimaryEvents) {
@@ -1308,7 +1308,7 @@ async function runProviderTurnImpl(
       });
       return finishLifecycle("runtime_failure");
     } finally {
-      revokeCollaborationGrants();
+      revokeTurnGrants();
       timeoutController.dispose();
       clearActiveTurnState({ turnId });
     }
@@ -1377,7 +1377,7 @@ async function runProviderTurnImpl(
       });
       return finishLifecycle("runtime_failure");
     } finally {
-      revokeCollaborationGrants();
+      revokeTurnGrants();
       timeoutController.dispose();
       clearActiveTurnState({ turnId });
     }
@@ -1440,7 +1440,7 @@ async function runProviderTurnImpl(
     });
     return finishLifecycle("runtime_failure");
   } finally {
-    revokeCollaborationGrants();
+    revokeTurnGrants();
     timeoutController.dispose();
     clearActiveTurnState({ turnId });
   }

@@ -19,7 +19,7 @@ async function streamPrimary(
 ) {
   primaryTurns.push(args);
   args.registerAbort?.(() => {});
-  const key = args.staveCollaborationGrants?.missionKey;
+  const key = args.staveTurnGrants?.missionKey;
   grantsDuringTurn.push(key ? resolveMissionGrant(key) : null);
   const events: BridgeEvent[] = [{ type: "done", stop_reason: "end_turn" }];
   events.forEach((event) => args.onEvent?.(event));
@@ -91,7 +91,7 @@ describe("provider runtime mission grants", () => {
   for (const providerId of ["claude-code", "codex"] as const) {
     test(`${providerId} mints a grant for the stage attempt and revokes it when the turn ends`, async () => {
       const turn = await runTurn({ providerId, turnId: `${providerId}-turn`, missionStage: STAGE });
-      const key = turn.staveCollaborationGrants?.missionKey;
+      const key = turn.staveTurnGrants?.missionKey;
       expect(key).toBeTruthy();
       expect(JSON.stringify(turn.conversation ?? null)).not.toContain(key!);
       expect(turn.prompt).not.toContain(key!);
@@ -107,39 +107,39 @@ describe("provider runtime mission grants", () => {
   test("Claude mints a fresh key per turn; Codex keeps one channel per task", async () => {
     const claudeOne = await runTurn({ providerId: "claude-code", turnId: "c1", missionStage: STAGE });
     const claudeTwo = await runTurn({ providerId: "claude-code", turnId: "c2", missionStage: STAGE });
-    expect(claudeOne.staveCollaborationGrants?.missionKey).not.toBe(
-      claudeTwo.staveCollaborationGrants?.missionKey,
+    expect(claudeOne.staveTurnGrants?.missionKey).not.toBe(
+      claudeTwo.staveTurnGrants?.missionKey,
     );
 
     const codexStage = await runTurn({ providerId: "codex", turnId: "x1", missionStage: STAGE });
-    const channel = codexStage.staveCollaborationGrants?.missionKey;
+    const channel = codexStage.staveTurnGrants?.missionKey;
     const codexNext = await runTurn({
       providerId: "codex",
       turnId: "x2",
       missionStage: { ...STAGE, stageId: "polish" },
     });
-    expect(codexNext.staveCollaborationGrants?.missionKey).toBe(channel);
+    expect(codexNext.staveTurnGrants?.missionKey).toBe(channel);
     expect(grantsDuringTurn.at(-1)).toMatchObject({ stageId: "polish", turnId: "x2" });
 
     // An ordinary turn keeps the channel, so the thread resumes, but the key
     // resolves to nothing.
     const ordinary = await runTurn({ providerId: "codex", turnId: "x3" });
-    expect(ordinary.staveCollaborationGrants?.missionKey).toBe(channel);
+    expect(ordinary.staveTurnGrants?.missionKey).toBe(channel);
     expect(grantsDuringTurn.at(-1)).toBeNull();
 
     const otherTask = await runTurn({ providerId: "codex", turnId: "x4", taskId: "task-2" });
-    expect(otherTask.staveCollaborationGrants?.missionKey).toBeUndefined();
+    expect(otherTask.staveTurnGrants?.missionKey).toBeUndefined();
   });
 
   test("no grant for turns without a mission stage or for secondary runs", async () => {
     const plain = await runTurn({ providerId: "claude-code", turnId: "p1" });
-    expect(plain.staveCollaborationGrants?.missionKey).toBeUndefined();
+    expect(plain.staveTurnGrants?.missionKey).toBeUndefined();
     const secondary = await runTurn({
       providerId: "claude-code",
       turnId: "s1",
       missionStage: STAGE,
       executionPolicy: "secondary-read-only",
     });
-    expect(secondary.staveCollaborationGrants?.missionKey).toBeUndefined();
+    expect(secondary.staveTurnGrants?.missionKey).toBeUndefined();
   });
 });

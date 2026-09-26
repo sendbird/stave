@@ -12,7 +12,7 @@ import {
   StageBlockInputSchema,
   StageCompleteReportInputSchema,
 } from "../../src/lib/missions/domain";
-import type { StaveCollaborationGrants } from "../providers/stave-collaboration-grants";
+import type { StaveTurnGrants } from "../providers/stave-turn-grants";
 import type {
   blockMissionStage,
   getMissionForGrant,
@@ -21,7 +21,7 @@ import type {
 
 export function registerMissionTools(
   server: McpServer,
-  grants: StaveCollaborationGrants,
+  grants: StaveTurnGrants,
   handlers: {
     getMissionForGrant: typeof getMissionForGrant;
     reportMissionStage: typeof reportMissionStage;

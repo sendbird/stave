@@ -67,13 +67,13 @@ describe("Stave Local MCP unattended automation authorization", () => {
 
   test("binds Claude and ACP calls through transport fields without changing the endpoint", () => {
     const sdk = toClaudeSdkMcpServerConfig(manifest, {
-      collaborationGrants: { consultKey: "advisor-live" },
+      turnGrants: { consultKey: "advisor-live" },
     });
     expect(sdk.url).toBe(manifest.url);
     expect(sdk.headers["x-stave-advisor-key"]).toBe("advisor-live");
     expect(sdk.headers["x-stave-worker-key"]).toBe("");
     const acp = toAcpStdioMcpServerConfig(manifest, {
-      collaborationGrants: { workerKey: "worker-live" },
+      turnGrants: { workerKey: "worker-live" },
     });
     expect(acp.env).toContainEqual({
       name: "STAVE_WORKER_GRANT_KEY",
@@ -87,15 +87,15 @@ describe("Stave Local MCP unattended automation authorization", () => {
 
   test("forwards a mission grant through the same header and env path", () => {
     const sdk = toClaudeSdkMcpServerConfig(manifest, {
-      collaborationGrants: { missionKey: "mission-live" },
+      turnGrants: { missionKey: "mission-live" },
     });
     expect(sdk.headers["x-stave-mission-key"]).toBe("mission-live");
     expect(sdk.headers["x-stave-advisor-key"]).toBe("");
-    const idle = toClaudeSdkMcpServerConfig(manifest, { collaborationGrants: {} });
+    const idle = toClaudeSdkMcpServerConfig(manifest, { turnGrants: {} });
     // An explicit empty value clears a capability a resumed client retained.
     expect(idle.headers["x-stave-mission-key"]).toBe("");
     const acp = toAcpStdioMcpServerConfig(manifest, {
-      collaborationGrants: { missionKey: "mission-live" },
+      turnGrants: { missionKey: "mission-live" },
     });
     expect(acp.env).toContainEqual({
       name: "STAVE_MISSION_GRANT_KEY",

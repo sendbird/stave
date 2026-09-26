@@ -599,7 +599,7 @@ Memory (12) · Library (31) · Starts when: PR review comments, Mon 09:00
 | Mission tables and host I/O | a mission runtime beside `electron/host-service/wake-up-runtime.ts`; tables beside the wake-up tables |
 | Turn start | `runSupervisedTurn` in `electron/host-service/supervised-turn.ts`, the path wake-ups already use |
 | Stave actions | `scm-runtime` (`gh pr create --draft`, `gh pr ready`, checks rollup query) |
-| Stage reporting | Local MCP `stave_get_mission`, `stave_report_stage`, `stave_block_stage`, exposed only under a per-turn mission grant beside the advisor and worker grants in `electron/providers/stave-collaboration-grants.ts`; Phase 2 `stave_propose_mission` |
+| Stage reporting | Local MCP `stave_get_mission`, `stave_report_stage`, `stave_block_stage`, exposed only under a per-turn mission grant beside the advisor and worker grants in `electron/providers/stave-turn-grants.ts`; Phase 2 `stave_propose_mission` |
 | Evidence cross-check | the Local MCP turn journal and normalized tool results for cited calls |
 | Attention projection | `src/lib/fleet/attention-projection.ts` |
 | Renderer state | a mission slice with row-local selectors and no fresh containers from selectors |

@@ -353,8 +353,8 @@ export async function streamCursorWithAcp(
     : {};
   const { servers: staveLocalMcpServers, workerUnavailable } =
     await resolveAcpEmbeddedStaveLocalMcpServers({
-      requiredForWorker: Boolean(args.staveCollaborationGrants?.workerKey),
-      collaborationGrants: args.staveCollaborationGrants,
+      requiredForWorker: Boolean(args.staveTurnGrants?.workerKey),
+      turnGrants: args.staveTurnGrants,
     });
   const mcpServers = await resolveAcpTurnMcpServers({
     targetProvider: "cursor",

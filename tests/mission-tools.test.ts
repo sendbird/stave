@@ -4,10 +4,10 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { registerMissionTools } from "../electron/main/stave-mission-tools";
 import {
-  collaborationGrantHeaders,
-  readCollaborationGrantHeaders,
-  type StaveCollaborationGrants,
-} from "../electron/providers/stave-collaboration-grants";
+  turnGrantHeaders,
+  readTurnGrantHeaders,
+  type StaveTurnGrants,
+} from "../electron/providers/stave-turn-grants";
 import {
   clearMissionGrantsForTest,
   registerMissionGrant,
@@ -23,7 +23,7 @@ afterEach(async () => {
 
 const BRIEFING = { assignment: "Add CSV export." } as unknown as MissionBriefing;
 
-async function connect(grants: StaveCollaborationGrants) {
+async function connect(grants: StaveTurnGrants) {
   const calls: Array<{ tool: string; args: Record<string, unknown> }> = [];
   const receipt = { recorded: true as const, stage: "Draft", revision: 1, note: "Recorded." };
   const server = new McpServer({ name: "test-stave", version: "1" });
@@ -31,7 +31,7 @@ async function connect(grants: StaveCollaborationGrants) {
   registerMissionTools(
     server,
     // Round-trip through the transport headers, as a real request does.
-    readCollaborationGrantHeaders(collaborationGrantHeaders(grants)),
+    readTurnGrantHeaders(turnGrantHeaders(grants)),
     {
       getMissionForGrant: async (args) => {
         calls.push({ tool: "get", args });
