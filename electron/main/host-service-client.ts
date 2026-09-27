@@ -145,6 +145,8 @@ class HostServiceClient {
 
   private disconnectListeners = new Set<() => void>();
 
+  private readyListeners = new Set<() => void>();
+
   private getScriptPath() {
     return resolveHostServiceScriptPath({ moduleUrl: import.meta.url });
   }
@@ -238,6 +240,13 @@ class HostServiceClient {
       this.startupResolve?.();
       this.startupResolve = null;
       this.startupReject = null;
+      for (const listener of this.readyListeners) {
+        try {
+          listener();
+        } catch (error) {
+          console.warn("[host-service] ready listener failed", error);
+        }
+      }
       return;
     }
     if (message.type === "response") {
@@ -444,6 +453,13 @@ class HostServiceClient {
     };
   }
 
+  onReady(listener: () => void) {
+    this.readyListeners.add(listener);
+    return () => {
+      this.readyListeners.delete(listener);
+    };
+  }
+
   async stop() {
     const child = this.child;
     if (!child || child.exitCode !== null) {
@@ -555,4 +571,13 @@ export function onHostServiceEvent<TEvent extends keyof HostServiceEventMap>(
 
 export function onHostServiceDisconnect(listener: () => void) {
   return hostServiceClient.onDisconnect(listener);
+}
+
+/**
+ * Runs whenever a host-service process finishes its handshake: the first one
+ * and every respawn after a crash, which starts with none of the state the
+ * main process handed the previous one.
+ */
+export function onHostServiceReady(listener: () => void) {
+  return hostServiceClient.onReady(listener);
 }

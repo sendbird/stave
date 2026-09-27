@@ -5,9 +5,12 @@
  *   that watches for one (issues assigned before the condition was set never do).
  * - Failing checks or requested changes on a workspace's pull request propose
  *   one, once per head commit — or start it, when the playbook auto-starts.
+ *   At most one starts per pull request; a workspace another mission works in
+ *   is deferred, and the renderer sends it again later.
  * - A schedule proposes one in its workspace at each slot — or starts it, when
- *   the playbook auto-starts; a triage playbook's turns then call
- *   `stave_propose_mission` for the requests they find.
+ *   the playbook auto-starts and the slot is not long past; a triage
+ *   playbook's turns then call `stave_propose_mission` for the requests they
+ *   find.
  *
  * Every occurrence is recorded before any side effect, so a restart never
  * proposes or starts it twice. Auto-start runs only where a workspace is known
@@ -17,11 +20,12 @@
  */
 import { randomUUID } from "node:crypto";
 import type { MissionDetail } from "../../../src/lib/missions/api";
-import { isActiveMissionState, type Mission, type MissionStartInput } from "../../../src/lib/missions/domain";
+import { currentStageRecord, isActiveMissionState, type MissionStartInput } from "../../../src/lib/missions/domain";
 import {
   ProposeMissionToolInputSchema,
   pullRequestTroubles,
   type ObservedPullRequest,
+  type ProposalListFilter,
   type ProposedMission,
 } from "../../../src/lib/missions/proposed";
 import { playbookCanAutoStart, type Playbook } from "../../../src/lib/playbooks/schema";
@@ -32,13 +36,27 @@ import type { MissionStore } from "../../persistence/mission-store";
 
 const DEFAULT_TICK_MS = 60_000;
 const DEFAULT_TRIAGE_PLAYBOOK = "request-to-pr";
+/** A slot this far past (the computer slept through it) is proposed, never started late. */
+const MIN_LATE_START_MS = 10 * 60_000;
+const DAY_MS = 24 * 60 * 60_000;
+/** Decided proposals stay in "Decided recently" this long. */
+const DECIDED_RETENTION_MS = 30 * DAY_MS;
+/** Seen schedule slots and pull request commits are remembered this long. */
+const SEEN_RETENTION_MS = 90 * DAY_MS;
 
 export type HostProposalAction = "list" | "dismiss" | "mark-started" | "observe-issues" | "observe-pull-request" | "issue-demand" | "propose-for-grant";
 
 export interface ProposalRuntimeDependencies {
   store: Pick<
     MissionStore,
-    "insertProposal" | "updateProposal" | "getProposal" | "listProposals" | "markTriggersSeen" | "listMissionsForWorkspace" | "getMission"
+    | "insertProposal"
+    | "updateProposal"
+    | "getProposal"
+    | "listProposals"
+    | "markTriggersSeen"
+    | "pruneProposalHistory"
+    | "listMissionsForWorkspace"
+    | "getAggregate"
   >;
   startMission: (input: MissionStartInput) => Promise<MissionDetail>;
   createIdleTask: (args: {
@@ -47,8 +65,10 @@ export interface ProposalRuntimeDependencies {
     provider: "claude-code" | "codex";
     model?: string | null;
   }) => Promise<{ taskId: string }>;
-  /** The mission a triage turn's grant belongs to, or null. */
-  resolveMissionGrant: (missionKey: string) => { missionId: string } | null;
+  /** The mission stage a triage turn's grant belongs to, or null once the turn ended. */
+  resolveMissionGrant: (missionKey: string) => { missionId: string; taskId: string; stageId: string; attempt: number } | null;
+  /** The repository a workspace belongs to, so Start can open it; null when unknown. */
+  resolveWorkspaceRepository?: (workspaceId: string) => Promise<string | null>;
   emitChanged?: () => void;
   now?: () => Date;
   setInterval?: typeof globalThis.setInterval;
@@ -62,7 +82,7 @@ export interface ProposalRuntime {
   requestTick: () => Promise<void>;
   /** The user's saved playbooks, as the renderer syncs them. */
   setPlaybooks: (playbooks: readonly Playbook[]) => void;
-  list: (args?: { state?: ProposedMission["state"] }) => Promise<{ proposals: ProposedMission[] }>;
+  list: (args?: { state?: ProposalListFilter; limit?: number }) => Promise<{ proposals: ProposedMission[] }>;
   dismiss: (args: { id: string }) => Promise<ProposedMission>;
   markStarted: (args: { id: string; missionId?: string | null }) => Promise<ProposedMission>;
   observeIssues: (args: { items: readonly ObservedIssue[] }) => Promise<{ proposed: number }>;
@@ -70,7 +90,7 @@ export interface ProposalRuntime {
     workspaceId: string;
     workspaceName: string;
     pr: ObservedPullRequest;
-  }) => Promise<{ proposed: number; started: number }>;
+  }) => Promise<{ proposed: number; started: number; deferred: boolean }>;
   /** Whether any playbook watches for assigned issues, so Issues stays fresh in the background. */
   issueDemand: () => Promise<{ watching: boolean }>;
   proposeForGrant: (args: { missionKey: string; input: unknown }) => Promise<{ state: ProposedMission["state"]; message: string }>;
@@ -106,6 +126,8 @@ export function createProposalRuntime(deps: ProposalRuntimeDependencies): Propos
   let playbooks: Playbook[] = [];
   /** Slots before this passed while Stave was closed: proposed, never started late. */
   let openedAt = now();
+  const tickMs = deps.tickIntervalMs ?? DEFAULT_TICK_MS;
+  const lateAfterMs = Math.max(2 * tickMs, MIN_LATE_START_MS);
 
   function enqueue<T>(work: () => Promise<T>): Promise<T> {
     const next = chain.then(work, work);
@@ -151,15 +173,27 @@ export function createProposalRuntime(deps: ProposalRuntimeDependencies): Propos
     };
   }
 
-  /** Starts the playbook on a new task in the workspace; a failure leaves it proposed, with the reason. */
-  async function autoStart(proposal: ProposedMission, playbook: Playbook): Promise<ProposedMission> {
+  async function resolveRepository(workspaceId: string): Promise<string | null> {
     try {
-      const { taskId } = await deps.createIdleTask({
+      return (await deps.resolveWorkspaceRepository?.(workspaceId)) ?? null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Starts the playbook on a new task in the workspace. A failure leaves it
+   * proposed, with the reason and that task, so Start reuses the task.
+   */
+  async function autoStart(proposal: ProposedMission, playbook: Playbook): Promise<ProposedMission> {
+    let taskId: string | null = null;
+    try {
+      ({ taskId } = await deps.createIdleTask({
         workspaceId: proposal.workspaceId!,
         title: proposal.title.slice(0, 60),
         provider: missionProvider(playbook),
         model: playbook.runtime?.model ?? null,
-      });
+      }));
       const detail = await deps.startMission({
         workspaceId: proposal.workspaceId!,
         leadTaskId: taskId,
@@ -175,17 +209,30 @@ export function createProposalRuntime(deps: ProposalRuntimeDependencies): Propos
       return { ...proposal, state: "started", missionId: detail.mission.id, updatedAt: now().toISOString() };
     } catch (error) {
       const reason = error instanceof Error && error.message ? error.message : "The mission could not start.";
-      return { ...proposal, detail: `Could not start on its own: ${reason}`.slice(0, 500), updatedAt: now().toISOString() };
+      return {
+        ...proposal,
+        taskId,
+        detail: `Could not start on its own: ${reason}`.slice(0, 500),
+        updatedAt: now().toISOString(),
+      };
     }
   }
 
-  /** Records a proposal for an occurrence not seen before, starting it when allowed. */
-  async function propose(proposal: ProposedMission, playbook: Playbook, start: boolean): Promise<"proposed" | "started" | "seen"> {
+  /**
+   * Records a proposal for an occurrence not seen before, then starts it when
+   * `start` allows it at that moment.
+   */
+  async function propose(
+    proposal: ProposedMission,
+    playbook: Playbook,
+    start: () => boolean = () => false,
+  ): Promise<"proposed" | "started" | "seen"> {
     if (store.markTriggersSeen([proposal.sourceKey], now()).length === 0) return "seen";
+    const placed = proposal.workspaceId ? { ...proposal, repositoryPath: await resolveRepository(proposal.workspaceId) } : proposal;
     // Recorded before any side effect, so a restart never starts it twice.
-    if (!store.insertProposal(proposal)) return "seen";
-    if (!start) return "proposed";
-    const next = await autoStart(proposal, playbook);
+    if (!store.insertProposal(placed)) return "seen";
+    if (!start()) return "proposed";
+    const next = await autoStart(placed, playbook);
     store.updateProposal(next);
     return next.state === "started" ? "started" : "proposed";
   }
@@ -197,24 +244,48 @@ export function createProposalRuntime(deps: ProposalRuntimeDependencies): Propos
       .some((mission) => isActiveMissionState(mission.state) || mission.projectId !== null);
   }
 
+  /** Why a slot is proposed rather than started: Stave was closed, or the computer slept through it. */
+  function missedReason(slot: Date): string | null {
+    if (slot.getTime() < openedAt.getTime()) return "missed while Stave was closed";
+    if (now().getTime() - slot.getTime() > lateAfterMs) return "missed while this computer was asleep";
+    return null;
+  }
+
+  function pruneHistory() {
+    try {
+      const at = now().getTime();
+      store.pruneProposalHistory({ decidedBefore: new Date(at - DECIDED_RETENTION_MS), seenBefore: new Date(at - SEEN_RETENTION_MS) });
+    } catch (error) {
+      console.warn("[proposals] failed to prune old proposals", error);
+    }
+  }
+
   async function tick() {
+    /** One mission starts per workspace per tick, however many schedules share the slot. */
+    const startedIn = new Set<string>();
     for (const playbook of playbooks) {
       const schedule = playbook.startsWhen?.schedule;
       if (!schedule || schedule.schedule === "off") continue;
       const slot = latestScheduleSlot(schedule.schedule, now());
       if (!slot || slot.getTime() <= Date.parse(schedule.since)) continue;
       const when = slot.toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" });
-      const missed = slot.getTime() < openedAt.getTime();
+      const missed = missedReason(slot);
+      const { workspaceId } = schedule;
       const proposal = draft(playbook, {
         sourceKey: `schedule:${playbook.id}:${slot.toISOString()}`,
         source: "schedule",
         title: `${playbook.name} · ${when}`,
-        detail: missed ? `${SCHEDULE_LABELS[schedule.schedule]} · missed while Stave was closed` : SCHEDULE_LABELS[schedule.schedule],
+        detail: missed ? `${SCHEDULE_LABELS[schedule.schedule]} · ${missed}` : SCHEDULE_LABELS[schedule.schedule],
         assignment: `${playbook.purpose}\n\nScheduled run (${SCHEDULE_LABELS[schedule.schedule]}, ${when}).`,
-        workspaceId: schedule.workspaceId,
+        workspaceId,
         workspaceName: schedule.workspaceName || null,
       });
-      const outcome = await propose(proposal, playbook, !missed && canAutoStart(playbook) && !workspaceBusy(schedule.workspaceId));
+      const outcome = await propose(
+        proposal,
+        playbook,
+        () => !missed && canAutoStart(playbook) && !startedIn.has(workspaceId) && !workspaceBusy(workspaceId),
+      );
+      if (outcome === "started") startedIn.add(workspaceId);
       if (outcome !== "seen") emit();
     }
   }
@@ -222,7 +293,8 @@ export function createProposalRuntime(deps: ProposalRuntimeDependencies): Propos
   const runtime: ProposalRuntime = {
     start() {
       openedAt = now();
-      timer = setIntervalImpl(() => void runtime.requestTick(), deps.tickIntervalMs ?? DEFAULT_TICK_MS);
+      pruneHistory();
+      timer = setIntervalImpl(() => void runtime.requestTick(), tickMs);
       void runtime.requestTick();
     },
     stop() {
@@ -233,7 +305,7 @@ export function createProposalRuntime(deps: ProposalRuntimeDependencies): Propos
     setPlaybooks(next) {
       playbooks = [...next];
     },
-    list: async ({ state } = {}) => ({ proposals: store.listProposals({ state }) }),
+    list: async ({ state, limit } = {}) => ({ proposals: store.listProposals({ state, limit }) }),
     dismiss: ({ id }) =>
       enqueue(async () => {
         const proposal = store.getProposal(id) ?? refuse("The proposal was not found.");
@@ -255,16 +327,28 @@ export function createProposalRuntime(deps: ProposalRuntimeDependencies): Propos
     observeIssues: ({ items }) =>
       enqueue(async () => {
         let proposed = 0;
+        // An empty list says nothing yet: no source may have synced.
+        if (items.length === 0) return { proposed };
+        const sources = [...new Set(items.map((issue) => issue.source))];
         for (const playbook of playbooks) {
           const watch = playbook.startsWhen?.issueAssigned;
           if (!watch) continue;
           const since = Date.parse(watch.since);
-          const matching = items.filter((issue) => issueMatchesFilter(issue, watch.filter));
           const keyOf = (issue: ObservedIssue) => `issue:${playbook.id}:${issue.source}:${issue.key}`;
-          const firstLook = store.markTriggersSeen([`issues-baseline:${playbook.id}:${watch.since}`], now()).length === 1;
-          const fresh = firstLook ? matching.filter((issue) => issue.createdAt && Date.parse(issue.createdAt) >= since) : matching;
-          // The first look takes in what was already assigned; only issues created since are news.
-          if (firstLook) store.markTriggersSeen(matching.filter((issue) => !fresh.includes(issue)).map(keyOf), now());
+          // Once per source and `since`; a changed filter restamps `since`, so it looks afresh too.
+          const baselines = new Map(sources.map((source) => [`issues-baseline:${playbook.id}:${watch.since}:${source}`, source]));
+          const firstLook = new Set(store.markTriggersSeen([...baselines.keys()], now()).map((key) => baselines.get(key)));
+          const createdSince = (issue: ObservedIssue) => Boolean(issue.createdAt) && Date.parse(issue.createdAt!) >= since;
+          const fresh = items.filter(
+            (issue) => issueMatchesFilter(issue, watch.filter) && (!firstLook.has(issue.source) || createdSince(issue)),
+          );
+          // A source's first look takes in everything already assigned there, matching the filter or
+          // not, so a source that syncs later or a broader filter never floods old issues. Only
+          // issues created since are news then; afterwards, any issue not seen before is.
+          store.markTriggersSeen(
+            items.filter((issue) => firstLook.has(issue.source) && !fresh.includes(issue)).map(keyOf),
+            now(),
+          );
           for (const issue of fresh) {
             const outcome = await propose(
               draft(playbook, {
@@ -277,7 +361,6 @@ export function createProposalRuntime(deps: ProposalRuntimeDependencies): Propos
                 issue: { source: issue.source, key: issue.key },
               }),
               playbook,
-              false,
             );
             if (outcome !== "seen") proposed += 1;
           }
@@ -290,37 +373,44 @@ export function createProposalRuntime(deps: ProposalRuntimeDependencies): Propos
       enqueue(async () => {
         let proposed = 0;
         let started = 0;
-        if (workspaceBusy(workspaceId)) return { proposed, started };
-        for (const playbook of playbooks) {
-          for (const trouble of pullRequestTroubles(playbook, pr)) {
-            const outcome = await propose(
-              draft(playbook, {
-                sourceKey: `pr:${playbook.id}:${workspaceId}:${trouble.kind}:${pr.headSha ?? "unknown"}`,
-                source: "pull-request",
-                title: `${pr.title} · #${pr.number}`.slice(0, 200),
-                detail: trouble.detail,
-                url: pr.url,
-                assignment: `${trouble.detail}: ${pr.title}\n${pr.url}`,
-                workspaceId,
-                workspaceName,
-              }),
-              playbook,
-              canAutoStart(playbook),
-            );
-            if (outcome === "proposed") proposed += 1;
-            if (outcome === "started") started += 1;
-          }
+        const matches = playbooks.flatMap((playbook) => pullRequestTroubles(playbook, pr).map((trouble) => ({ playbook, trouble })));
+        if (matches.length === 0) return { proposed, started, deferred: false };
+        // Another mission works here: decide nothing now; the renderer sends it again later.
+        if (workspaceBusy(workspaceId)) return { proposed, started, deferred: true };
+        for (const { playbook, trouble } of matches) {
+          const outcome = await propose(
+            draft(playbook, {
+              sourceKey: `pr:${playbook.id}:${workspaceId}:${trouble.kind}:${pr.headSha ?? "unknown"}`,
+              source: "pull-request",
+              title: `${pr.title} · #${pr.number}`.slice(0, 200),
+              detail: trouble.detail,
+              url: pr.url,
+              assignment: `${trouble.detail}: ${pr.title}\n${pr.url}`,
+              workspaceId,
+              workspaceName,
+            }),
+            playbook,
+            // One mission per worktree: the first that may start does; the rest wait as proposals.
+            () => started === 0 && canAutoStart(playbook) && !workspaceBusy(workspaceId),
+          );
+          if (outcome === "proposed") proposed += 1;
+          if (outcome === "started") started += 1;
         }
         if (proposed + started > 0) emit();
-        return { proposed, started };
+        return { proposed, started, deferred: false };
       }),
 
     issueDemand: async () => ({ watching: playbooks.some((playbook) => Boolean(playbook.startsWhen?.issueAssigned)) }),
 
     proposeForGrant: ({ missionKey, input: raw }) =>
       enqueue(async () => {
+        // The stage tools' identity checks: the lead task's turn, on the stage the mission is on now.
         const grant = deps.resolveMissionGrant(missionKey) ?? refuse("Only a mission's turns can propose missions.");
-        const mission: Mission = store.getMission(grant.missionId) ?? refuse("The mission was not found.");
+        const aggregate = store.getAggregate(grant.missionId) ?? refuse("The mission was not found.");
+        if (aggregate.mission.leadTaskId !== grant.taskId) refuse("Only a mission's turns can propose missions.");
+        const stage = currentStageRecord(aggregate);
+        if (stage.stageId !== grant.stageId || stage.attempt !== grant.attempt) refuse("The mission has moved on from this turn's stage.");
+        const mission = aggregate.mission;
         const input = ProposeMissionToolInputSchema.parse(raw);
         const playbook =
           resolvePlaybook(input.playbookId ?? DEFAULT_TRIAGE_PLAYBOOK) ??
@@ -337,7 +427,6 @@ export function createProposalRuntime(deps: ProposalRuntimeDependencies): Propos
             proposedByMissionId: mission.id,
           }),
           playbook,
-          false,
         );
         if (outcome === "seen") return { state: "pending" as const, message: "This request was already proposed; nothing new was added." };
         emit();

@@ -9,21 +9,23 @@ import {
   type ProposalRuntimeDependencies,
 } from "../electron/host-service/supervision/proposal-runtime";
 import { ProposedMissionsPanel } from "../src/components/layout/issues/ProposedMissionsPanel";
-import { describeProposalStart } from "../src/components/layout/issues/useProposalActions";
+import { describeMissingWorkspace, describeProposalStart } from "../src/components/layout/issues/useProposalActions";
+import { PlaybookStartsWhen } from "../src/components/playbooks/PlaybookStartsWhen";
 import type { MissionDetail } from "../src/lib/missions/api";
-import { createMission, type MissionStartInput } from "../src/lib/missions/domain";
+import { createMission, currentStageRecord, type MissionStartInput } from "../src/lib/missions/domain";
 import { playbookChoiceForId } from "../src/lib/missions/start-sheet";
 import type { ObservedPullRequest, ProposedMission } from "../src/lib/missions/proposed";
 import type { Playbook } from "../src/lib/playbooks/schema";
-import { applyStartsWhen, describeStartsWhen } from "../src/lib/playbooks/starts-when";
+import { applyStartsWhen, describeStartsWhen, newScheduleStartsOnItsOwn, summarizeWatching } from "../src/lib/playbooks/starts-when";
 import type { ObservedIssue } from "../src/lib/projects/policy";
-import { toObservedPullRequest } from "../src/store/proposals-store";
+import { pullRequestWatchKey, toObservedPullRequest } from "../src/store/proposals-store";
 import { MISSION_NOW, starterPlaybook } from "./fixtures/mission-fixtures";
 
 const SINCE = "2026-09-26T09:00:00.000Z";
+const DAY_MS = 24 * 60 * 60_000;
 
-function issue(key: string, createdAt: string, labels: string[] = []): ObservedIssue {
-  return { source: "crane", key, title: `Fix ${key}`, url: `https://crane.example/${key}`, labels, project: "WEB", createdAt };
+function issue(key: string, createdAt: string, labels: string[] = [], source = "crane"): ObservedIssue {
+  return { source, key, title: `Fix ${key}`, url: `https://${source}.example/${key}`, labels, project: "WEB", createdAt };
 }
 
 function pullRequest(patch: Partial<ObservedPullRequest> = {}): ObservedPullRequest {
@@ -43,16 +45,20 @@ function withStartsWhen(playbook: Playbook, startsWhen: Playbook["startsWhen"]):
   return { ...playbook, startsWhen };
 }
 
-function harness() {
+type Grant = NonNullable<ReturnType<ProposalRuntimeDependencies["resolveMissionGrant"]>>;
+
+function harness(options: { failStart?: boolean } = {}) {
   const db = new Database(":memory:");
   const store = new MissionStore(db);
   let clock = new Date(MISSION_NOW);
   const starts: MissionStartInput[] = [];
   const tasks: Array<{ workspaceId: string; title: string }> = [];
   const changes: number[] = [];
+  const grants = new Map<string, Grant>();
   const deps: ProposalRuntimeDependencies = {
     store,
     startMission: async (input) => {
+      if (options.failStart) throw new Error("The provider is not signed in.");
       starts.push(input);
       return { mission: { id: `mission-${starts.length}` } } as unknown as MissionDetail;
     },
@@ -60,7 +66,8 @@ function harness() {
       tasks.push(task);
       return { taskId: `task-${tasks.length}` };
     },
-    resolveMissionGrant: (key) => (key === "grant" ? { missionId: "triage-mission" } : null),
+    resolveMissionGrant: (key) => grants.get(key) ?? null,
+    resolveWorkspaceRepository: async (workspaceId) => (workspaceId === "ws" ? "/tmp/web" : null),
     emitChanged: () => changes.push(1),
     now: () => clock,
     setInterval: (() => 0) as unknown as typeof globalThis.setInterval,
@@ -73,6 +80,12 @@ function harness() {
     starts,
     tasks,
     changes,
+    grants,
+    now: () => clock,
+    /** The workspace's mission ends, so start conditions may act there again. */
+    free(workspaceId: string) {
+      db.prepare("UPDATE missions SET state = 'completed' WHERE workspace_id = ?").run(workspaceId);
+    },
     advance(ms: number) {
       clock = new Date(clock.getTime() + ms);
     },
@@ -130,6 +143,47 @@ describe("assigned issues", () => {
     });
     expect((await pending(h.runtime)).map((proposal) => proposal.issue?.key)).toEqual(["WEB-4"]);
   });
+
+  test("the first look takes in every assigned issue, matching or not, so a broader filter floods nothing", async () => {
+    const h = harness();
+    const watch = (filter: string) =>
+      h.runtime.setPlaybooks([withStartsWhen(starterPlaybook("request-to-pr"), { issueAssigned: { filter, since: SINCE } })]);
+    const items = [
+      issue("WEB-1", "2026-09-20T00:00:00.000Z", ["docs"]),
+      issue("WEB-2", "2026-09-20T00:00:00.000Z", ["bug"]),
+      issue("WEB-3", "2026-09-26T09:30:00.000Z", ["bug"]),
+    ];
+    watch("bug");
+    expect(await h.runtime.observeIssues({ items })).toEqual({ proposed: 1 });
+    watch("");
+    expect(await h.runtime.observeIssues({ items })).toEqual({ proposed: 0 });
+    expect((await pending(h.runtime)).map((proposal) => proposal.issue?.key)).toEqual(["WEB-3"]);
+  });
+
+  test("a source that syncs after the first look gets a first look of its own", async () => {
+    const h = harness();
+    h.runtime.setPlaybooks([withStartsWhen(starterPlaybook("request-to-pr"), { issueAssigned: { filter: "", since: SINCE } })]);
+    const crane = [issue("WEB-1", "2026-09-20T00:00:00.000Z")];
+    expect(await h.runtime.observeIssues({ items: crane })).toEqual({ proposed: 0 });
+
+    const jiraOld = issue("OPS-1", "2026-09-01T00:00:00.000Z", [], "jira");
+    const jiraNew = issue("OPS-2", "2026-09-26T09:30:00.000Z", [], "jira");
+    expect(await h.runtime.observeIssues({ items: [...crane, jiraOld, jiraNew] })).toEqual({ proposed: 1 });
+
+    // After its first look, an older ticket newly assigned is news too.
+    const reassigned = issue("OPS-3", "2026-08-01T00:00:00.000Z", [], "jira");
+    expect(await h.runtime.observeIssues({ items: [...crane, jiraOld, jiraNew, reassigned] })).toEqual({ proposed: 1 });
+    expect((await pending(h.runtime)).map((proposal) => proposal.issue?.key).sort()).toEqual(["OPS-2", "OPS-3"]);
+  });
+
+  test("an empty list is not a first look", async () => {
+    const h = harness();
+    h.runtime.setPlaybooks([withStartsWhen(starterPlaybook("request-to-pr"), { issueAssigned: { filter: "", since: SINCE } })]);
+    expect(await h.runtime.observeIssues({ items: [] })).toEqual({ proposed: 0 });
+    const items = [issue("WEB-1", "2026-09-20T00:00:00.000Z"), issue("WEB-2", "2026-09-26T09:30:00.000Z")];
+    expect(await h.runtime.observeIssues({ items })).toEqual({ proposed: 1 });
+    expect((await pending(h.runtime)).map((proposal) => proposal.issue?.key)).toEqual(["WEB-2"]);
+  });
 });
 
 describe("pull requests", () => {
@@ -143,12 +197,18 @@ describe("pull requests", () => {
     const h = harness();
     h.runtime.setPlaybooks([watching(false)]);
     const observe = (pr: ObservedPullRequest) => h.runtime.observePullRequest({ workspaceId: "ws", workspaceName: "web-app", pr });
-    expect(await observe(pullRequest())).toEqual({ proposed: 1, started: 0 });
-    expect(await observe(pullRequest())).toEqual({ proposed: 0, started: 0 });
-    expect(await observe(pullRequest({ checks: "SUCCESS", headSha: "def" }))).toEqual({ proposed: 0, started: 0 });
-    expect(await observe(pullRequest({ headSha: "ghi" }))).toEqual({ proposed: 1, started: 0 });
+    expect(await observe(pullRequest())).toEqual({ proposed: 1, started: 0, deferred: false });
+    expect(await observe(pullRequest())).toEqual({ proposed: 0, started: 0, deferred: false });
+    expect(await observe(pullRequest({ checks: "SUCCESS", headSha: "def" }))).toEqual({ proposed: 0, started: 0, deferred: false });
+    expect(await observe(pullRequest({ headSha: "ghi" }))).toEqual({ proposed: 1, started: 0, deferred: false });
     const [latest] = await pending(h.runtime);
-    expect(latest).toMatchObject({ source: "pull-request", workspaceId: "ws", workspaceName: "web-app", detail: "Checks failed on PR #612" });
+    expect(latest).toMatchObject({
+      source: "pull-request",
+      workspaceId: "ws",
+      workspaceName: "web-app",
+      repositoryPath: "/tmp/web",
+      detail: "Checks failed on PR #612",
+    });
   });
 
   test("auto-start starts in the workspace with nothing outside this machine authorized", async () => {
@@ -157,6 +217,7 @@ describe("pull requests", () => {
     expect(await h.runtime.observePullRequest({ workspaceId: "ws", workspaceName: "web-app", pr: pullRequest() })).toEqual({
       proposed: 0,
       started: 1,
+      deferred: false,
     });
     expect(h.tasks).toEqual([expect.objectContaining({ workspaceId: "ws" })]);
     expect(h.starts[0]).toMatchObject({ workspaceId: "ws", leadTaskId: "task-1", consent: { authorizedEffectStageIds: [] } });
@@ -165,7 +226,38 @@ describe("pull requests", () => {
     expect(await h.runtime.observePullRequest({ workspaceId: "ws", workspaceName: "web-app", pr: pullRequest() })).toEqual({
       proposed: 0,
       started: 0,
+      deferred: false,
     });
+  });
+
+  test("one pull request starts one mission; the rest wait as proposals", async () => {
+    const h = harness();
+    const both = withStartsWhen(starterPlaybook("fix-failing-checks"), {
+      pullRequest: { checksFailed: true, changesRequested: true },
+      autoStart: true,
+    });
+    const other = { ...watching(true), id: "playbook_other", name: "Other fixer" };
+    h.runtime.setPlaybooks([both, other]);
+    const pr = pullRequest({ reviewDecision: "CHANGES_REQUESTED" });
+    expect(await h.runtime.observePullRequest({ workspaceId: "ws", workspaceName: "web-app", pr })).toEqual({
+      proposed: 2,
+      started: 1,
+      deferred: false,
+    });
+    expect(h.tasks).toHaveLength(1);
+    expect(await pending(h.runtime)).toHaveLength(2);
+  });
+
+  test("an auto-start that fails stays proposed, with its task for Start to reuse", async () => {
+    const h = harness({ failStart: true });
+    h.runtime.setPlaybooks([watching(true)]);
+    expect(await h.runtime.observePullRequest({ workspaceId: "ws", workspaceName: "web-app", pr: pullRequest() })).toEqual({
+      proposed: 1,
+      started: 0,
+      deferred: false,
+    });
+    const [proposal] = await pending(h.runtime);
+    expect(proposal).toMatchObject({ taskId: "task-1", detail: "Could not start on its own: The provider is not signed in." });
   });
 
   test("a playbook whose first stage publishes never auto-starts", async () => {
@@ -176,18 +268,21 @@ describe("pull requests", () => {
     expect(await h.runtime.observePullRequest({ workspaceId: "ws", workspaceName: "web-app", pr: pullRequest() })).toEqual({
       proposed: 1,
       started: 0,
+      deferred: false,
     });
     expect(h.starts).toHaveLength(0);
   });
 
-  test("a workspace a mission already works in is left alone", async () => {
+  test("a workspace a mission already works in is deferred, and decided once it is free", async () => {
     const h = harness();
     h.runtime.setPlaybooks([watching(true)]);
     h.busy("ws");
-    expect(await h.runtime.observePullRequest({ workspaceId: "ws", workspaceName: "web-app", pr: pullRequest() })).toEqual({
-      proposed: 0,
-      started: 0,
-    });
+    const observe = (pr: ObservedPullRequest) => h.runtime.observePullRequest({ workspaceId: "ws", workspaceName: "web-app", pr });
+    expect(await observe(pullRequest())).toEqual({ proposed: 0, started: 0, deferred: true });
+    // Nothing to decide is never deferred.
+    expect(await observe(pullRequest({ checks: "SUCCESS" }))).toEqual({ proposed: 0, started: 0, deferred: false });
+    h.free("ws");
+    expect(await observe(pullRequest())).toEqual({ proposed: 0, started: 1, deferred: false });
   });
 });
 
@@ -205,7 +300,7 @@ describe("schedules", () => {
     await h.runtime.requestTick();
     const proposals = await pending(h.runtime);
     expect(proposals).toHaveLength(1);
-    expect(proposals[0]).toMatchObject({ source: "schedule", workspaceId: "ws", detail: "Every day at 09:00" });
+    expect(proposals[0]).toMatchObject({ source: "schedule", workspaceId: "ws", repositoryPath: "/tmp/web", detail: "Every day at 09:00" });
 
     h.runtime.setPlaybooks([withStartsWhen(starterPlaybook("triage-requests"), { schedule, autoStart: true })]);
     h.at("2026-09-29T09:05:00");
@@ -226,6 +321,35 @@ describe("schedules", () => {
     expect(missed?.detail).toBe("Every day at 09:00 · missed while Stave was closed");
     h.runtime.stop();
   });
+
+  test("a slot the computer slept through is proposed, not started hours late", async () => {
+    const h = harness();
+    const schedule = { schedule: "daily" as const, workspaceId: "ws", workspaceName: "web-app", since: new Date("2026-09-28T07:00:00").toISOString() };
+    h.at("2026-09-28T08:00:00");
+    h.runtime.start();
+    h.runtime.setPlaybooks([withStartsWhen(starterPlaybook("triage-requests"), { schedule, autoStart: true })]);
+    h.at("2026-09-28T13:00:00");
+    await h.runtime.requestTick();
+    expect(h.starts).toHaveLength(0);
+    expect((await pending(h.runtime))[0]?.detail).toBe("Every day at 09:00 · missed while this computer was asleep");
+
+    // A slot reached on time still starts.
+    h.at("2026-09-29T09:03:00");
+    await h.runtime.requestTick();
+    expect(h.starts).toHaveLength(1);
+    h.runtime.stop();
+  });
+
+  test("schedules that share a workspace and a slot start one mission", async () => {
+    const h = harness();
+    const schedule = { schedule: "daily" as const, workspaceId: "ws", workspaceName: "web-app", since: new Date("2026-09-28T07:00:00").toISOString() };
+    const triage = withStartsWhen(starterPlaybook("triage-requests"), { schedule, autoStart: true });
+    h.runtime.setPlaybooks([triage, { ...triage, id: "playbook_second", name: "Second triage" }]);
+    h.at("2026-09-28T09:01:00");
+    await h.runtime.requestTick();
+    expect(h.starts).toHaveLength(1);
+    expect(await pending(h.runtime)).toHaveLength(1);
+  });
 });
 
 describe("triage", () => {
@@ -245,9 +369,16 @@ describe("triage", () => {
       now: MISSION_NOW,
     });
     h.store.create(triage, MISSION_NOW);
+    const stage = currentStageRecord(h.store.getAggregate("triage-mission")!);
+    const grant = { missionId: "triage-mission", taskId: "lead", stageId: stage.stageId, attempt: stage.attempt };
+    h.grants.set("grant", grant);
+    h.grants.set("other-task", { ...grant, taskId: "someone-else" });
+    h.grants.set("stale", { ...grant, attempt: grant.attempt + 1 });
     const input = { title: "Export CSV", assignment: "Add CSV export to billing.", url: "https://slack.example/t/1" };
 
     await expect(h.runtime.proposeForGrant({ missionKey: "nope", input })).rejects.toThrow("Only a mission's turns");
+    await expect(h.runtime.proposeForGrant({ missionKey: "other-task", input })).rejects.toThrow("Only a mission's turns");
+    await expect(h.runtime.proposeForGrant({ missionKey: "stale", input })).rejects.toThrow("moved on from this turn's stage");
     expect(await h.runtime.proposeForGrant({ missionKey: "grant", input })).toMatchObject({ state: "pending", message: expect.stringContaining("Proposed") });
     expect(await h.runtime.proposeForGrant({ missionKey: "grant", input })).toMatchObject({ message: expect.stringContaining("already proposed") });
     const [proposal] = await pending(h.runtime);
@@ -277,18 +408,82 @@ describe("deciding", () => {
     expect(await pending(h.runtime)).toHaveLength(0);
     expect(await invokeProposalRuntime(h.runtime, "dismiss", { id: "missing" })).toEqual({ ok: false, message: "The proposal was not found." });
   });
+
+  test("decided proposals list by when they were decided", async () => {
+    const h = harness();
+    h.runtime.setPlaybooks([withStartsWhen(starterPlaybook("fix-failing-checks"), { pullRequest: { checksFailed: true, changesRequested: false } })]);
+    await h.runtime.observePullRequest({ workspaceId: "ws", workspaceName: "web-app", pr: pullRequest({ headSha: "one" }) });
+    h.advance(60_000);
+    await h.runtime.observePullRequest({ workspaceId: "ws", workspaceName: "web-app", pr: pullRequest({ headSha: "two" }) });
+    const [second, first] = await pending(h.runtime);
+    h.advance(60_000);
+    await h.runtime.dismiss({ id: second!.id });
+    h.advance(60_000);
+    await h.runtime.dismiss({ id: first!.id });
+    const decided = (await h.runtime.list({ state: "decided" })).proposals;
+    expect(decided.map((proposal) => proposal.id)).toEqual([first!.id, second!.id]);
+  });
+
+  test("starting forgets decisions after 30 days and seen slots and commits after 90, never issues", async () => {
+    const h = harness();
+    h.runtime.setPlaybooks([withStartsWhen(starterPlaybook("fix-failing-checks"), { pullRequest: { checksFailed: true, changesRequested: false } })]);
+    await h.runtime.observePullRequest({ workspaceId: "ws", workspaceName: "web-app", pr: pullRequest({ headSha: "old" }) });
+    const [old] = await pending(h.runtime);
+    await h.runtime.dismiss({ id: old!.id });
+    h.store.markTriggersSeen(["issue:playbook:crane:WEB-1"], h.now());
+
+    h.advance(31 * DAY_MS);
+    await h.runtime.observePullRequest({ workspaceId: "ws", workspaceName: "web-app", pr: pullRequest({ headSha: "new" }) });
+    h.runtime.start();
+    h.runtime.stop();
+    expect((await h.runtime.list({ state: "decided" })).proposals).toHaveLength(0);
+    expect(await pending(h.runtime)).toHaveLength(1);
+
+    h.advance(60 * DAY_MS);
+    h.runtime.start();
+    h.runtime.stop();
+    const oldKey = `pr:playbook_fix_failing_checks:ws:checks-failed:old`;
+    const newKey = `pr:playbook_fix_failing_checks:ws:checks-failed:new`;
+    expect(h.store.markTriggersSeen([oldKey, newKey, "issue:playbook:crane:WEB-1"], h.now())).toEqual([oldKey]);
+  });
 });
 
 describe("editing start conditions", () => {
   const base = starterPlaybook("fix-failing-checks");
   const now = new Date("2026-09-27T12:00:00.000Z");
 
-  test("each condition is stamped when turned on, and none left removes startsWhen", () => {
+  test("each condition is stamped when turned on, a new filter restamps, and none left removes startsWhen", () => {
     const withIssue = applyStartsWhen(base, { issueAssigned: { filter: "" } }, now);
     expect(withIssue.startsWhen).toEqual({ issueAssigned: { filter: "", since: now.toISOString() } });
-    const edited = applyStartsWhen(withIssue, { issueAssigned: { filter: "bug" } }, new Date("2026-09-28T00:00:00.000Z"));
-    expect(edited.startsWhen?.issueAssigned).toEqual({ filter: "bug", since: now.toISOString() });
+    const later = new Date("2026-09-28T00:00:00.000Z");
+    expect(applyStartsWhen(withIssue, { issueAssigned: { filter: "" } }, later).startsWhen?.issueAssigned?.since).toBe(now.toISOString());
+    const edited = applyStartsWhen(withIssue, { issueAssigned: { filter: "bug" } }, later);
+    expect(edited.startsWhen?.issueAssigned).toEqual({ filter: "bug", since: later.toISOString() });
     expect("startsWhen" in applyStartsWhen(edited, { issueAssigned: null }, now)).toBe(false);
+  });
+
+  test("a new schedule starts on its own only when pull requests are not watched", () => {
+    expect(newScheduleStartsOnItsOwn(undefined, true)).toBe(true);
+    expect(newScheduleStartsOnItsOwn(undefined, false)).toBe(false);
+    expect(newScheduleStartsOnItsOwn({ pullRequest: { checksFailed: true, changesRequested: false } }, true)).toBe(false);
+    const both = applyStartsWhen(
+      base,
+      { pullRequest: { checksFailed: true, changesRequested: false }, schedule: { schedule: "daily", workspaceId: "ws", workspaceName: "web-app" } },
+      now,
+    );
+    const html = renderToStaticMarkup(createElement(PlaybookStartsWhen, { draft: both, workspace: null, onChange: () => {}, now: () => now }));
+    expect(html).toContain("Both pull request and scheduled missions start without asking");
+    expect(html).toContain("Watches the workspaces of the open repository");
+  });
+
+  test("the watch summary names what the playbooks watch", () => {
+    expect(summarizeWatching([base])).toBeNull();
+    const issues = applyStartsWhen(base, { issueAssigned: { filter: "" } }, now);
+    const scheduled = applyStartsWhen(base, { schedule: { schedule: "daily", workspaceId: "ws", workspaceName: "web-app" } }, now);
+    expect(summarizeWatching([issues, scheduled, base])).toBe("2 playbooks — assigned issues, a schedule");
+    expect(summarizeWatching([applyStartsWhen(base, { pullRequest: { checksFailed: true, changesRequested: false } }, now)])).toBe(
+      "1 playbook — pull requests in the open repository",
+    );
   });
 
   test("auto-start needs a pull request or schedule condition; a new schedule restamps", () => {
@@ -375,6 +570,41 @@ describe("Issues → Proposed", () => {
     const empty = render([], []);
     expect(empty).toContain("Nothing proposed right now");
     expect(empty).toContain("Open playbooks");
+    const watching = renderToStaticMarkup(
+      createElement(ProposedMissionsPanel, {
+        pending: [],
+        recent: [],
+        loaded: true,
+        now: new Date("2026-09-27T12:00:00.000Z"),
+        watching: "2 playbooks — assigned issues, a schedule",
+        startTarget: () => ({ label: "Start", where: null, disabledReason: null }),
+        onStart: () => {},
+        onDismiss: () => {},
+        onOpenLink: () => {},
+        onOpenMission: () => {},
+        onOpenPlaybooks: () => {},
+      }),
+    );
+    expect(watching).toContain("Watching: 2 playbooks — assigned issues, a schedule.");
+  });
+
+  test("a workspace Start cannot open is named with where it looked", () => {
+    expect(describeMissingWorkspace(proposal({ repositoryPath: "/tmp/repos/web" })).title).toBe("Could not find web-app in web.");
+    const unknown = describeMissingWorkspace(proposal());
+    expect(unknown.title).toBe("Could not find web-app in the open repository.");
+    expect(unknown.description).toContain("Open the repository it belongs to");
+  });
+
+  test("a changed pull request condition sends every pull request again", () => {
+    const base = starterPlaybook("fix-failing-checks");
+    expect(pullRequestWatchKey(null)).toBeNull();
+    expect(pullRequestWatchKey([base])).toBeNull();
+    const checks = withStartsWhen(base, { pullRequest: { checksFailed: true, changesRequested: false } });
+    const key = pullRequestWatchKey([checks]);
+    expect(key).not.toBeNull();
+    expect(pullRequestWatchKey([withStartsWhen(base, { pullRequest: { checksFailed: true, changesRequested: true } })])).not.toBe(key);
+    expect(pullRequestWatchKey([checks, { ...checks, id: "playbook_other" }])).not.toBe(key);
+    expect(pullRequestWatchKey([withStartsWhen(base, { pullRequest: { checksFailed: true, changesRequested: false }, autoStart: true })])).not.toBe(key);
   });
 
   test("a workspace's pull request reads as the start condition sees it", () => {

@@ -8,7 +8,7 @@ import { TextField } from "@/components/ads/components/TextField";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { playbookCanAutoStart, type Playbook } from "@/lib/playbooks/schema";
-import { applyStartsWhen, type StartsWhenPatch } from "@/lib/playbooks/starts-when";
+import { applyStartsWhen, newScheduleStartsOnItsOwn, type StartsWhenPatch } from "@/lib/playbooks/starts-when";
 import { SCHEDULE_LABELS, SCHEDULES, type Schedule } from "@/lib/schedules";
 
 function ConditionRow(props: {
@@ -54,6 +54,8 @@ export function PlaybookStartsWhen(props: {
   const schedule = startsWhen.schedule;
   const pr = startsWhen.pullRequest;
   const offersAutoStart = Boolean(pr || schedule);
+  const autoStartSubject =
+    pr && schedule ? "Both pull request and scheduled missions start" : pr ? "Pull request missions start" : "Scheduled missions start";
 
   return (
     <div className={sx(styles.stack)}>
@@ -87,7 +89,7 @@ export function PlaybookStartsWhen(props: {
         <ConditionRow
           icon={GitPullRequest}
           label="A workspace's pull request needs work"
-          hint="Proposes a mission in that workspace, once per commit, when it has no other mission."
+          hint="Proposes a mission in that workspace, once per commit, when it has no other mission. Watches the workspaces of the open repository, while Stave is open."
           control={
             <Switch
               aria-label="Propose a mission when a pull request needs work"
@@ -139,7 +141,7 @@ export function PlaybookStartsWhen(props: {
                   update({
                     schedule: { schedule: next, workspaceId: target.id, workspaceName: target.name },
                     // A new schedule runs on its own when it safely can; turn that off below.
-                    ...(!schedule && canAutoStart ? { autoStart: true } : {}),
+                    ...(newScheduleStartsOnItsOwn(startsWhen, canAutoStart) ? { autoStart: true } : {}),
                   });
                 }}
               />
@@ -168,7 +170,7 @@ export function PlaybookStartsWhen(props: {
             label="Start on its own"
             hint={
               canAutoStart
-                ? "Pull request and scheduled missions start without asking. Nothing outside this machine is allowed: stages that publish still wait for you."
+                ? `${autoStartSubject} without asking. Nothing outside this machine is allowed: stages that publish still wait for you.`
                 : "Its first stage publishes, so these missions always wait for you to start them."
             }
             control={

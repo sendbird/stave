@@ -101,15 +101,20 @@ header shows **N proposed** while any wait; clicking it opens this tab.
 - Each row names the source, why it was proposed, the playbook, where it runs
   and how long ago. The link icon opens the issue, pull request or thread.
 - **Kick off** (an issue) opens the ticket's kickoff with the playbook chosen.
-  **Start** creates a task in the pull request's or schedule's workspace — or,
-  for a triage proposal, in the workspace open now — and opens **Start a
-  mission** with the assignment filled in. The proposal is marked started once
-  the mission starts.
+  **Start** opens the pull request's or schedule's workspace — first opening
+  its repository when another one is open — or, for a triage proposal, uses
+  the workspace open now. It then opens **Start a mission** on a new task (or
+  the empty one a failed automatic start left) with the assignment filled in.
+  The proposal is marked started once the mission starts; closing the sheet
+  without starting archives the empty task.
 - **Dismiss** sets it aside. The same issue, commit or request is never
   proposed again.
-- **Decided recently** lists the last started and dismissed proposals,
-  including missions a playbook started on its own, with **Open** to go to
-  one.
+- **Decided recently** lists the last 30 started and dismissed proposals,
+  most recently decided first, including missions a playbook started on its
+  own, with **Open** to go to one. Decided proposals are forgotten after 30
+  days.
+- With nothing waiting, the tab says what your playbooks watch, such as
+  *2 playbooks — assigned issues, a schedule*.
 
 ### Wake A Project When An Issue Arrives
 

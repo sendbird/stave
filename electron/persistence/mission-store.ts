@@ -25,7 +25,7 @@ import {
   type MissionEventKind,
   type MissionStageRecord,
 } from "../../src/lib/missions/domain";
-import { ProposedMissionSchema, type ProposedMission } from "../../src/lib/missions/proposed";
+import { ProposedMissionSchema, type ProposalListFilter, type ProposedMission } from "../../src/lib/missions/proposed";
 import { SECOND_MISSION_REFUSAL } from "../../src/lib/supervision/automatic-turn-owner";
 
 interface MissionStatement {
@@ -265,14 +265,37 @@ export class MissionStore {
     return row ? (parseEach([row], (entry) => ProposedMissionSchema.parse(JSON.parse(entry.body_json)), "proposal")[0] ?? null) : null;
   }
 
-  listProposals(args: { state?: ProposedMission["state"]; limit?: number } = {}): ProposedMission[] {
+  /** Newest first; "decided" (started or dismissed) lists by when it was decided. */
+  listProposals(args: { state?: ProposalListFilter; limit?: number } = {}): ProposedMission[] {
     const limit = Math.max(1, Math.min(args.limit ?? 100, 500));
     const rows = (
-      args.state
-        ? this.db.prepare("SELECT body_json FROM mission_proposals WHERE state = ? ORDER BY created_at DESC LIMIT ?").all(args.state, limit)
-        : this.db.prepare("SELECT body_json FROM mission_proposals ORDER BY created_at DESC LIMIT ?").all(limit)
+      args.state === "decided"
+        ? this.db
+            .prepare(
+              "SELECT body_json FROM mission_proposals WHERE state != 'pending' ORDER BY json_extract(body_json, '$.updatedAt') DESC LIMIT ?",
+            )
+            .all(limit)
+        : args.state
+          ? this.db.prepare("SELECT body_json FROM mission_proposals WHERE state = ? ORDER BY created_at DESC LIMIT ?").all(args.state, limit)
+          : this.db.prepare("SELECT body_json FROM mission_proposals ORDER BY created_at DESC LIMIT ?").all(limit)
     ) as Array<{ body_json: string }>;
     return parseEach(rows, (row) => ProposedMissionSchema.parse(JSON.parse(row.body_json)), "proposal");
+  }
+
+  /**
+   * Forgets old history: proposals decided before `decidedBefore`, and seen
+   * schedule slots and pull request commits before `seenBefore`. Neither
+   * recurs, so forgetting them never proposes anything twice. Issue and
+   * triage keys stay: an issue or request can still be open months later.
+   */
+  pruneProposalHistory(args: { decidedBefore: Date; seenBefore: Date }): { proposals: number; triggers: number } {
+    const proposals = this.db
+      .prepare("DELETE FROM mission_proposals WHERE state != 'pending' AND json_extract(body_json, '$.updatedAt') < ?")
+      .run(args.decidedBefore.toISOString());
+    const triggers = this.db
+      .prepare("DELETE FROM mission_trigger_seen WHERE (trigger_key LIKE 'schedule:%' OR trigger_key LIKE 'pr:%') AND seen_at < ?")
+      .run(args.seenBefore.toISOString());
+    return { proposals: Number(proposals.changes ?? 0), triggers: Number(triggers.changes ?? 0) };
   }
 
   /** Marks trigger occurrences seen and returns the ones that are new. */

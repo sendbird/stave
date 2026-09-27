@@ -29,6 +29,8 @@ export interface ProposedMissionsPanelProps {
   recent: readonly ProposedMission[];
   loaded: boolean;
   now: Date;
+  /** What the playbooks watch ("2 playbooks — assigned issues, a schedule"), or null when nothing is. */
+  watching?: string | null;
   startTarget: (proposal: ProposedMission) => ProposalStartTarget;
   onStart: (proposal: ProposedMission) => void;
   onDismiss: (proposal: ProposedMission) => void;
@@ -67,7 +69,11 @@ function SourceMark(props: { source: ProposedMissionSource; quiet?: boolean }) {
   );
 }
 
-function PendingRow(props: Omit<ProposedMissionsPanelProps, "pending" | "recent" | "loaded" | "onOpenPlaybooks" | "onOpenMission"> & { proposal: ProposedMission }) {
+function PendingRow(
+  props: Omit<ProposedMissionsPanelProps, "pending" | "recent" | "loaded" | "watching" | "onOpenPlaybooks" | "onOpenMission"> & {
+    proposal: ProposedMission;
+  },
+) {
   const { proposal } = props;
   const target = props.startTarget(proposal);
   return (
@@ -172,9 +178,15 @@ export function ProposedMissionsPanel(props: ProposedMissionsPanelProps) {
           <div className={sx(styles.empty)}>
             <Sparkles aria-hidden className={sx(styles.emptyIcon)} />
             <p className={sx(styles.emptyTitle)}>Nothing proposed right now</p>
-            <p className={sx(styles.emptyText)}>
-              Give a playbook a start condition under <strong>Starts when</strong>, and the missions it proposes wait here.
-            </p>
+            {props.watching ? (
+              <p className={sx(styles.emptyText)}>
+                Watching: {props.watching}. What they propose waits here.
+              </p>
+            ) : (
+              <p className={sx(styles.emptyText)}>
+                Give a playbook a start condition under <strong>Starts when</strong>, and the missions it proposes wait here.
+              </p>
+            )}
             <Button type="button" size="sm" variant="secondary" onClick={props.onOpenPlaybooks}>
               Open playbooks
             </Button>
@@ -186,7 +198,15 @@ export function ProposedMissionsPanel(props: ProposedMissionsPanelProps) {
             </h3>
             <ul className={sx(styles.list)}>
               {props.pending.map((proposal) => (
-                <PendingRow key={proposal.id} {...props} proposal={proposal} />
+                <PendingRow
+                  key={proposal.id}
+                  proposal={proposal}
+                  now={props.now}
+                  startTarget={props.startTarget}
+                  onStart={props.onStart}
+                  onDismiss={props.onDismiss}
+                  onOpenLink={props.onOpenLink}
+                />
               ))}
             </ul>
           </section>

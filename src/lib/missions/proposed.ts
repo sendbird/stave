@@ -14,6 +14,9 @@ export type ProposedMissionSource = (typeof PROPOSED_MISSION_SOURCES)[number];
 
 export const PROPOSED_MISSION_STATES = ["pending", "started", "dismissed"] as const;
 export type ProposedMissionState = (typeof PROPOSED_MISSION_STATES)[number];
+/** What a list asks for: one state, or "decided" (started or dismissed), newest decision first. */
+export const PROPOSAL_LIST_FILTERS = [...PROPOSED_MISSION_STATES, "decided"] as const;
+export type ProposalListFilter = (typeof PROPOSAL_LIST_FILTERS)[number];
 
 const IdSchema = z.string().trim().min(1).max(200);
 
@@ -33,6 +36,10 @@ export const ProposedMissionSchema = z
     /** Where it runs, when the trigger knows: a pull request's workspace, a schedule's. */
     workspaceId: IdSchema.nullable(),
     workspaceName: z.string().trim().max(200).nullable(),
+    /** The repository that workspace belongs to, so Start can open it first. */
+    repositoryPath: z.string().trim().min(1).max(4_096).nullable().optional(),
+    /** The task auto-start created before the mission failed to start; Start reuses it. */
+    taskId: IdSchema.nullable().optional(),
     /** The issue it came from, so Start can kick off a workspace for it. */
     issue: z.object({ source: z.string().trim().min(1).max(40), key: z.string().trim().min(1).max(64) }).strict().nullable(),
     /** The triage mission that proposed it. */
@@ -127,11 +134,16 @@ export interface ProposalCommandResponse {
   message?: string;
 }
 
+export interface ProposalObserveResponse extends ProposalCommandResponse {
+  /** The workspace had another mission, so nothing was decided: send it again later. */
+  deferred?: boolean;
+}
+
 export interface ProposalsBridgeApi {
-  list: (args?: { state?: ProposedMissionState }) => Promise<ProposalListResponse>;
+  list: (args?: { state?: ProposalListFilter; limit?: number }) => Promise<ProposalListResponse>;
   dismiss: (args: { id: string }) => Promise<ProposalCommandResponse>;
   markStarted: (args: { id: string; missionId?: string | null }) => Promise<ProposalCommandResponse>;
   /** The renderer's view of a workspace's pull request, for pull request start conditions. */
-  observePullRequest: (args: { workspaceId: string; workspaceName: string; pr: ObservedPullRequest }) => Promise<ProposalCommandResponse>;
+  observePullRequest: (args: { workspaceId: string; workspaceName: string; pr: ObservedPullRequest }) => Promise<ProposalObserveResponse>;
   subscribeChanged: (listener: () => void) => () => void;
 }

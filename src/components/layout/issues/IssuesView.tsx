@@ -28,6 +28,7 @@ import {
 import { sx } from "@/components/ads/utils/stylex";
 import { playbookChoiceForId } from "@/lib/missions/start-sheet";
 import type { ProposedMission } from "@/lib/missions/proposed";
+import { summarizeWatching } from "@/lib/playbooks/starts-when";
 import { useAppStore } from "@/store/app.store";
 import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
 import { useProposalsStore } from "@/store/proposals-store";
@@ -114,6 +115,8 @@ export function IssuesView(props: { onClose: () => void }) {
   const proposedTabRequested = useProposalsStore(
     (state) => state.proposedTabRequested,
   );
+  const playbooks = useAppStore((state) => state.settings.playbooks);
+  const watching = useMemo(() => summarizeWatching(playbooks), [playbooks]);
   const [refreshing, setRefreshing] = useState(false);
   const [nowMs, setNowMs] = useState(() => Date.now());
   const searchInputRef = useRef<HTMLInputElement>(null);
@@ -334,6 +337,7 @@ export function IssuesView(props: { onClose: () => void }) {
             recent={recentProposals}
             loaded={proposalsLoaded}
             now={now}
+            watching={watching}
             startTarget={proposalActions.startTarget}
             onStart={proposalActions.start}
             onDismiss={proposalActions.dismiss}

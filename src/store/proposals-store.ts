@@ -3,9 +3,10 @@
  * playbook start conditions and triage missions proposed, waiting for the
  * user to start or dismiss them, and the recent ones already decided.
  */
-import { useEffect, useRef } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { create } from "zustand";
 import type { ObservedPullRequest, ProposalsBridgeApi, ProposedMission } from "@/lib/missions/proposed";
+import type { Playbook } from "@/lib/playbooks/schema";
 import type { WorkspacePrInfo } from "@/lib/pr-status";
 import { useAppStore } from "@/store/app.store";
 
@@ -13,12 +14,15 @@ const RECENT_LIMIT = 30;
 
 interface ProposalsState {
   pending: ProposedMission[];
-  /** Started or dismissed, newest first: what auto-start did, and what was decided. */
+  /** Started or dismissed, most recently decided first: what auto-start did, and what was decided. */
   recent: ProposedMission[];
   loaded: boolean;
   /** Set by "N proposed" in Fleet; Issues opens on Proposed and clears it. */
   proposedTabRequested: boolean;
+  /** The playbooks the host last accepted: pull request conditions are read from these, not the draft. */
+  syncedPlaybooks: readonly Playbook[] | null;
   load: () => Promise<void>;
+  notePlaybooksSynced: (playbooks: readonly Playbook[]) => void;
   dismiss: (id: string) => Promise<{ ok: boolean; message?: string }>;
   markStarted: (id: string, missionId?: string | null) => Promise<void>;
   requestProposedTab: () => void;
@@ -34,21 +38,20 @@ export const useProposalsStore = create<ProposalsState>()((set, get) => ({
   recent: [],
   loaded: false,
   proposedTabRequested: false,
+  syncedPlaybooks: null,
 
   load: async () => {
     const api = proposalsApi();
     if (!api) return;
-    const [pending, all] = await Promise.all([
+    const [pending, decided] = await Promise.all([
       api.list({ state: "pending" }).catch(() => null),
-      api.list().catch(() => null),
+      api.list({ state: "decided", limit: RECENT_LIMIT }).catch(() => null),
     ]);
     if (!pending?.ok) return;
-    set({
-      pending: pending.proposals,
-      recent: (all?.ok ? all.proposals : []).filter((proposal) => proposal.state !== "pending").slice(0, RECENT_LIMIT),
-      loaded: true,
-    });
+    set({ pending: pending.proposals, recent: decided?.ok ? decided.proposals : [], loaded: true });
   },
+
+  notePlaybooksSynced: (playbooks) => set({ syncedPlaybooks: playbooks }),
 
   dismiss: async (id) => {
     const api = proposalsApi();
@@ -94,9 +97,24 @@ function pullRequestFingerprint(pr: ObservedPullRequest): string {
 }
 
 /**
+ * What the synced playbooks ask of pull requests, or null when none watches
+ * them: a new or changed condition sends every pull request again.
+ */
+export function pullRequestWatchKey(playbooks: readonly Playbook[] | null): string | null {
+  const watching = (playbooks ?? []).filter((playbook) => playbook.startsWhen?.pullRequest);
+  if (watching.length === 0) return null;
+  return JSON.stringify(
+    watching.map((playbook) => [playbook.id, playbook.startsWhen!.pullRequest, Boolean(playbook.startsWhen!.autoStart)]),
+  );
+}
+
+/**
  * Mounted once in `App.tsx`: loads the proposals, follows `proposals:changed`,
- * and — while a playbook watches pull requests — hands each workspace's pull
- * request to the host when its checks, review or head commit change.
+ * and — while a synced playbook watches pull requests — hands each workspace's
+ * pull request to the host when its checks, review or head commit change, or
+ * the conditions do. An observation counts as sent only once the host decided
+ * it; a failed or deferred one (the workspace had another mission) goes again
+ * with the next pull request status refresh.
  */
 export function useProposalsSync() {
   useEffect(() => {
@@ -107,27 +125,34 @@ export function useProposalsSync() {
     return api.subscribeChanged(() => void load());
   }, []);
 
-  const watchesPullRequests = useAppStore((state) =>
-    state.settings.playbooks.some((playbook) => Boolean(playbook.startsWhen?.pullRequest)),
-  );
+  const syncedPlaybooks = useProposalsStore((state) => state.syncedPlaybooks);
+  const watchKey = useMemo(() => pullRequestWatchKey(syncedPlaybooks), [syncedPlaybooks]);
   const prInfoById = useAppStore((state) => state.workspacePrInfoById);
   const workspaces = useAppStore((state) => state.workspaces);
   const sent = useRef(new Map<string, string>());
+  const inFlight = useRef(new Map<string, string>());
 
   useEffect(() => {
     const observe = proposalsApi()?.observePullRequest;
-    if (!watchesPullRequests || !observe) {
+    if (!watchKey || !observe) {
       sent.current.clear();
       return;
     }
     for (const [workspaceId, info] of Object.entries(prInfoById)) {
       const pr = toObservedPullRequest(info);
       if (!pr) continue;
-      const fingerprint = pullRequestFingerprint(pr);
-      if (sent.current.get(workspaceId) === fingerprint) continue;
-      sent.current.set(workspaceId, fingerprint);
+      const fingerprint = `${watchKey}|${pullRequestFingerprint(pr)}`;
+      if (sent.current.get(workspaceId) === fingerprint || inFlight.current.get(workspaceId) === fingerprint) continue;
+      inFlight.current.set(workspaceId, fingerprint);
       const workspaceName = workspaces.find((workspace) => workspace.id === workspaceId)?.name ?? "";
-      void observe({ workspaceId, workspaceName, pr }).catch(() => sent.current.delete(workspaceId));
+      void observe({ workspaceId, workspaceName, pr })
+        .then((response) => {
+          if (response.ok && !response.deferred) sent.current.set(workspaceId, fingerprint);
+        })
+        .catch(() => undefined)
+        .finally(() => {
+          if (inFlight.current.get(workspaceId) === fingerprint) inFlight.current.delete(workspaceId);
+        });
     }
-  }, [prInfoById, watchesPullRequests, workspaces]);
+  }, [prInfoById, watchKey, workspaces]);
 }

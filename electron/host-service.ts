@@ -593,6 +593,10 @@ const proposalRuntime = createProposalRuntime({
   startMission: (input) => missionRuntime.startMission(input),
   createIdleTask: (task) => localMcpRuntime.createIdleTask(task),
   resolveMissionGrant,
+  resolveWorkspaceRepository: async (workspaceId) => {
+    const repositories = await localMcpRuntime.listKnownRepositories();
+    return repositories.find((repository) => repository.workspaces.some((workspace) => workspace.id === workspaceId))?.repositoryPath ?? null;
+  },
   emitChanged: () => emitEvent("proposal.changed", {}),
 });
 const wakeUpRuntime = createWakeUpRuntime({

@@ -2,14 +2,18 @@ import { ipcMain } from "electron";
 import { z } from "zod";
 import {
   PROPOSAL_IPC,
-  PROPOSED_MISSION_STATES,
+  PROPOSAL_LIST_FILTERS,
   type ProposalCommandResponse,
   type ProposalListResponse,
+  type ProposalObserveResponse,
   type ProposedMission,
 } from "../../../src/lib/missions/proposed";
 import { ensureProposalEventBridge, invokeProposal } from "../proposals-service";
 
 const IdSchema = z.string().trim().min(1).max(200);
+const ListSchema = z
+  .object({ state: z.enum(PROPOSAL_LIST_FILTERS).optional(), limit: z.number().int().min(1).max(200).optional() })
+  .strict();
 const ObserveSchema = z
   .object({
     workspaceId: IdSchema,
@@ -32,7 +36,7 @@ function message(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-function handleCommand(channel: string, action: "dismiss" | "mark-started" | "observe-pull-request", schema: z.ZodType) {
+function handleCommand(channel: string, action: "dismiss" | "mark-started", schema: z.ZodType) {
   ipcMain.handle(channel, async (_event, args: unknown): Promise<ProposalCommandResponse> => {
     const parsed = schema.safeParse(args);
     if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid request." };
@@ -48,7 +52,7 @@ function handleCommand(channel: string, action: "dismiss" | "mark-started" | "ob
 export function registerProposalHandlers() {
   ensureProposalEventBridge();
   ipcMain.handle(PROPOSAL_IPC.list, async (_event, args: unknown): Promise<ProposalListResponse> => {
-    const parsed = z.object({ state: z.enum(PROPOSED_MISSION_STATES).optional() }).strict().safeParse(args ?? {});
+    const parsed = ListSchema.safeParse(args ?? {});
     if (!parsed.success) return { ok: false, proposals: [], message: "Invalid request." };
     try {
       const result = await invokeProposal<{ proposals: ProposedMission[] }>("list", parsed.data);
@@ -59,5 +63,15 @@ export function registerProposalHandlers() {
   });
   handleCommand(PROPOSAL_IPC.dismiss, "dismiss", z.object({ id: IdSchema }).strict());
   handleCommand(PROPOSAL_IPC.markStarted, "mark-started", z.object({ id: IdSchema, missionId: IdSchema.nullable().optional() }).strict());
-  handleCommand(PROPOSAL_IPC.observePullRequest, "observe-pull-request", ObserveSchema);
+  // A deferred observation (the workspace had another mission) is sent again later.
+  ipcMain.handle(PROPOSAL_IPC.observePullRequest, async (_event, args: unknown): Promise<ProposalObserveResponse> => {
+    const parsed = ObserveSchema.safeParse(args);
+    if (!parsed.success) return { ok: false, message: parsed.error.issues[0]?.message ?? "Invalid request." };
+    try {
+      const result = await invokeProposal<{ deferred?: boolean }>("observe-pull-request", parsed.data);
+      return result.ok ? { ok: true, deferred: result.value.deferred === true } : { ok: false, message: result.message };
+    } catch (error) {
+      return { ok: false, message: message(error, "The request failed.") };
+    }
+  });
 }

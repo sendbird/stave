@@ -9,10 +9,11 @@
 import { webContents } from "electron";
 import { PROJECT_IPC, type ProjectChangedEvent, type ProjectInvokeResult } from "../../src/lib/projects/api";
 import type { ProjectBriefing } from "../../src/lib/projects/briefing";
+import type { Playbook } from "../../src/lib/playbooks/schema";
 import type { Project } from "../../src/lib/projects/domain";
 import type { ObservedIssue } from "../../src/lib/projects/policy";
 import type { HostProjectAction } from "../host-service/protocol";
-import { invokeHostService, onHostServiceEvent } from "./host-service-client";
+import { invokeHostService, onHostServiceEvent, onHostServiceReady } from "./host-service-client";
 import { invokeProposal } from "./proposals-service";
 import {
   listTrackerIssues,
@@ -130,5 +131,38 @@ let refreshIssueDemand: () => void = () => {};
 /** After playbooks sync: a playbook may have started or stopped watching for issues. */
 export function refreshProjectIssueDemand() {
   refreshIssueDemand();
+}
+
+/** The renderer's latest playbooks, handed again to every new host process. */
+let lastPlaybookSync: { playbooks: Playbook[] } | null = null;
+let playbookReplayRegistered = false;
+
+function ensurePlaybookReplay() {
+  if (playbookReplayRegistered) return;
+  playbookReplayRegistered = true;
+  // A respawned host starts with no playbooks, and the renderer syncs only on a change:
+  // without this, schedules and pull request or issue conditions stop until the next edit.
+  onHostServiceReady(() => {
+    const payload = lastPlaybookSync;
+    if (!payload) return;
+    void invokeProject("sync-playbooks", payload)
+      .then(() => refreshProjectIssueDemand())
+      .catch((error) => console.warn("[projects] could not hand playbooks to the restarted host", error));
+  });
+}
+
+/**
+ * Hands the saved playbooks to the host, where projects and playbook start
+ * conditions read them, and keeps them for a host that restarts.
+ */
+export async function syncPlaybooksToHost(payload: { playbooks: Playbook[] }) {
+  lastPlaybookSync = payload;
+  ensurePlaybookReplay();
+  try {
+    return await invokeProject<{ count: number }>("sync-playbooks", payload);
+  } finally {
+    // A playbook may now watch for assigned issues, or no longer.
+    refreshProjectIssueDemand();
+  }
 }
 

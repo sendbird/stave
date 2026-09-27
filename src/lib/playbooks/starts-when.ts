@@ -20,7 +20,10 @@ export function applyStartsWhen(playbook: Playbook, patch: StartsWhenPatch, now:
 
   if (patch.issueAssigned === null) delete next.issueAssigned;
   else if (patch.issueAssigned) {
-    next.issueAssigned = { filter: patch.issueAssigned.filter.slice(0, 80), since: current.issueAssigned?.since ?? stamp };
+    const filter = patch.issueAssigned.filter.slice(0, 80);
+    // A new filter starts counting from now, so issues it newly matches are not all news.
+    const since = current.issueAssigned && current.issueAssigned.filter === filter ? current.issueAssigned.since : stamp;
+    next.issueAssigned = { filter, since };
   }
 
   if (patch.pullRequest === null) delete next.pullRequest;
@@ -45,6 +48,33 @@ export function applyStartsWhen(playbook: Playbook, patch: StartsWhenPatch, now:
   // Auto-start means nothing without a condition it can start from.
   if (!next.pullRequest && !next.schedule) delete next.autoStart;
   return { ...rest, startsWhen: next };
+}
+
+/**
+ * Whether turning on a schedule also turns on auto-start: only when it can
+ * safely start and pull requests are not watched, since the flag is shared
+ * and theirs was already chosen.
+ */
+export function newScheduleStartsOnItsOwn(startsWhen: PlaybookStartsWhen | undefined, canAutoStart: boolean): boolean {
+  return canAutoStart && !startsWhen?.schedule && !startsWhen?.pullRequest;
+}
+
+/**
+ * What the playbooks watch, for an empty Proposed list: "2 playbooks — assigned
+ * issues, a schedule", or null when none has a start condition.
+ */
+export function summarizeWatching(playbooks: readonly Pick<Playbook, "startsWhen">[]): string | null {
+  const watching = playbooks.filter((playbook) => describeStartsWhen(playbook.startsWhen) !== null);
+  if (watching.length === 0) return null;
+  const count = (predicate: (startsWhen: PlaybookStartsWhen) => boolean) =>
+    watching.filter((playbook) => predicate(playbook.startsWhen!)).length;
+  const schedules = count((startsWhen) => Boolean(startsWhen.schedule));
+  const conditions = [
+    count((startsWhen) => Boolean(startsWhen.issueAssigned)) > 0 ? "assigned issues" : null,
+    count((startsWhen) => Boolean(startsWhen.pullRequest)) > 0 ? "pull requests in the open repository" : null,
+    schedules > 1 ? `${schedules} schedules` : schedules === 1 ? "a schedule" : null,
+  ].filter(Boolean);
+  return `${watching.length} ${watching.length === 1 ? "playbook" : "playbooks"} — ${conditions.join(", ")}`;
 }
 
 /** "Assigned issues · PR checks fail · Weekdays at 09:00", or null when nothing is watched. */

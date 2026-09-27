@@ -87,25 +87,32 @@ start or dismiss them.
 
 - **An issue is assigned to me** — for each issue newly assigned to you in
   Issues (Crane or Jira), optionally only those matching a label, project or
-  key. Issues assigned before you turned it on are left alone. Starting one
-  opens the ticket's kickoff with this playbook chosen, so you pick its
-  workspace.
+  key. Issues assigned before you turned it on, or before you changed the
+  filter, are left alone. Starting one opens the ticket's kickoff with this
+  playbook chosen, so you pick its workspace.
 - **A workspace's pull request needs work** — when checks fail, changes are
-  requested, or both, on the pull request of any workspace. Once per commit,
-  and only in a workspace no other mission works in.
+  requested, or both, on the pull request of a workspace in the open
+  repository, while Stave is open. Once per commit, and only in a workspace no
+  other mission works in; a pull request that arrives while one does is
+  checked again after that mission ends.
 - **On a schedule** — every day, weekdays, Mondays at 09:00 or every 4 hours,
   in this computer's time, in the workspace in view when you turned it on. A
-  time that passed while Stave was closed is proposed when it opens, never
-  started late.
+  time that passed while Stave was closed or the computer slept is proposed,
+  never started late.
 - **Start on its own** — pull request and scheduled missions start without
-  asking, on a new task in their workspace. They consent to nothing outside
-  this machine: stages that publish, open pull requests or run scripts still
-  wait for you. A playbook whose first stage publishes always waits.
+  asking, on a new task in their workspace. One switch covers both
+  conditions; turning on a schedule turns it on only when pull requests are
+  not watched. At most one mission starts in a workspace at a time: when
+  several conditions fire together, the rest wait in Proposed. They consent
+  to nothing outside this machine: stages that publish, open pull requests or
+  run scripts still wait for you. A playbook whose first stage publishes
+  always waits, and a mission that cannot start waits with the reason.
 
 Issues keep refreshing in the background, every 10 minutes, while a playbook
 watches for assigned issues. Pull requests are read as the workspace's PR
 status updates. A mission that starts on its own shows under **Decided
-recently** in Proposed with a link to it.
+recently** in Proposed with a link to it. Start conditions keep working after
+Stave's background service restarts.
 
 ### Draft with AI
 
