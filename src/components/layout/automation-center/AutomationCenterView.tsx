@@ -714,7 +714,7 @@ export function AutomationCenterView() {
                 <Button
                   key={option.value}
                   type="button"
-                  size="sm"
+                  size="xs"
                   variant={runFilter === option.value ? "secondary" : "ghost"}
                   aria-pressed={runFilter === option.value}
                   xstyle={[
@@ -735,6 +735,7 @@ export function AutomationCenterView() {
               }}
             >
               <SelectTrigger
+                size="sm"
                 className={sx(centerStyles.runSelect)}
                 aria-label="Filter runs by automation"
               >
