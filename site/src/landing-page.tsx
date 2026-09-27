@@ -98,7 +98,7 @@ const HANDOFF_STEPS = [
   {
     title: "Save how you work as a playbook",
     description:
-      "The stages you would otherwise prompt one by one — understand, build, verify, open a PR — each with when it is done and whether it asks you first.",
+      "The stages you would otherwise prompt one by one — understand, build, verify, open a PR — each with when it is done and whether it asks you first. A new issue, failing checks or a schedule can propose the next mission.",
     href: "./docs/playbooks/",
     icon: BookOpen,
   },

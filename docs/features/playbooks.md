@@ -7,7 +7,7 @@ by one, each with an instruction and a condition that says when it is done.
 Start a [mission](missions.md) with it and Stave runs the stages for you. A
 [project](projects.md)'s coordinator picks from the same playbooks.
 
-![The Playbooks tab: saved playbooks on the left, and the selected playbook's check-ins, shortcut, permissions, constraints and stages](../screenshots/playbooks.png)
+![The Playbooks tab: saved playbooks on the left, and the selected playbook's check-ins, shortcut, start conditions, permissions, constraints and stages](../screenshots/playbooks.png)
 
 ## When To Use It
 
@@ -46,6 +46,8 @@ Start a [mission](missions.md) with it and Stave runs the stages for you. A
   the stages that ask. Changing a single stage's hand marks the check-ins
   **Custom**; choosing a preset resets them.
 - **Shortcut** lets you start the playbook with `!shortcut` in the composer.
+- **Starts when** lets the playbook propose missions by itself (see
+  [Start conditions](#start-conditions)).
 - **Permissions** is the default the Start sheet preselects. It grants nothing
   by itself; every start confirms its own permissions.
 - **Constraints** are rules every stage follows.
@@ -77,6 +79,34 @@ a preview deployment, and waits for it — up to 30 minutes.
 - A script that was running when Stave stopped is not run again: the stage
   fails and says so, and **Retry stage** runs it anew.
 
+### Start conditions
+
+**Starts when** lists what proposes a mission with the playbook. Proposed
+missions wait in [Issues → Proposed](issues.md#proposed-missions) for you to
+start or dismiss them.
+
+- **An issue is assigned to me** — for each issue newly assigned to you in
+  Issues (Crane or Jira), optionally only those matching a label, project or
+  key. Issues assigned before you turned it on are left alone. Starting one
+  opens the ticket's kickoff with this playbook chosen, so you pick its
+  workspace.
+- **A workspace's pull request needs work** — when checks fail, changes are
+  requested, or both, on the pull request of any workspace. Once per commit,
+  and only in a workspace no other mission works in.
+- **On a schedule** — every day, weekdays, Mondays at 09:00 or every 4 hours,
+  in this computer's time, in the workspace in view when you turned it on. A
+  time that passed while Stave was closed is proposed when it opens, never
+  started late.
+- **Start on its own** — pull request and scheduled missions start without
+  asking, on a new task in their workspace. They consent to nothing outside
+  this machine: stages that publish, open pull requests or run scripts still
+  wait for you. A playbook whose first stage publishes always waits.
+
+Issues keep refreshing in the background, every 10 minutes, while a playbook
+watches for assigned issues. Pull requests are read as the workspace's PR
+status updates. A mission that starts on its own shows under **Decided
+recently** in Proposed with a link to it.
+
 ### Draft with AI
 
 Describe how you work in a sentence, or paste an example of the steps you took
@@ -100,6 +130,12 @@ The templates cover pull requests — **Request → PR**, **Slack request → PR
 **Research a question**, **Draft a decision document**, **Investigate a
 problem** (changes no files), **Plan, build and verify**, **Coordinate
 independent tasks** (through delegated tasks) and **Independent review**.
+
+**Triage requests** reads where requests reach you — the places its assignment
+names, otherwise your Slack mentions and tickets assigned to you — and proposes
+a mission for each one worth doing with `stave_propose_mission`. It proposes
+only; it never replies or starts work. Give it a schedule under **Starts
+when** to triage every morning.
 
 ### Save a playbook from a finished mission
 

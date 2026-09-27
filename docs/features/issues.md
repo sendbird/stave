@@ -44,7 +44,7 @@ The workspace is created, the ticket is filed in the workspace Information panel
 ### Key Controls
 
 - **Header** — per-source sync age in Jira-then-Crane order, a `stale` chip when a source has missed two refresh intervals, a `partial` chip when the tracker had more rows than the page budget allows, plus Refresh and Close. A footer under the list repeats that the loaded set is a prefix.
-- **View tabs** — *Assigned to me*, *All open*, *Recently done* (closed in the last 14 days), *In Stave* (has a Stave run). Switching tabs clears the filter chips, because the chips mean something different in each view.
+- **View tabs** — *Assigned to me*, *All open*, *Recently done* (closed in the last 14 days), *In Stave* (has a Stave run). Switching tabs clears the filter chips, because the chips mean something different in each view. After a divider, *Proposed* lists the [missions playbooks proposed](#proposed-missions).
 - **Filter chips** — Source, Status, Priority, Project, Label, and an *In Stave / Not in Stave* selector. Each chip is multi-select and shows what is selected; Reset clears the chips and keeps the tab.
 - **Layout** — List or Board. List is the grouped row surface. Board is one column per status category. Switching layout keeps the same filters and sort; grouping is list-only because the board already groups by status.
 - **Group and Sort** — in List, group by Status or Due date; in both layouts, sort by Priority, Due date, Updated, or Key. Group headers collapse and show a count.
@@ -88,13 +88,36 @@ Right-click a row and choose **Attach to `<workspace>`**. The ticket is register
 - For a Crane kickoff with write-back, the run card reads *Reported to Crane*; without it, *Local only*.
 - A finished run flips the badge to *Done in Stave*; a failed one to *Failed*, with the error code on the run card.
 
+### Proposed Missions
+
+The **Proposed** tab lists missions that a playbook's
+[start conditions](playbooks.md#start-conditions) or a triage mission
+proposed: for an assigned issue, a pull request that needs work, a schedule,
+or a request found while triaging. Its count shows on the tab, and Fleet's
+header shows **N proposed** while any wait; clicking it opens this tab.
+
+![Issues → Proposed: missions waiting to start, each with its source, reason, playbook and workspace, and below them the ones decided recently](../screenshots/proposed-missions.png)
+
+- Each row names the source, why it was proposed, the playbook, where it runs
+  and how long ago. The link icon opens the issue, pull request or thread.
+- **Kick off** (an issue) opens the ticket's kickoff with the playbook chosen.
+  **Start** creates a task in the pull request's or schedule's workspace — or,
+  for a triage proposal, in the workspace open now — and opens **Start a
+  mission** with the assignment filled in. The proposal is marked started once
+  the mission starts.
+- **Dismiss** sets it aside. The same issue, commit or request is never
+  proposed again.
+- **Decided recently** lists the last started and dismissed proposals,
+  including missions a playbook started on its own, with **Open** to go to
+  one.
+
 ### Wake A Project When An Issue Arrives
 
 A [project](projects.md) can watch Issues: turn on **An issue is assigned to
 me** in the project's **Starts when** tab. A newly assigned issue then wakes
 the project's coordinator, which decides whether a mission should follow.
-While any project watches, Stave keeps Issues fresh in the background, at most
-every ten minutes, even when the Issues view is closed.
+While any project or playbook watches, Stave keeps Issues fresh in the
+background, at most every ten minutes, even when the Issues view is closed.
 
 ## Files And Data
 
@@ -165,3 +188,4 @@ every ten minutes, even when the Issues view is closed.
 - [Provider Sandbox and Approval Guide](provider-sandbox-and-approval.md) — what the autonomy presets mean
 - [Local MCP User Guide](local-mcp-user-guide.md) — the read-only tracker listing tool
 - [Missions](missions.md)
+- [Playbooks](playbooks.md#start-conditions) — start conditions that propose missions

@@ -54,6 +54,10 @@ right.
   [Issues](issues.md) kickoff sheet: Stave prepares the workspace and task,
   then opens the Start sheet on it.
 - **Start mission** in a playbook's editor (Automations → Playbooks).
+- **Start** or **Kick off** on a proposed mission in
+  [Issues → Proposed](issues.md#proposed-missions). A playbook's
+  [start conditions](playbooks.md#start-conditions) propose missions there,
+  and can start pull request and scheduled missions on their own.
 
 ### Start a mission
 
@@ -211,6 +215,9 @@ agent stopped reporting.
   reads are part of the cost but not of the token count.
 - A mission started at a later stage has no acceptance criteria from
   **Understand**, so its report shows only what the stages that ran reported.
+- A mission a start condition started on its own consents to nothing outside
+  this machine: a stage that publishes, opens a pull request or runs a script
+  waits for your consent in the Mission panel.
 
 ## Troubleshooting
 

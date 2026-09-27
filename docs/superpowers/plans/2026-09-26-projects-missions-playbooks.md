@@ -934,4 +934,21 @@ Built after the twenty changes, closing deviations the As-built notes list:
   schedule) wakes the coordinator through `collectPendingTriggers`, with seen
   occurrences kept in `project_trigger_seen`; the coordinator conversation
   docks beside the project.
-
+- [x] `feat(projects): pause projects on quit and end them on a date` —
+  quitting pauses active projects with a marked reason and relaunch resumes
+  exactly those; an end date expires a project.
+- [x] `feat(projects): search the library and link it from Information`.
+- [x] `feat(missions): compare missions per playbook and provider` —
+  `src/lib/missions/insights.ts` and **Mission insights** in the Playbooks tab.
+- [x] `feat(playbooks): add templates for work beyond pull requests`.
+- [x] `feat(missions): save a mission as a playbook and share its report to
+  Slack`.
+- [x] `feat(playbooks): run a workspace script as a stage` — the `run-script`
+  action.
+- [x] `feat(playbooks): propose missions from start conditions and triage` —
+  **Starts when** on playbooks (assigned issues, a workspace's pull request
+  needing work, a schedule, **Start on its own**), evaluated by
+  `electron/host-service/supervision/proposal-runtime.ts` with occurrences in
+  `mission_trigger_seen` and proposals in `mission_proposals`; Issues →
+  **Proposed**, Fleet's **N proposed**, `stave_propose_mission` and the
+  **Triage requests** template.

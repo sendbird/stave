@@ -831,6 +831,22 @@ Phase 1 shipped as designed, with these deviations:
   computed from mission events for the report footer, and **Mission insights**
   in the Playbooks tab aggregates them per playbook and per provider over 7,
   30 or 90 days, with cost per mission.
+- **Start conditions (Phase 2).** A playbook's optional `startsWhen` replaces
+  the sketched `triggers` list: an assigned issue (with a filter), a
+  workspace's pull request with failing checks or requested changes, a
+  schedule in a named workspace, and `autoStart`. Each condition carries the
+  time it was turned on, and only later occurrences count. The host's proposal
+  runtime records every occurrence in `mission_trigger_seen` before any side
+  effect and proposals in `mission_proposals`. Issues come from the main
+  process's tracker cache; pull requests come from the renderer's PR status.
+  Auto-start covers pull request and schedule conditions only, in a workspace
+  no mission works in, with the first stage not publishing and no external
+  effect authorized. An issue proposal starts through the ticket's kickoff, so
+  the user picks its workspace.
+- **Proposed.** The Issues tab lists pending proposals with Start and Dismiss,
+  then those decided recently; Fleet's header shows the count. A triage
+  mission's `stave_propose_mission` defaults to Request → PR and dedupes by the
+  request's key. **Triage requests** is the triage template.
 
 
 ## 16. As Built (Phase 3)
@@ -862,8 +878,8 @@ Phase 3 shipped as designed, with these deviations:
   a newly assigned issue (from Issues, refreshed in the background while a
   project watches), on failing checks, requested changes or a merge of a
   mission's pull request, and on a schedule. They wake the coordinator only;
-  starting stays the coordinator's call and the user's approval. Standalone
-  mission triggers and the Proposed tab (Phase 2) are not built.
+  starting stays the coordinator's call and the user's approval. Playbook
+  start conditions and the Proposed tab are Phase 2 (see §15).
 - **Restarts.** Quitting pauses every active project with a marked reason and
   relaunching resumes exactly those; delivered changes are not re-sent, a
   start interrupted halfway is marked failed instead of replayed, and missed

@@ -44,7 +44,7 @@ The same Local MCP server also exposes optional `stave_lens_*` tools for workspa
 
 Two tool families exist only inside turns Stave starts for a supervisor, and never in an external client's session:
 
-- **Mission tools** (`stave_get_mission`, `stave_report_stage`, `stave_block_stage`) are registered for a [mission](missions.md)'s stage turns, which carry a per-turn mission key. The agent reads its stage and reports it done or blocked through them.
+- **Mission tools** (`stave_get_mission`, `stave_report_stage`, `stave_block_stage`, `stave_propose_mission`) are registered for a [mission](missions.md)'s stage turns, which carry a per-turn mission key. The agent reads its stage and reports it done or blocked through them. `stave_propose_mission` lets a triage mission propose a mission for a request it found; the proposal waits in [Issues → Proposed](issues.md#proposed-missions) and starts nothing, and the same request key is never proposed twice.
 - **Project tools** (`stave_get_project`, `stave_start_mission`, `stave_list_missions`, `stave_get_mission_report`, `stave_note_project`) are registered for a [project](projects.md) coordinator's turns, which carry a per-turn project key. Stave resolves the mission or project from the key, so a turn can act only for its own.
 
 Missions and projects need Local MCP on; without it a mission cannot start and a coordinator cannot plan.
