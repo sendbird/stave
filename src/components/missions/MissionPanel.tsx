@@ -5,7 +5,6 @@ import { Button } from "@/components/ads/components/Button";
 import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
 import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
 import { StepRail } from "@/components/ads/components/StepRail";
-import { describeUsageLong } from "@/lib/missions/usage";
 import { sx } from "@/components/ads/utils/stylex";
 import type { MissionDetail } from "@/lib/missions/api";
 import { currentStageRecord, isActiveMissionState, latestStageRecord } from "@/lib/missions/domain";
@@ -13,18 +12,16 @@ import {
   describeCheckIns,
   describeMissionBadge,
   describeMissionStatusLine,
-  describeTurnBudget,
   formatAge,
-  MISSION_PERMISSION_LABELS,
   projectMissionStages,
 } from "@/lib/missions/mission-view";
 import type { AcceptanceCriterion } from "@/lib/playbooks/stage-prompt";
-import { getProviderLabel } from "@/lib/providers/model-catalog";
 import { useAppStore } from "@/store/app.store";
 import { missionStageKey, useMissionFailure, useMissionsStore, useTaskMission } from "@/store/missions-store";
 import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
 import { MissionReportView } from "./MissionReportView";
 import { useMissionReportActions, type MissionReportActions } from "./useMissionReportActions";
+import { MissionRunSummary } from "./MissionRunSummary";
 import { WakeUpSection } from "./WakeUpSection";
 import { StageCard } from "./StageCard";
 import { StageTrack } from "./StageTrack";
@@ -256,29 +253,11 @@ export function MissionDetailView(props: {
         <MissionReportView report={detail.report} actions={props.reportActions} context="panel" />
       ) : null}
 
-      <section className={sx(styles.section, styles.sectionRule)} aria-label="Mission details">
-        <dl className={sx(styles.facts)}>
-          <dt className={sx(styles.factLabel)}>Runs with</dt>
-          <dd className={sx(styles.factValue)}>
-            {getProviderLabel({ providerId: mission.fingerprint.providerId })} · {mission.fingerprint.model} ·{" "}
-            {MISSION_PERMISSION_LABELS[mission.consent.permissionMode]} permissions
-          </dd>
-          <dt className={sx(styles.factLabel)}>Turns</dt>
-          <dd className={sx(styles.factValue, describeTurnBudget(mission).nearLimit && styles.toneWaiting)}>
-            {describeTurnBudget(mission).text}
-            {describeTurnBudget(mission).nearLimit && active ? " — close to the limit; the mission stops there" : ""}
-          </dd>
-          {detail.usage ? (
-            <>
-              <dt className={sx(styles.factLabel)}>Spent</dt>
-              <dd className={sx(styles.factValue)}>{describeUsageLong(detail.usage) ?? "Nothing reported yet"}</dd>
-            </>
-          ) : null}
-          <dt className={sx(styles.factLabel)}>Started</dt>
-          <dd className={sx(styles.factValue)}>
-            {formatClock(mission.createdAt)} · {formatAge(now - Date.parse(mission.createdAt))} ago
-          </dd>
-        </dl>
+      <section className={sx(styles.section, styles.sectionRule)} aria-label="Run">
+        <div className={sx(styles.sectionHeader)}>
+          <h3 className={sx(styles.sectionTitle)}>Run</h3>
+        </div>
+        <MissionRunSummary mission={mission} usage={detail.usage ?? null} active={active} now={now} formatClock={formatClock} />
       </section>
     </section>
   );

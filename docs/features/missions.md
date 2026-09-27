@@ -135,8 +135,12 @@ The Mission tab in the right rail:
   tool call in the transcript), links, and the instruction it ran with.
 - **Retry stage** and **Skip stage** on a blocked or stuck stage; **Pause**,
   and **Cancel mission** in the **⋯** menu.
-- The turn budget, with a warning close to the limit, and **Spent**: the cost
-  and tokens the mission's turns used, as the provider reports them.
+- **Run**: who runs the mission — the provider's mark, the model by name and
+  the permissions — above its figures: **Turns** against the budget (the bar
+  turns amber close to the limit, where the mission stops), **Spent** (the
+  cost and tokens the provider reported; tokens alone for a provider that
+  reports no cost), and how long it has been running. A note says when a
+  turn reported no usage.
 - The task's wake-up, the other thing that can start turns on the task.
 
 The task's Advisor consults, workers and delegated tasks are in the **Team**
