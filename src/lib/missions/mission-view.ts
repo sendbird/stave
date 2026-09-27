@@ -404,6 +404,7 @@ function describeTurnStart(args: {
   if (reason === "repair-checks") return `${name} — repair after checks failed`;
   if (reason === "continue-after-user") return `${name} — continuing after your reply`;
   if (reason === "reporting-restored") return `${name} — resumed after Stave's local tools came back`;
+  if (reason === "resume-after-restart") return `${name} — resumed after Stave restarted`;
   // What happened just before this stage started.
   for (let index = args.position - 1; index >= 0; index -= 1) {
     const event = args.events[index]!;
