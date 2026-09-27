@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { SCHEDULES } from "@/lib/schedules";
 import { AUTOMATION_PERMISSION_MODES } from "@/lib/automations";
 import { isModelEffort, type ModelEffort } from "@/lib/providers/model-effort";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -253,6 +254,46 @@ const PlaybookRuntimeSchema = z
   })
   .strict();
 
+/**
+ * Starts when: what proposes a mission with this playbook. An issue assigned
+ * to the user and pull request trouble propose it; a schedule runs it in a
+ * chosen workspace (a triage playbook proposes the missions it finds).
+ * `autoStart` starts it instead of proposing, only when a workspace is known
+ * and its first stage publishes nothing.
+ */
+export const PlaybookStartsWhenSchema = z
+  .object({
+    issueAssigned: z
+      .object({
+        /** Only issues whose key, title, project or labels contain this; empty for all. */
+        filter: z.string().trim().max(80),
+        /** Issues assigned before this never propose. */
+        since: z.iso.datetime(),
+      })
+      .strict()
+      .optional(),
+    pullRequest: z.object({ checksFailed: z.boolean(), changesRequested: z.boolean() }).strict().optional(),
+    schedule: z
+      .object({
+        schedule: z.enum(SCHEDULES),
+        workspaceId: z.string().trim().min(1).max(200),
+        workspaceName: z.string().trim().max(200),
+        /** Slots before this never run. */
+        since: z.iso.datetime(),
+      })
+      .strict()
+      .optional(),
+    autoStart: z.boolean().optional(),
+  })
+  .strict();
+export type PlaybookStartsWhen = z.infer<typeof PlaybookStartsWhenSchema>;
+
+/** Whether a playbook's missions may start without the user: the first stage publishes nothing. */
+export function playbookCanAutoStart(playbook: Pick<Playbook, "stages">): boolean {
+  const first = playbook.stages[0];
+  return Boolean(first) && !(first!.kind === "ai" ? first!.role === "publish" : true);
+}
+
 export const PlaybookSchema = z
   .object({
     version: z.literal(PLAYBOOK_VERSION),
@@ -272,6 +313,7 @@ export const PlaybookSchema = z
     runtime: PlaybookRuntimeSchema.optional(),
     advisorReview: z.boolean().optional(),
     constraints: z.string().trim().max(PLAYBOOK_LIMITS.constraints).optional(),
+    startsWhen: PlaybookStartsWhenSchema.optional(),
     stages: z
       .array(PlaybookStageSchema)
       .min(1, "Add at least one stage.")

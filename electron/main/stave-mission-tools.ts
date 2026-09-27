@@ -13,11 +13,13 @@ import {
   StageCompleteReportInputSchema,
 } from "../../src/lib/missions/domain";
 import type { StaveTurnGrants } from "../providers/stave-turn-grants";
+import { ProposeMissionToolInputSchema } from "../../src/lib/missions/proposed";
 import type {
   blockMissionStage,
   getMissionForGrant,
   reportMissionStage,
 } from "./missions-service";
+import type { proposeMissionForGrant } from "./proposals-service";
 
 export function registerMissionTools(
   server: McpServer,
@@ -26,6 +28,7 @@ export function registerMissionTools(
     getMissionForGrant: typeof getMissionForGrant;
     reportMissionStage: typeof reportMissionStage;
     blockMissionStage: typeof blockMissionStage;
+    proposeMissionForGrant: typeof proposeMissionForGrant;
   },
 ) {
   const { missionKey } = grants;
@@ -71,6 +74,19 @@ export function registerMissionTools(
     async (block) =>
       toStructuredResult({
         block: await handlers.blockMissionStage({ missionKey, block }),
+      }),
+  );
+
+  server.registerTool(
+    MISSION_TOOL_NAMES.propose,
+    {
+      description:
+        "Propose a mission for a request you found while triaging, such as a Slack message or a ticket asking for work. It waits in Issues → Proposed until the user starts or dismisses it; nothing starts on its own. Give a short title, a self-contained assignment with the source link, and the playbook that fits. The same key (default: the link) is never proposed twice.",
+      inputSchema: ProposeMissionToolInputSchema.shape,
+    },
+    async (input) =>
+      toStructuredResult({
+        proposal: await handlers.proposeMissionForGrant({ missionKey, input }),
       }),
   );
 }

@@ -99,6 +99,7 @@ export const playbookStyles = stylex.create({
     borderRadius: vars["--ads-radius-full"],
     backgroundColor: vars["--ads-color-warning"],
   },
+  cardTrigger: { width: 12, height: 12, flexShrink: 0, color: vars["--ads-color-text-subtle"] },
   shortcut: {
     fontFamily: vars["--ads-font-mono"],
     fontSize: vars["--ads-font-size-micro"],

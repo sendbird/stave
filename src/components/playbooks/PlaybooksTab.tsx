@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, BookOpen, Hand, Plus, Sparkles, Zap } from "lucide-react";
+import { BarChart3, BookOpen, CalendarClock, Hand, Plus, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
 import { Select } from "@/components/ads/components/Select";
@@ -19,6 +19,7 @@ import { useAppStore } from "@/store/app.store";
 import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
 import { MissionInsightsView, type MissionInsightsLoader } from "./MissionInsights";
 import { PlaybookEditor } from "./PlaybookEditor";
+import { describeStartsWhen } from "@/lib/playbooks/starts-when";
 import { playbookStyles as styles } from "./playbooks.styles";
 
 const MISSION_PROVIDERS = new Set(["claude-code", "codex"]);
@@ -84,6 +85,9 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
   const saved = useAppStore((state) => state.settings.playbooks);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
+  const activeWorkspaceName = useAppStore(
+    (state) => state.workspaces.find((workspace) => workspace.id === state.activeWorkspaceId)?.name ?? null,
+  );
   const activeTaskId = useAppStore((state) => state.activeTaskId);
   const activeProvider = useAppStore(
     (state) => state.tasks.find((task) => task.id === state.activeTaskId)?.provider ?? null,
@@ -263,6 +267,15 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
                   <span className={sx(styles.cardMeta)}>
                     {describeCard(current)}
                     {current.shortcut ? <code className={sx(styles.shortcut)}>!{current.shortcut}</code> : null}
+                    {current.startsWhen ? (
+                      <CalendarClock
+                        role="img"
+                        aria-label={`Starts when: ${describeStartsWhen(current.startsWhen)}`}
+                        className={sx(styles.cardTrigger)}
+                      >
+                        <title>{`Starts when: ${describeStartsWhen(current.startsWhen)}`}</title>
+                      </CalendarClock>
+                    ) : null}
                   </span>
                 </Button>
               </li>
@@ -299,6 +312,7 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
           </div>
           <PlaybookEditor
             key={selected.id}
+            activeWorkspace={activeWorkspaceId ? { id: activeWorkspaceId, name: activeWorkspaceName ?? "This workspace" } : null}
             draft={draft}
             saved={selectedSaved}
             takenShortcuts={takenShortcuts}

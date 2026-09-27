@@ -27,6 +27,8 @@ export interface TrackerIssueActions {
     task: TrackerIssue;
     result: TrackerIssueKickoffResult;
     playbookChoice?: string | null;
+    /** Runs when the mission the Start sheet opens for starts: a proposal it fulfils. */
+    onMissionStarted?: (missionId: string | null) => void;
   }) => Promise<void>;
   refresh: (source?: TrackerSourceId) => void;
 }
@@ -106,6 +108,7 @@ export function useTrackerIssueActions(args: {
       result: TrackerIssueKickoffResult;
       /** Set when the ticket becomes a mission, confirmed in the Start sheet. */
       playbookChoice?: string | null;
+      onMissionStarted?: (missionId: string | null) => void;
     }) => {
       const { result, task } = kickoff;
       const store = useAppStore.getState();
@@ -175,6 +178,7 @@ export function useTrackerIssueActions(args: {
           playbookId: kickoff.playbookChoice,
           assignment: result.staged.prompt,
           fromComposerDraft: true,
+          ...(kickoff.onMissionStarted ? { onMissionStarted: kickoff.onMissionStarted } : {}),
         });
         return;
       }

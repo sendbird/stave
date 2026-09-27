@@ -297,6 +297,38 @@ const WORK_STARTERS: readonly PlaybookStarter[] = [
       ],
     },
   },
+  {
+    id: "triage-requests",
+    description:
+      "Read where requests arrive and propose a mission for each one worth doing. Give it a schedule under Starts when.",
+    template: {
+      version: PLAYBOOK_VERSION,
+      name: "Triage requests",
+      purpose:
+        "Find the requests for work that arrived since the last triage and propose a mission for each one worth doing, so they wait in Issues → Proposed.",
+      checkIns: "when-stuck",
+      team: "solo",
+      constraints: "Only read and propose. Never reply, post, change files or start the work yourself.",
+      stages: [
+        {
+          id: "gather",
+          title: "Gather",
+          kind: "ai",
+          instruction:
+            "Read where requests for your work arrive — the places the assignment names, otherwise your Slack mentions and direct messages and the tickets assigned to you — with your Slack and tracker tools, since the last triage. List each request with its link, who asked and what they need. Skip what is done, already tracked in Stave, or not a request for work.",
+          doneWhen: "Each request found is listed with its link and asker, or the report says none arrived.",
+        },
+        {
+          id: "propose",
+          title: "Propose",
+          kind: "ai",
+          instruction:
+            "For each request worth doing, call `stave_propose_mission` once: a short title, an assignment with the outcome the requester needs, the link and the context, the link as url, and the playbook that fits, such as request-to-pr or slack-request-to-pr for a Slack thread. Pass the request's link as key so a later triage never proposes it twice.",
+          doneWhen: "Every request worth doing is proposed, and each one skipped is listed with the reason.",
+        },
+      ],
+    },
+  },
 ];
 
 export const PLAYBOOK_STARTERS: readonly PlaybookStarter[] = [

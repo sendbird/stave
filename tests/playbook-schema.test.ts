@@ -250,6 +250,8 @@ describe("starter playbooks", () => {
     const registry = [
       "electron/main/stave-mcp-server.ts",
       "electron/main/browser/browser-tools.ts",
+      // Mission tools are registered by these names, for a mission's own turns.
+      "src/lib/missions/briefing.ts",
     ]
       .map((file) => readFileSync(path.join(import.meta.dir, "..", file), "utf8"))
       .join("\n");

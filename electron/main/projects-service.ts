@@ -13,6 +13,7 @@ import type { Project } from "../../src/lib/projects/domain";
 import type { ObservedIssue } from "../../src/lib/projects/policy";
 import type { HostProjectAction } from "../host-service/protocol";
 import { invokeHostService, onHostServiceEvent } from "./host-service-client";
+import { invokeProposal } from "./proposals-service";
 import {
   listTrackerIssues,
   onTrackerIssuesCacheUpdated,
@@ -88,7 +89,9 @@ export function ensureProjectIssueBridge() {
   let watching = false;
   const forward = () => {
     if (!watching) return;
-    void invokeProject("observe-issues", { items: openAssignedIssues() }).catch((error) => {
+    const items = openAssignedIssues();
+    // Projects wake their coordinators; playbooks propose missions.
+    void Promise.all([invokeProject("observe-issues", { items }), invokeProposal("observe-issues", { items })]).catch((error) => {
       console.warn("[projects] could not hand issues to the host", error);
     });
   };
@@ -97,11 +100,15 @@ export function ensureProjectIssueBridge() {
     if (pending) clearTimeout(pending);
     pending = setTimeout(async () => {
       pending = null;
-      const listed = await invokeProject<{ projects: Project[] }>("list", { openOnly: true }).catch(() => null);
-      const next = Boolean(
-        listed?.ok &&
-          listed.value.projects.some((project) => project.state === "active" && project.settings.triggers?.issueAssigned),
-      );
+      const [listed, playbooks] = await Promise.all([
+        invokeProject<{ projects: Project[] }>("list", { openOnly: true }).catch(() => null),
+        invokeProposal<{ watching: boolean }>("issue-demand", {}).catch(() => null),
+      ]);
+      const next =
+        Boolean(
+          listed?.ok &&
+            listed.value.projects.some((project) => project.state === "active" && project.settings.triggers?.issueAssigned),
+        ) || Boolean(playbooks?.ok && playbooks.value.watching);
       const started = next && !watching;
       watching = next;
       try {
@@ -114,6 +121,14 @@ export function ensureProjectIssueBridge() {
   };
   onTrackerIssuesCacheUpdated(() => forward());
   onHostServiceEvent("project.changed", () => refreshDemand());
+  refreshIssueDemand = refreshDemand;
   refreshDemand();
+}
+
+let refreshIssueDemand: () => void = () => {};
+
+/** After playbooks sync: a playbook may have started or stopped watching for issues. */
+export function refreshProjectIssueDemand() {
+  refreshIssueDemand();
 }
 

@@ -23,7 +23,7 @@ import type {
 } from "@/lib/tracker-issues/types";
 import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Select } from "@/components/ads/components/Select";
 import { listPlaybookChoices } from "@/lib/missions/start-sheet";
 import {
@@ -51,6 +51,8 @@ export interface TrackerIssueKickoffSheetProps {
   onClose: () => void;
   /** `playbookChoice` is set when the ticket becomes a mission. */
   onKickedOff: (result: TrackerIssueKickoffResult, playbookChoice: string | null) => void;
+  /** The playbook chosen when the sheet opens, e.g. the one a proposal named. */
+  initialPlaybookChoice?: string | null;
 }
 
 export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
@@ -66,6 +68,16 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
   const playbooks = useAppStore((state) => state.settings.playbooks);
   const [playbookChoice, setPlaybookChoice] = useState(NO_PLAYBOOK);
   const missionChosen = playbookChoice !== NO_PLAYBOOK;
+  const initialChoice = props.initialPlaybookChoice ?? null;
+
+  // Each ticket opens on its own choice; declared after the draft so its
+  // start mode, seeded for the ticket, is the one a playbook overrides.
+  useEffect(() => {
+    if (!task) return;
+    setPlaybookChoice(initialChoice ?? NO_PLAYBOOK);
+    if (initialChoice) draft.setStartMode("stage");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task, initialChoice]);
 
   const submit = async () => {
     const result = await draft.submit();

@@ -139,6 +139,11 @@ export function listPlaybookChoices(saved: readonly Playbook[]): PlaybookChoice[
   ];
 }
 
+/** The choice for a playbook id: templates run as `starter_<id>` copies. */
+export function playbookChoiceForId(playbookId: string): string {
+  return playbookId.startsWith("starter_") ? `${STARTER_CHOICE_PREFIX}${playbookId.slice("starter_".length)}` : playbookId;
+}
+
 /** The playbook a choice names, or null when it is gone. */
 export function resolvePlaybookChoice(choice: string, saved: readonly Playbook[], now: Date): Playbook | null {
   if (choice.startsWith(STARTER_CHOICE_PREFIX)) {

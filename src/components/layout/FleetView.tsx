@@ -1,4 +1,4 @@
-import { FleetProjectRollup } from "@/components/projects/FleetProjectRollup";
+import { FleetProjectRollup, FleetProposedChip } from "@/components/projects/FleetProjectRollup";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   ArrowRight,
@@ -650,6 +650,7 @@ export function FleetView() {
           </span>
         </div>
         <div className={sx(styles.headerActions)}>
+          <FleetProposedChip />
           <FleetProjectRollup />
           <Button
             type="button"

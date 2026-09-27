@@ -4,6 +4,7 @@ import { useMissionCommands } from "@/components/missions/useMissionCommands";
 import { useFleetMissionSync } from "@/store/fleet-missions-store";
 import { usePlaybookSync } from "@/lib/projects/usePlaybookSync";
 import { useProjectsSync } from "@/store/projects-store";
+import { useProposalsSync } from "@/store/proposals-store";
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { WorkspaceSaveNotice } from "@/components/layout/WorkspaceSaveNotice";
@@ -54,6 +55,7 @@ export default function App() {
   useFleetMissionSync();
   usePlaybookSync();
   useProjectsSync();
+  useProposalsSync();
 
   useEffect(() => {
     const subscribeTaskTurnUpdates =

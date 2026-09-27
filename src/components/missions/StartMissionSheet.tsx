@@ -201,6 +201,7 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
       setFailure(response.message ?? "The mission did not start.");
       return;
     }
+    request.onMissionStarted?.(response.mission?.mission.id ?? null);
     if (request.onStarted) request.onStarted();
     else if (request.fromComposerDraft) updatePromptDraft({ taskId: request.taskId, patch: { text: "" } });
     closeAutomationCenter();

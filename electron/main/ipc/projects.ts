@@ -11,7 +11,7 @@ import {
 } from "../../../src/lib/projects/domain";
 import { PlaybookSchema } from "../../../src/lib/playbooks/schema";
 import type { HostProjectAction } from "../../host-service/protocol";
-import { ensureProjectEventBridge, ensureProjectIssueBridge, invokeProject } from "../projects-service";
+import { ensureProjectEventBridge, ensureProjectIssueBridge, invokeProject, refreshProjectIssueDemand } from "../projects-service";
 
 const IdSchema = z.string().trim().min(1).max(200);
 const ProjectIdArgsSchema = z.object({ projectId: IdSchema }).strict();
@@ -83,6 +83,8 @@ export function registerProjectHandlers() {
     if (!parsed.success) return { ok: false };
     try {
       const result = await invokeProject<{ count: number }>("sync-playbooks", parsed.data);
+      // A playbook may now watch for assigned issues, or no longer.
+      refreshProjectIssueDemand();
       return { ok: result.ok };
     } catch {
       return { ok: false };

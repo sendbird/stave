@@ -6,6 +6,7 @@
  */
 import type { ProjectChangedEvent } from "../../../src/lib/projects/api";
 import type { ProjectPullRequestSignal } from "../../../src/lib/projects/policy";
+import type { Playbook } from "../../../src/lib/playbooks/schema";
 import { resolveProjectGrant, setProjectCoordinatorTasks } from "../../providers/project-grants";
 import * as localMcpRuntime from "../local-mcp-runtime";
 import { ensureHostServicePersistenceReady } from "../persistence";
@@ -51,6 +52,7 @@ async function resolveRepositoryPath(workspaceId: string) {
 export function createHostProjectRuntime(args: {
   missionRuntime: Pick<MissionRuntime, "startMission" | "get" | "readUsage">;
   emitChanged: (event: ProjectChangedEvent) => void;
+  onPlaybooksSynced?: (playbooks: Playbook[]) => void;
 }) {
   const persistence = ensureHostServicePersistenceReady();
   return createProjectRuntime({
@@ -92,5 +94,6 @@ export function createHostProjectRuntime(args: {
         dedupeKey: `project.problem:${project.id}:${detail}`,
       }),
     emitChanged: args.emitChanged,
+    onPlaybooksSynced: args.onPlaybooksSynced,
   });
 }

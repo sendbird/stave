@@ -25,6 +25,7 @@ import {
   type MissionEventKind,
   type MissionStageRecord,
 } from "../../src/lib/missions/domain";
+import { ProposedMissionSchema, type ProposedMission } from "../../src/lib/missions/proposed";
 import { SECOND_MISSION_REFUSAL } from "../../src/lib/supervision/automatic-turn-owner";
 
 interface MissionStatement {
@@ -227,7 +228,60 @@ export class MissionStore {
         created_at TEXT NOT NULL,
         UNIQUE (mission_id, sequence)
       );
+      CREATE TABLE IF NOT EXISTS mission_proposals (
+        id TEXT PRIMARY KEY,
+        source_key TEXT NOT NULL UNIQUE,
+        state TEXT NOT NULL,
+        body_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_mission_proposals_state
+        ON mission_proposals (state, created_at DESC);
+      CREATE TABLE IF NOT EXISTS mission_trigger_seen (
+        trigger_key TEXT PRIMARY KEY,
+        seen_at TEXT NOT NULL
+      );
     `);
+  }
+
+  /** Adds a proposal unless its source key was proposed before; false when it was. */
+  insertProposal(proposal: ProposedMission): boolean {
+    const parsed = ProposedMissionSchema.parse(proposal);
+    const result = this.db
+      .prepare("INSERT OR IGNORE INTO mission_proposals (id, source_key, state, body_json, created_at) VALUES (?, ?, ?, ?, ?)")
+      .run(parsed.id, parsed.sourceKey, parsed.state, JSON.stringify(parsed), parsed.createdAt);
+    return Boolean(result.changes);
+  }
+
+  updateProposal(proposal: ProposedMission): void {
+    const parsed = ProposedMissionSchema.parse(proposal);
+    this.db
+      .prepare("UPDATE mission_proposals SET state = ?, body_json = ? WHERE id = ?")
+      .run(parsed.state, JSON.stringify(parsed), parsed.id);
+  }
+
+  getProposal(id: string): ProposedMission | null {
+    const row = this.db.prepare("SELECT body_json FROM mission_proposals WHERE id = ?").get(id) as { body_json: string } | undefined;
+    return row ? (parseEach([row], (entry) => ProposedMissionSchema.parse(JSON.parse(entry.body_json)), "proposal")[0] ?? null) : null;
+  }
+
+  listProposals(args: { state?: ProposedMission["state"]; limit?: number } = {}): ProposedMission[] {
+    const limit = Math.max(1, Math.min(args.limit ?? 100, 500));
+    const rows = (
+      args.state
+        ? this.db.prepare("SELECT body_json FROM mission_proposals WHERE state = ? ORDER BY created_at DESC LIMIT ?").all(args.state, limit)
+        : this.db.prepare("SELECT body_json FROM mission_proposals ORDER BY created_at DESC LIMIT ?").all(limit)
+    ) as Array<{ body_json: string }>;
+    return parseEach(rows, (row) => ProposedMissionSchema.parse(JSON.parse(row.body_json)), "proposal");
+  }
+
+  /** Marks trigger occurrences seen and returns the ones that are new. */
+  markTriggersSeen(keys: readonly string[], now: Date): string[] {
+    if (keys.length === 0) return [];
+    return this.inSavepoint("mission_trigger_seen", () => {
+      const insert = this.db.prepare("INSERT OR IGNORE INTO mission_trigger_seen (trigger_key, seen_at) VALUES (?, ?)");
+      return [...new Set(keys)].filter((key) => Boolean(insert.run(key, now.toISOString()).changes));
+    });
   }
 
   private inSavepoint<T>(name: string, work: () => T): T {

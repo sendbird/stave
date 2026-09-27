@@ -162,6 +162,8 @@ export interface ProjectRuntimeDependencies {
   setCoordinatorTasks: (entries: ReadonlyArray<{ taskId: string; projectId: string }>) => void;
   notifyProjectProblem?: (args: { project: Project; detail: string }) => Promise<void> | void;
   emitChanged?: (event: ProjectChangedEvent) => void;
+  /** The saved playbooks just synced from the renderer, for other supervisors that read them. */
+  onPlaybooksSynced?: (playbooks: Playbook[]) => void;
   now?: () => Date;
   setInterval?: typeof globalThis.setInterval;
   clearInterval?: typeof globalThis.clearInterval;
@@ -846,6 +848,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
 
     syncPlaybooks: async ({ playbooks }) => {
       syncedPlaybooks = [...playbooks];
+      deps.onPlaybooksSynced?.(syncedPlaybooks);
       return { count: syncedPlaybooks.length };
     },
 

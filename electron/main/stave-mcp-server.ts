@@ -31,6 +31,7 @@ import {
   RepositoryMemoryKindSchema,
 } from "../../src/lib/repository-memory";
 import { registerCollaborationTools } from "./stave-collaboration-tools";
+import { proposeMissionForGrant } from "./proposals-service";
 import { registerMissionTools } from "./stave-mission-tools";
 import { registerProjectTools } from "./stave-project-tools";
 import {
@@ -635,6 +636,7 @@ function createToolServer(options?: {
     getMissionForGrant,
     reportMissionStage,
     blockMissionStage,
+    proposeMissionForGrant,
   });
   registerProjectTools(server, options?.turnGrants ?? {}, {
     getProjectForGrant,

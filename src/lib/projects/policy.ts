@@ -8,7 +8,7 @@
  * state changes to another one worth waking for.
  */
 import type { MissionState, StageStatus } from "@/lib/missions/domain";
-import { PROJECT_LIMITS, type MissionProposal, type Project, type ProjectEvent, type ProjectSchedule } from "./domain";
+import { PROJECT_LIMITS, type MissionProposal, type Project, type ProjectEvent } from "./domain";
 
 /** A mission of the project, as the policy needs it. */
 export interface ProjectMissionSnapshot {
@@ -141,36 +141,7 @@ export function collectPendingTriggers(events: readonly ProjectEvent[]): Project
   return pending;
 }
 
-const SCHEDULE_HOUR = 9;
-
-/**
- * The latest scheduled check-in at or before `now`, in the host's local time,
- * or null when the schedule is off. `daily` and `weekdays` are 09:00, `weekly`
- * is Monday 09:00, `every-4h` is 00:00, 04:00 and so on.
- */
-export function latestScheduleSlot(schedule: ProjectSchedule, now: Date): Date | null {
-  if (schedule === "off") return null;
-  const slot = new Date(now);
-  slot.setSeconds(0, 0);
-  if (schedule === "every-4h") {
-    slot.setMinutes(0);
-    slot.setHours(Math.floor(slot.getHours() / 4) * 4);
-    return slot;
-  }
-  slot.setHours(SCHEDULE_HOUR, 0);
-  if (slot.getTime() > now.getTime()) slot.setDate(slot.getDate() - 1);
-  const fits = (day: number) => (schedule === "daily" ? true : schedule === "weekdays" ? day >= 1 && day <= 5 : day === 1);
-  for (let guard = 0; guard < 7 && !fits(slot.getDay()); guard += 1) slot.setDate(slot.getDate() - 1);
-  return slot;
-}
-
-export const SCHEDULE_LABELS: Record<ProjectSchedule, string> = {
-  off: "Off",
-  daily: "Every day at 09:00",
-  weekdays: "Weekdays at 09:00",
-  weekly: "Mondays at 09:00",
-  "every-4h": "Every 4 hours",
-};
+export { latestScheduleSlot, SCHEDULE_LABELS } from "@/lib/schedules";
 
 const KICKOFF_PROMPT_START = "Plan this project.";
 const WATCHED_PROMPT_START = "What this project watches happened:";

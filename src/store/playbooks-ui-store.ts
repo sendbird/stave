@@ -17,6 +17,8 @@ export interface StartMissionRequest {
   fromComposerDraft?: boolean;
   /** Runs once the mission has started, e.g. to clear the composer. */
   onStarted?: () => void;
+  /** Also runs once the mission has started, with its id: a proposal it started. */
+  onMissionStarted?: (missionId: string | null) => void;
 }
 
 interface PlaybooksUiState {

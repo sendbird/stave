@@ -79,6 +79,8 @@ import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
 import { createHostMissionRuntime } from "./host-service/supervision/mission-host";
 import { invokeMissionRuntime } from "./host-service/supervision/mission-runtime";
+import { createProposalRuntime, invokeProposalRuntime } from "./host-service/supervision/proposal-runtime";
+import { resolveMissionGrant } from "./providers/mission-grants";
 import { createHostProjectRuntime } from "./host-service/supervision/project-host";
 import { invokeProjectAction } from "./host-service/supervision/project-runtime";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
@@ -583,6 +585,15 @@ const projectRuntime = createHostProjectRuntime({
   emitChanged: (event) => {
     emitEvent("project.changed", event);
   },
+  // Playbook start conditions read the same saved playbooks.
+  onPlaybooksSynced: (playbooks) => proposalRuntime.setPlaybooks(playbooks),
+});
+const proposalRuntime = createProposalRuntime({
+  store: ensureHostServicePersistenceReady().missions,
+  startMission: (input) => missionRuntime.startMission(input),
+  createIdleTask: (task) => localMcpRuntime.createIdleTask(task),
+  resolveMissionGrant,
+  emitChanged: () => emitEvent("proposal.changed", {}),
 });
 const wakeUpRuntime = createWakeUpRuntime({
   persistence: ensureHostServicePersistenceReady(),
@@ -1358,6 +1369,7 @@ async function shutdown() {
   wakeUpRuntime.stop();
   missionRuntime.stop();
   projectRuntime.stop();
+  proposalRuntime.stop();
   const infrastructureCleanup = Promise.allSettled([
     terminalRuntime.cleanupAll(),
     cleanupAllScriptProcesses(),
@@ -2091,6 +2103,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         ),
       );
       return;
+    case "proposal.invoke":
+      await respond(request.id, await invokeProposalRuntime(proposalRuntime, request.params.action, request.params.args));
+      return;
     default:
       request satisfies never;
   }
@@ -2113,6 +2128,7 @@ async function main() {
   wakeUpRuntime.start();
   missionRuntime.start();
   projectRuntime.start();
+  proposalRuntime.start();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
     maxBufferBytes: HOST_SERVICE_STDIN_BUFFER_MAX_BYTES,

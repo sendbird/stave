@@ -19,6 +19,7 @@ import { isCustomCheckIns } from "@/lib/playbooks/sign-off";
 import type { AutomationPermissionMode } from "@/lib/automations";
 import { draftPlaybookWithAi } from "@/store/playbook-draft-runtime";
 import { DraftWithAi } from "./DraftWithAi";
+import { PlaybookStartsWhen } from "./PlaybookStartsWhen";
 import { Segmented } from "./Segmented";
 import { StageList } from "./StageList";
 import { playbookStyles as styles } from "./playbooks.styles";
@@ -47,6 +48,8 @@ export interface PlaybookEditorProps {
   runDraft?: typeof draftPlaybookWithAi;
   /** Opens with Draft with AI showing. */
   initialDrafting?: boolean;
+  /** The workspace in view: where a schedule runs when it is turned on. */
+  activeWorkspace?: { id: string; name: string } | null;
 }
 
 /**
@@ -237,6 +240,11 @@ export function PlaybookEditor(props: PlaybookEditorProps) {
                     : "Optional. Lets you start it from the composer with !shortcut."}
                 </p>
               )}
+            </dd>
+
+            <dt className={sx(styles.propertyLabel)}>Starts when</dt>
+            <dd className={sx(styles.propertyValue)}>
+              <PlaybookStartsWhen draft={draft} workspace={props.activeWorkspace ?? null} onChange={props.onChange} />
             </dd>
 
             <dt className={sx(styles.propertyLabel)}>Permissions</dt>

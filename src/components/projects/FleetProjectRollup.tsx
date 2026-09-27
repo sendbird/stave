@@ -1,8 +1,9 @@
-import { FolderKanban } from "lucide-react";
+import { FolderKanban, Sparkles } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { isOpenProjectState } from "@/lib/projects/domain";
 import { useAppStore } from "@/store/app.store";
 import { countProjectNeeds, useProjectsStore } from "@/store/projects-store";
+import { useProposalsStore } from "@/store/proposals-store";
 
 /** Fleet's project roll-up: how many projects run and how many need you. */
 export function FleetProjectRollup() {
@@ -17,6 +18,27 @@ export function FleetProjectRollup() {
       <FolderKanban aria-hidden />
       {open.length} {open.length === 1 ? "project" : "projects"}
       {needs > 0 ? ` · ${needs} need you` : ""}
+    </Button>
+  );
+}
+
+/** Fleet's proposed missions: how many wait in Issues → Proposed. */
+export function FleetProposedChip() {
+  const count = useProposalsStore((state) => state.pending.length);
+  const openIssues = useAppStore((state) => state.openIssues);
+  if (count === 0) return null;
+  return (
+    <Button
+      type="button"
+      size="sm"
+      variant="quiet"
+      onClick={() => {
+        useProposalsStore.getState().requestProposedTab();
+        openIssues();
+      }}
+    >
+      <Sparkles aria-hidden />
+      {count} proposed
     </Button>
   );
 }

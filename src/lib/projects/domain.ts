@@ -10,6 +10,7 @@
  */
 import { z } from "zod";
 import { PlaybookSchema } from "@/lib/playbooks/schema";
+import { SCHEDULES, type Schedule } from "@/lib/schedules";
 
 export const PROJECT_LIMITS = {
   name: 80,
@@ -41,8 +42,8 @@ export function isOpenProjectState(state: ProjectState) {
 }
 
 /** When a scheduled check-in wakes the coordinator, in the host's local time. */
-export const PROJECT_SCHEDULES = ["off", "daily", "weekdays", "weekly", "every-4h"] as const;
-export type ProjectSchedule = (typeof PROJECT_SCHEDULES)[number];
+export const PROJECT_SCHEDULES = SCHEDULES;
+export type ProjectSchedule = Schedule;
 
 /**
  * Starts when: what wakes the coordinator besides its own missions. Each only

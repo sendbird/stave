@@ -10,6 +10,75 @@ import { useAppStore } from "@/store/app.store";
 import { StartMissionSheetHost } from "@/components/missions/StartMissionSheet";
 import { aggregateMissionInsights } from "@/lib/missions/insights";
 import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
+import { ProposedMissionsPanel } from "@/components/layout/issues/ProposedMissionsPanel";
+import type { ProposedMission } from "@/lib/missions/proposed";
+
+const PREVIEW_NOW = new Date("2026-09-27T12:00:00.000Z");
+
+function previewProposal(patch: Partial<ProposedMission> & Pick<ProposedMission, "id" | "source" | "title">): ProposedMission {
+  return {
+    sourceKey: patch.id,
+    detail: null,
+    url: null,
+    playbookId: "playbook_preview_1",
+    playbookName: "Request → PR",
+    assignment: "Preview.",
+    workspaceId: null,
+    workspaceName: null,
+    issue: null,
+    proposedByMissionId: null,
+    state: "pending",
+    missionId: null,
+    createdAt: "2026-09-27T11:40:00.000Z",
+    updatedAt: "2026-09-27T11:40:00.000Z",
+    ...patch,
+  };
+}
+
+/** A spread of proposals across every source, for `&view=proposed`. */
+const PREVIEW_PENDING: ProposedMission[] = [
+  previewProposal({
+    id: "p-pr",
+    source: "pull-request",
+    title: "Move billing to the new table · #612",
+    detail: "Checks failed on PR #612",
+    url: "https://github.com/acme/web/pull/612",
+    playbookName: "Fix failing checks",
+    workspaceId: "ws-web",
+    workspaceName: "billing-table",
+    createdAt: "2026-09-27T11:52:00.000Z",
+  }),
+  previewProposal({
+    id: "p-issue",
+    source: "issue",
+    title: "WEB-418 · Export invoices as CSV",
+    detail: "Assigned to you",
+    url: "https://crane.example/WEB-418",
+    issue: { source: "crane", key: "WEB-418" },
+    createdAt: "2026-09-27T10:05:00.000Z",
+  }),
+  previewProposal({
+    id: "p-triage",
+    source: "triage",
+    title: "Add a dark theme to the status page",
+    detail: "Proposed by Triage requests",
+    url: "https://slack.example/archives/C1/p1",
+    createdAt: "2026-09-27T09:00:00.000Z",
+  }),
+];
+
+const PREVIEW_RECENT: ProposedMission[] = [
+  previewProposal({
+    id: "r-schedule",
+    source: "schedule",
+    title: "Triage requests · Sat 09:00 AM",
+    playbookName: "Triage requests",
+    state: "started",
+    missionId: "m1",
+    updatedAt: "2026-09-26T09:00:00.000Z",
+  }),
+  previewProposal({ id: "r-dismissed", source: "issue", title: "WEB-401 · Rename the settings route", state: "dismissed", updatedAt: "2026-09-25T15:00:00.000Z" }),
+];
 
 /** Stand-ins for the desktop bridge calls the Start sheet makes. */
 function installPreviewBridge() {
@@ -88,17 +157,28 @@ export function PlaybooksPreview() {
           playbooks: PLAYBOOK_STARTERS.slice(0, 3).map((starter, index) => ({
             ...createPlaybookFromStarter(starter, { now, id: `playbook_preview_${index}` }),
             ...(index === 1 ? { shortcut: "pr" } : {}),
+            ...(index === 2
+              ? { startsWhen: { pullRequest: { checksFailed: true, changesRequested: false }, autoStart: true } }
+              : {}),
           })),
         },
       });
     }
+    useAppStore.setState({
+      activeWorkspaceId: "preview-workspace",
+      workspaces: [{ id: "preview-workspace", name: "billing-table" }] as never,
+    });
     setSeeded(true);
   }, []);
+  const [view, setView] = useState(() => params.get("view") ?? "playbooks");
   return (
     <main className={sx(styles.page)}>
       <div className={sx(styles.bar)}>
         <strong>Automations · Playbooks</strong>
         <span>
+          <ActionButton size="xs" onClick={() => setView((current) => (current === "proposed" ? "playbooks" : "proposed"))}>
+            {view === "proposed" ? "Playbooks" : "Issues → Proposed"}
+          </ActionButton>{" "}
           <ActionButton size="xs" onClick={openPreviewSheet}>
             Start mission sheet
           </ActionButton>{" "}
@@ -107,7 +187,28 @@ export function PlaybooksPreview() {
           </ActionButton>
         </span>
       </div>
-      <div className={sx(styles.frame)}>{seeded ? <PlaybooksTab loadInsights={async (days) => previewInsights(days)} /> : null}</div>
+      <div className={sx(styles.frame)}>
+        {!seeded ? null : view === "proposed" ? (
+          <ProposedMissionsPanel
+            pending={params.get("empty") === "1" ? [] : PREVIEW_PENDING}
+            recent={params.get("empty") === "1" ? [] : PREVIEW_RECENT}
+            loaded
+            now={PREVIEW_NOW}
+            startTarget={(proposal) =>
+              proposal.source === "issue"
+                ? { label: "Kick off", where: null, disabledReason: null }
+                : { label: "Start", where: `in ${proposal.workspaceName ?? "billing-table"}`, disabledReason: null }
+            }
+            onStart={() => {}}
+            onDismiss={() => {}}
+            onOpenLink={() => {}}
+            onOpenMission={() => {}}
+            onOpenPlaybooks={() => setView("playbooks")}
+          />
+        ) : (
+          <PlaybooksTab loadInsights={async (days) => previewInsights(days)} />
+        )}
+      </div>
       <StartMissionSheetHost />
     </main>
   );

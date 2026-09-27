@@ -48,6 +48,10 @@ async function connect(grants: StaveTurnGrants) {
         calls.push({ tool: "block", args });
         return receipt;
       },
+      proposeMissionForGrant: async (args) => {
+        calls.push({ tool: "propose", args });
+        return { state: "pending", message: "Proposed." };
+      },
     },
   );
   const client = new Client({ name: "test-primary", version: "1" });
@@ -71,8 +75,24 @@ test("mission tools exist only on a connection that carries a mission grant", as
   expect(await toolNames(granted.client)).toEqual([
     "stave_block_stage",
     "stave_get_mission",
+    "stave_propose_mission",
     "stave_report_stage",
     "stave_workspace_fixture",
+  ]);
+});
+
+test("a triage turn proposes under its own grant, never starting work", async () => {
+  const { client, calls } = await connect({ missionKey: "mission-live" });
+  const result = await client.callTool({
+    name: "stave_propose_mission",
+    arguments: { title: "Export CSV", assignment: "Add CSV export.", url: "https://slack.example/t/1" },
+  });
+  expect(result.isError).toBeFalsy();
+  expect(calls).toEqual([
+    {
+      tool: "propose",
+      args: { missionKey: "mission-live", input: { title: "Export CSV", assignment: "Add CSV export.", url: "https://slack.example/t/1" } },
+    },
   ]);
 });
 

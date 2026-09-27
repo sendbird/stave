@@ -13,6 +13,7 @@ import { registerMetricsHandlers } from "./metrics";
 import { registerMissionHandlers } from "./missions";
 import { registerWakeUpHandlers } from "./wake-ups";
 import { registerProjectHandlers } from "./projects";
+import { registerProposalHandlers } from "./proposals";
 import { registerNotificationHandlers } from "./notifications";
 import { registerPersistenceHandlers } from "./persistence";
 import { registerRepositoryMemoryHandlers } from "./repository-memory";
@@ -39,6 +40,7 @@ export function registerHandlers() {
   registerMissionHandlers();
   registerWakeUpHandlers();
   registerProjectHandlers();
+  registerProposalHandlers();
   registerPersistenceHandlers();
   registerRepositoryMemoryHandlers();
   registerTerminalHandlers();
