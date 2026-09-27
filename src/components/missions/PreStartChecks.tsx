@@ -37,9 +37,9 @@ export function PreStartChecks(props: {
                 <span className={sx(styles.stateWord)}> — {STATE_WORDS[check.state]}</span>
               </span>
               <span className={sx(styles.detail)}>{check.detail}</span>
-              {check.id === "workspace" && check.state === "warn" ? (
+              {check.acknowledgeLabel ? (
                 <Checkbox
-                  label="Start on top of these changes"
+                  label={check.acknowledgeLabel}
                   checked={props.dirtyAcknowledged}
                   onCheckedChange={(value) => props.onAcknowledgeDirty(value === true)}
                 />

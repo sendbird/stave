@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { MissionDetailView } from "../src/components/missions/MissionPanel";
+import { shouldOpenStage } from "../src/components/missions/StageCard";
 import {
   describeSignOffAction,
   SignOffCard,
@@ -111,6 +112,19 @@ describe("Mission panel", () => {
     expect(runtime).toContain("Use it for the remaining stages");
     expect(runtime).toContain("The lead task now runs on codex:gpt-6.");
     expect(runtime).not.toContain(">Resume<");
+  });
+
+  test("a stage card opens when its stage becomes current or needs recovering", () => {
+    const idle = { current: false, recoverable: false };
+    const current = { current: true, recoverable: false };
+    const recoverable = { current: true, recoverable: true };
+    expect(shouldOpenStage(idle, current)).toBe(true);
+    expect(shouldOpenStage(idle, recoverable)).toBe(true);
+    expect(shouldOpenStage(current, recoverable)).toBe(true);
+    // Staying as it was, or moving on, leaves the user's choice alone.
+    expect(shouldOpenStage(current, current)).toBe(false);
+    expect(shouldOpenStage(recoverable, current)).toBe(false);
+    expect(shouldOpenStage(current, idle)).toBe(false);
   });
 
   test("a finished mission is static and shows no controls", () => {

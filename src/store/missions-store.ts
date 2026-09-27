@@ -20,8 +20,8 @@ import type {
   MissionStartArgs,
   MissionsBridgeApi,
 } from "@/lib/missions/api";
-import { isActiveMissionState, type Mission } from "@/lib/missions/domain";
-import { buildMissionTurnDividers } from "@/lib/missions/mission-view";
+import { isActiveMissionState, latestStageRecord, type Mission } from "@/lib/missions/domain";
+import { buildMissionTurnDividers, isOlderMissionDetail } from "@/lib/missions/mission-view";
 import { useAppStore } from "@/store/app.store";
 
 type CommandName =
@@ -38,12 +38,18 @@ type CommandName =
 export interface MissionCommandFailure {
   code: MissionFailureCode;
   message: string;
+  /** The stage the command was about, as `stageId:attempt`, when known. */
+  stageKey: string | null;
 }
 
 interface MissionsState {
   workspaceId: string | null;
+  /** The workspace whose missions have finished loading. */
+  loadedWorkspaceId: string | null;
   /** `${workspaceId}:${taskId}` → the task's active mission, else its newest. */
   missionIdByTask: Record<string, string>;
+  /** `${workspaceId}:${taskId}` → every mission of the task seen here, oldest first. */
+  missionIdsByTask: Record<string, readonly string[]>;
   details: Record<string, MissionDetail>;
   /** Turn id → divider text, per mission. Rebuilt with its detail. */
   dividersByMission: Record<string, ReadonlyMap<string, string>>;
@@ -64,6 +70,17 @@ interface MissionsState {
 
 export function missionTaskKey(workspaceId: string, taskId: string) {
   return `${workspaceId}:${taskId}`;
+}
+
+/** `stageId:attempt`, the key a command failure is scoped to. */
+export function missionStageKey(stage: { stageId: string; attempt: number }) {
+  return `${stage.stageId}:${stage.attempt}`;
+}
+
+function currentStageKey(detail: MissionDetail | undefined): string | null {
+  const stage = detail?.mission.playbook.stages[detail.mission.currentStageIndex];
+  const record = stage ? latestStageRecord(detail.stages, stage.id) : null;
+  return record ? missionStageKey(record) : null;
 }
 
 function missionsApi(): MissionsBridgeApi | null {
@@ -100,6 +117,8 @@ function pickMissionPerTask(missions: readonly Mission[]) {
 export const useMissionsStore = create<MissionsState>()((set, get) => {
   function storeDetail(detail: MissionDetail) {
     const { mission } = detail;
+    // A response that left the host before the stored one must not replace it.
+    if (isOlderMissionDetail(detail, get().details[mission.id])) return;
     set((state) => {
       const key = missionTaskKey(mission.workspaceId, mission.leadTaskId);
       const currentId = state.missionIdByTask[key];
@@ -109,6 +128,7 @@ export const useMissionsStore = create<MissionsState>()((set, get) => {
         current.id === mission.id ||
         isActiveMissionState(mission.state) ||
         (!isActiveMissionState(current.state) && mission.createdAt > current.createdAt);
+      const known = state.missionIdsByTask[key] ?? [];
       return {
         details: { ...state.details, [mission.id]: detail },
         dividersByMission: {
@@ -118,20 +138,32 @@ export const useMissionsStore = create<MissionsState>()((set, get) => {
         missionIdByTask: replaces
           ? { ...state.missionIdByTask, [key]: mission.id }
           : state.missionIdByTask,
+        missionIdsByTask: known.includes(mission.id)
+          ? state.missionIdsByTask
+          : { ...state.missionIdsByTask, [key]: [...known, mission.id] },
       };
     });
   }
 
   return {
     workspaceId: null,
+    loadedWorkspaceId: null,
     missionIdByTask: {},
+    missionIdsByTask: {},
     details: {},
     dividersByMission: {},
     failureByMission: {},
     pendingByMission: {},
 
     loadWorkspace: async (workspaceId) => {
-      set({ workspaceId, missionIdByTask: {}, details: {}, dividersByMission: {} });
+      set({
+        workspaceId,
+        loadedWorkspaceId: null,
+        missionIdByTask: {},
+        missionIdsByTask: {},
+        details: {},
+        dividersByMission: {},
+      });
       const api = missionsApi();
       if (!api || !workspaceId) return;
       const listed = await api.list({ workspaceId }).catch(() => null);
@@ -145,6 +177,7 @@ export const useMissionsStore = create<MissionsState>()((set, get) => {
           }
         }),
       );
+      if (get().workspaceId === workspaceId) set({ loadedWorkspaceId: workspaceId });
     },
 
     refreshMission: async (missionId) => {
@@ -207,12 +240,19 @@ export const useMissionsStore = create<MissionsState>()((set, get) => {
       if (response.ok && response.mission) {
         storeDetail(response.mission);
       } else {
+        // Scoped to the stage it was about, so it never shows on the next stage's card.
+        const stage = args as { stageId?: unknown; attempt?: unknown };
+        const stageKey =
+          typeof stage.stageId === "string" && typeof stage.attempt === "number"
+            ? missionStageKey({ stageId: stage.stageId, attempt: stage.attempt })
+            : currentStageKey(get().details[missionId]);
         set((state) => ({
           failureByMission: {
             ...state.failureByMission,
             [missionId]: {
               code: response.code ?? "failed",
               message: response.message ?? "The mission request failed.",
+              stageKey,
             },
           },
         }));
@@ -232,13 +272,59 @@ export function useTaskMission(workspaceId: string, taskId: string): MissionDeta
   });
 }
 
-/** The divider text for a turn a mission started, or null. */
+/**
+ * The mission's last command failure while it is about the stage in view
+ * (`stageId:attempt`), else null. A failure without a known stage, or a
+ * caller without one, always shows.
+ */
+export function selectMissionFailure(
+  state: Pick<MissionsState, "failureByMission">,
+  missionId: string,
+  stageKey: string | null,
+): string | null {
+  const failure = state.failureByMission[missionId];
+  if (!failure) return null;
+  return !failure.stageKey || !stageKey || failure.stageKey === stageKey ? failure.message : null;
+}
+
+export function useMissionFailure(missionId: string, stageKey: string | null): string | null {
+  return useMissionsStore((state) => selectMissionFailure(state, missionId, stageKey));
+}
+
+/** The divider text for a turn any of the task's missions started, or null. */
+export function selectMissionTurnDivider(
+  state: Pick<MissionsState, "missionIdsByTask" | "dividersByMission">,
+  workspaceId: string,
+  taskId: string,
+  turnId: string | undefined,
+): string | null {
+  if (!turnId) return null;
+  for (const id of state.missionIdsByTask[missionTaskKey(workspaceId, taskId)] ?? []) {
+    const text = state.dividersByMission[id]?.get(turnId);
+    if (text) return text;
+  }
+  return null;
+}
+
 export function useMissionTurnDivider(workspaceId: string, taskId: string, turnId: string | undefined) {
-  return useMissionsStore((state) => {
-    if (!turnId) return null;
-    const id = state.missionIdByTask[missionTaskKey(workspaceId, taskId)];
-    return (id && state.dividersByMission[id]?.get(turnId)) || null;
-  });
+  return useMissionsStore((state) => selectMissionTurnDivider(state, workspaceId, taskId, turnId));
+}
+
+/**
+ * Whether a change event announces a mission that just started, as opposed
+ * to one this store has not loaded yet. Until the workspace has loaded,
+ * nothing counts as new.
+ */
+export function isNewlyStartedMission(
+  state: Pick<MissionsState, "workspaceId" | "loadedWorkspaceId" | "missionIdByTask">,
+  event: MissionChangedEvent,
+): boolean {
+  return (
+    event.state === "running" &&
+    state.workspaceId === event.workspaceId &&
+    state.loadedWorkspaceId === event.workspaceId &&
+    state.missionIdByTask[missionTaskKey(event.workspaceId, event.leadTaskId)] !== event.missionId
+  );
 }
 
 /**
@@ -256,12 +342,17 @@ export function useMissionSync() {
     return subscribe((event: MissionChangedEvent) => {
       const missions = useMissionsStore.getState();
       if (event.workspaceId !== missions.workspaceId) return;
-      const known =
-        missions.missionIdByTask[missionTaskKey(event.workspaceId, event.leadTaskId)] === event.missionId;
+      const started = isNewlyStartedMission(missions, event);
       void missions.refreshMission(event.missionId).then(() => {
-        // A mission that just started opens its panel on the task in view.
+        // A mission that just started opens its panel on the task in view,
+        // unless the user has moved to another workspace meanwhile.
         const app = useAppStore.getState();
-        if (!known && event.state === "running" && app.activeTaskId === event.leadTaskId) {
+        if (
+          started &&
+          useMissionsStore.getState().workspaceId === event.workspaceId &&
+          app.activeWorkspaceId === event.workspaceId &&
+          app.activeTaskId === event.leadTaskId
+        ) {
           app.setLayout({ patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "mission" } });
         }
       });

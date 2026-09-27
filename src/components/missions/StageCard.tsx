@@ -25,6 +25,14 @@ export function describeStageMeta(row: MissionStageRow): string {
   return parts.join(" · ");
 }
 
+/** A stage card opens when its stage becomes current, or becomes current and blocked or stuck. */
+export function shouldOpenStage(
+  before: { current: boolean; recoverable: boolean },
+  after: { current: boolean; recoverable: boolean },
+): boolean {
+  return (after.current && !before.current) || (after.recoverable && !before.recoverable);
+}
+
 /** The instruction a stage ran with, folded away until asked for. */
 function InstructionDisclosure(props: { label: string; text: string }) {
   const [open, setOpen] = useState(false);
@@ -67,7 +75,6 @@ export function StageCard(props: {
   busy?: boolean;
 }) {
   const { row } = props;
-  const [expanded, setExpanded] = useState(row.current);
   const presentation = STAGE_STATUS_PRESENTATION[row.status];
   const report = row.record?.report ?? null;
   const facts = row.record?.facts ?? null;
@@ -75,6 +82,14 @@ export function StageCard(props: {
   const meta = describeStageMeta(row);
   const troubled = row.status === "blocked" || row.status === "stuck";
   const recoverable = row.current && troubled;
+  const [expanded, setExpanded] = useState(row.current);
+  // Opens when the stage becomes current or needs recovering, so Retry and
+  // Skip are never folded away; the user can still close it again.
+  const [opener, setOpener] = useState({ current: row.current, recoverable });
+  if (opener.current !== row.current || opener.recoverable !== recoverable) {
+    setOpener({ current: row.current, recoverable });
+    if (shouldOpenStage(opener, { current: row.current, recoverable })) setExpanded(true);
+  }
   const reached = row.record !== null;
   return (
     <StepRail.Step

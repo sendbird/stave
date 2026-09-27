@@ -7,6 +7,7 @@ import { SIDEBAR_WORK_QUEUE_LANE_ORDER, type SidebarWorkQueueLane } from "@/lib/
 import type { MissionDetail } from "./api";
 import {
   currentStageRecord,
+  isActiveMissionState,
   isAutomaticMissionPause,
   type MissionPauseReason,
   type MissionState,
@@ -52,13 +53,28 @@ export function missionWorkQueueLane(input: MissionLaneInput): SidebarWorkQueueL
 
 /**
  * The lane each workspace's missions ask for, the most urgent one when a
- * workspace holds several. An ended mission's review lane needs its report,
- * so ended missions are read as having nothing open.
+ * workspace holds several. An ended mission speaks only while it is the
+ * workspace's newest: a mission started after it has taken over, so an old
+ * stop no longer holds the workspace in Action required. An ended mission's
+ * review lane needs its report, so ended missions are read as having nothing
+ * open.
  */
 export function missionLanesByWorkspace(details: Iterable<MissionDetail>): Record<string, SidebarWorkQueueLane> {
+  const all = [...details];
+  const newestByWorkspace = new Map<string, number>();
+  for (const { mission } of all) {
+    const createdAt = Date.parse(mission.createdAt);
+    if (createdAt > (newestByWorkspace.get(mission.workspaceId) ?? -Infinity)) {
+      newestByWorkspace.set(mission.workspaceId, createdAt);
+    }
+  }
   const lanes: Record<string, SidebarWorkQueueLane> = {};
-  for (const detail of details) {
+  for (const detail of all) {
     const { mission } = detail;
+    const superseded =
+      !isActiveMissionState(mission.state) &&
+      Date.parse(mission.createdAt) < (newestByWorkspace.get(mission.workspaceId) ?? -Infinity);
+    if (superseded) continue;
     const lane = missionWorkQueueLane({
       state: mission.state,
       pauseReason: mission.pauseReason,

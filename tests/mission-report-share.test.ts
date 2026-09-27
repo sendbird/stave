@@ -106,4 +106,14 @@ describe("saving a mission's playbook", () => {
     expect(saveMissionPlaybook(edited)).toBe("Saved as “Request → PR 2” in Automations → Playbooks.");
     useAppStore.setState({ settings: base });
   });
+
+  test("saving the same mission's playbook again names the copy instead of adding another", () => {
+    const base = useAppStore.getState().settings;
+    useAppStore.setState({ settings: { ...base, playbooks: [] } });
+    const playbook = starterPlaybook("request-to-pr");
+    expect(saveMissionPlaybook(playbook)).toBe("Saved as “Request → PR” in Automations → Playbooks.");
+    expect(saveMissionPlaybook(playbook)).toBe("Already saved as “Request → PR” in Automations → Playbooks.");
+    expect(useAppStore.getState().settings.playbooks).toHaveLength(1);
+    useAppStore.setState({ settings: base });
+  });
 });

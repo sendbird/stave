@@ -6,15 +6,19 @@ import type { MissionDetail } from "../src/lib/missions/api";
 import {
   buildMissionTurnDividers,
   describeMissionHeadline,
+  describeMissionStatusLine,
   formatAge,
   projectMissionStages,
 } from "../src/lib/missions/mission-view";
+import type { PlaybookStage } from "../src/lib/playbooks/schema";
 import {
   COMPLETE_REPORT,
   MISSION_NOW,
   missionDetail,
   missionEvent,
   missionFixture,
+  patchCurrent,
+  starterPlaybook,
 } from "./fixtures/mission-fixtures";
 
 const NOW = MISSION_NOW.getTime() + 20 * 60_000;
@@ -160,6 +164,28 @@ describe("mission view", () => {
     ]);
     expect(rows[1]).toMatchObject({ status: "running", current: true, asksFirst: true });
     expect(rows[5]).toMatchObject({ status: "pending", asksFirst: true });
+  });
+
+  test("a running Stave stage says what Stave is doing, the script it runs included", () => {
+    const base = starterPlaybook("request-to-pr");
+    const withAction = (action: Extract<PlaybookStage, { kind: "action" }>["action"]) =>
+      describeMissionStatusLine(
+        missionDetail(
+          patchCurrent(
+            missionFixture({
+              playbook: { ...base, stages: [{ id: "act", title: "Act", kind: "action", action }] },
+            }),
+            { status: "running" },
+          ),
+        ),
+      );
+    expect(withAction({ type: "run-script", scriptId: "preview" })).toMatchObject({
+      title: "Act",
+      detail: "Stave is running the “preview” script",
+      tone: "active",
+    });
+    expect(withAction({ type: "open-draft-pr" }).detail).toBe("Stave is opening the draft PR");
+    expect(withAction({ type: "mark-pr-ready" }).detail).toBe("Stave is marking the PR ready for review");
   });
 
   test("the headline names paused, stopped and finished missions", () => {

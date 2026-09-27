@@ -16,7 +16,7 @@ import {
   type StageStatus,
 } from "./domain";
 import { classifyStageEvidence, describeActionEvidence, type ClassifiedEvidence } from "./evidence";
-import { CHECK_IN_LABELS, type PlaybookStage } from "@/lib/playbooks/schema";
+import { CHECK_IN_LABELS, type PlaybookStage, type StaveAction } from "@/lib/playbooks/schema";
 
 /** How a stage status reads and which tone its icon takes. */
 export type StageTone = "done" | "active" | "waiting" | "attention" | "idle" | "skipped";
@@ -182,6 +182,20 @@ export interface MissionStatusLine {
   live: boolean;
 }
 
+/** What Stave is doing while one of its own stages runs. */
+function describeRunningAction(action: StaveAction, watchingChecks: string): string {
+  switch (action.type) {
+    case "watch-checks":
+      return watchingChecks;
+    case "open-draft-pr":
+      return "Stave is opening the draft PR";
+    case "mark-pr-ready":
+      return "Stave is marking the PR ready for review";
+    case "run-script":
+      return `Stave is running the “${action.scriptId}” script`;
+  }
+}
+
 /**
  * The mission's line: the stage in view, its state and why, for example
  * `Verify` · `Blocked` · `Which breakpoint…`. The Mission bar shows it in
@@ -228,13 +242,7 @@ export function describeMissionStatusLine(detail: MissionDetail): MissionStatusL
       return line({ state: "Stuck", detail: record?.detail ?? "the stage stopped moving", tone: "attention" });
     case "running": {
       if (stage.kind === "ai") return line({ detail: "Working", tone: "active", live: true });
-      const action =
-        stage.action.type === "watch-checks"
-          ? headline.text
-          : stage.action.type === "open-draft-pr"
-            ? "Stave is opening the draft PR"
-            : "Stave is marking the PR ready for review";
-      return line({ detail: action, tone: "active" });
+      return line({ detail: describeRunningAction(stage.action, headline.text), tone: "active" });
     }
     case "pending":
     case "completed":
@@ -322,6 +330,19 @@ export function describeTurnBudget(mission: Pick<Mission, "turnCount" | "maxTurn
 
 export function describeCheckIns(mission: Mission) {
   return CHECK_IN_LABELS[mission.consent.checkIns];
+}
+
+/**
+ * Whether `incoming` is an older read of the mission than `stored`, so a
+ * response that left the host first cannot replace a newer one. An event can
+ * land without moving `updatedAt`, so equal times compare the last event.
+ */
+export function isOlderMissionDetail(incoming: MissionDetail, stored: MissionDetail | undefined): boolean {
+  if (!stored || stored.mission.id !== incoming.mission.id) return false;
+  const incomingAt = Date.parse(incoming.mission.updatedAt);
+  const storedAt = Date.parse(stored.mission.updatedAt);
+  if (incomingAt !== storedAt) return incomingAt < storedAt;
+  return (incoming.events.at(-1)?.sequence ?? 0) < (stored.events.at(-1)?.sequence ?? 0);
 }
 
 /* -------------------------------------------------------------------------- */

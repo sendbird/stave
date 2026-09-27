@@ -128,22 +128,42 @@ export function describeMissionNotification(
 
 /**
  * One reminder for every sign-off that has waited past the interval, batched
- * into a single notification per interval window.
+ * into a single notification at most once per interval.
+ *
+ * Each sign-off falls due once per interval of its own wait, counted from
+ * when it began, and the reminder is keyed on the wait that fell due last.
+ * Keying on the wait rather than on clock windows means a boundary of the
+ * clock never sends a second reminder; `lastRemindedAt` keeps waits that fall
+ * due close together in one reminder.
  */
 export function describeSignOffReminder(args: {
   waiting: ReadonlyArray<{ detail: MissionDetail; since: string; taskTitle: string | null }>;
   now: Date;
   intervalMinutes: number;
+  /** When the previous reminder went out, in epoch ms, if one did. */
+  lastRemindedAt?: number | null;
 }): AppNotificationCreateInput | null {
   if (args.intervalMinutes <= 0) return null;
   const intervalMs = args.intervalMinutes * 60_000;
-  const overdue = args.waiting.filter((entry) => args.now.getTime() - Date.parse(entry.since) >= intervalMs);
+  const nowMs = args.now.getTime();
+  if (args.lastRemindedAt != null && nowMs - args.lastRemindedAt < intervalMs) return null;
+  const overdue = args.waiting.filter((entry) => nowMs - Date.parse(entry.since) >= intervalMs);
   if (overdue.length === 0) return null;
-  const window = Math.floor(args.now.getTime() / intervalMs);
+  let key = "";
+  let latestDueAt = -Infinity;
+  for (const entry of overdue) {
+    const since = Date.parse(entry.since);
+    const round = Math.floor((nowMs - since) / intervalMs);
+    const dueAt = since + round * intervalMs;
+    if (dueAt > latestDueAt) {
+      latestDueAt = dueAt;
+      key = `${entry.detail.mission.id}:${since}:${round}`;
+    }
+  }
   const first = overdue[0]!;
   const names = overdue.map((entry) => entry.taskTitle ?? entry.detail.mission.playbook.name);
   return {
-    id: `mission-reminder-${window}`,
+    id: `mission-reminder-${key}`.slice(0, 190),
     kind: "mission.sign_off_requested",
     title:
       overdue.length === 1
@@ -160,6 +180,6 @@ export function describeSignOffReminder(args: {
     providerId: null,
     action: null,
     payload: { source: "mission-reminder", missionIds: overdue.map((entry) => entry.detail.mission.id) },
-    dedupeKey: `mission-reminder:${window}`,
+    dedupeKey: `mission-reminder:${key}`,
   };
 }

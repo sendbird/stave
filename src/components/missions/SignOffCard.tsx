@@ -19,7 +19,7 @@ import {
 export { describeSignOffAction, summarizePreviousStage };
 import type { PlaybookStage } from "@/lib/playbooks/schema";
 import { useAppStore } from "@/store/app.store";
-import { useMissionsStore } from "@/store/missions-store";
+import { missionStageKey, useMissionFailure, useMissionsStore } from "@/store/missions-store";
 import { useScopedTaskMission } from "./useMission";
 import { missionStyles } from "./missions.styles";
 
@@ -153,11 +153,10 @@ export function MissionSignOffSlot() {
   const runCommand = useMissionsStore((state) => state.runCommand);
   const missionId = detail?.mission.id ?? "";
   const busy = useMissionsStore((state) => Boolean(state.pendingByMission[missionId]));
-  const failure = useMissionsStore((state) => state.failureByMission[missionId]?.message ?? null);
+  const record = detail && detail.mission.state === "running" ? currentStageRecord(detail) : null;
+  const failure = useMissionFailure(missionId, record ? missionStageKey(record) : null);
   const setLayout = useAppStore((state) => state.setLayout);
-  if (!detail || detail.mission.state !== "running") return null;
-  const record = currentStageRecord(detail);
-  if (record.status !== "awaiting-sign-off") return null;
+  if (!detail || !record || record.status !== "awaiting-sign-off") return null;
   const identity = { missionId, stageId: record.stageId, attempt: record.attempt };
   return (
     <SignOffCard

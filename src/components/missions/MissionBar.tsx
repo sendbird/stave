@@ -103,9 +103,13 @@ export function MissionBarView(props: {
     const finished = rows[before];
     if (!finished || finished.status !== "completed") return;
     setHeld({ title: `${finished.stage.title} done`, detail: describeCompletedChange(finished) });
+  }, [mission.currentStageIndex, props.reducedMotion, rows]);
+  // Its own effect: `rows` changes every tick, and must not cancel the release.
+  useEffect(() => {
+    if (!held) return;
     const timer = window.setTimeout(() => setHeld(null), STAGE_HOLD_MS);
     return () => window.clearTimeout(timer);
-  }, [mission.currentStageIndex, props.reducedMotion, rows]);
+  }, [held]);
 
   // Announce stage changes and sign-off requests only.
   const announcement =

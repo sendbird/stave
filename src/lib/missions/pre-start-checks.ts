@@ -18,6 +18,8 @@ export interface PreStartCheck {
   blocking: boolean;
   /** A warning the user must acknowledge before Start. */
   needsAcknowledgement?: boolean;
+  /** The acknowledgement's checkbox label, shown whether or not it is checked. */
+  acknowledgeLabel?: string;
 }
 
 /** What the GitHub CLI told us, read from the branch's pull request status. */
@@ -51,13 +53,30 @@ export function readGitHubStatus(result: {
   return { state: "unknown", detail: stderr || "The GitHub CLI did not answer." };
 }
 
+/** What the working tree read found: its uncommitted files, or why it could not be read. */
+export type WorkingTreeReading =
+  | { dirtyFileCount: number | null; error: null }
+  | { dirtyFileCount: null; error: string };
+
+export const WORKING_TREE_PENDING: WorkingTreeReading = { dirtyFileCount: null, error: null };
+
+/** Classifies `sourceControl.getStatus`. A failed read is never taken for a clean tree. */
+export function readWorkingTreeStatus(
+  result: { ok: boolean; items: readonly unknown[]; stderr?: string } | null,
+): WorkingTreeReading {
+  if (result?.ok) return { dirtyFileCount: result.items.length, error: null };
+  return { dirtyFileCount: null, error: result?.stderr?.trim() || "Stave could not read the working tree." };
+}
+
 export interface PreStartFacts {
   playbook: Pick<Playbook, "stages">;
   providerSupported: boolean;
   reporting: LocalMcpReadiness;
   github: GitHubReading;
-  /** Uncommitted files in the workspace, or null while loading. */
+  /** Uncommitted files in the workspace, or null while loading or unreadable. */
   dirtyFileCount: number | null;
+  /** Why the working tree could not be read, when it could not. */
+  workingTreeError?: string | null;
   dirtyAcknowledged: boolean;
   activeMission: boolean;
 }
@@ -160,8 +179,18 @@ export function evaluatePreStartChecks(facts: PreStartFacts): PreStartCheck[] {
     }
   }
 
-  if (facts.dirtyFileCount === null) {
-    checks.push({ id: "workspace", label: "Working tree", state: "pending", detail: "Reading the working tree…", blocking: false });
+  if (facts.workingTreeError) {
+    checks.push({
+      id: "workspace",
+      label: "Working tree",
+      state: "warn",
+      detail: `${facts.workingTreeError.replace(/([^.!?…])$/, "$1.")} Any uncommitted files would go into the mission's work.`,
+      blocking: false,
+      needsAcknowledgement: !facts.dirtyAcknowledged,
+      acknowledgeLabel: "Start without knowing what is uncommitted",
+    });
+  } else if (facts.dirtyFileCount === null) {
+    checks.push({ id: "workspace", label: "Working tree", state: "pending", detail: "Reading the working tree…", blocking: true });
   } else if (facts.dirtyFileCount === 0) {
     checks.push({ id: "workspace", label: "Working tree", state: "pass", detail: "Clean.", blocking: false });
   } else {
@@ -173,6 +202,7 @@ export function evaluatePreStartChecks(facts: PreStartFacts): PreStartCheck[] {
       detail: `${files}. The mission starts on top of them and may commit them with its work.`,
       blocking: false,
       needsAcknowledgement: !facts.dirtyAcknowledged,
+      acknowledgeLabel: "Start on top of these changes",
     });
   }
 

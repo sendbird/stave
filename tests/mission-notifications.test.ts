@@ -69,6 +69,38 @@ describe("mission notifications", () => {
     expect(describeSignOffReminder({ waiting: [fresh], now, intervalMinutes: 30 })).toBeNull();
   });
 
+  test("a reminder is keyed on the wait, so a clock boundary a minute later never sends a second", () => {
+    const minutes = (value: number) => new Date(MISSION_NOW.getTime() + value * 60_000);
+    // MISSION_NOW is on a half-hour boundary. This wait falls due at 29 past; the clock turns at 30.
+    const waiting = [{ detail: detailWith("awaiting-sign-off"), since: minutes(-1).toISOString(), taskTitle: "Billing export" }];
+    const due = describeSignOffReminder({ waiting, now: minutes(29), intervalMinutes: 30 })!;
+    const boundary = describeSignOffReminder({ waiting, now: minutes(30), intervalMinutes: 30 })!;
+    expect(boundary.dedupeKey).toBe(due.dedupeKey);
+    expect(boundary.id).toBe(due.id);
+    // The next reminder comes one interval of the wait later.
+    expect(describeSignOffReminder({ waiting, now: minutes(58), intervalMinutes: 30 })!.dedupeKey).toBe(due.dedupeKey);
+    expect(describeSignOffReminder({ waiting, now: minutes(59), intervalMinutes: 30 })!.dedupeKey).not.toBe(due.dedupeKey);
+  });
+
+  test("waits that fall due close together share one reminder per interval", () => {
+    const minutes = (value: number) => new Date(MISSION_NOW.getTime() + value * 60_000);
+    const first = { detail: detailWith("awaiting-sign-off"), since: minutes(0).toISOString(), taskTitle: "Billing export" };
+    const secondDetail = detailWith("awaiting-sign-off");
+    const second = {
+      detail: { ...secondDetail, mission: { ...secondDetail.mission, id: "mission-2" } },
+      since: minutes(6).toISOString(),
+      taskTitle: "Settings form",
+    };
+    const sent = describeSignOffReminder({ waiting: [first, second], now: minutes(30), intervalMinutes: 30 })!;
+    expect(sent.title).toBe("Still waiting for your sign-off — Billing export");
+    const lastRemindedAt = minutes(30).getTime();
+    // The second wait falls due six minutes later, inside the interval: it waits for the next reminder.
+    expect(describeSignOffReminder({ waiting: [first, second], now: minutes(36), intervalMinutes: 30, lastRemindedAt })).toBeNull();
+    const next = describeSignOffReminder({ waiting: [first, second], now: minutes(60), intervalMinutes: 30, lastRemindedAt })!;
+    expect(next.title).toBe("2 missions are waiting for your sign-off");
+    expect(next.dedupeKey).not.toBe(sent.dedupeKey);
+  });
+
   test("mission kinds are part of the one notification kind list and read as toasts", () => {
     expect(APP_NOTIFICATION_KINDS).toContain("mission.sign_off_requested");
     expect(isMissionAttentionNotificationKind("mission.stuck")).toBe(true);

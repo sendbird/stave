@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import type { MissionDetail } from "@/lib/missions/api";
 import type { MissionReport } from "@/lib/missions/report";
 import { duplicatePlaybook, playbooksRunAlike, uniquePlaybookName, upsertPlaybook } from "@/lib/playbooks/library";
+import { parsePlaybook } from "@/lib/playbooks/normalize";
 import type { Playbook } from "@/lib/playbooks/schema";
 import { findSlackThreadUrl } from "@/lib/missions/report-markdown";
 import { REPOSITORY_MEMORY_CONTENT_MAX_CHARS } from "@/lib/repository-memory";
@@ -51,12 +52,18 @@ export function decisionsAsMemoryFacts(report: MissionReport) {
 /**
  * Saves a mission's playbook: unchanged from a saved playbook it only names
  * it; otherwise it adds it — under its own name when free — for next time.
+ * A copy saved before, by this action or by hand, is named instead of added again.
  */
-export function saveMissionPlaybook(playbook: Playbook): string {
+export function saveMissionPlaybook(ran: Playbook): string {
   const app = useAppStore.getState();
   const saved = app.settings.playbooks;
+  // Compared in the shape saved playbooks are kept in.
+  const parsed = parsePlaybook(ran);
+  const playbook = parsed.ok ? parsed.playbook : ran;
   const same = saved.find((candidate) => candidate.id === playbook.id && playbooksRunAlike(candidate, playbook));
   if (same) return `This mission ran “${same.name}” as it is saved.`;
+  const copy = saved.find((candidate) => playbooksRunAlike(candidate, playbook));
+  if (copy) return `Already saved as “${copy.name}” in Automations → Playbooks.`;
   const created: Playbook = {
     ...duplicatePlaybook({ playbook, now: new Date(), taken: saved }),
     name: uniquePlaybookName(playbook.name, saved),

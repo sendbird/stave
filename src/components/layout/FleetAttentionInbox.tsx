@@ -41,7 +41,7 @@ import { PR_STATUS_VISUAL } from "@/lib/pr-status";
 import { formatTaskUpdatedAt } from "@/lib/tasks";
 import { describeSignOffAction } from "@/lib/missions/mission-view";
 import { useFleetMissionsStore } from "@/store/fleet-missions-store";
-import { useMissionsStore } from "@/store/missions-store";
+import { missionStageKey, useMissionFailure, useMissionsStore } from "@/store/missions-store";
 
 const FLEET_NEED_LABEL: Record<FleetAttentionKind, string> = {
   "user-input": "Question",
@@ -139,6 +139,27 @@ function getFleetNeedDetail(item: FleetAttentionItem) {
   return item.detail;
 }
 
+/** The sign-off button on a Fleet row and, when the sign-off failed, why. */
+export function MissionSignOffControl(props: {
+  label: string;
+  disabled: boolean;
+  failure: string | null;
+  onSignOff: () => void;
+}) {
+  return (
+    <>
+      <Button type="button" size="sm" xstyle={styles.rowAction} disabled={props.disabled} onClick={props.onSignOff}>
+        {props.label}
+      </Button>
+      {props.failure ? (
+        <span className={sx(styles.rowError)} role="alert">
+          {props.failure}
+        </span>
+      ) : null}
+    </>
+  );
+}
+
 /**
  * Signs off from Fleet with the same command and stale-card check as the
  * task's own card, naming what it starts.
@@ -151,22 +172,17 @@ function MissionSignOffAction(args: {
   const detail = useFleetMissionsStore((state) => state.details[args.missionStage.missionId]);
   const runCommand = useMissionsStore((state) => state.runCommand);
   const pending = useMissionsStore((state) => Boolean(state.pendingByMission[args.missionStage.missionId]));
-  const failure = useMissionsStore((state) => state.failureByMission[args.missionStage.missionId]?.message ?? null);
+  // Scoped to this stage: a failure from an earlier stage never shows here.
+  const failure = useMissionFailure(args.missionStage.missionId, missionStageKey(args.missionStage));
   const stage = detail?.mission.playbook.stages.find((candidate) => candidate.id === args.missionStage.stageId);
   if (!stage) return null;
   return (
-    <>
-      <Button
-        type="button"
-        size="sm"
-        xstyle={styles.rowAction}
-        disabled={args.disabled || pending}
-        title={failure ?? undefined}
-        onClick={() => void runCommand("signOff", args.missionStage)}
-      >
-        {describeSignOffAction(stage)}
-      </Button>
-    </>
+    <MissionSignOffControl
+      label={describeSignOffAction(stage)}
+      disabled={args.disabled || pending}
+      failure={failure}
+      onSignOff={() => void runCommand("signOff", args.missionStage)}
+    />
   );
 }
 

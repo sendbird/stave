@@ -3,6 +3,7 @@ import {
   canStartWith,
   evaluatePreStartChecks,
   readGitHubStatus,
+  readWorkingTreeStatus,
   type PreStartFacts,
 } from "../src/lib/missions/pre-start-checks";
 import { starterPlaybook } from "./fixtures/mission-fixtures";
@@ -80,6 +81,28 @@ describe("pre-start checks", () => {
   test("pending reads keep Start off until they answer", () => {
     expect(canStartWith(evaluatePreStartChecks(facts({ reporting: { state: "unknown", reason: null, detail: null } })))).toBe(false);
     expect(canStartWith(evaluatePreStartChecks(facts({ github: { state: "pending" } })))).toBe(false);
+    const reading = evaluatePreStartChecks(facts({ dirtyFileCount: null }));
+    expect(reading.find((check) => check.id === "workspace")).toMatchObject({ state: "pending", blocking: true });
+    expect(canStartWith(reading)).toBe(false);
+  });
+
+  test("a working tree that cannot be read is a warning to acknowledge, never a clean tree", () => {
+    expect(readWorkingTreeStatus({ ok: true, items: [1, 2] })).toEqual({ dirtyFileCount: 2, error: null });
+    expect(readWorkingTreeStatus({ ok: false, items: [], stderr: "fatal: not a git repository" })).toEqual({
+      dirtyFileCount: null,
+      error: "fatal: not a git repository",
+    });
+    expect(readWorkingTreeStatus(null)).toEqual({ dirtyFileCount: null, error: "Stave could not read the working tree." });
+
+    const unread = evaluatePreStartChecks(facts({ dirtyFileCount: null, workingTreeError: "fatal: not a git repository" }));
+    const check = unread.find((candidate) => candidate.id === "workspace")!;
+    expect(check).toMatchObject({ state: "warn", needsAcknowledgement: true });
+    expect(check.detail).toStartWith("fatal: not a git repository. ");
+    expect(check.acknowledgeLabel).toBeTruthy();
+    expect(canStartWith(unread)).toBe(false);
+    expect(
+      canStartWith(evaluatePreStartChecks(facts({ dirtyFileCount: null, workingTreeError: "x", dirtyAcknowledged: true }))),
+    ).toBe(true);
   });
 
   test("the PR status call is read into a GitHub status", () => {

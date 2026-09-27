@@ -98,4 +98,21 @@ describe("mission attention in Fleet", () => {
       ]),
     ).toEqual({ "ws-1": "action-required", "ws-2": "in-progress" });
   });
+
+  test("a stopped mission holds its workspace in Action required only until a newer mission starts there", () => {
+    const stopped = (id: string, createdAt: string) => {
+      const detail = atBuild("running", id);
+      return { ...detail, mission: { ...detail.mission, state: "stopped" as const, createdAt } };
+    };
+    const later = new Date(MISSION_NOW.getTime() + 60 * 60_000).toISOString();
+    const old = stopped("m-old", MISSION_NOW.toISOString());
+    expect(missionLanesByWorkspace([old])).toEqual({ "ws-1": "action-required" });
+
+    const next = atBuild("running", "m-new");
+    expect(missionLanesByWorkspace([old, { ...next, mission: { ...next.mission, createdAt: later } }])).toEqual({
+      "ws-1": "in-progress",
+    });
+    // A stop newer than the running mission beside it still asks for the user.
+    expect(missionLanesByWorkspace([stopped("m-late", later), next])).toEqual({ "ws-1": "action-required" });
+  });
 });

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { ChevronRight, Globe, Hand, Settings2, Sparkles, Target, Zap } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
@@ -19,7 +19,10 @@ import {
   canStartWith,
   evaluatePreStartChecks,
   readGitHubStatus,
+  readWorkingTreeStatus,
+  WORKING_TREE_PENDING,
   type GitHubReading,
+  type WorkingTreeReading,
 } from "@/lib/missions/pre-start-checks";
 import {
   buildMissionStartInput,
@@ -90,9 +93,13 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
   const [customizing, setCustomizing] = useState(false);
   const [saveAsNew, setSaveAsNew] = useState(false);
   const [newName, setNewName] = useState("");
-  const [dirtyAcknowledged, setDirtyAcknowledged] = useState(false);
   const [github, setGithub] = useState<GitHubReading>({ state: "pending" });
-  const [dirtyFileCount, setDirtyFileCount] = useState<number | null>(null);
+  const [workingTree, setWorkingTree] = useState<WorkingTreeReading>(WORKING_TREE_PENDING);
+  // An acknowledgement covers the reading it was given for, not a later one.
+  const [acknowledgedTree, setAcknowledgedTree] = useState<WorkingTreeReading | null>(null);
+  const dirtyAcknowledged = acknowledgedTree === workingTree;
+  // "Save as new" keeps one copy across a failed start and its retry.
+  const savedCopyId = useRef<string | null>(null);
   const [starting, setStarting] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
   const [startIndex, setStartIndex] = useState(0);
@@ -106,6 +113,7 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
     setCustomizing(false);
     setStartIndex(0);
     setSaveAsNew(false);
+    savedCopyId.current = null;
     setNewName(base ? `${base.name} (edited)`.slice(0, PLAYBOOK_LIMITS.name) : "");
     // Keyed on the choice, not the object: saving a copy must not reset the sheet.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -123,12 +131,18 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
     let cancelled = false;
     const scm = window.api?.sourceControl;
     if (!scm?.getStatus || !workspacePath) {
-      setDirtyFileCount(0);
+      setWorkingTree({
+        dirtyFileCount: null,
+        error: scm?.getStatus
+          ? "Stave does not know this workspace's folder."
+          : "The working tree can be read only in the desktop app.",
+      });
     } else {
+      setWorkingTree(WORKING_TREE_PENDING);
       void scm
         .getStatus({ cwd: workspacePath })
-        .then((result) => !cancelled && setDirtyFileCount(result.ok ? result.items.length : 0))
-        .catch(() => !cancelled && setDirtyFileCount(0));
+        .then((result) => !cancelled && setWorkingTree(readWorkingTreeStatus(result)))
+        .catch(() => !cancelled && setWorkingTree(readWorkingTreeStatus(null)));
     }
     return () => {
       cancelled = true;
@@ -160,7 +174,8 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
         providerSupported,
         reporting: readiness,
         github,
-        dirtyFileCount,
+        dirtyFileCount: workingTree.dirtyFileCount,
+        workingTreeError: workingTree.error,
         dirtyAcknowledged,
         activeMission: Boolean(taskMission && isActiveMissionState(taskMission.mission.state)),
       })
@@ -182,7 +197,10 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
     setFailure(null);
     let playbook = parsedCopy.playbook;
     if (saveAsNew) {
-      const created = { ...duplicatePlaybook({ playbook, now: new Date(), taken: saved }), name: newName.trim() };
+      const duplicate = duplicatePlaybook({ playbook, now: new Date(), taken: saved });
+      // A retry after a failed start updates the copy it saved, not a second one.
+      const created = { ...duplicate, id: savedCopyId.current ?? duplicate.id, name: newName.trim() };
+      savedCopyId.current = created.id;
       updateSettings({ patch: { playbooks: upsertPlaybook(saved, created) } });
       playbook = created;
     }
@@ -434,7 +452,11 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
             <h3 id="start-mission-checks" className={sx(styles.sectionTitle)}>
               Before you start
             </h3>
-            <PreStartChecks checks={checks} dirtyAcknowledged={dirtyAcknowledged} onAcknowledgeDirty={setDirtyAcknowledged} />
+            <PreStartChecks
+              checks={checks}
+              dirtyAcknowledged={dirtyAcknowledged}
+              onAcknowledgeDirty={(value) => setAcknowledgedTree(value ? workingTree : null)}
+            />
           </section>
         </div>
 

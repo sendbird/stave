@@ -23,7 +23,7 @@ import {
 import type { AcceptanceCriterion } from "@/lib/playbooks/stage-prompt";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import { useAppStore } from "@/store/app.store";
-import { useMissionsStore, useTaskMission } from "@/store/missions-store";
+import { missionStageKey, useMissionFailure, useMissionsStore, useTaskMission } from "@/store/missions-store";
 import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
 import { MissionReportView } from "./MissionReportView";
 import { useMissionReportActions, type MissionReportActions } from "./useMissionReportActions";
@@ -340,7 +340,9 @@ export function MissionPanel(props: {
   const refreshMission = useMissionsStore((state) => state.refreshMission);
   const missionId = detail?.mission.id ?? "";
   const busy = useMissionsStore((state) => Boolean(state.pendingByMission[missionId]));
-  const failure = useMissionsStore((state) => state.failureByMission[missionId]?.message ?? null);
+  const stage = detail?.mission.playbook.stages[detail.mission.currentStageIndex];
+  const record = detail && stage ? latestStageRecord(detail.stages, stage.id) : null;
+  const failure = useMissionFailure(missionId, record ? missionStageKey(record) : null);
   const focusTranscriptTool = useAppStore((state) => state.focusTranscriptTool);
   const reportActions = useMissionReportActions(detail);
   const active = Boolean(detail && isActiveMissionState(detail.mission.state));
