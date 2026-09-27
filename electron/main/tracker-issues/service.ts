@@ -113,6 +113,19 @@ function buildJiraSource(): TrackerSourceAdapter {
   });
 }
 
+const cacheListeners = new Set<(payload: { source: TrackerSourceId }) => void>();
+
+/** Runs after every cache refresh, in the main process; returns the unsubscribe. */
+export function onTrackerIssuesCacheUpdated(listener: (payload: { source: TrackerSourceId }) => void): () => void {
+  cacheListeners.add(listener);
+  return () => cacheListeners.delete(listener);
+}
+
+/** Keeps the issue list fresh while Issues is hidden, for projects that watch it. */
+export function setTrackerIssuesBackgroundDemand(demand: boolean): void {
+  getTrackerIssuesRuntime().setBackgroundDemand(demand);
+}
+
 export function getTrackerIssuesRuntime(): TrackerIssuesRuntime {
   if (runtime) {
     return runtime;
@@ -122,7 +135,16 @@ export function getTrackerIssuesRuntime(): TrackerIssuesRuntime {
     persistence: ensurePersistenceReadySync(),
     sources: [buildJiraSource(), craneSource],
     emitStatus: (status) => sendToRenderer(STATUS_EVENT, status),
-    emitCacheUpdated: (payload) => sendToRenderer(CACHE_UPDATED_EVENT, payload),
+    emitCacheUpdated: (payload) => {
+      sendToRenderer(CACHE_UPDATED_EVENT, payload);
+      for (const listener of cacheListeners) {
+        try {
+          listener(payload);
+        } catch (error) {
+          console.error("[tracker-issues] a cache listener failed", error);
+        }
+      }
+    },
     emitKickoffUpdated: (link) => sendToRenderer(KICKOFF_UPDATED_EVENT, link),
   });
   return runtime;

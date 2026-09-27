@@ -8,19 +8,29 @@ import { vars } from "../ads/tokens/tokens.stylex";
  */
 export const projectStyles = stylex.create({
   body: {
+    position: "relative",
     display: "grid",
-    gridTemplateColumns: {
-      default: "minmax(0, 1fr)",
-      "@media (min-width: 60rem)": "minmax(15rem, 18rem) minmax(0, 1fr)",
-    },
+    gridTemplateColumns: "minmax(0, 1fr)",
     flex: "1 1 auto",
     minHeight: 0,
     borderTopWidth: vars["--ads-border-width-hairline"],
     borderTopStyle: "solid",
     borderTopColor: vars["--ads-color-border-subtle"],
   },
+  bodyList: { gridTemplateColumns: "minmax(15rem, 18rem) minmax(0, 1fr)" },
+  bodyDock: { gridTemplateColumns: "minmax(0, 1fr) minmax(20rem, 24rem)" },
+  bodyListDock: { gridTemplateColumns: "minmax(14rem, 16rem) minmax(0, 1fr) minmax(20rem, 24rem)" },
+  dockColumn: { minHeight: 0, minWidth: 0 },
+  dockOverlay: {
+    position: "absolute",
+    insetBlock: 0,
+    insetInlineEnd: 0,
+    width: "min(24rem, 100%)",
+    zIndex: 2,
+    boxShadow: vars["--ads-elevation-modal"],
+  },
   master: {
-    display: { default: "none", "@media (min-width: 60rem)": "flex" },
+    display: "flex",
     flexDirection: "column",
     gap: 2,
     minHeight: 0,
@@ -84,7 +94,7 @@ export const projectStyles = stylex.create({
   scroll: { flex: "1 1 auto", minHeight: 0, overflowY: "auto" },
   /** Replaces the project list below the width that shows it. */
   picker: {
-    display: { default: "block", "@media (min-width: 60rem)": "none" },
+    display: "block",
     padding: vars["--ads-space-12"],
     borderBlockEndWidth: vars["--ads-border-width-hairline"],
     borderBlockEndStyle: "solid",
@@ -149,6 +159,7 @@ export const projectStyles = stylex.create({
     borderColor: vars["--ads-color-border"],
     backgroundColor: vars["--ads-color-surface"],
   },
+  coordinatorActions: { display: "flex", alignItems: "center", gap: vars["--ads-space-4"] },
   coordinatorText: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], minWidth: 0 },
   coordinatorQuote: {
     margin: 0,
@@ -282,6 +293,11 @@ export const projectStyles = stylex.create({
     borderTopStyle: "solid",
     borderTopColor: vars["--ads-color-border-subtle"],
   },
+  tabStack: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"] },
+  triggerRow: { gridTemplateColumns: "20px minmax(0, 1fr) auto", alignItems: "start", columnGap: vars["--ads-space-12"] },
+  triggerIcon: { display: "flex", justifyContent: "center", paddingTop: 3, color: vars["--ads-color-text-subtle"] },
+  triggerField: { display: "block", marginTop: vars["--ads-space-8"], maxWidth: "26rem" },
+  triggerSelect: { display: "block", width: "12rem" },
   settingHint: { fontSize: vars["--ads-font-size-caption"], lineHeight: vars["--ads-line-height-normal"], color: vars["--ads-color-text-muted"] },
   settingLabel: { fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-medium"], color: vars["--ads-color-text"] },
   settingValue: { display: "flex", flexDirection: "column", alignItems: "flex-start", gap: 6, margin: 0 },

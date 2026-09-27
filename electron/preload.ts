@@ -825,6 +825,7 @@ const projectsApi: ProjectsBridgeApi = {
   get: (args) => ipcRenderer.invoke(PROJECT_IPC.get, args),
   create: (args) => ipcRenderer.invoke(PROJECT_IPC.create, args),
   approveProposal: (args) => ipcRenderer.invoke(PROJECT_IPC.approveProposal, args),
+  messageCoordinator: (args) => ipcRenderer.invoke(PROJECT_IPC.messageCoordinator, args),
   rejectProposal: (args) => ipcRenderer.invoke(PROJECT_IPC.rejectProposal, args),
   pause: (args) => ipcRenderer.invoke(PROJECT_IPC.pause, args),
   resume: (args) => ipcRenderer.invoke(PROJECT_IPC.resume, args),

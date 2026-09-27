@@ -9,7 +9,15 @@ import { create } from "zustand";
 import type { ProjectDetail, ProjectResponse, ProjectsBridgeApi } from "@/lib/projects/api";
 import { isOpenProjectState, type Project, type ProjectCreateInput } from "@/lib/projects/domain";
 
-type CommandName = "approveProposal" | "rejectProposal" | "pause" | "resume" | "end" | "updateSettings" | "setMemoryStatus";
+type CommandName =
+  | "approveProposal"
+  | "rejectProposal"
+  | "pause"
+  | "resume"
+  | "end"
+  | "updateSettings"
+  | "setMemoryStatus"
+  | "messageCoordinator";
 
 interface ProjectsState {
   projects: Project[];
@@ -17,6 +25,10 @@ interface ProjectsState {
   selectedId: string | null;
   /** The command palette asked for the New project dialog. */
   newProjectRequested: boolean;
+  /** The coordinator conversation beside the project, where the window has room for it. */
+  dockOpen: boolean;
+  /** The conversation floating over the project on a narrow window. */
+  dockOverlayOpen: boolean;
   loaded: boolean;
   pendingById: Record<string, boolean>;
   failureById: Record<string, string | null>;
@@ -24,6 +36,9 @@ interface ProjectsState {
   refresh: (projectId: string) => Promise<void>;
   select: (projectId: string | null) => void;
   requestNewProject: (requested: boolean) => void;
+  /** Shows the coordinator conversation: docked where it fits, floating otherwise. */
+  openCoordinatorDock: () => void;
+  closeCoordinatorDock: (mode: "docked" | "overlay") => void;
   create: (input: ProjectCreateInput) => Promise<ProjectResponse>;
   runCommand: <A extends CommandName>(command: A, args: Parameters<ProjectsBridgeApi[A]>[0]) => Promise<ProjectResponse>;
 }
@@ -47,6 +62,8 @@ export const useProjectsStore = create<ProjectsState>()((set, get) => {
     details: {},
     selectedId: null,
     newProjectRequested: false,
+    dockOpen: true,
+    dockOverlayOpen: false,
     loaded: false,
     pendingById: {},
     failureById: {},
@@ -79,6 +96,8 @@ export const useProjectsStore = create<ProjectsState>()((set, get) => {
     },
 
     requestNewProject: (requested) => set({ newProjectRequested: requested }),
+    openCoordinatorDock: () => set({ dockOpen: true, dockOverlayOpen: true }),
+    closeCoordinatorDock: (mode) => set(mode === "docked" ? { dockOpen: false } : { dockOverlayOpen: false }),
 
     create: async (input) => {
       const api = projectsApi();

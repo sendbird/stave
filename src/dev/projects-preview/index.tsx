@@ -6,7 +6,8 @@ import { ActionButton } from "@/components/system/ActionButton";
 import { ProjectsView } from "@/components/projects/ProjectsView";
 import { SidebarPrimaryNav } from "@/components/layout/SidebarPrimaryNav";
 import type { ProjectDetail, ProjectMissionView } from "@/lib/projects/api";
-import { DEFAULT_PROJECT_SETTINGS, type MissionProposal, type Project } from "@/lib/projects/domain";
+import { DEFAULT_PROJECT_SETTINGS, DEFAULT_PROJECT_TRIGGERS, type MissionProposal, type Project } from "@/lib/projects/domain";
+import type { ChatMessage } from "@/types/chat";
 import { createPlaybookFromStarter, findPlaybookStarter } from "@/lib/playbooks/starters";
 import { applyThemeClass } from "@/lib/themes/apply";
 import { useProjectsStore } from "@/store/projects-store";
@@ -26,7 +27,18 @@ const project: Project = {
   goal: "Every dashboard screen uses the new components; no legacy imports remain.",
   repositoryPath: "/tmp/acme",
   coordinator: { workspaceId: "ws", taskId: "coord" },
-  settings: { ...DEFAULT_PROJECT_SETTINGS, parallelLimit: 3 },
+  settings: {
+    ...DEFAULT_PROJECT_SETTINGS,
+    parallelLimit: 3,
+    triggers: {
+      ...DEFAULT_PROJECT_TRIGGERS,
+      issueAssigned: true,
+      issueFilter: "dashboard",
+      schedule: "weekdays",
+      issueSince: iso(600),
+      scheduleSince: iso(600),
+    },
+  },
   state: "active",
   summary: "Started Billing table and Settings form in parallel; Navigation waits on the shared header change (#618).",
   reasonDetail: null,
@@ -96,8 +108,49 @@ const detail: ProjectDetail = {
     { label: "PR #605", url: "https://github.com/acme/app/pull/605", kind: "pull-request", missionId: "m4", missionTitle: "Replace design tokens with the new scale.", verified: true },
     { label: "Preview", url: "https://acme-git-tokens.vercel.app", kind: "preview", missionId: "m4", missionTitle: "Replace design tokens with the new scale.", verified: false },
   ],
-  events: [{ id: "e", projectId: project.id, sequence: 1, kind: "coordinator-woken", idempotencyKey: null, detail: {}, createdAt: iso(5) }],
+  events: [
+    {
+      id: "t",
+      projectId: project.id,
+      sequence: 1,
+      kind: "trigger-observed",
+      idempotencyKey: null,
+      detail: { triggerId: "issue:jira:ACME-618", triggerKind: "issue-assigned", summary: "ACME-618 · Shared header" },
+      createdAt: iso(7),
+    },
+    {
+      id: "e",
+      projectId: project.id,
+      sequence: 2,
+      kind: "coordinator-woken",
+      idempotencyKey: null,
+      detail: { delivered: {}, triggers: ["issue:jira:ACME-618"] },
+      createdAt: iso(5),
+    },
+  ],
+  coordinatorState: { available: true, busy: false, providerId: "claude-code", model: "claude-opus-5-5" },
 };
+
+function message(id: string, role: "user" | "assistant", content: string): ChatMessage {
+  return { id, role, content, model: "claude-opus-5-5", providerId: role === "user" ? "user" : "claude-code", parts: [] } as unknown as ChatMessage;
+}
+
+const conversation: ChatMessage[] = [
+  message("m1", "user", "Plan this project. Break the goal into missions that can run independently where possible."),
+  message(
+    "m2",
+    "assistant",
+    "I proposed three missions: **Billing table** and **Settings form** can run in parallel; **Navigation** waits for the shared header change (#618) because both touch the same layout.",
+  ),
+  message("m3", "user", "Can Navigation start once #618 is merged, without asking me again?"),
+  message(
+    "m4",
+    "assistant",
+    "Yes — I'll watch #618. When it merges I'll start Navigation on Codex with the same playbook. You still sign off before Ready for review.",
+  ),
+  message("m5", "user", "What this project watches happened:\n- Issue assigned to the user: ACME-618 · Shared header"),
+  message("m6", "assistant", "ACME-618 is the shared header change Navigation depends on. I noted it; no new mission needed."),
+];
 
 export function ProjectsPreview() {
   const [dark, setDark] = useState(() => params.get("theme") === "dark");
@@ -122,7 +175,7 @@ export function ProjectsPreview() {
         </ActionButton>
       </aside>
       <div className={sx(styles.surface)}>
-        <ProjectsView />
+        <ProjectsView loadCoordinatorMessages={async () => conversation} />
       </div>
     </main>
   );

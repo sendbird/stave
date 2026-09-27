@@ -23,6 +23,10 @@ export const PROJECT_LIMITS = {
   maxMemories: 200,
   /** Automatic coordinator turns a project may take in a day before it pauses. */
   maxCoordinatorWakesPerDay: 24,
+  /** Characters of a message the user sends the coordinator from the project. */
+  coordinatorMessage: 4_000,
+  /** Triggers one wake delivers; the rest wait for the next. */
+  maxTriggersPerWake: 10,
 } as const;
 
 const IdSchema = z.string().trim().min(1).max(200);
@@ -35,6 +39,41 @@ export function isOpenProjectState(state: ProjectState) {
   return state === "active" || state === "paused";
 }
 
+/** When a scheduled check-in wakes the coordinator, in the host's local time. */
+export const PROJECT_SCHEDULES = ["off", "daily", "weekdays", "weekly", "every-4h"] as const;
+export type ProjectSchedule = (typeof PROJECT_SCHEDULES)[number];
+
+/**
+ * Starts when: what wakes the coordinator besides its own missions. Each only
+ * wakes it — the coordinator decides whether a mission follows, and with
+ * "ask before starting" on, the user still approves it.
+ */
+export const ProjectTriggersSchema = z
+  .object({
+    /** An issue newly assigned to the user in Issues (Crane or Jira). */
+    issueAssigned: z.boolean(),
+    /** Only issues whose key, title, project or labels contain this; empty for all. */
+    issueFilter: z.string().trim().max(80),
+    /** Failing checks, requested changes or a merge on a PR a mission of this project opened. */
+    pullRequestFeedback: z.boolean(),
+    schedule: z.enum(PROJECT_SCHEDULES),
+    /** When issue watching was turned on; issues assigned before it never wake. */
+    issueSince: z.iso.datetime().nullable(),
+    /** When the schedule was set; earlier slots never wake. */
+    scheduleSince: z.iso.datetime().nullable(),
+  })
+  .strict();
+export type ProjectTriggers = z.infer<typeof ProjectTriggersSchema>;
+
+export const DEFAULT_PROJECT_TRIGGERS: ProjectTriggers = {
+  issueAssigned: false,
+  issueFilter: "",
+  pullRequestFeedback: true,
+  schedule: "off",
+  issueSince: null,
+  scheduleSince: null,
+};
+
 export const ProjectSettingsSchema = z
   .object({
     /** Missions of this project that may run at once. */
@@ -43,6 +82,7 @@ export const ProjectSettingsSchema = z
     askBeforeStarting: z.boolean(),
     /** Decisions from mission reports become project memory without review. */
     autoAcceptDecisions: z.boolean(),
+    triggers: ProjectTriggersSchema.default(DEFAULT_PROJECT_TRIGGERS),
   })
   .strict();
 export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
@@ -51,6 +91,7 @@ export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
   parallelLimit: PROJECT_LIMITS.defaultParallel,
   askBeforeStarting: true,
   autoAcceptDecisions: false,
+  triggers: DEFAULT_PROJECT_TRIGGERS,
 };
 
 export const ProjectSchema = z
@@ -111,8 +152,12 @@ export const PROJECT_EVENT_KINDS = [
   "proposal-rejected",
   "mission-started",
   "mission-start-failed",
-  /** A coordinator turn Stave started, with the mission states it delivered. */
+  /** A coordinator turn Stave started, with the mission states and triggers it delivered. */
   "coordinator-woken",
+  /** Something a project watches happened; delivered to the coordinator at its next wake. */
+  "trigger-observed",
+  /** The user wrote to the coordinator from the project. */
+  "coordinator-messaged",
   "coordinator-wake-failed",
   "summary",
   "memory-added",

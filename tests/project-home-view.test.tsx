@@ -7,7 +7,7 @@ import { ProjectList, ProjectsEmpty } from "../src/components/projects/ProjectsV
 import { missionNeedsYou } from "../src/components/projects/ProjectRows";
 import { createPlaybookFromStarter, findPlaybookStarter } from "../src/lib/playbooks/starters";
 import type { ProjectDetail, ProjectMissionView } from "../src/lib/projects/api";
-import { DEFAULT_PROJECT_SETTINGS, type Project } from "../src/lib/projects/domain";
+import { DEFAULT_PROJECT_SETTINGS, DEFAULT_PROJECT_TRIGGERS, type Project } from "../src/lib/projects/domain";
 import { countProjectNeeds } from "../src/store/projects-store";
 
 const NOW = "2026-09-26T10:00:00.000Z";
@@ -137,4 +137,47 @@ test("the collapsed sidebar keeps Projects one click away", async () => {
   const html = renderToStaticMarkup(createElement(SidebarPrimaryNavCollapsed, { showFleetView: true }));
   expect(html).toContain('aria-label="open-fleet-view"');
   expect(html).toContain('aria-label="Projects"');
+});
+
+test("the coordinator conversation shows what you wrote, what woke it and its answers, never tool calls", async () => {
+  const { toDockEntries } = await import("../src/components/projects/CoordinatorDock");
+  const { buildCoordinatorKickoffPrompt, buildCoordinatorWakePrompt } = await import("../src/lib/projects/policy");
+  const message = (id: string, role: "user" | "assistant", content: string, extra: Record<string, unknown> = {}) =>
+    ({ id, role, content, model: "m", providerId: role === "user" ? "user" : "claude-code", parts: [], ...extra }) as never;
+  const entries = toDockEntries([
+    message("1", "user", buildCoordinatorKickoffPrompt()),
+    message("2", "assistant", "I proposed two missions."),
+    message("3", "assistant", ""),
+    message("4", "user", "Split billing in two."),
+    message(
+      "5",
+      "user",
+      buildCoordinatorWakePrompt([], [
+        { id: "a", kind: "issue-assigned", summary: "ACME-1 · Fix login" },
+        { id: "b", kind: "schedule", summary: "Weekdays at 09:00" },
+      ]),
+    ),
+    message("6", "assistant", "Working on it", { isStreaming: true }),
+  ]);
+  expect(entries.map((entry) => [entry.author, entry.text])).toEqual([
+    ["stave", "Asked the coordinator to plan the project from its goal."],
+    ["coordinator", "I proposed two missions."],
+    ["you", "Split billing in two."],
+    ["stave", "Woke the coordinator: Issue assigned to the user: ACME-1 · Fix login and 1 more."],
+    ["coordinator", "Working on it"],
+  ]);
+  expect(entries.at(-1)?.streaming).toBe(true);
+});
+
+test("Starts when names each trigger and what it watches", async () => {
+  const { ProjectStartsWhen, describeTriggers, countActiveTriggers } = await import("../src/components/projects/ProjectStartsWhen");
+  const triggers = { ...DEFAULT_PROJECT_TRIGGERS, issueAssigned: true, issueFilter: "dashboard", schedule: "weekdays" as const };
+  expect(countActiveTriggers(triggers)).toBe(3);
+  expect(describeTriggers(triggers)).toBe("Issues matching “dashboard” · PR feedback · Weekdays at 09:00");
+  expect(describeTriggers({ ...DEFAULT_PROJECT_TRIGGERS, pullRequestFeedback: false })).toBeNull();
+  const html = renderToStaticMarkup(createElement(ProjectStartsWhen, { triggers, onChange: () => {} }));
+  expect(html).toContain("An issue is assigned to me");
+  expect(html).toContain("A mission&#x27;s pull request gets feedback");
+  expect(html).toContain("Scheduled check-in");
+  expect(html).toContain('value="dashboard"');
 });

@@ -54,13 +54,24 @@ import {
   type Project,
   type ProjectMemory,
   type ProjectSettings,
+  type ProjectTriggers,
 } from "../../../src/lib/projects/domain";
 import {
+  buildCoordinatorKickoffPrompt,
   buildCoordinatorWakePrompt,
   collectDeliveredStates,
+  collectPendingTriggers,
   decideProject,
+  issueMatchesFilter,
+  issueTrigger,
+  latestScheduleSlot,
+  pullRequestTriggers,
+  SCHEDULE_LABELS,
+  type ObservedIssue,
   type ProjectMissionChange,
   type ProjectMissionSnapshot,
+  type ProjectPullRequestSignal,
+  type SeenTrigger,
 } from "../../../src/lib/projects/policy";
 import type { CanonicalRetrievedContextPart, ProviderRuntimeOptions } from "../../../src/lib/providers/provider.types";
 import type { ProjectStore } from "../../persistence/project-store";
@@ -70,6 +81,20 @@ import type { HostProjectAction } from "../protocol";
 
 const DEFAULT_TICK_MS = 10_000;
 const MAX_ACTIONS_PER_PROJECT_TICK = 8;
+/** How often a project reads its missions' pull requests for feedback. */
+const PULL_REQUEST_POLL_MS = 5 * 60_000;
+/** Pull requests of missions that ended longer ago than this are no longer watched. */
+const PULL_REQUEST_WATCH_MS = 14 * 24 * 60 * 60_000;
+
+/** A new schedule or issue watch starts from now, never from the past. */
+function stampTriggers(previous: ProjectTriggers, next: ProjectTriggers, at: string): ProjectTriggers {
+  return {
+    ...next,
+    issueSince: next.issueAssigned ? (previous.issueAssigned ? (previous.issueSince ?? at) : at) : null,
+    scheduleSince:
+      next.schedule === "off" ? null : next.schedule === previous.schedule ? (previous.scheduleSince ?? at) : at,
+  };
+}
 
 type ProjectStorePort = Pick<
   ProjectStore,
@@ -86,6 +111,7 @@ type ProjectStorePort = Pick<
   | "addMemory"
   | "setMemoryStatus"
   | "listMemories"
+  | "markTriggersSeen"
 >;
 
 type MissionReaderPort = Pick<MissionStore, "listMissionsForProject" | "getAggregate">;
@@ -107,6 +133,8 @@ export interface ProjectRuntimeDependencies {
   getMissionReport: (missionId: string) => Promise<MissionReport | null>;
   /** What a mission's turns spent so far; absent or null when usage is unknown. */
   getMissionUsage?: (missionId: string) => MissionUsage | null;
+  /** The pull request of a mission's workspace, for PR feedback triggers; absent to not watch. */
+  readPullRequest?: (workspaceId: string) => Promise<ProjectPullRequestSignal | null>;
   getTaskSnapshot: (args: { workspaceId: string; taskId: string }) => Promise<CoordinatorSnapshot>;
   runSupervisedTurn: (args: {
     workspaceId: string;
@@ -156,6 +184,10 @@ export interface ProjectRuntime {
   updateSettings: (args: { projectId: string; settings: Partial<ProjectSettings> }) => Promise<ProjectDetail>;
   setMemoryStatus: (args: { projectId: string; memoryId: string; status: ProjectMemory["status"] | "removed" }) => Promise<ProjectDetail>;
   syncPlaybooks: (args: { playbooks: Playbook[] }) => Promise<{ count: number }>;
+  /** Issues assigned to the user, from Issues; wakes projects that watch for new ones. */
+  observeIssues: (args: { items: readonly ObservedIssue[] }) => Promise<{ triggered: number }>;
+  /** The user writes to the coordinator from the project; starts a turn on its task. */
+  messageCoordinator: (args: { projectId: string; text: string }) => Promise<ProjectDetail>;
   getForGrant: (args: { projectKey: string }) => Promise<ProjectBriefing>;
   startMissionForGrant: (args: { projectKey: string; input: unknown }) => Promise<{ state: MissionProposal["state"]; message: string }>;
   getMissionReportForGrant: (args: { projectKey: string; missionId: string }) => Promise<Record<string, unknown>>;
@@ -233,6 +265,10 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
   let timer: ReturnType<typeof globalThis.setInterval> | null = null;
   let chain = Promise.resolve();
   let syncedPlaybooks: Playbook[] = [];
+  /** When each project last read its missions' pull requests. */
+  const pullRequestPolledAt = new Map<string, number>();
+  /** Missions whose pull request merged or closed; nothing more to watch. */
+  const settledPullRequests = new Set<string>();
 
   function enqueue<T>(work: () => Promise<T>): Promise<T> {
     const next = chain.then(work, work);
@@ -331,6 +367,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
         });
       }
     }
+    const coordinator = await deps.getTaskSnapshot(project.coordinator).catch(() => null);
     return {
       project,
       proposals: store.listProposals(projectId),
@@ -338,6 +375,12 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
       memories: store.listMemories(projectId),
       library,
       events: store.listEvents(projectId, 100),
+      coordinatorState: {
+        available: Boolean(coordinator?.exists && !coordinator.archived),
+        busy: Boolean(coordinator?.activeTurnId),
+        providerId: coordinator?.providerId ?? null,
+        model: coordinator?.model ?? null,
+      },
     };
   }
 
@@ -431,8 +474,42 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
     }
   }
 
-  async function wakeCoordinator(project: Project, prompt: string, key: string, delivered: Record<string, string>) {
-    if (!store.recordEvent(project.id, { kind: "coordinator-woken", idempotencyKey: key, detail: { delivered } }, now())) {
+  /**
+   * The one way a project starts a turn: on its coordinator's task, read-only,
+   * with the coordinator instruction — for a wake and for the user's message.
+   */
+  async function runCoordinatorTurn(project: Project, prompt: string, runtime: { providerId: string; model: string }) {
+    await deps.runSupervisedTurn({
+      workspaceId: project.coordinator.workspaceId,
+      taskId: project.coordinator.taskId,
+      prompt,
+      fingerprint: runtime,
+      runtimeOptions: coordinatorRuntimeOptions(runtime.providerId),
+      retrievedContextParts: [
+        {
+          type: "retrieved_context",
+          sourceId: PROJECT_CONTEXT_SOURCE_ID,
+          title: `Project: ${project.name}`,
+          content: buildCoordinatorInstruction(project),
+        } as CanonicalRetrievedContextPart,
+      ],
+    });
+  }
+
+  async function wakeCoordinator(
+    project: Project,
+    prompt: string,
+    key: string,
+    delivered: Record<string, string>,
+    triggerIds: readonly string[] = [],
+  ) {
+    if (
+      !store.recordEvent(
+        project.id,
+        { kind: "coordinator-woken", idempotencyKey: key, detail: { delivered, triggers: [...triggerIds] } },
+        now(),
+      )
+    ) {
       return;
     }
     const snapshot = await deps.getTaskSnapshot(project.coordinator);
@@ -443,21 +520,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
       return;
     }
     try {
-      await deps.runSupervisedTurn({
-        workspaceId: project.coordinator.workspaceId,
-        taskId: project.coordinator.taskId,
-        prompt,
-        fingerprint: { providerId: snapshot.providerId, model: snapshot.model },
-        runtimeOptions: coordinatorRuntimeOptions(snapshot.providerId),
-        retrievedContextParts: [
-          {
-            type: "retrieved_context",
-            sourceId: PROJECT_CONTEXT_SOURCE_ID,
-            title: `Project: ${project.name}`,
-            content: buildCoordinatorInstruction(project),
-          } as CanonicalRetrievedContextPart,
-        ],
-      });
+      await runCoordinatorTurn(project, prompt, { providerId: snapshot.providerId, model: snapshot.model });
     } catch (error) {
       const message = error instanceof Error && error.message ? error.message : "The coordinator turn did not start.";
       store.recordEvent(project.id, { kind: "coordinator-wake-failed", detail: { message } }, now());
@@ -465,7 +528,48 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
     }
   }
 
+  /** Records the triggers not seen before; each becomes news for the next wake. */
+  function recordTriggers(project: Project, found: readonly SeenTrigger[]): number {
+    const fresh = new Set(store.markTriggersSeen(project.id, found.map((entry) => entry.seenKey), now()));
+    let recorded = 0;
+    for (const { seenKey, trigger } of found) {
+      if (!fresh.has(seenKey)) continue;
+      const detail = { triggerId: trigger.id, triggerKind: trigger.kind, summary: trigger.summary.slice(0, 500) };
+      if (store.recordEvent(project.id, { kind: "trigger-observed", idempotencyKey: `project:${project.id}:trigger:${trigger.id}`, detail }, now())) {
+        recorded += 1;
+      }
+    }
+    return recorded;
+  }
+
+  /** Scheduled check-ins and pull request feedback: what a tick can see for itself. */
+  async function collectTriggers(project: Project) {
+    const { triggers } = project.settings;
+    const slot = latestScheduleSlot(triggers.schedule, now());
+    if (slot && triggers.scheduleSince && slot.getTime() > Date.parse(triggers.scheduleSince)) {
+      const id = `schedule:${slot.toISOString()}`;
+      const when = slot.toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" });
+      recordTriggers(project, [{ seenKey: id, trigger: { id, kind: "schedule", summary: `${SCHEDULE_LABELS[triggers.schedule]} (${when})` } }]);
+    }
+    if (!triggers.pullRequestFeedback || !deps.readPullRequest) return;
+    const polledAt = pullRequestPolledAt.get(project.id) ?? 0;
+    if (now().getTime() - polledAt < PULL_REQUEST_POLL_MS) return;
+    pullRequestPolledAt.set(project.id, now().getTime());
+    for (const aggregate of aggregatesOf(project.id)) {
+      const { mission } = aggregate;
+      if (isActiveMissionState(mission.state) || settledPullRequests.has(mission.id)) continue;
+      if (now().getTime() - Date.parse(mission.updatedAt) > PULL_REQUEST_WATCH_MS) continue;
+      if (!aggregate.stages.some((record) => record.facts?.action?.type === "open-draft-pr")) continue;
+      const pr = await deps.readPullRequest(mission.workspaceId).catch(() => null);
+      if (!pr) continue;
+      if (pr.state !== "OPEN") settledPullRequests.add(mission.id);
+      recordTriggers(project, pullRequestTriggers({ missionId: mission.id, missionTitle: firstLine(mission.assignment, 60), pr }));
+    }
+  }
+
   async function tickProject(projectId: string) {
+    const watched = store.getProject(projectId);
+    if (watched?.state === "active") await collectTriggers(watched).catch((error) => console.warn("[projects] triggers failed", projectId, error));
     for (let round = 0; round < MAX_ACTIONS_PER_PROJECT_TICK; round += 1) {
       const project = store.getProject(projectId);
       if (!project) return;
@@ -476,6 +580,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
         proposals: store.listProposals(project.id),
         missions: aggregates.map(snapshotOf),
         delivered: collectDeliveredStates(store.listEvents(project.id)),
+        triggers: collectPendingTriggers(store.listEvents(project.id)),
         coordinatorBusy: Boolean(snapshot?.activeTurnId),
       });
       switch (decision.action) {
@@ -502,9 +607,10 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
           rememberDecisions(project, decision.changes);
           await wakeCoordinator(
             project,
-            buildCoordinatorWakePrompt(decision.changes),
+            buildCoordinatorWakePrompt(decision.changes, decision.triggers),
             decision.key,
             Object.fromEntries(decision.changes.map((change) => [change.missionId, change.stateKey])),
+            decision.triggers.map((trigger) => trigger.id),
           );
           return;
         }
@@ -588,7 +694,10 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
           goal: input.goal,
           repositoryPath,
           coordinator: input.coordinator,
-          settings: ProjectSettingsSchema.parse({ ...DEFAULT_PROJECT_SETTINGS, ...input.settings }),
+          settings: (() => {
+            const settings = ProjectSettingsSchema.parse({ ...DEFAULT_PROJECT_SETTINGS, ...input.settings });
+            return { ...settings, triggers: stampTriggers(DEFAULT_PROJECT_SETTINGS.triggers, settings.triggers, timestamp) };
+          })(),
           state: "active",
           summary: null,
           reasonDetail: null,
@@ -602,11 +711,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
         // The first coordinator turn plans the project from its goal.
         await wakeCoordinator(
           project,
-          [
-            "Plan this project. Break the goal into missions that can run independently where possible.",
-            "Read the project with stave_get_project, then propose the first missions with stave_start_mission.",
-            "Say in a few lines what you proposed and why.",
-          ].join("\n"),
+          buildCoordinatorKickoffPrompt(),
           `project:${project.id}:kickoff`,
           {},
         );
@@ -670,7 +775,8 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
     updateSettings: ({ projectId, settings }) =>
       enqueue(async () => {
         const project = requireProject(projectId);
-        const next = ProjectSettingsSchema.parse({ ...project.settings, ...settings });
+        const parsed = ProjectSettingsSchema.parse({ ...project.settings, ...settings });
+        const next = { ...parsed, triggers: stampTriggers(project.settings.triggers, parsed.triggers, now().toISOString()) };
         updateProject(project, { settings: next }, { kind: "settings-changed", detail: { settings: next } });
         await tickProject(projectId);
         return detailOf(projectId);
@@ -689,6 +795,50 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
       syncedPlaybooks = [...playbooks];
       return { count: syncedPlaybooks.length };
     },
+
+    observeIssues: ({ items }) =>
+      enqueue(async () => {
+        let triggered = 0;
+        for (const project of store.listProjects({ openOnly: true })) {
+          const { triggers } = project.settings;
+          if (project.state !== "active" || !triggers.issueAssigned || !triggers.issueSince) continue;
+          const since = Date.parse(triggers.issueSince);
+          const matching = items.filter((issue) => issueMatchesFilter(issue, triggers.issueFilter));
+          // The first look after watching starts takes in what was already
+          // assigned; only issues created since then are news.
+          if (store.markTriggersSeen(project.id, [`issues-baseline:${triggers.issueSince}`], now()).length === 1) {
+            const fresh = matching.filter((issue) => issue.createdAt && Date.parse(issue.createdAt) >= since);
+            store.markTriggersSeen(
+              project.id,
+              matching.filter((issue) => !fresh.includes(issue)).map((issue) => issueTrigger(issue).seenKey),
+              now(),
+            );
+            triggered += recordTriggers(project, fresh.map(issueTrigger));
+          } else {
+            triggered += recordTriggers(project, matching.map(issueTrigger));
+          }
+        }
+        if (triggered > 0) void runtime.requestTick();
+        return { triggered };
+      }),
+
+    messageCoordinator: ({ projectId, text }) =>
+      enqueue(async () => {
+        const project = requireProject(projectId);
+        if (!isOpenProjectState(project.state)) refuse("The project has ended. Open the coordinator's task to keep talking.", "stale");
+        const body = text.trim();
+        if (!body) refuse("Write a message first.");
+        if (body.length > PROJECT_LIMITS.coordinatorMessage) refuse(`Keep it under ${PROJECT_LIMITS.coordinatorMessage} characters.`);
+        const snapshot = await deps.getTaskSnapshot(project.coordinator);
+        if (!snapshot.exists || snapshot.archived || !snapshot.providerId || !snapshot.model) {
+          refuse("The coordinator task is gone or archived.");
+        }
+        if (snapshot.activeTurnId) refuse("The coordinator is answering. Send this once it finishes.", "stale");
+        await runCoordinatorTurn(project, body, { providerId: snapshot.providerId!, model: snapshot.model! });
+        store.recordEvent(projectId, { kind: "coordinator-messaged", detail: { characters: body.length } }, now());
+        emit(project);
+        return detailOf(projectId);
+      }),
 
     getForGrant: async ({ projectKey }) => {
       const { project } = requireGrant(projectKey);
@@ -818,6 +968,10 @@ function dispatchProject(runtime: ProjectRuntime, action: HostProjectAction, arg
       return runtime.create(args);
     case "approve-proposal":
       return runtime.approveProposal(value);
+    case "observe-issues":
+      return runtime.observeIssues(value);
+    case "message-coordinator":
+      return runtime.messageCoordinator(value);
     case "reject-proposal":
       return runtime.rejectProposal(value);
     case "pause":

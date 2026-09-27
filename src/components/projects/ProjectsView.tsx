@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
 import { FolderKanban, Plus, X } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
@@ -10,6 +10,7 @@ import type { ProjectDetail } from "@/lib/projects/api";
 import { isOpenProjectState, type Project } from "@/lib/projects/domain";
 import { useAppStore } from "@/store/app.store";
 import { countProjectNeeds, useProjectsStore } from "@/store/projects-store";
+import { CoordinatorDock, type CoordinatorMessageLoader } from "./CoordinatorDock";
 import { NewProjectDialog } from "./NewProjectDialog";
 import { ProjectHome } from "./ProjectHome";
 import { projectStyles as styles } from "./projects.styles";
@@ -118,8 +119,22 @@ export function ProjectList(props: {
   );
 }
 
+/** The element's width, following resizes; 0 before layout (and in tests). */
+function useElementWidth(ref: RefObject<HTMLElement | null>): number {
+  const [width, setWidth] = useState(0);
+  useLayoutEffect(() => {
+    const element = ref.current;
+    if (!element || typeof ResizeObserver === "undefined") return;
+    setWidth(element.getBoundingClientRect().width);
+    const observer = new ResizeObserver((entries) => setWidth(entries[0]?.contentRect.width ?? 0));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, [ref]);
+  return width;
+}
+
 /** The Projects surface: every project on the left, the one in focus on the right. */
-export function ProjectsView() {
+export function ProjectsView(props: { loadCoordinatorMessages?: CoordinatorMessageLoader } = {}) {
   const projects = useProjectsStore((state) => state.projects);
   const selectedId = useProjectsStore((state) => state.selectedId);
   const select = useProjectsStore((state) => state.select);
@@ -140,6 +155,28 @@ export function ProjectsView() {
     projects[0] ??
     null;
   const detail = selected ? details[selected.id] : undefined;
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const width = useElementWidth(bodyRef);
+  const dockOpen = useProjectsStore((state) => state.dockOpen);
+  const dockOverlayOpen = useProjectsStore((state) => state.dockOverlayOpen);
+  const openCoordinatorDock = useProjectsStore((state) => state.openCoordinatorDock);
+  const closeCoordinatorDock = useProjectsStore((state) => state.closeCoordinatorDock);
+  const runCommand = useProjectsStore((state) => state.runCommand);
+  const focusTaskAttention = useAppStore((state) => state.focusTaskAttention);
+  // Room decides the layout: the conversation docks from 56rem and the list
+  // stays beside it from 80rem; narrower, the conversation floats.
+  const dockMode: "docked" | "overlay" = width >= 896 ? "docked" : "overlay";
+  const dockVisible = dockMode === "docked" ? dockOpen : dockOverlayOpen;
+  const listShown = dockMode === "docked" && dockVisible ? width >= 1280 : width >= 768;
+  const openCoordinatorTask = (target: ProjectDetail) => {
+    closeProjects();
+    void focusTaskAttention({
+      workspaceId: target.project.coordinator.workspaceId,
+      taskId: target.project.coordinator.taskId,
+      repositoryPath: target.project.repositoryPath,
+      refreshFromPersistence: true,
+    });
+  };
 
   useEffect(() => {
     if (selected && !detail) select(selected.id);
@@ -171,10 +208,24 @@ export function ProjectsView() {
       {loaded && projects.length === 0 ? (
         <ProjectsEmpty onCreate={() => setCreating(true)} />
       ) : (
-        <div className={sx(styles.body)}>
-          <ProjectList projects={projects} details={details} selectedId={selected?.id ?? null} onSelect={select} />
+        <div
+          ref={bodyRef}
+          className={sx(
+            styles.body,
+            listShown && dockMode === "docked" && dockVisible
+              ? styles.bodyListDock
+              : listShown
+                ? styles.bodyList
+                : dockMode === "docked" && dockVisible
+                  ? styles.bodyDock
+                  : null,
+          )}
+        >
+          {listShown ? (
+            <ProjectList projects={projects} details={details} selectedId={selected?.id ?? null} onSelect={select} />
+          ) : null}
           <div className={sx(styles.scroll)}>
-            {projects.length > 1 ? (
+            {!listShown && projects.length > 1 ? (
               <div className={sx(styles.picker)}>
                 <Select
                   size="sm"
@@ -185,8 +236,24 @@ export function ProjectsView() {
                 />
               </div>
             ) : null}
-            {detail ? <ProjectHome detail={detail} /> : null}
+            {detail ? (
+              <ProjectHome detail={detail} coordinatorDocked={dockVisible} onTalkToCoordinator={openCoordinatorDock} />
+            ) : null}
           </div>
+          {detail && dockVisible ? (
+            <div className={sx(dockMode === "docked" ? styles.dockColumn : styles.dockOverlay)}>
+              <CoordinatorDock
+                detail={detail}
+                onSend={async (text) => {
+                  const response = await runCommand("messageCoordinator", { projectId: detail.project.id, text });
+                  return { ok: response.ok, message: response.message };
+                }}
+                onOpenTask={() => openCoordinatorTask(detail)}
+                onClose={() => closeCoordinatorDock(dockMode)}
+                loadMessages={props.loadCoordinatorMessages}
+              />
+            </div>
+          ) : null}
         </div>
       )}
       <NewProjectDialog open={creating} onOpenChange={setCreating} />

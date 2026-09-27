@@ -5,8 +5,10 @@ import {
   CircleX,
   Ellipsis,
   Hand,
+  MessageSquare,
   Pause,
   Play,
+  Radar,
   ShieldCheck,
   Zap,
 } from "lucide-react";
@@ -14,6 +16,7 @@ import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
 import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
 import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
+import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
 import { formatAge } from "@/lib/missions/mission-view";
 import { addMissionUsage, describeUsageLong, describeUsageShort } from "@/lib/missions/usage";
@@ -22,6 +25,7 @@ import { useAppStore } from "@/store/app.store";
 import { countProjectNeeds, useProjectsStore } from "@/store/projects-store";
 import { ProjectDetailTabs } from "./ProjectDetailTabs";
 import { Lane, MissionRow, ProposalRow, missionNeedsYou } from "./ProjectRows";
+import { describeTriggers } from "./ProjectStartsWhen";
 import { projectStyles as styles } from "./projects.styles";
 
 const STATE_BADGE = {
@@ -36,7 +40,36 @@ const STATE_BADGE = {
  * the missions in three lanes — what needs you, what runs, what is done — and
  * what the project learned, collected and is allowed to do.
  */
-export function ProjectHome({ detail }: { detail: ProjectDetail }) {
+const TRIGGER_REASONS = {
+  "issue-assigned": "an assigned issue",
+  "pull-request": "pull request feedback",
+  schedule: "its scheduled check-in",
+} as const;
+
+/** " for an assigned issue": what the coordinator's last automatic turn was about. */
+function describeWakeReason(detail: ProjectDetail, wake: ProjectDetail["events"][number]): string {
+  const triggerIds = Array.isArray(wake.detail.triggers) ? (wake.detail.triggers as string[]) : [];
+  const kinds = new Set(
+    detail.events
+      .filter((event) => event.kind === "trigger-observed" && triggerIds.includes(event.detail.triggerId as string))
+      .map((event) => event.detail.triggerKind as keyof typeof TRIGGER_REASONS),
+  );
+  const delivered = wake.detail.delivered && typeof wake.detail.delivered === "object" ? Object.keys(wake.detail.delivered) : [];
+  const reasons: string[] = [...kinds].filter((kind) => kind in TRIGGER_REASONS).map((kind) => TRIGGER_REASONS[kind]);
+  if (delivered.length) reasons.unshift(delivered.length === 1 ? "a mission update" : "mission updates");
+  return reasons.length ? ` for ${reasons.join(" and ")}` : "";
+}
+
+export function ProjectHome({
+  detail,
+  coordinatorDocked = false,
+  onTalkToCoordinator,
+}: {
+  detail: ProjectDetail;
+  /** The coordinator conversation is already beside the project. */
+  coordinatorDocked?: boolean;
+  onTalkToCoordinator?: () => void;
+}) {
   const { project } = detail;
   const runCommand = useProjectsStore((state) => state.runCommand);
   const busy = useProjectsStore((state) => Boolean(state.pendingById[project.id]));
@@ -57,6 +90,7 @@ export function ProjectHome({ detail }: { detail: ProjectDetail }) {
   const lastWake = [...detail.events].reverse().find((event) => event.kind === "coordinator-woken");
   const badge = STATE_BADGE[project.state];
   const needs = countProjectNeeds(detail);
+  const watching = describeTriggers(project.settings.triggers);
   const totalUsage = addMissionUsage(detail.missions.map((mission) => mission.usage));
   const spent = describeUsageShort(totalUsage);
 
@@ -99,6 +133,12 @@ export function ProjectHome({ detail }: { detail: ProjectDetail }) {
                 {project.settings.askBeforeStarting ? "You start each mission" : "Starts missions on its own"} · up to{" "}
                 {project.settings.parallelLimit} at once
               </span>
+              {watching ? (
+                <span className={sx(styles.stat, styles.statQuiet)} title="Starts when">
+                  <Radar aria-hidden className={sx(styles.icon)} />
+                  {watching}
+                </span>
+              ) : null}
             </div>
             {project.reasonDetail ? <p className={sx(styles.hint)}>{project.reasonDetail}</p> : null}
           </div>
@@ -165,13 +205,29 @@ export function ProjectHome({ detail }: { detail: ProjectDetail }) {
               {project.summary ?? "The coordinator has not summarized the project yet. It plans missions from the goal and follows them through."}
             </p>
             <span className={sx(styles.coordinatorMeta)}>
-              Coordinator{lastWake ? ` · last woke ${formatAge(Date.now() - Date.parse(lastWake.createdAt))} ago` : ""}
+              Coordinator
+              {lastWake ? ` · woke ${formatAge(Date.now() - Date.parse(lastWake.createdAt))} ago${describeWakeReason(detail, lastWake)}` : ""}
             </span>
           </div>
-          <Button variant="secondary" size="sm" onClick={() => open(project.coordinator.workspaceId, project.coordinator.taskId)}>
-            Open coordinator
-            <ArrowUpRight aria-hidden />
-          </Button>
+          <span className={sx(styles.coordinatorActions)}>
+            {!coordinatorDocked && onTalkToCoordinator ? (
+              <Button variant="secondary" size="sm" onClick={onTalkToCoordinator}>
+                <MessageSquare aria-hidden />
+                Talk
+              </Button>
+            ) : null}
+            <Tooltip content="Open the coordinator's task">
+              <Button
+                variant="quiet"
+                size="sm"
+                iconOnly
+                aria-label="Open the coordinator's task"
+                onClick={() => open(project.coordinator.workspaceId, project.coordinator.taskId)}
+              >
+                <ArrowUpRight aria-hidden />
+              </Button>
+            </Tooltip>
+          </span>
         </section>
 
         <Lane title="Needs you" count={pending.length + waiting.length} empty="Nothing waits for you.">

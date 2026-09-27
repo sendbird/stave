@@ -20,6 +20,7 @@ export const PROJECT_IPC = Object.freeze({
   get: "projects:get",
   create: "projects:create",
   approveProposal: "projects:approve-proposal",
+  messageCoordinator: "projects:message-coordinator",
   rejectProposal: "projects:reject-proposal",
   pause: "projects:pause",
   resume: "projects:resume",
@@ -68,6 +69,15 @@ export interface ProjectDetail {
   library: ProjectLibraryItem[];
   /** The newest events, oldest first. */
   events: ProjectEvent[];
+  /** The coordinator task as it is now: whether it can take a message and is answering. */
+  coordinatorState?: ProjectCoordinatorState;
+}
+
+export interface ProjectCoordinatorState {
+  available: boolean;
+  busy: boolean;
+  providerId: string | null;
+  model: string | null;
 }
 
 export interface ProjectChangedEvent {
@@ -101,6 +111,8 @@ export interface ProjectsBridgeApi {
     model?: string | null;
   }) => Promise<ProjectResponse>;
   rejectProposal: (args: { projectId: string; proposalId: string }) => Promise<ProjectResponse>;
+  /** Starts a coordinator turn with the user's message; refused while it is answering. */
+  messageCoordinator: (args: { projectId: string; text: string }) => Promise<ProjectResponse>;
   pause: (args: { projectId: string }) => Promise<ProjectResponse>;
   resume: (args: { projectId: string }) => Promise<ProjectResponse>;
   end: (args: { projectId: string; outcome: "completed" | "cancelled" }) => Promise<ProjectResponse>;

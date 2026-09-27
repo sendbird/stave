@@ -92,6 +92,12 @@ export class ProjectStore {
         body_json TEXT NOT NULL,
         created_at TEXT NOT NULL
       );
+      CREATE TABLE IF NOT EXISTS project_trigger_seen (
+        project_id TEXT NOT NULL,
+        trigger_key TEXT NOT NULL,
+        seen_at TEXT NOT NULL,
+        PRIMARY KEY (project_id, trigger_key)
+      );
     `);
   }
 
@@ -202,6 +208,26 @@ export class ProjectStore {
   /** False when the idempotency key was already recorded. */
   recordEvent(projectId: string, draft: ProjectEventDraft, now: Date): boolean {
     return this.inSavepoint("project_event", () => this.writeEvent(projectId, draft, now));
+  }
+
+  /**
+   * Marks what a project's triggers have seen — an issue, a pull request
+   * state, a schedule slot — and returns the keys that are new. Kept apart
+   * from the event log, which is pruned, so nothing seen fires twice.
+   */
+  markTriggersSeen(projectId: string, keys: readonly string[], now: Date): string[] {
+    if (keys.length === 0) return [];
+    return this.inSavepoint("project_trigger_seen", () => {
+      const insert = this.db.prepare(
+        "INSERT OR IGNORE INTO project_trigger_seen (project_id, trigger_key, seen_at) VALUES (?, ?, ?)",
+      );
+      const fresh: string[] = [];
+      for (const key of new Set(keys)) {
+        const result = insert.run(projectId, key, now.toISOString()) as { changes?: number };
+        if (result.changes) fresh.push(key);
+      }
+      return fresh;
+    });
   }
 
   hasEvent(idempotencyKey: string): boolean {

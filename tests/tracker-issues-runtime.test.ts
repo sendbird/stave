@@ -267,6 +267,31 @@ describe("TrackerIssuesRuntime surface visibility", () => {
   });
 });
 
+describe("TrackerIssuesRuntime background demand", () => {
+  test("a project watching for issues keeps the list fresh while hidden, at the slow pace", async () => {
+    const harness = makeRuntime();
+    harness.crane.result = { tasks: [makeTask("crane", "CRN-1")], truncated: false };
+    await harness.runtime.refresh({ reason: "prime" });
+    harness.crane.listCalls = 0;
+
+    harness.runtime.setBackgroundDemand(true);
+    // Fresh cache: the first background poll waits out the slow interval.
+    expect(harness.timers.pending()[0]?.delay).toBe(10 * 60 * 1_000);
+    await harness.timers.firePending();
+    expect(harness.crane.listCalls).toBe(1);
+    expect(harness.timers.pending()[0]?.delay).toBe(10 * 60 * 1_000);
+
+    // Showing and hiding Issues keeps it polling while a project still watches.
+    harness.runtime.setSurfaceVisible(true);
+    harness.runtime.setSurfaceVisible(false);
+    expect(harness.timers.pending().length).toBe(1);
+
+    // Nothing watches and nothing is shown: polling stops.
+    harness.runtime.setBackgroundDemand(false);
+    expect(harness.timers.pending().length).toBe(0);
+  });
+});
+
 describe("TrackerIssuesRuntime per-source isolation", () => {
   test("one source failing neither blocks nor clears the other", async () => {
     const harness = makeRuntime();

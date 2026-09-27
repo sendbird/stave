@@ -5,12 +5,40 @@
  * Used by: `electron/host-service.ts`.
  */
 import type { ProjectChangedEvent } from "../../../src/lib/projects/api";
+import type { ProjectPullRequestSignal } from "../../../src/lib/projects/policy";
 import { resolveProjectGrant, setProjectCoordinatorTasks } from "../../providers/project-grants";
 import * as localMcpRuntime from "../local-mcp-runtime";
 import { ensureHostServicePersistenceReady } from "../persistence";
+import { fetchGitHubPrStatus } from "../scm-runtime";
 import { runSupervisedTurn } from "../supervised-turn";
 import type { MissionRuntime } from "./mission-runtime";
 import { createProjectRuntime } from "./project-runtime";
+
+async function resolveWorkspacePath(workspaceId: string) {
+  const repositories = await localMcpRuntime.listKnownRepositories();
+  for (const repository of repositories) {
+    const workspace = repository.workspaces.find((candidate) => candidate.id === workspaceId);
+    if (workspace) return workspace.path;
+  }
+  return null;
+}
+
+/** The pull request of a mission's workspace branch, as the PR feedback trigger reads it. */
+async function readPullRequest(workspaceId: string): Promise<ProjectPullRequestSignal | null> {
+  const cwd = await resolveWorkspacePath(workspaceId);
+  if (!cwd) return null;
+  const status = await fetchGitHubPrStatus({ cwd });
+  const pr = status.ok ? status.pr : null;
+  if (!pr || !pr.url) return null;
+  return {
+    number: pr.number,
+    url: pr.url,
+    state: pr.state === "MERGED" || pr.state === "CLOSED" ? pr.state : "OPEN",
+    checks: pr.checksRollup,
+    reviewDecision: pr.reviewDecision,
+    headSha: pr.headRefOid ?? null,
+  };
+}
 
 async function resolveRepositoryPath(workspaceId: string) {
   const repositories = await localMcpRuntime.listKnownRepositories();
@@ -52,6 +80,7 @@ export function createHostProjectRuntime(args: {
       return { workspaceId: created.workspaceId };
     },
     createIdleTask: (task) => localMcpRuntime.createIdleTask(task),
+    readPullRequest,
     resolveProjectGrant,
     setCoordinatorTasks: setProjectCoordinatorTasks,
     notifyProjectProblem: ({ project, detail }) =>

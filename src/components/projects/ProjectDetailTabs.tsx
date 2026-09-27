@@ -12,9 +12,10 @@ import { Segmented } from "@/components/playbooks/Segmented";
 import type { ProjectDetail, ProjectLibraryItem } from "@/lib/projects/api";
 import type { ProjectMemory, ProjectSettings } from "@/lib/projects/domain";
 import { missionTitle } from "./ProjectRows";
+import { countActiveTriggers, ProjectStartsWhen } from "./ProjectStartsWhen";
 import { projectStyles as styles } from "./projects.styles";
 
-type DetailTab = "memory" | "library" | "settings";
+type DetailTab = "memory" | "library" | "starts-when" | "settings";
 
 const LIBRARY_ICONS: Record<ProjectLibraryItem["kind"], typeof Link2> = {
   "pull-request": GitPullRequest,
@@ -53,6 +54,9 @@ export function ProjectDetailTabs(props: {
         <Tabs.Tab value="library">
           <TabLabel label="Library" count={detail.library.length} />
         </Tabs.Tab>
+        <Tabs.Tab value="starts-when">
+          <TabLabel label="Starts when" count={countActiveTriggers(detail.project.settings.triggers)} />
+        </Tabs.Tab>
         <Tabs.Tab value="settings">
           <TabLabel label="Settings" />
         </Tabs.Tab>
@@ -63,6 +67,12 @@ export function ProjectDetailTabs(props: {
       </Tabs.Panel>
       <Tabs.Panel value="library" xstyle={styles.tabPanel}>
         <LibraryList items={detail.library} />
+      </Tabs.Panel>
+      <Tabs.Panel value="starts-when" xstyle={styles.tabPanel}>
+        <ProjectStartsWhen
+          triggers={detail.project.settings.triggers}
+          onChange={(triggers) => props.onUpdateSettings({ triggers })}
+        />
       </Tabs.Panel>
       <Tabs.Panel value="settings" xstyle={styles.tabPanel}>
         <SettingsList settings={detail.project.settings} onUpdate={props.onUpdateSettings} />

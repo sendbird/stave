@@ -37,10 +37,14 @@ export interface TrackerIssuesRuntimeDependencies {
 
 /** Base of the exponential retry curve; grown by `computeCraneConnectorRetryDelay`. */
 const BASE_RETRY_DELAY_MS = 5_000;
+/** The slowest poll while only a project watches for new issues. */
+const BACKGROUND_POLL_MS = 10 * 60_000;
 
 export class TrackerIssuesRuntime {
   private settings: TrackerIssuesSettings = DEFAULT_TRACKER_ISSUES_SETTINGS;
   private visible = false;
+  /** A project watches for new issues, so the list stays fresh while hidden, slowly. */
+  private backgroundDemand = false;
   private pollTimer: NodeJS.Timeout | null = null;
   private readonly states: TrackerSourceStates;
   private readonly queues = new Map<TrackerSourceId, Promise<void>>();
@@ -64,8 +68,8 @@ export class TrackerIssuesRuntime {
   configure(settings: TrackerIssuesSettings): void {
     this.settings = settings;
     // A shorter interval must take effect without waiting out the old one.
-    if (this.visible) {
-      this.schedulePoll(this.intervalMs());
+    if (this.polling()) {
+      this.schedulePoll(this.pollIntervalMs());
     }
   }
 
@@ -142,11 +146,35 @@ export class TrackerIssuesRuntime {
     });
   }
 
+  /** On while a project watches for newly assigned issues; polls at most every ten minutes. */
+  setBackgroundDemand(demand: boolean): void {
+    if (demand === this.backgroundDemand) {
+      return;
+    }
+    this.backgroundDemand = demand;
+    if (this.visible) {
+      return;
+    }
+    if (!demand) {
+      this.clearPollTimer();
+      this.clearRetryTimers();
+      this.abortAll();
+      return;
+    }
+    this.schedulePoll(this.isCacheStale() ? 0 : this.pollIntervalMs());
+  }
+
   setSurfaceVisible(visible: boolean): void {
     if (visible === this.visible) {
       return;
     }
     this.visible = visible;
+    if (!visible && this.backgroundDemand) {
+      // Hidden but watched: keep polling, at the background pace.
+      this.schedulePoll(this.pollIntervalMs());
+      this.emitStatus();
+      return;
+    }
     if (!visible) {
       // The main cost control: a hidden surface makes no requests. Cancel every
       // in-flight fetch and clear every timer so nothing runs off-screen.
@@ -178,6 +206,7 @@ export class TrackerIssuesRuntime {
 
   shutdown(): void {
     this.visible = false;
+    this.backgroundDemand = false;
     this.clearPollTimer();
     this.clearRetryTimers();
     this.abortAll();
@@ -244,21 +273,21 @@ export class TrackerIssuesRuntime {
   }
 
   private schedulePoll(delayMs: number): void {
-    if (!this.visible) {
+    if (!this.polling()) {
       return;
     }
     this.clearPollTimer();
     this.pollTimer = this.setTimer(
       () => {
         this.pollTimer = null;
-        if (!this.visible) {
+        if (!this.polling()) {
           return;
         }
         void this.refresh({ reason: "poll" }).finally(() => {
-          // Chain the next tick only while still visible so hiding the surface
-          // ends the loop rather than merely pausing it.
-          if (this.visible) {
-            this.schedulePoll(this.intervalMs());
+          // Chain the next tick only while still wanted so hiding the surface
+          // (with no project watching) ends the loop rather than pausing it.
+          if (this.polling()) {
+            this.schedulePoll(this.pollIntervalMs());
           }
         });
       },
@@ -267,7 +296,7 @@ export class TrackerIssuesRuntime {
   }
 
   private scheduleRetry(id: TrackerSourceId, delayMs: number): void {
-    if (!this.visible) {
+    if (!this.polling()) {
       return;
     }
     const existing = this.retryTimers.get(id);
@@ -279,7 +308,7 @@ export class TrackerIssuesRuntime {
       this.setTimer(
         () => {
           this.retryTimers.delete(id);
-          if (!this.visible) {
+          if (!this.polling()) {
             return;
           }
           void this.enqueue(id, () => this.runRefresh(id));
@@ -363,6 +392,15 @@ export class TrackerIssuesRuntime {
 
   private intervalMs(): number {
     return this.settings.refreshIntervalSeconds * 1_000;
+  }
+
+  /** Whether anything wants the list kept fresh: the Issues surface, or a project. */
+  private polling(): boolean {
+    return this.visible || this.backgroundDemand;
+  }
+
+  private pollIntervalMs(): number {
+    return this.visible ? this.intervalMs() : Math.max(this.intervalMs(), BACKGROUND_POLL_MS);
   }
 
   private adapter(id: TrackerSourceId): TrackerSourceAdapter {

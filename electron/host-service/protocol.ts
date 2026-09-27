@@ -528,6 +528,8 @@ export type HostProjectAction =
   | "update-settings"
   | "set-memory-status"
   | "sync-playbooks"
+  | "observe-issues"
+  | "message-coordinator"
   | "get-for-grant"
   | "start-mission-for-grant"
   | "get-mission-report-for-grant"
