@@ -179,12 +179,19 @@ export function createAppStorePersistenceOptions() {
       settings: state.settings,
       repositoryName: state.repositoryName,
     }),
+    // The default shallow merge, after renaming the snapshot's legacy keys:
+    // once merged, the new keys hold their initial values and a legacy value
+    // can no longer be told apart from an empty one.
+    merge: (persisted: unknown, current: AppState): AppState => {
+      const snapshot = { ...((persisted ?? {}) as Record<string, unknown>) };
+      // temporary-migration: repository-persisted-state
+      migrateLegacyRepositoryState(snapshot);
+      return { ...current, ...snapshot } as AppState;
+    },
     onRehydrateStorage: () => (state?: AppState) => {
       if (!state) {
         return;
       }
-      // temporary-migration: repository-persisted-state
-      migrateLegacyRepositoryState(state as unknown as Record<string, unknown>);
       const persistedSettings = state.settings;
       // temporary-migration: issue-tracker-settings
       migrateLegacyIssueTrackerSettings(persistedSettings);

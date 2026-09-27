@@ -254,7 +254,7 @@ export function registerPersistenceHandlers() {
   ipcMain.handle("persistence:load-repository-registry", async () => {
     const store = await ensurePersistenceReady();
     const repositories = store.loadRepositoryRegistry();
-    return { ok: true, projects: repositories, activeRepositoryPath: store.loadActiveRepositoryPath() };
+    return { ok: true, repositories, activeRepositoryPath: store.loadActiveRepositoryPath() };
   });
 
   ipcMain.handle(

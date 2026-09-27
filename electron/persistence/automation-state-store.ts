@@ -42,30 +42,55 @@ const UPSERT_APP_STATE = `
 const LEGACY_ROUTINE_STATE_KEY = "routine_state_v1";
 const LEGACY_ROUTINE_PROVIDER_TIMEOUT_KEY = "routine_provider_timeout_ms_v1";
 
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  Boolean(value) && typeof value === "object" && !Array.isArray(value);
+
+/** `projectPath` → `repositoryPath`, from before registered projects became repositories. */
+function renameProjectPath(value: unknown): unknown {
+  if (!isRecord(value) || !("projectPath" in value)) return value;
+  const { projectPath, ...rest } = value;
+  return rest.repositoryPath === undefined ? { ...rest, repositoryPath: projectPath } : rest;
+}
+
 /**
- * Renames the fields of a state saved under the legacy key. Anything that is
- * not the expected shape is returned untouched and later normalized to an
- * empty state, exactly as an unreadable current-key value would be.
+ * Renames the legacy fields of a saved state: `routines` and `routineId`, and
+ * each environment's and run's `projectPath`. Idempotent, so it also runs on
+ * every load. Anything that is not the expected shape is returned untouched
+ * and later normalized to an empty state, exactly as an unreadable
+ * current-key value would be.
  */
 export function renameLegacyAutomationStateFields(value: unknown): unknown {
-  if (!value || typeof value !== "object" || Array.isArray(value)) {
+  if (!isRecord(value)) {
     return value;
   }
-  const { routines, runs, ...rest } = value as Record<string, unknown>;
+  const { routines, runs, ...rest } = value;
+  const automations = routines !== undefined && rest.automations === undefined ? routines : rest.automations;
   return {
     ...rest,
-    ...(routines !== undefined ? { automations: routines } : {}),
+    ...(automations !== undefined
+      ? {
+          automations: Array.isArray(automations)
+            ? automations.map((automation) =>
+                isRecord(automation) && "environment" in automation
+                  ? { ...automation, environment: renameProjectPath(automation.environment) }
+                  : automation,
+              )
+            : automations,
+        }
+      : {}),
     ...(runs !== undefined
       ? {
           runs: Array.isArray(runs)
             ? runs.map((run) => {
-                if (!run || typeof run !== "object" || Array.isArray(run)) {
+                if (!isRecord(run)) {
                   return run;
                 }
-                const { routineId, ...runRest } = run as Record<string, unknown>;
-                return routineId !== undefined
-                  ? { ...runRest, automationId: routineId }
-                  : runRest;
+                const { routineId, ...runRest } = run;
+                return renameProjectPath(
+                  routineId !== undefined && runRest.automationId === undefined
+                    ? { ...runRest, automationId: routineId }
+                    : runRest,
+                );
               })
             : runs,
         }
@@ -142,7 +167,8 @@ export class AutomationStateStore {
       return createEmptyAutomationState();
     }
     try {
-      return normalizeAutomationState(JSON.parse(row.value_json));
+      // temporary-migration: automation-app-state-keys
+      return normalizeAutomationState(renameLegacyAutomationStateFields(JSON.parse(row.value_json)));
     } catch {
       return createEmptyAutomationState();
     }

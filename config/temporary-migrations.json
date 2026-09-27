@@ -64,13 +64,28 @@
       ]
     },
     {
+      "id": "connector-repository-mappings",
+      "description": "Renames the projectMappings key of saved Jira and Crane connector settings to repositoryMappings, so the connectors keep their site, URL, enabled flag and mappings after the projects->repositories rename.",
+      "introducedAfter": "0.19.6",
+      "removeInVersion": "0.22.0",
+      "files": [
+        "src/lib/legacy-connector-mappings.ts",
+        "src/lib/jira-connector/types.ts",
+        "src/lib/crane-connector/types.ts"
+      ],
+      "tests": [
+        "tests/legacy-repository-state.test.ts"
+      ]
+    },
+    {
       "id": "repository-persisted-state",
-      "description": "Maps the persisted zustand keys recentProjects, projectPath and projectName to the repository names on rehydrate, so the registered-repository list and current selection survive the projects->repositories rename.",
+      "description": "Maps the persisted zustand keys recentProjects, projectPath and projectName, and the projectPath, projectName and projectBasePrompt fields of each registered-repository entry (in that snapshot and in SQLite's project_registry), to the repository names, so the registered-repository list and current selection survive the projects->repositories rename.",
       "introducedAfter": "0.19.6",
       "removeInVersion": "0.22.0",
       "files": [
         "src/store/legacy-repository-state.ts",
-        "src/store/app-store-persistence.ts"
+        "src/store/app-store-persistence.ts",
+        "electron/persistence/sqlite-store.ts"
       ],
       "tests": [
         "tests/legacy-repository-state.test.ts"

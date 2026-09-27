@@ -14,7 +14,8 @@ import { createDefaultAutomationRuntime } from "../src/lib/automations";
 const LEGACY_STATE_KEY = "routine_state_v1";
 const LEGACY_TIMEOUT_KEY = "routine_provider_timeout_ms_v1";
 
-// A legacy spec is the current spec shape; only the container fields changed.
+// A spec as saved before the renames: `routines`/`routineId` containers and
+// `projectPath` on the environment and each run.
 const legacySpec = {
   id: "automation-1",
   name: "Nightly review",
@@ -25,7 +26,7 @@ const legacySpec = {
     kind: "repository",
     workspaceId: "ws-1",
     path: "/tmp/repo",
-    repositoryPath: "/tmp/repo",
+    projectPath: "/tmp/repo",
     label: "repo",
   },
   runtime: createDefaultAutomationRuntime("codex"),
@@ -41,7 +42,7 @@ const legacyRun = {
   id: "run-1",
   routineId: "automation-1",
   workspaceId: "ws-1",
-  repositoryPath: "/tmp/repo",
+  projectPath: "/tmp/repo",
   taskId: "task-1",
   turnId: "turn-1",
   status: "completed",
@@ -54,6 +55,12 @@ const legacyRun = {
   configHash: null,
   trustPolicy: "review-required",
 };
+
+/** The same spec and run in the current shape. */
+const { projectPath: _specPath, ...legacyEnvironmentRest } = legacySpec.environment;
+const currentSpec = { ...legacySpec, environment: { ...legacyEnvironmentRest, repositoryPath: "/tmp/repo" } };
+const { routineId: _routineId, projectPath: _runPath, ...legacyRunRest } = legacyRun;
+const currentRun = { ...legacyRunRest, automationId: "automation-1", repositoryPath: "/tmp/repo" };
 
 let database: Database;
 
@@ -93,16 +100,18 @@ describe("automation app_state key migration", () => {
       }),
     ).toEqual({
       version: 1,
-      automations: [legacySpec],
-      runs: [
-        {
-          ...Object.fromEntries(
-            Object.entries(legacyRun).filter(([key]) => key !== "routineId"),
-          ),
-          automationId: "automation-1",
-        },
-      ],
+      automations: [currentSpec],
+      runs: [currentRun],
     });
+  });
+
+  test("renaming is idempotent and also reads a current-key value saved with projectPath", () => {
+    const current = renameLegacyAutomationStateFields({ version: 1, automations: [currentSpec], runs: [currentRun] });
+    expect(renameLegacyAutomationStateFields(current)).toEqual(current);
+    writeValue(AUTOMATION_STATE_KEY, { version: 1, automations: [legacySpec], runs: [{ ...legacyRun, automationId: "automation-1" }] });
+    const loaded = new AutomationStateStore(database).loadState();
+    expect(loaded.automations.map((automation) => automation.environment.repositoryPath)).toEqual(["/tmp/repo"]);
+    expect(loaded.runs.map((run) => run.repositoryPath)).toEqual(["/tmp/repo"]);
   });
 
   test("moves legacy values to the automation keys and deletes the legacy rows", () => {
