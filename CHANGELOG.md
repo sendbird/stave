@@ -1,3 +1,20 @@
+## [0.20.1](https://github.com/sendbird/stave/compare/v0.20.0...v0.20.1) (2026-09-27)
+
+### Features
+
+* Give the team its own right-rail panel again. The Mission panel keeps the mission and wake-up that supervise the task, and ends with a pointer to Team. View team in the task pane opens the same panel, and a saved layout that still names the old collaboration panel opens Team.
+* Label the task title on the Mission, Team, and Results panels so each panel reads as belonging to that task.
+* Show mission run details as a Run card: the provider mark, the model by name, permissions, turns against the budget, spend or tokens, and how long the mission has been running. Mission panel sections use the same headings, rules, and status colors, and stages Stave performs itself carry a Stave chip.
+* Run a playbook that names no permission mode, including templates, as Auto. The mission still stops at the sign-offs its check-ins choose, and at pull request or script steps the start did not allow. Guided and Manual stay available.
+
+### Bug Fixes
+
+* Keep the Automations → Run history filter chips and automation select at 32px, matching the view tabs, so that toolbar no longer grows past the other views.
+
+### References
+
+* [#586](https://github.com/sendbird/stave/pull/586)
+
 ## [0.20.0](https://github.com/sendbird/stave/compare/v0.19.7...v0.20.0) (2026-09-27)
 
 ### Features
