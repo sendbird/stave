@@ -119,6 +119,16 @@ export const missionStyles = stylex.create({
     borderTopColor: vars["--ads-color-border-subtle"],
   },
   sectionHeader: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"], minHeight: 24, minWidth: 0 },
+  teamPointer: { flexDirection: "row", alignItems: "center", gap: vars["--ads-space-8"] },
+  teamPointerAction: { flexShrink: 0 },
+  teamPointerIcon: { width: 14, height: 14, flex: "0 0 auto", color: vars["--ads-color-text-subtle"] },
+  teamPointerText: {
+    flex: "1 1 auto",
+    minWidth: 0,
+    margin: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--ads-color-text-muted"],
+  },
   sectionTitle: {
     flex: "1 1 auto",
     margin: 0,

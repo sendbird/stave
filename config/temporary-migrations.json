@@ -93,7 +93,7 @@
     },
     {
       "id": "right-rail-mission-panel",
-      "description": "Maps a saved right-rail layout that names the old collaboration panel id to the Mission panel, so the panel a user left open survives the rename.",
+      "description": "Maps a saved right-rail layout that names the old collaboration panel id to the Team panel that replaced it, so the panel a user left open survives the rename.",
       "introducedAfter": "0.19.7",
       "removeInVersion": "0.22.0",
       "files": [

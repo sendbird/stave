@@ -818,6 +818,10 @@ Phase 1 shipped as designed, with these deviations:
   sheet.
 - **Builder.** Stave action settings are edited inline in the stage row, not in
   a side pane.
+- **Panels.** The team (Advisor, workers, delegated tasks) is its own **Team**
+  panel again (id `team`; a saved `collaboration` id opens it). The Mission
+  panel keeps what supervises the task — its mission and its wake-up — and
+  points to Team.
 - **Phase 2 additions.** `run-script` runs a workspace script action and
   waits (30 minutes at most), never replaying a run a stopped process began;
   Save as playbook and Share to Slack live in the report's **More** menu; six

@@ -1,5 +1,5 @@
 import { useEffect, useMemo } from "react";
-import { CircleCheck, CircleDashed, CircleX, Ellipsis, Pause, Play, Target } from "lucide-react";
+import { ArrowRight, CircleCheck, CircleDashed, CircleX, Ellipsis, Pause, Play, Target, Users } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
 import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
@@ -7,8 +7,6 @@ import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTi
 import { StepRail } from "@/components/ads/components/StepRail";
 import { describeUsageLong } from "@/lib/missions/usage";
 import { sx } from "@/components/ads/utils/stylex";
-import { TeamSection } from "@/components/team/TeamSection";
-import type { CollaborationTarget } from "@/components/team/DelegateTaskForm";
 import type { MissionDetail } from "@/lib/missions/api";
 import { currentStageRecord, isActiveMissionState, latestStageRecord } from "@/lib/missions/domain";
 import {
@@ -325,16 +323,31 @@ function HandOffEmptyState(props: { workspaceId: string; taskId: string }) {
   );
 }
 
+/** Points to the Team panel, where the task's Advisor, workers and delegated tasks live. */
+export function TeamPointer() {
+  const setLayout = useAppStore((state) => state.setLayout);
+  return (
+    <section className={sx(styles.section, styles.sectionRule, styles.teamPointer)} aria-label="Team">
+      <Users aria-hidden className={sx(styles.teamPointerIcon)} />
+      <p className={sx(styles.teamPointerText)}>Advisor, workers and delegated tasks</p>
+      <Button
+        variant="quiet"
+        size="xs"
+        xstyle={styles.teamPointerAction}
+        onClick={() => setLayout({ patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "team" } })}
+      >
+        Open Team
+        <ArrowRight aria-hidden />
+      </Button>
+    </section>
+  );
+}
+
 /**
- * The right rail's Mission panel: the task's mission on top, its wake-up, and
- * the team (Advisor, workers, delegated tasks) below.
+ * The right rail's Mission panel: what supervises the task — its mission and
+ * its wake-up. The task's collaborators are in the Team panel.
  */
-export function MissionPanel(props: {
-  workspaceId: string;
-  taskId: string;
-  team: CollaborationTarget | null;
-  teamUnavailableReason?: string;
-}) {
+export function MissionPanel(props: { workspaceId: string; taskId: string }) {
   const detail = useTaskMission(props.workspaceId, props.taskId);
   const runCommand = useMissionsStore((state) => state.runCommand);
   const refreshMission = useMissionsStore((state) => state.refreshMission);
@@ -370,13 +383,7 @@ export function MissionPanel(props: {
         <HandOffEmptyState workspaceId={props.workspaceId} taskId={props.taskId} />
       )}
       <WakeUpSection workspaceId={props.workspaceId} taskId={props.taskId} />
-      <section className={sx(styles.section, styles.sectionRule)} aria-label="Team">
-        {props.team ? (
-          <TeamSection target={props.team} />
-        ) : (
-          <p className={sx(styles.notice)}>{props.teamUnavailableReason}</p>
-        )}
-      </section>
+      <TeamPointer />
     </div>
   );
 }

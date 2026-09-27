@@ -134,6 +134,10 @@ The Mission tab in the right rail:
   and **Cancel mission** in the **⋯** menu.
 - The turn budget, with a warning close to the limit, and **Spent**: the cost
   and tokens the mission's turns used, as the provider reports them.
+- The task's wake-up, the other thing that can start turns on the task.
+
+The task's Advisor consults, workers and delegated tasks are in the **Team**
+tab next to it, also reachable with **View team** in the task pane's menu.
 
 ### Transcript
 

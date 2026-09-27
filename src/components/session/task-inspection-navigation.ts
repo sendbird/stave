@@ -4,7 +4,7 @@ import { useAppStore } from "@/store/app.store";
 export function openTaskInspection(
   workspaceId: string,
   taskId: string,
-  destination: "results" | "mission",
+  destination: "results" | "mission" | "team",
 ) {
   const state = useAppStore.getState();
   if (
