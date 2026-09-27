@@ -509,6 +509,7 @@ export type HostMissionAction =
   | "note-user-turn"
   | "cancel"
   | "add-report-to-pr"
+  | "share-report"
   | "get-for-grant"
   | "report-stage"
   | "block-stage";

@@ -1,7 +1,11 @@
 import { useMemo } from "react";
 import type { MissionDetail } from "@/lib/missions/api";
 import type { MissionReport } from "@/lib/missions/report";
+import { duplicatePlaybook, playbooksRunAlike, uniquePlaybookName, upsertPlaybook } from "@/lib/playbooks/library";
+import type { Playbook } from "@/lib/playbooks/schema";
+import { findSlackThreadUrl } from "@/lib/missions/report-markdown";
 import { REPOSITORY_MEMORY_CONTENT_MAX_CHARS } from "@/lib/repository-memory";
+import { useAppStore } from "@/store/app.store";
 
 /**
  * The Mission report's actions. Each resolves to the sentence to show, or
@@ -10,6 +14,12 @@ import { REPOSITORY_MEMORY_CONTENT_MAX_CHARS } from "@/lib/repository-memory";
 export interface MissionReportActions {
   addToPullRequest?: () => Promise<string>;
   saveDecisions?: () => Promise<string>;
+  /** Saves the playbook the mission ran, with its edits for this run, as a playbook of its own. */
+  saveAsPlaybook?: () => Promise<string>;
+  /** Posts the report to a Slack thread through a turn on the lead task. */
+  shareToSlack?: (threadUrl: string) => Promise<string>;
+  /** The Slack thread the assignment came from, to share back to. */
+  suggestedSlackThread?: string | null;
 }
 
 const MAX_DECISIONS_PER_SAVE = 8;
@@ -36,6 +46,23 @@ export function decisionsAsMemoryFacts(report: MissionReport) {
             : content,
       };
     });
+}
+
+/**
+ * Saves a mission's playbook: unchanged from a saved playbook it only names
+ * it; otherwise it adds it — under its own name when free — for next time.
+ */
+export function saveMissionPlaybook(playbook: Playbook): string {
+  const app = useAppStore.getState();
+  const saved = app.settings.playbooks;
+  const same = saved.find((candidate) => candidate.id === playbook.id && playbooksRunAlike(candidate, playbook));
+  if (same) return `This mission ran “${same.name}” as it is saved.`;
+  const created: Playbook = {
+    ...duplicatePlaybook({ playbook, now: new Date(), taken: saved }),
+    name: uniquePlaybookName(playbook.name, saved),
+  };
+  app.updateSettings({ patch: { playbooks: upsertPlaybook(saved, created) } });
+  return `Saved as “${created.name}” in Automations → Playbooks.`;
 }
 
 export function useMissionReportActions(detail: MissionDetail | undefined): MissionReportActions {
@@ -69,6 +96,15 @@ export function useMissionReportActions(detail: MissionDetail | undefined): Miss
         return `Saved ${facts.length} ${facts.length === 1 ? "decision" : "decisions"} as memory candidates. Review them in Memory.`;
       };
     }
+    actions.saveAsPlaybook = async () => saveMissionPlaybook(mission.playbook);
+    actions.suggestedSlackThread = findSlackThreadUrl(mission.assignment);
+    actions.shareToSlack = async (threadUrl) => {
+      const api = window.api?.missions;
+      if (!api?.shareReport) throw new Error("Sharing is available in the desktop app.");
+      const result = await api.shareReport({ missionId: mission.id, threadUrl });
+      if (!result.ok) throw new Error(result.message ?? "The report was not shared.");
+      return "The task is posting the report to the thread. Its reply shows in the task.";
+    };
     return actions;
   }, [detail]);
 }

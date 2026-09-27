@@ -575,6 +575,8 @@ export const MISSION_EVENT_KINDS = [
   "resumed",
   "runtime-accepted",
   "mission-ended",
+  /** The user shared the ended mission's report to a Slack thread. */
+  "report-shared",
 ] as const;
 export type MissionEventKind = (typeof MISSION_EVENT_KINDS)[number];
 

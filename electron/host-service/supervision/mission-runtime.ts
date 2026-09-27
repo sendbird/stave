@@ -88,8 +88,10 @@ import {
   type MissionWorkspaceState,
 } from "../../../src/lib/missions/report";
 import {
+  buildShareReportPrompt,
   formatMissionReportMarkdown,
   mergeReportIntoPullRequestBody,
+  SLACK_THREAD_URL,
 } from "../../../src/lib/missions/report-markdown";
 import { sumTurnUsage, type MissionUsage, type TurnUsageSample } from "../../../src/lib/missions/usage";
 import { aggregateMissionInsights, type MissionInsights } from "../../../src/lib/missions/insights";
@@ -248,6 +250,8 @@ export interface MissionRuntime {
   cancel: (args: MissionIdArgs) => Promise<MissionDetail>;
   /** Adds the ended mission's report to its pull request body. */
   addReportToPullRequest: (args: MissionIdArgs) => Promise<{ prUrl: string }>;
+  /** Posts the ended mission's report to a Slack thread through a turn on its lead task. */
+  shareReport: (args: { missionId: string; threadUrl: string }) => Promise<{ shared: true }>;
   getForGrant: (args: { missionKey: string }) => Promise<MissionBriefing>;
   reportStage: (args: { missionKey: string; report: unknown }) => Promise<MissionReportReceipt>;
   blockStage: (args: { missionKey: string; block: unknown }) => Promise<MissionReportReceipt>;
@@ -994,6 +998,27 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
       if (!result.ok) refuse(result.detail);
       return { prUrl: result.url };
     },
+    shareReport: ({ missionId, threadUrl }) =>
+      enqueue(async () => {
+        if (!SLACK_THREAD_URL.test(threadUrl)) refuse("Paste a Slack thread link, such as https://acme.slack.com/archives/C123/p456.");
+        const detail = await getDetail({ missionId });
+        if (!detail.report) refuse("The report is ready once the mission ends.");
+        const snapshot = await readSnapshot(detail.mission);
+        if (!snapshot.exists || snapshot.archived || !snapshot.providerId || !snapshot.model) {
+          refuse("The mission's task is gone or archived, so it cannot post the report.");
+        }
+        if (snapshot.activeTurnId) refuse("The task is in a turn. Share the report once it finishes.");
+        await deps.runSupervisedTurn({
+          workspaceId: detail.mission.workspaceId,
+          taskId: detail.mission.leadTaskId,
+          prompt: buildShareReportPrompt(threadUrl, formatMissionReportMarkdown(detail.report)),
+          fingerprint: { providerId: snapshot.providerId, model: snapshot.model } as MissionFingerprint,
+          runtimeOptions: {},
+          retrievedContextParts: [],
+        });
+        store.recordEvent(missionId, { kind: "report-shared", idempotencyKey: null, detail: { threadUrl } }, now());
+        return { shared: true as const };
+      }),
     signOff: (args) =>
       command(args.missionId, (aggregate) =>
         signOffStage({ aggregate, expected: stageIdentity(args), now: now() }),
@@ -1149,6 +1174,8 @@ function dispatch(runtime: MissionRuntime, action: HostMissionAction, args: unkn
       return runtime.startMission(args as MissionStartInput);
     case "list":
       return runtime.list(args as MissionListArgs | undefined);
+    case "share-report":
+      return runtime.shareReport(args as { missionId: string; threadUrl: string });
     case "insights":
       return runtime.getInsights(args as { days?: number } | undefined);
     case "get":

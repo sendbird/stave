@@ -162,6 +162,7 @@ describe("Mission report actions", () => {
       }),
     );
     expect(full).toContain("Add to PR description");
-    expect(full).toContain("Save decisions to memory");
+    // Saving and sharing live in the report's More menu.
+    expect(full).toContain('aria-label="More report actions"');
   });
 });

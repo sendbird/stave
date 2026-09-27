@@ -78,6 +78,18 @@ went per playbook and per provider (see [Missions](missions.md#mission-insights)
 1. Automations → Playbooks → **+** → **From a template**.
 2. Edit the stages and save.
 
+The templates cover pull requests — **Request → PR**, **Slack request → PR**,
+**Fix failing checks**, **Address review** — and work that is not one:
+**Research a question**, **Draft a decision document**, **Investigate a
+problem** (changes no files), **Plan, build and verify**, **Coordinate
+independent tasks** (through delegated tasks) and **Independent review**.
+
+### Save a playbook from a finished mission
+
+In the Mission report, choose **More → Save as playbook**. The playbook the
+mission ran — with any stage edits you made for that run — is saved under its
+own name. A mission that ran a saved playbook unchanged only names it.
+
 ### Change a playbook for one mission
 
 In the Start mission sheet, open **Edit stages for this mission**. Leave

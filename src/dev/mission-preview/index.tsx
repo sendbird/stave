@@ -294,6 +294,9 @@ export function MissionPreview() {
               reportActions={{
                 addToPullRequest: async () => "Added the report to the pull request description.",
                 saveDecisions: async () => "Saved 2 decisions as memory candidates. Review them in Memory.",
+                saveAsPlaybook: async () => "Saved as “Request → PR 2” in Automations → Playbooks.",
+                shareToSlack: async () => "The task is posting the report to the thread. Its reply shows in the task.",
+                suggestedSlackThread: "https://acme.slack.com/archives/C123ABC/p1727000000123456",
               }}
             />
           </section>
@@ -304,6 +307,9 @@ export function MissionPreview() {
               actions={{
                 addToPullRequest: async () => "Added the report to the pull request description.",
                 saveDecisions: async () => "Saved 2 decisions as memory candidates. Review them in Memory.",
+                saveAsPlaybook: async () => "Saved as “Request → PR 2” in Automations → Playbooks.",
+                shareToSlack: async () => "The task is posting the report to the thread. Its reply shows in the task.",
+                suggestedSlackThread: "https://acme.slack.com/archives/C123ABC/p1727000000123456",
               }}
             />
           </section>

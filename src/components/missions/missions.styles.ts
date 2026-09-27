@@ -298,6 +298,17 @@ export const missionStyles = stylex.create({
   evidenceCommand: { display: "block", color: vars["--ads-color-text-muted"] },
 
   /* Report ----------------------------------------------------------------- */
+  shareForm: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-8"],
+    padding: vars["--ads-space-12"],
+    borderRadius: vars["--ads-radius-control"],
+    borderWidth: vars["--ads-border-width-hairline"],
+    borderStyle: "solid",
+    borderColor: vars["--ads-color-border"],
+  },
+  shareActions: { display: "flex", justifyContent: "flex-end", gap: vars["--ads-space-4"] },
   stats: {
     display: "grid",
     gridTemplateColumns: "repeat(auto-fit, minmax(4.5rem, 1fr))",

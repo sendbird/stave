@@ -787,6 +787,7 @@ const missionsApi: MissionsBridgeApi = {
   noteUserTurn: (args) => ipcRenderer.invoke(MISSION_IPC.noteUserTurn, args),
   cancel: (args) => ipcRenderer.invoke(MISSION_IPC.cancel, args),
   addReportToPullRequest: (args) => ipcRenderer.invoke(MISSION_IPC.addReportToPullRequest, args),
+  shareReport: (args) => ipcRenderer.invoke(MISSION_IPC.shareReport, args),
   subscribeChanged: (listener) => {
     missionChangedSubscribers.add(listener);
     return () => {

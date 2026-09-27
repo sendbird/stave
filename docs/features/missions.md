@@ -139,8 +139,16 @@ A quiet divider marks every turn a mission started, with the reason, such as
 When a mission ends, its report tops the Mission panel and Task Results:
 outcome, figures (duration, stages, turns, verified evidence, what it spent), links,
 decisions, what is still open, what was left behind, and how much the mission
-needed you. **Copy Markdown**, **Add to PR description** and **Save decisions
-to memory** (as memory candidates you review) act on it.
+needed you. **Copy Markdown** and **Add to PR description** act on it, and
+**More** holds the rest:
+
+- **Save decisions to memory**, as memory candidates you review.
+- **Save as playbook**: the playbook this mission ran, with its edits for this
+  run, saved for next time.
+- **Share to Slack…**: paste a thread link (the one in the assignment is
+  filled in) and the mission's task posts the report there once, as a reply,
+  with your Slack tools. It changes no files and waits while the task is in a
+  turn.
 
 ### Mission insights
 

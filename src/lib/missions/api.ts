@@ -36,6 +36,7 @@ export const MISSION_IPC = Object.freeze({
   noteUserTurn: "missions:note-user-turn",
   cancel: "missions:cancel",
   addReportToPullRequest: "missions:add-report-to-pr",
+  shareReport: "missions:share-report",
   /** Main → renderer: a `MissionChangedEvent`. */
   changed: "missions:changed",
 });
@@ -108,6 +109,12 @@ export interface MissionReportPublishResponse {
   message?: string;
 }
 
+export interface MissionShareReportResponse {
+  ok: boolean;
+  code?: MissionFailureCode;
+  message?: string;
+}
+
 export interface MissionInsightsResponse {
   ok: boolean;
   insights: MissionInsights | null;
@@ -150,5 +157,7 @@ export interface MissionsBridgeApi {
   cancel: (args: MissionIdArgs) => Promise<MissionCommandResponse>;
   /** Adds the ended mission's report to its pull request, on request. */
   addReportToPullRequest: (args: MissionIdArgs) => Promise<MissionReportPublishResponse>;
+  /** Posts the ended mission's report to a Slack thread, through a turn on its lead task. */
+  shareReport: (args: { missionId: string; threadUrl: string }) => Promise<MissionShareReportResponse>;
   subscribeChanged: (listener: (event: MissionChangedEvent) => void) => () => void;
 }

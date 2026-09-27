@@ -1,6 +1,19 @@
 import { useState } from "react";
-import { ArrowUpRight, BookmarkPlus, CircleCheck, CircleMinus, CircleX, Copy, GitPullRequestArrow } from "lucide-react";
+import {
+  ArrowUpRight,
+  BookmarkPlus,
+  BookPlus,
+  CircleCheck,
+  CircleMinus,
+  CircleX,
+  Copy,
+  Ellipsis,
+  GitPullRequestArrow,
+  Send,
+} from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
+import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
+import { TextField } from "@/components/ads/components/TextField";
 import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
 import { describeUsageShort } from "@/lib/missions/usage";
 import { sx } from "@/components/ads/utils/stylex";
@@ -10,6 +23,8 @@ import { formatAge } from "@/lib/missions/mission-view";
 import { EvidenceList } from "./EvidenceList";
 import type { MissionReportActions } from "./useMissionReportActions";
 import { missionStyles as styles } from "./missions.styles";
+
+type ReportActionKey = "pr" | "memory" | "playbook" | "slack";
 
 const OUTCOME = {
   completed: { title: "Mission complete", icon: CircleCheck, tone: "success" },
@@ -37,13 +52,18 @@ export function MissionReportView({
 }) {
   const standalone = context === "standalone";
   const [notice, setNotice] = useState<{ text: string; error: boolean } | null>(null);
-  const [running, setRunning] = useState<"pr" | "memory" | null>(null);
-  const runAction = async (which: "pr" | "memory", action: () => Promise<string>) => {
+  const [running, setRunning] = useState<ReportActionKey | null>(null);
+  const [sharing, setSharing] = useState(false);
+  const [threadUrl, setThreadUrl] = useState(actions.suggestedSlackThread ?? "");
+  /** Runs a report action and shows its sentence; true when it worked. */
+  const runAction = async (which: ReportActionKey, action: () => Promise<string>): Promise<boolean> => {
     setRunning(which);
     try {
       setNotice({ text: await action(), error: false });
+      return true;
     } catch (error) {
       setNotice({ text: error instanceof Error ? error.message : "That did not work.", error: true });
+      return false;
     } finally {
       setRunning(null);
     }
@@ -194,19 +214,59 @@ export function MissionReportView({
             Add to PR description
           </Button>
         ) : null}
-        {actions.saveDecisions ? (
-          <Button
-            size="xs"
-            variant="secondary"
-            loading={running === "memory"}
-            disabled={running !== null}
-            onClick={() => void runAction("memory", actions.saveDecisions!)}
-          >
-            <BookmarkPlus aria-hidden />
-            Save decisions to memory
-          </Button>
+        {actions.saveDecisions || actions.saveAsPlaybook || actions.shareToSlack ? (
+          <DropdownMenu
+            placement="bottom-start"
+            triggerAsChild
+            trigger={
+              <Button size="xs" variant="quiet" aria-label="More report actions" disabled={running !== null}>
+                <Ellipsis aria-hidden />
+                More
+              </Button>
+            }
+            groups={[
+              {
+                items: [
+                  ...(actions.saveDecisions
+                    ? [{ label: "Save decisions to memory", icon: <BookmarkPlus />, pending: running === "memory", onSelect: () => void runAction("memory", actions.saveDecisions!) }]
+                    : []),
+                  ...(actions.saveAsPlaybook
+                    ? [{ label: "Save as playbook", icon: <BookPlus />, pending: running === "playbook", onSelect: () => void runAction("playbook", actions.saveAsPlaybook!) }]
+                    : []),
+                  ...(actions.shareToSlack ? [{ label: "Share to Slack…", icon: <Send />, onSelect: () => setSharing(true) }] : []),
+                ],
+              },
+            ]}
+          />
         ) : null}
       </div>
+      {sharing && actions.shareToSlack ? (
+        <form
+          className={sx(styles.shareForm)}
+          onSubmit={(event) => {
+            event.preventDefault();
+            void runAction("slack", () => actions.shareToSlack!(threadUrl.trim())).then((worked) => worked && setSharing(false));
+          }}
+        >
+          <TextField
+            size="sm"
+            label="Slack thread"
+            description="The agent posts the report once, as a reply, with your Slack tools. It changes no files."
+            placeholder="https://acme.slack.com/archives/C123/p456"
+            value={threadUrl}
+            autoFocus
+            onChange={(event) => setThreadUrl(event.target.value)}
+          />
+          <span className={sx(styles.shareActions)}>
+            <Button type="button" size="xs" variant="quiet" onClick={() => setSharing(false)}>
+              Cancel
+            </Button>
+            <Button type="submit" size="xs" loading={running === "slack"} disabled={!threadUrl.trim() || running !== null}>
+              Share
+            </Button>
+          </span>
+        </form>
+      ) : null}
       {notice ? (
         <p className={sx(notice.error ? styles.error : styles.notice)} role={notice.error ? "alert" : "status"}>
           {notice.text}

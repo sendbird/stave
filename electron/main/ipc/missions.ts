@@ -6,6 +6,7 @@ import {
   type MissionCommandResponse,
   type MissionDetail,
   type MissionInsightsResponse,
+  type MissionShareReportResponse,
   type MissionListResponse,
   type MissionReportPublishResponse,
 } from "../../../src/lib/missions/api";
@@ -85,6 +86,20 @@ export function registerMissionHandlers() {
   handleCommand(MISSION_IPC.acceptRuntime, "accept-runtime", MissionIdArgsSchema);
   handleCommand(MISSION_IPC.noteUserTurn, "note-user-turn", MissionNoteUserTurnArgsSchema);
   handleCommand(MISSION_IPC.cancel, "cancel", MissionIdArgsSchema);
+
+  ipcMain.handle(MISSION_IPC.shareReport, async (_event, args: unknown): Promise<MissionShareReportResponse> => {
+    const parsed = z
+      .object({ missionId: z.string().trim().min(1).max(200), threadUrl: z.url().max(2_048) })
+      .strict()
+      .safeParse(args);
+    if (!parsed.success) return { ok: false, code: "invalid-args", message: describeInvalidArgs(parsed.error) };
+    try {
+      const result = await invokeMission<{ shared: true }>("share-report", parsed.data);
+      return result.ok ? { ok: true } : { ok: false, code: result.code, message: result.message };
+    } catch (error) {
+      return { ok: false, code: "failed", message: errorMessage(error, "Failed to share the report.") };
+    }
+  });
 
   ipcMain.handle(
     MISSION_IPC.addReportToPullRequest,

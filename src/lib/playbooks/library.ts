@@ -37,6 +37,18 @@ export function uniqueStageId(title: string, taken: Iterable<string>): string {
   }
 }
 
+/** The name, or the name with the first free number after it. */
+export function uniquePlaybookName(name: string, taken: readonly Playbook[]): string {
+  return uniqueName(name, taken);
+}
+
+/** Whether two playbooks run the same way: purpose, check-ins, constraints and stages. */
+export function playbooksRunAlike(left: Playbook, right: Playbook): boolean {
+  const shape = (playbook: Playbook) =>
+    JSON.stringify([playbook.purpose, playbook.checkIns, playbook.constraints, playbook.stages]);
+  return shape(left) === shape(right);
+}
+
 function uniqueName(name: string, taken: readonly Playbook[]): string {
   const names = new Set(taken.map((playbook) => playbook.name));
   if (!names.has(name)) return name;

@@ -81,6 +81,26 @@ export function formatMissionReportMarkdown(report: MissionReport): string {
   return `${lines.join("\n")}\n`;
 }
 
+/** A Slack thread link: `https://<team>.slack.com/archives/<channel>/p<ts>`. */
+export const SLACK_THREAD_URL = /^https:\/\/[a-z0-9-]+\.slack\.com\/archives\/[A-Z0-9]+\/p\d+/i;
+
+/** The first Slack thread link in a text, such as the assignment it came from. */
+export function findSlackThreadUrl(text: string): string | null {
+  const match = text.match(/https:\/\/[a-z0-9-]+\.slack\.com\/archives\/[A-Z0-9]+\/p\d+[^\s)>\]]*/i);
+  return match ? match[0] : null;
+}
+
+/** The turn that posts a report to a thread: one reply, with the user's Slack tools, no file changes. */
+export function buildShareReportPrompt(threadUrl: string, markdown: string): string {
+  return [
+    `Post this mission report as one reply in the Slack thread ${threadUrl}, using your Slack tools.`,
+    "Keep it as it is apart from what Slack formatting needs, post it once, then say where you posted it.",
+    "Do not change any files.",
+    "",
+    markdown,
+  ].join("\n");
+}
+
 const REPORT_START = "<!-- stave:mission-report -->";
 const REPORT_END = "<!-- /stave:mission-report -->";
 
