@@ -496,6 +496,7 @@ export type HostWakeUpAction =
 export type HostMissionAction =
   | "start"
   | "list"
+  | "insights"
   | "get"
   | "sign-off"
   | "request-changes"

@@ -823,8 +823,9 @@ Phase 1 shipped as designed, with these deviations:
   on the sign-off card, the Mission panel, the report and the Fleet strip,
   beside the turn budget and its near-limit warning.
 - **Metrics.** User replies, nudges, stuck stages and sign-off waits are
-  computed from mission events for the report footer; there is no separate
-  diagnostics view.
+  computed from mission events for the report footer, and **Mission insights**
+  in the Playbooks tab aggregates them per playbook and per provider over 7,
+  30 or 90 days, with cost per mission.
 
 
 ## 16. As Built (Phase 3)

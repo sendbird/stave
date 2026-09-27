@@ -142,6 +142,16 @@ decisions, what is still open, what was left behind, and how much the mission
 needed you. **Copy Markdown**, **Add to PR description** and **Save decisions
 to memory** (as memory candidates you review) act on it.
 
+### Mission insights
+
+**Automations → Playbooks → Mission insights** shows how missions that ended
+in the last 7, 30 or 90 days went: for each provider, then for each playbook
+on each provider — completion, replies from you, reminders to report and
+stuck stages per mission, how long sign-offs waited, and the cost of each
+mission where the provider reports one. Fewer replies and reminders mean a
+playbook carried the work on its own; reminders and stuck stages show where an
+agent stopped reporting.
+
 ### Fleet and notifications
 
 - A sign-off, a blocker or a stuck stage appears in Fleet's attention list with

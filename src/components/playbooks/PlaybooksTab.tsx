@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BookOpen, Hand, Plus, Sparkles, Zap } from "lucide-react";
+import { BarChart3, BookOpen, Hand, Plus, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
 import { Select } from "@/components/ads/components/Select";
@@ -17,6 +17,7 @@ import { isCustomCheckIns, listSignOffStageIndexes } from "@/lib/playbooks/sign-
 import { createPlaybookFromStarter, PLAYBOOK_STARTERS, type PlaybookStarter } from "@/lib/playbooks/starters";
 import { useAppStore } from "@/store/app.store";
 import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
+import { MissionInsightsView, type MissionInsightsLoader } from "./MissionInsights";
 import { PlaybookEditor } from "./PlaybookEditor";
 import { playbookStyles as styles } from "./playbooks.styles";
 
@@ -76,7 +77,10 @@ function TemplateGallery(props: { onUse: (starter: PlaybookStarter) => void }) {
  * left, the one being edited on the right. Unsaved edits stay with their
  * playbook while you look at another one.
  */
-export function PlaybooksTab() {
+/** The pinned entry above the playbooks: how missions went. */
+const INSIGHTS_ID = "__mission-insights__";
+
+export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {}) {
   const saved = useAppStore((state) => state.settings.playbooks);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
@@ -116,7 +120,8 @@ export function PlaybooksTab() {
     );
   }, [all, query]);
 
-  const selected = all.find((playbook) => playbook.id === selectedId) ?? all[0] ?? null;
+  const showingInsights = selectedId === INSIGHTS_ID;
+  const selected = showingInsights ? null : (all.find((playbook) => playbook.id === selectedId) ?? all[0] ?? null);
   const selectedSaved = selected ? (saved.find((playbook) => playbook.id === selected.id) ?? null) : null;
   const draft = selected ? (drafts[selected.id] ?? selected) : null;
 
@@ -221,6 +226,21 @@ export function PlaybooksTab() {
           </div>
           {newMenu}
         </div>
+        <Button
+          layout="host"
+          variant="quiet"
+          press="none"
+          aria-current={showingInsights ? "true" : undefined}
+          xstyle={[styles.card, showingInsights && styles.cardActive]}
+          onClick={() => setSelectedId(INSIGHTS_ID)}
+        >
+          <span className={sx(styles.cardTitleRow)}>
+            <BarChart3 aria-hidden className={sx(styles.chipIcon)} />
+            <span className={sx(styles.cardTitle)}>Mission insights</span>
+          </span>
+          <span className={sx(styles.cardMeta)}>How missions went</span>
+        </Button>
+        <p className={sx(styles.listLabel)}>Playbooks</p>
         <ul className={sx(styles.list)}>
           {visible.map((playbook) => {
             const current = drafts[playbook.id] ?? playbook;
@@ -251,6 +271,20 @@ export function PlaybooksTab() {
           {visible.length === 0 ? <li className={sx(styles.hint)}>No playbook matches “{query}”.</li> : null}
         </ul>
       </aside>
+      {showingInsights ? (
+        <div className={sx(styles.detail)}>
+          <div className={sx(styles.compactPicker)}>
+            <Select
+              size="sm"
+              aria-label="Playbook"
+              value={INSIGHTS_ID}
+              options={[{ value: INSIGHTS_ID, label: "Mission insights" }, ...all.map((playbook) => ({ value: playbook.id, label: (drafts[playbook.id] ?? playbook).name }))]}
+              onValueChange={(value) => setSelectedId(String(value))}
+            />
+          </div>
+          <MissionInsightsView load={props.loadInsights} />
+        </div>
+      ) : null}
       {selected && draft ? (
         <div className={sx(styles.detail)}>
           <div className={sx(styles.compactPicker)}>
@@ -258,7 +292,7 @@ export function PlaybooksTab() {
               size="sm"
               aria-label="Playbook"
               value={selected.id}
-              options={all.map((playbook) => ({ value: playbook.id, label: (drafts[playbook.id] ?? playbook).name }))}
+              options={[{ value: INSIGHTS_ID, label: "Mission insights" }, ...all.map((playbook) => ({ value: playbook.id, label: (drafts[playbook.id] ?? playbook).name }))]}
               onValueChange={(value) => setSelectedId(String(value))}
             />
             {newMenu}

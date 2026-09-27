@@ -8,6 +8,7 @@ import { createPlaybookFromStarter, PLAYBOOK_STARTERS } from "@/lib/playbooks/st
 import { applyThemeClass } from "@/lib/themes/apply";
 import { useAppStore } from "@/store/app.store";
 import { StartMissionSheetHost } from "@/components/missions/StartMissionSheet";
+import { aggregateMissionInsights } from "@/lib/missions/insights";
 import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
 
 /** Stand-ins for the desktop bridge calls the Start sheet makes. */
@@ -49,6 +50,28 @@ function openPreviewSheet() {
  */
 const params = new URLSearchParams(window.location.search);
 
+/** Mission insights from a spread of ended missions, for the preview. */
+function previewInsights(days: number) {
+  const metrics = (replies: number, nudges: number, stuck: number, waitMinutes: number | null) => ({
+    providerId: "claude-code",
+    userReplies: replies,
+    nudges,
+    stuckStages: stuck,
+    signOffs: waitMinutes === null ? 0 : 2,
+    signOffWaitAverageMs: waitMinutes === null ? null : waitMinutes * 60_000,
+    signOffWaitLongestMs: waitMinutes === null ? null : waitMinutes * 90_000,
+  });
+  const usage = (cost: number | null) => ({ turns: 8, measuredTurns: 8, inputTokens: 200_000, outputTokens: 20_000, costUsd: cost });
+  const samples = [
+    ...Array.from({ length: 9 }, (_, index) => ({ playbookName: "Request → PR", providerId: "claude-code", state: index < 8 ? "completed" : "stopped", metrics: metrics(1, 0, 0, 6), usage: usage(1.1) })),
+    ...Array.from({ length: 5 }, (_, index) => ({ playbookName: "Request → PR", providerId: "codex", state: index < 4 ? "completed" : "cancelled", metrics: metrics(2, 1, index === 0 ? 1 : 0, 9), usage: usage(null) })),
+    ...Array.from({ length: 4 }, () => ({ playbookName: "Fix failing checks", providerId: "codex", state: "completed", metrics: metrics(0, 0, 0, null), usage: usage(null) })),
+    ...Array.from({ length: 3 }, () => ({ playbookName: "Slack request → PR", providerId: "claude-code", state: "completed", metrics: metrics(1, 0, 0, 14), usage: usage(2.4) })),
+  ] as Parameters<typeof aggregateMissionInsights>[0];
+  // Shorter periods keep every other mission, so each provider still shows.
+  return aggregateMissionInsights(days >= 30 ? samples : samples.filter((_, index) => index % 3 === 0), days);
+}
+
 export function PlaybooksPreview() {
   const [dark, setDark] = useState(() => params.get("theme") === "dark");
   const [seeded, setSeeded] = useState(false);
@@ -84,7 +107,7 @@ export function PlaybooksPreview() {
           </ActionButton>
         </span>
       </div>
-      <div className={sx(styles.frame)}>{seeded ? <PlaybooksTab /> : null}</div>
+      <div className={sx(styles.frame)}>{seeded ? <PlaybooksTab loadInsights={async (days) => previewInsights(days)} /> : null}</div>
       <StartMissionSheetHost />
     </main>
   );

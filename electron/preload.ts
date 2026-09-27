@@ -774,6 +774,7 @@ ipcRenderer.on(MISSION_IPC.changed, (_event, payload: MissionChangedEvent) => {
 const missionsApi: MissionsBridgeApi = {
   start: (args) => ipcRenderer.invoke(MISSION_IPC.start, args),
   list: (args) => ipcRenderer.invoke(MISSION_IPC.list, args ?? {}),
+  insights: (args) => ipcRenderer.invoke(MISSION_IPC.insights, args ?? {}),
   get: (args) => ipcRenderer.invoke(MISSION_IPC.get, args),
   signOff: (args) => ipcRenderer.invoke(MISSION_IPC.signOff, args),
   requestChanges: (args) => ipcRenderer.invoke(MISSION_IPC.requestChanges, args),

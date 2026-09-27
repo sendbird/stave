@@ -284,6 +284,13 @@ describe("project scenarios", () => {
     expect(byWorkspace("ws-project-billing").usage).toMatchObject({ turns: 2, measuredTurns: 2, costUsd: 0.5 });
     expect(byWorkspace("ws-project-settings").usage).toMatchObject({ turns: 2, measuredTurns: 2, costUsd: null, inputTokens: 20_000 });
     expect((await w.mission.get({ missionId: byWorkspace("ws-project-billing").missionId })).report?.usage?.costUsd).toBe(0.5);
+    // Mission insights read the same missions: one completed on each provider.
+    const insights = await w.mission.getInsights({ days: 30 });
+    expect(insights.rows.map((row) => [row.playbookName, row.providerId, row.missions, row.completed]).sort()).toEqual([
+      ["Quick change", "claude-code", 1, 1],
+      ["Quick change", "codex", 1, 1],
+    ]);
+    expect(insights.providers.find((row) => row.providerId === "claude-code")?.costPerMission).toBe(0.5);
 
     // P2: when the coordinator frees up, one wake carries both missions.
     w.setCoordinatorTurnOpen(false);

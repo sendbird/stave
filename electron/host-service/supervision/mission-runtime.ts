@@ -83,6 +83,7 @@ import {
 } from "../../../src/lib/missions/policy";
 import {
   buildMissionReport,
+  computeMissionMetrics,
   type MissionReport,
   type MissionWorkspaceState,
 } from "../../../src/lib/missions/report";
@@ -91,6 +92,7 @@ import {
   mergeReportIntoPullRequestBody,
 } from "../../../src/lib/missions/report-markdown";
 import { sumTurnUsage, type MissionUsage, type TurnUsageSample } from "../../../src/lib/missions/usage";
+import { aggregateMissionInsights, type MissionInsights } from "../../../src/lib/missions/insights";
 import type { CanonicalRetrievedContextPart, ProviderRuntimeOptions } from "../../../src/lib/providers/provider.types";
 import type { MissionStore } from "../../persistence/mission-store";
 import type { MissionStageGrant } from "../../providers/mission-grants";
@@ -232,6 +234,8 @@ export interface MissionRuntime {
   get: (args: MissionIdArgs) => Promise<MissionDetail>;
   /** What the mission's turns spent; null for an unknown mission or no usage reader. */
   readUsage: (args: MissionIdArgs) => MissionUsage | null;
+  /** How missions that ended in the last `days` went, per playbook and provider. */
+  getInsights: (args?: { days?: number }) => Promise<MissionInsights>;
   signOff: (args: MissionStageRef) => Promise<MissionDetail>;
   requestChanges: (args: MissionRequestChangesArgs) => Promise<MissionDetail>;
   skipStage: (args: MissionStageRef) => Promise<MissionDetail>;
@@ -954,6 +958,23 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         : store.listRecentMissions(args.limit),
     }),
     get: getDetail,
+    getInsights: async ({ days = 30 } = {}) => {
+      const since = now().getTime() - days * 24 * 60 * 60_000;
+      const samples = store
+        .listRecentMissions(200)
+        .filter((mission) => !isActiveMissionState(mission.state) && Date.parse(mission.updatedAt) >= since)
+        .map((mission) => ({
+          playbookName: mission.playbook.name,
+          providerId: mission.fingerprint.providerId,
+          state: mission.state,
+          metrics: computeMissionMetrics({
+            providerId: mission.fingerprint.providerId,
+            events: store.listRecentEvents(mission.id, MISSION_LIMITS.maxRetainedEvents),
+          }),
+          usage: usageOf(mission) ?? null,
+        }));
+      return aggregateMissionInsights(samples, days);
+    },
     readUsage: ({ missionId }) => {
       const aggregate = store.getAggregate(missionId);
       return aggregate ? (usageOf(aggregate.mission) ?? null) : null;
@@ -1128,6 +1149,8 @@ function dispatch(runtime: MissionRuntime, action: HostMissionAction, args: unkn
       return runtime.startMission(args as MissionStartInput);
     case "list":
       return runtime.list(args as MissionListArgs | undefined);
+    case "insights":
+      return runtime.getInsights(args as { days?: number } | undefined);
     case "get":
       return runtime.get(args as MissionIdArgs);
     case "sign-off":

@@ -1,9 +1,11 @@
 import { ipcMain } from "electron";
-import type { z } from "zod";
+import { z } from "zod";
+import type { MissionInsights } from "../../../src/lib/missions/insights";
 import {
   MISSION_IPC,
   type MissionCommandResponse,
   type MissionDetail,
+  type MissionInsightsResponse,
   type MissionListResponse,
   type MissionReportPublishResponse,
 } from "../../../src/lib/missions/api";
@@ -101,6 +103,17 @@ export function registerMissionHandlers() {
       }
     },
   );
+
+  ipcMain.handle(MISSION_IPC.insights, async (_event, args: unknown): Promise<MissionInsightsResponse> => {
+    const parsed = z.object({ days: z.number().int().min(1).max(365).optional() }).strict().safeParse(args ?? {});
+    if (!parsed.success) return { ok: false, insights: null, message: describeInvalidArgs(parsed.error) };
+    try {
+      const result = await invokeMission<MissionInsights>("insights", parsed.data);
+      return result.ok ? { ok: true, insights: result.value } : { ok: false, insights: null, message: result.message };
+    } catch (error) {
+      return { ok: false, insights: null, message: errorMessage(error, "Failed to load mission insights.") };
+    }
+  });
 
   ipcMain.handle(MISSION_IPC.list, async (_event, args: unknown): Promise<MissionListResponse> => {
     const parsed = MissionListArgsSchema.safeParse(args ?? {});

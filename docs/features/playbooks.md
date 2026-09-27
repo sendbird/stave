@@ -66,6 +66,11 @@ Describe how you work in a sentence, or paste an example of the steps you took
 last time, and click **Draft stages**. The draft replaces the editor's content
 but is not saved until you click **Save playbook**.
 
+### Mission insights
+
+**Mission insights**, pinned above the playbook list, compares how missions
+went per playbook and per provider (see [Missions](missions.md#mission-insights)).
+
 ## Common Workflows
 
 ### Make a playbook from a template

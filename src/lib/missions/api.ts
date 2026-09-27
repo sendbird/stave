@@ -17,11 +17,13 @@ import type {
 } from "./domain";
 import type { MissionReport } from "./report";
 import type { MissionUsage } from "./usage";
+import type { MissionInsights } from "./insights";
 
 /** IPC channels behind `window.api.missions`, keyed by bridge method. */
 export const MISSION_IPC = Object.freeze({
   start: "missions:start",
   list: "missions:list",
+  insights: "missions:insights",
   get: "missions:get",
   signOff: "missions:sign-off",
   requestChanges: "missions:request-changes",
@@ -106,6 +108,12 @@ export interface MissionReportPublishResponse {
   message?: string;
 }
 
+export interface MissionInsightsResponse {
+  ok: boolean;
+  insights: MissionInsights | null;
+  message?: string;
+}
+
 export interface MissionListResponse {
   ok: boolean;
   missions: Mission[];
@@ -127,6 +135,8 @@ export interface MissionChangedEvent {
 export interface MissionsBridgeApi {
   start: (args: MissionStartArgs) => Promise<MissionCommandResponse>;
   list: (args?: MissionListArgs) => Promise<MissionListResponse>;
+  /** How missions that ended in the last `days` went, per playbook and provider. */
+  insights: (args?: { days?: number }) => Promise<MissionInsightsResponse>;
   get: (args: MissionIdArgs) => Promise<MissionCommandResponse>;
   signOff: (args: MissionStageRef) => Promise<MissionCommandResponse>;
   requestChanges: (args: MissionRequestChangesArgs) => Promise<MissionCommandResponse>;
