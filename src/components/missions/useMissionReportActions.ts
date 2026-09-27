@@ -1,7 +1,13 @@
 import { useMemo } from "react";
 import type { MissionDetail } from "@/lib/missions/api";
 import type { MissionReport } from "@/lib/missions/report";
-import { duplicatePlaybook, playbooksRunAlike, uniquePlaybookName, upsertPlaybook } from "@/lib/playbooks/library";
+import {
+  duplicatePlaybook,
+  explainPlaybookLimit,
+  playbooksRunAlike,
+  uniquePlaybookName,
+  upsertPlaybook,
+} from "@/lib/playbooks/library";
 import { parsePlaybook } from "@/lib/playbooks/normalize";
 import type { Playbook } from "@/lib/playbooks/schema";
 import { findSlackThreadUrl } from "@/lib/missions/report-markdown";
@@ -64,6 +70,8 @@ export function saveMissionPlaybook(ran: Playbook): string {
   if (same) return `This mission ran “${same.name}” as it is saved.`;
   const copy = saved.find((candidate) => playbooksRunAlike(candidate, playbook));
   if (copy) return `Already saved as “${copy.name}” in Automations → Playbooks.`;
+  const full = explainPlaybookLimit(saved);
+  if (full) return full;
   const created: Playbook = {
     ...duplicatePlaybook({ playbook, now: new Date(), taken: saved }),
     name: uniquePlaybookName(playbook.name, saved),

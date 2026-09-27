@@ -37,7 +37,7 @@ import {
   listMissionStops,
   remainingStages,
 } from "@/lib/missions/start-sheet";
-import { duplicatePlaybook, groupIssuesByField, upsertPlaybook } from "@/lib/playbooks/library";
+import { duplicatePlaybook, explainPlaybookLimit, groupIssuesByField, upsertPlaybook } from "@/lib/playbooks/library";
 import { parsePlaybook } from "@/lib/playbooks/normalize";
 import { CHECK_IN_LABELS, CHECK_INS, PLAYBOOK_LIMITS, type CheckIns, type Playbook } from "@/lib/playbooks/schema";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
@@ -183,12 +183,14 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
   const parsedCopy = copy ? parsePlaybook(copy) : null;
   const effectStages = copy ? copy.stages.filter((stage) => describeExternalEffect(stage) !== null) : [];
   const stops = copy ? new Set(listMissionStops(copy, consent, startAt)) : new Set<number>();
+  // A retry updates the copy it saved, which never counts against the limit.
+  const playbookLimit = saveAsNew ? explainPlaybookLimit(saved, savedCopyId.current ?? undefined) : null;
   const ready =
     Boolean(copy) &&
     parsedCopy?.ok === true &&
     assignment.trim().length > 0 &&
     canStartWith(checks) &&
-    (!saveAsNew || newName.trim().length > 0) &&
+    (!saveAsNew || (newName.trim().length > 0 && !playbookLimit)) &&
     !starting;
 
   const start = async () => {
@@ -440,6 +442,7 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
                       label="Name"
                       value={newName}
                       maxLength={PLAYBOOK_LIMITS.name}
+                      error={playbookLimit ?? undefined}
                       onChange={(event) => setNewName(event.target.value)}
                     />
                   ) : null}
