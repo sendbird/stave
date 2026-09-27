@@ -85,6 +85,220 @@ const reportBack: AiStage = {
   doneWhen: "One reply is posted in the thread and its link is reported as evidence.",
 };
 
+/** Work that is not a pull request: research, documents, investigation, coordination, review. */
+const WORK_STARTERS: readonly PlaybookStarter[] = [
+  {
+    id: "research-question",
+    description: "Answer a question with sourced evidence and a recommendation.",
+    template: {
+      version: PLAYBOOK_VERSION,
+      name: "Research a question",
+      purpose: "Answer the question in the assignment with sourced evidence and a practical recommendation.",
+      checkIns: DEFAULT_CHECK_INS,
+      team: "solo",
+      constraints: "Separate findings from assumptions. Cite every source with its link and date. Do not change files.",
+      stages: [
+        {
+          id: "scope",
+          title: "Scope",
+          kind: "ai",
+          role: "plan",
+          instruction:
+            "Restate the question and the decision it informs. List what would change the answer and the sources worth checking, starting with the workspace's own context.",
+          doneWhen: "The question, the decision it informs and the sources to check are reported.",
+        },
+        {
+          id: "research",
+          title: "Research",
+          kind: "ai",
+          instruction:
+            "Read primary sources and the relevant workspace context. Record each source's link and date, and note where sources disagree.",
+          doneWhen: "Findings are reported with their sources, and assumptions and conflicting evidence are called out.",
+        },
+        {
+          id: "recommend",
+          title: "Recommend",
+          kind: "ai",
+          instruction:
+            "Give a practical recommendation, how confident you are, and what would change it. Save the recommendation and next steps in the workspace Information panel with `stave_append_workspace_notes`.",
+          doneWhen: "A recommendation with its confidence and next steps is reported and saved in Information.",
+        },
+      ],
+    },
+  },
+  {
+    id: "decision-document",
+    description: "Turn notes and evidence into a proposal for a specific audience.",
+    template: {
+      version: PLAYBOOK_VERSION,
+      name: "Draft a decision document",
+      purpose: "Turn the notes and evidence in the assignment into a clear proposal for its audience.",
+      checkIns: DEFAULT_CHECK_INS,
+      team: "solo",
+      constraints: "Mark every claim that still needs verification. Keep the document in the workspace.",
+      stages: [
+        {
+          id: "outline",
+          title: "Outline",
+          kind: "ai",
+          role: "plan",
+          instruction:
+            "Name the audience, the purpose and the expected format. Gather the notes and evidence, and outline the problem, the options and their tradeoffs.",
+          doneWhen: "The audience, purpose, format and an outline are reported.",
+        },
+        {
+          id: "draft",
+          title: "Draft",
+          kind: "ai",
+          instruction:
+            "Write the document: the problem, the options, their tradeoffs, the proposed decision and concrete next actions. Save it in the workspace.",
+          doneWhen: "The document is saved in the workspace and its path is reported as evidence.",
+        },
+        {
+          id: "check",
+          title: "Check",
+          kind: "ai",
+          instruction:
+            "Read the document as its audience would. List missing evidence and claims that need verification, and fix what you can.",
+          doneWhen: "Remaining gaps and unverified claims are listed, or the document is reported complete.",
+        },
+      ],
+    },
+  },
+  {
+    id: "investigate-problem",
+    description: "Reproduce a problem and explain its cause before changing code.",
+    template: {
+      version: PLAYBOOK_VERSION,
+      name: "Investigate a problem",
+      purpose: "Reproduce the problem in the assignment, explain its cause and propose the smallest safe fix.",
+      checkIns: DEFAULT_CHECK_INS,
+      team: "solo",
+      constraints: "Do not change files. Keep confirmed facts apart from hypotheses.",
+      stages: [
+        {
+          id: "reproduce",
+          title: "Reproduce",
+          kind: "ai",
+          instruction:
+            "Reproduce the problem and record the exact steps and what you observed. Read the relevant code and earlier decisions.",
+          doneWhen: "Reproduction steps and the observed behavior are reported, or why it does not reproduce.",
+        },
+        {
+          id: "explain",
+          title: "Explain",
+          kind: "ai",
+          instruction:
+            "Explain the cause with the evidence for it, separating confirmed facts from hypotheses. Propose the smallest safe fix and how to validate it.",
+          doneWhen: "The cause, its evidence and a fix proposal with a validation plan are reported.",
+        },
+      ],
+    },
+  },
+  {
+    id: "plan-build-verify",
+    description: "Plan, build and verify an outcome, without a pull request.",
+    template: {
+      version: PLAYBOOK_VERSION,
+      name: "Plan, build and verify",
+      purpose: "Deliver the outcome in the assignment as a verified change, reported with its evidence and risks.",
+      checkIns: DEFAULT_CHECK_INS,
+      team: "solo",
+      constraints: "Keep unrelated changes out. Keep decisions and remaining work in the Information panel.",
+      stages: [
+        {
+          id: "plan",
+          title: "Plan",
+          kind: "ai",
+          role: "plan",
+          instruction:
+            "Inspect the existing architecture and define checkable completion criteria for the outcome.",
+          doneWhen: "Two to six checkable acceptance criteria and the approach are reported.",
+        },
+        build,
+        verify,
+        {
+          id: "report",
+          title: "Report",
+          kind: "ai",
+          instruction:
+            "Summarize the results, the validation evidence and the unresolved risks. Keep decisions and remaining work in the workspace Information panel.",
+          doneWhen: "Results, evidence and open risks are reported and saved in Information.",
+        },
+      ],
+    },
+  },
+  {
+    id: "coordinate-tasks",
+    description: "Split work into delegated tasks, then reconcile and verify their results.",
+    template: {
+      version: PLAYBOOK_VERSION,
+      name: "Coordinate independent tasks",
+      purpose: "Deliver the outcome in the assignment through delegated tasks, reconciled and verified.",
+      checkIns: DEFAULT_CHECK_INS,
+      team: "solo",
+      constraints: "A finished delegated run is not verified work until you checked its result.",
+      stages: [
+        {
+          id: "assign",
+          title: "Assign",
+          kind: "ai",
+          role: "plan",
+          instruction:
+            "Split the outcome into independent assignments. For each, name its completion check, the provider and permissions it needs, and whether it edits files and so needs its own worktree.",
+          doneWhen: "Each assignment is listed with its completion check, provider and worktree choice.",
+        },
+        {
+          id: "delegate",
+          title: "Delegate",
+          kind: "ai",
+          instruction:
+            "Start each assignment as a delegated task with `stave_delegate_task`, on its own worktree when it edits files. Follow them with `stave_list_delegated_tasks`.",
+          doneWhen: "Every assignment runs as a delegated task, and each task is reported.",
+        },
+        {
+          id: "reconcile",
+          title: "Reconcile",
+          kind: "ai",
+          instruction:
+            "Read each delegated task's result, reconcile conflicting findings and verify the integrated outcome.",
+          doneWhen: "Each result is verified or its gap named, and the integrated outcome is verified.",
+        },
+      ],
+    },
+  },
+  {
+    id: "independent-review",
+    description: "Review work against its goal, then fix and verify what should change.",
+    template: {
+      version: PLAYBOOK_VERSION,
+      name: "Independent review",
+      purpose: "Review the current work against its goal and completion checks, and fix what should change now.",
+      checkIns: DEFAULT_CHECK_INS,
+      team: "solo",
+      constraints: "Report findings with evidence and severity. Distinguish tested from untested claims.",
+      stages: [
+        {
+          id: "review",
+          title: "Review",
+          kind: "ai",
+          role: "plan",
+          instruction:
+            "Review the work for correctness, failure and restart behavior, performance-sensitive paths and accessibility. Use an advisor for an independent view when one is configured.",
+          doneWhen: "Actionable findings are reported with evidence and severity.",
+        },
+        {
+          id: "fix-findings",
+          title: "Fix",
+          kind: "ai",
+          instruction: "Fix the findings that should be fixed now and verify each fix. Leave the rest listed with the reason.",
+          doneWhen: "Each finding is fixed and verified, or listed with the reason it stays.",
+        },
+      ],
+    },
+  },
+];
+
 export const PLAYBOOK_STARTERS: readonly PlaybookStarter[] = [
   {
     id: "slack-request-to-pr",
@@ -233,6 +447,7 @@ export const PLAYBOOK_STARTERS: readonly PlaybookStarter[] = [
       ],
     },
   },
+  ...WORK_STARTERS,
 ];
 
 /** Stages offered by "Add stage" in the Playbook Builder. */
