@@ -1,3 +1,26 @@
+## [0.20.0](https://github.com/sendbird/stave/compare/v0.19.7...v0.20.0) (2026-09-27)
+
+### Features
+
+* Add Playbooks: saved ways of working made of stages. An AI stage has an instruction and a done-when condition. A Stave action opens a draft pull request, watches checks, marks the pull request ready for review, or runs a workspace script. Edit playbooks in Automations → Playbooks, including templates and Draft with AI.
+* Add Missions that run a playbook on a task under host supervision. Agents report each stage through local MCP tools with a per-turn grant. A mission stops only at the sign-offs you chose, keeps evidence Stave verified itself, survives a restart, and behaves the same for Claude and Codex.
+* Add Projects for a goal that spans many missions. A coordinator task plans the missions, proposes them for approval, and wakes when missions change, when an issue is assigned, on pull request feedback, or on a schedule. Projects keep memory and a library, and the coordinator conversation docks beside the project.
+* Let a playbook propose missions for an assigned issue, a pull request that needs work, or a schedule. Proposals wait in Issues → Proposed. Pull request and scheduled missions can start on their own when that is safe.
+* Rename routines to automations, task heartbeats to wake-ups, child tasks to delegated tasks, tracker tasks to issues, and registered projects to repositories. Registered temporary migrations keep saved settings across the rename.
+
+### Breaking Changes
+
+* Local MCP tool names changed. Update provider permission allowlists and saved prompts that still use the old names.
+* `stave_list_projects` is now `stave_list_repositories`, `stave_register_project` is now `stave_register_repository`, and `stave_list_project_memories` is now `stave_list_repository_memories`. The `projectPath` argument is now `repositoryPath`.
+* `stave_list_tracker_tasks` is now `stave_list_tracker_issues`.
+* `stave_list_child_tasks`, `stave_stop_child_task`, and `stave_follow_up_child_task` are now `stave_list_delegated_tasks`, `stave_stop_delegated_task`, and `stave_follow_up_delegated_task`. `stave_delegate_task` keeps its name.
+* Task heartbeat tools are now wake-up tools: `stave_list_task_heartbeats`, `stave_get_task_heartbeat`, `stave_create_task_heartbeat`, `stave_update_task_heartbeat`, `stave_set_task_heartbeat_paused`, and `stave_remove_task_heartbeat` become the matching `stave_*_wake_up*` tools. The id argument is still `id`.
+* Routine tools are now automation tools, including `stave_list_routines` → `stave_list_automations` and the matching create, update, remove, enable, run-now, and information-reference tools.
+
+### References
+
+* [#584](https://github.com/sendbird/stave/pull/584)
+
 ## [0.19.7](https://github.com/sendbird/stave/compare/v0.19.6...v0.19.7) (2026-09-26)
 
 ### Features
