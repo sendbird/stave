@@ -818,6 +818,11 @@ Phase 1 shipped as designed, with these deviations:
   sheet.
 - **Builder.** Stave action settings are edited inline in the stage row, not in
   a side pane.
+- **Phase 2 additions.** `run-script` runs a workspace script action and
+  waits (30 minutes at most), never replaying a run a stopped process began;
+  Save as playbook and Share to Slack live in the report's **More** menu; six
+  more templates cover research, documents, investigation, delivery without a
+  PR, coordination and review.
 - **Spend.** Summed from the provider-reported usage of the mission's turns:
   the cost where the provider reports one (Claude), tokens otherwise (Codex),
   on the sign-off card, the Mission panel, the report and the Fleet strip,

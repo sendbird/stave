@@ -81,5 +81,9 @@ export function describeActionEvidence(result: ActionResult): ClassifiedEvidence
         ref: result.prUrl,
         source: "stave",
       };
+    case "run-script":
+      return result.url
+        ? { label: `Ran “${result.scriptId}”`, kind: "link", ref: result.url, source: "stave" }
+        : { label: `Ran “${result.scriptId}” (exit ${result.exitCode})`, kind: "check", source: "stave" };
   }
 }

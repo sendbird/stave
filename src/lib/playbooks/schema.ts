@@ -101,6 +101,20 @@ const StaveActionSchema = z.discriminatedUnion("type", [
     })
     .strict(),
   z.object({ type: z.literal("mark-pr-ready") }).strict(),
+  /**
+   * Runs an action from the workspace's scripts (`.stave/scripts.json`), such
+   * as a preview deployment, and waits for it to finish.
+   */
+  z
+    .object({
+      type: z.literal("run-script"),
+      scriptId: z
+        .string()
+        .trim()
+        .min(1, "Script is required.")
+        .max(120, "Script must be 120 characters or fewer."),
+    })
+    .strict(),
 ]);
 
 const stageIdentity = {
@@ -145,6 +159,7 @@ export const STAVE_ACTION_LABELS: Record<StaveActionType, string> = {
   "open-draft-pr": "Open draft PR",
   "watch-checks": "Watch checks",
   "mark-pr-ready": "Ready for review",
+  "run-script": "Run script",
 };
 
 interface StructureInput {

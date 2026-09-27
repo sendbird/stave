@@ -1,0 +1,124 @@
+import { describe, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
+import {
+  createMissionActionExecutor,
+  lastPrintedUrl,
+  type MissionScmPort,
+  type MissionScriptRun,
+} from "../electron/host-service/supervision/mission-actions";
+import { MissionStore } from "../electron/persistence/mission-store";
+import { createMission } from "../src/lib/missions/domain";
+import { describeExternalEffect } from "../src/lib/missions/start-sheet";
+import { createActionStage } from "../src/lib/playbooks/library";
+import { PlaybookSchema } from "../src/lib/playbooks/schema";
+
+const START = new Date("2026-09-26T10:00:00.000Z");
+
+function scriptMission(store: MissionStore, id = "mission-1") {
+  const playbook = PlaybookSchema.parse({
+    version: 1,
+    id: "playbook_preview",
+    name: "Preview",
+    purpose: "Deploy a preview.",
+    checkIns: "when-stuck",
+    team: "solo",
+    stages: [{ id: "deploy", title: "Deploy preview", kind: "action", action: { type: "run-script", scriptId: "preview" } }],
+    createdAt: START.toISOString(),
+    updatedAt: START.toISOString(),
+  });
+  const change = createMission({
+    id,
+    input: {
+      workspaceId: "ws-1",
+      leadTaskId: "task-1",
+      playbook,
+      assignment: "Deploy a preview.",
+      consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["deploy"] },
+    },
+    repositoryPath: "/tmp/repo",
+    fingerprint: { providerId: "claude-code", model: "sonnet" },
+    now: START,
+  });
+  store.create(change, START);
+  return store.getAggregate(id)!;
+}
+
+function executor(store: MissionStore, runScript?: (args: { workspaceId: string; scriptId: string }) => Promise<MissionScriptRun>) {
+  return createMissionActionExecutor({
+    store,
+    scm: {} as MissionScmPort,
+    resolveWorkspacePath: async () => "/tmp/repo",
+    runScript,
+    now: () => START,
+  });
+}
+
+describe("the Run script action", () => {
+  test("starts the script once, waits for it, and turns its last printed address into evidence", async () => {
+    const store = new MissionStore(new Database(":memory:"));
+    const aggregate = scriptMission(store);
+    let finish!: (run: MissionScriptRun) => void;
+    const calls: string[] = [];
+    const perform = executor(store, (args) => {
+      calls.push(args.scriptId);
+      return new Promise((resolve) => (finish = resolve));
+    });
+    expect(await perform({ aggregate })).toEqual({ status: "in-progress" });
+    expect(await perform({ aggregate })).toEqual({ status: "in-progress" });
+    expect(calls).toEqual(["preview"]);
+    finish({ ok: true, exitCode: 0, output: "Deploying…\nPreview: https://app-git-preview.vercel.app.\nDone" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const outcome = await perform({ aggregate });
+    expect(outcome).toMatchObject({
+      status: "succeeded",
+      result: { type: "run-script", scriptId: "preview", exitCode: 0, url: "https://app-git-preview.vercel.app" },
+    });
+  });
+
+  test("a failing script fails the stage with its exit code and the end of its output", async () => {
+    const store = new MissionStore(new Database(":memory:"));
+    const aggregate = scriptMission(store);
+    const perform = executor(store, async () => ({ ok: true, exitCode: 2, output: "error: missing token" }));
+    await perform({ aggregate });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const outcome = await perform({ aggregate });
+    expect(outcome).toMatchObject({ status: "failed" });
+    expect((outcome as { detail: string }).detail).toBe("“preview” exited with 2. error: missing token");
+  });
+
+  test("a run a previous process started is never replayed", async () => {
+    const store = new MissionStore(new Database(":memory:"));
+    const aggregate = scriptMission(store);
+    const calls: string[] = [];
+    // The first process started it and stopped.
+    await executor(store, () => new Promise(() => {}))({ aggregate });
+    const outcome = await executor(store, async (args) => {
+      calls.push(args.scriptId);
+      return { ok: true, exitCode: 0, output: "" };
+    })({ aggregate });
+    expect(calls).toEqual([]);
+    expect(outcome).toMatchObject({ status: "failed" });
+    expect((outcome as { detail: string }).detail).toContain("Stave stopped while “preview” ran");
+  });
+
+  test("is a consented external effect, created with a script to fill in, and reads URLs off output", () => {
+    const stage = createActionStage("run-script", []);
+    expect(stage).toMatchObject({ title: "Run script", action: { type: "run-script", scriptId: "preview" } });
+    expect(describeExternalEffect(stage)).toContain("may act outside this machine");
+    expect(lastPrintedUrl("see https://a.test/x and https://b.test/y).")).toBe("https://b.test/y");
+    expect(lastPrintedUrl("no address")).toBeUndefined();
+    expect(
+      PlaybookSchema.safeParse({
+        version: 1,
+        id: "p",
+        name: "P",
+        purpose: "P",
+        checkIns: "when-stuck",
+        team: "solo",
+        stages: [{ id: "s", title: "S", kind: "action", action: { type: "run-script", scriptId: " " } }],
+        createdAt: START.toISOString(),
+        updatedAt: START.toISOString(),
+      }).success,
+    ).toBe(false);
+  });
+});

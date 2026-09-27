@@ -71,6 +71,20 @@ export interface MissionScmPort {
 
 type ActionStore = Pick<MissionStore, "recordEvent" | "listEventsByKind">;
 
+/** A finished run of a workspace script, as the Run script action reads it. */
+export type MissionScriptRun =
+  | { ok: true; exitCode: number; output: string }
+  | { ok: false; detail: string; exitCode?: number | null; output?: string };
+
+/** How long a mission waits for a script before it fails the stage. */
+const SCRIPT_TIMEOUT_MS = 30 * 60_000;
+
+/** The last https address a script printed, such as a preview deployment's. */
+export function lastPrintedUrl(output: string): string | undefined {
+  const matches = output.match(/https:\/\/[^\s"'<>`)\]]+/g);
+  return matches?.at(-1)?.replace(/[.,;:]+$/, "");
+}
+
 /** A few failed reads in a row are an outage worth stopping for. */
 const MAX_CONSECUTIVE_READ_FAILURES = 3;
 /** How long a pushed repair may take to become the pull request's head. */
@@ -93,6 +107,8 @@ export function createMissionActionExecutor(deps: {
   store: ActionStore;
   scm: MissionScmPort;
   resolveWorkspacePath: (workspaceId: string) => Promise<string | null>;
+  /** Runs an action from the workspace's scripts and resolves when it ends. */
+  runScript?: (args: { workspaceId: string; scriptId: string }) => Promise<MissionScriptRun>;
   now?: () => Date;
 }) {
   const now = deps.now ?? (() => new Date());
@@ -101,6 +117,68 @@ export function createMissionActionExecutor(deps: {
   const lastPollAt = new Map<string, number>();
   const lastObservation = new Map<string, string>();
   const readFailures = new Map<string, number>();
+  /** Scripts this process started, per stage attempt, and their outcomes once they end. */
+  const scriptRuns = new Set<string>();
+  const scriptOutcomes = new Map<string, ActionOutcome>();
+
+  /**
+   * Starts the script once, reports it in progress on every tick while it
+   * runs, then hands over its outcome. A run a previous process started is
+   * never replayed: its result is unknown, so the stage fails and says so.
+   */
+  function runWorkspaceScript(args: {
+    aggregate: MissionAggregate;
+    scriptId: string;
+    actionKey: string;
+    firstCall: boolean;
+  }): ActionOutcome {
+    const { actionKey, scriptId } = args;
+    const finished = scriptOutcomes.get(actionKey);
+    if (finished) {
+      scriptOutcomes.delete(actionKey);
+      return finished;
+    }
+    if (scriptRuns.has(actionKey)) return { status: "in-progress" };
+    if (!args.firstCall) {
+      return failed(`Stave stopped while “${scriptId}” ran, so its result is unknown. Check the workspace, then retry the stage.`);
+    }
+    const run = deps.runScript;
+    if (!run) return failed("This version of Stave cannot run workspace scripts from a mission.");
+    scriptRuns.add(actionKey);
+    const timeout = new Promise<MissionScriptRun>((resolve) =>
+      setTimeout(
+        () => resolve({ ok: false, detail: `“${scriptId}” did not finish in 30 minutes. It may still be running in Scripts.` }),
+        SCRIPT_TIMEOUT_MS,
+      ).unref?.(),
+    );
+    void Promise.race([run({ workspaceId: args.aggregate.mission.workspaceId, scriptId }), timeout])
+      .catch((error: unknown): MissionScriptRun => ({
+        ok: false,
+        detail: error instanceof Error && error.message ? error.message : `“${scriptId}” could not run.`,
+      }))
+      .then((result) => {
+        scriptRuns.delete(actionKey);
+        const output = ("output" in result ? result.output : undefined) ?? "";
+        const tail = output.trim().slice(-300);
+        scriptOutcomes.set(
+          actionKey,
+          result.ok && result.exitCode === 0
+            ? succeeded({
+                type: "run-script",
+                scriptId,
+                exitCode: 0,
+                ...(lastPrintedUrl(output) ? { url: lastPrintedUrl(output)! } : {}),
+                outputTail: output.slice(-2_000),
+              })
+            : failed(
+                result.ok
+                  ? `“${scriptId}” exited with ${result.exitCode}.${tail ? ` ${tail}` : ""}`
+                  : `${result.detail}${tail ? ` ${tail}` : ""}`,
+              ),
+        );
+      });
+    return { status: "in-progress" };
+  }
 
   async function openDraftPr(cwd: string, aggregate: MissionAggregate): Promise<ActionOutcome> {
     const branch = await scm.currentBranch(cwd);
@@ -289,6 +367,7 @@ export function createMissionActionExecutor(deps: {
     aggregate: MissionAggregate,
     action: StaveAction,
     actionKey: string,
+    firstCall: boolean,
   ): Promise<ActionOutcome> {
     switch (action.type) {
       case "open-draft-pr":
@@ -297,6 +376,8 @@ export function createMissionActionExecutor(deps: {
         return watchChecks({ cwd, aggregate, action, actionKey });
       case "mark-pr-ready":
         return markPrReady(cwd);
+      case "run-script":
+        return runWorkspaceScript({ aggregate, scriptId: action.scriptId, actionKey, firstCall });
     }
   }
 
@@ -313,7 +394,7 @@ export function createMissionActionExecutor(deps: {
       stageId: record.stageId,
       attempt: record.attempt,
     });
-    store.recordEvent(
+    const firstCall = store.recordEvent(
       mission.id,
       {
         kind: "action-started",
@@ -324,7 +405,7 @@ export function createMissionActionExecutor(deps: {
     );
     const cwd = await deps.resolveWorkspacePath(mission.workspaceId);
     if (!cwd) return failed("The workspace folder could not be found.");
-    const outcome = await run(cwd, aggregate, stage.action, actionKey);
+    const outcome = await run(cwd, aggregate, stage.action, actionKey, firstCall);
     if (outcome.status === "succeeded" || outcome.status === "failed" || outcome.status === "stuck") {
       store.recordEvent(
         mission.id,

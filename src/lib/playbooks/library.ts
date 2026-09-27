@@ -72,6 +72,8 @@ export function createActionStage(type: StaveActionType, taken: Iterable<string>
       return { id, title, kind: "action", action: { type, ...DEFAULT_WATCH_CHECKS } };
     case "mark-pr-ready":
       return { id, title, kind: "action", action: { type } };
+    case "run-script":
+      return { id, title, kind: "action", action: { type, scriptId: "preview" } };
   }
 }
 

@@ -15,7 +15,9 @@ import { ensureHostServicePersistenceReady } from "../persistence";
 import { fetchGitHubPrStatus, readScmPrBody, updateScmPrBody } from "../scm-runtime";
 import { runSupervisedTurn } from "../supervised-turn";
 import { createLocalMcpReachabilityProbe } from "./local-mcp-reachability";
-import { createMissionActionExecutor } from "./mission-actions";
+import { createMissionActionExecutor, type MissionScriptRun } from "./mission-actions";
+import { getScriptEntry } from "../../../src/lib/workspace-scripts/config";
+import { resolveScriptsForWorkspace, runScriptEntry } from "../../main/workspace-scripts";
 import { createScmMissionPort } from "./mission-scm";
 import { createMissionRuntime } from "./mission-runtime";
 import {
@@ -26,6 +28,40 @@ import {
 
 /** Enough recent messages to cover every turn of one stage attempt. */
 const STAGE_FACT_MESSAGE_LIMIT = 80;
+
+/** Runs an action from a workspace's scripts for a mission's Run script stage. */
+async function runMissionScript(args: { workspaceId: string; scriptId: string }): Promise<MissionScriptRun> {
+  const repositories = await localMcpRuntime.listKnownRepositories();
+  for (const repository of repositories) {
+    const workspace = repository.workspaces.find((candidate) => candidate.id === args.workspaceId);
+    if (!workspace) continue;
+    const config = await resolveScriptsForWorkspace({
+      repositoryPath: repository.repositoryPath,
+      workspacePath: workspace.path,
+    });
+    const scriptEntry = getScriptEntry(config, { scriptId: args.scriptId, kind: "action" });
+    if (!scriptEntry) {
+      return {
+        ok: false,
+        detail: `This workspace has no script action “${args.scriptId}”. Add it in Settings → Repositories → Scripts, or change the stage.`,
+      };
+    }
+    const result = await runScriptEntry({
+      workspaceId: args.workspaceId,
+      scriptEntry,
+      repositoryPath: repository.repositoryPath,
+      workspacePath: workspace.path,
+      workspaceName: workspace.name,
+      branch: workspace.branch ?? repository.defaultBranch ?? "",
+    });
+    if (!("exitCode" in result)) return { ok: false, detail: `“${args.scriptId}” did not run as an action.` };
+    const output = "output" in result && typeof result.output === "string" ? result.output : "";
+    return result.ok
+      ? { ok: true, exitCode: result.exitCode ?? 0, output }
+      : { ok: false, detail: "error" in result && result.error ? String(result.error) : `“${args.scriptId}” exited with ${result.exitCode}.`, exitCode: result.exitCode, output };
+  }
+  return { ok: false, detail: "The workspace could not be found." };
+}
 
 async function resolveWorkspacePath(workspaceId: string) {
   const repositories = await localMcpRuntime.listKnownRepositories();
@@ -47,6 +83,7 @@ export function createHostMissionRuntime(args: {
     store: persistence.missions,
     scm: createScmMissionPort(),
     resolveWorkspacePath,
+    runScript: runMissionScript,
   });
   return createMissionRuntime({
     store: persistence.missions,

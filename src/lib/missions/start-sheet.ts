@@ -78,6 +78,8 @@ export function describeExternalEffect(stage: PlaybookStage): string | null {
       return "May push repair commits to the PR.";
     case "mark-pr-ready":
       return "Marks the PR ready, which notifies reviewers.";
+    case "run-script":
+      return `Runs the workspace script “${stage.action.scriptId}”, which may act outside this machine, such as a deploy.`;
   }
 }
 

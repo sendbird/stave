@@ -1,4 +1,4 @@
-import { useId } from "react";
+import { useEffect, useId, useState } from "react";
 import {
   ArrowDown,
   ArrowUp,
@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
+import { TextField } from "@/components/ads/components/TextField";
 import { Textarea } from "@/components/ads/components/Textarea";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
@@ -24,6 +25,7 @@ import {
   type AiStage,
   type PlaybookStage,
 } from "@/lib/playbooks/schema";
+import { useAppStore } from "@/store/app.store";
 import { Segmented } from "./Segmented";
 import { playbookStyles as styles } from "./playbooks.styles";
 
@@ -33,6 +35,8 @@ const ACTION_DESCRIPTIONS = {
   "watch-checks":
     "Stave watches the pull request's checks. When one fails, the agent gets a repair turn and Stave pushes the fix.",
   "mark-pr-ready": "Stave marks the draft pull request ready for review, which notifies reviewers.",
+  "run-script":
+    "Stave runs an action from the workspace's scripts (Settings → Repositories → Scripts) and waits for it. It fails the stage when the script exits with an error; the last web address it prints, such as a preview URL, becomes evidence.",
 } as const;
 
 const ROLE_OPTIONS = [
@@ -75,6 +79,9 @@ function previewOf(stage: PlaybookStage): { text: string; missing: boolean } {
         text: `Stave action · ${repairAttempts ? `up to ${repairAttempts} ${repairAttempts === 1 ? "repair" : "repairs"}` : "no repairs"} · ${timeoutMinutes}m timeout`,
         missing: false,
       };
+    }
+    if (stage.action.type === "run-script") {
+      return { text: `Stave action · runs “${stage.action.scriptId}”`, missing: false };
     }
     return { text: "Stave action", missing: false };
   }
@@ -279,6 +286,66 @@ function AiStageFields(props: {
   );
 }
 
+/** The script actions of the workspace in view, to pick a Run script stage's script from. */
+function useWorkspaceScriptActions(): Array<{ id: string; label: string }> {
+  const repositoryPath = useAppStore((state) => state.repositoryPath);
+  const workspacePath = useAppStore((state) => state.workspacePathById[state.activeWorkspaceId] ?? null);
+  const [actions, setActions] = useState<Array<{ id: string; label: string }>>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const getConfig = window.api?.scripts?.getConfig;
+    if (!getConfig || !repositoryPath || !workspacePath) return;
+    void getConfig({ repositoryPath, workspacePath })
+      .then((result) => {
+        if (!cancelled && result.ok && result.config) {
+          setActions(result.config.actions.map((entry) => ({ id: entry.id, label: entry.label || entry.id })));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [repositoryPath, workspacePath]);
+  return actions;
+}
+
+function RunScriptField(props: {
+  stage: Extract<PlaybookStage, { kind: "action" }>;
+  action: Extract<Extract<PlaybookStage, { kind: "action" }>["action"], { type: "run-script" }>;
+  onChange: (stage: PlaybookStage) => void;
+}) {
+  const scripts = useWorkspaceScriptActions();
+  const set = (scriptId: string) => props.onChange({ ...props.stage, action: { ...props.action, scriptId } });
+  return (
+    <div className={sx(styles.propertyValue)}>
+      <TextField
+        size="sm"
+        label="Script"
+        description="The id of a script action, such as “preview”. Each workspace runs its own .stave/scripts.json."
+        value={props.action.scriptId}
+        maxLength={120}
+        onChange={(event) => set(event.target.value)}
+      />
+      {scripts.length > 0 ? (
+        <span className={sx(styles.chips)}>
+          <span className={sx(styles.hint)}>In this workspace:</span>
+          {scripts.map((script) => (
+            <Button
+              key={script.id}
+              size="xs"
+              variant={script.id === props.action.scriptId ? "secondary" : "quiet"}
+              aria-pressed={script.id === props.action.scriptId}
+              onClick={() => set(script.id)}
+            >
+              {script.label}
+            </Button>
+          ))}
+        </span>
+      ) : null}
+    </div>
+  );
+}
+
 function ActionStageFields(props: {
   stage: Extract<PlaybookStage, { kind: "action" }>;
   onChange: (stage: PlaybookStage) => void;
@@ -337,6 +404,7 @@ function ActionStageFields(props: {
           </div>
         </div>
       ) : null}
+      {action.type === "run-script" ? <RunScriptField stage={stage} action={action} onChange={props.onChange} /> : null}
     </>
   );
 }

@@ -294,6 +294,8 @@ export function describeSignOffAction(stage: PlaybookStage): string {
       return "Start watching checks";
     case "mark-pr-ready":
       return "Mark ready for review";
+    case "run-script":
+      return `Run “${stage.action.scriptId}”`;
   }
 }
 

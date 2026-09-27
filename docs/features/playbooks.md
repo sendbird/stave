@@ -56,9 +56,26 @@ Start a [mission](missions.md) with it and Stave runs the stages for you. A
   - Open a row to edit its **Instruction**, **Done when** and **Role**
     (**Plans** or **Publishes**, which the check-ins use).
   - Stave actions have their own settings: **Watch checks** takes a number of
-    repairs and a time limit.
-- **Add stage** offers a blank AI stage, stage templates and the three Stave
-  actions: **Open draft PR**, **Watch checks**, **Ready for review**.
+    repairs and a time limit; **Run script** takes the id of a script action.
+- **Add stage** offers a blank AI stage, stage templates and the four Stave
+  actions: **Open draft PR**, **Watch checks**, **Ready for review** and **Run
+  script**.
+
+### Run script
+
+A **Run script** stage runs an action from the workspace's scripts
+(`.stave/scripts.json`, edited in Settings → Repositories → Scripts), such as
+a preview deployment, and waits for it — up to 30 minutes.
+
+- Pick the script by its id; the scripts of the workspace in view are offered
+  below the field. Each mission runs its own workspace's script of that id.
+- The stage fails when the script exits with an error, with the end of its
+  output. The last web address it prints, such as a preview URL, becomes
+  **Verified by Stave** evidence and a link in the report.
+- It counts as acting outside this machine, so the Start sheet asks for your
+  consent to run it without asking first.
+- A script that was running when Stave stopped is not run again: the stage
+  fails and says so, and **Retry stage** runs it anew.
 
 ### Draft with AI
 

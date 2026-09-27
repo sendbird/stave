@@ -18,7 +18,7 @@ import { StageRow } from "./StageRow";
 import { playbookStyles as styles } from "./playbooks.styles";
 import { missionStyles } from "@/components/missions/missions.styles";
 
-const ACTION_TYPES: readonly StaveActionType[] = ["open-draft-pr", "watch-checks", "mark-pr-ready"];
+const ACTION_TYPES: readonly StaveActionType[] = ["open-draft-pr", "watch-checks", "mark-pr-ready", "run-script"];
 
 /** The stage issues for `index`, keyed by the path inside the stage. */
 function stageIssues(issues: ReadonlyMap<string, string>, index: number): Map<string, string> {

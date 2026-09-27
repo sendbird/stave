@@ -33,6 +33,8 @@ export function describeSignOffQuestion(stage: PlaybookStage): string {
       return "Ready to watch the PR checks?";
     case "mark-pr-ready":
       return "Ready to request review?";
+    case "run-script":
+      return `Ready to run “${stage.action.scriptId}”?`;
   }
 }
 

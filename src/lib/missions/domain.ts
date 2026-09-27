@@ -298,6 +298,17 @@ export const ActionResultSchema = z.discriminatedUnion("type", [
       prUrl: UrlSchema,
     })
     .strict(),
+  z
+    .object({
+      type: z.literal("run-script"),
+      scriptId: z.string().trim().min(1).max(120),
+      exitCode: z.number().int(),
+      /** The last web address the script printed, such as a preview URL. */
+      url: UrlSchema.optional(),
+      /** The end of its output. */
+      outputTail: z.string().max(2_000),
+    })
+    .strict(),
 ]);
 export type ActionResult = z.infer<typeof ActionResultSchema>;
 
