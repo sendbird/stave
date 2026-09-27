@@ -15,7 +15,7 @@ import { NewProjectDialog } from "./NewProjectDialog";
 import { ProjectHome } from "./ProjectHome";
 import { projectStyles as styles } from "./projects.styles";
 
-const STATE_TONE = { active: "accent", paused: "warning", completed: "success", cancelled: "neutral" } as const;
+const STATE_TONE = { active: "accent", paused: "warning", completed: "success", cancelled: "neutral", expired: "neutral" } as const;
 
 function ProjectCard(props: { project: Project; detail: ProjectDetail | undefined; active: boolean; onSelect: () => void }) {
   const { detail } = props;

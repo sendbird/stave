@@ -293,6 +293,8 @@ export const projectStyles = stylex.create({
     borderTopStyle: "solid",
     borderTopColor: vars["--ads-color-border-subtle"],
   },
+  endDate: { display: "flex", alignItems: "center", gap: vars["--ads-space-4"] },
+  endDateField: { display: "block", width: "10rem" },
   tabStack: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"] },
   triggerRow: { gridTemplateColumns: "20px minmax(0, 1fr) auto", alignItems: "start", columnGap: vars["--ads-space-12"] },
   triggerIcon: { display: "flex", justifyContent: "center", paddingTop: 3, color: vars["--ads-color-text-subtle"] },

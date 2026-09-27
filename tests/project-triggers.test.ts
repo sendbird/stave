@@ -51,11 +51,11 @@ function harness() {
     clearInterval: () => {},
   });
 
-  async function create(triggers: Partial<ProjectTriggers>) {
+  async function create(triggers: Partial<ProjectTriggers>, coordinatorTaskId = "coord") {
     const detail = await runtime.create({
       name: "Move",
       goal: "Move every screen.",
-      coordinator: { workspaceId: "ws-coord", taskId: "coord" },
+      coordinator: { workspaceId: "ws-coord", taskId: coordinatorTaskId },
       settings: { triggers: { ...DEFAULT_PROJECT_TRIGGERS, ...triggers } },
     });
     return detail.project.id;
@@ -209,6 +209,47 @@ describe("project start conditions", () => {
     // A stale client value never moves the start.
     await h.runtime.updateSettings({ projectId, settings: { triggers: { ...after, issueSince: null } } });
     expect(h.store.getProject(projectId)!.settings.triggers.issueSince).toBe(after.issueSince);
+  });
+});
+
+describe("quitting and relaunching", () => {
+  test("quitting pauses active projects; relaunching resumes only those, with the schedule starting over", async () => {
+    const h = harness();
+    const running = await h.create({ schedule: "daily" });
+    const held = await h.create({}, "coord-2");
+    await h.runtime.pause({ projectId: held });
+    h.runtime.start();
+    h.runtime.stop();
+    expect(h.store.getProject(running)).toMatchObject({ state: "paused" });
+    expect(h.store.getProject(running)!.reasonDetail).toContain("Stave was closed");
+    expect(h.store.getProject(held)).toMatchObject({ state: "paused", reasonDetail: "Paused by you." });
+
+    // A day passes while Stave is closed; the missed check-in does not fire.
+    h.advance(26 * 60 * 60_000);
+    h.runtime.start();
+    expect(h.store.getProject(running)).toMatchObject({ state: "active", reasonDetail: null });
+    expect(h.store.getProject(held)).toMatchObject({ state: "paused" });
+    await h.runtime.requestTick();
+    expect(h.wakes().filter((prompt) => prompt.includes("Scheduled check-in"))).toHaveLength(0);
+    h.runtime.stop();
+  });
+});
+
+describe("end date", () => {
+  test("a project past its end date expires on its own and stops waking its coordinator", async () => {
+    const h = harness();
+    const projectId = await h.create({ schedule: "every-4h" });
+    await h.runtime.updateSettings({ projectId, settings: { endsAt: new Date(MISSION_NOW.getTime() + 60 * 60_000).toISOString() } });
+    await h.runtime.requestTick();
+    expect(h.store.getProject(projectId)!.state).toBe("active");
+    h.advance(5 * 60 * 60_000);
+    await h.runtime.requestTick();
+    const project = h.store.getProject(projectId)!;
+    expect(project.state).toBe("expired");
+    expect(project.reasonDetail).toContain("Reached its end date");
+    expect(h.wakes()).toHaveLength(0);
+    const refused = await invokeProjectRuntime(() => h.runtime.pause({ projectId }));
+    expect(refused).toMatchObject({ ok: false });
   });
 });
 

@@ -62,7 +62,8 @@ focus is on the right. On a narrow window a picker replaces the list.
 
 ### Project home
 
-- **Header**: the name, the state (Active, Paused, Completed, Cancelled) and
+- **Header**: the name, the state (Active, Paused, Completed, Cancelled,
+  Expired) and
   the goal, then chips for what needs you, what runs, what is done and what
   the project's missions have spent, and how missions start ("You start each
   mission · up to 2 at once") and what it watches ("Issues matching
@@ -85,8 +86,8 @@ focus is on the right. On a narrow window a picker replaces the list.
   reports, with **Verified** on links Stave produced itself.
 - **Starts when**: what wakes the coordinator besides its missions (see
   below).
-- **Settings**: **Missions at once** (1–4), **Ask before starting** and
-  **Accept decisions automatically**.
+- **Settings**: **Missions at once** (1–4), **Ask before starting**, **End
+  date** and **Accept decisions automatically**.
 
 ### Coordinator conversation
 
@@ -180,9 +181,14 @@ continue on their own; the coordinator stops waking.
 - The coordinator edits no files; it plans and follows.
 - **Spent** adds up what the project's missions report (see
   [Missions](missions.md)); the coordinator's own turns are not included.
-- While Stave is closed nothing runs. On relaunch the project continues:
-  missions resume where they were, and a start that was interrupted halfway
-  is marked failed and reported instead of being started twice.
+- Quitting Stave pauses every active project ("Stave was closed while this
+  project was active"); relaunching resumes exactly those. Missions resume
+  where they were, a start that was interrupted halfway is marked failed
+  instead of being started twice, and a scheduled check-in missed while Stave
+  was closed does not fire late. A project you paused yourself stays paused.
+- With an **End date**, the project expires at the end of that day: it stops
+  waking its coordinator and starting missions, and tells you. Running
+  missions finish on their own.
 - Start conditions only wake the coordinator; they never start a mission on
   their own unless **Ask before starting** is off.
 - Pull request feedback reads the PR of each mission's own branch through the

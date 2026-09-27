@@ -32,7 +32,8 @@ export const PROJECT_LIMITS = {
 const IdSchema = z.string().trim().min(1).max(200);
 const TimestampSchema = z.iso.datetime();
 
-export const PROJECT_STATES = ["active", "paused", "completed", "cancelled"] as const;
+/** `expired`: the project reached its end date and stopped on its own. */
+export const PROJECT_STATES = ["active", "paused", "completed", "cancelled", "expired"] as const;
 export type ProjectState = (typeof PROJECT_STATES)[number];
 
 export function isOpenProjectState(state: ProjectState) {
@@ -83,6 +84,11 @@ export const ProjectSettingsSchema = z
     /** Decisions from mission reports become project memory without review. */
     autoAcceptDecisions: z.boolean(),
     triggers: ProjectTriggersSchema.default(DEFAULT_PROJECT_TRIGGERS),
+    /**
+     * The end of the project's time box: past it the project stops waking its
+     * coordinator and starting missions. Running missions finish on their own.
+     */
+    endsAt: z.iso.datetime().nullable().default(null),
   })
   .strict();
 export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
@@ -92,6 +98,7 @@ export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
   askBeforeStarting: true,
   autoAcceptDecisions: false,
   triggers: DEFAULT_PROJECT_TRIGGERS,
+  endsAt: null,
 };
 
 export const ProjectSchema = z

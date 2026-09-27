@@ -80,6 +80,8 @@ import type { ProjectGrant } from "../../providers/project-grants";
 import type { HostProjectAction } from "../protocol";
 
 const DEFAULT_TICK_MS = 10_000;
+/** The reason a project paused because Stave quit; only these resume on relaunch. */
+const APP_CLOSED_REASON = "Stave was closed while this project was active; it resumes when Stave opens.";
 const MAX_ACTIONS_PER_PROJECT_TICK = 8;
 /** How often a project reads its missions' pull requests for feedback. */
 const PULL_REQUEST_POLL_MS = 5 * 60_000;
@@ -265,6 +267,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
   let timer: ReturnType<typeof globalThis.setInterval> | null = null;
   let chain = Promise.resolve();
   let syncedPlaybooks: Playbook[] = [];
+  let started = false;
   /** When each project last read its missions' pull requests. */
   const pullRequestPolledAt = new Map<string, number>();
   /** Missions whose pull request merged or closed; nothing more to watch. */
@@ -618,14 +621,60 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
     }
   }
 
+  /** A project past its end date stops on its own; its running missions carry on. */
+  async function expireIfDue(project: Project): Promise<boolean> {
+    const endsAt = project.settings.endsAt;
+    if (!endsAt || Date.parse(endsAt) > now().getTime()) return false;
+    const day = new Date(endsAt).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+    const detail = `Reached its end date (${day}). Running missions finish on their own.`;
+    updateProject(project, { state: "expired", reasonDetail: detail }, { kind: "ended", detail: { outcome: "expired" } });
+    refreshCoordinators();
+    await deps.notifyProjectProblem?.({ project, detail: `${project.name} stopped: ${detail}` });
+    return true;
+  }
+
   async function tick() {
     for (const project of store.listProjects({ openOnly: true })) {
+      if (await expireIfDue(project).catch(() => false)) continue;
       if (project.state !== "active") continue;
       try {
         await tickProject(project.id);
       } catch (error) {
         console.warn("[projects] tick failed", project.id, error);
       }
+    }
+  }
+
+  /**
+   * Quitting Stave pauses every active project, so nothing is due while it is
+   * closed; relaunching resumes exactly those, and a schedule restarts from
+   * the relaunch instead of catching up on missed check-ins.
+   */
+  function pauseForShutdown() {
+    for (const project of store.listProjects({ openOnly: true })) {
+      if (project.state !== "active") continue;
+      store.update(
+        { ...project, state: "paused", reasonDetail: APP_CLOSED_REASON, updatedAt: now().toISOString() },
+        { kind: "paused", detail: { reason: "app-closed" } },
+      );
+    }
+  }
+
+  function resumeAfterRelaunch() {
+    for (const project of store.listProjects({ openOnly: true })) {
+      if (project.state !== "paused" || project.reasonDetail !== APP_CLOSED_REASON) continue;
+      const at = now().toISOString();
+      const { triggers } = project.settings;
+      store.update(
+        {
+          ...project,
+          state: "active",
+          reasonDetail: null,
+          settings: { ...project.settings, triggers: { ...triggers, scheduleSince: triggers.schedule === "off" ? null : at } },
+          updatedAt: at,
+        },
+        { kind: "resumed", detail: { reason: "app-opened" } },
+      );
     }
   }
 
@@ -659,7 +708,9 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
 
   const runtime: ProjectRuntime = {
     start() {
+      started = true;
       recoverInterruptedStarts();
+      resumeAfterRelaunch();
       refreshCoordinators();
       timer = setIntervalImpl(() => void runtime.requestTick(), deps.tickIntervalMs ?? DEFAULT_TICK_MS);
       void runtime.requestTick();
@@ -667,6 +718,8 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
     stop() {
       if (timer) clearIntervalImpl(timer);
       timer = null;
+      if (started) pauseForShutdown();
+      started = false;
     },
     requestTick: () => enqueue(tick),
     notifyMissionChanged: ({ missionId }) => {

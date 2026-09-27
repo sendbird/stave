@@ -4,6 +4,7 @@ import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
 import { Switch } from "@/components/ads/components/Switch";
 import { Tabs } from "@/components/ads/components/Tabs";
+import { TextField } from "@/components/ads/components/TextField";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { transition } from "@/components/ads/recipes/transition";
@@ -176,6 +177,19 @@ function LibraryList({ items }: { items: readonly ProjectLibraryItem[] }) {
   );
 }
 
+/** "2026-10-15" for a date input, in local time. */
+function toDateInput(iso: string): string {
+  const date = new Date(iso);
+  const pad = (value: number) => String(value).padStart(2, "0");
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+}
+
+/** The last moment of a local calendar day, as the project's end. */
+function endOfLocalDay(day: string): string {
+  const [year, month, date] = day.split("-").map(Number);
+  return new Date(year!, month! - 1, date!, 23, 59, 59).toISOString();
+}
+
 function SettingRow(props: { label: string; hint: string; children: React.ReactNode }) {
   return (
     <li className={sx(styles.settingRow)}>
@@ -210,6 +224,30 @@ function SettingsList(props: { settings: ProjectSettings; onUpdate: (settings: P
           checked={settings.askBeforeStarting}
           onCheckedChange={(checked) => props.onUpdate({ askBeforeStarting: checked })}
         />
+      </SettingRow>
+      <SettingRow
+        label="End date"
+        hint="After this day the project stops waking its coordinator and starts no missions. Running missions finish on their own."
+      >
+        <span className={sx(styles.endDate)}>
+          <span className={sx(styles.endDateField)}>
+            <TextField
+              size="sm"
+              type="date"
+              aria-label="End date"
+              value={settings.endsAt ? toDateInput(settings.endsAt) : ""}
+              min={toDateInput(new Date().toISOString())}
+              onChange={(event) =>
+                props.onUpdate({ endsAt: event.target.value ? endOfLocalDay(event.target.value) : null })
+              }
+            />
+          </span>
+          {settings.endsAt ? (
+            <Button variant="quiet" size="xs" onClick={() => props.onUpdate({ endsAt: null })}>
+              No end date
+            </Button>
+          ) : null}
+        </span>
       </SettingRow>
       <SettingRow
         label="Accept decisions automatically"

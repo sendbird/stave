@@ -33,6 +33,7 @@ const STATE_BADGE = {
   paused: { label: "Paused", tone: "warning" },
   completed: { label: "Completed", tone: "success" },
   cancelled: { label: "Cancelled", tone: "neutral" },
+  expired: { label: "Expired", tone: "neutral" },
 } as const;
 
 /**

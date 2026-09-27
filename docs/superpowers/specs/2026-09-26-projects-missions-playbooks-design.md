@@ -856,6 +856,7 @@ Phase 3 shipped as designed, with these deviations:
   mission's pull request, and on a schedule. They wake the coordinator only;
   starting stays the coordinator's call and the user's approval. Standalone
   mission triggers and the Proposed tab (Phase 2) are not built.
-- **Restarts.** Quitting stops the runtimes rather than recording a paused
-  state. On relaunch missions resume, delivered changes are not re-sent, and
-  a start interrupted halfway is marked failed instead of replayed.
+- **Restarts.** Quitting pauses every active project with a marked reason and
+  relaunching resumes exactly those; delivered changes are not re-sent, a
+  start interrupted halfway is marked failed instead of replayed, and missed
+  check-ins do not fire late. An end date expires a project (`expired`).
