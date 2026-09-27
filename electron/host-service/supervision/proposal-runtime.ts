@@ -28,7 +28,7 @@ import {
   type ProposalListFilter,
   type ProposedMission,
 } from "../../../src/lib/missions/proposed";
-import { playbookCanAutoStart, type Playbook } from "../../../src/lib/playbooks/schema";
+import { DEFAULT_PLAYBOOK_PERMISSION_MODE, playbookCanAutoStart, type Playbook } from "../../../src/lib/playbooks/schema";
 import { createPlaybookFromStarter, PLAYBOOK_STARTERS } from "../../../src/lib/playbooks/starters";
 import { issueMatchesFilter, type ObservedIssue } from "../../../src/lib/projects/policy";
 import { latestScheduleSlot, SCHEDULE_LABELS } from "../../../src/lib/schedules";
@@ -202,7 +202,7 @@ export function createProposalRuntime(deps: ProposalRuntimeDependencies): Propos
         // Auto-start consents to nothing outside this machine: those stages ask.
         consent: {
           checkIns: playbook.checkIns,
-          permissionMode: playbook.runtime?.permissionMode ?? "guided",
+          permissionMode: playbook.runtime?.permissionMode ?? DEFAULT_PLAYBOOK_PERMISSION_MODE,
           authorizedEffectStageIds: [],
         },
       });

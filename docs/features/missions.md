@@ -80,8 +80,11 @@ right.
 - **Acts outside this machine**: one checkbox per stage that pushes, opens or
   updates a pull request, or writes a message or ticket. An unchecked stage
   always asks you first.
-- **Permissions for this mission**: **Guided**, **Auto** or **Manual**. This
-  is recorded for this start only; a saved playbook never grants permissions.
+- **Permissions for this mission**: **Auto**, **Guided** or **Manual**. Auto,
+  the default, lets the agent work without asking; the mission still stops at
+  your sign-offs and at the steps above you did not allow. Guided asks before
+  sensitive actions and waits for each answer. This is recorded for this start
+  only; a saved playbook never grants permissions.
 - **Edit stages for this mission**: change the stages this time only, or
   **Save as a new playbook**.
 - **Before you start**: the task, a running mission, Stave's local tools, the
@@ -227,9 +230,10 @@ agent stopped reporting.
   reads are part of the cost but not of the token count.
 - A mission started at a later stage has no acceptance criteria from
   **Understand**, so its report shows only what the stages that ran reported.
-- A mission a start condition started on its own consents to nothing outside
-  this machine: a stage that publishes, opens a pull request or runs a script
-  waits for your consent in the Mission panel.
+- A mission a start condition started on its own runs with its playbook's
+  permissions (Auto unless the playbook says otherwise) and allows none of the
+  steps that act outside this machine: a stage that publishes, opens a pull
+  request or runs a script waits for your consent in the Mission panel.
 
 ## Troubleshooting
 

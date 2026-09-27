@@ -1,6 +1,15 @@
 import { z } from "zod";
 import { SCHEDULES } from "@/lib/schedules";
-import { AUTOMATION_PERMISSION_MODES } from "@/lib/automations";
+import { AUTOMATION_PERMISSION_MODES, type AutomationPermissionMode } from "@/lib/automations";
+
+/**
+ * The permissions a mission runs with when its playbook names none. Auto: the
+ * agent works without asking, because the mission already stops where it
+ * should — at the sign-offs its check-ins choose, and before any pull request
+ * or script step the start did not allow. Guided would stop an unattended
+ * stage at every ask instead.
+ */
+export const DEFAULT_PLAYBOOK_PERMISSION_MODE: AutomationPermissionMode = "auto";
 import { isModelEffort, type ModelEffort } from "@/lib/providers/model-effort";
 import type { ProviderId } from "@/lib/providers/provider.types";
 

@@ -822,6 +822,9 @@ Phase 1 shipped as designed, with these deviations:
   panel again (id `team`; a saved `collaboration` id opens it). The Mission
   panel keeps what supervises the task — its mission and its wake-up — and
   points to Team.
+- **Permissions.** A playbook without a permission mode runs **Auto**: the
+  mission already stops at sign-offs and at the effects the start did not
+  authorize, and Guided would stall unattended stages on every ask.
 - **Phase 2 additions.** `run-script` runs a workspace script action and
   waits (30 minutes at most), never replaying a run a stopped process began;
   Save as playbook and Share to Slack live in the report's **More** menu; six

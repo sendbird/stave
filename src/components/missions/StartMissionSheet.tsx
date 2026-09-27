@@ -39,7 +39,14 @@ import {
 } from "@/lib/missions/start-sheet";
 import { duplicatePlaybook, explainPlaybookLimit, groupIssuesByField, upsertPlaybook } from "@/lib/playbooks/library";
 import { parsePlaybook } from "@/lib/playbooks/normalize";
-import { CHECK_IN_LABELS, CHECK_INS, PLAYBOOK_LIMITS, type CheckIns, type Playbook } from "@/lib/playbooks/schema";
+import {
+  CHECK_IN_LABELS,
+  CHECK_INS,
+  DEFAULT_PLAYBOOK_PERMISSION_MODE,
+  PLAYBOOK_LIMITS,
+  type CheckIns,
+  type Playbook,
+} from "@/lib/playbooks/schema";
 import { getProviderLabel } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { useAppStore } from "@/store/app.store";
@@ -50,8 +57,12 @@ import { PreStartChecks } from "./PreStartChecks";
 const MISSION_PROVIDERS: ReadonlySet<ProviderId> = new Set<ProviderId>(["claude-code", "codex"]);
 const CHECK_IN_OPTIONS = CHECK_INS.map((value) => ({ value, label: CHECK_IN_LABELS[value] }));
 const PERMISSION_OPTIONS: ReadonlyArray<{ value: AutomationPermissionMode; label: string; description: string }> = [
-  { value: "guided", label: "Guided", description: "The agent asks before sensitive actions." },
-  { value: "auto", label: "Auto", description: "The agent never asks. Use it on repositories you trust." },
+  {
+    value: "auto",
+    label: "Auto",
+    description: "The agent works without asking; the mission still stops at your sign-offs and at steps you did not allow.",
+  },
+  { value: "guided", label: "Guided", description: "The agent asks before sensitive actions, and the mission waits for each answer." },
   { value: "manual", label: "Manual", description: "Follows this task's own permission settings." },
 ];
 
@@ -87,7 +98,7 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
   const [assignment, setAssignment] = useState(request.assignment ?? "");
   const [checkIns, setCheckIns] = useState<CheckIns>(base?.checkIns ?? "plan-and-publishing");
   const [permissionMode, setPermissionMode] = useState<AutomationPermissionMode>(
-    base?.runtime?.permissionMode ?? "guided",
+    base?.runtime?.permissionMode ?? DEFAULT_PLAYBOOK_PERMISSION_MODE,
   );
   const [authorized, setAuthorized] = useState<string[]>(() => (base ? defaultAuthorizedEffects(base) : []));
   const [customizing, setCustomizing] = useState(false);
@@ -108,7 +119,7 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
   useEffect(() => {
     setCopy(base);
     setCheckIns(base?.checkIns ?? "plan-and-publishing");
-    setPermissionMode(base?.runtime?.permissionMode ?? "guided");
+    setPermissionMode(base?.runtime?.permissionMode ?? DEFAULT_PLAYBOOK_PERMISSION_MODE);
     setAuthorized(base ? defaultAuthorizedEffects(base) : []);
     setCustomizing(false);
     setStartIndex(0);

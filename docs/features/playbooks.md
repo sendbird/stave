@@ -48,8 +48,10 @@ Start a [mission](missions.md) with it and Stave runs the stages for you. A
 - **Shortcut** lets you start the playbook with `!shortcut` in the composer.
 - **Starts when** lets the playbook propose missions by itself (see
   [Start conditions](#start-conditions)).
-- **Permissions** is the default the Start sheet preselects. It grants nothing
-  by itself; every start confirms its own permissions.
+- **Permissions** is the default the Start sheet preselects: **Auto** unless
+  you choose otherwise, since missions already stop at sign-offs and at the
+  steps you did not allow. It grants nothing by itself; every start confirms
+  its own permissions.
 - **Constraints** are rules every stage follows.
 - **Stages**: each row has a handle, its number, its kind (AI stage or Stave
   action), its name, a preview of its instruction, and a hand that says whether
@@ -103,9 +105,10 @@ start or dismiss them.
   asking, on a new task in their workspace. One switch covers both
   conditions; turning on a schedule turns it on only when pull requests are
   not watched. At most one mission starts in a workspace at a time: when
-  several conditions fire together, the rest wait in Proposed. They consent
-  to nothing outside this machine: stages that publish, open pull requests or
-  run scripts still wait for you. A playbook whose first stage publishes
+  several conditions fire together, the rest wait in Proposed. They run with
+  the playbook's permissions and allow none of the steps that act outside this
+  machine: stages that publish, open pull requests or run scripts still wait
+  for you. A playbook whose first stage publishes
   always waits, and a mission that cannot start waits with the reason.
 
 Issues keep refreshing in the background, every 10 minutes, while a playbook
