@@ -5,13 +5,13 @@ import { expect, test } from "@playwright/test";
 import { launchStave } from "./harness/stave-app";
 
 test("a rejected workspace write stays visible and retry saves the current draft", async ({}, testInfo) => {
-  const projectPath = await mkdtemp(path.join(tmpdir(), "stave-save-failure-"));
+  const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-save-failure-"));
   const stave = await launchStave();
   const errors: string[] = [];
   stave.page.on("pageerror", (error) => errors.push(error.message));
   try {
     await stave.page.getByTestId("workspace-welcome").getByRole("button", { name: "Open a project" }).click();
-    await stave.page.getByPlaceholder("~/projects/my-app").fill(projectPath);
+    await stave.page.getByPlaceholder("~/projects/my-app").fill(repositoryPath);
     await stave.page.getByRole("button", { name: "Open", exact: true }).click();
     await expect(stave.page.getByTestId("workspace-welcome")).toHaveCount(0);
     await stave.page.getByRole("button", { name: "New Task", exact: true }).click();
@@ -59,6 +59,6 @@ test("a rejected workspace write stays visible and retry saves the current draft
     expect(errors).toEqual([]);
   } finally {
     await stave.close();
-    await rm(projectPath, { recursive: true, force: true });
+    await rm(repositoryPath, { recursive: true, force: true });
   }
 });

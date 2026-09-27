@@ -1,13 +1,14 @@
 /**
  * App-level surfaces swap out the main content column while the sidebar, top
- * bar, and right rail stay mounted. Fleet View, Automations, and
- * Tasks are peers here: exactly one of them can own the column at a time.
+ * bar, and right rail stay mounted. Fleet View, Automations, Issues and
+ * Projects are peers here: exactly one of them can own the column at a time.
  */
 export type AppActiveSurface =
   | { kind: "workspace" }
   | { kind: "fleet-view" }
   | { kind: "automation-center" }
-  | { kind: "tasks" };
+  | { kind: "issues" }
+  | { kind: "projects" };
 
 export type AppOverlaySurfaceKind = Exclude<
   AppActiveSurface["kind"],
@@ -25,14 +26,18 @@ export const FLEET_VIEW_APP_SURFACE = {
 export const AUTOMATION_CENTER_APP_SURFACE = {
   kind: "automation-center",
 } satisfies AppActiveSurface;
-export const TASKS_APP_SURFACE = {
-  kind: "tasks",
+export const ISSUES_APP_SURFACE = {
+  kind: "issues",
+} satisfies AppActiveSurface;
+export const PROJECTS_APP_SURFACE = {
+  kind: "projects",
 } satisfies AppActiveSurface;
 
 const APP_SURFACE_BY_KIND: Record<AppOverlaySurfaceKind, AppActiveSurface> = {
   "fleet-view": FLEET_VIEW_APP_SURFACE,
   "automation-center": AUTOMATION_CENTER_APP_SURFACE,
-  tasks: TASKS_APP_SURFACE,
+  issues: ISSUES_APP_SURFACE,
+  projects: PROJECTS_APP_SURFACE,
 };
 
 export function normalizeAppActiveSurface(value: unknown): AppActiveSurface {
@@ -53,9 +58,11 @@ export interface AppSurfaceActions {
   openAutomationCenter: () => void;
   closeAutomationCenter: () => void;
   toggleAutomationCenter: () => void;
-  openTasks: () => void;
-  closeTasks: () => void;
-  toggleTasks: () => void;
+  openIssues: () => void;
+  closeIssues: () => void;
+  toggleIssues: () => void;
+  openProjects: () => void;
+  closeProjects: () => void;
 }
 
 type AppSurfaceState = { activeAppSurface: AppActiveSurface };
@@ -101,8 +108,10 @@ export function createAppSurfaceActions<TState extends AppSurfaceState>(
     openAutomationCenter: open("automation-center"),
     closeAutomationCenter: close("automation-center"),
     toggleAutomationCenter: toggle("automation-center"),
-    openTasks: open("tasks"),
-    closeTasks: close("tasks"),
-    toggleTasks: toggle("tasks"),
+    openIssues: open("issues"),
+    closeIssues: close("issues"),
+    toggleIssues: toggle("issues"),
+    openProjects: open("projects"),
+    closeProjects: close("projects"),
   };
 }

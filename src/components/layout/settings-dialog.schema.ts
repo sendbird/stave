@@ -59,9 +59,9 @@ export const settingsSections = [
   },
   {
     id: "projects",
-    label: "Projects",
+    label: "Repositories",
     icon: Folder,
-    description: "Project-level paths, setup prompts, and workspace defaults.",
+    description: "Repository-level paths, setup prompts, and workspace defaults.",
     keywords: ["repo", "repository", "root", "workspaces"],
   },
   {
@@ -142,6 +142,7 @@ export const settingsSections = [
       // card that explains it.
       "delegation",
       "delegate",
+      "delegated task",
       "child task",
       "worker",
       "usage",
@@ -237,12 +238,12 @@ export const settingsSections = [
       "jql",
       "api token",
       "issue tracker",
-      "project mapping",
+      "repository mapping",
     ],
   },
   {
-    id: "tasks",
-    label: "Tasks",
+    id: "issues",
+    label: "Issues",
     icon: ListTodo,
     description:
       "Assigned ticket list defaults: starting view, refresh cadence, and how a kickoff begins.",
@@ -300,7 +301,7 @@ export const settingsSections = [
     id: "memory",
     label: "Memory",
     icon: Brain,
-    description: "Project memory collection, recall, templates, and reset controls.",
+    description: "Repository memory collection, recall, templates, and reset controls.",
     keywords: ["memory", "remember", "forget", "candidate", "collection", "template", "reset"],
   },
   {
@@ -383,7 +384,7 @@ export const settingsSectionGroups: Array<{ label: string; ids: SectionId[] }> =
   [
     { label: "Workspace", ids: ["general"] },
     { label: "Appearance", ids: ["theme", "chat", "editor", "terminal"] },
-    { label: "Projects", ids: ["projects", "scripts"] },
+    { label: "Repositories", ids: ["projects", "scripts"] },
     {
       label: "AI & Agents",
       ids: [
@@ -394,7 +395,7 @@ export const settingsSectionGroups: Array<{ label: string; ids: SectionId[] }> =
         "autoRouting",
         "mcp",
         "integrations",
-        "tasks",
+        "issues",
         "kickoff",
         "auxiliaryInference",
         "prompts",

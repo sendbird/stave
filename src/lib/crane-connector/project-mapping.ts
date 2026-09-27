@@ -1,7 +1,7 @@
-import type { CraneProjectMapping, CraneTeamRuntimeMemory } from "./types";
+import type { CraneRepositoryMapping, CraneTeamRuntimeMemory } from "./types";
 
 const CRANE_TEAM_KEY_PATTERN = /^([a-z][a-z0-9_-]{0,63})-\d+$/i;
-const MAX_PROJECT_MAPPINGS = 100;
+const MAX_REPOSITORY_MAPPINGS = 100;
 
 function normalizeTeamKey(value: string) {
   return value.trim().toUpperCase();
@@ -12,16 +12,16 @@ export function getCraneTeamKey(issueKey: string) {
   return match?.[1] ? normalizeTeamKey(match[1]) : null;
 }
 
-export function findMappedStaveProjectPath(args: {
+export function findMappedStaveRepositoryPath(args: {
   issueKey: string;
-  mappings: readonly CraneProjectMapping[];
-  registeredProjectPaths: readonly string[];
+  mappings: readonly CraneRepositoryMapping[];
+  registeredRepositoryPaths: readonly string[];
 }) {
   const teamKey = getCraneTeamKey(args.issueKey);
   if (!teamKey) {
     return null;
   }
-  const registeredPaths = new Set(args.registeredProjectPaths);
+  const registeredPaths = new Set(args.registeredRepositoryPaths);
   return (
     args.mappings.find(
       (mapping) =>
@@ -38,7 +38,7 @@ export function findMappedStaveProjectPath(args: {
  */
 export function findMappedCraneTeamRuntime(args: {
   issueKey: string;
-  mappings: readonly CraneProjectMapping[];
+  mappings: readonly CraneRepositoryMapping[];
 }): CraneTeamRuntimeMemory | null {
   const teamKey = getCraneTeamKey(args.issueKey);
   if (!teamKey) {
@@ -53,12 +53,12 @@ export function findMappedCraneTeamRuntime(args: {
   );
 }
 
-export function updateCraneTeamProjectMapping(args: {
-  mappings: readonly CraneProjectMapping[];
+export function updateCraneTeamRepositoryMapping(args: {
+  mappings: readonly CraneRepositoryMapping[];
   teamKey: string;
   staveProjectPath: string | null;
   runtime?: CraneTeamRuntimeMemory | null;
-}): CraneProjectMapping[] {
+}): CraneRepositoryMapping[] {
   const teamKey = normalizeTeamKey(args.teamKey);
   const withoutTeamMapping = args.mappings.filter(
     (mapping) =>
@@ -76,5 +76,5 @@ export function updateCraneTeamProjectMapping(args: {
       ...(args.runtime ? { runtime: args.runtime } : {}),
     },
     ...withoutTeamMapping,
-  ].slice(0, MAX_PROJECT_MAPPINGS);
+  ].slice(0, MAX_REPOSITORY_MAPPINGS);
 }

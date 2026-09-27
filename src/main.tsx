@@ -71,6 +71,36 @@ if (preview === "kickoff") {
       );
     },
   );
+} else if (preview === "projects") {
+  void import("@/dev/projects-preview").then(({ ProjectsPreview }) => {
+    root.render(
+      <StrictMode>
+        <StaveDesignProvider>
+          <ProjectsPreview />
+        </StaveDesignProvider>
+      </StrictMode>,
+    );
+  });
+} else if (preview === "playbooks") {
+  void import("@/dev/playbooks-preview").then(({ PlaybooksPreview }) => {
+    root.render(
+      <StrictMode>
+        <StaveDesignProvider>
+          <PlaybooksPreview />
+        </StaveDesignProvider>
+      </StrictMode>,
+    );
+  });
+} else if (preview === "mission") {
+  void import("@/dev/mission-preview").then(({ MissionPreview }) => {
+    root.render(
+      <StrictMode>
+        <StaveDesignProvider>
+          <MissionPreview />
+        </StaveDesignProvider>
+      </StrictMode>,
+    );
+  });
 } else if (preview === "collaboration") {
   void import("@/dev/collaboration-preview").then(
     ({ CollaborationPreview }) => {

@@ -158,7 +158,7 @@ export function matchesFleetTaskFilter(args: {
   query?: string;
   taskTitle: string;
   workspaceName: string;
-  projectName: string;
+  repositoryName: string;
 }) {
   const filterMatches =
     args.filter === "all" ||
@@ -175,7 +175,7 @@ export function matchesFleetTaskFilter(args: {
     return true;
   }
 
-  return [args.taskTitle, args.workspaceName, args.projectName].some((value) =>
+  return [args.taskTitle, args.workspaceName, args.repositoryName].some((value) =>
     value.toLowerCase().includes(query),
   );
 }

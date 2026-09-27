@@ -105,7 +105,7 @@ export function OpenPathDialog(args: OpenPathDialogProps) {
         onMouseDown={(event) => event.stopPropagation()}
       >
         <form onSubmit={handleSubmit} onKeyDown={handleDialogKeyDown}>
-          <h3 className={sx(openPathDialogStyles.title)}>Open Project</h3>
+          <h3 className={sx(openPathDialogStyles.title)}>Open Repository</h3>
           <p className={sx(openPathDialogStyles.description)}>
             Enter a path or browse for a folder.
           </p>

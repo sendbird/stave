@@ -48,7 +48,7 @@ export function ScriptTargetsTab(props: {
   );
   const overridableBuiltins = [
     { id: DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE, label: "Workspace" },
-    { id: DEFAULT_SCRIPT_TARGET_IDS.PROJECT, label: "Project" },
+    { id: DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY, label: "Repository" },
   ].filter((builtin) => !definedIds.has(builtin.id));
 
   return (
@@ -105,7 +105,7 @@ export function ScriptTargetsTab(props: {
             </EmptyMedia>
             <EmptyTitle>No custom environments</EmptyTitle>
             <EmptyDescription>
-              Commands and processes use the built-in workspace and project
+              Commands and processes use the built-in workspace and repository
               environments until you add one here.
             </EmptyDescription>
           </EmptyHeader>
@@ -205,7 +205,7 @@ export function ScriptTargetsTab(props: {
                         <SelectItem value="workspace">
                           Workspace root
                         </SelectItem>
-                        <SelectItem value="project">Project root</SelectItem>
+                        <SelectItem value="project">Repository root</SelectItem>
                       </SelectContent>
                     </Select>
                   </label>

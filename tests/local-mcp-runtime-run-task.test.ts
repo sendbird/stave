@@ -28,7 +28,7 @@ const DEFAULT_WORKSPACE_ID = "ws-runtask-default";
 const RECONCILE_WORKSPACE_ID = "ws-runtask-reconcile";
 const RELEASE_WORKSPACE_ID = "ws-runtask-release";
 const RELEASE_TASK_ID = "task-runtask-release";
-const PROJECT_PATH = "/tmp/stave-runtask-regression/project";
+const REPOSITORY_PATH = "/tmp/stave-runtask-regression/project";
 const WORKSPACE_PATH = "/tmp/stave-runtask-regression/worktree";
 const RECONCILE_WORKSPACE_PATH = "/tmp/stave-runtask-regression/reconcile";
 const RELEASE_WORKSPACE_PATH = "/tmp/stave-runtask-regression/release";
@@ -118,10 +118,10 @@ function loadFakeWorkspaceSnapshot(workspaceId: string) {
 }
 
 const fakeStore = {
-  loadProjectRegistry: () => [
+  loadRepositoryRegistry: () => [
     {
-      projectPath: PROJECT_PATH,
-      projectName: "proj",
+      repositoryPath: REPOSITORY_PATH,
+      repositoryName: "proj",
       lastOpenedAt: "2026-01-01T00:00:00.000Z",
       defaultBranch: "main",
       workspaces: [
@@ -153,7 +153,7 @@ const fakeStore = {
         [RELEASE_WORKSPACE_ID]: "release",
       },
       workspacePathById: {
-        [DEFAULT_WORKSPACE_ID]: PROJECT_PATH,
+        [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH,
         [WORKSPACE_ID]: WORKSPACE_PATH,
         [RECONCILE_WORKSPACE_ID]: RECONCILE_WORKSPACE_PATH,
         [RELEASE_WORKSPACE_ID]: RELEASE_WORKSPACE_PATH,
@@ -163,7 +163,7 @@ const fakeStore = {
   ],
   loadWorkspaceSnapshot: ({ workspaceId }: { workspaceId: string }) =>
     loadFakeWorkspaceSnapshot(workspaceId),
-  // `runTask` injects child-task receipts into every managed turn. These tests
+  // `runTask` injects delegated-task receipts into every managed turn. These tests
   // delegate nothing, so an empty ledger is the honest answer; without it the
   // runtime falls back and logs a read failure on each run.
   listRunAggregatesByOrigin: () => [],
@@ -293,7 +293,7 @@ const fakeStore = {
   // `persistTaskTurnDelta` declines so the caller migrates via the
   // whole-snapshot write below.
   persistTaskTurnDelta: () => ({ ok: false, messageCount: 0 }),
-  loadRoutineProviderTimeoutMs: () => persistedProviderTimeoutMs,
+  loadAutomationProviderTimeoutMs: () => persistedProviderTimeoutMs,
   upsertWorkspace: ({
     id,
     snapshot,
@@ -332,7 +332,7 @@ const fakeStore = {
     }
     lastUpsertSnapshotByWorkspaceId.set(id, snapshot);
   },
-  saveProjectRegistry: () => {},
+  saveRepositoryRegistry: () => {},
 };
 
 mock.module("electron", () => ({
@@ -430,8 +430,8 @@ describe("local MCP runtime runTask", () => {
     ).toBe("Claude Sonnet 5 · 1M · X-High · Fast");
   });
 
-  test("creates a delegated child task with the ledger's pre-minted id", async () => {
-    // The child-task coordinator claims the ledger row with a derived task id
+  test("creates a delegated task with the ledger's pre-minted id", async () => {
+    // The delegated-task coordinator claims the ledger row with a derived task id
     // before the task exists, then starts the first turn with that id. The
     // delegation path (parentTaskId set) must create the task under that
     // exact id instead of rejecting it as an unknown task.
@@ -590,7 +590,7 @@ describe("local MCP runtime runTask", () => {
     }
   });
 
-  test("injects explicitly attached Information references into routine turns", async () => {
+  test("injects explicitly attached Information references into automation turns", async () => {
     await runtime.replaceWorkspaceNotes({
       workspaceId: WORKSPACE_ID,
       notes: "Treat the release branch as read-only.",
@@ -621,7 +621,7 @@ describe("local MCP runtime runTask", () => {
       };
     };
     const informationPart = call.conversation?.contextParts?.find(
-      (part) => part.sourceId === "stave:routine-information-references",
+      (part) => part.sourceId === "stave:automation-information-references",
     );
 
     expect(informationPart?.content).toContain(
@@ -1125,7 +1125,7 @@ describe("local MCP runtime runTask", () => {
       };
     };
     const informationPart = call.conversation?.contextParts?.find(
-      (part) => part.sourceId === "stave:routine-information-references",
+      (part) => part.sourceId === "stave:automation-information-references",
     );
     expect(informationPart?.content).toContain(
       "Use the renderer's newest persisted instructions.",
@@ -1310,33 +1310,33 @@ describe("local MCP runtime archived-task persistence", () => {
 describe("local MCP project memory curation", () => {
   test("search and same-id curation stay scoped to the workspace project", async () => {
     const { Database } = await import("bun:sqlite");
-    const { ProjectMemoryStore } = await import("../electron/persistence/project-memory-store");
-    const store = new ProjectMemoryStore(new Database(":memory:"));
-    for (const projectPath of [PROJECT_PATH, "/tmp/other-project"]) {
-      store.settings.save({ projectPath, expectedRevision: 0, patch: { collectAutomatically: true } });
+    const { RepositoryMemoryStore } = await import("../electron/persistence/repository-memory-store");
+    const store = new RepositoryMemoryStore(new Database(":memory:"));
+    for (const repositoryPath of [REPOSITORY_PATH, "/tmp/other-project"]) {
+      store.settings.save({ repositoryPath, expectedRevision: 0, patch: { collectAutomatically: true } });
     }
     const methods = {
-      rememberProjectMemory: store.remember.bind(store),
-      updateProjectMemory: store.update.bind(store),
-      getProjectMemory: store.get.bind(store),
-      searchProjectMemories: store.search.bind(store),
-      deleteProjectMemory: (id: string) => store.softDelete({ id }),
+      rememberRepositoryMemory: store.remember.bind(store),
+      updateRepositoryMemory: store.update.bind(store),
+      getRepositoryMemory: store.get.bind(store),
+      searchRepositoryMemories: store.search.bind(store),
+      deleteRepositoryMemory: (id: string) => store.softDelete({ id }),
     };
     Object.assign(fakeStore, methods);
     try {
-      const first = await runtime.rememberProjectMemory({ workspaceId: WORKSPACE_ID, kind: "decision", content: "Terminal snapshots use stable keys." });
-      const revised = await runtime.rememberProjectMemory({ workspaceId: WORKSPACE_ID, memoryId: first.memory!.id, kind: "decision", content: "Terminal snapshots use shared slot keys.", recallMode: "core" });
+      const first = await runtime.rememberRepositoryMemory({ workspaceId: WORKSPACE_ID, kind: "decision", content: "Terminal snapshots use stable keys." });
+      const revised = await runtime.rememberRepositoryMemory({ workspaceId: WORKSPACE_ID, memoryId: first.memory!.id, kind: "decision", content: "Terminal snapshots use shared slot keys.", recallMode: "core" });
       expect(revised.outcome).toBe("updated");
       expect(revised.memory?.id).toBe(first.memory!.id);
       expect(revised.memory?.recallMode).toBe("core");
-      const page = await runtime.listProjectMemories({ workspaceId: WORKSPACE_ID, query: "terminal" });
+      const page = await runtime.listRepositoryMemories({ workspaceId: WORKSPACE_ID, query: "terminal" });
       expect(page.memories).toHaveLength(1);
       expect(page.nextOffset).toBeNull();
-      const foreign = store.remember({ projectPath: "/tmp/other-project", kind: "fact", content: "Foreign memory.", confidence: 0.9 })!;
-      await expect(runtime.rememberProjectMemory({ workspaceId: WORKSPACE_ID, memoryId: foreign.memory.id, kind: "fact", content: "Overwrite attempt." })).rejects.toThrow(/not found/);
+      const foreign = store.remember({ repositoryPath: "/tmp/other-project", kind: "fact", content: "Foreign memory.", confidence: 0.9 })!;
+      await expect(runtime.rememberRepositoryMemory({ workspaceId: WORKSPACE_ID, memoryId: foreign.memory.id, kind: "fact", content: "Overwrite attempt." })).rejects.toThrow(/not found/);
       expect(store.get(foreign.memory.id)?.content).toBe("Foreign memory.");
-      await runtime.forgetProjectMemory({ workspaceId: WORKSPACE_ID, memoryId: first.memory!.id });
-      expect((await runtime.listProjectMemories({ workspaceId: WORKSPACE_ID })).memories).toEqual([]);
+      await runtime.forgetRepositoryMemory({ workspaceId: WORKSPACE_ID, memoryId: first.memory!.id });
+      expect((await runtime.listRepositoryMemories({ workspaceId: WORKSPACE_ID })).memories).toEqual([]);
     } finally {
       for (const key of Object.keys(methods)) Reflect.deleteProperty(fakeStore, key);
     }

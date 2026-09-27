@@ -5,7 +5,7 @@ import { expect, test } from "@playwright/test";
 import { launchStave, type StaveApp } from "./harness/stave-app";
 
 test("maintained direction and an unsaved draft survive a full application restart", async ({}, testInfo) => {
-  const projectPath = await mkdtemp(
+  const repositoryPath = await mkdtemp(
     path.join(tmpdir(), "stave-direction-project-"),
   );
   const userDataDir = await mkdtemp(
@@ -21,7 +21,7 @@ test("maintained direction and an unsaved draft survive a full application resta
       .getByTestId("workspace-welcome")
       .getByRole("button", { name: "Open a project" })
       .click();
-    await stave.page.getByPlaceholder("~/projects/my-app").fill(projectPath);
+    await stave.page.getByPlaceholder("~/projects/my-app").fill(repositoryPath);
     await stave.page.getByRole("button", { name: "Open", exact: true }).click();
     await expect(stave.page.getByTestId("workspace-welcome")).toHaveCount(0);
     await stave.page
@@ -76,11 +76,11 @@ test("maintained direction and an unsaved draft survive a full application resta
       .poll(() =>
         stave!.page.evaluate(
           async () =>
-            (await window.api.persistence!.loadProjectRegistry!())
-              .activeProjectPath,
+            (await window.api.persistence!.loadRepositoryRegistry!())
+              .activeRepositoryPath,
         ),
       )
-      .toBe(projectPath);
+      .toBe(repositoryPath);
     await stave.close();
     stave = null;
     stave = await launchStave({ userDataDir });
@@ -141,7 +141,7 @@ test("maintained direction and an unsaved draft survive a full application resta
     throw error;
   } finally {
     await stave?.close();
-    await rm(projectPath, {
+    await rm(repositoryPath, {
       recursive: true,
       force: true,
       maxRetries: 10,

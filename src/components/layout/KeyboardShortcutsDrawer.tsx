@@ -260,7 +260,7 @@ export function KeyboardShortcutsDrawer({
   const sections = useMemo<ShortcutSection[]>(
     () => [
       {
-        title: "Tasks",
+        title: "Issues",
         description:
           "Create conversations and move around the current workspace.",
         shortcuts: [
@@ -312,7 +312,7 @@ export function KeyboardShortcutsDrawer({
             actionId: "view.toggle-workspace-sidebar",
             label: "Toggle workspace sidebar",
             description:
-              "Collapse or expand the left project and workspace list.",
+              "Collapse or expand the left repository and workspace list.",
           }),
           buildShellShortcutItem({
             actionId: "view.toggle-changes-panel",
@@ -385,7 +385,7 @@ export function KeyboardShortcutsDrawer({
             actionId: "navigation.home",
             label: "Go home",
             description:
-              "Clear the active task selection and return to the project overview.",
+              "Clear the active task selection and return to the repository overview.",
           }),
           {
             label: "Focus prompt composer",

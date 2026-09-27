@@ -9,7 +9,7 @@ export type CountBadgeTone = "accent" | "warning" | "neutral";
  * tasks needing attention, open terminals in a pane toolbar.
  *
  * Four surfaces had grown four of these — 20px accent (notifications), 16px
- * warning (Tasks, Fleet attention), 14px neutral (Lens toolbar) — with three
+ * warning (Issues, Fleet attention), 14px neutral (Lens toolbar) — with three
  * different ring colors, three type sizes and three hand-written negative
  * offsets. One box, one type step, one ring; the only thing that varies is
  * TONE, because that is the only thing that differed on purpose (a count that

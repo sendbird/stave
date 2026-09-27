@@ -36,6 +36,31 @@ Stave is an installable product. Do not bake author-specific machine state into 
 - Release tags use `vX.Y.Z`.
 - Refresh `CHANGELOG.md` with `bunx --bun conventional-changelog-cli -p conventionalcommits -i CHANGELOG.md -s` unless the work is intentionally establishing a brand-new baseline release.
 
+## Temporary Migrations
+
+Code that exists only to read or convert names Stave no longer uses (renamed
+SQLite tables or columns, `app_state` or settings keys, ledger kinds, legacy
+notification kinds) or to replay a rename on another branch is temporary. It
+must be removed on a schedule, not kept forever.
+
+- Register it in `config/temporary-migrations.json` with `introducedAfter` (the
+  current `package.json` version) and `removeInVersion`: three minor versions
+  later (for example `0.19.x` → `0.22.0`). List every file that carries its code
+  and every test that exists only for it.
+- Start each block with a comment containing `temporary-migration: <id>` (an
+  `end temporary-migration: <id>` line may close it). Every registered file must
+  carry the marker and every marker must be registered.
+- Keep the migration idempotent, run it once before the first read, and cover
+  it with a test that starts from the old shape.
+- `bun run check:temporary-migrations` runs in `test:ci`. It warns one minor
+  release ahead and fails once `package.json` reaches `removeInVersion`. When it
+  fails, delete the marked blocks, the listed tests and the registry entry in
+  the release PR or a preceding `chore: remove expired migrations` PR, and state
+  in the release notes that upgrades skipping those releases no longer convert
+  the old data.
+- Do not move `removeInVersion` later just to silence the gate. An extension
+  needs a stated reason in the entry and maintainer approval.
+
 ## Repository Map
 
 - `src/`: renderer app, Zustand store, editor, chat surfaces, and client-side helpers

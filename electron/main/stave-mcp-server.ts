@@ -22,46 +22,60 @@ import type {
   StaveLocalMcpStatus,
 } from "../../src/lib/local-mcp";
 import {
-  RoutineInformationResourceCreateInputSchema,
-  RoutineUpsertInputSchema,
-} from "../../src/lib/routines";
-import { TaskHeartbeatUpsertInputSchema } from "../../src/lib/automation/task-supervisor";
+  AutomationInformationResourceCreateInputSchema,
+  AutomationUpsertInputSchema,
+} from "../../src/lib/automations";
+import { WakeUpUpsertInputSchema } from "../../src/lib/supervision/wake-up-policy";
 import {
-  PROJECT_MEMORY_CONTENT_MAX_CHARS,
-  ProjectMemoryKindSchema,
-} from "../../src/lib/project-memory";
+  REPOSITORY_MEMORY_CONTENT_MAX_CHARS,
+  RepositoryMemoryKindSchema,
+} from "../../src/lib/repository-memory";
 import { registerCollaborationTools } from "./stave-collaboration-tools";
+import { proposeMissionForGrant } from "./proposals-service";
+import { registerMissionTools } from "./stave-mission-tools";
+import { registerProjectTools } from "./stave-project-tools";
 import {
-  readCollaborationGrantHeaders,
-  type StaveCollaborationGrants,
-} from "../providers/stave-collaboration-grants";
+  getProjectForGrant,
+  getProjectMissionReport,
+  noteProject,
+  startProjectMission,
+} from "./projects-service";
+import {
+  blockMissionStage,
+  getMissionForGrant,
+  reportMissionStage,
+} from "./missions-service";
+import {
+  readTurnGrantHeaders,
+  type StaveTurnGrants,
+} from "../providers/stave-turn-grants";
 import {
   getStaveLocalMcpConfigPath,
   readStaveLocalMcpConfig,
   updateStaveLocalMcpConfig,
 } from "./stave-mcp-config";
 import {
-  createRoutineInformationResource,
-  createRoutine,
-  listRoutineInformationReferences,
-  listRoutines,
-  removeRoutine,
-  runRoutineNow,
-  setRoutineEnabled,
-  updateRoutine,
-} from "./routine-service";
+  createAutomationInformationResource,
+  createAutomation,
+  listAutomationInformationReferences,
+  listAutomations,
+  removeAutomation,
+  runAutomationNow,
+  setAutomationEnabled,
+  updateAutomation,
+} from "./automation-service";
 import { RuntimeOptionsObjectSchema } from "./ipc/schemas";
-import { ChildTaskFollowUpArgsSchema } from "../../src/lib/runs/child-task";
-import { getChildTaskCoordinator } from "./runs/child-task-coordinator-instance";
+import { DelegatedTaskFollowUpArgsSchema } from "../../src/lib/runs/delegated-task";
+import { getDelegatedTaskCoordinator } from "./runs/delegated-task-coordinator-instance";
 import {
-  createTaskHeartbeat,
-  getTaskHeartbeat,
-  listTaskHeartbeats,
-  pauseTaskHeartbeat,
-  removeTaskHeartbeat,
-  resumeTaskHeartbeat,
-  updateTaskHeartbeat,
-} from "./task-supervisor-service";
+  createWakeUp,
+  getWakeUp,
+  listWakeUps,
+  pauseWakeUp,
+  removeWakeUp,
+  resumeWakeUp,
+  updateWakeUp,
+} from "./wake-up-service";
 import { ensurePersistenceReady } from "./state";
 import {
   addWorkspaceAmplifyLink,
@@ -78,17 +92,17 @@ import {
   clearWorkspaceNotes,
   consultAdvisor,
   createWorkspace,
-  forgetProjectMemory,
+  forgetRepositoryMemory,
   getWorkspaceInformation,
   getTaskStatus,
-  listKnownProjects,
-  listProjectMemories,
-  rememberProjectMemory,
+  listKnownRepositories,
+  listRepositoryMemories,
+  rememberRepositoryMemory,
   removeWorkspaceCustomField,
   removeWorkspaceResource,
   removeWorkspaceTodo,
   replaceWorkspaceNotes,
-  registerProject,
+  registerRepository,
   respondApproval,
   respondUserInput,
   runAcpWorker,
@@ -115,12 +129,12 @@ import {
   refreshMartinContext,
   unlinkMartinProject,
 } from "./martin-sync/project-link";
-import { listTrackerTasks, refreshTrackerTasks } from "./tracker-tasks/service";
+import { listTrackerIssues, refreshTrackerIssues } from "./tracker-issues/service";
 import {
   TRACKER_SOURCE_IDS,
   TRACKER_STATUS_CATEGORIES,
-  type TrackerTaskListItem,
-} from "../../src/lib/tracker-tasks/types";
+  type TrackerIssueListItem,
+} from "../../src/lib/tracker-issues/types";
 
 let httpServer: Server | null = null;
 let manifestPaths: string[] = [];
@@ -138,8 +152,8 @@ function toStructuredResult<T>(value: T) {
   };
 }
 
-/** Rows a single `stave_list_tracker_tasks` call returns when none is asked for. */
-const DEFAULT_TRACKER_TASK_TOOL_LIMIT = 20;
+/** Rows a single `stave_list_tracker_issues` call returns when none is asked for. */
+const DEFAULT_TRACKER_ISSUE_TOOL_LIMIT = 20;
 
 function toTextResult(text: string) {
   return {
@@ -160,7 +174,7 @@ function toTextResult(text: string) {
  * them serialized would cost more context than the answer is worth, so the
  * fields a person scans are flattened into a single line instead.
  */
-function formatTrackerTaskLine(item: TrackerTaskListItem) {
+function formatTrackerIssueLine(item: TrackerIssueListItem) {
   const { task } = item;
   // The newest link is the live one: a retry appends rather than replaces.
   const staveLink = item.staveLinks.at(-1);
@@ -348,7 +362,7 @@ async function removeManifestFiles() {
 
 function createToolServer(options?: {
   browserToolsEnabled?: boolean;
-  collaborationGrants?: StaveCollaborationGrants;
+  turnGrants?: StaveTurnGrants;
 }) {
   const server = new McpServer(
     {
@@ -363,14 +377,14 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_list_projects",
+    "stave_list_repositories",
     {
       description:
         "List projects already registered in the local Stave desktop app.",
     },
     async () =>
       toStructuredResult({
-        projects: await listKnownProjects(),
+        repositories: await listKnownRepositories(),
       }),
   );
 
@@ -434,7 +448,7 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_list_tracker_tasks",
+    "stave_list_tracker_issues",
     {
       description:
         "List the tracker tickets Stave has cached for the signed-in user. Read-only; optionally refreshes the cache from the configured sources first.",
@@ -462,9 +476,9 @@ function createToolServer(options?: {
     },
     async ({ source, statusCategories, search, limit, refresh }) => {
       if (refresh) {
-        await refreshTrackerTasks({ source });
+        await refreshTrackerIssues({ source });
       }
-      const cached = listTrackerTasks({ source });
+      const cached = listTrackerIssues({ source });
       const wanted =
         statusCategories && statusCategories.length > 0
           ? new Set(statusCategories)
@@ -482,28 +496,28 @@ function createToolServer(options?: {
           task.title.toLowerCase().includes(needle)
         );
       });
-      const shown = matched.slice(0, limit ?? DEFAULT_TRACKER_TASK_TOOL_LIMIT);
+      const shown = matched.slice(0, limit ?? DEFAULT_TRACKER_ISSUE_TOOL_LIMIT);
       if (shown.length === 0) {
-        return toTextResult("No tracker tasks matched.");
+        return toTextResult("No tracker issues matched.");
       }
-      const header = `${shown.length} of ${matched.length} matching tracker tasks (${cached.length} cached).`;
+      const header = `${shown.length} of ${matched.length} matching tracker issues (${cached.length} cached).`;
       return toTextResult(
-        [header, ...shown.map(formatTrackerTaskLine)].join("\n"),
+        [header, ...shown.map(formatTrackerIssueLine)].join("\n"),
       );
     },
   );
 
   server.registerTool(
-    "stave_register_project",
+    "stave_register_repository",
     {
       description:
         "Register or refresh a local project in Stave and ensure its default workspace exists.",
       inputSchema: {
-        projectPath: z
+        repositoryPath: z
           .string()
           .min(1)
           .describe("Absolute or user-resolvable path to the repository root."),
-        projectName: z
+        repositoryName: z
           .string()
           .optional()
           .describe("Optional display name override."),
@@ -513,11 +527,11 @@ function createToolServer(options?: {
           .describe("Optional default branch override."),
       },
     },
-    async ({ projectPath, projectName, defaultBranch }) =>
+    async ({ repositoryPath, repositoryName, defaultBranch }) =>
       toStructuredResult({
-        project: await registerProject({
-          projectPath,
-          projectName,
+        repository: await registerRepository({
+          repositoryPath,
+          repositoryName,
           defaultBranch,
         }),
       }),
@@ -529,7 +543,7 @@ function createToolServer(options?: {
       description:
         "Create a git-worktree-backed workspace inside a registered Stave project.",
       inputSchema: {
-        projectPath: z.string().min(1).describe("Project root path."),
+        repositoryPath: z.string().min(1).describe("Project root path."),
         name: z
           .string()
           .min(1)
@@ -614,9 +628,21 @@ function createToolServer(options?: {
       }),
   );
 
-  registerCollaborationTools(server, options?.collaborationGrants ?? {}, {
+  registerCollaborationTools(server, options?.turnGrants ?? {}, {
     consultAdvisor,
     runAcpWorker,
+  });
+  registerMissionTools(server, options?.turnGrants ?? {}, {
+    getMissionForGrant,
+    reportMissionStage,
+    blockMissionStage,
+    proposeMissionForGrant,
+  });
+  registerProjectTools(server, options?.turnGrants ?? {}, {
+    getProjectForGrant,
+    startProjectMission,
+    getProjectMissionReport,
+    noteProject,
   });
 
   server.registerTool(
@@ -625,7 +651,7 @@ function createToolServer(options?: {
       description:
         "Delegate work from this task to a durable child Stave task, optionally on the other provider. The delegation is recorded on the run ledger and identified by `(parentTaskId, delegationKey)`, so calling this twice with the same key returns the same child instead of creating a second one.",
       inputSchema: {
-        projectPath: z
+        repositoryPath: z
           .string()
           .min(1)
           .describe("Project root path that owns the parent workspace."),
@@ -640,8 +666,8 @@ function createToolServer(options?: {
           .describe(
             "Caller-chosen idempotency key for this delegation, unique within the parent task. Letters, digits, dot, underscore and hyphen only.",
           ),
-        prompt: z.string().min(1).describe("Prompt to run in the child task."),
-        title: z.string().optional().describe("Optional child task title."),
+        prompt: z.string().min(1).describe("Prompt to run in the delegated task."),
+        title: z.string().optional().describe("Optional delegated task title."),
         provider: z
           .enum(["claude-code", "codex"])
           .describe("Provider the child runs on. Required — never inherited."),
@@ -663,7 +689,7 @@ function createToolServer(options?: {
         lifecycle: z
           .enum(["one-turn", "detached"])
           .describe(
-            "`one-turn` finishes the delegation when the child's first turn ends. `detached` keeps the child task open until it is stopped.",
+            "`one-turn` finishes the delegation when the child's first turn ends. `detached` keeps the delegated task open until it is stopped.",
           ),
         workspace: z
           .union([
@@ -688,7 +714,7 @@ function createToolServer(options?: {
     },
     async ({ provider, retry, ...rest }) =>
       toStructuredResult({
-        delegation: await getChildTaskCoordinator().delegate({
+        delegation: await getDelegatedTaskCoordinator().delegate({
           ...rest,
           providerId: provider,
           retry: retry ?? false,
@@ -697,10 +723,10 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_list_child_tasks",
+    "stave_list_delegated_tasks",
     {
       description:
-        "List the child tasks a task delegated, with identity, phase and terminal reason. Never returns a child's transcript.",
+        "List the delegated tasks a task delegated, with identity, phase and terminal reason. Never returns a child's transcript.",
       inputSchema: {
         parentTaskId: z.string().min(1).describe("Id of the delegating task."),
         includeFinished: z
@@ -713,7 +739,7 @@ function createToolServer(options?: {
     },
     async ({ parentTaskId, includeFinished }) =>
       toStructuredResult({
-        children: await getChildTaskCoordinator().list({
+        children: await getDelegatedTaskCoordinator().list({
           parentTaskId,
           includeFinished: includeFinished ?? true,
         }),
@@ -721,10 +747,10 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_stop_child_task",
+    "stave_stop_delegated_task",
     {
       description:
-        "Stop a delegated child task. The ledger row is cancelled durably; the child task is asked to stop as a best effort.",
+        "Stop a delegated task. The ledger row is cancelled durably; the delegated task is asked to stop as a best effort.",
       inputSchema: {
         parentTaskId: z.string().min(1).describe("Id of the delegating task."),
         delegationKey: z
@@ -736,18 +762,18 @@ function createToolServer(options?: {
     },
     async (input) =>
       toStructuredResult({
-        stop: await getChildTaskCoordinator().stop(input),
+        stop: await getDelegatedTaskCoordinator().stop(input),
       }),
   );
 
   server.registerTool(
-    "stave_follow_up_child_task",
+    "stave_follow_up_delegated_task",
     {
-      description: "Continue an owned child task with a bounded follow-up. Read stave_list_child_tasks first and pass its exact identity as expected. Permissions are selected explicitly for this turn. A stale identity is rejected; do not retry with a guessed identity.",
-      inputSchema: ChildTaskFollowUpArgsSchema.shape,
+      description: "Continue an owned delegated task with a bounded follow-up. Read stave_list_delegated_tasks first and pass its exact identity as expected. Permissions are selected explicitly for this turn. A stale identity is rejected; do not retry with a guessed identity.",
+      inputSchema: DelegatedTaskFollowUpArgsSchema.shape,
     },
     async (input) => toStructuredResult({
-      followUp: await getChildTaskCoordinator().followUp(ChildTaskFollowUpArgsSchema.parse(input)),
+      followUp: await getDelegatedTaskCoordinator().followUp(DelegatedTaskFollowUpArgsSchema.parse(input)),
     }),
   );
 
@@ -770,10 +796,10 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_list_task_heartbeats",
+    "stave_list_wake_ups",
     {
       description:
-        "List task heartbeats and their waiting, paused, or stopped state. A heartbeat wakes an existing task on a schedule in the same session; it never creates a task.",
+        "List wake-ups and their waiting, paused, or stopped state. A wake-up resumes an existing task on a schedule in the same session; it never creates a task.",
       inputSchema: {
         workspaceId: z
           .string()
@@ -784,131 +810,131 @@ function createToolServer(options?: {
     },
     async ({ workspaceId }) =>
       toStructuredResult(
-        { ...await listTaskHeartbeats(workspaceId ? { workspaceId } : {}) },
+        { ...await listWakeUps(workspaceId ? { workspaceId } : {}) },
       ),
   );
 
   server.registerTool(
-    "stave_get_task_heartbeat",
+    "stave_get_wake_up",
     {
       description:
-        "Read one task heartbeat with its recent occurrences, including why an occurrence fired, deferred, or was skipped.",
+        "Read one wake-up with its recent occurrences, including why an occurrence fired, deferred, or was skipped.",
       inputSchema: {
-        id: z.string().min(1).describe("Heartbeat id."),
+        id: z.string().min(1).describe("Wake-up id."),
       },
     },
-    async ({ id }) => toStructuredResult(await getTaskHeartbeat({ id })),
+    async ({ id }) => toStructuredResult(await getWakeUp({ id })),
   );
 
   server.registerTool(
-    "stave_create_task_heartbeat",
+    "stave_create_wake_up",
     {
       description:
-        "Attach a heartbeat to an existing task so it wakes in the same session — on a schedule, or when work that task delegated finishes. Use a schedule trigger for standing checks such as re-checking CI on its pull request, and a completion trigger to pick a task back up when its child tasks return. To run something on a schedule in a NEW task each time, create a routine instead.",
+        "Attach a wake-up to an existing task so it wakes in the same session — on a schedule, or when work that task delegated finishes. Use a schedule trigger for standing checks such as re-checking CI on its pull request, and a completion trigger to pick a task back up when its delegated tasks return. To run something on a schedule in a NEW task each time, create an automation instead.",
       inputSchema: {
-        input: TaskHeartbeatUpsertInputSchema.describe(
-          "Heartbeat definition. `taskId` must name a task that already exists. A completion trigger without `maxOccurrences` is capped by default so the wake chain cannot recurse forever.",
+        input: WakeUpUpsertInputSchema.describe(
+          "Wake-up definition. `taskId` must name a task that already exists. A completion trigger without `maxOccurrences` is capped by default so the wake chain cannot recurse forever.",
         ),
       },
     },
     async ({ input }) =>
       toStructuredResult({
-        heartbeat: await createTaskHeartbeat(input),
+        wakeUp: await createWakeUp(input),
       }),
   );
 
   server.registerTool(
-    "stave_update_task_heartbeat",
+    "stave_update_wake_up",
     {
       description:
-        "Replace a task heartbeat's prompt, trigger, expiry, or occurrence cap. This also re-accepts the task's current provider and model, clearing a pause caused by a runtime change.",
+        "Replace a wake-up's prompt, trigger, expiry, or occurrence cap. This also re-accepts the task's current provider and model, clearing a pause caused by a runtime change.",
       inputSchema: {
-        id: z.string().min(1).describe("Heartbeat id."),
-        input: TaskHeartbeatUpsertInputSchema.describe(
-          "Complete next heartbeat definition. It must target the same task.",
+        id: z.string().min(1).describe("Wake-up id."),
+        input: WakeUpUpsertInputSchema.describe(
+          "Complete next wake-up definition. It must target the same task.",
         ),
       },
     },
     async ({ id, input }) =>
       toStructuredResult({
-        heartbeat: await updateTaskHeartbeat({ id, input }),
+        wakeUp: await updateWakeUp({ id, input }),
       }),
   );
 
   server.registerTool(
-    "stave_set_task_heartbeat_paused",
+    "stave_set_wake_up_paused",
     {
       description:
-        "Pause or resume a task heartbeat without deleting it. Resuming schedules the next occurrence from now, and is refused for a heartbeat that already stopped.",
+        "Pause or resume a wake-up without deleting it. Resuming schedules the next occurrence from now, and is refused for a wake-up that already stopped.",
       inputSchema: {
-        id: z.string().min(1).describe("Heartbeat id."),
+        id: z.string().min(1).describe("Wake-up id."),
         paused: z
           .boolean()
-          .describe("True to pause the heartbeat, false to resume it."),
+          .describe("True to pause the wake-up, false to resume it."),
       },
     },
     async ({ id, paused }) =>
       toStructuredResult({
-        heartbeat: paused
-          ? await pauseTaskHeartbeat({ id })
-          : await resumeTaskHeartbeat({ id }),
+        wakeUp: paused
+          ? await pauseWakeUp({ id })
+          : await resumeWakeUp({ id }),
       }),
   );
 
   server.registerTool(
-    "stave_remove_task_heartbeat",
+    "stave_remove_wake_up",
     {
       description:
-        "Delete a task heartbeat and its occurrence history. The task itself is untouched.",
+        "Delete a wake-up and its occurrence history. The task itself is untouched.",
       inputSchema: {
-        id: z.string().min(1).describe("Heartbeat id."),
+        id: z.string().min(1).describe("Wake-up id."),
       },
     },
-    async ({ id }) => toStructuredResult(await removeTaskHeartbeat({ id })),
+    async ({ id }) => toStructuredResult(await removeWakeUp({ id })),
   );
 
   server.registerTool(
-    "stave_list_routines",
+    "stave_list_automations",
     {
       description:
-        "List saved Stave routines and their recent run history so an agent can inspect existing routine specs before creating, updating, or deleting them.",
+        "List saved Stave automations and their recent run history so an agent can inspect existing automation specs before creating, updating, or deleting them.",
     },
     async () =>
       toStructuredResult({
-        routines: await listRoutines(),
+        automations: await listAutomations(),
       }),
   );
 
   server.registerTool(
-    "stave_create_routine",
+    "stave_create_automation",
     {
       description:
-        "Create a saved Stave routine from a complete routine spec. Use this when a user asks the AI to set up a recurring Claude or Codex workflow.",
+        "Create a saved Stave automation from a complete automation spec. Use this when a user asks the AI to set up a recurring Claude or Codex workflow.",
       inputSchema: {
-        input: RoutineUpsertInputSchema.describe("Complete routine spec."),
+        input: AutomationUpsertInputSchema.describe("Complete automation spec."),
       },
     },
     async ({ input }) =>
       toStructuredResult({
-        routine: await createRoutine(input),
+        automation: await createAutomation(input),
       }),
   );
 
   server.registerTool(
-    "stave_update_routine",
+    "stave_update_automation",
     {
       description:
-        "Replace an existing Stave routine spec by id. Use this after listing routines and selecting the target routine to edit.",
+        "Replace an existing Stave automation spec by id. Use this after listing automations and selecting the target automation to edit.",
       inputSchema: {
-        id: z.string().min(1).describe("Routine id."),
-        input: RoutineUpsertInputSchema.describe(
-          "Complete next routine spec that should replace the saved one.",
+        id: z.string().min(1).describe("Automation id."),
+        input: AutomationUpsertInputSchema.describe(
+          "Complete next automation spec that should replace the saved one.",
         ),
       },
     },
     async ({ id, input }) =>
       toStructuredResult({
-        routine: await updateRoutine({
+        automation: await updateAutomation({
           id,
           input,
         }),
@@ -916,37 +942,37 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_remove_routine",
+    "stave_remove_automation",
     {
       description:
-        "Delete a saved Stave routine by id. This removes the routine definition and its routine-history entries, but not the task conversations created by earlier runs.",
+        "Delete a saved Stave automation by id. This removes the automation definition and its automation-history entries, but not the task conversations created by earlier runs.",
       inputSchema: {
-        id: z.string().min(1).describe("Routine id."),
+        id: z.string().min(1).describe("Automation id."),
       },
     },
     async ({ id }) =>
       toStructuredResult({
-        result: await removeRoutine({
+        result: await removeAutomation({
           id,
         }),
       }),
   );
 
   server.registerTool(
-    "stave_set_routine_enabled",
+    "stave_set_automation_enabled",
     {
       description:
-        "Pause or resume a saved Stave routine without deleting it by setting its enabled flag.",
+        "Pause or resume a saved Stave automation without deleting it by setting its enabled flag.",
       inputSchema: {
-        id: z.string().min(1).describe("Routine id."),
+        id: z.string().min(1).describe("Automation id."),
         enabled: z
           .boolean()
-          .describe("Whether the routine should remain scheduled."),
+          .describe("Whether the automation should remain scheduled."),
       },
     },
     async ({ id, enabled }) =>
       toStructuredResult({
-        routine: await setRoutineEnabled({
+        automation: await setAutomationEnabled({
           id,
           enabled,
         }),
@@ -954,53 +980,53 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_run_routine_now",
+    "stave_run_automation_now",
     {
       description:
-        "Trigger an immediate manual run for a saved Stave routine by id.",
+        "Trigger an immediate manual run for a saved Stave automation by id.",
       inputSchema: {
-        id: z.string().min(1).describe("Routine id."),
+        id: z.string().min(1).describe("Automation id."),
       },
     },
     async ({ id }) =>
       toStructuredResult({
-        run: await runRoutineNow({
+        run: await runAutomationNow({
           id,
         }),
       }),
   );
 
   server.registerTool(
-    "stave_list_routine_information_references",
+    "stave_list_automation_information_references",
     {
       description:
-        "List attachable Information panel references for the target workspace so an agent can reuse notes, todos, and linked resources in a routine spec.",
+        "List attachable Information panel references for the target workspace so an agent can reuse notes, todos, and linked resources in an automation spec.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id."),
       },
     },
     async ({ workspaceId }) =>
       toStructuredResult({
-        options: await listRoutineInformationReferences({
+        options: await listAutomationInformationReferences({
           workspaceId,
         }),
       }),
   );
 
   server.registerTool(
-    "stave_create_routine_information_resource",
+    "stave_create_automation_information_resource",
     {
       description:
-        "Create a new Information panel item and return the routine attachment reference for it. Use this when the requested routine spec needs notes, todos, or linked resources that do not exist yet.",
+        "Create a new Information panel item and return the automation attachment reference for it. Use this when the requested automation spec needs notes, todos, or linked resources that do not exist yet.",
       inputSchema: {
-        input: RoutineInformationResourceCreateInputSchema.describe(
-          "Information resource payload to create and attach to a routine.",
+        input: AutomationInformationResourceCreateInputSchema.describe(
+          "Information resource payload to create and attach to an automation.",
         ),
       },
     },
     async ({ input }) =>
       toStructuredResult({
-        result: await createRoutineInformationResource(input),
+        result: await createAutomationInformationResource(input),
       }),
   );
 
@@ -1061,10 +1087,10 @@ function createToolServer(options?: {
     "stave_remember",
     {
       description:
-        "Curate reusable project knowledge. New saves require the user to enable Collect project memory in Settings > Memory; it is off by default. Do not ask to enable it repeatedly or work around disabled collection. Search stave_list_project_memories first. Pass memoryId to replace or consolidate an existing memory, including a candidate; forget superseded ids. Save durable user corrections, non-obvious conventions or verified pitfalls, never completion logs, temporary status, or facts easily read from code. Default contextual memories are recalled only for matching requests. Reserve core for at most three short project-wide essentials. AGENTS.md and current user instructions win.",
+        "Curate reusable project knowledge. New saves require the user to enable Collect project memory in Settings > Memory; it is off by default. Do not ask to enable it repeatedly or work around disabled collection. Search stave_list_repository_memories first. Pass memoryId to replace or consolidate an existing memory, including a candidate; forget superseded ids. Save durable user corrections, non-obvious conventions or verified pitfalls, never completion logs, temporary status, or facts easily read from code. Default contextual memories are recalled only for matching requests. Reserve core for at most three short project-wide essentials. AGENTS.md and current user instructions win.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id (scopes the project)."),
-        kind: ProjectMemoryKindSchema.describe(
+        kind: RepositoryMemoryKindSchema.describe(
           "decision | convention | gotcha | fact",
         ),
         memoryId: z.string().min(1).optional().describe("Existing memory to revise or promote, scoped to this project."),
@@ -1072,9 +1098,9 @@ function createToolServer(options?: {
         content: z
           .string()
           .min(1)
-          .max(PROJECT_MEMORY_CONTENT_MAX_CHARS)
+          .max(REPOSITORY_MEMORY_CONTENT_MAX_CHARS)
           .describe(
-            `One short sentence, at most ${PROJECT_MEMORY_CONTENT_MAX_CHARS} characters.`,
+            `One short sentence, at most ${REPOSITORY_MEMORY_CONTENT_MAX_CHARS} characters.`,
           ),
         taskId: z
           .string()
@@ -1085,7 +1111,7 @@ function createToolServer(options?: {
     },
     async ({ workspaceId, kind, content, taskId, memoryId, recallMode }) =>
       toStructuredResult({
-        result: await rememberProjectMemory({
+        result: await rememberRepositoryMemory({
           workspaceId,
           kind,
           content,
@@ -1097,7 +1123,7 @@ function createToolServer(options?: {
   );
 
   server.registerTool(
-    "stave_list_project_memories",
+    "stave_list_repository_memories",
     {
       description:
         "Search project memory on demand before saving or when earlier decisions matter. Returns at most 12 entries, ids, recall modes and nextOffset; pass nextOffset as offset for another page. Candidates are unreviewed extraction, not established knowledge. Verify them against evidence before promoting with stave_remember. Consolidate related entries by rewriting one id and forgetting superseded ids.",
@@ -1110,7 +1136,7 @@ function createToolServer(options?: {
     },
     async ({ workspaceId, query, recallMode, offset }) =>
       toStructuredResult({
-        result: await listProjectMemories({ workspaceId, query, recallMode, offset }),
+        result: await listRepositoryMemories({ workspaceId, query, recallMode, offset }),
       }),
   );
 
@@ -1118,7 +1144,7 @@ function createToolServer(options?: {
     "stave_forget",
     {
       description:
-        "Forget (soft-delete) a project memory by id. Get ids from `stave_list_project_memories` or from a `stave_remember` result; a forgotten fact is not re-added by automatic extraction.",
+        "Forget (soft-delete) a project memory by id. Get ids from `stave_list_repository_memories` or from a `stave_remember` result; a forgotten fact is not re-added by automatic extraction.",
       inputSchema: {
         workspaceId: z.string().min(1).describe("Workspace id (scopes the project)."),
         memoryId: z.string().min(1).describe("Project memory id."),
@@ -1126,7 +1152,7 @@ function createToolServer(options?: {
     },
     async ({ workspaceId, memoryId }) =>
       toStructuredResult({
-        result: await forgetProjectMemory({ workspaceId, memoryId }),
+        result: await forgetRepositoryMemory({ workspaceId, memoryId }),
       }),
   );
 
@@ -1841,7 +1867,7 @@ export async function startStaveMcpServer() {
       const body = req.method === "POST" ? await readJsonBody(req) : undefined;
       const server = createToolServer({
         browserToolsEnabled: browserToolsEnabled,
-        collaborationGrants: readCollaborationGrantHeaders(req.headers),
+        turnGrants: readTurnGrantHeaders(req.headers),
       });
       const transport = new StreamableHTTPServerTransport({
         sessionIdGenerator: undefined,
@@ -1928,7 +1954,7 @@ export async function startStaveMcpServer() {
   // In production the main process lives inside an ASAR archive
   // (app.getAppPath() → ".../app.asar").  The proxy script is unpacked to the
   // parallel ".asar.unpacked" directory so it can be executed by `node`.
-  // In development app.getAppPath() already points to the project root where
+  // In development app.getAppPath() already points to the repository root where
   // out/main/stave-mcp-stdio-proxy.mjs is written by the build step.
   const appPath = app.getAppPath().endsWith(".asar")
     ? app.getAppPath().replace(/\.asar$/, ".asar.unpacked")

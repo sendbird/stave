@@ -29,7 +29,7 @@ When Local MCP is enabled, Stave exposes:
 
 Both transports provide the same tools and task flows:
 
-- register a project in Stave
+- register a repository in Stave
 - create a git-worktree workspace
 - run a task prompt in that workspace
 - read task status and turn events
@@ -38,9 +38,16 @@ Both transports provide the same tools and task flows:
 
 The server also publishes a short MCP `instructions` string that names the tool families and repeats the two rules that most often waste a round trip (injected context is current; prefer Lens snapshots over raw dumps). Hosts that defer tool schemas until a tool is looked up still show these instructions, so the model can pick the right family without probing. The Lens sentence is dropped when the Lens browser tools are turned off.
 
-When any bundled provider runs inside Stave — Claude, Codex, Cursor, or Kiro — it also injects the same local MCP server directly into that in-app runtime. Task chats can call the workspace-information tools even when the provider's own setting sources are limited to project-local config. Cursor and Kiro receive the catalog over ACP stdio; Claude uses the SDK HTTP connection; Codex receives per-thread config overrides. Secondary read-only and nested Worker lanes do not get this connection.
+When any bundled provider runs inside Stave — Claude, Codex, Cursor, or Kiro — it also injects the same local MCP server directly into that in-app runtime. Task chats can call the workspace-information tools even when the provider's own setting sources are limited to repository-local config. Cursor and Kiro receive the catalog over ACP stdio; Claude uses the SDK HTTP connection; Codex receives per-thread config overrides. Secondary read-only and nested Worker lanes do not get this connection.
 
 The same Local MCP server also exposes optional `stave_lens_*` tools for workspace browser sessions. They are registered by default and can be turned off under `Settings → Developer → Lens browser tools`; every tool schema is part of the prompt of each new provider session, so turning them off measurably shrinks the prompt in workspaces that never drive a browser from an agent turn. Operational tools reuse the visible/recent Lens tab or create a hidden default session automatically, so `stave_lens_open_session` is optional. Visual inspection and page interaction follow `Settings > Lens > Agent Activity`; navigation and read-only diagnostics alone stay hidden. Use `stave_lens_present_session` only when the user must immediately interact with or explicitly see the same page. The first CDP-backed action for an unapproved host shows an app-wide Stave approval dialog, even if no Lens tab is visible. Agents can manage OS-encrypted accounts with `stave_lens_list_saved_accounts`, `stave_lens_create_saved_account`, `stave_lens_update_saved_account`, and `stave_lens_delete_saved_account`. Passwords are accepted only by create/update inputs, are redacted from Stave's Local MCP request log, and are never returned by the tools. When the current exact hostname has a saved account, `stave_lens_fill_saved_account` can fill it without returning the password to the MCP client. If multiple accounts share the host, Lens uses the account enabled for automatic fill; pass `username` to select a different saved account.
+
+Two tool families exist only inside turns Stave starts for a supervisor, and never in an external client's session:
+
+- **Mission tools** (`stave_get_mission`, `stave_report_stage`, `stave_block_stage`, `stave_propose_mission`) are registered for a [mission](missions.md)'s stage turns, which carry a per-turn mission key. The agent reads its stage and reports it done or blocked through them. `stave_propose_mission` lets a triage mission propose a mission for a request it found; the proposal waits in [Issues → Proposed](issues.md#proposed-missions) and starts nothing, and the same request key is never proposed twice.
+- **Project tools** (`stave_get_project`, `stave_start_mission`, `stave_list_missions`, `stave_get_mission_report`, `stave_note_project`) are registered for a [project](projects.md) coordinator's turns, which carry a per-turn project key. Stave resolves the mission or project from the key, so a turn can act only for its own.
+
+Missions and projects need Local MCP on; without it a mission cannot start and a coordinator cannot plan.
 
 If a provider needs extra user input while using Local MCP, Stave surfaces that request through the same inline task-chat input card used for approvals and other structured question flows. Form-mode elicitation is answered directly in chat, and URL-mode elicitation shows the target link plus an explicit continue / decline action.
 
@@ -114,19 +121,19 @@ If `Codex` auto-registration is enabled, Stave also keeps the current loopback U
    - if the host can reach loopback HTTP directly, connect to the manifest `url` with `Authorization: Bearer <token>`
    - if the host cannot reach `127.0.0.1` directly, launch `node <stdioProxyScript>` and use it as the MCP stdio server
 5. Call tools in this order:
-   - `stave_register_project`
+   - `stave_register_repository`
    - `stave_create_workspace`
    - `stave_run_task`
    - `stave_get_task`
    - `stave_respond_approval` or `stave_respond_user_input` when needed
 
-To delegate work from a task to a durable child task, use:
+To delegate work from a task to a durable delegated task, use:
 
 - `stave_delegate_task`
-- `stave_list_child_tasks`
-- `stave_stop_child_task`
+- `stave_list_delegated_tasks`
+- `stave_stop_delegated_task`
 
-See [`docs/features/child-tasks.md`](child-tasks.md).
+See [`docs/features/delegated-tasks.md`](delegated-tasks.md).
 
 For workspace Information panel management, also use:
 
@@ -149,20 +156,20 @@ For workspace Information panel management, also use:
 - `stave_set_workspace_custom_field`
 - `stave_remove_workspace_custom_field`
 
-To curate reusable knowledge for the same project (see [Project memory](project-memory.md)):
+To curate reusable knowledge for the same repository (see [Repository memory](repository-memory.md)):
 contextual entries are recalled only for relevant requests; at most three core
 entries are always included. The injected block is capped at six entries /
 1,200 characters. Summary candidates are excluded until reviewed.
 
 - `stave_remember` — `{ workspaceId, kind: decision|convention|gotcha|fact, content, memoryId?, recallMode?: contextual|core }`; pass an existing id to revise or promote it
 - `stave_forget` — `{ workspaceId, memoryId }`
-- `stave_list_project_memories` — `{ workspaceId, query?, recallMode?, offset? }`, returns up to 12 entries and `nextOffset` for continued retrieval
+- `stave_list_repository_memories` — `{ workspaceId, query?, recallMode?, offset? }`, returns up to 12 entries and `nextOffset` for continued retrieval
 
 To read the tracker tickets Stave has cached for the signed-in user:
 
-- `stave_list_tracker_tasks`
+- `stave_list_tracker_issues`
 
-It is read-only and takes `source`, `statusCategories`, `search`, `limit`, and `refresh`. Starting a run from a ticket is deliberately not exposed: a kickoff spends provider budget and, for Crane, is visible to the rest of the team, so it stays a human action in the [Tasks surface](tasks.md).
+It is read-only and takes `source`, `statusCategories`, `search`, `limit`, and `refresh`. Starting a run from a ticket is deliberately not exposed: a kickoff spends provider budget and, for Crane, is visible to the rest of the team, so it stays a human action in the [Issues surface](issues.md).
 
 Agents that already receive Stave task awareness context should treat that injected context as current.
 Call `stave_get_workspace_information` only when the injected summary is missing a detail needed for the next action.

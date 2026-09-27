@@ -54,9 +54,11 @@ complete theme contract. Avoid utility overrides of primitive internals.
 
 ## Collaboration behavior
 
-Turn Activity contains only live and retained turn activity. Task Results and
-Task Collaboration are distinct right-rail destinations; the task tab context
-menu opens either for that exact task. There is no composer shortcut row and no
+Turn Activity contains live and retained turn activity, headed by the Mission
+bar while the task runs a mission. Task Results and Mission are distinct
+right-rail destinations; the Mission panel shows the task's mission above its
+team (Advisor, workers and delegated tasks), and the task tab context menu opens
+either destination for that exact task. There is no composer shortcut row and no
 second inspector-tab store. Record views load only while their destination is
 mounted; changing task identity remounts the view. Delayed listings remain
 invalidated when scope changes or a listing is disabled. No extra transcript

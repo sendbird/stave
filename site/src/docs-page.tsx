@@ -88,7 +88,7 @@ function useHeadingObserver(headings: HeadingEntry[]) {
       setActiveId(null);
       return;
     }
-    setActiveId(headings[0].id);
+    setActiveId(headings[0]!.id);
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -144,10 +144,8 @@ function DocsSidebar({
                   const isActive = effectiveRoute === doc.routePath;
                   return (
                     <SidebarMenuItem key={doc.routePath}>
-                      <SidebarMenuButton asChild isActive={isActive}>
-                        <a href={docHref(currentRoute, doc.routePath)}>
-                          <span>{doc.title}</span>
-                        </a>
+                      <SidebarMenuButton current={isActive} href={docHref(currentRoute, doc.routePath)}>
+                        {doc.title}
                       </SidebarMenuButton>
                     </SidebarMenuItem>
                   );

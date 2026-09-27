@@ -18,6 +18,7 @@ export const COMPOSER_CONTROL_IDS = [
   "review",
   "secrets",
   "macro",
+  "handOff",
   "compare",
   "runtime",
 ] as const;
@@ -55,6 +56,7 @@ export const COMPOSER_CONTROL_LABELS: Record<ComposerControlId, string> = {
   review: "Review",
   secrets: "Secrets",
   macro: "Macros",
+  handOff: "Hand off",
   compare: "Compare",
   runtime: "Runtime",
 };
@@ -72,6 +74,8 @@ export const COMPOSER_CONTROL_DESCRIPTIONS: Record<ComposerControlId, string> =
     secrets: "Bind secrets into this run's environment.",
     macro:
       "Insert a saved prompt, optionally pin model + effort, and optionally send it immediately.",
+    handOff:
+      "Start a mission: a playbook carries this task stage by stage and stops where you ask.",
     compare: "Run the prompt in two candidate workspaces.",
     runtime: "Effective sandbox, approval, and timeout values.",
   };
@@ -275,6 +279,7 @@ const COMPOSER_FRAME_STATUS_CONTROL_IDS = new Set<ComposerControlId>([
   "review",
   "secrets",
   "macro",
+  "handOff",
   "compare",
   "runtime",
 ]);

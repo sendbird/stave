@@ -112,7 +112,7 @@ See `docs/architecture/run-core.md` for lifecycle and extension guidance.
 ## Workspace Persistence Ownership Contract
 
 Two writers reach the workspace tables: the renderer (via IPC to main) and
-host-service (Local MCP turns, routines, heartbeats). They own different
+host-service (Local MCP turns, automations, wake-ups). They own different
 fields, and the boundary is enforced in code rather than by convention.
 
 Current path:
@@ -208,7 +208,7 @@ When changing PR status fetching, derivation, or UI rendering:
 - `src/components/layout/PrStatusIcon.tsx` — icon lookup and color mapping
 - `src/components/layout/TopBarOpenPR.tsx` — PR hub, async lifecycle, status actions, creation sequencing and cancellation
 - `src/components/layout/pull-request/CreatePullRequestDialog.tsx` and `create-pr-dialog-panels.tsx` — creation form and status presentation
-- `src/components/layout/ProjectWorkspaceSidebar.tsx` — sidebar icon rendering
+- `src/components/layout/RepositoryWorkspaceSidebar.tsx` — sidebar icon rendering
 
 See `docs/features/workspace-pr-status.md` for the full architecture reference.
 
@@ -231,59 +231,60 @@ See `docs/features/pr-context-attachment.md` for the full architecture reference
 
 ## Task Supervisor Contract
 
-When changing how a heartbeat wakes an existing task:
+When changing how a wake-up resumes an existing task:
 
-- `src/lib/automation/task-supervisor.ts` — schemas, catch-up walk, decision priority, transitions (pure; no clock, no I/O)
-- `electron/persistence/task-heartbeat-store.ts` — `task_heartbeats`, `task_heartbeat_occurrences`, the idempotency index
-- `electron/host-service/task-supervisor-runtime.ts` — the tick, the serialized operation chain, the boot sweep
-- `electron/host-service/local-mcp-runtime.ts` — `getTaskSupervisionSnapshot` (the observation) and `runHeartbeatTurn` (the only executor)
-- `electron/host-service/protocol.ts` — `task-supervisor.invoke` (request **and** result maps)
+- `src/lib/supervision/wake-up-policy.ts` — schemas, catch-up walk, decision priority, transitions (pure; no clock, no I/O)
+- `electron/persistence/wake-up-store.ts` — `wake_ups`, `wake_up_occurrences`, the idempotency index
+- `electron/host-service/wake-up-runtime.ts` — the tick, the serialized operation chain, the boot sweep
+- `electron/host-service/local-mcp-runtime.ts` — `getTaskSupervisionSnapshot` (the observation)
+- `electron/host-service/supervised-turn.ts` — `runSupervisedTurn` (the only executor)
+- `electron/host-service/protocol.ts` — `wake-up.invoke` (request **and** result maps)
 - `electron/host-service.ts` — construction, `start`/`stop`, the dispatch arm
-- `electron/main/task-supervisor-service.ts` — the main-process bridge
-- `electron/main/stave-mcp-server.ts` — the `stave_*_task_heartbeat` tools
+- `electron/main/wake-up-service.ts` — the main-process bridge
+- `electron/main/stave-mcp-server.ts` — the `stave_*_wake_up` tools
 
 A change to the defer / pause / stop priority order is a change to the
-`task-supervisor-safety` gate, and a change to what a heartbeat definition may
+`wake-up-safety` gate, and a change to what a wake-up definition may
 contain is a change to the `agent-platform-boundaries` gate. Both are asserted
 by name in their tests.
 
-See `docs/features/task-heartbeats.md` for the full architecture reference.
+See `docs/features/wake-ups.md` for the full architecture reference.
 
 ## Tracker Tasks Contract
 
 When changing how tracker tickets are read, cached, or turned into a local run:
 
-- `src/lib/tracker-tasks/types.ts` — the normalized ticket, sync status, kickoff link, and every IPC argument schema (pure; the shared vocabulary for both halves)
-- `src/lib/tracker-tasks/contract.ts` — the `crane-tasks-v1` wire contract the Atelier route is implemented against, plus the row mapper
+- `src/lib/tracker-issues/types.ts` — the normalized ticket, sync status, kickoff link, and every IPC argument schema (pure; the shared vocabulary for both halves)
+- `src/lib/tracker-issues/contract.ts` — the `crane-tasks-v1` wire contract the Atelier route is implemented against, plus the row mapper
 - `src/lib/jira-connector/types.ts` and `mapping.ts` — the Jira settings document, its public status, and the issue mapper
 - `electron/main/atelier-connector/http-client.ts` — `listCraneTasks`, `getCraneTask`, `createCraneTaskJob`
 - `electron/main/jira-connector/` — the credential vault, the HTTP client, and the main-process service
-- `electron/main/tracker-tasks/` — the source adapters, the refresh runtime, the kickoff flow, and the service that wires them to Crane job updates
-- `electron/persistence/tracker-tasks-store.ts` — `tracker_tasks_cache`, `tracker_task_kickoffs`
-- `electron/main/ipc/tracker-tasks.ts` and `electron/main/ipc/jira-connector.ts` — the only renderer entry points
-- `src/lib/tracker-tasks/client-store.ts` — the renderer mirror; filtering, grouping, and sorting stay out of it on purpose
-- `src/components/layout/tasks/` — the surface
+- `electron/main/tracker-issues/` — the source adapters, the refresh runtime, the kickoff flow, and the service that wires them to Crane job updates
+- `electron/persistence/tracker-issues-store.ts` — `tracker_issues_cache`, `tracker_issue_kickoffs`
+- `electron/main/ipc/tracker-issues.ts` and `electron/main/ipc/jira-connector.ts` — the only renderer entry points
+- `src/lib/tracker-issues/client-store.ts` — the renderer mirror; filtering, grouping, and sorting stay out of it on purpose
+- `src/components/layout/issues/` — the surface
 
 Three invariants hold across that path:
 
 - A tracker credential travels renderer-to-main only. Public status carries account identity at most, never an email, a token, or a connector secret, and the preload bridge exposes no getter. This is the `tracker-credentials-stay-in-main` gate.
-- A ticket's own fields are untrusted remote text. A label colour reaches an inline style only through `isSafeCssColor`, a ticket URL is opened by the shell bridge rather than by renderer navigation, and the body reaches a provider only inside the retrieved-context part built by `buildTrackerTaskRetrievedContext`, behind its untrusted-content preamble.
-- Crane write-back is opt-in and status-only, and it is impossible for a staged prompt: `TrackerTaskKickoffArgsSchema` refuses `craneWriteBack` unless the source is Crane and the run starts now.
+- A ticket's own fields are untrusted remote text. A label colour reaches an inline style only through `isSafeCssColor`, a ticket URL is opened by the shell bridge rather than by renderer navigation, and the body reaches a provider only inside the retrieved-context part built by `buildTrackerIssueRetrievedContext`, behind its untrusted-content preamble.
+- Crane write-back is opt-in and status-only, and it is impossible for a staged prompt: `TrackerIssueKickoffArgsSchema` refuses `craneWriteBack` unless the source is Crane and the run starts now.
 
-See `docs/features/tasks.md` for the user-facing guide.
+See `docs/features/issues.md` for the user-facing guide.
 
 ## Project / Workspace Integrity Contract
 
 When changing project selection, workspace hydration, worktree import, notification deep-linking, or task ownership:
 
 - read `docs/architecture/workspace-integrity.md` first
-- inspect `src/store/project.utils.ts`
+- inspect `src/store/repository.utils.ts`
 - inspect `src/store/app.store.ts`
 - inspect the current consumer surfaces under `src/components/layout/`
 - verify default workspace selection is path-aware, not flag-only
 - verify rehydrate logic self-heals corrupted current state and persisted registry state
 - verify task-scoped git / filesystem actions resolve cwd from task ownership, not from the currently selected workspace
-- add or update regressions in `tests/project-utils.test.ts`, `tests/workspace-integrity-regression.test.ts`, and `tests/bridge-persistence-regression.test.ts`
+- add or update regressions in `tests/repository-utils.test.ts`, `tests/workspace-integrity-regression.test.ts`, and `tests/bridge-persistence-regression.test.ts`
 
 ## Minimum Verification
 

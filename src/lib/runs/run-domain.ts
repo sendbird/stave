@@ -48,18 +48,18 @@ export const RunOriginSchema = z
   .strict();
 export type RunOrigin = z.infer<typeof RunOriginSchema>;
 
-export const RunKindSchema = z.enum(["secondary-provider", "child-task"]);
+export const RunKindSchema = z.enum(["secondary-provider", "delegated-task"]);
 export type RunKind = z.infer<typeof RunKindSchema>;
 
 export const RunStepKindSchema = z.enum([
   "secondary-provider-turn",
-  "child-task-turn",
+  "delegated-task-turn",
 ]);
 export type RunStepKind = z.infer<typeof RunStepKindSchema>;
 
 export const RunOwnershipSchema = z
   .object({
-    projectPath: z.string().trim().min(1).max(4096),
+    repositoryPath: z.string().trim().min(1).max(4096),
     workspaceId: RunIdSchema,
     taskId: RunIdSchema.nullable(),
   })
@@ -79,7 +79,7 @@ export type RunPolicy = z.infer<typeof RunPolicySchema>;
 
 /**
  * Version 1 rows were written when `secondary-provider` was the only run kind
- * and steps had no delegation target. Version 2 adds the child-task kinds and
+ * and steps had no delegation target. Version 2 adds the delegated-task kinds and
  * `RunStepRecord.target`. Both versions stay readable: a v1 row is a valid
  * ledger row with `target: null`, so existing Compare Judge history is never
  * rewritten.
@@ -114,7 +114,7 @@ export type RunRecord = z.infer<typeof RunRecordSchema>;
 
 /**
  * The execution a step delegates to, when that execution has a durable identity
- * of its own. A `child-task-turn` step points at the real Stave task it created;
+ * of its own. A `delegated-task-turn` step points at the real Stave task it created;
  * `turnId` stays null until the child's turn identity is known. Identity only —
  * never transcript text.
  */
@@ -158,7 +158,7 @@ export const RunReceiptDetailSchema = z
     model: z.string().max(200).optional(),
     attempt: z.number().int().min(0).max(10).optional(),
     /**
-     * The posture and workspace strategy a child-task delegation was claimed
+     * The posture and workspace strategy a delegated-task delegation was claimed
      * with. Recorded on the claim receipt so a later retry can preserve the
      * original delegation's inputs instead of hard-coding fresh ones — the
      * step row itself only keeps a hash of them.
@@ -289,7 +289,7 @@ export function sanitizeRunReceiptDetail(
 
 const RUN_ERROR_FALLBACK: Record<RunKind, string> = {
   "secondary-provider": "Secondary run failed.",
-  "child-task": "The child task run failed.",
+  "delegated-task": "The delegated task run failed.",
 };
 
 function normalizeRunError(value: string, kind: RunKind) {
@@ -460,7 +460,7 @@ export function claimRunStep(args: {
   idempotencyKey: string;
   /**
    * Extra diagnostic fields folded into the claim receipts (sanitized through
-   * `sanitizeRunReceiptDetail`). Child-task claims record the delegation's
+   * `sanitizeRunReceiptDetail`). Delegated-task claims record the delegation's
    * model, permission profile and workspace strategy here so a retry can read
    * the original inputs back.
    */
@@ -572,7 +572,7 @@ export function markRunStepWaiting(args: {
   /**
    * Allow a step that is already `waiting` under this execution to record a
    * fresh waiting receipt instead of short-circuiting as a duplicate. A
-   * detached child task parks in `waiting` between turns, so each follow-up
+   * detached delegated task parks in `waiting` between turns, so each follow-up
    * turn that finishes re-enters the same state — without this the follow-up's
    * completion would leave no receipt and never move `updatedAt`.
    */

@@ -9,8 +9,8 @@ import type { ResultReview } from "@/lib/reviews/result-review";
 
 const result: ResultReview = {
   id: "result",
-  projectPath: "/tmp/project",
-  projectName: "Project",
+  repositoryPath: "/tmp/project",
+  repositoryName: "Project",
   workspaceId: "workspace",
   workspaceName: "Workspace",
   taskId: "task",
@@ -28,8 +28,8 @@ const baseArgs = {
   liveWorkspaces: [],
   prWorkspaces: [
     {
-      projectPath: "/tmp/project",
-      projectName: "Project",
+      repositoryPath: "/tmp/project",
+      repositoryName: "Project",
       workspaceId: "workspace",
       workspaceName: "Workspace",
       status: "changes_requested" as const,

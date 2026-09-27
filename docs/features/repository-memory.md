@@ -1,0 +1,127 @@
+# Repository memory
+
+Repository memory carries reusable knowledge across workspaces of the same repository.
+It is a recall aid, not a transcript or a replacement for repository instructions.
+Current user instructions, checked-in guidance and verified evidence take priority.
+
+## What gets remembered
+
+Keep durable user corrections, decisions with their rationale, and non-obvious
+pitfalls that prevent repeated mistakes. Each entry is at most 280 characters.
+Include enough context to explain when it applies. Completion logs, transient
+status, unchanged settings, code inventories and detailed implementation values
+belong in task history or repository documentation.
+
+There are three usage modes in Information > Memory:
+
+- **Candidate**: a suggestion, excluded from automatic recall. Turn summaries
+  propose at most one candidate. Repeated extraction never promotes it.
+- **When relevant**: curated knowledge, recalled only when the current request
+  matches its text. This is the default for explicit agent writes.
+- **Always include**: a repository-wide essential, included even without a query
+  match. At most three live entries can use this mode.
+
+Users can edit an entry, change its usage or forget it. Editing candidate text
+alone keeps it a candidate; changing its usage makes it available for recall.
+Entries display their complete text. **Edit memory** opens a multiline editor;
+**Save memory** applies changes, and **Cancel** or Escape discards the draft.
+
+## Settings and cleanup
+
+Open **Settings > Memory** and select a repository, or expand **Memory settings and
+actions** in Information > Memory. Settings apply across that repository's workspaces.
+
+- **Use repository memory** controls automatic inclusion in new turns. Switching it
+  off preserves stored entries; explicit agent lookup and editing remain available.
+- **Collect repository memory** is off by default. Enable it explicitly for each
+  repository to allow new agent saves and candidate extraction from completed-turn
+  summaries. Suggestions require the Turn summary lane in Background AI; enabling
+  collection does not start an extra model call. Existing entries remain readable,
+  editable and available for recall according to **Use repository memory**.
+  Information > Memory offers **Enable memory collection**, using the same setting.
+- **What to collect** limits automatic candidates to selected kinds: decisions,
+  conventions, pitfalls or stable facts. Selecting none stops candidate collection.
+- **Collection template** customizes what to prioritize and exclude. The default
+  prioritizes reusable corrections, lasting decisions and verified pitfalls.
+  **Restore collection defaults** restores this template and all kinds in the
+  draft; choose **Save settings** to apply it. Candidate and recall limits remain
+  enforced regardless of the template.
+
+**Clear candidates** removes only unreviewed entries. **Reset repository memory**
+removes all entries in the selected repository while preserving collection settings.
+Both actions ask for confirmation and invalidate pending extraction. Automatic
+collection from turns started at or before the clear is rejected, even if the
+summary runs later or uses different wording. Turns started afterward can collect
+new candidates. The database retains deletion markers to prevent exact duplicates
+from returning. Other repositories are unaffected.
+
+These actions cannot remove text already sent to an ongoing provider conversation.
+Start a new conversation when you need context without that earlier memory text.
+Concurrent settings saves detect a stale revision and ask for a reload instead of
+silently overwriting another window's changes.
+
+## Agent curation
+
+Use `stave_list_repository_memories` with a `query` before saving related knowledge.
+It returns at most 12 entries with ids, usage modes and confirmation dates.
+Use `recallMode: "candidate"` to review suggestions; a candidate is not evidence
+that a claim is true. Pass `nextOffset` back as `offset` to continue browsing.
+Offsets are for a stable list; restart browsing if entries change during a scan.
+
+Use `stave_remember` with an existing `memoryId` to revise or consolidate an
+entry in place. Verify candidates against the task or repository before promoting
+them. Use `stave_forget` for superseded ids after the retained entry is saved.
+Curation uses the active agent's existing tools and budget; there is no additional
+background model or guarantee that every candidate will be reviewed automatically.
+
+Exact normalized duplicates confirm an existing entry. Similar wording is not
+assumed equivalent: a small wording change can reverse a decision. Semantic
+merging and contradiction resolution belong to explicit curation. A forgotten
+identical entry is blocked from reinsertion; paraphrases require review.
+
+## Context and storage limits
+
+Each turn receives at most six entries in a block of at most 1,200 JavaScript
+characters, including its preamble. This is a character bound, not a token or
+UTF-8 byte estimate. Core entries come first, followed by relevant matches.
+Unrelated memories never fill spare capacity. If nothing matches and there are
+no core memories, no memory block is sent.
+
+The current prompt drives recall. Short continuations also use the most recent
+user message. The lookup is lexical (FTS where available, literal substring
+fallback), so translated or semantically related wording may require an explicit
+tool search. No embeddings or full transcript retrieval are involved.
+
+New automatic candidates stop accumulating at 50 live candidates per repository.
+Existing rows are preserved. Curating or forgetting candidates makes room.
+Candidate writes never refresh the confirmation date of curated knowledge.
+
+## Upgrade and boundaries
+
+Collection requires a new explicit choice after upgrading: older saved `true`
+values also contained the previous default and cannot establish user opt-in.
+Existing entries, recall preferences and collection templates are preserved.
+Enabling or disabling collection invalidates pending summary writes by revision.
+
+An additive database migration classifies existing high-confidence entries as
+contextual and lower-confidence entries as candidates. No old entry becomes core
+automatically, and no row or deletion marker is removed. Existing user-edited
+summary prompts are preserved; untouched old defaults receive the new candidate
+extraction instructions. The parser enforces the one-candidate limit regardless
+of the configured prompt.
+
+Repository memory is separate from a [project](projects.md)'s memory. Project
+memory holds the decisions a project's missions made and its coordinator's
+notes, and reaches only missions of that project; repository memory reaches
+every task in the repository.
+
+Main and host-service share the persistence implementation. Workspace ownership
+resolves the repository for agent tools; a replacement cannot target another repository.
+Renderer and host turns use the same query and retrieved-context builders before
+provider dispatch. Provider sessions retain the existing content-hash deduplication.
+Memory lookup failure omits the block without failing the user turn.
+
+Implementation: `src/lib/repository-memory.ts`,
+`src/lib/task-context/repository-memory.ts`,
+`electron/persistence/repository-memory-store.ts`, and
+`src/components/layout/WorkspaceMemorySection.tsx`.

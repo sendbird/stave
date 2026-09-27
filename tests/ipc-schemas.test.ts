@@ -18,8 +18,8 @@ import {
   McpServerConfigMutationArgsSchema,
   RateLimitsSnapshotArgsSchema,
   ReviewDiffArgsSchema,
-  RoutineInformationResourceCreateArgsSchema,
-  RoutineProviderTimeoutArgsSchema,
+  AutomationInformationResourceCreateArgsSchema,
+  AutomationProviderTimeoutArgsSchema,
   SetNotificationBadgeArgsSchema,
   ShowNativeNotificationArgsSchema,
   StageFilesArgsSchema,
@@ -27,13 +27,13 @@ import {
   SuggestPRDescriptionArgsSchema,
   SuggestTaskNameArgsSchema,
   TerminalCreateSessionArgsSchema,
-  TrackerTaskAttachStaveTaskArgsSchema,
-  TrackerTaskKickoffArgsSchema,
-  TrackerTaskRefArgsSchema,
-  TrackerTasksConfigureArgsSchema,
-  TrackerTasksListArgsSchema,
-  TrackerTasksRefreshArgsSchema,
-  TrackerTasksSurfaceVisibleArgsSchema,
+  TrackerIssueAttachStaveTaskArgsSchema,
+  TrackerIssueKickoffArgsSchema,
+  TrackerIssueRefArgsSchema,
+  TrackerIssuesConfigureArgsSchema,
+  TrackerIssuesListArgsSchema,
+  TrackerIssuesRefreshArgsSchema,
+  TrackerIssuesSurfaceVisibleArgsSchema,
   StreamTurnArgsSchema,
   TryAutoFixLintArgsSchema,
 } from "../electron/main/ipc/schemas";
@@ -248,13 +248,13 @@ describe("provider IPC schemas", () => {
     ).toBe(false);
   });
 
-  test("accepts routine Information resource creation", () => {
+  test("accepts automation Information resource creation", () => {
     expect(
-      RoutineInformationResourceCreateArgsSchema.safeParse({
+      AutomationInformationResourceCreateArgsSchema.safeParse({
         kind: "figma",
         workspaceId: "ws-default",
         url: "https://www.figma.com/design/file-key/example?node-id=1-2",
-        title: "Routine design",
+        title: "Automation design",
         nodeId: "1:2",
         note: "Use this design as implementation context.",
       }).success,
@@ -263,12 +263,12 @@ describe("provider IPC schemas", () => {
 
   test("accepts an automation provider timeout up to 24 hours", () => {
     expect(
-      RoutineProviderTimeoutArgsSchema.safeParse({
+      AutomationProviderTimeoutArgsSchema.safeParse({
         providerTimeoutMs: 86_400_000,
       }).success,
     ).toBe(true);
     expect(
-      RoutineProviderTimeoutArgsSchema.safeParse({
+      AutomationProviderTimeoutArgsSchema.safeParse({
         providerTimeoutMs: 86_400_001,
       }).success,
     ).toBe(false);
@@ -872,7 +872,7 @@ function kickoffArgs(overrides: Record<string, unknown> = {}) {
   return {
     source: "crane",
     taskRef: "CRN-42",
-    projectPath: "/tmp/project",
+    repositoryPath: "/tmp/project",
     workspace: { strategy: "new", branchName: "tracker/crn-42" },
     runtime: {
       provider: "claude-code",
@@ -892,59 +892,59 @@ function kickoffArgs(overrides: Record<string, unknown> = {}) {
   };
 }
 
-describe("tracker task IPC schemas", () => {
+describe("tracker issue IPC schemas", () => {
   test("round-trips the tracker list, refresh, detail and surface arguments", () => {
-    expect(TrackerTasksListArgsSchema.safeParse({}).success).toBe(true);
+    expect(TrackerIssuesListArgsSchema.safeParse({}).success).toBe(true);
     expect(
-      TrackerTasksListArgsSchema.safeParse({ source: "jira" }).success,
+      TrackerIssuesListArgsSchema.safeParse({ source: "jira" }).success,
     ).toBe(true);
     expect(
-      TrackerTasksListArgsSchema.safeParse({ source: "unknown" }).success,
+      TrackerIssuesListArgsSchema.safeParse({ source: "unknown" }).success,
     ).toBe(false);
 
-    expect(TrackerTasksRefreshArgsSchema.safeParse({}).success).toBe(true);
+    expect(TrackerIssuesRefreshArgsSchema.safeParse({}).success).toBe(true);
     expect(
-      TrackerTasksRefreshArgsSchema.safeParse({ source: "crane" }).success,
+      TrackerIssuesRefreshArgsSchema.safeParse({ source: "crane" }).success,
     ).toBe(true);
 
     expect(
-      TrackerTaskRefArgsSchema.safeParse({ source: "crane", taskRef: "CRN-42" })
+      TrackerIssueRefArgsSchema.safeParse({ source: "crane", taskRef: "CRN-42" })
         .success,
     ).toBe(true);
     expect(
-      TrackerTaskRefArgsSchema.safeParse({ source: "crane", taskRef: "" })
-        .success,
-    ).toBe(false);
-
-    expect(
-      TrackerTasksSurfaceVisibleArgsSchema.safeParse({ visible: true }).success,
-    ).toBe(true);
-    expect(
-      TrackerTasksSurfaceVisibleArgsSchema.safeParse({ visible: "yes" })
+      TrackerIssueRefArgsSchema.safeParse({ source: "crane", taskRef: "" })
         .success,
     ).toBe(false);
 
     expect(
-      TrackerTaskAttachStaveTaskArgsSchema.safeParse({
+      TrackerIssuesSurfaceVisibleArgsSchema.safeParse({ visible: true }).success,
+    ).toBe(true);
+    expect(
+      TrackerIssuesSurfaceVisibleArgsSchema.safeParse({ visible: "yes" })
+        .success,
+    ).toBe(false);
+
+    expect(
+      TrackerIssueAttachStaveTaskArgsSchema.safeParse({
         kickoffId: "kickoff-1",
         taskId: "task-1",
       }).success,
     ).toBe(true);
     expect(
-      TrackerTaskAttachStaveTaskArgsSchema.safeParse({ kickoffId: "kickoff-1" })
+      TrackerIssueAttachStaveTaskArgsSchema.safeParse({ kickoffId: "kickoff-1" })
         .success,
     ).toBe(false);
   });
 
-  test("round-trips tracker task settings", () => {
-    const parsed = TrackerTasksConfigureArgsSchema.safeParse({
+  test("round-trips tracker issue settings", () => {
+    const parsed = TrackerIssuesConfigureArgsSchema.safeParse({
       defaultView: "assigned-open",
       refreshIntervalSeconds: 300,
       defaultKickoffStartMode: "run",
     });
     expect(parsed.success).toBe(true);
     expect(
-      TrackerTasksConfigureArgsSchema.safeParse({
+      TrackerIssuesConfigureArgsSchema.safeParse({
         defaultView: "assigned-open",
         refreshIntervalSeconds: 5,
         defaultKickoffStartMode: "run",
@@ -953,28 +953,28 @@ describe("tracker task IPC schemas", () => {
   });
 
   test("accepts a kickoff and rejects an impossible write-back", () => {
-    expect(TrackerTaskKickoffArgsSchema.safeParse(kickoffArgs()).success).toBe(
+    expect(TrackerIssueKickoffArgsSchema.safeParse(kickoffArgs()).success).toBe(
       true,
     );
     // The only shape write-back can honour: a Crane ticket that starts now.
     expect(
-      TrackerTaskKickoffArgsSchema.safeParse(
+      TrackerIssueKickoffArgsSchema.safeParse(
         kickoffArgs({ craneWriteBack: true }),
       ).success,
     ).toBe(true);
     expect(
-      TrackerTaskKickoffArgsSchema.safeParse(
+      TrackerIssueKickoffArgsSchema.safeParse(
         kickoffArgs({ source: "jira", craneWriteBack: true }),
       ).success,
     ).toBe(false);
     expect(
-      TrackerTaskKickoffArgsSchema.safeParse(
+      TrackerIssueKickoffArgsSchema.safeParse(
         kickoffArgs({ startMode: "stage", craneWriteBack: true }),
       ).success,
     ).toBe(false);
     // A staged prompt without write-back is still a valid request.
     expect(
-      TrackerTaskKickoffArgsSchema.safeParse(
+      TrackerIssueKickoffArgsSchema.safeParse(
         kickoffArgs({ startMode: "stage" }),
       ).success,
     ).toBe(true);
@@ -982,12 +982,12 @@ describe("tracker task IPC schemas", () => {
 
   test("rejects an empty or oversize kickoff instruction", () => {
     expect(
-      TrackerTaskKickoffArgsSchema.safeParse(
+      TrackerIssueKickoffArgsSchema.safeParse(
         kickoffArgs({ instruction: "   " }),
       ).success,
     ).toBe(false);
     expect(
-      TrackerTaskKickoffArgsSchema.safeParse(
+      TrackerIssueKickoffArgsSchema.safeParse(
         kickoffArgs({ instruction: "x".repeat(4_001) }),
       ).success,
     ).toBe(false);
@@ -1002,7 +1002,7 @@ describe("Jira connector IPC schemas", () => {
       authMode: "cloud-api-token",
       jql: "assignee = currentUser()",
       maxResults: 25,
-      projectMappings: [
+      repositoryMappings: [
         { jiraProjectKey: "PLAT", staveProjectPath: "/tmp/project" },
       ],
     });
@@ -1018,7 +1018,7 @@ describe("Jira connector IPC schemas", () => {
         authMode: "cloud-api-token",
         jql: "assignee = currentUser()",
         maxResults: 25,
-        projectMappings: [],
+        repositoryMappings: [],
         token: "secret-token",
       }).success,
     ).toBe(false);
@@ -1029,7 +1029,7 @@ describe("Jira connector IPC schemas", () => {
         authMode: "cloud-api-token",
         jql: "",
         maxResults: 25,
-        projectMappings: [],
+        repositoryMappings: [],
       }).success,
     ).toBe(false);
   });

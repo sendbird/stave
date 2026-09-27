@@ -1121,7 +1121,7 @@ describe("Claude internal tool auto-allow", () => {
     ).toBe(true);
   });
 
-  test("auto-allows managed Stave workspace-information and routine MCP tools", () => {
+  test("auto-allows managed Stave workspace-information and automation MCP tools", () => {
     expect(
       shouldAutoAllowClaudeTool({
         toolName: "stave_replace_workspace_notes",
@@ -1136,20 +1136,20 @@ describe("Claude internal tool auto-allow", () => {
     ).toBe(true);
     expect(
       shouldAutoAllowClaudeTool({
-        toolName: "mcp__stave-local-mcp__stave_create_routine",
+        toolName: "mcp__stave-local-mcp__stave_create_automation",
         permissionMode: "default",
       }),
     ).toBe(true);
     expect(
       shouldAutoAllowClaudeTool({
         toolName:
-          "mcp__stave-local-mcp__stave_create_routine_information_resource",
+          "mcp__stave-local-mcp__stave_create_automation_information_resource",
         permissionMode: "default",
       }),
     ).toBe(true);
     expect(
       shouldAutoAllowClaudeTool({
-        toolName: "mcp__stave-local-mcp__stave_run_routine_now",
+        toolName: "mcp__stave-local-mcp__stave_run_automation_now",
         permissionMode: "default",
       }),
     ).toBe(false);

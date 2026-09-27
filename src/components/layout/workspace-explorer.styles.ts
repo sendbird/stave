@@ -23,7 +23,7 @@ export const explorerStyles = stylex.create({
     justifyContent: "space-between",
     marginBottom: vars["--ads-space-4"],
   },
-  projectName: {
+  repositoryName: {
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-body"],
     overflow: "hidden",

@@ -68,6 +68,11 @@ bunx --bun conventional-changelog-cli -p conventionalcommits -i CHANGELOG.md -s
 16. Update `README.md` and other release-facing docs if the shipped behavior changed.
 17. Run verification:
     - minimum: `bun run typecheck`
+    - `bun run check:temporary-migrations` against the bumped version. If it
+      reports expired migrations, delete their marked blocks, listed tests and
+      registry entries (see AGENTS.md, Temporary Migrations) before committing,
+      and add a release-note line that upgrades skipping those releases no
+      longer convert the old data.
     - focused tests for changed areas
     - `bun test` or `bun run test:ci` when scope is broad
 18. Stage and commit:

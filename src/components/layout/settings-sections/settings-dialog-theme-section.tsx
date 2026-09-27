@@ -49,7 +49,7 @@ const SIDEBAR_NAV_VIEW_FIELDS: readonly {
   label: string;
   Icon: typeof FolderTree;
 }[] = [
-  { value: "projects", label: "Projects", Icon: FolderTree },
+  { value: "projects", label: "Repositories", Icon: FolderTree },
   { value: "work-queue", label: "Work queue", Icon: ListChecks },
 ] as const;
 
@@ -150,7 +150,7 @@ export function ThemeSection() {
           />
           <LabeledField
             title="Sidebar View"
-            description="Projects lists workspaces by where they live; Work queue groups every workspace by what it wants from you. The toggle in the sidebar header changes this too, so the sidebar reopens in whichever view you used last."
+            description="Repositories lists workspaces by where they live; Work queue groups every workspace by what it wants from you. The toggle in the sidebar header changes this too, so the sidebar reopens in whichever view you used last."
           >
             <div className={sx(styles.rowWrapGap2)}>
               {SIDEBAR_NAV_VIEW_FIELDS.map((option) => (

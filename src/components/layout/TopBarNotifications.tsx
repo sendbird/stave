@@ -7,6 +7,7 @@ import {
   CircleCheck,
   CircleX,
   ShieldAlert,
+  Target,
   Archive,
   Trash2,
 } from "lucide-react";
@@ -65,6 +66,26 @@ function NotificationKindIcon({ kind }: { kind: AppNotification["kind"] }) {
       />
     );
   }
+  if (kind === "mission.sign_off_requested") {
+    return (
+      <Target
+        className={sx(
+          notificationsStyles.kindIcon,
+          notificationsStyles.kindIconWarning,
+        )}
+      />
+    );
+  }
+  if (kind === "mission.blocked" || kind === "mission.stuck") {
+    return (
+      <Target
+        className={sx(
+          notificationsStyles.kindIcon,
+          notificationsStyles.kindIconDanger,
+        )}
+      />
+    );
+  }
   if (kind === "task.turn_failed") {
     return (
       <CircleX
@@ -86,10 +107,10 @@ function NotificationKindIcon({ kind }: { kind: AppNotification["kind"] }) {
 }
 
 function buildLocationLabel(args: {
-  projectName: string | null;
+  repositoryName: string | null;
   workspaceName: string | null;
 }) {
-  return [args.projectName, args.workspaceName]
+  return [args.repositoryName, args.workspaceName]
     .map((value) => value?.trim())
     .filter((value): value is string => Boolean(value))
     .join(" / ");
@@ -457,7 +478,7 @@ export function TopBarNotifications(props: { noDragStyle: CSSProperties }) {
                 {visibleNotifications.map((notification) => {
                   const unread = isNotificationUnread(notification);
                   const locationLabel = buildLocationLabel({
-                    projectName: notification.projectName,
+                    repositoryName: notification.repositoryName,
                     workspaceName: notification.workspaceName,
                   });
                   const showApprovalActions =

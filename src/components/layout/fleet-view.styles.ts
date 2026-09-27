@@ -264,7 +264,7 @@ export const fleetStyles = stylex.create({
     borderRadius: vars["--ads-radius-mark"],
     marginTop: vars["--ads-space-12"],
   },
-  projectSection: {
+  repositorySection: {
     borderBottomColor: vars["--ads-color-border"],
     borderBottomStyle: "solid",
     borderBottomWidth: {
@@ -272,7 +272,7 @@ export const fleetStyles = stylex.create({
       ":last-child": 0,
     },
   },
-  projectHeader: {
+  repositoryHeader: {
     alignItems: "center",
     backdropFilter: "blur(8px)",
     backgroundColor: vars["--ads-color-canvas"],
@@ -293,7 +293,7 @@ export const fleetStyles = stylex.create({
       ":focus-visible": vars["--ads-z-index-app-chrome"],
     },
   },
-  projectChevron: {
+  repositoryChevron: {
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,
     height: 14,
@@ -301,7 +301,7 @@ export const fleetStyles = stylex.create({
   },
   // Names the group of cards under it, so it is a section header rather than
   // a row label sharing the step of the counts beside it.
-  projectName: {
+  repositoryName: {
     color: vars["--ads-color-text"],
     fontSize: vars["--ads-font-size-body"],
     fontWeight: vars["--ads-font-weight-semibold"],
@@ -309,7 +309,7 @@ export const fleetStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
-  projectCount: {
+  repositoryCount: {
     color: vars["--ads-color-text-muted"],
     flexShrink: 0,
     fontSize: vars["--ads-font-size-caption"],
@@ -320,7 +320,7 @@ export const fleetStyles = stylex.create({
    * component); this only reserves it against the header's flex squeeze and
    * spaces it from the count.
    */
-  projectCurrent: {
+  repositoryCurrent: {
     flexShrink: 0,
     marginInlineStart: vars["--ads-space-4"],
   },

@@ -19,7 +19,7 @@ import {
   setJiraCredential,
   testJiraConnection,
 } from "../jira-connector/service";
-import { refreshTrackerSourceAvailability } from "../tracker-tasks/service";
+import { refreshTrackerSourceAvailability } from "../tracker-issues/service";
 import {
   JiraConnectorConfigureArgsSchema,
   JiraConnectorSetCredentialArgsSchema,
@@ -28,7 +28,7 @@ import {
 
 /**
  * Availability is recomputed after every credential or settings change so the
- * Tasks surface flips between "not configured" and "ready" without a restart.
+ * Issues surface flips between "not configured" and "ready" without a restart.
  * A failure here is deliberately swallowed: the connector operation already
  * succeeded, and the surface refreshes itself on its own schedule anyway.
  */

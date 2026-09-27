@@ -243,7 +243,7 @@ function ToolCard(args: {
 export function ToolingSection() {
   const [
     activeWorkspaceId,
-    projectPath,
+    repositoryPath,
     workspacePathById,
     claudeBinaryPath,
     codexBinaryPath,
@@ -254,7 +254,7 @@ export function ToolingSection() {
       (state) =>
         [
           state.activeWorkspaceId,
-          state.projectPath,
+          state.repositoryPath,
           state.workspacePathById,
           state.settings.claudeBinaryPath,
           state.settings.codexBinaryPath,
@@ -264,7 +264,7 @@ export function ToolingSection() {
     ),
   );
   const workspaceCwd =
-    workspacePathById[activeWorkspaceId] ?? projectPath ?? null;
+    workspacePathById[activeWorkspaceId] ?? repositoryPath ?? null;
   const [viewState, setViewState] = useState<{
     status: "loading" | "ready" | "error";
     snapshot: ToolingStatusSnapshot | null;

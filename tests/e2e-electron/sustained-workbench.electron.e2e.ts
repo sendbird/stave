@@ -41,7 +41,7 @@ test("sustained workbench workload records native lifecycle evidence", async ({}
   const soakDurationMs = readSoakDuration();
   test.setTimeout(Math.max(120_000, (soakDurationMs ?? 0) + 120_000));
 
-  const projectPath = await mkdtemp(path.join(os.tmpdir(), "stave-workbench-"));
+  const repositoryPath = await mkdtemp(path.join(os.tmpdir(), "stave-workbench-"));
   const reportPath = testInfo.outputPath("sustained-workbench.jsonl");
   await writeFile(reportPath, "");
   await appendFile(
@@ -84,7 +84,7 @@ test("sustained workbench workload records native lifecycle evidence", async ({}
       .getByTestId("workspace-welcome")
       .getByRole("button", { name: "Open a project" })
       .click();
-    await stave.page.getByPlaceholder("~/projects/my-app").fill(projectPath);
+    await stave.page.getByPlaceholder("~/projects/my-app").fill(repositoryPath);
     await stave.page.getByRole("button", { name: "Open", exact: true }).click();
     await expect(stave.page.getByTestId("workspace-welcome")).toHaveCount(0);
     await stave.page
@@ -219,7 +219,7 @@ test("sustained workbench workload records native lifecycle evidence", async ({}
               deliveryMode: "poll",
             });
           },
-          { projectPath, terminalTabId, workspaceId: persistence.workspaceId },
+          { projectPath: repositoryPath, terminalTabId, workspaceId: persistence.workspaceId },
         );
         expect(terminalResult.ok).toBe(true);
         terminalSessionId = terminalResult.sessionId;
@@ -409,7 +409,7 @@ test("sustained workbench workload records native lifecycle evidence", async ({}
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),
     ).catch(() => {});
-    await rm(projectPath, { recursive: true, force: true });
+    await rm(repositoryPath, { recursive: true, force: true });
     if (reportError) {
       await appendFile(
         reportPath,

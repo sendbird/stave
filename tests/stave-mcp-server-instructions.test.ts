@@ -25,3 +25,24 @@ describe("buildStaveLocalMcpServerInstructions", () => {
     expect(buildStaveLocalMcpServerInstructions().length).toBeLessThan(1_200);
   });
 });
+
+describe("tool names in free text", () => {
+  test("the server instructions and the memory context name only registered tools", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const registry = [
+      await readFile("electron/main/stave-mcp-server.ts", "utf8"),
+      await readFile("electron/main/stave-collaboration-tools.ts", "utf8"),
+      await readFile("electron/main/browser/browser-tools.ts", "utf8"),
+      await readFile("src/lib/missions/briefing.ts", "utf8"),
+    ].join("\n");
+    const texts = [
+      buildStaveLocalMcpServerInstructions(),
+      await readFile("src/lib/task-context/repository-memory.ts", "utf8"),
+    ];
+    const named = new Set(texts.flatMap((text) => text.match(/\bstave_[a-z]+(?:_[a-z]+)*\b/g) ?? []));
+    expect(named.size).toBeGreaterThan(0);
+    for (const tool of named) {
+      expect({ tool, registered: registry.includes(`"${tool}"`) }).toEqual({ tool, registered: true });
+    }
+  });
+});

@@ -35,8 +35,8 @@ export function extractHeadings(markdown: string): HeadingEntry[] {
     .map((line) => line.match(/^(#{2,3})\s+(.+)$/))
     .filter(Boolean)
     .map((match) => {
-      const depth = (match?.[1].length ?? 2) as 2 | 3;
-      const rawText = match?.[2].trim() ?? "";
+      const depth = (match?.[1]?.length ?? 2) as 2 | 3;
+      const rawText = match?.[2]?.trim() ?? "";
       const base = slugify(rawText) || "section";
       const nextCount = (slugCounts.get(base) ?? 0) + 1;
       slugCounts.set(base, nextCount);

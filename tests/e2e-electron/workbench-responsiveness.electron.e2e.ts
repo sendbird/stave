@@ -39,11 +39,11 @@ function taskIdFor(workspaceIndex: number, taskIndex: number) {
 
 test("retained workspaces and tasks remain input-ready under bounded switching", async ({}, testInfo) => {
   test.setTimeout(180_000);
-  const projectPath = await mkdtemp(
+  const repositoryPath = await mkdtemp(
     path.join(tmpdir(), "stave-responsiveness-"),
   );
   const workspacePaths = Array.from({ length: WORKSPACE_COUNT }, (_, index) =>
-    path.join(projectPath, `workspace-${index}`),
+    path.join(repositoryPath, `workspace-${index}`),
   );
   await Promise.all(
     workspacePaths.map((workspacePath) => mkdir(workspacePath)),
@@ -117,7 +117,7 @@ test("retained workspaces and tasks remain input-ready under bounded switching",
       .getByTestId("workspace-welcome")
       .getByRole("button", { name: "Open a project" })
       .click();
-    await stave.page.getByPlaceholder("~/projects/my-app").fill(projectPath);
+    await stave.page.getByPlaceholder("~/projects/my-app").fill(repositoryPath);
     await stave.page.getByRole("button", { name: "Open", exact: true }).click();
     await expect(stave.page.getByTestId("workspace-welcome")).toHaveCount(0);
     await stave.page
@@ -144,7 +144,7 @@ test("retained workspaces and tasks remain input-ready under bounded switching",
       .toBe(1);
 
     const seeded = await stave.page.evaluate(
-      async ({ fixtures, workspaceId, projectPath }) => {
+      async ({ fixtures, workspaceId, projectPath: repositoryPath }) => {
         const loaded = await window.api.persistence!.loadWorkspaceShell!({
           workspaceId,
         });
@@ -184,7 +184,7 @@ test("retained workspaces and tasks remain input-ready under bounded switching",
         const workspacePathById = Object.fromEntries(
           fixtures.map((fixture, index) => [
             fixture.id,
-            index === 0 ? projectPath : `${projectPath}/workspace-${index}`,
+            index === 0 ? repositoryPath : `${repositoryPath}/workspace-${index}`,
           ]),
         );
         const workspaceBranchById = Object.fromEntries(
@@ -193,9 +193,9 @@ test("retained workspaces and tasks remain input-ready under bounded switching",
         const workspaceDefaultById = Object.fromEntries(
           fixtures.map((fixture, index) => [fixture.id, index === 0]),
         );
-        const projectEntry = {
-          projectPath,
-          projectName: "stave-responsiveness",
+        const repositoryEntry = {
+          projectPath: repositoryPath,
+          repositoryName: "stave-responsiveness",
           lastOpenedAt: "2026-09-05T00:00:00.000Z",
           defaultBranch: "main",
           workspaces: metadata,
@@ -206,10 +206,10 @@ test("retained workspaces and tasks remain input-ready under bounded switching",
         };
         store.state = {
           ...(store.state ?? {}),
-          projectPath,
-          projectName: "stave-responsiveness",
+          projectPath: repositoryPath,
+          repositoryName: "stave-responsiveness",
           defaultBranch: "main",
-          recentProjects: [projectEntry],
+          recentRepositories: [repositoryEntry],
           workspaces: metadata,
           activeWorkspaceId: fixtures[0]!.id,
           workspaceBranchById,
@@ -218,9 +218,9 @@ test("retained workspaces and tasks remain input-ready under bounded switching",
         };
         window.localStorage.setItem("stave-store", JSON.stringify(store));
         const registryResult = await window.api.persistence!
-          .saveProjectRegistry!({
-          projects: [projectEntry],
-          activeProjectPath: projectPath,
+          .saveRepositoryRegistry!({
+          repositories: [repositoryEntry],
+          activeRepositoryPath: repositoryPath,
         });
         if (!registryResult.ok) throw new Error("project registry seed failed");
         window.localStorage.setItem(
@@ -242,7 +242,7 @@ test("retained workspaces and tasks remain input-ready under bounded switching",
         );
         return { ok: true, workspaceCount: metadata.length };
       },
-      { fixtures, workspaceId, projectPath },
+      { fixtures, workspaceId, projectPath: repositoryPath },
     );
     expect(seeded).toEqual({ ok: true, workspaceCount: WORKSPACE_COUNT });
     await stave.page.reload({ waitUntil: "domcontentloaded" });
@@ -494,7 +494,7 @@ test("retained workspaces and tasks remain input-ready under bounded switching",
     throw error;
   } finally {
     await stave.close();
-    await rm(projectPath, { recursive: true, force: true });
+    await rm(repositoryPath, { recursive: true, force: true });
     if (failed)
       await appendFile(
         reportPath,

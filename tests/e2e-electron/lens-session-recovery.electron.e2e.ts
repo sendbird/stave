@@ -6,7 +6,7 @@ import { expect, test, type Page } from "@playwright/test";
 import {
   E2E_WORKSPACE_ID,
   launchStave,
-  seedProject,
+  seedRepository,
   type StaveApp,
 } from "./harness/stave-app";
 import {
@@ -42,7 +42,7 @@ import {
  */
 
 let stave: StaveApp;
-let projectDir: string;
+let repositoryDir: string;
 let server: Server;
 let origin: string;
 let endpoint: StaveMcpEndpoint;
@@ -120,7 +120,7 @@ async function killGuestElement(lensSessionId: string): Promise<void> {
 }
 
 test.beforeAll(async () => {
-  projectDir = await mkdtemp(path.join(tmpdir(), "stave-e2e-project-"));
+  repositoryDir = await mkdtemp(path.join(tmpdir(), "stave-e2e-project-"));
   await startFixtureServer();
 
   stave = await launchStave();
@@ -130,8 +130,8 @@ test.beforeAll(async () => {
 
   // No panel is ever opened here: every session in this spec is agent-opened,
   // which is the path that exercises session rebuild without a UI in the way.
-  await seedProject(stave.page, {
-    projectPath: projectDir,
+  await seedRepository(stave.page, {
+    repositoryPath: repositoryDir,
     settings: { lensAgentPresentationMode: "agent-decides" },
   });
 
@@ -141,8 +141,8 @@ test.beforeAll(async () => {
 test.afterAll(async () => {
   await stave?.close();
   await new Promise<void>((resolve) => server?.close(() => resolve()));
-  if (projectDir) {
-    await rm(projectDir, { recursive: true, force: true });
+  if (repositoryDir) {
+    await rm(repositoryDir, { recursive: true, force: true });
   }
 });
 

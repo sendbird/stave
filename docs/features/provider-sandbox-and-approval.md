@@ -184,6 +184,6 @@ primary turn is set to `Auto`, and its approvals surface in the parent turn.
 
 ## Related Docs
 
-- [Project Instructions](project-instructions.md)
+- [Repository Instructions](repository-instructions.md)
 - [Local MCP](local-mcp-user-guide.md)
 - [Install Guide](../install-guide.md)

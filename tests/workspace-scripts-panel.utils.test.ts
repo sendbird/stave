@@ -72,7 +72,7 @@ describe("workspace scripts panel Lens/Orbit helpers", () => {
     const result = await openOrbitUrlWithLensPriority({
       url: " https://dev.stave.localhost ",
       workspaceId: "ws-1",
-      projectPath: "/workspace",
+      repositoryPath: "/workspace",
       lensSessionScope: "project",
       lensApi: {
         openSession: async (args) => {
@@ -101,7 +101,7 @@ describe("workspace scripts panel Lens/Orbit helpers", () => {
         workspaceId: "ws-1",
         lensSessionId: "lens-1",
         sessionScope: "project",
-        projectKey: "/workspace",
+        repositoryKey: "/workspace",
       },
     ]);
     expect(navigateCalls).toEqual([
@@ -124,7 +124,7 @@ describe("workspace scripts panel Lens/Orbit helpers", () => {
     const result = await openOrbitUrlWithLensPriority({
       url: "https://dev.stave.localhost",
       workspaceId: "ws-1",
-      projectPath: "/workspace",
+      repositoryPath: "/workspace",
       lensSessionScope: "workspace",
       lensApi: {
         navigate: async (args) => {
@@ -155,7 +155,7 @@ describe("workspace scripts panel Lens/Orbit helpers", () => {
     const result = await openOrbitUrlWithLensPriority({
       url: "https://dev.stave.localhost",
       workspaceId: "ws-1",
-      projectPath: "/workspace",
+      repositoryPath: "/workspace",
       lensSessionScope: "project",
       lensApi: null,
       resolveLensSessionId: () => "lens-1",
@@ -180,7 +180,7 @@ describe("workspace scripts panel Lens/Orbit helpers", () => {
     const result = await openOrbitUrlWithLensPriority({
       url: "https://dev.stave.localhost",
       workspaceId: "ws-1",
-      projectPath: "/workspace",
+      repositoryPath: "/workspace",
       lensSessionScope: "project",
       lensApi: {
         openSession: async () => ({ ok: true }),
@@ -209,7 +209,7 @@ describe("workspace scripts panel Lens/Orbit helpers", () => {
     const result = await openOrbitUrlWithLensPriority({
       url: "https://blocked.stave.localhost",
       workspaceId: "ws-1",
-      projectPath: "/workspace",
+      repositoryPath: "/workspace",
       lensSessionScope: "project",
       lensApi: {
         openSession: async () => ({ ok: true }),

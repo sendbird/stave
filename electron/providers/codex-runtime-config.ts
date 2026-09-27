@@ -35,7 +35,7 @@ export const CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS = [
  * Lens operating rules. Only meaningful when the Stave local MCP is actually
  * registered with Codex — without it none of the `stave_lens_*` tools exist, so
  * the block is pure prompt overhead on every turn of every thread that has no
- * Lens access (routines, isolated analysis runs, unregistered installs).
+ * Lens access (automations, isolated analysis runs, unregistered installs).
  */
 export const CODEX_STAVE_LENS_INSTRUCTIONS = [
   "## Stave Lens tooling",
@@ -69,7 +69,7 @@ export function buildCodexNativeBrowserTurnConfigOverrides(args: {
 }): Record<string, boolean> {
   // Only force-enable after plugin/list confirms the user's setting is enabled.
   // Every other turn disables the plugin so browser access cannot leak into
-  // plan, routine, or analysis execution.
+  // plan, automation, or analysis execution.
   //
   // Bare id, for the reason spelled out on `buildCodexPluginConfigOverrides`.
   return {

@@ -33,7 +33,7 @@ import {
 
 const WORKSPACE_ID = "ws-persistence-efficiency";
 const TASK_ID = "task-persistence-efficiency";
-const PROJECT_PATH = "/tmp/stave-persistence-efficiency/project";
+const REPOSITORY_PATH = "/tmp/stave-persistence-efficiency/project";
 const WORKSPACE_PATH = "/tmp/stave-persistence-efficiency/worktree";
 const USER_DATA_PATH = "/tmp/stave-persistence-efficiency/user-data";
 
@@ -88,12 +88,12 @@ const persistedTaskRow = {
 };
 
 const fakeStore = {
-  loadProjectRegistry: () => {
-    recordCall("loadProjectRegistry");
+  loadRepositoryRegistry: () => {
+    recordCall("loadRepositoryRegistry");
     return [
       {
-        projectPath: PROJECT_PATH,
-        projectName: "proj",
+        repositoryPath: REPOSITORY_PATH,
+        repositoryName: "proj",
         lastOpenedAt: "2026-01-01T00:00:00.000Z",
         defaultBranch: "main",
         workspaces: [
@@ -110,8 +110,8 @@ const fakeStore = {
       },
     ];
   },
-  saveProjectRegistry: () => {
-    recordCall("saveProjectRegistry");
+  saveRepositoryRegistry: () => {
+    recordCall("saveRepositoryRegistry");
   },
   listRunAggregatesByOrigin: () => [],
   loadWorkspaceSnapshot: () => {
@@ -220,7 +220,7 @@ const fakeStore = {
     recordCall("createNotification");
     return { inserted: true, notification };
   },
-  loadRoutineProviderTimeoutMs: () => null,
+  loadAutomationProviderTimeoutMs: () => null,
   // Field-scoped turn write. Records the same shape the tests measure, so
   // write volume assertions cover both persistence routes.
   persistTaskTurnDelta: ({

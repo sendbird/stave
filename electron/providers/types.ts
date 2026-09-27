@@ -1,5 +1,6 @@
 import type { ModelExecution } from "../../src/lib/providers/model-execution";
-import type { StaveCollaborationGrants } from "./stave-collaboration-grants";
+import type { StaveTurnGrants } from "./stave-turn-grants";
+import type { MissionStageIdentity } from "../../src/lib/missions/domain";
 import type {
   AdvisorActivityPhase,
   AdvisorEffort,
@@ -43,16 +44,22 @@ export interface ProviderCommandCatalogResult {
 
 export interface StreamTurnArgs {
   /** Minted inside the host runtime; excluded from renderer IPC and prompts. */
-  staveCollaborationGrants?: StaveCollaborationGrants;
+  staveTurnGrants?: StaveTurnGrants;
   turnId?: string;
   executionPolicy?: "secondary-read-only";
   /**
-   * Host-owned capability for one unattended routine turn. This is never part
+   * Host-owned capability for one unattended automation turn. This is never part
    * of the renderer IPC schema or persisted runtime options.
    */
   unattendedAutomation?: {
     authorizationToken: string;
   };
+  /**
+   * Set only by the mission supervisor. The runtime mints a mission grant for
+   * this stage attempt so the turn can report it. Host-owned like the grants
+   * above: never part of the renderer IPC schema.
+   */
+  missionStage?: MissionStageIdentity;
   providerId: ProviderId;
   prompt: string;
   conversation?: CanonicalConversationRequest;

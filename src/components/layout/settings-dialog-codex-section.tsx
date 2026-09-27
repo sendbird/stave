@@ -55,7 +55,7 @@ export function CodexSection() {
     codexBinaryPath,
     activeTaskId,
     activeWorkspaceId,
-    projectPath,
+    repositoryPath,
     workspacePathById,
     providerSessionByTask,
   ] = useAppStore(
@@ -65,7 +65,7 @@ export function CodexSection() {
           state.settings.codexBinaryPath,
           state.activeTaskId,
           state.activeWorkspaceId,
-          state.projectPath,
+          state.repositoryPath,
           state.workspacePathById,
           state.providerSessionByTask,
         ] as const,
@@ -78,7 +78,7 @@ export function CodexSection() {
       })
     : null;
   const workspaceCwd =
-    workspacePathById[activeWorkspaceId] ?? projectPath ?? undefined;
+    workspacePathById[activeWorkspaceId] ?? repositoryPath ?? undefined;
   const trimmedBinaryPath = codexBinaryPath.trim();
   const runtimeOptions = useMemo(
     () =>

@@ -73,13 +73,13 @@ describe("task script hooks", () => {
 
     useAppStore.setState({
       ...initialState,
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       defaultBranch: "main",
-      recentProjects: [
+      recentRepositories: [
         {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           lastOpenedAt: "2026-04-06T00:00:00.000Z",
           defaultBranch: "main",
           workspaces: [],
@@ -94,7 +94,7 @@ describe("task script hooks", () => {
       workspaceBranchById: {},
       workspacePathById: {},
       workspaceDefaultById: {},
-      projectFiles: [],
+      repositoryFiles: [],
     });
 
     await useAppStore.getState().createWorkspace({
@@ -112,7 +112,7 @@ describe("task script hooks", () => {
     expect(hookCalls[0]).toMatchObject({
       workspaceId: nextState.activeWorkspaceId,
       trigger: "task.created",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePath,
       workspaceName: "feature/seeded-task",
       branch: "feature/seeded-task",
@@ -157,7 +157,7 @@ describe("task script hooks", () => {
         { id: "ws-main", name: "Main", updatedAt: "2026-04-04T00:00:00.000Z" },
       ],
       activeWorkspaceId: "ws-main",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },
@@ -178,7 +178,7 @@ describe("task script hooks", () => {
     expect(hookCalls[0]).toMatchObject({
       workspaceId: "ws-main",
       trigger: "task.created",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePath: "/tmp/stave-project",
       workspaceName: "Main",
       branch: "main",
@@ -227,7 +227,7 @@ describe("task script hooks", () => {
       ],
       activeWorkspaceId: "ws-main",
       activeTaskId: "task-1",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: { "ws-main": "/tmp/stave-project" },
       workspaceBranchById: { "ws-main": "main" },
       workspaceDefaultById: { "ws-main": true },
@@ -256,7 +256,7 @@ describe("task script hooks", () => {
     expect(hookCalls[0]).toMatchObject({
       workspaceId: "ws-main",
       trigger: "task.archiving",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePath: "/tmp/stave-project",
       workspaceName: "Main",
       branch: "main",

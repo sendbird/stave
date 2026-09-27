@@ -3,7 +3,7 @@
 ## Summary
 
 Turn Activity shows the live work behind the current agent turn, including
-running tools, child tasks, todos, and elapsed time. Choose a compact docked
+running tools, delegated tasks, todos, and elapsed time. Choose a compact docked
 shelf, a larger draggable card, or a full-height right-rail panel when you
 need more room to follow a busy turn.
 
@@ -44,6 +44,15 @@ need more room to follow a busy turn.
   and open that panel automatically. The panel keeps the activity list expanded.
 - In `Floating`, drag the card header. The position is retained for the next
   session and is kept reachable if the window is resized.
+
+### With A Mission
+
+On a task running a [mission](missions.md), the Mission bar heads the
+activity and stays up between turns: the current stage, what it is doing, and
+**Take over**. With `Docked` or `Floating` it tucks under the turn shelf or the
+composer like a shelf of its own; with `Panel` it sits at the top of the
+panel. A stage that waits for your sign-off asks in the composer's approval
+slot instead.
 
 ### Activity Rows
 
@@ -130,8 +139,8 @@ exactly as the turn left them. The next turn replaces it.
   provider went silent, and a managed task you took over.
 - The elapsed time is the turn's total, not a clock that keeps running.
 - Rows still lead to their tool call in the conversation.
-- The agent tree is read-only here. Child tasks that outlive the turn keep
-  their full controls in the child task rows below it.
+- The agent tree is read-only here. Delegated tasks that outlive the turn keep
+  their full controls in the delegated task rows below it.
 - `Docked` and `Floating` clear when the turn ends, as before. The docked shelf
   has to give the composer its space back, and a floating card would leave a
   finished turn hanging over the chat with no reason to go away.
@@ -159,7 +168,7 @@ row when it is narrower.
 ### Follow a busy turn
 
 1. Select `Panel` from the activity header.
-2. Keep the right rail open while tools and child tasks update.
+2. Keep the right rail open while tools and delegated tasks update.
 3. Return to `Docked` when you only need a compact status indicator.
 
 ### Read a turn back after it ends
@@ -188,7 +197,7 @@ row when it is narrower.
 - `Floating` is positioned within the chat area and may be clamped after a
   window resize so its header remains reachable.
 - A busy turn keeps only its most recent plain tool calls, so the oldest of
-  them leave the list while subagents and child tasks stay. The limit is the
+  them leave the list while subagents and delegated tasks stay. The limit is the
   same in every placement.
 - Choosing a row whose message is no longer loaded in the conversation does
   nothing. Load the older messages first, then choose the row again.
@@ -199,7 +208,7 @@ row when it is narrower.
   lives in the conversation itself, not here: the stored turn journal keeps
   only terminal events once a turn closes, so there is nothing to rebuild an
   older activity list from.
-- A task that is archived, or whose workspace or project is removed, drops its
+- A task that is archived, or whose workspace or repository is removed, drops its
   last turn with it.
 
 ## Troubleshooting
@@ -214,5 +223,6 @@ row when it is narrower.
 
 ## Related Docs
 
-- [Child Tasks](child-tasks.md)
+- [Delegated Tasks](delegated-tasks.md)
 - [Fleet Needs Me](fleet-needs-me.md)
+- [Missions](missions.md)

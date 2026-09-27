@@ -54,7 +54,7 @@ async function loadConfigPair(dir: string): Promise<{
 }
 
 export interface ResolveScriptsArgs {
-  projectPath: string;
+  repositoryPath: string;
   workspacePath: string;
   userOverridePath?: string;
 }
@@ -78,12 +78,12 @@ export async function resolveScriptsForWorkspace(
   }
 
   const normalizedWorkspace = path.resolve(args.workspacePath);
-  const normalizedProject = path.resolve(args.projectPath);
-  if (normalizedWorkspace !== normalizedProject) {
+  const normalizedRepository = path.resolve(args.repositoryPath);
+  if (normalizedWorkspace !== normalizedRepository) {
     tiers.push(await loadConfigPair(args.workspacePath));
   }
 
-  tiers.push(await loadConfigPair(args.projectPath));
+  tiers.push(await loadConfigPair(args.repositoryPath));
 
   return resolveScriptConfigFromTiers(tiers);
 }

@@ -151,40 +151,40 @@
     {
       "id": "agent-platform-boundaries",
       "title": "Agent platform layers stay distinct",
-      "invariant": "A routine cannot target an existing task, a heartbeat must target one and cannot mint one on either trigger, the supervisor records wake-ups without importing the ledger that records delegated execution, the run ledger never imports execution runtimes, the secondary executor never writes ledger rows, a child task survives a restart while a worker never does, utility inference stays mechanical, and the work queue assigns one lane per workspace.",
+      "invariant": "An automation cannot target an existing task, a wake-up must target one and cannot mint one on either trigger, the supervisor records wake-ups without importing the ledger that records delegated execution, the run ledger never imports execution runtimes, the secondary executor never writes ledger rows, a delegated task survives a restart while a worker never does, utility inference stays mechanical, and the work queue assigns one lane per workspace.",
       "testFiles": [
         "tests/agent-platform-boundaries.test.ts",
-        "tests/child-task-coordinator.test.ts",
-        "tests/child-task-ledger.test.ts",
+        "tests/delegated-task-coordinator.test.ts",
+        "tests/delegated-task-ledger.test.ts",
         "tests/fleet-sidebar-work-queue.test.ts"
       ],
       "assertionRefs": [
         "docs/architecture/agent-platform-taxonomy.md",
-        "electron/main/runs/child-task-coordinator.ts",
+        "electron/main/runs/delegated-task-coordinator.ts",
         "src/lib/fleet/sidebar-work-queue.ts",
         "src/lib/providers/utility-inference.ts",
-        "src/lib/routines.ts",
-        "src/lib/runs/child-task.ts",
-        "src/lib/automation/task-supervisor.ts"
+        "src/lib/automations.ts",
+        "src/lib/runs/delegated-task.ts",
+        "src/lib/supervision/wake-up-policy.ts"
       ]
     },
     {
-      "id": "child-task-identity",
-      "title": "A child-task control never lands on the wrong child",
-      "invariant": "The delegation link is the only source of child parentage, so a child stays out of workspace-level listings while remaining fully hydrated and openable; every mutating control carries the identity its row was rendered against and is refused with a reason when the child task, workspace, attempt, phase, or turn has moved on; a follow-up never inherits permissions; and every refusal carries a sentence the surface can show as-is.",
+      "id": "delegated-task-identity",
+      "title": "A delegated-task control never lands on the wrong child",
+      "invariant": "The delegation link is the only source of child parentage, so a child stays out of workspace-level listings while remaining fully hydrated and openable; every mutating control carries the identity its row was rendered against and is refused with a reason when the delegated task, workspace, attempt, phase, or turn has moved on; a follow-up never inherits permissions; and every refusal carries a sentence the surface can show as-is.",
       "testFiles": [
-        "tests/child-task-identity-validation.test.ts",
-        "tests/child-task-ipc-contract.test.ts",
-        "tests/child-task-workspace-listing.test.ts",
-        "tests/child-task-rows.test.tsx"
+        "tests/delegated-task-identity-validation.test.ts",
+        "tests/delegated-task-ipc-contract.test.ts",
+        "tests/delegated-task-workspace-listing.test.ts",
+        "tests/delegated-task-rows.test.tsx"
       ],
       "assertionRefs": [
-        "src/lib/runs/child-task.ts",
+        "src/lib/runs/delegated-task.ts",
         "src/lib/tasks.ts",
-        "src/components/session/ChildTaskRows.tsx",
-        "electron/main/runs/child-task-coordinator.ts",
+        "src/components/session/DelegatedTaskRows.tsx",
+        "electron/main/runs/delegated-task-coordinator.ts",
         "electron/main/ipc/runs.ts",
-        "docs/features/child-tasks.md"
+        "docs/features/delegated-tasks.md"
       ]
     },
     {
@@ -205,17 +205,40 @@
       ]
     },
     {
-      "id": "task-supervisor-safety",
-      "title": "A heartbeat never overrides the user",
-      "invariant": "A due heartbeat occurrence defers to an active turn without being consumed, pauses while an approval or question is pending or the task's provider runtime changed, stops with an explicit reason on archive, expiry, or the occurrence cap, catches up at most once after a restart, and records every occurrence idempotently. A completion trigger obeys every one of those rails, consumes each finished delegated run exactly once however many times it is delivered, coalesces a batch into a single wake-up, is capped by default so the wake chain cannot recurse forever, wakes the task on its own provider and model rather than a default, notifies the user when a consumed wake-up produced no turn instead of losing it silently, and stops with 'completion-unobservable' rather than waiting silently when completion cannot be seen.",
+      "id": "wake-up-safety",
+      "title": "A wake-up never overrides the user",
+      "invariant": "A due wake-up occurrence defers to an active turn without being consumed, pauses while an approval or question is pending or the task's provider runtime changed, stops with an explicit reason on archive, expiry, or the occurrence cap, catches up at most once after a restart, and records every occurrence idempotently. A completion trigger obeys every one of those rails, consumes each finished delegated run exactly once however many times it is delivered, coalesces a batch into a single wake-up, is capped by default so the wake chain cannot recurse forever, wakes the task on its own provider and model rather than a default, notifies the user when a consumed wake-up produced no turn instead of losing it silently, and stops with 'completion-unobservable' rather than waiting silently when completion cannot be seen.",
       "testFiles": [
-        "tests/task-supervisor.test.ts",
-        "tests/task-supervisor-runtime.test.ts"
+        "tests/wake-up-policy.test.ts",
+        "tests/wake-up-runtime.test.ts"
       ],
       "assertionRefs": [
-        "src/lib/automation/task-supervisor.ts",
-        "electron/host-service/task-supervisor-runtime.ts",
-        "electron/persistence/task-heartbeat-store.ts"
+        "src/lib/supervision/wake-up-policy.ts",
+        "electron/host-service/wake-up-runtime.ts",
+        "electron/persistence/wake-up-store.ts"
+      ]
+    },
+    {
+      "id": "mission-supervision-boundaries",
+      "title": "A mission supervises one task and completes stages only on evidence",
+      "invariant": "A mission advances exactly one lead task and never creates a task; a stage completes only through a recorded stage report or a Stave action result, never because a turn ended; a turn that ends without a report is nudged once and then marked stuck, and unreachable reporting blocks instead of nudging; a stage with an external effect the mission's consent does not list always waits for sign-off; and at most one supervisor entry starts automatic turns on a task at a time, so a mission pauses its lead task's wake-up with mission-active, refuses new wake-ups there, and a task never holds two active missions.",
+      "testFiles": [
+        "tests/agent-platform-boundaries.test.ts",
+        "tests/mission-policy.test.ts",
+        "tests/mission-commands.test.ts",
+        "tests/mission-store.test.ts",
+        "tests/automatic-turn-owner.test.ts",
+        "tests/wake-up-runtime.test.ts"
+      ],
+      "assertionRefs": [
+        "docs/architecture/agent-platform-taxonomy.md",
+        "src/lib/missions/domain.ts",
+        "src/lib/missions/policy.ts",
+        "src/lib/missions/commands.ts",
+        "src/lib/supervision/automatic-turn-owner.ts",
+        "src/lib/supervision/wake-up-policy.ts",
+        "electron/persistence/mission-store.ts",
+        "electron/host-service/wake-up-runtime.ts"
       ]
     },
     {
@@ -247,6 +270,38 @@
         "electron/host-service/local-mcp-runtime.ts",
         "electron/main/persistence-flush-gate.ts",
         "src/store/workspace-runtime-state.ts"
+      ]
+    },
+    {
+      "id": "mission-start-consent",
+      "title": "A saved playbook never grants permissions; every mission start records its own consent",
+      "invariant": "Starting a mission sends the check-ins, permission mode and external-effect go-aheads chosen in the Start sheet; the mission stores that consent, its turns take permissions from mission.consent only (never from the playbook's saved defaults), and an external effect the consent does not list always waits for sign-off.",
+      "testFiles": [
+        "tests/mission-start-consent.test.ts",
+        "tests/pre-start-checks.test.ts"
+      ],
+      "assertionRefs": [
+        "docs/architecture/agent-platform-taxonomy.md",
+        "src/lib/missions/start-sheet.ts",
+        "src/lib/missions/policy.ts",
+        "src/components/missions/StartMissionSheet.tsx",
+        "electron/host-service/supervision/mission-runtime.ts"
+      ]
+    },
+    {
+      "id": "project-boundaries",
+      "title": "A project starts work only as missions through intake; its coordinator edits no files",
+      "invariant": "The project runtime starts work only by creating a worktree and a task and starting a mission on it (never a free-form turn on another task); the only turns it starts itself are on the project's coordinator task, and those run with edits disallowed on Claude and a read-only sandbox on Codex; a coordinator's start key never starts a second mission.",
+      "testFiles": [
+        "tests/project-boundaries.test.ts",
+        "tests/project-policy.test.ts",
+        "tests/project-store.test.ts"
+      ],
+      "assertionRefs": [
+        "docs/architecture/agent-platform-taxonomy.md",
+        "src/lib/projects/policy.ts",
+        "src/lib/projects/briefing.ts",
+        "electron/host-service/supervision/project-runtime.ts"
       ]
     }
   ]

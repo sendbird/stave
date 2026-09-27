@@ -36,8 +36,8 @@ beforeEach(async () => {
   ({ useAppStore } = await import("../src/store/app.store"));
   useAppStore.setState({
     ...useAppStore.getInitialState(),
-    projectPath: "/tmp/project-a",
-    projectName: "project-a",
+    repositoryPath: "/tmp/project-a",
+    repositoryName: "project-a",
     workspaces: [
       {
         id: "workspace-1",
@@ -94,8 +94,8 @@ beforeEach(async () => {
         kind: "task.user_input_requested",
         title: "Blocked Task",
         body: "request_user_input: Pick one",
-        projectPath: "/tmp/project-a",
-        projectName: "project-a",
+        repositoryPath: "/tmp/project-a",
+        repositoryName: "project-a",
         workspaceId: "workspace-1",
         workspaceName: "Default Workspace",
         taskId: "task-blocked",
@@ -115,8 +115,8 @@ beforeEach(async () => {
         kind: "task.turn_completed",
         title: "Completed Task",
         body: "Latest run finished in Default Workspace.",
-        projectPath: "/tmp/project-a",
-        projectName: "project-a",
+        repositoryPath: "/tmp/project-a",
+        repositoryName: "project-a",
         workspaceId: "workspace-1",
         workspaceName: "Default Workspace",
         taskId: "task-completed",

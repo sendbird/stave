@@ -234,10 +234,10 @@ function createHarness(options?: {
     persistence,
     appVersion: "1.0.0",
     createHttpClient: () => http,
-    listKnownProjects: async () => [
+    listKnownRepositories: async () => [
       {
-        projectPath: "/tmp/project",
-        projectName: "project",
+        repositoryPath: "/tmp/project",
+        repositoryName: "project",
         defaultBranch: "main",
         activeWorkspaceId: "workspace-default",
         defaultWorkspaceId: "workspace-default",
@@ -260,8 +260,8 @@ function createHarness(options?: {
         workspaceName: "crane/crane-42",
         workspacePath: "/tmp/project/.stave/workspaces/crane-42",
         branch: "crane/crane-42",
-        projectPath: "/tmp/project",
-        projectName: "project",
+        repositoryPath: "/tmp/project",
+        repositoryName: "project",
       };
     },
     runTask: async (args: unknown) => {
@@ -418,7 +418,7 @@ describe("CraneConnectorRuntime", () => {
 
     const approved = await harness.runtime.approve({
       jobId: JOB.id,
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       workspace: {
         strategy: "new",
         branchName: "crane/crane-42",
@@ -542,7 +542,7 @@ describe("CraneConnectorRuntime", () => {
     await harness.runNextTimer();
     await harness.runtime.approve({
       jobId: JOB.id,
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       workspace: { strategy: "new", branchName: "crane/dfe-2898" },
       runtime: {
         provider: "codex",
@@ -592,7 +592,7 @@ describe("CraneConnectorRuntime", () => {
     await harness.runNextTimer();
     await harness.runtime.approve({
       jobId: JOB.id,
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       workspace: {
         strategy: "new",
         branchName: "crane/crane-42",
@@ -646,7 +646,7 @@ describe("CraneConnectorRuntime", () => {
     await harness.runNextTimer();
     await harness.runtime.approve({
       jobId: JOB.id,
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       workspace: {
         strategy: "new",
         branchName: "crane/crane-42",
@@ -687,7 +687,7 @@ describe("CraneConnectorRuntime", () => {
     await harness.runNextTimer();
     await harness.runtime.approve({
       jobId: JOB.id,
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       workspace: {
         strategy: "new",
         branchName: "crane/crane-42",
@@ -767,7 +767,7 @@ describe("CraneConnectorRuntime", () => {
     await harness.runNextTimer();
     await harness.runtime.approve({
       jobId: JOB.id,
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       workspace: {
         strategy: "new",
         branchName: "crane/crane-42",
@@ -817,7 +817,7 @@ describe("CraneConnectorRuntime", () => {
     await expect(
       harness.runtime.approve({
         jobId: JOB.id,
-        projectPath: "/tmp/project",
+        repositoryPath: "/tmp/project",
         workspace: {
           strategy: "new",
           branchName: "crane/crane-42",
@@ -1018,7 +1018,7 @@ describe("CraneConnectorRuntime", () => {
 
     const started = await harness.runtime.kickoffClaimedJob({
       claimed: { job: KICKOFF_JOB, ...KICKOFF_LEASE, nextSequence: 4 },
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       workspace: { strategy: "new", branchName: "crane/crane-77" },
       runtime: CODEX_RUNTIME,
     });
@@ -1028,7 +1028,7 @@ describe("CraneConnectorRuntime", () => {
       workspaceId: "workspace-crane",
       taskId: "task-crane",
     });
-    // No approval handshake: the user already answered in the Tasks surface.
+    // No approval handshake: the user already answered in the Issues surface.
     expect(harness.approvals).toHaveLength(0);
     expect(harness.receipts).toEqual([{ state: "running" }]);
     // The claim reserved sequence 4, so the first receipt has to land on it.
@@ -1062,7 +1062,7 @@ describe("CraneConnectorRuntime", () => {
           ...KICKOFF_LEASE,
           nextSequence: 4,
         },
-        projectPath: "/tmp/project",
+        repositoryPath: "/tmp/project",
         workspace: { strategy: "new", branchName: "crane/crane-77" },
         runtime: CODEX_RUNTIME,
       }),
@@ -1081,7 +1081,7 @@ describe("CraneConnectorRuntime", () => {
     await expect(
       harness.runtime.kickoffClaimedJob({
         claimed: { job: KICKOFF_JOB, ...KICKOFF_LEASE, nextSequence: 4 },
-        projectPath: "/tmp/unregistered-project",
+        repositoryPath: "/tmp/unregistered-project",
         workspace: { strategy: "new", branchName: "crane/crane-77" },
         runtime: CODEX_RUNTIME,
       }),
@@ -1115,7 +1115,7 @@ describe("CraneConnectorRuntime", () => {
 
     await harness.runtime.kickoffClaimedJob({
       claimed: { job: KICKOFF_JOB, ...KICKOFF_LEASE, nextSequence: 1 },
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       workspace: { strategy: "new", branchName: "crane/crane-77" },
       runtime: CODEX_RUNTIME,
     });
@@ -1137,7 +1137,7 @@ describe("CraneConnectorRuntime", () => {
 
     await harness.runtime.approve({
       jobId: JOB.id,
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       workspace: { strategy: "new", branchName: "crane/crane-42" },
       runtime: CODEX_RUNTIME,
     });
@@ -1165,7 +1165,7 @@ describe("CraneConnectorRuntime", () => {
     await harness.runNextTimer();
     await harness.runtime.kickoffClaimedJob({
       claimed: { job: KICKOFF_JOB, ...KICKOFF_LEASE, nextSequence: 1 },
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       workspace: { strategy: "new", branchName: "crane/crane-77" },
       runtime: CODEX_RUNTIME,
     });

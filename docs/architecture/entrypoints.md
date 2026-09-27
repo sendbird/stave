@@ -77,9 +77,9 @@ from persistence, the write queue, and update notifications.
 
 ### Project and workspace sidebar
 
-1. `src/components/layout/ProjectWorkspaceSidebar.tsx` for shell state, drag and selection wiring
+1. `src/components/layout/RepositoryWorkspaceSidebar.tsx` for shell state, drag and selection wiring
 2. `src/components/layout/workspace-sidebar-rows.tsx` for row presentation and row-local behavior
-3. `src/components/layout/ProjectWorkspaceSidebar.utils.ts` for pure sidebar decisions
+3. `src/components/layout/RepositoryWorkspaceSidebar.utils.ts` for pure sidebar decisions
 4. `docs/architecture/workspace-integrity.md` when changing workspace ownership or hydration
 
 ### Settings content
@@ -105,6 +105,36 @@ under `src/components/layout/codex-settings/` receive that state and callbacks;
 3. `src/lib/pr-status.ts` for normalized status and available actions
 4. `docs/architecture/contracts.md` for the PR bridge and context contracts
 
+### Missions and playbooks
+
+1. `src/lib/missions/policy.ts` for the pure supervisor decision and
+   `src/lib/missions/domain.ts` for mission state and consent
+2. `electron/host-service/supervision/mission-runtime.ts` for the host loop
+   that starts stage turns, and `mission-actions.ts` for the Stave actions
+   (draft PR, checks, ready for review)
+3. `src/store/missions-store.ts` (the workspace in view) and
+   `src/store/fleet-missions-store.ts` (every workspace, notifications) for
+   renderer state
+4. `src/components/missions/` for the Mission bar, panel, sign-off card and
+   Start sheet, and `src/components/playbooks/` for the Playbooks tab
+5. `docs/features/missions.md` and `docs/features/playbooks.md` for the user
+   flow
+
+### Projects
+
+1. `src/lib/projects/policy.ts` for the pure project decision (start an
+   approved proposal, wake the coordinator) and `src/lib/projects/domain.ts`
+   for projects, proposals, memory and limits
+2. `electron/host-service/supervision/project-runtime.ts` for the host loop,
+   and `src/lib/projects/briefing.ts` for the coordinator's instruction,
+   read-only runtime options and tool names
+3. `electron/persistence/project-store.ts` for storage and
+   `electron/providers/project-grants.ts` for the per-turn project grant
+4. `src/store/projects-store.ts` for renderer state and
+   `src/components/projects/` for the Projects view, project home and New
+   project dialog
+5. `docs/features/projects.md` for the user flow
+
 ### Prompt input, skills, and quick controls
 
 Read in this order:
@@ -124,7 +154,7 @@ Read in this order:
 2. `src/components/layout/file-search-utils.ts`
 3. `src/lib/fs/electron-fs.adapter.ts`
 4. `electron/main/utils/filesystem.ts`
-5. `docs/ui/project-workspace-task-shell.md`
+5. `docs/ui/repository-workspace-task-shell.md`
 
 ### IPC and preload contract changes
 

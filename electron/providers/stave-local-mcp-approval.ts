@@ -12,7 +12,7 @@
  * runtimes answer it the same way.
  *
  * Membership rule: a tool belongs here when it only reads Stave state or edits
- * the workspace's own metadata (notes, todos, resources, routine definitions).
+ * the workspace's own metadata (notes, todos, resources, automation definitions).
  * Anything that spends tokens, starts an agent, or stops one does not — those
  * stay on each provider's normal approval path.
  */
@@ -41,21 +41,21 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   // and user-editable from the Information panel.
   "stave_remember",
   "stave_forget",
-  "stave_list_project_memories",
+  "stave_list_repository_memories",
   // Reading the tracker cache is local and read-only. Starting a run from a
   // ticket is not, so kickoff has no tool at all and stays a user action.
-  "stave_list_tracker_tasks",
-  "stave_list_routines",
-  "stave_create_routine",
-  "stave_update_routine",
-  "stave_remove_routine",
-  "stave_set_routine_enabled",
-  "stave_list_routine_information_references",
-  "stave_create_routine_information_resource",
-  // Reading delegation state is safe. Creating a child task and stopping one
-  // are not, so `stave_delegate_task` and `stave_stop_child_task` stay on the
+  "stave_list_tracker_issues",
+  "stave_list_automations",
+  "stave_create_automation",
+  "stave_update_automation",
+  "stave_remove_automation",
+  "stave_set_automation_enabled",
+  "stave_list_automation_information_references",
+  "stave_create_automation_information_resource",
+  // Reading delegation state is safe. Creating a delegated task and stopping one
+  // are not, so `stave_delegate_task` and `stave_stop_delegated_task` stay on the
   // approval path alongside `stave_run_task`.
-  "stave_list_child_tasks",
+  "stave_list_delegated_tasks",
   // The one deliberate exception to the "spends tokens" rule: an Advisor
   // consult can only run against a grant the user armed for this exact turn
   // (composer pill / Alt+A), against the target and per-turn budget the user
@@ -63,25 +63,40 @@ const STAVE_LOCAL_MCP_ALWAYS_ALLOWED_TOOL_NAMES = new Set([
   // would break the "quick second opinion" flow the feature exists for. The
   // consult itself is read-only and tool-less.
   "stave_consult_advisor",
-  // Same line the routine tools sit on: defining or pausing scheduled work only
+  // Same line the automation tools sit on: defining or pausing scheduled work only
   // edits a definition, so it belongs here, while anything that starts a turn
-  // right now (`stave_run_routine_now`) does not. A heartbeat has no immediate
+  // right now (`stave_run_automation_now`) does not. A wake-up has no immediate
   // trigger at all, so all six of its tools are definition edits.
-  "stave_list_task_heartbeats",
-  "stave_get_task_heartbeat",
-  "stave_create_task_heartbeat",
-  "stave_update_task_heartbeat",
-  "stave_set_task_heartbeat_paused",
-  "stave_remove_task_heartbeat",
+  "stave_list_wake_ups",
+  "stave_get_wake_up",
+  "stave_create_wake_up",
+  "stave_update_wake_up",
+  "stave_set_wake_up_paused",
+  "stave_remove_wake_up",
+  // Mission and project tools exist only on a turn carrying that mission's or
+  // project's grant, and those turns run unattended: asking would stop a
+  // mission at every stage report. They read or record Stave's own mission and
+  // project state; proposing records a proposal the user starts.
+  "stave_get_mission",
+  "stave_report_stage",
+  "stave_block_stage",
+  "stave_propose_mission",
+  "stave_get_project",
+  "stave_list_missions",
+  "stave_get_mission_report",
+  "stave_note_project",
+  // Records a proposal the user approves; it starts a mission only when the
+  // user turned the project's "Ask before starting" off, which is that consent.
+  "stave_start_mission",
 ]);
 
 /**
  * Reduces a provider-decorated tool name to its bare Stave tool name.
  *
  * Callers hand us wildly different shapes for the same tool: Claude reports
- * `mcp__stave-local-mcp__stave_list_child_tasks`, while Codex elicitation
- * metadata may report `stave-local__stave_list_child_tasks`, a dotted
- * `stave-local.stave_list_child_tasks`, or the bare name. Normalising here
+ * `mcp__stave-local-mcp__stave_list_delegated_tasks`, while Codex elicitation
+ * metadata may report `stave-local__stave_list_delegated_tasks`, a dotted
+ * `stave-local.stave_list_delegated_tasks`, or the bare name. Normalising here
  * keeps that decoding in one place instead of at each call site.
  */
 export function normalizeStaveLocalMcpToolName(toolName: string) {

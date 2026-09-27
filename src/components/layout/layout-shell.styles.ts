@@ -50,7 +50,7 @@ export const layoutShellStyles = stylex.create({
     width: 20,
   },
   workspaceIcon: { height: 12, width: 12 },
-  projectIdentityMark: {
+  repositoryIdentityMark: {
     alignItems: "center",
     borderColor: vars["--ads-color-border"],
     borderRadius: vars["--ads-radius-control"],
@@ -62,8 +62,8 @@ export const layoutShellStyles = stylex.create({
     justifyContent: "center",
     width: 28,
   },
-  projectIcon: { height: 14, width: 14 },
-  projectColorSwatch: {
+  repositoryIcon: { height: 14, width: 14 },
+  repositoryColorSwatch: {
     borderColor: vars["--ads-color-border"],
     borderStyle: "solid",
     borderWidth: 1,

@@ -1,17 +1,17 @@
 import {
-  DEFAULT_PROJECT_MEMORY_SETTINGS,
-  type ProjectMemorySettingsPatch,
-} from "@/lib/project-memory-settings";
+  DEFAULT_REPOSITORY_MEMORY_SETTINGS,
+  type RepositoryMemorySettingsPatch,
+} from "@/lib/repository-memory-settings";
 import {
-  PROJECT_MEMORY_AUTO_CONFIDENCE,
-  PROJECT_MEMORY_EXPLICIT_CONFIDENCE,
-  type ProjectMemory,
-} from "@/lib/project-memory";
+  REPOSITORY_MEMORY_AUTO_CONFIDENCE,
+  REPOSITORY_MEMORY_EXPLICIT_CONFIDENCE,
+  type RepositoryMemory,
+} from "@/lib/repository-memory";
 
 /**
  * The slice of `window.api` the plan and memory lists read.
  *
- * The browser dev bridge exposes neither `fs` nor `projectMemory`, so both
+ * The browser dev bridge exposes neither `fs` nor `repositoryMemory`, so both
  * sections render their empty state in a browser no matter what is on disk.
  * This installs an in-memory stand-in — reads are served from the fixtures
  * below and writes mutate them — so the rows are real components driven by
@@ -26,16 +26,16 @@ const PLAN_FILES = [
 
 const LEGACY_PLAN_FILES = [".stave/plans/0b91ff2c_20260901_initial-sweep.md"];
 
-let memories: ProjectMemory[] = [
+let memories: RepositoryMemory[] = [
   {
     id: "mem-core",
-    projectPath: "/tmp/stave-project",
+    repositoryPath: "/tmp/stave-project",
     kind: "convention",
     recallMode: "core",
     content: "Use Bun for install, test and build; use bunx --bun, never npx.",
     sourceTaskId: null,
     sourceTurnId: null,
-    confidence: PROJECT_MEMORY_EXPLICIT_CONFIDENCE,
+    confidence: REPOSITORY_MEMORY_EXPLICIT_CONFIDENCE,
     createdAt: Date.now() - 86_400_000 * 12,
     updatedAt: Date.now() - 86_400_000 * 12,
     lastConfirmedAt: Date.now() - 3_600_000,
@@ -43,14 +43,14 @@ let memories: ProjectMemory[] = [
   },
   {
     id: "mem-contextual",
-    projectPath: "/tmp/stave-project",
+    repositoryPath: "/tmp/stave-project",
     kind: "decision",
     recallMode: "contextual",
     content:
       "Author styles with stylex.create and compose before compiling. No Tailwind utility strings, no @apply, no CVA recipes anywhere under src/components/ui.",
     sourceTaskId: null,
     sourceTurnId: null,
-    confidence: PROJECT_MEMORY_EXPLICIT_CONFIDENCE,
+    confidence: REPOSITORY_MEMORY_EXPLICIT_CONFIDENCE,
     createdAt: Date.now() - 86_400_000 * 4,
     updatedAt: Date.now() - 86_400_000 * 4,
     lastConfirmedAt: Date.now() - 86_400_000,
@@ -58,14 +58,14 @@ let memories: ProjectMemory[] = [
   },
   {
     id: "mem-candidate",
-    projectPath: "/tmp/stave-project",
+    repositoryPath: "/tmp/stave-project",
     kind: "gotcha",
     recallMode: "candidate",
     content:
       "The renderer's provider event schema and the main process copy have to move together.",
     sourceTaskId: "10d53a9c",
     sourceTurnId: "turn-1",
-    confidence: PROJECT_MEMORY_AUTO_CONFIDENCE,
+    confidence: REPOSITORY_MEMORY_AUTO_CONFIDENCE,
     createdAt: Date.now() - 3_600_000,
     updatedAt: Date.now() - 3_600_000,
     lastConfirmedAt: Date.now() - 86_400_000,
@@ -90,14 +90,14 @@ export function installInformationRowPreviewApi() {
     createDirectory: async () => ({ ok: true }),
   };
 
-  let settings = { ...DEFAULT_PROJECT_MEMORY_SETTINGS };
+  let settings = { ...DEFAULT_REPOSITORY_MEMORY_SETTINGS };
   api.projectMemory = {
     list: async () => ({ ok: true, items: memories }),
     update: async (patch: {
       id: string;
       content: string;
-      kind: ProjectMemory["kind"];
-      recallMode: ProjectMemory["recallMode"];
+      kind: RepositoryMemory["kind"];
+      recallMode: RepositoryMemory["recallMode"];
     }) => {
       const next = memories.map((item) =>
         item.id === patch.id
@@ -119,7 +119,7 @@ export function installInformationRowPreviewApi() {
     },
     getSettings: async () => ({ ok: true, settings }),
     saveSettings: async (args: {
-      patch: ProjectMemorySettingsPatch;
+      patch: RepositoryMemorySettingsPatch;
       expectedRevision: number;
     }) => {
       if (args.expectedRevision !== settings.revision)

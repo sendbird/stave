@@ -177,7 +177,7 @@ describe("WorkGraphTree", () => {
   });
 
   test("a ledger child keeps its Stop where the runtime steers nothing", () => {
-    // The child is Stave's own task, stopped through the child-task
+    // The child is Stave's own task, stopped through the delegated-task
     // coordinator, so the provider's inability to steer its in-process
     // subagents must not hide a control that works.
     const html = renderTree({
@@ -186,7 +186,7 @@ describe("WorkGraphTree", () => {
           key: ledgerNodeKey("port-callers"),
           identitySource: "ledger",
           delegationKey: "port-callers",
-          childTaskId: "task-child",
+          delegatedTaskId: "task-child",
           label: "Port the callers",
         }),
       ]),
@@ -213,12 +213,12 @@ describe("WorkGraphTree", () => {
       ]),
       capabilities: NO_CAPABILITIES,
       controlErrorByNodeKey: {
-        [key]: "That child task has already moved on.",
+        [key]: "That delegated task has already moved on.",
       },
     });
 
     expect(html).toContain('data-testid="work-graph-control-error"');
-    expect(html).toContain("That child task has already moved on.");
+    expect(html).toContain("That delegated task has already moved on.");
   });
 
   test("refuses a control for a node the provider never named", () => {

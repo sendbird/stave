@@ -21,11 +21,11 @@ function baseLayout(): LayoutState {
 }
 
 describe("normalizeLayoutState", () => {
-  test("falls back from the retired routines right-rail selection", () => {
+  test("falls back from the retired automations right-rail selection", () => {
     expect(
       normalizeLayoutState({
         ...baseLayout(),
-        sidebarOverlayTab: "routines" as LayoutState["sidebarOverlayTab"],
+        sidebarOverlayTab: "automations" as LayoutState["sidebarOverlayTab"],
         sidebarOverlayVisible: true,
       }),
     ).toMatchObject({

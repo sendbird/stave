@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { createJSONStorage } from "zustand/middleware";
-import { buildProjectDefaultWorkspaceId } from "@/store/project.utils";
+import { buildRepositoryDefaultWorkspaceId } from "@/store/repository.utils";
 import { createEmptyWorkspaceInformation } from "@/lib/workspace-information";
 
 interface StorageLike {
@@ -11,10 +11,10 @@ interface StorageLike {
 }
 
 const originalWindow = (globalThis as { window?: unknown }).window;
-const PROJECT_PATH = "/tmp/stave-project";
-const FOREIGN_PROJECT_PATH = "/tmp/sbdashboard";
-const DEFAULT_WORKSPACE_ID = buildProjectDefaultWorkspaceId({
-  projectPath: PROJECT_PATH,
+const REPOSITORY_PATH = "/tmp/stave-project";
+const FOREIGN_REPOSITORY_PATH = "/tmp/sbdashboard";
+const DEFAULT_WORKSPACE_ID = buildRepositoryDefaultWorkspaceId({
+  repositoryPath: REPOSITORY_PATH,
 });
 
 function createTask(id: string, title = id) {
@@ -78,13 +78,13 @@ describe("workspace integrity regressions", () => {
     const { useAppStore } = await import("../src/store/app.store");
     useAppStore.setState({
       ...useAppStore.getInitialState(),
-      projectPath: PROJECT_PATH,
+      repositoryPath: REPOSITORY_PATH,
       workspaces: [
         { id: "current", name: "Current", updatedAt: "2026-01-01" },
         { id: "old", name: "Old", updatedAt: "2026-01-01" },
       ],
       activeWorkspaceId: "current",
-      workspacePathById: { current: PROJECT_PATH, old: `${PROJECT_PATH}/old` },
+      workspacePathById: { current: REPOSITORY_PATH, old: `${REPOSITORY_PATH}/old` },
       workspaceDefaultById: { current: true },
       activeTurnIdsByTask: {}, taskWorkspaceIdById: {}, notifications: [],
       purgeWorkspaceNotifications: async () => {
@@ -107,16 +107,16 @@ describe("workspace integrity regressions", () => {
     const currentTask = createTask("current-task");
     useAppStore.setState({
       ...useAppStore.getInitialState(),
-      projectPath: PROJECT_PATH,
+      repositoryPath: REPOSITORY_PATH,
       workspaces: ["base", "current", "old"].map((id) => ({ id, name: id, updatedAt: "2026-01-01" })),
       activeWorkspaceId: "current",
       activeTaskId: currentTask.id,
       tasks: [currentTask],
-      workspacePathById: { base: PROJECT_PATH, current: `${PROJECT_PATH}/current`, old: `${PROJECT_PATH}/old` },
+      workspacePathById: { base: REPOSITORY_PATH, current: `${REPOSITORY_PATH}/current`, old: `${REPOSITORY_PATH}/old` },
       workspaceDefaultById: { base: true },
       activeTurnIdsByTask: {}, taskWorkspaceIdById: {}, notifications: [],
       purgeWorkspaceNotifications: async () => {},
-      flushProjectRegistry: async () => {},
+      flushRepositoryRegistry: async () => {},
       switchWorkspace: async ({ workspaceId }) => {
         switchedTo.push(workspaceId);
         // A turn can arrive during the old asynchronous switch boundary.
@@ -149,8 +149,8 @@ describe("workspace integrity regressions", () => {
     const { useAppStore } = await import("../src/store/app.store");
     useAppStore.setState({
       ...useAppStore.getInitialState(),
-      projectPath: "/tmp/project-a",
-      projectName: "project-a",
+      repositoryPath: "/tmp/project-a",
+      repositoryName: "project-a",
       workspaces: [{ id: "ws-main", name: "Default Workspace", updatedAt: "2026-03-31T00:00:00.000Z" }],
       activeWorkspaceId: "ws-main",
       workspacePathById: { "ws-main": "/tmp/project-a" },
@@ -180,8 +180,8 @@ describe("workspace integrity regressions", () => {
         kind: "task.turn_completed",
         title: "Archived Task",
         body: "Latest run finished in Default Workspace.",
-        projectPath: "/tmp/project-a",
-        projectName: "project-a",
+        repositoryPath: "/tmp/project-a",
+        repositoryName: "project-a",
         workspaceId: "ws-main",
         workspaceName: "Default Workspace",
         taskId: "task-archived",
@@ -234,8 +234,8 @@ describe("workspace integrity regressions", () => {
     const { useAppStore } = await import("../src/store/app.store");
     useAppStore.setState({
       ...useAppStore.getInitialState(),
-      projectPath: "/tmp/project-a",
-      projectName: "project-a",
+      repositoryPath: "/tmp/project-a",
+      repositoryName: "project-a",
       workspaces: [{ id: "ws-main", name: "Default Workspace", updatedAt: "2026-03-31T00:00:00.000Z" }],
       activeWorkspaceId: "ws-main",
       workspacePathById: { "ws-main": "/tmp/project-a" },
@@ -266,8 +266,8 @@ describe("workspace integrity regressions", () => {
     const { useAppStore } = await import("../src/store/app.store");
     useAppStore.setState({
       ...useAppStore.getInitialState(),
-      projectPath: "/tmp/project-a",
-      projectName: "project-a",
+      repositoryPath: "/tmp/project-a",
+      repositoryName: "project-a",
       workspaces: [
         { id: "ws-owned", name: "feature-a", updatedAt: "2026-03-31T00:00:00.000Z" },
         { id: "ws-active", name: "feature-b", updatedAt: "2026-03-31T00:01:00.000Z" },
@@ -344,8 +344,8 @@ describe("workspace integrity regressions", () => {
     const { useAppStore } = await import("../src/store/app.store");
     useAppStore.setState({
       ...useAppStore.getInitialState(),
-      projectPath: "/tmp/project-a",
-      projectName: "project-a",
+      repositoryPath: "/tmp/project-a",
+      repositoryName: "project-a",
       workspaces: [
         {
           id: "ws-main",
@@ -411,8 +411,8 @@ describe("workspace integrity regressions", () => {
     const { useAppStore } = await import("../src/store/app.store");
     useAppStore.setState({
       ...useAppStore.getInitialState(),
-      projectPath: "/tmp/project-a",
-      projectName: "project-a",
+      repositoryPath: "/tmp/project-a",
+      repositoryName: "project-a",
       workspaces: [
         {
           id: "ws-main",
@@ -432,8 +432,8 @@ describe("workspace integrity regressions", () => {
           kind: "task.turn_completed",
           title: "Foreign Task",
           body: "Latest run finished elsewhere.",
-          projectPath: "/tmp/project-a",
-          projectName: "project-a",
+          repositoryPath: "/tmp/project-a",
+          repositoryName: "project-a",
           workspaceId: "ws-foreign",
           workspaceName: "Foreign Workspace",
           taskId: "task-collision",
@@ -476,8 +476,8 @@ describe("workspace integrity regressions", () => {
 
     localStorage.setItem("stave-store", JSON.stringify({
       state: {
-        projectPath: PROJECT_PATH,
-        projectName: "stave",
+        repositoryPath: REPOSITORY_PATH,
+        repositoryName: "stave",
         defaultBranch: "main",
         workspaces: [{
           id: "base:1i2znya",
@@ -485,9 +485,9 @@ describe("workspace integrity regressions", () => {
           updatedAt: "2026-03-31T13:36:19.071Z",
         }],
         activeWorkspaceId: "base:1i2znya",
-        recentProjects: [{
-          projectPath: PROJECT_PATH,
-          projectName: "stave",
+        recentRepositories: [{
+          repositoryPath: REPOSITORY_PATH,
+          repositoryName: "stave",
           lastOpenedAt: "2026-03-31T13:36:33.211Z",
           defaultBranch: "main",
           workspaces: [{
@@ -497,11 +497,11 @@ describe("workspace integrity regressions", () => {
           }],
           activeWorkspaceId: "base:1i2znya",
           workspaceBranchById: { "base:1i2znya": "master" },
-          workspacePathById: { "base:1i2znya": FOREIGN_PROJECT_PATH },
+          workspacePathById: { "base:1i2znya": FOREIGN_REPOSITORY_PATH },
           workspaceDefaultById: { "base:1i2znya": true },
         }],
         workspaceBranchById: { "base:1i2znya": "master" },
-        workspacePathById: { "base:1i2znya": FOREIGN_PROJECT_PATH },
+        workspacePathById: { "base:1i2znya": FOREIGN_REPOSITORY_PATH },
         workspaceDefaultById: { "base:1i2znya": true },
       },
       version: 0,
@@ -520,7 +520,7 @@ describe("workspace integrity regressions", () => {
 
     expect(useAppStore.getState().activeWorkspaceId).toBe(DEFAULT_WORKSPACE_ID);
     expect(useAppStore.getState().workspacePathById).toEqual({
-      [DEFAULT_WORKSPACE_ID]: PROJECT_PATH,
+      [DEFAULT_WORKSPACE_ID]: REPOSITORY_PATH,
     });
     expect(useAppStore.getState().workspaceDefaultById).toEqual({
       [DEFAULT_WORKSPACE_ID]: true,

@@ -12,10 +12,10 @@ import { ConfirmationCompact } from "@/components/ai-elements/confirmation";
 import { UserInputCard } from "@/components/ai-elements/user-input-card";
 import { TaskExecutionSummarySurface } from "@/components/layout/TaskExecutionSummarySurface";
 import {
-  ChildTaskParentBacklink,
-  ChildTaskRows,
-} from "@/components/session/ChildTaskRows";
-import { useChildTasks } from "@/components/session/useChildTasks";
+  DelegatedTaskParentBacklink,
+  DelegatedTaskRows,
+} from "@/components/session/DelegatedTaskRows";
+import { useDelegatedTasks } from "@/components/session/useDelegatedTasks";
 import { Button, Loader, Textarea } from "@/components/ui";
 import {
   resolveFleetCurrentTaskControlState,
@@ -108,7 +108,7 @@ export function FleetTaskControlPanel(args: {
   const panelRef = useRef<HTMLElement | null>(null);
   const completionTimerRef = useRef<number | null>(null);
   const [
-    activeProjectPath,
+    activeRepositoryPath,
     activeWorkspaceId,
     activeTasks,
     activeMessagesByTask,
@@ -126,17 +126,17 @@ export function FleetTaskControlPanel(args: {
     useShallow(
       (state) =>
         [
-          state.projectPath,
+          state.repositoryPath,
           state.activeWorkspaceId,
-          state.projectPath === args.target.projectPath &&
+          state.repositoryPath === args.target.repositoryPath &&
           state.activeWorkspaceId === args.target.workspaceId
             ? state.tasks
             : null,
-          state.projectPath === args.target.projectPath &&
+          state.repositoryPath === args.target.repositoryPath &&
           state.activeWorkspaceId === args.target.workspaceId
             ? state.messagesByTask
             : null,
-          state.projectPath === args.target.projectPath &&
+          state.repositoryPath === args.target.repositoryPath &&
           state.activeWorkspaceId === args.target.workspaceId
             ? state.activeTurnIdsByTask
             : null,
@@ -159,7 +159,7 @@ export function FleetTaskControlPanel(args: {
     text: string;
   } | null>(null);
   const isActiveWorkspace =
-    activeProjectPath === args.target.projectPath &&
+    activeRepositoryPath === args.target.repositoryPath &&
     activeWorkspaceId === args.target.workspaceId;
   const tasks = isActiveWorkspace
     ? (activeTasks ?? [])
@@ -206,25 +206,25 @@ export function FleetTaskControlPanel(args: {
   // reach that graph through this merge — previously it ran only when the Turn
   // Activity shelf was mounted, so a panel opened from Fleet could count fewer
   // agents than the rows it draws directly underneath.
-  const childTasks = useChildTasks({
+  const delegatedTasks = useDelegatedTasks({
     parentTaskId: args.target.taskId,
     parentWorkspaceId: args.target.workspaceId,
-    projectPath: args.target.projectPath,
+    repositoryPath: args.target.repositoryPath,
   });
-  const { children: childTaskRows } = childTasks;
-  const childTaskSource = useMemo(
-    () => ({ children: childTaskRows, actions: childTasks.actions }),
-    [childTaskRows, childTasks.actions],
+  const { children: delegatedTaskRows } = delegatedTasks;
+  const delegatedTaskSource = useMemo(
+    () => ({ children: delegatedTaskRows, actions: delegatedTasks.actions }),
+    [delegatedTaskRows, delegatedTasks.actions],
   );
-  const syncChildTasksIntoTurnGraph = useAppStore(
-    (state) => state.syncChildTasksIntoTurnGraph,
+  const syncDelegatedTasksIntoTurnGraph = useAppStore(
+    (state) => state.syncDelegatedTasksIntoTurnGraph,
   );
   useEffect(() => {
-    syncChildTasksIntoTurnGraph({
+    syncDelegatedTasksIntoTurnGraph({
       taskId: args.target.taskId,
-      children: childTaskRows,
+      children: delegatedTaskRows,
     });
-  }, [args.target.taskId, childTaskRows, syncChildTasksIntoTurnGraph]);
+  }, [args.target.taskId, delegatedTaskRows, syncDelegatedTasksIntoTurnGraph]);
   const summary = useMemo(
     () =>
       buildTaskExecutionSummary({
@@ -485,16 +485,16 @@ export function FleetTaskControlPanel(args: {
 
       <TaskExecutionSummarySurface summary={summary} xstyle={styles.section} />
 
-      <ChildTaskParentBacklink
+      <DelegatedTaskParentBacklink
         taskId={args.target.taskId}
-        projectPath={args.target.projectPath}
+        repositoryPath={args.target.repositoryPath}
         className={sx(styles.section)}
       />
-      <ChildTaskRows
+      <DelegatedTaskRows
         parentTaskId={args.target.taskId}
         parentWorkspaceId={args.target.workspaceId}
-        projectPath={args.target.projectPath}
-        source={childTaskSource}
+        repositoryPath={args.target.repositoryPath}
+        source={delegatedTaskSource}
         className={sx(styles.section)}
       />
 

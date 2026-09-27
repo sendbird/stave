@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { launchStave, seedProject, openLensSurface, E2E_WORKSPACE_ID, E2E_LENS_SESSION_ID, type StaveApp } from "./harness/stave-app";
+import { launchStave, seedRepository, openLensSurface, E2E_WORKSPACE_ID, E2E_LENS_SESSION_ID, type StaveApp } from "./harness/stave-app";
 
 test.describe("runtime resource metrics", () => {
   let stave: StaveApp;
@@ -19,7 +19,7 @@ test.describe("runtime resource metrics", () => {
   test("keep-active crosses the real bridge and protects a hidden Lens guest", async () => {
     const directory = await mkdtemp(join(tmpdir(), "stave-resource-test-"));
     try {
-      await seedProject(stave.page, { projectPath: directory });
+      await seedRepository(stave.page, { repositoryPath: directory });
       await openLensSurface(stave.page);
       const target = { workspaceId: E2E_WORKSPACE_ID, lensSessionId: E2E_LENS_SESSION_ID };
       await expect.poll(() => stave.page.evaluate(async (target) => (await window.api.lens?.setKeepActive?.({ ...target, keepActive: true }))?.ok, target)).toBe(true);
@@ -39,13 +39,13 @@ test.describe("runtime resource metrics", () => {
   test("stops only the selected workspace and requires resume before a new terminal", async () => {
     const directory = await mkdtemp(join(tmpdir(), "stave-stop-test-"));
     try {
-      await seedProject(stave.page, { projectPath: directory });
+      await seedRepository(stave.page, { repositoryPath: directory });
       const result = await stave.page.evaluate(async ({ directory, workspaceId }) => {
-        await window.api.persistence!.saveProjectRegistry!({ projects: [{
-          projectPath: directory, projectName: "e2e", lastOpenedAt: new Date().toISOString(), defaultBranch: "main",
+        await window.api.persistence!.saveRepositoryRegistry!({ repositories: [{
+          repositoryPath: directory, repositoryName: "e2e", lastOpenedAt: new Date().toISOString(), defaultBranch: "main",
           workspaces: [{ id: workspaceId, name: "e2e", updatedAt: new Date().toISOString() }], activeWorkspaceId: workspaceId,
           workspaceBranchById: { [workspaceId]: "main" }, workspacePathById: { [workspaceId]: directory }, workspaceDefaultById: { [workspaceId]: true },
-        }], activeProjectPath: directory });
+        }], activeRepositoryPath: directory });
         const args = { workspaceId, workspacePath: directory, taskId: null, taskTitle: null, terminalTabId: "resource-test", cwd: directory };
         const terminal = await window.api.terminal!.createSession!(args);
         const foreign = await window.api.terminal!.createSession!({ ...args, workspaceId: workspaceId + ":other" });
@@ -80,7 +80,7 @@ test.describe("runtime resource metrics", () => {
     const address = server.address();
     if (!address || typeof address === "string") throw new Error("Fixture server failed");
     try {
-      await seedProject(stave.page, { projectPath: directory, settings: { lensCdpApprovedHosts: ["127.0.0.1"], lensDeveloperModeCdp: true } });
+      await seedRepository(stave.page, { repositoryPath: directory, settings: { lensCdpApprovedHosts: ["127.0.0.1"], lensDeveloperModeCdp: true } });
       await openLensSurface(stave.page);
       const target = { workspaceId: E2E_WORKSPACE_ID, lensSessionId: E2E_LENS_SESSION_ID };
       await stave.page.evaluate(async ({ target, url }) => {

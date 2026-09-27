@@ -100,8 +100,8 @@ async function setupBackgroundTurn() {
   useAppStore.setState({
     ...initialState,
     hasHydratedWorkspaces: true,
-    projectPath: "/tmp/stave-project",
-    projectName: "project",
+    repositoryPath: "/tmp/stave-project",
+    repositoryName: "project",
     defaultBranch: "main",
     workspaces: [
       { id: "ws-a", name: "Default Workspace", updatedAt: "2026-07-20T00:00:00.000Z" },

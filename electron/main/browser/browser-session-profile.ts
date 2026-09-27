@@ -30,10 +30,10 @@ export function resolveLensSessionProfile(
   args: LensSessionProfileArgs,
 ): ResolvedLensSessionProfile {
   const scope = normalizeLensSessionScope(args.sessionScope);
-  const projectKey = args.projectKey?.trim();
+  const repositoryKey = args.repositoryKey?.trim();
 
-  if (scope === "project" && projectKey) {
-    const keyHash = hashLensProfileKey(projectKey);
+  if (scope === "project" && repositoryKey) {
+    const keyHash = hashLensProfileKey(repositoryKey);
     return {
       scope: "project",
       partition: `${LENS_PARTITION_PREFIX}project-${keyHash}`,

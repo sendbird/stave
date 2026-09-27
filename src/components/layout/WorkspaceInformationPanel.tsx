@@ -108,10 +108,8 @@ import {
 } from "@/hooks/use-sortable-list";
 import { WorkspacePlansSection } from "./WorkspacePlansSection";
 import { WorkspaceMemorySection } from "./WorkspaceMemorySection";
-import {
-  useMartinInformationCardAvailable,
-  WorkspaceInformationMartinCard,
-} from "./WorkspaceInformationMartinCard";
+import { useMartinInformationCardAvailable } from "./WorkspaceInformationMartinCard";
+import { WorkspaceInformationTopCards } from "./WorkspaceInformationTopCards";
 import { WorkspaceTurnSummary } from "./WorkspaceTurnSummary";
 import { WorkspaceResumeBrief } from "./WorkspaceResumeBrief";
 import { workspaceInformationPanelStyles as styles } from "./workspace-information-panel.styles";
@@ -408,7 +406,7 @@ export function WorkspaceInformationPanel() {
           state.activeWorkspaceId,
           state.activeTaskId,
           state.workspacePathById[state.activeWorkspaceId] ??
-            state.projectPath ??
+            state.repositoryPath ??
             "",
           state.workspaceInformation,
           state.updateWorkspaceInformation,
@@ -433,7 +431,7 @@ export function WorkspaceInformationPanel() {
   const [sectionOrder, setSectionOrder] = useState<
     WorkspaceInformationSectionId[]
   >(() => readStoredWorkspaceInformationSectionOrder());
-  const projectPath = useAppStore((state) => state.projectPath);
+  const repositoryPath = useAppStore((state) => state.repositoryPath);
   const [memoryHeader, setMemoryHeader] = useState({
     count: 0,
     loading: false,
@@ -801,11 +799,7 @@ export function WorkspaceInformationPanel() {
     >
       <div className={sx(styles.body)}>
         <WorkspaceResumeBrief key={activeWorkspaceId} workspaceId={activeWorkspaceId} brief={workspaceInformation.resumeBrief} />
-        {showMartinCard ? (
-          <div className={sx(styles.topCards)}>
-            <WorkspaceInformationMartinCard />
-          </div>
-        ) : null}
+        <WorkspaceInformationTopCards workspaceId={activeWorkspaceId} showMartinCard={showMartinCard} />
         <SectionDragSuppressionContext.Provider value={suppressSectionClickRef}>
           <SectionReorderContext.Provider value={moveSectionForKeyboard}>
             <SectionVisibilityContext.Provider value={visibleSections}>
@@ -1021,7 +1015,7 @@ export function WorkspaceInformationPanel() {
                   }
                 >
                   <WorkspaceMemorySection
-                    projectPath={projectPath}
+                    repositoryPath={repositoryPath}
                     refreshKey={`${workspaceInformation.turnSummary?.turnId ?? ""}:${memoryRefreshNonce}`}
                     onEntriesChange={handleMemoryEntriesChange}
                   />
@@ -1069,7 +1063,7 @@ export function WorkspaceInformationPanel() {
                         .forEach((tab) =>
                           appState.closeEditorTab({ tabId: tab.id }),
                         );
-                      await appState.refreshProjectFiles();
+                      await appState.refreshRepositoryFiles();
                     }}
                     onImportTodos={async ({ filePath }) => {
                       if (!workspacePath) {

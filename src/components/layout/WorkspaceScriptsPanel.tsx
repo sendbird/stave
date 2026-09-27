@@ -98,7 +98,7 @@ function OriginLabel(props: { origin?: ScriptEntryOrigin }) {
   }
   return (
     <span>
-      {props.origin.tier === "workspace" ? "Workspace" : "Project"}
+      {props.origin.tier === "workspace" ? "Workspace" : "Repository"}
       {props.origin.localOverride ? " + local override" : ""}
     </span>
   );
@@ -382,14 +382,14 @@ function ScriptEntryRow(props: {
 /* ---------- Main panel ---------- */
 export function WorkspaceScriptsPanel(props: {
   onOpenSettings?: (options?: {
-    projectPath?: string | null;
+    repositoryPath?: string | null;
     section?: SectionId;
   }) => void;
 }) {
   const [
     activeWorkspaceId,
     activeTaskId,
-    projectPath,
+    repositoryPath,
     workspacePath,
     workspaceBranch,
     workspaces,
@@ -402,9 +402,9 @@ export function WorkspaceScriptsPanel(props: {
         [
           state.activeWorkspaceId,
           state.activeTaskId,
-          state.projectPath,
+          state.repositoryPath,
           state.workspacePathById[state.activeWorkspaceId] ??
-            state.projectPath ??
+            state.repositoryPath ??
             "",
           state.workspaceBranchById[state.activeWorkspaceId] ?? "",
           state.workspaces,
@@ -441,10 +441,10 @@ export function WorkspaceScriptsPanel(props: {
     : undefined;
 
   const runtime = useWorkspaceScriptsRuntime(
-    activeWorkspaceId && projectPath && workspacePath
+    activeWorkspaceId && repositoryPath && workspacePath
       ? {
           workspaceId: activeWorkspaceId,
-          projectPath,
+          repositoryPath,
           workspacePath,
           workspaceName,
           branch: workspaceBranch || workspaceName,
@@ -490,7 +490,7 @@ export function WorkspaceScriptsPanel(props: {
       const result = await openOrbitUrlWithLensPriority({
         url,
         workspaceId: activeWorkspaceId,
-        projectPath,
+        repositoryPath,
         lensSessionScope,
         lensApi: window.api?.lens ?? null,
         resolveLensSessionId: () => {
@@ -512,7 +512,7 @@ export function WorkspaceScriptsPanel(props: {
         });
       }
     },
-    [activeWorkspaceId, lensSessionScope, projectPath],
+    [activeWorkspaceId, lensSessionScope, repositoryPath],
   );
 
   const runHook = useCallback(
@@ -596,9 +596,9 @@ export function WorkspaceScriptsPanel(props: {
   const openScriptSettings = useCallback(() => {
     props.onOpenSettings?.({
       section: "scripts",
-      projectPath: projectPath ?? null,
+      repositoryPath: repositoryPath ?? null,
     });
-  }, [projectPath, props.onOpenSettings]);
+  }, [repositoryPath, props.onOpenSettings]);
 
   const originFor = useCallback(
     (kind: ScriptKind, id: string) =>
@@ -828,7 +828,7 @@ export function WorkspaceScriptsPanel(props: {
                 variant="outline"
                 xstyle={toolStyles.settingsButton}
                 onClick={openScriptSettings}
-                disabled={!projectPath}
+                disabled={!repositoryPath}
               >
                 <Settings2 className={sx(toolStyles.settingsIcon)} />
                 Manage workspace tools
@@ -886,7 +886,7 @@ export function WorkspaceScriptsPanel(props: {
             {runningCount > 0 ? <StatusBadge tone="active">{runningCount} running</StatusBadge> : null}
             {runningCount > 0 ? <ActionButton size="xs" weight="quiet" tone="danger" onClick={stopAll} title="Stop all running processes"><Square />Stop all</ActionButton> : null}
             <AdsButton size="xs" variant="quiet" iconOnly onClick={refresh} disabled={runtime.configStatus === "loading"} aria-label="Refresh Workspace tools" title="Refresh Workspace tools"><RefreshCcw className={sx(runtime.configStatus === "loading" && toolStyles.refreshing)} /></AdsButton>
-            <AdsButton size="xs" variant="quiet" iconOnly onClick={openScriptSettings} disabled={!projectPath} aria-label="Open Workspace tools settings" title="Open Workspace tools settings"><Settings2 /></AdsButton>
+            <AdsButton size="xs" variant="quiet" iconOnly onClick={openScriptSettings} disabled={!repositoryPath} aria-label="Open Workspace tools settings" title="Open Workspace tools settings"><Settings2 /></AdsButton>
           </div>
         </div>
         <p className={sx(toolStyles.description)}>{WORKSPACE_TOOLS_VIEWS.find((view) => view.id === activeView)?.description}</p>

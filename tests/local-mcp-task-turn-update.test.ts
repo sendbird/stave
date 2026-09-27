@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import {
   mergeLocalMcpTaskTurnUpdates,
-  projectLocalMcpTaskTurnActivityEvent,
+  repositoryLocalMcpTaskTurnActivityEvent,
   type LocalMcpTaskTurnUpdate,
 } from "@/lib/local-mcp/task-turn-update";
 
@@ -23,7 +23,7 @@ function update(
 
 describe("local MCP task turn activity projection", () => {
   test("keeps UI-relevant tool fields bounded and drops transcript chunks", () => {
-    const tool = projectLocalMcpTaskTurnActivityEvent({
+    const tool = repositoryLocalMcpTaskTurnActivityEvent({
       type: "tool",
       toolUseId: "tool-1",
       toolName: "stave-local:stave_lens_evaluate",
@@ -33,7 +33,7 @@ describe("local MCP task turn activity projection", () => {
       }),
       state: "input-available",
     });
-    const text = projectLocalMcpTaskTurnActivityEvent({
+    const text = repositoryLocalMcpTaskTurnActivityEvent({
       type: "text",
       text: "streamed transcript content",
     });
@@ -50,7 +50,7 @@ describe("local MCP task turn activity projection", () => {
 
   test("forwards thinking as a heartbeat without the thought body", () => {
     expect(
-      projectLocalMcpTaskTurnActivityEvent({
+      repositoryLocalMcpTaskTurnActivityEvent({
         type: "thinking",
         text: "I will inspect the repo first.",
         isStreaming: true,
@@ -59,14 +59,14 @@ describe("local MCP task turn activity projection", () => {
   });
 
   test("preserves projected events while renderer reloads are coalesced", () => {
-    const advisor = projectLocalMcpTaskTurnActivityEvent({
+    const advisor = repositoryLocalMcpTaskTurnActivityEvent({
       type: "advisor_activity",
       phase: "started",
       primaryProviderId: "codex",
       advisorProviderId: "claude-code",
       at: 1_700_000_000_000,
     });
-    const tool = projectLocalMcpTaskTurnActivityEvent({
+    const tool = repositoryLocalMcpTaskTurnActivityEvent({
       type: "tool",
       toolUseId: "tool-1",
       toolName: "Bash",

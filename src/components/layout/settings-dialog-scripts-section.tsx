@@ -15,22 +15,22 @@ import {
 import { Sparkles } from "lucide-react";
 import { ScriptsManager } from "@/components/scripts";
 import { useAppStore } from "@/store/app.store";
-import type { RecentProjectState } from "@/store/project.utils";
+import type { RecentRepositoryState } from "@/store/repository.utils";
 import type { ResolvedWorkspaceScriptsConfig } from "@/lib/workspace-scripts/types";
 import { sx } from "@/components/ads/utils/stylex";
 import { scriptsSectionStyles } from "./settings-dialog-scripts-section.styles";
 
 export function ScriptsSection(props: {
-  projects: RecentProjectState[];
-  currentProjectPath?: string | null;
-  selectedProjectPath?: string | null;
+  repositories: RecentRepositoryState[];
+  currentRepositoryPath?: string | null;
+  selectedRepositoryPath?: string | null;
 }) {
   const [
     activeWorkspaceId,
     workspaces,
     workspacePathById,
     workspaceBranchById,
-    storeProjectPath,
+    storeRepositoryPath,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -39,66 +39,66 @@ export function ScriptsSection(props: {
           state.workspaces,
           state.workspacePathById,
           state.workspaceBranchById,
-          state.projectPath,
+          state.repositoryPath,
         ] as const,
     ),
   );
 
-  const currentProjectPath =
-    props.currentProjectPath ?? storeProjectPath ?? null;
-  const [selectedProjectPath, setSelectedProjectPath] = useState<string | null>(
+  const currentRepositoryPath =
+    props.currentRepositoryPath ?? storeRepositoryPath ?? null;
+  const [selectedRepositoryPath, setSelectedRepositoryPath] = useState<string | null>(
     () =>
-      props.selectedProjectPath ??
-      currentProjectPath ??
-      props.projects[0]?.projectPath ??
+      props.selectedRepositoryPath ??
+      currentRepositoryPath ??
+      props.repositories[0]?.repositoryPath ??
       null,
   );
 
-  // Keep a valid selection if the projects list changes underneath us.
+  // Keep a valid selection if the repositories list changes underneath us.
   useEffect(() => {
     if (
-      selectedProjectPath &&
-      props.projects.some(
-        (project) => project.projectPath === selectedProjectPath,
+      selectedRepositoryPath &&
+      props.repositories.some(
+        (repository) => repository.repositoryPath === selectedRepositoryPath,
       )
     ) {
       return;
     }
-    setSelectedProjectPath(
-      currentProjectPath ?? props.projects[0]?.projectPath ?? null,
+    setSelectedRepositoryPath(
+      currentRepositoryPath ?? props.repositories[0]?.repositoryPath ?? null,
     );
-  }, [currentProjectPath, props.projects, selectedProjectPath]);
+  }, [currentRepositoryPath, props.repositories, selectedRepositoryPath]);
 
   const isCurrent =
-    Boolean(selectedProjectPath) && selectedProjectPath === currentProjectPath;
-  const selectedProjectLabel = useMemo(() => {
-    const project = props.projects.find(
-      (candidate) => candidate.projectPath === selectedProjectPath,
+    Boolean(selectedRepositoryPath) && selectedRepositoryPath === currentRepositoryPath;
+  const selectedRepositoryLabel = useMemo(() => {
+    const repository = props.repositories.find(
+      (candidate) => candidate.repositoryPath === selectedRepositoryPath,
     );
-    if (!project) {
+    if (!repository) {
       return undefined;
     }
-    return `${project.projectName}${isCurrent ? " (current)" : ""}`;
-  }, [isCurrent, props.projects, selectedProjectPath]);
+    return `${repository.repositoryName}${isCurrent ? " (current)" : ""}`;
+  }, [isCurrent, props.repositories, selectedRepositoryPath]);
   const scriptsWorkspacePath = isCurrent
-    ? (workspacePathById[activeWorkspaceId] ?? selectedProjectPath ?? "")
-    : (selectedProjectPath ?? "");
+    ? (workspacePathById[activeWorkspaceId] ?? selectedRepositoryPath ?? "")
+    : (selectedRepositoryPath ?? "");
 
   const [resolvedConfig, setResolvedConfig] =
     useState<ResolvedWorkspaceScriptsConfig | null>(null);
 
   const loadResolvedScriptsConfig = useCallback(async () => {
     const getConfig = window.api?.scripts?.getConfig;
-    if (!getConfig || !selectedProjectPath || !scriptsWorkspacePath) {
+    if (!getConfig || !selectedRepositoryPath || !scriptsWorkspacePath) {
       setResolvedConfig(null);
       return;
     }
     const result = await getConfig({
-      projectPath: selectedProjectPath,
+      repositoryPath: selectedRepositoryPath,
       workspacePath: scriptsWorkspacePath,
     });
     setResolvedConfig(result.ok ? result.config : null);
-  }, [scriptsWorkspacePath, selectedProjectPath]);
+  }, [scriptsWorkspacePath, selectedRepositoryPath]);
 
   useEffect(() => {
     void loadResolvedScriptsConfig();
@@ -123,42 +123,42 @@ export function ScriptsSection(props: {
 
   return (
     <div className={sx(scriptsSectionStyles.root)}>
-      {props.projects.length === 0 ? (
+      {props.repositories.length === 0 ? (
         <Empty xstyle={scriptsSectionStyles.emptyState}>
           <EmptyHeader>
             <EmptyMedia>
               <Sparkles className={sx(scriptsSectionStyles.emptyIcon)} />
             </EmptyMedia>
-            <EmptyTitle>No projects yet</EmptyTitle>
+            <EmptyTitle>No repositories yet</EmptyTitle>
             <EmptyDescription>
-              Open a project from the sidebar to configure its processes and
+              Open a repository from the sidebar to configure its processes and
               commands.
             </EmptyDescription>
           </EmptyHeader>
         </Empty>
       ) : (
         <>
-          <label className={sx(scriptsSectionStyles.projectLabel)}>
-            <span className={sx(scriptsSectionStyles.projectLabelText)}>
-              Configuration project
+          <label className={sx(scriptsSectionStyles.repositoryLabel)}>
+            <span className={sx(scriptsSectionStyles.repositoryLabelText)}>
+              Configuration repository
             </span>
             <Select
-              value={selectedProjectPath ?? undefined}
-              onValueChange={(value) => setSelectedProjectPath(value)}
+              value={selectedRepositoryPath ?? undefined}
+              onValueChange={(value) => setSelectedRepositoryPath(value)}
             >
               <SelectTrigger className={sx(scriptsSectionStyles.triggerFull)}>
-                <SelectValue placeholder="Select a project">
-                  {selectedProjectLabel}
+                <SelectValue placeholder="Select a repository">
+                  {selectedRepositoryLabel}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {props.projects.map((project) => (
+                {props.repositories.map((repository) => (
                   <SelectItem
-                    key={project.projectPath}
-                    value={project.projectPath}
+                    key={repository.repositoryPath}
+                    value={repository.repositoryPath}
                   >
-                    {project.projectName}
-                    {project.projectPath === currentProjectPath
+                    {repository.repositoryName}
+                    {repository.repositoryPath === currentRepositoryPath
                       ? " (current)"
                       : ""}
                   </SelectItem>
@@ -167,10 +167,10 @@ export function ScriptsSection(props: {
             </Select>
           </label>
 
-          {selectedProjectPath ? (
+          {selectedRepositoryPath ? (
             <ScriptsManager
-              key={selectedProjectPath}
-              projectPath={selectedProjectPath}
+              key={selectedRepositoryPath}
+              repositoryPath={selectedRepositoryPath}
               workspacePath={scriptsWorkspacePath}
               resolvedConfig={resolvedConfig}
               onSaved={loadResolvedScriptsConfig}

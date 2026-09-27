@@ -11,7 +11,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { buildContinueWorkspaceBranchName } from "@/store/project.utils";
+import { buildContinueWorkspaceBranchName } from "@/store/repository.utils";
 import { continueWorkspaceStyles } from "./continue-workspace-dialog.styles";
 
 interface ContinueWorkspaceDialogProps {

@@ -182,7 +182,7 @@ describe("Crane Stave dispatch V1 contract", () => {
     expect(
       CraneDispatchApproveArgsSchema.safeParse({
         jobId: "job-1",
-        projectPath: "/tmp/project",
+        repositoryPath: "/tmp/project",
         workspace: {
           strategy: "existing",
           workspaceId: "workspace-1",
@@ -215,7 +215,7 @@ describe("Crane Stave dispatch V1 contract", () => {
     // the field required so the same omission fails loudly at the IPC edge.
     const claudeBase = {
       jobId: "job-1",
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       workspace: { strategy: "existing", workspaceId: "workspace-1" },
       runtime: {
         provider: "claude-code",

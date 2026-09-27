@@ -41,12 +41,18 @@ export class DelegationDraftStore {
       .get(delegationDraftScopeKey(parsedScope)) as
       | { draft_json: string }
       | undefined;
-    return row
-      ? SaveDelegationDraftSchema.parse({
-          scope: parsedScope,
-          draft: JSON.parse(row.draft_json),
-        }).draft
-      : null;
+    if (!row) return null;
+    // A draft saved by another build (e.g. before a field was renamed) is a
+    // lost draft, not a load that fails every time the task opens.
+    try {
+      const parsed = SaveDelegationDraftSchema.safeParse({
+        scope: parsedScope,
+        draft: JSON.parse(row.draft_json),
+      });
+      return parsed.success ? parsed.data.draft : null;
+    } catch {
+      return null;
+    }
   }
 
   save(scope: DelegationDraftScope, draft: DelegationDraft | null): void {
@@ -89,7 +95,7 @@ export class DelegationDraftStore {
       )
       .run(
         scopeKey,
-        parsedScope.projectPath,
+        parsedScope.repositoryPath,
         parsedScope.workspaceId,
         parsedScope.taskId,
         JSON.stringify(parsedDraft),

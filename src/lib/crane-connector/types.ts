@@ -1,3 +1,5 @@
+// temporary-migration: connector-repository-mappings
+import { renameLegacyConnectorMappings } from "@/lib/legacy-connector-mappings";
 import { z } from "zod";
 import { CraneStaveJobV1Schema } from "./contract";
 
@@ -96,7 +98,7 @@ export const CraneTeamRuntimeMemorySchema = z
   })
   .strict();
 
-export const CraneProjectMappingSchema = z
+export const CraneRepositoryMappingSchema = z
   .object({
     craneTeamKey: z.string().trim().min(1).max(64).optional(),
     craneProjectId: z.string().trim().min(1).max(128).optional(),
@@ -108,7 +110,7 @@ export const CraneProjectMappingSchema = z
     if (!value.craneTeamKey && !value.craneProjectId) {
       context.addIssue({
         code: "custom",
-        message: "A Crane team key or project id is required.",
+        message: "A Crane team key or repository id is required.",
       });
     }
   });
@@ -122,7 +124,7 @@ export const CraneConnectorSettingsSchema = z
       .int()
       .min(MIN_CRANE_CONNECTOR_POLL_INTERVAL_SECONDS)
       .max(MAX_CRANE_CONNECTOR_POLL_INTERVAL_SECONDS),
-    projectMappings: z.array(CraneProjectMappingSchema).max(100),
+    repositoryMappings: z.array(CraneRepositoryMappingSchema).max(100),
   })
   .strict();
 
@@ -130,7 +132,7 @@ export const DEFAULT_CRANE_CONNECTOR_SETTINGS = Object.freeze({
   enabled: false,
   baseUrl: DEFAULT_CRANE_CONNECTOR_BASE_URL,
   pollIntervalSeconds: DEFAULT_CRANE_CONNECTOR_POLL_INTERVAL_SECONDS,
-  projectMappings: [],
+  repositoryMappings: [],
 }) satisfies CraneConnectorSettings;
 
 export const CraneConnectorMetadataSchema = z
@@ -287,7 +289,7 @@ export const CraneDispatchWorkspaceChoiceSchema = z.discriminatedUnion(
 export const CraneDispatchApprovalResponseSchema = z
   .object({
     jobId: z.string().trim().min(1).max(128),
-    projectPath: z.string().trim().min(1).max(4_096),
+    repositoryPath: z.string().trim().min(1).max(4_096),
     workspace: CraneDispatchWorkspaceChoiceSchema,
     runtime: CraneDispatchRuntimeChoiceSchema,
   })
@@ -328,7 +330,7 @@ export const CraneDispatchJobUpdateSchema = z
 export type CraneConnectorSettings = z.infer<
   typeof CraneConnectorSettingsSchema
 >;
-export type CraneProjectMapping = z.infer<typeof CraneProjectMappingSchema>;
+export type CraneRepositoryMapping = z.infer<typeof CraneRepositoryMappingSchema>;
 export type CraneTeamRuntimeMemory = z.infer<
   typeof CraneTeamRuntimeMemorySchema
 >;
@@ -368,6 +370,8 @@ export type CraneDispatchWorkspaceChoice = z.infer<
 export function normalizeCraneConnectorSettings(
   value: unknown,
 ): CraneConnectorSettings {
+  // temporary-migration: connector-repository-mappings
+  value = renameLegacyConnectorMappings(value);
   const parsed = CraneConnectorSettingsSchema.safeParse(value);
   if (parsed.success) {
     return parsed.data;
@@ -377,11 +381,11 @@ export function normalizeCraneConnectorSettings(
   // base URL down with it. Salvage per element and drop only what fails.
   const salvaged = CraneConnectorSettingsSchema.safeParse({
     ...(value && typeof value === "object" ? value : {}),
-    projectMappings: Array.isArray(
-      (value as { projectMappings?: unknown })?.projectMappings,
+    repositoryMappings: Array.isArray(
+      (value as { repositoryMappings?: unknown })?.repositoryMappings,
     )
-      ? (value as { projectMappings: unknown[] }).projectMappings.filter(
-          (mapping) => CraneProjectMappingSchema.safeParse(mapping).success,
+      ? (value as { repositoryMappings: unknown[] }).repositoryMappings.filter(
+          (mapping) => CraneRepositoryMappingSchema.safeParse(mapping).success,
         )
       : [],
   });
@@ -389,6 +393,6 @@ export function normalizeCraneConnectorSettings(
     ? salvaged.data
     : {
         ...DEFAULT_CRANE_CONNECTOR_SETTINGS,
-        projectMappings: [],
+        repositoryMappings: [],
       };
 }

@@ -17,7 +17,7 @@ This rendered example shows the Information panel with the latest-turn summary p
 
 ## Before You Start
 
-- Open a project workspace in Stave.
+- Open a repository workspace in Stave.
 - Complete at least one task turn in that workspace.
 - Review `Settings → Prompts` if you want to change the summary prompt.
 - Review `Settings → Background AI → Turn summary` if you want to change the model, switch providers, or turn the summary off entirely.
@@ -94,5 +94,5 @@ This rendered example shows the Information panel with the latest-turn summary p
 
 - [Background AI](background-ai-policy.md)
 - [Local MCP user guide](local-mcp-user-guide.md)
-- [Project Instructions](project-instructions.md)
+- [Repository Instructions](repository-instructions.md)
 - [Notifications](notifications.md)

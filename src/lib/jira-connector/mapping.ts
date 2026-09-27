@@ -1,13 +1,13 @@
 import { z } from "zod";
 
 import {
-  TrackerTaskDetailSchema,
-  TrackerTaskSchema,
+  TrackerIssueDetailSchema,
+  TrackerIssueSchema,
   type TrackerPriorityLevel,
   type TrackerStatusCategory,
-  type TrackerTask,
-  type TrackerTaskDetail,
-} from "@/lib/tracker-tasks/types";
+  type TrackerIssue,
+  type TrackerIssueDetail,
+} from "@/lib/tracker-issues/types";
 
 export const MAX_JIRA_DESCRIPTION_LENGTH = 16_000;
 export const JIRA_DESCRIPTION_TRUNCATION_MARKER = "\n...[truncated]";
@@ -366,27 +366,27 @@ function toBaseTask(issue: JiraIssue, siteUrl: string) {
  * Never throws: a page of fifty issues must not be lost because one row has a
  * shape this build does not understand.
  */
-export function toTrackerTaskFromJira(
+export function toTrackerIssueFromJira(
   issue: unknown,
   siteUrl: string,
-): TrackerTask | null {
+): TrackerIssue | null {
   const parsed = JiraIssueSchema.safeParse(issue);
   if (!parsed.success) return null;
   const base = toBaseTask(parsed.data, siteUrl);
   if (!base) return null;
-  const task = TrackerTaskSchema.safeParse(base);
+  const task = TrackerIssueSchema.safeParse(base);
   return task.success ? task.data : null;
 }
 
-export function toTrackerTaskDetailFromJira(
+export function toTrackerIssueDetailFromJira(
   issue: unknown,
   siteUrl: string,
-): TrackerTaskDetail | null {
+): TrackerIssueDetail | null {
   const parsed = JiraIssueSchema.safeParse(issue);
   if (!parsed.success) return null;
   const base = toBaseTask(parsed.data, siteUrl);
   if (!base) return null;
-  const detail = TrackerTaskDetailSchema.safeParse({
+  const detail = TrackerIssueDetailSchema.safeParse({
     ...base,
     description: adfToPlainText(parsed.data.fields.description),
   });

@@ -35,7 +35,7 @@ function getWorkspaceCwd(args: {
 }): string | undefined {
   return (
     args.state.workspacePathById[args.workspaceId] ??
-    args.state.projectPath ??
+    args.state.repositoryPath ??
     undefined
   );
 }

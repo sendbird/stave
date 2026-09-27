@@ -6,9 +6,9 @@ import { Button } from "@/components/ui";
 import { copyTextToClipboard } from "@/lib/clipboard";
 import {
   formatAutomationTrustPolicy,
-  type RoutineRun,
-  type RoutineSpec,
-} from "@/lib/routines";
+  type AutomationRun,
+  type AutomationSpec,
+} from "@/lib/automations";
 import {
   automationStyles,
   runToneDotStyles,
@@ -22,10 +22,10 @@ import {
 import { runDetailStyles } from "./automation-run-detail.styles";
 
 export function AutomationRunRow(props: {
-  run: RoutineRun;
+  run: AutomationRun;
   automationName?: string;
   active: boolean;
-  onSelect: (run: RoutineRun) => void;
+  onSelect: (run: AutomationRun) => void;
 }) {
   const presentation = getRunStatusPresentation(props.run.status);
   return (
@@ -89,11 +89,11 @@ function DetailRow(props: {
 }
 
 export function AutomationRunDetail(props: {
-  run: RoutineRun;
-  automation: RoutineSpec | null;
+  run: AutomationRun;
+  automation: AutomationSpec | null;
   busy: boolean;
-  onOpenTask: (run: RoutineRun) => void;
-  onRunAgain: (automation: RoutineSpec) => void;
+  onOpenTask: (run: AutomationRun) => void;
+  onRunAgain: (automation: AutomationSpec) => void;
 }) {
   const presentation = getRunStatusPresentation(props.run.status);
   const automation = props.automation;
@@ -172,7 +172,7 @@ export function AutomationRunDetail(props: {
             />
             <DetailRow
               label="Repository"
-              value={automation?.environment.label ?? props.run.projectPath}
+              value={automation?.environment.label ?? props.run.repositoryPath}
             />
             <DetailRow
               label="Model"

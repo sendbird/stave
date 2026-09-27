@@ -62,7 +62,7 @@ export function useLensGuestHost(): void {
               workspaceId: payload.workspaceId,
               lensSessionId: payload.lensSessionId,
               sessionScope: payload.sessionScope,
-              projectKey: payload.projectKey,
+              repositoryKey: payload.repositoryKey,
               guestWebContentsId,
             });
 

@@ -1,9 +1,9 @@
 import { describe, expect, test } from "bun:test";
 import {
   findMappedCraneTeamRuntime,
-  findMappedStaveProjectPath,
+  findMappedStaveRepositoryPath,
   getCraneTeamKey,
-  updateCraneTeamProjectMapping,
+  updateCraneTeamRepositoryMapping,
 } from "@/lib/crane-connector/project-mapping";
 import {
   CraneConnectorSettingsSchema,
@@ -27,17 +27,17 @@ describe("Crane project mapping", () => {
     ];
 
     expect(
-      findMappedStaveProjectPath({
+      findMappedStaveRepositoryPath({
         issueKey: "ATL-42",
         mappings,
-        registeredProjectPaths: ["/tmp/atelier"],
+        registeredRepositoryPaths: ["/tmp/atelier"],
       }),
     ).toBe("/tmp/atelier");
     expect(
-      findMappedStaveProjectPath({
+      findMappedStaveRepositoryPath({
         issueKey: "ATL-42",
         mappings,
-        registeredProjectPaths: ["/tmp/stave"],
+        registeredRepositoryPaths: ["/tmp/stave"],
       }),
     ).toBeNull();
   });
@@ -53,7 +53,7 @@ describe("Crane project mapping", () => {
         staveProjectPath: "/tmp/stave",
       },
     ];
-    const updated = updateCraneTeamProjectMapping({
+    const updated = updateCraneTeamRepositoryMapping({
       mappings: existing,
       teamKey: "atl",
       staveProjectPath: "/tmp/atelier",
@@ -70,7 +70,7 @@ describe("Crane project mapping", () => {
       },
     ]);
     expect(
-      updateCraneTeamProjectMapping({
+      updateCraneTeamRepositoryMapping({
         mappings: updated,
         teamKey: "ATL",
         staveProjectPath: null,
@@ -84,7 +84,7 @@ describe("Crane project mapping", () => {
   });
 
   test("remembers and reads back the team's model and effort", () => {
-    const mappings = updateCraneTeamProjectMapping({
+    const mappings = updateCraneTeamRepositoryMapping({
       mappings: [],
       teamKey: "ATL",
       staveProjectPath: "/tmp/atelier",
@@ -118,7 +118,7 @@ describe("Crane project mapping", () => {
   });
 
   test("drops a stale remembered runtime when the mapping is rewritten without one", () => {
-    const remembered = updateCraneTeamProjectMapping({
+    const remembered = updateCraneTeamRepositoryMapping({
       mappings: [],
       teamKey: "ATL",
       staveProjectPath: "/tmp/atelier",
@@ -130,7 +130,7 @@ describe("Crane project mapping", () => {
     });
 
     expect(
-      updateCraneTeamProjectMapping({
+      updateCraneTeamRepositoryMapping({
         mappings: remembered,
         teamKey: "ATL",
         staveProjectPath: "/tmp/atelier",
@@ -150,7 +150,7 @@ describe("Crane project mapping", () => {
       enabled: true,
       baseUrl: "https://crane.internal.example.com",
       pollIntervalSeconds: 30,
-      projectMappings: [
+      repositoryMappings: [
         { craneTeamKey: "ATL", staveProjectPath: "/tmp/atelier" },
         { craneTeamKey: "OPS", staveProjectPath: "/tmp/ops", futureField: 1 },
       ],
@@ -161,7 +161,7 @@ describe("Crane project mapping", () => {
       baseUrl: "https://crane.internal.example.com",
       pollIntervalSeconds: 30,
     });
-    expect(normalized.projectMappings).toEqual([
+    expect(normalized.repositoryMappings).toEqual([
       { craneTeamKey: "ATL", staveProjectPath: "/tmp/atelier" },
     ]);
   });
@@ -171,7 +171,7 @@ describe("Crane project mapping", () => {
     expect(
       CraneConnectorSettingsSchema.safeParse({
         ...DEFAULT_CRANE_CONNECTOR_SETTINGS,
-        projectMappings: legacy,
+        repositoryMappings: legacy,
       }).success,
     ).toBe(true);
     expect(

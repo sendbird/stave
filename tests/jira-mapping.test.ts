@@ -6,8 +6,8 @@ import {
   JIRA_DESCRIPTION_TRUNCATION_MARKER,
   MAX_JIRA_DESCRIPTION_LENGTH,
   normalizeJiraTimestamp,
-  toTrackerTaskDetailFromJira,
-  toTrackerTaskFromJira,
+  toTrackerIssueDetailFromJira,
+  toTrackerIssueFromJira,
 } from "../src/lib/jira-connector/mapping";
 
 const SITE_URL = "https://example.atlassian.net";
@@ -44,9 +44,9 @@ function issue(fields: Record<string, unknown> = {}) {
   };
 }
 
-describe("toTrackerTaskFromJira", () => {
+describe("toTrackerIssueFromJira", () => {
   test("maps the common issue shape", () => {
-    const task = toTrackerTaskFromJira(issue(), `${SITE_URL}/`);
+    const task = toTrackerIssueFromJira(issue(), `${SITE_URL}/`);
     expect(task).not.toBeNull();
     expect(task?.source).toBe("jira");
     expect(task?.ref).toBe("ABC-12");
@@ -78,7 +78,7 @@ describe("toTrackerTaskFromJira", () => {
   });
 
   test("drops a non-https avatar and buckets an unknown status name by category", () => {
-    const task = toTrackerTaskFromJira(
+    const task = toTrackerIssueFromJira(
       issue({
         assignee: {
           accountId: "account-2",
@@ -98,7 +98,7 @@ describe("toTrackerTaskFromJira", () => {
 
   test("upgrades an indeterminate status to in_review by name", () => {
     for (const name of ["In Review", "Waiting for QA", "Verification"]) {
-      const task = toTrackerTaskFromJira(
+      const task = toTrackerIssueFromJira(
         issue({
           status: {
             name,
@@ -112,7 +112,7 @@ describe("toTrackerTaskFromJira", () => {
   });
 
   test("keeps a done-category row done even when its name mentions review", () => {
-    const task = toTrackerTaskFromJira(
+    const task = toTrackerIssueFromJira(
       issue({
         status: {
           name: "Reviewed and shipped",
@@ -140,7 +140,7 @@ describe("toTrackerTaskFromJira", () => {
       [null, "none"],
     ];
     for (const [name, level] of cases) {
-      const task = toTrackerTaskFromJira(
+      const task = toTrackerIssueFromJira(
         issue({ priority: name ? { name } : null }),
         SITE_URL,
       );
@@ -150,13 +150,13 @@ describe("toTrackerTaskFromJira", () => {
   });
 
   test("returns null for an unmappable row instead of throwing", () => {
-    expect(toTrackerTaskFromJira({ id: "1" }, SITE_URL)).toBeNull();
-    expect(toTrackerTaskFromJira(null, SITE_URL)).toBeNull();
+    expect(toTrackerIssueFromJira({ id: "1" }, SITE_URL)).toBeNull();
+    expect(toTrackerIssueFromJira(null, SITE_URL)).toBeNull();
     expect(
-      toTrackerTaskFromJira(issue(), "http://example.atlassian.net"),
+      toTrackerIssueFromJira(issue(), "http://example.atlassian.net"),
     ).toBeNull();
     expect(
-      toTrackerTaskFromJira(issue({ created: null, updated: null }), SITE_URL),
+      toTrackerIssueFromJira(issue({ created: null, updated: null }), SITE_URL),
     ).toBeNull();
   });
 });
@@ -311,9 +311,9 @@ describe("adfToPlainText", () => {
   });
 });
 
-describe("toTrackerTaskDetailFromJira", () => {
+describe("toTrackerIssueDetailFromJira", () => {
   test("adds the rendered description", () => {
-    const detail = toTrackerTaskDetailFromJira(
+    const detail = toTrackerIssueDetailFromJira(
       issue({
         description: {
           type: "doc",
@@ -329,9 +329,9 @@ describe("toTrackerTaskDetailFromJira", () => {
   });
 
   test("uses an empty description when the field is absent", () => {
-    expect(toTrackerTaskDetailFromJira(issue(), SITE_URL)?.description).toBe(
+    expect(toTrackerIssueDetailFromJira(issue(), SITE_URL)?.description).toBe(
       "",
     );
-    expect(toTrackerTaskDetailFromJira({ key: "X" }, SITE_URL)).toBeNull();
+    expect(toTrackerIssueDetailFromJira({ key: "X" }, SITE_URL)).toBeNull();
   });
 });

@@ -178,3 +178,28 @@ describe("Sidebar work queue grouping", () => {
     ).toEqual([]);
   });
 });
+
+describe("Sidebar work queue with missions", () => {
+  test("a mission lane competes with the task's signals by priority", () => {
+    expect(classifySidebarWorkQueueLane({ status: "idle", missionLane: "action-required" })).toBe("action-required");
+    expect(classifySidebarWorkQueueLane({ status: "running", missionLane: "idle" })).toBe("in-progress");
+    expect(classifySidebarWorkQueueLane({ attentionKind: "approval", missionLane: "in-progress" })).toBe(
+      "action-required",
+    );
+    expect(classifySidebarWorkQueueLane({ status: "idle", missionLane: null })).toBe("idle");
+  });
+
+  test("a workspace with a mission still lands in exactly one lane", () => {
+    const groups = buildSidebarWorkQueueLanes({
+      entries: [{ workspaceId: "ws-1" }, { workspaceId: "ws-2" }, { workspaceId: "ws-1" }],
+      signalsByWorkspaceId: {
+        "ws-1": { status: "running", missionLane: "action-required" },
+        "ws-2": { missionLane: "in-review" },
+      },
+    });
+    expect(groups.map((group) => [group.lane, group.entries.map((entry) => entry.workspaceId)])).toEqual([
+      ["action-required", ["ws-1"]],
+      ["in-review", ["ws-2"]],
+    ]);
+  });
+});

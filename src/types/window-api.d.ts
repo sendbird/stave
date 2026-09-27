@@ -1,16 +1,16 @@
 import type { LensReviewApi } from "@/lib/lens/lens-review.types";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../lib/providers/agent-history";
 import type { PromptEnhancementContext } from "@/lib/providers/prompt-enhancement-context";
-import type { ProjectMemoryControlsApi } from "@/lib/project-memory-settings";
+import type { RepositoryMemoryControlsApi } from "@/lib/repository-memory-settings";
 import type {
-  ProjectMemory,
-  ProjectMemoryDeleteArgs,
-  ProjectMemoryListArgs,
-  ProjectMemoryRecallArgs,
-  ProjectMemoryRememberArgs,
-  ProjectMemoryRememberResult,
-  ProjectMemoryUpdateArgs,
-} from "@/lib/project-memory";
+  RepositoryMemory,
+  RepositoryMemoryDeleteArgs,
+  RepositoryMemoryListArgs,
+  RepositoryMemoryRecallArgs,
+  RepositoryMemoryRememberArgs,
+  RepositoryMemoryRememberResult,
+  RepositoryMemoryUpdateArgs,
+} from "@/lib/repository-memory";
 import type {
   CodexAppServerSnapshotResponse,
   CodexModelCatalogResponse,
@@ -81,19 +81,19 @@ import type {
 } from "@/lib/atelier-connector/types";
 import type {
   TrackerSourceId,
-  TrackerTaskAttachStaveTaskArgs,
-  TrackerTaskDetail,
-  TrackerTaskKickoffArgs,
-  TrackerTaskKickoffResult,
-  TrackerTaskListItem,
-  TrackerTaskRefArgs,
-  TrackerTaskStaveLink,
-  TrackerTasksListArgs,
-  TrackerTasksPublicStatus,
-  TrackerTasksRefreshArgs,
-  TrackerTasksSurfaceVisibleArgs,
-} from "@/lib/tracker-tasks/types";
-import type { TrackerTasksSettings } from "@/lib/tracker-tasks/settings";
+  TrackerIssueAttachStaveTaskArgs,
+  TrackerIssueDetail,
+  TrackerIssueKickoffArgs,
+  TrackerIssueKickoffResult,
+  TrackerIssueListItem,
+  TrackerIssueRefArgs,
+  TrackerIssueStaveLink,
+  TrackerIssuesListArgs,
+  TrackerIssuesPublicStatus,
+  TrackerIssuesRefreshArgs,
+  TrackerIssuesSurfaceVisibleArgs,
+} from "@/lib/tracker-issues/types";
+import type { TrackerIssuesSettings } from "@/lib/tracker-issues/settings";
 import type {
   JiraConnectorPublicStatus,
   JiraConnectorSetCredentialArgs,
@@ -141,13 +141,17 @@ import type {
   WorkspaceInformationState,
 } from "@/lib/workspace-information";
 import type {
-  RoutineInformationResourceCreateInput,
-  RoutineRun,
-  RoutineSnapshot,
-  RoutineSpec,
-  RoutineUpsertInput,
-} from "@/lib/routines";
+  AutomationInformationResourceCreateInput,
+  AutomationRun,
+  AutomationSnapshot,
+  AutomationSpec,
+  AutomationUpsertInput,
+} from "@/lib/automations";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
+import type { MissionsBridgeApi } from "@/lib/missions/api";
+import type { WakeUpsBridgeApi } from "@/lib/supervision/wake-up-bridge";
+import type { ProjectsBridgeApi } from "@/lib/projects/api";
+import type { ProposalsBridgeApi } from "@/lib/missions/proposed";
 import type { PromptDraft } from "@/types/chat";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import type {
@@ -212,17 +216,17 @@ import type {
   SecondaryRunTransitionResponse,
 } from "@/lib/runs/secondary-run";
 import type {
-  ChildTaskActionResponse,
-  ChildTaskDelegateArgs,
-  ChildTaskDetachArgs,
-  ChildTaskFollowUpArgs,
-  ChildTaskList,
-  ChildTaskListArgs,
-  ChildTaskLinkArgs,
-  ChildTaskRetryArgs,
-  ChildTaskStopArgs,
-  ChildTaskSummary,
-} from "@/lib/runs/child-task";
+  DelegatedTaskActionResponse,
+  DelegateTaskArgs,
+  DelegatedTaskDetachArgs,
+  DelegatedTaskFollowUpArgs,
+  DelegatedTaskList,
+  DelegatedTaskListArgs,
+  DelegatedTaskLinkArgs,
+  DelegatedTaskRetryArgs,
+  DelegatedTaskStopArgs,
+  DelegatedTaskSummary,
+} from "@/lib/runs/delegated-task";
 
 interface WindowRunsApi {
   claimSecondary?: (
@@ -246,24 +250,24 @@ interface WindowRunsApi {
   listReceipts?: (
     args: SecondaryRunReceiptListArgs,
   ) => Promise<SecondaryRunReceiptList>;
-  delegateChildTask?: (
-    args: ChildTaskDelegateArgs,
-  ) => Promise<ChildTaskActionResponse>;
-  listChildTasks?: (args: ChildTaskListArgs) => Promise<ChildTaskList>;
-  followUpChildTask?: (
-    args: ChildTaskFollowUpArgs,
-  ) => Promise<ChildTaskActionResponse>;
-  retryChildTask?: (
-    args: ChildTaskRetryArgs,
-  ) => Promise<ChildTaskActionResponse>;
-  stopChildTask?: (args: ChildTaskStopArgs) => Promise<ChildTaskActionResponse>;
-  detachChildTask?: (
-    args: ChildTaskDetachArgs,
-  ) => Promise<ChildTaskActionResponse>;
-  getChildTaskLink?: (
-    args: ChildTaskLinkArgs,
-  ) => Promise<ChildTaskSummary | null>;
-  onChildTasksChanged?: (
+  delegateTask?: (
+    args: DelegateTaskArgs,
+  ) => Promise<DelegatedTaskActionResponse>;
+  listDelegatedTasks?: (args: DelegatedTaskListArgs) => Promise<DelegatedTaskList>;
+  followUpDelegatedTask?: (
+    args: DelegatedTaskFollowUpArgs,
+  ) => Promise<DelegatedTaskActionResponse>;
+  retryDelegatedTask?: (
+    args: DelegatedTaskRetryArgs,
+  ) => Promise<DelegatedTaskActionResponse>;
+  stopDelegatedTask?: (args: DelegatedTaskStopArgs) => Promise<DelegatedTaskActionResponse>;
+  detachDelegatedTask?: (
+    args: DelegatedTaskDetachArgs,
+  ) => Promise<DelegatedTaskActionResponse>;
+  getDelegatedTaskLink?: (
+    args: DelegatedTaskLinkArgs,
+  ) => Promise<DelegatedTaskSummary | null>;
+  onDelegatedTasksChanged?: (
     callback: (payload: { parentTaskId: string }) => void,
   ) => () => void;
 }
@@ -934,82 +938,82 @@ interface WindowCraneConnectorApi {
   ) => () => void;
 }
 
-interface WindowProjectMemoryApi extends Partial<ProjectMemoryControlsApi> {
-  list?: (args: ProjectMemoryListArgs) => Promise<{
+interface WindowRepositoryMemoryApi extends Partial<RepositoryMemoryControlsApi> {
+  list?: (args: RepositoryMemoryListArgs) => Promise<{
     ok: boolean;
-    items: ProjectMemory[];
+    items: RepositoryMemory[];
     message?: string;
   }>;
-  recall?: (args: ProjectMemoryRecallArgs) => Promise<{
+  recall?: (args: RepositoryMemoryRecallArgs) => Promise<{
     ok: boolean;
-    items: ProjectMemory[];
+    items: RepositoryMemory[];
     message?: string;
   }>;
-  remember?: (args: ProjectMemoryRememberArgs) => Promise<{
+  remember?: (args: RepositoryMemoryRememberArgs) => Promise<{
     ok: boolean;
-    results: ProjectMemoryRememberResult[];
+    results: RepositoryMemoryRememberResult[];
     message?: string;
   }>;
-  update?: (args: ProjectMemoryUpdateArgs) => Promise<{
+  update?: (args: RepositoryMemoryUpdateArgs) => Promise<{
     ok: boolean;
-    memory?: ProjectMemory | null;
+    memory?: RepositoryMemory | null;
     message?: string;
   }>;
-  delete?: (args: ProjectMemoryDeleteArgs) => Promise<{
+  delete?: (args: RepositoryMemoryDeleteArgs) => Promise<{
     ok: boolean;
     deleted?: boolean;
     message?: string;
   }>;
 }
 
-interface WindowTrackerTasksApi {
+interface WindowTrackerIssuesApi {
   getStatus?: () => Promise<{
     ok: boolean;
-    status?: TrackerTasksPublicStatus;
+    status?: TrackerIssuesPublicStatus;
     message?: string;
   }>;
-  list?: (args?: TrackerTasksListArgs) => Promise<{
+  list?: (args?: TrackerIssuesListArgs) => Promise<{
     ok: boolean;
-    items: TrackerTaskListItem[];
+    items: TrackerIssueListItem[];
     message?: string;
   }>;
-  refresh?: (args?: TrackerTasksRefreshArgs) => Promise<{
+  refresh?: (args?: TrackerIssuesRefreshArgs) => Promise<{
     ok: boolean;
-    status?: TrackerTasksPublicStatus;
+    status?: TrackerIssuesPublicStatus;
     message?: string;
   }>;
-  getDetail?: (args: TrackerTaskRefArgs) => Promise<{
+  getDetail?: (args: TrackerIssueRefArgs) => Promise<{
     ok: boolean;
-    detail?: TrackerTaskDetail;
+    detail?: TrackerIssueDetail;
     message?: string;
   }>;
-  kickoff?: (args: TrackerTaskKickoffArgs) => Promise<{
+  kickoff?: (args: TrackerIssueKickoffArgs) => Promise<{
     ok: boolean;
-    result?: TrackerTaskKickoffResult;
+    result?: TrackerIssueKickoffResult;
     message?: string;
   }>;
-  attachStaveTask?: (args: TrackerTaskAttachStaveTaskArgs) => Promise<{
+  attachStaveTask?: (args: TrackerIssueAttachStaveTaskArgs) => Promise<{
     ok: boolean;
-    link?: TrackerTaskStaveLink | null;
+    link?: TrackerIssueStaveLink | null;
     message?: string;
   }>;
-  setSurfaceVisible?: (args: TrackerTasksSurfaceVisibleArgs) => Promise<{
+  setSurfaceVisible?: (args: TrackerIssuesSurfaceVisibleArgs) => Promise<{
     ok: boolean;
     message?: string;
   }>;
-  configure?: (args: TrackerTasksSettings) => Promise<{
+  configure?: (args: TrackerIssuesSettings) => Promise<{
     ok: boolean;
-    status?: TrackerTasksPublicStatus;
+    status?: TrackerIssuesPublicStatus;
     message?: string;
   }>;
   onStatus?: (
-    listener: (payload: TrackerTasksPublicStatus) => void,
+    listener: (payload: TrackerIssuesPublicStatus) => void,
   ) => () => void;
   onCacheUpdated?: (
     listener: (payload: { source: TrackerSourceId }) => void,
   ) => () => void;
   onKickoffUpdated?: (
-    listener: (payload: TrackerTaskStaveLink) => void,
+    listener: (payload: TrackerIssueStaveLink) => void,
   ) => () => void;
 }
 
@@ -1065,24 +1069,24 @@ interface WindowTaskControlApi {
   }>;
 }
 
-interface WindowRoutinesApi {
+interface WindowAutomationsApi {
   setProviderTimeout?: (args: { providerTimeoutMs: number }) => Promise<{
     ok: boolean;
     message?: string;
   }>;
   list?: () => Promise<{
     ok: boolean;
-    snapshot: RoutineSnapshot;
+    snapshot: AutomationSnapshot;
     message?: string;
   }>;
-  create?: (input: RoutineUpsertInput) => Promise<{
+  create?: (input: AutomationUpsertInput) => Promise<{
     ok: boolean;
-    routine: RoutineSpec | null;
+    automation: AutomationSpec | null;
     message?: string;
   }>;
-  update?: (args: { id: string; input: RoutineUpsertInput }) => Promise<{
+  update?: (args: { id: string; input: AutomationUpsertInput }) => Promise<{
     ok: boolean;
-    routine: RoutineSpec | null;
+    automation: AutomationSpec | null;
     message?: string;
   }>;
   remove?: (args: { id: string }) => Promise<{
@@ -1091,16 +1095,16 @@ interface WindowRoutinesApi {
   }>;
   setEnabled?: (args: { id: string; enabled: boolean }) => Promise<{
     ok: boolean;
-    routine: RoutineSpec | null;
+    automation: AutomationSpec | null;
     message?: string;
   }>;
   runNow?: (args: { id: string }) => Promise<{
     ok: boolean;
-    run: RoutineRun | null;
+    run: AutomationRun | null;
     message?: string;
   }>;
   createInformationResource?: (
-    input: RoutineInformationResourceCreateInput,
+    input: AutomationInformationResourceCreateInput,
   ) => Promise<{
     ok: boolean;
     option: WorkspaceInformationReferenceOption | null;
@@ -1367,7 +1371,7 @@ interface WindowToolingApi {
 
 interface WindowScriptsApi {
   getConfig?: (args: {
-    projectPath: string;
+    repositoryPath: string;
     workspacePath: string;
     userOverridePath?: string;
   }) => Promise<{
@@ -1384,7 +1388,7 @@ interface WindowScriptsApi {
     workspaceId: string;
     scriptId: string;
     scriptKind: ScriptKind;
-    projectPath: string;
+    repositoryPath: string;
     workspacePath: string;
     workspaceName: string;
     branch: string;
@@ -1407,7 +1411,7 @@ interface WindowScriptsApi {
   runHook?: (args: {
     workspaceId: string;
     trigger: ScriptTrigger;
-    projectPath: string;
+    repositoryPath: string;
     workspacePath: string;
     workspaceName: string;
     branch: string;
@@ -1727,7 +1731,7 @@ interface WindowPersistenceApi {
         archivedAt?: string | null;
         controlMode?: "interactive" | "managed";
         controlOwner?: "stave" | "external";
-        /** Delegation link, present only on a delegated child task row. */
+        /** Delegation link, present only on a delegated task row. */
         parentTaskId?: string | null;
       }>;
       promptDraftByTask?: Record<string, PromptDraft>;
@@ -1772,7 +1776,7 @@ interface WindowPersistenceApi {
         archivedAt?: string | null;
         controlMode?: "interactive" | "managed";
         controlOwner?: "stave" | "external";
-        /** Delegation link, present only on a delegated child task row. */
+        /** Delegation link, present only on a delegated task row. */
         parentTaskId?: string | null;
       }>;
       promptDraftByTask?: Record<string, PromptDraft>;
@@ -1817,7 +1821,7 @@ interface WindowPersistenceApi {
         archivedAt?: string | null;
         controlMode?: "interactive" | "managed";
         controlOwner?: "stave" | "external";
-        /** Delegation link, present only on a delegated child task row. */
+        /** Delegation link, present only on a delegated task row. */
         parentTaskId?: string | null;
       }>;
       promptDraftByTask?: Record<string, PromptDraft>;
@@ -1839,7 +1843,7 @@ interface WindowPersistenceApi {
         archivedAt?: string | null;
         controlMode?: "interactive" | "managed";
         controlOwner?: "stave" | "external";
-        /** Delegation link, present only on a delegated child task row. */
+        /** Delegation link, present only on a delegated task row. */
         parentTaskId?: string | null;
       }>;
       messageCountByTask?: Record<string, number>;
@@ -1966,10 +1970,10 @@ interface WindowPersistenceApi {
       savedContent?: string;
     }>;
   }>;
-  loadProjectRegistry?: () => Promise<{
+  loadRepositoryRegistry?: () => Promise<{
     ok: boolean;
-    projects: unknown[];
-    activeProjectPath?: string | null;
+    repositories: unknown[];
+    activeRepositoryPath?: string | null;
   }>;
   upsertWorkspace?: (args: {
     id: string;
@@ -2035,9 +2039,9 @@ interface WindowPersistenceApi {
       workspaceInformation?: WorkspaceInformationState;
     };
   }) => Promise<{ ok: boolean }>;
-  saveProjectRegistry?: (args: {
-    projects: unknown[];
-    activeProjectPath?: string | null;
+  saveRepositoryRegistry?: (args: {
+    repositories: unknown[];
+    activeRepositoryPath?: string | null;
   }) => Promise<{ ok: boolean }>;
   closeWorkspace?: (args: { workspaceId: string }) => Promise<{ ok: boolean }>;
   loadDirectionDraft?: (args: {
@@ -2400,7 +2404,7 @@ type LensSessionScope = "project" | "workspace";
 interface LensSessionProfileArgs {
   workspaceId: string;
   sessionScope?: LensSessionScope;
-  projectKey?: string | null;
+  repositoryKey?: string | null;
 }
 
 type LensDownloadState =
@@ -2975,11 +2979,15 @@ interface WindowApi {
   atelierConnector?: WindowAtelierConnectorApi;
   martinSync?: WindowMartinSyncApi;
   craneConnector?: WindowCraneConnectorApi;
-  trackerTasks?: WindowTrackerTasksApi;
-  projectMemory?: WindowProjectMemoryApi;
+  trackerIssues?: WindowTrackerIssuesApi;
+  repositoryMemory?: WindowRepositoryMemoryApi;
   jiraConnector?: WindowJiraConnectorApi;
   taskControl?: WindowTaskControlApi;
-  routines?: WindowRoutinesApi;
+  automations?: WindowAutomationsApi;
+  missions?: MissionsBridgeApi;
+  wakeUps?: WakeUpsBridgeApi;
+  projects?: ProjectsBridgeApi;
+  proposals?: ProposalsBridgeApi;
   lsp?: WindowLspApi;
   eslint?: WindowEslintApi;
   diagnostics?: WindowDiagnosticsApi;

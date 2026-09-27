@@ -1,6 +1,7 @@
 export { AgentHistoryRequestSchema } from "../../../src/lib/providers/agent-history";
 export { WorkspaceExecutionArgsSchema } from "../../../src/lib/performance/workspace-execution";
 import { WorkspaceSnapshotSchema } from "../../../src/lib/task-context/schemas";
+import { APP_NOTIFICATION_KINDS } from "../../../src/lib/notifications/notification.types";
 import { z } from "zod";
 import {
   MAX_PROVIDER_TIMEOUT_MS,
@@ -15,9 +16,9 @@ export {
 } from "./provider-runtime-schemas";
 export { StreamTurnArgsSchema } from "./provider-conversation-schemas";
 import {
-  RoutineInformationResourceCreateInputSchema,
-  RoutineUpsertInputSchema,
-} from "../../../src/lib/routines";
+  AutomationInformationResourceCreateInputSchema,
+  AutomationUpsertInputSchema,
+} from "../../../src/lib/automations";
 import { LENS_CAPTURE_LIMITS } from "../../../src/lib/lens/lens-annotation-schema";
 import { PR_CONTEXT_LIMITS } from "../../../src/lib/pr-context";
 import { GITHUB_PR_REVIEW_LIMITS } from "../../../src/lib/github-pr-review";
@@ -55,21 +56,21 @@ export {
   MartinWorkspaceArgsSchema,
 } from "../../../src/lib/martin-sync/types";
 export {
-  TrackerTaskAttachStaveTaskArgsSchema,
-  TrackerTaskKickoffArgsSchema,
-  TrackerTaskRefArgsSchema,
-  TrackerTasksListArgsSchema,
-  TrackerTasksRefreshArgsSchema,
-  TrackerTasksSurfaceVisibleArgsSchema,
-} from "../../../src/lib/tracker-tasks/types";
-export { TrackerTasksSettingsSchema as TrackerTasksConfigureArgsSchema } from "../../../src/lib/tracker-tasks/settings";
+  TrackerIssueAttachStaveTaskArgsSchema,
+  TrackerIssueKickoffArgsSchema,
+  TrackerIssueRefArgsSchema,
+  TrackerIssuesListArgsSchema,
+  TrackerIssuesRefreshArgsSchema,
+  TrackerIssuesSurfaceVisibleArgsSchema,
+} from "../../../src/lib/tracker-issues/types";
+export { TrackerIssuesSettingsSchema as TrackerIssuesConfigureArgsSchema } from "../../../src/lib/tracker-issues/settings";
 export {
   JiraConnectorConfigureArgsSchema,
   JiraConnectorSetCredentialArgsSchema,
   JiraConnectorTestConnectionArgsSchema,
 } from "../../../src/lib/jira-connector/types";
 
-export const RoutineProviderTimeoutArgsSchema = z
+export const AutomationProviderTimeoutArgsSchema = z
   .object({
     providerTimeoutMs: z.number().int().min(1).max(MAX_PROVIDER_TIMEOUT_MS),
   })
@@ -609,7 +610,7 @@ const ScriptTriggerSchema = z.union([
 
 export const WorkspaceScriptsGetConfigArgsSchema = z
   .object({
-    projectPath: z.string().min(1).max(4096),
+    repositoryPath: z.string().min(1).max(4096),
     workspacePath: z.string().min(1).max(4096),
     userOverridePath: z.string().max(4096).optional(),
   })
@@ -626,7 +627,7 @@ export const WorkspaceScriptsRunEntryArgsSchema = z
     workspaceId: z.string().min(1).max(200),
     scriptId: z.string().min(1).max(200),
     scriptKind: ScriptKindSchema,
-    projectPath: z.string().min(1).max(4096),
+    repositoryPath: z.string().min(1).max(4096),
     workspacePath: z.string().min(1).max(4096),
     workspaceName: z.string().min(1).max(200),
     branch: z.string().min(1).max(200),
@@ -645,7 +646,7 @@ export const WorkspaceScriptsRunHookArgsSchema = z
   .object({
     workspaceId: z.string().min(1).max(200),
     trigger: ScriptTriggerSchema,
-    projectPath: z.string().min(1).max(4096),
+    repositoryPath: z.string().min(1).max(4096),
     workspacePath: z.string().min(1).max(4096),
     workspaceName: z.string().min(1).max(200),
     branch: z.string().min(1).max(200),
@@ -1325,16 +1326,11 @@ const NotificationPayloadSchema = z.record(z.string(), z.unknown());
 export const NotificationRecordSchema = z
   .object({
     id: z.string().min(1).max(200),
-    kind: z.union([
-      z.literal("task.turn_completed"),
-      z.literal("task.turn_failed"),
-      z.literal("task.approval_requested"),
-      z.literal("task.user_input_requested"),
-    ]),
+    kind: z.enum(APP_NOTIFICATION_KINDS),
     title: z.string().min(1).max(500),
     body: z.string().max(5000),
-    projectPath: z.string().max(4096).nullable().optional(),
-    projectName: z.string().max(500).nullable().optional(),
+    repositoryPath: z.string().max(4096).nullable().optional(),
+    repositoryName: z.string().max(500).nullable().optional(),
     workspaceId: z.string().max(200).nullable().optional(),
     workspaceName: z.string().max(500).nullable().optional(),
     taskId: z.string().max(200).nullable().optional(),
@@ -1414,10 +1410,10 @@ export const PersistenceUpsertArgsSchema = z
   })
   .strict();
 
-export const SaveProjectRegistryArgsSchema = z
+export const SaveRepositoryRegistryArgsSchema = z
   .object({
-    projects: z.array(z.record(z.string(), z.unknown())).max(100),
-    activeProjectPath: z.string().trim().min(1).max(4096).nullable().optional(),
+    repositories: z.array(z.record(z.string(), z.unknown())).max(100),
+    activeRepositoryPath: z.string().trim().min(1).max(4096).nullable().optional(),
   })
   .strict();
 
@@ -1568,36 +1564,36 @@ export const EslintRequestArgsSchema = z
   })
   .strict();
 
-export const RoutineCreateArgsSchema = RoutineUpsertInputSchema;
+export const AutomationCreateArgsSchema = AutomationUpsertInputSchema;
 
-export const RoutineUpdateArgsSchema = z
+export const AutomationUpdateArgsSchema = z
   .object({
     id: z.string().uuid(),
-    input: RoutineUpsertInputSchema,
+    input: AutomationUpsertInputSchema,
   })
   .strict();
 
-export const RoutineIdArgsSchema = z
+export const AutomationIdArgsSchema = z
   .object({
     id: z.string().uuid(),
   })
   .strict();
 
-export const RoutineSetEnabledArgsSchema = z
+export const AutomationSetEnabledArgsSchema = z
   .object({
     id: z.string().uuid(),
     enabled: z.boolean(),
   })
   .strict();
 
-export const RoutineInformationReferencesArgsSchema = z
+export const AutomationInformationReferencesArgsSchema = z
   .object({
     workspaceId: z.string().min(1).max(4096),
   })
   .strict();
 
-export const RoutineInformationResourceCreateArgsSchema =
-  RoutineInformationResourceCreateInputSchema;
+export const AutomationInformationResourceCreateArgsSchema =
+  AutomationInformationResourceCreateInputSchema;
 
 export const PersistenceFlushCompleteArgsSchema = z
   .object({
@@ -1615,9 +1611,9 @@ export const StorageCleanupArgsSchema = z
   .strict();
 
 export {
-  ProjectMemoryDeleteArgsSchema,
-  ProjectMemoryListArgsSchema,
-  ProjectMemoryRecallArgsSchema,
-  ProjectMemoryRememberArgsSchema,
-  ProjectMemoryUpdateArgsSchema,
-} from "../../../src/lib/project-memory";
+  RepositoryMemoryDeleteArgsSchema as ProjectMemoryDeleteArgsSchema,
+  RepositoryMemoryListArgsSchema as ProjectMemoryListArgsSchema,
+  RepositoryMemoryRecallArgsSchema as ProjectMemoryRecallArgsSchema,
+  RepositoryMemoryRememberArgsSchema as ProjectMemoryRememberArgsSchema,
+  RepositoryMemoryUpdateArgsSchema as ProjectMemoryUpdateArgsSchema,
+} from "../../../src/lib/repository-memory";

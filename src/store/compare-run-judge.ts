@@ -41,7 +41,7 @@ type CompareRunsById = Record<string, CompareRun | undefined>;
 
 interface CompareJudgeStoreSnapshot {
   compareRunsById: CompareRunsById;
-  projectPath: string | null;
+  repositoryPath: string | null;
   settings: CompareJudgeRuntimeSettings;
   workspaceDefaultById: Record<string, boolean>;
   workspacePathById: Record<string, string>;
@@ -244,7 +244,7 @@ export function buildCompareJudgeSecondaryClaim(args: {
   run: CompareRun;
   model: string;
   cwd: string;
-  projectPath: string;
+  repositoryPath: string;
   runtimeOptions: ProviderRuntimeOptions;
 }): SecondaryRunClaimArgs {
   const judge = args.run.judge;
@@ -261,7 +261,7 @@ export function buildCompareJudgeSecondaryClaim(args: {
         id: args.run.id,
       },
       ownership: {
-        projectPath: args.projectPath,
+        repositoryPath: args.repositoryPath,
         workspaceId: args.run.baseWorkspaceId,
         taskId: args.run.baseTaskId ?? null,
       },
@@ -320,7 +320,7 @@ async function executeCompareJudge(args: {
   run: CompareRun;
   settings: CompareJudgeRuntimeSettings;
   cwd?: string;
-  projectPath?: string;
+  repositoryPath?: string;
   bridge?: CompareJudgeBridge;
   onClaimed?: (executionId: string) => void;
   shouldContinue?: () => boolean;
@@ -336,7 +336,7 @@ async function executeCompareJudge(args: {
       error: "The secondary run bridge is unavailable for compare judging.",
     };
   }
-  if (!args.cwd || !args.projectPath) {
+  if (!args.cwd || !args.repositoryPath) {
     return {
       ok: false as const,
       error: "The compare judge workspace is unavailable.",
@@ -382,7 +382,7 @@ async function executeCompareJudge(args: {
       run: args.run,
       model,
       cwd: args.cwd,
-      projectPath: args.projectPath,
+      repositoryPath: args.repositoryPath,
       runtimeOptions,
     }),
     resultArtifactRef: `compare-run:${args.run.id}:judge-result`,
@@ -470,13 +470,13 @@ async function launchCompareJudge(args: {
     workspaceId: claimedRun.baseWorkspaceId,
     workspacePathById: state.workspacePathById,
     workspaceDefaultById: state.workspaceDefaultById,
-    projectPath: state.projectPath,
+    repositoryPath: state.repositoryPath,
   });
   const result = await executeCompareJudge({
     run: claimedRun,
     settings: state.settings,
     cwd: cwd ?? undefined,
-    projectPath: state.projectPath ?? undefined,
+    repositoryPath: state.repositoryPath ?? undefined,
     bridge: args.access.bridge,
     onClaimed: (executionId) => {
       args.access.updateRuns((runsById) => {

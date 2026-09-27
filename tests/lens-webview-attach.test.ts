@@ -16,16 +16,16 @@ describe("Lens partition recognition", () => {
     const workspaceScoped = resolveLensSessionProfile({
       workspaceId: "ws-1",
       sessionScope: "workspace",
-      projectKey: null,
+      repositoryKey: null,
     });
-    const projectScoped = resolveLensSessionProfile({
+    const repositoryScoped = resolveLensSessionProfile({
       workspaceId: "ws-1",
       sessionScope: "project",
-      projectKey: "/repo/stave",
+      repositoryKey: "/repo/stave",
     });
 
     expect(isLensGuestPartition(workspaceScoped.partition)).toBe(true);
-    expect(isLensGuestPartition(projectScoped.partition)).toBe(true);
+    expect(isLensGuestPartition(repositoryScoped.partition)).toBe(true);
   });
 
   test("rejects the bare prefix, other partitions, and non-strings", () => {

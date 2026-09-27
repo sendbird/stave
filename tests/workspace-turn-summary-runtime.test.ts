@@ -2,9 +2,9 @@ import { afterEach, expect, test } from "bun:test";
 import { createWorkspaceTurnSummaryGenerator } from "../src/store/workspace-turn-summary-runtime";
 import { defaultSettings } from "../src/store/app-settings";
 import {
-  DEFAULT_PROJECT_MEMORY_SETTINGS,
-  type ProjectMemorySettings,
-} from "../src/lib/project-memory-settings";
+  DEFAULT_REPOSITORY_MEMORY_SETTINGS,
+  type RepositoryMemorySettings,
+} from "../src/lib/repository-memory-settings";
 import type { AppState } from "../src/store/app-store.types";
 import { emptyRateLimitsSnapshot } from "../src/lib/providers/account-usage-block";
 
@@ -16,7 +16,7 @@ afterEach(() => {
 });
 
 async function generate(
-  policy: ProjectMemorySettings | null,
+  policy: RepositoryMemorySettings | null,
   statePatch: Partial<AppState> = {},
 ) {
   const prompts: string[] = [];
@@ -27,7 +27,7 @@ async function generate(
     configurable: true,
     value: {
       api: {
-        projectMemory: {
+        repositoryMemory: {
           getSettings: async () =>
             policy ? { ok: true, settings: policy } : { ok: false },
         },
@@ -42,7 +42,7 @@ async function generate(
     },
   });
   const state = {
-    projectPath: "/tmp/memory-summary",
+    repositoryPath: "/tmp/memory-summary",
     activeWorkspaceId: "active",
     workspacePathById: { workspace: "/tmp/memory-summary/worktree" },
     workspaceDefaultById: {},
@@ -125,7 +125,7 @@ test("summary tries an available fallback when the preferred model quota is exha
 
 test("summary generation uses the saved collection template in its existing call and forwards its revision", async () => {
   const result = await generate({
-    ...DEFAULT_PROJECT_MEMORY_SETTINGS,
+    ...DEFAULT_REPOSITORY_MEMORY_SETTINGS,
     collectAutomatically: true,
     revision: 7,
     collectionTemplate: "Collect session recovery pitfalls only.",
@@ -137,7 +137,7 @@ test("summary generation uses the saved collection template in its existing call
   expect(result.summaries).toHaveLength(1);
   expect(result.writes).toEqual([
     {
-      projectPath: "/tmp/memory-summary",
+      repositoryPath: "/tmp/memory-summary",
       taskId: "task",
       turnId: "turn",
       collectionRevision: 7,
@@ -154,7 +154,7 @@ test("summary generation uses the saved collection template in its existing call
 test("disabled or unavailable collection still summarizes but never persists model-proposed memories", async () => {
   for (const policy of [
     null,
-    { ...DEFAULT_PROJECT_MEMORY_SETTINGS, collectAutomatically: false },
+    { ...DEFAULT_REPOSITORY_MEMORY_SETTINGS, collectAutomatically: false },
   ]) {
     const result = await generate(policy);
     expect(result.prompts[0]).toContain("durableFacts: []");

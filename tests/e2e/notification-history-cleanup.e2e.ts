@@ -35,8 +35,8 @@ test("notification history cleanup confirms and removes unresolved attention", a
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-notification-history",
-          projectName: "stave-notification-history",
+          repositoryPath: "/tmp/stave-notification-history",
+          repositoryName: "stave-notification-history",
           workspaces: [
             {
               id: workspaceId,
@@ -60,8 +60,8 @@ test("notification history cleanup confirms and removes unresolved attention", a
         kind: "task.turn_completed",
         title: "Finished run",
         body: "The run completed.",
-        projectPath: "/tmp/stave-notification-history",
-        projectName: "stave-notification-history",
+        repositoryPath: "/tmp/stave-notification-history",
+        repositoryName: "stave-notification-history",
         workspaceId,
         workspaceName: "notification-history",
         taskId,
@@ -80,8 +80,8 @@ test("notification history cleanup confirms and removes unresolved attention", a
         kind: "task.approval_requested",
         title: "Approval required",
         body: "Allow the pending command.",
-        projectPath: "/tmp/stave-notification-history",
-        projectName: "stave-notification-history",
+        repositoryPath: "/tmp/stave-notification-history",
+        repositoryName: "stave-notification-history",
         workspaceId,
         workspaceName: "notification-history",
         taskId,

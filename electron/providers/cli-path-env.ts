@@ -21,7 +21,7 @@ import {
 import { isClaudeCliAutoModeSupportedVersion } from "./claude-cli-compat";
 import { readPrimaryStaveLocalMcpManifestSync } from "../main/stave-local-mcp-manifest";
 import { CODEX_STAVE_MCP_TOKEN_ENV_VAR } from "../main/codex-mcp";
-import { buildProjectShellEnv } from "../shared/project-node-env";
+import { buildRepositoryShellEnv } from "../shared/repository-node-env";
 import {
   getClaudeMcpConfigPaths,
   getCodexMcpConfigPathGroups,
@@ -559,7 +559,7 @@ export function buildClaudeCliEnv(args: {
   });
 
   if (args.cwd) {
-    env = buildProjectShellEnv({ cwd: args.cwd, baseEnv: env });
+    env = buildRepositoryShellEnv({ cwd: args.cwd, baseEnv: env });
   }
   return env;
 }
@@ -602,7 +602,7 @@ export function buildCodexCliEnv(
     resolver: args.resolver,
   });
   if (args.cwd) {
-    env = buildProjectShellEnv({ cwd: args.cwd, baseEnv: env });
+    env = buildRepositoryShellEnv({ cwd: args.cwd, baseEnv: env });
   }
   return Object.fromEntries(
     Object.entries(env).filter(

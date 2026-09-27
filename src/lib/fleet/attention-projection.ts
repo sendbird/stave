@@ -1,10 +1,13 @@
 import type { AppNotification } from "@/lib/notifications/notification.types";
+import type { MissionDetail } from "@/lib/missions/api";
+import { currentStageRecord } from "@/lib/missions/domain";
+import { projectMissionStages, summarizePreviousStage } from "@/lib/missions/mission-view";
 import type { ResultReview } from "@/lib/reviews/result-review";
 import type { WorkspacePrStatus } from "@/lib/pr-status";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import {
-  isDelegatedChildTask,
+  isDelegatedTask,
   isExternallyManagedTask,
   isTaskArchived,
   isTaskManaged,
@@ -25,9 +28,12 @@ export type FleetAttentionKind =
   | "pr-checks-failed"
   | "pr-merge-conflict"
   | "pr-behind-base"
-  | "pr-ready-to-merge";
+  | "pr-ready-to-merge"
+  | "mission-sign-off"
+  | "mission-blocked"
+  | "mission-stuck";
 
-export type FleetAttentionSource = "live" | "notification" | "result" | "pr";
+export type FleetAttentionSource = "live" | "notification" | "result" | "pr" | "mission";
 
 /**
  * `blocking` items hold work up until the user acts. `review` items are worth
@@ -49,6 +55,9 @@ export const FLEET_ATTENTION_TIER: Record<
   "pr-behind-base": "review",
   "result-ready": "review",
   "pr-ready-to-merge": "review",
+  "mission-sign-off": "blocking",
+  "mission-blocked": "blocking",
+  "mission-stuck": "blocking",
 };
 
 export function getFleetAttentionTier(kind: FleetAttentionKind) {
@@ -59,8 +68,8 @@ export interface FleetAttentionItem {
   id: string;
   kind: FleetAttentionKind;
   priority: number;
-  projectPath: string;
-  projectName: string;
+  repositoryPath: string;
+  repositoryName: string;
   workspaceId: string;
   workspaceName: string;
   taskId?: string;
@@ -75,11 +84,13 @@ export interface FleetAttentionItem {
   detail?: string;
   prStatus?: WorkspacePrStatus;
   prUrl?: string;
+  /** The stage attempt a mission row acts on; stale once the mission moves. */
+  missionStage?: { missionId: string; stageId: string; attempt: number };
 }
 
 export interface FleetLiveWorkspaceInput {
-  projectPath: string;
-  projectName: string;
+  repositoryPath: string;
+  repositoryName: string;
   workspaceId: string;
   workspaceName: string;
   tasks: readonly Task[];
@@ -92,8 +103,8 @@ export interface FleetLiveWorkspaceInput {
 }
 
 export interface FleetPrWorkspaceInput {
-  projectPath: string;
-  projectName: string;
+  repositoryPath: string;
+  repositoryName: string;
   workspaceId: string;
   workspaceName: string;
   status: WorkspacePrStatus;
@@ -119,6 +130,10 @@ export interface FleetAttentionProjection {
 export const FLEET_ATTENTION_PRIORITY: Record<FleetAttentionKind, number> = {
   "user-input": 0,
   approval: 1,
+  // A mission waiting on the user is a request like an approval.
+  "mission-sign-off": 1,
+  "mission-blocked": 1,
+  "mission-stuck": 2,
   "run-failed": 2,
   "pr-changes-requested": 3,
   "pr-checks-failed": 3,
@@ -130,6 +145,7 @@ export const FLEET_ATTENTION_PRIORITY: Record<FleetAttentionKind, number> = {
 
 const SOURCE_PRIORITY: Record<FleetAttentionSource, number> = {
   live: 0,
+  mission: 0,
   notification: 1,
   result: 1,
   pr: 2,
@@ -184,17 +200,17 @@ export function getFleetAttentionTaskKey(workspaceId: string, taskId: string) {
  * interaction requests are answered by whoever drives them from outside Stave,
  * so showing them here would ask the user for something the app cannot route.
  *
- * Delegated child tasks are the one carve-out. They are externally managed only
- * because the child-task coordinator creates them that way — nothing outside
+ * Delegated delegated tasks are the one carve-out. They are externally managed only
+ * because the delegated-task coordinator creates them that way — nothing outside
  * Stave is watching them, the person who owns the parent task is the only one
  * who can answer, and an unanswered child approval auto-denies after a few
- * minutes. So a child's request stays visible, attributed to the child task
+ * minutes. So a child's request stays visible, attributed to the delegated task
  * itself and routed to the workspace the child actually runs in.
  */
 export function isFleetAttentionSuppressedTask(
   task: Pick<Task, "controlMode" | "controlOwner" | "parentTaskId">,
 ) {
-  return isExternallyManagedTask(task) && !isDelegatedChildTask(task);
+  return isExternallyManagedTask(task) && !isDelegatedTask(task);
 }
 
 /**
@@ -205,7 +221,7 @@ export function isFleetAttentionSuppressedTask(
  * payloads are not currently written with the control fields, so in practice it
  * declines to suppress and the decision falls to `externalTaskKeys` in
  * `buildFleetAttentionProjection`, which reads live task state. That is the
- * load-bearing filter, and it is where the child-task carve-out actually takes
+ * load-bearing filter, and it is where the delegated-task carve-out actually takes
  * effect. If a payload ever does carry the control fields, a delegated child is
  * still exempted here rather than silently suppressed.
  */
@@ -232,8 +248,8 @@ function buildLiveBase(args: {
   task: Task;
 }) {
   return {
-    projectPath: args.workspace.projectPath,
-    projectName: args.workspace.projectName,
+    repositoryPath: args.workspace.repositoryPath,
+    repositoryName: args.workspace.repositoryName,
     workspaceId: args.workspace.workspaceId,
     workspaceName: args.workspace.workspaceName,
     taskId: args.task.id,
@@ -357,16 +373,16 @@ export function collectFleetNotificationAttentionItems(
   const attentionItems: FleetAttentionItem[] = [];
 
   for (const notification of notifications) {
-    const projectPath = normalizeRequired(notification.projectPath);
+    const repositoryPath = normalizeRequired(notification.repositoryPath);
     const workspaceId = normalizeRequired(notification.workspaceId);
     const taskId = normalizeRequired(notification.taskId);
-    if (!projectPath || !workspaceId || !taskId) {
+    if (!repositoryPath || !workspaceId || !taskId) {
       continue;
     }
 
     const base = {
-      projectPath,
-      projectName: normalizeRequired(notification.projectName) ?? "Project",
+      repositoryPath,
+      repositoryName: normalizeRequired(notification.repositoryName) ?? "Repository",
       workspaceId,
       workspaceName:
         normalizeRequired(notification.workspaceName) ?? "Workspace",
@@ -480,8 +496,8 @@ export function collectFleetPrAttentionItems(
         }),
         kind,
         priority: FLEET_ATTENTION_PRIORITY[kind],
-        projectPath: workspace.projectPath,
-        projectName: workspace.projectName,
+        repositoryPath: workspace.repositoryPath,
+        repositoryName: workspace.repositoryName,
         workspaceId: workspace.workspaceId,
         workspaceName: workspace.workspaceName,
         createdAt: normalizeTimestamp(workspace.updatedAt),
@@ -514,6 +530,64 @@ function choosePreferredNeed(
   };
 }
 
+export interface FleetMissionInput {
+  repositoryPath: string;
+  repositoryName: string;
+  workspaceId: string;
+  workspaceName: string;
+  detail: MissionDetail;
+  taskTitle?: string;
+}
+
+/** "Verify next · Build done · 4 files +82 −17 · 1 verified by Stave". */
+function describeSignOffDetail(detail: MissionDetail, stageTitle: string) {
+  const rows = projectMissionStages(detail, new Date(detail.mission.updatedAt));
+  const summary = summarizePreviousStage(rows[detail.mission.currentStageIndex - 1]);
+  return summary ? `${stageTitle} next · ${summary}` : `${stageTitle} next`;
+}
+
+/** A mission stopped for the user: a sign-off, a blocker or a stuck stage. */
+export function collectFleetMissionAttentionItems(
+  inputs: readonly FleetMissionInput[],
+): FleetAttentionItem[] {
+  return inputs.flatMap((input): FleetAttentionItem[] => {
+    const { mission } = input.detail;
+    if (mission.state !== "running") return [];
+    const record = currentStageRecord(input.detail);
+    const kind =
+      record.status === "awaiting-sign-off"
+        ? "mission-sign-off"
+        : record.status === "blocked"
+          ? "mission-blocked"
+          : record.status === "stuck"
+            ? "mission-stuck"
+            : null;
+    if (!kind) return [];
+    const stage = mission.playbook.stages[mission.currentStageIndex]!;
+    return [
+      {
+        id: ["mission", kind, mission.id, record.stageId, record.attempt].join(":"),
+        kind,
+        priority: FLEET_ATTENTION_PRIORITY[kind],
+        source: "mission",
+        repositoryPath: input.repositoryPath,
+        repositoryName: input.repositoryName,
+        workspaceId: input.workspaceId,
+        workspaceName: input.workspaceName,
+        taskId: mission.leadTaskId,
+        taskTitle: input.taskTitle,
+        providerId: mission.fingerprint.providerId,
+        createdAt: normalizeTimestamp(mission.updatedAt),
+        detail:
+          kind === "mission-sign-off"
+            ? describeSignOffDetail(input.detail, stage.title)
+            : `${stage.title} · ${record.detail ?? (kind === "mission-stuck" ? "stopped moving" : "needs you")}`,
+        missionStage: { missionId: mission.id, stageId: record.stageId, attempt: record.attempt },
+      },
+    ];
+  });
+}
+
 export function compareFleetAttentionItems(
   left: FleetAttentionItem,
   right: FleetAttentionItem,
@@ -542,6 +616,8 @@ export function buildFleetAttentionProjection(args: {
   knownWorkspaceIds?: ReadonlySet<string>;
   /** Closed tasks resolved from cold workspace shells outside live state. */
   closedTaskKeys?: ReadonlySet<string>;
+  /** Missions across workspaces; running ones that wait on the user become rows. */
+  missions?: readonly FleetMissionInput[];
   /**
    * Attention ids with an unexpired snooze. Filtering happens after the merge so
    * one snooze covers an item no matter which source wins for it on this pass.
@@ -589,8 +665,8 @@ export function buildFleetAttentionProjection(args: {
             kind,
             priority: FLEET_ATTENTION_PRIORITY[kind],
             source: "result",
-            projectPath: result.projectPath,
-            projectName: result.projectName,
+            repositoryPath: result.repositoryPath,
+            repositoryName: result.repositoryName,
             workspaceId: result.workspaceId,
             workspaceName: result.workspaceName,
             taskId: result.taskId,
@@ -622,6 +698,11 @@ export function buildFleetAttentionProjection(args: {
       ),
     ...collectFleetPrAttentionItems(args.prWorkspaces),
     ...collectFleetLiveAttentionItems(args.liveWorkspaces),
+    ...collectFleetMissionAttentionItems(
+      (args.missions ?? []).filter(
+        (input) => !knownWorkspaceIds || knownWorkspaceIds.has(input.workspaceId),
+      ),
+    ),
   ];
 
   for (const candidate of candidates) {

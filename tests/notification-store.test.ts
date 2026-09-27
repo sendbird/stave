@@ -2,10 +2,10 @@ import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import type NativeDatabase from "better-sqlite3";
 import { NotificationStore } from "../electron/persistence/notification-store";
-import type { PersistenceProjectRegistryEntry } from "../electron/persistence/types";
+import type { PersistenceRepositoryRegistryEntry } from "../electron/persistence/types";
 
 let database: Database;
-let registry: PersistenceProjectRegistryEntry[];
+let registry: PersistenceRepositoryRegistryEntry[];
 let store: NotificationStore;
 
 beforeEach(() => {
@@ -98,8 +98,8 @@ describe("NotificationStore SQL boundary", () => {
   test("removes only true orphans using both workspace rows and the registry", () => {
     database.prepare("INSERT INTO workspaces (id) VALUES (?)").run("row-owned");
     registry = [{
-      projectPath: "/tmp/project",
-      projectName: "Project",
+      repositoryPath: "/tmp/project",
+      repositoryName: "Project",
       lastOpenedAt: "2026-01-01T00:00:00.000Z",
       defaultBranch: "main",
       workspaces: [{ id: "registry-owned", name: "Registry", updatedAt: "2026-01-01T00:00:00.000Z" }],

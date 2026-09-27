@@ -1,3 +1,5 @@
+// temporary-migration: connector-repository-mappings
+import { renameLegacyConnectorMappings } from "@/lib/legacy-connector-mappings";
 import { z } from "zod";
 
 import { CraneTeamRuntimeMemorySchema } from "@/lib/crane-connector/types";
@@ -99,7 +101,7 @@ export const JiraConnectorSettingsSchema = z
       .min(1)
       .max(MAX_JIRA_MAX_RESULTS)
       .default(DEFAULT_JIRA_MAX_RESULTS),
-    projectMappings: z.array(JiraProjectMappingSchema).max(100),
+    repositoryMappings: z.array(JiraProjectMappingSchema).max(100),
   })
   .strict();
 
@@ -112,12 +114,14 @@ export const DEFAULT_JIRA_CONNECTOR_SETTINGS = Object.freeze({
   authMode: "cloud-api-token",
   jql: DEFAULT_JIRA_JQL,
   maxResults: DEFAULT_JIRA_MAX_RESULTS,
-  projectMappings: [],
+  repositoryMappings: [],
 }) satisfies JiraConnectorSettings;
 
 export function normalizeJiraConnectorSettings(
-  value: unknown,
+  input: unknown,
 ): JiraConnectorSettings {
+  // temporary-migration: connector-repository-mappings
+  const value = renameLegacyConnectorMappings(input);
   const parsed = JiraConnectorSettingsSchema.safeParse(value);
   if (parsed.success) {
     return parsed.data;
@@ -127,17 +131,17 @@ export function normalizeJiraConnectorSettings(
   // flag down with it. Salvage per element and drop only what fails.
   const salvaged = JiraConnectorSettingsSchema.safeParse({
     ...(value && typeof value === "object" ? value : {}),
-    projectMappings: Array.isArray(
-      (value as { projectMappings?: unknown })?.projectMappings,
+    repositoryMappings: Array.isArray(
+      (value as { repositoryMappings?: unknown })?.repositoryMappings,
     )
-      ? (value as { projectMappings: unknown[] }).projectMappings.filter(
+      ? (value as { repositoryMappings: unknown[] }).repositoryMappings.filter(
           (mapping) => JiraProjectMappingSchema.safeParse(mapping).success,
         )
       : [],
   });
   return salvaged.success
     ? salvaged.data
-    : { ...DEFAULT_JIRA_CONNECTOR_SETTINGS, projectMappings: [] };
+    : { ...DEFAULT_JIRA_CONNECTOR_SETTINGS, repositoryMappings: [] };
 }
 
 /**

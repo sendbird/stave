@@ -2,7 +2,7 @@
 
 # Crane Stave Tasks — Cross-Repository Record
 
-Stave's Tasks surface reads Crane tickets through connector-authenticated routes
+Stave's Issues surface reads Crane tickets through connector-authenticated routes
 that Crane serves. This note records the boundary between the two repositories so
 a later change to either side can find the other.
 
@@ -18,7 +18,7 @@ here — a second copy would drift.
 The contract is `crane-tasks-v1`, and its JSON fixtures are duplicated verbatim
 in both repositories on purpose:
 
-- Stave: `tests/fixtures/crane-tasks-v1/*.json`, asserted by `tests/crane-tasks-contract.test.ts` against `src/lib/tracker-tasks/contract.ts`
+- Stave: `tests/fixtures/crane-tasks-v1/*.json`, asserted by `tests/crane-tasks-contract.test.ts` against `src/lib/tracker-issues/contract.ts`
 - Atelier: `apps/crane/tests/fixtures/crane-tasks-v1/*.json`, asserted against the Crane contract module
 
 Both sides validate **every** fixture, including the family the other side
@@ -88,12 +88,12 @@ dependency.
 
 ## Stave Side
 
-- Model, contract, and pure UI logic: `src/lib/tracker-tasks/`
+- Model, contract, and pure UI logic: `src/lib/tracker-issues/`
 - Jira Cloud connector (independent of Crane): `src/lib/jira-connector/`, `electron/main/jira-connector/`
-- Sources, refresh runtime, kickoff: `electron/main/tracker-tasks/`
-- Cache and kickoff rows: `electron/persistence/tracker-tasks-store.ts`
-- Surface: `src/components/layout/tasks/`
-- User guide: `docs/features/tasks.md`
+- Sources, refresh runtime, kickoff: `electron/main/tracker-issues/`
+- Cache and kickoff rows: `electron/persistence/tracker-issues-store.ts`
+- Surface: `src/components/layout/issues/`
+- User guide: `docs/features/issues.md`
 - Invariants: `docs/architecture/contracts.md`, "Tracker Tasks Contract"
 
 Until the Crane routes are deployed, the Crane source reports itself as

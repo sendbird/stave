@@ -50,8 +50,8 @@ test("workspace switch with an open Lens keeps the active task surface visible",
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-alpha",

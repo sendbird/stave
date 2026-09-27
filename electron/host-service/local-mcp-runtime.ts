@@ -4,6 +4,7 @@ import { promises as fs } from "node:fs";
 import path from "node:path";
 import { buildCanonicalConversationRequest } from "../../src/lib/providers/canonical-request";
 import { getDefaultModelForProvider } from "../../src/lib/providers/model-catalog";
+import { addIdleTask, resolveTaskModel } from "./idle-task";
 import { resolveTurnModelInfo } from "../../src/lib/providers/turn-model-info";
 import { getProviderSessionCursor } from "../../src/lib/providers/provider-sessions";
 import type {
@@ -12,24 +13,14 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
 } from "../../src/lib/providers/provider.types";
-import {
-  CHILD_TASK_LIST_LIMIT,
-  isActiveChildTaskPhase,
-  toChildTaskSummary,
-  type ChildTaskSummary,
-} from "../../src/lib/runs/child-task";
-import {
-  TaskCompletionStatusSchema,
-  TASK_HEARTBEAT_LIMITS,
-  type TaskCompletionSignal,
-} from "../../src/lib/automation/task-supervisor";
-import { buildChildTaskReceiptsRetrievedContext } from "../../src/lib/task-context/child-task-receipts";
+import { listDelegatedTaskSummaries } from "./delegated-task-signals";
+import { buildDelegatedTaskReceiptsRetrievedContext } from "../../src/lib/task-context/delegated-task-receipts";
 import { buildCurrentTaskAwarenessRetrievedContextParts } from "../../src/lib/task-context/current-task-awareness";
 import { toPersistenceTurnUsage } from "../persistence/turn-usage";
 import type { PersistenceTurnUsage } from "../persistence/types";
 import type { AppNotificationCreateInput } from "../../src/lib/notifications/notification.types";
 import {
-  projectLocalMcpTaskTurnActivityEvent,
+  repositoryLocalMcpTaskTurnActivityEvent,
   type LocalMcpTaskTurnUpdate,
 } from "../../src/lib/local-mcp/task-turn-update";
 import { classifyProviderTurnStopReason } from "../../src/lib/providers/turn-status";
@@ -58,27 +49,27 @@ import {
   normalizeProviderTimeoutMs,
 } from "../../src/store/editor.utils";
 import {
-  buildProjectDefaultWorkspaceId,
+  buildRepositoryDefaultWorkspaceId,
   buildImportedWorktreeWorkspaceId,
   buildWorkspaceCreationNotice,
   buildWorkspaceRootNodeModulesSymlinkCommand,
   mergeArchivedWorkspacePaths,
-  normalizeProjectDisplayName,
-  normalizeProjectWorkspaceRootNodeModulesSymlinkPreference,
-  normalizeRecentProjectStates,
+  normalizeRepositoryDisplayName,
+  normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference,
+  normalizeRecentRepositoryStates,
   normalizeWorkspaceInitCommand,
-  resolveCurrentProjectDefaultWorkspaceId,
-  resolveProjectNameFromPath,
-  resolveProjectWorkspaceInitCommand,
-  resolveProjectWorkspaceRootNodeModulesSymlinkPreference,
+  resolveCurrentRepositoryDefaultWorkspaceId,
+  resolveRepositoryNameFromPath,
+  resolveRepositoryWorkspaceInitCommand,
+  resolveRepositoryWorkspaceRootNodeModulesSymlinkPreference,
   resolveWorkspaceRemoteBaseBranchTarget,
   sanitizeBranchName,
   summarizeTerminalCommandDetail,
   summarizeWorkspaceInitCommand,
   toWorkspaceFolderName,
-  upsertRecentProjectState,
-  type RecentProjectState,
-} from "../../src/store/project.utils";
+  upsertRecentRepositoryState,
+  type RecentRepositoryState,
+} from "../../src/store/repository.utils";
 import {
   buildWorkspaceSessionState,
   buildWorkspaceSessionStateFromShell,
@@ -101,6 +92,7 @@ import {
   findPendingApprovalMessageByRequestId,
   findPendingUserInputMessageByRequestId,
 } from "../../src/store/provider-message.utils";
+import { findPendingApprovals, findPendingUserInputs } from "./local-mcp-pending";
 import type {
   ChatMessage,
   Task,
@@ -122,16 +114,16 @@ import {
 } from "../../src/lib/providers/managed-task-runtime";
 import { ensureHostServicePersistenceReady } from "./persistence";
 import {
-  ProjectMemoryContentSchema,
-  ProjectMemoryKindSchema,
-  resolveProjectMemoryConfidence,
-  type ProjectMemory,
-  type ProjectMemoryKind,
-} from "../../src/lib/project-memory";
+  RepositoryMemoryContentSchema,
+  RepositoryMemoryKindSchema,
+  resolveRepositoryMemoryConfidence,
+  type RepositoryMemory,
+  type RepositoryMemoryKind,
+} from "../../src/lib/repository-memory";
 import {
-  buildProjectMemoryRetrievedContextPart,
-  resolveProjectMemoryRecallQuery,
-} from "../../src/lib/task-context/project-memory";
+  buildRepositoryMemoryRetrievedContextPart,
+  resolveRepositoryMemoryRecallQuery,
+} from "../../src/lib/task-context/repository-memory";
 import { createKeyedAsyncQueue } from "./keyed-async-queue";
 import {
   createLocalMcpTurnJournal,
@@ -150,9 +142,9 @@ export interface RegisteredWorkspaceInfo {
   isDefault: boolean;
 }
 
-export interface RegisteredProjectInfo {
-  projectPath: string;
-  projectName: string;
+export interface RegisteredRepositoryInfo {
+  repositoryPath: string;
+  repositoryName: string;
   defaultBranch: string;
   activeWorkspaceId: string;
   defaultWorkspaceId: string;
@@ -164,8 +156,8 @@ export interface CreatedWorkspaceInfo {
   workspaceName: string;
   workspacePath: string;
   branch: string;
-  projectPath: string;
-  projectName: string;
+  repositoryPath: string;
+  repositoryName: string;
   noticeLevel?: "success" | "warning";
   message?: string;
 }
@@ -205,11 +197,11 @@ export interface TaskStatusResult {
   }>;
 }
 
-/** The task supervisor's read of one task. See `getTaskSupervisionSnapshot`. */
+/** The supervisor's read of one task. See `getTaskSupervisionSnapshot`. */
 export interface TaskSupervisionSnapshot {
   workspaceId: string;
   taskId: string;
-  projectPath: string | null;
+  repositoryPath: string | null;
   exists: boolean;
   archived: boolean;
   providerId: ProviderId | null;
@@ -267,20 +259,20 @@ let localMcpEventListener:
     ) => void)
   | null = null;
 
-function normalizeProjectPath(projectPath: string) {
-  return path.resolve(projectPath.trim());
+function normalizeRepositoryPath(repositoryPath: string) {
+  return path.resolve(repositoryPath.trim());
 }
 
-async function assertDirectoryExists(projectPath: string) {
-  const stat = await fs.stat(projectPath);
+async function assertDirectoryExists(repositoryPath: string) {
+  const stat = await fs.stat(repositoryPath);
   if (!stat.isDirectory()) {
-    throw new Error(`Path is not a directory: ${projectPath}`);
+    throw new Error(`Path is not a directory: ${repositoryPath}`);
   }
 }
 
-async function detectDefaultBranch(projectPath: string) {
+async function detectDefaultBranch(repositoryPath: string) {
   const branchResult = await runCommand({
-    cwd: projectPath,
+    cwd: repositoryPath,
     command:
       "git symbolic-ref --short refs/remotes/origin/HEAD || git symbolic-ref --short HEAD || echo main",
   });
@@ -304,15 +296,15 @@ function decodeTaskMessages(messages: unknown[]): ChatMessage[] {
 }
 
 function toWorkspaceList(
-  project: RecentProjectState,
+  repository: RecentRepositoryState,
 ): RegisteredWorkspaceInfo[] {
-  return project.workspaces.map((workspace) => ({
+  return repository.workspaces.map((workspace) => ({
     id: workspace.id,
     name: workspace.name,
     updatedAt: workspace.updatedAt,
-    path: project.workspacePathById[workspace.id] ?? project.projectPath,
-    branch: project.workspaceBranchById[workspace.id] ?? project.defaultBranch,
-    isDefault: Boolean(project.workspaceDefaultById[workspace.id]),
+    path: repository.workspacePathById[workspace.id] ?? repository.repositoryPath,
+    branch: repository.workspaceBranchById[workspace.id] ?? repository.defaultBranch,
+    isDefault: Boolean(repository.workspaceDefaultById[workspace.id]),
   }));
 }
 
@@ -427,79 +419,79 @@ function queueWorkspaceSessionPersist(args: {
   return tracked;
 }
 
-async function loadNormalizedProjects() {
+async function loadNormalizedRepositories() {
   const store = ensureHostServicePersistenceReady();
   return {
     store,
-    projects: normalizeRecentProjectStates({
-      projects: store.loadProjectRegistry() as RecentProjectState[],
+    repositories: normalizeRecentRepositoryStates({
+      repositories: store.loadRepositoryRegistry() as RecentRepositoryState[],
     }),
   };
 }
 
-async function saveNormalizedProjects(projects: RecentProjectState[]) {
+async function saveNormalizedRepositories(repositories: RecentRepositoryState[]) {
   const store = ensureHostServicePersistenceReady();
-  store.saveProjectRegistry({
-    projects: normalizeRecentProjectStates({ projects }) as never[],
+  store.saveRepositoryRegistry({
+    repositories: normalizeRecentRepositoryStates({ repositories }) as never[],
   });
 }
 
-function findProjectByPath(
-  projects: RecentProjectState[],
-  projectPath: string,
+function findRepositoryByPath(
+  repositories: RecentRepositoryState[],
+  repositoryPath: string,
 ) {
   return (
-    projects.find((project) => project.projectPath === projectPath) ?? null
+    repositories.find((repository) => repository.repositoryPath === repositoryPath) ?? null
   );
 }
 
 function findWorkspaceRegistration(args: {
-  projects: RecentProjectState[];
+  repositories: RecentRepositoryState[];
   workspaceId: string;
 }) {
-  for (const project of args.projects) {
+  for (const repository of args.repositories) {
     const workspace =
-      project.workspaces.find((item) => item.id === args.workspaceId) ?? null;
+      repository.workspaces.find((item) => item.id === args.workspaceId) ?? null;
     if (!workspace) {
       continue;
     }
     return {
-      project,
+      project: repository,
       workspace,
       workspacePath:
-        project.workspacePathById[workspace.id] ?? project.projectPath,
+        repository.workspacePathById[workspace.id] ?? repository.repositoryPath,
       branch:
-        project.workspaceBranchById[workspace.id] ?? project.defaultBranch,
+        repository.workspaceBranchById[workspace.id] ?? repository.defaultBranch,
     };
   }
   return null;
 }
 
-async function ensureProjectRegistryEntry(args: {
-  projectPath: string;
-  projectName?: string;
+async function ensureRepositoryRegistryEntry(args: {
+  repositoryPath: string;
+  repositoryName?: string;
   defaultBranch?: string;
 }) {
-  const projectPath = normalizeProjectPath(args.projectPath);
-  await assertDirectoryExists(projectPath);
-  const resolvedProjectName = normalizeProjectDisplayName({
-    projectPath,
-    projectName:
-      args.projectName?.trim() || resolveProjectNameFromPath({ projectPath }),
+  const repositoryPath = normalizeRepositoryPath(args.repositoryPath);
+  await assertDirectoryExists(repositoryPath);
+  const resolvedRepositoryName = normalizeRepositoryDisplayName({
+    repositoryPath,
+    repositoryName:
+      args.repositoryName?.trim() || resolveRepositoryNameFromPath({ repositoryPath }),
   });
   const defaultBranch =
-    args.defaultBranch?.trim() || (await detectDefaultBranch(projectPath));
+    args.defaultBranch?.trim() || (await detectDefaultBranch(repositoryPath));
   const now = new Date().toISOString();
 
-  const { store, projects } = await loadNormalizedProjects();
-  const existingProject = findProjectByPath(projects, projectPath);
-  const defaultWorkspaceId = existingProject
-    ? resolveCurrentProjectDefaultWorkspaceId({
-        projectPath,
-        workspaces: existingProject.workspaces,
-        workspaceDefaultById: existingProject.workspaceDefaultById,
+  const { store, repositories } = await loadNormalizedRepositories();
+  const existingRepository = findRepositoryByPath(repositories, repositoryPath);
+  const defaultWorkspaceId = existingRepository
+    ? resolveCurrentRepositoryDefaultWorkspaceId({
+        repositoryPath,
+        workspaces: existingRepository.workspaces,
+        workspaceDefaultById: existingRepository.workspaceDefaultById,
       })
-    : buildProjectDefaultWorkspaceId({ projectPath });
+    : buildRepositoryDefaultWorkspaceId({ repositoryPath });
   const existingShell = store.loadWorkspaceShell({
     workspaceId: defaultWorkspaceId,
   });
@@ -512,46 +504,46 @@ async function ensureProjectRegistryEntry(args: {
     });
   }
 
-  const nextProject: RecentProjectState = existingProject
+  const nextRepository: RecentRepositoryState = existingRepository
     ? {
-        ...existingProject,
-        projectName: resolvedProjectName,
+        ...existingRepository,
+        repositoryName: resolvedRepositoryName,
         defaultBranch,
         lastOpenedAt: now,
         activeWorkspaceId:
-          existingProject.activeWorkspaceId || defaultWorkspaceId,
+          existingRepository.activeWorkspaceId || defaultWorkspaceId,
         workspaceBranchById: {
-          ...existingProject.workspaceBranchById,
+          ...existingRepository.workspaceBranchById,
           [defaultWorkspaceId]:
-            existingProject.workspaceBranchById[defaultWorkspaceId] ||
+            existingRepository.workspaceBranchById[defaultWorkspaceId] ||
             defaultBranch,
         },
         workspacePathById: {
-          ...existingProject.workspacePathById,
+          ...existingRepository.workspacePathById,
           [defaultWorkspaceId]:
-            existingProject.workspacePathById[defaultWorkspaceId] ||
-            projectPath,
+            existingRepository.workspacePathById[defaultWorkspaceId] ||
+            repositoryPath,
         },
         workspaceDefaultById: {
-          ...existingProject.workspaceDefaultById,
+          ...existingRepository.workspaceDefaultById,
           [defaultWorkspaceId]: true,
         },
-        workspaces: existingProject.workspaces.some(
+        workspaces: existingRepository.workspaces.some(
           (workspace) => workspace.id === defaultWorkspaceId,
         )
-          ? existingProject.workspaces
+          ? existingRepository.workspaces
           : [
               {
                 id: defaultWorkspaceId,
                 name: defaultWorkspaceName,
                 updatedAt: now,
               },
-              ...existingProject.workspaces,
+              ...existingRepository.workspaces,
             ],
       }
     : {
-        projectPath,
-        projectName: resolvedProjectName,
+        repositoryPath,
+        repositoryName: resolvedRepositoryName,
         lastOpenedAt: now,
         defaultBranch,
         workspaces: [
@@ -563,24 +555,24 @@ async function ensureProjectRegistryEntry(args: {
         ],
         activeWorkspaceId: defaultWorkspaceId,
         workspaceBranchById: { [defaultWorkspaceId]: defaultBranch },
-        workspacePathById: { [defaultWorkspaceId]: projectPath },
+        workspacePathById: { [defaultWorkspaceId]: repositoryPath },
         workspaceDefaultById: { [defaultWorkspaceId]: true },
-        projectBasePrompt: "",
+        repositoryBasePrompt: "",
         newWorkspaceInitCommand: "",
         newWorkspaceUseRootNodeModulesSymlink: false,
       };
 
-  const nextProjects = upsertRecentProjectState({
-    projects,
-    project: nextProject,
+  const nextRepositories = upsertRecentRepositoryState({
+    repositories,
+    repository: nextRepository,
   });
-  await saveNormalizedProjects(nextProjects);
+  await saveNormalizedRepositories(nextRepositories);
 
   return {
-    projectPath,
-    projectName: resolvedProjectName,
+    projectPath: repositoryPath,
+    repositoryName: resolvedRepositoryName,
     defaultBranch,
-    project: nextProject,
+    repository: nextRepository,
     defaultWorkspaceId,
   };
 }
@@ -783,9 +775,9 @@ async function updateWorkspaceInformationState(args: {
     workspaceId: args.workspaceId,
     session: await loadWorkspaceSession(args.workspaceId),
   });
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   const nextWorkspaceInformation = args.updater(session.workspaceInformation);
@@ -845,78 +837,78 @@ export const {
   updateWorkspaceInformationState,
 });
 
-export interface ProjectMemoryRememberToolResult {
-  projectPath: string;
+export interface RepositoryMemoryRememberToolResult {
+  repositoryPath: string;
   outcome: "inserted" | "confirmed" | "updated" | "rejected";
-  memory: ProjectMemory | null;
+  memory: RepositoryMemory | null;
 }
 
-export interface ProjectMemoryForgetToolResult {
-  projectPath: string;
+export interface RepositoryMemoryForgetToolResult {
+  repositoryPath: string;
   memoryId: string;
   forgotten: boolean;
 }
 
-async function resolveProjectPathForWorkspace(workspaceId: string) {
-  const { projects } = await loadNormalizedProjects();
-  const registration = findWorkspaceRegistration({ projects, workspaceId });
+async function resolveRepositoryPathForWorkspace(workspaceId: string) {
+  const { repositories } = await loadNormalizedRepositories();
+  const registration = findWorkspaceRegistration({ repositories, workspaceId });
   if (!registration) {
     throw new Error(`Workspace is not registered to a project: ${workspaceId}`);
   }
-  return registration.project.projectPath;
+  return registration.project.repositoryPath;
 }
 
 /**
- * `stave_remember`: store one project-scoped fact for every future task of the
- * workspace's project. Scope comes from the workspace registration, never from
- * the caller, so a tool call cannot write into another project's memory.
+ * `stave_remember`: store one repository-scoped fact for every future task of the
+ * workspace's repository. Scope comes from the workspace registration, never from
+ * the caller, so a tool call cannot write into another repository's memory.
  */
-export async function rememberProjectMemory(args: {
+export async function rememberRepositoryMemory(args: {
   workspaceId: string;
-  kind: ProjectMemoryKind;
+  kind: RepositoryMemoryKind;
   content: string;
   memoryId?: string;
   recallMode?: "contextual" | "core";
   taskId?: string;
-}): Promise<ProjectMemoryRememberToolResult> {
-  const kind = ProjectMemoryKindSchema.parse(args.kind);
-  const content = ProjectMemoryContentSchema.parse(args.content);
-  const projectPath = await resolveProjectPathForWorkspace(args.workspaceId);
+}): Promise<RepositoryMemoryRememberToolResult> {
+  const kind = RepositoryMemoryKindSchema.parse(args.kind);
+  const content = RepositoryMemoryContentSchema.parse(args.content);
+  const repositoryPath = await resolveRepositoryPathForWorkspace(args.workspaceId);
   const store = ensureHostServicePersistenceReady();
   if (args.memoryId) {
-    const memory = store.updateProjectMemory({
+    const memory = store.updateRepositoryMemory({
       id: args.memoryId,
-      projectPath,
+      repositoryPath,
       kind,
       content,
       recallMode: args.recallMode ?? "contextual",
     });
     if (!memory) throw new Error("Project memory not found in this project.");
-    return { projectPath, outcome: "updated", memory };
+    return { repositoryPath, outcome: "updated", memory };
   }
-  const result = store.rememberProjectMemory({
-    projectPath,
+  const result = store.rememberRepositoryMemory({
+    repositoryPath,
     kind,
     content,
     recallMode: args.recallMode,
-    confidence: resolveProjectMemoryConfidence("explicit"),
+    confidence: resolveRepositoryMemoryConfidence("explicit"),
     sourceTaskId: args.taskId ?? null,
   });
   if (!result) {
     // Collection is disabled or the user previously removed this fact.
-    return { projectPath, outcome: "rejected", memory: null };
+    return { repositoryPath, outcome: "rejected", memory: null };
   }
-  return { projectPath, outcome: result.outcome, memory: result.memory };
+  return { repositoryPath, outcome: result.outcome, memory: result.memory };
 }
 
-/** `stave_list_project_memories`: ids + content, so `stave_forget` has something to target. */
-export async function listProjectMemories(args: { workspaceId: string } & import("../../src/lib/project-memory").ProjectMemorySearchOptions) {
-  const projectPath = await resolveProjectPathForWorkspace(args.workspaceId);
+/** `stave_list_repository_memories`: ids + content, so `stave_forget` has something to target. */
+export async function listRepositoryMemories(args: { workspaceId: string } & import("../../src/lib/repository-memory").RepositoryMemorySearchOptions) {
+  const repositoryPath = await resolveRepositoryPathForWorkspace(args.workspaceId);
   const store = ensureHostServicePersistenceReady();
   const { workspaceId: _workspaceId, ...options } = args;
-  const result = store.searchProjectMemories({ projectPath, ...options });
+  const result = store.searchRepositoryMemories({ repositoryPath, ...options });
   return {
-    projectPath,
+    projectPath: repositoryPath,
     nextOffset: result.nextOffset,
     memories: result.memories
       .map(({ id, kind, content, recallMode, lastConfirmedAt }) => ({
@@ -929,54 +921,54 @@ export async function listProjectMemories(args: { workspaceId: string } & import
   };
 }
 
-/** `stave_forget`: soft-delete a memory that belongs to the workspace's project. */
-export async function forgetProjectMemory(args: {
+/** `stave_forget`: soft-delete a memory that belongs to the workspace's repository. */
+export async function forgetRepositoryMemory(args: {
   workspaceId: string;
   memoryId: string;
-}): Promise<ProjectMemoryForgetToolResult> {
-  const projectPath = await resolveProjectPathForWorkspace(args.workspaceId);
+}): Promise<RepositoryMemoryForgetToolResult> {
+  const repositoryPath = await resolveRepositoryPathForWorkspace(args.workspaceId);
   const store = ensureHostServicePersistenceReady();
-  const memory = store.getProjectMemory(args.memoryId);
-  if (!memory || memory.projectPath !== projectPath) {
+  const memory = store.getRepositoryMemory(args.memoryId);
+  if (!memory || memory.repositoryPath !== repositoryPath) {
     throw new Error(
       `Project memory not found in this project: ${args.memoryId}`,
     );
   }
   return {
-    projectPath,
+    repositoryPath,
     memoryId: args.memoryId,
-    forgotten: store.deleteProjectMemory(args.memoryId),
+    forgotten: store.deleteRepositoryMemory(args.memoryId),
   };
 }
 
 /**
- * The `stave:project-memory` block for a host-initiated turn. Memory is a
+ * The `stave:repository-memory` block for a host-initiated turn. Memory is a
  * best-effort aid: a store without the method (test doubles) or a failing
  * query yields no block rather than a failed turn.
  */
-function buildProjectMemoryPartForTurn(args: {
-  projectPath: string;
+function buildRepositoryMemoryPartForTurn(args: {
+  repositoryPath: string;
   history: ChatMessage[];
   prompt: string;
 }): CanonicalRetrievedContextPart | null {
   try {
     const store = ensureHostServicePersistenceReady() as {
-      recallProjectMemories?: (input: {
-        projectPath: string;
+      recallRepositoryMemories?: (input: {
+        repositoryPath: string;
         query?: string | null;
-      }) => ProjectMemory[];
+      }) => RepositoryMemory[];
     };
-    if (typeof store.recallProjectMemories !== "function") {
+    if (typeof store.recallRepositoryMemories !== "function") {
       return null;
     }
-    const memories = store.recallProjectMemories({
-      projectPath: args.projectPath,
-      query: resolveProjectMemoryRecallQuery({
+    const memories = store.recallRepositoryMemories({
+      repositoryPath: args.repositoryPath,
+      query: resolveRepositoryMemoryRecallQuery({
         history: args.history,
         prompt: args.prompt,
       }),
     });
-    return buildProjectMemoryRetrievedContextPart({ memories });
+    return buildRepositoryMemoryRetrievedContextPart({ memories });
   } catch (error) {
     console.warn("[stave-mcp] project memory recall failed", error);
     return null;
@@ -991,54 +983,6 @@ function buildTaskTitleFromPrompt(prompt: string) {
       .find(Boolean)
       ?.slice(0, 48) || "New Task"
   );
-}
-
-function findPendingApprovals(messages: ChatMessage[]) {
-  const pending: Array<{
-    messageId: string;
-    requestId: string;
-    toolName: string;
-    description: string;
-  }> = [];
-
-  for (const message of messages) {
-    const approvalPart = findLatestPendingApprovalPart({ message });
-    if (!approvalPart) {
-      continue;
-    }
-    pending.push({
-      messageId: message.id,
-      requestId: approvalPart.requestId,
-      toolName: approvalPart.toolName,
-      description: approvalPart.description,
-    });
-  }
-
-  return pending;
-}
-
-function findPendingUserInputs(messages: ChatMessage[]) {
-  const pending: Array<{
-    messageId: string;
-    requestId: string;
-    toolName: string;
-    questionCount: number;
-  }> = [];
-
-  for (const message of messages) {
-    const userInputPart = findLatestPendingUserInputPart({ message });
-    if (!userInputPart) {
-      continue;
-    }
-    pending.push({
-      messageId: message.id,
-      requestId: userInputPart.requestId,
-      toolName: userInputPart.toolName,
-      questionCount: userInputPart.questions.length,
-    });
-  }
-
-  return pending;
 }
 
 async function persistNotification(notification: AppNotificationCreateInput) {
@@ -1063,9 +1007,9 @@ async function persistApprovalNotification(args: {
   event: Extract<NormalizedProviderEvent, { type: "approval" }>;
   session: WorkspaceSessionState;
 }) {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   const task =
@@ -1087,8 +1031,8 @@ async function persistApprovalNotification(args: {
     kind: "task.approval_requested",
     title: taskTitle,
     body: `${args.event.toolName}: ${args.event.description}`,
-    projectPath: registration?.project.projectPath ?? null,
-    projectName: registration?.project.projectName ?? null,
+    repositoryPath: registration?.project.repositoryPath ?? null,
+    repositoryName: registration?.project.repositoryName ?? null,
     workspaceId: args.workspaceId,
     workspaceName: registration?.workspace.name ?? null,
     taskId: args.taskId,
@@ -1226,9 +1170,9 @@ async function persistUserInputNotification(args: {
   if (!location) {
     return;
   }
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   const firstQuestion = args.event.questions[0];
@@ -1244,8 +1188,8 @@ async function persistUserInputNotification(args: {
     kind: "task.user_input_requested",
     title: task.title || "Task",
     body: `${args.event.toolName}: ${question}`,
-    projectPath: registration?.project.projectPath ?? null,
-    projectName: registration?.project.projectName ?? null,
+    repositoryPath: registration?.project.repositoryPath ?? null,
+    repositoryName: registration?.project.repositoryName ?? null,
     workspaceId: args.workspaceId,
     workspaceName: registration?.workspace.name ?? null,
     taskId: args.taskId,
@@ -1284,9 +1228,9 @@ async function persistTurnCompletedNotification(args: {
     ? "failed" : classifyProviderTurnStopReason(args.event.stop_reason);
   if (outcome === "cancelled") return;
 
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   const taskTitle =
@@ -1297,8 +1241,8 @@ async function persistTurnCompletedNotification(args: {
     kind: outcome === "failed" ? "task.turn_failed" : "task.turn_completed",
     title: taskTitle,
     body: `Latest run ${outcome === "failed" ? "failed" : "finished"} in ${registration?.workspace.name ?? args.workspaceId}.`,
-    projectPath: registration?.project.projectPath ?? null,
-    projectName: registration?.project.projectName ?? null,
+    repositoryPath: registration?.project.repositoryPath ?? null,
+    repositoryName: registration?.project.repositoryName ?? null,
     workspaceId: args.workspaceId,
     workspaceName: registration?.workspace.name ?? null,
     taskId: args.taskId,
@@ -1448,24 +1392,24 @@ async function handleProviderEvent(args: {
   }
 }
 
-export async function registerProject(args: {
-  projectPath: string;
-  projectName?: string;
+export async function registerRepository(args: {
+  repositoryPath: string;
+  repositoryName?: string;
   defaultBranch?: string;
 }) {
-  const ensured = await ensureProjectRegistryEntry(args);
+  const ensured = await ensureRepositoryRegistryEntry(args);
   return {
-    projectPath: ensured.projectPath,
-    projectName: ensured.project.projectName,
-    defaultBranch: ensured.project.defaultBranch,
-    activeWorkspaceId: ensured.project.activeWorkspaceId,
+    repositoryPath: ensured.projectPath,
+    repositoryName: ensured.repository.repositoryName,
+    defaultBranch: ensured.repository.defaultBranch,
+    activeWorkspaceId: ensured.repository.activeWorkspaceId,
     defaultWorkspaceId: ensured.defaultWorkspaceId,
-    workspaces: toWorkspaceList(ensured.project),
-  } satisfies RegisteredProjectInfo;
+    workspaces: toWorkspaceList(ensured.repository),
+  } satisfies RegisteredRepositoryInfo;
 }
 
 export async function createWorkspace(args: {
-  projectPath: string;
+  repositoryPath: string;
   name: string;
   /** Human-facing sidebar label. Falls back to the derived branch name. */
   label?: string;
@@ -1480,11 +1424,11 @@ export async function createWorkspace(args: {
     throw new Error("Workspace name is required.");
   }
 
-  const ensured = await ensureProjectRegistryEntry({
-    projectPath: args.projectPath,
+  const ensured = await ensureRepositoryRegistryEntry({
+    repositoryPath: args.repositoryPath,
   });
-  const projectPath = ensured.projectPath;
-  const project = ensured.project;
+  const repositoryPath = ensured.projectPath;
+  const repository = ensured.repository;
   const branchName = sanitizeBranchName({ value: trimmedName });
   if (!branchName) {
     throw new Error("Workspace branch name is invalid.");
@@ -1492,12 +1436,12 @@ export async function createWorkspace(args: {
   const workspaceDisplayName = args.label?.trim() || branchName;
 
   const existingWorkspace =
-    toWorkspaceList(project).find(
+    toWorkspaceList(repository).find(
       (workspace) =>
         workspace.branch === branchName ||
         workspace.name === branchName ||
         workspace.path ===
-          `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: branchName, unique: true })}`,
+          `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: branchName, unique: true })}`,
     ) ?? null;
   if (existingWorkspace) {
     return {
@@ -1505,38 +1449,38 @@ export async function createWorkspace(args: {
       workspaceName: existingWorkspace.name,
       workspacePath: existingWorkspace.path,
       branch: existingWorkspace.branch,
-      projectPath,
-      projectName: project.projectName,
+      repositoryPath,
+      repositoryName: repository.repositoryName,
       message: "Workspace already exists.",
       noticeLevel: "warning",
     } satisfies CreatedWorkspaceInfo;
   }
 
-  const workspacePath = `${projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: branchName, unique: true })}`;
+  const workspacePath = `${repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: branchName, unique: true })}`;
   const workspaceId = buildImportedWorktreeWorkspaceId({
-    projectPath,
+    repositoryPath,
     worktreePath: workspacePath,
   });
   let baseBranch =
     args.fromBranch?.trim() ||
-    project.defaultBranch ||
+    repository.defaultBranch ||
     ensured.defaultBranch ||
     "main";
   const initCommand = normalizeWorkspaceInitCommand({
     value:
       args.initCommand ??
-      resolveProjectWorkspaceInitCommand({
-        projectPath,
-        recentProjects: [project],
+      resolveRepositoryWorkspaceInitCommand({
+        repositoryPath,
+        recentRepositories: [repository],
       }),
   });
   const useRootNodeModulesSymlink =
     args.useRootNodeModulesSymlink === undefined
-      ? resolveProjectWorkspaceRootNodeModulesSymlinkPreference({
-          projectPath,
-          recentProjects: [project],
+      ? resolveRepositoryWorkspaceRootNodeModulesSymlinkPreference({
+          repositoryPath,
+          recentRepositories: [repository],
         })
-      : normalizeProjectWorkspaceRootNodeModulesSymlinkPreference({
+      : normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference({
           value: args.useRootNodeModulesSymlink,
         });
   const notices: Array<{ level: "success" | "warning"; message: string }> = [];
@@ -1549,7 +1493,7 @@ export async function createWorkspace(args: {
           verifyRef: async (ref) =>
             (
               await runCommandArgs({
-                cwd: projectPath,
+                cwd: repositoryPath,
                 command: "git",
                 commandArgs: ["show-ref", "--verify", "--quiet", ref],
               })
@@ -1558,13 +1502,13 @@ export async function createWorkspace(args: {
       : null;
   if (remoteTarget) {
     const fetchResult = await runCommandArgs({
-      cwd: projectPath,
+      cwd: repositoryPath,
       command: "git",
       commandArgs: ["fetch", remoteTarget.remoteName, "--prune"],
     });
     if (!fetchResult.ok) {
       const localBranchProbe = await runCommandArgs({
-        cwd: projectPath,
+        cwd: repositoryPath,
         command: "git",
         commandArgs: [
           "show-ref",
@@ -1596,11 +1540,11 @@ export async function createWorkspace(args: {
   }
 
   await runCommand({
-    cwd: projectPath,
+    cwd: repositoryPath,
     command: "mkdir -p .stave/workspaces",
   });
   const addResult = await runCommandArgs({
-    cwd: projectPath,
+    cwd: repositoryPath,
     command: "git",
     commandArgs:
       args.mode === "clean"
@@ -1609,7 +1553,7 @@ export async function createWorkspace(args: {
   });
   if (!addResult.ok) {
     const fallbackResult = await runCommandArgs({
-      cwd: projectPath,
+      cwd: repositoryPath,
       command: "git",
       commandArgs: ["worktree", "add", workspacePath, branchName],
     });
@@ -1627,7 +1571,7 @@ export async function createWorkspace(args: {
   if (useRootNodeModulesSymlink) {
     const linkResult = await runCommand({
       cwd: workspacePath,
-      command: buildWorkspaceRootNodeModulesSymlinkCommand({ projectPath }),
+      command: buildWorkspaceRootNodeModulesSymlinkCommand({ repositoryPath }),
     });
     if (linkResult.ok) {
       notices.push({
@@ -1689,36 +1633,36 @@ export async function createWorkspace(args: {
   );
 
   const now = new Date().toISOString();
-  const nextProject: RecentProjectState = {
-    ...project,
+  const nextRepository: RecentRepositoryState = {
+    ...repository,
     lastOpenedAt: now,
     activeWorkspaceId: workspaceId,
     workspaces: [
-      ...project.workspaces,
+      ...repository.workspaces,
       { id: workspaceId, name: workspaceDisplayName, updatedAt: now },
     ],
     workspaceBranchById: {
-      ...project.workspaceBranchById,
+      ...repository.workspaceBranchById,
       [workspaceId]: branchName,
     },
     workspacePathById: {
-      ...project.workspacePathById,
+      ...repository.workspacePathById,
       [workspaceId]: workspacePath,
     },
     workspaceDefaultById: {
-      ...project.workspaceDefaultById,
+      ...repository.workspaceDefaultById,
       [workspaceId]: false,
     },
     archivedWorkspacePaths: mergeArchivedWorkspacePaths({
-      current: project.archivedWorkspacePaths,
+      current: repository.archivedWorkspacePaths,
       remove: [workspacePath],
     }),
   };
-  const { projects } = await loadNormalizedProjects();
-  await saveNormalizedProjects(
-    upsertRecentProjectState({
-      projects,
-      project: nextProject,
+  const { repositories } = await loadNormalizedRepositories();
+  await saveNormalizedRepositories(
+    upsertRecentRepositoryState({
+      repositories,
+      repository: nextRepository,
     }),
   );
 
@@ -1728,107 +1672,10 @@ export async function createWorkspace(args: {
     workspaceName: workspaceDisplayName,
     workspacePath,
     branch: branchName,
-    projectPath,
-    projectName: project.projectName,
+    repositoryPath,
+    repositoryName: repository.repositoryName,
     ...(notice ?? {}),
   } satisfies CreatedWorkspaceInfo;
-}
-
-/**
- * Child-task receipts for one parent, read straight from the ledger. Returns an
- * empty list rather than throwing: a parent's turn must never fail because its
- * delegation bookkeeping could not be read.
- */
-function listChildTaskSummaries(args: {
-  parentTaskId: string;
-  limit?: number;
-}): ChildTaskSummary[] {
-  try {
-    return ensureHostServicePersistenceReady()
-      .listRunAggregatesByOrigin({
-        originKind: "task",
-        originId: args.parentTaskId,
-        limit: args.limit ?? CHILD_TASK_LIST_LIMIT,
-      })
-      .flatMap((aggregate) => {
-        const summary = toChildTaskSummary(aggregate);
-        return summary ? [summary] : [];
-      });
-  } catch (error) {
-    console.warn(
-      `[stave-mcp] failed to read child task receipts: ${String(error)}`,
-    );
-    return [];
-  }
-}
-
-/**
- * How deep the completion feed reads, as opposed to `CHILD_TASK_LIST_LIMIT`,
- * which sizes a panel a human is looking at.
- *
- * These two limits answer different questions. Truncating a *display* list
- * hides rows the user can still go and find; truncating the *completion* feed
- * loses a wake-up permanently, because the supervisor only ever consumes what
- * this read returns.
- *
- * The direction of the safety inequality matters: the supervisor's `fired`-row
- * retention (`minRetainedFiredOccurrences`) must be at least as wide as this
- * window, never the other way around. The retained `fired` rows are the
- * idempotency guard — if this read can still report a completion whose
- * consumed receipt was already pruned, that completion reads as brand new and
- * wakes the task a second time. A completion that ages out of this window
- * unconsumed is lost instead, which is why the window is still generous. The
- * constant lives beside the retention limits so the inequality is pinned by a
- * test rather than re-derived here.
- */
-const TASK_COMPLETION_FEED_LIMIT = TASK_HEARTBEAT_LIMITS.maxCompletionFeedRows;
-
-/**
- * The task supervisor's completion feed: delegated runs of one parent that have
- * reached a terminal status.
- *
- * Read-only, and derived from the same ledger rows the child-task surface
- * shows, so a completion wake-up can never disagree with what the user sees.
- * The supervisor decides what to do with these; this only reports them.
- */
-export function listTaskCompletionSignals(args: {
-  taskId: string;
-}): TaskCompletionSignal[] {
-  return listChildTaskSummaries({
-    parentTaskId: args.taskId,
-    limit: TASK_COMPLETION_FEED_LIMIT,
-  }).flatMap((summary) => {
-    // `waiting` is an active phase, so a detached child that parked open
-    // after its turn never appears here: only stopping or detaching the
-    // delegation settles it into a terminal status. Documented in
-    // docs/features/task-heartbeats.md — a completion heartbeat observes
-    // delegations that *end*, not detached children between turns.
-    if (isActiveChildTaskPhase(summary.phase)) {
-      return [];
-    }
-    const status = TaskCompletionStatusSchema.safeParse(summary.phase);
-    if (!status.success) {
-      return [];
-    }
-    return [
-      {
-        runId: summary.runId,
-        stepId: summary.stepId,
-        childTaskId: summary.childTaskId,
-        providerId: summary.providerId,
-        status: status.data,
-        reason: summary.reason
-          ? summary.reason.slice(0, TASK_HEARTBEAT_LIMITS.maxReasonChars)
-          : null,
-        // A terminal step without a `completedAt` is a reconciled one; its
-        // `updatedAt` is the instant it settled.
-        completedAt: summary.completedAt ?? summary.updatedAt,
-        // Part of the signal's identity: a retried attempt that settles
-        // again must not be deduped against the first attempt's wake-up.
-        attempt: summary.attempt,
-      } satisfies TaskCompletionSignal,
-    ];
-  });
 }
 
 export async function runTask(args: {
@@ -1837,8 +1684,8 @@ export async function runTask(args: {
   taskId?: string;
   title?: string;
   /**
-   * Set only by the child-task coordinator. Denormalizes the run-ledger
-   * delegation link onto the child task row so listing surfaces can tell a
+   * Set only by the delegated-task coordinator. Denormalizes the run-ledger
+   * delegation link onto the delegated task row so listing surfaces can tell a
    * child from a peer task. Ignored when continuing an existing task: the link
    * is frozen at creation.
    */
@@ -1852,10 +1699,12 @@ export async function runTask(args: {
   controlMode?: TaskControlMode;
   controlOwner?: TaskControlOwner;
   retrievedContextParts?: CanonicalRetrievedContextPart[];
+  /** Set only by the mission supervisor; the provider runtime mints the grant. */
+  missionStage?: import("../../src/lib/missions/domain").MissionStageIdentity;
 }) {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   if (!registration) {
@@ -1898,8 +1747,8 @@ export async function runTask(args: {
     }
   }
 
-  // A delegation pre-mints its child task id on the run ledger before the
-  // child task exists, so the coordinator path (parentTaskId set) may name a
+  // A delegation pre-mints its delegated task id on the run ledger before the
+  // delegated task exists, so the coordinator path (parentTaskId set) may name a
   // task that is not in this workspace yet — it is created below with that
   // exact id so the ledger row and the task row agree on identity. Every
   // other caller passing taskId means "continue this task", where a miss is
@@ -2025,10 +1874,10 @@ export async function runTask(args: {
     informationReferencesContext
       ? {
           type: "retrieved_context",
-          sourceId: "stave:routine-information-references",
-          title: "Routine Information References",
+          sourceId: "stave:automation-information-references",
+          title: "Automation Information References",
           content: [
-            "The routine explicitly attached these Information panel entries.",
+            "The automation explicitly attached these Information panel entries.",
             "Treat section references as the full current section and item references as the specific current item.",
             "",
             informationReferencesContext,
@@ -2037,11 +1886,11 @@ export async function runTask(args: {
       : null;
   // A parent that delegated work sees where its children stand before it takes
   // its next turn — identity, phase and reason, never the child's transcript.
-  const childTaskReceiptsPart = buildChildTaskReceiptsRetrievedContext({
-    children: listChildTaskSummaries({ parentTaskId: task.id }),
+  const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
+    children: listDelegatedTaskSummaries({ parentTaskId: task.id }),
   });
-  const projectMemoryPart = buildProjectMemoryPartForTurn({
-    projectPath: registration.project.projectPath,
+  const repositoryMemoryPart = buildRepositoryMemoryPartForTurn({
+    repositoryPath: registration.project.repositoryPath,
     history: existingHistory,
     prompt: args.prompt,
   });
@@ -2063,14 +1912,14 @@ export async function runTask(args: {
         workspaceName,
         workspacePath,
         workspaceBranch: registration.branch,
-        projectName: registration.project.projectName,
-        projectPath: registration.project.projectPath,
+        repositoryName: registration.project.repositoryName,
+        repositoryPath: registration.project.repositoryPath,
         taskId: task.id,
         tasks: session.tasks,
         workspaceInformation: session.workspaceInformation,
       }),
-      ...(projectMemoryPart ? [projectMemoryPart] : []),
-      ...(childTaskReceiptsPart ? [childTaskReceiptsPart] : []),
+      ...(repositoryMemoryPart ? [repositoryMemoryPart] : []),
+      ...(delegatedTaskReceiptsPart ? [delegatedTaskReceiptsPart] : []),
       ...(informationReferencesPart ? [informationReferencesPart] : []),
       ...(args.retrievedContextParts ?? []),
     ],
@@ -2156,6 +2005,7 @@ export async function runTask(args: {
       ...(args.unattendedAutomation
         ? { unattendedAutomation: args.unattendedAutomation }
         : {}),
+      ...(args.missionStage ? { missionStage: args.missionStage } : {}),
       runtimeOptions: {
         ...(isExternallyManagedTask(task)
           ? resolveManagedTaskRuntimeOptions({
@@ -2164,10 +2014,10 @@ export async function runTask(args: {
                 ? { runtimeOptions: args.runtimeOptions }
                 : {}),
               // The renderer syncs Settings.providerTimeoutMs into this key
-              // via routines.setProviderTimeout. Managed turns run in the
+              // via automations.setProviderTimeout. Managed turns run in the
               // host and otherwise never see that setting.
               defaultProviderTimeoutMs: normalizeProviderTimeoutMs({
-                value: store.loadRoutineProviderTimeoutMs(),
+                value: store.loadAutomationProviderTimeoutMs(),
               }),
             })
           : args.runtimeOptions),
@@ -2178,7 +2028,7 @@ export async function runTask(args: {
       onEvent: (event) => {
         sequence += 1;
         const eventSequence = sequence;
-        const activityEvent = projectLocalMcpTaskTurnActivityEvent(event);
+        const activityEvent = repositoryLocalMcpTaskTurnActivityEvent(event);
         void workspaceProviderEventQueue
           .enqueue(args.workspaceId, async () => {
             await handleProviderEvent({
@@ -2316,9 +2166,9 @@ export async function getTaskStatus(args: {
 }
 
 /**
- * Clears the delegation link on a child task so it re-enters ordinary
+ * Clears the delegation link on a delegated task so it re-enters ordinary
  * workspace listings. `parentTaskId` is the listing predicate
- * (`isDelegatedChildTask`), so a detached child that kept it would stay hidden
+ * (`isDelegatedTask`), so a detached child that kept it would stay hidden
  * from every workspace-level task listing forever — a possibly still-running
  * session nobody can find once its parent is archived. Detach's contract is
  * "the child carries on as an ordinary task", and this is what makes that
@@ -2331,9 +2181,9 @@ export async function releaseTaskParent(args: {
   workspaceId: string;
   taskId: string;
 }): Promise<{ released: boolean }> {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   if (!registration) {
@@ -2362,16 +2212,16 @@ export async function releaseTaskParent(args: {
 }
 
 /**
- * Everything the task supervisor needs to decide whether a heartbeat may fire.
+ * Everything the supervisor needs to decide whether a wake-up may fire.
  *
- * Deliberately separate from `getTaskStatus`: that shape is a routine's view of
+ * Deliberately separate from `getTaskStatus`: that shape is an automation's view of
  * a run it started, while this one answers "is this pre-existing task still the
- * same task, still free, and still on the runtime the heartbeat agreed to".
+ * same task, still free, and still on the runtime the wake-up agreed to".
  * Unlike `getTaskStatus` it reports a missing workspace or task as `exists:
  * false` rather than throwing, because a deleted task is a normal terminal
- * outcome for a heartbeat, not an error.
+ * outcome for a wake-up, not an error.
  *
- * Used by: `electron/host-service/task-supervisor-runtime.ts`.
+ * Used by: `electron/host-service/wake-up-runtime.ts`.
  */
 export async function getTaskSupervisionSnapshot(args: {
   workspaceId: string;
@@ -2380,7 +2230,7 @@ export async function getTaskSupervisionSnapshot(args: {
   const missing: TaskSupervisionSnapshot = {
     workspaceId: args.workspaceId,
     taskId: args.taskId,
-    projectPath: null,
+    repositoryPath: null,
     exists: false,
     archived: false,
     providerId: null,
@@ -2390,9 +2240,9 @@ export async function getTaskSupervisionSnapshot(args: {
     pendingUserInputCount: 0,
   };
 
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   if (!registration) {
@@ -2402,7 +2252,7 @@ export async function getTaskSupervisionSnapshot(args: {
   const session = await loadWorkspaceSession(args.workspaceId);
   const task = session.tasks.find((item) => item.id === args.taskId);
   if (!task) {
-    return { ...missing, projectPath: registration.project.projectPath };
+    return { ...missing, repositoryPath: registration.project.repositoryPath };
   }
 
   const store = ensureHostServicePersistenceReady();
@@ -2413,22 +2263,15 @@ export async function getTaskSupervisionSnapshot(args: {
       limit: 40,
     })?.messages ?? session.messagesByTask[args.taskId] ?? []);
 
-  // The model a task actually runs on is only recorded per message. Fall back
-  // to the provider default, which is what `runTask` itself would resolve.
-  const latestModel = [...messages]
-    .reverse()
-    .find((message) => Boolean(message.model))?.model;
 
   return {
     workspaceId: args.workspaceId,
     taskId: task.id,
-    projectPath: registration.project.projectPath,
+    repositoryPath: registration.project.repositoryPath,
     exists: true,
     archived: Boolean(task.archivedAt),
     providerId: task.provider,
-    model:
-      latestModel?.trim() ||
-      getDefaultModelForProvider({ providerId: task.provider }),
+    model: resolveTaskModel({ messages, draft: session.promptDraftByTask[task.id], providerId: task.provider }),
     activeTurnId: session.activeTurnIdsByTask[task.id] ?? null,
     pendingApprovalCount: findPendingApprovals(messages).length,
     pendingUserInputCount: findPendingUserInputs(messages).length,
@@ -2436,61 +2279,38 @@ export async function getTaskSupervisionSnapshot(args: {
 }
 
 /**
- * A heartbeat turn. Identical to a user turn except that it always targets an
- * existing task and always keeps the task interactive and Stave-owned — waking
- * a task must never quietly hand its control to an external owner.
- *
- * Used by: `electron/host-service/task-supervisor-runtime.ts`.
- */
-export async function runHeartbeatTurn(args: {
-  workspaceId: string;
-  taskId: string;
-  prompt: string;
-  /**
-   * The runtime identity the supervisor validated against live task state on
-   * this very tick. Passed explicitly rather than left to `runTask`'s default,
-   * because "wake this task" means wake it as itself — a Codex task resumed
-   * under the Claude default would be a different agent answering.
-   */
-  fingerprint?: { providerId: ProviderId; model: string };
-  retrievedContextParts?: CanonicalRetrievedContextPart[];
-}) {
-  return runTask({
-    workspaceId: args.workspaceId,
-    taskId: args.taskId,
-    prompt: args.prompt,
-    controlMode: "interactive",
-    controlOwner: "stave",
-    ...(args.fingerprint
-      ? {
-          provider: args.fingerprint.providerId,
-          runtimeOptions: { model: args.fingerprint.model },
-        }
-      : {}),
-    ...(args.retrievedContextParts
-      ? { retrievedContextParts: args.retrievedContextParts }
-      : {}),
-  });
-}
-
-/**
- * The terminal notification half of a heartbeat's contract: a wake-up that
- * consumed its receipt but never reached the task.
+ * A supervisor turn that never reached its task: a wake-up that consumed its
+ * receipt, or a mission turn that could not start.
  *
  * `task.turn_failed` rather than a new kind — from the user's side that is
  * exactly what happened, and inventing a supervisor-only kind would widen the
- * notification surface for no new decision. The dedupe key is the occurrence's
- * own reason so a repeated failure of the same wake-up collapses into one row.
+ * notification surface for no new decision. The dedupe key carries the reason
+ * so a repeated failure of the same kind collapses into one row.
  */
-export async function notifyHeartbeatWakeFailed(args: {
+/**
+ * Adds a task to a workspace without starting a turn, for a supervisor that
+ * starts the first turn itself (a project starting a mission on a new task).
+ */
+export async function createIdleTask(args: { workspaceId: string; title: string; provider: ProviderId; model?: string | null }) {
+  const { repositories } = await loadNormalizedRepositories();
+  const registration = findWorkspaceRegistration({ repositories, workspaceId: args.workspaceId });
+  if (!registration) throw new Error(`Workspace not found: ${args.workspaceId}`);
+  const added = addIdleTask(await loadWorkspaceSession(args.workspaceId), args);
+  const next = cacheWorkspaceSession(args.workspaceId, added.session);
+  await queueWorkspaceSessionPersist({ workspaceId: args.workspaceId, workspaceName: registration.workspace.name, session: next });
+  return { taskId: added.taskId };
+}
+
+export async function notifySupervisorProblem(args: {
   workspaceId: string;
   taskId: string;
-  triggerKind: "schedule" | "completion";
-  detail: string;
+  body: string;
+  payload: Record<string, unknown>;
+  dedupeKey: string;
 }) {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   const session = await loadWorkspaceSession(args.workspaceId);
@@ -2501,12 +2321,9 @@ export async function notifyHeartbeatWakeFailed(args: {
     id: randomUUID(),
     kind: "task.turn_failed",
     title: taskTitle,
-    body:
-      args.triggerKind === "completion"
-        ? `A heartbeat could not report finished delegated work: ${args.detail}`
-        : `A scheduled heartbeat turn could not start: ${args.detail}`,
-    projectPath: registration?.project.projectPath ?? null,
-    projectName: registration?.project.projectName ?? null,
+    body: args.body,
+    repositoryPath: registration?.project.repositoryPath ?? null,
+    repositoryName: registration?.project.repositoryName ?? null,
     workspaceId: args.workspaceId,
     workspaceName: registration?.workspace.name ?? null,
     taskId: args.taskId,
@@ -2514,11 +2331,26 @@ export async function notifyHeartbeatWakeFailed(args: {
     turnId: null,
     providerId: task?.provider ?? null,
     action: null,
-    payload: {
-      source: "task-heartbeat",
-      triggerKind: args.triggerKind,
-    },
-    dedupeKey: `task-heartbeat.wake_failed:${args.taskId}:${args.detail}`,
+    payload: args.payload,
+    dedupeKey: args.dedupeKey,
+  });
+}
+
+export async function notifyWakeUpFailed(args: {
+  workspaceId: string;
+  taskId: string;
+  triggerKind: "schedule" | "completion";
+  detail: string;
+}) {
+  await notifySupervisorProblem({
+    workspaceId: args.workspaceId,
+    taskId: args.taskId,
+    body:
+      args.triggerKind === "completion"
+        ? `A wake-up could not report finished delegated work: ${args.detail}`
+        : `A scheduled wake-up turn could not start: ${args.detail}`,
+    payload: { source: "wake-up", triggerKind: args.triggerKind },
+    dedupeKey: `wake-up.wake_failed:${args.taskId}:${args.detail}`,
   });
 }
 
@@ -2528,9 +2360,9 @@ async function releaseManagedTaskControl(args: {
   requiredOwner?: TaskControlOwner;
   sourceContexts?: CanonicalRetrievedContextPart[];
 }) {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   if (!registration) {
@@ -2609,9 +2441,9 @@ export async function stopManagedTaskTurn(args: {
   workspaceId: string;
   taskId: string;
 }) {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   if (!registration) {
@@ -2734,9 +2566,9 @@ export async function respondApproval(args: {
   requestId: string;
   approved: boolean;
 }) {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   if (!registration) {
@@ -2806,9 +2638,9 @@ export async function respondUserInput(args: {
   answers?: Record<string, string>;
   denied?: boolean;
 }) {
-  const { projects } = await loadNormalizedProjects();
+  const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
-    projects,
+    repositories,
     workspaceId: args.workspaceId,
   });
   if (!registration) {
@@ -2869,18 +2701,18 @@ export async function respondUserInput(args: {
   });
 }
 
-export async function listKnownProjects() {
-  const { projects } = await loadNormalizedProjects();
-  return projects.map((project) => ({
-    projectPath: project.projectPath,
-    projectName: project.projectName,
-    defaultBranch: project.defaultBranch,
-    activeWorkspaceId: project.activeWorkspaceId,
-    defaultWorkspaceId: resolveCurrentProjectDefaultWorkspaceId({
-      projectPath: project.projectPath,
-      workspaces: project.workspaces,
-      workspaceDefaultById: project.workspaceDefaultById,
+export async function listKnownRepositories() {
+  const { repositories } = await loadNormalizedRepositories();
+  return repositories.map((repository) => ({
+    repositoryPath: repository.repositoryPath,
+    repositoryName: repository.repositoryName,
+    defaultBranch: repository.defaultBranch,
+    activeWorkspaceId: repository.activeWorkspaceId,
+    defaultWorkspaceId: resolveCurrentRepositoryDefaultWorkspaceId({
+      repositoryPath: repository.repositoryPath,
+      workspaces: repository.workspaces,
+      workspaceDefaultById: repository.workspaceDefaultById,
     }),
-    workspaces: toWorkspaceList(project),
+    workspaces: toWorkspaceList(repository),
   }));
 }

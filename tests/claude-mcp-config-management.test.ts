@@ -183,9 +183,9 @@ describe("Claude MCP configuration management", () => {
     const cwd = await mkdtemp(path.join(tmpdir(), "stave-claude-mcp-"));
     temporaryDirectories.push(cwd);
     const stateFilePath = path.join(cwd, "claude-state.json");
-    const projectFilePath = path.join(cwd, ".mcp.json");
+    const repositoryFilePath = path.join(cwd, ".mcp.json");
     await writeFile(stateFilePath, "{}\n", "utf8");
-    await writeFile(projectFilePath, "{ invalid json", "utf8");
+    await writeFile(repositoryFilePath, "{ invalid json", "utf8");
     const request = {
       operation: "create" as const,
       cwd,
@@ -206,7 +206,7 @@ describe("Claude MCP configuration management", () => {
       await __claudeMcpConfigManagementTest.prepareClaudeMutation(request, {
         cwd,
         stateFilePath,
-        projectFilePath,
+        projectFilePath: repositoryFilePath,
       });
 
     expect(prepared.loaded.filePath).toBe(stateFilePath);

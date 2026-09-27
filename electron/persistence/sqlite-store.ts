@@ -21,7 +21,7 @@ import type {
   PersistenceWorkspaceShell,
   PersistenceWorkspaceShellLite,
   PersistenceWorkspaceShellSummary,
-  PersistenceProjectRegistryEntry,
+  PersistenceRepositoryRegistryEntry,
   PersistenceNotificationCreateInput,
   PersistenceNotificationRecord,
   PersistenceTurnSummary,
@@ -38,11 +38,7 @@ import { parsePersistedTurnUsage } from "./turn-usage";
 import type { PersistenceBootstrapStatus } from "../../src/lib/persistence/bootstrap-status";
 import { IDLE_PERSISTENCE_BOOTSTRAP_STATUS } from "../../src/lib/persistence/bootstrap-status";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
-import {
-  createEmptyRoutineState,
-  normalizeRoutineState,
-  type RoutineState,
-} from "../../src/lib/routines";
+import type { AutomationState } from "../../src/lib/automations";
 import type { BridgeEvent } from "../providers/types";
 import {
   parseTurnEventPayload,
@@ -54,24 +50,29 @@ import {
   CraneJobBindingStore,
   type LocalCraneJobBinding,
 } from "./crane-job-binding-store";
-import { TrackerTasksStore } from "./tracker-tasks-store";
+import { TrackerIssuesStore } from "./tracker-issues-store";
 import type {
   TrackerSourceId,
-  TrackerTask,
-  TrackerTaskStaveLink,
-} from "../../src/lib/tracker-tasks/types";
-import { TaskHeartbeatStore } from "./task-heartbeat-store";
-import { ProjectMemoryStore } from "./project-memory-store";
+  TrackerIssue,
+  TrackerIssueStaveLink,
+} from "../../src/lib/tracker-issues/types";
+import { WakeUpStore } from "./wake-up-store";
+import { MissionStore } from "./mission-store";
+import { ProjectStore } from "./project-store";
+import { AutomationStateStore } from "./automation-state-store";
+import { RepositoryMemoryStore } from "./repository-memory-store";
 import { ResultReviewStore } from "./result-review-store";
 import { NotificationStore } from "./notification-store";
 import { FleetAttentionSnoozeStore } from "./fleet-attention-snooze-store";
 import { WorkspaceDirectionDraftStore } from "./workspace-direction-drafts";
 import { DelegationDraftStore } from "./delegation-drafts";
-import type { ProjectMemoryKind } from "../../src/lib/project-memory";
+// temporary-migration: repository-persisted-state
+import { migrateLegacyRepositoryEntries } from "../../src/store/legacy-repository-state";
+import type { RepositoryMemoryKind } from "../../src/lib/repository-memory";
 import type {
-  TaskHeartbeat,
-  TaskHeartbeatOccurrence,
-} from "../../src/lib/automation/task-supervisor";
+  WakeUp,
+  WakeUpOccurrence,
+} from "../../src/lib/supervision/wake-up-policy";
 import {
   MartinSyncOutboxStore,
   type MartinOutboxEntry,
@@ -158,8 +159,6 @@ const PERSISTENCE_COMPACTION_BATCH_SIZE = 2_000;
 const INCREMENTAL_VACUUM_PAGES_PER_MAINTENANCE = 4_096;
 
 const LEGACY_TURN_EVENT_ARTIFACT_KIND = "turn_event_payload";
-const ROUTINE_STATE_KEY = "routine_state_v1";
-const ROUTINE_PROVIDER_TIMEOUT_KEY = "routine_provider_timeout_ms_v1";
 
 function normalizePersistedProviderId(
   providerId: ProviderId | "stave",
@@ -173,25 +172,24 @@ export class SqliteStore {
   private artifactRootDir: string;
   private runLedger: RunLedgerStore;
   private craneJobBindings: CraneJobBindingStore;
-  private trackerTasks: TrackerTasksStore;
+  private trackerIssues: TrackerIssuesStore;
   private martinSyncOutbox: MartinSyncOutboxStore;
-  private taskHeartbeats: TaskHeartbeatStore;
-  private projectMemories: ProjectMemoryStore;
+  private wakeUps: WakeUpStore;
+  private automationState: AutomationStateStore;
+  private repositoryMemories: RepositoryMemoryStore;
   private notifications: NotificationStore;
   readonly resultReviews: ResultReviewStore;
   readonly fleetAttentionSnoozes: FleetAttentionSnoozeStore;
   readonly directionDrafts: WorkspaceDirectionDraftStore;
   readonly delegationDrafts: DelegationDraftStore;
+  readonly missions: MissionStore;
+  readonly projects: ProjectStore;
   private _closed = false;
   private readonly runMaintenance: boolean;
   private maintenanceStart: NodeJS.Immediate | null = null;
-  private onBootstrapStatusChange?: (
-    status: PersistenceBootstrapStatus,
-  ) => void;
+  private onBootstrapStatusChange?: (status: PersistenceBootstrapStatus) => void;
 
-  get closed() {
-    return this._closed;
-  }
+  get closed() { return this._closed; }
 
   constructor(args: {
     dbPath: string;
@@ -222,7 +220,7 @@ export class SqliteStore {
     this.bootstrap();
     this.notifications = new NotificationStore(
       this.db,
-      () => this.loadProjectRegistry(),
+      () => this.loadRepositoryRegistry(),
     );
     this.resultReviews = new ResultReviewStore(this.db);
     this.fleetAttentionSnoozes = new FleetAttentionSnoozeStore(this.db);
@@ -230,18 +228,16 @@ export class SqliteStore {
     this.delegationDrafts = new DelegationDraftStore(this.db);
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
-    this.trackerTasks = new TrackerTasksStore(this.db, {
-      onUnreadableTaskRow: ({ source, taskRef }) => {
-        console.warn(
-          "[persistence] skipped an unreadable tracker task row",
-          source,
-          taskRef,
-        );
-      },
+    this.trackerIssues = new TrackerIssuesStore(this.db, {
+      onUnreadableTaskRow: ({ source, taskRef }) =>
+        console.warn("[persistence] skipped an unreadable tracker issue row", source, taskRef),
     });
     this.martinSyncOutbox = new MartinSyncOutboxStore(this.db);
-    this.taskHeartbeats = new TaskHeartbeatStore(this.db);
-    this.projectMemories = new ProjectMemoryStore(this.db);
+    this.wakeUps = new WakeUpStore(this.db);
+    this.missions = new MissionStore(this.db);
+    this.projects = new ProjectStore(this.db);
+    this.automationState = new AutomationStateStore(this.db);
+    this.repositoryMemories = new RepositoryMemoryStore(this.db);
     if (this.runMaintenance) {
       this.maintenanceStart = setImmediate(() => {
         this.maintenanceStart = null;
@@ -1655,107 +1651,51 @@ export class SqliteStore {
     };
   }
 
-  loadProjectRegistry(): PersistenceProjectRegistryEntry[] {
+  loadRepositoryRegistry(): PersistenceRepositoryRegistryEntry[] {
     const row = this.db
       .prepare("SELECT value_json FROM app_state WHERE key = ?")
       .get("project_registry") as JsonValueRow | undefined;
     if (!row) {
       return [];
     }
-    return JSON.parse(row.value_json) as PersistenceProjectRegistryEntry[];
+    return migrateLegacyRepositoryEntries(JSON.parse(row.value_json)) as PersistenceRepositoryRegistryEntry[];
   }
 
-  loadActiveProjectPath(): string | null | undefined {
+  loadActiveRepositoryPath(): string | null | undefined {
     const row = this.db.prepare("SELECT value_json FROM app_state WHERE key = ?").get("active_project_path") as JsonValueRow | undefined;
     if (!row) return undefined;
     const value: unknown = JSON.parse(row.value_json);
     return typeof value === "string" ? value : null;
   }
 
-  saveProjectRegistry(args: { projects: PersistenceProjectRegistryEntry[]; activeProjectPath?: string | null }) {
+  saveRepositoryRegistry(args: { repositories: PersistenceRepositoryRegistryEntry[]; activeRepositoryPath?: string | null }) {
     const now = new Date().toISOString();
-    const write = this.db
-      .prepare(
-        `
-      INSERT INTO app_state (key, value_json, updated_at)
-      VALUES (?, ?, ?)
-      ON CONFLICT(key) DO UPDATE SET
-        value_json = excluded.value_json,
-        updated_at = excluded.updated_at
-    `,
-      );
+    const write = this.db.prepare(
+      `INSERT INTO app_state (key, value_json, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`,
+    );
     this.db.transaction(() => {
-      write.run("project_registry", JSON.stringify(args.projects), now);
-      if (args.activeProjectPath !== undefined) {
-        write.run("active_project_path", JSON.stringify(args.activeProjectPath), now);
+      write.run("project_registry", JSON.stringify(args.repositories), now);
+      if (args.activeRepositoryPath !== undefined) {
+        write.run("active_project_path", JSON.stringify(args.activeRepositoryPath), now);
       }
     })();
   }
 
-  loadRoutineState(): RoutineState {
-    const row = this.db
-      .prepare("SELECT value_json FROM app_state WHERE key = ?")
-      .get(ROUTINE_STATE_KEY) as JsonValueRow | undefined;
-    if (!row) {
-      return createEmptyRoutineState();
-    }
-    try {
-      return normalizeRoutineState(JSON.parse(row.value_json));
-    } catch {
-      return createEmptyRoutineState();
-    }
+  loadAutomationState(): AutomationState {
+    return this.automationState.loadState();
   }
 
-  saveRoutineState(args: { state: RoutineState }) {
-    const now = new Date().toISOString();
-    const state = normalizeRoutineState(args.state);
-    this.db
-      .prepare(
-        `
-      INSERT INTO app_state (key, value_json, updated_at)
-      VALUES (?, ?, ?)
-      ON CONFLICT(key) DO UPDATE SET
-        value_json = excluded.value_json,
-        updated_at = excluded.updated_at
-    `,
-      )
-      .run(ROUTINE_STATE_KEY, JSON.stringify(state), now);
+  saveAutomationState(args: { state: AutomationState }) {
+    this.automationState.saveState(args.state);
   }
 
-  loadRoutineProviderTimeoutMs() {
-    const row = this.db
-      .prepare("SELECT value_json FROM app_state WHERE key = ?")
-      .get(ROUTINE_PROVIDER_TIMEOUT_KEY) as JsonValueRow | undefined;
-    if (!row) {
-      return null;
-    }
-    try {
-      const value = JSON.parse(row.value_json);
-      return typeof value === "number" && Number.isInteger(value)
-        ? value
-        : null;
-    } catch {
-      return null;
-    }
+  loadAutomationProviderTimeoutMs() {
+    return this.automationState.loadProviderTimeoutMs();
   }
 
-  saveRoutineProviderTimeoutMs(args: { providerTimeoutMs: number }) {
-    const now = new Date().toISOString();
-    this.db
-      .prepare(
-        `
-      INSERT INTO app_state (key, value_json, updated_at)
-      VALUES (?, ?, ?)
-      ON CONFLICT(key) DO UPDATE SET
-        value_json = excluded.value_json,
-        updated_at = excluded.updated_at
-    `,
-      )
-      .run(
-        ROUTINE_PROVIDER_TIMEOUT_KEY,
-        JSON.stringify(args.providerTimeoutMs),
-        now,
-      );
+  saveAutomationProviderTimeoutMs(args: { providerTimeoutMs: number }) {
+    this.automationState.saveProviderTimeoutMs(args.providerTimeoutMs);
   }
 
   getRunAggregate(args: Parameters<RunLedgerStore["getAggregate"]>[0]) {
@@ -2445,7 +2385,7 @@ export class SqliteStore {
   /**
    * Closes a turn only when it is still open, reporting whether it did.
    *
-   * The task supervisor's boot sweep needs this: a turn a heartbeat started
+   * The supervisor's boot sweep needs this: a turn a wake-up started
    * before Stave was killed stays `completed_at IS NULL` forever, and every
    * later occurrence would defer behind it. Unlike `completeTurn` this never
    * rewrites the timestamp of a turn that really did finish.
@@ -2798,49 +2738,49 @@ export class SqliteStore {
 
   replaceTrackerSourceTasks(
     source: TrackerSourceId,
-    tasks: TrackerTask[],
+    tasks: TrackerIssue[],
     fetchedAt: string,
   ) {
-    return this.trackerTasks.replaceSourceTasks(source, tasks, fetchedAt);
+    return this.trackerIssues.replaceSourceTasks(source, tasks, fetchedAt);
   }
 
   listTrackerSourceTasks(source?: TrackerSourceId) {
-    return this.trackerTasks.listSourceTasks(source);
+    return this.trackerIssues.listSourceTasks(source);
   }
 
-  getTrackerTask(source: TrackerSourceId, taskRef: string) {
-    return this.trackerTasks.getTask(source, taskRef);
+  getTrackerIssue(source: TrackerSourceId, taskRef: string) {
+    return this.trackerIssues.getTask(source, taskRef);
   }
 
-  countUnreadableTrackerTaskRows() {
-    return this.trackerTasks.getUnreadableTaskRowCount();
+  countUnreadableTrackerIssueRows() {
+    return this.trackerIssues.getUnreadableTaskRowCount();
   }
 
-  upsertTrackerTaskKickoff(link: TrackerTaskStaveLink) {
-    return this.trackerTasks.upsertKickoff(link);
+  upsertTrackerIssueKickoff(link: TrackerIssueStaveLink) {
+    return this.trackerIssues.upsertKickoff(link);
   }
 
-  listTrackerTaskKickoffs(args?: {
+  listTrackerIssueKickoffs(args?: {
     source?: TrackerSourceId;
     taskRefs?: string[];
   }) {
-    return this.trackerTasks.listKickoffs(args);
+    return this.trackerIssues.listKickoffs(args);
   }
 
-  findTrackerTaskKickoffByCraneJobId(craneJobId: string) {
-    return this.trackerTasks.findKickoffByCraneJobId(craneJobId);
+  findTrackerIssueKickoffByCraneJobId(craneJobId: string) {
+    return this.trackerIssues.findKickoffByCraneJobId(craneJobId);
   }
 
-  findTrackerTaskKickoffByStaveTask(taskId: string) {
-    return this.trackerTasks.findKickoffByStaveTask(taskId);
+  findTrackerIssueKickoffByStaveTask(taskId: string) {
+    return this.trackerIssues.findKickoffByStaveTask(taskId);
   }
 
-  findLatestTrackerTaskKickoff(source: TrackerSourceId, taskRef: string) {
-    return this.trackerTasks.findLatestKickoffForTask(source, taskRef);
+  findLatestTrackerIssueKickoff(source: TrackerSourceId, taskRef: string) {
+    return this.trackerIssues.findLatestKickoffForTask(source, taskRef);
   }
 
-  pruneTrackerTaskKickoffs(cutoff: string) {
-    return this.trackerTasks.pruneKickoffsBefore(cutoff);
+  pruneTrackerIssueKickoffs(cutoff: string) {
+    return this.trackerIssues.pruneKickoffsBefore(cutoff);
   }
 
   enqueueMartinOutboxEntry(input: {
@@ -2914,56 +2854,56 @@ export class SqliteStore {
     return this.martinSyncOutbox.pruneDeliveredBefore(cutoff);
   }
 
-  listTaskHeartbeats() {
-    return this.taskHeartbeats.list();
+  listWakeUps() {
+    return this.wakeUps.list();
   }
 
-  listActiveTaskHeartbeats() {
-    return this.taskHeartbeats.listActive();
+  listActiveWakeUps() {
+    return this.wakeUps.listActive();
   }
 
-  listTaskHeartbeatsForWorkspace(workspaceId: string) {
-    return this.taskHeartbeats.listForWorkspace(workspaceId);
+  listWakeUpsForWorkspace(workspaceId: string) {
+    return this.wakeUps.listForWorkspace(workspaceId);
   }
 
-  getTaskHeartbeat(id: string) {
-    return this.taskHeartbeats.get(id);
+  getWakeUp(id: string) {
+    return this.wakeUps.get(id);
   }
 
-  getTaskHeartbeatByTaskId(taskId: string) {
-    return this.taskHeartbeats.getByTaskId(taskId);
+  getWakeUpByTaskId(taskId: string) {
+    return this.wakeUps.getByTaskId(taskId);
   }
 
-  upsertTaskHeartbeat(heartbeat: TaskHeartbeat) {
-    return this.taskHeartbeats.upsert(heartbeat);
+  upsertWakeUp(wakeUp: WakeUp) {
+    return this.wakeUps.upsert(wakeUp);
   }
 
-  removeTaskHeartbeat(id: string) {
-    return this.taskHeartbeats.remove(id);
+  removeWakeUp(id: string) {
+    return this.wakeUps.remove(id);
   }
 
-  recordTaskHeartbeatOccurrence(occurrence: TaskHeartbeatOccurrence) {
-    return this.taskHeartbeats.recordOccurrence(occurrence);
+  recordWakeUpOccurrence(occurrence: WakeUpOccurrence) {
+    return this.wakeUps.recordOccurrence(occurrence);
   }
 
-  listProjectMemories(args: { projectPath: string; includeDeleted?: boolean }) {
-    return this.projectMemories.list(args);
+  listRepositoryMemories(args: { repositoryPath: string; includeDeleted?: boolean }) {
+    return this.repositoryMemories.list(args);
   }
 
-  getProjectMemory(id: string) {
-    return this.projectMemories.get(id);
+  getRepositoryMemory(id: string) {
+    return this.repositoryMemories.get(id);
   }
 
-  searchProjectMemories(args: { projectPath: string } & import("../../src/lib/project-memory").ProjectMemorySearchOptions) {
-    return this.projectMemories.search(args);
+  searchRepositoryMemories(args: { repositoryPath: string } & import("../../src/lib/repository-memory").RepositoryMemorySearchOptions) {
+    return this.repositoryMemories.search(args);
   }
 
-  rememberProjectMemory(args: {
-    projectPath: string;
-    kind: ProjectMemoryKind;
+  rememberRepositoryMemory(args: {
+    repositoryPath: string;
+    kind: RepositoryMemoryKind;
     content: string;
     confidence: number;
-    recallMode?: import("../../src/lib/project-memory").ProjectMemoryRecallMode;
+    recallMode?: import("../../src/lib/repository-memory").RepositoryMemoryRecallMode;
     sourceTaskId?: string | null;
     sourceTurnId?: string | null;
     collectionRevision?: number;
@@ -2971,56 +2911,56 @@ export class SqliteStore {
     const turn = args.sourceTurnId
       ? this.db.prepare("SELECT created_at FROM turns WHERE id = ?").get(args.sourceTurnId) as { created_at: string } | undefined
       : undefined;
-    return this.projectMemories.remember({
+    return this.repositoryMemories.remember({
       ...args,
       sourceCreatedAt: turn ? Date.parse(turn.created_at) : null,
     });
   }
 
-  getProjectMemorySettings(projectPath: string) {
-    return this.projectMemories.settings.get(projectPath);
+  getRepositoryMemorySettings(repositoryPath: string) {
+    return this.repositoryMemories.settings.get(repositoryPath);
   }
 
-  saveProjectMemorySettings(args: Parameters<typeof this.projectMemories.settings.save>[0]) {
-    return this.projectMemories.settings.save(args);
+  saveRepositoryMemorySettings(args: Parameters<typeof this.repositoryMemories.settings.save>[0]) {
+    return this.repositoryMemories.settings.save(args);
   }
 
-  clearProjectMemories(args: Parameters<typeof this.projectMemories.settings.clear>[0]) {
-    return this.projectMemories.settings.clear(args);
+  clearRepositoryMemories(args: Parameters<typeof this.repositoryMemories.settings.clear>[0]) {
+    return this.repositoryMemories.settings.clear(args);
   }
 
-  updateProjectMemory(args: {
+  updateRepositoryMemory(args: {
     id: string;
-    projectPath: string;
-    recallMode?: import("../../src/lib/project-memory").ProjectMemoryRecallMode;
-    kind?: ProjectMemoryKind;
+    repositoryPath: string;
+    recallMode?: import("../../src/lib/repository-memory").RepositoryMemoryRecallMode;
+    kind?: RepositoryMemoryKind;
     content?: string;
   }) {
-    return this.projectMemories.update(args);
+    return this.repositoryMemories.update(args);
   }
 
-  deleteProjectMemory(id: string) {
-    return this.projectMemories.softDelete({ id });
+  deleteRepositoryMemory(id: string) {
+    return this.repositoryMemories.softDelete({ id });
   }
 
-  recallProjectMemories(args: {
-    projectPath: string;
+  recallRepositoryMemories(args: {
+    repositoryPath: string;
     query?: string | null;
     limit?: number;
   }) {
-    return this.projectMemories.recall(args);
+    return this.repositoryMemories.recall(args);
   }
 
-  attachTaskHeartbeatOccurrenceTurn(args: { id: string; turnId: string }) {
-    return this.taskHeartbeats.attachOccurrenceTurn(args);
+  attachWakeUpOccurrenceTurn(args: { id: string; turnId: string }) {
+    return this.wakeUps.attachOccurrenceTurn(args);
   }
 
-  listTaskHeartbeatOccurrences(args: { heartbeatId: string; limit?: number }) {
-    return this.taskHeartbeats.listOccurrences(args);
+  listWakeUpOccurrences(args: { wakeUpId: string; limit?: number }) {
+    return this.wakeUps.listOccurrences(args);
   }
 
-  pruneTaskHeartbeatOccurrences(args: { heartbeatId: string; keep?: number }) {
-    return this.taskHeartbeats.pruneOccurrences(args);
+  pruneWakeUpOccurrences(args: { wakeUpId: string; keep?: number }) {
+    return this.wakeUps.pruneOccurrences(args);
   }
 
   getStorageMetrics(): SqliteStorageMetrics {

@@ -31,8 +31,8 @@ export const AUX_LANES = [
 ] as const;
 
 /**
- * Delegated child tasks are deliberately absent. Their runtime options are
- * assembled entirely in the main process (`child-task-host-port.ts`), which has
+ * Delegated delegated tasks are deliberately absent. Their runtime options are
+ * assembled entirely in the main process (`delegated-task-host-port.ts`), which has
  * no mirror of renderer settings, so a lane here would render a switch that
  * cannot take effect. Add it together with a main-process settings mirror.
  */

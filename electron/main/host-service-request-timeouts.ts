@@ -50,8 +50,10 @@ const HOST_SERVICE_REQUEST_TIMEOUT_OVERRIDES_MS: Partial<
   "provider.start-cursor-mcp-oauth-login": null,
   "runs.execute-secondary": null,
   "crane.run-task": null,
-  "routine.invoke": null,
-  "task-supervisor.invoke": null,
+  "automation.invoke": null,
+  "wake-up.invoke": null,
+  // Queued behind mission ticks, which may be starting a turn.
+  "mission.invoke": null,
   "workspace-scripts.run-entry": null,
   "workspace-scripts.run-hook": null,
 };

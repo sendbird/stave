@@ -101,10 +101,10 @@ export const E2E_WORKSPACE_ID = "ws-e2e";
  * every one of them depend on the shape of a dialog it does not care about.
  * There is no IPC mocking here — everything past hydration is the real product.
  */
-export async function seedProject(
+export async function seedRepository(
   page: Page,
   args: {
-    projectPath: string;
+    repositoryPath: string;
     /**
      * Persisted app settings to seed alongside the project.
      *
@@ -134,8 +134,8 @@ export async function seedProject(
         "stave-store",
         JSON.stringify({
           state: {
-            projectPath: input.projectPath,
-            projectName: "stave-e2e",
+            repositoryPath: input.repositoryPath,
+            repositoryName: "stave-e2e",
             workspaces: [
               {
                 id: "ws-e2e",
@@ -145,7 +145,7 @@ export async function seedProject(
             ],
             activeWorkspaceId: "ws-e2e",
             workspaceBranchById: { "ws-e2e": "main" },
-            workspacePathById: { "ws-e2e": input.projectPath },
+            workspacePathById: { "ws-e2e": input.repositoryPath },
             workspaceDefaultById: { "ws-e2e": true },
             ...(input.settings ? { settings: input.settings } : {}),
           },

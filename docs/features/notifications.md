@@ -1,6 +1,6 @@
 # Notifications
 
-Stave has an in-app notification center that tracks task activity across every project and workspace you have open, so you can step away from a task and still know when it needs you again.
+Stave has an in-app notification center that tracks task activity across every repository and workspace you have open, so you can step away from a task and still know when it needs you again.
 
 ![Notifications popover with unread task updates and approval requests](../screenshots/notifications.png)
 
@@ -11,6 +11,8 @@ The notification center lives in the top bar behind the bell icon.
 - A task turn finished.
 - A task is waiting for your approval.
 - A task needs extra input before it can continue.
+- A [mission](missions.md) waits for your sign-off before a stage, is blocked or
+  stuck, or finished. Clicking one opens its lead task.
 
 Notifications stay in the app even if you close and reopen Stave, and even if the originating task has been archived.
 
@@ -36,7 +38,7 @@ If you prefer, the task itself also shows a pending-approval card above the comp
 ## Jump Back To A Task
 
 - Click a notification.
-- Stave switches to the right project, workspace, and task.
+- Stave switches to the right repository, workspace, and task.
 - If the task was archived, Stave asks you to restore it before reopening.
 
 ## Success Sound
@@ -47,6 +49,18 @@ You can play a short sound when a task turn finishes. This is useful when you ha
 2. Find `Task Completion Sound`.
 3. Enable it, choose a preset, and set the volume.
 4. Click `Preview` to hear it.
+
+## Mission Sign-off Reminders
+
+A mission that waits for your sign-off notifies once. To be reminded again:
+
+1. Open `Settings > General`.
+2. Find `Mission Sign-off Reminders` under `Desktop Notifications`.
+3. Choose how long a sign-off may wait (`After 15 minutes` to `After 2 hours`,
+   or `Never`).
+
+Every sign-off that has waited that long is reminded in one batched
+notification, not one per mission.
 
 ## Tips
 
@@ -80,3 +94,4 @@ You can play a short sound when a task turn finishes. This is useful when you ha
 - [Runtime Safety Controls](provider-sandbox-and-approval.md)
 - [Latest Turn Summary](workspace-latest-turn-summary.md)
 - [Command Palette](command-palette.md)
+- [Missions](missions.md)

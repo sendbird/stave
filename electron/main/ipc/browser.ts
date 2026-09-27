@@ -281,7 +281,7 @@ export function registerBrowserHandlers() {
           args.workspaceId,
           {
             sessionScope: args.sessionScope,
-            projectKey: args.projectKey,
+            repositoryKey: args.repositoryKey,
             lensSessionId: args.lensSessionId,
             // An explicit address is where this open wants to end up, so the
             // recovery restore would only be a load for the one below to abort.
@@ -343,7 +343,7 @@ export function registerBrowserHandlers() {
           lensSessionId: args.lensSessionId,
           guestWebContentsId: args.guestWebContentsId,
           sessionScope: args.sessionScope,
-          projectKey: args.projectKey,
+          repositoryKey: args.repositoryKey,
           managedByMcp: args.managedByMcp,
         });
 

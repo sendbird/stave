@@ -134,7 +134,7 @@ async function setupStore(args: { rootPath: string; filePath: string }) {
       { id: "ws-main", name: "main", updatedAt: new Date().toISOString() },
     ],
     activeWorkspaceId: "ws-main",
-    projectPath: args.rootPath,
+    repositoryPath: args.rootPath,
     workspacePathById: { "ws-main": args.rootPath },
     workspaceBranchById: { "ws-main": "main" },
     workspaceDefaultById: { "ws-main": true },

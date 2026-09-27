@@ -35,6 +35,7 @@ import {
   type PaneSurfaceDescriptor,
 } from "@/lib/panes/types";
 import { useAppStore } from "@/store/app.store";
+import { TaskSupervisionMarks } from "@/components/missions/TaskSupervisionMarks";
 import { paneTabChipStyles as c } from "@/components/panes/PaneTabChip.styles";
 import type { ChatMessage, EditorTab } from "@/types/chat";
 import {
@@ -433,5 +434,10 @@ function TaskChipIconSlot(args: { taskId: string }) {
 
 function TaskChipBadgesSlot(args: { taskId: string }) {
   const taskChip = useTaskChipState(args.taskId);
-  return <TaskChipBadges taskChip={taskChip} />;
+  return (
+    <>
+      <TaskSupervisionMarks taskId={args.taskId} />
+      <TaskChipBadges taskChip={taskChip} />
+    </>
+  );
 }

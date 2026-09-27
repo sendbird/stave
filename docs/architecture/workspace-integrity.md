@@ -17,13 +17,13 @@ Do not treat this as a cosmetic bug class.
 
 ## Required Check Files
 
-- `src/store/project.utils.ts`
+- `src/store/repository.utils.ts`
 - `src/store/app.store.ts`
-- `src/components/layout/ProjectWorkspaceSidebar.tsx`
+- `src/components/layout/RepositoryWorkspaceSidebar.tsx`
 - `src/components/layout/settings-dialog-sections.tsx`
 - `src/components/layout/TopBarBranchDropdown.tsx`
 - `src/components/layout/TopBarOpenPR.tsx`
-- `tests/project-utils.test.ts`
+- `tests/repository-utils.test.ts`
 - `tests/workspace-integrity-regression.test.ts`
 - `tests/bridge-persistence-regression.test.ts`
 
@@ -41,7 +41,7 @@ When changing project, workspace, task, worktree, hydration, or notification rou
 ## Minimum Verification
 
 - `bun run typecheck`
-- `bun test tests/project-utils.test.ts`
+- `bun test tests/repository-utils.test.ts`
 - `bun test tests/workspace-integrity-regression.test.ts`
 - `bun test tests/bridge-persistence-regression.test.ts`
 

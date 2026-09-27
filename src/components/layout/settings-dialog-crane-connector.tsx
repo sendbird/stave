@@ -58,8 +58,8 @@ function statusLabel(state: string | undefined) {
 export function CraneConnectorSettingsSection() {
   const connector = useAppStore((state) => state.settings.craneConnector);
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const registeredProjects = useAppStore((state) => state.recentProjects);
-  const registeredProjectCount = registeredProjects.length;
+  const registeredRepositories = useAppStore((state) => state.recentRepositories);
+  const registeredRepositoryCount = registeredRepositories.length;
   const { status } = useCraneConnectorClientState();
   const [baseUrl, setBaseUrl] = useState(connector.baseUrl);
   const [pairingCode, setPairingCode] = useState("");
@@ -447,28 +447,28 @@ export function CraneConnectorSettingsSection() {
           ) : null}
 
           <div className={sx(styles.infoNote)}>
-            {registeredProjectCount > 0
-              ? `${registeredProjectCount} registered project${registeredProjectCount === 1 ? "" : "s"} can be selected per incoming job.`
-              : "Register a local Stave project before approving a Crane job."}{" "}
+            {registeredRepositoryCount > 0
+              ? `${registeredRepositoryCount} registered repository${registeredRepositoryCount === 1 ? "" : "s"} can be selected per incoming job.`
+              : "Register a local Stave repository before approving a Crane job."}{" "}
             Local paths are never sent to Crane.
           </div>
 
-          {connector.projectMappings.length > 0 ? (
+          {connector.repositoryMappings.length > 0 ? (
             <div className={sx(styles.mappings)}>
               <div>
-                <h4 className={sx(styles.panelTitle)}>Project mappings</h4>
+                <h4 className={sx(styles.panelTitle)}>Repository mappings</h4>
                 <p className={sx(styles.panelHint)}>
-                  Incoming issue teams preselect these local Stave projects. The
+                  Incoming issue teams preselect these local Stave repositories. The
                   mapping never leaves this device.
                 </p>
               </div>
               <div className={sx(styles.mappingsList)}>
-                {connector.projectMappings.map((mapping, index) => {
-                  const projectName =
-                    registeredProjects.find(
-                      (project) =>
-                        project.projectPath === mapping.staveProjectPath,
-                    )?.projectName ?? "Unregistered project";
+                {connector.repositoryMappings.map((mapping, index) => {
+                  const repositoryName =
+                    registeredRepositories.find(
+                      (repository) =>
+                        repository.repositoryPath === mapping.staveProjectPath,
+                    )?.repositoryName ?? "Unregistered repository";
                   const routeLabel =
                     mapping.craneTeamKey ??
                     mapping.craneProjectId ??
@@ -480,7 +480,7 @@ export function CraneConnectorSettingsSection() {
                     >
                       <Badge variant="secondary">{routeLabel}</Badge>
                       <div className={sx(styles.mappingBody)}>
-                        <p className={sx(styles.mappingName)}>{projectName}</p>
+                        <p className={sx(styles.mappingName)}>{repositoryName}</p>
                         <p className={sx(styles.mappingPath)}>
                           {mapping.staveProjectPath}
                         </p>
@@ -489,10 +489,10 @@ export function CraneConnectorSettingsSection() {
                         type="button"
                         size="icon-sm"
                         variant="ghost"
-                        aria-label={`Remove ${routeLabel} project mapping`}
+                        aria-label={`Remove ${routeLabel} repository mapping`}
                         onClick={() =>
                           saveConnector({
-                            projectMappings: connector.projectMappings.filter(
+                            repositoryMappings: connector.repositoryMappings.filter(
                               (_, mappingIndex) => mappingIndex !== index,
                             ),
                           })

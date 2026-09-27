@@ -18,20 +18,20 @@ import {
   buildLinkedWorktreeSymlinkPath,
   buildWorkspaceCreationNotice,
   buildWorkspaceRootNodeModulesSymlinkCommand,
-  captureCurrentProjectState,
-  normalizeProjectWorkspaceRootNodeModulesSymlinkPreference,
+  captureCurrentRepositoryState,
+  normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference,
   normalizeWorkspaceInitCommand,
   registerTaskWorkspaceOwnership,
   resolveImportedWorktreeName,
-  resolveProjectWorkspaceInitCommand,
-  resolveProjectWorkspaceRootNodeModulesSymlinkPreference,
+  resolveRepositoryWorkspaceInitCommand,
+  resolveRepositoryWorkspaceRootNodeModulesSymlinkPreference,
   resolveWorkspaceRemoteBaseBranchTarget,
   sanitizeBranchName,
   summarizeTerminalCommandDetail,
   summarizeWorkspaceInitCommand,
   toShellPathArgument,
   toWorkspaceFolderName,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 import { archivedWorktreePaths } from "@/store/workspace-archive-cleanup";
 import { rememberCachedWorkspaceFiles } from "@/store/workspace-file-cache";
 import { runWorkspaceKickoff } from "@/store/workspace-kickoff-actions";
@@ -91,10 +91,10 @@ export function createWorkspaceCreateActions(args: {
       }
 
       const current = get();
-      if (!current.projectPath) {
+      if (!current.repositoryPath) {
         return {
           ok: false,
-          message: "Open a project before creating a workspace.",
+          message: "Open a repository before creating a workspace.",
         };
       }
       const nextRuntimeCacheById =
@@ -107,27 +107,27 @@ export function createWorkspaceCreateActions(args: {
         return { ok: false, message: "Workspace branch name is invalid." };
       }
       const workspaceDisplayName = label?.trim() || branchName;
-      const projectWorkspaceInitCommand = resolveProjectWorkspaceInitCommand({
-        projectPath: current.projectPath,
-        recentProjects: current.recentProjects,
+      const repositoryWorkspaceInitCommand = resolveRepositoryWorkspaceInitCommand({
+        repositoryPath: current.repositoryPath,
+        recentRepositories: current.recentRepositories,
       });
-      const projectUseRootNodeModulesSymlink =
-        resolveProjectWorkspaceRootNodeModulesSymlinkPreference({
-          projectPath: current.projectPath,
-          recentProjects: current.recentProjects,
+      const repositoryUseRootNodeModulesSymlink =
+        resolveRepositoryWorkspaceRootNodeModulesSymlinkPreference({
+          repositoryPath: current.repositoryPath,
+          recentRepositories: current.recentRepositories,
         });
       const workspaceInitCommand = normalizeWorkspaceInitCommand({
-        value: initCommand ?? projectWorkspaceInitCommand,
+        value: initCommand ?? repositoryWorkspaceInitCommand,
       });
       const useRootNodeModulesSymlink =
         requestedRootNodeModulesSymlink === undefined
-          ? projectUseRootNodeModulesSymlink
-          : normalizeProjectWorkspaceRootNodeModulesSymlinkPreference({
+          ? repositoryUseRootNodeModulesSymlink
+          : normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference({
               value: requestedRootNodeModulesSymlink,
             });
-      const workspacePath = `${current.projectPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: branchName, unique: true })}`;
+      const workspacePath = `${current.repositoryPath}/.stave/workspaces/${toWorkspaceFolderName({ branch: branchName, unique: true })}`;
       const workspaceId = buildImportedWorktreeWorkspaceId({
-        projectPath: current.projectPath,
+        repositoryPath: current.repositoryPath,
         worktreePath: workspacePath,
       });
       let baseBranch = fromBranch?.trim() || current.defaultBranch || "main";
@@ -145,7 +145,7 @@ export function createWorkspaceCreateActions(args: {
                 verifyRef: async (ref) =>
                   (
                     await runner({
-                      cwd: current.projectPath ?? undefined,
+                      cwd: current.repositoryPath ?? undefined,
                       command: `git show-ref --verify --quiet ${JSON.stringify(ref)}`,
                     })
                   ).ok,
@@ -153,12 +153,12 @@ export function createWorkspaceCreateActions(args: {
             : null;
         if (remoteTarget) {
           const fetchResult = await runner({
-            cwd: current.projectPath,
+            cwd: current.repositoryPath,
             command: `git fetch ${remoteTarget.remoteName} --prune`,
           });
           if (!fetchResult.ok) {
             const localBranchProbe = await runner({
-              cwd: current.projectPath,
+              cwd: current.repositoryPath,
               command: `git show-ref --verify --quiet ${JSON.stringify(`refs/heads/${remoteTarget.localBranch}`)}`,
             });
             const fallbackBranch = localBranchProbe.ok
@@ -186,11 +186,11 @@ export function createWorkspaceCreateActions(args: {
           }
         }
         await runner({
-          cwd: current.projectPath,
+          cwd: current.repositoryPath,
           command: "mkdir -p .stave/workspaces",
         });
         const addResult = await runner({
-          cwd: current.projectPath,
+          cwd: current.repositoryPath,
           command:
             mode === "clean"
               ? `git worktree add -b ${JSON.stringify(branchName)} ${JSON.stringify(workspacePath)}`
@@ -198,7 +198,7 @@ export function createWorkspaceCreateActions(args: {
         });
         if (!addResult.ok) {
           const fallbackResult = await runner({
-            cwd: current.projectPath,
+            cwd: current.repositoryPath,
             command: `git worktree add ${JSON.stringify(workspacePath)} ${JSON.stringify(branchName)}`,
           });
           if (!fallbackResult.ok) {
@@ -270,7 +270,7 @@ export function createWorkspaceCreateActions(args: {
       });
       const workspaceState = buildWorkspaceSessionState({ snapshot });
 
-      let files = current.projectFiles;
+      let files = current.repositoryFiles;
       try {
         await workspaceFsAdapter.setRoot?.({
           rootPath: workspacePath,
@@ -292,7 +292,7 @@ export function createWorkspaceCreateActions(args: {
           const linkResult = await runner({
             cwd: workspacePath,
             command: buildWorkspaceRootNodeModulesSymlinkCommand({
-              projectPath: current.projectPath,
+              repositoryPath: current.repositoryPath,
             }),
           });
           if (linkResult.ok) {
@@ -395,10 +395,10 @@ export function createWorkspaceCreateActions(args: {
           workspaceBranchById: nextBranchById,
           workspacePathById: nextPathById,
           workspaceDefaultById: nextDefaultById,
-          recentProjects: captureCurrentProjectState({
-            recentProjects: state.recentProjects,
-            projectPath: state.projectPath,
-            projectName: state.projectName,
+          recentRepositories: captureCurrentRepositoryState({
+            recentRepositories: state.recentRepositories,
+            repositoryPath: state.repositoryPath,
+            repositoryName: state.repositoryName,
             defaultBranch: state.defaultBranch,
             workspaces: nextWorkspaces,
             activeWorkspaceId: workspaceId,
@@ -421,7 +421,7 @@ export function createWorkspaceCreateActions(args: {
             tasks: workspaceState.tasks,
           }),
           ...workspaceState,
-          projectFiles: files,
+          repositoryFiles: files,
         };
       });
       runScriptHookInBackground({
@@ -443,11 +443,11 @@ export function createWorkspaceCreateActions(args: {
       }
 
       const current = get();
-      const projectPath = current.projectPath;
-      if (!projectPath) {
+      const repositoryPath = current.repositoryPath;
+      if (!repositoryPath) {
         return {
           ok: false,
-          message: "Open a project before linking a worktree.",
+          message: "Open a repository before linking a worktree.",
         };
       }
       const runner = window.api?.terminal?.runCommand;
@@ -460,7 +460,7 @@ export function createWorkspaceCreateActions(args: {
       }
 
       const toplevelResult = await runner({
-        cwd: projectPath,
+        cwd: repositoryPath,
         command: `git -C ${toShellPathArgument({ path: trimmedInput })} rev-parse --show-toplevel`,
       });
       if (!toplevelResult.ok) {
@@ -481,11 +481,11 @@ export function createWorkspaceCreateActions(args: {
         };
       }
       const comparableWorktreeRoot = normalizeComparablePath(worktreeRoot);
-      if (comparableWorktreeRoot === normalizeComparablePath(projectPath)) {
+      if (comparableWorktreeRoot === normalizeComparablePath(repositoryPath)) {
         return {
           ok: false,
           message:
-            "That path is the project root, which is already available as the default workspace.",
+            "That path is the repository root, which is already available as the default workspace.",
         };
       }
       const existingWorkspaceId = Object.entries(
@@ -506,7 +506,7 @@ export function createWorkspaceCreateActions(args: {
       }
 
       const branchResult = await runner({
-        cwd: projectPath,
+        cwd: repositoryPath,
         command: `git -C ${JSON.stringify(worktreeRoot)} rev-parse --abbrev-ref HEAD`,
       });
       const branchName = branchResult.ok ? branchResult.stdout.trim() : "";
@@ -529,7 +529,7 @@ export function createWorkspaceCreateActions(args: {
           worktreePath: worktreeRoot,
         });
       const workspaceId = buildImportedWorktreeWorkspaceId({
-        projectPath,
+        repositoryPath,
         worktreePath: worktreeRoot,
       });
       const creationNotices: Array<{
@@ -541,7 +541,7 @@ export function createWorkspaceCreateActions(args: {
       // `git worktree list`; external ones need the linked-path exemption.
       let isExternalWorktree = true;
       const listResult = await runner({
-        cwd: projectPath,
+        cwd: repositoryPath,
         command: "git worktree list --porcelain",
       });
       if (listResult.ok) {
@@ -554,22 +554,22 @@ export function createWorkspaceCreateActions(args: {
       }
 
       const comparableWorkspacesDir = normalizeComparablePath(
-        `${projectPath}/.stave/workspaces`,
+        `${repositoryPath}/.stave/workspaces`,
       );
       if (
         comparableWorkspacesDir &&
         !comparableWorktreeRoot.startsWith(`${comparableWorkspacesDir}/`)
       ) {
         await runner({
-          cwd: projectPath,
+          cwd: repositoryPath,
           command: "mkdir -p .stave/workspaces",
         });
         const symlinkPath = buildLinkedWorktreeSymlinkPath({
-          projectPath,
+          repositoryPath,
           worktreePath: worktreeRoot,
         });
         const linkResult = await runner({
-          cwd: projectPath,
+          cwd: repositoryPath,
           command: `ln -sfn ${JSON.stringify(worktreeRoot)} ${JSON.stringify(symlinkPath)}`,
         });
         if (linkResult.ok) {
@@ -649,7 +649,7 @@ export function createWorkspaceCreateActions(args: {
       });
       const workspaceState = buildWorkspaceSessionState({ snapshot });
 
-      let files = current.projectFiles;
+      let files = current.repositoryFiles;
       try {
         await workspaceFsAdapter.setRoot?.({
           rootPath: worktreeRoot,
@@ -699,10 +699,10 @@ export function createWorkspaceCreateActions(args: {
           workspaceBranchById: nextBranchById,
           workspacePathById: nextPathById,
           workspaceDefaultById: nextDefaultById,
-          recentProjects: captureCurrentProjectState({
-            recentProjects: state.recentProjects,
-            projectPath: state.projectPath,
-            projectName: state.projectName,
+          recentRepositories: captureCurrentRepositoryState({
+            recentRepositories: state.recentRepositories,
+            repositoryPath: state.repositoryPath,
+            repositoryName: state.repositoryName,
             defaultBranch: state.defaultBranch,
             workspaces: nextWorkspaces,
             activeWorkspaceId: workspaceId,
@@ -728,7 +728,7 @@ export function createWorkspaceCreateActions(args: {
             tasks: workspaceState.tasks,
           }),
           ...workspaceState,
-          projectFiles: files,
+          repositoryFiles: files,
         };
       });
       runScriptHookInBackground({
@@ -778,7 +778,7 @@ export function createWorkspaceCreateActions(args: {
         "workspace";
       const sourceWorkspacePath =
         current.workspacePathById[sourceWorkspaceId] ??
-        current.projectPath ??
+        current.repositoryPath ??
         "";
       const sourceBranch =
         current.workspaceBranchById[sourceWorkspaceId] ?? sourceWorkspaceName;
@@ -899,7 +899,7 @@ export function createWorkspaceCreateActions(args: {
       const next = get();
       const targetWorkspaceId = next.activeWorkspaceId;
       const targetWorkspacePath =
-        next.workspacePathById[targetWorkspaceId] ?? next.projectPath ?? "";
+        next.workspacePathById[targetWorkspaceId] ?? next.repositoryPath ?? "";
       const warnings: string[] = [...setupWarnings];
       let attachedSummary = false;
 
@@ -907,8 +907,8 @@ export function createWorkspaceCreateActions(args: {
         try {
           await workspaceFsAdapter.setRoot?.({
             rootPath: targetWorkspacePath,
-            rootName: next.projectName ?? sourceWorkspaceName,
-            files: next.projectFiles,
+            rootName: next.repositoryName ?? sourceWorkspaceName,
+            files: next.repositoryFiles,
           });
 
           const createDirectoryResult =
@@ -942,10 +942,10 @@ export function createWorkspaceCreateActions(args: {
               } else {
                 attachedSummary = true;
                 set((state) => ({
-                  projectFiles:
+                  repositoryFiles:
                     workspaceFsAdapter.getKnownFiles().length > 0
                       ? workspaceFsAdapter.getKnownFiles()
-                      : state.projectFiles,
+                      : state.repositoryFiles,
                 }));
               }
             }

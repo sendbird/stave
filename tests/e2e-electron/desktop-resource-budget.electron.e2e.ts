@@ -5,7 +5,7 @@ import path from "node:path";
 import { expect, test } from "@playwright/test";
 import {
   launchStave,
-  seedProject,
+  seedRepository,
   E2E_WORKSPACE_ID,
 } from "./harness/stave-app";
 import { callStaveMcpTool, waitForStaveMcpEndpoint } from "./harness/stave-mcp";
@@ -14,7 +14,7 @@ import { callStaveMcpTool, waitForStaveMcpEndpoint } from "./harness/stave-mcp";
 // Keep timings and per-process memory as evidence; enforce owned guest counts.
 test("bounds hidden guest growth and releases sessions after churn", async ({}, testInfo) => {
   test.setTimeout(120_000);
-  const projectPath = await mkdtemp(
+  const repositoryPath = await mkdtemp(
     path.join(tmpdir(), "stave-resource-project-"),
   );
   const server = createServer((_request, response) => {
@@ -29,8 +29,8 @@ test("bounds hidden guest growth and releases sessions after churn", async ({}, 
     throw new Error("No fixture port");
   const stave = await launchStave();
   try {
-    await seedProject(stave.page, {
-      projectPath,
+    await seedRepository(stave.page, {
+      repositoryPath,
       settings: { lensAgentPresentationMode: "agent-decides" },
     });
     const endpoint = await waitForStaveMcpEndpoint(stave.userDataDir);
@@ -115,6 +115,6 @@ test("bounds hidden guest growth and releases sessions after churn", async ({}, 
     await new Promise<void>((resolve, reject) =>
       server.close((error) => (error ? reject(error) : resolve())),
     );
-    await rm(projectPath, { recursive: true, force: true });
+    await rm(repositoryPath, { recursive: true, force: true });
   }
 });

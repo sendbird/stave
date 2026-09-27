@@ -25,8 +25,9 @@ The palette is global. You do not need to focus the chat composer first.
 
 - quick open a file
 - go home
-- switch task, workspace, or project
-- refresh project files or workspaces
+- switch task, workspace, or repository
+- refresh repository files or workspaces
+- open projects (**Open projects**) or the Playbooks tab (**Manage playbooks**)
 
 ### View
 
@@ -39,6 +40,9 @@ The palette is global. You do not need to focus the chat composer first.
 - stop the active turn
 - continue work in a new workspace
 - open create-PR flow
+- hand the task to a playbook (**Start mission…**, on a Claude or Codex task
+  without a running mission)
+- brief a goal that takes several missions (**New project…**)
 
 ### Provider And Settings
 
@@ -130,3 +134,5 @@ That separation matters: the Command Palette controls Stave itself, while slash 
 
 - [Integrated Terminal](integrated-terminal.md)
 - [Runtime Safety Controls](provider-sandbox-and-approval.md)
+- [Missions](missions.md)
+- [Projects](projects.md)

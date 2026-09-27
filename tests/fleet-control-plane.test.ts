@@ -80,19 +80,19 @@ describe("Fleet control-plane identity validation", () => {
     const session = buildSession();
     const current = resolveFleetCurrentTaskControlState({
       expected: {
-        projectPath: "/repo",
+        repositoryPath: "/repo",
         workspaceId: "workspace-1",
         taskId: task.id,
         turnId: "turn-1",
       },
       state: {
-        projectPath: "/other",
+        repositoryPath: "/other",
         activeWorkspaceId: "workspace-other",
         workspaces: [],
-        recentProjects: [
+        recentRepositories: [
           {
-            projectPath: "/repo",
-            projectName: "repo",
+            repositoryPath: "/repo",
+            repositoryName: "repo",
             lastOpenedAt: "2026-07-31T00:00:00.000Z",
             defaultBranch: "main",
             workspaces: [{ id: "workspace-1", name: "feature" }],
@@ -117,7 +117,7 @@ describe("Fleet control-plane identity validation", () => {
   it("accepts the exact pending request and returns its fresh message id", () => {
     const validation = validateFleetInteractionAction({
       expected: {
-        projectPath: "/repo",
+        repositoryPath: "/repo",
         workspaceId: "workspace-1",
         taskId: task.id,
         turnId: "turn-1",
@@ -125,7 +125,7 @@ describe("Fleet control-plane identity validation", () => {
         requestId: "request-1",
       },
       current: {
-        projectPath: "/repo",
+        repositoryPath: "/repo",
         workspaceId: "workspace-1",
         taskId: task.id,
         turnId: "turn-1",
@@ -140,7 +140,7 @@ describe("Fleet control-plane identity validation", () => {
     expect(
       validateFleetInteractionAction({
         expected: {
-          projectPath: "/repo",
+          repositoryPath: "/repo",
           workspaceId: "workspace-1",
           taskId: task.id,
           turnId: "turn-1",
@@ -148,7 +148,7 @@ describe("Fleet control-plane identity validation", () => {
           requestId: "expired",
         },
         current: {
-          projectPath: "/repo",
+          repositoryPath: "/repo",
           workspaceId: "workspace-1",
           taskId: task.id,
           turnId: "turn-1",
@@ -159,13 +159,13 @@ describe("Fleet control-plane identity validation", () => {
     expect(
       validateFleetTurnAction({
         expected: {
-          projectPath: "/repo",
+          repositoryPath: "/repo",
           workspaceId: "workspace-1",
           taskId: task.id,
           turnId: "turn-1",
         },
         current: {
-          projectPath: "/repo",
+          repositoryPath: "/repo",
           workspaceId: "workspace-1",
           taskId: task.id,
           turnId: "turn-2",
@@ -179,13 +179,13 @@ describe("Fleet control-plane identity validation", () => {
     expect(
       validateFleetQueueAction({
         expected: {
-          projectPath: "/repo",
+          repositoryPath: "/repo",
           workspaceId: "workspace-1",
           taskId: task.id,
           turnId: "turn-1",
         },
         current: {
-          projectPath: "/repo",
+          repositoryPath: "/repo",
           workspaceId: "workspace-1",
           taskId: task.id,
           turnId: null,

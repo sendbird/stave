@@ -37,12 +37,12 @@ function createContext(
       recentIds: [],
       showRecent: true,
     },
-    projectPath: "/tmp/stave",
-    projects: [
+    repositoryPath: "/tmp/stave",
+    repositories: [
       {
         isCurrent: true,
-        projectName: "Stave",
-        projectPath: "/tmp/stave",
+        repositoryName: "Stave",
+        repositoryPath: "/tmp/stave",
       },
     ],
     tasks: [
@@ -95,12 +95,12 @@ function createContext(
       openInTerminal: async () => {},
       openInVSCode: async () => {},
       openFleetView: () => {},
-      openTasks: () => {},
-      refreshTrackerTasks: async () => {},
+      openIssues: () => {},
+      refreshTrackerIssues: async () => {},
       openKeyboardShortcuts: () => {},
-      openProject: async () => {},
+      openRepository: async () => {},
       openSettings: () => {},
-      refreshProjectFiles: async () => {},
+      refreshRepositoryFiles: async () => {},
       refreshWorkspaces: async () => {},
       revealInFileManager: async () => {},
       saveActiveEditor: async () => {},
@@ -128,11 +128,11 @@ describe("command palette registry", () => {
       (group) => group.items,
     );
 
-    const openTasks = actions.find((item) => item.id === "navigation.tasks");
-    expect(openTasks?.title).toBe("Open Tasks");
-    expect(openTasks?.shortcut).toBe("Cmd+K T");
+    const openIssues = actions.find((item) => item.id === "navigation.issues");
+    expect(openIssues?.title).toBe("Open Issues");
+    expect(openIssues?.shortcut).toBe("Cmd+K T");
 
-    expect(actions.some((item) => item.id === "tracker.refresh-tasks")).toBe(
+    expect(actions.some((item) => item.id === "tracker.refresh-issues")).toBe(
       true,
     );
 
@@ -327,7 +327,7 @@ describe("command palette registry", () => {
 
   test("hides workspace kickoff without a project", () => {
     const groups = buildCommandPaletteGroups(
-      createContext({ projectPath: null }),
+      createContext({ repositoryPath: null }),
     );
 
     expect(

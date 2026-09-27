@@ -10,9 +10,9 @@ import {
   truncateWorkText,
 } from "@/lib/providers/subagent-identity";
 import {
-  isActiveChildTaskPhase,
-  type ChildTaskSummary,
-} from "@/lib/runs/child-task";
+  isActiveDelegatedTaskPhase,
+  type DelegatedTaskSummary,
+} from "@/lib/runs/delegated-task";
 import type { ToolUsePart } from "@/types/chat";
 import {
   isTerminalWorkGraphStatus,
@@ -104,11 +104,11 @@ function resolveNodeLabel(
 }
 
 /**
- * What to call a delegated child task.
+ * What to call a delegated task.
  *
  * Deliberately not `resolveToolTitle`: that would fall back to the tool's own
  * display name, and every child in the turn would then be called "Delegate to
- * child task". The delegation key is a worse name than a title but a true one,
+ * delegated task". The delegation key is a worse name than a title but a true one,
  * and it is what every other surface calls this child.
  */
 function resolveDelegatedChildLabel(
@@ -139,7 +139,7 @@ const TOOL_STATE_STATUS: Record<ToolUsePart["state"], WorkGraphStatus> = {
  * that never finishes, stays counted as live, and keeps offering a Stop for a
  * task that already ended.
  */
-const CHILD_PHASE_STATUS: Record<ChildTaskSummary["phase"], WorkGraphStatus> = {
+const CHILD_PHASE_STATUS: Record<DelegatedTaskSummary["phase"], WorkGraphStatus> = {
   pending: "pending",
   running: "running",
   waiting: "waiting",
@@ -295,7 +295,7 @@ function upsertNode(
       identitySource: patch.identitySource,
       agentId: patch.agentId,
       delegationKey: patch.delegationKey,
-      childTaskId: patch.childTaskId,
+      delegatedTaskId: patch.delegatedTaskId,
       attempt: patch.attempt,
       spawnedByToolUseId: patch.spawnedByToolUseId,
       parentKey: resolveAcyclicParentKey(graph, key, patch.parentKey) ?? null,
@@ -327,7 +327,7 @@ function upsertNode(
     ...existing,
     agentId: patch.agentId ?? existing.agentId,
     delegationKey: patch.delegationKey ?? existing.delegationKey,
-    childTaskId: patch.childTaskId ?? existing.childTaskId,
+    delegatedTaskId: patch.delegatedTaskId ?? existing.delegatedTaskId,
     attempt: patch.attempt ?? existing.attempt,
     spawnedByToolUseId:
       patch.spawnedByToolUseId ?? existing.spawnedByToolUseId,
@@ -378,7 +378,7 @@ function isNodeUnchanged(previous: AgentNode, next: AgentNode) {
   return (
     previous.agentId === next.agentId &&
     previous.delegationKey === next.delegationKey &&
-    previous.childTaskId === next.childTaskId &&
+    previous.delegatedTaskId === next.delegatedTaskId &&
     previous.attempt === next.attempt &&
     previous.spawnedByToolUseId === next.spawnedByToolUseId &&
     previous.parentKey === next.parentKey &&
@@ -637,7 +637,7 @@ function promoteToolCallNode(args: {
     identitySource: "provider",
     agentId,
     delegationKey: existing?.delegationKey ?? callNode.delegationKey,
-    childTaskId: existing?.childTaskId ?? callNode.childTaskId,
+    delegatedTaskId: existing?.delegatedTaskId ?? callNode.delegatedTaskId,
     attempt: existing?.attempt ?? callNode.attempt,
     spawnedByToolUseId:
       callNode.spawnedByToolUseId ?? existing?.spawnedByToolUseId,
@@ -815,7 +815,7 @@ function recordSpawnMapping(
 }
 
 /**
- * The Local MCP call a task makes to delegate durable work to a child task.
+ * The Local MCP call a task makes to delegate durable work to a delegated task.
  *
  * Matched by suffix because each runtime prefixes MCP tools its own way
  * (`mcp__stave-local-mcp__…` for Claude), and the delegation key travels in the
@@ -1008,7 +1008,7 @@ export function reduceWorkGraphEvent(
         return next;
       }
       // A ledger-owned child outlives the call that delegated it: the MCP call
-      // returns as soon as the delegation is recorded, while the child task
+      // returns as soon as the delegation is recorded, while the delegated task
       // runs on. Only the ledger may end that node — except when there is no
       // ledger row to end it, because the delegation was refused.
       if (spawned.identitySource === "ledger") {
@@ -1225,7 +1225,7 @@ function parseLedgerTimestamp(value: string | null | undefined) {
 }
 
 /**
- * Fold the run ledger's child tasks into the graph.
+ * Fold the run ledger's delegated tasks into the graph.
  *
  * Ledger nodes are not derived from provider events at all: Stave delegated
  * these children itself and holds their identity independently of whatever the
@@ -1243,23 +1243,23 @@ function parseLedgerTimestamp(value: string | null | undefined) {
  * input Stave cannot parse, and a turn adopted mid-flight from persistence,
  * whose earlier events were never replayed. A child that has already ended and
  * that this turn never delegated belongs to an earlier turn, and is left to the
- * child task list.
+ * delegated task list.
  *
  * Deliberately not a timestamp comparison. `startedAt` is when Stave began
  * *watching* the turn, not when the turn began — adopting a restored turn
  * stamps it with the adoption — and a child's `createdAt` is its run's, which a
  * retry reuses. Both make a clock-based rule quietly drop live children.
  */
-export function mergeChildTasksIntoWorkGraph(
+export function mergeDelegatedTasksIntoWorkGraph(
   graph: WorkGraph,
-  children: readonly ChildTaskSummary[],
+  children: readonly DelegatedTaskSummary[],
   now: number,
 ): WorkGraph {
   let next = graph;
   for (const child of children) {
     const key = ledgerNodeKey(child.delegationKey);
     const existing = next.nodesByKey[key];
-    if (!existing && !isActiveChildTaskPhase(child.phase)) {
+    if (!existing && !isActiveDelegatedTaskPhase(child.phase)) {
       continue;
     }
     next = upsertNode(
@@ -1269,7 +1269,7 @@ export function mergeChildTasksIntoWorkGraph(
         identitySource: "ledger",
         authoritative: true,
         delegationKey: child.delegationKey,
-        childTaskId: child.childTaskId,
+        delegatedTaskId: child.delegatedTaskId,
         attempt: child.attempt,
         parentKey: existing?.parentKey ?? next.rootKey,
         label: resolveDelegatedChildLabel(

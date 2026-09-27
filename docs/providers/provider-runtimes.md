@@ -183,7 +183,7 @@ and under `_meta`, so a later Cursor build that starts reporting usage is
 picked up without a runtime change.
 
 Cursor is intentionally excluded from Advisor, secondary and unattended runs,
-routines, native thread actions, and mid-turn steering. It does have a
+automations, native thread actions, and mid-turn steering. It does have a
 Standalone CLI tab: that surface runs `agent` directly over a PTY and does not
 go through the ACP runtime, so none of the ACP limitations apply to it.
 ACP v1 `session/prompt` is blocking, and the Cursor Agent ACP dispatcher
@@ -244,7 +244,7 @@ usage control and the turn-activity Headroom/Usage tiles show a percentage and
 a credit amount instead of a zero-token turn.
 
 Kiro is intentionally excluded from Advisor, secondary and unattended runs,
-routines, and native thread actions. It does have a Standalone CLI tab: that
+automations, and native thread actions. It does have a Standalone CLI tab: that
 surface runs `kiro-cli chat` directly over a PTY and does not go through the
 ACP runtime, so none of the ACP limitations apply to it. Interactive primary
 turns can steer mid-turn: while `session/prompt` is in flight, Stave sends the
@@ -304,6 +304,18 @@ the HTTP proxy through private environment entries. Enabled collaboration that
 cannot attach Local MCP stops with a setup error instead of starting a primary
 that cannot use the promised tool. Previous collaboration briefings are replaced
 when retrying a canonical request, and removed when the feature is disabled.
+
+A mission turn carries a mission grant on the same header and environment path
+(`x-stave-mission-key`, `STAVE_MISSION_GRANT_KEY`). Only the host's mission
+supervisor sets the `missionStage` that mints it; the renderer's turn schema
+rejects the field. The grant names one stage attempt, the Local MCP server
+exposes `stave_get_mission`, `stave_report_stage` and `stave_block_stage` only
+on a connection that carries a key, and the host resolves the mission, stage
+and attempt from the key's active grant, so the tools take no ids. Turn end
+revokes the grant. Claude gets a fresh key per turn. Codex keeps one key per
+task, like the Advisor channel, so later turns resume the same thread; the key
+resolves to nothing outside a mission turn. Missions run on Claude and Codex
+only.
 
 Control is split deliberately: the **user** decides who answers, at what
 effort, and how often (the per-turn consult budget,
@@ -754,7 +766,7 @@ the user explicitly chooses another advertised model.
   `agents.*` overrides nor the worker brief in `developer_instructions` are sent.
   A secondary run is a bounded analysis pass; delegating would escape both its
   turn budget and its read-only contract.
-- Cross-provider or durable delegation remains a Child Task. Worker mode never
+- Cross-provider or durable delegation remains a Delegated Task. Worker mode never
   switches provider, and its bounded role-session reuse is not a durable child
   task or an independently scheduled execution.
 - Only per-turn and per-thread runtime configuration is used. No provider config
@@ -825,9 +837,9 @@ Rules:
   summary candidates stay out of recall until curated. The block is capped at
   `PROJECT_MEMORY_INJECTION_MAX_ITEMS` rows / `PROJECT_MEMORY_INJECTION_MAX_CHARS`
   characters, and deduplicated per session like the Information panel block.
-  See [Project memory](../features/project-memory.md),
-  `src/lib/task-context/project-memory.ts` and
-  `electron/persistence/project-memory-store.ts`.
+  See [Repository memory](../features/repository-memory.md),
+  `src/lib/task-context/repository-memory.ts` and
+  `electron/persistence/repository-memory-store.ts`.
 
 Claude's system prompt keeps its own cache boundary
 (`SYSTEM_PROMPT_DYNAMIC_BOUNDARY`); nothing here changes that.

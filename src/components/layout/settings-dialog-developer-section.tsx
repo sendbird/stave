@@ -227,7 +227,7 @@ export function ClaudeRuntimeToolsCard() {
     activeTaskId,
     activeWorkspaceId,
     workspacePathById,
-    projectPath,
+    repositoryPath,
     providerSessionByTask,
     refreshProviderCommandCatalog,
   ] = useAppStore(
@@ -238,7 +238,7 @@ export function ClaudeRuntimeToolsCard() {
           state.activeTaskId,
           state.activeWorkspaceId,
           state.workspacePathById,
-          state.projectPath,
+          state.repositoryPath,
           state.providerSessionByTask,
           state.refreshProviderCommandCatalog,
         ] as const,
@@ -255,7 +255,7 @@ export function ClaudeRuntimeToolsCard() {
   const [isReloadingClaudePlugins, setIsReloadingClaudePlugins] =
     useState(false);
   const workspaceCwd =
-    workspacePathById[activeWorkspaceId] ?? projectPath ?? undefined;
+    workspacePathById[activeWorkspaceId] ?? repositoryPath ?? undefined;
   const claudeRuntimeOptions = buildProviderRuntimeOptions({
     provider: "claude-code",
     model: settings.modelClaude,

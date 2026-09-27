@@ -112,8 +112,8 @@ beforeEach(async () => {
   const initial = useAppStore.getInitialState();
   useAppStore.setState({
     ...initial,
-    projectPath: "/tmp/stave",
-    projectName: "Stave",
+    repositoryPath: "/tmp/stave",
+    repositoryName: "Stave",
     defaultBranch: "main",
     activeWorkspaceId: "base",
     activeTaskId: "base-task",
@@ -673,7 +673,7 @@ describe("compare run store actions", () => {
       id: "compare:run-judge:judge",
       origin: { kind: "compare-run", id: "run-judge" },
       ownership: {
-        projectPath: "/tmp/stave",
+        repositoryPath: "/tmp/stave",
         workspaceId: "base",
       },
       policy: {

@@ -124,8 +124,8 @@ async function setupAdoptedManagedTurn(args: { turnCompletedAt: string | null })
   useAppStore.setState({
     ...initialState,
     hasHydratedWorkspaces: true,
-    projectPath: "/tmp/stave-project",
-    projectName: "project",
+    repositoryPath: "/tmp/stave-project",
+    repositoryName: "project",
     defaultBranch: "main",
     workspaces: [
       {

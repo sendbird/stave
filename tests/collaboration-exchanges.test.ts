@@ -5,7 +5,7 @@ import { buildCollaborationReport } from "../src/lib/collaboration/report";
 import {
   mergeCollaborationRows,
   collectCollaborationHistoryExport,
-  projectCollaborationHistoryPage,
+  repositoryCollaborationHistoryPage,
   resolveNewerCollaborationHistoryOffset,
   resolveOlderCollaborationHistoryOffset,
 } from "../src/lib/collaboration/history";
@@ -200,7 +200,7 @@ describe("collaboration transcript projections", () => {
       content: "unrelated-full-transcript-payload",
       parts: [{ type: "text", text: "unrelated-full-transcript-payload" }],
     };
-    const history = projectCollaborationHistoryPage({
+    const history = repositoryCollaborationHistoryPage({
       messages: pageMessages,
       totalCount: 360,
       limit: 120,
@@ -229,7 +229,7 @@ describe("collaboration transcript projections", () => {
     const current = selectWorkerExchanges([
       message([call({ toolUseId: "same" })], "shared"),
     ]);
-    const savedPage = projectCollaborationHistoryPage({
+    const savedPage = repositoryCollaborationHistoryPage({
       messages: [message([call({ toolUseId: "same" })], "shared")],
       totalCount: 501,
       limit: 120,

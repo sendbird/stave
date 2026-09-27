@@ -1,20 +1,22 @@
-import type { StaveCollaborationGrants } from "./stave-collaboration-grants";
+import type { StaveTurnGrants } from "./stave-turn-grants";
 
 const threadIdByTask = new Map<string, string>();
 const threadExecutableByTask = new Map<string, string>();
 // A resumed Codex thread retains its Stave Local MCP connection and catalog.
-const collaborationProfileByThreadKey = new Map<string, string>();
-const NO_COLLABORATION_PROFILE = "none";
+const grantProfileByThreadKey = new Map<string, string>();
+const NO_GRANT_PROFILE = "none";
 
-function buildCollaborationProfile(grants?: StaveCollaborationGrants) {
+function buildGrantProfile(grants?: StaveTurnGrants) {
   const consultKey = grants?.consultKey ?? "";
   const workerKey = grants?.workerKey ?? "";
-  return consultKey || workerKey
-    ? JSON.stringify([consultKey, workerKey])
-    : NO_COLLABORATION_PROFILE;
+  const missionKey = grants?.missionKey ?? "";
+  const projectKey = grants?.projectKey ?? "";
+  if (!consultKey && !workerKey && !missionKey && !projectKey) return NO_GRANT_PROFILE;
+  // The project key is appended only when present, so existing profiles keep their shape.
+  return JSON.stringify(projectKey ? [consultKey, workerKey, missionKey, projectKey] : [consultKey, workerKey, missionKey]);
 }
 
-export function shouldStartFreshCodexCollaborationThread(args: {
+export function shouldStartFreshCodexGrantThread(args: {
   resumeThreadId?: string;
   previousProfile?: string;
   currentProfile: string;
@@ -27,7 +29,7 @@ export function shouldStartFreshCodexCollaborationThread(args: {
   // installed instead of inheriting the old catalog.
   return (
     args.previousProfile !== undefined ||
-    args.currentProfile !== NO_COLLABORATION_PROFILE
+    args.currentProfile !== NO_GRANT_PROFILE
   );
 }
 
@@ -36,17 +38,17 @@ export function resolveCodexThreadSession(args: {
   executablePath: string;
   fallbackThreadId?: string;
   ephemeral?: boolean;
-  collaborationGrants?: StaveCollaborationGrants;
+  turnGrants?: StaveTurnGrants;
 }) {
   if (args.ephemeral) return undefined;
   const resumeThreadId =
     threadExecutableByTask.get(args.threadKey) === args.executablePath
       ? (threadIdByTask.get(args.threadKey) ?? args.fallbackThreadId?.trim())
       : args.fallbackThreadId?.trim();
-  const currentProfile = buildCollaborationProfile(args.collaborationGrants);
-  return shouldStartFreshCodexCollaborationThread({
+  const currentProfile = buildGrantProfile(args.turnGrants);
+  return shouldStartFreshCodexGrantThread({
     resumeThreadId,
-    previousProfile: collaborationProfileByThreadKey.get(args.threadKey),
+    previousProfile: grantProfileByThreadKey.get(args.threadKey),
     currentProfile,
   })
     ? undefined
@@ -57,15 +59,15 @@ export function rememberCodexThreadSession(args: {
   threadKey: string;
   threadId?: string;
   executablePath: string;
-  collaborationGrants?: StaveCollaborationGrants;
+  turnGrants?: StaveTurnGrants;
 }) {
   const threadId = args.threadId?.trim();
   if (!threadId) return;
   threadIdByTask.set(args.threadKey, threadId);
   threadExecutableByTask.set(args.threadKey, args.executablePath);
-  collaborationProfileByThreadKey.set(
+  grantProfileByThreadKey.set(
     args.threadKey,
-    buildCollaborationProfile(args.collaborationGrants),
+    buildGrantProfile(args.turnGrants),
   );
 }
 
@@ -75,7 +77,7 @@ function forgetMatchingCodexThreadSessions(predicate: (key: string) => boolean) 
     if (!predicate(threadKey)) continue;
     threadIdByTask.delete(threadKey);
     threadExecutableByTask.delete(threadKey);
-    collaborationProfileByThreadKey.delete(threadKey);
+    grantProfileByThreadKey.delete(threadKey);
     forgotten.push(threadKey);
   }
   return forgotten;

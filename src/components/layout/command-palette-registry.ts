@@ -102,10 +102,10 @@ export interface CommandPaletteWorkspaceSummary {
   path?: string;
 }
 
-export interface CommandPaletteProjectSummary {
+export interface CommandPaletteRepositorySummary {
   isCurrent: boolean;
-  projectName: string;
-  projectPath: string;
+  repositoryName: string;
+  repositoryPath: string;
 }
 
 export interface CommandPaletteLayoutState {
@@ -130,15 +130,15 @@ export interface CommandPaletteCommandHandlers {
   openFleetView: () => void;
   openGitGraph: () => void;
   openAutomationCenter: () => void;
-  openTasks: () => void;
-  refreshTrackerTasks: () => Promise<void> | void;
+  openIssues: () => void;
+  refreshTrackerIssues: () => Promise<void> | void;
   openKeyboardShortcuts: () => void;
-  openProject: (projectPath: string) => Promise<void> | void;
+  openRepository: (repositoryPath: string) => Promise<void> | void;
   openSettings: (options?: {
-    projectPath?: string | null;
+    repositoryPath?: string | null;
     section?: SectionId;
   }) => void;
-  refreshProjectFiles: () => Promise<void> | void;
+  refreshRepositoryFiles: () => Promise<void> | void;
   refreshWorkspaces: () => Promise<void> | void;
   revealInFileManager: (path: string) => Promise<void> | void;
   saveActiveEditor: () => Promise<void> | void;
@@ -167,8 +167,8 @@ export interface CommandPaletteRuntimeContext {
   layout: CommandPaletteLayoutState;
   modifierLabel: "Cmd" | "Ctrl";
   preferences: CommandPalettePreferences;
-  projectPath: string | null;
-  projects: CommandPaletteProjectSummary[];
+  repositoryPath: string | null;
+  repositories: CommandPaletteRepositorySummary[];
   /** Bumped when the active workspace's scripts runtime snapshot changes, so
    * memoized consumers re-run the scripts contributor. */
   scriptsRevision?: number;
@@ -284,7 +284,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     keywords: ["file", "quick open", "go to file", "search"],
     shortcut: (modifierLabel) => `${modifierLabel}+P`,
     build: (args) =>
-      args.projectPath
+      args.repositoryPath
         ? {
             id: "navigation.quick-open-file",
             title: "Quick Open File",
@@ -309,7 +309,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     build: (args) => ({
       id: "navigation.home",
       title: "Go Home",
-      subtitle: "Return to the project overview.",
+      subtitle: "Return to the repository overview.",
       group: "navigation",
       icon: Home,
       keywords: ["home", "dashboard", "clear task selection"],
@@ -356,7 +356,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     keywords: ["fleet", "agents", "status", "parallel", "needs input"],
     shortcut: (modifierLabel) => `${modifierLabel}+K F`,
     build: (args) =>
-      args.projectPath
+      args.repositoryPath
         ? {
             id: "navigation.fleet-view",
             title: "Open Fleet View",
@@ -411,8 +411,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     }),
   },
   {
-    id: "navigation.tasks",
-    title: "Open Tasks",
+    id: "navigation.issues",
+    title: "Open Issues",
     description: "Open assigned tracker tickets and start a run from one.",
     group: "navigation",
     icon: ListTodo,
@@ -427,8 +427,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     ],
     shortcut: (modifierLabel) => `${modifierLabel}+K T`,
     build: (args) => ({
-      id: "navigation.tasks",
-      title: "Open Tasks",
+      id: "navigation.issues",
+      title: "Open Issues",
       subtitle: "Review assigned tickets and start a run from one.",
       group: "navigation",
       icon: ListTodo,
@@ -442,25 +442,25 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
         "due",
       ],
       shortcut: `${args.modifierLabel}+K T`,
-      run: args.commands.openTasks,
+      run: args.commands.openIssues,
       source: "core",
     }),
   },
   {
-    id: "tracker.refresh-tasks",
-    title: "Refresh Tasks",
+    id: "tracker.refresh-issues",
+    title: "Refresh Issues",
     description: "Re-poll every connected tracker for assigned tickets.",
     group: "navigation",
     icon: RefreshCw,
     keywords: ["refresh", "tasks", "tickets", "tracker", "sync"],
     build: (args) => ({
-      id: "tracker.refresh-tasks",
-      title: "Refresh Tasks",
+      id: "tracker.refresh-issues",
+      title: "Refresh Issues",
       subtitle: "Re-poll connected trackers for assigned tickets.",
       group: "navigation",
       icon: RefreshCw,
       keywords: ["refresh", "tasks", "tickets", "tracker", "sync"],
-      run: args.commands.refreshTrackerTasks,
+      run: args.commands.refreshTrackerIssues,
       source: "core",
     }),
   },
@@ -596,17 +596,17 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     description: "Collapse or expand the left workspace sidebar.",
     group: "view",
     icon: PanelLeft,
-    keywords: ["sidebar", "project list", "collapse"],
+    keywords: ["sidebar", "repository list", "collapse"],
     shortcut: (modifierLabel) => `${modifierLabel}+B`,
     build: (args) => ({
       id: "view.toggle-workspace-sidebar",
       title: args.layout.workspaceSidebarCollapsed
         ? "Expand Workspace Sidebar"
         : "Collapse Workspace Sidebar",
-      subtitle: "Toggle the left project and workspace list.",
+      subtitle: "Toggle the left repository and workspace list.",
       group: "view",
       icon: PanelLeft,
-      keywords: ["sidebar", "project list", "collapse"],
+      keywords: ["sidebar", "repository list", "collapse"],
       shortcut: `${args.modifierLabel}+B`,
       run: args.commands.toggleWorkspaceSidebar,
       source: "core",
@@ -1072,7 +1072,7 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       "source",
     ],
     build: (args) =>
-      args.projectPath
+      args.repositoryPath
         ? {
             id: "workspace.kickoff",
             title: "Kick off Workspace",
@@ -1096,21 +1096,21 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "workspace.refresh-files",
-    title: "Refresh Project Files",
+    title: "Refresh Repository Files",
     description: "Rescan the active workspace file list.",
     group: "navigation",
     icon: RefreshCw,
     keywords: ["refresh", "files", "project"],
     build: (args) =>
-      args.projectPath
+      args.repositoryPath
         ? {
             id: "workspace.refresh-files",
-            title: "Refresh Project Files",
+            title: "Refresh Repository Files",
             subtitle: "Rescan the active workspace file list.",
             group: "navigation",
             icon: RefreshCw,
             keywords: ["refresh", "files", "project"],
-            run: args.commands.refreshProjectFiles,
+            run: args.commands.refreshRepositoryFiles,
             source: "core",
           }
         : null,
@@ -1118,16 +1118,16 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   {
     id: "workspace.refresh-workspaces",
     title: "Refresh Workspaces",
-    description: "Rediscover project workspaces and PR state.",
+    description: "Rediscover repository workspaces and PR state.",
     group: "navigation",
     icon: RefreshCw,
     keywords: ["refresh", "workspace", "worktree"],
     build: (args) =>
-      args.projectPath
+      args.repositoryPath
         ? {
             id: "workspace.refresh-workspaces",
             title: "Refresh Workspaces",
-            subtitle: "Rediscover workspaces for the current project.",
+            subtitle: "Rediscover workspaces for the current repository.",
             group: "navigation",
             icon: RefreshCw,
             keywords: ["refresh", "workspace", "worktree"],
@@ -1265,20 +1265,20 @@ function buildDynamicActions(
     });
   }
 
-  for (const project of args.projects) {
+  for (const repository of args.repositories) {
     actions.push({
-      id: `project.open.${project.projectPath}`,
-      title: `Open Project: ${project.projectName}`,
-      subtitle: project.isCurrent ? "Current project" : project.projectPath,
+      id: `project.open.${repository.repositoryPath}`,
+      title: `Open Repository: ${repository.repositoryName}`,
+      subtitle: repository.isCurrent ? "Current repository" : repository.repositoryPath,
       group: "navigation",
       icon: LibraryBig,
       keywords: [
-        "open project",
+        "open repository",
         "project",
-        project.projectName,
-        project.projectPath,
+        repository.repositoryName,
+        repository.repositoryPath,
       ],
-      run: () => args.commands.openProject(project.projectPath),
+      run: () => args.commands.openRepository(repository.repositoryPath),
       source: "dynamic",
       customizable: false,
     });
@@ -1323,13 +1323,13 @@ export function resolveCommandPaletteContextRelevance(args: {
   }
 
   if (action.id.startsWith("project.open.")) {
-    const projectPath = action.id.slice("project.open.".length);
-    const project = context.projects.find(
-      (candidate) => candidate.projectPath === projectPath,
+    const repositoryPath = action.id.slice("project.open.".length);
+    const repository = context.repositories.find(
+      (candidate) => candidate.repositoryPath === repositoryPath,
     );
-    return !project || project.isCurrent
+    return !repository || repository.isCurrent
       ? null
-      : { label: "Recent project", score: 52 };
+      : { label: "Recent repository", score: 52 };
   }
 
   if (action.id === "task.stop-active-turn" && context.hasActiveTurn) {
@@ -1401,9 +1401,9 @@ export function resolveCommandPaletteContextRelevance(args: {
   if (
     (action.id === "navigation.quick-open-file" ||
       action.id === "view.search-in-files") &&
-    context.projectPath
+    context.repositoryPath
   ) {
-    return { label: "Current project", score: 80 };
+    return { label: "Current repository", score: 80 };
   }
 
   if (

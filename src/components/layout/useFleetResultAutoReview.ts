@@ -125,7 +125,7 @@ export function useFleetResultAutoReview() {
         try {
           await setResultsReviewed({
             scopes: ready.map((result) => ({
-              projectPath: result.projectPath,
+              repositoryPath: result.repositoryPath,
               workspaceId: result.workspaceId,
               taskId: result.taskId,
               turnId: result.turnId,

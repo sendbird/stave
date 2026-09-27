@@ -24,7 +24,7 @@ export interface WorkspaceSettingsDialogProps {
   workspaceName: string;
   isDefault?: boolean;
   branch?: string;
-  projectPath: string;
+  repositoryPath: string;
   workspacePath: string;
   onRename?: (args: {
     workspaceId: string;
@@ -40,7 +40,7 @@ export function WorkspaceSettingsContent(props: {
   workspaceId: string;
   isDefault?: boolean;
   workspacePath: string;
-  projectPath: string;
+  repositoryPath: string;
   resolvedConfig: ResolvedWorkspaceScriptsConfig | null;
   onSaved: () => void;
   onRename?: (args: {
@@ -132,7 +132,7 @@ export function WorkspaceSettingsContent(props: {
             ? "Default workspace labels are fixed."
             : props.branch
               ? `Shown as ${normalizedLabel || "label"} (${props.branch}).`
-              : "Shown in the project sidebar."}
+              : "Shown in the repository sidebar."}
         </p>
         {labelMessage ? (
           <p className={sx(styles.labelHint)}>{labelMessage}</p>
@@ -153,7 +153,7 @@ export function WorkspaceSettingsContent(props: {
         </TabsContent>
         <TabsContent value="scripts" xstyle={styles.tabPanel}>
           <ScriptsManager
-            projectPath={props.projectPath}
+            repositoryPath={props.repositoryPath}
             workspacePath={props.workspacePath}
             resolvedConfig={props.resolvedConfig}
             onSaved={props.onSaved}
@@ -182,16 +182,16 @@ export function WorkspaceSettingsDialog(
 
   const loadConfig = useCallback(async () => {
     const getConfig = window.api?.scripts?.getConfig;
-    if (!getConfig || !props.projectPath || !props.workspacePath) {
+    if (!getConfig || !props.repositoryPath || !props.workspacePath) {
       setResolvedConfig(null);
       return;
     }
     const result = await getConfig({
-      projectPath: props.projectPath,
+      repositoryPath: props.repositoryPath,
       workspacePath: props.workspacePath,
     });
     setResolvedConfig(result.ok ? result.config : null);
-  }, [props.projectPath, props.workspacePath]);
+  }, [props.repositoryPath, props.workspacePath]);
 
   useEffect(() => {
     if (props.open) {
@@ -206,7 +206,7 @@ export function WorkspaceSettingsDialog(
       isDefault={props.isDefault}
       branch={props.branch}
       workspacePath={props.workspacePath}
-      projectPath={props.projectPath}
+      repositoryPath={props.repositoryPath}
       resolvedConfig={resolvedConfig}
       onSaved={loadConfig}
       onRename={props.onRename}

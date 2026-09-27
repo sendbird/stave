@@ -8,16 +8,16 @@ import {
   searchSettingsFields,
   settingDefinitions,
 } from "@/components/layout/settings-dialog.registry";
-import { resolveSettingsProjectSelection } from "@/components/layout/settings-dialog.utils";
-import type { RecentProjectState } from "@/store/project.utils";
+import { resolveSettingsRepositorySelection } from "@/components/layout/settings-dialog.utils";
+import type { RecentRepositoryState } from "@/store/repository.utils";
 
-function createProject(args: {
-  projectPath: string;
-  projectName: string;
-}): RecentProjectState {
+function createRepository(args: {
+  repositoryPath: string;
+  repositoryName: string;
+}): RecentRepositoryState {
   return {
-    projectPath: args.projectPath,
-    projectName: args.projectName,
+    repositoryPath: args.repositoryPath,
+    repositoryName: args.repositoryName,
     lastOpenedAt: "2026-04-06T00:00:00.000Z",
     defaultBranch: "main",
     workspaces: [],
@@ -28,36 +28,36 @@ function createProject(args: {
   };
 }
 
-describe("resolveSettingsProjectSelection", () => {
-  const projects = [
-    createProject({
-      projectPath: "/tmp/project-a",
-      projectName: "project-a",
+describe("resolveSettingsRepositorySelection", () => {
+  const repositories = [
+    createRepository({
+      repositoryPath: "/tmp/project-a",
+      repositoryName: "project-a",
     }),
-    createProject({
-      projectPath: "/tmp/project-b",
-      projectName: "project-b",
+    createRepository({
+      repositoryPath: "/tmp/project-b",
+      repositoryName: "project-b",
     }),
   ];
 
   test("returns null when no projects are registered", () => {
     expect(
-      resolveSettingsProjectSelection({
-        projects: [],
-        selectedProjectPath: null,
-        highlightedProjectPath: "/tmp/project-a",
-        currentProjectPath: "/tmp/project-a",
+      resolveSettingsRepositorySelection({
+        repositories: [],
+        selectedRepositoryPath: null,
+        highlightedRepositoryPath: "/tmp/project-a",
+        currentRepositoryPath: "/tmp/project-a",
       }),
     ).toBeNull();
   });
 
   test("keeps the user's current selection instead of restoring the initial highlight", () => {
     expect(
-      resolveSettingsProjectSelection({
-        projects,
-        selectedProjectPath: "/tmp/project-b",
-        highlightedProjectPath: "/tmp/project-a",
-        currentProjectPath: "/tmp/project-a",
+      resolveSettingsRepositorySelection({
+        repositories,
+        selectedRepositoryPath: "/tmp/project-b",
+        highlightedRepositoryPath: "/tmp/project-a",
+        currentRepositoryPath: "/tmp/project-a",
         allowHighlightedOverride: false,
       }),
     ).toBe("/tmp/project-b");
@@ -65,11 +65,11 @@ describe("resolveSettingsProjectSelection", () => {
 
   test("uses the highlighted project when there is no valid selection yet", () => {
     expect(
-      resolveSettingsProjectSelection({
-        projects,
-        selectedProjectPath: null,
-        highlightedProjectPath: "/tmp/project-b",
-        currentProjectPath: "/tmp/project-a",
+      resolveSettingsRepositorySelection({
+        repositories,
+        selectedRepositoryPath: null,
+        highlightedRepositoryPath: "/tmp/project-b",
+        currentRepositoryPath: "/tmp/project-a",
         allowHighlightedOverride: true,
       }),
     ).toBe("/tmp/project-b");
@@ -77,11 +77,11 @@ describe("resolveSettingsProjectSelection", () => {
 
   test("falls back to the current project after a stale selection", () => {
     expect(
-      resolveSettingsProjectSelection({
-        projects,
-        selectedProjectPath: "/tmp/removed-project",
-        highlightedProjectPath: "/tmp/project-a",
-        currentProjectPath: "/tmp/project-b",
+      resolveSettingsRepositorySelection({
+        repositories,
+        selectedRepositoryPath: "/tmp/removed-project",
+        highlightedRepositoryPath: "/tmp/project-a",
+        currentRepositoryPath: "/tmp/project-b",
         allowHighlightedOverride: false,
       }),
     ).toBe("/tmp/project-b");
@@ -89,11 +89,11 @@ describe("resolveSettingsProjectSelection", () => {
 
   test("falls back to the first registered project when no other target matches", () => {
     expect(
-      resolveSettingsProjectSelection({
-        projects,
-        selectedProjectPath: "/tmp/removed-project",
-        highlightedProjectPath: "/tmp/missing-highlight",
-        currentProjectPath: "/tmp/missing-current",
+      resolveSettingsRepositorySelection({
+        repositories,
+        selectedRepositoryPath: "/tmp/removed-project",
+        highlightedRepositoryPath: "/tmp/missing-highlight",
+        currentRepositoryPath: "/tmp/missing-current",
         allowHighlightedOverride: false,
       }),
     ).toBe("/tmp/project-a");

@@ -1,0 +1,377 @@
+import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Button,
+  Textarea,
+  Switch,
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui";
+import { REPOSITORY_MEMORY_KINDS } from "@/lib/repository-memory";
+import {
+  DEFAULT_REPOSITORY_MEMORY_SETTINGS,
+  type RepositoryMemorySettings,
+} from "@/lib/repository-memory-settings";
+import { sx } from "@/components/ads/utils/stylex";
+import { ConfirmDialog } from "./ConfirmDialog";
+import { repositoryMemoryControlsStyles as styles } from "./RepositoryMemoryControls.styles";
+
+export const REPOSITORY_MEMORY_CHANGED_EVENT = "stave:repository-memory-changed";
+const KIND_DESCRIPTIONS = {
+  decision: "Decisions and their rationale",
+  convention: "Conventions and preferences",
+  gotcha: "Pitfalls and lessons",
+  fact: "Stable repository facts",
+};
+
+export function RepositoryMemoryControls({
+  repositoryPath,
+}: {
+  repositoryPath: string;
+}) {
+  const [saved, setSaved] = useState<RepositoryMemorySettings | null>(null);
+  const [draft, setDraft] = useState<RepositoryMemorySettings | null>(null);
+  const [counts, setCounts] = useState({ all: 0, candidates: 0 });
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [clearing, setClearing] = useState<"candidates" | "all" | null>(null);
+  const version = useRef(0);
+  const hasUnsavedChanges = useRef(false);
+  hasUnsavedChanges.current = Boolean(
+    draft && JSON.stringify(draft) !== JSON.stringify(saved),
+  );
+  const reload = useCallback(async () => {
+    const request = ++version.current;
+    const api = window.api?.repositoryMemory;
+    if (!api?.getSettings || !api.list) {
+      setError("Memory controls require the updated desktop application.");
+      return;
+    }
+    try {
+      const [settings, list] = await Promise.all([
+        api.getSettings({ repositoryPath }),
+        api.list({ repositoryPath }),
+      ]);
+      if (request !== version.current) return;
+      if (!settings.ok || !settings.settings || !list.ok)
+        throw new Error(
+          settings.message ?? list.message ?? "Could not load memory settings.",
+        );
+      // A memory card changing elsewhere must not erase a template being edited.
+      // Keep its original revision so a later save still detects settings conflicts.
+      if (!hasUnsavedChanges.current) {
+        setSaved(settings.settings);
+        setDraft(settings.settings);
+      }
+      setCounts({
+        all: list.items.length,
+        candidates: list.items.filter((m) => m.recallMode === "candidate")
+          .length,
+      });
+      setError("");
+    } catch (err) {
+      if (request === version.current)
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Could not load memory settings.",
+        );
+    }
+  }, [repositoryPath]);
+  useEffect(() => {
+    setSaved(null);
+    setDraft(null);
+    void reload();
+    const changed = () => {
+      void reload();
+    };
+    window.addEventListener(REPOSITORY_MEMORY_CHANGED_EVENT, changed);
+    return () => {
+      version.current += 1;
+      window.removeEventListener(REPOSITORY_MEMORY_CHANGED_EVENT, changed);
+    };
+  }, [reload]);
+
+  const save = async () => {
+    const api = window.api?.repositoryMemory;
+    if (!api?.saveSettings || !draft || !saved) return;
+    const request = version.current;
+    setBusy(true);
+    try {
+      const {
+        revision: _revision,
+        resetBefore: _resetBefore,
+        ...patch
+      } = draft;
+      const result = await api.saveSettings({
+        repositoryPath,
+        patch,
+        expectedRevision: saved.revision,
+      });
+      if (request !== version.current) return;
+      if (!result.ok || !result.settings)
+        throw new Error(result.message ?? "Could not save settings.");
+      setSaved(result.settings);
+      setDraft(result.settings);
+      window.dispatchEvent(new Event(REPOSITORY_MEMORY_CHANGED_EVENT));
+    } catch (err) {
+      if (request === version.current)
+        setError(
+          err instanceof Error ? err.message : "Could not save settings.",
+        );
+    } finally {
+      setBusy(false);
+    }
+  };
+  const clear = async () => {
+    const api = window.api?.repositoryMemory;
+    if (!api?.clear || !clearing) return;
+    const request = version.current;
+    setBusy(true);
+    try {
+      const result = await api.clear({ repositoryPath, scope: clearing });
+      if (request !== version.current) return;
+      if (!result.ok)
+        throw new Error(result.message ?? "Could not clear memories.");
+      setClearing(null);
+      window.dispatchEvent(new Event(REPOSITORY_MEMORY_CHANGED_EVENT));
+    } catch (err) {
+      if (request === version.current)
+        setError(
+          err instanceof Error ? err.message : "Could not clear memories.",
+        );
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className={sx(styles.root)}>
+      {error && (
+        <div role="alert" className={sx(styles.errorBlock)}>
+          <p>{error}</p>
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={busy}
+            onClick={() => {
+              hasUnsavedChanges.current = false;
+              void reload();
+            }}
+          >
+            Reload
+          </Button>
+        </div>
+      )}
+      {!draft ? (
+        <p className={sx(styles.loading)}>
+          {error
+            ? "Memory settings are unavailable."
+            : "Loading memory settings…"}
+        </p>
+      ) : (
+        <>
+          <fieldset disabled={busy} className={sx(styles.fieldset)}>
+            <label className={sx(styles.toggleRow)}>
+              <span>
+                Use repository memory
+                <span className={sx(styles.toggleHint)}>
+                  Include relevant saved knowledge in new turns. Turning this
+                  off keeps stored memories.
+                </span>
+              </span>
+              <Switch
+                checked={draft.useMemory}
+                onCheckedChange={(value) =>
+                  setDraft({ ...draft, useMemory: value })
+                }
+              />
+            </label>
+            <label className={sx(styles.toggleRow)}>
+              <span>
+                Collect repository memory
+                <span className={sx(styles.toggleHint)}>
+                  Off by default. Allow agents to save repository knowledge and
+                  completed-turn summaries to suggest candidates. Suggestions
+                  require Background AI → Turn summary.
+                </span>
+              </span>
+              <Switch
+                checked={draft.collectAutomatically}
+                onCheckedChange={(value) =>
+                  setDraft({ ...draft, collectAutomatically: value })
+                }
+              />
+            </label>
+            <fieldset className={sx(styles.kindsFieldset)}>
+              <legend className={sx(styles.legend)}>What to collect</legend>
+              {REPOSITORY_MEMORY_KINDS.map((kind) => (
+                <label key={kind} className={sx(styles.kindRow)}>
+                  <input
+                    type="checkbox"
+                    checked={draft.kinds.includes(kind)}
+                    onChange={(event) =>
+                      setDraft({
+                        ...draft,
+                        kinds: event.target.checked
+                          ? [...draft.kinds, kind]
+                          : draft.kinds.filter((entry) => entry !== kind),
+                      })
+                    }
+                  />
+                  {KIND_DESCRIPTIONS[kind]}
+                </label>
+              ))}
+            </fieldset>
+            <label className={sx(styles.templateLabelStack)}>
+              <span className={sx(styles.templateTitle)}>
+                Collection template
+              </span>
+              <span className={sx(styles.templateHint)}>
+                Describe what is worth remembering and what to exclude. Each
+                summary can propose one candidate; review and recall limits
+                still apply.
+              </span>
+              <Textarea
+                xstyle={styles.templateTextarea}
+                value={draft.collectionTemplate}
+                maxLength={4000}
+                onChange={(event) =>
+                  setDraft({ ...draft, collectionTemplate: event.target.value })
+                }
+              />
+            </label>
+            <div className={sx(styles.actionRow)}>
+              <Button
+                size="sm"
+                onClick={() => void save()}
+                disabled={
+                  !draft.collectionTemplate.trim() ||
+                  JSON.stringify(draft) === JSON.stringify(saved)
+                }
+              >
+                Save settings
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() =>
+                  setDraft({
+                    ...draft,
+                    collectionTemplate:
+                      DEFAULT_REPOSITORY_MEMORY_SETTINGS.collectionTemplate,
+                    kinds: [...DEFAULT_REPOSITORY_MEMORY_SETTINGS.kinds],
+                  })
+                }
+              >
+                Restore collection defaults
+              </Button>
+            </div>
+          </fieldset>
+          <div className={sx(styles.footer)}>
+            <p className={sx(styles.footerCount)}>
+              {counts.all} memories · {counts.candidates} candidates in this
+              repository
+            </p>
+            <div className={sx(styles.footerActions)}>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={busy || !counts.candidates}
+                onClick={() => {
+                  setError("");
+                  setClearing("candidates");
+                }}
+              >
+                Clear candidates
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                disabled={busy}
+                onClick={() => {
+                  setError("");
+                  setClearing("all");
+                }}
+              >
+                Reset repository memory
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
+      <ConfirmDialog
+        open={clearing !== null}
+        loading={busy}
+        title={
+          clearing === "candidates"
+            ? `Clear ${counts.candidates} candidates?`
+            : `Reset ${counts.all} repository memories?`
+        }
+        description="This applies only to this repository and cannot be undone here. Older turns and pending automatic collection will not refill cleared memories. Content already sent to an ongoing conversation remains there. Collection settings are kept."
+        confirmLabel={
+          clearing === "candidates"
+            ? "Clear candidates"
+            : "Reset repository memory"
+        }
+        onConfirm={() => void clear()}
+        onCancel={() => {
+          if (!busy) setClearing(null);
+        }}
+      >
+        {error && (
+          <p role="alert" className={sx(styles.dialogError)}>
+            {error}
+          </p>
+        )}
+      </ConfirmDialog>
+    </div>
+  );
+}
+
+export function RepositoryMemorySettingsSection(props: {
+  repositories: Array<{ repositoryPath: string; repositoryName: string }>;
+  initialRepositoryPath?: string | null;
+}) {
+  const [selected, setSelected] = useState(props.initialRepositoryPath ?? "");
+  const repositoryPath = props.repositories.some((p) => p.repositoryPath === selected)
+    ? selected
+    : (props.repositories[0]?.repositoryPath ?? "");
+  return (
+    <section className={sx(styles.section)}>
+      <div>
+        <h2 className={sx(styles.sectionTitle)}>Repository memory</h2>
+        <p className={sx(styles.sectionLead)}>
+          Choose how this repository collects and recalls knowledge across its
+          workspaces.
+        </p>
+      </div>
+      {repositoryPath ? (
+        <>
+          <Select value={repositoryPath} onValueChange={setSelected}>
+            <SelectTrigger aria-label="Memory repository">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {props.repositories.map((repository) => (
+                <SelectItem
+                  key={repository.repositoryPath}
+                  value={repository.repositoryPath}
+                >
+                  {repository.repositoryName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <RepositoryMemoryControls key={repositoryPath} repositoryPath={repositoryPath} />
+        </>
+      ) : (
+        <p className={sx(styles.loading)}>
+          Open a repository to configure memory.
+        </p>
+      )}
+    </section>
+  );
+}

@@ -31,10 +31,10 @@ import {
 import type { AppSettings } from "@/store/app-settings";
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 import {
-  resolveProjectBasePrompt,
-  resolveProjectKickoffBranchNamingRule,
-  type RecentProjectState,
-} from "@/store/project.utils";
+  resolveRepositoryBasePrompt,
+  resolveRepositoryKickoffBranchNamingRule,
+  type RecentRepositoryState,
+} from "@/store/repository.utils";
 import { buildProviderRuntimeOptions } from "@/store/provider-runtime-options";
 
 export interface WorkspaceKickoffSettings {
@@ -89,9 +89,9 @@ export interface WorkspaceKickoffActions {
 }
 
 type KickoffResolverState = {
-  projectPath: string | null;
+  repositoryPath: string | null;
   activeWorkspaceId: string;
-  recentProjects: RecentProjectState[];
+  recentRepositories: RecentRepositoryState[];
   settings: AppSettings;
 };
 
@@ -119,10 +119,10 @@ export function createWorkspaceKickoffResolver(args: {
         message:
           "Keep the source under 80,000 characters. Link larger documents and paste the relevant requirements.",
       };
-    if (!state.projectPath)
+    if (!state.repositoryPath)
       return {
         ok: false,
-        message: "Open a project before resolving a kickoff source.",
+        message: "Open a repository before resolving a kickoff source.",
       };
     const controller = new AbortController();
     active = controller;
@@ -164,13 +164,13 @@ export function createWorkspaceKickoffResolver(args: {
         buildKickoffResolutionPrompt({
           instructionPrompt: normalizeKickoffPrompt(settings.kickoffPrompt),
           classification,
-          branchNamingRule: resolveProjectKickoffBranchNamingRule({
-            projectPath: state.projectPath,
-            recentProjects: state.recentProjects,
+          branchNamingRule: resolveRepositoryKickoffBranchNamingRule({
+            repositoryPath: state.repositoryPath,
+            recentRepositories: state.recentRepositories,
           }),
-          projectBasePrompt: resolveProjectBasePrompt({
-            projectPath: state.projectPath,
-            recentProjects: state.recentProjects,
+          repositoryBasePrompt: resolveRepositoryBasePrompt({
+            repositoryPath: state.repositoryPath,
+            recentRepositories: state.recentRepositories,
           }),
         }) +
         `\nSource coverage: ${sourceEvidence.detail}\n` +
@@ -235,7 +235,7 @@ export function createWorkspaceKickoffResolver(args: {
           const proposal = await resolveKickoffModel({
             requestId,
             workspaceId: state.activeWorkspaceId,
-            projectPath: state.projectPath,
+            repositoryPath: state.repositoryPath,
             providerId,
             model,
             prompt,

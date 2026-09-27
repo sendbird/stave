@@ -14,9 +14,9 @@ import {
   JiraConnectorSettingsSchema,
 } from "@/lib/jira-connector/types";
 import {
-  DEFAULT_TRACKER_TASKS_SETTINGS,
-  TrackerTasksSettingsSchema,
-} from "@/lib/tracker-tasks/settings";
+  DEFAULT_TRACKER_ISSUES_SETTINGS,
+  TrackerIssuesSettingsSchema,
+} from "@/lib/tracker-issues/settings";
 import {
   AuxiliaryInferencePolicySchema,
   DEFAULT_AUXILIARY_INFERENCE_POLICY,
@@ -312,7 +312,7 @@ export const settingDefinitions = [
     fieldId: "settings-field-auxiliary-inference",
     title: "Background AI",
     description:
-      "Per-lane switch, provider, and model for the background calls Stave makes on your behalf: intent guard, turn summary, task naming, utility inference, PR description, pre-PR review, inline completion, and delegated child tasks.",
+      "Per-lane switch, provider, and model for the background calls Stave makes on your behalf: intent guard, turn summary, task naming, utility inference, PR description, pre-PR review, inline completion, and delegated tasks.",
     keywords: [
       "background ai",
       "auxiliary",
@@ -329,7 +329,7 @@ export const settingDefinitions = [
       "pr description",
       "pre-pr review",
       "inline completion",
-      "child task",
+      "delegated task",
       "delegation model",
     ],
     schema: AuxiliaryInferencePolicySchema,
@@ -418,14 +418,14 @@ export const settingDefinitions = [
       "remote",
       "integration",
       "outbound",
-      "project mapping",
+      "repository mapping",
     ],
     schema: CraneConnectorSettingsSchema,
     defaultValue: {
       enabled: false,
       baseUrl: "https://atelier.delight-tools.ai",
       pollIntervalSeconds: 15,
-      projectMappings: [],
+      repositoryMappings: [],
     },
     scope: "app",
     sensitivity: "sensitive",
@@ -438,7 +438,7 @@ export const settingDefinitions = [
     fieldId: "settings-field-jira-connector",
     title: "Jira connector",
     description:
-      "Read your assigned Jira Cloud issues over outbound HTTPS and map Jira projects to local Stave projects.",
+      "Read your assigned Jira Cloud issues over outbound HTTPS and map Jira projects to local Stave repositories.",
     keywords: [
       "jira",
       "jira cloud",
@@ -452,7 +452,7 @@ export const settingDefinitions = [
       "tracker",
       "integration",
       "outbound",
-      "project mapping",
+      "repository mapping",
     ],
     schema: JiraConnectorSettingsSchema,
     // Spread rather than shared: the frozen default carries a frozen mappings
@@ -460,7 +460,7 @@ export const settingDefinitions = [
     // reset a row by assigning it.
     defaultValue: {
       ...DEFAULT_JIRA_CONNECTOR_SETTINGS,
-      projectMappings: [],
+      repositoryMappings: [],
     },
     scope: "app",
     // Sensitive and export-excluded because the site URL plus the mapping table
@@ -471,12 +471,12 @@ export const settingDefinitions = [
     importExport: "exclude",
   } satisfies SettingDefinition<"jiraConnector">,
   {
-    key: "trackerTasks",
-    sectionId: "tasks",
-    fieldId: "settings-field-tracker-tasks",
-    title: "Tasks",
+    key: "trackerIssues",
+    sectionId: "issues",
+    fieldId: "settings-field-tracker-issues",
+    title: "Issues",
     description:
-      "Opens on tickets assigned to you. Choose which trackers Tasks reads, the first tab, the refresh interval, and whether a kickoff starts immediately.",
+      "Opens on tickets assigned to you. Choose which trackers Issues reads, the first tab, the refresh interval, and whether a kickoff starts immediately.",
     keywords: [
       "tasks",
       "tickets",
@@ -493,13 +493,13 @@ export const settingDefinitions = [
       "crane",
       "source",
     ],
-    schema: TrackerTasksSettingsSchema,
-    defaultValue: { ...DEFAULT_TRACKER_TASKS_SETTINGS },
+    schema: TrackerIssuesSettingsSchema,
+    defaultValue: { ...DEFAULT_TRACKER_ISSUES_SETTINGS },
     scope: "app",
     sensitivity: "plain",
     applyMode: "immediate",
     importExport: "include",
-  } satisfies SettingDefinition<"trackerTasks">,
+  } satisfies SettingDefinition<"trackerIssues">,
   {
     key: "martinSync",
     sectionId: "integrations",
@@ -530,7 +530,7 @@ export const settingDefinitions = [
     fieldId: STANDALONE_CLI_SETTING_FIELD_ID,
     title: "Standalone CLI folder",
     description:
-      "Absolute folder the Standalone CLI overlay runs every AI CLI in, without registering it as a project.",
+      "Absolute folder the Standalone CLI overlay runs every AI CLI in, without registering it as a repository.",
     keywords: [
       "standalone",
       "cli",

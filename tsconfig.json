@@ -24,6 +24,12 @@
     "noEmit": true
   },
   "include": [
-    "src"
+    "src",
+    "site/src"
+  ],
+  // The site entries import the module `bun run build:pages` generates.
+  "exclude": [
+    "site/src/docs-main.tsx",
+    "site/src/landing-main.tsx"
   ]
 }

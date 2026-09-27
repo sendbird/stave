@@ -11,7 +11,7 @@ import { TopBarNotifications } from "@/components/layout/TopBarNotifications";
 import { Kbd, KbdGroup, TooltipProvider } from "@/components/ui";
 import { useAppStore } from "@/store/app.store";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
-import { TasksBoard } from "@/components/layout/tasks/TasksBoard";
+import { IssuesBoard } from "@/components/layout/issues/IssuesBoard";
 import { notifications, tickets } from "./fixtures";
 import { AgentTreeRegressionFixture } from "./agent-tree";
 
@@ -126,7 +126,7 @@ export function AdsRegressionPreview() {
         </section>
         <section className={sx(styles.section)}>
           <div className={sx(styles.controls)}>
-            <h2 className={sx(styles.heading)}>Tasks board</h2>
+            <h2 className={sx(styles.heading)}>Issues board</h2>
             <Button variant="secondary" onClick={() => setEmpty(!empty)}>
               {empty ? "Show tickets" : "Empty board"}
             </Button>
@@ -136,7 +136,7 @@ export function AdsRegressionPreview() {
             <span role="status">{action}</span>
           </div>
           <div className={sx(styles.board)}>
-            <TasksBoard
+            <IssuesBoard
               items={empty ? [] : tickets}
               loading={loading}
               now={new Date("2026-09-07T09:00:00Z")}

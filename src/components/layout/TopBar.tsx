@@ -38,12 +38,12 @@ import { TopBarFileSearch } from "@/components/layout/TopBarFileSearch";
 import { TopBarFleetAttention } from "@/components/layout/TopBarFleetAttention";
 import { TopBarNotifications } from "@/components/layout/TopBarNotifications";
 import { TopBarOpenPR } from "@/components/layout/TopBarOpenPR";
-import { TopBarRoutines } from "@/components/layout/TopBarRoutines";
-import { TopBarTasks } from "@/components/layout/TopBarTasks";
+import { TopBarAutomations } from "@/components/layout/TopBarAutomations";
+import { TopBarIssues } from "@/components/layout/TopBarIssues";
 import { TopBarStandaloneCli } from "@/components/layout/TopBarStandaloneCli";
 import { TopBarUpdate } from "@/components/layout/TopBarUpdate";
 import { TopBarWindowControls } from "@/components/layout/TopBarWindowControls";
-import { formatWorkspacePathLabel } from "@/store/project.utils";
+import { formatWorkspacePathLabel } from "@/store/repository.utils";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import { layoutShellStyles } from "./layout-shell.styles";
@@ -60,7 +60,7 @@ export function TopBar() {
     activeWorkspaceId,
     workspaces,
     workspacePathById,
-    projectPath,
+    repositoryPath,
     workspaceSidebarCollapsed,
     setLayout,
   ] = useAppStore(
@@ -70,24 +70,24 @@ export function TopBar() {
           state.activeWorkspaceId,
           state.workspaces,
           state.workspacePathById,
-          state.projectPath,
+          state.repositoryPath,
           state.layout.workspaceSidebarCollapsed,
           state.setLayout,
         ] as const,
     ),
   );
-  const hasProjectContext = Boolean(projectPath?.trim());
-  const activeWorkspacePath = hasProjectContext
-    ? (workspacePathById[activeWorkspaceId] ?? projectPath ?? "")
+  const hasRepositoryContext = Boolean(repositoryPath?.trim());
+  const activeWorkspacePath = hasRepositoryContext
+    ? (workspacePathById[activeWorkspaceId] ?? repositoryPath ?? "")
     : "";
   const workspacePathLabel = formatWorkspacePathLabel({
     workspacePath: activeWorkspacePath,
-    projectPath,
+    repositoryPath,
   });
   const canOpenGitGraph = Boolean(
     resolveOpenableGitGraphWorkspaceId({
       activeWorkspaceId,
-      projectPath,
+      repositoryPath,
       workspaces,
       workspacePathById,
     }),
@@ -121,10 +121,10 @@ export function TopBar() {
               >
                 <PanelLeft />
               </TooltipTrigger>
-              <TooltipContent side="bottom">Expand Project List</TooltipContent>
+              <TooltipContent side="bottom">Expand Repository List</TooltipContent>
             </Tooltip>
           ) : null}
-          {hasProjectContext && activeWorkspacePath ? (
+          {hasRepositoryContext && activeWorkspacePath ? (
             <div
               className={sx(topBarStyles.pathGroup)}
               style={TOP_BAR_NO_DRAG_STYLE}
@@ -263,10 +263,10 @@ export function TopBar() {
               </DropdownMenu>
             </div>
           ) : null}
-          {hasProjectContext ? (
+          {hasRepositoryContext ? (
             <TopBarBranchDropdown noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
           ) : null}
-          {hasProjectContext ? (
+          {hasRepositoryContext ? (
             <Tooltip>
               <TooltipTrigger
                 render={
@@ -297,7 +297,7 @@ export function TopBar() {
               </TooltipContent>
             </Tooltip>
           ) : null}
-          {hasProjectContext ? (
+          {hasRepositoryContext ? (
             <TopBarOpenPR
               key={`${activeWorkspaceId}:${activeWorkspacePath}`}
               noDragStyle={TOP_BAR_NO_DRAG_STYLE}
@@ -307,18 +307,18 @@ export function TopBar() {
       </div>
       <div className={sx(topBarStyles.trail)}>
         <div className={sx(topBarStyles.searchSlot)}>
-          {hasProjectContext ? (
+          {hasRepositoryContext ? (
             <TopBarFileSearch noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
           ) : null}
         </div>
 
-        {hasProjectContext ? (
+        {hasRepositoryContext ? (
           <TopBarFleetAttention noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         ) : null}
-        <TopBarTasks noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
-        <TopBarRoutines noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
+        <TopBarIssues noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
+        <TopBarAutomations noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         <TopBarStandaloneCli noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
-        {hasProjectContext ? (
+        {hasRepositoryContext ? (
           <TopBarNotifications noDragStyle={TOP_BAR_NO_DRAG_STYLE} />
         ) : null}
         <TopBarUpdate noDragStyle={TOP_BAR_NO_DRAG_STYLE} />

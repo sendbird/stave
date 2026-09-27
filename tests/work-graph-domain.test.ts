@@ -1,10 +1,10 @@
 import { describe, expect, test } from "bun:test";
 import type { NormalizedProviderEvent } from "@/lib/providers/provider.types";
-import type { ChildTaskSummary } from "@/lib/runs/child-task";
+import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import {
   approvalInteractionId,
   createWorkGraph,
-  mergeChildTasksIntoWorkGraph,
+  mergeDelegatedTasksIntoWorkGraph,
   reduceWorkGraphEvent,
   resolveWorkGraphInteractions,
 } from "@/lib/work-graph/work-graph-reducer";
@@ -75,15 +75,15 @@ function delegatedGraph(delegationKey = "delegation-1") {
   ]);
 }
 
-function childTask(overrides: Partial<ChildTaskSummary> = {}): ChildTaskSummary {
+function delegatedTask(overrides: Partial<DelegatedTaskSummary> = {}): DelegatedTaskSummary {
   return {
     runId: "run-1",
     stepId: "step-1",
     parentTaskId: "task-parent",
     delegationKey: "delegation-1",
-    childTaskId: "task-child",
-    childWorkspaceId: "ws-child",
-    childTurnId: null,
+    delegatedTaskId: "task-child",
+    delegatedWorkspaceId: "ws-child",
+    delegatedTurnId: null,
     providerId: "claude-code",
     lifecycle: "managed",
     phase: "running",
@@ -93,7 +93,7 @@ function childTask(overrides: Partial<ChildTaskSummary> = {}): ChildTaskSummary 
     updatedAt: "2026-08-11T00:00:00.000Z",
     completedAt: null,
     ...overrides,
-  } as ChildTaskSummary;
+  } as DelegatedTaskSummary;
 }
 
 describe("work graph node identity", () => {
@@ -533,14 +533,14 @@ describe("work graph tolerates late, duplicate, and partial events", () => {
 
 describe("work graph ledger nodes", () => {
   test("a delegated child is keyed by delegation key so a retry stays one node", () => {
-    const merged = mergeChildTasksIntoWorkGraph(
+    const merged = mergeDelegatedTasksIntoWorkGraph(
       graph(),
-      [childTask()],
+      [delegatedTask()],
       3_000,
     );
-    const retried = mergeChildTasksIntoWorkGraph(
+    const retried = mergeDelegatedTasksIntoWorkGraph(
       merged,
-      [childTask({ childTaskId: "task-child-2", attempt: 1 })],
+      [delegatedTask({ delegatedTaskId: "task-child-2", attempt: 1 })],
       4_000,
     );
 
@@ -550,7 +550,7 @@ describe("work graph ledger nodes", () => {
     // The node survives the retry, but it follows the delegation to the child
     // task that is actually running now — an "open child" aimed at the dead
     // first attempt would be a broken link.
-    expect(retried.nodesByKey[key]?.childTaskId).toBe("task-child-2");
+    expect(retried.nodesByKey[key]?.delegatedTaskId).toBe("task-child-2");
   });
 
   test("a retried child leaves the failure behind instead of staying dead", () => {
@@ -558,12 +558,12 @@ describe("work graph ledger nodes", () => {
     // design, so the node is already terminal when the new attempt arrives.
     // Applying the replay guard here — which exists for a stream that repeats
     // itself, not for a queried ledger — pinned the row to the failure forever.
-    const failed = mergeChildTasksIntoWorkGraph(
+    const failed = mergeDelegatedTasksIntoWorkGraph(
       delegatedGraph(),
       [
-        childTask({
+        delegatedTask({
           phase: "failed",
-          reason: "Child task failed.",
+          reason: "Delegated task failed.",
           completedAt: "2026-08-11T01:00:00.000Z",
         }),
       ],
@@ -572,9 +572,9 @@ describe("work graph ledger nodes", () => {
     const key = ledgerNodeKey("delegation-1");
     expect(failed.nodesByKey[key]?.status).toBe("failed");
 
-    const retried = mergeChildTasksIntoWorkGraph(
+    const retried = mergeDelegatedTasksIntoWorkGraph(
       failed,
-      [childTask({ childTaskId: "task-child-2", attempt: 1, phase: "running" })],
+      [delegatedTask({ delegatedTaskId: "task-child-2", attempt: 1, phase: "running" })],
       4_000,
     );
     const node = retried.nodesByKey[key];
@@ -589,7 +589,7 @@ describe("work graph ledger nodes", () => {
   });
 
   test("the delegating call puts the child under the agent that delegated it", () => {
-    // The mixed graph: a provider subagent that delegates a durable child task
+    // The mixed graph: a provider subagent that delegates a durable delegated task
     // owns that child in the tree, rather than both floating at the root.
     const next = reduceAll(graph(), [
       toolEvent({ toolUseId: "toolu_worker", agentId: "agent_worker" }),
@@ -615,16 +615,16 @@ describe("work graph ledger nodes", () => {
     // returns as soon as the delegation is recorded.
     expect(child?.status).toBe("pending");
 
-    // The call's own result must not end the child: the child task outlives it.
+    // The call's own result must not end the child: the delegated task outlives it.
     const afterResult = reduceAll(next, [
       { type: "tool_result", tool_use_id: "toolu_delegate", output: "ok" },
     ]);
     expect(afterResult.nodesByKey[childKey]?.status).toBe("pending");
 
     // And the ledger's answer lands on that same node, in that same place.
-    const merged = mergeChildTasksIntoWorkGraph(
+    const merged = mergeDelegatedTasksIntoWorkGraph(
       afterResult,
-      [childTask()],
+      [delegatedTask()],
       5_000,
     );
     expect(merged.nodesByKey[childKey]?.status).toBe("running");
@@ -713,10 +713,10 @@ describe("work graph ledger nodes", () => {
       ["waiting", "waiting"],
       ["interrupted", "cancelled"],
     ] as const) {
-      const merged = mergeChildTasksIntoWorkGraph(
+      const merged = mergeDelegatedTasksIntoWorkGraph(
         delegatedGraph(),
         [
-          childTask({
+          delegatedTask({
             phase,
             completedAt:
               phase === "interrupted" ? "2026-08-11T01:00:00.000Z" : null,
@@ -732,11 +732,11 @@ describe("work graph ledger nodes", () => {
 
   test("a delegation from an earlier turn is not replayed into this turn", () => {
     // The parent's listing is its whole history; a graph is one turn. An older
-    // child belongs to the child task list, not to this turn's fan-out.
+    // child belongs to the delegated task list, not to this turn's fan-out.
     const before = graph();
-    const merged = mergeChildTasksIntoWorkGraph(
+    const merged = mergeDelegatedTasksIntoWorkGraph(
       before,
-      [childTask({ phase: "completed" })],
+      [delegatedTask({ phase: "completed" })],
       3_000,
     );
 
@@ -754,9 +754,9 @@ describe("work graph ledger nodes", () => {
       providerId: "claude-code",
       startedAt: Date.parse("2027-01-01T00:00:00.000Z"),
     });
-    const merged = mergeChildTasksIntoWorkGraph(
+    const merged = mergeDelegatedTasksIntoWorkGraph(
       adopted,
-      [childTask({ phase: "running" })],
+      [delegatedTask({ phase: "running" })],
       3_000,
     );
 
@@ -766,10 +766,10 @@ describe("work graph ledger nodes", () => {
   });
 
   test("a settled child keeps its ledger reason", () => {
-    const merged = mergeChildTasksIntoWorkGraph(
+    const merged = mergeDelegatedTasksIntoWorkGraph(
       delegatedGraph(),
       [
-        childTask({
+        delegatedTask({
           phase: "cancelled",
           reason: "Detached from the parent task.",
           completedAt: "2026-08-11T01:00:00.000Z",
@@ -1049,7 +1049,7 @@ describe("work graph controls", () => {
     // task coordinator against the identity Stage F froze. Gating that on the
     // provider's ability to steer its own in-process subagents would hide a
     // control that works.
-    const merged = mergeChildTasksIntoWorkGraph(graph(), [childTask()], 3_000);
+    const merged = mergeDelegatedTasksIntoWorkGraph(graph(), [delegatedTask()], 3_000);
     const node = merged.nodesByKey[ledgerNodeKey("delegation-1")]!;
 
     expect(
@@ -1068,9 +1068,9 @@ describe("work graph controls", () => {
   });
 
   test("a settled ledger child is refused like any other finished agent", () => {
-    const merged = mergeChildTasksIntoWorkGraph(
+    const merged = mergeDelegatedTasksIntoWorkGraph(
       delegatedGraph(),
-      [childTask({ phase: "completed" })],
+      [delegatedTask({ phase: "completed" })],
       3_000,
     );
     const node = merged.nodesByKey[ledgerNodeKey("delegation-1")]!;

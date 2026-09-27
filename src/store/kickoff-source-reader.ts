@@ -13,7 +13,7 @@ export async function readKickoffSource(
   if (classification.config?.id !== "jira" || typeof key !== "string")
     return evidence;
   const api = window.api;
-  if (!api?.jiraConnector?.getStatus || !api.trackerTasks?.getDetail)
+  if (!api?.jiraConnector?.getStatus || !api.trackerIssues?.getDetail)
     return evidence;
   try {
     const result = await api.jiraConnector.getStatus();
@@ -32,7 +32,7 @@ export async function readKickoffSource(
           "This Jira link belongs to a different site. Paste its contents or read it in the first task.",
       };
     }
-    const response = await api.trackerTasks.getDetail({
+    const response = await api.trackerIssues.getDetail({
       source: "jira",
       taskRef: key,
     });

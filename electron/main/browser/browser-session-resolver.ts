@@ -7,8 +7,8 @@ import {
   type BrowserSessionState,
 } from "./browser-manager";
 import { ensureBrowserSessionGuest } from "./browser-guest-broker";
-import { listKnownProjects } from "../stave-mcp-service";
-import { findLensProjectKeyForWorkspace } from "../../../src/lib/lens/lens-session-selection";
+import { listKnownRepositories } from "../stave-mcp-service";
+import { findLensRepositoryKeyForWorkspace } from "../../../src/lib/lens/lens-session-selection";
 import type {
   LensSessionProfileArgs,
   LensSessionScope,
@@ -18,7 +18,7 @@ export interface AcquireMcpBrowserSessionArgs {
   workspaceId: string;
   lensSessionId?: string;
   sessionScope?: LensSessionScope;
-  projectKey?: string;
+  repositoryKey?: string;
   /**
    * Whether a session rebuilt after its page died should return to that page.
    *
@@ -33,23 +33,23 @@ export interface AcquireMcpBrowserSessionArgs {
 async function resolveCreationProfile(
   args: AcquireMcpBrowserSessionArgs,
 ): Promise<Omit<LensSessionProfileArgs, "workspaceId">> {
-  const explicitProjectKey = args.projectKey?.trim();
-  if (args.sessionScope === "workspace" || explicitProjectKey) {
+  const explicitRepositoryKey = args.repositoryKey?.trim();
+  if (args.sessionScope === "workspace" || explicitRepositoryKey) {
     return {
       sessionScope: args.sessionScope,
-      projectKey: explicitProjectKey,
+      repositoryKey: explicitRepositoryKey,
     };
   }
 
   try {
-    const projectKey = findLensProjectKeyForWorkspace(
-      await listKnownProjects(),
+    const repositoryKey = findLensRepositoryKeyForWorkspace(
+      await listKnownRepositories(),
       args.workspaceId,
     );
-    if (projectKey) {
+    if (repositoryKey) {
       return {
         sessionScope: args.sessionScope ?? "project",
-        projectKey,
+        repositoryKey,
       };
     }
   } catch {

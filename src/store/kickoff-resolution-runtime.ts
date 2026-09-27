@@ -54,7 +54,7 @@ export function withKickoffDeadline<T>(
 export async function resolveKickoffModel<T>(args: {
   requestId: string;
   workspaceId: string;
-  projectPath: string;
+  repositoryPath: string;
   providerId: ProviderId;
   model: string;
   prompt: string;
@@ -78,7 +78,7 @@ export async function resolveKickoffModel<T>(args: {
         kind: "secondary-provider",
         origin: { kind: "manual", id: args.requestId },
         ownership: {
-          projectPath: args.projectPath,
+          repositoryPath: args.repositoryPath,
           workspaceId: args.workspaceId,
           taskId: null,
         },
@@ -105,7 +105,7 @@ export async function resolveKickoffModel<T>(args: {
         providerId: args.providerId,
         model: args.model,
         prompt: args.prompt,
-        cwd: args.projectPath,
+        cwd: args.repositoryPath,
         runtimeHints:
           args.providerId === "codex"
             ? {
@@ -188,7 +188,7 @@ export async function resolveKickoffModel<T>(args: {
       turnId,
       providerId: args.providerId,
       prompt: args.prompt,
-      cwd: args.projectPath,
+      cwd: args.repositoryPath,
       runtimeOptions: {
         ...args.runtimeOptions,
         providerTimeoutMs: args.timeoutMs,

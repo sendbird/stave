@@ -22,6 +22,10 @@ import {
 import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import { normalizePersistedMacros } from "@/lib/macros/normalize";
+import {
+  normalizePersistedPlaybooks,
+  warnPlaybookDiagnostics,
+} from "@/lib/playbooks/normalize";
 import { normalizePersistedTaskPresets } from "@/lib/task-presets";
 import {
   applyCustomTheme,
@@ -57,26 +61,32 @@ import {
 } from "@/lib/providers/auto-routing-profile";
 import { normalizeProviderTimeoutMs } from "@/store/editor.utils";
 import {
-  captureCurrentProjectState,
-  cloneRecentProjectState,
-  normalizeProjectWorkspaceInitCommand,
-  normalizeProjectWorkspaceRootNodeModulesSymlinkPreference,
-  updateCurrentProjectAppearance,
-  updateCurrentProjectTextPreference,
-  upsertRecentProjectState,
-} from "@/store/project.utils";
+  captureCurrentRepositoryState,
+  cloneRecentRepositoryState,
+  normalizeRepositoryWorkspaceInitCommand,
+  normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference,
+  updateCurrentRepositoryAppearance,
+  updateCurrentRepositoryTextPreference,
+  upsertRecentRepositoryState,
+} from "@/store/repository.utils";
 import {
   normalizeClaudeSettingSources,
   normalizeClaudeTaskBudgetTokens,
 } from "@/store/provider-runtime-options";
 
+function normalizePlaybookPatch(value: unknown) {
+  const { playbooks, diagnostics } = normalizePersistedPlaybooks(value);
+  warnPlaybookDiagnostics(diagnostics);
+  return playbooks;
+}
+
 type SettingsActionKey =
   | "clearAutoRoutingDecision"
-  | "setProjectWorkspaceInitCommand"
-  | "setProjectBasePrompt"
-  | "setProjectKickoffBranchNamingRule"
-  | "setProjectAppearance"
-  | "setProjectWorkspaceUseRootNodeModulesSymlink"
+  | "setRepositoryWorkspaceInitCommand"
+  | "setRepositoryBasePrompt"
+  | "setRepositoryKickoffBranchNamingRule"
+  | "setRepositoryAppearance"
+  | "setRepositoryWorkspaceUseRootNodeModulesSymlink"
   | "setDarkMode"
   | "installCustomTheme"
   | "removeCustomTheme"
@@ -108,18 +118,18 @@ export function createSettingsActions(args: {
         return { autoRoutingDecisionByTask };
       });
     },
-    setProjectWorkspaceInitCommand: ({ projectPath, command }) => {
+    setRepositoryWorkspaceInitCommand: ({ repositoryPath, command }) => {
       set((state) => {
-        const normalizedProjectPath =
-          projectPath?.trim() || state.projectPath?.trim() || "";
-        if (!normalizedProjectPath) {
+        const normalizedRepositoryPath =
+          repositoryPath?.trim() || state.repositoryPath?.trim() || "";
+        if (!normalizedRepositoryPath) {
           return state;
         }
 
-        const currentProjects = captureCurrentProjectState({
-          recentProjects: state.recentProjects,
-          projectPath: state.projectPath,
-          projectName: state.projectName,
+        const currentRepositories = captureCurrentRepositoryState({
+          recentRepositories: state.recentRepositories,
+          repositoryPath: state.repositoryPath,
+          repositoryName: state.repositoryName,
           defaultBranch: state.defaultBranch,
           workspaces: state.workspaces,
           activeWorkspaceId: state.activeWorkspaceId,
@@ -128,80 +138,80 @@ export function createSettingsActions(args: {
           workspaceDefaultById: state.workspaceDefaultById,
           workspaceLastActiveAtById: state.workspaceLastActiveAtById,
         });
-        const existingProject = currentProjects.find(
-          (project) => project.projectPath === normalizedProjectPath,
+        const existingRepository = currentRepositories.find(
+          (repository) => repository.repositoryPath === normalizedRepositoryPath,
         );
-        if (!existingProject) {
+        if (!existingRepository) {
           return state;
         }
 
-        const nextCommand = normalizeProjectWorkspaceInitCommand({
+        const nextCommand = normalizeRepositoryWorkspaceInitCommand({
           value: command,
         });
-        const currentCommand = normalizeProjectWorkspaceInitCommand({
-          value: existingProject.newWorkspaceInitCommand,
+        const currentCommand = normalizeRepositoryWorkspaceInitCommand({
+          value: existingRepository.newWorkspaceInitCommand,
         });
         if (currentCommand === nextCommand) {
           return state;
         }
 
         return {
-          recentProjects: upsertRecentProjectState({
-            projects: currentProjects,
-            project: {
-              ...cloneRecentProjectState(existingProject),
+          recentRepositories: upsertRecentRepositoryState({
+            repositories: currentRepositories,
+            repository: {
+              ...cloneRecentRepositoryState(existingRepository),
               newWorkspaceInitCommand: nextCommand,
             },
           }),
         };
       });
     },
-    setProjectBasePrompt: ({ projectPath, prompt }) => {
+    setRepositoryBasePrompt: ({ repositoryPath, prompt }) => {
       set((state) => {
-        const recentProjects = updateCurrentProjectTextPreference({
+        const recentRepositories = updateCurrentRepositoryTextPreference({
           state,
-          projectPath,
-          preference: { key: "projectBasePrompt", value: prompt },
+          repositoryPath,
+          preference: { key: "repositoryBasePrompt", value: prompt },
         });
-        return recentProjects ? { recentProjects } : state;
+        return recentRepositories ? { recentRepositories } : state;
       });
     },
-    setProjectKickoffBranchNamingRule: ({ projectPath, rule }) => {
+    setRepositoryKickoffBranchNamingRule: ({ repositoryPath, rule }) => {
       set((state) => {
-        const recentProjects = updateCurrentProjectTextPreference({
+        const recentRepositories = updateCurrentRepositoryTextPreference({
           state,
-          projectPath,
+          repositoryPath,
           preference: { key: "kickoffBranchNamingRule", value: rule },
         });
-        return recentProjects ? { recentProjects } : state;
+        return recentRepositories ? { recentRepositories } : state;
       });
     },
-    setProjectAppearance: ({ projectPath, icon, color }) => {
+    setRepositoryAppearance: ({ repositoryPath, icon, color }) => {
       set((state) => {
-        const recentProjects = updateCurrentProjectAppearance({
+        const recentRepositories = updateCurrentRepositoryAppearance({
           state,
-          projectPath,
+          repositoryPath,
           icon,
           color,
         });
-        return recentProjects ? { recentProjects } : state;
+        return recentRepositories ? { recentRepositories } : state;
       });
     },
-    setProjectWorkspaceUseRootNodeModulesSymlink: ({
-      projectPath,
+    setRepositoryWorkspaceUseRootNodeModulesSymlink: ({
+      repositoryPath,
       enabled,
     }) => {
       set((state) => {
-        const normalizedProjectPath =
-          projectPath?.trim() || state.projectPath?.trim() || "";
-        if (!normalizedProjectPath) {
+        const normalizedRepositoryPath =
+          repositoryPath?.trim() || state.repositoryPath?.trim() || "";
+        if (!normalizedRepositoryPath) {
           return state;
         }
 
-        const currentProjects = captureCurrentProjectState({
-          recentProjects: state.recentProjects,
-          projectPath: state.projectPath,
-          projectName: state.projectName,
+        const currentRepositories = captureCurrentRepositoryState({
+          recentRepositories: state.recentRepositories,
+          repositoryPath: state.repositoryPath,
+          repositoryName: state.repositoryName,
           defaultBranch: state.defaultBranch,
           workspaces: state.workspaces,
           activeWorkspaceId: state.activeWorkspaceId,
@@ -210,30 +220,30 @@ export function createSettingsActions(args: {
           workspaceDefaultById: state.workspaceDefaultById,
           workspaceLastActiveAtById: state.workspaceLastActiveAtById,
         });
-        const existingProject = currentProjects.find(
-          (project) => project.projectPath === normalizedProjectPath,
+        const existingRepository = currentRepositories.find(
+          (repository) => repository.repositoryPath === normalizedRepositoryPath,
         );
-        if (!existingProject) {
+        if (!existingRepository) {
           return state;
         }
 
         const nextEnabled =
-          normalizeProjectWorkspaceRootNodeModulesSymlinkPreference({
+          normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference({
             value: enabled,
           });
         const currentEnabled =
-          normalizeProjectWorkspaceRootNodeModulesSymlinkPreference({
-            value: existingProject.newWorkspaceUseRootNodeModulesSymlink,
+          normalizeRepositoryWorkspaceRootNodeModulesSymlinkPreference({
+            value: existingRepository.newWorkspaceUseRootNodeModulesSymlink,
           });
         if (currentEnabled === nextEnabled) {
           return state;
         }
 
         return {
-          recentProjects: upsertRecentProjectState({
-            projects: currentProjects,
-            project: {
-              ...cloneRecentProjectState(existingProject),
+          recentRepositories: upsertRecentRepositoryState({
+            repositories: currentRepositories,
+            repository: {
+              ...cloneRecentRepositoryState(existingRepository),
               newWorkspaceUseRootNodeModulesSymlink: nextEnabled,
             },
           }),
@@ -521,6 +531,9 @@ export function createSettingsActions(args: {
           : {
               macros: normalizePersistedMacros(patch.macros),
             }),
+        ...(patch.playbooks === undefined
+          ? {}
+          : { playbooks: normalizePlaybookPatch(patch.playbooks) }),
         ...(patch.lensSessionScope === undefined
           ? {}
           : {
@@ -649,10 +662,10 @@ export function createSettingsActions(args: {
 
       if (normalizedPatch.providerTimeoutMs !== undefined) {
         const providerTimeoutMs = get().settings.providerTimeoutMs;
-        const setProviderTimeout = window.api?.routines?.setProviderTimeout;
+        const setProviderTimeout = window.api?.automations?.setProviderTimeout;
         if (setProviderTimeout) {
           void setProviderTimeout({ providerTimeoutMs }).catch((error) => {
-            console.warn("[routines] failed to sync provider timeout", error);
+            console.warn("[automations] failed to sync provider timeout", error);
           });
         }
       }

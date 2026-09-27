@@ -3,7 +3,7 @@ import {
   countDelegationExchanges,
   formatDelegationCounts,
   fromAdvisorSnapshot,
-  fromChildTask,
+  fromDelegatedTask,
   fromWorkerExchange,
   fromWorkerWorkItem,
   isAdvisorTranscriptDuplicate,
@@ -14,7 +14,7 @@ import {
 import type { AdvisorExchangeSnapshot } from "@/lib/providers/advisor-activity";
 import type { AdvisorConsultLogEntry } from "@/lib/providers/advisor-consult-log";
 import type { ProviderTurnWorkItem } from "@/lib/providers/turn-status";
-import type { ChildTaskSummary } from "@/lib/runs/child-task";
+import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 
 const T0 = 1_700_000_000_000;
 
@@ -57,15 +57,15 @@ function entry(
   return { key, snapshot: snapshot(overrides), updatedAt: T0 };
 }
 
-function child(overrides: Partial<ChildTaskSummary> = {}): ChildTaskSummary {
+function child(overrides: Partial<DelegatedTaskSummary> = {}): DelegatedTaskSummary {
   return {
     runId: "run-1",
     stepId: "step-1",
     parentTaskId: "parent",
     delegationKey: "review",
-    childTaskId: "child-1",
-    childWorkspaceId: "ws-1",
-    childTurnId: null,
+    delegatedTaskId: "child-1",
+    delegatedWorkspaceId: "ws-1",
+    delegatedTurnId: null,
     providerId: "codex",
     requestedModel: "gpt-5.3-codex",
     requestedEffort: "high",
@@ -77,7 +77,7 @@ function child(overrides: Partial<ChildTaskSummary> = {}): ChildTaskSummary {
     updatedAt: new Date(T0 + 10_000).toISOString(),
     completedAt: null,
     ...overrides,
-  } as ChildTaskSummary;
+  } as DelegatedTaskSummary;
 }
 
 describe("fromAdvisorSnapshot", () => {
@@ -226,13 +226,13 @@ describe("fromWorkerExchange", () => {
   });
 });
 
-describe("fromChildTask", () => {
+describe("fromDelegatedTask", () => {
   test("carries the requested identity and live controls", () => {
-    const exchange = fromChildTask(child());
-    expect(exchange.kind).toBe("child-task");
+    const exchange = fromDelegatedTask(child());
+    expect(exchange.kind).toBe("delegated-task");
     expect(exchange.title).toBe("review");
     expect(exchange.identity).toMatchObject({
-      role: "Child task",
+      role: "Delegated task",
       providerId: "codex",
       model: "gpt-5.3-codex",
       effort: "high",
@@ -248,7 +248,7 @@ describe("fromChildTask", () => {
   });
 
   test("a failed child offers Retry and carries its reason", () => {
-    const exchange = fromChildTask(
+    const exchange = fromDelegatedTask(
       child({
         phase: "failed",
         reason: "Tests failed.",
@@ -288,11 +288,11 @@ describe("selectDelegationExchanges", () => {
           at: T0 + 20_000,
         },
       ],
-      childTasks: [child()],
+      delegatedTasks: [child()],
     });
     expect(exchanges.map((exchange) => exchange.kind)).toEqual([
       "advisor",
-      "child-task",
+      "delegated-task",
       "worker",
       "advisor",
     ]);
@@ -302,7 +302,7 @@ describe("selectDelegationExchanges", () => {
 
     const { live: liveRows, settled } = partitionDelegationExchanges(exchanges);
     expect(liveRows.map((exchange) => exchange.kind)).toEqual([
-      "child-task",
+      "delegated-task",
       "worker",
       "advisor",
     ]);

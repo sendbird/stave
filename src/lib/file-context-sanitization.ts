@@ -300,7 +300,7 @@ export function sanitizeMessagePartPayload<T extends MessagePart>(part: T): T {
       // (for example the legacy "stave_processing" part). Returning the part
       // unchanged keeps snapshot normalization from crashing — a crash here
       // silently aborts host-service workspace persistence, which is how
-      // routine-created tasks were lost before they ever reached SQLite.
+      // automation-created tasks were lost before they ever reached SQLite.
       return part;
   }
 }

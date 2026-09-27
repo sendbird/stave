@@ -5,7 +5,7 @@ import {
 } from "@/lib/providers/runtime-option-contract";
 import { normalizeProviderTimeoutMs } from "@/store/editor.utils";
 import {
-  applyProjectBasePromptToRuntimeOptions,
+  applyRepositoryBasePromptToRuntimeOptions,
   buildProviderRuntimeOptions,
   normalizeCodexApprovalPolicy,
 } from "@/store/provider-runtime-options";
@@ -79,12 +79,12 @@ describe("buildProviderRuntimeOptions", () => {
 
   test("prepends the project base prompt ahead of an existing system prompt", () => {
     expect(
-      applyProjectBasePromptToRuntimeOptions({
+      applyRepositoryBasePromptToRuntimeOptions({
         runtimeOptions: {
           model: "claude-sonnet-4-6",
           claudeSystemPrompt: "Existing system prompt",
         },
-        projectBasePrompt: "Project rules",
+        repositoryBasePrompt: "Project rules",
       }),
     ).toMatchObject({
       claudeSystemPrompt: "Project rules\n\nExisting system prompt",
@@ -98,9 +98,9 @@ describe("buildProviderRuntimeOptions", () => {
     };
 
     expect(
-      applyProjectBasePromptToRuntimeOptions({
+      applyRepositoryBasePromptToRuntimeOptions({
         runtimeOptions,
-        projectBasePrompt: "   ",
+        repositoryBasePrompt: "   ",
       }),
     ).toBe(runtimeOptions);
   });

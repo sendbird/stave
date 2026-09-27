@@ -65,7 +65,7 @@ const DELEGATION_PARAMETERS: ReadonlyArray<{
 /**
  * Delegation is the one capability here with no arming control: the agent
  * decides to delegate, mid-turn, from the tools it was given. That makes it
- * invisible until it happens — a user who never hears the words "child task"
+ * invisible until it happens — a user who never hears the words "delegated task"
  * has no way to learn the feature exists, and no way to tell a broken Local MCP
  * link from an agent that simply chose not to delegate.
  *
@@ -99,7 +99,7 @@ export function SettingsDelegationSection() {
     <SettingsCard
       id="settings-field-delegation"
       tabIndex={-1}
-      title="Delegation (child tasks)"
+      title="Delegation (delegated tasks)"
       description="Let a task hand durable work to a child Stave task — its own workspace, conversation and permissions, recorded on the run ledger and able to survive a restart. Unlike Worker mode, a child outlives the turn that created it."
       titleAccessory={
         <Badge
@@ -173,7 +173,7 @@ export function SettingsDelegationSection() {
           <code className={sx(delegationStyles.code)}>stave_delegate_task</code>
           during its turn, so you steer it by asking — for example{" "}
           <span className={sx(delegationStyles.emphasis)}>
-            &ldquo;delegate the docs review to a Codex child task in a new
+            &ldquo;delegate the docs review to a Codex task in a new
             worktree, guided permissions, one turn, at high effort&rdquo;
           </span>
           . Every parameter below is per delegation; Stave keeps no global

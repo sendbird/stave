@@ -180,14 +180,14 @@ interface RequiredPersistenceApi {
     name: string;
     snapshot: WorkspaceSnapshot;
   }) => Promise<{ ok: boolean }>;
-  loadProjectRegistry: () => Promise<{
+  loadRepositoryRegistry: () => Promise<{
     ok: boolean;
-    projects: unknown[];
-    activeProjectPath?: string | null;
+    repositories: unknown[];
+    activeRepositoryPath?: string | null;
   }>;
-  saveProjectRegistry: (args: {
-    projects: unknown[];
-    activeProjectPath?: string | null;
+  saveRepositoryRegistry: (args: {
+    repositories: unknown[];
+    activeRepositoryPath?: string | null;
   }) => Promise<{ ok: boolean }>;
   closeWorkspace: (args: { workspaceId: string }) => Promise<{ ok: boolean }>;
 }
@@ -798,36 +798,36 @@ export async function closeWorkspacePersistence(args: {
   });
 }
 
-export async function loadProjectRegistrySnapshot(): Promise<unknown[]> {
-  return (await loadProjectRegistryState()).projects;
+export async function loadRepositoryRegistrySnapshot(): Promise<unknown[]> {
+  return (await loadRepositoryRegistryState()).repositories;
 }
 
-export async function loadProjectRegistryState(): Promise<{ projects: unknown[]; activeProjectPath?: string | null }> {
+export async function loadRepositoryRegistryState(): Promise<{ repositories: unknown[]; activeRepositoryPath?: string | null }> {
   const persistence = getPersistenceApi();
-  if (!persistence?.loadProjectRegistry) {
-    return { projects: [] };
+  if (!persistence?.loadRepositoryRegistry) {
+    return { repositories: [] };
   }
-  const response = await persistence.loadProjectRegistry();
+  const response = await persistence.loadRepositoryRegistry();
   if (!response.ok) {
-    throw new Error("Failed to load project registry from persistence bridge.");
+    throw new Error("Failed to load repository registry from persistence bridge.");
   }
-  return { projects: Array.isArray(response.projects) ? response.projects : [], activeProjectPath: response.activeProjectPath };
+  return { repositories: Array.isArray(response.repositories) ? response.repositories : [], activeRepositoryPath: response.activeRepositoryPath };
 }
 
-export async function saveProjectRegistrySnapshot(args: {
-  projects: unknown[];
-  activeProjectPath?: string | null;
+export async function saveRepositoryRegistrySnapshot(args: {
+  repositories: unknown[];
+  activeRepositoryPath?: string | null;
 }): Promise<void> {
   const persistence = getPersistenceApi();
-  if (!persistence?.saveProjectRegistry) {
+  if (!persistence?.saveRepositoryRegistry) {
     return;
   }
-  const response = await persistence.saveProjectRegistry({
-    projects: args.projects,
-    activeProjectPath: args.activeProjectPath,
+  const response = await persistence.saveRepositoryRegistry({
+    repositories: args.repositories,
+    activeRepositoryPath: args.activeRepositoryPath,
   });
   if (!response.ok) {
-    throw new Error("Failed to save project registry via persistence bridge.");
+    throw new Error("Failed to save repository registry via persistence bridge.");
   }
 }
 

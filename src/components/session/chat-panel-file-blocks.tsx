@@ -110,7 +110,7 @@ export function ChangedFilesBlock(args: {
   const workspaceCwd = useAppStore(
     (state) =>
       state.workspacePathById[state.activeWorkspaceId] ??
-      state.projectPath ??
+      state.repositoryPath ??
       undefined,
   );
   const [openRows, setOpenRows] = useState<number[]>([]);
@@ -304,7 +304,7 @@ export function FileChangeSummaryBlock(args: { rows: FileChangeSummaryRow[] }) {
   const workspaceCwd = useAppStore(
     (state) =>
       state.workspacePathById[state.activeWorkspaceId] ??
-      state.projectPath ??
+      state.repositoryPath ??
       undefined,
   );
 
@@ -419,7 +419,7 @@ export function ReferencedFilesBlock(args: { parts: FileContextPart[] }) {
   const workspaceCwd = useAppStore(
     (state) =>
       state.workspacePathById[state.activeWorkspaceId] ??
-      state.projectPath ??
+      state.repositoryPath ??
       undefined,
   );
   const [openRows, setOpenRows] = useState<number[]>([]);

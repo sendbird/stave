@@ -17,7 +17,7 @@ import {
 } from "@/lib/collaboration/delegation-draft-client";
 
 const scope: DelegationDraftScope = {
-  projectPath: "/tmp/project",
+  repositoryPath: "/tmp/project",
   workspaceId: "workspace",
   taskId: "task",
 };
@@ -67,7 +67,7 @@ test("unchanged uncertain retries reuse the exact request and edits create a new
   if (!next.ok) throw new Error(next.message);
   expect(next.request.delegationKey).toBe("request-2");
   expect(next.request).toMatchObject({
-    projectPath: scope.projectPath,
+    repositoryPath: scope.repositoryPath,
     parentWorkspaceId: scope.workspaceId,
     parentTaskId: scope.taskId,
     providerId: "claude-code",
@@ -119,7 +119,7 @@ test("draft store keeps exact owners and compare-clears only the accepted revisi
     store.save(scope, first.draft);
     expect(new DelegationDraftStore(db).load(scope)).toEqual(first.draft);
     expect(
-      store.load({ ...scope, projectPath: "/tmp/another-project" }),
+      store.load({ ...scope, repositoryPath: "/tmp/another-project" }),
     ).toBeNull();
     expect(() =>
       store.save({ ...scope, taskId: "another-task" }, edited),

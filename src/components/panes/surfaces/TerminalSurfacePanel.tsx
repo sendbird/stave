@@ -94,7 +94,7 @@ function TerminalSurfacePanelContent(props: {
         [
           state.activeWorkspaceId,
           state.workspacePathById[state.activeWorkspaceId] ??
-            state.projectPath ??
+            state.repositoryPath ??
             "",
           state.terminalTabs,
           state.settings.terminalFontFamily || DEFAULT_TERMINAL_FONT_FAMILY,

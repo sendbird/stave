@@ -1,6 +1,6 @@
 import type { WorkspaceSummary } from "@/lib/db/workspaces.db";
 import { normalizeComparablePath } from "@/lib/source-control-worktrees";
-import { areStringArraysEqual } from "@/store/project.utils";
+import { areStringArraysEqual } from "@/store/repository.utils";
 
 export function getCachedWorkspaceFiles(args: {
   workspacePath?: string | null;
@@ -14,8 +14,8 @@ export function getCachedWorkspaceFiles(args: {
 
 export function resolveInitialWorkspaceFiles(args: {
   workspacePath?: string | null;
-  activeProjectPath?: string | null;
-  activeProjectFiles: string[];
+  activeRepositoryPath?: string | null;
+  activeRepositoryFiles: string[];
   workspaceFileCacheByPath: Record<string, string[]>;
 }) {
   const workspacePath = args.workspacePath?.trim();
@@ -31,11 +31,11 @@ export function resolveInitialWorkspaceFiles(args: {
     return args.workspaceFileCacheByPath[workspacePath] ?? [];
   }
   if (
-    args.activeProjectPath &&
-    normalizeComparablePath(args.activeProjectPath) ===
+    args.activeRepositoryPath &&
+    normalizeComparablePath(args.activeRepositoryPath) ===
       normalizeComparablePath(workspacePath)
   ) {
-    return args.activeProjectFiles;
+    return args.activeRepositoryFiles;
   }
   return [];
 }
@@ -91,7 +91,7 @@ export function resolveWorkspacePathForId(args: {
   workspaceId?: string;
   workspacePathById: Record<string, string>;
   workspaceDefaultById: Record<string, boolean>;
-  projectPath: string | null;
+  repositoryPath: string | null;
 }) {
   const workspaceId = args.workspaceId ?? args.activeWorkspaceId;
   if (!workspaceId) {
@@ -99,13 +99,13 @@ export function resolveWorkspacePathForId(args: {
   }
   return (
     args.workspacePathById[workspaceId] ??
-    (args.workspaceDefaultById[workspaceId] ? (args.projectPath ?? null) : null)
+    (args.workspaceDefaultById[workspaceId] ? (args.repositoryPath ?? null) : null)
   );
 }
 
 export function isWorkspaceTargetCurrent(args: {
   state: {
-    projectPath: string | null;
+    repositoryPath: string | null;
     workspaces: WorkspaceSummary[];
     activeWorkspaceId: string;
     workspacePathById: Record<string, string>;
@@ -113,12 +113,12 @@ export function isWorkspaceTargetCurrent(args: {
   };
   workspaceId: string;
   workspacePath?: string | null;
-  projectPath?: string | null;
+  repositoryPath?: string | null;
 }) {
   if (
-    args.projectPath !== undefined &&
-    normalizeComparablePath(args.state.projectPath) !==
-      normalizeComparablePath(args.projectPath)
+    args.repositoryPath !== undefined &&
+    normalizeComparablePath(args.state.repositoryPath) !==
+      normalizeComparablePath(args.repositoryPath)
   ) {
     return false;
   }
@@ -138,7 +138,7 @@ export function isWorkspaceTargetCurrent(args: {
     workspaceId: args.workspaceId,
     workspacePathById: args.state.workspacePathById,
     workspaceDefaultById: args.state.workspaceDefaultById,
-    projectPath: args.state.projectPath,
+    repositoryPath: args.state.repositoryPath,
   });
   return (
     normalizeComparablePath(currentWorkspacePath) ===

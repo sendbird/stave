@@ -172,7 +172,7 @@ export function registerBrowserTools(rawServer: McpServer): void {
           .describe(
             "Optional Lens browser storage scope. Defaults to the owning project when Stave can resolve it, otherwise the workspace.",
           ),
-        projectKey: z
+        repositoryKey: z
           .string()
           .optional()
           .describe(
@@ -180,11 +180,11 @@ export function registerBrowserTools(rawServer: McpServer): void {
           ),
       },
     },
-    async ({ workspaceId, lensSessionId, url, sessionScope, projectKey }) => {
+    async ({ workspaceId, lensSessionId, url, sessionScope, repositoryKey }) => {
       const { session, created } = await acquireMcpBrowserSession({
         workspaceId,
         sessionScope,
-        projectKey,
+        repositoryKey,
         lensSessionId,
         restorePreviousUrl: !url?.trim(),
       });

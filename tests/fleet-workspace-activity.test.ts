@@ -218,7 +218,7 @@ describe("classifyFleetWorkspaceActivity", () => {
 describe("isPhantomDefaultWorkspace", () => {
   const phantom = {
     isDefault: true,
-    isCurrentProject: false,
+    isCurrentRepository: false,
     isActiveWorkspace: false,
     openTaskCount: 0,
     messageCount: 0,
@@ -247,7 +247,7 @@ describe("isPhantomDefaultWorkspace", () => {
   });
 
   test.each([
-    ["the current project", { isCurrentProject: true }],
+    ["the current project", { isCurrentRepository: true }],
     ["the active workspace", { isActiveWorkspace: true }],
     ["open tasks", { openTaskCount: 2 }],
     ["pending needs", { hasAttentionItems: true }],

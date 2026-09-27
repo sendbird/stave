@@ -10,7 +10,7 @@ import {
   addWorkspaceJiraIssue,
   createWorkspace,
   getTaskStatus,
-  listKnownProjects,
+  listKnownRepositories,
   releaseLocallyManagedCraneTask,
   runLocallyApprovedCraneTask,
 } from "../stave-mcp-service";
@@ -41,9 +41,9 @@ function sendToRenderer(channel: string, payload: unknown) {
  * its failure must never break Crane dispatch.
  */
 function forwardJobUpdateToTracker(update: CraneDispatchJobUpdate) {
-  void import("../tracker-tasks/service")
-    .then(({ getTrackerTasksRuntime }) => {
-      getTrackerTasksRuntime().noteCraneJobUpdate(update);
+  void import("../tracker-issues/service")
+    .then(({ getTrackerIssuesRuntime }) => {
+      getTrackerIssuesRuntime().noteCraneJobUpdate(update);
     })
     .catch((error) => {
       console.error(
@@ -68,7 +68,7 @@ export function getCraneConnectorRuntime() {
         baseUrl,
         allowInsecureLocalhost,
       }),
-    listKnownProjects,
+    listKnownRepositories,
     createWorkspace: (args) => createWorkspace(args),
     runTask: (args) => runLocallyApprovedCraneTask(args),
     getTaskStatus,

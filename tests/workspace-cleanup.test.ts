@@ -5,7 +5,7 @@ import { quoteWorkspaceShellArgument } from "@/store/workspace-archive-cleanup";
 import { uniqueResourceProcesses } from "@/lib/performance/resource-manager";
 
 const state: CleanupState = {
-  projectPath: "/tmp/project", workspaces: [{ id: "old", name: "old", updatedAt: "2026-01-01" }],
+  repositoryPath: "/tmp/project", workspaces: [{ id: "old", name: "old", updatedAt: "2026-01-01" }],
   workspacePathById: { old: "/tmp/project/old" }, workspaceDefaultById: {},
   activeWorkspaceId: "current", activeTurnIdsByTask: {}, taskWorkspaceIdById: {}, notifications: [],
 };
@@ -14,7 +14,7 @@ const blocker = (overrides: Partial<CleanupState> = {}) => workspaceCleanupBlock
 describe("workspace cleanup guards", () => {
   test("allows a stable inactive workspace and refuses changed ownership", () => {
     expect(blocker()).toBeNull();
-    expect(blocker({ projectPath: "/tmp/other" })).toBe("Workspace changed");
+    expect(blocker({ repositoryPath: "/tmp/other" })).toBe("Workspace changed");
     expect(blocker({ workspaces: [] })).toBe("Workspace changed");
     expect(blocker({ workspacePathById: { old: "/tmp/other" } })).toBe("Workspace changed");
   });

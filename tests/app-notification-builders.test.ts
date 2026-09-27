@@ -15,8 +15,8 @@ function buildCompletedNotification(): AppNotification {
     kind: "task.turn_completed",
     title: "Fix notification routing",
     body: "Latest run finished in fix/noti-click.",
-    projectPath: "/tmp/stave",
-    projectName: "stave",
+    repositoryPath: "/tmp/stave",
+    repositoryName: "stave",
     workspaceId: "workspace-notification-click",
     workspaceName: "fix/noti-click",
     taskId: "task-notification-click",
@@ -90,8 +90,8 @@ describe("showNotificationToast", () => {
     };
     const input: Parameters<typeof buildTaskTurnCompletedNotificationInput>[0] = {
       state: {
-        projectPath: "/tmp/stave",
-        projectName: "stave",
+        repositoryPath: "/tmp/stave",
+        repositoryName: "stave",
         workspaces: [
           {
             id: "workspace-summary",
@@ -99,7 +99,7 @@ describe("showNotificationToast", () => {
             updatedAt: "2026-07-31T00:00:00.000Z",
           },
         ],
-        recentProjects: [],
+        recentRepositories: [],
       },
       session,
       workspaceId: "workspace-summary",

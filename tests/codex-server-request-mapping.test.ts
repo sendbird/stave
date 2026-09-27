@@ -117,7 +117,7 @@ describe("Codex server request presentation", () => {
         requestId: "mcp-1",
         params: {
           mode: "form",
-          message: 'Allow tool "stave_list_projects"?',
+          message: 'Allow tool "stave_list_repositories"?',
           requestedSchema: { type: "object", properties: {} },
           _meta: {
             codex_approval_kind: "mcp_tool_call",
@@ -130,7 +130,7 @@ describe("Codex server request presentation", () => {
       pending: { responseKind: "elicitation" },
       event: {
         type: "approval",
-        toolName: "stave_list_projects",
+        toolName: "stave_list_repositories",
         requestId: "mcp-1",
         description: "List local projects.",
       },

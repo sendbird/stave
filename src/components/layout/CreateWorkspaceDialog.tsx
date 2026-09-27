@@ -379,7 +379,7 @@ export function CreateWorkspaceDialog({
               xstyle={createWorkspaceStyles.textInput}
             />
             <p className={sx(createWorkspaceStyles.fieldHint)}>
-              Optional. Leave blank to use the branch name in the project list.
+              Optional. Leave blank to use the branch name in the repository list.
             </p>
           </div>
           <p className={sx(createWorkspaceStyles.fieldLabel)}>

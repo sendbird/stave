@@ -1,3 +1,4 @@
+import { FleetMissionStrip } from "@/components/missions/FleetMissionStrip";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   AlertTriangle,
@@ -56,7 +57,7 @@ import {
   type WorkspaceTodoItem,
 } from "@/lib/workspace-information";
 import { useAppStore } from "@/store/app.store";
-import { isDefaultWorkspaceName } from "@/store/project.utils";
+import { isDefaultWorkspaceName } from "@/store/repository.utils";
 import type { ChatMessage, Task } from "@/types/chat";
 
 const EMPTY_TASKS: Task[] = [];
@@ -91,16 +92,16 @@ type FleetCardTaskView = {
   updatedLabel: string;
 };
 
-export function getFleetWorkspaceKey(projectPath: string, workspaceId: string) {
-  return JSON.stringify([projectPath, workspaceId]);
+export function getFleetWorkspaceKey(repositoryPath: string, workspaceId: string) {
+  return JSON.stringify([repositoryPath, workspaceId]);
 }
 
 export function getFleetTaskKey(
-  projectPath: string,
+  repositoryPath: string,
   workspaceId: string,
   taskId: string,
 ) {
-  return JSON.stringify([projectPath, workspaceId, taskId]);
+  return JSON.stringify([repositoryPath, workspaceId, taskId]);
 }
 
 export function formatFleetWorkspaceName(name: string, branch?: string) {
@@ -188,10 +189,10 @@ function FleetCardPrBadge({ status }: { status: WorkspacePrStatus | null }) {
 }
 
 export function FleetWorkspaceCard(args: {
-  projectPath: string;
-  projectName: string;
+  repositoryPath: string;
+  repositoryName: string;
   workspace: FleetWorkspaceCardView;
-  isCurrentProject: boolean;
+  isCurrentRepository: boolean;
   filter: FleetBoardFilter;
   searchQuery: string;
   nowMs: number;
@@ -199,12 +200,12 @@ export function FleetWorkspaceCard(args: {
   expandedTaskKey: string | null;
   cardKey: string;
   onOpenTask: (target: {
-    projectPath: string;
+    repositoryPath: string;
     workspaceId: string;
     taskId: string;
   }) => void;
   onOpenWorkspace: (target: {
-    projectPath: string;
+    repositoryPath: string;
     workspaceId: string;
   }) => void;
   onToggleTaskControl: (target: FleetTaskControlTarget) => void;
@@ -214,9 +215,9 @@ export function FleetWorkspaceCard(args: {
   ) => void;
 }) {
   const taskKeyFor = (taskId: string) =>
-    getFleetTaskKey(args.projectPath, args.workspace.id, taskId);
+    getFleetTaskKey(args.repositoryPath, args.workspace.id, taskId);
   const [
-    activeProjectPath,
+    activeRepositoryPath,
     activeWorkspaceId,
     activeTasks,
     activeMessagesByTask,
@@ -231,10 +232,10 @@ export function FleetWorkspaceCard(args: {
   ] = useAppStore(
     useShallow((state) => {
       const isActive =
-        state.projectPath === args.projectPath &&
+        state.repositoryPath === args.repositoryPath &&
         state.activeWorkspaceId === args.workspace.id;
       return [
-        state.projectPath,
+        state.repositoryPath,
         state.activeWorkspaceId,
         isActive ? state.tasks : EMPTY_TASKS,
         isActive ? state.messagesByTask : EMPTY_MESSAGES_BY_TASK,
@@ -260,7 +261,7 @@ export function FleetWorkspaceCard(args: {
   const [showAllTasks, setShowAllTasks] = useState(false);
 
   const isActiveWorkspace =
-    activeProjectPath === args.projectPath &&
+    activeRepositoryPath === args.repositoryPath &&
     activeWorkspaceId === args.workspace.id;
   const hasRuntimeState = isActiveWorkspace || Boolean(runtimeState);
 
@@ -402,7 +403,7 @@ export function FleetWorkspaceCard(args: {
 
   const isPhantom = isPhantomDefaultWorkspace({
     isDefault: args.workspace.isDefault,
-    isCurrentProject: args.isCurrentProject,
+    isCurrentRepository: args.isCurrentRepository,
     isActiveWorkspace,
     openTaskCount: openTasks.length,
     messageCount,
@@ -423,7 +424,7 @@ export function FleetWorkspaceCard(args: {
     query: args.searchQuery,
     searchableText: [
       displayName,
-      args.projectName,
+      args.repositoryName,
       args.workspace.branch ?? "",
       ...rows.map((row) => row.task.title),
     ],
@@ -445,7 +446,7 @@ export function FleetWorkspaceCard(args: {
       rows.indexOf(expandedRow) >= FLEET_CARD_TASK_LIMIT
     ) {
       args.onToggleTaskControl({
-        projectPath: args.projectPath,
+        repositoryPath: args.repositoryPath,
         workspaceId: args.workspace.id,
         taskId: expandedRow.task.id,
         taskTitle: expandedRow.task.title || "Untitled Task",
@@ -458,10 +459,10 @@ export function FleetWorkspaceCard(args: {
     () =>
       visible
         ? rows.map((row) =>
-            getFleetTaskKey(args.projectPath, args.workspace.id, row.task.id),
+            getFleetTaskKey(args.repositoryPath, args.workspace.id, row.task.id),
           )
         : [],
-    [args.projectPath, args.workspace.id, rows, visible],
+    [args.repositoryPath, args.workspace.id, rows, visible],
   );
 
   const { onVisibilityChange, cardKey } = args;
@@ -505,7 +506,7 @@ export function FleetWorkspaceCard(args: {
         activity === "dormant" && styles.cardDormant,
         expandedRow && styles.cardExpanded,
       )}
-      aria-label={`${displayName} workspace in ${args.projectName}`}
+      aria-label={`${displayName} workspace in ${args.repositoryName}`}
     >
       <div className={sx(styles.header)}>
         <div className={sx(styles.headerMain)}>
@@ -525,7 +526,7 @@ export function FleetWorkspaceCard(args: {
             ) : null}
           </div>
           <div className={sx(styles.metaRow)}>
-            <span className={sx(styles.metaPart)}>{args.projectName}</span>
+            <span className={sx(styles.metaPart)}>{args.repositoryName}</span>
             {branchLabel ? (
               <>
                 <span aria-hidden="true">·</span>
@@ -537,6 +538,17 @@ export function FleetWorkspaceCard(args: {
         </div>
         <FleetCardPrBadge status={prStatus} />
       </div>
+
+      <FleetMissionStrip
+        workspaceId={args.workspace.id}
+        onOpen={(taskId) =>
+          args.onOpenTask({
+            repositoryPath: args.repositoryPath,
+            workspaceId: args.workspace.id,
+            taskId,
+          })
+        }
+      />
 
       <div className={sx(styles.tasks)}>
         {rows.length === 0 ? (
@@ -571,7 +583,7 @@ export function FleetWorkspaceCard(args: {
                     aria-label={`${isExpanded ? "Hide" : "Show"} controls for ${taskTitle}, ${visual.label}`}
                     onClick={() =>
                       args.onToggleTaskControl({
-                        projectPath: args.projectPath,
+                        repositoryPath: args.repositoryPath,
                         workspaceId: args.workspace.id,
                         taskId: row.task.id,
                         taskTitle,
@@ -621,7 +633,7 @@ export function FleetWorkspaceCard(args: {
         >
           <FleetTaskControlPanel
             target={{
-              projectPath: args.projectPath,
+              repositoryPath: args.repositoryPath,
               workspaceId: args.workspace.id,
               taskId: expandedRow.task.id,
               taskTitle: expandedRow.task.title || "Untitled Task",
@@ -632,7 +644,7 @@ export function FleetWorkspaceCard(args: {
             onOpenTask={args.onOpenTask}
             onClose={() =>
               args.onToggleTaskControl({
-                projectPath: args.projectPath,
+                repositoryPath: args.repositoryPath,
                 workspaceId: args.workspace.id,
                 taskId: expandedRow.task.id,
                 taskTitle: expandedRow.task.title || "Untitled Task",
@@ -676,7 +688,7 @@ export function FleetWorkspaceCard(args: {
           aria-label={`Open ${displayName} workspace`}
           onClick={() =>
             args.onOpenWorkspace({
-              projectPath: args.projectPath,
+              repositoryPath: args.repositoryPath,
               workspaceId: args.workspace.id,
             })
           }

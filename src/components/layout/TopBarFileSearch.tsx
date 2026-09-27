@@ -59,19 +59,19 @@ function toFileItem(filePath: string, score = 0): SearchCommandItem {
 
 export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
   const [
-    projectFiles,
+    repositoryFiles,
     editorTabs,
     activeEditorTabId,
-    refreshProjectFiles,
+    refreshRepositoryFiles,
     openFileFromTree,
   ] = useAppStore(
     useShallow(
       (state) =>
         [
-          state.projectFiles,
+          state.repositoryFiles,
           state.editorTabs,
           state.activeEditorTabId,
-          state.refreshProjectFiles,
+          state.refreshRepositoryFiles,
           state.openFileFromTree,
         ] as const,
     ),
@@ -94,13 +94,13 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
   }
 
   useEffect(() => {
-    if (!isOpen || projectFiles.length > 0) {
+    if (!isOpen || repositoryFiles.length > 0) {
       return;
     }
 
     let cancelled = false;
     setIsPreparingFiles(true);
-    void refreshProjectFiles()
+    void refreshRepositoryFiles()
       .catch(() => {
         // IPC/fs failure — swallow; file list stays empty.
       })
@@ -113,7 +113,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
     return () => {
       cancelled = true;
     };
-  }, [isOpen, projectFiles.length, refreshProjectFiles]);
+  }, [isOpen, repositoryFiles.length, refreshRepositoryFiles]);
 
   // Cmd/Ctrl+P keyboard shortcut to open file search
   useEffect(() => {
@@ -195,11 +195,11 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
   const filteredFileItems = useMemo(
     () =>
       rankFileSearchResults({
-        files: projectFiles,
+        files: repositoryFiles,
         query: normalizedQuery,
         limit: DEFAULT_FILE_RESULT_LIMIT,
       }).map((item) => toFileItem(item.filePath, item.score)),
-    [normalizedQuery, projectFiles],
+    [normalizedQuery, repositoryFiles],
   );
 
   const browseFileItems = useMemo(
@@ -346,7 +346,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                   variant="secondary"
                   className={sx(fileSearchStyles.countBadge)}
                 >
-                  {projectFiles.length}
+                  {repositoryFiles.length}
                 </Badge>
               </div>
               <CommandList className={sx(fileSearchStyles.list)}>
@@ -358,7 +358,7 @@ export function TopBarFileSearch({ noDragStyle }: TopBarFileSearchProps) {
                 ) : null}
                 {!isPreparingFiles && !hasItems ? (
                   <CommandEmpty className={sx(fileSearchStyles.emptyRow)}>
-                    {projectFiles.length === 0
+                    {repositoryFiles.length === 0
                       ? "No workspace files are indexed yet."
                       : "No matching files."}
                   </CommandEmpty>

@@ -9,7 +9,7 @@ test("first-run project action and task examples remain keyboard accessible", as
   const stave = await launchStave();
   const rendererErrors: string[] = [];
   stave.page.on("pageerror", (error) => rendererErrors.push(error.message));
-  const projectPath = await mkdtemp(path.join(tmpdir(), "stave-onboarding-"));
+  const repositoryPath = await mkdtemp(path.join(tmpdir(), "stave-onboarding-"));
   try {
     const welcome = stave.page.getByTestId("workspace-welcome");
     await expect(welcome).toBeVisible();
@@ -17,7 +17,7 @@ test("first-run project action and task examples remain keyboard accessible", as
     await expect(
       stave.page.getByPlaceholder("~/projects/my-app"),
     ).toBeFocused();
-    await stave.page.getByPlaceholder("~/projects/my-app").fill(projectPath);
+    await stave.page.getByPlaceholder("~/projects/my-app").fill(repositoryPath);
     await stave.page.getByRole("button", { name: "Open", exact: true }).click();
     await expect(welcome).toHaveCount(0);
     await stave.page
@@ -43,7 +43,7 @@ test("first-run project action and task examples remain keyboard accessible", as
       stave.page.getByRole("tablist", { name: "Task inspection" }),
     ).toHaveCount(0);
     await stave.page
-      .getByRole("button", { name: "Task Collaboration", exact: true })
+      .getByRole("button", { name: "Mission", exact: true })
       .click();
     await expect(
       stave.page.getByRole("heading", { name: "Delegated tasks", exact: true }),
@@ -52,15 +52,15 @@ test("first-run project action and task examples remain keyboard accessible", as
     const endpoint = await waitForStaveMcpEndpoint(stave.userDataDir);
     const followUp = await callStaveMcpTool(
       endpoint,
-      "stave_follow_up_child_task",
+      "stave_follow_up_delegated_task",
       {
         parentTaskId: "missing-parent",
         delegationKey: "missing",
         prompt: "Review the previous result.",
         permissionProfile: "guided",
         expected: {
-          childTaskId: "missing-child",
-          childWorkspaceId: "missing-workspace",
+          delegatedTaskId: "missing-child",
+          delegatedWorkspaceId: "missing-workspace",
           attempt: 0,
         },
       },
@@ -88,7 +88,7 @@ test("first-run project action and task examples remain keyboard accessible", as
       stave.page.getByRole("button", { name: "Export report", exact: true }),
     ).toHaveCount(0);
     await stave.page
-      .getByRole("button", { name: "Task Collaboration", exact: true })
+      .getByRole("button", { name: "Mission", exact: true })
       .click();
     await stave.page.screenshot({
       path: testInfo.outputPath("task-collaboration.png"),
@@ -97,6 +97,6 @@ test("first-run project action and task examples remain keyboard accessible", as
     expect(rendererErrors).toEqual([]);
   } finally {
     await stave.close();
-    await rm(projectPath, { recursive: true, force: true });
+    await rm(repositoryPath, { recursive: true, force: true });
   }
 });

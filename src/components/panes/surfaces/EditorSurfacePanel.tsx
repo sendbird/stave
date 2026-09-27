@@ -123,7 +123,7 @@ let lastFocusedCodeEditor: MonacoEditorApi.IStandaloneCodeEditor | null = null;
 function getWorkspaceRootPath(): string {
   const state = useAppStore.getState();
   return (
-    state.workspacePathById[state.activeWorkspaceId] ?? state.projectPath ?? ""
+    state.workspacePathById[state.activeWorkspaceId] ?? state.repositoryPath ?? ""
   );
 }
 
@@ -321,7 +321,7 @@ function EditorTabSurface({ editorTabId }: { editorTabId: string }) {
   const workspaceRootPath = useAppStore(
     (state) =>
       state.workspacePathById[state.activeWorkspaceId] ??
-      state.projectPath ??
+      state.repositoryPath ??
       "",
   );
   const activeTaskIsResponding = useAppStore((state) =>

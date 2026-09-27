@@ -74,12 +74,15 @@ Recommended next steps:
 - Lens browser panel for inspecting a live page and pulling DOM, console, or element context into a task draft
 - Compare Runs and Local Change Review with candidate, judge, and review turns and per-model reasoning effort
 - Crane connector for queuing repository issues into approval-gated local Claude or Codex runs
-- Tasks surface listing assigned Crane and Jira Cloud tickets with one-click local kickoff
+- Issues surface listing assigned Crane and Jira Cloud tickets with one-click local kickoff
 - workspace-scoped notes, todos, saved plans, PR links, Jira, Figma, Confluence, and Slack references
-- scheduled Claude and Codex routines with per-run results, repository selection, and reusable Information context
-- git worktree-aware project and workspace management
+- scheduled Claude and Codex automations with per-run results, repository selection, and reusable Information context
+- missions that carry a task through a playbook's stages — Stave opens the draft PR, watches checks, and stops only at the sign-offs you chose
+- editable playbooks: the stages you would otherwise prompt one by one, with where missions should ask you first
+- projects: a goal that takes several missions, planned by a coordinator task that you approve, sign off, and review
+- git worktree-aware repository and workspace management
 - editable workspace kickoff proposals from external sources and prompts
-- Fleet `Action required` inbox for questions, approvals, failed runs, results, and PR blockers across every workspace
+- Fleet `Action required` inbox for questions, approvals, mission sign-offs, failed runs, results, and PR blockers across every workspace
 - notifications, attachments, skill selection, custom model shortcuts, and theme presets
 - local-only MCP access for same-machine automation and tool-driven workflows
 
@@ -91,9 +94,12 @@ Recommended next steps:
 - [Provider Sandbox and Approval Guide](docs/features/provider-sandbox-and-approval.md) for runtime safety, Advisor, and plan settings
 - [Local MCP User Guide](docs/features/local-mcp-user-guide.md) for same-machine automation setup
 - [Crane Connector Guide](docs/features/crane-connector.md) for pairing Crane with this Stave installation and approving issue runs locally
-- [Tasks Guide](docs/features/tasks.md) for reviewing assigned Crane and Jira tickets and kicking one off locally
+- [Issues Guide](docs/features/issues.md) for reviewing assigned Crane and Jira tickets and kicking one off locally
 - [Fleet Action Required Guide](docs/features/fleet-needs-me.md) for working through approvals, questions, and blockers across every workspace
 - [Workspace Kickoff](docs/features/workspace-kickoff.md) for source matching, MCP resolution, and Information panel defaults
+- [Missions](docs/features/missions.md) for handing an outcome to a playbook and following it stage by stage
+- [Playbooks](docs/features/playbooks.md) for saving and editing the stages missions run
+- [Projects](docs/features/projects.md) for goals that take several missions
 
 ## For Developers And Contributors
 

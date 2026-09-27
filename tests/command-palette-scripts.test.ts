@@ -92,7 +92,7 @@ describe("buildScriptsCommandPaletteActions", () => {
     expect(service?.group).toBe("scripts");
     expect(service?.source).toBe("dynamic");
     expect(service?.customizable).toBe(false);
-    expect(service?.subtitle).toContain("Project · Local");
+    expect(service?.subtitle).toContain("Repository · Local");
 
     const action = byId.get("scripts.run.action.lint");
     expect(action?.title).toBe("Run Command: Lint");

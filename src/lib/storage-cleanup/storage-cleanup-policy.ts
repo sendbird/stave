@@ -8,7 +8,7 @@
  */
 
 export const LENS_PARTITION_DIR_PREFIX = "lens-";
-export const LENS_PROJECT_PARTITION_DIR_PREFIX = "lens-project-";
+export const LENS_REPOSITORY_PARTITION_DIR_PREFIX = "lens-project-";
 export const PRIMARY_DATABASE_FILE_NAME = "stave.sqlite";
 
 /** Live Lens caches above this size are cleared by the automatic sweep. */
@@ -88,7 +88,7 @@ export interface StorageCleanupResult {
 export interface LensPartitionClassificationContext {
   knownWorkspaceIds: ReadonlySet<string>;
   /** Hashes as produced by the Lens session profile for `projectKey`. */
-  knownProjectHashes: ReadonlySet<string>;
+  knownRepositoryHashes: ReadonlySet<string>;
   /** Partition names (`persist:...`) with a live Lens guest. */
   activePartitions: ReadonlySet<string>;
 }
@@ -116,9 +116,9 @@ export function classifyLensPartitionDir(
   const partition = `persist:${decoded}`;
   const active = context.activePartitions.has(partition);
 
-  if (decoded.startsWith(LENS_PROJECT_PARTITION_DIR_PREFIX)) {
-    const hash = decoded.slice(LENS_PROJECT_PARTITION_DIR_PREFIX.length);
-    const known = hash.length > 0 && context.knownProjectHashes.has(hash);
+  if (decoded.startsWith(LENS_REPOSITORY_PARTITION_DIR_PREFIX)) {
+    const hash = decoded.slice(LENS_REPOSITORY_PARTITION_DIR_PREFIX.length);
+    const known = hash.length > 0 && context.knownRepositoryHashes.has(hash);
     return {
       dirName,
       partition,

@@ -221,7 +221,7 @@ export interface WorkGraphControlAvailability {
  *    stale-turn problem Stage F froze identity to prevent, and it is rejected
  *    here rather than at the runtime.
  * 3. **Ownership.** A ledger-owned child is Stave's, not the runtime's: it is a
- *    task with a workspace and a run of its own, steered through the child-task
+ *    task with a workspace and a run of its own, steered through the delegated-task
  *    coordinator against the identity Stage F froze. Its controls therefore do
  *    not depend on what the provider can do to its own in-process subagents,
  *    and gating them on a runtime capability would hide a control that works.
@@ -256,7 +256,7 @@ export function resolveWorkGraphControls(args: {
   }
   if (node.identitySource === "ledger") {
     // Stop only: it is the one control that needs nothing from the person
-    // beyond the decision. A follow-up is a prompt, and the child task row
+    // beyond the decision. A follow-up is a prompt, and the delegated task row
     // below already owns the composer for writing one.
     return { available: ["stop"] };
   }

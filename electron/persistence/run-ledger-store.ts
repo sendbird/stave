@@ -142,7 +142,7 @@ function mapRunRow(row: RunRow): RunRecord {
       id: row.origin_id,
     },
     ownership: {
-      projectPath: row.project_path,
+      repositoryPath: row.project_path,
       workspaceId: row.workspace_id,
       taskId: row.task_id,
     },
@@ -235,12 +235,46 @@ function hasStepTargetConflict(
   );
 }
 
+// temporary-migration: delegated-task-ledger-kinds
+/**
+ * Rows written before delegated tasks were renamed from child tasks carry the
+ * legacy run and step kinds and a few legacy bookkeeping strings. Rewrites
+ * them once, in one transaction, before anything reads the ledger. Run ids
+ * (`child-task:<parent>:<key>`) are persisted identity and deliberately stay.
+ */
+export function migrateLegacyDelegatedTaskLedgerRows(db: RunLedgerDatabase) {
+  db.transaction(() => {
+    db.prepare(
+      "UPDATE runs SET kind = 'delegated-task' WHERE kind = 'child-task'",
+    ).run();
+    db.prepare(
+      "UPDATE run_steps SET kind = 'delegated-task-turn' WHERE kind = 'child-task-turn'",
+    ).run();
+    db.prepare(
+      `UPDATE runs
+         SET provenance_json = REPLACE(provenance_json, '"child-task-coordinator"', '"delegated-task-coordinator"')
+       WHERE provenance_json LIKE '%"child-task-coordinator"%'`,
+    ).run();
+    db.prepare(
+      `UPDATE run_receipts
+         SET detail_json = REPLACE(REPLACE(REPLACE(detail_json,
+           '"child-task-failure"', '"delegated-task-failure"'),
+           '"child-task-detached"', '"delegated-task-detached"'),
+           '"child-task-stopped"', '"delegated-task-stopped"')
+       WHERE detail_json LIKE '%"child-task-%'`,
+    ).run();
+  })();
+}
+// end temporary-migration: delegated-task-ledger-kinds
+
 export class RunLedgerStore {
   private readonly db: RunLedgerDatabase;
 
   constructor(database: unknown) {
     this.db = database as RunLedgerDatabase;
     this.bootstrap();
+    // temporary-migration: delegated-task-ledger-kinds
+    migrateLegacyDelegatedTaskLedgerRows(this.db);
   }
 
   private bootstrap() {
@@ -370,7 +404,7 @@ export class RunLedgerStore {
         run.kind,
         run.origin.kind,
         run.origin.id,
-        run.ownership.projectPath,
+        run.ownership.repositoryPath,
         run.ownership.workspaceId,
         run.ownership.taskId,
         run.status,
@@ -736,7 +770,7 @@ export class RunLedgerStore {
   }
 
   /**
-   * Aggregates for one origin, newest first. Child-task listings read the
+   * Aggregates for one origin, newest first. Delegated-task listings read the
    * ledger by parent task rather than by ownership, because a child may live in
    * a different workspace than the parent that delegated it.
    */
@@ -765,7 +799,7 @@ export class RunLedgerStore {
   }
 
   /**
-   * The delegations that own one task. A child task is an ordinary task in its
+   * The delegations that own one task. A delegated task is an ordinary task in its
    * own workspace, so this is how a surface showing that task finds out it was
    * delegated and by whom.
    */
@@ -859,9 +893,9 @@ export class RunLedgerStore {
 
   /**
    * Restart recovery for step kinds whose execution cannot outlive the app. A
-   * `child-task-turn` is deliberately excluded: a child is a real task that may
+   * `delegated-task-turn` is deliberately excluded: a child is a real task that may
    * still be running after a restart, so it is reconciled against the live task
-   * by `child-task-coordinator`, not blanket-interrupted here.
+   * by `delegated-task-coordinator`, not blanket-interrupted here.
    */
   reconcileInterruptedRuns(args: { now: string }) {
     const tx = this.db.transaction(() => {
@@ -870,7 +904,7 @@ export class RunLedgerStore {
           `
           SELECT id, run_id
           FROM run_steps
-          WHERE status IN ('running', 'waiting') AND kind != 'child-task-turn'
+          WHERE status IN ('running', 'waiting') AND kind != 'delegated-task-turn'
           ORDER BY run_id, id
         `,
         )

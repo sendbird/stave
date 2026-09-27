@@ -191,7 +191,7 @@ previewWindow.api = {
 
 useAppStore.setState({
   activeTaskId: undefined,
-  projectPath: "/tmp/codex-settings-preview",
+  repositoryPath: "/tmp/codex-settings-preview",
   activeWorkspaceId: "preview",
   workspacePathById: { preview: "/tmp/codex-settings-preview" },
 });

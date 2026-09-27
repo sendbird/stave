@@ -26,7 +26,7 @@ function describeOrigin(origin?: ScriptEntryOrigin): string | null {
   if (!origin) {
     return null;
   }
-  const tier = origin.tier === "workspace" ? "Workspace" : "Project";
+  const tier = origin.tier === "workspace" ? "Workspace" : "Repository";
   return origin.localOverride ? `${tier} · Local` : tier;
 }
 

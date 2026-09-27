@@ -1,9 +1,11 @@
 import {
-  collaborationGrantHeaders,
+  turnGrantHeaders,
   ADVISOR_GRANT_ENV,
+  MISSION_GRANT_ENV,
+  PROJECT_GRANT_ENV,
   WORKER_GRANT_ENV,
-  type StaveCollaborationGrants,
-} from "../providers/stave-collaboration-grants";
+  type StaveTurnGrants,
+} from "../providers/stave-turn-grants";
 import { promises as fs, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -79,7 +81,7 @@ function toStaveLocalMcpTransport(
   manifest: StaveLocalMcpManifest,
   options?: {
     unattendedAutomationAuthorizationToken?: string;
-    collaborationGrants?: StaveCollaborationGrants;
+    turnGrants?: StaveTurnGrants;
   },
 ) {
   return {
@@ -91,9 +93,9 @@ function toStaveLocalMcpTransport(
     headers: {
       Authorization: `Bearer ${manifest.token}`,
       // Turn-scoped grants only. Persistent Claude Code settings must not
-      // receive empty keys that look like live Worker/Advisor capability.
-      ...(options?.collaborationGrants
-        ? collaborationGrantHeaders(options.collaborationGrants)
+      // receive empty keys that look like live Worker/Advisor/mission capability.
+      ...(options?.turnGrants
+        ? turnGrantHeaders(options.turnGrants)
         : {}),
     },
   };
@@ -103,7 +105,7 @@ export function toClaudeSdkMcpServerConfig(
   manifest: StaveLocalMcpManifest,
   options?: {
     unattendedAutomationAuthorizationToken?: string;
-    collaborationGrants?: StaveCollaborationGrants;
+    turnGrants?: StaveTurnGrants;
   },
 ) {
   return {
@@ -121,7 +123,7 @@ export function toAcpStdioMcpServerConfig(
   manifest: StaveLocalMcpManifest,
   options?: {
     allowedToolNames?: readonly string[];
-    collaborationGrants?: StaveCollaborationGrants;
+    turnGrants?: StaveTurnGrants;
   },
 ) {
   const allowedToolNames = Array.from(
@@ -139,11 +141,19 @@ export function toAcpStdioMcpServerConfig(
       { name: "ELECTRON_RUN_AS_NODE", value: "1" },
       {
         name: ADVISOR_GRANT_ENV,
-        value: options?.collaborationGrants?.consultKey ?? "",
+        value: options?.turnGrants?.consultKey ?? "",
       },
       {
         name: WORKER_GRANT_ENV,
-        value: options?.collaborationGrants?.workerKey ?? "",
+        value: options?.turnGrants?.workerKey ?? "",
+      },
+      {
+        name: MISSION_GRANT_ENV,
+        value: options?.turnGrants?.missionKey ?? "",
+      },
+      {
+        name: PROJECT_GRANT_ENV,
+        value: options?.turnGrants?.projectKey ?? "",
       },
       ...(allowedToolNames.length > 0
         ? [
@@ -170,7 +180,7 @@ export function isAcpStaveLocalMcpServer(server: unknown): boolean {
 
 export async function resolveAcpStaveLocalMcpServers(args?: {
   allowedToolNames?: readonly string[];
-  collaborationGrants?: StaveCollaborationGrants;
+  turnGrants?: StaveTurnGrants;
 }) {
   const manifest = await readPrimaryStaveLocalMcpManifest();
   if (!manifest?.stdioProxyScript?.trim()) {
@@ -179,7 +189,7 @@ export async function resolveAcpStaveLocalMcpServers(args?: {
   return [
     toAcpStdioMcpServerConfig(manifest, {
       allowedToolNames: args?.allowedToolNames,
-      collaborationGrants: args?.collaborationGrants,
+      turnGrants: args?.turnGrants,
     }),
   ];
 }

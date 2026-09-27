@@ -56,7 +56,7 @@ export const SCRIPT_TRIGGER_METADATA: Record<
 
 export const DEFAULT_SCRIPT_TARGET_IDS = {
   WORKSPACE: "workspace",
-  PROJECT: "project",
+  REPOSITORY: "project",
 } as const;
 
 export const SCRIPT_ENV_VARS = {

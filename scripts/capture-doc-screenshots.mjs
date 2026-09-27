@@ -769,6 +769,9 @@ async function createPage(browser) {
   const context = await browser.newContext({
     viewport: { width: 1600, height: 1000 },
     deviceScaleFactor: 2,
+    // Screenshots are docs: English clock and dates, whatever the machine's locale.
+    locale: "en-US",
+    timezoneId: "UTC",
   });
   const page = await context.newPage();
   page.on("pageerror", (error) => {
@@ -1120,6 +1123,79 @@ async function captureLanguageIntelligenceSettings(browser) {
   console.log("[capture] language-intelligence-settings done");
 }
 
+async function openPreview(browser, preview, viewport = { width: 1440, height: 960 }) {
+  const { context, page } = await createPage(browser);
+  await page.setViewportSize(viewport);
+  await page.goto(`${baseUrl}/?stavePreview=${preview}`, { waitUntil: "networkidle" });
+  return { context, page };
+}
+
+/** The element with some breathing room around it, so its edges are not cut. */
+async function captureElement(page, locator, fileName, padding = 0) {
+  await locator.waitFor();
+  const box = await locator.boundingBox();
+  if (!box || padding === 0) {
+    await locator.screenshot({ path: path.join(outputDir, fileName), animations: "disabled" });
+    return;
+  }
+  await page.screenshot({
+    path: path.join(outputDir, fileName),
+    animations: "disabled",
+    // Little room above: preview pages label each section right on top of it.
+    clip: {
+      x: Math.max(0, box.x - padding),
+      y: Math.max(0, box.y - 2),
+      width: box.width + padding * 2,
+      height: box.height + 2 + padding,
+    },
+  });
+}
+
+async function captureMissionSignOff(browser) {
+  console.log("[capture] mission-sign-off");
+  // Tall enough that every preview section is on screen, so the clip stays inside the image.
+  const { context, page } = await openPreview(browser, "mission", { width: 1440, height: 4200 });
+  await captureElement(page, page.getByTestId("mission-sign-off").first(), "mission-sign-off.png", 12);
+  await context.close();
+}
+
+async function captureMissionPanel(browser) {
+  console.log("[capture] mission-panel");
+  // Tall enough that every preview section is on screen, so the clip stays inside the image.
+  const { context, page } = await openPreview(browser, "mission", { width: 1440, height: 4200 });
+  await captureElement(page, page.getByTestId("mission-panel").first(), "mission-panel.png", 16);
+  await context.close();
+}
+
+async function captureStartMissionSheet(browser) {
+  console.log("[capture] start-mission-sheet");
+  const { context, page } = await openPreview(browser, "playbooks", { width: 1440, height: 1400 });
+  await page.getByRole("button", { name: "Start mission sheet" }).click();
+  await captureElement(page, page.getByRole("dialog"), "start-mission-sheet.png");
+  await context.close();
+}
+
+async function capturePlaybooks(browser) {
+  console.log("[capture] playbooks");
+  const { context, page } = await openPreview(browser, "playbooks");
+  await captureElement(page, page.getByTestId("playbooks-tab"), "playbooks.png");
+  await context.close();
+}
+
+async function captureProposedMissions(browser) {
+  console.log("[capture] proposed-missions");
+  const { context, page } = await openPreview(browser, "playbooks&view=proposed", { width: 1200, height: 760 });
+  await captureElement(page, page.getByTestId("proposed-missions"), "proposed-missions.png");
+  await context.close();
+}
+
+async function captureProjects(browser) {
+  console.log("[capture] projects");
+  const { context, page } = await openPreview(browser, "projects", { width: 1800, height: 1040 });
+  await captureElement(page, page.getByTestId("projects-view"), "projects.png");
+  await context.close();
+}
+
 const CAPTURE_STEPS = [
   ["stave-app", captureOverview],
   ["integrated-terminal", captureIntegratedTerminal],
@@ -1132,6 +1208,12 @@ const CAPTURE_STEPS = [
   ["project-instructions", captureProjectInstructionsSettings],
   ["provider-controls", captureProviderControls],
   ["language-intelligence", captureLanguageIntelligenceSettings],
+  ["mission-sign-off", captureMissionSignOff],
+  ["mission-panel", captureMissionPanel],
+  ["start-mission-sheet", captureStartMissionSheet],
+  ["playbooks", capturePlaybooks],
+  ["proposed-missions", captureProposedMissions],
+  ["projects", captureProjects],
 ];
 
 async function main() {

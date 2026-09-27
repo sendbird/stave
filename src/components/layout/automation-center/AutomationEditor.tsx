@@ -16,7 +16,7 @@ import {
   Switch,
   Textarea,
 } from "@/components/ui";
-import { RoutineInformationResourceCreator } from "@/components/layout/RoutineInformationResourceCreator";
+import { AutomationInformationResourceCreator } from "@/components/layout/AutomationInformationResourceCreator";
 import { ChoiceButtons } from "@/components/layout/settings-dialog.shared";
 import { WorkspaceInformationReferenceChip } from "@/components/workspace-information-reference-chip";
 import {
@@ -31,35 +31,35 @@ import {
   CODEX_WEB_SEARCH_OPTIONS,
 } from "@/lib/providers/runtime-option-contract";
 import {
-  applyRoutineCadencePreset,
+  applyAutomationCadencePreset,
   applyAutomationTrustPolicyToRuntime,
   automationPermissionModeToTrustPolicy,
   automationTrustPolicyToPermissionMode,
   AUTOMATION_PERMISSION_MODES,
   AUTOMATION_PERMISSION_MODE_PRESENTATION,
-  computeNextRoutineRunAt,
-  createDefaultRoutineRuntime,
-  detectRoutineCadencePreset,
+  computeNextAutomationRunAt,
+  createDefaultAutomationRuntime,
+  detectAutomationCadencePreset,
   formatAutomationRuntimePermissions,
-  formatRoutineSchedule,
-  formatRoutineScheduleTime,
-  getRoutineInformationReferenceKey,
-  getRoutineScheduleWeekdays,
-  ROUTINE_CADENCE_PRESETS,
-  ROUTINE_CADENCE_PRESENTATION,
-  ROUTINE_WEEKDAY_LABELS,
+  formatAutomationSchedule,
+  formatAutomationScheduleTime,
+  getAutomationInformationReferenceKey,
+  getAutomationScheduleWeekdays,
+  AUTOMATION_CADENCE_PRESETS,
+  AUTOMATION_CADENCE_PRESENTATION,
+  AUTOMATION_WEEKDAY_LABELS,
   type AutomationPermissionMode,
-  type RoutineCadencePreset,
-  type RoutineRuntimeConfig,
-  type RoutineUpsertInput,
-} from "@/lib/routines";
+  type AutomationCadencePreset,
+  type AutomationRuntimeConfig,
+  type AutomationUpsertInput,
+} from "@/lib/automations";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
 import { editorStyles } from "./automation-editor.styles";
 import {
-  applyRoutineScheduleUnit,
+  applyAutomationScheduleUnit,
   formatRelativeTime,
-  parseRoutineScheduleTime,
-  type RoutineEnvironmentOption,
+  parseAutomationScheduleTime,
+  type AutomationEnvironmentOption,
 } from "./automation-center.utils";
 
 const PERMISSION_MODE_ICON: Record<
@@ -145,15 +145,15 @@ function RuntimeSwitch(props: {
 }
 
 function CadenceSection(props: {
-  draft: RoutineUpsertInput;
-  onDraftChange: (draft: RoutineUpsertInput) => void;
+  draft: AutomationUpsertInput;
+  onDraftChange: (draft: AutomationUpsertInput) => void;
 }) {
   const { draft } = props;
-  const preset = detectRoutineCadencePreset({
+  const preset = detectAutomationCadencePreset({
     schedule: draft.schedule,
     enabled: draft.enabled,
   });
-  const weekdays = getRoutineScheduleWeekdays(draft.schedule);
+  const weekdays = getAutomationScheduleWeekdays(draft.schedule);
   const showTime =
     draft.enabled &&
     (draft.schedule.unit === "days" || draft.schedule.unit === "weeks");
@@ -167,7 +167,7 @@ function CadenceSection(props: {
       return null;
     }
     try {
-      return computeNextRoutineRunAt({
+      return computeNextAutomationRunAt({
         schedule: draft.schedule,
         after: new Date(),
       });
@@ -176,8 +176,8 @@ function CadenceSection(props: {
     }
   }, [draft.enabled, draft.schedule]);
 
-  function selectPreset(next: RoutineCadencePreset) {
-    const applied = applyRoutineCadencePreset({
+  function selectPreset(next: AutomationCadencePreset) {
+    const applied = applyAutomationCadencePreset({
       preset: next,
       schedule: draft.schedule,
       enabled: draft.enabled,
@@ -218,7 +218,7 @@ function CadenceSection(props: {
         description="Pick a common rhythm, or switch to Custom for an exact interval."
       />
       <div className={sx(editorStyles.chipRow)} role="group" aria-label="Cadence">
-        {ROUTINE_CADENCE_PRESETS.map((candidate) => {
+        {AUTOMATION_CADENCE_PRESETS.map((candidate) => {
           const active = candidate === preset;
           return (
             <Button
@@ -227,7 +227,7 @@ function CadenceSection(props: {
               size="sm"
               variant={active ? "secondary" : "ghost"}
               aria-pressed={active}
-              title={ROUTINE_CADENCE_PRESENTATION[candidate].detail}
+              title={AUTOMATION_CADENCE_PRESENTATION[candidate].detail}
               xstyle={[
                 editorStyles.cadenceChip,
                 active
@@ -239,7 +239,7 @@ function CadenceSection(props: {
               {active ? (
                 <Check className={sx(editorStyles.checkIcon)} aria-hidden="true" />
               ) : null}
-              {ROUTINE_CADENCE_PRESENTATION[candidate].label}
+              {AUTOMATION_CADENCE_PRESENTATION[candidate].label}
             </Button>
           );
         })}
@@ -274,9 +274,9 @@ function CadenceSection(props: {
               onValueChange={(unit) =>
                 props.onDraftChange({
                   ...draft,
-                  schedule: applyRoutineScheduleUnit(
+                  schedule: applyAutomationScheduleUnit(
                     draft.schedule,
-                    unit as RoutineUpsertInput["schedule"]["unit"],
+                    unit as AutomationUpsertInput["schedule"]["unit"],
                   ),
                 })
               }
@@ -304,7 +304,7 @@ function CadenceSection(props: {
             role="group"
             aria-label="Run days"
           >
-            {ROUTINE_WEEKDAY_LABELS.map((label, weekday) => {
+            {AUTOMATION_WEEKDAY_LABELS.map((label, weekday) => {
               const active = weekdays.includes(weekday);
               return (
                 <Button
@@ -339,11 +339,11 @@ function CadenceSection(props: {
             type="time"
             value={
               draft.schedule.at
-                ? formatRoutineScheduleTime(draft.schedule.at)
+                ? formatAutomationScheduleTime(draft.schedule.at)
                 : ""
             }
             onChange={(event) => {
-              const at = parseRoutineScheduleTime(event.target.value);
+              const at = parseAutomationScheduleTime(event.target.value);
               if (at) {
                 props.onDraftChange({
                   ...draft,
@@ -375,7 +375,7 @@ function CadenceSection(props: {
           {draft.enabled ? (
             <>
               <span className={sx(editorStyles.summaryStrong)}>
-                {formatRoutineSchedule(draft.schedule)}
+                {formatAutomationSchedule(draft.schedule)}
               </span>
               {nextRunAt ? ` · next run ${formatRelativeTime(nextRunAt)}` : ""}
             </>
@@ -391,8 +391,8 @@ function CadenceSection(props: {
 }
 
 function PermissionSection(props: {
-  draft: RoutineUpsertInput;
-  onDraftChange: (draft: RoutineUpsertInput) => void;
+  draft: AutomationUpsertInput;
+  onDraftChange: (draft: AutomationUpsertInput) => void;
 }) {
   const { draft } = props;
   const mode = automationTrustPolicyToPermissionMode(draft.trustPolicy);
@@ -407,7 +407,7 @@ function PermissionSection(props: {
     });
   }
 
-  function updateRuntime(next: RoutineRuntimeConfig) {
+  function updateRuntime(next: AutomationRuntimeConfig) {
     props.onDraftChange({
       ...draft,
       runtime: applyAutomationTrustPolicyToRuntime(next, draft.trustPolicy),
@@ -617,26 +617,26 @@ function PermissionSection(props: {
 }
 
 export function AutomationEditor(props: {
-  routineId: string | null;
-  draft: RoutineUpsertInput;
-  environmentOptions: RoutineEnvironmentOption[];
+  automationId: string | null;
+  draft: AutomationUpsertInput;
+  environmentOptions: AutomationEnvironmentOption[];
   informationOptions: WorkspaceInformationReferenceOption[];
   informationLoading: boolean;
   saving: boolean;
-  onDraftChange: (draft: RoutineUpsertInput) => void;
+  onDraftChange: (draft: AutomationUpsertInput) => void;
   onInformationCreated: (option: WorkspaceInformationReferenceOption) => void;
   onCancel: () => void;
   onSave: () => void;
 }) {
-  const environmentValue = props.draft.environment.projectPath
-    ? `repository:${props.draft.environment.projectPath}`
+  const environmentValue = props.draft.environment.repositoryPath
+    ? `repository:${props.draft.environment.repositoryPath}`
     : "";
   const selectedReferenceKeys = new Set(
-    props.draft.informationReferences.map(getRoutineInformationReferenceKey),
+    props.draft.informationReferences.map(getAutomationInformationReferenceKey),
   );
   const informationOptionByKey = new Map(
     props.informationOptions.map((option) => [
-      getRoutineInformationReferenceKey(option.reference),
+      getAutomationInformationReferenceKey(option.reference),
       option,
     ]),
   );
@@ -666,7 +666,7 @@ export function AutomationEditor(props: {
             model,
           }),
         }),
-      } as RoutineRuntimeConfig,
+      } as AutomationRuntimeConfig,
     });
   }
 
@@ -679,14 +679,14 @@ export function AutomationEditor(props: {
     ) {
       return;
     }
-    const targetKey = getRoutineInformationReferenceKey(option.reference);
+    const targetKey = getAutomationInformationReferenceKey(option.reference);
     if (selectedReferenceKeys.has(targetKey)) {
       return;
     }
     const reference = {
       ...option.reference,
       section: option.reference.section,
-    } satisfies RoutineUpsertInput["informationReferences"][number];
+    } satisfies AutomationUpsertInput["informationReferences"][number];
     props.onDraftChange({
       ...props.draft,
       informationReferences: [...props.draft.informationReferences, reference],
@@ -694,14 +694,14 @@ export function AutomationEditor(props: {
   }
 
   function removeInformationReference(
-    reference: RoutineUpsertInput["informationReferences"][number],
+    reference: AutomationUpsertInput["informationReferences"][number],
   ) {
-    const targetKey = getRoutineInformationReferenceKey(reference);
+    const targetKey = getAutomationInformationReferenceKey(reference);
     props.onDraftChange({
       ...props.draft,
       informationReferences: props.draft.informationReferences.filter(
         (candidate) =>
-          getRoutineInformationReferenceKey(candidate) !== targetKey,
+          getAutomationInformationReferenceKey(candidate) !== targetKey,
       ),
     });
   }
@@ -711,7 +711,7 @@ export function AutomationEditor(props: {
       <div className={sx(editorStyles.header)}>
         <div className={sx(editorStyles.headerText)}>
           <div className={sx(editorStyles.headerTitle)}>
-            {props.routineId ? "Edit automation" : "New automation"}
+            {props.automationId ? "Edit automation" : "New automation"}
           </div>
           <div className={sx(editorStyles.headerSubtitle)}>
             Runs in a fresh task while the Stave desktop app is open.
@@ -792,7 +792,7 @@ export function AutomationEditor(props: {
                 props.onDraftChange({
                   ...props.draft,
                   runtime: applyAutomationTrustPolicyToRuntime(
-                    createDefaultRoutineRuntime(provider),
+                    createDefaultAutomationRuntime(provider),
                     props.draft.trustPolicy,
                   ),
                 })
@@ -819,7 +819,7 @@ export function AutomationEditor(props: {
                     runtime: {
                       ...runtime,
                       effort,
-                    } as RoutineRuntimeConfig,
+                    } as AutomationRuntimeConfig,
                   })
                 }
               />
@@ -867,7 +867,7 @@ export function AutomationEditor(props: {
                     kind: "repository",
                     workspaceId: selected.workspaceId,
                     path: selected.path,
-                    projectPath: selected.projectPath,
+                    repositoryPath: selected.repositoryPath,
                     label: selected.label,
                   },
                   informationReferences: [],
@@ -904,7 +904,7 @@ export function AutomationEditor(props: {
               </div>
             ) : (
               <>
-                <RoutineInformationResourceCreator
+                <AutomationInformationResourceCreator
                   workspaceId={props.draft.environment.workspaceId}
                   repositoryLabel={props.draft.environment.label}
                   disabled={props.saving}
@@ -926,7 +926,7 @@ export function AutomationEditor(props: {
                 ) : (
                   <div className={sx(editorStyles.referenceList)}>
                     {props.draft.informationReferences.map((reference) => {
-                      const key = getRoutineInformationReferenceKey(reference);
+                      const key = getAutomationInformationReferenceKey(reference);
                       const option = informationOptionByKey.get(key);
                       return (
                         <div

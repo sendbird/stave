@@ -48,7 +48,7 @@ export interface ScriptsRuntimeSnapshot {
 
 export interface ScriptsRuntimeContext {
   workspaceId: string;
-  projectPath: string;
+  repositoryPath: string;
   workspacePath: string;
   workspaceName: string;
   branch: string;
@@ -127,22 +127,22 @@ async function readConfigFile(
 
 async function loadOrigins(context: ScriptsRuntimeContext): Promise<ScriptEntryOrigins> {
   const hasWorkspaceTier =
-    Boolean(context.workspacePath) && context.workspacePath !== context.projectPath;
+    Boolean(context.workspacePath) && context.workspacePath !== context.repositoryPath;
   const baseRel = ".stave/scripts.json";
   const localRel = ".stave/scripts.local.json";
 
-  const [workspaceBase, workspaceLocal, projectBase, projectLocal] = await Promise.all([
+  const [workspaceBase, workspaceLocal, repositoryBase, repositoryLocal] = await Promise.all([
     hasWorkspaceTier ? readConfigFile(context.workspacePath, baseRel) : Promise.resolve(null),
     hasWorkspaceTier ? readConfigFile(context.workspacePath, localRel) : Promise.resolve(null),
-    readConfigFile(context.projectPath, baseRel),
-    readConfigFile(context.projectPath, localRel),
+    readConfigFile(context.repositoryPath, baseRel),
+    readConfigFile(context.repositoryPath, localRel),
   ]);
 
   return deriveScriptEntryOrigins({
     workspaceBase,
     workspaceLocal,
-    projectBase,
-    projectLocal,
+    repositoryBase,
+    repositoryLocal,
   });
 }
 
@@ -154,7 +154,7 @@ export async function refreshScriptsRuntime(workspaceId: string): Promise<void> 
   }
   const context = record.context;
 
-  if (!context.projectPath || !context.workspacePath) {
+  if (!context.repositoryPath || !context.workspacePath) {
     patchSnapshot(record, {
       configStatus: "idle",
       config: null,
@@ -179,7 +179,7 @@ export async function refreshScriptsRuntime(workspaceId: string): Promise<void> 
   patchSnapshot(record, { configStatus: "loading", configError: "" });
 
   const [configResult, statusResult, origins] = await Promise.all([
-    api.getConfig({ projectPath: context.projectPath, workspacePath: context.workspacePath }),
+    api.getConfig({ repositoryPath: context.repositoryPath, workspacePath: context.workspacePath }),
     api.getStatus({ workspaceId }),
     loadOrigins(context),
   ]);
@@ -328,7 +328,7 @@ export async function runScriptEntry(args: {
   const record = records.get(args.workspaceId);
   const context = record?.context;
   const api = getScriptsApi()?.runEntry;
-  if (!api || !context || !context.projectPath || !context.workspacePath) {
+  if (!api || !context || !context.repositoryPath || !context.workspacePath) {
     toast.error("Scripts bridge unavailable");
     return;
   }
@@ -337,7 +337,7 @@ export async function runScriptEntry(args: {
     workspaceId: args.workspaceId,
     scriptId: args.scriptId,
     scriptKind: args.scriptKind,
-    projectPath: context.projectPath,
+    repositoryPath: context.repositoryPath,
     workspacePath: context.workspacePath,
     workspaceName: context.workspaceName,
     branch: context.branch || context.workspaceName,
@@ -398,7 +398,7 @@ export async function runScriptHook(args: {
   const record = records.get(args.workspaceId);
   const context = record?.context;
   const api = getScriptsApi()?.runHook;
-  if (!api || !context || !context.projectPath || !context.workspacePath) {
+  if (!api || !context || !context.repositoryPath || !context.workspacePath) {
     toast.error("Scripts bridge unavailable");
     return;
   }
@@ -421,7 +421,7 @@ export async function runScriptHook(args: {
     const result = await api({
       workspaceId: args.workspaceId,
       trigger: args.trigger,
-      projectPath: context.projectPath,
+      repositoryPath: context.repositoryPath,
       workspacePath: context.workspacePath,
       workspaceName: context.workspaceName,
       branch: context.branch || context.workspaceName,

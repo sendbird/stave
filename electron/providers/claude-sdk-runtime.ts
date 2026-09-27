@@ -454,12 +454,12 @@ export function buildClaudeWorkerAgents(args: {
 }
 
 async function resolveEmbeddedStaveLocalMcpServers(options?: {
-  collaborationGrants?: StreamTurnArgs["staveCollaborationGrants"];
+  turnGrants?: StreamTurnArgs["staveTurnGrants"];
   unattendedAutomationAuthorizationToken?: string;
 }): Promise<Record<string, McpServerConfig> | undefined> {
   const manifest = await readPrimaryStaveLocalMcpManifest();
   if (!manifest) {
-    if (options?.collaborationGrants?.consultKey) {
+    if (options?.turnGrants?.consultKey) {
       throw new Error(
         "Advisor is armed, but Stave Local MCP is unavailable. Start it in Settings and retry the turn.",
       );
@@ -468,7 +468,7 @@ async function resolveEmbeddedStaveLocalMcpServers(options?: {
   }
   return {
     [STAVE_LOCAL_MCP_SERVER_NAME]: toClaudeSdkMcpServerConfig(manifest, {
-      collaborationGrants: options?.collaborationGrants ?? {},
+      turnGrants: options?.turnGrants ?? {},
       unattendedAutomationAuthorizationToken:
         options?.unattendedAutomationAuthorizationToken,
     }),
@@ -484,7 +484,7 @@ function logClaudeMcpConfigDiagnostic(diagnostic: ClaudeMcpConfigDiagnostic) {
 }
 
 async function resolveClaudeMcpServersForQuery(args: {
-  collaborationGrants?: StreamTurnArgs["staveCollaborationGrants"];
+  turnGrants?: StreamTurnArgs["staveTurnGrants"];
   cwd: string;
   claudeExecutablePath: string;
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -492,7 +492,7 @@ async function resolveClaudeMcpServersForQuery(args: {
   unattendedAutomationAuthorizationToken?: string;
 }) {
   const staveServers = await resolveEmbeddedStaveLocalMcpServers({
-    collaborationGrants: args.collaborationGrants,
+    turnGrants: args.turnGrants,
     unattendedAutomationAuthorizationToken:
       args.unattendedAutomationAuthorizationToken,
   });
@@ -3419,7 +3419,7 @@ export async function streamClaudeWithSdk(
     const resolvedMcpServers = secondaryReadOnly
       ? { mcpServers: undefined, hasStaveLocalMcp: false }
       : await resolveClaudeMcpServersForQuery({
-          collaborationGrants: args.staveCollaborationGrants,
+          turnGrants: args.staveTurnGrants,
           cwd: runtimeCwd,
           claudeExecutablePath,
           runtimeOptions: args.runtimeOptions,

@@ -2,10 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { readFileSync } from "node:fs";
 import path from "node:path";
-import { createChildTaskCoordinator } from "../electron/main/runs/child-task-coordinator";
+import { createDelegatedTaskCoordinator } from "../electron/main/runs/delegated-task-coordinator";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
-import { RoutineUpsertInputSchema } from "../src/lib/routines";
-import { TaskHeartbeatUpsertInputSchema } from "../src/lib/automation/task-supervisor";
+import { AutomationUpsertInputSchema } from "../src/lib/automations";
+import { WakeUpUpsertInputSchema } from "../src/lib/supervision/wake-up-policy";
 import { UTILITY_INFERENCE_FEATURES } from "../src/lib/providers/utility-inference";
 import { resolveProviderRuntimeCapabilities } from "../src/lib/providers/runtime-capabilities";
 import {
@@ -18,6 +18,22 @@ import {
   SIDEBAR_WORK_QUEUE_LANE_ORDER,
   buildSidebarWorkQueueLanes,
 } from "../src/lib/fleet/sidebar-work-queue";
+import { MissionStore } from "../electron/persistence/mission-store";
+import { MissionStartInputSchema } from "../src/lib/missions/domain";
+import {
+  MISSION_DECISION_EFFECTS,
+  decideMissionAction,
+} from "../src/lib/missions/policy";
+import { resolveAutomaticTurnOwner } from "../src/lib/supervision/automatic-turn-owner";
+import { createWakeUp, decideWakeUpAction } from "../src/lib/supervision/wake-up-policy";
+import {
+  COMPLETE_REPORT,
+  MISSION_NOW,
+  missionFixture,
+  observe as observeMission,
+  patchCurrent,
+  turn,
+} from "./fixtures/mission-fixtures";
 
 /**
  * Boundary gates for `docs/architecture/agent-platform-taxonomy.md`.
@@ -40,30 +56,30 @@ function importedModules(source: string) {
 }
 
 describe("Agent platform boundaries", () => {
-  test("a routine never wakes an existing task: its definition cannot target one", () => {
-    // A routine mints a task per occurrence. The moment its input accepts a
-    // taskId it has silently become a heartbeat, which is a different concept
+  test("an automation never wakes an existing task: its definition cannot target one", () => {
+    // An automation mints a task per occurrence. The moment its input accepts a
+    // taskId it has silently become a wake-up, which is a different concept
     // with different safety rules (serialization, pause-on-approval, expiry).
-    const definitionKeys = Object.keys(RoutineUpsertInputSchema.shape);
+    const definitionKeys = Object.keys(AutomationUpsertInputSchema.shape);
 
     expect(definitionKeys).not.toContain("taskId");
     expect(definitionKeys.filter((key) => /task/i.test(key))).toEqual([]);
   });
 
-  test("a worker never survives a restart; a child task always does", async () => {
+  test("a worker never survives a restart; a delegated task always does", async () => {
     // The ledger's blanket restart sweep closes every step whose execution died
-    // with the process. A child task is a real task that may still be running,
+    // with the process. A delegated task is a real task that may still be running,
     // so it is excluded there and reconciled against the live task instead. If
     // that exclusion is ever removed, a surviving child is silently reported as
     // interrupted.
     const ledger = readSource("electron/persistence/run-ledger-store.ts");
-    expect(ledger).toContain("kind != 'child-task-turn'");
+    expect(ledger).toContain("kind != 'delegated-task-turn'");
 
-    // The child-task coordinator owns that recovery, and it asks the live task
+    // The delegated-task coordinator owns that recovery, and it asks the live task
     // what happened rather than assuming.
     const store = new RunLedgerStore(new Database(":memory:"));
     const statusCalls: string[] = [];
-    const coordinator = createChildTaskCoordinator({
+    const coordinator = createDelegatedTaskCoordinator({
       getLedger: () => ({
         getRunAggregate: (args) => store.getAggregate(args),
         claimRunStep: (args) => store.claimStep(args),
@@ -105,17 +121,17 @@ describe("Agent platform boundaries", () => {
     );
     expect(
       workerImports.filter((specifier) =>
-        /run-ledger-store|runs\/child-task|persistence\//.test(specifier),
+        /run-ledger-store|runs\/delegated-task|persistence\//.test(specifier),
       ),
     ).toEqual([]);
   });
 
-  test("a heartbeat never creates a task: it only adds a turn to one that exists", () => {
-    // The mirror of the routine boundary above. A heartbeat definition must
+  test("a wake-up never creates a task: it only adds a turn to one that exists", () => {
+    // The mirror of the automation boundary above. A wake-up definition must
     // name the task it wakes, and must not carry the fields that would let it
     // mint one — the moment it grows a name/title/environment it has become a
-    // routine with different safety rules.
-    const definitionKeys = Object.keys(TaskHeartbeatUpsertInputSchema.shape);
+    // automation with different safety rules.
+    const definitionKeys = Object.keys(WakeUpUpsertInputSchema.shape);
 
     expect(definitionKeys).toContain("taskId");
     expect(
@@ -123,7 +139,7 @@ describe("Agent platform boundaries", () => {
     ).toEqual([]);
     // A blank taskId would make it mint a task through `runTask`'s create path.
     expect(
-      TaskHeartbeatUpsertInputSchema.safeParse({
+      WakeUpUpsertInputSchema.safeParse({
         workspaceId: "ws-1",
         taskId: "",
         prompt: "Re-check CI.",
@@ -136,14 +152,14 @@ describe("Agent platform boundaries", () => {
     // The completion trigger is the second way into the same wake-up path, so
     // the boundary above has to hold for it too — including that it carries no
     // definition of its own that could describe a task to create.
-    const completionTrigger = TaskHeartbeatUpsertInputSchema.shape.trigger.options.find(
+    const completionTrigger = WakeUpUpsertInputSchema.shape.trigger.options.find(
       (option) => option.shape.kind.value === "completion",
     );
 
     expect(completionTrigger).toBeDefined();
     expect(Object.keys(completionTrigger!.shape)).toEqual(["kind"]);
     expect(
-      TaskHeartbeatUpsertInputSchema.safeParse({
+      WakeUpUpsertInputSchema.safeParse({
         workspaceId: "ws-1",
         taskId: "",
         prompt: "Fold the delegated result in.",
@@ -153,25 +169,25 @@ describe("Agent platform boundaries", () => {
   });
 
   test("supervisor tables record wake-ups while the ledger records delegated execution", () => {
-    // A heartbeat has no claim, no lease, and no receipts. If the supervisor
-    // ever imported the ledger store or the child-task coordinator it would be
+    // A wake-up has no claim, no lease, and no receipts. If the supervisor
+    // ever imported the ledger store or the delegated-task coordinator it would be
     // one refactor away from writing runs — which is the collapse this
     // separation exists to prevent. It reads completions through an injected
     // function precisely so that stays true.
     const supervisorRuntime = readSource(
-      "electron/host-service/task-supervisor-runtime.ts",
+      "electron/host-service/wake-up-runtime.ts",
     );
 
     expect(
       importedModules(supervisorRuntime).filter((specifier) =>
-        /run-ledger-store|child-task-coordinator|runs\/run-domain/.test(
+        /run-ledger-store|delegated-task-coordinator|runs\/run-domain/.test(
           specifier ?? "",
         ),
       ),
     ).toEqual([]);
     // And the pure policy stays pure: no ledger vocabulary at all.
     expect(
-      importedModules(readSource("src/lib/automation/task-supervisor.ts")).filter(
+      importedModules(readSource("src/lib/supervision/wake-up-policy.ts")).filter(
         (specifier) => /runs\/|persistence\/|host-service/.test(specifier ?? ""),
       ),
     ).toEqual([]);
@@ -180,7 +196,7 @@ describe("Agent platform boundaries", () => {
   test("the ledger records and never executes: run domain and store import no provider runtime", () => {
     for (const file of [
       "src/lib/runs/run-domain.ts",
-      "src/lib/runs/child-task.ts",
+      "src/lib/runs/delegated-task.ts",
       "electron/persistence/run-ledger-store.ts",
     ]) {
       const imports = importedModules(readSource(file));
@@ -255,7 +271,7 @@ describe("Agent platform boundaries", () => {
       const imports = importedModules(readSource(module));
       expect(
         imports.filter((specifier) =>
-          /task-supervisor|secondary-run|run-ledger-store|persistence\/|electron\//.test(
+          /supervision\/|wake-up|secondary-run|run-ledger-store|persistence\/|electron\//.test(
             specifier,
           ),
         ),
@@ -309,5 +325,112 @@ describe("Agent platform boundaries", () => {
       expect(claude.workGraph.interrupt).toBe(false);
       expect(claude.workGraph.stop).toBe(false);
     }
+  });
+
+  test("a mission advances exactly one lead task and never creates a task", () => {
+    // Starting a mission names an existing task. A field that could name a new
+    // task, workspace or environment would turn it into an automation.
+    const startKeys = Object.keys(MissionStartInputSchema.shape);
+    expect(startKeys).toContain("leadTaskId");
+    expect(startKeys.filter((key) => /^(name|title|environment|repositoryPath|taskId|prompt)$/.test(key))).toEqual([]);
+    // No supervisor decision creates anything; each advances the lead task.
+    expect(
+      Object.keys(MISSION_DECISION_EFFECTS).filter((action) => /create|mint|spawn|new/i.test(action)),
+    ).toEqual([]);
+    for (const file of [
+      "src/lib/missions/domain.ts",
+      "src/lib/missions/policy.ts",
+      "src/lib/missions/commands.ts",
+      "electron/persistence/mission-store.ts",
+    ]) {
+      const creators = importedModules(readSource(file)).filter((specifier) =>
+        /host-service|local-mcp|workspace-create|create-workspace|runs\//.test(specifier ?? ""),
+      );
+      expect({ file, creators }).toEqual({ file, creators: [] });
+    }
+  });
+
+  test("a stage completes only through a recorded stage report or a Stave action result; an ended turn alone never completes a stage", () => {
+    const started = patchCurrent(missionFixture(), { status: "running", startedAt: MISSION_NOW.toISOString() });
+    const decide = (aggregate: typeof started, observation = observeMission()) =>
+      decideMissionAction({ aggregate, observation, now: MISSION_NOW }).action;
+
+    for (const nudged of [false, true]) {
+      for (const lastEndedTurn of [turn(), turn({ startedBy: "user" })]) {
+        for (const reportingAvailable of [true, false]) {
+          expect(
+            decide(patchCurrent(started, { nudged }), observeMission({ lastEndedTurn, reportingAvailable })),
+          ).not.toBe("complete-stage");
+        }
+      }
+    }
+    expect(
+      decide(patchCurrent(started, { report: COMPLETE_REPORT, reportRevision: 1 }), observeMission({ lastEndedTurn: turn() })),
+    ).toBe("complete-stage");
+
+    const atAction = missionFixture();
+    const actionStage = {
+      mission: { ...atAction.mission, currentStageIndex: 3 },
+      stages: [...atAction.stages, { ...atAction.stages[0]!, stageId: "open-draft-pr", status: "running" as const }],
+    };
+    expect(decide(actionStage, observeMission({ actionOutcome: { status: "in-progress" } }))).toBe("execute-action");
+    expect(
+      decide(
+        actionStage,
+        observeMission({
+          actionOutcome: {
+            status: "succeeded",
+            result: { type: "open-draft-pr", prUrl: "https://github.com/o/r/pull/1", prNumber: 1, created: true },
+          },
+        }),
+      ),
+    ).toBe("complete-stage");
+  });
+
+  test("at most one supervisor entry starts automatic turns on a task at a time", () => {
+    // A mission owns its lead task's automatic turns...
+    expect(
+      resolveAutomaticTurnOwner({ activeMission: { id: "mission-1" }, wakeUp: { id: "wake-1", state: "scheduled" } }),
+    ).toEqual({ kind: "mission", missionId: "mission-1" });
+    // ...so the task's due wake-up pauses rather than firing beside it...
+    const wakeUp = createWakeUp({
+      id: "wake-1",
+      input: {
+        workspaceId: "ws-1",
+        taskId: "task-1",
+        prompt: "Re-check CI.",
+        trigger: { kind: "schedule", schedule: { every: 1, unit: "hours" } },
+        maxOccurrences: null,
+        expiresAt: null,
+      },
+      repositoryPath: "/tmp/repo",
+      fingerprint: { providerId: "claude-code", model: "sonnet" },
+      now: new Date(MISSION_NOW.getTime() - 2 * 60 * 60 * 1000),
+    });
+    expect(
+      decideWakeUpAction({
+        wakeUp,
+        observation: {
+          workspaceAvailable: true,
+          taskExists: true,
+          taskArchived: false,
+          hasActiveTurn: false,
+          pendingApprovalCount: 0,
+          pendingUserInputCount: 0,
+          fingerprint: { providerId: "claude-code", model: "sonnet" },
+          identity: { ok: true },
+          completionObservability: "stave_owned",
+          completions: [],
+          missionActive: true,
+        },
+        now: MISSION_NOW,
+      }),
+    ).toMatchObject({ action: "pause", reason: "mission-active" });
+    // ...and a task never has two active missions.
+    const store = new MissionStore(new Database(":memory:"));
+    const first = missionFixture({ id: "mission-1" });
+    const second = missionFixture({ id: "mission-2" });
+    expect(store.create({ mission: first.mission, upserts: first.stages, events: [] }, MISSION_NOW)).toEqual({ ok: true });
+    expect(store.create({ mission: second.mission, upserts: second.stages, events: [] }, MISSION_NOW).ok).toBe(false);
   });
 });

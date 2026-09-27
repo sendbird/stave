@@ -1,3 +1,4 @@
+import type { HostProposalAction } from "./supervision/proposal-runtime";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../../src/lib/providers/agent-history";
 import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../../src/lib/performance/workspace-execution";
 import type {
@@ -19,6 +20,11 @@ import type {
   GitHubPrReviewSubmitResult,
 } from "../../src/lib/github-pr-review";
 import type { AdvisorConsultOutcome } from "../providers/advisor-consult";
+import type {
+  MissionChangedEvent,
+  MissionInvokeResult,
+} from "../../src/lib/missions/api";
+import type { ProjectChangedEvent, ProjectInvokeResult } from "../../src/lib/projects/api";
 import type { AdvisorConsultRequest } from "../../src/lib/providers/advisor-evidence";
 import type { AcpWorkerOutcome } from "../providers/acp/acp-worker-runtime";
 import type {
@@ -113,7 +119,7 @@ import type {
 export interface HostWorkspaceScriptRunEntryArgs {
   workspaceId: string;
   scriptEntry: ResolvedWorkspaceScript;
-  projectPath: string;
+  repositoryPath: string;
   workspacePath: string;
   workspaceName: string;
   branch: string;
@@ -125,7 +131,7 @@ export interface HostWorkspaceScriptRunHookArgs {
   workspaceId: string;
   trigger: ScriptTrigger;
   config: ResolvedWorkspaceScriptsConfig;
-  projectPath: string;
+  repositoryPath: string;
   workspacePath: string;
   workspaceName: string;
   branch: string;
@@ -448,8 +454,8 @@ export interface HostScmPrStatusResult {
 }
 
 export type HostLocalMcpAction =
-  | "list-known-projects"
-  | "register-project"
+  | "list-known-repositories"
+  | "register-repository"
   | "create-workspace"
   | "run-task"
   | "get-task-status"
@@ -477,14 +483,62 @@ export type HostLocalMcpAction =
   | "update-workspace-storybook-resource-access"
   | "add-workspace-slack-thread"
   | "add-workspace-amplify-link"
-  | "remember-project-memory"
-  | "forget-project-memory"
-  | "list-project-memories";
+  | "remember-repository-memory"
+  | "forget-repository-memory"
+  | "list-repository-memories";
 
-export type HostTaskSupervisorAction =
+export type HostWakeUpAction =
   "list" | "get" | "create" | "update" | "pause" | "resume" | "remove";
 
-export type HostRoutineAction =
+/**
+ * Mission actions. The last three serve the stage-reporting tools and carry a
+ * mission grant key instead of a mission id.
+ */
+export type HostMissionAction =
+  | "start"
+  | "list"
+  | "insights"
+  | "get"
+  | "sign-off"
+  | "request-changes"
+  | "skip-stage"
+  | "retry-stage"
+  | "pause"
+  | "resume"
+  | "take-over"
+  | "accept-runtime"
+  | "note-user-turn"
+  | "cancel"
+  | "add-report-to-pr"
+  | "share-report"
+  | "get-for-grant"
+  | "report-stage"
+  | "block-stage";
+
+/**
+ * Project actions. The last four serve the coordinator's tools and carry a
+ * project grant key instead of a project id.
+ */
+export type HostProjectAction =
+  | "list"
+  | "get"
+  | "create"
+  | "approve-proposal"
+  | "reject-proposal"
+  | "pause"
+  | "resume"
+  | "end"
+  | "update-settings"
+  | "set-memory-status"
+  | "sync-playbooks"
+  | "observe-issues"
+  | "message-coordinator"
+  | "get-for-grant"
+  | "start-mission-for-grant"
+  | "get-mission-report-for-grant"
+  | "note-for-grant";
+
+export type HostAutomationAction =
   | "list"
   | "create"
   | "update"
@@ -988,12 +1042,24 @@ export interface HostServiceRequestMap {
   "crane.release-task-control": HostCraneReleaseTaskControlArgs;
   "task.take-over": HostTaskTakeOverArgs;
   "task.stop": HostTaskStopArgs;
-  "routine.invoke": {
-    action: HostRoutineAction;
+  "automation.invoke": {
+    action: HostAutomationAction;
     args: unknown;
   };
-  "task-supervisor.invoke": {
-    action: HostTaskSupervisorAction;
+  "wake-up.invoke": {
+    action: HostWakeUpAction;
+    args: unknown;
+  };
+  "mission.invoke": {
+    action: HostMissionAction;
+    args: unknown;
+  };
+  "project.invoke": {
+    action: HostProjectAction;
+    args: unknown;
+  };
+  "proposal.invoke": {
+    action: HostProposalAction;
     args: unknown;
   };
 }
@@ -1187,8 +1253,11 @@ export interface HostServiceResponseMap {
   "crane.release-task-control": HostCraneReleaseTaskControlResult;
   "task.take-over": HostTaskTakeOverResult;
   "task.stop": HostTaskStopResult;
-  "routine.invoke": unknown;
-  "task-supervisor.invoke": unknown;
+  "automation.invoke": unknown;
+  "wake-up.invoke": unknown;
+  "mission.invoke": MissionInvokeResult<unknown>;
+  "project.invoke": ProjectInvokeResult<unknown>;
+  "proposal.invoke": { ok: true; value: unknown } | { ok: false; message: string };
 }
 
 export interface HostServiceEventMap {
@@ -1211,12 +1280,17 @@ export interface HostServiceEventMap {
     workspaceInformation: WorkspaceInformationState;
   };
   "local-mcp.task-turn-updated": LocalMcpTaskTurnUpdate;
-  "routine.unattended-automations-changed": {
+  "automation.unattended-authorizations-changed": {
     authorizations: Array<{
       workspaceId: string;
       authorizationToken: string;
     }>;
   };
+  "mission.changed": MissionChangedEvent;
+  "project.changed": ProjectChangedEvent;
+  /** Proposed missions changed: one was proposed, started or dismissed. */
+  "proposal.changed": Record<string, never>;
+  "wake-up.changed": { wakeUpId: string; workspaceId: string; taskId: string };
 }
 
 export type HostServiceMethod = keyof HostServiceRequestMap;

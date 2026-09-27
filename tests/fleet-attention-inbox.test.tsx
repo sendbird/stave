@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import { FleetAttentionInbox } from "@/components/layout/FleetAttentionInbox";
+import { FleetAttentionInbox, MissionSignOffControl } from "@/components/layout/FleetAttentionInbox";
 import type { FleetAttentionItem } from "@/lib/fleet/attention-projection";
 
 function buildAttentionItem(overrides: Partial<FleetAttentionItem> = {}): FleetAttentionItem {
@@ -9,8 +9,8 @@ function buildAttentionItem(overrides: Partial<FleetAttentionItem> = {}): FleetA
     id: "interaction:user-input:workspace-1:task-1:request-1",
     kind: "user-input",
     priority: 0,
-    projectPath: "/workspace/project",
-    projectName: "Project",
+    repositoryPath: "/workspace/project",
+    repositoryName: "Project",
     workspaceId: "workspace-1",
     workspaceName: "checkout",
     taskId: "task-1",
@@ -108,5 +108,17 @@ describe("FleetAttentionInbox", () => {
 
   test("says nothing about snoozed rows when none are hidden", () => {
     expect(renderInbox([buildAttentionItem()])).not.toContain("snoozed");
+  });
+
+  test("a sign-off that failed from Fleet says why on its row, not only in a tooltip", () => {
+    const render = (failure: string | null) =>
+      renderToStaticMarkup(
+        createElement(MissionSignOffControl, { label: "Start Build", disabled: false, failure, onSignOff: () => {} }),
+      );
+    const failed = render("gh is signed out.");
+    expect(failed).toContain("Start Build");
+    expect(failed).toMatch(/role="alert"[^>]*>gh is signed out\.</);
+    expect(failed).not.toContain('title="gh is signed out."');
+    expect(render(null)).not.toContain('role="alert"');
   });
 });

@@ -26,14 +26,14 @@ import {
 } from "@/components/ui/sidebar";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
 import { useAppStore } from "@/store/app.store";
-import { captureCurrentProjectState } from "@/store/project.utils";
+import { captureCurrentRepositoryState } from "@/store/repository.utils";
 import {
   matchesSettingsSection,
   settingsSectionGroups,
   settingsSections,
   type SectionId,
 } from "./settings-dialog.schema";
-import { resolveSettingsProjectSelection } from "./settings-dialog.utils";
+import { resolveSettingsRepositorySelection } from "./settings-dialog.utils";
 import { SettingsDialogSectionContent } from "./settings-dialog-sections";
 import { searchSettingsFields } from "./settings-dialog.registry";
 import { settingsDialogStyles as styles } from "./SettingsDialog.styles";
@@ -42,7 +42,7 @@ interface SettingsDialogProps {
   open: boolean;
   onOpenChange: (args: { open: boolean }) => void;
   initialSection?: SectionId;
-  initialProjectPath?: string | null;
+  initialRepositoryPath?: string | null;
 }
 
 const sectionsById = Object.fromEntries(
@@ -55,19 +55,19 @@ const IS_MAC =
 const MAC_TRAFFIC_LIGHT_CLEARANCE = 40;
 
 export function SettingsDialog(args: SettingsDialogProps) {
-  const { initialProjectPath, initialSection, open, onOpenChange } = args;
+  const { initialRepositoryPath, initialSection, open, onOpenChange } = args;
   const [activeSection, setActiveSection] = useState<SectionId>("general");
-  const [selectedProjectPath, setSelectedProjectPath] = useState<string | null>(
+  const [selectedRepositoryPath, setSelectedRepositoryPath] = useState<string | null>(
     null,
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [pendingFieldId, setPendingFieldId] = useState<string | null>(null);
   const allowHighlightedOverrideRef = useRef(true);
-  const lastHighlightedProjectPathRef = useRef<string | null>(null);
+  const lastHighlightedRepositoryPathRef = useRef<string | null>(null);
   const [
-    projectPath,
-    projectName,
-    recentProjects,
+    repositoryPath,
+    repositoryName,
+    recentRepositories,
     defaultBranch,
     workspaces,
     activeWorkspaceId,
@@ -78,9 +78,9 @@ export function SettingsDialog(args: SettingsDialogProps) {
     useShallow(
       (state) =>
         [
-          state.projectPath,
-          state.projectName,
-          state.recentProjects,
+          state.repositoryPath,
+          state.repositoryName,
+          state.recentRepositories,
           state.defaultBranch,
           state.workspaces,
           state.activeWorkspaceId,
@@ -90,12 +90,12 @@ export function SettingsDialog(args: SettingsDialogProps) {
         ] as const,
     ),
   );
-  const projects = useMemo(
+  const repositories = useMemo(
     () =>
-      captureCurrentProjectState({
-        recentProjects,
-        projectPath,
-        projectName,
+      captureCurrentRepositoryState({
+        recentRepositories,
+        repositoryPath,
+        repositoryName,
         defaultBranch,
         workspaces,
         activeWorkspaceId,
@@ -106,9 +106,9 @@ export function SettingsDialog(args: SettingsDialogProps) {
     [
       activeWorkspaceId,
       defaultBranch,
-      projectName,
-      projectPath,
-      recentProjects,
+      repositoryName,
+      repositoryPath,
+      recentRepositories,
       workspaceBranchById,
       workspaceDefaultById,
       workspacePathById,
@@ -119,8 +119,8 @@ export function SettingsDialog(args: SettingsDialogProps) {
   useEffect(() => {
     if (!open) {
       allowHighlightedOverrideRef.current = true;
-      lastHighlightedProjectPathRef.current = null;
-      setSelectedProjectPath(null);
+      lastHighlightedRepositoryPathRef.current = null;
+      setSelectedRepositoryPath(null);
       setPendingFieldId(null);
       return;
     }
@@ -132,25 +132,25 @@ export function SettingsDialog(args: SettingsDialogProps) {
       return;
     }
 
-    const highlightedProjectPath = initialProjectPath?.trim() || null;
-    if (highlightedProjectPath !== lastHighlightedProjectPathRef.current) {
-      lastHighlightedProjectPathRef.current = highlightedProjectPath;
+    const highlightedRepositoryPath = initialRepositoryPath?.trim() || null;
+    if (highlightedRepositoryPath !== lastHighlightedRepositoryPathRef.current) {
+      lastHighlightedRepositoryPathRef.current = highlightedRepositoryPath;
       allowHighlightedOverrideRef.current = true;
     }
 
-    const nextSelectedProjectPath = resolveSettingsProjectSelection({
-      projects,
-      selectedProjectPath,
-      highlightedProjectPath,
-      currentProjectPath: projectPath,
+    const nextSelectedRepositoryPath = resolveSettingsRepositorySelection({
+      repositories,
+      selectedRepositoryPath,
+      highlightedRepositoryPath,
+      currentRepositoryPath: repositoryPath,
       allowHighlightedOverride: allowHighlightedOverrideRef.current,
     });
-    if (nextSelectedProjectPath === selectedProjectPath) {
+    if (nextSelectedRepositoryPath === selectedRepositoryPath) {
       return;
     }
 
-    setSelectedProjectPath(nextSelectedProjectPath);
-  }, [initialProjectPath, open, projectPath, projects, selectedProjectPath]);
+    setSelectedRepositoryPath(nextSelectedRepositoryPath);
+  }, [initialRepositoryPath, open, repositoryPath, repositories, selectedRepositoryPath]);
 
   useEffect(() => {
     if (!open || typeof document === "undefined") {
@@ -331,7 +331,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                         <SidebarMenu>
                           {group.ids.map((sectionId) => {
                             if (sectionId === "projects") {
-                              return projects.length === 0 ? (
+                              return repositories.length === 0 ? (
                                 <SidebarMenuItem key="projects-empty">
                                   <SidebarMenuButton
                                     size="sm"
@@ -339,27 +339,27 @@ export function SettingsDialog(args: SettingsDialogProps) {
                                     onClick={() => setActiveSection("projects")}
                                     icon={<Folder />}
                                   >
-                                    No projects yet
+                                    No repositories yet
                                   </SidebarMenuButton>
                                 </SidebarMenuItem>
                               ) : (
-                                projects.map((project) => {
+                                repositories.map((repository) => {
                                   const current =
-                                    project.projectPath === projectPath;
+                                    repository.repositoryPath === repositoryPath;
                                   const active =
                                     activeSection === "projects" &&
-                                    selectedProjectPath === project.projectPath;
+                                    selectedRepositoryPath === repository.repositoryPath;
 
                                   return (
-                                    <SidebarMenuItem key={project.projectPath}>
+                                    <SidebarMenuItem key={repository.repositoryPath}>
                                       <SidebarMenuButton
                                         size="sm"
                                         current={active}
-                                        title={project.projectPath}
+                                        title={repository.repositoryPath}
                                         onClick={() => {
                                           allowHighlightedOverrideRef.current = false;
-                                          setSelectedProjectPath(
-                                            project.projectPath,
+                                          setSelectedRepositoryPath(
+                                            repository.repositoryPath,
                                           );
                                           setActiveSection("projects");
                                         }}
@@ -379,7 +379,7 @@ export function SettingsDialog(args: SettingsDialogProps) {
                                           ) : undefined
                                         }
                                       >
-                                        {project.projectName}
+                                        {repository.repositoryName}
                                       </SidebarMenuButton>
                                     </SidebarMenuItem>
                                   );
@@ -503,9 +503,9 @@ export function SettingsDialog(args: SettingsDialogProps) {
                 <div className={sx(styles.bodyInner)}>
                   <SettingsDialogSectionContent
                     sectionId={activeSection}
-                    currentProjectPath={projectPath}
-                    projects={projects}
-                    selectedProjectPath={selectedProjectPath}
+                    currentRepositoryPath={repositoryPath}
+                    repositories={repositories}
+                    selectedRepositoryPath={selectedRepositoryPath}
                     onNavigateSection={setActiveSection}
                   />
                 </div>

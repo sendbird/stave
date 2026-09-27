@@ -5,7 +5,7 @@ import { SetResultReviewedArgsSchema } from "../src/lib/reviews/result-review";
 
 let db: Database;
 const scope = {
-  projectPath: "/tmp/project",
+  repositoryPath: "/tmp/project",
   workspaceId: "workspace",
   taskId: "task",
   turnId: "turn",
@@ -127,7 +127,7 @@ describe("durable result review", () => {
     const store = new ResultReviewStore(db);
     insert();
     for (const key of [
-      "projectPath",
+      "repositoryPath",
       "workspaceId",
       "taskId",
       "turnId",

@@ -1,9 +1,17 @@
+import { useMissionSync } from "@/store/missions-store";
+import { useWakeUpSync } from "@/store/wake-ups-store";
+import { useMissionCommands } from "@/components/missions/useMissionCommands";
+import { useFleetMissionSync } from "@/store/fleet-missions-store";
+import { usePlaybookSync } from "@/lib/projects/usePlaybookSync";
+import { useProjectsSync } from "@/store/projects-store";
+import { useProposalsSync } from "@/store/proposals-store";
 import { useEffect } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { WorkspaceSaveNotice } from "@/components/layout/WorkspaceSaveNotice";
 import { flushPendingSnapshotPersists } from "@/store/workspace-session-state";
 import { LensCdpApprovalDialog } from "@/components/layout/LensCdpApprovalDialog";
 import { CraneDispatchApprovalDialog } from "@/components/layout/CraneDispatchApprovalDialog";
+import { StartMissionSheetHost } from "@/components/missions/StartMissionSheet";
 import { useLensGuestHost } from "@/components/panes/useLensGuestHost";
 import { useLensSessionClosedEvents } from "@/components/panes/useLensSessionClosedEvents";
 import { useLensSessionPresentationRequests } from "@/components/panes/useLensSessionPresentationRequests";
@@ -16,7 +24,7 @@ import {
   setCraneConnectorClientStatus,
 } from "@/lib/crane-connector/client-state";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
-import { bootstrapTrackerTasksClient } from "@/lib/tracker-tasks/bootstrap";
+import { bootstrapTrackerIssuesClient } from "@/lib/tracker-issues/bootstrap";
 import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
 import { mergeLocalMcpTaskTurnUpdates } from "@/lib/local-mcp/task-turn-update";
 import { primeProviderModelCatalogs } from "@/lib/providers/use-provider-model-catalogs";
@@ -41,6 +49,13 @@ export default function App() {
   useLensGuestHost();
   useLensSessionPresentationRequests();
   useLensSessionClosedEvents();
+  useMissionSync();
+  useWakeUpSync();
+  useMissionCommands();
+  useFleetMissionSync();
+  usePlaybookSync();
+  useProjectsSync();
+  useProposalsSync();
 
   useEffect(() => {
     const subscribeTaskTurnUpdates =
@@ -251,7 +266,7 @@ export default function App() {
 
   // The tracker mirror has to be live before the surface opens: the top-bar
   // badge reads it, and a first open must not start from an empty list.
-  useEffect(() => bootstrapTrackerTasksClient(), []);
+  useEffect(() => bootstrapTrackerIssuesClient(), []);
 
   useEffect(() => {
     pushLensSecurityConfig();
@@ -293,7 +308,7 @@ export default function App() {
       if (initialBootstrapStatus) {
         setBootstrapStatus(initialBootstrapStatus);
       }
-      await useAppStore.getState().hydrateProjectRegistry();
+      await useAppStore.getState().hydrateRepositoryRegistry();
       if (cancelled) {
         return;
       }
@@ -301,7 +316,7 @@ export default function App() {
       if (cancelled) {
         return;
       }
-      await useAppStore.getState().flushProjectRegistry();
+      await useAppStore.getState().flushRepositoryRegistry();
       if (cancelled) {
         return;
       }
@@ -320,7 +335,7 @@ export default function App() {
       void primeProviderModelCatalogs({
         cwd:
           state.workspacePathById[state.activeWorkspaceId] ??
-          state.projectPath ??
+          state.repositoryPath ??
           undefined,
         runtimeOptions,
       });
@@ -404,7 +419,7 @@ export default function App() {
         try {
           await Promise.all([
             useAppStore.getState().flushActiveWorkspaceSnapshot(),
-            useAppStore.getState().flushProjectRegistry(),
+            useAppStore.getState().flushRepositoryRegistry(),
           ]);
           await flushPendingSnapshotPersists();
           success = true;
@@ -424,8 +439,8 @@ export default function App() {
     const onBeforeUnload = () => {
       void useAppStore.getState().flushActiveWorkspaceSnapshot().catch(() => {});
       void flushPendingSnapshotPersists().catch(() => {});
-      void useAppStore.getState().flushProjectRegistry().catch((error) => {
-        console.error("[persistence] project registry save failed", error);
+      void useAppStore.getState().flushRepositoryRegistry().catch((error) => {
+        console.error("[persistence] repository registry save failed", error);
       });
     };
     window.addEventListener("beforeunload", onBeforeUnload);
@@ -436,17 +451,17 @@ export default function App() {
     let timer: number | null = null;
     const flush = () => {
       timer = null;
-      void useAppStore.getState().flushProjectRegistry().catch((error) => {
-        console.error("[persistence] project registry save failed", error);
+      void useAppStore.getState().flushRepositoryRegistry().catch((error) => {
+        console.error("[persistence] repository registry save failed", error);
       });
     };
     const unsubscribe = useAppStore.subscribe((state, prevState) => {
       if (
-        state.projectPath === prevState.projectPath &&
-        state.projectName === prevState.projectName &&
+        state.repositoryPath === prevState.repositoryPath &&
+        state.repositoryName === prevState.repositoryName &&
         state.activeWorkspaceId === prevState.activeWorkspaceId &&
         state.workspaces === prevState.workspaces &&
-        state.recentProjects === prevState.recentProjects &&
+        state.recentRepositories === prevState.recentRepositories &&
         state.workspaceBranchById === prevState.workspaceBranchById &&
         state.workspacePathById === prevState.workspacePathById &&
         state.workspaceDefaultById === prevState.workspaceDefaultById
@@ -471,6 +486,7 @@ export default function App() {
       <AppShell />
       <WorkspaceSaveNotice />
       <LensCdpApprovalDialog />
+      <StartMissionSheetHost />
       <CraneDispatchApprovalDialog />
     </TooltipProvider>
   );

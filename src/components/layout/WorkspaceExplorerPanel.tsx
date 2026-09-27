@@ -614,7 +614,7 @@ function ExplorerTreeRow(args: {
 }
 
 export function WorkspaceExplorerPanel(props: {
-  projectName: string;
+  repositoryName: string;
   explorerError: string;
   pendingExplorerCreate: PendingExplorerCreate | null;
   pendingExplorerCreateInputRef: RefObject<HTMLInputElement | null>;
@@ -660,7 +660,7 @@ export function WorkspaceExplorerPanel(props: {
   return (
     <div className={sx(explorerStyles.root)}>
       <div className={sx(explorerStyles.header)}>
-        <p className={sx(explorerStyles.projectName)}>{props.projectName}</p>
+        <p className={sx(explorerStyles.repositoryName)}>{props.repositoryName}</p>
         <div className={sx(explorerStyles.headerActions)}>
           <TooltipProvider>
             <Tooltip>
@@ -829,7 +829,7 @@ export function WorkspaceExplorerPanel(props: {
                 </Button>
               </div>
               <p className={sx(explorerStyles.createHint)}>
-                Enter a path relative to the project root. Press Enter to create
+                Enter a path relative to the repository root. Press Enter to create
                 or Esc to cancel.
               </p>
             </form>

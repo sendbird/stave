@@ -20,7 +20,7 @@ local approval before it creates a workspace or starts Claude or Codex.
 - The Crane deployment must have personal Stave dispatch enabled. If
   `Settings > Stave connector` is missing in Crane, ask the Atelier operator to
   enable the integration.
-- Register at least one local project in Stave.
+- Register at least one local repository in Stave.
 - Make sure OS credential encryption is available. Stave will not persist a
   connector credential without it.
 
@@ -30,9 +30,9 @@ local approval before it creates a workspace or starts Claude or Codex.
 2. Open Crane from the connector card and generate a one-time pairing code.
 3. Paste the code into Stave and select `Pair securely`.
 4. Queue an issue with `Run in Stave` from Crane.
-5. Review the local approval dialog in Stave, choose the Stave project,
+5. Review the local approval dialog in Stave, choose the Stave repository,
    workspace, provider, model, permissions, and optional Advisor.
-6. Keep `Remember for <TEAM> issues` on to preselect that local project for
+6. Keep `Remember for <TEAM> issues` on to preselect that local repository for
    future jobs from the same issue team, then select `Approve and run locally`.
 
 ## Interface Walkthrough
@@ -56,13 +56,13 @@ local approval before it creates a workspace or starts Claude or Codex.
   its local credential.
 - `Approve and run locally`: approves only the displayed job and the exact local
   runtime choices in the dialog.
-- `Remember for <TEAM> issues`: stores a local team-to-project preference plus
+- `Remember for <TEAM> issues`: stores a local team-to-repository preference plus
   the team's model, effort, and Advisor choice. It preselects them on future
   approval dialogs but never bypasses approval. Access levels are deliberately
   not remembered, so a one-off `Auto` approval cannot replay on a later job. A
   remembered Advisor is stored as three states: absent (inherit the Stave
   default), explicit none, or an explicit target.
-- `Project mappings`: lists and removes remembered routes under
+- `Repository mappings`: lists and removes remembered routes under
   `Settings > Integrations > Crane connector`.
 
 ## Common Workflows
@@ -81,8 +81,8 @@ Pairing codes are exchanged once and are not stored in Stave settings.
 1. Queue the issue in Crane.
 2. Read its title, instruction, description, source link, and expiration in the
    Stave approval dialog.
-3. Choose a registered local project. Stave first uses a remembered mapping for
-   the issue team, then the active project, then the first registered project.
+3. Choose a registered local repository. Stave first uses a remembered mapping for
+   the issue team, then the active repository, then the first registered repository.
    You can change the selection for every job.
 4. Create a new workspace or select an existing workspace.
 5. Choose Claude or Codex, its model and permissions, and optionally a Claude or
@@ -96,7 +96,7 @@ Pairing codes are exchanged once and are not stored in Stave settings.
 ### Start A Crane Issue From Stave
 
 The flow above is Crane-initiated: someone clicks *Run in Stave* in Crane and the
-approval dialog appears here. The [Tasks surface](tasks.md) is the reverse
+approval dialog appears here. The [Issues surface](issues.md) is the reverse
 direction. It lists the Crane tickets assigned to you and starts the run from
 Stave, using the same connector pairing and the same `crane` scope.
 
@@ -198,7 +198,7 @@ connector-specific limit.
 ## Files And Data
 
 - Connector settings contain only the enabled state, Crane URL, poll interval,
-  and optional local project mappings.
+  and optional local repository mappings.
 - Connector and job-lease credentials are encrypted by the operating system and
   stored outside renderer settings and SQLite.
 - SQLite stores resumable job identity, lifecycle state, receipt sequence, and
@@ -227,8 +227,8 @@ paths, branch names, provider credentials, or Local MCP metadata.
 - Managed Crane tasks created by older Stave versions remain compatible with
   the inline and task-tab `Take Over` actions after their managed turn stops.
   New Crane dispatches do not require takeover.
-- Project choice stays in the local Stave approval dialog. Crane never receives
-  the local project catalog, path, or remembered mapping.
+- Repository choice stays in the local Stave approval dialog. Crane never receives
+  the local repository catalog, path, or remembered mapping.
 
 ## Troubleshooting
 
@@ -258,7 +258,7 @@ paths, branch names, provider credentials, or Local MCP metadata.
 
 - Symptom: Stave shows an approval request but no task exists yet.
 - Cause: local approval is still pending, the job expired, or the selected
-  project or workspace is no longer registered.
+  repository or workspace is no longer registered.
 - Fix: approve before expiration and select a currently registered local target.
 
 ### A Kickoff Turn Ends With No Response

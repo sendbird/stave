@@ -104,36 +104,36 @@ export function createTaskCoreActions(args: {
     focusTaskAttention: async ({
       taskId,
       workspaceId,
-      projectPath,
+      repositoryPath,
       refreshFromPersistence = false,
     }) => {
       const stateBefore = get();
-      if (projectPath && projectPath !== stateBefore.projectPath) {
-        await stateBefore.openProject({ projectPath });
+      if (repositoryPath && repositoryPath !== stateBefore.repositoryPath) {
+        await stateBefore.openRepository({ repositoryPath });
       }
 
-      let stateAfterProjectOpen = get();
+      let stateAfterRepositoryOpen = get();
       const resolvedWorkspaceId =
         workspaceId ??
-        stateAfterProjectOpen.taskWorkspaceIdById[taskId] ??
-        stateAfterProjectOpen.activeWorkspaceId;
+        stateAfterRepositoryOpen.taskWorkspaceIdById[taskId] ??
+        stateAfterRepositoryOpen.activeWorkspaceId;
 
       if (
         resolvedWorkspaceId &&
-        !stateAfterProjectOpen.workspaces.some(
+        !stateAfterRepositoryOpen.workspaces.some(
           (workspace) => workspace.id === resolvedWorkspaceId,
         )
       ) {
         // Host-created worktrees appear in git before this renderer list.
-        await stateAfterProjectOpen.refreshWorkspaces();
-        stateAfterProjectOpen = get();
+        await stateAfterRepositoryOpen.refreshWorkspaces();
+        stateAfterRepositoryOpen = get();
       }
 
       if (
         resolvedWorkspaceId &&
-        resolvedWorkspaceId !== stateAfterProjectOpen.activeWorkspaceId
+        resolvedWorkspaceId !== stateAfterRepositoryOpen.activeWorkspaceId
       ) {
-        await stateAfterProjectOpen.switchWorkspace({
+        await stateAfterRepositoryOpen.switchWorkspace({
           workspaceId: resolvedWorkspaceId,
         });
       }
@@ -659,7 +659,7 @@ export function createTaskCoreActions(args: {
         stateBefore.activeWorkspaceId;
       const cwd =
         stateBefore.workspacePathById[workspaceId] ??
-        stateBefore.projectPath ??
+        stateBefore.repositoryPath ??
         undefined;
       const renameRequests: Array<Promise<{ ok: boolean; detail: string }>> =
         [];
@@ -956,7 +956,7 @@ export function createTaskCoreActions(args: {
         state.taskWorkspaceIdById[taskId] ?? state.activeWorkspaceId;
       const cwd = workspaceId
         ? state.workspacePathById[workspaceId]
-        : (state.projectPath ?? undefined);
+        : (state.repositoryPath ?? undefined);
       return rewindClaudeFiles({
         sessionId,
         userMessageId: boundary.nativeId,

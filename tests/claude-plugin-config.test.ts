@@ -24,7 +24,7 @@ async function writeJson(filePath: string, value: unknown) {
 async function makeFixture(args: {
   installedPlugins?: unknown;
   userSettings?: unknown;
-  projectSettings?: unknown;
+  repositorySettings?: unknown;
   localSettings?: unknown;
   pluginManifests?: Record<string, unknown>;
 }) {
@@ -41,10 +41,10 @@ async function makeFixture(args: {
   if (args.userSettings !== undefined) {
     await writeJson(path.join(configDir, "settings.json"), args.userSettings);
   }
-  if (args.projectSettings !== undefined) {
+  if (args.repositorySettings !== undefined) {
     await writeJson(
       path.join(cwd, ".claude", "settings.json"),
-      args.projectSettings,
+      args.repositorySettings,
     );
   }
   if (args.localSettings !== undefined) {
@@ -126,7 +126,7 @@ describe("Claude installed plugin discovery", () => {
         plugins: { "fmt@shop": [{ scope: "user" }] },
       },
       userSettings: { enabledPlugins: { "fmt@shop": true } },
-      projectSettings: { enabledPlugins: { "fmt@shop": true } },
+      repositorySettings: { enabledPlugins: { "fmt@shop": true } },
       localSettings: { enabledPlugins: { "fmt@shop": false } },
     });
 
@@ -159,25 +159,25 @@ describe("Claude installed plugin discovery", () => {
   test("keeps project-scoped installs inside their project", async () => {
     const root = await makeTempDirectory();
     const configDir = path.join(root, "config");
-    const projectPath = path.join(root, "project-a");
-    const otherProject = path.join(root, "project-b");
-    await mkdir(path.join(projectPath, "packages", "app"), {
+    const repositoryPath = path.join(root, "project-a");
+    const otherRepository = path.join(root, "project-b");
+    await mkdir(path.join(repositoryPath, "packages", "app"), {
       recursive: true,
     });
-    await mkdir(otherProject, { recursive: true });
+    await mkdir(otherRepository, { recursive: true });
     await writeJson(path.join(configDir, "plugins", "installed_plugins.json"), {
       version: 2,
       plugins: {
-        "repo-tools@shop": [{ scope: "project", projectPath }],
+        "repo-tools@shop": [{ scope: "project", projectPath: repositoryPath }],
       },
     });
 
     const insideNested = await resolveClaudeInstalledPlugins({
-      cwd: path.join(projectPath, "packages", "app"),
+      cwd: path.join(repositoryPath, "packages", "app"),
       claudeConfigDir: configDir,
     });
     const outside = await resolveClaudeInstalledPlugins({
-      cwd: otherProject,
+      cwd: otherRepository,
       claudeConfigDir: configDir,
     });
 

@@ -99,16 +99,16 @@ function hashSecondaryInput(input: SecondaryProviderExecutionRequest["input"]) {
     .digest("hex");
 }
 
-function isPathOwnedByProject(args: { projectPath: string; cwd: string }) {
-  if (!path.isAbsolute(args.projectPath) || !path.isAbsolute(args.cwd)) {
+function isPathOwnedByRepository(args: { repositoryPath: string; cwd: string }) {
+  if (!path.isAbsolute(args.repositoryPath) || !path.isAbsolute(args.cwd)) {
     return false;
   }
-  const projectPath = path.resolve(args.projectPath);
+  const repositoryPath = path.resolve(args.repositoryPath);
   const cwd = path.resolve(args.cwd);
-  if (projectPath === path.parse(projectPath).root) {
+  if (repositoryPath === path.parse(repositoryPath).root) {
     return false;
   }
-  const relative = path.relative(projectPath, cwd);
+  const relative = path.relative(repositoryPath, cwd);
   return (
     relative === "" ||
     (!relative.startsWith(`..${path.sep}`) &&
@@ -308,8 +308,8 @@ export function createSecondaryRunCoordinator(
     async claim(rawArgs: unknown) {
       const args = SecondaryRunClaimArgsSchema.parse(rawArgs);
       if (
-        !isPathOwnedByProject({
-          projectPath: args.run.ownership.projectPath,
+        !isPathOwnedByRepository({
+          repositoryPath: args.run.ownership.repositoryPath,
           cwd: args.input.cwd,
         })
       ) {
@@ -348,8 +348,8 @@ export function createSecondaryRunCoordinator(
         return rejectedExecution("not-found");
       }
       if (
-        !isPathOwnedByProject({
-          projectPath: aggregate.run.ownership.projectPath,
+        !isPathOwnedByRepository({
+          repositoryPath: aggregate.run.ownership.repositoryPath,
           cwd: args.input.cwd,
         })
       ) {

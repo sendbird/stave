@@ -4,7 +4,7 @@ import { ResultEvidenceSchema } from "./result-evidence";
 const Identity = z.string().trim().min(1).max(1000);
 export const ResultReviewScopeSchema = z
   .object({
-    projectPath: Identity,
+    repositoryPath: Identity,
     workspaceId: Identity,
     taskId: Identity,
     turnId: Identity,
@@ -50,7 +50,7 @@ export type ResultReviewScope = z.infer<typeof ResultReviewScopeSchema>;
 
 export const ResultReviewSchema = ResultReviewScopeSchema.extend({
   id: Identity,
-  projectName: z.string(),
+  repositoryName: z.string(),
   workspaceName: z.string(),
   taskTitle: z.string(),
   outcome: z.enum(["completed", "failed"]),
@@ -69,7 +69,7 @@ export interface ResultReviewPage {
 
 export function resultReviewKey(scope: ResultReviewScope) {
   return JSON.stringify([
-    scope.projectPath,
+    scope.repositoryPath,
     scope.workspaceId,
     scope.taskId,
     scope.turnId,

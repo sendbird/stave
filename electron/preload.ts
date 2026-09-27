@@ -1,8 +1,9 @@
+import { PROPOSAL_IPC, type ProposalsBridgeApi } from "../src/lib/missions/proposed";
 import { lensReviewApi } from "./lens-review-preload";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../src/lib/providers/agent-history";
 import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../src/lib/performance/workspace-execution";
 import type { PromptEnhancementContext } from "../src/lib/providers/prompt-enhancement-context";
-import type { ProjectMemoryControlsApi } from "../src/lib/project-memory-settings";
+import type { RepositoryMemoryControlsApi } from "../src/lib/repository-memory-settings";
 import { contextBridge, ipcRenderer, webUtils } from "electron";
 import type {
   CodexAppServerSnapshotResponse,
@@ -93,28 +94,28 @@ import type {
 } from "../src/lib/martin-sync/types";
 import type {
   TrackerSourceId,
-  TrackerTaskAttachStaveTaskArgs,
-  TrackerTaskDetail,
-  TrackerTaskKickoffArgs,
-  TrackerTaskKickoffResult,
-  TrackerTaskListItem,
-  TrackerTaskRefArgs,
-  TrackerTaskStaveLink,
-  TrackerTasksListArgs,
-  TrackerTasksPublicStatus,
-  TrackerTasksRefreshArgs,
-  TrackerTasksSurfaceVisibleArgs,
-} from "../src/lib/tracker-tasks/types";
-import type { TrackerTasksSettings } from "../src/lib/tracker-tasks/settings";
+  TrackerIssueAttachStaveTaskArgs,
+  TrackerIssueDetail,
+  TrackerIssueKickoffArgs,
+  TrackerIssueKickoffResult,
+  TrackerIssueListItem,
+  TrackerIssueRefArgs,
+  TrackerIssueStaveLink,
+  TrackerIssuesListArgs,
+  TrackerIssuesPublicStatus,
+  TrackerIssuesRefreshArgs,
+  TrackerIssuesSurfaceVisibleArgs,
+} from "../src/lib/tracker-issues/types";
+import type { TrackerIssuesSettings } from "../src/lib/tracker-issues/settings";
 import type {
-  ProjectMemory,
-  ProjectMemoryDeleteArgs,
-  ProjectMemoryListArgs,
-  ProjectMemoryRecallArgs,
-  ProjectMemoryRememberArgs,
-  ProjectMemoryRememberResult,
-  ProjectMemoryUpdateArgs,
-} from "../src/lib/project-memory";
+  RepositoryMemory,
+  RepositoryMemoryDeleteArgs,
+  RepositoryMemoryListArgs,
+  RepositoryMemoryRecallArgs,
+  RepositoryMemoryRememberArgs,
+  RepositoryMemoryRememberResult,
+  RepositoryMemoryUpdateArgs,
+} from "../src/lib/repository-memory";
 import type {
   JiraConnectorPublicStatus,
   JiraConnectorSetCredentialArgs,
@@ -125,13 +126,28 @@ import type {
   WorkspaceInformationState,
 } from "../src/lib/workspace-information";
 import type {
-  RoutineInformationResourceCreateInput,
-  RoutineRun,
-  RoutineSnapshot,
-  RoutineSpec,
-  RoutineUpsertInput,
-} from "../src/lib/routines";
+  AutomationInformationResourceCreateInput,
+  AutomationRun,
+  AutomationSnapshot,
+  AutomationSpec,
+  AutomationUpsertInput,
+} from "../src/lib/automations";
 import type { WorkspaceInformationReferenceOption } from "../src/lib/workspace-information-references";
+import {
+  MISSION_IPC,
+  type MissionChangedEvent,
+  type MissionsBridgeApi,
+} from "../src/lib/missions/api";
+import {
+  PROJECT_IPC,
+  type ProjectChangedEvent,
+  type ProjectsBridgeApi,
+} from "../src/lib/projects/api";
+import {
+  WAKE_UP_IPC,
+  type WakeUpChangedEvent,
+  type WakeUpsBridgeApi,
+} from "../src/lib/supervision/wake-up-bridge";
 import type {
   AppNotification,
   AppNotificationCreateInput,
@@ -218,17 +234,17 @@ import type {
   SecondaryRunTransitionResponse,
 } from "../src/lib/runs/secondary-run";
 import type {
-  ChildTaskActionResponse,
-  ChildTaskDelegateArgs,
-  ChildTaskDetachArgs,
-  ChildTaskFollowUpArgs,
-  ChildTaskLinkArgs,
-  ChildTaskList,
-  ChildTaskListArgs,
-  ChildTaskRetryArgs,
-  ChildTaskStopArgs,
-  ChildTaskSummary,
-} from "../src/lib/runs/child-task";
+  DelegatedTaskActionResponse,
+  DelegateTaskArgs,
+  DelegatedTaskDetachArgs,
+  DelegatedTaskFollowUpArgs,
+  DelegatedTaskLinkArgs,
+  DelegatedTaskList,
+  DelegatedTaskListArgs,
+  DelegatedTaskRetryArgs,
+  DelegatedTaskStopArgs,
+  DelegatedTaskSummary,
+} from "../src/lib/runs/delegated-task";
 
 interface ProviderSlashCommand {
   name: string;
@@ -316,14 +332,14 @@ const pendingCraneDispatchApprovals = new Map<
   string,
   CraneDispatchApprovalRequest
 >();
-const trackerTasksStatusSubscribers = new Set<
-  (payload: TrackerTasksPublicStatus) => void
+const trackerIssuesStatusSubscribers = new Set<
+  (payload: TrackerIssuesPublicStatus) => void
 >();
-const trackerTasksCacheUpdatedSubscribers = new Set<
+const trackerIssuesCacheUpdatedSubscribers = new Set<
   (payload: { source: TrackerSourceId }) => void
 >();
-const trackerTasksKickoffUpdatedSubscribers = new Set<
-  (payload: TrackerTaskStaveLink) => void
+const trackerIssuesKickoffUpdatedSubscribers = new Set<
+  (payload: TrackerIssueStaveLink) => void
 >();
 
 ipcRenderer.on(
@@ -375,38 +391,38 @@ ipcRenderer.on(
   },
 );
 ipcRenderer.on(
-  "tracker-tasks:status",
-  (_event, payload: TrackerTasksPublicStatus) => {
-    for (const subscriber of trackerTasksStatusSubscribers) {
+  "tracker-issues:status",
+  (_event, payload: TrackerIssuesPublicStatus) => {
+    for (const subscriber of trackerIssuesStatusSubscribers) {
       subscriber(payload);
     }
   },
 );
 ipcRenderer.on(
-  "tracker-tasks:cache-updated",
+  "tracker-issues:cache-updated",
   (_event, payload: { source: TrackerSourceId }) => {
-    for (const subscriber of trackerTasksCacheUpdatedSubscribers) {
+    for (const subscriber of trackerIssuesCacheUpdatedSubscribers) {
       subscriber(payload);
     }
   },
 );
 ipcRenderer.on(
-  "tracker-tasks:kickoff-updated",
-  (_event, payload: TrackerTaskStaveLink) => {
-    for (const subscriber of trackerTasksKickoffUpdatedSubscribers) {
+  "tracker-issues:kickoff-updated",
+  (_event, payload: TrackerIssueStaveLink) => {
+    for (const subscriber of trackerIssuesKickoffUpdatedSubscribers) {
       subscriber(payload);
     }
   },
 );
 
-const childTaskChangeSubscribers = new Set<
+const delegatedTaskChangeSubscribers = new Set<
   (payload: { parentTaskId: string }) => void
 >();
 
 ipcRenderer.on(
-  "runs:child-tasks-changed",
+  "delegations:changed",
   (_event, payload: { parentTaskId: string }) => {
-    for (const subscriber of childTaskChangeSubscribers) {
+    for (const subscriber of delegatedTaskChangeSubscribers) {
       subscriber(payload);
     }
   },
@@ -749,6 +765,105 @@ ipcRenderer.on(
   },
 );
 
+const missionChangedSubscribers = new Set<(payload: MissionChangedEvent) => void>();
+ipcRenderer.on(MISSION_IPC.changed, (_event, payload: MissionChangedEvent) => {
+  for (const subscriber of missionChangedSubscribers) {
+    subscriber(payload);
+  }
+});
+
+const missionsApi: MissionsBridgeApi = {
+  start: (args) => ipcRenderer.invoke(MISSION_IPC.start, args),
+  list: (args) => ipcRenderer.invoke(MISSION_IPC.list, args ?? {}),
+  insights: (args) => ipcRenderer.invoke(MISSION_IPC.insights, args ?? {}),
+  get: (args) => ipcRenderer.invoke(MISSION_IPC.get, args),
+  signOff: (args) => ipcRenderer.invoke(MISSION_IPC.signOff, args),
+  requestChanges: (args) => ipcRenderer.invoke(MISSION_IPC.requestChanges, args),
+  skipStage: (args) => ipcRenderer.invoke(MISSION_IPC.skipStage, args),
+  retryStage: (args) => ipcRenderer.invoke(MISSION_IPC.retryStage, args),
+  pause: (args) => ipcRenderer.invoke(MISSION_IPC.pause, args),
+  resume: (args) => ipcRenderer.invoke(MISSION_IPC.resume, args),
+  takeOver: (args) => ipcRenderer.invoke(MISSION_IPC.takeOver, args),
+  acceptRuntime: (args) => ipcRenderer.invoke(MISSION_IPC.acceptRuntime, args),
+  noteUserTurn: (args) => ipcRenderer.invoke(MISSION_IPC.noteUserTurn, args),
+  cancel: (args) => ipcRenderer.invoke(MISSION_IPC.cancel, args),
+  addReportToPullRequest: (args) => ipcRenderer.invoke(MISSION_IPC.addReportToPullRequest, args),
+  shareReport: (args) => ipcRenderer.invoke(MISSION_IPC.shareReport, args),
+  subscribeChanged: (listener) => {
+    missionChangedSubscribers.add(listener);
+    return () => {
+      missionChangedSubscribers.delete(listener);
+    };
+  },
+};
+
+const wakeUpChangedSubscribers = new Set<(payload: WakeUpChangedEvent) => void>();
+ipcRenderer.on(WAKE_UP_IPC.changed, (_event, payload: WakeUpChangedEvent) => {
+  for (const subscriber of wakeUpChangedSubscribers) {
+    subscriber(payload);
+  }
+});
+
+const wakeUpsApi: WakeUpsBridgeApi = {
+  list: (args) => ipcRenderer.invoke(WAKE_UP_IPC.list, args),
+  setPaused: (args) => ipcRenderer.invoke(WAKE_UP_IPC.setPaused, args),
+  remove: (args) => ipcRenderer.invoke(WAKE_UP_IPC.remove, args),
+  subscribeChanged: (listener) => {
+    wakeUpChangedSubscribers.add(listener);
+    return () => {
+      wakeUpChangedSubscribers.delete(listener);
+    };
+  },
+};
+
+const proposalChangedSubscribers = new Set<() => void>();
+ipcRenderer.on(PROPOSAL_IPC.changed, () => {
+  for (const subscriber of proposalChangedSubscribers) {
+    subscriber();
+  }
+});
+
+const proposalsApi: ProposalsBridgeApi = {
+  list: (args) => ipcRenderer.invoke(PROPOSAL_IPC.list, args ?? {}),
+  dismiss: (args) => ipcRenderer.invoke(PROPOSAL_IPC.dismiss, args),
+  markStarted: (args) => ipcRenderer.invoke(PROPOSAL_IPC.markStarted, args),
+  observePullRequest: (args) => ipcRenderer.invoke(PROPOSAL_IPC.observePullRequest, args),
+  subscribeChanged: (listener) => {
+    proposalChangedSubscribers.add(listener);
+    return () => {
+      proposalChangedSubscribers.delete(listener);
+    };
+  },
+};
+
+const projectChangedSubscribers = new Set<(payload: ProjectChangedEvent) => void>();
+ipcRenderer.on(PROJECT_IPC.changed, (_event, payload: ProjectChangedEvent) => {
+  for (const subscriber of projectChangedSubscribers) {
+    subscriber(payload);
+  }
+});
+
+const projectsApi: ProjectsBridgeApi = {
+  list: (args) => ipcRenderer.invoke(PROJECT_IPC.list, args),
+  get: (args) => ipcRenderer.invoke(PROJECT_IPC.get, args),
+  create: (args) => ipcRenderer.invoke(PROJECT_IPC.create, args),
+  approveProposal: (args) => ipcRenderer.invoke(PROJECT_IPC.approveProposal, args),
+  messageCoordinator: (args) => ipcRenderer.invoke(PROJECT_IPC.messageCoordinator, args),
+  rejectProposal: (args) => ipcRenderer.invoke(PROJECT_IPC.rejectProposal, args),
+  pause: (args) => ipcRenderer.invoke(PROJECT_IPC.pause, args),
+  resume: (args) => ipcRenderer.invoke(PROJECT_IPC.resume, args),
+  end: (args) => ipcRenderer.invoke(PROJECT_IPC.end, args),
+  updateSettings: (args) => ipcRenderer.invoke(PROJECT_IPC.updateSettings, args),
+  setMemoryStatus: (args) => ipcRenderer.invoke(PROJECT_IPC.setMemoryStatus, args),
+  syncPlaybooks: (args) => ipcRenderer.invoke(PROJECT_IPC.syncPlaybooks, args),
+  subscribeChanged: (listener) => {
+    projectChangedSubscribers.add(listener);
+    return () => {
+      projectChangedSubscribers.delete(listener);
+    };
+  },
+};
+
 const persistenceBootstrapStatusSubscribers = new Set<
   (payload: PersistenceBootstrapStatus) => void
 >();
@@ -840,7 +955,7 @@ ipcRenderer.on("lsp:event", (_event, payload: LspEventPayload) => {
 
 const scriptsApi = {
   getConfig: (args: {
-    projectPath: string;
+    repositoryPath: string;
     workspacePath: string;
     userOverridePath?: string;
   }) =>
@@ -859,7 +974,7 @@ const scriptsApi = {
     workspaceId: string;
     scriptId: string;
     scriptKind: ScriptKind;
-    projectPath: string;
+    repositoryPath: string;
     workspacePath: string;
     workspaceName: string;
     branch: string;
@@ -884,7 +999,7 @@ const scriptsApi = {
   runHook: (args: {
     workspaceId: string;
     trigger: ScriptTrigger;
-    projectPath: string;
+    repositoryPath: string;
     workspacePath: string;
     workspaceName: string;
     branch: string;
@@ -999,38 +1114,38 @@ contextBridge.exposeInMainWorld("api", {
       args: SecondaryRunReceiptListArgs,
     ): Promise<SecondaryRunReceiptList> =>
       ipcRenderer.invoke("runs:list-receipts", args),
-    delegateChildTask: (
-      args: ChildTaskDelegateArgs,
-    ): Promise<ChildTaskActionResponse> =>
-      ipcRenderer.invoke("runs:delegate-child-task", args),
-    listChildTasks: (args: ChildTaskListArgs): Promise<ChildTaskList> =>
-      ipcRenderer.invoke("runs:list-child-tasks", args),
-    followUpChildTask: (
-      args: ChildTaskFollowUpArgs,
-    ): Promise<ChildTaskActionResponse> =>
-      ipcRenderer.invoke("runs:follow-up-child-task", args),
-    retryChildTask: (
-      args: ChildTaskRetryArgs,
-    ): Promise<ChildTaskActionResponse> =>
-      ipcRenderer.invoke("runs:retry-child-task", args),
-    stopChildTask: (
-      args: ChildTaskStopArgs,
-    ): Promise<ChildTaskActionResponse> =>
-      ipcRenderer.invoke("runs:stop-child-task", args),
-    detachChildTask: (
-      args: ChildTaskDetachArgs,
-    ): Promise<ChildTaskActionResponse> =>
-      ipcRenderer.invoke("runs:detach-child-task", args),
-    getChildTaskLink: (
-      args: ChildTaskLinkArgs,
-    ): Promise<ChildTaskSummary | null> =>
-      ipcRenderer.invoke("runs:get-child-task-link", args),
-    onChildTasksChanged: (
+    delegateTask: (
+      args: DelegateTaskArgs,
+    ): Promise<DelegatedTaskActionResponse> =>
+      ipcRenderer.invoke("delegations:create", args),
+    listDelegatedTasks: (args: DelegatedTaskListArgs): Promise<DelegatedTaskList> =>
+      ipcRenderer.invoke("delegations:list", args),
+    followUpDelegatedTask: (
+      args: DelegatedTaskFollowUpArgs,
+    ): Promise<DelegatedTaskActionResponse> =>
+      ipcRenderer.invoke("delegations:follow-up", args),
+    retryDelegatedTask: (
+      args: DelegatedTaskRetryArgs,
+    ): Promise<DelegatedTaskActionResponse> =>
+      ipcRenderer.invoke("delegations:retry", args),
+    stopDelegatedTask: (
+      args: DelegatedTaskStopArgs,
+    ): Promise<DelegatedTaskActionResponse> =>
+      ipcRenderer.invoke("delegations:stop", args),
+    detachDelegatedTask: (
+      args: DelegatedTaskDetachArgs,
+    ): Promise<DelegatedTaskActionResponse> =>
+      ipcRenderer.invoke("delegations:detach", args),
+    getDelegatedTaskLink: (
+      args: DelegatedTaskLinkArgs,
+    ): Promise<DelegatedTaskSummary | null> =>
+      ipcRenderer.invoke("delegations:get-link", args),
+    onDelegatedTasksChanged: (
       callback: (payload: { parentTaskId: string }) => void,
     ) => {
-      childTaskChangeSubscribers.add(callback);
+      delegatedTaskChangeSubscribers.add(callback);
       return () => {
-        childTaskChangeSubscribers.delete(callback);
+        delegatedTaskChangeSubscribers.delete(callback);
       };
     },
   },
@@ -1528,14 +1643,14 @@ contextBridge.exposeInMainWorld("api", {
       tabIds: string[];
     }) =>
       ipcRenderer.invoke("persistence:load-workspace-editor-tab-bodies", args),
-    loadProjectRegistry: () =>
-      ipcRenderer.invoke("persistence:load-project-registry"),
+    loadRepositoryRegistry: () =>
+      ipcRenderer.invoke("persistence:load-repository-registry"),
     upsertWorkspace: (args: { id: string; name: string; snapshot: unknown }) =>
       ipcRenderer.invoke("persistence:upsert-workspace", args),
-    saveProjectRegistry: (args: {
-      projects: unknown[];
-      activeProjectPath?: string | null;
-    }) => ipcRenderer.invoke("persistence:save-project-registry", args),
+    saveRepositoryRegistry: (args: {
+      repositories: unknown[];
+      activeRepositoryPath?: string | null;
+    }) => ipcRenderer.invoke("persistence:save-repository-registry", args),
     /**
      * Quit-time flush handshake. `onFlushRequested` fires when main is about to
      * tear down persistence; the renderer performs its ordinary async snapshot
@@ -1980,120 +2095,120 @@ contextBridge.exposeInMainWorld("api", {
       };
     },
   },
-  projectMemory: {
+  repositoryMemory: {
     getSettings: (
-      args: Parameters<ProjectMemoryControlsApi["getSettings"]>[0],
+      args: Parameters<RepositoryMemoryControlsApi["getSettings"]>[0],
     ) =>
-      ipcRenderer.invoke("project-memory:get-settings", args) as ReturnType<
-        ProjectMemoryControlsApi["getSettings"]
+      ipcRenderer.invoke("repository-memory:get-settings", args) as ReturnType<
+        RepositoryMemoryControlsApi["getSettings"]
       >,
     saveSettings: (
-      args: Parameters<ProjectMemoryControlsApi["saveSettings"]>[0],
+      args: Parameters<RepositoryMemoryControlsApi["saveSettings"]>[0],
     ) =>
-      ipcRenderer.invoke("project-memory:save-settings", args) as ReturnType<
-        ProjectMemoryControlsApi["saveSettings"]
+      ipcRenderer.invoke("repository-memory:save-settings", args) as ReturnType<
+        RepositoryMemoryControlsApi["saveSettings"]
       >,
-    clear: (args: Parameters<ProjectMemoryControlsApi["clear"]>[0]) =>
-      ipcRenderer.invoke("project-memory:clear", args) as ReturnType<
-        ProjectMemoryControlsApi["clear"]
+    clear: (args: Parameters<RepositoryMemoryControlsApi["clear"]>[0]) =>
+      ipcRenderer.invoke("repository-memory:clear", args) as ReturnType<
+        RepositoryMemoryControlsApi["clear"]
       >,
-    list: (args: ProjectMemoryListArgs) =>
-      ipcRenderer.invoke("project-memory:list", args) as Promise<{
+    list: (args: RepositoryMemoryListArgs) =>
+      ipcRenderer.invoke("repository-memory:list", args) as Promise<{
         ok: boolean;
-        items: ProjectMemory[];
+        items: RepositoryMemory[];
         message?: string;
       }>,
-    recall: (args: ProjectMemoryRecallArgs) =>
-      ipcRenderer.invoke("project-memory:recall", args) as Promise<{
+    recall: (args: RepositoryMemoryRecallArgs) =>
+      ipcRenderer.invoke("repository-memory:recall", args) as Promise<{
         ok: boolean;
-        items: ProjectMemory[];
+        items: RepositoryMemory[];
         message?: string;
       }>,
-    remember: (args: ProjectMemoryRememberArgs) =>
-      ipcRenderer.invoke("project-memory:remember", args) as Promise<{
+    remember: (args: RepositoryMemoryRememberArgs) =>
+      ipcRenderer.invoke("repository-memory:remember", args) as Promise<{
         ok: boolean;
-        results: ProjectMemoryRememberResult[];
+        results: RepositoryMemoryRememberResult[];
         message?: string;
       }>,
-    update: (args: ProjectMemoryUpdateArgs) =>
-      ipcRenderer.invoke("project-memory:update", args) as Promise<{
+    update: (args: RepositoryMemoryUpdateArgs) =>
+      ipcRenderer.invoke("repository-memory:update", args) as Promise<{
         ok: boolean;
-        memory?: ProjectMemory | null;
+        memory?: RepositoryMemory | null;
         message?: string;
       }>,
-    delete: (args: ProjectMemoryDeleteArgs) =>
-      ipcRenderer.invoke("project-memory:delete", args) as Promise<{
+    delete: (args: RepositoryMemoryDeleteArgs) =>
+      ipcRenderer.invoke("repository-memory:delete", args) as Promise<{
         ok: boolean;
         deleted?: boolean;
         message?: string;
       }>,
   },
-  trackerTasks: {
+  trackerIssues: {
     getStatus: () =>
-      ipcRenderer.invoke("tracker-tasks:get-status") as Promise<{
+      ipcRenderer.invoke("tracker-issues:get-status") as Promise<{
         ok: boolean;
-        status?: TrackerTasksPublicStatus;
+        status?: TrackerIssuesPublicStatus;
         message?: string;
       }>,
-    list: (args: TrackerTasksListArgs = {}) =>
-      ipcRenderer.invoke("tracker-tasks:list", args) as Promise<{
+    list: (args: TrackerIssuesListArgs = {}) =>
+      ipcRenderer.invoke("tracker-issues:list", args) as Promise<{
         ok: boolean;
-        items: TrackerTaskListItem[];
+        items: TrackerIssueListItem[];
         message?: string;
       }>,
-    refresh: (args: TrackerTasksRefreshArgs = {}) =>
-      ipcRenderer.invoke("tracker-tasks:refresh", args) as Promise<{
+    refresh: (args: TrackerIssuesRefreshArgs = {}) =>
+      ipcRenderer.invoke("tracker-issues:refresh", args) as Promise<{
         ok: boolean;
-        status?: TrackerTasksPublicStatus;
+        status?: TrackerIssuesPublicStatus;
         message?: string;
       }>,
-    getDetail: (args: TrackerTaskRefArgs) =>
-      ipcRenderer.invoke("tracker-tasks:get-detail", args) as Promise<{
+    getDetail: (args: TrackerIssueRefArgs) =>
+      ipcRenderer.invoke("tracker-issues:get-detail", args) as Promise<{
         ok: boolean;
-        detail?: TrackerTaskDetail;
+        detail?: TrackerIssueDetail;
         message?: string;
       }>,
-    kickoff: (args: TrackerTaskKickoffArgs) =>
-      ipcRenderer.invoke("tracker-tasks:kickoff", args) as Promise<{
+    kickoff: (args: TrackerIssueKickoffArgs) =>
+      ipcRenderer.invoke("tracker-issues:kickoff", args) as Promise<{
         ok: boolean;
-        result?: TrackerTaskKickoffResult;
+        result?: TrackerIssueKickoffResult;
         message?: string;
       }>,
-    attachStaveTask: (args: TrackerTaskAttachStaveTaskArgs) =>
-      ipcRenderer.invoke("tracker-tasks:attach-stave-task", args) as Promise<{
+    attachStaveTask: (args: TrackerIssueAttachStaveTaskArgs) =>
+      ipcRenderer.invoke("tracker-issues:attach-stave-task", args) as Promise<{
         ok: boolean;
-        link?: TrackerTaskStaveLink | null;
+        link?: TrackerIssueStaveLink | null;
         message?: string;
       }>,
-    setSurfaceVisible: (args: TrackerTasksSurfaceVisibleArgs) =>
-      ipcRenderer.invoke("tracker-tasks:set-surface-visible", args) as Promise<{
+    setSurfaceVisible: (args: TrackerIssuesSurfaceVisibleArgs) =>
+      ipcRenderer.invoke("tracker-issues:set-surface-visible", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
-    configure: (args: TrackerTasksSettings) =>
-      ipcRenderer.invoke("tracker-tasks:configure", args) as Promise<{
+    configure: (args: TrackerIssuesSettings) =>
+      ipcRenderer.invoke("tracker-issues:configure", args) as Promise<{
         ok: boolean;
-        status?: TrackerTasksPublicStatus;
+        status?: TrackerIssuesPublicStatus;
         message?: string;
       }>,
-    onStatus: (listener: (payload: TrackerTasksPublicStatus) => void) => {
-      trackerTasksStatusSubscribers.add(listener);
+    onStatus: (listener: (payload: TrackerIssuesPublicStatus) => void) => {
+      trackerIssuesStatusSubscribers.add(listener);
       return () => {
-        trackerTasksStatusSubscribers.delete(listener);
+        trackerIssuesStatusSubscribers.delete(listener);
       };
     },
     onCacheUpdated: (
       listener: (payload: { source: TrackerSourceId }) => void,
     ) => {
-      trackerTasksCacheUpdatedSubscribers.add(listener);
+      trackerIssuesCacheUpdatedSubscribers.add(listener);
       return () => {
-        trackerTasksCacheUpdatedSubscribers.delete(listener);
+        trackerIssuesCacheUpdatedSubscribers.delete(listener);
       };
     },
-    onKickoffUpdated: (listener: (payload: TrackerTaskStaveLink) => void) => {
-      trackerTasksKickoffUpdatedSubscribers.add(listener);
+    onKickoffUpdated: (listener: (payload: TrackerIssueStaveLink) => void) => {
+      trackerIssuesKickoffUpdatedSubscribers.add(listener);
       return () => {
-        trackerTasksKickoffUpdatedSubscribers.delete(listener);
+        trackerIssuesKickoffUpdatedSubscribers.delete(listener);
       };
     },
   },
@@ -2151,50 +2266,54 @@ contextBridge.exposeInMainWorld("api", {
         message?: string;
       }>,
   },
-  routines: {
+  missions: missionsApi,
+  wakeUps: wakeUpsApi,
+  projects: projectsApi,
+  proposals: proposalsApi,
+  automations: {
     setProviderTimeout: (args: { providerTimeoutMs: number }) =>
-      ipcRenderer.invoke("routines:set-provider-timeout", args) as Promise<{
+      ipcRenderer.invoke("automations:set-provider-timeout", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
     list: () =>
-      ipcRenderer.invoke("routines:list") as Promise<{
+      ipcRenderer.invoke("automations:list") as Promise<{
         ok: boolean;
-        snapshot: RoutineSnapshot;
+        snapshot: AutomationSnapshot;
         message?: string;
       }>,
-    create: (input: RoutineUpsertInput) =>
-      ipcRenderer.invoke("routines:create", input) as Promise<{
+    create: (input: AutomationUpsertInput) =>
+      ipcRenderer.invoke("automations:create", input) as Promise<{
         ok: boolean;
-        routine: RoutineSpec | null;
+        automation: AutomationSpec | null;
         message?: string;
       }>,
-    update: (args: { id: string; input: RoutineUpsertInput }) =>
-      ipcRenderer.invoke("routines:update", args) as Promise<{
+    update: (args: { id: string; input: AutomationUpsertInput }) =>
+      ipcRenderer.invoke("automations:update", args) as Promise<{
         ok: boolean;
-        routine: RoutineSpec | null;
+        automation: AutomationSpec | null;
         message?: string;
       }>,
     remove: (args: { id: string }) =>
-      ipcRenderer.invoke("routines:remove", args) as Promise<{
+      ipcRenderer.invoke("automations:remove", args) as Promise<{
         ok: boolean;
         message?: string;
       }>,
     setEnabled: (args: { id: string; enabled: boolean }) =>
-      ipcRenderer.invoke("routines:set-enabled", args) as Promise<{
+      ipcRenderer.invoke("automations:set-enabled", args) as Promise<{
         ok: boolean;
-        routine: RoutineSpec | null;
+        automation: AutomationSpec | null;
         message?: string;
       }>,
     runNow: (args: { id: string }) =>
-      ipcRenderer.invoke("routines:run-now", args) as Promise<{
+      ipcRenderer.invoke("automations:run-now", args) as Promise<{
         ok: boolean;
-        run: RoutineRun | null;
+        run: AutomationRun | null;
         message?: string;
       }>,
-    createInformationResource: (input: RoutineInformationResourceCreateInput) =>
+    createInformationResource: (input: AutomationInformationResourceCreateInput) =>
       ipcRenderer.invoke(
-        "routines:create-information-resource",
+        "automations:create-information-resource",
         input,
       ) as Promise<{
         ok: boolean;
@@ -2204,7 +2323,7 @@ contextBridge.exposeInMainWorld("api", {
       }>,
     listInformationReferences: (args: { workspaceId: string }) =>
       ipcRenderer.invoke(
-        "routines:list-information-references",
+        "automations:list-information-references",
         args,
       ) as Promise<{
         ok: boolean;

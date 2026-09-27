@@ -3,7 +3,8 @@
 ## Summary
 
 Fleet is Stave's cross-workspace action inbox. Its fixed `Action required` rail
-combines pending questions and approvals, unreviewed failed or completed runs, and
+combines pending questions and approvals, [missions](missions.md) that wait for
+a sign-off or are blocked or stuck, unreviewed failed or completed runs, and
 actionable pull request states in one urgency-ordered list.
 
 Fleet is an auxiliary surface. The task window stays the primary place to answer
@@ -13,7 +14,7 @@ optional shortcuts on top of that.
 
 ## When To Use It
 
-- Use Fleet when several projects or workspaces are active at once.
+- Use Fleet when several repositories or workspaces are active at once.
 - Use it to find the next task that needs a response without opening every
   workspace.
 - Use the notification center when you want notification history rather than a
@@ -21,7 +22,7 @@ optional shortcuts on top of that.
 
 ## Before You Start
 
-- Open at least one project in Stave.
+- Open at least one repository in Stave.
 - Keep notifications enabled if you want closed or unloaded workspaces to stay
   represented after their live runtime state is no longer loaded.
 - Connect GitHub PR status for workspaces where you want review blockers and
@@ -52,12 +53,20 @@ optional shortcuts on top of that.
 - Workspace cards show open tasks, provider and pull-request status, and todo
   progress. Dormant workspaces stay available under `All`; fabricated empty
   default rows are hidden until they have real history or activity.
+- A workspace running a mission shows a mission strip on its card: the stage
+  track, where the mission stands, its stage position and what it has spent.
+  Clicking the strip opens the lead task.
+- The Fleet View header shows how many [projects](projects.md) are open and how
+  many things in them need you; it opens the Projects view.
 
 ### Key Controls
 
 - `Open next item`: opens the next item in urgency order.
 - `Approve` and `Deny`: resolve a durable approval request without first opening
   the task.
+- A mission sign-off names what it starts (for example `Start Verify`). It runs
+  the same command, with the same check that the card is still current, as the
+  sign-off card in the task.
 - `Mark reviewed`: records your review of that specific run in durable result
   history. It does not mark the task or original ticket complete. Use `Results`
   in the task to inspect history or select `Reopen review`.
@@ -101,9 +110,9 @@ optional shortcuts on top of that.
 
 ### Review A Cold Workspace
 
-1. Open Fleet after restarting Stave or switching away from a project.
+1. Open Fleet after restarting Stave or switching away from a repository.
 2. Select a durable notification-backed item.
-3. Stave opens the matching project, workspace, and task before showing the
+3. Stave opens the matching repository, workspace, and task before showing the
    request or result.
 
 ## Files And Data
@@ -127,7 +136,7 @@ optional shortcuts on top of that.
   window shows that the request is no longer waiting.
 - Fleet records the last deliberate workspace activity separately from
   snapshot-write timestamps, so an untouched remembered workspace can become
-  dormant without making the whole project look recently active.
+  dormant without making the whole repository look recently active.
 - Stave-owned managed requests can still be answered from the task,
   notification, or Fleet shortcut. Externally owned managed requests are not
   exposed as Stave actions.

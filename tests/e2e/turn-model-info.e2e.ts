@@ -161,8 +161,8 @@ test("shows each turn's model, effort, context, and fast mode", async ({
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: "/tmp/stave-project",
-          projectName: "stave-project",
+          repositoryPath: "/tmp/stave-project",
+          repositoryName: "stave-project",
           workspaces: [
             {
               id: "ws-main",

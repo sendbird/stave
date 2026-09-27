@@ -501,7 +501,7 @@ export function bindBrowserSessionGuestWithEvents(args: {
     lensSessionId: args.lensSessionId,
     guestWebContentsId: args.guestWebContentsId,
     sessionScope: args.sessionScope,
-    projectKey: args.projectKey,
+    repositoryKey: args.repositoryKey,
   });
 
   if (!result.ok) {

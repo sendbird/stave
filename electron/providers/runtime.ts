@@ -75,6 +75,8 @@ import {
   runAcpWorker,
 } from "./acp/acp-worker-runtime";
 import { getProviderModelCatalog } from "./provider-model-catalog";
+import { registerMissionGrant } from "./mission-grants";
+import { projectIdForCoordinatorTask, registerProjectGrant } from "./project-grants";
 import { createProviderApprovalRouter } from "./provider-approval-router";
 import {
   WORKER_BRIEFING_SOURCE_ID,
@@ -97,6 +99,15 @@ const ACTIVE_STREAM_RETAINED_BYTES_MAX = 512 * 1024;
 const BATCH_TURN_RETAINED_BYTES_MAX = 2 * 1024 * 1024;
 const DEFAULT_PROVIDER_TASK_KEY = "default";
 const codexAdvisorChannelKeyByTask = new Map<string, string>();
+/**
+ * A resumed Codex thread keeps the Local MCP connection and tool catalog it
+ * started with, so a changed grant key starts a fresh thread. The mission key
+ * is therefore stable per task, like the Advisor's, and later turns keep
+ * sending it with no active grant behind it.
+ */
+const codexMissionChannelKeyByTask = new Map<string, string>();
+/** Same reason as the mission key: a coordinator's Codex thread keeps one project key. */
+const codexProjectChannelKeyByTask = new Map<string, string>();
 
 function getProviderTaskKey(taskId?: string) {
   return taskId?.trim() || DEFAULT_PROVIDER_TASK_KEY;
@@ -112,6 +123,24 @@ function getOrCreateCodexAdvisorChannelKey(taskId?: string) {
   const consultKey = randomUUID();
   codexAdvisorChannelKeyByTask.set(taskKey, consultKey);
   return consultKey;
+}
+
+function getOrCreateCodexProjectChannelKey(taskId: string) {
+  const taskKey = getProviderTaskKey(taskId);
+  const existing = codexProjectChannelKeyByTask.get(taskKey);
+  if (existing) return existing;
+  const projectKey = randomUUID();
+  codexProjectChannelKeyByTask.set(taskKey, projectKey);
+  return projectKey;
+}
+
+function getOrCreateCodexMissionChannelKey(taskId: string) {
+  const taskKey = getProviderTaskKey(taskId);
+  const existing = codexMissionChannelKeyByTask.get(taskKey);
+  if (existing) return existing;
+  const missionKey = randomUUID();
+  codexMissionChannelKeyByTask.set(taskKey, missionKey);
+  return missionKey;
 }
 
 type TurnTimeoutController = {
@@ -457,6 +486,8 @@ function appendStreamEvent(session: ActiveStreamSession, event: BridgeEvent) {
 
 function cleanupProviderTaskState(taskId: string) {
   codexAdvisorChannelKeyByTask.delete(getProviderTaskKey(taskId));
+  codexMissionChannelKeyByTask.delete(getProviderTaskKey(taskId));
+  codexProjectChannelKeyByTask.delete(getProviderTaskKey(taskId));
   cleanupAdvisorSessionsForTask(taskId);
   cleanupAcpWorkerSessionsForTask(taskId);
   cleanupClaudeTask(taskId);
@@ -817,14 +848,14 @@ async function runProviderTurnImpl(
   }
   const turnId = args.turnId ?? randomUUID();
   let abortRequested = false;
-  let revokeCollaborationGrants = () => {};
+  let revokeTurnGrants = () => {};
   let activePhaseAborter: (() => void) | null = null;
   const abortTurn = () => {
     if (abortRequested) {
       return;
     }
     abortRequested = true;
-    revokeCollaborationGrants();
+    revokeTurnGrants();
     activePhaseAborter?.();
   };
   const registerPhaseAborter = (aborter: () => void) => {
@@ -908,21 +939,34 @@ async function runProviderTurnImpl(
       downstream?.(event);
     };
 
-  const retainedCodexAdvisorChannelKey =
+  const retainsCodexChannels = Boolean(
     args.taskId?.trim() &&
-    args.executionPolicy !== "secondary-read-only" &&
-    args.providerId === "codex"
-      ? codexAdvisorChannelKeyByTask.get(getProviderTaskKey(args.taskId))
-      : undefined;
+      args.executionPolicy !== "secondary-read-only" &&
+      args.providerId === "codex",
+  );
+  const retainedCodexAdvisorChannelKey = retainsCodexChannels
+    ? codexAdvisorChannelKeyByTask.get(getProviderTaskKey(args.taskId))
+    : undefined;
+  const retainedCodexMissionChannelKey = retainsCodexChannels
+    ? codexMissionChannelKeyByTask.get(getProviderTaskKey(args.taskId))
+    : undefined;
+  const retainedCodexProjectChannelKey = retainsCodexChannels
+    ? codexProjectChannelKeyByTask.get(getProviderTaskKey(args.taskId))
+    : undefined;
   let effectiveArgs: typeof args = {
     ...args,
     runtimeOptions: withoutAdvisorTarget(args.runtimeOptions),
-    staveCollaborationGrants: retainedCodexAdvisorChannelKey
-      ? {
-          consultKey: retainedCodexAdvisorChannelKey,
-          advisorArmed: false,
-        }
-      : {},
+    staveTurnGrants: {
+      ...(retainedCodexAdvisorChannelKey
+        ? { consultKey: retainedCodexAdvisorChannelKey, advisorArmed: false }
+        : {}),
+      ...(retainedCodexMissionChannelKey
+        ? { missionKey: retainedCodexMissionChannelKey }
+        : {}),
+      ...(retainedCodexProjectChannelKey
+        ? { projectKey: retainedCodexProjectChannelKey }
+        : {}),
+    },
     ...(args.conversation
       ? {
           conversation: {
@@ -1036,7 +1080,11 @@ async function runProviderTurnImpl(
     effectiveArgs = {
       ...effectiveArgs,
       conversation: injection.conversation,
-      staveCollaborationGrants: { consultKey, advisorArmed: true },
+      staveTurnGrants: {
+        ...effectiveArgs.staveTurnGrants,
+        consultKey,
+        advisorArmed: true,
+      },
     };
   }
 
@@ -1136,8 +1184,8 @@ async function runProviderTurnImpl(
     });
   }
   if (acpWorkerGrant) {
-    effectiveArgs.staveCollaborationGrants = {
-      ...effectiveArgs.staveCollaborationGrants,
+    effectiveArgs.staveTurnGrants = {
+      ...effectiveArgs.staveTurnGrants,
       workerKey: acpWorkerGrant.workerKey,
     };
     acpWorkerGrantHandle = registerAcpWorkerGrant({
@@ -1165,11 +1213,66 @@ async function runProviderTurnImpl(
       registerApprovalResponder: approvalRouter.registerNested,
     });
   }
-  revokeCollaborationGrants = () => {
+  // A mission turn reports its stage through Local MCP. The grant names the
+  // stage attempt, so the host resolves identity from the key and the model
+  // never passes it. Missions run on Claude and Codex tasks only.
+  let missionGrantHandle: ReturnType<typeof registerMissionGrant> | null = null;
+  const missionTaskId = args.taskId?.trim();
+  if (
+    args.missionStage &&
+    missionTaskId &&
+    args.executionPolicy !== "secondary-read-only" &&
+    (args.providerId === "claude-code" || args.providerId === "codex")
+  ) {
+    const missionKey =
+      args.providerId === "codex"
+        ? getOrCreateCodexMissionChannelKey(missionTaskId)
+        : randomUUID();
+    missionGrantHandle = registerMissionGrant({
+      missionKey,
+      ...args.missionStage,
+      turnId,
+      taskId: missionTaskId,
+    });
+    effectiveArgs.staveTurnGrants = {
+      ...effectiveArgs.staveTurnGrants,
+      missionKey,
+    };
+  }
+  // Every turn on a project's coordinator task may act for the project
+  // through Local MCP; the host resolves the project from the key.
+  let projectGrantHandle: ReturnType<typeof registerProjectGrant> | null = null;
+  const coordinatedProjectId = projectIdForCoordinatorTask(missionTaskId);
+  if (
+    coordinatedProjectId &&
+    missionTaskId &&
+    args.executionPolicy !== "secondary-read-only" &&
+    (args.providerId === "claude-code" || args.providerId === "codex")
+  ) {
+    const projectKey =
+      args.providerId === "codex"
+        ? getOrCreateCodexProjectChannelKey(missionTaskId)
+        : randomUUID();
+    projectGrantHandle = registerProjectGrant({
+      projectKey,
+      projectId: coordinatedProjectId,
+      taskId: missionTaskId,
+      turnId,
+    });
+    effectiveArgs.staveTurnGrants = {
+      ...effectiveArgs.staveTurnGrants,
+      projectKey,
+    };
+  }
+  revokeTurnGrants = () => {
     revokeAdvisorGrant();
     revokeAcpWorkerGrant();
+    missionGrantHandle?.revoke();
+    missionGrantHandle = null;
+    projectGrantHandle?.revoke();
+    projectGrantHandle = null;
   };
-  if (abortRequested) revokeCollaborationGrants();
+  if (abortRequested) revokeTurnGrants();
   const emitMissingReturnedEvents = (events: BridgeEvent[]) => {
     const emittedCounts = new Map<string, number>();
     for (const event of emittedPrimaryEvents) {
@@ -1251,8 +1354,7 @@ async function runProviderTurnImpl(
       });
       return finishLifecycle("runtime_failure");
     } finally {
-      revokeAdvisorGrant();
-      revokeAcpWorkerGrant();
+      revokeTurnGrants();
       timeoutController.dispose();
       clearActiveTurnState({ turnId });
     }
@@ -1321,8 +1423,7 @@ async function runProviderTurnImpl(
       });
       return finishLifecycle("runtime_failure");
     } finally {
-      revokeAdvisorGrant();
-      revokeAcpWorkerGrant();
+      revokeTurnGrants();
       timeoutController.dispose();
       clearActiveTurnState({ turnId });
     }
@@ -1385,8 +1486,7 @@ async function runProviderTurnImpl(
     });
     return finishLifecycle("runtime_failure");
   } finally {
-    revokeAdvisorGrant();
-    revokeAcpWorkerGrant();
+    revokeTurnGrants();
     timeoutController.dispose();
     clearActiveTurnState({ turnId });
   }
@@ -1679,6 +1779,8 @@ export const providerRuntime: ProviderRuntime = {
     completedStreamExpiryTimer = null;
     activeTurnPromises.clear();
     codexAdvisorChannelKeyByTask.clear();
+    codexMissionChannelKeyByTask.clear();
+    codexProjectChannelKeyByTask.clear();
     cleanupProviderTaskState(DEFAULT_PROVIDER_TASK_KEY);
     for (const taskId of taskIds) {
       cleanupProviderTaskState(taskId);

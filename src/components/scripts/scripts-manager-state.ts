@@ -58,21 +58,21 @@ export function isPlainRecord(
 }
 
 export function buildEditorScopes(args: {
-  projectPath: string;
+  repositoryPath: string;
   workspacePath: string;
 }) {
   const scopes: ScriptEditorScope[] = [
     {
       id: "project",
-      label: "Project Config",
+      label: "Repository Config",
       description:
         "Shared execution config stored in `.stave/scripts.json` for the repository.",
-      rootPath: args.projectPath,
+      rootPath: args.repositoryPath,
       filePath: `${STAVE_CONFIG_DIR}/${SCRIPTS_CONFIG_FILENAME}`,
     },
   ];
 
-  if (args.workspacePath && args.workspacePath !== args.projectPath) {
+  if (args.workspacePath && args.workspacePath !== args.repositoryPath) {
     scopes.unshift({
       id: "workspace",
       label: "Workspace Config",
@@ -106,7 +106,7 @@ export function targetLabel(
 export function buildEditorTargetOptions(state: ScriptEditorState) {
   const next = new Map<string, string>([
     [DEFAULT_SCRIPT_TARGET_IDS.WORKSPACE, "Workspace"],
-    [DEFAULT_SCRIPT_TARGET_IDS.PROJECT, "Project"],
+    [DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY, "Repository"],
   ]);
 
   for (const target of state.targets) {

@@ -190,6 +190,15 @@ export const attentionStyles = stylex.create({
     height: vars["--ads-control-icon-size-sm"],
     width: vars["--ads-control-icon-size-sm"],
   },
+  /** A failed row action: its own line, after every button. */
+  rowError: {
+    color: vars["--ads-color-danger-text"],
+    flexBasis: "100%",
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    order: 1,
+    overflowWrap: "anywhere",
+  },
   rowControls: {
     backgroundColor: vars["--ads-color-canvas"],
     borderTopColor: vars["--ads-color-border"],

@@ -15,7 +15,7 @@ const claimArgs: SecondaryRunClaimArgs = {
     kind: "secondary-provider",
     origin: { kind: "manual", id: "origin-1" },
     ownership: {
-      projectPath: "/tmp/project",
+      repositoryPath: "/tmp/project",
       workspaceId: "workspace-1",
       taskId: "task-1",
     },

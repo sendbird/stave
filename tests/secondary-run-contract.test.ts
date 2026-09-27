@@ -30,7 +30,7 @@ describe("secondary run transport contract", () => {
           kind: "secondary-provider",
           origin: { kind: "compare-run", id: "compare-1" },
           ownership: {
-            projectPath: "/tmp/stave",
+            repositoryPath: "/tmp/stave",
             workspaceId: "workspace-1",
             taskId: "task-1",
           },

@@ -1,7 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { deriveScriptEntryOrigins } from "../src/lib/workspace-scripts/origins";
 
-const projectConfig = JSON.stringify({
+const repositoryConfig = JSON.stringify({
   version: 2,
   actions: { lint: { commands: ["eslint"] } },
   services: { dev: { commands: ["bun run dev"] } },
@@ -13,8 +13,8 @@ describe("deriveScriptEntryOrigins", () => {
     const origins = deriveScriptEntryOrigins({
       workspaceBase: null,
       workspaceLocal: null,
-      projectBase: null,
-      projectLocal: null,
+      repositoryBase: null,
+      repositoryLocal: null,
     });
     expect(origins).toEqual({
       activeTier: null,
@@ -27,8 +27,8 @@ describe("deriveScriptEntryOrigins", () => {
     const origins = deriveScriptEntryOrigins({
       workspaceBase: null,
       workspaceLocal: null,
-      projectBase: projectConfig,
-      projectLocal: null,
+      repositoryBase: repositoryConfig,
+      repositoryLocal: null,
     });
 
     expect(origins.activeTier).toBe("project");
@@ -44,8 +44,8 @@ describe("deriveScriptEntryOrigins", () => {
         actions: { build: { commands: ["bun run build"] } },
       }),
       workspaceLocal: null,
-      projectBase: projectConfig,
-      projectLocal: null,
+      repositoryBase: repositoryConfig,
+      repositoryLocal: null,
     });
 
     expect(origins.activeTier).toBe("workspace");
@@ -59,8 +59,8 @@ describe("deriveScriptEntryOrigins", () => {
     const origins = deriveScriptEntryOrigins({
       workspaceBase: null,
       workspaceLocal: null,
-      projectBase: projectConfig,
-      projectLocal: JSON.stringify({
+      repositoryBase: repositoryConfig,
+      repositoryLocal: JSON.stringify({
         version: 2,
         actions: { lint: { commands: ["eslint --fix"] } },
         services: { extra: { commands: ["echo hi"] } },
@@ -77,8 +77,8 @@ describe("deriveScriptEntryOrigins", () => {
     const origins = deriveScriptEntryOrigins({
       workspaceBase: "{ not json",
       workspaceLocal: null,
-      projectBase: JSON.stringify({ version: 1, run: ["echo legacy"] }),
-      projectLocal: null,
+      repositoryBase: JSON.stringify({ version: 1, run: ["echo legacy"] }),
+      repositoryLocal: null,
     });
     expect(origins.activeTier).toBeNull();
     expect(origins.originByKey).toEqual({});

@@ -25,10 +25,10 @@ import {
 } from "@/lib/workspace-information";
 import { formatWorkspaceInfoTaskSeedPrompt } from "@/lib/workspace-information-task-seed";
 import { extractJsonObject } from "@/lib/workspace-turn-summary";
-import { sanitizeBranchName } from "@/store/project.utils";
+import { sanitizeBranchName } from "@/store/repository.utils";
 
 const MAX_SOURCE_CONTEXT_CHARS = 12_000;
-const MAX_PROJECT_PROMPT_CHARS = 8_000;
+const MAX_REPOSITORY_PROMPT_CHARS = 8_000;
 
 export const KICKOFF_PANEL_TARGETS = [
   "jiraIssues",
@@ -374,7 +374,7 @@ export function buildKickoffResolutionPrompt(args: {
   instructionPrompt: string;
   classification: KickoffSourceClassification;
   branchNamingRule?: string | null;
-  projectBasePrompt?: string | null;
+  repositoryBasePrompt?: string | null;
 }) {
   const config = args.classification.config;
   return [
@@ -393,11 +393,11 @@ export function buildKickoffResolutionPrompt(args: {
     "Branch naming rule:",
     args.branchNamingRule?.trim() ||
       "Use a short Conventional Commits-style prefix such as feat/, fix/, refactor/, docs/, test/, or chore/ followed by a lowercase kebab-case description.",
-    args.projectBasePrompt?.trim()
+    args.repositoryBasePrompt?.trim()
       ? [
           "",
-          "Project instructions:",
-          truncate(args.projectBasePrompt, MAX_PROJECT_PROMPT_CHARS),
+          "Repository instructions:",
+          truncate(args.repositoryBasePrompt, MAX_REPOSITORY_PROMPT_CHARS),
         ].join("\n")
       : "",
   ]

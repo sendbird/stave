@@ -11,33 +11,27 @@ const Results = lazy(() =>
     default: module.TaskResultReviews,
   })),
 );
-const Collaboration = lazy(() =>
-  import("@/components/collaboration/CollaborationPanel").then((module) => ({
-    default: module.CollaborationPanel,
+const Mission = lazy(() =>
+  import("@/components/missions/MissionPanel").then((module) => ({
+    default: module.MissionPanel,
   })),
 );
 
 /** Task-owned records have their own destination, separate from live turn activity. */
-export function TaskWorkPanel({ kind }: { kind: "results" | "collaboration" }) {
+export function TaskWorkPanel({ kind }: { kind: "results" | "mission" }) {
   const workspaceId = useAppStore((state) => state.activeWorkspaceId);
   const taskId = useAppStore((state) => state.activeTaskId);
-  const projectPath = useAppStore((state) => state.projectPath);
+  const repositoryPath = useAppStore((state) => state.repositoryPath);
   const task = useAppStore((state) =>
     state.tasks.find((item) => item.id === state.activeTaskId),
   );
-  const kindLabel = kind === "collaboration" ? "delegations" : kind;
+  const kindLabel = kind === "mission" ? "mission" : kind;
   if (!workspaceId || !taskId || !task) {
     return (
       <p className={sx(styles.empty)}>Open a task to see its {kindLabel}.</p>
     );
   }
-  if (kind === "collaboration" && (!projectPath || isTaskManaged(task))) {
-    return (
-      <p className={sx(styles.empty)}>
-        Delegations are available in a local project task.
-      </p>
-    );
-  }
+  const teamAvailable = Boolean(repositoryPath) && !isTaskManaged(task);
   return (
     <div className={sx(styles.panel)}>
       <p className={sx(styles.title)} title={task.title}>
@@ -51,9 +45,12 @@ export function TaskWorkPanel({ kind }: { kind: "results" | "collaboration" }) {
             taskId={taskId}
           />
         ) : (
-          <Collaboration
+          <Mission
             key={`${workspaceId}:${taskId}`}
-            target={{ workspaceId, taskId, projectPath: projectPath! }}
+            workspaceId={workspaceId}
+            taskId={taskId}
+            team={teamAvailable ? { workspaceId, taskId, repositoryPath: repositoryPath! } : null}
+            teamUnavailableReason="Delegations are available in a local repository task."
           />
         )}
       </Suspense>

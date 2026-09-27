@@ -28,5 +28,5 @@ If you want to install and use the product, start with:
 ## UI And Site Notes
 
 - [shadcn preset](../ui/shadcn-preset.md)
-- [Project / workspace / task shell redesign](../ui/project-workspace-task-shell.md)
+- [Project / workspace / task shell redesign](../ui/repository-workspace-task-shell.md)
 - [GitHub Pages site](../ui/github-landing-page.md)

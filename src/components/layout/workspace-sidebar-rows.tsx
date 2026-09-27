@@ -19,7 +19,7 @@ import {
   type ReactNode,
 } from "react";
 import { useShallow } from "zustand/react/shallow";
-import { projectSidebarStyles } from "@/components/layout/project-workspace-sidebar.styles";
+import { repositorySidebarStyles } from "@/components/layout/repository-workspace-sidebar.styles";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
@@ -30,9 +30,9 @@ import {
   getWorkspaceHoverActionVisibilityStyle,
   getWorkspaceLeadingAttentionKind,
   getWorkspaceRespondingCountVisibilityStyle,
-  type ProjectSidebarAttentionAlert,
+  type RepositorySidebarAttentionAlert,
   type SidebarWorkQueueEntry,
-} from "@/components/layout/ProjectWorkspaceSidebar.utils";
+} from "@/components/layout/RepositoryWorkspaceSidebar.utils";
 import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { WorkspaceShortcutChip } from "@/components/layout/WorkspaceShortcutChip";
 import { WorkspaceIdentityMark } from "@/components/layout/workspace-accent";
@@ -68,7 +68,7 @@ import type { FleetAttentionKind } from "@/lib/fleet/attention-projection";
 import { formatBranchLabel } from "@/lib/source-control-branch-label";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { useAppStore } from "@/store/app.store";
-import { isDefaultWorkspaceName } from "@/store/project.utils";
+import { isDefaultWorkspaceName } from "@/store/repository.utils";
 import type { ChatMessage, Task } from "@/types/chat";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
@@ -99,7 +99,7 @@ function resolveRespondingToneClass(args: {
   if (summary.respondingTaskCount === 0) {
     return {
       respondingTaskCount: 0,
-      respondingToneClass: sx(projectSidebarStyles.toneAccent),
+      respondingToneClass: sx(repositorySidebarStyles.toneAccent),
     };
   }
 
@@ -108,8 +108,8 @@ function resolveRespondingToneClass(args: {
     // The workspace row is a container, not one provider. Theme primary keeps
     // it stable when several tasks run under different brands.
     respondingToneClass: summary.hasWarningTask
-      ? sx(projectSidebarStyles.toneWarning)
-      : sx(projectSidebarStyles.toneAccent),
+      ? sx(repositorySidebarStyles.toneWarning)
+      : sx(repositorySidebarStyles.toneAccent),
   };
 }
 
@@ -120,7 +120,7 @@ function formatWorkspaceName(name: string, branch?: string) {
       <>
         Default
         {branch ? (
-          <span className={sx(projectSidebarStyles.defaultBranchChip)}>
+          <span className={sx(repositorySidebarStyles.defaultBranchChip)}>
             {formatBranchLabel(branch)}
           </span>
         ) : null}
@@ -243,7 +243,7 @@ export function WorkspaceHoverPreviewTooltip(args: {
   workspaceId: string;
   workspaceName: string;
   branch?: string;
-  projectName?: string;
+  repositoryName?: string;
   shortcutLabel?: string | null;
   side: "top" | "right";
   /**
@@ -330,55 +330,55 @@ export function WorkspaceHoverPreviewTooltip(args: {
         side={args.side}
         sideOffset={args.sideOffset}
         align="start"
-        className={sx(projectSidebarStyles.previewContent)}
+        className={sx(repositorySidebarStyles.previewContent)}
       >
-        <div className={sx(projectSidebarStyles.previewStack)}>
-          <div className={sx(projectSidebarStyles.previewHeadStack)}>
-            <p className={sx(projectSidebarStyles.previewTitle)}>
+        <div className={sx(repositorySidebarStyles.previewStack)}>
+          <div className={sx(repositorySidebarStyles.previewHeadStack)}>
+            <p className={sx(repositorySidebarStyles.previewTitle)}>
               {formatWorkspaceName(args.workspaceName, args.branch)}
             </p>
-            {args.projectName ? (
-              <p className={sx(projectSidebarStyles.previewMeta)}>
-                {args.projectName}
+            {args.repositoryName ? (
+              <p className={sx(repositorySidebarStyles.previewMeta)}>
+                {args.repositoryName}
               </p>
             ) : null}
           </div>
-          <div className={sx(projectSidebarStyles.previewBodyStack)}>
+          <div className={sx(repositorySidebarStyles.previewBodyStack)}>
             {didShellLoadFail && !preview ? (
-              <p className={sx(projectSidebarStyles.previewMeta)}>
+              <p className={sx(repositorySidebarStyles.previewMeta)}>
                 Preview unavailable
               </p>
             ) : !preview || isShellLoading ? (
-              <p className={sx(projectSidebarStyles.previewMeta)}>
+              <p className={sx(repositorySidebarStyles.previewMeta)}>
                 Loading summary...
               </p>
             ) : preview.isEmpty ? (
-              <p className={sx(projectSidebarStyles.previewMeta)}>
+              <p className={sx(repositorySidebarStyles.previewMeta)}>
                 No tasks yet
               </p>
             ) : (
               <>
-                <div className={sx(projectSidebarStyles.previewMetaRow)}>
+                <div className={sx(repositorySidebarStyles.previewMetaRow)}>
                   <span>{metaLabel}</span>
                   {preview.runningTaskCount > 0 ? (
                     <span
-                      className={sx(projectSidebarStyles.previewRunningChip)}
+                      className={sx(repositorySidebarStyles.previewRunningChip)}
                     >
                       {`${preview.runningTaskCount} running`}
                     </span>
                   ) : null}
                 </div>
-                <div className={sx(projectSidebarStyles.previewTaskStack)}>
+                <div className={sx(repositorySidebarStyles.previewTaskStack)}>
                   {preview.taskTitles.map((title, index) => (
                     <p
                       key={`${args.workspaceId}:${index}`}
-                      className={sx(projectSidebarStyles.previewTaskTitle)}
+                      className={sx(repositorySidebarStyles.previewTaskTitle)}
                     >
                       {title}
                     </p>
                   ))}
                   {preview.moreTaskCount > 0 ? (
-                    <p className={sx(projectSidebarStyles.previewMeta)}>
+                    <p className={sx(repositorySidebarStyles.previewMeta)}>
                       +{preview.moreTaskCount} more
                     </p>
                   ) : null}
@@ -389,7 +389,7 @@ export function WorkspaceHoverPreviewTooltip(args: {
               <WorkspaceShortcutChip
                 modifier={workspaceShortcutModifierLabel}
                 label={args.shortcutLabel}
-                className={sx(projectSidebarStyles.previewShortcutChip)}
+                className={sx(repositorySidebarStyles.previewShortcutChip)}
               />
             ) : null}
           </div>
@@ -417,7 +417,7 @@ export const WorkspaceLeadingStatusIcon = memo(
       return (
         <Loader
           aria-hidden
-          className={sx(projectSidebarStyles.statusMuted)}
+          className={sx(repositorySidebarStyles.statusMuted)}
           size="xs"
           variant="spinner"
         />
@@ -427,7 +427,7 @@ export const WorkspaceLeadingStatusIcon = memo(
     if (leadingAttentionKind === "user-input") {
       return (
         <UserRound
-          className={sx(projectSidebarStyles.statusIconWarning)}
+          className={sx(repositorySidebarStyles.statusIconWarning)}
           aria-hidden="true"
         />
       );
@@ -435,7 +435,7 @@ export const WorkspaceLeadingStatusIcon = memo(
     if (leadingAttentionKind === "approval") {
       return (
         <ShieldCheck
-          className={sx(projectSidebarStyles.statusIconWarning)}
+          className={sx(repositorySidebarStyles.statusIconWarning)}
           aria-hidden="true"
         />
       );
@@ -443,7 +443,7 @@ export const WorkspaceLeadingStatusIcon = memo(
     if (leadingAttentionKind === "run-failed") {
       return (
         <AlertTriangle
-          className={sx(projectSidebarStyles.statusIconDanger)}
+          className={sx(repositorySidebarStyles.statusIconDanger)}
           aria-hidden="true"
         />
       );
@@ -451,7 +451,7 @@ export const WorkspaceLeadingStatusIcon = memo(
     if (leadingAttentionKind === "pr-behind-base") {
       return (
         <AlertTriangle
-          className={sx(projectSidebarStyles.statusIconGitModified)}
+          className={sx(repositorySidebarStyles.statusIconGitModified)}
           aria-hidden="true"
         />
       );
@@ -463,7 +463,7 @@ export const WorkspaceLeadingStatusIcon = memo(
     ) {
       return (
         <AlertTriangle
-          className={sx(projectSidebarStyles.statusIconGitClosed)}
+          className={sx(repositorySidebarStyles.statusIconGitClosed)}
           aria-hidden="true"
         />
       );
@@ -471,7 +471,7 @@ export const WorkspaceLeadingStatusIcon = memo(
     if (leadingAttentionKind === "pr-ready-to-merge") {
       return (
         <GitMerge
-          className={sx(projectSidebarStyles.statusIconGitOpen)}
+          className={sx(repositorySidebarStyles.statusIconGitOpen)}
           aria-hidden="true"
         />
       );
@@ -492,7 +492,7 @@ export const WorkspaceLeadingStatusIcon = memo(
       return (
         <PrStatusIcon
           status={prStatus}
-          className={sx(projectSidebarStyles.statusIcon)}
+          className={sx(repositorySidebarStyles.statusIcon)}
         />
       );
     }
@@ -501,8 +501,8 @@ export const WorkspaceLeadingStatusIcon = memo(
       <WorkspaceIdentityMark
         workspaceName={args.workspaceName}
         isDefault={args.isDefault}
-        className={sx(projectSidebarStyles.identityMark)}
-        iconClassName={sx(projectSidebarStyles.identityMarkIcon)}
+        className={sx(repositorySidebarStyles.identityMark)}
+        iconClassName={sx(repositorySidebarStyles.identityMarkIcon)}
       />
     );
   },
@@ -511,17 +511,17 @@ export const WorkspaceLeadingStatusIcon = memo(
 export function WorkQueueRow(args: {
   entry: SidebarWorkQueueEntry;
   attentionKind?: FleetAttentionKind;
-  onOpen: (target: { projectPath: string; workspaceId: string }) => void;
+  onOpen: (target: { repositoryPath: string; workspaceId: string }) => void;
 }) {
   const { entry } = args;
 
   return (
-    <div className={sx(projectSidebarStyles.queueRow)}>
+    <div className={sx(repositorySidebarStyles.queueRow)}>
       <WorkspaceHoverPreviewTooltip
         workspaceId={entry.workspaceId}
         workspaceName={entry.workspaceName}
         branch={entry.branch}
-        projectName={entry.projectName}
+        repositoryName={entry.repositoryName}
         side="right"
       >
         <AdsButton
@@ -529,17 +529,17 @@ export function WorkQueueRow(args: {
           type="button"
           onClick={() =>
             args.onOpen({
-              projectPath: entry.projectPath,
+              repositoryPath: entry.repositoryPath,
               workspaceId: entry.workspaceId,
             })
           }
           aria-label={`active-workspace-${entry.workspaceId}`}
           xstyle={[
-            projectSidebarStyles.queueButton,
+            repositorySidebarStyles.queueButton,
             transition.colors,
             entry.isActive
-              ? projectSidebarStyles.queueButtonActive
-              : projectSidebarStyles.queueButtonIdle,
+              ? repositorySidebarStyles.queueButtonActive
+              : repositorySidebarStyles.queueButtonIdle,
           ]}
         >
           <WorkspaceLeadingStatusIcon
@@ -549,31 +549,31 @@ export function WorkQueueRow(args: {
             busy={false}
             attentionKind={args.attentionKind}
           />
-          <span className={sx(projectSidebarStyles.queueLabel)}>
+          <span className={sx(repositorySidebarStyles.queueLabel)}>
             {formatWorkQueueWorkspaceLabel({
               name: entry.workspaceName,
               branch: entry.branch,
               isDefault: entry.isDefault,
             })}
           </span>
-          <span className={sx(projectSidebarStyles.queueProject)}>
-            {entry.projectName}
+          <span className={sx(repositorySidebarStyles.queueRepository)}>
+            {entry.repositoryName}
           </span>
           <WorkspaceAccountLimitIcon workspaceId={entry.workspaceId} />
         </AdsButton>
       </WorkspaceHoverPreviewTooltip>
       <WorkspaceProgressTaskTree
         workspaceId={entry.workspaceId}
-        projectPath={entry.projectPath}
+        repositoryPath={entry.repositoryPath}
       />
     </div>
   );
 }
 
-export const ProjectAttentionAlertIcon = memo(
+export const RepositoryAttentionAlertIcon = memo(
   function ProjectAttentionAlertIcon(args: {
-    alert: ProjectSidebarAttentionAlert;
-    projectName: string;
+    alert: RepositorySidebarAttentionAlert;
+    repositoryName: string;
   }) {
     const { alert } = args;
     // Review-tier needs are finished work awaiting confirmation, not a stalled
@@ -581,22 +581,22 @@ export const ProjectAttentionAlertIcon = memo(
     const icon =
       alert.tier === "review" ? (
         <span
-          className={sx(projectSidebarStyles.attentionDot)}
+          className={sx(repositorySidebarStyles.attentionDot)}
           aria-hidden="true"
         />
       ) : alert.kind === "user-input" ? (
         <UserRound
-          className={sx(projectSidebarStyles.attentionIconWarning)}
+          className={sx(repositorySidebarStyles.attentionIconWarning)}
           aria-hidden="true"
         />
       ) : alert.kind === "approval" ? (
         <ShieldCheck
-          className={sx(projectSidebarStyles.attentionIconWarning)}
+          className={sx(repositorySidebarStyles.attentionIconWarning)}
           aria-hidden="true"
         />
       ) : (
         <AlertTriangle
-          className={sx(projectSidebarStyles.attentionIconDanger)}
+          className={sx(repositorySidebarStyles.attentionIconDanger)}
           aria-hidden="true"
         />
       );
@@ -606,15 +606,15 @@ export const ProjectAttentionAlertIcon = memo(
         <TooltipTrigger
           render={
             <span
-              className={sx(projectSidebarStyles.attentionSlot)}
+              className={sx(repositorySidebarStyles.attentionSlot)}
               role="status"
-              aria-label={`project-attention-${args.projectName}`}
+              aria-label={`project-attention-${args.repositoryName}`}
             />
           }
         >
           {icon}
           {alert.attentionItemCount > 1 ? (
-            <span className={sx(projectSidebarStyles.attentionCount)}>
+            <span className={sx(repositorySidebarStyles.attentionCount)}>
               {alert.attentionItemCount}
             </span>
           ) : null}
@@ -645,12 +645,12 @@ export const WorkspaceRespondingCountBadge = memo(
     }
 
     return (
-      <div className={sx(projectSidebarStyles.respondingSlot)}>
+      <div className={sx(repositorySidebarStyles.respondingSlot)}>
         <Badge
           variant="outline"
           tone="accent"
           className={sx(
-            projectSidebarStyles.respondingBadge,
+            repositorySidebarStyles.respondingBadge,
             transition.fade,
             getWorkspaceRespondingCountVisibilityStyle({
               hasHoverActions: args.hasHoverActions,
@@ -750,10 +750,10 @@ export function InlineWorkspaceLabel(args: {
         }}
         onBlur={() => void commitDraft()}
         xstyle={[
-          projectSidebarStyles.labelInput,
+          repositorySidebarStyles.labelInput,
           args.compact
-            ? projectSidebarStyles.labelInputCompact
-            : projectSidebarStyles.labelInputWide,
+            ? repositorySidebarStyles.labelInputCompact
+            : repositorySidebarStyles.labelInputWide,
         ]}
         aria-label={`edit-workspace-label-${args.workspaceId}`}
       />
@@ -763,11 +763,11 @@ export function InlineWorkspaceLabel(args: {
   return (
     <span
       className={sx(
-        projectSidebarStyles.label,
-        args.compact && projectSidebarStyles.labelCompact,
-        !args.compact && projectSidebarStyles.labelRoomy,
-        args.isActive && projectSidebarStyles.labelActive,
-        canEdit && projectSidebarStyles.labelEditable,
+        repositorySidebarStyles.label,
+        args.compact && repositorySidebarStyles.labelCompact,
+        !args.compact && repositorySidebarStyles.labelRoomy,
+        args.isActive && repositorySidebarStyles.labelActive,
+        canEdit && repositorySidebarStyles.labelEditable,
         canEdit && focusRing.ring,
       )}
       title={canEdit ? "Edit workspace label" : String(displayName)}
@@ -812,18 +812,18 @@ export const WorkspaceExpandedMeta = memo(function WorkspaceExpandedMeta(args: {
   const hasMetaActions = Boolean(args.shortcutLabel) || respondingTaskCount > 0;
 
   return (
-    <span className={sx(projectSidebarStyles.metaGrid)}>
-      <span className={sx(projectSidebarStyles.metaIconSlot)}>
-        <GitBranch className={sx(projectSidebarStyles.metaIcon)} />
+    <span className={sx(repositorySidebarStyles.metaGrid)}>
+      <span className={sx(repositorySidebarStyles.metaIconSlot)}>
+        <GitBranch className={sx(repositorySidebarStyles.metaIcon)} />
       </span>
-      <span className={sx(projectSidebarStyles.metaBody)}>
-        <span className={sx(projectSidebarStyles.metaBranch)}>
+      <span className={sx(repositorySidebarStyles.metaBody)}>
+        <span className={sx(repositorySidebarStyles.metaBranch)}>
           {branchLabel}
         </span>
         {hasMetaActions ? (
           <span
             className={sx(
-              projectSidebarStyles.metaActions,
+              repositorySidebarStyles.metaActions,
               transition.fade,
               getWorkspaceRespondingCountVisibilityStyle({
                 hasHoverActions: args.hasHoverActions,
@@ -835,14 +835,14 @@ export const WorkspaceExpandedMeta = memo(function WorkspaceExpandedMeta(args: {
               <WorkspaceShortcutChip
                 modifier={workspaceShortcutModifierLabel}
                 label={args.shortcutLabel}
-                className={sx(projectSidebarStyles.metaShortcutChip)}
+                className={sx(repositorySidebarStyles.metaShortcutChip)}
               />
             ) : null}
             {respondingTaskCount > 0 ? (
               <Badge
                 variant="outline"
                 tone="accent"
-                className={sx(projectSidebarStyles.respondingBadgeInline)}
+                className={sx(repositorySidebarStyles.respondingBadgeInline)}
               >
                 {respondingTaskCount}
               </Badge>
@@ -921,8 +921,8 @@ export function SortableSidebarItem(args: SortableSidebarItemProps) {
     <div
       ref={setRowElement}
       className={sx(
-        projectSidebarStyles.sortableRow,
-        isDragging && projectSidebarStyles.sortableRowDragging,
+        repositorySidebarStyles.sortableRow,
+        isDragging && repositorySidebarStyles.sortableRowDragging,
       )}
     >
       {args.children({
@@ -941,13 +941,13 @@ export function WorkspaceRowActions(args: {
   workspaceName: string;
   isDefault: boolean;
   branch?: string;
-  projectPath: string;
+  repositoryPath: string;
   workspacePath: string;
   canArchiveWorkspace: boolean;
   closingWorkspaceId: string | null;
   onArchive: () => void;
   onRename: (args: {
-    projectPath: string;
+    repositoryPath: string;
     workspaceId: string;
     name: string;
   }) => Promise<{ ok: boolean; message?: string }>;
@@ -964,13 +964,13 @@ export function WorkspaceRowActions(args: {
     <>
       <div
         className={sx(
-          projectSidebarStyles.rowActions,
+          repositorySidebarStyles.rowActions,
           transition.fade,
           args.placement === "top"
-            ? projectSidebarStyles.rowActionsTop
-            : projectSidebarStyles.rowActionsInline,
+            ? repositorySidebarStyles.rowActionsTop
+            : repositorySidebarStyles.rowActionsInline,
           forceVisible
-            ? projectSidebarStyles.rowActionsPinned
+            ? repositorySidebarStyles.rowActionsPinned
             : getWorkspaceHoverActionVisibilityStyle({ isClosing }),
         )}
       >
@@ -978,7 +978,7 @@ export function WorkspaceRowActions(args: {
           <WorkspaceShortcutChip
             modifier={args.shortcutModifier}
             label={args.shortcutLabel}
-            className={sx(projectSidebarStyles.rowActionsShortcut)}
+            className={sx(repositorySidebarStyles.rowActionsShortcut)}
           />
         ) : null}
         <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
@@ -988,7 +988,7 @@ export function WorkspaceRowActions(args: {
                 type="button"
                 variant="ghost"
                 size="sm"
-                xstyle={projectSidebarStyles.rowActionsTrigger}
+                xstyle={repositorySidebarStyles.rowActionsTrigger}
                 disabled={isClosing}
                 aria-label={`workspace-actions-${args.workspaceId}`}
               />
@@ -998,7 +998,7 @@ export function WorkspaceRowActions(args: {
               <Loader aria-hidden size="xs" variant="spinner" />
             ) : (
               <MoreVertical
-                className={sx(projectSidebarStyles.rowActionsIcon)}
+                className={sx(repositorySidebarStyles.rowActionsIcon)}
               />
             )}
           </DropdownMenuTrigger>
@@ -1007,7 +1007,7 @@ export function WorkspaceRowActions(args: {
               onSelect={() =>
                 dispatchOpenTaskHistory({
                   workspaceId: args.workspaceId,
-                  projectPath: args.projectPath,
+                  repositoryPath: args.repositoryPath,
                 })
               }
             >
@@ -1038,11 +1038,11 @@ export function WorkspaceRowActions(args: {
         workspaceName={args.workspaceName}
         isDefault={args.isDefault}
         branch={args.branch}
-        projectPath={args.projectPath}
+        repositoryPath={args.repositoryPath}
         workspacePath={args.workspacePath}
         onRename={({ workspaceId, name }) =>
           args.onRename({
-            projectPath: args.projectPath,
+            repositoryPath: args.repositoryPath,
             workspaceId,
             name,
           })

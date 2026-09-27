@@ -5,7 +5,7 @@ import { type PersistedTurnSummary } from "@/lib/db/turns.db";
 import { workspaceFsAdapter } from "@/lib/fs";
 import { loadTaskMessagesPage } from "@/lib/db/workspaces.db";
 import type { NormalizedProviderEvent } from "@/lib/providers/provider.types";
-import { rememberTurnDurableFacts } from "@/store/project-memory-runtime";
+import { rememberTurnDurableFacts } from "@/store/repository-memory-runtime";
 import {
   type ScriptTrigger,
   buildTurnVerificationResult,
@@ -35,7 +35,7 @@ import {
   logWorkspaceSwitchMetric,
 } from "@/store/app-store-workspace-management-actions";
 import { createWorkspaceCreateActions } from "@/store/app-store-workspace-create-actions";
-import { createProjectActions } from "@/store/app-store-project-actions";
+import { createRepositoryActions } from "@/store/app-store-repository-actions";
 import {
   createWorkspaceHydrationActions,
   loadWorkspaceSessionFromPersistence,
@@ -92,7 +92,7 @@ import {
 import {
   registerTaskWorkspaceOwnership,
   resolveWorkspaceName,
-} from "@/store/project.utils";
+} from "@/store/repository.utils";
 import {
   createDefaultProviderAvailability,
   defaultSettings,
@@ -122,7 +122,7 @@ export type {
   CustomThemeDefinition,
   ThemeValidationResult,
 } from "@/lib/themes";
-export type { RecentProjectState } from "@/store/project.utils";
+export type { RecentRepositoryState as RecentProjectState } from "@/store/repository.utils";
 // This module stays the public entry point for the app store, so settings and
 // archive-cleanup names that moved into sibling modules are re-exported here.
 export type { AppSettings } from "@/store/app-settings";
@@ -330,10 +330,10 @@ export const useAppStore = create<AppState>()(
   persist((set, get) => {
     const resolveScriptHookWorkspaceContext = (workspaceId: string) => {
       const state = get();
-      const projectPath = state.projectPath;
+      const repositoryPath = state.repositoryPath;
       const workspacePath = state.workspacePathById[workspaceId];
       const branch = state.workspaceBranchById[workspaceId];
-      if (!projectPath || !workspacePath || !branch) {
+      if (!repositoryPath || !workspacePath || !branch) {
         return null;
       }
       const workspaceName =
@@ -341,7 +341,7 @@ export const useAppStore = create<AppState>()(
           ?.name ?? branch;
       return {
         workspaceId,
-        projectPath,
+        repositoryPath,
         workspacePath,
         workspaceName,
         branch,
@@ -1134,7 +1134,7 @@ export const useAppStore = create<AppState>()(
       runScriptHookInBackground,
       kickoffResolver,
     });
-    const projectActions = createProjectActions({
+    const repositoryActions = createRepositoryActions({
       set,
       get,
       loadWorkspaceShellStateFromPersistence,
@@ -1155,8 +1155,8 @@ export const useAppStore = create<AppState>()(
       promptDraftPersistenceVersion: 0,
       workspaces: [],
       activeWorkspaceId: "",
-      projectPath: null,
-      recentProjects: [],
+      repositoryPath: null,
+      recentRepositories: [],
       defaultBranch: "main",
       workspaceBranchById: {},
       workspacePathById: {},
@@ -1212,8 +1212,8 @@ export const useAppStore = create<AppState>()(
       scrollToLatestMessageRequest: null,
       pendingCloseEditorTabId: null,
       pendingEditorSelection: null,
-      projectName: null,
-      projectFiles: workspaceFsAdapter.getKnownFiles(),
+      repositoryName: null,
+      repositoryFiles: workspaceFsAdapter.getKnownFiles(),
       workspaceFileCacheByPath: {},
       taskCheckpointById: {},
       providerAvailability: createDefaultProviderAvailability(),
@@ -1364,7 +1364,7 @@ export const useAppStore = create<AppState>()(
           });
         }
       },
-      ...projectActions,
+      ...repositoryActions,
       ...workspaceCreateActions,
       ...workspaceManagementActions,
       ...settingsActions,

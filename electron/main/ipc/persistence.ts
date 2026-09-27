@@ -30,7 +30,7 @@ import {
   PruneNotificationsArgsSchema,
   PersistenceFlushCompleteArgsSchema,
   PersistenceUpsertArgsSchema,
-  SaveProjectRegistryArgsSchema,
+  SaveRepositoryRegistryArgsSchema,
   TruncateTaskMessagesAfterArgsSchema,
   WorkspaceIdArgsSchema,
 } from "./schemas";
@@ -251,10 +251,10 @@ export function registerPersistenceHandlers() {
     },
   );
 
-  ipcMain.handle("persistence:load-project-registry", async () => {
+  ipcMain.handle("persistence:load-repository-registry", async () => {
     const store = await ensurePersistenceReady();
-    const projects = store.loadProjectRegistry();
-    return { ok: true, projects, activeProjectPath: store.loadActiveProjectPath() };
+    const repositories = store.loadRepositoryRegistry();
+    return { ok: true, repositories, activeRepositoryPath: store.loadActiveRepositoryPath() };
   });
 
   ipcMain.handle(
@@ -275,16 +275,16 @@ export function registerPersistenceHandlers() {
   );
 
   ipcMain.handle(
-    "persistence:save-project-registry",
+    "persistence:save-repository-registry",
     async (_event, args: unknown) => {
-      const parsedArgs = SaveProjectRegistryArgsSchema.safeParse(args);
+      const parsedArgs = SaveRepositoryRegistryArgsSchema.safeParse(args);
       if (!parsedArgs.success) {
         return { ok: false };
       }
       const store = await ensurePersistenceReady();
-      store.saveProjectRegistry({
-        projects: parsedArgs.data.projects as never[],
-        activeProjectPath: parsedArgs.data.activeProjectPath,
+      store.saveRepositoryRegistry({
+        repositories: parsedArgs.data.repositories as never[],
+        activeRepositoryPath: parsedArgs.data.activeRepositoryPath,
       });
       return { ok: true };
     },
@@ -343,8 +343,8 @@ export function registerPersistenceHandlers() {
           turnId: parsedArgs.data.notification.turnId ?? null,
           workspaceId: parsedArgs.data.notification.workspaceId ?? null,
           workspaceName: parsedArgs.data.notification.workspaceName ?? null,
-          projectPath: parsedArgs.data.notification.projectPath ?? null,
-          projectName: parsedArgs.data.notification.projectName ?? null,
+          repositoryPath: parsedArgs.data.notification.repositoryPath ?? null,
+          repositoryName: parsedArgs.data.notification.repositoryName ?? null,
           providerId: parsedArgs.data.notification.providerId ?? null,
           payload: parsedArgs.data.notification.payload ?? {},
         },

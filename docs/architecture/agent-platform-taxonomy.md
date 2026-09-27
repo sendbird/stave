@@ -1,7 +1,7 @@
 # Agent Platform Taxonomy And Boundaries
 
 Stave grew several ways to make an agent do more work — Advisor, Worker, Fleet,
-Routines, the run ledger — and each was added for its own reason. This file
+Automations, the run ledger — and each was added for its own reason. This file
 fixes what each one is, what it is not, and which vocabulary the product uses,
 so the next capability lands in the right layer instead of beside a similar one.
 
@@ -21,6 +21,19 @@ Use these words in code, UI copy, and plans. Do not introduce synonyms.
 | Ledger | The durable runs/steps/receipts record in `src/lib/runs/`. It records; it never executes. |
 | Receipt | One bounded record of how something started or ended. Never transcript text, never secrets. |
 | Occurrence | One firing of a schedule. |
+| Automation | A saved prompt and schedule that mints a new task per occurrence. Code, IPC channels and Local MCP tools say `automation`; the older word "routine" is retired. |
+| Wake-up | A supervised turn added to an existing task on a schedule or when its delegated work finishes. Code, tables and Local MCP tools say `wakeUp` / `wake_up`; the older word "heartbeat" is retired for this feature. Provider and Crane "heartbeats" are unrelated. |
+| Delegated task | A durable Stave task created on another task's behalf, possibly on the other provider or in its own worktree, recorded on the run ledger. The relation stays parent/child (`parentTaskId`); the older words "child task" are retired. Run ids keep the persisted `child-task:<parent>:<key>` format. |
+| Issue | A ticket from a connected tracker (Jira, Crane), listed on the Issues surface and started as a Stave task from there. Code: `TrackerIssue`. "Task" is reserved for Stave conversations; Crane's own API keeps calling its items tasks. |
+| Repository | A registered folder that holds workspaces. Code: `repositoryPath`. The older word "project" is retired for it. |
+| Playbook | A saved way of working: ordered stages, each with an instruction and a "Done when" condition. It grants no permissions. Code: `src/lib/playbooks/`. |
+| Stage | One step of a playbook: an AI stage (a turn with an instruction) or a Stave action (open a draft PR, watch checks, mark ready), which Stave performs itself. |
+| Check-ins | How often a mission stops for the user's sign-off: every stage, plan and publishing (the default), or only when stuck. |
+| Sign-off | The user's approval before a stage starts. "Ask for changes" reruns the previous AI stage with feedback. |
+| Mission | One run of a playbook on one lead task the user already owns. Code: `src/lib/missions/`. |
+| Stage report | What the agent reports for a stage through `stave_report_stage` or `stave_block_stage`. Its evidence is "Verified by Stave" only when Stave saw the cited call succeed; otherwise "Agent reported". |
+| Mission report | The summary a mission leaves when it ends: stages, decisions, evidence, links, and, for a partial run, what it left behind. |
+| Project | Reserved for the goal-level coordinator that starts parallel missions. Not a registered folder. |
 
 Lane names for workspace state are fixed and ordered:
 `action-required` > `in-progress` > `in-review` > `idle`.
@@ -61,7 +74,7 @@ turn. Per-agent message, interrupt, and stop over a *provider-owned* agent are
 gated on `ProviderRuntimeCapabilities.workGraph`; no runtime declares them
 today, which is why they are declared capabilities rather than assumptions. A
 *ledger-owned* child is not gated on them at all: it is a Stave task with its
-own workspace and run, steered through the child-task coordinator against the
+own workspace and run, steered through the delegated-task coordinator against the
 frozen identity, so what the provider can do to its own in-process subagents
 says nothing about it.
 
@@ -69,7 +82,7 @@ Both kinds of node live in one graph, and the delegating call is what joins
 them: `stave_delegate_task` carries the delegation key in its own input, so the
 child hangs off the agent that delegated it rather than floating at the turn
 root. The graph is scoped to a turn, so the parent's full delegation history
-stays with the child task list; only the children this turn delegated join its
+stays with the delegated task list; only the children this turn delegated join its
 fan-out.
 
 Two provider fields answer "which agent" and mean opposite things, so they are
@@ -103,13 +116,13 @@ Fleet-scoped, read plus control, no new execution semantics.
 | Concept | Role |
 | --- | --- |
 | Fleet | The cross-workspace surface: attention inbox, workspace cards, task control |
-| Task control plane | Identity (`projectPath + workspaceId + taskId + turnId`) and staleness validation for remote actions |
+| Task control plane | Identity (`repositoryPath + workspaceId + taskId + turnId`) and staleness validation for remote actions |
 | Task execution summary | Provenance-tagged scorecard; missing data is never rendered as zero |
-| Sidebar work queue | The same lane model as one of the sidebar's two views (`Projects` / `Work queue`) |
+| Sidebar work queue | The same lane model as one of the sidebar's two views (`Repositories` / `Work queue`) |
 | Run ledger (run core) | Durable bookkeeping for delegated execution: runs, steps, receipts, idempotency, claims |
 
 The run ledger is shared machinery, not a feature. Compare Judge is its first
-client; durable child tasks are its second. Widen it for a new client instead of
+client; durable delegated tasks are its second. Widen it for a new client instead of
 building a second ledger beside it.
 
 ### Layer 3 — Continuity: keep going without me
@@ -119,25 +132,26 @@ reason. Two axes:
 
 | | Ephemeral | Durable |
 | --- | --- | --- |
-| Time — run again | — | Routine (new task per occurrence) / Heartbeat (same task, same session) |
-| Delegation — hand work off | Worker (Layer 1) | Child tasks (cross-provider, normal tasks + ledger receipts) |
+| Time — run again | — | Automation (new task per occurrence) / Wake-up (same task, same session) |
+| Delegation — hand work off | Worker (Layer 1) | Delegated tasks (cross-provider, normal tasks + ledger receipts) |
+| Procedure — follow a playbook | — | Mission (same task, ordered stages, sign-offs) |
 
-Routine is the only concept that lives outside a task: it mints tasks.
+Automation is the only concept that lives outside a task: it mints tasks.
 Everything else in this layer attaches to one existing task.
 
-A child task is a real Stave task created on a parent's behalf, recorded on the
-run ledger as a `child-task` run with a `task` origin (the parent's id) and one
-`child-task-turn` step per delegated turn. The ledger holds the bookkeeping —
+A delegated task is a real Stave task created on a parent's behalf, recorded on the
+run ledger as a `delegated-task` run with a `task` origin (the parent's id) and one
+`delegated-task-turn` step per delegated turn. The ledger holds the bookkeeping —
 identity, phase, receipts, idempotency — while the normal task machinery creates
 the task and runs its turns. The parent's context receives identity, phase and
 reason; never the child's transcript. See
-`docs/features/child-tasks.md`.
+`docs/features/delegated-tasks.md`.
 
-Child identity is the delegation link, and it is frozen: a child task carries
+Child identity is the delegation link, and it is frozen: a delegated task carries
 `parentTaskId`, and a delegation is named by `parentTaskId + delegationKey`. That
 link is the single source of truth for both directions — the parent's child rows
 and the child's backlink — and for keeping a child out of workspace-level
-listings (`isDelegatedChildTask` in `src/lib/tasks.ts`). Anything built on top of
+listings (`isDelegatedTask` in `src/lib/tasks.ts`). Anything built on top of
 delegation keys off that link rather than re-deriving parentage its own way.
 
 Because identity is frozen, it is also enforceable: every control the parent
@@ -145,16 +159,16 @@ offers on a child carries the identity its row was rendered against, and the
 coordinator refuses the action with `stale-identity` when the delegation has
 moved on. A control is never applied to whatever replaced the child it meant.
 
-A heartbeat is a task supervisor entry: `src/lib/automation/task-supervisor.ts`
-holds the policy, `electron/host-service/task-supervisor-runtime.ts` executes
-it, and `task_heartbeats` / `task_heartbeat_occurrences` store it. Those are
-deliberately not ledger tables, and the contrast with child tasks above is the
-reason: the ledger records delegated execution, while a heartbeat records
+A wake-up is a supervisor entry: `src/lib/supervision/wake-up-policy.ts`
+holds the policy, `electron/host-service/wake-up-runtime.ts` executes
+it, and `wake_ups` / `wake_up_occurrences` store it. Those are
+deliberately not ledger tables, and the contrast with delegated tasks above is the
+reason: the ledger records delegated execution, while a wake-up records
 wake-ups on a task the user already owns — no claim, no lease, no receipts.
-See `docs/features/task-heartbeats.md`.
+See `docs/features/wake-ups.md`.
 
-A heartbeat wakes on one of two triggers. A schedule walks a cadence; a
-completion waits for a child-task run of the same parent to reach a terminal
+A wake-up fires on one of two triggers. A schedule walks a cadence; a
+completion waits for a delegated-task run of the same parent to reach a terminal
 status. The completion trigger is where the two rows above meet without
 merging: the supervisor *reads* the ledger's terminal rows and writes only its
 own occurrence rows, so the direction of that dependency — supervisor reads
@@ -162,15 +176,34 @@ ledger, never the reverse, and never through the coordinator — is what keeps
 "records wake-ups" and "records delegated execution" separate concepts rather
 than one table with two meanings.
 
+A mission is the second supervisor entry. `src/lib/missions/policy.ts` holds
+its pure decision order, `electron/persistence/mission-store.ts` stores it in
+`missions` / `mission_stages` / `mission_events`, and
+`electron/host-service/supervision/mission-runtime.ts` executes it beside the
+wake-up runtime, starting turns through the same `runSupervisedTurn` path under
+the same safety rules. Like a wake-up it adds turns to one existing task and
+records no claims, leases or receipts; it *reads* delegated-task completions and
+PR checks and writes only its own rows. It never completes a stage because a
+turn ended: only the agent's stage report, or the result of a Stave action
+Stave performed itself, completes one. The agent reports through Local MCP
+tools that exist only under the turn's mission grant, which names the stage
+attempt, so a report cannot name another stage.
+
+Wake-ups and missions share one rule, owned by
+`src/lib/supervision/automatic-turn-owner.ts`: a task has at most one source of
+automatic turns. While a mission is running or paused, the task's wake-up
+pauses with `mission-active` and resumes on its own when the mission ends, and
+a new wake-up on that task is refused.
+
 ## Boundary Statements
 
 These are the statements that keep the layers from collapsing into each other.
 Each one is registered in `config/reliability-gates.json` and asserted by a test
 whose name repeats it.
 
-1. A routine never wakes an existing task; its definition cannot target one.
-2. A heartbeat never creates a task; it only adds a turn to one that exists.
-3. A worker never survives a restart; a child task always does.
+1. An automation never wakes an existing task; its definition cannot target one.
+2. A wake-up never creates a task; it only adds a turn to one that exists.
+3. A worker never survives a restart; a delegated task always does.
 4. The ledger records and never executes; executors execute and never write
    ledger rows except through coordinator transitions.
 5. Advisor advises content; utility inference computes metadata.
@@ -178,15 +211,28 @@ whose name repeats it.
    order.
 7. A work graph node names a worker, never a call; a call-derived node is never
    offered a per-agent control.
+8. A mission advances exactly one lead task and never creates a task.
+9. A stage completes only through a recorded stage report or a Stave action
+   result; an ended turn alone never completes a stage.
+10. A saved playbook never grants permissions; every mission start records its
+    own consent.
+11. At most one supervisor entry starts automatic turns on a task at a time.
+12. A project starts work only as missions through intake; its coordinator
+    edits no files. Its start conditions (an assigned issue, pull request
+    feedback, a schedule) and the user's messages from the project only start
+    coordinator turns, through the one read-only coordinator path.
 
-Every statement is now fully asserted; none is forward-looking any more. The two
-that were written ahead of their capability landed inside the boundary rather
-than beside it, which is what recording them early was for:
+Statement 10 is asserted at the Start sheet: the consent chosen there is what
+the mission stores and what its turns run with, and the playbook's saved
+permission default only preselects the sheet. Every statement is fully
+asserted. The two statements that were earlier written ahead of their
+capability landed inside the boundary rather than beside it, which is what
+recording them early was for:
 
-- Statement 2 is asserted from both sides: a routine definition cannot name a
-  task, and a heartbeat definition must name one and cannot carry the fields
+- Statement 2 is asserted from both sides: an automation definition cannot name a
+  task, and a wake-up definition must name one and cannot carry the fields
   that would let it mint a task.
-- Statement 3 is asserted by recovery: a child task is reconciled against the
+- Statement 3 is asserted by recovery: a delegated task is reconciled against the
   live task after a restart rather than closed with the process, while a worker
   has no durable record to reconcile at all.
 

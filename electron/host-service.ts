@@ -73,8 +73,16 @@ import {
   submitGitHubPullRequestReview,
 } from "./host-service/github-pr-review-runtime";
 import * as localMcpRuntime from "./host-service/local-mcp-runtime";
-import { createRoutineRuntime } from "./host-service/routine-runtime";
-import { createTaskSupervisorRuntime } from "./host-service/task-supervisor-runtime";
+import { runSupervisedTurn } from "./host-service/supervised-turn";
+import { createAutomationRuntime } from "./host-service/automation-runtime";
+import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
+import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
+import { createHostMissionRuntime } from "./host-service/supervision/mission-host";
+import { invokeMissionRuntime } from "./host-service/supervision/mission-runtime";
+import { createProposalRuntime, invokeProposalRuntime } from "./host-service/supervision/proposal-runtime";
+import { resolveMissionGrant } from "./providers/mission-grants";
+import { createHostProjectRuntime } from "./host-service/supervision/project-host";
+import { invokeProjectAction } from "./host-service/supervision/project-runtime";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
 import { createCursorChatId } from "./host-service/cursor-chat-id";
 import { readHostServiceResourceMetrics } from "./host-service/resource-metrics";
@@ -88,8 +96,8 @@ import type {
   HostServiceEventMap,
   HostServiceEventName,
   HostLocalMcpAction,
-  HostRoutineAction,
-  HostTaskSupervisorAction,
+  HostAutomationAction,
+  HostWakeUpAction,
   HostServiceMethod,
   HostServiceResponseMap,
 } from "./host-service/protocol";
@@ -556,28 +564,60 @@ const terminalRuntime = createTerminalRuntime({
   emitEvent,
   persistence: ensureHostServicePersistenceReady(),
 });
-const routineRuntime = createRoutineRuntime({
+const automationRuntime = createAutomationRuntime({
   persistence: ensureHostServicePersistenceReady(),
   runTask: localMcpRuntime.runTask,
   getTaskStatus: localMcpRuntime.getTaskStatus,
   getWorkspaceInformation: localMcpRuntime.getWorkspaceInformation,
   emitUnattendedAutomationsChanged: (payload) => {
-    emitEvent("routine.unattended-automations-changed", payload);
+    emitEvent("automation.unattended-authorizations-changed", payload);
   },
 });
-const taskSupervisorRuntime = createTaskSupervisorRuntime({
+const missionRuntime = createHostMissionRuntime({
+  emitChanged: (event) => {
+    emitEvent("mission.changed", event);
+    // A project follows its missions: a change may wake its coordinator.
+    projectRuntime.notifyMissionChanged({ missionId: event.missionId });
+  },
+});
+const projectRuntime = createHostProjectRuntime({
+  missionRuntime,
+  emitChanged: (event) => {
+    emitEvent("project.changed", event);
+  },
+  // Playbook start conditions read the same saved playbooks.
+  onPlaybooksSynced: (playbooks) => proposalRuntime.setPlaybooks(playbooks),
+});
+const proposalRuntime = createProposalRuntime({
+  store: ensureHostServicePersistenceReady().missions,
+  startMission: (input) => missionRuntime.startMission(input),
+  createIdleTask: (task) => localMcpRuntime.createIdleTask(task),
+  resolveMissionGrant,
+  resolveWorkspaceRepository: async (workspaceId) => {
+    const repositories = await localMcpRuntime.listKnownRepositories();
+    return repositories.find((repository) => repository.workspaces.some((workspace) => workspace.id === workspaceId))?.repositoryPath ?? null;
+  },
+  emitChanged: () => emitEvent("proposal.changed", {}),
+});
+const wakeUpRuntime = createWakeUpRuntime({
   persistence: ensureHostServicePersistenceReady(),
   getTaskSupervisionSnapshot: localMcpRuntime.getTaskSupervisionSnapshot,
-  runHeartbeatTurn: localMcpRuntime.runHeartbeatTurn,
+  runSupervisedTurn,
   // Wiring this is what makes completion observable at all: without it the
-  // capability probe reports `unsupported` and a completion heartbeat is
+  // capability probe reports `unsupported` and a completion wake-up is
   // refused rather than left waiting for an event that never arrives.
   listCompletedDelegatedRuns: ({ taskId }) =>
-    localMcpRuntime.listTaskCompletionSignals({ taskId }),
+    listTaskCompletionSignals({ taskId }),
   // A consumed receipt that never became a turn has to surface somewhere, or
   // "exactly one follow-up turn or one terminal notification" quietly becomes
   // neither.
-  notifyHeartbeatWakeFailed: localMcpRuntime.notifyHeartbeatWakeFailed,
+  notifyWakeUpFailed: localMcpRuntime.notifyWakeUpFailed,
+  // A mission owns its lead task's automatic turns while it runs.
+  getActiveMissionForTask: (taskId) =>
+    missionRuntime.getActiveMissionForTask(taskId),
+  emitChanged: (event) => {
+    emitEvent("wake-up.changed", event);
+  },
 });
 setWorkspaceScriptEventListener((envelope) => {
   emitEvent("workspace-scripts.event", envelope);
@@ -588,15 +628,18 @@ localMcpRuntime.setLocalMcpEventListener((event) => {
     return;
   }
   emitEvent("local-mcp.task-turn-updated", event.payload);
+  if (event.payload.done) {
+    missionRuntime.notifyTaskTurnFinished({ taskId: event.payload.taskId });
+  }
 });
 
 async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
   switch (action) {
-    case "list-known-projects":
-      return localMcpRuntime.listKnownProjects();
-    case "register-project":
-      return localMcpRuntime.registerProject(
-        args as Parameters<typeof localMcpRuntime.registerProject>[0],
+    case "list-known-repositories":
+      return localMcpRuntime.listKnownRepositories();
+    case "register-repository":
+      return localMcpRuntime.registerRepository(
+        args as Parameters<typeof localMcpRuntime.registerRepository>[0],
       );
     case "create-workspace":
       return localMcpRuntime.createWorkspace(
@@ -638,17 +681,17 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return localMcpRuntime.appendWorkspaceNotes(
         args as Parameters<typeof localMcpRuntime.appendWorkspaceNotes>[0],
       );
-    case "remember-project-memory":
-      return localMcpRuntime.rememberProjectMemory(
-        args as Parameters<typeof localMcpRuntime.rememberProjectMemory>[0],
+    case "remember-repository-memory":
+      return localMcpRuntime.rememberRepositoryMemory(
+        args as Parameters<typeof localMcpRuntime.rememberRepositoryMemory>[0],
       );
-    case "forget-project-memory":
-      return localMcpRuntime.forgetProjectMemory(
-        args as Parameters<typeof localMcpRuntime.forgetProjectMemory>[0],
+    case "forget-repository-memory":
+      return localMcpRuntime.forgetRepositoryMemory(
+        args as Parameters<typeof localMcpRuntime.forgetRepositoryMemory>[0],
       );
-    case "list-project-memories":
-      return localMcpRuntime.listProjectMemories(
-        args as Parameters<typeof localMcpRuntime.listProjectMemories>[0],
+    case "list-repository-memories":
+      return localMcpRuntime.listRepositoryMemories(
+        args as Parameters<typeof localMcpRuntime.listRepositoryMemories>[0],
       );
     case "clear-workspace-notes":
       return localMcpRuntime.clearWorkspaceNotes(
@@ -732,80 +775,80 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
   }
 }
 
-async function invokeRoutineAction(action: HostRoutineAction, args: unknown) {
+async function invokeAutomationAction(action: HostAutomationAction, args: unknown) {
   switch (action) {
     case "list":
-      return routineRuntime.list();
+      return automationRuntime.list();
     case "create":
-      return routineRuntime.create(
-        args as Parameters<typeof routineRuntime.create>[0],
+      return automationRuntime.create(
+        args as Parameters<typeof automationRuntime.create>[0],
       );
     case "update":
-      return routineRuntime.update(
-        args as Parameters<typeof routineRuntime.update>[0],
+      return automationRuntime.update(
+        args as Parameters<typeof automationRuntime.update>[0],
       );
     case "remove":
-      return routineRuntime.remove(
-        args as Parameters<typeof routineRuntime.remove>[0],
+      return automationRuntime.remove(
+        args as Parameters<typeof automationRuntime.remove>[0],
       );
     case "set-enabled":
-      return routineRuntime.setEnabled(
-        args as Parameters<typeof routineRuntime.setEnabled>[0],
+      return automationRuntime.setEnabled(
+        args as Parameters<typeof automationRuntime.setEnabled>[0],
       );
     case "set-provider-timeout":
-      return routineRuntime.setProviderTimeoutMs(
-        args as Parameters<typeof routineRuntime.setProviderTimeoutMs>[0],
+      return automationRuntime.setProviderTimeoutMs(
+        args as Parameters<typeof automationRuntime.setProviderTimeoutMs>[0],
       );
     case "run-now":
-      return routineRuntime.runNow(
-        args as Parameters<typeof routineRuntime.runNow>[0],
+      return automationRuntime.runNow(
+        args as Parameters<typeof automationRuntime.runNow>[0],
       );
     case "list-information-references":
-      return routineRuntime.listInformationReferences(
-        args as Parameters<typeof routineRuntime.listInformationReferences>[0],
+      return automationRuntime.listInformationReferences(
+        args as Parameters<typeof automationRuntime.listInformationReferences>[0],
       );
     default:
       action satisfies never;
-      throw new Error(`Unsupported routine action: ${String(action)}`);
+      throw new Error(`Unsupported automation action: ${String(action)}`);
   }
 }
 
-async function invokeTaskSupervisorAction(
-  action: HostTaskSupervisorAction,
+async function invokeWakeUpAction(
+  action: HostWakeUpAction,
   args: unknown,
 ) {
   switch (action) {
     case "list":
-      return taskSupervisorRuntime.list(
-        args as Parameters<typeof taskSupervisorRuntime.list>[0],
+      return wakeUpRuntime.list(
+        args as Parameters<typeof wakeUpRuntime.list>[0],
       );
     case "get":
-      return taskSupervisorRuntime.get(
-        args as Parameters<typeof taskSupervisorRuntime.get>[0],
+      return wakeUpRuntime.get(
+        args as Parameters<typeof wakeUpRuntime.get>[0],
       );
     case "create":
-      return taskSupervisorRuntime.create(
-        args as Parameters<typeof taskSupervisorRuntime.create>[0],
+      return wakeUpRuntime.create(
+        args as Parameters<typeof wakeUpRuntime.create>[0],
       );
     case "update":
-      return taskSupervisorRuntime.update(
-        args as Parameters<typeof taskSupervisorRuntime.update>[0],
+      return wakeUpRuntime.update(
+        args as Parameters<typeof wakeUpRuntime.update>[0],
       );
     case "pause":
-      return taskSupervisorRuntime.pause(
-        args as Parameters<typeof taskSupervisorRuntime.pause>[0],
+      return wakeUpRuntime.pause(
+        args as Parameters<typeof wakeUpRuntime.pause>[0],
       );
     case "resume":
-      return taskSupervisorRuntime.resume(
-        args as Parameters<typeof taskSupervisorRuntime.resume>[0],
+      return wakeUpRuntime.resume(
+        args as Parameters<typeof wakeUpRuntime.resume>[0],
       );
     case "remove":
-      return taskSupervisorRuntime.remove(
-        args as Parameters<typeof taskSupervisorRuntime.remove>[0],
+      return wakeUpRuntime.remove(
+        args as Parameters<typeof wakeUpRuntime.remove>[0],
       );
     default:
       action satisfies never;
-      throw new Error(`Unsupported task supervisor action: ${String(action)}`);
+      throw new Error(`Unsupported supervisor action: ${String(action)}`);
   }
 }
 
@@ -969,6 +1012,9 @@ function startPushProviderTurn(args: StreamTurnArgs) {
               },
             );
           }
+          // A reply during a mission is guidance for the current stage; the
+          // mission picks it up now instead of at its next interval.
+          missionRuntime.notifyTaskTurnFinished({ taskId: args.taskId });
         }
       },
     },
@@ -1323,8 +1369,11 @@ async function respondError(id: number, error: unknown) {
 async function shutdown() {
   setWorkspaceScriptEventListener(null);
   localMcpRuntime.setLocalMcpEventListener(null);
-  routineRuntime.stop();
-  taskSupervisorRuntime.stop();
+  automationRuntime.stop();
+  wakeUpRuntime.stop();
+  missionRuntime.stop();
+  projectRuntime.stop();
+  proposalRuntime.stop();
   const infrastructureCleanup = Promise.allSettled([
     terminalRuntime.cleanupAll(),
     cleanupAllScriptProcesses(),
@@ -1480,8 +1529,8 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
     case "workspace.execution": {
       try {
         const args = WorkspaceExecutionArgsSchema.parse(request.params);
-        const projects = ensureHostServicePersistenceReady().loadProjectRegistry();
-        const owners = projects.filter((project) => project.workspaces.some((workspace) => workspace.id === args.workspaceId));
+        const repositories = ensureHostServicePersistenceReady().loadRepositoryRegistry();
+        const owners = repositories.filter((repository) => repository.workspaces.some((workspace) => workspace.id === args.workspaceId));
         if (owners.length !== 1 || !owners[0]?.workspacePathById[args.workspaceId] || realpathSync(owners[0].workspacePathById[args.workspaceId]!) !== realpathSync(args.workspacePath)) {
           throw new Error("Workspace ownership changed. Refresh Resource Manager and try again.");
         }
@@ -2023,20 +2072,43 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         await localMcpRuntime.stopManagedTaskTurn(request.params),
       );
       return;
-    case "routine.invoke":
+    case "automation.invoke":
       await respond(
         request.id,
-        await invokeRoutineAction(request.params.action, request.params.args),
+        await invokeAutomationAction(request.params.action, request.params.args),
       );
       return;
-    case "task-supervisor.invoke":
+    case "wake-up.invoke":
       await respond(
         request.id,
-        await invokeTaskSupervisorAction(
+        await invokeWakeUpAction(
           request.params.action,
           request.params.args,
         ),
       );
+      return;
+    case "mission.invoke":
+      await respond(
+        request.id,
+        await invokeMissionRuntime(
+          missionRuntime,
+          request.params.action,
+          request.params.args,
+        ),
+      );
+      return;
+    case "project.invoke":
+      await respond(
+        request.id,
+        await invokeProjectAction(
+          projectRuntime,
+          request.params.action,
+          request.params.args,
+        ),
+      );
+      return;
+    case "proposal.invoke":
+      await respond(request.id, await invokeProposalRuntime(proposalRuntime, request.params.action, request.params.args));
       return;
     default:
       request satisfies never;
@@ -2056,8 +2128,11 @@ async function main() {
   });
   prewarmClaudeSdk();
   void prepareCliExecutableDiscovery();
-  routineRuntime.start();
-  taskSupervisorRuntime.start();
+  automationRuntime.start();
+  wakeUpRuntime.start();
+  missionRuntime.start();
+  projectRuntime.start();
+  proposalRuntime.start();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",
     maxBufferBytes: HOST_SERVICE_STDIN_BUFFER_MAX_BYTES,

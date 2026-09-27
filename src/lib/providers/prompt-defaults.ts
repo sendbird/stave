@@ -132,13 +132,13 @@ export const LEGACY_FACTS_PROMPT_WORKSPACE_TURN_SUMMARY = [
   "- Keep both fields concise and concrete.",
   "- Each field should be one short sentence or phrase.",
   "- Mention blockers or incomplete work briefly when relevant.",
-  "- durableFacts: 0 to 3 project-level facts worth remembering in every future task of this project: a decision taken, a convention confirmed, a gotcha discovered, or a stable fact about the codebase. Each content is one sentence under 200 characters. Omit anything task-specific, speculative, or already obvious from the repository. Return [] when unsure.",
+  "- durableFacts: 0 to 3 repository-level facts worth remembering in every future task of this repository: a decision taken, a convention confirmed, a gotcha discovered, or a stable fact about the codebase. Each content is one sentence under 200 characters. Omit anything task-specific, speculative, or already obvious from the repository. Return [] when unsure.",
   "- No markdown, no code fences, no extra keys, no commentary.",
 ].join("\n");
 
 export const DEFAULT_PROMPT_WORKSPACE_TURN_SUMMARY = LEGACY_FACTS_PROMPT_WORKSPACE_TURN_SUMMARY.replace(
   /- durableFacts:.*\n/,
-  "- durableFacts: 0 or 1 candidate for reusable project knowledge, not a work summary. Save only an explicit user correction, a lasting decision with its reason, or a verified non-obvious pitfall. State when it applies and why it matters in one sentence under 200 characters. Exclude completed work, temporary status, unchanged settings, code inventories, detailed styling values, and facts easily read from repository files. Candidates are reviewed separately before use. Default to [] when unsure.\n",
+  "- durableFacts: 0 or 1 candidate for reusable repository knowledge, not a work summary. Save only an explicit user correction, a lasting decision with its reason, or a verified non-obvious pitfall. State when it applies and why it matters in one sentence under 200 characters. Exclude completed work, temporary status, unchanged settings, code inventories, detailed styling values, and facts easily read from repository files. Candidates are reviewed separately before use. Default to [] when unsure.\n",
 );
 
 export function normalizeWorkspaceTurnSummaryPrompt(value: string) {
@@ -158,7 +158,7 @@ export const LEGACY_PROMPT_WORKSPACE_KICKOFF = [
   '{"branchName":"feat/example","workspaceLabel":"Example","sourceSummary":"...","firstTaskTitle":"...","firstTaskPrompt":"...","panelEntries":[{"target":"jiraIssues","title":"...","url":"https://...","reference":"PROJ-123","note":"..."}],"notes":"","todos":["..."]}',
   "",
   "Rules:",
-  "- Follow the supplied project branch naming rule.",
+  "- Follow the supplied repository branch naming rule.",
   "- Keep the branch name git-safe and the workspace label concise.",
   "- Treat the supplied source as the source of truth; do not invent facts.",
   "- Add only relevant panel entries. Allowed targets: jiraIssues, confluencePages, figmaResources, slackThreads, linkedPullRequests, storybookResources, amplifyLinks.",

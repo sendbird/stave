@@ -1,0 +1,1010 @@
+import { describe, expect, test } from "bun:test";
+import { Database } from "bun:sqlite";
+import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
+import {
+  createDelegatedTaskCoordinator,
+  type DelegatedTaskHostPort,
+  type DelegatedTaskLedgerPort,
+} from "../electron/main/runs/delegated-task-coordinator";
+import { buildDelegatedTaskRuntimeOptions } from "../src/lib/runs/delegated-task-runtime";
+import { resolveManagedTaskRuntimeOptions } from "../src/lib/providers/managed-task-runtime";
+import type { DelegateTaskArgs } from "../src/lib/runs/delegated-task";
+
+const REPOSITORY_PATH = "/tmp/stave";
+const PARENT_WORKSPACE = "workspace-parent";
+const PARENT_TASK = "parent-task-1";
+
+type TaskStatus = {
+  ok: true;
+  activeTurnId: string | null;
+  latestTurnId: string | null;
+  latestTurnCompletedAt: string | null;
+  latestTurnError: string | null;
+};
+
+const IDLE_STATUS: TaskStatus = {
+  ok: true,
+  activeTurnId: null,
+  latestTurnId: null,
+  latestTurnCompletedAt: null,
+  latestTurnError: null,
+};
+
+function createLedgerPort(store: RunLedgerStore): DelegatedTaskLedgerPort {
+  return {
+    getRunAggregate: (args) => store.getAggregate(args),
+    claimRunStep: (args) => store.claimStep(args),
+    markRunStepWaiting: (args) => store.markStepWaiting(args),
+    completeRunStep: (args) => store.completeStep(args),
+    failRunStep: (args) => store.failStep(args),
+    cancelRunStep: (args) => store.cancelStep(args),
+    interruptRunStep: (args) => store.interruptStep(args),
+    setRunStepTarget: (args) => store.setStepTarget(args),
+    listRunReceipts: (args) => store.listReceipts(args),
+    listRunAggregatesByOrigin: (args) => store.listAggregatesByOrigin(args),
+    listActiveRunAggregatesByStepKind: (args) =>
+      store.listActiveAggregatesByStepKind(args),
+  };
+}
+
+function createHost(
+  options: {
+    runTask?: (args: {
+      workspaceId: string;
+      taskId: string;
+    }) => Promise<{ turnId: string }>;
+    knownWorkspaces?: Record<string, string>;
+  } = {},
+) {
+  const runTaskCalls: Array<Record<string, unknown>> = [];
+  const stopTaskCalls: Array<Record<string, unknown>> = [];
+  const releaseTaskParentCalls: Array<Record<string, unknown>> = [];
+  const createWorkspaceCalls: Array<Record<string, unknown>> = [];
+  const statusByTaskId = new Map<string, TaskStatus>([
+    [PARENT_TASK, IDLE_STATUS],
+  ]);
+  let hostUnavailable = false;
+  const knownWorkspaces = new Map(
+    Object.entries(
+      options.knownWorkspaces ?? {
+        [PARENT_WORKSPACE]: `${REPOSITORY_PATH}/.stave/workspaces/parent`,
+      },
+    ),
+  );
+
+  const host: DelegatedTaskHostPort = {
+    async resolveWorkspace({ workspaceId }) {
+      const workspacePath = knownWorkspaces.get(workspaceId);
+      return workspacePath
+        ? { workspaceId, workspacePath, repositoryPath: REPOSITORY_PATH }
+        : null;
+    },
+    async createWorkspace({ name }) {
+      createWorkspaceCalls.push({ name });
+      const workspaceId = `workspace-${name}`;
+      const workspacePath = `${REPOSITORY_PATH}/.stave/workspaces/${name}`;
+      knownWorkspaces.set(workspaceId, workspacePath);
+      return { workspaceId, workspacePath, repositoryPath: REPOSITORY_PATH };
+    },
+    async getTaskStatus({ taskId }) {
+      if (hostUnavailable) {
+        return { ok: false, reason: "unavailable" };
+      }
+      return statusByTaskId.get(taskId) ?? { ok: false, reason: "missing" };
+    },
+    async runTask(args) {
+      runTaskCalls.push({ ...args });
+      statusByTaskId.set(args.taskId, IDLE_STATUS);
+      return options.runTask
+        ? options.runTask(args)
+        : { turnId: `turn-${runTaskCalls.length}` };
+    },
+    async stopTask(args) {
+      stopTaskCalls.push({ ...args });
+      return { stopped: true };
+    },
+    async releaseTaskParent(args) {
+      releaseTaskParentCalls.push({ ...args });
+      return { released: true };
+    },
+  };
+
+  return {
+    host,
+    runTaskCalls,
+    stopTaskCalls,
+    releaseTaskParentCalls,
+    createWorkspaceCalls,
+    statusByTaskId,
+    setHostUnavailable: (value: boolean) => {
+      hostUnavailable = value;
+    },
+  };
+}
+
+function createHarness(
+  options: Parameters<typeof createHost>[0] & { concurrencyLimit?: number } = {},
+) {
+  const store = new RunLedgerStore(new Database(":memory:"));
+  const hostHarness = createHost(options);
+  let clock = 0;
+  const createCoordinator = () =>
+    createDelegatedTaskCoordinator({
+      getLedger: () => createLedgerPort(store),
+      host: hostHarness.host,
+      concurrencyLimit: options.concurrencyLimit ?? 3,
+      now: () => new Date(Date.UTC(2026, 7, 10, 0, 0, clock++)).toISOString(),
+      createExecutionId: () => `execution-${clock}`,
+    });
+  return {
+    store,
+    coordinator: createCoordinator(),
+    // A restart is a fresh coordinator over the same durable ledger: nothing of
+    // the previous process's in-flight state survives.
+    restart: createCoordinator,
+    ...hostHarness,
+  };
+}
+
+function delegateArgs(
+  overrides: Partial<DelegateTaskArgs> = {},
+): DelegateTaskArgs {
+  return {
+    repositoryPath: REPOSITORY_PATH,
+    parentWorkspaceId: PARENT_WORKSPACE,
+    parentTaskId: PARENT_TASK,
+    delegationKey: "review-docs",
+    prompt: "Review the docs.",
+    providerId: "codex",
+    permissionProfile: "guided",
+    lifecycle: "one-turn",
+    workspace: { mode: "same-workspace" },
+    retry: false,
+    ...overrides,
+  };
+}
+
+describe("delegated task coordinator", () => {
+  test("a Claude parent delegates to a Codex child and the reverse", async () => {
+    for (const providerId of ["codex", "claude-code"] as const) {
+      const harness = createHarness();
+      const response = await harness.coordinator.delegate(
+        delegateArgs({ providerId, delegationKey: `to-${providerId}` }),
+      );
+      await harness.coordinator.waitForInFlight();
+
+      expect(response.accepted).toBe(true);
+      expect(response.child?.providerId).toBe(providerId);
+      expect(harness.runTaskCalls).toHaveLength(1);
+      expect(harness.runTaskCalls[0]).toMatchObject({
+        providerId,
+        permissionProfile: "guided",
+        workspaceId: PARENT_WORKSPACE,
+        taskId: response.child?.delegatedTaskId,
+        // Denormalized onto the delegated task row so listing surfaces can tell a
+        // delegated child from a peer task without reading the ledger.
+        parentTaskId: PARENT_TASK,
+      });
+      const settled = await harness.coordinator.get({
+        parentTaskId: PARENT_TASK,
+        delegationKey: `to-${providerId}`,
+      });
+      expect(settled?.phase).toBe("completed");
+      expect(settled?.delegatedTurnId).toBe("turn-1");
+    }
+  });
+
+  test("a duplicate delegate call with the same idempotency key creates one child", async () => {
+    const harness = createHarness();
+    const first = await harness.coordinator.delegate(delegateArgs());
+    const second = await harness.coordinator.delegate(delegateArgs());
+    await harness.coordinator.waitForInFlight();
+    const third = await harness.coordinator.delegate(delegateArgs());
+
+    expect(first.duplicate).toBe(false);
+    expect(second.duplicate).toBe(true);
+    expect(third.duplicate).toBe(true);
+    expect(harness.runTaskCalls).toHaveLength(1);
+    expect(second.child?.delegatedTaskId).toBe(first.child?.delegatedTaskId ?? "");
+    expect(third.child?.delegatedTaskId).toBe(first.child?.delegatedTaskId ?? "");
+    expect(await harness.coordinator.list({ parentTaskId: PARENT_TASK })).toHaveLength(
+      1,
+    );
+  });
+
+  test("the same key with a different prompt is refused instead of silently reused", async () => {
+    const harness = createHarness();
+    await harness.coordinator.delegate(delegateArgs());
+    await harness.coordinator.waitForInFlight();
+
+    const conflicting = await harness.coordinator.delegate(
+      delegateArgs({ prompt: "Do something else entirely." }),
+    );
+
+    expect(conflicting.accepted).toBe(false);
+    expect(conflicting.reason).toBe("input-mismatch");
+    expect(harness.runTaskCalls).toHaveLength(1);
+  });
+
+  test("the concurrency limit bounds live children per parent", async () => {
+    const harness = createHarness({
+      concurrencyLimit: 2,
+      runTask: () => new Promise<{ turnId: string }>(() => {}),
+    });
+    await harness.coordinator.delegate(delegateArgs({ delegationKey: "one" }));
+    await harness.coordinator.delegate(delegateArgs({ delegationKey: "two" }));
+
+    const third = await harness.coordinator.delegate(
+      delegateArgs({ delegationKey: "three" }),
+    );
+
+    expect(third.accepted).toBe(false);
+    expect(third.reason).toBe("concurrency-limit-reached");
+    expect(harness.runTaskCalls).toHaveLength(2);
+  });
+
+  test("a delegation is refused when the parent task or workspace is not the caller's", async () => {
+    const harness = createHarness();
+
+    const unknownWorkspace = await harness.coordinator.delegate(
+      delegateArgs({ parentWorkspaceId: "workspace-unknown" }),
+    );
+    const foreignRepository = await harness.coordinator.delegate(
+      delegateArgs({ repositoryPath: "/tmp/other-project" }),
+    );
+    const unknownParent = await harness.coordinator.delegate(
+      delegateArgs({ parentTaskId: "parent-task-missing" }),
+    );
+
+    expect(unknownWorkspace.reason).toBe("invalid-ownership");
+    expect(foreignRepository.reason).toBe("invalid-ownership");
+    expect(unknownParent.reason).toBe("invalid-ownership");
+    expect(harness.runTaskCalls).toHaveLength(0);
+  });
+
+  test("the new-worktree strategy runs the child in the workspace it created", async () => {
+    const harness = createHarness();
+
+    const response = await harness.coordinator.delegate(
+      delegateArgs({
+        workspace: { mode: "new-worktree", name: "docs-review" },
+      }),
+    );
+    await harness.coordinator.waitForInFlight();
+
+    expect(harness.createWorkspaceCalls).toEqual([{ name: "docs-review" }]);
+    expect(response.child?.delegatedWorkspaceId).toBe("workspace-docs-review");
+    expect(harness.runTaskCalls[0]).toMatchObject({
+      workspaceId: "workspace-docs-review",
+    });
+  });
+
+  test("a detached child parks in waiting and is closed by an explicit stop", async () => {
+    const harness = createHarness();
+    const started = await harness.coordinator.delegate(
+      delegateArgs({ lifecycle: "detached" }),
+    );
+    await harness.coordinator.waitForInFlight();
+
+    const parked = await harness.coordinator.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+    const stopped = await harness.coordinator.stop({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+      reason: "no longer needed",
+    });
+
+    expect(started.child?.lifecycle).toBe("detached");
+    expect(parked?.phase).toBe("waiting");
+    expect(stopped.accepted).toBe(true);
+    expect(stopped.child?.phase).toBe("cancelled");
+    expect(harness.stopTaskCalls).toEqual([
+      { workspaceId: PARENT_WORKSPACE, taskId: started.child?.delegatedTaskId },
+    ]);
+  });
+
+  /**
+   * The controls the parent renders carry the identity they were drawn against.
+   * These cases pin that the coordinator actually applies that check before it
+   * acts, so a control prepared against a delegation that has since moved is
+   * refused with a reason instead of hitting whatever now holds the key.
+   */
+  test("a control carrying a stale expected identity is refused with a reason", async () => {
+    const harness = createHarness();
+    const started = await harness.coordinator.delegate(
+      delegateArgs({ lifecycle: "detached" }),
+    );
+    await harness.coordinator.waitForInFlight();
+    const child = await harness.coordinator.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+    if (!child) {
+      throw new Error("expected a delegated child");
+    }
+
+    const stopped = await harness.coordinator.stop({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+      expected: {
+        delegatedTaskId: child.delegatedTaskId,
+        delegatedWorkspaceId: child.delegatedWorkspaceId,
+        // The control was drawn before a retry bumped the attempt.
+        attempt: child.attempt + 1,
+      },
+    });
+
+    expect(started.accepted).toBe(true);
+    expect(stopped.accepted).toBe(false);
+    expect(stopped.reason).toBe("stale-identity");
+    expect(stopped.message?.length ?? 0).toBeGreaterThan(0);
+    // The refusal must leave the live child untouched, not stop it anyway.
+    expect(harness.stopTaskCalls).toEqual([]);
+    expect(
+      (
+        await harness.coordinator.get({
+          parentTaskId: PARENT_TASK,
+          delegationKey: "review-docs",
+        })
+      )?.phase,
+    ).toBe(child.phase);
+  });
+
+  test("a control carrying the live identity is accepted", async () => {
+    const harness = createHarness();
+    await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const child = await harness.coordinator.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+    if (!child) {
+      throw new Error("expected a delegated child");
+    }
+
+    const stopped = await harness.coordinator.stop({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+      expected: {
+        delegatedTaskId: child.delegatedTaskId,
+        delegatedWorkspaceId: child.delegatedWorkspaceId,
+        attempt: child.attempt,
+        phase: child.phase,
+      },
+    });
+
+    expect(stopped.accepted).toBe(true);
+    expect(stopped.child?.phase).toBe("cancelled");
+  });
+
+  test("stopping an unknown delegation reports not-found instead of inventing one", async () => {
+    const harness = createHarness();
+    const response = await harness.coordinator.stop({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "never-delegated",
+    });
+
+    expect(response.accepted).toBe(false);
+    expect(response.reason).toBe("not-found");
+  });
+
+  test("a restart mid-child reconciles to reality and never loses the child", async () => {
+    const harness = createHarness({
+      runTask: () => new Promise<{ turnId: string }>(() => {}),
+    });
+    const started = await harness.coordinator.delegate(delegateArgs());
+    const delegatedTaskId = started.child?.delegatedTaskId ?? "";
+    const restarted = harness.restart();
+
+    // Still running after the restart: the ledger must not close the row, but
+    // the pass must stay unsettled (deferred) — no watcher in this process
+    // will settle the row when the child's turn ends, so reconciliation has to
+    // run again on a later read.
+    harness.statusByTaskId.set(delegatedTaskId, {
+      ...IDLE_STATUS,
+      activeTurnId: "turn-live",
+    });
+    expect(await restarted.reconcile()).toEqual({
+      reconciled: 0,
+      deferred: 1,
+    });
+    expect(
+      (
+        await restarted.get({
+          parentTaskId: PARENT_TASK,
+          delegationKey: "review-docs",
+        })
+      )?.phase,
+    ).toBe("running");
+
+    // Finished while Stave was down: reconciled to completed, referencing the
+    // delegated task rather than carrying its output.
+    harness.statusByTaskId.set(delegatedTaskId, {
+      ok: true,
+      activeTurnId: null,
+      latestTurnId: "turn-7",
+      latestTurnCompletedAt: "2026-08-10T01:00:00.000Z",
+      latestTurnError: null,
+    });
+    expect(await restarted.reconcile()).toMatchObject({
+      reconciled: 1,
+    });
+    const completed = await restarted.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+    expect(completed?.phase).toBe("completed");
+    expect(completed?.delegatedTurnId).toBe("turn-7");
+    expect(
+      harness.store.getAggregate({
+        runId: completed?.runId ?? "",
+        stepId: completed?.stepId ?? "",
+      })?.step.resultArtifactRef,
+    ).toBe(`stave://workspace/${PARENT_WORKSPACE}/task/${delegatedTaskId}/turn/turn-7`);
+  });
+
+  test("a child that vanished across a restart is interrupted, not forgotten", async () => {
+    const harness = createHarness({
+      runTask: () => new Promise<{ turnId: string }>(() => {}),
+    });
+    const started = await harness.coordinator.delegate(delegateArgs());
+    harness.statusByTaskId.delete(started.child?.delegatedTaskId ?? "");
+    const restarted = harness.restart();
+
+    expect(await restarted.reconcile()).toMatchObject({
+      reconciled: 1,
+    });
+    const reconciled = await restarted.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+    expect(reconciled?.phase).toBe("interrupted");
+    expect(reconciled?.reason).toBe("The delegated task is no longer present.");
+  });
+
+  test("an unreachable task runtime defers reconciliation instead of closing the child", async () => {
+    const harness = createHarness({
+      runTask: () => new Promise<{ turnId: string }>(() => {}),
+    });
+    const started = await harness.coordinator.delegate(delegateArgs());
+    const delegatedTaskId = started.child?.delegatedTaskId ?? "";
+    const restarted = harness.restart();
+    harness.setHostUnavailable(true);
+
+    expect(await restarted.reconcile()).toEqual({
+      reconciled: 0,
+      deferred: 1,
+    });
+    expect(
+      (
+        await restarted.get({
+          parentTaskId: PARENT_TASK,
+          delegationKey: "review-docs",
+        })
+      )?.phase,
+    ).toBe("running");
+
+    // Once the task runtime answers again, the deferred pass runs on the next
+    // read rather than leaving a stale row behind.
+    harness.setHostUnavailable(false);
+    harness.statusByTaskId.set(delegatedTaskId, {
+      ok: true,
+      activeTurnId: null,
+      latestTurnId: "turn-3",
+      latestTurnCompletedAt: "2026-08-10T02:00:00.000Z",
+      latestTurnError: null,
+    });
+    const [summary] = await restarted.list({
+      parentTaskId: PARENT_TASK,
+    });
+    expect(summary.phase).toBe("completed");
+  });
+
+  test("a failed delegation retries onto the same delegated task", async () => {
+    let attempts = 0;
+    const harness = createHarness({
+      runTask: async () => {
+        attempts += 1;
+        if (attempts === 1) {
+          throw new Error("Provider exploded");
+        }
+        return { turnId: `turn-${attempts}` };
+      },
+    });
+    const first = await harness.coordinator.delegate(delegateArgs());
+    await harness.coordinator.waitForInFlight();
+    const failed = await harness.coordinator.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+
+    const retried = await harness.coordinator.delegate(
+      delegateArgs({ retry: true }),
+    );
+    await harness.coordinator.waitForInFlight();
+    const settled = await harness.coordinator.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+
+    expect(failed?.phase).toBe("failed");
+    expect(failed?.reason).toBe("Provider exploded");
+    expect(retried.accepted).toBe(true);
+    expect(retried.duplicate).toBe(false);
+    expect(retried.child?.delegatedTaskId).toBe(first.child?.delegatedTaskId ?? "");
+    expect(settled?.phase).toBe("completed");
+    expect(settled?.attempt).toBe(2);
+  });
+
+  test("a retry may carry new instructions and keeps the delegation's original inputs", async () => {
+    let attempts = 0;
+    const harness = createHarness({
+      runTask: async () => {
+        attempts += 1;
+        if (attempts === 1) {
+          throw new Error("Provider exploded");
+        }
+        return { turnId: `turn-${attempts}` };
+      },
+    });
+    await harness.coordinator.delegate(
+      delegateArgs({
+        workspace: { mode: "new-worktree", name: "docs-review" },
+        model: "gpt-5.3-codex",
+        effort: "high",
+        permissionProfile: "auto",
+      }),
+    );
+    await harness.coordinator.waitForInFlight();
+    const failed = await harness.coordinator.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+    expect(failed?.phase).toBe("failed");
+
+    // The UI asks the user for retry instructions, so the prompt is new. That
+    // must not be refused as an input mismatch, and it must not silently swap
+    // the child onto a fresh workspace, default model, or default profile.
+    const retried = await harness.coordinator.retry({
+      repositoryPath: REPOSITORY_PATH,
+      parentWorkspaceId: PARENT_WORKSPACE,
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+      prompt: "Try again, and read the checklist first.",
+      expected: {
+        delegatedTaskId: failed!.delegatedTaskId,
+        delegatedWorkspaceId: failed!.delegatedWorkspaceId,
+        attempt: failed!.attempt,
+      },
+    });
+    await harness.coordinator.waitForInFlight();
+    const settled = await harness.coordinator.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+
+    expect(retried.accepted).toBe(true);
+    expect(retried.duplicate).toBe(false);
+    expect(settled?.phase).toBe("completed");
+    expect(settled?.attempt).toBe(2);
+    expect(harness.runTaskCalls[1]).toMatchObject({
+      prompt: "Try again, and read the checklist first.",
+      workspaceId: "workspace-docs-review",
+      model: "gpt-5.3-codex",
+      effort: "high",
+      permissionProfile: "auto",
+    });
+    // The retry reused the delegation's worktree instead of cutting another.
+    expect(harness.createWorkspaceCalls).toHaveLength(1);
+  });
+
+  test("an explicit permission profile on a retry overrides the recorded one", async () => {
+    let attempts = 0;
+    const harness = createHarness({
+      runTask: async () => {
+        attempts += 1;
+        if (attempts === 1) {
+          throw new Error("Provider exploded");
+        }
+        return { turnId: `turn-${attempts}` };
+      },
+    });
+    await harness.coordinator.delegate(
+      delegateArgs({ permissionProfile: "auto" }),
+    );
+    await harness.coordinator.waitForInFlight();
+    const failed = await harness.coordinator.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+
+    await harness.coordinator.retry({
+      repositoryPath: REPOSITORY_PATH,
+      parentWorkspaceId: PARENT_WORKSPACE,
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+      prompt: "Try again under supervision.",
+      permissionProfile: "manual",
+      expected: {
+        delegatedTaskId: failed!.delegatedTaskId,
+        delegatedWorkspaceId: failed!.delegatedWorkspaceId,
+        attempt: failed!.attempt,
+      },
+    });
+    await harness.coordinator.waitForInFlight();
+
+    expect(harness.runTaskCalls[1]).toMatchObject({
+      permissionProfile: "manual",
+    });
+  });
+
+  test("parallel delegates cannot exceed the concurrency limit", async () => {
+    const harness = createHarness({
+      concurrencyLimit: 2,
+      runTask: () => new Promise<{ turnId: string }>(() => {}),
+    });
+
+    // Sent together on purpose: the count-then-claim window is where a race
+    // could admit a third live child past the limit.
+    const responses = await Promise.all([
+      harness.coordinator.delegate(delegateArgs({ delegationKey: "one" })),
+      harness.coordinator.delegate(delegateArgs({ delegationKey: "two" })),
+      harness.coordinator.delegate(delegateArgs({ delegationKey: "three" })),
+    ]);
+
+    expect(responses.filter((response) => response.accepted)).toHaveLength(2);
+    const refused = responses.find((response) => !response.accepted);
+    expect(refused?.reason).toBe("concurrency-limit-reached");
+    expect(harness.runTaskCalls).toHaveLength(2);
+  });
+
+  test("a child still mid-turn at a restart is settled once its turn ends", async () => {
+    const harness = createHarness({
+      runTask: () => new Promise<{ turnId: string }>(() => {}),
+    });
+    const started = await harness.coordinator.delegate(delegateArgs());
+    const delegatedTaskId = started.child?.delegatedTaskId ?? "";
+    const restarted = harness.restart();
+
+    // Mid-turn: the row stays running, and because no watcher in this process
+    // will settle it, the reconcile pass must stay unsettled.
+    harness.statusByTaskId.set(delegatedTaskId, {
+      ...IDLE_STATUS,
+      activeTurnId: "turn-live",
+    });
+    expect(await restarted.list({ parentTaskId: PARENT_TASK })).toMatchObject([
+      { phase: "running" },
+    ]);
+
+    // The turn ends. The next read settles the row instead of leaving a ghost
+    // `running` delegation occupying a concurrency slot forever.
+    harness.statusByTaskId.set(delegatedTaskId, {
+      ok: true,
+      activeTurnId: null,
+      latestTurnId: "turn-9",
+      latestTurnCompletedAt: "2026-08-10T03:00:00.000Z",
+      latestTurnError: null,
+    });
+    const [settled] = await restarted.list({ parentTaskId: PARENT_TASK });
+    expect(settled.phase).toBe("completed");
+    expect(settled.delegatedTurnId).toBe("turn-9");
+  });
+
+  test("reconcile never settles a retried attempt with an earlier attempt's turn", async () => {
+    let attempts = 0;
+    const harness = createHarness({
+      runTask: async () => {
+        attempts += 1;
+        if (attempts === 1) {
+          throw new Error("Provider exploded");
+        }
+        // The retry's own turn never starts: the process dies first.
+        return new Promise<{ turnId: string }>(() => {});
+      },
+    });
+    await harness.coordinator.delegate(delegateArgs());
+    await harness.coordinator.waitForInFlight();
+    const failed = await harness.coordinator.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+    await harness.coordinator.retry({
+      repositoryPath: REPOSITORY_PATH,
+      parentWorkspaceId: PARENT_WORKSPACE,
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+      prompt: "Try again.",
+      expected: {
+        delegatedTaskId: failed!.delegatedTaskId,
+        delegatedWorkspaceId: failed!.delegatedWorkspaceId,
+        attempt: failed!.attempt,
+      },
+    });
+
+    const restarted = harness.restart();
+    // The child's only finished turn predates the retry's claim, so it
+    // belongs to attempt 1. Settling attempt 2 with it would close the retry
+    // with results the retry never produced.
+    harness.statusByTaskId.set(failed!.delegatedTaskId, {
+      ok: true,
+      activeTurnId: null,
+      latestTurnId: "turn-old",
+      latestTurnCompletedAt: "2026-08-09T23:00:00.000Z",
+      latestTurnError: null,
+    });
+    await restarted.reconcile();
+
+    const settled = await restarted.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+    expect(settled?.phase).toBe("interrupted");
+    expect(settled?.delegatedTurnId).not.toBe("turn-old");
+  });
+
+  test("a follow-up turn writes its own receipt instead of vanishing as a duplicate", async () => {
+    const harness = createHarness();
+    await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const parked = await harness.coordinator.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+    expect(parked?.phase).toBe("waiting");
+    expect(parked?.delegatedTurnId).toBe("turn-1");
+
+    const followedUp = await harness.coordinator.followUp({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+      prompt: "One more pass, please.",
+      permissionProfile: "guided",
+      expected: {
+        delegatedTaskId: parked!.delegatedTaskId,
+        delegatedWorkspaceId: parked!.delegatedWorkspaceId,
+        attempt: parked!.attempt,
+      },
+    });
+    await harness.coordinator.waitForInFlight();
+    const settled = await harness.coordinator.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+
+    expect(followedUp.accepted).toBe(true);
+    expect(settled?.phase).toBe("waiting");
+    // The completed follow-up is visible: the turn reference and `updatedAt`
+    // both moved, and a second waiting receipt exists.
+    expect(settled?.delegatedTurnId).toBe("turn-2");
+    expect(Date.parse(settled!.updatedAt)).toBeGreaterThan(
+      Date.parse(parked!.updatedAt),
+    );
+    expect(
+      harness.store
+        .listReceipts({ runId: parked!.runId })
+        .filter((receipt) => receipt.type === "waiting"),
+    ).toHaveLength(2);
+  });
+
+  test("detach releases the delegation stamp so the child re-enters ordinary listings", async () => {
+    const harness = createHarness();
+    await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.waitForInFlight();
+    const parked = await harness.coordinator.get({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+    expect(parked?.phase).toBe("waiting");
+
+    const identity = {
+      delegatedTaskId: parked!.delegatedTaskId,
+      delegatedWorkspaceId: parked!.delegatedWorkspaceId,
+      attempt: parked!.attempt,
+    };
+    const detached = await harness.coordinator.detach({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+      expected: identity,
+    });
+
+    expect(detached.accepted).toBe(true);
+    expect(detached.child?.phase).toBe("cancelled");
+    // Detach ends the parent's claim, never the child's work…
+    expect(harness.stopTaskCalls).toEqual([]);
+    // …and clears the delegation stamp, otherwise the listing predicate
+    // hides the still-running child from every workspace task listing
+    // forever — the ghost-session shape detach must not create.
+    expect(harness.releaseTaskParentCalls).toEqual([
+      {
+        workspaceId: parked!.delegatedWorkspaceId,
+        taskId: parked!.delegatedTaskId,
+      },
+    ]);
+
+    // A repeated detach finds no active delegation to release: refused, and
+    // the delegation stamp is not touched a second time.
+    const repeated = await harness.coordinator.detach({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+      expected: { ...identity, phase: "cancelled" },
+    });
+    expect(repeated.accepted).toBe(false);
+    expect(repeated.reason).toBe("invalid-state");
+    expect(harness.releaseTaskParentCalls).toHaveLength(1);
+  });
+
+  test("a cancelled delegation is not restarted by a retry", async () => {
+    const harness = createHarness({
+      runTask: () => new Promise<{ turnId: string }>(() => {}),
+    });
+    await harness.coordinator.delegate(delegateArgs());
+    await harness.coordinator.stop({
+      parentTaskId: PARENT_TASK,
+      delegationKey: "review-docs",
+    });
+
+    const retried = await harness.coordinator.delegate(
+      delegateArgs({ retry: true }),
+    );
+
+    expect(retried.accepted).toBe(false);
+    expect(retried.reason).toBe("cancelled");
+    expect(harness.runTaskCalls).toHaveLength(1);
+  });
+
+  test("summaries carry identity, phase and reason and no child output", async () => {
+    const harness = createHarness();
+    await harness.coordinator.delegate(delegateArgs());
+    await harness.coordinator.waitForInFlight();
+
+    const [summary] = await harness.coordinator.list({
+      parentTaskId: PARENT_TASK,
+    });
+
+    expect(Object.keys(summary).sort()).toEqual([
+      "attempt",
+      "completedAt",
+      "createdAt",
+      "delegatedTaskId",
+      "delegatedTurnId",
+      "delegatedWorkspaceId",
+      "delegationKey",
+      "lifecycle",
+      "parentTaskId",
+      "phase",
+      "providerId",
+      "reason",
+      "runId",
+      "stepId",
+      "updatedAt",
+    ]);
+  });
+});
+
+describe("child permission profiles", () => {
+  test("a profile is resolved from itself, never from the parent", () => {
+    expect(
+      buildDelegatedTaskRuntimeOptions({
+        providerId: "codex",
+        permissionProfile: "guided",
+      }),
+    ).toMatchObject({
+      codexApprovalPolicy: "untrusted",
+      codexFileAccess: "workspace-write",
+      codexNetworkAccess: false,
+    });
+    expect(
+      buildDelegatedTaskRuntimeOptions({
+        providerId: "claude-code",
+        permissionProfile: "guided",
+      }),
+    ).toMatchObject({
+      claudePermissionMode: "default",
+      claudeAllowUnsandboxedCommands: false,
+      claudeAllowDangerouslySkipPermissions: false,
+    });
+    expect(
+      buildDelegatedTaskRuntimeOptions({
+        providerId: "claude-code",
+        permissionProfile: "auto",
+      }),
+    ).toMatchObject({ claudePermissionMode: "bypassPermissions" });
+  });
+
+  test("an unattended child can answer Stave MCP prompts on both providers", () => {
+    // Nobody is watching a child run, so neither provider may leave it sitting
+    // on an approval prompt. Claude expresses that as a permission-mode bypass;
+    // Codex needs the elicitation auto-approve flag on top of its approval
+    // policy, because elicitation is a separate channel that `never` does not
+    // cover and an unanswered request is auto-declined on timeout.
+    expect(
+      buildDelegatedTaskRuntimeOptions({
+        providerId: "codex",
+        permissionProfile: "auto",
+      }),
+    ).toMatchObject({
+      codexApprovalPolicy: "never",
+      codexAutoApproveStaveLocalMcpTools: true,
+    });
+    expect(
+      buildDelegatedTaskRuntimeOptions({
+        providerId: "claude-code",
+        permissionProfile: "auto",
+      }),
+    ).toMatchObject({ claudePermissionMode: "bypassPermissions" });
+
+    // Supervised profiles must not gain the flag: those children are meant to
+    // surface their approvals. Asserted through
+    // `resolveManagedTaskRuntimeOptions` because that is what actually reaches
+    // the provider — a child always runs as an externally managed task, so an
+    // *absent* flag would be defaulted to `true` there and silently override
+    // the profile. Only an explicit `false` survives.
+    for (const permissionProfile of ["guided", "manual"] as const) {
+      const options = buildDelegatedTaskRuntimeOptions({
+        providerId: "codex",
+        permissionProfile,
+      });
+      expect(options.codexAutoApproveStaveLocalMcpTools).toBe(false);
+      expect(
+        resolveManagedTaskRuntimeOptions({
+          providerId: "codex",
+          runtimeOptions: options,
+        }).codexAutoApproveStaveLocalMcpTools,
+      ).toBe(false);
+    }
+
+    // The unattended profile keeps its `true` through the same layer.
+    expect(
+      resolveManagedTaskRuntimeOptions({
+        providerId: "codex",
+        runtimeOptions: buildDelegatedTaskRuntimeOptions({
+          providerId: "codex",
+          permissionProfile: "auto",
+        }),
+      }),
+    ).toMatchObject({
+      codexApprovalPolicy: "never",
+      codexAutoApproveStaveLocalMcpTools: true,
+    });
+
+    // Claude states every permission field explicitly, so the managed-task
+    // resolver has nothing left to default for a supervised child either.
+    expect(
+      resolveManagedTaskRuntimeOptions({
+        providerId: "claude-code",
+        runtimeOptions: buildDelegatedTaskRuntimeOptions({
+          providerId: "claude-code",
+          permissionProfile: "guided",
+        }),
+      }),
+    ).toMatchObject({
+      claudePermissionMode: "default",
+      claudeAllowUnsandboxedCommands: false,
+      claudeAllowDangerouslySkipPermissions: false,
+    });
+  });
+
+  test("no secret binding can reach a child through its profile", () => {
+    for (const permissionProfile of ["auto", "guided", "manual"] as const) {
+      for (const providerId of ["claude-code", "codex"] as const) {
+        const options = buildDelegatedTaskRuntimeOptions({
+          providerId,
+          permissionProfile,
+        });
+        expect(Object.keys(options)).not.toContain("boundSecretIds");
+        expect(Object.keys(options)).not.toContain("secrets");
+      }
+    }
+  });
+
+  test("an explicit model overrides the provider default", () => {
+    expect(
+      buildDelegatedTaskRuntimeOptions({
+        providerId: "codex",
+        model: "gpt-5.3-codex",
+        permissionProfile: "manual",
+      }).model,
+    ).toBe("gpt-5.3-codex");
+  });
+});

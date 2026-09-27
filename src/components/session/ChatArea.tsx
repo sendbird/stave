@@ -15,7 +15,7 @@ import { TaskStartGuide } from "@/components/session/TaskStartGuide";
 import { ChatPanel } from "@/components/session/ChatPanel";
 import {
   resolveChatAreaViewMode,
-  resolveHydratingProjectCopy,
+  resolveHydratingRepositoryCopy,
 } from "@/components/session/chat-area.utils";
 import { EmptySplash } from "@/components/session/EmptySplash";
 import { PlanViewer } from "@/components/session/PlanViewer";
@@ -136,7 +136,7 @@ function ChatAreaImpl(props: ChatAreaProps) {
   const explicitTaskId = props.taskId;
   const sessionAreaRef = useRef<HTMLDivElement>(null);
   const [
-    projectPath,
+    repositoryPath,
     workspaceId,
     hasHydratedWorkspaces,
     hasAnyWorkspace,
@@ -150,14 +150,14 @@ function ChatAreaImpl(props: ChatAreaProps) {
     persistenceBootstrapPhase,
     persistenceBootstrapMessage,
     refreshActiveManagedTask,
-    createProject,
+    createRepository,
     createTask,
     updatePromptDraft,
   ] = useAppStore(
     useShallow((state) => {
       const scopedTaskId = explicitTaskId ?? state.activeTaskId;
       return [
-        state.projectPath,
+        state.repositoryPath,
         state.activeWorkspaceId,
         state.hasHydratedWorkspaces,
         state.workspaces.length > 0,
@@ -178,21 +178,21 @@ function ChatAreaImpl(props: ChatAreaProps) {
         state.persistenceBootstrapPhase,
         state.persistenceBootstrapMessage,
         state.refreshActiveManagedTask,
-        state.createProject,
+        state.createRepository,
         state.createTask,
         state.updatePromptDraft,
       ] as const;
     }),
   );
   const viewMode = resolveChatAreaViewMode({
-    projectPath,
+    repositoryPath,
     hasHydratedWorkspaces,
     hasAnyWorkspace,
     hasSelectedWorkspace,
     hasSelectedTask,
     activeTaskMessageCount,
   });
-  const hydratingProjectCopy = resolveHydratingProjectCopy({
+  const hydratingRepositoryCopy = resolveHydratingRepositoryCopy({
     persistenceBootstrapPhase,
     persistenceBootstrapMessage,
   });
@@ -270,13 +270,13 @@ function ChatAreaImpl(props: ChatAreaProps) {
             <EmptyMedia variant="icon">
               <FolderOpen strokeWidth={1.25} />
             </EmptyMedia>
-            <EmptyTitle>Open a Project</EmptyTitle>
+            <EmptyTitle>Open a Repository</EmptyTitle>
             <EmptyDescription>
               Select a local repository folder to get started.
             </EmptyDescription>
           </EmptyHeader>
           <EmptyContent>
-            <Button onClick={() => void createProject({})}>
+            <Button onClick={() => void createRepository({})}>
               <FolderOpen className={sx(chatAreaStyles.buttonIcon)} />
               Select Folder
             </Button>
@@ -291,8 +291,8 @@ function ChatAreaImpl(props: ChatAreaProps) {
       <div {...sessionAreaProps}>
         <SessionLoadingState
           testId="session-loading-state"
-          title={hydratingProjectCopy.title}
-          description={hydratingProjectCopy.description}
+          title={hydratingRepositoryCopy.title}
+          description={hydratingRepositoryCopy.description}
         />
       </div>
     );

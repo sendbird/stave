@@ -1,3 +1,4 @@
+import { FleetProjectRollup, FleetProposedChip } from "@/components/projects/FleetProjectRollup";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   ArrowRight,
@@ -61,9 +62,9 @@ import {
 } from "@/lib/reviews/result-review-client";
 import { toast } from "@/lib/notifications/toast";
 
-type FleetProjectView = {
-  projectPath: string;
-  projectName: string;
+type FleetRepositoryView = {
+  repositoryPath: string;
+  repositoryName: string;
   isCurrent: boolean;
   workspaces: FleetWorkspaceCardView[];
 };
@@ -74,22 +75,22 @@ const EMPTY_VISIBILITY: Record<string, FleetWorkspaceCardVisibility> = {};
 /** How often dormancy is re-evaluated against the wall clock. */
 const FLEET_CLOCK_TICK_MS = 60_000;
 
-function useFleetProjects() {
+function useFleetRepositories() {
   const [
-    currentProjectPath,
-    currentProjectName,
+    currentRepositoryPath,
+    currentRepositoryName,
     workspaces,
-    recentProjects,
+    recentRepositories,
     workspaceDefaultById,
     workspaceBranchById,
   ] = useAppStore(
     useShallow(
       (state) =>
         [
-          state.projectPath,
-          state.projectName,
+          state.repositoryPath,
+          state.repositoryName,
           state.workspaces,
-          state.recentProjects,
+          state.recentRepositories,
           state.workspaceDefaultById,
           state.workspaceBranchById,
         ] as const,
@@ -97,10 +98,10 @@ function useFleetProjects() {
   );
 
   return useMemo(() => {
-    const currentProject = currentProjectPath
+    const currentRepository = currentRepositoryPath
       ? ({
-          projectPath: currentProjectPath,
-          projectName: currentProjectName ?? "project",
+          repositoryPath: currentRepositoryPath,
+          repositoryName: currentRepositoryName ?? "project",
           isCurrent: true,
           workspaces: workspaces.map((workspace) => ({
             id: workspace.id,
@@ -108,40 +109,40 @@ function useFleetProjects() {
             isDefault: Boolean(workspaceDefaultById[workspace.id]),
             branch: workspaceBranchById[workspace.id],
           })),
-        } satisfies FleetProjectView)
+        } satisfies FleetRepositoryView)
       : null;
 
-    const rememberedProjects = recentProjects.map(
-      (project) =>
+    const rememberedRepositories = recentRepositories.map(
+      (repository) =>
         ({
-          projectPath: project.projectPath,
-          projectName: project.projectName,
-          isCurrent: project.projectPath === currentProjectPath,
-          workspaces: project.workspaces.map((workspace) => ({
+          repositoryPath: repository.repositoryPath,
+          repositoryName: repository.repositoryName,
+          isCurrent: repository.repositoryPath === currentRepositoryPath,
+          workspaces: repository.workspaces.map((workspace) => ({
             id: workspace.id,
             name: workspace.name,
-            isDefault: Boolean(project.workspaceDefaultById[workspace.id]),
-            branch: project.workspaceBranchById[workspace.id],
+            isDefault: Boolean(repository.workspaceDefaultById[workspace.id]),
+            branch: repository.workspaceBranchById[workspace.id],
           })),
-        }) satisfies FleetProjectView,
+        }) satisfies FleetRepositoryView,
     );
 
-    if (!currentProject) {
-      return rememberedProjects;
+    if (!currentRepository) {
+      return rememberedRepositories;
     }
-    const hasCurrentProject = rememberedProjects.some(
-      (project) => project.projectPath === currentProjectPath,
+    const hasCurrentRepository = rememberedRepositories.some(
+      (repository) => repository.repositoryPath === currentRepositoryPath,
     );
-    if (!hasCurrentProject) {
-      return [...rememberedProjects, currentProject];
+    if (!hasCurrentRepository) {
+      return [...rememberedRepositories, currentRepository];
     }
-    return rememberedProjects.map((project) =>
-      project.projectPath === currentProjectPath ? currentProject : project,
+    return rememberedRepositories.map((repository) =>
+      repository.repositoryPath === currentRepositoryPath ? currentRepository : repository,
     );
   }, [
-    currentProjectName,
-    currentProjectPath,
-    recentProjects,
+    currentRepositoryName,
+    currentRepositoryPath,
+    recentRepositories,
     workspaceBranchById,
     workspaceDefaultById,
     workspaces,
@@ -153,17 +154,17 @@ function useFleetProjects() {
  * order for cards that have not reported yet so the board does not reshuffle
  * while it settles.
  */
-function orderProjectWorkspaces(
-  project: FleetProjectView,
+function orderRepositoryWorkspaces(
+  repository: FleetRepositoryView,
   visibilityByCardKey: Record<string, FleetWorkspaceCardVisibility>,
 ) {
-  return project.workspaces
+  return repository.workspaces
     .map((workspace, index) => ({
       workspace,
       index,
       reported:
         visibilityByCardKey[
-          getFleetWorkspaceKey(project.projectPath, workspace.id)
+          getFleetWorkspaceKey(repository.repositoryPath, workspace.id)
         ],
     }))
     .sort((left, right) => {
@@ -190,11 +191,11 @@ function useCoarseClock() {
 }
 
 export function FleetView() {
-  const projects = useFleetProjects();
+  const repositories = useFleetRepositories();
   const [
     focusTaskAttention,
     closeFleetView,
-    openProject,
+    openRepository,
     switchWorkspace,
     openNotificationContext,
     markNotificationRead,
@@ -204,7 +205,7 @@ export function FleetView() {
         [
           state.focusTaskAttention,
           state.closeFleetView,
-          state.openProject,
+          state.openRepository,
           state.switchWorkspace,
           state.openNotificationContext,
           state.markNotificationRead,
@@ -225,7 +226,7 @@ export function FleetView() {
   const nowMs = useCoarseClock();
   const [visibilityByCardKey, setVisibilityByCardKey] =
     useState<Record<string, FleetWorkspaceCardVisibility>>(EMPTY_VISIBILITY);
-  const [collapsedProjects, setCollapsedProjects] = useState<
+  const [collapsedRepositories, setCollapsedRepositories] = useState<
     Record<string, boolean>
   >({});
   const [boardFilter, setBoardFilter] = useState<FleetBoardFilter>("active");
@@ -240,12 +241,12 @@ export function FleetView() {
 
   const allCardKeys = useMemo(
     () =>
-      projects.flatMap((project) =>
-        project.workspaces.map((workspace) =>
-          getFleetWorkspaceKey(project.projectPath, workspace.id),
+      repositories.flatMap((repository) =>
+        repository.workspaces.map((workspace) =>
+          getFleetWorkspaceKey(repository.repositoryPath, workspace.id),
         ),
       ),
-    [projects],
+    [repositories],
   );
   const allCardKeySet = useMemo(() => new Set(allCardKeys), [allCardKeys]);
 
@@ -294,7 +295,7 @@ export function FleetView() {
   );
 
   const handleOpenTask = useCallback(
-    (target: { projectPath: string; workspaceId: string; taskId: string }) => {
+    (target: { repositoryPath: string; workspaceId: string; taskId: string }) => {
       setExpandedTaskKey(null);
       setSelectedAttentionId(null);
       void focusTaskAttention(target);
@@ -303,23 +304,23 @@ export function FleetView() {
   );
 
   const handleOpenWorkspace = useCallback(
-    (target: { projectPath: string; workspaceId: string }) => {
+    (target: { repositoryPath: string; workspaceId: string }) => {
       void (async () => {
-        if (useAppStore.getState().projectPath !== target.projectPath) {
-          await openProject({ projectPath: target.projectPath });
+        if (useAppStore.getState().repositoryPath !== target.repositoryPath) {
+          await openRepository({ repositoryPath: target.repositoryPath });
         }
         if (useAppStore.getState().activeWorkspaceId !== target.workspaceId) {
           await switchWorkspace({ workspaceId: target.workspaceId });
         }
       })();
     },
-    [openProject, switchWorkspace],
+    [openRepository, switchWorkspace],
   );
 
   const handleToggleTaskControl = useCallback(
     (target: FleetTaskControlTarget) => {
       const taskKey = getFleetTaskKey(
-        target.projectPath,
+        target.repositoryPath,
         target.workspaceId,
         target.taskId,
       );
@@ -351,8 +352,8 @@ export function FleetView() {
           });
           return;
         }
-        if (useAppStore.getState().projectPath !== target.projectPath) {
-          await openProject({ projectPath: target.projectPath });
+        if (useAppStore.getState().repositoryPath !== target.repositoryPath) {
+          await openRepository({ repositoryPath: target.repositoryPath });
         }
         if (useAppStore.getState().activeWorkspaceId !== target.workspaceId) {
           await switchWorkspace({ workspaceId: target.workspaceId });
@@ -363,7 +364,7 @@ export function FleetView() {
         );
       });
     },
-    [openNotificationContext, openProject, switchWorkspace],
+    [openNotificationContext, openRepository, switchWorkspace],
   );
 
   const markNeedRead = useCallback(
@@ -375,7 +376,7 @@ export function FleetView() {
       const result = target.resultReview;
       const action = result
         ? setResultReviewed({
-            projectPath: result.projectPath,
+            repositoryPath: result.repositoryPath,
             workspaceId: result.workspaceId,
             taskId: result.taskId,
             turnId: result.turnId,
@@ -483,7 +484,7 @@ export function FleetView() {
         target.resultReview
           ? [
               {
-                projectPath: target.resultReview.projectPath,
+                repositoryPath: target.resultReview.repositoryPath,
                 workspaceId: target.resultReview.workspaceId,
                 taskId: target.resultReview.taskId,
                 turnId: target.resultReview.turnId,
@@ -626,12 +627,12 @@ export function FleetView() {
   const suppressedDefaultCount = reported.filter(
     (entry) => entry.isPhantom,
   ).length;
-  const isBoardEmpty = settled && visibleCount === 0 && projects.length > 0;
+  const isBoardEmpty = settled && visibleCount === 0 && repositories.length > 0;
 
-  const toggleProject = useCallback((projectPath: string) => {
-    setCollapsedProjects((current) => ({
+  const toggleRepository = useCallback((repositoryPath: string) => {
+    setCollapsedRepositories((current) => ({
       ...current,
-      [projectPath]: !current[projectPath],
+      [repositoryPath]: !current[repositoryPath],
     }));
   }, []);
 
@@ -649,6 +650,8 @@ export function FleetView() {
           </span>
         </div>
         <div className={sx(styles.headerActions)}>
+          <FleetProposedChip />
+          <FleetProjectRollup />
           <Button
             type="button"
             size="sm"
@@ -801,7 +804,7 @@ export function FleetView() {
             data-fleet-board-scroll="true"
             className={sx(styles.scroller)}
           >
-            {projects.length === 0 ? (
+            {repositories.length === 0 ? (
               <Empty>
                 <EmptyHeader>
                   <EmptyMedia variant="icon">
@@ -809,7 +812,7 @@ export function FleetView() {
                   </EmptyMedia>
                   <EmptyTitle>No Workspaces</EmptyTitle>
                   <EmptyDescription>
-                    Open a project or workspace to see agent activity here.
+                    Open a repository or workspace to see agent activity here.
                   </EmptyDescription>
                 </EmptyHeader>
               </Empty>
@@ -841,55 +844,55 @@ export function FleetView() {
                   </div>
                 ) : null}
 
-                {projects.map((project) => {
+                {repositories.map((repository) => {
                   const isCollapsed = Boolean(
-                    collapsedProjects[project.projectPath],
+                    collapsedRepositories[repository.repositoryPath],
                   );
-                  const projectCardKeys = project.workspaces.map((workspace) =>
-                    getFleetWorkspaceKey(project.projectPath, workspace.id),
+                  const repositoryCardKeys = repository.workspaces.map((workspace) =>
+                    getFleetWorkspaceKey(repository.repositoryPath, workspace.id),
                   );
-                  const projectVisibleCount = projectCardKeys.filter(
+                  const repositoryVisibleCount = repositoryCardKeys.filter(
                     (cardKey) => visibilityByCardKey[cardKey]?.visible,
                   ).length;
-                  const hideProject = settled && projectVisibleCount === 0;
+                  const hideRepository = settled && repositoryVisibleCount === 0;
 
                   return (
                     <section
-                      key={project.projectPath}
-                      className={sx(styles.projectSection)}
-                      hidden={hideProject}
+                      key={repository.repositoryPath}
+                      className={sx(styles.repositorySection)}
+                      hidden={hideRepository}
                     >
                       <AdsButton
                         layout="host"
                         type="button"
-                        xstyle={[styles.projectHeader, focusRing.ringInset]}
+                        xstyle={[styles.repositoryHeader, focusRing.ringInset]}
                         aria-expanded={!isCollapsed}
-                        aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${project.projectName} project`}
-                        onClick={() => toggleProject(project.projectPath)}
+                        aria-label={`${isCollapsed ? "Expand" : "Collapse"} ${repository.repositoryName} project`}
+                        onClick={() => toggleRepository(repository.repositoryPath)}
                       >
                         {isCollapsed ? (
                           <ChevronRight
-                            className={sx(styles.projectChevron)}
+                            className={sx(styles.repositoryChevron)}
                             aria-hidden="true"
                           />
                         ) : (
                           <ChevronDown
-                            className={sx(styles.projectChevron)}
+                            className={sx(styles.repositoryChevron)}
                             aria-hidden="true"
                           />
                         )}
-                        <span className={sx(styles.projectName)}>
-                          {project.projectName}
+                        <span className={sx(styles.repositoryName)}>
+                          {repository.repositoryName}
                         </span>
-                        <span className={sx(styles.projectCount)}>
-                          {projectVisibleCount}
+                        <span className={sx(styles.repositoryCount)}>
+                          {repositoryVisibleCount}
                         </span>
-                        {project.isCurrent ? (
+                        {repository.isCurrent ? (
                           // A status chip, so it is the ADS `Badge` rather
                           // than a span wearing a hand-rolled hairline, a
                           // `radiusMark`, and an off-ramp font size.
                           <Badge
-                            className={sx(styles.projectCurrent)}
+                            className={sx(styles.repositoryCurrent)}
                             variant="outline"
                           >
                             Current
@@ -911,22 +914,22 @@ export function FleetView() {
                         // still collapse to two and then one.
                         className={sx(styles.cardGrid)}
                       >
-                        {orderProjectWorkspaces(
-                          project,
+                        {orderRepositoryWorkspaces(
+                          repository,
                           visibilityByCardKey,
                         ).map((workspace) => {
                           const cardKey = getFleetWorkspaceKey(
-                            project.projectPath,
+                            repository.repositoryPath,
                             workspace.id,
                           );
                           return (
                             <MemoizedFleetWorkspaceCard
                               key={cardKey}
                               cardKey={cardKey}
-                              projectPath={project.projectPath}
-                              projectName={project.projectName}
+                              repositoryPath={repository.repositoryPath}
+                              repositoryName={repository.repositoryName}
                               workspace={workspace}
-                              isCurrentProject={project.isCurrent}
+                              isCurrentRepository={repository.isCurrent}
                               filter={boardFilter}
                               searchQuery={searchQuery}
                               nowMs={nowMs}
@@ -960,7 +963,7 @@ export function FleetView() {
                       </span>
                     ) : null}
                     {suppressedDefaultCount > 0 ? (
-                      <span title="Remembered projects always carry a default workspace row. These have no tasks, no messages, and no recorded activity.">
+                      <span title="Remembered repositories always carry a default workspace row. These have no tasks, no messages, and no recorded activity.">
                         {hiddenDormantCount > 0 ? "· " : ""}
                         {suppressedDefaultCount} unused default
                         {suppressedDefaultCount === 1 ? "" : "s"} suppressed

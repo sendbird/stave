@@ -228,8 +228,8 @@ function installFixture() {
     ids.map((id) => [id, id === "base" ? rootPath : `${rootPath}/${id}`]),
   );
   useAppStore.setState({
-    projectPath: rootPath,
-    projectName: "Example project",
+    repositoryPath: rootPath,
+    repositoryName: "Example project",
     activeWorkspaceId: "current",
     workspaces: ids.map((id) => ({
       id,
@@ -243,10 +243,10 @@ function installFixture() {
     workspaceBranchById: Object.fromEntries(ids.map((id) => [id, `fix/${id}`])),
     workspaceDefaultById: { base: true },
     workspaceLastActiveAtById: Object.fromEntries(ids.map((id) => [id, date])),
-    recentProjects: [
+    recentRepositories: [
       {
-        projectPath: rootPath,
-        projectName: "Example project",
+        repositoryPath: rootPath,
+        repositoryName: "Example project",
         lastOpenedAt: date,
         defaultBranch: "main",
         workspaces: [],

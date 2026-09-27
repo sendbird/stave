@@ -1,29 +1,29 @@
 import { z } from "zod";
 import {
-  ChildTaskDelegateArgsSchema,
-  ChildTaskEffortSchema,
-  ChildTaskPermissionProfileSchema,
-  type ChildTaskDelegateArgs,
-} from "@/lib/runs/child-task";
+  DelegateTaskArgsSchema,
+  DelegatedTaskEffortSchema,
+  DelegatedTaskPermissionProfileSchema,
+  type DelegateTaskArgs,
+} from "@/lib/runs/delegated-task";
 
 export const DelegationDraftScopeSchema = z
   .object({
-    projectPath: z.string().trim().min(1).max(4_096),
+    repositoryPath: z.string().trim().min(1).max(4_096),
     workspaceId: z.string().trim().min(1).max(150),
     taskId: z.string().trim().min(1).max(150),
   })
   .strict();
 export type DelegationDraftScope = z.infer<typeof DelegationDraftScopeSchema>;
 
-/** One bounded form draft. It contains no transcript or child-task output. */
+/** One bounded form draft. It contains no transcript or delegated-task output. */
 export const DelegationDraftSchema = z
   .object({
     prompt: z.string().max(100_000),
     providerId: z.enum(["claude-code", "codex"]),
     model: z.string().max(200),
     /** Absent (legacy drafts) means the child's provider default. */
-    effort: ChildTaskEffortSchema.optional(),
-    permissionProfile: ChildTaskPermissionProfileSchema,
+    effort: DelegatedTaskEffortSchema.optional(),
+    permissionProfile: DelegatedTaskPermissionProfileSchema,
     keepOpen: z.boolean(),
     isolated: z.boolean(),
     /**
@@ -31,7 +31,7 @@ export const DelegationDraftSchema = z
      * It stays present after uncertain delivery so an unchanged retry keeps
      * the same idempotency identity. Editing any field removes it.
      */
-    pendingRequest: ChildTaskDelegateArgsSchema.optional(),
+    pendingRequest: DelegateTaskArgsSchema.optional(),
     deliveryUncertain: z.boolean(),
   })
   .strict();
@@ -47,7 +47,7 @@ export const SaveDelegationDraftSchema = z
     const pending = draft?.pendingRequest;
     if (
       pending &&
-      (pending.projectPath !== scope.projectPath ||
+      (pending.repositoryPath !== scope.repositoryPath ||
         pending.parentWorkspaceId !== scope.workspaceId ||
         pending.parentTaskId !== scope.taskId)
     ) {
@@ -112,7 +112,7 @@ export function prepareDelegationDraftRequest(args: {
   draft: DelegationDraft;
   createDelegationKey: () => string;
 }):
-  | { ok: true; draft: DelegationDraft; request: ChildTaskDelegateArgs }
+  | { ok: true; draft: DelegationDraft; request: DelegateTaskArgs }
   | { ok: false; message: string } {
   const owned = SaveDelegationDraftSchema.safeParse({
     scope: args.scope,
@@ -127,9 +127,9 @@ export function prepareDelegationDraftRequest(args: {
   }
   const delegationKey =
     args.draft.pendingRequest?.delegationKey ?? args.createDelegationKey();
-  const request = ChildTaskDelegateArgsSchema.safeParse(
+  const request = DelegateTaskArgsSchema.safeParse(
     args.draft.pendingRequest ?? {
-      projectPath: args.scope.projectPath,
+      repositoryPath: args.scope.repositoryPath,
       parentWorkspaceId: args.scope.workspaceId,
       parentTaskId: args.scope.taskId,
       delegationKey,
@@ -165,7 +165,7 @@ export function prepareDelegationDraftRequest(args: {
 export function delegationDraftScopeKey(scope: DelegationDraftScope): string {
   const parsed = DelegationDraftScopeSchema.parse(scope);
   return JSON.stringify([
-    parsed.projectPath,
+    parsed.repositoryPath,
     parsed.workspaceId,
     parsed.taskId,
   ]);

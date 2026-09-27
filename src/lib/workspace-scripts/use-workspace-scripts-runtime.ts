@@ -26,7 +26,7 @@ export function useWorkspaceScriptsRuntime(
   args: ScriptsRuntimeContext | null,
 ): ScriptsRuntimeSnapshot {
   const workspaceId = args?.workspaceId ?? null;
-  const projectPath = args?.projectPath ?? "";
+  const repositoryPath = args?.repositoryPath ?? "";
   const workspacePath = args?.workspacePath ?? "";
   const workspaceName = args?.workspaceName ?? "";
   const branch = args?.branch ?? "";
@@ -38,7 +38,7 @@ export function useWorkspaceScriptsRuntime(
       }
       const release = acquireScriptsRuntime({
         workspaceId,
-        projectPath,
+        repositoryPath,
         workspacePath,
         workspaceName,
         branch,
@@ -49,7 +49,7 @@ export function useWorkspaceScriptsRuntime(
         release();
       };
     },
-    [workspaceId, projectPath, workspacePath, workspaceName, branch],
+    [workspaceId, repositoryPath, workspacePath, workspaceName, branch],
   );
 
   const getSnapshot = useCallback(
@@ -69,7 +69,7 @@ export function useRunningWorkspaceProcessCount(
   args: ScriptsRuntimeContext | null,
 ): number {
   const workspaceId = args?.workspaceId ?? null;
-  const projectPath = args?.projectPath ?? "";
+  const repositoryPath = args?.repositoryPath ?? "";
   const workspacePath = args?.workspacePath ?? "";
   const workspaceName = args?.workspaceName ?? "";
   const branch = args?.branch ?? "";
@@ -81,7 +81,7 @@ export function useRunningWorkspaceProcessCount(
       }
       const release = acquireScriptsRuntime({
         workspaceId,
-        projectPath,
+        repositoryPath,
         workspacePath,
         workspaceName,
         branch,
@@ -92,7 +92,7 @@ export function useRunningWorkspaceProcessCount(
         release();
       };
     },
-    [workspaceId, projectPath, workspacePath, workspaceName, branch],
+    [workspaceId, repositoryPath, workspacePath, workspaceName, branch],
   );
 
   const getSnapshot = useCallback(

@@ -38,9 +38,9 @@ export function createDefaultScriptTargets(): Record<string, ResolvedScriptTarge
       cwd: "workspace",
       env: {},
     },
-    [DEFAULT_SCRIPT_TARGET_IDS.PROJECT]: {
-      id: DEFAULT_SCRIPT_TARGET_IDS.PROJECT,
-      label: "Project",
+    [DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY]: {
+      id: DEFAULT_SCRIPT_TARGET_IDS.REPOSITORY,
+      label: "Repository",
       cwd: "project",
       env: {},
     },

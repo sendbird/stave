@@ -1,7 +1,7 @@
 import { afterEach, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
-import { TrackerTasksStore } from "../electron/persistence/tracker-tasks-store";
-import { TrackerKickoffLinks } from "../electron/main/tracker-tasks/kickoff-links";
+import { TrackerIssuesStore } from "../electron/persistence/tracker-issues-store";
+import { TrackerKickoffLinks } from "../electron/main/tracker-issues/kickoff-links";
 import type { LocalMcpTaskTurnUpdate } from "../src/lib/local-mcp/task-turn-update";
 
 const dbs: Database[] = [];
@@ -11,7 +11,7 @@ afterEach(() => {
 function harness() {
   const db = new Database(":memory:");
   dbs.push(db);
-  const store = new TrackerTasksStore(db);
+  const store = new TrackerIssuesStore(db);
   store.upsertKickoff({
     id: "link",
     source: "jira",
@@ -29,10 +29,10 @@ function harness() {
     new TrackerKickoffLinks({
       persistence: {
         listTrackerSourceTasks: () => [],
-        listTrackerTaskKickoffs: () => store.listKickoffs(),
-        upsertTrackerTaskKickoff: (link) => store.upsertKickoff(link),
-        findTrackerTaskKickoffByCraneJobId: () => null,
-        findTrackerTaskKickoffByStaveTask: () =>
+        listTrackerIssueKickoffs: () => store.listKickoffs(),
+        upsertTrackerIssueKickoff: (link) => store.upsertKickoff(link),
+        findTrackerIssueKickoffByCraneJobId: () => null,
+        findTrackerIssueKickoffByStaveTask: () =>
           store.listKickoffs()[0] ?? null,
       },
       emitKickoffUpdated() {},
@@ -112,8 +112,8 @@ test("recoverable errors stay live and cancellation is not success", () => {
 test("an old database gains the cursor column without losing kickoff rows", () => {
   const db = new Database(":memory:");
   dbs.push(db);
-  db.exec(`CREATE TABLE tracker_task_kickoffs (id TEXT PRIMARY KEY, source TEXT, task_ref TEXT, task_key TEXT, workspace_id TEXT, stave_task_id TEXT, crane_job_id TEXT, state TEXT, error_code TEXT, created_at TEXT, updated_at TEXT);
-    INSERT INTO tracker_task_kickoffs VALUES ('old','jira','TASK-1','TASK-1','ws','task',NULL,'completed',NULL,'2026-09-05T00:00:00Z','2026-09-05T00:00:00Z');`);
-  expect(new TrackerTasksStore(db).listKickoffs()[0].state).toBe("completed");
-  expect(new TrackerTasksStore(db).listKickoffs()[0].localTurn).toBeUndefined();
+  db.exec(`CREATE TABLE tracker_issue_kickoffs (id TEXT PRIMARY KEY, source TEXT, task_ref TEXT, task_key TEXT, workspace_id TEXT, stave_task_id TEXT, crane_job_id TEXT, state TEXT, error_code TEXT, created_at TEXT, updated_at TEXT);
+    INSERT INTO tracker_issue_kickoffs VALUES ('old','jira','TASK-1','TASK-1','ws','task',NULL,'completed',NULL,'2026-09-05T00:00:00Z','2026-09-05T00:00:00Z');`);
+  expect(new TrackerIssuesStore(db).listKickoffs()[0].state).toBe("completed");
+  expect(new TrackerIssuesStore(db).listKickoffs()[0].localTurn).toBeUndefined();
 });

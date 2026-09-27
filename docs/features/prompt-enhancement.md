@@ -7,7 +7,7 @@ Prompt enhancement rewrites a rough task draft into a clearer, execution-ready p
 ## When To Use It
 
 - Use it when the task intent is clear but the draft is terse, disorganized, or missing useful structure.
-- Use it before sending a one-off task that does not belong in durable project instructions.
+- Use it before sending a one-off task that does not belong in durable repository instructions.
 - Edit the result manually when the task needs details that were not present in the original draft.
 
 ## Before You Start
@@ -54,7 +54,7 @@ The **Enhance** action appears in the upper-right corner of a non-empty task dra
 
 - The current task draft remains in the normal workspace draft store.
 - Enhancement runs as a separate read-only utility request and does not add a message to the task conversation.
-- No project files are changed by the enhancement action.
+- No repository files are changed by the enhancement action.
 
 ## Limitations And Advanced Options
 
@@ -85,6 +85,6 @@ The **Enhance** action appears in the upper-right corner of a non-empty task dra
 
 ## Related Docs
 
-- [Project Instructions](project-instructions.md)
+- [Repository Instructions](repository-instructions.md)
 - [Runtime Safety Controls](provider-sandbox-and-approval.md)
 - [Attachments](attachments.md)

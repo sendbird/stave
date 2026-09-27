@@ -24,7 +24,7 @@ import type {
   RetainedTurnActivityByTask,
 } from "@/lib/providers/turn-status";
 import type { WorkspacePrInfo } from "@/lib/pr-status";
-import type { ChildTaskSummary } from "@/lib/runs/child-task";
+import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import type { TurnIntentComplianceResult } from "@/lib/source-control-review";
 import type { SkillCatalogEntry, SkillCatalogRoot } from "@/lib/skills/types";
 import type { Macro, MacroTokenMatch } from "@/lib/macros/types";
@@ -49,7 +49,7 @@ import type { AutoRoutingDecisionRecord } from "@/store/auto-routing";
 import type { AppActiveSurface, AppSurfaceActions } from "@/store/app-surface";
 import type { FailedOutgoingSendsByTask } from "@/store/failed-send-recovery";
 import type { LayoutState } from "@/store/layout.utils";
-import type { RecentProjectState } from "@/store/project.utils";
+import type { RecentRepositoryState } from "@/store/repository.utils";
 import type { TaskScrollToLatestRequest } from "@/store/task-scroll.utils";
 import type { WorkspaceKickoffActions } from "@/store/workspace-kickoff-actions";
 import type {
@@ -69,9 +69,9 @@ import type {
 } from "@/types/chat";
 import type { ReviewComment, ReviewCommentSide } from "@/types/review";
 import type {
-  ProjectAppearanceColorId,
-  ProjectAppearanceIconId,
-} from "@/store/project.utils";
+  RepositoryAppearanceColorId,
+  RepositoryAppearanceIconId,
+} from "@/store/repository.utils";
 
 export type NotificationContextOpenResult =
   | { status: "opened" }
@@ -139,8 +139,8 @@ export interface AppState
   promptDraftPersistenceVersion: number;
   workspaces: WorkspaceSummary[];
   activeWorkspaceId: string;
-  projectPath: string | null;
-  recentProjects: RecentProjectState[];
+  repositoryPath: string | null;
+  recentRepositories: RecentRepositoryState[];
   defaultBranch: string;
   workspaceBranchById: Record<string, string>;
   workspacePathById: Record<string, string>;
@@ -216,8 +216,8 @@ export interface AppState
     line: number;
     column?: number;
   } | null;
-  projectName: string | null;
-  projectFiles: string[];
+  repositoryName: string | null;
+  repositoryFiles: string[];
   workspaceFileCacheByPath: Record<string, string[]>;
   taskCheckpointById: Record<string, string>;
   providerAvailability: Record<ProviderId, boolean>;
@@ -285,8 +285,8 @@ export interface AppState
   taskWorkspaceIdById: Record<string, string>;
   persistenceBootstrapPhase: PersistenceBootstrapPhase;
   persistenceBootstrapMessage: string;
-  hydrateProjectRegistry: () => Promise<void>;
-  flushProjectRegistry: () => Promise<void>;
+  hydrateRepositoryRegistry: () => Promise<void>;
+  flushRepositoryRegistry: () => Promise<void>;
   hydrateWorkspaces: () => Promise<void>;
   /** Lightweight refresh: discover new/removed git worktrees without full rehydration. */
   refreshWorkspaces: () => Promise<void>;
@@ -299,14 +299,14 @@ export interface AppState
   flushActiveWorkspaceSnapshot: () => Promise<void>;
   refreshActiveManagedTask: () => Promise<void>;
   syncHostTaskTurn: (update: LocalMcpTaskTurnUpdate) => Promise<void>;
-  createProject: (args: { name?: string }) => Promise<void>;
-  openProjectFromPath: (args: {
+  createRepository: (args: { name?: string }) => Promise<void>;
+  openRepositoryFromPath: (args: {
     inputPath: string;
   }) => Promise<{ ok: boolean; stderr?: string }>;
-  openProject: (args: { projectPath: string }) => Promise<void>;
-  removeProjectFromList: (args: { projectPath: string }) => Promise<void>;
-  moveProjectInList: (args: {
-    projectPath: string;
+  openRepository: (args: { repositoryPath: string }) => Promise<void>;
+  removeRepositoryFromList: (args: { repositoryPath: string }) => Promise<void>;
+  moveRepositoryInList: (args: {
+    repositoryPath: string;
     direction: "up" | "down";
   }) => void;
   createWorkspace: (args: {
@@ -353,35 +353,35 @@ export interface AppState
   }) => Promise<void>;
   switchWorkspace: (args: { workspaceId: string }) => Promise<void>;
   renameWorkspace: (args: {
-    projectPath?: string;
+    repositoryPath?: string;
     workspaceId: string;
     name: string;
   }) => Promise<{ ok: boolean; message?: string }>;
-  moveWorkspaceInProjectList: (args: {
-    projectPath: string;
+  moveWorkspaceInRepositoryList: (args: {
+    repositoryPath: string;
     workspaceId: string;
     direction: "up" | "down";
   }) => void;
-  setProjectBasePrompt: (args: {
-    projectPath?: string;
+  setRepositoryBasePrompt: (args: {
+    repositoryPath?: string;
     prompt: string;
   }) => void;
-  setProjectKickoffBranchNamingRule: (args: {
-    projectPath?: string;
+  setRepositoryKickoffBranchNamingRule: (args: {
+    repositoryPath?: string;
     rule: string;
   }) => void;
-  setProjectWorkspaceInitCommand: (args: {
-    projectPath?: string;
+  setRepositoryWorkspaceInitCommand: (args: {
+    repositoryPath?: string;
     command: string;
   }) => void;
-  setProjectWorkspaceUseRootNodeModulesSymlink: (args: {
-    projectPath?: string;
+  setRepositoryWorkspaceUseRootNodeModulesSymlink: (args: {
+    repositoryPath?: string;
     enabled: boolean;
   }) => void;
-  setProjectAppearance: (args: {
-    projectPath?: string;
-    icon: ProjectAppearanceIconId;
-    color: ProjectAppearanceColorId;
+  setRepositoryAppearance: (args: {
+    repositoryPath?: string;
+    icon: RepositoryAppearanceIconId;
+    color: RepositoryAppearanceColorId;
   }) => void;
   setDarkMode: (args: { enabled: boolean }) => void;
   installCustomTheme: (args: { theme: CustomThemeDefinition }) => {
@@ -417,7 +417,7 @@ export interface AppState
   focusTaskAttention: (args: {
     taskId: string;
     workspaceId?: string;
-    projectPath?: string;
+    repositoryPath?: string;
     refreshFromPersistence?: boolean;
   }) => Promise<void>;
   requestTaskScrollToLatest: (args: { taskId: string }) => void;
@@ -557,7 +557,7 @@ export interface AppState
   toggleEditorDiffMode: () => void;
   toggleEditorMarkdownPreviewMode: () => void;
   openWorkspacePicker: () => Promise<void>;
-  refreshProjectFiles: () => Promise<void>;
+  refreshRepositoryFiles: () => Promise<void>;
   refreshRateLimits: (args?: {
     providers?: ProviderId[];
     /** Bypass host-side caches; only ever set from a user action. */
@@ -695,7 +695,7 @@ export interface AppState
   }) => Promise<SendUserMessageResult>;
   abortTaskTurn: (args: { taskId: string }) => void;
   /**
-   * Publish a parent's child-task listing into its active turn's work graph.
+   * Publish a parent's delegated-task listing into its active turn's work graph.
    *
    * The listing is read by the surface that shows it, but the graph is where
    * both the Turn Activity tree and Fleet's agent count come from — so it has to
@@ -703,9 +703,9 @@ export interface AppState
    * would report different fan-outs for the same turn. A no-op when the task has
    * no live turn, and reference-stable when the listing has not changed.
    */
-  syncChildTasksIntoTurnGraph: (args: {
+  syncDelegatedTasksIntoTurnGraph: (args: {
     taskId: string;
-    children: readonly ChildTaskSummary[];
+    children: readonly DelegatedTaskSummary[];
   }) => void;
   /**
    * Cancels only the Advisor preflight for the task's active turn. The primary

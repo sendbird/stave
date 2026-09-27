@@ -621,7 +621,7 @@ export function SkillDetail(props: {
 
 export function WorkspaceSkillsPanel(props: {
   onOpenSettings?: (options?: {
-    projectPath?: string | null;
+    repositoryPath?: string | null;
     section?: SectionId;
   }) => void;
 }) {
@@ -629,7 +629,7 @@ export function WorkspaceSkillsPanel(props: {
     skillsEnabled,
     skillCatalog,
     activeWorkspaceId,
-    projectPath,
+    repositoryPath,
     workspacePathById,
     sharedSkillsHome,
   ] = useAppStore(
@@ -639,7 +639,7 @@ export function WorkspaceSkillsPanel(props: {
           state.settings.skillsEnabled,
           state.skillCatalog,
           state.activeWorkspaceId,
-          state.projectPath,
+          state.repositoryPath,
           state.workspacePathById,
           state.settings.sharedSkillsHome,
         ] as const,
@@ -647,7 +647,7 @@ export function WorkspaceSkillsPanel(props: {
   );
   const refreshSkillCatalog = useAppStore((state) => state.refreshSkillCatalog);
   const workspacePath =
-    workspacePathById[activeWorkspaceId] ?? projectPath ?? null;
+    workspacePathById[activeWorkspaceId] ?? repositoryPath ?? null;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedSkillId, setSelectedSkillId] = useState<string | null>(null);

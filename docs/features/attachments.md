@@ -8,7 +8,7 @@ Stave lets you attach files and images to a chat message, so the model can work 
 - You want to ask about a screenshot, design mock, or error image.
 - You want to share logs, configs, or fixtures that are easier to read as a file than paste inline.
 
-For general repository-wide rules, use [Project Instructions](project-instructions.md) instead of pasting a file into every prompt.
+For general repository-wide rules, use [Repository Instructions](repository-instructions.md) instead of pasting a file into every prompt.
 
 ## Quick Start
 
@@ -74,5 +74,5 @@ If your clipboard contains image data and file references at the same time, Stav
 ## Related Docs
 
 - [Integrated Terminal](integrated-terminal.md)
-- [Project Instructions](project-instructions.md)
+- [Repository Instructions](repository-instructions.md)
 - [Runtime Safety Controls](provider-sandbox-and-approval.md)

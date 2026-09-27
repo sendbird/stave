@@ -66,7 +66,7 @@ interface PendingExplorerDelete {
 
 interface EditorPanelProps {
   onOpenSettings?: (options?: {
-    projectPath?: string | null;
+    repositoryPath?: string | null;
     section?: SectionId;
   }) => void;
 }
@@ -111,7 +111,7 @@ export function EditorPanel(props: EditorPanelProps) {
   const [
     activeWorkspaceId,
     hasHydratedWorkspaces,
-    projectName,
+    repositoryName,
     sidebarOverlayVisible,
     sidebarOverlayTab,
     workspaceCwd,
@@ -120,7 +120,7 @@ export function EditorPanel(props: EditorPanelProps) {
     turnIntentCompliance,
     openFileFromTree,
     openDiffInEditor,
-    refreshProjectFiles,
+    refreshRepositoryFiles,
     closeEditorTab,
     updateSettings,
     requestVerificationFix,
@@ -132,16 +132,16 @@ export function EditorPanel(props: EditorPanelProps) {
   ] = useAppStore(useShallow((state) => [
     state.activeWorkspaceId,
     state.hasHydratedWorkspaces,
-    state.projectName,
+    state.repositoryName,
     state.layout.sidebarOverlayVisible,
     state.layout.sidebarOverlayTab,
-    state.workspacePathById[state.activeWorkspaceId] ?? state.projectPath ?? undefined,
+    state.workspacePathById[state.activeWorkspaceId] ?? state.repositoryPath ?? undefined,
     state.settings.scmAutoRefreshSeconds,
     state.turnVerificationByWorkspace[state.activeWorkspaceId],
     state.turnIntentComplianceByWorkspace[state.activeWorkspaceId],
     state.openFileFromTree,
     state.openDiffInEditor,
-    state.refreshProjectFiles,
+    state.refreshRepositoryFiles,
     state.closeEditorTab,
     state.updateSettings,
     state.requestVerificationFix,
@@ -238,7 +238,7 @@ export function EditorPanel(props: EditorPanelProps) {
         : filteredScmItems.length > 0
       ? "Stage files to prepare the next commit."
       : "Working tree is clean.";
-  const explorerProjectName = projectName?.trim() || "Project";
+  const explorerRepositoryName = repositoryName?.trim() || "Repository";
   const rightTab = sidebarOverlayTab;
 
   function updateExplorerDirectoryState(
@@ -791,7 +791,7 @@ export function EditorPanel(props: EditorPanelProps) {
     if (!result.ok && !result.alreadyExists && workspaceCwd) {
       await workspaceFsAdapter.setRoot?.({
         rootPath: workspaceCwd,
-        rootName: explorerProjectName,
+        rootName: explorerRepositoryName,
         files: workspaceFsAdapter.getKnownFiles(),
       });
       result = await args.execute();
@@ -815,7 +815,7 @@ export function EditorPanel(props: EditorPanelProps) {
     if (!result.ok && workspaceCwd) {
       await workspaceFsAdapter.setRoot?.({
         rootPath: workspaceCwd,
-        rootName: explorerProjectName,
+        rootName: explorerRepositoryName,
         files: workspaceFsAdapter.getKnownFiles(),
       });
       result = await args.execute();
@@ -953,7 +953,7 @@ export function EditorPanel(props: EditorPanelProps) {
       }
 
       await Promise.all([
-        refreshProjectFiles(),
+        refreshRepositoryFiles(),
         reloadExplorer({ expandedPaths: nextExpandedPaths }),
       ]);
 
@@ -1004,7 +1004,7 @@ export function EditorPanel(props: EditorPanelProps) {
       setPendingExplorerCreatePath("");
 
       await Promise.all([
-        refreshProjectFiles(),
+        refreshRepositoryFiles(),
         reloadExplorer({ expandedPaths: nextExpandedFolders }),
       ]);
 
@@ -1032,7 +1032,7 @@ export function EditorPanel(props: EditorPanelProps) {
         >
           {rightTab === "explorer" ? (
             <WorkspaceExplorerPanel
-              projectName={explorerProjectName}
+              repositoryName={explorerRepositoryName}
               explorerError={explorerError}
               pendingExplorerCreate={pendingExplorerCreate}
               pendingExplorerCreateInputRef={pendingExplorerCreateInputRef}
@@ -1110,7 +1110,7 @@ export function EditorPanel(props: EditorPanelProps) {
             <WorkspaceScriptsPanel onOpenSettings={props.onOpenSettings} />
           ) : null}
           {rightTab === "activity" ? <TurnActivityPanel /> : null}
-          {rightTab === "results" || rightTab === "collaboration" ? <TaskWorkPanel kind={rightTab} /> : null}
+          {rightTab === "results" || rightTab === "mission" ? <TaskWorkPanel kind={rightTab} /> : null}
         </RightRailPanelShell>
       </div>
       <ConfirmDialog

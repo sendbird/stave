@@ -98,7 +98,7 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         sourcePath: "docs/features/turn-activity.md",
         title: "Turn Activity",
         description:
-          "Choose a docked, floating, or right-rail view for following tools, child tasks, todos, and other live turn data.",
+          "Choose a docked, floating, or right-rail view for following tools, delegated tasks, todos, and other live turn data.",
       },
       {
         routePath: "standalone-cli",
@@ -110,15 +110,49 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
     ],
   },
   {
+    id: "missions-and-projects",
+    title: "Missions and Projects",
+    docs: [
+      {
+        routePath: "missions",
+        sourcePath: "docs/features/missions.md",
+        title: "Missions",
+        description:
+          "Hand an outcome to a playbook: Stave runs each stage, opens the PR, watches checks and stops only where you sign off.",
+      },
+      {
+        routePath: "playbooks",
+        sourcePath: "docs/features/playbooks.md",
+        title: "Playbooks",
+        description:
+          "Save the stages you would otherwise prompt one by one, with where missions should ask you first.",
+      },
+      {
+        routePath: "projects",
+        sourcePath: "docs/features/projects.md",
+        title: "Projects",
+        description:
+          "Brief a goal that takes several missions; a coordinator plans them, wakes on issues, PR feedback or a schedule, and talks with you beside the board.",
+      },
+    ],
+  },
+  {
     id: "workspace",
     title: "Workspace",
     docs: [
       {
-        routePath: "project-instructions",
-        sourcePath: "docs/features/project-instructions.md",
-        title: "Project Instructions",
+        routePath: "workspace-kickoff",
+        sourcePath: "docs/features/workspace-kickoff.md",
+        title: "Workspace Kickoff",
         description:
-          "Save repository-level rules once so every task in that project starts with the same guidance.",
+          "Create a workspace from an issue, a link or a prompt, review the proposed branch and task, and optionally hand it to a mission.",
+      },
+      {
+        routePath: "repository-instructions",
+        sourcePath: "docs/features/repository-instructions.md",
+        title: "Repository Instructions",
+        description:
+          "Save repository-level rules once so every task in that repository starts with the same guidance.",
         previewImage: "screenshots/project-instructions.png",
       },
       {
@@ -137,18 +171,25 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Inspect Lens memory, sleep or release hidden pages, stop workspace execution, and clean up inactive worktrees.",
       },
       {
-        routePath: "routines",
-        sourcePath: "docs/features/routines.md",
-        title: "Routines",
+        routePath: "automations",
+        sourcePath: "docs/features/automations.md",
+        title: "Automations",
         description:
           "Schedule recurring Claude or Codex tasks with their own environment, model, permissions, and Information resources.",
       },
       {
-        routePath: "child-tasks",
-        sourcePath: "docs/features/child-tasks.md",
-        title: "Child Tasks",
+        routePath: "wake-ups",
+        sourcePath: "docs/features/wake-ups.md",
+        title: "Wake-ups",
         description:
-          "Delegate work from one task to a durable child task, optionally on the other provider or in its own worktree.",
+          "Resume an existing task on a schedule or when the work it delegated finishes, in the same provider session.",
+      },
+      {
+        routePath: "delegated-tasks",
+        sourcePath: "docs/features/delegated-tasks.md",
+        title: "Delegated Tasks",
+        description:
+          "Delegate work from one task to a durable delegated task, optionally on the other provider or in its own worktree.",
       },
       {
         routePath: "latest-turn-summary",
@@ -166,11 +207,11 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "See every model call Stave makes on your behalf, switch each one off, and choose the provider and model it runs on.",
       },
       {
-        routePath: "project-memory",
-        sourcePath: "docs/features/project-memory.md",
-        title: "Project Memory",
+        routePath: "repository-memory",
+        sourcePath: "docs/features/repository-memory.md",
+        title: "Repository Memory",
         description:
-          "Carry durable decisions, conventions, and gotchas across workspaces of the same project as a curated recall aid.",
+          "Carry durable decisions, conventions, and gotchas across workspaces of the same repository as a curated recall aid.",
       },
       {
         routePath: "notifications",
@@ -195,9 +236,9 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
           "Switch the left sidebar between the Projects tree and the Work queue, which groups every workspace by what it needs from you.",
       },
       {
-        routePath: "tasks",
-        sourcePath: "docs/features/tasks.md",
-        title: "Tasks",
+        routePath: "issues",
+        sourcePath: "docs/features/issues.md",
+        title: "Issues",
         description:
           "See the tracker tickets assigned to you from Crane and Jira, then start a local run from one with the project, workspace, and provider you choose.",
       },

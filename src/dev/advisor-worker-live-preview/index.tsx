@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { CollaborationPanel } from "@/components/collaboration/CollaborationPanel";
+import { TeamSection } from "@/components/team/TeamSection";
 import { ExchangeRow } from "@/components/delegation/ExchangeRow";
 import { AdvisorExchangeCard } from "@/components/session/AdvisorExchangeMonitor";
 import { TurnActivity } from "@/components/session/TurnActivity";
@@ -8,7 +8,7 @@ import { TaskScopeProvider } from "@/components/session/task-scope-context";
 import { ActionButton } from "@/components/system/ActionButton";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
-import { fromChildTask } from "@/lib/delegation/exchange";
+import { fromDelegatedTask } from "@/lib/delegation/exchange";
 import type { AdvisorExchangeSnapshot } from "@/lib/providers/advisor-activity";
 import {
   buildStarterProfile,
@@ -19,7 +19,7 @@ import {
   applyProviderTurnActivityEvents,
   startProviderTurnActivity,
 } from "@/lib/providers/turn-status";
-import type { ChildTaskSummary } from "@/lib/runs/child-task";
+import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import { applyThemeClass } from "@/lib/themes/apply";
 import type { TurnActivityPlacement } from "@/store/app-settings";
 import { useAppStore } from "@/store/app.store";
@@ -37,14 +37,14 @@ import {
  * Dev-only preview of the *in-flight* Advisor / Worker UX: a turn that is
  * still running, an advisor consult the primary is waiting on, a worker run
  * reporting progress, plus one settled consult, one failed worker and one
- * child task so every exchange state is on screen at once. The shipped
+ * delegated task so every exchange state is on screen at once. The shipped
  * `collaboration` preview shows the settled state; this one shows the moment
  * the user is actually watching.
  */
 const target = {
   taskId: "preview-live-task",
   workspaceId: "preview-live-workspace",
-  projectPath: "/tmp/preview-project",
+  repositoryPath: "/tmp/preview-project",
 };
 const TURN_ID = "preview-live-turn";
 const PRIMARY_PROVIDER = "claude-code" as const;
@@ -206,15 +206,15 @@ function buildSettledSnapshot(startedAt: number): AdvisorExchangeSnapshot {
   };
 }
 
-function buildChildTask(startedAt: number): ChildTaskSummary {
+function buildDelegatedTask(startedAt: number): DelegatedTaskSummary {
   return {
     runId: "preview-run",
     stepId: "preview-step",
     parentTaskId: target.taskId,
     delegationKey: "verify-close-ordering",
-    childTaskId: "preview-child-task",
-    childWorkspaceId: "preview-child-workspace",
-    childTurnId: "preview-child-turn",
+    delegatedTaskId: "preview-delegated-task",
+    delegatedWorkspaceId: "preview-child-workspace",
+    delegatedTurnId: "preview-child-turn",
     providerId: "codex",
     requestedModel: "gpt-5.6-terra",
     requestedEffort: "high",
@@ -225,7 +225,7 @@ function buildChildTask(startedAt: number): ChildTaskSummary {
     createdAt: new Date(startedAt - 30_000).toISOString(),
     updatedAt: new Date(startedAt).toISOString(),
     completedAt: null,
-  } as unknown as ChildTaskSummary;
+  } as unknown as DelegatedTaskSummary;
 }
 
 const PLACEMENTS: readonly TurnActivityPlacement[] = ["docked", "floating", "panel"];
@@ -321,7 +321,7 @@ export function AdvisorWorkerLivePreview() {
   const snapshot = useMemo(() => buildAdvisorSnapshot(startedAt), [startedAt]);
   const settled = useMemo(() => buildSettledSnapshot(startedAt), [startedAt]);
   const childExchange = useMemo(
-    () => fromChildTask(buildChildTask(startedAt)),
+    () => fromDelegatedTask(buildDelegatedTask(startedAt)),
     [startedAt],
   );
   const rateLimitsSnapshot = useMemo(
@@ -390,7 +390,7 @@ export function AdvisorWorkerLivePreview() {
     useAppStore.setState({
       activeWorkspaceId: target.workspaceId,
       activeTaskId: target.taskId,
-      projectPath: target.projectPath,
+      repositoryPath: target.repositoryPath,
       settings: {
         ...state.settings,
         turnActivityPlacement: placement,
@@ -478,7 +478,7 @@ export function AdvisorWorkerLivePreview() {
                 </div>
               )}
               <p className={sx(styles.label)}>
-                Child task exchange row (fixture, not store-backed)
+                Delegated task exchange row (fixture, not store-backed)
               </p>
               <div className={sx(styles.rowHost)}>
                 <ExchangeRow exchange={childExchange} nowMs={nowMs} />
@@ -502,7 +502,7 @@ export function AdvisorWorkerLivePreview() {
             </div>
             <div className={sx(styles.stack)}>
               <p className={sx(styles.label)}>Right rail · Delegations panel</p>
-              <CollaborationPanel target={target} />
+              <TeamSection target={target} />
             </div>
           </div>
           <AutoRouterPreviewSection

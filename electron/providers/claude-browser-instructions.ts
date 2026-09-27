@@ -32,7 +32,7 @@ export const CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS = [
  * Lens operating rules. Only meaningful when the Stave local MCP is actually
  * registered for the session — without it none of the `stave_lens_*` tools
  * exist, so the block is pure prompt overhead on every turn of every session
- * that has no Lens access (routines, isolated analysis runs, unregistered
+ * that has no Lens access (automations, isolated analysis runs, unregistered
  * installs).
  */
 export const CLAUDE_STAVE_LENS_INSTRUCTIONS = [

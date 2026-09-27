@@ -58,6 +58,8 @@ import {
   type PrePrReviewProviderId,
 } from "@/lib/source-control-review";
 import type { Macro } from "@/lib/macros/types";
+import type { UnreadablePlaybook } from "@/lib/playbooks/normalize";
+import type { Playbook } from "@/lib/playbooks/schema";
 import type { PromptEnhancementExemplar } from "@/lib/providers/prompt-enhancement-context";
 import { cloneDefaultTaskPresets, type TaskPreset } from "@/lib/task-presets";
 import {
@@ -102,9 +104,9 @@ import {
   type JiraConnectorSettings,
 } from "@/lib/jira-connector/types";
 import {
-  DEFAULT_TRACKER_TASKS_SETTINGS,
-  type TrackerTasksSettings,
-} from "@/lib/tracker-tasks/settings";
+  DEFAULT_TRACKER_ISSUES_SETTINGS,
+  type TrackerIssuesSettings,
+} from "@/lib/tracker-issues/settings";
 import {
   DEFAULT_WORKSPACE_KICKOFF_SETTINGS,
   type WorkspaceKickoffSettings,
@@ -238,6 +240,16 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * draft and may pin a per-turn model + effort override.
    */
   macros: Macro[];
+  /**
+   * Saved playbooks: ordered stages a mission runs on one lead task. Kept
+   * apart from macros, with their own limit and validation.
+   */
+  playbooks: Playbook[];
+  /**
+   * Saved playbooks this version could not read, kept exactly as saved so a
+   * version that can read them restores them. Written back unchanged.
+   */
+  playbooksUnreadable: UnreadablePlaybook[];
   permissionMode: "require-approval" | "auto-safe";
   trustedTools: string[];
   skillsEnabled: boolean;
@@ -305,6 +317,11 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   scmAutoRefreshSeconds: number;
   confirmBeforeClose: boolean;
   nativeNotificationsEnabled: boolean;
+  /**
+   * Minutes a mission sign-off may wait before one batched reminder; 0 turns
+   * reminders off. The first request always notifies.
+   */
+  missionSignOffReminderMinutes: number;
   notificationSoundEnabled: boolean;
   notificationSoundVolume: number;
   notificationSoundPreset: NotificationSoundPreset;
@@ -390,8 +407,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * the email and API token never leave the Electron main vault.
    */
   jiraConnector: JiraConnectorSettings;
-  /** Tasks surface defaults: view, refresh cadence, and kickoff start mode. */
-  trackerTasks: TrackerTasksSettings;
+  /** Issues surface defaults: view, refresh cadence, and kickoff start mode. */
+  trackerIssues: TrackerIssuesSettings;
   claudeSettingSources: ClaudeSettingSource[];
   claudeEffort: "low" | "medium" | "high" | "xhigh" | "max";
   claudeThinkingMode: "adaptive" | "enabled" | "disabled";
@@ -675,6 +692,8 @@ export const defaultSettings: AppSettings = {
   autoRoutingProfile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
   taskPresets: cloneDefaultTaskPresets(),
   macros: [],
+  playbooks: [],
+  playbooksUnreadable: [],
   permissionMode: "auto-safe",
   trustedTools: [],
   skillsEnabled: true,
@@ -719,6 +738,7 @@ export const defaultSettings: AppSettings = {
   scmAutoRefreshSeconds: 0,
   confirmBeforeClose: true,
   nativeNotificationsEnabled: true,
+  missionSignOffReminderMinutes: 30,
   notificationSoundEnabled: true,
   notificationSoundVolume: DEFAULT_NOTIFICATION_SOUND_VOLUME,
   notificationSoundPreset: DEFAULT_NOTIFICATION_SOUND_PRESET,
@@ -757,14 +777,14 @@ export const defaultSettings: AppSettings = {
   workerConfigByProvider: {},
   craneConnector: {
     ...DEFAULT_CRANE_CONNECTOR_SETTINGS,
-    projectMappings: [],
+    repositoryMappings: [],
   },
   martinSync: { ...DEFAULT_MARTIN_SYNC_SETTINGS },
   jiraConnector: {
     ...DEFAULT_JIRA_CONNECTOR_SETTINGS,
-    projectMappings: [],
+    repositoryMappings: [],
   },
-  trackerTasks: { ...DEFAULT_TRACKER_TASKS_SETTINGS },
+  trackerIssues: { ...DEFAULT_TRACKER_ISSUES_SETTINGS },
   claudeSettingSources: ["project"],
   // Matches `resolveDefaultClaudeEffortForModel` for the default model
   // (Opus 5.5). Keep the two in step when either changes.

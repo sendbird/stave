@@ -15,7 +15,7 @@
 
 - Lens works in the Electron desktop runtime. Browser-only Vite mode does not expose the embedded view.
 - Lens keeps website cookies and browser storage in an Electron Chromium profile. Optionally, you can save multiple accounts per exact hostname in Stave's OS-encrypted Lens account vault.
-- Lens uses a project-scoped browser profile by default, so workspaces for the same project can share website sign-in. Use the workspace-isolated profile setting for sensitive work.
+- Lens uses a repository-scoped browser profile by default, so workspaces for the same repository can share website sign-in. Use the workspace-isolated profile setting for sensitive work.
 - To send picked elements into chat, select an active task first.
 - For exact React file and line mapping, enable `Settings > Lens > React _debugSource` and run the target app in a React dev build.
 - CDP-backed actions such as screenshots, JavaScript evaluation, element clicks, and live style edits require `Settings > Lens > Developer Mode` plus per-host approval. Approved hosts are currently global across workspaces.
@@ -56,11 +56,11 @@
 
 1. Open `Settings > Lens`.
 2. Use `Session & Sign-in` to choose the browser storage scope.
-3. `Project profile` shares Lens website sign-in across workspaces for the current project.
+3. `Repository profile` shares Lens website sign-in across workspaces for the current repository.
 4. `Workspace isolated` keeps cookies and site storage separate for the active workspace.
-5. Use `Clear project data` or `Clear workspace data` to remove Lens cookies, localStorage, IndexedDB, cache, and related browser storage.
+5. Use `Clear repository data` or `Clear workspace data` to remove Lens cookies, localStorage, IndexedDB, cache, and related browser storage.
 
-OAuth and SSO popup windows opened from a page use the same Lens browser profile as the page, so sign-in cookies land in the selected project or workspace profile.
+OAuth and SSO popup windows opened from a page use the same Lens browser profile as the page, so sign-in cookies land in the selected repository or workspace profile.
 
 ### Use Page Audio And A Microphone
 
@@ -326,4 +326,4 @@ The safe attribute allowlist is `alt`, `aria-describedby`, `aria-label`, `aria-l
 
 - [Local MCP User Guide](local-mcp-user-guide.md)
 - [Command Palette](command-palette.md)
-- [Project Instructions](project-instructions.md)
+- [Repository Instructions](repository-instructions.md)

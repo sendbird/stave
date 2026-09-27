@@ -49,7 +49,7 @@ import {
   resolveCodexInstructionRefresh,
   resolveCodexNativeBrowserPluginEnabled,
 } from "../electron/providers/codex-runtime-config";
-import { shouldStartFreshCodexCollaborationThread } from "../electron/providers/codex-thread-session";
+import { shouldStartFreshCodexGrantThread } from "../electron/providers/codex-thread-session";
 import { mapCodexHookCatalogGroups } from "../electron/providers/codex-snapshot-mappers";
 import { normalizeCodexTokenUsage } from "../electron/providers/codex-token-usage";
 import {
@@ -459,7 +459,7 @@ describe("mapCodexElicitationToUserInput", () => {
     const mapped = mapCodexElicitationToApproval({
       mode: "form",
       message:
-        'Allow the stave-local MCP server to run tool "stave_list_projects"?',
+        'Allow the stave-local MCP server to run tool "stave_list_repositories"?',
       requestedSchema: {
         type: "object",
         properties: {},
@@ -472,7 +472,7 @@ describe("mapCodexElicitationToUserInput", () => {
     });
 
     expect(mapped).toEqual({
-      toolName: "stave_list_projects",
+      toolName: "stave_list_repositories",
       description:
         "List projects already registered in the local Stave desktop app.",
     });
@@ -537,7 +537,7 @@ describe("mapCodexElicitationToUserInput", () => {
     // Read-only / workspace-metadata tools: allowed in every posture, exactly
     // as `resolveClaudePermissionModeDecision` allows them in every mode.
     for (const toolName of [
-      "stave_list_child_tasks",
+      "stave_list_delegated_tasks",
       "stave_get_workspace_information",
       "stave_append_workspace_notes",
       "stave_remember",
@@ -560,7 +560,7 @@ describe("mapCodexElicitationToUserInput", () => {
     // Agent-starting / agent-stopping tools keep following the run's posture.
     for (const toolName of [
       "stave_delegate_task",
-      "stave_stop_child_task",
+      "stave_stop_delegated_task",
       "stave_run_task",
     ]) {
       expect(
@@ -588,9 +588,9 @@ describe("mapCodexElicitationToUserInput", () => {
     });
 
     for (const decorated of [
-      "stave-local__stave_list_child_tasks",
-      "stave-local.stave_list_child_tasks",
-      "  STAVE_LIST_CHILD_TASKS  ",
+      "stave-local__stave_list_delegated_tasks",
+      "stave-local.stave_list_delegated_tasks",
+      "  STAVE_LIST_DELEGATED_TASKS  ",
     ]) {
       expect(
         shouldAutoApproveStaveLocalMcpElicitation({
@@ -873,41 +873,41 @@ describe("Codex bundled plugin and browser tooling overrides", () => {
 
   test("starts a fresh thread when turn-scoped collaboration grants change", () => {
     expect(
-      shouldStartFreshCodexCollaborationThread({
+      shouldStartFreshCodexGrantThread({
         resumeThreadId: "thread-without-advisor",
         previousProfile: "none",
         currentProfile: '["advisor-key",""]',
       }),
     ).toBe(true);
     expect(
-      shouldStartFreshCodexCollaborationThread({
+      shouldStartFreshCodexGrantThread({
         resumeThreadId: "thread-with-advisor",
         previousProfile: '["advisor-key",""]',
         currentProfile: "none",
       }),
     ).toBe(true);
     expect(
-      shouldStartFreshCodexCollaborationThread({
+      shouldStartFreshCodexGrantThread({
         resumeThreadId: "persisted-thread-after-restart",
         currentProfile: '["advisor-key",""]',
       }),
     ).toBe(true);
     expect(
-      shouldStartFreshCodexCollaborationThread({
+      shouldStartFreshCodexGrantThread({
         resumeThreadId: "stable-thread",
         previousProfile: "none",
         currentProfile: "none",
       }),
     ).toBe(false);
     expect(
-      shouldStartFreshCodexCollaborationThread({
+      shouldStartFreshCodexGrantThread({
         resumeThreadId: "advisor-channel-thread",
         previousProfile: '["advisor-key",""]',
         currentProfile: '["advisor-key",""]',
       }),
     ).toBe(false);
     expect(
-      shouldStartFreshCodexCollaborationThread({
+      shouldStartFreshCodexGrantThread({
         resumeThreadId: "stale-advisor-channel-thread",
         previousProfile: '["old-advisor-key",""]',
         currentProfile: '["new-advisor-key",""]',

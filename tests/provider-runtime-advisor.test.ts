@@ -229,7 +229,7 @@ function briefingPart(conversation: StreamTurnArgs["conversation"]) {
 
 /** Tests access the host transport capability, never the model prompt. */
 function captureConsultKey(args: StreamTurnArgs | null) {
-  const key = args?.staveCollaborationGrants?.consultKey;
+  const key = args?.staveTurnGrants?.consultKey;
   if (!key) throw new Error("No host-owned advisor grant.");
   expect(JSON.stringify(args?.conversation)).not.toContain(key);
   return key;
@@ -332,7 +332,7 @@ describe("provider runtime on-demand Advisor integration", () => {
       expect(briefing?.content).toContain(CONSULT_TOOL_NAME);
       expect(briefing?.content).toContain(advisorTarget.model);
       expect(captureConsultKey(primaryTurn)).toMatch(/^[0-9a-f-]{36}$/);
-      expect(primaryTurn?.staveCollaborationGrants?.advisorArmed).toBe(true);
+      expect(primaryTurn?.staveTurnGrants?.advisorArmed).toBe(true);
 
       // The adapter must never see the advisor wiring options.
       expect(primaryTurn?.runtimeOptions).not.toHaveProperty("advisorTarget");
@@ -372,7 +372,7 @@ describe("provider runtime on-demand Advisor integration", () => {
     const oldKey = captureConsultKey(primaryTurn);
     await runBufferedTurn({ taskId: "stable-channel-task", conversation: previous });
     expect(briefingPart(primaryTurn?.conversation)).toBeUndefined();
-    expect(primaryTurn?.staveCollaborationGrants).toEqual({
+    expect(primaryTurn?.staveTurnGrants).toEqual({
       consultKey: oldKey,
       advisorArmed: false,
     });
@@ -385,7 +385,7 @@ describe("provider runtime on-demand Advisor integration", () => {
       advisorTarget: { providerId: "codex", model: "gpt-5.6-terra" },
     });
     expect(captureConsultKey(primaryTurn)).toBe(oldKey);
-    expect(primaryTurn?.staveCollaborationGrants?.advisorArmed).toBe(true);
+    expect(primaryTurn?.staveTurnGrants?.advisorArmed).toBe(true);
   });
 
   test("injects no briefing for a non-chat turn", async () => {
@@ -404,7 +404,7 @@ describe("provider runtime on-demand Advisor integration", () => {
     await runBufferedTurn({ advisorTarget });
     expect(captureConsultKey(primaryTurn)).not.toBe(firstKey);
     await runBufferedTurn();
-    expect(primaryTurn?.staveCollaborationGrants).toEqual({});
+    expect(primaryTurn?.staveTurnGrants).toEqual({});
   });
 
   test("injects no briefing for an unsupported advisor target", async () => {

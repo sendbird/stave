@@ -81,7 +81,7 @@ describe("task turn workspace folder guard", () => {
         },
       ],
       activeWorkspaceId: "ws-orphan",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       // A non-default workspace with no recorded path: the project root is not
       // its worktree, so the turn has nowhere legitimate to run.
       workspacePathById: {},
@@ -130,7 +130,7 @@ describe("task turn workspace folder guard", () => {
         },
       ],
       activeWorkspaceId: "ws-feature",
-      projectPath: "/tmp/stave-project",
+      repositoryPath: "/tmp/stave-project",
       workspacePathById: {
         "ws-feature": "/tmp/stave-project/.stave/workspaces/feature",
       },

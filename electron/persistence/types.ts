@@ -1,4 +1,5 @@
 import type { ChatMessage, PromptDraft } from "../../src/types/chat";
+import type { AppNotificationKind } from "../../src/lib/notifications/notification.types";
 import type { ReviewComment } from "../../src/types/review";
 import type { TaskProviderSessionState } from "../../src/lib/db/workspaces.db";
 import type { ProviderId } from "../../src/lib/providers/provider.types";
@@ -25,7 +26,7 @@ export interface PersistenceTaskRow {
   controlMode?: "interactive" | "managed";
   controlOwner?: "stave" | "external";
   /**
-   * Delegation link, present only on a delegated child task row. Carried on the
+   * Delegation link, present only on a delegated task row. Carried on the
    * snapshot blob rather than the `tasks` index table, which only indexes the
    * columns archival reconciliation reads.
    */
@@ -177,9 +178,9 @@ export interface PersistenceTaskMessagesPage {
   hasMoreOlder: boolean;
 }
 
-export interface PersistenceProjectRegistryEntry {
-  projectPath: string;
-  projectName: string;
+export interface PersistenceRepositoryRegistryEntry {
+  repositoryPath: string;
+  repositoryName: string;
   lastOpenedAt: string;
   defaultBranch: string;
   workspaces: Array<{
@@ -191,7 +192,7 @@ export interface PersistenceProjectRegistryEntry {
   workspaceBranchById: Record<string, string>;
   workspacePathById: Record<string, string>;
   workspaceDefaultById: Record<string, boolean>;
-  projectBasePrompt?: string;
+  repositoryBasePrompt?: string;
   newWorkspaceInitCommand?: string;
   newWorkspaceUseRootNodeModulesSymlink?: boolean;
   archivedWorkspacePaths?: string[];
@@ -250,11 +251,7 @@ export interface PersistenceLocalMcpRequestLogPage {
   hasMore: boolean;
 }
 
-export type PersistenceNotificationKind =
-  | "task.turn_completed"
-  | "task.turn_failed"
-  | "task.approval_requested"
-  | "task.user_input_requested";
+export type PersistenceNotificationKind = AppNotificationKind;
 
 export type PersistenceNotificationAction = {
   type: "approval";
@@ -267,8 +264,8 @@ export interface PersistenceNotificationRecord {
   kind: PersistenceNotificationKind;
   title: string;
   body: string;
-  projectPath: string | null;
-  projectName: string | null;
+  repositoryPath: string | null;
+  repositoryName: string | null;
   workspaceId: string | null;
   workspaceName: string | null;
   taskId: string | null;

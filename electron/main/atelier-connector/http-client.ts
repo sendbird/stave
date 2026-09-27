@@ -28,8 +28,8 @@ import {
   CraneTaskDetailResponseV1Schema,
   CraneTaskJobClaimRequestV1Schema,
   CraneTaskListResponseV1Schema,
-} from "../../../src/lib/tracker-tasks/contract";
-import type { TrackerStatusCategory } from "../../../src/lib/tracker-tasks/types";
+} from "../../../src/lib/tracker-issues/contract";
+import type { TrackerStatusCategory } from "../../../src/lib/tracker-issues/types";
 
 const DEFAULT_MAX_RESPONSE_BYTES = 24_000;
 const SYNC_MAX_RESPONSE_BYTES = 64_000;

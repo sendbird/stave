@@ -1,6 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import {
-  findLensProjectKeyForWorkspace,
+  findLensRepositoryKeyForWorkspace,
   selectPreferredLensSession,
 } from "@/lib/lens/lens-session-selection";
 
@@ -83,14 +83,14 @@ describe("Lens session selection", () => {
 describe("Lens project profile lookup", () => {
   test("finds the owning project path for a workspace", () => {
     expect(
-      findLensProjectKeyForWorkspace(
+      findLensRepositoryKeyForWorkspace(
         [
           {
-            projectPath: "/projects/one",
+            repositoryPath: "/projects/one",
             workspaces: [{ id: "ws-one" }],
           },
           {
-            projectPath: "/projects/two",
+            repositoryPath: "/projects/two",
             workspaces: [{ id: "ws-two" }],
           },
         ],

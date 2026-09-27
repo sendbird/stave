@@ -5,13 +5,13 @@ import {
   WORKER_CONTEXT_MAX_CHARS,
   WORKER_TASK_MAX_CHARS,
 } from "../../src/lib/providers/worker-mode";
-import type { StaveCollaborationGrants } from "../providers/stave-collaboration-grants";
+import type { StaveTurnGrants } from "../providers/stave-turn-grants";
 import type { consultAdvisor, runAcpWorker } from "./stave-mcp-service";
 
 /** The request connection selects the channel; the host validates its active turn grant. */
 export function registerCollaborationTools(
   server: McpServer,
-  grants: StaveCollaborationGrants,
+  grants: StaveTurnGrants,
   handlers: {
     consultAdvisor: typeof consultAdvisor;
     runAcpWorker: typeof runAcpWorker;

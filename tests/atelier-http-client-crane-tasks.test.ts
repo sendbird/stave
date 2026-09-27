@@ -9,8 +9,8 @@ import {
   type CraneTasksHttpClient,
   type CraneTrackerCredential,
   type CraneTrackerSourceDeps,
-} from "../electron/main/tracker-tasks/crane-source";
-import { CRANE_TASKS_LIMITS } from "../src/lib/tracker-tasks/contract";
+} from "../electron/main/tracker-issues/crane-source";
+import { CRANE_TASKS_LIMITS } from "../src/lib/tracker-issues/contract";
 
 const BASE_URL = "https://atelier.example.test";
 const SECRET = "stc_test-only-secret";

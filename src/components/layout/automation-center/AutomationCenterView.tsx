@@ -39,15 +39,15 @@ import {
 import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import {
   formatAutomationTrustPolicy,
-  formatRoutineSchedule,
-  getRoutineInformationReferenceKey,
-  RoutineUpsertInputSchema,
-  type RoutineEnvironmentInput,
-  type RoutineRun,
-  type RoutineSnapshot,
-  type RoutineSpec,
-  type RoutineUpsertInput,
-} from "@/lib/routines";
+  formatAutomationSchedule,
+  getAutomationInformationReferenceKey,
+  AutomationUpsertInputSchema,
+  type AutomationEnvironmentInput,
+  type AutomationRun,
+  type AutomationSnapshot,
+  type AutomationSpec,
+  type AutomationUpsertInput,
+} from "@/lib/automations";
 import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-information-references";
 import { useAppStore } from "@/store/app.store";
 import { createCoalescedLoader } from "@/lib/coalesced-loader";
@@ -58,22 +58,24 @@ import { AutomationRunDetail, AutomationRunRow } from "./AutomationRunDetail";
 import {
   AUTOMATION_RUN_FILTERS,
   buildEnvironmentOptions,
-  createRoutineDraft,
+  createAutomationDraft,
   formatDateTime,
   formatRelativeTime,
-  getRoutineErrorMessage,
+  getAutomationErrorMessage,
   getRunStatusPresentation,
   isActiveRunStatus,
   matchesRunFilter,
-  routineToDraft,
+  automationToDraft,
   type AutomationRunFilter,
 } from "./automation-center.utils";
 import { automationStyles } from "./automation-center.styles";
 import { centerStyles } from "./automation-center-view.styles";
+import { PlaybooksTab } from "@/components/playbooks/PlaybooksTab";
+import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
 
 const ALL_AUTOMATIONS = "all";
 
-type AutomationCenterTab = "automations" | "runs";
+type AutomationCenterTab = "automations" | "runs" | "playbooks";
 
 function Detail(props: { label: string; value: string }) {
   return (
@@ -93,9 +95,9 @@ function Detail(props: { label: string; value: string }) {
 
 export function AutomationCenterView() {
   const [
-    recentProjects,
-    projectPath,
-    projectName,
+    recentRepositories,
+    repositoryPath,
+    repositoryName,
     workspaces,
     workspacePathById,
     workspaceDefaultById,
@@ -108,9 +110,9 @@ export function AutomationCenterView() {
     useShallow(
       (state) =>
         [
-          state.recentProjects,
-          state.projectPath,
-          state.projectName,
+          state.recentRepositories,
+          state.repositoryPath,
+          state.repositoryName,
           state.workspaces,
           state.workspacePathById,
           state.workspaceDefaultById,
@@ -122,44 +124,49 @@ export function AutomationCenterView() {
         ] as const,
     ),
   );
-  const [snapshot, setSnapshot] = useState<RoutineSnapshot>({
-    routines: [],
+  const [snapshot, setSnapshot] = useState<AutomationSnapshot>({
+    automations: [],
     runs: [],
   });
   const [activeTab, setActiveTab] = useState<AutomationCenterTab>("automations");
-  const [selectedRoutineId, setSelectedRoutineId] = useState<string | null>(
+  const playbookCount = useAppStore((state) => state.settings.playbooks.length);
+  const playbooksRequested = usePlaybooksUiStore((state) => state.centerRequest !== null);
+  useEffect(() => {
+    if (playbooksRequested) setActiveTab("playbooks");
+  }, [playbooksRequested]);
+  const [selectedAutomationId, setSelectedAutomationId] = useState<string | null>(
     null,
   );
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [runFilter, setRunFilter] = useState<AutomationRunFilter>("all");
   const [runAutomationFilter, setRunAutomationFilter] =
     useState<string>(ALL_AUTOMATIONS);
-  const [editingRoutineId, setEditingRoutineId] = useState<string | null>();
-  const [draft, setDraft] = useState<RoutineUpsertInput | null>(null);
+  const [editingAutomationId, setEditingAutomationId] = useState<string | null>();
+  const [draft, setDraft] = useState<AutomationUpsertInput | null>(null);
   const [informationOptions, setInformationOptions] = useState<
     WorkspaceInformationReferenceOption[]
   >([]);
   const [informationLoading, setInformationLoading] = useState(false);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [busyRoutineId, setBusyRoutineId] = useState<string | null>(null);
+  const [busyAutomationId, setBusyAutomationId] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [deleteRoutine, setDeleteRoutine] = useState<RoutineSpec | null>(null);
+  const [deleteAutomation, setDeleteAutomation] = useState<AutomationSpec | null>(null);
 
-  const activeProject = useMemo(
+  const activeRepository = useMemo(
     () =>
-      projectPath && projectName
+      repositoryPath && repositoryName
         ? {
-            projectPath,
-            projectName,
+            repositoryPath,
+            repositoryName,
             workspaces,
             workspacePathById,
             workspaceDefaultById,
           }
         : null,
     [
-      projectName,
-      projectPath,
+      repositoryName,
+      repositoryPath,
       workspaceDefaultById,
       workspacePathById,
       workspaces,
@@ -168,32 +175,32 @@ export function AutomationCenterView() {
   const environmentOptions = useMemo(
     () =>
       buildEnvironmentOptions({
-        recentProjects,
-        activeProject,
+        recentRepositories,
+        activeRepository,
       }),
-    [activeProject, recentProjects],
+    [activeRepository, recentRepositories],
   );
-  const defaultEnvironment = useMemo<RoutineEnvironmentInput | null>(() => {
+  const defaultEnvironment = useMemo<AutomationEnvironmentInput | null>(() => {
     const active =
-      environmentOptions.find((option) => option.projectPath === projectPath) ??
+      environmentOptions.find((option) => option.repositoryPath === repositoryPath) ??
       environmentOptions[0];
     return active
       ? {
           kind: "repository",
           workspaceId: active.workspaceId,
           path: active.path,
-          projectPath: active.projectPath,
+          repositoryPath: active.repositoryPath,
           label: active.label,
         }
       : null;
-  }, [environmentOptions, projectPath]);
+  }, [environmentOptions, repositoryPath]);
 
   const activeLoadScope = useRef(false);
   const loadSequence = useRef(0);
   const readSnapshot = useMemo(
     () =>
       createCoalescedLoader(async () => {
-        const list = window.api?.routines?.list;
+        const list = window.api?.automations?.list;
         if (!list)
           throw new Error(
             "Automations are available in the Stave desktop app.",
@@ -220,19 +227,19 @@ export function AutomationCenterView() {
         }
         setSnapshot(result.snapshot);
         setError("");
-        setSelectedRoutineId((current) => {
+        setSelectedAutomationId((current) => {
           if (
             current &&
-            result.snapshot.routines.some((routine) => routine.id === current)
+            result.snapshot.automations.some((automation) => automation.id === current)
           ) {
             return current;
           }
-          return result.snapshot.routines[0]?.id ?? null;
+          return result.snapshot.automations[0]?.id ?? null;
         });
       } catch (loadError) {
         if (!isCurrent()) return;
         setError(
-          getRoutineErrorMessage(loadError, "Failed to load automations."),
+          getAutomationErrorMessage(loadError, "Failed to load automations."),
         );
       } finally {
         if (isCurrent()) {
@@ -259,7 +266,7 @@ export function AutomationCenterView() {
   const informationWorkspaceId = draft?.environment.workspaceId ?? null;
   useEffect(() => {
     let cancelled = false;
-    const listReferences = window.api?.routines?.listInformationReferences;
+    const listReferences = window.api?.automations?.listInformationReferences;
     if (!informationWorkspaceId || !listReferences) {
       setInformationOptions([]);
       setInformationLoading(false);
@@ -284,7 +291,7 @@ export function AutomationCenterView() {
         if (!cancelled) {
           setInformationOptions([]);
           setError(
-            getRoutineErrorMessage(
+            getAutomationErrorMessage(
               loadError,
               "Failed to load Information resources.",
             ),
@@ -324,45 +331,45 @@ export function AutomationCenterView() {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [closeAutomationCenter, hasDraft]);
 
-  const routineById = useMemo(
-    () => new Map(snapshot.routines.map((routine) => [routine.id, routine])),
-    [snapshot.routines],
+  const automationById = useMemo(
+    () => new Map(snapshot.automations.map((automation) => [automation.id, automation])),
+    [snapshot.automations],
   );
-  const selectedRoutine = selectedRoutineId
-    ? (routineById.get(selectedRoutineId) ?? null)
+  const selectedAutomation = selectedAutomationId
+    ? (automationById.get(selectedAutomationId) ?? null)
     : null;
-  const runCountByRoutineId = useMemo(() => {
+  const runCountByAutomationId = useMemo(() => {
     const counts = new Map<string, number>();
     for (const run of snapshot.runs) {
-      counts.set(run.routineId, (counts.get(run.routineId) ?? 0) + 1);
+      counts.set(run.automationId, (counts.get(run.automationId) ?? 0) + 1);
     }
     return counts;
   }, [snapshot.runs]);
-  const latestRunByRoutineId = useMemo(() => {
+  const latestRunByAutomationId = useMemo(() => {
     // `snapshot.runs` arrives sorted by startedAt desc, so the first hit wins.
-    const latest = new Map<string, RoutineRun>();
+    const latest = new Map<string, AutomationRun>();
     for (const run of snapshot.runs) {
-      if (!latest.has(run.routineId)) {
-        latest.set(run.routineId, run);
+      if (!latest.has(run.automationId)) {
+        latest.set(run.automationId, run);
       }
     }
     return latest;
   }, [snapshot.runs]);
-  const activeRunCountByRoutineId = useMemo(() => {
+  const activeRunCountByAutomationId = useMemo(() => {
     const counts = new Map<string, number>();
     for (const run of snapshot.runs) {
       if (isActiveRunStatus(run.status)) {
-        counts.set(run.routineId, (counts.get(run.routineId) ?? 0) + 1);
+        counts.set(run.automationId, (counts.get(run.automationId) ?? 0) + 1);
       }
     }
     return counts;
   }, [snapshot.runs]);
 
-  const selectedRoutineActiveRunCount = selectedRoutine
-    ? (activeRunCountByRoutineId.get(selectedRoutine.id) ?? 0)
+  const selectedAutomationActiveRunCount = selectedAutomation
+    ? (activeRunCountByAutomationId.get(selectedAutomation.id) ?? 0)
     : 0;
-  const selectedRoutineAtConcurrencyLimit = selectedRoutine
-    ? selectedRoutineActiveRunCount >= selectedRoutine.maxConcurrentRuns
+  const selectedAutomationAtConcurrencyLimit = selectedAutomation
+    ? selectedAutomationActiveRunCount >= selectedAutomation.maxConcurrentRuns
     : false;
 
   const visibleRuns = useMemo(
@@ -370,7 +377,7 @@ export function AutomationCenterView() {
       snapshot.runs.filter(
         (run) =>
           (runAutomationFilter === ALL_AUTOMATIONS ||
-            run.routineId === runAutomationFilter) &&
+            run.automationId === runAutomationFilter) &&
           matchesRunFilter(run, runFilter),
       ),
     [runAutomationFilter, runFilter, snapshot.runs],
@@ -382,17 +389,17 @@ export function AutomationCenterView() {
 
   function startCreate() {
     setActiveTab("automations");
-    setEditingRoutineId(null);
-    setDraft(createRoutineDraft(defaultEnvironment));
+    setEditingAutomationId(null);
+    setDraft(createAutomationDraft(defaultEnvironment));
   }
 
-  function startEdit(routine: RoutineSpec) {
-    setEditingRoutineId(routine.id);
-    setDraft(routineToDraft(routine));
+  function startEdit(automation: AutomationSpec) {
+    setEditingAutomationId(automation.id);
+    setDraft(automationToDraft(automation));
   }
 
   function cancelEdit() {
-    setEditingRoutineId(undefined);
+    setEditingAutomationId(undefined);
     setDraft(null);
   }
 
@@ -406,8 +413,8 @@ export function AutomationCenterView() {
     closeAutomationCenter();
   }
 
-  function showRunHistory(routine: RoutineSpec) {
-    setRunAutomationFilter(routine.id);
+  function showRunHistory(automation: AutomationSpec) {
+    setRunAutomationFilter(automation.id);
     setRunFilter("all");
     setSelectedRunId(null);
     setActiveTab("runs");
@@ -417,58 +424,58 @@ export function AutomationCenterView() {
     if (!draft) {
       return;
     }
-    const parsed = RoutineUpsertInputSchema.safeParse(draft);
+    const parsed = AutomationUpsertInputSchema.safeParse(draft);
     if (!parsed.success) {
       toast.error(parsed.error.issues[0]?.message ?? "Invalid automation.");
       return;
     }
-    const api = window.api?.routines;
+    const api = window.api?.automations;
     if (
-      (editingRoutineId && !api?.update) ||
-      (!editingRoutineId && !api?.create)
+      (editingAutomationId && !api?.update) ||
+      (!editingAutomationId && !api?.create)
     ) {
       toast.error("Automation service is unavailable.");
       return;
     }
     setSaving(true);
     try {
-      const result = editingRoutineId
+      const result = editingAutomationId
         ? await api!.update!({
-            id: editingRoutineId,
+            id: editingAutomationId,
             input: parsed.data,
           })
         : await api!.create!(parsed.data);
-      if (!result.ok || !result.routine) {
+      if (!result.ok || !result.automation) {
         toast.error(result.message ?? "Failed to save automation.");
         return;
       }
-      setSelectedRoutineId(result.routine.id);
+      setSelectedAutomationId(result.automation.id);
       cancelEdit();
       await loadSnapshot();
       toast.success(
-        editingRoutineId ? "Automation updated" : "Automation created",
+        editingAutomationId ? "Automation updated" : "Automation created",
       );
     } catch (saveError) {
       toast.error(
-        getRoutineErrorMessage(saveError, "Failed to save automation."),
+        getAutomationErrorMessage(saveError, "Failed to save automation."),
       );
     } finally {
       setSaving(false);
     }
   }
 
-  async function runNow(routine: RoutineSpec) {
-    const api = window.api?.routines?.runNow;
+  async function runNow(automation: AutomationSpec) {
+    const api = window.api?.automations?.runNow;
     if (!api) {
       toast.error("Automation service is unavailable.");
       return;
     }
-    setBusyRoutineId(routine.id);
+    setBusyAutomationId(automation.id);
     try {
-      if (routine.environment.workspaceId === activeWorkspaceId) {
+      if (automation.environment.workspaceId === activeWorkspaceId) {
         await flushActiveWorkspaceSnapshot();
       }
-      const result = await api({ id: routine.id });
+      const result = await api({ id: automation.id });
       if (!result.ok || !result.run) {
         toast.error(result.message ?? "Failed to start automation.");
         return;
@@ -481,24 +488,24 @@ export function AutomationCenterView() {
       toast.success("Automation started");
     } catch (runError) {
       toast.error(
-        getRoutineErrorMessage(runError, "Failed to start automation."),
+        getAutomationErrorMessage(runError, "Failed to start automation."),
       );
     } finally {
-      setBusyRoutineId(null);
+      setBusyAutomationId(null);
     }
   }
 
-  async function toggleEnabled(routine: RoutineSpec) {
-    const api = window.api?.routines?.setEnabled;
+  async function toggleEnabled(automation: AutomationSpec) {
+    const api = window.api?.automations?.setEnabled;
     if (!api) {
       toast.error("Automation service is unavailable.");
       return;
     }
-    setBusyRoutineId(routine.id);
+    setBusyAutomationId(automation.id);
     try {
       const result = await api({
-        id: routine.id,
-        enabled: !routine.enabled,
+        id: automation.id,
+        enabled: !automation.enabled,
       });
       if (!result.ok) {
         toast.error(result.message ?? "Failed to update automation.");
@@ -507,42 +514,42 @@ export function AutomationCenterView() {
       await loadSnapshot({ quiet: true });
     } catch (updateError) {
       toast.error(
-        getRoutineErrorMessage(updateError, "Failed to update automation."),
+        getAutomationErrorMessage(updateError, "Failed to update automation."),
       );
     } finally {
-      setBusyRoutineId(null);
+      setBusyAutomationId(null);
     }
   }
 
   async function confirmDelete() {
-    if (!deleteRoutine) {
+    if (!deleteAutomation) {
       return;
     }
-    const api = window.api?.routines?.remove;
+    const api = window.api?.automations?.remove;
     if (!api) {
       toast.error("Automation service is unavailable.");
       return;
     }
-    setBusyRoutineId(deleteRoutine.id);
+    setBusyAutomationId(deleteAutomation.id);
     try {
-      const result = await api({ id: deleteRoutine.id });
+      const result = await api({ id: deleteAutomation.id });
       if (!result.ok) {
         toast.error(result.message ?? "Failed to delete automation.");
         return;
       }
-      setDeleteRoutine(null);
+      setDeleteAutomation(null);
       await loadSnapshot();
       toast.success("Automation deleted");
     } catch (deleteError) {
       toast.error(
-        getRoutineErrorMessage(deleteError, "Failed to delete automation."),
+        getAutomationErrorMessage(deleteError, "Failed to delete automation."),
       );
     } finally {
-      setBusyRoutineId(null);
+      setBusyAutomationId(null);
     }
   }
 
-  async function openRunResult(run: RoutineRun) {
+  async function openRunResult(run: AutomationRun) {
     if (!run.taskId) {
       return;
     }
@@ -550,7 +557,7 @@ export function AutomationCenterView() {
       await focusTaskAttention({
         taskId: run.taskId,
         workspaceId: run.workspaceId,
-        projectPath: run.projectPath,
+        repositoryPath: run.repositoryPath,
         refreshFromPersistence: true,
       });
       const opened = useAppStore
@@ -566,7 +573,7 @@ export function AutomationCenterView() {
       closeAutomationCenter();
     } catch (openError) {
       toast.error(
-        getRoutineErrorMessage(openError, "Failed to open task result."),
+        getAutomationErrorMessage(openError, "Failed to open task result."),
       );
     }
   }
@@ -575,7 +582,7 @@ export function AutomationCenterView() {
     return (
       <div className={sx(centerStyles.root)}>
         <AutomationEditor
-          routineId={editingRoutineId ?? null}
+          automationId={editingAutomationId ?? null}
           draft={draft}
           environmentOptions={environmentOptions}
           informationOptions={informationOptions}
@@ -583,11 +590,11 @@ export function AutomationCenterView() {
           saving={saving}
           onDraftChange={setDraft}
           onInformationCreated={(option) => {
-            const key = getRoutineInformationReferenceKey(option.reference);
+            const key = getAutomationInformationReferenceKey(option.reference);
             setInformationOptions((current) => [
               ...current.filter(
                 (candidate) =>
-                  getRoutineInformationReferenceKey(candidate.reference) !==
+                  getAutomationInformationReferenceKey(candidate.reference) !==
                   key,
               ),
               option,
@@ -601,7 +608,7 @@ export function AutomationCenterView() {
   }
 
   const showLoadingState =
-    loading && snapshot.routines.length === 0 && snapshot.runs.length === 0;
+    loading && snapshot.automations.length === 0 && snapshot.runs.length === 0;
 
   return (
     <div className={sx(centerStyles.root)}>
@@ -612,18 +619,21 @@ export function AutomationCenterView() {
             <h1 className={sx(centerStyles.headerTitle)}>Automations</h1>
           </div>
           <p className={sx(centerStyles.headerSubtitle)}>
-            Schedule repeatable agent work and inspect run history.
+            Schedule repeatable agent work, save playbooks for missions, and
+            inspect run history.
           </p>
         </div>
         <div className={sx(centerStyles.headerActions)}>
-          <Button
-            size="sm"
-            xstyle={centerStyles.headerButton}
-            onClick={startCreate}
-          >
-            <Plus className={sx(centerStyles.buttonIcon)} />
-            New automation
-          </Button>
+          {activeTab === "playbooks" ? null : (
+            <Button
+              size="sm"
+              xstyle={centerStyles.headerButton}
+              onClick={startCreate}
+            >
+              <Plus className={sx(centerStyles.buttonIcon)} />
+              New automation
+            </Button>
+          )}
           <Button
             variant="ghost"
             size="sm"
@@ -666,8 +676,9 @@ export function AutomationCenterView() {
         <nav aria-label="Automation views" className={sx(centerStyles.tabNav)}>
           {(
             [
-              ["automations", `Automations · ${snapshot.routines.length}`],
+              ["automations", `Automations · ${snapshot.automations.length}`],
               ["runs", `Run history · ${snapshot.runs.length}`],
+              ["playbooks", `Playbooks · ${playbookCount}`],
             ] as const
           ).map(([id, label]) => (
             <ActionButton
@@ -686,6 +697,13 @@ export function AutomationCenterView() {
           <p className={sx(centerStyles.toolbarNote)}>
             Runs while Stave is open. After reopening, one missed occurrence is
             caught up.
+          </p>
+        ) : null}
+
+        {activeTab === "playbooks" ? (
+          <p className={sx(centerStyles.toolbarNote)}>
+            Saved ways of working. A mission runs one on a task, stage by
+            stage.
           </p>
         ) : null}
 
@@ -724,9 +742,9 @@ export function AutomationCenterView() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value={ALL_AUTOMATIONS}>All automations</SelectItem>
-                {snapshot.routines.map((routine) => (
-                  <SelectItem key={routine.id} value={routine.id}>
-                    {routine.name}
+                {snapshot.automations.map((automation) => (
+                  <SelectItem key={automation.id} value={automation.id}>
+                    {automation.name}
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -745,7 +763,9 @@ export function AutomationCenterView() {
         </div>
       ) : null}
 
-      {showLoadingState ? (
+      {activeTab === "playbooks" ? (
+        <PlaybooksTab />
+      ) : showLoadingState ? (
         <div
           className={sx(centerStyles.loadingPane)}
           role="status"
@@ -767,7 +787,7 @@ export function AutomationCenterView() {
           </div>
         </div>
       ) : activeTab === "automations" ? (
-        snapshot.routines.length === 0 ? (
+        snapshot.automations.length === 0 ? (
           <Empty xstyle={centerStyles.emptyPane}>
             <EmptyHeader>
               <EmptyMedia variant="icon">
@@ -791,33 +811,33 @@ export function AutomationCenterView() {
           <div className={sx(centerStyles.masterDetail)}>
             <div className={sx(centerStyles.masterColumn)}>
               <div className={sx(centerStyles.cardList)}>
-                {snapshot.routines.map((routine) => {
-                  const active = routine.id === selectedRoutineId;
-                  const latestRun = latestRunByRoutineId.get(routine.id);
+                {snapshot.automations.map((automation) => {
+                  const active = automation.id === selectedAutomationId;
+                  const latestRun = latestRunByAutomationId.get(automation.id);
                   return (
                     <AdsButton layout="host"
-                      key={routine.id}
+                      key={automation.id}
                       type="button"
-                      onClick={() => setSelectedRoutineId(routine.id)}
+                      onClick={() => setSelectedAutomationId(automation.id)}
                       aria-current={active}
                       xstyle={[
-                        centerStyles.routineCard,
+                        centerStyles.automationCard,
                         transition.colors,
-                        active && centerStyles.routineCardActive,
+                        active && centerStyles.automationCardActive,
                       ]}
                     >
-                      <div className={sx(centerStyles.routineCardHead)}>
+                      <div className={sx(centerStyles.automationCardHead)}>
                         <span
                           className={sx(
-                            centerStyles.routineDot,
-                            routine.enabled
-                              ? centerStyles.routineDotOn
-                              : centerStyles.routineDotOff,
+                            centerStyles.automationDot,
+                            automation.enabled
+                              ? centerStyles.automationDotOn
+                              : centerStyles.automationDotOff,
                           )}
                           aria-hidden="true"
                         />
-                        <span className={sx(centerStyles.routineName)}>
-                          {routine.name}
+                        <span className={sx(centerStyles.automationName)}>
+                          {automation.name}
                         </span>
                         {latestRun && isActiveRunStatus(latestRun.status) ? (
                           <Badge
@@ -831,14 +851,14 @@ export function AutomationCenterView() {
                           </Badge>
                         ) : null}
                       </div>
-                      <div className={sx(centerStyles.routineMeta)}>
-                        <span className={sx(centerStyles.routineMetaText)}>
-                          {routine.enabled
-                            ? formatRoutineSchedule(routine.schedule)
+                      <div className={sx(centerStyles.automationMeta)}>
+                        <span className={sx(centerStyles.automationMetaText)}>
+                          {automation.enabled
+                            ? formatAutomationSchedule(automation.schedule)
                             : "Manual only"}
                         </span>
-                        <span className={sx(centerStyles.routineMetaModel)}>
-                          {routine.runtime.model}
+                        <span className={sx(centerStyles.automationMetaModel)}>
+                          {automation.runtime.model}
                         </span>
                       </div>
                     </AdsButton>
@@ -851,8 +871,8 @@ export function AutomationCenterView() {
               {/* Narrow layouts hide the master column, so offer a picker. */}
               <div className={sx(centerStyles.compactPicker)}>
                 <Select
-                  value={selectedRoutineId ?? ""}
-                  onValueChange={setSelectedRoutineId}
+                  value={selectedAutomationId ?? ""}
+                  onValueChange={setSelectedAutomationId}
                 >
                   <SelectTrigger
                     className={sx(centerStyles.compactSelect)}
@@ -861,24 +881,24 @@ export function AutomationCenterView() {
                     <SelectValue placeholder="Select an automation" />
                   </SelectTrigger>
                   <SelectContent>
-                    {snapshot.routines.map((routine) => (
-                      <SelectItem key={routine.id} value={routine.id}>
-                        {routine.name}
+                    {snapshot.automations.map((automation) => (
+                      <SelectItem key={automation.id} value={automation.id}>
+                        {automation.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {selectedRoutine ? (
+              {selectedAutomation ? (
                 <div className={sx(centerStyles.detailBody)}>
                   <div className={sx(centerStyles.detailHeadRow)}>
                     <div className={sx(centerStyles.detailHeadText)}>
                       <h2 className={sx(centerStyles.detailTitle)}>
-                        {selectedRoutine.name}
+                        {selectedAutomation.name}
                       </h2>
                       <p className={sx(centerStyles.detailPrompt)}>
-                        {selectedRoutine.prompt}
+                        {selectedAutomation.prompt}
                       </p>
                     </div>
                     <div className={sx(centerStyles.detailActions)}>
@@ -886,13 +906,13 @@ export function AutomationCenterView() {
                         variant="outline"
                         size="sm"
                         xstyle={centerStyles.headerButton}
-                        onClick={() => void runNow(selectedRoutine)}
+                        onClick={() => void runNow(selectedAutomation)}
                         disabled={
-                          busyRoutineId === selectedRoutine.id ||
-                          selectedRoutineAtConcurrencyLimit
+                          busyAutomationId === selectedAutomation.id ||
+                          selectedAutomationAtConcurrencyLimit
                         }
                         title={
-                          selectedRoutineAtConcurrencyLimit
+                          selectedAutomationAtConcurrencyLimit
                             ? "Concurrency limit reached"
                             : "Run now"
                         }
@@ -904,7 +924,7 @@ export function AutomationCenterView() {
                         variant="ghost"
                         size="sm"
                         xstyle={centerStyles.iconButton}
-                        onClick={() => startEdit(selectedRoutine)}
+                        onClick={() => startEdit(selectedAutomation)}
                         aria-label="Edit automation"
                         title="Edit"
                       >
@@ -917,50 +937,50 @@ export function AutomationCenterView() {
                     <Detail
                       label="Status"
                       value={
-                        selectedRoutine.enabled ? "Scheduled" : "Manual only"
+                        selectedAutomation.enabled ? "Scheduled" : "Manual only"
                       }
                     />
                     <Detail
                       label="Cadence"
                       value={
-                        selectedRoutine.enabled
-                          ? formatRoutineSchedule(selectedRoutine.schedule)
+                        selectedAutomation.enabled
+                          ? formatAutomationSchedule(selectedAutomation.schedule)
                           : "—"
                       }
                     />
                     <Detail
                       label="Next run"
                       value={
-                        selectedRoutine.enabled
-                          ? formatRelativeTime(selectedRoutine.nextRunAt)
+                        selectedAutomation.enabled
+                          ? formatRelativeTime(selectedAutomation.nextRunAt)
                           : "—"
                       }
                     />
                     <Detail
                       label="Last run"
-                      value={formatRelativeTime(selectedRoutine.lastRunAt)}
+                      value={formatRelativeTime(selectedAutomation.lastRunAt)}
                     />
                     <Detail
                       label="Permissions"
                       value={formatAutomationTrustPolicy(
-                        selectedRoutine.trustPolicy,
+                        selectedAutomation.trustPolicy,
                       )}
                     />
                     <Detail
                       label="Provider"
                       value={`${
-                        selectedRoutine.runtime.provider === "codex"
+                        selectedAutomation.runtime.provider === "codex"
                           ? "Codex"
                           : "Claude"
-                      } · ${selectedRoutine.runtime.effort}`}
+                      } · ${selectedAutomation.runtime.effort}`}
                     />
                     <Detail
                       label="Repository"
-                      value={selectedRoutine.environment.label}
+                      value={selectedAutomation.environment.label}
                     />
                     <Detail
                       label="Concurrency"
-                      value={`${selectedRoutineActiveRunCount}/${selectedRoutine.maxConcurrentRuns}`}
+                      value={`${selectedAutomationActiveRunCount}/${selectedAutomation.maxConcurrentRuns}`}
                     />
                   </dl>
 
@@ -969,22 +989,22 @@ export function AutomationCenterView() {
                       variant="outline"
                       size="sm"
                       xstyle={centerStyles.headerButton}
-                      onClick={() => showRunHistory(selectedRoutine)}
+                      onClick={() => showRunHistory(selectedAutomation)}
                     >
                       <History className={sx(centerStyles.buttonIcon)} />
                       View run history
                       <span className={sx(centerStyles.runCount)}>
-                        {runCountByRoutineId.get(selectedRoutine.id) ?? 0}
+                        {runCountByAutomationId.get(selectedAutomation.id) ?? 0}
                       </span>
                     </Button>
                     <Button
                       variant="outline"
                       size="sm"
                       xstyle={centerStyles.headerButton}
-                      onClick={() => void toggleEnabled(selectedRoutine)}
-                      disabled={busyRoutineId === selectedRoutine.id}
+                      onClick={() => void toggleEnabled(selectedAutomation)}
+                      disabled={busyAutomationId === selectedAutomation.id}
                     >
-                      {selectedRoutine.enabled ? (
+                      {selectedAutomation.enabled ? (
                         <>
                           <Pause className={sx(centerStyles.buttonIcon)} />
                           Pause schedule
@@ -1000,10 +1020,10 @@ export function AutomationCenterView() {
                       variant="ghost"
                       size="sm"
                       xstyle={centerStyles.deleteButton}
-                      onClick={() => setDeleteRoutine(selectedRoutine)}
-                      disabled={selectedRoutineActiveRunCount > 0}
+                      onClick={() => setDeleteAutomation(selectedAutomation)}
+                      disabled={selectedAutomationActiveRunCount > 0}
                       title={
-                        selectedRoutineActiveRunCount > 0
+                        selectedAutomationActiveRunCount > 0
                           ? "Wait for active runs to finish"
                           : "Delete automation"
                       }
@@ -1014,10 +1034,10 @@ export function AutomationCenterView() {
                   </div>
 
                   <AutomationLatestRun
-                    run={latestRunByRoutineId.get(selectedRoutine.id) ?? null}
+                    run={latestRunByAutomationId.get(selectedAutomation.id) ?? null}
                     onOpenTask={(run) => void openRunResult(run)}
                     onOpenDetail={(run) => {
-                      setRunAutomationFilter(selectedRoutine.id);
+                      setRunAutomationFilter(selectedAutomation.id);
                       setRunFilter("all");
                       setSelectedRunId(run.id);
                       setActiveTab("runs");
@@ -1054,7 +1074,7 @@ export function AutomationCenterView() {
                   <AutomationRunRow
                     key={run.id}
                     run={run}
-                    automationName={routineById.get(run.routineId)?.name}
+                    automationName={automationById.get(run.automationId)?.name}
                     active={run.id === selectedRun?.id}
                     onSelect={(target) => setSelectedRunId(target.id)}
                   />
@@ -1066,8 +1086,8 @@ export function AutomationCenterView() {
             {selectedRun ? (
               <AutomationRunDetail
                 run={selectedRun}
-                automation={routineById.get(selectedRun.routineId) ?? null}
-                busy={busyRoutineId === selectedRun.routineId}
+                automation={automationById.get(selectedRun.automationId) ?? null}
+                busy={busyAutomationId === selectedRun.automationId}
                 onOpenTask={(target) => void openRunResult(target)}
                 onRunAgain={(automation) => void runNow(automation)}
               />
@@ -1081,16 +1101,16 @@ export function AutomationCenterView() {
       )}
 
       <ConfirmDialog
-        open={Boolean(deleteRoutine)}
+        open={Boolean(deleteAutomation)}
         title="Delete automation"
         description={
-          deleteRoutine
-            ? `Delete "${deleteRoutine.name}" and its saved run history? Created task conversations remain in their workspaces.`
+          deleteAutomation
+            ? `Delete "${deleteAutomation.name}" and its saved run history? Created task conversations remain in their workspaces.`
             : ""
         }
         confirmLabel="Delete"
-        loading={Boolean(deleteRoutine && busyRoutineId === deleteRoutine.id)}
-        onCancel={() => setDeleteRoutine(null)}
+        loading={Boolean(deleteAutomation && busyAutomationId === deleteAutomation.id)}
+        onCancel={() => setDeleteAutomation(null)}
         onConfirm={() => void confirmDelete()}
       />
     </div>

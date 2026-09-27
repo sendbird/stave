@@ -44,7 +44,7 @@ describe("JiraConnectorSettingsSchema", () => {
       enabled: true,
       siteUrl: "https://example.atlassian.net",
       authMode: "cloud-api-token",
-      projectMappings: [],
+      repositoryMappings: [],
     });
     expect(parsed.jql).toBe(DEFAULT_JIRA_JQL);
     expect(parsed.maxResults).toBe(50);
@@ -55,7 +55,7 @@ describe("JiraConnectorSettingsSchema", () => {
       enabled: false,
       siteUrl: "",
       authMode: "cloud-api-token",
-      projectMappings: [],
+      repositoryMappings: [],
     };
     expect(
       JiraConnectorSettingsSchema.safeParse({ ...base, token: "nope" }).success,
@@ -75,7 +75,7 @@ describe("normalizeJiraConnectorSettings", () => {
       authMode: "cloud-api-token",
       jql: "  project = ABC  ",
       maxResults: 25,
-      projectMappings: [
+      repositoryMappings: [
         { jiraProjectKey: "ABC", staveProjectPath: "/tmp/abc" },
         { jiraProjectKey: "", staveProjectPath: "/tmp/broken" },
         { jiraProjectKey: "DEF", staveProjectPath: "/tmp/def", unknown: true },
@@ -95,7 +95,7 @@ describe("normalizeJiraConnectorSettings", () => {
     expect(normalized.siteUrl).toBe("https://example.atlassian.net/jira");
     expect(normalized.jql).toBe("project = ABC");
     expect(normalized.maxResults).toBe(25);
-    expect(normalized.projectMappings.map((m) => m.jiraProjectKey)).toEqual([
+    expect(normalized.repositoryMappings.map((m) => m.jiraProjectKey)).toEqual([
       "ABC",
       "GHI",
     ]);
@@ -104,14 +104,14 @@ describe("normalizeJiraConnectorSettings", () => {
   test("falls back to defaults when the document is unusable", () => {
     expect(normalizeJiraConnectorSettings(null)).toEqual({
       ...DEFAULT_JIRA_CONNECTOR_SETTINGS,
-      projectMappings: [],
+      repositoryMappings: [],
     });
     expect(
       normalizeJiraConnectorSettings({
         enabled: true,
         siteUrl: "http://example.atlassian.net",
         authMode: "cloud-api-token",
-        projectMappings: [],
+        repositoryMappings: [],
       }).siteUrl,
     ).toBe("");
   });

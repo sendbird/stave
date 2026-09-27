@@ -1221,7 +1221,7 @@ export function buildRoleSignals(args: {
 }
 
 /**
- * Default provider, model and effort for a delegated child task. Exposed so
+ * Default provider, model and effort for a delegated task. Exposed so
  * the delegation form can seed its draft from the same table the composer uses.
  */
 export function resolveDelegateDefaults(

@@ -141,7 +141,7 @@ describe("Crane dispatch runtime", () => {
       expect(
         CraneDispatchApprovalResponseSchema.safeParse({
           jobId: "job-1",
-          projectPath: "/tmp/project",
+          repositoryPath: "/tmp/project",
           workspace: { strategy: "new", branchName: "crane/atl-2" },
           runtime,
         }).success,
@@ -149,7 +149,7 @@ describe("Crane dispatch runtime", () => {
       expect(
         CraneDispatchApprovalResponseSchema.safeParse({
           jobId: "job-1",
-          projectPath: "/tmp/project",
+          repositoryPath: "/tmp/project",
           workspace: {
             strategy: "new",
             branchName: "crane/atl-2",
@@ -677,7 +677,7 @@ describe("Crane dispatch runtime", () => {
       expect(
         CraneDispatchApprovalResponseSchema.safeParse({
           jobId: "job-1",
-          projectPath: "/tmp/project",
+          repositoryPath: "/tmp/project",
           workspace: { strategy: "new", branchName: "crane/atl-2" },
           runtime,
         }).success,
@@ -687,7 +687,7 @@ describe("Crane dispatch runtime", () => {
     test("rejects an advisor target with no consult budget beside it", () => {
       const base = {
         jobId: "job-1",
-        projectPath: "/tmp/project",
+        repositoryPath: "/tmp/project",
         workspace: { strategy: "new", branchName: "crane/atl-2" },
         runtime: buildCraneDispatchRuntimeChoice({
           model: {

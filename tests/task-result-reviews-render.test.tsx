@@ -5,8 +5,8 @@ import {
   RunHistoryRow,
   TaskResultReviews,
 } from "@/components/session/TaskResultReviews";
-import { DelegateTaskForm } from "@/components/collaboration/DelegateTaskForm";
-import { CollaborationPanel } from "@/components/collaboration/CollaborationPanel";
+import { DelegateTaskForm } from "@/components/team/DelegateTaskForm";
+import { TeamSection } from "@/components/team/TeamSection";
 import { Accordion } from "@/components/ui/accordion";
 import type { ResultReview } from "@/lib/reviews/result-review";
 
@@ -24,8 +24,8 @@ test("run history opens as a filterable list with its purpose stated up front", 
 test("run history rows lead with the result before review metadata", () => {
   const result: ResultReview = {
     id: "result-1",
-    projectPath: "/tmp/project",
-    projectName: "Project",
+    repositoryPath: "/tmp/project",
+    repositoryName: "Project",
     workspaceId: "workspace",
     workspaceName: "Workspace",
     taskId: "task",
@@ -60,7 +60,7 @@ test("run history rows lead with the result before review metadata", () => {
 test("delegate form mounts collapsed behind a body-size header and toggle", () => {
   const html = renderToStaticMarkup(
     createElement(DelegateTaskForm, {
-      target: { taskId: "t", workspaceId: "w", projectPath: "/tmp/p" },
+      target: { taskId: "t", workspaceId: "w", repositoryPath: "/tmp/p" },
       onCreated: () => {},
     }),
   );
@@ -73,8 +73,8 @@ test("delegate form mounts collapsed behind a body-size header and toggle", () =
 
 test("collaboration puts the delegation entry before history controls", () => {
   const html = renderToStaticMarkup(
-    createElement(CollaborationPanel, {
-      target: { taskId: "t", workspaceId: "w", projectPath: "/tmp/p" },
+    createElement(TeamSection, {
+      target: { taskId: "t", workspaceId: "w", repositoryPath: "/tmp/p" },
     }),
   );
 
@@ -87,7 +87,7 @@ test("collaboration puts the delegation entry before history controls", () => {
 test("delegate form opens with the routed assignee summarised and the model controls hidden", () => {
   const html = renderToStaticMarkup(
     createElement(DelegateTaskForm, {
-      target: { taskId: "t", workspaceId: "w", projectPath: "/tmp/p" },
+      target: { taskId: "t", workspaceId: "w", repositoryPath: "/tmp/p" },
       onCreated: () => {},
       defaultOpen: true,
     }),

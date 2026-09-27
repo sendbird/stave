@@ -301,8 +301,8 @@ export type CurrentTaskAwarenessArgs = {
   workspaceName?: string | null;
   workspacePath?: string | null;
   workspaceBranch?: string | null;
-  projectName?: string | null;
-  projectPath?: string | null;
+  repositoryName?: string | null;
+  repositoryPath?: string | null;
   taskId: string;
   tasks: Task[];
   workspaceInformation: WorkspaceInformationState;
@@ -330,8 +330,8 @@ export function buildCurrentTaskAwarenessRetrievedContextParts(
     'Resolve unqualified references to "this task", "this workspace", and "Information panel" to the task and workspace below. The Information panel is workspace-scoped; ask only when the target is ambiguous.',
     "",
     "Project:",
-    `- name: ${args.projectName?.trim() || "(unknown)"}`,
-    `- path: ${args.projectPath?.trim() || "(unknown)"}`,
+    `- name: ${args.repositoryName?.trim() || "(unknown)"}`,
+    `- path: ${args.repositoryPath?.trim() || "(unknown)"}`,
     "",
     "Workspace:",
     `- id: ${args.workspaceId}`,

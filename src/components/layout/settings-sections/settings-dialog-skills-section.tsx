@@ -22,7 +22,7 @@ export function SkillsSection() {
     sharedSkillsHome,
     skillCatalog,
     activeWorkspaceId,
-    projectPath,
+    repositoryPath,
     workspacePathById,
   ] = useAppStore(
     useShallow(
@@ -33,7 +33,7 @@ export function SkillsSection() {
           state.settings.sharedSkillsHome,
           state.skillCatalog,
           state.activeWorkspaceId,
-          state.projectPath,
+          state.repositoryPath,
           state.workspacePathById,
         ] as const,
     ),
@@ -41,7 +41,7 @@ export function SkillsSection() {
   const updateSettings = useAppStore((state) => state.updateSettings);
   const refreshSkillCatalog = useAppStore((state) => state.refreshSkillCatalog);
   const workspacePath =
-    workspacePathById[activeWorkspaceId] ?? projectPath ?? null;
+    workspacePathById[activeWorkspaceId] ?? repositoryPath ?? null;
 
   const [collapsedGroups, setCollapsedGroups] = useState<string[]>([]);
 

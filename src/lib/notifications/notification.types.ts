@@ -1,10 +1,26 @@
 import type { ProviderId } from "@/lib/providers/provider.types";
 
-export type AppNotificationKind =
-  | "task.turn_completed"
-  | "task.turn_failed"
-  | "task.approval_requested"
-  | "task.user_input_requested";
+/**
+ * Every notification kind, in one list that the IPC schema, the renderer
+ * database adapter and the SQLite store all read, so adding a kind is one edit.
+ */
+export const APP_NOTIFICATION_KINDS = [
+  "task.turn_completed",
+  "task.turn_failed",
+  "task.approval_requested",
+  "task.user_input_requested",
+  "mission.sign_off_requested",
+  "mission.blocked",
+  "mission.stuck",
+  "mission.completed",
+] as const;
+
+export type AppNotificationKind = (typeof APP_NOTIFICATION_KINDS)[number];
+
+/** A mission that stopped for the user: a sign-off, a blocker or a stuck stage. */
+export function isMissionAttentionNotificationKind(kind: AppNotificationKind) {
+  return kind === "mission.sign_off_requested" || kind === "mission.blocked" || kind === "mission.stuck";
+}
 
 export interface AppNotificationApprovalAction {
   type: "approval";
@@ -19,8 +35,8 @@ export interface AppNotification {
   kind: AppNotificationKind;
   title: string;
   body: string;
-  projectPath: string | null;
-  projectName: string | null;
+  repositoryPath: string | null;
+  repositoryName: string | null;
   workspaceId: string | null;
   workspaceName: string | null;
   taskId: string | null;

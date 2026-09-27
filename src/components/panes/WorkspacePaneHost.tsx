@@ -496,8 +496,8 @@ function buildTabContextMenuItems(
     });
     if (!isManagedTask) {
       items.push({
-        label: "View collaboration",
-        action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "collaboration"),
+        label: "View mission",
+        action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "mission"),
       });
     }
     if (isManagedTask) {
@@ -536,7 +536,7 @@ function buildTabContextMenuItems(
     );
     const workspaceRootPath =
       store.workspacePathById[store.activeWorkspaceId] ??
-      store.projectPath ??
+      store.repositoryPath ??
       "";
     const runBulkClose = (kind: "others" | "right" | "saved") => {
       const current = useAppStore.getState();
@@ -654,7 +654,7 @@ export function WorkspacePaneHost() {
   const [taskHistoryWorkspaceId, setTaskHistoryWorkspaceId] = useState<
     string | null
   >(null);
-  const [taskHistoryProjectPath, setTaskHistoryProjectPath] = useState<
+  const [taskHistoryRepositoryPath, setTaskHistoryRepositoryPath] = useState<
     string | null
   >(null);
   const [editorTabsToClose, setEditorTabsToClose] =
@@ -1066,10 +1066,10 @@ export function WorkspacePaneHost() {
     }
     function handleOpenTaskHistory(event: Event) {
       const detail = (
-        event as CustomEvent<{ workspaceId?: string; projectPath?: string }>
+        event as CustomEvent<{ workspaceId?: string; repositoryPath?: string }>
       ).detail;
       setTaskHistoryWorkspaceId(detail?.workspaceId ?? null);
-      setTaskHistoryProjectPath(detail?.projectPath ?? null);
+      setTaskHistoryRepositoryPath(detail?.repositoryPath ?? null);
       setTaskHistoryOpen(true);
     }
     function handleOpenTaskSessionIds(event: Event) {
@@ -1181,11 +1181,11 @@ export function WorkspacePaneHost() {
           setTaskHistoryOpen(open);
           if (!open) {
             setTaskHistoryWorkspaceId(null);
-            setTaskHistoryProjectPath(null);
+            setTaskHistoryRepositoryPath(null);
           }
         }}
         workspaceId={taskHistoryWorkspaceId}
-        projectPath={taskHistoryProjectPath}
+        repositoryPath={taskHistoryRepositoryPath}
       />
       <TaskSessionIdsDialog
         taskId={taskSessionIdsTaskId}

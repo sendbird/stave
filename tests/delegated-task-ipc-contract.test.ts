@@ -1,0 +1,243 @@
+import { describe, expect, test } from "bun:test";
+import { readFileSync } from "node:fs";
+import path from "node:path";
+import {
+  DelegatedTaskActionResponseSchema,
+  DelegatedTaskDetachArgsSchema,
+  DelegatedTaskFollowUpArgsSchema,
+  DelegatedTaskLinkArgsSchema,
+  DelegatedTaskListArgsSchema,
+  DelegatedTaskRejectionReasonSchema,
+  DelegatedTaskRetryArgsSchema,
+  DelegatedTaskStopArgsSchema,
+  describeDelegatedTaskRejection,
+} from "../src/lib/runs/delegated-task";
+
+const root = path.resolve(import.meta.dir, "..");
+
+function read(relativePath: string) {
+  return readFileSync(path.join(root, relativePath), "utf8");
+}
+
+function sorted(values: Iterable<string>) {
+  return [...values].sort((left, right) => left.localeCompare(right));
+}
+
+function collect(source: string, pattern: RegExp) {
+  return sorted(
+    new Set(
+      [...source.matchAll(pattern)].flatMap((match) =>
+        match[1] ? [match[1]] : [],
+      ),
+    ),
+  );
+}
+
+const mainSource = read("electron/main/ipc/runs.ts");
+const preloadSource = read("electron/preload.ts");
+const windowApiSource = read("src/types/window-api.d.ts");
+const coordinatorInstanceSource = read(
+  "electron/main/runs/delegated-task-coordinator-instance.ts",
+);
+
+/**
+ * The delegated-task controls only exist as a chain: a renderer method, a preload
+ * binding, and a main handler that re-validates. If one link names a channel
+ * the others do not, the control fails at runtime in a way typecheck cannot
+ * see — so the channel names are compared as sets rather than trusted.
+ */
+const DELEGATED_TASK_CHANNELS = [
+  "delegations:create",
+  "delegations:detach",
+  "delegations:follow-up",
+  "delegations:get-link",
+  "delegations:list",
+  "delegations:retry",
+  "delegations:stop",
+] as const;
+
+describe("delegated task IPC chain", () => {
+  test("every control is handled in main and bridged through preload", () => {
+    const handled = collect(
+      mainSource,
+      /ipcMain\.handle\(\s*"(delegations:[a-z-]+)"/g,
+    );
+    const bridged = collect(
+      preloadSource,
+      /ipcRenderer\.invoke\(\s*"(delegations:[a-z-]+)"/g,
+    );
+
+    expect(handled).toEqual([...DELEGATED_TASK_CHANNELS]);
+    expect(bridged).toEqual([...DELEGATED_TASK_CHANNELS]);
+  });
+
+  test("every bridged control is declared on the renderer contract", () => {
+    for (const method of [
+      "delegateTask",
+      "listDelegatedTasks",
+      "followUpDelegatedTask",
+      "retryDelegatedTask",
+      "stopDelegatedTask",
+      "detachDelegatedTask",
+      "getDelegatedTaskLink",
+      "onDelegatedTasksChanged",
+    ]) {
+      expect(preloadSource, `preload is missing ${method}`).toContain(
+        `${method}:`,
+      );
+      expect(windowApiSource, `window api is missing ${method}`).toContain(
+        `${method}?:`,
+      );
+    }
+  });
+
+  test("the change broadcast is pushed from main and forwarded by preload", () => {
+    // A phase change can originate from a child turn the renderer never
+    // started, so this one travels as a push rather than an invoke — and it
+    // must skip destroyed windows instead of throwing during teardown.
+    expect(coordinatorInstanceSource).toContain(
+      'contents.send("delegations:changed"',
+    );
+    expect(coordinatorInstanceSource).toContain("contents.isDestroyed()");
+    expect(preloadSource).toContain('"delegations:changed"');
+    expect(mainSource).not.toContain("delegations:changed");
+  });
+});
+
+describe("delegated task IPC schemas", () => {
+  const expected = {
+    delegatedTaskId: "child-1",
+    delegatedWorkspaceId: "workspace-child-1",
+    attempt: 1,
+  };
+
+  test("accept the requests the parent surface actually sends", () => {
+    expect(
+      DelegatedTaskListArgsSchema.parse({ parentTaskId: "parent-1" }),
+    ).toEqual({ parentTaskId: "parent-1", includeFinished: true });
+    expect(
+      DelegatedTaskFollowUpArgsSchema.safeParse({
+        parentTaskId: "parent-1",
+        delegationKey: "review.pass-1",
+        prompt: "One more pass, please.",
+        expected,
+      }).success,
+    ).toBe(true);
+    expect(
+      DelegatedTaskStopArgsSchema.safeParse({
+        parentTaskId: "parent-1",
+        delegationKey: "review.pass-1",
+        reason: "No longer needed.",
+        expected,
+      }).success,
+    ).toBe(true);
+    expect(
+      DelegatedTaskDetachArgsSchema.safeParse({
+        parentTaskId: "parent-1",
+        delegationKey: "review.pass-1",
+        expected,
+      }).success,
+    ).toBe(true);
+    expect(
+      DelegatedTaskRetryArgsSchema.safeParse({
+        repositoryPath: "/tmp/project",
+        parentWorkspaceId: "workspace-parent-1",
+        parentTaskId: "parent-1",
+        delegationKey: "review.pass-1",
+        prompt: "Try again.",
+        expected,
+      }).success,
+    ).toBe(true);
+    expect(
+      DelegatedTaskLinkArgsSchema.safeParse({ delegatedTaskId: "child-1" }).success,
+    ).toBe(true);
+  });
+
+  test("a follow-up defaults to guided rather than inheriting permissions", () => {
+    const parsed = DelegatedTaskFollowUpArgsSchema.parse({
+      parentTaskId: "parent-1",
+      delegationKey: "review.pass-1",
+      prompt: "One more pass, please.",
+      expected,
+    });
+    expect(parsed.permissionProfile).toBe("guided");
+  });
+
+  test("mutating controls cannot be sent without an expected identity", () => {
+    expect(
+      DelegatedTaskFollowUpArgsSchema.safeParse({
+        parentTaskId: "parent-1",
+        delegationKey: "review.pass-1",
+        prompt: "One more pass, please.",
+      }).success,
+    ).toBe(false);
+    expect(
+      DelegatedTaskDetachArgsSchema.safeParse({
+        parentTaskId: "parent-1",
+        delegationKey: "review.pass-1",
+      }).success,
+    ).toBe(false);
+    expect(
+      DelegatedTaskRetryArgsSchema.safeParse({
+        repositoryPath: "/tmp/project",
+        parentWorkspaceId: "workspace-parent-1",
+        parentTaskId: "parent-1",
+        delegationKey: "review.pass-1",
+        prompt: "Try again.",
+      }).success,
+    ).toBe(false);
+  });
+
+  test("reject renderer-only extras instead of forwarding them", () => {
+    expect(
+      DelegatedTaskStopArgsSchema.safeParse({
+        parentTaskId: "parent-1",
+        delegationKey: "review.pass-1",
+        expected,
+        force: true,
+      }).success,
+    ).toBe(false);
+    expect(
+      DelegatedTaskListArgsSchema.safeParse({
+        parentTaskId: "parent-1",
+        limit: 10,
+      }).success,
+    ).toBe(false);
+  });
+
+  test("reject a delegation key that could collide with ledger key syntax", () => {
+    expect(
+      DelegatedTaskStopArgsSchema.safeParse({
+        parentTaskId: "parent-1",
+        delegationKey: "review pass/1",
+        expected,
+      }).success,
+    ).toBe(false);
+  });
+
+  test("a refusal always carries a sentence the surface can show as-is", () => {
+    for (const reason of DelegatedTaskRejectionReasonSchema.options) {
+      const message = describeDelegatedTaskRejection(reason);
+      expect(message, `missing message for ${reason}`).toBeTruthy();
+      expect(message.length).toBeLessThanOrEqual(500);
+      const response = DelegatedTaskActionResponseSchema.parse({
+        accepted: false,
+        duplicate: false,
+        reason,
+        message,
+        child: null,
+      });
+      expect(response.reason).toBe(reason);
+    }
+  });
+
+  test("an action response defaults its message rather than omitting the field", () => {
+    const parsed = DelegatedTaskActionResponseSchema.parse({
+      accepted: true,
+      duplicate: false,
+      reason: null,
+      child: null,
+    });
+    expect(parsed.message).toBeNull();
+  });
+});

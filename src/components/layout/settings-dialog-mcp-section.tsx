@@ -385,7 +385,7 @@ function McpConfigurationRows(args: {
 }
 
 function McpServerConnectionsCard() {
-  const [settings, activeWorkspaceId, workspacePathById, projectPath] =
+  const [settings, activeWorkspaceId, workspacePathById, repositoryPath] =
     useAppStore(
       useShallow(
         (state) =>
@@ -393,7 +393,7 @@ function McpServerConnectionsCard() {
             state.settings,
             state.activeWorkspaceId,
             state.workspacePathById,
-            state.projectPath,
+            state.repositoryPath,
           ] as const,
       ),
     );
@@ -426,7 +426,7 @@ function McpServerConnectionsCard() {
   } | null>(null);
   const refreshRequestIdRef = useRef(0);
   const workspaceCwd =
-    workspacePathById[activeWorkspaceId] ?? projectPath ?? undefined;
+    workspacePathById[activeWorkspaceId] ?? repositoryPath ?? undefined;
   const runtimeOptions = useMemo(
     () => ({
       claude: buildProviderRuntimeOptions({

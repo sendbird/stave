@@ -59,9 +59,9 @@ function seedCraneConnector(
       ],
       messagesByTask: { "task-crane-settings": [] },
     };
-    const project = {
-      projectPath: "/tmp/stave-project",
-      projectName: "stave-project",
+    const repository = {
+      repositoryPath: "/tmp/stave-project",
+      repositoryName: "stave-project",
       lastOpenedAt: "2026-07-26T00:00:00.000Z",
       defaultBranch: "main",
       workspaces: [
@@ -91,14 +91,14 @@ function seedCraneConnector(
       "stave-store",
       JSON.stringify({
         state: {
-          projectPath: project.projectPath,
-          projectName: project.projectName,
-          workspaces: project.workspaces,
+          repositoryPath: repository.repositoryPath,
+          repositoryName: repository.repositoryName,
+          workspaces: repository.workspaces,
           activeWorkspaceId: "ws-main",
-          workspaceBranchById: project.workspaceBranchById,
-          workspacePathById: project.workspacePathById,
-          workspaceDefaultById: project.workspaceDefaultById,
-          recentProjects: [project],
+          workspaceBranchById: repository.workspaceBranchById,
+          workspacePathById: repository.workspacePathById,
+          workspaceDefaultById: repository.workspaceDefaultById,
+          recentRepositories: [repository],
           draftProvider: "codex",
           settings: {
             autoRoutingEnabled: true,
@@ -111,7 +111,7 @@ function seedCraneConnector(
               enabled: false,
               baseUrl: "https://atelier.delight-tools.ai",
               pollIntervalSeconds: 15,
-              projectMappings: [],
+              repositoryMappings: [],
             },
             ...extraSettings,
           },
@@ -471,12 +471,12 @@ test("Crane approval defaults to local runtime settings and is job-scoped", asyn
           state?: {
             settings?: {
               craneConnector?: {
-                projectMappings?: unknown[];
+                repositoryMappings?: unknown[];
               };
             };
           };
         };
-        return persisted.state?.settings?.craneConnector?.projectMappings;
+        return persisted.state?.settings?.craneConnector?.repositoryMappings;
       }),
     )
     .toEqual([
@@ -510,7 +510,7 @@ test("Crane approval defaults to local runtime settings and is job-scoped", asyn
     .toEqual([
       {
         jobId: "job-e2e",
-        projectPath: "/tmp/stave-project",
+        repositoryPath: "/tmp/stave-project",
         workspace: {
           strategy: "new",
           branchName: "crane/crane-42",

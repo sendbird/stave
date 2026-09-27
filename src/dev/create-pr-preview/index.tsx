@@ -35,7 +35,7 @@ if (!previewWindow.__prHarness) {
 }
 
 useAppStore.setState({
-  projectPath: "/tmp/stave-project",
+  repositoryPath: "/tmp/stave-project",
   defaultBranch: "main",
   workspaces: [
     {

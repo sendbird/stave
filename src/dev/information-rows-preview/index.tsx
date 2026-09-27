@@ -129,7 +129,7 @@ export function InformationRowsPreview() {
           <h2 className={sx(styles.label)}>Memory</h2>
           {ready ? (
             <WorkspaceMemorySection
-              projectPath="/tmp/stave-project"
+              repositoryPath="/tmp/stave-project"
               refreshKey="preview"
             />
           ) : null}

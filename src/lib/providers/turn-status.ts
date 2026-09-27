@@ -17,10 +17,10 @@ import {
   TOOL_DELEGATION_LABEL,
 } from "@/lib/providers/tool-activity";
 import { formatWorkerExecutionMetadata, type WorkerExecutionMetadata } from "@/lib/providers/worker-mode";
-import type { ChildTaskSummary } from "@/lib/runs/child-task";
+import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import {
   createWorkGraph,
-  mergeChildTasksIntoWorkGraph,
+  mergeDelegatedTasksIntoWorkGraph,
   reduceWorkGraphEvent,
   resolveWorkGraphInteractions,
 } from "@/lib/work-graph/work-graph-reducer";
@@ -396,7 +396,7 @@ export function markProviderTurnInteractionResolved(args: {
 }
 
 /**
- * Fold the parent's child-task listing into the turn's graph.
+ * Fold the parent's delegated-task listing into the turn's graph.
  *
  * The listing is read by the surface, not streamed by the provider, so it
  * enters here rather than through `reduceWorkGraphEvent`. It lands on the same
@@ -404,23 +404,23 @@ export function markProviderTurnInteractionResolved(args: {
  * agent count and the Turn Activity tree derive from one graph, so a delegated
  * child cannot be counted by one and missing from the other.
  */
-export function applyChildTasksToProviderTurnActivity(args: {
+export function applyDelegatedTasksToProviderTurnActivity(args: {
   activityByTask: ProviderTurnActivityByTask;
   taskId: string;
-  children: readonly ChildTaskSummary[];
+  children: readonly DelegatedTaskSummary[];
   now?: number;
 }) {
   const current = args.activityByTask[args.taskId];
   if (!current) {
     return args.activityByTask;
   }
-  const workGraph = mergeChildTasksIntoWorkGraph(
+  const workGraph = mergeDelegatedTasksIntoWorkGraph(
     current.workGraph,
     args.children,
     args.now ?? Date.now(),
   );
   // The merge is reference-stable when nothing changed, so a listing that
-  // repeats itself — and it repeats on every child-task change event — does not
+  // repeats itself — and it repeats on every delegated-task change event — does not
   // publish a new snapshot to every subscriber.
   if (workGraph === current.workGraph) {
     return args.activityByTask;

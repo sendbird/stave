@@ -13,8 +13,8 @@ const OLD_ENOUGH = new Date(
 function buildResult(overrides: Partial<ResultReview> = {}): ResultReview {
   return {
     id: "result-1",
-    projectPath: "/workspace/project",
-    projectName: "Project",
+    repositoryPath: "/workspace/project",
+    repositoryName: "Project",
     workspaceId: "workspace-1",
     workspaceName: "checkout",
     taskId: "task-1",

@@ -21,7 +21,7 @@ function createClaimArgs(): SecondaryRunClaimArgs {
         id: "run-1",
       },
       ownership: {
-        projectPath: "/tmp/project",
+        repositoryPath: "/tmp/project",
         workspaceId: "workspace-1",
         taskId: "task-1",
       },
