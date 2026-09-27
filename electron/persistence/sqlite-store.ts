@@ -1658,7 +1658,6 @@ export class SqliteStore {
     if (!row) {
       return [];
     }
-    // temporary-migration: repository-persisted-state
     return migrateLegacyRepositoryEntries(JSON.parse(row.value_json)) as PersistenceRepositoryRegistryEntry[];
   }
 
@@ -1671,16 +1670,10 @@ export class SqliteStore {
 
   saveRepositoryRegistry(args: { repositories: PersistenceRepositoryRegistryEntry[]; activeRepositoryPath?: string | null }) {
     const now = new Date().toISOString();
-    const write = this.db
-      .prepare(
-        `
-      INSERT INTO app_state (key, value_json, updated_at)
-      VALUES (?, ?, ?)
-      ON CONFLICT(key) DO UPDATE SET
-        value_json = excluded.value_json,
-        updated_at = excluded.updated_at
-    `,
-      );
+    const write = this.db.prepare(
+      `INSERT INTO app_state (key, value_json, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET value_json = excluded.value_json, updated_at = excluded.updated_at`,
+    );
     this.db.transaction(() => {
       write.run("project_registry", JSON.stringify(args.repositories), now);
       if (args.activeRepositoryPath !== undefined) {
