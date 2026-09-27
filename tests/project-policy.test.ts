@@ -3,6 +3,7 @@ import { DEFAULT_PROJECT_SETTINGS, type MissionProposal, type Project, type Proj
 import {
   buildCoordinatorWakePrompt,
   collectDeliveredStates,
+  countWakesTowardCap,
   decideProject,
   missionStateKey,
   type ProjectMissionSnapshot,
@@ -48,11 +49,24 @@ function proposal(id: string, state: MissionProposal["state"], createdAt = NOW):
   };
 }
 
-function mission(id: string, state: ProjectMissionSnapshot["state"], stage: ProjectMissionSnapshot["currentStageStatus"] = "running"): ProjectMissionSnapshot {
-  return { missionId: id, state, currentStageStatus: stage, title: `Mission ${id}`, summary: `Summary ${id}` };
+function mission(
+  id: string,
+  state: ProjectMissionSnapshot["state"],
+  stage: ProjectMissionSnapshot["currentStageStatus"] = "running",
+  at: { stageIndex?: number; attempt?: number } = {},
+): ProjectMissionSnapshot {
+  return {
+    missionId: id,
+    state,
+    currentStageStatus: stage,
+    stageIndex: at.stageIndex ?? 1,
+    attempt: at.attempt ?? 1,
+    title: `Mission ${id}`,
+    summary: `Summary ${id}`,
+  };
 }
 
-function woken(delivered: Record<string, string>, sequence = 1): ProjectEvent {
+function woken(delivered: Record<string, string>, sequence = 1, createdAt = NOW): ProjectEvent {
   return {
     id: `event-${sequence}`,
     projectId: "project-1",
@@ -60,8 +74,19 @@ function woken(delivered: Record<string, string>, sequence = 1): ProjectEvent {
     kind: "coordinator-woken",
     idempotencyKey: null,
     detail: { delivered },
-    createdAt: NOW,
+    createdAt,
   };
+}
+
+function decideWith(missions: ProjectMissionSnapshot[], wakes: ProjectEvent[]) {
+  return decideProject({
+    project: project(),
+    proposals: [],
+    missions,
+    delivered: collectDeliveredStates(wakes),
+    previousWakes: wakes.length,
+    coordinatorBusy: false,
+  });
 }
 
 describe("project policy", () => {
@@ -92,12 +117,12 @@ describe("project policy", () => {
     if (decision.action !== "wake-coordinator") return;
     expect(decision.changes.map((change) => [change.missionId, change.stateKey])).toEqual([
       ["m1", "completed"],
-      ["m2", "awaiting-sign-off"],
+      ["m2", "awaiting-sign-off@2#1"],
     ]);
-    expect(decision.key).toBe("project:project-1:wake:m1=completed,m2=awaiting-sign-off");
+    expect(decision.key).toBe("project:project-1:wake:1");
 
     // Exactly once per state: once delivered, the same states wake nothing.
-    const delivered = collectDeliveredStates([woken({ m1: "completed", m2: "awaiting-sign-off" })]);
+    const delivered = collectDeliveredStates([woken({ m1: "completed", m2: "awaiting-sign-off@2#1" })]);
     expect(decideProject({ project: project(), proposals: [], missions, delivered, coordinatorBusy: false }).action).toBe("idle");
 
     // A new state of a delivered mission wakes again.
@@ -120,17 +145,71 @@ describe("project policy", () => {
     ).toBe("wait");
   });
 
-  test("only states worth a decision wake the coordinator", () => {
-    expect(missionStateKey({ state: "running", currentStageStatus: "running" })).toBeNull();
-    expect(missionStateKey({ state: "running", currentStageStatus: "stuck" })).toBe("stuck");
-    expect(missionStateKey({ state: "paused", currentStageStatus: "running" })).toBeNull();
-    expect(missionStateKey({ state: "stopped", currentStageStatus: "running" })).toBe("stopped");
+  test("only states worth a decision wake the coordinator, named by stage and attempt", () => {
+    const at = { stageIndex: 2, attempt: 3 };
+    expect(missionStateKey({ state: "running", currentStageStatus: "running", ...at })).toBeNull();
+    expect(missionStateKey({ state: "running", currentStageStatus: "stuck", ...at })).toBe("stuck@3#3");
+    expect(missionStateKey({ state: "paused", currentStageStatus: "running", ...at })).toBeNull();
+    expect(missionStateKey({ state: "stopped", currentStageStatus: "running", ...at })).toBe("stopped");
+  });
+
+  test("a mission back in a state it was in before wakes the coordinator again", () => {
+    // Sign-off at stage 2, then blocked there, then a sign-off at stage 3.
+    const first = decideWith([mission("m1", "running", "awaiting-sign-off", { stageIndex: 1 })], []);
+    expect(first).toMatchObject({ action: "wake-coordinator", key: "project:project-1:wake:1" });
+    const wakes = [woken({ m1: "awaiting-sign-off@2#1" }, 1)];
+    const blocked = decideWith([mission("m1", "running", "blocked", { stageIndex: 1 })], wakes);
+    expect(blocked).toMatchObject({ action: "wake-coordinator", key: "project:project-1:wake:2", changes: [{ stateKey: "blocked@2#1" }] });
+    wakes.push(woken({ m1: "blocked@2#1" }, 2));
+    const later = decideWith([mission("m1", "running", "awaiting-sign-off", { stageIndex: 2 })], wakes);
+    expect(later).toMatchObject({ action: "wake-coordinator", key: "project:project-1:wake:3", changes: [{ stateKey: "awaiting-sign-off@3#1" }] });
+    // A retried stage is a new attempt: blocked again is news.
+    wakes.push(woken({ m1: "blocked@2#2" }, 3));
+    expect(decideWith([mission("m1", "running", "blocked", { stageIndex: 1, attempt: 2 })], wakes).action).toBe("idle");
+    expect(decideWith([mission("m1", "running", "blocked", { stageIndex: 1, attempt: 3 })], wakes)).toMatchObject({
+      action: "wake-coordinator",
+      key: "project:project-1:wake:4",
+    });
+    // The same wake computed twice keeps its key, so it is recorded once.
+    expect(decideWith([mission("m1", "running", "blocked", { stageIndex: 1, attempt: 3 })], wakes)).toMatchObject({
+      key: "project:project-1:wake:4",
+    });
+  });
+
+  test("the first wake plans the project, before anything else it would carry", () => {
+    const observation = {
+      project: project(),
+      proposals: [],
+      missions: [mission("m1", "completed")],
+      delivered: {},
+      kickoffPending: true,
+    };
+    expect(decideProject({ ...observation, coordinatorBusy: true }).action).toBe("wait");
+    expect(decideProject({ ...observation, coordinatorBusy: false })).toEqual({
+      action: "wake-coordinator",
+      kickoff: true,
+      changes: [],
+      triggers: [],
+      key: "project:project-1:kickoff",
+    });
+  });
+
+  test("the daily cap counts the last day's automatic turns, and only those since the user resumed", () => {
+    const now = new Date("2026-09-26T12:00:00.000Z");
+    const wakes = [
+      woken({}, 1, "2026-09-25T11:00:00.000Z"),
+      woken({}, 2, "2026-09-26T09:00:00.000Z"),
+      woken({}, 3, "2026-09-26T11:00:00.000Z"),
+    ];
+    expect(countWakesTowardCap(wakes, { now })).toBe(2);
+    expect(countWakesTowardCap(wakes, { now, resetAt: "2026-09-26T10:00:00.000Z" })).toBe(1);
+    expect(countWakesTowardCap(wakes, { now, resetAt: null })).toBe(2);
   });
 
   test("the wake prompt carries identities, states and summaries, never transcripts", () => {
     const prompt = buildCoordinatorWakePrompt([
       { missionId: "m1", title: "Billing table", stateKey: "completed", summary: "PR #612 ready." },
-      { missionId: "m2", title: "Settings form", stateKey: "awaiting-sign-off", summary: null },
+      { missionId: "m2", title: "Settings form", stateKey: "awaiting-sign-off@4#1", summary: null },
     ]);
     expect(prompt).toContain("- Billing table (m1) completed: PR #612 ready.");
     expect(prompt).toContain("- Settings form (m2) waits for the user's sign-off");

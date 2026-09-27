@@ -1,11 +1,13 @@
 /**
  * The project supervisor's decision, as a pure function of what it observes:
- * start approved missions up to the parallel limit, wake the coordinator once
- * for every batch of mission changes it has not seen, and otherwise wait.
+ * start approved missions up to the parallel limit, wake the coordinator to
+ * plan the project, then once for every batch of mission changes it has not
+ * seen, and otherwise wait.
  *
  * Exactly once per mission state: a wake records the state it delivered for
  * each mission, and a mission wakes the coordinator again only when that
- * state changes to another one worth waking for.
+ * state changes to another one worth waking for. A state names its stage and
+ * attempt, so a sign-off at a later stage is news even after an earlier one.
  */
 import type { MissionState, StageStatus } from "@/lib/missions/domain";
 import { PROJECT_LIMITS, type MissionProposal, type Project, type ProjectEvent } from "./domain";
@@ -15,6 +17,9 @@ export interface ProjectMissionSnapshot {
   missionId: string;
   state: MissionState;
   currentStageStatus: StageStatus;
+  /** The stage the mission is on, from 0, and that stage's attempt. */
+  stageIndex: number;
+  attempt: number;
   title: string;
   /** One line from the mission's report or its current stage. */
   summary: string | null;
@@ -28,6 +33,10 @@ export interface ProjectObservation {
   delivered: Readonly<Record<string, string>>;
   /** Triggers that fired and no wake has delivered yet, oldest first. */
   triggers?: readonly ProjectTrigger[];
+  /** No coordinator turn was started yet: the first one plans the project. */
+  kickoffPending?: boolean;
+  /** The wakes recorded so far; the next wake's key counts on from them. */
+  previousWakes?: number;
   coordinatorBusy: boolean;
 }
 
@@ -43,7 +52,7 @@ export interface ProjectTrigger {
 export type ProjectDecision =
   | { action: "wait"; reason: string }
   | { action: "start-proposal"; proposalId: string }
-  | { action: "wake-coordinator"; changes: ProjectMissionChange[]; triggers: ProjectTrigger[]; key: string }
+  | { action: "wake-coordinator"; kickoff: boolean; changes: ProjectMissionChange[]; triggers: ProjectTrigger[]; key: string }
   | { action: "idle" };
 
 export interface ProjectMissionChange {
@@ -55,9 +64,12 @@ export interface ProjectMissionChange {
 
 /**
  * The state of a mission worth telling the coordinator about, or null while
- * it simply runs: ended, stuck, blocked or waiting for a sign-off.
+ * it simply runs: ended, or stuck, blocked or waiting for a sign-off at a
+ * stage attempt — "awaiting-sign-off@2#1" is the second stage's first attempt.
  */
-export function missionStateKey(mission: Pick<ProjectMissionSnapshot, "state" | "currentStageStatus">): string | null {
+export function missionStateKey(
+  mission: Pick<ProjectMissionSnapshot, "state" | "currentStageStatus" | "stageIndex" | "attempt">,
+): string | null {
   switch (mission.state) {
     case "completed":
     case "cancelled":
@@ -69,9 +81,14 @@ export function missionStateKey(mission: Pick<ProjectMissionSnapshot, "state" | 
       return mission.currentStageStatus === "awaiting-sign-off" ||
         mission.currentStageStatus === "blocked" ||
         mission.currentStageStatus === "stuck"
-        ? mission.currentStageStatus
+        ? `${mission.currentStageStatus}@${mission.stageIndex + 1}#${mission.attempt}`
         : null;
   }
+}
+
+/** The mission state a state key names, without its stage and attempt. */
+export function stateOfKey(stateKey: string): string {
+  return stateKey.split("@")[0]!;
 }
 
 /** The mission states each wake delivered, latest wins. */
@@ -104,6 +121,12 @@ export function decideProject(observation: ProjectObservation): ProjectDecision 
     return { action: "start-proposal", proposalId: approved[0]!.id };
   }
 
+  // The plan comes first; what else happened meanwhile waits for the next wake.
+  if (observation.kickoffPending) {
+    if (observation.coordinatorBusy) return { action: "wait", reason: "The coordinator is in a turn." };
+    return { action: "wake-coordinator", kickoff: true, changes: [], triggers: [], key: `project:${project.id}:kickoff` };
+  }
+
   const changes: ProjectMissionChange[] = [];
   for (const mission of observation.missions) {
     const stateKey = missionStateKey(mission);
@@ -113,13 +136,29 @@ export function decideProject(observation: ProjectObservation): ProjectDecision 
   const triggers = (observation.triggers ?? []).slice(0, PROJECT_LIMITS.maxTriggersPerWake);
   if (changes.length > 0 || triggers.length > 0) {
     if (observation.coordinatorBusy) return { action: "wait", reason: "The coordinator is in a turn." };
-    const parts = [
-      ...changes.map((change) => `${change.missionId}=${change.stateKey}`).sort(),
-      ...triggers.map((trigger) => `trigger=${trigger.id}`).sort(),
-    ];
-    return { action: "wake-coordinator", changes, triggers, key: `project:${project.id}:wake:${parts.join(",")}` };
+    // Numbered, not named by what it carries: a mission may return to a state
+    // it was in before, and that return is a new wake. The wake event lists
+    // the states and triggers it delivered.
+    const key = `project:${project.id}:wake:${(observation.previousWakes ?? 0) + 1}`;
+    return { action: "wake-coordinator", kickoff: false, changes, triggers, key };
   }
   return { action: "idle" };
+}
+
+/**
+ * The automatic turns that count toward the daily cap: those of the last 24
+ * hours, and only those since the user last resumed the project.
+ */
+export function countWakesTowardCap(
+  wakes: readonly Pick<ProjectEvent, "createdAt">[],
+  args: { now: Date; resetAt?: string | null },
+): number {
+  const dayAgo = args.now.getTime() - 24 * 60 * 60_000;
+  const resetAt = args.resetAt ? Date.parse(args.resetAt) : Number.NEGATIVE_INFINITY;
+  return wakes.filter((event) => {
+    const at = Date.parse(event.createdAt);
+    return at > dayAgo && at >= resetAt;
+  }).length;
 }
 
 /** The triggers the project recorded that no wake has delivered, oldest first. */
@@ -201,14 +240,15 @@ export function buildCoordinatorWakePrompt(
     return [...watched, "Do not edit files yourself."].join("\n");
   }
   const lines = changes.map((change) => {
+    const base = stateOfKey(change.stateKey);
     const state =
-      change.stateKey === "awaiting-sign-off"
+      base === "awaiting-sign-off"
         ? "waits for the user's sign-off"
-        : change.stateKey === "blocked"
+        : base === "blocked"
           ? "is blocked"
-          : change.stateKey === "stuck"
+          : base === "stuck"
             ? "is stuck"
-            : change.stateKey;
+            : base;
     return `- ${change.title} (${change.missionId}) ${state}${change.summary ? `: ${change.summary}` : ""}`;
   });
   return [

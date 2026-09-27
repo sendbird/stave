@@ -78,8 +78,12 @@ export function createHostProjectRuntime(args: {
       }),
     resolveRepositoryPath,
     createMissionWorkspace: async ({ repositoryPath, name, label }) => {
+      // Creating a workspace on a branch that already has one returns that
+      // workspace; the ids known before tell the runtime it was not new.
+      const repositories = await localMcpRuntime.listKnownRepositories();
+      const known = new Set(repositories.flatMap((repository) => repository.workspaces.map((workspace) => workspace.id)));
       const created = await localMcpRuntime.createWorkspace({ repositoryPath, name, label, mode: "branch" });
-      return { workspaceId: created.workspaceId };
+      return { workspaceId: created.workspaceId, existed: known.has(created.workspaceId) };
     },
     createIdleTask: (task) => localMcpRuntime.createIdleTask(task),
     readPullRequest,

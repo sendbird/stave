@@ -22,7 +22,7 @@ export const PROJECT_LIMITS = {
   defaultParallel: 2,
   maxEventDetailChars: 8_000,
   maxMemories: 200,
-  /** Automatic coordinator turns a project may take in a day before it pauses. */
+  /** Automatic coordinator turns a project may take in a day (or since the user resumed it) before it pauses. */
   maxCoordinatorWakesPerDay: 24,
   /** Characters of a message the user sends the coordinator from the project. */
   coordinatorMessage: 4_000,
@@ -130,6 +130,8 @@ export const ProjectSchema = z
     /** The coordinator's latest summary of where the project stands. */
     summary: z.string().max(PROJECT_LIMITS.note).nullable(),
     reasonDetail: z.string().max(500).nullable(),
+    /** When the user last resumed the project; automatic turns before it no longer count toward the daily cap. */
+    wakeCapResetAt: TimestampSchema.nullable().optional(),
     createdAt: TimestampSchema,
     updatedAt: TimestampSchema,
   })

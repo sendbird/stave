@@ -27,6 +27,8 @@ function harness() {
   let clock = new Date(MISSION_NOW);
   let busy = false;
   let pr: ProjectPullRequestSignal | null = null;
+  /** While set, a pull request read waits for it, as a slow `gh` would. */
+  let slowRead: Promise<void> | null = null;
   const turns: Array<Parameters<ProjectRuntimeDependencies["runSupervisedTurn"]>[0]> = [];
   const runtime = createProjectRuntime({
     store,
@@ -45,7 +47,10 @@ function harness() {
     createIdleTask: async () => ({ taskId: "task" }),
     resolveProjectGrant: () => null,
     setCoordinatorTasks: () => {},
-    readPullRequest: async () => pr,
+    readPullRequest: async () => {
+      if (slowRead) await slowRead;
+      return pr;
+    },
     now: () => clock,
     setInterval: (() => 0) as unknown as typeof globalThis.setInterval,
     clearInterval: () => {},
@@ -101,6 +106,17 @@ function harness() {
     },
     setPullRequest: (value: ProjectPullRequestSignal | null) => {
       pr = value;
+    },
+    /** Holds pull request reads until the returned function releases them. */
+    slowPullRequestReads: () => {
+      let release!: () => void;
+      slowRead = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      return () => {
+        slowRead = null;
+        release();
+      };
     },
     advance: (ms: number) => {
       clock = new Date(clock.getTime() + ms);
@@ -185,7 +201,7 @@ describe("project start conditions", () => {
   test("triggers that fire while the coordinator is in a turn wait for it", async () => {
     const h = harness();
     await h.create({ issueAssigned: true });
-    await h.runtime.observeIssues({ items: [] });
+    await h.runtime.observeIssues({ items: [ISSUE("ACME-1")] });
     h.setBusy(true);
     await h.runtime.observeIssues({ items: [ISSUE("ACME-5")] });
     await h.runtime.requestTick();
@@ -193,6 +209,62 @@ describe("project start conditions", () => {
     h.setBusy(false);
     await h.runtime.requestTick();
     expect(h.wakes()).toHaveLength(1);
+  });
+
+  test("each source's first list is its own first look, and an empty list keeps it", async () => {
+    const h = harness();
+    await h.create({ issueAssigned: true });
+    // Issues has not loaded yet; then only Crane syncs.
+    await h.runtime.observeIssues({ items: [] });
+    await h.runtime.observeIssues({ items: [ISSUE("CRN-1", { source: "crane" })] });
+    // Jira syncs later: what it lists then was already assigned.
+    await h.runtime.observeIssues({ items: [ISSUE("CRN-1", { source: "crane" }), ISSUE("ACME-1")] });
+    await h.runtime.requestTick();
+    expect(h.wakes()).toHaveLength(0);
+    // Assigned since, though created before watching started: news.
+    await h.runtime.observeIssues({ items: [ISSUE("CRN-1", { source: "crane" }), ISSUE("ACME-1"), ISSUE("ACME-2")] });
+    await h.runtime.requestTick();
+    expect(h.wakes()).toEqual([expect.stringContaining("ACME-2")]);
+  });
+
+  test("a first look takes in every assigned issue, and a changed filter looks again", async () => {
+    const h = harness();
+    const projectId = await h.create({ issueAssigned: true, issueFilter: "dashboard" });
+    const billing = (key: string) => ISSUE(key, { labels: ["billing"], title: "Other" });
+    await h.runtime.observeIssues({ items: [ISSUE("ACME-1"), billing("ACME-3")] });
+    // Seen though outside the filter.
+    expect(h.store.markTriggersSeen(projectId, ["issue:jira:ACME-3"], MISSION_NOW)).toEqual([]);
+    // Assigned after the first look, outside the filter.
+    await h.runtime.observeIssues({ items: [ISSUE("ACME-1"), billing("ACME-3"), billing("ACME-4")] });
+
+    const before = h.store.getProject(projectId)!.settings.triggers;
+    h.advance(60_000);
+    await h.runtime.updateSettings({ projectId, settings: { triggers: { ...before, issueFilter: " Dashboard " } } });
+    expect(h.store.getProject(projectId)!.settings.triggers.issueSince).toBe(before.issueSince);
+    await h.runtime.updateSettings({ projectId, settings: { triggers: { ...before, issueFilter: "" } } });
+    expect(h.store.getProject(projectId)!.settings.triggers.issueSince).toBe(new Date(MISSION_NOW.getTime() + 60_000).toISOString());
+    await h.runtime.observeIssues({ items: [ISSUE("ACME-1"), billing("ACME-3"), billing("ACME-4")] });
+    await h.runtime.requestTick();
+    expect(h.wakes()).toHaveLength(0);
+  });
+
+  test("a slow pull request read never holds up the project's commands", async () => {
+    const h = harness();
+    const projectId = await h.create({ pullRequestFeedback: true });
+    h.endedMissionWithPullRequest(projectId);
+    h.setPullRequest({ number: 9, url: "https://github.com/acme/app/pull/9", state: "OPEN", checks: "FAILURE", reviewDecision: null, headSha: "a1" });
+    const release = h.slowPullRequestReads();
+    const tick = h.runtime.requestTick();
+    let paused = false;
+    const pausing = h.runtime.pause({ projectId }).then(() => {
+      paused = true;
+    });
+    for (let wait = 0; wait < 50 && !paused; wait += 1) await Bun.sleep(1);
+    expect(paused).toBe(true);
+    release();
+    await Promise.all([tick, pausing]);
+    // Read while it was active; recorded only for a project still active.
+    expect(h.wakes()).toHaveLength(0);
   });
 
   test("turning a watch on starts it from now; changing the schedule restarts it", async () => {

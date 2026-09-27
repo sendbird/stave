@@ -19,6 +19,7 @@ import {
   type Project,
   type ProjectEvent,
   type ProjectEventDraft,
+  type ProjectEventKind,
   type ProjectMemory,
 } from "../../src/lib/projects/domain";
 
@@ -243,6 +244,17 @@ export class ProjectStore {
          ) ORDER BY sequence ASC`,
       )
       .all(projectId, Math.max(1, Math.min(limit, MAX_EVENTS_PER_PROJECT)));
+    return parseRows(rows, ProjectEventSchema.parse, "event");
+  }
+
+  /**
+   * Every event of one kind, oldest first, however long ago: wake events are
+   * never pruned, and what they delivered must not fall out of a window.
+   */
+  listEventsOfKind(projectId: string, kind: ProjectEventKind): ProjectEvent[] {
+    const rows = this.db
+      .prepare("SELECT id, body_json FROM project_events WHERE project_id = ? AND kind = ? ORDER BY sequence ASC")
+      .all(projectId, kind);
     return parseRows(rows, ProjectEventSchema.parse, "event");
   }
 

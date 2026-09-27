@@ -61,6 +61,7 @@ import {
   buildCoordinatorWakePrompt,
   collectDeliveredStates,
   collectPendingTriggers,
+  countWakesTowardCap,
   decideProject,
   issueMatchesFilter,
   issueTrigger,
@@ -88,11 +89,16 @@ const PULL_REQUEST_POLL_MS = 5 * 60_000;
 /** Pull requests of missions that ended longer ago than this are no longer watched. */
 const PULL_REQUEST_WATCH_MS = 14 * 24 * 60 * 60_000;
 
-/** A new schedule or issue watch starts from now, never from the past. */
+/**
+ * A new schedule or issue watch starts from now, never from the past; so does
+ * an issue watch whose filter changed, with a fresh look at what is assigned.
+ */
 function stampTriggers(previous: ProjectTriggers, next: ProjectTriggers, at: string): ProjectTriggers {
+  const sameIssueWatch =
+    previous.issueAssigned && previous.issueFilter.trim().toLowerCase() === next.issueFilter.trim().toLowerCase();
   return {
     ...next,
-    issueSince: next.issueAssigned ? (previous.issueAssigned ? (previous.issueSince ?? at) : at) : null,
+    issueSince: next.issueAssigned ? (sameIssueWatch ? (previous.issueSince ?? at) : at) : null,
     scheduleSince:
       next.schedule === "off" ? null : next.schedule === previous.schedule ? (previous.scheduleSince ?? at) : at,
   };
@@ -110,6 +116,7 @@ type ProjectStorePort = Pick<
   | "recordEvent"
   | "hasEvent"
   | "listEvents"
+  | "listEventsOfKind"
   | "addMemory"
   | "setMemoryStatus"
   | "listMemories"
@@ -148,8 +155,12 @@ export interface ProjectRuntimeDependencies {
   }) => Promise<{ turnId: string }>;
   /** The repository a workspace belongs to, for a new project's coordinator. */
   resolveRepositoryPath: (workspaceId: string) => Promise<string | null>;
-  /** Intake: a new worktree for a mission. */
-  createMissionWorkspace: (args: { repositoryPath: string; name: string; label: string }) => Promise<{ workspaceId: string }>;
+  /** Intake: a new worktree for a mission; `existed` when a workspace already had that branch. */
+  createMissionWorkspace: (args: {
+    repositoryPath: string;
+    name: string;
+    label: string;
+  }) => Promise<{ workspaceId: string; existed?: boolean }>;
   createIdleTask: (args: {
     workspaceId: string;
     title: string;
@@ -230,6 +241,15 @@ function slugForWorktree(text: string) {
   );
 }
 
+/**
+ * A mission's own branch. The proposal id tells apart two missions with the
+ * same name — in this project, a later one, or another project on the repo.
+ */
+function missionBranchName(proposal: MissionProposal) {
+  const suffix = proposal.id.replace(/[^a-z0-9]/gi, "").slice(0, 8).toLowerCase();
+  return `project-${proposal.worktreeName ?? slugForWorktree(proposal.assignment)}-${suffix}`;
+}
+
 /** "pull-request" for a GitHub PR link, and so on, from the label and URL. */
 function classifyLink(label: string, url: string): ProjectLibraryItem["kind"] {
   if (/\/pull\/\d+/.test(url) || /\bPR\b/i.test(label)) return "pull-request";
@@ -255,6 +275,8 @@ function snapshotOf(aggregate: MissionAggregate): ProjectMissionSnapshot & { sta
     missionId: mission.id,
     state: mission.state,
     currentStageStatus: record.status,
+    stageIndex: mission.currentStageIndex,
+    attempt: record.attempt,
     title: firstLine(mission.assignment, 60),
     summary: summary ? firstLine(summary, 200) : null,
     stageTitle: stage?.title ?? null,
@@ -406,19 +428,31 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
     if (!store.recordEvent(project.id, { kind: "mission-started", idempotencyKey: key, detail: { proposalId: proposal.id } }, now())) {
       return;
     }
+    // Each step is kept on the proposal as it finishes, so a restart can tell how far the start got.
+    let current = proposal;
+    const keep = (patch: Partial<MissionProposal>) => {
+      current = { ...current, ...patch, updatedAt: now().toISOString() };
+      store.upsertProposal(current);
+    };
     try {
-      const name = proposal.worktreeName ?? slugForWorktree(proposal.assignment);
-      const { workspaceId } = await deps.createMissionWorkspace({
+      const branch = missionBranchName(proposal);
+      const created = await deps.createMissionWorkspace({
         repositoryPath: project.repositoryPath,
-        name: `project-${name}`,
+        name: branch,
         label: firstLine(proposal.assignment, 60),
       });
+      if (created.existed) {
+        throw new Error(`A workspace on the branch "${branch}" already exists; a mission needs a worktree of its own.`);
+      }
+      const { workspaceId } = created;
+      keep({ workspaceId });
       const { taskId } = await deps.createIdleTask({
         workspaceId,
         title: firstLine(proposal.assignment, 60),
         provider: proposal.providerId,
         model: proposal.model,
       });
+      keep({ taskId });
       const detail = await deps.startMission(
         {
           workspaceId,
@@ -436,18 +470,10 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
         },
         { projectId: project.id },
       );
-      store.upsertProposal({
-        ...proposal,
-        state: "started",
-        workspaceId,
-        taskId,
-        missionId: detail.mission.id,
-        detail: null,
-        updatedAt: now().toISOString(),
-      });
+      keep({ state: "started", missionId: detail.mission.id, detail: null });
     } catch (error) {
       const message = error instanceof Error && error.message ? error.message : "The mission could not start.";
-      store.upsertProposal({ ...proposal, state: "failed", detail: message.slice(0, 500), updatedAt: now().toISOString() });
+      keep({ state: "failed", detail: message.slice(0, 500) });
       store.recordEvent(project.id, { kind: "mission-start-failed", detail: { proposalId: proposal.id, message } }, now());
       await deps.notifyProjectProblem?.({ project, detail: `A mission of ${project.name} could not start: ${message}` });
     }
@@ -501,22 +527,14 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
     });
   }
 
-  async function wakeCoordinator(
-    project: Project,
-    prompt: string,
-    key: string,
-    delivered: Record<string, string>,
-    triggerIds: readonly string[] = [],
-  ) {
-    if (
-      !store.recordEvent(
-        project.id,
-        { kind: "coordinator-woken", idempotencyKey: key, detail: { delivered, triggers: [...triggerIds] } },
-        now(),
-      )
-    ) {
-      return;
-    }
+  /**
+   * Wakes the coordinator once it can take a turn. While it is in one, the
+   * wake stays pending for a later tick; it is recorded, keyed, only right
+   * before its turn starts, so what it delivers is never lost to a busy task
+   * and a restart never repeats it.
+   */
+  async function wakeCoordinator(project: Project, prompt: string, key: string, detail: Record<string, unknown>) {
+    if (store.hasEvent(key)) return;
     const snapshot = await deps.getTaskSnapshot(project.coordinator);
     if (!snapshot.exists || snapshot.archived || !snapshot.providerId || !snapshot.model) {
       store.recordEvent(project.id, { kind: "coordinator-wake-failed", detail: { reason: "coordinator-unavailable" } }, now());
@@ -524,6 +542,8 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
       refreshCoordinators();
       return;
     }
+    if (snapshot.activeTurnId) return;
+    if (!store.recordEvent(project.id, { kind: "coordinator-woken", idempotencyKey: key, detail }, now())) return;
     try {
       await runCoordinatorTurn(project, prompt, { providerId: snapshot.providerId, model: snapshot.model });
     } catch (error) {
@@ -547,45 +567,75 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
     return recorded;
   }
 
-  /** Scheduled check-ins and pull request feedback: what a tick can see for itself. */
-  async function collectTriggers(project: Project) {
+  /** A scheduled check-in whose slot came after the schedule was set. */
+  function collectScheduleTrigger(project: Project) {
     const { triggers } = project.settings;
     const slot = latestScheduleSlot(triggers.schedule, now());
-    if (slot && triggers.scheduleSince && slot.getTime() > Date.parse(triggers.scheduleSince)) {
-      const id = `schedule:${slot.toISOString()}`;
-      const when = slot.toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" });
-      recordTriggers(project, [{ seenKey: id, trigger: { id, kind: "schedule", summary: `${SCHEDULE_LABELS[triggers.schedule]} (${when})` } }]);
-    }
-    if (!triggers.pullRequestFeedback || !deps.readPullRequest) return;
-    const polledAt = pullRequestPolledAt.get(project.id) ?? 0;
-    if (now().getTime() - polledAt < PULL_REQUEST_POLL_MS) return;
-    pullRequestPolledAt.set(project.id, now().getTime());
-    for (const aggregate of aggregatesOf(project.id)) {
-      const { mission } = aggregate;
-      if (isActiveMissionState(mission.state) || settledPullRequests.has(mission.id)) continue;
-      if (now().getTime() - Date.parse(mission.updatedAt) > PULL_REQUEST_WATCH_MS) continue;
-      if (!aggregate.stages.some((record) => record.facts?.action?.type === "open-draft-pr")) continue;
-      const pr = await deps.readPullRequest(mission.workspaceId).catch(() => null);
-      if (!pr) continue;
-      if (pr.state !== "OPEN") settledPullRequests.add(mission.id);
-      recordTriggers(project, pullRequestTriggers({ missionId: mission.id, missionTitle: firstLine(mission.assignment, 60), pr }));
+    if (!slot || !triggers.scheduleSince || slot.getTime() <= Date.parse(triggers.scheduleSince)) return;
+    const id = `schedule:${slot.toISOString()}`;
+    const when = slot.toLocaleString("en-US", { weekday: "short", hour: "2-digit", minute: "2-digit" });
+    recordTriggers(project, [{ seenKey: id, trigger: { id, kind: "schedule", summary: `${SCHEDULE_LABELS[triggers.schedule]} (${when})` } }]);
+  }
+
+  let pollingPullRequests = false;
+
+  /**
+   * Reads the pull requests of active projects' ended missions, at most every
+   * few minutes per project. The reads run outside the command queue, so a
+   * slow `gh` never holds up an approval, a pause or a message; only
+   * recording what they found waits its turn.
+   */
+  async function pollPullRequests() {
+    if (pollingPullRequests || !deps.readPullRequest) return;
+    pollingPullRequests = true;
+    try {
+      for (const project of store.listProjects({ openOnly: true })) {
+        if (project.state !== "active" || !project.settings.triggers.pullRequestFeedback) continue;
+        if (now().getTime() - (pullRequestPolledAt.get(project.id) ?? 0) < PULL_REQUEST_POLL_MS) continue;
+        pullRequestPolledAt.set(project.id, now().getTime());
+        const found: SeenTrigger[] = [];
+        const settled: string[] = [];
+        for (const aggregate of aggregatesOf(project.id)) {
+          const { mission } = aggregate;
+          if (isActiveMissionState(mission.state) || settledPullRequests.has(mission.id)) continue;
+          if (now().getTime() - Date.parse(mission.updatedAt) > PULL_REQUEST_WATCH_MS) continue;
+          if (!aggregate.stages.some((record) => record.facts?.action?.type === "open-draft-pr")) continue;
+          const pr = await deps.readPullRequest(mission.workspaceId).catch(() => null);
+          if (!pr) continue;
+          if (pr.state !== "OPEN") settled.push(mission.id);
+          found.push(...pullRequestTriggers({ missionId: mission.id, missionTitle: firstLine(mission.assignment, 60), pr }));
+        }
+        if (found.length === 0 && settled.length === 0) continue;
+        await enqueue(async () => {
+          const current = store.getProject(project.id);
+          if (current?.state !== "active") return;
+          recordTriggers(current, found);
+          for (const missionId of settled) settledPullRequests.add(missionId);
+        });
+      }
+    } finally {
+      pollingPullRequests = false;
     }
   }
 
   async function tickProject(projectId: string) {
     const watched = store.getProject(projectId);
-    if (watched?.state === "active") await collectTriggers(watched).catch((error) => console.warn("[projects] triggers failed", projectId, error));
+    if (watched?.state === "active") collectScheduleTrigger(watched);
     for (let round = 0; round < MAX_ACTIONS_PER_PROJECT_TICK; round += 1) {
       const project = store.getProject(projectId);
       if (!project) return;
       const aggregates = aggregatesOf(project.id);
       const snapshot = project.state === "active" ? await deps.getTaskSnapshot(project.coordinator).catch(() => null) : null;
+      // Every wake, however old: what they delivered must not fall out of a window.
+      const wakes = store.listEventsOfKind(project.id, "coordinator-woken");
       const decision = decideProject({
         project,
         proposals: store.listProposals(project.id),
         missions: aggregates.map(snapshotOf),
-        delivered: collectDeliveredStates(store.listEvents(project.id)),
-        triggers: collectPendingTriggers(store.listEvents(project.id)),
+        delivered: collectDeliveredStates(wakes),
+        triggers: collectPendingTriggers([...wakes, ...store.listEventsOfKind(project.id, "trigger-observed")]),
+        kickoffPending: wakes.length === 0,
+        previousWakes: wakes.length,
         coordinatorBusy: Boolean(snapshot?.activeTurnId),
       });
       switch (decision.action) {
@@ -599,12 +649,9 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
           continue;
         }
         case "wake-coordinator": {
-          const dayAgo = now().getTime() - 24 * 60 * 60_000;
-          const recentWakes = store
-            .listEvents(project.id)
-            .filter((event) => event.kind === "coordinator-woken" && Date.parse(event.createdAt) > dayAgo).length;
-          if (recentWakes >= PROJECT_LIMITS.maxCoordinatorWakesPerDay) {
-            const detail = `The coordinator took ${recentWakes} automatic turns today. Resume the project to let it continue.`;
+          const counted = countWakesTowardCap(wakes, { now: now(), resetAt: project.wakeCapResetAt });
+          if (counted >= PROJECT_LIMITS.maxCoordinatorWakesPerDay) {
+            const detail = `The coordinator took ${counted} automatic turns today. Resume the project to let it continue.`;
             updateProject(project, { state: "paused", reasonDetail: detail }, { kind: "paused", detail: { reason: "wake-cap" } });
             await deps.notifyProjectProblem?.({ project, detail: `${project.name} paused: ${detail}` });
             return;
@@ -612,10 +659,13 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
           rememberDecisions(project, decision.changes);
           await wakeCoordinator(
             project,
-            buildCoordinatorWakePrompt(decision.changes, decision.triggers),
+            decision.kickoff ? buildCoordinatorKickoffPrompt() : buildCoordinatorWakePrompt(decision.changes, decision.triggers),
             decision.key,
-            Object.fromEntries(decision.changes.map((change) => [change.missionId, change.stateKey])),
-            decision.triggers.map((trigger) => trigger.id),
+            {
+              delivered: Object.fromEntries(decision.changes.map((change) => [change.missionId, change.stateKey])),
+              triggers: decision.triggers.map((trigger) => trigger.id),
+              ...(decision.kickoff ? { kickoff: true } : {}),
+            },
           );
           return;
         }
@@ -680,18 +730,28 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
     }
   }
 
-  /** A start recorded before a restart that never produced a mission is reported, never replayed. */
+  /**
+   * A start recorded before a restart is never replayed. One whose mission
+   * did start is marked started; one that never produced a mission is reported.
+   */
   function recoverInterruptedStarts() {
     for (const project of store.listProjects({ openOnly: true })) {
       for (const proposal of store.listProposals(project.id)) {
         if (proposal.state !== "approved") continue;
         if (!store.hasEvent(`project:${project.id}:start:${proposal.id}`)) continue;
-        store.upsertProposal({
-          ...proposal,
-          state: "failed",
-          detail: "Stave stopped while starting this mission. Check the workspace list before proposing it again.",
-          updatedAt: now().toISOString(),
-        });
+        const mission = proposal.taskId
+          ? deps.missions.listMissionsForProject(project.id).find((candidate) => candidate.leadTaskId === proposal.taskId)
+          : undefined;
+        store.upsertProposal(
+          mission
+            ? { ...proposal, state: "started", workspaceId: mission.workspaceId, missionId: mission.id, detail: null, updatedAt: now().toISOString() }
+            : {
+                ...proposal,
+                state: "failed",
+                detail: "Stave stopped while starting this mission. Check the workspace list before proposing it again.",
+                updatedAt: now().toISOString(),
+              },
+        );
       }
     }
   }
@@ -723,7 +783,10 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
       if (started) pauseForShutdown();
       started = false;
     },
-    requestTick: () => enqueue(tick),
+    requestTick: async () => {
+      await pollPullRequests().catch((error) => console.warn("[projects] pull request feedback failed", error));
+      return enqueue(tick);
+    },
     notifyMissionChanged: ({ missionId }) => {
       if (deps.missions.getAggregate(missionId)?.mission.projectId) void runtime.requestTick();
     },
@@ -763,13 +826,8 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
         if (!created.ok) refuse(created.message);
         refreshCoordinators();
         emit(project);
-        // The first coordinator turn plans the project from its goal.
-        await wakeCoordinator(
-          project,
-          buildCoordinatorKickoffPrompt(),
-          `project:${project.id}:kickoff`,
-          {},
-        );
+        // The first coordinator turn plans the project from its goal, once its task is free.
+        await tickProject(project.id);
         return detailOf(project.id);
       }),
 
@@ -778,6 +836,8 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
         const proposal = store.getProposal(proposalId);
         if (!proposal || proposal.projectId !== projectId) refuse("The proposal was not found.", "not-found");
         if (proposal.state !== "pending") refuse("This proposal was already decided.", "stale");
+        // An approval on an ended project would wait forever.
+        if (!isOpenProjectState(requireProject(projectId).state)) refuse("The project has ended; it starts no missions.", "stale");
         const runsOn = providerId ?? proposal.providerId;
         // A new provider without a model means that provider's default.
         const runsModel = model !== undefined ? model : providerId && providerId !== proposal.providerId ? null : proposal.model;
@@ -812,7 +872,12 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
       enqueue(async () => {
         const project = requireProject(projectId);
         if (project.state !== "paused") refuse("Only a paused project can be resumed.", "stale");
-        updateProject(project, { state: "active", reasonDetail: null }, { kind: "resumed", detail: {} });
+        // The user's resume lifts the daily cap on automatic turns: it counts again from now.
+        updateProject(
+          project,
+          { state: "active", reasonDetail: null, wakeCapResetAt: now().toISOString() },
+          { kind: "resumed", detail: { by: "user" } },
+        );
         refreshCoordinators();
         await tickProject(projectId);
         return detailOf(projectId);
@@ -843,8 +908,9 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
 
     setMemoryStatus: ({ projectId, memoryId, status }) =>
       enqueue(async () => {
-        const memory = store.setMemoryStatus(memoryId, status);
-        if (!memory || memory.projectId !== projectId) refuse("The memory was not found.", "not-found");
+        // Checked before the change: a memory of another project is never touched.
+        if (!store.listMemories(projectId).some((memory) => memory.id === memoryId)) refuse("The memory was not found.", "not-found");
+        if (!store.setMemoryStatus(memoryId, status)) refuse("The memory was not found.", "not-found");
         if (status === "accepted") store.recordEvent(projectId, { kind: "memory-accepted", detail: { memoryId } }, now());
         emit(requireProject(projectId));
         return detailOf(projectId);
@@ -859,24 +925,33 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
     observeIssues: ({ items }) =>
       enqueue(async () => {
         let triggered = 0;
+        const sources = [...new Set(items.map((issue) => issue.source))];
         for (const project of store.listProjects({ openOnly: true })) {
           const { triggers } = project.settings;
           if (project.state !== "active" || !triggers.issueAssigned || !triggers.issueSince) continue;
           const since = Date.parse(triggers.issueSince);
-          const matching = items.filter((issue) => issueMatchesFilter(issue, triggers.issueFilter));
-          // The first look after watching starts takes in what was already
-          // assigned; only issues created since then are news.
-          if (store.markTriggersSeen(project.id, [`issues-baseline:${triggers.issueSince}`], now()).length === 1) {
-            const fresh = matching.filter((issue) => issue.createdAt && Date.parse(issue.createdAt) >= since);
+          const news: ObservedIssue[] = [];
+          for (const source of sources) {
+            const listed = items.filter((issue) => issue.source === source);
+            const matching = listed.filter((issue) => issueMatchesFilter(issue, triggers.issueFilter));
+            // A source's first list after watching starts (or its filter
+            // changed) takes in everything already assigned, matching or not,
+            // so a broader filter never fires an old issue; only issues created
+            // since are news. A source not synced yet lists nothing and keeps
+            // its first look for when it does.
+            if (store.markTriggersSeen(project.id, [`issues-baseline:${triggers.issueSince}:${source}`], now()).length === 0) {
+              news.push(...matching);
+              continue;
+            }
+            const fresh = matching.filter((issue) => issue.createdAt !== null && Date.parse(issue.createdAt) >= since);
             store.markTriggersSeen(
               project.id,
-              matching.filter((issue) => !fresh.includes(issue)).map((issue) => issueTrigger(issue).seenKey),
+              listed.filter((issue) => !fresh.includes(issue)).map((issue) => issueTrigger(issue).seenKey),
               now(),
             );
-            triggered += recordTriggers(project, fresh.map(issueTrigger));
-          } else {
-            triggered += recordTriggers(project, matching.map(issueTrigger));
+            news.push(...fresh);
           }
+          triggered += recordTriggers(project, news.map(issueTrigger));
         }
         if (triggered > 0) void runtime.requestTick();
         return { triggered };

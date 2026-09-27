@@ -78,6 +78,18 @@ describe("project store", () => {
     expect(store.hasEvent("wake-1")).toBe(true);
   });
 
+  test("events of one kind list however old, past the recent window", () => {
+    const store = new ProjectStore(new Database(":memory:"));
+    store.create(project());
+    const now = new Date(NOW);
+    store.recordEvent("project-1", { kind: "coordinator-woken", idempotencyKey: "wake-1", detail: { delivered: { m1: "completed" } } }, now);
+    for (let index = 0; index < 600; index += 1) store.recordEvent("project-1", { kind: "summary", detail: {} }, now);
+    store.recordEvent("project-1", { kind: "coordinator-woken", idempotencyKey: "wake-2", detail: { delivered: {} } }, now);
+    expect(store.listEvents("project-1").some((event) => event.idempotencyKey === "wake-1")).toBe(false);
+    expect(store.listEventsOfKind("project-1", "coordinator-woken").map((event) => event.idempotencyKey)).toEqual(["wake-1", "wake-2"]);
+    expect(store.listEventsOfKind("project-2", "coordinator-woken")).toEqual([]);
+  });
+
   test("memories start as candidates, skip duplicates, and can be accepted or removed", () => {
     const store = new ProjectStore(new Database(":memory:"));
     store.create(project());

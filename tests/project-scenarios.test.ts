@@ -139,7 +139,8 @@ function world() {
       resolveRepositoryPath: async () => "/tmp/acme",
       createMissionWorkspace: async ({ name }) => {
         worktrees.push(name);
-        return { workspaceId: `ws-${name}` };
+        // Named without the proposal's suffix, so the scenario reads by mission.
+        return { workspaceId: `ws-${name.replace(/-[0-9a-f]{8}$/, "")}` };
       },
       createIdleTask: async ({ workspaceId, provider }) => {
         const taskId = `task-${workspaceId}`;
@@ -249,7 +250,7 @@ describe("project scenarios", () => {
 
     await planAndApproveTwo(w, projectId);
 
-    expect(w.worktrees).toEqual(["project-billing", "project-settings"]);
+    expect(w.worktrees).toEqual([expect.stringMatching(/^project-billing-[0-9a-f]{8}$/), expect.stringMatching(/^project-settings-[0-9a-f]{8}$/)]);
     const started = w.missions.listMissionsForProject(projectId);
     expect(started.map((mission) => mission.fingerprint.providerId).sort()).toEqual(["claude-code", "codex"]);
     expect(new Set(started.map((mission) => mission.workspaceId)).size).toBe(2);

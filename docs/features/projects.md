@@ -41,7 +41,7 @@ never edits files; the work happens in [missions](missions.md).
 3. Pick the **Coordinator**: **New Claude task**, **New Codex task** or
    **Task in view**. Leave **Ask before starting each mission** on.
 4. Click **Create and plan**. The coordinator reads the goal and proposes
-   missions.
+   missions (a task in view that is answering plans once that turn ends).
 5. In **Needs you**, check each proposal's playbook and click **Start
    mission**. Each one starts on a new worktree.
 
@@ -116,8 +116,8 @@ follows; with **Ask before starting** on, you still approve every mission.
 
 - **An issue is assigned to me**: a new issue in [Issues](issues.md) (Crane
   or Jira). Optionally only issues whose key, title, project or labels match a
-  word, such as a label. Issues assigned before you turn this on are left
-  alone. While a project watches, Stave refreshes Issues in the background
+  word, such as a label. Issues assigned before you turn this on or change
+  the word are left alone. While a project watches, Stave refreshes Issues in the background
   every ten minutes or at your Issues refresh interval, whichever is longer.
 - **A mission's pull request gets feedback**: failing checks, requested
   changes or a merge on a pull request one of the project's missions opened.
@@ -150,7 +150,7 @@ day.
 - The coordinator's turns are read-only: Claude cannot edit files and Codex
   runs read-only.
 - After 24 automatic turns in a day, the project pauses and tells you;
-  **Resume** lets it continue.
+  **Resume** lets it continue and starts the count over.
 
 ## Common Workflows
 
