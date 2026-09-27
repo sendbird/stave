@@ -7,7 +7,7 @@ import {
   MISSION_PROVIDERS,
   PROJECT_LIMITS,
   ProjectCreateInputSchema,
-  ProjectSettingsSchema,
+  ProjectSettingsPatchSchema,
 } from "../../../src/lib/projects/domain";
 import { PlaybookSchema } from "../../../src/lib/playbooks/schema";
 import type { HostProjectAction } from "../../host-service/protocol";
@@ -21,7 +21,7 @@ const ApproveArgsSchema = ProposalArgsSchema.extend({
   model: z.string().trim().min(1).max(120).nullable().optional(),
 }).strict();
 const EndArgsSchema = z.object({ projectId: IdSchema, outcome: z.enum(["completed", "cancelled"]) }).strict();
-const SettingsArgsSchema = z.object({ projectId: IdSchema, settings: ProjectSettingsSchema.partial() }).strict();
+const SettingsArgsSchema = z.object({ projectId: IdSchema, settings: ProjectSettingsPatchSchema }).strict();
 const MemoryArgsSchema = z
   .object({ projectId: IdSchema, memoryId: IdSchema, status: z.enum([...MEMORY_STATUSES, "removed"]) })
   .strict();

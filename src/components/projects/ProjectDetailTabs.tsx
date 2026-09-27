@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ArrowUpRight, CircleCheck, CircleDot, FileText, GitPullRequest, Link2, MonitorPlay, Ticket, X } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
@@ -230,6 +230,47 @@ function endOfLocalDay(day: string): string {
   return new Date(year!, month! - 1, date!, 23, 59, 59).toISOString();
 }
 
+/**
+ * The end date, committed on blur or Enter and only as a whole day from today
+ * on: a date field reports each keystroke (a year typed digit by digit reads
+ * as 0002 first), and a past end would expire the project for good.
+ */
+function EndDateField(props: { endsAt: string | null; onCommit: (endsAt: string | null) => void }) {
+  const saved = props.endsAt ? toDateInput(props.endsAt) : "";
+  const [value, setValue] = useState(saved);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    setValue(saved);
+    setError(null);
+  }, [saved]);
+  const today = toDateInput(new Date().toISOString());
+  const commit = () => {
+    if (value === saved) return setError(null);
+    if (!value) return props.onCommit(null);
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(value) || value < today) {
+      setError("Choose today or a later day.");
+      return;
+    }
+    setError(null);
+    props.onCommit(endOfLocalDay(value));
+  };
+  return (
+    <TextField
+      size="sm"
+      type="date"
+      aria-label="End date"
+      value={value}
+      min={today}
+      error={error ?? undefined}
+      onChange={(event) => setValue(event.target.value)}
+      onBlur={commit}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") commit();
+      }}
+    />
+  );
+}
+
 function SettingRow(props: { label: string; hint: string; children: React.ReactNode }) {
   return (
     <li className={sx(styles.settingRow)}>
@@ -271,16 +312,7 @@ function SettingsList(props: { settings: ProjectSettings; onUpdate: (settings: P
       >
         <span className={sx(styles.endDate)}>
           <span className={sx(styles.endDateField)}>
-            <TextField
-              size="sm"
-              type="date"
-              aria-label="End date"
-              value={settings.endsAt ? toDateInput(settings.endsAt) : ""}
-              min={toDateInput(new Date().toISOString())}
-              onChange={(event) =>
-                props.onUpdate({ endsAt: event.target.value ? endOfLocalDay(event.target.value) : null })
-              }
-            />
+            <EndDateField endsAt={settings.endsAt} onCommit={(endsAt) => props.onUpdate({ endsAt })} />
           </span>
           {settings.endsAt ? (
             <Button variant="quiet" size="xs" onClick={() => props.onUpdate({ endsAt: null })}>

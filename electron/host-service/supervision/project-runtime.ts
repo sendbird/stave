@@ -830,6 +830,10 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
     updateSettings: ({ projectId, settings }) =>
       enqueue(async () => {
         const project = requireProject(projectId);
+        // A past end would expire the project for good on the next tick.
+        if (settings.endsAt && settings.endsAt !== project.settings.endsAt && Date.parse(settings.endsAt) <= now().getTime()) {
+          refuse("That end date has passed. Choose today or a later day.");
+        }
         const parsed = ProjectSettingsSchema.parse({ ...project.settings, ...settings });
         const next = { ...parsed, triggers: stampTriggers(project.settings.triggers, parsed.triggers, now().toISOString()) };
         updateProject(project, { settings: next }, { kind: "settings-changed", detail: { settings: next } });

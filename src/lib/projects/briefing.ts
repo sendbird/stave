@@ -37,12 +37,16 @@ export function buildCoordinatorInstruction(project: Pick<Project, "name" | "goa
   ].join("\n");
 }
 
-/** Coordinator turns read and plan; they never write files. */
+/**
+ * Coordinator turns read and plan; they never write files. On Claude, Bash is
+ * off too: a command could write files, and in an unattended turn its approval
+ * prompt would stall the coordinator with nobody there to answer.
+ */
 export function coordinatorRuntimeOptions(providerId: string): ProviderRuntimeOptions {
   if (providerId === "codex") return { codexFileAccess: "read-only", codexApprovalPolicy: "untrusted" };
   return {
     claudePermissionMode: "default",
-    claudeDisallowedTools: ["Edit", "Write", "MultiEdit", "NotebookEdit"],
+    claudeDisallowedTools: ["Edit", "Write", "MultiEdit", "NotebookEdit", "Bash"],
   };
 }
 

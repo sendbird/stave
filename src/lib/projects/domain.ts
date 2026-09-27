@@ -94,6 +94,22 @@ export const ProjectSettingsSchema = z
   .strict();
 export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
 
+/**
+ * A change to some settings. Built without the defaults: `partial()` of a
+ * schema with `.default()` fills missing keys in, and a one-field change
+ * would reset the start conditions and the end date.
+ */
+export const ProjectSettingsPatchSchema = z
+  .object({
+    parallelLimit: z.number().int().min(1).max(PROJECT_LIMITS.maxParallel),
+    askBeforeStarting: z.boolean(),
+    autoAcceptDecisions: z.boolean(),
+    triggers: ProjectTriggersSchema,
+    endsAt: z.iso.datetime().nullable(),
+  })
+  .partial()
+  .strict();
+
 export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
   parallelLimit: PROJECT_LIMITS.defaultParallel,
   askBeforeStarting: true,
