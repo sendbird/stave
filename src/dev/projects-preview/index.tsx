@@ -3,6 +3,7 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { ActionButton } from "@/components/system/ActionButton";
+import { ProjectInformationCard } from "@/components/projects/ProjectInformationCard";
 import { ProjectsView } from "@/components/projects/ProjectsView";
 import { SidebarPrimaryNav } from "@/components/layout/SidebarPrimaryNav";
 import type { ProjectDetail, ProjectMissionView } from "@/lib/projects/api";
@@ -170,6 +171,8 @@ export function ProjectsPreview() {
     <main className={sx(styles.page)}>
       <aside className={sx(styles.sidebar)}>
         <SidebarPrimaryNav showFleetView />
+        <p className={sx(styles.caption)}>Information panel of a mission workspace</p>
+        <ProjectInformationCard workspaceId="ws-m" />
         <ActionButton size="xs" onClick={() => setDark((value) => !value)}>
           {dark ? "Light theme" : "Dark theme"}
         </ActionButton>
@@ -184,7 +187,7 @@ export function ProjectsPreview() {
 const styles = stylex.create({
   page: { height: "100vh", display: "flex", backgroundColor: vars["--ads-color-canvas"], color: vars["--ads-color-text"] },
   sidebar: {
-    width: 240,
+    width: 280,
     display: "flex",
     flexDirection: "column",
     gap: 2,
@@ -193,5 +196,6 @@ const styles = stylex.create({
     borderInlineEndStyle: "solid",
     borderInlineEndColor: vars["--ads-color-border-subtle"],
   },
+  caption: { margin: 0, marginTop: vars["--ads-space-16"], fontSize: vars["--ads-font-size-caption"], color: vars["--ads-color-text-subtle"] },
   surface: { flex: "1 1 auto", minWidth: 0, display: "flex", flexDirection: "column" },
 });

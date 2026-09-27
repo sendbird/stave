@@ -54,6 +54,9 @@ never edits files; the work happens in [missions](missions.md).
   Projects icon on the rail has a dot when something needs you.
 - **Open projects** and **New project…** in the command palette.
 - The project count in the Fleet View header.
+- The Information panel of the coordinator's workspace and of every mission
+  workspace: a card names the project, what needs you, and opens the project
+  or its **Library**.
 
 ### Projects view
 
@@ -83,7 +86,8 @@ focus is on the right. On a narrow window a picker replaces the list.
 - **Memory**: decisions from finished missions and the coordinator's notes.
   **Accept** a decision to have later missions follow it; **×** removes it.
 - **Library**: pull requests, issues, previews and documents from mission
-  reports, with **Verified** on links Stave produced itself.
+  reports, with **Verified** on links Stave produced itself. Search by name,
+  mission, address or kind ("pr", "preview").
 - **Starts when**: what wakes the coordinator besides its missions (see
   below).
 - **Settings**: **Missions at once** (1–4), **Ask before starting**, **End

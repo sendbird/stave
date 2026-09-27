@@ -108,10 +108,8 @@ import {
 } from "@/hooks/use-sortable-list";
 import { WorkspacePlansSection } from "./WorkspacePlansSection";
 import { WorkspaceMemorySection } from "./WorkspaceMemorySection";
-import {
-  useMartinInformationCardAvailable,
-  WorkspaceInformationMartinCard,
-} from "./WorkspaceInformationMartinCard";
+import { useMartinInformationCardAvailable } from "./WorkspaceInformationMartinCard";
+import { WorkspaceInformationTopCards } from "./WorkspaceInformationTopCards";
 import { WorkspaceTurnSummary } from "./WorkspaceTurnSummary";
 import { WorkspaceResumeBrief } from "./WorkspaceResumeBrief";
 import { workspaceInformationPanelStyles as styles } from "./workspace-information-panel.styles";
@@ -801,11 +799,7 @@ export function WorkspaceInformationPanel() {
     >
       <div className={sx(styles.body)}>
         <WorkspaceResumeBrief key={activeWorkspaceId} workspaceId={activeWorkspaceId} brief={workspaceInformation.resumeBrief} />
-        {showMartinCard ? (
-          <div className={sx(styles.topCards)}>
-            <WorkspaceInformationMartinCard />
-          </div>
-        ) : null}
+        <WorkspaceInformationTopCards workspaceId={activeWorkspaceId} showMartinCard={showMartinCard} />
         <SectionDragSuppressionContext.Provider value={suppressSectionClickRef}>
           <SectionReorderContext.Provider value={moveSectionForKeyboard}>
             <SectionVisibilityContext.Provider value={visibleSections}>

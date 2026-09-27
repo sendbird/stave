@@ -847,6 +847,8 @@ Phase 3 shipped as designed, with these deviations:
   Starts when and Settings tabs. The coordinator conversation docks beside it
   where the window has room and floats over it otherwise; a message starts a
   read-only coordinator turn through the same single path as a wake.
+- **Library.** Searchable in the project home and linked from the Information
+  panel of the coordinator's and every mission's workspace.
 - **Models and spend.** The coordinator may name a model per mission, and the
   user may change provider and model on a proposal before starting it. The
   project home adds up what its missions spent.

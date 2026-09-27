@@ -9,6 +9,8 @@ import { create } from "zustand";
 import type { ProjectDetail, ProjectResponse, ProjectsBridgeApi } from "@/lib/projects/api";
 import { isOpenProjectState, type Project, type ProjectCreateInput } from "@/lib/projects/domain";
 
+export type ProjectDetailTab = "memory" | "library" | "starts-when" | "settings";
+
 type CommandName =
   | "approveProposal"
   | "rejectProposal"
@@ -25,6 +27,8 @@ interface ProjectsState {
   selectedId: string | null;
   /** The command palette asked for the New project dialog. */
   newProjectRequested: boolean;
+  /** The tab the project home shows below its lanes. */
+  detailTab: ProjectDetailTab;
   /** The coordinator conversation beside the project, where the window has room for it. */
   dockOpen: boolean;
   /** The conversation floating over the project on a narrow window. */
@@ -36,6 +40,7 @@ interface ProjectsState {
   refresh: (projectId: string) => Promise<void>;
   select: (projectId: string | null) => void;
   requestNewProject: (requested: boolean) => void;
+  setDetailTab: (tab: ProjectDetailTab) => void;
   /** Shows the coordinator conversation: docked where it fits, floating otherwise. */
   openCoordinatorDock: () => void;
   closeCoordinatorDock: (mode: "docked" | "overlay") => void;
@@ -62,6 +67,7 @@ export const useProjectsStore = create<ProjectsState>()((set, get) => {
     details: {},
     selectedId: null,
     newProjectRequested: false,
+    detailTab: "memory",
     dockOpen: true,
     dockOverlayOpen: false,
     loaded: false,
@@ -96,6 +102,7 @@ export const useProjectsStore = create<ProjectsState>()((set, get) => {
     },
 
     requestNewProject: (requested) => set({ newProjectRequested: requested }),
+    setDetailTab: (tab) => set({ detailTab: tab }),
     openCoordinatorDock: () => set({ dockOpen: true, dockOverlayOpen: true }),
     closeCoordinatorDock: (mode) => set(mode === "docked" ? { dockOpen: false } : { dockOverlayOpen: false }),
 

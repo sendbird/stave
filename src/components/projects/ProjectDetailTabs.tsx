@@ -12,11 +12,12 @@ import { sx } from "@/components/ads/utils/stylex";
 import { Segmented } from "@/components/playbooks/Segmented";
 import type { ProjectDetail, ProjectLibraryItem } from "@/lib/projects/api";
 import type { ProjectMemory, ProjectSettings } from "@/lib/projects/domain";
+import { useProjectsStore, type ProjectDetailTab } from "@/store/projects-store";
 import { missionTitle } from "./ProjectRows";
 import { countActiveTriggers, ProjectStartsWhen } from "./ProjectStartsWhen";
 import { projectStyles as styles } from "./projects.styles";
 
-type DetailTab = "memory" | "library" | "starts-when" | "settings";
+
 
 const LIBRARY_ICONS: Record<ProjectLibraryItem["kind"], typeof Link2> = {
   "pull-request": GitPullRequest,
@@ -44,10 +45,11 @@ export function ProjectDetailTabs(props: {
   onUpdateSettings: (settings: Partial<ProjectSettings>) => void;
 }) {
   const { detail } = props;
-  const [tab, setTab] = useState<DetailTab>("memory");
+  const tab = useProjectsStore((state) => state.detailTab);
+  const setTab = useProjectsStore((state) => state.setDetailTab);
   const candidates = detail.memories.filter((memory) => memory.status === "candidate").length;
   return (
-    <Tabs.Root variant="line" value={tab} onValueChange={(value) => setTab(value as DetailTab)} xstyle={styles.lane}>
+    <Tabs.Root variant="line" value={tab} onValueChange={(value) => setTab(value as ProjectDetailTab)} xstyle={styles.lane}>
       <Tabs.List aria-label="Project details">
         <Tabs.Tab value="memory">
           <TabLabel label="Memory" count={detail.memories.length} attention={candidates > 0} />
@@ -143,37 +145,75 @@ function MemoryList(props: {
   );
 }
 
+const LIBRARY_KIND_WORDS: Record<ProjectLibraryItem["kind"], string> = {
+  "pull-request": "pull request pr",
+  issue: "issue ticket",
+  preview: "preview deploy",
+  document: "document doc",
+  link: "link",
+};
+
+/** Whether a library item matches a search: its label, mission, address or kind. */
+export function libraryItemMatches(item: ProjectLibraryItem, query: string): boolean {
+  const words = query.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  const haystack = [item.label, item.missionTitle, item.url, LIBRARY_KIND_WORDS[item.kind]].join(" ").toLowerCase();
+  return words.every((word) => haystack.includes(word));
+}
+
 function LibraryList({ items }: { items: readonly ProjectLibraryItem[] }) {
+  const [query, setQuery] = useState("");
   if (items.length === 0) {
     return <p className={sx(styles.emptyLane)}>Pull requests, issues and previews from finished missions collect here.</p>;
   }
+  const shown = items.filter((item) => libraryItemMatches(item, query));
   return (
-    <ul className={sx(styles.rows)}>
-      {items.map((item) => {
-        const Icon = LIBRARY_ICONS[item.kind];
-        return (
-          <li key={`${item.missionId}:${item.url}`} className={sx(styles.linkItem)}>
-            <a className={sx(styles.row, styles.rowCompact, styles.rowLink, focusRing.ring, transition.colors)} href={item.url} target="_blank" rel="noreferrer">
-              <span className={sx(styles.rowMark)}>
-                <Icon aria-hidden className={sx(styles.icon, styles.iconMuted)} />
-              </span>
-              <span className={sx(styles.rowText)}>
-                <span className={sx(styles.rowTitle)}>{item.label}</span>
-                <span className={sx(styles.rowMeta)}>{item.missionTitle}</span>
-              </span>
-              <span className={sx(styles.rowActions)}>
-                {item.verified ? (
-                  <Badge size="sm" tone="success">
-                    Verified
-                  </Badge>
-                ) : null}
-                <ArrowUpRight aria-hidden className={sx(styles.icon, styles.iconMuted)} />
-              </span>
-            </a>
-          </li>
-        );
-      })}
-    </ul>
+    <div className={sx(styles.tabStack)}>
+      <span className={sx(styles.librarySearch)}>
+        <TextField
+          size="sm"
+          type="search"
+          aria-label="Search the library"
+          placeholder="Search by name, mission or kind — “pr”, “preview”…"
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+        />
+        {query ? (
+          <span className={sx(styles.hint)}>
+            {shown.length} of {items.length}
+          </span>
+        ) : null}
+      </span>
+      {shown.length === 0 ? (
+        <p className={sx(styles.emptyLane)}>Nothing in the library matches “{query.trim()}”.</p>
+      ) : (
+        <ul className={sx(styles.rows)}>
+          {shown.map((item) => {
+            const Icon = LIBRARY_ICONS[item.kind];
+            return (
+              <li key={`${item.missionId}:${item.url}`} className={sx(styles.linkItem)}>
+                <a className={sx(styles.row, styles.rowCompact, styles.rowLink, focusRing.ring, transition.colors)} href={item.url} target="_blank" rel="noreferrer">
+                  <span className={sx(styles.rowMark)}>
+                    <Icon aria-hidden className={sx(styles.icon, styles.iconMuted)} />
+                  </span>
+                  <span className={sx(styles.rowText)}>
+                    <span className={sx(styles.rowTitle)}>{item.label}</span>
+                    <span className={sx(styles.rowMeta)}>{item.missionTitle}</span>
+                  </span>
+                  <span className={sx(styles.rowActions)}>
+                    {item.verified ? (
+                      <Badge size="sm" tone="success">
+                        Verified
+                      </Badge>
+                    ) : null}
+                    <ArrowUpRight aria-hidden className={sx(styles.icon, styles.iconMuted)} />
+                  </span>
+                </a>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
   );
 }
 

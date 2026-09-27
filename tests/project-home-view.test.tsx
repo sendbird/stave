@@ -181,3 +181,26 @@ test("Starts when names each trigger and what it watches", async () => {
   expect(html).toContain("Scheduled check-in");
   expect(html).toContain('value="dashboard"');
 });
+
+test("the library filters by name, mission, address or kind, and a workspace finds the project it works for", async () => {
+  const { libraryItemMatches } = await import("../src/components/projects/ProjectDetailTabs");
+  const { findWorkspaceProject } = await import("../src/components/projects/ProjectInformationCard");
+  const item = {
+    label: "PR #605",
+    url: "https://github.com/acme/app/pull/605",
+    kind: "pull-request" as const,
+    missionId: "done",
+    missionTitle: "Replace tokens.",
+    verified: true,
+  };
+  expect(libraryItemMatches(item, "")).toBe(true);
+  expect(libraryItemMatches(item, "pr tokens")).toBe(true);
+  expect(libraryItemMatches(item, "605")).toBe(true);
+  expect(libraryItemMatches(item, "preview")).toBe(false);
+
+  const details = { [PROJECT.id]: DETAIL };
+  expect(findWorkspaceProject(details, "ws")?.role).toBe("coordinator");
+  expect(findWorkspaceProject(details, "ws-m")?.role).toBe("mission");
+  expect(findWorkspaceProject(details, "elsewhere")).toBeNull();
+  expect(findWorkspaceProject({ [PROJECT.id]: { ...DETAIL, project: { ...PROJECT, state: "completed" } } }, "ws")).toBeNull();
+});

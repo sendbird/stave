@@ -39,7 +39,7 @@
     "src/components/layout/settings-sections/settings-dialog-skills-section.tsx": 311,
     "src/components/layout/settings-sections/settings-dialog-terminal-section.tsx": 101,
     "src/components/layout/settings-sections/settings-dialog-theme-section.tsx": 629,
-    "src/components/layout/WorkspaceInformationPanel.tsx": 2198,
+    "src/components/layout/WorkspaceInformationPanel.tsx": 2192,
     "src/components/layout/TopBarOpenPR.tsx": 2223,
     "src/components/layout/pull-request/CreatePullRequestDialog.tsx": 536,
     "src/components/layout/pull-request/create-pr-dialog-panels.tsx": 300,

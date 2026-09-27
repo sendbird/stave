@@ -293,6 +293,7 @@ export const projectStyles = stylex.create({
     borderTopStyle: "solid",
     borderTopColor: vars["--ads-color-border-subtle"],
   },
+  librarySearch: { display: "flex", alignItems: "center", gap: vars["--ads-space-12"], maxWidth: "32rem" },
   endDate: { display: "flex", alignItems: "center", gap: vars["--ads-space-4"] },
   endDateField: { display: "block", width: "10rem" },
   tabStack: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"] },
