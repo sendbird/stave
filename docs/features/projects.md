@@ -65,12 +65,13 @@ focus is on the right. On a narrow window a picker replaces the list.
 - **Header**: the name, the state (Active, Paused, Completed, Cancelled) and
   the goal, then chips for what needs you, what runs, what is done and what
   the project's missions have spent, and how missions start ("You start each
-  mission · up to 2 at once"). **Pause**
+  mission · up to 2 at once") and what it watches ("Issues matching
+  “dashboard” · PR feedback · Weekdays at 09:00"). **Pause**
   stops the coordinator's automatic turns and new starts; the ⋯ menu marks
   the goal met or cancels the project.
-- **Coordinator**: its latest summary of the project and when it last woke.
-  **Open coordinator** opens its task, where you can talk to it like any
-  task.
+- **Coordinator**: its latest summary of the project, and when and why it
+  last woke ("woke 5m ago for an assigned issue"). **Talk** opens the
+  conversation; **↗** opens its task.
 - **Needs you**: proposals waiting for **Start mission** or **×** (dismiss),
   and missions that wait for your sign-off or are blocked or stuck
   (**Review**). A proposal shows where it will run, such as **Codex · GPT-6
@@ -82,8 +83,48 @@ focus is on the right. On a narrow window a picker replaces the list.
   **Accept** a decision to have later missions follow it; **×** removes it.
 - **Library**: pull requests, issues, previews and documents from mission
   reports, with **Verified** on links Stave produced itself.
+- **Starts when**: what wakes the coordinator besides its missions (see
+  below).
 - **Settings**: **Missions at once** (1–4), **Ask before starting** and
   **Accept decisions automatically**.
+
+### Coordinator conversation
+
+The coordinator's conversation sits beside the project when the window has
+room — to the right of the project, with the project list still on the left
+on a wide window — and floats over it on a narrow one (**Talk** opens it, **×**
+hides it).
+
+- It shows what you wrote, the coordinator's answers, and one line for each
+  time Stave woke it ("Woke the coordinator: Issue assigned to the user:
+  ACME-12 · Fix login"). Tool calls stay in the task.
+- Write in **Message the coordinator** and press Enter (Shift+Enter for a new
+  line). The message starts a turn on the coordinator's task, read-only like
+  every coordinator turn. While it answers, the box waits.
+- The header shows whether it is **Idle** or **Answering** and the provider
+  and model it runs on.
+
+### Starts when
+
+Each start condition wakes the coordinator, which decides whether a mission
+follows; with **Ask before starting** on, you still approve every mission.
+
+- **An issue is assigned to me**: a new issue in [Issues](issues.md) (Crane
+  or Jira). Optionally only issues whose key, title, project or labels match a
+  word, such as a label. Issues assigned before you turn this on are left
+  alone. While a project watches, Stave refreshes Issues in the background
+  every ten minutes or at your Issues refresh interval, whichever is longer.
+- **A mission's pull request gets feedback**: failing checks, requested
+  changes or a merge on a pull request one of the project's missions opened.
+  Checked every five minutes, once per new commit, for two weeks after the
+  mission ends. On by default.
+- **Scheduled check-in**: every day, weekdays or Mondays at 09:00, or every
+  four hours, in this computer's time. The coordinator reviews where the
+  project stands and plans the next step.
+
+Conditions that fire while the coordinator is in a turn wait and arrive
+together in its next one, and they count toward the 24 automatic turns a
+day.
 
 ## How The Coordinator Works
 
@@ -142,8 +183,11 @@ continue on their own; the coordinator stops waking.
 - While Stave is closed nothing runs. On relaunch the project continues:
   missions resume where they were, and a start that was interrupted halfway
   is marked failed and reported instead of being started twice.
-- Projects do not yet start from outside events (an assigned issue, failing
-  checks).
+- Start conditions only wake the coordinator; they never start a mission on
+  their own unless **Ask before starting** is off.
+- Pull request feedback reads the PR of each mission's own branch through the
+  GitHub CLI; review comments without a requested-changes review do not wake
+  it.
 
 ## Troubleshooting
 

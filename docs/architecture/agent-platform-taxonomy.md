@@ -218,7 +218,9 @@ whose name repeats it.
     own consent.
 11. At most one supervisor entry starts automatic turns on a task at a time.
 12. A project starts work only as missions through intake; its coordinator
-    edits no files.
+    edits no files. Its start conditions (an assigned issue, pull request
+    feedback, a schedule) and the user's messages from the project only start
+    coordinator turns, through the one read-only coordinator path.
 
 Statement 10 is asserted at the Start sheet: the consent chosen there is what
 the mission stores and what its turns run with, and the playbook's saved

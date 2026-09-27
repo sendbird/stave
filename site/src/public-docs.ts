@@ -132,7 +132,7 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
         sourcePath: "docs/features/projects.md",
         title: "Projects",
         description:
-          "Brief a goal that takes several missions; a coordinator plans them, you approve, sign off and review.",
+          "Brief a goal that takes several missions; a coordinator plans them, wakes on issues, PR feedback or a schedule, and talks with you beside the board.",
       },
     ],
   },

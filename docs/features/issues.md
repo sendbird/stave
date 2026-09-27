@@ -88,6 +88,14 @@ Right-click a row and choose **Attach to `<workspace>`**. The ticket is register
 - For a Crane kickoff with write-back, the run card reads *Reported to Crane*; without it, *Local only*.
 - A finished run flips the badge to *Done in Stave*; a failed one to *Failed*, with the error code on the run card.
 
+### Wake A Project When An Issue Arrives
+
+A [project](projects.md) can watch Issues: turn on **An issue is assigned to
+me** in the project's **Starts when** tab. A newly assigned issue then wakes
+the project's coordinator, which decides whether a mission should follow.
+While any project watches, Stave keeps Issues fresh in the background, at most
+every ten minutes, even when the Issues view is closed.
+
 ## Files And Data
 
 - Cached tickets and kickoff links live in the Stave SQLite database (`tracker_issues_cache`, `tracker_issue_kickoffs`). They hold ticket fields and run state, never credentials.

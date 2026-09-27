@@ -843,13 +843,19 @@ Phase 3 shipped as designed, with these deviations:
   or is blocked or stuck. Changes that land during its turn arrive together in
   the next one, and 24 automatic turns in a day pause the project.
 - **Project home.** One reading column — header, coordinator summary, then
-  Needs you, Running and Done lanes on one row grid, then Memory, Library and
-  Settings tabs. The coordinator conversation opens in its own task (**Open
-  coordinator**) rather than docked beside the board.
+  Needs you, Running and Done lanes on one row grid, then Memory, Library,
+  Starts when and Settings tabs. The coordinator conversation docks beside it
+  where the window has room and floats over it otherwise; a message starts a
+  read-only coordinator turn through the same single path as a wake.
 - **Models and spend.** The coordinator may name a model per mission, and the
   user may change provider and model on a proposal before starting it. The
   project home adds up what its missions spent.
-- **Not built yet.** Start conditions on projects (Phase 2 triggers).
+- **Start conditions.** A project's **Starts when** wakes the coordinator on
+  a newly assigned issue (from Issues, refreshed in the background while a
+  project watches), on failing checks, requested changes or a merge of a
+  mission's pull request, and on a schedule. They wake the coordinator only;
+  starting stays the coordinator's call and the user's approval. Standalone
+  mission triggers and the Proposed tab (Phase 2) are not built.
 - **Restarts.** Quitting stops the runtimes rather than recording a paused
   state. On relaunch missions resume, delivered changes are not re-sent, and
   a start interrupted halfway is marked failed instead of replayed.

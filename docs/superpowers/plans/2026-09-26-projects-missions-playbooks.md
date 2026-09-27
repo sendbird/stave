@@ -929,5 +929,9 @@ Built after the twenty changes, closing deviations the As-built notes list:
   `stave_start_mission` and a provider/model picker on proposals;
   `electron/host-service/idle-task.ts` opens the mission's task on it.
 - [x] `feat(projects): add projects to the collapsed sidebar`.
-- [ ] Start conditions on projects wait for the Phase 2 triggers.
+- [x] `feat(projects): start projects from events and talk to the coordinator
+  in place` — **Starts when** (assigned issues, mission PR feedback, a
+  schedule) wakes the coordinator through `collectPendingTriggers`, with seen
+  occurrences kept in `project_trigger_seen`; the coordinator conversation
+  docks beside the project.
 

@@ -112,7 +112,7 @@ const HANDOFF_STEPS = [
   {
     title: "Give a bigger goal to a project",
     description:
-      "A coordinator breaks the goal into missions on separate worktrees, reads their reports and proposes what comes next. You approve and review.",
+      "A coordinator breaks the goal into missions on separate worktrees and proposes what comes next — woken by their reports, new issues, PR feedback or a schedule. Talk to it beside the board.",
     href: "./docs/projects/",
     icon: FolderKanban,
   },
