@@ -8,6 +8,7 @@ import {
   CircleX,
   Copy,
   Ellipsis,
+  FileText,
   GitPullRequestArrow,
   Send,
 } from "lucide-react";
@@ -80,6 +81,14 @@ export function MissionReportView({
   const completedStages = report.stages.filter((stage) => stage.status === "completed").length;
   const duration = formatAge(Date.parse(report.endedAt) - Date.parse(report.startedAt));
   const spent = describeUsageShort(report.usage);
+  // In the Mission panel the Run card already shows turns and spend.
+  const figures: Array<readonly [string, string]> = [
+    ["Duration", duration],
+    ["Stages", `${completedStages}/${report.stages.length}`],
+    ...(standalone ? ([["Turns", String(report.turnCount)]] as const) : []),
+    ["Verified", String(verifiedCount)],
+    ...(standalone && spent ? ([["Spent", spent]] as const) : []),
+  ];
   return (
     <section
       className={sx(styles.section, styles.sectionRoomy, standalone ? null : styles.sectionRule)}
@@ -100,19 +109,21 @@ export function MissionReportView({
         </div>
       ) : (
         <div className={sx(styles.sectionHeader)}>
+          <FileText aria-hidden className={sx(styles.sectionIcon)} />
           <h3 className={sx(styles.sectionTitle)}>Report</h3>
         </div>
       )}
-      <dl className={sx(styles.stats)} aria-label="Mission figures">
-        {(
-          [
-            ["Duration", duration],
-            ["Stages", `${completedStages}/${report.stages.length}`],
-            ["Turns", String(report.turnCount)],
-            ["Verified", String(verifiedCount)],
-            ...(spent ? ([["Spent", spent]] as const) : []),
-          ] as const
-        ).map(([label, value]) => (
+      <dl
+        className={sx(
+          styles.stats,
+          // One row of figures, however many there are.
+          figures.length === 3 && styles.statsThree,
+          figures.length === 4 && styles.statsFour,
+          figures.length === 5 && styles.statsFive,
+        )}
+        aria-label="Mission figures"
+      >
+        {figures.map(([label, value]) => (
           <div key={label} className={sx(styles.statTile)}>
             <dt className={sx(styles.statLabel)}>{label}</dt>
             <dd className={sx(styles.statValue)}>{value}</dd>
@@ -137,7 +148,7 @@ export function MissionReportView({
       {decisions.length > 0 ? (
         <div className={sx(styles.stageGroup)}>
           <p className={sx(styles.groupLabel)}>Decisions</p>
-          <ul className={sx(styles.list)}>
+          <ul className={sx(styles.itemList)}>
             {decisions.map((item) => (
               <li key={item.decision} className={sx(styles.decision)}>
                 <span className={sx(styles.decisionText)}>{item.decision}</span>
@@ -168,10 +179,11 @@ export function MissionReportView({
       {report.leftBehind.length > 0 ? (
         <div className={sx(styles.stageGroup)}>
           <p className={sx(styles.groupLabel)}>Left behind</p>
-          <ul className={sx(styles.list)}>
+          <ul className={sx(styles.itemList)}>
             {report.leftBehind.map((item) => (
-              <li key={item} className={sx(styles.body)}>
-                {item}
+              <li key={item} className={sx(styles.bulletItem)}>
+                <span aria-hidden className={sx(styles.bullet)} />
+                <span className={sx(styles.bulletText)}>{item}</span>
               </li>
             ))}
           </ul>

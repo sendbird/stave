@@ -57,6 +57,7 @@ export function WakeUpSectionView(props: {
   return (
     <section className={sx(styles.section, styles.sectionRule)} aria-label="Wake-up" data-testid="wake-up-section">
       <div className={sx(styles.sectionHeader)}>
+        <AlarmClock aria-hidden className={sx(styles.sectionIcon)} />
         <h3 className={sx(styles.sectionTitle)}>Wake-up</h3>
         <div className={sx(styles.actions)}>
           {confirmingRemove ? (

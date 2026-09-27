@@ -1,5 +1,18 @@
 import { useEffect, useMemo } from "react";
-import { ArrowRight, CircleCheck, CircleDashed, CircleX, Ellipsis, Pause, Play, Target, Users } from "lucide-react";
+import {
+  ArrowRight,
+  CircleCheck,
+  CircleDashed,
+  CircleX,
+  Ellipsis,
+  Gauge,
+  ListChecks,
+  ListOrdered,
+  Pause,
+  Play,
+  Target,
+  Users,
+} from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
 import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
@@ -200,14 +213,15 @@ export function MissionDetailView(props: {
       ) : null}
 
       {criteria.length > 0 ? (
-        <section className={sx(styles.section)} aria-label="Done when">
+        <section className={sx(styles.section, styles.sectionRule)} aria-label="Done when">
           <div className={sx(styles.sectionHeader)}>
+            <ListChecks aria-hidden className={sx(styles.sectionIcon)} />
             <h3 className={sx(styles.sectionTitle)}>Done when</h3>
-            {signedOffAt ? (
-              <span className={sx(styles.sectionAside)}>Signed off by you at {formatClock(signedOffAt)}</span>
-            ) : null}
+            <span className={sx(styles.sectionAside)}>
+              {criteria.filter((criterion) => criterion.status === "met").length} of {criteria.length} met
+            </span>
           </div>
-          <ul className={sx(styles.list)}>
+          <ul className={sx(styles.checkList)}>
             {criteria.map((criterion) => {
               const presentation = CRITERION_PRESENTATION[criterion.status];
               const Icon = presentation.icon;
@@ -217,16 +231,18 @@ export function MissionDetailView(props: {
                     <Icon aria-hidden className={sx(styles.icon, presentation.tone)} />
                   </span>
                   <span className={sx(styles.checkText)}>{criterion.text}</span>
-                  <span className={sx(styles.checkState)}>{presentation.label}</span>
+                  <span className={sx(styles.checkState, presentation.tone)}>{presentation.label}</span>
                 </li>
               );
             })}
           </ul>
+          {signedOffAt ? <p className={sx(styles.checkNote)}>Signed off by you at {formatClock(signedOffAt)}</p> : null}
         </section>
       ) : null}
 
-      <section className={sx(styles.section)} aria-label="Stages">
+      <section className={sx(styles.section, styles.sectionRule)} aria-label="Stages">
         <div className={sx(styles.sectionHeader)}>
+          <ListOrdered aria-hidden className={sx(styles.sectionIcon)} />
           <h3 className={sx(styles.sectionTitle)}>Stages</h3>
           <span className={sx(styles.sectionAside)}>{describeCheckIns(mission)}</span>
         </div>
@@ -255,6 +271,7 @@ export function MissionDetailView(props: {
 
       <section className={sx(styles.section, styles.sectionRule)} aria-label="Run">
         <div className={sx(styles.sectionHeader)}>
+          <Gauge aria-hidden className={sx(styles.sectionIcon)} />
           <h3 className={sx(styles.sectionTitle)}>Run</h3>
         </div>
         <MissionRunSummary mission={mission} usage={detail.usage ?? null} active={active} now={now} formatClock={formatClock} />
