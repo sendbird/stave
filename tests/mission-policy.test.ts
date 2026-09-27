@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import {
+  createStageRecord,
   currentStageRecord,
+  MISSION_LIMITS,
   type MissionAggregate,
 } from "../src/lib/missions/domain";
 import {
@@ -192,6 +194,70 @@ describe("AI stages", () => {
     expect(
       decide(stuck, observe({ lastEndedTurn: turn({ turnId: "user-1", startedBy: "user" }) })),
     ).toMatchObject({ action: "start-stage-turn", reason: "continue-after-user" });
+  });
+
+  test("a stuck stage continues only for a reply that ended after it got stuck", () => {
+    const stuck = patchCurrent(afterFirstTurn(), { status: "stuck", detail: "The stage's turn could not start." });
+    const stuckAt = "2026-09-26T10:20:00.000Z";
+    const reply = (endedAt: string) =>
+      turn({ turnId: "user-1", startedBy: "user", startedAt: "2026-09-26T10:10:00.000Z", endedAt });
+    // The reply that led to the failed start does not start another turn.
+    expect(decide(stuck, observe({ lastEndedTurn: reply("2026-09-26T10:15:00.000Z"), stageStuckAt: stuckAt }))).toEqual({
+      action: "idle",
+    });
+    expect(decide(stuck, observe({ lastEndedTurn: reply(stuckAt), stageStuckAt: stuckAt }))).toEqual({ action: "idle" });
+    expect(
+      decide(stuck, observe({ lastEndedTurn: reply("2026-09-26T10:25:00.000Z"), stageStuckAt: stuckAt })),
+    ).toMatchObject({ action: "start-stage-turn", reason: "continue-after-user" });
+  });
+
+  test("a mission turn Stave interrupted resumes the stage without spending the reminder", () => {
+    const interrupted = turn({ interrupted: true, endedAt: "2026-09-26T10:03:00.000Z" });
+    const resumed = step(afterFirstTurn(), observe({ lastEndedTurn: interrupted }));
+    expect(resumed.decision).toEqual({
+      action: "start-stage-turn",
+      stageIndex: 0,
+      attempt: 1,
+      reason: "resume-after-restart",
+    });
+    expect(currentStageRecord(resumed.next).nudged).toBe(false);
+    // It still counts against the turn cap.
+    expect(resumed.next.mission.turnCount).toBe(2);
+    const capped = patchCurrent(afterFirstTurn(), {});
+    expect(
+      decide({ ...capped, mission: { ...capped.mission, turnCount: capped.mission.maxTurns } }, observe({ lastEndedTurn: interrupted })),
+    ).toMatchObject({ action: "stop", reason: "turn-cap-reached" });
+  });
+
+  test("a stage whose next stage has no attempts left is marked stuck once instead of failing every tick", () => {
+    const done = afterFirstTurn(COMPLETE_REPORT);
+    const exhausted: MissionAggregate = {
+      ...done,
+      stages: [
+        ...done.stages,
+        {
+          ...createStageRecord({ missionId: done.mission.id, stageId: "build", attempt: MISSION_LIMITS.maxStageAttempts }),
+          status: "completed",
+        },
+      ],
+    };
+    const observation = observe({ lastEndedTurn: turn() });
+    const stuck = step(exhausted, observation);
+    expect(stuck.decision).toEqual({
+      action: "mark-stuck",
+      detail: `This stage is done, but "Build" reached its limit of ${MISSION_LIMITS.maxStageAttempts} attempts. Cancel the mission and finish the rest by hand.`,
+    });
+    expect(currentStageRecord(stuck.next)).toMatchObject({ stageId: "understand", status: "stuck" });
+    expect(decide(stuck.next, observation)).toEqual({ action: "idle" });
+
+    // A completion decided elsewhere lands on the same stuck stage.
+    const applied = applyMissionDecision({
+      aggregate: exhausted,
+      decision: { action: "complete-stage", next: "sign-off" },
+      now: MISSION_NOW,
+    });
+    expect(applied.upserts).toHaveLength(1);
+    expect(applied.upserts[0]).toMatchObject({ stageId: "understand", status: "stuck" });
   });
 
   test("3. unreachable reporting blocks instead of nudging, and the stage resumes when it returns", () => {

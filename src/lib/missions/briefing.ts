@@ -51,6 +51,8 @@ const TURN_REASON_LINES: Record<MissionTurnReason, string> = {
     "The user replied during this stage. Treat their latest message as guidance and continue the stage.",
   "reporting-restored":
     "Stave's local tools are reachable again, so this turn resumes the stage.",
+  "resume-after-restart":
+    "Stave stopped while the previous turn of this stage ran, so this turn resumes the stage. Check what that turn already did before you continue.",
   nudge: "The previous turn ended without a stage report.",
   "repair-checks": "Checks failed on the pull request, so the Watch checks action asked for a repair.",
 };

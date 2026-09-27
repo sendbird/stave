@@ -15,7 +15,11 @@ import { ensureHostServicePersistenceReady } from "../persistence";
 import { fetchGitHubPrStatus, readScmPrBody, updateScmPrBody } from "../scm-runtime";
 import { runSupervisedTurn } from "../supervised-turn";
 import { createLocalMcpReachabilityProbe } from "./local-mcp-reachability";
-import { createMissionActionExecutor, type MissionScriptRun } from "./mission-actions";
+import {
+  classifyMissionTurnEnding,
+  createMissionActionExecutor,
+  type MissionScriptRun,
+} from "./mission-actions";
 import { getScriptEntry } from "../../../src/lib/workspace-scripts/config";
 import { resolveScriptsForWorkspace, runScriptEntry } from "../../main/workspace-scripts";
 import { createScmMissionPort } from "./mission-scm";
@@ -84,6 +88,7 @@ export function createHostMissionRuntime(args: {
     scm: createScmMissionPort(),
     resolveWorkspacePath,
     runScript: runMissionScript,
+    readTurnEnding: (turnId) => classifyMissionTurnEnding(persistence.getStreamEvents({ turnId })),
   });
   return createMissionRuntime({
     store: persistence.missions,

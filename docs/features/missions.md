@@ -71,6 +71,8 @@ right.
   done, for example **3. Verify** after you built the change yourself. Earlier
   stages show **Skipped**, are recorded as not run, and the button says where
   the mission starts (**Start at Verify — asks before Ready for review**).
+  Starting signs off the stage you start at, so it does not ask again, unless
+  it acts outside this machine and its checkbox below is unchecked.
   Starting after **Open draft PR** needs a pull request that already exists.
 - **Check-ins**: **Every stage**, **Plan and publishing** (asks before the
   stage after a plan, before publishing and before requesting review), or
@@ -208,7 +210,13 @@ agent stopped reporting.
 - A mission runs on the task's current model. If you change it, the mission
   pauses until you accept the new runtime for the remaining stages.
 - Pull request stages use the GitHub CLI and watch every check reported for
-  the pull request.
+  the pull request. **Open draft PR** commits what was left and pushes the
+  branch before it opens the pull request, or before it continues one the
+  branch already has, so a rerun after **Ask for changes** reaches it too.
+  **Ready for review** pushes the workspace's latest commits first when the
+  pull request lacks them.
+- If Stave quits while a stage's turn runs, the stage continues with a new turn
+  after the restart; that turn does not use up the stage's one reminder.
 - **Spent** counts the turns the mission started. Claude reports a cost with
   each turn; Codex reports tokens only, so a Codex mission shows tokens. Turns
   whose provider reported nothing are counted and named, not guessed. Cache
@@ -232,15 +240,25 @@ agent stopped reporting.
 
 - Symptom: **Open draft PR** or **Watch checks** stops with a sentence about
   GitHub.
-- Cause: `gh` is signed out, the branch is protected, or the push was refused.
-- Fix: follow the sentence (for example run `gh auth login`), then
-  **Retry stage**.
+- Cause: `gh` is signed out, the branch is protected, the push was refused, or
+  the workspace is on the base branch (Stave never commits or pushes to it).
+- Fix: follow the sentence (for example run `gh auth login`, or move the work
+  to a feature branch), then **Retry stage**.
+
+### Watch checks is stuck after a repair
+
+- Symptom: **Watch checks** says the checks repair turn was stopped, failed or
+  was interrupted.
+- Cause: Stave pushes a repair only when its turn finished, so half a repair or
+  your own edits are never pushed on their own.
+- Fix: check the workspace, commit what should go up, then **Retry stage**.
 
 ### A stage is stuck
 
 - Symptom: the stage says **Stuck** after the agent ended a turn without
-  reporting, even after one reminder.
+  reporting, even after one reminder, or because its turn could not start.
 - Fix: read the transcript, reply with what is missing, and **Retry stage**.
+  A stuck stage continues on its own only for a reply sent after it got stuck.
 
 ## Related Docs
 

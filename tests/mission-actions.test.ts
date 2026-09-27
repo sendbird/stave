@@ -1,15 +1,19 @@
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import {
+  classifyMissionTurnEnding,
   createMissionActionExecutor,
   type MissionPullRequest,
   type MissionScmPort,
+  type MissionTurnEnding,
   type ScmStep,
 } from "../electron/host-service/supervision/mission-actions";
 import { MissionStore } from "../electron/persistence/mission-store";
+import type { PersistedTurnStreamEvent } from "../electron/persistence/turn-event-payload";
 import type { PullRequestCheck } from "../src/lib/missions/checks";
 import {
   buildMissionActionKey,
+  buildMissionTurnOutcomeKey,
   createMission,
   createStageRecord,
   type MissionAggregate,
@@ -108,6 +112,57 @@ function pr(overrides: Partial<MissionPullRequest> = {}): MissionPullRequest {
   };
 }
 
+/** What the runtime records around a checks repair turn it starts. */
+function recordRepairTurn(
+  store: MissionStore,
+  missionId: string,
+  outcome: "linked" | "failed" | "interrupted",
+  turn = 2,
+): string | null {
+  const turnKey = `${missionId}:watch:1:turn:${turn}`;
+  const identity = { stageId: "watch", attempt: 1 };
+  const at = new Date(START);
+  store.recordEvent(
+    missionId,
+    { kind: "turn-started", idempotencyKey: turnKey, detail: { ...identity, reason: "repair-checks" } },
+    at,
+  );
+  if (outcome === "failed") {
+    store.recordEvent(
+      missionId,
+      {
+        kind: "turn-failed",
+        idempotencyKey: buildMissionTurnOutcomeKey(turnKey, "failed"),
+        detail: { ...identity, detail: "provider unavailable" },
+      },
+      at,
+    );
+    return null;
+  }
+  const turnId = `repair-turn-${turn}`;
+  store.recordEvent(
+    missionId,
+    {
+      kind: "turn-linked",
+      idempotencyKey: buildMissionTurnOutcomeKey(turnKey, "linked"),
+      detail: { missionId, ...identity, turnId },
+    },
+    at,
+  );
+  if (outcome === "interrupted") {
+    store.recordEvent(
+      missionId,
+      {
+        kind: "turn-interrupted",
+        idempotencyKey: buildMissionTurnOutcomeKey(turnKey, "interrupted"),
+        detail: { ...identity, turnId },
+      },
+      at,
+    );
+  }
+  return turnId;
+}
+
 const PASSING: PullRequestCheck[] = [{ name: "unit tests", state: "SUCCESS" }];
 const FAILING: PullRequestCheck[] = [
   { name: "unit tests", state: "FAILURE", link: "https://github.com/acme/app/actions/runs/2/job/22" },
@@ -117,8 +172,10 @@ function createHarness() {
   const store = new MissionStore(new Database(":memory:"));
   let clock = new Date(START);
   const calls: string[] = [];
+  const turnEndings = new Map<string, MissionTurnEnding>();
   const state = {
     branch: "feature/csv" as string | null,
+    base: "main",
     head: "head-1",
     dirty: false,
     unpushed: false,
@@ -166,18 +223,21 @@ function createHarness() {
       calls.push("read-checks");
       return state.readChecks ?? { ok: true, value: state.checks };
     },
-    readCommitLog: async () => ({ baseBranch: "main", log: "a1b2c3d feat(billing): add csv export" }),
+    readBaseBranch: async () => state.base,
+    readCommitLog: async () => ({ baseBranch: state.base, log: "a1b2c3d feat(billing): add csv export" }),
   };
   const perform = createMissionActionExecutor({
     store,
     scm,
     resolveWorkspacePath: async () => "/tmp/repo-ws",
+    readTurnEnding: (turnId) => turnEndings.get(turnId) ?? "completed",
     now: () => clock,
   });
   return {
     store,
     state,
     calls,
+    turnEndings,
     perform: (aggregate: MissionAggregate) => perform({ aggregate }),
     advance: (ms: number) => {
       clock = new Date(clock.getTime() + ms);
@@ -230,6 +290,40 @@ describe("Open draft PR", () => {
     expect(harness.keys("mission-1").filter((value) => value === key)).toHaveLength(1);
   });
 
+  test("an existing pull request gets what was left and the unpushed commits before it is adopted", async () => {
+    // After "Ask for changes", Verify reran and left work behind; the branch
+    // already has the pull request from the first attempt.
+    const harness = createHarness();
+    harness.state.pr = pr();
+    harness.state.dirty = true;
+    expect(await harness.perform(missionAt(harness.store, 1))).toEqual({
+      status: "succeeded",
+      result: { type: "open-draft-pr", prUrl: pr().url, prNumber: 7, created: false },
+    });
+    expect(harness.calls).toEqual(["read-pr", "commit", "push"]);
+
+    // Commits made by hand are pushed too, and a second pull request is never opened.
+    const ahead = createHarness();
+    ahead.state.pr = pr();
+    ahead.state.unpushed = true;
+    await ahead.perform(missionAt(ahead.store, 1));
+    expect(ahead.calls).toEqual(["read-pr", "push"]);
+    expect(ahead.state.unpushed).toBe(false);
+  });
+
+  test("refuses the base branch before committing or pushing anything", async () => {
+    const harness = createHarness();
+    harness.state.branch = "main";
+    harness.state.dirty = true;
+    expect(await harness.perform(missionAt(harness.store, 1))).toEqual({
+      status: "failed",
+      detail:
+        "The workspace is on main, the base branch, so Stave will not commit or push to it. Move the work to a feature branch, then retry this stage.",
+    });
+    expect(harness.calls).toEqual([]);
+    expect(harness.state.commits).toEqual([]);
+  });
+
   test("a pull request gh reports as existing is adopted", async () => {
     const harness = createHarness();
     harness.state.createResult = {
@@ -272,6 +366,39 @@ describe("Ready for review", () => {
     await ready.perform(missionAt(ready.store, 3));
     expect(ready.calls).toEqual(["read-pr"]);
   });
+
+  test("pushes the workspace's HEAD before marking ready when the pull request lacks it", async () => {
+    const harness = createHarness();
+    harness.state.pr = pr({ headRefOid: "head-0" });
+    harness.state.unpushed = true;
+    const aggregate = missionAt(harness.store, 3);
+    expect(await harness.perform(aggregate)).toEqual({ status: "in-progress" });
+    expect(harness.calls).toEqual(["read-pr", "push"]);
+
+    // GitHub moved the pull request to the pushed head.
+    harness.state.pr = pr({ headRefOid: "head-1" });
+    harness.advance(5_000);
+    expect(await harness.perform(aggregate)).toEqual({
+      status: "succeeded",
+      result: { type: "mark-pr-ready", prUrl: pr().url },
+    });
+    expect(harness.calls.slice(2)).toEqual(["read-pr", "mark-ready"]);
+  });
+
+  test("a pull request that never shows the workspace's HEAD blocks instead of being marked ready", async () => {
+    const harness = createHarness();
+    harness.state.pr = pr({ headRefOid: "0123456789abcdef" });
+    harness.state.head = "fedcba9876543210";
+    const aggregate = missionAt(harness.store, 3);
+    expect(await harness.perform(aggregate)).toEqual({ status: "in-progress" });
+    harness.advance(2 * 60_000);
+    expect(await harness.perform(aggregate)).toEqual({
+      status: "failed",
+      detail:
+        "The pull request's head is 0123456, not this workspace's fedcba9. Push or pull so they match, then retry this stage.",
+    });
+    expect(harness.calls).not.toContain("mark-ready");
+  });
 });
 
 describe("Watch checks", () => {
@@ -313,15 +440,7 @@ describe("Watch checks", () => {
     expect(first).toMatchObject({ status: "needs-turn", reason: "repair-checks" });
 
     // The runtime starts the repair turn and records it; the turn edits files.
-    harness.store.recordEvent(
-      "mission-2",
-      {
-        kind: "turn-started",
-        idempotencyKey: "mission-2:watch:1:turn:2",
-        detail: { stageId: "watch", attempt: 1, reason: "repair-checks" },
-      },
-      new Date(START),
-    );
+    recordRepairTurn(harness.store, "mission-2", "linked");
     harness.state.dirty = true;
     harness.advance(10_000);
     expect(await harness.perform(aggregate)).toEqual({ status: "in-progress" });
@@ -346,15 +465,7 @@ describe("Watch checks", () => {
     harness.state.pr = pr();
     harness.state.checks = FAILING;
     const aggregate = missionAt(harness.store, 2);
-    harness.store.recordEvent(
-      "mission-2",
-      {
-        kind: "turn-started",
-        idempotencyKey: "mission-2:watch:1:turn:2",
-        detail: { stageId: "watch", attempt: 1, reason: "repair-checks" },
-      },
-      new Date(START),
-    );
+    recordRepairTurn(harness.store, "mission-2", "linked");
     // The repair made no change: nothing to commit or push, and the checks
     // still fail on the same head.
     expect(await harness.perform(aggregate)).toEqual({ status: "in-progress" });
@@ -363,6 +474,56 @@ describe("Watch checks", () => {
       status: "failed",
       detail: "Checks still fail after 1 repair: unit tests.",
     });
+  });
+
+  test("a repair turn that did not finish pushes nothing and marks the stage stuck", async () => {
+    const cases: Array<{ outcome: "interrupted" | "stopped" | "failed"; detail: string }> = [
+      { outcome: "interrupted", detail: "Stave stopped while the checks repair turn ran" },
+      { outcome: "stopped", detail: "The checks repair turn was stopped before it finished" },
+      { outcome: "failed", detail: "The checks repair turn failed" },
+    ];
+    for (const { outcome, detail } of cases) {
+      const harness = createHarness();
+      harness.state.pr = pr();
+      harness.state.checks = FAILING;
+      const turnId = recordRepairTurn(harness.store, "mission-2", outcome === "interrupted" ? "interrupted" : "linked");
+      if (outcome !== "interrupted") harness.turnEndings.set(turnId!, outcome);
+      // The tree holds half a repair, or the user's own edits.
+      harness.state.dirty = true;
+      const result = await harness.perform(missionAt(harness.store, 2));
+      expect(result.status).toBe("stuck");
+      expect(result.status === "stuck" ? result.detail : "").toContain(detail);
+      expect(harness.calls).not.toContain("commit");
+      expect(harness.calls).not.toContain("push");
+    }
+  });
+
+  test("a repair turn that never started is not a repair, so nothing is pushed", async () => {
+    const harness = createHarness();
+    harness.state.pr = pr();
+    harness.state.checks = FAILING;
+    recordRepairTurn(harness.store, "mission-2", "failed");
+    // The user worked in the task meanwhile.
+    harness.state.dirty = true;
+    const outcome = await harness.perform(missionAt(harness.store, 2));
+    // The one repair the stage allows is still available.
+    expect(outcome).toMatchObject({ status: "needs-turn", reason: "repair-checks" });
+    expect(harness.calls).not.toContain("commit");
+    expect(harness.calls).not.toContain("push");
+  });
+
+  test("checks are read for the head Open draft PR pushed, not the one before it", async () => {
+    const harness = createHarness();
+    // GitHub still reports the previous head, whose checks passed.
+    harness.state.pr = pr({ headRefOid: "head-0" });
+    harness.state.checks = PASSING;
+    const aggregate = missionAt(harness.store, 2);
+    expect(await harness.perform(aggregate)).toEqual({ status: "in-progress" });
+    expect(harness.calls).not.toContain("read-checks");
+
+    harness.state.pr = pr({ headRefOid: "head-1" });
+    harness.advance(61_000);
+    expect(await harness.perform(aggregate)).toMatchObject({ status: "succeeded" });
   });
 
   test("no checks completes after the grace period", async () => {
@@ -398,5 +559,29 @@ describe("Watch checks", () => {
       status: "failed",
       detail: "Stave could not read the pull request's checks: HTTP 502",
     });
+  });
+});
+
+describe("how a repair turn ended", () => {
+  const done = (stopReason?: string): PersistedTurnStreamEvent => ({
+    sequence: 2,
+    eventType: "done",
+    event: { type: "done", ...(stopReason ? { stop_reason: stopReason } : {}) },
+    truncated: false,
+  });
+  const text: PersistedTurnStreamEvent = {
+    sequence: 1,
+    eventType: "text",
+    event: { type: "text", text: "Fixed the test." },
+    truncated: false,
+  };
+
+  test("reads the turn's done event, and a turn closed without one was stopped", () => {
+    expect(classifyMissionTurnEnding([text, done("end_turn")])).toBe("completed");
+    expect(classifyMissionTurnEnding([text, done()])).toBe("completed");
+    expect(classifyMissionTurnEnding([text, done("user_abort")])).toBe("stopped");
+    expect(classifyMissionTurnEnding([text, done("runtime_failure")])).toBe("failed");
+    expect(classifyMissionTurnEnding([text])).toBe("stopped");
+    expect(classifyMissionTurnEnding([])).toBe("stopped");
   });
 });

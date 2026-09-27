@@ -91,6 +91,7 @@ function scenarioHarness(providerId: "claude-code" | "codex") {
       return OK;
     },
     readChecks: async () => ({ ok: true, value: github.checks }),
+    readBaseBranch: async () => "main",
     readCommitLog: async () => ({ baseBranch: "main", log: "a1b2c3d feat(billing): add csv export" }),
   };
   const snapshot: TaskSupervisionSnapshot = {

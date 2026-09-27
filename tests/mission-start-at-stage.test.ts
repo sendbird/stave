@@ -3,6 +3,7 @@ import { Database } from "bun:sqlite";
 import { createMissionRuntime } from "../electron/host-service/supervision/mission-runtime";
 import { MissionStore } from "../electron/persistence/mission-store";
 import { createMission, MissionStartInputSchema } from "../src/lib/missions/domain";
+import { applyMissionDecision, decideMissionAction } from "../src/lib/missions/policy";
 import { evaluatePreStartChecks } from "../src/lib/missions/pre-start-checks";
 import { buildMissionReport } from "../src/lib/missions/report";
 import {
@@ -12,7 +13,7 @@ import {
   listMissionStops,
   remainingStages,
 } from "../src/lib/missions/start-sheet";
-import { MISSION_NOW, starterPlaybook } from "./fixtures/mission-fixtures";
+import { MISSION_NOW, observe, starterPlaybook } from "./fixtures/mission-fixtures";
 
 const playbook = starterPlaybook("request-to-pr");
 const indexOf = (id: string) => playbook.stages.findIndex((stage) => stage.id === id);
@@ -36,10 +37,11 @@ describe("starting a mission at a later stage", () => {
       now: MISSION_NOW,
     });
     expect(change.mission.currentStageIndex).toBe(indexOf("verify"));
+    // Starting signs the chosen stage off, as its sign-off card would.
     expect(change.upserts.map((record) => [record.stageId, record.status])).toEqual([
       ["understand", "skipped"],
       ["build", "skipped"],
-      ["verify", "pending"],
+      ["verify", "running"],
     ]);
     expect(change.upserts[0]!.detail).toBe("Not run: the mission started at Verify.");
     expect(change.events[0]!.detail).toMatchObject({ startStageId: "verify" });
@@ -67,6 +69,63 @@ describe("starting a mission at a later stage", () => {
     expect(describeStartButton(playbook, { ...consent, checkIns: "when-stuck" }, indexOf("verify"))).toBe(
       "Start at Verify — runs to the end",
     );
+  });
+
+  test("the mission does not ask again at the stage it starts at", () => {
+    // Build follows the plan stage, so plan-and-publishing asks before it.
+    const change = createMission({
+      id: "mission-1",
+      input: input(indexOf("build")),
+      repositoryPath: "/tmp/repo",
+      fingerprint: { providerId: "claude-code", model: "sonnet" },
+      now: MISSION_NOW,
+    });
+    const aggregate = { mission: change.mission, stages: change.upserts };
+    expect(decideMissionAction({ aggregate, observation: observe(), now: MISSION_NOW })).toEqual({
+      action: "start-stage-turn",
+      stageIndex: indexOf("build"),
+      attempt: 1,
+      reason: "stage-start",
+    });
+    expect(listMissionStops(playbook, consent, indexOf("build"))).not.toContain(indexOf("build"));
+
+    // An action stage signed off at start runs, and gets its start time then.
+    const atOpenPr = createMission({
+      id: "mission-2",
+      input: input(indexOf("open-draft-pr")),
+      repositoryPath: "/tmp/repo",
+      fingerprint: { providerId: "claude-code", model: "sonnet" },
+      now: MISSION_NOW,
+    });
+    const openPr = { mission: atOpenPr.mission, stages: atOpenPr.upserts };
+    const decision = decideMissionAction({ aggregate: openPr, observation: observe(), now: MISSION_NOW });
+    expect(decision).toEqual({ action: "execute-action", stageIndex: indexOf("open-draft-pr") });
+    const started = applyMissionDecision({ aggregate: openPr, decision, now: MISSION_NOW });
+    expect(started.upserts[0]).toMatchObject({ stageId: "open-draft-pr", status: "running", startedAt: MISSION_NOW.toISOString() });
+  });
+
+  test("a start stage that writes outside the workspace without consent still asks, and the sheet says so", () => {
+    const withheld = { ...consent, authorizedEffectStageIds: consent.authorizedEffectStageIds.filter((id) => id !== "open-draft-pr") };
+    const change = createMission({
+      id: "mission-1",
+      input: buildMissionStartInput({
+        workspaceId: "ws-1",
+        taskId: "task-1",
+        playbook,
+        assignment: "Open the PR.",
+        consent: withheld,
+        startStageIndex: indexOf("open-draft-pr"),
+      }),
+      repositoryPath: "/tmp/repo",
+      fingerprint: { providerId: "claude-code", model: "sonnet" },
+      now: MISSION_NOW,
+    });
+    expect(change.upserts.at(-1)).toMatchObject({ stageId: "open-draft-pr", status: "pending" });
+    const aggregate = { mission: change.mission, stages: change.upserts };
+    expect(decideMissionAction({ aggregate, observation: observe(), now: MISSION_NOW })).toEqual({
+      action: "request-sign-off",
+    });
+    expect(listMissionStops(playbook, withheld, indexOf("open-draft-pr"))[0]).toBe(indexOf("open-draft-pr"));
   });
 
   test("starting after Open draft PR needs a pull request that already exists", () => {

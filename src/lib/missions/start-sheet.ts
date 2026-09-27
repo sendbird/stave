@@ -5,7 +5,12 @@
 import type { AutomationPermissionMode } from "@/lib/automations";
 import type { CheckIns, Playbook, PlaybookStage } from "@/lib/playbooks/schema";
 import { createPlaybookFromStarter, PLAYBOOK_STARTERS } from "@/lib/playbooks/starters";
-import { listExternalEffectStages, stageHasExternalEffect, type MissionStartInput } from "./domain";
+import {
+  listExternalEffectStages,
+  stageHasExternalEffect,
+  stageNeedsEffectConsent,
+  type MissionStartInput,
+} from "./domain";
 import { resolveConsentStageSignOff } from "./policy";
 
 export interface StartConsentDraft {
@@ -17,7 +22,9 @@ export interface StartConsentDraft {
 
 /**
  * Indexes of the stages the mission will stop at. Starting signs off the stage
- * it starts at; stages before it never run.
+ * it starts at, unless that stage writes outside the workspace without the
+ * user's go-ahead; stages before it never run. `createMission` applies the
+ * same rule.
  */
 export function listMissionStops(
   playbook: Pick<Playbook, "stages">,
@@ -28,9 +35,14 @@ export function listMissionStops(
     playbook: playbook as Playbook,
     consent: { checkIns: consent.checkIns, authorizedEffectStageIds: [...consent.authorizedEffectStageIds] },
   };
-  return playbook.stages.flatMap((_, index) =>
-    index > startStageIndex && resolveConsentStageSignOff(preview, index) === "ask" ? [index] : [],
-  );
+  return playbook.stages.flatMap((stage, index) => {
+    if (index < startStageIndex) return [];
+    const asks =
+      index === startStageIndex
+        ? stageNeedsEffectConsent(stage, preview.consent)
+        : resolveConsentStageSignOff(preview, index) === "ask";
+    return asks ? [index] : [];
+  });
 }
 
 function joinTitles(titles: readonly string[]) {

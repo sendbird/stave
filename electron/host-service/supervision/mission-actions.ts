@@ -11,14 +11,21 @@
  *   call. A later call, including one after a restart, reads remote state
  *   first: an existing pull request is adopted, a ready one is not marked
  *   again, and `gh pr create` itself refuses a duplicate.
+ * - Open draft PR commits what was left and pushes unpushed commits before it
+ *   adopts or opens the pull request, and refuses the base branch before it
+ *   commits anything. Ready for review pushes the workspace's HEAD first when
+ *   the pull request lacks it.
  * - Watch checks asks the runtime for a repair turn when checks fail. The
- *   runtime counts the turn; after it ends, the next call commits and pushes
- *   the fix and watches the new head.
+ *   runtime counts the turn; after it ends normally, the next call commits and
+ *   pushes the fix and watches the new head. A repair turn that was stopped,
+ *   failed or interrupted pushes nothing and marks the stage stuck; one that
+ *   never started is not a repair.
  * - Missing GitHub authentication, a protected branch or a rejected push fail
  *   the action with Stave's own sentence, which blocks the stage.
  */
 import {
   buildMissionActionKey,
+  buildMissionTurnOutcomeKey,
   currentStageRecord,
   playbookStageAt,
   type ActionResult,
@@ -40,7 +47,9 @@ import {
   CHECKS_REPAIR_COMMIT_MESSAGE,
 } from "../../../src/lib/missions/pull-request-draft";
 import type { StaveAction } from "../../../src/lib/playbooks/schema";
+import { classifyProviderTurnStopReason } from "../../../src/lib/providers/turn-status";
 import type { MissionStore } from "../../persistence/mission-store";
+import type { PersistedTurnStreamEvent } from "../../persistence/turn-event-payload";
 
 export type ScmStep<T = true> = { ok: true; value: T } | { ok: false; detail: string };
 
@@ -65,9 +74,14 @@ export interface MissionScmPort {
   ) => Promise<ScmStep<{ url: string; created: boolean }>>;
   markReady: (cwd: string) => Promise<ScmStep>;
   readChecks: (cwd: string, prNumber: number) => Promise<ScmStep<PullRequestCheck[]>>;
+  /** The branch a new pull request targets, such as `main`. */
+  readBaseBranch: (cwd: string) => Promise<string>;
   /** The base branch and `git log --oneline <base>..HEAD`. */
   readCommitLog: (cwd: string) => Promise<{ baseBranch: string; log: string }>;
 }
+
+/** How a turn that is no longer running ended. */
+export type MissionTurnEnding = "completed" | "stopped" | "failed";
 
 type ActionStore = Pick<MissionStore, "recordEvent" | "listEventsByKind">;
 
@@ -89,6 +103,41 @@ export function lastPrintedUrl(output: string): string | undefined {
 const MAX_CONSECUTIVE_READ_FAILURES = 3;
 /** How long a pushed repair may take to become the pull request's head. */
 const PUSHED_HEAD_WAIT_MS = 10 * 60_000;
+/**
+ * How long a stage waits for the pull request to show the workspace's HEAD
+ * when it did not push a repair itself. A push is applied in seconds; a head
+ * that still differs after this means the branches differ.
+ */
+const LOCAL_HEAD_WAIT_MS = 2 * 60_000;
+
+const UNFINISHED_REPAIR: Record<Exclude<MissionTurnEnding, "completed"> | "interrupted", string> = {
+  interrupted:
+    "Stave stopped while the checks repair turn ran, so it did not push that repair. Check the workspace, then retry the stage.",
+  stopped:
+    "The checks repair turn was stopped before it finished, so Stave did not push it. Check the workspace, then retry the stage.",
+  failed: "The checks repair turn failed, so Stave did not push it. Check the workspace, then retry the stage.",
+};
+
+function shortSha(sha: string) {
+  return sha.slice(0, 7);
+}
+
+/**
+ * How a turn ended, from its persisted events. A turn closed without a `done`
+ * event was stopped or taken over before it finished.
+ */
+export function classifyMissionTurnEnding(events: readonly PersistedTurnStreamEvent[]): MissionTurnEnding {
+  const done = [...events].reverse().find((entry) => entry.event?.type === "done")?.event;
+  if (done?.type !== "done") return "stopped";
+  switch (classifyProviderTurnStopReason(done.stop_reason)) {
+    case "completed":
+      return "completed";
+    case "cancelled":
+      return "stopped";
+    case "failed":
+      return "failed";
+  }
+}
 
 function failed(detail: string): ActionOutcome {
   return { status: "failed", detail };
@@ -109,6 +158,11 @@ export function createMissionActionExecutor(deps: {
   resolveWorkspacePath: (workspaceId: string) => Promise<string | null>;
   /** Runs an action from the workspace's scripts and resolves when it ends. */
   runScript?: (args: { workspaceId: string; scriptId: string }) => Promise<MissionScriptRun>;
+  /**
+   * How a turn that is no longer running ended. Absent: every repair turn
+   * that started and was not interrupted counts as completed.
+   */
+  readTurnEnding?: (turnId: string) => MissionTurnEnding;
   now?: () => Date;
 }) {
   const now = deps.now ?? (() => new Date());
@@ -185,22 +239,28 @@ export function createMissionActionExecutor(deps: {
     if (!branch) {
       return failed("The workspace is not on a branch, so Stave cannot open a pull request from it.");
     }
+    // Refused before anything is committed or pushed.
+    if (branch === (await scm.readBaseBranch(cwd))) {
+      return failed(
+        `The workspace is on ${branch}, the base branch, so Stave will not commit or push to it. Move the work to a feature branch, then retry this stage.`,
+      );
+    }
     const existing = await scm.readPullRequest(cwd);
     if (!existing.ok) return failed(existing.detail);
-    if (existing.value?.state === "OPEN") {
-      return succeeded({
-        type: "open-draft-pr",
-        prUrl: existing.value.url,
-        prNumber: existing.value.number,
-        created: false,
-      });
-    }
+    const open = existing.value?.state === "OPEN" ? existing.value : null;
+    // What was left is committed and pushed even when the branch already has
+    // a pull request: after "Ask for changes" the rerun's work belongs in it.
     if (await scm.hasUncommittedChanges(cwd)) {
       const committed = await scm.commitAll(cwd, buildMissionCommitMessage(aggregate));
       if (!committed.ok) return failed(`Stave could not commit the remaining changes: ${committed.detail}`);
     }
-    const pushed = await scm.push(cwd, branch);
-    if (!pushed.ok) return failed(pushed.detail);
+    if (!open || (await scm.hasUnpushedCommits(cwd))) {
+      const pushed = await scm.push(cwd, branch);
+      if (!pushed.ok) return failed(pushed.detail);
+    }
+    if (open) {
+      return succeeded({ type: "open-draft-pr", prUrl: open.url, prNumber: open.number, created: false });
+    }
     const { baseBranch, log } = await scm.readCommitLog(cwd);
     const created = await scm.createDraftPullRequest(
       cwd,
@@ -217,12 +277,28 @@ export function createMissionActionExecutor(deps: {
     });
   }
 
-  async function markPrReady(cwd: string): Promise<ActionOutcome> {
+  async function markPrReady(cwd: string, startedAt: Date): Promise<ActionOutcome> {
     const current = await scm.readPullRequest(cwd);
     if (!current.ok) return failed(current.detail);
     const pr = current.value;
     if (!pr || pr.state !== "OPEN") {
       return failed("This workspace has no open pull request to mark ready for review.");
+    }
+    // Reviewers are notified about the workspace's HEAD, not an older push.
+    const head = await scm.headSha(cwd);
+    if (head && pr.headRefOid && pr.headRefOid !== head) {
+      if (await scm.hasUnpushedCommits(cwd)) {
+        const branch = await scm.currentBranch(cwd);
+        if (!branch) return failed("The workspace is not on a branch, so Stave cannot push it.");
+        const pushed = await scm.push(cwd, branch);
+        if (!pushed.ok) return failed(pushed.detail);
+        return { status: "in-progress" };
+      }
+      // A push GitHub has not applied to the pull request yet.
+      if (now().getTime() - startedAt.getTime() < LOCAL_HEAD_WAIT_MS) return { status: "in-progress" };
+      return failed(
+        `The pull request's head is ${shortSha(pr.headRefOid)}, not this workspace's ${shortSha(head)}. Push or pull so they match, then retry this stage.`,
+      );
     }
     if (!pr.isDraft) return succeeded({ type: "mark-pr-ready", prUrl: pr.url });
     const ready = await scm.markReady(cwd);
@@ -238,6 +314,30 @@ export function createMissionActionExecutor(deps: {
     return events.filter(
       (event) => event.detail.stageId === stageId && event.detail.attempt === attempt,
     );
+  }
+
+  /** Why a repair turn's fix must not be pushed, or null when the turn finished. */
+  function unfinishedRepair(
+    started: MissionEvent,
+    events: readonly MissionEvent[],
+  ): keyof typeof UNFINISHED_REPAIR | null {
+    const turnKey = started.idempotencyKey!;
+    const byKey = (outcome: "linked" | "interrupted") =>
+      events.find((event) => event.idempotencyKey === buildMissionTurnOutcomeKey(turnKey, outcome));
+    if (byKey("interrupted")) return "interrupted";
+    const turnId = byKey("linked")?.detail.turnId;
+    // Started but never linked: Stave stopped in the middle of starting it.
+    if (typeof turnId !== "string") return "interrupted";
+    const ending = deps.readTurnEnding?.(turnId) ?? "completed";
+    return ending === "completed" ? null : ending;
+  }
+
+  /** When this stage attempt's action first ran. */
+  function actionStartedAt(missionId: string, actionKey: string): Date {
+    const started = store
+      .listEventsByKind(missionId, ["action-started"])
+      .find((event) => event.idempotencyKey === actionKey);
+    return started ? new Date(started.createdAt) : now();
   }
 
   /** A read that fails now and then is waited out; a run of failures stops the watch. */
@@ -259,20 +359,38 @@ export function createMissionActionExecutor(deps: {
     const { mission } = aggregate;
     const record = currentStageRecord(aggregate);
     const events = eventsOfAttempt(
-      store.listEventsByKind(mission.id, ["action-started", "turn-started", "action-finished"]),
+      store.listEventsByKind(mission.id, [
+        "action-started",
+        "turn-started",
+        "turn-linked",
+        "turn-failed",
+        "turn-interrupted",
+        "action-finished",
+      ]),
       record.stageId,
       record.attempt,
     );
-    const repairsUsed = events.filter(
-      (event) => event.kind === "turn-started" && event.detail.reason === "repair-checks",
-    ).length;
+    const keys = new Set(events.map((event) => event.idempotencyKey));
+    // A repair turn that never started is not a repair.
+    const repairs = events.filter(
+      (event) =>
+        event.kind === "turn-started" &&
+        event.detail.reason === "repair-checks" &&
+        event.idempotencyKey &&
+        !keys.has(buildMissionTurnOutcomeKey(event.idempotencyKey, "failed")),
+    );
+    const repairsUsed = repairs.length;
     const pushes = events.filter(
       (event) => event.kind === "action-finished" && event.detail.step === "repair-pushed",
     );
 
     // The runtime starts no action while a turn runs, so a repair turn that
-    // has no push recorded yet has ended: send its fix before watching again.
+    // has no push recorded yet has ended: send its fix before watching again,
+    // but only when the turn finished. Otherwise the tree holds half a repair,
+    // or the user's own edits.
     if (repairsUsed > pushes.length) {
+      const unfinished = unfinishedRepair(repairs.at(-1)!, events);
+      if (unfinished) return { status: "stuck", detail: UNFINISHED_REPAIR[unfinished] };
       const branch = await scm.currentBranch(cwd);
       if (!branch) return failed("The workspace is not on a branch, so Stave cannot push the repair.");
       if (await scm.hasUncommittedChanges(cwd)) {
@@ -316,15 +434,22 @@ export function createMissionActionExecutor(deps: {
     const current = await scm.readPullRequest(cwd);
     if (!current.ok) return readFailure(actionKey, current.detail);
     const pr = current.value;
-    // GitHub can take a moment to move the pull request to the pushed repair;
-    // checks read before then belong to the head that failed.
-    const expectedHead = typeof latestPush?.detail.headSha === "string" ? latestPush.detail.headSha : null;
+    // GitHub can take a moment to move the pull request to a push, the
+    // repair's or the one Open draft PR just made; checks read before then
+    // belong to the head before it.
+    const expectedHead =
+      typeof latestPush?.detail.headSha === "string"
+        ? latestPush.detail.headSha
+        : (await scm.hasUnpushedCommits(cwd))
+          ? null
+          : await scm.headSha(cwd);
+    const headWaitMs = latestPush ? PUSHED_HEAD_WAIT_MS : LOCAL_HEAD_WAIT_MS;
     if (
       pr?.state === "OPEN" &&
       expectedHead &&
       pr.headRefOid &&
       pr.headRefOid !== expectedHead &&
-      at.getTime() - watchStartedAt.getTime() < PUSHED_HEAD_WAIT_MS
+      at.getTime() - watchStartedAt.getTime() < headWaitMs
     ) {
       return { status: "in-progress" };
     }
@@ -375,7 +500,7 @@ export function createMissionActionExecutor(deps: {
       case "watch-checks":
         return watchChecks({ cwd, aggregate, action, actionKey });
       case "mark-pr-ready":
-        return markPrReady(cwd);
+        return markPrReady(cwd, actionStartedAt(aggregate.mission.id, actionKey));
       case "run-script":
         return runWorkspaceScript({ aggregate, scriptId: action.scriptId, actionKey, firstCall });
     }

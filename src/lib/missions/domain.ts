@@ -112,6 +112,17 @@ export function listExternalEffectStages(playbook: Pick<Playbook, "stages">) {
   return playbook.stages.filter(stageHasExternalEffect);
 }
 
+/**
+ * True for a stage that writes outside the workspace without the user's
+ * go-ahead at start. It always waits for sign-off, even as the start stage.
+ */
+export function stageNeedsEffectConsent(
+  stage: PlaybookStage,
+  consent: Pick<MissionConsent, "authorizedEffectStageIds">,
+): boolean {
+  return stageHasExternalEffect(stage) && !consent.authorizedEffectStageIds.includes(stage.id);
+}
+
 /* -------------------------------------------------------------------------- */
 /* Mission state                                                               */
 /* -------------------------------------------------------------------------- */
@@ -569,6 +580,8 @@ export const MISSION_EVENT_KINDS = [
   "turn-linked",
   /** A `turn-started` event whose turn never started. */
   "turn-failed",
+  /** A linked turn Stave stopped in the middle of, closed at the next boot. */
+  "turn-interrupted",
   "report",
   "sign-off",
   "changes-requested",
@@ -649,7 +662,7 @@ export function buildMissionTurnKey(args: {
  */
 export function buildMissionTurnOutcomeKey(
   turnKey: string,
-  outcome: "linked" | "failed",
+  outcome: "linked" | "failed" | "interrupted",
 ) {
   return `${turnKey}:${outcome}`;
 }
@@ -838,6 +851,12 @@ export function createMission(args: {
     stageId: startStage.id,
     attempt: 1,
   });
+  // Starting at a later stage signs that stage off, as a sign-off card would,
+  // unless it writes outside the workspace without the user's go-ahead. The
+  // first stage needs no sign-off in the first place.
+  if (input.startStageIndex > 0 && !stageNeedsEffectConsent(startStage, mission.consent)) {
+    firstStage.status = "running";
+  }
   return {
     mission,
     upserts: [...skipped, firstStage],

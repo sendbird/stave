@@ -12,6 +12,7 @@ import type { MissionStageGrant } from "../electron/providers/mission-grants";
 import type { MissionChangedEvent } from "../src/lib/missions/api";
 import { MISSION_CONTEXT_SOURCE_ID } from "../src/lib/missions/briefing";
 import {
+  createMission,
   currentStageRecord,
   EMPTY_STAGE_FACTS,
   MissionCommandError,
@@ -20,6 +21,7 @@ import {
 } from "../src/lib/missions/domain";
 import { classifyStageEvidence } from "../src/lib/missions/evidence";
 import type { ActionOutcome } from "../src/lib/missions/policy";
+import { computeMissionMetrics } from "../src/lib/missions/report";
 import { PlaybookSchema, type Playbook, type PlaybookStage } from "../src/lib/playbooks/schema";
 
 const START = "2026-09-26T10:00:00.000Z";
@@ -80,11 +82,20 @@ const COMPLETE = {
 
 function createHarness(options: {
   store?: MissionStore;
+  /** The turns table, shared with a harness that ran before a restart. */
+  turns?: MissionTurnRow[];
+  /** Prefix of the ids this harness gives its turns. */
+  turnPrefix?: string;
   hangTurnStarts?: boolean;
   performAction?: MissionRuntimeDependencies["performAction"];
   updatePullRequestBody?: MissionRuntimeDependencies["updatePullRequestBody"];
 } = {}) {
   const store = options.store ?? new MissionStore(new Database(":memory:"));
+  const turnPrefix = options.turnPrefix ?? "turn";
+  /** Closes and notifications, in the order they happened. */
+  const log: string[] = [];
+  /** The newest event kind at each announcement. */
+  const announcedKinds: string[] = [];
   let clock = new Date(START);
   let snapshot: TaskSupervisionSnapshot = {
     workspaceId: "ws-1",
@@ -98,7 +109,7 @@ function createHarness(options: {
     pendingApprovalCount: 0,
     pendingUserInputCount: 0,
   };
-  const turns: MissionTurnRow[] = [];
+  const turns: MissionTurnRow[] = options.turns ?? [];
   const grants = new Map<string, MissionStageGrant>();
   const runCalls: Array<Parameters<MissionRuntimeDependencies["runSupervisedTurn"]>[0]> = [];
   const factCalls: Array<Parameters<MissionRuntimeDependencies["collectStageFacts"]>[0]> = [];
@@ -124,7 +135,7 @@ function createHarness(options: {
       if (options.hangTurnStarts) return await new Promise<never>(() => {});
       if (runError) throw runError;
       turnCounter += 1;
-      const turnId = `turn-${turnCounter}`;
+      const turnId = `${turnPrefix}-${turnCounter}`;
       advance();
       turns.unshift({ id: turnId, createdAt: clock.toISOString(), completedAt: null });
       // What the provider runtime does: a grant for this turn's stage attempt.
@@ -135,6 +146,11 @@ function createHarness(options: {
     },
     completeInterruptedTurn: (turnId) => {
       closedTurns.push(turnId);
+      log.push(`close:${turnId}`);
+      const row = turns.find((candidate) => candidate.id === turnId);
+      if (!row) return true;
+      if (row.completedAt) return false;
+      row.completedAt = clock.toISOString();
       return true;
     },
     countActiveDelegatedTasks: () => activeDelegated,
@@ -153,10 +169,14 @@ function createHarness(options: {
     }),
     ...(options.performAction ? { performAction: options.performAction } : {}),
     ...(options.updatePullRequestBody ? { updatePullRequestBody: options.updatePullRequestBody } : {}),
-    notifyMissionProblem: ({ detail }) => {
+    notifyMissionProblem: ({ mission, detail }) => {
       notifications.push(detail);
+      log.push(`notify:${mission.leadTaskId}`);
     },
-    emitChanged: (event) => changes.push(event),
+    emitChanged: (event) => {
+      changes.push(event);
+      announcedKinds.push(store.listRecentEvents(event.missionId, 1).at(-1)?.kind ?? "none");
+    },
     now: () => clock,
     setInterval: (() => 0) as unknown as typeof globalThis.setInterval,
     clearInterval: () => {},
@@ -170,6 +190,8 @@ function createHarness(options: {
     notifications,
     changes,
     closedTurns,
+    log,
+    announcedKinds,
     turns,
     advance,
     setSnapshot: (patch: Partial<TaskSupervisionSnapshot>) => {
@@ -402,6 +424,55 @@ describe("mission runtime: the user and the reporting channel", () => {
     expect(harness.runCalls).toHaveLength(2);
   });
 
+  test("each user turn that ends during the mission counts once as a reply", async () => {
+    const store = new MissionStore(new Database(":memory:"));
+    const turns: MissionTurnRow[] = [];
+    const harness = createHarness({ store, turns });
+    // A turn from before the mission is not a reply to it.
+    harness.userTurn("before");
+    harness.endTurn("before");
+    harness.advance();
+    const missionId = await startedMission(harness);
+    await harness.runtime.blockStage({
+      missionKey: "key-turn-1",
+      block: { missing: "Which billing plan gets the export?", kind: "input" },
+    });
+    harness.endTurn("turn-1");
+    await harness.tick();
+    harness.userTurn("reply-1");
+    harness.endTurn("reply-1");
+    await harness.tick();
+    await harness.tick();
+    const replies = () =>
+      store.listEventsByKind(missionId, ["user-turn"]).map((event) => [event.idempotencyKey, event.detail.turnId]);
+    expect(replies()).toEqual([[`${missionId}:user-turn:reply-1`, "reply-1"]]);
+    expect(harness.announcedKinds).toContain("user-turn");
+
+    // A restart does not count it again, and a composer choice adds nothing.
+    const restarted = createHarness({ store, turns, turnPrefix: "after" });
+    await restarted.tick();
+    await restarted.runtime.noteUserTurn({ missionId, intent: "continue" });
+    expect(replies()).toHaveLength(1);
+    const events = store.listRecentEvents(missionId, 200);
+    expect(computeMissionMetrics({ providerId: "claude-code", events }).userReplies).toBe(1);
+  });
+
+  test("Skip works on a running stage between turns, not while a turn runs", async () => {
+    const harness = createHarness();
+    const missionId = await startedMission(harness);
+    const draft = { missionId, stageId: "draft", attempt: 1 };
+    expect(await invokeMissionRuntime(harness.runtime, "skip-stage", draft)).toMatchObject({
+      ok: false,
+      code: "invalid-state",
+    });
+    // The turn ended and the next tick has not run yet.
+    harness.endTurn("turn-1");
+    await harness.runtime.skipStage(draft);
+    const aggregate = harness.aggregate(missionId);
+    expect(aggregate.stages.find((record) => record.stageId === "draft")?.status).toBe("skipped");
+    expect(currentStageRecord(aggregate).stageId).toBe("polish");
+  });
+
   test("an unreachable Local MCP blocks the stage instead of spending the nudge", async () => {
     const harness = createHarness();
     const missionId = await startedMission(harness);
@@ -495,6 +566,106 @@ describe("mission runtime: failures and restarts", () => {
     restarted.runtime.start();
     await restarted.tick();
     expect(restarted.closedTurns).toEqual(["turn-1"]);
+  });
+
+  test("a stage whose turn a restart interrupted resumes without spending its reminder", async () => {
+    const store = new MissionStore(new Database(":memory:"));
+    const turns: MissionTurnRow[] = [];
+    const first = createHarness({ store, turns });
+    const missionId = await startedMission(first);
+
+    const restarted = createHarness({ store, turns, turnPrefix: "resumed" });
+    restarted.runtime.start();
+    await restarted.tick();
+    expect(restarted.closedTurns).toEqual(["turn-1"]);
+    expect(
+      store.listEventsByKind(missionId, ["turn-interrupted"]).map((event) => [event.idempotencyKey, event.detail.turnId]),
+    ).toEqual([[`${missionId}:draft:1:turn:1:interrupted`, "turn-1"]]);
+    expect(restarted.runCalls).toHaveLength(1);
+    expect(restarted.runCalls[0]!.missionStage).toEqual({ missionId, stageId: "draft", attempt: 1 });
+    expect(restarted.runCalls[0]!.retrievedContextParts[0]?.content).toContain(
+      "Stave stopped while the previous turn of this stage ran",
+    );
+    expect(restarted.current(missionId)).toMatchObject({ status: "running", nudged: false });
+
+    // The resumed turn ends without a report: the one reminder is still there.
+    restarted.endTurn("resumed-1");
+    await restarted.tick();
+    expect(restarted.runCalls).toHaveLength(2);
+    expect(restarted.runCalls[1]!.prompt).toContain('without reporting the stage "Draft"');
+    expect(restarted.current(missionId)).toMatchObject({ status: "running", nudged: true });
+  });
+
+  test("a stuck stage continues once per reply, not on every tick after its turn failed to start", async () => {
+    const harness = createHarness();
+    const missionId = await startedMission(harness);
+    harness.endTurn("turn-1");
+    await harness.tick();
+    harness.endTurn("turn-2");
+    await harness.tick();
+    expect(harness.current(missionId).status).toBe("stuck");
+
+    harness.userTurn("reply-1");
+    harness.endTurn("reply-1");
+    harness.setRunError(new Error("provider unavailable"));
+    await harness.tick();
+    expect(harness.current(missionId).status).toBe("stuck");
+    const turnCount = harness.aggregate(missionId).mission.turnCount;
+    const starts = harness.runCalls.length;
+    for (let tick = 0; tick < 3; tick += 1) {
+      harness.advance(5_000);
+      await harness.tick();
+    }
+    expect(harness.aggregate(missionId).mission.turnCount).toBe(turnCount);
+    expect(harness.runCalls).toHaveLength(starts);
+
+    // A new reply continues the stage.
+    harness.setRunError(null);
+    harness.userTurn("reply-2");
+    harness.endTurn("reply-2");
+    await harness.tick();
+    expect(harness.runCalls).toHaveLength(starts + 1);
+    expect(harness.runCalls.at(-1)!.retrievedContextParts[0]?.content).toContain("The user replied");
+    expect(harness.current(missionId).status).toBe("running");
+  });
+
+  test("a restart closes every mission's open turn before it notifies anyone", async () => {
+    const store = new MissionStore(new Database(":memory:"));
+    const seed = (id: string, leadTaskId: string, at: Date, linkedTurnId?: string) => {
+      const change = createMission({
+        id,
+        input: startInput({ leadTaskId }),
+        repositoryPath: "/tmp/repo",
+        fingerprint: { providerId: "claude-code", model: "sonnet" },
+        now: at,
+      });
+      store.create(change, at);
+      const turnKey = `${id}:draft:1:turn:1`;
+      store.apply(
+        {
+          mission: { ...change.mission, turnCount: 1 },
+          upserts: [{ ...change.upserts[0]!, status: "running", startedAt: at.toISOString() }],
+          events: [{ kind: "turn-started", idempotencyKey: turnKey, detail: { stageId: "draft", attempt: 1, reason: "stage-start" } }],
+        },
+        at,
+      );
+      if (linkedTurnId) {
+        store.recordEvent(
+          id,
+          { kind: "turn-linked", idempotencyKey: `${turnKey}:linked`, detail: { missionId: id, stageId: "draft", attempt: 1, turnId: linkedTurnId } },
+          at,
+        );
+      }
+    };
+    // The first mission's start was interrupted; the second one's turn was left open.
+    seed("mission-a", "task-1", new Date(START));
+    seed("mission-b", "task-2", new Date(Date.parse(START) + 1_000), "turn-b");
+    const turns: MissionTurnRow[] = [{ id: "turn-b", createdAt: START, completedAt: null }];
+    const restarted = createHarness({ store, turns });
+    restarted.runtime.start();
+    await restarted.tick();
+    expect(restarted.log.indexOf("close:turn-b")).toBeGreaterThanOrEqual(0);
+    expect(restarted.log.indexOf("close:turn-b")).toBeLessThan(restarted.log.indexOf("notify:task-1"));
   });
 
   test("an archived lead task stops the mission, and its report lists what was left behind", async () => {
@@ -617,6 +788,38 @@ describe("mission runtime: turns an action asks for", () => {
     await harness.tick();
     expect(actionCalls).toBe(3);
     expect(harness.aggregate(missionId).mission.state).toBe("completed");
+  });
+});
+
+describe("mission runtime: announcements", () => {
+  test("events written outside a transition tell the surface, such as a linked turn and observed checks", async () => {
+    const harness = createHarness({
+      performAction: async ({ aggregate }) => {
+        // What Watch checks does while it waits.
+        harness.store.recordEvent(
+          aggregate.mission.id,
+          { kind: "checks-observed", idempotencyKey: null, detail: { stageId: "watch", attempt: 1, kind: "pending" } },
+          new Date(START),
+        );
+        return { status: "in-progress" };
+      },
+    });
+    const missionId = await startedMission(
+      harness,
+      startInput({
+        playbook: playbook([
+          DRAFT,
+          { id: "watch", title: "Watch checks", kind: "action", action: { type: "watch-checks", repairAttempts: 1, timeoutMinutes: 30 } },
+        ]),
+        consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["watch"] },
+      }),
+    );
+    expect(harness.announcedKinds).toContain("turn-linked");
+    await harness.runtime.reportStage({ missionKey: "key-turn-1", report: COMPLETE });
+    harness.endTurn("turn-1");
+    await harness.tick();
+    expect(harness.current(missionId).stageId).toBe("watch");
+    expect(harness.announcedKinds.at(-1)).toBe("checks-observed");
   });
 });
 

@@ -20,9 +20,10 @@ import {
   enterStage,
   formatMissionFingerprint,
   isAutomaticMissionPause,
+  MissionCommandError,
   missionFingerprintsMatch,
   playbookStageAt,
-  stageHasExternalEffect,
+  stageNeedsEffectConsent,
   type ActionResult,
   type Mission,
   type MissionAggregate,
@@ -42,6 +43,10 @@ export interface ObservedTurn {
   turnId: string;
   startedBy: "mission" | "user";
   startedAt: string;
+  /** When the turn ended; absent for a running turn. */
+  endedAt?: string | null;
+  /** True when Stave stopped in the middle of this turn and closed it at boot. */
+  interrupted?: boolean;
 }
 
 /** What the runtime read about the lead task this tick. */
@@ -85,6 +90,8 @@ export interface MissionObservation {
   userTurnIntent: "continue" | "take-over" | null;
   /** For an action stage, what the Stave action has produced so far. */
   actionOutcome: ActionOutcome | null;
+  /** When the current attempt was last marked stuck, if it is stuck. */
+  stageStuckAt?: string | null;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -94,7 +101,8 @@ export interface MissionObservation {
 export type StageTurnReason =
   | "stage-start"
   | "continue-after-user"
-  | "reporting-restored";
+  | "reporting-restored"
+  | "resume-after-restart";
 
 export type MissionDecision =
   | { action: "idle" }
@@ -161,12 +169,7 @@ export function resolveConsentStageSignOff(
 ): SignOff {
   const stage = mission.playbook.stages[index];
   if (!stage) throw new RangeError(`Stage index ${index} is outside the playbook.`);
-  if (
-    stageHasExternalEffect(stage) &&
-    !mission.consent.authorizedEffectStageIds.includes(stage.id)
-  ) {
-    return "ask";
-  }
+  if (stageNeedsEffectConsent(stage, mission.consent)) return "ask";
   return resolveStageSignOff(
     { checkIns: mission.consent.checkIns, stages: mission.playbook.stages },
     index,
@@ -177,6 +180,43 @@ function nextAfterCompletion(mission: Mission): "sign-off" | "start" | "finish" 
   const nextIndex = mission.currentStageIndex + 1;
   if (nextIndex >= mission.playbook.stages.length) return "finish";
   return resolveMissionStageSignOff(mission, nextIndex) === "ask" ? "sign-off" : "start";
+}
+
+/** The sentence for a stage that is done but cannot hand over to the next one. */
+function attemptLimitDetail(error: MissionCommandError) {
+  return clampReason(
+    `This stage is done, but ${error.message} Cancel the mission and finish the rest by hand.`,
+  );
+}
+
+/**
+ * Completes the current stage, or marks it stuck once when the next stage has
+ * no attempts left: entering that stage would otherwise throw on every tick.
+ */
+function completeStage(aggregate: MissionAggregate, record: MissionStageRecord): MissionDecision {
+  const { mission } = aggregate;
+  const nextIndex = mission.currentStageIndex + 1;
+  if (nextIndex < mission.playbook.stages.length) {
+    try {
+      enterStage({ aggregate, index: nextIndex });
+    } catch (error) {
+      if (!(error instanceof MissionCommandError) || error.code !== "attempt-limit") throw error;
+      return record.status === "stuck"
+        ? { action: "idle" }
+        : { action: "mark-stuck", detail: attemptLimitDetail(error) };
+    }
+  }
+  return { action: "complete-stage", next: nextAfterCompletion(mission) };
+}
+
+/**
+ * A stuck stage continues only for a reply that ended after it got stuck. The
+ * reply before a turn that failed to start is not a new one; continuing for it
+ * again would spend a turn on every tick.
+ */
+function isReplyAfterStuck(last: ObservedTurn, stuckAt: string | null | undefined) {
+  if (!stuckAt) return true;
+  return Date.parse(last.endedAt ?? last.startedAt) > Date.parse(stuckAt);
 }
 
 function turnCapStop(mission: Mission): MissionDecision | null {
@@ -225,17 +265,18 @@ function isCurrentReport(record: MissionStageRecord, lastEndedTurn: ObservedTurn
 }
 
 function decideAiStage(
-  mission: Mission,
+  aggregate: MissionAggregate,
   record: MissionStageRecord,
   observation: MissionObservation,
 ): MissionDecision {
+  const { mission } = aggregate;
   const last = observation.lastEndedTurn;
   const report = isCurrentReport(record, last) ? record.report : null;
 
   if (report?.outcome === "complete") {
     // A stage cannot complete while work it delegated is still running.
     if (observation.leadTask.activeDelegatedTaskCount > 0) return { action: "idle" };
-    return { action: "complete-stage", next: nextAfterCompletion(mission) };
+    return completeStage(aggregate, record);
   }
   if (report?.outcome === "blocked") {
     return record.status === "blocked"
@@ -254,11 +295,19 @@ function decideAiStage(
     return startTurn({ mission, record, observation, reason: "stage-start" });
   }
   if (last.startedBy === "user") {
+    if (record.status === "stuck" && !isReplyAfterStuck(last, observation.stageStuckAt)) {
+      return { action: "idle" };
+    }
     // The user's reply is guidance for this stage; the mission picks it up.
     return startTurn({ mission, record, observation, reason: "continue-after-user" });
   }
   // The mission's own turn ended without a report.
   if (record.status === "stuck") return { action: "idle" };
+  if (last.interrupted) {
+    // Stave stopped while the turn ran, so the agent did not skip its report:
+    // the stage resumes without spending the one reminder.
+    return startTurn({ mission, record, observation, reason: "resume-after-restart" });
+  }
   if (!observation.reportingAvailable) {
     // The model cannot report through a connection that is down, so this
     // blocks with "reporting unavailable" rather than spending the nudge.
@@ -274,10 +323,11 @@ function decideAiStage(
 }
 
 function decideActionStage(
-  mission: Mission,
+  aggregate: MissionAggregate,
   record: MissionStageRecord,
   observation: MissionObservation,
 ): MissionDecision {
+  const { mission } = aggregate;
   if (record.status === "blocked" || record.status === "stuck") return { action: "idle" };
   const outcome = observation.actionOutcome;
   if (!outcome || outcome.status === "in-progress") {
@@ -285,7 +335,7 @@ function decideActionStage(
   }
   switch (outcome.status) {
     case "succeeded":
-      return { action: "complete-stage", next: nextAfterCompletion(mission) };
+      return completeStage(aggregate, record);
     case "failed":
       return { action: "block", reason: "action-failed", detail: clampReason(outcome.detail) };
     case "stuck":
@@ -403,8 +453,8 @@ export function decideMissionAction(args: {
     case "blocked":
     case "stuck":
       return stage.kind === "ai"
-        ? decideAiStage(mission, record, observation)
-        : decideActionStage(mission, record, observation);
+        ? decideAiStage(aggregate, record, observation)
+        : decideActionStage(aggregate, record, observation);
   }
 }
 
@@ -581,7 +631,8 @@ export function applyMissionDecision(args: {
       };
     case "execute-action": {
       const record = currentStageRecord(aggregate);
-      if (record.status === "running") return unchanged;
+      // A stage signed off before it ran is running without a start time yet.
+      if (record.status === "running" && record.startedAt) return unchanged;
       return {
         mission,
         upserts: [{ ...record, status: "running", startedAt: record.startedAt ?? timestamp }],
@@ -597,12 +648,24 @@ export function applyMissionDecision(args: {
         detail: null,
         endedAt: timestamp,
       };
-      const change = advanceMission({
-        aggregate,
-        completed,
-        now,
-        signOff: decision.next === "sign-off",
-      });
+      let change: MissionChange;
+      try {
+        change = advanceMission({
+          aggregate,
+          completed,
+          now,
+          signOff: decision.next === "sign-off",
+        });
+      } catch (error) {
+        // `decideMissionAction` already avoids this; a caller that decided
+        // elsewhere still gets a stuck stage instead of an error every tick.
+        if (!(error instanceof MissionCommandError) || error.code !== "attempt-limit") throw error;
+        return applyMissionDecision({
+          aggregate,
+          decision: { action: "mark-stuck", detail: attemptLimitDetail(error) },
+          now,
+        });
+      }
       return {
         ...change,
         events: [

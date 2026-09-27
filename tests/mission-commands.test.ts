@@ -166,6 +166,20 @@ describe("stage controls", () => {
     expect(done.events.map((event) => event.kind)).toEqual(["stage-skipped", "mission-ended"]);
   });
 
+  test("a running stage can be skipped only while no turn runs", () => {
+    const running = patchCurrent(missionFixture(), { status: "running", startedAt: MISSION_NOW.toISOString() });
+    expect(refusal(() => skipStage({ aggregate: running, expected: identity(running), now: MISSION_NOW }))).toMatchObject({
+      code: "invalid-state",
+      message: '"Understand" is running, so this is not available.',
+    });
+    const skipped = applyChange(
+      running,
+      skipStage({ aggregate: running, expected: identity(running), now: MISSION_NOW, betweenTurns: true }),
+    );
+    expect(skipped.stages.find((record) => record.stageId === "understand")?.status).toBe("skipped");
+    expect(currentStageRecord(skipped).stageId).toBe("build");
+  });
+
   test("retry replaces a stuck attempt with a fresh one", () => {
     const stuck = patchCurrent(missionFixture(), { status: "stuck", detail: "No report." });
     const retried = applyChange(stuck, retryStage({ aggregate: stuck, expected: identity(stuck), now: MISSION_NOW }));

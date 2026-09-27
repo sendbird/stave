@@ -40,6 +40,12 @@ export function describePushFailure(output: string): string {
 export function createScmMissionPort(run: ScmCommandRunner = runCommandArgs): MissionScmPort {
   const git = (cwd: string, commandArgs: string[]) =>
     run({ command: "git", commandArgs, cwd, timeoutMs: 120_000 });
+  /** `origin/<default branch>`, or empty when the remote has no HEAD set. */
+  const readBaseRef = async (cwd: string) => {
+    const base = await git(cwd, ["rev-parse", "--abbrev-ref", "origin/HEAD"]);
+    return base.ok ? base.stdout.trim() : "";
+  };
+  const toBaseBranch = (baseRef: string) => baseRef.replace(/^origin\//, "") || "main";
 
   return {
     currentBranch: async (cwd) => {
@@ -119,10 +125,10 @@ export function createScmMissionPort(run: ScmCommandRunner = runCommandArgs): Mi
       const result = await readPullRequestChecks({ cwd, target: String(prNumber), runCommand: run });
       return result.ok ? { ok: true, value: result.checks } : { ok: false, detail: firstLine(result.stderr) };
     },
+    readBaseBranch: async (cwd) => toBaseBranch(await readBaseRef(cwd)),
     readCommitLog: async (cwd) => {
-      const base = await git(cwd, ["rev-parse", "--abbrev-ref", "origin/HEAD"]);
-      const baseRef = base.ok ? base.stdout.trim() : "";
-      const baseBranch = baseRef.replace(/^origin\//, "") || "main";
+      const baseRef = await readBaseRef(cwd);
+      const baseBranch = toBaseBranch(baseRef);
       if (!baseRef) return { baseBranch, log: "" };
       const log = await git(cwd, ["log", "--oneline", "-n", "20", `${baseRef}..HEAD`]);
       return { baseBranch, log: log.ok ? log.stdout : "" };

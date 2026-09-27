@@ -148,17 +148,23 @@ export function requestStageChanges(args: {
   };
 }
 
-/** Skips the current stage and moves on. */
+/**
+ * Skips the current stage and moves on. A running stage can be skipped only
+ * while no turn runs on the lead task (`betweenTurns`), such as an action
+ * waiting on checks or a stage that could not move on.
+ */
 export function skipStage(args: {
   aggregate: MissionAggregate;
   expected: StageIdentity;
   now: Date;
+  betweenTurns?: boolean;
 }): MissionChange {
   const record = requireCurrentStage(args.aggregate, args.expected, [
     "pending",
     "awaiting-sign-off",
     "blocked",
     "stuck",
+    ...(args.betweenTurns ? (["running"] as const) : []),
   ]);
   const skipped: MissionStageRecord = {
     ...record,

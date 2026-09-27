@@ -68,6 +68,8 @@ import {
   type Mission,
   type MissionAggregate,
   type MissionChange,
+  type MissionEvent,
+  type MissionEventDraft,
   type MissionFingerprint,
   type MissionStageRecord,
   type MissionStartInput,
@@ -287,6 +289,10 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
   let queuedTick: Promise<void> | null = null;
   /** Turns this runtime started, per mission; hydrated from `turn-linked`. */
   const missionTurnIds = new Map<string, Set<string>>();
+  /** Mission turns Stave stopped in the middle of; hydrated from `turn-interrupted`. */
+  const interruptedTurnIds = new Map<string, Set<string>>();
+  /** User turns already recorded as replies, per mission; hydrated from `user-turn`. */
+  const userTurnIds = new Map<string, Set<string>>();
   /** The composer choice for the user's running turn, per mission. */
   const userTurnIntents = new Map<string, MissionNoteUserTurnArgs["intent"]>();
   /** The last ended turn whose facts were collected, per stage attempt. */
@@ -335,17 +341,72 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     return requireAggregate(change.mission.id);
   }
 
-  function turnIdsFor(missionId: string): Set<string> {
-    let ids = missionTurnIds.get(missionId);
+  /** Records an event outside a transition and tells the surface it changed. */
+  function recordEvent(mission: Mission, draft: MissionEventDraft): boolean {
+    const inserted = store.recordEvent(mission.id, draft, now());
+    if (inserted) emit(mission);
+    return inserted;
+  }
+
+  function turnIdsFromEvents(
+    cache: Map<string, Set<string>>,
+    missionId: string,
+    kind: "turn-linked" | "turn-interrupted" | "user-turn",
+  ): Set<string> {
+    let ids = cache.get(missionId);
     if (!ids) {
       ids = new Set(
         store
-          .listEventsByKind(missionId, ["turn-linked"])
+          .listEventsByKind(missionId, [kind])
           .flatMap((event) => (typeof event.detail.turnId === "string" ? [event.detail.turnId] : [])),
       );
-      missionTurnIds.set(missionId, ids);
+      cache.set(missionId, ids);
     }
     return ids;
+  }
+
+  function turnIdsFor(missionId: string): Set<string> {
+    return turnIdsFromEvents(missionTurnIds, missionId, "turn-linked");
+  }
+
+  /**
+   * Counts each user turn that ended on the lead task during the mission once,
+   * as a reply, keyed by its turn id.
+   */
+  function recordEndedUserTurns(mission: Mission, turns: readonly MissionTurnRow[], ours: Set<string>) {
+    const recorded = turnIdsFromEvents(userTurnIds, mission.id, "user-turn");
+    const since = Date.parse(mission.createdAt);
+    for (const row of [...turns].reverse()) {
+      if (!row.completedAt || ours.has(row.id) || recorded.has(row.id)) continue;
+      if (Date.parse(row.createdAt) < since) continue;
+      recorded.add(row.id);
+      recordEvent(mission, {
+        kind: "user-turn",
+        idempotencyKey: `${mission.id}:user-turn:${row.id}`,
+        detail: { turnId: row.id },
+      });
+    }
+  }
+
+  /** When the current attempt was last marked stuck. */
+  function stuckAt(mission: Mission, record: MissionStageRecord): string | null {
+    if (record.status !== "stuck") return null;
+    return (
+      store
+        .listEventsByKind(mission.id, ["stage-stuck"])
+        .filter((event) => event.detail.stageId === record.stageId && event.detail.attempt === record.attempt)
+        .at(-1)?.createdAt ?? null
+    );
+  }
+
+  /** Whether a turn, the user's or the mission's, runs on the lead task. */
+  async function hasRunningTurn(mission: Mission): Promise<boolean> {
+    const snapshot = await readSnapshot(mission);
+    if (snapshot.activeTurnId) return true;
+    if (!snapshot.exists) return false;
+    return deps
+      .listRecentTurns({ workspaceId: mission.workspaceId, taskId: mission.leadTaskId, limit: RECENT_TURN_LIMIT })
+      .some((row) => !row.completedAt);
   }
 
   /** Usage of turns that ended never changes; read each once. */
@@ -431,6 +492,8 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         })
       : [];
     const ours = turnIdsFor(mission.id);
+    recordEndedUserTurns(mission, turns, ours);
+    const interrupted = turnIdsFromEvents(interruptedTurnIds, mission.id, "turn-interrupted");
     const toObserved = (row: Pick<MissionTurnRow, "id" | "createdAt">): ObservedTurn => ({
       turnId: row.id,
       startedBy: ours.has(row.id) ? "mission" : "user",
@@ -476,11 +539,18 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
             : 0,
         },
         reportingAvailable: await deps.isReportingAvailable(),
-        lastEndedTurn: endedRow ? toObserved(endedRow) : null,
+        lastEndedTurn: endedRow
+          ? {
+              ...toObserved(endedRow),
+              endedAt: endedRow.completedAt,
+              ...(interrupted.has(endedRow.id) ? { interrupted: true } : {}),
+            }
+          : null,
         userTurnIntent:
           activeTurn?.startedBy === "user" ? (userTurnIntents.get(mission.id) ?? null) : null,
         actionOutcome:
           stage.kind === "action" ? (actionOutcomes.get(stageKey(record)) ?? null) : null,
+        stageStuckAt: stuckAt(mission, record),
       },
     };
   }
@@ -622,26 +692,18 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
       });
       turnIdsFor(mission.id).add(turn.turnId);
       userTurnIntents.delete(mission.id);
-      store.recordEvent(
-        mission.id,
-        {
-          kind: "turn-linked",
-          idempotencyKey: buildMissionTurnOutcomeKey(turnKey, "linked"),
-          detail: { ...identity, turnId: turn.turnId },
-        },
-        now(),
-      );
+      recordEvent(started.mission, {
+        kind: "turn-linked",
+        idempotencyKey: buildMissionTurnOutcomeKey(turnKey, "linked"),
+        detail: { ...identity, turnId: turn.turnId },
+      });
     } catch (error) {
       const detail = describeError(error, "The provider did not start the turn.");
-      store.recordEvent(
-        mission.id,
-        {
-          kind: "turn-failed",
-          idempotencyKey: buildMissionTurnOutcomeKey(turnKey, "failed"),
-          detail: { ...identity, detail: detail.slice(0, 500) },
-        },
-        now(),
-      );
+      recordEvent(started.mission, {
+        kind: "turn-failed",
+        idempotencyKey: buildMissionTurnOutcomeKey(turnKey, "failed"),
+        detail: { ...identity, detail: detail.slice(0, 500) },
+      });
       await markStartFailure(mission.id, detail);
     }
   }
@@ -668,6 +730,9 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     const current = hasEffect(change, aggregate) ? applyChange(change) : aggregate;
     const record = currentStageRecord(current);
     const stage = playbookStageAt(current.mission, current.mission.currentStageIndex);
+    // The action records its own events, such as the checks it observed.
+    const lastSequence = () => store.listRecentEvents(current.mission.id, 1).at(-1)?.sequence ?? 0;
+    const sequenceBefore = lastSequence();
     const outcome: ActionOutcome = deps.performAction
       ? await deps.performAction({ aggregate: current }).catch((error: unknown) => ({
           status: "failed" as const,
@@ -678,6 +743,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
           detail: `This version of Stave cannot run the "${stage.title}" action yet. Skip the stage or cancel the mission.`,
         };
     actionOutcomes.set(stageKey(record), outcome);
+    if (lastSequence() !== sequenceBefore) emit(current.mission);
     if (outcome.status === "succeeded") {
       // The report reads the result from the stage's facts, as verified evidence.
       applyChange({
@@ -768,65 +834,90 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     return queuedTick;
   }
 
+  const INTERRUPTED_START = "Stave stopped before this stage's turn started.";
+
+  /**
+   * Closes the mission turn a stopped host left open and records it as
+   * interrupted, so the stage resumes instead of spending its reminder; then
+   * settles every start that never reached a turn. Returns those starts.
+   */
+  function closeInterruptedTurns(mission: Mission): MissionEvent[] {
+    const events = store.listEventsByKind(mission.id, ["turn-started", "turn-linked", "turn-failed"]);
+    const settled = new Set(
+      events.flatMap((event) =>
+        event.kind !== "turn-started" && event.idempotencyKey ? [event.idempotencyKey] : [],
+      ),
+    );
+    const latestLinked = events.filter((event) => event.kind === "turn-linked").at(-1);
+    const turnId = latestLinked?.detail.turnId;
+    if (typeof turnId === "string" && deps.completeInterruptedTurn(turnId) && latestLinked?.idempotencyKey) {
+      const turnKey = latestLinked.idempotencyKey.replace(/:linked$/, "");
+      recordEvent(mission, {
+        kind: "turn-interrupted",
+        idempotencyKey: buildMissionTurnOutcomeKey(turnKey, "interrupted"),
+        detail: { stageId: latestLinked.detail.stageId, attempt: latestLinked.detail.attempt, turnId },
+      });
+      interruptedTurnIds.get(mission.id)?.add(turnId);
+    }
+    const orphans = events.filter(
+      (event) =>
+        event.kind === "turn-started" &&
+        event.idempotencyKey &&
+        !settled.has(buildMissionTurnOutcomeKey(event.idempotencyKey, "linked")) &&
+        !settled.has(buildMissionTurnOutcomeKey(event.idempotencyKey, "failed")),
+    );
+    for (const orphan of orphans) {
+      recordEvent(mission, {
+        kind: "turn-failed",
+        idempotencyKey: buildMissionTurnOutcomeKey(orphan.idempotencyKey!, "failed"),
+        detail: { stageId: orphan.detail.stageId, attempt: orphan.detail.attempt, detail: INTERRUPTED_START },
+      });
+    }
+    return orphans;
+  }
+
+  /** A start that never reached a turn marks its stage stuck and tells the user. */
+  async function reportInterruptedStarts(mission: Mission, orphans: readonly MissionEvent[]) {
+    const aggregate = requireAggregate(mission.id);
+    const record = currentStageRecord(aggregate);
+    const hitsCurrentAttempt = orphans.some(
+      (orphan) => orphan.detail.stageId === record.stageId && orphan.detail.attempt === record.attempt,
+    );
+    if (hitsCurrentAttempt && record.status === "running") {
+      applyChange(
+        applyMissionDecision({
+          aggregate,
+          decision: { action: "mark-stuck", detail: `${INTERRUPTED_START} Retry the stage to continue.` },
+          now: now(),
+        }),
+      );
+    }
+    await notify(mission, `A mission turn was interrupted: ${INTERRUPTED_START}`);
+  }
+
   /**
    * Boot sweep. The host stopped, so no mission turn is running: the latest
    * one is closed if it was left open, and a start that was recorded but never
    * reached a turn is reported and marks its stage stuck. It is never
-   * replayed.
+   * replayed. Every mission's turns are closed before anyone is notified: a
+   * notification loads the workspace session, which would otherwise keep a
+   * turn another mission has not closed yet as running.
    */
   async function reconcileInterruptedStarts() {
+    const interrupted: Array<{ mission: Mission; orphans: MissionEvent[] }> = [];
     for (const mission of store.listActiveMissions()) {
       try {
-        const events = store.listEventsByKind(mission.id, [
-          "turn-started",
-          "turn-linked",
-          "turn-failed",
-        ]);
-        const settled = new Set(
-          events.flatMap((event) =>
-            event.kind !== "turn-started" && event.idempotencyKey ? [event.idempotencyKey] : [],
-          ),
-        );
-        const latestLinked = events.filter((event) => event.kind === "turn-linked").at(-1);
-        if (typeof latestLinked?.detail.turnId === "string") {
-          deps.completeInterruptedTurn(latestLinked.detail.turnId);
-        }
-        const orphans = events.filter(
-          (event) =>
-            event.kind === "turn-started" &&
-            event.idempotencyKey &&
-            !settled.has(buildMissionTurnOutcomeKey(event.idempotencyKey, "linked")) &&
-            !settled.has(buildMissionTurnOutcomeKey(event.idempotencyKey, "failed")),
-        );
-        if (orphans.length === 0) continue;
-        const detail = "Stave stopped before this stage's turn started.";
-        for (const orphan of orphans) {
-          store.recordEvent(
-            mission.id,
-            {
-              kind: "turn-failed",
-              idempotencyKey: buildMissionTurnOutcomeKey(orphan.idempotencyKey!, "failed"),
-              detail: { stageId: orphan.detail.stageId, attempt: orphan.detail.attempt, detail },
-            },
-            now(),
-          );
-        }
-        const aggregate = requireAggregate(mission.id);
-        const record = currentStageRecord(aggregate);
-        const hitsCurrentAttempt = orphans.some(
-          (orphan) =>
-            orphan.detail.stageId === record.stageId && orphan.detail.attempt === record.attempt,
-        );
-        if (hitsCurrentAttempt && record.status === "running") {
-          applyChange(
-            applyMissionDecision({
-              aggregate,
-              decision: { action: "mark-stuck", detail: `${detail} Retry the stage to continue.` },
-              now: now(),
-            }),
-          );
-        }
-        await notify(mission, `A mission turn was interrupted: ${detail}`);
+        const orphans = closeInterruptedTurns(mission);
+        if (orphans.length > 0) interrupted.push({ mission, orphans });
+      } catch (error) {
+        console.error("[missions] failed to close an interrupted mission turn", error, {
+          missionId: mission.id,
+        });
+      }
+    }
+    for (const { mission, orphans } of interrupted) {
+      try {
+        await reportInterruptedStarts(mission, orphans);
       } catch (error) {
         console.error("[missions] failed to reconcile an interrupted mission", error, {
           missionId: mission.id,
@@ -1016,7 +1107,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
           runtimeOptions: {},
           retrievedContextParts: [],
         });
-        store.recordEvent(missionId, { kind: "report-shared", idempotencyKey: null, detail: { threadUrl } }, now());
+        recordEvent(detail.mission, { kind: "report-shared", idempotencyKey: null, detail: { threadUrl } });
         return { shared: true as const };
       }),
     signOff: (args) =>
@@ -1033,8 +1124,13 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         }),
       ),
     skipStage: (args) =>
-      command(args.missionId, (aggregate) =>
-        skipStage({ aggregate, expected: stageIdentity(args), now: now() }),
+      command(args.missionId, async (aggregate) =>
+        skipStage({
+          aggregate,
+          expected: stageIdentity(args),
+          now: now(),
+          betweenTurns: !(await hasRunningTurn(aggregate.mission)),
+        }),
       ),
     retryStage: (args) =>
       command(args.missionId, (aggregate) =>
@@ -1065,23 +1161,19 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
           now: now(),
         });
       }),
+    // Records the composer's choice only. The reply itself is counted once, by
+    // turn id, when the runtime sees the user's turn end.
     noteUserTurn: ({ missionId, intent }) =>
       command(missionId, (aggregate) => {
-        const event = {
-          kind: "user-turn" as const,
-          idempotencyKey: null,
-          detail: { intent },
-        };
         if (intent === "take-over") {
           userTurnIntents.delete(missionId);
-          const paused = pauseMission({ aggregate, reason: "taken-over", now: now() });
-          return { ...paused, events: [...paused.events, event] };
+          return pauseMission({ aggregate, reason: "taken-over", now: now() });
         }
         if (!isActiveMissionState(aggregate.mission.state)) {
           throw new MissionCommandError("not-active", "This mission has already ended.");
         }
         userTurnIntents.set(missionId, intent);
-        return { mission: aggregate.mission, upserts: [], events: [event] };
+        return { mission: aggregate.mission, upserts: [], events: [] };
       }),
     cancel: ({ missionId }) =>
       command(missionId, (aggregate) => cancelMission({ aggregate, now: now() })),
