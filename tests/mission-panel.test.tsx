@@ -80,6 +80,9 @@ describe("Mission panel", () => {
     expect(html.indexOf("Understand", html.indexOf(">Stages<"))).toBeGreaterThan(-1);
     expect(html).toContain("Signed off by you at");
     expect(html).toContain("Not verified");
+    // Done when says how many criteria are met, and the run shows as a card.
+    expect(html).toMatch(/\d+ of \d+ met/);
+    expect(html).toContain('aria-label="Run"');
     expect(html).toContain("Stage 2 of 6");
     // The timeline is a list with the current stage marked.
     expect(html).toContain('role="list"');

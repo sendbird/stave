@@ -132,13 +132,15 @@ export const centerStyles = stylex.create({
     gap: 2,
     padding: 2,
   },
-  filterChip: { blockSize: 26, fontSize: vars["--ads-font-size-micro"], paddingInline: vars["--ads-space-8"] },
+  // Extra-small chips in a 2px well come to the small controls' 32px, so every
+  // view's toolbar keeps one height.
+  filterChip: { fontSize: vars["--ads-font-size-micro"], paddingInline: vars["--ads-space-8"] },
   filterChipActive: {
     backgroundColor: canvasSurface(85),
     borderColor: `color-mix(in oklch, ${vars["--ads-color-border"]} 55%, transparent)`,
     boxShadow: vars["--ads-elevation-raised"],
   },
-  runSelect: { blockSize: 28, fontSize: vars["--ads-font-size-micro"], inlineSize: 224 },
+  runSelect: { fontSize: vars["--ads-font-size-micro"], inlineSize: 224 },
   shownCount: {
     color: vars["--ads-color-text-muted"],
     fontSize: vars["--ads-font-size-micro"],

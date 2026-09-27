@@ -97,9 +97,9 @@ export function normalizeLayoutState(layout: LayoutState): LayoutState {
 
 export function normalizeSidebarOverlayTab(value: unknown): RightRailPanelId {
   // temporary-migration: right-rail-mission-panel
-  // The Task Collaboration panel became the Mission panel; a saved layout
+  // The Task Collaboration panel became the Team panel; a saved layout
   // still names it by its old id.
-  if (value === "collaboration") return "mission";
+  if (value === "collaboration") return "team";
   // end temporary-migration: right-rail-mission-panel
   return RIGHT_RAIL_PANEL_IDS.includes(value as RightRailPanelId)
     ? (value as RightRailPanelId)

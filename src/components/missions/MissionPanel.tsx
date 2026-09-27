@@ -1,32 +1,40 @@
 import { useEffect, useMemo } from "react";
-import { CircleCheck, CircleDashed, CircleX, Ellipsis, Pause, Play, Target } from "lucide-react";
+import {
+  ArrowRight,
+  CircleCheck,
+  CircleDashed,
+  CircleX,
+  Ellipsis,
+  Gauge,
+  ListChecks,
+  ListOrdered,
+  Pause,
+  Play,
+  Target,
+  Users,
+} from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
 import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
 import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
 import { StepRail } from "@/components/ads/components/StepRail";
-import { describeUsageLong } from "@/lib/missions/usage";
 import { sx } from "@/components/ads/utils/stylex";
-import { TeamSection } from "@/components/team/TeamSection";
-import type { CollaborationTarget } from "@/components/team/DelegateTaskForm";
 import type { MissionDetail } from "@/lib/missions/api";
 import { currentStageRecord, isActiveMissionState, latestStageRecord } from "@/lib/missions/domain";
 import {
   describeCheckIns,
   describeMissionBadge,
   describeMissionStatusLine,
-  describeTurnBudget,
   formatAge,
-  MISSION_PERMISSION_LABELS,
   projectMissionStages,
 } from "@/lib/missions/mission-view";
 import type { AcceptanceCriterion } from "@/lib/playbooks/stage-prompt";
-import { getProviderLabel } from "@/lib/providers/model-catalog";
 import { useAppStore } from "@/store/app.store";
 import { missionStageKey, useMissionFailure, useMissionsStore, useTaskMission } from "@/store/missions-store";
 import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
 import { MissionReportView } from "./MissionReportView";
 import { useMissionReportActions, type MissionReportActions } from "./useMissionReportActions";
+import { MissionRunSummary } from "./MissionRunSummary";
 import { WakeUpSection } from "./WakeUpSection";
 import { StageCard } from "./StageCard";
 import { StageTrack } from "./StageTrack";
@@ -205,14 +213,15 @@ export function MissionDetailView(props: {
       ) : null}
 
       {criteria.length > 0 ? (
-        <section className={sx(styles.section)} aria-label="Done when">
+        <section className={sx(styles.section, styles.sectionRule)} aria-label="Done when">
           <div className={sx(styles.sectionHeader)}>
+            <ListChecks aria-hidden className={sx(styles.sectionIcon)} />
             <h3 className={sx(styles.sectionTitle)}>Done when</h3>
-            {signedOffAt ? (
-              <span className={sx(styles.sectionAside)}>Signed off by you at {formatClock(signedOffAt)}</span>
-            ) : null}
+            <span className={sx(styles.sectionAside)}>
+              {criteria.filter((criterion) => criterion.status === "met").length} of {criteria.length} met
+            </span>
           </div>
-          <ul className={sx(styles.list)}>
+          <ul className={sx(styles.checkList)}>
             {criteria.map((criterion) => {
               const presentation = CRITERION_PRESENTATION[criterion.status];
               const Icon = presentation.icon;
@@ -222,16 +231,18 @@ export function MissionDetailView(props: {
                     <Icon aria-hidden className={sx(styles.icon, presentation.tone)} />
                   </span>
                   <span className={sx(styles.checkText)}>{criterion.text}</span>
-                  <span className={sx(styles.checkState)}>{presentation.label}</span>
+                  <span className={sx(styles.checkState, presentation.tone)}>{presentation.label}</span>
                 </li>
               );
             })}
           </ul>
+          {signedOffAt ? <p className={sx(styles.checkNote)}>Signed off by you at {formatClock(signedOffAt)}</p> : null}
         </section>
       ) : null}
 
-      <section className={sx(styles.section)} aria-label="Stages">
+      <section className={sx(styles.section, styles.sectionRule)} aria-label="Stages">
         <div className={sx(styles.sectionHeader)}>
+          <ListOrdered aria-hidden className={sx(styles.sectionIcon)} />
           <h3 className={sx(styles.sectionTitle)}>Stages</h3>
           <span className={sx(styles.sectionAside)}>{describeCheckIns(mission)}</span>
         </div>
@@ -258,29 +269,12 @@ export function MissionDetailView(props: {
         <MissionReportView report={detail.report} actions={props.reportActions} context="panel" />
       ) : null}
 
-      <section className={sx(styles.section, styles.sectionRule)} aria-label="Mission details">
-        <dl className={sx(styles.facts)}>
-          <dt className={sx(styles.factLabel)}>Runs with</dt>
-          <dd className={sx(styles.factValue)}>
-            {getProviderLabel({ providerId: mission.fingerprint.providerId })} · {mission.fingerprint.model} ·{" "}
-            {MISSION_PERMISSION_LABELS[mission.consent.permissionMode]} permissions
-          </dd>
-          <dt className={sx(styles.factLabel)}>Turns</dt>
-          <dd className={sx(styles.factValue, describeTurnBudget(mission).nearLimit && styles.toneWaiting)}>
-            {describeTurnBudget(mission).text}
-            {describeTurnBudget(mission).nearLimit && active ? " — close to the limit; the mission stops there" : ""}
-          </dd>
-          {detail.usage ? (
-            <>
-              <dt className={sx(styles.factLabel)}>Spent</dt>
-              <dd className={sx(styles.factValue)}>{describeUsageLong(detail.usage) ?? "Nothing reported yet"}</dd>
-            </>
-          ) : null}
-          <dt className={sx(styles.factLabel)}>Started</dt>
-          <dd className={sx(styles.factValue)}>
-            {formatClock(mission.createdAt)} · {formatAge(now - Date.parse(mission.createdAt))} ago
-          </dd>
-        </dl>
+      <section className={sx(styles.section, styles.sectionRule)} aria-label="Run">
+        <div className={sx(styles.sectionHeader)}>
+          <Gauge aria-hidden className={sx(styles.sectionIcon)} />
+          <h3 className={sx(styles.sectionTitle)}>Run</h3>
+        </div>
+        <MissionRunSummary mission={mission} usage={detail.usage ?? null} active={active} now={now} formatClock={formatClock} />
       </section>
     </section>
   );
@@ -325,16 +319,31 @@ function HandOffEmptyState(props: { workspaceId: string; taskId: string }) {
   );
 }
 
+/** Points to the Team panel, where the task's Advisor, workers and delegated tasks live. */
+export function TeamPointer() {
+  const setLayout = useAppStore((state) => state.setLayout);
+  return (
+    <section className={sx(styles.section, styles.sectionRule, styles.teamPointer)} aria-label="Team">
+      <Users aria-hidden className={sx(styles.teamPointerIcon)} />
+      <p className={sx(styles.teamPointerText)}>Advisor, workers and delegated tasks</p>
+      <Button
+        variant="quiet"
+        size="xs"
+        xstyle={styles.teamPointerAction}
+        onClick={() => setLayout({ patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "team" } })}
+      >
+        Open Team
+        <ArrowRight aria-hidden />
+      </Button>
+    </section>
+  );
+}
+
 /**
- * The right rail's Mission panel: the task's mission on top, its wake-up, and
- * the team (Advisor, workers, delegated tasks) below.
+ * The right rail's Mission panel: what supervises the task — its mission and
+ * its wake-up. The task's collaborators are in the Team panel.
  */
-export function MissionPanel(props: {
-  workspaceId: string;
-  taskId: string;
-  team: CollaborationTarget | null;
-  teamUnavailableReason?: string;
-}) {
+export function MissionPanel(props: { workspaceId: string; taskId: string }) {
   const detail = useTaskMission(props.workspaceId, props.taskId);
   const runCommand = useMissionsStore((state) => state.runCommand);
   const refreshMission = useMissionsStore((state) => state.refreshMission);
@@ -370,13 +379,7 @@ export function MissionPanel(props: {
         <HandOffEmptyState workspaceId={props.workspaceId} taskId={props.taskId} />
       )}
       <WakeUpSection workspaceId={props.workspaceId} taskId={props.taskId} />
-      <section className={sx(styles.section, styles.sectionRule)} aria-label="Team">
-        {props.team ? (
-          <TeamSection target={props.team} />
-        ) : (
-          <p className={sx(styles.notice)}>{props.teamUnavailableReason}</p>
-        )}
-      </section>
+      <TeamPointer />
     </div>
   );
 }

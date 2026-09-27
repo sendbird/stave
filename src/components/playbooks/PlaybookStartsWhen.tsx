@@ -170,7 +170,7 @@ export function PlaybookStartsWhen(props: {
             label="Start on its own"
             hint={
               canAutoStart
-                ? `${autoStartSubject} without asking. Nothing outside this machine is allowed: stages that publish still wait for you.`
+                ? `${autoStartSubject} without asking, with this playbook's permissions. Sign-offs, and pull request or script steps, still wait for you.`
                 : "Its first stage publishes, so these missions always wait for you to start them."
             }
             control={

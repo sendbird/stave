@@ -18,6 +18,7 @@ import { parsePlaybook } from "@/lib/playbooks/normalize";
 import {
   CHECK_IN_LABELS,
   CHECK_INS,
+  DEFAULT_PLAYBOOK_PERMISSION_MODE,
   PLAYBOOK_LIMITS,
   type Playbook,
 } from "@/lib/playbooks/schema";
@@ -31,8 +32,8 @@ import { StageList } from "./StageList";
 import { playbookStyles as styles } from "./playbooks.styles";
 
 const PERMISSION_OPTIONS: ReadonlyArray<{ value: AutomationPermissionMode; label: string; description: string }> = [
-  { value: "guided", label: "Guided", description: "Asks before sensitive actions." },
-  { value: "auto", label: "Auto", description: "Never asks; for trusted repositories." },
+  { value: "auto", label: "Auto", description: "Works without asking; missions still stop at sign-offs and at steps you did not allow." },
+  { value: "guided", label: "Guided", description: "Asks before sensitive actions; a mission waits for each answer." },
   { value: "manual", label: "Manual", description: "Follows the task's own permission settings." },
 ];
 
@@ -115,7 +116,7 @@ export function PlaybookEditor(props: PlaybookEditorProps) {
   const shortcutTaken = Boolean(draft.shortcut && props.takenShortcuts.has(draft.shortcut));
   const macroWithShortcut = draft.shortcut ? (props.macroShortcuts?.get(draft.shortcut) ?? null) : null;
   const saveBlockedReason = props.saveBlockedReason ?? null;
-  const permissionMode = draft.runtime?.permissionMode ?? "guided";
+  const permissionMode = draft.runtime?.permissionMode ?? DEFAULT_PLAYBOOK_PERMISSION_MODE;
   const save = () => {
     setAttempted(true);
     setSaveFailure(null);

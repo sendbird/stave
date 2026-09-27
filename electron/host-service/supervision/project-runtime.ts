@@ -24,7 +24,7 @@ import {
 import type { MissionReport } from "../../../src/lib/missions/report";
 import type { MissionUsage } from "../../../src/lib/missions/usage";
 import { isProjectMissionModel, PROJECT_MISSION_MODELS } from "../../../src/lib/projects/models";
-import type { Playbook } from "../../../src/lib/playbooks/schema";
+import { DEFAULT_PLAYBOOK_PERMISSION_MODE, type Playbook } from "../../../src/lib/playbooks/schema";
 import { PLAYBOOK_STARTERS, createPlaybookFromStarter } from "../../../src/lib/playbooks/starters";
 import type {
   ProjectChangedEvent,
@@ -464,7 +464,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
           // the user approved in the proposal or allowed in the settings.
           consent: {
             checkIns: proposal.playbook.checkIns,
-            permissionMode: proposal.playbook.runtime?.permissionMode ?? "guided",
+            permissionMode: proposal.playbook.runtime?.permissionMode ?? DEFAULT_PLAYBOOK_PERMISSION_MODE,
             authorizedEffectStageIds: listExternalEffectStages(proposal.playbook).map((stage) => stage.id),
           },
         },

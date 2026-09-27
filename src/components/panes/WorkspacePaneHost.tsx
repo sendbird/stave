@@ -499,6 +499,10 @@ function buildTabContextMenuItems(
         label: "View mission",
         action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "mission"),
       });
+      items.push({
+        label: "View team",
+        action: () => openTaskInspection(store.activeWorkspaceId, surface.taskId, "team"),
+      });
     }
     if (isManagedTask) {
       items.push({
