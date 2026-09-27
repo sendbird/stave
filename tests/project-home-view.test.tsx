@@ -204,3 +204,59 @@ test("the library filters by name, mission, address or kind, and a workspace fin
   expect(findWorkspaceProject(details, "elsewhere")).toBeNull();
   expect(findWorkspaceProject({ [PROJECT.id]: { ...DETAIL, project: { ...PROJECT, state: "completed" } } }, "ws")).toBeNull();
 });
+
+test("approved proposals waiting for a slot and failed starts show with their reason", async () => {
+  const { listPendingStarts } = await import("../src/components/projects/ProjectHome");
+  const base = DETAIL.proposals[0]!;
+  const queued = { ...base, id: "queued", assignment: "Move the header.", state: "approved" as const };
+  const failed = (id: string, minutes: number) => ({
+    ...base,
+    id,
+    assignment: `Move screen ${id}.`,
+    state: "failed" as const,
+    detail: `Worktree ${id} already exists.`,
+    updatedAt: new Date(Date.parse(NOW) + minutes * 60_000).toISOString(),
+  });
+  const detail: ProjectDetail = {
+    ...DETAIL,
+    proposals: [base, queued, failed("a", 1), failed("b", 2), failed("c", 3), failed("d", 4)],
+  };
+  const html = renderToStaticMarkup(createElement(ProjectHome, { detail }));
+  expect(html).toContain('aria-label="Not started"');
+  expect(html).toContain("Queued · starts when a slot frees up (3 at once)");
+  expect(html).toContain("Could not start · Worktree d already exists.");
+  // The newest failures in full; the oldest summed up.
+  expect(html).not.toContain("Worktree a already exists.");
+  expect(html).toContain("1 earlier start also failed.");
+
+  const starts = listPendingStarts(detail.proposals);
+  expect(starts.queued.map((proposal) => proposal.id)).toEqual(["queued"]);
+  expect(starts.failed.map((proposal) => proposal.id)).toEqual(["d", "c", "b"]);
+  expect(starts.earlierFailures).toBe(1);
+  // Nothing waiting to start: no section.
+  expect(renderToStaticMarkup(createElement(ProjectHome, { detail: DETAIL }))).not.toContain("Not started");
+});
+
+test("a failed load offers a retry instead of the first-project invitation", async () => {
+  const { ProjectsLoadFailure } = await import("../src/components/projects/ProjectsView");
+  const html = renderToStaticMarkup(
+    createElement(ProjectsLoadFailure, {
+      title: "Projects could not be loaded",
+      message: "The host did not answer.",
+      onRetry: async () => {},
+    }),
+  );
+  expect(html).toContain("Projects could not be loaded");
+  expect(html).toContain("The host did not answer.");
+  expect(html).toContain("Try again");
+  expect(html).not.toContain("Hand Stave a goal");
+});
+
+test("the sidebar total counts every open project, not only the listed ones", async () => {
+  const { countAllProjectNeeds } = await import("../src/store/projects-store");
+  const projects = Array.from({ length: 7 }, (_, index) => ({ ...PROJECT, id: `project-${index}` }));
+  const details = Object.fromEntries(projects.map((project) => [project.id, { ...DETAIL, project }] as const));
+  expect(countAllProjectNeeds(projects, details)).toBe(14);
+  const ended = projects.map((project, index) => (index === 6 ? { ...project, state: "cancelled" as const } : project));
+  expect(countAllProjectNeeds(ended, details)).toBe(12);
+});

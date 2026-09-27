@@ -7,6 +7,7 @@ import {
   CircleMinus,
   CircleX,
   ChevronDown,
+  Clock,
   GitPullRequest,
   Hand,
   TriangleAlert,
@@ -183,6 +184,38 @@ export function ProposalRow(props: {
         <Button size="xs" disabled={props.busy} onClick={() => props.onApprove(changed ? runsOn : undefined)}>
           Start mission
         </Button>
+      </span>
+    </li>
+  );
+}
+
+/**
+ * A proposal that is not running yet: approved and waiting for a free slot,
+ * or failed to start, with the reason Stave kept.
+ */
+export function PendingStartRow(props: { proposal: MissionProposal; parallelLimit: number }) {
+  const { proposal } = props;
+  const failed = proposal.state === "failed";
+  const Mark = failed ? TriangleAlert : Clock;
+  const status = failed
+    ? `Could not start · ${proposal.detail?.trim() || "No reason was recorded."}`
+    : `Queued · starts when a slot frees up (${props.parallelLimit} at once)`;
+  return (
+    <li className={sx(styles.row, styles.rowCompact)}>
+      <span className={sx(styles.rowMark)}>
+        <Mark aria-hidden className={sx(styles.icon, failed ? styles.toneAttention : styles.iconMuted)} />
+      </span>
+      <span className={sx(styles.rowText)}>
+        <span className={sx(styles.rowTitle)} title={proposal.assignment}>
+          {missionTitle(proposal)}
+        </span>
+        <span className={sx(styles.rowMeta, styles.rowMetaWrap)}>
+          <span className={sx(failed && styles.rowAttention)}>{status}</span>
+          {` · ${proposal.playbook.name}`}
+        </span>
+      </span>
+      <span className={sx(styles.rowActions)}>
+        <span className={sx(styles.hint)}>{describeRunsOn({ providerId: proposal.providerId, model: proposal.model })}</span>
       </span>
     </li>
   );

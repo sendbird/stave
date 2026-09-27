@@ -1,7 +1,8 @@
-import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
-import { FolderKanban, Plus, X } from "lucide-react";
+import { useCallback, useEffect, useState } from "react";
+import { FolderKanban, Plus, TriangleAlert, X } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
+import { EmptyState } from "@/components/ads/components/EmptyState";
 import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
 import { Select } from "@/components/ads/components/Select";
 import { sx } from "@/components/ads/utils/stylex";
@@ -119,18 +120,47 @@ export function ProjectList(props: {
   );
 }
 
-/** The element's width, following resizes; 0 before layout (and in tests). */
-function useElementWidth(ref: RefObject<HTMLElement | null>): number {
+/**
+ * The width of the element the returned ref lands on, following resizes; 0
+ * before layout (and in tests). A callback ref, so an element that mounts
+ * later — the body after the first project is created — is observed too.
+ */
+function useElementWidth(): [number, (element: HTMLElement | null) => (() => void) | undefined] {
   const [width, setWidth] = useState(0);
-  useLayoutEffect(() => {
-    const element = ref.current;
-    if (!element || typeof ResizeObserver === "undefined") return;
+  const ref = useCallback((element: HTMLElement | null) => {
+    if (!element || typeof ResizeObserver === "undefined") return undefined;
     setWidth(element.getBoundingClientRect().width);
     const observer = new ResizeObserver((entries) => setWidth(entries[0]?.contentRect.width ?? 0));
     observer.observe(element);
     return () => observer.disconnect();
-  }, [ref]);
-  return width;
+  }, []);
+  return [width, ref];
+}
+
+/** Projects (or one project) could not be read: why, and a way to try again. */
+export function ProjectsLoadFailure(props: { title: string; message: string; onRetry: () => Promise<void> }) {
+  const [retrying, setRetrying] = useState(false);
+  return (
+    <div className={sx(styles.scroll)}>
+      <div className={sx(styles.failure)}>
+        <EmptyState
+          role="alert"
+          tone="danger"
+          icon={<TriangleAlert size={iconTileGlyphSizes.xl} />}
+          title={props.title}
+          description={props.message}
+          action={{
+            children: "Try again",
+            loading: retrying,
+            onClick: () => {
+              setRetrying(true);
+              void props.onRetry().finally(() => setRetrying(false));
+            },
+          }}
+        />
+      </div>
+    </div>
+  );
 }
 
 /** The Projects surface: every project on the left, the one in focus on the right. */
@@ -139,6 +169,9 @@ export function ProjectsView(props: { loadCoordinatorMessages?: CoordinatorMessa
   const selectedId = useProjectsStore((state) => state.selectedId);
   const select = useProjectsStore((state) => state.select);
   const loaded = useProjectsStore((state) => state.loaded);
+  const loadFailure = useProjectsStore((state) => state.loadFailure);
+  const load = useProjectsStore((state) => state.load);
+  const refresh = useProjectsStore((state) => state.refresh);
   const closeProjects = useAppStore((state) => state.closeProjects);
   const [creating, setCreating] = useState(false);
   const newProjectRequested = useProjectsStore((state) => state.newProjectRequested);
@@ -155,8 +188,8 @@ export function ProjectsView(props: { loadCoordinatorMessages?: CoordinatorMessa
     projects[0] ??
     null;
   const detail = selected ? details[selected.id] : undefined;
-  const bodyRef = useRef<HTMLDivElement>(null);
-  const width = useElementWidth(bodyRef);
+  const detailFailure = useProjectsStore((state) => (selected ? (state.detailFailureById[selected.id] ?? null) : null));
+  const [width, bodyRef] = useElementWidth();
   const dockOpen = useProjectsStore((state) => state.dockOpen);
   const dockOverlayOpen = useProjectsStore((state) => state.dockOverlayOpen);
   const openCoordinatorDock = useProjectsStore((state) => state.openCoordinatorDock);
@@ -205,7 +238,9 @@ export function ProjectsView(props: { loadCoordinatorMessages?: CoordinatorMessa
         </div>
       </header>
 
-      {loaded && projects.length === 0 ? (
+      {loadFailure && projects.length === 0 ? (
+        <ProjectsLoadFailure title="Projects could not be loaded" message={loadFailure} onRetry={load} />
+      ) : loaded && projects.length === 0 ? (
         <ProjectsEmpty onCreate={() => setCreating(true)} />
       ) : (
         <div
@@ -238,11 +273,19 @@ export function ProjectsView(props: { loadCoordinatorMessages?: CoordinatorMessa
             ) : null}
             {detail ? (
               <ProjectHome detail={detail} coordinatorDocked={dockVisible} onTalkToCoordinator={openCoordinatorDock} />
+            ) : selected && detailFailure ? (
+              <ProjectsLoadFailure
+                title={`“${selected.name}” could not be loaded`}
+                message={detailFailure}
+                onRetry={() => refresh(selected.id)}
+              />
             ) : null}
           </div>
           {detail && dockVisible ? (
             <div className={sx(dockMode === "docked" ? styles.dockColumn : styles.dockOverlay)}>
               <CoordinatorDock
+                // A dock per project: a message typed for one never goes to another.
+                key={detail.project.id}
                 detail={detail}
                 onSend={async (text) => {
                   const response = await runCommand("messageCoordinator", { projectId: detail.project.id, text });

@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   ArrowUpRight,
   Bot,
@@ -18,13 +19,15 @@ import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
 import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
+import { ConfirmDialog } from "@/components/layout/ConfirmDialog";
 import { formatAge } from "@/lib/missions/mission-view";
 import { addMissionUsage, describeUsageLong, describeUsageShort } from "@/lib/missions/usage";
 import type { ProjectDetail } from "@/lib/projects/api";
+import type { MissionProposal } from "@/lib/projects/domain";
 import { useAppStore } from "@/store/app.store";
 import { countProjectNeeds, useProjectsStore } from "@/store/projects-store";
 import { ProjectDetailTabs } from "./ProjectDetailTabs";
-import { Lane, MissionRow, ProposalRow, missionNeedsYou } from "./ProjectRows";
+import { Lane, MissionRow, PendingStartRow, ProposalRow, missionNeedsYou } from "./ProjectRows";
 import { describeTriggers } from "./ProjectStartsWhen";
 import { projectStyles as styles } from "./projects.styles";
 
@@ -61,6 +64,25 @@ function describeWakeReason(detail: ProjectDetail, wake: ProjectDetail["events"]
   return reasons.length ? ` for ${reasons.join(" and ")}` : "";
 }
 
+/** Failed starts shown in full; older ones are summed up in one line. */
+const FAILURES_SHOWN = 3;
+
+/**
+ * Proposals that are not running yet: approved ones waiting for a free slot,
+ * and the newest failed starts (a failed start is never retried on its own).
+ */
+export function listPendingStarts(proposals: readonly MissionProposal[]) {
+  const queued = proposals.filter((proposal) => proposal.state === "approved");
+  const allFailed = proposals
+    .filter((proposal) => proposal.state === "failed")
+    .sort((left, right) => Date.parse(right.updatedAt) - Date.parse(left.updatedAt));
+  return {
+    queued,
+    failed: allFailed.slice(0, FAILURES_SHOWN),
+    earlierFailures: Math.max(0, allFailed.length - FAILURES_SHOWN),
+  };
+}
+
 export function ProjectHome({
   detail,
   coordinatorDocked = false,
@@ -77,12 +99,14 @@ export function ProjectHome({
   const failure = useProjectsStore((state) => state.failureById[project.id] ?? null);
   const focusTaskAttention = useAppStore((state) => state.focusTaskAttention);
   const closeProjects = useAppStore((state) => state.closeProjects);
+  const [confirmingCancel, setConfirmingCancel] = useState(false);
 
   const open = (workspaceId: string, taskId: string) => {
     closeProjects();
     void focusTaskAttention({ workspaceId, taskId, repositoryPath: project.repositoryPath, refreshFromPersistence: true });
   };
   const pending = detail.proposals.filter((proposal) => proposal.state === "pending");
+  const { queued, failed, earlierFailures } = listPendingStarts(detail.proposals);
   const waiting = detail.missions.filter(missionNeedsYou);
   const running = detail.missions.filter(
     (mission) => (mission.state === "running" || mission.state === "paused") && !missionNeedsYou(mission),
@@ -178,10 +202,10 @@ export function ProjectHome({
                   {
                     items: [
                       {
-                        label: "Cancel project",
+                        label: "Cancel project…",
                         tone: "danger",
                         icon: <CircleX />,
-                        onSelect: () => void runCommand("end", { projectId: project.id, outcome: "cancelled" }),
+                        onSelect: () => setConfirmingCancel(true),
                       },
                     ],
                   },
@@ -248,6 +272,26 @@ export function ProjectHome({
           ))}
         </Lane>
 
+        {queued.length + failed.length > 0 ? (
+          <Lane title="Not started" count={queued.length + failed.length + earlierFailures} empty="">
+            {queued.map((proposal) => (
+              <PendingStartRow key={proposal.id} proposal={proposal} parallelLimit={project.settings.parallelLimit} />
+            ))}
+            {failed.map((proposal) => (
+              <PendingStartRow key={proposal.id} proposal={proposal} parallelLimit={project.settings.parallelLimit} />
+            ))}
+            {earlierFailures > 0 ? (
+              <li className={sx(styles.row, styles.rowCompact, styles.rowNote)}>
+                <span />
+                <span className={sx(styles.hint)}>
+                  {earlierFailures} earlier {earlierFailures === 1 ? "start" : "starts"} also failed. Ask the
+                  coordinator to propose {earlierFailures === 1 ? "it" : "them"} again.
+                </span>
+              </li>
+            ) : null}
+          </Lane>
+        ) : null}
+
         <Lane title="Running" count={running.length} empty="No mission is running. The coordinator proposes the next ones.">
           {running.map((mission) => (
             <MissionRow key={mission.missionId} mission={mission} onOpen={() => open(mission.workspaceId, mission.taskId)} />
@@ -266,9 +310,21 @@ export function ProjectHome({
           onSetMemoryStatus={(memory, status) =>
             void runCommand("setMemoryStatus", { projectId: project.id, memoryId: memory.id, status })
           }
-          onUpdateSettings={(settings) => void runCommand("updateSettings", { projectId: project.id, settings })}
+          onUpdateSettings={(settings) => runCommand("updateSettings", { projectId: project.id, settings })}
         />
       </div>
+      <ConfirmDialog
+        open={confirmingCancel}
+        title={`Cancel “${project.name}”?`}
+        description="The coordinator stops planning and waking, and no new mission starts. Missions already running finish on their own. A cancelled project cannot be reopened."
+        confirmLabel="Cancel project"
+        cancelLabel="Keep project"
+        loading={busy}
+        onConfirm={() => {
+          void runCommand("end", { projectId: project.id, outcome: "cancelled" }).then(() => setConfirmingCancel(false));
+        }}
+        onCancel={() => setConfirmingCancel(false)}
+      />
     </div>
   );
 }

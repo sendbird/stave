@@ -42,7 +42,8 @@ export function ProjectDetailTabs(props: {
   detail: ProjectDetail;
   busy: boolean;
   onSetMemoryStatus: (memory: ProjectMemory, status: ProjectMemory["status"] | "removed") => void;
-  onUpdateSettings: (settings: Partial<ProjectSettings>) => void;
+  /** Settles once the host has answered, so a control can hold its change until then. */
+  onUpdateSettings: (settings: Partial<ProjectSettings>) => void | Promise<unknown>;
 }) {
   const { detail } = props;
   const tab = useProjectsStore((state) => state.detailTab);

@@ -85,9 +85,31 @@ const proposal: MissionProposal = {
   updatedAt: iso(10),
 };
 
+// Approved and waiting for a free slot, and a start that failed with its reason.
+const queuedProposal: MissionProposal = {
+  ...proposal,
+  id: "queued",
+  startKey: "footer",
+  assignment: "Move the footer links to the new Link component.",
+  providerId: "claude-code",
+  state: "approved",
+  createdAt: iso(4),
+  updatedAt: iso(4),
+};
+const failedProposal: MissionProposal = {
+  ...proposal,
+  id: "failed",
+  startKey: "sidebar",
+  assignment: "Move the sidebar navigation.",
+  state: "failed",
+  detail: "The worktree “sidebar” already exists. Remove it or ask the coordinator for another name.",
+  createdAt: iso(30),
+  updatedAt: iso(28),
+};
+
 const detail: ProjectDetail = {
   project,
-  proposals: [proposal],
+  proposals: [proposal, queuedProposal, failedProposal],
   missions: [
     mission({ missionId: "m1", assignment: "Move the settings form to the new Form fields.", currentStageIndex: 5, stageTitle: "Ready for review", currentStageStatus: "awaiting-sign-off", providerId: "codex" }),
     mission({ missionId: "m2" }),

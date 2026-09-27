@@ -34,8 +34,14 @@ interface ProjectsState {
   /** The conversation floating over the project on a narrow window. */
   dockOverlayOpen: boolean;
   loaded: boolean;
+  /** The project list is being read. */
+  loading: boolean;
+  /** Why the project list could not be read; the view offers a retry instead of the empty state. */
+  loadFailure: string | null;
   pendingById: Record<string, boolean>;
   failureById: Record<string, string | null>;
+  /** Why a project's detail could not be read, until a read succeeds. */
+  detailFailureById: Record<string, string | null>;
   load: () => Promise<void>;
   refresh: (projectId: string) => Promise<void>;
   select: (projectId: string | null) => void;
@@ -71,29 +77,60 @@ export const useProjectsStore = create<ProjectsState>()((set, get) => {
     dockOpen: true,
     dockOverlayOpen: false,
     loaded: false,
+    loading: false,
+    loadFailure: null,
     pendingById: {},
     failureById: {},
+    detailFailureById: {},
 
     load: async () => {
       const api = projectsApi();
       if (!api) {
-        set({ loaded: true });
+        set({ loaded: true, loadFailure: null });
         return;
       }
-      const listed = await api.list({}).catch(() => null);
-      if (!listed?.ok) {
-        set({ loaded: true });
+      set({ loading: true });
+      const listed = await api
+        .list({})
+        .catch((error: unknown) => ({
+          ok: false as const,
+          projects: [],
+          message: error instanceof Error ? error.message : undefined,
+        }));
+      if (!listed.ok) {
+        set({ loaded: true, loading: false, loadFailure: listed.message || "Projects could not be loaded." });
         return;
       }
-      set({ projects: listed.projects, loaded: true });
+      set({ projects: listed.projects, loaded: true, loading: false, loadFailure: null });
       await Promise.all(
         listed.projects.filter((project) => isOpenProjectState(project.state)).map((project) => get().refresh(project.id)),
       );
     },
 
     refresh: async (projectId) => {
-      const response = await projectsApi()?.get({ projectId }).catch(() => null);
-      if (response?.ok && response.project) storeDetail(response.project);
+      const api = projectsApi();
+      if (!api) return;
+      const response = await api.get({ projectId }).catch(
+        (error: unknown): ProjectResponse => ({
+          ok: false,
+          project: null,
+          code: "failed",
+          message: error instanceof Error ? error.message : undefined,
+        }),
+      );
+      if (response.ok && response.project) {
+        storeDetail(response.project);
+        if (get().detailFailureById[projectId]) {
+          set((state) => ({ detailFailureById: { ...state.detailFailureById, [projectId]: null } }));
+        }
+        return;
+      }
+      set((state) => ({
+        detailFailureById: {
+          ...state.detailFailureById,
+          [projectId]: response.message || "This project could not be loaded.",
+        },
+      }));
     },
 
     select: (projectId) => {
@@ -151,6 +188,13 @@ export const useProjectsStore = create<ProjectsState>()((set, get) => {
     },
   };
 });
+
+/** What waits for the user across every open project, whether or not the sidebar lists it. */
+export function countAllProjectNeeds(projects: readonly Project[], details: Record<string, ProjectDetail>): number {
+  return projects
+    .filter((project) => isOpenProjectState(project.state))
+    .reduce((sum, project) => sum + countProjectNeeds(details[project.id]), 0);
+}
 
 /** What waits for the user in a project: proposals and missions that stopped for them. */
 export function countProjectNeeds(detail: ProjectDetail | undefined): number {

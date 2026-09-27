@@ -244,6 +244,10 @@ export const projectStyles = stylex.create({
     fontSize: vars["--ads-font-size-caption"],
     color: vars["--ads-color-text-muted"],
   },
+  /** A one-line note closing a lane, such as how many older rows it leaves out. */
+  rowNote: { minHeight: 0 },
+  /** A failure reason reads in full instead of cutting off. */
+  rowMetaWrap: { whiteSpace: "normal", overflowWrap: "anywhere", lineHeight: vars["--ads-line-height-normal"] },
   rowWaiting: { color: vars["--ads-color-warning-text"] },
   rowAttention: { color: vars["--ads-color-danger-text"] },
   rowActions: { display: "flex", alignItems: "center", gap: vars["--ads-space-4"], justifyContent: "flex-end" },
@@ -317,6 +321,14 @@ export const projectStyles = stylex.create({
     flexDirection: "column",
     gap: vars["--ads-space-20"],
     maxWidth: "46rem",
+    marginInline: "auto",
+    paddingInline: vars["--ads-space-24"],
+    paddingTop: "max(2rem, 8vh)",
+    paddingBottom: vars["--ads-space-32"],
+  },
+  /** A load failure: the ADS empty state, centered where the project would be. */
+  failure: {
+    maxWidth: "32rem",
     marginInline: "auto",
     paddingInline: vars["--ads-space-24"],
     paddingTop: "max(2rem, 8vh)",

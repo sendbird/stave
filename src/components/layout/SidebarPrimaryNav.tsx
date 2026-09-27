@@ -8,7 +8,7 @@ import { repositorySidebarStyles } from "@/components/layout/repository-workspac
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { isOpenProjectState } from "@/lib/projects/domain";
 import { useAppStore } from "@/store/app.store";
-import { countProjectNeeds, useProjectsStore } from "@/store/projects-store";
+import { countAllProjectNeeds, countProjectNeeds, useProjectsStore } from "@/store/projects-store";
 
 const MAX_LISTED_PROJECTS = 5;
 
@@ -26,7 +26,8 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   const selectedId = useProjectsStore((state) => state.selectedId);
   const select = useProjectsStore((state) => state.select);
   const open = projects.filter((project) => isOpenProjectState(project.state)).slice(0, MAX_LISTED_PROJECTS);
-  const totalNeeds = open.reduce((sum, project) => sum + countProjectNeeds(details[project.id]), 0);
+  // Every open project counts, including those past the few listed here.
+  const totalNeeds = countAllProjectNeeds(projects, details);
   return (
     <>
       {props.showFleetView ? (

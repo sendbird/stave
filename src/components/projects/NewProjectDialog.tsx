@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { FolderKanban } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { Switch } from "@/components/ads/components/Switch";
@@ -33,41 +33,62 @@ export function NewProjectDialog(props: { open: boolean; onOpenChange: (open: bo
   const [askBeforeStarting, setAskBeforeStarting] = useState(true);
   const [creating, setCreating] = useState(false);
   const [failure, setFailure] = useState<string | null>(null);
+  // The coordinator task an attempt that failed already made; a retry reuses
+  // it instead of leaving one more empty task behind.
+  const madeTask = useRef<{ workspaceId: string; taskId: string } | null>(null);
+
+  /** The coordinator's task: the one in view, the one an earlier attempt made, or a new one. */
+  const prepareCoordinatorTask = (workspaceId: string): string | null => {
+    const title = `Coordinator · ${name.trim()}`;
+    if (coordinator === "current") return activeTask?.id ?? null;
+    const store = useAppStore.getState();
+    const earlier = madeTask.current;
+    if (earlier?.workspaceId === workspaceId && store.tasks.some((task) => task.id === earlier.taskId)) {
+      store.renameTask({ taskId: earlier.taskId, title });
+      store.setTaskProvider({ taskId: earlier.taskId, provider: coordinator });
+      return earlier.taskId;
+    }
+    const previous = store.activeTaskId;
+    store.createTask({ title });
+    const taskId = useAppStore.getState().activeTaskId;
+    if (!taskId || taskId === previous) return null;
+    madeTask.current = { workspaceId, taskId };
+    useAppStore.getState().setTaskProvider({ taskId, provider: coordinator });
+    return taskId;
+  };
 
   const submit = async () => {
-    if (!activeWorkspaceId) return;
+    if (!activeWorkspaceId || creating) return;
     setCreating(true);
     setFailure(null);
-    const store = useAppStore.getState();
-    let taskId = activeTask?.id ?? null;
-    if (coordinator !== "current") {
-      const previous = store.activeTaskId;
-      store.createTask({ title: `Coordinator · ${name.trim()}` });
-      taskId = useAppStore.getState().activeTaskId;
-      if (!taskId || taskId === previous) {
-        setCreating(false);
+    try {
+      const taskId = prepareCoordinatorTask(activeWorkspaceId);
+      if (!taskId) {
         setFailure("The coordinator task could not be created.");
         return;
       }
-      useAppStore.getState().setTaskProvider({ taskId, provider: coordinator });
+      // The host reads the task from the saved workspace.
+      await useAppStore.getState().flushActiveWorkspaceSnapshot();
+      const response = await createProject({
+        name: name.trim(),
+        goal: goal.trim(),
+        coordinator: { workspaceId: activeWorkspaceId, taskId },
+        settings: { askBeforeStarting },
+      });
+      if (!response.ok) {
+        setFailure(response.message ?? "The project could not be created.");
+        return;
+      }
+      madeTask.current = null;
+      useAppStore.getState().openProjects();
+      props.onOpenChange(false);
+      setName("");
+      setGoal("");
+    } catch (error) {
+      setFailure(error instanceof Error && error.message ? error.message : "The project could not be created.");
+    } finally {
+      setCreating(false);
     }
-    // The host reads the task from the saved workspace.
-    await useAppStore.getState().flushActiveWorkspaceSnapshot();
-    const response = await createProject({
-      name: name.trim(),
-      goal: goal.trim(),
-      coordinator: { workspaceId: activeWorkspaceId, taskId: taskId! },
-      settings: { askBeforeStarting },
-    });
-    setCreating(false);
-    if (!response.ok) {
-      setFailure(response.message ?? "The project could not be created.");
-      return;
-    }
-    useAppStore.getState().openProjects();
-    props.onOpenChange(false);
-    setName("");
-    setGoal("");
   };
 
   return (

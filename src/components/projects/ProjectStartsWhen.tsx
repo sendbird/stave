@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { CalendarClock, GitPullRequest, Ticket } from "lucide-react";
 import { Select } from "@/components/ads/components/Select";
 import { Switch } from "@/components/ads/components/Switch";
@@ -50,11 +50,28 @@ function TriggerRow(props: {
  * Starts when: what wakes the coordinator besides its own missions. Each only
  * wakes it; the coordinator decides whether a mission follows.
  */
-export function ProjectStartsWhen(props: { triggers: ProjectTriggers; onChange: (triggers: ProjectTriggers) => void }) {
-  const { triggers } = props;
+export function ProjectStartsWhen(props: {
+  triggers: ProjectTriggers;
+  /** Sends the whole start conditions; settles once the host has answered. */
+  onChange: (triggers: ProjectTriggers) => void | Promise<unknown>;
+}) {
+  // Each change sends every condition, so it builds on the changes still in
+  // flight rather than on the last saved ones: two quick toggles both stick.
+  const [sent, setSent] = useState<ProjectTriggers | null>(null);
+  const inFlight = useRef(0);
+  const triggers = sent ?? props.triggers;
   const [filter, setFilter] = useState(triggers.issueFilter);
   useEffect(() => setFilter(triggers.issueFilter), [triggers.issueFilter]);
-  const update = (patch: Partial<ProjectTriggers>) => props.onChange({ ...triggers, ...patch });
+  const update = (patch: Partial<ProjectTriggers>) => {
+    const next = { ...triggers, ...patch };
+    setSent(next);
+    inFlight.current += 1;
+    void Promise.resolve(props.onChange(next)).finally(() => {
+      inFlight.current -= 1;
+      // Once every change is answered, show what the host saved.
+      if (inFlight.current === 0) setSent(null);
+    });
+  };
   const commitFilter = () => {
     if (filter.trim() !== triggers.issueFilter) update({ issueFilter: filter.trim() });
   };

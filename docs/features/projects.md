@@ -72,7 +72,8 @@ focus is on the right. On a narrow window a picker replaces the list.
   mission · up to 2 at once") and what it watches ("Issues matching
   “dashboard” · PR feedback · Weekdays at 09:00"). **Pause**
   stops the coordinator's automatic turns and new starts; the ⋯ menu marks
-  the goal met or cancels the project.
+  the goal met or cancels the project (after you confirm; a cancelled project
+  cannot be reopened).
 - **Coordinator**: its latest summary of the project, and when and why it
   last woke ("woke 5m ago for an assigned issue"). **Talk** opens the
   conversation; **↗** opens its task.
@@ -80,6 +81,10 @@ focus is on the right. On a narrow window a picker replaces the list.
   and missions that wait for your sign-off or are blocked or stuck
   (**Review**). A proposal shows where it will run, such as **Codex · GPT-6
   Sol**; open it to pick another provider or model before starting.
+- **Not started** (only when there is something to show): approved missions
+  **Queued** until one of the project's slots frees up, and starts that
+  failed, each with the reason Stave kept (the newest three; older ones are
+  counted).
 - **Running** and **Done**: each mission with its playbook, current stage,
   provider, what it spent and a stage track. **Open** goes to its task; **PR** opens its
   pull request.
@@ -211,8 +216,14 @@ a loop; send the coordinator a message or **Resume** the project.
 ### A proposal shows as failed
 
 Stave could not create the worktree or start the mission. The proposal keeps
-the reason. Ask the coordinator to propose it again; the same start is never
-replayed on its own.
+the reason, shown under **Not started**. Ask the coordinator to propose it
+again; the same start is never replayed on its own.
+
+### Projects could not be loaded
+
+The Projects view shows the reason and **Try again** instead of the first-run
+page when the project list (or one project) cannot be read. Try again; if it
+keeps failing, restart Stave.
 
 ## Related Docs
 

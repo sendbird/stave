@@ -79,20 +79,41 @@ export function CoordinatorDock(props: {
   const { workspaceId, taskId } = project.coordinator;
 
   const load = props.loadMessages ?? loadSavedMessages;
+  // Reads can finish out of order (a slow one, then a poll); only a newer read
+  // than the one on screen lands, and none after the dock is gone.
+  const issued = useRef(0);
+  const applied = useRef(0);
+  const mounted = useRef(true);
+  useEffect(() => {
+    mounted.current = true;
+    return () => {
+      mounted.current = false;
+    };
+  }, []);
   const reload = useCallback(async () => {
+    const sequence = ++issued.current;
     const messages = await load({ workspaceId, taskId }).catch(() => null);
+    if (!mounted.current || sequence < applied.current) return;
+    applied.current = sequence;
     if (messages) setEntries(toDockEntries(messages));
   }, [load, workspaceId, taskId]);
 
   // Re-read when the project changes (a wake, a message) and while it answers.
-  const eventCount = props.detail.events.length;
+  // The events are the newest few, so their count stops changing; the last id does not.
+  const lastEventId = props.detail.events.at(-1)?.id ?? null;
   useEffect(() => {
     void reload();
-  }, [reload, eventCount, busy]);
+  }, [reload, lastEventId, busy]);
   useEffect(() => {
-    if (!busy && Date.now() > followUntil) return;
+    const following = followUntil - Date.now();
+    if (!busy && following <= 0) return;
     const timer = setInterval(() => void reload(), POLL_MS);
-    return () => clearInterval(timer);
+    // After a message, follow for a while even if the answer has not started; then stop.
+    const stop = busy ? null : setTimeout(() => setFollowUntil(0), following);
+    return () => {
+      clearInterval(timer);
+      if (stop) clearTimeout(stop);
+    };
   }, [busy, followUntil, reload]);
 
   // Stay at the newest message.
