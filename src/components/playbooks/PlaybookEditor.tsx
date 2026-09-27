@@ -7,7 +7,13 @@ import { TextField } from "@/components/ads/components/TextField";
 import { Textarea } from "@/components/ads/components/Textarea";
 import { Tooltip } from "@/components/ads/components/Tooltip";
 import { sx } from "@/components/ads/utils/stylex";
-import { applyCheckIns, describeSignOffs, groupIssuesByField } from "@/lib/playbooks/library";
+import {
+  applyCheckIns,
+  describeSignOffs,
+  groupIssuesByField,
+  listUnplacedIssues,
+  playbooksEqual,
+} from "@/lib/playbooks/library";
 import { parsePlaybook } from "@/lib/playbooks/normalize";
 import {
   CHECK_IN_LABELS,
@@ -38,8 +44,15 @@ export interface PlaybookEditorProps {
   saved: Playbook | null;
   /** Shortcuts other playbooks use, for a collision hint. */
   takenShortcuts: ReadonlySet<string>;
+  /** Macro names by slug: a macro with the same `!slug` shows up beside the playbook in the composer. */
+  macroShortcuts?: ReadonlyMap<string, string>;
   onChange: (draft: Playbook) => void;
-  onSave: (playbook: Playbook) => void;
+  /** Writes the playbook; returns why it was not saved, keeping the edits, or nothing on success. */
+  onSave: (playbook: Playbook) => string | null | void;
+  /** Why this playbook cannot be saved now (the library is full), or null. */
+  saveBlockedReason?: string | null;
+  /** Why the playbook cannot be duplicated now (the library is full), or null. */
+  duplicateBlockedReason?: string | null;
   onDiscard: () => void;
   onDuplicate: () => void;
   onDelete: () => void;
@@ -53,6 +66,33 @@ export interface PlaybookEditorProps {
 }
 
 /**
+ * Why a save did not go through, with every issue that has no field of its
+ * own to show beside (start conditions, runtime), so none goes unseen.
+ */
+export function PlaybookSaveBanner(props: {
+  message: string;
+  unplaced: ReadonlyArray<{ path: string; label: string; message: string }>;
+}) {
+  return (
+    <div className={sx(styles.banner)} role="alert">
+      <AlertCircle aria-hidden className={sx(styles.bannerIcon)} />
+      <div className={sx(styles.bannerBody)}>
+        <span>{props.message}</span>
+        {props.unplaced.length > 0 ? (
+          <ul className={sx(styles.bannerList)}>
+            {props.unplaced.map((issue) => (
+              <li key={issue.path}>
+                <span className={sx(styles.bannerLabel)}>{issue.label}:</span> {issue.message}
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+/**
  * One playbook, edited in place: name and purpose as the heading, a property
  * grid for check-ins, shortcut and permissions, then the stages. Nothing is
  * written until Save, which validates the whole playbook and points at each
@@ -63,22 +103,33 @@ export function PlaybookEditor(props: PlaybookEditorProps) {
   const [attempted, setAttempted] = useState(false);
   const [drafting, setDrafting] = useState(Boolean(props.initialDrafting));
   const [confirmingDelete, setConfirmingDelete] = useState(false);
-  const dirty = useMemo(
-    () => !props.saved || JSON.stringify(props.saved) !== JSON.stringify(draft),
-    [draft, props.saved],
-  );
+  const [saveFailure, setSaveFailure] = useState<string | null>(null);
+  const dirty = useMemo(() => !props.saved || !playbooksEqual(props.saved, draft), [draft, props.saved]);
   const parsed = useMemo(() => parsePlaybook(draft), [draft]);
   const issues = useMemo(
     () => (attempted && !parsed.ok ? groupIssuesByField(parsed.issues) : new Map<string, string>()),
     [attempted, parsed],
   );
+  const unplacedIssues = listUnplacedIssues(issues);
   const custom = isCustomCheckIns(draft);
   const shortcutTaken = Boolean(draft.shortcut && props.takenShortcuts.has(draft.shortcut));
+  const macroWithShortcut = draft.shortcut ? (props.macroShortcuts?.get(draft.shortcut) ?? null) : null;
+  const saveBlockedReason = props.saveBlockedReason ?? null;
   const permissionMode = draft.runtime?.permissionMode ?? "guided";
   const save = () => {
     setAttempted(true);
-    if (parsed.ok && !shortcutTaken) props.onSave({ ...parsed.playbook, updatedAt: new Date().toISOString() });
+    setSaveFailure(null);
+    if (!parsed.ok || shortcutTaken || saveBlockedReason) return;
+    const failure = props.onSave({ ...parsed.playbook, updatedAt: new Date().toISOString() });
+    if (typeof failure === "string") setSaveFailure(failure);
   };
+  const banner = !attempted
+    ? null
+    : !parsed.ok
+      ? `Fix ${parsed.issues.length === 1 ? "one field" : `${parsed.issues.length} fields`} before saving.`
+      : shortcutTaken
+        ? "Choose a shortcut no other playbook uses."
+        : saveFailure;
   const startBlockedReason = dirty
     ? "Save the playbook before starting a mission with it."
     : !props.onStartMission
@@ -144,7 +195,17 @@ export function PlaybookEditor(props: PlaybookEditorProps) {
                     </Button>
                   }
                   groups={[
-                    { items: [{ label: "Duplicate", icon: <Copy />, disabled: !props.saved, onSelect: props.onDuplicate }] },
+                    {
+                      label: props.duplicateBlockedReason ?? undefined,
+                      items: [
+                        {
+                          label: "Duplicate",
+                          icon: <Copy />,
+                          disabled: !props.saved || Boolean(props.duplicateBlockedReason),
+                          onSelect: props.onDuplicate,
+                        },
+                      ],
+                    },
                     {
                       items: [
                         {
@@ -161,16 +222,12 @@ export function PlaybookEditor(props: PlaybookEditorProps) {
             </div>
           </header>
 
-          {attempted && (!parsed.ok || shortcutTaken) ? (
-            <div className={sx(styles.banner)} role="alert">
-              <AlertCircle aria-hidden className={sx(styles.bannerIcon)} />
-              <span>
-                {parsed.ok
-                  ? "Choose a shortcut no other playbook uses."
-                  : `Fix ${parsed.issues.length === 1 ? "one field" : `${parsed.issues.length} fields`} before saving.${
-                      issues.get("") ? ` ${issues.get("")}` : ""
-                    }`}
-              </span>
+          {banner ? (
+            <PlaybookSaveBanner message={banner} unplaced={parsed.ok ? [] : unplacedIssues} />
+          ) : saveBlockedReason ? (
+            <div className={sx(styles.banner, styles.bannerNeutral)} role="status">
+              <AlertCircle aria-hidden className={sx(styles.bannerIcon, styles.bannerIconNeutral)} />
+              <span>{saveBlockedReason}</span>
             </div>
           ) : null}
 
@@ -232,6 +289,11 @@ export function PlaybookEditor(props: PlaybookEditorProps) {
               {issues.get("shortcut") || shortcutTaken ? (
                 <p className={sx(styles.fieldError)}>
                   {issues.get("shortcut") ?? `Another playbook already uses !${draft.shortcut}.`}
+                </p>
+              ) : macroWithShortcut ? (
+                <p className={sx(styles.hint, styles.hintWarning)}>
+                  The macro “{macroWithShortcut}” also uses !{draft.shortcut}. Both show up when you type it; choose
+                  another shortcut to keep them apart.
                 </p>
               ) : (
                 <p className={sx(styles.hint)}>
@@ -302,7 +364,7 @@ export function PlaybookEditor(props: PlaybookEditorProps) {
         <Button variant="quiet" size="sm" disabled={!dirty || !props.saved} onClick={props.onDiscard}>
           Discard
         </Button>
-        <Button size="sm" disabled={!dirty} onClick={save}>
+        <Button size="sm" disabled={!dirty || Boolean(saveBlockedReason)} onClick={save}>
           Save playbook
         </Button>
       </footer>

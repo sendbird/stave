@@ -58,6 +58,7 @@ import {
   type PrePrReviewProviderId,
 } from "@/lib/source-control-review";
 import type { Macro } from "@/lib/macros/types";
+import type { UnreadablePlaybook } from "@/lib/playbooks/normalize";
 import type { Playbook } from "@/lib/playbooks/schema";
 import type { PromptEnhancementExemplar } from "@/lib/providers/prompt-enhancement-context";
 import { cloneDefaultTaskPresets, type TaskPreset } from "@/lib/task-presets";
@@ -244,6 +245,11 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * apart from macros, with their own limit and validation.
    */
   playbooks: Playbook[];
+  /**
+   * Saved playbooks this version could not read, kept exactly as saved so a
+   * version that can read them restores them. Written back unchanged.
+   */
+  playbooksUnreadable: UnreadablePlaybook[];
   permissionMode: "require-approval" | "auto-safe";
   trustedTools: string[];
   skillsEnabled: boolean;
@@ -687,6 +693,7 @@ export const defaultSettings: AppSettings = {
   taskPresets: cloneDefaultTaskPresets(),
   macros: [],
   playbooks: [],
+  playbooksUnreadable: [],
   permissionMode: "auto-safe",
   trustedTools: [],
   skillsEnabled: true,

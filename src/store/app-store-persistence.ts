@@ -54,7 +54,7 @@ import { normalizePrePrReviewProvider } from "@/lib/source-control-review";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import { normalizePersistedMacros } from "@/lib/macros/normalize";
 import {
-  normalizePersistedPlaybooks,
+  restorePersistedPlaybooks,
   warnPlaybookDiagnostics,
 } from "@/lib/playbooks/normalize";
 import { normalizePersistedTaskPresets } from "@/lib/task-presets";
@@ -344,9 +344,15 @@ export function createAppStorePersistenceOptions() {
         raw.taskPresets,
       );
       state.settings.macros = normalizePersistedMacros(raw.macros);
-      const restoredPlaybooks = normalizePersistedPlaybooks(raw.playbooks);
+      // A playbook this version cannot read is kept aside as saved, never
+      // written back away, and read again on every load.
+      const restoredPlaybooks = restorePersistedPlaybooks({
+        playbooks: raw.playbooks,
+        unreadable: raw.playbooksUnreadable,
+      });
       warnPlaybookDiagnostics(restoredPlaybooks.diagnostics);
       state.settings.playbooks = restoredPlaybooks.playbooks;
+      state.settings.playbooksUnreadable = restoredPlaybooks.unreadable;
       state.settings.modelShortcutKeys = normalizeModelShortcutKeys(
         raw.modelShortcutKeys,
       );

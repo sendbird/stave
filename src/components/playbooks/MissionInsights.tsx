@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
-import { BarChart3 } from "lucide-react";
+import { BarChart3, TriangleAlert } from "lucide-react";
+import { EmptyState } from "@/components/ads/components/EmptyState";
+import { iconTileGlyphSizes } from "@/components/ads/components/IconTile";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { formatCompletionRate, type MissionInsightRow, type MissionInsights } from "@/lib/missions/insights";
@@ -17,11 +19,38 @@ const PERIODS = [
 ] as const;
 type Period = (typeof PERIODS)[number]["value"];
 
+/**
+ * Reads the insights for the last `days`: null when this build has no
+ * missions bridge (the browser preview), and a rejection when reading failed.
+ */
 export type MissionInsightsLoader = (days: number) => Promise<MissionInsights | null>;
 
 async function loadInsights(days: number): Promise<MissionInsights | null> {
-  const response = await window.api?.missions?.insights?.({ days });
-  return response?.ok ? response.insights : null;
+  const insights = window.api?.missions?.insights;
+  if (!insights) return null;
+  const response = await insights({ days });
+  if (!response.ok || !response.insights) throw new Error(response.message || "Mission insights could not be read.");
+  return response.insights;
+}
+
+type InsightsState =
+  | { status: "loading" }
+  | { status: "unavailable" }
+  | { status: "failed"; message: string }
+  | { status: "ready"; insights: MissionInsights };
+
+/** Reading the insights failed: why, and a way to try again. */
+export function MissionInsightsFailure(props: { message: string; onRetry: () => void }) {
+  return (
+    <EmptyState
+      role="alert"
+      tone="danger"
+      icon={<TriangleAlert size={iconTileGlyphSizes.xl} />}
+      title="Mission insights could not be read"
+      description={props.message}
+      action={{ children: "Try again", onClick: props.onRetry }}
+    />
+  );
 }
 
 const provider = (providerId: string) => getProviderLabel({ providerId: providerId as ProviderId });
@@ -63,20 +92,27 @@ function ProviderCard({ row }: { row: MissionInsightRow }) {
  */
 export function MissionInsightsView(props: { load?: MissionInsightsLoader } = {}) {
   const [period, setPeriod] = useState<Period>("30");
-  const [insights, setInsights] = useState<MissionInsights | null | undefined>(undefined);
+  const [state, setState] = useState<InsightsState>({ status: "loading" });
+  const [attempt, setAttempt] = useState(0);
   const load = props.load ?? loadInsights;
   useEffect(() => {
     let cancelled = false;
-    setInsights(undefined);
-    void load(Number(period))
-      .catch(() => null)
-      .then((result) => {
-        if (!cancelled) setInsights(result);
-      });
+    setState({ status: "loading" });
+    load(Number(period)).then(
+      (result) => {
+        if (!cancelled) setState(result ? { status: "ready", insights: result } : { status: "unavailable" });
+      },
+      (error: unknown) => {
+        if (cancelled) return;
+        const message = error instanceof Error && error.message ? error.message : "Mission insights could not be read.";
+        setState({ status: "failed", message });
+      },
+    );
     return () => {
       cancelled = true;
     };
-  }, [load, period]);
+  }, [load, period, attempt]);
+  const insights = state.status === "ready" ? state.insights : null;
 
   return (
     <div className={sx(styles.scroll)}>
@@ -97,9 +133,11 @@ export function MissionInsightsView(props: { load?: MissionInsightsLoader } = {}
           </span>
         </header>
 
-        {insights === undefined ? (
+        {state.status === "loading" ? (
           <p className={sx(styles.note)}>Reading missions…</p>
-        ) : insights === null ? (
+        ) : state.status === "failed" ? (
+          <MissionInsightsFailure message={state.message} onRetry={() => setAttempt((count) => count + 1)} />
+        ) : !insights ? (
           <p className={sx(styles.note)}>Mission insights are available in the desktop app.</p>
         ) : insights.rows.length === 0 ? (
           <p className={sx(styles.empty)}>No mission ended in the last {period} days.</p>

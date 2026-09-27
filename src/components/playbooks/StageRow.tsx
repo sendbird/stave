@@ -89,10 +89,19 @@ function previewOf(stage: PlaybookStage): { text: string; missing: boolean } {
   return { text: stage.instruction, missing: false };
 }
 
+/** Issue paths a stage's own fields show beside themselves; the row lists every other one. */
+function placedIssuePaths(stage: PlaybookStage): ReadonlySet<string> {
+  if (stage.kind === "ai") return new Set(["title", "instruction", "doneWhen"]);
+  return new Set(stage.action.type === "run-script" ? ["title", "action.scriptId"] : ["title"]);
+}
+
 export function StageRow(props: StageRowProps) {
   const { stage, index, count } = props;
   const bodyId = useId();
   const preview = previewOf(stage);
+  const placed = placedIssuePaths(stage);
+  // Stage-wide issues (order, duplicate id) and fields without a control of their own.
+  const rowIssues = [...props.issues].filter(([path]) => !placed.has(path));
   const first = index === 0;
   const askLabel = first
     ? "The first stage starts with the mission"
@@ -124,13 +133,16 @@ export function StageRow(props: StageRowProps) {
           onDragEnd={props.dragHandlers.onDragEnd}
           onKeyDown={(event) => {
             if (!event.altKey) return;
-            if (event.key === "ArrowUp" && index > 0) {
-              event.preventDefault();
-              props.onMove(index - 1);
-            } else if (event.key === "ArrowDown" && index < count - 1) {
-              event.preventDefault();
-              props.onMove(index + 1);
-            }
+            const to = event.key === "ArrowUp" ? index - 1 : event.key === "ArrowDown" ? index + 1 : null;
+            if (to === null || to < 0 || to > count - 1) return;
+            event.preventDefault();
+            // Reordering moves this row's element, which drops focus; keep it
+            // on the handle so the next Alt+arrow keeps moving the same stage.
+            const handle = event.currentTarget;
+            props.onMove(to);
+            requestAnimationFrame(() => {
+              if (handle.isConnected && document.activeElement !== handle) handle.focus();
+            });
           }}
         >
           <GripVertical aria-hidden />
@@ -227,10 +239,15 @@ export function StageRow(props: StageRowProps) {
       {props.expanded ? (
         <div id={bodyId} className={sx(styles.stageBody)}>
           {props.issues.get("title") ? <p className={sx(styles.fieldError)}>{props.issues.get("title")}</p> : null}
+          {rowIssues.map(([path, message]) => (
+            <p key={path || "stage"} className={sx(styles.fieldError)}>
+              {message}
+            </p>
+          ))}
           {stage.kind === "ai" ? (
             <AiStageFields stage={stage} issues={props.issues} onChange={props.onChange} />
           ) : (
-            <ActionStageFields stage={stage} onChange={props.onChange} />
+            <ActionStageFields stage={stage} issues={props.issues} onChange={props.onChange} />
           )}
         </div>
       ) : null}
@@ -312,6 +329,7 @@ function useWorkspaceScriptActions(): Array<{ id: string; label: string }> {
 function RunScriptField(props: {
   stage: Extract<PlaybookStage, { kind: "action" }>;
   action: Extract<Extract<PlaybookStage, { kind: "action" }>["action"], { type: "run-script" }>;
+  error?: string;
   onChange: (stage: PlaybookStage) => void;
 }) {
   const scripts = useWorkspaceScriptActions();
@@ -324,6 +342,7 @@ function RunScriptField(props: {
         description="The id of a script action, such as “preview”. Each workspace runs its own .stave/scripts.json."
         value={props.action.scriptId}
         maxLength={120}
+        error={props.error}
         onChange={(event) => set(event.target.value)}
       />
       {scripts.length > 0 ? (
@@ -348,6 +367,7 @@ function RunScriptField(props: {
 
 function ActionStageFields(props: {
   stage: Extract<PlaybookStage, { kind: "action" }>;
+  issues: ReadonlyMap<string, string>;
   onChange: (stage: PlaybookStage) => void;
 }) {
   const { stage } = props;
@@ -404,7 +424,14 @@ function ActionStageFields(props: {
           </div>
         </div>
       ) : null}
-      {action.type === "run-script" ? <RunScriptField stage={stage} action={action} onChange={props.onChange} /> : null}
+      {action.type === "run-script" ? (
+        <RunScriptField
+          stage={stage}
+          action={action}
+          error={props.issues.get("action.scriptId")}
+          onChange={props.onChange}
+        />
+      ) : null}
     </>
   );
 }

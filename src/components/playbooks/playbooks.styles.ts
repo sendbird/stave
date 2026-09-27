@@ -49,6 +49,7 @@ export const playbookStyles = stylex.create({
     color: vars["--ads-color-text-subtle"],
   },
   listLabelFlush: { paddingInline: 0, marginTop: 0 },
+  listNote: { paddingInline: vars["--ads-space-8"] },
   card: {
     width: "100%",
     display: "flex",
@@ -190,6 +191,11 @@ export const playbookStyles = stylex.create({
   },
   bannerNeutral: { backgroundColor: vars["--ads-color-canvas-subtle"] },
   bannerIcon: { flex: "0 0 auto", width: 14, height: 14, marginTop: 2, color: vars["--ads-color-danger-text"] },
+  bannerIconNeutral: { color: vars["--ads-color-text-muted"] },
+  bannerIconWarning: { color: vars["--ads-color-warning-text"] },
+  bannerBody: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], minWidth: 0 },
+  bannerList: { margin: 0, paddingInlineStart: vars["--ads-space-16"], overflowWrap: "anywhere" },
+  bannerLabel: { fontWeight: vars["--ads-font-weight-medium"] },
 
   /* Properties ------------------------------------------------------------ */
   properties: {
@@ -214,6 +220,7 @@ export const playbookStyles = stylex.create({
     lineHeight: vars["--ads-line-height-normal"],
     color: vars["--ads-color-text-subtle"],
   },
+  hintWarning: { color: vars["--ads-color-warning-text"] },
   fieldError: {
     margin: 0,
     fontSize: vars["--ads-font-size-caption"],

@@ -7,6 +7,7 @@ import { generatePlaybookId } from "./normalize";
 import {
   DEFAULT_CHECK_INS,
   DEFAULT_WATCH_CHECKS,
+  MAX_PLAYBOOKS,
   MAX_PLAYBOOK_STAGES,
   PLAYBOOK_LIMITS,
   PLAYBOOK_VERSION,
@@ -20,7 +21,11 @@ import {
 } from "./schema";
 import { deriveStageSignOff, listSignOffStageIndexes, resolveStageSignOff } from "./sign-off";
 
-/** A stage id from its title: lowercase words joined by dashes, unique. */
+/**
+ * A stage id from its title: lowercase words joined by dashes, unique. Dashes
+ * are trimmed after shortening, so a long title never leaves one at the end,
+ * which the schema refuses.
+ */
 export function uniqueStageId(title: string, taken: Iterable<string>): string {
   const used = new Set(taken);
   const base =
@@ -28,8 +33,8 @@ export function uniqueStageId(title: string, taken: Iterable<string>): string {
       .toLowerCase()
       .normalize("NFKD")
       .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, PLAYBOOK_LIMITS.stageId - 4) || "stage";
+      .slice(0, PLAYBOOK_LIMITS.stageId - 4)
+      .replace(/^-+|-+$/g, "") || "stage";
   if (!used.has(base)) return base;
   for (let suffix = 2; ; suffix += 1) {
     const candidate = `${base}-${suffix}`;
@@ -40,6 +45,40 @@ export function uniqueStageId(title: string, taken: Iterable<string>): string {
 /** The name, or the name with the first free number after it. */
 export function uniquePlaybookName(name: string, taken: readonly Playbook[]): string {
   return uniqueName(name, taken);
+}
+
+/** JSON with object keys sorted, so the same content always reads the same. */
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_key, entry: unknown) =>
+    entry && typeof entry === "object" && !Array.isArray(entry)
+      ? Object.fromEntries(
+          Object.entries(entry as Record<string, unknown>).sort(([left], [right]) =>
+            left < right ? -1 : left > right ? 1 : 0,
+          ),
+        )
+      : entry,
+  );
+}
+
+/** Whether two playbooks hold the same content, whatever order their keys were written in. */
+export function playbooksEqual(left: Playbook, right: Playbook): boolean {
+  return stableJson(left) === stableJson(right);
+}
+
+/**
+ * Why another playbook cannot be added to the saved ones, or null when it
+ * can. Settings keep at most `MAX_PLAYBOOKS`, so saving one more would drop
+ * it. Replacing a saved playbook (same `id`) is always allowed.
+ */
+export function explainPlaybookLimit(saved: readonly Pick<Playbook, "id">[], id?: string): string | null {
+  if (id !== undefined && saved.some((playbook) => playbook.id === id)) return null;
+  if (saved.length < MAX_PLAYBOOKS) return null;
+  return `You have ${MAX_PLAYBOOKS} playbooks, the most Stave keeps. Delete one to add another.`;
+}
+
+/** Whether a new playbook (or the one with this `id`) fits among the saved ones. */
+export function canAddPlaybook(saved: readonly Pick<Playbook, "id">[], id?: string): boolean {
+  return explainPlaybookLimit(saved, id) === null;
 }
 
 /** Whether two playbooks run the same way: purpose, check-ins, constraints and stages. */
@@ -93,10 +132,14 @@ export function createBlankPlaybook(args: { now: Date; taken: readonly Playbook[
   };
 }
 
-/** A copy with a fresh id and name; the shortcut stays with the original. */
+/**
+ * A copy with a fresh id and name. The shortcut and the start conditions stay
+ * with the original: copied conditions carry the original's `since` stamps,
+ * so the copy would propose old issues again and run the schedule twice.
+ */
 export function duplicatePlaybook(args: { playbook: Playbook; now: Date; taken: readonly Playbook[] }): Playbook {
   const timestamp = args.now.toISOString();
-  const { shortcut: _shortcut, ...rest } = args.playbook;
+  const { shortcut: _shortcut, startsWhen: _startsWhen, ...rest } = args.playbook;
   return {
     ...structuredClone(rest),
     id: generatePlaybookId(),
@@ -197,4 +240,31 @@ export function groupIssuesByField(issues: readonly string[]): Map<string, strin
     if (!byField.has(path)) byField.set(path, message);
   }
   return byField;
+}
+
+/** Fields the editor shows an issue beside; stage rows show every `stages.N…` issue themselves. */
+const PLACED_FIELDS = new Set(["name", "purpose", "shortcut", "constraints", "stages"]);
+
+const FIELD_LABELS: Record<string, string> = {
+  startsWhen: "Starts when",
+  runtime: "Runs on",
+  checkIns: "Check-ins",
+  team: "Team",
+  advisorReview: "Advisor review",
+};
+
+/**
+ * Issues without a field of their own in the editor (start conditions,
+ * runtime, identity), labelled for the save banner so none goes unshown.
+ */
+export function listUnplacedIssues(
+  byField: ReadonlyMap<string, string>,
+): Array<{ path: string; label: string; message: string }> {
+  const unplaced: Array<{ path: string; label: string; message: string }> = [];
+  for (const [path, message] of byField) {
+    if (PLACED_FIELDS.has(path) || path.startsWith("stages.")) continue;
+    const root = path.split(".")[0] ?? "";
+    unplaced.push({ path, label: FIELD_LABELS[root] ?? (root || "Playbook"), message });
+  }
+  return unplaced;
 }

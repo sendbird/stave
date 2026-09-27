@@ -118,7 +118,9 @@ Stave's background service restarts.
 
 Describe how you work in a sentence, or paste an example of the steps you took
 last time, and click **Draft stages**. The draft replaces the editor's content
-but is not saved until you click **Save playbook**.
+but is not saved until you click **Save playbook**. **Cancel**, closing the
+panel or opening another playbook stops a draft in progress; a late answer
+never replaces what you edited since.
 
 ### Mission insights
 
@@ -160,12 +162,22 @@ In the Start mission sheet, open **Edit stages for this mission**. Leave
 - Playbooks are part of Stave's settings on this machine. A mission copies the
   playbook when it starts.
 - Saving validates the whole playbook: each missing field is shown next to the
-  field. A playbook opens a draft PR at most once, and **Watch checks** and
-  **Ready for review** come after **Open draft PR**.
+  field, and an issue without a field of its own (such as a start condition)
+  is listed in the banner above the editor. A playbook opens a draft PR at
+  most once, and **Watch checks** and **Ready for review** come after **Open
+  draft PR**.
+- Unsaved edits stay while you switch playbooks or Automations tabs, until you
+  save or discard them or quit Stave.
+- **Duplicate** copies the stages and settings but not the shortcut or the
+  start conditions, so the copy never proposes the original's issues again.
+- A saved playbook this version of Stave cannot read (saved by another
+  version) is kept aside unchanged, and the Playbooks tab says how many. It
+  comes back once a version that reads it opens it.
 
 ## Limitations And Advanced Options
 
-- Up to 50 playbooks, each with up to 12 stages.
+- Up to 50 playbooks, each with up to 12 stages. With 50 saved, the Playbooks
+  tab adds no new, template or duplicate playbook until you delete one.
 - Playbooks are not shared through the repository yet.
 
 ## Related Docs

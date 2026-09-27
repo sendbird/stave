@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { BarChart3, BookOpen, CalendarClock, Hand, Plus, Sparkles, Zap } from "lucide-react";
+import { AlertCircle, BarChart3, BookOpen, CalendarClock, Hand, Plus, Sparkles, Zap } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
 import { Select } from "@/components/ads/components/Select";
@@ -8,14 +8,18 @@ import { sx } from "@/components/ads/utils/stylex";
 import {
   createBlankPlaybook,
   duplicatePlaybook,
+  explainPlaybookLimit,
+  playbooksEqual,
   removePlaybook,
   stageAsksFirst,
   upsertPlaybook,
 } from "@/lib/playbooks/library";
-import { CHECK_IN_LABELS, type Playbook } from "@/lib/playbooks/schema";
+import { describeUnreadablePlaybook, type UnreadablePlaybook } from "@/lib/playbooks/normalize";
+import { CHECK_IN_LABELS, MAX_PLAYBOOKS, type Playbook } from "@/lib/playbooks/schema";
 import { isCustomCheckIns, listSignOffStageIndexes } from "@/lib/playbooks/sign-off";
 import { createPlaybookFromStarter, PLAYBOOK_STARTERS, type PlaybookStarter } from "@/lib/playbooks/starters";
 import { useAppStore } from "@/store/app.store";
+import { usePlaybookDraftsStore } from "@/store/playbook-drafts-store";
 import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
 import { MissionInsightsView, type MissionInsightsLoader } from "./MissionInsights";
 import { PlaybookEditor } from "./PlaybookEditor";
@@ -73,16 +77,50 @@ function TemplateGallery(props: { onUse: (starter: PlaybookStarter) => void }) {
   );
 }
 
+const NAMES_SHOWN = 3;
+
 /**
- * The Playbooks tab of the Automations center: saved ways of working on the
- * left, the one being edited on the right. Unsaved edits stay with their
- * playbook while you look at another one.
+ * Saved playbooks this version could not read. They stay kept aside,
+ * unchanged, and come back once Stave can read them again.
  */
+export function UnreadablePlaybooksNotice(props: { entries: readonly UnreadablePlaybook[] }) {
+  const count = props.entries.length;
+  if (count === 0) return null;
+  const names = props.entries.flatMap((entry) => {
+    const name = describeUnreadablePlaybook(entry);
+    return name ? [`“${name}”`] : [];
+  });
+  const shown = names.slice(0, NAMES_SHOWN).join(", ");
+  const more = names.length > NAMES_SHOWN ? ` and ${names.length - NAMES_SHOWN} more` : "";
+  return (
+    <div className={sx(styles.banner, styles.bannerNeutral)} role="status" data-testid="playbooks-unreadable">
+      <AlertCircle aria-hidden className={sx(styles.bannerIcon, styles.bannerIconWarning)} />
+      <div className={sx(styles.bannerBody)}>
+        <span className={sx(styles.bannerLabel)}>
+          {count === 1 ? "1 playbook could not be read" : `${count} playbooks could not be read`}
+        </span>
+        <span>
+          {shown ? `${shown}${more}. ` : ""}Stave keeps {count === 1 ? "it" : "them"} aside unchanged and brings{" "}
+          {count === 1 ? "it" : "them"} back once it can read {count === 1 ? "it" : "them"} — after an update, or
+          when there is room.
+        </span>
+      </div>
+    </div>
+  );
+}
+
 /** The pinned entry above the playbooks: how missions went. */
 const INSIGHTS_ID = "__mission-insights__";
 
+/**
+ * The Playbooks tab of the Automations center: saved ways of working on the
+ * left, the one being edited on the right. Unsaved edits stay with their
+ * playbook while you look at another one, or at another Automations tab.
+ */
 export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {}) {
   const saved = useAppStore((state) => state.settings.playbooks);
+  const unreadable = useAppStore((state) => state.settings.playbooksUnreadable);
+  const macros = useAppStore((state) => state.settings.macros);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const activeWorkspaceId = useAppStore((state) => state.activeWorkspaceId);
   const activeWorkspaceName = useAppStore(
@@ -96,17 +134,21 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
   const centerRequest = usePlaybooksUiStore((state) => state.centerRequest);
   const consumeCenterRequest = usePlaybooksUiStore((state) => state.consumeCenterRequest);
 
-  const [drafts, setDrafts] = useState<Record<string, Playbook>>({});
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const drafts = usePlaybookDraftsStore((state) => state.drafts);
+  const selectedId = usePlaybookDraftsStore((state) => state.selectedId);
+  const setSelectedId = usePlaybookDraftsStore((state) => state.select);
+  const draftingId = usePlaybookDraftsStore((state) => state.draftingId);
+  const setDraftingId = usePlaybookDraftsStore((state) => state.setDraftingId);
+  const setDraft = usePlaybookDraftsStore((state) => state.setDraft);
+  const dropDraft = usePlaybookDraftsStore((state) => state.dropDraft);
   const [query, setQuery] = useState("");
-  const [draftingId, setDraftingId] = useState<string | null>(null);
 
   // "Manage playbooks" and "Edit playbook" elsewhere land here.
   useEffect(() => {
     if (!centerRequest) return;
     if (centerRequest.playbookId) setSelectedId(centerRequest.playbookId);
     consumeCenterRequest();
-  }, [centerRequest, consumeCenterRequest]);
+  }, [centerRequest, consumeCenterRequest, setSelectedId]);
 
   const unsavedNew = useMemo(
     () => Object.values(drafts).filter((draft) => !saved.some((playbook) => playbook.id === draft.id)),
@@ -123,19 +165,21 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
         .includes(needle),
     );
   }, [all, query]);
+  const macroShortcuts = useMemo(() => new Map(macros.map((macro) => [macro.slug, macro.label])), [macros]);
 
   const showingInsights = selectedId === INSIGHTS_ID;
   const selected = showingInsights ? null : (all.find((playbook) => playbook.id === selectedId) ?? all[0] ?? null);
   const selectedSaved = selected ? (saved.find((playbook) => playbook.id === selected.id) ?? null) : null;
   const draft = selected ? (drafts[selected.id] ?? selected) : null;
+  // Draft with AI opens once, with the playbook it was asked for.
+  useEffect(() => {
+    if (draftingId && selected?.id === draftingId) setDraftingId(null);
+  }, [draftingId, selected?.id, setDraftingId]);
 
-  const setDraft = (next: Playbook) => setDrafts((current) => ({ ...current, [next.id]: next }));
-  const dropDraft = (id: string) =>
-    setDrafts((current) => {
-      const { [id]: _dropped, ...rest } = current;
-      return rest;
-    });
+  /** Settings keep at most MAX_PLAYBOOKS; a new one past that would be dropped. */
+  const libraryFull = explainPlaybookLimit(saved);
   const addDraft = (playbook: Playbook) => {
+    if (libraryFull) return;
     setDraft(playbook);
     setSelectedId(playbook.id);
   };
@@ -149,6 +193,21 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
     [saved, selected?.id],
   );
   const canStart = Boolean(activeWorkspaceId && activeTaskId && activeProvider && MISSION_PROVIDERS.has(activeProvider));
+  const savePlaybook = (playbook: Playbook): string | null => {
+    const current = useAppStore.getState().settings.playbooks;
+    const blocked = explainPlaybookLimit(current, playbook.id);
+    if (blocked) return blocked;
+    updateSettings({ patch: { playbooks: upsertPlaybook(current, playbook) } });
+    // Settings validate the list again; keep the edits unless it really landed.
+    const stored = useAppStore
+      .getState()
+      .settings.playbooks.find((candidate) => candidate.id === playbook.id);
+    if (!stored || stored.updatedAt !== playbook.updatedAt) {
+      return "Stave could not save this playbook. Your changes are still here.";
+    }
+    dropDraft(playbook.id);
+    return null;
+  };
 
   const newMenu = (
     <DropdownMenu
@@ -161,8 +220,14 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
       }
       groups={[
         {
+          label: libraryFull ? `${MAX_PLAYBOOKS} of ${MAX_PLAYBOOKS} saved · delete one to add another` : undefined,
           items: [
-            { label: "Blank playbook", icon: <Plus />, onSelect: () => addDraft(createBlankPlaybook({ now: new Date(), taken: all })) },
+            {
+              label: "Blank playbook",
+              icon: <Plus />,
+              disabled: Boolean(libraryFull),
+              onSelect: () => addDraft(createBlankPlaybook({ now: new Date(), taken: all })),
+            },
           ],
         },
         {
@@ -170,6 +235,7 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
           items: PLAYBOOK_STARTERS.map((starter) => ({
             label: starter.template.name,
             icon: <BookOpen />,
+            disabled: Boolean(libraryFull),
             onSelect: () => addDraft(createPlaybookFromStarter(starter, { now: new Date() })),
           })),
         },
@@ -181,6 +247,7 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
     return (
       <div className={sx(styles.scroll)}>
         <div className={sx(styles.empty)}>
+          <UnreadablePlaybooksNotice entries={unreadable} />
           <div>
             <h2 className={sx(styles.emptyTitle)}>Save how you work as a playbook</h2>
             <p className={sx(styles.emptyText)}>
@@ -214,6 +281,11 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
     );
   }
 
+  const pickerOptions = [
+    { value: INSIGHTS_ID, label: "Mission insights" },
+    ...all.map((playbook) => ({ value: playbook.id, label: (drafts[playbook.id] ?? playbook).name })),
+  ];
+
   return (
     <div className={sx(styles.tab)} data-testid="playbooks-tab">
       <aside className={sx(styles.master)} aria-label="Playbooks">
@@ -244,12 +316,13 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
           </span>
           <span className={sx(styles.cardMeta)}>How missions went</span>
         </Button>
+        <UnreadablePlaybooksNotice entries={unreadable} />
         <p className={sx(styles.listLabel)}>Playbooks</p>
         <ul className={sx(styles.list)}>
           {visible.map((playbook) => {
             const current = drafts[playbook.id] ?? playbook;
             const isSaved = saved.some((candidate) => candidate.id === playbook.id);
-            const changed = Boolean(drafts[playbook.id]) && (!isSaved || JSON.stringify(drafts[playbook.id]) !== JSON.stringify(playbook));
+            const changed = Boolean(drafts[playbook.id]) && (!isSaved || !playbooksEqual(drafts[playbook.id]!, playbook));
             return (
               <li key={playbook.id}>
                 <Button
@@ -283,6 +356,7 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
           })}
           {visible.length === 0 ? <li className={sx(styles.hint)}>No playbook matches “{query}”.</li> : null}
         </ul>
+        {libraryFull ? <p className={sx(styles.hint, styles.listNote)}>{libraryFull}</p> : null}
       </aside>
       {showingInsights ? (
         <div className={sx(styles.detail)}>
@@ -291,7 +365,7 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
               size="sm"
               aria-label="Playbook"
               value={INSIGHTS_ID}
-              options={[{ value: INSIGHTS_ID, label: "Mission insights" }, ...all.map((playbook) => ({ value: playbook.id, label: (drafts[playbook.id] ?? playbook).name }))]}
+              options={pickerOptions}
               onValueChange={(value) => setSelectedId(String(value))}
             />
           </div>
@@ -305,7 +379,7 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
               size="sm"
               aria-label="Playbook"
               value={selected.id}
-              options={[{ value: INSIGHTS_ID, label: "Mission insights" }, ...all.map((playbook) => ({ value: playbook.id, label: (drafts[playbook.id] ?? playbook).name }))]}
+              options={pickerOptions}
               onValueChange={(value) => setSelectedId(String(value))}
             />
             {newMenu}
@@ -316,12 +390,12 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
             draft={draft}
             saved={selectedSaved}
             takenShortcuts={takenShortcuts}
+            macroShortcuts={macroShortcuts}
             initialDrafting={draftingId === selected.id}
+            saveBlockedReason={selectedSaved ? null : libraryFull}
+            duplicateBlockedReason={libraryFull ? `${MAX_PLAYBOOKS} of ${MAX_PLAYBOOKS} saved` : null}
             onChange={setDraft}
-            onSave={(playbook) => {
-              updateSettings({ patch: { playbooks: upsertPlaybook(saved, playbook) } });
-              dropDraft(playbook.id);
-            }}
+            onSave={savePlaybook}
             onDiscard={() => dropDraft(selected.id)}
             onDuplicate={() => {
               if (!selectedSaved) return;
@@ -343,4 +417,3 @@ export function PlaybooksTab(props: { loadInsights?: MissionInsightsLoader } = {
     </div>
   );
 }
-

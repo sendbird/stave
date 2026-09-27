@@ -2,8 +2,10 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
+  describeUnreadablePlaybook,
   normalizePersistedPlaybooks,
   parsePlaybook,
+  restorePersistedPlaybooks,
 } from "../src/lib/playbooks/normalize";
 import {
   MAX_PLAYBOOKS,
@@ -305,9 +307,57 @@ describe("persisted playbooks", () => {
   });
 
   test("treats a missing value as no playbooks and a non-list as a diagnostic", () => {
-    expect(normalizePersistedPlaybooks(undefined)).toEqual({ playbooks: [], diagnostics: [] });
+    expect(normalizePersistedPlaybooks(undefined)).toEqual({ playbooks: [], diagnostics: [], rejected: [] });
     const result = normalizePersistedPlaybooks({ playbooks: [] });
     expect(result.playbooks).toEqual([]);
     expect(result.diagnostics[0]?.outcome).toBe("dropped");
+    expect(result.rejected).toEqual([{ value: { playbooks: [] }, issues: ["Saved playbooks are not a list."] }]);
+  });
+});
+
+describe("unreadable playbooks are kept aside, never lost", () => {
+  // A playbook saved by another version: a field this version does not know.
+  const fromNewerVersion = { ...playbook({ id: "newer", name: "From a newer Stave" }), reviewers: ["team"] };
+
+  test("an entry that cannot be read is kept as saved, and the rest restore", () => {
+    const restored = restorePersistedPlaybooks({ playbooks: [playbook(), fromNewerVersion], unreadable: undefined });
+    expect(restored.playbooks.map((entry) => entry.id)).toEqual(["playbook_test"]);
+    expect(restored.unreadable).toHaveLength(1);
+    expect(restored.unreadable[0]!.value).toEqual(fromNewerVersion);
+    expect(restored.unreadable[0]!.issues.length).toBeGreaterThan(0);
+    expect(describeUnreadablePlaybook(restored.unreadable[0]!)).toBe("From a newer Stave");
+  });
+
+  test("a kept-aside entry survives every later load and comes back once it reads", () => {
+    const first = restorePersistedPlaybooks({ playbooks: [playbook(), fromNewerVersion], unreadable: [] });
+    // The list is written back without it; the kept-aside list goes with it.
+    const second = restorePersistedPlaybooks({ playbooks: first.playbooks, unreadable: first.unreadable });
+    expect(second.unreadable.map((entry) => entry.value)).toEqual([fromNewerVersion]);
+    expect(second.playbooks).toHaveLength(1);
+    // A version that reads it: here, the same entry without the unknown field.
+    const { reviewers: _reviewers, ...readable } = fromNewerVersion;
+    const upgraded = restorePersistedPlaybooks({
+      playbooks: second.playbooks,
+      unreadable: [{ value: readable, issues: ["old reason"] }],
+    });
+    expect(upgraded.playbooks.map((entry) => entry.id)).toEqual(["playbook_test", "newer"]);
+    expect(upgraded.unreadable).toEqual([]);
+  });
+
+  test("playbooks past the limit wait aside until there is room", () => {
+    const many = Array.from({ length: MAX_PLAYBOOKS + 1 }, (_, index) => playbook({ id: `p${index}` }));
+    const full = restorePersistedPlaybooks({ playbooks: many, unreadable: [] });
+    expect(full.playbooks).toHaveLength(MAX_PLAYBOOKS);
+    expect(full.unreadable.map((entry) => (entry.value as Playbook).id)).toEqual([`p${MAX_PLAYBOOKS}`]);
+    const afterDelete = restorePersistedPlaybooks({ playbooks: full.playbooks.slice(1), unreadable: full.unreadable });
+    expect(afterDelete.playbooks).toHaveLength(MAX_PLAYBOOKS);
+    expect(afterDelete.playbooks.at(-1)?.id).toBe(`p${MAX_PLAYBOOKS}`);
+    expect(afterDelete.unreadable).toEqual([]);
+  });
+
+  test("a saved list that is not a list is kept aside too", () => {
+    const restored = restorePersistedPlaybooks({ playbooks: { broken: true }, unreadable: undefined });
+    expect(restored.playbooks).toEqual([]);
+    expect(restored.unreadable).toEqual([{ value: { broken: true }, issues: ["Saved playbooks are not a list."] }]);
   });
 });

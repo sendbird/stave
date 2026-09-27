@@ -2,13 +2,17 @@ import { describe, expect, test } from "bun:test";
 import { buildPlaybookDraftPrompt, parsePlaybookDraft } from "../src/lib/playbooks/draft-with-ai";
 import {
   applyCheckIns,
+  canAddPlaybook,
   createActionStage,
   createBlankPlaybook,
   describeSignOffs,
   duplicatePlaybook,
   explainActionUnavailable,
+  explainPlaybookLimit,
   groupIssuesByField,
+  listUnplacedIssues,
   moveStage,
+  playbooksEqual,
   removePlaybook,
   setStageSignOff,
   stageAsksFirst,
@@ -16,6 +20,7 @@ import {
   upsertPlaybook,
 } from "../src/lib/playbooks/library";
 import { parsePlaybook } from "../src/lib/playbooks/normalize";
+import { MAX_PLAYBOOKS, type Playbook } from "../src/lib/playbooks/schema";
 import { isCustomCheckIns } from "../src/lib/playbooks/sign-off";
 import { MISSION_NOW, starterPlaybook } from "./fixtures/mission-fixtures";
 
@@ -116,5 +121,63 @@ describe("draft with AI", () => {
   test("an answer without stages is refused with a sentence", () => {
     expect(parsePlaybookDraft("I cannot help with that.", MISSION_NOW)).toMatchObject({ ok: false });
     expect(parsePlaybookDraft('{"name":"x","stages":[]}', MISSION_NOW)).toMatchObject({ ok: false });
+  });
+});
+
+describe("playbook library limits and comparisons", () => {
+  test("a long stage title never leaves a dash at the end of its id", () => {
+    const id = uniqueStageId("Summarize the findings for the product team in a short note", []);
+    expect(id).toBe("summarize-the-findings-for-the-product-team");
+    expect(id.endsWith("-")).toBe(false);
+    const playbook = starterPlaybook("request-to-pr");
+    const stages = [{ ...playbook.stages[0]!, id }, ...playbook.stages.slice(1)];
+    expect(parsePlaybook({ ...playbook, stages }).ok).toBe(true);
+    // Its numbered twin stays within the limit too.
+    expect(uniqueStageId("Summarize the findings for the product team in a short note", [id])).toBe(`${id}-2`);
+  });
+
+  test("a duplicate leaves the start conditions with the original", () => {
+    const original: Playbook = {
+      ...starterPlaybook("request-to-pr"),
+      startsWhen: { issueAssigned: { filter: "", since: "2026-01-01T00:00:00.000Z" } },
+    };
+    const copy = duplicatePlaybook({ playbook: original, now: MISSION_NOW, taken: [original] });
+    expect(copy.startsWhen).toBeUndefined();
+    expect(original.startsWhen).toBeDefined();
+  });
+
+  test("a full library refuses a new playbook but still saves the ones it holds", () => {
+    const one = starterPlaybook("request-to-pr");
+    const full = Array.from({ length: MAX_PLAYBOOKS }, (_, index) => ({ ...one, id: `p${index}` }));
+    expect(canAddPlaybook(full.slice(1))).toBe(true);
+    expect(explainPlaybookLimit(full.slice(1))).toBeNull();
+    expect(canAddPlaybook(full)).toBe(false);
+    expect(explainPlaybookLimit(full)).toContain(`${MAX_PLAYBOOKS} playbooks`);
+    expect(canAddPlaybook(full, "p3")).toBe(true);
+  });
+
+  test("playbooks compare by content, whatever order their keys were written in", () => {
+    const saved = starterPlaybook("request-to-pr");
+    const reordered = Object.fromEntries(Object.entries(saved).reverse()) as Playbook;
+    expect(JSON.stringify(reordered)).not.toBe(JSON.stringify(saved));
+    expect(playbooksEqual(saved, reordered)).toBe(true);
+    expect(playbooksEqual(saved, { ...saved, name: "Renamed" })).toBe(false);
+  });
+
+  test("issues without a field of their own are listed for the save banner", () => {
+    const issues = groupIssuesByField([
+      "name: Name is required.",
+      "stages.1.id: Stage id \"build\" is used more than once.",
+      "startsWhen.schedule.workspaceId: Too small: expected string to have >=1 characters",
+      "runtime.providerId: Invalid option",
+    ]);
+    expect(listUnplacedIssues(issues)).toEqual([
+      {
+        path: "startsWhen.schedule.workspaceId",
+        label: "Starts when",
+        message: "Too small: expected string to have >=1 characters",
+      },
+      { path: "runtime.providerId", label: "Runs on", message: "Invalid option" },
+    ]);
   });
 });
