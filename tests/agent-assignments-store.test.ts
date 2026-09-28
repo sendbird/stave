@@ -38,6 +38,6 @@ describe("agent assignments by task", () => {
       row({ id: "no-task", taskId: null }),
     ]);
     expect(Object.keys(index)).toEqual(["t1"]);
-    expect(index.t1).toEqual({ agentConfigId: "reviewer-copy", agentName: "Reviewer copy", assignmentId: "new", state: "started" });
+    expect(index.t1).toMatchObject({ agentConfigId: "reviewer-copy", agentName: "Reviewer copy", assignmentId: "new", state: "started" });
   });
 });

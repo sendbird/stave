@@ -11,12 +11,10 @@ import { create } from "zustand";
 import type { AgentsBridgeApi } from "@/lib/agents/api";
 import type { AgentAssignment } from "@/lib/agents/assign";
 
-export interface TaskAgent {
-  agentConfigId: string;
-  agentName: string;
-  assignmentId: string;
-  state: AgentAssignment["state"];
-}
+export type TaskAgent = Pick<
+  AgentAssignment,
+  "agentConfigId" | "agentName" | "state" | "providerId" | "model" | "workspaceMode" | "branch" | "detail" | "createdAt" | "updatedAt"
+> & { assignmentId: string };
 
 interface AgentAssignmentsState {
   byTaskId: Record<string, TaskAgent>;
@@ -37,10 +35,17 @@ export function indexAssignmentsByTask(assignments: readonly AgentAssignment[]):
   for (const row of assignments) {
     if (!row.taskId || byTaskId[row.taskId]) continue;
     byTaskId[row.taskId] = {
+      assignmentId: row.id,
       agentConfigId: row.agentConfigId,
       agentName: row.agentName,
-      assignmentId: row.id,
       state: row.state,
+      providerId: row.providerId,
+      model: row.model,
+      workspaceMode: row.workspaceMode,
+      branch: row.branch,
+      detail: row.detail,
+      createdAt: row.createdAt,
+      updatedAt: row.updatedAt,
     };
   }
   return byTaskId;
