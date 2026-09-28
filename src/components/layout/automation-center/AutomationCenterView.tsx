@@ -71,11 +71,12 @@ import {
 import { automationStyles } from "./automation-center.styles";
 import { centerStyles } from "./automation-center-view.styles";
 import { PlaybooksTab } from "@/components/playbooks/PlaybooksTab";
+import { AgentsTab } from "@/components/agents/AgentsTab";
 import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
 
 const ALL_AUTOMATIONS = "all";
 
-type AutomationCenterTab = "automations" | "runs" | "playbooks";
+type AutomationCenterTab = "automations" | "runs" | "playbooks" | "agents";
 
 function Detail(props: { label: string; value: string }) {
   return (
@@ -624,7 +625,7 @@ export function AutomationCenterView() {
           </p>
         </div>
         <div className={sx(centerStyles.headerActions)}>
-          {activeTab === "playbooks" ? null : (
+          {activeTab === "playbooks" || activeTab === "agents" ? null : (
             <Button
               size="sm"
               xstyle={centerStyles.headerButton}
@@ -679,6 +680,7 @@ export function AutomationCenterView() {
               ["automations", `Automations · ${snapshot.automations.length}`],
               ["runs", `Run history · ${snapshot.runs.length}`],
               ["playbooks", `Playbooks · ${playbookCount}`],
+              ["agents", "Agents"],
             ] as const
           ).map(([id, label]) => (
             <ActionButton
@@ -704,6 +706,12 @@ export function AutomationCenterView() {
           <p className={sx(centerStyles.toolbarNote)}>
             Saved ways of working. A mission runs one on a task, stage by
             stage.
+          </p>
+        ) : null}
+
+        {activeTab === "agents" ? (
+          <p className={sx(centerStyles.toolbarNote)}>
+            Saved agents to hand work to. Assign creates the task and starts it.
           </p>
         ) : null}
 
@@ -766,6 +774,8 @@ export function AutomationCenterView() {
 
       {activeTab === "playbooks" ? (
         <PlaybooksTab />
+      ) : activeTab === "agents" ? (
+        <AgentsTab />
       ) : showLoadingState ? (
         <div
           className={sx(centerStyles.loadingPane)}

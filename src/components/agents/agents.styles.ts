@@ -1,0 +1,62 @@
+import * as stylex from "@stylexjs/stylex";
+import { vars } from "../ads/tokens/tokens.stylex";
+
+/** Agents tab: the list and detail layout come from the playbook styles; these are the parts only agents have. */
+export const agentStyles = stylex.create({
+  source: {
+    flex: "0 0 auto",
+    fontSize: vars["--ads-font-size-micro"],
+    color: vars["--ads-color-text-subtle"],
+  },
+  archived: { color: vars["--ads-color-text-subtle"], textDecorationLine: "line-through" },
+  instructions: {
+    margin: 0,
+    padding: vars["--ads-space-12"],
+    borderRadius: vars["--ads-radius-control"],
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    fontFamily: vars["--ads-font-mono"],
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    whiteSpace: "pre-wrap",
+    overflowWrap: "anywhere",
+    maxHeight: "18rem",
+    overflowY: "auto",
+  },
+  support: {
+    width: "100%",
+    borderCollapse: "collapse",
+    fontSize: vars["--ads-font-size-caption"],
+  },
+  supportCell: {
+    paddingBlock: vars["--ads-space-4"],
+    paddingInlineEnd: vars["--ads-space-12"],
+    textAlign: "start",
+    verticalAlign: "top",
+    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomStyle: "solid",
+    borderBottomColor: vars["--ads-color-border-subtle"],
+  },
+  supportHead: { color: vars["--ads-color-text-subtle"], fontWeight: vars["--ads-font-weight-medium"] },
+  muted: { color: vars["--ads-color-text-muted"] },
+  assign: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-8"],
+    padding: vars["--ads-space-12"],
+    borderRadius: vars["--ads-radius-control"],
+    borderWidth: vars["--ads-border-width-hairline"],
+    borderStyle: "solid",
+    borderColor: vars["--ads-color-border-subtle"],
+  },
+  assignRow: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"], flexWrap: "wrap" },
+  runs: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], margin: 0, padding: 0, listStyle: "none" },
+  run: {
+    display: "flex",
+    gap: vars["--ads-space-8"],
+    alignItems: "baseline",
+    fontSize: vars["--ads-font-size-caption"],
+    minWidth: 0,
+  },
+  runTitle: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  runState: { flex: "0 0 auto", color: vars["--ads-color-text-muted"] },
+});
