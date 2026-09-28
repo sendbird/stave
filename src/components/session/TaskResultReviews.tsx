@@ -262,7 +262,7 @@ export function TaskResultReviews(props: {
   workspaceId: string;
   taskId: string;
 }) {
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("pending");
   const [offset, setOffset] = useState(0);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
@@ -359,19 +359,19 @@ export function TaskResultReviews(props: {
         <div className={sx(styles.filterGroup)}>
           <ActionButton
             size="xs"
-            weight={filter === "all" ? "secondary" : "quiet"}
-            aria-pressed={filter === "all"}
-            onClick={() => changeFilter("all")}
-          >
-            All runs
-          </ActionButton>
-          <ActionButton
-            size="xs"
             weight={filter === "pending" ? "secondary" : "quiet"}
             aria-pressed={filter === "pending"}
             onClick={() => changeFilter("pending")}
           >
             Needs review
+          </ActionButton>
+          <ActionButton
+            size="xs"
+            weight={filter === "all" ? "secondary" : "quiet"}
+            aria-pressed={filter === "all"}
+            onClick={() => changeFilter("all")}
+          >
+            All runs
           </ActionButton>
         </div>
         <span className={sx(styles.caption)} aria-live="polite">

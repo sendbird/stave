@@ -17,7 +17,7 @@ test("result review survives notification cleanup and renderer restart, with exp
   try {
     await stave.page
       .getByTestId("workspace-welcome")
-      .getByRole("button", { name: "Open a project" })
+      .getByRole("button", { name: "Open a repository" })
       .click();
     await stave.page.getByPlaceholder("~/projects/my-app").fill(repositoryPath);
     await stave.page.getByRole("button", { name: "Open", exact: true }).click();
@@ -45,7 +45,7 @@ test("result review survives notification cleanup and renderer restart, with exp
           .loadWorkspaceShellSummary!({ workspaceId });
         const taskId = response.summary!.tasks[0]!.id;
         const scope = {
-          projectPath: repositoryPath,
+          repositoryPath,
           workspaceId,
           taskId,
           turnId: "review-turn",
@@ -114,6 +114,7 @@ test("result review survives notification cleanup and renderer restart, with exp
       stave.page.getByRole("navigation", { name: "Task activity shortcuts" }),
     ).toHaveCount(0);
     await resultsShortcut.click();
+    await expect(results.getByRole("button", { name: "Needs review" })).toHaveAttribute("aria-pressed", "true");
     await expect(
       stave.page.getByRole("tablist", { name: "Task inspection" }),
     ).toHaveCount(0);
@@ -166,6 +167,8 @@ test("result review survives notification cleanup and renderer restart, with exp
     await results
       .getByRole("button", { name: "Mark reviewed", exact: true })
       .click();
+    await expect(results.getByText("Every saved run has been reviewed.")).toBeVisible();
+    await results.getByRole("button", { name: "All runs" }).click();
     await expect(
       results.getByRole("button", { name: "Reopen", exact: true }),
     ).toBeVisible();
@@ -179,6 +182,8 @@ test("result review survives notification cleanup and renderer restart, with exp
       stave.page.getByRole("heading", { name: "Turn Activity", exact: true }),
     ).toBeVisible();
     await resultsShortcut.click();
+    await expect(results.getByRole("button", { name: "Needs review" })).toHaveAttribute("aria-pressed", "true");
+    await results.getByRole("button", { name: "All runs" }).click();
     await expect(
       results.getByRole("button", { name: "Reopen", exact: true }),
     ).toBeVisible();

@@ -1,6 +1,5 @@
 import { useEffect, useMemo } from "react";
 import {
-  ArrowRight,
   CircleCheck,
   CircleDashed,
   CircleX,
@@ -11,7 +10,6 @@ import {
   Pause,
   Play,
   Target,
-  Users,
 } from "lucide-react";
 import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
@@ -319,26 +317,6 @@ function HandOffEmptyState(props: { workspaceId: string; taskId: string }) {
   );
 }
 
-/** Points to the Team panel, where the task's Advisor, workers and delegated tasks live. */
-export function TeamPointer() {
-  const setLayout = useAppStore((state) => state.setLayout);
-  return (
-    <section className={sx(styles.section, styles.sectionRule, styles.teamPointer)} aria-label="Team">
-      <Users aria-hidden className={sx(styles.teamPointerIcon)} />
-      <p className={sx(styles.teamPointerText)}>Advisor, workers and delegated tasks</p>
-      <Button
-        variant="quiet"
-        size="xs"
-        xstyle={styles.teamPointerAction}
-        onClick={() => setLayout({ patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "team" } })}
-      >
-        Open Team
-        <ArrowRight aria-hidden />
-      </Button>
-    </section>
-  );
-}
-
 /**
  * The right rail's Mission panel: what supervises the task — its mission and
  * its wake-up. The task's collaborators are in the Team panel.
@@ -379,7 +357,6 @@ export function MissionPanel(props: { workspaceId: string; taskId: string }) {
         <HandOffEmptyState workspaceId={props.workspaceId} taskId={props.taskId} />
       )}
       <WakeUpSection workspaceId={props.workspaceId} taskId={props.taskId} />
-      <TeamPointer />
     </div>
   );
 }

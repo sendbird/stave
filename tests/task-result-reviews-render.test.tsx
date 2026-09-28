@@ -18,6 +18,9 @@ test("run history opens as a filterable list with its purpose stated up front", 
   expect(html).toContain("One entry per finished run");
   expect(html).toContain("All runs");
   expect(html).toContain("Needs review");
+  expect(html).toMatch(/aria-pressed="true"[^>]*><span[^>]*>Needs review/);
+  expect(html).toMatch(/aria-pressed="false"[^>]*><span[^>]*>All runs/);
+  expect(html.indexOf("Needs review")).toBeLessThan(html.indexOf("All runs"));
   expect(html).toContain("Review marks are for your own tracking");
 });
 

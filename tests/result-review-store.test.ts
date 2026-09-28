@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { ResultReviewStore } from "../electron/persistence/result-review-store";
-import { SetResultReviewedArgsSchema } from "../src/lib/reviews/result-review";
+import { ResultReviewSchema, SetResultReviewedArgsSchema } from "../src/lib/reviews/result-review";
 
 let db: Database;
 const scope = {
@@ -121,6 +121,22 @@ describe("durable result review", () => {
       store.setReviewed({ ...scope, reviewed: false })?.reviewedAt,
     ).toBeNull();
     expect(store.list({ pendingOnly: true }).total).toBe(2);
+  });
+
+  test("returns a reviewable scope from the saved list", () => {
+    const store = new ResultReviewStore(db);
+    insert();
+    const row = ResultReviewSchema.parse(store.list({ pendingOnly: true }).results[0]);
+    const args = SetResultReviewedArgsSchema.parse({
+      repositoryPath: row.repositoryPath,
+      workspaceId: row.workspaceId,
+      taskId: row.taskId,
+      turnId: row.turnId,
+      reviewed: true,
+    });
+    expect(row.repositoryName).toBe("Project");
+    expect(store.setReviewed(args)?.reviewedAt).toBeTruthy();
+    expect(store.list({ pendingOnly: true }).total).toBe(0);
   });
 
   test("rejects wrong ownership, missing results and renderer supplied review timestamps", () => {
