@@ -72,10 +72,14 @@ Cursor supports `agent`, `plan`, and `ask` session modes. At app startup, Stave
 loads the model values advertised by an authenticated ACP session. Current
 Cursor builds honor `clientCapabilities._meta.parameterizedModelPicker`, so
 the catalog is bare model ids and effort/fast are independent session config
-options, the same way Claude, Codex, and Kiro expose those controls. Older
-builds still encode effort, context, thinking, and fast in the model id; the
-composer then groups those accepted values by base model and only selects an
-advertised combination. The broader `agent --list-models` output is not
+options, the same way Claude, Codex, and Kiro expose those controls. The effort
+config id depends on the selected model (`effort`, `reasoning`, or
+`reasoning_effort`), and a session left on Auto advertises no effort option at
+all. The composer still offers the effort scale for those bare model ids; a
+turn applies a value only when the selected model's live session config
+advertises it. Older builds still encode effort, context, thinking, and fast
+in the model id; the composer then groups those accepted values by base model
+and only selects an advertised combination. The broader `agent --list-models` output is not
 used because the ACP server rejects variants it did not advertise. `Auto`
 remains the offline fallback; a configured model is applied only when the
 active ACP session advertises the same value. Tool permissions use one-turn

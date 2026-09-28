@@ -25,8 +25,10 @@ baseline or its ACP integration.
 - Model config id: `model`; Stave defaults to `auto`
 - Model catalog: the `model` options returned by `session/new`. Initialize
   sends `clientCapabilities._meta.parameterizedModelPicker: true` so current
-  Cursor builds advertise bare model ids plus separate `effort`/`reasoning`
-  and `fast` config options. Older builds keep encoded variant ids; only
+  Cursor builds advertise bare model ids plus separate effort
+  (`effort`, `reasoning`, or `reasoning_effort`, depending on the selected
+  model) and `fast` config options. A session whose current model is Auto
+  omits the effort option. Older builds keep encoded variant ids; only
   advertised model values are selectable.
 - Permission choices used by Stave: `allow-once` / `allow_once` and
   `reject-once` / `reject_once`

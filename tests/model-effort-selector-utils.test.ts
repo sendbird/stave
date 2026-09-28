@@ -203,6 +203,30 @@ describe("model effort selector utilities", () => {
     ).toBe(false);
   });
 
+  test("offers the effort scale for bare Cursor models when the snapshot omitted it", () => {
+    const grok = option({
+      providerId: "cursor",
+      model: "grok-4.7",
+      supportedEfforts: [],
+    });
+    const auto = option({
+      providerId: "cursor",
+      model: "auto-smart",
+      supportedEfforts: [],
+    });
+
+    expect(listModelEfforts(grok).map((effort) => effort.value)).toEqual([
+      "low",
+      "medium",
+      "high",
+      "xhigh",
+      "max",
+    ]);
+    expect(listModelEfforts(auto)).toEqual([]);
+    expect(usesCursorParameterizedPicker([grok, auto])).toBe(true);
+    expect(usesCursorParameterizedPicker([auto])).toBe(false);
+  });
+
   test("separates Cursor model names from runtime capability labels", () => {
     const cursor = option({
       providerId: "cursor",

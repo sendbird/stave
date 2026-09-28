@@ -329,6 +329,15 @@ export function listProviderEffortScale(
   return [];
 }
 
+function isCursorAutoModel(model: string) {
+  const base = getCursorModelBaseId(model).toLowerCase();
+  return base === "auto" || base.startsWith("auto-");
+}
+
+function isCursorBareModel(model: string) {
+  return !model.includes("[");
+}
+
 function normalizeCatalogEffort(
   value: string | undefined,
 ): ModelEffortValue | undefined {
@@ -364,6 +373,14 @@ export function listModelEfforts(
         option.supportedEfforts?.map(normalizeCatalogEffort).filter(Boolean),
       );
       return scale.filter((effort) => supported.has(effort.value));
+    }
+    // Bare ids keep effort on a session config whose id and values depend on
+    // the selected model. A catalog snapshot only includes that config for the
+    // model the session currently has selected, so Auto and every other model
+    // arrive with an empty list. Offer the scale here; the turn applies a
+    // value the live session advertises for the model that was chosen.
+    if (isCursorBareModel(option.model) && !isCursorAutoModel(option.model)) {
+      return scale;
     }
     const embeddedEffort = normalizeCatalogEffort(option.defaultEffort);
     return embeddedEffort
@@ -417,10 +434,20 @@ export function resolveDefaultModelEffort(
 export function usesCursorParameterizedPicker(
   options: readonly ModelSelectorOption[],
 ) {
-  return options.some(
+  const cursorModels = options.filter(
     (option) =>
       option.providerId === "cursor" &&
-      (option.supportedEfforts?.length ?? 0) > 0,
+      !option.isAuto &&
+      !isCursorAutoModel(option.model),
+  );
+  if (
+    cursorModels.some((option) => (option.supportedEfforts?.length ?? 0) > 0)
+  ) {
+    return true;
+  }
+  return (
+    cursorModels.length > 0 &&
+    cursorModels.every((option) => isCursorBareModel(option.model))
   );
 }
 
