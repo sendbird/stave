@@ -295,13 +295,31 @@
       "testFiles": [
         "tests/project-boundaries.test.ts",
         "tests/project-policy.test.ts",
-        "tests/project-store.test.ts"
+        "tests/project-store.test.ts",
+        "tests/intake.test.ts"
       ],
       "assertionRefs": [
         "docs/architecture/agent-platform-taxonomy.md",
         "src/lib/projects/policy.ts",
         "src/lib/projects/briefing.ts",
-        "electron/host-service/supervision/project-runtime.ts"
+        "electron/host-service/supervision/project-runtime.ts",
+        "electron/host-service/supervision/intake.ts"
+      ]
+    },
+    {
+      "id": "agent-boundaries",
+      "title": "A saved agent grants no permissions, starts nothing, and a run follows its start snapshot",
+      "invariant": "An agent config holds only a default permission from a closed list and no approval bypass; compiling never widens it and imports refuse bypass modes, hooks and inline MCP servers. The agent domain in src/lib/agents imports no host, main-process, persistence or process module, so saving or editing an agent cannot start work. Work runs against a snapshot copied at start; edits after the start never change its instructions, tools or content hash.",
+      "testFiles": [
+        "tests/agent-boundaries.test.ts",
+        "tests/agent-config.test.ts",
+        "tests/agent-import.test.ts"
+      ],
+      "assertionRefs": [
+        "docs/architecture/agent-platform-taxonomy.md",
+        "src/lib/agents/schema.ts",
+        "src/lib/agents/compile.ts",
+        "src/lib/agents/import.ts"
       ]
     }
   ]

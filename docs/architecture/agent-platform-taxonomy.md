@@ -34,6 +34,10 @@ Use these words in code, UI copy, and plans. Do not introduce synonyms.
 | Stage report | What the agent reports for a stage through `stave_report_stage` or `stave_block_stage`. Its evidence is "Verified by Stave" only when Stave saw the cited call succeed; otherwise "Agent reported". |
 | Mission report | The summary a mission leaves when it ends: stages, decisions, evidence, links, and, for a partial run, what it left behind. |
 | Project | Reserved for the goal-level coordinator that starts parallel missions. Not a registered folder. |
+| Agent | A saved worker definition: instructions, skills, a model choice, tool limits, a default permission and a workspace. Built-in, Custom, or From repository. It grants no permissions and starts nothing. Code: `AgentConfig` in `src/lib/agents/`, referenced as `agentConfigId` — never `agentId`, which names a provider worker on normalized events, and never `AgentDefinition`, the Claude Agent SDK's subagent type. |
+| Agent role | Where an agent can be used: `primary` (Main agent of a task), `worker` (the turn-scoped Worker), `delegate` (a delegated task). The same words as the auto-routing roles. Code: `usableAs`. |
+| Agent snapshot | The copy of an agent taken when work starts, with its content hash ("Version used"). Later edits never reach a run. |
+| Intake | The one sequence that turns a request into a workspace, an idle task and optionally a mission: `electron/host-service/supervision/intake.ts`. Its caller records the idempotency key and each id it reports. "Assign" in the product. |
 
 Lane names for workspace state are fixed and ordered:
 `action-required` > `in-progress` > `in-review` > `idle`.
@@ -221,6 +225,9 @@ whose name repeats it.
     edits no files. Its start conditions (an assigned issue, pull request
     feedback, a schedule) and the user's messages from the project only start
     coordinator turns, through the one read-only coordinator path.
+13. A saved agent grants no permissions; every start records its own consent.
+14. Saving or editing an agent never creates a workspace, a task or a process.
+15. A run follows the snapshot taken at its start; later edits never reach it.
 
 Statement 10 is asserted at the Start sheet: the consent chosen there is what
 the mission stores and what its turns run with, and the playbook's saved
