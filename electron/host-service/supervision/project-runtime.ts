@@ -12,6 +12,7 @@
  * Used by: `electron/host-service/supervision/project-host.ts`.
  */
 import { randomUUID } from "node:crypto";
+import { runIntake } from "./intake";
 import type { MissionDetail } from "../../../src/lib/missions/api";
 import {
   currentStageRecord,
@@ -435,42 +436,42 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
       store.upsertProposal(current);
     };
     try {
-      const branch = missionBranchName(proposal);
-      const created = await deps.createMissionWorkspace({
-        repositoryPath: project.repositoryPath,
-        name: branch,
-        label: firstLine(proposal.assignment, 60),
-      });
-      if (created.existed) {
-        throw new Error(`A workspace on the branch "${branch}" already exists; a mission needs a worktree of its own.`);
-      }
-      const { workspaceId } = created;
-      keep({ workspaceId });
-      const { taskId } = await deps.createIdleTask({
-        workspaceId,
-        title: firstLine(proposal.assignment, 60),
-        provider: proposal.providerId,
-        model: proposal.model,
-      });
-      keep({ taskId });
-      const detail = await deps.startMission(
+      const title = firstLine(proposal.assignment, 60);
+      const { missionId } = await runIntake(
         {
-          workspaceId,
-          leadTaskId: taskId,
-          playbook: proposal.playbook,
-          assignment: proposal.assignment,
-          // Consent for a project mission: the playbook's check-ins and
-          // default permissions, and every external effect it names — what
-          // the user approved in the proposal or allowed in the settings.
-          consent: {
-            checkIns: proposal.playbook.checkIns,
-            permissionMode: proposal.playbook.runtime?.permissionMode ?? DEFAULT_PLAYBOOK_PERMISSION_MODE,
-            authorizedEffectStageIds: listExternalEffectStages(proposal.playbook).map((stage) => stage.id),
+          workspace: {
+            mode: "new-worktree",
+            repositoryPath: project.repositoryPath,
+            branch: missionBranchName(proposal),
+            label: title,
+          },
+          task: { title, provider: proposal.providerId, model: proposal.model },
+          mission: {
+            playbook: proposal.playbook,
+            assignment: proposal.assignment,
+            // Consent for a project mission: the playbook's check-ins and
+            // default permissions, and every external effect it names — what
+            // the user approved in the proposal or allowed in the settings.
+            consent: {
+              checkIns: proposal.playbook.checkIns,
+              permissionMode: proposal.playbook.runtime?.permissionMode ?? DEFAULT_PLAYBOOK_PERMISSION_MODE,
+              authorizedEffectStageIds: listExternalEffectStages(proposal.playbook).map((stage) => stage.id),
+            },
           },
         },
-        { projectId: project.id },
+        {
+          createWorktree: deps.createMissionWorkspace,
+          createIdleTask: deps.createIdleTask,
+          startMission: async (input) => ({
+            missionId: (await deps.startMission(input, { projectId: project.id })).mission.id,
+          }),
+        },
+        {
+          workspaceReady: (workspaceId) => keep({ workspaceId }),
+          taskReady: (taskId) => keep({ taskId }),
+        },
       );
-      keep({ state: "started", missionId: detail.mission.id, detail: null });
+      keep({ state: "started", missionId, detail: null });
     } catch (error) {
       const message = error instanceof Error && error.message ? error.message : "The mission could not start.";
       keep({ state: "failed", detail: message.slice(0, 500) });
