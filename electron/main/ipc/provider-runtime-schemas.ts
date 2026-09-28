@@ -250,6 +250,7 @@ export const RuntimeOptionsObjectSchema = z
       })
       .strict()
       .optional(),
+    agentInstructions: z.string().max(12_000).optional(),
     responseStylePrompt: z.string().max(10_000).optional(),
     promptPrDescription: z.string().max(10_000).optional(),
     promptInlineCompletion: z.string().max(10_000).optional(),

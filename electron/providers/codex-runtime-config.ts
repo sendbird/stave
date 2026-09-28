@@ -215,6 +215,12 @@ export function buildCodexDeveloperInstructions(args: {
   if (responseStyle) {
     parts.push(responseStyle);
   }
+  // The task's Agent applies to its own turns only, never to a read-only
+  // secondary run, matching the Claude adapter.
+  const agentInstructions = args.secondaryReadOnly ? undefined : args.runtimeOptions?.agentInstructions?.trim();
+  if (agentInstructions) {
+    parts.push(agentInstructions);
+  }
   parts.push(CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS);
   if (args.hasStaveLocalMcp) {
     parts.push(CODEX_STAVE_LENS_INSTRUCTIONS);
