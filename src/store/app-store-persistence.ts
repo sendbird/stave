@@ -53,6 +53,7 @@ import { normalizeTrustedToolEntries } from "@/lib/providers/trusted-tools";
 import { normalizePrePrReviewProvider } from "@/lib/source-control-review";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import { normalizePersistedMacros } from "@/lib/macros/normalize";
+import { restoreCustomAgents } from "@/lib/agents/library";
 import {
   restorePersistedPlaybooks,
   warnPlaybookDiagnostics,
@@ -353,6 +354,13 @@ export function createAppStorePersistenceOptions() {
       warnPlaybookDiagnostics(restoredPlaybooks.diagnostics);
       state.settings.playbooks = restoredPlaybooks.playbooks;
       state.settings.playbooksUnreadable = restoredPlaybooks.unreadable;
+      // Same rule for custom agents: unreadable entries are kept aside, never lost.
+      const restoredAgents = restoreCustomAgents({
+        agents: raw.customAgents,
+        unreadable: raw.customAgentsUnreadable,
+      });
+      state.settings.customAgents = restoredAgents.agents;
+      state.settings.customAgentsUnreadable = restoredAgents.unreadable;
       state.settings.modelShortcutKeys = normalizeModelShortcutKeys(
         raw.modelShortcutKeys,
       );

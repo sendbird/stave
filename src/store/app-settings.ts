@@ -60,6 +60,8 @@ import {
 import type { Macro } from "@/lib/macros/types";
 import type { UnreadablePlaybook } from "@/lib/playbooks/normalize";
 import type { Playbook } from "@/lib/playbooks/schema";
+import type { AgentConfig } from "@/lib/agents/schema";
+import type { UnreadableAgent } from "@/lib/agents/library";
 import type { PromptEnhancementExemplar } from "@/lib/providers/prompt-enhancement-context";
 import { cloneDefaultTaskPresets, type TaskPreset } from "@/lib/task-presets";
 import {
@@ -250,6 +252,14 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * version that can read them restores them. Written back unchanged.
    */
   playbooksUnreadable: UnreadablePlaybook[];
+  /**
+   * Custom agents: saved worker definitions the user made or duplicated.
+   * Built-in agents live in code and repository agents in files, so only
+   * these are saved. See `src/lib/agents/library.ts`.
+   */
+  customAgents: AgentConfig[];
+  /** Saved custom agents this version could not read, kept as saved. */
+  customAgentsUnreadable: UnreadableAgent[];
   permissionMode: "require-approval" | "auto-safe";
   trustedTools: string[];
   skillsEnabled: boolean;
@@ -694,6 +704,8 @@ export const defaultSettings: AppSettings = {
   macros: [],
   playbooks: [],
   playbooksUnreadable: [],
+  customAgents: [],
+  customAgentsUnreadable: [],
   permissionMode: "auto-safe",
   trustedTools: [],
   skillsEnabled: true,
