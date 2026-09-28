@@ -66,9 +66,14 @@ const FORMAT_PROVIDER: Readonly<Record<AgentFileFormat, ProviderId | null>> = {
   "copilot-md": null,
 };
 
+/**
+ * Tools that edit files. A shell is not one: a reviewer that runs tests is
+ * still meant to read only, and reading it as read-only only ever narrows
+ * what the agent may do — the permission is enforced, not the tool list.
+ */
 const WRITE_TOOLS = new Set(["Edit", "Write", "NotebookEdit", "MultiEdit", "fs_write", "write", "edit"]);
-const RUNS_CODE = "Not imported: it would run commands from this repository when the agent starts.";
-const SKIPS_APPROVAL = "Not imported: it would skip approvals. Choose a permission when you assign work.";
+const RUNS_CODE = "It would run commands from this repository when the agent starts.";
+const SKIPS_APPROVAL = "It would skip approvals. Choose a permission when you assign work.";
 
 export function detectAgentFileFormat(path: string): AgentFileFormat | null {
   const normalized = path.replace(/\\/g, "/");

@@ -82,12 +82,15 @@ export function restoreCustomAgents(input: { agents: unknown; unreadable: unknow
   return { agents: result.agents, unreadable };
 }
 
-const SOURCE_ORDER: Readonly<Record<AgentSource, number>> = { repository: 0, custom: 1, builtin: 2 };
+const SOURCE_ORDER: Readonly<Record<AgentSource, number>> = { custom: 0, builtin: 1, repository: 2 };
 
 /**
- * Every agent the user can pick, one per id: a repository agent overrides a
- * custom one with the same id, and both override a built-in. Archived agents
- * stay in the list (their history remains) unless `activeOnly` is set.
+ * Every agent the user can pick, one per id. A custom agent wins over a
+ * built-in, and both win over a repository agent: a file in a cloned
+ * repository must never hide an agent the user made or replace a built-in's
+ * instructions under the same name. `hiddenRepositoryAgents` reports the
+ * files that lost. Archived agents stay in the list (their history remains)
+ * unless `activeOnly` is set.
  */
 export function listAgents(args: {
   custom: readonly AgentConfig[];
@@ -95,7 +98,7 @@ export function listAgents(args: {
   activeOnly?: boolean;
 }): AgentConfig[] {
   const byId = new Map<string, AgentConfig>();
-  const candidates = [...(args.repository ?? []), ...args.custom, ...BUILTIN_AGENTS].sort(
+  const candidates = [...args.custom, ...BUILTIN_AGENTS, ...(args.repository ?? [])].sort(
     (a, b) => SOURCE_ORDER[a.source] - SOURCE_ORDER[b.source],
   );
   for (const agent of candidates) {
@@ -103,6 +106,25 @@ export function listAgents(args: {
   }
   const agents = [...byId.values()];
   return args.activeOnly ? agents.filter((agent) => !agent.archived) : agents;
+}
+
+/** Repository agents `listAgents` leaves out because a custom or built-in agent has the same id. */
+export function hiddenRepositoryAgents(args: {
+  custom: readonly AgentConfig[];
+  repository: readonly AgentConfig[];
+}): Array<{ path: string; message: string }> {
+  const custom = new Set(args.custom.map((agent) => agent.id));
+  const builtin = new Set(BUILTIN_AGENTS.map((agent) => agent.id));
+  return args.repository.flatMap((agent) => {
+    const owner = custom.has(agent.id) ? "custom" : builtin.has(agent.id) ? "built-in" : null;
+    if (!owner) return [];
+    return [
+      {
+        path: agent.origin?.path ?? agent.id,
+        message: `Not used: a ${owner} agent already has the id "${agent.id}". Rename the agent in the file to use it.`,
+      },
+    ];
+  });
 }
 
 function uniqueId(base: string, taken: ReadonlySet<string>) {

@@ -58,5 +58,15 @@ export const agentStyles = stylex.create({
     minWidth: 0,
   },
   runTitle: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  noteText: { flex: "1 1 auto", minWidth: 0, overflowWrap: "anywhere" },
+  problems: { marginTop: vars["--ads-space-12"], paddingInline: vars["--ads-space-8"] },
+  problem: {
+    display: "flex",
+    flexDirection: "column",
+    gap: 2,
+    fontSize: vars["--ads-font-size-caption"],
+    color: vars["--ads-color-text-muted"],
+    overflowWrap: "anywhere",
+  },
   runState: { flex: "0 0 auto", color: vars["--ads-color-text-muted"] },
 });

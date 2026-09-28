@@ -45,6 +45,31 @@ use a macro.
 - **Recent work**: the agent's assignments and their state: **Preparing**,
   **Started**, **Couldn't start** or **Interrupted**.
 
+### Agents from the repository
+
+Stave lists the agent files the open workspace already keeps for coding agents:
+
+| Folder | Files |
+| --- | --- |
+| .claude/agents | Markdown files, including subfolders |
+| .codex/agents | TOML files |
+| .kiro/agents | JSON and Markdown files |
+| .cursor/agents | Markdown files |
+| .github, agents folder | Files ending in .agent.md |
+
+Files are read, never written. Use the reload button next to search after
+editing a file. A repository agent's details show **Read from the file**: each
+field that was **Not imported** (it would run commands or skip approvals),
+**Left out** (Stave has no place for it) or **Changed**.
+
+When a file has no permission setting, a tool list without file-editing tools
+makes it **Read only**; otherwise it starts as **Guided**, never **Auto**.
+
+A file that could not be read, or whose agent has the same id as a custom or
+built-in agent, is listed under **agent files were not used** with the reason.
+A repository file never replaces an agent you made or a built-in one; rename
+the agent in the file to use it. Duplicate a repository agent to edit a copy.
+
 ### Flow panel
 
 The right rail's **Flow** panel shows one task: the assignment, each mission
@@ -79,8 +104,8 @@ Fleet's search finds its tasks.
 
 ## Limitations
 
-- Agent files in a repository can be read and converted, but the Agents tab
-  does not list them yet.
+- Stave reads at most 50 agent files per repository.
+- Agents cannot be exported back to agent files yet.
 - Hooks, inline MCP servers and approval-skipping modes in agent files are
   never imported.
 - A worktree is a separate checkout, not a sandbox.

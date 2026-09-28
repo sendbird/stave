@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, ArchiveRestore, Copy, Send } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, RefreshCw, Send } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { Select } from "@/components/ads/components/Select";
 import { TextField } from "@/components/ads/components/TextField";
@@ -13,7 +13,8 @@ import {
   describeUsableAs,
   groupAgents,
 } from "@/lib/agents/agents-view";
-import { duplicateAgent, listAgents, upsertCustomAgent } from "@/lib/agents/library";
+import { duplicateAgent, hiddenRepositoryAgents, listAgents, upsertCustomAgent } from "@/lib/agents/library";
+import type { AgentImportNote } from "@/lib/agents/import";
 import { resolveAssignRoute } from "@/lib/agents/assign-route";
 import {
   AGENT_CONFIG_LIMITS,
@@ -30,8 +31,10 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 import { useAppStore } from "@/store/app.store";
 import { playbookStyles as styles } from "../playbooks/playbooks.styles";
 import { agentStyles } from "./agents.styles";
+import { useRepositoryAgents } from "./useRepositoryAgents";
 
 const PROVIDERS = listProviderIds();
+const NO_NOTES: readonly AgentImportNote[] = [];
 const PROVIDER_LABELS: Record<string, string> = {
   "claude-code": "Claude",
   codex: "Codex",
@@ -275,7 +278,41 @@ function CustomAgentFields(props: { agent: AgentConfig; onSave: (agent: AgentCon
   );
 }
 
-function AgentDetail(props: { agent: AgentConfig; onDuplicate: () => void; onSave: (agent: AgentConfig) => string | null }) {
+const IMPORT_OUTCOME_LABELS: Readonly<Record<AgentImportNote["outcome"], string>> = {
+  refused: "Not imported",
+  dropped: "Left out",
+  changed: "Changed",
+};
+
+/** What reading the file did not carry over, so a repository agent never looks more capable than it is. */
+function ImportNotes(props: { notes: readonly AgentImportNote[] }) {
+  if (props.notes.length === 0) return null;
+  return (
+    <section aria-label="Read from the file">
+      <div className={sx(styles.sectionHeader)}>
+        <h3 className={sx(styles.sectionTitle)}>Read from the file</h3>
+        <span className={sx(styles.sectionAside)}>The file itself is not changed</span>
+      </div>
+      <ul className={sx(agentStyles.runs)}>
+        {props.notes.map((note) => (
+          <li key={`${note.outcome}:${note.field}`} className={sx(agentStyles.run)}>
+            <span className={sx(agentStyles.runState)}>{IMPORT_OUTCOME_LABELS[note.outcome]}</span>
+            <span className={sx(agentStyles.noteText)}>
+              <code>{note.field}</code> — {note.reason}
+            </span>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
+
+function AgentDetail(props: {
+  agent: AgentConfig;
+  notes: readonly AgentImportNote[];
+  onDuplicate: () => void;
+  onSave: (agent: AgentConfig) => string | null;
+}) {
   const { agent } = props;
   const assignments = useAssignments(agent.id);
   const support = useMemo(() => describeProviderSupport(agent, PROVIDERS), [agent]);
@@ -328,6 +365,8 @@ function AgentDetail(props: { agent: AgentConfig; onDuplicate: () => void; onSav
             </dd>
           </dl>
         )}
+
+        <ImportNotes notes={props.notes} />
 
         <section aria-label="Provider support">
           <div className={sx(styles.sectionHeader)}>
@@ -397,9 +436,25 @@ export function AgentsTab() {
   const updateSettings = useAppStore((state) => state.updateSettings);
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const agents = useMemo(() => listAgents({ custom }), [custom]);
+  const rootPath = useAppStore((state) =>
+    state.activeWorkspaceId ? (state.workspacePathById[state.activeWorkspaceId] ?? state.repositoryPath) : state.repositoryPath,
+  );
+  const repository = useRepositoryAgents(rootPath);
+  const repositoryAgents = useMemo(() => repository.scan.agents.map((entry) => entry.agent), [repository.scan]);
+  const agents = useMemo(() => listAgents({ custom, repository: repositoryAgents }), [custom, repositoryAgents]);
+  const problems = useMemo(
+    () => [...repository.scan.problems, ...hiddenRepositoryAgents({ custom, repository: repositoryAgents })],
+    [repository.scan, custom, repositoryAgents],
+  );
   const groups = useMemo(() => groupAgents(agents, query), [agents, query]);
   const selected = agents.find((agent) => agent.id === selectedId) ?? agents[0] ?? null;
+  const selectedNotes = useMemo(
+    () =>
+      selected?.source === "repository"
+        ? (repository.scan.agents.find((entry) => entry.agent === selected)?.notes ?? NO_NOTES)
+        : NO_NOTES,
+    [selected, repository.scan],
+  );
 
   const save = (agent: AgentConfig): string | null => {
     try {
@@ -430,6 +485,17 @@ export function AgentsTab() {
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
+          <Button
+            size="sm"
+            variant="quiet"
+            iconOnly
+            aria-label="Read agent files again"
+            title="Read agent files again"
+            disabled={!rootPath || repository.loading}
+            onClick={repository.reload}
+          >
+            <RefreshCw aria-hidden />
+          </Button>
         </div>
         {groups.map((group) => (
           <div key={group.source}>
@@ -456,6 +522,26 @@ export function AgentsTab() {
           </div>
         ))}
         {groups.length === 0 ? <p className={sx(styles.hint)}>No agent matches “{query}”.</p> : null}
+        {problems.length > 0 ? (
+          <details className={sx(agentStyles.problems)}>
+            <summary className={sx(styles.hint, styles.hintWarning)}>
+              {problems.length === 1 ? "1 agent file was not used" : `${problems.length} agent files were not used`}
+            </summary>
+            <ul className={sx(agentStyles.runs)}>
+              {problems.map((problem) => (
+                <li key={`${problem.path}:${problem.message}`} className={sx(agentStyles.problem)}>
+                  <code>{problem.path}</code>
+                  <span>{problem.message}</span>
+                </li>
+              ))}
+            </ul>
+          </details>
+        ) : null}
+        {rootPath && repositoryAgents.length === 0 && problems.length === 0 && !query ? (
+          <p className={sx(styles.hint)}>
+            Agent files in this repository's .claude, .codex, .kiro, .cursor or .github agents folder are listed here too.
+          </p>
+        ) : null}
       </aside>
       {selected ? (
         <div className={sx(styles.detail)}>
@@ -468,7 +554,13 @@ export function AgentsTab() {
               onValueChange={(value) => setSelectedId(String(value))}
             />
           </div>
-          <AgentDetail key={selected.id} agent={selected} onDuplicate={() => duplicate(selected)} onSave={save} />
+          <AgentDetail
+            key={selected.id}
+            agent={selected}
+            notes={selectedNotes}
+            onDuplicate={() => duplicate(selected)}
+            onSave={save}
+          />
         </div>
       ) : null}
     </div>

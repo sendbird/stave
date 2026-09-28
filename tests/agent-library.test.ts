@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import {
   duplicateAgent,
+  hiddenRepositoryAgents,
   listAgents,
   normalizeCustomAgents,
   restoreCustomAgents,
@@ -19,17 +20,27 @@ function custom(overrides: Partial<AgentConfig> = {}): AgentConfig {
 }
 
 describe("agent library", () => {
-  test("a repository agent overrides a custom one, which overrides a built-in, one per id", () => {
-    const overridesBuiltin = custom({ id: "planner", name: "My planner" });
-    const repository = AgentConfigSchema.parse({
-      ...custom({ name: "Repo UI" }),
-      source: "repository",
-      origin: { path: ".claude/agents/ui.md", format: "claude-md", contentHash: "h" },
-    });
-    const agents = listAgents({ custom: [custom(), overridesBuiltin], repository: [repository] });
-    expect(agents.filter((agent) => agent.id === "ui-maintainer").map((agent) => agent.name)).toEqual(["Repo UI"]);
-    expect(agents.find((agent) => agent.id === "planner")?.name).toBe("My planner");
-    expect(agents.length).toBe(BUILTIN_AGENTS.length + 1);
+  test("a repository file never hides a custom or built-in agent with the same id, and says so", () => {
+    const fromRepository = (overrides: Partial<AgentConfig>) =>
+      AgentConfigSchema.parse({
+        ...custom(overrides),
+        source: "repository",
+        origin: { path: `.claude/agents/${overrides.id ?? "ui"}.md`, format: "claude-md", contentHash: "h" },
+      });
+    const repository = [
+      fromRepository({ name: "Repo UI" }),
+      fromRepository({ id: "reviewer", name: "Repo reviewer" }),
+      fromRepository({ id: "release-notes", name: "Release notes" }),
+    ];
+    const agents = listAgents({ custom: [custom()], repository });
+    expect(agents.find((agent) => agent.id === "ui-maintainer")?.name).toBe("UI Maintainer");
+    expect(agents.find((agent) => agent.id === "reviewer")?.source).toBe("builtin");
+    expect(agents.find((agent) => agent.id === "release-notes")?.source).toBe("repository");
+    expect(agents.length).toBe(BUILTIN_AGENTS.length + 2);
+    expect(hiddenRepositoryAgents({ custom: [custom()], repository }).map((entry) => entry.path)).toEqual([
+      ".claude/agents/ui.md",
+      ".claude/agents/reviewer.md",
+    ]);
   });
 
   test("archived agents stay listed but not among active ones", () => {

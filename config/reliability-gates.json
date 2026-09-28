@@ -319,7 +319,8 @@
         "docs/architecture/agent-platform-taxonomy.md",
         "src/lib/agents/schema.ts",
         "src/lib/agents/compile.ts",
-        "src/lib/agents/import.ts"
+        "src/lib/agents/import.ts",
+        "src/lib/agents/library.ts"
       ]
     }
   ]
