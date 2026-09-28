@@ -2,7 +2,11 @@ import { getCursorModelBaseId } from "../../../src/lib/providers/cursor-model-id
 import { KIRO_EFFORT_OPTIONS } from "../../../src/lib/providers/runtime-option-contract";
 import { AcpConfigSelectGroupSchema, type AcpSessionConfigOption } from "../acp/acp-schemas";
 
-export const CURSOR_EFFORT_CONFIG_IDS = ["effort", "reasoning"] as const;
+export const CURSOR_EFFORT_CONFIG_IDS = [
+  "effort",
+  "reasoning",
+  "reasoning_effort",
+] as const;
 export const CURSOR_FAST_CONFIG_ID = "fast";
 
 const CURSOR_EFFORT_VALUES = new Set<string>(

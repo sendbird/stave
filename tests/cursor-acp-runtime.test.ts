@@ -154,6 +154,48 @@ describe("Cursor ACP runtime", () => {
     ]);
   });
 
+  test("maps reasoning_effort onto the catalog effort scale", () => {
+    expect(
+      mapCursorAcpModelCatalog({
+        configOptions: [
+          {
+            id: "model",
+            name: "Model",
+            type: "select",
+            currentValue: "grok-4.7",
+            options: [
+              { value: "auto-smart", name: "Auto" },
+              { value: "grok-4.7", name: "Grok 4.7" },
+            ],
+          },
+          {
+            id: "reasoning_effort",
+            name: "Effort",
+            type: "select",
+            currentValue: "high",
+            options: [
+              { value: "low", name: "Low" },
+              { value: "high", name: "High" },
+              { value: "xhigh", name: "Extra High" },
+            ],
+          },
+        ],
+      }),
+    ).toEqual([
+      expect.objectContaining({
+        model: "auto-smart",
+        defaultEffort: "high",
+        supportedEfforts: ["low", "high", "xhigh"],
+      }),
+      expect.objectContaining({
+        model: "grok-4.7",
+        isDefault: true,
+        defaultEffort: "high",
+        supportedEfforts: ["low", "high", "xhigh"],
+      }),
+    ]);
+  });
+
   test("maps only model values accepted by the ACP session", () => {
     expect(
       mapCursorAcpModelCatalog({

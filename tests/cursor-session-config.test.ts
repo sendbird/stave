@@ -79,6 +79,38 @@ describe("Cursor session config", () => {
     ).toEqual(["low", "medium", "high"]);
   });
 
+  test("reads effort from the reasoning_effort config id", () => {
+    const configOptions: AcpSessionConfigOption[] = [
+      {
+        id: "model",
+        name: "Model",
+        type: "select",
+        currentValue: "grok-4.7",
+        options: [{ value: "grok-4.7", name: "Grok 4.7" }],
+      },
+      {
+        id: "reasoning_effort",
+        name: "Effort",
+        type: "select",
+        currentValue: "high",
+        options: [
+          { value: "low", name: "Low" },
+          { value: "medium", name: "Medium" },
+          { value: "high", name: "High" },
+          { value: "xhigh", name: "Extra High" },
+        ],
+      },
+    ];
+
+    expect(isCursorParameterizedCatalog(configOptions)).toBe(true);
+    expect(
+      listCursorSessionParameterUpdates({
+        configOptions,
+        effort: "xhigh",
+      }),
+    ).toEqual([{ configId: "reasoning_effort", value: "xhigh" }]);
+  });
+
   test("matches a stored bracketed model to the advertised bare id", () => {
     expect(
       resolveAdvertisedCursorModelId({
