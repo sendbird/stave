@@ -83,6 +83,7 @@ import { createProposalRuntime, invokeProposalRuntime } from "./host-service/sup
 import { resolveMissionGrant } from "./providers/mission-grants";
 import { createHostProjectRuntime } from "./host-service/supervision/project-host";
 import { invokeProjectAction } from "./host-service/supervision/project-runtime";
+import { createHostAssignRuntime, invokeAgentAction } from "./host-service/supervision/assign-host";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
 import { createCursorChatId } from "./host-service/cursor-chat-id";
 import { readHostServiceResourceMetrics } from "./host-service/resource-metrics";
@@ -587,6 +588,9 @@ const projectRuntime = createHostProjectRuntime({
   },
   // Playbook start conditions read the same saved playbooks.
   onPlaybooksSynced: (playbooks) => proposalRuntime.setPlaybooks(playbooks),
+});
+const assignRuntime = createHostAssignRuntime({
+  emitChanged: (event) => emitEvent("agent.changed", event),
 });
 const proposalRuntime = createProposalRuntime({
   store: ensureHostServicePersistenceReady().missions,
@@ -2107,6 +2111,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         ),
       );
       return;
+    case "agent.invoke":
+      await respond(request.id, await invokeAgentAction(assignRuntime, request.params.action, request.params.args));
+      return;
     case "proposal.invoke":
       await respond(request.id, await invokeProposalRuntime(proposalRuntime, request.params.action, request.params.args));
       return;
@@ -2132,6 +2139,7 @@ async function main() {
   wakeUpRuntime.start();
   missionRuntime.start();
   projectRuntime.start();
+  assignRuntime.start();
   proposalRuntime.start();
   const stdinFrameDecoder = new JsonMessageFrameDecoder({
     label: "host-service stdin",

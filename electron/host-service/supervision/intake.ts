@@ -15,8 +15,7 @@
  * Used by: `project-runtime.ts`.
  */
 import type { MissionStartInput } from "../../../src/lib/missions/domain";
-
-export type IntakeProviderId = "claude-code" | "codex";
+import type { ProviderId } from "../../../src/lib/providers/provider.types";
 
 /** Same words as a delegated task's workspace strategy. */
 export type IntakeWorkspace =
@@ -29,11 +28,11 @@ export type IntakeWorkspace =
     }
   | { mode: "same-workspace"; workspaceId: string };
 
-export interface IntakeRequest {
+export interface IntakeRequest<P extends ProviderId = ProviderId> {
   workspace: IntakeWorkspace;
   task: {
     title: string;
-    provider: IntakeProviderId;
+    provider: P;
     /** The model the task's composer starts on; absent for the provider default. */
     model?: string | null;
   };
@@ -41,7 +40,7 @@ export interface IntakeRequest {
   mission?: Omit<MissionStartInput, "workspaceId" | "leadTaskId">;
 }
 
-export interface IntakePorts {
+export interface IntakePorts<P extends ProviderId = ProviderId> {
   createWorktree: (args: {
     repositoryPath: string;
     name: string;
@@ -50,7 +49,7 @@ export interface IntakePorts {
   createIdleTask: (args: {
     workspaceId: string;
     title: string;
-    provider: IntakeProviderId;
+    provider: P;
     model?: string | null;
   }) => Promise<{ taskId: string }>;
   /** Required when a request names a mission. */
@@ -86,7 +85,7 @@ function messageOf(error: unknown, fallback: string) {
   return error instanceof Error && error.message ? error.message : fallback;
 }
 
-async function prepareWorkspace(workspace: IntakeWorkspace, ports: IntakePorts): Promise<string> {
+async function prepareWorkspace(workspace: IntakeWorkspace, ports: Pick<IntakePorts, "createWorktree">): Promise<string> {
   if (workspace.mode === "same-workspace") return workspace.workspaceId;
   let created: { workspaceId: string; existed?: boolean };
   try {
@@ -107,9 +106,9 @@ async function prepareWorkspace(workspace: IntakeWorkspace, ports: IntakePorts):
   return created.workspaceId;
 }
 
-export async function runIntake(
-  request: IntakeRequest,
-  ports: IntakePorts,
+export async function runIntake<P extends ProviderId>(
+  request: IntakeRequest<P>,
+  ports: IntakePorts<P>,
   progress: IntakeProgress = {},
 ): Promise<IntakeResult> {
   if (request.mission && !ports.startMission) {

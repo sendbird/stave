@@ -804,7 +804,36 @@ export function getProviderDecisionRequestId(event: BridgeEvent) {
   return null;
 }
 
-async function runProviderTurn(args: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void }) {
+/**
+ * Options a task adds to every turn because of what it is, looked up by task
+ * id in the host service: today, the Agent an assigned task runs as. Set once
+ * at host start; absent in tests and in processes that do not own tasks.
+ */
+type TaskRuntimeOptionsResolver = (args: {
+  taskId: string;
+  providerId: StreamTurnArgs["providerId"];
+  runtimeOptions: StreamTurnArgs["runtimeOptions"];
+}) => Partial<NonNullable<StreamTurnArgs["runtimeOptions"]>>;
+
+let taskRuntimeOptionsResolver: TaskRuntimeOptionsResolver | null = null;
+
+export function setTaskRuntimeOptionsResolver(resolver: TaskRuntimeOptionsResolver | null) {
+  taskRuntimeOptionsResolver = resolver;
+}
+
+function withTaskRuntimeOptions<T extends StreamTurnArgs>(args: T): T {
+  if (!args.taskId || !taskRuntimeOptionsResolver) return args;
+  let extra: Partial<NonNullable<StreamTurnArgs["runtimeOptions"]>> = {};
+  try {
+    extra = taskRuntimeOptionsResolver({ taskId: args.taskId, providerId: args.providerId, runtimeOptions: args.runtimeOptions });
+  } catch (error) {
+    console.warn("[provider] task runtime options lookup failed", error);
+  }
+  return Object.keys(extra).length ? { ...args, runtimeOptions: { ...args.runtimeOptions, ...extra } } : args;
+}
+
+async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void }) {
+  const args = withTaskRuntimeOptions(rawArgs);
   const release = workspaceExecutionGate.acquire(args);
   try { return await runProviderTurnImpl(args); } finally { release(); }
 }

@@ -1,4 +1,5 @@
 import type { HostProposalAction } from "./supervision/proposal-runtime";
+import type { AgentInvokeResult, HostAgentAction } from "../../src/lib/agents/api";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../../src/lib/providers/agent-history";
 import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../../src/lib/performance/workspace-execution";
 import type {
@@ -1058,6 +1059,10 @@ export interface HostServiceRequestMap {
     action: HostProjectAction;
     args: unknown;
   };
+  "agent.invoke": {
+    action: HostAgentAction;
+    args: unknown;
+  };
   "proposal.invoke": {
     action: HostProposalAction;
     args: unknown;
@@ -1258,6 +1263,7 @@ export interface HostServiceResponseMap {
   "mission.invoke": MissionInvokeResult<unknown>;
   "project.invoke": ProjectInvokeResult<unknown>;
   "proposal.invoke": { ok: true; value: unknown } | { ok: false; message: string };
+  "agent.invoke": AgentInvokeResult<unknown>;
 }
 
 export interface HostServiceEventMap {
@@ -1288,6 +1294,8 @@ export interface HostServiceEventMap {
   };
   "mission.changed": MissionChangedEvent;
   "project.changed": ProjectChangedEvent;
+  /** An agent assignment was created or changed state. */
+  "agent.changed": { assignmentId: string; state: string };
   /** Proposed missions changed: one was proposed, started or dismissed. */
   "proposal.changed": Record<string, never>;
   "wake-up.changed": { wakeUpId: string; workspaceId: string; taskId: string };
