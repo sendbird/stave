@@ -16,7 +16,7 @@ interface ReviewDatabase {
   };
 }
 
-const COLUMNS = `id, project_path AS projectPath, project_name AS projectName,
+const COLUMNS = `id, project_path AS repositoryPath, project_name AS repositoryName,
   workspace_id AS workspaceId, workspace_name AS workspaceName,
   task_id AS taskId, task_title AS taskTitle, turn_id AS turnId,
   outcome, summary, created_at AS createdAt, reviewed_at AS reviewedAt`;
