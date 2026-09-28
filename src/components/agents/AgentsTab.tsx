@@ -14,6 +14,7 @@ import {
   groupAgents,
 } from "@/lib/agents/agents-view";
 import { duplicateAgent, listAgents, upsertCustomAgent } from "@/lib/agents/library";
+import { resolveAssignRoute } from "@/lib/agents/assign-route";
 import {
   AGENT_CONFIG_LIMITS,
   AGENT_PERMISSION_LABELS,
@@ -70,8 +71,17 @@ function AssignPanel(props: { agent: AgentConfig }) {
   const activeProvider = useAppStore(
     (state) => state.tasks.find((task) => task.id === state.activeTaskId)?.provider ?? null,
   );
+  const profile = useAppStore((state) => state.settings.autoRoutingProfile);
+  const focusTaskAttention = useAppStore((state) => state.focusTaskAttention);
+  const closeAutomationCenter = useAppStore((state) => state.closeAutomationCenter);
   const fixedProvider = agent.model.mode === "fixed" ? agent.model.providerId : null;
-  const [providerId, setProviderId] = useState<ProviderId>(fixedProvider ?? activeProvider ?? "claude-code");
+  const [choice, setChoice] = useState<"auto" | ProviderId>("auto");
+  const route = useMemo(
+    () =>
+      resolveAssignRoute({ agent, profile, preferredProviderId: activeProvider ?? "claude-code", choice }),
+    [agent, profile, activeProvider, choice],
+  );
+  const [started, setStarted] = useState<AgentAssignment | null>(null);
   const [text, setText] = useState("");
   // One request id per attempt: a double click or a retried call starts the work once.
   const [requestId, setRequestId] = useState(newRequestId);
@@ -99,7 +109,8 @@ function AssignPanel(props: { agent: AgentConfig }) {
       requestId,
       agent,
       assignment: text.trim(),
-      providerId,
+      providerId: route.providerId,
+      model: route.model,
       repositoryPath,
       ...(activeWorkspaceId ? { currentWorkspaceId: activeWorkspaceId } : {}),
     });
@@ -120,6 +131,18 @@ function AssignPanel(props: { agent: AgentConfig }) {
       setText("");
       setRequestId(newRequestId());
     }
+    setStarted(row.taskId ? row : null);
+  };
+
+  const openTask = async () => {
+    if (!started?.taskId) return;
+    await focusTaskAttention({
+      taskId: started.taskId,
+      workspaceId: started.workspaceId ?? undefined,
+      repositoryPath: started.repositoryPath,
+      refreshFromPersistence: true,
+    });
+    closeAutomationCenter();
   };
 
   return (
@@ -143,12 +166,18 @@ function AssignPanel(props: { agent: AgentConfig }) {
       <div className={sx(agentStyles.assignRow)}>
         <Select
           size="sm"
-          aria-label="Provider"
-          value={providerId}
+          aria-label="Runs on"
+          value={fixedProvider ?? choice}
           disabled={Boolean(fixedProvider) || busy}
-          options={PROVIDERS.map((id) => ({ value: id, label: PROVIDER_LABELS[id] ?? id }))}
-          onValueChange={(value) => setProviderId(String(value) as ProviderId)}
+          options={[
+            ...(fixedProvider ? [] : [{ value: "auto", label: "Auto-routing" }]),
+            ...PROVIDERS.map((id) => ({ value: id, label: PROVIDER_LABELS[id] ?? id })),
+          ]}
+          onValueChange={(value) => setChoice(String(value) as "auto" | ProviderId)}
         />
+        <span className={sx(styles.hint)} title={route.reason}>
+          {PROVIDER_LABELS[route.providerId] ?? route.providerId} · {route.model ?? "default model"}
+        </span>
         <Button size="sm" disabled={Boolean(blocked) || busy || !text.trim()} onClick={() => void submit()}>
           <Send aria-hidden />
           {busy ? "Assigning…" : "Assign"}
@@ -159,6 +188,13 @@ function AssignPanel(props: { agent: AgentConfig }) {
         <p className={sx(styles.hint)} role="status">
           {message}
         </p>
+      ) : null}
+      {started?.taskId ? (
+        <div className={sx(agentStyles.assignRow)}>
+          <Button size="sm" variant="secondary" onClick={() => void openTask()}>
+            Open task
+          </Button>
+        </div>
       ) : null}
     </section>
   );
