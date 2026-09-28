@@ -4,7 +4,7 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { cx, sx } from "@/components/ads/utils/stylex";
 import { ActionButton } from "@/components/system/ActionButton";
 import { MissionBarView } from "@/components/missions/MissionBar";
-import { MissionDetailView, TeamPointer } from "@/components/missions/MissionPanel";
+import { MissionDetailView } from "@/components/missions/MissionPanel";
 import { TaskWorkPanelHeader } from "@/components/session/TaskWorkPanel";
 import { MissionReportView } from "@/components/missions/MissionReportView";
 import { SignOffCard } from "@/components/missions/SignOffCard";
@@ -283,7 +283,6 @@ export function MissionPreview() {
             <div data-testid="mission-panel-frame">
               <TaskWorkPanelHeader title="Fix the billing table overflow on narrow screens" />
               <MissionDetailView detail={live} now={now} onCommand={noop} onShowTool={() => {}} />
-              <TeamPointer />
             </div>
           </section>
           <section className={sx(styles.case, styles.rail)} data-preview-case="Panel blocked">
