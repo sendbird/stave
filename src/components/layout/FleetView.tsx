@@ -1,4 +1,5 @@
 import { FleetProjectRollup, FleetProposedChip } from "@/components/projects/FleetProjectRollup";
+import { useAgentAssignmentsSync } from "@/store/agent-assignments-store";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   ArrowRight,
@@ -191,6 +192,7 @@ function useCoarseClock() {
 }
 
 export function FleetView() {
+  useAgentAssignmentsSync();
   const repositories = useFleetRepositories();
   const [
     focusTaskAttention,
