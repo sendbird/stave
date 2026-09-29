@@ -3,6 +3,13 @@ import type { MissionDetail } from "@/lib/missions/api";
 import type { MissionStageRecord, StageStatus } from "@/lib/missions/domain";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import type { RunStatus } from "@/lib/runs/run-domain";
+import type { WorkspacePrInfo, WorkspacePrStatus } from "@/lib/pr-status";
+import type { TurnVerificationResult } from "@/lib/workspace-scripts";
+import type { TaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
+import { getTodoProgress } from "@/components/ai-elements/todo";
+import { findLatestTodoPart } from "@/components/session/turn-todo.utils";
+import { findLatestPendingToolInteraction } from "@/store/provider-message.utils";
+import type { ChatMessage } from "@/types/chat";
 
 /**
  * The Flow of one task: what was assigned, the stages it went through, and
@@ -61,6 +68,75 @@ export interface FlowAssignmentInput {
   updatedAt: string;
 }
 
+/** The first user message that opened the task. */
+export interface FlowRequestInput {
+  at: string;
+  text: string;
+}
+
+/** The latest plan/todo list the provider reported for the task. */
+export interface FlowPlanInput {
+  total: number;
+  done: number;
+  /** Each todo, in the order the provider reported it. */
+  items: Array<{ text: string; done: boolean }>;
+}
+
+/** Changed files with line totals, as derived by the task execution summary. */
+export interface FlowChangesInput {
+  fileCount: number;
+  additions: number | null;
+  deletions: number | null;
+  /** Line totals were unavailable for an oversized diff. */
+  partial: boolean;
+}
+
+/**
+ * The structured verification result only. Callers pass this from the task
+ * execution summary; the flow never parses tool stdout to guess a pass/fail.
+ */
+export interface FlowVerificationInput {
+  status: TurnVerificationResult["status"];
+  totalEntries: number;
+  executedEntries: number;
+  completedAt: number;
+}
+
+/** The workspace pull request and its derived status. */
+export interface FlowPullRequestInput {
+  number: number;
+  title: string;
+  url: string;
+  status: WorkspacePrStatus;
+  /** Rollup of the PR's checks, when GitHub has reported one. */
+  checks: "success" | "failure" | "pending" | null;
+  createdAt: string | null;
+}
+
+/** The task is waiting on the user for an approval or a question. */
+export interface FlowNeedsYouInput {
+  kind: "approval" | "question";
+  /** The tool or question the user has to answer. */
+  label: string;
+  at: string | null;
+}
+
+/**
+ * The base flow of any task, derived from records that already exist. Every
+ * field is optional: a step is only drawn once its source has something to
+ * say, so a fresh task shows Request alone and fills in as work lands.
+ */
+export interface FlowBaseInput {
+  request: FlowRequestInput | null;
+  plan: FlowPlanInput | null;
+  changes: FlowChangesInput | null;
+  verification: FlowVerificationInput | null;
+  pullRequest: FlowPullRequestInput | null;
+  needsYou: FlowNeedsYouInput | null;
+  /** Whether the task has a turn running now. */
+  taskRunning: boolean;
+}
+
 const STAGE_STATE: Readonly<Record<StageStatus, FlowState>> = {
   pending: "waiting",
   "awaiting-sign-off": "action-required",
@@ -89,6 +165,269 @@ const ASSIGNMENT_STATE: Readonly<Record<FlowAssignmentInput["state"], FlowState>
   failed: "failed",
   interrupted: "action-required",
 };
+
+const VERIFICATION_STATE: Readonly<Record<FlowVerificationInput["status"], FlowState>> = {
+  pass: "done",
+  warn: "action-required",
+  fail: "failed",
+};
+
+/** GitHub's own merge gate, mapped to Fleet words. */
+const PR_STATE: Readonly<Record<WorkspacePrStatus, FlowState>> = {
+  no_pr: "waiting",
+  draft: "running",
+  review_required: "action-required",
+  changes_requested: "action-required",
+  checks_pending: "running",
+  checks_failed: "failed",
+  merge_conflict: "action-required",
+  behind_base: "action-required",
+  blocked: "action-required",
+  ready_to_merge: "action-required",
+  merged: "done",
+  closed_unmerged: "cancelled",
+};
+
+const PR_STATUS_LABELS: Readonly<Record<WorkspacePrStatus, string>> = {
+  no_pr: "No pull request",
+  draft: "Draft",
+  review_required: "Review required",
+  changes_requested: "Changes requested",
+  checks_pending: "Checks running",
+  checks_failed: "Checks failed",
+  merge_conflict: "Merge conflict",
+  behind_base: "Behind base",
+  blocked: "Merge blocked",
+  ready_to_merge: "Ready to merge",
+  merged: "Merged",
+  closed_unmerged: "Closed",
+};
+
+const CHECKS_LABELS: Readonly<Record<NonNullable<FlowPullRequestInput["checks"]>, string>> = {
+  success: "Checks passed",
+  failure: "Checks failed",
+  pending: "Checks running",
+};
+
+const FLOW_REQUEST_MAX_CHARS = 140;
+
+function boundRequestText(value: string) {
+  const normalized = value.replace(/\s+/g, " ").trim();
+  return normalized.length <= FLOW_REQUEST_MAX_CHARS
+    ? normalized
+    : `${normalized.slice(0, FLOW_REQUEST_MAX_CHARS - 1).trimEnd()}…`;
+}
+
+/**
+ * The base flow every task has, drawn from data that already exists: the first
+ * message, the reported plan, the changed files, the structured verification,
+ * and the pull request. A "Needs you" step is appended whenever the task waits
+ * on the user. Each step is only added once its source has something to say.
+ */
+export function buildBaseSteps(base: FlowBaseInput): FlowNode[] {
+  const steps: FlowNode[] = [];
+
+  if (base.request) {
+    steps.push({
+      id: "base:request",
+      kind: "task",
+      title: "Request",
+      detail: boundRequestText(base.request.text) || null,
+      state: "done",
+      evidence: null,
+      target: null,
+      events: [{ at: base.request.at, label: "Requested" }],
+      children: [],
+    });
+  }
+
+  if (base.plan && base.plan.total > 0) {
+    const allDone = base.plan.done >= base.plan.total;
+    steps.push({
+      id: "base:plan",
+      kind: "task",
+      title: "Plan",
+      detail: `${base.plan.done}/${base.plan.total} done`,
+      state: allDone ? "done" : base.taskRunning ? "running" : "waiting",
+      evidence: null,
+      target: null,
+      // The plan list itself is the timeline: each todo as a line, done first.
+      events: base.plan.items.map((item) => ({
+        at: "",
+        label: `${item.done ? "✓" : "○"} ${item.text}`,
+      })),
+      children: [],
+    });
+  }
+
+  if (base.changes) {
+    const lines =
+      base.changes.additions == null || base.changes.deletions == null
+        ? base.changes.partial
+          ? " · line totals unavailable"
+          : ""
+        : ` · +${base.changes.additions}/−${base.changes.deletions}`;
+    steps.push({
+      id: "base:changes",
+      kind: "task",
+      title: "Changes",
+      detail: `${base.changes.fileCount} file${base.changes.fileCount === 1 ? "" : "s"}${lines}`,
+      state: base.taskRunning ? "running" : "done",
+      evidence: null,
+      target: null,
+      events: [],
+      children: [],
+    });
+  }
+
+  if (base.verification) {
+    steps.push({
+      id: "base:verification",
+      kind: "task",
+      title: "Verification",
+      detail: `${base.verification.executedEntries}/${base.verification.totalEntries} checks`,
+      state: VERIFICATION_STATE[base.verification.status],
+      evidence: null,
+      target: null,
+      events: [{ at: new Date(base.verification.completedAt).toISOString(), label: "Verified" }],
+      children: [],
+    });
+  }
+
+  if (base.pullRequest) {
+    const pr = base.pullRequest;
+    const events: FlowEvent[] = pr.createdAt ? [{ at: pr.createdAt, label: "Opened" }] : [];
+    steps.push({
+      id: "base:pull-request",
+      kind: "task",
+      title: "Pull request",
+      detail: [`#${pr.number} ${pr.title}`, PR_STATUS_LABELS[pr.status], pr.checks ? CHECKS_LABELS[pr.checks] : null]
+        .filter(Boolean)
+        .join(" · "),
+      state: PR_STATE[pr.status],
+      evidence: null,
+      target: null,
+      events,
+      children: [],
+    });
+  }
+
+  if (base.needsYou) {
+    steps.push({
+      id: "base:needs-you",
+      kind: "task",
+      title: base.needsYou.kind === "approval" ? "Waiting for approval" : "Waiting for your answer",
+      detail: base.needsYou.label || null,
+      state: "action-required",
+      evidence: null,
+      target: null,
+      events: base.needsYou.at ? [{ at: base.needsYou.at, label: "Asked" }] : [],
+      children: [],
+    });
+  }
+
+  return steps;
+}
+
+function firstUserMessageRequest(messages: readonly ChatMessage[]): FlowRequestInput | null {
+  for (const message of messages) {
+    if (message.role !== "user") continue;
+    const text = (message.displayContent ?? message.content ?? "").trim();
+    if (!text) continue;
+    return { at: message.startedAt ?? message.completedAt ?? "", text };
+  }
+  return null;
+}
+
+function derivePlan(messages: readonly ChatMessage[]): FlowPlanInput | null {
+  const part = findLatestTodoPart(messages as ChatMessage[]);
+  if (!part) return null;
+  const progress = getTodoProgress({ input: part.input });
+  if (progress.totalCount === 0) return null;
+  return {
+    total: progress.totalCount,
+    done: progress.completedCount,
+    items: progress.todos.map((todo) => ({ text: todo.content, done: todo.status === "completed" })),
+  };
+}
+
+function derivePullRequest(prInfo: WorkspacePrInfo | null | undefined): FlowPullRequestInput | null {
+  const pr = prInfo?.pr;
+  if (!pr) return null;
+  const checks =
+    pr.checksRollup === "SUCCESS"
+      ? "success"
+      : pr.checksRollup === "FAILURE"
+        ? "failure"
+        : pr.checksRollup === "PENDING"
+          ? "pending"
+          : null;
+  return {
+    number: pr.number,
+    title: pr.title,
+    url: pr.url,
+    status: prInfo!.derived,
+    checks,
+    createdAt: null,
+  };
+}
+
+function deriveNeedsYou(messages: readonly ChatMessage[]): FlowNeedsYouInput | null {
+  const pending = findLatestPendingToolInteraction({ messages: messages as ChatMessage[] });
+  if (!pending) return null;
+  if (pending.part.type === "approval") {
+    return {
+      kind: "approval",
+      label: [pending.part.toolName, pending.part.description].filter(Boolean).join(": "),
+      at: null,
+    };
+  }
+  return {
+    kind: "question",
+    label: pending.part.questions[0]?.question.trim() || pending.part.toolName,
+    at: null,
+  };
+}
+
+/**
+ * Turns the records the panel already reads into the base flow input. Pure and
+ * synchronous: the panel calls it inside a `useMemo` so no fresh object leaves
+ * a Zustand selector. Changes and verification come straight from the shared
+ * task execution summary — verification is the structured result only, never a
+ * guess parsed from tool stdout.
+ */
+export function deriveFlowBase(args: {
+  messages: readonly ChatMessage[];
+  summary: TaskExecutionSummary;
+  prInfo: WorkspacePrInfo | null | undefined;
+  taskRunning: boolean;
+}): FlowBaseInput {
+  const changes = args.summary.changes.value;
+  const verification = args.summary.verification.value;
+  return {
+    request: firstUserMessageRequest(args.messages),
+    plan: derivePlan(args.messages),
+    changes: changes
+      ? {
+          fileCount: changes.files.length,
+          additions: changes.additions,
+          deletions: changes.deletions,
+          partial: changes.partial,
+        }
+      : null,
+    verification: verification
+      ? {
+          status: verification.status,
+          totalEntries: verification.totalEntries,
+          executedEntries: verification.executedEntries,
+          completedAt: verification.completedAt,
+        }
+      : null,
+    pullRequest: derivePullRequest(args.prInfo),
+    needsYou: deriveNeedsYou(args.messages),
+    taskRunning: args.taskRunning,
+  };
+}
 
 function stageEvents(records: readonly MissionStageRecord[]): FlowEvent[] {
   const events: FlowEvent[] = [];
@@ -134,11 +473,12 @@ export function buildFlow(args: {
   assignment: FlowAssignmentInput | null;
   mission: MissionDetail | null;
   delegates: readonly DelegatedTaskSummary[];
-  /** Whether the task has a turn running now. */
-  taskRunning: boolean;
+  /** The base flow every task has, derived from records that already exist. */
+  base: FlowBaseInput;
 }): FlowNode[] {
   const nodes: FlowNode[] = [];
-  const { assignment, mission } = args;
+  const { assignment, mission, base } = args;
+  const baseSteps = buildBaseSteps(base);
 
   if (assignment) {
     const where = assignment.workspaceMode === "new-worktree" ? `New worktree ${assignment.branch ?? ""}`.trim() : "Current workspace";
@@ -162,6 +502,7 @@ export function buildFlow(args: {
 
   if (mission) {
     const windows: Array<{ start: string | null; end: string | null }> = [];
+    let runningIndex = -1;
     const stageNodes = mission.mission.playbook.stages.map((stage, index) => {
       const records = mission.stages.filter((record) => record.stageId === stage.id);
       const latest = records.reduce<MissionStageRecord | undefined>(
@@ -173,6 +514,7 @@ export function buildFlow(args: {
         null,
       );
       windows.push({ start: first, end: latest?.status === "running" ? null : (latest?.endedAt ?? null) });
+      if (latest?.status === "running") runningIndex = index;
       const complete = latest?.report?.outcome === "complete" ? latest.report : null;
       const classified = complete ? classifyStageEvidence(complete, latest?.facts ?? null) : [];
       return {
@@ -189,16 +531,38 @@ export function buildFlow(args: {
           : null,
         target: null,
         events: stageEvents(records),
-        children: [],
+        children: [] as FlowNode[],
       } satisfies FlowNode;
     });
+    // The base steps belong to whichever stage is running now, nested under it
+    // so the mission's shape stays intact while the current stage shows what
+    // the task is actually doing.
+    if (runningIndex >= 0 && baseSteps.length) {
+      stageNodes[runningIndex]!.children.push(...baseSteps);
+    }
     const loose = attachDelegates(stageNodes, windows, args.delegates);
     nodes.push(...stageNodes);
-    if (loose.length) nodes.push(taskNode(args.taskTitle, loose, args.taskRunning));
+    if (loose.length) nodes.push(taskNode(args.taskTitle, loose, base.taskRunning));
     return nodes;
   }
 
-  nodes.push(taskNode(args.taskTitle, args.delegates.map(delegateNode), args.taskRunning));
+  const delegateNodes = args.delegates.map(delegateNode);
+  if (baseSteps.length === 0 && delegateNodes.length === 0) {
+    // A task with no messages yet: name the wait rather than the old hint.
+    nodes.push({
+      id: "task",
+      kind: "task",
+      title: args.taskTitle,
+      detail: "Waiting for the first message.",
+      state: "waiting",
+      evidence: null,
+      target: null,
+      events: [],
+      children: [],
+    });
+    return nodes;
+  }
+  nodes.push(...baseSteps, ...delegateNodes);
   return nodes;
 }
 
