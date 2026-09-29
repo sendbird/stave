@@ -1,3 +1,4 @@
+import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
@@ -12,6 +13,8 @@ const CURSOR_USAGE_URL =
   "https://api2.cursor.sh/aiserver.v1.DashboardService/GetCurrentPeriodUsage";
 const REQUEST_TIMEOUT_MS = 10_000;
 const CURSOR_ACCESS_TOKEN_KEY = "cursorAuth/accessToken";
+const CURSOR_AGENT_KEYCHAIN_SERVICE = "cursor-access-token";
+const CURSOR_AGENT_KEYCHAIN_ACCOUNT = "cursor-user";
 
 type CursorDashboardUsage = {
   totalPercentUsed?: unknown;
@@ -185,6 +188,44 @@ function parseStoredToken(value: unknown): string | null {
   }
 }
 
+function readSecurityPassword(args: string[]): Promise<string> {
+  return new Promise((resolve, reject) =>
+    execFile(
+      "/usr/bin/security",
+      args,
+      {
+        encoding: "utf8",
+        timeout: 3_000,
+        killSignal: "SIGKILL",
+        maxBuffer: 64 * 1024,
+      },
+      (error, stdout) => (error ? reject(error) : resolve(stdout)),
+    ),
+  );
+}
+
+export async function readCursorMacKeychainToken(
+  readPassword: (args: string[]) => Promise<string> = readSecurityPassword,
+  platform = process.platform,
+): Promise<string | null> {
+  if (platform !== "darwin") {
+    return null;
+  }
+  try {
+    const password = await readPassword([
+      "find-generic-password",
+      "-s",
+      CURSOR_AGENT_KEYCHAIN_SERVICE,
+      "-a",
+      CURSOR_AGENT_KEYCHAIN_ACCOUNT,
+      "-w",
+    ]);
+    return parseStoredToken(password.trim());
+  } catch {
+    return null;
+  }
+}
+
 function readCursorAgentToken(): string | null {
   try {
     const raw: unknown = JSON.parse(
@@ -220,11 +261,37 @@ function readCursorIdeToken(): string | null {
   }
 }
 
-export async function fetchCursorUsageSnapshot(): Promise<CursorUsageSnapshot> {
-  const accessToken = readCursorAgentToken() ?? readCursorIdeToken();
-  if (!accessToken) {
-    return unavailable("Sign in to Cursor Agent or Cursor IDE to view usage.");
+type CursorTokenReader = () => string | null | Promise<string | null>;
+
+const CURSOR_TOKEN_READERS: CursorTokenReader[] = [
+  () => readCursorMacKeychainToken(),
+  readCursorAgentToken,
+  readCursorIdeToken,
+];
+
+export async function fetchCursorUsageSnapshot(
+  tokenReaders: CursorTokenReader[] = CURSOR_TOKEN_READERS,
+): Promise<CursorUsageSnapshot> {
+  const triedTokens = new Set<string>();
+  for (const readToken of tokenReaders) {
+    const accessToken = await readToken();
+    if (!accessToken || triedTokens.has(accessToken)) {
+      continue;
+    }
+    triedTokens.add(accessToken);
+    const result = await requestCursorUsage(accessToken);
+    if (result !== "auth-rejected") {
+      return result;
+    }
   }
+  return triedTokens.size > 0
+    ? unavailable("Cursor sign-in expired. Sign in again and retry.")
+    : unavailable("Sign in to Cursor Agent or Cursor IDE to view usage.");
+}
+
+async function requestCursorUsage(
+  accessToken: string,
+): Promise<CursorUsageSnapshot | "auth-rejected"> {
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
   try {
@@ -242,7 +309,7 @@ export async function fetchCursorUsageSnapshot(): Promise<CursorUsageSnapshot> {
       signal: controller.signal,
     });
     if (response.status === 401 || response.status === 403) {
-      return unavailable("Cursor sign-in expired. Sign in again and retry.");
+      return "auth-rejected";
     }
     if (!response.ok) {
       return unavailable(
