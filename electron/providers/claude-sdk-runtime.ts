@@ -41,6 +41,7 @@ import {
   CLAUDE_STAVE_NATIVE_BROWSER_INSTRUCTIONS,
 } from "./claude-browser-instructions";
 import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
+import { claudeFastModeEnabled, claudeModelForcesAdaptiveThinking } from "../../src/lib/providers/claude-model-requirements";
 import type {
   BridgeEvent,
   ProviderResponderResult,
@@ -1047,20 +1048,11 @@ function emitClaudeApprovalTimeoutBridgeEvent(args: {
   args.onEvent?.(event);
 }
 
-function claudeBareModelId(model?: string) {
-  return model?.split("[")[0] ?? "";
-}
-
 function toClaudeThinkingConfig(
   thinkingMode?: "adaptive" | "enabled" | "disabled",
   model?: string,
 ) {
-  // Opus 5.5 and Sonnet 5.5 reject disabled and budget-based thinking.
-  // Claude Code cannot turn thinking off for Sonnet 5.5; effort sets the depth.
-  const bareModel = claudeBareModelId(model);
-  if (bareModel === "claude-opus-5-5" || bareModel === "claude-sonnet-5-5") {
-    return { type: "adaptive" as const };
-  }
+  if (claudeModelForcesAdaptiveThinking(model)) return { type: "adaptive" as const };
   if (thinkingMode === "adaptive") {
     return { type: "adaptive" as const };
   }
@@ -1071,11 +1063,6 @@ function toClaudeThinkingConfig(
     return { type: "disabled" as const };
   }
   return undefined;
-}
-
-/** Sonnet 5.5 has no fast mode. An unset model keeps the caller's setting. */
-function claudeModelSupportsFastMode(model?: string) {
-  return claudeBareModelId(model) !== "claude-sonnet-5-5";
 }
 
 export function resolveClaudeAgentProgressSummaries(value?: boolean) {
@@ -1286,9 +1273,7 @@ export function buildClaudeQueryOptions(args: {
     Object.keys(args.enabledPlugins).length > 0
       ? args.enabledPlugins
       : undefined;
-  const fastMode =
-    args.runtimeOptions?.claudeFastMode === true &&
-    claudeModelSupportsFastMode(args.runtimeOptions.model);
+  const fastMode = claudeFastModeEnabled(args.runtimeOptions?.claudeFastMode, args.runtimeOptions?.model);
   const settings = args.secondaryReadOnly
     ? {
         ...(fastMode ? { fastMode: true } : {}),

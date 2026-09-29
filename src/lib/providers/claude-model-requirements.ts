@@ -13,3 +13,18 @@ export function getClaudeModelVersionGuidance(model: string): string | undefined
   }
   return undefined;
 }
+
+function claudeBareModelId(model?: string) {
+  return model?.split("[")[0] ?? "";
+}
+
+/** Opus 5.5 and Sonnet 5.5 reject disabled and budget-based thinking. */
+export function claudeModelForcesAdaptiveThinking(model?: string) {
+  const bareModel = claudeBareModelId(model);
+  return bareModel === "claude-opus-5-5" || bareModel === "claude-sonnet-5-5";
+}
+
+/** Sonnet 5.5 has no fast mode. An unset model keeps the caller's setting. */
+export function claudeFastModeEnabled(requested?: boolean, model?: string) {
+  return requested === true && claudeBareModelId(model) !== "claude-sonnet-5-5";
+}
