@@ -16,6 +16,11 @@ Claude Code와 Codex의 2026년 상반기 기능을 Stave 관점에서 검토하
 Codex 요청 필드는 같은 `0.145.0` 실행 파일에서 생성한 experimental App Server
 schema와 대조했다.
 
+2026-09-29에 설치 pin을 `@anthropic-ai/claude-agent-sdk@0.3.284`, 내장 Claude
+Code `2.1.284`로 올렸다. `Options`에서 제거된 필드는 없다. 새로 추가된 optional
+필드와 `background_tasks_changed`, `control_request_progress`,
+`conversation_reset` 메시지는 채택하지 않고, 기존 mapper가 빈 이벤트로 둔다.
+
 비용은 **S**(adapter 한 경로), **M**(계약과 작은 UI), **L**(영속 ID나 새 작업
 흐름)로 표시한다.
 

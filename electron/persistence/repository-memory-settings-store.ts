@@ -18,7 +18,7 @@ export class RepositoryMemorySettingsStore {
   private readonly db: Database;
   constructor(database: unknown) {
     this.db = database as Database;
-    this.db.exec(`CREATE TABLE IF NOT EXISTS project_memory_settings (
+    this.db.exec(`CREATE TABLE IF NOT EXISTS repository_memory_settings (
       project_path TEXT PRIMARY KEY,
       settings_json TEXT NOT NULL,
       revision INTEGER NOT NULL DEFAULT 0,
@@ -29,11 +29,11 @@ export class RepositoryMemorySettingsStore {
     this.db.exec("BEGIN IMMEDIATE");
     try {
       const columns = this.db
-        .prepare("PRAGMA table_info(project_memory_settings)")
+        .prepare("PRAGMA table_info(repository_memory_settings)")
         .all() as Array<{ name: string }>;
       if (!columns.some((column) => column.name === "collection_opt_in")) {
         this.db.exec(
-          "ALTER TABLE project_memory_settings ADD COLUMN collection_opt_in INTEGER NOT NULL DEFAULT 0",
+          "ALTER TABLE repository_memory_settings ADD COLUMN collection_opt_in INTEGER NOT NULL DEFAULT 0",
         );
       }
       this.db.exec("COMMIT");
@@ -45,7 +45,7 @@ export class RepositoryMemorySettingsStore {
 
   get(repositoryPath: string): RepositoryMemorySettings {
     const row = this.db
-      .prepare("SELECT * FROM project_memory_settings WHERE project_path = ?")
+      .prepare("SELECT * FROM repository_memory_settings WHERE project_path = ?")
       .get(repositoryPath) as
       | {
           settings_json: string;
@@ -105,7 +105,7 @@ export class RepositoryMemorySettingsStore {
       const current = this.get(args.repositoryPath);
       const result = this.db
         .prepare(
-          `UPDATE project_memories SET deleted_at = ?, updated_at = ?
+          `UPDATE repository_memories SET deleted_at = ?, updated_at = ?
         WHERE project_path = ? AND deleted_at IS NULL ${args.scope === "candidates" ? "AND recall_mode = 'candidate'" : ""}`,
         )
         .run(now, now, args.repositoryPath);
@@ -126,7 +126,7 @@ export class RepositoryMemorySettingsStore {
     const { revision, resetBefore, ...values } = settings;
     this.db
       .prepare(
-        `INSERT INTO project_memory_settings (project_path, settings_json, revision, reset_before, collection_opt_in)
+        `INSERT INTO repository_memory_settings (project_path, settings_json, revision, reset_before, collection_opt_in)
       VALUES (?, ?, ?, ?, ?) ON CONFLICT(project_path) DO UPDATE SET
       settings_json = excluded.settings_json, revision = excluded.revision, reset_before = excluded.reset_before,
       collection_opt_in = excluded.collection_opt_in`,

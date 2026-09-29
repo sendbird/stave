@@ -104,6 +104,19 @@
       ]
     },
     {
+      "id": "repository-memory-tables",
+      "description": "Renames the path-scoped project_memories and project_memory_settings tables to repository_memories and repository_memory_settings so the projects feature can create its own project_memories table.",
+      "introducedAfter": "0.21.0",
+      "removeInVersion": "0.24.0",
+      "files": [
+        "electron/persistence/repository-memory-store.ts",
+        "electron/persistence/sqlite-store.ts"
+      ],
+      "tests": [
+        "tests/repository-memory-table-migration.test.ts"
+      ]
+    },
+    {
       "id": "rename-vocabulary-codemod",
       "description": "Replays the vocabulary renames (routine to automation, task heartbeat to wake-up, child task to delegated task, tracker task to tracker issue, project to repository, and later renames) on branches that started before they landed.",
       "introducedAfter": "0.19.6",

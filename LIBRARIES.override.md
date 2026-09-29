@@ -8,9 +8,9 @@
 ## Overrides
 
 - Category: Anthropic Claude Agent SDK
-- Packages: `@anthropic-ai/claude-agent-sdk` and its platform packages at `0.3.197`
+- Packages: `@anthropic-ai/claude-agent-sdk` and its platform packages at `0.3.284`
 - License: Anthropic legal agreements; the package metadata is not an open-source license.
-- Exception: Keep the current SDK runtime dependency while Anthropic's June 2026 Agent SDK usage change is paused. This exception is limited to the exact package family, version, and `Custom:` license metadata recorded in `config/license-compliance.json`.
+- Exception: Keep the current SDK runtime dependency while Anthropic's June 2026 Agent SDK usage change is paused. This exception is limited to the exact package family, version, and `Custom:` license metadata recorded in `config/license-compliance.json`. Re-reviewed when the pin moved to `0.3.284`: package metadata is `SEE LICENSE IN README.md` (platform packages: `SEE LICENSE IN LICENSE.md`), license-checker still reports that as `Custom:`, and the terms remain Anthropic's proprietary agreements.
 - Replaces: the permissive-license-only default for this provider integration.
 
 ## Rationale

@@ -12,7 +12,7 @@ const REPOSITORY_P = "/tmp/stave-memory/project-p";
 const REPOSITORY_Q = "/tmp/stave-memory/project-q";
 function enableCollection(database: Database) {
   for (const repositoryPath of [REPOSITORY_P, REPOSITORY_Q]) {
-    database.prepare(`INSERT INTO project_memory_settings
+    database.prepare(`INSERT INTO repository_memory_settings
       (project_path, settings_json, collection_opt_in) VALUES (?, ?, 1)`)
       .run(repositoryPath, JSON.stringify({ collectAutomatically: true }));
   }
@@ -27,7 +27,7 @@ function seedDistinctFacts(args: {
   now: number;
 }) {
   const insert = args.database.prepare(`
-    INSERT INTO project_memories (
+    INSERT INTO repository_memories (
       id, project_path, kind, content, source_task_id, source_turn_id,
       confidence, created_at, last_confirmed_at, updated_at, deleted_at, recall_mode
     ) VALUES (?, ?, 'fact', ?, NULL, NULL, 0.9, ?, ?, ?, NULL, 'contextual')
@@ -346,7 +346,7 @@ describe("curated memory lifecycle", () => {
     expect(store.recall({ repositoryPath: REPOSITORY_P, query: "unrelated", now: NOW })).toHaveLength(3);
     const extra = store.remember({ repositoryPath: REPOSITORY_P, kind: "fact", content: "Database writes are serialized.", confidence: 0.9, now: NOW })!;
     expect(() => store.update({ id: extra.memory.id, repositoryPath: REPOSITORY_P, recallMode: "core" })).toThrow(/three|3/);
-    expect(() => database.prepare("UPDATE project_memories SET recall_mode = 'core' WHERE id = ?").run(extra.memory.id)).toThrow(/full/);
+    expect(() => database.prepare("UPDATE repository_memories SET recall_mode = 'core' WHERE id = ?").run(extra.memory.id)).toThrow(/full/);
     expect(store.recall({ repositoryPath: REPOSITORY_P, limit: 1, now: NOW })).toHaveLength(1);
     expect(store.recall({ repositoryPath: REPOSITORY_P, limit: 0, now: NOW })).toEqual([]);
   });
@@ -413,12 +413,12 @@ describe("curated memory lifecycle", () => {
 
   test("legacy migration preserves rows and deletion, and reopening preserves curation", () => {
     const database = new Database(":memory:");
-    database.exec(`CREATE TABLE project_memories (
+    database.exec(`CREATE TABLE repository_memories (
       id TEXT PRIMARY KEY, project_path TEXT NOT NULL, kind TEXT NOT NULL, content TEXT NOT NULL,
       source_task_id TEXT, source_turn_id TEXT, confidence REAL NOT NULL,
       created_at INTEGER NOT NULL, last_confirmed_at INTEGER NOT NULL, updated_at INTEGER NOT NULL, deleted_at INTEGER
     );`);
-    const insert = database.prepare("INSERT INTO project_memories VALUES (?, ?, 'fact', ?, NULL, NULL, ?, ?, ?, ?, ?)");
+    const insert = database.prepare("INSERT INTO repository_memories VALUES (?, ?, 'fact', ?, NULL, NULL, ?, ?, ?, ?, ?)");
     insert.run("auto", REPOSITORY_P, "Automatic terminal fact.", 0.6, NOW, NOW, NOW, null);
     insert.run("explicit", REPOSITORY_P, "Explicit terminal fact.", 0.9, NOW, NOW, NOW, null);
     insert.run("deleted", REPOSITORY_P, "Forgotten terminal fact.", 0.9, NOW, NOW, NOW, NOW);

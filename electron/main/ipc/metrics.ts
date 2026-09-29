@@ -148,7 +148,7 @@ export function registerMetricsHandlers() {
           external: mainMemory.external,
           arrayBuffers: mainMemory.arrayBuffers,
         },
-        // Filled by the preload bridge from the renderer process. Electron 41
+        // Filled by the preload bridge from the renderer process. Electron
         // no longer exposes getProcessMemoryInfo() on WebContents.
         hostRendererMemory: null,
         hostRendererPid,

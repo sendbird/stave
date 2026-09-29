@@ -35,7 +35,7 @@ This guide is for building Stave locally or contributing changes. If you want to
 bun install
 ```
 
-`bun install` automatically runs a `postinstall` hook that patches `better-sqlite3` for Electron 41 compatibility and rebuilds both `better-sqlite3` and `node-pty` against Electron's ABI.
+`bun install` automatically runs a `postinstall` hook that rebuilds `better-sqlite3` and `node-pty` against the installed Electron ABI. `better-sqlite3` 13 ships a host Node prebuild and skips compilation unless that rebuild sets `force_build`; the hook then replaces the current platform prebuild with the Electron binary.
 
 If you need a web-only install that skips the native Electron rebuild step, use:
 
@@ -121,7 +121,7 @@ bun run rebuild:electron-deps
 
 ### Why Native Rebuilds Exist
 
-`better-sqlite3` and `node-pty` are native modules. They are compiled for the host Node.js ABI during install, but Stave runs inside Electron, which ships its own Node runtime and ABI. The repo therefore patches `better-sqlite3` for Electron 41 and rebuilds both modules for the installed Electron version.
+`better-sqlite3` and `node-pty` are native modules. They are compiled for the host Node.js ABI during install, but Stave runs inside Electron, which ships its own Node runtime and ABI. The repo rebuilds both modules for the installed Electron version. Releases of `better-sqlite3` that still use V8 property getters are patched for Electron's Node API; the Node-API rewrite ignores that patch because those getters are gone.
 
 ## Contributing Notes
 

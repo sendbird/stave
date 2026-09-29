@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { mkdirSync, readFileSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readFileSync } from "node:fs";
 import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { applyBetterSqlite3ElectronPatch } from "./patch-better-sqlite3-electron.mjs";
@@ -58,6 +58,7 @@ export function rebuildNativeModule(args) {
     `--arch=${args.arch}`,
     "--dist-url=https://www.electronjs.org/headers",
     "--build-from-source",
+    ...(args.gypArgs ?? []),
   ];
 
   mkdirSync(nodeGypDevDir, { recursive: true });
@@ -76,6 +77,42 @@ export function rebuildNativeModule(args) {
   }
 }
 
+function sqliteModulePath(repoRoot) {
+  return path.join(repoRoot, "node_modules", "better-sqlite3");
+}
+
+export function resolveSqliteElectronBindingPaths(args) {
+  const modulePath = sqliteModulePath(args.repoRoot ?? defaultRepoRoot);
+  const platform = args.platform ?? process.platform;
+  const arch = args.arch ?? process.arch;
+  return {
+    built: path.join(modulePath, "build", "Release", "better_sqlite3.node"),
+    prebuild: path.join(modulePath, "prebuilds", `${platform}-${arch}.node`),
+  };
+}
+
+function sqlitePackageUsesPrebuilds(repoRoot) {
+  const bindingPath = path.join(sqliteModulePath(repoRoot), "lib", "binding.js");
+  if (!existsSync(bindingPath)) return false;
+  return readFileSync(bindingPath, "utf8").includes("prebuilds");
+}
+
+export function installSqliteElectronPrebuild(args = {}) {
+  const repoRoot = args.repoRoot ?? defaultRepoRoot;
+  if (!sqlitePackageUsesPrebuilds(repoRoot)) return;
+
+  const { built, prebuild } = resolveSqliteElectronBindingPaths({
+    repoRoot,
+    platform: args.platform,
+    arch: args.arch,
+  });
+  if (!existsSync(built)) {
+    throw new Error(`better-sqlite3 Electron build is missing at ${built}`);
+  }
+  mkdirSync(path.dirname(prebuild), { recursive: true });
+  copyFileSync(built, prebuild);
+}
+
 export function rebuildElectronDeps(args = {}) {
   const repoRoot = args.repoRoot ?? defaultRepoRoot;
   const arch = args.arch ?? process.env.npm_config_arch ?? process.env.ARCH ?? process.arch;
@@ -89,8 +126,14 @@ export function rebuildElectronDeps(args = {}) {
       moduleName,
       electronVersion,
       arch,
+      // better-sqlite3 13 treats a host Node prebuild as success and emits an
+      // empty gyp target unless force_build is set. The loader then prefers
+      // that prebuild over build/Release, so the Electron binary replaces it.
+      gypArgs: moduleName === "better-sqlite3" ? ["--force_build=1"] : [],
     });
   }
+
+  installSqliteElectronPrebuild({ repoRoot, arch });
 }
 
 function isDirectExecution() {

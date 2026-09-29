@@ -116,6 +116,60 @@ function escapeFtsTerm(term: string) {
   return `"${term.replaceAll('"', '""')}"`;
 }
 
+// temporary-migration: repository-memory-tables
+function tableColumns(db: RepositoryMemoryDatabase, name: string) {
+  const exists = db
+    .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
+    .get(name);
+  if (!exists) return [];
+  return db.prepare(`PRAGMA table_info(${name})`).all() as Array<{ name: string }>;
+}
+
+/**
+ * The repository-memory rows used to live in `project_memories`. The projects
+ * feature now owns that table, so an existing path-scoped table is renamed
+ * before projects create theirs. Runs once; afterwards the legacy names are gone.
+ */
+export function migrateLegacyRepositoryMemoryTables(db: RepositoryMemoryDatabase) {
+  const legacyColumns = tableColumns(db, "project_memories");
+  const legacyMemory =
+    legacyColumns.some((column) => column.name === "project_path") &&
+    !legacyColumns.some((column) => column.name === "project_id");
+  const currentMemory = tableColumns(db, "repository_memories").length > 0;
+  const legacySettings = tableColumns(db, "project_memory_settings").length > 0;
+  const currentSettings = tableColumns(db, "repository_memory_settings").length > 0;
+  if (!legacyMemory && !legacySettings) return;
+
+  db.exec("SAVEPOINT legacy_repository_memory_tables");
+  try {
+    if (legacyMemory && !currentMemory) {
+      db.exec(`
+        DROP TRIGGER IF EXISTS project_memories_ai;
+        DROP TRIGGER IF EXISTS project_memories_ad;
+        DROP TRIGGER IF EXISTS project_memories_au;
+        DROP TRIGGER IF EXISTS project_memories_core_insert;
+        DROP TRIGGER IF EXISTS project_memories_core_update;
+        DROP TABLE IF EXISTS project_memories_fts;
+        DROP INDEX IF EXISTS idx_project_memories_project;
+        ALTER TABLE project_memories RENAME TO repository_memories;
+      `);
+    } else if (legacyMemory && currentMemory) {
+      console.warn(
+        "[persistence] left legacy project_memories in place because repository_memories already exists",
+      );
+    }
+    if (legacySettings && !currentSettings) {
+      db.exec("ALTER TABLE project_memory_settings RENAME TO repository_memory_settings");
+    }
+    db.exec("RELEASE legacy_repository_memory_tables");
+  } catch (error) {
+    db.exec("ROLLBACK TO legacy_repository_memory_tables");
+    db.exec("RELEASE legacy_repository_memory_tables");
+    throw error;
+  }
+}
+// end temporary-migration: repository-memory-tables
+
 export class RepositoryMemoryStore {
   readonly settings: RepositoryMemorySettingsStore;
   private readonly db: RepositoryMemoryDatabase;
@@ -123,6 +177,8 @@ export class RepositoryMemoryStore {
 
   constructor(database: unknown) {
     this.db = database as RepositoryMemoryDatabase;
+    // temporary-migration: repository-memory-tables
+    migrateLegacyRepositoryMemoryTables(this.db);
     this.bootstrap();
     this.settings = new RepositoryMemorySettingsStore(database);
   }
@@ -133,7 +189,7 @@ export class RepositoryMemoryStore {
 
   private bootstrap() {
     this.db.exec(`
-      CREATE TABLE IF NOT EXISTS project_memories (
+      CREATE TABLE IF NOT EXISTS repository_memories (
         id TEXT PRIMARY KEY,
         project_path TEXT NOT NULL,
         kind TEXT NOT NULL,
@@ -147,19 +203,19 @@ export class RepositoryMemoryStore {
         deleted_at INTEGER
       );
 
-      CREATE INDEX IF NOT EXISTS idx_project_memories_project
-        ON project_memories (project_path, deleted_at, confidence DESC, last_confirmed_at DESC);
+      CREATE INDEX IF NOT EXISTS idx_repository_memories_project
+        ON repository_memories (project_path, deleted_at, confidence DESC, last_confirmed_at DESC);
     `);
     // Additive migration: existing explicit memories become searchable;
     // automatically extracted rows remain available for curation, not recall.
-    const columns = this.db.prepare("PRAGMA table_info(project_memories)").all() as Array<{ name: string }>;
+    const columns = this.db.prepare("PRAGMA table_info(repository_memories)").all() as Array<{ name: string }>;
     if (!columns.some((column) => column.name === "recall_mode")) {
       this.db.exec("BEGIN IMMEDIATE");
       try {
-        const current = this.db.prepare("PRAGMA table_info(project_memories)").all() as Array<{ name: string }>;
+        const current = this.db.prepare("PRAGMA table_info(repository_memories)").all() as Array<{ name: string }>;
         if (!current.some((column) => column.name === "recall_mode")) {
-          this.db.exec(`ALTER TABLE project_memories ADD COLUMN recall_mode TEXT NOT NULL DEFAULT 'candidate';
-            UPDATE project_memories SET recall_mode = 'contextual' WHERE confidence >= 0.7;`);
+          this.db.exec(`ALTER TABLE repository_memories ADD COLUMN recall_mode TEXT NOT NULL DEFAULT 'candidate';
+            UPDATE repository_memories SET recall_mode = 'contextual' WHERE confidence >= 0.7;`);
         }
         this.db.exec("COMMIT");
       } catch (error) {
@@ -171,10 +227,10 @@ export class RepositoryMemoryStore {
     // Main and host-service have separate connections: enforce capacity at
     // the write boundary, not just in the friendly preflight above it.
     for (const event of ["INSERT", "UPDATE"] as const) {
-      this.db.exec(`CREATE TRIGGER IF NOT EXISTS project_memories_core_${event.toLowerCase()}
-        BEFORE ${event} ON project_memories
+      this.db.exec(`CREATE TRIGGER IF NOT EXISTS repository_memories_core_${event.toLowerCase()}
+        BEFORE ${event} ON repository_memories
         WHEN new.recall_mode = 'core' AND new.deleted_at IS NULL
-        AND (SELECT count(*) FROM project_memories WHERE project_path = new.project_path
+        AND (SELECT count(*) FROM repository_memories WHERE project_path = new.project_path
           AND recall_mode = 'core' AND deleted_at IS NULL AND id != new.id) >= ${REPOSITORY_MEMORY_CORE_MAX_ITEMS}
         BEGIN SELECT RAISE(ABORT, 'Core memory is full; consolidate or unpin an existing memory first.'); END;`);
     }
@@ -185,7 +241,7 @@ export class RepositoryMemoryStore {
    * for substring and CJK matches), then the default tokenizer, then none.
    */
   private bootstrapFts(): RepositoryMemoryIndexMode {
-    const existed = Boolean(this.db.prepare("SELECT name FROM sqlite_master WHERE name = 'project_memories_fts'").get());
+    const existed = Boolean(this.db.prepare("SELECT name FROM sqlite_master WHERE name = 'repository_memories_fts'").get());
     const attempts: Array<{
       mode: RepositoryMemoryIndexMode;
       tokenize: string;
@@ -196,33 +252,33 @@ export class RepositoryMemoryStore {
     for (const attempt of attempts) {
       try {
         this.db.exec(`
-          CREATE VIRTUAL TABLE IF NOT EXISTS project_memories_fts
-            USING fts5(content, content='project_memories', content_rowid='rowid'${attempt.tokenize});
+          CREATE VIRTUAL TABLE IF NOT EXISTS repository_memories_fts
+            USING fts5(content, content='repository_memories', content_rowid='rowid'${attempt.tokenize});
         `);
       } catch {
         continue;
       }
       this.db.exec(`
-        CREATE TRIGGER IF NOT EXISTS project_memories_ai
-          AFTER INSERT ON project_memories BEGIN
-            INSERT INTO project_memories_fts(rowid, content)
+        CREATE TRIGGER IF NOT EXISTS repository_memories_ai
+          AFTER INSERT ON repository_memories BEGIN
+            INSERT INTO repository_memories_fts(rowid, content)
               VALUES (new.rowid, new.content);
           END;
-        CREATE TRIGGER IF NOT EXISTS project_memories_ad
-          AFTER DELETE ON project_memories BEGIN
-            INSERT INTO project_memories_fts(project_memories_fts, rowid, content)
+        CREATE TRIGGER IF NOT EXISTS repository_memories_ad
+          AFTER DELETE ON repository_memories BEGIN
+            INSERT INTO repository_memories_fts(repository_memories_fts, rowid, content)
               VALUES ('delete', old.rowid, old.content);
           END;
-        CREATE TRIGGER IF NOT EXISTS project_memories_au
-          AFTER UPDATE OF content ON project_memories BEGIN
-            INSERT INTO project_memories_fts(project_memories_fts, rowid, content)
+        CREATE TRIGGER IF NOT EXISTS repository_memories_au
+          AFTER UPDATE OF content ON repository_memories BEGIN
+            INSERT INTO repository_memories_fts(repository_memories_fts, rowid, content)
               VALUES ('delete', old.rowid, old.content);
-            INSERT INTO project_memories_fts(rowid, content)
+            INSERT INTO repository_memories_fts(rowid, content)
               VALUES (new.rowid, new.content);
           END;
       `);
       if (!existed) {
-        this.db.exec("INSERT INTO project_memories_fts(project_memories_fts) VALUES ('rebuild')");
+        this.db.exec("INSERT INTO repository_memories_fts(repository_memories_fts) VALUES ('rebuild')");
       }
       return attempt.mode;
     }
@@ -233,7 +289,7 @@ export class RepositoryMemoryStore {
     const rows = this.db
       .prepare(
         `SELECT ${COLUMNS}
-         FROM project_memories
+         FROM repository_memories
          WHERE project_path = ?
            ${args.includeDeleted ? "" : "AND deleted_at IS NULL"}
          ORDER BY confidence DESC, last_confirmed_at DESC, id ASC`,
@@ -244,7 +300,7 @@ export class RepositoryMemoryStore {
 
   get(id: string): RepositoryMemory | null {
     const row = this.db
-      .prepare(`SELECT ${COLUMNS} FROM project_memories WHERE id = ?`)
+      .prepare(`SELECT ${COLUMNS} FROM repository_memories WHERE id = ?`)
       .get(id) as RepositoryMemoryRow | undefined;
     return row ? parseRow(row) : null;
   }
@@ -265,7 +321,7 @@ export class RepositoryMemoryStore {
       conditions.push(`(${terms.map(() => "instr(lower(content), ?) > 0").join(" OR ")})`);
       params.push(...terms);
     }
-    const rows = this.db.prepare(`SELECT ${COLUMNS} FROM project_memories
+    const rows = this.db.prepare(`SELECT ${COLUMNS} FROM repository_memories
       WHERE ${conditions.join(" AND ")} ORDER BY id ASC LIMIT 13 OFFSET ?`)
       .all(...params, offset) as RepositoryMemoryRow[];
     return {
@@ -332,10 +388,10 @@ export class RepositoryMemoryStore {
       this.assertCoreCapacity(args.repositoryPath, nextMode, duplicate.id);
       const confirmed = this.db
         .prepare(
-          `UPDATE project_memories
+          `UPDATE repository_memories
            SET confidence = ?, last_confirmed_at = ?, updated_at = ?, recall_mode = ?
            WHERE id = ? AND deleted_at IS NULL
-             AND (? = 0 OR COALESCE((SELECT revision FROM project_memory_settings WHERE project_path = ?), 0) = ?)`,
+             AND (? = 0 OR COALESCE((SELECT revision FROM repository_memory_settings WHERE project_path = ?), 0) = ?)`,
         )
         .run(nextConfidence, now, now, nextMode, duplicate.id, Number(automatic), args.repositoryPath, policy.revision);
       if (Number(confirmed.changes ?? 0) === 0) return null;
@@ -353,7 +409,7 @@ export class RepositoryMemoryStore {
 
     this.assertCoreCapacity(args.repositoryPath, recallMode);
     if (recallMode === "candidate") {
-      const count = this.db.prepare(`SELECT count(*) AS count FROM project_memories
+      const count = this.db.prepare(`SELECT count(*) AS count FROM repository_memories
         WHERE project_path = ? AND deleted_at IS NULL AND recall_mode = 'candidate'`).get(args.repositoryPath) as { count: number };
       if (count.count >= REPOSITORY_MEMORY_CANDIDATE_MAX_ITEMS) return null;
     }
@@ -374,12 +430,12 @@ export class RepositoryMemoryStore {
     };
     const inserted = this.db
       .prepare(
-        `INSERT INTO project_memories (${COLUMNS})
+        `INSERT INTO repository_memories (${COLUMNS})
          SELECT ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL
-         WHERE (? != 'candidate' OR (SELECT count(*) FROM project_memories
+         WHERE (? != 'candidate' OR (SELECT count(*) FROM repository_memories
            WHERE project_path = ? AND deleted_at IS NULL AND recall_mode = 'candidate') < ${REPOSITORY_MEMORY_CANDIDATE_MAX_ITEMS})
-         AND NOT EXISTS (SELECT 1 FROM project_memories WHERE project_path = ? AND kind = ? AND content = ?)
-         AND (? = 0 OR COALESCE((SELECT revision FROM project_memory_settings WHERE project_path = ?), 0) = ?)`,
+         AND NOT EXISTS (SELECT 1 FROM repository_memories WHERE project_path = ? AND kind = ? AND content = ?)
+         AND (? = 0 OR COALESCE((SELECT revision FROM repository_memory_settings WHERE project_path = ?), 0) = ?)`,
       )
       .run(
         memory.id,
@@ -412,7 +468,7 @@ export class RepositoryMemoryStore {
     kind: RepositoryMemoryKind;
     content: string;
   }): RepositoryMemory[] {
-    const rows = this.db.prepare(`SELECT ${COLUMNS} FROM project_memories
+    const rows = this.db.prepare(`SELECT ${COLUMNS} FROM repository_memories
       WHERE project_path = ? AND kind = ? AND content = ?
       ORDER BY deleted_at IS NOT NULL, id ASC LIMIT 1`)
       .all(args.repositoryPath, args.kind, args.content) as RepositoryMemoryRow[];
@@ -439,7 +495,7 @@ export class RepositoryMemoryStore {
     this.assertCoreCapacity(current.repositoryPath, recallMode, current.id);
     const updated = this.db
       .prepare(
-        `UPDATE project_memories
+        `UPDATE repository_memories
          SET kind = ?, content = ?, updated_at = ?, last_confirmed_at = ?, recall_mode = ?, confidence = ?
          WHERE id = ? AND deleted_at IS NULL`,
       )
@@ -450,7 +506,7 @@ export class RepositoryMemoryStore {
 
   private assertCoreCapacity(repositoryPath: string, mode: RepositoryMemoryRecallMode, id = "") {
     if (mode !== "core") return;
-    const row = this.db.prepare(`SELECT count(*) AS count FROM project_memories
+    const row = this.db.prepare(`SELECT count(*) AS count FROM repository_memories
       WHERE project_path = ? AND recall_mode = 'core' AND deleted_at IS NULL AND id != ?`).get(repositoryPath, id) as { count: number };
     if (row.count >= REPOSITORY_MEMORY_CORE_MAX_ITEMS) {
       throw new Error(`Keep at most ${REPOSITORY_MEMORY_CORE_MAX_ITEMS} core memories. Merge or change an existing core memory to contextual first.`);
@@ -462,7 +518,7 @@ export class RepositoryMemoryStore {
     const now = args.now ?? Date.now();
     const result = this.db
       .prepare(
-        `UPDATE project_memories
+        `UPDATE repository_memories
          SET deleted_at = ?, updated_at = ?
          WHERE id = ? AND deleted_at IS NULL`,
       )
@@ -487,7 +543,7 @@ export class RepositoryMemoryStore {
     const rows = this.db
       .prepare(
         `SELECT ${COLUMNS}
-         FROM project_memories
+         FROM repository_memories
          WHERE ${activeWhereClause("")}
            AND recall_mode = 'core'
          ORDER BY confidence DESC, last_confirmed_at DESC, id ASC
@@ -521,11 +577,11 @@ export class RepositoryMemoryStore {
         const rows = this.db
           .prepare(
             `SELECT ${qualifiedColumns("m")}
-             FROM project_memories_fts f
-             JOIN project_memories m ON m.rowid = f.rowid
-             WHERE project_memories_fts MATCH ?
+             FROM repository_memories_fts f
+             JOIN repository_memories m ON m.rowid = f.rowid
+             WHERE repository_memories_fts MATCH ?
                AND ${activeWhereClause("m.")}
-             ORDER BY bm25(project_memories_fts), m.confidence DESC, m.id ASC
+             ORDER BY bm25(repository_memories_fts), m.confidence DESC, m.id ASC
              LIMIT ?`,
           )
           .all(
@@ -543,7 +599,7 @@ export class RepositoryMemoryStore {
     const rows = this.db
       .prepare(
         `SELECT ${COLUMNS}
-         FROM project_memories
+         FROM repository_memories
          WHERE ${activeWhereClause("")}
            AND (${likeTerms.map(() => "instr(lower(content), ?) > 0").join(" OR ")})
          ORDER BY confidence DESC, last_confirmed_at DESC, id ASC
