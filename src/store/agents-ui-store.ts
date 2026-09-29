@@ -1,26 +1,31 @@
 import { create } from "zustand";
 
 /**
- * What the Assign to agent sheet opens with. Frozen at open time, so moving
- * between tasks or issues while the sheet is up never retargets it.
+ * What Kickoff opens with when work is handed to it from elsewhere: an issue,
+ * the composer's `!assign`, an agent's "Start work…", or the command palette.
+ * Frozen at open time, so moving between tasks or issues while the dialog is
+ * up never retargets it. A rising `nonce` reopens Kickoff with a new request
+ * even when the dialog is already open.
  */
-export interface AssignSheetRequest {
-  /** Prefilled request, e.g. an issue's key, title and link. */
-  assignment?: string;
-  /** Preselected agent; the first agent usable as a main agent otherwise. */
+export interface KickoffAgentRequest {
+  /** Prefilled work source, e.g. an issue's key, title and link. */
+  text?: string;
+  /** Preselected agent; usable-as-main agents are offered otherwise. */
   agentConfigId?: string;
   /** Where the request came from, shown under the title. */
   source?: string;
 }
 
 interface AgentsUiState {
-  assignSheet: AssignSheetRequest | null;
-  openAssignSheet: (request?: AssignSheetRequest) => void;
-  closeAssignSheet: () => void;
+  kickoffRequest: (KickoffAgentRequest & { nonce: number }) | null;
+  /** Opens Kickoff with the request; the dialog clears it once consumed. */
+  openKickoffWithAgent: (request?: KickoffAgentRequest) => void;
+  clearKickoffRequest: () => void;
 }
 
 export const useAgentsUiStore = create<AgentsUiState>((set) => ({
-  assignSheet: null,
-  openAssignSheet: (request = {}) => set({ assignSheet: request }),
-  closeAssignSheet: () => set({ assignSheet: null }),
+  kickoffRequest: null,
+  openKickoffWithAgent: (request = {}) =>
+    set((state) => ({ kickoffRequest: { ...request, nonce: (state.kickoffRequest?.nonce ?? 0) + 1 } })),
+  clearKickoffRequest: () => set({ kickoffRequest: null }),
 }));

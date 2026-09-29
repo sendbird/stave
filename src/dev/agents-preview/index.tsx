@@ -2,8 +2,6 @@ import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { AgentsTab } from "@/components/agents/AgentsTab";
 import { AgentsView } from "@/components/agents/AgentsView";
-import { AssignAgentSheetHost } from "@/components/agents/AssignAgentSheet";
-import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import type { AgentAssignment } from "@/lib/agents/assign";
@@ -18,8 +16,9 @@ import { useAppStore } from "@/store/app.store";
  * agent, a repository with agent files (one refused field, one unreadable
  * file, one id clash with a built-in), and stubbed assign calls.
  * `&theme=dark` or `&theme=<built-in theme id>` renders under that theme;
- * `&sheet=1` opens Assign to agent as an issue would; `&surface=1` renders the
- * whole Agents surface (Agents / Playbooks / My standards) instead of the tab.
+ * `&surface=1` renders the whole Agents surface (Agents / Playbooks / My
+ * standards) instead of the tab. Use `?stavePreview=kickoff&agent=1` to see the
+ * Kickoff dialog with an agent preselected.
  */
 const params = new URLSearchParams(window.location.search);
 
@@ -77,6 +76,7 @@ function installBridgeStubs() {
   };
   api.agents = {
     assign: async () => ({ ok: true, value: PREVIEW_ASSIGNMENT }),
+    recordTask: async () => ({ ok: true, value: PREVIEW_ASSIGNMENT }),
     listAssignments: async (args?: { agentConfigId?: string }) => ({
       ok: true,
       value: args?.agentConfigId === "ui-maintainer" ? [PREVIEW_ASSIGNMENT] : [],
@@ -108,16 +108,12 @@ export function AgentsPreview() {
       workspacePathById: { "preview-workspace": "/tmp/preview-repo" },
     } as never);
     setSeeded(true);
-    if (params.get("sheet") === "1") {
-      useAgentsUiStore.getState().openAssignSheet({ assignment: "Work on tracker ticket WEB-418.", source: "WEB-418" });
-    }
   }, []);
   return (
     <main className={sx(styles.page)}>
       <div className={sx(styles.frame)}>
         {seeded ? (params.get("surface") === "1" ? <AgentsView /> : <AgentsTab />) : null}
       </div>
-      <AssignAgentSheetHost />
     </main>
   );
 }

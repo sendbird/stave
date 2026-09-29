@@ -1,5 +1,40 @@
 import type { ProviderId } from "@/lib/providers/provider.types";
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";
+import { listAgents } from "@/lib/agents/library";
+import { isUsableAs, type AgentConfig } from "@/lib/agents/schema";
+import { resolveAssignRoute, type AssignRoute } from "@/lib/agents/assign-route";
+import type { AutoRoutingProfile } from "@/lib/providers/auto-routing-profile";
+
+/** Who does the work: the user, or a saved agent as the task's main agent. */
+export type KickoffWho = "me" | "agent";
+
+/**
+ * Agents Kickoff can hand work to: usable as a main agent and not archived.
+ * Custom agents come first, then built-ins (the library already orders them).
+ */
+export function selectableKickoffAgents(custom: readonly AgentConfig[]): AgentConfig[] {
+  return listAgents({ custom, activeOnly: true }).filter((agent) => isUsableAs(agent, "primary"));
+}
+
+/**
+ * The provider and model an agent's first task runs with, and whether the
+ * Runs-on override is fixed by the agent. `choice` is "auto" unless the user
+ * picked a provider on the override, which then runs with its default model.
+ */
+export function resolveKickoffAgentRoute(args: {
+  agent: AgentConfig;
+  profile: AutoRoutingProfile | null;
+  preferredProviderId: ProviderId;
+  choice: "auto" | ProviderId;
+}): AssignRoute {
+  return resolveAssignRoute({
+    agent: args.agent,
+    profile: args.profile,
+    preferredProviderId: args.preferredProviderId,
+    choice: args.choice,
+  });
+}
+
 
 export function canApplyKickoffDialogOpenChange(args: {
   open: boolean;

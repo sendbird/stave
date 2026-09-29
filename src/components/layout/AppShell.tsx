@@ -53,6 +53,7 @@ import {
   useAppStore,
   type LayoutState,
 } from "@/store/app.store";
+import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { EditorMonacoWarmup } from "@/components/layout/editor-monaco-warmup";
 import { RightRail } from "@/components/layout/RightRail";
 import { StatusBar } from "@/components/layout/StatusBar";
@@ -286,6 +287,18 @@ export function AppShell() {
     },
     [openRepository, repositoryPath],
   );
+  // Issues, the composer's `!assign`, and an agent's "Start work…" open Kickoff
+  // through the agents UI store; the dialog itself reads and clears the preset.
+  const kickoffRequestNonce = useAgentsUiStore(
+    (state) => state.kickoffRequest?.nonce ?? null,
+  );
+  useEffect(() => {
+    if (kickoffRequestNonce === null) {
+      return;
+    }
+    setCommandPaletteOpen(false);
+    setKickoffOpen(true);
+  }, [kickoffRequestNonce]);
   const handleOpenExplorerSearch = useCallback(() => {
     const store = useAppStore.getState();
     const searchRootPath =
@@ -1152,6 +1165,7 @@ export function AppShell() {
         openAutomationCenter: () => openAutomationCenter(),
         openIssues: () => openIssues(),
         openAgents: () => openAgents(),
+        startWorkWithAgent: () => useAgentsUiStore.getState().openKickoffWithAgent(),
         refreshTrackerIssues: () => refreshTrackerIssues().then(() => undefined),
         openKeyboardShortcuts: handleOpenKeyboardShortcuts,
         openRepository: (nextRepositoryPath: string) =>

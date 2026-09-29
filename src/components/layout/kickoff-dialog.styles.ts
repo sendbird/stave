@@ -484,4 +484,29 @@ export const kickoffStyles = stylex.create({
       "@media (min-width: 40rem)": "32rem",
     },
   },
+  startNow: {
+    display: "grid",
+    gap: vars["--ads-space-8"],
+  },
+  startNowRow: {
+    display: "flex",
+    flexWrap: "wrap",
+    alignItems: "center",
+    gap: vars["--ads-space-8"],
+  },
+  whoBlock: {
+    display: "grid",
+    gap: vars["--ads-space-12"],
+    borderRadius: vars["--ads-radius-control"],
+    borderWidth: vars["--ads-border-width-hairline"],
+    borderStyle: "solid",
+    borderColor: vars["--ads-color-border"],
+    padding: vars["--ads-space-12"],
+  },
+  agentSettingsLine: {
+    marginBlock: 0,
+    fontSize: vars["--ads-font-size-caption"],
+    lineHeight: vars["--ads-line-height-normal"],
+    color: vars["--ads-color-text"],
+  },
 });

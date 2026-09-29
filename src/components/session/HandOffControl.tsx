@@ -42,15 +42,15 @@ export function playbookPaletteEntries(playbooks: readonly Playbook[]): Macro[] 
 const ASSIGN_ENTRY_ID = "agents:assign";
 
 /**
- * `!assign` in the composer: the rest of the draft becomes the request and the
- * Assign to agent sheet opens. The agent makes its own task, so this works on
- * a new task as well as on one with history.
+ * `!assign` in the composer: the rest of the draft becomes the work source and
+ * Kickoff opens so the user chooses who does the work. The agent makes its own
+ * task, so this works on a new task as well as on one with history.
  */
 export const ASSIGN_PALETTE_ENTRY: Macro = {
   id: ASSIGN_ENTRY_ID,
-  label: "Assign to agent",
+  label: "Start work with an agent…",
   slug: "assign",
-  description: "Hand this request to a saved agent; it gets its own task",
+  description: "Hand this request to Kickoff and choose a saved agent to do the work",
   body: "",
   insertMode: "replace",
   createdAt: "1970-01-01T00:00:00.000Z",

@@ -5,6 +5,7 @@
  * Used by: `electron/host-service.ts`.
  */
 import type { AgentDelegationContext, AgentInvokeResult, HostAgentAction } from "../../../src/lib/agents/api";
+import { RecordTaskAgentInputSchema } from "../../../src/lib/agents/assign";
 import { listAgents, normalizeCustomAgents } from "../../../src/lib/agents/library";
 import { activeStandards, normalizeMyStandards } from "../../../src/lib/agents/standards";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
@@ -80,6 +81,23 @@ export async function invokeAgentAction(
     switch (action) {
       case "assign":
         return { ok: true, value: await runtime.assign(args) };
+      case "record-task": {
+        const value = RecordTaskAgentInputSchema.parse(args);
+        return {
+          ok: true,
+          value: runtime.recordTaskAgent({
+            requestId: value.requestId,
+            taskId: value.taskId,
+            workspaceId: value.workspaceId,
+            repositoryPath: value.repositoryPath,
+            agent: value.agent,
+            providerId: value.providerId,
+            model: value.model ?? null,
+            assignment: value.assignment,
+            ...(value.standards ? { standards: value.standards } : {}),
+          }),
+        };
+      }
       case "list-assignments": {
         const value = (args ?? {}) as { agentConfigId?: string; limit?: number };
         return { ok: true, value: runtime.list(value) };

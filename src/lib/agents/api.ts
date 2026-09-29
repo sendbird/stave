@@ -1,4 +1,4 @@
-import type { AgentAssignment } from "./assign";
+import type { AgentAssignment, RecordTaskAgentInput } from "./assign";
 
 /**
  * Renderer ↔ main ↔ host contract for agents. The renderer sends an assign
@@ -8,6 +8,8 @@ import type { AgentAssignment } from "./assign";
 
 export const AGENT_IPC = Object.freeze({
   assign: "agents:assign",
+  /** Renderer → main: record that a task Kickoff created runs as an agent. */
+  recordTask: "agents:record-task",
   listAssignments: "agents:list-assignments",
   /** Renderer → main: the saved custom agents, for delegation and projects. */
   sync: "agents:sync",
@@ -16,7 +18,7 @@ export const AGENT_IPC = Object.freeze({
 });
 
 /** Host actions behind `agent.invoke`. */
-export type HostAgentAction = "assign" | "list-assignments" | "sync-agents" | "delegation-context";
+export type HostAgentAction = "assign" | "record-task" | "list-assignments" | "sync-agents" | "delegation-context";
 
 /**
  * What limits a delegation from one task: the permission of the agent the
@@ -39,6 +41,11 @@ export interface AgentAssignmentsListArgs {
 export interface AgentsBridgeApi {
   /** `requestId` makes a retried call return the same assignment. */
   assign: (args: unknown) => Promise<AgentInvokeResult<AgentAssignment>>;
+  /**
+   * Records that a task Kickoff already created runs as an agent, before its
+   * first turn. Idempotent by `requestId`; every later turn runs as the agent.
+   */
+  recordTask: (args: RecordTaskAgentInput) => Promise<AgentInvokeResult<AgentAssignment>>;
   listAssignments: (args?: AgentAssignmentsListArgs) => Promise<AgentInvokeResult<AgentAssignment[]>>;
   subscribeChanged: (listener: () => void) => () => void;
   /** Hands main and the host the saved custom agents; they only read this copy. */

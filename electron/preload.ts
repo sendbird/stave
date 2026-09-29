@@ -846,6 +846,7 @@ ipcRenderer.on(AGENT_IPC.changed, () => {
 
 const agentsApi: AgentsBridgeApi = {
   assign: (args) => ipcRenderer.invoke(AGENT_IPC.assign, args),
+  recordTask: (args) => ipcRenderer.invoke(AGENT_IPC.recordTask, args),
   listAssignments: (args) => ipcRenderer.invoke(AGENT_IPC.listAssignments, args ?? {}),
   sync: (args) => ipcRenderer.invoke(AGENT_IPC.sync, args),
   subscribeChanged: (listener) => {
