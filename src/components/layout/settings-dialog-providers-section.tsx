@@ -3,8 +3,6 @@ import {
   Button,
   Tabs,
   TabsContent,
-  TabsList,
-  TabsTrigger,
 } from "@/components/ui";
 import {
   Select,
@@ -36,11 +34,13 @@ import {
 } from "@/lib/providers/provider-mode-presets";
 import type {
   ClaudeSettingSource,
+  ProviderId,
   ProviderRuntimeOptions,
 } from "@/lib/providers/provider.types";
 import { listCodexReasoningEffortsForModel } from "@/lib/providers/model-catalog";
 import { UI_LAYER_CLASS } from "@/lib/ui-layers";
-import { cx, sx } from "@/components/ads/utils/stylex";import { useAppStore } from "@/store/app.store";
+import { cx, sx } from "@/components/ads/utils/stylex";
+import { useAppStore } from "@/store/app.store";
 import { resolvePromptDraftModelForProvider } from "@/store/prompt-draft-runtime";
 import { useMemo } from "react";
 import { useShallow } from "zustand/react/shallow";
@@ -68,12 +68,21 @@ import { SettingsDelegationSection } from "./settings-dialog-delegation-section"
 import { SettingsCursorSection } from "./settings-dialog-cursor-section";
 import { SettingsKiroSection } from "./settings-dialog-kiro-section";
 import { providersStyles } from "./settings-dialog-providers-section.styles";
+import { SettingsProviderTabsList } from "./settings-provider-tabs";
 type ExplainedSelectOption<T extends string> = {
   value: T;
   label: string;
   description: string;
   example?: string;
 };
+
+/** Tab order for the per-provider runtime settings below the shared cards. */
+const PROVIDER_SETTINGS_TAB_IDS = [
+  "claude-code",
+  "codex",
+  "cursor",
+  "kiro",
+] as const satisfies readonly ProviderId[];
 
 const CLAUDE_PERMISSION_MODE_HELP = [
   {
@@ -891,35 +900,13 @@ export function ProvidersSection() {
           </p>
         )}
       </SettingsCard>
-      <Tabs defaultValue="claude" xstyle={providersStyles.tabs}>
-        <TabsList xstyle={providersStyles.tabsList}>
-          <TabsTrigger
-            value="claude"
-            xstyle={providersStyles.tabsTrigger}
-          >
-            Claude
-          </TabsTrigger>
-          <TabsTrigger
-            value="codex"
-            xstyle={providersStyles.tabsTrigger}
-          >
-            Codex
-          </TabsTrigger>
-          <TabsTrigger
-            value="cursor"
-            xstyle={providersStyles.tabsTrigger}
-          >
-            Cursor
-          </TabsTrigger>
-          <TabsTrigger
-            value="kiro"
-            xstyle={providersStyles.tabsTrigger}
-          >
-            Kiro
-          </TabsTrigger>
-        </TabsList>
+      <Tabs defaultValue="claude-code" xstyle={providersStyles.tabs}>
+        <SettingsProviderTabsList
+          providerIds={PROVIDER_SETTINGS_TAB_IDS}
+          aria-label="Provider settings"
+        />
 
-        <TabsContent value="claude">
+        <TabsContent value="claude-code">
           <SectionStack>
             <SettingsCard
               title="Claude Runtime Controls"

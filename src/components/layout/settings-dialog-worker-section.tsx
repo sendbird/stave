@@ -5,8 +5,6 @@ import {
   Button,
   Tabs,
   TabsContent,
-  TabsList,
-  TabsTrigger,
 } from "@/components/ui";
 import {
   Select,
@@ -17,7 +15,6 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui";
 import { Input } from "@/components/ui";
-import { ModelIcon } from "@/components/ai-elements/model-icon";
 import {
   LabeledField,
   SettingsCard,
@@ -44,7 +41,6 @@ import {
   workerToolsEnforced,
 } from "@/lib/providers/worker-mode";
 import {
-  getProviderLabel,
   listProviderIdsForCapability,
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
@@ -54,6 +50,7 @@ import { useAppStore } from "@/store/app.store";
 import { useShallow } from "zustand/react/shallow";
 import { sx } from "@/components/ads/utils/stylex";
 import { workerSectionStyles as styles } from "./settings-dialog-worker-section.styles";
+import { SettingsProviderTabsList } from "./settings-provider-tabs";
 
 /**
  * Per-provider Worker mode defaults.
@@ -145,21 +142,10 @@ export function SettingsWorkerSection(args: {
         value={activeProviderId}
         onValueChange={(value) => setActiveProviderId(value as ProviderId)}
       >
-        <TabsList xstyle={styles.tabsList}>
-          {providerIds.map((providerId) => (
-            <TabsTrigger
-              key={providerId}
-              value={providerId}
-              xstyle={styles.tabsTrigger}
-            >
-              <ModelIcon
-                providerId={providerId}
-                className={sx(styles.tabIcon)}
-              />
-              {getProviderLabel({ providerId })}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <SettingsProviderTabsList
+          providerIds={providerIds}
+          aria-label="Worker mode provider"
+        />
         {providerIds.map((providerId) => (
           <TabsContent
             key={providerId}
