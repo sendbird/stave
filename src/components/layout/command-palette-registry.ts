@@ -131,6 +131,7 @@ export interface CommandPaletteCommandHandlers {
   openGitGraph: () => void;
   openAutomationCenter: () => void;
   openIssues: () => void;
+  openAgents: () => void;
   refreshTrackerIssues: () => Promise<void> | void;
   openKeyboardShortcuts: () => void;
   openRepository: (repositoryPath: string) => Promise<void> | void;
@@ -443,6 +444,40 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       ],
       shortcut: `${args.modifierLabel}+K T`,
       run: args.commands.openIssues,
+      source: "core",
+    }),
+  },
+  {
+    id: "navigation.agents",
+    title: "Open Agents",
+    description: "Open saved agents, playbooks, and your standards.",
+    group: "navigation",
+    icon: Bot,
+    keywords: [
+      "agents",
+      "playbooks",
+      "standards",
+      "my standards",
+      "assign",
+      "delegate",
+    ],
+    shortcut: (modifierLabel) => `${modifierLabel}+K G`,
+    build: (args) => ({
+      id: "navigation.agents",
+      title: "Open Agents",
+      subtitle: "Saved agents, playbooks, and your standards.",
+      group: "navigation",
+      icon: Bot,
+      keywords: [
+        "agents",
+        "playbooks",
+        "standards",
+        "my standards",
+        "assign",
+        "delegate",
+      ],
+      shortcut: `${args.modifierLabel}+K G`,
+      run: args.commands.openAgents,
       source: "core",
     }),
   },

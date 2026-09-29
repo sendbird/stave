@@ -38,6 +38,19 @@ test.describe("agents", () => {
     await expect(page.getByRole("option", { name: "Reviewer" })).toHaveCount(0);
   });
 
+  test("the Agents surface shows all three tabs and switches between them", async ({ page }) => {
+    await page.goto("/?stavePreview=agents&surface=1");
+    const tabs = page.getByRole("navigation", { name: "Agents views" });
+    await expect(tabs.getByRole("button", { name: "Agents", exact: true })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: "Playbooks", exact: true })).toBeVisible();
+    await expect(tabs.getByRole("button", { name: "My standards", exact: true })).toBeVisible();
+    await expect(page.getByTestId("agents-tab")).toBeVisible();
+    await tabs.getByRole("button", { name: "Playbooks", exact: true }).click();
+    await expect(page.getByTestId("playbooks-tab")).toBeVisible();
+    await tabs.getByRole("button", { name: "My standards", exact: true }).click();
+    await expect(page.getByRole("textbox", { name: "My standards" })).toBeVisible();
+  });
+
   test("export shows the file and writes it only on request", async ({ page }) => {
     await page.goto("/?stavePreview=agents");
     await page.getByRole("button", { name: /^UI maintainer/ }).click();

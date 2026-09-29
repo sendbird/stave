@@ -16,6 +16,7 @@ export type AppShortcutCommandId =
   | "navigation.fleet-view"
   | "navigation.automation-center"
   | "navigation.issues"
+  | "navigation.agents"
   | "view.toggle-workspace-sidebar"
   | "view.toggle-changes-panel"
   | "view.show-explorer"
@@ -58,6 +59,12 @@ export const APP_SHORTCUT_DEFINITIONS: readonly AppShortcutDefinition[] = [
     title: "Open Issues",
     description: "Open assigned tracker tickets and start a run from one.",
     defaultKey: "t",
+  },
+  {
+    commandId: "navigation.agents",
+    title: "Open Agents",
+    description: "Open saved agents, playbooks, and your standards.",
+    defaultKey: "g",
   },
   {
     commandId: "view.toggle-workspace-sidebar",

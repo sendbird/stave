@@ -15,6 +15,7 @@ import { TopBar } from "@/components/layout/TopBar";
 import { FleetView } from "@/components/layout/FleetView";
 import { AutomationCenterView } from "@/components/layout/automation-center/AutomationCenterView";
 import { ProjectsView } from "@/components/projects/ProjectsView";
+import { AgentsView } from "@/components/agents/AgentsView";
 import {
   COLLAPSED_REPOSITORY_SIDEBAR_WIDTH,
   RepositoryWorkspaceSidebar,
@@ -151,6 +152,7 @@ export function AppShell() {
     openAutomationCenter,
     openIssues,
     closeIssues,
+    openAgents,
     openRepository,
     switchWorkspace,
     abortTaskTurn,
@@ -195,6 +197,7 @@ export function AppShell() {
           state.openAutomationCenter,
           state.openIssues,
           state.closeIssues,
+          state.openAgents,
           state.openRepository,
           state.switchWorkspace,
           state.abortTaskTurn,
@@ -628,6 +631,9 @@ export function AppShell() {
           return;
         case "navigation.issues":
           store.toggleIssues();
+          return;
+        case "navigation.agents":
+          store.toggleAgents();
           return;
         case "view.toggle-workspace-sidebar":
           store.setLayout({
@@ -1145,6 +1151,7 @@ export function AppShell() {
         openGitGraph: focusOrCreateGitGraphSurface,
         openAutomationCenter: () => openAutomationCenter(),
         openIssues: () => openIssues(),
+        openAgents: () => openAgents(),
         refreshTrackerIssues: () => refreshTrackerIssues().then(() => undefined),
         openKeyboardShortcuts: handleOpenKeyboardShortcuts,
         openRepository: (nextRepositoryPath: string) =>
@@ -1237,6 +1244,7 @@ export function AppShell() {
       openFleetView,
       openAutomationCenter,
       openIssues,
+      openAgents,
       handleStartCompareRun,
       openRepository,
       repositoryPath,
@@ -1269,8 +1277,9 @@ export function AppShell() {
   const showAutomationCenter = activeAppSurface.kind === "automation-center";
   const showIssues = activeAppSurface.kind === "issues";
   const showProjects = activeAppSurface.kind === "projects";
+  const showAgents = activeAppSurface.kind === "agents";
   const showWorkspaceSurface =
-    !showFleetView && !showAutomationCenter && !showIssues && !showProjects;
+    !showFleetView && !showAutomationCenter && !showIssues && !showProjects && !showAgents;
 
   return (
     <div className={sx(appShellStyles.root)}>
@@ -1443,6 +1452,8 @@ export function AppShell() {
                     <AutomationCenterView />
                   ) : showProjects ? (
                     <ProjectsView />
+                  ) : showAgents ? (
+                    <AgentsView />
                   ) : showIssues ? (
                     <Suspense
                       fallback={

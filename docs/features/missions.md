@@ -53,7 +53,7 @@ right.
 - **Playbook** in [Workspace Kickoff](workspace-kickoff.md) and in the
   [Issues](issues.md) kickoff sheet: Stave prepares the workspace and task,
   then opens the Start sheet on it.
-- **Start mission** in a playbook's editor (Automations → Playbooks).
+- **Start mission** in a playbook's editor (Agents → Playbooks).
 - **Start** or **Kick off** on a proposed mission in
   [Issues → Proposed](issues.md#proposed-missions). A playbook's
   [start conditions](playbooks.md#start-conditions) propose missions there,
@@ -169,7 +169,7 @@ needed you. **Copy Markdown** and **Add to PR description** act on it, and
 
 ### Mission insights
 
-**Automations → Playbooks → Mission insights** shows how missions that ended
+**Agents → Playbooks → Mission insights** shows how missions that ended
 in the last 7, 30 or 90 days went: for each provider, then for each playbook
 on each provider — completion, replies from you, reminders to report and
 stuck stages per mission, how long sign-offs waited, and the cost of each

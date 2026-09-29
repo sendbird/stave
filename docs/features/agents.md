@@ -24,7 +24,11 @@ use a macro.
 
 ## Quick Start
 
-1. Open **Automations** and choose the **Agents** tab.
+Open the **Agents** surface from the sidebar, the command palette
+(`Open Agents`), or `Cmd/Ctrl+K` then `G`. It has three tabs: **Agents**,
+**Playbooks** and **My standards**.
+
+1. Open **Agents** in the sidebar and stay on the **Agents** tab.
 2. Pick **Implementer** (built in), or **Duplicate** any agent to edit a copy.
 3. In **Assign**, describe the work and when it counts as done.
 4. Leave **Runs on** at **Auto-routing** or pick a provider, then **Assign**.
@@ -53,7 +57,7 @@ edit the request, then **Assign**.
   enforced), or **Not available**.
 - **Duplicate**, **Archive** and **Restore**. Built-in agents are read only; an
   update never overwrites your copy. Archiving stops new assignments only.
-- **Recent work**: the agent's assignments and their state: **Preparing**,
+- **Work**: the agent's assignments and their state: **Preparing**,
   **Started**, **Couldn't start** or **Interrupted**.
 
 ### Usable as and the Worker picker
@@ -70,12 +74,12 @@ Picking a preset afterwards clears it.
 
 ### My standards
 
-**My standards**, at the top of the Agents list, holds your own rules for every
-agent you run — how you want code written, reviewed or reported. Turned on,
-they are added after each agent's instructions when you assign work, delegate
-to an agent or pick one as a Worker. A task keeps the standards it started
-with; **What it received** lists them as a source. They stay in your settings
-and are never written into an exported agent file.
+**My standards**, its own tab on the Agents surface, holds your own rules for
+every agent you run — how you want code written, reviewed or reported. Turned
+on, they are added after each agent's instructions when you assign work,
+delegate to an agent or pick one as a Worker. A task keeps the standards it
+started with; **What it received** lists them as a source. They stay in your
+settings and are never written into an exported agent file.
 
 ### Export
 

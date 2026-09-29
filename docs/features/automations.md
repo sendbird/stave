@@ -45,10 +45,10 @@
 
 ### Layout
 
-The surface has three tabs. The first two are list-plus-detail splits so the
-automation list and the run history are never stacked in one scroll view; the
-third, `Playbooks`, is where the stages missions run are saved and edited (see
-[Playbooks](playbooks.md)).
+The surface has two tabs, each a list-plus-detail split so the automation list
+and the run history are never stacked in one scroll view. Playbooks and agents
+now live on their own **Agents** surface (see [Playbooks](playbooks.md) and
+[Agents](agents.md)).
 
 - `Automations`: the saved automation list on the left, and the selected
   automation's configuration on the right. The detail pane shows the latest run
