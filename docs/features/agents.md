@@ -68,6 +68,16 @@ composer's Worker menu. Picking one copies its instructions and tool list into
 this task's Worker; edit the agent and pick it again to refresh the copy.
 Picking a preset afterwards clears it.
 
+### Export
+
+**Export** in an agent's details shows the Claude or Codex agent file the agent
+becomes and the path it goes to. **Write to repository** writes it into the
+open workspace; when a file is already at that path, a second **Replace**
+press is needed. The file never carries a permission above the provider's
+default — an **Auto** agent is written without one — and fields the format has
+no place for are listed under **Not in the file**. Commit the file to share the
+agent with the team.
+
 ### Agents from the repository
 
 Stave lists the agent files the open workspace already keeps for coding agents:
@@ -148,7 +158,7 @@ Fleet's search finds its tasks.
 ## Limitations
 
 - Stave reads at most 50 agent files per repository.
-- Agents cannot be exported back to agent files yet.
+- Export writes Claude and Codex agent files only.
 - Hooks, inline MCP servers and approval-skipping modes in agent files are
   never imported.
 - A worktree is a separate checkout, not a sandbox.

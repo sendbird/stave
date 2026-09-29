@@ -66,6 +66,13 @@ function installBridgeStubs() {
         ? { ok: true, content: REPOSITORY_FILES[args.filePath], revision: "1" }
         : { ok: false, content: "", revision: "", stderr: "missing" },
   };
+  const written: Record<string, string> = {};
+  (api.fs as Record<string, unknown>).createFile = async (args: { filePath: string }) =>
+    args.filePath in REPOSITORY_FILES || args.filePath in written ? { ok: false, alreadyExists: true } : ((written[args.filePath] = ""), { ok: true, revision: "0" });
+  (api.fs as Record<string, unknown>).writeFile = async (args: { filePath: string; content: string }) => {
+    written[args.filePath] = args.content;
+    return { ok: true, revision: "1" };
+  };
   api.agents = {
     assign: async () => ({ ok: true, value: PREVIEW_ASSIGNMENT }),
     listAssignments: async (args?: { agentConfigId?: string }) => ({

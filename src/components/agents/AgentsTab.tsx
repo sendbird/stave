@@ -31,6 +31,7 @@ import { listProviderIds } from "@/lib/providers/model-catalog";
 import { useAppStore } from "@/store/app.store";
 import { playbookStyles as styles } from "../playbooks/playbooks.styles";
 import { AssignPanel, PROVIDER_LABELS } from "./AssignPanel";
+import { ExportAgent } from "./ExportAgent";
 import { agentStyles } from "./agents.styles";
 import { useRepositoryAgents } from "./useRepositoryAgents";
 
@@ -188,6 +189,7 @@ function ImportNotes(props: { notes: readonly AgentImportNote[] }) {
 function AgentDetail(props: {
   agent: AgentConfig;
   notes: readonly AgentImportNote[];
+  rootPath: string | null;
   onDuplicate: () => void;
   onSave: (agent: AgentConfig) => string | null;
 }) {
@@ -287,6 +289,8 @@ function AgentDetail(props: {
           </table>
         </section>
 
+        <ExportAgent agent={agent} rootPath={props.rootPath} />
+
         <section aria-label="Recent assignments">
           <div className={sx(styles.sectionHeader)}>
             <h3 className={sx(styles.sectionTitle)}>Recent work</h3>
@@ -310,6 +314,26 @@ function AgentDetail(props: {
         </section>
       </div>
     </div>
+  );
+}
+
+/** Agent files that were not used, with why; shown under the list and, in a narrow window, under the picker. */
+function UnusedFiles(props: { problems: ReadonlyArray<{ path: string; message: string }> }) {
+  if (props.problems.length === 0) return null;
+  return (
+    <details className={sx(agentStyles.problems)}>
+      <summary className={sx(styles.hint, styles.hintWarning)}>
+        {props.problems.length === 1 ? "1 agent file was not used" : `${props.problems.length} agent files were not used`}
+      </summary>
+      <ul className={sx(agentStyles.runs)}>
+        {props.problems.map((problem) => (
+          <li key={`${problem.path}:${problem.message}`} className={sx(agentStyles.problem)}>
+            <code>{problem.path}</code>
+            <span>{problem.message}</span>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
@@ -409,21 +433,7 @@ export function AgentsTab() {
           </div>
         ))}
         {groups.length === 0 ? <p className={sx(styles.hint)}>No agent matches “{query}”.</p> : null}
-        {problems.length > 0 ? (
-          <details className={sx(agentStyles.problems)}>
-            <summary className={sx(styles.hint, styles.hintWarning)}>
-              {problems.length === 1 ? "1 agent file was not used" : `${problems.length} agent files were not used`}
-            </summary>
-            <ul className={sx(agentStyles.runs)}>
-              {problems.map((problem) => (
-                <li key={`${problem.path}:${problem.message}`} className={sx(agentStyles.problem)}>
-                  <code>{problem.path}</code>
-                  <span>{problem.message}</span>
-                </li>
-              ))}
-            </ul>
-          </details>
-        ) : null}
+        <UnusedFiles problems={problems} />
         {rootPath && repositoryAgents.length === 0 && problems.length === 0 && !query ? (
           <p className={sx(styles.hint)}>
             Agent files in this repository's .claude, .codex, .kiro, .cursor or .github agents folder are listed here too.
@@ -440,11 +450,26 @@ export function AgentsTab() {
               options={agents.map((agent) => ({ value: agent.id, label: agent.name }))}
               onValueChange={(value) => setSelectedId(String(value))}
             />
+            <Button
+              size="sm"
+              variant="quiet"
+              iconOnly
+              aria-label="Read agent files again"
+              title="Read agent files again"
+              disabled={!rootPath || repository.loading}
+              onClick={repository.reload}
+            >
+              <RefreshCw aria-hidden />
+            </Button>
+          </div>
+          <div className={sx(styles.compactPicker)}>
+            <UnusedFiles problems={problems} />
           </div>
           <AgentDetail
             key={selected.id}
             agent={selected}
             notes={selectedNotes}
+            rootPath={rootPath}
             onDuplicate={() => duplicate(selected)}
             onSave={save}
           />
