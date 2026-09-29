@@ -121,6 +121,46 @@ describe("showNotificationToast", () => {
     expect(buildTaskTurnCompletedNotificationInput({
       ...input, session: { ...session, activeTurnIdsByTask: { "task-summary": "newer-turn" } },
     })).toBeNull();
+    const continued = [
+      {
+        type: "error" as const,
+        message: "File change failed",
+        recoverable: false,
+      },
+      { type: "text" as const, text: "Retrying the edit." },
+      { type: "done" as const, stop_reason: "end_turn" },
+    ];
+    expect(buildTaskTurnFailedNotificationInput({ ...input, events: continued })).toBeNull();
+    expect(
+      buildTaskTurnCompletedNotificationInput({ ...input, events: continued }),
+    ).not.toBeNull();
+    expect(
+      buildTaskTurnFailedNotificationInput({
+        ...input,
+        events: [
+          {
+            type: "error",
+            message: "File change failed",
+            recoverable: false,
+          },
+          { type: "done" },
+        ],
+      }),
+    ).not.toBeNull();
+    expect(
+      buildTaskTurnFailedNotificationInput({
+        ...input,
+        events: [
+          {
+            type: "error",
+            message: "Authentication failed",
+            recoverable: false,
+          },
+          { type: "text", text: "Trailing provider output" },
+          { type: "done", stop_reason: "runtime_failure" },
+        ],
+      }),
+    ).not.toBeNull();
     expect(notification?.payload.reviewArtifact).toMatchObject({
       facts: expect.arrayContaining([
         expect.stringContaining("1 changed file"),
