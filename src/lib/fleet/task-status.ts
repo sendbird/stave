@@ -1,4 +1,5 @@
 import {
+  classifyProviderTurnStopReason,
   resolveProviderTurnDisplayState,
   type ProviderTurnActivitySnapshot,
 } from "@/lib/providers/turn-status";
@@ -51,20 +52,76 @@ export type FleetAttentionTask = {
 const EMPTY_MESSAGES: ChatMessage[] = [];
 const ERROR_SYSTEM_EVENT_PREFIX = "[error]";
 
-function latestAssistantMessageHasError(args: { messages: ChatMessage[] }) {
-  const latestMessage = args.messages.at(-1);
+function isProviderErrorSystemPart(part: ChatMessage["parts"][number]) {
+  return (
+    part.type === "system_event" &&
+    part.content.trimStart().toLowerCase().startsWith(ERROR_SYSTEM_EVENT_PREFIX)
+  );
+}
+
+/**
+ * A later part that shows the turn kept working. Another failed tool does not:
+ * the run is still sitting on a failure.
+ */
+function turnContinuedAfterError(parts: ChatMessage["parts"], errorIndex: number) {
+  return parts.slice(errorIndex + 1).some((part) => {
+    switch (part.type) {
+      case "text":
+      case "thinking":
+        return part.text.trim().length > 0;
+      case "tool_use":
+        return part.state !== "output-error";
+      case "code_diff":
+      case "approval":
+      case "user_input":
+        return true;
+      default:
+        return false;
+    }
+  });
+}
+
+/**
+ * Whether the latest assistant row still represents a failure a person needs
+ * to see.
+ *
+ * An error event stays in the transcript for the whole turn. That history is
+ * not the task's current state once the turn keeps going, or once it finishes
+ * without a failure stop. A turn that ends on the error, or that stops for a
+ * failure, still needs the alert.
+ */
+function latestAssistantFailureNeedsAttention(messages: ChatMessage[]) {
+  const latestMessage = messages.at(-1);
   if (latestMessage?.role !== "assistant") {
     return false;
   }
 
-  return latestMessage.parts.some(
-    (part) =>
-      part.type === "system_event" &&
-      part.content
-        .trimStart()
-        .toLowerCase()
-        .startsWith(ERROR_SYSTEM_EVENT_PREFIX),
-  );
+  let lastErrorIndex = -1;
+  latestMessage.parts.forEach((part, index) => {
+    if (isProviderErrorSystemPart(part)) {
+      lastErrorIndex = index;
+    }
+  });
+  if (lastErrorIndex < 0) {
+    return false;
+  }
+
+  const stopReason = latestMessage.terminalStopReason?.trim();
+  if (stopReason) {
+    const outcome = classifyProviderTurnStopReason(stopReason);
+    if (outcome === "failed") {
+      return true;
+    }
+    if (outcome === "cancelled") {
+      return false;
+    }
+  }
+
+  if (turnContinuedAfterError(latestMessage.parts, lastErrorIndex)) {
+    return false;
+  }
+
+  return true;
 }
 
 export function classifyTaskStatus(args: {
@@ -92,7 +149,7 @@ export function classifyTaskStatus(args: {
     activeTurnId: args.activeTurnId ?? null,
     activity: args.activity ?? null,
   });
-  if (turnState === "stalled" || latestAssistantMessageHasError({ messages })) {
+  if (turnState === "stalled" || latestAssistantFailureNeedsAttention(messages)) {
     return "error";
   }
   if (turnState === "responding") {

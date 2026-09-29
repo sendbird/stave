@@ -41,7 +41,12 @@ import {
   resolveAdvertisedCursorModelId,
 } from "../cursor/cursor-session-config";
 
-const ACP_EVENT_RETAINED_BYTES_MAX = 512 * 1024;
+/**
+ * Cursor and Kiro share this snapshot. 512 KiB was still tripping the
+ * truncation notice on ordinary turns; 2 MiB matches the retained budget
+ * already used for a primary provider turn.
+ */
+const ACP_EVENT_RETAINED_BYTES_MAX = 2 * 1024 * 1024;
 const ACP_EVENT_TAIL_BYTES = 16 * 1024;
 const ACP_CANCEL_GRACE_MS = 2_000;
 const ACP_APPROVAL_INPUT_MAX_CHARS = 16_000;
