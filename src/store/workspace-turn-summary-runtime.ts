@@ -57,6 +57,14 @@ export function createWorkspaceTurnSummaryGenerator(deps: {
     taskId: string;
     turnId: string;
   }) => {
+    // Every completed primary turn passes through here, so the learned
+    // suggestions check for agent-run tasks rides along. Loaded lazily: it
+    // returns without a model call unless a custom agent was corrected.
+    void import("@/store/agent-learning-runtime")
+      .then(({ learnFromAgentTaskInBackground }) =>
+        learnFromAgentTaskInBackground({ workspaceId: args.workspaceId, taskId: args.taskId }),
+      )
+      .catch(() => undefined);
     const state = deps.getState();
     const session = getWorkspaceSessionForState({
       state,

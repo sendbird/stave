@@ -71,6 +71,8 @@ import {
   upsertRecentRepositoryState,
 } from "@/store/repository.utils";
 import { normalizeCustomAgents } from "@/lib/agents/library";
+import { normalizeAgentRevisions } from "@/lib/agents/revisions";
+import { normalizeAgentSuggestions, normalizeLearningDisabled } from "@/lib/agents/learned-suggestions";
 import {
   normalizeClaudeSettingSources,
   normalizeClaudeTaskBudgetTokens,
@@ -545,6 +547,15 @@ export function createSettingsActions(args: {
         ...(patch.customAgents === undefined
           ? {}
           : { customAgents: normalizeCustomAgentPatch(patch.customAgents) }),
+        ...(patch.customAgentRevisions === undefined
+          ? {}
+          : { customAgentRevisions: normalizeAgentRevisions(patch.customAgentRevisions) }),
+        ...(patch.agentSuggestions === undefined
+          ? {}
+          : { agentSuggestions: normalizeAgentSuggestions(patch.agentSuggestions) }),
+        ...(patch.agentLearningDisabled === undefined
+          ? {}
+          : { agentLearningDisabled: normalizeLearningDisabled(patch.agentLearningDisabled) }),
         ...(patch.myStandards === undefined ? {} : { myStandards: normalizeMyStandards(patch.myStandards) }),
         ...(patch.lensSessionScope === undefined
           ? {}

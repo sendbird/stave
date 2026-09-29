@@ -77,8 +77,11 @@ it runs as one task or a playbook mission, and the new worktree and its base.
 - **Duplicate**, **Archive**, **Restore** and **Delete**. Built-in and
   repository agents are read only; an update never overwrites your copy.
   Archiving stops new assignments only.
-- **Work**: the agent's assignments and their state: **Preparing**,
-  **Started**, **Couldn't start** or **Interrupted**.
+- **Activity**, under the header: how many assignments the agent has, how
+  many of its tasks are running or need you, how many couldn't start, when it
+  was last used, and **Work** — its assignments with their state (**Preparing**,
+  **Started**, **Couldn't start** or **Interrupted**) and a filter.
+- **Settings** and **History** tabs. History is covered below.
 
 ### Editing an agent
 
@@ -97,9 +100,39 @@ A field that fails a rule shows the reason inline (for example, a read-only
 agent cannot take a new worktree, and a tool cannot be both allowed and denied).
 A save blocked by an **Advanced** field opens **Advanced**.
 
+### History
+
+Every save that changes how a custom agent behaves keeps the version it
+replaced; the last 10 are listed newest first. Each row names the fields that
+differ from the agent now and shows **Ran** when a task used that exact
+version. **Restore** saves the old version as the current agent, so the version
+it replaces joins History and a restore can itself be undone. Archiving and
+concurrency changes are not new versions.
+
+### Learned suggestions
+
+When you correct a custom agent in one of its tasks (you write again after it
+answered), Stave asks the **Utility inference** model once whether the agent's
+instructions should change so the correction is not needed next time. If so,
+a suggestion appears on the agent's page with the change in one sentence:
+
+- **Apply** saves the suggested instructions like an edit, so the previous
+  instructions stay in History.
+- **Edit** lets you change the suggested instructions before applying them.
+- **Dismiss** drops the suggestion.
+
+Learning is on for new custom agents; turn **Learn from my corrections** off
+on an agent's page to stop it. Each corrected task uses at most one request,
+and an agent keeps at most three open suggestions. Only the task's messages
+from you and the agent are sent — no tool output, attachments or secrets — and
+the request runs read only. A suggestion written against instructions you have
+since changed says so; applying it replaces them. Built-in and repository
+agents do not learn.
+
 ### Deleting an agent
 
-**Delete** removes a custom agent from your settings. Past assignments keep
+**Delete** removes a custom agent from your settings, with its History and
+suggestions. Past assignments keep
 their own snapshot, so an agent's history still shows its name after it is gone.
 If a playbook stage or a project still names the agent, deletion is blocked and
 the dialog lists where — **Archive instead**, or remove those references first.

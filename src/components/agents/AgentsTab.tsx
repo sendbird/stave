@@ -3,9 +3,10 @@ import { Archive, ArchiveRestore, Copy, Plus, RefreshCw, Rocket, Trash2 } from "
 import { Button } from "@/components/ads/components/Button";
 import { Dialog } from "@/components/ads/components/Dialog";
 import { Select } from "@/components/ads/components/Select";
+import { Tabs } from "@/components/ads/components/Tabs";
 import { TextField } from "@/components/ads/components/TextField";
 import { sx } from "@/components/ads/utils/stylex";
-import { ASSIGNMENT_STATE_LABELS, type AgentAssignment } from "@/lib/agents/assign";
+import { type AgentAssignment } from "@/lib/agents/assign";
 import {
   SUPPORT_LEVEL_LABELS,
   describeAgent,
@@ -21,7 +22,17 @@ import {
   upsertCustomAgent,
 } from "@/lib/agents/library";
 import { findAgentReferences } from "@/lib/agents/agent-references";
+import {
+  dropAgentRevisions,
+  pushAgentRevision,
+  type AgentRevision,
+} from "@/lib/agents/revisions";
 import type { AgentImportNote } from "@/lib/agents/import";
+import {
+  dropAgentSuggestions,
+  removeAgentSuggestion,
+  type AgentSuggestion,
+} from "@/lib/agents/learned-suggestions";
 import {
   AGENT_PERMISSION_LABELS,
   AGENT_SOURCE_LABELS,
@@ -38,7 +49,10 @@ import { playbookStyles as styles } from "../playbooks/playbooks.styles";
 import { ExportAgent } from "./ExportAgent";
 import { AgentAvatar } from "./AgentAvatar";
 import { AgentEditor } from "./AgentEditor";
+import { AgentActivity } from "./AgentActivity";
+import { AgentHistory } from "./AgentHistory";
 import { AgentProfileHeader } from "./AgentProfileHeader";
+import { AgentSuggestions } from "./AgentSuggestions";
 import { DeleteAgentDialog } from "./DeleteAgentDialog";
 import { NewAgentDialog } from "./NewAgentDialog";
 import { agentStyles } from "./agents.styles";
@@ -46,6 +60,23 @@ import { useRepositoryAgents } from "./useRepositoryAgents";
 
 const PROVIDERS = listProviderIds();
 const NO_NOTES: readonly AgentImportNote[] = [];
+const NO_REVISIONS: readonly AgentRevision[] = [];
+const NO_SUGGESTIONS: readonly AgentSuggestion[] = [];
+
+const AGENT_DETAIL_TABS = ["settings", "history"] as const;
+
+/**
+ * The detail tab to open first. Defaults to Settings; the dev preview may
+ * request History with `?tab=history` so a screenshot can
+ * land straight on it. A stray value falls back to Settings.
+ */
+function initialAgentDetailTab(): (typeof AGENT_DETAIL_TABS)[number] {
+  if (typeof window === "undefined") return "settings";
+  const requested = new URLSearchParams(window.location.search).get("tab");
+  return (AGENT_DETAIL_TABS as readonly string[]).includes(requested ?? "")
+    ? (requested as (typeof AGENT_DETAIL_TABS)[number])
+    : "settings";
+}
 
 /** Recent assignments of one agent, refreshed when the host reports a change. */
 function useAssignments(agentConfigId: string | null) {
@@ -146,13 +177,92 @@ function AgentDetail(props: {
   agent: AgentConfig;
   notes: readonly AgentImportNote[];
   rootPath: string | null;
+  revisions: readonly AgentRevision[];
   onDuplicate: () => void;
   onDelete: () => void;
   onSave: (agent: AgentConfig) => string | null;
+  onRestore: (agent: AgentConfig) => void;
 }) {
   const { agent } = props;
   const assignments = useAssignments(agent.id);
   const editable = agent.source === "custom";
+  const storedSuggestions = useAppStore((state) => state.settings.agentSuggestions[agent.id]);
+  const suggestions = storedSuggestions ?? NO_SUGGESTIONS;
+  const learningDisabled = useAppStore((state) => state.settings.agentLearningDisabled);
+  const learning = !learningDisabled.includes(agent.id);
+  const dismissSuggestion = (suggestion: AgentSuggestion) => {
+    const state = useAppStore.getState();
+    state.updateSettings({
+      patch: { agentSuggestions: removeAgentSuggestion(state.settings.agentSuggestions, agent.id, suggestion.id) },
+    });
+  };
+  const setLearning = (on: boolean) => {
+    const current = useAppStore.getState().settings.agentLearningDisabled.filter((id) => id !== agent.id);
+    useAppStore.getState().updateSettings({ patch: { agentLearningDisabled: on ? current : [...current, agent.id] } });
+  };
+  const ranContentHashes = useMemo(
+    () => new Set(assignments.map((row) => row.agentContentHash)),
+    [assignments],
+  );
+
+  const settingsTab = (
+    <>
+      {editable ? (
+        <AgentEditor key={agent.id} agent={agent} onSave={props.onSave} />
+      ) : (
+        <div className={sx(styles.editor)}>
+          <dl className={sx(styles.properties)}>
+            <dt className={sx(styles.propertyLabel)}>Source</dt>
+            <dd className={sx(styles.propertyValue)}>
+              {AGENT_SOURCE_LABELS[agent.source]}
+              {agent.origin ? ` · ${agent.origin.path}` : ""} · Usable as {describeUsableAs(agent)}
+            </dd>
+            {agent.avoidWhen ? (
+              <>
+                <dt className={sx(styles.propertyLabel)}>Don't use when</dt>
+                <dd className={sx(styles.propertyValue)}>{agent.avoidWhen}</dd>
+              </>
+            ) : null}
+            <dt className={sx(styles.propertyLabel)}>Runs with</dt>
+            <dd className={sx(styles.propertyValue)}>{describeAgent(agent)}</dd>
+            <dt className={sx(styles.propertyLabel)}>Instructions</dt>
+            <dd className={sx(styles.propertyValue)}>
+              <pre className={sx(agentStyles.instructions)}>{agent.instructions}</pre>
+              <span className={sx(styles.hint)}>Duplicate this agent to change it.</span>
+            </dd>
+          </dl>
+        </div>
+      )}
+      <div className={sx(styles.editor)}>
+        <ProviderSupport agent={agent} />
+        <ImportNotes notes={props.notes} />
+        <ExportAgent agent={agent} rootPath={props.rootPath} />
+      </div>
+    </>
+  );
+
+  const tabs = [
+    { value: "settings", label: "Settings", content: settingsTab },
+    {
+      value: "history",
+      label: "History",
+      content: (
+        <div className={sx(styles.editor)}>
+          {editable ? (
+            <AgentHistory
+              agent={agent}
+              revisions={props.revisions}
+              ranContentHashes={ranContentHashes}
+              onRestore={props.onRestore}
+            />
+          ) : (
+            <p className={sx(styles.hint)}>Only custom agents keep a version history. Duplicate this agent to edit and track it.</p>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className={sx(styles.scroll)}>
       <div className={sx(styles.editor)}>
@@ -187,57 +297,25 @@ function AgentDetail(props: {
           </div>
         </div>
       </div>
-
       {editable ? (
-        <AgentEditor key={agent.id} agent={agent} onSave={props.onSave} />
-      ) : (
         <div className={sx(styles.editor)}>
-          <dl className={sx(styles.properties)}>
-            <dt className={sx(styles.propertyLabel)}>Source</dt>
-            <dd className={sx(styles.propertyValue)}>
-              {AGENT_SOURCE_LABELS[agent.source]}
-              {agent.origin ? ` · ${agent.origin.path}` : ""} · Usable as {describeUsableAs(agent)}
-            </dd>
-            {agent.avoidWhen ? (
-              <>
-                <dt className={sx(styles.propertyLabel)}>Don't use when</dt>
-                <dd className={sx(styles.propertyValue)}>{agent.avoidWhen}</dd>
-              </>
-            ) : null}
-            <dt className={sx(styles.propertyLabel)}>Runs with</dt>
-            <dd className={sx(styles.propertyValue)}>{describeAgent(agent)}</dd>
-            <dt className={sx(styles.propertyLabel)}>Instructions</dt>
-            <dd className={sx(styles.propertyValue)}>
-              <pre className={sx(agentStyles.instructions)}>{agent.instructions}</pre>
-              <span className={sx(styles.hint)}>Duplicate this agent to change it.</span>
-            </dd>
-          </dl>
+          <AgentSuggestions
+            agent={agent}
+            suggestions={suggestions}
+            learning={learning}
+            onLearningChange={setLearning}
+            onApply={(suggestion, instructions) => {
+              if (!props.onSave({ ...agent, instructions })) dismissSuggestion(suggestion);
+            }}
+            onDismiss={dismissSuggestion}
+          />
         </div>
-      )}
-
+      ) : null}
       <div className={sx(styles.editor)}>
-        <ImportNotes notes={props.notes} />
-        <ProviderSupport agent={agent} />
-        <ExportAgent agent={agent} rootPath={props.rootPath} />
-        <section aria-label="Recent assignments">
-          <div className={sx(styles.sectionHeader)}>
-            <h3 className={sx(styles.sectionTitle)}>Work</h3>
-          </div>
-          {assignments.length === 0 ? (
-            <p className={sx(styles.hint)}>Nothing assigned yet.</p>
-          ) : (
-            <ul className={sx(agentStyles.runs)}>
-              {assignments.map((row) => (
-                <li key={row.id} className={sx(agentStyles.run)}>
-                  <span className={sx(agentStyles.runTitle)} title={row.assignment}>
-                    {row.assignment.split("\n")[0]}
-                  </span>
-                  <span className={sx(agentStyles.runState)}>{ASSIGNMENT_STATE_LABELS[row.state]}</span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <AgentActivity assignments={assignments} />
+      </div>
+      <div className={sx(styles.editor)}>
+        <Tabs variant="line" items={tabs} defaultValue={initialAgentDetailTab()} />
       </div>
     </div>
   );
@@ -271,6 +349,7 @@ function UnusedFiles(props: { problems: ReadonlyArray<{ path: string; message: s
  */
 export function AgentsTab() {
   const custom = useAppStore((state) => state.settings.customAgents);
+  const customAgentRevisions = useAppStore((state) => state.settings.customAgentRevisions);
   const playbooks = useAppStore((state) => state.settings.playbooks);
   const projects = useProjectsStore((state) => state.projects);
   const updateSettings = useAppStore((state) => state.updateSettings);
@@ -307,13 +386,30 @@ export function AgentsTab() {
   );
 
   const save = (agent: AgentConfig): string | null => {
+    const state = useAppStore.getState();
+    const previous = state.settings.customAgents.find((candidate) => candidate.id === agent.id) ?? null;
     try {
-      updateSettings({ patch: { customAgents: upsertCustomAgent(useAppStore.getState().settings.customAgents, agent) } });
+      updateSettings({ patch: { customAgents: upsertCustomAgent(state.settings.customAgents, agent) } });
     } catch (error) {
       return error instanceof Error ? error.message : "Stave could not save this agent.";
     }
     const stored = useAppStore.getState().settings.customAgents.find((candidate) => candidate.id === agent.id);
-    return stored ? null : "Stave could not save this agent. Check the fields and try again.";
+    if (!stored) return "Stave could not save this agent. Check the fields and try again.";
+    // A revision is only pushed when an existing agent's behaviour changed;
+    // creating one, or a no-op save, adds nothing (pushAgentRevision decides).
+    if (previous) {
+      const revisions = pushAgentRevision({
+        revisions: useAppStore.getState().settings.customAgentRevisions,
+        agentId: agent.id,
+        previous,
+        next: stored,
+        savedAt: new Date().toISOString(),
+      });
+      if (revisions !== useAppStore.getState().settings.customAgentRevisions) {
+        updateSettings({ patch: { customAgentRevisions: revisions } });
+      }
+    }
+    return null;
   };
 
   const duplicate = (agent: AgentConfig) => {
@@ -322,8 +418,24 @@ export function AgentsTab() {
   };
 
   const remove = (agent: AgentConfig) => {
-    updateSettings({ patch: { customAgents: removeCustomAgent(useAppStore.getState().settings.customAgents, agent.id) } });
+    const state = useAppStore.getState();
+    updateSettings({
+      patch: {
+        customAgents: removeCustomAgent(state.settings.customAgents, agent.id),
+        customAgentRevisions: dropAgentRevisions(state.settings.customAgentRevisions, agent.id),
+        agentSuggestions: dropAgentSuggestions(state.settings.agentSuggestions, agent.id),
+        agentLearningDisabled: state.settings.agentLearningDisabled.filter((id) => id !== agent.id),
+      },
+    });
     if (selectedId === agent.id) setSelectedId(null);
+  };
+
+  // Restore saves an old version as the current agent. `save` pushes the
+  // version it replaces onto history, so a restore is itself recorded and can
+  // be undone by restoring again.
+  const restore = (revision: AgentConfig) => {
+    save(revision);
+    setSelectedId(revision.id);
   };
 
   const deleteReferences = useMemo(
@@ -442,9 +554,11 @@ export function AgentsTab() {
             agent={selected}
             notes={selectedNotes}
             rootPath={rootPath}
+            revisions={customAgentRevisions[selected.id] ?? NO_REVISIONS}
             onDuplicate={() => duplicate(selected)}
             onDelete={() => setDeleteTarget(selected)}
             onSave={save}
+            onRestore={restore}
           />
         </div>
       ) : null}
