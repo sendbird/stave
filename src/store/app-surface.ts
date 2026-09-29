@@ -8,7 +8,8 @@ export type AppActiveSurface =
   | { kind: "fleet-view" }
   | { kind: "automation-center" }
   | { kind: "issues" }
-  | { kind: "projects" };
+  | { kind: "projects" }
+  | { kind: "agents" };
 
 export type AppOverlaySurfaceKind = Exclude<
   AppActiveSurface["kind"],
@@ -32,12 +33,16 @@ export const ISSUES_APP_SURFACE = {
 export const PROJECTS_APP_SURFACE = {
   kind: "projects",
 } satisfies AppActiveSurface;
+export const AGENTS_APP_SURFACE = {
+  kind: "agents",
+} satisfies AppActiveSurface;
 
 const APP_SURFACE_BY_KIND: Record<AppOverlaySurfaceKind, AppActiveSurface> = {
   "fleet-view": FLEET_VIEW_APP_SURFACE,
   "automation-center": AUTOMATION_CENTER_APP_SURFACE,
   issues: ISSUES_APP_SURFACE,
   projects: PROJECTS_APP_SURFACE,
+  agents: AGENTS_APP_SURFACE,
 };
 
 export function normalizeAppActiveSurface(value: unknown): AppActiveSurface {
@@ -63,6 +68,9 @@ export interface AppSurfaceActions {
   toggleIssues: () => void;
   openProjects: () => void;
   closeProjects: () => void;
+  openAgents: () => void;
+  closeAgents: () => void;
+  toggleAgents: () => void;
 }
 
 type AppSurfaceState = { activeAppSurface: AppActiveSurface };
@@ -113,5 +121,8 @@ export function createAppSurfaceActions<TState extends AppSurfaceState>(
     toggleIssues: toggle("issues"),
     openProjects: open("projects"),
     closeProjects: close("projects"),
+    openAgents: open("agents"),
+    closeAgents: close("agents"),
+    toggleAgents: toggle("agents"),
   };
 }

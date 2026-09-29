@@ -18,8 +18,9 @@ Start a [mission](missions.md) with it and Stave runs the stages for you. A
 
 ## Before You Start
 
-- Playbooks are edited in the Automations center. Missions they start need a
-  Claude or Codex task and Stave's local tools (see [Missions](missions.md)).
+- Playbooks are edited on the **Agents** surface, **Playbooks** tab. Missions
+  they start need a Claude or Codex task and Stave's local tools (see
+  [Missions](missions.md)).
 
 ## Quick Start
 
@@ -34,7 +35,7 @@ Start a [mission](missions.md) with it and Stave runs the stages for you. A
 
 ### Entry Points
 
-- Automations → **Playbooks**.
+- Agents → **Playbooks**.
 - **Manage playbooks** in the command palette, in the Start mission sheet and
   in the Mission panel.
 
@@ -155,7 +156,7 @@ went per playbook and per provider (see [Missions](missions.md#mission-insights)
 
 ### Make a playbook from a template
 
-1. Automations → Playbooks → **+** → **From a template**.
+1. Agents → Playbooks → **+** → **From a template**.
 2. Edit the stages and save.
 
 The templates cover pull requests — **Request → PR**, **Slack request → PR**,
@@ -190,7 +191,7 @@ In the Start mission sheet, open **Edit stages for this mission**. Leave
   is listed in the banner above the editor. A playbook opens a draft PR at
   most once, and **Watch checks** and **Ready for review** come after **Open
   draft PR**.
-- Unsaved edits stay while you switch playbooks or Automations tabs, until you
+- Unsaved edits stay while you switch playbooks or Agents tabs, until you
   save or discard them or quit Stave.
 - **Duplicate** copies the stages and settings but not the shortcut or the
   start conditions, so the copy never proposes the original's issues again.

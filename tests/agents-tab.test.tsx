@@ -41,6 +41,9 @@ describe("agents view", () => {
     expect(html).toContain("Implementer");
     expect(html).toContain("Assign");
     expect(html).toContain("As a main agent");
+    // The agent's assignments section is titled "Work" (was "Recent work").
+    expect(html).toContain(">Work<");
+    expect(html).not.toContain("Recent work");
   });
 });
 

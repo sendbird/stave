@@ -1,6 +1,7 @@
 import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { AgentsTab } from "@/components/agents/AgentsTab";
+import { AgentsView } from "@/components/agents/AgentsView";
 import { AssignAgentSheetHost } from "@/components/agents/AssignAgentSheet";
 import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
@@ -17,7 +18,8 @@ import { useAppStore } from "@/store/app.store";
  * agent, a repository with agent files (one refused field, one unreadable
  * file, one id clash with a built-in), and stubbed assign calls.
  * `&theme=dark` or `&theme=<built-in theme id>` renders under that theme;
- * `&sheet=1` opens Assign to agent as an issue would.
+ * `&sheet=1` opens Assign to agent as an issue would; `&surface=1` renders the
+ * whole Agents surface (Agents / Playbooks / My standards) instead of the tab.
  */
 const params = new URLSearchParams(window.location.search);
 
@@ -112,7 +114,9 @@ export function AgentsPreview() {
   }, []);
   return (
     <main className={sx(styles.page)}>
-      <div className={sx(styles.frame)}>{seeded ? <AgentsTab /> : null}</div>
+      <div className={sx(styles.frame)}>
+        {seeded ? (params.get("surface") === "1" ? <AgentsView /> : <AgentsTab />) : null}
+      </div>
       <AssignAgentSheetHost />
     </main>
   );

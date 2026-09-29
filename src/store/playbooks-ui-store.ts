@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { useAppStore } from "./app.store";
+import { useAgentsViewStore } from "./agents-view-store";
 
 /**
  * What the Start mission sheet opens with. The target task is frozen here, at
@@ -23,7 +24,7 @@ export interface StartMissionRequest {
 
 interface PlaybooksUiState {
   startSheet: StartMissionRequest | null;
-  /** A request for the Automations center to show a playbook; consumed by it. */
+  /** A request for the Playbooks tab to show a playbook; consumed by it. */
   centerRequest: { playbookId: string | null; nonce: number } | null;
   openStartSheet: (request: StartMissionRequest) => void;
   closeStartSheet: () => void;
@@ -38,7 +39,8 @@ export const usePlaybooksUiStore = create<PlaybooksUiState>((set) => ({
   closeStartSheet: () => set({ startSheet: null }),
   openPlaybooks: (playbookId = null) => {
     set((state) => ({ centerRequest: { playbookId, nonce: (state.centerRequest?.nonce ?? 0) + 1 } }));
-    useAppStore.getState().openAutomationCenter();
+    useAgentsViewStore.getState().setActiveTab("playbooks");
+    useAppStore.getState().openAgents();
   },
   consumeCenterRequest: () => set({ centerRequest: null }),
 }));

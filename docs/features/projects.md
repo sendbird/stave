@@ -31,7 +31,7 @@ never edits files; the work happens in [missions](missions.md).
 - The coordinator runs on a Claude or Codex task: a new one, or the task in
   view.
 - The playbooks the coordinator may pick are your saved playbooks and the
-  starter templates (Automations → Playbooks).
+  starter templates (Agents → Playbooks).
 
 ## Quick Start
 

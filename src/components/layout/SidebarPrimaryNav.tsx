@@ -1,16 +1,54 @@
 import * as stylex from "@stylexjs/stylex";
-import { FolderKanban, LayoutGrid } from "lucide-react";
+import { useCallback, useMemo } from "react";
+import { Bot, FolderKanban, LayoutGrid } from "lucide-react";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { transition } from "@/components/ads/recipes/transition";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { repositorySidebarStyles } from "@/components/layout/repository-workspace-sidebar.styles";
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
+import { collectAgentsWithWork } from "@/lib/agents/agent-work";
 import { isOpenProjectState } from "@/lib/projects/domain";
+import {
+  useAgentAssignmentsStore,
+  useAgentAssignmentsSync,
+} from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
+import type { AppState } from "@/store/app-store.types";
+import { useAgentsViewStore } from "@/store/agents-view-store";
 import { countAllProjectNeeds, countProjectNeeds, useProjectsStore } from "@/store/projects-store";
 
 const MAX_LISTED_PROJECTS = 5;
+const MAX_LISTED_AGENTS = 5;
+
+/**
+ * The agents with work running or waiting on the user right now, up to five,
+ * plus a total. Reads stored references only; the grouping is memoized here,
+ * never returned from a zustand selector.
+ */
+function useAgentsWithWork() {
+  useAgentAssignmentsSync();
+  const byTaskId = useAgentAssignmentsStore((state) => state.byTaskId);
+  // The selector returns a string, so a streamed token that changes no task's
+  // status leaves it equal and the sidebar does not re-render.
+  const key = useAppStore(
+    useCallback(
+      (state: AppState) =>
+        JSON.stringify(
+          collectAgentsWithWork({
+            byTaskId,
+            tasks: state.tasks,
+            messagesByTask: state.messagesByTask,
+            activeTurnIdsByTask: state.activeTurnIdsByTask,
+            providerTurnActivityByTask: state.providerTurnActivityByTask,
+            limit: MAX_LISTED_AGENTS,
+          }),
+        ),
+      [byTaskId],
+    ),
+  );
+  return useMemo(() => JSON.parse(key) as ReturnType<typeof collectAgentsWithWork>, [key]);
+}
 
 /**
  * The sidebar's top navigation: Fleet View, Projects, and the open projects
@@ -21,10 +59,14 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   const surface = useAppStore((state) => state.activeAppSurface.kind);
   const openFleetView = useAppStore((state) => state.openFleetView);
   const openProjects = useAppStore((state) => state.openProjects);
+  const openAgents = useAppStore((state) => state.openAgents);
+  const selectAgent = useAgentsViewStore((state) => state.selectAgent);
+  const selectedAgentId = useAgentsViewStore((state) => state.selectedAgentId);
   const projects = useProjectsStore((state) => state.projects);
   const details = useProjectsStore((state) => state.details);
   const selectedId = useProjectsStore((state) => state.selectedId);
   const select = useProjectsStore((state) => state.select);
+  const agentsWithWork = useAgentsWithWork();
   const open = projects.filter((project) => isOpenProjectState(project.state)).slice(0, MAX_LISTED_PROJECTS);
   // Every open project counts, including those past the few listed here.
   const totalNeeds = countAllProjectNeeds(projects, details);
@@ -87,6 +129,45 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
           </AdsButton>
         );
       })}
+      <AdsButton
+        layout="host"
+        type="button"
+        onClick={() => openAgents()}
+        aria-label={agentsWithWork.total > 0 ? `Agents, ${agentsWithWork.total} at work` : "Agents"}
+        xstyle={[
+          repositorySidebarStyles.navButton,
+          transition.colors,
+          surface === "agents" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
+        ]}
+      >
+        <Bot className={sx(repositorySidebarStyles.iconMd)} />
+        <span className={sx(styles.label)}>Agents</span>
+        {agentsWithWork.total > 0 ? (
+          <span className={sx(styles.count)}>{agentsWithWork.total}</span>
+        ) : null}
+      </AdsButton>
+      {agentsWithWork.agents.map((agent) => (
+        <AdsButton
+          key={agent.agentConfigId}
+          layout="host"
+          type="button"
+          onClick={() => {
+            selectAgent(agent.agentConfigId);
+            openAgents();
+          }}
+          aria-label={`Agent ${agent.agentName}${agent.needsYou ? `, ${agent.count} need you` : `, ${agent.count} at work`}`}
+          xstyle={[
+            repositorySidebarStyles.navButton,
+            styles.projectRow,
+            transition.colors,
+            surface === "agents" && selectedAgentId === agent.agentConfigId ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
+          ]}
+        >
+          <span className={sx(styles.dot, agent.needsYou ? styles.dotNeeds : styles.dotActive)} />
+          <span className={sx(styles.label)}>{agent.agentName}</span>
+          {agent.count > 0 ? <span className={sx(styles.count)}>{agent.count}</span> : null}
+        </AdsButton>
+      ))}
     </>
   );
 }
@@ -96,11 +177,14 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
   const surface = useAppStore((state) => state.activeAppSurface.kind);
   const openFleetView = useAppStore((state) => state.openFleetView);
   const openProjects = useAppStore((state) => state.openProjects);
+  const openAgents = useAppStore((state) => state.openAgents);
   const projects = useProjectsStore((state) => state.projects);
   const details = useProjectsStore((state) => state.details);
+  const agentsWithWork = useAgentsWithWork();
   const needs = projects
     .filter((project) => isOpenProjectState(project.state))
     .reduce((sum, project) => sum + countProjectNeeds(details[project.id]), 0);
+  const agentsNeedYou = agentsWithWork.agents.some((agent) => agent.needsYou);
   const railButton = (active: boolean) => [
     repositorySidebarStyles.collapsedButton,
     styles.railButton,
@@ -136,6 +220,25 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
           {needs > 0 ? <span aria-hidden className={sx(styles.railDot)} /> : null}
         </TooltipTrigger>
         <TooltipContent side="right">{needs > 0 ? `Projects · ${needs} need you` : "Projects"}</TooltipContent>
+      </Tooltip>
+      <Tooltip>
+        <TooltipTrigger
+          render={
+            <Button
+              variant="ghost"
+              size="sm"
+              xstyle={railButton(surface === "agents")}
+              onClick={() => openAgents()}
+              aria-label={agentsWithWork.total > 0 ? `Agents, ${agentsWithWork.total} at work` : "Agents"}
+            />
+          }
+        >
+          <Bot className={sx(repositorySidebarStyles.iconMd)} />
+          {agentsNeedYou ? <span aria-hidden className={sx(styles.railDot)} /> : null}
+        </TooltipTrigger>
+        <TooltipContent side="right">
+          {agentsWithWork.total > 0 ? `Agents · ${agentsWithWork.total} at work` : "Agents"}
+        </TooltipContent>
       </Tooltip>
     </>
   );
