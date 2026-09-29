@@ -6,8 +6,6 @@ import {
   Switch,
   Tabs,
   TabsContent,
-  TabsList,
-  TabsTrigger,
 } from "@/components/ui";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import {
@@ -37,6 +35,7 @@ import { useShallow } from "zustand/react/shallow";
 import { SettingsCard } from "./settings-dialog.shared";
 import { sx } from "@/components/ads/utils/stylex";
 import { modelVisibilityStyles as styles } from "./settings-dialog-model-visibility.styles";
+import { SettingsProviderTabsList } from "./settings-provider-tabs";
 
 const PROVIDER_IDS = listProviderIds();
 
@@ -329,24 +328,10 @@ export function SettingsModelVisibilitySection() {
         value={activeProviderId}
         onValueChange={(value) => setActiveProviderId(value as ProviderId)}
       >
-        <TabsList
+        <SettingsProviderTabsList
+          providerIds={PROVIDER_IDS}
           aria-label="Model visibility provider"
-          xstyle={styles.tabsList}
-        >
-          {PROVIDER_IDS.map((providerId) => (
-            <TabsTrigger
-              key={providerId}
-              value={providerId}
-              xstyle={styles.tabsTrigger}
-            >
-              <ModelIcon
-                providerId={providerId}
-                className={sx(styles.tabIcon)}
-              />
-              {getProviderLabel({ providerId })}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        />
         {PROVIDER_IDS.map((providerId) => (
           <TabsContent
             key={providerId}

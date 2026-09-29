@@ -104,17 +104,6 @@ export const modelVisibilityStyles = stylex.create({
   rowSwitch: {
     flexShrink: 0,
   },
-  tabsList: {
-    inlineSize: "100%",
-  },
-  tabsTrigger: {
-    gap: vars["--ads-space-8"],
-    minBlockSize: vars["--ads-control-height"],
-  },
-  tabIcon: {
-    blockSize: vars["--ads-control-icon-size-md"],
-    inlineSize: vars["--ads-control-icon-size-md"],
-  },
   tabsContent: {
     paddingBlockStart: vars["--ads-space-4"],
   },

@@ -4,18 +4,6 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 
 /** Per-provider Worker mode defaults form inside its settings card. */
 export const workerSectionStyles = stylex.create({
-  tabsList: {
-    justifyContent: "flex-start",
-    maxInlineSize: "100%",
-    overflowX: "auto",
-  },
-  tabsTrigger: {
-    flexShrink: 0,
-  },
-  tabIcon: {
-    blockSize: vars["--ads-control-icon-size-sm"],
-    inlineSize: vars["--ads-control-icon-size-sm"],
-  },
   tabsContent: {
     display: "flex",
     flexDirection: "column",

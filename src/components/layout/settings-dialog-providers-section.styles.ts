@@ -68,28 +68,6 @@ export const providersStyles = stylex.create({
   tabs: {
     gap: vars["--ads-space-16"],
   },
-  tabsList: {
-    backgroundColor: vars["--ads-color-canvas-subtle"],
-    borderColor: vars["--ads-color-border"],
-    borderRadius: vars["--ads-radius-frame"],
-    borderStyle: "solid",
-    borderWidth: vars["--ads-border-width-hairline"],
-    blockSize: "auto",
-    justifyContent: "flex-start",
-    padding: vars["--ads-space-4"],
-    inlineSize: "100%",
-  },
-  // No radius override: a `pill` tab shares its box with the gliding
-  // indicator, which is `radiusControl`. At `radiusPanel` the tab was a step
-  // rounder than the pill that fills it, so the selected tab showed the
-  // indicator's corners cutting inside its own.
-  tabsTrigger: {
-    flex: "none",
-    fontSize: vars["--ads-font-size-caption"],
-    fontWeight: vars["--ads-font-weight-medium"],
-    blockSize: vars["--ads-control-height-sm"],
-    paddingInline: vars["--ads-space-12"],
-  },
   // Sandbox/plan-mode inline field font-family override on the DraftInput.
   fieldMono: {
     fontFamily: vars["--ads-font-mono"],
