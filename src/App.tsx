@@ -3,6 +3,7 @@ import { useWakeUpSync } from "@/store/wake-ups-store";
 import { useMissionCommands } from "@/components/missions/useMissionCommands";
 import { useFleetMissionSync } from "@/store/fleet-missions-store";
 import { usePlaybookSync } from "@/lib/projects/usePlaybookSync";
+import { useAgentSync } from "@/lib/agents/useAgentSync";
 import { useProjectsSync } from "@/store/projects-store";
 import { useProposalsSync } from "@/store/proposals-store";
 import { useEffect } from "react";
@@ -55,6 +56,7 @@ export default function App() {
   useMissionCommands();
   useFleetMissionSync();
   usePlaybookSync();
+  useAgentSync();
   useProjectsSync();
   useProposalsSync();
 

@@ -9,12 +9,23 @@ import type { AgentAssignment } from "./assign";
 export const AGENT_IPC = Object.freeze({
   assign: "agents:assign",
   listAssignments: "agents:list-assignments",
+  /** Renderer → main: the saved custom agents, for delegation and projects. */
+  sync: "agents:sync",
   /** Main → renderer: an assignment was created or changed state. */
   changed: "agents:changed",
 });
 
 /** Host actions behind `agent.invoke`. */
-export type HostAgentAction = "assign" | "list-assignments";
+export type HostAgentAction = "assign" | "list-assignments" | "sync-agents" | "delegation-context";
+
+/**
+ * What limits a delegation from one task: the permission of the agent the
+ * task runs as, and the agents its project allows. Null means no limit.
+ */
+export interface AgentDelegationContext {
+  parentPermission: import("./schema").AgentPermission | null;
+  allowedAgentIds: string[] | null;
+}
 
 export type AgentInvokeResult<T> =
   | { ok: true; value: T }
@@ -30,4 +41,6 @@ export interface AgentsBridgeApi {
   assign: (args: unknown) => Promise<AgentInvokeResult<AgentAssignment>>;
   listAssignments: (args?: AgentAssignmentsListArgs) => Promise<AgentInvokeResult<AgentAssignment[]>>;
   subscribeChanged: (listener: () => void) => () => void;
+  /** Hands main and the host the saved custom agents; they only read this copy. */
+  sync: (args: { customAgents: unknown[] }) => Promise<{ ok: boolean }>;
 }

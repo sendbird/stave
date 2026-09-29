@@ -1,3 +1,5 @@
+import { execFile } from "node:child_process";
+import { promisify } from "node:util";
 import { webContents } from "electron";
 import { resolveDelegatedTaskConcurrencyLimit } from "../../../src/lib/runs/delegated-task";
 import type { HostTaskStopArgs } from "../../host-service/protocol";
@@ -12,6 +14,46 @@ import {
 import { ensurePersistenceReady } from "../state";
 import { createDelegatedTaskCoordinator } from "./delegated-task-coordinator";
 import { createDelegatedTaskHostPort } from "./delegated-task-host-port";
+import { applyAgentToDelegation } from "../../../src/lib/agents/delegate";
+import type { AgentDelegationContext, AgentInvokeResult } from "../../../src/lib/agents/api";
+import type { DelegateTaskArgs } from "../../../src/lib/runs/delegated-task";
+import { findAgent } from "../agents/agent-registry";
+
+const execFileAsync = promisify(execFile);
+
+/** `git rev-parse HEAD` at a workspace path; null when it cannot be read. */
+async function readHead(workspacePath: string) {
+  try {
+    const { stdout } = await execFileAsync("git", ["rev-parse", "HEAD"], { cwd: workspacePath, timeout: 10_000 });
+    const head = stdout.trim();
+    return /^[0-9a-f]{7,64}$/i.test(head) ? head : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * `agentConfigId` on a delegation: the agent from main's copy, limited by the
+ * delegating task's own agent and its project's Agents, which the host knows.
+ */
+async function applyAgent(args: DelegateTaskArgs) {
+  const agent = findAgent(args.agentConfigId!);
+  if (!agent) return { ok: false as const, message: `No active agent "${args.agentConfigId}".` };
+  const context = (await invokeHostService("agent.invoke", {
+    action: "delegation-context",
+    args: { parentTaskId: args.parentTaskId },
+  })) as AgentInvokeResult<AgentDelegationContext>;
+  if (!context.ok) return { ok: false as const, message: context.message };
+  const result = applyAgentToDelegation({
+    args,
+    agent,
+    parentPermission: context.value.parentPermission,
+    allowedAgentIds: context.value.allowedAgentIds,
+  });
+  return result.ok
+    ? { ok: true as const, args: result.args, agentContentHash: result.snapshot.contentHash }
+    : { ok: false as const, message: result.message };
+}
 
 /**
  * Wires the delegated-task coordinator to the real ledger and the real task
@@ -42,6 +84,8 @@ export function getDelegatedTaskCoordinator() {
     coordinator = createDelegatedTaskCoordinator({
       getLedger: ensurePersistenceReady,
       host,
+      applyAgent,
+      readHead,
       concurrencyLimit: resolveDelegatedTaskConcurrencyLimit(
         process.env.STAVE_DELEGATED_TASK_CONCURRENCY,
       ),

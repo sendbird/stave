@@ -173,6 +173,14 @@ export const RunReceiptDetailSchema = z
      * caller's intent rather than one moment's resolution of it.
      */
     effort: z.enum(["low", "medium", "high", "xhigh", "max", "ultra"]).optional(),
+    /**
+     * The agent a delegation runs as and the version it started with, so a
+     * retry runs the same agent and the Flow panel can name it.
+     */
+    agentConfigId: z.string().max(80).optional(),
+    agentContentHash: z.string().max(80).optional(),
+    /** The commit a delegation was pinned to, re-checked by a retry. */
+    expectedHead: z.string().max(64).optional(),
   })
   .strict();
 export type RunReceiptDetail = z.infer<typeof RunReceiptDetailSchema>;
@@ -272,6 +280,12 @@ export function sanitizeRunReceiptDetail(
     candidate.effort === "ultra"
       ? candidate.effort
       : undefined;
+  const agentConfigId = normalizeDiagnosticText(candidate.agentConfigId, 80);
+  const agentContentHash = normalizeDiagnosticText(candidate.agentContentHash, 80);
+  const expectedHead =
+    typeof candidate.expectedHead === "string" && /^[0-9a-f]{7,64}$/i.test(candidate.expectedHead)
+      ? candidate.expectedHead
+      : undefined;
   const detail = {
     ...(code ? { code } : {}),
     ...(message ? { message } : {}),
@@ -281,6 +295,9 @@ export function sanitizeRunReceiptDetail(
     ...(permissionProfile ? { permissionProfile } : {}),
     ...(workspaceMode ? { workspaceMode } : {}),
     ...(effort ? { effort } : {}),
+    ...(agentConfigId ? { agentConfigId } : {}),
+    ...(agentContentHash ? { agentContentHash } : {}),
+    ...(expectedHead ? { expectedHead } : {}),
   };
   return Object.keys(detail).length > 0
     ? RunReceiptDetailSchema.parse(detail)

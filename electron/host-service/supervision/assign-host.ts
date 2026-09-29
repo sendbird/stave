@@ -4,7 +4,9 @@
  *
  * Used by: `electron/host-service.ts`.
  */
-import type { AgentInvokeResult, HostAgentAction } from "../../../src/lib/agents/api";
+import type { AgentDelegationContext, AgentInvokeResult, HostAgentAction } from "../../../src/lib/agents/api";
+import { listAgents, normalizeCustomAgents } from "../../../src/lib/agents/library";
+import type { AgentConfig } from "../../../src/lib/agents/schema";
 import { taskAgentRuntimeOptions } from "../../../src/lib/agents/runtime-options";
 import { setTaskRuntimeOptionsResolver } from "../../providers/runtime";
 import * as localMcpRuntime from "../local-mcp-runtime";
@@ -43,6 +45,23 @@ export function createHostAssignRuntime(args: {
   };
 }
 
+/** The host's copy of the renderer's custom agents, for projects and missions. */
+let hostCustomAgents: AgentConfig[] = [];
+
+export function hostAgents(): AgentConfig[] {
+  return listAgents({ custom: hostCustomAgents, activeOnly: true });
+}
+
+/**
+ * Looks up the project a task works for, when it does. Set by the project
+ * host so this module does not import project persistence.
+ */
+let projectAgentsForTask: (taskId: string) => string[] | null = () => null;
+
+export function setProjectAgentsLookup(lookup: (taskId: string) => string[] | null) {
+  projectAgentsForTask = lookup;
+}
+
 export async function invokeAgentAction(
   runtime: AssignRuntime,
   action: HostAgentAction,
@@ -55,6 +74,18 @@ export async function invokeAgentAction(
       case "list-assignments": {
         const value = (args ?? {}) as { agentConfigId?: string; limit?: number };
         return { ok: true, value: runtime.list(value) };
+      }
+      case "sync-agents": {
+        hostCustomAgents = normalizeCustomAgents((args as { customAgents?: unknown } | null)?.customAgents).agents;
+        return { ok: true, value: { count: hostCustomAgents.length } };
+      }
+      case "delegation-context": {
+        const taskId = String((args as { parentTaskId?: unknown } | null)?.parentTaskId ?? "");
+        const value: AgentDelegationContext = {
+          parentPermission: runtime.agentForTask(taskId)?.permission ?? null,
+          allowedAgentIds: projectAgentsForTask(taskId),
+        };
+        return { ok: true, value };
       }
     }
   } catch (error) {
