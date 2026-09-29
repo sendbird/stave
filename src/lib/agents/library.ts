@@ -1,4 +1,4 @@
-import { AgentConfigSchema, MAX_AGENT_CONFIGS, type AgentConfig, type AgentSource } from "./schema";
+import { AGENT_CONFIG_VERSION, AgentConfigSchema, MAX_AGENT_CONFIGS, type AgentConfig, type AgentSource } from "./schema";
 import { BUILTIN_AGENTS } from "./starters";
 
 /**
@@ -153,6 +153,35 @@ export function duplicateAgent(agent: AgentConfig, takenIds: Iterable<string>): 
   });
 }
 
+/**
+ * A new, unsaved custom agent to open the editor with. Defaults match the
+ * product's usual first choice — Auto model, Auto permission, a new worktree,
+ * usable as a main agent — so a blank start is ready to save once named. The
+ * id is derived from the name and made unique against `takenIds`.
+ */
+export function blankCustomAgent(args: { name: string; takenIds: Iterable<string> }): AgentConfig {
+  const taken = new Set([...args.takenIds, ...BUILTIN_AGENTS.map((builtin) => builtin.id)]);
+  const stem = args.name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return AgentConfigSchema.parse({
+    version: AGENT_CONFIG_VERSION,
+    id: uniqueId(stem || "agent", taken),
+    source: "custom",
+    name: args.name.trim() || "New agent",
+    description: "Use when …",
+    instructions: "You …",
+    model: { mode: "auto" },
+    tools: {},
+    permission: "auto",
+    workspace: "new-worktree",
+    report: ["summary", "changes", "verification"],
+    usableAs: ["primary"],
+    archived: false,
+  });
+}
+
 /** Replaces a custom agent in place; refuses anything that is not one. */
 export function upsertCustomAgent(list: readonly AgentConfig[], agent: AgentConfig): AgentConfig[] {
   const parsed = AgentConfigSchema.parse(agent);
@@ -164,4 +193,14 @@ export function upsertCustomAgent(list: readonly AgentConfig[], agent: AgentConf
     return [...list, parsed];
   }
   return list.map((candidate, position) => (position === index ? parsed : candidate));
+}
+
+/**
+ * Removes a custom agent by id. Past assignments keep their own snapshot, so
+ * an agent's history still renders its name after it is gone; only the saved
+ * definition is dropped. Returns the list unchanged when the id is not a saved
+ * custom agent (built-in and repository agents are not stored here).
+ */
+export function removeCustomAgent(list: readonly AgentConfig[], id: string): AgentConfig[] {
+  return list.filter((candidate) => candidate.id !== id);
 }

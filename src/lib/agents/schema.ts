@@ -94,6 +94,24 @@ export const AGENT_REPORT_SECTIONS = [
 ] as const;
 export type AgentReportSection = (typeof AGENT_REPORT_SECTIONS)[number];
 
+/**
+ * The named hues an agent's avatar can take. Each maps to an existing
+ * `--ads-chart-*` token, so a theme moves the avatar colours with the rest of
+ * its palette and no new colour token is added. The mapping and the derived
+ * default live in `agent-appearance.ts`.
+ */
+export const AGENT_COLORS = [
+  "blue",
+  "orange",
+  "green",
+  "violet",
+  "amber",
+  "red",
+  "purple",
+  "cyan",
+] as const;
+export type AgentColor = (typeof AGENT_COLORS)[number];
+
 export const AGENT_SOURCES = ["builtin", "custom", "repository"] as const;
 export type AgentSource = (typeof AGENT_SOURCES)[number];
 
@@ -173,6 +191,18 @@ export const AgentFileOriginSchema = z
   .strict();
 export type AgentFileOrigin = z.infer<typeof AgentFileOriginSchema>;
 
+export const AgentAppearanceSchema = z
+  .object({
+    /**
+     * Chosen avatar hue. Absent means the avatar derives a stable colour from
+     * the id, so an agent saved before this field still looks the same on
+     * every load without a migration.
+     */
+    color: z.enum(AGENT_COLORS).optional(),
+  })
+  .strict();
+export type AgentAppearance = z.infer<typeof AgentAppearanceSchema>;
+
 export const AgentConfigSchema = z
   .object({
     version: z.literal(AGENT_CONFIG_VERSION),
@@ -202,6 +232,8 @@ export const AgentConfigSchema = z
       .default(DEFAULT_AGENT_CONCURRENCY),
     /** Built-in Worker preset this agent mirrors, when it is one. */
     workerPresetId: z.string().trim().min(1).max(AGENT_CONFIG_LIMITS.id).optional(),
+    /** Optional profile identity (avatar colour). Absent stays valid. */
+    appearance: AgentAppearanceSchema.optional(),
     origin: AgentFileOriginSchema.optional(),
     archived: z.boolean().default(false),
   })
