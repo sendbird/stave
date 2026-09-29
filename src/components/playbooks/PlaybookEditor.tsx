@@ -28,6 +28,7 @@ import { draftPlaybookWithAi } from "@/store/playbook-draft-runtime";
 import { DraftWithAi } from "./DraftWithAi";
 import { PlaybookStartsWhen } from "./PlaybookStartsWhen";
 import { Segmented } from "./Segmented";
+import { PlaybookFlowPreview } from "./PlaybookFlowPreview";
 import { StageList } from "./StageList";
 import { playbookStyles as styles } from "./playbooks.styles";
 
@@ -349,6 +350,7 @@ export function PlaybookEditor(props: PlaybookEditorProps) {
           </dl>
 
           <StageList playbook={draft} issues={issues} onChange={props.onChange} />
+          <PlaybookFlowPreview playbook={draft} />
         </div>
       </div>
       <footer className={sx(styles.footer)}>

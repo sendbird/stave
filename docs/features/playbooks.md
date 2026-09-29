@@ -65,6 +65,14 @@ Start a [mission](missions.md) with it and Stave runs the stages for you. A
   actions: **Open draft PR**, **Watch checks**, **Ready for review** and **Run
   script**.
 
+### Flow
+
+Under the stages, **Flow** shows the playbook as the mission will run it: who
+does each stage (the mission's task, another agent, or Stave), where it asks
+you first, what it does outside the workspace, and which stages are pinned to
+a commit. It is read-only and updates as you edit; a draft from **Draft with
+AI** shows there before you save.
+
 ### Stages another agent does
 
 An AI stage's **Done by** picks who does it: **This mission's task** (the
