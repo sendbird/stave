@@ -114,6 +114,20 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
     title: "Missions and Projects",
     docs: [
       {
+        routePath: "agents",
+        sourcePath: "docs/features/agents.md",
+        title: "Agents",
+        description:
+          "Save workers with their own instructions, model, tool limits and permission, then start work with one from Kickoff and follow each task's flow.",
+      },
+      {
+        routePath: "auto-routing",
+        sourcePath: "docs/features/auto-routing.md",
+        title: "Auto (Model Router)",
+        description:
+          "Let Stave pick an eligible provider, model and effort for each turn from the models you already use.",
+      },
+      {
         routePath: "missions",
         sourcePath: "docs/features/missions.md",
         title: "Missions",
