@@ -114,11 +114,29 @@ the agent in the file to use it. Duplicate a repository agent to edit a copy.
 
 ### Flow panel
 
-The right rail's **Flow** panel shows one task: the assignment, each mission
-stage with its state and evidence (verified by Stave or agent reported), and
-the delegated tasks that branched off each stage. **Timeline** lists when a
-node started, was asked for changes, retried and ended. The panel only reads
-the records that already exist; it changes nothing.
+The right rail's **Flow** panel shows one task's flow. Every task has a base
+flow, drawn from records that already exist:
+
+- **Request** — the first message that opened the task.
+- **Plan** — the latest plan or todo list the provider reported, with how many
+  items are done; **Timeline** lists each item.
+- **Changes** — the files changed, with the added and removed line totals.
+- **Verification** — the structured result of the project's checks (pass, warn
+  or fail) with how many ran. It reads the recorded result only and never
+  guesses a pass or fail from a command's output.
+- **Pull request** — the workspace's pull request, its status and its checks,
+  once one exists.
+
+A **Waiting for approval** or **Waiting for your answer** step appears whenever
+the task is waiting on you. A task with no messages yet says it is waiting for
+the first message.
+
+When a task is assigned to an agent, the **assignment** heads the flow. When a
+mission runs it, each mission stage shows its state and evidence (verified by
+Stave or agent reported), and the base steps of the stage that is running now
+nest under it; the delegated tasks that branched off a stage hang from it.
+**Timeline** lists when a node started, was asked for changes, retried and
+ended. The panel only reads the records that already exist; it changes nothing.
 
 For a task assigned to an agent, **What it received** lists the version of the
 agent the task runs (a short content hash), each instruction source that went

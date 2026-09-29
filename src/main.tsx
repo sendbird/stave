@@ -101,6 +101,16 @@ if (preview === "kickoff") {
       </StrictMode>,
     );
   });
+} else if (preview === "flow") {
+  void import("@/dev/flow-preview").then(({ FlowPreview }) => {
+    root.render(
+      <StrictMode>
+        <StaveDesignProvider>
+          <FlowPreview />
+        </StaveDesignProvider>
+      </StrictMode>,
+    );
+  });
 } else if (preview === "mission") {
   void import("@/dev/mission-preview").then(({ MissionPreview }) => {
     root.render(

@@ -5,12 +5,16 @@ import { Button } from "@/components/ads/components/Button";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { useDelegatedTasks } from "@/components/session/useDelegatedTasks";
-import { buildFlow, FLOW_STATE_LABELS, type FlowNode } from "@/lib/agents/flow-view";
+import { buildFlow, deriveFlowBase, FLOW_STATE_LABELS, type FlowNode } from "@/lib/agents/flow-view";
+import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 import { describeAssignmentReceived } from "@/lib/agents/agents-view";
 import { listAgents } from "@/lib/agents/library";
 import { useAgentAssignmentsStore, useAgentAssignmentsSync, type TaskAgent } from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
 import { useTaskMission } from "@/store/missions-store";
+import type { ChatMessage } from "@/types/chat";
+
+const EMPTY_MESSAGES: readonly ChatMessage[] = [];
 
 const EVIDENCE_LABEL = (evidence: NonNullable<FlowNode["evidence"]>) =>
   [
@@ -71,9 +75,11 @@ function FlowNodeRow(props: { node: FlowNode; last: boolean; depth: number }) {
           <ol className={sx(styles.timeline)}>
             {node.events.map((event, index) => (
               <li key={`${event.at}:${index}`} className={sx(styles.event)}>
-                <time dateTime={event.at} className={sx(styles.eventTime)}>
-                  {new Date(event.at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
-                </time>
+                {event.at ? (
+                  <time dateTime={event.at} className={sx(styles.eventTime)}>
+                    {new Date(event.at).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                  </time>
+                ) : null}
                 {event.label}
               </li>
             ))}
@@ -134,13 +140,35 @@ export function FlowPanel(props: { workspaceId: string; taskId: string; reposito
   const assignment = useAgentAssignmentsStore((state) => state.byTaskId[props.taskId]);
   const mission = useTaskMission(props.workspaceId, props.taskId);
   const taskTitle = useAppStore((state) => state.tasks.find((task) => task.id === props.taskId)?.title ?? "Task");
+  const taskProvider = useAppStore(
+    (state) => state.tasks.find((task) => task.id === props.taskId)?.provider ?? state.draftProvider,
+  );
   const taskRunning = useAppStore((state) => Boolean(state.activeTurnIdsByTask[props.taskId]));
+  // Stable subscriptions only: each selector returns a stored reference or a
+  // primitive, never a fresh container. The base flow is derived below with
+  // `useMemo`, outside every selector.
+  const messages = useAppStore((state) => state.messagesByTask[props.taskId] ?? EMPTY_MESSAGES);
+  const activity = useAppStore((state) => state.providerTurnActivityByTask[props.taskId] ?? null);
+  const verification = useAppStore((state) => state.turnVerificationByWorkspace[props.workspaceId] ?? null);
+  const rateLimits = useAppStore((state) => state.rateLimitsSnapshot);
+  const prInfo = useAppStore((state) => state.workspacePrInfoById[props.workspaceId] ?? null);
   const delegates = useDelegatedTasks({
     parentTaskId: props.taskId,
     parentWorkspaceId: props.workspaceId,
     repositoryPath: props.repositoryPath,
     enabled: Boolean(props.repositoryPath),
   });
+  const base = useMemo(() => {
+    const summary = buildTaskExecutionSummary({
+      taskId: props.taskId,
+      providerId: taskProvider,
+      messages: messages as ChatMessage[],
+      activity,
+      verification,
+      rateLimits,
+    });
+    return deriveFlowBase({ messages, summary, prInfo, taskRunning });
+  }, [activity, messages, prInfo, props.taskId, rateLimits, taskProvider, taskRunning, verification]);
   const nodes = useMemo(
     () =>
       buildFlow({
@@ -148,9 +176,9 @@ export function FlowPanel(props: { workspaceId: string; taskId: string; reposito
         assignment: assignment ? { id: assignment.assignmentId, ...assignment } : null,
         mission: mission ?? null,
         delegates: delegates.children,
-        taskRunning,
+        base,
       }),
-    [taskTitle, assignment, mission, delegates.children, taskRunning],
+    [taskTitle, assignment, mission, delegates.children, base],
   );
   return (
     <section aria-label="Flow">
@@ -161,11 +189,6 @@ export function FlowPanel(props: { workspaceId: string; taskId: string; reposito
         ))}
       </ol>
       {delegates.error ? <p className={sx(styles.detail)}>{delegates.error}</p> : null}
-      {nodes.length === 1 && nodes[0]!.kind === "task" && nodes[0]!.children.length === 0 ? (
-        <p className={sx(styles.detail)}>
-          Assign work to an agent, start a mission, or delegate a task to see its flow here.
-        </p>
-      ) : null}
     </section>
   );
 }
