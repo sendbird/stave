@@ -3,6 +3,7 @@ import { ArrowUpRight, CircleCheck, CircleDot, FileText, GitPullRequest, Link2, 
 import { Badge } from "@/components/ads/components/Badge";
 import { Button } from "@/components/ads/components/Button";
 import { Switch } from "@/components/ads/components/Switch";
+import { ProjectAgentsSetting } from "./ProjectAgentsSetting";
 import { Tabs } from "@/components/ads/components/Tabs";
 import { TextField } from "@/components/ads/components/TextField";
 import { Tooltip } from "@/components/ads/components/Tooltip";
@@ -306,6 +307,12 @@ function SettingsList(props: { settings: ProjectSettings; onUpdate: (settings: P
           checked={settings.askBeforeStarting}
           onCheckedChange={(checked) => props.onUpdate({ askBeforeStarting: checked })}
         />
+      </SettingRow>
+      <SettingRow
+        label="Agents"
+        hint="Which agents this project's missions may run as and its tasks may delegate to. Off: any agent."
+      >
+        <ProjectAgentsSetting agents={settings.agents} onChange={(agents) => props.onUpdate({ agents })} />
       </SettingRow>
       <SettingRow
         label="End date"

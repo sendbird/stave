@@ -18,7 +18,7 @@ import {
   hashAssignRequest,
   type AgentAssignment,
 } from "../../../src/lib/agents/assign";
-import { compileAgent, snapshotAgent } from "../../../src/lib/agents/compile";
+import { compileAgent, hashAgentContent, snapshotAgent } from "../../../src/lib/agents/compile";
 import { agentRuntimeOptions } from "../../../src/lib/agents/runtime-options";
 import type { ProviderId, ProviderRuntimeOptions } from "../../../src/lib/providers/provider.types";
 import type { AgentAssignmentStore } from "../../persistence/agent-assignment-store";
@@ -57,6 +57,20 @@ export interface AssignRuntime {
   list: (args?: { agentConfigId?: string; limit?: number }) => AgentAssignment[];
   /** The agent an assigned task runs as, for its later turns. */
   agentForTask: (taskId: string) => AgentAssignment["agent"] | null;
+  /**
+   * Records that a task another starter made (a project mission's task) runs
+   * as an agent, before its first turn. Idempotent by `requestId`.
+   */
+  recordTaskAgent: (args: {
+    requestId: string;
+    taskId: string;
+    workspaceId: string;
+    repositoryPath: string;
+    agent: AgentAssignment["agent"];
+    providerId: ProviderId;
+    model: string | null;
+    assignment: string;
+  }) => AgentAssignment;
 }
 
 export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRuntime {
@@ -75,6 +89,42 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
     agentForTask: (taskId) => {
       // A task intake made for an agent keeps running as it, even after a failed first turn.
       return deps.store.getByTaskId(taskId)?.agent ?? null;
+    },
+    recordTaskAgent(args) {
+      const existing = deps.store.getByRequestId(args.requestId);
+      if (existing) return existing;
+      const snapshot = snapshotAgent(args.agent);
+      const compiled = compileAgent({ snapshot, role: "primary", providerId: args.providerId });
+      if (!compiled.ok) throw new AssignError("refused", compiled.message);
+      const timestamp = now().toISOString();
+      const row: AgentAssignment = {
+        id: newId(),
+        requestId: args.requestId,
+        requestHash: hashAgentContent({ requestId: args.requestId, agent: snapshot.contentHash }),
+        agentConfigId: args.agent.id,
+        agentName: args.agent.name,
+        agentContentHash: snapshot.contentHash,
+        agent: snapshot.agent,
+        assignment: args.assignment,
+        providerId: args.providerId,
+        model: args.model,
+        repositoryPath: args.repositoryPath,
+        workspaceMode: "new-worktree",
+        branch: null,
+        workspaceId: args.workspaceId,
+        taskId: args.taskId,
+        turnId: null,
+        // The starter (the mission) owns the turns; this row only says who the task runs as.
+        state: "started",
+        detail: null,
+        received: compiled.compiled.received,
+        support: compiled.compiled.support,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+      if (!deps.store.create(row)) return deps.store.getByRequestId(args.requestId) ?? row;
+      announce(row);
+      return row;
     },
     recover() {
       for (const row of deps.store.listInState("preparing")) {

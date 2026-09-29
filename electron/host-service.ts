@@ -83,7 +83,7 @@ import { createProposalRuntime, invokeProposalRuntime } from "./host-service/sup
 import { resolveMissionGrant } from "./providers/mission-grants";
 import { createHostProjectRuntime } from "./host-service/supervision/project-host";
 import { invokeProjectAction } from "./host-service/supervision/project-runtime";
-import { createHostAssignRuntime, invokeAgentAction } from "./host-service/supervision/assign-host";
+import { createHostAssignRuntime, invokeAgentAction, setProjectAgentsLookup } from "./host-service/supervision/assign-host";
 import { createTerminalRuntime } from "./host-service/terminal-runtime";
 import { createCursorChatId } from "./host-service/cursor-chat-id";
 import { readHostServiceResourceMetrics } from "./host-service/resource-metrics";
@@ -588,10 +588,13 @@ const projectRuntime = createHostProjectRuntime({
   },
   // Playbook start conditions read the same saved playbooks.
   onPlaybooksSynced: (playbooks) => proposalRuntime.setPlaybooks(playbooks),
+  // A project mission's task that runs as an agent is recorded like an assignment.
+  recordTaskAgent: (task) => assignRuntime.recordTaskAgent(task),
 });
 const assignRuntime = createHostAssignRuntime({
   emitChanged: (event) => emitEvent("agent.changed", event),
 });
+setProjectAgentsLookup((taskId) => projectRuntime.agentsForTask(taskId));
 const proposalRuntime = createProposalRuntime({
   store: ensureHostServicePersistenceReady().missions,
   startMission: (input) => missionRuntime.startMission(input),
