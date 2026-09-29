@@ -107,12 +107,12 @@ describe("agent references", () => {
 });
 
 describe("agent editor", () => {
-  test("the sectioned editor renders every section for a draft agent", () => {
+  test("the editor shows the essentials and keeps the rest under Advanced", () => {
     const draft = blankCustomAgent({ name: "Docs Writer", takenIds: [] });
     const html = renderToStaticMarkup(
       createElement(AgentEditor, { agent: draft, onSave: () => null, onCancel: () => {}, saveLabel: "Save agent" }),
     );
-    for (const section of ["Profile", "Instructions", "Model", "Tools &amp; limits", "Access"]) {
+    for (const section of ["Profile", "Instructions", "How it runs", "Permission", "Works in", "Advanced"]) {
       expect(html).toContain(section);
     }
     expect(html).toContain("Save agent");

@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import type * as React from "react";
+import { Accordion } from "@/components/ads/components/Accordion";
 import { Button } from "@/components/ads/components/Button";
 import { Checkbox } from "@/components/ads/components/Checkbox";
 import { Select } from "@/components/ads/components/Select";
@@ -99,11 +100,17 @@ function ColorChooser(props: { value: AgentColor | undefined; onChange: (color: 
   );
 }
 
+/** Fields that live under Advanced; a save blocked by one of them opens it. */
+const ADVANCED_FIELDS = new Set(["avoidWhen", "skills", "tools", "concurrency", "usableAs", "report"]);
+
 /**
- * The sectioned agent editor: Profile, Instructions, Model, Tools & limits,
- * Access. Edits a draft copy; `onSave` receives the draft and returns an error
- * message or null. Validation issues from the schema are mapped to their field
- * inline. The parent decides when to render this and whether the draft is new.
+ * The agent editor. What most agents need is always visible — Profile (name,
+ * colour, Use when), Instructions, and How it runs (model, permission, where)
+ * — and everything else sits under one collapsed Advanced. Edits a draft copy;
+ * `onSave` receives the draft and returns an error message or null.
+ * Validation issues from the schema are shown next to their field, and a save
+ * blocked by an Advanced field opens Advanced. The parent decides when to
+ * render this and whether the draft is new.
  */
 export function AgentEditor(props: {
   agent: AgentConfig;
@@ -114,6 +121,7 @@ export function AgentEditor(props: {
 }) {
   const [draft, setDraftState] = useState(props.agent);
   const [formError, setFormError] = useState<string | null>(null);
+  const [advancedOpen, setAdvancedOpen] = useState<string[]>([]);
   const setDraft = (next: AgentConfig) => {
     setDraftState(next);
     props.onDraftChange?.(next);
@@ -159,18 +167,6 @@ export function AgentEditor(props: {
             />
             <FieldError message={issues.description} />
           </dd>
-          <dt className={sx(styles.propertyLabel)}>Don't use when</dt>
-          <dd className={sx(styles.propertyValue)}>
-            <Textarea
-              size="sm"
-              aria-label="Don't use when"
-              value={draft.avoidWhen ?? ""}
-              maxLength={AGENT_CONFIG_LIMITS.avoidWhen}
-              autoResize
-              onChange={(event) => setDraft({ ...draft, avoidWhen: event.target.value || undefined })}
-            />
-            <FieldError message={issues.avoidWhen} />
-          </dd>
         </dl>
       </Section>
 
@@ -184,18 +180,11 @@ export function AgentEditor(props: {
           onChange={(event) => setDraft({ ...draft, instructions: event.target.value })}
         />
         <FieldError message={issues.instructions} />
-        <TagField
-          label="Skills"
-          values={draft.skills}
-          placeholder="skill id"
-          maxLength={AGENT_CONFIG_LIMITS.skillRef}
-          onChange={(skills) => setDraft({ ...draft, skills })}
-        />
       </Section>
 
-      <Section title="Model">
+      <Section title="How it runs">
         <dl className={sx(styles.properties)}>
-          <dt className={sx(styles.propertyLabel)}>Mode</dt>
+          <dt className={sx(styles.propertyLabel)}>Model</dt>
           <dd className={sx(styles.propertyValue)}>
             <Select
               size="sm"
@@ -242,7 +231,7 @@ export function AgentEditor(props: {
                   }
                 />
               </dd>
-              <dt className={sx(styles.propertyLabel)}>Model</dt>
+              <dt className={sx(styles.propertyLabel)}>Pinned model</dt>
               <dd className={sx(styles.propertyValue)}>
                 <Select
                   size="sm"
@@ -274,66 +263,6 @@ export function AgentEditor(props: {
               </dd>
             </>
           )}
-        </dl>
-      </Section>
-
-      <Section title="Tools & limits">
-        <dl className={sx(styles.properties)}>
-          <dt className={sx(styles.propertyLabel)}>Allowed tools</dt>
-          <dd className={sx(styles.propertyValue)}>
-            <TagField
-              label="Allowed tools"
-              values={draft.tools.allow ?? []}
-              placeholder="tool name"
-              maxLength={AGENT_CONFIG_LIMITS.toolName}
-              onChange={(allow) => setDraft({ ...draft, tools: { ...draft.tools, allow: allow.length ? allow : undefined } })}
-            />
-          </dd>
-          <dt className={sx(styles.propertyLabel)}>Denied tools</dt>
-          <dd className={sx(styles.propertyValue)}>
-            <TagField
-              label="Denied tools"
-              values={draft.tools.deny ?? []}
-              placeholder="tool name"
-              maxLength={AGENT_CONFIG_LIMITS.toolName}
-              onChange={(deny) => setDraft({ ...draft, tools: { ...draft.tools, deny: deny.length ? deny : undefined } })}
-            />
-            <FieldError message={issues.tools} />
-          </dd>
-          <dt className={sx(styles.propertyLabel)}>Max turns</dt>
-          <dd className={sx(styles.propertyValue)}>
-            <TextField
-              size="sm"
-              controlOnly
-              type="number"
-              aria-label="Max turns"
-              value={draft.tools.maxTurns != null ? String(draft.tools.maxTurns) : ""}
-              onChange={(event) => {
-                const value = Number.parseInt(event.target.value, 10);
-                setDraft({ ...draft, tools: { ...draft.tools, maxTurns: Number.isFinite(value) ? value : undefined } });
-              }}
-            />
-          </dd>
-          <dt className={sx(styles.propertyLabel)}>Concurrency</dt>
-          <dd className={sx(styles.propertyValue)}>
-            <TextField
-              size="sm"
-              controlOnly
-              type="number"
-              aria-label="Concurrency"
-              value={String(draft.concurrency)}
-              onChange={(event) => {
-                const value = Number.parseInt(event.target.value, 10);
-                setDraft({ ...draft, concurrency: Number.isFinite(value) ? value : draft.concurrency });
-              }}
-            />
-            <FieldError message={issues.concurrency} />
-          </dd>
-        </dl>
-      </Section>
-
-      <Section title="Access">
-        <dl className={sx(styles.properties)}>
           <dt className={sx(styles.propertyLabel)}>Permission</dt>
           <dd className={sx(styles.propertyValue)}>
             <Select
@@ -355,67 +284,160 @@ export function AgentEditor(props: {
             />
             <FieldError message={issues.workspace} />
           </dd>
-          <dt className={sx(styles.propertyLabel)}>Usable as</dt>
-          <dd className={sx(styles.propertyValue)}>
-            <div role="group" aria-label="Usable as" className={sx(agentStyles.roles)}>
-              {AGENT_ROLES.map((role) => {
-                const checked = draft.usableAs.includes(role);
-                return (
-                  <Checkbox
-                    key={role}
-                    label={AGENT_ROLE_LABELS[role]}
-                    checked={checked}
-                    disabled={checked && draft.usableAs.length === 1}
-                    onCheckedChange={(value) =>
-                      setDraft({
-                        ...draft,
-                        usableAs:
-                          value === true
-                            ? AGENT_ROLES.filter((candidate) => candidate === role || draft.usableAs.includes(candidate))
-                            : draft.usableAs.filter((candidate) => candidate !== role),
-                      })
-                    }
-                  />
-                );
-              })}
-            </div>
-            <FieldError message={issues.usableAs} />
-          </dd>
-          <dt className={sx(styles.propertyLabel)}>Report</dt>
-          <dd className={sx(styles.propertyValue)}>
-            <div role="group" aria-label="Report" className={sx(agentStyles.roles)}>
-              {AGENT_REPORT_SECTIONS.map((sectionName) => {
-                const checked = draft.report.includes(sectionName);
-                return (
-                  <Checkbox
-                    key={sectionName}
-                    label={REPORT_LABELS[sectionName]}
-                    checked={checked}
-                    disabled={checked && draft.report.length === 1}
-                    onCheckedChange={(value) =>
-                      setDraft({
-                        ...draft,
-                        report:
-                          value === true
-                            ? AGENT_REPORT_SECTIONS.filter((candidate) => candidate === sectionName || draft.report.includes(candidate))
-                            : draft.report.filter((candidate) => candidate !== sectionName),
-                      })
-                    }
-                  />
-                );
-              })}
-            </div>
-            <FieldError message={issues.report} />
-          </dd>
         </dl>
       </Section>
+
+      <Accordion
+        xstyle={agentStyles.advanced}
+        value={advancedOpen}
+        onValueChange={(value) => setAdvancedOpen(value as string[])}
+        items={[
+          {
+            value: "advanced",
+            title: "Advanced",
+            content: (
+              <dl className={sx(styles.properties)}>
+              <dt className={sx(styles.propertyLabel)}>Don't use when</dt>
+              <dd className={sx(styles.propertyValue)}>
+                <Textarea
+                  size="sm"
+                  aria-label="Don't use when"
+                  value={draft.avoidWhen ?? ""}
+                  maxLength={AGENT_CONFIG_LIMITS.avoidWhen}
+                  autoResize
+                  onChange={(event) => setDraft({ ...draft, avoidWhen: event.target.value || undefined })}
+                />
+                <FieldError message={issues.avoidWhen} />
+              </dd>
+              <dt className={sx(styles.propertyLabel)}>Skills</dt>
+              <dd className={sx(styles.propertyValue)}>
+              <TagField
+                label="Skills"
+                values={draft.skills}
+                placeholder="skill id"
+                maxLength={AGENT_CONFIG_LIMITS.skillRef}
+                onChange={(skills) => setDraft({ ...draft, skills })}
+              />
+              </dd>
+              <dt className={sx(styles.propertyLabel)}>Allowed tools</dt>
+              <dd className={sx(styles.propertyValue)}>
+                <TagField
+                  label="Allowed tools"
+                  values={draft.tools.allow ?? []}
+                  placeholder="tool name"
+                  maxLength={AGENT_CONFIG_LIMITS.toolName}
+                  onChange={(allow) => setDraft({ ...draft, tools: { ...draft.tools, allow: allow.length ? allow : undefined } })}
+                />
+              </dd>
+              <dt className={sx(styles.propertyLabel)}>Denied tools</dt>
+              <dd className={sx(styles.propertyValue)}>
+                <TagField
+                  label="Denied tools"
+                  values={draft.tools.deny ?? []}
+                  placeholder="tool name"
+                  maxLength={AGENT_CONFIG_LIMITS.toolName}
+                  onChange={(deny) => setDraft({ ...draft, tools: { ...draft.tools, deny: deny.length ? deny : undefined } })}
+                />
+                <FieldError message={issues.tools} />
+              </dd>
+              <dt className={sx(styles.propertyLabel)}>Max turns</dt>
+              <dd className={sx(styles.propertyValue)}>
+                <TextField
+                  size="sm"
+                  controlOnly
+                  type="number"
+                  aria-label="Max turns"
+                  value={draft.tools.maxTurns != null ? String(draft.tools.maxTurns) : ""}
+                  onChange={(event) => {
+                    const value = Number.parseInt(event.target.value, 10);
+                    setDraft({ ...draft, tools: { ...draft.tools, maxTurns: Number.isFinite(value) ? value : undefined } });
+                  }}
+                />
+              </dd>
+              <dt className={sx(styles.propertyLabel)}>Concurrency</dt>
+              <dd className={sx(styles.propertyValue)}>
+                <TextField
+                  size="sm"
+                  controlOnly
+                  type="number"
+                  aria-label="Concurrency"
+                  value={String(draft.concurrency)}
+                  onChange={(event) => {
+                    const value = Number.parseInt(event.target.value, 10);
+                    setDraft({ ...draft, concurrency: Number.isFinite(value) ? value : draft.concurrency });
+                  }}
+                />
+                <FieldError message={issues.concurrency} />
+              </dd>
+              <dt className={sx(styles.propertyLabel)}>Usable as</dt>
+              <dd className={sx(styles.propertyValue)}>
+                <div role="group" aria-label="Usable as" className={sx(agentStyles.roles)}>
+                  {AGENT_ROLES.map((role) => {
+                    const checked = draft.usableAs.includes(role);
+                    return (
+                      <Checkbox
+                        key={role}
+                        label={AGENT_ROLE_LABELS[role]}
+                        checked={checked}
+                        disabled={checked && draft.usableAs.length === 1}
+                        onCheckedChange={(value) =>
+                          setDraft({
+                            ...draft,
+                            usableAs:
+                              value === true
+                                ? AGENT_ROLES.filter((candidate) => candidate === role || draft.usableAs.includes(candidate))
+                                : draft.usableAs.filter((candidate) => candidate !== role),
+                          })
+                        }
+                      />
+                    );
+                  })}
+                </div>
+                <FieldError message={issues.usableAs} />
+              </dd>
+              <dt className={sx(styles.propertyLabel)}>Report</dt>
+              <dd className={sx(styles.propertyValue)}>
+                <div role="group" aria-label="Report" className={sx(agentStyles.roles)}>
+                  {AGENT_REPORT_SECTIONS.map((sectionName) => {
+                    const checked = draft.report.includes(sectionName);
+                    return (
+                      <Checkbox
+                        key={sectionName}
+                        label={REPORT_LABELS[sectionName]}
+                        checked={checked}
+                        disabled={checked && draft.report.length === 1}
+                        onCheckedChange={(value) =>
+                          setDraft({
+                            ...draft,
+                            report:
+                              value === true
+                                ? AGENT_REPORT_SECTIONS.filter((candidate) => candidate === sectionName || draft.report.includes(candidate))
+                                : draft.report.filter((candidate) => candidate !== sectionName),
+                          })
+                        }
+                      />
+                    );
+                  })}
+                </div>
+                <FieldError message={issues.report} />
+              </dd>
+              </dl>
+            ),
+          },
+        ]}
+      />
 
       {formError ? <p className={sx(styles.hint, styles.hintWarning)}>{formError}</p> : null}
       <div className={sx(styles.footer)}>
         <Button
           size="sm"
           disabled={props.onCancel ? false : !changed}
-          onClick={() => setFormError(props.onSave(draft))}
+          onClick={() => {
+            if (Object.keys(issues).some((key) => ADVANCED_FIELDS.has(key.split(".")[0] ?? key))) {
+              setAdvancedOpen(["advanced"]);
+            }
+            setFormError(props.onSave(draft));
+          }}
         >
           {props.saveLabel ?? "Save"}
         </Button>

@@ -29,8 +29,9 @@ Open the **Agents** surface from the sidebar, the command palette
 **Playbooks** and **My standards**.
 
 1. Open **Agents** in the sidebar and stay on the **Agents** tab.
-2. Press **New agent**, name it, and start from **Blank** or from a template
-   (any built-in or repository agent). Or **Duplicate** any agent to edit a copy.
+2. Press **New agent** and say what it should do in one line, then **Draft
+   agent**. Review the draft in the editor and save it. You can also start
+   blank or copy an existing agent, or **Duplicate** any agent to edit a copy.
 3. Press **Start work…** in the agent's header. Kickoff opens with the agent
    preselected as the worker.
 4. Describe the work as the kickoff source, then **Create and start** (or leave
@@ -59,11 +60,15 @@ it runs as one task or a playbook mission, and the new worktree and its base.
 
 - **Custom**, **From repository** and **Built-in** agents, with search. Each row
   shows an avatar — an initials disc in the agent's colour.
-- **New agent**: name it, then start from **Blank** (Auto model, Auto
-  permission, a new worktree, usable as a main agent) or from a template (any
-  built-in or repository agent). Nothing is saved until you save the editor;
-  **Cancel** discards the draft. The command palette's **New agent** and the
-  empty state open the same dialog.
+- **New agent**: describe the job in **What should it do?** and press **Draft
+  agent**. The **Utility inference** model (Settings → Background AI) drafts
+  the name, **Use when**, instructions, permission, where it works and a
+  colour; a reviewer or researcher is kept read only. The editor opens with the
+  draft. **Start blank** (Auto model, Auto permission, a new worktree, usable as
+  a main agent) and **Or copy an existing agent** (any built-in or repository
+  agent) skip the model. Nothing is saved until you save the editor; **Cancel**
+  discards the draft. The command palette's **New agent** and the empty state
+  open the same dialog.
 - **Profile header**: the avatar, the name, **Use when**, and chips for source,
   model, permission and where the agent works.
 - **As a main agent**: per provider, whether the instructions and tool limits
@@ -77,19 +82,20 @@ it runs as one task or a playbook mission, and the new worktree and its base.
 
 ### Editing an agent
 
-A custom agent's editor is grouped into sections:
+A custom agent's editor shows what most agents need and keeps the rest out of
+the way:
 
-- **Profile**: name, colour, **Use when** and **Don't use when**.
-- **Instructions**: the agent's instructions and its skills.
-- **Model**: **Auto-routing** with an optional task class, or a **Fixed**
-  provider, model and effort.
-- **Tools & limits**: the allowed and denied tool lists, max turns and
-  concurrency.
-- **Access**: permission, where it works, what it is usable as, and its report
-  sections.
+- **Profile**: name, colour and **Use when**.
+- **Instructions**: what the agent does on every task.
+- **How it runs**: the model (**Auto-routing** with an optional task class, or
+  a **Fixed** provider, pinned model and effort), the permission, and where it
+  works.
+- **Advanced** (collapsed): **Don't use when**, skills, allowed and denied
+  tools, max turns, concurrency, what it is usable as, and its report sections.
 
 A field that fails a rule shows the reason inline (for example, a read-only
 agent cannot take a new worktree, and a tool cannot be both allowed and denied).
+A save blocked by an **Advanced** field opens **Advanced**.
 
 ### Deleting an agent
 
