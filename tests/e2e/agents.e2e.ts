@@ -27,4 +27,14 @@ test.describe("agents", () => {
     await expect(page.getByRole("status").filter({ hasText: "Started in a new worktree" })).toBeVisible();
     await expect(page.getByRole("button", { name: "Open task" })).toBeVisible();
   });
+
+  test("Assign to agent from an issue prefills the ticket and offers only main agents", async ({ page }) => {
+    await page.goto("/?stavePreview=agents&sheet=1");
+    const sheet = page.getByRole("dialog");
+    await expect(sheet.getByText("Assign to agent")).toBeVisible();
+    await expect(sheet.getByRole("textbox", { name: "What should the agent do?" })).toHaveValue("Work on tracker ticket WEB-418.");
+    await sheet.getByRole("combobox", { name: "Agent" }).click();
+    await expect(page.getByRole("option", { name: "Implementer" })).toBeVisible();
+    await expect(page.getByRole("option", { name: "Reviewer" })).toHaveCount(0);
+  });
 });

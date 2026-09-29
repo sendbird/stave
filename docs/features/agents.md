@@ -31,6 +31,17 @@ use a macro.
 5. **Open task** to follow it. The task's **Flow** panel shows what was
    assigned, its stages and the tasks it delegated.
 
+### Other ways to assign
+
+- **Issues**: a ticket's context menu, or the detail pane's ⋯ menu, has
+  **Assign to agent**. The ticket's key, title and link become the request. The
+  ticket's own assignee does not change.
+- **Composer**: type `!assign` in any task's composer, including a new one. The
+  rest of the draft becomes the request. The agent works in its own task.
+
+Both open the **Assign to agent** sheet: pick an agent usable as a main agent,
+edit the request, then **Assign**.
+
 ## Interface Walkthrough
 
 ### Agents tab

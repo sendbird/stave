@@ -1,6 +1,8 @@
 import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { AgentsTab } from "@/components/agents/AgentsTab";
+import { AssignAgentSheetHost } from "@/components/agents/AssignAgentSheet";
+import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import type { AgentAssignment } from "@/lib/agents/assign";
@@ -14,7 +16,8 @@ import { useAppStore } from "@/store/app.store";
  * The Agents tab on the dev preview (`?stavePreview=agents`): one custom
  * agent, a repository with agent files (one refused field, one unreadable
  * file, one id clash with a built-in), and stubbed assign calls.
- * `&theme=dark` or `&theme=<built-in theme id>` renders under that theme.
+ * `&theme=dark` or `&theme=<built-in theme id>` renders under that theme;
+ * `&sheet=1` opens Assign to agent as an issue would.
  */
 const params = new URLSearchParams(window.location.search);
 
@@ -96,10 +99,14 @@ export function AgentsPreview() {
       workspacePathById: { "preview-workspace": "/tmp/preview-repo" },
     } as never);
     setSeeded(true);
+    if (params.get("sheet") === "1") {
+      useAgentsUiStore.getState().openAssignSheet({ assignment: "Work on tracker ticket WEB-418.", source: "WEB-418" });
+    }
   }, []);
   return (
     <main className={sx(styles.page)}>
       <div className={sx(styles.frame)}>{seeded ? <AgentsTab /> : null}</div>
+      <AssignAgentSheetHost />
     </main>
   );
 }

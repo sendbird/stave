@@ -1,4 +1,5 @@
 import { memo } from "react";
+import { assignTrackerIssueToAgent } from "./assign-issue-to-agent";
 import { CornerDownRight, ExternalLink, GitBranch, Link2 } from "lucide-react";
 
 import { Board } from "@/components/ads/components/Board";
@@ -335,6 +336,9 @@ const IssuesBoardCard = memo(function IssuesBoardCard(props: {
       <ContextMenuContent>
         <ContextMenuItem onSelect={() => props.onKickoff(key)}>
           Kick off in Stave
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => assignTrackerIssueToAgent(task)}>
+          Assign to agent
         </ContextMenuItem>
         {link ? (
           <ContextMenuItem onSelect={() => props.onOpenStaveTask(key)}>

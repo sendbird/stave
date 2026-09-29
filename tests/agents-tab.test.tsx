@@ -43,3 +43,32 @@ describe("agents view", () => {
     expect(html).toContain("As a main agent");
   });
 });
+
+describe("assign entry points", () => {
+  test("an issue opens Assign to agent with the ticket as the request", async () => {
+    const { assignTrackerIssueToAgent } = await import("../src/components/layout/issues/assign-issue-to-agent");
+    const { useAgentsUiStore } = await import("@/store/agents-ui-store");
+    assignTrackerIssueToAgent({
+      source: "crane",
+      ref: "r1",
+      key: "WEB-418",
+      title: "Export invoices as CSV",
+      url: "https://crane.example/WEB-418",
+      links: [],
+    } as never);
+    const request = useAgentsUiStore.getState().assignSheet;
+    expect(request?.source).toBe("WEB-418");
+    expect(request?.assignment).toContain("Title: Export invoices as CSV");
+    useAgentsUiStore.getState().closeAssignSheet();
+  });
+
+  test("`!assign` is offered in the composer palette and is not a playbook", async () => {
+    const { ASSIGN_PALETTE_ENTRY, isAssignPaletteEntry, playbookIdOfPaletteEntry } = await import(
+      "../src/components/session/HandOffControl"
+    );
+    expect(ASSIGN_PALETTE_ENTRY.slug).toBe("assign");
+    expect(isAssignPaletteEntry(ASSIGN_PALETTE_ENTRY)).toBe(true);
+    expect(playbookIdOfPaletteEntry(ASSIGN_PALETTE_ENTRY)).toBeNull();
+  });
+
+});

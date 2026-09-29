@@ -1,4 +1,5 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { assignTrackerIssueToAgent } from "./assign-issue-to-agent";
 import { memo } from "react";
 import { CornerDownRight, ExternalLink, GitBranch, Link2 } from "lucide-react";
 
@@ -251,6 +252,9 @@ export const TrackerIssueRow = memo(function TrackerIssueRow(
       <ContextMenuContent>
         <ContextMenuItem onSelect={() => props.onKickoff(key)}>
           Kick off in Stave
+        </ContextMenuItem>
+        <ContextMenuItem onSelect={() => assignTrackerIssueToAgent(task)}>
+          Assign to agent
         </ContextMenuItem>
         {link ? (
           <ContextMenuItem onSelect={() => props.onOpenStaveTask(key)}>
