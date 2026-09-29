@@ -13,7 +13,8 @@ import { ensureHostServicePersistenceReady } from "../persistence";
 import { fetchGitHubPrStatus } from "../scm-runtime";
 import { runSupervisedTurn } from "../supervised-turn";
 import type { MissionRuntime } from "./mission-runtime";
-import { createProjectRuntime } from "./project-runtime";
+import { hostAgents } from "./assign-host";
+import { createProjectRuntime, type ProjectRuntimeDependencies } from "./project-runtime";
 
 async function resolveWorkspacePath(workspaceId: string) {
   const repositories = await localMcpRuntime.listKnownRepositories();
@@ -53,10 +54,13 @@ export function createHostProjectRuntime(args: {
   missionRuntime: Pick<MissionRuntime, "startMission" | "get" | "readUsage">;
   emitChanged: (event: ProjectChangedEvent) => void;
   onPlaybooksSynced?: (playbooks: Playbook[]) => void;
+  recordTaskAgent?: ProjectRuntimeDependencies["recordTaskAgent"];
 }) {
   const persistence = ensureHostServicePersistenceReady();
   return createProjectRuntime({
     store: persistence.projects,
+    listAgents: hostAgents,
+    ...(args.recordTaskAgent ? { recordTaskAgent: args.recordTaskAgent } : {}),
     missions: persistence.missions,
     startMission: (input, options) => args.missionRuntime.startMission(input, options),
     getMissionReport: async (missionId) => (await args.missionRuntime.get({ missionId })).report,

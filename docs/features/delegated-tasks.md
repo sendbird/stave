@@ -111,6 +111,18 @@ whatever replaced it.
 | `workspace` | `same-workspace`, or `new-worktree` with a name and optional base branch. |
 | `retry` | Start a new attempt on a delegation that already ended without succeeding. |
 
+### Run As An Agent
+
+A delegation may name a saved agent (`agentConfigId`). The agent's
+instructions go ahead of the prompt and the narrower of the requested
+permission profile and the agent's wins. It is refused, with the reason, when
+the agent is not usable as a delegated task, is not one of the project's
+agents, or would run with more permission than the delegating task's own
+agent. A retry runs as the same agent.
+
+`expectedHead` pins same-workspace work to a commit: the child does not start
+when the workspace HEAD differs, and a retry keeps the pin.
+
 ### Model And Effort
 
 Two optional runtime choices ride along: `model` overrides the child's model, and

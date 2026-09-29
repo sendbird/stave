@@ -110,9 +110,13 @@ export function collectAcceptanceCriteria(
 }
 
 /** The prompt of a turn for the mission's current AI stage. */
-export function compileMissionStagePrompt(aggregate: MissionAggregate): string {
+export function compileMissionStagePrompt(
+  aggregate: MissionAggregate,
+  agentNames?: Readonly<Record<string, string>>,
+): string {
   const record = currentStageRecord(aggregate);
   return compileStagePrompt({
+    ...(agentNames ? { agentNames } : {}),
     playbook: aggregate.mission.playbook,
     stageIndex: aggregate.mission.currentStageIndex,
     assignment: aggregate.mission.assignment,

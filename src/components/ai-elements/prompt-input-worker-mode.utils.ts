@@ -1,6 +1,7 @@
 import { toHumanModelName } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
+  DEFAULT_WORKER_PRESET_ID,
   WORKER_AUTO_VALUE,
   type WorkerArmState,
   type WorkerEffort,
@@ -290,6 +291,38 @@ export function buildWorkerPresetPatch(args: {
       instructions: undefined,
       tools: undefined,
       maxTurns: undefined,
+      agentConfigId: undefined,
+      agentName: undefined,
+    },
+  });
+}
+
+/**
+ * Picks a custom agent as the worker: its copy replaces the preset's text,
+ * over the preset it came from (or the default one), and its model and effort
+ * apply when the agent fixes them. `config` comes from `agentWorkerConfig`.
+ */
+export function buildWorkerAgentPatch(args: {
+  overrides?: PromptDraftRuntimeOverrides;
+  providerId: ProviderId;
+  config: WorkerProviderConfig & { agentConfigId: string; agentName: string };
+}): PromptDraftRuntimeOverrides {
+  return withWorkerConfig({
+    overrides: {
+      ...(args.overrides ?? {}),
+      workerEnabled: true,
+    },
+    providerId: args.providerId,
+    patch: {
+      presetId: args.config.presetId ?? DEFAULT_WORKER_PRESET_ID,
+      description: args.config.description,
+      instructions: args.config.instructions,
+      tools: args.config.tools,
+      maxTurns: args.config.maxTurns,
+      ...(args.config.model ? { model: args.config.model } : {}),
+      ...(args.config.effort ? { effort: args.config.effort } : {}),
+      agentConfigId: args.config.agentConfigId,
+      agentName: args.config.agentName,
     },
   });
 }

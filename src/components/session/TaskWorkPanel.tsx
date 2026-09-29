@@ -17,17 +17,23 @@ const Mission = lazy(() =>
     default: module.MissionPanel,
   })),
 );
+const Flow = lazy(() =>
+  import("@/components/agents/FlowPanel").then((module) => ({
+    default: module.FlowPanel,
+  })),
+);
 const Team = lazy(() =>
   import("@/components/team/TeamSection").then((module) => ({
     default: module.TeamSection,
   })),
 );
 
-export type TaskWorkPanelKind = "results" | "mission" | "team";
+export type TaskWorkPanelKind = "results" | "mission" | "flow" | "team";
 
 const KIND_LABELS: Record<TaskWorkPanelKind, string> = {
   results: "results",
   mission: "mission",
+  flow: "flow",
   team: "team",
 };
 
@@ -79,6 +85,13 @@ export function TaskWorkPanel({ kind }: { kind: TaskWorkPanelKind }) {
             key={`${workspaceId}:${taskId}`}
             workspaceId={workspaceId}
             taskId={taskId}
+          />
+        ) : kind === "flow" ? (
+          <Flow
+            key={`${workspaceId}:${taskId}`}
+            workspaceId={workspaceId}
+            taskId={taskId}
+            repositoryPath={repositoryPath}
           />
         ) : teamAvailable ? (
           <Team

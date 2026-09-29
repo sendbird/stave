@@ -39,6 +39,28 @@ export function playbookPaletteEntries(playbooks: readonly Playbook[]): Macro[] 
   );
 }
 
+const ASSIGN_ENTRY_ID = "agents:assign";
+
+/**
+ * `!assign` in the composer: the rest of the draft becomes the request and the
+ * Assign to agent sheet opens. The agent makes its own task, so this works on
+ * a new task as well as on one with history.
+ */
+export const ASSIGN_PALETTE_ENTRY: Macro = {
+  id: ASSIGN_ENTRY_ID,
+  label: "Assign to agent",
+  slug: "assign",
+  description: "Hand this request to a saved agent; it gets its own task",
+  body: "",
+  insertMode: "replace",
+  createdAt: "1970-01-01T00:00:00.000Z",
+  updatedAt: "1970-01-01T00:00:00.000Z",
+};
+
+export function isAssignPaletteEntry(entry: Pick<Macro, "id">): boolean {
+  return entry.id === ASSIGN_ENTRY_ID;
+}
+
 /** The playbook id behind a palette entry, or null for a macro. */
 export function playbookIdOfPaletteEntry(entry: Pick<Macro, "id">): string | null {
   return entry.id.startsWith(PLAYBOOK_ENTRY_PREFIX) ? entry.id.slice(PLAYBOOK_ENTRY_PREFIX.length) : null;

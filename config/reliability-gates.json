@@ -295,13 +295,39 @@
       "testFiles": [
         "tests/project-boundaries.test.ts",
         "tests/project-policy.test.ts",
-        "tests/project-store.test.ts"
+        "tests/project-store.test.ts",
+        "tests/intake.test.ts"
       ],
       "assertionRefs": [
         "docs/architecture/agent-platform-taxonomy.md",
         "src/lib/projects/policy.ts",
         "src/lib/projects/briefing.ts",
-        "electron/host-service/supervision/project-runtime.ts"
+        "electron/host-service/supervision/project-runtime.ts",
+        "electron/host-service/supervision/intake.ts"
+      ]
+    },
+    {
+      "id": "agent-boundaries",
+      "title": "A saved agent grants no permissions, starts nothing, and a run follows its start snapshot; delegation to an agent only narrows",
+      "invariant": "An agent config holds only a default permission from a closed list and no approval bypass; compiling never widens it and imports refuse bypass modes, hooks and inline MCP servers. The agent domain in src/lib/agents imports no host, main-process, persistence or process module, so saving or editing an agent cannot start work. Work runs against a snapshot copied at start; edits after the start never change its instructions, tools or content hash. A delegation naming an agent is refused when the agent is not a delegated task, is outside the project's agents, or would run wider than the delegating task's agent; work pinned to a commit is refused when HEAD differs. A mission stage done by another agent is delegated by the lead task, whose provider and instructions never change.",
+      "testFiles": [
+        "tests/agent-boundaries.test.ts",
+        "tests/agent-config.test.ts",
+        "tests/agent-import.test.ts",
+        "tests/agent-permission.test.ts",
+        "tests/agent-delegation.test.ts",
+        "tests/agent-playbook-stage.test.ts"
+      ],
+      "assertionRefs": [
+        "docs/architecture/agent-platform-taxonomy.md",
+        "src/lib/agents/schema.ts",
+        "src/lib/agents/compile.ts",
+        "src/lib/agents/import.ts",
+        "src/lib/agents/library.ts",
+        "src/lib/agents/permission.ts",
+        "src/lib/agents/delegate.ts",
+        "src/lib/playbooks/stage-prompt.ts",
+        "electron/main/runs/delegated-task-coordinator.ts"
       ]
     }
   ]

@@ -27,6 +27,7 @@ import {
 } from "@/lib/playbooks/schema";
 import { useAppStore } from "@/store/app.store";
 import { Segmented } from "./Segmented";
+import { StageAgentField } from "./StageAgentField";
 import { playbookStyles as styles } from "./playbooks.styles";
 
 const ACTION_DESCRIPTIONS = {
@@ -299,6 +300,7 @@ function AiStageFields(props: {
           }}
         />
       </div>
+      <StageAgentField stage={stage} onChange={props.onChange} />
     </>
   );
 }

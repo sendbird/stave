@@ -1306,6 +1306,15 @@ export interface ProviderRuntimeOptions {
    * primary model and installed runtime before building the native call.
    */
   workerIntent?: WorkerRuntimeIntent;
+  /**
+   * Instructions of the Agent this task runs as (the main agent of the task),
+   * compiled from its saved config by `src/lib/agents/compile.ts`. Claude and
+   * Codex receive them on their instruction channel for the task's own turns
+   * only; secondary read-only runs and utility queries never do. Cursor and
+   * Kiro have no channel Stave controls, so intake prepends them to the first
+   * message instead and reports them as instructed.
+   */
+  agentInstructions?: string;
   // ---- Customisable AI prompt overrides ----
   /** Response formatting guidance injected into both Claude and Codex. */
   responseStylePrompt?: string;

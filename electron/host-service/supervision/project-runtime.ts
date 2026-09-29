@@ -12,6 +12,8 @@
  * Used by: `electron/host-service/supervision/project-host.ts`.
  */
 import { randomUUID } from "node:crypto";
+import { runIntake } from "./intake";
+import { isUsableAs, type AgentConfig } from "../../../src/lib/agents/schema";
 import type { MissionDetail } from "../../../src/lib/missions/api";
 import {
   currentStageRecord,
@@ -135,6 +137,22 @@ export interface CoordinatorSnapshot {
 
 export interface ProjectRuntimeDependencies {
   store: ProjectStorePort;
+  /** The active agents the host knows, for a project's Agents. Absent: none. */
+  listAgents?: () => readonly AgentConfig[];
+  /**
+   * Runs a mission's task as an agent from its first turn: every turn of the
+   * task gets the agent's instructions and stays within its permission.
+   */
+  recordTaskAgent?: (args: {
+    taskId: string;
+    workspaceId: string;
+    repositoryPath: string;
+    agent: AgentConfig;
+    providerId: MissionProposal["providerId"];
+    model: string | null;
+    assignment: string;
+    requestId: string;
+  }) => void;
   missions: MissionReaderPort;
   /** Starts a mission for the project; the mission records its project. */
   startMission: (input: MissionStartInput, options: { projectId: string }) => Promise<MissionDetail>;
@@ -185,6 +203,11 @@ export interface ProjectRuntime {
   start: () => void;
   stop: () => void;
   requestTick: () => Promise<void>;
+  /**
+   * The agents a task may delegate to when it works for a project (its
+   * coordinator or a mission's task): the project's list, or null for no limit.
+   */
+  agentsForTask: (taskId: string) => string[] | null;
   /** A mission changed; ticks when it belongs to a project. */
   notifyMissionChanged: (args: { missionId: string }) => void;
   list: (args?: { openOnly?: boolean }) => Promise<{ projects: Project[] }>;
@@ -422,6 +445,13 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
   /* Acting on decisions                                                     */
   /* ---------------------------------------------------------------------- */
 
+  /** The agents a project allows: its list, or every active agent when it has none. */
+  function projectAgents(project: Project): AgentConfig[] {
+    const all = [...(deps.listAgents?.() ?? [])];
+    const allowed = project.settings.agents;
+    return allowed ? all.filter((agent) => allowed.includes(agent.id)) : all;
+  }
+
   async function startProposal(project: Project, proposal: MissionProposal) {
     const key = `project:${project.id}:start:${proposal.id}`;
     // Recorded before any side effect, so a restart never starts it twice.
@@ -435,42 +465,59 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
       store.upsertProposal(current);
     };
     try {
-      const branch = missionBranchName(proposal);
-      const created = await deps.createMissionWorkspace({
-        repositoryPath: project.repositoryPath,
-        name: branch,
-        label: firstLine(proposal.assignment, 60),
-      });
-      if (created.existed) {
-        throw new Error(`A workspace on the branch "${branch}" already exists; a mission needs a worktree of its own.`);
-      }
-      const { workspaceId } = created;
-      keep({ workspaceId });
-      const { taskId } = await deps.createIdleTask({
-        workspaceId,
-        title: firstLine(proposal.assignment, 60),
-        provider: proposal.providerId,
-        model: proposal.model,
-      });
-      keep({ taskId });
-      const detail = await deps.startMission(
+      const title = firstLine(proposal.assignment, 60);
+      const { missionId } = await runIntake(
         {
-          workspaceId,
-          leadTaskId: taskId,
-          playbook: proposal.playbook,
-          assignment: proposal.assignment,
-          // Consent for a project mission: the playbook's check-ins and
-          // default permissions, and every external effect it names — what
-          // the user approved in the proposal or allowed in the settings.
-          consent: {
-            checkIns: proposal.playbook.checkIns,
-            permissionMode: proposal.playbook.runtime?.permissionMode ?? DEFAULT_PLAYBOOK_PERMISSION_MODE,
-            authorizedEffectStageIds: listExternalEffectStages(proposal.playbook).map((stage) => stage.id),
+          workspace: {
+            mode: "new-worktree",
+            repositoryPath: project.repositoryPath,
+            branch: missionBranchName(proposal),
+            label: title,
+          },
+          task: { title, provider: proposal.providerId, model: proposal.model },
+          mission: {
+            playbook: proposal.playbook,
+            assignment: proposal.assignment,
+            // Consent for a project mission: the playbook's check-ins and
+            // default permissions, and every external effect it names — what
+            // the user approved in the proposal or allowed in the settings.
+            consent: {
+              checkIns: proposal.playbook.checkIns,
+              permissionMode: proposal.playbook.runtime?.permissionMode ?? DEFAULT_PLAYBOOK_PERMISSION_MODE,
+              authorizedEffectStageIds: listExternalEffectStages(proposal.playbook).map((stage) => stage.id),
+            },
           },
         },
-        { projectId: project.id },
+        {
+          createWorktree: deps.createMissionWorkspace,
+          createIdleTask: deps.createIdleTask,
+          startMission: async (input) => ({
+            missionId: (await deps.startMission(input, { projectId: project.id })).mission.id,
+          }),
+        },
+        {
+          workspaceReady: (workspaceId) => keep({ workspaceId }),
+          taskReady: (taskId) => {
+            keep({ taskId });
+            // Before the mission's first turn, so the task runs as the agent from the start.
+            if (proposal.agentConfigId) {
+              const agent = (deps.listAgents?.() ?? []).find((candidate) => candidate.id === proposal.agentConfigId);
+              if (!agent) throw new Error(`The agent "${proposal.agentName ?? proposal.agentConfigId}" is no longer available.`);
+              deps.recordTaskAgent?.({
+                taskId,
+                workspaceId: current.workspaceId!,
+                repositoryPath: project.repositoryPath,
+                agent,
+                providerId: proposal.providerId,
+                model: proposal.model,
+                assignment: proposal.assignment,
+                requestId: `project:${project.id}:proposal:${proposal.id}`,
+              });
+            }
+          },
+        },
       );
-      keep({ state: "started", missionId: detail.mission.id, detail: null });
+      keep({ state: "started", missionId, detail: null });
     } catch (error) {
       const message = error instanceof Error && error.message ? error.message : "The mission could not start.";
       keep({ state: "failed", detail: message.slice(0, 500) });
@@ -792,6 +839,15 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
     },
 
     list: async (args = {}) => ({ projects: store.listProjects(args) }),
+    agentsForTask: (taskId) => {
+      for (const project of store.listProjects({ openOnly: true })) {
+        const owns =
+          project.coordinator.taskId === taskId ||
+          store.listProposals(project.id).some((proposal) => proposal.taskId === taskId);
+        if (owns) return project.settings.agents ?? null;
+      }
+      return null;
+    },
     get: ({ projectId }) => detailOf(projectId),
 
     create: (rawInput) =>
@@ -983,6 +1039,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
         proposals: store.listProposals(project.id),
         playbooks: playbookOptions(),
         memories: store.listMemories(project.id),
+        agents: projectAgents(project),
       });
     },
 
@@ -1000,6 +1057,12 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
         const coordinator = await deps.getTaskSnapshot(project.coordinator);
         const providerId = input.providerId ?? (coordinator.providerId === "codex" ? "codex" : "claude-code");
         if (input.model) requireMissionModel(providerId, input.model);
+        let agent: AgentConfig | null = null;
+        if (input.agentConfigId) {
+          agent = projectAgents(project).find((candidate) => candidate.id === input.agentConfigId) ?? null;
+          if (!agent) refuse(`"${input.agentConfigId}" is not one of this project's agents. Read them with stave_get_project.`);
+          if (!isUsableAs(agent, "primary")) refuse(`"${agent.name}" cannot run a mission's task; it is not usable as a main agent.`);
+        }
         const timestamp = now().toISOString();
         const proposal: MissionProposal = {
           id: randomUUID(),
@@ -1010,6 +1073,7 @@ export function createProjectRuntime(deps: ProjectRuntimeDependencies): ProjectR
           providerId,
           model: input.model ?? null,
           worktreeName: input.worktreeName ? slugForWorktree(input.worktreeName) : null,
+          ...(agent ? { agentConfigId: agent.id, agentName: agent.name } : {}),
           state: project.settings.askBeforeStarting ? "pending" : "approved",
           workspaceId: null,
           taskId: null,

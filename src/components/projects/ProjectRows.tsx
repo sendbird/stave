@@ -153,6 +153,7 @@ export function ProposalRow(props: {
         <span className={sx(styles.rowMeta)}>
           <span className={sx(styles.rowWaiting)}>Proposed</span>
           {` · ${proposal.playbook.name} · ${stages} ${stages === 1 ? "stage" : "stages"}`}
+          {proposal.agentName ? ` · runs as ${proposal.agentName}` : ""}
         </span>
       </span>
       <span className={sx(styles.rowActions)}>
@@ -212,6 +213,7 @@ export function PendingStartRow(props: { proposal: MissionProposal; parallelLimi
         <span className={sx(styles.rowMeta, styles.rowMetaWrap)}>
           <span className={sx(failed && styles.rowAttention)}>{status}</span>
           {` · ${proposal.playbook.name}`}
+          {proposal.agentName ? ` · runs as ${proposal.agentName}` : ""}
         </span>
       </span>
       <span className={sx(styles.rowActions)}>

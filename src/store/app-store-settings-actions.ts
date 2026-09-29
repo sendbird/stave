@@ -1,4 +1,5 @@
 import type { StoreApi } from "zustand";
+import { normalizeMyStandards } from "@/lib/agents/standards";
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizeComposerControlPlacements } from "@/lib/composer-controls";
 import { normalizeLensHostList } from "@/lib/lens/lens-security";
@@ -69,10 +70,17 @@ import {
   updateCurrentRepositoryTextPreference,
   upsertRecentRepositoryState,
 } from "@/store/repository.utils";
+import { normalizeCustomAgents } from "@/lib/agents/library";
 import {
   normalizeClaudeSettingSources,
   normalizeClaudeTaskBudgetTokens,
 } from "@/store/provider-runtime-options";
+
+function normalizeCustomAgentPatch(value: unknown) {
+  const { agents, rejected } = normalizeCustomAgents(value);
+  if (rejected.length > 0) console.warn("[agents] refused custom agents in a settings patch", rejected.map((entry) => entry.issues));
+  return agents;
+}
 
 function normalizePlaybookPatch(value: unknown) {
   const { playbooks, diagnostics } = normalizePersistedPlaybooks(value);
@@ -534,6 +542,10 @@ export function createSettingsActions(args: {
         ...(patch.playbooks === undefined
           ? {}
           : { playbooks: normalizePlaybookPatch(patch.playbooks) }),
+        ...(patch.customAgents === undefined
+          ? {}
+          : { customAgents: normalizeCustomAgentPatch(patch.customAgents) }),
+        ...(patch.myStandards === undefined ? {} : { myStandards: normalizeMyStandards(patch.myStandards) }),
         ...(patch.lensSessionScope === undefined
           ? {}
           : {

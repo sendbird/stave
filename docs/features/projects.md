@@ -136,6 +136,16 @@ Conditions that fire while the coordinator is in a turn wait and arrive
 together in its next one, and they count toward the 24 automatic turns a
 day.
 
+### Agents
+
+The **Agents** setting chooses which saved agents the project uses. Off, any
+agent. On, only the ticked ones: the coordinator is told which, a mission it
+proposes may run its task as one of them (the proposal shows **runs as**), and
+delegations from the project's tasks may only name them. A mission whose
+agent is outside the list, or cannot run a task, is refused before anything
+starts. The mission's task keeps that agent, with its instructions and
+permission limit, for the whole mission.
+
 ## How The Coordinator Works
 
 - It wakes when a mission of the project ends, waits for your sign-off, or is

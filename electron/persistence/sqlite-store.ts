@@ -59,6 +59,7 @@ import type {
 import { WakeUpStore } from "./wake-up-store";
 import { MissionStore } from "./mission-store";
 import { ProjectStore } from "./project-store";
+import { AgentAssignmentStore } from "./agent-assignment-store";
 import { AutomationStateStore } from "./automation-state-store";
 import { RepositoryMemoryStore } from "./repository-memory-store";
 import { ResultReviewStore } from "./result-review-store";
@@ -184,6 +185,7 @@ export class SqliteStore {
   readonly delegationDrafts: DelegationDraftStore;
   readonly missions: MissionStore;
   readonly projects: ProjectStore;
+  readonly agentAssignments: AgentAssignmentStore;
   private _closed = false;
   private readonly runMaintenance: boolean;
   private maintenanceStart: NodeJS.Immediate | null = null;
@@ -236,6 +238,7 @@ export class SqliteStore {
     this.wakeUps = new WakeUpStore(this.db);
     this.missions = new MissionStore(this.db);
     this.projects = new ProjectStore(this.db);
+    this.agentAssignments = new AgentAssignmentStore(this.db);
     this.automationState = new AutomationStateStore(this.db);
     this.repositoryMemories = new RepositoryMemoryStore(this.db);
     if (this.runMaintenance) {

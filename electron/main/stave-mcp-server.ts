@@ -808,6 +808,18 @@ function createToolServer(options?: {
           .describe(
             "Start a new attempt when this delegation already ended without succeeding. Ignored while it is still running.",
           ),
+        expectedHead: z
+          .string()
+          .optional()
+          .describe(
+            "Commit the child must find checked out (same-workspace only), for work that is about one commit such as a review. Not started when the workspace HEAD differs.",
+          ),
+        agentConfigId: z
+          .string()
+          .optional()
+          .describe(
+            "Run the child as this saved agent. Its instructions go ahead of the prompt and the narrower permission of this request and the agent wins. Refused when the agent is not usable as a delegated task, is not one of the project's agents, or would run wider than this task's own agent.",
+          ),
       },
     },
     async ({ provider, retry, ...rest }) =>

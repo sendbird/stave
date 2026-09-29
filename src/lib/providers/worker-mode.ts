@@ -107,6 +107,13 @@ export interface WorkerProviderConfig {
   instructions?: string;
   tools?: string[];
   maxTurns?: number;
+  /**
+   * Set when the copy above came from a custom agent picked in the composer.
+   * The text is the agent as it was when picked; picking it again refreshes it.
+   * Never sent with the turn: the intent carries only the copied fields.
+   */
+  agentConfigId?: string;
+  agentName?: string;
 }
 
 /**
@@ -777,6 +784,8 @@ export function normalizeWorkerProviderConfig(
   );
   const tools = normalizeToolList(candidate.tools);
   const maxTurns = normalizeMaxTurns(candidate.maxTurns);
+  const agentConfigId = trimToLength(candidate.agentConfigId, 80);
+  const agentName = trimToLength(candidate.agentName, 80);
   return {
     presetId: isWorkerPresetId(candidate.presetId)
       ? candidate.presetId
@@ -787,6 +796,7 @@ export function normalizeWorkerProviderConfig(
     ...(instructions ? { instructions } : {}),
     ...(tools ? { tools } : {}),
     ...(maxTurns !== undefined ? { maxTurns } : {}),
+    ...(agentConfigId && agentName ? { agentConfigId, agentName } : {}),
   };
 }
 

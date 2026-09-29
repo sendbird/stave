@@ -19,6 +19,7 @@ import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { prToneBadgeStyles } from "@/components/layout/pr-status.styles";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import { Badge } from "@/components/ads/components/Badge";
+import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
 import { transition } from "@/components/ads/recipes/transition";
@@ -417,6 +418,8 @@ export function FleetWorkspaceCard(args: {
       (loadedShell !== undefined && !didShellLoadFail),
   });
 
+  // A stored reference: the card re-renders only when an assignment changes.
+  const taskAgents = useAgentAssignmentsStore((state) => state.byTaskId);
   const matchesFilter = matchesFleetBoardFilter({
     filter: args.filter,
     activity,
@@ -427,6 +430,8 @@ export function FleetWorkspaceCard(args: {
       args.repositoryName,
       args.workspace.branch ?? "",
       ...rows.map((row) => row.task.title),
+      // Typing an agent's name finds the tasks it runs.
+      ...rows.flatMap((row) => (taskAgents[row.task.id] ? [taskAgents[row.task.id]!.agentName] : [])),
     ],
   });
   const visible = matchesFilter && !isPhantom;
@@ -594,6 +599,11 @@ export function FleetWorkspaceCard(args: {
                   >
                     <FleetProviderIcon provider={row.task.provider} />
                     <span className={sx(styles.taskTitle)}>{taskTitle}</span>
+                    {taskAgents[row.task.id] ? (
+                      <Badge xstyle={styles.chip} title={`Runs as the ${taskAgents[row.task.id]!.agentName} agent`}>
+                        {taskAgents[row.task.id]!.agentName}
+                      </Badge>
+                    ) : null}
                     <span
                       className={sx(styles.taskStatus, visual.tone)}
                       title={`${visual.label} · updated ${row.updatedLabel}`}

@@ -90,6 +90,11 @@ export const ProjectSettingsSchema = z
      * coordinator and starting missions. Running missions finish on their own.
      */
     endsAt: z.iso.datetime().nullable().default(null),
+    /**
+     * The agents this project's missions and delegations may use, by id.
+     * Null: any agent. A mission or delegation naming another is refused.
+     */
+    agents: z.array(z.string().trim().min(1).max(80)).max(20).nullable().default(null),
   })
   .strict();
 export type ProjectSettings = z.infer<typeof ProjectSettingsSchema>;
@@ -106,6 +111,7 @@ export const ProjectSettingsPatchSchema = z
     autoAcceptDecisions: z.boolean(),
     triggers: ProjectTriggersSchema,
     endsAt: z.iso.datetime().nullable(),
+    agents: z.array(z.string().trim().min(1).max(80)).max(20).nullable(),
   })
   .partial()
   .strict();
@@ -116,6 +122,7 @@ export const DEFAULT_PROJECT_SETTINGS: ProjectSettings = {
   autoAcceptDecisions: false,
   triggers: DEFAULT_PROJECT_TRIGGERS,
   endsAt: null,
+  agents: null,
 };
 
 export const ProjectSchema = z
@@ -160,6 +167,9 @@ export const MissionProposalSchema = z
     providerId: z.enum(MISSION_PROVIDERS),
     model: z.string().trim().min(1).max(120).nullable(),
     worktreeName: z.string().trim().min(1).max(PROJECT_LIMITS.worktreeName).nullable(),
+    /** The agent the mission's task runs as, fixed when it starts. */
+    agentConfigId: z.string().trim().min(1).max(80).nullable().optional(),
+    agentName: z.string().trim().min(1).max(80).nullable().optional(),
     state: z.enum(PROPOSAL_STATES),
     workspaceId: IdSchema.nullable(),
     taskId: IdSchema.nullable(),
@@ -268,6 +278,13 @@ export const StartMissionToolInputSchema = z
       .min(1)
       .max(120)
       .describe("Your idempotency key for this mission; reusing it never starts a second one."),
+    agentConfigId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(80)
+      .optional()
+      .describe("An agent from stave_get_project's agents for the mission's task to run as; leave it out for no agent."),
   })
   .strict();
 export type StartMissionToolInput = z.infer<typeof StartMissionToolInputSchema>;
