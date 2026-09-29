@@ -632,8 +632,8 @@ before building the call.
 
 |                            | Claude                                       | Codex                                      | Cursor                                   | Kiro                                     |
 | -------------------------- | -------------------------------------------- | ------------------------------------------ | ---------------------------------------- | ---------------------------------------- |
-| orchestrating primaries    | Fable 5.1, Opus 5 (+1M), Sonnet 5 (+1M)      | GPT-6 Astra, GPT-5.6 Sol, GPT-5.6 Terra    | runtime ACP catalog                      | runtime model catalog                    |
-| worker models              | Sonnet 5 (+1M), Haiku 4.5, Opus 5, Fable 5.1 | Terra, Sol                                 | runtime ACP catalog                      | runtime model catalog                    |
+| orchestrating primaries    | Fable 5.1, Opus 5.5 (+1M), Sonnet 5.5 (+1M)      | GPT-6 Astra, GPT-5.6 Sol, GPT-5.6 Terra    | runtime ACP catalog                      | runtime model catalog                    |
+| worker models              | Sonnet 5.5 (+1M), Haiku 4.5, Opus 5.5, Fable 5.1 | Terra, Sol                                 | runtime ACP catalog                      | runtime model catalog                    |
 | execution adapter          | native named agent                           | native spawned agent                       | task-scoped ACP role session             | task-scoped ACP role session             |
 | worker model pinning       | `AgentDefinition.model`                      | `agents.default_subagent_model`            | ACP config option                        | ACP model selection                      |
 | worker effort pinning      | `AgentDefinition.effort`                     | `agents.default_subagent_reasoning_effort` | encoded in the selected model variant    | ACP process `--effort`                   |
@@ -1236,9 +1236,9 @@ model; smaller models are not handed a deeper budget to compensate:
 | Rung     | Claude         | Codex         | Default effort |
 | -------- | -------------- | ------------- | -------------- |
 | frontier | Fable 5.1      | GPT-6 Astra   | `medium`       |
-| flagship | Opus 5 (+1M)   | GPT-5.6 Sol   | `high`         |
-| balanced | Sonnet 5 (+1M) | GPT-5.6 Terra | `high`         |
-| light    | —              | GPT-5.6 Luna  | `medium`       |
+| flagship | Opus 5.5 (+1M) | GPT-6 Sol     | Opus `medium`; Sol `high` |
+| balanced | Sonnet 5.5 (+1M) | GPT-5.6 Terra | Sonnet `high`; Terra `xhigh` |
+| light    | —              | GPT-6 Luna    | `xhigh`        |
 
 A frontier model pinned to `xhigh` mostly buys latency — codex-cli 0.153.2
 reports `defaultReasoningEffort: "medium"` for Astra itself. Both vendors
@@ -1248,15 +1248,27 @@ cheaper per task than a smaller model at high effort, and Luna's long-context
 recall collapses (MRCR 8-needle 41%) whatever the effort. Raising or lowering
 the tier stays a deliberate per-turn choice.
 
+Sonnet 5.5's composer default is `high`. Its list price is half of Opus 5.5,
+so ordinary Auto routes use the balanced rung at `high`. GPT-6 Sol lists at
+the same price and its composer default is `high` too. Terra sits one step
+higher, at `xhigh`. Luna's composer default is `xhigh`, and Auto's bounded
+route uses that same effort. A turn sends the effort stored in Stave. Sol,
+Terra, and Luna keep those Stave defaults after the App Server catalog is
+fetched. Other Codex models still follow that catalog's
+`defaultReasoningEffort` when the stored effort is still the previous
+default. `xhigh` and `max` stay off Sonnet and Sol. High complexity and
+uncertain intent stay on Opus 5.5 at `high` effort. Safety-critical work stays on Fable. Cost-saver still steps that
+ordinary route down one effort level.
+
 Claude Haiku 4.5 is deliberately absent: the Claude API rejects `effort`
 outright for Haiku-class models, so Stave drops the field rather than clamping
 it. Legacy `gpt-5.5` keeps the `xhigh` cap it was verified at.
 
 Two knock-on effects worth knowing:
 
-- The Advisor deadline is tiered by effort (`resolveAdvisorTimeoutMs`), so an
-  unpinned Opus 5 / Sol Advisor lands on the `high` rung and Sonnet 5 / Terra on
-  `xhigh`. See the ladder above for the current per-tier minutes.
+- The Advisor deadline is tiered by effort (`resolveAdvisorTimeoutMs`). An
+  unpinned advisor uses the model default, so Opus 5.5 lands on `medium` and
+  Sonnet 5.5 and GPT-6 Sol land on `high`, and Terra lands on `xhigh`.
 - Fresh-install `claudeEffort` / `codexReasoningEffort` seeds track the default
   model's rung. Existing users are carried over by the one-time settings
   migration in `src/lib/providers/settings-model-migration.ts`, which moves a
@@ -1264,6 +1276,11 @@ Two knock-on effects worth knowing:
   effort the user actually tuned is left alone. The same migration moves the
   previous per-provider default models (Sonnet 5 → Opus 5, Terra → Sol) and is
   gated by `settings.settingsModelMigrationVersion` so it runs exactly once.
+  A later step moves a selected Sonnet 5 id to Sonnet 5.5 and leaves effort
+  unchanged, because `high` is the default for both. Another step moves GPT-6
+  Sol from `medium` to `high` when the stored effort is still that old default.
+  A further step moves Luna from `medium` to `xhigh` and Terra from `high` to
+  `xhigh` on the same rule.
 
 Stave requires a user-installed Codex CLI. Users must have Codex CLI available in their PATH or configured via `runtimeOptions.codexBinaryPath` / `STAVE_CODEX_CLI_PATH`. A user-configured binary path still takes precedence over auto-discovery. Stave does not currently enforce a semantic-version floor, so controls for newly adopted features must be capability-gated for older executables.
 
@@ -1484,8 +1501,8 @@ the case the floor above still allows.
 The primary Codex catalog includes GPT-6 Astra, GPT-6 Sol, GPT-5.6 Terra
 (the balanced tier), and GPT-6 Luna. New tasks default to GPT-6 Sol;
 utility inference and light-tier routing use GPT-6 Luna. Codex Sol supports
-Low through Ultra, while Luna caps at Max. Both start at Medium unless the
-runtime catalog reports another default. See the [Codex model guide](https://learn.chatgpt.com/docs/models).
+Low through Ultra, while Luna caps at Max. Sol starts at High. Luna and Terra
+start at Extra High. See the [Codex model guide](https://learn.chatgpt.com/docs/models).
 
 Claude defaults to `claude-opus-5-5` at Medium effort. The existing 1M variant
 and Opus 4.8 overload fallback remain available. Opus 5.5 rejects disabled or
@@ -1493,13 +1510,28 @@ budget-based thinking, so the SDK adapter sends adaptive thinking for this
 model even when an older setting requests another mode. See the
 [Opus 5.5 migration guide](https://platform.claude.com/docs/en/models/opus-5-5/migration-guide).
 
+The balanced Claude rung is `claude-sonnet-5-5` at High effort, including the
+1M variant. Sonnet 5.5 is for well-scoped everyday coding, documents, and
+repeated agent tasks such as workers. Long-horizon and high-complexity turns
+stay on Opus 5.5, and safety-critical turns stay on Fable. Sonnet 5.5 thinks
+with adaptive thinking; disabled or budget-based thinking is not sent. It has
+no fast mode, so a saved fast-mode setting is omitted for this model. Per-token
+price matches Sonnet 5. See
+[Building with Claude Sonnet 5.5](https://claude.dev/blog/building-with-claude-sonnet-5-5/).
+
 A one-time settings migration updates previous default models and untouched
-shortcut/preset seeds. Customized presets, other selected models, explicit
-effort overrides, and historical turns keep their saved values. Cursor and
+shortcut/preset seeds. A selected Sonnet 5 id, including one stored on a
+shortcut or task preset, moves to Sonnet 5.5. That step does not rewrite
+effort. A selected GPT-6 Sol whose effort is still `medium` moves to `high`.
+A selected Luna whose effort is still `medium` moves to `xhigh`, and a selected
+Terra whose effort is still `high` moves to `xhigh`.
+Other selected models, tuned efforts, and historical turns keep their saved
+values. Cursor and
 Kiro continue to use their own runtime-advertised catalogs. Provider account
 and client rollout still determine whether a newly listed model can run.
 
 Opus 5.5 (including the 1M variant) requires Claude Code **2.1.280 or newer**.
+Sonnet 5.5 (including the 1M variant) requires Claude Code **2.1.284 or newer**.
 Run `claude update`, or update the Claude desktop app, then retry. A catalog
 entry does not establish compatibility with the installed runtime. Stave shows
 this requirement in the model selector and Tooling settings. When Claude reports

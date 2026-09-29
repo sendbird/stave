@@ -1047,12 +1047,18 @@ function emitClaudeApprovalTimeoutBridgeEvent(args: {
   args.onEvent?.(event);
 }
 
+function claudeBareModelId(model?: string) {
+  return model?.split("[")[0] ?? "";
+}
+
 function toClaudeThinkingConfig(
   thinkingMode?: "adaptive" | "enabled" | "disabled",
   model?: string,
 ) {
-  // Opus 5.5 rejects both disabled and budget-based thinking.
-  if (model?.split("[")[0] === "claude-opus-5-5") {
+  // Opus 5.5 and Sonnet 5.5 reject disabled and budget-based thinking.
+  // Claude Code cannot turn thinking off for Sonnet 5.5; effort sets the depth.
+  const bareModel = claudeBareModelId(model);
+  if (bareModel === "claude-opus-5-5" || bareModel === "claude-sonnet-5-5") {
     return { type: "adaptive" as const };
   }
   if (thinkingMode === "adaptive") {
@@ -1065,6 +1071,11 @@ function toClaudeThinkingConfig(
     return { type: "disabled" as const };
   }
   return undefined;
+}
+
+/** Sonnet 5.5 has no fast mode. An unset model keeps the caller's setting. */
+function claudeModelSupportsFastMode(model?: string) {
+  return claudeBareModelId(model) !== "claude-sonnet-5-5";
 }
 
 export function resolveClaudeAgentProgressSummaries(value?: boolean) {
@@ -1275,9 +1286,12 @@ export function buildClaudeQueryOptions(args: {
     Object.keys(args.enabledPlugins).length > 0
       ? args.enabledPlugins
       : undefined;
+  const fastMode =
+    args.runtimeOptions?.claudeFastMode === true &&
+    claudeModelSupportsFastMode(args.runtimeOptions.model);
   const settings = args.secondaryReadOnly
     ? {
-        ...(args.runtimeOptions?.claudeFastMode ? { fastMode: true } : {}),
+        ...(fastMode ? { fastMode: true } : {}),
         permissions: {
           deny: [
             "Edit(*)",
@@ -1288,9 +1302,9 @@ export function buildClaudeQueryOptions(args: {
           ],
         },
       }
-    : args.runtimeOptions?.claudeFastMode || enabledPlugins
+    : fastMode || enabledPlugins
       ? {
-          ...(args.runtimeOptions?.claudeFastMode ? { fastMode: true } : {}),
+          ...(fastMode ? { fastMode: true } : {}),
           ...(enabledPlugins ? { enabledPlugins } : {}),
         }
       : undefined;

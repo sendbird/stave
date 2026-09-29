@@ -1877,6 +1877,29 @@ describe("buildClaudeQueryOptions", () => {
     }).thinking).toEqual({ type: "disabled" });
   });
 
+  test("uses adaptive thinking for Sonnet 5.5 and omits fast mode", () => {
+    for (const model of ["claude-sonnet-5-5", "claude-sonnet-5-5[1m]"]) {
+      const options = buildClaudeQueryOptions({
+        cwd: workspaceRoot,
+        claudeExecutablePath: "",
+        runtimeOptions: { model, claudeThinkingMode: "disabled", claudeFastMode: true },
+      });
+      expect(options.thinking).toEqual({ type: "adaptive" });
+      expect(options.settings).toBeUndefined();
+    }
+    const previous = buildClaudeQueryOptions({
+      cwd: workspaceRoot,
+      claudeExecutablePath: "",
+      runtimeOptions: {
+        model: "claude-sonnet-5",
+        claudeThinkingMode: "disabled",
+        claudeFastMode: true,
+      },
+    });
+    expect(previous.thinking).toEqual({ type: "disabled" });
+    expect(previous.settings).toEqual({ fastMode: true });
+  });
+
   test("lets the prompt-suggestions setting only turn suggestions off", () => {
     const base = { cwd: workspaceRoot, claudeExecutablePath: "" };
     // Conversation turn follows the setting, defaulting to on.

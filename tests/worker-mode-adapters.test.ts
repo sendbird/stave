@@ -142,9 +142,9 @@ describe("Claude worker agent registration", () => {
     });
     expect(events[0]).toMatchObject({
       workerExecution: {
-        workerModel: "claude-sonnet-5",
+        workerModel: "claude-sonnet-5-5",
         requestedWorkerModel: "auto",
-        resolvedWorkerModel: "claude-sonnet-5",
+        resolvedWorkerModel: "claude-sonnet-5-5",
         workerModelSource: "preset",
       },
     });
