@@ -3,6 +3,7 @@ import type { DelegateTaskArgs } from "@/lib/runs/delegated-task";
 import type { WorkerPresetId, WorkerProviderConfig } from "@/lib/providers/worker-mode";
 import { isWorkerPresetId, workerToolsEnforced } from "@/lib/providers/worker-mode";
 import type { TaskClass } from "@/lib/providers/auto-routing-profile";
+import { agentPermissionSupport } from "./permission";
 import {
   AGENT_ROLE_LABELS,
   isUsableAs,
@@ -26,7 +27,7 @@ import {
 export type AgentSupportLevel = "enforced" | "instructed" | "unavailable";
 
 export interface AgentSupportEntry {
-  field: "instructions" | "tools" | "model";
+  field: "instructions" | "tools" | "model" | "permission";
   level: AgentSupportLevel;
   reason?: string;
 }
@@ -275,10 +276,20 @@ export function compileAgent(args: {
 
   const model = resolveModel(agent, providerId);
   const tools = toolSupport(agent, providerId, role);
+  const permissionLevel = role === "primary" ? agentPermissionSupport(agent.permission, providerId) : null;
   const support: AgentSupportEntry[] = [
     instructionsSupport(providerId, role),
     modelSupport(model),
     ...(tools ? [tools] : []),
+    ...(permissionLevel
+      ? [
+          {
+            field: "permission" as const,
+            level: permissionLevel,
+            ...(permissionLevel === "instructed" ? { reason: "Kiro has no read-only mode; it asks before every tool." } : {}),
+          },
+        ]
+      : []),
   ];
   const received: AgentReceivedInstruction[] = [
     { sourceId: `agent:${agent.id}`, kind: "agent", hash: snapshot.contentHash, included: true },

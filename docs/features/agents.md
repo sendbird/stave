@@ -88,7 +88,7 @@ Fleet's search finds its tasks.
 | Setting | Values | Notes |
 | --- | --- | --- |
 | Works in | New worktree, Current workspace | New worktree creates a branch `agent/<agent>-<work>-<id>` |
-| Permission | Read only, Manual, Guided, Auto | A default only; a read-only agent works in the current workspace |
+| Permission | Read only, Manual, Guided, Auto | A ceiling on every turn of the task; a read-only agent works in the current workspace |
 | Model | Auto-routing, or a fixed provider and model | Auto-routing uses your routing rules for the agent's task class |
 | Usable as | Main agent, Worker, Delegated task | Built-in Worker presets are usable only as a Worker |
 
@@ -99,6 +99,20 @@ Fleet's search finds its tasks.
   what it had made. It is never started again on its own.
 - Cursor and Kiro receive the agent's instructions at the top of the first
   message; Claude and Codex receive them on their instruction channel.
+- An agent's permission is a ceiling, never a grant. Every turn of the task —
+  the first and each later one — keeps your permission settings where they are
+  already narrower and lowers them where they are wider:
+
+  | Agent | Claude | Codex | Cursor | Kiro |
+  | --- | --- | --- | --- | --- |
+  | Read only | Default mode, edit tools off | Read-only files, asks on request | Ask mode, Manual | Manual, told not to edit |
+  | Manual | Default mode | Workspace files, asks before commands | Manual | Manual |
+  | Guided | Accept edits | Workspace files, asks before commands | Guided | Manual |
+  | Auto | Your settings | Your settings | Your settings | Your settings |
+
+  Kiro has no read-only mode, so a read-only agent there asks before every tool
+  and is only told not to edit; the Agents tab shows this as **Asked in
+  instructions**.
 - Tool limits are enforced where the provider supports them (for example, a
   Claude main agent's denied tools) and stated in the instructions elsewhere.
 

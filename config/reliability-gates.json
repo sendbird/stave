@@ -313,14 +313,16 @@
       "testFiles": [
         "tests/agent-boundaries.test.ts",
         "tests/agent-config.test.ts",
-        "tests/agent-import.test.ts"
+        "tests/agent-import.test.ts",
+        "tests/agent-permission.test.ts"
       ],
       "assertionRefs": [
         "docs/architecture/agent-platform-taxonomy.md",
         "src/lib/agents/schema.ts",
         "src/lib/agents/compile.ts",
         "src/lib/agents/import.ts",
-        "src/lib/agents/library.ts"
+        "src/lib/agents/library.ts",
+        "src/lib/agents/permission.ts"
       ]
     }
   ]

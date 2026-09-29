@@ -29,6 +29,8 @@ export interface AgentProviderSupport {
   refusal: string | null;
   instructions: AgentSupportLevel | null;
   tools: AgentSupportLevel | null;
+  /** Null for Auto: the turn keeps the user's own permission settings. */
+  permission: AgentSupportLevel | null;
 }
 
 /** How each provider would run this agent as a main agent. */
@@ -36,10 +38,10 @@ export function describeProviderSupport(agent: AgentConfig, providers: readonly 
   const snapshot = snapshotAgent({ ...agent, archived: false });
   return providers.map((providerId) => {
     const result = compileAgent({ snapshot, role: "primary", providerId });
-    if (!result.ok) return { providerId, refusal: result.message, instructions: null, tools: null };
-    const level = (field: "instructions" | "tools") =>
+    if (!result.ok) return { providerId, refusal: result.message, instructions: null, tools: null, permission: null };
+    const level = (field: "instructions" | "tools" | "permission") =>
       result.compiled.support.find((entry) => entry.field === field)?.level ?? null;
-    return { providerId, refusal: null, instructions: level("instructions"), tools: level("tools") };
+    return { providerId, refusal: null, instructions: level("instructions"), tools: level("tools"), permission: level("permission") };
   });
 }
 

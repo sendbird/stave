@@ -371,6 +371,11 @@ function AgentDetail(props: {
         <section aria-label="Provider support">
           <div className={sx(styles.sectionHeader)}>
             <h3 className={sx(styles.sectionTitle)}>As a main agent</h3>
+            <span className={sx(styles.sectionAside)}>
+              {agent.permission === "auto"
+                ? "Runs with your permission settings"
+                : `Every turn stays within ${AGENT_PERMISSION_LABELS[agent.permission]}; narrower settings of yours are kept`}
+            </span>
           </div>
           <table className={sx(agentStyles.support)}>
             <thead>
@@ -378,6 +383,7 @@ function AgentDetail(props: {
                 <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>Provider</th>
                 <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>Instructions</th>
                 <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>Tool limits</th>
+                <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>{AGENT_PERMISSION_LABELS[agent.permission]}</th>
               </tr>
             </thead>
             <tbody>
@@ -385,13 +391,16 @@ function AgentDetail(props: {
                 <tr key={row.providerId}>
                   <td className={sx(agentStyles.supportCell)}>{PROVIDER_LABELS[row.providerId] ?? row.providerId}</td>
                   {row.refusal ? (
-                    <td className={sx(agentStyles.supportCell, agentStyles.muted)} colSpan={2}>
+                    <td className={sx(agentStyles.supportCell, agentStyles.muted)} colSpan={3}>
                       {row.refusal}
                     </td>
                   ) : (
                     <>
                       <td className={sx(agentStyles.supportCell)}>{row.instructions ? SUPPORT_LEVEL_LABELS[row.instructions] : "—"}</td>
                       <td className={sx(agentStyles.supportCell)}>{row.tools ? SUPPORT_LEVEL_LABELS[row.tools] : "None set"}</td>
+                      <td className={sx(agentStyles.supportCell)}>
+                        {row.permission ? SUPPORT_LEVEL_LABELS[row.permission] : "Your settings"}
+                      </td>
                     </>
                   )}
                 </tr>

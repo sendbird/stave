@@ -229,6 +229,9 @@ whose name repeats it.
 14. Saving or editing an agent never creates a workspace, a task or a process.
 15. A run follows the snapshot taken at its start; later edits never reach it.
 
+Statement 13 is asserted per turn: an agent's permission is a ceiling that
+lowers the turn's own settings and never raises them (`src/lib/agents/permission.ts`),
+applied at the provider turn entry for every turn of an assigned task.
 Statement 13 also covers agents read from repository files: a file can only
 narrow the default permission it is read with, and it never takes the id of a
 custom or built-in agent, so a cloned repository cannot change what an agent
