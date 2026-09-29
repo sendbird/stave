@@ -90,6 +90,12 @@ the delegated tasks that branched off each stage. **Timeline** lists when a
 node started, was asked for changes, retried and ended. The panel only reads
 the records that already exist; it changes nothing.
 
+For a task assigned to an agent, **What it received** lists the version of the
+agent the task runs (a short content hash), each instruction source that went
+in, and how firmly the instructions, tool limits, model and permission are held
+on that provider. If the agent was edited after the task started, the panel
+says so: later turns keep the version used, and assigning again uses the edit.
+
 ### Fleet
 
 A task that runs as an agent shows the agent's name, and typing the name in

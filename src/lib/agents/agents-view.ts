@@ -1,6 +1,6 @@
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { AGENT_PERMISSION_LABELS, AGENT_ROLE_LABELS, AGENT_SOURCE_LABELS, AGENT_WORKSPACE_LABELS, type AgentConfig, type AgentSource } from "./schema";
-import { compileAgent, snapshotAgent, type AgentSupportLevel } from "./compile";
+import { compileAgent, snapshotAgent, type AgentReceivedInstruction, type AgentSupportEntry, type AgentSupportLevel } from "./compile";
 
 /**
  * What the Agents tab shows for an agent, derived from its config. Pure, so
@@ -64,4 +64,55 @@ export function groupAgents(agents: readonly AgentConfig[], query = ""): AgentLi
       agents: matches.filter((agent) => agent.source === source),
     }))
     .filter((group) => group.agents.length > 0);
+}
+
+export interface AssignmentReceivedView {
+  /** Short form of the version the task runs, e.g. "a1b2c3d4". */
+  version: string;
+  lines: Array<{ label: string; detail: string }>;
+  /**
+   * Set when the agent was edited after this task started. Later turns keep
+   * the version used; assigning again uses the edit.
+   */
+  changedSince: string | null;
+}
+
+const RECEIVED_FIELD_LABELS: Readonly<Record<AgentSupportEntry["field"], string>> = {
+  instructions: "Instructions",
+  tools: "Tool limits",
+  model: "Model",
+  permission: "Permission",
+};
+
+/**
+ * "What it received" for one assignment: the agent version the task runs,
+ * each instruction source that went in, and how firmly each field is held on
+ * the provider. `current` is the agent as it is now, when it still exists.
+ */
+export function describeAssignmentReceived(args: {
+  agentName: string;
+  agentContentHash: string;
+  received: readonly AgentReceivedInstruction[];
+  support: readonly AgentSupportEntry[];
+  current: AgentConfig | null;
+}): AssignmentReceivedView {
+  const lines = [
+    ...args.received.map((entry) => ({
+      label: entry.kind === "agent" ? `${args.agentName} instructions` : `Skill ${entry.sourceId.replace(/^skill:/, "")}`,
+      detail: entry.included ? "Included" : `Left out${entry.reason ? `: ${entry.reason}` : ""}`,
+    })),
+    ...args.support.map((entry) => ({
+      label: RECEIVED_FIELD_LABELS[entry.field],
+      detail: `${SUPPORT_LEVEL_LABELS[entry.level]}${entry.reason ? ` — ${entry.reason}` : ""}`,
+    })),
+  ];
+  const now = args.current ? snapshotAgent(args.current).contentHash : null;
+  return {
+    version: args.agentContentHash.slice(0, 8),
+    lines,
+    changedSince:
+      now && now !== args.agentContentHash
+        ? `${args.agentName} was edited after this task started. Later turns keep the version used; assign again to use the edit.`
+        : null,
+  };
 }

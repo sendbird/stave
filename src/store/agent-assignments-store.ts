@@ -13,7 +13,19 @@ import type { AgentAssignment } from "@/lib/agents/assign";
 
 export type TaskAgent = Pick<
   AgentAssignment,
-  "agentConfigId" | "agentName" | "state" | "providerId" | "model" | "workspaceMode" | "branch" | "detail" | "createdAt" | "updatedAt"
+  | "agentConfigId"
+  | "agentName"
+  | "agentContentHash"
+  | "received"
+  | "support"
+  | "state"
+  | "providerId"
+  | "model"
+  | "workspaceMode"
+  | "branch"
+  | "detail"
+  | "createdAt"
+  | "updatedAt"
 > & { assignmentId: string };
 
 interface AgentAssignmentsState {
@@ -38,6 +50,9 @@ export function indexAssignmentsByTask(assignments: readonly AgentAssignment[]):
       assignmentId: row.id,
       agentConfigId: row.agentConfigId,
       agentName: row.agentName,
+      agentContentHash: row.agentContentHash,
+      received: row.received,
+      support: row.support,
       state: row.state,
       providerId: row.providerId,
       model: row.model,

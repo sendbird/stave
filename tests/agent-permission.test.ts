@@ -84,3 +84,29 @@ describe("agent permission ceiling", () => {
     expect(later.claudeDisallowedTools).toEqual(expect.arrayContaining([...CLAUDE_EDIT_TOOLS, "WebFetch"]));
   });
 });
+
+describe("what it received", () => {
+  test("lists each source and field, and says when the agent changed after the start", async () => {
+    const { describeAssignmentReceived } = await import("@/lib/agents/agents-view");
+    const { compileAgent, snapshotAgent } = await import("@/lib/agents/compile");
+    const researcher = getBuiltinAgent("researcher")!;
+    const snapshot = snapshotAgent(researcher);
+    const compiled = compileAgent({ snapshot, role: "primary", providerId: "kiro" });
+    if (!compiled.ok) throw new Error(compiled.message);
+    const base = {
+      agentName: "Researcher",
+      agentContentHash: snapshot.contentHash,
+      received: compiled.compiled.received,
+      support: compiled.compiled.support,
+    };
+    const same = describeAssignmentReceived({ ...base, current: researcher });
+    expect(same.changedSince).toBeNull();
+    expect(same.version).toBe(snapshot.contentHash.slice(0, 8));
+    expect(same.lines).toContainEqual({ label: "Researcher instructions", detail: "Included" });
+    expect(same.lines.find((line) => line.label === "Permission")?.detail).toContain("Asked in instructions");
+    const edited = describeAssignmentReceived({ ...base, current: { ...researcher, instructions: "Something else." } });
+    expect(edited.changedSince).toContain("edited after this task started");
+    // Archiving is not an edit to what the agent does.
+    expect(describeAssignmentReceived({ ...base, current: { ...researcher, archived: true } }).changedSince).toBeNull();
+  });
+});

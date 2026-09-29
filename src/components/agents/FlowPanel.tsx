@@ -6,7 +6,9 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { useDelegatedTasks } from "@/components/session/useDelegatedTasks";
 import { buildFlow, FLOW_STATE_LABELS, type FlowNode } from "@/lib/agents/flow-view";
-import { useAgentAssignmentsStore, useAgentAssignmentsSync } from "@/store/agent-assignments-store";
+import { describeAssignmentReceived } from "@/lib/agents/agents-view";
+import { listAgents } from "@/lib/agents/library";
+import { useAgentAssignmentsStore, useAgentAssignmentsSync, type TaskAgent } from "@/store/agent-assignments-store";
 import { useAppStore } from "@/store/app.store";
 import { useTaskMission } from "@/store/missions-store";
 
@@ -90,6 +92,39 @@ function FlowNodeRow(props: { node: FlowNode; last: boolean; depth: number }) {
 }
 
 /**
+ * "What it received" for the task's assignment, and whether the agent changed
+ * since. The current agent is looked up among custom and built-in agents; a
+ * repository agent's file is not read here, so its edits are not flagged.
+ */
+function AssignmentReceived(props: { assignment: TaskAgent }) {
+  const custom = useAppStore((state) => state.settings.customAgents);
+  const [open, setOpen] = useState(false);
+  const view = useMemo(() => {
+    const current = listAgents({ custom }).find((agent) => agent.id === props.assignment.agentConfigId) ?? null;
+    return describeAssignmentReceived({ ...props.assignment, current });
+  }, [custom, props.assignment]);
+  return (
+    <section aria-label="What it received" className={sx(styles.received)}>
+      {view.changedSince ? <p className={sx(styles.detail, styles.changed)}>{view.changedSince}</p> : null}
+      <Button size="xs" variant="quiet" aria-expanded={open} onClick={() => setOpen(!open)}>
+        <ChevronRight aria-hidden className={sx(styles.chevron, open && styles.chevronOpen)} />
+        What it received · version {view.version}
+      </Button>
+      {open ? (
+        <dl className={sx(styles.receivedList)}>
+          {view.lines.map((line) => (
+            <div key={line.label} className={sx(styles.receivedRow)}>
+              <dt className={sx(styles.eventTime)}>{line.label}</dt>
+              <dd className={sx(styles.receivedValue)}>{line.detail}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
+    </section>
+  );
+}
+
+/**
  * The Flow panel: one task's assignment, stages and delegated tasks as a
  * vertical flow, each with its Timeline. Read-only; every state comes from the
  * record that owns it.
@@ -119,6 +154,7 @@ export function FlowPanel(props: { workspaceId: string; taskId: string; reposito
   );
   return (
     <section aria-label="Flow">
+      {assignment ? <AssignmentReceived assignment={assignment} /> : null}
       <ol className={sx(styles.list)}>
         {nodes.map((node, index) => (
           <FlowNodeRow key={node.id} node={node} last={index === nodes.length - 1} depth={0} />
@@ -135,6 +171,11 @@ export function FlowPanel(props: { workspaceId: string; taskId: string; reposito
 }
 
 const styles = stylex.create({
+  received: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], marginBottom: vars["--ads-space-8"] },
+  changed: { color: vars["--ads-color-warning-text"] },
+  receivedList: { margin: 0, display: "flex", flexDirection: "column", gap: 2, paddingInlineStart: vars["--ads-space-16"] },
+  receivedRow: { display: "flex", gap: vars["--ads-space-8"], fontSize: vars["--ads-font-size-caption"] },
+  receivedValue: { margin: 0, minWidth: 0, overflowWrap: "anywhere" },
   list: { margin: 0, padding: 0, listStyle: "none", display: "flex", flexDirection: "column" },
   nested: { marginTop: vars["--ads-space-8"] },
   item: { display: "flex", gap: vars["--ads-space-8"], minWidth: 0 },
