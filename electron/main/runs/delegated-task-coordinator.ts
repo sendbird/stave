@@ -194,6 +194,17 @@ interface DelegatedTaskCoordinatorDependencies {
   createExecutionId?: () => string;
   onError?: (error: unknown, context: { scope: string; runId: string }) => void;
   onChange?: (args: { parentTaskId: string }) => void;
+  /**
+   * Applies `agentConfigId` to a delegation: the agent's options on the
+   * request, or a refusal with the reason. Absent, a delegation naming an
+   * agent is refused, because it cannot be honoured.
+   */
+  /** The commit checked out at a path; null when it cannot be read. Needed for `expectedHead`. */
+  readHead?: (workspacePath: string) => Promise<string | null>;
+  applyAgent?: (args: DelegateTaskArgs) => Promise<
+    | { ok: true; args: DelegateTaskArgs; agentContentHash: string }
+    | { ok: false; message: string }
+  >;
 }
 
 function hashDelegatedTaskInput(args: DelegateTaskArgs) {
@@ -765,14 +776,24 @@ export function createDelegatedTaskCoordinator(
     if (!parsed.success) {
       return rejected("invalid-request");
     }
-    const args = parsed.data;
+    let args = parsed.data;
+    let agentContentHash: string | null = null;
+    if (args.agentConfigId) {
+      const applied = dependencies.applyAgent
+        ? await dependencies.applyAgent(args).catch((error: unknown) => ({ ok: false as const, message: String(error) }))
+        : { ok: false as const, message: "Agents are not available here." };
+      if (!applied.ok) return rejected("agent-refused", null, applied.message.slice(0, 500));
+      args = applied.args;
+      agentContentHash = applied.agentContentHash;
+    }
     return withParentDelegationLock(args.parentTaskId, () =>
-      admitDelegation(args),
+      admitDelegation(args, agentContentHash),
     );
   };
 
   const admitDelegation = async (
     args: DelegateTaskArgs,
+    agentContentHash: string | null = null,
   ): Promise<DelegatedTaskActionResponse> => {
     const runId = buildDelegatedTaskRunId({
       parentTaskId: args.parentTaskId,
@@ -844,6 +865,25 @@ export function createDelegatedTaskCoordinator(
       }
     }
 
+    // ── Pinned commit ───────────────────────────────────────────────────
+    // Work meant for one commit never starts against another: a review that
+    // ran on a later HEAD would report on code nobody asked about.
+    if (args.expectedHead) {
+      if (args.workspace.mode !== "same-workspace") {
+        return rejected("invalid-request", null, "A pinned commit needs the child to work in the same workspace.");
+      }
+      const head = dependencies.readHead ? await dependencies.readHead(parentWorkspace.workspacePath).catch(() => null) : null;
+      const expected = args.expectedHead.toLowerCase();
+      if (!head || !(head.toLowerCase().startsWith(expected) || expected.startsWith(head.toLowerCase()))) {
+        return rejected(
+          "head-mismatch",
+          null,
+          head
+            ? `The workspace is at ${head.slice(0, 12)}, not ${args.expectedHead.slice(0, 12)}. Nothing was started.`
+            : "The workspace commit could not be read, so the pinned work was not started.",
+        );
+      }
+    }
     // A retry reuses the workspace the delegation already owns; only a first
     // attempt may cut a new worktree.
     const delegatedWorkspaceId =
@@ -907,6 +947,9 @@ export function createDelegatedTaskCoordinator(
         ...(args.effort ? { effort: args.effort } : {}),
         permissionProfile: args.permissionProfile,
         workspaceMode: args.workspace.mode,
+        ...(args.agentConfigId ? { agentConfigId: args.agentConfigId } : {}),
+        ...(agentContentHash ? { agentContentHash } : {}),
+        ...(args.expectedHead ? { expectedHead: args.expectedHead } : {}),
       },
       now: timestamp,
     });
@@ -1004,6 +1047,10 @@ export function createDelegatedTaskCoordinator(
           args.permissionProfile ??
           originalClaim?.detail?.permissionProfile ??
           "guided",
+        // The retry runs as the same agent, applied to the new prompt again.
+        ...(originalClaim?.detail?.agentConfigId ? { agentConfigId: originalClaim.detail.agentConfigId } : {}),
+        // A pinned delegation stays pinned: a retry after the workspace moved is refused.
+        ...(originalClaim?.detail?.expectedHead ? { expectedHead: originalClaim.detail.expectedHead } : {}),
         lifecycle: resolved.child.lifecycle,
         // Inert on a retry — the delegation keeps the workspace it already
         // owns (`delegatedWorkspaceId` is reused), so a new-worktree delegation

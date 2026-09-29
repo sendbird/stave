@@ -6,6 +6,16 @@ import { fileURLToPath } from "node:url";
 
 const REPO_ROOT = path.resolve(fileURLToPath(new URL(".", import.meta.url)), "..");
 
+/**
+ * Hermetic proxy env: a test run started from a Stave terminal inherits that
+ * Stave's owner pid, which would pin the proxy to the real instance manifest.
+ */
+function proxyEnv(home: string, extra: Record<string, string> = {}) {
+  const env: Record<string, string | undefined> = { ...process.env };
+  delete env.STAVE_LOCAL_MCP_OWNER_PID;
+  return { ...env, HOME: home, ...extra };
+}
+
 /** Binds an ephemeral port and releases it so connections to it are refused. */
 async function findClosedPort() {
   const { createServer } = await import("node:net");
@@ -141,6 +151,7 @@ describe("stave-mcp-stdio-proxy", () => {
       `${JSON.stringify({
         url: `http://127.0.0.1:${port}/mcp`,
         token: "test-token",
+        pid: process.pid,
       })}\n`,
     );
 
@@ -149,11 +160,9 @@ describe("stave-mcp-stdio-proxy", () => {
       "electron/main/stave-mcp-stdio-proxy.ts",
     ], {
       cwd: REPO_ROOT,
-      env: {
-        ...process.env,
-        HOME: tempHome,
+      env: proxyEnv(tempHome, {
         STAVE_WORKER_GRANT_KEY: "transport-worker-grant",
-      },
+      }),
       stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",
@@ -268,6 +277,7 @@ describe("stave-mcp-stdio-proxy", () => {
       `${JSON.stringify({
         url: `http://127.0.0.1:${deadPort}/mcp`,
         token: "stale-token",
+        pid: process.pid,
       })}\n`,
     );
 
@@ -276,7 +286,7 @@ describe("stave-mcp-stdio-proxy", () => {
       "electron/main/stave-mcp-stdio-proxy.ts",
     ], {
       cwd: REPO_ROOT,
-      env: { ...process.env, HOME: tempHome },
+      env: proxyEnv(tempHome),
       stdin: "pipe",
       stdout: "pipe",
       stderr: "pipe",
@@ -303,6 +313,7 @@ describe("stave-mcp-stdio-proxy", () => {
       `${JSON.stringify({
         url: `http://127.0.0.1:${livePort}/mcp`,
         token: "fresh-token",
+        pid: process.pid,
       })}\n`,
     );
 
@@ -332,4 +343,88 @@ describe("stave-mcp-stdio-proxy", () => {
       `reconnected → http://127.0.0.1:${livePort}/mcp`,
     );
   }, 20_000);
+  test("follows its owning instance, not the shared manifest", async () => {
+    const tempHome = await mkdtemp(path.join(tmpdir(), "stave-mcp-proxy-"));
+    cleanupPaths.push(tempHome);
+    const portPath = path.join(tempHome, "server-port.txt");
+    const server = Bun.spawn([
+      "node",
+      "-e",
+      `
+        const fs = require("node:fs");
+        const http = require("node:http");
+        const server = http.createServer(async (req, res) => {
+          for await (const chunk of req) { void chunk; }
+          res.setHeader("content-type", "application/json");
+          res.end(JSON.stringify({ jsonrpc: "2.0", id: 3, result: { owner: req.headers.authorization } }));
+        });
+        server.listen(0, "127.0.0.1", () => fs.writeFileSync(process.argv[1], String(server.address().port)));
+      `,
+      portPath,
+    ], { stdout: "ignore", stderr: "pipe" });
+    cleanupChildren.push(server);
+    const livePort = await waitForFile({ filePath: portPath, timeoutMs: 5_000 });
+    const deadPort = await findClosedPort();
+    const ownerPid = process.pid;
+
+    // Another instance took over the shared file with an endpoint that is gone.
+    await mkdir(path.join(tempHome, ".stave"), { recursive: true });
+    await writeFile(
+      path.join(tempHome, ".stave", "local-mcp.json"),
+      `${JSON.stringify({ url: `http://127.0.0.1:${deadPort}/mcp`, token: "other", pid: ownerPid })}\n`,
+    );
+    const instanceDir = path.join(tempHome, ".stave", "local-mcp-instances", String(ownerPid));
+    await mkdir(instanceDir, { recursive: true });
+    await writeFile(
+      path.join(instanceDir, "local-mcp.json"),
+      `${JSON.stringify({ url: `http://127.0.0.1:${livePort}/mcp`, token: "owner", pid: ownerPid })}\n`,
+    );
+
+    const child = Bun.spawn([process.execPath, "electron/main/stave-mcp-stdio-proxy.ts"], {
+      cwd: REPO_ROOT,
+      env: proxyEnv(tempHome, { STAVE_LOCAL_MCP_OWNER_PID: String(ownerPid) }),
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    cleanupChildren.push(child);
+    if (!child.stdin) {
+      throw new Error("Failed to open stdin for proxy process.");
+    }
+    await child.stdin.write(`${JSON.stringify({ jsonrpc: "2.0", id: 3, method: "ping" })}\n`);
+    await child.stdin.end();
+
+    const stdout = child.stdout ? await new Response(child.stdout).text() : "";
+    expect(await child.exited).toBe(0);
+    expect(JSON.parse(stdout.trim())).toEqual({
+      jsonrpc: "2.0",
+      id: 3,
+      result: { owner: "Bearer owner" },
+    });
+  }, 15_000);
+
+  test("refuses a shared manifest left behind by an exited instance", async () => {
+    const tempHome = await mkdtemp(path.join(tmpdir(), "stave-mcp-proxy-"));
+    cleanupPaths.push(tempHome);
+    const exited = Bun.spawn(["true"]);
+    await exited.exited;
+    await mkdir(path.join(tempHome, ".stave"), { recursive: true });
+    await writeFile(
+      path.join(tempHome, ".stave", "local-mcp.json"),
+      `${JSON.stringify({ url: "http://127.0.0.1:9/mcp", token: "dead", pid: exited.pid })}\n`,
+    );
+
+    const child = Bun.spawn([process.execPath, "electron/main/stave-mcp-stdio-proxy.ts"], {
+      cwd: REPO_ROOT,
+      env: proxyEnv(tempHome),
+      stdin: "pipe",
+      stdout: "pipe",
+      stderr: "pipe",
+    });
+    cleanupChildren.push(child);
+    const stderr = child.stderr ? await new Response(child.stderr).text() : "";
+    await child.exited;
+    expect(stderr).toContain("its Stave instance is no longer running");
+    expect(stderr).not.toContain("connected →");
+  }, 15_000);
 });

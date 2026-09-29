@@ -1,4 +1,5 @@
 import { PROPOSAL_IPC, type ProposalsBridgeApi } from "../src/lib/missions/proposed";
+import { AGENT_IPC, type AgentsBridgeApi } from "../src/lib/agents/api";
 import { lensReviewApi } from "./lens-review-preload";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../src/lib/providers/agent-history";
 import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../src/lib/performance/workspace-execution";
@@ -832,6 +833,25 @@ const proposalsApi: ProposalsBridgeApi = {
     proposalChangedSubscribers.add(listener);
     return () => {
       proposalChangedSubscribers.delete(listener);
+    };
+  },
+};
+
+const agentChangedSubscribers = new Set<() => void>();
+ipcRenderer.on(AGENT_IPC.changed, () => {
+  for (const subscriber of agentChangedSubscribers) {
+    subscriber();
+  }
+});
+
+const agentsApi: AgentsBridgeApi = {
+  assign: (args) => ipcRenderer.invoke(AGENT_IPC.assign, args),
+  listAssignments: (args) => ipcRenderer.invoke(AGENT_IPC.listAssignments, args ?? {}),
+  sync: (args) => ipcRenderer.invoke(AGENT_IPC.sync, args),
+  subscribeChanged: (listener) => {
+    agentChangedSubscribers.add(listener);
+    return () => {
+      agentChangedSubscribers.delete(listener);
     };
   },
 };
@@ -2270,6 +2290,7 @@ contextBridge.exposeInMainWorld("api", {
   wakeUps: wakeUpsApi,
   projects: projectsApi,
   proposals: proposalsApi,
+  agents: agentsApi,
   automations: {
     setProviderTimeout: (args: { providerTimeoutMs: number }) =>
       ipcRenderer.invoke("automations:set-provider-timeout", args) as Promise<{

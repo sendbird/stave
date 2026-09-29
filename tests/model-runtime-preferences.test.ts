@@ -119,7 +119,7 @@ describe("model runtime preferences", () => {
       settings: {
         ...settings,
         modelCodex: "gpt-5.6-luna",
-        codexReasoningEffort: "medium",
+        codexReasoningEffort: "xhigh",
       },
       providerId: "codex",
       model: "gpt-5.6-sol",
@@ -130,8 +130,8 @@ describe("model runtime preferences", () => {
       model: "claude-opus-4-8",
     });
 
-    // Sol and Opus both default to "high", so neither inherits Luna's "medium"
-    // nor the incoming settings value.
+    // Luna's default is xhigh, so that value is re-derived. Sol and Opus 4.8
+    // both default to high.
     expect(codexSettings.codexReasoningEffort).toBe("high");
     expect(claudeSettings.claudeEffort).toBe("high");
   });

@@ -127,6 +127,22 @@ describe("durable result review", () => {
     expect(store.list({ pendingOnly: true }).total).toBe(2);
   });
 
+  test("returns a reviewable scope from the saved list", () => {
+    const store = new ResultReviewStore(db);
+    insert();
+    const row = ResultReviewSchema.parse(store.list({ pendingOnly: true }).results[0]);
+    const args = SetResultReviewedArgsSchema.parse({
+      repositoryPath: row.repositoryPath,
+      workspaceId: row.workspaceId,
+      taskId: row.taskId,
+      turnId: row.turnId,
+      reviewed: true,
+    });
+    expect(row.repositoryName).toBe("Project");
+    expect(store.setReviewed(args)?.reviewedAt).toBeTruthy();
+    expect(store.list({ pendingOnly: true }).total).toBe(0);
+  });
+
   test("rejects wrong ownership, missing results and renderer supplied review timestamps", () => {
     const store = new ResultReviewStore(db);
     insert();

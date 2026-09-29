@@ -122,8 +122,11 @@ import {
   HandOffControl,
   playbookIdOfPaletteEntry,
   playbookPaletteEntries,
+  ASSIGN_PALETTE_ENTRY,
+  isAssignPaletteEntry,
   useOpenHandOff,
 } from "@/components/session/HandOffControl";
+import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { sx, cx } from "../ads/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
 import {
@@ -1271,9 +1274,11 @@ export function PromptInput(args: PromptInputProps) {
   const handOffAvailable = openHandOff !== null;
   const paletteMacros = useMemo(
     () =>
-      handOffAvailable
-        ? [...(macros ?? []), ...playbookPaletteEntries(playbooks)]
-        : (macros ?? []),
+      [
+        ...(macros ?? []),
+        ...(handOffAvailable ? playbookPaletteEntries(playbooks) : []),
+        ASSIGN_PALETTE_ENTRY,
+      ],
     [handOffAvailable, macros, playbooks],
   );
   const filteredMacroItems = useMemo(
@@ -2198,7 +2203,7 @@ export function PromptInput(args: PromptInputProps) {
     const match = resolveMacroTokenSelection();
     pendingMacroTokenRef.current = null;
     const playbookId = playbookIdOfPaletteEntry(item);
-    if (playbookId) {
+    if (playbookId || isAssignPaletteEntry(item)) {
       // The rest of the draft becomes the assignment; the token goes away.
       const currentValue = valueRef.current;
       const nextValue = match
@@ -2209,7 +2214,8 @@ export function PromptInput(args: PromptInputProps) {
       setSuppressedAutocompleteValue({ palette: "macro", value: nextValue });
       setDismissedMacroToken(match?.token ?? `!${item.slug}`);
       setSelectedMacroIndex(NO_COMMAND_SELECTION);
-      openHandOff?.({ assignment: nextValue, playbookId });
+      if (playbookId) openHandOff?.({ assignment: nextValue, playbookId });
+      else useAgentsUiStore.getState().openAssignSheet({ assignment: nextValue });
       return;
     }
     if (!onMacroSelect) {

@@ -8,7 +8,10 @@
  * behaves the same.
  */
 import { captureResultEvidence } from "@/lib/reviews/result-evidence";
-import { classifyProviderTurnStopReason } from "@/lib/providers/turn-status";
+import {
+  classifyProviderTurnStopReason,
+  isProviderTurnContinuationEvent,
+} from "@/lib/providers/turn-status";
 import { toast } from "@/lib/notifications/toast";
 import type { WorkspaceSummary } from "@/lib/db/workspaces.db";
 import type {
@@ -59,6 +62,38 @@ function resolveTaskTitleFromSession(args: {
   );
 }
 
+/**
+ * A hard error inside a batch that then kept working and finished without a
+ * failure stop is history, not a failed run. The alert would otherwise stay
+ * on the workspace after a turn that completed normally.
+ */
+function hardErrorWasSupersededByContinuation(
+  events: readonly NormalizedProviderEvent[],
+) {
+  let doneEvent: Extract<NormalizedProviderEvent, { type: "done" }> | undefined;
+  let lastHardErrorIndex = -1;
+  events.forEach((event, index) => {
+    if (event.type === "error" && event.recoverable === false) {
+      lastHardErrorIndex = index;
+    }
+    if (event.type === "done") {
+      doneEvent = event;
+    }
+  });
+  if (
+    !doneEvent ||
+    lastHardErrorIndex < 0 ||
+    classifyProviderTurnStopReason(doneEvent.stop_reason) !== "completed"
+  ) {
+    return false;
+  }
+  return events
+    .slice(lastHardErrorIndex + 1)
+    .some(
+      (event) => event.type !== "done" && isProviderTurnContinuationEvent(event),
+    );
+}
+
 export function buildTaskTurnCompletedNotificationInput(args: {
   state: NotificationRepositoryScopeState;
   session: WorkspaceSessionState;
@@ -77,8 +112,13 @@ export function buildTaskTurnCompletedNotificationInput(args: {
   if (!doneEvent) {
     return null;
   }
-  if (classifyProviderTurnStopReason(doneEvent.stop_reason) !== "completed" ||
-      args.events.some((event) => event.type === "error" && !event.recoverable)) return null;
+  if (
+    classifyProviderTurnStopReason(doneEvent.stop_reason) !== "completed" ||
+    (args.events.some((event) => event.type === "error" && !event.recoverable) &&
+      !hardErrorWasSupersededByContinuation(args.events))
+  ) {
+    return null;
+  }
   if (args.session.activeTurnIdsByTask[args.taskId]) {
     return null;
   }
@@ -162,6 +202,9 @@ export function buildTaskTurnFailedNotificationInput(args: {
     return null;
   }
   if (args.session.activeTurnIdsByTask[args.taskId]) {
+    return null;
+  }
+  if (!failedDone && hardErrorWasSupersededByContinuation(args.events)) {
     return null;
   }
 

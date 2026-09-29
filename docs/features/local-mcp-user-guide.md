@@ -100,8 +100,11 @@ When the server is running, the Settings card shows:
 
 Stave also writes a machine-readable manifest for local tools:
 
-- `<user-home>/.stave/local-mcp.json`
+- `<user-home>/.stave/local-mcp.json` — the shared manifest for tools outside Stave
+- `<user-home>/.stave/local-mcp-instances/<pid>/local-mcp.json` — this instance's own manifest
 - `<Stave userData>/stave-local-mcp.json`
+
+Stave's own provider runtimes (Claude, Codex, Cursor, Kiro and other ACP agents), the stdio proxies it launches, and processes started from a Stave terminal connect through the instance manifest of the Stave that launched them. Stave sets `STAVE_LOCAL_MCP_OWNER_PID` on them for this. The shared manifest is for tools launched outside Stave.
 
 The manifest includes:
 
@@ -253,6 +256,15 @@ These responses continue the same Stave turn. They do not create a new task.
 - confirm the bot is using the current token
 - confirm the bot is using the current manifest URL after any restart or token rotation
 - if the bot runs in a sandbox or host that cannot reach `127.0.0.1`, switch it to `node <stdioProxyScript>` instead of direct HTTP
+
+### More than one Stave is running
+
+An installed build, a development build, or a second profile can run side by side. Each one serves Local MCP on its own endpoint:
+
+- sessions inside each Stave always use that Stave's own endpoint, so another instance starting, stopping or crashing does not disconnect them
+- the shared `<user-home>/.stave/local-mcp.json` and the managed Claude Code and Codex entries follow the instance that started most recently
+- a manifest whose Stave process is no longer running is ignored. The shared manifest is removed only by the instance that wrote it, and never out from under another running instance
+- when the instance holding the shared manifest exits or crashes, a running Stave takes it back within about 15 seconds and re-syncs the managed Claude Code and Codex entries
 
 ### The port changes between launches
 

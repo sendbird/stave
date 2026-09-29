@@ -141,6 +141,8 @@ const ROUTE_TIER_BY_MODEL: Readonly<Record<string, RouteTier>> = {
   opusplan: "flagship",
   [DEFAULT_CLAUDE_SONNET_MODEL]: "balanced",
   [DEFAULT_CLAUDE_SONNET_1M_MODEL]: "balanced",
+  "claude-sonnet-5": "balanced",
+  "claude-sonnet-5[1m]": "balanced",
   [DEFAULT_CLAUDE_HAIKU_MODEL]: "light",
   "gpt-6-astra": "frontier",
   "gpt-6-sol": "flagship",
@@ -159,19 +161,15 @@ const MODEL_TIER_TO_ROUTE_TIER: Readonly<Record<ModelTier, RouteTier>> = {
 };
 
 /**
- * Default effort per rung when a rule names a tier without an effort. Matches
- * the vendor-recommended ladder on `MODEL_CAPABILITIES`: both vendors advise
- * lowering effort before lowering the model and never buying a small model a
- * deep budget (Anthropic positions Fable at low effort as cheaper per task
- * than a smaller model at high effort; Luna collapses on long context
- * whatever the budget). Frontier stays at medium because xhigh there mostly
- * buys latency.
+ * Default effort per rung when a rule names a tier without an effort. Frontier
+ * stays at medium because xhigh there mostly buys latency. Light matches
+ * Luna's Stave default of xhigh.
  */
 const DEFAULT_EFFORT_BY_ROUTE_TIER: Readonly<Record<RouteTier, string>> = {
   frontier: "medium",
   flagship: "high",
   balanced: "high",
-  light: "medium",
+  light: "xhigh",
 };
 
 /**
@@ -346,7 +344,15 @@ function rule(
   return { id, when, then, reason, enabled: true };
 }
 
-/** One shared role table; the three starters differ only by stance. */
+/**
+ * One shared role table; the three starters differ only by stance.
+ *
+ * Sonnet 5.5 is the balanced rung: well-scoped everyday work, documents, and
+ * repeated agent tasks. Ordinary work asks for that rung at high effort.
+ * Sonnet 5.5 costs half of Opus per token, so high is the default; xhigh and
+ * max are not. High complexity and uncertain intent stay on the flagship
+ * (Opus 5.5). Safety-critical stays on the frontier.
+ */
 export function buildStarterRules(): RouteRule[] {
   return [
     rule("advisor-default", { role: "advisor" },
@@ -362,11 +368,11 @@ export function buildStarterRules(): RouteRule[] {
       { providerId: "any-eligible", tier: "flagship", effort: "high" },
       "Complex work requires a capable model."),
     rule("standard", { complexity: "medium" },
-      { providerId: "any-eligible", tier: "balanced", effort: "medium" },
-      "Ordinary work uses a balanced model."),
+      { providerId: "any-eligible", tier: "balanced", effort: "high" },
+      "Ordinary work uses a balanced model at high effort."),
     rule("bounded", { complexity: "low" },
-      { providerId: "any-eligible", tier: "light", effort: "medium" },
-      "A clearly bounded task can use a fast, light model."),
+      { providerId: "any-eligible", tier: "light", effort: "xhigh" },
+      "A clearly bounded task can use a fast, light model at extra-high effort."),
   ];
 }
 

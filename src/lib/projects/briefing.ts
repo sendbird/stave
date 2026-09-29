@@ -31,6 +31,7 @@ export function buildCoordinatorInstruction(project: Pick<Project, "name" | "goa
     project.settings.askBeforeStarting
       ? "  Each start becomes a proposal the user approves in the project; say what you proposed and why."
       : `  Missions start right away, up to ${project.settings.parallelLimit} at a time.`,
+    "- A mission's task may run as one of the project's agents: pass its id as `agentConfigId`. Pick the one whose use-when fits the piece.",
     `- When missions change, read their reports with ${PROJECT_TOOL_NAMES.getReport}, never their transcripts.`,
     `- Record what the project learned, and a one-line status, with ${PROJECT_TOOL_NAMES.note}.`,
     "- When the goal is met, say so and summarize what was delivered.",
@@ -72,7 +73,16 @@ export interface ProjectBriefing {
     stage: string | null;
     summary: string | null;
   }>;
-  proposals: Array<{ startKey: string; assignment: string; playbook: string; state: MissionProposal["state"]; detail: string | null }>;
+  proposals: Array<{
+    startKey: string;
+    assignment: string;
+    playbook: string;
+    agent: string | null;
+    state: MissionProposal["state"];
+    detail: string | null;
+  }>;
+  /** Agents a mission's task may run as (`agentConfigId` of `stave_start_mission`) and delegations may use. */
+  agents: Array<{ id: string; name: string; useWhen: string }>;
   playbooks: PlaybookOption[];
   /** The models `stave_start_mission` accepts, per provider. */
   models: Record<MissionProviderId, readonly string[]>;
@@ -85,6 +95,7 @@ export function buildProjectBriefing(args: {
   proposals: readonly MissionProposal[];
   playbooks: readonly PlaybookOption[];
   memories: readonly ProjectMemory[];
+  agents?: ReadonlyArray<{ id: string; name: string; description: string }>;
 }): ProjectBriefing {
   return {
     name: args.project.name,
@@ -105,10 +116,12 @@ export function buildProjectBriefing(args: {
         startKey: proposal.startKey,
         assignment: proposal.assignment,
         playbook: proposal.playbook.name,
+        agent: proposal.agentName ?? null,
         state: proposal.state,
         detail: proposal.detail,
       })),
     playbooks: [...args.playbooks],
+    agents: (args.agents ?? []).map((agent) => ({ id: agent.id, name: agent.name, useWhen: agent.description })),
     models: PROJECT_MISSION_MODELS,
     memory: args.memories.filter((memory) => memory.status === "accepted").map((memory) => memory.content),
   };

@@ -16,8 +16,8 @@ describe("model selector utils", () => {
     expect(options).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          key: "claude-code:claude-sonnet-5",
-          model: "claude-sonnet-5",
+          key: "claude-code:claude-sonnet-5-5",
+          model: "claude-sonnet-5-5",
           providerId: "claude-code",
         }),
         expect.objectContaining({
@@ -215,5 +215,8 @@ test("Opus 5.5 variants advertise their CLI requirement alongside runtime descri
     expect(options.find(option => option.model === model)?.description).toContain("2.1.280");
   }
   expect(options.find(option => option.model === "claude-opus-5-5")?.description).toContain("Runtime catalog");
+  for (const model of ["claude-sonnet-5-5", "claude-sonnet-5-5[1m]"]) {
+    expect(options.find(option => option.model === model)?.description).toContain("2.1.284");
+  }
   expect(options.find(option => option.model === "claude-haiku-4-5")?.description).toBeUndefined();
 });

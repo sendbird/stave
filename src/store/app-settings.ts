@@ -4,6 +4,7 @@
  * Extracted from `@/store/app.store` to keep the store file within the
  * max-lines ratchet. `app.store` re-exports the public names.
  */
+import { DEFAULT_MY_STANDARDS, type MyStandards } from "@/lib/agents/standards";
 import type { BorderBeamColorVariant, BorderBeamSize } from "border-beam";
 import type {
   LensAgentPresentationMode,
@@ -60,6 +61,8 @@ import {
 import type { Macro } from "@/lib/macros/types";
 import type { UnreadablePlaybook } from "@/lib/playbooks/normalize";
 import type { Playbook } from "@/lib/playbooks/schema";
+import type { AgentConfig } from "@/lib/agents/schema";
+import type { UnreadableAgent } from "@/lib/agents/library";
 import type { PromptEnhancementExemplar } from "@/lib/providers/prompt-enhancement-context";
 import { cloneDefaultTaskPresets, type TaskPreset } from "@/lib/task-presets";
 import {
@@ -250,6 +253,16 @@ export interface AppSettings extends WorkspaceKickoffSettings {
    * version that can read them restores them. Written back unchanged.
    */
   playbooksUnreadable: UnreadablePlaybook[];
+  /**
+   * Custom agents: saved worker definitions the user made or duplicated.
+   * Built-in agents live in code and repository agents in files, so only
+   * these are saved. See `src/lib/agents/library.ts`.
+   */
+  customAgents: AgentConfig[];
+  /** Saved custom agents this version could not read, kept as saved. */
+  customAgentsUnreadable: UnreadableAgent[];
+  /** Personal instructions added to every agent run; see `src/lib/agents/standards.ts`. */
+  myStandards: MyStandards;
   permissionMode: "require-approval" | "auto-safe";
   trustedTools: string[];
   skillsEnabled: boolean;
@@ -694,6 +707,9 @@ export const defaultSettings: AppSettings = {
   macros: [],
   playbooks: [],
   playbooksUnreadable: [],
+  customAgents: [],
+  customAgentsUnreadable: [],
+  myStandards: DEFAULT_MY_STANDARDS,
   permissionMode: "auto-safe",
   trustedTools: [],
   skillsEnabled: true,
@@ -811,8 +827,8 @@ export const defaultSettings: AppSettings = {
   codexApprovalPolicy: "never",
   codexBinaryPath: "",
   // Matches `resolveDefaultCodexEffortForModel` for the default model
-  // (GPT-5.6 Sol). Keep the two in step when either changes.
-  codexReasoningEffort: "medium",
+  // (GPT-6 Sol). Keep the two in step when either changes.
+  codexReasoningEffort: "high",
   codexWebSearch: "live",
   codexAppToolApprovalMode: "inherit",
   codexShowRawReasoning: false,

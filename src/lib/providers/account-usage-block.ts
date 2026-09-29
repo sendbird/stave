@@ -190,10 +190,20 @@ export function collectProviderAccountUsageWindows(args: {
       : model.startsWith("composer-") || /^grok-4[.-][56](?:$|-)/.test(model)
         ? "cursor-models"
         : "other-models";
-    const pool = snapshot.cursor.buckets.find((bucket) => bucket.id === poolId);
-    return pool
-      ? collectAccountWindows(null, [pool], "Monthly")
-      : collectAccountWindows(snapshot.cursor.monthly, snapshot.cursor.buckets, "Monthly");
+    const pool = poolId
+      ? snapshot.cursor.buckets.find((bucket) => bucket.id === poolId)
+      : undefined;
+    if (pool) {
+      return collectAccountWindows(null, [pool], "Monthly");
+    }
+    if (poolId) {
+      // The model maps to one pool, but the snapshot omits it (Cursor's API
+      // drops `autoPercentUsed`/`apiPercentUsed`). Fall back to the
+      // account-wide monthly limit only: the other pool is a separate
+      // allocation this model never consumes, so it must not block.
+      return collectAccountWindows(snapshot.cursor.monthly, [], "Monthly");
+    }
+    return collectAccountWindows(snapshot.cursor.monthly, snapshot.cursor.buckets, "Monthly");
   }
   if (!snapshot.kiro || snapshot.kiro.source === "unavailable") {
     return null;

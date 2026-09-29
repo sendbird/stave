@@ -1,4 +1,5 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
+import { assignTrackerIssueToAgent } from "./assign-issue-to-agent";
 import { Badge } from "@/components/ads/components/Badge";
 import {
   ChevronRight,
@@ -137,6 +138,9 @@ export function TrackerIssueDetailPane(props: TrackerIssueDetailPaneProps) {
               ⋯
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
+              <DropdownMenuItem onSelect={() => assignTrackerIssueToAgent(task)}>
+                Assign to agent
+              </DropdownMenuItem>
               {link ? (
                 <DropdownMenuItem onSelect={() => props.onKickoff(key)}>
                   Kick off again

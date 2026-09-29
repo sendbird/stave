@@ -99,6 +99,7 @@ Recommended next steps:
 - [Workspace Kickoff](docs/features/workspace-kickoff.md) for source matching, MCP resolution, and Information panel defaults
 - [Missions](docs/features/missions.md) for handing an outcome to a playbook and following it stage by stage
 - [Playbooks](docs/features/playbooks.md) for saving and editing the stages missions run
+- [Agents](docs/features/agents.md) for saving workers, assigning work to them and following each task's flow
 - [Projects](docs/features/projects.md) for goals that take several missions
 
 ## For Developers And Contributors

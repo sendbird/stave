@@ -91,6 +91,32 @@ describe("resolveAccountUsageBlock", () => {
     expect(check("grok-4.6")?.windowLabel).toBe("Monthly");
   });
 
+  test("a missing pool falls back to monthly only, not the other pool", () => {
+    const limits = snapshot({
+      cursor: {
+        source: "dashboard",
+        planType: "pro",
+        monthly: { usedPercent: 30, resetsAt: FUTURE, used: 6, limit: 20 },
+        buckets: [
+          { id: "other-models", label: "Other models", usedPercent: 100, resetsAt: FUTURE, used: null, limit: null, unit: null },
+        ],
+        error: null,
+      },
+    });
+    const check = (model?: string) => resolveAccountUsageBlock({
+      providerId: "cursor", model, snapshot: limits, now: NOW_MS,
+    });
+    // `cursor-models` is absent from the snapshot; the exhausted `other-models`
+    // pool is a separate allocation and must not block a composer model.
+    expect(check("composer-2.5")).toBeNull();
+    expect(check("grok-4.6")).toBeNull();
+    // The model whose own pool is present still blocks on it.
+    expect(check("claude-opus-5")?.windowLabel).toBe("Other models");
+    // Account-wide monthly exhaustion still blocks the model with no pool data.
+    limits.cursor.monthly = { usedPercent: 100, resetsAt: FUTURE, used: 20, limit: 20 };
+    expect(check("composer-2.5")?.windowLabel).toBe("Monthly");
+  });
+
   test("does not block when usage data is unavailable", () => {
     expect(
       resolveAccountUsageBlock({

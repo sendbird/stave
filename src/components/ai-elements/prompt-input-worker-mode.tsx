@@ -9,7 +9,10 @@ import {
   TooltipTrigger,
 } from "@/components/ui";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
+import { useWorkerAgentOptions } from "@/components/ai-elements/useWorkerAgentOptions";
+import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 import {
+  buildWorkerAgentPatch,
   buildWorkerEffortOptions,
   buildWorkerModelOptions,
   buildWorkerPresetOptions,
@@ -78,6 +81,11 @@ export function PromptInputWorkerPill(args: {
   open: boolean;
   onToggle: () => void;
   onSelectPreset: (presetId: WorkerPresetId) => void;
+  /**
+   * Picks a custom agent as the Worker. The pill lists the agents usable as a
+   * Worker on this provider and hands back the patch to apply to the draft.
+   */
+  onSelectAgent?: (patch: (overrides: PromptDraftRuntimeOverrides | undefined) => PromptDraftRuntimeOverrides) => void;
   onSelectModel: (model: string) => void;
   onSelectEffort: (effort: WorkerEffortPreference) => void;
   onOpenChange?: (open: boolean) => void;
@@ -92,6 +100,8 @@ export function PromptInputWorkerPill(args: {
   });
   const { onOpenChange, onToggle } = args;
   const presetId = args.arm.config.presetId ?? DEFAULT_WORKER_PRESET_ID;
+  const agentConfigId = args.arm.config.agentConfigId ?? null;
+  const workerAgents = useWorkerAgentOptions(args.primaryProviderId);
   const requestedModel = args.arm.config.model ?? WORKER_AUTO_VALUE;
   // Effort options depend on the model the turn would actually use, not on the
   // preference string — `Auto` has to expand before the scale is knowable.
@@ -210,7 +220,7 @@ export function PromptInputWorkerPill(args: {
               key={option.id}
               label={option.label}
               summary={option.summary}
-              active={presetId === option.id}
+              active={!agentConfigId && presetId === option.id}
               onSelect={() => {
                 args.onSelectPreset(option.id);
               }}
@@ -218,6 +228,32 @@ export function PromptInputWorkerPill(args: {
             />
           ))}
         </ComposerOptionMenuSection>
+
+        {args.onSelectAgent && workerAgents.options.length ? (
+          <ComposerOptionMenuSection title="Custom agents" scroll>
+            {workerAgents.options.map((agent) => (
+              <ComposerOptionCard
+                key={agent.id}
+                label={agent.name}
+                summary={agent.summary}
+                active={agentConfigId === agent.id}
+                onSelect={() => {
+                  const config = workerAgents.configFor(agent.id);
+                  if (!config) return;
+                  args.onSelectAgent?.((overrides) =>
+                    buildWorkerAgentPatch({ overrides, providerId: args.primaryProviderId, config }),
+                  );
+                }}
+                testId={`worker-mode-agent-${agent.id}`}
+              />
+            ))}
+            {agentConfigId ? (
+              <ComposerOptionMenuHint>
+                Uses {args.arm.config.agentName ?? "the agent"} as it was when picked; pick it again after editing it.
+              </ComposerOptionMenuHint>
+            ) : null}
+          </ComposerOptionMenuSection>
+        ) : null}
 
         <ComposerOptionMenuSection title="Worker model" scroll>
           {buildWorkerModelOptions({

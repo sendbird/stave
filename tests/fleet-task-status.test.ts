@@ -130,6 +130,94 @@ describe("classifyTaskStatus", () => {
     ).toBe("error");
   });
 
+  test("keeps a still-current error on an active turn", () => {
+    expect(
+      classifyTaskStatus({
+        task: buildTask(),
+        activeTurnId: "turn-1",
+        activity: buildActivity(),
+        messages: [
+          buildAssistantMessage({
+            isStreaming: true,
+            parts: [
+              { type: "system_event", content: "[error] provider failed" },
+            ],
+          }),
+        ],
+      }),
+    ).toBe("error");
+  });
+
+  test("clears the alert once the turn continues past an error", () => {
+    expect(
+      classifyTaskStatus({
+        task: buildTask(),
+        activeTurnId: "turn-1",
+        activity: buildActivity(),
+        messages: [
+          buildAssistantMessage({
+            isStreaming: true,
+            parts: [
+              { type: "system_event", content: "[error] File change failed" },
+              { type: "text", text: "Retrying the edit." },
+            ],
+          }),
+        ],
+      }),
+    ).toBe("running");
+  });
+
+  test("drops the alert after a continued turn finishes normally", () => {
+    const parts = [
+      { type: "system_event" as const, content: "[error] File change failed" },
+      { type: "text" as const, text: "Applied the edit." },
+    ];
+    expect(
+      classifyTaskStatus({
+        task: buildTask(),
+        messages: [
+          buildAssistantMessage({
+            completedAt: "2026-06-17T00:01:00.000Z",
+            terminalStopReason: "end_turn",
+            parts,
+          }),
+        ],
+      }),
+    ).toBe("idle");
+    expect(
+      classifyTaskStatus({
+        task: buildTask(),
+        messages: [
+          buildAssistantMessage({
+            completedAt: "2026-06-17T00:01:00.000Z",
+            parts,
+          }),
+        ],
+      }),
+    ).toBe("idle");
+  });
+
+  test("keeps the alert when a failure stop ends the turn", () => {
+    expect(
+      classifyTaskStatus({
+        task: buildTask(),
+        messages: [
+          buildAssistantMessage({
+            completedAt: "2026-06-17T00:01:00.000Z",
+            terminalStopReason: "runtime_failure",
+            parts: [
+              {
+                type: "system_event",
+                content: "[error] authentication failed",
+              },
+              { type: "text", text: "Trailing provider output" },
+            ],
+          }),
+        ],
+      }),
+    ).toBe("error");
+  });
+
   test("classifies an active non-stalled turn as running", () => {
     expect(
       classifyTaskStatus({

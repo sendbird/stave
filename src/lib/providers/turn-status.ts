@@ -540,7 +540,11 @@ export function classifyProviderTurnStopReason(reason?: string) {
   return "completed";
 }
 
-function isProviderTurnRecoveryEvent(event: NormalizedProviderEvent) {
+/**
+ * Work that shows the turn kept going after an earlier provider error.
+ * Usage and other metadata do not count: they arrive on failed turns too.
+ */
+export function isProviderTurnContinuationEvent(event: NormalizedProviderEvent) {
   if (event.type === "tool") {
     return event.state !== "output-error";
   }
@@ -579,7 +583,7 @@ function resolveTurnErrorState(args: {
       }
       continue;
     }
-    if (errorState?.recoverable && isProviderTurnRecoveryEvent(event)) {
+    if (errorState?.recoverable && isProviderTurnContinuationEvent(event)) {
       errorState = undefined;
     }
   }

@@ -135,6 +135,24 @@ under `src/components/layout/codex-settings/` receive that state and callbacks;
    project dialog
 5. `docs/features/projects.md` for the user flow
 
+### Agents and assignments
+
+1. `src/lib/agents/schema.ts` for the agent config and its limits,
+   `src/lib/agents/compile.ts` for turning a snapshot into runtime options per
+   role and provider, and `src/lib/agents/library.ts` for the listed agents
+   and custom agent edits
+2. `src/lib/agents/import.ts` and `src/lib/agents/repository.ts` for reading
+   repository agent files
+3. `electron/host-service/supervision/intake.ts` for the shared
+   worktree → task → start sequence, `assign-runtime.ts` for Assign and later
+   turns of an assigned task, and `electron/persistence/agent-assignment-store.ts`
+   for the `agent_assignments` records
+4. `src/components/agents/` for the Agents tab and the Flow panel, with
+   `src/lib/agents/flow-view.ts` projecting the flow
+5. `docs/features/agents.md` for the user flow and
+   `docs/architecture/agent-platform-taxonomy.md` for the vocabulary and
+   boundary statements 13–17
+
 ### Prompt input, skills, and quick controls
 
 Read in this order:

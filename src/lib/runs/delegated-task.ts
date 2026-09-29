@@ -107,6 +107,23 @@ export const DelegateTaskArgsSchema = z
     lifecycle: DelegatedTaskLifecycleSchema,
     workspace: DelegatedTaskWorkspaceStrategySchema,
     /**
+     * Run the child as this saved agent: its instructions go ahead of the
+     * prompt and the narrower permission of the request and the agent wins.
+     * Refused when the agent is not a delegated task, not on the project's
+     * Agents, or would run wider than the delegating task's own agent.
+     */
+    agentConfigId: z.string().trim().min(1).max(80).optional(),
+    /**
+     * The commit the child must find checked out, for work that is only
+     * meaningful against one commit (a review). Same-workspace only; the child
+     * does not start when the workspace HEAD is anything else.
+     */
+    expectedHead: z
+      .string()
+      .trim()
+      .regex(/^[0-9a-f]{7,64}$/i, "expectedHead must be a hex commit id")
+      .optional(),
+    /**
      * Start a fresh attempt on a delegation that already ended without
      * succeeding. Without this a repeat call is a pure duplicate, which is what
      * makes the idempotency key safe to retry blindly.
@@ -252,6 +269,8 @@ export const DelegatedTaskRejectionReasonSchema = z.enum([
   "invalid-ownership",
   "invalid-request",
   "invalid-state",
+  "agent-refused",
+  "head-mismatch",
   "not-found",
   "run-conflict",
   "stale-execution",
@@ -500,6 +519,8 @@ export function validateDelegatedTaskIdentity(args: {
 
 const DELEGATED_TASK_REJECTION_MESSAGES: Record<DelegatedTaskRejectionReason, string> =
   {
+    "agent-refused": "That agent cannot take this delegation.",
+    "head-mismatch": "The workspace is no longer at the commit this work is for.",
     "already-active": "This child is already running.",
     "already-completed": "This delegation already finished.",
     "attempt-limit-reached":

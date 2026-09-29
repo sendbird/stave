@@ -74,7 +74,7 @@ describe("resolveRoute", () => {
     for (const taskClass of ["plan", "research", "implement", "debug", "review", "docs", "quick-edit", "ci-fix"] as const) {
       expect(resolveRoute({ profile: balanced, role: "primary", signals: signals({ taskClass }) }))
         .toMatchObject({ providerId: "claude-code", model: DEFAULT_CLAUDE_SONNET_MODEL,
-          effort: "medium", ruleId: "standard" });
+          effort: "high", ruleId: "standard" });
     }
   });
 
@@ -85,7 +85,7 @@ describe("resolveRoute", () => {
         .toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "high", ruleId: "complex" });
       expect(resolveRoute({ profile: balanced, role: "primary",
         signals: signals({ taskClass, complexity: "low", currentProviderId: "codex" }) }))
-        .toMatchObject({ model: "gpt-6-luna", effort: "medium", ruleId: "bounded" });
+        .toMatchObject({ model: "gpt-6-luna", effort: "xhigh", ruleId: "bounded" });
     }
   });
 
@@ -110,10 +110,10 @@ describe("resolveRoute", () => {
   test("preference shifts quality and effort within eligible capability", () => {
     expect(resolveRoute({ profile: buildStarterProfile("starter-cost-saver"),
       role: "primary", signals: signals() }))
-      .toMatchObject({ model: DEFAULT_CLAUDE_SONNET_MODEL, effort: "low", stanceShift: -1 });
+      .toMatchObject({ model: DEFAULT_CLAUDE_SONNET_MODEL, effort: "medium", stanceShift: -1 });
     expect(resolveRoute({ profile: buildStarterProfile("starter-quality-first"),
       role: "primary", signals: signals() }))
-      .toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "medium", stanceShift: 1 });
+      .toMatchObject({ model: DEFAULT_CLAUDE_OPUS_MODEL, effort: "high", stanceShift: 1 });
   });
 
   test("incompatible allowlists fail visibly without silently changing providers", () => {

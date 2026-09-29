@@ -254,6 +254,7 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "advisorTarget",
   "advisorConsultLimit",
   "workerIntent",
+  "agentInstructions",
   "responseStylePrompt",
   "promptPrDescription",
   "promptInlineCompletion",

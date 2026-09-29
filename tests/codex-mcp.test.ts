@@ -100,6 +100,34 @@ describe("Codex MCP registration sync", () => {
     expect(saved).not.toContain("[mcp_servers.stave-local]");
   });
 
+  test("keeps a block that belongs to another running Stave instance when releasing", async () => {
+    const otherInstance = { ...createManifest(), pid: 5678, url: "http://127.0.0.1:55028/mcp" };
+    const configPath = createTempConfigPath([
+      "[mcp_servers.stave-local]",
+      `url = "${otherInstance.url}"`,
+      "bearer_token_env_var = \"STAVE_LOCAL_MCP_TOKEN\"",
+      "",
+    ].join("\n"));
+
+    const kept = await syncCodexMcpRegistration({
+      autoRegister: true,
+      manifest: null,
+      retainManifest: otherInstance,
+      configPath,
+    });
+    expect(kept.error).toBeUndefined();
+    expect(kept.installed).toBe(true);
+
+    const removed = await syncCodexMcpRegistration({
+      autoRegister: true,
+      manifest: null,
+      retainManifest: createManifest(),
+      configPath,
+    });
+    expect(removed.installed).toBe(false);
+    expect(readFileSync(configPath, "utf8")).not.toContain("[mcp_servers.stave-local]");
+  });
+
   test("reports stale registrations when the saved block no longer matches the running manifest", async () => {
     const configPath = createTempConfigPath([
       "[mcp_servers.stave-local]",

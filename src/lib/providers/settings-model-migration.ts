@@ -1,5 +1,6 @@
 import {
   DEFAULT_CLAUDE_OPUS_MODEL,
+  DEFAULT_CLAUDE_SONNET_1M_MODEL,
   DEFAULT_CLAUDE_SONNET_MODEL,
   getDefaultModelForProvider,
   resolveDefaultClaudeEffortForModel,
@@ -17,7 +18,7 @@ import type { TaskPreset } from "@/lib/task-presets";
  * default") without re-firing later if the user deliberately picks that value
  * again.
  */
-export const SETTINGS_MODEL_MIGRATION_VERSION = 2;
+export const SETTINGS_MODEL_MIGRATION_VERSION = 5;
 
 /**
  * v1 (GPT-6 Astra release) — the per-provider defaults moved from Sonnet 5 to
@@ -30,7 +31,9 @@ export const SETTINGS_MODEL_MIGRATION_VERSION = 2;
  * who chose another model, or who edited a shortcut slot or preset, made a
  * deliberate choice and is left untouched.
  */
-const PREVIOUS_CLAUDE_DEFAULT_MODEL = DEFAULT_CLAUDE_SONNET_MODEL;
+// Frozen literal. Importing the live Sonnet constant here would make v1 treat
+// Sonnet 5.5 as the pre-Opus default and skip users who are still on Sonnet 5.
+const PREVIOUS_CLAUDE_DEFAULT_MODEL = "claude-sonnet-5";
 const PREVIOUS_CODEX_DEFAULT_MODEL = "gpt-5.6-terra";
 
 const PREVIOUS_MODEL_SHORTCUT_KEYS: readonly string[] = [
@@ -290,5 +293,96 @@ export function migrateSettingsModelDefaults(
     }
     return preset;
   });
+  applySonnet55Migration(result);
+  applySolHighEffortMigration(result);
+  applyLunaTerraEffortMigration(result);
   return { ...result, version: SETTINGS_MODEL_MIGRATION_VERSION };
+}
+
+const SONNET_5_TO_55: Readonly<Record<string, string>> = {
+  "claude-sonnet-5": DEFAULT_CLAUDE_SONNET_MODEL,
+  "claude-sonnet-5[1m]": DEFAULT_CLAUDE_SONNET_1M_MODEL,
+};
+
+/**
+ * v3 — Sonnet 5.5 replaces Sonnet 5 on the balanced rung. A selected Sonnet 5
+ * id moves to the matching 5.5 id. Effort is left alone: high is the default
+ * for both. Runs once, so a later deliberate Sonnet 5 pin is left alone.
+ * Opus selections are untouched.
+ */
+function applySonnet55Migration(result: SettingsModelMigrationResult) {
+  const previousModel = result.modelClaude.trim();
+  const upgradedModel = SONNET_5_TO_55[previousModel];
+  if (upgradedModel) {
+    result.modelClaude = upgradedModel;
+    result.changed = true;
+  }
+  let shortcutsChanged = false;
+  result.modelShortcutKeys = result.modelShortcutKeys.map((key) => {
+    const next = upgradeSonnet5ShortcutKey(key);
+    if (next !== key) {
+      shortcutsChanged = true;
+    }
+    return next;
+  });
+  if (shortcutsChanged) {
+    result.changed = true;
+  }
+
+  result.taskPresets = result.taskPresets.map((preset) => {
+    if (preset.provider !== "claude-code" || typeof preset.model !== "string") {
+      return preset;
+    }
+    const nextModel = SONNET_5_TO_55[preset.model.trim()];
+    if (!nextModel) {
+      return preset;
+    }
+    result.changed = true;
+    return { ...preset, model: nextModel };
+  });
+}
+
+/**
+ * v4 — GPT-6 Sol's composer default moves from medium to high. Only a stored
+ * medium on that model moves. A tuned effort, and medium on any other model,
+ * stays. Runs once.
+ */
+function applySolHighEffortMigration(result: SettingsModelMigrationResult) {
+  if (
+    result.modelCodex.trim() === "gpt-6-sol" &&
+    result.codexReasoningEffort.trim() === "medium"
+  ) {
+    result.codexReasoningEffort = "high";
+    result.changed = true;
+  }
+}
+
+const LUNA_EFFORT_MODELS = new Set(["gpt-6-luna", "gpt-5.6-luna"]);
+
+/**
+ * v5 — Luna's composer default moves from medium to xhigh, and Terra's moves
+ * from high to xhigh. Only the old default on that model moves. A tuned
+ * effort stays. Runs once.
+ */
+function applyLunaTerraEffortMigration(result: SettingsModelMigrationResult) {
+  const model = result.modelCodex.trim();
+  const effort = result.codexReasoningEffort.trim();
+  if (LUNA_EFFORT_MODELS.has(model) && effort === "medium") {
+    result.codexReasoningEffort = "xhigh";
+    result.changed = true;
+    return;
+  }
+  if (model === "gpt-5.6-terra" && effort === "high") {
+    result.codexReasoningEffort = "xhigh";
+    result.changed = true;
+  }
+}
+
+function upgradeSonnet5ShortcutKey(key: string) {
+  const prefix = "claude-code:";
+  if (!key.startsWith(prefix)) {
+    return key;
+  }
+  const nextModel = SONNET_5_TO_55[key.slice(prefix.length)];
+  return nextModel ? `${prefix}${nextModel}` : key;
 }

@@ -5,6 +5,7 @@ import {
   Info,
   SearchCheck,
   FileCheck2,
+  Workflow,
   Target,
   Users,
   type LucideIcon,
@@ -20,6 +21,7 @@ export type RightRailPanelId =
   | "activity"
   | "results"
   | "mission"
+  | "flow"
   | "team";
 
 /** Panels the right rail actually renders as sidebar overlays. */
@@ -32,6 +34,7 @@ export const RIGHT_RAIL_PANEL_IDS: readonly RightRailPanelId[] = [
   "activity",
   "results",
   "mission",
+  "flow",
   "team",
 ];
 
@@ -44,6 +47,7 @@ export const RIGHT_RAIL_PANEL_TITLES: Record<RightRailPanelId, string> = {
   activity: "Turn Activity",
   results: "Task Results",
   mission: "Mission",
+  flow: "Flow",
   team: "Team",
 };
 
@@ -56,5 +60,6 @@ export const RIGHT_RAIL_PANEL_ICONS: Record<RightRailPanelId, LucideIcon> = {
   activity: Activity,
   results: FileCheck2,
   mission: Target,
+  flow: Workflow,
   team: Users,
 };

@@ -3,6 +3,7 @@ import { describe, expect, test } from "bun:test";
 import {
   CLAUDE_FABLE_MODEL,
   DEFAULT_CLAUDE_OPUS_MODEL,
+  DEFAULT_CLAUDE_SONNET_MODEL,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import {
@@ -110,11 +111,11 @@ describe("resolveAutoRoutingDecision", () => {
 
     expect(decision).toMatchObject({
       providerId: "claude-code",
-      model: "claude-sonnet-5",
+      model: DEFAULT_CLAUDE_SONNET_MODEL,
       taskType: "plan",
       taskClass: "plan",
       ruleId: "standard",
-      claudeEffort: "medium",
+      claudeEffort: "high",
     });
   });
 
@@ -159,7 +160,7 @@ describe("resolveAutoRoutingDecision", () => {
     });
 
     expect(lowCost.stance).toBe("cost-saver");
-    expect(lowCost.model).toBe("claude-sonnet-5");
+    expect(lowCost.model).toBe(DEFAULT_CLAUDE_SONNET_MODEL);
     expect(highQuality.stance).toBe("quality-first");
     expect(highQuality.model).toBe(DEFAULT_CLAUDE_OPUS_MODEL);
   });

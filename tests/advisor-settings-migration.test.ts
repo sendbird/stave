@@ -77,7 +77,7 @@ describe("Advisor settings rehydration", () => {
     ).toBeUndefined();
     expect(useAppStore.getState().settings.advisorTarget).toEqual({
       providerId: "claude-code",
-      model: "claude-sonnet-5",
+      model: "claude-sonnet-5-5",
     });
     // The legacy shape expressed "armed" as a configured target, so the
     // migrated snapshot has to stay armed rather than quietly turning off.
@@ -99,7 +99,7 @@ describe("Advisor settings rehydration", () => {
 
     expect(persisted.state?.settings?.advisorTarget).toEqual({
       providerId: "claude-code",
-      model: "claude-sonnet-5",
+      model: "claude-sonnet-5-5",
     });
     expect(persisted.state?.settings?.claudeAdvisorModel).toBeUndefined();
   });
