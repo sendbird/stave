@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { readFile, stat } from "node:fs/promises";
 import { homedir } from "node:os";
 import path from "node:path";
+import { resolveStaveLocalMcpManifestPath } from "../main/stave-local-mcp-manifest";
 
 type McpConfigPathOptions = {
   cwd: string;
@@ -68,9 +69,12 @@ export function getClaudeStateFilePath(args: { claudeConfigDir?: string }) {
  * local MCP server (re)binds, so it must be tracked alongside the CLI config
  * files — otherwise a restart onto a different port leaves resumed sessions
  * pinned to a dead endpoint and every stave tool call fails.
+ *
+ * Tracks the same file the runtimes read (the owning instance's manifest), so
+ * another Stave instance rewriting the shared file does not churn sessions.
  */
 export function getStaveLocalMcpManifestPath() {
-  return path.join(homedir(), ".stave", "local-mcp.json");
+  return resolveStaveLocalMcpManifestPath();
 }
 
 export function getClaudeMcpConfigPaths(args: McpConfigPathOptions) {

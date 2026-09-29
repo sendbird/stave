@@ -9,8 +9,11 @@
  * Usage (invoked by Agentize / MCP host):
  *   node stave-mcp-stdio-proxy.mjs
  *
- * The script locates the running server by reading the manifest file that the
- * Stave Electron app writes to the user's `.stave/local-mcp.json` manifest on startup.
+ * The script locates the running server through the Local MCP manifest
+ * resolver: the owning instance's manifest when `STAVE_LOCAL_MCP_OWNER_PID` is
+ * set (every proxy Stave spawns, and every process started from a Stave
+ * terminal), otherwise the shared `.stave/local-mcp.json` — and only while the
+ * instance that wrote it is still running.
  *
  * Protocol:
  *   stdin  → newline-delimited JSON-RPC 2.0 requests / notifications
@@ -18,11 +21,12 @@
  *   stderr → diagnostic messages (never part of the MCP stream)
  */
 
-import { promises as fs } from "node:fs";
-import { homedir } from "node:os";
-import path from "node:path";
 import { Utf8LineBuffer } from "../shared/utf8-line-buffer";
-import { STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS } from "./stave-local-mcp-manifest";
+import {
+  STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS,
+  readStaveLocalMcpManifest,
+  resolveStaveLocalMcpManifestPath,
+} from "./stave-local-mcp-manifest";
 import {
   turnGrantHeaders,
   ADVISOR_GRANT_ENV,
@@ -44,9 +48,6 @@ interface StaveManifest {
 // Manifest resolution
 // ---------------------------------------------------------------------------
 
-const MANIFEST_CANDIDATES = [
-  path.join(homedir(), ".stave", "local-mcp.json"),
-];
 const MCP_PROXY_STDIN_BUFFER_MAX_BYTES = 2 * 1024 * 1024;
 const MCP_PROXY_STDIN_LINE_MAX_BYTES = 1 * 1024 * 1024;
 /**
@@ -152,19 +153,12 @@ function writeLine(stream: NodeJS.WriteStream, line: string) {
 }
 
 async function readManifest(): Promise<StaveManifest> {
-  for (const candidatePath of MANIFEST_CANDIDATES) {
-    try {
-      const raw = await fs.readFile(candidatePath, "utf8");
-      const data = JSON.parse(raw) as Partial<StaveManifest>;
-      if (typeof data.url === "string" && typeof data.token === "string") {
-        return { url: data.url, token: data.token };
-      }
-    } catch {
-      // try next candidate
-    }
+  const manifest = await readStaveLocalMcpManifest();
+  if (manifest) {
+    return { url: manifest.url, token: manifest.token };
   }
   throw new Error(
-    "stave-local MCP manifest not found. Make sure Stave is running and the local MCP server is enabled.",
+    `stave-local MCP manifest not found or its Stave instance is no longer running (${resolveStaveLocalMcpManifestPath()}). Make sure Stave is running and the local MCP server is enabled.`,
   );
 }
 

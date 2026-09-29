@@ -19,7 +19,7 @@ import {
   runExecutableProbe,
 } from "./runtime-shared";
 import { isClaudeCliAutoModeSupportedVersion } from "./claude-cli-compat";
-import { readPrimaryStaveLocalMcpManifestSync } from "../main/stave-local-mcp-manifest";
+import { readStaveLocalMcpManifestSync } from "../main/stave-local-mcp-manifest";
 import { CODEX_STAVE_MCP_TOKEN_ENV_VAR } from "../main/codex-mcp";
 import { buildRepositoryShellEnv } from "../shared/repository-node-env";
 import {
@@ -576,7 +576,7 @@ export function buildCodexCliEnv(
     executablePath: args.executablePath,
     extraPaths: CODEX_LOOKUP_PATHS,
   });
-  const localMcpManifest = readPrimaryStaveLocalMcpManifestSync();
+  const localMcpManifest = readStaveLocalMcpManifestSync();
   if (localMcpManifest?.token?.trim()) {
     env[CODEX_STAVE_MCP_TOKEN_ENV_VAR] = localMcpManifest.token;
   }

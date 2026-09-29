@@ -78,7 +78,7 @@ import {
   mapCodexMcpServerStatus,
   type CodexMcpServerStatus,
 } from "./codex-app-server-mcp-status";
-import { readPrimaryStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
+import { readStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
 import { resolveBoundSecretEnv } from "../main/browser/secret-service";
 import {
   buildCodexDeveloperInstructions,
@@ -2027,7 +2027,7 @@ export async function streamCodexWithAppServer(
     const staveLocalMcpManifest =
       secondaryReadOnly || nativeSlashCommandTurn
         ? null
-        : await readPrimaryStaveLocalMcpManifest();
+        : await readStaveLocalMcpManifest();
     if (
       args.staveTurnGrants?.advisorArmed &&
       !staveLocalMcpManifest &&

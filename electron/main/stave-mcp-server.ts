@@ -1,12 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { promises as fs } from "node:fs";
 import {
   createServer,
   type IncomingMessage,
   type Server,
   type ServerResponse,
 } from "node:http";
-import { homedir } from "node:os";
 import path from "node:path";
 import { app } from "electron";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
@@ -117,6 +115,12 @@ import {
   syncClaudeCodeMcpRegistration,
 } from "./claude-code-mcp";
 import { STAVE_UNATTENDED_AUTOMATION_QUERY_PARAM } from "./stave-local-mcp-manifest";
+import {
+  publishStaveLocalMcpManifest,
+  readLivePrimaryStaveLocalMcpManifest,
+  reclaimPrimaryStaveLocalMcpManifest,
+  retractStaveLocalMcpManifest,
+} from "./stave-local-mcp-manifest-store";
 import { runWithUnattendedAutomationAuthorization } from "./browser/browser-security";
 import {
   getCodexMcpRegistrationStatus,
@@ -317,47 +321,138 @@ function listenOnPort(server: Server, host: string, port: number) {
 }
 
 /**
- * Canonical manifest locations. Cleanup must not depend on the mutable
- * `manifestPaths`, which starts empty and is only populated by a successful
- * `writeManifest` — a disabled-at-startup run would otherwise leave a previous
- * launch's manifest (and its dead port) on disk for consumers to pick up.
+ * Compatibility copy in userData. The shared `~/.stave/local-mcp.json` and the
+ * per-instance manifest are owned by the manifest store.
  */
-function getManifestCandidatePaths() {
-  return [
-    path.join(app.getPath("userData"), "stave-local-mcp.json"),
-    path.join(homedir(), ".stave", "local-mcp.json"),
-  ];
+function getManifestMirrorPaths() {
+  return [path.join(app.getPath("userData"), "stave-local-mcp.json")];
 }
 
 async function writeManifest(manifest: StaveLocalMcpManifest) {
-  const paths = getManifestCandidatePaths();
-
-  await Promise.all(
-    paths.map(async (manifestPath) => {
-      await fs.mkdir(path.dirname(manifestPath), { recursive: true });
-      await fs.writeFile(
-        manifestPath,
-        `${JSON.stringify(manifest, null, 2)}\n`,
-        { mode: 0o600 },
-      );
-    }),
-  );
-
-  manifestPaths = paths;
+  manifestPaths = await publishStaveLocalMcpManifest(manifest, {
+    paths: { mirrorPaths: getManifestMirrorPaths() },
+  });
 }
 
+/**
+ * Withdraw this instance's manifest. Cleanup must not depend on the mutable
+ * `manifestPaths`, which starts empty and is only populated by a successful
+ * `writeManifest` — a disabled-at-startup run would otherwise leave a previous
+ * launch's manifest (and its dead port) on disk for consumers to pick up. The
+ * store deletes shared copies only when this instance or a dead one owns them.
+ */
 async function removeManifestFiles() {
-  const paths = new Set([...manifestPaths, ...getManifestCandidatePaths()]);
-  await Promise.all(
-    Array.from(paths, async (manifestPath) => {
-      try {
-        await fs.unlink(manifestPath);
-      } catch {
-        // ignore missing files
-      }
-    }),
-  );
+  await retractStaveLocalMcpManifest(process.pid, {
+    paths: { mirrorPaths: getManifestMirrorPaths() },
+  });
   manifestPaths = [];
+}
+
+/**
+ * Registrations in user CLI configs point at one endpoint. When this instance
+ * withdraws, keep an entry that belongs to another instance still running.
+ */
+async function releaseCliMcpRegistrations(args: {
+  config: Pick<StaveLocalMcpConfig, "claudeCodeAutoRegister" | "codexAutoRegister">;
+  phase: "remove" | "clear";
+}) {
+  const retainManifest = await readLivePrimaryStaveLocalMcpManifest().catch(() => null);
+  const claudeRegistration = await syncClaudeCodeMcpRegistration({
+    autoRegister: args.config.claudeCodeAutoRegister,
+    manifest: null,
+    retainManifest,
+  });
+  if (claudeRegistration.error) {
+    console.warn(
+      `[stave-mcp] failed to ${args.phase} Claude Code MCP registration`,
+      claudeRegistration.error,
+    );
+  }
+  const codexRegistration = await syncCodexMcpRegistration({
+    autoRegister: args.config.codexAutoRegister,
+    manifest: null,
+    retainManifest,
+  });
+  if (codexRegistration.error) {
+    console.warn(
+      `[stave-mcp] failed to ${args.phase} Codex MCP registration`,
+      codexRegistration.error,
+    );
+  }
+}
+
+async function syncCliMcpRegistrations(args: {
+  config: Pick<StaveLocalMcpConfig, "claudeCodeAutoRegister" | "codexAutoRegister">;
+  manifest: StaveLocalMcpManifest;
+}) {
+  const claudeRegistration = await syncClaudeCodeMcpRegistration({
+    autoRegister: args.config.claudeCodeAutoRegister,
+    manifest: args.manifest,
+  });
+  if (claudeRegistration.error) {
+    console.warn(
+      "[stave-mcp] failed to sync Claude Code MCP registration",
+      claudeRegistration.error,
+    );
+  }
+  const codexRegistration = await syncCodexMcpRegistration({
+    autoRegister: args.config.codexAutoRegister,
+    manifest: args.manifest,
+  });
+  if (codexRegistration.error) {
+    console.warn(
+      "[stave-mcp] failed to sync Codex MCP registration",
+      codexRegistration.error,
+    );
+  }
+}
+
+/**
+ * How often a running instance checks that the shared manifest still names a
+ * live instance. Another Stave (a dev build, a second profile) can take the
+ * shared file over and then exit or crash; without this, external CLIs stay
+ * pointed at its dead port until this instance restarts.
+ */
+const PRIMARY_MANIFEST_RECLAIM_INTERVAL_MS = 15_000;
+let primaryManifestReclaimTimer: ReturnType<typeof setInterval> | null = null;
+let primaryManifestReclaimInFlight = false;
+
+async function reclaimPrimaryManifestOnce() {
+  const manifest = currentManifest;
+  if (!manifest || primaryManifestReclaimInFlight) {
+    return;
+  }
+  primaryManifestReclaimInFlight = true;
+  try {
+    const claim = await reclaimPrimaryStaveLocalMcpManifest(manifest);
+    if (claim !== "reclaimed" || currentManifest !== manifest) {
+      return;
+    }
+    console.log("[stave-mcp] reclaimed the shared Local MCP manifest", {
+      url: manifest.url,
+    });
+    const config = await readStaveLocalMcpConfig();
+    await syncCliMcpRegistrations({ config, manifest });
+  } catch (error) {
+    console.warn("[stave-mcp] failed to reclaim the shared Local MCP manifest", error);
+  } finally {
+    primaryManifestReclaimInFlight = false;
+  }
+}
+
+function startPrimaryManifestReclaimLoop() {
+  stopPrimaryManifestReclaimLoop();
+  primaryManifestReclaimTimer = setInterval(() => {
+    void reclaimPrimaryManifestOnce();
+  }, PRIMARY_MANIFEST_RECLAIM_INTERVAL_MS);
+  primaryManifestReclaimTimer.unref?.();
+}
+
+function stopPrimaryManifestReclaimLoop() {
+  if (primaryManifestReclaimTimer) {
+    clearInterval(primaryManifestReclaimTimer);
+    primaryManifestReclaimTimer = null;
+  }
 }
 
 function createToolServer(options?: {
@@ -1798,27 +1893,9 @@ export async function startStaveMcpServer() {
   const config = await readStaveLocalMcpConfig();
   if (!config.enabled) {
     currentManifest = null;
+    stopPrimaryManifestReclaimLoop();
     await removeManifestFiles();
-    const claudeRegistration = await syncClaudeCodeMcpRegistration({
-      autoRegister: config.claudeCodeAutoRegister,
-      manifest: null,
-    });
-    if (claudeRegistration.error) {
-      console.warn(
-        "[stave-mcp] failed to remove Claude Code MCP registration",
-        claudeRegistration.error,
-      );
-    }
-    const codexRegistration = await syncCodexMcpRegistration({
-      autoRegister: config.codexAutoRegister,
-      manifest: null,
-    });
-    if (codexRegistration.error) {
-      console.warn(
-        "[stave-mcp] failed to remove Codex MCP registration",
-        codexRegistration.error,
-      );
-    }
+    await releaseCliMcpRegistrations({ config, phase: "remove" });
     console.log("[stave-mcp] local MCP server disabled in settings");
     return;
   }
@@ -1983,26 +2060,8 @@ export async function startStaveMcpServer() {
 
   await writeManifest(manifest);
   currentManifest = manifest;
-  const claudeRegistration = await syncClaudeCodeMcpRegistration({
-    autoRegister: config.claudeCodeAutoRegister,
-    manifest,
-  });
-  if (claudeRegistration.error) {
-    console.warn(
-      "[stave-mcp] failed to sync Claude Code MCP registration",
-      claudeRegistration.error,
-    );
-  }
-  const codexRegistration = await syncCodexMcpRegistration({
-    autoRegister: config.codexAutoRegister,
-    manifest,
-  });
-  if (codexRegistration.error) {
-    console.warn(
-      "[stave-mcp] failed to sync Codex MCP registration",
-      codexRegistration.error,
-    );
-  }
+  await syncCliMcpRegistrations({ config, manifest });
+  startPrimaryManifestReclaimLoop();
   console.log("[stave-mcp] listening", {
     url: manifest.url,
     manifestPaths,
@@ -2014,28 +2073,10 @@ export async function stopStaveMcpServer() {
   const currentServer = httpServer;
   httpServer = null;
   currentManifest = null;
+  stopPrimaryManifestReclaimLoop();
   await removeManifestFiles();
   if (config) {
-    const claudeRegistration = await syncClaudeCodeMcpRegistration({
-      autoRegister: config.claudeCodeAutoRegister,
-      manifest: null,
-    });
-    if (claudeRegistration.error) {
-      console.warn(
-        "[stave-mcp] failed to clear Claude Code MCP registration",
-        claudeRegistration.error,
-      );
-    }
-    const codexRegistration = await syncCodexMcpRegistration({
-      autoRegister: config.codexAutoRegister,
-      manifest: null,
-    });
-    if (codexRegistration.error) {
-      console.warn(
-        "[stave-mcp] failed to clear Codex MCP registration",
-        codexRegistration.error,
-      );
-    }
+    await releaseCliMcpRegistrations({ config, phase: "clear" });
   }
   if (!currentServer) {
     return;

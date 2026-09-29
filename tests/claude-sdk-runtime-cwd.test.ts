@@ -32,7 +32,7 @@ mock.module("../electron/providers/cli-path-env", () => ({
 
 mock.module("../electron/main/stave-local-mcp-manifest", () => ({
   ...actualStaveLocalMcpManifest,
-  readPrimaryStaveLocalMcpManifest: async () => null,
+  readStaveLocalMcpManifest: async () => null,
 }));
 
 const { getClaudeCommandCatalog } =

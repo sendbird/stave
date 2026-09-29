@@ -40,6 +40,7 @@ describe("Stave Local MCP unattended automation authorization", () => {
       args: ["/tmp/stave-mcp-stdio-proxy.js"],
       env: [
         { name: "ELECTRON_RUN_AS_NODE", value: "1" },
+        { name: "STAVE_LOCAL_MCP_OWNER_PID", value: "123" },
         { name: "STAVE_ADVISOR_GRANT_KEY", value: "" },
         { name: "STAVE_WORKER_GRANT_KEY", value: "" },
         { name: "STAVE_MISSION_GRANT_KEY", value: "" },
@@ -59,6 +60,7 @@ describe("Stave Local MCP unattended automation authorization", () => {
       args: ["/tmp/stave-mcp-stdio-proxy.js"],
       env: [
         { name: "ELECTRON_RUN_AS_NODE", value: "1" },
+        { name: "STAVE_LOCAL_MCP_OWNER_PID", value: "123" },
         { name: "STAVE_ADVISOR_GRANT_KEY", value: "" },
         { name: "STAVE_WORKER_GRANT_KEY", value: "" },
         { name: "STAVE_MISSION_GRANT_KEY", value: "" },

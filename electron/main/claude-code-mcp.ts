@@ -254,6 +254,11 @@ export async function removeLegacyClaudeCodeSettingsEntry(settingsPath: string) 
 export async function syncClaudeCodeMcpRegistration(args: {
   autoRegister: boolean;
   manifest: StaveLocalMcpManifest | null;
+  /**
+   * When removing, keep an entry that points at this manifest — another live
+   * Stave instance's endpoint must not be deleted by one that is stopping.
+   */
+  retainManifest?: StaveLocalMcpManifest | null;
   configPath?: string;
   legacySettingsPaths?: readonly string[];
 }) {
@@ -265,9 +270,24 @@ export async function syncClaudeCodeMcpRegistration(args: {
     const currentMcpServers = isRecord(document.mcpServers)
       ? { ...document.mcpServers }
       : {};
+    const installing = args.autoRegister && args.manifest;
 
-    if (args.autoRegister && args.manifest) {
-      currentMcpServers[STAVE_LOCAL_MCP_SERVER_NAME] = toClaudeCodeUserMcpServerEntry(args.manifest);
+    if (
+      !installing
+      && matchesManifest({
+        current: getManagedServerRecord(document),
+        manifest: args.retainManifest ?? null,
+      })
+    ) {
+      return getClaudeCodeMcpRegistrationStatus({
+        autoRegister: args.autoRegister,
+        manifest: args.manifest,
+        configPath,
+      });
+    }
+
+    if (installing) {
+      currentMcpServers[STAVE_LOCAL_MCP_SERVER_NAME] = toClaudeCodeUserMcpServerEntry(installing);
     } else {
       delete currentMcpServers[STAVE_LOCAL_MCP_SERVER_NAME];
     }

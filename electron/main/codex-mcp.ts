@@ -189,15 +189,34 @@ export async function getCodexMcpRegistrationStatus(args: {
 export async function syncCodexMcpRegistration(args: {
   autoRegister: boolean;
   manifest: StaveLocalMcpManifest | null;
+  /**
+   * When removing, keep a section that points at this manifest — another live
+   * Stave instance's endpoint must not be deleted by one that is stopping.
+   */
+  retainManifest?: StaveLocalMcpManifest | null;
   configPath?: string;
 }) {
   const configPath = args.configPath ?? getCodexConfigPath();
   try {
     const currentDocument = await readCodexConfig(configPath);
-    const nextDocument = args.autoRegister && args.manifest
+    const installing = args.autoRegister && args.manifest;
+    if (
+      !installing
+      && matchesManifest({
+        parsed: parseManagedSection(extractManagedSection(currentDocument)?.content ?? null),
+        manifest: args.retainManifest ?? null,
+      })
+    ) {
+      return getCodexMcpRegistrationStatus({
+        autoRegister: args.autoRegister,
+        manifest: args.manifest,
+        configPath,
+      });
+    }
+    const nextDocument = installing
       ? upsertManagedSection({
           document: currentDocument,
-          section: buildManagedSection(args.manifest),
+          section: buildManagedSection(installing),
         })
       : removeManagedSection(currentDocument);
     await writeCodexConfig({
