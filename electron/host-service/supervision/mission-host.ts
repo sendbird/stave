@@ -6,7 +6,7 @@
  */
 import type { MissionChangedEvent } from "../../../src/lib/missions/api";
 import { buildProjectMemoryContext } from "../../../src/lib/projects/briefing";
-import { readPrimaryStaveLocalMcpManifest } from "../../main/stave-local-mcp-manifest";
+import { readStaveLocalMcpManifest } from "../../main/stave-local-mcp-manifest";
 import { runCommandArgs } from "../../main/utils/command";
 import { resolveMissionGrant } from "../../providers/mission-grants";
 import { countActiveDelegatedTasks } from "../delegated-task-signals";
@@ -81,7 +81,7 @@ export function createHostMissionRuntime(args: {
 }) {
   const persistence = ensureHostServicePersistenceReady();
   const reachability = createLocalMcpReachabilityProbe({
-    readManifest: readPrimaryStaveLocalMcpManifest,
+    readManifest: readStaveLocalMcpManifest,
   });
   const performAction = createMissionActionExecutor({
     store: persistence.missions,

@@ -25,6 +25,7 @@ import {
   shouldSkipQuitConfirmation,
 } from "./main/quit-state";
 import { stopCraneConnectorRuntime } from "./main/crane-connector/service";
+import { STAVE_LOCAL_MCP_OWNER_PID_ENV } from "./main/stave-local-mcp-manifest";
 import { stopMartinSyncRuntime } from "./main/martin-sync/service";
 import {
   startTrackerIssuesRuntime,
@@ -33,6 +34,9 @@ import {
 
 const persistenceRuntime = configurePersistenceUserDataPath(app);
 process.env.STAVE_USER_DATA_PATH = persistenceRuntime.userDataPath;
+// Always overwrite: a Stave launched from another Stave's terminal inherits
+// that instance's pid, and would otherwise route its sessions to it.
+process.env[STAVE_LOCAL_MCP_OWNER_PID_ENV] = String(process.pid);
 
 if (!app.isPackaged) {
   process.env.STAVE_DEV = "1";

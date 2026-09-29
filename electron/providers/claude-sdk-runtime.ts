@@ -135,7 +135,7 @@ import {
   resolveClaudeCliExecutablePath,
 } from "./cli-path-env";
 import {
-  readPrimaryStaveLocalMcpManifest,
+  readStaveLocalMcpManifest,
   STAVE_LOCAL_MCP_SERVER_NAME,
   toClaudeSdkMcpServerConfig,
 } from "../main/stave-local-mcp-manifest";
@@ -457,7 +457,7 @@ async function resolveEmbeddedStaveLocalMcpServers(options?: {
   turnGrants?: StreamTurnArgs["staveTurnGrants"];
   unattendedAutomationAuthorizationToken?: string;
 }): Promise<Record<string, McpServerConfig> | undefined> {
-  const manifest = await readPrimaryStaveLocalMcpManifest();
+  const manifest = await readStaveLocalMcpManifest();
   if (!manifest) {
     if (options?.turnGrants?.consultKey) {
       throw new Error(

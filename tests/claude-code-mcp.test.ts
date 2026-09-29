@@ -173,6 +173,41 @@ describe("Claude Code MCP registration sync", () => {
     });
   });
 
+  test("keeps an entry that belongs to another running Stave instance when releasing", async () => {
+    const otherInstance = { ...createManifest(), pid: 5678, url: "http://127.0.0.1:55028/mcp", token: "other-token" };
+    const configPath = createTempConfigPath({
+      mcpServers: {
+        "stave-local-mcp": {
+          type: "http",
+          url: otherInstance.url,
+          headers: { Authorization: `Bearer ${otherInstance.token}` },
+        },
+      },
+    });
+
+    const kept = await syncClaudeCodeMcpRegistration({
+      autoRegister: true,
+      manifest: null,
+      retainManifest: otherInstance,
+      configPath,
+      legacySettingsPaths: [],
+    });
+    expect(kept.error).toBeUndefined();
+    expect(kept.installed).toBe(true);
+    expect(readJson(configPath).mcpServers).toHaveProperty("stave-local-mcp");
+
+    // An entry for this (stopping) instance is still removed.
+    const removed = await syncClaudeCodeMcpRegistration({
+      autoRegister: true,
+      manifest: null,
+      retainManifest: createManifest(),
+      configPath,
+      legacySettingsPaths: [],
+    });
+    expect(removed.installed).toBe(false);
+    expect(readJson(configPath).mcpServers).toBeUndefined();
+  });
+
   test("reports stale registrations when the saved entry no longer matches the running manifest", async () => {
     const configPath = createTempConfigPath({
       mcpServers: {

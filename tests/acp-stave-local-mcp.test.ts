@@ -24,7 +24,7 @@ let manifestOverride: typeof fixtureManifest | null = fixtureManifest;
 
 mock.module("../electron/main/stave-local-mcp-manifest", () => ({
   ...actualManifest,
-  readPrimaryStaveLocalMcpManifest: async () => manifestOverride,
+  readStaveLocalMcpManifest: async () => manifestOverride,
   resolveAcpStaveLocalMcpServers: async (args?: {
     allowedToolNames?: readonly string[];
   }) => {
