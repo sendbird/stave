@@ -29,7 +29,8 @@ Open the **Agents** surface from the sidebar, the command palette
 **Playbooks** and **My standards**.
 
 1. Open **Agents** in the sidebar and stay on the **Agents** tab.
-2. Pick **Implementer** (built in), or **Duplicate** any agent to edit a copy.
+2. Press **New agent**, name it, and start from **Blank** or from a template
+   (any built-in or repository agent). Or **Duplicate** any agent to edit a copy.
 3. Press **Start work…** in the agent's header. Kickoff opens with the agent
    preselected as the worker.
 4. Describe the work as the kickoff source, then **Create and start** (or leave
@@ -56,15 +57,56 @@ it runs as one task or a playbook mission, and the new worktree and its base.
 
 ### Agents tab
 
-- **Custom**, **From repository** and **Built-in** agents, with search.
-- **Use when / Don't use when**: when to hand work to this agent.
+- **Custom**, **From repository** and **Built-in** agents, with search. Each row
+  shows an avatar — an initials disc in the agent's colour.
+- **New agent**: name it, then start from **Blank** (Auto model, Auto
+  permission, a new worktree, usable as a main agent) or from a template (any
+  built-in or repository agent). Nothing is saved until you save the editor;
+  **Cancel** discards the draft. The command palette's **New agent** and the
+  empty state open the same dialog.
+- **Profile header**: the avatar, the name, **Use when**, and chips for source,
+  model, permission and where the agent works.
 - **As a main agent**: per provider, whether the instructions and tool limits
   are **Enforced**, **Asked in instructions** (stated to the model, not
   enforced), or **Not available**.
-- **Duplicate**, **Archive** and **Restore**. Built-in agents are read only; an
-  update never overwrites your copy. Archiving stops new assignments only.
+- **Duplicate**, **Archive**, **Restore** and **Delete**. Built-in and
+  repository agents are read only; an update never overwrites your copy.
+  Archiving stops new assignments only.
 - **Work**: the agent's assignments and their state: **Preparing**,
   **Started**, **Couldn't start** or **Interrupted**.
+
+### Editing an agent
+
+A custom agent's editor is grouped into sections:
+
+- **Profile**: name, colour, **Use when** and **Don't use when**.
+- **Instructions**: the agent's instructions and its skills.
+- **Model**: **Auto-routing** with an optional task class, or a **Fixed**
+  provider, model and effort.
+- **Tools & limits**: the allowed and denied tool lists, max turns and
+  concurrency.
+- **Access**: permission, where it works, what it is usable as, and its report
+  sections.
+
+A field that fails a rule shows the reason inline (for example, a read-only
+agent cannot take a new worktree, and a tool cannot be both allowed and denied).
+
+### Deleting an agent
+
+**Delete** removes a custom agent from your settings. Past assignments keep
+their own snapshot, so an agent's history still shows its name after it is gone.
+If a playbook stage or a project still names the agent, deletion is blocked and
+the dialog lists where — **Archive instead**, or remove those references first.
+Running or waiting tasks are shown for context but do not block: they keep the
+version they started with and finish on their own.
+
+### Avatars elsewhere
+
+An agent's avatar also appears next to its work in the sidebar (with a status
+dot — a green dot for running, an amber dot when it needs you), in the Kickoff
+**Who** picker, on the Fleet task badge, and on the assignment node of a task's
+**Flow** panel. Built-in and repository agents get a stable colour derived from
+their id; a custom agent's colour is chosen in its **Profile** section.
 
 ### Usable as and the Worker picker
 
