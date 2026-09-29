@@ -149,3 +149,55 @@ describe("assign", () => {
     expect(taskAgentRuntimeOptions({ agent: { ...agent!, archived: true }, providerId: "claude-code" }).agentInstructions).toBeDefined();
   });
 });
+
+describe("record-task", () => {
+  test("the schema accepts a well-formed request and rejects extras", async () => {
+    const { RecordTaskAgentInputSchema } = await import("@/lib/agents/assign");
+    const valid = {
+      requestId: "kickoff:abc-123",
+      taskId: "task-1",
+      workspaceId: "ws-1",
+      repositoryPath: "/tmp/repo",
+      agent: getBuiltinAgent("implementer")!,
+      assignment: "Do the work.",
+      providerId: "claude-code" as const,
+      model: "claude-sonnet-5",
+    };
+    expect(RecordTaskAgentInputSchema.safeParse(valid).success).toBe(true);
+    expect(RecordTaskAgentInputSchema.safeParse({ ...valid, sneaky: 1 }).success).toBe(false);
+    expect(RecordTaskAgentInputSchema.safeParse({ ...valid, requestId: "" }).success).toBe(false);
+    expect(RecordTaskAgentInputSchema.safeParse({ ...valid, providerId: "nope" }).success).toBe(false);
+  });
+
+  test("records the agent for a task Kickoff created, idempotent by request id", () => {
+    const { runtime } = harness();
+    const args = {
+      requestId: "kickoff:1",
+      taskId: "task-42",
+      workspaceId: "ws-9",
+      repositoryPath: "/tmp/repo",
+      agent: getBuiltinAgent("implementer")!,
+      providerId: "claude-code" as const,
+      model: "claude-sonnet-5",
+      assignment: "Do the work.",
+      standards: "Follow the house style.",
+    };
+    const row = runtime.recordTaskAgent(args);
+    expect(row).toMatchObject({
+      state: "started",
+      taskId: "task-42",
+      workspaceId: "ws-9",
+      agentConfigId: "implementer",
+      standards: "Follow the house style.",
+    });
+    // No worktree, task, or first turn is created: the task already exists.
+    // The later-turn resolver runs it as the agent it was recorded with.
+    const later = runtime.taskAgent("task-42");
+    expect(later?.agent.instructions).toBe(getBuiltinAgent("implementer")!.instructions);
+    expect(later?.standards).toBe("Follow the house style.");
+    // A repeat with the same request id returns the same row.
+    const again = runtime.recordTaskAgent({ ...args, assignment: "different" });
+    expect(again.id).toBe(row.id);
+    expect(again.assignment).toBe("Do the work.");
+  });
+});

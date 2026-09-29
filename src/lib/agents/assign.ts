@@ -49,6 +49,34 @@ export const AssignAgentInputSchema = z
   .strict();
 export type AssignAgentInput = z.infer<typeof AssignAgentInputSchema>;
 
+/**
+ * What the renderer sends to record that a task Kickoff already created runs
+ * as an agent. Unlike an assign request, the workspace and task already exist,
+ * so the ids travel with it and the host only writes the assignment row.
+ */
+export const RecordTaskAgentInputSchema = z
+  .object({
+    /** Stable per Kickoff create; a retried create records the task once. */
+    requestId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(ASSIGNMENT_LIMITS.requestId)
+      .regex(/^[A-Za-z0-9._:-]+$/),
+    taskId: z.string().trim().min(1).max(200),
+    workspaceId: z.string().trim().min(1).max(200),
+    repositoryPath: z.string().trim().min(1).max(4096),
+    agent: AgentConfigSchema,
+    assignment: z.string().trim().min(1).max(ASSIGNMENT_LIMITS.assignment),
+    /** Provider and model after the renderer applied auto-routing; a fixed agent model wins. */
+    providerId: z.enum(PROVIDER_IDS),
+    model: z.string().trim().min(1).max(200).nullable().optional(),
+    /** The user's "My standards" at the moment of creating, when turned on. */
+    standards: z.string().trim().min(1).max(MY_STANDARDS_MAX_CHARS).optional(),
+  })
+  .strict();
+export type RecordTaskAgentInput = z.infer<typeof RecordTaskAgentInputSchema>;
+
 export const ASSIGNMENT_STATES = ["preparing", "started", "failed", "interrupted"] as const;
 export type AssignmentState = (typeof ASSIGNMENT_STATES)[number];
 

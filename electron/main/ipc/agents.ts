@@ -1,7 +1,7 @@
 import { ipcMain, webContents } from "electron";
 import { z } from "zod";
 import { AGENT_IPC, type AgentInvokeResult, type HostAgentAction } from "../../../src/lib/agents/api";
-import { AssignAgentInputSchema } from "../../../src/lib/agents/assign";
+import { AssignAgentInputSchema, RecordTaskAgentInputSchema } from "../../../src/lib/agents/assign";
 import { invokeHostService, onHostServiceEvent, onHostServiceReady } from "../host-service-client";
 import { getCustomAgents, getMyStandards, setCustomAgents, setMyStandards } from "../agents/agent-registry";
 
@@ -55,6 +55,17 @@ export function registerAgentHandlers() {
       return await invokeAgent("assign", parsed.data);
     } catch (error) {
       return failed(error, "The work could not be assigned.");
+    }
+  });
+  ipcMain.handle(AGENT_IPC.recordTask, async (_event, args: unknown) => {
+    const parsed = RecordTaskAgentInputSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, code: "invalid", message: parsed.error.issues[0]?.message ?? "The record request was not valid." };
+    }
+    try {
+      return await invokeAgent("record-task", parsed.data);
+    } catch (error) {
+      return failed(error, "The task's agent could not be recorded.");
     }
   });
   ipcMain.handle(AGENT_IPC.sync, async (_event, args: unknown) => {
