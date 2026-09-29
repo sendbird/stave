@@ -61,10 +61,7 @@ import { MissionStore } from "./mission-store";
 import { ProjectStore } from "./project-store";
 import { AgentAssignmentStore } from "./agent-assignment-store";
 import { AutomationStateStore } from "./automation-state-store";
-import {
-  migrateLegacyRepositoryMemoryTables,
-  RepositoryMemoryStore,
-} from "./repository-memory-store";
+import { RepositoryMemoryStore } from "./repository-memory-store";
 import { ResultReviewStore } from "./result-review-store";
 import { NotificationStore } from "./notification-store";
 import { FleetAttentionSnoozeStore } from "./fleet-attention-snooze-store";
@@ -240,12 +237,10 @@ export class SqliteStore {
     this.martinSyncOutbox = new MartinSyncOutboxStore(this.db);
     this.wakeUps = new WakeUpStore(this.db);
     this.missions = new MissionStore(this.db);
-    // temporary-migration: repository-memory-tables
-    migrateLegacyRepositoryMemoryTables(this.db);
+    this.repositoryMemories = new RepositoryMemoryStore(this.db);
     this.projects = new ProjectStore(this.db);
     this.agentAssignments = new AgentAssignmentStore(this.db);
     this.automationState = new AutomationStateStore(this.db);
-    this.repositoryMemories = new RepositoryMemoryStore(this.db);
     if (this.runMaintenance) {
       this.maintenanceStart = setImmediate(() => {
         this.maintenanceStart = null;

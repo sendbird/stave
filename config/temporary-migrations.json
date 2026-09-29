@@ -109,8 +109,7 @@
       "introducedAfter": "0.21.0",
       "removeInVersion": "0.24.0",
       "files": [
-        "electron/persistence/repository-memory-store.ts",
-        "electron/persistence/sqlite-store.ts"
+        "electron/persistence/repository-memory-store.ts"
       ],
       "tests": [
         "tests/repository-memory-table-migration.test.ts"
