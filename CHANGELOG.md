@@ -1,3 +1,23 @@
+## [0.21.0](https://github.com/sendbird/stave/compare/v0.20.1...v0.21.0) (2026-09-29)
+
+### Features
+
+* Add Agents: saved workers with instructions, a model choice, tool limits, a permission, and a place to work. Assigning creates the task, starts it with those instructions, and keeps later turns on that version. Saving an agent starts nothing. A read-only agent stays read-only on every turn. Assign from Issues or the new-task composer, pick a custom agent as a worker, and choose which agents a project's missions run as. Repository agent files are listed read-only; hooks, inline MCP servers, and approval-skipping modes are left out. The Flow panel shows the assignment, mission stages, delegated tasks, and a per-node timeline.
+* Adopt Claude Sonnet 5.5, including the 1M variant, as the balanced Claude model and worker default. Send adaptive thinking and omit fast mode, which this model does not offer. Sonnet 5.5 requires Claude Code 2.1.284 or newer. Raise Stave-owned effort defaults to high for Sonnet 5.5 and GPT-6 Sol, and to xhigh for GPT-5.6 Terra and Luna. A one-time migration moves a selected Sonnet 5 to Sonnet 5.5 and retunes effort only when it is still the previous default.
+
+### Bug Fixes
+
+* Offer Cursor model effort again when the connected Agent advertises it under a per-model config id, including `reasoning_effort`, or when the session is on Auto and the option is omitted. A turn still applies an effort value only when the selected model's live session config advertises it.
+* Read the Cursor Agent access token from its macOS Keychain entry so a signed-in account shows usage, and keep the existing Agent file and IDE credential fallbacks.
+* When a Cursor model's usage pool is missing from the snapshot, fall back to the monthly window only. An exhausted other pool no longer blocks models that do not consume it. Auto still sees every pool.
+* Pin in-app Claude, Codex, Cursor, and Kiro sessions to the Local MCP endpoint of the Stave instance that launched them. Each instance publishes its own manifest, ignores a manifest whose owner has exited, and reclaims the shared manifest after that owner exits. Resolve the stdio proxy from the main bundle so Cursor and Kiro keep their Stave tools.
+* Clear a fleet failure alert once a turn continues past an error or finishes without a failure stop. Raise the retained Cursor and Kiro turn output limit from 512 KiB to 2 MiB.
+* Return `repositoryPath` and `repositoryName` from persisted result reviews so Mark reviewed and Fleet Clear all succeed. Open Task Results on Needs review, and remove the redundant Open Team row from the Mission panel.
+
+### References
+
+* [#578](https://github.com/sendbird/stave/pull/578), [#588](https://github.com/sendbird/stave/pull/588), [#589](https://github.com/sendbird/stave/pull/589), [#590](https://github.com/sendbird/stave/pull/590), [#591](https://github.com/sendbird/stave/pull/591), [#592](https://github.com/sendbird/stave/pull/592), [#593](https://github.com/sendbird/stave/pull/593), [#594](https://github.com/sendbird/stave/pull/594), [#595](https://github.com/sendbird/stave/pull/595), [#596](https://github.com/sendbird/stave/pull/596)
+
 ## [0.20.1](https://github.com/sendbird/stave/compare/v0.20.0...v0.20.1) (2026-09-27)
 
 ### Features
