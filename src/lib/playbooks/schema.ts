@@ -143,6 +143,17 @@ const AiStageSchema = z
     instruction: text("Instruction", PLAYBOOK_LIMITS.instruction),
     doneWhen: text("Done when", PLAYBOOK_LIMITS.doneWhen),
     role: z.enum(AI_STAGE_ROLES).optional(),
+    /**
+     * Runs this stage as another agent: the lead task delegates it to a
+     * delegated task running as this agent and reports its result. The lead
+     * task's own provider and instructions never change mid-mission.
+     */
+    agentConfigId: z.string().trim().min(1).max(80).optional(),
+    /**
+     * With `agentConfigId`: pin the delegated work to the commit checked out
+     * when it starts, so a review never reports on a later commit.
+     */
+    pinCommit: z.boolean().optional(),
   })
   .strict();
 

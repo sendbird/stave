@@ -151,7 +151,7 @@ under `src/components/layout/codex-settings/` receive that state and callbacks;
    `src/lib/agents/flow-view.ts` projecting the flow
 5. `docs/features/agents.md` for the user flow and
    `docs/architecture/agent-platform-taxonomy.md` for the vocabulary and
-   boundary statements 13–15
+   boundary statements 13–17
 
 ### Prompt input, skills, and quick controls
 

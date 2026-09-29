@@ -4,6 +4,7 @@
  *
  * Used by: `electron/host-service.ts`.
  */
+import { hostAgents } from "./assign-host";
 import type { MissionChangedEvent } from "../../../src/lib/missions/api";
 import { buildProjectMemoryContext } from "../../../src/lib/projects/briefing";
 import { readStaveLocalMcpManifest } from "../../main/stave-local-mcp-manifest";
@@ -92,6 +93,7 @@ export function createHostMissionRuntime(args: {
   });
   return createMissionRuntime({
     store: persistence.missions,
+    agentNames: () => Object.fromEntries(hostAgents().map((agent) => [agent.id, agent.name])),
     getTaskSupervisionSnapshot: localMcpRuntime.getTaskSupervisionSnapshot,
     listRecentTurns: (turnArgs) => persistence.listTurns(turnArgs),
     runSupervisedTurn,

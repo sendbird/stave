@@ -228,6 +228,12 @@ whose name repeats it.
 13. A saved agent grants no permissions; every start records its own consent.
 14. Saving or editing an agent never creates a workspace, a task or a process.
 15. A run follows the snapshot taken at its start; later edits never reach it.
+16. Work for an agent starts only through intake or a delegation; a delegation
+    to an agent never runs wider than the delegating task's own agent, never
+    names an agent outside its project's Agents, and work pinned to a commit
+    never starts on another.
+17. A mission's lead task keeps its provider and instructions for the whole
+    mission; a stage another agent does runs as a delegated task of it.
 
 Statement 13 is asserted per turn: an agent's permission is a ceiling that
 lowers the turn's own settings and never raises them (`src/lib/agents/permission.ts`),

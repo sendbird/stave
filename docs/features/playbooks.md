@@ -65,6 +65,19 @@ Start a [mission](missions.md) with it and Stave runs the stages for you. A
   actions: **Open draft PR**, **Watch checks**, **Ready for review** and **Run
   script**.
 
+### Stages another agent does
+
+An AI stage's **Done by** picks who does it: **This mission's task** (the
+default), or an agent usable as a delegated task. For an agent, the mission's
+task delegates the stage to a delegated task running as that agent, waits for
+it, and reports the stage from its result. The mission's task keeps its own
+provider and instructions throughout.
+
+Turn on **Work on the commit checked out when it starts** for a review stage:
+the mission's task commits first, and Stave refuses to start the review if the
+workspace has moved off that commit, so the review never reports on a later
+change.
+
 ### Run script
 
 A **Run script** stage runs an action from the workspace's scripts

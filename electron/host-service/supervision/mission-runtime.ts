@@ -142,6 +142,8 @@ export interface MissionTurnRow {
 
 export interface MissionRuntimeDependencies {
   store: MissionStorePort;
+  /** Agent names by id, so a stage another agent does can name it. */
+  agentNames?: () => Readonly<Record<string, string>>;
   getTaskSupervisionSnapshot: (args: {
     workspaceId: string;
     taskId: string;
@@ -673,7 +675,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     const identity = { missionId: mission.id, stageId: before.stageId, attempt: before.attempt };
     const prompt =
       actionPrompt ??
-      (reason === "nudge" ? buildStageNudgePrompt(started) : compileMissionStagePrompt(started));
+      (reason === "nudge" ? buildStageNudgePrompt(started) : compileMissionStagePrompt(started, deps.agentNames?.()));
     try {
       const turn = await deps.runSupervisedTurn({
         workspaceId: mission.workspaceId,
