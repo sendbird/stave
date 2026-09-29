@@ -67,6 +67,16 @@ export interface KickoffWorkspaceArgs {
   firstTaskProvider?: ProviderId;
   firstTaskRuntimeOverrides?: PromptDraftRuntimeOverrides;
   extraInstructions?: string;
+  /**
+   * Runs once the task exists and before its first send (and before a mission
+   * Start sheet). Kickoff uses it to record that the task runs as an agent.
+   * A rejection stages the task with its prompt and never sends.
+   */
+  beforeFirstTurn?: (args: {
+    workspaceId: string;
+    taskId: string;
+    prompt: string;
+  }) => Promise<void>;
 }
 
 export interface KickoffWorkspaceResult {
@@ -342,6 +352,30 @@ export async function runWorkspaceKickoff(args: {
       "blocked",
     );
   }
+
+  if (args.input.beforeFirstTurn) {
+    try {
+      await args.input.beforeFirstTurn({
+        workspaceId: createResult.workspaceId!,
+        taskId,
+        prompt,
+      });
+    } catch {
+      // Recording who runs the task failed. Keep the prompt ready and never
+      // send: sending as the wrong agent is worse than a staged task.
+      args
+        .getState()
+        .updatePromptDraft({
+          taskId,
+          patch: { text: prompt, runtimeOverrides },
+        });
+      return warning(
+        "Workspace created. The task's agent could not be recorded, so its prompt is ready in the composer instead of starting.",
+        "blocked",
+      );
+    }
+  }
+
   if (!args.input.startFirstTask) return { ...createResult, startup: "staged" };
 
   try {

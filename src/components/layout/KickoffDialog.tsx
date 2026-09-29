@@ -24,8 +24,16 @@ import {
   buildKickoffFirstTaskRuntimeOverrides,
   canApplyKickoffDialogOpenChange,
   describeKickoffProviderFallback,
+  resolveKickoffAgentRoute,
   resolveKickoffFirstTaskSelection,
+  selectableKickoffAgents,
+  type KickoffWho,
 } from "@/components/layout/KickoffDialog.utils";
+import { KickoffSourceWho } from "@/components/layout/KickoffSourceWho";
+import { AGENT_PERMISSION_LABELS } from "@/lib/agents/schema";
+import { PROVIDER_LABELS } from "@/lib/agents/provider-labels";
+import { activeStandards } from "@/lib/agents/standards";
+import { useAgentsUiStore } from "@/store/agents-ui-store";
 import {
   Accordion,
   AccordionContent,
@@ -55,6 +63,7 @@ import {
 } from "@/components/ui/select";
 import {
   getProviderLabel,
+  listProviderIds,
   listProviderIdsForCapability,
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
@@ -167,6 +176,11 @@ function resolveSelectedBranchKind(args: {
   return args.remoteBranches.includes(args.branch) ? "remote" : "local";
 }
 
+/** Missions run on Claude and Codex tasks. */
+function missionCapableFor(providerId: ProviderId): boolean {
+  return providerId === "claude-code" || providerId === "codex";
+}
+
 function panelTargetLabel(target: KickoffPanelEntry["target"]) {
   switch (target) {
     case "jiraIssues":
@@ -263,8 +277,6 @@ export function KickoffDialog(props: {
   const [firstTaskProvider, setFirstTaskProvider] = useState<ProviderId>(
     defaultFirstTaskProvider,
   );
-  const missionCapable =
-    firstTaskProvider === "claude-code" || firstTaskProvider === "codex";
   const [firstTaskModel, setFirstTaskModel] = useState(defaultFirstTaskModel);
   const [firstTaskEffort, setFirstTaskEffort] = useState<FirstTaskEffort>(
     defaultFirstTaskEffort,
@@ -273,6 +285,39 @@ export function KickoffDialog(props: {
     defaultFirstTaskFastMode,
   );
   const [extraInstructions, setExtraInstructions] = useState("");
+  const customAgents = useAppStore((state) => state.settings.customAgents);
+  const myStandards = useAppStore((state) => state.settings.myStandards);
+  const autoRoutingProfile = useAppStore((state) => state.settings.autoRoutingProfile);
+  const kickoffRequest = useAgentsUiStore((state) => state.kickoffRequest);
+  const clearKickoffRequest = useAgentsUiStore((state) => state.clearKickoffRequest);
+  const selectableAgents = useMemo(
+    () => selectableKickoffAgents(customAgents),
+    [customAgents],
+  );
+  // Who does the work: the user, or a saved agent as the task's main agent.
+  const [who, setWho] = useState<KickoffWho>("me");
+  const [agentId, setAgentId] = useState<string | null>(null);
+  // "auto" unless the user picked a provider on the Runs-on override.
+  const [agentChoice, setAgentChoice] = useState<"auto" | ProviderId>("auto");
+  const selectedAgent =
+    who === "agent" ? (selectableAgents.find((agent) => agent.id === agentId) ?? null) : null;
+  const agentRoute = useMemo(
+    () =>
+      selectedAgent
+        ? resolveKickoffAgentRoute({
+            agent: selectedAgent,
+            profile: autoRoutingProfile,
+            preferredProviderId: firstTaskProvider,
+            choice: agentChoice,
+          })
+        : null,
+    [agentChoice, autoRoutingProfile, firstTaskProvider, selectedAgent],
+  );
+  // Which provider the first task actually runs on: the agent's route when one
+  // is chosen, else the Me controls. Missions run on Claude and Codex.
+  const effectiveFirstTaskProvider =
+    who === "agent" && agentRoute ? agentRoute.providerId : firstTaskProvider;
+  const effectiveMissionCapable = missionCapableFor(effectiveFirstTaskProvider);
 
   const activeBranch = workspaceBranchById[activeWorkspaceId] ?? defaultBranch;
   const activeWorkspacePath =
@@ -347,6 +392,23 @@ export function KickoffDialog(props: {
   const busy = resolving || creating;
 
   useEffect(() => {
+    if (!props.open || !kickoffRequest) {
+      return;
+    }
+    if (typeof kickoffRequest.text === "string") {
+      setSource(kickoffRequest.text);
+    }
+    if (kickoffRequest.agentConfigId) {
+      const preset = selectableAgents.find((agent) => agent.id === kickoffRequest.agentConfigId);
+      if (preset) {
+        setWho("agent");
+        setAgentId(preset.id);
+      }
+    }
+    clearKickoffRequest();
+  }, [clearKickoffRequest, kickoffRequest, props.open, selectableAgents]);
+
+  useEffect(() => {
     if (props.open) {
       return;
     }
@@ -363,6 +425,9 @@ export function KickoffDialog(props: {
     setFirstTaskEffort(defaultFirstTaskEffort);
     setFirstTaskFastMode(defaultFirstTaskFastMode);
     setExtraInstructions("");
+    setWho("me");
+    setAgentId(null);
+    setAgentChoice("auto");
   }, [
     cancelKickoffResolution,
     defaultFirstTaskEffort,
@@ -518,28 +583,58 @@ export function KickoffDialog(props: {
       !draft ||
       !sanitizedBranchName ||
       creating ||
-      (startFirstTask && !firstTaskProviderAvailable)
+      (who === "me" && startFirstTask && !firstTaskProviderAvailable)
     ) {
       return;
     }
-    const firstTaskRuntimeOverrides = buildKickoffFirstTaskRuntimeOverrides({
-      providerId: firstTaskProvider,
-      model: firstTaskModel,
-      effort: effectiveFirstTaskEffort,
-      codexFastMode: firstTaskFastMode,
-    });
+    // With an agent, its route decides the provider and model; a fixed agent
+    // model wins. Without one, the Me controls decide.
+    const effectiveProvider =
+      who === "agent" && agentRoute ? agentRoute.providerId : firstTaskProvider;
+    const firstTaskRuntimeOverrides =
+      who === "agent" && agentRoute
+        ? { autoRouting: false, ...(agentRoute.model ? { model: agentRoute.model } : {}) }
+        : buildKickoffFirstTaskRuntimeOverrides({
+            providerId: firstTaskProvider,
+            model: firstTaskModel,
+            effort: effectiveFirstTaskEffort,
+            codexFastMode: firstTaskFastMode,
+          });
+    // Records that the task runs as the agent, before its first turn. A fixed
+    // agent model wins on the host too, so the route's model is a hint here.
+    const beforeFirstTurn =
+      who === "agent" && selectedAgent && agentRoute
+        ? async ({ workspaceId, taskId, prompt }: { workspaceId: string; taskId: string; prompt: string }) => {
+            const api = window.api?.agents;
+            if (!api?.recordTask) throw new Error("Recording the task's agent is unavailable.");
+            const standards = activeStandards(myStandards);
+            const outcome = await api.recordTask({
+              requestId: `kickoff:${crypto.randomUUID()}`,
+              taskId,
+              workspaceId,
+              repositoryPath: repositoryPath!,
+              agent: selectedAgent,
+              assignment: prompt,
+              providerId: agentRoute.providerId,
+              model: agentRoute.model,
+              ...(standards ? { standards } : {}),
+            });
+            if (!outcome.ok) throw new Error(outcome.message);
+          }
+        : undefined;
     setCreating(true);
     setError(null);
     try {
-      const handOff = playbookChoice !== NO_PLAYBOOK && missionCapable;
+      const missionHandOff = playbookChoice !== NO_PLAYBOOK && missionCapableFor(effectiveProvider);
       const result = await kickoffWorkspace({
         proposal: { ...draft, branchName: sanitizedBranchName },
         fromBranch,
         fromBranchKind,
-        startFirstTask: handOff ? false : startFirstTask,
-        firstTaskProvider,
+        startFirstTask: missionHandOff ? false : startFirstTask,
+        firstTaskProvider: effectiveProvider,
         firstTaskRuntimeOverrides,
         extraInstructions,
+        ...(beforeFirstTurn ? { beforeFirstTurn } : {}),
       });
       if (!result.ok) {
         setError(result.message ?? "Unable to create the workspace.");
@@ -553,7 +648,9 @@ export function KickoffDialog(props: {
         toast.success("Workspace created from kickoff source");
       }
       props.onOpenChange(false);
-      if (handOff && result.workspaceId && result.taskId) {
+      // A task left staged by a failed agent record is "blocked"; its mission
+      // must not start as a plain task.
+      if (missionHandOff && result.startup === "staged" && result.workspaceId && result.taskId) {
         openStartSheet({
           workspaceId: result.workspaceId,
           taskId: result.taskId,
@@ -702,6 +799,17 @@ export function KickoffDialog(props: {
                     context, and a ready-to-run first task.
                   </p>
                 </div>
+
+                <KickoffSourceWho
+                  agents={selectableAgents}
+                  who={who}
+                  agentId={agentId}
+                  onWhoChange={setWho}
+                  onAgentChange={setAgentId}
+                  sourceText={source}
+                  preferredProviderId={firstTaskProvider}
+                  choice={agentChoice}
+                />
 
                 {requiredMcpServers.length > 0 ? (
                   <div className={sx(kickoffStyles.mcpPanel)}>
@@ -1129,10 +1237,10 @@ export function KickoffDialog(props: {
                         First task
                       </h3>
                       <p className={sx(kickoffStyles.sectionCopy)}>
-                        Choose how the task will run, then refine its prompt.
+                        Choose who does the work, how it runs, and where.
                       </p>
                     </div>
-                    {playbookChoice === NO_PLAYBOOK || !missionCapable ? (
+                    {playbookChoice === NO_PLAYBOOK || !effectiveMissionCapable ? (
                       <div className={sx(kickoffStyles.startToggle)}>
                         <label
                           htmlFor="kickoff-start-task"
@@ -1149,6 +1257,90 @@ export function KickoffDialog(props: {
                       </div>
                     ) : null}
                   </div>
+                  <div className={sx(kickoffStyles.field)}>
+                    <p
+                      id="kickoff-first-task-who-label"
+                      className={sx(kickoffStyles.label)}
+                    >
+                      Who
+                    </p>
+                    <Select
+                      value={who === "agent" && selectedAgent ? selectedAgent.id : "me"}
+                      disabled={creating}
+                      onValueChange={(value) => {
+                        if (value === "me") {
+                          setWho("me");
+                          return;
+                        }
+                        setWho("agent");
+                        setAgentId(String(value));
+                      }}
+                    >
+                      <SelectTrigger
+                        className={sx(kickoffStyles.fullWidth)}
+                        aria-labelledby="kickoff-first-task-who-label"
+                      >
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="me">Me</SelectItem>
+                        {selectableAgents.map((candidate) => (
+                          <SelectItem key={candidate.id} value={candidate.id}>
+                            {candidate.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {who === "agent" && selectedAgent && agentRoute ? (
+                    <div className={sx(kickoffStyles.whoBlock)}>
+                      <p className={sx(kickoffStyles.agentSettingsLine)}>
+                        Agent settings:{" "}
+                        {PROVIDER_LABELS[agentRoute.providerId] ?? agentRoute.providerId} ·{" "}
+                        {agentRoute.model ?? "default model"} ·{" "}
+                        {AGENT_PERMISSION_LABELS[selectedAgent.permission]}
+                      </p>
+                      <div className={sx(kickoffStyles.field)}>
+                        <p
+                          id="kickoff-first-task-runson-label"
+                          className={sx(kickoffStyles.label)}
+                        >
+                          Runs on
+                        </p>
+                        <Select
+                          value={
+                            selectedAgent.model.mode === "fixed"
+                              ? selectedAgent.model.providerId
+                              : agentChoice
+                          }
+                          disabled={selectedAgent.model.mode === "fixed" || creating}
+                          onValueChange={(value) =>
+                            setAgentChoice(value as "auto" | ProviderId)
+                          }
+                        >
+                          <SelectTrigger
+                            className={sx(kickoffStyles.fullWidth)}
+                            aria-labelledby="kickoff-first-task-runson-label"
+                          >
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {selectedAgent.model.mode === "fixed" ? null : (
+                              <SelectItem value="auto">Auto-routing</SelectItem>
+                            )}
+                            {listProviderIds().map((id) => (
+                              <SelectItem key={id} value={id}>
+                                {PROVIDER_LABELS[id] ?? id}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        <p className={sx(kickoffStyles.hint)} title={agentRoute.reason}>
+                          {agentRoute.reason}
+                        </p>
+                      </div>
+                    </div>
+                  ) : (
                   <div className={sx(kickoffStyles.runtimeGrid)}>
                     <div className={sx(kickoffStyles.field)}>
                       <p className={sx(kickoffStyles.label)}>Model</p>
@@ -1229,16 +1421,17 @@ export function KickoffDialog(props: {
                       ) : null}
                     </div>
                   </div>
+                  )}
                   <div className={sx(kickoffStyles.field)}>
                     <p
                       id="kickoff-first-task-playbook-label"
                       className={sx(kickoffStyles.label)}
                     >
-                      Playbook
+                      How
                     </p>
                     <Select
-                      value={missionCapable ? playbookChoice : NO_PLAYBOOK}
-                      disabled={!missionCapable || creating}
+                      value={effectiveMissionCapable ? playbookChoice : NO_PLAYBOOK}
+                      disabled={!effectiveMissionCapable || creating}
                       onValueChange={(value) => setPlaybookChoice(String(value))}
                     >
                       <SelectTrigger
@@ -1249,7 +1442,7 @@ export function KickoffDialog(props: {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value={NO_PLAYBOOK}>
-                          None — run the prompt as one task
+                          One task — run the prompt as one task
                         </SelectItem>
                         {listPlaybookChoices(playbooks).map((choice) => (
                           <SelectItem key={choice.value} value={choice.value}>
@@ -1259,25 +1452,31 @@ export function KickoffDialog(props: {
                       </SelectContent>
                     </Select>
                     <p className={sx(kickoffStyles.hint)}>
-                      {!missionCapable
+                      {!effectiveMissionCapable
                         ? "Missions run on Claude and Codex tasks."
                         : playbookChoice === NO_PLAYBOOK
                           ? "Choose a playbook to carry the task through its stages as a mission."
                           : "After the workspace is created, you confirm the mission's check-ins and permissions, then it starts."}
                     </p>
                   </div>
-                  {!firstTaskProviderAvailable ? (
+                  <div className={sx(kickoffStyles.field)}>
+                    <p className={sx(kickoffStyles.label)}>Where</p>
+                    <p className={sx(kickoffStyles.hint)}>
+                      {`A new worktree on ${sanitizedBranchName || draft.branchName || "the branch above"} from ${fromBranch}. Change the branch and base under Workspace details.`}
+                    </p>
+                  </div>
+                  {who === "me" && !firstTaskProviderAvailable ? (
                     <p className={sx(kickoffStyles.errorHint)} role="alert">
                       This provider is unavailable. Choose another model before
                       starting the task.
                     </p>
                   ) : null}
-                  {providerFallbackHint ? (
+                  {who === "me" && providerFallbackHint ? (
                     <p className={sx(kickoffStyles.hint)}>
                       {providerFallbackHint}
                     </p>
                   ) : null}
-                  {firstTaskProviderAvailable ? (
+                  {who === "me" && firstTaskProviderAvailable ? (
                     <p className={sx(kickoffStyles.hint)}>
                       {firstTaskProvider === "codex"
                         ? "The model, effort, and Fast mode stay attached to this task, even if you leave the prompt ready instead of starting now."
@@ -1346,7 +1545,7 @@ export function KickoffDialog(props: {
                 type="button"
                 disabled={
                   !sanitizedBranchName ||
-                  (startFirstTask && !firstTaskProviderAvailable)
+                  (who === "me" && startFirstTask && !firstTaskProviderAvailable)
                 }
                 onClick={() => void handleCreate()}
               >

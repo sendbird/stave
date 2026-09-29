@@ -395,3 +395,91 @@ describe("kickoff execution", () => {
     expect(source.fetchedText).toContain("Keep existing clients working.");
   });
 });
+
+describe("kickoff records the task's agent before its first turn", () => {
+  test("beforeFirstTurn runs after the task exists and before the send", async () => {
+    const order: string[] = [];
+    const draft = proposal();
+    const result = await runWorkspaceKickoff({
+      input: {
+        proposal: draft,
+        startFirstTask: true,
+        firstTaskProvider: "claude-code",
+        beforeFirstTurn: async ({ taskId, workspaceId }) => {
+          order.push(`record:${workspaceId}:${taskId}`);
+        },
+      },
+      getState: () => ({
+        createWorkspace: async () => {
+          order.push("create");
+          return { ok: true as const, taskId: "t1", workspaceId: "w1" };
+        },
+        updatePromptDraft: () => {},
+        sendUserMessage: async () => {
+          order.push("send");
+          return { status: "started" as const };
+        },
+      }),
+    });
+    expect(result.ok).toBe(true);
+    expect(result.startup).toBe("started");
+    expect(order).toEqual(["create", "record:w1:t1", "send"]);
+  });
+
+  test("a failed record stages the task with its prompt and never sends", async () => {
+    let sends = 0;
+    let staged: { text?: string } | null = null;
+    const draft = proposal();
+    const result = await runWorkspaceKickoff({
+      input: {
+        proposal: draft,
+        startFirstTask: true,
+        firstTaskProvider: "claude-code",
+        beforeFirstTurn: async () => {
+          throw new Error("record refused");
+        },
+      },
+      getState: () => ({
+        createWorkspace: async () => ({ ok: true as const, taskId: "t1", workspaceId: "w1" }),
+        updatePromptDraft: ({ patch }: any) => {
+          staged = patch;
+        },
+        sendUserMessage: async () => {
+          sends++;
+          return { status: "started" as const };
+        },
+      }),
+    });
+    expect(sends).toBe(0);
+    expect(result.noticeLevel).toBe("warning");
+    expect(result.startup).toBe("blocked");
+    expect(staged?.text).toBe(buildKickoffFirstTaskPrompt(draft));
+  });
+
+  test("with a staged task (no start) the record still runs", async () => {
+    const order: string[] = [];
+    const result = await runWorkspaceKickoff({
+      input: {
+        proposal: proposal(),
+        startFirstTask: false,
+        firstTaskProvider: "claude-code",
+        beforeFirstTurn: async () => {
+          order.push("record");
+        },
+      },
+      getState: () => ({
+        createWorkspace: async () => {
+          order.push("create");
+          return { ok: true as const, taskId: "t1", workspaceId: "w1" };
+        },
+        updatePromptDraft: () => {},
+        sendUserMessage: async () => {
+          order.push("send");
+          return { status: "started" as const };
+        },
+      }),
+    });
+    expect(result.startup).toBe("staged");
+    expect(order).toEqual(["create", "record"]);
+  });
+});
