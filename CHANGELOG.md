@@ -1,3 +1,21 @@
+## [0.21.1](https://github.com/sendbird/stave/compare/v0.21.0...v0.21.1) (2026-09-29)
+
+### Features
+
+* Show a flow for every task: Request, Plan from reported todos, Changes, Verification from structured results, and Pull request status and checks, plus a step when the task is waiting on you. Assignment, mission stages, and delegated tasks still overlay that flow. An empty task says it is waiting for its first message.
+* Move Agents and Playbooks out of Automations into their own sidebar Agents surface, next to Fleet and Projects. The surface has Agents, Playbooks, and My standards. Automations keeps Automations and Runs. The sidebar lists up to five agents that have work running or waiting on you.
+* Let Kickoff choose who does the work. Picking an agent starts the task as that agent, and the host keeps applying that agent's instructions and permission on later turns. Issues, the composer, agent detail, and the command palette open Kickoff. The Assign sheet is gone.
+
+### Bug Fixes
+
+* Use one provider tab strip in Settings so Providers, Worker mode, and Selector Models show the same provider mark, label, and spacing.
+* Upgrade Electron from 41.1.1 to 44.4.5 so collecting a WebContents-like object no longer crashes inside garbage collection. Refresh the compatible dependencies, including better-sqlite3 13 and Claude Agent SDK 0.3.284. Rename the path-scoped memory tables to repository memories before the projects feature creates its own project memories table.
+* Publish the Agents and Auto-routing docs so the pages site build succeeds.
+
+### References
+
+* [#598](https://github.com/sendbird/stave/pull/598), [#599](https://github.com/sendbird/stave/pull/599), [#600](https://github.com/sendbird/stave/pull/600), [#601](https://github.com/sendbird/stave/pull/601), [#602](https://github.com/sendbird/stave/pull/602), [#603](https://github.com/sendbird/stave/pull/603)
+
 ## [0.21.0](https://github.com/sendbird/stave/compare/v0.20.1...v0.21.0) (2026-09-29)
 
 ### Features
