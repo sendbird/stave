@@ -1776,24 +1776,13 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
                   }),
                 );
               }}
-              onSelectModel={(model) => {
-                applyRuntimeOverrides(
-                  buildWorkerModelPatch({
-                    overrides: promptDraft.runtimeOverrides,
-                    providerId: workerActiveProvider,
-                    model,
-                  }),
-                );
-              }}
-              onSelectEffort={(effort) => {
-                applyRuntimeOverrides(
-                  buildWorkerEffortPatch({
-                    overrides: promptDraft.runtimeOverrides,
-                    providerId: workerActiveProvider,
-                    effort,
-                  }),
-                );
-              }}
+              onSelectAgent={(patch) => applyRuntimeOverrides(patch(promptDraft.runtimeOverrides))}
+              onSelectModel={(model) =>
+                applyRuntimeOverrides(buildWorkerModelPatch({ overrides: promptDraft.runtimeOverrides, providerId: workerActiveProvider, model }))
+              }
+              onSelectEffort={(effort) =>
+                applyRuntimeOverrides(buildWorkerEffortPatch({ overrides: promptDraft.runtimeOverrides, providerId: workerActiveProvider, effort }))
+              }
             />
             ) : null
           }

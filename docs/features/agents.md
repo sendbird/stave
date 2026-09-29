@@ -45,6 +45,18 @@ use a macro.
 - **Recent work**: the agent's assignments and their state: **Preparing**,
   **Started**, **Couldn't start** or **Interrupted**.
 
+### Usable as and the Worker picker
+
+A custom agent's **Usable as** chooses where it can be used: **Main agent**
+(Assign), **Worker** (the composer's Worker mode) and **Delegated task**.
+Duplicate the built-in **Reviewer** and turn on **Main agent** to assign work to
+it directly.
+
+Custom agents usable as a Worker appear under **Custom agents** in the
+composer's Worker menu. Picking one copies its instructions and tool list into
+this task's Worker; edit the agent and pick it again to refresh the copy.
+Picking a preset afterwards clears it.
+
 ### Agents from the repository
 
 Stave lists the agent files the open workspace already keeps for coding agents:

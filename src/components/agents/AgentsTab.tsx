@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Archive, ArchiveRestore, Copy, RefreshCw, Send } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
+import { Checkbox } from "@/components/ads/components/Checkbox";
 import { Select } from "@/components/ads/components/Select";
 import { TextField } from "@/components/ads/components/TextField";
 import { Textarea } from "@/components/ads/components/Textarea";
@@ -20,6 +21,8 @@ import {
   AGENT_CONFIG_LIMITS,
   AGENT_PERMISSION_LABELS,
   AGENT_PERMISSIONS,
+  AGENT_ROLE_LABELS,
+  AGENT_ROLES,
   AGENT_SOURCE_LABELS,
   AGENT_WORKSPACE_LABELS,
   AGENT_WORKSPACES,
@@ -96,7 +99,9 @@ function AssignPanel(props: { agent: AgentConfig }) {
   const blocked = !usable
     ? agent.archived
       ? "This agent is archived. Restore it to assign work."
-      : "This agent works only as a Worker or a delegated task."
+      : agent.source === "custom"
+        ? "Turn on Main agent under Usable as to assign work to this agent."
+        : "This agent works only as a Worker or a delegated task. Duplicate it and turn on Main agent to assign work."
     : !repositoryPath
       ? "Open a repository to assign work."
       : needsWorkspace
@@ -252,6 +257,31 @@ function CustomAgentFields(props: { agent: AgentConfig; onSave: (agent: AgentCon
             options={AGENT_WORKSPACES.map((value) => ({ value, label: AGENT_WORKSPACE_LABELS[value] }))}
             onValueChange={(value) => setDraft({ ...draft, workspace: String(value) as AgentConfig["workspace"] })}
           />
+        </dd>
+        <dt className={sx(styles.propertyLabel)}>Usable as</dt>
+        <dd className={sx(styles.propertyValue)}>
+          <div role="group" aria-label="Usable as" className={sx(agentStyles.roles)}>
+            {AGENT_ROLES.map((role) => {
+              const checked = draft.usableAs.includes(role);
+              return (
+                <Checkbox
+                  key={role}
+                  label={AGENT_ROLE_LABELS[role]}
+                  checked={checked}
+                  // At least one role stays on: an agent nothing can use is an archived one.
+                  disabled={checked && draft.usableAs.length === 1}
+                  onCheckedChange={(value) =>
+                    setDraft({
+                      ...draft,
+                      usableAs: value === true
+                        ? AGENT_ROLES.filter((candidate) => candidate === role || draft.usableAs.includes(candidate))
+                        : draft.usableAs.filter((candidate) => candidate !== role),
+                    })
+                  }
+                />
+              );
+            })}
+          </div>
         </dd>
         <dt className={sx(styles.propertyLabel)}>Instructions</dt>
         <dd className={sx(styles.propertyValue)}>

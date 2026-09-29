@@ -67,7 +67,7 @@
     "src/lib/lens/lens-instrumentation.ts": 800,
     "src/lib/lens/lens-log-format.ts": 800,
     "src/components/session/ChatInput.tsx": 1400,
-    "src/components/session/ChatInputComposer.tsx": 2284,
+    "src/components/session/ChatInputComposer.tsx": 2273,
     "src/components/session/chat-input.utils.ts": 226,
     "src/store/app-store-send-user-message.ts": 1698,
     "src/store/app.store.ts": 1406

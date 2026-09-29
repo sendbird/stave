@@ -2,6 +2,7 @@ import type { ProviderId, ProviderRuntimeOptions } from "@/lib/providers/provide
 import { compileAgent, snapshotAgent, type CompiledPrimary } from "./compile";
 import { agentPermissionOverrides } from "./permission";
 import type { AgentConfig } from "./schema";
+import type { WorkerProviderConfig } from "@/lib/providers/worker-mode";
 
 /**
  * The runtime options a task running as an Agent adds to its usual ones.
@@ -51,4 +52,18 @@ export function taskAgentRuntimeOptions(args: {
     options: { ...base, ...instructions },
   });
   return { ...instructions, ...permission };
+}
+
+/**
+ * A custom agent as the composer's Worker: the compiled worker copy plus the
+ * agent's id and name, so the picker can show which agent is in use. Null when
+ * the agent cannot be a Worker on this provider.
+ */
+export function agentWorkerConfig(
+  agent: AgentConfig,
+  providerId: ProviderId,
+): (WorkerProviderConfig & { agentConfigId: string; agentName: string }) | null {
+  const compiled = compileAgent({ snapshot: snapshotAgent(agent), role: "worker", providerId });
+  if (!compiled.ok || compiled.compiled.role !== "worker") return null;
+  return { ...compiled.compiled.workerConfig, agentConfigId: agent.id, agentName: agent.name };
 }
