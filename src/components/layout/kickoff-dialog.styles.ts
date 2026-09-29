@@ -488,6 +488,12 @@ export const kickoffStyles = stylex.create({
     display: "grid",
     gap: vars["--ads-space-8"],
   },
+  whoOption: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: vars["--ads-space-8"],
+    minWidth: 0,
+  },
   startNowRow: {
     display: "flex",
     flexWrap: "wrap",

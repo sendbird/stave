@@ -2,6 +2,7 @@ import { useLayoutEffect, useState } from "react";
 import * as stylex from "@stylexjs/stylex";
 import { AgentsTab } from "@/components/agents/AgentsTab";
 import { AgentsView } from "@/components/agents/AgentsView";
+import { DeleteAgentDialog } from "@/components/agents/DeleteAgentDialog";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import type { AgentAssignment } from "@/lib/agents/assign";
@@ -10,15 +11,19 @@ import { getBuiltinAgent } from "@/lib/agents/starters";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import { useAppStore } from "@/store/app.store";
-
+import { useAgentsViewStore } from "@/store/agents-view-store";
+import { useAgentsUiStore } from "@/store/agents-ui-store";
 /**
  * The Agents tab on the dev preview (`?stavePreview=agents`): one custom
  * agent, a repository with agent files (one refused field, one unreadable
  * file, one id clash with a built-in), and stubbed assign calls.
  * `&theme=dark` or `&theme=<built-in theme id>` renders under that theme;
  * `&surface=1` renders the whole Agents surface (Agents / Playbooks / My
- * standards) instead of the tab. Use `?stavePreview=kickoff&agent=1` to see the
- * Kickoff dialog with an agent preselected.
+ * standards) instead of the tab. `&new=1` opens the New agent dialog,
+ * `&edit=1` selects the custom agent so its sectioned editor shows, and
+ * `&delete=1` opens the delete dialog with a blocking playbook reference. Use
+ * `?stavePreview=kickoff&agent=1` to see the Kickoff dialog with an agent
+ * preselected.
  */
 const params = new URLSearchParams(window.location.search);
 
@@ -100,19 +105,51 @@ export function AgentsPreview() {
       id: "ui-maintainer",
       name: "UI maintainer",
       description: "Use for small UI fixes that must keep the design tokens and keyboard order.",
+      appearance: { color: "violet" as const },
     };
-    useAppStore.getState().updateSettings({ patch: { customAgents: [custom] } });
+    useAppStore.getState().updateSettings({
+      patch: {
+        customAgents: [custom],
+        playbooks: [
+          {
+            id: "ship-ui",
+            name: "Ship a UI fix",
+            purpose: "Land a small UI change and open its PR.",
+            stages: [
+              { id: "implement", title: "Implement", kind: "ai", instruction: "Make the change.", doneWhen: "It builds.", agentConfigId: "ui-maintainer" },
+            ],
+          } as never,
+        ],
+      },
+    });
     useAppStore.setState({
       repositoryPath: "/tmp/preview-repo",
       activeWorkspaceId: "preview-workspace",
       workspacePathById: { "preview-workspace": "/tmp/preview-repo" },
     } as never);
+    if (params.get("edit") === "1") useAgentsViewStore.getState().selectAgent("ui-maintainer");
+    if (params.get("new") === "1") useAgentsUiStore.getState().requestNewAgent();
     setSeeded(true);
   }, []);
+  const showDelete = params.get("delete") === "1";
+  const custom = useAppStore((state) => state.settings.customAgents[0] ?? null);
   return (
     <main className={sx(styles.page)}>
       <div className={sx(styles.frame)}>
         {seeded ? (params.get("surface") === "1" ? <AgentsView /> : <AgentsTab />) : null}
+        {seeded && showDelete && custom ? (
+          <DeleteAgentDialog
+            open
+            onOpenChange={() => {}}
+            agent={custom}
+            references={{
+              blocking: [{ kind: "playbook-stage", label: "Ship a UI fix", detail: "Implement", ownerId: "ship-ui" }],
+              soft: [{ kind: "task", label: "Tighten the settings sidebar", ownerId: "preview-task" }],
+            }}
+            onDelete={() => {}}
+            onArchive={() => {}}
+          />
+        ) : null}
       </div>
     </main>
   );

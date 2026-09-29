@@ -70,4 +70,62 @@ export const agentStyles = stylex.create({
     overflowWrap: "anywhere",
   },
   runState: { flex: "0 0 auto", color: vars["--ads-color-text-muted"] },
+
+  /* Profile header ------------------------------------------------------- */
+  profile: { display: "flex", alignItems: "flex-start", gap: vars["--ads-space-16"], minWidth: 0 },
+  profileText: { display: "flex", flexDirection: "column", gap: vars["--ads-space-4"], flex: "1 1 auto", minWidth: 0 },
+  profileName: { margin: 0, fontSize: vars["--ads-font-size-title"], fontWeight: vars["--ads-font-weight-semibold"], overflowWrap: "anywhere" },
+  chipRow: { display: "flex", flexWrap: "wrap", gap: vars["--ads-space-4"], marginTop: vars["--ads-space-4"] },
+
+  /* List rows with avatars ----------------------------------------------- */
+  rowLead: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"], minWidth: 0 },
+  rowText: { display: "flex", flexDirection: "column", minWidth: 0, gap: 0 },
+
+  /* Sectioned editor ----------------------------------------------------- */
+  section: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-12"],
+    paddingTop: vars["--ads-space-16"],
+    borderTopWidth: vars["--ads-border-width-hairline"],
+    borderTopStyle: "solid",
+    borderTopColor: vars["--ads-color-border-subtle"],
+  },
+  sectionFirst: { borderTopWidth: 0, paddingTop: 0 },
+
+  /* Colour chooser ------------------------------------------------------- */
+  swatches: { display: "flex", flexWrap: "wrap", gap: vars["--ads-space-8"] },
+  swatch: {
+    width: 24,
+    height: 24,
+    padding: 0,
+    borderRadius: vars["--ads-radius-full"],
+    borderWidth: vars["--ads-ring-width-md"],
+    borderStyle: "solid",
+    borderColor: { default: "transparent", ":hover": vars["--ads-color-border-strong"] },
+    backgroundColor: "var(--agent-swatch-color)",
+    cursor: "pointer",
+  },
+  swatchSelected: { borderColor: vars["--ads-color-border-focus"] },
+
+  /* Tag field (allow/deny tools, skills) --------------------------------- */
+  tags: { display: "flex", flexWrap: "wrap", gap: vars["--ads-space-4"], alignItems: "center" },
+  tag: {
+    display: "inline-flex",
+    alignItems: "center",
+    gap: 3,
+    paddingInlineStart: vars["--ads-space-8"],
+    paddingInlineEnd: vars["--ads-space-4"],
+    height: 24,
+    borderRadius: vars["--ads-radius-full"],
+    backgroundColor: vars["--ads-color-canvas-subtle"],
+    fontSize: vars["--ads-font-size-caption"],
+  },
+  tagRemove: { width: 16, height: 16, minHeight: 0, padding: 0, color: vars["--ads-color-text-muted"] },
+  tagInput: { flex: "1 1 8rem", minWidth: "6rem" },
+
+  /* Delete dialog reference list ----------------------------------------- */
+  refList: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"], margin: 0, padding: 0, listStyle: "none" },
+  refItem: { display: "flex", flexDirection: "column", gap: 2, fontSize: vars["--ads-font-size-caption"] },
+  refKind: { color: vars["--ads-color-text-subtle"], fontSize: vars["--ads-font-size-micro"], textTransform: "uppercase", letterSpacing: "0.02em" },
 });

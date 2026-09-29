@@ -132,6 +132,7 @@ export interface CommandPaletteCommandHandlers {
   openAutomationCenter: () => void;
   openIssues: () => void;
   openAgents: () => void;
+  newAgent: () => void;
   startWorkWithAgent: () => void;
   refreshTrackerIssues: () => Promise<void> | void;
   openKeyboardShortcuts: () => void;
@@ -497,6 +498,24 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       icon: Bot,
       keywords: ["agent", "assign", "delegate", "kickoff", "start work", "hand off"],
       run: args.commands.startWorkWithAgent,
+      source: "core",
+    }),
+  },
+  {
+    id: "agents.new",
+    title: "New agent",
+    description: "Create a saved agent from blank or a template.",
+    group: "navigation",
+    icon: Bot,
+    keywords: ["agent", "new", "create", "add", "make"],
+    build: (args) => ({
+      id: "agents.new",
+      title: "New agent",
+      subtitle: "Create a saved agent from blank or a template.",
+      group: "navigation",
+      icon: Bot,
+      keywords: ["agent", "new", "create", "add", "make"],
+      run: args.commands.newAgent,
       source: "core",
     }),
   },
