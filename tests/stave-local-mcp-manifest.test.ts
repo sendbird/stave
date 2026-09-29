@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import {
   STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS,
   isAcpStaveLocalMcpServer,
+  resolveStaveMcpStdioProxyScriptPath,
   toAcpStdioMcpServerConfig,
   toClaudeCodeUserMcpServerEntry,
   toClaudeSdkMcpServerConfig,
@@ -191,5 +192,48 @@ describe("Stave Local MCP unattended automation authorization", () => {
     expect(backstop).toBe(HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS);
     expect(slowestAdvisorCall).toBeLessThan(backstop as number);
     expect(backstop as number).toBeLessThan(STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS);
+  });
+});
+
+describe("Stave MCP stdio proxy script path", () => {
+  const exists = (paths: string[]) => (candidate: string) => paths.includes(candidate);
+
+  test("resolves beside the main entry bundle", () => {
+    expect(
+      resolveStaveMcpStdioProxyScriptPath({
+        moduleUrl: "file:///tmp/app/out/main/index.js",
+        pathExists: exists(["/tmp/app/out/main/stave-mcp-stdio-proxy.mjs"]),
+      }),
+    ).toBe("/tmp/app/out/main/stave-mcp-stdio-proxy.mjs");
+  });
+
+  test("resolves from a shared chunk one level down", () => {
+    expect(
+      resolveStaveMcpStdioProxyScriptPath({
+        moduleUrl: "file:///tmp/app/out/main/chunks/server-abc.js",
+        pathExists: exists(["/tmp/app/out/main/stave-mcp-stdio-proxy.mjs"]),
+      }),
+    ).toBe("/tmp/app/out/main/stave-mcp-stdio-proxy.mjs");
+  });
+
+  // Regression: deriving it from the app path produced out/main/out/main/...
+  test("does not depend on how the app path was launched", () => {
+    expect(
+      resolveStaveMcpStdioProxyScriptPath({
+        moduleUrl: "file:///tmp/app/out/main/index.js",
+        pathExists: () => false,
+      }),
+    ).toBe("/tmp/app/out/main/stave-mcp-stdio-proxy.mjs");
+  });
+
+  test("points packaged builds at the unpacked copy", () => {
+    expect(
+      resolveStaveMcpStdioProxyScriptPath({
+        moduleUrl: "file:///tmp/Stave.app/Contents/Resources/app.asar/out/main/index.js",
+        pathExists: exists([
+          "/tmp/Stave.app/Contents/Resources/app.asar.unpacked/out/main/stave-mcp-stdio-proxy.mjs",
+        ]),
+      }),
+    ).toBe("/tmp/Stave.app/Contents/Resources/app.asar.unpacked/out/main/stave-mcp-stdio-proxy.mjs");
   });
 });

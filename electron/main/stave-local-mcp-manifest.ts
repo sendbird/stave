@@ -6,9 +6,10 @@ import {
   WORKER_GRANT_ENV,
   type StaveTurnGrants,
 } from "../providers/stave-turn-grants";
-import { promises as fs, readFileSync } from "node:fs";
+import { existsSync, promises as fs, readFileSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
+import { fileURLToPath } from "node:url";
 import type { StaveLocalMcpManifest } from "../../src/lib/local-mcp";
 import { HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS } from "./host-service-request-timeouts";
 
@@ -228,6 +229,34 @@ export function readStaveLocalMcpManifestSync(
   }
 }
 
+export const STAVE_MCP_STDIO_PROXY_SCRIPT_NAME = "stave-mcp-stdio-proxy.mjs";
+
+/**
+ * Locate the compiled stdio proxy next to the main bundle that is asking.
+ *
+ * Derived from the bundle's own location, not `app.getAppPath()`: how the app
+ * is launched changes the app path (a dev build started on `out/main` reported
+ * `out/main/out/main/...`), and a proxy path that does not exist silently
+ * removed every Stave tool from stdio-only runtimes such as Cursor and Kiro.
+ * Packaged builds execute the copy unpacked beside the ASAR archive, since
+ * `node` cannot run a script from inside it.
+ */
+export function resolveStaveMcpStdioProxyScriptPath(args: {
+  moduleUrl: string;
+  pathExists?: (filePath: string) => boolean;
+}) {
+  const pathExists = args.pathExists ?? existsSync;
+  const moduleDir = path
+    .dirname(fileURLToPath(args.moduleUrl))
+    .replace(/\.asar(?=$|[\\/])/, ".asar.unpacked");
+  const candidates = [
+    path.join(moduleDir, STAVE_MCP_STDIO_PROXY_SCRIPT_NAME),
+    // Shared chunks are emitted one level below the entry bundles.
+    path.normalize(path.join(moduleDir, "..", STAVE_MCP_STDIO_PROXY_SCRIPT_NAME)),
+  ];
+  return candidates.find((candidate) => pathExists(candidate)) ?? candidates[0]!;
+}
+
 /** The connection itself, without any client-side policy attached. */
 function toStaveLocalMcpTransport(
   manifest: StaveLocalMcpManifest,
@@ -338,7 +367,16 @@ export async function resolveAcpStaveLocalMcpServers(args?: {
   turnGrants?: StaveTurnGrants;
 }) {
   const manifest = await readStaveLocalMcpManifest();
-  if (!manifest?.stdioProxyScript?.trim()) {
+  const stdioProxyScript = manifest?.stdioProxyScript?.trim();
+  if (!manifest || !stdioProxyScript) {
+    return [];
+  }
+  if (!existsSync(stdioProxyScript)) {
+    // A descriptor for a missing script makes the agent fail to start the
+    // server with no Stave-side signal; report Local MCP as unavailable.
+    console.warn("[stave-local-mcp] stdio proxy script is missing; skipping ACP Local MCP", {
+      stdioProxyScript,
+    });
     return [];
   }
   return [

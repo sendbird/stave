@@ -114,7 +114,10 @@ import {
   getClaudeCodeMcpRegistrationStatus,
   syncClaudeCodeMcpRegistration,
 } from "./claude-code-mcp";
-import { STAVE_UNATTENDED_AUTOMATION_QUERY_PARAM } from "./stave-local-mcp-manifest";
+import {
+  STAVE_UNATTENDED_AUTOMATION_QUERY_PARAM,
+  resolveStaveMcpStdioProxyScriptPath,
+} from "./stave-local-mcp-manifest";
 import {
   publishStaveLocalMcpManifest,
   readLivePrimaryStaveLocalMcpManifest,
@@ -2028,20 +2031,9 @@ export async function startStaveMcpServer() {
     throw new Error("Failed to resolve local MCP server address.");
   }
 
-  // In production the main process lives inside an ASAR archive
-  // (app.getAppPath() → ".../app.asar").  The proxy script is unpacked to the
-  // parallel ".asar.unpacked" directory so it can be executed by `node`.
-  // In development app.getAppPath() already points to the repository root where
-  // out/main/stave-mcp-stdio-proxy.mjs is written by the build step.
-  const appPath = app.getAppPath().endsWith(".asar")
-    ? app.getAppPath().replace(/\.asar$/, ".asar.unpacked")
-    : app.getAppPath();
-  const stdioProxyScript = path.join(
-    appPath,
-    "out",
-    "main",
-    "stave-mcp-stdio-proxy.mjs",
-  );
+  const stdioProxyScript = resolveStaveMcpStdioProxyScriptPath({
+    moduleUrl: import.meta.url,
+  });
 
   const manifest: StaveLocalMcpManifest = {
     version: 1,
