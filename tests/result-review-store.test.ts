@@ -1,7 +1,11 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { ResultReviewStore } from "../electron/persistence/result-review-store";
-import { ResultReviewSchema, SetResultReviewedArgsSchema } from "../src/lib/reviews/result-review";
+import {
+  ResultReviewSchema,
+  SetResultReviewedArgsSchema,
+  SetResultsReviewedArgsSchema,
+} from "../src/lib/reviews/result-review";
 
 let db: Database;
 const scope = {
@@ -200,5 +204,33 @@ describe("durable result review", () => {
 
     expect(store.setManyReviewed({ scopes, reviewed: false })).toBe(3);
     expect(store.list({ pendingOnly: true }).total).toBe(3);
+  });
+
+  test("listed rows match the renderer contract so Fleet can clear them", () => {
+    const store = new ResultReviewStore(db);
+    insert();
+    const [row] = store.list({ includeEvidence: false }).results;
+    expect(ResultReviewSchema.safeParse(row).success).toBe(true);
+    expect(row).toMatchObject({
+      repositoryPath: "/tmp/project",
+      repositoryName: "Project",
+    });
+
+    // Fleet's `Clear all` builds each scope from a listed row. A row whose
+    // identity keys drift from the schema fails renderer validation before
+    // the bulk write is ever sent.
+    const args = SetResultsReviewedArgsSchema.parse({
+      scopes: [
+        {
+          repositoryPath: row!.repositoryPath,
+          workspaceId: row!.workspaceId,
+          taskId: row!.taskId,
+          turnId: row!.turnId,
+        },
+      ],
+      reviewed: true,
+    });
+    expect(store.setManyReviewed(args)).toBe(1);
+    expect(store.list({ pendingOnly: true }).total).toBe(0);
   });
 });
