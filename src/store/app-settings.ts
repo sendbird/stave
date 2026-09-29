@@ -811,8 +811,8 @@ export const defaultSettings: AppSettings = {
   codexApprovalPolicy: "never",
   codexBinaryPath: "",
   // Matches `resolveDefaultCodexEffortForModel` for the default model
-  // (GPT-5.6 Sol). Keep the two in step when either changes.
-  codexReasoningEffort: "medium",
+  // (GPT-6 Sol). Keep the two in step when either changes.
+  codexReasoningEffort: "high",
   codexWebSearch: "live",
   codexAppToolApprovalMode: "inherit",
   codexShowRawReasoning: false,

@@ -82,16 +82,16 @@ describe("settings model default migration", () => {
 
   test("carries an untuned effort onto the new ladder", () => {
     // Sonnet@high and Terra@xhigh were both the old per-model defaults, so
-    // they follow their model to Opus 5 and Sol at the new default rung.
+    // they follow their model to Opus 5 at medium and GPT-6 Sol at high.
     const result = migrateSettingsModelDefaults(preMigrationSnapshot());
 
     expect(result.claudeEffort).toBe("medium");
-    expect(result.codexReasoningEffort).toBe("medium");
+    expect(result.codexReasoningEffort).toBe("high");
   });
 
   test("re-pitches an untuned effort even when the model does not move", () => {
-    // A user parked on Luna at its old default (xhigh) lands on the new one
-    // (medium: light models are no longer handed a deeper budget).
+    // A user parked on Luna at its old default (xhigh) lands on Stave's
+    // current Luna default.
     const result = migrateSettingsModelDefaults(
       preMigrationSnapshot({
         modelCodex: "gpt-5.6-luna",
@@ -100,7 +100,7 @@ describe("settings model default migration", () => {
     );
 
     expect(result.modelCodex).toBe("gpt-5.6-luna");
-    expect(result.codexReasoningEffort).toBe("medium");
+    expect(result.codexReasoningEffort).toBe("xhigh");
   });
 
   test("keeps an effort the user actually tuned", () => {
@@ -252,5 +252,167 @@ describe("September model migration", () => {
     expect(again.changed).toBe(false);
     expect(again.modelCodex).toBe("gpt-5.6-sol");
     expect(again.modelClaude).toBe("claude-opus-5");
+  });
+});
+
+describe("Sonnet 5.5 migration", () => {
+  test("moves a selected Sonnet 5 to Sonnet 5.5 and keeps high effort", () => {
+    const result = migrateSettingsModelDefaults({
+      ...preMigrationSnapshot({
+        modelClaude: "claude-sonnet-5",
+        claudeEffort: "high",
+        modelShortcutKeys: [
+          "claude-code:claude-sonnet-5",
+          "claude-code:claude-sonnet-5[1m]",
+          "codex:gpt-6-sol",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+        ],
+        taskPresets: [
+          {
+            id: "sonnet-task",
+            label: "Sonnet",
+            kind: "task",
+            provider: "claude-code",
+            model: "claude-sonnet-5",
+          },
+        ],
+      }),
+      fromVersion: 2,
+    });
+
+    expect(result.changed).toBe(true);
+    expect(result.version).toBe(SETTINGS_MODEL_MIGRATION_VERSION);
+    expect(result.modelClaude).toBe("claude-sonnet-5-5");
+    expect(result.claudeEffort).toBe("high");
+    expect(result.modelShortcutKeys.slice(0, 2)).toEqual([
+      "claude-code:claude-sonnet-5-5",
+      "claude-code:claude-sonnet-5-5[1m]",
+    ]);
+    expect(result.taskPresets[0]).toMatchObject({ model: "claude-sonnet-5-5" });
+  });
+
+  test("keeps a tuned Sonnet effort and leaves Opus at high alone", () => {
+    const tuned = migrateSettingsModelDefaults({
+      ...preMigrationSnapshot({
+        modelClaude: "claude-sonnet-5[1m]",
+        claudeEffort: "max",
+      }),
+      fromVersion: 2,
+    });
+    expect(tuned.modelClaude).toBe("claude-sonnet-5-5[1m]");
+    expect(tuned.claudeEffort).toBe("max");
+
+    const opus = migrateSettingsModelDefaults({
+      ...preMigrationSnapshot({
+        modelClaude: "claude-opus-5-5",
+        claudeEffort: "high",
+      }),
+      fromVersion: 2,
+    });
+    expect(opus.modelClaude).toBe("claude-opus-5-5");
+    expect(opus.claudeEffort).toBe("high");
+    expect(opus.changed).toBe(false);
+  });
+});
+
+describe("GPT-6 Sol effort migration", () => {
+  function settled(overrides: {
+    modelCodex: string;
+    codexReasoningEffort: string;
+  }) {
+    return migrateSettingsModelDefaults({
+      fromVersion: 3,
+      modelClaude: "claude-opus-5-5",
+      modelCodex: overrides.modelCodex,
+      claudeEffort: "medium",
+      codexReasoningEffort: overrides.codexReasoningEffort,
+      modelShortcutKeys: [...DEFAULT_MODEL_SHORTCUT_KEYS],
+      taskPresets: [],
+    });
+  }
+
+  test("moves Sol off the old medium default and leaves a tuned effort", () => {
+    const raised = settled({
+      modelCodex: "gpt-6-sol",
+      codexReasoningEffort: "medium",
+    });
+    expect(raised.changed).toBe(true);
+    expect(raised.version).toBe(SETTINGS_MODEL_MIGRATION_VERSION);
+    expect(raised.modelCodex).toBe("gpt-6-sol");
+    expect(raised.codexReasoningEffort).toBe("high");
+
+    const tuned = settled({
+      modelCodex: "gpt-6-sol",
+      codexReasoningEffort: "low",
+    });
+    expect(tuned.codexReasoningEffort).toBe("low");
+    expect(tuned.changed).toBe(false);
+
+    const astra = settled({
+      modelCodex: "gpt-6-astra",
+      codexReasoningEffort: "medium",
+    });
+    expect(astra.modelCodex).toBe("gpt-6-astra");
+    expect(astra.codexReasoningEffort).toBe("medium");
+    expect(astra.changed).toBe(false);
+  });
+});
+
+describe("Luna and Terra effort migration", () => {
+  function settled(overrides: {
+    modelCodex: string;
+    codexReasoningEffort: string;
+  }) {
+    return migrateSettingsModelDefaults({
+      fromVersion: 4,
+      modelClaude: "claude-opus-5-5",
+      modelCodex: overrides.modelCodex,
+      claudeEffort: "medium",
+      codexReasoningEffort: overrides.codexReasoningEffort,
+      modelShortcutKeys: [...DEFAULT_MODEL_SHORTCUT_KEYS],
+      taskPresets: [],
+    });
+  }
+
+  test("moves Luna off medium and Terra off high, and leaves a tuned effort", () => {
+    const luna = settled({
+      modelCodex: "gpt-6-luna",
+      codexReasoningEffort: "medium",
+    });
+    expect(luna.changed).toBe(true);
+    expect(luna.codexReasoningEffort).toBe("xhigh");
+
+    const previousLuna = settled({
+      modelCodex: "gpt-5.6-luna",
+      codexReasoningEffort: "medium",
+    });
+    expect(previousLuna.codexReasoningEffort).toBe("xhigh");
+
+    const terra = settled({
+      modelCodex: "gpt-5.6-terra",
+      codexReasoningEffort: "high",
+    });
+    expect(terra.changed).toBe(true);
+    expect(terra.codexReasoningEffort).toBe("xhigh");
+
+    const tunedLuna = settled({
+      modelCodex: "gpt-6-luna",
+      codexReasoningEffort: "low",
+    });
+    expect(tunedLuna.codexReasoningEffort).toBe("low");
+    expect(tunedLuna.changed).toBe(false);
+
+    const tunedTerra = settled({
+      modelCodex: "gpt-5.6-terra",
+      codexReasoningEffort: "max",
+    });
+    expect(tunedTerra.codexReasoningEffort).toBe("max");
+    expect(tunedTerra.changed).toBe(false);
   });
 });

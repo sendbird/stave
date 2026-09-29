@@ -4,6 +4,7 @@ import {
   DEFAULT_CLAUDE_OPUS_1M_FALLBACK_MODEL,
   DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL,
   DEFAULT_CLAUDE_SONNET_MODEL,
+  upgradePinnedSonnet5Model,
   clampCodexEffortToModel,
   getDefaultModelForProvider,
   getProviderLabel,
@@ -168,7 +169,9 @@ const LEGACY_CLAUDE_ADVISOR_TARGET_BY_SOURCE = new Map<string, string>([
   ["claude-haiku-4-5", DEFAULT_CLAUDE_SONNET_MODEL],
   ["claude-sonnet-4-6", DEFAULT_CLAUDE_OPUS_MODEL],
   ["claude-sonnet-4-6[1m]", DEFAULT_CLAUDE_OPUS_MODEL],
-  [DEFAULT_CLAUDE_SONNET_MODEL, DEFAULT_CLAUDE_OPUS_MODEL],
+  // Frozen. This key is the old Sonnet source id, mapped one tier up. Using the
+  // live Sonnet constant would treat Sonnet 5.5 itself as that legacy source.
+  ["claude-sonnet-5", DEFAULT_CLAUDE_OPUS_MODEL],
   ["claude-opus-4-6", DEFAULT_CLAUDE_OPUS_MODEL],
   ["claude-opus-4-6[1m]", DEFAULT_CLAUDE_OPUS_MODEL],
   ["claude-opus-4-7", DEFAULT_CLAUDE_OPUS_MODEL],
@@ -302,7 +305,7 @@ export function normalizeAdvisorTarget(value: unknown): AdvisorTarget | null {
   ) {
     return null;
   }
-  const model = candidate.model.trim();
+  const model = upgradePinnedSonnet5Model(candidate.model.trim());
   if (!model) {
     return null;
   }

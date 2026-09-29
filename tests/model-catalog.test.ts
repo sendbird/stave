@@ -59,10 +59,11 @@ describe("model catalog", () => {
     );
   });
 
-  test("includes Fable 5.1 and Sonnet 5 in the Claude SDK options", () => {
+  test("includes Fable 5.1 and Sonnet 5.5 in the Claude SDK options", () => {
     expect(CLAUDE_SDK_MODEL_OPTIONS).toContain(CLAUDE_FABLE_MODEL);
-    expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5");
-    expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5[1m]");
+    expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5-5");
+    expect(CLAUDE_SDK_MODEL_OPTIONS).toContain("claude-sonnet-5-5[1m]");
+    expect(CLAUDE_SDK_MODEL_OPTIONS).not.toContain("claude-sonnet-5");
     expect(getDefaultModelForProvider({ providerId: "claude-code" })).toBe(
       DEFAULT_CLAUDE_OPUS_MODEL,
     );
@@ -81,12 +82,18 @@ describe("model catalog", () => {
     expect(toHumanModelName({ model: "gpt-5.6-terra" })).toBe("GPT-5.6 Terra");
     expect(toHumanModelName({ model: "gpt-6-luna" })).toBe("GPT-6 Luna");
     expect(toHumanModelName({ model: "gpt-5.5" })).toBe("GPT-5.5");
-    expect(toHumanModelName({ model: "claude-sonnet-5" })).toBe(
-      "Claude Sonnet 5",
+    expect(toHumanModelName({ model: "claude-sonnet-5-5" })).toBe(
+      "Claude Sonnet 5.5",
     );
   });
 
-  test("formats Claude Sonnet 5 with canonical labels", () => {
+  test("formats Claude Sonnet 5.5 with canonical labels", () => {
+    expect(toHumanModelName({ model: "claude-sonnet-5-5" })).toBe(
+      "Claude Sonnet 5.5",
+    );
+    expect(toHumanModelName({ model: "claude-sonnet-5-5[1m]" })).toBe(
+      "Claude Sonnet 5.5 (1M)",
+    );
     expect(toHumanModelName({ model: "claude-sonnet-5" })).toBe(
       "Claude Sonnet 5",
     );
@@ -122,9 +129,8 @@ describe("model catalog", () => {
   });
 
   test("pitches the Claude effort default at the vendor recommendation", () => {
-    // Fable medium -> Opus high -> Sonnet high. Fable is checked before Opus
-    // so the shared frontier tier does not drag it up a rung, and Sonnet is
-    // never handed a deeper budget to compensate for the smaller model.
+    // Fable medium, Opus 5.5 medium, Sonnet 5.5 high. Fable is checked before
+    // Opus so the shared frontier tier does not drag it up a rung.
     expect(
       resolveDefaultClaudeEffortForModel({ model: CLAUDE_FABLE_MODEL }),
     ).toBe("medium");
@@ -136,6 +142,12 @@ describe("model catalog", () => {
     ).toBe("medium");
     expect(
       resolveDefaultClaudeEffortForModel({ model: "claude-opus-4-7[1m]" }),
+    ).toBe("high");
+    expect(
+      resolveDefaultClaudeEffortForModel({ model: "claude-sonnet-5-5" }),
+    ).toBe("high");
+    expect(
+      resolveDefaultClaudeEffortForModel({ model: "claude-sonnet-5-5[1m]" }),
     ).toBe("high");
     expect(
       resolveDefaultClaudeEffortForModel({ model: "claude-sonnet-5" }),
@@ -154,19 +166,22 @@ describe("model catalog", () => {
   });
 
   test("returns the default Codex effort from model capabilities", () => {
-    // Astra medium -> Sol high -> Terra high -> Luna medium: smaller models are
-    // not handed a deeper budget to compensate.
+    // Astra medium, Sol high, Terra xhigh, Luna xhigh. These Codex defaults
+    // except Astra are Stave's.
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-6-astra" })).toBe(
       "medium",
     );
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-6-sol" })).toBe(
-      "medium",
-    );
-    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-terra" })).toBe(
       "high",
     );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-terra" })).toBe(
+      "xhigh",
+    );
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-6-luna" })).toBe(
-      "medium",
+      "xhigh",
+    );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-luna" })).toBe(
+      "xhigh",
     );
     // Legacy GPT-5.5 keeps the xhigh cap it was verified at.
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.5" })).toBe(
@@ -183,6 +198,25 @@ describe("model catalog", () => {
     expect(
       resolveDefaultCodexEffortForModel({ model: "gpt-5.3-codex-spark" }),
     ).toBe("medium");
+  });
+
+  test("keeps Stave-owned Codex defaults when the App Server recommends another effort", () => {
+    registerDynamicDefaultReasoningEfforts(
+      new Map([
+        ["gpt-6-sol", "medium"],
+        ["gpt-6-luna", "low"],
+        ["gpt-5.6-terra", "medium"],
+      ]),
+    );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-6-sol" })).toBe(
+      "high",
+    );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-6-luna" })).toBe(
+      "xhigh",
+    );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.6-terra" })).toBe(
+      "xhigh",
+    );
   });
 
   test("prefers a dynamically registered Codex default effort over the static fallback", () => {
@@ -270,7 +304,7 @@ describe("model catalog", () => {
 
   test("resolves tier models within provider eligibility", () => {
     expect(resolveTierModel({ providerId: "claude-code", tier: "heavy" })).toBe(
-      "claude-sonnet-5",
+      "claude-sonnet-5-5",
     );
     expect(
       resolveTierModel({ providerId: "claude-code", tier: "frontier" }),
@@ -337,16 +371,20 @@ describe("model catalog", () => {
     ).toBe("claude-opus-4-6-fast");
     expect(
       upgradeSettingsScopedClaudeModel({ model: "claude-sonnet-4-6" }),
-    ).toBe("claude-sonnet-5");
+    ).toBe("claude-sonnet-5-5");
     expect(
       upgradeSettingsScopedClaudeModel({ model: "claude-sonnet-4-6[1m]" }),
-    ).toBe("claude-sonnet-5[1m]");
+    ).toBe("claude-sonnet-5-5[1m]");
     expect(upgradeSettingsScopedClaudeModel({ model: "claude-fable-5" })).toBe(
       CLAUDE_FABLE_MODEL,
     );
-    // Already-current Sonnet 5 ids pass through unchanged.
+    // Sonnet 5 stays put here so the one-time settings migration can still see
+    // it. Sonnet 5.5 is already current.
     expect(upgradeSettingsScopedClaudeModel({ model: "claude-sonnet-5" })).toBe(
       "claude-sonnet-5",
+    );
+    expect(upgradeSettingsScopedClaudeModel({ model: "claude-sonnet-5-5" })).toBe(
+      "claude-sonnet-5-5",
     );
   });
 

@@ -57,7 +57,7 @@ describe("Advisor settings migration", () => {
     ["", null],
     [
       "claude-haiku-4-5",
-      { providerId: "claude-code", model: "claude-sonnet-5" },
+      { providerId: "claude-code", model: "claude-sonnet-5-5" },
     ],
     [
       "claude-sonnet-4-6",
@@ -87,6 +87,29 @@ describe("Advisor settings migration", () => {
     expect(migrateLegacyClaudeAdvisorModel(legacy)).toEqual(expected);
   });
 
+  test("moves a pinned Sonnet 5 advisor onto Sonnet 5.5", () => {
+    expect(
+      normalizeAdvisorTarget({
+        providerId: "claude-code",
+        model: "claude-sonnet-5",
+        effort: "max",
+      }),
+    ).toEqual({
+      providerId: "claude-code",
+      model: "claude-sonnet-5-5",
+      effort: "max",
+    });
+    expect(
+      normalizeAdvisorTarget({
+        providerId: "claude-code",
+        model: "claude-sonnet-5[1m]",
+      }),
+    ).toEqual({
+      providerId: "claude-code",
+      model: "claude-sonnet-5-5[1m]",
+    });
+  });
+
   test("normalizes only provider/model objects with a non-empty model", () => {
     expect(
       normalizeAdvisorTarget({
@@ -113,7 +136,7 @@ describe("Advisor settings migration", () => {
       normalizePersistedAdvisorTarget({
         claudeAdvisorModel: "claude-haiku-4-5",
       }),
-    ).toEqual({ providerId: "claude-code", model: "claude-sonnet-5" });
+    ).toEqual({ providerId: "claude-code", model: "claude-sonnet-5-5" });
     expect(
       normalizePersistedAdvisorTarget({
         advisorTarget: null,
@@ -525,7 +548,7 @@ describe("advisor effort", () => {
   });
 
   test("an unpinned target follows the model's provider default", () => {
-    // Vendor default ladder: Opus/Sol high, Terra high.
+    // Opus and Sol stay at high. Terra's Stave default is xhigh.
     expect(
       resolveAdvisorEffort({
         providerId: "claude-code",
@@ -537,7 +560,7 @@ describe("advisor effort", () => {
     ).toBe("high");
     expect(
       resolveAdvisorEffort({ providerId: "codex", model: "gpt-5.6-terra" }),
-    ).toBe("high");
+    ).toBe("xhigh");
   });
 
   test("gives high-effort Advisors a longer deadline", () => {

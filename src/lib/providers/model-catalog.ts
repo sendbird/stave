@@ -14,11 +14,13 @@ export const DEFAULT_CLAUDE_OPUS_1M_MODEL = "claude-opus-5-5[1m]";
 export const DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL = "claude-opus-4-8";
 export const DEFAULT_CLAUDE_OPUS_1M_FALLBACK_MODEL = "claude-opus-4-8[1m]";
 export const CLAUDE_FABLE_MODEL = "claude-fable-5-1";
-// Claude Sonnet 5 surfaced in the Claude CLI picker from 2.1.197, but the
-// model ID is passed straight through to the Anthropic API, which decides
-// availability — so no CLI-version gating is needed on our side.
-export const DEFAULT_CLAUDE_SONNET_MODEL = "claude-sonnet-5";
-export const DEFAULT_CLAUDE_SONNET_1M_MODEL = "claude-sonnet-5[1m]";
+// Claude Sonnet 5.5 is the current balanced-tier Sonnet. The id is passed
+// through to the Anthropic API, which decides availability. Claude Code
+// 2.1.284 or newer resolves the `sonnet` alias to this id; the selector
+// states that floor. 1M context is native on the base id. The [1m] suffix
+// stays as the explicit context variant, matching Opus 5.5.
+export const DEFAULT_CLAUDE_SONNET_MODEL = "claude-sonnet-5-5";
+export const DEFAULT_CLAUDE_SONNET_1M_MODEL = "claude-sonnet-5-5[1m]";
 export const DEFAULT_CLAUDE_HAIKU_MODEL = "claude-haiku-4-5";
 // Settings-scoped model IDs that should silently upgrade to the current
 // catalog default of the same family. Historical chat/turn records keep their
@@ -498,18 +500,25 @@ export const MODEL_TIER_ORDER = [
 export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
   // Default effort follows each vendor's own recommendation for the model:
   //
-  //   frontier (Fable, Astra)    medium
-  //   flagship (Opus 5.5, Sol 6) medium
-  //   balanced (Sonnet 5, Terra) high
-  //   light    (Luna)            medium
+  //   frontier (Fable, Astra)                    medium
+  //   flagship (Opus 5.5)                        medium
+  //   flagship (Sol 6)                           high
+  //   balanced (Sonnet 5.5, Sonnet 5)           high
+  //   balanced (Terra)                           xhigh
+  //   light    (Luna)                             xhigh
+  //
+  // Sonnet 5.5 and GPT-6 Sol list at half of Opus 5.5 per token, so their
+  // composer default is high. Terra is the same price band and sits at xhigh.
+  // Luna lists far below that and sits at xhigh. These Codex defaults are
+  // Stave's: a fetched App Server catalog does not replace them. Astra still
+  // follows the catalog. max stays off Luna. xhigh and max stay off Sonnet
+  // and Sol.
   //
   // A frontier model pinned to "xhigh" mostly buys latency (codex-cli 0.153.2
-  // reports `defaultReasoningEffort: "medium"` for Astra). Smaller models are
-  // *not* handed a deeper budget to compensate: both vendors advise lowering
-  // effort before lowering the model, Anthropic positions Fable at low effort
-  // as cheaper per task than a small model at high effort, and Luna's long
-  // context collapses (MRCR 8-needle 41%) regardless of effort. Raising or
-  // lowering it stays a deliberate per-turn choice.
+  // reports `defaultReasoningEffort: "medium"` for Astra). Frontier stays at
+  // medium. Luna's long context still collapses (MRCR 8-needle 41%) at a
+  // higher effort. xhigh is the Stave default because the model is cheap, and
+  // max stays off it.
   //
   // Haiku is absent from the ladder on purpose: the Claude API rejects
   // `effort` outright for Haiku-class models (see `modelsRejectingEffort` in
@@ -570,6 +579,22 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
     defaultClaudeEffort: "high",
   },
+  // Previous balanced Sonnet. Kept resolvable for historical turns and for a
+  // pin the one-time migration did not rewrite. Its effort default stays high.
+  "claude-sonnet-5": {
+    providerId: "claude-code",
+    model: "claude-sonnet-5",
+    tier: "heavy",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultClaudeEffort: "high",
+  },
+  "claude-sonnet-5[1m]": {
+    providerId: "claude-code",
+    model: "claude-sonnet-5[1m]",
+    tier: "heavy",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultClaudeEffort: "high",
+  },
   [DEFAULT_CLAUDE_HAIKU_MODEL]: {
     providerId: "claude-code",
     model: DEFAULT_CLAUDE_HAIKU_MODEL,
@@ -609,7 +634,7 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     model: "gpt-6-sol",
     tier: "frontier",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultCodexReasoningEffort: "medium",
+    defaultCodexReasoningEffort: "high",
     supportedCodexReasoningEfforts: ALL_CODEX_REASONING_EFFORTS,
   },
   "gpt-6-luna": {
@@ -617,7 +642,7 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     model: "gpt-6-luna",
     tier: "light",
     taskTypes: ["quick_edit", "general"],
-    defaultCodexReasoningEffort: "medium",
+    defaultCodexReasoningEffort: "xhigh",
     supportedCodexReasoningEfforts: ["low", "medium", "high", "xhigh", "max"],
   },
   "gpt-5.6-sol": {
@@ -640,7 +665,7 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     model: "gpt-5.6-terra",
     tier: "heavy",
     taskTypes: ["plan", "implementation", "debug", "review", "safety"],
-    defaultCodexReasoningEffort: "high",
+    defaultCodexReasoningEffort: "xhigh",
     supportedCodexReasoningEfforts: [
       "low",
       "medium",
@@ -655,7 +680,7 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
     model: "gpt-5.6-luna",
     tier: "light",
     taskTypes: ["quick_edit", "general"],
-    defaultCodexReasoningEffort: "medium",
+    defaultCodexReasoningEffort: "xhigh",
     // Luna is the one GPT-5.6 variant that does not accept "ultra".
     supportedCodexReasoningEfforts: ["low", "medium", "high", "xhigh", "max"],
   },
@@ -752,6 +777,20 @@ export function isAutoModelId(args: { model: string }) {
   return bareModel === "auto" || bareModel.startsWith("auto-");
 }
 
+const CURRENT_SONNET_BY_PREVIOUS_ID: Readonly<Record<string, string>> = {
+  "claude-sonnet-5": DEFAULT_CLAUDE_SONNET_MODEL,
+  "claude-sonnet-5[1m]": DEFAULT_CLAUDE_SONNET_1M_MODEL,
+};
+
+/**
+ * Moves a pinned Sonnet 5 id onto Sonnet 5.5. Kept separate from
+ * `upgradeSettingsScopedClaudeModel` so an unmigrated default of Sonnet 5 can
+ * still be recognized by the one-time settings migration.
+ */
+export function upgradePinnedSonnet5Model(model: string) {
+  return CURRENT_SONNET_BY_PREVIOUS_ID[model.trim()] ?? model;
+}
+
 export function upgradeSettingsScopedClaudeModel(args: { model: string }) {
   const normalizedModel = args.model.trim().toLowerCase();
   const upgraded = LEGACY_AUTOMATIC_CLAUDE_MODELS[normalizedModel];
@@ -805,15 +844,34 @@ export function resolveDefaultClaudeEffortForModel(args: {
   return "medium";
 }
 
+const STAVE_OWNED_CODEX_EFFORT_MODELS = new Set([
+  "gpt-6-sol",
+  "gpt-6-luna",
+  "gpt-5.6-luna",
+  "gpt-5.6-terra",
+]);
+
 export function resolveDefaultCodexEffortForModel(args: {
   model: string;
 }): NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]> {
-  // 1. Codex's own recommendation for the model, whether it comes from the
-  // live App Server catalog (`model/list.defaultReasoningEffort`, registered
-  // via registerDynamicDefaultReasoningEffort) or our static, verified
-  // MODEL_CAPABILITIES entry. The dynamic value wins when present since it
-  // reflects the installed Codex binary's current recommendation.
-  const dynamicDefault = dynamicDefaultReasoningEfforts.get(args.model.trim());
+  const model = args.model.trim();
+  // Stave owns the composer default for Sol, Terra, and Luna. A fetched App
+  // Server catalog must not replace those. Every other model still prefers
+  // the catalog recommendation below.
+  if (STAVE_OWNED_CODEX_EFFORT_MODELS.has(model)) {
+    const ownedDefault = getModelCapability({ model })?.defaultCodexReasoningEffort;
+    if (ownedDefault) {
+      return ownedDefault;
+    }
+  }
+
+  // Codex's own recommendation for the model, from the live App Server
+  // catalog (`model/list.defaultReasoningEffort`, registered via
+  // registerDynamicDefaultReasoningEffort). The dynamic value wins when
+  // present since it reflects the installed Codex binary's current
+  // recommendation. The static MODEL_CAPABILITIES entry is the fallback
+  // before that catalog has been fetched.
+  const dynamicDefault = dynamicDefaultReasoningEfforts.get(model);
   if (dynamicDefault) {
     return dynamicDefault;
   }
@@ -826,8 +884,8 @@ export function resolveDefaultCodexEffortForModel(args: {
     return capability.defaultCodexReasoningEffort;
   }
 
-  // 2. No known Codex recommendation (e.g. a legacy or unrecognized model
-  // id) — fall back to the same "medium" baseline Stave has always used.
+  // No known Codex recommendation (e.g. a legacy or unrecognized model id).
+  // Fall back to the same "medium" baseline Stave has always used.
   return "medium";
 }
 
@@ -901,9 +959,9 @@ export function getDynamicDisplayNames(): ReadonlyMap<string, string> {
 /**
  * Dynamic per-model default-reasoning-effort registry populated at runtime
  * from the Codex model catalog (`model/list.defaultReasoningEffort`). Read by
- * `resolveDefaultCodexEffortForModel` so Stave always prefers Codex's own
+ * `resolveDefaultCodexEffortForModel` so Stave prefers Codex's own
  * recommendation over the static fallback once the App Server catalog has
- * been fetched.
+ * been fetched. Sol, Terra, and Luna keep Stave's static default.
  */
 const dynamicDefaultReasoningEfforts = new Map<
   string,
@@ -1117,9 +1175,23 @@ export const MODEL_PRICING: Partial<Record<string, ModelPrice>> = {
     inputPerMTok: 2,
     outputPerMTok: 10,
     source: CLAUDE_PRICING_SOURCE,
-    asOf: "2026-09-14",
+    asOf: "2026-09-28",
+    note: "Per-token price matches Sonnet 5. The base id already includes the native 1M window.",
   },
   [DEFAULT_CLAUDE_SONNET_1M_MODEL]: {
+    inputPerMTok: 2,
+    outputPerMTok: 10,
+    source: CLAUDE_PRICING_SOURCE,
+    asOf: "2026-09-28",
+    note: "The 1M context window bills at the standard rate.",
+  },
+  "claude-sonnet-5": {
+    inputPerMTok: 2,
+    outputPerMTok: 10,
+    source: CLAUDE_PRICING_SOURCE,
+    asOf: "2026-09-14",
+  },
+  "claude-sonnet-5[1m]": {
     inputPerMTok: 2,
     outputPerMTok: 10,
     source: CLAUDE_PRICING_SOURCE,
@@ -1222,8 +1294,10 @@ export function toHumanModelName(args: { model: string }) {
     "claude-opus-4-6": "Claude Opus 4.6",
     "claude-opus-4-6[1m]": "Claude Opus 4.6 (1M)",
     opusplan: "Claude Opus Plan",
-    [DEFAULT_CLAUDE_SONNET_MODEL]: "Claude Sonnet 5",
-    [DEFAULT_CLAUDE_SONNET_1M_MODEL]: "Claude Sonnet 5 (1M)",
+    [DEFAULT_CLAUDE_SONNET_MODEL]: "Claude Sonnet 5.5",
+    [DEFAULT_CLAUDE_SONNET_1M_MODEL]: "Claude Sonnet 5.5 (1M)",
+    "claude-sonnet-5": "Claude Sonnet 5",
+    "claude-sonnet-5[1m]": "Claude Sonnet 5 (1M)",
     "claude-sonnet-4-6": "Claude Sonnet 4.6",
     "claude-sonnet-4-6[1m]": "Claude Sonnet 4.6 (1M)",
     [DEFAULT_CLAUDE_HAIKU_MODEL]: "Claude Haiku 4.5",

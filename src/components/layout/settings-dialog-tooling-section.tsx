@@ -34,7 +34,7 @@ const TOOL_PURPOSE_BY_ID: Record<ToolingStatusId, string> = {
   shell: "Integrated terminal sessions and command execution surfaces.",
   git: "Workspace branch, diff, sync, and source-control actions.",
   gh: "Pull request creation, PR status refresh, merge, and branch update flows.",
-  claude: `Claude Code turns, plugin refresh, and Claude-native diagnostics. Opus 5.5: ${getClaudeModelVersionGuidance("claude-opus-5-5")}`,
+  claude: `Claude Code turns, plugin refresh, and Claude-native diagnostics. Opus 5.5: ${getClaudeModelVersionGuidance("claude-opus-5-5")} Sonnet 5.5: ${getClaudeModelVersionGuidance("claude-sonnet-5-5")}`,
   codex: `Codex turns and Codex-native execution flows. ${CODEX_MODEL_AVAILABILITY_GUIDANCE}`,
   cursor: "Cursor Agent turns over the Agent Client Protocol.",
   kiro: "Kiro turns over the Agent Client Protocol.",

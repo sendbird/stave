@@ -73,7 +73,7 @@ describe("runAdvisorCall", () => {
       isolated: true,
       runtimeOptions: {
         model: "gpt-6-sol",
-        codexReasoningEffort: "medium",
+        codexReasoningEffort: "high",
       },
     });
   });
@@ -348,9 +348,9 @@ describe("advisor effort", () => {
       runners,
     });
 
-    // Vendor default ladder: Fable and GPT-6 Sol default to "medium".
+    // Fable stays at medium. GPT-6 Sol's composer default is high.
     expect(claudeEffort).toBe("medium");
-    expect(codexEffort).toBe("medium");
+    expect(codexEffort).toBe("high");
   });
 
   test("a pinned tier is what the runner is actually asked for", async () => {
