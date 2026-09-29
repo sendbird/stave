@@ -852,7 +852,7 @@ Claude's system prompt keeps its own cache boundary
 
 Claude turns are handled in `electron/providers/claude-sdk-runtime.ts`.
 
-Current baseline: exact pin `@anthropic-ai/claude-agent-sdk@0.3.197` with bundled Claude Code `2.1.197` support.
+Current baseline: exact pin `@anthropic-ai/claude-agent-sdk@0.3.284` with bundled Claude Code `2.1.284` support.
 
 High-level flow:
 

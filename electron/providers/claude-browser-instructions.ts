@@ -15,7 +15,7 @@
  *   deferred rather than listed up front, so the model may have to look them up
  *   before calling them.
  *
- * Verified against Claude Code 2.1.267 and claude-agent-sdk 0.3.197: the
+ * Verified against Claude Code 2.1.284 and claude-agent-sdk 0.3.284: the
  * `claude-in-chrome` server name, the `mcp__claude-in-chrome__*` tool prefix,
  * and the `--chrome` / `--no-chrome` flags are all still current.
  */

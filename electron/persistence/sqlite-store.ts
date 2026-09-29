@@ -237,10 +237,10 @@ export class SqliteStore {
     this.martinSyncOutbox = new MartinSyncOutboxStore(this.db);
     this.wakeUps = new WakeUpStore(this.db);
     this.missions = new MissionStore(this.db);
+    this.repositoryMemories = new RepositoryMemoryStore(this.db);
     this.projects = new ProjectStore(this.db);
     this.agentAssignments = new AgentAssignmentStore(this.db);
     this.automationState = new AutomationStateStore(this.db);
-    this.repositoryMemories = new RepositoryMemoryStore(this.db);
     if (this.runMaintenance) {
       this.maintenanceStart = setImmediate(() => {
         this.maintenanceStart = null;

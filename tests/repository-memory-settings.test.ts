@@ -22,7 +22,7 @@ describe("project memory controls", () => {
 
   function enableCollection(repositoryPath = REPOSITORY) {
     db.prepare(
-      `INSERT INTO project_memory_settings
+      `INSERT INTO repository_memory_settings
       (project_path, settings_json, collection_opt_in) VALUES (?, ?, 1)`,
     ).run(repositoryPath, JSON.stringify({ collectAutomatically: true }));
   }
@@ -84,12 +84,12 @@ describe("project memory controls", () => {
     enableCollection();
     const memory = store.remember(candidate({ confidence: 0.9 }))!.memory;
     // Recreate the pre-opt-in settings table, including a saved enabled default.
-    db.exec("DROP TABLE project_memory_settings");
-    db.exec(`CREATE TABLE project_memory_settings (
+    db.exec("DROP TABLE repository_memory_settings");
+    db.exec(`CREATE TABLE repository_memory_settings (
       project_path TEXT PRIMARY KEY, settings_json TEXT NOT NULL,
       revision INTEGER NOT NULL DEFAULT 0, reset_before INTEGER NOT NULL DEFAULT 0
     )`);
-    db.prepare("INSERT INTO project_memory_settings VALUES (?, ?, 4, 123)").run(
+    db.prepare("INSERT INTO repository_memory_settings VALUES (?, ?, 4, 123)").run(
       REPOSITORY,
       JSON.stringify({
         collectAutomatically: true,
