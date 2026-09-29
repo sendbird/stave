@@ -98,7 +98,12 @@ export function describeAssignmentReceived(args: {
 }): AssignmentReceivedView {
   const lines = [
     ...args.received.map((entry) => ({
-      label: entry.kind === "agent" ? `${args.agentName} instructions` : `Skill ${entry.sourceId.replace(/^skill:/, "")}`,
+      label:
+        entry.kind === "agent"
+          ? `${args.agentName} instructions`
+          : entry.kind === "standards"
+            ? "My standards"
+            : `Skill ${entry.sourceId.replace(/^skill:/, "")}`,
       detail: entry.included ? "Included" : `Left out${entry.reason ? `: ${entry.reason}` : ""}`,
     })),
     ...args.support.map((entry) => ({

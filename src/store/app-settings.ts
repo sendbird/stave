@@ -4,6 +4,7 @@
  * Extracted from `@/store/app.store` to keep the store file within the
  * max-lines ratchet. `app.store` re-exports the public names.
  */
+import { DEFAULT_MY_STANDARDS, type MyStandards } from "@/lib/agents/standards";
 import type { BorderBeamColorVariant, BorderBeamSize } from "border-beam";
 import type {
   LensAgentPresentationMode,
@@ -260,6 +261,8 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   customAgents: AgentConfig[];
   /** Saved custom agents this version could not read, kept as saved. */
   customAgentsUnreadable: UnreadableAgent[];
+  /** Personal instructions added to every agent run; see `src/lib/agents/standards.ts`. */
+  myStandards: MyStandards;
   permissionMode: "require-approval" | "auto-safe";
   trustedTools: string[];
   skillsEnabled: boolean;
@@ -706,6 +709,7 @@ export const defaultSettings: AppSettings = {
   playbooksUnreadable: [],
   customAgents: [],
   customAgentsUnreadable: [],
+  myStandards: DEFAULT_MY_STANDARDS,
   permissionMode: "auto-safe",
   trustedTools: [],
   skillsEnabled: true,

@@ -6,6 +6,7 @@
  */
 import type { AgentDelegationContext, AgentInvokeResult, HostAgentAction } from "../../../src/lib/agents/api";
 import { listAgents, normalizeCustomAgents } from "../../../src/lib/agents/library";
+import { activeStandards, normalizeMyStandards } from "../../../src/lib/agents/standards";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
 import { taskAgentRuntimeOptions } from "../../../src/lib/agents/runtime-options";
 import { setTaskRuntimeOptionsResolver } from "../../providers/runtime";
@@ -38,8 +39,10 @@ export function createHostAssignRuntime(args: {
       runtime.recover();
       // Every later turn of an assigned task runs as the same agent version.
       setTaskRuntimeOptionsResolver(({ taskId, providerId, runtimeOptions }) => {
-        const agent = runtime.agentForTask(taskId);
-        return agent ? taskAgentRuntimeOptions({ agent, providerId, base: runtimeOptions }) : {};
+        const task = runtime.taskAgent(taskId);
+        return task
+          ? taskAgentRuntimeOptions({ agent: task.agent, providerId, base: runtimeOptions, standards: task.standards })
+          : {};
       });
     },
   };
@@ -47,6 +50,12 @@ export function createHostAssignRuntime(args: {
 
 /** The host's copy of the renderer's custom agents, for projects and missions. */
 let hostCustomAgents: AgentConfig[] = [];
+/** The user's standards, when on; a project mission's task starts with them. */
+let hostStandards: string | undefined;
+
+export function hostMyStandards() {
+  return hostStandards;
+}
 
 export function hostAgents(): AgentConfig[] {
   return listAgents({ custom: hostCustomAgents, activeOnly: true });
@@ -76,7 +85,9 @@ export async function invokeAgentAction(
         return { ok: true, value: runtime.list(value) };
       }
       case "sync-agents": {
-        hostCustomAgents = normalizeCustomAgents((args as { customAgents?: unknown } | null)?.customAgents).agents;
+        const payload = (args ?? {}) as { customAgents?: unknown; myStandards?: unknown };
+        hostCustomAgents = normalizeCustomAgents(payload.customAgents).agents;
+        hostStandards = activeStandards(normalizeMyStandards(payload.myStandards));
         return { ok: true, value: { count: hostCustomAgents.length } };
       }
       case "delegation-context": {

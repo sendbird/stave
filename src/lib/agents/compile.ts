@@ -47,7 +47,7 @@ export type AgentModelResolution =
 /** UI: "What it received". */
 export interface AgentReceivedInstruction {
   sourceId: string;
-  kind: "agent" | "skill";
+  kind: "agent" | "skill" | "standards";
   hash?: string;
   included: boolean;
   reason?: string;
@@ -224,8 +224,10 @@ function toolLimitSentence(agent: AgentConfig): string | null {
   return parts.length ? parts.join(" ") : null;
 }
 
-function renderInstructions(agent: AgentConfig, includeToolSentence: boolean): string {
+function renderInstructions(agent: AgentConfig, includeToolSentence: boolean, standards?: string): string {
   const lines = [`# Agent: ${agent.name}`, agent.instructions];
+  // The user's own standards follow the agent's instructions and never replace them.
+  if (standards) lines.push(`## My standards\n\n${standards}`);
   if (includeToolSentence) {
     const sentence = toolLimitSentence(agent);
     if (sentence) lines.push(sentence);
@@ -252,8 +254,11 @@ export function compileAgent(args: {
   snapshot: AgentSnapshot;
   role: AgentRole;
   providerId: ProviderId;
+  /** The user's "My standards" for this run; not part of the agent's version. */
+  standards?: string;
 }): CompileAgentResult {
   const { snapshot, role, providerId } = args;
+  const standards = args.standards?.trim() || undefined;
   const { agent } = snapshot;
 
   if (agent.archived) {
@@ -294,6 +299,9 @@ export function compileAgent(args: {
   const received: AgentReceivedInstruction[] = [
     { sourceId: `agent:${agent.id}`, kind: "agent", hash: snapshot.contentHash, included: true },
     ...agent.skills.map((skill) => ({ sourceId: `skill:${skill}`, kind: "skill" as const, included: true })),
+    ...(standards
+      ? [{ sourceId: "standards", kind: "standards" as const, hash: hashAgentContent(standards), included: true }]
+      : []),
   ];
   const base = {
     agentConfigId: agent.id,
@@ -314,7 +322,7 @@ export function compileAgent(args: {
         ? { presetId: agent.workerPresetId as WorkerPresetId }
         : {
             description: agent.description,
-            instructions: renderInstructions(agent, toolsInstructed),
+            instructions: renderInstructions(agent, toolsInstructed, standards),
             ...(agent.tools.allow ? { tools: [...agent.tools.allow] } : {}),
             ...(agent.tools.maxTurns ? { maxTurns: agent.tools.maxTurns } : {}),
           }),
@@ -337,13 +345,13 @@ export function compileAgent(args: {
           ...(fixed ? { effort: toDelegateEffort(fixed.effort) } : {}),
           workspaceMode: agent.workspace,
         },
-        promptPreamble: renderInstructions(agent, true),
+        promptPreamble: renderInstructions(agent, true, standards),
       },
     };
   }
 
   const hasChannel = SYSTEM_CHANNEL_PROVIDERS.includes(providerId);
-  const rendered = renderInstructions(agent, toolsInstructed || !hasChannel);
+  const rendered = renderInstructions(agent, toolsInstructed || !hasChannel, standards);
   return {
     ok: true,
     compiled: {

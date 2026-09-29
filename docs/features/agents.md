@@ -68,6 +68,15 @@ composer's Worker menu. Picking one copies its instructions and tool list into
 this task's Worker; edit the agent and pick it again to refresh the copy.
 Picking a preset afterwards clears it.
 
+### My standards
+
+**My standards**, at the top of the Agents list, holds your own rules for every
+agent you run — how you want code written, reviewed or reported. Turned on,
+they are added after each agent's instructions when you assign work, delegate
+to an agent or pick one as a Worker. A task keeps the standards it started
+with; **What it received** lists them as a source. They stay in your settings
+and are never written into an exported agent file.
+
 ### Export
 
 **Export** in an agent's details shows the Claude or Codex agent file the agent

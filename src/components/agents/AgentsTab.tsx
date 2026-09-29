@@ -32,11 +32,14 @@ import { useAppStore } from "@/store/app.store";
 import { playbookStyles as styles } from "../playbooks/playbooks.styles";
 import { AssignPanel, PROVIDER_LABELS } from "./AssignPanel";
 import { ExportAgent } from "./ExportAgent";
+import { MyStandardsPanel } from "./MyStandardsPanel";
 import { agentStyles } from "./agents.styles";
 import { useRepositoryAgents } from "./useRepositoryAgents";
 
 const PROVIDERS = listProviderIds();
 const NO_NOTES: readonly AgentImportNote[] = [];
+/** The list entry for My standards; not an agent id (agent ids are slugs). */
+const STANDARDS_ID = "__my-standards__";
 
 /** Recent assignments of one agent, refreshed when the host reports a change. */
 function useAssignments(agentConfigId: string | null) {
@@ -358,7 +361,9 @@ export function AgentsTab() {
     [repository.scan, custom, repositoryAgents],
   );
   const groups = useMemo(() => groupAgents(agents, query), [agents, query]);
-  const selected = agents.find((agent) => agent.id === selectedId) ?? agents[0] ?? null;
+  const myStandards = useAppStore((state) => state.settings.myStandards);
+  const showStandards = selectedId === STANDARDS_ID;
+  const selected = showStandards ? null : (agents.find((agent) => agent.id === selectedId) ?? agents[0] ?? null);
   const selectedNotes = useMemo(
     () =>
       selected?.source === "repository"
@@ -408,6 +413,23 @@ export function AgentsTab() {
             <RefreshCw aria-hidden />
           </Button>
         </div>
+        <ul className={sx(styles.list)}>
+          <li>
+            <Button
+              layout="host"
+              variant="quiet"
+              press="none"
+              aria-current={selectedId === STANDARDS_ID ? "true" : undefined}
+              xstyle={[styles.card, selectedId === STANDARDS_ID && styles.cardActive]}
+              onClick={() => setSelectedId(STANDARDS_ID)}
+            >
+              <span className={sx(styles.cardTitleRow)}>
+                <span className={sx(styles.cardTitle)}>My standards</span>
+              </span>
+              <span className={sx(styles.cardMeta)}>{myStandards.enabled ? "On · added to every agent" : "Off"}</span>
+            </Button>
+          </li>
+        </ul>
         {groups.map((group) => (
           <div key={group.source}>
             <p className={sx(styles.listLabel)}>{group.label}</p>
@@ -440,14 +462,27 @@ export function AgentsTab() {
           </p>
         ) : null}
       </aside>
-      {selected ? (
+      {showStandards ? (
+        <div className={sx(styles.detail)}>
+          <div className={sx(styles.compactPicker)}>
+            <Select
+              size="sm"
+              aria-label="Agent"
+              value={STANDARDS_ID}
+              options={[{ value: STANDARDS_ID, label: "My standards" }, ...agents.map((agent) => ({ value: agent.id, label: agent.name }))]}
+              onValueChange={(value) => setSelectedId(String(value))}
+            />
+          </div>
+          <MyStandardsPanel />
+        </div>
+      ) : selected ? (
         <div className={sx(styles.detail)}>
           <div className={sx(styles.compactPicker)}>
             <Select
               size="sm"
               aria-label="Agent"
               value={selected.id}
-              options={agents.map((agent) => ({ value: agent.id, label: agent.name }))}
+              options={[{ value: STANDARDS_ID, label: "My standards" }, ...agents.map((agent) => ({ value: agent.id, label: agent.name }))]}
               onValueChange={(value) => setSelectedId(String(value))}
             />
             <Button

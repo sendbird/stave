@@ -6,6 +6,7 @@ import { Textarea } from "@/components/ads/components/Textarea";
 import { sx } from "@/components/ads/utils/stylex";
 import { ASSIGNMENT_STATE_LABELS, type AgentAssignment } from "@/lib/agents/assign";
 import { resolveAssignRoute } from "@/lib/agents/assign-route";
+import { activeStandards } from "@/lib/agents/standards";
 import { isUsableAs, type AgentConfig } from "@/lib/agents/schema";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -45,6 +46,7 @@ export function AssignPanel(props: {
     (state) => state.tasks.find((task) => task.id === state.activeTaskId)?.provider ?? null,
   );
   const profile = useAppStore((state) => state.settings.autoRoutingProfile);
+  const myStandards = useAppStore((state) => state.settings.myStandards);
   const focusTaskAttention = useAppStore((state) => state.focusTaskAttention);
   const closeAutomationCenter = useAppStore((state) => state.closeAutomationCenter);
   const fixedProvider = agent.model.mode === "fixed" ? agent.model.providerId : null;
@@ -88,6 +90,7 @@ export function AssignPanel(props: {
       model: route.model,
       repositoryPath,
       ...(activeWorkspaceId ? { currentWorkspaceId: activeWorkspaceId } : {}),
+      ...(activeStandards(myStandards) ? { standards: activeStandards(myStandards) } : {}),
     });
     setBusy(false);
     if (!result.ok) {

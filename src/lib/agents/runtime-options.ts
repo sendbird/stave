@@ -40,10 +40,17 @@ export function taskAgentRuntimeOptions(args: {
   agent: AgentConfig;
   providerId: ProviderId;
   base?: ProviderRuntimeOptions;
+  /** The standards the task started with. */
+  standards?: string | null;
 }): Partial<ProviderRuntimeOptions> {
   const base = args.base ?? {};
   // Archive state does not stop a task that already runs as the agent.
-  const compiled = compileAgent({ snapshot: snapshotAgent({ ...args.agent, archived: false }), role: "primary", providerId: args.providerId });
+  const compiled = compileAgent({
+    snapshot: snapshotAgent({ ...args.agent, archived: false }),
+    role: "primary",
+    providerId: args.providerId,
+    ...(args.standards ? { standards: args.standards } : {}),
+  });
   const instructions =
     !base.agentInstructions && compiled.ok && compiled.compiled.role === "primary" ? agentRuntimeOptions(compiled.compiled, base) : {};
   const permission = agentPermissionOverrides({
@@ -62,8 +69,9 @@ export function taskAgentRuntimeOptions(args: {
 export function agentWorkerConfig(
   agent: AgentConfig,
   providerId: ProviderId,
+  standards?: string,
 ): (WorkerProviderConfig & { agentConfigId: string; agentName: string }) | null {
-  const compiled = compileAgent({ snapshot: snapshotAgent(agent), role: "worker", providerId });
+  const compiled = compileAgent({ snapshot: snapshotAgent(agent), role: "worker", providerId, ...(standards ? { standards } : {}) });
   if (!compiled.ok || compiled.compiled.role !== "worker") return null;
   return { ...compiled.compiled.workerConfig, agentConfigId: agent.id, agentName: agent.name };
 }

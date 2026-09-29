@@ -1,4 +1,5 @@
 import type { StoreApi } from "zustand";
+import { normalizeMyStandards } from "@/lib/agents/standards";
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizeComposerControlPlacements } from "@/lib/composer-controls";
 import { normalizeLensHostList } from "@/lib/lens/lens-security";
@@ -544,6 +545,7 @@ export function createSettingsActions(args: {
         ...(patch.customAgents === undefined
           ? {}
           : { customAgents: normalizeCustomAgentPatch(patch.customAgents) }),
+        ...(patch.myStandards === undefined ? {} : { myStandards: normalizeMyStandards(patch.myStandards) }),
         ...(patch.lensSessionScope === undefined
           ? {}
           : {

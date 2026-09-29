@@ -39,13 +39,20 @@ export function applyAgentToDelegation(input: {
   parentPermission?: AgentPermission | null;
   /** When set, only these agents may be delegated to. */
   allowedAgentIds?: readonly string[] | null;
+  /** The user's standards, added after the agent's instructions. */
+  standards?: string;
 }): AgentDelegationResult {
   const { args, agent } = input;
   if (input.allowedAgentIds && !input.allowedAgentIds.includes(agent.id)) {
     return { ok: false, code: "not-allowed", message: `"${agent.name}" is not one of this project's agents.` };
   }
   const snapshot = snapshotAgent(agent);
-  const compiled = compileAgent({ snapshot, role: "delegate", providerId: args.providerId });
+  const compiled = compileAgent({
+    snapshot,
+    role: "delegate",
+    providerId: args.providerId,
+    ...(input.standards ? { standards: input.standards } : {}),
+  });
   if (!compiled.ok) return { ok: false, code: "not-a-delegate", message: compiled.message };
   if (compiled.compiled.role !== "delegate") {
     return { ok: false, code: "not-a-delegate", message: `"${agent.name}" did not compile as a delegated task.` };

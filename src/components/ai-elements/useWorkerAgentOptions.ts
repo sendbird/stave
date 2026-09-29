@@ -1,5 +1,6 @@
 import { useCallback, useMemo } from "react";
 import { agentWorkerConfig } from "@/lib/agents/runtime-options";
+import { activeStandards } from "@/lib/agents/standards";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { useAppStore } from "@/store/app.store";
 
@@ -10,6 +11,7 @@ import { useAppStore } from "@/store/app.store";
  */
 export function useWorkerAgentOptions(providerId: ProviderId) {
   const customAgents = useAppStore((state) => state.settings.customAgents);
+  const standards = activeStandards(useAppStore((state) => state.settings.myStandards));
   const options = useMemo(
     () =>
       customAgents
@@ -20,9 +22,9 @@ export function useWorkerAgentOptions(providerId: ProviderId) {
   const configFor = useCallback(
     (agentConfigId: string) => {
       const agent = customAgents.find((candidate) => candidate.id === agentConfigId);
-      return agent ? agentWorkerConfig(agent, providerId) : null;
+      return agent ? agentWorkerConfig(agent, providerId, standards) : null;
     },
-    [customAgents, providerId],
+    [customAgents, providerId, standards],
   );
   return { options, configFor };
 }

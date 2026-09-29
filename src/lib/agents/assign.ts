@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { MY_STANDARDS_MAX_CHARS } from "./standards";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { AgentConfigSchema, type AgentConfig } from "./schema";
@@ -42,6 +43,8 @@ export const AssignAgentInputSchema = z
     /** Where to work: a repository for a new worktree, or the current workspace. */
     repositoryPath: z.string().trim().min(1).max(4096),
     currentWorkspaceId: z.string().trim().min(1).max(200).optional(),
+    /** The user's "My standards" at the moment of assigning, when turned on. */
+    standards: z.string().trim().min(1).max(MY_STANDARDS_MAX_CHARS).optional(),
   })
   .strict();
 export type AssignAgentInput = z.infer<typeof AssignAgentInputSchema>;
@@ -78,6 +81,8 @@ export interface AgentAssignment {
   turnId: string | null;
   state: AssignmentState;
   detail: string | null;
+  /** The user's standards the task started with; later turns keep them. */
+  standards?: string | null;
   /** "What it received". */
   received: AgentReceivedInstruction[];
   support: AgentSupportEntry[];
@@ -93,6 +98,7 @@ export function hashAssignRequest(input: AssignAgentInput): string {
     model: input.model ?? null,
     repositoryPath: input.repositoryPath,
     currentWorkspaceId: input.currentWorkspaceId ?? null,
+    standards: input.standards ?? null,
   });
 }
 

@@ -3,7 +3,7 @@ import { z } from "zod";
 import { AGENT_IPC, type AgentInvokeResult, type HostAgentAction } from "../../../src/lib/agents/api";
 import { AssignAgentInputSchema } from "../../../src/lib/agents/assign";
 import { invokeHostService, onHostServiceEvent, onHostServiceReady } from "../host-service-client";
-import { getCustomAgents, setCustomAgents } from "../agents/agent-registry";
+import { getCustomAgents, getMyStandards, setCustomAgents, setMyStandards } from "../agents/agent-registry";
 
 /**
  * Main-process bridge for agents. The host validates an assign request again;
@@ -27,10 +27,10 @@ function failed(error: unknown, fallback: string): AgentInvokeResult<never> {
 
 let bridgeRegistered = false;
 
-const SyncSchema = z.object({ customAgents: z.array(z.unknown()).max(200) }).strict();
+const SyncSchema = z.object({ customAgents: z.array(z.unknown()).max(200), myStandards: z.unknown().optional() }).strict();
 
 function syncHost() {
-  return invokeAgent("sync-agents", { customAgents: getCustomAgents() });
+  return invokeAgent("sync-agents", { customAgents: getCustomAgents(), myStandards: getMyStandards() });
 }
 
 export function registerAgentHandlers() {
@@ -61,6 +61,7 @@ export function registerAgentHandlers() {
     const parsed = SyncSchema.safeParse(args);
     if (!parsed.success) return { ok: false };
     setCustomAgents(parsed.data.customAgents);
+    setMyStandards(parsed.data.myStandards);
     try {
       await syncHost();
     } catch (error) {

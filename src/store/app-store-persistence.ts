@@ -1,4 +1,5 @@
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
+import { normalizeMyStandards } from "@/lib/agents/standards";
 import { normalizePersistedCompareRuns } from "@/lib/compare-runs";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
@@ -361,6 +362,7 @@ export function createAppStorePersistenceOptions() {
       });
       state.settings.customAgents = restoredAgents.agents;
       state.settings.customAgentsUnreadable = restoredAgents.unreadable;
+      state.settings.myStandards = normalizeMyStandards(raw.myStandards);
       state.settings.modelShortcutKeys = normalizeModelShortcutKeys(
         raw.modelShortcutKeys,
       );

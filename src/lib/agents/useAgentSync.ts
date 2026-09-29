@@ -8,12 +8,13 @@ import { useAppStore } from "@/store/app.store";
  */
 export function useAgentSync() {
   const customAgents = useAppStore((state) => state.settings.customAgents);
+  const myStandards = useAppStore((state) => state.settings.myStandards);
   useEffect(() => {
     const sync = typeof window === "undefined" ? undefined : window.api?.agents?.sync;
     if (!sync) return;
     const timer = window.setTimeout(() => {
-      void sync({ customAgents }).catch(() => undefined);
+      void sync({ customAgents, myStandards }).catch(() => undefined);
     }, 300);
     return () => window.clearTimeout(timer);
-  }, [customAgents]);
+  }, [customAgents, myStandards]);
 }

@@ -8,8 +8,18 @@
  */
 import { normalizeCustomAgents, listAgents } from "../../../src/lib/agents/library";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
+import { DEFAULT_MY_STANDARDS, normalizeMyStandards, type MyStandards } from "../../../src/lib/agents/standards";
 
 let customAgents: AgentConfig[] = [];
+let myStandards: MyStandards = DEFAULT_MY_STANDARDS;
+
+export function setMyStandards(input: unknown) {
+  myStandards = normalizeMyStandards(input);
+}
+
+export function getMyStandards(): MyStandards {
+  return myStandards;
+}
 
 /** Keeps the readable custom agents; unreadable ones are left out, never guessed. */
 export function setCustomAgents(input: unknown): AgentConfig[] {

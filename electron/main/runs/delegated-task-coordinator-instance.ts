@@ -17,7 +17,8 @@ import { createDelegatedTaskHostPort } from "./delegated-task-host-port";
 import { applyAgentToDelegation } from "../../../src/lib/agents/delegate";
 import type { AgentDelegationContext, AgentInvokeResult } from "../../../src/lib/agents/api";
 import type { DelegateTaskArgs } from "../../../src/lib/runs/delegated-task";
-import { findAgent } from "../agents/agent-registry";
+import { findAgent, getMyStandards } from "../agents/agent-registry";
+import { activeStandards } from "../../../src/lib/agents/standards";
 
 const execFileAsync = promisify(execFile);
 
@@ -49,6 +50,7 @@ async function applyAgent(args: DelegateTaskArgs) {
     agent,
     parentPermission: context.value.parentPermission,
     allowedAgentIds: context.value.allowedAgentIds,
+    standards: activeStandards(getMyStandards()),
   });
   return result.ok
     ? { ok: true as const, args: result.args, agentContentHash: result.snapshot.contentHash }

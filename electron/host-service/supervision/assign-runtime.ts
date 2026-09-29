@@ -70,7 +70,10 @@ export interface AssignRuntime {
     providerId: ProviderId;
     model: string | null;
     assignment: string;
+    standards?: string;
   }) => AgentAssignment;
+  /** The agent and standards an assigned task runs with, for its later turns. */
+  taskAgent: (taskId: string) => { agent: AgentAssignment["agent"]; standards: string | null } | null;
 }
 
 export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRuntime {
@@ -90,11 +93,15 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
       // A task intake made for an agent keeps running as it, even after a failed first turn.
       return deps.store.getByTaskId(taskId)?.agent ?? null;
     },
+    taskAgent: (taskId) => {
+      const row = deps.store.getByTaskId(taskId);
+      return row ? { agent: row.agent, standards: row.standards ?? null } : null;
+    },
     recordTaskAgent(args) {
       const existing = deps.store.getByRequestId(args.requestId);
       if (existing) return existing;
       const snapshot = snapshotAgent(args.agent);
-      const compiled = compileAgent({ snapshot, role: "primary", providerId: args.providerId });
+      const compiled = compileAgent({ snapshot, role: "primary", providerId: args.providerId, standards: args.standards });
       if (!compiled.ok) throw new AssignError("refused", compiled.message);
       const timestamp = now().toISOString();
       const row: AgentAssignment = {
@@ -117,6 +124,7 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
         // The starter (the mission) owns the turns; this row only says who the task runs as.
         state: "started",
         detail: null,
+        standards: args.standards ?? null,
         received: compiled.compiled.received,
         support: compiled.compiled.support,
         createdAt: timestamp,
@@ -154,7 +162,7 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
       }
 
       const snapshot = snapshotAgent(input.agent);
-      const compiled = compileAgent({ snapshot, role: "primary", providerId: input.providerId });
+      const compiled = compileAgent({ snapshot, role: "primary", providerId: input.providerId, standards: input.standards });
       if (!compiled.ok) throw new AssignError("refused", compiled.message);
       if (compiled.compiled.role !== "primary") throw new AssignError("refused", "The agent did not compile as a main agent.");
       const main = compiled.compiled;
@@ -185,6 +193,7 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
         turnId: null,
         state: "preparing",
         detail: null,
+        standards: input.standards ?? null,
         received: main.received,
         support: main.support,
         createdAt: timestamp,
