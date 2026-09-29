@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, ArchiveRestore, Copy, RefreshCw } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, RefreshCw, Rocket } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
 import { Checkbox } from "@/components/ads/components/Checkbox";
 import { Select } from "@/components/ads/components/Select";
@@ -25,13 +25,15 @@ import {
   AGENT_SOURCE_LABELS,
   AGENT_WORKSPACE_LABELS,
   AGENT_WORKSPACES,
+  isUsableAs,
   type AgentConfig,
 } from "@/lib/agents/schema";
 import { listProviderIds } from "@/lib/providers/model-catalog";
+import { PROVIDER_LABELS } from "@/lib/agents/provider-labels";
+import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { useAppStore } from "@/store/app.store";
 import { useAgentsViewStore } from "@/store/agents-view-store";
 import { playbookStyles as styles } from "../playbooks/playbooks.styles";
-import { AssignPanel, PROVIDER_LABELS } from "./AssignPanel";
 import { ExportAgent } from "./ExportAgent";
 import { agentStyles } from "./agents.styles";
 import { useRepositoryAgents } from "./useRepositoryAgents";
@@ -210,6 +212,15 @@ function AgentDetail(props: {
             </p>
           </div>
           <div className={sx(styles.headingActions)}>
+            {isUsableAs(agent, "primary") && !agent.archived ? (
+              <Button
+                size="sm"
+                onClick={() => useAgentsUiStore.getState().openKickoffWithAgent({ agentConfigId: agent.id })}
+              >
+                <Rocket aria-hidden />
+                Start work…
+              </Button>
+            ) : null}
             <Button size="sm" variant="quiet" onClick={props.onDuplicate}>
               <Copy aria-hidden />
               Duplicate
@@ -222,8 +233,6 @@ function AgentDetail(props: {
             ) : null}
           </div>
         </div>
-
-        <AssignPanel agent={agent} />
 
         {editable ? (
           <CustomAgentFields agent={agent} onSave={props.onSave} />

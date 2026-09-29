@@ -2215,7 +2215,7 @@ export function PromptInput(args: PromptInputProps) {
       setDismissedMacroToken(match?.token ?? `!${item.slug}`);
       setSelectedMacroIndex(NO_COMMAND_SELECTION);
       if (playbookId) openHandOff?.({ assignment: nextValue, playbookId });
-      else useAgentsUiStore.getState().openAssignSheet({ assignment: nextValue });
+      else useAgentsUiStore.getState().openKickoffWithAgent({ text: nextValue });
       return;
     }
     if (!onMacroSelect) {

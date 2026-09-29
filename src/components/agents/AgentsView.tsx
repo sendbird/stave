@@ -17,7 +17,7 @@ const TABS: ReadonlyArray<readonly [AgentsViewTab, string]> = [
 ];
 
 const TAB_NOTES: Record<AgentsViewTab, string> = {
-  agents: "Saved agents to hand work to. Assign creates the task and starts it.",
+  agents: "Saved agents to hand work to. Start work opens Kickoff with the agent chosen.",
   playbooks: "Saved ways of working. A mission runs one on a task, stage by stage.",
   standards: "Your own rules, added after every agent's instructions when on.",
 };

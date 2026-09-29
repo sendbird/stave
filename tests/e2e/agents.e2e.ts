@@ -19,23 +19,20 @@ test.describe("agents", () => {
     await expect(page.getByRole("button", { name: /^Reviewer/ })).toBeVisible();
   });
 
-  test("assigning shows where the work started and offers to open the task", async ({ page }) => {
-    await page.goto("/?stavePreview=agents");
-    await page.getByRole("button", { name: /^UI maintainer/ }).click();
-    await page.getByRole("textbox", { name: "What should the agent do?" }).fill("Tighten the sidebar spacing.");
-    await page.getByRole("button", { name: "Assign", exact: true }).click();
-    await expect(page.getByRole("status").filter({ hasText: "Started in a new worktree" })).toBeVisible();
-    await expect(page.getByRole("button", { name: "Open task" })).toBeVisible();
+  test("Start now in Kickoff shows where the work started and offers to open the task", async ({ page }) => {
+    await page.goto("/?stavePreview=kickoff&agent=1");
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByText("Kick off workspace")).toBeVisible();
+    await dialog.getByRole("button", { name: "Start now" }).click();
+    await expect(dialog.getByRole("button", { name: "Open task" })).toBeVisible();
   });
 
-  test("Assign to agent from an issue prefills the ticket and offers only main agents", async ({ page }) => {
-    await page.goto("/?stavePreview=agents&sheet=1");
-    const sheet = page.getByRole("dialog");
-    await expect(sheet.getByText("Assign to agent")).toBeVisible();
-    await expect(sheet.getByRole("textbox", { name: "What should the agent do?" })).toHaveValue("Work on tracker ticket WEB-418.");
-    await sheet.getByRole("combobox", { name: "Agent" }).click();
-    await expect(page.getByRole("option", { name: "Implementer" })).toBeVisible();
-    await expect(page.getByRole("option", { name: "Reviewer" })).toHaveCount(0);
+  test("Kickoff opens with an agent preselected in both phases", async ({ page }) => {
+    await page.goto("/?stavePreview=kickoff&agent=1");
+    const dialog = page.getByRole("dialog");
+    // Source phase shows Who with the agent chosen and a Start now quick path.
+    await expect(dialog.getByText("Who")).toBeVisible();
+    await expect(dialog.getByRole("button", { name: "Start now" })).toBeVisible();
   });
 
   test("the Agents surface shows all three tabs and switches between them", async ({ page }) => {

@@ -30,21 +30,27 @@ Open the **Agents** surface from the sidebar, the command palette
 
 1. Open **Agents** in the sidebar and stay on the **Agents** tab.
 2. Pick **Implementer** (built in), or **Duplicate** any agent to edit a copy.
-3. In **Assign**, describe the work and when it counts as done.
-4. Leave **Runs on** at **Auto-routing** or pick a provider, then **Assign**.
+3. Press **Start work…** in the agent's header. Kickoff opens with the agent
+   preselected as the worker.
+4. Describe the work as the kickoff source, then **Create and start** (or leave
+   the first task ready without starting).
 5. **Open task** to follow it. The task's **Flow** panel shows what was
    assigned, its stages and the tasks it delegated.
 
-### Other ways to assign
+### Other ways to start work with an agent
 
 - **Issues**: a ticket's context menu, or the detail pane's ⋯ menu, has
-  **Assign to agent**. The ticket's key, title and link become the request. The
-  ticket's own assignee does not change.
+  **Assign to agent**. The ticket's key, title and link become the kickoff
+  source. The ticket's own assignee does not change.
 - **Composer**: type `!assign` in any task's composer, including a new one. The
-  rest of the draft becomes the request. The agent works in its own task.
+  rest of the draft becomes the kickoff source. The agent works in its own task.
+- **Command palette**: **Start work with an agent…** opens Kickoff with the
+  agent picker ready.
 
-Both open the **Assign to agent** sheet: pick an agent usable as a main agent,
-edit the request, then **Assign**.
+All of these open **Kickoff** with **Who** set. On the first screen, choose
+**Me** or an agent; with an agent, **Start now** starts a task from the source
+right away. On the review screen, **Who / How / Where** set the worker, whether
+it runs as one task or a playbook mission, and the new worktree and its base.
 
 ## Interface Walkthrough
 
@@ -63,9 +69,9 @@ edit the request, then **Assign**.
 ### Usable as and the Worker picker
 
 A custom agent's **Usable as** chooses where it can be used: **Main agent**
-(Assign), **Worker** (the composer's Worker mode) and **Delegated task**.
-Duplicate the built-in **Reviewer** and turn on **Main agent** to assign work to
-it directly.
+(Start work / Kickoff), **Worker** (the composer's Worker mode) and **Delegated
+task**. Duplicate the built-in **Reviewer** and turn on **Main agent** to start
+work with it directly.
 
 Custom agents usable as a Worker appear under **Custom agents** in the
 composer's Worker menu. Picking one copies its instructions and tool list into

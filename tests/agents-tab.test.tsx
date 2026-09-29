@@ -35,20 +35,21 @@ describe("agents view", () => {
     ]);
   });
 
-  test("the tab renders the list and the first agent's Assign panel", () => {
+  test("the tab renders the list and a Start work button for the first agent", () => {
     const html = renderToStaticMarkup(createElement(AgentsTab));
     expect(html).toContain('data-testid="agents-tab"');
     expect(html).toContain("Implementer");
-    expect(html).toContain("Assign");
-    expect(html).toContain("As a main agent");
+    // The embedded Assign panel is gone; the detail offers Start work… which
+    // opens Kickoff.
+    expect(html).toContain("Start work");
     // The agent's assignments section is titled "Work" (was "Recent work").
     expect(html).toContain(">Work<");
     expect(html).not.toContain("Recent work");
   });
 });
 
-describe("assign entry points", () => {
-  test("an issue opens Assign to agent with the ticket as the request", async () => {
+describe("start work entry points", () => {
+  test("an issue opens Kickoff with the ticket as the work source", async () => {
     const { assignTrackerIssueToAgent } = await import("../src/components/layout/issues/assign-issue-to-agent");
     const { useAgentsUiStore } = await import("@/store/agents-ui-store");
     assignTrackerIssueToAgent({
@@ -59,10 +60,10 @@ describe("assign entry points", () => {
       url: "https://crane.example/WEB-418",
       links: [],
     } as never);
-    const request = useAgentsUiStore.getState().assignSheet;
+    const request = useAgentsUiStore.getState().kickoffRequest;
     expect(request?.source).toBe("WEB-418");
-    expect(request?.assignment).toContain("Title: Export invoices as CSV");
-    useAgentsUiStore.getState().closeAssignSheet();
+    expect(request?.text).toContain("Title: Export invoices as CSV");
+    useAgentsUiStore.getState().clearKickoffRequest();
   });
 
   test("`!assign` is offered in the composer palette and is not a playbook", async () => {
@@ -70,8 +71,21 @@ describe("assign entry points", () => {
       "../src/components/session/HandOffControl"
     );
     expect(ASSIGN_PALETTE_ENTRY.slug).toBe("assign");
+    expect(ASSIGN_PALETTE_ENTRY.label).toBe("Start work with an agent…");
     expect(isAssignPaletteEntry(ASSIGN_PALETTE_ENTRY)).toBe(true);
     expect(playbookIdOfPaletteEntry(ASSIGN_PALETTE_ENTRY)).toBeNull();
   });
 
+  test("openKickoffWithAgent raises a fresh nonce so an open dialog reopens", async () => {
+    const { useAgentsUiStore } = await import("@/store/agents-ui-store");
+    useAgentsUiStore.getState().clearKickoffRequest();
+    useAgentsUiStore.getState().openKickoffWithAgent({ agentConfigId: "ui-maintainer" });
+    const first = useAgentsUiStore.getState().kickoffRequest;
+    expect(first?.agentConfigId).toBe("ui-maintainer");
+    useAgentsUiStore.getState().openKickoffWithAgent({ text: "next" });
+    const second = useAgentsUiStore.getState().kickoffRequest;
+    expect(second?.text).toBe("next");
+    expect((second?.nonce ?? 0) > (first?.nonce ?? 0)).toBe(true);
+    useAgentsUiStore.getState().clearKickoffRequest();
+  });
 });

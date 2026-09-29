@@ -132,6 +132,7 @@ export interface CommandPaletteCommandHandlers {
   openAutomationCenter: () => void;
   openIssues: () => void;
   openAgents: () => void;
+  startWorkWithAgent: () => void;
   refreshTrackerIssues: () => Promise<void> | void;
   openKeyboardShortcuts: () => void;
   openRepository: (repositoryPath: string) => Promise<void> | void;
@@ -478,6 +479,24 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
       ],
       shortcut: `${args.modifierLabel}+K G`,
       run: args.commands.openAgents,
+      source: "core",
+    }),
+  },
+  {
+    id: "agents.start-work",
+    title: "Start work with an agent…",
+    description: "Open Kickoff and hand the work to a saved agent.",
+    group: "navigation",
+    icon: Bot,
+    keywords: ["agent", "assign", "delegate", "kickoff", "start work", "hand off"],
+    build: (args) => ({
+      id: "agents.start-work",
+      title: "Start work with an agent…",
+      subtitle: "Open Kickoff and choose an agent to do the work.",
+      group: "navigation",
+      icon: Bot,
+      keywords: ["agent", "assign", "delegate", "kickoff", "start work", "hand off"],
+      run: args.commands.startWorkWithAgent,
       source: "core",
     }),
   },
