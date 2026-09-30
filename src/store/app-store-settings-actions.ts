@@ -1,5 +1,6 @@
 import type { StoreApi } from "zustand";
 import { normalizeMyStandards } from "@/lib/agents/standards";
+import { normalizeTaskMode } from "@/lib/agents/task-mode";
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizeComposerControlPlacements } from "@/lib/composer-controls";
 import { normalizeLensHostList } from "@/lib/lens/lens-security";
@@ -71,6 +72,8 @@ import {
   upsertRecentRepositoryState,
 } from "@/store/repository.utils";
 import { normalizeCustomAgents } from "@/lib/agents/library";
+import { normalizeAgentRevisions } from "@/lib/agents/revisions";
+import { normalizeAgentSuggestions, normalizeLearningDisabled } from "@/lib/agents/learned-suggestions";
 import {
   normalizeClaudeSettingSources,
   normalizeClaudeTaskBudgetTokens,
@@ -545,7 +548,17 @@ export function createSettingsActions(args: {
         ...(patch.customAgents === undefined
           ? {}
           : { customAgents: normalizeCustomAgentPatch(patch.customAgents) }),
+        ...(patch.customAgentRevisions === undefined
+          ? {}
+          : { customAgentRevisions: normalizeAgentRevisions(patch.customAgentRevisions) }),
+        ...(patch.agentSuggestions === undefined
+          ? {}
+          : { agentSuggestions: normalizeAgentSuggestions(patch.agentSuggestions) }),
+        ...(patch.agentLearningDisabled === undefined
+          ? {}
+          : { agentLearningDisabled: normalizeLearningDisabled(patch.agentLearningDisabled) }),
         ...(patch.myStandards === undefined ? {} : { myStandards: normalizeMyStandards(patch.myStandards) }),
+        ...(patch.taskMode === undefined ? {} : { taskMode: normalizeTaskMode(patch.taskMode) }),
         ...(patch.lensSessionScope === undefined
           ? {}
           : {

@@ -77,6 +77,14 @@ export const RecordTaskAgentInputSchema = z
   .strict();
 export type RecordTaskAgentInput = z.infer<typeof RecordTaskAgentInputSchema>;
 
+/**
+ * What the renderer sends when the user sets a task back to the default agent
+ * in the composer: the task keeps its history, but its later turns run with
+ * the task's own settings again.
+ */
+export const ReleaseTaskAgentInputSchema = z.object({ taskId: z.string().trim().min(1).max(200) }).strict();
+export type ReleaseTaskAgentInput = z.infer<typeof ReleaseTaskAgentInputSchema>;
+
 export const ASSIGNMENT_STATES = ["preparing", "started", "failed", "interrupted"] as const;
 export type AssignmentState = (typeof ASSIGNMENT_STATES)[number];
 
@@ -111,6 +119,14 @@ export interface AgentAssignment {
   detail: string | null;
   /** The user's standards the task started with; later turns keep them. */
   standards?: string | null;
+  /**
+   * The agent's instructions still have to reach a provider that takes them
+   * in the prompt (Cursor, Kiro). Set on tasks another starter made; the
+   * next primary turn prepends them once and clears it.
+   */
+  preambleDue?: boolean;
+  /** Set when the user moved the task off this agent; later turns no longer run as it. */
+  endedAt?: string | null;
   /** "What it received". */
   received: AgentReceivedInstruction[];
   support: AgentSupportEntry[];

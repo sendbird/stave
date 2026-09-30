@@ -5,6 +5,7 @@
  * max-lines ratchet. `app.store` re-exports the public names.
  */
 import { DEFAULT_MY_STANDARDS, type MyStandards } from "@/lib/agents/standards";
+import { DEFAULT_TASK_MODE, type TaskMode } from "@/lib/agents/task-mode";
 import type { BorderBeamColorVariant, BorderBeamSize } from "border-beam";
 import type {
   LensAgentPresentationMode,
@@ -63,6 +64,8 @@ import type { UnreadablePlaybook } from "@/lib/playbooks/normalize";
 import type { Playbook } from "@/lib/playbooks/schema";
 import type { AgentConfig } from "@/lib/agents/schema";
 import type { UnreadableAgent } from "@/lib/agents/library";
+import type { AgentRevisionsMap } from "@/lib/agents/revisions";
+import type { AgentSuggestionsMap } from "@/lib/agents/learned-suggestions";
 import type { PromptEnhancementExemplar } from "@/lib/providers/prompt-enhancement-context";
 import { cloneDefaultTaskPresets, type TaskPreset } from "@/lib/task-presets";
 import {
@@ -261,8 +264,26 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   customAgents: AgentConfig[];
   /** Saved custom agents this version could not read, kept as saved. */
   customAgentsUnreadable: UnreadableAgent[];
+  /**
+   * Version history per custom agent: the replaced version is pushed on every
+   * behavioural change, newest first, capped per agent. Dropped when the agent
+   * is deleted. See `src/lib/agents/revisions.ts`.
+   */
+  customAgentRevisions: AgentRevisionsMap;
+  /**
+   * Open instruction suggestions per custom agent, learned from corrections in
+   * its tasks. See `src/lib/agents/learned-suggestions.ts`.
+   */
+  agentSuggestions: AgentSuggestionsMap;
+  /** Custom agents that do not learn from corrections (learning is on by default). */
+  agentLearningDisabled: string[];
   /** Personal instructions added to every agent run; see `src/lib/agents/standards.ts`. */
   myStandards: MyStandards;
+  /**
+   * Model-based tasks (default) or agentic tasks (experimental), where the
+   * composer picks the agent a task runs as. See `src/lib/agents/task-mode.ts`.
+   */
+  taskMode: TaskMode;
   permissionMode: "require-approval" | "auto-safe";
   trustedTools: string[];
   skillsEnabled: boolean;
@@ -709,7 +730,11 @@ export const defaultSettings: AppSettings = {
   playbooksUnreadable: [],
   customAgents: [],
   customAgentsUnreadable: [],
+  customAgentRevisions: {},
+  agentSuggestions: {},
+  agentLearningDisabled: [],
   myStandards: DEFAULT_MY_STANDARDS,
+  taskMode: DEFAULT_TASK_MODE,
   permissionMode: "auto-safe",
   trustedTools: [],
   skillsEnabled: true,

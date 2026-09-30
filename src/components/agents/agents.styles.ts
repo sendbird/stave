@@ -59,6 +59,7 @@ export const agentStyles = stylex.create({
   },
   runTitle: { flex: "1 1 auto", minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
   roles: { display: "flex", flexWrap: "wrap", gap: vars["--ads-space-12"] },
+  canCall: { display: "flex", flexDirection: "column", gap: vars["--ads-space-8"] },
   noteText: { flex: "1 1 auto", minWidth: 0, overflowWrap: "anywhere" },
   problems: { marginTop: vars["--ads-space-12"], paddingInline: vars["--ads-space-8"] },
   problem: {
@@ -131,6 +132,35 @@ export const agentStyles = stylex.create({
 
   /* New agent dialog / editor ------------------------------------------- */
   blankRow: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"] },
-  runsWith: { display: "flex", flexWrap: "wrap", alignItems: "center", gap: vars["--ads-space-8"] },
   advanced: { marginTop: vars["--ads-space-12"] },
+
+  /* History -------------------------------------------------------------- */
+  historyRow: {
+    display: "flex",
+    alignItems: "center",
+    gap: vars["--ads-space-8"],
+    paddingBlock: vars["--ads-space-4"],
+  },
+  historyMain: { display: "flex", flexDirection: "column", gap: 0, flex: "1 1 auto", minWidth: 0 },
+  historyWhen: { fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-medium"] },
+  historyMeta: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"], flex: "0 0 auto" },
+
+  /* Activity ------------------------------------------------------------- */
+  stats: { display: "flex", flexWrap: "wrap", gap: vars["--ads-space-16"] },
+  stat: { display: "flex", flexDirection: "column", gap: 0, minWidth: "4rem" },
+  statValue: { fontSize: vars["--ads-font-size-title"], fontWeight: vars["--ads-font-weight-semibold"] },
+
+  /* Learned suggestions -------------------------------------------------- */
+  suggestion: {
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-8"],
+    padding: vars["--ads-space-12"],
+    borderRadius: vars["--ads-radius-control"],
+    borderWidth: 1,
+    borderStyle: "solid",
+    borderColor: vars["--ads-color-border"],
+  },
+  suggestionHead: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"] },
+  suggestionActions: { display: "flex", justifyContent: "flex-end", gap: vars["--ads-space-8"] },
 });

@@ -183,6 +183,7 @@ import {
 import { resolveLensAnnotationReview } from "@/lib/lens/lens-element-message";
 import {
   ModelEffortSelector,
+  type ModelPickerAgents,
   type ModelSelectorCatalogState,
 } from "./model-effort-selector";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -360,6 +361,11 @@ interface PromptInputProps {
    * is always attributable.
    */
   workerControl?: ReactNode;
+  /**
+   * Agentic tasks only: agents offered inside the model picker, which then
+   * shows the agent the task runs as. Absent otherwise; no control moves.
+   */
+  modelPickerAgents?: ModelPickerAgents;
   /**
    * Whether Worker mode is armed. Placement has to know, or a demoted Worker
    * pill would spend a second model with nothing on screen saying so.
@@ -925,6 +931,7 @@ export function PromptInput(args: PromptInputProps) {
     advisorControl,
     advisorActive,
     workerControl,
+    modelPickerAgents,
     workerActive,
     secretsControl,
     secretsActive,
@@ -4352,6 +4359,7 @@ export function PromptInput(args: PromptInputProps) {
                   catalogs={modelCatalogs}
                   modelVisibility={modelVisibility}
                   onRefreshCatalogs={onRefreshModelCatalogs}
+                  {...(modelPickerAgents ? { agents: modelPickerAgents } : {})}
                   effortValue={
                     effortValue as Exclude<ModelShortcutEffort, ""> | undefined
                   }

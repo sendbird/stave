@@ -1,7 +1,8 @@
 import { Button as AdsButton } from "@/components/ads/components/Button";
-import { AlertCircle, RefreshCcw, Search, Sparkles, Zap } from "lucide-react";
+import { AlertCircle, Bot, RefreshCcw, Search, Sparkles, Zap } from "lucide-react";
 import {
   type KeyboardEvent,
+  type ReactNode,
   useEffect,
   useMemo,
   useRef,
@@ -27,6 +28,8 @@ import { readClaudeContext1MPreference } from "@/lib/providers/model-runtime-pre
 import { useAppStore } from "@/store/app.store";
 import { sx } from "@/components/ads/utils/stylex";
 import { modelEffortSelectorStyles as styles } from "./model-effort-selector.styles";
+import { AgentAvatar } from "@/components/agents/AgentAvatar";
+import type { AgentConfig } from "@/lib/agents/schema";
 import { SelectionRail } from "@/components/system/SelectionRail";
 import { AutoRoutingProfileList } from "./auto-routing-profile-list";
 import { CursorModelConfigList } from "./cursor-model-config-list";
@@ -64,7 +67,22 @@ import {
  * list to show and nothing to search.
  */
 const AUTO_TAB = "auto" as const;
-type RailValue = ProviderId | typeof AUTO_TAB;
+/**
+ * Agentic tasks only: the agent the task runs as. First on the rail, above the
+ * providers: an agent picks its own model, so it answers "who" before "which
+ * model". Its body comes from the caller (`agents.renderPanel`).
+ */
+const AGENTS_TAB = "agents" as const;
+type RailValue = ProviderId | typeof AUTO_TAB | typeof AGENTS_TAB;
+
+/** What the picker needs to offer agents: its Agents tab and the trigger's identity. */
+export interface ModelPickerAgents {
+  /** The agent the task runs as now, for the trigger; null when the picked model runs it. */
+  active: Pick<AgentConfig, "id" | "name" | "appearance"> | null;
+  count: number;
+  /** The Agents tab body; `close` closes the picker after a choice. */
+  renderPanel: (close: () => void) => ReactNode;
+}
 
 export interface ModelSelectorCatalogState {
   status: "idle" | "loading" | "ready" | "error";
@@ -88,6 +106,8 @@ interface ModelEffortSelectorProps {
    */
   modelVisibility?: ModelVisibility;
   onRefreshCatalogs?: () => void;
+  /** Agentic tasks: offer agents on the rail and show the task's agent on the trigger. */
+  agents?: ModelPickerAgents;
   onFastModeChange?: (enabled: boolean) => void;
   onSelect: (args: {
     selection: ModelSelectorOption;
@@ -268,8 +288,9 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   // Two pieces of state on purpose: `railValue` is the tab that is showing, and
   // `providerId` remembers the last *provider* tab so leaving Auto and coming
   // back lands on the model list the user was reading, not on a reset.
-  const [railValue, setRailValue] = useState<RailValue>(
-    args.value.isAuto ? AUTO_TAB : args.value.providerId,
+  const agentActive = Boolean(args.agents?.active);
+  const [railValue, setRailValue] = useState<RailValue>(() =>
+    agentActive ? AGENTS_TAB : args.value.isAuto ? AUTO_TAB : args.value.providerId,
   );
   const [providerId, setProviderId] = useState<ProviderId>(
     args.value.providerId,
@@ -313,6 +334,9 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
   const cursorParameterized = usesCursorParameterizedPicker(args.options);
   const autoOption = args.options.find((option) => option.isAuto);
   const isAutoTab = railValue === AUTO_TAB;
+  const isAgentsTab = railValue === AGENTS_TAB;
+  // Neither Auto nor Agents has a model list to search.
+  const isListTab = !isAutoTab && !isAgentsTab;
   const providerIds = useMemo(
     () =>
       listProviderIds().filter((candidate) =>
@@ -451,7 +475,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       return;
     }
     setRailValue(next);
-    if (next !== AUTO_TAB) {
+    if (next !== AUTO_TAB && next !== AGENTS_TAB) {
       setProviderId(next);
     }
     setQuery("");
@@ -527,7 +551,9 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
       return;
     }
     resetHandledForOpenRef.current = true;
-    setRailValue(args.value.isAuto ? AUTO_TAB : args.value.providerId);
+    setRailValue(
+      agentActive ? AGENTS_TAB : args.value.isAuto ? AUTO_TAB : args.value.providerId,
+    );
     setProviderId(
       args.value.isAuto
         ? (providerIds[0] ?? "claude-code")
@@ -537,6 +563,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     setQuery("");
     setShowAllModels(false);
   }, [
+    agentActive,
     args.value.isAuto,
     args.value.model,
     args.value.providerId,
@@ -578,19 +605,30 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
               type="button"
               disabled={args.disabled}
               aria-label={
-                args.value.isAuto
+                (args.agents?.active ? `Runs as ${args.agents.active.name}. ` : "") +
+                (args.value.isAuto
                   ? "Model: Stave Auto. Stave chooses the provider, model, and effort."
                   : `Model: ${displayLabel}${
                       selectedEffortLabel
                         ? `. Effort: ${selectedEffortLabel}`
                         : ""
-                    }`
+                    }`)
               }
+              data-agent-active={args.agents?.active ? "true" : undefined}
               title="Open model and effort selector (Alt+P). Use Alt+1..0 for mapped models."
               xstyle={[styles.trigger, open && styles.triggerOpen]}
             />
           }
         >
+          {args.agents?.active ? (
+            <>
+              <AgentAvatar agent={args.agents.active} size="xs" aria-label={null} />
+              <span className={sx(styles.triggerLabel, styles.triggerAgent)}>{args.agents.active.name}</span>
+              <span aria-hidden="true" className={sx(styles.triggerDot)}>
+                ·
+              </span>
+            </>
+          ) : null}
           {args.value.isAuto ? (
             <Sparkles className={sx(styles.triggerAccentIcon)} />
           ) : (
@@ -642,6 +680,16 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
               value={railValue}
               onPreview={(value) => showTab(value as RailValue)}
               items={[
+                ...(args.agents
+                  ? [
+                      {
+                        value: AGENTS_TAB,
+                        label: "Agents",
+                        icon: <Bot className={sx(styles.railAutoIcon)} aria-hidden="true" />,
+                        count: args.agents.count,
+                      },
+                    ]
+                  : []),
                 ...providerIds.map((candidate) => {
                   const providerModels = args.options.filter(
                     (option) =>
@@ -682,7 +730,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
             />
 
             <div className={sx(styles.panel)}>
-              {isAutoTab ? null : (
+              {isListTab ? (
                 <div className={sx(styles.searchBar)}>
                   <div className={sx(styles.searchField)}>
                     <Search
@@ -721,15 +769,21 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                     </Button>
                   ) : null}
                 </div>
-              )}
+              ) : null}
 
-              {isAutoTab ? null : (
+              {isListTab ? (
                 <CatalogNotice
                   catalog={catalog}
                   selectedMissing={selectedMissing}
                   onRefresh={args.onRefreshCatalogs}
                 />
-              )}
+              ) : null}
+
+              {args.agents ? (
+                <TabsContent value={AGENTS_TAB} xstyle={styles.tabContentAuto}>
+                  {isAgentsTab ? args.agents.renderPanel(() => setOpen(false)) : null}
+                </TabsContent>
+              ) : null}
 
               {autoOption ? (
                 <TabsContent value={AUTO_TAB} xstyle={styles.tabContentAuto}>
@@ -810,7 +864,7 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
                 </TabsContent>
               ))}
 
-              {canToggleAllModels && !isAutoTab ? (
+              {canToggleAllModels && isListTab ? (
                 <div className={sx(styles.showAllFooter)}>
                   <AdsButton
                     layout="host"

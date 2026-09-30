@@ -45,6 +45,39 @@ describe("agents view", () => {
     // The agent's assignments section is titled "Work" (was "Recent work").
     expect(html).toContain(">Work<");
     expect(html).not.toContain("Recent work");
+    // Settings and History are the only detail tabs; Activity sits in the body.
+    expect(html).toContain("Settings");
+    expect(html).toContain("History");
+    expect(html).not.toContain(">Preview<");
+  });
+
+  test("learned suggestions show the summary and Apply, Edit and Dismiss", async () => {
+    const { AgentSuggestions } = await import("../src/components/agents/AgentSuggestions");
+    const agent = duplicateAgent(getBuiltinAgent("implementer")!, []);
+    const html = renderToStaticMarkup(
+      createElement(AgentSuggestions, {
+        agent,
+        learning: true,
+        onLearningChange: () => {},
+        onApply: () => {},
+        onDismiss: () => {},
+        suggestions: [
+          {
+            id: `${agent.id}:t1`,
+            agentConfigId: agent.id,
+            taskId: "t1",
+            createdAt: "2026-09-29T10:00:00.000Z",
+            summary: "Run the linter before reporting.",
+            instructions: `${agent.instructions}\nRun the linter before reporting.`,
+            basedOn: agent.instructions,
+          },
+        ],
+      }),
+    );
+    expect(html).toContain("Learned suggestions");
+    expect(html).toContain("Run the linter before reporting.");
+    for (const label of ["Apply", "Edit", "Dismiss", "Learn from my corrections"]) expect(html).toContain(label);
+    expect(html).not.toContain("instructions changed since");
   });
 });
 

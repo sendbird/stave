@@ -24,12 +24,12 @@ import {
   buildKickoffFirstTaskRuntimeOverrides,
   canApplyKickoffDialogOpenChange,
   describeKickoffProviderFallback,
-  resolveKickoffAgentRoute,
   resolveKickoffFirstTaskSelection,
-  selectableKickoffAgents,
   type KickoffWho,
 } from "@/components/layout/KickoffDialog.utils";
 import { KickoffSourceWho } from "@/components/layout/KickoffSourceWho";
+import { resolveAssignRoute } from "@/lib/agents/assign-route";
+import { selectableMainAgents } from "@/lib/agents/task-mode";
 import { AGENT_PERMISSION_LABELS } from "@/lib/agents/schema";
 import { PROVIDER_LABELS } from "@/lib/agents/provider-labels";
 import { activeStandards } from "@/lib/agents/standards";
@@ -291,7 +291,7 @@ export function KickoffDialog(props: {
   const kickoffRequest = useAgentsUiStore((state) => state.kickoffRequest);
   const clearKickoffRequest = useAgentsUiStore((state) => state.clearKickoffRequest);
   const selectableAgents = useMemo(
-    () => selectableKickoffAgents(customAgents),
+    () => selectableMainAgents(customAgents),
     [customAgents],
   );
   // Who does the work: the user, or a saved agent as the task's main agent.
@@ -304,7 +304,7 @@ export function KickoffDialog(props: {
   const agentRoute = useMemo(
     () =>
       selectedAgent
-        ? resolveKickoffAgentRoute({
+        ? resolveAssignRoute({
             agent: selectedAgent,
             profile: autoRoutingProfile,
             preferredProviderId: firstTaskProvider,

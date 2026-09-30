@@ -23,6 +23,13 @@ function customAgent(overrides: Partial<AgentConfig> = {}): AgentConfig {
 }
 
 describe("agent config schema", () => {
+  test("Can call is optional, may be empty, and lists each agent once", () => {
+    expect(customAgent().canCall).toBeUndefined();
+    expect(customAgent({ canCall: [] }).canCall).toEqual([]);
+    expect(customAgent({ canCall: ["reviewer"] }).canCall).toEqual(["reviewer"]);
+    expect(() => customAgent({ canCall: ["reviewer", "reviewer"] })).toThrow();
+  });
+
   test("every built-in parses and ids are unique", () => {
     expect(AgentConfigListSchema.safeParse(BUILTIN_AGENTS).success).toBe(true);
     expect(BUILTIN_AGENTS.every((spec) => spec.source === "builtin")).toBe(true);

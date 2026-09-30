@@ -18,14 +18,9 @@ import {
   formatResolvedRouteLabel,
 } from "@/lib/providers/auto-routing-profile";
 import { formatAutoRoutingSignalSummary } from "@/store/auto-routing";
-import {
-  buildWorkerRuntimeIntent,
-  formatWorkerRuntimeStatusValue,
-  resolveWorkerArmState,
-  resolveWorkerProfile,
-} from "@/lib/providers/worker-mode";
 import { formatAdvisorRuntimeStatusValue } from "@/components/ai-elements/prompt-input-advisor-mode.utils";
 import { toast } from "@/components/ui";
+import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { buildCommandPaletteItems } from "@/lib/commands";
 import {
   CLAUDE_PROVIDER_MODE_PRESETS,
@@ -60,7 +55,6 @@ import {
 import {
   clampCodexEffortToModel,
   getDefaultModelForProvider,
-  getProviderDescriptor,
   getProviderLabel,
   isManagedExecutionProviderId,
   listProviderIds,
@@ -100,6 +94,7 @@ import {
   buildChatInputGoalStatus,
   buildChatInputRuntimeStatusItems,
   buildCommandCatalogRuntimeOptions,
+  describeWorkerRuntimeSummary,
 } from "./chat-input.runtime";
 import { useScopedTaskId } from "./task-scope-context";
 import {
@@ -640,39 +635,20 @@ function BaseChatInput() {
   // Resolved separately from the composer's copy: the runtime bar lives in a
   // different component, and reporting a stale shape here would contradict the
   // pill sitting a few pixels away.
+  const agenticTasks = useAppStore((state) => state.settings.taskMode === "agentic");
+  const taskRunsAsAgent = useAgentAssignmentsStore((state) => Boolean(state.byTaskId[activeTaskId]));
   const workerRuntimeSummary = useMemo(
-    () => {
-      if (
-        !getProviderDescriptor({ providerId: activeProvider }).capabilities
-          .worker
-      ) {
-        return "Unavailable";
-      }
-      return formatWorkerRuntimeStatusValue(
-        resolveWorkerProfile({
-          providerId: activeProvider,
-          primaryModel: activeModel,
-          intent: buildWorkerRuntimeIntent(
-            resolveWorkerArmState({
-              providerId: activeProvider,
-              overrides: promptDraftRuntimeOverrides,
-              settingsConfig:
-                settingsWorkerConfigByProvider?.[activeProvider],
-              settingsEnabled: settingsWorkerEnabled,
-            }),
-          ),
-          runtimeModels: providerModelCatalogs.catalogs[activeProvider].models,
-        }),
-      );
-    },
-    [
-      activeModel,
-      activeProvider,
-      promptDraftRuntimeOverrides,
-      providerModelCatalogs.catalogs,
-      settingsWorkerConfigByProvider,
-      settingsWorkerEnabled,
-    ],
+    () =>
+      describeWorkerRuntimeSummary({
+        runsAsAgent: agenticTasks && taskRunsAsAgent,
+        providerId: activeProvider,
+        primaryModel: activeModel,
+        overrides: promptDraftRuntimeOverrides,
+        settingsConfig: settingsWorkerConfigByProvider?.[activeProvider],
+        settingsEnabled: settingsWorkerEnabled,
+        runtimeModels: providerModelCatalogs.catalogs[activeProvider].models,
+      }),
+    [activeModel, activeProvider, agenticTasks, taskRunsAsAgent, promptDraftRuntimeOverrides, providerModelCatalogs.catalogs, settingsWorkerConfigByProvider, settingsWorkerEnabled],
   );
   const runtimeStatusItems = useMemo(() => {
     return buildChatInputRuntimeStatusItems({
