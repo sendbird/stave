@@ -280,9 +280,9 @@ interface WorkerProviderCapability {
  * `model/list` reports `multiAgentVersion: "v2"` for it. See
  * `.stave/context/plans/handoff_20260804-094957_capability-spike.md`.
  *
- * Codex primaries are Astra, Sol, and Terra; workers are limited to Terra and
- * Sol. On codex-cli 0.145/0.146, `spawn_agent` uses the V2 subagent pool and
- * rejects Luna (`multiAgentVersion: "v1"`) even though Luna remains a valid
+ * Codex primaries are Astra, Sol 6.1, Sol 6, and Terra; workers are Terra and
+ * both Sol generations. On codex-cli 0.145/0.146, `spawn_agent` uses the V2
+ * subagent pool and rejects Luna (`multiAgentVersion: "v1"`) even though Luna remains a valid
  * top-level model. Astra is V2-capable and can orchestrate, but is kept out of
  * the worker list: a frontier model pinned as the worker is the expensive
  * shape worker mode exists to avoid.
@@ -319,8 +319,14 @@ const WORKER_CAPABILITIES: Readonly<
   },
   codex: {
     executionAdapter: "native",
-    primaries: ["gpt-6-astra", "gpt-6-sol", "gpt-5.6-terra", "gpt-5.6-sol"],
-    workers: ["gpt-5.6-terra", "gpt-6-sol", "gpt-5.6-sol"],
+    primaries: [
+      "gpt-6-astra",
+      "gpt-6.1-sol",
+      "gpt-6-sol",
+      "gpt-5.6-terra",
+      "gpt-5.6-sol",
+    ],
+    workers: ["gpt-5.6-terra", "gpt-6.1-sol", "gpt-6-sol", "gpt-5.6-sol"],
     // Codex carries worker copy through developer instructions; there is no
     // per-subagent tool allowlist, so a preset's tool list is advisory prose.
     toolsEnforced: false,

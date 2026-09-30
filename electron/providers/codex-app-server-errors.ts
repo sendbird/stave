@@ -13,15 +13,26 @@ export function toErrorMessage(error: unknown) {
   return error instanceof Error ? error.message : String(error);
 }
 
+function matchesUnavailableModel(message: string) {
+  return (
+    /(?:codex|client|cli).*(?:version.*(?:too old|not supported)|outdated)/i.test(message)
+    || /requires? (?:codex|client|cli) (?:version )?\d/i.test(message)
+    || /model.*(?:not supported|not available|does not exist|unsupported)/i.test(message)
+  );
+}
+
+export function isCodexModelUnavailableError(message: string) {
+  return (
+    matchesUnavailableModel(message) ||
+    matchesUnavailableModel(formatCodexAppServerErrorMessage(message))
+  );
+}
+
 export function toCodexUserFacingErrorMessage(args: { message: string }) {
   const message = formatCodexAppServerErrorMessage(args.message);
   const lower = message.toLowerCase();
   const rawLower = args.message.toLowerCase();
-  if (
-    /(?:codex|client|cli).*(?:version.*(?:too old|not supported)|outdated)/i.test(message)
-    || /requires? (?:codex|client|cli) (?:version )?\d/i.test(message)
-    || /model.*(?:not supported|not available|does not exist|unsupported)/i.test(message)
-  ) {
+  if (isCodexModelUnavailableError(message)) {
     return `${message}\n${CODEX_MODEL_UPDATE_GUIDANCE} Model access can also depend on your account.`;
   }
   if (

@@ -2,6 +2,7 @@ import {
   CLAUDE_SDK_MODEL_OPTIONS,
   CODEX_MODEL_OPTIONS,
   DEFAULT_CLAUDE_OPUS_FALLBACK_MODEL,
+  DEFAULT_CODEX_MODEL,
   DEFAULT_CLAUDE_OPUS_MODEL,
   getDefaultModelForProvider,
   getModelCapability,
@@ -136,10 +137,10 @@ export const DEFAULT_TASK_PRESETS: readonly TaskPreset[] = [
   },
   {
     id: "default-gpt-5-6-task",
-    label: "GPT-6 Sol",
+    label: "GPT-6.1 Sol",
     kind: "task",
     provider: "codex",
-    model: "gpt-6-sol",
+    model: DEFAULT_CODEX_MODEL,
   },
   {
     id: "default-claude-cli-session",

@@ -52,12 +52,15 @@ export const CLAUDE_SDK_MODEL_OPTIONS = [
   DEFAULT_CLAUDE_HAIKU_MODEL,
 ] as const;
 
-// Primary catalog verified against https://learn.chatgpt.com/docs/models
-// on 2026-09-23. Terra remains the balanced tier; previous Sol/Luna IDs stay
-// recognizable in historical records and explicit settings.
+// GPT-6.1 Sol is the flagship default. GPT-6 Sol stays resolvable for history
+// and is the automatic fallback when 6.1 is unavailable on the installed
+// runtime. Verified against the Codex CLI 0.159.1 bundled catalog on
+// 2026-09-30. Terra remains the balanced tier.
+export const DEFAULT_CODEX_MODEL = "gpt-6.1-sol";
+export const DEFAULT_CODEX_SOL_FALLBACK_MODEL = "gpt-6-sol";
 export const CODEX_MODEL_OPTIONS = [
   "gpt-6-astra",
-  "gpt-6-sol",
+  DEFAULT_CODEX_MODEL,
   "gpt-5.6-terra",
   "gpt-6-luna",
 ] as const;
@@ -153,7 +156,7 @@ export const PROVIDER_DESCRIPTORS = [
     fallbackLabel: "O",
     models: CODEX_MODEL_OPTIONS,
     modelCatalogSource: "runtime",
-    defaultModel: "gpt-6-sol",
+    defaultModel: DEFAULT_CODEX_MODEL,
     sessionLabel: "Codex thread ID",
     capabilities: {
       primaryTurns: true,
@@ -502,17 +505,19 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
   //
   //   frontier (Fable, Astra)                    medium
   //   flagship (Opus 5.5)                        medium
-  //   flagship (Sol 6)                           high
+  //   flagship (Sol 6.1, Sol 6)                  high
   //   balanced (Sonnet 5.5, Sonnet 5)           high
   //   balanced (Terra)                           xhigh
   //   light    (Luna)                             xhigh
   //
-  // Sonnet 5.5 and GPT-6 Sol list at half of Opus 5.5 per token, so their
-  // composer default is high. Terra is the same price band and sits at xhigh.
-  // Luna lists far below that and sits at xhigh. These Codex defaults are
-  // Stave's: a fetched App Server catalog does not replace them. Astra still
-  // follows the catalog. max stays off Luna. xhigh and max stay off Sonnet
-  // and Sol.
+  // Sonnet 5.5, GPT-6.1 Sol, and GPT-6 Sol list at half of Opus 5.5 per
+  // token, so their composer default is high. GPT-6.1 Sol keeps that same
+  // default as GPT-6 Sol. Terra is the same price band and sits at xhigh.
+  // Luna lists far below that and sits at xhigh. GPT-6.1 Sol, GPT-6 Sol,
+  // Terra, and Luna defaults are Stave's: a fetched App Server catalog does
+  // not replace them. Astra follows the catalog, with the static value above
+  // used until it arrives. max stays off Luna. xhigh and max stay off Sonnet
+  // and Sol routes.
   //
   // A frontier model pinned to "xhigh" mostly buys latency (codex-cli 0.153.2
   // reports `defaultReasoningEffort: "medium"` for Astra). Frontier stays at
@@ -627,8 +632,22 @@ export const MODEL_CAPABILITIES: Record<string, ModelCapability> = {
       "ultra",
     ],
   },
+  // Codex CLI 0.159.1 reports `default_reasoning_level: "low"` for GPT-6.1
+  // Sol. Stave keeps the same composer default as GPT-6 Sol (`high`) so a
+  // model change does not change the stored effort. The scale is Low through
+  // Ultra. A fetched catalog does not replace this default.
+  [DEFAULT_CODEX_MODEL]: {
+    providerId: "codex",
+    model: DEFAULT_CODEX_MODEL,
+    tier: "frontier",
+    taskTypes: ["plan", "implementation", "debug", "review", "safety"],
+    defaultCodexReasoningEffort: "high",
+    supportedCodexReasoningEfforts: ALL_CODEX_REASONING_EFFORTS,
+  },
   // Codex supports Ultra for Sol, while Luna caps at Max. The API's
   // reasoning scale differs; use the Codex documentation for this adapter.
+  // Previous flagship. Kept resolvable for history and used when GPT-6.1 Sol
+  // is unavailable.
   "gpt-6-sol": {
     providerId: "codex",
     model: "gpt-6-sol",
@@ -819,6 +838,14 @@ export function resolveDefaultClaudeFallbackModel(args: {
   return undefined;
 }
 
+export function resolveDefaultCodexFallbackModel(args: {
+  model: string;
+}): string | undefined {
+  return args.model.trim().toLowerCase() === DEFAULT_CODEX_MODEL
+    ? DEFAULT_CODEX_SOL_FALLBACK_MODEL
+    : undefined;
+}
+
 export function resolveDefaultClaudeEffortForModel(args: {
   model: string;
 }): NonNullable<ProviderRuntimeOptions["claudeEffort"]> {
@@ -845,6 +872,7 @@ export function resolveDefaultClaudeEffortForModel(args: {
 }
 
 const STAVE_OWNED_CODEX_EFFORT_MODELS = new Set([
+  "gpt-6.1-sol",
   "gpt-6-sol",
   "gpt-6-luna",
   "gpt-5.6-luna",
@@ -855,9 +883,9 @@ export function resolveDefaultCodexEffortForModel(args: {
   model: string;
 }): NonNullable<ProviderRuntimeOptions["codexReasoningEffort"]> {
   const model = args.model.trim();
-  // Stave owns the composer default for Sol, Terra, and Luna. A fetched App
-  // Server catalog must not replace those. Every other model still prefers
-  // the catalog recommendation below.
+  // Stave owns the composer default for Sol 6.1, Sol 6, Terra, and Luna. A
+  // fetched App Server catalog must not replace those. Every other model
+  // still prefers the catalog recommendation below.
   if (STAVE_OWNED_CODEX_EFFORT_MODELS.has(model)) {
     const ownedDefault = getModelCapability({ model })?.defaultCodexReasoningEffort;
     if (ownedDefault) {
@@ -1210,6 +1238,13 @@ export const MODEL_PRICING: Partial<Record<string, ModelPrice>> = {
     source: CODEX_PRICING_SOURCE,
     asOf: "2026-09-14",
   },
+  [DEFAULT_CODEX_MODEL]: {
+    inputPerMTok: 2,
+    outputPerMTok: 10,
+    source: CODEX_PRICING_SOURCE,
+    asOf: "2026-09-30",
+    note: "Standard price below the 272K input-token threshold. Cached input is $0.10 per million tokens.",
+  },
   "gpt-6-sol": {
     inputPerMTok: 2,
     outputPerMTok: 10,
@@ -1302,6 +1337,7 @@ export function toHumanModelName(args: { model: string }) {
     "claude-sonnet-4-6[1m]": "Claude Sonnet 4.6 (1M)",
     [DEFAULT_CLAUDE_HAIKU_MODEL]: "Claude Haiku 4.5",
     "gpt-6-astra": "GPT-6 Astra",
+    [DEFAULT_CODEX_MODEL]: "GPT-6.1 Sol",
     "gpt-6-sol": "GPT-6 Sol",
     "gpt-6-luna": "GPT-6 Luna",
     "gpt-5.6-sol": "GPT-5.6 Sol",

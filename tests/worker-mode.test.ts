@@ -122,6 +122,7 @@ describe("worker capability table", () => {
     // "v2"`, which is what the `spawn_agent` subagent pool requires.
     expect(listWorkerPrimaryModels("codex")).toEqual([
       "gpt-6-astra",
+      "gpt-6.1-sol",
       "gpt-6-sol",
       "gpt-5.6-terra",
       "gpt-5.6-sol",
@@ -171,6 +172,7 @@ describe("worker capability table", () => {
   test("Codex Luna and Astra remain models but are not worker-capable", () => {
     expect(listWorkerModelOptions("codex")).toEqual([
       "gpt-5.6-terra",
+      "gpt-6.1-sol",
       "gpt-6-sol",
       "gpt-5.6-sol",
     ]);

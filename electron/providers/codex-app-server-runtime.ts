@@ -1,6 +1,6 @@
 import { createCodexModelResolutionTracker } from "./codex-model-resolution";
 import { createCodexTurnNotificationGate } from "./codex-turn-notification-gate";
-import { beginCodexInterruptedThreadCleanup, canResumeCodexThreadAfterInterrupt, createCodexOrphanTurnCleanup } from "./codex-orphan-turn-cleanup";
+import { beginCodexInterruptedThreadCleanup, createCodexOrphanTurnCleanup } from "./codex-orphan-turn-cleanup";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
 import {
   summarizeCodexAppServerDebugMessage,
@@ -12,7 +12,6 @@ import {
   buildCodexCompactionCompletedEvent,
   compactCodexThreadWithClient,
 } from "./codex-compaction";
-import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
 import type {
   BridgeEvent,
   ProviderResponderResult,
@@ -50,10 +49,7 @@ import { describeJsonRpcLinePrefix } from "../shared/json-rpc-line";
 import { stripReservedSecretEnvNames } from "../../src/lib/secrets/secrets";
 import { createTurnDiffTracker } from "./turn-diff-tracker";
 import { toText } from "./utils";
-import {
-  getProviderNativeSlashCommandInput,
-  resolveProviderResumeSessionId,
-} from "../../src/lib/providers/provider-request-translators";
+import { getProviderNativeSlashCommandInput } from "../../src/lib/providers/provider-request-translators";
 import {
   buildIntentGuardPrompt,
   buildReviewDiffPrompt,
@@ -80,13 +76,7 @@ import {
 } from "./codex-app-server-mcp-status";
 import { readStaveLocalMcpManifest } from "../main/stave-local-mcp-manifest";
 import { resolveBoundSecretEnv } from "../main/browser/secret-service";
-import {
-  buildCodexDeveloperInstructions,
-  buildCodexInstructionProfileKey,
-  buildCodexThreadKey,
-  resolveCodexInstructionRefresh,
-  resolveCodexWorkerProfile,
-} from "./codex-runtime-config";
+import { resolveCodexWorkerProfile } from "./codex-runtime-config";
 import {
   buildWorkerExecutionMetadata,
   type WorkerExecutionMetadata,
@@ -115,6 +105,11 @@ import {
   toCodexUserFacingErrorMessage,
   toErrorMessage,
 } from "./codex-app-server-errors";
+import {
+  ensureCodexThread,
+  forgetCodexInstructionProfilesForExecutable,
+  forgetCodexInstructionProfilesForTask,
+} from "./codex-ensure-thread";
 import {
   runCodexReadOnlyPromptWithClient,
   type CodexReadOnlyPromptArgs,
@@ -180,12 +175,6 @@ import {
 } from "./codex-runtime-config";
 import { prepareCodexImageAwareTurnInput } from "./native-image-input";
 import {
-  forgetCodexThreadSessionsForExecutable,
-  forgetCodexThreadSessionsForTask,
-  rememberCodexThreadSession,
-  resolveCodexThreadSession,
-} from "./codex-thread-session";
-import {
   normalizeCodexTokenUsage,
   normalizeCodexContextUsage,
 } from "./codex-token-usage";
@@ -225,13 +214,9 @@ export {
   shouldAutoApproveStaveLocalMcpElicitation,
 } from "./codex-elicitation-mapping";
 
-// Instruction profile each live thread last saw; a change becomes a one-time
-// refresh block on the next turn instead of rotating the thread (in-memory).
-const instructionProfileByThreadKey = new Map<string, string>();
 const clientByExecutablePath = new Map<string, CodexAppServerClient>();
 const codexGlobalMcpConfigRefreshTracker = new McpConfigRefreshTracker();
 const codexProjectMcpConfigRefreshTracker = new McpConfigRefreshTracker();
-const freshCodexThreadExecutables = new Set<string>();
 const activeCodexTurnsByExecutable = new Map<string, number>();
 const pendingMcpRefreshExecutables = new Set<string>();
 const APP_SERVER_INTERRUPT_GRACE_MS = 10_000;
@@ -451,16 +436,6 @@ function buildCodexMcpToolCallInputEvent(
       ? { workerExecution }
       : {}),
   };
-}
-
-function resolveCodexResumeThreadFallback(args: {
-  conversation?: StreamTurnArgs["conversation"];
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-}) {
-  return resolveProviderResumeSessionId({
-    conversation: args.conversation,
-    fallbackResumeId: args.runtimeOptions?.codexResumeThreadId,
-  });
 }
 
 function buildCodexThreadStartedEvents(args: {
@@ -991,12 +966,7 @@ function restartCodexAppServerForMcpConfigChange(executablePath: string) {
     .get(executablePath)
     ?.dispose("Restarting Codex App Server after MCP configuration change.");
   clientByExecutablePath.delete(executablePath);
-  for (const threadKey of forgetCodexThreadSessionsForExecutable(
-    executablePath,
-  )) {
-    instructionProfileByThreadKey.delete(threadKey);
-  }
-  freshCodexThreadExecutables.add(executablePath);
+  forgetCodexInstructionProfilesForExecutable(executablePath);
 }
 
 async function resolveCodexMcpConfigPathGroups(args: {
@@ -1042,134 +1012,8 @@ function finishCodexTurn(
   }
 }
 
-async function ensureCodexThread(args: {
-  client: CodexAppServerClient;
-  executablePath: string;
-  taskId?: string;
-  cwd: string;
-  input?: string;
-  conversation?: StreamTurnArgs["conversation"];
-  runtimeOptions?: StreamTurnArgs["runtimeOptions"];
-  ephemeral?: boolean;
-  configOverrides?: CodexConfigOverrides;
-  boundSecretFingerprint?: string;
-  /**
-   * A secondary read-only run must not delegate to a Worker-mode subagent: it is
-   * a bounded analysis pass, and a worker would escape both its turn budget and
-   * its read-only contract. Mirrors the Claude adapter's gate.
-   */
-  secondaryReadOnly?: boolean;
-  /** Gates the Lens instruction block; see `buildCodexDeveloperInstructions`. */
-  hasStaveLocalMcp?: boolean;
-  turnGrants?: StreamTurnArgs["staveTurnGrants"];
-}) {
-  const threadKey = buildCodexThreadKey({
-    taskId: args.taskId,
-    cwd: args.cwd,
-    runtimeOptions: args.runtimeOptions,
-    boundSecretFingerprint: args.boundSecretFingerprint,
-  });
-  const instructionArgs = {
-    runtimeOptions: args.runtimeOptions,
-    ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
-    ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
-  };
-  const instructionProfile = buildCodexInstructionProfileKey(instructionArgs);
-  let resumeThreadId = resolveCodexThreadSession({
-    threadKey,
-    executablePath: args.executablePath,
-    ephemeral: args.ephemeral,
-    turnGrants: args.turnGrants,
-    fallbackThreadId: freshCodexThreadExecutables.has(args.executablePath)
-      ? undefined
-      : resolveCodexResumeThreadFallback({
-          conversation: args.conversation,
-          runtimeOptions: args.runtimeOptions,
-        }),
-  });
-  if (resumeThreadId && !(await canResumeCodexThreadAfterInterrupt(resumeThreadId))) {
-    if (args.runtimeOptions?.codexResumeThreadId?.trim()) {
-      throw new Error("Previous Codex turn is still stopping. Start a new session to continue safely.");
-    }
-    resumeThreadId = undefined;
-  }
-
-  requireCompactResumeSession(
-    args.conversation?.input.content ?? args.input ?? "",
-    resumeThreadId,
-  );
-
-  let releaseThread = resumeThreadId
-    ? await args.client.threadLifetime.acquire(resumeThreadId)
-    : undefined;
-  try {
-    const response = resumeThreadId
-      ? await args.client.request<{ thread: { id: string }; model?: string }>("thread/resume", {
-          ...buildCodexThreadResumeParams({
-            threadId: resumeThreadId,
-            cwd: args.cwd,
-            runtimeOptions: args.runtimeOptions,
-            // Forward caller config overrides on resume too. Previously dropped
-            // here, which silently discarded MCP-isolation and injected-secret
-            // shell env whenever a thread resumed instead of starting fresh.
-            configOverrides: args.configOverrides,
-            ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
-            ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
-          }),
-        })
-      : await args.client.request<{ thread: { id: string }; model?: string }>(
-          "thread/start",
-          buildCodexThreadStartParams({
-            cwd: args.cwd,
-            runtimeOptions: args.runtimeOptions,
-            ...(args.ephemeral
-              ? {
-                  ephemeral: true,
-                  sandbox: "read-only" as const,
-                  approvalPolicy: "never" as const,
-                }
-              : {}),
-            configOverrides: args.configOverrides,
-            ...(args.secondaryReadOnly ? { secondaryReadOnly: true } : {}),
-            ...(args.hasStaveLocalMcp ? { hasStaveLocalMcp: true } : {}),
-          }),
-        );
-    const threadId = response.thread.id;
-    releaseThread ??= await args.client.threadLifetime.acquire(threadId);
-    let instructionRefresh: string | null = null;
-    if (!args.ephemeral) {
-      rememberCodexThreadSession({
-        threadKey,
-        threadId,
-        executablePath: args.executablePath,
-        turnGrants: args.turnGrants,
-      });
-      instructionRefresh = resolveCodexInstructionRefresh({
-        resumed: Boolean(resumeThreadId),
-        previousProfile: instructionProfileByThreadKey.get(threadKey),
-        currentProfile: instructionProfile,
-        developerInstructions: buildCodexDeveloperInstructions(instructionArgs),
-      });
-      instructionProfileByThreadKey.set(threadKey, instructionProfile);
-    }
-    return {
-      threadId,
-      threadKey,
-      resolvedModel: response.model,
-      resumedThreadId: resumeThreadId ?? null,
-      releaseThread,
-      instructionRefresh,
-    };
-  } catch (error) {
-    releaseThread?.();
-    throw error;
-  }
-}
-
 export function cleanupCodexAppServerTask(taskId: string) {
-  for (const threadKey of forgetCodexThreadSessionsForTask(taskId)) {
-    instructionProfileByThreadKey.delete(threadKey);
-  }
+  forgetCodexInstructionProfilesForTask(taskId);
 }
 
 export function getCodexAppServerClientFromRuntimeOptions(args: {
@@ -1887,7 +1731,7 @@ export async function streamCodexWithAppServer(
     unavailableEvents.forEach((event) => args.onEvent?.(event));
     return unavailableEvents;
   }
-  const runtimeOptions = downgradeUnsupportedCodexRuntimeOptions({
+  let runtimeOptions = downgradeUnsupportedCodexRuntimeOptions({
     executablePath: codexExecutablePath,
     runtimeOptions: requestedRuntimeOptions,
   });
@@ -2064,13 +1908,22 @@ export async function streamCodexWithAppServer(
       hasEmbeddedStaveLocalMcp,
     );
 
+    const requestedModel = runtimeOptions?.model;
     let resolvedModel: string | undefined;
+    let fallbackModel: string | undefined;
     let threadId: string;
     let resumedThreadId: string | null;
     let releaseThread: () => void;
     let instructionRefresh: string | null;
     try {
-      ({ threadId, resumedThreadId, releaseThread, instructionRefresh, resolvedModel } =
+      ({
+        threadId,
+        resumedThreadId,
+        releaseThread,
+        instructionRefresh,
+        resolvedModel,
+        fallbackModel,
+      } =
         await ensureCodexThread({
           client,
           input: args.prompt,
@@ -2092,6 +1945,12 @@ export async function streamCodexWithAppServer(
       });
       events.forEach((event) => args.onEvent?.(event));
       return events;
+    }
+    if (fallbackModel) {
+      runtimeOptions = {
+        ...runtimeOptions,
+        model: resolvedModel?.trim() || fallbackModel,
+      };
     }
 
     try {
@@ -2130,8 +1989,14 @@ export async function streamCodexWithAppServer(
         return events;
       };
 
-      const modelResolution = createCodexModelResolutionTracker(runtimeOptions?.model);
-      emitBridgeEvents(modelResolution.resolve(resolvedModel));
+      const modelResolution = createCodexModelResolutionTracker(requestedModel);
+      emitBridgeEvents(
+        modelResolution.resolve(
+          resolvedModel ?? runtimeOptions?.model,
+          undefined,
+          fallbackModel ? "staveSolFallback" : undefined,
+        ),
+      );
       emitBridgeEvents(buildCodexThreadStartedEvents({ threadId }));
       const syncedGoalEvent = await readCodexGoalStatusEvent({
         client,

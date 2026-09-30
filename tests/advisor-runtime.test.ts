@@ -63,16 +63,16 @@ describe("runAdvisorCall", () => {
     } satisfies AdvisorRunnerDependencies;
 
     const result = await runAdvisorCall({
-      ...callArgs({ providerId: "codex", model: "gpt-6-sol" }),
+      ...callArgs({ providerId: "codex", model: "gpt-6.1-sol" }),
       runners,
     });
 
     expect(result.status).toBe("completed");
     expect(received).toMatchObject({
-      model: "gpt-6-sol",
+      model: "gpt-6.1-sol",
       isolated: true,
       runtimeOptions: {
-        model: "gpt-6-sol",
+        model: "gpt-6.1-sol",
         codexReasoningEffort: "high",
       },
     });
@@ -344,11 +344,11 @@ describe("advisor effort", () => {
       runners,
     });
     await runAdvisorCall({
-      ...callArgs({ providerId: "codex", model: "gpt-6-sol" }),
+      ...callArgs({ providerId: "codex", model: "gpt-6.1-sol" }),
       runners,
     });
 
-    // Fable stays at medium. GPT-6 Sol's composer default is high.
+    // Fable stays at medium. GPT-6.1 Sol's composer default is high.
     expect(claudeEffort).toBe("medium");
     expect(codexEffort).toBe("high");
   });
@@ -366,7 +366,7 @@ describe("advisor effort", () => {
     await runAdvisorCall({
       ...callArgs({
         providerId: "codex",
-        model: "gpt-6-sol",
+        model: "gpt-6.1-sol",
         effort: "low",
       }),
       runners,
@@ -405,7 +405,7 @@ describe("advisor lifecycle events report the effort that ran", () => {
   test("started and outcome both carry the resolved tier", () => {
     const target = {
       providerId: "codex" as const,
-      model: "gpt-6-sol",
+      model: "gpt-6.1-sol",
       effort: "low" as const,
     };
     expect(buildAdvisorStartedEvent({ ...primary, target })).toMatchObject({
@@ -452,7 +452,7 @@ describe("advisor lifecycle events report the effort that ran", () => {
   test("both lifecycle events carry the consult exchange identity", () => {
     const target = {
       providerId: "codex" as const,
-      model: "gpt-6-sol",
+      model: "gpt-6.1-sol",
     };
     const consult = {
       exchangeId: "exchange-1",
