@@ -1,3 +1,16 @@
+## [0.21.2](https://github.com/sendbird/stave/compare/v0.21.1...v0.21.2) (2026-09-30)
+
+### Features
+
+* Make GPT-6.1 Sol the default Codex model, with the same high default effort and pricing band as GPT-6 Sol. When the installed runtime reports GPT-6.1 Sol as unavailable, retry the thread once on GPT-6 Sol and record the substitution. A one-time migration moves a selected GPT-6 Sol in settings, shortcuts, and task presets to GPT-6.1 Sol and leaves the stored effort unchanged. GPT-6 Sol stays available for history and explicit selections.
+* Create a custom agent from a one-line description, start blank, or copy an existing agent. Drafting uses one read-only utility request and is skipped by Start blank. Each agent has a profile with an initials avatar. The editor shows Profile, Instructions, and How it runs, and folds Don't use when, skills, tools, limits, and who it may call under Advanced. Delete is blocked while a playbook stage or a project still names the agent.
+* Keep the last 10 behavior-changing saves in an agent's History, and restore one as the current agent. When you correct a custom agent in its task, Stave can suggest an instruction change to apply, edit, or dismiss. Learning is on for new custom agents and can be turned off per agent.
+* Add an experimental setting, Settings → Chat → Agents → Run tasks as agents. The model picker then lists agents, and picking one runs the task as that agent from the next turn. A switch that lets the task do more asks first. A task running as an agent has no Worker.
+
+### References
+
+* [#605](https://github.com/sendbird/stave/pull/605), [#607](https://github.com/sendbird/stave/pull/607)
+
 ## [0.21.1](https://github.com/sendbird/stave/compare/v0.21.0...v0.21.1) (2026-09-29)
 
 ### Features
