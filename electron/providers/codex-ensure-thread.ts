@@ -37,6 +37,16 @@ type CodexEnsureThreadClient = {
   };
 };
 
+export type CodexEnsuredThread = {
+  threadId: string;
+  threadKey: string;
+  resolvedModel: string | undefined;
+  resumedThreadId: string | null;
+  releaseThread: () => void;
+  instructionRefresh: string | null;
+  fallbackModel: string | undefined;
+};
+
 function resolveCodexResumeThreadFallback(args: {
   conversation?: StreamTurnArgs["conversation"];
   runtimeOptions?: StreamTurnArgs["runtimeOptions"];
@@ -86,7 +96,7 @@ export async function ensureCodexThread(args: {
   turnGrants?: StreamTurnArgs["staveTurnGrants"];
   /** Set on the one retry that substitutes GPT-6 Sol for an unavailable GPT-6.1 Sol. */
   modelFallbackAttempted?: boolean;
-}) {
+}): Promise<CodexEnsuredThread> {
   const threadKey = buildCodexThreadKey({
     taskId: args.taskId,
     cwd: args.cwd,
