@@ -93,10 +93,10 @@ export class AgentAssignmentStore {
     return parse(this.db.prepare(`SELECT body_json FROM agent_assignments WHERE request_id = ?`).get(requestId));
   }
 
-  /** The assignment that created a task, for "which agent is this task". */
+  /** The newest assignment of a task: the agent it runs as now, unless that row has ended. */
   getByTaskId(taskId: string): AgentAssignment | null {
     return parse(
-      this.db.prepare(`SELECT body_json FROM agent_assignments WHERE task_id = ? ORDER BY created_at DESC LIMIT 1`).get(taskId),
+      this.db.prepare(`SELECT body_json FROM agent_assignments WHERE task_id = ? ORDER BY created_at DESC, rowid DESC LIMIT 1`).get(taskId),
     );
   }
 
@@ -104,9 +104,9 @@ export class AgentAssignmentStore {
     const limit = Math.max(1, Math.min(args.limit ?? 100, 500));
     const rows = args.agentConfigId
       ? this.db
-          .prepare(`SELECT body_json FROM agent_assignments WHERE agent_config_id = ? ORDER BY created_at DESC LIMIT ?`)
+          .prepare(`SELECT body_json FROM agent_assignments WHERE agent_config_id = ? ORDER BY created_at DESC, rowid DESC LIMIT ?`)
           .all(args.agentConfigId, limit)
-      : this.db.prepare(`SELECT body_json FROM agent_assignments ORDER BY created_at DESC LIMIT ?`).all(limit);
+      : this.db.prepare(`SELECT body_json FROM agent_assignments ORDER BY created_at DESC, rowid DESC LIMIT ?`).all(limit);
     return rows.flatMap((row) => {
       const parsed = parse(row);
       return parsed ? [parsed] : [];

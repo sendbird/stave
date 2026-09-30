@@ -22,6 +22,7 @@ import {
   SettingsCard,
   SwitchField,
 } from "../settings-dialog.shared";
+import { TaskModeCard } from "./settings-dialog-task-mode-card";
 
 export function ChatSection() {
   const [
@@ -63,13 +64,12 @@ export function ChatSection() {
     ),
   );
   const updateSettings = useAppStore((state) => state.updateSettings);
-  const normalizedSteerQueueEnterAction = normalizeSteerQueueEnterAction(
-    steerQueueEnterAction,
-  );
+  const normalizedSteerQueueEnterAction = normalizeSteerQueueEnterAction(steerQueueEnterAction);
 
   return (
     <>
       <SectionStack>
+        <TaskModeCard />
         <SettingsCard
           title="Typography"
           description="Font sizes and families applied to the shared chat surface."

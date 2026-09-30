@@ -25,6 +25,12 @@ import { useComposerFrameFits } from "@/hooks/use-composer-frame-fits";
 import { PromptInputAdvisorPill } from "@/components/ai-elements/prompt-input-advisor-mode";
 import { PromptInputWorkerPill } from "@/components/ai-elements/prompt-input-worker-mode";
 import {
+  ModelPickerAgentPanel,
+  taskAgentIdentity,
+  useTaskAgentChoice,
+} from "@/components/ai-elements/prompt-input-agent-control";
+import type { ModelPickerAgents } from "@/components/ai-elements/model-effort-selector";
+import {
   buildWorkerEffortPatch,
   buildWorkerModelPatch,
   buildWorkerPresetPatch,
@@ -36,6 +42,7 @@ import {
   resolveWorkerProfile,
 } from "@/lib/providers/worker-mode";
 import { resolveWorkerShortcutAction } from "@/lib/worker-shortcuts";
+import { useComposerChord } from "./useComposerChord";
 import {
   buildAdvisorEffortPatch,
   buildAdvisorEnabledPatch,
@@ -438,6 +445,32 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
     advisorSelectedProviderId,
   ]);
 
+  // Agentic tasks (experimental): the model picker also offers agents. A task
+  // that runs as one has no Worker; the agent calls other agents itself.
+  const agenticTasks = useAppStore((state) => state.settings.taskMode === "agentic");
+  const agentChoice = useTaskAgentChoice({
+    taskId: args.activeTaskId,
+    providerId: args.activeProvider,
+    model: args.selectedModelOption.model,
+    modelOptions: args.modelOptions,
+    onModelSelect: (selection) => {
+      commitCurrentDraftText();
+      args.onModelSelect({ selection });
+    },
+  });
+  const modelPickerAgents: ModelPickerAgents | undefined = agenticTasks
+    ? {
+        active: taskAgentIdentity(agentChoice.current),
+        count: agentChoice.choices.length,
+        renderPanel: (close) => (
+          // Read at render time: the input's blocked state is resolved further down.
+          <ModelPickerAgentPanel choice={agentChoice} disabled={isInputBlocked || args.isTurnActive} onDone={close} />
+        ),
+      }
+    : undefined;
+  const workerOffered =
+    !(agenticTasks && agentChoice.current) &&
+    getProviderDescriptor({ providerId: args.activeProvider }).capabilities.worker;
   const workerArm = useMemo(
     () =>
       resolveWorkerArmState({
@@ -624,62 +657,19 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
       }),
     );
   }
-  const workerToggleRef = useRef(handleWorkerToggle);
-  workerToggleRef.current = handleWorkerToggle;
-
-  const advisorToggleRef = useRef(handleAdvisorToggle);
-  advisorToggleRef.current = handleAdvisorToggle;
-  const advisorShortcutsEnabled = args.windowShortcutsEnabled && !isInputBlocked;
-  useEffect(() => {
-    if (!advisorShortcutsEnabled) {
-      return;
-    }
-    const onWindowKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) {
-        return;
-      }
-      const action = resolveAdvisorShortcutAction(event);
-      if (!action) {
-        return;
-      }
-      // Claimed before the composer can insert the Option-composed character
-      // this chord produces on macOS.
-      event.preventDefault();
-      if (action === "picker") {
-        setAdvisorPickerOpen(true);
-        return;
-      }
-      advisorToggleRef.current();
-    };
-    window.addEventListener("keydown", onWindowKeyDown);
-    return () => window.removeEventListener("keydown", onWindowKeyDown);
-  }, [advisorShortcutsEnabled]);
-  // Shares the Advisor's enable gate: both are composer chords that must go
-  // quiet while the input is blocked on an approval or a question.
-  useEffect(() => {
-    if (!advisorShortcutsEnabled) {
-      return;
-    }
-    const onWindowKeyDown = (event: KeyboardEvent) => {
-      if (event.defaultPrevented) {
-        return;
-      }
-      const action = resolveWorkerShortcutAction(event);
-      if (!action) {
-        return;
-      }
-      // Same reason as the Advisor chord: claim it before the composer inserts
-      // the Option-composed character macOS produces for Alt+W.
-      event.preventDefault();
-      if (action === "picker") {
-        setWorkerPickerOpen(true);
-        return;
-      }
-      workerToggleRef.current();
-    };
-    window.addEventListener("keydown", onWindowKeyDown);
-    return () => window.removeEventListener("keydown", onWindowKeyDown);
-  }, [advisorShortcutsEnabled]);
+  // Advisor and Worker chords share one gate: both go quiet while the input is
+  // blocked on an approval or a question. Agentic tasks offer no Worker.
+  const composerChordsEnabled = args.windowShortcutsEnabled && !isInputBlocked;
+  useComposerChord({
+    enabled: composerChordsEnabled,
+    resolve: resolveAdvisorShortcutAction,
+    handle: (action) => (action === "picker" ? setAdvisorPickerOpen(true) : handleAdvisorToggle()),
+  });
+  useComposerChord({
+    enabled: composerChordsEnabled && workerOffered,
+    resolve: resolveWorkerShortcutAction,
+    handle: (action) => (action === "picker" ? setWorkerPickerOpen(true) : handleWorkerToggle()),
+  });
 
   function setSteerSubmissionPending(taskId: string, pending: boolean) {
     if (pending) {
@@ -1684,11 +1674,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
             isManagedExecutionProviderId(args.activeProvider) &&
             (advisorArm.enabled || advisorPickerOpen)
           }
-          workerActive={
-            getProviderDescriptor({ providerId: args.activeProvider })
-              .capabilities.worker &&
-            (workerArm.enabled || workerPickerOpen)
-          }
+          workerActive={workerOffered && (workerArm.enabled || workerPickerOpen)}
           secretsActive={
             (promptDraft.runtimeOverrides?.boundSecretIds?.length ?? 0) > 0
           }
@@ -1753,9 +1739,9 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
             />
             ) : null
           }
+          modelPickerAgents={modelPickerAgents}
           workerControl={
-            getProviderDescriptor({ providerId: args.activeProvider })
-              .capabilities.worker ? (
+            workerOffered ? (
             <PromptInputWorkerPill
               arm={workerArm}
               resolution={workerResolution}

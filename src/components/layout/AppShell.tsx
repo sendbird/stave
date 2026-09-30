@@ -1165,6 +1165,10 @@ export function AppShell() {
         openAutomationCenter: () => openAutomationCenter(),
         openIssues: () => openIssues(),
         openAgents: () => openAgents(),
+        newAgent: () => {
+          openAgents();
+          useAgentsUiStore.getState().requestNewAgent();
+        },
         startWorkWithAgent: () => useAgentsUiStore.getState().openKickoffWithAgent(),
         refreshTrackerIssues: () => refreshTrackerIssues().then(() => undefined),
         openKeyboardShortcuts: handleOpenKeyboardShortcuts,

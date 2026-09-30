@@ -2,6 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { ChevronRight } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Button } from "@/components/ads/components/Button";
+import { AgentAvatar } from "@/components/agents/AgentAvatar";
 import { vars } from "@/components/ads/tokens/tokens.stylex";
 import { sx } from "@/components/ads/utils/stylex";
 import { useDelegatedTasks } from "@/components/session/useDelegatedTasks";
@@ -38,6 +39,7 @@ function FlowNodeRow(props: { node: FlowNode; last: boolean; depth: number }) {
       </div>
       <div className={sx(styles.body)}>
         <div className={sx(styles.head)}>
+          {node.agent ? <AgentAvatar agent={node.agent} size="xs" aria-label={null} /> : null}
           <span className={sx(styles.title)} title={node.title}>
             {node.title}
           </span>

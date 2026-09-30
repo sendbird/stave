@@ -52,12 +52,16 @@ export interface FlowNode {
   target: { workspaceId: string; taskId: string } | null;
   /** The node's Timeline, oldest first. */
   events: FlowEvent[];
+  /** Agent identity for an avatar on assignment nodes, when known. */
+  agent?: { id: string; name: string };
   children: FlowNode[];
 }
 
 export interface FlowAssignmentInput {
   id: string;
   agentName: string;
+  /** The saved agent's id, for a stable avatar colour when known. */
+  agentConfigId?: string;
   providerId: string;
   model: string | null;
   workspaceMode: "new-worktree" | "same-workspace";
@@ -490,6 +494,7 @@ export function buildFlow(args: {
       state: ASSIGNMENT_STATE[assignment.state],
       evidence: null,
       target: null,
+      agent: { id: assignment.agentConfigId ?? assignment.id, name: assignment.agentName },
       events: [
         { at: assignment.createdAt, label: "Assigned" },
         ...(assignment.updatedAt !== assignment.createdAt

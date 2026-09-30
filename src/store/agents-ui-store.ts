@@ -21,6 +21,9 @@ interface AgentsUiState {
   /** Opens Kickoff with the request; the dialog clears it once consumed. */
   openKickoffWithAgent: (request?: KickoffAgentRequest) => void;
   clearKickoffRequest: () => void;
+  /** Rises when "New agent" is requested (palette, deep link); the Agents tab opens its dialog. */
+  newAgentNonce: number;
+  requestNewAgent: () => void;
 }
 
 export const useAgentsUiStore = create<AgentsUiState>((set) => ({
@@ -28,4 +31,6 @@ export const useAgentsUiStore = create<AgentsUiState>((set) => ({
   openKickoffWithAgent: (request = {}) =>
     set((state) => ({ kickoffRequest: { ...request, nonce: (state.kickoffRequest?.nonce ?? 0) + 1 } })),
   clearKickoffRequest: () => set({ kickoffRequest: null }),
+  newAgentNonce: 0,
+  requestNewAgent: () => set((state) => ({ newAgentNonce: state.newAgentNonce + 1 })),
 }));

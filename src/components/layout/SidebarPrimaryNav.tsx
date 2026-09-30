@@ -8,6 +8,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { repositorySidebarStyles } from "@/components/layout/repository-workspace-sidebar.styles";
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui";
 import { collectAgentsWithWork } from "@/lib/agents/agent-work";
+import { AgentAvatar } from "@/components/agents/AgentAvatar";
 import { isOpenProjectState } from "@/lib/projects/domain";
 import {
   useAgentAssignmentsStore,
@@ -163,7 +164,12 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
             surface === "agents" && selectedAgentId === agent.agentConfigId ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
           ]}
         >
-          <span className={sx(styles.dot, agent.needsYou ? styles.dotNeeds : styles.dotActive)} />
+          <AgentAvatar
+            agent={{ id: agent.agentConfigId, name: agent.agentName }}
+            size="xs"
+            status={agent.needsYou ? "needs-you" : "running"}
+            aria-label={null}
+          />
           <span className={sx(styles.label)}>{agent.agentName}</span>
           {agent.count > 0 ? <span className={sx(styles.count)}>{agent.count}</span> : null}
         </AdsButton>

@@ -5,12 +5,12 @@
  * Used by: `electron/host-service.ts`.
  */
 import type { AgentDelegationContext, AgentInvokeResult, HostAgentAction } from "../../../src/lib/agents/api";
-import { RecordTaskAgentInputSchema } from "../../../src/lib/agents/assign";
+import { RecordTaskAgentInputSchema, ReleaseTaskAgentInputSchema } from "../../../src/lib/agents/assign";
 import { listAgents, normalizeCustomAgents } from "../../../src/lib/agents/library";
 import { activeStandards, normalizeMyStandards } from "../../../src/lib/agents/standards";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
 import { taskAgentRuntimeOptions } from "../../../src/lib/agents/runtime-options";
-import { setTaskRuntimeOptionsResolver } from "../../providers/runtime";
+import { setTaskPromptPrefixResolver, setTaskRuntimeOptionsResolver } from "../../providers/runtime";
 import * as localMcpRuntime from "../local-mcp-runtime";
 import { ensureHostServicePersistenceReady } from "../persistence";
 import { runSupervisedTurn } from "../supervised-turn";
@@ -45,6 +45,9 @@ export function createHostAssignRuntime(args: {
           ? taskAgentRuntimeOptions({ agent: task.agent, providerId, base: runtimeOptions, standards: task.standards })
           : {};
       });
+      // A task recorded before its first turn, or switched to another agent,
+      // owes a prompt-channel provider the agent's instructions once.
+      setTaskPromptPrefixResolver(({ taskId, providerId }) => runtime.takeTaskPreamble(taskId, providerId));
     },
   };
 }
@@ -98,6 +101,10 @@ export async function invokeAgentAction(
           }),
         };
       }
+      case "release-task": {
+        const value = ReleaseTaskAgentInputSchema.parse(args);
+        return { ok: true, value: runtime.releaseTaskAgent(value.taskId) };
+      }
       case "list-assignments": {
         const value = (args ?? {}) as { agentConfigId?: string; limit?: number };
         return { ok: true, value: runtime.list(value) };
@@ -110,8 +117,10 @@ export async function invokeAgentAction(
       }
       case "delegation-context": {
         const taskId = String((args as { parentTaskId?: unknown } | null)?.parentTaskId ?? "");
+        const parent = runtime.agentForTask(taskId);
         const value: AgentDelegationContext = {
-          parentPermission: runtime.agentForTask(taskId)?.permission ?? null,
+          parentPermission: parent?.permission ?? null,
+          parentCanCall: parent?.canCall ?? null,
           allowedAgentIds: projectAgentsForTask(taskId),
         };
         return { ok: true, value };

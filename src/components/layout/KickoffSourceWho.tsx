@@ -12,6 +12,7 @@ import { kickoffStyles } from "@/components/layout/kickoff-dialog.styles";
 import type { AgentConfig } from "@/lib/agents/schema";
 import type { ProviderId } from "@/lib/providers/provider.types";
 import { useAssignAgent } from "@/components/agents/useAssignAgent";
+import { AgentAvatar } from "@/components/agents/AgentAvatar";
 import { PROVIDER_LABELS } from "@/lib/agents/provider-labels";
 
 const ME = "me";
@@ -57,7 +58,10 @@ export function KickoffSourceWho(props: {
           <SelectItem value={ME}>Me</SelectItem>
           {props.agents.map((candidate) => (
             <SelectItem key={candidate.id} value={candidate.id}>
-              {candidate.name}
+              <span className={sx(kickoffStyles.whoOption)}>
+                <AgentAvatar agent={candidate} size="xs" aria-label={null} />
+                {candidate.name}
+              </span>
             </SelectItem>
           ))}
         </SelectContent>

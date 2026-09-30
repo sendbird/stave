@@ -200,4 +200,64 @@ describe("record-task", () => {
     expect(again.id).toBe(row.id);
     expect(again.assignment).toBe("Do the work.");
   });
+
+  test("a later record switches the task's agent; releasing it returns the task to its own settings", () => {
+    const { runtime } = harness();
+    const base = {
+      taskId: "task-7",
+      workspaceId: "ws-1",
+      repositoryPath: "/tmp/repo",
+      providerId: "claude-code" as const,
+      model: null,
+      assignment: "Fix the flaky test.",
+    };
+    runtime.recordTaskAgent({ ...base, requestId: "composer:1", agent: getBuiltinAgent("implementer")! });
+    // Same timestamp on purpose: the newest row still wins.
+    runtime.recordTaskAgent({ ...base, requestId: "composer:2", agent: getBuiltinAgent("researcher")! });
+    expect(runtime.taskAgent("task-7")?.agent.id).toBe("researcher");
+    expect(runtime.agentForTask("task-7")?.permission).toBe("read-only");
+
+    const ended = runtime.releaseTaskAgent("task-7");
+    expect(ended?.endedAt).toBeTruthy();
+    expect(runtime.taskAgent("task-7")).toBeNull();
+    expect(runtime.agentForTask("task-7")).toBeNull();
+    // History keeps both rows.
+    expect(runtime.list().filter((row) => row.taskId === "task-7")).toHaveLength(2);
+    // Releasing again is a no-op.
+    expect(runtime.releaseTaskAgent("task-7")).toBeNull();
+  });
+
+  test("a prompt-channel provider receives a recorded agent's instructions once", () => {
+    const { runtime } = harness();
+    runtime.recordTaskAgent({
+      requestId: "kickoff:kiro",
+      taskId: "task-kiro",
+      workspaceId: "ws-1",
+      repositoryPath: "/tmp/repo",
+      agent: getBuiltinAgent("implementer")!,
+      providerId: "kiro",
+      model: null,
+      assignment: "Do the work.",
+    });
+    const preamble = runtime.takeTaskPreamble("task-kiro", "kiro");
+    expect(preamble).toContain(getBuiltinAgent("implementer")!.instructions.split("\n")[0]!);
+    expect(runtime.takeTaskPreamble("task-kiro", "kiro")).toBeNull();
+  });
+
+  test("an instruction-channel provider consumes the flag without a preamble", () => {
+    const { runtime } = harness();
+    runtime.recordTaskAgent({
+      requestId: "kickoff:claude",
+      taskId: "task-claude",
+      workspaceId: "ws-1",
+      repositoryPath: "/tmp/repo",
+      agent: getBuiltinAgent("implementer")!,
+      providerId: "claude-code",
+      model: null,
+      assignment: "Do the work.",
+    });
+    expect(runtime.takeTaskPreamble("task-claude", "claude-code")).toBeNull();
+    // Switching this task to Kiro later no longer owes a preamble for the old row.
+    expect(runtime.takeTaskPreamble("task-claude", "kiro")).toBeNull();
+  });
 });

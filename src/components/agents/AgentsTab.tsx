@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Archive, ArchiveRestore, Copy, RefreshCw, Rocket } from "lucide-react";
+import { Archive, ArchiveRestore, Copy, Plus, RefreshCw, Rocket, Trash2 } from "lucide-react";
 import { Button } from "@/components/ads/components/Button";
-import { Checkbox } from "@/components/ads/components/Checkbox";
+import { Dialog } from "@/components/ads/components/Dialog";
 import { Select } from "@/components/ads/components/Select";
+import { Tabs } from "@/components/ads/components/Tabs";
 import { TextField } from "@/components/ads/components/TextField";
-import { Textarea } from "@/components/ads/components/Textarea";
 import { sx } from "@/components/ads/utils/stylex";
-import { ASSIGNMENT_STATE_LABELS, type AgentAssignment } from "@/lib/agents/assign";
+import { type AgentAssignment } from "@/lib/agents/assign";
 import {
   SUPPORT_LEVEL_LABELS,
   describeAgent,
@@ -14,17 +14,28 @@ import {
   describeUsableAs,
   groupAgents,
 } from "@/lib/agents/agents-view";
-import { duplicateAgent, hiddenRepositoryAgents, listAgents, upsertCustomAgent } from "@/lib/agents/library";
+import {
+  duplicateAgent,
+  hiddenRepositoryAgents,
+  listAgents,
+  removeCustomAgent,
+  upsertCustomAgent,
+} from "@/lib/agents/library";
+import { findAgentReferences } from "@/lib/agents/agent-references";
+import {
+  dropAgentRevisions,
+  pushAgentRevision,
+  type AgentRevision,
+} from "@/lib/agents/revisions";
 import type { AgentImportNote } from "@/lib/agents/import";
 import {
-  AGENT_CONFIG_LIMITS,
+  dropAgentSuggestions,
+  removeAgentSuggestion,
+  type AgentSuggestion,
+} from "@/lib/agents/learned-suggestions";
+import {
   AGENT_PERMISSION_LABELS,
-  AGENT_PERMISSIONS,
-  AGENT_ROLE_LABELS,
-  AGENT_ROLES,
   AGENT_SOURCE_LABELS,
-  AGENT_WORKSPACE_LABELS,
-  AGENT_WORKSPACES,
   isUsableAs,
   type AgentConfig,
 } from "@/lib/agents/schema";
@@ -32,14 +43,40 @@ import { listProviderIds } from "@/lib/providers/model-catalog";
 import { PROVIDER_LABELS } from "@/lib/agents/provider-labels";
 import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { useAppStore } from "@/store/app.store";
+import { useProjectsStore } from "@/store/projects-store";
 import { useAgentsViewStore } from "@/store/agents-view-store";
 import { playbookStyles as styles } from "../playbooks/playbooks.styles";
 import { ExportAgent } from "./ExportAgent";
+import { AgentAvatar } from "./AgentAvatar";
+import { AgentEditor } from "./AgentEditor";
+import { AgentActivity } from "./AgentActivity";
+import { AgentHistory } from "./AgentHistory";
+import { AgentProfileHeader } from "./AgentProfileHeader";
+import { AgentSuggestions } from "./AgentSuggestions";
+import { DeleteAgentDialog } from "./DeleteAgentDialog";
+import { NewAgentDialog } from "./NewAgentDialog";
 import { agentStyles } from "./agents.styles";
 import { useRepositoryAgents } from "./useRepositoryAgents";
 
 const PROVIDERS = listProviderIds();
 const NO_NOTES: readonly AgentImportNote[] = [];
+const NO_REVISIONS: readonly AgentRevision[] = [];
+const NO_SUGGESTIONS: readonly AgentSuggestion[] = [];
+
+const AGENT_DETAIL_TABS = ["settings", "history"] as const;
+
+/**
+ * The detail tab to open first. Defaults to Settings; the dev preview may
+ * request History with `?tab=history` so a screenshot can
+ * land straight on it. A stray value falls back to Settings.
+ */
+function initialAgentDetailTab(): (typeof AGENT_DETAIL_TABS)[number] {
+  if (typeof window === "undefined") return "settings";
+  const requested = new URLSearchParams(window.location.search).get("tab");
+  return (AGENT_DETAIL_TABS as readonly string[]).includes(requested ?? "")
+    ? (requested as (typeof AGENT_DETAIL_TABS)[number])
+    : "settings";
+}
 
 /** Recent assignments of one agent, refreshed when the host reports a change. */
 function useAssignments(agentConfigId: string | null) {
@@ -58,106 +95,6 @@ function useAssignments(agentConfigId: string | null) {
     return window.api?.agents?.subscribeChanged(() => void load());
   }, [load]);
   return assignments;
-}
-
-function CustomAgentFields(props: { agent: AgentConfig; onSave: (agent: AgentConfig) => string | null }) {
-  const [draft, setDraft] = useState(props.agent);
-  const [error, setError] = useState<string | null>(null);
-  useEffect(() => setDraft(props.agent), [props.agent]);
-  const changed = JSON.stringify(draft) !== JSON.stringify(props.agent);
-  return (
-    <>
-      <dl className={sx(styles.properties)}>
-        <dt className={sx(styles.propertyLabel)}>Name</dt>
-        <dd className={sx(styles.propertyValue)}>
-          <TextField
-            size="sm"
-            controlOnly
-            aria-label="Name"
-            value={draft.name}
-            maxLength={AGENT_CONFIG_LIMITS.name}
-            onChange={(event) => setDraft({ ...draft, name: event.target.value })}
-          />
-        </dd>
-        <dt className={sx(styles.propertyLabel)}>Use when</dt>
-        <dd className={sx(styles.propertyValue)}>
-          <Textarea
-            size="sm"
-            aria-label="Use when"
-            value={draft.description}
-            maxLength={AGENT_CONFIG_LIMITS.description}
-            autoResize
-            onChange={(event) => setDraft({ ...draft, description: event.target.value })}
-          />
-        </dd>
-        <dt className={sx(styles.propertyLabel)}>Permission</dt>
-        <dd className={sx(styles.propertyValue)}>
-          <Select
-            size="sm"
-            aria-label="Permission"
-            value={draft.permission}
-            options={AGENT_PERMISSIONS.map((value) => ({ value, label: AGENT_PERMISSION_LABELS[value] }))}
-            onValueChange={(value) => setDraft({ ...draft, permission: String(value) as AgentConfig["permission"] })}
-          />
-        </dd>
-        <dt className={sx(styles.propertyLabel)}>Works in</dt>
-        <dd className={sx(styles.propertyValue)}>
-          <Select
-            size="sm"
-            aria-label="Works in"
-            value={draft.workspace}
-            options={AGENT_WORKSPACES.map((value) => ({ value, label: AGENT_WORKSPACE_LABELS[value] }))}
-            onValueChange={(value) => setDraft({ ...draft, workspace: String(value) as AgentConfig["workspace"] })}
-          />
-        </dd>
-        <dt className={sx(styles.propertyLabel)}>Usable as</dt>
-        <dd className={sx(styles.propertyValue)}>
-          <div role="group" aria-label="Usable as" className={sx(agentStyles.roles)}>
-            {AGENT_ROLES.map((role) => {
-              const checked = draft.usableAs.includes(role);
-              return (
-                <Checkbox
-                  key={role}
-                  label={AGENT_ROLE_LABELS[role]}
-                  checked={checked}
-                  // At least one role stays on: an agent nothing can use is an archived one.
-                  disabled={checked && draft.usableAs.length === 1}
-                  onCheckedChange={(value) =>
-                    setDraft({
-                      ...draft,
-                      usableAs: value === true
-                        ? AGENT_ROLES.filter((candidate) => candidate === role || draft.usableAs.includes(candidate))
-                        : draft.usableAs.filter((candidate) => candidate !== role),
-                    })
-                  }
-                />
-              );
-            })}
-          </div>
-        </dd>
-        <dt className={sx(styles.propertyLabel)}>Instructions</dt>
-        <dd className={sx(styles.propertyValue)}>
-          <Textarea
-            size="sm"
-            aria-label="Instructions"
-            value={draft.instructions}
-            maxLength={AGENT_CONFIG_LIMITS.instructions}
-            autoResize
-            onChange={(event) => setDraft({ ...draft, instructions: event.target.value })}
-          />
-        </dd>
-      </dl>
-      {error ? <p className={sx(styles.hint, styles.hintWarning)}>{error}</p> : null}
-      <div className={sx(styles.footer)}>
-        <Button size="sm" disabled={!changed} onClick={() => setError(props.onSave(draft))}>
-          Save
-        </Button>
-        <Button size="sm" variant="quiet" disabled={!changed} onClick={() => setDraft(props.agent)}>
-          Discard
-        </Button>
-      </div>
-    </>
-  );
 }
 
 const IMPORT_OUTCOME_LABELS: Readonly<Record<AgentImportNote["outcome"], string>> = {
@@ -189,28 +126,148 @@ function ImportNotes(props: { notes: readonly AgentImportNote[] }) {
   );
 }
 
+function ProviderSupport(props: { agent: AgentConfig }) {
+  const { agent } = props;
+  const support = useMemo(() => describeProviderSupport(agent, PROVIDERS), [agent]);
+  return (
+    <section aria-label="Provider support">
+      <div className={sx(styles.sectionHeader)}>
+        <h3 className={sx(styles.sectionTitle)}>As a main agent</h3>
+        <span className={sx(styles.sectionAside)}>
+          {agent.permission === "auto"
+            ? "Runs with your permission settings"
+            : `Every turn stays within ${AGENT_PERMISSION_LABELS[agent.permission]}; narrower settings of yours are kept`}
+        </span>
+      </div>
+      <table className={sx(agentStyles.support)}>
+        <thead>
+          <tr>
+            <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>Provider</th>
+            <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>Instructions</th>
+            <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>Tool limits</th>
+            <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>{AGENT_PERMISSION_LABELS[agent.permission]}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {support.map((row) => (
+            <tr key={row.providerId}>
+              <td className={sx(agentStyles.supportCell)}>{PROVIDER_LABELS[row.providerId] ?? row.providerId}</td>
+              {row.refusal ? (
+                <td className={sx(agentStyles.supportCell, agentStyles.muted)} colSpan={3}>
+                  {row.refusal}
+                </td>
+              ) : (
+                <>
+                  <td className={sx(agentStyles.supportCell)}>{row.instructions ? SUPPORT_LEVEL_LABELS[row.instructions] : "—"}</td>
+                  <td className={sx(agentStyles.supportCell)}>{row.tools ? SUPPORT_LEVEL_LABELS[row.tools] : "None set"}</td>
+                  <td className={sx(agentStyles.supportCell)}>
+                    {row.permission ? SUPPORT_LEVEL_LABELS[row.permission] : "Your settings"}
+                  </td>
+                </>
+              )}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </section>
+  );
+}
+
 function AgentDetail(props: {
   agent: AgentConfig;
   notes: readonly AgentImportNote[];
   rootPath: string | null;
+  revisions: readonly AgentRevision[];
   onDuplicate: () => void;
+  onDelete: () => void;
   onSave: (agent: AgentConfig) => string | null;
+  onRestore: (agent: AgentConfig) => void;
 }) {
   const { agent } = props;
   const assignments = useAssignments(agent.id);
-  const support = useMemo(() => describeProviderSupport(agent, PROVIDERS), [agent]);
   const editable = agent.source === "custom";
+  const storedSuggestions = useAppStore((state) => state.settings.agentSuggestions[agent.id]);
+  const suggestions = storedSuggestions ?? NO_SUGGESTIONS;
+  const learningDisabled = useAppStore((state) => state.settings.agentLearningDisabled);
+  const learning = !learningDisabled.includes(agent.id);
+  const dismissSuggestion = (suggestion: AgentSuggestion) => {
+    const state = useAppStore.getState();
+    state.updateSettings({
+      patch: { agentSuggestions: removeAgentSuggestion(state.settings.agentSuggestions, agent.id, suggestion.id) },
+    });
+  };
+  const setLearning = (on: boolean) => {
+    const current = useAppStore.getState().settings.agentLearningDisabled.filter((id) => id !== agent.id);
+    useAppStore.getState().updateSettings({ patch: { agentLearningDisabled: on ? current : [...current, agent.id] } });
+  };
+  const ranContentHashes = useMemo(
+    () => new Set(assignments.map((row) => row.agentContentHash)),
+    [assignments],
+  );
+
+  const settingsTab = (
+    <>
+      {editable ? (
+        <AgentEditor key={agent.id} agent={agent} onSave={props.onSave} />
+      ) : (
+        <div className={sx(styles.editor)}>
+          <dl className={sx(styles.properties)}>
+            <dt className={sx(styles.propertyLabel)}>Source</dt>
+            <dd className={sx(styles.propertyValue)}>
+              {AGENT_SOURCE_LABELS[agent.source]}
+              {agent.origin ? ` · ${agent.origin.path}` : ""} · Usable as {describeUsableAs(agent)}
+            </dd>
+            {agent.avoidWhen ? (
+              <>
+                <dt className={sx(styles.propertyLabel)}>Don't use when</dt>
+                <dd className={sx(styles.propertyValue)}>{agent.avoidWhen}</dd>
+              </>
+            ) : null}
+            <dt className={sx(styles.propertyLabel)}>Runs with</dt>
+            <dd className={sx(styles.propertyValue)}>{describeAgent(agent)}</dd>
+            <dt className={sx(styles.propertyLabel)}>Instructions</dt>
+            <dd className={sx(styles.propertyValue)}>
+              <pre className={sx(agentStyles.instructions)}>{agent.instructions}</pre>
+              <span className={sx(styles.hint)}>Duplicate this agent to change it.</span>
+            </dd>
+          </dl>
+        </div>
+      )}
+      <div className={sx(styles.editor)}>
+        <ProviderSupport agent={agent} />
+        <ImportNotes notes={props.notes} />
+        <ExportAgent agent={agent} rootPath={props.rootPath} />
+      </div>
+    </>
+  );
+
+  const tabs = [
+    { value: "settings", label: "Settings", content: settingsTab },
+    {
+      value: "history",
+      label: "History",
+      content: (
+        <div className={sx(styles.editor)}>
+          {editable ? (
+            <AgentHistory
+              agent={agent}
+              revisions={props.revisions}
+              ranContentHashes={ranContentHashes}
+              onRestore={props.onRestore}
+            />
+          ) : (
+            <p className={sx(styles.hint)}>Only custom agents keep a version history. Duplicate this agent to edit and track it.</p>
+          )}
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div className={sx(styles.scroll)}>
       <div className={sx(styles.editor)}>
         <div className={sx(styles.heading)}>
-          <div className={sx(styles.headingText)}>
-            <h2 className={sx(styles.emptyTitle)}>{agent.name}</h2>
-            <p className={sx(styles.hint)}>
-              {AGENT_SOURCE_LABELS[agent.source]}
-              {agent.origin ? ` · ${agent.origin.path}` : ""} · Usable as {describeUsableAs(agent)}
-            </p>
-          </div>
+          <AgentProfileHeader agent={agent} />
           <div className={sx(styles.headingActions)}>
             {isUsableAs(agent, "primary") && !agent.archived ? (
               <Button
@@ -226,102 +283,39 @@ function AgentDetail(props: {
               Duplicate
             </Button>
             {editable ? (
-              <Button size="sm" variant="quiet" onClick={() => props.onSave({ ...agent, archived: !agent.archived })}>
-                {agent.archived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
-                {agent.archived ? "Restore" : "Archive"}
-              </Button>
+              <>
+                <Button size="sm" variant="quiet" onClick={() => props.onSave({ ...agent, archived: !agent.archived })}>
+                  {agent.archived ? <ArchiveRestore aria-hidden /> : <Archive aria-hidden />}
+                  {agent.archived ? "Restore" : "Archive"}
+                </Button>
+                <Button size="sm" variant="quiet" tone="danger" onClick={props.onDelete}>
+                  <Trash2 aria-hidden />
+                  Delete
+                </Button>
+              </>
             ) : null}
           </div>
         </div>
-
-        {editable ? (
-          <CustomAgentFields agent={agent} onSave={props.onSave} />
-        ) : (
-          <dl className={sx(styles.properties)}>
-            <dt className={sx(styles.propertyLabel)}>Use when</dt>
-            <dd className={sx(styles.propertyValue)}>{agent.description}</dd>
-            {agent.avoidWhen ? (
-              <>
-                <dt className={sx(styles.propertyLabel)}>Don't use when</dt>
-                <dd className={sx(styles.propertyValue)}>{agent.avoidWhen}</dd>
-              </>
-            ) : null}
-            <dt className={sx(styles.propertyLabel)}>Runs with</dt>
-            <dd className={sx(styles.propertyValue)}>{describeAgent(agent)}</dd>
-            <dt className={sx(styles.propertyLabel)}>Instructions</dt>
-            <dd className={sx(styles.propertyValue)}>
-              <pre className={sx(agentStyles.instructions)}>{agent.instructions}</pre>
-              <span className={sx(styles.hint)}>Duplicate this agent to change it.</span>
-            </dd>
-          </dl>
-        )}
-
-        <ImportNotes notes={props.notes} />
-
-        <section aria-label="Provider support">
-          <div className={sx(styles.sectionHeader)}>
-            <h3 className={sx(styles.sectionTitle)}>As a main agent</h3>
-            <span className={sx(styles.sectionAside)}>
-              {agent.permission === "auto"
-                ? "Runs with your permission settings"
-                : `Every turn stays within ${AGENT_PERMISSION_LABELS[agent.permission]}; narrower settings of yours are kept`}
-            </span>
-          </div>
-          <table className={sx(agentStyles.support)}>
-            <thead>
-              <tr>
-                <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>Provider</th>
-                <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>Instructions</th>
-                <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>Tool limits</th>
-                <th className={sx(agentStyles.supportCell, agentStyles.supportHead)}>{AGENT_PERMISSION_LABELS[agent.permission]}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {support.map((row) => (
-                <tr key={row.providerId}>
-                  <td className={sx(agentStyles.supportCell)}>{PROVIDER_LABELS[row.providerId] ?? row.providerId}</td>
-                  {row.refusal ? (
-                    <td className={sx(agentStyles.supportCell, agentStyles.muted)} colSpan={3}>
-                      {row.refusal}
-                    </td>
-                  ) : (
-                    <>
-                      <td className={sx(agentStyles.supportCell)}>{row.instructions ? SUPPORT_LEVEL_LABELS[row.instructions] : "—"}</td>
-                      <td className={sx(agentStyles.supportCell)}>{row.tools ? SUPPORT_LEVEL_LABELS[row.tools] : "None set"}</td>
-                      <td className={sx(agentStyles.supportCell)}>
-                        {row.permission ? SUPPORT_LEVEL_LABELS[row.permission] : "Your settings"}
-                      </td>
-                    </>
-                  )}
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </section>
-
-        <ExportAgent agent={agent} rootPath={props.rootPath} />
-
-        <section aria-label="Recent assignments">
-          <div className={sx(styles.sectionHeader)}>
-            <h3 className={sx(styles.sectionTitle)}>Work</h3>
-          </div>
-          {assignments.length === 0 ? (
-            <p className={sx(styles.hint)}>Nothing assigned yet.</p>
-          ) : (
-            <ul className={sx(agentStyles.runs)}>
-              {assignments.map((row) => (
-                <li key={row.id} className={sx(agentStyles.run)}>
-                  <span className={sx(agentStyles.runTitle)} title={row.assignment}>
-                    {row.assignment.split("\n")[0]}
-                  </span>
-                  <span className={sx(agentStyles.runState)}>
-                    {ASSIGNMENT_STATE_LABELS[row.state]}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+      </div>
+      {editable ? (
+        <div className={sx(styles.editor)}>
+          <AgentSuggestions
+            agent={agent}
+            suggestions={suggestions}
+            learning={learning}
+            onLearningChange={setLearning}
+            onApply={(suggestion, instructions) => {
+              if (!props.onSave({ ...agent, instructions })) dismissSuggestion(suggestion);
+            }}
+            onDismiss={dismissSuggestion}
+          />
+        </div>
+      ) : null}
+      <div className={sx(styles.editor)}>
+        <AgentActivity assignments={assignments} />
+      </div>
+      <div className={sx(styles.editor)}>
+        <Tabs variant="line" items={tabs} defaultValue={initialAgentDetailTab()} />
       </div>
     </div>
   );
@@ -348,22 +342,35 @@ function UnusedFiles(props: { problems: ReadonlyArray<{ path: string; message: s
 }
 
 /**
- * The Agents tab of the Automations center: saved agents on the left, one
- * agent's details and the Assign panel on the right. Built-in and repository
- * agents are read only; Duplicate makes an editable custom copy.
+ * The Agents tab: saved agents on the left, one agent's profile and editor on
+ * the right. Custom agents are created ("New agent"), edited in a sectioned
+ * editor, and deleted; built-in and repository agents are read only, and
+ * Duplicate makes an editable custom copy.
  */
 export function AgentsTab() {
   const custom = useAppStore((state) => state.settings.customAgents);
+  const customAgentRevisions = useAppStore((state) => state.settings.customAgentRevisions);
+  const playbooks = useAppStore((state) => state.settings.playbooks);
+  const projects = useProjectsStore((state) => state.projects);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const [query, setQuery] = useState("");
+  const [newOpen, setNewOpen] = useState(false);
+  const [draft, setDraft] = useState<AgentConfig | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<AgentConfig | null>(null);
   const selectedId = useAgentsViewStore((state) => state.selectedAgentId);
   const setSelectedId = useAgentsViewStore((state) => state.selectAgent);
+  const newAgentNonce = useAgentsUiStore((state) => state.newAgentNonce);
+  useEffect(() => {
+    if (newAgentNonce > 0) setNewOpen(true);
+  }, [newAgentNonce]);
   const rootPath = useAppStore((state) =>
     state.activeWorkspaceId ? (state.workspacePathById[state.activeWorkspaceId] ?? state.repositoryPath) : state.repositoryPath,
   );
   const repository = useRepositoryAgents(rootPath);
   const repositoryAgents = useMemo(() => repository.scan.agents.map((entry) => entry.agent), [repository.scan]);
   const agents = useMemo(() => listAgents({ custom, repository: repositoryAgents }), [custom, repositoryAgents]);
+  const templates = useMemo(() => agents.filter((agent) => agent.source !== "custom"), [agents]);
+  const takenIds = useMemo(() => agents.map((agent) => agent.id), [agents]);
   const problems = useMemo(
     () => [...repository.scan.problems, ...hiddenRepositoryAgents({ custom, repository: repositoryAgents })],
     [repository.scan, custom, repositoryAgents],
@@ -379,19 +386,65 @@ export function AgentsTab() {
   );
 
   const save = (agent: AgentConfig): string | null => {
+    const state = useAppStore.getState();
+    const previous = state.settings.customAgents.find((candidate) => candidate.id === agent.id) ?? null;
     try {
-      updateSettings({ patch: { customAgents: upsertCustomAgent(useAppStore.getState().settings.customAgents, agent) } });
+      updateSettings({ patch: { customAgents: upsertCustomAgent(state.settings.customAgents, agent) } });
     } catch (error) {
       return error instanceof Error ? error.message : "Stave could not save this agent.";
     }
     const stored = useAppStore.getState().settings.customAgents.find((candidate) => candidate.id === agent.id);
-    return stored ? null : "Stave could not save this agent. Check the fields and try again.";
+    if (!stored) return "Stave could not save this agent. Check the fields and try again.";
+    // A revision is only pushed when an existing agent's behaviour changed;
+    // creating one, or a no-op save, adds nothing (pushAgentRevision decides).
+    if (previous) {
+      const revisions = pushAgentRevision({
+        revisions: useAppStore.getState().settings.customAgentRevisions,
+        agentId: agent.id,
+        previous,
+        next: stored,
+        savedAt: new Date().toISOString(),
+      });
+      if (revisions !== useAppStore.getState().settings.customAgentRevisions) {
+        updateSettings({ patch: { customAgentRevisions: revisions } });
+      }
+    }
+    return null;
   };
 
   const duplicate = (agent: AgentConfig) => {
     const copy = duplicateAgent(agent, agents.map((candidate) => candidate.id));
     if (!save(copy)) setSelectedId(copy.id);
   };
+
+  const remove = (agent: AgentConfig) => {
+    const state = useAppStore.getState();
+    updateSettings({
+      patch: {
+        customAgents: removeCustomAgent(state.settings.customAgents, agent.id),
+        customAgentRevisions: dropAgentRevisions(state.settings.customAgentRevisions, agent.id),
+        agentSuggestions: dropAgentSuggestions(state.settings.agentSuggestions, agent.id),
+        agentLearningDisabled: state.settings.agentLearningDisabled.filter((id) => id !== agent.id),
+      },
+    });
+    if (selectedId === agent.id) setSelectedId(null);
+  };
+
+  // Restore saves an old version as the current agent. `save` pushes the
+  // version it replaces onto history, so a restore is itself recorded and can
+  // be undone by restoring again.
+  const restore = (revision: AgentConfig) => {
+    save(revision);
+    setSelectedId(revision.id);
+  };
+
+  const deleteReferences = useMemo(
+    () =>
+      deleteTarget
+        ? findAgentReferences({ agentConfigId: deleteTarget.id, playbooks, projects })
+        : { blocking: [], soft: [] },
+    [deleteTarget, playbooks, projects],
+  );
 
   return (
     <div className={sx(styles.tab)} data-testid="agents-tab">
@@ -407,6 +460,9 @@ export function AgentsTab() {
               onChange={(event) => setQuery(event.target.value)}
             />
           </div>
+          <Button size="sm" variant="quiet" iconOnly aria-label="New agent" title="New agent" onClick={() => setNewOpen(true)}>
+            <Plus aria-hidden />
+          </Button>
           <Button
             size="sm"
             variant="quiet"
@@ -433,17 +489,31 @@ export function AgentsTab() {
                     xstyle={[styles.card, agent.id === selected?.id && styles.cardActive]}
                     onClick={() => setSelectedId(agent.id)}
                   >
-                    <span className={sx(styles.cardTitleRow)}>
-                      <span className={sx(styles.cardTitle, agent.archived && agentStyles.archived)}>{agent.name}</span>
+                    <span className={sx(agentStyles.rowLead)}>
+                      <AgentAvatar agent={agent} size="sm" aria-label={null} />
+                      <span className={sx(agentStyles.rowText)}>
+                        <span className={sx(styles.cardTitle, agent.archived && agentStyles.archived)}>{agent.name}</span>
+                        <span className={sx(styles.cardMeta)}>{describeAgent(agent)}</span>
+                      </span>
                     </span>
-                    <span className={sx(styles.cardMeta)}>{describeAgent(agent)}</span>
                   </Button>
                 </li>
               ))}
             </ul>
           </div>
         ))}
-        {groups.length === 0 ? <p className={sx(styles.hint)}>No agent matches “{query}”.</p> : null}
+        {groups.length === 0 && !query ? (
+          <div className={sx(styles.empty)} style={{ padding: 0 }}>
+            <p className={sx(styles.emptyText)}>No agents yet. Create one to hand work to it.</p>
+            <div className={sx(styles.emptyActions)}>
+              <Button size="sm" onClick={() => setNewOpen(true)}>
+                <Plus aria-hidden />
+                New agent
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        {groups.length === 0 && query ? <p className={sx(styles.hint)}>No agent matches “{query}”.</p> : null}
         <UnusedFiles problems={problems} />
         {rootPath && repositoryAgents.length === 0 && problems.length === 0 && !query ? (
           <p className={sx(styles.hint)}>
@@ -461,6 +531,9 @@ export function AgentsTab() {
               options={agents.map((agent) => ({ value: agent.id, label: agent.name }))}
               onValueChange={(value) => setSelectedId(String(value))}
             />
+            <Button size="sm" variant="quiet" iconOnly aria-label="New agent" title="New agent" onClick={() => setNewOpen(true)}>
+              <Plus aria-hidden />
+            </Button>
             <Button
               size="sm"
               variant="quiet"
@@ -481,11 +554,73 @@ export function AgentsTab() {
             agent={selected}
             notes={selectedNotes}
             rootPath={rootPath}
+            revisions={customAgentRevisions[selected.id] ?? NO_REVISIONS}
             onDuplicate={() => duplicate(selected)}
+            onDelete={() => setDeleteTarget(selected)}
             onSave={save}
+            onRestore={restore}
           />
         </div>
       ) : null}
+      <NewAgentDialog
+        open={newOpen}
+        onOpenChange={setNewOpen}
+        templates={templates}
+        takenIds={takenIds}
+        onCreate={(created) => {
+          setDraft(created);
+          setSelectedId(null);
+        }}
+      />
+      {draft ? (
+        <NewAgentDraftEditor
+          draft={draft}
+          onSave={(agent) => {
+            const error = save(agent);
+            if (!error) {
+              setDraft(null);
+              setSelectedId(agent.id);
+            }
+            return error;
+          }}
+          onCancel={() => setDraft(null)}
+        />
+      ) : null}
+      {deleteTarget ? (
+        <DeleteAgentDialog
+          open
+          onOpenChange={(open) => {
+            if (!open) setDeleteTarget(null);
+          }}
+          agent={deleteTarget}
+          references={deleteReferences}
+          onDelete={() => remove(deleteTarget)}
+          onArchive={() => save({ ...deleteTarget, archived: true })}
+        />
+      ) : null}
     </div>
+  );
+}
+
+/** The unsaved-draft editor for a new agent, shown in a dialog over the tab. */
+function NewAgentDraftEditor(props: {
+  draft: AgentConfig;
+  onSave: (agent: AgentConfig) => string | null;
+  onCancel: () => void;
+}) {
+  return (
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) props.onCancel();
+      }}
+      width="lg"
+      title="New agent"
+      description="Nothing is saved until you save."
+    >
+      <div data-testid="agents-new-draft">
+        <AgentEditor agent={props.draft} onSave={props.onSave} onCancel={props.onCancel} saveLabel="Save agent" />
+      </div>
+    </Dialog>
   );
 }

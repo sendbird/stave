@@ -19,6 +19,7 @@ import { PrStatusIcon } from "@/components/layout/PrStatusIcon";
 import { prToneBadgeStyles } from "@/components/layout/pr-status.styles";
 import { ModelIcon } from "@/components/ai-elements/model-icon";
 import { Badge } from "@/components/ads/components/Badge";
+import { AgentAvatar } from "@/components/agents/AgentAvatar";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { VisuallyHidden } from "@/components/ads/components/VisuallyHidden";
 import { focusRing } from "@/components/ads/recipes/focus-ring";
@@ -601,6 +602,11 @@ export function FleetWorkspaceCard(args: {
                     <span className={sx(styles.taskTitle)}>{taskTitle}</span>
                     {taskAgents[row.task.id] ? (
                       <Badge xstyle={styles.chip} title={`Runs as the ${taskAgents[row.task.id]!.agentName} agent`}>
+                        <AgentAvatar
+                          agent={{ id: taskAgents[row.task.id]!.agentConfigId, name: taskAgents[row.task.id]!.agentName }}
+                          size="xs"
+                          aria-label={null}
+                        />
                         {taskAgents[row.task.id]!.agentName}
                       </Badge>
                     ) : null}

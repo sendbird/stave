@@ -150,3 +150,31 @@ describe("pinned commit", () => {
     expect(refused).toMatchObject({ accepted: false, reason: "invalid-request" });
   });
 });
+
+describe("can call", () => {
+  const delegateArgs = (agentConfigId: string): DelegateTaskArgs =>
+    ({
+      parentTaskId: PARENT_TASK,
+      parentWorkspaceId: PARENT_WORKSPACE,
+      providerId: "claude-code",
+      permissionProfile: "auto",
+      prompt: "Review the last commit.",
+      agentConfigId,
+    }) as DelegateTaskArgs;
+  const reviewer = getBuiltinAgent("reviewer")!;
+
+  test("a parent agent's Can call list limits who it delegates to", () => {
+    const allowed = applyAgentToDelegation({ args: delegateArgs(reviewer.id), agent: reviewer, parentCanCall: [reviewer.id] });
+    expect(allowed.ok).toBe(true);
+    const refused = applyAgentToDelegation({ args: delegateArgs(reviewer.id), agent: reviewer, parentCanCall: ["implementer"] });
+    expect(refused).toMatchObject({ ok: false, code: "not-allowed" });
+    expect(refused.ok ? "" : refused.message).toContain("It can call: implementer");
+    const none = applyAgentToDelegation({ args: delegateArgs(reviewer.id), agent: reviewer, parentCanCall: [] });
+    expect(none.ok ? "" : none.message).toContain("does not call other agents");
+  });
+
+  test("without a Can call list any agent may be called", () => {
+    expect(applyAgentToDelegation({ args: delegateArgs(reviewer.id), agent: reviewer, parentCanCall: null }).ok).toBe(true);
+    expect(applyAgentToDelegation({ args: delegateArgs(reviewer.id), agent: reviewer }).ok).toBe(true);
+  });
+});

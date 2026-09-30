@@ -1,4 +1,4 @@
-import type { AgentAssignment, RecordTaskAgentInput } from "./assign";
+import type { AgentAssignment, RecordTaskAgentInput, ReleaseTaskAgentInput } from "./assign";
 
 /**
  * Renderer ↔ main ↔ host contract for agents. The renderer sends an assign
@@ -10,6 +10,7 @@ export const AGENT_IPC = Object.freeze({
   assign: "agents:assign",
   /** Renderer → main: record that a task Kickoff created runs as an agent. */
   recordTask: "agents:record-task",
+  releaseTask: "agents:release-task",
   listAssignments: "agents:list-assignments",
   /** Renderer → main: the saved custom agents, for delegation and projects. */
   sync: "agents:sync",
@@ -18,7 +19,7 @@ export const AGENT_IPC = Object.freeze({
 });
 
 /** Host actions behind `agent.invoke`. */
-export type HostAgentAction = "assign" | "record-task" | "list-assignments" | "sync-agents" | "delegation-context";
+export type HostAgentAction = "assign" | "record-task" | "release-task" | "list-assignments" | "sync-agents" | "delegation-context";
 
 /**
  * What limits a delegation from one task: the permission of the agent the
@@ -27,6 +28,8 @@ export type HostAgentAction = "assign" | "record-task" | "list-assignments" | "s
 export interface AgentDelegationContext {
   parentPermission: import("./schema").AgentPermission | null;
   allowedAgentIds: string[] | null;
+  /** The delegating task's own agent's `canCall`; null when it may call any agent. */
+  parentCanCall: string[] | null;
 }
 
 export type AgentInvokeResult<T> =
@@ -46,6 +49,8 @@ export interface AgentsBridgeApi {
    * first turn. Idempotent by `requestId`; every later turn runs as the agent.
    */
   recordTask: (args: RecordTaskAgentInput) => Promise<AgentInvokeResult<AgentAssignment>>;
+  /** Sets a task back to the default agent from its next turn; null when it had none. */
+  releaseTask: (args: ReleaseTaskAgentInput) => Promise<AgentInvokeResult<AgentAssignment | null>>;
   listAssignments: (args?: AgentAssignmentsListArgs) => Promise<AgentInvokeResult<AgentAssignment[]>>;
   subscribeChanged: (listener: () => void) => () => void;
   /** Hands main and the host the saved custom agents; they only read this copy. */
