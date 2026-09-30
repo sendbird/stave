@@ -34,6 +34,7 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 import { playbookStyles as styles } from "../playbooks/playbooks.styles";
 import { agentStyles } from "./agents.styles";
 import { TagField } from "./TagField";
+import { AgentCanCallField } from "./AgentCanCallField";
 
 const REPORT_LABELS: Readonly<Record<(typeof AGENT_REPORT_SECTIONS)[number], string>> = {
   summary: "Summary",
@@ -101,7 +102,7 @@ function ColorChooser(props: { value: AgentColor | undefined; onChange: (color: 
 }
 
 /** Fields that live under Advanced; a save blocked by one of them opens it. */
-const ADVANCED_FIELDS = new Set(["avoidWhen", "skills", "tools", "concurrency", "usableAs", "report"]);
+const ADVANCED_FIELDS = new Set(["avoidWhen", "skills", "tools", "concurrency", "usableAs", "canCall", "report"]);
 
 /**
  * The agent editor. What most agents need is always visible — Profile (name,
@@ -394,6 +395,14 @@ export function AgentEditor(props: {
                   })}
                 </div>
                 <FieldError message={issues.usableAs} />
+              </dd>
+              <dt className={sx(styles.propertyLabel)}>Can call</dt>
+              <dd className={sx(styles.propertyValue)}>
+                <AgentCanCallField
+                  agent={draft}
+                  onChange={(canCall) => setDraft({ ...draft, canCall })}
+                />
+                <FieldError message={issues.canCall} />
               </dd>
               <dt className={sx(styles.propertyLabel)}>Report</dt>
               <dd className={sx(styles.propertyValue)}>

@@ -1,5 +1,6 @@
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizeMyStandards } from "@/lib/agents/standards";
+import { normalizeTaskMode } from "@/lib/agents/task-mode";
 import { normalizePersistedCompareRuns } from "@/lib/compare-runs";
 import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
@@ -368,6 +369,7 @@ export function createAppStorePersistenceOptions() {
       state.settings.agentSuggestions = normalizeAgentSuggestions(raw.agentSuggestions);
       state.settings.agentLearningDisabled = normalizeLearningDisabled(raw.agentLearningDisabled);
       state.settings.myStandards = normalizeMyStandards(raw.myStandards);
+      state.settings.taskMode = normalizeTaskMode(raw.taskMode);
       state.settings.modelShortcutKeys = normalizeModelShortcutKeys(
         raw.modelShortcutKeys,
       );

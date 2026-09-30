@@ -68,6 +68,10 @@ export const modelEffortSelectorStyles = stylex.create({
     textOverflow: "ellipsis",
     whiteSpace: "nowrap",
   },
+  triggerAgent: {
+    maxWidth: "9rem",
+    flexShrink: 1,
+  },
   triggerDot: {
     color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 35%, transparent)`,
   },

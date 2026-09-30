@@ -2,11 +2,12 @@
 
 ## Summary
 
-An agent is a saved worker you hand work to: its instructions, the model it
-runs on, the tools it may use, a default permission and where it works. Assign
-work to an agent and Stave makes the task — in a new worktree or in the current
-workspace — and starts it. Every later turn of that task runs as the same
-version of the agent.
+An agent is who runs a task: its instructions, how it picks a model, the tools
+it may use, a permission ceiling and where it works. Assign work to an agent
+and Stave makes the task — in a new worktree or in the current workspace — and
+starts it. Every later turn of that task runs as the same version of the agent.
+A Worker is different: a helper a task's model hands one piece of work to
+within a turn.
 
 Saving an agent starts nothing and grants nothing. Each assignment records its
 own start, and the permission you see is only the default the task starts with.
@@ -147,6 +148,33 @@ dot — a green dot for running, an amber dot when it needs you), in the Kickoff
 **Flow** panel. Built-in and repository agents get a stable colour derived from
 their id; a custom agent's colour is chosen in its **Profile** section.
 
+### Agentic tasks (experimental)
+
+By default a task runs on the model you pick in the composer. Turn on
+**Settings → Chat → Agents → Run tasks as agents** to pick an agent there
+too:
+
+- The model picker gets an **Agents** tab above the providers. It lists
+  **No agent** — the picked model runs the task with its own permissions —
+  and every agent that can run a task.
+- While an agent runs the task, the picker's button shows the agent's avatar
+  and name before the model.
+- A choice applies from the next turn and stays until you change it. Earlier
+  turns keep the agent they ran as, and each agent's History counts the turns
+  it ran. Choosing **No agent** ends the agent for this task. The choice is
+  locked while a turn runs or waits for an answer.
+- A switch that lets the task do more — to an agent with a wider permission,
+  or from a limited agent back to **No agent** — asks first.
+- An agent with a fixed model moves the picker to that model. Mid-task it does
+  so only on the same provider; pick another provider yourself. A model picked
+  on a provider tab overrides the agent's model for the task.
+- A task that runs as an agent has no Worker. The agent hands work to other
+  agents itself through delegation. With **No agent** the Worker is offered as
+  usual.
+
+Turning the setting off hides the Agents tab. Tasks that already run as an
+agent keep running as it.
+
 ### Usable as and the Worker picker
 
 A custom agent's **Usable as** chooses where it can be used: **Main agent**
@@ -154,10 +182,22 @@ A custom agent's **Usable as** chooses where it can be used: **Main agent**
 task**. Duplicate the built-in **Reviewer** and turn on **Main agent** to start
 work with it directly.
 
-Custom agents usable as a Worker appear under **Custom agents** in the
-composer's Worker menu. Picking one copies its instructions and tool list into
+Custom agents usable as a Worker appear under **Agents as Worker** in the
+composer's Worker menu. A Worker agent takes on part of a turn while the task
+keeps its own model; to have an agent run the whole task, use the model
+picker's **Agents** tab. Picking one copies its instructions and tool list into
 this task's Worker; edit the agent and pick it again to refresh the copy.
 Picking a preset afterwards clears it.
+
+### Can call
+
+**Can call**, under Advanced, limits which agents a task running as this agent
+may delegate to. **Any agent** (the default) sets no limit. **Only these
+agents** offers every active agent usable as a delegated task; checking none
+means the agent delegates to no one. A delegation to an agent outside the list
+is refused with the names it may call. A project's Agents still apply on top:
+a mission's agent may call only agents that are on both lists. Exported agent
+files leave **Can call** out.
 
 ### My standards
 
@@ -255,7 +295,9 @@ Fleet's search finds its tasks.
 - If Stave stops while preparing, the assignment shows **Interrupted** with
   what it had made. It is never started again on its own.
 - Cursor and Kiro receive the agent's instructions at the top of the first
-  message; Claude and Codex receive them on their instruction channel.
+  message — or of the next message after the task starts as, or switches to,
+  an agent from Kickoff, a mission or the composer. Claude and Codex receive
+  them on their instruction channel with every turn.
 - An agent's permission is a ceiling, never a grant. Every turn of the task —
   the first and each later one — keeps your permission settings where they are
   already narrower and lowers them where they are wider:
@@ -280,6 +322,7 @@ Fleet's search finds its tasks.
 - Hooks, inline MCP servers and approval-skipping modes in agent files are
   never imported.
 - A worktree is a separate checkout, not a sandbox.
+- Running tasks as agents is experimental.
 
 ## Related
 

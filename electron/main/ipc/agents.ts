@@ -1,7 +1,7 @@
 import { ipcMain, webContents } from "electron";
 import { z } from "zod";
 import { AGENT_IPC, type AgentInvokeResult, type HostAgentAction } from "../../../src/lib/agents/api";
-import { AssignAgentInputSchema, RecordTaskAgentInputSchema } from "../../../src/lib/agents/assign";
+import { AssignAgentInputSchema, RecordTaskAgentInputSchema, ReleaseTaskAgentInputSchema } from "../../../src/lib/agents/assign";
 import { invokeHostService, onHostServiceEvent, onHostServiceReady } from "../host-service-client";
 import { getCustomAgents, getMyStandards, setCustomAgents, setMyStandards } from "../agents/agent-registry";
 
@@ -66,6 +66,15 @@ export function registerAgentHandlers() {
       return await invokeAgent("record-task", parsed.data);
     } catch (error) {
       return failed(error, "The task's agent could not be recorded.");
+    }
+  });
+  ipcMain.handle(AGENT_IPC.releaseTask, async (_event, args: unknown) => {
+    const parsed = ReleaseTaskAgentInputSchema.safeParse(args);
+    if (!parsed.success) return { ok: false, code: "invalid", message: "Invalid request." };
+    try {
+      return await invokeAgent("release-task", parsed.data);
+    } catch (error) {
+      return failed(error, "The task's agent could not be changed.");
     }
   });
   ipcMain.handle(AGENT_IPC.sync, async (_event, args: unknown) => {

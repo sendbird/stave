@@ -224,6 +224,11 @@ export const AgentConfigSchema = z
     workspace: z.enum(AGENT_WORKSPACES),
     report: z.array(z.enum(AGENT_REPORT_SECTIONS)).min(1).max(AGENT_REPORT_SECTIONS.length),
     usableAs: z.array(z.enum(AGENT_ROLES)).min(1).max(AGENT_ROLES.length),
+    /**
+     * The agents a task running as this agent may delegate to. Absent: any
+     * agent. An empty list: none. Checked when the delegation is made.
+     */
+    canCall: z.array(AgentConfigIdSchema).max(MAX_AGENT_CONFIGS).optional(),
     concurrency: z
       .number()
       .int()
@@ -241,6 +246,9 @@ export const AgentConfigSchema = z
   .superRefine((agent, ctx) => {
     if (new Set(agent.usableAs).size !== agent.usableAs.length) {
       ctx.addIssue({ code: "custom", path: ["usableAs"], message: "Roles must be unique." });
+    }
+    if (agent.canCall && new Set(agent.canCall).size !== agent.canCall.length) {
+      ctx.addIssue({ code: "custom", path: ["canCall"], message: "Each agent is listed once." });
     }
     if (new Set(agent.report).size !== agent.report.length) {
       ctx.addIssue({ code: "custom", path: ["report"], message: "Report sections must be unique." });

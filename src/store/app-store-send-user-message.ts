@@ -1,8 +1,6 @@
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
-import {
-  CanonicalRetrievedContextPart,
-  NormalizedProviderEvent,
-} from "@/lib/providers/provider.types";
+import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
+import { CanonicalRetrievedContextPart, NormalizedProviderEvent } from "@/lib/providers/provider.types";
 import { resolveAuxLaneRuntime } from "@/lib/providers/auxiliary-inference-policy";
 import { eventsIndicateFileEdits } from "@/lib/providers/tool-names";
 import { collectTurnStartRetrievedContextParts } from "@/store/repository-memory-runtime";
@@ -1093,6 +1091,7 @@ export function createSendUserMessageAction(args: {
         provider,
         model: activeModel,
         includeAdvisor: turnOrigin === "conversation",
+        taskRunsAsAgent: Boolean(useAgentAssignmentsStore.getState().byTaskId[resolvedTaskId]),
         advisorRuntimeOverrides: delegatedRuntimeOverrides,
         workerRuntimeOverrides: delegatedRuntimeOverrides,
         settings: {

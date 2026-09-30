@@ -50,6 +50,7 @@ async function applyAgent(args: DelegateTaskArgs) {
     agent,
     parentPermission: context.value.parentPermission,
     allowedAgentIds: context.value.allowedAgentIds,
+    parentCanCall: context.value.parentCanCall,
     standards: activeStandards(getMyStandards()),
   });
   return result.ok

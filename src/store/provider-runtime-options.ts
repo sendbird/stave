@@ -62,6 +62,7 @@ type RuntimeSettings = Pick<
   | "advisorConsultLimit"
   | "workerEnabled"
   | "workerConfigByProvider"
+  | "taskMode"
   | "claudeSettingSources"
   | "claudeEffort"
   | "claudeThinkingMode"
@@ -219,6 +220,11 @@ export function buildProviderRuntimeOptions(args: {
   providerSession?: TaskProviderSessionState | null;
   includeAdvisor?: boolean;
   /**
+   * The task runs as an agent chosen in the model picker (agentic tasks). Its
+   * agent calls other agents itself, so the turn carries no Worker.
+   */
+  taskRunsAsAgent?: boolean;
+  /**
    * The task's per-turn Advisor arming, when the caller has a prompt draft.
    * Omitted for utility turns, which never opt into the Advisor anyway.
    */
@@ -254,8 +260,10 @@ export function buildProviderRuntimeOptions(args: {
       }).effectiveTarget
     : null;
   // Gated on the same `includeAdvisor` flag: it marks a real conversation turn,
-  // and utility/secondary turns must never spend a worker either.
-  const workerIntent = args.includeAdvisor
+  // and utility/secondary turns must never spend a worker either. Agentic tasks
+  // have no Worker once an agent runs them: the agent calls other agents itself.
+  const workerIntent =
+    args.includeAdvisor && !(settings.taskMode === "agentic" && args.taskRunsAsAgent)
     ? buildWorkerRuntimeIntent(
         resolveWorkerArmState({
           providerId: args.provider,

@@ -1,10 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
-import {
-  resolveKickoffAgentRoute,
-  selectableKickoffAgents,
-} from "@/components/layout/KickoffDialog.utils";
+import { resolveAssignRoute } from "@/lib/agents/assign-route";
+import { selectableMainAgents } from "@/lib/agents/task-mode";
 import { KickoffSourceWho } from "@/components/layout/KickoffSourceWho";
 import { duplicateAgent } from "@/lib/agents/library";
 import { getBuiltinAgent } from "@/lib/agents/starters";
@@ -13,7 +11,7 @@ describe("kickoff chooses who does the work", () => {
   test("selectable agents are usable as a main agent and not archived", () => {
     const usable = duplicateAgent(getBuiltinAgent("implementer")!, []);
     const archived = { ...duplicateAgent(getBuiltinAgent("implementer")!, []), id: "archived", archived: true };
-    const ids = selectableKickoffAgents([usable, archived]).map((agent) => agent.id);
+    const ids = selectableMainAgents([usable, archived]).map((agent) => agent.id);
     expect(ids).toContain(usable.id);
     expect(ids).not.toContain("archived");
     // A built-in worker-only agent (scout) is never offered as a main agent.
@@ -22,7 +20,7 @@ describe("kickoff chooses who does the work", () => {
 
   test("an auto agent follows the route; the preferred provider is the fallback", () => {
     const agent = duplicateAgent(getBuiltinAgent("implementer")!, []);
-    const route = resolveKickoffAgentRoute({
+    const route = resolveAssignRoute({
       agent,
       profile: null,
       preferredProviderId: "codex",
@@ -30,7 +28,7 @@ describe("kickoff chooses who does the work", () => {
     });
     expect(route.providerId).toBe("codex");
     // A picked provider is never re-routed and runs with its default model.
-    const picked = resolveKickoffAgentRoute({
+    const picked = resolveAssignRoute({
       agent,
       profile: null,
       preferredProviderId: "codex",

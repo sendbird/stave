@@ -82,6 +82,7 @@ function installBridgeStub() {
   api.agents = {
     assign: async () => ({ ok: true, value: PREVIEW_ASSIGNMENT }),
     recordTask: async () => ({ ok: true, value: PREVIEW_ASSIGNMENT }),
+    releaseTask: async () => ({ ok: true, value: null }),
     listAssignments: async () => ({ ok: true, value: [] }),
     subscribeChanged: () => () => {},
   };
