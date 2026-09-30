@@ -190,7 +190,7 @@ describe("resolveRoute", () => {
     });
     expect(delegate).toMatchObject({
       providerId: "codex",
-      model: "gpt-6-sol",
+      model: "gpt-6.1-sol",
       effort: "medium",
       ruleId: "delegate-default",
     });

@@ -12,6 +12,7 @@ import {
   listCodexReasoningEffortsForModel,
   listModelCapabilities,
   resolveDefaultClaudeFallbackModel,
+  resolveDefaultCodexFallbackModel,
   resolveClaudeEffortForModelSwitch,
   resolveDefaultCodexEffortForModel,
   resolveDefaultClaudeEffortForModel,
@@ -44,7 +45,7 @@ describe("model catalog", () => {
   test("includes the verified Codex model set led by GPT-6 Astra", () => {
     expect(CODEX_MODEL_OPTIONS).toEqual([
       "gpt-6-astra",
-      "gpt-6-sol",
+      "gpt-6.1-sol",
       "gpt-5.6-terra",
       "gpt-6-luna",
     ]);
@@ -52,7 +53,7 @@ describe("model catalog", () => {
 
   test("includes GPT-6 Astra without making it the Codex default", () => {
     expect(getDefaultModelForProvider({ providerId: "codex" })).toBe(
-      "gpt-6-sol",
+      "gpt-6.1-sol",
     );
     expect(getDefaultModelForProvider({ providerId: "codex" })).not.toBe(
       "gpt-6-astra",
@@ -78,6 +79,7 @@ describe("model catalog", () => {
 
   test("formats current GPT models with canonical labels", () => {
     expect(toHumanModelName({ model: "gpt-6-astra" })).toBe("GPT-6 Astra");
+    expect(toHumanModelName({ model: "gpt-6.1-sol" })).toBe("GPT-6.1 Sol");
     expect(toHumanModelName({ model: "gpt-6-sol" })).toBe("GPT-6 Sol");
     expect(toHumanModelName({ model: "gpt-5.6-terra" })).toBe("GPT-5.6 Terra");
     expect(toHumanModelName({ model: "gpt-6-luna" })).toBe("GPT-6 Luna");
@@ -124,7 +126,7 @@ describe("model catalog", () => {
       DEFAULT_CLAUDE_OPUS_MODEL,
     );
     expect(getDefaultModelForProvider({ providerId: "codex" })).toBe(
-      "gpt-6-sol",
+      "gpt-6.1-sol",
     );
   });
 
@@ -166,10 +168,13 @@ describe("model catalog", () => {
   });
 
   test("returns the default Codex effort from model capabilities", () => {
-    // Astra medium, Sol high, Terra xhigh, Luna xhigh. These Codex defaults
-    // except Astra are Stave's.
+    // Astra medium, Sol 6.1 high, Sol 6 high, Terra xhigh, Luna xhigh.
+    // Both Sol generations, Terra, and Luna are Stave's. Astra follows the catalog.
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-6-astra" })).toBe(
       "medium",
+    );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-6.1-sol" })).toBe(
+      "high",
     );
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-6-sol" })).toBe(
       "high",
@@ -203,10 +208,14 @@ describe("model catalog", () => {
   test("keeps Stave-owned Codex defaults when the App Server recommends another effort", () => {
     registerDynamicDefaultReasoningEfforts(
       new Map([
+        ["gpt-6.1-sol", "low"],
         ["gpt-6-sol", "medium"],
         ["gpt-6-luna", "low"],
         ["gpt-5.6-terra", "medium"],
       ]),
+    );
+    expect(resolveDefaultCodexEffortForModel({ model: "gpt-6.1-sol" })).toBe(
+      "high",
     );
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-6-sol" })).toBe(
       "high",
@@ -220,7 +229,11 @@ describe("model catalog", () => {
   });
 
   test("prefers a dynamically registered Codex default effort over the static fallback", () => {
-    registerDynamicDefaultReasoningEfforts(new Map([["gpt-5.4-mini", "high"]]));
+    registerDynamicDefaultReasoningEfforts(
+      new Map([
+        ["gpt-5.4-mini", "high"],
+      ]),
+    );
     expect(resolveDefaultCodexEffortForModel({ model: "gpt-5.4-mini" })).toBe(
       "high",
     );
@@ -238,6 +251,9 @@ describe("model catalog", () => {
   test("scopes selectable Codex reasoning efforts per model, per the verified server catalog", () => {
     // Astra/Sol/Terra accept the full scale including "ultra".
     expect(listCodexReasoningEffortsForModel({ model: "gpt-6-astra" })).toEqual(
+      ["low", "medium", "high", "xhigh", "max", "ultra"],
+    );
+    expect(listCodexReasoningEffortsForModel({ model: "gpt-6.1-sol" })).toEqual(
       ["low", "medium", "high", "xhigh", "max", "ultra"],
     );
     expect(listCodexReasoningEffortsForModel({ model: "gpt-6-sol" })).toEqual(
@@ -298,7 +314,7 @@ describe("model catalog", () => {
       );
     }
     expect(listModelCapabilities({ providerId: "codex" }).length).toBe(
-      CODEX_MODEL_OPTIONS.length + 3,
+      CODEX_MODEL_OPTIONS.length + 4,
     );
   });
 
@@ -397,6 +413,12 @@ describe("model catalog", () => {
     ).toBe("claude-opus-4-8[1m]");
     expect(
       resolveDefaultClaudeFallbackModel({ model: "claude-sonnet-5" }),
+    ).toBeUndefined();
+    expect(resolveDefaultCodexFallbackModel({ model: "gpt-6.1-sol" })).toBe(
+      "gpt-6-sol",
+    );
+    expect(
+      resolveDefaultCodexFallbackModel({ model: "gpt-6-sol" }),
     ).toBeUndefined();
   });
 

@@ -1,6 +1,7 @@
 import {
   CLAUDE_FABLE_MODEL,
   DEFAULT_CLAUDE_OPUS_MODEL,
+  DEFAULT_CODEX_MODEL,
   getProviderLabel,
   listProviderIds,
   toHumanModelName,
@@ -36,7 +37,7 @@ export const MODEL_SHORTCUT_SLOT_LABELS = [
  */
 export const DEFAULT_MODEL_SHORTCUT_KEYS = [
   `claude-code:${DEFAULT_CLAUDE_OPUS_MODEL}`,
-  "codex:gpt-6-sol",
+  `codex:${DEFAULT_CODEX_MODEL}`,
   `claude-code:${CLAUDE_FABLE_MODEL}`,
   "codex:gpt-6-astra",
   "",

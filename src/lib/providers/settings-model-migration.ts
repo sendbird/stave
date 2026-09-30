@@ -2,7 +2,6 @@ import {
   DEFAULT_CLAUDE_OPUS_MODEL,
   DEFAULT_CLAUDE_SONNET_1M_MODEL,
   DEFAULT_CLAUDE_SONNET_MODEL,
-  getDefaultModelForProvider,
   resolveDefaultClaudeEffortForModel,
   resolveDefaultCodexEffortForModel,
 } from "@/lib/providers/model-catalog";
@@ -18,7 +17,7 @@ import type { TaskPreset } from "@/lib/task-presets";
  * default") without re-firing later if the user deliberately picks that value
  * again.
  */
-export const SETTINGS_MODEL_MIGRATION_VERSION = 5;
+export const SETTINGS_MODEL_MIGRATION_VERSION = 6;
 
 /**
  * v1 (GPT-6 Astra release) — the per-provider defaults moved from Sonnet 5 to
@@ -241,61 +240,78 @@ const V1_MODEL_SHORTCUT_KEYS = [
   "",
 ];
 
+const SOL_6_MODEL_SHORTCUT_KEYS = [
+  "claude-code:claude-opus-5-5",
+  "codex:gpt-6-sol",
+  "claude-code:claude-fable-5-1",
+  "codex:gpt-6-astra",
+  "",
+  "",
+  "",
+  "",
+  "",
+  "",
+];
+
 export function migrateSettingsModelDefaults(
   input: SettingsModelMigrationInput,
 ): SettingsModelMigrationResult {
+  const fromVersion = Math.max(0, Math.trunc(input.fromVersion ?? 0));
   const result = migrateV1(input);
-  if ((input.fromVersion ?? 0) >= SETTINGS_MODEL_MIGRATION_VERSION) {
+  if (fromVersion >= SETTINGS_MODEL_MIGRATION_VERSION) {
     return { ...result, version: SETTINGS_MODEL_MIGRATION_VERSION };
   }
-  if (result.modelClaude === "claude-opus-5") {
-    result.modelClaude = DEFAULT_CLAUDE_OPUS_MODEL;
-    if (result.claudeEffort === "high") {
-      result.claudeEffort = "medium";
-    }
-    result.changed = true;
-  }
-  if (result.modelCodex === "gpt-5.6-sol") {
-    result.modelCodex = getDefaultModelForProvider({ providerId: "codex" });
-    if (result.codexReasoningEffort === "high") {
-      result.codexReasoningEffort = "medium";
-    }
-    result.changed = true;
-  }
-  if (
-    result.modelShortcutKeys.length === V1_MODEL_SHORTCUT_KEYS.length &&
-    result.modelShortcutKeys.every(
-      (key, index) => key === V1_MODEL_SHORTCUT_KEYS[index],
-    )
-  ) {
-    result.modelShortcutKeys = [...DEFAULT_MODEL_SHORTCUT_KEYS];
-    result.changed = true;
-  }
-  result.taskPresets = result.taskPresets.map((preset) => {
-    if (preset.kind !== "task" || preset.effort) return preset;
-    if (
-      preset.id === "default-claude-opus-5-task" &&
-      preset.provider === "claude-code" &&
-      preset.label === "Opus 5" &&
-      preset.model === "claude-opus-5"
-    ) {
+  if (fromVersion < 5) {
+    if (result.modelClaude === "claude-opus-5") {
+      result.modelClaude = DEFAULT_CLAUDE_OPUS_MODEL;
+      if (result.claudeEffort === "high") {
+        result.claudeEffort = "medium";
+      }
       result.changed = true;
-      return { ...preset, model: DEFAULT_CLAUDE_OPUS_MODEL, label: "Opus 5.5" };
+    }
+    if (result.modelCodex === "gpt-5.6-sol") {
+      result.modelCodex = "gpt-6-sol";
+      if (result.codexReasoningEffort === "high") {
+        result.codexReasoningEffort = "medium";
+      }
+      result.changed = true;
     }
     if (
-      preset.id === "default-gpt-5-6-task" &&
-      preset.provider === "codex" &&
-      preset.label === "GPT-5.6" &&
-      preset.model === "gpt-5.6-sol"
+      result.modelShortcutKeys.length === V1_MODEL_SHORTCUT_KEYS.length &&
+      result.modelShortcutKeys.every(
+        (key, index) => key === V1_MODEL_SHORTCUT_KEYS[index],
+      )
     ) {
+      result.modelShortcutKeys = [...DEFAULT_MODEL_SHORTCUT_KEYS];
       result.changed = true;
-      return { ...preset, model: "gpt-6-sol", label: "GPT-6 Sol" };
     }
-    return preset;
-  });
-  applySonnet55Migration(result);
-  applySolHighEffortMigration(result);
-  applyLunaTerraEffortMigration(result);
+    result.taskPresets = result.taskPresets.map((preset) => {
+      if (preset.kind !== "task" || preset.effort) return preset;
+      if (
+        preset.id === "default-claude-opus-5-task" &&
+        preset.provider === "claude-code" &&
+        preset.label === "Opus 5" &&
+        preset.model === "claude-opus-5"
+      ) {
+        result.changed = true;
+        return { ...preset, model: DEFAULT_CLAUDE_OPUS_MODEL, label: "Opus 5.5" };
+      }
+      if (
+        preset.id === "default-gpt-5-6-task" &&
+        preset.provider === "codex" &&
+        preset.label === "GPT-5.6" &&
+        preset.model === "gpt-5.6-sol"
+      ) {
+        result.changed = true;
+        return { ...preset, model: "gpt-6-sol", label: "GPT-6 Sol" };
+      }
+      return preset;
+    });
+    applySonnet55Migration(result);
+    applySolHighEffortMigration(result);
+    applyLunaTerraEffortMigration(result);
+  }
+  applySol61Migration(result);
   return { ...result, version: SETTINGS_MODEL_MIGRATION_VERSION };
 }
 
@@ -358,6 +374,41 @@ function applySolHighEffortMigration(result: SettingsModelMigrationResult) {
 }
 
 const LUNA_EFFORT_MODELS = new Set(["gpt-6-luna", "gpt-5.6-luna"]);
+
+/**
+ * v6 — GPT-6.1 Sol replaces GPT-6 Sol as the Codex default. A selected
+ * GPT-6 Sol moves to GPT-6.1 Sol. Effort stays, including Sol 6's default
+ * (`high`). The untouched shortcut seed and the seeded Sol preset move with
+ * it. Runs once.
+ */
+function applySol61Migration(result: SettingsModelMigrationResult) {
+  if (result.modelCodex.trim() === "gpt-6-sol") {
+    result.modelCodex = "gpt-6.1-sol";
+    result.changed = true;
+  }
+  if (
+    result.modelShortcutKeys.length === SOL_6_MODEL_SHORTCUT_KEYS.length &&
+    result.modelShortcutKeys.every(
+      (key, index) => key === SOL_6_MODEL_SHORTCUT_KEYS[index],
+    )
+  ) {
+    result.modelShortcutKeys = [...DEFAULT_MODEL_SHORTCUT_KEYS];
+    result.changed = true;
+  }
+  result.taskPresets = result.taskPresets.map((preset) => {
+    if (preset.kind !== "task" || preset.effort) return preset;
+    if (
+      preset.id === "default-gpt-5-6-task" &&
+      preset.provider === "codex" &&
+      preset.label === "GPT-6 Sol" &&
+      preset.model === "gpt-6-sol"
+    ) {
+      result.changed = true;
+      return { ...preset, model: "gpt-6.1-sol", label: "GPT-6.1 Sol" };
+    }
+    return preset;
+  });
+}
 
 /**
  * v5 — Luna's composer default moves from medium to xhigh, and Terra's moves

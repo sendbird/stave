@@ -16,6 +16,13 @@ test("thread model changes persist the notice and executed model through complet
   expect(track.resolve("gpt-5.6-sol")).toEqual([]);
 });
 
+test("an unavailable Sol 6.1 substitution names GPT-6 Sol", () => {
+  const track = createCodexModelResolutionTracker("gpt-6.1-sol");
+  const events = track.resolve("gpt-6-sol", "gpt-6.1-sol", "staveSolFallback");
+  expect(events[1]?.content).toContain("GPT-6 Sol");
+  expect(events[1]?.content).not.toContain("version");
+});
+
 test("policy rerouting reports its reason without claiming a version problem", () => {
   const track = createCodexModelResolutionTracker("gpt-6-sol");
   const events = track.resolve("gpt-6-astra", "gpt-6-sol", "highRiskCyberActivity");
@@ -52,7 +59,7 @@ test("compatibility errors retain supplied minimum versions and provide installa
 });
 
 test("Codex selector explains availability without inventing a minimum version", () => {
-  const option = buildModelSelectorOptions({ providerIds: ["codex"] }).find(option => option.model === "gpt-6-sol");
+  const option = buildModelSelectorOptions({ providerIds: ["codex"] }).find(option => option.model === "gpt-6.1-sol");
   expect(option?.description).toContain("Runtime support unconfirmed");
   expect(option?.description).toContain("You can still select this model");
 });

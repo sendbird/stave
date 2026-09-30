@@ -55,7 +55,7 @@ describe("settings model default migration", () => {
 
     expect(result.changed).toBe(true);
     expect(result.modelClaude).toBe("claude-opus-5-5");
-    expect(result.modelCodex).toBe("gpt-6-sol");
+    expect(result.modelCodex).toBe("gpt-6.1-sol");
     expect(result.version).toBe(SETTINGS_MODEL_MIGRATION_VERSION);
   });
 
@@ -65,7 +65,7 @@ describe("settings model default migration", () => {
     expect(result.modelShortcutKeys).toEqual([...DEFAULT_MODEL_SHORTCUT_KEYS]);
     expect(result.modelShortcutKeys.slice(0, 4)).toEqual([
       "claude-code:claude-opus-5-5",
-      "codex:gpt-6-sol",
+      "codex:gpt-6.1-sol",
       "claude-code:claude-fable-5-1",
       "codex:gpt-6-astra",
     ]);
@@ -76,13 +76,13 @@ describe("settings model default migration", () => {
 
     expect(result.taskPresets[0]).toMatchObject({
       id: "default-gpt-5-6-task",
-      model: "gpt-6-sol",
+      model: "gpt-6.1-sol",
     });
   });
 
   test("carries an untuned effort onto the new ladder", () => {
     // Sonnet@high and Terra@xhigh were both the old per-model defaults, so
-    // they follow their model to Opus 5 at medium and GPT-6 Sol at high.
+    // they follow their model to Opus 5.5 at medium and GPT-6.1 Sol at high.
     const result = migrateSettingsModelDefaults(preMigrationSnapshot());
 
     expect(result.claudeEffort).toBe("medium");
@@ -201,7 +201,7 @@ describe("settings model default migration", () => {
   });
 
   test("still retargets the effort of a model that was in the old picker", () => {
-    // Terra at the old "xhigh" default follows its model to Sol's new default.
+    // Terra at the old "xhigh" default follows its model to Sol 6.1 at high.
     const result = migrateSettingsModelDefaults(
       preMigrationSnapshot({
         modelCodex: "gpt-5.6-terra",
@@ -209,8 +209,8 @@ describe("settings model default migration", () => {
       }),
     );
 
-    expect(result.modelCodex).toBe("gpt-6-sol");
-    expect(result.codexReasoningEffort).not.toBe("xhigh");
+    expect(result.modelCodex).toBe("gpt-6.1-sol");
+    expect(result.codexReasoningEffort).toBe("high");
   });
 
   test("keeps a tuned effort on a model that was in the old picker", () => {
@@ -241,11 +241,11 @@ describe("September model migration", () => {
     };
     const result = migrateSettingsModelDefaults(input);
     expect(result.modelClaude).toBe("claude-opus-5-5");
-    expect(result.modelCodex).toBe("gpt-6-sol");
+    expect(result.modelCodex).toBe("gpt-6.1-sol");
     expect(result.claudeEffort).toBe("xhigh");
     expect(result.codexReasoningEffort).toBe("max");
     expect(result.modelShortcutKeys).toEqual([...DEFAULT_MODEL_SHORTCUT_KEYS]);
-    expect(result.taskPresets[0]).toMatchObject({ model: "gpt-6-sol", label: "GPT-6 Sol" });
+    expect(result.taskPresets[0]).toMatchObject({ model: "gpt-6.1-sol", label: "GPT-6.1 Sol" });
     expect(result.taskPresets[1]).toEqual(input.taskPresets[1]);
     const again = migrateSettingsModelDefaults({ ...result, fromVersion: result.version,
       modelCodex: "gpt-5.6-sol", modelClaude: "claude-opus-5" });
@@ -344,15 +344,16 @@ describe("GPT-6 Sol effort migration", () => {
     });
     expect(raised.changed).toBe(true);
     expect(raised.version).toBe(SETTINGS_MODEL_MIGRATION_VERSION);
-    expect(raised.modelCodex).toBe("gpt-6-sol");
+    expect(raised.modelCodex).toBe("gpt-6.1-sol");
     expect(raised.codexReasoningEffort).toBe("high");
 
     const tuned = settled({
       modelCodex: "gpt-6-sol",
       codexReasoningEffort: "low",
     });
+    expect(tuned.modelCodex).toBe("gpt-6.1-sol");
     expect(tuned.codexReasoningEffort).toBe("low");
-    expect(tuned.changed).toBe(false);
+    expect(tuned.changed).toBe(true);
 
     const astra = settled({
       modelCodex: "gpt-6-astra",
@@ -414,5 +415,69 @@ describe("Luna and Terra effort migration", () => {
     });
     expect(tunedTerra.codexReasoningEffort).toBe("max");
     expect(tunedTerra.changed).toBe(false);
+  });
+});
+
+describe("GPT-6.1 Sol migration", () => {
+  test("moves a selected GPT-6 Sol to GPT-6.1 Sol once", () => {
+    const moved = migrateSettingsModelDefaults({
+      fromVersion: 5,
+      modelClaude: "claude-opus-5-5",
+      modelCodex: "gpt-6-sol",
+      claudeEffort: "medium",
+      codexReasoningEffort: "high",
+      modelShortcutKeys: [
+        "claude-code:claude-opus-5-5",
+        "codex:gpt-6-sol",
+        "claude-code:claude-fable-5-1",
+        "codex:gpt-6-astra",
+        "",
+        "",
+        "",
+        "",
+        "",
+        "",
+      ],
+      taskPresets: [
+        {
+          id: "default-gpt-5-6-task",
+          label: "GPT-6 Sol",
+          kind: "task",
+          provider: "codex",
+          model: "gpt-6-sol",
+        },
+      ],
+    });
+    expect(moved.changed).toBe(true);
+    expect(moved.version).toBe(SETTINGS_MODEL_MIGRATION_VERSION);
+    expect(moved.modelCodex).toBe("gpt-6.1-sol");
+    expect(moved.codexReasoningEffort).toBe("high");
+    expect(moved.modelShortcutKeys[1]).toBe("codex:gpt-6.1-sol");
+    expect(moved.taskPresets[0]).toMatchObject({
+      model: "gpt-6.1-sol",
+      label: "GPT-6.1 Sol",
+    });
+
+    const tuned = migrateSettingsModelDefaults({
+      fromVersion: 5,
+      modelClaude: "claude-opus-5-5",
+      modelCodex: "gpt-6-sol",
+      claudeEffort: "medium",
+      codexReasoningEffort: "ultra",
+      modelShortcutKeys: ["codex:gpt-6-astra"],
+      taskPresets: [],
+    });
+    expect(tuned.modelCodex).toBe("gpt-6.1-sol");
+    expect(tuned.codexReasoningEffort).toBe("ultra");
+
+    const again = migrateSettingsModelDefaults({
+      ...moved,
+      fromVersion: moved.version,
+      modelCodex: "gpt-6-sol",
+      codexReasoningEffort: "high",
+    });
+    expect(again.changed).toBe(false);
+    expect(again.modelCodex).toBe("gpt-6-sol");
+    expect(again.codexReasoningEffort).toBe("high");
   });
 });
