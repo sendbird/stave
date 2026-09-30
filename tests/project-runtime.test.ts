@@ -349,8 +349,8 @@ describe("project runtime", () => {
       input: { playbookId: "request-to-pr", assignment: "Part c.", startKey: "c" },
     });
     const next = harness.store.listProposals(projectId).find((entry) => entry.startKey === "c")!;
-    await harness.runtime.approveProposal({ projectId, proposalId: next.id, providerId: "codex", model: "gpt-6-sol" });
-    expect(harness.idleTasks.at(-1)).toEqual({ provider: "codex", model: "gpt-6-sol" });
+    await harness.runtime.approveProposal({ projectId, proposalId: next.id, providerId: "codex", model: "gpt-6.1-sol" });
+    expect(harness.idleTasks.at(-1)).toEqual({ provider: "codex", model: "gpt-6.1-sol" });
   });
 });
 
