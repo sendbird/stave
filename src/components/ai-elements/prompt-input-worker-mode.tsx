@@ -230,7 +230,7 @@ export function PromptInputWorkerPill(args: {
         </ComposerOptionMenuSection>
 
         {args.onSelectAgent && workerAgents.options.length ? (
-          <ComposerOptionMenuSection title="Custom agents" scroll>
+          <ComposerOptionMenuSection title="Agents as Worker" scroll>
             {workerAgents.options.map((agent) => (
               <ComposerOptionCard
                 key={agent.id}
@@ -247,11 +247,12 @@ export function PromptInputWorkerPill(args: {
                 testId={`worker-mode-agent-${agent.id}`}
               />
             ))}
-            {agentConfigId ? (
-              <ComposerOptionMenuHint>
-                Uses {args.arm.config.agentName ?? "the agent"} as it was when picked; pick it again after editing it.
-              </ComposerOptionMenuHint>
-            ) : null}
+            <ComposerOptionMenuHint>
+              The agent takes on part of this turn; the task keeps its model.
+              {agentConfigId
+                ? ` Uses ${args.arm.config.agentName ?? "the agent"} as it was when picked; pick it again after editing it.`
+                : null}
+            </ComposerOptionMenuHint>
           </ComposerOptionMenuSection>
         ) : null}
 

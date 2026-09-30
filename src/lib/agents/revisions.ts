@@ -113,6 +113,7 @@ const FIELD_LABELS: Readonly<Record<string, string>> = {
   permission: "Permission",
   workspace: "Works in",
   usableAs: "Usable as",
+  canCall: "Can call",
   report: "Report",
   appearance: "Colour",
   concurrency: "Concurrency",

@@ -74,6 +74,17 @@ export interface AssignRuntime {
   }) => AgentAssignment;
   /** The agent and standards an assigned task runs with, for its later turns. */
   taskAgent: (taskId: string) => { agent: AgentAssignment["agent"]; standards: string | null } | null;
+  /**
+   * Ends the task's current agent: its later turns run with the task's own
+   * settings. The row stays for history. Returns the ended row, or null when
+   * the task was not running as an agent.
+   */
+  releaseTaskAgent: (taskId: string) => AgentAssignment | null;
+  /**
+   * The instructions a prompt-channel provider still owes the task's agent,
+   * taken once: the flag clears whether or not this provider needed them.
+   */
+  takeTaskPreamble: (taskId: string, providerId: ProviderId) => string | null;
 }
 
 export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRuntime {
@@ -87,15 +98,42 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
     }
   };
 
+  /** The row a task runs as now: its newest, unless the user ended it. */
+  const currentRow = (taskId: string) => {
+    const row = deps.store.getByTaskId(taskId);
+    return row && !row.endedAt ? row : null;
+  };
+
   return {
     list: (args = {}) => deps.store.list(args),
     agentForTask: (taskId) => {
       // A task intake made for an agent keeps running as it, even after a failed first turn.
-      return deps.store.getByTaskId(taskId)?.agent ?? null;
+      return currentRow(taskId)?.agent ?? null;
     },
     taskAgent: (taskId) => {
-      const row = deps.store.getByTaskId(taskId);
+      const row = currentRow(taskId);
       return row ? { agent: row.agent, standards: row.standards ?? null } : null;
+    },
+    releaseTaskAgent(taskId) {
+      const row = currentRow(taskId);
+      if (!row) return null;
+      const timestamp = now().toISOString();
+      const ended: AgentAssignment = { ...row, endedAt: timestamp, preambleDue: false, updatedAt: timestamp };
+      deps.store.update(ended);
+      announce(ended);
+      return ended;
+    },
+    takeTaskPreamble(taskId, providerId) {
+      const row = currentRow(taskId);
+      if (!row?.preambleDue) return null;
+      deps.store.update({ ...row, preambleDue: false, updatedAt: now().toISOString() });
+      const compiled = compileAgent({
+        snapshot: snapshotAgent({ ...row.agent, archived: false }),
+        role: "primary",
+        providerId,
+        ...(row.standards ? { standards: row.standards } : {}),
+      });
+      return compiled.ok && compiled.compiled.role === "primary" ? (compiled.compiled.promptPreamble ?? null) : null;
     },
     recordTaskAgent(args) {
       const existing = deps.store.getByRequestId(args.requestId);
@@ -125,6 +163,9 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
         state: "started",
         detail: null,
         standards: args.standards ?? null,
+        // The starter sends the user's text as is, so a prompt-channel provider
+        // gets the agent's instructions from the next primary turn instead.
+        preambleDue: true,
         received: compiled.compiled.received,
         support: compiled.compiled.support,
         createdAt: timestamp,

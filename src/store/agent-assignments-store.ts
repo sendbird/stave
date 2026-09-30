@@ -26,7 +26,13 @@ export type TaskAgent = Pick<
   | "detail"
   | "createdAt"
   | "updatedAt"
-> & { assignmentId: string };
+> & {
+  assignmentId: string;
+  /** The recorded agent's permission, so a switch can tell whether it widens. */
+  agentPermission: AgentAssignment["agent"]["permission"];
+  /** The recorded agent's colour, so its avatar matches the Agents surface. */
+  agentAppearance: AgentAssignment["agent"]["appearance"];
+};
 
 interface AgentAssignmentsState {
   byTaskId: Record<string, TaskAgent>;
@@ -43,13 +49,19 @@ function agentsApi(): AgentsBridgeApi | null {
 
 export function indexAssignmentsByTask(assignments: readonly AgentAssignment[]): Record<string, TaskAgent> {
   const byTaskId: Record<string, TaskAgent> = {};
-  // Newest first from the host; the first assignment seen for a task wins.
+  const seen = new Set<string>();
+  // Newest first from the host; the first assignment seen for a task wins. A
+  // task whose newest row ended runs with its own settings again: no agent.
   for (const row of assignments) {
-    if (!row.taskId || byTaskId[row.taskId]) continue;
+    if (!row.taskId || seen.has(row.taskId)) continue;
+    seen.add(row.taskId);
+    if (row.endedAt) continue;
     byTaskId[row.taskId] = {
       assignmentId: row.id,
       agentConfigId: row.agentConfigId,
       agentName: row.agentName,
+      agentPermission: row.agent.permission,
+      agentAppearance: row.agent.appearance,
       agentContentHash: row.agentContentHash,
       received: row.received,
       support: row.support,

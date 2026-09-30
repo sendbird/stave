@@ -1,5 +1,6 @@
 import type { StoreApi } from "zustand";
 import { normalizeMyStandards } from "@/lib/agents/standards";
+import { normalizeTaskMode } from "@/lib/agents/task-mode";
 import { normalizeAppShortcutKeys } from "@/lib/app-shortcuts";
 import { normalizeComposerControlPlacements } from "@/lib/composer-controls";
 import { normalizeLensHostList } from "@/lib/lens/lens-security";
@@ -557,6 +558,7 @@ export function createSettingsActions(args: {
           ? {}
           : { agentLearningDisabled: normalizeLearningDisabled(patch.agentLearningDisabled) }),
         ...(patch.myStandards === undefined ? {} : { myStandards: normalizeMyStandards(patch.myStandards) }),
+        ...(patch.taskMode === undefined ? {} : { taskMode: normalizeTaskMode(patch.taskMode) }),
         ...(patch.lensSessionScope === undefined
           ? {}
           : {

@@ -1,4 +1,11 @@
 import { useEffect, useMemo, useState } from "react";
+import {
+  ModelPickerAgentPanel,
+  taskAgentIdentity,
+  useTaskAgentChoice,
+} from "@/components/ai-elements/prompt-input-agent-control";
+import { getBuiltinAgent } from "@/lib/agents/starters";
+import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
 import { PromptInputAdvisorPill } from "@/components/ai-elements/prompt-input-advisor-mode";
 import { PromptInputWorkerPill } from "@/components/ai-elements/prompt-input-worker-mode";
@@ -49,6 +56,8 @@ const PREVIEW_TODOS = [
  * `?stavePreview=composer-frame` is present, so App bootstrap does not run.
  */
 
+const PREVIEW_TASK_ID = "preview-task";
+
 export function ComposerFramePreviewApp() {
   const [dark, setDark] = useState(true);
   const [layoutPreference, setLayoutPreference] =
@@ -70,6 +79,43 @@ export function ComposerFramePreviewApp() {
   const [advisorOpen, setAdvisorOpen] = useState(false);
   const [workerEnabled, setWorkerEnabled] = useState(false);
   const [workerOpen, setWorkerOpen] = useState(false);
+  // Agentic tasks: the model picker offers agents; with one running the task
+  // its trigger shows the agent and the Worker is gone.
+  const [agentic, setAgentic] = useState(false);
+  const agentChoice = useTaskAgentChoice({
+    taskId: PREVIEW_TASK_ID,
+    providerId: "claude-code",
+    model: PREVIEW_MODEL.model,
+    modelOptions: [],
+    onModelSelect: () => {},
+  });
+  useEffect(() => {
+    const researcher = getBuiltinAgent("researcher")!;
+    useAgentAssignmentsStore.setState({
+      byTaskId: agentic
+        ? {
+            [PREVIEW_TASK_ID]: {
+              assignmentId: "preview",
+              agentConfigId: researcher.id,
+              agentName: researcher.name,
+              agentPermission: researcher.permission,
+              agentAppearance: researcher.appearance,
+              agentContentHash: "preview",
+              received: [],
+              support: [],
+              state: "started",
+              providerId: "claude-code",
+              model: null,
+              workspaceMode: "same-workspace",
+              branch: null,
+              detail: null,
+              createdAt: "",
+              updatedAt: "",
+            },
+          }
+        : {},
+    });
+  }, [agentic]);
   const [workerConfig, setWorkerConfig] = useState<WorkerProviderConfig>({
     presetId: "verified-patch",
     model: "auto",
@@ -151,6 +197,14 @@ export function ComposerFramePreviewApp() {
               onClick={() => setSqueezed((value) => !value)}
             >
               {squeezed ? "Squeezed" : "Full width"}
+            </Button>
+            <Button
+              layout="host"
+              type="button"
+              xstyle={[f.toggle, agentic && f.toggleActive]}
+              onClick={() => setAgentic((value) => !value)}
+            >
+              {agentic ? "Agentic" : "Model"}
             </Button>
             <span className={sx(f.statusNote)}>
               {framed ? "frame on" : "frame off"}
@@ -240,8 +294,18 @@ export function ComposerFramePreviewApp() {
                       onSelectEffort={() => {}}
                     />
                   }
-                  workerActive={workerEnabled}
+                  modelPickerAgents={
+                    agentic
+                      ? {
+                          active: taskAgentIdentity(agentChoice.current),
+                          count: agentChoice.choices.length,
+                          renderPanel: (close) => <ModelPickerAgentPanel choice={agentChoice} onDone={close} />,
+                        }
+                      : undefined
+                  }
+                  workerActive={!agentic && workerEnabled}
                   workerControl={
+                    agentic ? null : (
                     <PromptInputWorkerPill
                       arm={workerArm}
                       resolution={workerResolution}
@@ -263,6 +327,7 @@ export function ComposerFramePreviewApp() {
                         setWorkerConfig((current) => ({ ...current, effort }))
                       }
                     />
+                    )
                   }
                   runtimeStatusItems={[
                     {

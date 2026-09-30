@@ -9,6 +9,7 @@ import type { AgentConfig, AgentPermission } from "./schema";
  *
  * Refused, never silently changed, when:
  * - an allowed-agents list applies (a project's Agents) and the agent is not on it;
+ * - the delegating task's own agent lists who it can call and the agent is not on it;
  * - the agent cannot be a delegated task on the requested provider;
  * - the result would be wider than the delegating task's own agent permission.
  *
@@ -39,12 +40,23 @@ export function applyAgentToDelegation(input: {
   parentPermission?: AgentPermission | null;
   /** When set, only these agents may be delegated to. */
   allowedAgentIds?: readonly string[] | null;
+  /** The delegating task's own agent's "Can call"; null or absent allows any agent. */
+  parentCanCall?: readonly string[] | null;
   /** The user's standards, added after the agent's instructions. */
   standards?: string;
 }): AgentDelegationResult {
   const { args, agent } = input;
   if (input.allowedAgentIds && !input.allowedAgentIds.includes(agent.id)) {
     return { ok: false, code: "not-allowed", message: `"${agent.name}" is not one of this project's agents.` };
+  }
+  if (input.parentCanCall && !input.parentCanCall.includes(agent.id)) {
+    return {
+      ok: false,
+      code: "not-allowed",
+      message: input.parentCanCall.length
+        ? `This task's agent cannot call "${agent.name}". It can call: ${input.parentCanCall.join(", ")}.`
+        : "This task's agent does not call other agents.",
+    };
   }
   const snapshot = snapshotAgent(agent);
   const compiled = compileAgent({

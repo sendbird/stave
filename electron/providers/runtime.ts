@@ -821,7 +821,33 @@ export function setTaskRuntimeOptionsResolver(resolver: TaskRuntimeOptionsResolv
   taskRuntimeOptionsResolver = resolver;
 }
 
-function withTaskRuntimeOptions<T extends StreamTurnArgs>(args: T): T {
+/**
+ * Text a task still owes its provider at the start of the next primary turn
+ * (an agent's instructions for a provider that takes them in the prompt).
+ * Returning it consumes it.
+ */
+type TaskPromptPrefixResolver = (args: { taskId: string; providerId: StreamTurnArgs["providerId"] }) => string | null;
+
+let taskPromptPrefixResolver: TaskPromptPrefixResolver | null = null;
+
+export function setTaskPromptPrefixResolver(resolver: TaskPromptPrefixResolver | null) {
+  taskPromptPrefixResolver = resolver;
+}
+
+function withTaskPromptPrefix<T extends StreamTurnArgs>(args: T): T {
+  // Secondary read-only analysis turns never consume what the user's turn is owed.
+  if (!args.taskId || !taskPromptPrefixResolver || args.executionPolicy) return args;
+  let prefix: string | null = null;
+  try {
+    prefix = taskPromptPrefixResolver({ taskId: args.taskId, providerId: args.providerId });
+  } catch (error) {
+    console.warn("[provider] task prompt prefix lookup failed", error);
+  }
+  return prefix ? { ...args, prompt: `${prefix}\n\n---\n\n${args.prompt}` } : args;
+}
+
+function withTaskRuntimeOptions<T extends StreamTurnArgs>(rawArgs: T): T {
+  const args = withTaskPromptPrefix(rawArgs);
   if (!args.taskId || !taskRuntimeOptionsResolver) return args;
   let extra: Partial<NonNullable<StreamTurnArgs["runtimeOptions"]>> = {};
   try {

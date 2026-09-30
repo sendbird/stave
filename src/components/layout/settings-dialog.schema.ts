@@ -94,8 +94,12 @@ export const settingsSections = [
     label: "Chat",
     icon: Bot,
     description:
-      "Chat typography, streaming, reasoning, and active-turn behavior.",
+      "Task mode, chat typography, streaming, reasoning, and active-turn behavior.",
     keywords: [
+      "task mode",
+      "agentic",
+      "agent",
+      "experimental",
       "messages",
       "steer",
       "queue",

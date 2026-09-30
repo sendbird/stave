@@ -8,7 +8,7 @@ import type { AgentConfig } from "./schema";
  * What is written is the smallest faithful file. Nothing that would run code
  * or skip approvals is ever written: an Auto agent is exported without a
  * permission, so the file never grants more than the provider's default.
- * Stave-only fields (report sections, where it works, usable as) are left out
+ * Stave-only fields (report sections, where it works, usable as, can call) are left out
  * and listed, the same way import lists what it drops.
  */
 
@@ -49,7 +49,7 @@ function description(agent: AgentConfig) {
 }
 
 export function exportAgentFile(agent: AgentConfig, format: AgentExportFormat): AgentExport {
-  const leftOut = ["report", "usableAs", ...(agent.skills.length ? ["skills"] : [])];
+  const leftOut = ["report", "usableAs", ...(agent.canCall ? ["canCall"] : []), ...(agent.skills.length ? ["skills"] : [])];
   const fixed = agent.model.mode === "fixed" ? agent.model : null;
 
   if (format === "claude-md") {
