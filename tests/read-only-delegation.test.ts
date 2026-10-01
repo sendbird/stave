@@ -57,7 +57,7 @@ describe("read-only delegation access", () => {
     const denied = policy.options.claudeDisallowedTools ?? [];
     for (const tool of ["Edit", "Write", "MultiEdit", "NotebookEdit", "AskUserQuestion",
       "mcp__stave-local-mcp__stave_delegate_task", "mcp__stave-local-mcp__stave_run_task",
-      "mcp__stave-local-mcp__stave_respond_approval", "mcp__stave-local-mcp__stave_append_workspace_notes",
+      "mcp__stave-local-mcp__stave_respond_user_input", "mcp__stave-local-mcp__stave_append_workspace_notes",
       "mcp__stave-local-mcp__stave_create_automation", "mcp__stave-local-mcp__stave_remember"])
       expect(denied).toContain(tool);
     expect(isReadOnlyDelegationPolicy("claude-code", policy)).toBe(true);

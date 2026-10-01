@@ -62,7 +62,12 @@ import {
   setAutomationEnabled,
   updateAutomation,
 } from "./automation-service";
-import { RuntimeOptionsObjectSchema } from "./ipc/schemas";
+import {
+  assertMcpAutomationEnabledChange,
+  mcpAutomationCreateInput,
+  mcpAutomationUpdateInput,
+  McpRunTaskRuntimeOptionsSchema,
+} from "./stave-mcp-autonomy-guards";
 import { DelegatedTaskFollowUpArgsSchema, DelegateTaskToolInputSchema } from "../../src/lib/runs/delegated-task";
 import { getDelegatedTaskCoordinator } from "./runs/delegated-task-coordinator-instance";
 import {
@@ -101,7 +106,6 @@ import {
   removeWorkspaceTodo,
   replaceWorkspaceNotes,
   registerRepository,
-  respondApproval,
   respondUserInput,
   runAcpWorker,
   runTask,
@@ -704,12 +708,12 @@ function createToolServer(options?: {
           .enum(["claude-code", "codex"])
           .optional()
           .describe("Provider to run. Defaults to `claude-code`."),
-        // Typed rather than a free-form record: an unknown or misspelled key
-        // used to be accepted and then silently dropped by the provider
-        // runtime, so a caller asking for `bypassPermissions` could end up on
-        // the interactive fallback with no error to explain it.
-        runtimeOptions: RuntimeOptionsObjectSchema.optional().describe(
-          "Optional provider runtime overrides (model, claudeEffort, claudePermissionMode, codexApprovalPolicy, ...).",
+        // Typed and strict, so an unknown or misspelled key is an error rather
+        // than silently dropped. Permission fields are not accepted at all: the
+        // spawned turn takes its permissions from the user's settings and the
+        // turn policy, never from the caller.
+        runtimeOptions: McpRunTaskRuntimeOptionsSchema.optional().describe(
+          "Optional non-permission runtime overrides (model, claudeEffort, codexReasoningEffort, ...). Permission fields are rejected; the task runs with the user's permission settings.",
         ),
       },
     },
@@ -943,14 +947,14 @@ function createToolServer(options?: {
     "stave_create_automation",
     {
       description:
-        "Create a saved Stave automation from a complete automation spec. Use this when a user asks the AI to set up a recurring Claude or Codex workflow.",
+        "Create a saved Stave automation from a complete automation spec. Use this when a user asks the AI to set up a recurring Claude or Codex workflow. It is saved paused: tell the user to turn it on in the Automations panel. Unattended and bypass settings are rejected.",
       inputSchema: {
         input: AutomationUpsertInputSchema.describe("Complete automation spec."),
       },
     },
     async ({ input }) =>
       toStructuredResult({
-        automation: await createAutomation(input),
+        automation: await createAutomation(mcpAutomationCreateInput(input)),
       }),
   );
 
@@ -970,7 +974,10 @@ function createToolServer(options?: {
       toStructuredResult({
         automation: await updateAutomation({
           id,
-          input,
+          input: mcpAutomationUpdateInput(
+            input,
+            (await listAutomations()).automations.find((automation) => automation.id === id),
+          ),
         }),
       }),
   );
@@ -996,7 +1003,7 @@ function createToolServer(options?: {
     "stave_set_automation_enabled",
     {
       description:
-        "Pause or resume a saved Stave automation without deleting it by setting its enabled flag.",
+        "Pause a saved Stave automation without deleting it. Only the user can turn an automation back on.",
       inputSchema: {
         id: z.string().min(1).describe("Automation id."),
         enabled: z
@@ -1004,13 +1011,15 @@ function createToolServer(options?: {
           .describe("Whether the automation should remain scheduled."),
       },
     },
-    async ({ id, enabled }) =>
-      toStructuredResult({
+    async ({ id, enabled }) => {
+      assertMcpAutomationEnabledChange(enabled);
+      return toStructuredResult({
         automation: await setAutomationEnabled({
           id,
           enabled,
         }),
-      }),
+      });
+    },
   );
 
   server.registerTool(
@@ -1759,29 +1768,9 @@ function createToolServer(options?: {
       ),
   );
 
-  server.registerTool(
-    "stave_respond_approval",
-    {
-      description:
-        "Respond to a pending approval request emitted by a running task.",
-      inputSchema: {
-        workspaceId: z.string().min(1).describe("Workspace id."),
-        taskId: z.string().min(1).describe("Task id."),
-        requestId: z.string().min(1).describe("Approval request id."),
-        approved: z.boolean().describe("Whether to approve the request."),
-      },
-    },
-    async ({ workspaceId, taskId, requestId, approved }) =>
-      toStructuredResult({
-        result: await respondApproval({
-          workspaceId,
-          taskId,
-          requestId,
-          approved,
-        }),
-      }),
-  );
-
+  // `stave_respond_approval` is not served: every MCP client shares one local
+  // token, so the server cannot tell the user from an agent, and an agent never
+  // grants consent. Approvals are answered in Stave's own UI.
   server.registerTool(
     "stave_respond_user_input",
     {

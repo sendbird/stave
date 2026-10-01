@@ -838,16 +838,19 @@ test("mandatory Agent lookup failure emits one failed terminal and never execute
   expect(lookups).toBe(1);
 });
 
-test("delegation observes the user's policy while the sealed Agent ceiling reaches the primary", async () => {
+test("delegation observes the resolved turn policy that reaches the primary", async () => {
   const db = installAgent("agent-delegation-policy", "codex", "researcher");
   let observed: StreamTurnArgs["runtimeOptions"] | null = null;
   setTaskPermissionObserver(({ options }) => { observed = options; });
   duringPrimaryTurn = async (args) => {
     expect(args.runtimeOptions?.agentInstructions).toContain("Researcher");
-    expect(args.runtimeOptions).toMatchObject({ codexFileAccess: "read-only", codexApprovalPolicy: "on-request" });
+    // A read-only Agent runs in the read-only posture: no writes, no prompts.
+    expect(args.runtimeOptions).toMatchObject({ codexFileAccess: "read-only", codexApprovalPolicy: "never", codexNetworkAccess: false });
+    expect(args.turnPolicy).toMatchObject({ autonomy: "read-only", guardrails: { root: TEST_WORKSPACE_CWD } });
   };
   await providerRuntime.streamTurn({ taskId: "agent-delegation-policy", providerId: "codex", cwd: TEST_WORKSPACE_CWD,
     prompt: "Do the work", runtimeOptions: { codexFileAccess: "danger-full-access", codexApprovalPolicy: "never" } });
-  expect(observed).toMatchObject({ codexFileAccess: "danger-full-access", codexApprovalPolicy: "never" });
+  // Helpers inherit what the parent actually ran with, so a read-only parent cannot hand out writes.
+  expect(observed).toMatchObject({ codexFileAccess: "read-only", codexApprovalPolicy: "never" });
   db.close();
 });

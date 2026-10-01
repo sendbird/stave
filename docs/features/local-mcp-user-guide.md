@@ -128,7 +128,7 @@ If `Codex` auto-registration is enabled, Stave also keeps the current loopback U
    - `stave_create_workspace`
    - `stave_run_task`
    - `stave_get_task`
-   - `stave_respond_approval` or `stave_respond_user_input` when needed
+   - `stave_respond_user_input` when the task asks a question
 
 To delegate work from a task to a durable delegated task, use:
 
@@ -220,19 +220,29 @@ This keeps one clear control owner at a time and avoids mixed local/external edi
 
 ## Approval And User Input
 
-Managed tasks use their own unattended runtime defaults: Claude runs with
-`bypassPermissions` when `claudePermissionMode` is omitted or set to `auto`,
-and Codex uses `never` approval policy unless the caller supplies an explicit
-override. This lets the task finish and report its result to the originating
-client without a Bash approval for every command.
+A task started through Local MCP runs with **your** permission settings, as
+Stave last synced them. `stave_run_task` accepts model, effort and other
+non-permission runtime options; permission fields (permission or approval
+mode, bypass, sandbox toggles, file or network access, allowed, disallowed or
+trusted tools, setting sources, binary and plugin paths) are rejected with an
+error. The turn is autonomous only when your preset already is (Claude Auto or
+Bypass, Codex Never) or the task runs as an agent, and the hard guardrails in
+[Provider Sandbox And Approval](./provider-sandbox-and-approval.md#autonomy-and-hard-guardrails)
+still stop it.
 
-If the caller explicitly selects a permission or approval mode that can pause
-for confirmation, or if the running task asks a structured question:
+If the running task asks for an approval or a structured question:
 
 - poll task state with `stave_get_task`
-- answer using `stave_respond_approval` or `stave_respond_user_input`
-- Stave shows these requests for visibility, and the originating client can answer them
+- answer a question with `stave_respond_user_input`
+- approvals are answered only by you in Stave. `stave_respond_approval` is no
+  longer served: every Local MCP client shares one token, so Stave cannot tell
+  you from an agent, and an agent never grants consent
 - unanswered managed-task approvals are automatically denied after five minutes so the caller receives a failure instead of waiting forever
+
+Automations created through Local MCP (`stave_create_automation`) are saved
+paused: turn them on in the Automations panel. An MCP edit keeps a paused
+automation paused, `stave_set_automation_enabled` can only pause, and
+unattended, bypass or full-access automation settings are rejected.
 
 Use `Local MCP Request Log` in `Settings → Providers → Stave` when you need transport-level request visibility. The latest page auto-refreshes while older pages stay stable for pagination.
 

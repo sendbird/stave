@@ -115,7 +115,8 @@ export function ModelResolutionSummary(props: {
           <dt className={sx(styles.muted)}>Permission source</dt>
           <dd className={sx(styles.modelReason)}>
             {props.agentProvenance.permission.source === "delegation-policy" ? "Delegation policy"
-              : props.agentProvenance.permission.source === "agent-ceiling" ? "Agent ceiling" : "User settings"}
+              : props.agentProvenance.permission.source === "agent-ceiling" ? "Agent ceiling"
+              : props.agentProvenance.permission.source === "agent-autonomy" ? "Agent autonomy" : "User settings"}
             {props.agentProvenance.permission.source === "agent-ceiling"
               ? ` · ${props.agentProvenance.permission.agentLimit}` : null}
             {props.agentProvenance.permission.support === "instructed" ? " · Asked in instructions" : ""}

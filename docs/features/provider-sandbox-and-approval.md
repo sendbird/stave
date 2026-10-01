@@ -74,6 +74,51 @@ does not consume a consult. Legacy question/context calls remain supported.
 - only use the most permissive preset when you trust both the task and the working directory
 - verify the runtime chips before sending
 
+## Autonomy And Hard Guardrails
+
+Every turn gets one of three postures, resolved once when the turn starts —
+composer turns, agent tasks, delegated helpers, missions, wake-ups and tasks
+started through Local MCP alike:
+
+| Posture | When | What it means |
+| --- | --- | --- |
+| Ask | Your preset prompts (Claude Default, Accept Edits; Codex Untrusted, On Request) | Your settings exactly, with their prompts |
+| Autonomous | Claude **Auto** or **Bypass**, Codex **Never**, or the task runs as an agent | No routine approval prompts; only the guardrails below stop the turn |
+| Read only | A read-only agent or a read-only delegation | Never writes, never asks |
+
+Autonomy only removes prompts. Your sandbox, deny lists, credential lists and
+network setting stay as you set them. Commits, pushing a feature branch,
+opening, updating and merging pull requests, tests and installs inside the
+workspace all run without asking.
+
+Hard guardrails stop for you even under Bypass:
+
+- **G1** a write outside the task's workspace (temp directories stay allowed)
+- **G2** reading or writing a protected credential path or variable: your
+  sandbox credential lists plus well-known locations such as `~/.ssh`, `~/.aws`,
+  `~/.gnupg`, `~/.netrc`, `~/.git-credentials` and `~/.npmrc`
+- **G3** an irreversible remote action: force-pushing a default or protected
+  branch (`main`, `master`, `trunk`, `develop`, `production`, `release/*` or the
+  repository's default), deleting remote branches or tags, deleting or
+  publishing releases, deleting a repository, publishing a package, `sudo`
+- **G4** the agent's own questions always reach you
+
+A guardrail shows up as an ordinary approval with the reason. A helper never
+gets more autonomy than the task that delegated it, and no agent can answer
+another task's approval.
+
+How firmly each provider holds them:
+
+- **Claude** holds G1–G3 with a hook that runs before the permission mode, so
+  it applies under Bypass. Shell commands are matched literally: a path behind
+  a variable or inside a script is bounded by the sandbox when you turn it on,
+  not by the guardrail.
+- **Codex** holds G1 with its workspace-write sandbox and G4 natively. It has no
+  per-turn hook, so G2 reads and G3 are not stopped by Stave: with network on, a
+  Codex turn that never asks can push or publish. Keep network off, or use
+  Codex's own approvals, when that matters.
+- **Cursor and Kiro** keep your settings; only a read-only agent changes them.
+
 ## Provider Differences
 
 ### Claude
@@ -163,9 +208,9 @@ primary turn is set to `Auto`, and its approvals surface in the parent turn.
 
 ### I need more autonomy for a trusted local task
 
-1. Move to the more permissive preset.
-2. Recheck approvals, file access, and network settings.
-3. Only then send the turn.
+1. Choose Claude **Auto** (or **Bypass**) or Codex **Never**, or run the task as an agent.
+2. Recheck sandbox, file access, and network settings; autonomy keeps them as set.
+3. Only then send the turn. The hard guardrails above still stop for you.
 
 ## Troubleshooting
 
