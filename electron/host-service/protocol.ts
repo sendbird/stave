@@ -459,6 +459,8 @@ export type HostLocalMcpAction =
   | "register-repository"
   | "create-workspace"
   | "run-task"
+  | "resolve-delegation-policy"
+  | "sync-delegation-permission-settings"
   | "get-task-status"
   | "release-task-parent"
   | "respond-approval"

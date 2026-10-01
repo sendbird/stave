@@ -816,6 +816,9 @@ type TaskRuntimeOptionsResolver = (args: {
 }) => Partial<NonNullable<StreamTurnArgs["runtimeOptions"]>>;
 
 let taskRuntimeOptionsResolver: TaskRuntimeOptionsResolver | null = null;
+let taskPermissionObserver: ((args: { taskId: string; providerId: StreamTurnArgs["providerId"]; options: NonNullable<StreamTurnArgs["runtimeOptions"]> }) => void) | null = null;
+export function setTaskPermissionObserver(observer: typeof taskPermissionObserver) { taskPermissionObserver = observer; }
+
 
 export function setTaskRuntimeOptionsResolver(resolver: TaskRuntimeOptionsResolver | null) {
   taskRuntimeOptionsResolver = resolver;
@@ -861,7 +864,13 @@ function withTaskRuntimeOptions<T extends StreamTurnArgs>(rawArgs: T): T {
 async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void }) {
   const args = withTaskRuntimeOptions(rawArgs);
   const release = workspaceExecutionGate.acquire(args);
-  try { return await runProviderTurnImpl(args); } finally { release(); }
+  try {
+    // A parent Agent direct-access ceiling is not its authorization to delegate.
+    if (args.taskId && !args.executionPolicy) {
+      taskPermissionObserver?.({ taskId: args.taskId, providerId: args.providerId, options: rawArgs.runtimeOptions ?? {} });
+    }
+    return await runProviderTurnImpl(args);
+  } finally { release(); }
 }
 
 async function runProviderTurnImpl(

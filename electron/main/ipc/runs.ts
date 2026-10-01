@@ -1,3 +1,4 @@
+import { DelegationPermissionSettingsSchema } from "../../../src/lib/runs/delegation-policy";
 import { ipcMain } from "electron";
 import {
   SecondaryRunExecuteResponseSchema,
@@ -125,6 +126,12 @@ export function registerRunHandlers() {
   // The renderer reads child summaries when it assembles a parent turn, so a
   // parent driven from the UI sees its children's lifecycle without having to
   // ask for it.
+  ipcMain.handle("delegations:sync-permission-settings", async (_event, rawArgs: unknown) => {
+    const args = DelegationPermissionSettingsSchema.safeParse(rawArgs);
+    if (!args.success) return { ok: false };
+    return invokeHostService("local-mcp.invoke", { action: "sync-delegation-permission-settings", args: args.data });
+  });
+
   ipcMain.handle("delegations:create", async (_event, rawArgs: unknown) => {
     const args = DelegateTaskArgsSchema.safeParse(rawArgs);
     return args.success

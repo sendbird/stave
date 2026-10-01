@@ -75,7 +75,7 @@ export function createEmptyDelegationDraft(): DelegationDraft {
     prompt: "",
     providerId: "codex",
     model: "",
-    permissionProfile: "guided",
+    permissionProfile: "inherit",
     keepOpen: true,
     isolated: true,
     deliveryUncertain: false,

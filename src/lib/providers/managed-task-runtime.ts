@@ -1,46 +1,16 @@
 import { DEFAULT_PROVIDER_TIMEOUT_MS } from "./runtime-option-contract";
 import type { ProviderId, ProviderRuntimeOptions } from "./provider.types";
+import type { DelegationPermissionOptions } from "../runs/delegation-policy";
 
-/**
- * How long a managed task waits for an approval answer before denying it.
- *
- * A managed task is driven by another agent, and
- * `persistApprovalNotification` deliberately suppresses notifications for it,
- * so a prompt-mode approval has nobody guaranteed to answer. Without a
- * deadline the turn parks forever and the caller never gets a report back.
- */
+/** Unanswered managed approvals expire; the user can answer them through Fleet. */
 export const MANAGED_TASK_APPROVAL_TIMEOUT_MS = 5 * 60 * 1000;
 
-/**
- * Permission modes that cannot make progress on their own inside a managed
- * task: `prompt` decisions in these modes need a human, and `dontAsk` denies
- * everything outside the Stave Local MCP allowlist.
- */
-function resolveManagedClaudePermissionMode(
-  requested: ProviderRuntimeOptions["claudePermissionMode"],
-): NonNullable<ProviderRuntimeOptions["claudePermissionMode"]> {
-  // `auto` is the autonomy preset users pick when they mean "just run it".
-  // Interactively it still prompts for Bash; in a managed task that reads as a
-  // hang, so it resolves to a real bypass here.
-  if (!requested || requested === "auto") {
-    return "bypassPermissions";
-  }
-  return requested;
-}
-
-/**
- * Fills in the access-level runtime fields a managed task needs, plus the
- * same default provider timeout a regular task uses.
- *
- * Callers of `stave_run_task` typically pass only `model`/`claudeEffort`, and
- * the provider runtimes fall back to interactive defaults (`acceptEdits` on
- * Claude, `untrusted` on Codex) that stop on every Bash call. This resolves
- * caller value first, managed default second, so an explicit override is still
- * honored while an unspecified one no longer inherits an interactive fallback.
- */
+/** Managed ownership changes who controls a task, never its permissions. */
 export function resolveManagedTaskRuntimeOptions(args: {
   providerId: ProviderId;
   runtimeOptions?: ProviderRuntimeOptions;
+  /** Synced user permissions fill omitted fields; explicit trusted options win. */
+  defaultPermissionOptions?: DelegationPermissionOptions;
   /**
    * Settings.providerTimeoutMs as seen by the host (synced through the
    * automation timeout key). Caller-supplied `runtimeOptions.providerTimeoutMs`
@@ -48,7 +18,14 @@ export function resolveManagedTaskRuntimeOptions(args: {
    */
   defaultProviderTimeoutMs?: number;
 }): ProviderRuntimeOptions {
-  const requested = args.runtimeOptions ?? {};
+  const requested = {
+    ...args.defaultPermissionOptions,
+    ...Object.fromEntries(
+      Object.entries(args.runtimeOptions ?? {}).filter(
+        ([, value]) => value !== undefined,
+      ),
+    ),
+  } as ProviderRuntimeOptions;
   // Interactive turns always pass `settings.providerTimeoutMs`. Managed
   // callers typically omit it, and the provider runtime's last-resort
   // fallback used to be 5 minutes — far shorter than the 12-hour product
@@ -57,28 +34,5 @@ export function resolveManagedTaskRuntimeOptions(args: {
     requested.providerTimeoutMs ??
     args.defaultProviderTimeoutMs ??
     DEFAULT_PROVIDER_TIMEOUT_MS;
-  if (args.providerId === "codex") {
-    return {
-      ...requested,
-      providerTimeoutMs,
-      codexApprovalPolicy: requested.codexApprovalPolicy ?? "never",
-      codexFileAccess: requested.codexFileAccess ?? "workspace-write",
-      codexAutoApproveStaveLocalMcpTools:
-        requested.codexAutoApproveStaveLocalMcpTools ?? true,
-    };
-  }
-  const claudePermissionMode = resolveManagedClaudePermissionMode(
-    requested.claudePermissionMode,
-  );
-  const bypassing = claudePermissionMode === "bypassPermissions";
-  return {
-    ...requested,
-    providerTimeoutMs,
-    claudePermissionMode,
-    claudeAllowDangerouslySkipPermissions:
-      requested.claudeAllowDangerouslySkipPermissions ?? bypassing,
-    claudeSandboxEnabled: requested.claudeSandboxEnabled ?? false,
-    claudeAllowUnsandboxedCommands:
-      requested.claudeAllowUnsandboxedCommands ?? true,
-  };
+  return { ...requested, providerTimeoutMs };
 }

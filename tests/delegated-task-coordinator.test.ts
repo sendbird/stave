@@ -746,7 +746,7 @@ describe("delegated task coordinator", () => {
 
   test("a follow-up turn writes its own receipt instead of vanishing as a duplicate", async () => {
     const harness = createHarness();
-    await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached" }));
+    await harness.coordinator.delegate(delegateArgs({ lifecycle: "detached", model: "requested-model", effort: "high" }));
     await harness.coordinator.waitForInFlight();
     const parked = await harness.coordinator.get({
       parentTaskId: PARENT_TASK,
@@ -767,6 +767,7 @@ describe("delegated task coordinator", () => {
       },
     });
     await harness.coordinator.waitForInFlight();
+    expect(harness.runTaskCalls.at(-1)).toMatchObject({ model: "requested-model", effort: "high" });
     const settled = await harness.coordinator.get({
       parentTaskId: PARENT_TASK,
       delegationKey: "review-docs",
@@ -883,106 +884,15 @@ describe("delegated task coordinator", () => {
 });
 
 describe("child permission profiles", () => {
-  test("a profile is resolved from itself, never from the parent", () => {
-    expect(
-      buildDelegatedTaskRuntimeOptions({
-        providerId: "codex",
-        permissionProfile: "guided",
-      }),
-    ).toMatchObject({
-      codexApprovalPolicy: "untrusted",
-      codexFileAccess: "workspace-write",
-      codexNetworkAccess: false,
-    });
-    expect(
-      buildDelegatedTaskRuntimeOptions({
-        providerId: "claude-code",
-        permissionProfile: "guided",
-      }),
-    ).toMatchObject({
-      claudePermissionMode: "default",
-      claudeAllowUnsandboxedCommands: false,
-      claudeAllowDangerouslySkipPermissions: false,
-    });
-    expect(
-      buildDelegatedTaskRuntimeOptions({
-        providerId: "claude-code",
-        permissionProfile: "auto",
-      }),
-    ).toMatchObject({ claudePermissionMode: "bypassPermissions" });
+  test("a profile cannot widen provider defaults without a user policy", () => {
+    expect(buildDelegatedTaskRuntimeOptions({ providerId: "codex", permissionProfile: "auto" })).toMatchObject({ codexApprovalPolicy: "untrusted", codexAutoApproveStaveLocalMcpTools: false });
+    expect(buildDelegatedTaskRuntimeOptions({ providerId: "claude-code", permissionProfile: "auto" })).toMatchObject({ claudePermissionMode: "default", claudeAllowDangerouslySkipPermissions: false });
   });
-
-  test("an unattended child can answer Stave MCP prompts on both providers", () => {
-    // Nobody is watching a child run, so neither provider may leave it sitting
-    // on an approval prompt. Claude expresses that as a permission-mode bypass;
-    // Codex needs the elicitation auto-approve flag on top of its approval
-    // policy, because elicitation is a separate channel that `never` does not
-    // cover and an unanswered request is auto-declined on timeout.
-    expect(
-      buildDelegatedTaskRuntimeOptions({
-        providerId: "codex",
-        permissionProfile: "auto",
-      }),
-    ).toMatchObject({
-      codexApprovalPolicy: "never",
-      codexAutoApproveStaveLocalMcpTools: true,
-    });
-    expect(
-      buildDelegatedTaskRuntimeOptions({
-        providerId: "claude-code",
-        permissionProfile: "auto",
-      }),
-    ).toMatchObject({ claudePermissionMode: "bypassPermissions" });
-
-    // Supervised profiles must not gain the flag: those children are meant to
-    // surface their approvals. Asserted through
-    // `resolveManagedTaskRuntimeOptions` because that is what actually reaches
-    // the provider — a child always runs as an externally managed task, so an
-    // *absent* flag would be defaulted to `true` there and silently override
-    // the profile. Only an explicit `false` survives.
-    for (const permissionProfile of ["guided", "manual"] as const) {
-      const options = buildDelegatedTaskRuntimeOptions({
-        providerId: "codex",
-        permissionProfile,
-      });
-      expect(options.codexAutoApproveStaveLocalMcpTools).toBe(false);
-      expect(
-        resolveManagedTaskRuntimeOptions({
-          providerId: "codex",
-          runtimeOptions: options,
-        }).codexAutoApproveStaveLocalMcpTools,
-      ).toBe(false);
-    }
-
-    // The unattended profile keeps its `true` through the same layer.
-    expect(
-      resolveManagedTaskRuntimeOptions({
-        providerId: "codex",
-        runtimeOptions: buildDelegatedTaskRuntimeOptions({
-          providerId: "codex",
-          permissionProfile: "auto",
-        }),
-      }),
-    ).toMatchObject({
-      codexApprovalPolicy: "never",
-      codexAutoApproveStaveLocalMcpTools: true,
-    });
-
-    // Claude states every permission field explicitly, so the managed-task
-    // resolver has nothing left to default for a supervised child either.
-    expect(
-      resolveManagedTaskRuntimeOptions({
-        providerId: "claude-code",
-        runtimeOptions: buildDelegatedTaskRuntimeOptions({
-          providerId: "claude-code",
-          permissionProfile: "guided",
-        }),
-      }),
-    ).toMatchObject({
-      claudePermissionMode: "default",
-      claudeAllowUnsandboxedCommands: false,
-      claudeAllowDangerouslySkipPermissions: false,
-    });
+  test("managed ownership preserves inherited native auto and scoped MCP settings", () => {
+    const runtimeOptions = buildDelegatedTaskRuntimeOptions({ providerId: "claude-code", permissionPolicy: { providerId: "claude-code", source: "parent-turn", requestedProfile: "inherit", options: { claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false } } });
+    expect(resolveManagedTaskRuntimeOptions({ providerId: "claude-code", runtimeOptions }).claudePermissionMode).toBe("auto");
+    const codexOptions = buildDelegatedTaskRuntimeOptions({ providerId: "codex", permissionPolicy: { providerId: "codex", source: "parent-turn", requestedProfile: "inherit", options: { codexApprovalPolicy: "never", codexAutoApproveStaveLocalMcpTools: true } } });
+    expect(resolveManagedTaskRuntimeOptions({ providerId: "codex", runtimeOptions: codexOptions }).codexAutoApproveStaveLocalMcpTools).toBe(true);
   });
 
   test("no secret binding can reach a child through its profile", () => {

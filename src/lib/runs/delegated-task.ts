@@ -30,11 +30,11 @@ export const DELEGATED_TASK_MAX_CONCURRENCY_LIMIT = 16;
 export const DELEGATED_TASK_LIST_LIMIT = 50;
 
 /**
- * A child never inherits the parent's permissions, so the profile is required
- * and expressed in the vocabulary automations already use
- * (`AutomationPermissionMode`). No new synonym, no silent escalation.
+ * Omission inherits host-resolved user permissions. Explicit profiles only
+ * restrict that policy; they cannot grant authority beyond the user settings.
  */
 export const DelegatedTaskPermissionProfileSchema = z.enum([
+  "inherit",
   "auto",
   "guided",
   "manual",
@@ -103,7 +103,7 @@ export const DelegateTaskArgsSchema = z
     providerId: z.enum(["claude-code", "codex"]),
     model: z.string().trim().min(1).max(200).optional(),
     effort: DelegatedTaskEffortSchema.optional(),
-    permissionProfile: DelegatedTaskPermissionProfileSchema,
+    permissionProfile: DelegatedTaskPermissionProfileSchema.optional(),
     lifecycle: DelegatedTaskLifecycleSchema,
     workspace: DelegatedTaskWorkspaceStrategySchema,
     /**
@@ -171,16 +171,15 @@ export const DelegatedTaskStopArgsSchema = z
 export type DelegatedTaskStopArgs = z.infer<typeof DelegatedTaskStopArgsSchema>;
 
 /**
- * One more turn on a child that is still open. A follow-up never inherits the
- * parent's permissions, so the posture is chosen by whoever sends it rather
- * than carried over from the original delegation.
+ * One more turn on a child that is still open. Omission reuses its recorded
+ * policy; an explicit profile may narrow it.
  */
 export const DelegatedTaskFollowUpArgsSchema = z
   .object({
     parentTaskId: z.string().trim().min(1).max(150),
     delegationKey: DelegatedTaskDelegationKeySchema,
     prompt: z.string().trim().min(1).max(100_000),
-    permissionProfile: DelegatedTaskPermissionProfileSchema.default("guided"),
+    permissionProfile: DelegatedTaskPermissionProfileSchema.optional(),
     expected: DelegatedTaskExpectedIdentitySchema,
   })
   .strict();

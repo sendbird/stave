@@ -89,9 +89,17 @@ allows:
 | Detach | The child is still active. Releases the parent's claim and leaves the child running as an ordinary task. |
 | Retry | The delegation ended without succeeding and has attempts left. Starts a new attempt on the same child. |
 
-A follow-up chooses its own permission profile rather than inheriting the
-parent's or the original delegation's — the same rule that applies when the child
-is first created.
+A follow-up and retry reuse the recorded child permission policy and requested
+model/effort. Newly tightened settings and saved-agent restrictions still apply.
+An explicit profile may narrow that policy; it never grants more authority.
+Missing permission fields use guarded defaults. If a newly restrictive Claude
+mode cannot be combined with the saved mode without adding automatic approvals,
+the attempt is refused rather than changing the permission boundary.
+
+Ordinary managed `stave_run_task` calls also fill omitted permission fields from
+the target provider's user settings. Its explicit runtime options retain the
+existing override contract, including trusted Mission consent; that raw runtime
+API is distinct from a delegated `permissionProfile`, which is always a ceiling.
 
 Every control is prepared against the identity the row was rendered from (child
 task, workspace, attempt, phase, turn) and is re-validated in the main process
@@ -106,7 +114,7 @@ whatever replaced it.
 | --- | --- |
 | `delegationKey` | Caller-chosen idempotency key, unique within the parent task. The same key always names the same child. |
 | `provider` | `claude-code` or `codex`. Required — never inherited from the parent. |
-| `permissionProfile` | `auto` (unattended), `guided` (sensitive actions take the approval path), or `manual` (provider defaults). Required — never inherited, and the parent's bound secrets are never passed on. |
+| `permissionProfile` | Optional: omit or use `inherit` for the effective same-provider parent policy, or the target provider's user settings when crossing providers. `guided`/`manual` are restrictions; `auto` cannot widen user authority. Bound secrets, sessions and browser authorization are never inherited. |
 | `lifecycle` | `one-turn` finishes the delegation when the child's first turn ends. `detached` keeps the child open until it is stopped. |
 | `workspace` | `same-workspace`, or `new-worktree` with a name and optional base branch. |
 | `retry` | Start a new attempt on a delegation that already ended without succeeding. |
@@ -258,7 +266,7 @@ may have running at once (default 3, maximum 16).
 - Symptom: a delegated task reports a denied action nobody answered.
 - Cause: child interaction requests expire like any other; an unanswered
   approval auto-denies after a few minutes.
-- Fix: delegate with `permissionProfile: "auto"` for work that should run
+- Fix: use the provider's user permissions for work that should run
   unattended, and reserve `guided` for children being watched.
 
 ### A child shows `interrupted` after a restart

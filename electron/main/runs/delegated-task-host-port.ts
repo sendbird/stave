@@ -248,6 +248,7 @@ export function createDelegatedTaskHostPort(
       model,
       effort,
       permissionProfile,
+      permissionPolicy,
       parentTaskId,
     }) {
       const started = await dependencies.startTaskTurn({
@@ -262,6 +263,7 @@ export function createDelegatedTaskHostPort(
           model,
           effort,
           permissionProfile,
+          permissionPolicy,
         }),
       });
       // The delegation settles on the turn's *end*, so resolve only then. A

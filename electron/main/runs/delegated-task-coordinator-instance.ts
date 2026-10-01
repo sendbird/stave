@@ -88,6 +88,17 @@ export function getDelegatedTaskCoordinator() {
       getLedger: ensurePersistenceReady,
       host,
       applyAgent,
+      resolvePermissionPolicy: async (args) => {
+        const agent = args.agentConfigId ? findAgent(args.agentConfigId) : null;
+        if (args.agentConfigId && !agent) throw new Error("The delegated agent is no longer available.");
+        if (agent) {
+          const context = await invokeHostService("agent.invoke", { action: "delegation-context", args: { parentTaskId: args.parentTaskId } }) as AgentInvokeResult<AgentDelegationContext>;
+          if (!context.ok) throw new Error(context.message);
+          if (context.value.allowedAgentIds && !context.value.allowedAgentIds.includes(agent.id)) throw new Error("The delegated agent is no longer permitted by this project.");
+          if (context.value.parentCanCall && !context.value.parentCanCall.includes(agent.id)) throw new Error("The parent agent can no longer call this delegated agent.");
+        }
+        return invokeHostService("local-mcp.invoke", { action: "resolve-delegation-policy", args: { ...args, ...(agent ? { permissionCeiling: agent.permission } : {}) } }) as Promise<import("../../../src/lib/runs/delegation-policy").DelegationPermissionPolicy>;
+      },
       readHead,
       concurrencyLimit: resolveDelegatedTaskConcurrencyLimit(
         process.env.STAVE_DELEGATED_TASK_CONCURRENCY,
