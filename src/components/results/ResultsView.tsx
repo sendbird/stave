@@ -187,7 +187,7 @@ export function ResultsView(props: { load?: ResultsLoader; loadReport?: ResultRe
           <span className={sx(styles.toolbar)}>
             <Segmented aria-label="Period" size="xs" value={period} options={PERIODS} onChange={setPeriod} />
           </span>
-          <Button variant="ghost" size="sm" xstyle={centerStyles.iconButton} aria-label="close-results" title="Close Results" onClick={close}>
+          <Button variant="ghost" size="sm" xstyle={centerStyles.iconButton} aria-label="Close Results" title="Close Results" onClick={close}>
             <X className={sx(centerStyles.actionIcon)} />
           </Button>
         </div>

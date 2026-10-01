@@ -102,7 +102,8 @@ export function Figures({ summary }: { summary: ResultsSummary }) {
 /** Why runs did not finish, most common first. */
 export function Reasons({ summary }: { summary: ResultsSummary }) {
   if (summary.reasons.length === 0) return null;
-  const top = summary.reasons[0]!.count;
+  // Each bar is that reason's share of the runs that did not finish, so equal counts do not all read as full.
+  const total = summary.reasons.reduce((sum, item) => sum + item.count, 0);
   return (
     <section className={sx(styles.section)} aria-labelledby="results-reasons">
       <h2 id="results-reasons" className={sx(styles.sectionTitle)}>
@@ -114,7 +115,7 @@ export function Reasons({ summary }: { summary: ResultsSummary }) {
             <span>{RUN_END_REASON_LABELS[reason]}</span>
             <span className={sx(styles.reasonCount)}>{count}</span>
             <span className={sx(styles.reasonTrack)} aria-hidden>
-              <span className={sx(styles.reasonFill)} style={{ display: "block", inlineSize: `${(count / top) * 100}%` }} />
+              <span className={sx(styles.reasonFill)} style={{ display: "block", inlineSize: `${(count / total) * 100}%` }} />
             </span>
           </li>
         ))}
