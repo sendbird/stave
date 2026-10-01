@@ -1,3 +1,4 @@
+import { resolveCliAccountIdentity } from "./cli-account-identity";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
 import { workspaceExecutionGate } from "../shared/workspace-execution-gate";
 import { randomUUID } from "node:crypto";
@@ -333,6 +334,7 @@ export function createTerminalRuntime(args: {
     themeColors?: { foreground?: string; background?: string };
     slotKey?: string;
     nativeSessionId?: string;
+    cliAccountIdentity?: string;
     persistScreenState?: boolean;
   }) {
     const ptyProcess = pty.spawn(args.command, args.commandArgs ?? [], {
@@ -401,6 +403,7 @@ export function createTerminalRuntime(args: {
       exitCode: null,
       exitSignal: undefined,
       nativeSessionId: args.nativeSessionId?.trim() || null,
+      cliAccountIdentity: args.cliAccountIdentity,
       disposeNativeSessionDiscovery: null,
       outputSequence: 0,
       sentOutputBytes: 0,
@@ -597,6 +600,9 @@ export function createTerminalRuntime(args: {
   ): HostTerminalCreateSessionResult {
     try { workspaceExecutionGate.assertAllowed({ workspaceId: args.workspaceId, cwd: args.workspacePath }); }
     catch (error) { return { ok: false, stderr: String(error) }; }
+    let cliAccountIdentity: string;
+    try { cliAccountIdentity = resolveCliAccountIdentity(args); }
+    catch (error) { return { ok: false, stderr: String(error) }; }
     const slotKey = buildTerminalSessionSlotKey({
       workspaceId: args.workspaceId,
       surface: "cli",
@@ -604,6 +610,8 @@ export function createTerminalRuntime(args: {
     });
     const existing = getSessionBySlotKey(slotKey);
     if (existing && !existing.session.closing) {
+      if (existing.session.cliAccountIdentity !== cliAccountIdentity)
+        return { ok: false, stderr: "This CLI tab belongs to another account. Open a new CLI tab." };
       setSessionDeliveryMode({
         sessionId: existing.sessionId,
         deliveryMode: args.deliveryMode ?? existing.session.deliveryMode,
@@ -639,6 +647,7 @@ export function createTerminalRuntime(args: {
       deliveryMode: args.deliveryMode,
       slotKey,
       nativeSessionId: launch.nativeSessionId,
+      cliAccountIdentity,
       env: {
         ...launch.env,
         STAVE_WORKSPACE_PATH: args.workspacePath,
@@ -648,6 +657,7 @@ export function createTerminalRuntime(args: {
     });
     if (launch.discovery === "codex") {
       startCodexNativeSessionDiscovery({
+        codexHome: launch.env.CODEX_HOME,
         sessionId,
         cwd: sessionCwd,
         startedAtMs,

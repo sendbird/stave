@@ -533,14 +533,14 @@ export function createSendUserMessageAction(args: {
           (message) =>
             message.turnId === activeTurnId && message.role === "assistant",
         );
-      const steerAccountUsageBlock = await guardSendAgainstAccountUsage(
+      const steerAccountUsageBlock = activeTurnAssistantMessage?.nativeProviderSessionId ? await guardSendAgainstAccountUsage(
         get,
         providerOverride ??
           task?.provider ??
           state.draftProvider ??
           "claude-code",
-        { model: activeTurnAssistantMessage?.model },
-      );
+        { model: activeTurnAssistantMessage?.model, accountProfileId: activeTurnAssistantMessage.nativeAccountProfileId ?? "system-default" },
+      ) : null;
       if (steerAccountUsageBlock) return steerAccountUsageBlock;
     }
     // A queued item dispatched during a live turn is already in line to

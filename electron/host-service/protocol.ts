@@ -689,6 +689,7 @@ export interface HostServiceRequestMap {
     upToMessageId: string;
     title?: string;
     cwd?: string;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
   "provider.rewind-claude-files": {
     sessionId: string;
@@ -701,6 +702,7 @@ export interface HostServiceRequestMap {
     sessionId: string;
     title: string;
     cwd?: string;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
   };
   "provider.reload-claude-plugins": {
     cwd?: string;

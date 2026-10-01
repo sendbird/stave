@@ -44,6 +44,7 @@ export interface TerminalSessionEntry {
   exitCode: number | null;
   exitSignal: number | undefined;
   nativeSessionId: string | null;
+  cliAccountIdentity?: string;
   disposeNativeSessionDiscovery: (() => void) | null;
   outputSequence: number;
   sentOutputBytes: number;

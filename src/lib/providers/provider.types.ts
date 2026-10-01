@@ -921,6 +921,7 @@ export type NormalizedProviderEvent =
     }
   | {
       type: "provider_turn";
+      accountProfileId?: string;
       providerId: ProviderId;
       nativeSessionId: string;
       nativeTurnId: string;
@@ -1023,6 +1024,7 @@ export type NormalizedProviderEvent =
     }
   | {
       type: "history_boundary";
+      accountProfileId?: string;
       providerId: ProviderId;
       boundaryKind: ProviderHistoryForkBoundary;
       nativeId: string;

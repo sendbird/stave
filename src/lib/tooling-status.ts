@@ -72,6 +72,8 @@ export interface ToolingStatusSnapshot {
 }
 
 export interface ToolingStatusRequest {
+  claudeAccountProfileId?: string;
+  codexAccountProfileId?: string;
   cwd?: string;
   claudeBinaryPath?: string;
   codexBinaryPath?: string;

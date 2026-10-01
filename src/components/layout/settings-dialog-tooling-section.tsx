@@ -1,3 +1,5 @@
+import { ProviderAccountsSettings } from "./ProviderAccountsSettings";
+import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
 import { CODEX_MODEL_AVAILABILITY_GUIDANCE } from "@/lib/providers/codex-model-requirements";
 import { getClaudeModelVersionGuidance } from "@/lib/providers/claude-model-requirements";
 import { useEffect, useState } from "react";
@@ -266,6 +268,7 @@ export function ToolingSection() {
         ] as const,
     ),
   );
+  const accountOptions = useAccountRuntimeOptions();
   const workspaceCwd =
     workspacePathById[activeWorkspaceId] ?? repositoryPath ?? null;
   const [viewState, setViewState] = useState<{
@@ -302,6 +305,7 @@ export function ToolingSection() {
       try {
         const snapshot = await getStatus({
           cwd: workspaceCwd ?? undefined,
+          ...accountOptions,
           claudeBinaryPath: claudeBinaryPath || undefined,
           codexBinaryPath: codexBinaryPath || undefined,
           cursorBinaryPath: cursorBinaryPath || undefined,
@@ -341,6 +345,7 @@ export function ToolingSection() {
     codexBinaryPath,
     cursorBinaryPath,
     kiroBinaryPath,
+    accountOptions,
     refreshNonce,
     workspaceCwd,
   ]);
@@ -390,6 +395,7 @@ export function ToolingSection() {
   return (
     <>
       <SectionStack>
+        <ProviderAccountsSettings />
         <SettingsCard
           title="Native Tooling Status"
           description="These checks mirror the native binaries and auth surfaces Stave uses for provider turns, PR actions, and terminal-backed workflows."

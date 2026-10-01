@@ -84,12 +84,31 @@ usage, and late usage responses cannot replace the new selection's readings.
 Custom Claude usage reads search only the selected configuration directory and
 its scoped keychain service, without falling back to default credentials.
 
-The account-management and account-selection UI is not exposed yet. Native
-history actions, standalone chat CLI restoration, and all settings/catalog
-callers still need selection wiring before enabling that UI. Registration alone
-does not switch those surfaces. The login bridge reports process creation, not
-authentication success; real multi-account login and restart flows require
-separate desktop verification.
+Settings > Tooling provides account registration, label editing, removal, and
+native sign-in terminals for Claude and Codex. Leave the directory blank for a
+managed profile, or register an existing absolute configuration directory.
+Removing a profile keeps its local files. The composer and Tooling account
+selectors set the global default for **new turns** for that provider across tasks;
+running turns, queued messages, and open CLI sessions retain their captured
+account. An unavailable registration fails explicitly rather than silently
+switching to System default.
+
+Message provenance carries the originating profile for native fork, rollback,
+file rewind, and saved agent-history reads. Task rename updates each linked
+native session. Claude SDK filesystem operations run in disposable Node workers
+with isolated environments because the SDK helpers do not accept a configuration
+directory. They never change the host process environment.
+
+Workspace and standalone CLI tabs persist the account they first launched with.
+Legacy resumed tabs use System default. Live slot reuse checks account identity
+and registration; Codex session discovery reads the launched `CODEX_HOME`.
+Closing and reopening an existing tab does not switch it to the latest default.
+Create a new workspace CLI tab to use a different account.
+
+The login bridge reports process creation, not authentication success. Complete
+the native flow and close its terminal to refresh status and usage. Login output
+is not stored as a terminal transcript. Real multi-account login, cancellation,
+expiry, and restart flows require separate desktop verification.
 
 ## Cursor Agent ACP runtime
 

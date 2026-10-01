@@ -30,6 +30,7 @@ const ProviderSessionEventSchema = z.object({
 
 const ProviderTurnEventSchema = z.object({
   type: z.literal("provider_turn"),
+  accountProfileId: z.string().optional(),
   providerId: z.union([
     z.literal("claude-code"),
     z.literal("codex"),
@@ -181,6 +182,7 @@ const AdvisorActivityEventSchema = z.object({
 
 const HistoryBoundaryEventSchema = z.object({
   type: z.literal("history_boundary"),
+  accountProfileId: z.string().optional(),
   providerId: ProviderIdSchema,
   boundaryKind: z.union([
     z.literal("thread"),

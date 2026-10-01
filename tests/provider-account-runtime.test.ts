@@ -82,9 +82,11 @@ describe("account-bound execution", () => {
     const initial = { codex: "default-thread" };
     const a = replayProviderEventsToTaskState({ taskId: "task", messages: [], provider: "codex", model: "model", providerSession: initial, events: [
       { type: "provider_session", providerId: "codex", nativeSessionId: "thread-a", accountProfileId: A },
+      { type: "provider_turn", providerId: "codex", nativeSessionId: "thread-a", nativeTurnId: "turn-a", accountProfileId: A },
       { type: "text", text: "Answer A" },
       { type: "done", accountProfileId: A },
     ] });
+    expect(a.messages.find(message => message.nativeProviderTurnId === "turn-a")?.nativeAccountProfileId).toBe(A);
     const b = replayProviderEventsToTaskState({ taskId: "task", messages: a.messages, provider: "codex", model: "model", providerSession: a.providerSession, events: [
       { type: "provider_session", providerId: "codex", nativeSessionId: "thread-b", accountProfileId: B },
       { type: "text", text: "Answer B" },

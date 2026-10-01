@@ -87,7 +87,6 @@ import type {
   ClaudeInstalledPluginsResponse,
   ClaudeMcpStatusResponse,
   ClaudePluginReloadResponse,
-  ClaudeSessionForkResponse,
   ProviderMutationResponse,
 } from "../../src/lib/providers/provider.types";
 import {
@@ -2041,103 +2040,7 @@ export async function runClaudeReadOnlyPrompt(args: {
   }
 }
 
-export async function forkClaudeSession(args: {
-  sessionId: string;
-  upToMessageId: string;
-  title?: string;
-  cwd?: string;
-}): Promise<ClaudeSessionForkResponse> {
-  try {
-    const mod = await getPrewarmedSdkModule();
-    if (!mod.forkSession) {
-      return {
-        ok: false,
-        detail: "Claude SDK forkSession() is unavailable.",
-      };
-    }
-
-    const dir = args.cwd && path.isAbsolute(args.cwd) ? args.cwd : undefined;
-    const sourceMessages = mod.getSessionMessages
-      ? await mod
-          .getSessionMessages(args.sessionId, {
-            ...(dir ? { dir } : {}),
-          })
-          .catch(() => [])
-      : [];
-    const result = await mod.forkSession(args.sessionId, {
-      ...(dir ? { dir } : {}),
-      upToMessageId: args.upToMessageId,
-      ...(args.title?.trim() ? { title: args.title.trim() } : {}),
-    });
-    const forkedMessages = mod.getSessionMessages
-      ? await mod
-          .getSessionMessages(result.sessionId, {
-            ...(dir ? { dir } : {}),
-          })
-          .catch(() => [])
-      : [];
-    const targetIndex = sourceMessages.findIndex(
-      (message) => message.uuid === args.upToMessageId,
-    );
-    const sourceThroughTarget =
-      targetIndex >= 0 ? sourceMessages.slice(0, targetIndex + 1) : [];
-    const messageIdMap = Object.fromEntries(
-      sourceThroughTarget.flatMap((message, index) => {
-        const forkedMessage = forkedMessages[index];
-        return forkedMessage &&
-          message.type === "assistant" &&
-          forkedMessage.type === message.type
-          ? [[message.uuid, forkedMessage.uuid] as const]
-          : [];
-      }),
-    );
-    const lastAssistantMessageId = forkedMessages
-      .filter((message) => message.type === "assistant")
-      .at(-1)?.uuid;
-
-    return {
-      ok: true,
-      detail: "Forked Claude session.",
-      sessionId: result.sessionId,
-      ...(lastAssistantMessageId ? { lastAssistantMessageId } : {}),
-      ...(Object.keys(messageIdMap).length > 0 ? { messageIdMap } : {}),
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      detail: `Claude session fork failed: ${toText(error)}`,
-    };
-  }
-}
-
-export async function renameClaudeSession(args: {
-  sessionId: string;
-  title: string;
-  cwd?: string;
-}): Promise<ProviderMutationResponse> {
-  try {
-    const mod = await getPrewarmedSdkModule();
-    if (!mod.renameSession) {
-      return {
-        ok: false,
-        detail: "Claude SDK renameSession() is unavailable.",
-      };
-    }
-    const dir = args.cwd && path.isAbsolute(args.cwd) ? args.cwd : undefined;
-    await mod.renameSession(args.sessionId, args.title, {
-      ...(dir ? { dir } : {}),
-    });
-    return {
-      ok: true,
-      detail: "Renamed Claude session.",
-    };
-  } catch (error) {
-    return {
-      ok: false,
-      detail: `Claude session rename failed: ${toText(error)}`,
-    };
-  }
-}
+export { forkClaudeSession, renameClaudeSession } from "../provider-accounts/claude-session-operations";
 
 const sessionIdByTask = new Map<string, string>();
 const sessionMcpScopeByTask = new Map<string, string>();

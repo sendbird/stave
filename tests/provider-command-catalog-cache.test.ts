@@ -38,3 +38,15 @@ describe("provider command catalog cache", () => {
     expect(newest.commands[0]?.command).toBe("/command-33");
   });
 });
+
+
+test("native commands never cross account profiles sharing the same workspace", () => {
+  const scope = { providerId: "claude-code" as const, cwd: "/tmp/account-catalog" };
+  for (const accountProfileId of ["system-default", "11111111-1111-4111-8111-111111111111"]) {
+    setCachedProviderCommandCatalog({ ...scope, accountProfileId, catalog: {
+      providerId: "claude-code", status: "ready", commands: [], detail: accountProfileId,
+    } });
+  }
+  expect(getCachedProviderCommandCatalog(scope).detail).toBe("system-default");
+  expect(getCachedProviderCommandCatalog({ ...scope, accountProfileId: "11111111-1111-4111-8111-111111111111" }).detail).toBe("11111111-1111-4111-8111-111111111111");
+});

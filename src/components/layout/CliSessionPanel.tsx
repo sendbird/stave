@@ -160,6 +160,7 @@ function CliSessionPanelImpl(props: CliSessionPanelProps) {
         deliveryMode: args.deliveryMode,
         runtimeOptions: buildCliSessionRuntimeOptions({
           providerId: args.tab.provider,
+          accountProfileId: args.tab.accountProfileId ?? "system-default",
           claudeBinaryPath: settings.claudeBinaryPath,
           codexBinaryPath: settings.codexBinaryPath,
         }),

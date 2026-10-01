@@ -1,3 +1,4 @@
+import { useAccountRuntimeOptions } from "./use-provider-accounts";
 import { selectedProviderAccount } from "./provider-account-selection";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { registerCursorModelDisplayNames } from "@/lib/providers/cursor-model-id";
@@ -354,6 +355,8 @@ export function useProviderModelCatalogs(args: {
   cwd?: string;
   runtimeOptions?: ProviderRuntimeOptions;
 }) {
+  const runtimeOptions = useAccountRuntimeOptions(args.runtimeOptions);
+  args = { ...args, runtimeOptions };
   const [revision, setRevision] = useState(0);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const readiness = useProviderReadinessStore((state) => state.providers);

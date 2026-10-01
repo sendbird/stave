@@ -533,6 +533,7 @@ export const ChatMessageSchema = z.object({
     z.literal("user"),
   ]),
   nativeProviderSessionId: z.string().optional(),
+  nativeAccountProfileId: ProviderAccountProfileIdSchema.optional(),
   nativeProviderTurnId: z.string().optional(),
   turnId: z.string().optional(),
   modelResolution: AutoRoutingModelResolutionSchema.optional().catch(undefined),
@@ -715,6 +716,7 @@ const WorkspaceTerminalTabSchema = z
   }));
 
 const WorkspaceCliSessionTabSchema = z.object({
+  accountProfileId: ProviderAccountProfileIdSchema.optional(),
   id: z.string(),
   title: z.string(),
   provider: ManagedExecutionProviderIdSchema,

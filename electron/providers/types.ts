@@ -101,6 +101,7 @@ export type BridgeEvent =
     }
   | {
       type: "provider_turn";
+      accountProfileId?: string;
       providerId: ProviderId;
       nativeSessionId: string;
       nativeTurnId: string;
@@ -188,6 +189,7 @@ export type BridgeEvent =
     }
   | {
       type: "history_boundary";
+      accountProfileId?: string;
       providerId: ProviderId;
       boundaryKind: "thread" | "turn" | "message";
       nativeId: string;

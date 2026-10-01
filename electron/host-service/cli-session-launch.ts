@@ -88,7 +88,7 @@ export function buildCliSessionLaunch(args: {
             ? ["--resume", nativeSessionId]
             : ["--session-id", nativeSessionId]),
         ],
-        env: buildClaudeCliEnv({ executablePath, cwd }),
+        env: buildClaudeCliEnv({ executablePath, cwd, accountProfileId: runtimeOptions?.claudeAccountProfileId }),
         nativeSessionId,
       };
     }
@@ -109,7 +109,7 @@ export function buildCliSessionLaunch(args: {
         commandArgs: requestedNativeSessionId
           ? ["resume", requestedNativeSessionId]
           : undefined,
-        env: buildCodexCliEnv({ executablePath, cwd }),
+        env: buildCodexCliEnv({ executablePath, cwd, accountProfileId: runtimeOptions?.codexAccountProfileId }),
         ...(requestedNativeSessionId
           ? { nativeSessionId: requestedNativeSessionId }
           : { discovery: "codex" as const }),

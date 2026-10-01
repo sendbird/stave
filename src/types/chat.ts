@@ -381,6 +381,7 @@ export interface ChatMessage {
    * newer session after a task has switched or reset providers.
    */
   nativeProviderSessionId?: string;
+  nativeAccountProfileId?: string;
   /**
    * Native provider turn/message identifier used for point-in-time fork and
    * rollback actions. For Claude this is SDKAssistantMessage.uuid; for Codex

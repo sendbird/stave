@@ -1,3 +1,7 @@
+import { mkdtempSync, rmSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { ProviderAccountRegistry } from "../electron/provider-accounts/registry";
 import { workspaceExecutionGate } from "../electron/shared/workspace-execution-gate";
 import { afterEach, describe, expect, mock, test } from "bun:test";
 
@@ -1254,4 +1258,30 @@ test("workspace stop preserves a similarly prefixed owner and blocks all provide
     }
     expect(runtime.createSession(args).ok).toBe(false);
   } finally { workspaceExecutionGate.resume(args.workspaceId); await runtime.cleanupAll(); }
+});
+
+
+test("CLI reuse validates its captured account and rejects a removed profile", () => {
+  const root = mkdtempSync(path.join(tmpdir(), "stave-cli-identity-"));
+  const originalUserData = process.env.STAVE_USER_DATA_PATH;
+  process.env.STAVE_USER_DATA_PATH = root;
+  const registry = new ProviderAccountRegistry(root);
+  const profile = registry.create({ providerId: "claude-code", label: "A" });
+  const runtime = createTerminalRuntime({ emitEvent: async () => {} });
+  let sessionId: string | undefined;
+  try {
+    const args = { workspaceId: "workspace-1", workspacePath: "/tmp/workspace", cliSessionTabId: "account-tab", providerId: "claude-code" as const, contextMode: "workspace" as const, taskId: null, taskTitle: null, runtimeOptions: { claudeAccountProfileId: profile.id } };
+    const created = runtime.createCliSession(args);
+    expect(created.ok).toBe(true);
+    sessionId = created.sessionId;
+    expect(runtime.createCliSession(args).sessionId).toBe(sessionId);
+    expect(runtime.createCliSession({ ...args, runtimeOptions: { claudeAccountProfileId: "system-default" } })).toMatchObject({ ok: false, stderr: "This CLI tab belongs to another account. Open a new CLI tab." });
+    registry.remove({ providerId: "claude-code", id: profile.id });
+    expect(runtime.createCliSession(args).ok).toBe(false);
+  } finally {
+    if (sessionId) runtime.closeSession({ sessionId });
+    if (originalUserData === undefined) delete process.env.STAVE_USER_DATA_PATH;
+    else process.env.STAVE_USER_DATA_PATH = originalUserData;
+    rmSync(root, { recursive: true, force: true });
+  }
 });

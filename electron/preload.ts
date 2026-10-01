@@ -1256,6 +1256,7 @@ contextBridge.exposeInMainWorld("api", {
       upToMessageId: string;
       title?: string;
       cwd?: string;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
     }) =>
       ipcRenderer.invoke(
         "provider:fork-claude-session",
@@ -1276,6 +1277,7 @@ contextBridge.exposeInMainWorld("api", {
       sessionId: string;
       title: string;
       cwd?: string;
+    runtimeOptions?: StreamTurnArgs["runtimeOptions"];
     }) =>
       ipcRenderer.invoke(
         "provider:rename-claude-session",

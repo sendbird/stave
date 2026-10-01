@@ -1,3 +1,4 @@
+import { snapshotProviderAccounts, type ProviderAccountSelection } from "./provider-account-selection";
 import { z } from "zod";
 import {
   buildModelEffortRuntimeOverrides,
@@ -374,6 +375,7 @@ export function resolveAuxLaneRuntime(args: {
  * simply drop it.
  */
 export function buildReadOnlyAuxRuntimeOptions(args: {
+  accountSelection?: ProviderAccountSelection;
   providerId: AuxLaneProviderId;
   model?: string | null;
   effortOverrides?: Pick<
@@ -382,6 +384,7 @@ export function buildReadOnlyAuxRuntimeOptions(args: {
   >;
 }): ProviderRuntimeOptions {
   return {
+    ...(args.accountSelection ? snapshotProviderAccounts(args.accountSelection) : {}),
     ...(args.model ? { model: args.model } : {}),
     ...(args.effortOverrides ?? {}),
     chatStreamingEnabled: false,

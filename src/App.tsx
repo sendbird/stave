@@ -324,6 +324,8 @@ export default function App() {
       }
       const state = useAppStore.getState();
       const runtimeOptions = {
+        claudeAccountProfileId: state.settings.claudeAccountProfileId,
+        codexAccountProfileId: state.settings.codexAccountProfileId,
         ...(state.settings.codexBinaryPath
           ? { codexBinaryPath: state.settings.codexBinaryPath }
           : {}),

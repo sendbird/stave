@@ -77,6 +77,7 @@ export function buildConversationTurnActionStateByMessageId(args: {
         expectedForkBoundary
       : true;
     const sessionCursor = getProviderSessionCursor({
+      accountProfileId: message.nativeAccountProfileId,
       sessions: args.providerSession,
       providerId,
     });
@@ -85,7 +86,7 @@ export function buildConversationTurnActionStateByMessageId(args: {
     const nativeTurnId = message.nativeProviderTurnId?.trim();
     const laterMessageCount = args.messages.length - index - 1;
     const sessionKey = nativeSessionId
-      ? `${providerId}:${nativeSessionId}`
+      ? `${providerId}:${message.nativeAccountProfileId ?? "system-default"}:${nativeSessionId}`
       : null;
     const laterTurnIds = sessionKey
       ? (laterTurnIdsBySession.get(sessionKey) ?? new Set<string>())

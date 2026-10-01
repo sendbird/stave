@@ -94,18 +94,24 @@ export function advanceProviderSessionCursor(args: {
 export function listProviderSessions(args: {
   sessions?: TaskProviderSessionState;
 }) {
-  return providerSessionOrder.flatMap((providerId) => {
-    const nativeSessionId = getProviderSessionId({
-      sessions: args.sessions,
-      providerId,
-    });
-
-    return nativeSessionId
-      ? [{ providerId, nativeSessionId }]
-      : [];
-  });
+  const profiles = [SYSTEM_ACCOUNT_PROFILE_ID, ...Object.keys(args.sessions?.accounts ?? {})];
+  return profiles.flatMap((accountProfileId) => providerSessionOrder.flatMap((providerId) => {
+    if (accountProfileId !== SYSTEM_ACCOUNT_PROFILE_ID && providerId !== "claude-code" && providerId !== "codex") return [];
+    const nativeSessionId = getProviderSessionId({ sessions: args.sessions, providerId, accountProfileId });
+    return nativeSessionId ? [{ providerId, nativeSessionId, accountProfileId }] : [];
+  }));
 }
 
 export function getProviderSessionLabel(args: { providerId: ProviderId }) {
   return getProviderSessionLabelFromCatalog(args);
+}
+
+export function removeProviderSessionEntry(args: { sessions?: TaskProviderSessionState; providerId: ProviderId; accountProfileId?: string }): TaskProviderSessionState {
+  const next = { ...args.sessions };
+  if (args.accountProfileId && args.accountProfileId !== SYSTEM_ACCOUNT_PROFILE_ID && (args.providerId === "codex" || args.providerId === "claude-code")) {
+    const account = { ...next.accounts?.[args.accountProfileId] };
+    delete account[args.providerId];
+    next.accounts = { ...next.accounts, [args.accountProfileId]: account };
+  } else delete next[args.providerId];
+  return next;
 }

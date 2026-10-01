@@ -63,6 +63,7 @@ export async function draftPlaybookWithAi(
         providerId: lane.providerId,
         prompt: buildPlaybookDraftPrompt(description),
         runtimeOptions: buildReadOnlyAuxRuntimeOptions({
+          accountSelection: state.settings,
           providerId: lane.providerId,
           model: lane.model,
           effortOverrides: lane.effortOverrides,

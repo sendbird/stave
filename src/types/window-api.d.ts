@@ -386,6 +386,7 @@ interface WindowProviderApi {
     upToMessageId: string;
     title?: string;
     cwd?: string;
+    runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<ClaudeSessionForkResponse>;
   rewindClaudeFiles?: (args: {
     sessionId: string;
@@ -398,6 +399,7 @@ interface WindowProviderApi {
     sessionId: string;
     title: string;
     cwd?: string;
+    runtimeOptions?: ProviderStreamTurnArgs["runtimeOptions"];
   }) => Promise<ProviderMutationResponse>;
   listClaudeInstalledPlugins?: (args: {
     cwd?: string;

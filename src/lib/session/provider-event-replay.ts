@@ -936,6 +936,7 @@ export function appendProviderEventToAssistant(args: {
   if (args.event.type === "provider_turn") {
     return {
       ...message,
+      nativeAccountProfileId: args.event.accountProfileId,
       nativeProviderSessionId: args.event.nativeSessionId,
       nativeProviderTurnId: args.event.nativeTurnId,
     };
@@ -1268,7 +1269,7 @@ export function replayProviderEventsToTaskState(args: {
         ) {
           current = current.map((message, index) =>
             index === targetIndex
-              ? { ...message, providerBoundary: nextBoundary }
+              ? { ...message, nativeAccountProfileId: event.accountProfileId, providerBoundary: nextBoundary }
               : message,
           );
           changed = true;
