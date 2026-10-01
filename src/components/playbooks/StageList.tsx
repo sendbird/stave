@@ -12,7 +12,7 @@ import {
   stageAsksFirst,
   uniqueStageId,
 } from "@/lib/playbooks/library";
-import { MAX_PLAYBOOK_STAGES, STAVE_ACTION_LABELS, type Playbook, type PlaybookStage, type StaveActionType } from "@/lib/playbooks/schema";
+import { MAX_PLAYBOOK_STAGES, STAVE_ACTION_LABELS, type CheckIns, type PlaybookStage, type StaveActionType } from "@/lib/playbooks/schema";
 import { STAGE_TEMPLATES } from "@/lib/playbooks/starters";
 import { StageRow } from "./StageRow";
 import { playbookStyles as styles } from "./playbooks.styles";
@@ -31,17 +31,23 @@ function stageIssues(issues: ReadonlyMap<string, string>, index: number): Map<st
   return result;
 }
 
+/** What the list edits: ordered stages and the check-ins their sign-offs derive from. */
+export interface StageListValue {
+  checkIns: CheckIns;
+  stages: PlaybookStage[];
+}
+
 /**
- * A playbook's stages: edit in place, reorder by dragging the handle or with
- * Alt+arrow keys, toggle each stage's sign-off, and add stages from blank,
- * templates or Stave actions.
+ * An agent's workflow stages: edit in place, reorder by dragging the handle
+ * or with Alt+arrow keys, toggle each stage's sign-off, and add stages from
+ * blank, templates or Stave actions. Issues are keyed `stages.<index>.<field>`.
  */
-export function StageList(props: {
-  playbook: Playbook;
+export function StageList<T extends StageListValue>(props: {
+  value: T;
   issues: ReadonlyMap<string, string>;
-  onChange: (playbook: Playbook) => void;
+  onChange: (value: T) => void;
 }) {
-  const { playbook } = props;
+  const playbook = props.value;
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [dragFrom, setDragFrom] = useState<number | null>(null);
   const [dropAt, setDropAt] = useState<{ index: number; position: "before" | "after" } | null>(null);
@@ -172,7 +178,7 @@ export function StageList(props: {
             },
           ]}
         />
-        {full ? <span className={sx(styles.hint)}>A playbook has at most {MAX_PLAYBOOK_STAGES} stages.</span> : null}
+        {full ? <span className={sx(styles.hint)}>A workflow has at most {MAX_PLAYBOOK_STAGES} stages.</span> : null}
       </div>
       <p className={sx(missionStyles.visuallyHidden)} aria-live="polite">
         {announcement}

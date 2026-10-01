@@ -434,7 +434,7 @@ export function StartMissionSheet(props: { request: StartMissionRequest; onClose
               {customizing ? (
                 <>
                   <StageList
-                    playbook={copy}
+                    value={copy}
                     issues={parsedCopy && !parsedCopy.ok ? groupIssuesByField(parsedCopy.issues) : new Map()}
                     onChange={(next) => {
                       setCopy(next);

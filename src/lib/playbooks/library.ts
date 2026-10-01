@@ -174,7 +174,7 @@ export function moveStage(stages: readonly PlaybookStage[], from: number, to: nu
  * matches what the check-ins would do anyway is removed, so the playbook
  * stays on its preset until the user really departs from it.
  */
-export function setStageSignOff(playbook: Playbook, index: number, next: SignOff): Playbook {
+export function setStageSignOff<T extends Pick<Playbook, "checkIns" | "stages">>(playbook: T, index: number, next: SignOff): T {
   const derived = deriveStageSignOff(playbook.checkIns, playbook.stages, index);
   const stages = playbook.stages.map((stage, position) => {
     if (position !== index) return stage;
@@ -185,7 +185,7 @@ export function setStageSignOff(playbook: Playbook, index: number, next: SignOff
 }
 
 /** Choosing a check-in preset clears the per-stage overrides. */
-export function applyCheckIns(playbook: Playbook, checkIns: Playbook["checkIns"]): Playbook {
+export function applyCheckIns<T extends Pick<Playbook, "checkIns" | "stages">>(playbook: T, checkIns: Playbook["checkIns"]): T {
   return {
     ...playbook,
     checkIns,
@@ -198,9 +198,9 @@ export function applyCheckIns(playbook: Playbook, checkIns: Playbook["checkIns"]
 
 /** Why a Stave action cannot be added now, or null when it can. */
 export function explainActionUnavailable(playbook: Pick<Playbook, "stages">, type: StaveActionType): string | null {
-  if (playbook.stages.length >= MAX_PLAYBOOK_STAGES) return `A playbook has at most ${MAX_PLAYBOOK_STAGES} stages.`;
+  if (playbook.stages.length >= MAX_PLAYBOOK_STAGES) return `A workflow has at most ${MAX_PLAYBOOK_STAGES} stages.`;
   const present = playbook.stages.some((stage) => stage.kind === "action" && stage.action.type === type);
-  if (present) return `This playbook already has "${STAVE_ACTION_LABELS[type]}".`;
+  if (present) return `The workflow already has "${STAVE_ACTION_LABELS[type]}".`;
   return null;
 }
 

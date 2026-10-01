@@ -34,7 +34,9 @@ import {
   type AgentSuggestion,
 } from "@/lib/agents/learned-suggestions";
 import {
+  AGENT_CHECK_IN_LABELS,
   AGENT_PERMISSION_LABELS,
+  DEFAULT_AGENT_CHECK_INS,
   AGENT_SOURCE_LABELS,
   isUsableAs,
   type AgentConfig,
@@ -225,6 +227,15 @@ function AgentDetail(props: {
             ) : null}
             <dt className={sx(styles.propertyLabel)}>Runs with</dt>
             <dd className={sx(styles.propertyValue)}>{describeAgent(agent)}</dd>
+            {agent.workflow && agent.workflow.length > 1 ? (
+              <>
+                <dt className={sx(styles.propertyLabel)}>Workflow</dt>
+                <dd className={sx(styles.propertyValue)}>
+                  {agent.workflow.map((stage) => stage.title).join(" → ")} · Check in:{" "}
+                  {AGENT_CHECK_IN_LABELS[agent.checkIns ?? DEFAULT_AGENT_CHECK_INS]}
+                </dd>
+              </>
+            ) : null}
             <dt className={sx(styles.propertyLabel)}>Instructions</dt>
             <dd className={sx(styles.propertyValue)}>
               <pre className={sx(agentStyles.instructions)}>{agent.instructions}</pre>
@@ -350,7 +361,6 @@ function UnusedFiles(props: { problems: ReadonlyArray<{ path: string; message: s
 export function AgentsTab() {
   const custom = useAppStore((state) => state.settings.customAgents);
   const customAgentRevisions = useAppStore((state) => state.settings.customAgentRevisions);
-  const playbooks = useAppStore((state) => state.settings.playbooks);
   const projects = useProjectsStore((state) => state.projects);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const [query, setQuery] = useState("");
@@ -442,9 +452,9 @@ export function AgentsTab() {
   const deleteReferences = useMemo(
     () =>
       deleteTarget
-        ? findAgentReferences({ agentConfigId: deleteTarget.id, playbooks, projects })
+        ? findAgentReferences({ agentConfigId: deleteTarget.id, agents, projects })
         : { blocking: [], soft: [] },
-    [deleteTarget, playbooks, projects],
+    [deleteTarget, agents, projects],
   );
 
   return (

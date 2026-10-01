@@ -349,7 +349,7 @@ export function PlaybookEditor(props: PlaybookEditorProps) {
             </dd>
           </dl>
 
-          <StageList playbook={draft} issues={issues} onChange={props.onChange} />
+          <StageList value={draft} issues={issues} onChange={props.onChange} />
           <PlaybookFlowPreview playbook={draft} />
         </div>
       </div>

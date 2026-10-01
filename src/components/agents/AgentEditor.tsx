@@ -35,6 +35,7 @@ import { playbookStyles as styles } from "../playbooks/playbooks.styles";
 import { agentStyles } from "./agents.styles";
 import { TagField } from "./TagField";
 import { AgentCanCallField } from "./AgentCanCallField";
+import { AgentWorkflowField } from "./AgentWorkflowField";
 
 const REPORT_LABELS: Readonly<Record<(typeof AGENT_REPORT_SECTIONS)[number], string>> = {
   summary: "Summary",
@@ -106,7 +107,8 @@ const ADVANCED_FIELDS = new Set(["avoidWhen", "skills", "tools", "concurrency", 
 
 /**
  * The agent editor. What most agents need is always visible — Profile (name,
- * colour, Use when), Instructions, and How it runs (model, permission, where)
+ * colour, Use when), Instructions, Workflow (its stages and check-ins) and
+ * How it runs (model, permission, where)
  * — and everything else sits under one collapsed Advanced. Edits a draft copy;
  * `onSave` receives the draft and returns an error message or null.
  * Validation issues from the schema are shown next to their field, and a save
@@ -181,6 +183,10 @@ export function AgentEditor(props: {
           onChange={(event) => setDraft({ ...draft, instructions: event.target.value })}
         />
         <FieldError message={issues.instructions} />
+      </Section>
+
+      <Section title="Workflow">
+        <AgentWorkflowField agent={draft} issues={issues} onChange={setDraft} />
       </Section>
 
       <Section title="How it runs">

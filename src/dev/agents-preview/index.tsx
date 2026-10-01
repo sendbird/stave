@@ -203,7 +203,7 @@ export function AgentsPreview() {
             onOpenChange={() => {}}
             agent={custom}
             references={{
-              blocking: [{ kind: "playbook-stage", label: "Ship a UI fix", detail: "Implement", ownerId: "ship-ui" }],
+              blocking: [{ kind: "workflow-stage", label: "Ship a UI fix", detail: "Implement", ownerId: "ship-ui" }],
               soft: [{ kind: "task", label: "Tighten the settings sidebar", ownerId: "preview-task" }],
             }}
             onDelete={() => {}}

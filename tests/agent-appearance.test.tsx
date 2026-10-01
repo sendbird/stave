@@ -118,31 +118,30 @@ describe("removeCustomAgent and blankCustomAgent", () => {
 });
 
 describe("agent references", () => {
-  const playbook = {
+  const shipper = {
     id: "ship",
     name: "Ship it",
-    purpose: "Ship a change.",
-    stages: [{ id: "impl", title: "Implement", kind: "ai" as const, instruction: "x", doneWhen: "y", agentConfigId: "ui-maintainer" }],
+    workflow: [{ id: "impl", title: "Implement", kind: "ai" as const, instruction: "x", doneWhen: "y", agentConfigId: "ui-maintainer" }],
   } as never;
   const project = { id: "proj", name: "Refresh", settings: { agents: ["ui-maintainer"] } } as never;
 
-  test("a playbook stage and a project block deletion; a task does not", () => {
+  test("another agent's workflow stage and a project block deletion; a task does not", () => {
     const references = findAgentReferences({
       agentConfigId: "ui-maintainer",
-      playbooks: [playbook],
+      agents: [shipper],
       projects: [project],
       assignments: [
         { agentConfigId: "ui-maintainer", state: "started", assignment: "Do the thing\nmore", taskId: "t1" } as never,
         { agentConfigId: "ui-maintainer", state: "failed", assignment: "Old", taskId: "t2" } as never,
       ],
     });
-    expect(references.blocking.map((reference) => reference.kind)).toEqual(["playbook-stage", "project"]);
+    expect(references.blocking.map((reference) => reference.kind)).toEqual(["workflow-stage", "project"]);
     expect(references.soft.map((reference) => reference.label)).toEqual(["Do the thing"]);
     expect(agentIsDeletable(references)).toBe(false);
   });
 
   test("an unreferenced agent is deletable", () => {
-    const references = findAgentReferences({ agentConfigId: "nobody", playbooks: [playbook], projects: [project] });
+    const references = findAgentReferences({ agentConfigId: "nobody", agents: [shipper], projects: [project] });
     expect(agentIsDeletable(references)).toBe(true);
   });
 });
@@ -158,5 +157,19 @@ describe("agent editor", () => {
     }
     expect(html).toContain("Save agent");
     expect(html).toContain("Cancel");
+  });
+
+  test("the Workflow section lists the stages and offers check-ins only with more than one", () => {
+    const draft = blankCustomAgent({ name: "Docs Writer", takenIds: [] });
+    const single = renderToStaticMarkup(createElement(AgentEditor, { agent: draft, onSave: () => null }));
+    expect(single).toContain("Workflow");
+    expect(single).toContain("Runs as one stage");
+    expect(single).not.toContain("Check in with me");
+    const staged = renderToStaticMarkup(
+      createElement(AgentEditor, { agent: { ...draft, workflow: getBuiltinAgent("shipper")!.workflow }, onSave: () => null }),
+    );
+    for (const title of ["Validate", "Open draft PR", "Watch checks", "Ready for review", "Check in with me", "Only when stuck"]) {
+      expect(staged).toContain(title);
+    }
   });
 });

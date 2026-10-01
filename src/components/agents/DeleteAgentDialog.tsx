@@ -11,7 +11,7 @@ import { playbookStyles as styles } from "../playbooks/playbooks.styles";
 import { agentStyles } from "./agents.styles";
 
 const REFERENCE_KIND_LABELS = {
-  "playbook-stage": "Playbook stage",
+  "workflow-stage": "Workflow stage",
   project: "Project",
   task: "Task",
 } as const;
