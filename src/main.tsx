@@ -101,6 +101,16 @@ if (preview === "kickoff") {
       </StrictMode>,
     );
   });
+} else if (preview === "schedules") {
+  void import("@/dev/schedules-preview").then(({ SchedulesPreview }) => {
+    root.render(
+      <StrictMode>
+        <StaveDesignProvider>
+          <SchedulesPreview />
+        </StaveDesignProvider>
+      </StrictMode>,
+    );
+  });
 } else if (preview === "task-panel") {
   void import("@/dev/task-panel-preview").then(({ TaskPanelPreview }) => {
     root.render(

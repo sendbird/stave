@@ -1,6 +1,3 @@
-import { Badge } from "@/components/ads/components/Badge";
-import { Button as AdsButton } from "@/components/ads/components/Button";
-import { transition } from "@/components/ads/recipes/transition";
 import { sx } from "@/components/ads/utils/stylex";
 import {
   AlertCircle,
@@ -52,7 +49,15 @@ import type { WorkspaceInformationReferenceOption } from "@/lib/workspace-inform
 import { useAppStore } from "@/store/app.store";
 import { createCoalescedLoader } from "@/lib/coalesced-loader";
 import { WORKSPACE_TOOLS_LABEL } from "@/lib/workspace-scripts/constants";
+import { buildScheduleRows, type ScheduleRow } from "@/lib/schedule-rows";
+import { useScheduleRequestStore } from "@/store/schedule-request-store";
+import type { WakeUp } from "@/lib/supervision/wake-up-policy";
 import { AutomationEditor } from "./AutomationEditor";
+import { CheckBackDetail } from "./CheckBackDetail";
+import { CheckBackEditor } from "./CheckBackEditor";
+import { ScheduleKindSwitch } from "./ScheduleKindSwitch";
+import { ScheduleRows } from "./ScheduleRows";
+import { useCheckBacks } from "./useCheckBacks";
 import { AutomationLatestRun } from "./AutomationLatestRun";
 import { AutomationRunDetail, AutomationRunRow } from "./AutomationRunDetail";
 import {
@@ -62,13 +67,11 @@ import {
   formatDateTime,
   formatRelativeTime,
   getAutomationErrorMessage,
-  getRunStatusPresentation,
   isActiveRunStatus,
   matchesRunFilter,
   automationToDraft,
   type AutomationRunFilter,
 } from "./automation-center.utils";
-import { automationStyles } from "./automation-center.styles";
 import { centerStyles } from "./automation-center-view.styles";
 
 const ALL_AUTOMATIONS = "all";
@@ -104,6 +107,7 @@ export function AutomationCenterView() {
     focusTaskAttention,
     setLayout,
     closeAutomationCenter,
+    tasks,
   ] = useAppStore(
     useShallow(
       (state) =>
@@ -119,6 +123,7 @@ export function AutomationCenterView() {
           state.focusTaskAttention,
           state.setLayout,
           state.closeAutomationCenter,
+          state.tasks,
         ] as const,
     ),
   );
@@ -130,6 +135,14 @@ export function AutomationCenterView() {
   const [selectedAutomationId, setSelectedAutomationId] = useState<string | null>(
     null,
   );
+  const [selectedCheckBackId, setSelectedCheckBackId] = useState<string | null>(null);
+  const [checkBackSheet, setCheckBackSheet] = useState<{
+    wakeUp: WakeUp | null;
+    taskId: string | null;
+  } | null>(null);
+  const [removeCheckBack, setRemoveCheckBack] = useState<WakeUp | null>(null);
+  const checkBacks = useCheckBacks();
+  const checkBackRequest = useScheduleRequestStore((state) => state.checkBack);
   const [selectedRunId, setSelectedRunId] = useState<string | null>(null);
   const [runFilter, setRunFilter] = useState<AutomationRunFilter>("all");
   const [runAutomationFilter, setRunAutomationFilter] =
@@ -301,7 +314,7 @@ export function AutomationCenterView() {
     };
   }, [activeWorkspaceId, flushActiveWorkspaceSnapshot, informationWorkspaceId]);
 
-  const hasDraft = draft !== null;
+  const hasDraft = draft !== null || checkBackSheet !== null;
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (
@@ -357,6 +370,46 @@ export function AutomationCenterView() {
     }
     return counts;
   }, [snapshot.runs]);
+
+  const taskTitleById = useMemo(
+    () => new Map(tasks.map((task) => [task.id, task.title])),
+    [tasks],
+  );
+  const scheduleRows = useMemo(
+    () =>
+      buildScheduleRows({
+        automations: snapshot.automations,
+        runs: snapshot.runs,
+        wakeUps: checkBacks.wakeUps,
+        summaries: checkBacks.summaries,
+        taskTitleById,
+      }),
+    [checkBacks.summaries, checkBacks.wakeUps, snapshot.automations, snapshot.runs, taskTitleById],
+  );
+  const selectedCheckBack =
+    checkBacks.wakeUps.find((wakeUp) => wakeUp.id === selectedCheckBackId) ?? null;
+  const selectedCheckBackRow = selectedCheckBack
+    ? (scheduleRows.find((row) => row.key === `check-back:${selectedCheckBack.id}`) ?? null)
+    : null;
+  const selectedKey = selectedCheckBack
+    ? `check-back:${selectedCheckBack.id}`
+    : selectedAutomationId
+      ? `start:${selectedAutomationId}`
+      : null;
+
+  // A task's "Check back…" menu item parks a request here; open its sheet once
+  // the check-backs have loaded, so an existing one is edited rather than doubled.
+  useEffect(() => {
+    if (!checkBackRequest || !checkBacks.loaded) return;
+    const request = useScheduleRequestStore.getState().consume();
+    if (!request) return;
+    const existing =
+      checkBacks.wakeUps.find(
+        (wakeUp) => wakeUp.taskId === request.taskId && wakeUp.workspaceId === request.workspaceId,
+      ) ?? null;
+    setActiveTab("automations");
+    setCheckBackSheet({ wakeUp: existing, taskId: request.taskId });
+  }, [checkBackRequest, checkBacks.loaded, checkBacks.wakeUps]);
 
   const selectedAutomationActiveRunCount = selectedAutomation
     ? (activeRunCountByAutomationId.get(selectedAutomation.id) ?? 0)
@@ -446,7 +499,7 @@ export function AutomationCenterView() {
       cancelEdit();
       await loadSnapshot();
       toast.success(
-        editingAutomationId ? "Automation updated" : "Automation created",
+        editingAutomationId ? "Schedule updated" : "Schedule created",
       );
     } catch (saveError) {
       toast.error(
@@ -478,7 +531,7 @@ export function AutomationCenterView() {
         toast.error(result.run.error ?? "Failed to start automation.");
         return;
       }
-      toast.success("Automation started");
+      toast.success("Schedule started");
     } catch (runError) {
       toast.error(
         getAutomationErrorMessage(runError, "Failed to start automation."),
@@ -532,11 +585,74 @@ export function AutomationCenterView() {
       }
       setDeleteAutomation(null);
       await loadSnapshot();
-      toast.success("Automation deleted");
+      toast.success("Schedule deleted");
     } catch (deleteError) {
       toast.error(
         getAutomationErrorMessage(deleteError, "Failed to delete automation."),
       );
+    } finally {
+      setBusyAutomationId(null);
+    }
+  }
+
+  function selectRow(row: ScheduleRow) {
+    if (row.kind === "start") {
+      setSelectedCheckBackId(null);
+      setSelectedAutomationId(row.id);
+    } else {
+      setSelectedCheckBackId(row.id);
+    }
+  }
+
+  function runRowNow(row: ScheduleRow) {
+    const automation = automationById.get(row.id);
+    if (automation) void runNow(automation);
+  }
+
+  async function setCheckBackPaused(id: string, paused: boolean) {
+    const api = window.api?.wakeUps;
+    if (!api) {
+      toast.error("Schedules are available in the Stave desktop app.");
+      return;
+    }
+    setBusyAutomationId(id);
+    try {
+      const result = await api.setPaused({ id, paused });
+      if (!result.ok) toast.error(result.message ?? "Failed to update the schedule.");
+      await checkBacks.reload();
+    } catch (updateError) {
+      toast.error(getAutomationErrorMessage(updateError, "Failed to update the schedule."));
+    } finally {
+      setBusyAutomationId(null);
+    }
+  }
+
+  function toggleRow(row: ScheduleRow) {
+    if (row.kind === "start") {
+      const automation = automationById.get(row.id);
+      if (automation) void toggleEnabled(automation);
+      return;
+    }
+    void setCheckBackPaused(row.id, row.toggle === "pause");
+  }
+
+  async function confirmRemoveCheckBack() {
+    if (!removeCheckBack) return;
+    const api = window.api?.wakeUps;
+    if (!api) return;
+    setBusyAutomationId(removeCheckBack.id);
+    try {
+      const result = await api.remove({ id: removeCheckBack.id });
+      if (!result.ok) {
+        toast.error(result.message ?? "Failed to remove the schedule.");
+        return;
+      }
+      setRemoveCheckBack(null);
+      setSelectedCheckBackId(null);
+      await checkBacks.reload();
+      toast.success("Schedule removed");
+    } catch (removeError) {
+      toast.error(getAutomationErrorMessage(removeError, "Failed to remove the schedule."));
     } finally {
       setBusyAutomationId(null);
     }
@@ -571,10 +687,45 @@ export function AutomationCenterView() {
     }
   }
 
+  if (checkBackSheet) {
+    return (
+      <div className={sx(centerStyles.root)}>
+        <CheckBackEditor
+          key={checkBackSheet.wakeUp?.id ?? checkBackSheet.taskId ?? "new"}
+          wakeUp={checkBackSheet.wakeUp}
+          taskId={checkBackSheet.taskId}
+          taskTitle={checkBackSheet.taskId ? (taskTitleById.get(checkBackSheet.taskId) ?? null) : null}
+          onKindChange={() => {
+            setCheckBackSheet(null);
+            startCreate();
+          }}
+          onCancel={() => setCheckBackSheet(null)}
+          onSaved={() => {
+            const saved = checkBackSheet.wakeUp;
+            setCheckBackSheet(null);
+            if (saved) setSelectedCheckBackId(saved.id);
+            void checkBacks.reload();
+          }}
+        />
+      </div>
+    );
+  }
+
   if (draft) {
     return (
       <div className={sx(centerStyles.root)}>
         <AutomationEditor
+          kindSwitch={
+            editingAutomationId === null ? (
+              <ScheduleKindSwitch
+                value="start"
+                onChange={() => {
+                  cancelEdit();
+                  setCheckBackSheet({ wakeUp: null, taskId: null });
+                }}
+              />
+            ) : null
+          }
           automationId={editingAutomationId ?? null}
           draft={draft}
           environmentOptions={environmentOptions}
@@ -601,7 +752,7 @@ export function AutomationCenterView() {
   }
 
   const showLoadingState =
-    loading && snapshot.automations.length === 0 && snapshot.runs.length === 0;
+    loading && scheduleRows.length === 0 && snapshot.runs.length === 0;
 
   return (
     <div className={sx(centerStyles.root)}>
@@ -609,10 +760,10 @@ export function AutomationCenterView() {
         <div className={sx(centerStyles.headerText)}>
           <div className={sx(centerStyles.headerTitleRow)}>
             <Workflow className={sx(centerStyles.headerIcon)} />
-            <h1 className={sx(centerStyles.headerTitle)}>Automations</h1>
+            <h1 className={sx(centerStyles.headerTitle)}>Schedules</h1>
           </div>
           <p className={sx(centerStyles.headerSubtitle)}>
-            Schedule repeatable agent work and inspect run history.
+            Work that runs on its own, and what it last did.
           </p>
         </div>
         <div className={sx(centerStyles.headerActions)}>
@@ -623,7 +774,7 @@ export function AutomationCenterView() {
               onClick={startCreate}
             >
               <Plus className={sx(centerStyles.buttonIcon)} />
-              New automation
+              New schedule
             </Button>
           )}
           <Button
@@ -641,7 +792,7 @@ export function AutomationCenterView() {
             size="sm"
             xstyle={centerStyles.iconButton}
             onClick={() => void loadSnapshot()}
-            aria-label="Refresh automations"
+            aria-label="Refresh schedules"
             title="Refresh"
           >
             <RefreshCw
@@ -655,8 +806,8 @@ export function AutomationCenterView() {
             variant="ghost"
             size="sm"
             xstyle={centerStyles.iconButton}
-            aria-label="close-automation-center"
-            title="Close Automations"
+            aria-label="close-schedules"
+            title="Close Schedules"
             onClick={closeAutomationCenter}
           >
             <X className={sx(centerStyles.actionIcon)} />
@@ -665,10 +816,10 @@ export function AutomationCenterView() {
       </header>
 
       <div className={sx(centerStyles.toolbar)}>
-        <nav aria-label="Automation views" className={sx(centerStyles.tabNav)}>
+        <nav aria-label="Schedule views" className={sx(centerStyles.tabNav)}>
           {(
             [
-              ["automations", `Automations · ${snapshot.automations.length}`],
+              ["automations", `Schedules · ${scheduleRows.length}`],
               ["runs", `Run history · ${snapshot.runs.length}`],
             ] as const
           ).map(([id, label]) => (
@@ -686,8 +837,8 @@ export function AutomationCenterView() {
 
         {activeTab === "automations" ? (
           <p className={sx(centerStyles.toolbarNote)}>
-            Runs while Stave is open. After reopening, one missed occurrence is
-            caught up.
+            Runs while Stave is open. After reopening, one missed run is caught
+            up.
           </p>
         ) : null}
 
@@ -759,121 +910,87 @@ export function AutomationCenterView() {
               state="searching"
               size={64}
               theme="auto"
-              aria-label="Loading automation center"
+              aria-label="Loading schedules"
             />
           </div>
           <div>
-            <p className={sx(centerStyles.loadingTitle)}>Loading automations</p>
+            <p className={sx(centerStyles.loadingTitle)}>Loading schedules</p>
             <p className={sx(centerStyles.loadingHint)}>
-              Restoring automations, execution policy, and run history.
+              Restoring schedules, execution policy, and run history.
             </p>
           </div>
         </div>
       ) : activeTab === "automations" ? (
-        snapshot.automations.length === 0 ? (
+        scheduleRows.length === 0 ? (
           <Empty xstyle={centerStyles.emptyPane}>
             <EmptyHeader>
               <EmptyMedia variant="icon">
                 <Clock3 />
               </EmptyMedia>
-              <EmptyTitle>No automations yet</EmptyTitle>
+              <EmptyTitle>No schedules yet</EmptyTitle>
               <EmptyDescription>
-                Run recurring reviews and checks on a schedule. Each automation
-                keeps its own instructions, workspace, model, permissions, and
-                run history.
+                Start a task on a cadence, or check back on one that already
+                exists.
               </EmptyDescription>
             </EmptyHeader>
             <EmptyContent>
               <Button size="sm" onClick={startCreate}>
                 <Plus className={sx(centerStyles.actionIcon)} />
-                Create automation
+                New schedule
               </Button>
             </EmptyContent>
           </Empty>
         ) : (
           <div className={sx(centerStyles.masterDetail)}>
             <div className={sx(centerStyles.masterColumn)}>
-              <div className={sx(centerStyles.cardList)}>
-                {snapshot.automations.map((automation) => {
-                  const active = automation.id === selectedAutomationId;
-                  const latestRun = latestRunByAutomationId.get(automation.id);
-                  return (
-                    <AdsButton layout="host"
-                      key={automation.id}
-                      type="button"
-                      onClick={() => setSelectedAutomationId(automation.id)}
-                      aria-current={active}
-                      xstyle={[
-                        centerStyles.automationCard,
-                        transition.colors,
-                        active && centerStyles.automationCardActive,
-                      ]}
-                    >
-                      <div className={sx(centerStyles.automationCardHead)}>
-                        <span
-                          className={sx(
-                            centerStyles.automationDot,
-                            automation.enabled
-                              ? centerStyles.automationDotOn
-                              : centerStyles.automationDotOff,
-                          )}
-                          aria-hidden="true"
-                        />
-                        <span className={sx(centerStyles.automationName)}>
-                          {automation.name}
-                        </span>
-                        {latestRun && isActiveRunStatus(latestRun.status) ? (
-                          <Badge
-                            variant="outline"
-                            tone={
-                              getRunStatusPresentation(latestRun.status).tone
-                            }
-                            xstyle={automationStyles.statusBadge}
-                          >
-                            {getRunStatusPresentation(latestRun.status).label}
-                          </Badge>
-                        ) : null}
-                      </div>
-                      <div className={sx(centerStyles.automationMeta)}>
-                        <span className={sx(centerStyles.automationMetaText)}>
-                          {automation.enabled
-                            ? formatAutomationSchedule(automation.schedule)
-                            : "Manual only"}
-                        </span>
-                        <span className={sx(centerStyles.automationMetaModel)}>
-                          {automation.runtime.model}
-                        </span>
-                      </div>
-                    </AdsButton>
-                  );
-                })}
-              </div>
+              <ScheduleRows
+                rows={scheduleRows}
+                selectedKey={selectedKey}
+                busyId={busyAutomationId}
+                onSelect={selectRow}
+                onRunNow={runRowNow}
+                onToggle={toggleRow}
+              />
             </div>
 
             <div className={sx(centerStyles.detailColumn)}>
               {/* Narrow layouts hide the master column, so offer a picker. */}
               <div className={sx(centerStyles.compactPicker)}>
                 <Select
-                  value={selectedAutomationId ?? ""}
-                  onValueChange={setSelectedAutomationId}
+                  value={selectedKey ?? ""}
+                  onValueChange={(key) => {
+                    const row = scheduleRows.find((candidate) => candidate.key === key);
+                    if (row) selectRow(row);
+                  }}
                 >
                   <SelectTrigger
                     className={sx(centerStyles.compactSelect)}
-                    aria-label="Select automation"
+                    aria-label="Select schedule"
                   >
-                    <SelectValue placeholder="Select an automation" />
+                    <SelectValue placeholder="Select a schedule" />
                   </SelectTrigger>
                   <SelectContent>
-                    {snapshot.automations.map((automation) => (
-                      <SelectItem key={automation.id} value={automation.id}>
-                        {automation.name}
+                    {scheduleRows.map((row) => (
+                      <SelectItem key={row.key} value={row.key}>
+                        {row.name}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
               </div>
 
-              {selectedAutomation ? (
+              {selectedCheckBack && selectedCheckBackRow ? (
+                <CheckBackDetail
+                  row={selectedCheckBackRow}
+                  wakeUp={selectedCheckBack}
+                  busy={busyAutomationId === selectedCheckBack.id}
+                  onEdit={() =>
+                    setCheckBackSheet({ wakeUp: selectedCheckBack, taskId: selectedCheckBack.taskId })
+                  }
+                  onToggle={() => toggleRow(selectedCheckBackRow)}
+                  onRemove={() => setRemoveCheckBack(selectedCheckBack)}
+                />
+              ) : selectedAutomation ? (
                 <div className={sx(centerStyles.detailBody)}>
                   <div className={sx(centerStyles.detailHeadRow)}>
                     <div className={sx(centerStyles.detailHeadText)}>
@@ -908,7 +1025,7 @@ export function AutomationCenterView() {
                         size="sm"
                         xstyle={centerStyles.iconButton}
                         onClick={() => startEdit(selectedAutomation)}
-                        aria-label="Edit automation"
+                        aria-label="Edit schedule"
                         title="Edit"
                       >
                         <Pencil className={sx(centerStyles.buttonIcon)} />
@@ -1008,7 +1125,7 @@ export function AutomationCenterView() {
                       title={
                         selectedAutomationActiveRunCount > 0
                           ? "Wait for active runs to finish"
-                          : "Delete automation"
+                          : "Delete schedule"
                       }
                     >
                       <Trash2 className={sx(centerStyles.buttonIcon)} />
@@ -1029,7 +1146,7 @@ export function AutomationCenterView() {
                 </div>
               ) : (
                 <div className={sx(centerStyles.placeholder)}>
-                  Select an automation to see its configuration.
+                  Select a schedule to see its configuration.
                 </div>
               )}
             </div>
@@ -1085,7 +1202,7 @@ export function AutomationCenterView() {
 
       <ConfirmDialog
         open={Boolean(deleteAutomation)}
-        title="Delete automation"
+        title="Delete schedule"
         description={
           deleteAutomation
             ? `Delete "${deleteAutomation.name}" and its saved run history? Created task conversations remain in their workspaces.`
@@ -1095,6 +1212,15 @@ export function AutomationCenterView() {
         loading={Boolean(deleteAutomation && busyAutomationId === deleteAutomation.id)}
         onCancel={() => setDeleteAutomation(null)}
         onConfirm={() => void confirmDelete()}
+      />
+      <ConfirmDialog
+        open={Boolean(removeCheckBack)}
+        title="Remove schedule"
+        description="Remove this check-back and its history? The task itself is untouched."
+        confirmLabel="Remove"
+        loading={Boolean(removeCheckBack && busyAutomationId === removeCheckBack.id)}
+        onCancel={() => setRemoveCheckBack(null)}
+        onConfirm={() => void confirmRemoveCheckBack()}
       />
     </div>
   );

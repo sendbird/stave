@@ -375,8 +375,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
   },
   {
     id: "navigation.automation-center",
-    title: "Open Automations",
-    description: "Open scheduled agent automations and their run history.",
+    title: "Open Schedules",
+    description: "Open work that runs on its own, and its run history.",
     group: "navigation",
     icon: Workflow,
     keywords: [
@@ -393,8 +393,8 @@ const coreCommandDefinitions: CommandPaletteCoreCommandDefinition[] = [
     shortcut: (modifierLabel) => `${modifierLabel}+K A`,
     build: (args) => ({
       id: "navigation.automation-center",
-      title: "Open Automations",
-      subtitle: "Schedule repeatable agent work and inspect run history.",
+      title: "Open Schedules",
+      subtitle: "Work that runs on its own, and what it last did.",
       group: "navigation",
       icon: Workflow,
       keywords: [

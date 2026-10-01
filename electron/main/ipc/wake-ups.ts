@@ -7,10 +7,19 @@ import {
   type WakeUpListResponse,
 } from "../../../src/lib/supervision/wake-up-bridge";
 import { onHostServiceEvent } from "../host-service-client";
-import { listWakeUps, pauseWakeUp, removeWakeUp, resumeWakeUp } from "../wake-up-service";
+import { WakeUpUpsertInputSchema } from "../../../src/lib/supervision/wake-up-policy";
+import {
+  createWakeUp,
+  listWakeUps,
+  pauseWakeUp,
+  removeWakeUp,
+  resumeWakeUp,
+  updateWakeUp,
+} from "../wake-up-service";
 
 const IdSchema = z.string().trim().min(1).max(256);
-const ListArgsSchema = z.object({ workspaceId: IdSchema }).strict();
+const ListArgsSchema = z.object({ workspaceId: IdSchema.optional() }).strict();
+const UpdateArgsSchema = z.object({ id: IdSchema, input: WakeUpUpsertInputSchema }).strict();
 const SetPausedArgsSchema = z.object({ id: IdSchema, paused: z.boolean() }).strict();
 const RemoveArgsSchema = z.object({ id: IdSchema }).strict();
 
@@ -20,7 +29,7 @@ function errorMessage(error: unknown, fallback: string) {
 
 let bridgeRegistered = false;
 
-/** The task surfaces' wake-up list, with Pause, Resume and Remove. */
+/** The check-back list and its create, edit, Pause, Resume and Remove actions. */
 export function registerWakeUpHandlers() {
   if (!bridgeRegistered) {
     bridgeRegistered = true;
@@ -45,6 +54,30 @@ export function registerWakeUpHandlers() {
         summaries: [],
         message: errorMessage(error, "Failed to load wake-ups."),
       };
+    }
+  });
+
+  ipcMain.handle(WAKE_UP_IPC.create, async (_event, args: unknown): Promise<WakeUpCommandResponse> => {
+    const parsed = WakeUpUpsertInputSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, wakeUp: null, message: parsed.error.issues[0]?.message ?? "Invalid check-back." };
+    }
+    try {
+      return { ok: true, wakeUp: await createWakeUp(parsed.data) };
+    } catch (error) {
+      return { ok: false, wakeUp: null, message: errorMessage(error, "Failed to save the check-back.") };
+    }
+  });
+
+  ipcMain.handle(WAKE_UP_IPC.update, async (_event, args: unknown): Promise<WakeUpCommandResponse> => {
+    const parsed = UpdateArgsSchema.safeParse(args);
+    if (!parsed.success) {
+      return { ok: false, wakeUp: null, message: parsed.error.issues[0]?.message ?? "Invalid check-back." };
+    }
+    try {
+      return { ok: true, wakeUp: await updateWakeUp(parsed.data) };
+    } catch (error) {
+      return { ok: false, wakeUp: null, message: errorMessage(error, "Failed to save the check-back.") };
     }
   });
 
