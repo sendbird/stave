@@ -1,3 +1,56 @@
+## [0.22.0](https://github.com/sendbird/stave/compare/v0.21.2...v0.22.0) (2026-10-01)
+
+### Features
+
+* Choose a model or an agent in one composer selector with Models and Agents groups and one search box. In Agent mode the right segment can pin the lead's model, "Back to Auto" clears the pin, and picking a model releases the agent. The first send under a new assignment reads Assign.
+* Run agent tasks until their assignment is done. A prompt in Agent mode starts a run that checks in only when stuck, keeps the default turn cap, and is routed per turn with the same precedence as the composer: pin, then the agent's fixed model, then Stave Auto with the agent's task class. A later prompt steers the run, Stop cancels it, and picking a model ends it and keeps the transcript.
+* Show an agent run by agent, state and result: the assignment as the first bubble, a `Working` or `Needs you` status line with Stop and Take control, and a Result card with Done when lines, the checks Stave itself saw succeed, changes, PR, Ask for changes and Open PR. Failed or stuck runs get a reason card with Retry and Take control.
+* Run agent and Auto turns without routine prompts. One turn policy resolves ask, autonomous or read-only from who is acting, the user's settings and the workspace, and applies to composer, agent, helper, mission, wake-up and `stave_run_task` turns. Claude uses native Auto and Codex uses `never` approval with at least workspace-write. A guardrail still asks before writes outside the workspace, credential paths, force-push or history rewrite on protected branches, remote deletes, publishing, `gh repo delete`, `gh api -X DELETE` and `sudo`.
+* Give agents an optional workflow of ordered stages and a check-in level (Only when stuck, Before publishing, Every stage). An agent run takes its stages from the task's agent, and the stage track shows only with more than one stage. Debugger, UI Polisher and Shipper ship with workflows.
+* Rebuild the built-in agents as Implementer, Lead, Debugger, UI Polisher, Reviewer, Researcher and Shipper, each on Auto with a task class and a shared reply style. Planner still resolves to Lead. Avatars are rounded squares with tints checked for contrast in light, dark and high contrast. New agent offers Duplicate and edit of a built-in, and drafts one from a sentence.
+* Unify advisor, worker and delegation as subagents under one Subagents tab. A read-only `stave_delegate_task` waits up to 180 seconds and returns the answer inline, and settled answers reach the caller's next turn as "Subagent results". In-turn subagents come from the lead agent's `canCall` list, a writing subagent gets its own worktree by default, and a per-turn grant stops subagents from starting subagents or acting outside the caller.
+* Answer a delegated child's approval or question from any task above it, in a request slot over the composer or from the notification, which now opens the root parent task.
+* Show Automations and check-backs as one Schedules surface with one create/edit sheet (What, Where, When) and a "Check back…" entry in the task tab menu. Tool names and storage are unchanged.
+* Review agent run outcomes on one Results page over 7, 30 or 90 days: ready, rework, failed and stopped counts, median time to ready, cost per ready result, corrections per run, why runs did not finish, and a per-agent table. It replaces Mission Insights and opens from the Fleet header and the command palette. Status marks share one state vocabulary across Fleet, agents, stages and run labels.
+* Merge the five task panels into one Task panel with tabs. A reopened rail returns to its last tab, tab marks reflect pending interactions, running agents and unreviewed results, and Progress shows the mission while the task has one.
+* Link repository tasks in a project with acyclic dependencies, then record criteria, evidence and a separate user review before accepting the combined result. Acceptance is tied to current task and workspace state, so stale reviews are refused.
+* Add provider account switching and Claude Gateway connections. Register managed or existing native profiles, sign in through a terminal, and pick the account for new turns from Tooling or the composer. Runtime environments, caches, queues and restored sessions are kept per account. Gateway endpoints use encrypted-vault secrets, label API billing and offer an inference-free model-list check.
+* Show Auto routing inline. The prompt appears in the transcript at once, a status line offers Start now after 500 ms and Stop cancels the send, and each routed reply starts with a route line (`Auto → GPT-5.6 Sol · High · Implement · 2.4s`) whose Why expands the rule and signals.
+* Show status-bar usage only for engines whose CLI is detected, with a clock icon for the time left in each quota window.
+* Make Assign the Kickoff action when Who is an agent, and show the Projects entry only when a project already exists.
+
+### Bug Fixes
+
+* Start agent work from Kickoff with the user's runtime settings and optional Auto routing, and keep saved instructions after a failed start.
+* Seal each assigned turn with the saved agent version, permissions and instruction delivery, and fail invalid agent configuration before the provider runs. Cursor and Kiro receive instructions in the actual session after resume or fallback.
+* Inherit the user's permissions in delegation, keep them across retries and follow-ups, and serialize managed preparation and takeover. Read-only consults run in parallel without prompts, and Claude read-only sandboxes deny writes to the workspace instead of the filesystem root, which had made every Bash result end with "operation not permitted".
+* Refuse a second managed child writing to the same workspace, naming the child that holds it. The reservation lasts until the turn really completes.
+* Stop prompting Auto users for read-only tools in Stave-started turns. Missions started with manual permission and wake-up turns follow the user's synced provider settings, and the choice is labelled "Your settings".
+* Keep a durable terminal receipt for each completed provider turn so delegated output does not turn into a no-response failure after cleanup or restart.
+* Require truthful, current verification evidence for missions: a successful tool response no longer invents an exit code, stale or historical evidence stays unverified, and required stage criteria must be satisfied before completion.
+* Keep task supervision usable after a Mission finishes and inside managed tasks, and keep the selected parent task during child creation and workspace restore.
+* Stop the activity dialog looping on an empty message list, and stop a routed model change pausing a run as runtime drift.
+* Reject `stave_run_task` options that widen permissions, save automations created through MCP paused, and stop serving `stave_respond_approval` so an agent cannot grant approvals.
+
+### Removed
+
+* Advisor and Worker, on both providers, with the managed writer lease, the delegate form and its drafts, and collaboration history and export. Old settings, drafts and run records are ignored or stripped on read.
+* The Playbooks tab, playbook editor and drafting, mission start sheet and pre-start checks, hand-off control, Save as playbook, and the new-project dialog. Existing projects still run their playbook missions.
+* The experimental Run tasks as agents setting. Agents are always listed in the selector.
+* Mission Insights, replaced by Results.
+
+### Temporary migrations
+
+* `playbooks-to-agent-workflows` turns each saved playbook into a custom agent `playbook-<id>` once.
+* `right-rail-task-panel` maps a saved layout naming a retired panel to the matching Task panel tab.
+* `retired-advisor-crane-memory` drops the `advisor` key from Crane team memory.
+* All three are removed in 0.24.0.
+* Removed the nine migrations that expired at 0.22.0 (`automation-app-state-keys`, `wake-up-tables`, `delegated-task-ledger-kinds`, `tracker-issue-tables`, `issue-tracker-settings`, `connector-repository-mappings`, `repository-persisted-state`, `right-rail-mission-panel`, `rename-vocabulary-codemod`). Upgrading straight from a release before 0.19.0 no longer converts that older data.
+
+### References
+
+* [#610](https://github.com/sendbird/stave/pull/610), [#611](https://github.com/sendbird/stave/pull/611), [#612](https://github.com/sendbird/stave/pull/612), [#613](https://github.com/sendbird/stave/pull/613), [#614](https://github.com/sendbird/stave/pull/614), [#615](https://github.com/sendbird/stave/pull/615), [#616](https://github.com/sendbird/stave/pull/616), [#617](https://github.com/sendbird/stave/pull/617), [#618](https://github.com/sendbird/stave/pull/618), [#619](https://github.com/sendbird/stave/pull/619), [#620](https://github.com/sendbird/stave/pull/620), [#621](https://github.com/sendbird/stave/pull/621), [#622](https://github.com/sendbird/stave/pull/622), [#623](https://github.com/sendbird/stave/pull/623), [#624](https://github.com/sendbird/stave/pull/624), [#625](https://github.com/sendbird/stave/pull/625), [#626](https://github.com/sendbird/stave/pull/626), [#627](https://github.com/sendbird/stave/pull/627), [#628](https://github.com/sendbird/stave/pull/628), [#629](https://github.com/sendbird/stave/pull/629), [#630](https://github.com/sendbird/stave/pull/630), [#631](https://github.com/sendbird/stave/pull/631), [#632](https://github.com/sendbird/stave/pull/632), [#633](https://github.com/sendbird/stave/pull/633), [#634](https://github.com/sendbird/stave/pull/634), [#635](https://github.com/sendbird/stave/pull/635)
+
 ## [0.21.2](https://github.com/sendbird/stave/compare/v0.21.1...v0.21.2) (2026-09-30)
 
 ### Features
