@@ -37,6 +37,7 @@ export const statusBarUsageStyles = stylex.create({
     height: 6,
     overflow: "hidden",
   },
+
   meterFill: { borderRadius: vars["--ads-radius-full"], height: "100%" },
 
   toneOk: { backgroundColor: vars["--ads-color-success"] },
@@ -91,6 +92,9 @@ export const statusBarUsageStyles = stylex.create({
     width: 6,
   },
   triggerMono: { fontFamily: vars["--ads-font-mono"] },
+  clock: { color: vars["--ads-color-text-muted"], flexShrink: 0 },
+  clockWedge: { fill: "currentColor", opacity: 0.45 },
+  triggerWindow: { alignItems: "center", display: "inline-flex", gap: 3 },
 
   popover: {
     backgroundColor: vars["--ads-color-surface"],

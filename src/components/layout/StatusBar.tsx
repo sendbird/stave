@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { StatusBarMemorySegment } from "@/components/layout/StatusBarMemorySegment";
 import { StatusBarUsageSegment } from "@/components/layout/StatusBarUsageSegment";
+import { listCliConnectedUsageProviders } from "@/components/layout/status-bar-usage.utils";
 import { resolveEarliestAccountUsageResetAtMs } from "@/lib/providers/account-usage-block";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
@@ -22,6 +23,10 @@ import { layoutShellStyles } from "./layout-shell.styles";
  */
 export function StatusBar() {
   const refreshRateLimits = useAppStore((state) => state.refreshRateLimits);
+  const providerAvailability = useAppStore(
+    (state) => state.providerAvailability,
+  );
+  const usageProviders = listCliConnectedUsageProviders(providerAvailability);
 
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -101,10 +106,9 @@ export function StatusBar() {
   return (
     <div {...stylex.props(layoutShellStyles.statusBar)}>
       <div {...stylex.props(layoutShellStyles.statusGroup)}>
-        <StatusBarUsageSegment provider="claude" />
-        <StatusBarUsageSegment provider="codex" />
-        <StatusBarUsageSegment provider="cursor" />
-        <StatusBarUsageSegment provider="kiro" />
+        {usageProviders.map((provider) => (
+          <StatusBarUsageSegment key={provider} provider={provider} />
+        ))}
       </div>
       <div {...stylex.props(layoutShellStyles.statusGroup)}>
         <StatusBarMemorySegment />
