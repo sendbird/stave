@@ -43,6 +43,7 @@ import {
   getMissionForGrant,
   reportMissionStage,
 } from "./missions-service";
+import { callerTaskId, resolveStaveMcpCaller } from "./stave-mcp-caller";
 import {
   readTurnGrantHeaders,
   type StaveTurnGrants,
@@ -466,6 +467,7 @@ function createToolServer(options?: {
   browserToolsEnabled?: boolean;
   turnGrants?: StaveTurnGrants;
 }) {
+  const turnGrants = options?.turnGrants ?? {};
   const server = new McpServer(
     {
       name: "stave-local-mcp",
@@ -717,8 +719,9 @@ function createToolServer(options?: {
         ),
       },
     },
-    async ({ workspaceId, prompt, taskId, title, provider, runtimeOptions }) =>
-      toStructuredResult({
+    async ({ workspaceId, prompt, taskId, title, provider, runtimeOptions }) => {
+      const caller = await resolveStaveMcpCaller(turnGrants);
+      return toStructuredResult({
         run: await runTask({
           workspaceId,
           prompt,
@@ -726,8 +729,11 @@ function createToolServer(options?: {
           title,
           provider,
           ...(runtimeOptions ? { runtimeOptions } : {}),
+          // A spawned turn never runs with more autonomy than the turn that started it.
+          ...(caller.kind === "turn" ? { spawnedBy: { taskId: caller.grant.taskId, autonomy: caller.grant.autonomy } } : {}),
         }),
-      }),
+      });
+    },
   );
 
   registerCollaborationTools(server, options?.turnGrants ?? {}, {
@@ -754,10 +760,17 @@ function createToolServer(options?: {
         "Delegate work from this task to a durable child Stave task, optionally on the other provider. For a second opinion, a review or research, pass `access: \"read-only\"`: the child cannot change files, runs in parallel with other work in this workspace, and needs no approvals. Only the ids and `prompt` are required; the provider and effort default to this task's, and the child runs one turn in this workspace. The delegation is recorded on the run ledger and identified by `(parentTaskId, delegationKey)`; omit the key and the same call returns the same child instead of creating a second one.",
       inputSchema: DelegateTaskToolInputSchema.shape,
     },
-    async (input) =>
-      toStructuredResult({
-        delegation: await getDelegatedTaskCoordinator().delegateFromTool(input),
-      }),
+    async (input) => {
+      const caller = await resolveStaveMcpCaller(turnGrants);
+      return toStructuredResult({
+        delegation: await getDelegatedTaskCoordinator().delegateFromTool(
+          input,
+          caller.kind === "turn"
+            ? { taskId: caller.grant.taskId, workspaceId: caller.grant.workspaceId }
+            : undefined,
+        ),
+      });
+    },
   );
 
   server.registerTool(
@@ -766,7 +779,7 @@ function createToolServer(options?: {
       description:
         "List the delegated tasks a task delegated, with identity, phase and terminal reason. Never returns a child's transcript.",
       inputSchema: {
-        parentTaskId: z.string().min(1).describe("Id of the delegating task."),
+        parentTaskId: z.string().min(1).optional().describe("Omit inside a Stave turn: the calling task is used."),
         includeFinished: z
           .boolean()
           .optional()
@@ -778,7 +791,7 @@ function createToolServer(options?: {
     async ({ parentTaskId, includeFinished }) =>
       toStructuredResult({
         children: await getDelegatedTaskCoordinator().list({
-          parentTaskId,
+          parentTaskId: callerTaskId(await resolveStaveMcpCaller(turnGrants), parentTaskId),
           includeFinished: includeFinished ?? true,
         }),
       }),
@@ -790,7 +803,7 @@ function createToolServer(options?: {
       description:
         "Stop a delegated task. The ledger row is cancelled durably; the delegated task is asked to stop as a best effort.",
       inputSchema: {
-        parentTaskId: z.string().min(1).describe("Id of the delegating task."),
+        parentTaskId: z.string().min(1).optional().describe("Omit inside a Stave turn: the calling task is used."),
         delegationKey: z
           .string()
           .min(1)
@@ -800,7 +813,10 @@ function createToolServer(options?: {
     },
     async (input) =>
       toStructuredResult({
-        stop: await getDelegatedTaskCoordinator().stop(input),
+        stop: await getDelegatedTaskCoordinator().stop({
+          ...input,
+          parentTaskId: callerTaskId(await resolveStaveMcpCaller(turnGrants), input.parentTaskId),
+        }),
       }),
   );
 
@@ -808,10 +824,13 @@ function createToolServer(options?: {
     "stave_follow_up_delegated_task",
     {
       description: "Continue an owned delegated task with a bounded follow-up. Read stave_list_delegated_tasks first and pass its exact identity as expected. Permissions are selected explicitly for this turn. A stale identity is rejected; do not retry with a guessed identity.",
-      inputSchema: DelegatedTaskFollowUpArgsSchema.shape,
+      inputSchema: { ...DelegatedTaskFollowUpArgsSchema.shape, parentTaskId: DelegatedTaskFollowUpArgsSchema.shape.parentTaskId.optional() },
     },
     async (input) => toStructuredResult({
-      followUp: await getDelegatedTaskCoordinator().followUp(DelegatedTaskFollowUpArgsSchema.parse(input)),
+      followUp: await getDelegatedTaskCoordinator().followUp(DelegatedTaskFollowUpArgsSchema.parse({
+        ...input,
+        parentTaskId: callerTaskId(await resolveStaveMcpCaller(turnGrants), input.parentTaskId),
+      })),
     }),
   );
 

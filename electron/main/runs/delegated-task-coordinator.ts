@@ -1238,6 +1238,22 @@ export function createDelegatedTaskCoordinator(
     return accepted({ duplicate: false, child });
   };
 
+  const getParentLink = async (args: { delegatedTaskId: string }) => {
+    const ledger = await getLedger();
+    const summaries = ledger
+      .listRunAggregatesByOwnedTask({
+        taskId: args.delegatedTaskId,
+        limit: DELEGATED_TASK_LIST_LIMIT,
+      })
+      .flatMap((aggregate) => {
+        const summary = summaryFromAggregate(ledger, aggregate);
+        return summary && summary.delegatedTaskId === args.delegatedTaskId
+          ? [summary]
+          : [];
+      });
+    return summaries[0] ?? null;
+  };
+
   /**
    * `stave_delegate_task`: a model supplies only what matters. The provider
    * and effort default to the parent's, the child to one turn in the same
@@ -1247,14 +1263,31 @@ export function createDelegatedTaskCoordinator(
    */
   const delegateFromTool = async (
     rawInput: unknown,
+    caller?: { taskId: string; workspaceId: string | null },
   ): Promise<DelegatedTaskActionResponse> => {
     const parsed = DelegateTaskToolInputSchema.safeParse(rawInput);
     if (!parsed.success) return rejected("invalid-request");
     const input = parsed.data;
+    // A Stave turn acts for its own task: the host's grant names it, and an id
+    // the model typed for any other task or workspace is refused.
+    if (caller && input.parentTaskId?.trim() && input.parentTaskId.trim() !== caller.taskId)
+      return rejected("invalid-ownership", null, "parentTaskId must be the calling task. A turn can only start subagents for its own task.");
+    if (caller?.workspaceId && input.parentWorkspaceId?.trim() && input.parentWorkspaceId.trim() !== caller.workspaceId)
+      return rejected("invalid-ownership", null, "parentWorkspaceId must be the calling task's workspace.");
+    const parentTaskId = caller?.taskId ?? input.parentTaskId?.trim();
+    const parentWorkspaceId = caller?.workspaceId ?? input.parentWorkspaceId?.trim();
+    if (!parentTaskId || !parentWorkspaceId)
+      return rejected("invalid-request", null, "Name the calling task and its workspace (parentTaskId, parentWorkspaceId).");
+    // One level deep: a subagent's own work stays in its turn.
+    if (caller && (await getParentLink({ delegatedTaskId: parentTaskId }).catch(() => null)))
+      return rejected("invalid-request", null, "A subagent cannot start subagents of its own.");
+    const repositoryPath = input.repositoryPath?.trim() ||
+      (await dependencies.host.resolveWorkspace({ workspaceId: parentWorkspaceId }).catch(() => null))?.repositoryPath;
+    if (!repositoryPath) return rejected("workspace-unavailable");
     const parent =
       input.provider && input.effort
         ? null
-        : await (dependencies.resolveParentDefaults?.({ parentTaskId: input.parentTaskId }) ?? Promise.resolve(null))
+        : await (dependencies.resolveParentDefaults?.({ parentTaskId }) ?? Promise.resolve(null))
             .catch(() => null);
     const providerId = input.provider ?? parent?.providerId;
     if (!providerId)
@@ -1264,12 +1297,12 @@ export function createDelegatedTaskCoordinator(
     const legacyProfile = input.permissionProfile;
     return delegateChild(
       {
-        repositoryPath: input.repositoryPath,
-        parentWorkspaceId: input.parentWorkspaceId,
-        parentTaskId: input.parentTaskId,
+        repositoryPath,
+        parentWorkspaceId,
+        parentTaskId,
         delegationKey:
           input.delegationKey ??
-          deriveDelegationKey({ parentTaskId: input.parentTaskId.trim(), providerId, model, prompt }),
+          deriveDelegationKey({ parentTaskId, providerId, model, prompt }),
         prompt,
         ...(input.title ? { title: input.title } : {}),
         providerId,
@@ -1582,21 +1615,7 @@ export function createDelegatedTaskCoordinator(
      * is an ordinary task, so the only way its own surface can show who
      * delegated it is to ask the ledger.
      */
-    async getParentLink(args: { delegatedTaskId: string }) {
-      const ledger = await getLedger();
-      const summaries = ledger
-        .listRunAggregatesByOwnedTask({
-          taskId: args.delegatedTaskId,
-          limit: DELEGATED_TASK_LIST_LIMIT,
-        })
-        .flatMap((aggregate) => {
-          const summary = summaryFromAggregate(ledger, aggregate);
-          return summary && summary.delegatedTaskId === args.delegatedTaskId
-            ? [summary]
-            : [];
-        });
-      return summaries[0] ?? null;
-    },
+    getParentLink,
 
     async get(args: { parentTaskId: string; delegationKey: string }) {
       const runId = buildDelegatedTaskRunId(args);

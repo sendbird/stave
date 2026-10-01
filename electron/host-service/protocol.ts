@@ -462,6 +462,7 @@ export type HostLocalMcpAction =
   | "run-task"
   | "resolve-delegation-policy"
   | "resolve-delegation-defaults"
+  | "resolve-caller-grant"
   | "sync-delegation-permission-settings"
   | "get-task-status"
   | "release-task-parent"

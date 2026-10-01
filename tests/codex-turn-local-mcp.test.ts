@@ -75,6 +75,7 @@ describe("Codex turn-scoped Local MCP", () => {
             "x-stave-worker-key": "",
             "x-stave-mission-key": missionKey ?? "",
             "x-stave-project-key": "",
+            "x-stave-caller-key": "",
           },
         );
       }

@@ -1,4 +1,4 @@
-import { registerDelegationPolicyObserver, resolveHostDelegationDefaults, resolveHostDelegationPolicy, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
+import { registerDelegationPolicyObserver, resolveHostCallerGrant, resolveHostDelegationDefaults, resolveHostDelegationPolicy, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
 import { readAgentHistory } from "./providers/agent-history";
 import { withRequestAccountScope } from "./provider-accounts/runtime-scope";
 import { withGatewayCredential } from "./provider-accounts/gateway-runtime";
@@ -675,6 +675,8 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return resolveHostDelegationPolicy(args as Parameters<typeof resolveHostDelegationPolicy>[0]);
     case "resolve-delegation-defaults":
       return resolveHostDelegationDefaults(args as Parameters<typeof resolveHostDelegationDefaults>[0]);
+    case "resolve-caller-grant":
+      return resolveHostCallerGrant(args as Parameters<typeof resolveHostCallerGrant>[0]);
     case "run-task":
       return localMcpRuntime.runTask(
         args as Parameters<typeof localMcpRuntime.runTask>[0],

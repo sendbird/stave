@@ -162,12 +162,18 @@ export const DelegateTaskToolInputSchema = z.object({
   repositoryPath: z
     .string()
     .min(1)
-    .describe("Project root path that owns the parent workspace."),
+    .optional()
+    .describe("Omit inside a Stave turn. Project root path that owns the parent workspace."),
   parentWorkspaceId: z
     .string()
     .min(1)
-    .describe("Workspace id of the delegating (parent) task."),
-  parentTaskId: z.string().min(1).describe("Id of the delegating task."),
+    .optional()
+    .describe("Omit inside a Stave turn. Workspace id of the calling task."),
+  parentTaskId: z
+    .string()
+    .min(1)
+    .optional()
+    .describe("Omit inside a Stave turn: the calling task is used, and any other id is refused."),
   prompt: z.string().min(1).describe("Prompt to run in the delegated task."),
   access: DelegatedTaskAccessSchema.optional().describe(
     "Use `read-only` for second opinions, reviews and research: the child cannot change files, runs in parallel with other work in this workspace, and needs no approvals. `inherit` (default) runs with this task's own permissions for the same provider, otherwise the target provider's user settings.",

@@ -54,6 +54,7 @@ function createLedgerPort(store: RunLedgerStore): DelegatedTaskLedgerPort {
     listRunAggregatesByOrigin: (args) => store.listAggregatesByOrigin(args),
     listActiveRunAggregatesByStepKind: (args) =>
       store.listActiveAggregatesByStepKind(args),
+    listRunAggregatesByOwnedTask: (args) => store.listAggregatesByOwnedTask(args),
   };
 }
 
@@ -1374,10 +1375,10 @@ describe("stave_delegate_task defaults", () => {
     ...overrides,
   });
 
-  test("the tool schema requires only the ids and the prompt and offers access, not profiles", () => {
+  test("the tool schema requires only the prompt and offers access, not profiles", () => {
     const shape = DelegateTaskToolInputSchema.shape;
     const required = Object.entries(shape).filter(([, field]) => !field.isOptional()).map(([name]) => name);
-    expect(required.sort()).toEqual(["parentTaskId", "parentWorkspaceId", "prompt", "repositoryPath"]);
+    expect(required.sort()).toEqual(["prompt"]);
     expect(shape.access.unwrap().options).toEqual(["inherit", "read-only"]);
     expect(shape.access.description).toContain("read-only");
     expect(shape.permissionProfile.description).toContain("Deprecated");
@@ -1418,6 +1419,36 @@ describe("stave_delegate_task defaults", () => {
     expect(harness.policyCalls[0]).toMatchObject({ access: "inherit", requestedProfile: "guided" });
     expect(harness.policyCalls[0]!.permissionProfile).toBeUndefined();
     expect(harness.runTaskCalls[0]!.permissionPolicy).toMatchObject({ requestedProfile: "guided", access: "inherit", options: { claudePermissionMode: "default" } });
+  });
+
+  test("inside a Stave turn the caller grant names the parent and a spoofed parentTaskId is refused", async () => {
+    const harness = createHarness({ realPolicy: true, parentDefaults: { providerId: "codex" } });
+    const caller = { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE };
+    harness.statusByTaskId.set("someone-else", IDLE_STATUS);
+    const spoofed = await harness.coordinator.delegateFromTool({ prompt: "Review.", parentTaskId: "someone-else" }, caller);
+    expect(spoofed).toMatchObject({ accepted: false, reason: "invalid-ownership" });
+    expect(spoofed.message).toContain("calling task");
+    const otherWorkspace = await harness.coordinator.delegateFromTool({ prompt: "Review.", parentWorkspaceId: "elsewhere" }, caller);
+    expect(otherWorkspace).toMatchObject({ accepted: false, reason: "invalid-ownership" });
+    expect(harness.runTaskCalls).toHaveLength(0);
+    // Ids are optional: the grant fills the task, its workspace and the project path.
+    const granted = await harness.coordinator.delegateFromTool({ prompt: "Review.", access: "read-only" }, caller);
+    expect(granted).toMatchObject({ accepted: true, child: { parentTaskId: PARENT_TASK, delegatedWorkspaceId: PARENT_WORKSPACE } });
+  });
+
+  test("a subagent cannot start subagents of its own", async () => {
+    const harness = createHarness({ parentDefaults: { providerId: "codex" }, runTask: () => new Promise(() => {}) });
+    const child = await harness.coordinator.delegateFromTool(toolInput({ access: "read-only" }));
+    const childTaskId = child.child!.delegatedTaskId;
+    harness.statusByTaskId.set(childTaskId, IDLE_STATUS);
+    const nested = await harness.coordinator.delegateFromTool({ prompt: "Go deeper." }, { taskId: childTaskId, workspaceId: PARENT_WORKSPACE });
+    expect(nested).toMatchObject({ accepted: false, reason: "invalid-request" });
+    expect(nested.message).toContain("cannot start subagents");
+  });
+
+  test("outside a Stave turn the ids are still required", async () => {
+    const harness = createHarness({ parentDefaults: { providerId: "codex" } });
+    expect(await harness.coordinator.delegateFromTool({ prompt: "Review." })).toMatchObject({ accepted: false, reason: "invalid-request" });
   });
 
   test("an unknown parent provider asks for one instead of guessing", async () => {

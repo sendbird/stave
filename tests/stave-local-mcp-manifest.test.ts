@@ -46,6 +46,7 @@ describe("Stave Local MCP unattended automation authorization", () => {
         { name: "STAVE_WORKER_GRANT_KEY", value: "" },
         { name: "STAVE_MISSION_GRANT_KEY", value: "" },
         { name: "STAVE_PROJECT_GRANT_KEY", value: "" },
+        { name: "STAVE_CALLER_GRANT_KEY", value: "" },
         {
           name: "STAVE_MCP_ALLOWED_TOOLS",
           value: "stave_run_worker",
@@ -66,6 +67,7 @@ describe("Stave Local MCP unattended automation authorization", () => {
         { name: "STAVE_WORKER_GRANT_KEY", value: "" },
         { name: "STAVE_MISSION_GRANT_KEY", value: "" },
         { name: "STAVE_PROJECT_GRANT_KEY", value: "" },
+        { name: "STAVE_CALLER_GRANT_KEY", value: "" },
       ],
     });
   });

@@ -3,6 +3,7 @@ import {
   ADVISOR_GRANT_ENV,
   MISSION_GRANT_ENV,
   PROJECT_GRANT_ENV,
+  CALLER_GRANT_ENV,
   WORKER_GRANT_ENV,
   type StaveTurnGrants,
 } from "../providers/stave-turn-grants";
@@ -338,6 +339,10 @@ export function toAcpStdioMcpServerConfig(
       {
         name: PROJECT_GRANT_ENV,
         value: options?.turnGrants?.projectKey ?? "",
+      },
+      {
+        name: CALLER_GRANT_ENV,
+        value: options?.turnGrants?.callerKey ?? "",
       },
       ...(allowedToolNames.length > 0
         ? [

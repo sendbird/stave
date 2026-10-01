@@ -93,6 +93,7 @@ import {
 } from "./provider-turn-lifecycle";
 import { DEFAULT_PROVIDER_TIMEOUT_MS } from "../../src/lib/providers/runtime-option-contract";
 import type { TaskAgentTurn } from "./task-agent-turn";
+import { registerCallerGrant } from "./caller-grants";
 import { applyTurnPolicy } from "./turn-policy-entry";
 
 const sdkTurnTimeoutMs = Number(
@@ -1323,7 +1324,25 @@ async function runProviderTurnImpl(
       projectKey,
     };
   }
+  // Every task turn names itself to Local MCP, so a tool resolves its caller
+  // from the host instead of trusting the ids a model passes.
+  const callerGrantHandle = missionTaskId && args.executionPolicy !== "secondary-read-only"
+    ? registerCallerGrant({
+        taskId: missionTaskId,
+        turnId,
+        workspaceId: args.workspaceId?.trim() || null,
+        providerId: args.providerId,
+        autonomy: args.turnPolicy?.autonomy ?? null,
+      })
+    : null;
+  if (callerGrantHandle) {
+    effectiveArgs.staveTurnGrants = {
+      ...effectiveArgs.staveTurnGrants,
+      callerKey: callerGrantHandle.key,
+    };
+  }
   revokeTurnGrants = () => {
+    callerGrantHandle?.revoke();
     revokeAdvisorGrant();
     revokeAcpWorkerGrant();
     missionGrantHandle?.revoke();
