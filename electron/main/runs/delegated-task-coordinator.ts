@@ -1,3 +1,4 @@
+import type { DelegationPermissionPolicy } from "../../../src/lib/runs/delegation-policy";
 import { DelegatedTaskTurnError } from "./delegated-task-turn-error";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
@@ -174,6 +175,7 @@ export interface DelegatedTaskHostPort {
     model?: string;
     effort?: DelegateTaskArgs["effort"];
     permissionProfile: DelegateTaskArgs["permissionProfile"];
+    permissionPolicy?: DelegationPermissionPolicy;
     /**
      * Stamped onto the delegated task row when the row is first created, so the
      * renderer can tell a delegated child from a peer task without reading the
@@ -210,6 +212,7 @@ interface DelegatedTaskCoordinatorDependencies {
    * agent is refused, because it cannot be honoured.
    */
   /** The commit checked out at a path; null when it cannot be read. Needed for `expectedHead`. */
+  resolvePermissionPolicy?: (args: { parentTaskId: string; delegatedTaskId: string; providerId: "claude-code" | "codex"; permissionProfile?: DelegatedTaskPermissionProfile; agentConfigId?: string }) => Promise<DelegationPermissionPolicy>;
   readHead?: (workspacePath: string) => Promise<string | null>;
   applyAgent?: (
     args: DelegateTaskArgs,
@@ -227,7 +230,7 @@ function hashDelegatedTaskInput(args: DelegateTaskArgs) {
         providerId: args.providerId,
         model: args.model ?? null,
         effort: args.effort ?? null,
-        permissionProfile: args.permissionProfile,
+        permissionProfile: args.permissionProfile ?? "inherit",
         lifecycle: args.lifecycle,
         workspace: args.workspace,
       }),
@@ -416,6 +419,7 @@ export function createDelegatedTaskCoordinator(
     target: RunStepTarget;
     turnId: string;
     providerId: "claude-code" | "codex";
+    permissionPolicy?: DelegationPermissionPolicy;
   }) => {
     const timestamp = now();
     args.ledger.setRunStepTarget({
@@ -433,7 +437,7 @@ export function createDelegatedTaskCoordinator(
         stepId: args.stepId,
         executionId: args.executionId,
         idempotencyKey: `child:${args.executionId}:turn:${args.turnId}`,
-        detail: { code: "child-turn-completed", providerId: args.providerId },
+        detail: { code: "child-turn-completed", providerId: args.providerId, ...(args.permissionPolicy ? { permissionPolicy: args.permissionPolicy } : {}) },
         reenter: true,
         now: timestamp,
       });
@@ -470,7 +474,8 @@ export function createDelegatedTaskCoordinator(
       title?: string;
       model?: string;
       effort?: DelegateTaskArgs["effort"];
-      permissionProfile: DelegatedTaskPermissionProfile;
+      permissionProfile?: DelegatedTaskPermissionProfile;
+      permissionPolicy?: DelegationPermissionPolicy;
       lifecycle: DelegatedTaskLifecycle;
     };
   }) => {
@@ -492,6 +497,7 @@ export function createDelegatedTaskCoordinator(
           model: args.turn.model,
           effort: args.turn.effort,
           permissionProfile: args.turn.permissionProfile,
+          permissionPolicy: args.turn.permissionPolicy,
           onStarted: (turnId) => {
             const current = args.ledger.getRunAggregate({
               runId: args.runId,
@@ -519,6 +525,7 @@ export function createDelegatedTaskCoordinator(
           target: args.target,
           turnId: result.turnId,
           providerId: args.target.providerId,
+          permissionPolicy: args.turn.permissionPolicy,
         });
       } catch (error) {
         const current = args.ledger.getRunAggregate({
@@ -980,6 +987,7 @@ export function createDelegatedTaskCoordinator(
       turnId: null,
       providerId: args.providerId,
     };
+    const permissionPolicy = await dependencies.resolvePermissionPolicy?.({ parentTaskId: args.parentTaskId, delegatedTaskId, providerId: args.providerId, permissionProfile: args.permissionProfile, agentConfigId: args.agentConfigId });
     const timestamp = now();
     const executionId = createExecutionId();
     const attempt = existing ? existing.step.attempt : 0;
@@ -1021,6 +1029,7 @@ export function createDelegatedTaskCoordinator(
         ...(args.model ? { model: args.model } : {}),
         ...(args.effort ? { effort: args.effort } : {}),
         permissionProfile: args.permissionProfile,
+        ...(permissionPolicy ? { permissionPolicy } : {}),
         workspaceMode: args.workspace.mode,
         ...(args.agentConfigId ? { agentConfigId: args.agentConfigId } : {}),
         ...(agentContentHash ? { agentContentHash } : {}),
@@ -1057,6 +1066,7 @@ export function createDelegatedTaskCoordinator(
         model: args.model,
         effort: args.effort,
         permissionProfile: args.permissionProfile,
+        permissionPolicy,
         lifecycle: args.lifecycle,
       },
     });
@@ -1096,12 +1106,7 @@ export function createDelegatedTaskCoordinator(
       try {
         originalClaim = resolved.ledger
           .listRunReceipts({ runId: resolved.runId })
-          .find(
-            (receipt) =>
-              receipt.type === "accepted" &&
-              (receipt.detail?.model !== undefined ||
-                receipt.detail?.permissionProfile !== undefined),
-          );
+          .find((receipt) => receipt.type === "accepted");
       } catch (error) {
         reportError(error, { scope: "retry-child", runId: resolved.runId });
       }
@@ -1121,7 +1126,7 @@ export function createDelegatedTaskCoordinator(
         permissionProfile:
           args.permissionProfile ??
           originalClaim?.detail?.permissionProfile ??
-          "guided",
+          "inherit",
         // The retry runs as the same agent, applied to the new prompt again.
         ...(originalClaim?.detail?.agentConfigId ? { agentConfigId: originalClaim.detail.agentConfigId } : {}),
         // A pinned delegation stays pinned: a retry after the workspace moved is refused.
@@ -1163,6 +1168,11 @@ export function createDelegatedTaskCoordinator(
       if (inFlightByStepId.has(resolved.stepId)) {
         return rejected("already-active", resolved.child);
       }
+      const originalClaim = resolved.ledger.listRunReceipts({ runId: resolved.runId }).find((receipt) => receipt.type === "accepted");
+      const permissionPolicy = await dependencies.resolvePermissionPolicy?.({ parentTaskId: args.parentTaskId, delegatedTaskId: target.taskId, providerId: target.providerId, permissionProfile: args.permissionProfile, agentConfigId: originalClaim?.detail?.agentConfigId });
+      if (inFlightByStepId.has(resolved.stepId)) return rejected("already-active", resolved.child);
+      const fresh = resolved.ledger.getRunAggregate({ runId: resolved.runId, stepId: resolved.stepId });
+      if (!fresh || fresh.step.executionId !== executionId || fresh.step.status !== "waiting") return rejected("stale-execution", resolved.child);
       runChildTurn({
         ledger: resolved.ledger,
         runId: resolved.runId,
@@ -1173,7 +1183,10 @@ export function createDelegatedTaskCoordinator(
         scope: "follow-up-child",
         turn: {
           prompt: args.prompt,
+          model: originalClaim?.detail?.model,
+          effort: originalClaim?.detail?.effort,
           permissionProfile: args.permissionProfile,
+          permissionPolicy,
           lifecycle: resolved.child.lifecycle,
         },
       });

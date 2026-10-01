@@ -1137,6 +1137,7 @@ contextBridge.exposeInMainWorld("api", {
       args: SecondaryRunReceiptListArgs,
     ): Promise<SecondaryRunReceiptList> =>
       ipcRenderer.invoke("runs:list-receipts", args),
+    syncDelegationPermissionSettings: (args: import("../src/lib/runs/delegation-policy").DelegationPermissionSettings): Promise<{ ok: boolean }> => ipcRenderer.invoke("delegations:sync-permission-settings", args),
     delegateTask: (
       args: DelegateTaskArgs,
     ): Promise<DelegatedTaskActionResponse> =>

@@ -3,14 +3,14 @@ import { resolveManagedTaskRuntimeOptions } from "@/lib/providers/managed-task-r
 import { DEFAULT_PROVIDER_TIMEOUT_MS } from "@/lib/providers/runtime-option-contract";
 
 describe("resolveManagedTaskRuntimeOptions", () => {
-  test("bypasses permissions when the caller specifies nothing", () => {
+  test("adds timeout without granting permissions when omitted", () => {
     const options = resolveManagedTaskRuntimeOptions({
       providerId: "claude-code",
     });
-    expect(options.claudePermissionMode).toBe("bypassPermissions");
-    expect(options.claudeAllowDangerouslySkipPermissions).toBe(true);
-    expect(options.claudeAllowUnsandboxedCommands).toBe(true);
-    expect(options.claudeSandboxEnabled).toBe(false);
+    expect(options.claudePermissionMode).toBeUndefined();
+    expect(options.claudeAllowDangerouslySkipPermissions).toBeUndefined();
+    expect(options.claudeAllowUnsandboxedCommands).toBeUndefined();
+    expect(options.claudeSandboxEnabled).toBeUndefined();
     expect(options.providerTimeoutMs).toBe(DEFAULT_PROVIDER_TIMEOUT_MS);
   });
 
@@ -47,12 +47,12 @@ describe("resolveManagedTaskRuntimeOptions", () => {
     expect(options.providerTimeoutMs).toBe(3_600_000);
   });
 
-  test("resolves the auto autonomy preset to a real bypass", () => {
+  test("preserves native auto without turning it into bypass", () => {
     const options = resolveManagedTaskRuntimeOptions({
       providerId: "claude-code",
       runtimeOptions: { claudePermissionMode: "auto", claudeEffort: "high" },
     });
-    expect(options.claudePermissionMode).toBe("bypassPermissions");
+    expect(options.claudePermissionMode).toBe("auto");
     expect(options.claudeEffort).toBe("high");
   });
 
@@ -62,7 +62,7 @@ describe("resolveManagedTaskRuntimeOptions", () => {
       runtimeOptions: { claudePermissionMode: "plan" },
     });
     expect(options.claudePermissionMode).toBe("plan");
-    expect(options.claudeAllowDangerouslySkipPermissions).toBe(false);
+    expect(options.claudeAllowDangerouslySkipPermissions).toBeUndefined();
   });
 
   test("does not override caller sandbox choices", () => {
@@ -77,14 +77,14 @@ describe("resolveManagedTaskRuntimeOptions", () => {
     expect(options.claudeAllowUnsandboxedCommands).toBe(false);
   });
 
-  test("gives Codex a non-interactive approval policy by default", () => {
+  test("leaves omitted Codex permissions to the provider defaults", () => {
     const options = resolveManagedTaskRuntimeOptions({
       providerId: "codex",
       runtimeOptions: { model: "gpt-5" },
     });
-    expect(options.codexApprovalPolicy).toBe("never");
-    expect(options.codexFileAccess).toBe("workspace-write");
-    expect(options.codexAutoApproveStaveLocalMcpTools).toBe(true);
+    expect(options.codexApprovalPolicy).toBeUndefined();
+    expect(options.codexFileAccess).toBeUndefined();
+    expect(options.codexAutoApproveStaveLocalMcpTools).toBeUndefined();
     expect(options.model).toBe("gpt-5");
   });
 

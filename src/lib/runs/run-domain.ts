@@ -1,3 +1,4 @@
+import { DelegationPermissionPolicySchema } from "./delegation-policy";
 import { z } from "zod";
 
 export const RunIdSchema = z.string().trim().min(1).max(300);
@@ -163,7 +164,8 @@ export const RunReceiptDetailSchema = z
      * original delegation's inputs instead of hard-coding fresh ones — the
      * step row itself only keeps a hash of them.
      */
-    permissionProfile: z.enum(["auto", "guided", "manual"]).optional(),
+    permissionProfile: z.enum(["inherit", "auto", "guided", "manual"]).optional(),
+    permissionPolicy: DelegationPermissionPolicySchema.optional(),
     workspaceMode: z.enum(["same-workspace", "new-worktree"]).optional(),
     /**
      * The reasoning-effort tier the delegation was claimed with, recorded for
@@ -261,6 +263,7 @@ export function sanitizeRunReceiptDetail(
       ? candidate.attempt
       : undefined;
   const permissionProfile =
+    candidate.permissionProfile === "inherit" ||
     candidate.permissionProfile === "auto" ||
     candidate.permissionProfile === "guided" ||
     candidate.permissionProfile === "manual"
@@ -293,6 +296,7 @@ export function sanitizeRunReceiptDetail(
     ...(model ? { model } : {}),
     ...(attempt !== undefined ? { attempt } : {}),
     ...(permissionProfile ? { permissionProfile } : {}),
+    ...(DelegationPermissionPolicySchema.safeParse(candidate.permissionPolicy).success ? { permissionPolicy: DelegationPermissionPolicySchema.parse(candidate.permissionPolicy) } : {}),
     ...(workspaceMode ? { workspaceMode } : {}),
     ...(effort ? { effort } : {}),
     ...(agentConfigId ? { agentConfigId } : {}),

@@ -1,3 +1,4 @@
+import { DelegationPolicyStore } from "./delegation-policy-store";
 import {
   insertTurnEventWithReceipt,
   finalizeTurnReceipt,
@@ -87,7 +88,6 @@ import {
   shouldRunFullVacuumMigration,
   type SqliteStorageMetrics,
 } from "./sqlite-maintenance-policy";
-
 interface WorkspaceMetaRow {
   id: string;
   name: string;
@@ -189,6 +189,7 @@ export class SqliteStore {
   readonly fleetAttentionSnoozes: FleetAttentionSnoozeStore;
   readonly directionDrafts: WorkspaceDirectionDraftStore;
   readonly delegationDrafts: DelegationDraftStore;
+  readonly delegationPolicies: DelegationPolicyStore;
   readonly missions: MissionStore;
   readonly projects: ProjectStore;
   readonly agentAssignments: AgentAssignmentStore;
@@ -196,9 +197,7 @@ export class SqliteStore {
   private readonly runMaintenance: boolean;
   private maintenanceStart: NodeJS.Immediate | null = null;
   private onBootstrapStatusChange?: (status: PersistenceBootstrapStatus) => void;
-
   get closed() { return this._closed; }
-
   constructor(args: {
     dbPath: string;
     onBootstrapStatusChange?: (status: PersistenceBootstrapStatus) => void;
@@ -234,6 +233,7 @@ export class SqliteStore {
     this.fleetAttentionSnoozes = new FleetAttentionSnoozeStore(this.db);
     this.directionDrafts = new WorkspaceDirectionDraftStore(this.db);
     this.delegationDrafts = new DelegationDraftStore(this.db);
+    this.delegationPolicies = new DelegationPolicyStore(this.db);
     this.runLedger = new RunLedgerStore(this.db);
     this.craneJobBindings = new CraneJobBindingStore(this.db);
     this.trackerIssues = new TrackerIssuesStore(this.db, {

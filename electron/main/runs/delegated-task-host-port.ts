@@ -275,6 +275,7 @@ export function createDelegatedTaskHostPort(
       model,
       effort,
       permissionProfile,
+      permissionPolicy,
       parentTaskId,
       onStarted,
     }) {
@@ -290,6 +291,7 @@ export function createDelegatedTaskHostPort(
           model,
           effort,
           permissionProfile,
+          permissionPolicy,
         }),
       });
       onStarted?.(started.turnId);

@@ -252,6 +252,7 @@ interface WindowRunsApi {
   listReceipts?: (
     args: SecondaryRunReceiptListArgs,
   ) => Promise<SecondaryRunReceiptList>;
+  syncDelegationPermissionSettings?: (args: import("@/lib/runs/delegation-policy").DelegationPermissionSettings) => Promise<{ ok: boolean }>;
   delegateTask?: (
     args: DelegateTaskArgs,
   ) => Promise<DelegatedTaskActionResponse>;

@@ -1,3 +1,5 @@
+import { taskControlGate } from "./task-control-gate";
+import { normalizedPermissionOptions } from "../../src/lib/runs/delegation-policy";
 import { attachTurnReceiptToSession } from "./local-mcp-turn-receipt-projection";
 import { displayTurnReceipt } from "../../src/lib/providers/turn-terminal-receipt";
 import { ChatMessageSchema } from "../../src/lib/task-context/schemas";
@@ -346,7 +348,7 @@ async function persistWorkspaceSession(args: {
       messages: (args.changedMessagesByTask?.[args.taskId] ??
         args.session.messagesByTask[args.taskId] ??
         []) as never,
-      ...(args.session.activeTaskId === args.taskId
+      ...(!task?.parentTaskId && args.session.activeTaskId === args.taskId
         ? { activeTaskId: args.taskId }
         : {}),
       ...(args.session.providerSessionByTask[args.taskId]
@@ -364,20 +366,21 @@ async function persistWorkspaceSession(args: {
     // yet): fall through to the whole-snapshot write, which migrates it.
   }
 
-  // Task archive/restore lifecycle is owned by the renderer and durably held in
-  // the `tasks` table. The host's cached session copy can be stale, so re-read
-  // the authoritative archived state right before writing — otherwise a stale
-  // host persist would revive a task the renderer just archived (it would come
-  // back to life on the next restart).
+  // Archival belongs to the renderer's durable tasks table. Re-read it before
+  // writing, since stale host metadata could otherwise restore a task the user
+  // already archived.
   const reconciledTasks = reconcileTasksWithPersistedArchival({
     tasks: args.session.tasks,
     persistedTasks: store.listWorkspaceTasks({ workspaceId: args.workspaceId }),
   });
+  const delegatedShell = args.taskId && args.session.tasks.find(task => task.id === args.taskId)?.parentTaskId
+    ? store.loadWorkspaceShell({ workspaceId: args.workspaceId }) : null;
   store.upsertWorkspace({
     id: args.workspaceId,
     name: args.workspaceName,
     snapshot: createWorkspaceSnapshot({
-      activeTaskId: args.session.activeTaskId,
+      // Delegated progress never owns foreground selection, including legacy fallback writes.
+      activeTaskId: delegatedShell ? delegatedShell.activeTaskId : args.session.activeTaskId,
       tasks: reconciledTasks,
       messagesByTask: args.changedMessagesByTask ?? args.session.messagesByTask,
       promptDraftByTask: args.session.promptDraftByTask,
@@ -1060,10 +1063,7 @@ async function persistApprovalNotification(args: {
   });
 }
 
-/**
- * Pending auto-deny deadlines for approvals raised inside a managed task,
- * keyed by `${turnId}:${requestId}`.
- */
+/** Pending managed approval deadlines, keyed by turn and request identity. */
 const managedApprovalAutoDenyTimers = new Map<string, NodeJS.Timeout>();
 
 function managedApprovalAutoDenyKey(args: {
@@ -1098,14 +1098,7 @@ function clearManagedApprovalAutoDeny(args: {
   }
 }
 
-/**
- * Arms the deadlock guard for a managed task's approval.
- *
- * Managed tasks intentionally raise no approval notification, so a prompt-mode
- * approval can sit unanswered forever and the summoning agent never hears back.
- * Denying after the deadline turns that silent hang into a tool error the
- * running agent can report on.
- */
+/** A managed approval expires if neither the user nor controller answers. */
 function scheduleManagedApprovalAutoDeny(args: {
   workspaceId: string;
   taskId: string;
@@ -1686,7 +1679,12 @@ export async function createWorkspace(args: {
   } satisfies CreatedWorkspaceInfo;
 }
 
-export async function runTask(args: {
+export async function runTask(args: Parameters<typeof runTaskImpl>[0]) {
+  const release = taskControlGate.acquireStart(args.taskId);
+  try { return await runTaskImpl(args); } finally { release(); }
+}
+
+async function runTaskImpl(args: {
   workspaceId: string;
   prompt: string;
   taskId?: string;
@@ -1710,6 +1708,7 @@ export async function runTask(args: {
   /** Set only by the mission supervisor; the provider runtime mints the grant. */
   missionStage?: import("../../src/lib/missions/domain").MissionStageIdentity;
 }) {
+  const controlGeneration = taskControlGate.capture(args.taskId);
   const { repositories } = await loadNormalizedRepositories();
   const registration = findWorkspaceRegistration({
     repositories,
@@ -1755,12 +1754,7 @@ export async function runTask(args: {
     }
   }
 
-  // A delegation pre-mints its delegated task id on the run ledger before the
-  // delegated task exists, so the coordinator path (parentTaskId set) may name a
-  // task that is not in this workspace yet — it is created below with that
-  // exact id so the ledger row and the task row agree on identity. Every
-  // other caller passing taskId means "continue this task", where a miss is
-  // an error.
+  // Delegations pre-mint a child id; other task ids must already exist.
   const delegationTaskId =
     args.parentTaskId?.trim() && args.taskId?.trim()
       ? args.taskId.trim()
@@ -1784,6 +1778,10 @@ export async function runTask(args: {
       providerId: provider,
     });
 
+  if (task && args.parentTaskId && !isTaskManaged(task)) {
+    throw new Error("The delegated task was taken over; its controller cannot reclaim it.");
+  }
+  if (task) taskControlGate.assertCurrent(task.id, controlGeneration);
   const requestedControlMode = args.controlMode ?? "managed";
   const requestedControlOwner = args.controlOwner ?? "external";
   const requestedSourceContexts = args.retrievedContextParts ?? [];
@@ -1808,7 +1806,7 @@ export async function runTask(args: {
     } satisfies Task;
     session = cacheWorkspaceSession(args.workspaceId, {
       ...session,
-      activeTaskId: task.id,
+      activeTaskId: args.parentTaskId?.trim() ? session.activeTaskId : task.id,
       tasks: [task, ...session.tasks],
       messagesByTask: {
         ...session.messagesByTask,
@@ -1960,7 +1958,7 @@ export async function runTask(args: {
   });
   session = cacheWorkspaceSession(args.workspaceId, {
     ...session,
-    activeTaskId: task.id,
+    activeTaskId: args.parentTaskId?.trim() ? session.activeTaskId : task.id,
     tasks: pendingState.tasks,
     messagesByTask: pendingState.messagesByTask,
     messageCountByTask: pendingState.messageCountByTask,
@@ -2001,6 +1999,7 @@ export async function runTask(args: {
     providerId: provider,
   });
 
+  taskControlGate.assertCurrent(task.id, controlGeneration);
   const started = providerRuntime.startTurnStream(
     {
       turnId,
@@ -2018,12 +2017,10 @@ export async function runTask(args: {
         ...(isExternallyManagedTask(task)
           ? resolveManagedTaskRuntimeOptions({
               providerId: provider,
+              defaultPermissionOptions: provider === "claude-code" || provider === "codex" ? normalizedPermissionOptions(provider, store.delegationPolicies?.loadSettings()?.[provider] ?? {}) : undefined,
               ...(args.runtimeOptions
                 ? { runtimeOptions: args.runtimeOptions }
                 : {}),
-              // The renderer syncs Settings.providerTimeoutMs into this key
-              // via automations.setProviderTimeout. Managed turns run in the
-              // host and otherwise never see that setting.
               defaultProviderTimeoutMs: normalizeProviderTimeoutMs({
                 value: store.loadAutomationProviderTimeoutMs(),
               }),
@@ -2523,8 +2520,12 @@ export async function takeOverManagedTaskControl(args: {
   taskId: string;
   sourceContexts?: CanonicalRetrievedContextPart[];
 }) {
-  await stopManagedTaskTurn(args);
-  return releaseManagedTaskControl(args);
+  const finish = taskControlGate.beginTakeover(args.taskId);
+  try {
+    await taskControlGate.waitForStart(args.taskId);
+    await stopManagedTaskTurn(args);
+    return await releaseManagedTaskControl(args);
+  } finally { finish(); }
 }
 
 function findApprovalMessage(args: {
