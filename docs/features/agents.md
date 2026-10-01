@@ -3,15 +3,17 @@
 ## Summary
 
 An agent is who runs a task: its instructions, how it picks a model, the tools
-it may use, a permission ceiling and where it works. Assign work to an agent
+it may use, whether it is read only, and where it works. Assign work to an agent
 and Stave makes the task — in a new worktree or in the current workspace — and
 starts it. Every later turn of that task runs as the same version of the agent.
 A Worker is different: a helper a task's model hands one piece of work to
 within a turn.
 
 Saving an agent starts nothing and grants nothing. Each assignment records its
-own start. A main Agent's permission narrows the task's settings when needed;
-delegated Agents use the delegation policy resolved by the host.
+own start. A task that runs as an Agent runs **autonomously**: no routine
+approval prompts, only the hard guardrails below. A read-only Agent stays read
+only. Delegated Agents use the delegation policy resolved by the host and never
+get more autonomy than the task that delegated them.
 
 **Run overview → Run details** shows the Agent version captured for that turn,
 the permission source and whether instruction delivery was confirmed. The run's
@@ -67,11 +69,10 @@ the new worktree and its base.
 skips the review. An agent that works in a **New worktree** gets one; an agent
 that works in the **Current workspace** gets a new task in the workspace you
 are in, with no worktree. The task records its agent, then its first turn is
-sent like any composer turn: your permission mode, sandbox, trusted tools and
-Stave Auto apply, capped by the agent's permission, exactly like every later
-turn. Kickoff shows where it runs as **Agent settings: provider · model ·
-permission**; an agent with **Auto** permission reads **Your permission
-settings** there, because it adds no limit of its own.
+sent like any composer turn: your sandbox, deny lists, credential lists,
+network setting, trusted tools and Stave Auto apply, and the turn runs
+autonomously, exactly like every later turn. Kickoff shows where it runs as
+**Agent settings: provider · model · permission**.
 
 ## Interface Walkthrough
 
@@ -304,7 +305,7 @@ Fleet's search finds its tasks.
 | Setting | Values | Notes |
 | --- | --- | --- |
 | Works in | New worktree, Current workspace | New worktree uses Kickoff's branch (Start now takes the one Skip AI proposes); Current workspace adds a task where you are |
-| Permission | Read only, Manual, Guided, Auto | A ceiling on every turn of the task; a read-only agent works in the current workspace |
+| Permission | Read only, or full access (saved as Manual, Guided or Auto) | Read only keeps every turn in the read-only posture and works in the current workspace; any other value runs autonomously |
 | Model | Auto-routing, or a fixed provider, model and effort | With Stave Auto on, the task stays on Auto and every turn is routed, with the agent's task class as the fallback; with it off, your routing rules pick one model and effort for the task when it starts |
 | Usable as | Main agent, Worker, Delegated task | Built-in Worker presets are usable only as a Worker |
 
@@ -321,17 +322,23 @@ Fleet's search finds its tasks.
   message — or of the next message after the task starts as, or switches to,
   an agent from Kickoff, a mission or the composer. Claude and Codex receive
   them on their instruction channel with every turn.
-- An agent's permission is a ceiling, never a grant. Every turn of the task —
-  the first and each later one — keeps your permission settings where they are
-  already narrower and lowers them where they are wider:
+- A task that runs as an Agent is autonomous. Every turn of the task — the
+  first and each later one — removes routine approval prompts and changes
+  nothing else: your sandbox, deny lists, credential lists and network setting
+  stay as you set them. Saved **Manual** and **Guided** agents now run like
+  **Auto**; only **Read only** limits a turn.
 
   | Agent | Claude | Codex | Cursor | Kiro |
   | --- | --- | --- | --- | --- |
-  | Read only | Default mode, edit tools off | Read-only files, asks on request | Ask mode, Manual | Manual, told not to edit |
-  | Manual | Default mode | Workspace files, asks before commands | Manual | Manual |
-  | Guided | Accept edits | Workspace files, asks before commands | Guided | Manual |
-  | Auto | Your settings | Your settings | Your settings | Your settings |
+  | Read only | Don't Ask, edit tools off, read-only sandbox | Read-only files, never asks, network off | Ask mode, Manual | Manual, told not to edit |
+  | Any other | Native Auto (Bypass, Plan and Don't Ask stay as you chose); Stave answers what Claude still hands over | Never asks; at least workspace files, or your full access | Your settings | Your settings |
 
+  The only interrupts left are the hard guardrails — a write outside the
+  task's workspace, a protected credential path or variable, an irreversible
+  remote action (force-pushing a default or protected branch, deleting remote
+  branches, tags, releases or repositories, publishing, `sudo`) — and the
+  agent's own questions. See
+  [Provider Sandbox And Approval](./provider-sandbox-and-approval.md#autonomy-and-hard-guardrails).
   Kiro has no read-only mode, so a read-only agent there asks before every tool
   and is only told not to edit; the Agents tab shows this as **Asked in
   instructions**.

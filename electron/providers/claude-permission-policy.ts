@@ -4,7 +4,7 @@ import {
   type ClaudePlanModeApprovalScope,
 } from "../../src/types/chat";
 import { toText } from "./utils";
-import { isAlwaysAllowedStaveLocalMcpTool } from "./stave-local-mcp-approval";
+import { isAlwaysAllowedStaveLocalMcpTool, isPromptFreeStaveLocalMcpTool } from "./stave-local-mcp-approval";
 
 /** SDK-level permission modes accepted by the claude-agent-sdk query() API. */
 export type ClaudePermissionMode =
@@ -241,7 +241,7 @@ export function buildClaudeDenyPermissionResult(args: {
   });
 }
 
-function extractClaudeBashCommand(input: Record<string, unknown>) {
+export function extractClaudeBashCommand(input: Record<string, unknown>) {
   for (const key of ["command", "cmd", "script", "bash", "input"] as const) {
     const value = input[key];
     if (typeof value === "string" && value.trim().length > 0) {
@@ -366,10 +366,8 @@ export function resolveClaudePermissionModeDecision(args: {
   if (isAlwaysAllowedStaveLocalMcpTool(normalizedToolName)) {
     return "allow" as const;
   }
-  if (
-    (args.permissionMode === "auto" || args.permissionMode === "dontAsk") &&
-    normalizedToolName.startsWith(STAVE_LOCAL_MCP_TOOL_PREFIX)
-  ) {
+  if ((args.permissionMode === "auto" || args.permissionMode === "dontAsk") && normalizedToolName.startsWith(STAVE_LOCAL_MCP_TOOL_PREFIX) &&
+    isPromptFreeStaveLocalMcpTool(normalizedToolName, args.permissionMode)) {
     return "allow" as const;
   }
   if (args.permissionMode === "bypassPermissions") {

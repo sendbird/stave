@@ -28,6 +28,7 @@ export {
   shouldDenyClaudeToolInSecondaryReadOnly,
 } from "./claude-permission-policy";
 import { createClaudeAutoModeNotice, shouldKeepClaudeReadOnlyPrompt } from "./claude-auto-mode";
+import { resolveClaudeTurnGuardrail, shouldAllowClaudeAutonomousCall, withClaudeTurnGuardrails } from "./claude-guardrail-hook";
 export {
   describeClaudeAutoModeFallback,
   resolveClaudeAutoModeAvailability,
@@ -3393,7 +3394,7 @@ export async function streamClaudeWithSdk(
     let queryOptions: Options | null = null;
     const queryResult = queryFn({
       prompt: inputQueue,
-      options: (queryOptions = buildClaudeQueryOptions({
+      options: (queryOptions = withClaudeTurnGuardrails(buildClaudeQueryOptions({
         resourceOwner: args,
         cwd: runtimeCwd,
         claudeExecutablePath,
@@ -3547,6 +3548,8 @@ export async function streamClaudeWithSdk(
         canUseTool: async (toolName, input, options) => {
           const normalizedInput = normalizeClaudeToolInput(input);
           const requestId = options.toolUseID;
+          // Hard guardrails (G1-G3) skip every automatic answer below and reach the user.
+          const guardrail = resolveClaudeTurnGuardrail({ policy: args.turnPolicy, toolName, input: normalizedInput, cwd: runtimeCwd, decisionReason: options.decisionReason });
           const redirectedSkillSlug = shouldRedirectClaudePreloadedSkillToolUse(
             {
               toolName,
@@ -3627,7 +3630,7 @@ export async function streamClaudeWithSdk(
             });
           }
 
-          const permissionModeDecision = resolveClaudePermissionModeDecision({
+          const modeDecision = resolveClaudePermissionModeDecision({
             permissionMode: claudePermissionMode,
             toolName,
             ...(claudePermissionMode === "auto"
@@ -3647,6 +3650,7 @@ export async function streamClaudeWithSdk(
               : {}),
           });
 
+          const permissionModeDecision = guardrail && modeDecision === "allow" ? "prompt" : modeDecision;
           if (permissionModeDecision === "allow") {
             return buildClaudeApprovalPermissionResult({
               approved: true,
@@ -3736,7 +3740,7 @@ export async function streamClaudeWithSdk(
           // approval prompt for the tool classes the user opted into via the
           // plan-mode approval scope, so planning feels like auto mode.
           if (
-            claudePermissionMode === "plan" &&
+            claudePermissionMode === "plan" && !guardrail &&
             shouldAutoAllowPlanModeScopedTool({
               scope: planModeApprovalScope,
               toolName,
@@ -3757,12 +3761,15 @@ export async function streamClaudeWithSdk(
             });
           }
 
+          if (!guardrail && shouldAllowClaudeAutonomousCall({ policy: args.turnPolicy, toolName, matchedAskRule: options.matchedAskRule })) {
+            return buildClaudeApprovalPermissionResult({ approved: true, normalizedInput, denialMessage: `Stave autonomy allowed ${toolName}.` });
+          }
           const trustedApprovalInput = resolveTrustedApprovalInput({
             toolName,
             input: normalizedInput,
           });
           if (
-            isTrustedApproval({
+            !guardrail && isTrustedApproval({
               trustedTools: args.runtimeOptions?.trustedTools,
               toolName,
               input: trustedApprovalInput,
@@ -3792,7 +3799,7 @@ export async function streamClaudeWithSdk(
               title: options.title,
               displayName: options.displayName,
               description: options.description,
-              decisionReason: options.decisionReason,
+              decisionReason: options.decisionReason ?? (guardrail ? `Stave guardrail ${guardrail.id}: this ${guardrail.reason}.` : undefined),
               blockedPath: options.blockedPath,
             }),
             ...(trustedApprovalInput ? { input: trustedApprovalInput } : {}),
@@ -3840,7 +3847,7 @@ export async function streamClaudeWithSdk(
             throw error;
           }
         },
-      })),
+      }), args.turnPolicy)),
     }) as Query;
     stream = queryResult;
 

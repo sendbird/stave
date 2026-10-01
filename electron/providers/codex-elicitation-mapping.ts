@@ -8,7 +8,7 @@
 import type { UserInputQuestion } from "../../src/types/chat";
 import { CODEX_STAVE_MCP_SERVER_NAME } from "../main/codex-mcp";
 import { isRecord, toTrimmedString } from "./codex-app-server-json";
-import { isAlwaysAllowedStaveLocalMcpTool } from "./stave-local-mcp-approval";
+import { isAlwaysAllowedStaveLocalMcpTool, isNeverAutoApprovedStaveLocalMcpTool } from "./stave-local-mcp-approval";
 
 export interface ElicitationFieldDescriptor {
   key: string;
@@ -426,7 +426,7 @@ export function shouldAutoApproveStaveLocalMcpElicitation(args: {
   if (isAlwaysAllowedStaveLocalMcpTool(approval.toolName)) {
     return true;
   }
-  return args.enabled === true;
+  return args.enabled === true && !isNeverAutoApprovedStaveLocalMcpTool(approval.toolName);
 }
 
 export function coerceElicitationAnswer(args: {

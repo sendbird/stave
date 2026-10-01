@@ -6,7 +6,8 @@ describe("buildStaveLocalMcpServerInstructions", () => {
     const text = buildStaveLocalMcpServerInstructions();
     expect(text).toContain("stave_*_workspace_*");
     expect(text).toContain("stave_remember");
-    expect(text).toContain("stave_respond_approval");
+    expect(text).toContain("stave_respond_user_input");
+    expect(text).not.toContain("stave_respond_approval");
     expect(text).toContain("[Retrieved Context]");
     expect(text).toContain("stave_get_workspace_information");
   });

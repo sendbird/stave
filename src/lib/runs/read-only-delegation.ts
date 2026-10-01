@@ -79,7 +79,6 @@ export const DENIED_READ_ONLY_DELEGATION_STAVE_TOOLS = [
   "stave_delegate_task",
   "stave_follow_up_delegated_task",
   "stave_stop_delegated_task",
-  "stave_respond_approval",
   "stave_respond_user_input",
   "stave_martin_link_project",
   "stave_martin_unlink_project",

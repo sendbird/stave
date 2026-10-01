@@ -1173,13 +1173,13 @@ describe("Claude internal tool auto-allow", () => {
     ).toBe(true);
   });
 
-  test("auto-allows Stave Local MCP tools only in auto and unattended modes", () => {
+  test("auto allows Stave tools that act; Don't Ask allows only Stave tools that read", () => {
     const toolName = "mcp__stave-local-mcp__stave_lens_navigate";
-    for (const permissionMode of ["auto", "dontAsk"] as const) {
-      expect(shouldAutoAllowClaudeTool({ toolName, permissionMode })).toBe(
-        true,
-      );
-    }
+    expect(shouldAutoAllowClaudeTool({ toolName, permissionMode: "auto" })).toBe(true);
+    expect(shouldAutoAllowClaudeTool({ toolName, permissionMode: "dontAsk" })).toBe(false);
+    expect(
+      shouldAutoAllowClaudeTool({ toolName: "mcp__stave-local-mcp__stave_get_task", permissionMode: "dontAsk" }),
+    ).toBe(true);
     expect(
       shouldAutoAllowClaudeTool({ toolName, permissionMode: "default" }),
     ).toBe(false);

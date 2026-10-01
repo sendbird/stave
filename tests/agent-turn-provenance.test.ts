@@ -36,7 +36,8 @@ test("seals a saved Agent version across reassignment and release, excluding sec
   h.record();
   h.runtime.releaseTaskAgent("task");
   expect(turn.provenance).toMatchObject({ assignmentId: row.id, agentName: "Researcher", model: "selected-model", effort: "low",
-    permission: { source: "agent-ceiling", applied: { codexFileAccess: "read-only", codexApprovalPolicy: "on-request" } } });
+    permission: { source: "agent-autonomy", agentLimit: "read-only",
+      applied: { codexFileAccess: "read-only", codexApprovalPolicy: "never", codexNetworkAccess: false } } });
   expect(turn.runtimeOptions.agentInstructions).toContain("Researcher");
   expect(JSON.stringify(turn.provenance)).not.toContain("secret-id");
   expect(JSON.stringify(turn.provenance)).not.toContain(row.agent.instructions);
