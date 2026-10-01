@@ -702,6 +702,7 @@ export class RunLedgerStore {
     executionId: string;
     idempotencyKey: string;
     resultArtifactRef: string;
+    detail?: unknown;
     now: string;
   }) {
     return this.transitionExisting(args, ({ run, step }) =>
@@ -711,6 +712,7 @@ export class RunLedgerStore {
         executionId: args.executionId,
         idempotencyKey: args.idempotencyKey,
         resultArtifactRef: args.resultArtifactRef,
+        detail: args.detail,
         now: args.now,
       }),
     );

@@ -25,6 +25,8 @@ import {
   DELEGATED_TASK_RUN_KIND,
   DELEGATED_TASK_STEP_KIND,
   DELEGATED_TASK_STOPPED_REASON,
+  delegatedTaskResultText,
+  resolveDelegatedTaskWaitSeconds,
   describeDelegatedTaskRejection,
   isActiveDelegatedTaskPhase,
   resolveDelegatedTaskControls,
@@ -48,6 +50,7 @@ import {
   type RunRecord,
   type RunStepRecord,
   type RunStepTarget,
+  boundResponseText,
 } from "../../../src/lib/runs/run-domain";
 import type { RunLedgerTransitionResult } from "../../persistence/run-ledger-store";
 
@@ -87,6 +90,7 @@ export interface DelegatedTaskLedgerPort {
     executionId: string;
     idempotencyKey: string;
     resultArtifactRef: string;
+    detail?: unknown;
     now: string;
   }): RunLedgerTransitionResult;
   failRunStep(args: {
@@ -176,6 +180,8 @@ export interface DelegatedTaskHostPort {
         latestTurnOutcome?:
           | import("../../persistence/turn-terminal-receipt").TurnTerminalOutcome
           | null;
+        /** The targeted turn's final answer, when it wrote one. */
+        latestAssistantText?: string | null;
       }
     | { ok: false; reason: "missing" | "unavailable" }
   >;
@@ -197,7 +203,7 @@ export interface DelegatedTaskHostPort {
     parentTaskId: string;
     /** Persist the exact execution identity before waiting for completion. */
     onStarted?: (turnId: string) => void;
-  }): Promise<{ turnId: string }>;
+  }): Promise<{ turnId: string; responseText?: string }>;
   stopTask(args: { workspaceId: string; taskId: string }): Promise<unknown>;
   /**
    * Clears the `parentTaskId` stamped by `runTask`, so a detached child
@@ -377,29 +383,21 @@ function summaryFromTransition(
   if (!transition.run || !transition.step) {
     return null;
   }
-  return toDelegatedTaskSummary({
-    run: transition.run,
-    step: transition.step,
-    acceptedReceipt: acceptedReceiptForRun(
-      ledger,
-      transition.run.id,
-      transition.step.attempt,
-    ),
-  });
+  return summaryFromAggregate(ledger, { run: transition.run, step: transition.step });
 }
 
 function summaryFromAggregate(
   ledger: Pick<DelegatedTaskLedgerPort, "listRunReceipts">,
   aggregate: { run: RunRecord; step: RunStepRecord },
 ): DelegatedTaskSummary | null {
+  const receipts = ledger.listRunReceipts({ runId: aggregate.run.id });
   return toDelegatedTaskSummary({
     run: aggregate.run,
     step: aggregate.step,
-    acceptedReceipt: acceptedReceiptForRun(
-      ledger,
-      aggregate.run.id,
-      aggregate.step.attempt,
+    acceptedReceipt: receipts.find(
+      (receipt) => receipt.type === "accepted" && receipt.detail?.attempt === aggregate.step.attempt,
     ),
+    resultText: delegatedTaskResultText(receipts, aggregate.step),
   });
 }
 
@@ -520,8 +518,11 @@ export function createDelegatedTaskCoordinator(
     turnId: string;
     providerId: "claude-code" | "codex";
     permissionPolicy?: DelegationPermissionPolicy;
+    /** The turn's final answer, recorded bounded so the caller gets it back. */
+    responseText?: string | null;
   }) => {
     const timestamp = now();
+    const responseText = boundResponseText(args.responseText);
     const current = args.ledger.getRunAggregate({ runId: args.runId, stepId: args.stepId });
     if (!current || current.step.executionId !== args.executionId || current.step.target?.turnExecutionId !== args.target.turnExecutionId)
       return { accepted: false as const, reason: "stale-execution" as const, run: current?.run ?? null, step: current?.step ?? null, receipts: [] as [] };
@@ -544,7 +545,7 @@ export function createDelegatedTaskCoordinator(
         stepId: args.stepId,
         executionId: args.executionId,
         idempotencyKey: `child:${args.executionId}:turn:${args.turnId}`,
-        detail: { code: "child-turn-completed", providerId: args.providerId, ...(args.permissionPolicy ? { permissionPolicy: args.permissionPolicy } : {}) },
+        detail: { code: "child-turn-completed", providerId: args.providerId, ...(args.permissionPolicy ? { permissionPolicy: args.permissionPolicy } : {}), ...(responseText ? { responseText } : {}) },
         reenter: true,
         now: timestamp,
       });
@@ -559,6 +560,7 @@ export function createDelegatedTaskCoordinator(
         taskId: args.target.taskId,
         turnId: args.turnId,
       }),
+      ...(responseText ? { detail: { code: "child-turn-completed", providerId: args.providerId, responseText } } : {}),
       now: timestamp,
     });
   };
@@ -651,6 +653,7 @@ export function createDelegatedTaskCoordinator(
           turnId: result.turnId,
           providerId: args.target.providerId,
           permissionPolicy: args.turn.permissionPolicy,
+          responseText: result.responseText,
         });
       } catch (error) {
         // A rejected startup or a verified cancellation can release immediately.
@@ -859,6 +862,7 @@ export function createDelegatedTaskCoordinator(
           target,
           turnId: status.latestTurnId,
           providerId: target.providerId,
+          responseText: status.latestAssistantText,
         });
         reconciled += transition.accepted ? 1 : 0;
         continue;
@@ -1295,7 +1299,7 @@ export function createDelegatedTaskCoordinator(
     const prompt = input.prompt.trim();
     const model = input.model?.trim() || undefined;
     const legacyProfile = input.permissionProfile;
-    return delegateChild(
+    const response = await delegateChild(
       {
         repositoryPath,
         parentWorkspaceId,
@@ -1320,6 +1324,42 @@ export function createDelegatedTaskCoordinator(
       },
       { inheritedEffort: parent?.providerId === providerId ? parent.effort : undefined },
     );
+    const waitSeconds = resolveDelegatedTaskWaitSeconds(input.wait, input.access);
+    if (!waitSeconds || !response.accepted || !response.child) return response;
+    return waitForAnswer(response, waitSeconds * 1_000);
+  };
+
+  /**
+   * Hold the caller until the subagent's turn settles or the wait ends, then
+   * answer with the fresh row, whose `result` carries the bounded answer. A
+   * subagent still working keeps running; nothing is cancelled by the wait.
+   */
+  const waitForAnswer = async (
+    response: DelegatedTaskActionResponse,
+    waitMs: number,
+  ): Promise<DelegatedTaskActionResponse> => {
+    const child = response.child!;
+    const inFlight = inFlightByStepId.get(child.stepId);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const settled = inFlight
+      ? await Promise.race([
+          inFlight.then(() => true),
+          new Promise<boolean>((resolve) => {
+            timer = setTimeout(() => resolve(false), waitMs);
+            timer.unref?.();
+          }),
+        ]).finally(() => clearTimeout(timer))
+      : true;
+    const ledger = await getLedger();
+    const aggregate = ledger.getRunAggregate({ runId: child.runId, stepId: child.stepId });
+    const fresh = (aggregate && summaryFromAggregate(ledger, aggregate)) ?? child;
+    return DelegatedTaskActionResponseSchema.parse({
+      ...response,
+      child: fresh,
+      message: settled
+        ? null
+        : "The subagent is still working. Its answer arrives with this task's next turn under Subagent results.",
+    });
   };
 
   return {

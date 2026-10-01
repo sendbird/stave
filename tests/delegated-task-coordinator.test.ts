@@ -1438,12 +1438,51 @@ describe("stave_delegate_task defaults", () => {
 
   test("a subagent cannot start subagents of its own", async () => {
     const harness = createHarness({ parentDefaults: { providerId: "codex" }, runTask: () => new Promise(() => {}) });
-    const child = await harness.coordinator.delegateFromTool(toolInput({ access: "read-only" }));
+    const child = await harness.coordinator.delegateFromTool(toolInput({ access: "read-only", wait: false }));
     const childTaskId = child.child!.delegatedTaskId;
     harness.statusByTaskId.set(childTaskId, IDLE_STATUS);
     const nested = await harness.coordinator.delegateFromTool({ prompt: "Go deeper." }, { taskId: childTaskId, workspaceId: PARENT_WORKSPACE });
     expect(nested).toMatchObject({ accepted: false, reason: "invalid-request" });
     expect(nested.message).toContain("cannot start subagents");
+  });
+
+  test("two read-only subagents on Claude and Codex run in parallel in one workspace and answer inline", async () => {
+    let live = 0;
+    let peak = 0;
+    const harness = createHarness({ realPolicy: true, parentDefaults: { providerId: "claude-code" }, runTask: async (args) => {
+      live += 1; peak = Math.max(peak, live);
+      await new Promise((resolve) => setTimeout(resolve, 20));
+      live -= 1;
+      const turnId = `turn-${args.taskId}`;
+      args.onStarted?.(turnId);
+      return { turnId, responseText: `answer from ${(args as { providerId?: string }).providerId}` };
+    } });
+    const caller = { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE };
+    const [claude, codex] = await Promise.all([
+      harness.coordinator.delegateFromTool({ prompt: "Review the parser.", access: "read-only" }, caller),
+      harness.coordinator.delegateFromTool({ prompt: "Review the parser.", access: "read-only", provider: "codex" }, caller),
+    ]);
+    expect(peak).toBe(2);
+    expect(claude).toMatchObject({ accepted: true, message: null, child: { phase: "completed", delegatedWorkspaceId: PARENT_WORKSPACE, result: "answer from claude-code" } });
+    expect(codex).toMatchObject({ accepted: true, child: { phase: "completed", delegatedWorkspaceId: PARENT_WORKSPACE, result: "answer from codex" } });
+    // The same answers are on the list the next turn reads.
+    const listed = await harness.coordinator.list({ parentTaskId: PARENT_TASK, includeFinished: true });
+    expect(listed.map((child) => child.result).sort()).toEqual(["answer from claude-code", "answer from codex"]);
+  });
+
+  test("a wait that ends first leaves the subagent running and says where the answer goes", async () => {
+    const harness = createHarness({ parentDefaults: { providerId: "codex" }, runTask: () => new Promise(() => {}) });
+    const response = await harness.coordinator.delegateFromTool({ prompt: "Slow review.", access: "read-only", wait: 1 }, { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE });
+    expect(response).toMatchObject({ accepted: true, child: { phase: "running" } });
+    expect(response.message).toContain("Subagent results");
+  });
+
+  test("a writing subagent does not wait unless asked", async () => {
+    const harness = createHarness({ parentDefaults: { providerId: "codex" }, runTask: () => new Promise(() => {}) });
+    const started = Date.now();
+    const response = await harness.coordinator.delegateFromTool({ prompt: "Fix it." }, { taskId: PARENT_TASK, workspaceId: PARENT_WORKSPACE });
+    expect(response).toMatchObject({ accepted: true, message: null });
+    expect(Date.now() - started).toBeLessThan(500);
   });
 
   test("outside a Stave turn the ids are still required", async () => {

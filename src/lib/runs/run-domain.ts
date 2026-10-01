@@ -160,6 +160,8 @@ export const RunStepRecordSchema = z
   .strict();
 export type RunStepRecord = z.infer<typeof RunStepRecordSchema>;
 
+export const RUN_RESPONSE_TEXT_MAX_CHARS = 4_000;
+
 export const RunReceiptDetailSchema = z
   .object({
     code: z.string().max(120).optional(),
@@ -194,6 +196,8 @@ export const RunReceiptDetailSchema = z
     agentContentHash: z.string().max(80).optional(),
     /** The commit a delegation was pinned to, re-checked by a retry. */
     expectedHead: z.string().max(64).optional(),
+    /** A subagent turn's final answer, bounded, so the caller gets it without reading the child. */
+    responseText: z.string().max(RUN_RESPONSE_TEXT_MAX_CHARS).optional(),
   })
   .strict();
 export type RunReceiptDetail = z.infer<typeof RunReceiptDetailSchema>;
@@ -252,6 +256,15 @@ function normalizeDiagnosticText(value: unknown, maxLength: number) {
   return normalized.length > 0 ? normalized.slice(0, maxLength) : undefined;
 }
 
+/** The head of an answer, marked when cut, within the receipt bound. */
+export function boundResponseText(value: unknown): string | undefined {
+  const text = normalizeDiagnosticText(value, Number.MAX_SAFE_INTEGER);
+  if (!text) return undefined;
+  return text.length > RUN_RESPONSE_TEXT_MAX_CHARS
+    ? `${text.slice(0, RUN_RESPONSE_TEXT_MAX_CHARS - 1)}…`
+    : text;
+}
+
 export function sanitizeRunReceiptDetail(
   value: unknown,
 ): RunReceiptDetail | null {
@@ -301,6 +314,7 @@ export function sanitizeRunReceiptDetail(
     typeof candidate.expectedHead === "string" && /^[0-9a-f]{7,64}$/i.test(candidate.expectedHead)
       ? candidate.expectedHead
       : undefined;
+  const responseText = boundResponseText(candidate.responseText);
   const detail = {
     ...(code ? { code } : {}),
     ...(message ? { message } : {}),
@@ -315,6 +329,7 @@ export function sanitizeRunReceiptDetail(
     ...(agentConfigId ? { agentConfigId } : {}),
     ...(agentContentHash ? { agentContentHash } : {}),
     ...(expectedHead ? { expectedHead } : {}),
+    ...(responseText ? { responseText } : {}),
   };
   return Object.keys(detail).length > 0
     ? RunReceiptDetailSchema.parse(detail)
@@ -658,6 +673,7 @@ export function completeRunStep(args: {
   executionId: string;
   idempotencyKey: string;
   resultArtifactRef: string;
+  detail?: unknown;
   now: string;
 }): RunStepTransition {
   const run = RunRecordSchema.parse(args.run);
@@ -698,7 +714,7 @@ export function completeRunStep(args: {
         executionId: args.executionId,
         idempotencyKey: args.idempotencyKey,
         timestamp: args.now,
-        detail: { attempt: step.attempt },
+        detail: { ...(sanitizeRunReceiptDetail(args.detail) ?? {}), attempt: step.attempt },
       }),
     ],
   });

@@ -1911,10 +1911,13 @@ async function runTaskImpl(args: {
           ].join("\n"),
         }
       : null;
-  // A parent that delegated work sees where its children stand before it takes
-  // its next turn — identity, phase and reason, never the child's transcript.
+  // A task that started subagents sees where they stand, and the answers that
+  // arrived since its last turn began, so an agent run continues without reading them.
   const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
     children: listDelegatedTaskSummaries({ parentTaskId: task.id }),
+    resultsSince: ensureHostServicePersistenceReady().listTurns({
+      workspaceId: args.workspaceId, taskId: task.id, limit: 1,
+    })[0]?.createdAt ?? null,
   });
   const repositoryMemoryPart = buildRepositoryMemoryPartForTurn({
     repositoryPath: registration.project.repositoryPath,

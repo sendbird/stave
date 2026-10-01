@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  RUN_RESPONSE_TEXT_MAX_CHARS,
   RunIdSchema,
   RunRecordSchema,
   RunStatusSchema,
@@ -29,6 +30,18 @@ export const DELEGATED_TASK_RUN_ID_PREFIX = "child-task";
 export const DELEGATED_TASK_DEFAULT_CONCURRENCY_LIMIT = 3;
 export const DELEGATED_TASK_MAX_CONCURRENCY_LIMIT = 16;
 export const DELEGATED_TASK_LIST_LIMIT = 50;
+/** How long `stave_delegate_task` may hold the caller for an answer. */
+export const DELEGATED_TASK_WAIT_DEFAULT_SECONDS = 120;
+export const DELEGATED_TASK_WAIT_MAX_SECONDS = 180;
+
+/** Seconds a delegate call waits: read-only subagents wait unless told not to. */
+export function resolveDelegatedTaskWaitSeconds(
+  wait: boolean | number | undefined,
+  access: DelegationAccess | undefined,
+): number {
+  if (typeof wait === "number") return Math.min(Math.max(1, Math.floor(wait)), DELEGATED_TASK_WAIT_MAX_SECONDS);
+  return (wait ?? access === "read-only") ? DELEGATED_TASK_WAIT_DEFAULT_SECONDS : 0;
+}
 
 /**
  * Omission inherits host-resolved user permissions. Explicit profiles only
@@ -231,6 +244,12 @@ export const DelegateTaskToolInputSchema = z.object({
   permissionProfile: DelegatedTaskPermissionProfileSchema.optional().describe(
     "Deprecated and ignored; use `access`.",
   ),
+  wait: z
+    .union([z.boolean(), z.number().int().min(1).max(DELEGATED_TASK_WAIT_MAX_SECONDS)])
+    .optional()
+    .describe(
+      `Wait for the subagent's answer and return it as \`child.result\`. Defaults to true for read-only subagents and false otherwise. true waits up to ${DELEGATED_TASK_WAIT_DEFAULT_SECONDS} s; a number waits that many seconds (max ${DELEGATED_TASK_WAIT_MAX_SECONDS}). A subagent still working when the wait ends keeps running, and its answer arrives with this task's next turn under Subagent results.`,
+    ),
 });
 export type DelegateTaskToolInput = z.infer<typeof DelegateTaskToolInputSchema>;
 
@@ -355,9 +374,25 @@ export const DelegatedTaskSummarySchema = z
     createdAt: z.string().datetime(),
     updatedAt: z.string().datetime(),
     completedAt: z.string().datetime().nullable(),
+    /** The subagent's final answer for its latest turn, bounded; absent until a turn ends. */
+    result: z.string().max(RUN_RESPONSE_TEXT_MAX_CHARS).optional(),
   })
   .strict();
 export type DelegatedTaskSummary = z.infer<typeof DelegatedTaskSummarySchema>;
+
+/** The answer the latest settled turn of the current execution recorded, if any. */
+export function delegatedTaskResultText(
+  receipts: ReadonlyArray<Pick<RunReceiptRecord, "type" | "detail" | "executionId">>,
+  step: Pick<RunStepRecord, "executionId">,
+): string | null {
+  for (let index = receipts.length - 1; index >= 0; index -= 1) {
+    const receipt = receipts[index]!;
+    if ((receipt.type === "completed" || receipt.type === "waiting") &&
+        receipt.executionId === step.executionId && receipt.detail?.responseText)
+      return receipt.detail.responseText;
+  }
+  return null;
+}
 
 export const DelegatedTaskRejectionReasonSchema = z.enum([
   "already-active",
@@ -498,6 +533,7 @@ export function toDelegatedTaskSummary(args: {
   run: RunRecord;
   step: RunStepRecord;
   acceptedReceipt?: Pick<RunReceiptRecord, "type" | "detail"> | null;
+  resultText?: string | null;
 }): DelegatedTaskSummary | null {
   const run = RunRecordSchema.parse(args.run);
   const step = RunStepRecordSchema.parse(args.step);
@@ -551,6 +587,7 @@ export function toDelegatedTaskSummary(args: {
     createdAt: run.createdAt,
     updatedAt: step.updatedAt,
     completedAt: step.completedAt,
+    ...(args.resultText ? { result: args.resultText } : {}),
   });
   return parsed.success ? parsed.data : null;
 }

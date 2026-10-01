@@ -11,6 +11,7 @@
  */
 import {
   DELEGATED_TASK_LIST_LIMIT,
+  delegatedTaskResultText,
   isActiveDelegatedTaskPhase,
   toDelegatedTaskSummary,
   type DelegatedTaskSummary,
@@ -32,14 +33,20 @@ export function listDelegatedTaskSummaries(args: {
   limit?: number;
 }): DelegatedTaskSummary[] {
   try {
-    return ensureHostServicePersistenceReady()
+    const store = ensureHostServicePersistenceReady();
+    return store
       .listRunAggregatesByOrigin({
         originKind: "task",
         originId: args.parentTaskId,
         limit: args.limit ?? DELEGATED_TASK_LIST_LIMIT,
       })
       .flatMap((aggregate) => {
-        const summary = toDelegatedTaskSummary(aggregate);
+        const receipts = store.listRunReceipts({ runId: aggregate.run.id });
+        const summary = toDelegatedTaskSummary({
+          ...aggregate,
+          acceptedReceipt: receipts.find((receipt) => receipt.type === "accepted" && receipt.detail?.attempt === aggregate.step.attempt),
+          resultText: delegatedTaskResultText(receipts, aggregate.step),
+        });
         return summary ? [summary] : [];
       });
   } catch (error) {
