@@ -139,6 +139,8 @@ describe("providerRuntime.startTurnStream", () => {
   });
 
   test("expires completed replay buffers without another API read", async () => {
+    const baseTime = Date.now();
+    const clock = spyOn(Date, "now").mockReturnValue(baseTime);
     const original = globalThis.setTimeout;
     let expire: (() => void) | undefined;
     const timerSpy = spyOn(globalThis, "setTimeout").mockImplementation(((
@@ -156,7 +158,7 @@ describe("providerRuntime.startTurnStream", () => {
       );
     });
     await done;
-    const clock = spyOn(Date, "now").mockReturnValue(Date.now() + 60_001);
+    clock.mockReturnValue(baseTime + 60_001);
     try {
       expect(expire).toBeDefined();
       expire?.();
