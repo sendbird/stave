@@ -35,7 +35,7 @@ export function createHostAssignRuntime(args: {
       });
       // A task recorded before its first turn, or switched to another agent,
       // owes a prompt-channel provider the agent's instructions once.
-      setTaskPromptPrefixResolver(({ taskId, providerId }) => runtime.takeTaskPreamble(taskId, providerId));
+      setTaskPromptPrefixResolver(({ taskId, providerId }) => runtime.prepareTaskPreamble(taskId, providerId));
     },
   };
 }

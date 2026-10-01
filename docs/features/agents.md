@@ -359,3 +359,9 @@ Fleet's search finds its tasks.
 - [Delegated tasks](delegated-tasks.md)
 - [Auto-routing](auto-routing.md)
 - [Fleet Action Required](fleet-needs-me.md)
+
+Agent instructions for a prompt-channel provider stay pending when the first
+turn is blocked, cancelled before execution, or fails during provider startup.
+They are included in both the plain prompt and canonical conversation input,
+and consumed after the primary provider responds or starts a tool or decision.
+A delayed turn cannot consume instructions recorded for a newer agent.

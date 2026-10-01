@@ -64,9 +64,12 @@ export interface AssignRuntime {
   releaseTaskAgent: (taskId: string) => AgentAssignment | null;
   /**
    * The instructions a prompt-channel provider still owes the task's agent,
-   * taken once: the flag clears whether or not this provider needed them.
+   * prepared without consuming them; acknowledge after primary execution starts.
    */
-  takeTaskPreamble: (taskId: string, providerId: ProviderId) => string | null;
+  prepareTaskPreamble: (taskId: string, providerId: ProviderId) => {
+    prefix: string | null;
+    acknowledge: () => void;
+  } | null;
 }
 
 export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRuntime {
@@ -105,17 +108,25 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
       announce(ended);
       return ended;
     },
-    takeTaskPreamble(taskId, providerId) {
+    prepareTaskPreamble(taskId, providerId) {
       const row = currentRow(taskId);
       if (!row?.preambleDue) return null;
-      deps.store.update({ ...row, preambleDue: false, updatedAt: now().toISOString() });
       const compiled = compileAgent({
         snapshot: snapshotAgent({ ...row.agent, archived: false }),
         role: "primary",
         providerId,
         ...(row.standards ? { standards: row.standards } : {}),
       });
-      return compiled.ok && compiled.compiled.role === "primary" ? (compiled.compiled.promptPreamble ?? null) : null;
+      if (!compiled.ok || compiled.compiled.role !== "primary") return null;
+      return {
+        prefix: compiled.compiled.promptPreamble ?? null,
+        acknowledge: () => {
+          // A delayed old turn must never consume a newer agent's instructions.
+          const current = currentRow(taskId);
+          if (current?.id !== row.id || !current.preambleDue) return;
+          deps.store.update({ ...current, preambleDue: false, updatedAt: now().toISOString() });
+        },
+      };
     },
     recordTaskAgent(args) {
       const existing = deps.store.getByRequestId(args.requestId);

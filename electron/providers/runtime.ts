@@ -821,12 +821,11 @@ export function setTaskRuntimeOptionsResolver(resolver: TaskRuntimeOptionsResolv
   taskRuntimeOptionsResolver = resolver;
 }
 
-/**
- * Text a task still owes its provider at the start of the next primary turn
- * (an agent's instructions for a provider that takes them in the prompt).
- * Returning it consumes it.
- */
-type TaskPromptPrefixResolver = (args: { taskId: string; providerId: StreamTurnArgs["providerId"] }) => string | null;
+/** Prepared instructions stay due until the primary provider executes. */
+type TaskPromptPrefixResolver = (args: {
+  taskId: string;
+  providerId: StreamTurnArgs["providerId"];
+}) => { prefix: string | null; acknowledge: () => void } | null;
 
 let taskPromptPrefixResolver: TaskPromptPrefixResolver | null = null;
 
@@ -834,20 +833,7 @@ export function setTaskPromptPrefixResolver(resolver: TaskPromptPrefixResolver |
   taskPromptPrefixResolver = resolver;
 }
 
-function withTaskPromptPrefix<T extends StreamTurnArgs>(args: T): T {
-  // Secondary read-only analysis turns never consume what the user's turn is owed.
-  if (!args.taskId || !taskPromptPrefixResolver || args.executionPolicy) return args;
-  let prefix: string | null = null;
-  try {
-    prefix = taskPromptPrefixResolver({ taskId: args.taskId, providerId: args.providerId });
-  } catch (error) {
-    console.warn("[provider] task prompt prefix lookup failed", error);
-  }
-  return prefix ? { ...args, prompt: `${prefix}\n\n---\n\n${args.prompt}` } : args;
-}
-
-function withTaskRuntimeOptions<T extends StreamTurnArgs>(rawArgs: T): T {
-  const args = withTaskPromptPrefix(rawArgs);
+function withTaskRuntimeOptions<T extends StreamTurnArgs>(args: T): T {
   if (!args.taskId || !taskRuntimeOptionsResolver) return args;
   let extra: Partial<NonNullable<StreamTurnArgs["runtimeOptions"]>> = {};
   try {
@@ -859,13 +845,37 @@ function withTaskRuntimeOptions<T extends StreamTurnArgs>(rawArgs: T): T {
 }
 
 async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void }) {
-  const args = withTaskRuntimeOptions(rawArgs);
-  const release = workspaceExecutionGate.acquire(args);
-  try { return await runProviderTurnImpl(args); } finally { release(); }
+  const release = workspaceExecutionGate.acquire(rawArgs);
+  try {
+    const prepared = rawArgs.taskId && !rawArgs.executionPolicy
+      ? taskPromptPrefixResolver?.({ taskId: rawArgs.taskId, providerId: rawArgs.providerId })
+      : null;
+    const args = prepared?.prefix
+      ? {
+          ...rawArgs,
+          prompt: `${prepared.prefix}\n\n---\n\n${rawArgs.prompt}`,
+          ...(rawArgs.conversation ? {
+            conversation: {
+              ...rawArgs.conversation,
+              input: {
+                ...rawArgs.conversation.input,
+                content: `${prepared.prefix}\n\n---\n\n${rawArgs.conversation.input.content}`,
+                parts: [
+                  { type: "text" as const, text: `${prepared.prefix}\n\n---` },
+                  ...rawArgs.conversation.input.parts,
+                ],
+              },
+            },
+          } : {}),
+        }
+      : rawArgs;
+    return await runProviderTurnImpl(withTaskRuntimeOptions(args), prepared?.acknowledge);
+  } finally { release(); }
 }
 
 async function runProviderTurnImpl(
   args: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void },
+  acknowledgeTaskPreamble?: () => void,
 ) {
   const lifecycle = createProviderTurnLifecycle({
     onEvent: args.onEvent,
@@ -1220,6 +1230,15 @@ async function runProviderTurnImpl(
   flushAdvisorUsage = mapUsageForDownstream.flush;
   const emittedPrimaryEvents: BridgeEvent[] = [];
   const emitPrimaryEvent = (event: BridgeEvent) => {
+    // Session setup, errors and terminal-only streams do not prove execution.
+    if (
+      (event.type === "text" && Boolean(event.text.trim())) ||
+      event.type === "tool" || event.type === "tool_result" ||
+      event.type === "approval" || event.type === "user_input" || event.type === "plan_ready"
+    ) {
+      acknowledgeTaskPreamble?.();
+      acknowledgeTaskPreamble = undefined;
+    }
     emittedPrimaryEvents.push(event);
     for (const mappedEvent of mapUsageForDownstream(event)) {
       lifecycle.emit(mappedEvent);

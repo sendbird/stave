@@ -1,3 +1,4 @@
+import { buildProviderTurnPrompt } from "@/lib/providers/provider-request-translators";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import type { AdvisorRunnerDependencies } from "../electron/providers/advisor-runtime";
 import type { BridgeEvent, StreamTurnArgs } from "../electron/providers/types";
@@ -141,7 +142,7 @@ mock.module("../electron/providers/connected-tool-status", () => ({
   }),
 }));
 
-const { providerRuntime } = await import("../electron/providers/runtime");
+const { providerRuntime, setTaskPromptPrefixResolver } = await import("../electron/providers/runtime");
 const {
   consultAdvisor,
   clearAdvisorConsultGrantsForTest,
@@ -273,6 +274,7 @@ afterEach(async () => {
   primaryTurn = null;
   primaryEmitsEvents = true;
   duringPrimaryTurn = null;
+  setTaskPromptPrefixResolver(null);
   await providerRuntime.shutdown();
 });
 
@@ -749,4 +751,82 @@ describe("provider runtime on-demand Advisor integration", () => {
       { type: "done", stop_reason: "end_turn" },
     ]);
   });
+});
+
+
+describe("task instructions survive failed startup", () => {
+  test.each(["claude-code", "codex"] as const)("%s preserves instructions until primary execution", async (providerId) => {
+    let due = true;
+    let acknowledged = 0;
+    setTaskPromptPrefixResolver(() => due ? {
+      prefix: "Saved agent instructions",
+      acknowledge: () => { due = false; acknowledged += 1; },
+    } : null);
+    const turn: StreamTurnArgs = {
+      taskId: "kickoff-start", providerId, cwd: TEST_WORKSPACE_CWD,
+      prompt: "Original work", conversation: createConversation(providerId),
+      runtimeOptions: { model: "user-model" },
+    };
+    // The real common runtime refuses invalid cwd without starting an adapter.
+    await providerRuntime.streamTurn({ ...turn, cwd: undefined });
+    expect(due).toBe(true);
+    duringPrimaryTurn = async () => { throw new Error("provider startup failed"); };
+    await providerRuntime.streamTurn(turn);
+    expect(due).toBe(true);
+    duringPrimaryTurn = async (args) => {
+      expect(args.prompt).toContain("Saved agent instructions");
+      expect(args.conversation?.input.parts[0]).toMatchObject({ type: "text", text: "Saved agent instructions\n\n---" });
+      expect(args.runtimeOptions?.model).toBe("user-model");
+      for (const promptProvider of ["cursor", "kiro"] as const) {
+        expect(buildProviderTurnPrompt({
+          providerId: promptProvider, prompt: args.prompt, conversation: args.conversation,
+        })).toContain("Saved agent instructions");
+      }
+      args.onEvent?.({ type: "done", stop_reason: "user_abort" });
+    };
+    await providerRuntime.streamTurn(turn);
+    expect(due).toBe(true);
+    duringPrimaryTurn = async (args) => { args.onEvent?.({ type: "text", text: "First response" }); };
+    await providerRuntime.streamTurn(turn);
+    expect(due).toBe(false);
+    expect(acknowledged).toBe(1);
+    duringPrimaryTurn = async (args) => { expect(args.prompt).toBe("Original work"); };
+    await providerRuntime.streamTurn(turn);
+    expect(acknowledged).toBe(1);
+  });
+
+  test("secondary analysis does not consume the user's pending instructions", async () => {
+    let reads = 0;
+    setTaskPromptPrefixResolver(() => { reads += 1; return null; });
+    await providerRuntime.streamTurn({
+      taskId: "kickoff-secondary", providerId: "codex", cwd: TEST_WORKSPACE_CWD,
+      prompt: "Classify this work", executionPolicy: "secondary-read-only",
+    });
+    expect(reads).toBe(0);
+  });
+  test("a stopped workspace never prepares or consumes task instructions", async () => {
+    const { workspaceExecutionGate } = await import("../electron/shared/workspace-execution-gate");
+    let reads = 0;
+    setTaskPromptPrefixResolver(() => { reads += 1; return null; });
+    await workspaceExecutionGate.stop({ workspaceId: "kickoff-blocked", workspacePath: TEST_WORKSPACE_CWD }, async () => {});
+    try {
+      await expect(providerRuntime.streamTurn({
+        taskId: "kickoff-blocked-task", workspaceId: "kickoff-blocked",
+        providerId: "codex", cwd: TEST_WORKSPACE_CWD, prompt: "Start work",
+      })).rejects.toThrow("Workspace execution is stopped");
+      expect(reads).toBe(0);
+    } finally { workspaceExecutionGate.resume("kickoff-blocked"); }
+  });
+
+  test("tool-only execution consumes the preamble even without response text", async () => {
+    let acknowledged = 0;
+    setTaskPromptPrefixResolver(() => ({ prefix: "Agent instructions", acknowledge: () => { acknowledged += 1; } }));
+    primaryEmitsEvents = false;
+    duringPrimaryTurn = async (args) => {
+      args.onEvent?.({ type: "tool", toolUseId: "tool-1", toolName: "Read", input: "{}", state: "input-available" });
+    };
+    await providerRuntime.streamTurn({ taskId: "kickoff-tools", providerId: "codex", cwd: TEST_WORKSPACE_CWD, prompt: "Work" });
+    expect(acknowledged).toBe(1);
+  });
+
 });
