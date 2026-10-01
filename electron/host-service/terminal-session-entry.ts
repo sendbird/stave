@@ -50,6 +50,7 @@ export interface TerminalSessionEntry {
   acknowledgedOutputBytes: number;
   flowPaused: boolean;
   persistedScreenState: string | null;
+  persistScreenState?: boolean;
   osc133Parser: Osc133Parser;
 }
 

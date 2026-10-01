@@ -1,6 +1,7 @@
 import { PROPOSAL_IPC, type ProposalsBridgeApi } from "../src/lib/missions/proposed";
 import { AGENT_IPC, type AgentsBridgeApi } from "../src/lib/agents/api";
 import { lensReviewApi } from "./lens-review-preload";
+import { providerAccountsApi } from "./provider-accounts/preload";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../src/lib/providers/agent-history";
 import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../src/lib/performance/workspace-execution";
 import type { PromptEnhancementContext } from "../src/lib/providers/prompt-enhancement-context";
@@ -3500,4 +3501,5 @@ contextBridge.exposeInMainWorld("api", {
         message?: string;
       }>,
   },
+  providerAccounts: providerAccountsApi,
 });

@@ -34,6 +34,43 @@ exhausted quota remains visible. Startup, window focus, binary changes, periodic
 discovery, and Tooling Refresh update status. Late replies cannot repopulate a
 catalog or usage meter after a detected logout or configuration change.
 
+### Native account registration foundation
+
+The desktop bridge exposes `window.api.providerAccounts` for Claude and Codex
+profile registration, renaming, removal, and native login. Each provider keeps
+an immutable **System default** profile that follows the existing environment
+and native login. Registration creates an app-managed configuration directory
+or references an existing absolute directory in place. Profile IDs are opaque;
+labels can change, while a registered directory stays attached to its ID.
+
+Electron main stores only nonsecret metadata in
+`<app-data>/provider-accounts.json`, using an atomic replacement and restrictive
+file permissions. Native credentials and session files stay in the provider's
+directory. Removing a registration retains that directory and its contents.
+Duplicate directories, including symlink aliases, are rejected. Invalid storage
+and missing, removed, mismatched, or redirected profiles fail explicitly.
+
+`providerAccounts.login` starts `claude auth login` or `codex login` in a dedicated
+terminal session with that profile's `CLAUDE_CONFIG_DIR` or `CODEX_HOME`. It returns
+only a terminal session ID. The existing terminal bridge owns output, input,
+attachment, and closure. Login sessions buffer output until attached and use
+separate slots for each resolved profile and executable. Their output is retained
+in memory while alive and excluded from persisted terminal snapshots. A launch failure leaves
+other profiles and running sessions intact. Native login itself remains owned
+by the provider; Stave does not read or copy its credential files.
+
+Custom profile environments select their configuration directory before MCP
+environment discovery and reapply it after hydration. They omit inherited
+provider API keys, OAuth tokens, and endpoint overrides. System default preserves
+those existing settings. Bound vault secrets cannot override `STAVE_USER_DATA_PATH`,
+`CLAUDE_CONFIG_DIR`, or `CODEX_HOME`.
+
+This is a desktop backend foundation. Account management UI and task account
+selection are pending the profile-aware conversation, queue, client, catalog,
+and usage work. Conversation runtime options and existing standalone chat CLI
+sessions continue to use System default; the registration API does not switch
+them. The login bridge reports process creation, not authentication success.
+
 ## Cursor Agent ACP runtime
 
 Cursor is available for interactive primary task turns. Stave starts a

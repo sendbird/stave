@@ -819,6 +819,32 @@ describe("terminal runtime slot lifecycle", () => {
     });
   });
 
+  test("native login uses an ephemeral PTY and retains output only while the session is alive", async () => {
+    const snapshotWrites: unknown[] = [];
+    let snapshotReads = 0;
+    const runtime = createTerminalRuntime({
+      emitEvent: async () => {},
+      persistence: {
+        saveTerminalSnapshot: (args) => { snapshotWrites.push(args); },
+        loadTerminalSnapshot: () => { snapshotReads++; return { screen_state: "old login output", updated_at: "fixture" }; },
+        deleteTerminalSnapshot: () => {},
+      },
+    });
+    const input = { providerId: "codex" as const, profileId: "system-default", workspaceId: "workspace-1", workspacePath: "/tmp/workspace" };
+    const created = runtime.createProviderLoginSession(input);
+    expect(created.ok).toBe(true);
+    expect(fakeSpawnCalls.at(-1)?.args).toEqual(["login"]);
+    expect(created.nativeSessionId).toBeUndefined();
+    expect(snapshotReads).toBe(0);
+    fakePtys.at(-1)!.fireData("Open the native login link\r\n");
+    expect(runtime.readSession({ sessionId: created.sessionId! }).output).toContain("Open the native login link");
+    expect(runtime.createProviderLoginSession(input).sessionId).toBe(created.sessionId);
+    await runtime.attachSession({ sessionId: created.sessionId!, deliveryMode: "push" });
+    await runtime.closeSession({ sessionId: created.sessionId! });
+    expect(snapshotWrites).toEqual([]);
+    expect(fakePtys.at(-1)!.destroyed).toBe(true);
+  });
+
   test("creates Claude CLI sessions with a reusable native session id", () => {
     const runtime = createTerminalRuntime({
       emitEvent: async () => {},

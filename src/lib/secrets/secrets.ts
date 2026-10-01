@@ -95,6 +95,7 @@ export const RESERVED_ENV_VAR_NAMES: readonly string[] = [
   "CLAUDE_CONFIG_DIR",
   "CLAUDECODE",
   "CODEX_HOME",
+  "STAVE_USER_DATA_PATH",
   "NVM_DIR",
   "NVM_BIN",
   "NVM_INC",

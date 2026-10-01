@@ -38,6 +38,7 @@ import {
   createOscColorInterceptor,
 } from "./terminal-pty-stream";
 import { buildCliSessionLaunch } from "./cli-session-launch";
+import { createProviderAccountLoginSession } from "./provider-account-login";
 import { createNativeSessionDiscovery } from "./native-session-discovery";
 import {
   appendBackgroundBuffer,
@@ -198,7 +199,7 @@ export function createTerminalRuntime(args: {
   }
 
   async function persistSessionSnapshot(session: TerminalSessionEntry) {
-    if (!session.slotKey || !persistence) return;
+    if (!session.slotKey || !persistence || session.persistScreenState === false) return;
     await session.lastHeadlessWritePromise;
     const screenState = serializeScreenState(session);
     if (screenState) {
@@ -332,6 +333,7 @@ export function createTerminalRuntime(args: {
     themeColors?: { foreground?: string; background?: string };
     slotKey?: string;
     nativeSessionId?: string;
+    persistScreenState?: boolean;
   }) {
     const ptyProcess = pty.spawn(args.command, args.commandArgs ?? [], {
       name: "xterm-256color",
@@ -404,8 +406,9 @@ export function createTerminalRuntime(args: {
       sentOutputBytes: 0,
       acknowledgedOutputBytes: 0,
       flowPaused: false,
+      persistScreenState: args.persistScreenState ?? true,
       persistedScreenState:
-        args.slotKey && persistence
+        args.slotKey && persistence && args.persistScreenState !== false
           ? (persistence.loadTerminalSnapshot({ slotKey: args.slotKey })
               ?.screen_state ?? null)
           : null,
@@ -991,6 +994,8 @@ export function createTerminalRuntime(args: {
     stopWorkspace,
     createSession,
     createCliSession,
+    createProviderLoginSession: (input: Parameters<typeof createProviderAccountLoginSession>[0]) =>
+      createProviderAccountLoginSession(input, { getSessionBySlotKey, createPtySession }),
     writeSession,
     ackSessionOutput,
     readSession,

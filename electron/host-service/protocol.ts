@@ -1,4 +1,5 @@
 import type { HostProposalAction } from "./supervision/proposal-runtime";
+import type { ProviderAccountLoginArgs } from "../../src/lib/providers/provider-accounts";
 import type { AgentInvokeResult, HostAgentAction } from "../../src/lib/agents/api";
 import type { AgentHistoryRequest, AgentHistoryResponse } from "../../src/lib/providers/agent-history";
 import type { WorkspaceExecutionArgs, WorkspaceExecutionResult, WorkspaceExecutionState } from "../../src/lib/performance/workspace-execution";
@@ -556,6 +557,7 @@ export interface HostServiceRequestMap {
   "service.get-resource-metrics": undefined;
   "terminal.create-session": TerminalCreateSessionArgs;
   "terminal.create-cli-session": CliSessionCreateSessionArgs;
+  "terminal.create-provider-login-session": ProviderAccountLoginArgs;
   "terminal.create-cursor-chat-id": { cwd: string; cursorBinaryPath?: string };
   "terminal.write-session": {
     sessionId: string;
@@ -1078,6 +1080,7 @@ export interface HostServiceResponseMap {
   "service.get-resource-metrics": HostServiceResourceMetrics;
   "terminal.create-session": HostTerminalCreateSessionResult;
   "terminal.create-cli-session": HostTerminalCreateSessionResult;
+  "terminal.create-provider-login-session": HostTerminalCreateSessionResult;
   "terminal.create-cursor-chat-id": {
     ok: boolean;
     chatId?: string;

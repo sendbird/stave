@@ -1573,6 +1573,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         terminalRuntime.createCliSession(request.params),
       );
       return;
+    case "terminal.create-provider-login-session":
+      await respond(request.id, terminalRuntime.createProviderLoginSession(request.params));
+      return;
     case "terminal.create-cursor-chat-id":
       await respond(request.id, await createCursorChatId(request.params));
       return;
