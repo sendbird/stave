@@ -1,4 +1,5 @@
 import { cancelPendingAutoRouting } from "./auto-routing-dispatch";
+import { cancelAgentRunBeforeStop } from "./agent-run-send";
 import type { StoreApi } from "zustand";
 import {
   applyDelegatedTasksToProviderTurnActivity,
@@ -187,6 +188,9 @@ export function createProviderInteractionActions(args: {
     abortTaskTurn: ({ taskId }) => {
       if (cancelPendingAutoRouting(taskId)) return;
       const stateBefore = get();
+      // Stop ends the task's agent run too, before the turn, so the run never picks up after it.
+      const runWorkspaceId = stateBefore.taskWorkspaceIdById[taskId] ?? stateBefore.activeWorkspaceId;
+      if (cancelAgentRunBeforeStop({ workspaceId: runWorkspaceId, taskId, stopTurn: () => get().abortTaskTurn({ taskId }) })) return;
       const runtimeTarget = resolveTaskRuntimeTarget({
         state: stateBefore,
         taskId,

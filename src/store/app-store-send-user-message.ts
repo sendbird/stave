@@ -69,6 +69,7 @@ import {
 import { guardSendAgainstAccountUsage } from "@/store/account-usage-guard";
 import { toast } from "@/lib/notifications/toast";
 import { applySteeredTurnState } from "@/store/steer-turn-state";
+import { startAgentRunForSend } from "@/store/agent-run-send";
 import {
   createWebFetchAuthWallTracker,
   maybeStartProviderBrowserFallbackTurn,
@@ -505,6 +506,10 @@ export function createSendUserMessageAction(args: {
     const promptDisplayParts = buildPromptDraftDisplayPartsForSend(promptDraft);
     const activeTurnId =
       taskWorkspaceSession.activeTurnIdsByTask[resolvedTaskId];
+    const agentRunStart = await startAgentRunForSend({ set, workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
+      providerId: provider, prompt: promptContent, promptDraft, extraContextCount: (fileContexts?.length ?? 0) + (imageContexts?.length ?? 0),
+      turnActive: Boolean(activeTurnId), queued: Boolean(queuedTurnToSend), turnOrigin, preservePromptDraft });
+    if (agentRunStart) return agentRunStart;
     // A "stalled" turn is one whose provider stream has gone silent past the
     // stall threshold with no pending approval/user_input interaction — e.g. a
     // background task that never emitted `done`, or one whose runtime died. In

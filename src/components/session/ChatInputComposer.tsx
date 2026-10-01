@@ -566,7 +566,7 @@ export function ChatInputComposer(args: ChatInputComposerProps) {
       runtimeOverrides: request.runtimeOverrides,
     });
     if (
-      sendResult.status === "started" ||
+      sendResult.status === "started" || sendResult.status === "run-started" ||
       sendResult.status === "queued" ||
       sendResult.status === "steered"
     ) {

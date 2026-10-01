@@ -111,6 +111,8 @@ export type SendUserMessageResult =
       message: string;
     }
   | { status: "started"; taskId: string; workspaceId: string; turnId: string }
+  /** An Agent-mode prompt started an agent run; the host starts its turns. */
+  | { status: "run-started"; taskId: string; workspaceId: string; missionId: string }
   | {
       /**
        * The message never reached the provider. Its payload is parked as a
