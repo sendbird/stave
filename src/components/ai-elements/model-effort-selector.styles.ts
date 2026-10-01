@@ -72,6 +72,62 @@ export const modelEffortSelectorStyles = stylex.create({
     maxWidth: "9rem",
     flexShrink: 1,
   },
+
+  /* ---- agent mode: the trigger splits into agent | model ---- */
+  // One bordered control with two hit areas. The border and the corners belong
+  // to the pair; each segment only rounds its outer corners so its hover fill
+  // meets the border.
+  segments: {
+    display: "inline-flex",
+    height: "100%",
+    minWidth: 0,
+    maxWidth: "100%",
+    alignItems: "stretch",
+    borderRadius: vars["--ads-radius-control"],
+    borderWidth: vars["--ads-border-width-hairline"],
+    borderStyle: "solid",
+    borderColor: border65,
+  },
+  segment: {
+    borderWidth: 0,
+    borderRadius: 0,
+    paddingInline: "0.5rem",
+  },
+  segmentStart: {
+    borderStartStartRadius: vars["--ads-radius-control"],
+    borderEndStartRadius: vars["--ads-radius-control"],
+  },
+  segmentEnd: {
+    borderStartEndRadius: vars["--ads-radius-control"],
+    borderEndEndRadius: vars["--ads-radius-control"],
+    // The model segment gives way first when the composer is narrow.
+    flexShrink: 1,
+  },
+  segmentDivider: {
+    width: vars["--ads-border-width-hairline"],
+    alignSelf: "stretch",
+    flexShrink: 0,
+    backgroundColor: border65,
+  },
+  segmentChevron: {
+    width: "0.75rem",
+    height: "0.75rem",
+    flexShrink: 0,
+    color: vars["--ads-color-text-muted"],
+  },
+  // "Pinned" is a state word, not part of the model's name.
+  segmentPinned: {
+    flexShrink: 0,
+    color: vars["--ads-color-text-muted"],
+  },
+  // The pin picker's first row sits above the search, apart from the model list.
+  routeRow: {
+    flexShrink: 0,
+    borderBottomWidth: vars["--ads-border-width-hairline"],
+    borderBottomStyle: "solid",
+    borderBottomColor: border65,
+    padding: vars["--ads-space-8"],
+  },
   triggerDot: {
     color: `color-mix(in oklch, ${vars["--ads-color-text-muted"]} 35%, transparent)`,
   },

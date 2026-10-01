@@ -2,7 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import { resolveAssignRoute } from "@/lib/agents/assign-route";
-import { selectableMainAgents } from "@/lib/agents/task-mode";
+import { selectableMainAgents } from "@/lib/agents/selector-choice";
 import { KickoffSourceWho } from "@/components/layout/KickoffSourceWho";
 import { duplicateAgent } from "@/lib/agents/library";
 import { getBuiltinAgent } from "@/lib/agents/starters";

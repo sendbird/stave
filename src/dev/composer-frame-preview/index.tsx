@@ -1,11 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
 import {
-  ModelPickerAgentPanel,
-  taskAgentIdentity,
+  buildModelPickerAgents,
   useTaskAgentChoice,
 } from "@/components/ai-elements/prompt-input-agent-control";
 import { getBuiltinAgent } from "@/lib/agents/starters";
+import type { AgentAssignment } from "@/lib/agents/assign";
+import type { AgentConfig } from "@/lib/agents/schema";
+import {
+  buildAutoModelSelectorOption,
+  buildModelSelectorOptions,
+  type ModelSelectorOption,
+} from "@/components/ai-elements/model-selector.utils";
+import type { ModelEffortValue } from "@/components/ai-elements/model-effort-selector.utils";
+import { STANCE_LABELS } from "@/lib/providers/auto-routing-profile";
+import { listProviderIds } from "@/lib/providers/model-catalog";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
+import { useAppStore } from "@/store/app.store";
 import { PromptInput } from "@/components/ai-elements/prompt-input";
 import { PromptInputAdvisorPill } from "@/components/ai-elements/prompt-input-advisor-mode";
 import { PromptInputWorkerPill } from "@/components/ai-elements/prompt-input-worker-mode";
@@ -22,7 +32,8 @@ import {
   type ProviderModePresetId,
 } from "@/lib/providers/provider-mode-presets";
 import { useComposerFrameFits } from "@/hooks/use-composer-frame-fits";
-import { applyThemeClass } from "@/lib/themes/apply";
+import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
+import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
 import type { ComposerLayoutMode } from "@/store/app-settings";
 import { Button } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
@@ -58,8 +69,74 @@ const PREVIEW_TODOS = [
 
 const PREVIEW_TASK_ID = "preview-task";
 
+/**
+ * The preview runs the real Models | Agents selector against a small fake
+ * host, so every choice works: pick an agent (Agent mode), pick a model (Chat),
+ * pin a model beside the agent, go back to Auto.
+ *
+ * `?agent=<id>` starts the task as that agent; `&route=pinned|fixed` starts it
+ * pinned to a model or on the agent's fixed model (Auto otherwise);
+ * `&auto=off` turns Stave Auto off; `&theme=light` starts in light mode, and
+ * `&theme=<built-in theme id>` renders under that theme.
+ */
+const previewParams = new URLSearchParams(window.location.search);
+const PREVIEW_PINNED_MODEL = "claude-opus-5-5";
+
+function previewAgent(): AgentConfig | null {
+  const agent = getBuiltinAgent(previewParams.get("agent") ?? "");
+  if (!agent) return null;
+  return previewParams.get("route") === "fixed"
+    ? { ...agent, model: { mode: "fixed", providerId: "claude-code", model: PREVIEW_PINNED_MODEL } }
+    : agent;
+}
+
+function previewAssignment(agent: AgentConfig, id: string, endedAt?: string): AgentAssignment {
+  return {
+    id,
+    taskId: PREVIEW_TASK_ID,
+    agentConfigId: agent.id,
+    agentName: agent.name,
+    agent,
+    agentContentHash: id,
+    received: [],
+    support: [],
+    state: "started",
+    providerId: "claude-code",
+    model: null,
+    workspaceMode: "same-workspace",
+    branch: null,
+    detail: null,
+    createdAt: "",
+    updatedAt: "",
+    ...(endedAt ? { endedAt } : {}),
+  } as unknown as AgentAssignment;
+}
+
+/** A host that keeps the assignment ledger in memory. */
+function installAgentsBridge(initial: AgentConfig | null) {
+  const rows: AgentAssignment[] = initial ? [previewAssignment(initial, "preview-initial")] : [];
+  const api = ((window as { api?: Record<string, unknown> }).api ??= {});
+  api.agents = {
+    recordTask: async (input: { agent: AgentConfig }) => {
+      const row = previewAssignment(input.agent, `preview-${rows.length + 1}`);
+      rows.unshift(row);
+      return { ok: true, value: row };
+    },
+    releaseTask: async () => {
+      const current = rows[0];
+      if (!current || current.endedAt) return { ok: true, value: null };
+      rows[0] = previewAssignment(current.agent, current.id, "now");
+      return { ok: true, value: rows[0] };
+    },
+    listAssignments: async () => ({ ok: true, value: [...rows] }),
+    subscribeChanged: () => () => {},
+  };
+}
+const INITIAL_AGENT = previewAgent();
+installAgentsBridge(INITIAL_AGENT);
+
 export function ComposerFramePreviewApp() {
-  const [dark, setDark] = useState(true);
+  const [dark, setDark] = useState(previewParams.get("theme") !== "light");
   const [layoutPreference, setLayoutPreference] =
     useState<ComposerLayoutMode>("framed");
   const [squeezed, setSqueezed] = useState(false);
@@ -79,44 +156,41 @@ export function ComposerFramePreviewApp() {
   const [advisorOpen, setAdvisorOpen] = useState(false);
   const [workerEnabled, setWorkerEnabled] = useState(false);
   const [workerOpen, setWorkerOpen] = useState(false);
-  // Agentic tasks: the model picker offers agents; with one running the task
-  // its trigger shows the agent and the Worker is gone.
-  const [agentic, setAgentic] = useState(false);
+  // The selector lists Models and Agents; with an agent running the task the
+  // trigger splits into agent | model and the Worker is gone.
+  const autoOn = previewParams.get("auto") !== "off";
+  const modelOptions = useMemo<ModelSelectorOption[]>(
+    () => [
+      buildAutoModelSelectorOption({
+        providerId: "claude-code",
+        available: autoOn,
+        stanceLabel: STANCE_LABELS.balanced,
+      }),
+      ...buildModelSelectorOptions({ providerIds: listProviderIds() }),
+    ],
+    [autoOn],
+  );
+  const [selectedModel, setSelectedModel] = useState<ModelSelectorOption>(() => {
+    const model = modelOptions.find((option) => option.model === PREVIEW_PINNED_MODEL) ?? PREVIEW_MODEL;
+    if (!INITIAL_AGENT) return model;
+    const route = previewParams.get("route");
+    return route === "pinned" || route === "fixed" || !autoOn ? model : (modelOptions[0] ?? model);
+  });
+  const [effort, setEffort] = useState<ModelEffortValue | undefined>();
   const agentChoice = useTaskAgentChoice({
     taskId: PREVIEW_TASK_ID,
-    providerId: "claude-code",
-    model: PREVIEW_MODEL.model,
-    modelOptions: [],
-    onModelSelect: () => {},
+    selectedModel,
+    modelOptions,
+    onModelSelect: ({ selection, effort: picked }) => {
+      setSelectedModel(selection);
+      setEffort(picked);
+    },
   });
+  const agentic = agentChoice.current !== null;
   useEffect(() => {
-    const researcher = getBuiltinAgent("researcher")!;
-    useAgentAssignmentsStore.setState({
-      byTaskId: agentic
-        ? {
-            [PREVIEW_TASK_ID]: {
-              assignmentId: "preview",
-              agentConfigId: researcher.id,
-              agentName: researcher.name,
-              agentPermission: researcher.permission,
-              agentAppearance: researcher.appearance,
-              agentTaskClass: researcher.model.mode === "auto" ? (researcher.model.taskClass ?? null) : null,
-              agentContentHash: "preview",
-              received: [],
-              support: [],
-              state: "started",
-              providerId: "claude-code",
-              model: null,
-              workspaceMode: "same-workspace",
-              branch: null,
-              detail: null,
-              createdAt: "",
-              updatedAt: "",
-            },
-          }
-        : {},
-    });
-  }, [agentic]);
+    useAppStore.setState({ repositoryPath: "/tmp/preview-repo" });
+    void useAgentAssignmentsStore.getState().load();
+  }, []);
   const [workerConfig, setWorkerConfig] = useState<WorkerProviderConfig>({
     presetId: "verified-patch",
     model: "auto",
@@ -125,7 +199,10 @@ export function ComposerFramePreviewApp() {
 
   useEffect(() => {
     document.title = "Composer frame mock";
-    applyThemeClass({ enabled: dark });
+    // `&theme=<built-in theme id>` renders under that theme.
+    const builtin = BUILTIN_CUSTOM_THEMES.find((theme) => theme.id === previewParams.get("theme")) ?? null;
+    applyThemeClass({ enabled: builtin ? builtin.baseMode === "dark" : dark });
+    applyCustomTheme({ theme: builtin });
   }, [dark]);
 
   const activity = useMemo(() => createPreviewActivity(), []);
@@ -199,14 +276,11 @@ export function ComposerFramePreviewApp() {
             >
               {squeezed ? "Squeezed" : "Full width"}
             </Button>
-            <Button
-              layout="host"
-              type="button"
-              xstyle={[f.toggle, agentic && f.toggleActive]}
-              onClick={() => setAgentic((value) => !value)}
-            >
-              {agentic ? "Agentic" : "Model"}
-            </Button>
+            <span className={sx(f.statusNote)} data-testid="preview-task-mode">
+              {agentChoice.current
+                ? `Agent · ${agentChoice.current.agentName} · ${agentChoice.route}`
+                : "Chat"}
+            </span>
             <span className={sx(f.statusNote)}>
               {framed ? "frame on" : "frame off"}
             </span>
@@ -265,8 +339,9 @@ export function ComposerFramePreviewApp() {
                   }
                   value={draft}
                   onValueChange={setDraft}
-                  selectedModel={PREVIEW_MODEL}
-                  modelOptions={[PREVIEW_MODEL]}
+                  selectedModel={selectedModel}
+                  modelOptions={modelOptions}
+                  effortValue={effort}
                   attachedFilePaths={[]}
                   reviewModelOptions={[PREVIEW_MODEL]}
                   preferredReviewModelKey={PREVIEW_MODEL.key}
@@ -295,15 +370,8 @@ export function ComposerFramePreviewApp() {
                       onSelectEffort={() => {}}
                     />
                   }
-                  modelPickerAgents={
-                    agentic
-                      ? {
-                          active: taskAgentIdentity(agentChoice.current),
-                          count: agentChoice.choices.length,
-                          renderPanel: (close) => <ModelPickerAgentPanel choice={agentChoice} onDone={close} />,
-                        }
-                      : undefined
-                  }
+                  modelPickerAgents={buildModelPickerAgents(agentChoice, { locked: false })}
+                  assignOnSend={agentChoice.assignOnSend}
                   workerActive={!agentic && workerEnabled}
                   workerControl={
                     agentic ? null : (
@@ -375,7 +443,7 @@ export function ComposerFramePreviewApp() {
                     ) : undefined
                   }
                   onComposerControlPlacementsChange={() => {}}
-                  onModelSelect={() => {}}
+                  onModelSelect={agentChoice.selectModel}
                   onAttachFilesChange={() => {}}
                   onSubmit={() => {}}
                 />

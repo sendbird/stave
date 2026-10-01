@@ -44,6 +44,7 @@ import { resolveAdvisorArmState } from "@/lib/providers/advisor";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import {
   buildModelEffortRuntimeOverrides,
+  buildAutoRoutingSelectionOverrides,
   buildModelSelectionRuntimeOverrides,
 } from "@/lib/providers/model-effort";
 import type { ClaudeSettingSource } from "@/lib/providers/provider.types";
@@ -647,12 +648,11 @@ function BaseChatInput() {
   // Resolved separately from the composer's copy: the runtime bar lives in a
   // different component, and reporting a stale shape here would contradict the
   // pill sitting a few pixels away.
-  const agenticTasks = useAppStore((state) => state.settings.taskMode === "agentic");
   const taskRunsAsAgent = useAgentAssignmentsStore((state) => Boolean(state.byTaskId[activeTaskId]));
   const workerRuntimeSummary = useMemo(
     () =>
       describeWorkerRuntimeSummary({
-        runsAsAgent: agenticTasks && taskRunsAsAgent,
+        runsAsAgent: taskRunsAsAgent,
         providerId: activeProvider,
         primaryModel: activeModel,
         overrides: promptDraftRuntimeOverrides,
@@ -660,7 +660,7 @@ function BaseChatInput() {
         settingsEnabled: settingsWorkerEnabled,
         runtimeModels: providerModelCatalogs.catalogs[activeProvider].models,
       }),
-    [activeModel, activeProvider, agenticTasks, taskRunsAsAgent, promptDraftRuntimeOverrides, providerModelCatalogs.catalogs, settingsWorkerConfigByProvider, settingsWorkerEnabled],
+    [activeModel, activeProvider, taskRunsAsAgent, promptDraftRuntimeOverrides, providerModelCatalogs.catalogs, settingsWorkerConfigByProvider, settingsWorkerEnabled],
   );
   const runtimeStatusItems = useMemo(() => {
     return buildChatInputRuntimeStatusItems({
@@ -1192,18 +1192,12 @@ function BaseChatInput() {
       onLocalChangeReview={handleLocalChangeReview}
       onModelSelect={({ selection, effort, fastMode: nextFastMode }) => {
         if (selection.isAuto) {
-          const {
-            model: _model,
-            modelProviderId: _modelProviderId,
-            ...restRuntimeOverrides
-          } = promptDraftRuntimeOverrides ?? {};
           updatePromptDraft({
             taskId: providerSelectionTarget,
             patch: {
-              runtimeOverrides: {
-                ...restRuntimeOverrides,
-                autoRouting: true,
-                autoRoutingPlanMode:
+              runtimeOverrides: buildAutoRoutingSelectionOverrides({
+                runtimeOverrides: promptDraftRuntimeOverrides,
+                planMode:
                   activeProvider === "claude-code"
                     ? effectiveClaudePermissionMode === "plan"
                     : activeProvider === "codex"
@@ -1211,7 +1205,7 @@ function BaseChatInput() {
                       : activeProvider === "cursor"
                         ? effectiveCursorMode === "plan"
                         : false,
-              },
+              }),
             },
           });
           return;

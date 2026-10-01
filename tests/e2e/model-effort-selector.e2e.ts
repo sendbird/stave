@@ -227,7 +227,8 @@ test("selects a model and effort in one click across provider tabs", async ({
         };
       }),
     );
-  expect(providerTabBoxes).toHaveLength(5);
+  // Four providers, Stave Auto, and the Agents section under them.
+  expect(providerTabBoxes).toHaveLength(6);
   expect(new Set(providerTabBoxes.map((box) => Math.round(box.x))).size).toBe(
     1,
   );

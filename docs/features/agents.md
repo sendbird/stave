@@ -166,34 +166,34 @@ dot — a green dot for running, an amber dot when it needs you), in the Kickoff
 **Flow** panel. Built-in and repository agents get a stable colour derived from
 their id; a custom agent's colour is chosen in its **Profile** section.
 
-### Agentic tasks (experimental)
+### Models and agents in the composer
 
-By default a task runs on the model you pick in the composer. Turn on
-**Settings → Chat → Agents → Run tasks as agents** to pick an agent there
-too:
+The composer's selector (`Alt+P`) always has two sections and one search box:
+**Models** (the providers and Stave Auto) and **Agents** (every active agent
+that can run a task). Typing in the search also lists the agents that match.
+What you pick decides how the task runs:
 
-- The model picker gets an **Agents** tab above the providers. It lists
-  **No agent** — the picked model runs the task with its own permissions —
-  and every agent that can run a task.
-- While an agent runs the task, the picker's button shows the agent's avatar
-  and name before the model.
-- A choice applies from the next turn and stays until you change it. Earlier
-  turns keep the agent they ran as, and each agent's History counts the turns
-  it ran. Choosing **No agent** ends the agent for this task. The choice is
-  locked while a turn runs or waits for an answer.
-- A switch that lets the task do more — to an agent with a wider permission,
-  or from a limited agent back to **No agent** — asks first.
-- An agent with a fixed model moves the picker to that model. Mid-task it does
-  so only on the same provider; pick another provider yourself. A model picked
-  on a provider tab overrides the agent's model for the task.
-- With the picker on **Auto**, an agent whose model is **Auto-routing** with a
-  task class is routed as that class whenever the intent of a turn is unclear.
+- **A model is Chat.** The model runs the task with the task's own permissions
+  and its Worker, as it always did. If an agent was running the task, picking a
+  model ends it.
+- **An agent is Agent mode.** The agent runs the task from the next turn and
+  picks its own model: Stave Auto routes every turn, using the agent's task
+  class as its starting point. An agent with a fixed model uses it as its
+  default instead. The selector does not move to a model. With Stave Auto
+  turned off, the agent runs on the model the task already has.
+- **A pin binds the agent's turns to one model.** In Agent mode the button
+  has two segments, the agent and its model: `Implementer | Auto`. The model
+  segment opens a list headed **Auto — Implementer chooses** (checked). Pick a
+  model there and the segment reads **Pinned · Opus 5** with its effort; the
+  first row becomes **Back to Auto**. A pin never ends the agent. Per turn the
+  order is: pin, then the agent's fixed model, then Stave Auto.
+- The first send in Agent mode reads **Assign**; later sends read **Send**.
+- A choice applies from the next turn. Earlier turns keep the agent they ran
+  as, and each agent's History counts the turns it ran. Choosing another
+  agent is locked while a turn runs or waits for an answer, and a switch to an
+  agent with a wider permission asks first.
 - A task that runs as an agent has no Worker. The agent hands work to other
-  agents itself through delegation. With **No agent** the Worker is offered as
-  usual.
-
-Turning the setting off hides the Agents tab. Tasks that already run as an
-agent keep running as it.
+  agents itself through delegation.
 
 ### Usable as and the Worker picker
 

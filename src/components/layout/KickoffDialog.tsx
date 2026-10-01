@@ -32,7 +32,7 @@ import {
 import { KickoffSourceWho } from "@/components/layout/KickoffSourceWho";
 import { describeAssignRouteModel, resolveAssignRoute } from "@/lib/agents/assign-route";
 import { describeAgentPermissionForTask } from "@/lib/agents/agents-view";
-import { selectableMainAgents } from "@/lib/agents/task-mode";
+import { selectableMainAgents } from "@/lib/agents/selector-choice";
 import { PROVIDER_LABELS } from "@/lib/agents/provider-labels";
 import { activeStandards } from "@/lib/agents/standards";
 import { STANCE_LABELS } from "@/lib/providers/auto-routing-profile";
