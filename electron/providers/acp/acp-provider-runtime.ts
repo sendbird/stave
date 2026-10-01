@@ -161,6 +161,9 @@ export interface AcpProviderRuntimeProfile {
 }
 
 export type AcpProviderStreamTurnArgs = StreamTurnArgs & {
+  /** Host-only policy hook, after the actual resume/new-session decision. */
+  prepareTaskAgentPrompt?: (nativeSessionId: string, resumed: boolean) => string | null;
+  acknowledgeTaskAgentPrompt?: () => void;
   onEvent?: (event: BridgeEvent) => void;
   registerAbort?: (aborter: () => void) => void;
   registerApprovalResponder?: (
@@ -772,10 +775,19 @@ export async function streamAcpProviderTurn(args: {
       conversation: filteredPromptConversation,
       activeResumeSessionId: session.resumed ? session.sessionId : null,
     });
-    const promptConversation = retrievedContextDedup.conversation;
+    const agentPrefix = turn.prepareTaskAgentPrompt?.(session.sessionId, session.resumed);
+    const conversation = retrievedContextDedup.conversation;
+    const promptConversation = agentPrefix && conversation ? {
+      ...conversation,
+      input: {
+        ...conversation.input,
+        content: `${agentPrefix}\n\n---\n\n${conversation.input.content}`,
+        parts: [{ type: "text" as const, text: `${agentPrefix}\n\n---` }, ...conversation.input.parts],
+      },
+    } : conversation;
     const prompt = buildProviderTurnPrompt({
       providerId: profile.providerId,
-      prompt: turn.prompt,
+      prompt: agentPrefix ? `${agentPrefix}\n\n---\n\n${turn.prompt}` : turn.prompt,
       conversation: promptConversation,
       activeResumeSessionId: session.resumed ? session.sessionId : null,
       includeImageData:
@@ -839,6 +851,7 @@ export async function streamAcpProviderTurn(args: {
       promptInFlight = false;
     }
     retrievedContextDedup.commit();
+    if (!abortRequested) turn.acknowledgeTaskAgentPrompt?.();
     const promptUsage =
       normalizeAcpPromptUsage(result.usage) ??
       normalizeAcpPromptUsage(result._meta?.usage);

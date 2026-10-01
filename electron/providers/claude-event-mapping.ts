@@ -11,7 +11,6 @@ import type {
 } from "@anthropic-ai/claude-agent-sdk";
 import type { BridgeEvent } from "./types";
 import { toText } from "./utils";
-
 function buildClaudeTaskProgressEvents(
   message: Extract<SDKMessage, { type: "system" }> & {
     subtype?: string;
@@ -732,7 +731,6 @@ export function mapClaudeMessageToEvents(args: {
     message.type === "user" ||
     (message as { type: string }).type === "user_message_replay"
   ) {
-    // Surface tool_result content blocks so the UI can populate subagent output.
     const userMsg = message as {
       type: string;
       message?: { content?: unknown };
@@ -778,6 +776,7 @@ export function mapClaudeMessageToEvents(args: {
           type?: string;
           tool_use_id?: string;
           content?: unknown;
+          is_error?: boolean;
         };
         if (b.type !== "tool_result" || typeof b.tool_use_id !== "string") {
           continue;
@@ -802,6 +801,7 @@ export function mapClaudeMessageToEvents(args: {
           type: "tool_result",
           tool_use_id: b.tool_use_id,
           output,
+          ...(typeof b.is_error === "boolean" ? { isError: b.is_error } : {}),
         });
       }
       return [...historyEvents, ...toolResultEvents];

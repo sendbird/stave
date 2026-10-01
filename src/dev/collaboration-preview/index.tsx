@@ -81,6 +81,7 @@ function CollaborationPreviewContent() {
   const inspector = search.has("inspector");
   const managed = search.has("managed");
   const attention = search.has("attention");
+  const agentEvidence = search.has("agentEvidence");
   const panelWidth = Number(search.get("panelWidth"));
   // Keep the root class in the same commit as the preview control state so the
   // top-level design provider observes one coherent palette change.
@@ -92,6 +93,15 @@ function CollaborationPreviewContent() {
       ? {
           ...message,
           turnId: "preview-turn",
+          ...(agentEvidence ? { agentProvenance: {
+            version: 1 as const, turnId: "preview-turn", assignmentId: "preview-assignment", role: "primary" as const,
+            agentConfigId: "saved-agent", agentName: "Saved implementation Agent",
+            agentContentHash: "abcdef1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcd",
+            providerId: "codex" as const, model: "requested-model", effort: "low",
+            permission: { source: "agent-ceiling" as const, agentLimit: "read-only" as const, support: "enforced" as const,
+              applied: { codexFileAccess: "read-only", codexApprovalPolicy: "on-request", codexNetworkAccess: false } },
+            instructions: { channel: "instruction" as const, status: "configured" as const },
+          } } : {}),
           startedAt: "2026-07-31T00:00:00.000Z",
           completedAt: "2026-07-31T00:00:08.000Z",
           usage: { inputTokens: 1200, outputTokens: 400 },

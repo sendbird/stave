@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { RunLedgerStore } from "../electron/persistence/run-ledger-store";
+import { AgentAssignmentStore } from "../electron/persistence/agent-assignment-store";
+import { createAssignRuntime } from "../electron/host-service/supervision/assign-runtime";
 import {
   createDelegatedTaskCoordinator,
   type DelegatedTaskHostPort,
@@ -28,14 +30,18 @@ function ledger(store: RunLedgerStore): DelegatedTaskLedgerPort {
     cancelRunStep: (args) => store.cancelStep(args),
     interruptRunStep: (args) => store.interruptStep(args),
     setRunStepTarget: (args) => store.setStepTarget(args),
+    listHeldWriterRunAggregates: () => store.listHeldWriterAggregates(),
+    acquireRunWriterLease: (args) => store.acquireWriterLease(args),
     listRunReceipts: (args) => store.listReceipts(args),
     listRunAggregatesByOrigin: (args) => store.listAggregatesByOrigin(args),
     listActiveRunAggregatesByStepKind: (args) => store.listActiveAggregatesByStepKind(args),
   };
 }
 
-function harness(options: { head?: string | null; parentPermission?: AgentPermission | null; allowed?: string[] | null } = {}) {
+function harness(options: { head?: string | null; parentPermission?: AgentPermission | null; allowed?: string[] | null; parentCanCall?: string[] | null; failFirstTurn?: boolean; failRecording?: boolean } = {}) {
   const store = new RunLedgerStore(new Database(":memory:"));
+  const assignmentStore = new AgentAssignmentStore(new Database(":memory:"));
+  const assignments = createAssignRuntime({ store: assignmentStore });
   const runs: Array<Record<string, unknown>> = [];
   const host: DelegatedTaskHostPort = {
     resolveWorkspace: async ({ workspaceId }) =>
@@ -45,7 +51,10 @@ function harness(options: { head?: string | null; parentPermission?: AgentPermis
     createWorkspace: async ({ name }) => ({ workspaceId: `ws-${name}`, workspacePath: `${REPOSITORY_PATH}/${name}`, repositoryPath: REPOSITORY_PATH }),
     getTaskStatus: async () => IDLE,
     runTask: async (args) => {
-      runs.push({ ...args });
+      const policy = assignments.prepareTurn({ turnId: `turn-${runs.length + 1}`, taskId: args.taskId,
+        providerId: args.providerId, prompt: args.prompt, runtimeOptions: { model: args.model } });
+      runs.push({ ...args, instructions: policy?.runtimeOptions.agentInstructions, provenance: policy?.provenance });
+      if (options.failFirstTurn && runs.length === 1) throw new Error("Provider startup failed");
       return { turnId: `turn-${runs.length}` };
     },
     stopTask: async () => ({ stopped: true }),
@@ -58,6 +67,7 @@ function harness(options: { head?: string | null; parentPermission?: AgentPermis
     getLedger: () => ledger(store),
     host,
     concurrencyLimit: 3,
+    canonicalWorkspacePath: async (workspacePath) => workspacePath,
     now: () => new Date(Date.UTC(2026, 8, 29, 0, 0, clock++)).toISOString(),
     createExecutionId: () => `execution-${clock}`,
     readHead: async () => (options.head === undefined ? HEAD : options.head),
@@ -68,12 +78,20 @@ function harness(options: { head?: string | null; parentPermission?: AgentPermis
         args,
         agent,
         parentPermission: options.parentPermission ?? null,
+        parentCanCall: options.parentCanCall,
         allowedAgentIds: options.allowed ?? null,
       });
-      return result.ok ? { ok: true, args: result.args, agentContentHash: result.snapshot.contentHash } : { ok: false, message: result.message };
+      return result.ok ? { ok: true, args: { ...result.args, prompt: args.prompt },
+        agentContentHash: result.snapshot.contentHash, snapshot: result.snapshot } : { ok: false, message: result.message };
+    },
+    recordAgentAssignment: async ({ snapshot, executionId, target, repositoryPath, prompt, model }) => {
+      if (options.failRecording) throw new Error("Assignment storage failed");
+      assignments.recordTaskAgent({ requestId: `delegated:${executionId}`, taskId: target.taskId,
+        workspaceId: target.workspaceId, repositoryPath, agent: snapshot.agent, role: "delegate",
+        assignment: prompt, providerId: target.providerId, model: model ?? null });
     },
   });
-  return { coordinator, runs, store };
+  return { coordinator, runs, store, assignments, agents };
 }
 
 function args(overrides: Partial<DelegateTaskArgs> = {}): DelegateTaskArgs {
@@ -99,8 +117,8 @@ describe("delegating to an agent", () => {
     expect(response.accepted).toBe(true);
     await Bun.sleep(5);
     expect(runs).toHaveLength(1);
-    expect(String(runs[0]!.prompt)).toStartWith("# Agent: Strict reviewer");
-    expect(String(runs[0]!.prompt)).toContain("Review the last commit.");
+    expect(runs[0]!.prompt).toBe("Review the last commit.");
+    expect(String(runs[0]!.instructions)).toStartWith("# Agent: Strict reviewer");
     // Auto was asked for; a read-only agent delegates with the narrowest profile.
     expect(runs[0]!.permissionProfile).toBe("manual");
   });
@@ -118,11 +136,67 @@ describe("delegating to an agent", () => {
     expect([...outside.runs, ...readOnlyParent.runs]).toHaveLength(0);
   });
 
+  test("host Can call authority lets a read-only coordinator delegate within user child permissions", async () => {
+    const authorized = harness({ parentPermission: "read-only", parentCanCall: ["implementer"] });
+    const response = await authorized.coordinator.delegate(args({ agentConfigId: "implementer", permissionProfile: "guided" }));
+    await authorized.coordinator.waitForInFlight();
+    expect(response.accepted).toBe(true);
+    expect(authorized.runs).toHaveLength(1);
+    expect(authorized.runs[0]!.permissionProfile).toBe("guided");
+    const denied = harness({ parentPermission: "read-only", parentCanCall: [] });
+    expect((await denied.coordinator.delegate(args({ agentConfigId: "implementer" }))).accepted).toBe(false);
+    expect(denied.runs).toHaveLength(0);
+  });
+
   test("a delegation without an agent is unchanged", async () => {
     const { coordinator, runs } = harness();
     await coordinator.delegate(args());
     await Bun.sleep(5);
     expect(runs[0]).toMatchObject({ prompt: "Review the last commit.", permissionProfile: "auto" });
+  });
+  test("follow-up uses the sealed delegate after library edits and a fresh provider session", async () => {
+    const h = harness();
+    await h.coordinator.delegate(args({ agentConfigId: "strict-reviewer", lifecycle: "detached" }));
+    await h.coordinator.waitForInFlight();
+    const first = h.runs[0]!;
+    const changed = { ...h.agents.get("strict-reviewer")!, instructions: "New library version", canCall: [] };
+    h.agents.set("strict-reviewer", changed);
+    const followupPrompt = "\n# Agent: User text\n---\nPlease answer this verbatim.\n";
+    const parked = (await h.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: "review" }))!;
+    expect((await h.coordinator.followUp({ parentTaskId: PARENT_TASK, delegationKey: "review", prompt: followupPrompt,
+      expected: { delegatedTaskId: parked.delegatedTaskId, delegatedWorkspaceId: parked.delegatedWorkspaceId, attempt: parked.attempt } })).accepted).toBe(true);
+    await h.coordinator.waitForInFlight();
+    expect(h.runs[1]!.instructions).toBe(first.instructions);
+    expect(h.runs[1]!.prompt).toBe(followupPrompt.trim());
+    expect(h.runs[1]!.provenance).toMatchObject({ ...first.provenance as object, turnId: "turn-2" });
+    expect(h.assignments.agentForTask(String(first.taskId))?.instructions).not.toBe(changed.instructions);
+  });
+  test("retry records the explicitly selected new revision after failed startup", async () => {
+    const h = harness({ failFirstTurn: true });
+    await h.coordinator.delegate(args({ agentConfigId: "strict-reviewer" }));
+    await h.coordinator.waitForInFlight();
+    h.agents.set("strict-reviewer", { ...h.agents.get("strict-reviewer")!, instructions: "New retry instructions" });
+    const failed = (await h.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: "review" }))!;
+    const retried = await h.coordinator.retry({ repositoryPath: REPOSITORY_PATH, parentWorkspaceId: PARENT_WORKSPACE,
+      parentTaskId: PARENT_TASK, delegationKey: "review", prompt: "Try again.",
+      expected: { delegatedTaskId: failed.delegatedTaskId, delegatedWorkspaceId: failed.delegatedWorkspaceId, attempt: failed.attempt } });
+    expect(retried.accepted).toBe(true);
+    await h.coordinator.waitForInFlight();
+    expect(h.runs[1]!.instructions).toContain("New retry instructions");
+    const first = h.runs[0]!.provenance as { agentContentHash: string; assignmentId: string };
+    const second = h.runs[1]!.provenance as typeof first;
+    expect(second.assignmentId).not.toBe(first.assignmentId);
+    expect(second.agentContentHash).not.toBe(first.agentContentHash);
+    const child = (await h.coordinator.list({ parentTaskId: PARENT_TASK }))[0]!;
+    const claims = h.store.listReceipts({ runId: child.runId }).filter((receipt) => receipt.type === "accepted");
+    expect(claims.map((claim) => claim.detail?.agentContentHash)).toEqual([first.agentContentHash, second.agentContentHash]);
+  });
+  test("failed snapshot recording refuses child startup without invented provenance", async () => {
+    const h = harness({ failRecording: true });
+    await h.coordinator.delegate(args({ agentConfigId: "strict-reviewer" }));
+    await h.coordinator.waitForInFlight();
+    expect(h.runs).toHaveLength(0);
+    expect((await h.coordinator.get({ parentTaskId: PARENT_TASK, delegationKey: "review" }))?.phase).toBe("failed");
   });
 });
 

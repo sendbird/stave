@@ -104,6 +104,10 @@ input.on("line", (line) => {
     return;
   }
   if (method === "session/load") {
+    if (scenario === "echo-session-resume-failure") {
+      send({ jsonrpc: "2.0", id, error: { code: -32000, message: "Session missing" } });
+      return;
+    }
     result(id, {});
     return;
   }
@@ -183,7 +187,7 @@ input.on("line", (line) => {
     return;
   }
   pendingPromptId = id;
-  if (scenario === "echo-session") {
+  if (scenario === "echo-session" || scenario === "echo-session-resume-failure") {
     update({
       sessionUpdate: "agent_message_chunk",
       content: {

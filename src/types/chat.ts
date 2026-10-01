@@ -1,3 +1,4 @@
+import type { AgentTurnProvenance } from "../lib/agents/turn-provenance";
 import type { ModelExecution } from "@/lib/providers/model-execution";
 import type { LensAnnotation } from "@/lib/lens/lens.types";
 // Type-only, and `provider.types` imports this module the same way, so the
@@ -260,6 +261,8 @@ export interface ToolUsePart extends MessagePartBase {
   toolName: string;
   input: string;
   output?: string;
+  /** A real process exit status; absent when the provider did not supply one. */
+  exitCode?: number | null;
   state:
     "input-streaming" | "input-available" | "output-available" | "output-error";
   elapsedSeconds?: number;
@@ -392,6 +395,7 @@ export interface ChatMessage {
   /** Explanation captured for an automatic primary-model routing decision. */
   modelResolution?: AutoRoutingModelResolution;
   modelExecution?: ModelExecution;
+  agentProvenance?: AgentTurnProvenance;
   content: string;
   displayContent?: string;
   startedAt?: string;
@@ -399,6 +403,7 @@ export interface ChatMessage {
   isStreaming?: boolean;
   /** Terminal provider reason for this exact turn, persisted with the row. */
   terminalStopReason?: string;
+  terminalReceipt?: import("@/lib/providers/turn-terminal-receipt").TurnTerminalReceipt;
   isPlanResponse?: boolean;
   planText?: string;
   planReview?: {

@@ -172,12 +172,14 @@ export interface MissionRuntimeDependencies {
   resolveMissionGrant: (missionKey: string) => MissionStageGrant | null;
   resolveWorkspacePath: (workspaceId: string) => Promise<string | null>;
   readHeadSha: (cwd: string) => Promise<string | null>;
+  readWorkspaceRevision?: (cwd: string) => Promise<import("../../../src/lib/missions/verification-contract").WorkspaceRevision>;
   collectStageFacts: (args: {
     workspaceId: string;
     taskId: string;
     cwd: string | null;
     startHeadSha: string | null;
     turnIds: ReadonlySet<string>;
+    currentTurnId?: string;
   }) => Promise<StageFacts>;
   /** What a mission that ended short of its goal left behind. */
   readWorkspaceState?: (cwd: string | null) => Promise<MissionWorkspaceState>;
@@ -426,8 +428,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     return sumTurnUsage(samples);
   }
 
-  function detailOf(missionId: string, report: MissionReport | null = null): MissionDetail {
-    const aggregate = requireAggregate(missionId);
+  function detailOf(missionId: string, report: MissionReport | null = null, aggregate = requireAggregate(missionId)): MissionDetail {
     const usage = usageOf(aggregate.mission);
     return {
       mission: aggregate.mission,
@@ -587,7 +588,9 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         cwd: await deps.resolveWorkspacePath(mission.workspaceId),
         startHeadSha: record.startHeadSha,
         turnIds,
+        currentTurnId: last.turnId,
       });
+      facts = { ...facts, currentTurnId: last.turnId };
     } catch (error) {
       console.warn("[missions] failed to collect stage facts", error, { missionId: mission.id });
       return aggregate;
@@ -747,11 +750,13 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
     actionOutcomes.set(stageKey(record), outcome);
     if (lastSequence() !== sequenceBefore) emit(current.mission);
     if (outcome.status === "succeeded") {
+      const cwd = await deps.resolveWorkspacePath(current.mission.workspaceId);
+      const workspaceRevision = cwd && deps.readWorkspaceRevision ? await deps.readWorkspaceRevision(cwd) : { status: "unknown" as const, reason: "unavailable" as const };
       // The report reads the result from the stage's facts, as verified evidence.
       applyChange({
         mission: current.mission,
         upserts: [
-          { ...record, facts: { ...(record.facts ?? EMPTY_STAGE_FACTS), action: outcome.result } },
+          { ...record, facts: { ...(record.facts ?? EMPTY_STAGE_FACTS), action: outcome.result, workspaceRevision } },
         ],
         events: [],
       });
@@ -945,9 +950,14 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
   }
 
   async function getDetail({ missionId }: MissionIdArgs): Promise<MissionDetail> {
-    const aggregate = requireAggregate(missionId);
+    let aggregate = requireAggregate(missionId);
     const { mission } = aggregate;
-    if (isActiveMissionState(mission.state)) return detailOf(missionId);
+    if (deps.readWorkspaceRevision && aggregate.stages.some((stage) => stage.facts?.action?.type === "run-script" && stage.facts.action.verification)) {
+      const cwd = await deps.resolveWorkspacePath(mission.workspaceId).catch(() => null);
+      const workspaceRevision = cwd ? await deps.readWorkspaceRevision(cwd).catch(() => ({ status: "unknown" as const, reason: "unavailable" as const })) : { status: "unknown" as const, reason: "unavailable" as const };
+      aggregate = { ...aggregate, stages: aggregate.stages.map((stage) => stage.facts ? { ...stage, facts: { ...stage.facts, workspaceRevision } } : stage) };
+    }
+    if (isActiveMissionState(mission.state)) return detailOf(missionId, null, aggregate);
     let workspace = EMPTY_WORKSPACE_STATE;
     if (mission.state !== "completed" && deps.readWorkspaceState) {
       const cwd = await deps.resolveWorkspacePath(mission.workspaceId).catch(() => null);
@@ -961,6 +971,7 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         endedAt: new Date(mission.updatedAt),
         events: store.listRecentEvents(missionId, MISSION_LIMITS.maxRetainedEvents),
       }),
+      aggregate,
     );
   }
 

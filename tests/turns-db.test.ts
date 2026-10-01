@@ -1,3 +1,4 @@
+import { createTurnReceipt, observeTurnEvent, finishTurnReceipt } from "@/lib/providers/turn-terminal-receipt";
 import { afterEach, describe, expect, test } from "bun:test";
 import {
   listActiveWorkspaceTurns,
@@ -28,6 +29,10 @@ describe("turn summary data access", () => {
             providerId: "kiro",
             createdAt: "2026-03-09T00:00:00.000Z",
             completedAt: "2026-03-09T00:00:02.000Z",
+            terminalReceipt: finishTurnReceipt(
+              observeTurnEvent(createTurnReceipt(), { type: "done" }),
+              "2026-03-09T00:00:02.000Z",
+            ),
           }],
         }),
       },
@@ -41,6 +46,7 @@ describe("turn summary data access", () => {
     expect(turns).toHaveLength(1);
     expect(turns[0]?.id).toBe("turn-1");
     expect(turns[0]?.providerId).toBe("kiro");
+    expect(turns[0]?.terminalReceipt?.outcome).toBe("failed");
   });
 
   test("lists the latest turn for each task in a workspace", async () => {

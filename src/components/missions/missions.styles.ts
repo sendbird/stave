@@ -334,17 +334,17 @@ export const missionStyles = stylex.create({
 
   /* Evidence --------------------------------------------------------------- */
   evidence: {
-    display: "grid",
-    gridTemplateColumns: "auto minmax(0, 1fr) auto",
-    alignItems: "baseline",
-    columnGap: vars["--ads-space-8"],
+    display: "flex",
+    flexDirection: "column",
+    gap: vars["--ads-space-4"],
     minWidth: 0,
     fontSize: vars["--ads-font-size-caption"],
     lineHeight: vars["--ads-line-height-normal"],
   },
-  evidenceBadge: { alignSelf: "center" },
-  evidenceLabel: { minWidth: 0, overflowWrap: "anywhere", color: vars["--ads-color-text"] },
-  evidenceCommand: { display: "block", color: vars["--ads-color-text-muted"] },
+  evidenceHeading: { display: "flex", alignItems: "baseline", gap: vars["--ads-space-8"], minWidth: 0 },
+  evidenceMetadata: { display: "flex", alignItems: "center", flexWrap: "wrap", gap: vars["--ads-space-8"], color: vars["--ads-color-text-muted"] },
+  evidenceLabel: { flex: "1 1 auto", minWidth: 0, overflowWrap: "anywhere", color: vars["--ads-color-text"] },
+  evidenceCommand: { display: "block", overflowWrap: "anywhere", color: vars["--ads-color-text-muted"] },
 
   /* Report ----------------------------------------------------------------- */
   shareForm: {

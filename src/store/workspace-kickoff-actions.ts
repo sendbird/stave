@@ -77,6 +77,12 @@ export interface KickoffWorkspaceArgs {
     taskId: string;
     prompt: string;
   }) => Promise<void>;
+  /**
+   * Where the first task goes. By default Kickoff creates a worktree for it;
+   * an agent that works in the current workspace gets a new task there
+   * instead, with no worktree and no Information panel seed.
+   */
+  target?: { kind: "current-workspace"; workspaceId: string };
 }
 
 export interface KickoffWorkspaceResult {
@@ -306,8 +312,51 @@ export function createWorkspaceKickoffResolver(args: {
 
 type KickoffWorkspaceState = Pick<
   AppState,
-  "createWorkspace" | "updatePromptDraft" | "sendUserMessage"
+  | "createWorkspace"
+  | "updatePromptDraft"
+  | "sendUserMessage"
+  | "createTask"
+  | "setTaskProvider"
+  | "activeWorkspaceId"
+  | "activeTaskId"
 >;
+
+/**
+ * A new task in the workspace the user is in, for an agent that works where
+ * the user is. Its prompt and overrides are saved before any send, like a
+ * kickoff workspace's first task.
+ */
+function createKickoffTaskInCurrentWorkspace(args: {
+  getState: () => KickoffWorkspaceState;
+  workspaceId: string;
+  title: string;
+  provider?: ProviderId;
+  prompt: string;
+  runtimeOverrides?: PromptDraftRuntimeOverrides;
+}): KickoffWorkspaceResult {
+  const before = args.getState();
+  if (before.activeWorkspaceId !== args.workspaceId) {
+    return {
+      ok: false,
+      message: "Open the workspace this agent works in, then start again.",
+    };
+  }
+  const previousTaskId = before.activeTaskId;
+  before.createTask({ title: args.title });
+  const after = args.getState();
+  const taskId = after.activeTaskId;
+  if (!taskId || taskId === previousTaskId) {
+    return { ok: false, message: "The task could not be created." };
+  }
+  if (args.provider) {
+    after.setTaskProvider({ taskId, provider: args.provider });
+  }
+  after.updatePromptDraft({
+    taskId,
+    patch: { text: args.prompt, runtimeOverrides: args.runtimeOverrides },
+  });
+  return { ok: true, workspaceId: args.workspaceId, taskId };
+}
 
 export async function runWorkspaceKickoff(args: {
   input: KickoffWorkspaceArgs;
@@ -319,24 +368,36 @@ export async function runWorkspaceKickoff(args: {
     args.input.extraInstructions,
   );
   const runtimeOverrides = args.input.firstTaskRuntimeOverrides;
-  const createResult = await args.getState().createWorkspace({
-    name: proposal.branchName,
-    label: proposal.workspaceLabel,
-    mode: "branch",
-    fromBranch: args.input.fromBranch,
-    fromBranchKind: args.input.fromBranchKind,
-    initialTaskTitle: proposal.firstTaskTitle,
-    initialTaskProvider: args.input.firstTaskProvider,
-    initialPromptDraft: {
-      text: prompt,
-      runtimeOverrides,
-      attachedFilePaths: [],
-      attachments: [],
-    },
-    workspaceInformation: buildWorkspaceInformationSeed(proposal),
-  });
+  const target = args.input.target;
+  const createResult = target
+    ? createKickoffTaskInCurrentWorkspace({
+        getState: args.getState,
+        workspaceId: target.workspaceId,
+        title: proposal.firstTaskTitle,
+        provider: args.input.firstTaskProvider,
+        prompt,
+        runtimeOverrides,
+      })
+    : await args.getState().createWorkspace({
+        name: proposal.branchName,
+        label: proposal.workspaceLabel,
+        mode: "branch",
+        fromBranch: args.input.fromBranch,
+        fromBranchKind: args.input.fromBranchKind,
+        initialTaskTitle: proposal.firstTaskTitle,
+        initialTaskProvider: args.input.firstTaskProvider,
+        initialPromptDraft: {
+          text: prompt,
+          runtimeOverrides,
+          attachedFilePaths: [],
+          attachments: [],
+        },
+        workspaceInformation: buildWorkspaceInformationSeed(proposal),
+      });
   if (!createResult.ok) return createResult;
   const { taskId } = createResult;
+  // A current-workspace start made a task, not a workspace.
+  const made = target ? "Task created." : "Workspace created.";
   const warning = (
     message: string,
     startup: "blocked" | "unknown",
@@ -348,7 +409,7 @@ export async function runWorkspaceKickoff(args: {
   });
   if (!taskId || !prompt) {
     return warning(
-      "Workspace created. Open its task to review the saved prompt before starting.",
+      `${made} Open its task to review the saved prompt before starting.`,
       "blocked",
     );
   }
@@ -370,7 +431,7 @@ export async function runWorkspaceKickoff(args: {
           patch: { text: prompt, runtimeOverrides },
         });
       return warning(
-        "Workspace created. The task's agent could not be recorded, so its prompt is ready in the composer instead of starting.",
+        `${made} The task's agent could not be recorded, so its prompt is ready in the composer instead of starting.`,
         "blocked",
       );
     }
@@ -397,19 +458,19 @@ export async function runWorkspaceKickoff(args: {
           patch: { text: prompt, runtimeOverrides },
         });
       return warning(
-        "Workspace created. The first task could not start; its prompt is ready in the composer.",
+        `${made} The first task could not start; its prompt is ready in the composer.`,
         "blocked",
       );
     }
     return warning(
-      "Workspace created. Check the task's messages before sending again; startup could not be confirmed.",
+      `${made} Check the task's messages before sending again; startup could not be confirmed.`,
       "unknown",
     );
   } catch {
     // The task was already persisted with its prompt. A thrown send may have
     // submitted work, so preserve its state and never automatically resend.
     return warning(
-      "Workspace created. Check the task's messages and saved prompt before sending again; startup could not be confirmed.",
+      `${made} Check the task's messages and saved prompt before sending again; startup could not be confirmed.`,
       "unknown",
     );
   }

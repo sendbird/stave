@@ -37,7 +37,8 @@ Use these words in code, UI copy, and plans. Do not introduce synonyms.
 | Agent | A saved worker definition: instructions, skills, a model choice, tool limits, a default permission and a workspace. Built-in, Custom, or From repository. It grants no permissions and starts nothing. Code: `AgentConfig` in `src/lib/agents/`, referenced as `agentConfigId` — never `agentId`, which names a provider worker on normalized events, and never `AgentDefinition`, the Claude Agent SDK's subagent type. |
 | Agent role | Where an agent can be used: `primary` (Main agent of a task), `worker` (the turn-scoped Worker), `delegate` (a delegated task). The same words as the auto-routing roles. Code: `usableAs`. |
 | Agent snapshot | The copy of an agent taken when work starts, with its content hash ("Version used"). Later edits never reach a run. |
-| Intake | The one sequence that turns a request into a workspace, an idle task and optionally a mission: `electron/host-service/supervision/intake.ts`. Its caller records the idempotency key and each id it reports. "Assign" in the product. |
+| Intake | The one sequence that turns a project's request into a workspace, an idle task and optionally a mission: `electron/host-service/supervision/intake.ts`. Its caller records the idempotency key and each id it reports. |
+| Assign | Handing work to an agent as a task's main agent. Kickoff creates the worktree (or, for an agent that works in the current workspace, a task there) and records the agent before the first turn, which is sent like any composer turn. Code: `AgentAssignment`, recorded by `assign-runtime.ts`. |
 
 Lane names for workspace state are fixed and ordered:
 `action-required` > `in-progress` > `in-review` > `idle`.
@@ -228,7 +229,8 @@ whose name repeats it.
 13. A saved agent grants no permissions; every start records its own consent.
 14. Saving or editing an agent never creates a workspace, a task or a process.
 15. A run follows the snapshot taken at its start; later edits never reach it.
-16. Work for an agent starts only through intake or a delegation; a delegation
+16. Work for an agent starts only through Kickoff, a project's intake, or a
+    delegation, and is recorded before its first turn; a delegation
     to an agent never runs wider than the delegating task's own agent, never
     names an agent outside its project's Agents, and work pinned to a commit
     never starts on another.

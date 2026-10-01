@@ -14,6 +14,7 @@
  * Pure: no clock, no I/O. Callers pass `now` and ids.
  */
 import { z } from "zod";
+import { ScriptVerificationSchema, WorkspaceRevisionSchema } from "./verification-contract";
 import { AUTOMATION_PERMISSION_MODES } from "@/lib/automations";
 import {
   CHECK_INS,
@@ -196,6 +197,7 @@ export const AcceptanceCriterionSchema = z
   .object({
     text: z.string().trim().min(1).max(limits.criterionText),
     status: z.enum(ACCEPTANCE_CRITERION_STATUSES),
+    required: z.boolean().optional(),
   })
   .strict();
 
@@ -314,6 +316,7 @@ export const ActionResultSchema = z.discriminatedUnion("type", [
       type: z.literal("run-script"),
       scriptId: z.string().trim().min(1).max(120),
       exitCode: z.number().int(),
+      verification: ScriptVerificationSchema.optional(),
       /** The last web address the script printed, such as a preview URL. */
       url: UrlSchema.optional(),
       /** The end of its output. */
@@ -341,6 +344,10 @@ export const StageFactsSchema = z
             command: z.string().min(1).max(limits.command),
             exitCode: z.number().int().nullable(),
             toolCallId: IdSchema.nullable(),
+            turnId: IdSchema.optional(),
+            outcome: z.enum(["succeeded", "failed", "unknown"]).optional(),
+            provenance: z.enum(["provider-structured", "stave-runner"]).optional(),
+            sourceRevision: WorkspaceRevisionSchema.optional(),
           })
           .strict(),
       )
@@ -352,11 +359,14 @@ export const StageFactsSchema = z
             toolCallId: IdSchema,
             name: z.string().min(1).max(200),
             ok: z.boolean(),
+            turnId: IdSchema.optional(),
           })
           .strict(),
       )
       .max(MISSION_LIMITS.facts.toolCalls),
     action: ActionResultSchema.nullable(),
+    currentTurnId: IdSchema.optional(),
+    workspaceRevision: WorkspaceRevisionSchema.optional(),
   })
   .strict();
 export type StageFacts = z.infer<typeof StageFactsSchema>;
@@ -397,6 +407,7 @@ export const STAGE_BLOCK_REASONS = [
   "agent-blocked",
   "reporting-unavailable",
   "action-failed",
+  "acceptance-unmet",
 ] as const;
 export type StageBlockReason = (typeof STAGE_BLOCK_REASONS)[number];
 

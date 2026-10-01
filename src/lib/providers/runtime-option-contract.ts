@@ -273,6 +273,7 @@ export type ProviderRuntimeOptionKeyContractIsValid = Assert<
 >;
 
 export const NORMALIZED_PROVIDER_EVENT_TYPES = [
+  "agent_provenance",
   "thinking",
   "text",
   "provider_session",

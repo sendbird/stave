@@ -288,6 +288,13 @@ export interface ResolveAutoRoutingDecisionArgs {
   rateLimitsSnapshot?: RateLimitsSnapshotResponse | null;
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
   runtimeModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
+  /**
+   * The task class of the agent the task runs as, when it names one. A
+   * confident classification wins; the agent's class is used when the intent
+   * is unclear or classification is unavailable (local rules only), in place
+   * of the keyword guess. A safety escalation always wins.
+   */
+  taskClassHint?: TaskClass;
   classifierTimeoutMs?: number;
   signal?: AbortSignal;
   /**
@@ -758,6 +765,22 @@ function toCodexEffort(
     : resolveDefaultCodexEffortForModel({ model });
 }
 
+/**
+ * A route's effort as the provider's effort option, for routes resolved
+ * outside a send (an agent's pinned route). Nothing when no effort is named,
+ * so the user's effort setting applies.
+ */
+export function routeEffortOverrides(args: {
+  providerId: ProviderId;
+  model: string;
+  effort: string | undefined;
+}): Pick<ProviderRuntimeOptions, "claudeEffort" | "codexReasoningEffort"> {
+  if (!args.effort) return {};
+  if (args.providerId === "claude-code") return { claudeEffort: toClaudeEffort(args.effort, args.model) };
+  if (args.providerId === "codex") return { codexReasoningEffort: toCodexEffort(args.effort, args.model) };
+  return {};
+}
+
 function routeTierToModelTier(route: ResolvedRoute): ModelTier {
   switch (route.tier) {
     case "frontier":
@@ -836,7 +859,9 @@ export function computeRouterSignals(args: {
   providerAvailability?: Partial<Record<ProviderId, boolean>>;
   runtimeModelsByProvider?: Partial<Record<ProviderId, readonly string[]>>;
   classifier?: AutoRoutingClassifierResult | null;
-}): { signals: RouterSignals; heuristic: HeuristicRoute } {
+  /** See `ResolveAutoRoutingDecisionArgs.taskClassHint`. */
+  taskClassHint?: TaskClass;
+}): { signals: RouterSignals; heuristic: HeuristicRoute; usedTaskClassHint: boolean } {
   const continuing = /^(?:계속(?:해|해줘|해봐|하자)?|진행(?:해|해줘|해봐)?|ㅇㅇ|응|네|continue|go ahead|proceed)[.!\s]*$/i.test(args.prompt.trim());
   const priorPrompt = continuing
     ? args.history.slice(-6).reverse().find((message) => message.role === "user")?.content
@@ -872,13 +897,20 @@ export function computeRouterSignals(args: {
   const sensitive = classification
     ? classification.risk === "high"
     : heuristic.sensitive;
-  const taskClass = classification
+  const derivedTaskClass = classification
     ? sensitive && args.profile.signals.safetyEscalation
       ? "safety-critical"
       : intentClass[classification.intent]
     : heuristic.taskClass;
+  // The agent's class only fills in for an unclear or missing classification.
+  const confidentlyClassified = Boolean(classification && classification.intent !== "unknown");
+  const usedTaskClassHint = Boolean(
+    args.taskClassHint && !confidentlyClassified && derivedTaskClass !== "safety-critical",
+  );
+  const taskClass = usedTaskClassHint && args.taskClassHint ? args.taskClassHint : derivedTaskClass;
   return {
     heuristic,
+    usedTaskClassHint,
     signals: {
       taskClass,
       complexity: classification
@@ -1026,7 +1058,7 @@ export async function resolveAutoRoutingDecision(
   }
 
   if (args.signal?.aborted) throw new DOMException("Auto routing cancelled", "AbortError");
-  const { signals, heuristic } = computeRouterSignals({
+  const { signals, heuristic, usedTaskClassHint } = computeRouterSignals({
     prompt: args.prompt,
     fileContextCount,
     history: args.history,
@@ -1038,6 +1070,7 @@ export async function resolveAutoRoutingDecision(
     providerAvailability: args.providerAvailability,
     runtimeModelsByProvider: args.runtimeModelsByProvider,
     classifier,
+    ...(args.taskClassHint ? { taskClassHint: args.taskClassHint } : {}),
   });
 
   // Stickiness still decides which provider "any-eligible" means: a classifier
@@ -1065,13 +1098,16 @@ export async function resolveAutoRoutingDecision(
   const confidence = null;
   const classifierSkipped =
     !classifier && args.classifierSignal?.aborted === true;
-  const rationale = classifier
+  const classifiedRationale = classifier
     ? `${classifier.intent}, ${classifier.complexity} complexity, ${classifier.risk} risk, ${classifier.continuity}`
     : source === "classifier_fallback"
       ? classifierSkipped
         ? AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE
         : AUTO_ROUTING_CLASSIFIER_UNAVAILABLE_RATIONALE
       : heuristic.rationale;
+  const rationale = usedTaskClassHint
+    ? `${classifiedRationale}; routed as the agent's ${signals.taskClass} work`
+    : classifiedRationale;
 
   return buildDecision({
     providerId: route.providerId,

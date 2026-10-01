@@ -1,6 +1,7 @@
 import { getProviderAccountRegistry } from "../provider-accounts/registry";
 import { currentProviderAccountId, providerAccountKey, withProviderAccountScope } from "../provider-accounts/runtime-scope";
 import { createCodexModelResolutionTracker } from "./codex-model-resolution";
+import { buildCodexCommandResult } from "./codex-command-result";
 import { createCodexTurnNotificationGate } from "./codex-turn-notification-gate";
 import { beginCodexInterruptedThreadCleanup, createCodexOrphanTurnCleanup } from "./codex-orphan-turn-cleanup";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
@@ -2983,6 +2984,7 @@ export async function streamCodexWithAppServer(
                   command?: string;
                   aggregatedOutput?: string | null;
                   status?: string;
+                  exitCode?: number | null;
                 };
                 if (itemId) {
                   toolOutputLastEmitAt.delete(itemId);
@@ -3018,15 +3020,7 @@ export async function streamCodexWithAppServer(
                           state: "input-available" as const,
                         },
                       ]),
-                  {
-                    type: "tool_result",
-                    tool_use_id: itemId,
-                    output,
-                    ...(commandItem.status === "failed" ||
-                    commandItem.status === "declined"
-                      ? { isError: true }
-                      : {}),
-                  },
+                  buildCodexCommandResult({ ...commandItem, id: itemId }, output),
                 ]);
                 return;
               }

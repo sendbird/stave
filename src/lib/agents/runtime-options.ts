@@ -1,7 +1,7 @@
 import type { ProviderId, ProviderRuntimeOptions } from "@/lib/providers/provider.types";
-import { compileAgent, snapshotAgent, type CompiledPrimary } from "./compile";
+import { compileAgent, snapshotAgent, type CompiledPrimary, type CompiledDelegate } from "./compile";
 import { agentPermissionOverrides } from "./permission";
-import type { AgentConfig } from "./schema";
+import { AgentConfigSchema, type AgentConfig } from "./schema";
 import type { WorkerProviderConfig } from "@/lib/providers/worker-mode";
 
 /**
@@ -32,8 +32,8 @@ export function agentRuntimeOptions(
  * What every turn of an assigned task adds, the first included: the agent
  * version it started with, compiled for the provider this turn uses, and its
  * permission as a ceiling over the turn's own permissions (see
- * `permission.ts`). Instructions are added only when the turn does not already
- * carry them (the first turn does); the ceiling is applied to every turn, so a
+ * `permission.ts`). The saved instructions are authoritative
+ * for every turn; the ceiling is applied to every turn, so a
  * user who widens settings mid-task still runs the agent inside its limit.
  */
 export function taskAgentRuntimeOptions(args: {
@@ -45,18 +45,50 @@ export function taskAgentRuntimeOptions(args: {
 }): Partial<ProviderRuntimeOptions> {
   const base = args.base ?? {};
   // Archive state does not stop a task that already runs as the agent.
-  const compiled = compileAgent({
-    snapshot: snapshotAgent({ ...args.agent, archived: false }),
-    role: "primary",
-    providerId: args.providerId,
+  const compiled = compileTaskAgent(args);
+  return compiledTaskAgentRuntimeOptions(compiled, args.providerId, base);
+}
+
+/** Mandatory task policy is compiled once; unavailable constraints refuse execution. */
+export function compileTaskAgent(args: {
+  agent: AgentConfig;
+  providerId: ProviderId;
+  standards?: string | null;
+}): CompiledPrimary {
+  const compiled = compileTaskAgentRole({ ...args, role: "primary" });
+  if (compiled.role !== "primary") throw new Error("The task's Agent cannot run as a main agent.");
+  return compiled;
+}
+
+export function compileTaskAgentRole(args: {
+  agent: AgentConfig;
+  providerId: ProviderId;
+  standards?: string | null;
+  role: "primary" | "delegate";
+}): CompiledPrimary | CompiledDelegate {
+  const parsed = AgentConfigSchema.safeParse({ ...args.agent, archived: false });
+  if (!parsed.success) throw new Error("The task's saved Agent configuration is invalid.");
+  const result = compileAgent({
+    snapshot: snapshotAgent(parsed.data), role: args.role, providerId: args.providerId,
     ...(args.standards ? { standards: args.standards } : {}),
   });
-  const instructions =
-    !base.agentInstructions && compiled.ok && compiled.compiled.role === "primary" ? agentRuntimeOptions(compiled.compiled, base) : {};
+  if (!result.ok) throw new Error(result.message);
+  if (result.compiled.role !== "primary" && result.compiled.role !== "delegate") {
+    throw new Error("The task's Agent role is unavailable.");
+  }
+  const unavailable = result.compiled.support.find((entry) => entry.level === "unavailable");
+  if (unavailable) throw new Error(unavailable.reason ?? `The Agent's ${unavailable.field} constraint is unavailable.`);
+  return result.compiled;
+}
+
+export function compiledTaskAgentRuntimeOptions(
+  compiled: CompiledPrimary,
+  providerId: ProviderId,
+  base: ProviderRuntimeOptions = {},
+): Partial<ProviderRuntimeOptions> {
+  const instructions = agentRuntimeOptions(compiled, base);
   const permission = agentPermissionOverrides({
-    permission: args.agent.permission,
-    providerId: args.providerId,
-    options: { ...base, ...instructions },
+    permission: compiled.permission, providerId, options: { ...base, ...instructions },
   });
   return { ...instructions, ...permission };
 }

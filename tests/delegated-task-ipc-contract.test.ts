@@ -54,6 +54,7 @@ const DELEGATED_TASK_CHANNELS = [
   "delegations:list",
   "delegations:retry",
   "delegations:stop",
+  "delegations:sync-permission-settings",
 ] as const;
 
 describe("delegated task IPC chain", () => {
@@ -153,14 +154,14 @@ describe("delegated task IPC schemas", () => {
     ).toBe(true);
   });
 
-  test("a follow-up defaults to guided rather than inheriting permissions", () => {
+  test("a follow-up leaves its permission policy to the recorded delegation", () => {
     const parsed = DelegatedTaskFollowUpArgsSchema.parse({
       parentTaskId: "parent-1",
       delegationKey: "review.pass-1",
       prompt: "One more pass, please.",
       expected,
     });
-    expect(parsed.permissionProfile).toBe("guided");
+    expect(parsed.permissionProfile).toBeUndefined();
   });
 
   test("mutating controls cannot be sent without an expected identity", () => {

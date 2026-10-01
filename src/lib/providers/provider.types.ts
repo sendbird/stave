@@ -1,3 +1,4 @@
+import type { AgentTurnProvenance } from "../agents/turn-provenance";
 import type { ModelExecution } from "./model-execution";
 import type {
   CodeDiffPart,
@@ -911,6 +912,7 @@ export interface ProviderGoalSnapshot {
 }
 
 export type NormalizedProviderEvent =
+  | { type: "agent_provenance"; provenance: AgentTurnProvenance }
   | { type: "thinking"; text: string; isStreaming?: boolean }
   | { type: "text"; text: string; segmentId?: string }
   | {
@@ -1097,6 +1099,8 @@ export type NormalizedProviderEvent =
       output: string;
       isError?: boolean;
       isPartial?: boolean;
+      /** Explicit process status from a structured provider command result. */
+      exitCode?: number | null;
     }
   | {
       type: "diff";

@@ -144,10 +144,16 @@ under `src/components/layout/codex-settings/` receive that state and callbacks;
    and custom agent edits
 2. `src/lib/agents/import.ts` and `src/lib/agents/repository.ts` for reading
    repository agent files
-3. `electron/host-service/supervision/intake.ts` for the shared
-   worktree → task → start sequence, `assign-runtime.ts` for Assign and later
-   turns of an assigned task, and `electron/persistence/agent-assignment-store.ts`
-   for the `agent_assignments` records
+3. `src/components/layout/KickoffDialog.tsx` and
+   `src/store/workspace-kickoff-actions.ts` for starting work as an agent
+   (Start now and Create share one start), `assign-runtime.ts` for recording
+   the agent and resolving it on every turn of an assigned task, and
+   `electron/persistence/agent-assignment-store.ts` for the
+   `agent_assignments` records.
+   `electron/providers/task-agent-turn.ts` seals one assignment and compiles its
+   role before native execution; `src/lib/agents/turn-provenance.ts` validates
+   safe per-turn identity and configuration evidence. Replay preserves that
+   event through compaction; Run overview shows recorded facts only.
 4. `src/components/agents/` for the Agents tab and the Flow panel, with
    `src/lib/agents/flow-view.ts` projecting the flow
 5. `docs/features/agents.md` for the user flow and

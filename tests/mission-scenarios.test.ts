@@ -271,7 +271,7 @@ describe("mission scenarios", () => {
       expect.objectContaining({ url: "https://github.com/acme/app/pull/9", source: "stave" }),
     );
     const evidence = detail.report!.stages.flatMap((stage) => stage.evidence);
-    expect(evidence).toContainEqual(expect.objectContaining({ label: "Unit tests pass", source: "stave" }));
+    expect(evidence).toContainEqual(expect.objectContaining({ label: "Unit tests pass", source: "agent", freshness: "unknown" }));
     expect(evidence.some((item) => item.source === "stave" && /check/i.test(item.label))).toBe(true);
   });
 

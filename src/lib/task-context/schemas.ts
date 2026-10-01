@@ -1,4 +1,6 @@
+import { TurnTerminalReceiptSchema } from "@/lib/providers/turn-terminal-receipt";
 import { ProviderAccountProfileIdSchema } from "../providers/provider-accounts";
+import { AgentTurnProvenanceSchema } from "@/lib/agents/turn-provenance";
 import { ModelExecutionSchema } from "@/lib/providers/model-execution";
 import { WORKER_PRESET_IDS } from "../providers/worker-preset-ids";
 import {
@@ -82,6 +84,7 @@ const ToolUsePartSchema = z.object({
   toolName: z.string(),
   input: z.string(),
   output: z.string().optional(),
+  exitCode: z.number().int().nullable().optional(),
   elapsedSeconds: z.number().optional(),
   progressMessages: z.array(z.string()).optional(),
   workerExecution: WorkerExecutionMetadataSchema.optional(),
@@ -538,6 +541,7 @@ export const ChatMessageSchema = z.object({
   turnId: z.string().optional(),
   modelResolution: AutoRoutingModelResolutionSchema.optional().catch(undefined),
   modelExecution: ModelExecutionSchema.optional().catch(undefined),
+  agentProvenance: AgentTurnProvenanceSchema.optional().catch(undefined),
   modelInfo: z
     .object({
       effort: z.union([
@@ -559,6 +563,7 @@ export const ChatMessageSchema = z.object({
   completedAt: z.string().optional(),
   isStreaming: z.boolean().optional(),
   terminalStopReason: z.string().optional(),
+  terminalReceipt: TurnTerminalReceiptSchema.optional().catch(undefined),
   isPlanResponse: z.boolean().optional(),
   planText: z.string().optional(),
   planReview: z
@@ -625,6 +630,7 @@ const TaskSchema = z.object({
   id: z.string(),
   title: z.string(),
   titleManuallySet: z.boolean().optional(),
+  parentTaskId: z.string().nullable().optional(),
   provider: ProviderIdSchema,
   updatedAt: z.string(),
   unread: z.boolean(),

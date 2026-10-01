@@ -2,7 +2,7 @@ import { expect, test } from "@playwright/test";
 
 /*
  * The Agents tab on the dev preview (`?stavePreview=agents`), which seeds one
- * custom agent and a repository with agent files, and stubs the assign calls.
+ * custom agent and a repository with agent files, and stubs the agent calls.
  */
 
 test.describe("agents", () => {
@@ -19,12 +19,13 @@ test.describe("agents", () => {
     await expect(page.getByRole("button", { name: /^Reviewer/ })).toBeVisible();
   });
 
-  test("Start now in Kickoff shows where the work started and offers to open the task", async ({ page }) => {
+  test("Start now in Kickoff starts through the same Kickoff start as Create", async ({ page }) => {
     await page.goto("/?stavePreview=kickoff&agent=1");
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByText("Kick off workspace")).toBeVisible();
     await dialog.getByRole("button", { name: "Start now" }).click();
-    await expect(dialog.getByRole("button", { name: "Open task" })).toBeVisible();
+    // The preview's Kickoff start creates nothing and reports so.
+    await expect(page.getByText("Preview only. No workspace was created.")).toBeVisible();
   });
 
   test("Kickoff opens with an agent preselected in both phases", async ({ page }) => {

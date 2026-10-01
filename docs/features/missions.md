@@ -146,6 +146,35 @@ The Mission tab in the right rail:
 The task's Advisor consults, workers and delegated tasks are in the **Team**
 tab next to it, also reachable with **View team** in the task pane's menu.
 
+### Acceptance and check evidence
+
+A finished provider turn or worker does not complete a stage by itself. The
+current turn must report completion, and any required criteria authored for
+that stage must be reported **Met**. Criteria for the overall goal are checked
+at the final stage; a Build stage can hand off to Test while future checks are
+still pending. A simple answer or documentation stage requires no shell check
+unless its playbook explicitly requires one. Manual sign-off and Skip remain
+available.
+
+Playbook stage criteria support `text`, optional `required` (true by default),
+and optional `verification`. AI stages use `agent-report`: this records the
+agent's assessment. Required `stave-check` criteria belong to a **Run script**
+action stage; omitting verification on that action has the same meaning. Other
+action stages cannot require a workspace script check. To require host-observed
+tests after an AI stage, add a Run script stage using a configured workspace
+action script.
+
+Check evidence separates **Provider result** and **Agent reported** claims from
+successful host checks of unchanged work. A tool response without a structured
+process exit code has an unknown exit status, even if its text says it passed.
+Claude tool errors remain failures; Codex's structured process exit code is
+preserved. A Run script check captures the workspace state before and after
+the actual process. Required checks need exit 0 and matching known revisions.
+Changes during or after the check make its evidence stale; unavailable or
+bounded workspace snapshots show **Current work unverified**. Viewing a report
+never stamps a new revision onto an older command. Historic records without
+process or revision provenance remain unverified.
+
 ### Transcript
 
 A quiet divider marks every turn a mission started, with the reason, such as

@@ -1,3 +1,4 @@
+import type { TurnTerminalReceipt } from "./turn-terminal-receipt";
 import type { ChatMessage, PromptDraft } from "../../src/types/chat";
 import type { AppNotificationKind } from "../../src/lib/notifications/notification.types";
 import type { ReviewComment } from "../../src/types/review";
@@ -219,6 +220,7 @@ export interface PersistenceTurnSummary {
   createdAt: string;
   completedAt: string | null;
   usage: PersistenceTurnUsage | null;
+  terminalReceipt?: TurnTerminalReceipt | null;
 }
 
 export interface PersistenceLocalMcpRequestLog {

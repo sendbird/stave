@@ -8,6 +8,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import type { AgentAssignment } from "@/lib/agents/assign";
 import { duplicateAgent } from "@/lib/agents/library";
 import { revisionContentHash } from "@/lib/agents/revisions";
+import { createBlankPlaybook } from "@/lib/playbooks/library";
 import { getBuiltinAgent } from "@/lib/agents/starters";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
@@ -96,7 +97,6 @@ function installBridgeStubs() {
     return { ok: true, revision: "1" };
   };
   api.agents = {
-    assign: async () => ({ ok: true, value: PREVIEW_ASSIGNMENT }),
     recordTask: async () => ({ ok: true, value: PREVIEW_ASSIGNMENT }),
     releaseTask: async () => ({ ok: true, value: null }),
     listAssignments: async (args?: { agentConfigId?: string }) => ({
@@ -143,13 +143,14 @@ export function AgentsPreview() {
         },
         playbooks: [
           {
+            ...createBlankPlaybook({ now: new Date("2026-09-28T09:00:00.000Z"), taken: [] }),
             id: "ship-ui",
             name: "Ship a UI fix",
             purpose: "Land a small UI change and open its PR.",
             stages: [
               { id: "implement", title: "Implement", kind: "ai", instruction: "Make the change.", doneWhen: "It builds.", agentConfigId: "ui-maintainer" },
             ],
-          } as never,
+          },
         ],
       },
     });

@@ -19,6 +19,7 @@ interface ToolPart {
   toolName: string;
   input: string;
   state: "output-available" | "output-error";
+  exitCode: number | null;
 }
 
 /** Command tools as the adapters name them: Claude's `Bash`, Codex's `bash`. */
@@ -37,6 +38,7 @@ function readToolPart(part: unknown): ToolPart | null {
     toolName: candidate.toolName.slice(0, 200),
     input: typeof candidate.input === "string" ? candidate.input : "",
     state: candidate.state,
+    exitCode: typeof candidate.exitCode === "number" && Number.isInteger(candidate.exitCode) ? candidate.exitCode : null,
   };
 }
 
@@ -62,15 +64,14 @@ function readCommand(part: ToolPart): string | null {
 }
 
 /**
- * Tool calls and commands from the given turns. Providers report whether a
- * command succeeded, not its exit status, so a failed command is recorded
- * with exit code 1. The newest entries are kept when a stage exceeds the
- * limits.
+ * Tool transport success is separate from process success. Only an explicit
+ * structured exit code establishes process status; missing status is unknown.
  */
 export function extractStageFacts(args: {
   messages: readonly FactSourceMessage[];
   turnIds: ReadonlySet<string>;
   diff: StageFacts["diff"];
+  currentTurnId?: string;
 }): StageFacts {
   const toolCalls: StageFacts["toolCalls"] = [];
   const commands: StageFacts["commands"] = [];
@@ -79,16 +80,20 @@ export function extractStageFacts(args: {
     if (!message.turnId || !args.turnIds.has(message.turnId)) continue;
     for (const raw of message.parts ?? []) {
       const part = readToolPart(raw);
-      if (!part || seen.has(part.toolUseId)) continue;
-      seen.add(part.toolUseId);
+      const identity = `${message.turnId}:${part?.toolUseId}`;
+      if (!part || seen.has(identity)) continue;
+      seen.add(identity);
       const ok = part.state === "output-available";
-      toolCalls.push({ toolCallId: part.toolUseId, name: part.toolName, ok });
+      toolCalls.push({ toolCallId: part.toolUseId, name: part.toolName, ok, turnId: message.turnId });
       const command = readCommand(part);
       if (command) {
         commands.push({
           command: command.slice(0, MISSION_LIMITS.report.command),
-          exitCode: ok ? 0 : 1,
+          exitCode: part.exitCode,
           toolCallId: part.toolUseId,
+          turnId: message.turnId,
+          outcome: !ok || (part.exitCode !== null && part.exitCode !== 0) ? "failed" : part.exitCode === 0 ? "succeeded" : "unknown",
+          ...(part.exitCode !== null ? { provenance: "provider-structured" as const } : {}),
         });
       }
     }
@@ -98,6 +103,7 @@ export function extractStageFacts(args: {
     commands: commands.slice(-MISSION_LIMITS.facts.commands),
     toolCalls: toolCalls.slice(-MISSION_LIMITS.facts.toolCalls),
     action: null,
+    ...(args.currentTurnId ? { currentTurnId: args.currentTurnId } : {}),
   };
 }
 

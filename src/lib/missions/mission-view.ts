@@ -15,7 +15,7 @@ import {
   type MissionStageRecord,
   type StageStatus,
 } from "./domain";
-import { classifyStageEvidence, describeActionEvidence, type ClassifiedEvidence } from "./evidence";
+import { classifyStageEvidence, describeActionEvidence, isVerifiedEvidence, type ClassifiedEvidence } from "./evidence";
 import { CHECK_IN_LABELS, type PlaybookStage, type StaveAction } from "@/lib/playbooks/schema";
 
 /** How a stage status reads and which tone its icon takes. */
@@ -54,9 +54,9 @@ export function projectMissionStages(detail: MissionDetail, now: Date): MissionS
     const ended = record?.endedAt ? Date.parse(record.endedAt) : null;
     const report = record?.report?.outcome === "complete" ? record.report : null;
     const evidence = report ? classifyStageEvidence(report, record?.facts ?? null) : [];
-    if (record?.facts?.action) evidence.unshift(describeActionEvidence(record.facts.action));
+    if (record?.facts?.action) evidence.unshift(describeActionEvidence(record.facts.action, record.facts));
     // Verified by Stave first.
-    evidence.sort((left, right) => Number(right.source === "stave") - Number(left.source === "stave"));
+    evidence.sort((left, right) => Number(isVerifiedEvidence(right)) - Number(isVerifiedEvidence(left)));
     return {
       index,
       stage,
@@ -315,7 +315,7 @@ export function summarizePreviousStage(row: MissionStageRow | undefined): string
   if (diff && diff.filesChanged > 0) {
     parts.push(`${diff.filesChanged} ${diff.filesChanged === 1 ? "file" : "files"} +${diff.insertions} −${diff.deletions}`);
   }
-  const verified = row.evidence.filter((item) => item.source === "stave").length;
+  const verified = row.evidence.filter(isVerifiedEvidence).length;
   if (verified > 0) parts.push(`${verified} verified by Stave`);
   return parts.join(" · ");
 }

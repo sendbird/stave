@@ -1,3 +1,7 @@
+import { Database } from "bun:sqlite";
+import { AgentAssignmentStore } from "../electron/persistence/agent-assignment-store";
+import { createAssignRuntime } from "../electron/host-service/supervision/assign-runtime";
+import { getBuiltinAgent } from "../src/lib/agents/starters";
 import { afterEach, beforeEach, describe, expect, mock, test } from "bun:test";
 import type { AdvisorRunnerDependencies } from "../electron/providers/advisor-runtime";
 import type { BridgeEvent, StreamTurnArgs } from "../electron/providers/types";
@@ -141,7 +145,7 @@ mock.module("../electron/providers/connected-tool-status", () => ({
   }),
 }));
 
-const { providerRuntime } = await import("../electron/providers/runtime");
+const { providerRuntime, setTaskAgentTurnResolver, setTaskPermissionObserver } = await import("../electron/providers/runtime");
 const {
   consultAdvisor,
   clearAdvisorConsultGrantsForTest,
@@ -273,6 +277,8 @@ afterEach(async () => {
   primaryTurn = null;
   primaryEmitsEvents = true;
   duringPrimaryTurn = null;
+  setTaskPermissionObserver(null);
+  setTaskAgentTurnResolver(null);
   await providerRuntime.shutdown();
 });
 
@@ -749,4 +755,99 @@ describe("provider runtime on-demand Advisor integration", () => {
       { type: "done", stop_reason: "end_turn" },
     ]);
   });
+});
+
+
+function installAgent(taskId: string, providerId: "claude-code" | "codex", agentId = "implementer") {
+  const db = new Database(":memory:");
+  const assignmentRuntime = createAssignRuntime({ store: new AgentAssignmentStore(db) });
+  assignmentRuntime.recordTaskAgent({
+    requestId: `test:${taskId}`, taskId, workspaceId: "workspace", repositoryPath: TEST_WORKSPACE_CWD,
+    agent: getBuiltinAgent(agentId)!, providerId, model: null, assignment: "Work",
+  });
+  setTaskAgentTurnResolver((turn) => assignmentRuntime.prepareTurn(turn));
+  return db;
+}
+
+describe("task instructions survive failed startup", () => {
+  test.each(["claude-code", "codex"] as const)("%s configures the sealed Agent on retry and every subsequent turn", async (providerId) => {
+    const db = installAgent("kickoff-start", providerId);
+    const turn: StreamTurnArgs = {
+      taskId: "kickoff-start", providerId, cwd: TEST_WORKSPACE_CWD,
+      prompt: "Original work", conversation: createConversation(providerId),
+      runtimeOptions: { model: "user-model" },
+    };
+    const failed = await providerRuntime.streamTurn({ ...turn, cwd: undefined });
+    expect(failed.filter((event) => event.type === "agent_provenance").at(-1)).toMatchObject({ provenance: { instructions: { status: "configured" } } });
+    duringPrimaryTurn = async () => { throw new Error("provider startup failed"); };
+    const startup = await providerRuntime.streamTurn(turn);
+    expect(startup.filter((event) => event.type === "agent_provenance").at(-1)).toMatchObject({ provenance: { instructions: { status: "configured" } } });
+    duringPrimaryTurn = async (args) => {
+      expect(args.prompt).toBe("Original work");
+      expect(args.conversation?.input).toEqual(turn.conversation?.input);
+      expect(args.runtimeOptions?.agentInstructions).toContain("# Agent: Implementer");
+      expect(args.runtimeOptions?.model).toBe("user-model");
+      args.onEvent?.({ type: "text", text: "Answer" });
+    };
+    const retry = await providerRuntime.streamTurn(turn);
+    expect(retry.filter((event) => event.type === "agent_provenance").at(-1)).toMatchObject({ provenance: { instructions: { status: "delivered" } } });
+    await providerRuntime.streamTurn(turn);
+    db.close();
+  });
+
+  test("secondary analysis never looks up the user's Agent", async () => {
+    let reads = 0;
+    setTaskAgentTurnResolver(() => { reads += 1; return null; });
+    await providerRuntime.streamTurn({ taskId: "kickoff-secondary", providerId: "codex", cwd: TEST_WORKSPACE_CWD,
+      prompt: "Classify this work", executionPolicy: "secondary-read-only" });
+    expect(reads).toBe(0);
+  });
+  test("a stopped workspace never prepares task instructions", async () => {
+    const { workspaceExecutionGate } = await import("../electron/shared/workspace-execution-gate");
+    let reads = 0;
+    setTaskAgentTurnResolver(() => { reads += 1; return null; });
+    await workspaceExecutionGate.stop({ workspaceId: "kickoff-blocked", workspacePath: TEST_WORKSPACE_CWD }, async () => {});
+    try {
+      await expect(providerRuntime.streamTurn({ taskId: "kickoff-blocked-task", workspaceId: "kickoff-blocked",
+        providerId: "codex", cwd: TEST_WORKSPACE_CWD, prompt: "Start work" })).rejects.toThrow("Workspace execution is stopped");
+      expect(reads).toBe(0);
+    } finally { workspaceExecutionGate.resume("kickoff-blocked"); }
+  });
+  test("tool-only primary execution confirms configured instructions", async () => {
+    const db = installAgent("kickoff-tools", "codex");
+    primaryEmitsEvents = false;
+    duringPrimaryTurn = async (args) => {
+      args.onEvent?.({ type: "tool", toolUseId: "tool-1", toolName: "Read", input: "{}", state: "input-available" });
+    };
+    const events = await providerRuntime.streamTurn({ taskId: "kickoff-tools", providerId: "codex", cwd: TEST_WORKSPACE_CWD, prompt: "Work" });
+    expect(events).toContainEqual(expect.objectContaining({ type: "agent_provenance", provenance: expect.objectContaining({ instructions: expect.objectContaining({ status: "delivered" }) }) }));
+    db.close();
+  });
+});
+
+test("mandatory Agent lookup failure emits one failed terminal and never executes the adapter", async () => {
+  let lookups = 0;
+  setTaskAgentTurnResolver(() => { lookups += 1; throw new Error("Stored assignment is unreadable"); });
+  const emitted: BridgeEvent[] = [];
+  const events = await providerRuntime.streamTurn({ taskId: "broken-agent", providerId: "codex", prompt: "Work", onEvent: (event) => emitted.push(event) });
+  expect(primaryTurn).toBeNull();
+  expect(events).toEqual(emitted);
+  expect(events.filter((event) => event.type === "done")).toEqual([{ type: "done", stop_reason: "runtime_failure" }]);
+  expect(events).toContainEqual(expect.objectContaining({ type: "error", recoverable: false }));
+  await providerRuntime.streamTurn({ taskId: "broken-agent", providerId: "codex", prompt: "Aux", executionPolicy: "secondary-read-only" });
+  expect(lookups).toBe(1);
+});
+
+test("delegation observes the user's policy while the sealed Agent ceiling reaches the primary", async () => {
+  const db = installAgent("agent-delegation-policy", "codex", "researcher");
+  let observed: StreamTurnArgs["runtimeOptions"] | null = null;
+  setTaskPermissionObserver(({ options }) => { observed = options; });
+  duringPrimaryTurn = async (args) => {
+    expect(args.runtimeOptions?.agentInstructions).toContain("Researcher");
+    expect(args.runtimeOptions).toMatchObject({ codexFileAccess: "read-only", codexApprovalPolicy: "on-request" });
+  };
+  await providerRuntime.streamTurn({ taskId: "agent-delegation-policy", providerId: "codex", cwd: TEST_WORKSPACE_CWD,
+    prompt: "Do the work", runtimeOptions: { codexFileAccess: "danger-full-access", codexApprovalPolicy: "never" } });
+  expect(observed).toMatchObject({ codexFileAccess: "danger-full-access", codexApprovalPolicy: "never" });
+  db.close();
 });
