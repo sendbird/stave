@@ -7,7 +7,7 @@ import type {
 } from "@/lib/providers/provider.types";
 import { defaultSettings } from "@/store/app-settings";
 import { resolveAutoRoutingForSend } from "@/store/auto-routing-dispatch";
-import { resolveRoutingProviderAvailability } from "@/store/auto-routing";
+import { resolveRoutingProviderAvailability } from "@/lib/routing/auto-routing";
 
 const RESETS_AT = Math.floor(Date.now() / 1000) + 3600;
 

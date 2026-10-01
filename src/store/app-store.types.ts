@@ -45,7 +45,7 @@ import type {
   StartCompareRunResult,
 } from "@/lib/compare-runs";
 import type { AppSettings } from "@/store/app-settings";
-import type { AutoRoutingDecisionRecord } from "@/store/auto-routing";
+import type { AutoRoutingDecisionRecord } from "@/lib/routing/auto-routing";
 import type { AppActiveSurface, AppSurfaceActions } from "@/store/app-surface";
 import type { FailedOutgoingSendsByTask } from "@/store/failed-send-recovery";
 import type { LayoutState } from "@/store/layout.utils";

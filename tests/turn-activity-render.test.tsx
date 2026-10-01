@@ -5,7 +5,7 @@ import { TurnActivitySurface } from "@/components/session/TurnActivity";
 import { turnActivityStyles } from "@/components/session/turn-activity.styles";
 import { sx } from "@/components/ads/utils/stylex";
 import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
-import { buildAutoRoutingDecisionRecord } from "@/store/auto-routing";
+import { buildAutoRoutingDecisionRecord } from "@/lib/routing/auto-routing";
 
 describe("TurnActivity", () => {
   test("pins changes and verification while optional usage and limits start folded", () => {

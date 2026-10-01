@@ -8,7 +8,7 @@ import {
   type RouteRule,
   type RouterSignals,
 } from "@/lib/providers/auto-routing-profile";
-import { computeRouterSignals, summarizeRouterSignals } from "@/store/auto-routing";
+import { computeRouterSignals, summarizeRouterSignals } from "@/lib/routing/auto-routing";
 
 const PLAN_PROMPT =
   "Plan how to move the terminal host to a single close pipeline. Which modules change, in what order, and what could break?";

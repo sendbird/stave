@@ -1,7 +1,7 @@
 import { TASK_CLASS_LABELS, type TaskClass } from "@/lib/providers/auto-routing-profile";
 import type { AutoRoutingModelResolution } from "@/lib/providers/provider.types";
 import { getTurnModelInfoParts } from "@/lib/providers/turn-model-info";
-import { AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE } from "@/store/auto-routing";
+import { AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE } from "@/lib/routing/auto-routing";
 import type { ChatMessage } from "@/types/chat";
 
 /** Classifier waits shorter than this draw nothing, so a fast answer never flickers. */

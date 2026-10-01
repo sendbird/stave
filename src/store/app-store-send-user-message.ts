@@ -19,7 +19,7 @@ import { buildCanonicalConversationRequest } from "@/lib/providers/canonical-req
 import { getProviderSessionCursor } from "@/lib/providers/provider-sessions";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { resolveTurnModelInfo } from "@/lib/providers/turn-model-info";
-import { buildAutoRoutingDecisionRecord } from "@/store/auto-routing";
+import { buildAutoRoutingDecisionRecord } from "@/lib/routing/auto-routing";
 import { endPendingAutoRoute } from "@/store/pending-auto-routing-store";
 import {
   buildAutoRoutingModelResolvedEvent,

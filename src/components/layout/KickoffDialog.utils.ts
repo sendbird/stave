@@ -1,6 +1,6 @@
 import type { AssignRoute } from "@/lib/agents/assign-route";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import { routeEffortOverrides } from "@/store/auto-routing";
+import { routeEffortOverrides } from "@/lib/routing/auto-routing";
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 
 /** Who does the work: the user, or a saved agent as the task's main agent. */

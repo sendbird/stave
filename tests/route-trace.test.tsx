@@ -11,7 +11,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import {
   buildAutoRoutingDecisionRecord,
   type AutoRoutingDecision,
-} from "@/store/auto-routing";
+} from "@/lib/routing/auto-routing";
 
 const PROMPT =
   "Fix the terminal host close ordering so the PTY is torn down before the renderer detaches.";

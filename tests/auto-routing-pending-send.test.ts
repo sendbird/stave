@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, test } from "bun:test";
 import { buildStarterProfile } from "../src/lib/providers/auto-routing-profile";
 import { defaultSettings } from "../src/store/app-settings";
-import { AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE } from "../src/store/auto-routing";
+import { AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE } from "../src/lib/routing/auto-routing";
 import {
   cancelPendingAutoRouting,
   skipPendingAutoRoutingClassifier,

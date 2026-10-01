@@ -34,7 +34,7 @@ import {
   type AutoRoutingDecision,
   type AutoRoutingDecisionRecord,
   type AutoRoutingSignalSummary,
-} from "@/store/auto-routing";
+} from "@/lib/routing/auto-routing";
 import { buildAutoRoutingModelResolution } from "@/store/auto-routing-dispatch";
 import type { UsageSample } from "@/lib/providers/auto-routing-wizard";
 import { useAppStore } from "@/store/app.store";

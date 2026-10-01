@@ -50,7 +50,7 @@ import {
   computeRouterSignals,
   formatAutoRoutingSignalSummary,
   summarizeRouterSignals,
-} from "@/store/auto-routing";
+} from "@/lib/routing/auto-routing";
 import { useAppStore } from "@/store/app.store";
 import { sx } from "@/components/ads/utils/stylex";
 import { transition } from "@/components/ads/recipes/transition";

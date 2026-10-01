@@ -8,7 +8,7 @@ import {
   shouldClassifyAutoRoute,
   skipPendingAutoRoutingClassifier,
 } from "../src/store/auto-routing-dispatch";
-import { AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE } from "../src/store/auto-routing";
+import { AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE } from "../src/lib/routing/auto-routing";
 import { AutoRoutingModelResolutionSchema } from "../src/lib/providers/model-resolution";
 import { buildStarterProfile } from "../src/lib/providers/auto-routing-profile";
 

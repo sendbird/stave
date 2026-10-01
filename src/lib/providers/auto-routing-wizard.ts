@@ -23,7 +23,7 @@ import {
   detectPromptSkill,
   resolveHeuristicRoute,
   taskTypeToTaskClass,
-} from "@/store/auto-routing";
+} from "@/lib/routing/auto-routing";
 import type { ChatMessage } from "@/types/chat";
 
 /* -------------------------------------------------------------------------- */
