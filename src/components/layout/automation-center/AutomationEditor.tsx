@@ -151,6 +151,8 @@ export function CadenceSection<T extends CadenceDraft>(props: {
   draft: T;
   onDraftChange: (draft: T) => void;
   manual?: boolean;
+  /** Hide the "When" heading when the caller already shows one. */
+  heading?: boolean;
 }) {
   const { draft } = props;
   const manual = props.manual ?? true;
@@ -218,10 +220,12 @@ export function CadenceSection<T extends CadenceDraft>(props: {
 
   return (
     <section className={sx(editorStyles.section)}>
-      <SectionHeading
-        title="When"
-        description="Pick a common rhythm, or switch to Custom for an exact interval."
-      />
+      {props.heading === false ? null : (
+        <SectionHeading
+          title="When"
+          description="Pick a common rhythm, or switch to Custom for an exact interval."
+        />
+      )}
       <div className={sx(editorStyles.chipRow)} role="group" aria-label="When">
         {AUTOMATION_CADENCE_PRESETS.filter((candidate) => manual || candidate !== "manual").map((candidate) => {
           const active = candidate === preset;

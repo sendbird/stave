@@ -13,8 +13,12 @@ import { runToneDotStyles } from "./automation-center.styles";
 import { centerStyles } from "./automation-center-view.styles";
 import { scheduleRowStyles as styles } from "./schedule-rows.styles";
 
+function toggleLabel(row: ScheduleRow) {
+  return row.toggle === "pause" ? "Pause" : row.kind === "start" ? "Turn on" : "Resume";
+}
+
 function nextText(row: ScheduleRow) {
-  return row.nextRunAt ? formatRelativeTime(row.nextRunAt) : (row.nextNote ?? "—");
+  return row.nextRunAt ? `Next ${formatRelativeTime(row.nextRunAt)}` : (row.nextNote ?? "");
 }
 
 /**
@@ -69,9 +73,10 @@ export function ScheduleRows(props: {
                   {row.lastResult.label}
                   {row.lastResult.at ? ` ${formatRelativeTime(row.lastResult.at)}` : ""}
                 </span>
-                <span className={sx(styles.metaText)}>Next {nextText(row)}</span>
+                <span className={sx(styles.metaText)}>{nextText(row)}</span>
               </span>
             </AdsButton>
+            <span className={sx(styles.actions)}>
             {row.canRunNow ? (
               <Button
                 variant="outline"
@@ -92,16 +97,17 @@ export function ScheduleRows(props: {
                 xstyle={styles.action}
                 disabled={busy}
                 onClick={() => props.onToggle(row)}
-                aria-label={`${row.toggle === "pause" ? "Pause" : "Resume"} ${row.name}`}
+                aria-label={`${toggleLabel(row)} ${row.name}`}
               >
                 {row.toggle === "pause" ? (
                   <Pause className={sx(centerStyles.buttonIcon)} />
                 ) : (
                   <Play className={sx(centerStyles.buttonIcon)} />
                 )}
-                {row.toggle === "pause" ? "Pause" : "Resume"}
+                {toggleLabel(row)}
               </Button>
             ) : null}
+            </span>
           </li>
         );
       })}

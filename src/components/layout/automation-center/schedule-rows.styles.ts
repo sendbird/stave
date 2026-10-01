@@ -10,15 +10,15 @@ export const scheduleRowStyles = stylex.create({
   list: { display: "grid", gap: vars["--ads-space-8"], listStyle: "none", margin: 0, padding: 0 },
   resultDot: { display: "inline-block", marginInlineEnd: 4 },
   row: {
-    alignItems: "center",
     backgroundColor: { default: "transparent", ":hover": vars["--ads-color-overlay-hover"] },
     borderColor: vars["--ads-color-border-subtle"],
     borderRadius: vars["--ads-radius-control"],
     borderStyle: "solid",
     borderWidth: vars["--ads-border-width-hairline"],
     display: "flex",
-    gap: vars["--ads-space-8"],
-    paddingInlineEnd: vars["--ads-space-8"],
+    flexDirection: "column",
+    alignItems: "stretch",
+    gap: 0,
   },
   rowActive: { backgroundColor: accent(8), borderColor: accent(50) },
   select: {
@@ -64,5 +64,12 @@ export const scheduleRowStyles = stylex.create({
     rowGap: 2,
   },
   metaText: { overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" },
+  actions: {
+    display: "flex",
+    gap: vars["--ads-space-4"],
+    justifyContent: "flex-end",
+    paddingBlockEnd: vars["--ads-space-4"],
+    paddingInline: vars["--ads-space-8"],
+  },
   action: { blockSize: 40, flexShrink: 0, fontSize: vars["--ads-font-size-caption"], gap: 6 },
 });

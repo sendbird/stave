@@ -165,9 +165,9 @@ export function CheckBackEditor(props: {
           </section>
 
           <section className={sx(editorStyles.section)}>
-            <SectionHeading title="Trigger" />
+            <SectionHeading title="When" />
             <ChoiceButtons
-              aria-label="Trigger"
+              aria-label="When"
               value={when}
               options={[
                 { value: "cadence", label: "On a cadence" },
@@ -175,11 +175,10 @@ export function CheckBackEditor(props: {
               ]}
               onChange={setWhen}
             />
+            {when === "cadence" ? (
+              <CadenceSection draft={draft} onDraftChange={setDraft} manual={false} heading={false} />
+            ) : null}
           </section>
-
-          {when === "cadence" ? (
-            <CadenceSection draft={draft} onDraftChange={setDraft} manual={false} />
-          ) : null}
         </div>
       </div>
     </div>

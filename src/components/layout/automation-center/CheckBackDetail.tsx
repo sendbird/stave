@@ -1,7 +1,7 @@
 import { Pause, Pencil, Play, Trash2 } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
 import { Button } from "@/components/ui";
-import type { ScheduleRow } from "@/lib/schedule-rows";
+import { SCHEDULE_STATE_LABEL, type ScheduleRow } from "@/lib/schedule-rows";
 import type { WakeUp } from "@/lib/supervision/wake-up-policy";
 import { formatRelativeTime } from "./automation-center.utils";
 import { centerStyles } from "./automation-center-view.styles";
@@ -37,7 +37,7 @@ export function CheckBackDetail(props: {
         </div>
       </div>
       <dl className={sx(centerStyles.facts)}>
-        <Fact label="Status" value={wakeUp.reasonDetail ? `${row.state} · ${wakeUp.reasonDetail}` : row.state} />
+        <Fact label="Status" value={wakeUp.reasonDetail ? `${SCHEDULE_STATE_LABEL[row.state]} · ${wakeUp.reasonDetail}` : SCHEDULE_STATE_LABEL[row.state]} />
         <Fact label="When" value={row.cadence} />
         <Fact label="Next" value={row.nextRunAt ? formatRelativeTime(row.nextRunAt) : (row.nextNote ?? "—")} />
         <Fact label="Checked" value={`${wakeUp.occurrenceCount}×`} />

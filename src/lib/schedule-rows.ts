@@ -110,7 +110,7 @@ export function wakeUpScheduleRow(
       : wakeUp.state === "stopped"
         ? "Stopped"
         : completion
-          ? "When subagents finish"
+          ? "Waiting"
           : null;
   return {
     key: `check-back:${wakeUp.id}`,

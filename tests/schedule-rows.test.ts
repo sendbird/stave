@@ -101,7 +101,7 @@ describe("schedule rows", () => {
     expect(row?.name).toBe("Re-check CI on the pull request");
     expect(row?.cadence).toBe("When subagents finish");
     expect(row?.nextRunAt).toBeNull();
-    expect(row?.nextNote).toBe("When subagents finish");
+    expect(row?.nextNote).toBe("Waiting");
     expect(row?.lastResult.label).toBe("Checked 2×");
   });
 
@@ -119,5 +119,14 @@ describe("schedule rows", () => {
     });
     expect(rows.map((row) => row.id)).toEqual(["r", "p", "s"]);
     expect(rows.map((row) => row.toggle)).toEqual(["pause", "resume", null]);
+  });
+});
+
+describe("check-back request", () => {
+  test("is consumed once", async () => {
+    const { useScheduleRequestStore } = await import("../src/store/schedule-request-store");
+    useScheduleRequestStore.getState().requestCheckBack({ workspaceId: "ws-1", taskId: "task-1" });
+    expect(useScheduleRequestStore.getState().consume()).toEqual({ workspaceId: "ws-1", taskId: "task-1" });
+    expect(useScheduleRequestStore.getState().consume()).toBeNull();
   });
 });
