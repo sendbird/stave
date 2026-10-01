@@ -200,6 +200,7 @@ export const PROVIDER_RUNTIME_OPTION_KEYS = [
   "claudeAllowDangerouslySkipPermissions",
   "claudeSandboxEnabled",
   "claudeAllowUnsandboxedCommands",
+  "claudeSandboxReadOnly",
   "claudeSandboxCredentialFiles",
   "claudeSandboxCredentialEnvVars",
   "claudeSystemPrompt",

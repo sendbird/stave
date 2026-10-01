@@ -27,6 +27,12 @@ export {
   shouldDenyClaudeToolInPlanMode,
   shouldDenyClaudeToolInSecondaryReadOnly,
 } from "./claude-permission-policy";
+import { createClaudeAutoModeNotice, shouldKeepClaudeReadOnlyPrompt } from "./claude-auto-mode";
+export {
+  describeClaudeAutoModeFallback,
+  resolveClaudeAutoModeAvailability,
+  shouldKeepClaudeReadOnlyPrompt,
+} from "./claude-auto-mode";
 import { spawn as spawnResourceProcess } from "node:child_process";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
 import { createClaudeContextUsageTracker } from "./claude-context-usage";
@@ -125,6 +131,7 @@ import {
   type ClaudeNativeImageBlock,
 } from "./native-image-input";
 import { createTurnDiffTracker } from "./turn-diff-tracker";
+import os from "node:os";
 import path from "node:path";
 import {
   canExecutePath,
@@ -1098,18 +1105,24 @@ export function buildClaudeQueryOptions(args: {
       value: process.env.STAVE_CLAUDE_ALLOW_DANGEROUSLY_SKIP_PERMISSIONS,
       fallback: permissionMode === "bypassPermissions",
     });
+  // Restrictive only, so it overrides the sandbox toggles rather than merging
+  // with them: a read-only delegated task must not depend on the user's setting.
+  const claudeSandboxReadOnly =
+    args.runtimeOptions?.claudeSandboxReadOnly === true;
   const claudeSandboxEnabled =
-    args.runtimeOptions?.claudeSandboxEnabled ??
-    parseBooleanEnv({
-      value: process.env.STAVE_CLAUDE_SANDBOX_ENABLED,
-      fallback: false,
-    });
+    claudeSandboxReadOnly ||
+    (args.runtimeOptions?.claudeSandboxEnabled ??
+      parseBooleanEnv({
+        value: process.env.STAVE_CLAUDE_SANDBOX_ENABLED,
+        fallback: false,
+      }));
   const claudeAllowUnsandboxedCommands =
-    args.runtimeOptions?.claudeAllowUnsandboxedCommands ??
-    parseBooleanEnv({
-      value: process.env.STAVE_CLAUDE_ALLOW_UNSANDBOXED_COMMANDS,
-      fallback: true,
-    });
+    !claudeSandboxReadOnly &&
+    (args.runtimeOptions?.claudeAllowUnsandboxedCommands ??
+      parseBooleanEnv({
+        value: process.env.STAVE_CLAUDE_ALLOW_UNSANDBOXED_COMMANDS,
+        fallback: true,
+      }));
   const credentialFiles = Array.from(
     new Set(
       (args.runtimeOptions?.claudeSandboxCredentialFiles ?? [])
@@ -1224,14 +1237,28 @@ export function buildClaudeQueryOptions(args: {
           allowAllUnixSockets: false,
           allowLocalBinding: false,
         },
+        // Deny writes to the workspace rather than the filesystem root: the
+        // CLI records each command's working directory in its temp dir, and a
+        // root-wide deny turns every Bash result into an error. Outside the
+        // workspace the sandbox already allows no writes beyond that temp dir.
         filesystem: {
-          denyWrite: [path.parse(args.cwd).root],
+          denyWrite: [path.resolve(args.cwd)],
         },
         ...(sandboxCredentials ? { credentials: sandboxCredentials } : {}),
       }
     : {
         enabled: claudeSandboxEnabled,
         allowUnsandboxedCommands: claudeAllowUnsandboxedCommands,
+        // Fail closed and never treat "sandboxed" as approval, so only the
+        // turn's explicit allowlist runs; workspace writes are denied either way
+        // (see the read-only secondary sandbox above for why not the root).
+        ...(claudeSandboxReadOnly
+          ? {
+              failIfUnavailable: true,
+              autoAllowBashIfSandboxed: false,
+              filesystem: { denyWrite: [path.resolve(args.cwd)] },
+            }
+          : {}),
         ...(sandboxCredentials ? { credentials: sandboxCredentials } : {}),
       };
 
@@ -3302,6 +3329,8 @@ export async function streamClaudeWithSdk(
     // in the PlanViewer for review), so the turn must wind down; further tool
     // calls are denied so the agent stops and the turn can complete.
     let planPresentedInTurn = false;
+    // Auto mode only: says once when Claude's own classifier is unavailable.
+    const claudeAutoModeNotice = createClaudeAutoModeNotice();
     const approvalDecisionTimeoutMs = resolveClaudeApprovalDecisionTimeoutMs({
       envValue: process.env.STAVE_CLAUDE_APPROVAL_TIMEOUT_MS,
     });
@@ -3601,6 +3630,21 @@ export async function streamClaudeWithSdk(
           const permissionModeDecision = resolveClaudePermissionModeDecision({
             permissionMode: claudePermissionMode,
             toolName,
+            ...(claudePermissionMode === "auto"
+              ? {
+                  keepReadOnlyPrompt: shouldKeepClaudeReadOnlyPrompt({
+                    toolName,
+                    input: normalizedInput,
+                    cwd: runtimeCwd,
+                    homeDir: os.homedir(),
+                    matchedAskRule: options.matchedAskRule,
+                    defaultToNo: options.defaultToNo,
+                    disallowedTools: queryOptions?.disallowedTools,
+                    protectedCredentialFiles:
+                      args.runtimeOptions?.claudeSandboxCredentialFiles,
+                  }),
+                }
+              : {}),
           });
 
           if (permissionModeDecision === "allow") {
@@ -3729,6 +3773,13 @@ export async function streamClaudeWithSdk(
               normalizedInput,
               denialMessage: `Claude trusted ${toolName}.`,
             });
+          }
+
+          const autoModeNotice = claudePermissionMode === "auto" ? claudeAutoModeNotice.take() : null;
+          if (autoModeNotice) {
+            const noticeEvent: BridgeEvent = { type: "system", content: autoModeNotice };
+            eventCollector.append(noticeEvent);
+            args.onEvent?.(noticeEvent);
           }
 
           const approvalEvent: BridgeEvent = {
@@ -3927,6 +3978,9 @@ export async function streamClaudeWithSdk(
             sessionId: (message as SDKSystemMessage).session_id,
             mcpScopeKey: claudeMcpScopeKey,
           });
+        }
+        if (claudePermissionMode === "auto" && !secondaryReadOnly) {
+          claudeAutoModeNotice.observeInit(message as SDKSystemMessage, stream);
         }
       }
       if (

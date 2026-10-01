@@ -1000,6 +1000,14 @@ Claude-specific runtime controls come from the UI and runtime options:
 - sandbox enabled
 - allow unsandboxed commands
 - sandbox credential file paths and environment-variable names (deny-only)
+- read-only sandbox (`claudeSandboxReadOnly`, restrictive only and set by
+  read-only delegated tasks): forces the sandbox on with no unsandboxed escape,
+  denies writes to the workspace from sandboxed commands (the CLI's own temp
+  directory stays writable so each command can record its working directory),
+  fails closed when the
+  sandbox is unavailable, and turns off the SDK's `autoAllowBashIfSandboxed`
+  default so only the turn's allowlist runs. Codex needs no equivalent: its
+  `read-only` file access is already a write-denying sandbox.
 - setting sources
 - task budget
 - prompt suggestions (Settings toggle, default on; it can only turn suggestions off — background lanes, secondary runs, and control queries never request them regardless of the setting)
@@ -1079,6 +1087,20 @@ Claude path and approval handling:
 - Stave runs Claude with the active workspace `cwd`
 - workspace-root guidance is appended so relative paths stay rooted correctly
 - approval and user-input responses are validated before they are returned to the SDK
+- in `auto` mode, a call the CLI hands to Stave instead of deciding with its own
+  classifier (the classifier is unavailable for the model or plan, or it chose
+  to ask) is auto-allowed when it is one of the read-only built-ins plan mode
+  also allows (Read, Grep, Glob, LS, NotebookRead, WebFetch, WebSearch,
+  BashOutput, TodoRead, TodoWrite). It still prompts when a user ask rule forced
+  the prompt, the CLI marked it default-to-no, the tool is disallowed, or it
+  reads or searches a protected credential path. Bash and every other tool keep
+  the prompt. Disallowed tools and settings deny rules are applied by the CLI
+  before Stave is asked; the sandbox credential list guards sandboxed commands.
+- when an `auto` turn first prompts and the SDK reports that the classifier is
+  not running (the init message reports another mode, or the model list's
+  `supportsAutoMode` flag is absent for the session's model), the turn shows one
+  notice that Auto is unavailable and Claude will ask. Stave shows nothing when
+  the SDK reports nothing usable.
 - Interactive prompts containing `@web` opt that turn into Claude Code's native
   Chrome integration through the SDK `extraArgs` equivalent of `--chrome`.
   Stave explicitly passes the native no-Chrome flag on other turns, including

@@ -122,8 +122,15 @@ export function getDelegatedTaskCoordinator() {
         return invokeHostService("local-mcp.invoke", { action: "resolve-delegation-policy", args: {
           parentTaskId: args.parentTaskId, delegatedTaskId: args.delegatedTaskId, providerId: args.providerId,
           permissionProfile: args.permissionProfile, ...(agentPermission ? { permissionCeiling: agentPermission } : {}),
+          ...(args.access ? { access: args.access } : {}),
+          ...(args.requestedProfile ? { requestedProfile: args.requestedProfile } : {}),
         } }) as Promise<import("../../../src/lib/runs/delegation-policy").DelegationPermissionPolicy>;
       },
+      resolveParentDefaults: (args) =>
+        invokeHostService("local-mcp.invoke", { action: "resolve-delegation-defaults", args }) as Promise<{
+          providerId: "claude-code" | "codex";
+          effort?: import("../../../src/lib/runs/delegated-task").DelegatedTaskEffort;
+        } | null>,
       readHead,
       concurrencyLimit: resolveDelegatedTaskConcurrencyLimit(
         process.env.STAVE_DELEGATED_TASK_CONCURRENCY,

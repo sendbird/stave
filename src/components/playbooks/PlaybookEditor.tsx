@@ -35,7 +35,7 @@ import { playbookStyles as styles } from "./playbooks.styles";
 const PERMISSION_OPTIONS: ReadonlyArray<{ value: AutomationPermissionMode; label: string; description: string }> = [
   { value: "auto", label: "Auto", description: "Works without asking; missions still stop at sign-offs and at steps you did not allow." },
   { value: "guided", label: "Guided", description: "Asks before sensitive actions; a mission waits for each answer." },
-  { value: "manual", label: "Manual", description: "Follows the task's own permission settings." },
+  { value: "manual", label: "Your settings", description: "Uses your provider permission settings." },
 ];
 
 const CHECK_IN_OPTIONS = CHECK_INS.map((value) => ({ value, label: CHECK_IN_LABELS[value] }));

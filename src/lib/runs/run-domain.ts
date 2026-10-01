@@ -1,4 +1,7 @@
-import { DelegationPermissionPolicySchema } from "./delegation-policy";
+import {
+  DelegationAccessSchema,
+  DelegationPermissionPolicySchema,
+} from "./delegation-policy";
 import { z } from "zod";
 
 export const RunIdSchema = z.string().trim().min(1).max(300);
@@ -171,6 +174,8 @@ export const RunReceiptDetailSchema = z
      * step row itself only keeps a hash of them.
      */
     permissionProfile: z.enum(["inherit", "auto", "guided", "manual"]).optional(),
+    /** The access the delegation asked for; a retry asks for the same. */
+    access: DelegationAccessSchema.optional(),
     permissionPolicy: DelegationPermissionPolicySchema.optional(),
     workspaceMode: z.enum(["same-workspace", "new-worktree"]).optional(),
     /**
@@ -275,6 +280,7 @@ export function sanitizeRunReceiptDetail(
     candidate.permissionProfile === "manual"
       ? candidate.permissionProfile
       : undefined;
+  const access = DelegationAccessSchema.safeParse(candidate.access);
   const workspaceMode =
     candidate.workspaceMode === "same-workspace" ||
     candidate.workspaceMode === "new-worktree"
@@ -302,6 +308,7 @@ export function sanitizeRunReceiptDetail(
     ...(model ? { model } : {}),
     ...(attempt !== undefined ? { attempt } : {}),
     ...(permissionProfile ? { permissionProfile } : {}),
+    ...(access.success ? { access: access.data } : {}),
     ...(DelegationPermissionPolicySchema.safeParse(candidate.permissionPolicy).success ? { permissionPolicy: DelegationPermissionPolicySchema.parse(candidate.permissionPolicy) } : {}),
     ...(workspaceMode ? { workspaceMode } : {}),
     ...(effort ? { effort } : {}),

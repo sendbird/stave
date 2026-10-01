@@ -22,7 +22,7 @@ describe("describeDelegationPlan", () => {
       effort: "high" as const,
     };
     expect(describeDelegationPlan(draft, routed)).toBe(
-      "GPT-5.6 Sol · High effort · Use user permissions · Separate worktree",
+      "GPT-5.6 Sol · High effort · Your permissions · Separate worktree",
     );
   });
 
@@ -32,7 +32,19 @@ describe("describeDelegationPlan", () => {
       providerId: "codex" as const,
     };
     expect(describeDelegationPlan(draft, routed)).toBe(
-      "Auto → GPT-5.6 Sol · Medium effort (Auto) · Use user permissions · Separate worktree",
+      "Auto → GPT-5.6 Sol · Medium effort (Auto) · Your permissions · Separate worktree",
+    );
+  });
+
+  test("names a read-only delegation in the plan", () => {
+    const draft = {
+      ...createEmptyDelegationDraft(),
+      providerId: "claude-code" as const,
+      access: "read-only" as const,
+      isolated: false,
+    };
+    expect(describeDelegationPlan(draft, null)).toBe(
+      "Claude · Default model · Default effort · Read only · Shares your files",
     );
   });
 
@@ -43,7 +55,7 @@ describe("describeDelegationPlan", () => {
       isolated: false,
     };
     expect(describeDelegationPlan(draft, null)).toBe(
-      "Claude · Default model · Default effort · Use user permissions · Shares your files",
+      "Claude · Default model · Default effort · Your permissions · Shares your files",
     );
   });
 });

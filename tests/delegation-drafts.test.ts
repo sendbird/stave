@@ -25,7 +25,7 @@ const edited = editDelegationDraft(createEmptyDelegationDraft(), {
   prompt: "Review the persistence boundary.",
   providerId: "claude-code",
   model: "chosen-model",
-  permissionProfile: "manual",
+  access: "read-only",
   keepOpen: false,
   isolated: false,
 });
@@ -72,7 +72,7 @@ test("unchanged uncertain retries reuse the exact request and edits create a new
     parentTaskId: scope.taskId,
     providerId: "claude-code",
     model: "chosen-model",
-    permissionProfile: "manual",
+    access: "read-only",
     lifecycle: "one-turn",
     workspace: { mode: "same-workspace" },
   });
@@ -98,6 +98,9 @@ test("effort is optional on legacy drafts and travels into the delegation reques
   expect(prepared.ok).toBe(true);
   if (!prepared.ok) throw new Error(prepared.message);
   expect(prepared.request.effort).toBe("xhigh");
+  // A legacy profile is no longer sent; the form shows and sends "Same as yours".
+  expect(prepared.request.permissionProfile).toBeUndefined();
+  expect(prepared.request.access).toBe("inherit");
   const cleared = editDelegationDraft(withEffort, { effort: undefined });
   expect(cleared.effort).toBeUndefined();
 });

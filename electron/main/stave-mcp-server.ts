@@ -63,7 +63,7 @@ import {
   updateAutomation,
 } from "./automation-service";
 import { RuntimeOptionsObjectSchema } from "./ipc/schemas";
-import { DelegatedTaskFollowUpArgsSchema } from "../../src/lib/runs/delegated-task";
+import { DelegatedTaskFollowUpArgsSchema, DelegateTaskToolInputSchema } from "../../src/lib/runs/delegated-task";
 import { getDelegatedTaskCoordinator } from "./runs/delegated-task-coordinator-instance";
 import {
   createWakeUp,
@@ -747,89 +747,12 @@ function createToolServer(options?: {
     "stave_delegate_task",
     {
       description:
-        "Delegate work from this task to a durable child Stave task, optionally on the other provider. The delegation is recorded on the run ledger and identified by `(parentTaskId, delegationKey)`, so calling this twice with the same key returns the same child instead of creating a second one.",
-      inputSchema: {
-        repositoryPath: z
-          .string()
-          .min(1)
-          .describe("Project root path that owns the parent workspace."),
-        parentWorkspaceId: z
-          .string()
-          .min(1)
-          .describe("Workspace id of the delegating (parent) task."),
-        parentTaskId: z.string().min(1).describe("Id of the delegating task."),
-        delegationKey: z
-          .string()
-          .min(1)
-          .describe(
-            "Caller-chosen idempotency key for this delegation, unique within the parent task. Letters, digits, dot, underscore and hyphen only.",
-          ),
-        prompt: z.string().min(1).describe("Prompt to run in the delegated task."),
-        title: z.string().optional().describe("Optional delegated task title."),
-        provider: z
-          .enum(["claude-code", "codex"])
-          .describe("Provider the child runs on. Required — never inherited."),
-        model: z
-          .string()
-          .optional()
-          .describe("Optional model override for the child."),
-        effort: z
-          .enum(["low", "medium", "high", "xhigh", "max", "ultra"])
-          .optional()
-          .describe(
-            "Optional reasoning-effort tier for the child. Clamped to what the child's provider and model accept (`ultra` is Codex-only; Claude steps it down to `max`). Omitted, the child runs at the automation default (`medium`). Bounded briefs often do better on a cheaper model at `high`+ effort than on the default tier.",
-          ),
-        permissionProfile: z
-          .enum(["inherit", "auto", "guided", "manual"])
-          .optional()
-          .describe(
-            "Optional permission ceiling. Omitted or inherit uses the effective parent policy for the same provider, otherwise target-provider user settings. auto cannot grant more authority; guided/manual can restrict the inherited policy.",
-          ),
-        lifecycle: z
-          .enum(["one-turn", "detached"])
-          .describe(
-            "`one-turn` finishes the delegation when the child's first turn ends. `detached` keeps the delegated task open until it is stopped.",
-          ),
-        workspace: z
-          .union([
-            z.object({ mode: z.literal("same-workspace") }),
-            z.object({
-              mode: z.literal("new-worktree"),
-              name: z
-                .string()
-                .min(1)
-                .describe("Workspace name for the new worktree."),
-              fromBranch: z.string().optional().describe("Base branch."),
-            }),
-          ])
-          .describe("Where the child runs."),
-        retry: z
-          .boolean()
-          .optional()
-          .describe(
-            "Start a new attempt when this delegation already ended without succeeding. Ignored while it is still running.",
-          ),
-        expectedHead: z
-          .string()
-          .optional()
-          .describe(
-            "Commit the child must find checked out (same-workspace only), for work that is about one commit such as a review. Not started when the workspace HEAD differs.",
-          ),
-        agentConfigId: z
-          .string()
-          .optional()
-          .describe(
-            "Run the child as this saved agent. Its instructions go ahead of the prompt and the narrower permission of this request and the agent wins. Refused when the agent is not usable as a delegated task, is not one of the project's agents, or would run wider than this task's own agent.",
-          ),
-      },
+        "Delegate work from this task to a durable child Stave task, optionally on the other provider. For a second opinion, a review or research, pass `access: \"read-only\"`: the child cannot change files, runs in parallel with other work in this workspace, and needs no approvals. Only the ids and `prompt` are required; the provider and effort default to this task's, and the child runs one turn in this workspace. The delegation is recorded on the run ledger and identified by `(parentTaskId, delegationKey)`; omit the key and the same call returns the same child instead of creating a second one.",
+      inputSchema: DelegateTaskToolInputSchema.shape,
     },
-    async ({ provider, retry, ...rest }) =>
+    async (input) =>
       toStructuredResult({
-        delegation: await getDelegatedTaskCoordinator().delegate({
-          ...rest,
-          providerId: provider,
-          retry: retry ?? false,
-        }),
+        delegation: await getDelegatedTaskCoordinator().delegateFromTool(input),
       }),
   );
 

@@ -133,7 +133,7 @@ describe("SecondaryRunExecutor provider policy", () => {
         allowLocalBinding: false,
       },
       filesystem: {
-        denyWrite: ["/"],
+        denyWrite: ["/tmp/stave"],
       },
     });
     expect(queryOptions.settings).toMatchObject({

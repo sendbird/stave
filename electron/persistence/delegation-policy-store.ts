@@ -10,6 +10,10 @@ import type {
   ProviderId,
   ProviderRuntimeOptions,
 } from "../../src/lib/providers/provider.types";
+import {
+  DelegatedTaskEffortSchema,
+  type DelegatedTaskEffort,
+} from "../../src/lib/runs/delegated-task";
 
 /** Durable host snapshots contain only whitelisted permission fields. */
 export class DelegationPolicyStore {
@@ -66,9 +70,9 @@ export class DelegationPolicyStore {
     options: ProviderRuntimeOptions,
   ) {
     if (providerId !== "claude-code" && providerId !== "codex") {
-      this.db
-        .prepare("DELETE FROM app_state WHERE key = ?")
-        .run(`delegation.effective-policy:${taskId}`);
+      const remove = this.db.prepare("DELETE FROM app_state WHERE key = ?");
+      remove.run(`delegation.effective-policy:${taskId}`);
+      remove.run(`delegation.effective-effort:${taskId}`);
       return;
     }
     this.write(`delegation.effective-policy:${taskId}`, {
@@ -77,5 +81,33 @@ export class DelegationPolicyStore {
       requestedProfile: "inherit",
       options: normalizedPermissionOptions(providerId, options),
     });
+    // Kept apart from the permission snapshot: effort is a default the child
+    // may take, never a permission it inherits.
+    const effort = DelegatedTaskEffortSchema.safeParse(
+      providerId === "codex"
+        ? options.codexReasoningEffort === "minimal"
+          ? "low"
+          : options.codexReasoningEffort
+        : options.claudeEffort,
+    );
+    this.write(`delegation.effective-effort:${taskId}`, {
+      effort: effort.success ? effort.data : null,
+    });
+  }
+  /** The provider and effort of the parent's latest Claude or Codex turn. */
+  loadParentTurnDefaults(taskId: string): {
+    providerId: "claude-code" | "codex";
+    effort?: DelegatedTaskEffort;
+  } | null {
+    const policy = this.loadEffective(taskId);
+    if (!policy) return null;
+    const raw = this.read(`delegation.effective-effort:${taskId}`);
+    const effort = DelegatedTaskEffortSchema.safeParse(
+      raw && typeof raw === "object" ? (raw as { effort?: unknown }).effort : undefined,
+    );
+    return {
+      providerId: policy.providerId,
+      ...(effort.success ? { effort: effort.data } : {}),
+    };
   }
 }

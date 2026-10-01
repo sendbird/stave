@@ -235,14 +235,17 @@ export function buildMissionBriefing(aggregate: MissionAggregate): MissionBriefi
 /**
  * The provider permissions a mission turn runs with, from the permission mode
  * the user chose at start. Guided asks before sensitive actions, and the
- * mission waits on the approval in the task; Auto runs without prompts; Manual
- * keeps the runtime's own settings.
+ * mission waits on the approval in the task; Auto runs without prompts;
+ * "Your settings" (stored as `manual`) runs with the user's own provider
+ * permission settings, as the host read them (`userSettingsPermissionOptions`),
+ * never the runtime's fallbacks.
  */
 export function missionPermissionRuntimeOptions(
   providerId: ProviderId,
   permissionMode: AutomationPermissionMode,
+  userPermissionOptions?: ProviderRuntimeOptions,
 ): ProviderRuntimeOptions {
-  if (permissionMode === "manual") return {};
+  if (permissionMode === "manual") return { ...userPermissionOptions };
   if (providerId === "codex") {
     return { codexApprovalPolicy: permissionMode === "auto" ? "never" : "untrusted" };
   }

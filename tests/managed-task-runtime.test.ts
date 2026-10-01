@@ -1,5 +1,10 @@
 import { describe, expect, test } from "bun:test";
-import { resolveManagedTaskRuntimeOptions } from "@/lib/providers/managed-task-runtime";
+import { Database } from "bun:sqlite";
+import { DelegationPolicyStore } from "../electron/persistence/delegation-policy-store";
+import {
+  resolveManagedTaskRuntimeOptions,
+  userSettingsPermissionOptions,
+} from "@/lib/providers/managed-task-runtime";
 import { DEFAULT_PROVIDER_TIMEOUT_MS } from "@/lib/providers/runtime-option-contract";
 
 describe("resolveManagedTaskRuntimeOptions", () => {
@@ -94,5 +99,79 @@ describe("resolveManagedTaskRuntimeOptions", () => {
       runtimeOptions: { codexApprovalPolicy: "on-request" },
     });
     expect(options.codexApprovalPolicy).toBe("on-request");
+  });
+});
+
+describe("userSettingsPermissionOptions", () => {
+  const settings = {
+    "claude-code": {
+      claudePermissionMode: "auto" as const,
+      claudeSandboxEnabled: false,
+      claudeAllowUnsandboxedCommands: true,
+      claudeSandboxCredentialFiles: ["~/.config/service/credentials.json"],
+    },
+    codex: {
+      codexApprovalPolicy: "never" as const,
+      codexFileAccess: "danger-full-access" as const,
+      codexNetworkAccess: true,
+      codexAutoApproveStaveLocalMcpTools: true,
+    },
+  };
+
+  test("uses the synced Claude settings over the guarded defaults", () => {
+    expect(userSettingsPermissionOptions("claude-code", settings)).toEqual({
+      claudePermissionMode: "auto",
+      claudePlanModeApprovalScope: "strict",
+      claudeAllowDangerouslySkipPermissions: false,
+      claudeSandboxEnabled: false,
+      claudeAllowUnsandboxedCommands: true,
+      claudeAllowedTools: [],
+      claudeSandboxCredentialFiles: ["~/.config/service/credentials.json"],
+    });
+  });
+
+  test("uses the synced Codex settings over the guarded defaults", () => {
+    expect(userSettingsPermissionOptions("codex", settings)).toEqual({
+      codexApprovalPolicy: "never",
+      codexFileAccess: "danger-full-access",
+      codexNetworkAccess: true,
+      codexAutoApproveStaveLocalMcpTools: true,
+    });
+  });
+
+  test("falls back to guarded defaults, not runtime fallbacks, when nothing was synced", () => {
+    expect(userSettingsPermissionOptions("claude-code", null)).toEqual({
+      claudePermissionMode: "default",
+      claudePlanModeApprovalScope: "strict",
+      claudeAllowDangerouslySkipPermissions: false,
+      claudeSandboxEnabled: true,
+      claudeAllowUnsandboxedCommands: false,
+      claudeAllowedTools: [],
+    });
+    expect(userSettingsPermissionOptions("codex", undefined)).toEqual({
+      codexApprovalPolicy: "untrusted",
+      codexFileAccess: "workspace-write",
+      codexNetworkAccess: false,
+      codexAutoApproveStaveLocalMcpTools: false,
+    });
+  });
+
+  test("reads what the renderer synced into the host store, and guarded defaults before any sync", () => {
+    const db = new Database(":memory:");
+    db.exec(
+      "CREATE TABLE app_state (key TEXT PRIMARY KEY, value_json TEXT NOT NULL, updated_at TEXT NOT NULL)",
+    );
+    const store = new DelegationPolicyStore(db as never);
+    expect(store.loadSettings()).toBeNull();
+    expect(userSettingsPermissionOptions("claude-code", store.loadSettings())?.claudePermissionMode).toBe("default");
+    expect(userSettingsPermissionOptions("codex", store.loadSettings())?.codexApprovalPolicy).toBe("untrusted");
+
+    store.saveSettings(settings);
+    expect(userSettingsPermissionOptions("claude-code", store.loadSettings())).toMatchObject(settings["claude-code"]);
+    expect(userSettingsPermissionOptions("codex", store.loadSettings())).toEqual(settings.codex);
+  });
+
+  test("leaves providers without synced permission settings to their runtime", () => {
+    expect(userSettingsPermissionOptions("cursor", settings)).toBeUndefined();
   });
 });

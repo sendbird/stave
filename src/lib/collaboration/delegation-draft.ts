@@ -1,6 +1,7 @@
 import { z } from "zod";
 import {
   DelegateTaskArgsSchema,
+  DelegatedTaskAccessSchema,
   DelegatedTaskEffortSchema,
   DelegatedTaskPermissionProfileSchema,
   type DelegateTaskArgs,
@@ -23,7 +24,10 @@ export const DelegationDraftSchema = z
     model: z.string().max(200),
     /** Absent (legacy drafts) means the child's provider default. */
     effort: DelegatedTaskEffortSchema.optional(),
-    permissionProfile: DelegatedTaskPermissionProfileSchema,
+    /** Absent (legacy drafts) means `inherit`. */
+    access: DelegatedTaskAccessSchema.optional(),
+    /** Legacy drafts only: the form chooses `access` and no longer sends a profile. */
+    permissionProfile: DelegatedTaskPermissionProfileSchema.optional(),
     keepOpen: z.boolean(),
     isolated: z.boolean(),
     /**
@@ -75,7 +79,7 @@ export function createEmptyDelegationDraft(): DelegationDraft {
     prompt: "",
     providerId: "codex",
     model: "",
-    permissionProfile: "inherit",
+    access: "inherit",
     keepOpen: true,
     isolated: true,
     deliveryUncertain: false,
@@ -92,7 +96,7 @@ export function editDelegationDraft(
       | "providerId"
       | "model"
       | "effort"
-      | "permissionProfile"
+      | "access"
       | "keepOpen"
       | "isolated"
     >
@@ -137,7 +141,7 @@ export function prepareDelegationDraftRequest(args: {
       providerId: args.draft.providerId,
       model: args.draft.model.trim() || undefined,
       effort: args.draft.effort,
-      permissionProfile: args.draft.permissionProfile,
+      access: args.draft.access ?? "inherit",
       lifecycle: args.draft.keepOpen ? "detached" : "one-turn",
       workspace: args.draft.isolated
         ? { mode: "new-worktree", name: delegationKey }

@@ -1214,6 +1214,13 @@ export interface ProviderRuntimeOptions {
   claudeAllowDangerouslySkipPermissions?: boolean;
   claudeSandboxEnabled?: boolean;
   claudeAllowUnsandboxedCommands?: boolean;
+  /**
+   * Restrictive only: forces the sandbox on with no unsandboxed escape, denies
+   * every filesystem write from sandboxed commands, and stops a command from
+   * being approved just because it is sandboxed. Read-only delegated tasks set
+   * it so their Bash cannot change the workspace whatever else is allowed.
+   */
+  claudeSandboxReadOnly?: boolean;
   /** File paths the Claude sandbox must deny as credentials. */
   claudeSandboxCredentialFiles?: string[];
   /** Environment variable names the Claude sandbox must deny as credentials. */
