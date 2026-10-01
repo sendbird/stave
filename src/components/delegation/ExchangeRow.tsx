@@ -42,8 +42,6 @@ const ROW_STATUS: Record<ExchangeStatus, TurnActivityRowStatus> = {
 };
 
 const ROW_ICON: Record<DelegationExchange["kind"], TurnActivityIconKey> = {
-  advisor: "advisor",
-  worker: "subagent",
   "delegated-task": "subagent",
   subagent: "subagent",
 };
@@ -81,10 +79,6 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
   const detailId = useId();
   const status = describeExchangeStatus(exchange.outcome.status);
   const live = !status.settled;
-  // The advisor row is the shelf's entry point to the archived consult log.
-  const opensConsultLog =
-    exchange.kind === "advisor" &&
-    exchange.actions.some((action) => action.id === "open-log");
   const elapsedMs = resolveExchangeElapsedMs(exchange, nowMs);
   const deadline =
     live && exchange.timing.deadlineAt !== undefined
@@ -124,7 +118,6 @@ export const ExchangeRow = memo(function ExchangeRow(props: ExchangeRowProps) {
           styles.rowHeader,
         ]}
         title={`${exchange.title} · ${status.label} — ${exchange.ask}`}
-        data-turn-activity-opens={opensConsultLog ? "advisor-consult-log" : undefined}
         onClick={() => props.onInspect ? props.onInspect(exchange) : toggle()}
       >
         <span className={sx(styles.rowStatusSlot)}>

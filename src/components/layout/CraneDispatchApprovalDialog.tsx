@@ -388,7 +388,6 @@ export function CraneDispatchApprovalDialog() {
           <DispatchRuntimeFields
             idPrefix="crane-dispatch"
             draft={runtime}
-            advisorConsultLimit={settings.advisorConsultLimit}
             providerTimeoutMs={settings.providerTimeoutMs}
             disabled={submitting}
             footer={

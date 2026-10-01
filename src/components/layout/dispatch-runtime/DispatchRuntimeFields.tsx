@@ -3,30 +3,10 @@ import { Accordion } from "@/components/ads/components/Accordion";
 import { Select } from "@/components/ads/components/Select";
 import { Switch } from "@/components/ads/components/Switch";
 import { sx } from "@/components/ads/utils/stylex";
-import { ModelIcon } from "@/components/ai-elements/model-icon";
 import { ModelEffortSelector } from "@/components/ai-elements/model-effort-selector";
-import {
-  ADVISOR_EFFORT_AUTO_VALUE,
-  buildAdvisorEffortOptions,
-  buildAdvisorProviderOptions,
-  formatAdvisorEffortLabel,
-  resolveAdvisorEffortSelection,
-} from "@/components/ai-elements/prompt-input-advisor-mode.utils";
 import { ChoiceButtons } from "@/components/layout/settings-dialog.shared";
-import {
-  selectCraneDispatchAdvisorTarget,
-  type CraneDispatchAccessState,
-} from "@/lib/crane-connector/dispatch-runtime";
-import {
-  isAdvisorEffortClamped,
-  resolveAdvisorEffort,
-} from "@/lib/providers/advisor";
-import {
-  getProviderLabel,
-  toHumanModelName,
-} from "@/lib/providers/model-catalog";
+import type { CraneDispatchAccessState } from "@/lib/crane-connector/dispatch-runtime";
 import type { ProviderModePresetId } from "@/lib/providers/provider-mode-presets";
-import type { AdvisorEffort } from "@/lib/providers/provider.types";
 import {
   CLAUDE_PERMISSION_MODE_OPTIONS,
   CODEX_APPROVAL_POLICY_OPTIONS,
@@ -41,7 +21,6 @@ export interface DispatchRuntimeFieldsProps {
   /** Namespaces every DOM id so two dispatch surfaces can coexist on screen. */
   idPrefix: string;
   draft: DispatchRuntimeDraft;
-  advisorConsultLimit: number;
   providerTimeoutMs: number;
   disabled?: boolean;
   /** Rendered as the section's last child, e.g. a remember-defaults control. */
@@ -70,11 +49,10 @@ function AccessSelectField(props: {
   );
 }
 
-/** The "How it runs" controls: model, effort, autonomy, access, and Advisor. */
+/** The "How it runs" controls: model, effort, autonomy and access. */
 export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
   const { draft, idPrefix } = props;
-  const { access, advisor, advisorTarget, model, setAccess, setAdvisor } =
-    draft;
+  const { access, model, setAccess } = draft;
   // One setter for every access control. The child fields work in `string` /
   // `boolean`; the stored fields are literal unions the options already respect,
   // so writing `unknown` back keeps the updaters to a single line without a cast
@@ -208,126 +186,6 @@ export function DispatchRuntimeFields(props: DispatchRuntimeFieldsProps) {
                     />
                   </>
                 )}
-
-                <Switch
-                  variant="row"
-                  label="Advisor"
-                  description="Lets the primary consult an isolated read-only Advisor on demand, adding a model call per consult."
-                  checked={advisor.enabled}
-                  disabled={props.disabled}
-                  onCheckedChange={(checked) =>
-                    setAdvisor((current) => ({ ...current, enabled: checked }))
-                  }
-                />
-
-                <div className={sx(dispatchFieldStyles.field)}>
-                  <p className={sx(dispatchFieldStyles.fieldLabel)}>
-                    Advisor provider
-                  </p>
-                  <ChoiceButtons
-                    aria-label="Advisor provider"
-                    value={advisor.providerId}
-                    options={buildAdvisorProviderOptions().map((option) => ({
-                      value: option.id,
-                      label: option.label,
-                      icon: (
-                        <ModelIcon
-                          providerId={option.id}
-                          className={sx(dispatchFieldStyles.optionIcon)}
-                        />
-                      ),
-                    }))}
-                    onChange={(providerId) =>
-                      // Non-destructive: each provider keeps its own model and
-                      // tier, so switching back restores the other pick instead of
-                      // resetting it to the catalog default.
-                      setAdvisor((current) => ({ ...current, providerId }))
-                    }
-                  />
-                </div>
-
-                <Select
-                  label={`${getProviderLabel({ providerId: advisor.providerId })} Advisor model`}
-                  value={advisorTarget.model}
-                  disabled={props.disabled}
-                  options={draft.advisorModels.map((value) => ({
-                    value,
-                    label: toHumanModelName({ model: value }),
-                    icon: (
-                      <ModelIcon
-                        providerId={advisor.providerId}
-                        model={value}
-                        className={sx(dispatchFieldStyles.optionIcon)}
-                      />
-                    ),
-                  }))}
-                  onValueChange={(nextAdvisorModel) => {
-                    if (typeof nextAdvisorModel !== "string") {
-                      return;
-                    }
-                    setAdvisor((current) =>
-                      selectCraneDispatchAdvisorTarget({
-                        advisor: current,
-                        target: {
-                          providerId: current.providerId,
-                          model: nextAdvisorModel,
-                          // Switching model must not silently drop the pinned
-                          // tier; an unsupported one is clamped at resolution
-                          // time instead.
-                          ...(advisorTarget.effort
-                            ? { effort: advisorTarget.effort }
-                            : {}),
-                        },
-                      }),
-                    );
-                  }}
-                />
-
-                <div className={sx(dispatchFieldStyles.field)}>
-                  <p className={sx(dispatchFieldStyles.fieldLabel)}>
-                    Advisor effort
-                  </p>
-                  <ChoiceButtons
-                    aria-label="Advisor effort"
-                    value={
-                      resolveAdvisorEffortSelection(advisorTarget) ??
-                      ADVISOR_EFFORT_AUTO_VALUE
-                    }
-                    options={buildAdvisorEffortOptions(advisorTarget).map(
-                      (option) => ({
-                        value: option.value ?? ADVISOR_EFFORT_AUTO_VALUE,
-                        label: option.label,
-                      }),
-                    )}
-                    onChange={(value) =>
-                      setAdvisor((current) =>
-                        selectCraneDispatchAdvisorTarget({
-                          advisor: current,
-                          target: {
-                            providerId: current.providerId,
-                            model: advisorTarget.model,
-                            ...(value === ADVISOR_EFFORT_AUTO_VALUE
-                              ? {}
-                              : { effort: value as AdvisorEffort }),
-                          },
-                        }),
-                      )
-                    }
-                  />
-                  <p className={sx(dispatchFieldStyles.hintRelaxed)}>
-                    {advisorTarget.effort && isAdvisorEffortClamped(advisorTarget)
-                      ? `${toHumanModelName({
-                          model: advisorTarget.model,
-                        })} does not accept ${formatAdvisorEffortLabel(
-                          advisorTarget.effort,
-                        )}, so the Advisor runs at ${formatAdvisorEffortLabel(
-                          resolveAdvisorEffort(advisorTarget),
-                        )}.`
-                      : `The primary waits on each consult, so this is a latency-per-consult choice. Runs at ${formatAdvisorEffortLabel(
-                          resolveAdvisorEffort(advisorTarget),
-                        )}, up to ${props.advisorConsultLimit} consults per turn.`}
-                  </p>
-                </div>
 
                 <p className={sx(dispatchFieldStyles.hintRelaxed)}>
                   Provider timeout{" "}

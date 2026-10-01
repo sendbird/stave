@@ -94,8 +94,8 @@ process.on("SIGTERM", () => child.kill("SIGTERM"));
       settings: {
         customAgents: [agent], modelCodex: model, codexReasoningEffort: "low",
         codexBinaryPath: wrapperPath, codexFileAccess: "read-only", codexApprovalPolicy: "never",
-        codexNetworkAccess: false, autoRoutingEnabled: false, advisorEnabled: false,
-        workerEnabled: false, themeMode: "dark",
+        codexNetworkAccess: false, autoRoutingEnabled: false,
+        themeMode: "dark",
       },
     });
     await stave.page.getByRole("button", { name: "Agents", exact: true }).click();

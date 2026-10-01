@@ -19,7 +19,6 @@ import type {
 } from "../src/lib/providers/provider.types";
 import { streamClaudeWithSdk } from "../electron/providers/claude-sdk-runtime";
 import { streamCodexWithAppServer } from "../electron/providers/codex-app-server-runtime";
-import { withoutAdvisorTarget } from "../src/lib/providers/advisor";
 import { buildRepositoryShellEnv } from "../electron/shared/repository-node-env";
 import {
   checkoutDefaultBranchDetached,
@@ -319,13 +318,7 @@ const server = Bun.serve({
         }
       };
       activeProviderAborters.set(turnKey, abortTurn);
-      // The browser-dev bridge has no Local MCP server, so the on-demand
-      // Advisor cannot be consulted here. Stripping the target keeps the
-      // primary turn identical to Electron minus the consult grant.
-      const effectiveBody: ProviderTurnRequest = {
-        ...body,
-        runtimeOptions: withoutAdvisorTarget(body.runtimeOptions),
-      };
+      const effectiveBody: ProviderTurnRequest = body;
 
       try {
         const primaryEvents: BridgeEvent[] = [];

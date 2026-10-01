@@ -329,10 +329,6 @@ interface WindowProviderApi {
   abortTurn?: (args: {
     turnId: string;
   }) => Promise<{ ok: boolean; message?: string }>;
-  /** Cancels only the Advisor preflight; the primary turn keeps running. */
-  skipAdvisor?: (args: {
-    turnId: string;
-  }) => Promise<{ ok: boolean; message?: string }>;
   steerTurn?: (
     args: ProviderSteerTurnRequest,
   ) => Promise<ProviderSteerTurnResponse>;
@@ -2061,22 +2057,6 @@ interface WindowPersistenceApi {
     draft:
       import("@/lib/workspace-resume-brief").WorkspaceResumeBriefDraft | null;
   }) => Promise<{ ok: boolean }>;
-  loadDelegationDraft?: (args: {
-    scope: import("@/lib/collaboration/delegation-draft").DelegationDraftScope;
-  }) => Promise<{
-    ok: boolean;
-    draft:
-      import("@/lib/collaboration/delegation-draft").DelegationDraft | null;
-  }>;
-  saveDelegationDraft?: (args: {
-    scope: import("@/lib/collaboration/delegation-draft").DelegationDraftScope;
-    draft:
-      import("@/lib/collaboration/delegation-draft").DelegationDraft | null;
-  }) => Promise<{ ok: boolean }>;
-  clearAcceptedDelegationDraft?: (args: {
-    scope: import("@/lib/collaboration/delegation-draft").DelegationDraftScope;
-    delegationKey: string;
-  }) => Promise<{ ok: boolean; cleared: boolean }>;
   listResultReviews?: (
     args?: import("@/lib/reviews/result-review").ListResultReviewsArgs,
   ) => Promise<

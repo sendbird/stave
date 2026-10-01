@@ -1,3 +1,4 @@
+import { capSpawnedTurnOptions } from "../../src/lib/policy/turn-policy";
 import { taskControlGate } from "./task-control-gate";
 import { attachTurnReceiptToSession } from "./local-mcp-turn-receipt-projection";
 import { displayTurnReceipt } from "../../src/lib/providers/turn-terminal-receipt";
@@ -1706,6 +1707,7 @@ async function runTaskImpl(args: {
   retrievedContextParts?: CanonicalRetrievedContextPart[];
   /** Set only by the mission supervisor; the provider runtime mints the grant. */
   missionStage?: import("../../src/lib/missions/domain").MissionStageIdentity;
+  spawnedBy?: { taskId: string; autonomy: import("../../src/lib/policy/turn-policy").Autonomy | null }; // the calling turn caps this one
 }) {
   const controlGeneration = taskControlGate.capture(args.taskId);
   const { repositories } = await loadNormalizedRepositories();
@@ -1889,10 +1891,10 @@ async function runTaskImpl(args: {
           ].join("\n"),
         }
       : null;
-  // A parent that delegated work sees where its children stand before it takes
-  // its next turn — identity, phase and reason, never the child's transcript.
+  // Subagent states and the answers that arrived since this task's last turn began.
   const delegatedTaskReceiptsPart = buildDelegatedTaskReceiptsRetrievedContext({
     children: listDelegatedTaskSummaries({ parentTaskId: task.id }),
+    resultsSince: ensureHostServicePersistenceReady().listTurns({ workspaceId: args.workspaceId, taskId: task.id, limit: 1 })[0]?.createdAt ?? null,
   });
   const repositoryMemoryPart = buildRepositoryMemoryPartForTurn({
     repositoryPath: registration.project.repositoryPath,
@@ -2012,7 +2014,7 @@ async function runTaskImpl(args: {
         ? { unattendedAutomation: args.unattendedAutomation }
         : {}),
       ...(args.missionStage ? { missionStage: args.missionStage } : {}),
-      runtimeOptions: {
+      runtimeOptions: capSpawnedTurnOptions({ providerId: provider, root: workspacePath, spawnedBy: args.spawnedBy, options: {
         ...(isExternallyManagedTask(task)
           ? resolveManagedTaskRuntimeOptions({
               providerId: provider,
@@ -2026,7 +2028,7 @@ async function runTaskImpl(args: {
             })
           : args.runtimeOptions),
         model,
-      },
+      } }),
     },
     {
       onEvent: (event) => {
@@ -2255,7 +2257,6 @@ export async function getTaskSupervisionSnapshot(args: {
       taskId: args.taskId,
       limit: 40,
     })?.messages ?? session.messagesByTask[args.taskId] ?? []);
-
 
   return {
     workspaceId: args.workspaceId,

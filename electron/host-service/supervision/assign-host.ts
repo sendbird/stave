@@ -20,6 +20,7 @@ export function createHostAssignRuntime(args: {
   const persistence = ensureHostServicePersistenceReady();
   const runtime = createAssignRuntime({
     store: persistence.agentAssignments,
+    listAgents: () => hostAgents(),
     emitChanged: (row) => args.emitChanged({ assignmentId: row.id, state: row.state }),
   });
   return {

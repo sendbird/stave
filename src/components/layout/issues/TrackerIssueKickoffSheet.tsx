@@ -195,7 +195,6 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
           <DispatchRuntimeFields
             idPrefix={ID_PREFIX}
             draft={draft.runtime}
-            advisorConsultLimit={settings.advisorConsultLimit}
             providerTimeoutMs={settings.providerTimeoutMs}
             disabled={draft.submitting}
             footer={

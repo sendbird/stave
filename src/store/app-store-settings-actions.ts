@@ -10,11 +10,6 @@ import {
   normalizeNotificationSoundVolume,
 } from "@/lib/notifications/notification-sound";
 import { normalizePromptCommentShortcut } from "@/lib/prompt-comment-shortcuts";
-import {
-  normalizeAdvisorConsultLimit,
-  normalizeAdvisorTarget,
-  normalizeAdvisorTargetByProvider,
-} from "@/lib/providers/advisor";
 import { mergeModelRuntimePreferenceSettings } from "@/lib/providers/model-runtime-preferences";
 import { normalizeModelVisibility } from "@/lib/providers/model-visibility";
 import {
@@ -386,25 +381,6 @@ export function createSettingsActions(args: {
           ? {}
           : {
               trustedTools: normalizeTrustedToolEntries(patch.trustedTools),
-            }),
-        ...(patch.advisorTarget === undefined
-          ? {}
-          : {
-              advisorTarget: normalizeAdvisorTarget(patch.advisorTarget),
-            }),
-        ...(patch.advisorTargetByProvider === undefined
-          ? {}
-          : {
-              advisorTargetByProvider: normalizeAdvisorTargetByProvider(
-                patch.advisorTargetByProvider,
-              ),
-            }),
-        ...(patch.advisorConsultLimit === undefined
-          ? {}
-          : {
-              advisorConsultLimit: normalizeAdvisorConsultLimit(
-                patch.advisorConsultLimit,
-              ),
             }),
         ...(patch.reasoningExpansionMode === undefined
           ? {}

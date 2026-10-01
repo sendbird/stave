@@ -1,7 +1,6 @@
 import { describe, expect, test } from "bun:test";
 import path from "node:path";
 import {
-  streamKiroWorkerWithAcp,
   streamKiroWithAcp,
   buildKiroAcpCommandArgs,
 } from "../electron/providers/kiro/kiro-acp-profile";
@@ -54,28 +53,6 @@ describe("Kiro ACP runtime", () => {
       "--effort",
       "xhigh",
     ]);
-  });
-
-  test("runs a Worker in a fresh scoped ACP session with its selected model", async () => {
-    const events = await streamKiroWorkerWithAcp({
-      prompt: "Do one bounded task",
-      cwd: import.meta.dir,
-      model: "fixture-model",
-      runtimeOptions: { kiroBinaryPath: process.execPath },
-      requestIdScope: "worker:fixture",
-      acpArgsForTest: [fixturePath, "standard"],
-    });
-
-    expect(events).toContainEqual({
-      type: "model_resolved",
-      resolvedProviderId: "kiro",
-      resolvedModel: "fixture-model",
-    });
-    expect(events).toContainEqual({
-      type: "text",
-      text: "Kiro response:fixture-model",
-      segmentId: "kiro-message-1",
-    });
   });
 
   test("parses the JSON model catalog without retaining account data", () => {

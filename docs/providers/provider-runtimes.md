@@ -236,8 +236,7 @@ Unreadable or invalid target-native files fail closed to avoid duplicate or
 silently re-enabled routes. Stave can forward stdio commands and HTTP URLs, but
 it cannot forward provider-hosted account connectors or plugin runtimes because
 their OAuth session and transport are not present in native configuration. SSE
-servers are not forwarded through this shared projection. Nested Worker
-sessions remain isolated and inherit neither catalog.
+servers are not forwarded through this shared projection.
 
 Cursor's config carries a third, finer lever that is independent of the preset:
 `approvalMode` (`allowlist` by default, plus `unrestricted` and `auto-review`)
@@ -258,9 +257,7 @@ file that declares `deny: []` clears the user's global deny list for that
 project. Stave does not write either file; it lets Cursor persist its own rules.
 
 The preset flags are accepted by `agent acp` even though `agent acp --help` does
-not list them. Verify them against the installed CLI on upgrade. Worker runs
-always use `Manual` and never advertise `Always allow`, so a nested Worker can
-neither inherit the primary turn's grant nor write a persistent rule.
+not list them. Verify them against the installed CLI on upgrade.
 
 The composer consumes a provider-neutral model-catalog interface. Static
 catalogs and runtime adapters are normalized before the searchable provider
@@ -278,7 +275,7 @@ ACP layer accepts prompt usage in either the snake_case or camelCase spelling
 and under `_meta`, so a later Cursor build that starts reporting usage is
 picked up without a runtime change.
 
-Cursor is intentionally excluded from Advisor, secondary and unattended runs,
+Cursor is intentionally excluded from subagents, secondary and unattended runs,
 automations, native thread actions, and mid-turn steering. It does have a
 Standalone CLI tab: that surface runs `agent` directly over a PTY and does not
 go through the ACP runtime, so none of the ACP limitations apply to it.
@@ -287,11 +284,9 @@ ACP v1 `session/prompt` is blocking, and the Cursor Agent ACP dispatcher
 and sending a new one aborts in-flight work, so Stave does not present that
 as steering.
 Utility inference can still use Cursor Ask as a last-resort read-only runner when
-Codex and Claude are unavailable or not signed in. Worker mode is the one delegated exception: an interactive primary can call a
-turn-scoped Local MCP tool that starts or resumes a same-provider, task-scoped
-ACP Worker session. Bound
-secrets are resolved only in the main runtime path and injected into the
-disposable primary-turn process environment; the Worker receives none.
+Codex and Claude are unavailable or not signed in. Bound secrets are resolved
+only in the main runtime path and injected into the disposable primary-turn
+process environment.
 
 ## Kiro CLI ACP runtime
 
@@ -339,7 +334,7 @@ extension mapper normalizes that into a `context_usage` event, so the post-turn
 usage control and the turn-activity Headroom/Usage tiles show a percentage and
 a credit amount instead of a zero-token turn.
 
-Kiro is intentionally excluded from Advisor, secondary and unattended runs,
+Kiro is intentionally excluded from subagents, secondary and unattended runs,
 automations, and native thread actions. It does have a Standalone CLI tab: that
 surface runs `kiro-cli chat` directly over a PTY and does not go through the
 ACP runtime, so none of the ACP limitations apply to it. Interactive primary
@@ -348,525 +343,45 @@ Kiro ACP extension `_session/steer` with the session id and a text prompt
 block. That method is present in `kiro-cli` 2.20.2; if the agent answers
 method-not-found or any other error, the steer is rejected and the original
 turn keeps running. Steers are text-only. Cursor stays excluded because its
-ACP agent has no equivalent method. Worker sessions do not register a steer
-responder.
+ACP agent has no equivalent method.
 Utility inference can still use Kiro as a last-resort read-only runner when
-Codex, Claude, and Cursor are unavailable or not signed in. Worker mode uses the same bounded, turn-scoped Local MCP bridge as Cursor and a
-task-scoped same-provider ACP session. Bound secrets are resolved only for the
-disposable interactive primary-turn process; the Worker receives none. Runtime
+Codex, Claude, and Cursor are unavailable or not signed in. Bound secrets are
+resolved only for the disposable interactive primary-turn process. Runtime
 upgrades should recheck ACP initialization, session create/load, prompt,
 `_session/steer`, cancellation, permissions, model selection, and the JSON
 model-catalog shape against the installed CLI before broadening this
 capability boundary.
 
-## On-demand Advisor consults
-
-`Settings → Providers → Advisor` arms an isolated read-only Advisor that the
-**primary model consults on demand during its turn** via the
-`stave_consult_advisor` Local MCP tool. The primary provider and Advisor are
-independent: Claude can advise Codex, Codex can advise Claude, and either
-provider can advise another model from its own catalog. Fable is a normal
-Claude model choice, not a special Advisor mode. The intended asymmetry is a
-cheap primary consulting an expensive Advisor only when it needs a second
-opinion — the consult carries the primary's framed question plus minimal
-quoted context, not the whole conversation.
-
-Managed Claude, Codex, Cursor, and Kiro primary turns attach the running Local
-MCP server directly. Codex receives the current URL, bearer-token environment
-variable name, and tool deadline through per-thread config on start and resume;
-the token stays in the App Server process environment. Cursor and Kiro receive
-the same catalog over ACP stdio via the bundled proxy. User CLI MCP
-auto-registration in Settings → Developer is optional for these internal turns.
-Secondary read-only runs and nested Worker lanes do not receive this connection.
-
-The server exposes collaboration tools only on scoped connections. Unscoped
-CLI connections keep ordinary workspace tools but expose neither
-`stave_consult_advisor` nor `stave_run_worker`. Codex retains an Advisor channel
-after its first activation so subsequent on/off changes can reuse the native
-thread and its history. The first activation on a thread without that catalog
-starts a fresh thread with available conversation history; host restart or
-task cleanup can require another initialization. Calls on a retained channel
-must include the current public `turnId` from the latest Advisor briefing.
-The host checks both the channel and turn ID before spending consultation
-budget. Off, stopped, completed, missing-ID and stale-turn calls are rejected.
-The channel key stays out of prompts. Turns without a task ID get independent
-keys and never share the retained channel. These rules preserve session reuse;
-they do not guarantee a particular provider cache hit rate.
-Codex and Claude use their native agent mechanisms for Worker mode; only Cursor
-and Kiro receive an MCP Worker grant. Grants are replaced on each turn (including
-resume), revoked on stop or completion, and checked by the host before execution.
-A stale call cannot fall back to another active task. ACP carries its grant to
-the HTTP proxy through private environment entries. Enabled collaboration that
-cannot attach Local MCP stops with a setup error instead of starting a primary
-that cannot use the promised tool. Previous collaboration briefings are replaced
-when retrying a canonical request, and removed when the feature is disabled.
-
-A mission turn carries a mission grant on the same header and environment path
-(`x-stave-mission-key`, `STAVE_MISSION_GRANT_KEY`). Only the host's mission
-supervisor sets the `missionStage` that mints it; the renderer's turn schema
-rejects the field. The grant names one stage attempt, the Local MCP server
-exposes `stave_get_mission`, `stave_report_stage` and `stave_block_stage` only
-on a connection that carries a key, and the host resolves the mission, stage
-and attempt from the key's active grant, so the tools take no ids. Turn end
-revokes the grant. Claude gets a fresh key per turn. Codex keeps one key per
-task, like the Advisor channel, so later turns resume the same thread; the key
-resolves to nothing outside a mission turn. Missions run on Claude and Codex
-only.
-
-Control is split deliberately: the **user** decides who answers, at what
-effort, and how often (the per-turn consult budget,
-`advisorConsultLimit`, default 5, clamp 1–20); the **model** decides when a
-question is worth asking. When a turn starts with an armed Advisor, the shared
-runtime registers a turn-scoped consult grant and binds it to the primary
-MCP connection through a private header. The briefing `retrieved_context`
-part (source id `stave:advisor-consult`) describes the question, context, and
-budget; no execution key enters the prompt or tool arguments. The tool is auto-approved
-(`stave-local-mcp-approval.ts`) because the spend was authorised at arm time
-and each call is read-only and budget-bounded.
-
-The Advisor target is stored as
-`advisorTarget: { providerId, model, effort? } | null` and the grant is only
-minted for the main user-turn request. Summary generation, routing
-classifiers, task naming, PR helpers, native slash-command turns, and other
-internal one-shot calls never carry it.
-
-The Settings default is three fields, the same shape a task keeps (see
-[Per-task arming](#per-task-arming)):
-
-- `advisorEnabled: boolean` — whether new tasks start armed.
-- `advisorTarget: AdvisorTarget | null` — the remembered pick, kept while the
-  default is off so turning it back on is one click.
-- `advisorTargetByProvider` — the default model and effort per provider.
-
-Arming and configuring are therefore separate acts in Settings too: the
-provider, model, and effort rows stay editable while the default is off, and
-each provider keeps its own pick, so both can be set up before either is armed
-and switching provider is not a destructive edit. A snapshot written before the
-switch existed is read the old way — a configured target meant armed — so an
-existing default keeps arming.
-
-### Advisor effort
-
-`effort` is optional; absent means "follow the model's provider default", which
-is what every target did before the tier became selectable. Because the primary
-waits on each consult it makes, the tier is a latency-per-consult choice, so the
-composer and Settings both show what the default resolves to rather than only
-the word "Auto".
-
-`resolveAdvisorEffort` in `src/lib/providers/advisor.ts` is the single
-resolution point, shared by the renderer that labels the tier and the main
-process that requests it, so the composer can never promise a tier the call
-would not use. It defaults an absent tier and clamps a pinned one down to what
-the model accepts (Luna caps at `max`, Claude has no `ultra`), rather than
-sending a value the provider would reject. `normalizeAdvisorTarget` drops a tier
-the provider does not have at all while keeping the target: losing the tier
-costs latency, losing the target would silently disarm an Advisor the user
-believes is on. Codex's legacy `minimal` is not selectable and collapses to
-`low` before the call, so it never appears as a pin or in a reported event.
-
-Each consult's deadline follows the resolved effort rather than sharing the
-primary provider timeout: `low` gets 3 minutes, `medium` 5, `high` 10, `xhigh`
-15, `max` 20, and `ultra` 25. The tiers are sized to outlast a healthy call
-rather than to police a slow one — cutting a consult short is the expensive
-failure, because the work still ran and still billed while the primary got no
-advice. `ultra` gets its own top rung because Codex describes it as "maximum
-reasoning with automatic task delegation", which fans out sub-work and
-legitimately runs longest. The lifecycle `started` event
-reports that same resolved deadline, so the exchange monitor countdown and the
-runtime enforcement cannot drift. The monitor's Cancel-consult control drops
-only the in-flight consult; the grant (and the turn) keep going.
-
-That deadline is only meaningful if every layer wrapping it outlasts it, so the
-consult path keeps an explicitly ordered ladder — innermost first:
-
-| Layer                  | Deadline                | Defined in                                |
-| ---------------------- | ----------------------- | ----------------------------------------- |
-| One advisor call       | 3–25 min by effort tier | `resolveAdvisorTimeoutMs`                 |
-| Host-service backstop  | 30 min                  | `HOST_SERVICE_ADVISOR_CONSULT_TIMEOUT_MS` |
-| MCP tool call (client) | 31 min                  | `STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS`         |
-
-Raising any effort tier means raising the backstop with it. `STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS`
-is derived (`backstop + 60s`) so only the first two rungs are hand-set, and
-`tests/stave-local-mcp-manifest.test.ts` fails on any inversion.
-
-The outermost rung is the one that has to be stated rather than inherited: the
-Claude Agent SDK defaults a tool call to a **hard 60-second** wall clock that
-progress notifications do not extend, so leaving it unset silently capped every
-Stave tool at a minute. A consult past that mark still ran to completion, still
-billed, and still emitted its `completed` trace to the turn — while the client
-had already aborted and the MCP SDK discarded the reply with no error, no log,
-and no metric. Only the UI ever saw the advice.
-
-Keeping the ladder ordered is what prevents that, and it is the _only_ thing
-that prevents it: a consult cannot notice its caller leaving. The tool handler
-runs in the Electron main process while the grant registry lives in the
-host-service child, so the caller's `AbortSignal` cannot reach the run — it
-does not survive the JSON IPC hop. An abandoned consult therefore runs to its
-own deadline and bills for it, and because the grant serializes consults, it
-also blocks the rest of that turn's budget until it finishes. The fix is to
-never abandon a healthy consult, not to cancel one after the fact.
-
-Because a consult can legitimately think for minutes, the runtime also emits an
-`advisor_activity` `progress` heartbeat — throttled to one tick every 5 seconds
-— naming what the provider was last seen doing (`Codex item: reasoning`,
-`Claude event: assistant`, `Loading the Claude runtime`). Both providers resolve
-only once generation has finished, so without it a consult is indistinguishable
-from a wedged thread for its whole duration. The heartbeat is deliberately not a
-lifecycle stage: the reducer folds it into `lastProgressAt`/`progressDetail`
-rather than appending to the bounded `stages` list, so a chatty provider cannot
-evict the steps that matter or make `settledConsults` depend on tick timing. A
-late heartbeat from an abandoned runner cannot reopen a settled consult.
-
-The same ladder governs `stave-mcp-stdio-proxy`, which shares
-`STAVE_LOCAL_MCP_TOOL_TIMEOUT_MS` rather than setting its own deadline.
-
-One tool escapes the outermost rung: `stave_create_workspace` blocks on the
-project's configured init command (typically a dependency install) with no
-deadline of its own, so a cold monorepo can exceed the server-wide cap. That is
-not a regression — the previous effective cap was 60 seconds — but the ladder
-holds by construction only for the consult path, and a per-server timeout
-cannot be right for a tool set spanning "read a note" and "run npm install".
-
-### Per-task arming
-
-The Settings target is the **default**, not the whole story. Each task can arm
-or disarm the Advisor from its composer, next to the plan and thinking toggles,
-via `src/components/ai-elements/prompt-input-advisor-mode.tsx`.
-
-Arming lives in the task's `PromptDraftRuntimeOverrides` as three fields:
-
-- `advisorEnabled?: boolean` — absent inherits `settings.advisorEnabled`.
-- `advisorTarget?: AdvisorTarget` — the task's own target, including its pinned
-  effort, kept task-local so arming one task never changes which model advises
-  another.
-- `advisorTargetByProvider?` — the task's remembered model and effort per
-  provider, so switching provider and back is not a destructive edit. The flat
-  target can only hold one provider's choice, and the two catalogs and effort
-  scales share nothing.
-
-Arming is its own field rather than a nullable target on purpose: turning the
-Advisor off keeps the remembered target, so switching it back on is one click
-instead of re-picking a model. A target without `advisorEnabled` never arms
-anything, so a hand-edited or partially migrated snapshot cannot start paying
-for an Advisor the user did not turn on.
-
-`targetByProvider` on the resolved state is always populated for every
-provider, in priority order: the task's remembered pick, the task's current
-target, the Settings default for that provider, the Settings pick, then the
-provider's catalog default. That is what lets the composer offer a model and
-tier for a provider that is not armed — configuring the Advisor must not
-require paying for it first — while a provider the task never touched still
-starts from the default configured for _that_ provider.
-
-`resolveAdvisorArmState` in `src/lib/providers/advisor.ts` is the single
-resolution point, and it re-normalizes the persisted target, so a corrupt
-per-task value falls back to the Settings default instead of reaching the
-runtime. `buildProviderRuntimeOptions` calls it behind `includeAdvisor`, which
-keeps every utility turn advisor-free by construction.
-
-Turning the Advisor off while a consult is running also issues
-`provider.skip-advisor`, so the control means "now" at the one moment the user
-needs it to, rather than silently meaning "next turn". The composer also warns
-before the turn is spent when the target is off-catalog (consults would fail)
-or identical to the model running the turn (the second opinion is the same
-model) — the arm-time counterpart to the monitor's post-hoc checklist. A
-pinned tier the model cannot run is reported separately from those, as a note
-rather than a warning: the Advisor still advises correctly, just one tier down.
-
-`Alt+A` toggles the Advisor and `Alt+Shift+A` opens its picker, joining the
-`Alt`-modifier family the composer already uses for model-adjacent controls.
-
-### Crane dispatch approvals
-
-The Crane dispatch approval dialog is the third Advisor surface, and it reads
-the same three fields through `resolveAdvisorArmState`. It seeds once per
-approval — from a fresh store read, so changing a setting in another window
-cannot overwrite a choice already made in the open dialog — and never writes
-back: approving one dispatch must not redefine the global default.
-
-Precedence is the Crane team's remembered pick, then the Stave default. The
-remembered value is deliberately three states rather than two: an absent
-`advisor` key on a `CraneTeamRuntimeMemory` means the team has no preference and
-inherits the default, `null` means the team explicitly wants no Advisor, and a
-target means it explicitly wants that one. Collapsing absent into `null` would
-silently disarm the default for every team mapped before the Advisor became
-rememberable.
-
-The approval payload carries `advisorTarget` and `advisorConsultLimit` as a
-pair, enforced both by the schema in `src/lib/crane-connector/types.ts` and
-structurally by `buildCraneDispatchRuntimeChoice`, which takes one
-`CraneDispatchAdvisorChoice` instead of two independent arguments. A target
-without its budget is the failure the pairing prevents: the runtime would
-substitute its own default of 5 and ignore a ceiling the user lowered on
-purpose. The schema also accepts the target's optional `effort`, so the
-dialog's effort row is not a promise the IPC boundary strips.
-`src/lib/advisor-shortcuts.ts` matches on `event.code` because macOS composes
-`Option+A` into `å`. The control installs its own window listener, gated by the
-same `windowShortcutsEnabled` flag the host computes for the active task, which
-keeps the Advisor out of `PromptInput`'s prop surface.
-
-`electron/providers/advisor-consult.ts` owns the per-turn grant (key, budget,
-one consult at a time, revocation on turn end) and calls
-`electron/providers/advisor-runtime.ts` for each consult:
-
-- Claude uses a dedicated Advisor SDK session with `tools: []`, no setting
-  sources, no skills, and no MCP servers. Later consults in the same task,
-  provider, model, effort, and workspace lane may resume that session.
-- Codex uses a dedicated Advisor App Server thread with read-only sandboxing,
-  approvals disabled, network and web search disabled, plus isolated
-  instructions that prohibit tools, apps, plugins, shells, and subagents.
-  Because `isolated` only instructs the model to avoid MCP, every registered
-  MCP server is additionally disabled per thread via config overrides. If the
-  server catalog cannot be read, the isolated call is refused rather than run
-  with weaker isolation than it advertises.
-- Advisor role sessions are separate from the primary conversation and from
-  every other task. Stave keeps at most 64 recently used lanes for 30 minutes;
-  changing provider, model, effort, or workspace starts another lane. A failed
-  resume is discarded so the next consult can start cleanly.
-- Successful advice is bounded, stripped of any `[Section]` header lines so it
-  cannot forge a higher-trust prompt section, and returned to the primary as
-  the consult tool's own result with an explicit low-trust preamble.
-- A compact `system` trace records each consult's completion, cancellation, or
-  recoverable failure. Advisor text is not persisted as a separate assistant
-  response.
-- Every consult's usage (including late usage from a cancelled consult's
-  abandoned runner) is accumulated and merged into the visible primary turn
-  usage exactly once, including when the primary turn ends without emitting its
-  own usage event.
-- A separate `delegated_usage` receipt preserves the Advisor identity, model,
-  cache-read/cache-write counts, cost, and whether its role session was resumed.
-  This is a breakdown of the turn total, not an additional amount to add to it.
-- A failed, timed-out, or cancelled consult returns a structured refusal to the
-  primary and never stops the turn; the tool result tells the model to proceed
-  with its own judgment. Turn end revokes the grant, so a consult can never
-  outlive or bill into a finished turn.
-- Claude timeout diagnostics retain content-free SDK progress metadata: whether
-  the runtime was still loading or the last SDK event type seen while waiting
-  for the final result. Partial model text is never applied as advice.
-- Each consult pauses the primary provider's generation timeout while it runs
-  (a per-exchange phase pause), so another model's latency cannot consume the
-  primary turn's budget.
-
-### Advisor lifecycle events
-
-Each consult emits structured `advisor_activity` events on the normalized
-provider event union rather than requiring the renderer to sniff the `system`
-trace string. Phases are `started`, `completed`, `failed`, `timeout`,
-`aborted`, and `skipped`, and every event of one consult shares an
-`exchangeId` plus `consultIndex`/`consultLimit` so the monitor can show
-"Consult 2/5". `started` also carries a bounded copy of the question the
-primary asked. (The preflight-era `applied`/`primary_started` phases are gone:
-advice now reaches the primary as the tool call's own result, so "returned"
-and "seen" are the same event.)
-
-Events carry the primary and advisor provider/model plus the isolation mode and
-the effort tier actually applied by the runtime, so the UI never infers either
-from a provider id or from the target it can see. The reported tier is the
-resolved one, so a pin that was defaulted or clamped shows the value the call
-carried rather than the value that was asked for. `src/lib/providers/advisor-activity.ts` folds them into a
-per-task `advisorExchangeSnapshot` held in its own store slice, never in
-`messagesByTask`, so the advice text is not persisted as an assistant response
-and the surface does not depend on transcript rendering.
-
-Completed assistant messages also persist each confirmed `delegated_usage`
-receipt. Authentication failures and pre-session Worker placeholders do not
-create usage rows. The
-post-turn usage control shows a delegated count and exposes the per-execution
-breakdown on focus or hover. When a provider does not expose per-execution token
-or cache counters, the receipt still shows its role, provider, model, and
-session reuse status instead of fabricating a cache hit.
-
-`provider.skip-advisor` cancels only the in-flight consult: the primary turn
-continues with a `skipped` phase and the tool returns a structured
-cancellation. It is distinct from `abortTurn`, so escaping a slow advisor never
-costs the user their turn. It reports `ok: false` when no consult is running.
-
-The user-facing surface is `src/components/session/AdvisorExchangeMonitor.tsx`,
-a floating card at the top-right of the chat stage that shows the current
-consult (with its question) and the per-turn count. Expanded, it renders a
-checklist computed only from reported fields — separate model, tool isolation,
-advice returned, usage counted — which is the acceptance criteria for the
-event contract, not decoration. It also reports the isolation mode, effort
-tier, and deadline the call actually used.
-`ideas/advisor-ux-lens/harness.html` renders that real component over real
-reducer output for every terminal scenario, plus the real composer pill over
-the real arm resolver for every arming state.
-
-Bounded secondary turns, such as Compare Judge, use the same provider adapters
-through a separate durable contract. Electron main records the run before the
-host-service starts a fresh read-only turn, and provider-specific restrictions
-are selected by an internal execution policy. See
-[Run Core And Secondary Execution](../architecture/run-core.md).
-
-## Worker mode
-
-Worker mode has a primary orchestrate one same-provider task executor: the
-primary plans, delegates a bounded brief, then reviews the diff and integrates.
-Claude and Codex use their native subagent facilities. Cursor and Kiro use a
-Stave-owned, task-scoped ACP Worker session reached through a turn-scoped Local MCP
-grant. Worker mode is off by default and is armed per task from the composer
-(`Alt+W`, picker on `Alt+Shift+W`), with a global default under Settings →
-Providers → Worker mode.
-
-The provider-neutral core is `src/lib/providers/worker-mode.ts`. It owns the
-preset catalog, the capability table, and `resolveWorkerProfile` — the single
-semantic gate that both the renderer (for labels and availability) and the
-provider runtime (for execution) resolve through. Zod proves payload _shape_ at
-the IPC boundary; this resolver proves the payload makes sense for the
-provider, primary model, and installed runtime.
-
-The renderer sends only an intent (`ProviderRuntimeOptions.workerIntent`), never
-a resolved profile. Renderer-supplied model ids are not trusted: the main
-process re-resolves against the real primary model and installed model catalog
-before building the call.
-
-### Supported combinations
-
-|                            | Claude                                       | Codex                                      | Cursor                                   | Kiro                                     |
-| -------------------------- | -------------------------------------------- | ------------------------------------------ | ---------------------------------------- | ---------------------------------------- |
-| orchestrating primaries    | Fable 5.1, Opus 5.5 (+1M), Sonnet 5.5 (+1M)      | GPT-6 Astra, GPT-6.1 Sol, GPT-6 Sol, GPT-5.6 Terra | runtime ACP catalog                      | runtime model catalog                    |
-| worker models              | Sonnet 5.5 (+1M), Haiku 4.5, Opus 5.5, Fable 5.1 | GPT-6.1 Sol, GPT-6 Sol, Terra              | runtime ACP catalog                      | runtime model catalog                    |
-| execution adapter          | native named agent                           | native spawned agent                       | task-scoped ACP role session             | task-scoped ACP role session             |
-| worker model pinning       | `AgentDefinition.model`                      | `agents.default_subagent_model`            | ACP config option                        | ACP model selection                      |
-| worker effort pinning      | `AgentDefinition.effort`                     | `agents.default_subagent_reasoning_effort` | encoded in the selected model variant    | ACP process `--effort`                   |
-| description / instructions | `description` + `prompt`                     | `developer_instructions`                   | turn briefing + standalone Worker prompt | turn briefing + standalone Worker prompt |
-| tool bounding              | `tools` — hard-enforced                      | guidance                                   | guidance                                 | guidance                                 |
-
-Codex primaries are limited to Astra, Sol, and Terra because they are the only
-models whose live catalog advertises the `ultra` tier, described by that catalog
-as "Maximum reasoning with automatic task delegation" — i.e. the only Codex
-models that delegate natively. Astra can orchestrate but is deliberately absent
-from the worker list: pinning a frontier model as the worker is the expensive
-shape Worker mode exists to avoid. `ThreadStartParams.multiAgentMode` is deprecated and
-ignored on the supported baseline, and the App Server exposes no subagent RPC,
-so Stave pins the worker through `[agents]` config instead. That is the
-documented path: `spawn_agent`'s own tool description states that spawned agents
-inherit the preferred default unless given an explicit override.
-
-Luna remains available as a top-level Codex model, but it reports
-`multiAgentVersion: "v1"` and codex-cli 0.145/0.146 rejects it in the V2
-`spawn_agent` pool, which accepts only the V2 models (Astra, Sol, Terra). Stave
-blocks Luna as a Worker before dispatch instead of promising a worker the
-runtime will fail to create.
-
-Worker config travels on both `thread/start` and `thread/resume`. The worker
-model and effort are also part of the developer instructions that feed
-`buildCodexInstructionProfileKey`; changing the worker does not rotate the
-thread, but the next turn on that thread carries a one-time
-`[Stave Instructions Update]` block with the new brief (see the prompt injection
-note below).
-Codex counts the primary in its session concurrency limit, so Stave configures
-two total slots: one primary plus the single foreground Worker.
-
-Arming Worker mode does not prove delegation. When a Worker is actually
-started, Stave persists an immutable receipt on that tool event and shows the
-preset, resolved worker model, and effort in the conversation trace and live
-activity shelf. Native child-thread activity and ACP Worker activity are
-correlated back to the receipt, so a completed card means the Worker returned
-control to the primary. It does not claim that the primary reviewed the result,
-because provider events cannot prove that semantic step.
-
-Every Worker execution that establishes a provider session also creates a
-persisted `delegated_usage` receipt. ACP
-workers resume only a matching task/provider/model/effort/preset/instructions/
-tools/turn-budget/workspace lane, bounded to 64 recently used lanes and 30
-minutes. If the ACP agent reports prompt usage or the optional ACP session usage
-update, Stave records its input, output, reasoning, context-window, cache-read,
-cache-write, and cost fields, preserves them across workspace reloads, and folds
-them into the turn total once. Native Worker runtimes
-whose usage is only available as part of the parent total retain the execution
-receipt without claiming an unreported per-worker cache count.
-
-### Auto resolution and explicit failures
-
-`Auto` is a deterministic per-preset, per-provider default — not a difficulty
-classifier. Static providers resolve it to the preset's named default; Cursor
-and Kiro resolve it through the runtime-advertised `auto` model. Explicit
-Cursor and Kiro selections must exist in the current runtime catalog.
-
-An explicit choice that is no longer valid returns an `unavailable` reason code
-and disables execution. It is never silently replaced, because a swap would bill
-a different tier than the one on screen:
-
-- `primary_not_supported` — the active primary cannot orchestrate.
-- `worker_model_not_found` — not a known model for this provider.
-- `worker_model_not_supported` — known, but not worker-capable, or absent from
-  the installed runtime.
-- `provider_capability_unavailable` — the provider has no Worker-mode support.
-
-Effort is clamped, not rejected, when a model's ceiling is lower than the
-request. It is dropped entirely for models that reject the field — Claude's API
-errors on `effort` for Haiku-class models, so a Haiku worker runs at its own
-default and the UI says so rather than showing a dead select. Cursor model
-variants already encode properties such as reasoning or speed in the model id.
-Kiro exposes a separate effort scale, so the Worker role session is started with
-the resolved Kiro effort.
-
-### Presets
-
-Presets bundle a role, a tool bound, and per-provider model/effort defaults.
-Each one's description is written as a delegation trigger, because on Claude that
-string is what the primary reads to decide whether to delegate.
-
-| preset                   | intent                                                   |
-| ------------------------ | -------------------------------------------------------- |
-| Patch hand               | Applies a decided edit exactly. No verification.         |
-| Verified patch (default) | Applies the edit, then runs typecheck/tests until green. |
-| Sweep                    | One mechanical transformation across many files.         |
-| Scout                    | Read-only investigation returning a conclusion.          |
-| Deep packet              | Owns one bounded unit of real work at maximum effort.    |
-| Second pair of eyes      | Reviews a diff for correctness; never edits.             |
-
-Description, instructions, tool list, and max turns are editable per provider in
-Settings. An empty field means "use the preset", which is what stops a preset
-improvement from being shadowed by a stale copy of its previous text; switching
-preset therefore clears hand-edited copy rather than carrying it over.
-
-When Worker mode is armed, delegation is the default for repository
-investigation, implementation, verification, and review. Conversation-only
-requests and truly atomic one-step actions may remain on the primary. A worker
-that returns no output or stops before required verification is continued once
-when the provider exposes a continuation handle; otherwise the primary finishes
-the missing verification in the same turn rather than ending with a promise to
-resume later. The default Verified patch budget is 60 agentic turns so ordinary
-edit-and-test loops do not commonly exhaust the worker before verification.
-
-The native-provider defaults pair bounded work with an economical model and a
-higher effort tier. Cursor and Kiro keep their runtime `auto` selection unless
-the user explicitly chooses another advertised model.
-
-### Safety
-
-- One foreground worker at a time (`maxConcurrency: 1`, plus Codex
-  `agents.max_concurrent_threads_per_session = 2` — parent plus worker — and
-  `agents.max_depth = 1`).
-- Native workers inherit the parent turn's permission mode and sandbox, so a
-  plan or read-only turn cannot gain write access by delegating. On Claude the
-  nested subagent's tool calls still pass through the same `canUseTool` gate.
-- Cursor and Kiro workers run in a dedicated ACP role session in the same
-  workspace. They never receive the parent's resume id, bound secrets, or Local
-  MCP servers. Only a matching task-scoped Worker lane can be resumed,
-  and therefore cannot recursively launch another Worker. Nested permission
-  requests are routed to the parent turn's approval UI.
-- ACP Worker grants contain an unguessable turn-scoped key, permit one in-flight
-  call, and are revoked when the parent turn ends. A stale transcript cannot
-  reuse one.
-- `background` is never set on the Claude worker: Stave's turn loop cannot
-  deliver a background-completion notification, and background subagents lose
-  most tools anyway.
-- Utility, control, and secondary read-only turns never register a worker.
-  Registration is opt-in via `workerModeEligible` on the conversation turn only,
-  and each runtime additionally refuses on a `secondary-read-only` policy: Claude
-  gates `buildClaudeWorkerAgents` behind `!secondaryReadOnly`, and Codex threads
-  a `secondaryReadOnly` flag into `buildCodexConfigOverrides` so neither the
-  `agents.*` overrides nor the worker brief in `developer_instructions` are sent.
-  A secondary run is a bounded analysis pass; delegating would escape both its
-  turn budget and its read-only contract.
-- Cross-provider or durable delegation remains a Delegated Task. Worker mode never
-  switches provider, and its bounded role-session reuse is not a durable child
-  task or an independently scheduled execution.
-- Only per-turn and per-thread runtime configuration is used. No provider config
-  file in the user's home is written.
+## Subagents
+
+A subagent is any agent a task calls. Stave has two kinds, and both read as a
+Subagent in the Task panel:
+
+- **In-turn subagents.** A task that runs as an agent registers the agents in
+  its `canCall` list (any agent usable as a subagent when the list is absent,
+  at most eight) for that turn only. The host compiles them in
+  `src/lib/agents/native-subagents.ts`; the renderer cannot supply them. Claude
+  receives them as `agents` definitions (foreground, the lead's permission
+  mode, the agent's model, effort, tools and turn limit). Codex has no
+  per-agent definitions over the App Server, so the developer instructions
+  list them and the lead starts them with `spawn_agent`, at most four at once
+  and one level deep (`agents.max_depth = 1`); they run on Codex's default
+  subagent model. Cursor and Kiro have none.
+- **Durable subagents.** `stave_delegate_task` starts a real Stave task,
+  optionally on the other provider, recorded on the run ledger
+  (`electron/main/runs/delegated-task-coordinator.ts`). A read-only subagent
+  runs beside other work in the caller's workspace; a writing subagent gets
+  its own worktree by default. A read-only call waits for the answer (up to
+  180 seconds) and returns it inline; any answer that arrives later is part of
+  the caller's next turn as **Subagent results**. See
+  [Delegated tasks](../features/delegated-tasks.md).
+
+Every task turn carries a host-minted caller key on its Local MCP connection
+(`electron/providers/caller-grants.ts`). The subagent tools take the calling
+task from it and refuse a `parentTaskId` that names another task, and
+`stave_run_task` caps the turn it starts at the caller's autonomy. The key is
+derived per task, so a resumed Codex thread that kept its headers still names
+the same task and the key never rotates a thread.
 
 ## Image attachment transport
 
@@ -1199,7 +714,7 @@ Codex prompt injection note:
 - Task history, selected text-file context, skill context, and retrieved context still render into the provider prompt body because they are part of the actual turn payload rather than hidden session config. Supported image attachments use the native image items described above, while the prompt keeps only their labels and fallback instructions.
 - Stave always appends native browser-tooling guidance (`CODEX_STAVE_NATIVE_BROWSER_INSTRUCTIONS`) to `developer_instructions`. It directs Codex to use ordinary web search for general research and, for explicit interactive `@web` requests, to use `cua_repl` with only the external Chrome surface. The in-app browser and desktop UI surfaces exposed by that tool do not satisfy `@web`. The provider-native browser stays unavailable to plan mode, unattended automation, and secondary read-only analysis. Stave does not force-enable a disabled Chrome plugin and does not persist a browser connection status. It still disables the unrelated ChatGPT desktop bundled `browser@openai-bundled` plugin per thread via the `plugins."browser@openai-bundled".enabled = false` config override. See `electron/providers/codex-runtime-config.ts` and [Provider Browser Access](../features/provider-browser-access.md).
 - Lens guidance (`CODEX_STAVE_LENS_INSTRUCTIONS`) is appended **only when the thread will actually see `stave_lens_*` tools**: the local MCP must be registered with Codex *and* `browserToolsEnabled` must still be on. Without it there are no `stave_lens_*` tools, so the block would describe tools that do not exist. `hasStaveLocalMcp` is resolved before the thread is keyed and is part of `buildCodexInstructionProfileKey`, so toggling it is detected like any other instruction change.
-- The developer instructions are **not** part of the Codex thread key. Codex only re-renders `developer_instructions` when it builds a new context window (first turn or compaction), never on a plain `thread/resume`, so a key that included them paid a full cold start — the entire history re-sent with no prompt cache — for a response-style edit, a Lens toggle, or a worker change. Instead the runtime remembers the instruction profile each live thread last received (`buildCodexInstructionProfileKey`). When a resumed thread's profile differs, or is unknown because the app restarted, the next user turn is prefixed once with `[Stave Instructions Update]` followed by the current developer instructions, marked as replacing the earlier ones. The block is attached only to what the model receives; slash-command detection still runs on the bare prompt. Model, plan mode, cwd, and bound-secret fingerprint still rotate the thread.
+- The developer instructions are **not** part of the Codex thread key. Codex only re-renders `developer_instructions` when it builds a new context window (first turn or compaction), never on a plain `thread/resume`, so a key that included them paid a full cold start — the entire history re-sent with no prompt cache — for a response-style edit, a Lens toggle, or a subagent change. Instead the runtime remembers the instruction profile each live thread last received (`buildCodexInstructionProfileKey`). When a resumed thread's profile differs, or is unknown because the app restarted, the next user turn is prefixed once with `[Stave Instructions Update]` followed by the current developer instructions, marked as replacing the earlier ones. The block is attached only to what the model receives; slash-command detection still runs on the bare prompt. Model, plan mode, cwd, and bound-secret fingerprint still rotate the thread.
 
 Codex event mapping:
 
@@ -1437,12 +952,8 @@ Claude Haiku 4.5 is deliberately absent: the Claude API rejects `effort`
 outright for Haiku-class models, so Stave drops the field rather than clamping
 it. Legacy `gpt-5.5` keeps the `xhigh` cap it was verified at.
 
-Two knock-on effects worth knowing:
+One knock-on effect worth knowing:
 
-- The Advisor deadline is tiered by effort (`resolveAdvisorTimeoutMs`). An
-  unpinned advisor uses the model default, so Opus 5.5 lands on `medium`,
-  GPT-6.1 Sol, GPT-6 Sol, and Sonnet 5.5 land on `high`, and Terra lands on
-  `xhigh`.
 - Fresh-install `claudeEffort` / `codexReasoningEffort` seeds track the default
   model's rung. Existing users are carried over by the one-time settings
   migration in `src/lib/providers/settings-model-migration.ts`, which moves a
@@ -1770,7 +1281,7 @@ switch from a subscription to a Gateway when quota is exhausted.
 
 Only configured models appear in the Gateway catalog. Native IDs can resolve
 to a configured ID for the same model with a routing prefix; a different model
-is never substituted. Explicit fallback and Worker models must also belong to
+is never substituted. Explicit fallback and subagent models must also belong to
 the connection. Auxiliary requests using an unconfigured model fail explicitly;
 include the models used by your auxiliary settings in the connection. The child
 environment pins implicit small/subagent model aliases to the first configured

@@ -133,7 +133,7 @@ export function DelegationsBlock(props: DelegationsBlockProps) {
             nested={props.nested}
             expandCopy={props.expandCopy}
             onAction={props.onAction}
-            onInspect={exchange.kind === "advisor" ? undefined : props.onInspect}
+            onInspect={props.onInspect}
             defaultExpanded={props.defaultExpandedIds?.has(exchange.id)}
             extraActions={props.renderExtraActions?.(exchange)}
             statusNote={props.statusNoteFor?.(exchange)}

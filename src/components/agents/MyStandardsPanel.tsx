@@ -54,7 +54,7 @@ export function MyStandardsPanel() {
           </Button>
         </div>
         <ul className={sx(styles.hint)}>
-          <li>{saved.enabled ? "On: added to agents you assign, delegate to or use as a Worker." : "Off: agents run with their own instructions only."}</li>
+          <li>{saved.enabled ? "On: added to agents you assign, delegate to or call as subagents." : "Off: agents run with their own instructions only."}</li>
           <li>Work already running keeps the standards it started with. What it received shows them as a source.</li>
           <li>Kept in your settings only. They are never written into an exported agent file.</li>
         </ul>

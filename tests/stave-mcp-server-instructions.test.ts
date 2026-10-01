@@ -32,7 +32,6 @@ describe("tool names in free text", () => {
     const { readFile } = await import("node:fs/promises");
     const registry = [
       await readFile("electron/main/stave-mcp-server.ts", "utf8"),
-      await readFile("electron/main/stave-collaboration-tools.ts", "utf8"),
       await readFile("electron/main/browser/browser-tools.ts", "utf8"),
       await readFile("src/lib/missions/briefing.ts", "utf8"),
     ].join("\n");

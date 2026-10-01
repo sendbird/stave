@@ -31,7 +31,7 @@ local approval before it creates a workspace or starts Claude or Codex.
 3. Paste the code into Stave and select `Pair securely`.
 4. Queue an issue with `Run in Stave` from Crane.
 5. Review the local approval dialog in Stave, choose the Stave repository,
-   workspace, provider, model, permissions, and optional Advisor.
+   workspace, provider, model and permissions.
 6. Keep `Remember for <TEAM> issues` on to preselect that local repository for
    future jobs from the same issue team, then select `Approve and run locally`.
 
@@ -57,11 +57,9 @@ local approval before it creates a workspace or starts Claude or Codex.
 - `Approve and run locally`: approves only the displayed job and the exact local
   runtime choices in the dialog.
 - `Remember for <TEAM> issues`: stores a local team-to-repository preference plus
-  the team's model, effort, and Advisor choice. It preselects them on future
-  approval dialogs but never bypasses approval. Access levels are deliberately
-  not remembered, so a one-off `Auto` approval cannot replay on a later job. A
-  remembered Advisor is stored as three states: absent (inherit the Stave
-  default), explicit none, or an explicit target.
+  the team's model and effort. It preselects them on future approval dialogs but
+  never bypasses approval. Access levels are deliberately not remembered, so a
+  one-off `Auto` approval cannot replay on a later job.
 - `Repository mappings`: lists and removes remembered routes under
   `Settings > Integrations > Crane connector`.
 
@@ -85,12 +83,7 @@ Pairing codes are exchanged once and are not stored in Stave settings.
    the issue team, then the active repository, then the first registered repository.
    You can change the selection for every job.
 4. Create a new workspace or select an existing workspace.
-5. Choose Claude or Codex, its model and permissions, and optionally a Claude or
-   Codex Advisor. The Advisor switch starts from your
-   `Settings > Providers > Advisor` default rather than always at off, and its
-   provider, model, and effort rows stay editable while the switch is off, so a
-   dispatch can be configured before it is armed. Each provider keeps its own
-   model and effort, so switching provider and back is not a destructive edit.
+5. Choose Claude or Codex, its model and permissions.
 6. Approve the job.
 
 ### Start A Crane Issue From Stave
@@ -214,7 +207,7 @@ paths, branch names, provider credentials, or Local MCP metadata.
 - Every V1 job needs its own local approval. There is no hidden `always run`
   option.
 - Crane cannot call Stave's Local MCP endpoint and cannot choose local paths,
-  providers, models, permissions, or Advisor settings.
+  providers, models or permissions.
 - One connector processes one active job at a time and resumes its durable local
   binding after an app restart.
 - A newly approved Crane job starts as an ordinary interactive Stave task. The

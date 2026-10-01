@@ -1,13 +1,7 @@
 import type { PromptInputRuntimeStatusItem } from "@/components/ai-elements/prompt-input-runtime-bar";
 import type { PromptInputGoalStatus } from "@/components/ai-elements/prompt-input-goal-status";
 import { resolveEffectiveCodexFileAccessMode } from "@/lib/providers/codex-runtime-options";
-import { getProviderDescriptor, listCodexReasoningEffortsForModel } from "@/lib/providers/model-catalog";
-import {
-  buildWorkerRuntimeIntent,
-  formatWorkerRuntimeStatusValue,
-  resolveWorkerArmState,
-  resolveWorkerProfile,
-} from "@/lib/providers/worker-mode";
+import { listCodexReasoningEffortsForModel } from "@/lib/providers/model-catalog";
 import type {
   ProviderGoalSnapshot,
   ProviderId,
@@ -33,12 +27,6 @@ import type { AppSettings } from "@/store/app.store";
 
 interface ChatInputRuntimeArgs {
   activeProvider: ProviderId;
-  /**
-   * Effective Advisor pair for the next turn, or "Off". Provider-neutral: the
-   * Advisor can be either provider regardless of which one runs the turn.
-   */
-  advisorSummary: string;
-  workerSummary: string;
   providerTimeoutMs: number;
   claudePermissionMode: AppSettings["claudePermissionMode"];
   claudePermissionModeBeforePlan: AppSettings["claudePermissionModeBeforePlan"];
@@ -234,59 +222,6 @@ export function buildChatInputGoalStatus(
   };
 }
 
-function buildAdvisorRuntimeStatusItem(
-  advisorSummary: string,
-): PromptInputRuntimeStatusItem {
-  return {
-    id: "advisor",
-    label: "Advisor",
-    value: advisorSummary,
-  };
-}
-
-/**
- * The runtime bar's Worker value. Resolved apart from the composer's copy (the
- * bar lives in another component) with the same inputs, so the two agree.
- */
-export function describeWorkerRuntimeSummary(args: {
-  /** The task runs as an agent picked in the model picker; it has no Worker. */
-  runsAsAgent: boolean;
-  providerId: ProviderId;
-  primaryModel: string;
-  overrides: Parameters<typeof resolveWorkerArmState>[0]["overrides"];
-  settingsConfig: Parameters<typeof resolveWorkerArmState>[0]["settingsConfig"];
-  settingsEnabled: boolean;
-  runtimeModels?: readonly string[];
-}): string {
-  if (args.runsAsAgent) return "Off while an agent runs the task";
-  if (!getProviderDescriptor({ providerId: args.providerId }).capabilities.worker) return "Unavailable";
-  return formatWorkerRuntimeStatusValue(
-    resolveWorkerProfile({
-      providerId: args.providerId,
-      primaryModel: args.primaryModel,
-      intent: buildWorkerRuntimeIntent(
-        resolveWorkerArmState({
-          providerId: args.providerId,
-          overrides: args.overrides,
-          settingsConfig: args.settingsConfig,
-          settingsEnabled: args.settingsEnabled,
-        }),
-      ),
-      runtimeModels: args.runtimeModels,
-    }),
-  );
-}
-
-function buildWorkerRuntimeStatusItem(
-  workerSummary: string,
-): PromptInputRuntimeStatusItem {
-  return {
-    id: "worker",
-    label: "Worker",
-    value: workerSummary,
-  };
-}
-
 export function buildChatInputRuntimeStatusItems(
   args: ChatInputRuntimeArgs,
 ): PromptInputRuntimeStatusItem[] {
@@ -360,8 +295,6 @@ export function buildChatInputRuntimeStatusItems(
         label: "Progress Summaries",
         value: args.claudeAgentProgressSummaries ? "On" : "Off",
       },
-      buildAdvisorRuntimeStatusItem(args.advisorSummary),
-      buildWorkerRuntimeStatusItem(args.workerSummary),
       ...(args.claudeBinaryPath.trim()
         ? [
             {
@@ -454,7 +387,6 @@ export function buildChatInputRuntimeStatusItems(
       value: args.codexFastMode ? "On" : "Off",
       tone: args.codexFastMode ? "warning" : "default",
     },
-    buildAdvisorRuntimeStatusItem(args.advisorSummary),
     ...(args.codexBinaryPath.trim()
       ? [
           {

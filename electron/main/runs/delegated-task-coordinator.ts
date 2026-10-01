@@ -4,7 +4,6 @@ import type { AgentPermission } from "../../../src/lib/agents/schema";
 import { DelegatedTaskTurnError } from "./delegated-task-turn-error";
 import { createHash, randomUUID } from "node:crypto";
 import path from "node:path";
-import { realpath } from "node:fs/promises";
 import {
   buildDelegatedTaskArtifactRef,
   buildDelegatedTaskPolicy,
@@ -25,6 +24,8 @@ import {
   DELEGATED_TASK_RUN_KIND,
   DELEGATED_TASK_STEP_KIND,
   DELEGATED_TASK_STOPPED_REASON,
+  delegatedTaskResultText,
+  resolveDelegatedTaskWaitSeconds,
   describeDelegatedTaskRejection,
   isActiveDelegatedTaskPhase,
   resolveDelegatedTaskControls,
@@ -48,6 +49,7 @@ import {
   type RunRecord,
   type RunStepRecord,
   type RunStepTarget,
+  boundResponseText,
 } from "../../../src/lib/runs/run-domain";
 import type { RunLedgerTransitionResult } from "../../persistence/run-ledger-store";
 
@@ -87,6 +89,7 @@ export interface DelegatedTaskLedgerPort {
     executionId: string;
     idempotencyKey: string;
     resultArtifactRef: string;
+    detail?: unknown;
     now: string;
   }): RunLedgerTransitionResult;
   failRunStep(args: {
@@ -119,13 +122,8 @@ export interface DelegatedTaskLedgerPort {
     stepId: string;
     target: RunStepTarget;
     expectedExecutionId?: string;
-    expectedLeaseId?: string;
     expectedTurnExecutionId?: string;
   }): boolean;
-  listHeldWriterRunAggregates(): Array<{ run: RunRecord; step: RunStepRecord }>;
-  acquireRunWriterLease(args: {
-    runId: string; stepId: string; executionId: string; target: RunStepTarget;
-  }): { accepted: boolean; writerHolder?: { run: RunRecord; step: RunStepRecord } };
   listRunAggregatesByOrigin(args: {
     originKind: string;
     originId: string;
@@ -176,6 +174,8 @@ export interface DelegatedTaskHostPort {
         latestTurnOutcome?:
           | import("../../persistence/turn-terminal-receipt").TurnTerminalOutcome
           | null;
+        /** The targeted turn's final answer, when it wrote one. */
+        latestAssistantText?: string | null;
       }
     | { ok: false; reason: "missing" | "unavailable" }
   >;
@@ -197,7 +197,7 @@ export interface DelegatedTaskHostPort {
     parentTaskId: string;
     /** Persist the exact execution identity before waiting for completion. */
     onStarted?: (turnId: string) => void;
-  }): Promise<{ turnId: string }>;
+  }): Promise<{ turnId: string; responseText?: string }>;
   stopTask(args: { workspaceId: string; taskId: string }): Promise<unknown>;
   /**
    * Clears the `parentTaskId` stamped by `runTask`, so a detached child
@@ -239,7 +239,6 @@ interface DelegatedTaskCoordinatorDependencies {
     target: RunStepTarget; repositoryPath: string; prompt: string; model?: string;
   }) => Promise<void>;
   readHead?: (workspacePath: string) => Promise<string | null>;
-  canonicalWorkspacePath?: (workspacePath: string) => Promise<string>;
   applyAgent?: (
     args: DelegateTaskArgs,
   ) => Promise<
@@ -377,29 +376,21 @@ function summaryFromTransition(
   if (!transition.run || !transition.step) {
     return null;
   }
-  return toDelegatedTaskSummary({
-    run: transition.run,
-    step: transition.step,
-    acceptedReceipt: acceptedReceiptForRun(
-      ledger,
-      transition.run.id,
-      transition.step.attempt,
-    ),
-  });
+  return summaryFromAggregate(ledger, { run: transition.run, step: transition.step });
 }
 
 function summaryFromAggregate(
   ledger: Pick<DelegatedTaskLedgerPort, "listRunReceipts">,
   aggregate: { run: RunRecord; step: RunStepRecord },
 ): DelegatedTaskSummary | null {
+  const receipts = ledger.listRunReceipts({ runId: aggregate.run.id });
   return toDelegatedTaskSummary({
     run: aggregate.run,
     step: aggregate.step,
-    acceptedReceipt: acceptedReceiptForRun(
-      ledger,
-      aggregate.run.id,
-      aggregate.step.attempt,
+    acceptedReceipt: receipts.find(
+      (receipt) => receipt.type === "accepted" && receipt.detail?.attempt === aggregate.step.attempt,
     ),
+    resultText: delegatedTaskResultText(receipts, aggregate.step),
   });
 }
 
@@ -458,52 +449,33 @@ export function createDelegatedTaskCoordinator(
     }
   };
 
+  /** A fresh turn identity, so a late settle of an earlier turn cannot land on this one. */
+  const nextTurnTarget = (target: RunStepTarget): RunStepTarget =>
+    ({ ...target, turnExecutionId: randomUUID(), turnId: null });
+
+  /**
+   * Writers no longer share a checkout: a writing subagent gets its own
+   * worktree unless the caller explicitly asks for the same workspace, and
+   * then only while no other writing subagent is live there. Read-only
+   * subagents run beside anything.
+   */
+  const sameWorkspaceWriter = (ledger: DelegatedTaskLedgerPort, args: {
+    workspaceId: string; runId: string; policy?: DelegationPermissionPolicy; providerId: "claude-code" | "codex";
+  }) => {
+    if (isReadOnlyDelegationPolicy(args.providerId, args.policy)) return null;
+    return ledger.listActiveRunAggregatesByStepKind({ kind: DELEGATED_TASK_STEP_KIND }).find((aggregate) => {
+      const target = aggregate.step.target;
+      if (!target || aggregate.run.id === args.runId || target.workspaceId !== args.workspaceId) return false;
+      // A parked detached subagent is not writing between its turns.
+      if (aggregate.step.status === "waiting" && !inFlightByStepId.has(aggregate.step.id)) return false;
+      const policy = acceptedReceiptForRun(ledger, aggregate.run.id, aggregate.step.attempt)?.detail?.permissionPolicy;
+      return !isReadOnlyDelegationPolicy(target.providerId, policy);
+    }) ?? null;
+  };
+
   const writerBusy = (holder: { run: RunRecord; step: RunStepRecord }, child: DelegatedTaskSummary | null) =>
     rejected("workspace-writer-busy", child,
-      `Workspace is busy with child ${holder.step.target?.taskId ?? holder.step.id} (parent ${holder.run.origin.id}, attempt ${holder.step.attempt}). Wait for it to finish or choose a new worktree.`);
-
-  const leaseTarget = async (target: RunStepTarget, policy?: DelegationPermissionPolicy): Promise<RunStepTarget> => {
-    const turnExecutionId = randomUUID();
-    // Only a resolved read-only posture proves that tools cannot write; profile names
-    // and Claude plan mode do not.
-    if (isReadOnlyDelegationPolicy(target.providerId, policy))
-      return { ...target, turnExecutionId, writerLease: undefined, turnId: null };
-    const workspace = await dependencies.host.resolveWorkspace({ workspaceId: target.workspaceId });
-    if (!workspace) throw new Error("The child's workspace could not be reached.");
-    const workspacePath = await (dependencies.canonicalWorkspacePath ?? realpath)(workspace.workspacePath);
-    return { ...target, turnExecutionId, turnId: null, writerLease: { workspacePath, leaseId: turnExecutionId, state: "held" } };
-  };
-
-  const releaseLease = (ledger: DelegatedTaskLedgerPort, runId: string, stepId: string, executionId: string, target: RunStepTarget) => {
-    if (!target.writerLease) return;
-    ledger.setRunStepTarget({ runId, stepId, expectedExecutionId: executionId,
-      expectedLeaseId: target.writerLease.leaseId,
-      expectedTurnExecutionId: target.turnExecutionId,
-      target: { ...target, writerLease: { ...target.writerLease, state: "released" } } });
-  };
-
-  const legacyWriterHolder = async (ledger: DelegatedTaskLedgerPort, target: RunStepTarget) => {
-    if (!target.writerLease) return null;
-    for (const aggregate of ledger.listActiveRunAggregatesByStepKind({ kind: DELEGATED_TASK_STEP_KIND })) {
-      const previous = aggregate.step.target;
-      if (!previous || previous.writerLease || previous.turnExecutionId) continue;
-      const policy = acceptedReceiptForRun(ledger, aggregate.run.id, aggregate.step.attempt)?.detail?.permissionPolicy;
-      if (isReadOnlyDelegationPolicy(previous.providerId, policy)) continue;
-      // Old rows need no migration. Resolve their actual workspace before admitting
-      // another writer; unavailable identity or terminal evidence remains guarded.
-      const location = await dependencies.host.resolveWorkspace({ workspaceId: previous.workspaceId }).catch(() => null);
-      const canonical = location && await (dependencies.canonicalWorkspacePath ?? realpath)(location.workspacePath).catch(() => null);
-      if (canonical && canonical !== target.writerLease.workspacePath) continue;
-      const status = await dependencies.host.getTaskStatus({ workspaceId: previous.workspaceId, taskId: previous.taskId, ...(previous.turnId ? { turnId: previous.turnId } : {}) }).catch(() => null);
-      if (status?.ok && previous.turnId && status.activeTurnId !== previous.turnId && status.latestTurnId === previous.turnId && status.latestTurnCompletedAt && status.latestTurnOutcome && status.latestTurnOutcome !== "unknown") {
-        await reconcile();
-        const fresh = ledger.getRunAggregate({ runId: aggregate.run.id, stepId: aggregate.step.id });
-        if (!fresh || !isActiveDelegatedTaskPhase(fresh.step.status) || (fresh.step.status === "waiting" && summaryFromAggregate(ledger, fresh)?.lifecycle === "detached")) continue;
-      }
-      return aggregate;
-    }
-    return null;
-  };
+      `Subagent ${holder.step.target?.taskId ?? holder.step.id} is already writing in this workspace. Run this one in a new worktree, or wait for it to finish.`);
 
   /**
    * Turn the child's terminal outcome into ledger receipts. `one-turn` closes
@@ -520,8 +492,11 @@ export function createDelegatedTaskCoordinator(
     turnId: string;
     providerId: "claude-code" | "codex";
     permissionPolicy?: DelegationPermissionPolicy;
+    /** The turn's final answer, recorded bounded so the caller gets it back. */
+    responseText?: string | null;
   }) => {
     const timestamp = now();
+    const responseText = boundResponseText(args.responseText);
     const current = args.ledger.getRunAggregate({ runId: args.runId, stepId: args.stepId });
     if (!current || current.step.executionId !== args.executionId || current.step.target?.turnExecutionId !== args.target.turnExecutionId)
       return { accepted: false as const, reason: "stale-execution" as const, run: current?.run ?? null, step: current?.step ?? null, receipts: [] as [] };
@@ -530,10 +505,8 @@ export function createDelegatedTaskCoordinator(
       stepId: args.stepId,
       target: { ...args.target, turnId: args.turnId },
       expectedExecutionId: args.executionId,
-      expectedLeaseId: args.target.writerLease?.leaseId,
       expectedTurnExecutionId: args.target.turnExecutionId,
     });
-    releaseLease(args.ledger, args.runId, args.stepId, args.executionId, { ...args.target, turnId: args.turnId });
     if (args.lifecycle === "detached") {
       // Keyed per turn and allowed to re-enter `waiting`: a detached child
       // parks in `waiting` between turns, so a follow-up turn's completion
@@ -544,7 +517,7 @@ export function createDelegatedTaskCoordinator(
         stepId: args.stepId,
         executionId: args.executionId,
         idempotencyKey: `child:${args.executionId}:turn:${args.turnId}`,
-        detail: { code: "child-turn-completed", providerId: args.providerId, ...(args.permissionPolicy ? { permissionPolicy: args.permissionPolicy } : {}) },
+        detail: { code: "child-turn-completed", providerId: args.providerId, ...(args.permissionPolicy ? { permissionPolicy: args.permissionPolicy } : {}), ...(responseText ? { responseText } : {}) },
         reenter: true,
         now: timestamp,
       });
@@ -559,6 +532,7 @@ export function createDelegatedTaskCoordinator(
         taskId: args.target.taskId,
         turnId: args.turnId,
       }),
+      ...(responseText ? { detail: { code: "child-turn-completed", providerId: args.providerId, responseText } } : {}),
       now: timestamp,
     });
   };
@@ -595,7 +569,6 @@ export function createDelegatedTaskCoordinator(
       stepId: args.stepId,
       target: args.target,
       expectedExecutionId: args.executionId,
-      expectedLeaseId: args.target.writerLease?.leaseId,
       expectedTurnExecutionId: args.target.turnExecutionId,
     });
     const started = (async () => {
@@ -634,7 +607,6 @@ export function createDelegatedTaskCoordinator(
               stepId: args.stepId,
               target: { ...args.target, turnId },
               expectedExecutionId: args.executionId,
-              expectedLeaseId: args.target.writerLease?.leaseId,
               expectedTurnExecutionId: args.target.turnExecutionId,
             });
             if (current.step.status === "cancelled" && current.step.error !== DELEGATED_TASK_DETACHED_REASON)
@@ -651,17 +623,9 @@ export function createDelegatedTaskCoordinator(
           turnId: result.turnId,
           providerId: args.target.providerId,
           permissionPolicy: args.turn.permissionPolicy,
+          responseText: result.responseText,
         });
       } catch (error) {
-        // A rejected startup or a verified cancellation can release immediately.
-        // Transport loss after startup keeps the lease until status reconciliation.
-        if (!args.target.turnId || (error instanceof DelegatedTaskTurnError && error.outcome === "cancelled")) {
-          releaseLease(args.ledger, args.runId, args.stepId, args.executionId, args.target);
-        } else {
-          const terminal = await dependencies.host.getTaskStatus({ workspaceId: args.target.workspaceId, taskId: args.target.taskId, turnId: args.target.turnId }).catch(() => null);
-          if (terminal?.ok && terminal.latestTurnId === args.target.turnId && terminal.latestTurnCompletedAt && terminal.latestTurnOutcome && terminal.latestTurnOutcome !== "unknown")
-            releaseLease(args.ledger, args.runId, args.stepId, args.executionId, args.target);
-        }
         const current = args.ledger.getRunAggregate({
           runId: args.runId,
           stepId: args.stepId,
@@ -727,22 +691,11 @@ export function createDelegatedTaskCoordinator(
    */
   const reconcile = async () => {
     const ledger = await getLedger();
-    let heldDeferred = 0;
-    for (const held of ledger.listHeldWriterRunAggregates()) {
-      if (inFlightByStepId.has(held.step.id)) continue;
-      const target = held.step.target!;
-      const separatelyCounted = !isActiveDelegatedTaskPhase(held.step.status) || (held.step.status === "waiting" && !inFlightByStepId.has(held.step.id));
-      if (!target.turnId || !held.step.executionId) { heldDeferred += separatelyCounted ? 1 : 0; continue; }
-      const status = await dependencies.host.getTaskStatus({ workspaceId: target.workspaceId, taskId: target.taskId, turnId: target.turnId }).catch(() => null);
-      if (status?.ok && status.activeTurnId !== target.turnId && status.latestTurnId === target.turnId && status.latestTurnCompletedAt && status.latestTurnOutcome && status.latestTurnOutcome !== "unknown")
-        releaseLease(ledger, held.run.id, held.step.id, held.step.executionId, target);
-      else heldDeferred += separatelyCounted ? 1 : 0;
-    }
     const aggregates = ledger.listActiveRunAggregatesByStepKind({
       kind: DELEGATED_TASK_STEP_KIND,
     });
     let reconciled = 0;
-    let deferred = heldDeferred;
+    let deferred = 0;
     for (const aggregate of aggregates) {
       const summary = summaryFromAggregate(ledger, aggregate);
       const target = aggregate.step.target;
@@ -859,6 +812,7 @@ export function createDelegatedTaskCoordinator(
           target,
           turnId: status.latestTurnId,
           providerId: target.providerId,
+          responseText: status.latestAssistantText,
         });
         reconciled += transition.accepted ? 1 : 0;
         continue;
@@ -1133,10 +1087,9 @@ export function createDelegatedTaskCoordinator(
       providerId: args.providerId,
     };
     const permissionPolicy = await dependencies.resolvePermissionPolicy?.({ parentTaskId: args.parentTaskId, delegatedTaskId, providerId: args.providerId, permissionProfile: args.permissionProfile, ...(args.access ? { access: args.access } : {}), ...(args.requestedPermissionProfile ? { requestedProfile: args.requestedPermissionProfile } : {}), agentConfigId: args.agentConfigId, agentPermission: agentAssignment?.snapshot.agent.permission });
-    try { target = await leaseTarget(target, permissionPolicy); }
-    catch { return rejected("workspace-unavailable", existingSummary); }
-    const legacyHolder = await legacyWriterHolder(ledger, target);
-    if (legacyHolder) return writerBusy(legacyHolder, existingSummary);
+    target = nextTurnTarget(target);
+    const writer = sameWorkspaceWriter(ledger, { workspaceId: delegatedWorkspaceId, runId, policy: permissionPolicy, providerId: args.providerId });
+    if (writer) return writerBusy(writer, existingSummary);
     const timestamp = now();
     const executionId = createExecutionId();
     const attempt = existing ? existing.step.attempt : 0;
@@ -1189,8 +1142,6 @@ export function createDelegatedTaskCoordinator(
     });
 
     if (!transition.accepted) {
-      if ("writerHolder" in transition && transition.writerHolder)
-        return writerBusy(transition.writerHolder, existingSummary);
       return rejected(
         toRejectionReason(transition.reason),
         summaryFromTransition(ledger, transition) ?? existingSummary,
@@ -1209,7 +1160,6 @@ export function createDelegatedTaskCoordinator(
       const head = workspace && dependencies.readHead ? await dependencies.readHead(workspace.workspacePath).catch(() => null) : null;
       const expected = args.expectedHead.toLowerCase();
       if (!head || !(head.toLowerCase().startsWith(expected) || expected.startsWith(head.toLowerCase()))) {
-        releaseLease(ledger, runId, stepId, executionId, target);
         ledger.failRunStep({ runId, stepId, executionId, idempotencyKey: `child:${executionId}:head-mismatch`, error: "The workspace commit changed before admitted work could start.", now: now() });
         return rejected("head-mismatch", summaryFromAggregate(ledger, ledger.getRunAggregate({ runId, stepId })!), "The workspace commit changed before admitted work could start. Nothing was started.");
       }
@@ -1238,6 +1188,22 @@ export function createDelegatedTaskCoordinator(
     return accepted({ duplicate: false, child });
   };
 
+  const getParentLink = async (args: { delegatedTaskId: string }) => {
+    const ledger = await getLedger();
+    const summaries = ledger
+      .listRunAggregatesByOwnedTask({
+        taskId: args.delegatedTaskId,
+        limit: DELEGATED_TASK_LIST_LIMIT,
+      })
+      .flatMap((aggregate) => {
+        const summary = summaryFromAggregate(ledger, aggregate);
+        return summary && summary.delegatedTaskId === args.delegatedTaskId
+          ? [summary]
+          : [];
+      });
+    return summaries[0] ?? null;
+  };
+
   /**
    * `stave_delegate_task`: a model supplies only what matters. The provider
    * and effort default to the parent's, the child to one turn in the same
@@ -1247,14 +1213,31 @@ export function createDelegatedTaskCoordinator(
    */
   const delegateFromTool = async (
     rawInput: unknown,
+    caller?: { taskId: string; workspaceId: string | null },
   ): Promise<DelegatedTaskActionResponse> => {
     const parsed = DelegateTaskToolInputSchema.safeParse(rawInput);
     if (!parsed.success) return rejected("invalid-request");
     const input = parsed.data;
+    // A Stave turn acts for its own task: the host's grant names it, and an id
+    // the model typed for any other task or workspace is refused.
+    if (caller && input.parentTaskId?.trim() && input.parentTaskId.trim() !== caller.taskId)
+      return rejected("invalid-ownership", null, "parentTaskId must be the calling task. A turn can only start subagents for its own task.");
+    if (caller?.workspaceId && input.parentWorkspaceId?.trim() && input.parentWorkspaceId.trim() !== caller.workspaceId)
+      return rejected("invalid-ownership", null, "parentWorkspaceId must be the calling task's workspace.");
+    const parentTaskId = caller?.taskId ?? input.parentTaskId?.trim();
+    const parentWorkspaceId = caller?.workspaceId ?? input.parentWorkspaceId?.trim();
+    if (!parentTaskId || !parentWorkspaceId)
+      return rejected("invalid-request", null, "Name the calling task and its workspace (parentTaskId, parentWorkspaceId).");
+    // One level deep: a subagent's own work stays in its turn.
+    if (caller && (await getParentLink({ delegatedTaskId: parentTaskId }).catch(() => null)))
+      return rejected("invalid-request", null, "A subagent cannot start subagents of its own.");
+    const repositoryPath = input.repositoryPath?.trim() ||
+      (await dependencies.host.resolveWorkspace({ workspaceId: parentWorkspaceId }).catch(() => null))?.repositoryPath;
+    if (!repositoryPath) return rejected("workspace-unavailable");
     const parent =
       input.provider && input.effort
         ? null
-        : await (dependencies.resolveParentDefaults?.({ parentTaskId: input.parentTaskId }) ?? Promise.resolve(null))
+        : await (dependencies.resolveParentDefaults?.({ parentTaskId }) ?? Promise.resolve(null))
             .catch(() => null);
     const providerId = input.provider ?? parent?.providerId;
     if (!providerId)
@@ -1262,14 +1245,14 @@ export function createDelegatedTaskCoordinator(
     const prompt = input.prompt.trim();
     const model = input.model?.trim() || undefined;
     const legacyProfile = input.permissionProfile;
-    return delegateChild(
+    const delegationKey = input.delegationKey ??
+      deriveDelegationKey({ parentTaskId, providerId, model, prompt });
+    const response = await delegateChild(
       {
-        repositoryPath: input.repositoryPath,
-        parentWorkspaceId: input.parentWorkspaceId,
-        parentTaskId: input.parentTaskId,
-        delegationKey:
-          input.delegationKey ??
-          deriveDelegationKey({ parentTaskId: input.parentTaskId.trim(), providerId, model, prompt }),
+        repositoryPath,
+        parentWorkspaceId,
+        parentTaskId,
+        delegationKey,
         prompt,
         ...(input.title ? { title: input.title } : {}),
         providerId,
@@ -1280,13 +1263,53 @@ export function createDelegatedTaskCoordinator(
           ? { requestedPermissionProfile: legacyProfile }
           : {}),
         lifecycle: input.lifecycle ?? "one-turn",
-        workspace: input.workspace ?? { mode: "same-workspace" },
+        // A writer gets its own worktree; a read-only subagent, or work pinned
+        // to the commit checked out here, runs in this workspace.
+        workspace: input.workspace ?? (input.access === "read-only" || input.expectedHead
+          ? { mode: "same-workspace" }
+          : { mode: "new-worktree", name: `subagent-${delegationKey}`.slice(0, 120) }),
         ...(input.expectedHead ? { expectedHead: input.expectedHead } : {}),
         ...(input.agentConfigId ? { agentConfigId: input.agentConfigId } : {}),
         retry: input.retry ?? false,
       },
       { inheritedEffort: parent?.providerId === providerId ? parent.effort : undefined },
     );
+    const waitSeconds = resolveDelegatedTaskWaitSeconds(input.wait, input.access);
+    if (!waitSeconds || !response.accepted || !response.child) return response;
+    return waitForAnswer(response, waitSeconds * 1_000);
+  };
+
+  /**
+   * Hold the caller until the subagent's turn settles or the wait ends, then
+   * answer with the fresh row, whose `result` carries the bounded answer. A
+   * subagent still working keeps running; nothing is cancelled by the wait.
+   */
+  const waitForAnswer = async (
+    response: DelegatedTaskActionResponse,
+    waitMs: number,
+  ): Promise<DelegatedTaskActionResponse> => {
+    const child = response.child!;
+    const inFlight = inFlightByStepId.get(child.stepId);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const settled = inFlight
+      ? await Promise.race([
+          inFlight.then(() => true),
+          new Promise<boolean>((resolve) => {
+            timer = setTimeout(() => resolve(false), waitMs);
+            timer.unref?.();
+          }),
+        ]).finally(() => clearTimeout(timer))
+      : true;
+    const ledger = await getLedger();
+    const aggregate = ledger.getRunAggregate({ runId: child.runId, stepId: child.stepId });
+    const fresh = (aggregate && summaryFromAggregate(ledger, aggregate)) ?? child;
+    return DelegatedTaskActionResponseSchema.parse({
+      ...response,
+      child: fresh,
+      message: settled
+        ? null
+        : "The subagent is still working. Its answer arrives with this task's next turn under Subagent results.",
+    });
   };
 
   return {
@@ -1392,24 +1415,20 @@ export function createDelegatedTaskCoordinator(
       if (inFlightByStepId.has(resolved.stepId)) return rejected("already-active", resolved.child);
       const fresh = resolved.ledger.getRunAggregate({ runId: resolved.runId, stepId: resolved.stepId });
       if (!fresh || fresh.step.executionId !== executionId || fresh.step.status !== "waiting") return rejected("stale-execution", resolved.child);
-      try { target = await leaseTarget(target, permissionPolicy); }
-      catch { return rejected("workspace-unavailable", resolved.child); }
-      const legacyHolder = await legacyWriterHolder(resolved.ledger, target);
-      if (legacyHolder) return writerBusy(legacyHolder, resolved.child);
-      if (inFlightByStepId.has(resolved.stepId)) return rejected("already-active", resolved.child);
-      const admission = resolved.ledger.acquireRunWriterLease({ runId: resolved.runId, stepId: resolved.stepId, executionId, target });
-      if (!admission.accepted) return admission.writerHolder ? writerBusy(admission.writerHolder, resolved.child) : rejected("stale-execution", resolved.child);
+      target = nextTurnTarget(target);
+      const writer = sameWorkspaceWriter(resolved.ledger, { workspaceId: target.workspaceId, runId: resolved.runId, policy: permissionPolicy, providerId: target.providerId });
+      if (writer) return writerBusy(writer, resolved.child);
+      if (!resolved.ledger.setRunStepTarget({ runId: resolved.runId, stepId: resolved.stepId, target, expectedExecutionId: executionId }))
+        return rejected("stale-execution", resolved.child);
       if (originalClaim?.detail?.expectedHead) {
         const workspace = await dependencies.host.resolveWorkspace({ workspaceId: target.workspaceId });
         const head = workspace && dependencies.readHead ? await dependencies.readHead(workspace.workspacePath).catch(() => null) : null;
         const expected = originalClaim.detail.expectedHead.toLowerCase();
         const current = resolved.ledger.getRunAggregate({ runId: resolved.runId, stepId: resolved.stepId });
         if (!current || current.step.executionId !== executionId || current.step.target?.turnExecutionId !== target.turnExecutionId || current.step.status !== "waiting") {
-          releaseLease(resolved.ledger, resolved.runId, resolved.stepId, executionId, target);
           return rejected("stale-execution", resolved.child);
         }
         if (!head || !(head.toLowerCase().startsWith(expected) || expected.startsWith(head.toLowerCase()))) {
-          releaseLease(resolved.ledger, resolved.runId, resolved.stepId, executionId, target);
           resolved.ledger.setRunStepTarget({ runId: resolved.runId, stepId: resolved.stepId, target: previousTarget!, expectedExecutionId: executionId, expectedTurnExecutionId: target.turnExecutionId });
           return rejected("head-mismatch", resolved.child);
         }
@@ -1582,21 +1601,7 @@ export function createDelegatedTaskCoordinator(
      * is an ordinary task, so the only way its own surface can show who
      * delegated it is to ask the ledger.
      */
-    async getParentLink(args: { delegatedTaskId: string }) {
-      const ledger = await getLedger();
-      const summaries = ledger
-        .listRunAggregatesByOwnedTask({
-          taskId: args.delegatedTaskId,
-          limit: DELEGATED_TASK_LIST_LIMIT,
-        })
-        .flatMap((aggregate) => {
-          const summary = summaryFromAggregate(ledger, aggregate);
-          return summary && summary.delegatedTaskId === args.delegatedTaskId
-            ? [summary]
-            : [];
-        });
-      return summaries[0] ?? null;
-    },
+    getParentLink,
 
     async get(args: { parentTaskId: string; delegationKey: string }) {
       const runId = buildDelegatedTaskRunId(args);

@@ -1,6 +1,5 @@
 import { selectedProviderAccount, snapshotProviderAccounts } from "@/lib/providers/provider-account-selection";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
-import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { CanonicalRetrievedContextPart, NormalizedProviderEvent } from "@/lib/providers/provider.types";
 import { resolveAuxLaneRuntime } from "@/lib/providers/auxiliary-inference-policy";
 import { eventsIndicateFileEdits } from "@/lib/providers/tool-names";
@@ -25,12 +24,10 @@ import {
   buildAutoRoutingModelResolvedEvent,
   isAutoRoutingUnavailableForSend,
   resolveAutoRoutingForSend,
-  resolveDelegatedRuntimeOverrides,
 } from "@/store/auto-routing-dispatch";
 import { partitionStalePrContexts } from "@/lib/pr-context";
 import { isTaskManaged } from "@/lib/tasks";
 import { resolveSkillSelections } from "@/lib/skills/catalog";
-import { buildAdvisorExchangePatch } from "@/lib/providers/advisor-activity";
 import {
   resolveProviderTurnDisplayState,
   startProviderTurnActivity,
@@ -911,14 +908,6 @@ export function createSendUserMessageAction(args: {
           },
         }));
       }
-      const delegatedRuntimeOverrides = resolveDelegatedRuntimeOverrides({
-        state,
-        overrides: promptDraft.runtimeOverrides,
-        provider,
-        activeModel,
-        prompt: promptContent,
-        fileContextCount: resolvedFileContexts.length,
-      });
 
       const skillSelection = resolveSkillSelections({
         text: promptContent,
@@ -1094,10 +1083,6 @@ export function createSendUserMessageAction(args: {
       const providerRuntimeOptions = buildProviderRuntimeOptions({
         provider,
         model: activeModel,
-        includeAdvisor: turnOrigin === "conversation",
-        taskRunsAsAgent: Boolean(useAgentAssignmentsStore.getState().byTaskId[resolvedTaskId]),
-        advisorRuntimeOverrides: delegatedRuntimeOverrides,
-        workerRuntimeOverrides: delegatedRuntimeOverrides,
         settings: {
           ...modelRuntimeSettings,
           ...resolvedPromptDraftRuntimeState,
@@ -1370,24 +1355,13 @@ export function createSendUserMessageAction(args: {
           const nextTurnActivityByTask =
             turnActivityPatch?.providerTurnActivityByTask ??
             currentState.providerTurnActivityByTask;
-          // Advisor phases are folded even for a turn that is no longer
-          // the active one: the terminal phase is what explains why the
-          // turn ended, and dropping it would hide advisor aborts.
-          const advisorPatch = buildAdvisorExchangePatch({
-            exchangeByTask: currentState.advisorExchangeByTask,
-            logByTask: currentState.advisorConsultLogByTask,
-            taskId: resolvedTaskId,
-            turnId,
-            events: pendingEvents,
-          });
           persistInactiveWorkspaceSession =
             applied.persistInactiveWorkspaceSession;
           updatedSession = applied.updatedSession;
-          if (applied.stateChanged || turnActivityPatch || advisorPatch) {
+          if (applied.stateChanged || turnActivityPatch) {
             set({
               ...applied.statePatch,
               ...turnActivityPatch,
-              ...advisorPatch,
             });
           }
           if (

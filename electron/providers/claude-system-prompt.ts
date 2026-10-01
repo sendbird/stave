@@ -45,11 +45,6 @@ export function buildClaudeSystemPrompt(args: {
   baseSystemPrompt?: string;
   responseStylePrompt?: string;
   /**
-   * Primary-facing Worker mode brief. Registering the agent only makes it
-   * available; without this the primary has no reason to delegate to it.
-   */
-  workerInstructions?: string;
-  /**
    * Whether the Stave local MCP is registered for this session. The Lens block
    * is included only then, because its tools do not otherwise exist.
    */
@@ -93,10 +88,6 @@ export function buildClaudeSystemPrompt(args: {
   const agentInstructions = args.agentInstructions?.trim();
   if (agentInstructions) {
     dynamicParts.push(agentInstructions);
-  }
-  const workerInstructions = args.workerInstructions?.trim();
-  if (workerInstructions) {
-    dynamicParts.push(workerInstructions);
   }
 
   return [

@@ -1,6 +1,6 @@
 # Agent Platform Taxonomy And Boundaries
 
-Stave grew several ways to make an agent do more work — Advisor, Worker, Fleet,
+Stave grew several ways to make an agent do more work — subagents, Fleet,
 Automations, the run ledger — and each was added for its own reason. This file
 fixes what each one is, what it is not, and which vocabulary the product uses,
 so the next capability lands in the right layer instead of beside a similar one.
@@ -23,7 +23,8 @@ Use these words in code, UI copy, and plans. Do not introduce synonyms.
 | Occurrence | One firing of a schedule. |
 | Automation | A saved prompt and schedule that mints a new task per occurrence. Code, IPC channels and Local MCP tools say `automation`; the older word "routine" is retired. |
 | Wake-up | A supervised turn added to an existing task on a schedule or when its delegated work finishes. Code, tables and Local MCP tools say `wakeUp` / `wake_up`; the older word "heartbeat" is retired for this feature. Provider and Crane "heartbeats" are unrelated. |
-| Delegated task | A durable Stave task created on another task's behalf, possibly on the other provider or in its own worktree, recorded on the run ledger. The relation stays parent/child (`parentTaskId`); the older words "child task" are retired. Run ids keep the persisted `child-task:<parent>:<key>` format. |
+| Subagent | Any agent a task or agent calls, in the turn (a provider subagent compiled from the agent's `canCall`) or as a delegated task. The UI says Subagent for both; the retired Advisor and Worker were the in-turn kind. |
+| Delegated task | A durable subagent: a Stave task created on another task's behalf, possibly on the other provider or in its own worktree, recorded on the run ledger. The relation stays parent/child (`parentTaskId`); the older words "child task" are retired. Run ids keep the persisted `child-task:<parent>:<key>` format. |
 | Issue | A ticket from a connected tracker (Jira, Crane), listed on the Issues surface and started as a Stave task from there. Code: `TrackerIssue`. "Task" is reserved for Stave conversations; Crane's own API keeps calling its items tasks. |
 | Repository | A registered folder that holds workspaces. Code: `repositoryPath`. The older word "project" is retired for it. |
 | Playbook | A saved way of working: ordered stages, each with an instruction and a "Done when" condition. It grants no permissions. Code: `src/lib/playbooks/`. |
@@ -35,7 +36,7 @@ Use these words in code, UI copy, and plans. Do not introduce synonyms.
 | Mission report | The summary a mission leaves when it ends: stages, decisions, evidence, links, and, for a partial run, what it left behind. |
 | Project | Reserved for the goal-level coordinator that starts parallel missions. Not a registered folder. |
 | Agent | A saved worker definition: instructions, skills, a model choice, tool limits, a default permission and a workspace. Built-in, Custom, or From repository. It grants no permissions and starts nothing. Code: `AgentConfig` in `src/lib/agents/`, referenced as `agentConfigId` — never `agentId`, which names a provider worker on normalized events, and never `AgentDefinition`, the Claude Agent SDK's subagent type. |
-| Agent role | Where an agent can be used: `primary` (Main agent of a task), `worker` (the turn-scoped Worker), `delegate` (a delegated task). The same words as the auto-routing roles. Code: `usableAs`. |
+| Agent role | Where an agent can be used: `primary` (Main agent of a task), `worker` (an in-turn subagent), `delegate` (a delegated task). The same words as the auto-routing roles. Code: `usableAs`. |
 | Agent snapshot | The copy of an agent taken when work starts, with its content hash ("Version used"). Later edits never reach a run. |
 | Intake | The one sequence that turns a project's request into a workspace, an idle task and optionally a mission: `electron/host-service/supervision/intake.ts`. Its caller records the idempotency key and each id it reports. |
 | Assign | Handing work to an agent as a task's main agent. Kickoff creates the worktree (or, for an agent that works in the current workspace, a task there) and records the agent before the first turn, which is sent like any composer turn. Code: `AgentAssignment`, recorded by `assign-runtime.ts`. |
@@ -54,13 +55,14 @@ Ephemeral, turn-scoped, minimal product branding. These are task options.
 
 | Concept | Role | Does not |
 | --- | --- | --- |
-| Advisor | Read-only second opinions the primary requests on demand mid-turn (budgeted per turn) | Execute; persist |
-| Worker | Same-provider delegation inside a turn | Survive a restart; cross providers |
+| In-turn subagent | A provider subagent the task's agent calls inside its turn, compiled from its `canCall` agents, under the lead's permissions, one level deep | Survive a restart; cross providers |
 | Utility inference | Mechanical meta calls: task name, route classification, commit message | Block the task; give advice |
 | Work graph | The turn's fan-out as a tree: who is working, what waits on what | Execute; persist; outlive the turn |
 
-Boundary: Advisor produces *content* the user would recognize as an opinion.
-Utility inference produces *metadata* the user never argues with.
+Boundary: a subagent produces *content* the caller reviews before relying on
+it. Utility inference produces *metadata* the user never argues with. A second
+opinion is a read-only delegated task: `stave_delegate_task` with
+`access: "read-only"` waits for its answer and returns it inline.
 
 The work graph is a *projection*, not a second executor. It reduces the same
 normalized provider events the flat activity shelf reads, shares its
@@ -138,7 +140,7 @@ reason. Two axes:
 | | Ephemeral | Durable |
 | --- | --- | --- |
 | Time — run again | — | Automation (new task per occurrence) / Wake-up (same task, same session) |
-| Delegation — hand work off | Worker (Layer 1) | Delegated tasks (cross-provider, normal tasks + ledger receipts) |
+| Delegation — hand work off | In-turn subagent (Layer 1) | Delegated tasks (cross-provider, normal tasks + ledger receipts) |
 | Procedure — follow a playbook | — | Mission (same task, ordered stages, sign-offs) |
 
 Automation is the only concept that lives outside a task: it mints tasks.
@@ -208,10 +210,11 @@ whose name repeats it.
 
 1. An automation never wakes an existing task; its definition cannot target one.
 2. A wake-up never creates a task; it only adds a turn to one that exists.
-3. A worker never survives a restart; a delegated task always does.
+3. An in-turn subagent never survives a restart; a delegated task always does.
 4. The ledger records and never executes; executors execute and never write
    ledger rows except through coordinator transitions.
-5. Advisor advises content; utility inference computes metadata.
+5. A subagent returns content its caller reviews; utility inference computes
+   metadata.
 6. The work queue assigns a workspace to exactly one lane, in fixed priority
    order.
 7. A work graph node names a worker, never a call; a call-derived node is never
@@ -236,6 +239,13 @@ whose name repeats it.
     never starts on another.
 17. A mission's lead task keeps its provider and instructions for the whole
     mission; a stage another agent does runs as a delegated task of it.
+18. A Local MCP call acts only for the task whose turn made it: the host's
+    caller grant names that task, a `parentTaskId` naming another is refused,
+    a subagent never starts subagents of its own, and a turn started through
+    `stave_run_task` never runs with more autonomy than its caller.
+19. Writers never share a checkout: a writing subagent runs in its own
+    worktree unless one is asked for explicitly, and then only while no other
+    writing subagent is live there; read-only subagents run beside anything.
 
 Statement 13 is asserted per turn: an agent's permission is a ceiling that
 lowers the turn's own settings and never raises them (`src/lib/agents/permission.ts`),
@@ -256,8 +266,8 @@ recording them early was for:
   task, and a wake-up definition must name one and cannot carry the fields
   that would let it mint a task.
 - Statement 3 is asserted by recovery: a delegated task is reconciled against the
-  live task after a restart rather than closed with the process, while a worker
-  has no durable record to reconcile at all.
+  live task after a restart rather than closed with the process, while an
+  in-turn subagent has no durable record to reconcile at all.
 
 ## Adding Something New
 

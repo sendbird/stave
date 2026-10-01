@@ -54,3 +54,33 @@ describe("agentRuntimeOptions", () => {
     expect(agentRuntimeOptions(compiled)).toEqual({});
   });
 });
+
+describe("a task agent's in-turn subagents", () => {
+  const subagents = [
+    { name: "scout", label: "Scout", description: "Answers one question.", instructions: "Change nothing.", tools: ["Read"], maxTurns: 25, effort: "high" },
+    { name: "deep", label: "Deep", description: "Owns one unit.", instructions: "Finish it.", effort: "ultra" },
+  ];
+
+  test("Claude registers them as foreground agents under the lead's permission mode", async () => {
+    const { buildClaudeNativeSubagentAgents } = await import("../electron/providers/claude-sdk-runtime");
+    const agents = buildClaudeNativeSubagentAgents({ runtimeOptions: { nativeSubagents: subagents }, permissionMode: "dontAsk" });
+    expect(agents?.scout).toMatchObject({ description: "Answers one question.", prompt: "Change nothing.", tools: ["Read"], maxTurns: 25, effort: "high", permissionMode: "dontAsk" });
+    expect(agents?.deep).not.toHaveProperty("effort");
+    expect(agents?.scout).not.toHaveProperty("background");
+    expect(buildClaudeNativeSubagentAgents({ runtimeOptions: {}, permissionMode: "default" })).toBeUndefined();
+  });
+
+  test("Codex reads them in its developer instructions and bounds the fan-out", async () => {
+    const { buildCodexSubagentConfigOverrides } = await import("../electron/providers/codex-runtime-config");
+    const instructions = buildCodexDeveloperInstructions({ runtimeOptions: { nativeSubagents: subagents } });
+    expect(instructions).toContain("## Subagents");
+    expect(instructions).toContain("### Scout (`scout`)");
+    expect(instructions).toContain("Change nothing.");
+    expect(buildCodexDeveloperInstructions({ runtimeOptions: { nativeSubagents: subagents }, secondaryReadOnly: true })).not.toContain("## Subagents");
+    expect(buildCodexSubagentConfigOverrides({ runtimeOptions: { nativeSubagents: subagents } })).toEqual({
+      "agents.max_concurrent_threads_per_session": 5,
+      "agents.max_depth": 1,
+    });
+    expect(buildCodexSubagentConfigOverrides({ runtimeOptions: {} })).toEqual({});
+  });
+});

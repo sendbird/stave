@@ -20,9 +20,7 @@ import {
 import {
   describeToolOperationLabel,
   isTodoToolName,
-  TOOL_DELEGATION_LABEL,
 } from "@/lib/providers/tool-activity";
-import { formatWorkerExecutionMetadata, type WorkerExecutionMetadata } from "@/lib/providers/worker-mode";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
 import {
   createWorkGraph,
@@ -83,7 +81,6 @@ export interface ProviderTurnWorkItem {
   startedAt: number;
   updatedAt: number;
   elapsedSeconds?: number;
-  workerExecution?: WorkerExecutionMetadata;
   /**
    * Hook rows only: the provider's own lifecycle identifiers, kept raw.
    *
@@ -623,30 +620,6 @@ function resolveGeneralToolDetail(input: string) {
   );
 }
 
-/**
- * Mark a delegation that ran as a configured Worker, without saying it twice.
- *
- * The prefix exists because a Worker run is not an ordinary subagent — it has a
- * preset, a model and an effort of its own, shown in the badge. But it only
- * earns its place when the title names the delegated work. ACP agents name the
- * delegation tool `Worker`, and a provider that names nothing leaves the
- * generic delegation label, so both used to produce a row that said the same
- * word twice (`Worker · Worker`, `Worker · Delegate work`).
- */
-function formatWorkerTitle(args: {
-  title: string;
-  workerExecution?: WorkerExecutionMetadata;
-}) {
-  if (!args.workerExecution) {
-    return args.title;
-  }
-  const title = args.title.trim();
-  if (/^worker\b/i.test(title) || title === TOOL_DELEGATION_LABEL) {
-    return "Worker";
-  }
-  return `Worker · ${title}`;
-}
-
 function resolveToolResultDetail(output: string) {
   const parsed = parseToolInput(output);
   const content = Array.isArray(parsed?.content) ? parsed.content : [];
@@ -892,9 +865,6 @@ function applyTurnWorkEvents(args: {
         updatedAt: args.now,
         elapsedSeconds: currentItem.elapsedSeconds,
         ...(currentItem.badge ? { badge: currentItem.badge } : {}),
-        ...(currentItem.workerExecution
-          ? { workerExecution: currentItem.workerExecution }
-          : {}),
       });
       continue;
     }
@@ -914,10 +884,7 @@ function applyTurnWorkEvents(args: {
           ? resolveToolDetail(event.input)
           : resolveGeneralToolDetail(event.input)) ??
         truncateWorkText(event.output);
-      const workerExecution = event.workerExecution ?? currentItem?.workerExecution;
-      const badge = workerExecution
-        ? formatWorkerExecutionMetadata(workerExecution)
-        : resolveSubagentBadge(event.input) ?? currentItem?.badge;
+      const badge = resolveSubagentBadge(event.input) ?? currentItem?.badge;
       const resolvedTitle = resolveToolTitle(
         event.toolName,
         event.input,
@@ -929,7 +896,7 @@ function applyTurnWorkEvents(args: {
         id: event.toolUseId,
         kind,
         status: resolveToolStatus(event.state),
-        title: formatWorkerTitle({ title: resolvedTitle, workerExecution }),
+        title: resolvedTitle,
         detail: eventDetail ?? currentItem?.detail,
         ...(badge ? { badge } : {}),
         toolUseId: event.toolUseId,
@@ -937,7 +904,6 @@ function applyTurnWorkEvents(args: {
         startedAt: currentItem?.startedAt ?? args.now,
         updatedAt: args.now,
         elapsedSeconds: currentItem?.elapsedSeconds,
-        ...(workerExecution ? { workerExecution } : {}),
         ...(toolName ? { toolName } : {}),
       });
       continue;
@@ -968,9 +934,6 @@ function applyTurnWorkEvents(args: {
         startedAt: currentItem?.startedAt ?? args.now,
         updatedAt: args.now,
         elapsedSeconds: event.elapsedSeconds,
-        ...(currentItem?.workerExecution
-          ? { workerExecution: currentItem.workerExecution }
-          : {}),
       });
       continue;
     }

@@ -40,7 +40,7 @@ test("ordinary direct work and an inherited read-only delegation persist across 
       localStorage.setItem("stave-store", JSON.stringify(persisted));
     }, {
       modelCodex: model, codexReasoningEffort: "low", codexFileAccess: "read-only", codexApprovalPolicy: "never", codexNetworkAccess: false,
-      autoRoutingEnabled: false, advisorEnabled: false, workerEnabled: false, customAgents: [], providerTimeoutMs: 60_000,
+      autoRoutingEnabled: false, customAgents: [], providerTimeoutMs: 60_000,
     });
     await stave.page.reload({ waitUntil: "domcontentloaded" });
     await stave.page.getByTestId("workspace-welcome").getByRole("button", { name: "Open a repository" }).click();

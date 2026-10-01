@@ -62,8 +62,7 @@ export function SettingsKiroSection() {
           <p className={sx(kiroSectionStyles.note)}>
             Kiro has no partial-trust tier: its CLI accepts unknown tool names
             for a partial grant without reporting an error, so Stave does not
-            offer a middle setting it cannot verify. Worker runs always stay on
-            Manual.
+            offer a middle setting it cannot verify.
           </p>
         </LabeledField>
         <LabeledField

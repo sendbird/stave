@@ -3,20 +3,7 @@ import {
   resolveEffectiveCodexApprovalPolicy,
   resolveEffectiveCodexFileAccessMode,
 } from "@/lib/providers/codex-runtime-options";
-import {
-  isManagedExecutionProviderId,
-  resolveDefaultClaudeFallbackModel,
-} from "@/lib/providers/model-catalog";
-import {
-  type AdvisorArmOverrides,
-  normalizeAdvisorConsultLimit,
-  resolveAdvisorArmState,
-} from "@/lib/providers/advisor";
-import {
-  type WorkerArmOverrides,
-  buildWorkerRuntimeIntent,
-  resolveWorkerArmState,
-} from "@/lib/providers/worker-mode";
+import { resolveDefaultClaudeFallbackModel } from "@/lib/providers/model-catalog";
 import { getProviderSessionId } from "@/lib/providers/provider-sessions";
 import {
   normalizeTrustedToolEntries,
@@ -58,12 +45,6 @@ type RuntimeSettings = Pick<
   | "claudeSandboxCredentialFiles"
   | "claudeSandboxCredentialEnvVars"
   | "claudeTaskBudgetTokens"
-  | "advisorEnabled"
-  | "advisorTarget"
-  | "advisorTargetByProvider"
-  | "advisorConsultLimit"
-  | "workerEnabled"
-  | "workerConfigByProvider"
   | "claudeSettingSources"
   | "claudeEffort"
   | "claudeThinkingMode"
@@ -219,22 +200,6 @@ export function buildProviderRuntimeOptions(args: {
   model: string;
   settings: RuntimeSettings;
   providerSession?: TaskProviderSessionState | null;
-  includeAdvisor?: boolean;
-  /**
-   * The task runs as an agent. The agent calls other agents itself, so the
-   * turn carries no Worker.
-   */
-  taskRunsAsAgent?: boolean;
-  /**
-   * The task's per-turn Advisor arming, when the caller has a prompt draft.
-   * Omitted for utility turns, which never opt into the Advisor anyway.
-   */
-  advisorRuntimeOverrides?: AdvisorArmOverrides | null;
-  /**
-   * The task's per-turn Worker mode arming. Same shape/scope rules as the
-   * Advisor overrides above.
-   */
-  workerRuntimeOverrides?: WorkerArmOverrides | null;
   /**
    * Ids of vault secrets the user bound to this task. Carried through to the
    * runtime so the main process can resolve them to env vars. Ids only.
@@ -249,31 +214,6 @@ export function buildProviderRuntimeOptions(args: {
   const claudeTaskBudgetTokens = normalizeClaudeTaskBudgetTokens({
     value: settings.claudeTaskBudgetTokens,
   });
-  const managedProvider = isManagedExecutionProviderId(args.provider)
-    ? args.provider
-    : null;
-  const advisorTarget = args.includeAdvisor && managedProvider
-    ? resolveAdvisorArmState({
-        overrides: args.advisorRuntimeOverrides,
-        settingsTarget: settings.advisorTarget,
-        settingsEnabled: settings.advisorEnabled,
-        settingsTargetByProvider: settings.advisorTargetByProvider,
-      }).effectiveTarget
-    : null;
-  // Gated on the same `includeAdvisor` flag: it marks a real conversation turn,
-  // and utility/secondary turns must never spend a worker either. A task that
-  // runs as an agent has no Worker: the agent calls other agents itself.
-  const workerIntent =
-    args.includeAdvisor && !args.taskRunsAsAgent
-    ? buildWorkerRuntimeIntent(
-        resolveWorkerArmState({
-          providerId: args.provider,
-          overrides: args.workerRuntimeOverrides,
-          settingsConfig: settings.workerConfigByProvider?.[args.provider],
-          settingsEnabled: settings.workerEnabled,
-        }),
-      )
-    : null;
   const trustedTools = normalizeTrustedToolEntries(settings.trustedTools);
   const claudeAllowedTools =
     toClaudeAllowedToolsFromTrustedEntries(trustedTools);
@@ -352,15 +292,6 @@ export function buildProviderRuntimeOptions(args: {
           claudeTaskBudgetTokens,
         }
       : {}),
-    ...(advisorTarget
-      ? {
-          advisorTarget,
-          advisorConsultLimit: normalizeAdvisorConsultLimit(
-            settings.advisorConsultLimit,
-          ),
-        }
-      : {}),
-    ...(workerIntent ? { workerIntent } : {}),
     claudeEffort: settings.claudeEffort,
     claudeThinkingMode: settings.claudeThinkingMode,
     claudeAgentProgressSummaries: settings.claudeAgentProgressSummaries,

@@ -347,10 +347,10 @@ export function DelegatedTaskRowsSurface(props: DelegatedTaskRowsSurfaceProps) {
   return (
     <section
       className={cx(sx(styles.sectionRoot), props.className)}
-      aria-label="Delegated tasks"
+      aria-label="Subagents"
       data-testid="delegated-task-rows"
     >
-      <h3 className={sx(styles.sectionHeading)}>Delegated tasks</h3>
+      <h3 className={sx(styles.sectionHeading)}>Subagents</h3>
       <div className={sx(styles.sectionList)}>
         {props.rows.map((child) => (
           <DelegatedTaskRow

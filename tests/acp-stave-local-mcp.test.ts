@@ -147,7 +147,7 @@ describe("ACP Stave Local MCP embedding", () => {
     expect(echoed.prompt).toContain("Notes: keep the panel compact");
   });
 
-  test("Cursor Worker-armed turns still receive the full catalog", async () => {
+  test("Cursor turns carry their caller grant to the full catalog", async () => {
     manifestOverride = fixtureManifest;
     const echoed = parseEchoSession(
       await streamCursorWithAcp({
@@ -159,7 +159,7 @@ describe("ACP Stave Local MCP embedding", () => {
           cursorMode: "agent",
           cursorBinaryPath: process.execPath,
         },
-        staveTurnGrants: { workerKey: "worker-grant" },
+        staveTurnGrants: { callerKey: "caller-grant" },
         acpArgsForTest: [cursorFixturePath, "echo-session"],
       }),
     );
@@ -168,10 +168,10 @@ describe("ACP Stave Local MCP embedding", () => {
     );
     expect(staveServer).toBeTruthy();
     expect(staveServer?.env).toContainEqual({
-      name: "STAVE_WORKER_GRANT_KEY",
-      value: "worker-grant",
+      name: "STAVE_CALLER_GRANT_KEY",
+      value: "caller-grant",
     });
-    expect(echoed.prompt).not.toContain("worker-grant");
+    expect(echoed.prompt).not.toContain("caller-grant");
     expect(
       staveServer?.env?.some(
         (entry) => entry.name === "STAVE_MCP_ALLOWED_TOOLS",
@@ -200,34 +200,5 @@ describe("ACP Stave Local MCP embedding", () => {
     ).toBe(false);
     expect(echoed.prompt).not.toContain("Notes: keep the panel compact");
     expect(echoed.prompt).not.toContain(STAVE_WORKSPACE_INFORMATION_SOURCE_ID);
-  });
-
-  test("stops before starting a provider when Worker mode is armed without a Local MCP server", async () => {
-    manifestOverride = null;
-    const observed: Array<{ type: string; message?: string }> = [];
-    await streamCursorWithAcp({
-      providerId: "cursor",
-      prompt: "Delegate the remaining work",
-      cwd: import.meta.dir,
-      runtimeOptions: {
-        model: "auto",
-        cursorMode: "agent",
-        cursorBinaryPath: process.execPath,
-      },
-      staveTurnGrants: { workerKey: "worker-grant" },
-      acpArgsForTest: [cursorFixturePath, "standard"],
-      onEvent: (event) => {
-        observed.push(event);
-      },
-    });
-    expect(observed.some((event) => event.type === "provider_session")).toBe(
-      false,
-    );
-    expect(observed).toContainEqual({
-      type: "error",
-      message:
-        "Worker is armed, but Stave Local MCP is unavailable. Start it in Settings and retry the turn.",
-      recoverable: true,
-    });
   });
 });

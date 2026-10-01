@@ -1,4 +1,4 @@
-import { WORKER_PRESETS, type WorkerPreset } from "@/lib/providers/worker-mode";
+import { SUBAGENT_PRESETS, type SubagentPreset } from "./subagent-presets";
 import {
   AGENT_CONFIG_VERSION,
   AgentConfigSchema,
@@ -12,10 +12,8 @@ import {
  *
  * Two families:
  * - Four general agents usable in every participation.
- * - The Worker presets, mirrored one-to-one and limited to `worker`
- *   participation so Worker mode keeps behaving exactly as before. Their ids
- *   equal the preset ids, which is what lets an existing Worker selection keep
- *   working without a settings migration.
+ * - The subagent presets, limited to `worker` participation: a lead agent
+ *   calls them inside its turn. Their ids equal the preset ids.
  */
 
 const GENERAL_AGENTS: readonly AgentConfig[] = [
@@ -119,14 +117,14 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
 
 const READ_ONLY_PRESET_TOOLS = new Set(["Read", "Grep", "Glob", "Bash"]);
 
-function presetReport(preset: WorkerPreset): AgentReportSection[] {
+function presetReport(preset: SubagentPreset): AgentReportSection[] {
   if (preset.id === "second-pair") return ["summary", "findings"];
   if (preset.id === "scout") return ["summary", "sources"];
   return ["summary", "changes", "verification"];
 }
 
-/** Mirrors one Worker preset as a worker-only built-in agent. */
-export function agentFromWorkerPreset(preset: WorkerPreset): AgentConfig {
+/** Mirrors one subagent preset as a built-in agent usable inside a turn. */
+export function agentFromSubagentPreset(preset: SubagentPreset): AgentConfig {
   const readOnly = (preset.tools ?? []).every((tool) => READ_ONLY_PRESET_TOOLS.has(tool));
   return AgentConfigSchema.parse({
     version: AGENT_CONFIG_VERSION,
@@ -150,7 +148,7 @@ export function agentFromWorkerPreset(preset: WorkerPreset): AgentConfig {
 
 export const BUILTIN_AGENTS: readonly AgentConfig[] = [
   ...GENERAL_AGENTS.map((agent) => AgentConfigSchema.parse(agent)),
-  ...WORKER_PRESETS.map(agentFromWorkerPreset),
+  ...SUBAGENT_PRESETS.map(agentFromSubagentPreset),
 ];
 
 const BUILTIN_BY_ID = new Map(BUILTIN_AGENTS.map((agent) => [agent.id, agent]));

@@ -135,20 +135,6 @@ describe("matchesSettingsSection", () => {
 });
 
 describe("settings field registry", () => {
-  test("finds Advisor by title and provider/model aliases", () => {
-    const advisor = settingDefinitions.find(
-      (definition) => definition.key === "advisorTarget",
-    );
-
-    expect(advisor).toBeDefined();
-    expect(matchesSettingsField(advisor!, "advisor")).toBe(true);
-    expect(matchesSettingsField(advisor!, "consult")).toBe(true);
-    expect(matchesSettingsField(advisor!, "codex model")).toBe(true);
-    expect(searchSettingsFields("read only")).toEqual([advisor!]);
-    expect(searchSettingsFields("sonnet 5")).toEqual([advisor!]);
-    expect(searchSettingsFields("gpt-6.1-sol")).toEqual([advisor!]);
-  });
-
   test("finds the shared account-usage stop by usage and credits terms", () => {
     const definition = settingDefinitions.find(
       (candidate) => candidate.key === "blockTurnsWhenAccountLimitReached",
