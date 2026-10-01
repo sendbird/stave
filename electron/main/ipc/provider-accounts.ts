@@ -1,4 +1,6 @@
 import { ipcMain } from "electron";
+import { checkClaudeGateway } from "../claude-gateway-check";
+import { resolveHostGatewayCredential } from "../provider-gateway-credential";
 import {
   PROVIDER_ACCOUNT_IPC,
   ProviderAccountCreateArgsSchema,
@@ -20,6 +22,18 @@ function failure(error: unknown) {
 }
 
 export function registerProviderAccountHandlers() {
+  ipcMain.handle(PROVIDER_ACCOUNT_IPC.checkGateway, async (_event, input: unknown) => {
+    const parsed = ProviderAccountRemoveArgsSchema.safeParse(input);
+    if (!parsed.success || parsed.data.providerId !== "claude-code")
+      return { ok: false, models: [], message: "Invalid Gateway connection." };
+    try {
+      const gateway = getProviderAccountRegistry().resolveGateway(parsed.data.id);
+      const credential = await resolveHostGatewayCredential({ claudeAccountProfileId: parsed.data.id });
+      if (!gateway || !credential?.token)
+        return { ok: false, models: [], message: "Gateway API key is unavailable. Check Settings > Secrets." };
+      return await checkClaudeGateway({ gateway, token: credential.token });
+    } catch { return { ok: false, models: [], message: "Gateway connection is unavailable." }; }
+  });
   ipcMain.handle(PROVIDER_ACCOUNT_IPC.list, () => {
     try {
       return { ok: true, profiles: getProviderAccountRegistry().list() };

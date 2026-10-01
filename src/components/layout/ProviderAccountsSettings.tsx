@@ -8,6 +8,7 @@ import { SYSTEM_ACCOUNT_PROFILE_ID, type ProviderAccountProfile, type ProviderAc
 import { SettingsCard } from "./settings-dialog.shared";
 import { ProviderAccountPicker } from "./ProviderAccountPicker";
 import { ProviderAccountLoginTerminal } from "./ProviderAccountLoginTerminal";
+import { ClaudeGatewaySettings } from "./ClaudeGatewaySettings";
 import { accountStyles as styles } from "./provider-accounts.styles";
 
 function AccountRow({ profile, run, login, busy }: {
@@ -16,6 +17,7 @@ function AccountRow({ profile, run, login, busy }: {
   login: (profile: ProviderAccountProfile) => Promise<void>;
 }) {
   const [label, setLabel] = useState(profile.label);
+  const [checkMessage, setCheckMessage] = useState("");
   return <div className={sx(styles.profile, styles.stack)}>
     <div className={sx(styles.row)}>
       {profile.kind === "system" ? <strong>{profile.label}</strong> : <Input aria-label={`Name for ${profile.label}`} value={label} onChange={e => setLabel(e.target.value)} className={sx(styles.field)} />}
@@ -23,7 +25,10 @@ function AccountRow({ profile, run, login, busy }: {
         const result = await window.api!.providerAccounts!.rename({ providerId: profile.providerId, id: profile.id, label });
         if (!result.ok) throw new Error(result.message);
       })}>Save name</Button>}
-      <Button size="sm" variant="outline" disabled={busy} onClick={() => run(() => login(profile))}>Sign in</Button>
+      {profile.gateway ? <Button size="sm" variant="outline" disabled={busy} onClick={() => run(async () => {
+        const result = await window.api!.providerAccounts!.checkGateway({ providerId: profile.providerId, id: profile.id });
+        setCheckMessage(result.message);
+      })}>Check model list</Button> : <Button size="sm" variant="outline" disabled={busy} onClick={() => run(() => login(profile))}>Sign in</Button>}
       {profile.kind !== "system" && <Button size="sm" variant="quiet" disabled={busy} onClick={() => run(async () => {
         const result = await window.api!.providerAccounts!.remove({ providerId: profile.providerId, id: profile.id });
         if (!result.ok) throw new Error(result.message);
@@ -33,6 +38,8 @@ function AccountRow({ profile, run, login, busy }: {
       })}>Remove</Button>}
     </div>
     {profile.configDirectory && <div className={sx(styles.muted)}>{profile.configDirectory}</div>}
+    {profile.gateway && <div className={sx(styles.muted)}>API billing · {profile.gateway.baseUrl}<br />Models: {profile.gateway.models.join(", ")}</div>}
+    {checkMessage && <p role="status" className={sx(styles.muted)}>{checkMessage}</p>}
   </div>;
 }
 
@@ -74,6 +81,7 @@ function AccountsForProvider({ providerId }: { providerId: ProviderAccountProvid
         })}>Add account</Button>
       </div>
       <p className={sx(styles.muted)}>Leave the directory blank to create a separate native profile. Removing an account keeps its local files.</p>
+      {providerId === "claude-code" && <ClaudeGatewaySettings />}
       {error && <p role="alert" className={sx(styles.error)}>{error}</p>}
       {loginSession && <div className={sx(styles.stack)}>
         <div className={sx(styles.row)}><strong>Sign in: {loginSession.label}</strong><Button size="sm" variant="quiet" onClick={() => run(async () => {

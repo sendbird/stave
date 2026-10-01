@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { useProviderAccounts } from "@/lib/providers/use-provider-accounts";
 import { StatusBarMemorySegment } from "@/components/layout/StatusBarMemorySegment";
 import { StatusBarUsageSegment } from "@/components/layout/StatusBarUsageSegment";
 import { listCliConnectedUsageProviders } from "@/components/layout/status-bar-usage.utils";
@@ -24,6 +25,9 @@ import { layoutShellStyles } from "./layout-shell.styles";
  */
 export function StatusBar() {
   const refreshRateLimits = useAppStore((state) => state.refreshRateLimits);
+  const profiles = useProviderAccounts(state => state.profiles);
+  const claudeAccountProfileId = useAppStore(state => state.settings.claudeAccountProfileId);
+  const gateway = profiles.find(profile => profile.id === claudeAccountProfileId)?.gateway;
   const providerAvailability = useAppStore((state) => state.providerAvailability);
   const readiness = useProviderReadinessStore((state) => state.providers);
   const cursorBinaryPath = useAppStore((state) => state.settings.cursorBinaryPath);
@@ -112,7 +116,9 @@ export function StatusBar() {
     <div {...stylex.props(layoutShellStyles.statusBar)}>
       <div {...stylex.props(layoutShellStyles.statusGroup)}>
         {usageProviders.map((provider) => (
-          <StatusBarUsageSegment key={provider} provider={provider} />
+          provider === "claude" && gateway
+            ? <span key={provider} title="Usage and charges are managed by your Gateway. Subscription quota is unavailable.">Claude · API billing</span>
+            : <StatusBarUsageSegment key={provider} provider={provider} />
         ))}
       </div>
       <div {...stylex.props(layoutShellStyles.statusGroup)}>

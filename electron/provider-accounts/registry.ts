@@ -106,6 +106,8 @@ export class ProviderAccountRegistry {
     const parsed = ProviderAccountCreateArgsSchema.safeParse(input);
     if (!parsed.success) throw new Error("Invalid provider account details.");
     const args = parsed.data;
+    if (args.gateway && (args.providerId !== "claude-code" || args.configDirectory))
+      throw new Error("Gateway connections require a separate managed Claude profile.");
     const profiles = this.read();
     if (profiles.length >= MAX_PROVIDER_ACCOUNT_PROFILES)
       throw new Error("The provider account limit has been reached.");
@@ -140,6 +142,7 @@ export class ProviderAccountRegistry {
         label: args.label,
         kind: args.configDirectory ? "external" : "managed",
         configDirectory,
+        ...(args.gateway ? { gateway: args.gateway } : {}),
       };
       this.write([...profiles, profile]);
       return profile;
@@ -200,6 +203,14 @@ export class ProviderAccountRegistry {
     return canonical;
   }
 
+  resolveGateway(profileId: string) {
+    if (profileId === SYSTEM_ACCOUNT_PROFILE_ID) return undefined;
+    const profile = this.read().find(p => p.id === profileId && p.providerId === "claude-code");
+    if (!profile) throw new Error("The provider account no longer exists.");
+    if (profile.gateway) this.resolveDirectory({ providerId: "claude-code", profileId });
+    return profile.gateway;
+  }
+
   private findIndex(
     profiles: SavedProfile[],
     args: { providerId: ProviderAccountProviderId; id: string },
@@ -229,7 +240,8 @@ export class ProviderAccountRegistry {
       if (
         ids.size !== profiles.length ||
         directories.size !== profiles.length ||
-        profiles.some((profile) => !path.isAbsolute(profile.configDirectory))
+        profiles.some((profile) => !path.isAbsolute(profile.configDirectory) ||
+          (profile.gateway && (profile.providerId !== "claude-code" || profile.kind !== "managed")))
       )
         throw new Error();
       return profiles;

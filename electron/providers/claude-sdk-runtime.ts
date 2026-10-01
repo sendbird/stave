@@ -1,4 +1,5 @@
 import { currentProviderAccountId, providerAccountKey, providerAccountKeyMatchesTask } from "../provider-accounts/runtime-scope";
+import { currentClaudeGateway, validateClaudeGatewayModel } from "../provider-accounts/gateway-runtime";
 import { createClaudeModelResolutionTracker } from "./claude-model-resolution";
 import {
   buildClaudeDenyPermissionResult,
@@ -1077,6 +1078,13 @@ export function buildClaudeQueryOptions(args: {
    */
   secretEnv?: Record<string, string>;
 }): Options {
+  const gateway = currentClaudeGateway(args.runtimeOptions?.claudeAccountProfileId);
+  if (gateway) {
+    const model = validateClaudeGatewayModel(args.runtimeOptions?.model, args.runtimeOptions?.claudeAccountProfileId);
+    const claudeFallbackModel = args.runtimeOptions?.claudeFallbackModel?.split(",").filter(Boolean)
+      .map(fallback => validateClaudeGatewayModel(fallback.trim(), args.runtimeOptions?.claudeAccountProfileId)).join(",");
+    args = { ...args, runtimeOptions: { ...args.runtimeOptions, model, claudeFallbackModel, claudeSettingSources: [] } };
+  }
   const permissionMode =
     args.permissionMode ??
     resolveClaudePermissionMode({
@@ -1170,6 +1178,8 @@ export function buildClaudeQueryOptions(args: {
           permissionMode,
         })
       : undefined;
+  if (gateway) for (const worker of Object.values(workerAgents ?? {}))
+    if (worker.model && worker.model !== "inherit") worker.model = validateClaudeGatewayModel(worker.model, args.runtimeOptions?.claudeAccountProfileId);
   const fallbackModel = resolveClaudeFallbackModel({
     model: args.runtimeOptions?.model,
     fallbackModel: args.runtimeOptions?.claudeFallbackModel,
@@ -1364,6 +1374,7 @@ export function buildClaudeQueryOptions(args: {
       ...buildClaudeEnv({
         executablePath: args.claudeExecutablePath,
         cwd: args.cwd,
+        accountProfileId: args.runtimeOptions?.claudeAccountProfileId,
       }),
     },
     ...(args.claudeExecutablePath.length > 0
@@ -1846,10 +1857,11 @@ export function buildClaudeReadOnlyPromptOptions(args: {
   claudeExecutablePath: string;
   resumeSessionId?: string;
 }): Options {
+  const model = validateClaudeGatewayModel(args.model);
   return {
     abortController: args.abortController,
     cwd: args.cwd,
-    model: args.model,
+    model,
     ...(args.effort &&
     modelAcceptsExplicitEffort({
       providerId: "claude-code",
@@ -4193,7 +4205,8 @@ export async function suggestClaudePRDescription(args: {
         permissionMode: "default",
         maxTurns: 1,
         cwd: args.cwd || process.cwd(),
-        model: args.model?.trim() || "claude-haiku-4-5",
+        model: validateClaudeGatewayModel(args.model?.trim() || "claude-haiku-4-5"),
+        ...(currentClaudeGateway() ? { settingSources: [] } : {}),
         ...(claudeExecutablePath
           ? { pathToClaudeCodeExecutable: claudeExecutablePath }
           : {}),
@@ -4269,7 +4282,8 @@ export async function reviewClaudeWorktreeDiff(args: {
         permissionMode: "default",
         maxTurns: 1,
         cwd: args.cwd || process.cwd(),
-        model: args.model?.trim() || "claude-sonnet-5",
+        model: validateClaudeGatewayModel(args.model?.trim() || "claude-sonnet-5"),
+        ...(currentClaudeGateway() ? { settingSources: [] } : {}),
         ...(claudeExecutablePath
           ? { pathToClaudeCodeExecutable: claudeExecutablePath }
           : {}),

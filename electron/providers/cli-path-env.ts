@@ -28,6 +28,7 @@ import {
 } from "./mcp-config-refresh";
 import { readMcpEnvVarNames, type McpEnvProvider } from "./mcp-env";
 import { resolveProviderAccountEnvironment } from "../provider-accounts/environment";
+import { applyClaudeGatewayEnvironment } from "../provider-accounts/gateway-runtime";
 
 const CLAUDE_LOOKUP_PATHS = [
   `${homedir()}/.claude/local`,
@@ -569,7 +570,7 @@ export function buildClaudeCliEnv(args: {
   if (args.cwd) {
     env = buildRepositoryShellEnv({ cwd: args.cwd, baseEnv: env });
   }
-  return applyAccount(env);
+  return applyClaudeGatewayEnvironment(applyAccount(env), args.accountProfileId);
 }
 
 export function buildCodexCliEnv(

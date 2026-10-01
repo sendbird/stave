@@ -1,5 +1,6 @@
 import path from "node:path";
 import { inspectOptionalProviderTooling } from "../../providers/optional-provider-tooling";
+import { currentClaudeGateway, gatewayCredentialAvailable } from "../../provider-accounts/gateway-runtime";
 import {
   buildClaudeEnv,
   resolveClaudeExecutablePath,
@@ -549,6 +550,13 @@ async function inspectClaudeStatus(args: { claudeBinaryPath?: string } = {}) {
   }
 
   const env = buildClaudeEnv({ executablePath });
+  if (currentClaudeGateway()) return makeToolEntry({
+    id: "claude", label: "Claude CLI", state: "warning", available: true,
+    summary: "Gateway connection selected.",
+    detail: "API billing applies. Check the Gateway model list below; tool and streaming compatibility require a real turn.",
+    version: null, executablePath, authState: "unknown",
+    authDetail: gatewayCredentialAvailable() ? "Saved API key available; endpoint authentication is unverified." : "Gateway API key is unavailable. Check Settings > Secrets.",
+  });
   const configDir = env.CLAUDE_CONFIG_DIR?.trim()
     ? env.CLAUDE_CONFIG_DIR.trim()
     : null;

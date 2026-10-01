@@ -1,4 +1,4 @@
-import { useAccountRuntimeOptions } from "./use-provider-accounts";
+import { useAccountRuntimeOptions, useProviderAccounts } from "./use-provider-accounts";
 import { selectedProviderAccount } from "./provider-account-selection";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { registerCursorModelDisplayNames } from "@/lib/providers/cursor-model-id";
@@ -42,6 +42,22 @@ type CachedProviderModelCatalog = ProviderModelCatalogState & {
 
 const catalogCache = new Map<string, CachedProviderModelCatalog>();
 const catalogInflight = new Map<string, Promise<CachedProviderModelCatalog>>();
+
+/** Registered Gateway models are an exclusive catalog, never merged with native defaults. */
+export function configuredGatewayCatalog(args: {
+  providerId: ProviderId; runtimeOptions?: ProviderRuntimeOptions;
+}): CachedProviderModelCatalog | undefined {
+  if (args.providerId !== "claude-code") return undefined;
+  const gateway = useProviderAccounts.getState().profiles.find(profile =>
+    profile.providerId === "claude-code" && profile.id === selectedProviderAccount("claude-code", args.runtimeOptions))?.gateway;
+  if (!gateway) return undefined;
+  return {
+    status: "ready", models: gateway.models,
+    entries: gateway.models.map((model, index) => ({ model, displayName: model, description: "Gateway · API billing", hidden: false, isDefault: index === 0, defaultEffort: null, supportedEfforts: [] })),
+    detail: "Configured Gateway models; endpoint support is unverified until checked.",
+    isDynamic: true, fetchedAt: Date.now(),
+  };
+}
 
 function fallbackEntries(providerId: ProviderId): ProviderModelCatalogEntry[] {
   const descriptor = getProviderDescriptor({ providerId });
@@ -192,6 +208,8 @@ export async function loadProviderModelCatalog(args: {
   runtimeOptions?: ProviderRuntimeOptions;
   force?: boolean;
 }): Promise<CachedProviderModelCatalog> {
+  const gatewayCatalog = configuredGatewayCatalog(args);
+  if (gatewayCatalog) return gatewayCatalog;
   const descriptor = listProviderDescriptors().find(
     (candidate) => candidate.id === args.providerId,
   );
@@ -357,6 +375,7 @@ export function useProviderModelCatalogs(args: {
 }) {
   const runtimeOptions = useAccountRuntimeOptions(args.runtimeOptions);
   args = { ...args, runtimeOptions };
+  const profiles = useProviderAccounts(state => state.profiles);
   const [revision, setRevision] = useState(0);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const readiness = useProviderReadinessStore((state) => state.providers);
@@ -391,6 +410,8 @@ export function useProviderModelCatalogs(args: {
   return useMemo(() => {
     const catalogs = {} as Record<ProviderId, ProviderModelCatalogState>;
     for (const descriptor of listProviderDescriptors()) {
+      const gatewayCatalog = configuredGatewayCatalog({ providerId: descriptor.id, runtimeOptions: args.runtimeOptions });
+      if (gatewayCatalog) { catalogs[descriptor.id] = gatewayCatalog; continue; }
       const fallback = fallbackEntries(descriptor.id);
       const cached = catalogCache.get(
         cacheKey({
@@ -434,5 +455,5 @@ export function useProviderModelCatalogs(args: {
       revision,
       refresh: () => setRefreshNonce((value) => value + 1),
     };
-  }, [args.cwd, args.enabled, args.runtimeOptions, revision, readiness]);
+  }, [args.cwd, args.enabled, args.runtimeOptions, revision, readiness, profiles]);
 }

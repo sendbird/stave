@@ -1,5 +1,6 @@
 import { readAgentHistory } from "./providers/agent-history";
 import { withRequestAccountScope } from "./provider-accounts/runtime-scope";
+import { withGatewayCredential } from "./provider-accounts/gateway-runtime";
 import { realpathSync } from "node:fs";
 import { workspaceExecutionGate } from "./shared/workspace-execution-gate";
 import { WorkspaceExecutionArgsSchema } from "../src/lib/performance/workspace-execution";
@@ -1496,7 +1497,8 @@ function requestNeedsCliDiscovery(method: string) {
 }
 
 async function handleRequest(request: AnyHostServiceRequestEnvelope) {
-  return withRequestAccountScope(request.params, () => handleAccountRequest(request));
+  return withGatewayCredential(request.gatewayCredential, () =>
+    withRequestAccountScope(request.params, () => handleAccountRequest(request)));
 }
 
 async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {

@@ -5,6 +5,7 @@ import {
 } from "../../src/lib/providers/provider-accounts";
 
 export const providerAccountsApi: ProviderAccountsBridgeApi = {
+  checkGateway: (args) => ipcRenderer.invoke(PROVIDER_ACCOUNT_IPC.checkGateway, args),
   list: () => ipcRenderer.invoke(PROVIDER_ACCOUNT_IPC.list),
   create: (args) => ipcRenderer.invoke(PROVIDER_ACCOUNT_IPC.create, args),
   rename: (args) => ipcRenderer.invoke(PROVIDER_ACCOUNT_IPC.rename, args),

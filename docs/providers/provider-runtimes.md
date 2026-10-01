@@ -1661,3 +1661,52 @@ Provider model-change events also carry optional `modelExecution` evidence
 it across same-turn message splits. The run overview exposes the evidence inside
 a closed Model details disclosure without adding a confirmation step. Older
 messages remain valid without this optional evidence.
+
+### Claude Gateway connections
+
+Settings > Tooling > Claude accounts can register a separate Gateway connection.
+Choose an Anthropic-compatible HTTPS base URL or the Vercel AI Gateway preset,
+enter the exact Claude model IDs, and select an API key already saved in
+Settings > Secrets. The base URL precedes `/v1/messages`; the preset uses
+`https://ai-gateway.vercel.sh/claude-code`. See the
+[Gateway SDK setup](https://vercel.com/docs/ai-gateway/coding-agents/claude-code)
+and [Claude gateway guidance](https://code.claude.com/docs/en/llm-gateway).
+Codex, Cursor, and Kiro retain their existing native authentication paths.
+
+A connection gets its own managed Claude configuration directory and profile ID.
+Its endpoint, model list, and secret reference are immutable; create another
+connection to change the destination. The referenced secret can be rotated in
+Secrets. Only nonsecret metadata is stored in the account registry. Electron
+main resolves the key and passes it through the private host-service envelope,
+never through renderer runtime options, provider events, or diagnostics. Each
+request has an isolated credential scope. Removed registrations and missing or
+locked keys prevent new inference rather than falling back to subscription auth.
+Running turns and open CLI sessions retain their launch connection.
+
+Selecting a Gateway explicitly selects API billing. The composer labels this
+choice, and the status bar replaces the subscription meter with an API billing
+label. Subscription usage endpoints are not queried for Gateway connections.
+Charges and limits are managed by the Gateway. Stave does not automatically
+switch from a subscription to a Gateway when quota is exhausted.
+
+Only configured models appear in the Gateway catalog. Native IDs can resolve
+to a configured ID for the same model with a routing prefix; a different model
+is never substituted. Explicit fallback and Worker models must also belong to
+the connection. Auxiliary requests using an unconfigured model fail explicitly;
+include the models used by your auxiliary settings in the connection. The child
+environment pins implicit small/subagent model aliases to the first configured
+model. Gateway queries and CLI sessions disable native settings sources to
+prevent local environment or credential helpers from overriding the connection;
+Stave's explicit runtime permissions and MCP configuration still apply.
+Provider authentication environment names are reserved against task-bound
+secret overrides. Use a connection's saved-secret reference for Gateway auth.
+
+**Check model list** performs a bounded authenticated `GET /v1/models` request
+without following redirects or issuing inference. It reports only configured
+IDs advertised by the endpoint and does not return raw response bodies. Some
+compatible endpoints do not implement model discovery. A successful check does
+not establish tool, streaming, reasoning, cancellation, or billing compatibility.
+Those capabilities require an authorized real turn against the chosen endpoint.
+Local tests cover request isolation, missing credentials, exclusive catalogs,
+SDK tool/stream/cancel options, model requirements, and failure redaction; live
+Gateway and multi-account acceptance remains a separate verification step.

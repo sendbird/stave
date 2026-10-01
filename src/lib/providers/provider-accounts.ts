@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { ClaudeGatewaySchema, type ClaudeGateway, type ClaudeGatewayCheckResult } from "./claude-gateway";
 
 export const SYSTEM_ACCOUNT_PROFILE_ID = "system-default";
 export const MAX_PROVIDER_ACCOUNT_PROFILES = 50;
@@ -30,6 +31,7 @@ export const ProviderAccountCreateArgsSchema = z
     label: LabelSchema,
     /** Omit to create an app-managed directory; existing directories are registered in place. */
     configDirectory: DirectorySchema.optional(),
+    gateway: ClaudeGatewaySchema.optional(),
   })
   .strict();
 export const ProviderAccountRenameArgsSchema = z
@@ -73,6 +75,8 @@ export interface ProviderAccountProfile {
   kind: "system" | "managed" | "external";
   /** Nonsecret metadata only. Never contains native credentials. */
   configDirectory?: string;
+  /** Explicit API billing connection; only a vault reference is stored. */
+  gateway?: ClaudeGateway;
 }
 export type ProviderAccountListResult =
   | { ok: true; profiles: ProviderAccountProfile[] }
@@ -86,6 +90,7 @@ export type ProviderAccountLoginResult =
   | { ok: false; message: string };
 
 export interface ProviderAccountsBridgeApi {
+  checkGateway: (args: ProviderAccountRemoveArgs) => Promise<ClaudeGatewayCheckResult>;
   list: () => Promise<ProviderAccountListResult>;
   create: (
     args: ProviderAccountCreateArgs,
@@ -103,6 +108,7 @@ export interface ProviderAccountsBridgeApi {
 }
 
 export const PROVIDER_ACCOUNT_IPC = {
+  checkGateway: "provider-accounts:check-gateway",
   list: "provider-accounts:list",
   create: "provider-accounts:create",
   rename: "provider-accounts:rename",

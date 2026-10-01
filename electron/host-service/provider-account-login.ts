@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { currentClaudeGateway } from "../provider-accounts/gateway-runtime";
 import {
   ProviderAccountLoginArgsSchema,
   type ProviderAccountLoginArgs,
@@ -41,6 +42,8 @@ export function createProviderAccountLoginSession(
     return { ok: false, stderr: "Invalid provider account login request." };
   const args = parsed.data;
   try {
+    if (args.providerId === "claude-code" && currentClaudeGateway(args.profileId))
+      return { ok: false, stderr: "Gateway connections use a saved API key. Native sign-in is not available." };
     workspaceExecutionGate.assertAllowed({
       workspaceId: args.workspaceId,
       cwd: args.workspacePath,
