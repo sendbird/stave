@@ -51,10 +51,10 @@ The right rail's **Task** panel is the one place for the active task. Its tabs:
 
 A tab can carry a small mark from data the app already holds: a dot on
 **Activity** while the turn runs or waits on you, a dot on **Progress** when the
-mission needs you or is blocked, the number of running agents on **Team**, and
+mission needs you or is blocked, the number of running agents on **Subagents**, and
 the number of unreviewed runs on **Results**. The tab you choose is kept with
 the layout, so the panel reopens where you left it, and a task tab's context
-menu opens it straight to **Results**, **Progress** or **Team**.
+menu opens it straight to **Results**, **Progress** or **Subagents**.
 
 ### Key Controls
 
