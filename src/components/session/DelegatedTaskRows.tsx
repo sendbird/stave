@@ -103,6 +103,7 @@ export function DelegatedTaskRowActions(
   props: {
     child: DelegatedTaskSummary;
     busy: boolean;
+    readOnly?: boolean;
   } & DelegatedTaskRowActionHandlers,
 ) {
   const { child } = props;
@@ -119,7 +120,7 @@ export function DelegatedTaskRowActions(
 
   const submitComposer = () => {
     const trimmed = prompt.trim();
-    if (!trimmed || !composer) {
+    if (props.readOnly || !trimmed || !composer) {
       return;
     }
     if (composer === "follow-up") {
@@ -143,7 +144,7 @@ export function DelegatedTaskRowActions(
           Open
           <ArrowRight className={sx(styles.actionIcon)} aria-hidden="true" />
         </Button>
-        {controls.canFollowUp ? (
+        {!props.readOnly && controls.canFollowUp ? (
           <Button
             type="button"
             size="xs"
@@ -159,7 +160,7 @@ export function DelegatedTaskRowActions(
             Follow-up
           </Button>
         ) : null}
-        {controls.canStop ? (
+        {!props.readOnly && controls.canStop ? (
           <Button
             type="button"
             size="xs"
@@ -171,7 +172,7 @@ export function DelegatedTaskRowActions(
             Stop
           </Button>
         ) : null}
-        {controls.canRetry ? (
+        {!props.readOnly && controls.canRetry ? (
           <Button
             type="button"
             size="xs"
@@ -184,7 +185,7 @@ export function DelegatedTaskRowActions(
             Retry
           </Button>
         ) : null}
-        {controls.canDetach ? (
+        {!props.readOnly && controls.canDetach ? (
           <Button
             type="button"
             size="xs"
@@ -198,7 +199,7 @@ export function DelegatedTaskRowActions(
         ) : null}
       </div>
 
-      {copy ? (
+      {!props.readOnly && copy ? (
         <div className={sx(styles.composer)}>
           <label htmlFor={composerId} className={sx(styles.composerLabel)}>
             {copy.label}

@@ -1,4 +1,5 @@
 import { ChildListingProbe } from "./listing-probe";
+import { TaskWorkPanel } from "@/components/session/TaskWorkPanel";
 import { TaskResultReviews } from "@/components/session/TaskResultReviews";
 import { useEffect, useLayoutEffect, useState } from "react";
 import { TeamSection } from "@/components/team/TeamSection";
@@ -77,6 +78,7 @@ function CollaborationPreviewContent() {
   const [dark, setDark] = useState(true);
   const search = new URLSearchParams(location.search);
   const inspector = search.has("inspector");
+  const managed = search.has("managed");
   const panelWidth = Number(search.get("panelWidth"));
   // Keep the root class in the same commit as the preview control state so the
   // top-level design provider observes one coherent palette change.
@@ -114,8 +116,8 @@ function CollaborationPreviewContent() {
           provider: "codex",
           updatedAt: new Date().toISOString(),
           unread: false,
-          controlMode: "interactive",
-          controlOwner: "stave",
+          controlMode: managed ? "managed" : "interactive",
+          controlOwner: managed ? "external" : "stave",
         },
       ],
       messagesByTask: { [target.taskId]: [inspectorMessage] },
@@ -217,7 +219,7 @@ function CollaborationPreviewContent() {
           }
         : {}),
     });
-  }, [inspector]);
+  }, [inspector, managed]);
   return (
     <main className={sx(cp.page)}>
       <div className={sx(cp.container)}>
@@ -246,7 +248,7 @@ function CollaborationPreviewContent() {
             <TurnActivityPanel />
           </div>
         ) : (
-          <TeamSection target={target} />
+          managed ? <TaskWorkPanel kind="team" /> : <TeamSection target={target} />
         )}
       </div>
     </main>

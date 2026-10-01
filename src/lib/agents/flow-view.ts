@@ -156,7 +156,7 @@ const DELEGATE_STATE: Readonly<Record<RunStatus, FlowState>> = {
   pending: "waiting",
   running: "running",
   // A detached delegation parks here between follow-ups.
-  waiting: "done",
+  waiting: "waiting",
   completed: "done",
   failed: "failed",
   cancelled: "cancelled",
@@ -304,7 +304,7 @@ export function buildBaseSteps(base: FlowBaseInput): FlowNode[] {
     steps.push({
       id: "base:pull-request",
       kind: "task",
-      title: "Pull request",
+      title: "Workspace PR",
       detail: [`#${pr.number} ${pr.title}`, PR_STATUS_LABELS[pr.status], pr.checks ? CHECKS_LABELS[pr.checks] : null]
         .filter(Boolean)
         .join(" · "),
@@ -444,15 +444,17 @@ function stageEvents(records: readonly MissionStageRecord[]): FlowEvent[] {
   return events.sort((a, b) => a.at.localeCompare(b.at));
 }
 
-function delegateNode(child: DelegatedTaskSummary): FlowNode {
+function delegateNode(child: DelegatedTaskSummary, turnRunning = false): FlowNode {
   const events: FlowEvent[] = [{ at: child.createdAt, label: child.attempt > 0 ? `Retried (attempt ${child.attempt + 1})` : "Delegated" }];
   if (child.completedAt) events.push({ at: child.completedAt, label: FLOW_STATE_LABELS[DELEGATE_STATE[child.phase]] });
   return {
     id: `delegate:${child.runId}`,
     kind: "delegate",
     title: child.delegationKey,
-    detail: [child.providerId === "codex" ? "Codex" : "Claude", child.requestedModel, child.reason].filter(Boolean).join(" · "),
-    state: DELEGATE_STATE[child.phase],
+    detail: [child.providerId === "codex" ? "Codex" : "Claude", child.requestedModel,
+      child.phase === "waiting" ? (turnRunning ? "Follow-up running · delegation remains open" : "Open for follow-up") : null,
+      child.reason].filter(Boolean).join(" · "),
+    state: child.phase === "waiting" && turnRunning ? "running" : DELEGATE_STATE[child.phase],
     evidence: null,
     target: { workspaceId: child.delegatedWorkspaceId, taskId: child.delegatedTaskId },
     events,
@@ -461,13 +463,13 @@ function delegateNode(child: DelegatedTaskSummary): FlowNode {
 }
 
 /** Hangs each delegated task off the stage that was running when it was delegated. */
-function attachDelegates(stages: FlowNode[], windows: Array<{ start: string | null; end: string | null }>, children: readonly DelegatedTaskSummary[]) {
+function attachDelegates(stages: FlowNode[], windows: Array<{ start: string | null; end: string | null }>, children: readonly DelegatedTaskSummary[], runningTaskIds?: ReadonlySet<string>) {
   const loose: FlowNode[] = [];
   for (const child of children) {
     const index = windows.findIndex(
       (window) => window.start !== null && window.start <= child.createdAt && (window.end === null || child.createdAt <= window.end),
     );
-    (index >= 0 ? stages[index]!.children : loose).push(delegateNode(child));
+    (index >= 0 ? stages[index]!.children : loose).push(delegateNode(child, runningTaskIds?.has(child.delegatedTaskId)));
   }
   return loose;
 }
@@ -477,6 +479,7 @@ export function buildFlow(args: {
   assignment: FlowAssignmentInput | null;
   mission: MissionDetail | null;
   delegates: readonly DelegatedTaskSummary[];
+  runningDelegateTaskIds?: ReadonlySet<string>;
   /** The base flow every task has, derived from records that already exist. */
   base: FlowBaseInput;
 }): FlowNode[] {
@@ -539,19 +542,24 @@ export function buildFlow(args: {
         children: [] as FlowNode[],
       } satisfies FlowNode;
     });
+    // Workspace PR context belongs to the workspace, never to a mission stage.
+    const taskSteps = baseSteps.filter((step) => step.id === "base:pull-request" || runningIndex < 0);
+    const stageSteps = baseSteps.filter((step) => step.id !== "base:pull-request");
     // The base steps belong to whichever stage is running now, nested under it
     // so the mission's shape stays intact while the current stage shows what
     // the task is actually doing.
     if (runningIndex >= 0 && baseSteps.length) {
-      stageNodes[runningIndex]!.children.push(...baseSteps);
+      stageNodes[runningIndex]!.children.push(...stageSteps);
     }
-    const loose = attachDelegates(stageNodes, windows, args.delegates);
-    nodes.push(...stageNodes);
+    const loose = attachDelegates(stageNodes, windows, args.delegates, args.runningDelegateTaskIds);
+    // Current task activity remains visible before historical stages after a mission ends.
+    if (runningIndex < 0) nodes.push(...taskSteps, ...stageNodes);
+    else nodes.push(...stageNodes, ...taskSteps);
     if (loose.length) nodes.push(taskNode(args.taskTitle, loose, base.taskRunning));
     return nodes;
   }
 
-  const delegateNodes = args.delegates.map(delegateNode);
+  const delegateNodes = args.delegates.map((child) => delegateNode(child, args.runningDelegateTaskIds?.has(child.delegatedTaskId)));
   if (baseSteps.length === 0 && delegateNodes.length === 0) {
     // A task with no messages yet: name the wait rather than the old hint.
     nodes.push({

@@ -82,7 +82,7 @@ function collectWorkerExecutions(messages: readonly ChatMessage[]) {
  * rows, live first. Mounted only on demand; no hidden polling, chat cloning,
  * or secondary executor.
  */
-export function TeamSection({ target }: { target: CollaborationTarget }) {
+export function TeamSection({ target, readOnly = false }: { target: CollaborationTarget; readOnly?: boolean }) {
   const [filter, setFilter] = useState<DelegationFilter>("all");
   const [exporting, setExporting] = useState(false);
   const [exportNotice, setExportNotice] = useState<{
@@ -162,7 +162,7 @@ export function TeamSection({ target }: { target: CollaborationTarget }) {
         workGraph: activity?.workGraph ?? null,
         includeSubagents: true,
         advisorOptions: {
-          canCancel: advisorSnapshot?.turnId === activeTurnId,
+          canCancel: !readOnly && advisorSnapshot?.turnId === activeTurnId,
         },
       }),
     [
@@ -175,6 +175,7 @@ export function TeamSection({ target }: { target: CollaborationTarget }) {
       consults,
       workerExecutionByToolUseId,
       workers,
+      readOnly,
     ],
   );
   const hasLive = exchanges.some(isDelegationExchangeLive);
@@ -205,13 +206,13 @@ export function TeamSection({ target }: { target: CollaborationTarget }) {
           });
           return;
         case "cancel":
-          skipTaskAdvisor({ taskId: target.taskId });
+          if (!readOnly) skipTaskAdvisor({ taskId: target.taskId });
           return;
         default:
           return;
       }
     },
-    [focusTranscriptTool, openAdvisorConsultLog, skipTaskAdvisor, target.taskId],
+    [focusTranscriptTool, openAdvisorConsultLog, readOnly, skipTaskAdvisor, target.taskId],
   );
   const renderExtraActions = useCallback(
     (exchange: DelegationExchange) => {
@@ -229,6 +230,7 @@ export function TeamSection({ target }: { target: CollaborationTarget }) {
           child={child}
           busy={childController.busyDelegationKey === child.delegationKey}
           onOpen={childController.onOpen}
+          readOnly={readOnly}
           onFollowUp={childController.onFollowUp}
           onRetry={childController.onRetry}
           onStop={childController.onStop}
@@ -236,7 +238,7 @@ export function TeamSection({ target }: { target: CollaborationTarget }) {
         />
       );
     },
-    [childController],
+    [childController, readOnly],
   );
   const statusNoteFor = useCallback(
     (exchange: DelegationExchange) =>
@@ -354,13 +356,15 @@ export function TeamSection({ target }: { target: CollaborationTarget }) {
       data-testid="delegations-panel"
       {...stylex.props(styles.minZero, styles.panelStack)}
     >
-      <div {...stylex.props(styles.delegateEntry)}>
+      {readOnly ? <p {...stylex.props(styles.body, styles.muted)} role="status">
+        This task is managed externally. Collaboration history is available here; take over the task to change its delegations.
+      </p> : <div {...stylex.props(styles.delegateEntry)}>
         <DelegateTaskForm
           key={target.taskId}
           target={target}
           onCreated={listing.actions.refresh}
         />
-      </div>
+      </div>}
 
       <p {...stylex.props(styles.body, styles.muted)}>
         Every advisor consult, worker run and delegated task for this task
@@ -436,7 +440,9 @@ export function TeamSection({ target }: { target: CollaborationTarget }) {
         />
       ) : !listing.loading && !history.loading ? (
         <p className={sx(delegationStyles.empty)}>
-          {filter === "all"
+          {filter === "all" && readOnly
+            ? "No collaboration history has been recorded for this task."
+            : filter === "all"
             ? "No delegations yet. Arm the Advisor or Worker in the composer, or delegate a task above."
             : "Nothing matches this filter in the current conversation or the saved slice."}
         </p>
@@ -460,7 +466,7 @@ export function TeamSection({ target }: { target: CollaborationTarget }) {
 
       {detailSelection ? <ActivityDetailDialog
         key={detailSelection.nodeKey ?? detailSelection.exchange?.id ?? detailSelection.title}
-        selection={detailSelection.exchange ? { ...detailSelection, exchange: exchanges.find(exchange => exchange.id === detailSelection.exchange?.id) ?? detailSelection.exchange } : detailSelection}
+        selection={detailSelection.exchange ? { ...detailSelection, exchange: rows.find(exchange => exchange.id === detailSelection.exchange?.id) ?? detailSelection.exchange } : detailSelection}
         taskId={target.taskId} workspaceId={target.workspaceId} repositoryPath={target.repositoryPath}
         onAction={handleAction} renderExtraActions={renderExtraActions} statusNoteFor={statusNoteFor}
         graph={activity?.workGraph} onClose={() => setDetailSelection(null)}

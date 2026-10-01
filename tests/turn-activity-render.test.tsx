@@ -8,7 +8,7 @@ import { buildTaskExecutionSummary } from "@/lib/fleet/task-execution-summary";
 import { buildAutoRoutingDecisionRecord } from "@/store/auto-routing";
 
 describe("TurnActivity", () => {
-  test("pins the execution summary to the panel floor and keeps it in the shelf list", () => {
+  test("pins changes and verification while optional usage and limits start folded", () => {
     const executionSummary = buildTaskExecutionSummary({
       providerId: "codex",
       messages: [
@@ -70,8 +70,13 @@ describe("TurnActivity", () => {
     // Sibling of the scrolling list, not a descendant: the list wrapper
     // closes before the pinned summary section opens.
     expect(panel).toMatch(
-      /data-testid="turn-activity-list"[\s\S]*<\/div>\s*<section[^>]*data-summary-layout="panel"/,
+      /data-testid="turn-activity-list"[\s\S]*<\/div>\s*<div[^>]*>\s*<section[^>]*data-summary-layout="panel"/,
     );
+
+    expect(panel).toMatch(/<details data-testid="turn-activity-metrics"><summary/);
+    const metrics = panel.slice(panel.indexOf('<details data-testid="turn-activity-metrics"'));
+    expect(metrics).toContain('data-metric="usage"');
+    expect(metrics).not.toContain('data-metric="changes"');
 
     const docked = renderToStaticMarkup(
       createElement(TurnActivitySurface, {
@@ -1325,9 +1330,8 @@ describe("TurnActivity route block", () => {
     if (agents !== -1) {
       expect(route).toBeLessThan(agents);
     }
-    // The panel is tall enough for the whole chain.
-    expect(html).toContain('data-testid="route-trace-chain"');
-    expect(html).toContain('data-rule-id="implement"');
+    expect(html).toContain('data-collapsed="true"');
+    expect(html).not.toContain('data-testid="route-trace-chain"');
     expect(html).toContain("Sonnet 5");
   });
 

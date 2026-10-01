@@ -9,6 +9,13 @@ import { vars } from "@/components/ads/tokens/tokens.stylex";
  * floating advisor card used to.
  */
 export const delegationStyles = stylex.create({
+  diagnosticToggle: {
+    cursor: "pointer",
+    color: vars["--ads-color-text-muted"],
+    fontSize: vars["--ads-font-size-caption"],
+    paddingBlock: vars["--ads-space-8"],
+    ':focus-visible': { outline: `2px solid ${vars["--ads-color-border-focus"]}`, outlineOffset: 2 },
+  },
   /* ── AgentIdentity ─────────────────────────────────────────────────── */
   identity: {
     alignItems: "center",

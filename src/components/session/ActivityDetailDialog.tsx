@@ -271,14 +271,7 @@ export function ActivityDetailDialog(props: {
     : "No event history was retained for this run. The assignment and returned result remain available below.";
   const nextOffset = delegatedTaskId ? savedNextOffset : historyResponse?.nextOffset;
 
-  return <Dialog open onOpenChange={open => { if (!open) props.onClose(); }}>
-    <DialogContent xstyle={s.dialog}>
-      <DialogHeader><DialogTitle>{selection.title}</DialogTitle><DialogDescription>Assignment, activity and results for this execution.</DialogDescription></DialogHeader>
-      <div className={sx(s.actions)}>
-        <Button size="sm" variant="outline" disabled={loading || savedLoading} onClick={() => { setSavedRefresh(value => value + 1); setHistoryRefresh(value => value + 1); }}>Refresh</Button>
-        {toolUseId && props.onShowInConversation ? <Button size="sm" variant="ghost" onClick={() => { props.onShowInConversation?.(toolUseId); props.onClose(); }}>Show in conversation</Button> : null}
-      </div>
-      <div className={sx(s.body)}>
+  const activityLog = (
         <section className={sx(s.activitySection)} aria-label={live ? "Live activity" : "Activity"}>
           <div className={sx(s.activityHeader)}>
             <div className={sx(s.activityHeading)}>
@@ -304,15 +297,29 @@ export function ActivityDetailDialog(props: {
               {filteredProviderEntries.map(entry => <ActivityEntryRow key={entry.id} entry={entry} initiallyOpen={false} searching={Boolean(query)} />)}
             </details> : null}
             {filteredCurrentEntries.length > 0 && filteredProviderEntries.length > 0 ? <p className={sx(s.groupLabel)}>Current turn events</p> : null}
-            {filteredCurrentEntries.map((entry, index) => <ActivityEntryRow key={entry.id} entry={entry} initiallyOpen={!query && index === filteredCurrentEntries.length - 1} searching={Boolean(query)} />)}
+            {filteredCurrentEntries.map((entry, index) => <ActivityEntryRow key={entry.id} entry={entry} initiallyOpen={Boolean(live) && !query && index === filteredCurrentEntries.length - 1} searching={Boolean(query)} />)}
           </div>
           {nextOffset !== undefined ? <Button variant="outline" disabled={loading || savedLoading} onClick={() => setOffset(nextOffset)}>Load older events</Button> : null}
           <p className={sx(s.meta)}>{delegatedTaskId ? "The live child transcript is merged with saved history; matching events appear once." : historyResponse?.detail ?? "Only events reported by this runtime are shown."}</p>
         </section>
-        {exchange ? <ExchangeDetail exchange={exchange} nowMs={Date.now()} onAction={props.onAction} extraActions={props.renderExtraActions?.(exchange)} statusNote={props.statusNoteFor?.(exchange)} /> : null}
+  );
+
+  const exchangeDetail = exchange ? <ExchangeDetail exchange={toolUseId && props.onShowInConversation ? { ...exchange, actions: exchange.actions.filter(action => action.id !== "show-in-conversation") } : exchange} resultFirst={!live} nowMs={Date.now()} onAction={props.onAction} extraActions={props.renderExtraActions?.(exchange)} statusNote={props.statusNoteFor?.(exchange)} /> : null;
+
+  return <Dialog open onOpenChange={open => { if (!open) props.onClose(); }}>
+    <DialogContent xstyle={s.dialog}>
+      <DialogHeader><DialogTitle>{selection.title}</DialogTitle><DialogDescription>Assignment, activity and results for this execution.</DialogDescription></DialogHeader>
+      <div className={sx(s.actions)}>
+        <Button size="sm" variant="outline" disabled={loading || savedLoading} onClick={() => { setSavedRefresh(value => value + 1); setHistoryRefresh(value => value + 1); }}>Refresh</Button>
+        {toolUseId && props.onShowInConversation ? <Button size="sm" variant="ghost" onClick={() => { props.onShowInConversation?.(toolUseId); props.onClose(); }}>Show in conversation</Button> : null}
+      </div>
+      <div className={sx(s.body)}>
+        {!live ? exchangeDetail : null}
+        {live ? activityLog : <details><summary className={sx(s.historySummary)}>Activity log</summary>{activityLog}</details>}
+        {live ? exchangeDetail : null}
         {historyResponse?.model || historyResponse?.effort ? <p className={sx(s.meta)}>Thread configuration (may differ from execution): {historyResponse.model ?? "Model not reported"} · {historyResponse.effort ?? "Effort not reported"}. Current or last saved settings, not per-turn execution telemetry.</p> : null}
-        {selection.detail ? <TraceOutput text={selection.detail} /> : null}
-        {tool?.type === "tool_use" ? <section className={sx(s.section)}><h3 className={sx(s.heading)}>Call details</h3><p className={sx(s.subheading)}>Original input</p><TraceOutput text={tool.input} /><p className={sx(s.subheading)}>Result · {tool.state}</p><TraceOutput text={tool.output ?? "No result reported yet."} /></section> : null}
+        {selection.detail ? <details><summary className={sx(s.historySummary)}>Recorded details</summary><TraceOutput text={selection.detail} /></details> : null}
+        {tool?.type === "tool_use" ? <details className={sx(s.section)}><summary className={sx(s.historySummary)}>Original call details</summary><p className={sx(s.subheading)}>Original input</p><TraceOutput text={tool.input} /><p className={sx(s.subheading)}>Result · {tool.state}</p><TraceOutput text={tool.output ?? "No result reported yet."} /></details> : null}
       </div>
     </DialogContent>
   </Dialog>;

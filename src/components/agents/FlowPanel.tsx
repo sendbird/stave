@@ -146,6 +146,8 @@ export function FlowPanel(props: { workspaceId: string; taskId: string; reposito
     (state) => state.tasks.find((task) => task.id === props.taskId)?.provider ?? state.draftProvider,
   );
   const taskRunning = useAppStore((state) => Boolean(state.activeTurnIdsByTask[props.taskId]));
+  const activeTurnIds = useAppStore((state) => state.activeTurnIdsByTask);
+  const runtimeCache = useAppStore((state) => state.workspaceRuntimeCacheById);
   // Stable subscriptions only: each selector returns a stored reference or a
   // primitive, never a fresh container. The base flow is derived below with
   // `useMemo`, outside every selector.
@@ -178,9 +180,12 @@ export function FlowPanel(props: { workspaceId: string; taskId: string; reposito
         assignment: assignment ? { id: assignment.assignmentId, ...assignment } : null,
         mission: mission ?? null,
         delegates: delegates.children,
+        runningDelegateTaskIds: new Set(delegates.children.filter((child) => Boolean(
+          activeTurnIds[child.delegatedTaskId] ?? runtimeCache[child.delegatedWorkspaceId]?.activeTurnIdsByTask[child.delegatedTaskId],
+        )).map((child) => child.delegatedTaskId)),
         base,
       }),
-    [taskTitle, assignment, mission, delegates.children, base],
+    [taskTitle, assignment, mission, delegates.children, base, activeTurnIds, runtimeCache],
   );
   return (
     <section aria-label="Flow">

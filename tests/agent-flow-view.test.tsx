@@ -108,7 +108,7 @@ describe("buildBaseSteps", () => {
       ["Plan", "running"],
       ["Changes", "running"],
       ["Verification", "done"],
-      ["Pull request", "running"],
+      ["Workspace PR", "running"],
     ]);
     expect(steps[1]!.detail).toBe("1/3 done");
     expect(steps[2]!.detail).toBe("2 files · +10/−4");
@@ -266,4 +266,37 @@ describe("buildFlow", () => {
     expect(html).toContain("Waiting for the first message.");
     expect(html).not.toContain("Assign work to an agent");
   });
+});
+
+
+test("finished and cancelled missions keep current task steps outside historical stages", () => {
+  for (const status of ["completed", "cancelled"] as const) {
+    const detail = mission();
+    detail.stages[1]!.status = status;
+    detail.stages[1]!.endedAt = "2026-09-29T00:12:00.000Z";
+    const nodes = buildFlow({ taskTitle: "Fix", assignment: null, mission: detail, delegates: [], base: {
+      ...EMPTY_BASE, request: { at: "2026-09-29T00:20:00.000Z", text: "Follow up" },
+      needsYou: { kind: "approval", label: "Run checks", at: null }, taskRunning: true,
+    } });
+    expect(nodes.slice(0, 2).map(node => node.title)).toEqual(["Request", "Waiting for approval"]);
+    expect(nodes.filter(node => node.kind === "stage").every(node => node.children.length === 0)).toBe(true);
+  }
+});
+
+test("workspace PR remains task-level context during a mission stage", () => {
+  const nodes = buildFlow({ taskTitle: "Fix", assignment: null, mission: mission(), delegates: [], base: {
+    ...EMPTY_BASE, pullRequest: { number: 42, title: "Workspace change", url: "https://example.test/42", status: "review_required", checks: null, createdAt: null },
+  } });
+  expect(nodes.at(-1)?.title).toBe("Workspace PR");
+  expect(nodes[1]!.children).toHaveLength(0);
+});
+
+test("detached waiting remains open and a follow-up running is separate from its ledger phase", () => {
+  const child = delegate({ phase: "waiting", lifecycle: "detached" });
+  const args = { taskTitle: "Fix", assignment: null, mission: null, delegates: [child], base: EMPTY_BASE };
+  expect(buildFlow(args)[0]).toMatchObject({ state: "waiting", detail: expect.stringContaining("Open for follow-up") });
+  expect(buildFlow({ ...args, runningDelegateTaskIds: new Set([child.delegatedTaskId]) })[0]).toMatchObject({
+    state: "running", detail: expect.stringContaining("delegation remains open"),
+  });
+  expect(child.phase).toBe("waiting");
 });
