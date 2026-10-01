@@ -79,11 +79,14 @@ opens on **Progress**.
 - **Acts outside this machine**: one checkbox per stage that pushes, opens or
   updates a pull request, or writes a message or ticket. An unchecked stage
   always asks you first.
-- **Permissions for this mission**: **Auto**, **Guided** or **Manual**. Auto,
-  the default, lets the agent work without asking; the mission still stops at
-  your sign-offs and at the steps above you did not allow. Guided asks before
-  sensitive actions and waits for each answer. This is recorded for this start
-  only; a saved playbook never grants permissions.
+- **Permissions for this mission**: **Auto**, **Guided** or **Your settings**.
+  Auto, the default, lets the agent work without asking; the mission still
+  stops at your sign-offs and at the steps above you did not allow. Guided asks
+  before sensitive actions and waits for each answer. Your settings uses your
+  provider permission settings, as your own turns do (guarded defaults if none
+  were synced yet). This is recorded for this start only; a saved playbook
+  never grants permissions. Sharing an ended mission's report also runs with
+  your settings.
 - **Edit stages for this mission**: change the stages this time only, or
   **Save as a new playbook**.
 - **Before you start**: the task, a running mission, Stave's local tools, the

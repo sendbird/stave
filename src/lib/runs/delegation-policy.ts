@@ -1,5 +1,9 @@
 import { z } from "zod";
-import { agentPermissionOverrides } from "@/lib/agents/permission";
+import { agentPermissionOverrides, CLAUDE_EDIT_TOOLS } from "@/lib/agents/permission";
+import {
+  claudeReadOnlyDelegationOptions,
+  codexReadOnlyDelegationOptions,
+} from "./read-only-delegation";
 
 /** Only execution permissions cross this boundary; secrets, sessions and browser grants never do. */
 export const DelegationPermissionOptionsSchema = z.object({
@@ -19,6 +23,7 @@ export const DelegationPermissionOptionsSchema = z.object({
   claudeAllowDangerouslySkipPermissions: z.boolean().optional(),
   claudeSandboxEnabled: z.boolean().optional(),
   claudeAllowUnsandboxedCommands: z.boolean().optional(),
+  claudeSandboxReadOnly: z.boolean().optional(),
   claudeSandboxCredentialFiles: z.array(z.string()).optional(),
   claudeSandboxCredentialEnvVars: z.array(z.string()).optional(),
   claudeAllowedTools: z.array(z.string()).optional(),
@@ -35,6 +40,14 @@ export const DelegationPermissionOptionsSchema = z.object({
 export type DelegationPermissionOptions = z.infer<
   typeof DelegationPermissionOptionsSchema
 >;
+/**
+ * What a delegation asks for. `inherit` takes the parent's policy for the same
+ * provider, otherwise the target provider's user settings. `read-only` is a
+ * fixed posture that never writes and never asks, so it can run beside other
+ * work in the same workspace.
+ */
+export const DelegationAccessSchema = z.enum(["inherit", "read-only"]);
+export type DelegationAccess = z.infer<typeof DelegationAccessSchema>;
 export const DelegationPermissionPolicySchema = z
   .object({
     providerId: z.enum(["claude-code", "codex"]),
@@ -44,7 +57,10 @@ export const DelegationPermissionPolicySchema = z
       "recorded-delegation",
       "provider-default",
     ]),
+    /** Provenance: the profile the caller named, even one no longer applied. */
     requestedProfile: z.enum(["inherit", "auto", "guided", "manual"]),
+    /** The access the policy resolved to. Absent on policies recorded before it existed. */
+    access: DelegationAccessSchema.optional(),
     options: DelegationPermissionOptionsSchema,
   })
   .strict();
@@ -107,6 +123,9 @@ export function normalizedPermissionOptions(
 export function resolveDelegationPermissionPolicy(args: {
   providerId: "claude-code" | "codex";
   permissionProfile?: "inherit" | "auto" | "guided" | "manual";
+  access?: DelegationAccess;
+  /** Provenance only, recorded instead of `permissionProfile` when set. */
+  requestedProfile?: "inherit" | "auto" | "guided" | "manual";
   parent?: {
     providerId: "claude-code" | "codex";
     options: DelegationPermissionOptions;
@@ -116,6 +135,7 @@ export function resolveDelegationPermissionPolicy(args: {
   permissionCeiling?: import("@/lib/agents/schema").AgentPermission;
 }): DelegationPermissionPolicy {
   const profile = args.permissionProfile ?? "inherit";
+  const requestedProfile = args.requestedProfile ?? profile;
   const parent =
     args.parent?.providerId === args.providerId ? args.parent : null;
   const source = args.recorded
@@ -125,6 +145,23 @@ export function resolveDelegationPermissionPolicy(args: {
       : args.settings
         ? "provider-settings"
         : "provider-default";
+  // Read-only is pinned once recorded: a later start may narrow to it, never widen out of it.
+  if (args.access === "read-only" || args.recorded?.access === "read-only") {
+    return {
+      providerId: args.providerId,
+      source,
+      requestedProfile,
+      access: "read-only",
+      options: readOnlyPermissionOptions(
+        args.providerId,
+        normalizedPermissionOptions(
+          args.providerId,
+          parent?.options ?? args.settings ?? {},
+        ),
+        args.recorded?.options,
+      ),
+    };
+  }
   let options = normalizedPermissionOptions(
     args.providerId,
     args.recorded?.options ?? parent?.options ?? args.settings ?? {},
@@ -171,9 +208,60 @@ export function resolveDelegationPermissionPolicy(args: {
   return {
     providerId: args.providerId,
     source,
-    requestedProfile: profile,
+    requestedProfile,
+    access: "inherit",
     options,
   };
+}
+
+/**
+ * The read-only posture under the policy it would otherwise inherit (and the
+ * one recorded for an earlier attempt). It is never wider than either: it runs
+ * only reads, so the inherited mode, approvals and allowlist cannot add to it,
+ * and their denials, credential deny lists and network denial carry over.
+ *
+ * The profile and agent ceilings are not applied on top. Each ceiling caps
+ * write authority and approval-skipping; a posture that cannot write and
+ * auto-runs only reads is already under every one of them, and lowering
+ * `dontAsk` to `default` would only bring back the prompts — or, for a
+ * `plan` or `dontAsk` parent, refuse the combination outright.
+ */
+function readOnlyPermissionOptions(
+  providerId: "claude-code" | "codex",
+  inherited: DelegationPermissionOptions,
+  recorded?: DelegationPermissionOptions,
+): DelegationPermissionOptions {
+  if (providerId === "codex") return codexReadOnlyDelegationOptions();
+  const merged = (key: "claudeDisallowedTools" | "claudeSandboxCredentialFiles" | "claudeSandboxCredentialEnvVars") =>
+    [...new Set([...(inherited[key] ?? []), ...(recorded?.[key] ?? [])])];
+  return claudeReadOnlyDelegationOptions({
+    claudeDisallowedTools: merged("claudeDisallowedTools"),
+    claudeSandboxCredentialFiles: merged("claudeSandboxCredentialFiles"),
+    claudeSandboxCredentialEnvVars: merged("claudeSandboxCredentialEnvVars"),
+  });
+}
+
+/**
+ * Whether a resolved policy provably cannot write the workspace, which is what
+ * lets its child run beside another one there. Codex proves it with its
+ * read-only sandbox. Claude needs the whole read-only posture — deny-by-default
+ * mode, the edit tools removed and a sandbox that denies writes — because a
+ * permission mode or a profile name alone does not stop Bash from writing.
+ */
+export function isReadOnlyDelegationPolicy(
+  providerId: "claude-code" | "codex",
+  policy: Partial<Pick<DelegationPermissionPolicy, "providerId" | "options">> | null | undefined,
+): boolean {
+  if (!policy?.options || policy.providerId !== providerId) return false;
+  const options = policy.options;
+  if (providerId === "codex") return options.codexFileAccess === "read-only";
+  const disallowed = new Set(options.claudeDisallowedTools ?? []);
+  return (
+    options.claudePermissionMode === "dontAsk" &&
+    options.claudeSandboxReadOnly === true &&
+    options.claudeAllowDangerouslySkipPermissions !== true &&
+    CLAUDE_EDIT_TOOLS.every((tool) => disallowed.has(tool))
+  );
 }
 
 /** Reusing a snapshot can accept a new restriction but never a new grant. */
@@ -256,6 +344,7 @@ export function restrictPermissionOptions(
     if (current[key] === false) options[key] = false;
   }
   if (current.claudeSandboxEnabled) options.claudeSandboxEnabled = true;
+  if (current.claudeSandboxReadOnly) options.claudeSandboxReadOnly = true;
   if (current.claudeDisallowedTools)
     options.claudeDisallowedTools = [
       ...new Set([

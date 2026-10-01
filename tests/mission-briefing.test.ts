@@ -85,6 +85,21 @@ describe("mission briefing", () => {
     });
     expect(missionPermissionRuntimeOptions("claude-code", "manual")).toEqual({});
   });
+
+  test("Your settings (manual) runs with the user's provider settings, and only manual does", () => {
+    const claudeSettings = { claudePermissionMode: "auto" as const, claudeSandboxEnabled: false };
+    expect(missionPermissionRuntimeOptions("claude-code", "manual", claudeSettings)).toEqual(claudeSettings);
+    const codexSettings = { codexApprovalPolicy: "never" as const, codexFileAccess: "danger-full-access" as const };
+    expect(missionPermissionRuntimeOptions("codex", "manual", codexSettings)).toEqual(codexSettings);
+    // Auto and Guided keep their explicit consent; user settings never widen them.
+    expect(missionPermissionRuntimeOptions("codex", "guided", codexSettings)).toEqual({
+      codexApprovalPolicy: "untrusted",
+    });
+    expect(missionPermissionRuntimeOptions("claude-code", "guided", claudeSettings)).toEqual({
+      claudePermissionMode: "default",
+      claudeAllowDangerouslySkipPermissions: false,
+    });
+  });
 });
 
 describe("stage facts", () => {

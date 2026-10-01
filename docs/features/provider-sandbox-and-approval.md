@@ -86,6 +86,11 @@ Use Claude controls when you want to decide:
 - whether sandboxing should stay on
 - whether sandbox escape should be allowed
 
+In `Auto`, Claude's own classifier decides most calls. When it is unavailable
+for your model or plan, Claude asks instead, and the turn says so once. Reads
+and searches still run without asking, except reads of protected credential
+files and calls your own ask rules cover. Shell commands and other actions ask.
+
 ### Codex
 
 Codex exposes file access and approvals as separate controls.

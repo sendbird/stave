@@ -461,6 +461,7 @@ export type HostLocalMcpAction =
   | "create-workspace"
   | "run-task"
   | "resolve-delegation-policy"
+  | "resolve-delegation-defaults"
   | "sync-delegation-permission-settings"
   | "get-task-status"
   | "release-task-parent"

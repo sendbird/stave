@@ -164,6 +164,12 @@ export interface MissionRuntimeDependencies {
     /** Absent for a turn a Stave action asked for: it reports no stage. */
     missionStage?: MissionStageRef;
   }) => Promise<{ turnId: string }>;
+  /**
+   * The user's own provider permission settings, for turns no consent sets:
+   * a mission on "Your settings" (`manual`) and the report-sharing turn.
+   * Absent: those turns pass no permissions (tests and headless callers).
+   */
+  userPermissionOptions?: (providerId: MissionFingerprint["providerId"]) => ProviderRuntimeOptions | undefined;
   /** Closes a turn left open by a stopped host; true when it was open. */
   completeInterruptedTurn: (turnId: string) => boolean;
   countActiveDelegatedTasks: (taskId: string) => number;
@@ -688,6 +694,9 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
         runtimeOptions: missionPermissionRuntimeOptions(
           mission.fingerprint.providerId,
           mission.consent.permissionMode,
+          mission.consent.permissionMode === "manual"
+            ? deps.userPermissionOptions?.(mission.fingerprint.providerId)
+            : undefined,
         ),
         retrievedContextParts: [
           buildMissionTurnContextPart({ aggregate: started, reason }),
@@ -1117,7 +1126,9 @@ export function createMissionRuntime(deps: MissionRuntimeDependencies): MissionR
           taskId: detail.mission.leadTaskId,
           prompt: buildShareReportPrompt(threadUrl, formatMissionReportMarkdown(detail.report)),
           fingerprint: { providerId: snapshot.providerId, model: snapshot.model } as MissionFingerprint,
-          runtimeOptions: {},
+          // The mission has ended, so its consent no longer applies: the post
+          // runs with the user's own settings, not the runtime's fallbacks.
+          runtimeOptions: { ...deps.userPermissionOptions?.(snapshot.providerId as MissionFingerprint["providerId"]) },
           retrievedContextParts: [],
         });
         recordEvent(detail.mission, { kind: "report-shared", idempotencyKey: null, detail: { threadUrl } });

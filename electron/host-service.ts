@@ -1,4 +1,4 @@
-import { registerDelegationPolicyObserver, resolveHostDelegationPolicy, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
+import { registerDelegationPolicyObserver, resolveHostDelegationDefaults, resolveHostDelegationPolicy, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
 import { readAgentHistory } from "./providers/agent-history";
 import { withRequestAccountScope } from "./provider-accounts/runtime-scope";
 import { withGatewayCredential } from "./provider-accounts/gateway-runtime";
@@ -76,7 +76,7 @@ import {
   submitGitHubPullRequestReview,
 } from "./host-service/github-pr-review-runtime";
 import * as localMcpRuntime from "./host-service/local-mcp-runtime";
-import { runSupervisedTurn } from "./host-service/supervised-turn";
+import { loadUserPermissionOptions, runSupervisedTurn } from "./host-service/supervised-turn";
 import { createAutomationRuntime } from "./host-service/automation-runtime";
 import { createWakeUpRuntime } from "./host-service/wake-up-runtime";
 import { listTaskCompletionSignals } from "./host-service/delegated-task-signals";
@@ -621,6 +621,8 @@ const wakeUpRuntime = createWakeUpRuntime({
   persistence: ensureHostServicePersistenceReady(),
   getTaskSupervisionSnapshot: localMcpRuntime.getTaskSupervisionSnapshot,
   runSupervisedTurn,
+  // A wake-up has no consent of its own: it runs with the user's settings.
+  userPermissionOptions: loadUserPermissionOptions,
   // Wiring this is what makes completion observable at all: without it the
   // capability probe reports `unsupported` and a completion wake-up is
   // refused rather than left waiting for an event that never arrives.
@@ -669,6 +671,8 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return syncDelegationPermissionSettings(args);
     case "resolve-delegation-policy":
       return resolveHostDelegationPolicy(args as Parameters<typeof resolveHostDelegationPolicy>[0]);
+    case "resolve-delegation-defaults":
+      return resolveHostDelegationDefaults(args as Parameters<typeof resolveHostDelegationDefaults>[0]);
     case "run-task":
       return localMcpRuntime.runTask(
         args as Parameters<typeof localMcpRuntime.runTask>[0],

@@ -8,8 +8,12 @@ import type { ChatMessage, Task } from "@/types/chat";
 const child: DelegatedTaskSummary = { runId: "attention-run", stepId: "attention-step", parentTaskId: "preview-parent", delegationKey: "Implementation",
   delegatedTaskId: "attention-child", delegatedWorkspaceId: "attention-workspace", delegatedTurnId: "attention-turn", providerId: "codex",
   lifecycle: "one-turn", phase: "running", reason: null, attempt: 0, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(), completedAt: null };
+// Shaped like a real delegated child: externally managed, with a parent link.
 const task: Task = { id: child.delegatedTaskId, title: "Implementation", provider: "codex", updatedAt: new Date().toISOString(), unread: false,
-  controlMode: "managed", controlOwner: "stave", parentTaskId: child.parentTaskId };
+  controlMode: "managed", controlOwner: "external", parentTaskId: child.parentTaskId };
+// What the host attributes a child's request to: the root of its delegation chain.
+const root = { parentTaskId: child.parentTaskId, ancestorTaskIds: [child.parentTaskId], rootTaskId: child.parentTaskId, rootWorkspaceId: "preview-workspace",
+  rootWorkspaceName: "Preview", rootTaskTitle: "Preview", controlMode: "managed", controlOwner: "external" };
 const requests = ["first", "second", "question"];
 function message(request: string): ChatMessage {
   return { id: `message-${request}`, role: "assistant", providerId: "codex", model: "gpt-6.1-sol", content: "", parts: request === "question" ? [{
@@ -17,10 +21,10 @@ function message(request: string): ChatMessage {
   }] : [{ type: "approval", requestId: request, toolName: "Shell", description: `Run ${request} verification command`, state: "approval-requested" }] };
 }
 function notification(request: string): AppNotification {
-  return { id: `notification-${request}`, kind: request === "question" ? "task.user_input_requested" : "task.approval_requested", title: "Implementation needs you",
+  return { id: `notification-${request}`, kind: request === "question" ? "task.user_input_requested" : "task.approval_requested", title: "Preview",
     body: request === "question" ? "Choose the result branch" : `Run ${request} verification command`, repositoryPath: "/tmp/preview-project", repositoryName: "Preview",
     workspaceId: child.delegatedWorkspaceId, workspaceName: "Implementation", taskId: task.id, taskTitle: task.title, turnId: "attention-turn", providerId: "codex",
-    action: request === "question" ? null : { type: "approval", requestId: request, messageId: `message-${request}` }, payload: { requestId: request, messageId: `message-${request}` },
+    action: request === "question" ? null : { type: "approval", requestId: request, messageId: `message-${request}` }, payload: { ...root, requestId: request, messageId: `message-${request}` },
     createdAt: new Date().toISOString(), readAt: null, resolvedAt: null };
 }
 /** Dev-only backend responses; the renderer's actual Fleet/store handlers remain in use. */

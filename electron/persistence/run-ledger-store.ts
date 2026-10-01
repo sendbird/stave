@@ -17,6 +17,7 @@ import {
   type RunStepTarget,
   type RunStepTransition,
 } from "../../src/lib/runs/run-domain";
+import { isReadOnlyDelegationPolicy } from "../../src/lib/runs/delegation-policy";
 
 interface RunLedgerStatement {
   get: (...params: unknown[]) => unknown;
@@ -878,7 +879,7 @@ export class RunLedgerStore {
     return this.listActiveAggregatesByStepKind({ kind: "delegated-task-turn" }).find(({ run, step }) => {
       if (!step.target || step.target.writerLease || step.target.turnExecutionId || step.status === "waiting" || step.target.workspaceId !== target.workspaceId) return false;
       const policy = this.listReceipts({ runId: run.id }).find((receipt) => receipt.type === "accepted" && receipt.detail?.attempt === step.attempt)?.detail?.permissionPolicy;
-      return step.target.providerId !== "codex" || policy?.options.codexFileAccess !== "read-only";
+      return !isReadOnlyDelegationPolicy(step.target.providerId, policy);
     }) ?? null;
   }
 

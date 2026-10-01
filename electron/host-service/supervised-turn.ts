@@ -9,12 +9,29 @@
  * `electron/host-service.ts`).
  */
 import type { MissionStageIdentity } from "../../src/lib/missions/domain";
+import { userSettingsPermissionOptions } from "../../src/lib/providers/managed-task-runtime";
 import type {
   CanonicalRetrievedContextPart,
   ProviderId,
   ProviderRuntimeOptions,
 } from "../../src/lib/providers/provider.types";
 import { runTask } from "./local-mcp-runtime";
+import { ensureHostServicePersistenceReady } from "./persistence";
+
+/**
+ * The permissions a supervised turn runs with when no consent sets them (a
+ * wake-up, a mission on "Your settings"): the user's own synced provider
+ * settings, never the runtime's fallbacks. Undefined for providers without
+ * synced settings.
+ */
+export function loadUserPermissionOptions(
+  providerId: ProviderId,
+): ProviderRuntimeOptions | undefined {
+  return userSettingsPermissionOptions(
+    providerId,
+    ensureHostServicePersistenceReady().delegationPolicies?.loadSettings(),
+  );
+}
 
 export async function runSupervisedTurn(args: {
   workspaceId: string;
