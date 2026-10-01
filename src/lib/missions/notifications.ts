@@ -8,6 +8,7 @@ import type {
   AppNotificationKind,
 } from "@/lib/notifications/notification.types";
 import type { MissionDetail } from "./api";
+import { isAgentRun } from "./agent-run";
 import { currentStageRecord } from "./domain";
 
 export interface MissionNotificationContext {
@@ -54,12 +55,54 @@ function draft(
   };
 }
 
+/**
+ * An agent run is named by its agent and state, never as a mission: "Ready —
+ * Implementer", "Needs you — Implementer", "Failed — Implementer".
+ */
+function describeAgentRunNotification(
+  detail: MissionDetail,
+  context: MissionNotificationContext,
+): AppNotificationCreateInput | null {
+  const { mission } = detail;
+  const record = currentStageRecord(detail);
+  const agent = mission.playbook.name;
+  const attemptKey = `${record.stageId}:${record.attempt}`;
+  switch (mission.state) {
+    case "completed":
+      return draft(detail, context, { kind: "mission.completed", title: `Ready — ${agent}`, detail: null, key: "completed" });
+    case "stopped":
+      return draft(detail, context, { kind: "mission.blocked", title: `Failed — ${agent}`, detail: mission.reasonDetail, key: "stopped" });
+    case "paused":
+      if (mission.pauseReason === "paused-by-user" || mission.pauseReason === "taken-over") return null;
+      return draft(detail, context, {
+        kind: "mission.blocked",
+        title: `Needs you — ${agent}`,
+        detail: mission.reasonDetail,
+        key: `paused:${mission.pauseReason}:${attemptKey}`,
+      });
+    case "cancelled":
+      return null;
+    case "running":
+      break;
+  }
+  if (record.status === "blocked" || record.status === "stuck") {
+    return draft(detail, context, {
+      kind: record.status === "stuck" ? "mission.stuck" : "mission.blocked",
+      title: `Needs you — ${agent}`,
+      detail: record.detail,
+      key: `${record.status}:${attemptKey}`,
+    });
+  }
+  return null;
+}
+
 /** The notification for where the mission stands now, or null when it needs nothing. */
 export function describeMissionNotification(
   detail: MissionDetail,
   context: MissionNotificationContext,
 ): AppNotificationCreateInput | null {
   const { mission } = detail;
+  if (isAgentRun(mission)) return describeAgentRunNotification(detail, context);
   const record = currentStageRecord(detail);
   const stage = mission.playbook.stages[mission.currentStageIndex]!;
   const attemptKey = `${record.stageId}:${record.attempt}`;

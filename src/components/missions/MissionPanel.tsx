@@ -30,6 +30,9 @@ import {
 import type { AcceptanceCriterion } from "@/lib/playbooks/stage-prompt";
 import { useAppStore } from "@/store/app.store";
 import { missionStageKey, useMissionFailure, useMissionsStore } from "@/store/missions-store";
+import { isAgentRun } from "@/lib/missions/agent-run";
+import { AgentRunDetailView } from "./AgentRunPanel";
+import { useAgentRunActions, type AgentRunActions } from "./useAgentRunActions";
 import { MissionReportView } from "./MissionReportView";
 import { useMissionReportActions, type MissionReportActions } from "./useMissionReportActions";
 import { MissionRunSummary } from "./MissionRunSummary";
@@ -67,7 +70,7 @@ function latestSignOffTime(detail: MissionDetail) {
 const formatClock = (iso: string) =>
   new Date(iso).toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
 
-export function MissionDetailView(props: {
+type MissionDetailViewProps = {
   detail: MissionDetail;
   now: number;
   onCommand: ReturnType<typeof useMissionsStore.getState>["runCommand"];
@@ -76,7 +79,26 @@ export function MissionDetailView(props: {
   reducedMotion?: boolean;
   busy?: boolean;
   failure?: string | null;
-}) {
+  /** What an agent run's panel offers; a playbook mission uses `onCommand`. */
+  agentActions?: AgentRunActions;
+};
+
+/** The mission in the Progress tab: the stage list for a playbook, the agent and its result for a run. */
+export function MissionDetailView(props: MissionDetailViewProps) {
+  return isAgentRun(props.detail.mission) ? (
+    <AgentRunDetailView
+      detail={props.detail}
+      now={props.now}
+      reportActions={props.reportActions}
+      actions={props.agentActions}
+      failure={props.failure}
+    />
+  ) : (
+    <PlaybookDetailView {...props} />
+  );
+}
+
+function PlaybookDetailView(props: MissionDetailViewProps) {
   const { detail, now, onCommand } = props;
   const { mission } = detail;
   const rows = useMemo(() => projectMissionStages(detail, new Date(now)), [detail, now]);
@@ -287,6 +309,7 @@ export function MissionPanel(props: { taskId: string; detail: MissionDetail }) {
   const failure = useMissionFailure(missionId, record ? missionStageKey(record) : null);
   const focusTranscriptTool = useAppStore((state) => state.focusTranscriptTool);
   const reportActions = useMissionReportActions(detail);
+  const agentActions = useAgentRunActions(detail);
   const active = isActiveMissionState(detail.mission.state);
   const now = useNow(active);
   const reducedMotion = usePrefersReducedMotion();
@@ -304,6 +327,7 @@ export function MissionPanel(props: { taskId: string; detail: MissionDetail }) {
       reducedMotion={reducedMotion}
       onCommand={runCommand}
       reportActions={reportActions}
+      agentActions={agentActions}
       onShowTool={(toolUseId) => focusTranscriptTool({ taskId: props.taskId, toolUseId })}
     />
   );

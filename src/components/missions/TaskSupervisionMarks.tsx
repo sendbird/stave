@@ -1,6 +1,8 @@
 import { memo } from "react";
 import { AlarmClock, AlarmClockOff, Hand, Target } from "lucide-react";
 import { sx } from "@/components/ads/utils/stylex";
+import { isAgentRun } from "@/lib/missions/agent-run";
+import { describeAgentRunStatus } from "@/lib/missions/agent-run-view";
 import { currentStageRecord, isActiveMissionState } from "@/lib/missions/domain";
 import { useAppStore } from "@/store/app.store";
 import { useTaskMission } from "@/store/missions-store";
@@ -16,17 +18,21 @@ export const TaskSupervisionMarks = memo(function TaskSupervisionMarks(props: { 
   const mission = useTaskMission(workspaceId, props.taskId);
   const wakeUp = useTaskWakeUp(workspaceId, props.taskId);
   const missionActive = Boolean(mission && isActiveMissionState(mission.mission.state));
-  const waitingOnUser =
-    missionActive &&
-    mission!.mission.state === "running" &&
-    currentStageRecord(mission!).status === "awaiting-sign-off";
+  const agentRun = missionActive && isAgentRun(mission!.mission) ? describeAgentRunStatus(mission!) : null;
+  const waitingOnUser = agentRun
+    ? agentRun.state === "needs-you"
+    : missionActive &&
+      mission!.mission.state === "running" &&
+      currentStageRecord(mission!).status === "awaiting-sign-off";
   const wakeUpShown = wakeUp && wakeUp.summary.state !== "stopped";
   if (!missionActive && !wakeUpShown) return null;
-  const missionLabel = waitingOnUser
-    ? "Mission waits for your sign-off"
-    : mission?.mission.state === "paused"
-      ? "Mission paused"
-      : "Mission running";
+  const missionLabel = agentRun
+    ? `${agentRun.agentName}: ${agentRun.label}`
+    : waitingOnUser
+      ? "Mission waits for your sign-off"
+      : mission?.mission.state === "paused"
+        ? "Mission paused"
+        : "Mission running";
   return (
     <span className={sx(styles.inline)}>
       {missionActive ? (

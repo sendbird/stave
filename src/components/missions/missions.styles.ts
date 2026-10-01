@@ -358,6 +358,7 @@ export const missionStyles = stylex.create({
     backgroundColor: vars["--ads-color-canvas-subtle"],
     overflow: "hidden",
   },
+  statsTwo: { gridTemplateColumns: "repeat(2, minmax(0, 1fr))" },
   statsThree: { gridTemplateColumns: "repeat(3, minmax(0, 1fr))" },
   statsFour: { gridTemplateColumns: "repeat(4, minmax(0, 1fr))" },
   statsFive: { gridTemplateColumns: "repeat(5, minmax(0, 1fr))" },

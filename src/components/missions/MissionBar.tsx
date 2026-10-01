@@ -17,6 +17,9 @@ import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
 import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { useAppStore } from "@/store/app.store";
 import { useMissionsStore } from "@/store/missions-store";
+import { isAgentRun } from "@/lib/missions/agent-run";
+import { AgentRunBarView } from "./AgentRunBar";
+import { useAgentRunActions, type AgentRunActions } from "./useAgentRunActions";
 import { StageStatusIcon } from "./StageStatusIcon";
 import { StageTrack } from "./StageTrack";
 import { useNow, usePrefersReducedMotion, useScopedTaskMission } from "./useMission";
@@ -77,7 +80,7 @@ export interface MissionBarActions {
   busy?: boolean;
 }
 
-export function MissionBarView(props: {
+type MissionBarViewProps = {
   detail: MissionDetail;
   nowPhrase: string | null;
   now: number;
@@ -87,7 +90,20 @@ export function MissionBarView(props: {
   /** Docked inside the composer frame, which owns the final tuck. */
   framed?: boolean;
   actions?: MissionBarActions;
-}) {
+  /** What an agent run's bar offers; a playbook mission uses `actions`. */
+  agentActions?: AgentRunActions;
+};
+
+/** The bar of a mission: the stage track for a playbook, a status line for an agent run. */
+export function MissionBarView(props: MissionBarViewProps) {
+  return isAgentRun(props.detail.mission) ? (
+    <AgentRunBarView {...props} actions={props.agentActions} onOpenPanel={props.actions?.onOpenPanel} />
+  ) : (
+    <PlaybookMissionBarView {...props} />
+  );
+}
+
+function PlaybookMissionBarView(props: MissionBarViewProps) {
   const { detail, now, actions = {}, variant = "docked" } = props;
   const { mission } = detail;
   const rows = useMemo(() => projectMissionStages(detail, new Date(now)), [detail, now]);
@@ -250,6 +266,7 @@ export function MissionBar(props: { variant?: "docked" | "panel"; framed?: boole
   const missionId = detail?.mission.id ?? "";
   const busy = useMissionsStore((state) => Boolean(state.pendingByMission[missionId]));
   const setLayout = useAppStore((state) => state.setLayout);
+  const agentActions = useAgentRunActions(detail);
   if (!detail || !active) return null;
   return (
     <MissionBarView
@@ -259,6 +276,7 @@ export function MissionBar(props: { variant?: "docked" | "panel"; framed?: boole
       reducedMotion={reducedMotion}
       variant={props.variant}
       framed={props.framed}
+      agentActions={agentActions}
       actions={{
         busy,
         onTakeOver: () => void runCommand("takeOver", { missionId }),

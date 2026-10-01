@@ -23,6 +23,7 @@ import {
 import { buildMissionReport } from "@/lib/missions/report";
 import { createPlaybookFromStarter, findPlaybookStarter } from "@/lib/playbooks/starters";
 import { applyThemeClass } from "@/lib/themes/apply";
+import { agentRunFleetDetails, AgentRunPreviewCases } from "./agent-run-cases";
 
 /*
  * Dev-only preview of the mission surfaces, rendered from fixtures:
@@ -189,6 +190,7 @@ function seedFleetMissions() {
       "fleet-sign-off": as(signOff, "fleet-sign-off", "fleet-a"),
       "fleet-live": as(live, "fleet-live", "fleet-b"),
       "fleet-stuck": as(stuck, "fleet-stuck", "fleet-c"),
+      ...agentRunFleetDetails(),
     },
   });
 }
@@ -201,6 +203,23 @@ export function MissionPreview() {
   const now = Date.now();
   const actions = { onTakeOver: () => {}, onResume: () => {}, onOpenPanel: () => {} };
   useLayoutEffect(seedFleetMissions, []);
+  const params = new URLSearchParams(window.location.search);
+  const width = Number(params.get("w")) || null;
+  if (params.get("only") === "agent-run") {
+    return (
+      <main className={sx(styles.page)}>
+        <div className={sx(styles.container)}>
+          <div className={sx(styles.header)}>
+            <h1 className={sx(styles.heading)}>Agent run</h1>
+            <ActionButton size="xs" onClick={() => setDark((value) => !value)}>
+              {dark ? "Light theme" : "Dark theme"}
+            </ActionButton>
+          </div>
+          <AgentRunPreviewCases now={now} width={width} />
+        </div>
+      </main>
+    );
+  }
   return (
     <main className={sx(styles.page)}>
       <div className={sx(styles.container)}>
@@ -210,6 +229,8 @@ export function MissionPreview() {
             {dark ? "Light theme" : "Dark theme"}
           </ActionButton>
         </div>
+
+        <AgentRunPreviewCases now={now} width={width} />
 
         <section className={sx(styles.case)} data-preview-case="Verification evidence">
           <p className={sx(styles.caption)}>Check evidence · process status and current work</p>

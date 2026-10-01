@@ -82,6 +82,11 @@ import {
 import { AssistantMessageBody } from "./message/assistant-trace";
 import { TaskStartGuide } from "./TaskStartGuide";
 import { SessionLoadingState } from "./SessionLoadingState";
+import {
+  AgentRunInstructions,
+  useAgentRunPrompt,
+} from "@/components/missions/AgentRunPrompt";
+import { AgentRunResultCard } from "@/components/missions/AgentRunResultCard";
 import { StageDivider } from "@/components/missions/StageDivider";
 import type { TaskProviderSessionState } from "@/lib/db/workspaces.db";
 import {
@@ -249,7 +254,28 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
     () => resolvePlanMessagePresentation(message),
     [message],
   );
-  const userMessageSourceText = message.displayContent ?? message.content;
+  const messageText = message.displayContent ?? message.content;
+  // An agent run's first prompt: the user's assignment, with Stave's compiled
+  // instructions folded below it.
+  const agentRunPrompt = useAgentRunPrompt({
+    taskId,
+    turnId: message.role === "user" ? startedTurnId : undefined,
+    text: messageText,
+  });
+  const userMessageSourceText = agentRunPrompt?.assignment ?? messageText;
+  const bodyMessage = useMemo(
+    () =>
+      agentRunPrompt?.assignment
+        ? {
+            ...message,
+            content: agentRunPrompt.assignment,
+            displayContent: agentRunPrompt.assignment,
+            parts: [{ type: "text" as const, text: agentRunPrompt.assignment }],
+            displayParts: undefined,
+          }
+        : message,
+    [agentRunPrompt?.assignment, message],
+  );
   const turnModelInfoLabel = getTurnModelInfoLabel(message);
   const turnModelInfoParts = getTurnModelInfoParts(message);
   const steerDeliveryLabel =
@@ -370,15 +396,19 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
             {planPresentation.showPlanCard ? (
               <ConversationPlanCard planText={planPresentation.planText} />
             ) : null}
-            {planPresentation.showAssistantBody ? (
+            {planPresentation.showAssistantBody &&
+            !(agentRunPrompt && !agentRunPrompt.assignment) ? (
               <MemoizedAssistantMessageBody
-                message={message}
+                message={bodyMessage}
                 taskId={taskId}
                 messageId={message.id}
                 streamingEnabled={chatStreamingEnabled}
                 traceExpansionMode={traceExpansionMode}
                 showInterimMessages={showInterimMessages}
               />
+            ) : null}
+            {agentRunPrompt ? (
+              <AgentRunInstructions text={agentRunPrompt.instructions} />
             ) : null}
           </MessageContent>
           {message.role === "user" && steerDeliveryLabel ? (
@@ -428,7 +458,7 @@ const MessageRow = memo(function MessageRow(args: MessageRowProps) {
               ) : null}
               <CopyButton
                 key="copy-action"
-                text={message.displayContent ?? message.content}
+                text={userMessageSourceText}
               />
               {canRewindFiles ? (
                 <MessageAction
@@ -1088,6 +1118,7 @@ function ChatPanelMessageList(props: {
             )}
           />
         )}
+        <AgentRunResultCard taskId={taskId} />
         <FailedOutgoingMessages taskId={taskId} />
         <PendingAutoRouteTurn
           taskId={taskId}

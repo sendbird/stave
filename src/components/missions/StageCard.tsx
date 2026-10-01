@@ -34,7 +34,7 @@ export function shouldOpenStage(
 }
 
 /** The instruction a stage ran with, folded away until asked for. */
-function InstructionDisclosure(props: { label: string; text: string }) {
+export function InstructionDisclosure(props: { label: string; text: string }) {
   const [open, setOpen] = useState(false);
   const panelId = useId();
   return (
