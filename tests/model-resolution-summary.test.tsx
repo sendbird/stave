@@ -1,10 +1,45 @@
 import { expect, test } from "bun:test";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
+import type { AgentTurnProvenance } from "@/lib/agents/turn-provenance";
 import {
   formatActualRunModel,
   ModelResolutionSummary,
 } from "@/components/session/ModelResolutionSummary";
+
+test("run details name the sealed Agent and distinguish configured delivery from completion", () => {
+  const provenance: AgentTurnProvenance = {
+    version: 1, turnId: "turn", assignmentId: "assignment", agentConfigId: "agent", agentName: "Saved Agent",
+    agentContentHash: "abcdef1234567890", role: "primary", providerId: "codex", model: "requested", effort: "low",
+    permission: { source: "agent-ceiling", agentLimit: "read-only", support: "enforced",
+      applied: { codexFileAccess: "read-only", codexApprovalPolicy: "on-request" } },
+    instructions: { channel: "instruction", status: "configured" },
+  };
+  const html = renderToStaticMarkup(createElement(ModelResolutionSummary, { actual: null, agentProvenance: provenance }));
+  expect(html).toContain("Saved Agent");
+  expect(html).toContain("abcdef123456");
+  expect(html).toContain("Configured; delivery not confirmed");
+  expect(html).toContain("Agent ceiling · read-only");
+  expect(html).toContain("Files: read-only");
+  expect(html).not.toContain("Delivered");
+  const historical = renderToStaticMarkup(createElement(ModelResolutionSummary, { actual: null }));
+  expect(historical).not.toContain("Assigned main Agent");
+  for (const [source, label] of [
+    ["user-settings", "User settings"],
+    ["delegation-policy", "Delegation policy"],
+  ] as const) {
+    const sourced = renderToStaticMarkup(createElement(ModelResolutionSummary, {
+      actual: null,
+      agentProvenance: {
+        ...provenance,
+        permission: { ...provenance.permission, source, agentLimit: "auto" },
+      },
+    }));
+    expect(sourced).toContain(`${label}</dd>`);
+    expect(sourced).not.toContain(`${label} · auto`);
+    expect(sourced).toContain("Files: read-only · Approval: on-request");
+  }
+});
 
 test("run model label carries the dispatched effort next to the model", () => {
   expect(

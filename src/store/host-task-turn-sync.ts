@@ -7,7 +7,7 @@ import type { LocalMcpTaskTurnUpdate } from "@/lib/local-mcp/task-turn-update";
 import { appendOpenTaskTabForHostCreatedTask } from "@/lib/tasks";
 import { WORKSPACE_APP_SURFACE, type AppActiveSurface } from "@/store/app-surface";
 import {
-  applyProviderTurnActivityEvents,
+  reduceProviderTurnActivityEvents,
   clearProviderTurnActivity,
   retainRetiredTurnActivity,
   startProviderTurnActivity,
@@ -257,27 +257,33 @@ export function applyHostTaskTurnSync(args: {
               : undefined,
       })
     : args.state.providerTurnActivityByTask;
-  const providerTurnActivityByTask = args.update.activityEvents?.length
-    ? applyProviderTurnActivityEvents({
+  const anotherTurnActive = args.loaded.persistedActiveTurnId != null &&
+    args.loaded.persistedActiveTurnId !== args.update.turnId;
+  const reduced = anotherTurnActive
+    ? { activityByTask: args.state.providerTurnActivityByTask, retiredSnapshot: null }
+    : args.update.activityEvents?.length
+    ? reduceProviderTurnActivityEvents({
         activityByTask: startedActivityByTask,
         taskId: args.update.taskId,
         turnId: args.update.turnId,
         providerId: args.update.providerId,
         events: args.update.activityEvents,
+        terminalReceipt: args.update.terminalReceipt,
       })
-    : active
-      ? startedActivityByTask
-      : clearProviderTurnActivity({
+    : {
+        activityByTask: active ? startedActivityByTask : clearProviderTurnActivity({
           activityByTask: args.state.providerTurnActivityByTask,
           taskId: args.update.taskId,
-        });
-  // A host-driven turn ends the same way a local one does — the snapshot just
-  // disappears from the map — so it retires through the same comparison.
+        }),
+        retiredSnapshot: null,
+      };
+  const providerTurnActivityByTask = reduced.activityByTask;
   const retainedTurnActivityByTask = retainRetiredTurnActivity({
     retainedByTask: args.state.retainedTurnActivityByTask,
     previous: args.state.providerTurnActivityByTask,
     next: providerTurnActivityByTask,
     taskId: args.update.taskId,
+    snapshot: reduced.retiredSnapshot,
   });
   // A host batch carries the same hazard as a renderer flush: several complete
   // consults can arrive at once, so the archive happens inside the fold rather

@@ -1,13 +1,13 @@
 import type { AgentAssignment, RecordTaskAgentInput, ReleaseTaskAgentInput } from "./assign";
 
 /**
- * Renderer ↔ main ↔ host contract for agents. The renderer sends an assign
- * request; main validates its shape and forwards it; the host validates it
- * again, records it, runs intake and starts the first turn.
+ * Renderer ↔ main ↔ host contract for agents. Kickoff creates the workspace
+ * and task in the renderer and records here that the task runs as an agent;
+ * main validates each request's shape and forwards it; the host validates it
+ * again and keeps the record every later turn of the task reads.
  */
 
 export const AGENT_IPC = Object.freeze({
-  assign: "agents:assign",
   /** Renderer → main: record that a task Kickoff created runs as an agent. */
   recordTask: "agents:record-task",
   releaseTask: "agents:release-task",
@@ -19,7 +19,7 @@ export const AGENT_IPC = Object.freeze({
 });
 
 /** Host actions behind `agent.invoke`. */
-export type HostAgentAction = "assign" | "record-task" | "release-task" | "list-assignments" | "sync-agents" | "delegation-context";
+export type HostAgentAction = "record-task" | "release-task" | "list-assignments" | "sync-agents" | "delegation-context";
 
 /**
  * What limits a delegation from one task: the permission of the agent the
@@ -42,8 +42,6 @@ export interface AgentAssignmentsListArgs {
 }
 
 export interface AgentsBridgeApi {
-  /** `requestId` makes a retried call return the same assignment. */
-  assign: (args: unknown) => Promise<AgentInvokeResult<AgentAssignment>>;
   /**
    * Records that a task Kickoff already created runs as an agent, before its
    * first turn. Idempotent by `requestId`; every later turn runs as the agent.

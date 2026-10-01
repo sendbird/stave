@@ -8,6 +8,7 @@ import { MissionDetailView } from "@/components/missions/MissionPanel";
 import { TaskWorkPanelHeader } from "@/components/session/TaskWorkPanel";
 import { MissionReportView } from "@/components/missions/MissionReportView";
 import { SignOffCard } from "@/components/missions/SignOffCard";
+import { EvidenceList } from "@/components/missions/EvidenceList";
 import { StageDividerView } from "@/components/missions/StageDivider";
 import { FleetMissionStrip } from "@/components/missions/FleetMissionStrip";
 import { useFleetMissionsStore } from "@/store/fleet-missions-store";
@@ -210,6 +211,17 @@ export function MissionPreview() {
             {dark ? "Light theme" : "Dark theme"}
           </ActionButton>
         </div>
+
+        <section className={sx(styles.case)} data-preview-case="Verification evidence">
+          <p className={sx(styles.caption)}>Check evidence · process status and current work</p>
+          <EvidenceList onShowTool={() => {}} evidence={[
+            { label: "Failed shell check", kind: "check", command: "bun test", toolCallId: "failed", source: "provider", outcome: "failed", exitCode: 7, freshness: "unknown" },
+            { label: "Provider response without a process status", kind: "check", command: "bun run typecheck", source: "provider", outcome: "unknown", exitCode: null, freshness: "unknown" },
+            { label: "Successful current workspace check", kind: "check", command: "bun test", source: "stave", outcome: "succeeded", exitCode: 0, freshness: "current" },
+            { label: "Workspace changed after the check", kind: "check", command: "bun test", source: "stave", outcome: "succeeded", exitCode: 0, freshness: "stale" },
+            { label: "Agent assessment of the documentation", kind: "observation", source: "agent" },
+          ]} />
+        </section>
 
         <section className={sx(styles.case)} data-preview-case="Composer live">
           <p className={sx(styles.caption)}>In the composer · a stage turn is running</p>

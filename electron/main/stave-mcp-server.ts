@@ -780,9 +780,10 @@ function createToolServer(options?: {
             "Optional reasoning-effort tier for the child. Clamped to what the child's provider and model accept (`ultra` is Codex-only; Claude steps it down to `max`). Omitted, the child runs at the automation default (`medium`). Bounded briefs often do better on a cheaper model at `high`+ effort than on the default tier.",
           ),
         permissionProfile: z
-          .enum(["auto", "guided", "manual"])
+          .enum(["inherit", "auto", "guided", "manual"])
+          .optional()
           .describe(
-            "Child permission profile. Required and never inherited from the parent: `auto` runs unattended, `guided` routes sensitive actions through approvals, `manual` uses the provider defaults.",
+            "Optional permission ceiling. Omitted or inherit uses the effective parent policy for the same provider, otherwise target-provider user settings. auto cannot grant more authority; guided/manual can restrict the inherited policy.",
           ),
         lifecycle: z
           .enum(["one-turn", "detached"])

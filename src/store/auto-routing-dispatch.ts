@@ -1,5 +1,8 @@
 import { resolveAdvisorAutoTarget } from "@/lib/providers/advisor";
-import { formatResolvedRouteLabel } from "@/lib/providers/auto-routing-profile";
+import {
+  formatResolvedRouteLabel,
+  type TaskClass,
+} from "@/lib/providers/auto-routing-profile";
 import type {
   AutoRoutingModelResolution,
   NormalizedProviderEvent,
@@ -9,6 +12,7 @@ import {
   resolveRoutedWorkerModel,
   WORKER_AUTO_VALUE,
 } from "@/lib/providers/worker-mode";
+import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import type { AppState } from "@/store/app-store.types";
 import {
   computeRouterSignals,
@@ -121,8 +125,17 @@ export async function resolveAutoRoutingForSend(args: {
     turnId: string;
     message: Omit<Parameters<typeof buildOutgoingUserMessage>[0], "id">;
   };
+  /**
+   * The task class to route as. Defaults to that of the agent the task runs
+   * as (when it names one); a task about to be created passes its agent's.
+   */
+  taskClassHint?: TaskClass;
 }): Promise<AutoRoutingDecision | null> {
   const { state, promptDraft } = args;
+  const taskClassHint =
+    args.taskClassHint ??
+    (args.taskId ? useAgentAssignmentsStore.getState().byTaskId[args.taskId]?.agentTaskClass : null) ??
+    undefined;
   if (
     !state.settings.autoRoutingEnabled ||
     promptDraft.runtimeOverrides?.autoRouting !== true
@@ -204,6 +217,7 @@ export async function resolveAutoRoutingForSend(args: {
       rateLimitsSnapshot: state.rateLimitsSnapshot,
       providerAvailability: state.providerAvailability,
       classifyRoute,
+      ...(taskClassHint ? { taskClassHint } : {}),
     });
     if (controller.signal.aborted) throw new DOMException("Auto routing cancelled", "AbortError");
     if (ownsPendingRow) {

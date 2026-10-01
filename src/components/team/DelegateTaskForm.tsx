@@ -52,9 +52,10 @@ const PERMISSION_OPTIONS: ReadonlyArray<{
   value: DelegationDraft["permissionProfile"];
   label: string;
 }> = [
+  { value: "inherit", label: "Use user permissions" },
   { value: "guided", label: "Guided · ask when needed" },
-  { value: "manual", label: "Manual · approve every action" },
-  { value: "auto", label: "Automatic · run without asking" },
+  { value: "manual", label: "Manual · provider approval defaults" },
+  { value: "auto", label: "Automatic · within user permissions" },
 ];
 
 function catalogFor(providerId: DelegationDraft["providerId"]) {

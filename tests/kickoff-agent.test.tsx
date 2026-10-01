@@ -6,6 +6,9 @@ import { selectableMainAgents } from "@/lib/agents/task-mode";
 import { KickoffSourceWho } from "@/components/layout/KickoffSourceWho";
 import { duplicateAgent } from "@/lib/agents/library";
 import { getBuiltinAgent } from "@/lib/agents/starters";
+import { buildKickoffAgentRuntimeOverrides } from "@/components/layout/KickoffDialog.utils";
+import { describeAgentPermissionForTask } from "@/lib/agents/agents-view";
+import { buildStarterProfile, DEFAULT_AUTO_ROUTING_PROFILE_ID } from "@/lib/providers/auto-routing-profile";
 
 describe("kickoff chooses who does the work", () => {
   test("selectable agents are usable as a main agent and not archived", () => {
@@ -47,10 +50,58 @@ describe("kickoff chooses who does the work", () => {
         agentId: "ui-maintainer",
         onWhoChange: () => {},
         onAgentChange: () => {},
-        sourceText: "Do the work.",
+        startNow: {
+          canStart: true,
+          busy: false,
+          hint: "Claude · Stave Auto, each turn · Your permission settings — creates the worktree and starts now, without the review step.",
+          onStart: () => {},
+        },
       }),
     );
     expect(html).toContain("Who");
     expect(html).toContain("Start now");
+    expect(html).toContain("Your permission settings");
+  });
+
+  test("with Stave Auto, the first task stays on Auto and pins no model", () => {
+    const route = resolveAssignRoute({
+      agent: getBuiltinAgent("implementer")!,
+      profile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
+      preferredProviderId: "claude-code",
+      choice: "auto",
+      autoRoutingEnabled: true,
+    });
+    expect(buildKickoffAgentRuntimeOverrides({ route, configuredModel: "claude-opus-5-5" })).toEqual({ autoRouting: true });
+  });
+
+  test("without Stave Auto, the route's model and effort are pinned to the first task", () => {
+    const route = resolveAssignRoute({
+      agent: getBuiltinAgent("implementer")!,
+      profile: buildStarterProfile(DEFAULT_AUTO_ROUTING_PROFILE_ID),
+      preferredProviderId: "claude-code",
+      choice: "auto",
+      autoRoutingEnabled: false,
+    });
+    expect(buildKickoffAgentRuntimeOverrides({ route, configuredModel: "claude-opus-5-5" })).toEqual({
+      autoRouting: false,
+      model: route.model!,
+      modelProviderId: "claude-code",
+      claudeEffort: route.effort as "high",
+    });
+    // A picked provider runs the user's model for it at the user's effort.
+    const picked = resolveAssignRoute({
+      agent: getBuiltinAgent("implementer")!,
+      profile: null,
+      preferredProviderId: "claude-code",
+      choice: "codex",
+    });
+    expect(buildKickoffAgentRuntimeOverrides({ route: picked, configuredModel: "gpt-6-sol" })).toEqual({ autoRouting: false });
+  });
+
+  test("an Auto-permission agent runs on the user's permission settings; the others are ceilings", () => {
+    expect(describeAgentPermissionForTask("auto")).toBe("Your permission settings");
+    expect(describeAgentPermissionForTask("guided")).toBe("Up to Guided");
+    expect(describeAgentPermissionForTask("manual")).toBe("Up to Manual");
+    expect(describeAgentPermissionForTask("read-only")).toBe("Read only");
   });
 });

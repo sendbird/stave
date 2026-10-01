@@ -1,4 +1,4 @@
-import { classifyStageEvidence } from "@/lib/missions/evidence";
+import { classifyStageEvidence, isVerifiedEvidence } from "@/lib/missions/evidence";
 import type { MissionDetail } from "@/lib/missions/api";
 import type { MissionStageRecord, StageStatus } from "@/lib/missions/domain";
 import type { DelegatedTaskSummary } from "@/lib/runs/delegated-task";
@@ -530,7 +530,7 @@ export function buildFlow(args: {
         state: latest ? STAGE_STATE[latest.status] : "waiting",
         evidence: complete
           ? {
-              verified: classified.filter((item) => item.source === "stave").length,
+              verified: classified.filter(isVerifiedEvidence).length,
               reported: classified.filter((item) => item.source === "agent").length,
             }
           : null,

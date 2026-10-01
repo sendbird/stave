@@ -1,4 +1,6 @@
+import type { AssignRoute } from "@/lib/agents/assign-route";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import { routeEffortOverrides } from "@/store/auto-routing";
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 
 /** Who does the work: the user, or a saved agent as the task's main agent. */
@@ -78,5 +80,31 @@ export function buildKickoffFirstTaskRuntimeOverrides(args: {
           >,
           codexFastMode: args.codexFastMode,
         }),
+  };
+}
+
+/**
+ * The first task's overrides when an agent does the work. With Stave Auto the
+ * task stays on Auto, so the first send and every later one are routed as the
+ * composer routes them. Otherwise the route's model (or the user's model for
+ * the provider) is pinned, with the route's or the agent's effort.
+ */
+export function buildKickoffAgentRuntimeOverrides(args: {
+  route: AssignRoute;
+  /** The user's model for the route's provider, for a route without a model. */
+  configuredModel: string;
+}): PromptDraftRuntimeOverrides {
+  const { route } = args;
+  if (route.source === "stave-auto") {
+    return { autoRouting: true };
+  }
+  return {
+    autoRouting: false,
+    ...(route.model ? { model: route.model, modelProviderId: route.providerId } : {}),
+    ...routeEffortOverrides({
+      providerId: route.providerId,
+      model: route.model ?? args.configuredModel,
+      effort: route.effort,
+    }),
   };
 }

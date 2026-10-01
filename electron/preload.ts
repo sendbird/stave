@@ -846,7 +846,6 @@ ipcRenderer.on(AGENT_IPC.changed, () => {
 });
 
 const agentsApi: AgentsBridgeApi = {
-  assign: (args) => ipcRenderer.invoke(AGENT_IPC.assign, args),
   recordTask: (args) => ipcRenderer.invoke(AGENT_IPC.recordTask, args),
   releaseTask: (args) => ipcRenderer.invoke(AGENT_IPC.releaseTask, args),
   listAssignments: (args) => ipcRenderer.invoke(AGENT_IPC.listAssignments, args ?? {}),
@@ -1140,6 +1139,7 @@ contextBridge.exposeInMainWorld("api", {
       args: SecondaryRunReceiptListArgs,
     ): Promise<SecondaryRunReceiptList> =>
       ipcRenderer.invoke("runs:list-receipts", args),
+    syncDelegationPermissionSettings: (args: import("../src/lib/runs/delegation-policy").DelegationPermissionSettings): Promise<{ ok: boolean }> => ipcRenderer.invoke("delegations:sync-permission-settings", args),
     delegateTask: (
       args: DelegateTaskArgs,
     ): Promise<DelegatedTaskActionResponse> =>

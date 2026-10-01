@@ -1,3 +1,4 @@
+import { registerDelegationPolicyObserver, resolveHostDelegationPolicy, syncDelegationPermissionSettings } from "./host-service/delegation-policy";
 import { readAgentHistory } from "./providers/agent-history";
 import { withRequestAccountScope } from "./provider-accounts/runtime-scope";
 import { withGatewayCredential } from "./provider-accounts/gateway-runtime";
@@ -650,6 +651,8 @@ localMcpRuntime.setLocalMcpEventListener((event) => {
   }
 });
 
+registerDelegationPolicyObserver();
+
 async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
   switch (action) {
     case "list-known-repositories":
@@ -662,6 +665,10 @@ async function invokeLocalMcpAction(action: HostLocalMcpAction, args: unknown) {
       return localMcpRuntime.createWorkspace(
         args as Parameters<typeof localMcpRuntime.createWorkspace>[0],
       );
+    case "sync-delegation-permission-settings":
+      return syncDelegationPermissionSettings(args);
+    case "resolve-delegation-policy":
+      return resolveHostDelegationPolicy(args as Parameters<typeof resolveHostDelegationPolicy>[0]);
     case "run-task":
       return localMcpRuntime.runTask(
         args as Parameters<typeof localMcpRuntime.runTask>[0],

@@ -1,7 +1,7 @@
 /**
  * Runs learned suggestions after a turn: when the completed turn belongs to a
  * task a custom agent runs, learning is on for that agent, and the user
- * corrected the agent in that task, one utility-lane turn asks whether the
+ * followed up in that task, one utility-lane turn classifies whether the
  * agent's instructions should change. At most one call per task: a task that
  * was already asked (this session) or already has a suggestion is skipped.
  *
@@ -13,7 +13,7 @@ import {
   buildLearningPrompt,
   buildLearningTranscript,
   hasSuggestionForTask,
-  hasUserCorrection,
+  hasUserFollowupCandidate,
   parseLearningAnswer,
 } from "@/lib/agents/learned-suggestions";
 import type { AgentConfig } from "@/lib/agents/schema";
@@ -41,7 +41,7 @@ export async function learnFromAgentTask(args: { workspaceId: string; taskId: st
   if (hasSuggestionForTask(state.settings.agentSuggestions, agent.id, args.taskId)) return;
   const session = getWorkspaceSessionForState({ state, workspaceId: args.workspaceId });
   const messages = session?.messagesByTask[args.taskId] ?? state.messagesByTask[args.taskId] ?? [];
-  if (!hasUserCorrection(messages)) return;
+  if (!hasUserFollowupCandidate(messages)) return;
 
   askedTaskIds.add(args.taskId);
   const result = await runUtilityTextTurn({

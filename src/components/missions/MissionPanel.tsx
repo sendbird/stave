@@ -19,6 +19,7 @@ import { StepRail } from "@/components/ads/components/StepRail";
 import { sx } from "@/components/ads/utils/stylex";
 import type { MissionDetail } from "@/lib/missions/api";
 import { currentStageRecord, isActiveMissionState, latestStageRecord } from "@/lib/missions/domain";
+import { collectAcceptanceCriteria } from "@/lib/missions/briefing";
 import {
   describeCheckIns,
   describeMissionBadge,
@@ -55,14 +56,7 @@ const TILE_TONES = {
 
 /** The latest acceptance criteria any stage reported, in playbook order. */
 function latestCriteria(detail: MissionDetail): AcceptanceCriterion[] {
-  let criteria: AcceptanceCriterion[] = [];
-  for (const stage of detail.mission.playbook.stages) {
-    const report = latestStageRecord(detail.stages, stage.id)?.report;
-    if (report?.outcome === "complete" && report.acceptanceCriteria?.length) {
-      criteria = report.acceptanceCriteria;
-    }
-  }
-  return criteria;
+  return collectAcceptanceCriteria(detail, true);
 }
 
 function latestSignOffTime(detail: MissionDetail) {

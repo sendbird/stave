@@ -1,4 +1,10 @@
 import {
+  createTurnReceipt,
+  observeTurnEvent,
+  finishTurnReceipt,
+  type TurnTerminalReceipt,
+} from "../electron/persistence/turn-terminal-receipt";
+import {
   afterAll,
   afterEach,
   beforeAll,
@@ -50,6 +56,7 @@ type PersistedTurn = {
   providerId: "claude-code" | "codex";
   createdAt: string;
   completedAt: string | null;
+  terminalReceipt?: TurnTerminalReceipt;
 };
 
 const startTurnStreamCalls: unknown[] = [];
@@ -69,10 +76,14 @@ const persistedTurnEventsById = new Map<
   }>
 >();
 const persistedNotifications: unknown[] = [];
+const rendererSelectedTaskByWorkspaceId = new Map<string, string>();
+const persistedDeltaSelections: Array<{ taskId: string; activeTaskId?: string }> = [];
 let persistedProviderTimeoutMs: number | null = null;
+let persistedPermissionSettings: import("@/lib/runs/delegation-policy").DelegationPermissionSettings | null = null;
 const lastUpsertSnapshotByWorkspaceId = new Map<
   string,
   {
+    activeTaskId?: string;
     tasks?: Array<{ id: string; archivedAt?: string | null }>;
     messagesByTask?: Record<
       string,
@@ -90,7 +101,7 @@ const lastUpsertSnapshotByWorkspaceId = new Map<
 function loadFakeWorkspaceSnapshot(workspaceId: string) {
   return workspaceId === RELEASE_WORKSPACE_ID
     ? {
-        activeTaskId: RELEASE_TASK_ID,
+        activeTaskId: rendererSelectedTaskByWorkspaceId.get(workspaceId) ?? RELEASE_TASK_ID,
         tasks: [
           {
             id: RELEASE_TASK_ID,
@@ -109,7 +120,7 @@ function loadFakeWorkspaceSnapshot(workspaceId: string) {
           persistedWorkspaceInformationById.get(workspaceId),
       }
     : {
-        activeTaskId: "",
+        activeTaskId: rendererSelectedTaskByWorkspaceId.get(workspaceId) ?? "",
         tasks: [],
         messagesByTask: {},
         workspaceInformation:
@@ -118,6 +129,7 @@ function loadFakeWorkspaceSnapshot(workspaceId: string) {
 }
 
 const fakeStore = {
+  delegationPolicies: { loadSettings: () => persistedPermissionSettings },
   loadRepositoryRegistry: () => [
     {
       repositoryPath: REPOSITORY_PATH,
@@ -240,6 +252,7 @@ const fakeStore = {
       )
       .reverse()
       .slice(0, limit ?? 5),
+  getTurnReceipt: (id: string) => persistedTurnsById.get(id)?.terminalReceipt ?? null,
   beginTurn: (turn: Omit<PersistedTurn, "createdAt" | "completedAt">) => {
     persistedTurnsById.set(turn.id, {
       ...turn,
@@ -292,7 +305,10 @@ const fakeStore = {
   // `loadWorkspaceSnapshot` returns `messagesByTask`), for which
   // `persistTaskTurnDelta` declines so the caller migrates via the
   // whole-snapshot write below.
-  persistTaskTurnDelta: () => ({ ok: false, messageCount: 0 }),
+  persistTaskTurnDelta: (args: { taskId: string; activeTaskId?: string }) => {
+    persistedDeltaSelections.push(args);
+    return { ok: false, messageCount: 0 };
+  },
   loadAutomationProviderTimeoutMs: () => persistedProviderTimeoutMs,
   upsertWorkspace: ({
     id,
@@ -300,6 +316,7 @@ const fakeStore = {
   }: {
     id: string;
     snapshot: {
+      activeTaskId?: string;
       workspaceInformation?: unknown;
       tasks?: Array<Partial<PersistedTaskRow> & { id: string }>;
       messagesByTask?: Record<
@@ -379,6 +396,7 @@ afterAll(() => {
 
 afterEach(() => {
   persistedProviderTimeoutMs = null;
+  persistedPermissionSettings = null;
   providerRuntime.abortTurn = originalAbortTurn;
   providerRuntime.cleanupTask = originalCleanupTask;
   providerRuntime.respondApproval = originalRespondApproval;
@@ -397,6 +415,42 @@ describe("local MCP runtime runTask", () => {
     expect(result.turnId).toBeTruthy();
     expect(startTurnStreamCalls).toHaveLength(1);
   });
+
+  test("delegated creation, start and completion preserve the parent's selected task", async () => {
+    const result = await runtime.runTask({ workspaceId: RELEASE_WORKSPACE_ID, parentTaskId: RELEASE_TASK_ID,
+      taskId: "child-foreground-regression", prompt: "Read the fixture", provider: "codex" });
+    expect(lastUpsertSnapshotByWorkspaceId.get(RELEASE_WORKSPACE_ID)?.activeTaskId).toBe(RELEASE_TASK_ID);
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({ type: "text", text: "Read the fixture" });
+    handler?.onEvent?.({ type: "done" });
+    for (let i = 0; i < 20 && !(await runtime.getTaskStatus({ workspaceId: RELEASE_WORKSPACE_ID, taskId: result.taskId })).latestTurnCompletedAt; i += 1) await Bun.sleep(0);
+    expect((await runtime.getTaskStatus({ workspaceId: RELEASE_WORKSPACE_ID, taskId: result.taskId })).latestTurnCompletedAt).toBeTruthy();
+    expect(lastUpsertSnapshotByWorkspaceId.get(RELEASE_WORKSPACE_ID)?.activeTaskId).toBe(RELEASE_TASK_ID);
+    expect(persistedDeltaSelections.filter(delta => delta.taskId === result.taskId).every(delta => delta.activeTaskId === undefined)).toBe(true);
+  });
+
+  test("delegated progress retains a child the user explicitly opened and a later parent selection", async () => {
+    const result = await runtime.runTask({ workspaceId: RELEASE_WORKSPACE_ID, parentTaskId: RELEASE_TASK_ID,
+      taskId: "child-explicit-open-regression", prompt: "Read the fixture", provider: "codex" });
+    const handler = startTurnStreamHandlers.at(-1);
+    try {
+      rendererSelectedTaskByWorkspaceId.set(RELEASE_WORKSPACE_ID, result.taskId);
+      handler?.onEvent?.({ type: "text", text: "First output" });
+      for (let i = 0; i < 20 && lastUpsertSnapshotByWorkspaceId.get(RELEASE_WORKSPACE_ID)?.activeTaskId !== result.taskId; i += 1) await Bun.sleep(0);
+      expect(lastUpsertSnapshotByWorkspaceId.get(RELEASE_WORKSPACE_ID)?.activeTaskId).toBe(result.taskId);
+      rendererSelectedTaskByWorkspaceId.set(RELEASE_WORKSPACE_ID, "");
+      handler?.onEvent?.({ type: "text", text: "After closing all task tabs" });
+      for (let i = 0; i < 20 && lastUpsertSnapshotByWorkspaceId.get(RELEASE_WORKSPACE_ID)?.activeTaskId !== ""; i += 1) await Bun.sleep(0);
+      expect(lastUpsertSnapshotByWorkspaceId.get(RELEASE_WORKSPACE_ID)?.activeTaskId).toBe("");
+      rendererSelectedTaskByWorkspaceId.set(RELEASE_WORKSPACE_ID, RELEASE_TASK_ID);
+      handler?.onEvent?.({ type: "done" });
+      for (let i = 0; i < 20 && !(await runtime.getTaskStatus({ workspaceId: RELEASE_WORKSPACE_ID, taskId: result.taskId })).latestTurnCompletedAt; i += 1) await Bun.sleep(0);
+    expect((await runtime.getTaskStatus({ workspaceId: RELEASE_WORKSPACE_ID, taskId: result.taskId })).latestTurnCompletedAt).toBeTruthy();
+      expect(lastUpsertSnapshotByWorkspaceId.get(RELEASE_WORKSPACE_ID)?.activeTaskId).toBe(RELEASE_TASK_ID);
+    } finally { rendererSelectedTaskByWorkspaceId.delete(RELEASE_WORKSPACE_ID); }
+  });
+
+
 
   test("records effort, Fast, and 1M on the pending assistant message", async () => {
     const result = await runtime.runTask({
@@ -461,7 +515,7 @@ describe("local MCP runtime runTask", () => {
     ).rejects.toThrow("Task not found in this workspace: no-such-task");
   });
 
-  test("runs an externally managed task without interactive approvals", async () => {
+  test("preserves native Auto for an externally managed task", async () => {
     await runtime.runTask({
       workspaceId: WORKSPACE_ID,
       prompt: "Run this unattended",
@@ -470,11 +524,28 @@ describe("local MCP runtime runTask", () => {
 
     expect(startTurnStreamCalls.at(-1)).toMatchObject({
       runtimeOptions: {
-        claudePermissionMode: "bypassPermissions",
-        claudeAllowDangerouslySkipPermissions: true,
+        claudePermissionMode: "auto",
         providerTimeoutMs: DEFAULT_PROVIDER_TIMEOUT_MS,
       },
     });
+  });
+
+  test("raw managed calls fill omitted permission fields from target user settings", async () => {
+    persistedPermissionSettings = { "claude-code": { claudePermissionMode: "auto" }, codex: { codexApprovalPolicy: "never", codexFileAccess: "workspace-write" } };
+    for (const providerId of ["claude-code", "codex"] as const) {
+      for (const runtimeOptions of [undefined, { model: "chosen-model" }]) {
+        await runtime.runTask({ workspaceId: WORKSPACE_ID, provider: providerId, prompt: "Use configured user permissions", runtimeOptions });
+        expect(startTurnStreamCalls.at(-1)).toMatchObject({ runtimeOptions: providerId === "claude-code" ? { claudePermissionMode: "auto", claudeAllowDangerouslySkipPermissions: false } : { codexApprovalPolicy: "never", codexFileAccess: "workspace-write" } });
+      }
+    }
+  });
+
+  test("explicit trusted managed options override synced user permission defaults", async () => {
+    persistedPermissionSettings = { "claude-code": { claudePermissionMode: "default" }, codex: { codexApprovalPolicy: "untrusted", codexFileAccess: "read-only" } };
+    await runtime.runTask({ workspaceId: WORKSPACE_ID, provider: "claude-code", prompt: "Use explicitly consented runtime options", runtimeOptions: { claudePermissionMode: "bypassPermissions", claudeAllowDangerouslySkipPermissions: true } });
+    expect(startTurnStreamCalls.at(-1)).toMatchObject({ runtimeOptions: { claudePermissionMode: "bypassPermissions", claudeAllowDangerouslySkipPermissions: true } });
+    await runtime.runTask({ workspaceId: WORKSPACE_ID, provider: "codex", prompt: "Use explicitly consented runtime options", runtimeOptions: { codexApprovalPolicy: "never", codexFileAccess: "workspace-write" } });
+    expect(startTurnStreamCalls.at(-1)).toMatchObject({ runtimeOptions: { codexApprovalPolicy: "never", codexFileAccess: "workspace-write" } });
   });
 
   test("applies the Settings-synced provider timeout to a managed task", async () => {
@@ -948,6 +1019,37 @@ describe("local MCP runtime runTask", () => {
     ).toEqual(["error", "done"]);
   });
 
+  test("empty durable receipt publishes Fleet failure and matches task status", async () => {
+    const offset = persistedNotifications.length;
+    const result = await runtime.runTask({
+      workspaceId: WORKSPACE_ID,
+      prompt: "empty result",
+    });
+    const turn = persistedTurnsById.get(result.turnId)!;
+    turn.terminalReceipt = finishTurnReceipt(
+      observeTurnEvent(createTurnReceipt(), { type: "done" }),
+      new Date().toISOString(),
+    );
+    startTurnStreamHandlers.at(-1)?.onEvent?.({ type: "done" });
+    for (
+      let attempt = 0;
+      attempt < 30 && persistedNotifications.length === offset;
+      attempt += 1
+    )
+      await Bun.sleep(0);
+    expect(persistedNotifications.slice(offset)).toMatchObject([
+      { kind: "task.turn_failed", turnId: result.turnId },
+    ]);
+    const status = await runtime.getTaskStatus({
+      workspaceId: WORKSPACE_ID,
+      taskId: result.taskId,
+    });
+    expect(status.latestTurnOutcome).toBe("failed");
+    expect(status.latestTurnError).toBe(
+      "Provider turn ended without a response.",
+    );
+  });
+
   test("releases completed locally managed task control", async () => {
     const result = await runtime.releaseLocallyManagedTaskControl({
       workspaceId: RELEASE_WORKSPACE_ID,
@@ -984,6 +1086,39 @@ describe("local MCP runtime runTask", () => {
         },
       ],
     });
+  });
+
+  test("takeover invalidates a concurrently prepared delegated follow-up", async () => {
+    const first = await runtime.runTask({ workspaceId: WORKSPACE_ID, parentTaskId: "parent-control-race", taskId: "child-control-race", prompt: "Delegated first turn" });
+    startTurnStreamHandlers.at(-1)?.onEvent?.({ type: "done" });
+    await Bun.sleep(0);
+    const startsBefore = startTurnStreamCalls.length;
+    const followUp = runtime.runTask({ workspaceId: WORKSPACE_ID, parentTaskId: "parent-control-race", taskId: first.taskId, prompt: "Late controller follow-up" });
+    const takeover = runtime.takeOverManagedTaskControl({ workspaceId: WORKSPACE_ID, taskId: first.taskId });
+    const results = await Promise.allSettled([followUp, takeover]);
+    expect(results[0]!.status).toBe("rejected");
+    expect(results[1]!.status).toBe("fulfilled");
+    expect(startTurnStreamCalls.length).toBe(startsBefore);
+    await expect(runtime.runTask({ workspaceId: WORKSPACE_ID, parentTaskId: "parent-control-race", taskId: first.taskId, prompt: "Attempt to reclaim after takeover" })).rejects.toThrow("cannot reclaim");
+  });
+
+  test("competing user and controller approval responses deliver exactly once", async () => {
+    const first = await runtime.runTask({ workspaceId: WORKSPACE_ID, prompt: "Wait for a decision" });
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({ type: "approval", requestId: "approval-race", toolName: "Bash", description: "Run check" });
+    for (let i = 0; i < 20; i += 1) {
+      const status = await runtime.getTaskStatus({ workspaceId: WORKSPACE_ID, taskId: first.taskId });
+      if (status.pendingApprovals.length) break;
+      await Bun.sleep(0);
+    }
+    let delivered = 0;
+    providerRuntime.respondApproval = (async () => { delivered += 1; return { ok: true, message: "ok" }; }) as typeof providerRuntime.respondApproval;
+    const request = { workspaceId: WORKSPACE_ID, taskId: first.taskId, requestId: "approval-race" };
+    const results = await Promise.allSettled([runtime.respondApproval({ ...request, approved: true }), runtime.respondApproval({ ...request, approved: false })]);
+    expect(results.filter((result) => result.status === "fulfilled")).toHaveLength(1);
+    expect(results.filter((result) => result.status === "rejected")).toHaveLength(1);
+    expect(delivered).toBe(1);
+    handler?.onEvent?.({ type: "done" });
   });
 
   test("takes over an inactive externally managed task through host ownership", async () => {
@@ -1149,7 +1284,9 @@ describe("local MCP runtime Information panel auto-fill and dedup", () => {
         workspaceId: WORKSPACE_ID,
         notes: "Persist before notifying",
       });
-      expect(result.workspaceInformation.notes).toBe("Persist before notifying");
+      expect(result.workspaceInformation.notes).toBe(
+        "Persist before notifying",
+      );
       expect(observed.at(-1)).toEqual({
         workspaceId: WORKSPACE_ID,
         notes: "Persist before notifying",
@@ -1332,11 +1469,29 @@ describe("local MCP project memory curation", () => {
       const page = await runtime.listRepositoryMemories({ workspaceId: WORKSPACE_ID, query: "terminal" });
       expect(page.memories).toHaveLength(1);
       expect(page.nextOffset).toBeNull();
-      const foreign = store.remember({ repositoryPath: "/tmp/other-project", kind: "fact", content: "Foreign memory.", confidence: 0.9 })!;
-      await expect(runtime.rememberRepositoryMemory({ workspaceId: WORKSPACE_ID, memoryId: foreign.memory.id, kind: "fact", content: "Overwrite attempt." })).rejects.toThrow(/not found/);
+      const foreign = store.remember({
+        repositoryPath: "/tmp/other-project",
+        kind: "fact",
+        content: "Foreign memory.",
+        confidence: 0.9,
+      })!;
+      await expect(
+        runtime.rememberRepositoryMemory({
+          workspaceId: WORKSPACE_ID,
+          memoryId: foreign.memory.id,
+          kind: "fact",
+          content: "Overwrite attempt.",
+        }),
+      ).rejects.toThrow(/not found/);
       expect(store.get(foreign.memory.id)?.content).toBe("Foreign memory.");
-      await runtime.forgetRepositoryMemory({ workspaceId: WORKSPACE_ID, memoryId: first.memory!.id });
-      expect((await runtime.listRepositoryMemories({ workspaceId: WORKSPACE_ID })).memories).toEqual([]);
+      await runtime.forgetRepositoryMemory({
+        workspaceId: WORKSPACE_ID,
+        memoryId: first.memory!.id,
+      });
+      expect(
+        (await runtime.listRepositoryMemories({ workspaceId: WORKSPACE_ID }))
+          .memories,
+      ).toEqual([]);
     } finally {
       for (const key of Object.keys(methods)) Reflect.deleteProperty(fakeStore, key);
     }

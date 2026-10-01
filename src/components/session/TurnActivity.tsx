@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   ChevronDown,
   ChevronUp,
+  Circle,
   CircleAlert,
   CircleSlash,
   PanelBottomClose,
@@ -1009,6 +1010,9 @@ function TurnRestMark({ outcome }: { outcome: RetainedTurnOutcome }) {
         className={sx(styles.restMark, styles.restMarkMuted)}
       />
     );
+  }
+  if (outcome === "unknown") {
+    return <Circle aria-hidden className={sx(styles.restMark, styles.restMarkMuted)} />;
   }
   return (
     <CheckCircle2

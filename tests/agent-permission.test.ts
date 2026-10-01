@@ -77,7 +77,9 @@ describe("agent permission ceiling", () => {
   test("every turn of a read-only task runs inside the ceiling, the first one included", () => {
     const researcher = getBuiltinAgent("researcher")!;
     const first = taskAgentRuntimeOptions({ agent: researcher, providerId: "codex", base: { ...WIDE, agentInstructions: "x" } });
-    expect(first).toEqual({ codexFileAccess: "read-only", codexApprovalPolicy: "on-request" });
+    expect(first).toEqual({ codexFileAccess: "read-only", codexApprovalPolicy: "on-request",
+      agentInstructions: expect.stringContaining("# Agent: Researcher") });
+    expect(first.agentInstructions).toContain("Do not modify files.");
     const later = taskAgentRuntimeOptions({ agent: researcher, providerId: "claude-code", base: WIDE });
     expect(later.agentInstructions).toContain("# Agent: Researcher");
     expect(later.claudePermissionMode).toBe("default");

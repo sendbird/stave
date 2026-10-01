@@ -12,6 +12,7 @@ type ToolResultEvent = {
   output: string;
   isError?: boolean;
   isPartial?: boolean;
+  exitCode?: number | null;
 };
 
 /**
@@ -85,6 +86,7 @@ export function mergeToolResultIntoPart(args: {
       ...part,
       output: capToolResultOutput(event.output),
       state: "output-error",
+      ...(event.exitCode !== undefined ? { exitCode: event.exitCode } : {}),
     };
   }
 
@@ -96,6 +98,7 @@ export function mergeToolResultIntoPart(args: {
     ...part,
     output: capToolResultOutput(event.output),
     state: nextState,
+    ...(event.exitCode !== undefined ? { exitCode: event.exitCode } : {}),
   };
 }
 

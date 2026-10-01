@@ -1,7 +1,7 @@
 /**
- * Learned suggestions: when you correct a custom agent in its task, Stave asks
- * the utility model once whether the agent's instructions should change so the
- * correction is not needed next time. The answer is only a suggestion; it is
+ * Learned suggestions: after a user follow-up, Stave asks the utility model
+ * whether it expresses a correction and lasting preference for saved instructions.
+ * The answer is only a suggestion; it is
  * applied (as a normal save, so it joins History), edited first, or dismissed
  * on the agent's page.
  *
@@ -14,7 +14,7 @@ export interface AgentSuggestion {
   /** Stable id: one suggestion per task. */
   id: string;
   agentConfigId: string;
-  /** The task whose correction produced it. */
+  /** The task whose conversation produced it. */
   taskId: string;
   createdAt: string;
   /** One sentence naming what the agent should do differently. */
@@ -40,11 +40,9 @@ export interface LearningMessage {
 }
 
 /**
- * Whether a task's conversation contains a correction worth learning from: the
- * user wrote again after the agent's first answer. A task with only its
- * assignment and replies has nothing to learn.
+ * A follow-up is a candidate for classification, not evidence of correction.
  */
-export function hasUserCorrection(messages: readonly LearningMessage[]): boolean {
+export function hasUserFollowupCandidate(messages: readonly LearningMessage[]): boolean {
   let answered = false;
   for (const message of messages) {
     if (!message.content.trim()) continue;
@@ -79,10 +77,12 @@ export function buildLearningTranscript(messages: readonly LearningMessage[]): s
 export function buildLearningPrompt(args: { agent: AgentConfig; transcript: string }): string {
   return [
     "You improve the saved instructions of a coding agent. Below are its current instructions and a task",
-    "conversation in which the user corrected the agent.",
+    "conversation containing a user follow-up. A follow-up does not necessarily correct the agent.",
     "",
-    "Decide whether the correction reveals a lasting preference that belongs in the instructions (a rule the",
-    "agent should follow on every future task), not a one-off detail of this task.",
+    "First classify the follow-up: a correction, a new requirement, a question, or an acknowledgement.",
+    "Only an explicit correction that reveals a lasting preference may change saved instructions.",
+    "New requirements, questions, acknowledgements, ambiguous intent, and one-off task details mean change: false.",
+    "A lasting preference is a rule the agent should follow on future tasks. Never assume one from a follow-up alone.",
     "",
     "Answer with a single JSON object and nothing else:",
     '{ "change": false }',

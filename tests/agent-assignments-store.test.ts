@@ -1,6 +1,7 @@
 import { describe, expect, test } from "bun:test";
 import { indexAssignmentsByTask } from "../src/store/agent-assignments-store";
 import type { AgentAssignment } from "@/lib/agents/assign";
+import { getBuiltinAgent } from "@/lib/agents/starters";
 
 function row(overrides: Partial<AgentAssignment>): AgentAssignment {
   return {
@@ -10,7 +11,7 @@ function row(overrides: Partial<AgentAssignment>): AgentAssignment {
     agentConfigId: "implementer",
     agentName: "Implementer",
     agentContentHash: "c",
-    agent: {} as never,
+    agent: getBuiltinAgent("implementer")!,
     assignment: "x",
     providerId: "claude-code",
     model: null,
@@ -39,5 +40,14 @@ describe("agent assignments by task", () => {
     ]);
     expect(Object.keys(index)).toEqual(["t1"]);
     expect(index.t1).toMatchObject({ agentConfigId: "reviewer-copy", agentName: "Reviewer copy", assignmentId: "new", state: "started" });
+  });
+
+  test("carries the task class an auto-model agent routes as, and none for a fixed model", () => {
+    const auto = indexAssignmentsByTask([row({})]);
+    expect(auto.t1?.agentTaskClass).toBe("implement");
+    const fixed = indexAssignmentsByTask([
+      row({ agent: { ...getBuiltinAgent("implementer")!, model: { mode: "fixed", providerId: "codex", model: "gpt-6-sol" } } }),
+    ]);
+    expect(fixed.t1?.agentTaskClass).toBeNull();
   });
 });

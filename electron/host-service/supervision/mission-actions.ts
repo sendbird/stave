@@ -87,7 +87,7 @@ type ActionStore = Pick<MissionStore, "recordEvent" | "listEventsByKind">;
 
 /** A finished run of a workspace script, as the Run script action reads it. */
 export type MissionScriptRun =
-  | { ok: true; exitCode: number; output: string }
+  | { ok: true; exitCode: number; output: string; verification?: import("../../../src/lib/missions/verification-contract").ScriptVerification }
   | { ok: false; detail: string; exitCode?: number | null; output?: string };
 
 /** How long a mission waits for a script before it fails the stage. */
@@ -221,6 +221,7 @@ export function createMissionActionExecutor(deps: {
                 type: "run-script",
                 scriptId,
                 exitCode: 0,
+                ...(result.verification ? { verification: result.verification } : {}),
                 ...(lastPrintedUrl(output) ? { url: lastPrintedUrl(output)! } : {}),
                 outputTail: output.slice(-2_000),
               })

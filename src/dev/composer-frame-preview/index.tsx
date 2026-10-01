@@ -100,6 +100,7 @@ export function ComposerFramePreviewApp() {
               agentName: researcher.name,
               agentPermission: researcher.permission,
               agentAppearance: researcher.appearance,
+              agentTaskClass: researcher.model.mode === "auto" ? (researcher.model.taskClass ?? null) : null,
               agentContentHash: "preview",
               received: [],
               support: [],

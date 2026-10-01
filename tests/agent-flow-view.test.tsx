@@ -232,7 +232,7 @@ describe("buildFlow", () => {
       ["stage", "3. Open PR", "waiting"],
     ]);
     expect(nodes[0]!.detail).toBe("claude-code · claude-sonnet-5 · New worktree agent/implementer-fix-x");
-    expect(nodes[1]!.evidence).toEqual({ verified: 1, reported: 0 });
+    expect(nodes[1]!.evidence).toEqual({ verified: 0, reported: 1 });
     // Base steps nest under the running stage, delegates alongside them.
     expect(nodes[2]!.children.map((child) => child.title)).toEqual(["Request", "Changes", "review-diff"]);
     expect(nodes[2]!.events.map((event) => event.label)).toEqual(["Started (attempt 2)", "Changes requested"]);

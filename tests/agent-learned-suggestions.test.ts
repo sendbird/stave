@@ -7,7 +7,7 @@ import {
   buildLearningTranscript,
   dropAgentSuggestions,
   hasSuggestionForTask,
-  hasUserCorrection,
+  hasUserFollowupCandidate,
   normalizeAgentSuggestions,
   normalizeLearningDisabled,
   parseLearningAnswer,
@@ -29,17 +29,17 @@ function suggestion(overrides: Partial<AgentSuggestion> = {}): AgentSuggestion {
   };
 }
 
-describe("hasUserCorrection", () => {
+describe("hasUserFollowupCandidate", () => {
   test("needs a user message after the agent answered", () => {
-    expect(hasUserCorrection([{ role: "user", content: "Write the docs" }])).toBe(false);
+    expect(hasUserFollowupCandidate([{ role: "user", content: "Write the docs" }])).toBe(false);
     expect(
-      hasUserCorrection([
+      hasUserFollowupCandidate([
         { role: "user", content: "Write the docs" },
         { role: "assistant", content: "Done." },
       ]),
     ).toBe(false);
     expect(
-      hasUserCorrection([
+      hasUserFollowupCandidate([
         { role: "user", content: "Write the docs" },
         { role: "assistant", content: "Done." },
         { role: "user", content: "You forgot the links." },
@@ -49,12 +49,19 @@ describe("hasUserCorrection", () => {
 
   test("ignores empty assistant rows", () => {
     expect(
-      hasUserCorrection([
+      hasUserFollowupCandidate([
         { role: "user", content: "Write the docs" },
         { role: "assistant", content: "  " },
         { role: "user", content: "More detail" },
       ]),
     ).toBe(false);
+  });
+  test("new requests and acknowledgements are only classification candidates", () => {
+    for (const content of ["Also add a dark theme.", "Why did you choose that?", "Thanks!"]) {
+      expect(hasUserFollowupCandidate([
+        { role: "assistant", content: "Done." }, { role: "user", content },
+      ])).toBe(true);
+    }
   });
 });
 
@@ -85,6 +92,9 @@ test("the prompt carries the current instructions and the conversation", () => {
   const prompt = buildLearningPrompt({ agent, transcript: "USER: hi" });
   expect(prompt).toContain("You write docs.");
   expect(prompt).toContain("USER: hi");
+  expect(prompt).toContain("First classify the follow-up");
+  expect(prompt).toContain("one-off task details mean change: false");
+  expect(prompt).not.toContain("conversation in which the user corrected the agent");
 });
 
 describe("parseLearningAnswer", () => {

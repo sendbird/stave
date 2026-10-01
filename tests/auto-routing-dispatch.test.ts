@@ -153,3 +153,38 @@ test("only a classifier-backed Auto send waits in the pending state", () => {
   expect(shouldClassifyAutoRoute({ settings: { ...settings,
     autoRoutingProfile: { ...profile, signals: { ...profile.signals, classifier: false } } }, promptDraft: draft })).toBe(false);
 });
+
+test("an unclear intent on a task running as an agent routes as its agent's task class, or the class the caller names", async () => {
+  const { useAgentAssignmentsStore } = await import("../src/store/agent-assignments-store");
+  const previousWindow = globalThis.window;
+  globalThis.window = { api: { provider: {
+    classifyRoute: async () => ({ ok: true,
+      classification: { version: 1, intent: "unknown", complexity: "low",
+        risk: "normal", continuity: "new", evidenceCodes: ["explicit_request"] },
+      utility: { providerId: "codex", model: "gpt-5.6-luna", selectionReason: "explicit",
+        degraded: false, attempts: [] },
+    }),
+  } } } as unknown as Window & typeof globalThis;
+  const previousAssignments = useAgentAssignmentsStore.getState().byTaskId;
+  useAgentAssignmentsStore.setState({
+    byTaskId: { "agent-task": { agentTaskClass: "docs" } as never },
+  });
+  const args = {
+    state: { settings: { ...defaultSettings, autoRoutingEnabled: true },
+      providerAvailability: { "claude-code": true, codex: true, cursor: false, kiro: false },
+      rateLimitsSnapshot: null },
+    promptDraft: { text: "Explain the save error", attachedFilePaths: [], attachments: [],
+      runtimeOverrides: { autoRouting: true } },
+    provider: "codex" as const, activeModel: "gpt-5.6-sol", prompt: "Explain the save error",
+    history: [], fileContextCount: 0, workspaceCwd: "/tmp/routing-test",
+  };
+  try {
+    // An unclear intent alone routes as implement work.
+    expect((await resolveAutoRoutingForSend({ ...args, taskId: "plain-task" }))?.taskClass).toBe("implement");
+    expect((await resolveAutoRoutingForSend({ ...args, taskId: "agent-task" }))?.taskClass).toBe("docs");
+    expect((await resolveAutoRoutingForSend({ ...args, taskClassHint: "debug" }))?.taskClass).toBe("debug");
+  } finally {
+    globalThis.window = previousWindow;
+    useAgentAssignmentsStore.setState({ byTaskId: previousAssignments });
+  }
+});

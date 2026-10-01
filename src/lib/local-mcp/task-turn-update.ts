@@ -7,6 +7,7 @@ export type LocalMcpTaskTurnActivityEvent = Extract<
   NormalizedProviderEvent,
   {
     type:
+      | "agent_provenance"
       | "advisor_activity"
       | "hook_activity"
       | "tool"
@@ -98,6 +99,7 @@ export function repositoryLocalMcpTaskTurnActivityEvent(
     case "tool_progress":
     case "subagent_progress":
     case "provider_session":
+    case "agent_provenance":
     case "model_resolved":
     case "done":
       return event;
@@ -136,6 +138,7 @@ export interface LocalMcpTaskTurnUpdate {
   eventType: "started" | NormalizedProviderEvent["type"];
   done: boolean;
   activityEvents?: LocalMcpTaskTurnActivityEvent[];
+  terminalReceipt?: import("@/lib/providers/turn-terminal-receipt").TurnTerminalReceipt | null;
 }
 
 /** Preserve projected activity when the renderer coalesces SQLite reloads. */

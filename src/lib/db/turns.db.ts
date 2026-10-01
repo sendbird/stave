@@ -1,3 +1,4 @@
+import { TurnTerminalReceiptSchema } from "@/lib/providers/turn-terminal-receipt";
 import { z } from "zod";
 
 const ProviderIdSchema = z.preprocess(
@@ -17,6 +18,7 @@ const PersistedTurnSummarySchema = z.object({
   providerId: ProviderIdSchema,
   createdAt: z.string(),
   completedAt: z.string().nullable(),
+  terminalReceipt: TurnTerminalReceiptSchema.nullable().optional(),
 });
 
 export type PersistedTurnSummary = z.infer<typeof PersistedTurnSummarySchema>;

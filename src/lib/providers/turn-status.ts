@@ -1,3 +1,9 @@
+import { isProviderTurnContinuationEvent } from "./turn-event-evidence";
+import { classifyProviderTurnStopReason } from "./turn-stop-reason";
+import {
+  createTurnReceipt, observeTurnEvent, finishTurnReceipt,
+  type TurnTerminalReceipt,
+} from "./turn-terminal-receipt";
 import type {
   NormalizedProviderEvent,
   ProviderId,
@@ -115,6 +121,7 @@ export interface ProviderTurnActivitySnapshot {
   lastEventAt: number;
   stalledAt: number | null;
   pendingInteraction: ProviderTurnPendingInteraction | null;
+  terminalReceipt?: TurnTerminalReceipt;
   turnError?: string;
   turnErrorRecoverable?: boolean;
   completedAt?: number;
@@ -156,6 +163,7 @@ export function startProviderTurnActivity(args: {
     ...args.activityByTask,
     [args.taskId]: {
       turnId: args.turnId,
+      terminalReceipt: isSameTurn ? current.terminalReceipt : createTurnReceipt(),
       providerId: args.providerId,
       startedAt,
       lastEventAt: now,
@@ -195,7 +203,7 @@ export function clearProviderTurnActivity(args: {
 }
 
 /** Why a retained turn stopped producing activity. */
-export type RetainedTurnOutcome = "completed" | "failed" | "stopped";
+export type RetainedTurnOutcome = "completed" | "failed" | "stopped" | "unknown";
 
 /**
  * The last turn a task finished, kept so its activity can still be read after
@@ -334,9 +342,14 @@ export function retainRetiredTurnActivity(args: {
   }
   const now = args.now ?? Date.now();
   const snapshot = freezeRetiredSnapshot(retired, now);
-  const outcome: RetainedTurnOutcome = snapshot.turnError
-    ? "failed"
-    : (args.outcome ?? "completed");
+  const outcome: RetainedTurnOutcome =
+    snapshot.terminalReceipt?.outcome === "cancelled"
+    ? "stopped"
+    : snapshot.terminalReceipt?.outcome === "unknown"
+      ? "unknown"
+      : snapshot.turnError
+      ? "failed"
+      : (args.outcome ?? "completed");
   const existing = args.retainedByTask[args.taskId];
   if (
     existing &&
@@ -516,55 +529,9 @@ type ProviderTurnErrorState = {
   recoverable: boolean;
 };
 
-const PROVIDER_TURN_FAILURE_STOP_REASONS = new Set([
-  "aborted",
-  "error",
-  "failed",
-  "max_tokens",
-  "output_overflow",
-  "runtime_failure",
-]);
+export { classifyProviderTurnStopReason } from "./turn-stop-reason";
 
-const PROVIDER_TURN_CANCEL_STOP_REASONS = new Set([
-  "canceled",
-  "cancelled",
-  "interrupted",
-  "user_abort",
-]);
-
-/** Shared interpretation for outcome records and visible completion state. */
-export function classifyProviderTurnStopReason(reason?: string) {
-  const normalized = reason?.trim().toLowerCase();
-  if (normalized && PROVIDER_TURN_CANCEL_STOP_REASONS.has(normalized)) return "cancelled";
-  if (normalized && PROVIDER_TURN_FAILURE_STOP_REASONS.has(normalized)) return "failed";
-  return "completed";
-}
-
-/**
- * Work that shows the turn kept going after an earlier provider error.
- * Usage and other metadata do not count: they arrive on failed turns too.
- */
-export function isProviderTurnContinuationEvent(event: NormalizedProviderEvent) {
-  if (event.type === "tool") {
-    return event.state !== "output-error";
-  }
-  if (event.type === "tool_result") {
-    return !event.isError;
-  }
-  if (event.type === "hook_activity") {
-    return event.status === "running" || event.status === "completed";
-  }
-  return (
-    event.type === "text" ||
-    event.type === "thinking" ||
-    event.type === "tool_progress" ||
-    event.type === "subagent_progress" ||
-    event.type === "diff" ||
-    event.type === "plan_ready" ||
-    event.type === "approval" ||
-    event.type === "user_input"
-  );
-}
+export { isProviderTurnContinuationEvent } from "./turn-event-evidence";
 
 function resolveTurnErrorState(args: {
   events: NormalizedProviderEvent[];
@@ -588,41 +555,6 @@ function resolveTurnErrorState(args: {
     }
   }
   return errorState;
-}
-
-function resolveTurnCompletionError(args: {
-  events: NormalizedProviderEvent[];
-  errorState?: ProviderTurnErrorState;
-}) {
-  let doneEvent: Extract<NormalizedProviderEvent, { type: "done" }> | undefined;
-  for (let index = args.events.length - 1; index >= 0; index -= 1) {
-    const event = args.events[index];
-    if (event?.type === "done") {
-      doneEvent = event;
-      break;
-    }
-  }
-  const stopReason = doneEvent?.stop_reason?.trim().toLowerCase();
-  if (args.errorState && !args.errorState.recoverable) {
-    return args.errorState;
-  }
-  if (stopReason && PROVIDER_TURN_CANCEL_STOP_REASONS.has(stopReason)) {
-    return undefined;
-  }
-  if (args.errorState) {
-    return args.errorState;
-  }
-  if (!stopReason || !PROVIDER_TURN_FAILURE_STOP_REASONS.has(stopReason)) {
-    return undefined;
-  }
-
-  return {
-    message:
-      stopReason === "aborted"
-        ? "The provider stream ended unexpectedly."
-        : `The provider stopped before completing (${stopReason}).`,
-    recoverable: false,
-  } satisfies ProviderTurnErrorState;
 }
 
 /** Keep the tail of a path so the row shows `session/ChatInput.tsx`. */
@@ -1101,6 +1033,7 @@ export function reduceProviderTurnActivityEvents(args: {
   providerId: ProviderId;
   events: NormalizedProviderEvent[];
   now?: number;
+  terminalReceipt?: TurnTerminalReceipt | null;
 }): {
   activityByTask: ProviderTurnActivityByTask;
   /** The turn's final snapshot when this batch ended it, else null. */
@@ -1123,14 +1056,24 @@ export function reduceProviderTurnActivityEvents(args: {
     current: currentTurnError,
   });
   const turnCompleted = args.events.some((event) => event.type === "done");
-  if (turnCompleted) {
-    turnErrorState = resolveTurnCompletionError({
-      events: args.events,
-      errorState: turnErrorState,
-    });
-  }
-
   const now = args.now ?? Date.now();
+  let terminalReceipt = current?.turnId === args.turnId
+    ? (current.terminalReceipt ?? createTurnReceipt()) : createTurnReceipt();
+  for (const event of args.events) {
+    terminalReceipt = observeTurnEvent(terminalReceipt, event, false);
+  }
+  if (turnCompleted) {
+    terminalReceipt = args.terminalReceipt ?? finishTurnReceipt(
+      terminalReceipt, new Date(now).toISOString(), undefined,
+      args.terminalReceipt !== null && !!current?.terminalReceipt,
+    );
+    turnErrorState = terminalReceipt.outcome === "failed"
+      ? {
+          message: terminalReceipt.error ?? "The provider run failed.",
+          recoverable: terminalReceipt.lastError?.recoverable ?? false,
+        }
+      : undefined;
+  }
   const pendingInteraction = turnCompleted
     ? null
     : (resolvePendingInteraction(args.events) ??
@@ -1151,6 +1094,7 @@ export function reduceProviderTurnActivityEvents(args: {
 
   const snapshot: ProviderTurnActivitySnapshot = {
     turnId: args.turnId,
+    terminalReceipt,
     providerId,
     startedAt,
     lastEventAt: now,

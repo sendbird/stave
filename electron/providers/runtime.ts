@@ -92,6 +92,7 @@ import {
   type ProviderTurnLifecycleSnapshot,
 } from "./provider-turn-lifecycle";
 import { DEFAULT_PROVIDER_TIMEOUT_MS } from "../../src/lib/providers/runtime-option-contract";
+import type { TaskAgentTurn } from "./task-agent-turn";
 
 const sdkTurnTimeoutMs = Number(
   process.env.STAVE_PROVIDER_TIMEOUT_MS ?? DEFAULT_PROVIDER_TIMEOUT_MS,
@@ -806,78 +807,69 @@ export function getProviderDecisionRequestId(event: BridgeEvent) {
   return null;
 }
 
-/**
- * Options a task adds to every turn because of what it is, looked up by task
- * id in the host service: today, the Agent an assigned task runs as. Set once
- * at host start; absent in tests and in processes that do not own tasks.
- */
-type TaskRuntimeOptionsResolver = (args: {
-  taskId: string;
-  providerId: StreamTurnArgs["providerId"];
-  runtimeOptions: StreamTurnArgs["runtimeOptions"];
-}) => Partial<NonNullable<StreamTurnArgs["runtimeOptions"]>>;
-
-let taskRuntimeOptionsResolver: TaskRuntimeOptionsResolver | null = null;
-
-export function setTaskRuntimeOptionsResolver(resolver: TaskRuntimeOptionsResolver | null) {
-  taskRuntimeOptionsResolver = resolver;
+/** Mandatory policy is captured once by the host before a primary turn starts. */
+let taskAgentTurnResolver: ((turn: StreamTurnArgs) => TaskAgentTurn | null) | null = null;
+export function setTaskAgentTurnResolver(resolver: typeof taskAgentTurnResolver) {
+  taskAgentTurnResolver = resolver;
 }
-
-/**
- * Text a task still owes its provider at the start of the next primary turn
- * (an agent's instructions for a provider that takes them in the prompt).
- * Returning it consumes it.
- */
-type TaskPromptPrefixResolver = (args: { taskId: string; providerId: StreamTurnArgs["providerId"] }) => string | null;
-
-let taskPromptPrefixResolver: TaskPromptPrefixResolver | null = null;
-
-export function setTaskPromptPrefixResolver(resolver: TaskPromptPrefixResolver | null) {
-  taskPromptPrefixResolver = resolver;
-}
-
-function withTaskPromptPrefix<T extends StreamTurnArgs>(args: T): T {
-  // Secondary read-only analysis turns never consume what the user's turn is owed.
-  if (!args.taskId || !taskPromptPrefixResolver || args.executionPolicy) return args;
-  let prefix: string | null = null;
-  try {
-    prefix = taskPromptPrefixResolver({ taskId: args.taskId, providerId: args.providerId });
-  } catch (error) {
-    console.warn("[provider] task prompt prefix lookup failed", error);
-  }
-  return prefix ? { ...args, prompt: `${prefix}\n\n---\n\n${args.prompt}` } : args;
-}
-
-function withTaskRuntimeOptions<T extends StreamTurnArgs>(rawArgs: T): T {
-  const args = withTaskPromptPrefix(rawArgs);
-  if (!args.taskId || !taskRuntimeOptionsResolver) return args;
-  let extra: Partial<NonNullable<StreamTurnArgs["runtimeOptions"]>> = {};
-  try {
-    extra = taskRuntimeOptionsResolver({ taskId: args.taskId, providerId: args.providerId, runtimeOptions: args.runtimeOptions });
-  } catch (error) {
-    console.warn("[provider] task runtime options lookup failed", error);
-  }
-  return Object.keys(extra).length ? { ...args, runtimeOptions: { ...args.runtimeOptions, ...extra } } : args;
+let taskPermissionObserver: ((args: {
+  taskId: string; providerId: StreamTurnArgs["providerId"];
+  options: NonNullable<StreamTurnArgs["runtimeOptions"]>;
+}) => void) | null = null;
+export function setTaskPermissionObserver(observer: typeof taskPermissionObserver) {
+  taskPermissionObserver = observer;
 }
 
 async function runProviderTurn(rawArgs: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void }) {
-  const args = withTaskRuntimeOptions(rawArgs);
-  const release = workspaceExecutionGate.acquire(args);
+  rawArgs = { ...rawArgs, turnId: rawArgs.turnId ?? randomUUID() };
+  const release = workspaceExecutionGate.acquire(rawArgs);
+  let preparingPolicy = true;
   try {
-    return await withProviderAccountScope(args.runtimeOptions, async () => {
-      const stamp = providerAccountEventMapper(args);
-      const events = await runProviderTurnImpl({ ...args, onEvent: (event) => args.onEvent?.(stamp(event)) });
-      return events.map(stamp);
-    });
+    // Delegation follows the user's turn policy before the Agent's direct-access ceiling.
+    if (rawArgs.taskId && !rawArgs.executionPolicy) {
+      taskPermissionObserver?.({
+        taskId: rawArgs.taskId,
+        providerId: rawArgs.providerId,
+        options: rawArgs.runtimeOptions ?? {},
+      });
+    }
+    const agentTurn = rawArgs.taskId && !rawArgs.executionPolicy
+      ? taskAgentTurnResolver?.(rawArgs) ?? null : null;
+    preparingPolicy = false;
+    return await runScopedProviderTurn(agentTurn
+      ? { ...rawArgs, runtimeOptions: agentTurn.runtimeOptions } : rawArgs, agentTurn);
+  } catch (error) {
+    if (!preparingPolicy) throw error;
+    // Mandatory task policy cannot fail open or escape the stream's terminal contract.
+    const lifecycle = createProviderTurnLifecycle({ onEvent: rawArgs.onEvent });
+    lifecycle.emit({ type: "error", recoverable: false,
+      message: "The task's Agent configuration could not be applied. Check its assignment and provider before retrying." });
+    lifecycle.finish("runtime_failure");
+    return lifecycle.events();
   } finally { release(); }
+}
+
+async function runScopedProviderTurn(
+  args: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void },
+  agentTurn?: TaskAgentTurn | null,
+) {
+  return await withProviderAccountScope(args.runtimeOptions, async () => {
+    const stamp = providerAccountEventMapper(args);
+    const events = await runProviderTurnImpl({
+      ...args, onEvent: (event) => args.onEvent?.(stamp(event)),
+    }, agentTurn);
+    return events.map(stamp);
+  });
 }
 
 async function runProviderTurnImpl(
   args: StreamTurnArgs & { onEvent?: (event: BridgeEvent) => void },
+  agentTurn?: TaskAgentTurn | null,
 ) {
   const lifecycle = createProviderTurnLifecycle({
     onEvent: args.onEvent,
   });
+  if (agentTurn) lifecycle.emit({ type: "agent_provenance", provenance: agentTurn.provenance });
   /**
    * Set once the advisor usage mapper exists. Terminal `done` events synthesised
    * here bypass the per-event mapper, so without this flush the advisor's tokens
@@ -1228,6 +1220,8 @@ async function runProviderTurnImpl(
   flushAdvisorUsage = mapUsageForDownstream.flush;
   const emittedPrimaryEvents: BridgeEvent[] = [];
   const emitPrimaryEvent = (event: BridgeEvent) => {
+    const provenance = agentTurn?.observe(event);
+    if (provenance) lifecycle.emit(provenance);
     emittedPrimaryEvents.push(event);
     for (const mappedEvent of mapUsageForDownstream(event)) {
       lifecycle.emit(mappedEvent);
@@ -1433,6 +1427,11 @@ async function runProviderTurnImpl(
       const events = await runStreamWithPausableTimeout(
         (isCursor ? streamCursorWithAcp : streamKiroWithAcp)({
           ...effectiveArgs,
+          prepareTaskAgentPrompt: agentTurn?.prepareSessionPrompt,
+          acknowledgeTaskAgentPrompt: () => {
+            const evidence = agentTurn?.acknowledgeSessionPrompt();
+            if (evidence) lifecycle.emit(evidence);
+          },
           onEvent: wrapStreamOnEvent(emitPrimaryEvent),
           registerAbort: registerPhaseAborter,
           registerApprovalResponder: (responder) => {

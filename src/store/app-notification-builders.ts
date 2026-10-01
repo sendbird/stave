@@ -1,3 +1,4 @@
+import { isSuccessfulProviderTurnStopReason } from "@/lib/providers/turn-stop-reason";
 /**
  * Notification input builders for provider turn events.
  *
@@ -83,7 +84,7 @@ function hardErrorWasSupersededByContinuation(
   if (
     !doneEvent ||
     lastHardErrorIndex < 0 ||
-    classifyProviderTurnStopReason(doneEvent.stop_reason) !== "completed"
+    !isSuccessfulProviderTurnStopReason(doneEvent.stop_reason)
   ) {
     return false;
   }
@@ -112,13 +113,15 @@ export function buildTaskTurnCompletedNotificationInput(args: {
   if (!doneEvent) {
     return null;
   }
-  if (
+  const receipt = [...(args.session.messagesByTask[args.taskId] ?? [])]
+    .reverse()
+    .find((message) => message.role === "assistant" && message.turnId === args.turnId)
+    ?.terminalReceipt;
+  if (receipt?.completedAt ? receipt.outcome !== "completed" : (
     classifyProviderTurnStopReason(doneEvent.stop_reason) !== "completed" ||
     (args.events.some((event) => event.type === "error" && !event.recoverable) &&
       !hardErrorWasSupersededByContinuation(args.events))
-  ) {
-    return null;
-  }
+  )) return null;
   if (args.session.activeTurnIdsByTask[args.taskId]) {
     return null;
   }
@@ -198,13 +201,18 @@ export function buildTaskTurnFailedNotificationInput(args: {
     );
   const failedDone = args.events.find((event) => event.type === "done" &&
     classifyProviderTurnStopReason(event.stop_reason) === "failed");
-  if (!errorEvent && !failedDone) {
+  const receipt = [...(args.session.messagesByTask[args.taskId] ?? [])]
+    .reverse()
+    .find((message) => message.role === "assistant" && message.turnId === args.turnId)
+    ?.terminalReceipt;
+  if (receipt?.completedAt && receipt.outcome !== "failed") return null;
+  if (!errorEvent && !failedDone && receipt?.outcome !== "failed") {
     return null;
   }
   if (args.session.activeTurnIdsByTask[args.taskId]) {
     return null;
   }
-  if (!failedDone && hardErrorWasSupersededByContinuation(args.events)) {
+  if (!receipt?.completedAt && !failedDone && hardErrorWasSupersededByContinuation(args.events)) {
     return null;
   }
 

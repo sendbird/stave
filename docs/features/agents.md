@@ -10,7 +10,14 @@ A Worker is different: a helper a task's model hands one piece of work to
 within a turn.
 
 Saving an agent starts nothing and grants nothing. Each assignment records its
-own start, and the permission you see is only the default the task starts with.
+own start. A main Agent's permission narrows the task's settings when needed;
+delegated Agents use the delegation policy resolved by the host.
+
+**Run overview → Run details** shows the Agent version captured for that turn,
+the permission source and whether instruction delivery was confirmed. The run's
+model remains the provider's reported model. Older turns without Agent evidence
+stay unspecified. History marks a saved version **Assigned** when an assignment
+references it; that label does not count completed turns.
 
 ## When To Use It
 
@@ -51,9 +58,20 @@ Open the **Agents** surface from the sidebar, the command palette
   agent picker ready.
 
 All of these open **Kickoff** with **Who** set. On the first screen, choose
-**Me** or an agent; with an agent, **Start now** starts a task from the source
-right away. On the review screen, **Who / How / Where** set the worker, whether
-it runs as one task or a playbook mission, and the new worktree and its base.
+**Me** or an agent; with an agent, **Start now** starts the work right away,
+from the source as **Skip AI** reads it. On the review screen, **Who / How /
+Where** set the worker, whether it runs as one task or a playbook mission, and
+the new worktree and its base.
+
+**Start now** and **Create and start** are the same start; Start now only
+skips the review. An agent that works in a **New worktree** gets one; an agent
+that works in the **Current workspace** gets a new task in the workspace you
+are in, with no worktree. The task records its agent, then its first turn is
+sent like any composer turn: your permission mode, sandbox, trusted tools and
+Stave Auto apply, capped by the agent's permission, exactly like every later
+turn. Kickoff shows where it runs as **Agent settings: provider · model ·
+permission**; an agent with **Auto** permission reads **Your permission
+settings** there, because it adds no limit of its own.
 
 ## Interface Walkthrough
 
@@ -168,6 +186,8 @@ too:
 - An agent with a fixed model moves the picker to that model. Mid-task it does
   so only on the same provider; pick another provider yourself. A model picked
   on a provider tab overrides the agent's model for the task.
+- With the picker on **Auto**, an agent whose model is **Auto-routing** with a
+  task class is routed as that class whenever the intent of a turn is unclear.
 - A task that runs as an agent has no Worker. The agent hands work to other
   agents itself through delegation. With **No agent** the Worker is offered as
   usual.
@@ -284,16 +304,20 @@ Fleet's search finds its tasks.
 
 | Setting | Values | Notes |
 | --- | --- | --- |
-| Works in | New worktree, Current workspace | New worktree creates a branch `agent/<agent>-<work>-<id>` |
+| Works in | New worktree, Current workspace | New worktree uses Kickoff's branch (Start now takes the one Skip AI proposes); Current workspace adds a task where you are |
 | Permission | Read only, Manual, Guided, Auto | A ceiling on every turn of the task; a read-only agent works in the current workspace |
-| Model | Auto-routing, or a fixed provider and model | Auto-routing uses your routing rules for the agent's task class |
+| Model | Auto-routing, or a fixed provider, model and effort | With Stave Auto on, the task stays on Auto and every turn is routed, with the agent's task class as the fallback; with it off, your routing rules pick one model and effort for the task when it starts |
 | Usable as | Main agent, Worker, Delegated task | Built-in Worker presets are usable only as a Worker |
 
 ## Behavior Details
 
-- Assigning twice from the same click starts the work once.
-- If Stave stops while preparing, the assignment shows **Interrupted** with
-  what it had made. It is never started again on its own.
+- The task and its prompt are saved, and the agent recorded, before the first
+  send. If the send cannot start, the prompt stays ready in the composer; if
+  it cannot be confirmed, check the task before sending again. Kickoff never
+  sends twice on its own.
+- Assignments from earlier versions that were cut off while preparing show
+  **Interrupted** with what they had made. They are never started again on
+  their own.
 - Cursor and Kiro receive the agent's instructions at the top of the first
   message — or of the next message after the task starts as, or switches to,
   an agent from Kickoff, a mission or the composer. Claude and Codex receive
@@ -314,6 +338,18 @@ Fleet's search finds its tasks.
   instructions**.
 - Tool limits are enforced where the provider supports them (for example, a
   Claude main agent's denied tools) and stated in the instructions elsewhere.
+- Where an assigned task runs:
+
+  | Agent model | Runs on override | Stave Auto | First turn and later turns |
+  | --- | --- | --- | --- |
+  | Fixed | — | either | The agent's provider, model and effort |
+  | Auto-routing | A provider | either | Your model for that provider, never re-routed |
+  | Auto-routing | Auto-routing | On | Auto, routed on every turn |
+  | Auto-routing | Auto-routing | Off | One route from your rules for the agent's task class, kept for the task |
+
+  When Auto routes the task, a confident classification decides the task
+  class. The agent's task class fills in when the intent is unclear or
+  classification is unavailable, and a safety escalation always wins.
 
 ## Limitations
 
@@ -330,3 +366,9 @@ Fleet's search finds its tasks.
 - [Delegated tasks](delegated-tasks.md)
 - [Auto-routing](auto-routing.md)
 - [Fleet Action Required](fleet-needs-me.md)
+
+Agent instructions for a prompt-channel provider stay pending when the first
+turn is blocked, cancelled before execution, or fails during provider startup.
+They are included in both the plain prompt and canonical conversation input,
+and consumed after the primary provider responds or starts a tool or decision.
+A delayed turn cannot consume instructions recorded for a newer agent.
