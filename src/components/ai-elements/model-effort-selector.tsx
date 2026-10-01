@@ -127,6 +127,8 @@ interface ModelEffortSelectorProps {
   showFastMode?: boolean;
   disabled?: boolean;
   openToken?: string | number;
+  /** A rising value opens the selector on its Agents section. */
+  openAgentsToken?: number;
   catalogs?: Partial<Record<ProviderId, ModelSelectorCatalogState>>;
   /**
    * Settings overrides for which catalog models this selector lists by default.
@@ -333,6 +335,9 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     isClaudeContext1MModel(args.value.model),
   );
   const handledOpenTokenRef = useRef(args.openToken);
+  const handledAgentsTokenRef = useRef(args.openAgentsToken);
+  /** A tab an open request asked for; the open's reset lands on it once. */
+  const requestedTabRef = useRef<RailValue | null>(null);
   const resetHandledForOpenRef = useRef(false);
   const triggerRef = useRef<HTMLButtonElement | null>(null);
   const pinTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -597,14 +602,17 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     const startProviderId = args.value.isAuto
       ? (providerIds[0] ?? "claude-code")
       : args.value.providerId;
+    const requestedTab = pinMode ? null : requestedTabRef.current;
+    requestedTabRef.current = null;
     setRailValue(
-      pinMode
+      requestedTab ??
+      (pinMode
         ? startProviderId
         : agentActive
           ? AGENTS_TAB
           : args.value.isAuto
             ? AUTO_TAB
-            : args.value.providerId,
+            : args.value.providerId),
     );
     setProviderId(startProviderId);
     setContext1M(isClaudeContext1MModel(args.value.model));
@@ -633,6 +641,14 @@ export function ModelEffortSelector(args: ModelEffortSelectorProps) {
     handledOpenTokenRef.current = args.openToken;
     setOpenPanel("selector");
   }, [args.disabled, args.openToken]);
+
+  useEffect(() => {
+    if (args.openAgentsToken === undefined || args.openAgentsToken === handledAgentsTokenRef.current) return;
+    handledAgentsTokenRef.current = args.openAgentsToken;
+    if (args.disabled || !args.agents) return;
+    requestedTabRef.current = AGENTS_TAB;
+    setOpenPanel("selector");
+  }, [args.agents, args.disabled, args.openAgentsToken]);
 
   // The same popover content serves both triggers; only one is ever open.
   const popoverContent = (

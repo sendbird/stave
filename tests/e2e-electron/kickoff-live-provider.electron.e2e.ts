@@ -100,7 +100,7 @@ process.on("SIGTERM", () => child.kill("SIGTERM"));
     });
     await stave.page.getByRole("button", { name: "Agents", exact: true }).click();
     await stave.page.getByRole("button", { name: /^Kickoff validation/ }).click();
-    await stave.page.getByRole("button", { name: "Start work…", exact: true }).click();
+    await stave.page.getByRole("button", { name: "Assign…", exact: true }).click();
     const dialog = stave.page.getByRole("dialog", { name: "Kick off workspace" });
     await dialog.getByRole("textbox", { name: "Work source" }).fill(
       "Reply with the marker specified in your saved Agent instructions. Do not call tools, edit files, run commands, or start external actions.",

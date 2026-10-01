@@ -145,10 +145,21 @@ export const agentStyles = stylex.create({
   historyWhen: { fontSize: vars["--ads-font-size-caption"], fontWeight: vars["--ads-font-weight-medium"] },
   historyMeta: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"], flex: "0 0 auto" },
 
+  /* Detail layout -------------------------------------------------------- */
+  detail: { gap: vars["--ads-space-16"] },
+  pane: { display: "flex", flexDirection: "column", gap: vars["--ads-space-16"] },
+  tabPane: { paddingTop: vars["--ads-space-16"] },
+
   /* Activity ------------------------------------------------------------- */
-  stats: { display: "flex", flexWrap: "wrap", gap: vars["--ads-space-16"] },
-  stat: { display: "flex", flexDirection: "column", gap: 0, minWidth: "4rem" },
-  statValue: { fontSize: vars["--ads-font-size-title"], fontWeight: vars["--ads-font-weight-semibold"] },
+  activity: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"] },
+  summary: { display: "flex", flexWrap: "wrap", alignItems: "baseline", columnGap: vars["--ads-space-12"], rowGap: vars["--ads-space-4"] },
+  attention: { fontSize: vars["--ads-font-size-body"], fontWeight: vars["--ads-font-weight-medium"], fontVariantNumeric: "tabular-nums" },
+
+  /* Learned suggestions: one line when there is nothing to review ---------- */
+  suggestionsLine: { display: "flex", alignItems: "center", gap: vars["--ads-space-8"], minWidth: 0 },
+  suggestionsLineText: { flex: "1 1 auto", flexWrap: "wrap", minWidth: 0, overflowWrap: "anywhere" },
+  suggestionsLineTitle: { flex: "0 0 auto" },
+  suggestions: { display: "flex", flexDirection: "column", gap: vars["--ads-space-12"] },
 
   /* Learned suggestions -------------------------------------------------- */
   suggestion: {

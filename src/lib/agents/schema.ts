@@ -2,6 +2,13 @@ import { z } from "zod";
 import { TASK_CLASSES } from "@/lib/providers/auto-routing-profile";
 import { listProviderIds } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
+import {
+  CHECK_INS,
+  MAX_PLAYBOOK_STAGES,
+  PlaybookStageSchema,
+  listPlaybookStructureIssues,
+  type CheckIns,
+} from "@/lib/playbooks/schema";
 
 /**
  * An agent config is a saved worker definition: who does the work. The
@@ -115,6 +122,29 @@ export const AGENT_COLORS = [
 ] as const;
 export type AgentColor = (typeof AGENT_COLORS)[number];
 
+/**
+ * "Check in with me": when an agent with a workflow waits for the user
+ * between stages. The values are the mission engine's check-in levels; a
+ * stage that writes outside the workspace (a publish stage or a Stave action)
+ * runs without asking only under `when-stuck`, the default.
+ */
+export const DEFAULT_AGENT_CHECK_INS: CheckIns = "when-stuck";
+
+export const AGENT_CHECK_IN_LABELS: Readonly<Record<CheckIns, string>> = {
+  "when-stuck": "Only when stuck",
+  "plan-and-publishing": "Before publishing",
+  "every-stage": "Every stage",
+};
+
+/**
+ * A workflow: the ordered stages a run of this agent follows, each an AI
+ * stage (instruction, done when, optionally done by another agent) or a Stave
+ * action (open draft PR, watch checks, ready for review, run script). The
+ * stage schema is the mission engine's own.
+ */
+export const AgentWorkflowSchema = z.array(PlaybookStageSchema).min(1).max(MAX_PLAYBOOK_STAGES);
+export type AgentWorkflow = z.infer<typeof AgentWorkflowSchema>;
+
 export const AGENT_SOURCES = ["builtin", "custom", "repository"] as const;
 export type AgentSource = (typeof AGENT_SOURCES)[number];
 
@@ -212,7 +242,7 @@ export const AgentConfigSchema = z
     id: AgentConfigIdSchema,
     source: z.enum(AGENT_SOURCES),
     name: z.string().trim().min(1).max(AGENT_CONFIG_LIMITS.name),
-    /** "Use when": when to hand work to this agent. A trigger, not a bio. */
+    /** "Use when": when to assign work to this agent. A trigger, not a bio. */
     description: z.string().trim().min(1).max(AGENT_CONFIG_LIMITS.description),
     /** "Don't use when". */
     avoidWhen: z.string().trim().max(AGENT_CONFIG_LIMITS.avoidWhen).optional(),
@@ -240,6 +270,10 @@ export const AgentConfigSchema = z
       .default(DEFAULT_AGENT_CONCURRENCY),
     /** Built-in Worker preset this agent mirrors, when it is one. */
     workerPresetId: z.string().trim().min(1).max(AGENT_CONFIG_LIMITS.id).optional(),
+    /** Absent: a run is one "Work" stage. */
+    workflow: AgentWorkflowSchema.optional(),
+    /** Absent: only when stuck. */
+    checkIns: z.enum(CHECK_INS).optional(),
     /** Optional profile identity (avatar colour). Absent stays valid. */
     appearance: AgentAppearanceSchema.optional(),
     origin: AgentFileOriginSchema.optional(),
@@ -269,6 +303,11 @@ export const AgentConfigSchema = z
     }
     if (agent.source === "repository" && !agent.origin) {
       ctx.addIssue({ code: "custom", path: ["origin"], message: "A repository agent records the file it came from." });
+    }
+    if (agent.workflow) {
+      for (const issue of listPlaybookStructureIssues({ purpose: "", stages: agent.workflow })) {
+        ctx.addIssue({ code: "custom", message: issue.message, path: ["workflow", ...issue.path.slice(1)] });
+      }
     }
     const deny = new Set(agent.tools.deny ?? []);
     const overlap = (agent.tools.allow ?? []).filter((tool) => deny.has(tool));

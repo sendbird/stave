@@ -106,7 +106,7 @@ under `src/components/layout/codex-settings/` receive that state and callbacks;
 3. `src/lib/pr-status.ts` for normalized status and available actions
 4. `docs/architecture/contracts.md` for the PR bridge and context contracts
 
-### Missions and playbooks
+### Agent runs and workflows
 
 1. `src/lib/missions/policy.ts` for the pure supervisor decision and
    `src/lib/missions/domain.ts` for mission state and consent
@@ -116,9 +116,12 @@ under `src/components/layout/codex-settings/` receive that state and callbacks;
 3. `src/store/missions-store.ts` (the workspace in view) and
    `src/store/fleet-missions-store.ts` (every workspace, notifications) for
    renderer state
-4. `src/components/missions/` for the Mission bar, panel, sign-off card and
-   Start sheet, and `src/components/playbooks/` for the Playbooks tab
-5. `docs/features/missions.md` and `docs/features/playbooks.md` for the user
+4. `src/lib/missions/agent-run.ts` for how an agent's workflow becomes a run,
+   and `src/components/missions/` for the status line, panel, sign-off card
+   and Fleet strip
+5. `src/components/agents/AgentWorkflowField.tsx` (over
+   `src/components/playbooks/StageList.tsx`) for the agent editor's Workflow
+6. `docs/features/missions.md` and `docs/features/agents.md` for the user
    flow
 
 ### Projects

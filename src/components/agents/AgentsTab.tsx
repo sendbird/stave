@@ -34,7 +34,9 @@ import {
   type AgentSuggestion,
 } from "@/lib/agents/learned-suggestions";
 import {
+  AGENT_CHECK_IN_LABELS,
   AGENT_PERMISSION_LABELS,
+  DEFAULT_AGENT_CHECK_INS,
   AGENT_SOURCE_LABELS,
   isUsableAs,
   type AgentConfig,
@@ -206,11 +208,11 @@ function AgentDetail(props: {
   );
 
   const settingsTab = (
-    <>
+    <div className={sx(agentStyles.pane, agentStyles.tabPane)}>
       {editable ? (
-        <AgentEditor key={agent.id} agent={agent} onSave={props.onSave} />
+        <AgentEditor key={agent.id} agent={agent} onSave={props.onSave} embedded />
       ) : (
-        <div className={sx(styles.editor)}>
+        <div>
           <dl className={sx(styles.properties)}>
             <dt className={sx(styles.propertyLabel)}>Source</dt>
             <dd className={sx(styles.propertyValue)}>
@@ -225,6 +227,15 @@ function AgentDetail(props: {
             ) : null}
             <dt className={sx(styles.propertyLabel)}>Runs with</dt>
             <dd className={sx(styles.propertyValue)}>{describeAgent(agent)}</dd>
+            {agent.workflow && agent.workflow.length > 1 ? (
+              <>
+                <dt className={sx(styles.propertyLabel)}>Workflow</dt>
+                <dd className={sx(styles.propertyValue)}>
+                  {agent.workflow.map((stage) => stage.title).join(" → ")} · Check in:{" "}
+                  {AGENT_CHECK_IN_LABELS[agent.checkIns ?? DEFAULT_AGENT_CHECK_INS]}
+                </dd>
+              </>
+            ) : null}
             <dt className={sx(styles.propertyLabel)}>Instructions</dt>
             <dd className={sx(styles.propertyValue)}>
               <pre className={sx(agentStyles.instructions)}>{agent.instructions}</pre>
@@ -233,12 +244,22 @@ function AgentDetail(props: {
           </dl>
         </div>
       )}
-      <div className={sx(styles.editor)}>
-        <ProviderSupport agent={agent} />
-        <ImportNotes notes={props.notes} />
-        <ExportAgent agent={agent} rootPath={props.rootPath} />
-      </div>
-    </>
+      {editable ? (
+        <AgentSuggestions
+          agent={agent}
+          suggestions={suggestions}
+          learning={learning}
+          onLearningChange={setLearning}
+          onApply={(suggestion, instructions) => {
+            if (!props.onSave({ ...agent, instructions })) dismissSuggestion(suggestion);
+          }}
+          onDismiss={dismissSuggestion}
+        />
+      ) : null}
+      <ProviderSupport agent={agent} />
+      <ImportNotes notes={props.notes} />
+      <ExportAgent agent={agent} rootPath={props.rootPath} />
+    </div>
   );
 
   const tabs = [
@@ -247,7 +268,7 @@ function AgentDetail(props: {
       value: "history",
       label: "History",
       content: (
-        <div className={sx(styles.editor)}>
+        <div className={sx(agentStyles.pane, agentStyles.tabPane)}>
           {editable ? (
             <AgentHistory
               agent={agent}
@@ -265,7 +286,7 @@ function AgentDetail(props: {
 
   return (
     <div className={sx(styles.scroll)}>
-      <div className={sx(styles.editor)}>
+      <div className={sx(styles.editor, agentStyles.detail)}>
         <div className={sx(styles.heading)}>
           <AgentProfileHeader agent={agent} />
           <div className={sx(styles.headingActions)}>
@@ -275,7 +296,7 @@ function AgentDetail(props: {
                 onClick={() => useAgentsUiStore.getState().openKickoffWithAgent({ agentConfigId: agent.id })}
               >
                 <Rocket aria-hidden />
-                Start work…
+                Assign…
               </Button>
             ) : null}
             <Button size="sm" variant="quiet" onClick={props.onDuplicate}>
@@ -296,25 +317,7 @@ function AgentDetail(props: {
             ) : null}
           </div>
         </div>
-      </div>
-      {editable ? (
-        <div className={sx(styles.editor)}>
-          <AgentSuggestions
-            agent={agent}
-            suggestions={suggestions}
-            learning={learning}
-            onLearningChange={setLearning}
-            onApply={(suggestion, instructions) => {
-              if (!props.onSave({ ...agent, instructions })) dismissSuggestion(suggestion);
-            }}
-            onDismiss={dismissSuggestion}
-          />
-        </div>
-      ) : null}
-      <div className={sx(styles.editor)}>
         <AgentActivity assignments={assignments} />
-      </div>
-      <div className={sx(styles.editor)}>
         <Tabs variant="line" items={tabs} defaultValue={initialAgentDetailTab()} />
       </div>
     </div>
@@ -350,7 +353,6 @@ function UnusedFiles(props: { problems: ReadonlyArray<{ path: string; message: s
 export function AgentsTab() {
   const custom = useAppStore((state) => state.settings.customAgents);
   const customAgentRevisions = useAppStore((state) => state.settings.customAgentRevisions);
-  const playbooks = useAppStore((state) => state.settings.playbooks);
   const projects = useProjectsStore((state) => state.projects);
   const updateSettings = useAppStore((state) => state.updateSettings);
   const [query, setQuery] = useState("");
@@ -442,9 +444,9 @@ export function AgentsTab() {
   const deleteReferences = useMemo(
     () =>
       deleteTarget
-        ? findAgentReferences({ agentConfigId: deleteTarget.id, playbooks, projects })
+        ? findAgentReferences({ agentConfigId: deleteTarget.id, agents, projects })
         : { blocking: [], soft: [] },
-    [deleteTarget, playbooks, projects],
+    [deleteTarget, agents, projects],
   );
 
   return (
@@ -505,7 +507,7 @@ export function AgentsTab() {
         ))}
         {groups.length === 0 && !query ? (
           <div className={sx(styles.empty)} style={{ padding: 0 }}>
-            <p className={sx(styles.emptyText)}>No agents yet. Create one to hand work to it.</p>
+            <p className={sx(styles.emptyText)}>No agents yet. Create one to assign work to it.</p>
             <div className={sx(styles.emptyActions)}>
               <Button size="sm" onClick={() => setNewOpen(true)}>
                 <Plus aria-hidden />

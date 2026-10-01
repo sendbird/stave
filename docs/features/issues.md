@@ -75,7 +75,7 @@ Keys are ignored while you are typing in a field, and while the kickoff sheet is
 2. **Where it runs** — the repository defaults to the mapping for the ticket's team or Jira project, then to the repository you last used for that source, then to the open repository. Choose a new workspace (the branch name is proposed from the ticket key and title, and honours the repository's branch naming rule) or an existing one.
 3. **What to do** — the instruction is prefilled from the ticket title, link, and description. Edit it freely; *Reset to ticket* restores the generated text.
 4. **How it runs** — provider, model, reasoning effort and autonomy preset, exactly as in the Crane approval dialog. *Remember for `<SCOPE>`* stores the repository and model choice for that team or Jira project; access levels always re-derive from your current settings.
-5. **How it starts** — *Start now* runs the turn immediately. *Stage prompt only* prepares the workspace and drops the prompt in the composer for you to send. Pick a **Playbook** instead of *No playbook — one task* to make the ticket a [mission](missions.md): Stave prepares the workspace and task, then opens **Start a mission** with the instruction as the assignment.
+5. **How it starts** — *Start now* runs the turn immediately. *Stage prompt only* prepares the workspace and drops the prompt in the composer for you to send. To have an agent do it, use **Assign to agent** instead.
 6. For a Crane ticket, *Report progress to Crane* registers a Crane job so the ticket shows as running in Stave. It is available only when the run starts now, and only while the Crane connector is on.
 
 ### Attach A Ticket To Work In Progress
@@ -90,8 +90,8 @@ Right-click a row and choose **Attach to `<workspace>`**. The ticket is register
 
 ### Proposed Missions
 
-The **Proposed** tab lists missions that a playbook's
-[start conditions](playbooks.md#start-conditions) or a triage mission
+The **Proposed** tab lists work that start conditions saved on a playbook
+before [playbooks folded into agents](playbooks.md), or a triage run,
 proposed: for an assigned issue, a pull request that needs work, a schedule,
 or a request found while triaging. Its count shows on the tab, and Fleet's
 header shows **N proposed** while any wait; clicking it opens this tab.
@@ -100,13 +100,12 @@ header shows **N proposed** while any wait; clicking it opens this tab.
 
 - Each row names the source, why it was proposed, the playbook, where it runs
   and how long ago. The link icon opens the issue, pull request or thread.
-- **Kick off** (an issue) opens the ticket's kickoff with the playbook chosen.
+- **Kick off** (an issue) opens the ticket's kickoff.
   **Start** opens the pull request's or schedule's workspace — first opening
   its repository when another one is open — or, for a triage proposal, uses
-  the workspace open now. It then opens **Start a mission** on a new task (or
-  the empty one a failed automatic start left) with the assignment filled in.
-  The proposal is marked started once the mission starts; closing the sheet
-  without starting archives the empty task.
+  the workspace open now. It then puts the request in a new task's composer
+  (or the empty one a failed automatic start left) and marks the proposal
+  started; choose an agent and **Assign**.
 - **Dismiss** sets it aside. The same issue, commit or request is never
   proposed again.
 - **Decided recently** lists the last 30 started and dismissed proposals,
@@ -193,4 +192,4 @@ background, at most every ten minutes, even when the Issues view is closed.
 - [Provider Sandbox and Approval Guide](provider-sandbox-and-approval.md) — what the autonomy presets mean
 - [Local MCP User Guide](local-mcp-user-guide.md) — the read-only tracker listing tool
 - [Missions](missions.md)
-- [Playbooks](playbooks.md#start-conditions) — start conditions that propose missions
+- [Playbooks (retired)](playbooks.md) — where saved start conditions went

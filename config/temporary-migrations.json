@@ -149,6 +149,20 @@
       "tests": [
         "tests/crane-advisor-memory-migration.test.ts"
       ]
+    },
+    {
+      "id": "playbooks-to-agent-workflows",
+      "description": "Copies each playbook saved before playbooks folded into agents into a custom agent with the Implementer's instructions and the playbook's stages as its workflow, once per profile (marker setting playbookAgentsMigrated).",
+      "introducedAfter": "0.21.2",
+      "removeInVersion": "0.24.0",
+      "files": [
+        "src/lib/agents/playbook-agents-migration.ts",
+        "src/store/app-settings.ts",
+        "src/store/app-store-persistence.ts"
+      ],
+      "tests": [
+        "tests/playbook-agents-migration.test.ts"
+      ]
     }
   ]
 }

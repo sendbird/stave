@@ -36,6 +36,7 @@ export function agentRunFleetDetails(): Record<string, MissionDetail> {
   return {
     "fleet-agent-working": as(runs.working, "fleet-agent-working", "fleet-d"),
     "fleet-agent-needs": as(runs.needsYou, "fleet-agent-needs", "fleet-e"),
+    "fleet-agent-workflow": as(runs.workflow, "fleet-agent-workflow", "fleet-f"),
   };
 }
 
@@ -62,6 +63,7 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
           ["Agent run working", "Composer · working", working.working, "Running the tests"],
           ["Agent run needs you", "Composer · needs you (blocked)", working.needsYou, null],
           ["Agent run stuck", "Composer · needs you (stuck)", working.stuck, null],
+          ["Agent run workflow", "Composer · an agent with a workflow, stage 2 of 3", working.workflow, "Reading the export handler"],
         ] as const
       ).map(([id, label, detail, phrase]) => (
         <section key={id} className={sx(styles.case)} data-preview-case={id}>
@@ -96,6 +98,7 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
       {(
         [
           ["Agent run panel working", "Progress tab · working", working.working],
+          ["Agent run panel workflow", "Progress tab · workflow, stage 2 of 3", working.workflow],
           ["Agent run panel needs you", "Progress tab · needs you", working.needsYou],
           ["Agent run panel ready", "Progress tab · ready", runs.ready],
           ["Agent run panel failed", "Progress tab · failed", runs.failed],
@@ -110,10 +113,10 @@ export function AgentRunPreviewCases({ now, width }: { now: number; width: numbe
       <section className={sx(styles.case)} data-preview-case="Agent run fleet">
         <p className={sx(styles.caption)}>Fleet workspace cards</p>
         <div className={sx(styles.fleet)}>
-          {(["fleet-d", "fleet-e"] as const).map((workspaceId, index) => (
+          {(["fleet-d", "fleet-e", "fleet-f"] as const).map((workspaceId, index) => (
             <div key={workspaceId} className={sx(styles.fleetCard)}>
               <div className={sx(styles.fleetHeader)}>
-                <strong>{["billing-overflow", "csv-export"][index]}</strong>
+                <strong>{["billing-overflow", "csv-export", "export-crash"][index]}</strong>
                 <span className={sx(styles.caption)}>acme/app</span>
               </div>
               <FleetMissionStrip workspaceId={workspaceId} onOpen={() => {}} />

@@ -1,3 +1,4 @@
+import { BUILTIN_AGENT_WORKFLOWS } from "./builtin-workflows";
 import { SUBAGENT_PRESETS, type SubagentPreset } from "./subagent-presets";
 import {
   AGENT_CONFIG_VERSION,
@@ -42,12 +43,13 @@ function general(draft: GeneralAgentDraft): AgentConfig {
     archived: false,
     ...rest,
     instructions: [...instructions, SHARED_STYLE].join("\n\n"),
+    ...(BUILTIN_AGENT_WORKFLOWS[draft.id] ? { workflow: structuredClone(BUILTIN_AGENT_WORKFLOWS[draft.id]) } : {}),
   };
 }
 
 /**
  * Listed in the order the selector shows them, by expected use. An agent that
- * only reads names none to call; the rest name the agents they hand work to.
+ * only reads names none to call; the rest name the agents they delegate to.
  */
 const GENERAL_AGENTS: readonly AgentConfig[] = [
   general({
@@ -174,7 +176,7 @@ const GENERAL_AGENTS: readonly AgentConfig[] = [
     avoidWhen: "The change is not finished or not verified locally.",
     instructions: [
       "You land a finished change. Publish only the scoped diff and leave unrelated changes unstaged.",
-      "Run the required checks first. Open a ready pull request with the repository template and queue auto-merge unless told not to.",
+      "Run the required checks first. Publish through a pull request with the repository template; when your workflow opens it, do not open another.",
       "Watch the required checks to completion. Read the failing log before you edit, and fix only the failures this change caused. Confirm that a failure is pre-existing or flaky against the base branch or a rerun before you say so.",
       "Stop when another fix yields nothing new or a decision is needed.",
       "Report the pull request link, the checks and the merge state.",

@@ -94,7 +94,7 @@ export function prepareAgentRunForSend(
         buildAgentRunStartInput({
           workspaceId: args.workspaceId,
           taskId: args.taskId,
-          agent: { name: agent.agentName },
+          agent: { name: agent.agentName, workflow: agent.agentWorkflow, checkIns: agent.agentCheckIns },
           assignment: args.prompt,
           now: args.now ?? new Date(),
         }),

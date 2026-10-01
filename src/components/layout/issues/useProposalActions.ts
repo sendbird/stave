@@ -1,12 +1,10 @@
 import { useCallback } from "react";
 
 import { toast } from "@/components/ui";
-import { playbookChoiceForId } from "@/lib/missions/start-sheet";
 import type { ProposedMission } from "@/lib/missions/proposed";
 import { trackerIssueKey } from "@/lib/tracker-issues/client-store";
 import type { TrackerIssueListItem } from "@/lib/tracker-issues/types";
 import { useAppStore } from "@/store/app.store";
-import { usePlaybooksUiStore, type StartMissionRequest } from "@/store/playbooks-ui-store";
 import { useProposalsStore } from "@/store/proposals-store";
 import type { ProposalStartTarget } from "./ProposedMissionsPanel";
 
@@ -46,16 +44,6 @@ function takeTaskFor(proposal: ProposedMission): string | null {
   useAppStore.getState().createTask({ title: proposal.title.slice(0, 80) });
   const taskId = useAppStore.getState().activeTaskId;
   return taskId && taskId !== previous ? taskId : null;
-}
-
-/** Archives the task once the Start sheet closes without a mission, if it is still empty. */
-function discardIfCancelled(request: StartMissionRequest, wasStarted: () => boolean) {
-  const unsubscribe = usePlaybooksUiStore.subscribe((state) => {
-    if (state.startSheet === request) return;
-    unsubscribe();
-    const app = useAppStore.getState();
-    if (!wasStarted() && isEmptyTask(app, request.taskId)) app.archiveTask({ taskId: request.taskId });
-  });
 }
 
 /** The loaded ticket a proposal came from, when Issues still lists it. */
@@ -104,7 +92,7 @@ export function useProposalActions(args: {
 
   /**
    * Opens the workspace — its repository first, when another one is open —
-   * then the Start sheet on an empty task with the proposal filled in.
+   * then an empty task with the proposal as its draft, ready to assign.
    */
   const startInWorkspace = useCallback(
     async (proposal: ProposedMission, workspaceId: string) => {
@@ -134,19 +122,9 @@ export function useProposalActions(args: {
         return;
       }
       closeSurface();
-      let started = false;
-      const request: StartMissionRequest = {
-        workspaceId,
-        taskId,
-        playbookId: playbookChoiceForId(proposal.playbookId),
-        assignment: proposal.assignment,
-        onMissionStarted: (missionId) => {
-          started = true;
-          void useProposalsStore.getState().markStarted(proposal.id, missionId);
-        },
-      };
-      usePlaybooksUiStore.getState().openStartSheet(request);
-      discardIfCancelled(request, () => started);
+      useAppStore.getState().updatePromptDraft({ taskId, patch: { text: proposal.assignment } });
+      void useProposalsStore.getState().markStarted(proposal.id, null);
+      toast.success("The request is in a new task", { description: "Choose an agent, then Assign." });
     },
     [closeSurface],
   );

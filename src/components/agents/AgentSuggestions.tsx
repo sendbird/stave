@@ -66,7 +66,9 @@ function SuggestionCard(props: {
  * Learned suggestions for a custom agent: instruction changes proposed after
  * you corrected it in a task. Apply saves them like an edit (so the old
  * instructions stay in History), Edit changes them first, Dismiss drops them.
- * The switch turns learning off for this agent.
+ * The switch turns learning off for this agent. With nothing to review it is
+ * a single line (title, hint, switch) so it costs almost no space; the
+ * detail shows it below the settings form.
  */
 export function AgentSuggestions(props: {
   agent: AgentConfig;
@@ -76,36 +78,45 @@ export function AgentSuggestions(props: {
   onApply: (suggestion: AgentSuggestion, instructions: string) => void;
   onDismiss: (suggestion: AgentSuggestion) => void;
 }) {
+  const empty = props.suggestions.length === 0;
+  const learningSwitch = (
+    <Switch
+      density="compact"
+      label="Learn from my corrections"
+      checked={props.learning}
+      onCheckedChange={(checked) => props.onLearningChange(checked)}
+    />
+  );
+  if (empty) {
+    return (
+      <section aria-label="Learned suggestions" className={sx(agentStyles.suggestionsLine)}>
+        <div className={sx(styles.sectionHeader, agentStyles.suggestionsLineText)}>
+          <h3 className={sx(styles.sectionTitle, agentStyles.suggestionsLineTitle)}>Learned suggestions</h3>
+          <span className={sx(styles.hint)}>
+            {props.learning ? "None yet. A correction you make in a task shows up here." : "Learning is off."}
+          </span>
+        </div>
+        {learningSwitch}
+      </section>
+    );
+  }
   return (
-    <section aria-label="Learned suggestions" className={sx(styles.editor)}>
+    <section aria-label="Learned suggestions" className={sx(agentStyles.suggestions)}>
       <div className={sx(styles.sectionHeader)}>
         <h3 className={sx(styles.sectionTitle)}>Learned suggestions</h3>
-        <Switch
-          density="compact"
-          label="Learn from my corrections"
-          checked={props.learning}
-          onCheckedChange={(checked) => props.onLearningChange(checked)}
-        />
+        {learningSwitch}
       </div>
-      {props.suggestions.length === 0 ? (
-        <p className={sx(styles.hint)}>
-          {props.learning
-            ? "When you correct this agent in a task, a suggested change to its instructions appears here. Each corrected task uses one request to the utility model."
-            : "Learning is off for this agent."}
-        </p>
-      ) : (
-        <ul className={sx(agentStyles.runs)}>
-          {props.suggestions.map((suggestion) => (
-            <SuggestionCard
-              key={suggestion.id}
-              suggestion={suggestion}
-              stale={suggestion.basedOn !== props.agent.instructions}
-              onApply={(instructions) => props.onApply(suggestion, instructions)}
-              onDismiss={() => props.onDismiss(suggestion)}
-            />
-          ))}
-        </ul>
-      )}
+      <ul className={sx(agentStyles.runs)}>
+        {props.suggestions.map((suggestion) => (
+          <SuggestionCard
+            key={suggestion.id}
+            suggestion={suggestion}
+            stale={suggestion.basedOn !== props.agent.instructions}
+            onApply={(instructions) => props.onApply(suggestion, instructions)}
+            onDismiss={() => props.onDismiss(suggestion)}
+          />
+        ))}
+      </ul>
     </section>
   );
 }

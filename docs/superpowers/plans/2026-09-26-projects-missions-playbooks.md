@@ -5,7 +5,9 @@
 
 **Status:** built as twenty ordered changes: the design record, five
 vocabulary renames, missions and playbooks (Phase 1) and projects (Phase 3).
-This copy keeps each change's As-built note — what shipped, where, and how it
+Later, playbooks folded into agents: the Playbooks tab, the Start sheet,
+the hand-off control and their modules named below were removed (see
+`docs/features/agents.md`, Workflow). This copy keeps each change's As-built note — what shipped, where, and how it
 differs from the plan. The working plan, which names pre-rename paths and
 files that were planned but never created, stays out of the tracked docs.
 
@@ -773,20 +775,20 @@ As-built (PR 11, `df5b3a5d`):
 
 - [x] Playbooks tab (`src/components/playbooks/`): searchable list + in-place
   editor; per-playbook unsaved drafts; templates gallery empty state; Draft
-  with AI (`src/lib/playbooks/draft-with-ai.ts` + utility-lane read-only turn
-  in `src/store/playbook-draft-runtime.ts`); stage rows with drag and
+  with AI (a playbook drafting module + utility-lane read-only turn,
+  since removed); stage rows with drag and
   Alt+arrow reorder, sign-off hand toggle (`setStageSignOff` removes an
   override that matches the preset), inline Stave action settings (deviation:
   no side pane); validation grouped by field on Save.
-- [x] Start sheet (`StartMissionSheet.tsx`): assignment first, playbook +
+- [x] Start sheet (since removed): assignment first, playbook +
   stage rail (Starts now / Automatic / Asks you, globe for external
   effects), check-ins, a separate "Acts outside this machine" checkbox list,
   per-start permissions, "Edit stages for this mission" (this time / save as
-  new), pre-start checks (`src/lib/missions/pre-start-checks.ts`). Primary
+  new), pre-start checks (since removed). Primary
   button from `describeStartButton`. Uncertain start replies are re-checked
   (`missions-store.startMission`). Frozen target via `playbooks-ui-store`.
   Deviation: no Start at stage (domain has no start index).
-- [x] Entry points: `handOff` composer control (`HandOffControl.tsx`,
+- [x] Entry points: `handOff` composer control (since removed;
   registered in `composer-controls.ts`, rendered by `prompt-input.tsx`),
   `!shortcut` playbook entries in the macro palette, command palette
   contributor (`useMissionCommands.ts`), Mission panel empty state, Playbook

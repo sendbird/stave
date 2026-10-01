@@ -2,10 +2,10 @@ import { create } from "zustand";
 
 /**
  * Which tab the Agents surface shows. Kept in its own store so another surface
- * — a "manage playbooks" link, a palette command — can open the surface on a
+ * — a "My standards" link, a palette command — can open the surface on a
  * given tab without threading state through the render ladder.
  */
-export type AgentsViewTab = "agents" | "playbooks" | "standards";
+export type AgentsViewTab = "agents" | "standards";
 
 interface AgentsViewState {
   activeTab: AgentsViewTab;

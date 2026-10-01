@@ -214,11 +214,12 @@ function actionIndexes(stages: PlaybookStage[], type: StaveActionType) {
 }
 
 /**
- * Rules that span stages. When a playbook opens a draft PR, the checks and
- * ready-for-review actions must come after it; without an `open-draft-pr`
- * stage they act on the workspace's existing pull request.
+ * Rules that span stages, shared by playbooks and agent workflows. When the
+ * stages open a draft PR, the checks and ready-for-review actions must come
+ * after it; without an `open-draft-pr` stage they act on the workspace's
+ * existing pull request.
  */
-function listPlaybookStructureIssues(
+export function listPlaybookStructureIssues(
   playbook: StructureInput,
 ): Array<{ message: string; path: PropertyKey[] }> {
   const issues: Array<{ message: string; path: PropertyKey[] }> = [];
@@ -242,7 +243,7 @@ function listPlaybookStructureIssues(
   const openIndexes = actionIndexes(playbook.stages, "open-draft-pr");
   if (openIndexes.length > 1) {
     issues.push({
-      message: "A playbook can open a draft PR only once.",
+      message: "Open a draft PR only once.",
       path: ["stages", openIndexes[1]!],
     });
   }
@@ -361,21 +362,3 @@ export const PlaybookSchema = z
 export type Playbook = z.infer<typeof PlaybookSchema>;
 export type PlaybookRuntime = NonNullable<Playbook["runtime"]>;
 
-/**
- * True when the playbook acts on a pull request it does not open itself, so a
- * mission can start only in a workspace that already has one.
- */
-export function playbookNeedsExistingPullRequest(
-  playbook: Pick<Playbook, "stages">,
-): boolean {
-  const usesPullRequest = playbook.stages.some(
-    (stage) =>
-      stage.kind === "action" &&
-      (stage.action.type === "watch-checks" ||
-        stage.action.type === "mark-pr-ready"),
-  );
-  return (
-    usesPullRequest &&
-    actionIndexes(playbook.stages, "open-draft-pr").length === 0
-  );
-}

@@ -7,7 +7,7 @@
  *
  * Pure. The call itself lives in `src/store/agent-learning-runtime.ts`.
  */
-import { extractJsonObject } from "@/lib/playbooks/draft-with-ai";
+import { extractJsonObject } from "./draft-with-ai";
 import { AGENT_CONFIG_LIMITS, type AgentConfig } from "./schema";
 
 export interface AgentSuggestion {

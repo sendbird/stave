@@ -29,23 +29,23 @@ references it; that label does not count completed turns.
 - Your repository already has agent files for a coding agent and you want to
   use them from Stave.
 
-For a sequence of stages, use a [playbook](playbooks.md). For a one-off prompt,
-use a macro.
+For a sequence of stages, give the agent a [workflow](#workflow). For a
+one-off prompt, use a macro.
 
 ## Quick Start
 
 Open the **Agents** surface from the sidebar, the command palette
-(`Open Agents`), or `Cmd/Ctrl+K` then `G`. It has three tabs: **Agents**,
-**Playbooks** and **My standards**.
+(`Open Agents`), or `Cmd/Ctrl+K` then `G`. It has two tabs: **Agents** and
+**My standards**.
 
 1. Open **Agents** in the sidebar and stay on the **Agents** tab.
 2. Press **New agent** and say what it should do in one line, then **Draft
    agent**. Review the draft in the editor and save it. You can also start
    blank or copy an existing agent, or **Duplicate** any agent to edit a copy.
-3. Press **Start work…** in the agent's header. Kickoff opens with the agent
+3. Press **Assign…** in the agent's header. Kickoff opens with the agent
    preselected as the worker.
-4. Describe the work as the kickoff source, then **Create and start** (or leave
-   the first task ready without starting).
+4. Describe the work as the kickoff source, then **Assign** (or leave the
+   first task ready without starting).
 5. **Open task** to follow it. The task's **Flow** panel shows what was
    assigned, its stages and the tasks it delegated.
 
@@ -56,17 +56,17 @@ Open the **Agents** surface from the sidebar, the command palette
   source. The ticket's own assignee does not change.
 - **Composer**: type `!assign` in any task's composer, including a new one. The
   rest of the draft becomes the kickoff source. The agent works in its own task.
-- **Command palette**: **Start work with an agent…** opens Kickoff with the
-  agent picker ready.
+- **Command palette**: **Assign to an agent…** opens the composer's selector
+  on **Agents** when a task is open, and Kickoff otherwise.
 
 All of these open **Kickoff** with **Who** set. On the first screen, choose
-**Me** or an agent; with an agent, **Start now** starts the work right away,
-from the source as **Skip AI** reads it. On the review screen, **Who / How /
-Where** set the worker, whether it runs as one task or a playbook mission, and
-the new worktree and its base.
+**Me** or an agent; with an agent, **Assign** starts the work right away,
+from the source as **Skip AI** reads it. On the review screen, **Who** and
+**Where** set the worker and the new worktree and its base; the agent's
+workflow decides the stages.
 
-**Start now** and **Create and start** are the same start; Start now only
-skips the review. An agent that works in a **New worktree** gets one; an agent
+**Assign** on either screen is the same start; the first one only skips the
+review. An agent that works in a **New worktree** gets one; an agent
 that works in the **Current workspace** gets a new task in the workspace you
 are in, with no worktree. The task records its agent, then its first turn is
 sent like any composer turn: your sandbox, deny lists, credential lists,
@@ -110,6 +110,7 @@ the way:
 
 - **Profile**: name, colour and **Use when**.
 - **Instructions**: what the agent does on every task.
+- **Workflow**: the stages its runs follow (see below).
 - **How it runs**: the model (**Auto-routing** with an optional task class, or
   a **Fixed** provider, pinned model and effort), the permission, and where it
   works.
@@ -149,12 +150,33 @@ the request runs read only. A suggestion written against instructions you have
 since changed says so; applying it replaces them. Built-in and repository
 agents do not learn.
 
+### Workflow
+
+An agent's **Workflow** is the ordered stages a run of it follows. Without
+stages, a run is one stage that plans its own steps — Implementer, Researcher,
+Reviewer and Lead work this way. Debugger (Reproduce → Cause → Fix), UI
+Polisher (Reproduce → Fix → Report) and Shipper (Validate → Open draft PR →
+Watch checks → Ready for review) come with a workflow.
+
+- **Add stage**: an AI stage (blank or from a template) with an instruction
+  and **Done when**, optionally done by another agent and pinned to a commit;
+  or a Stave action: **Open draft PR**, **Watch checks**, **Ready for review**
+  or **Run script**. Drag a stage, or use Alt+arrow keys, to reorder it.
+- **Check in with me** (with two or more stages): **Only when stuck**
+  (default), **Before publishing** or **Every stage**. A stage's hand toggle
+  makes that one stage ask, or not.
+- Each AI stage reports when it is done; the run card and the Task panel's
+  **Progress** show the stages only when there is more than one.
+- When the agent helps another agent (a subagent or a delegated task), its AI
+  stages are written into its instructions as an ordered list.
+- Exported agent files leave the workflow out and say so.
+
 ### Deleting an agent
 
 **Delete** removes a custom agent from your settings, with its History and
 suggestions. Past assignments keep
 their own snapshot, so an agent's history still shows its name after it is gone.
-If a playbook stage or a project still names the agent, deletion is blocked and
+If another agent's workflow stage or a project still names the agent, deletion is blocked and
 the dialog lists where — **Archive instead**, or remove those references first.
 Running or waiting tasks are shown for context but do not block: they keep the
 version they started with and finish on their own.
@@ -197,7 +219,7 @@ What you pick decides how the task runs:
 ### Usable as
 
 A custom agent's **Usable as** chooses where it can be used: **Main agent**
-(Start work / Kickoff), **Subagent in a turn** (called inside a lead agent's
+(Assign / Kickoff), **Subagent in a turn** (called inside a lead agent's
 turn) and **Subagent as a task** (a delegated task). Duplicate the built-in
 **Reviewer** and turn on **Main agent** to start work with it directly.
 
@@ -302,7 +324,7 @@ Fleet's search finds its tasks.
 
 | Setting | Values | Notes |
 | --- | --- | --- |
-| Works in | New worktree, Current workspace | New worktree uses Kickoff's branch (Start now takes the one Skip AI proposes); Current workspace adds a task where you are |
+| Works in | New worktree, Current workspace | New worktree uses Kickoff's branch (Assign on the first screen takes the one Skip AI proposes); Current workspace adds a task where you are |
 | Permission | Read only, or full access (saved as Manual, Guided or Auto) | Read only keeps every turn in the read-only posture and works in the current workspace; any other value runs autonomously |
 | Model | Auto-routing, or a fixed provider, model and effort | With Stave Auto on, the task stays on Auto and every turn is routed, with the agent's task class as the fallback; with it off, your routing rules pick one model and effort for the task when it starts |
 | Usable as | Main agent, Subagent in a turn, Subagent as a task | Built-in subagents (Scout, Sweep, …) are usable only in a turn |
@@ -366,7 +388,7 @@ Fleet's search finds its tasks.
 
 ## Related
 
-- [Playbooks](playbooks.md) and [Missions](missions.md)
+- [Agent runs and their stages](missions.md) and [Playbooks (retired)](playbooks.md)
 - [Delegated tasks](delegated-tasks.md)
 - [Auto-routing](auto-routing.md)
 - [Fleet Action Required](fleet-needs-me.md)

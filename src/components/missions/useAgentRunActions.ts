@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { buildAgentRunStartInput, AGENT_RUN_DEFAULT_DONE_WHEN } from "@/lib/missions/agent-run";
+import { buildAgentRunStartInput, AGENT_RUN_DEFAULT_DONE_WHEN, AGENT_RUN_STAGE_ID } from "@/lib/missions/agent-run";
 import type { MissionDetail } from "@/lib/missions/api";
 import { latestStageRecord } from "@/lib/missions/domain";
 import { openExternalUrl } from "@/lib/external-links";
@@ -55,12 +55,19 @@ export function useAgentRunActions(detail: MissionDetail | undefined): AgentRunA
               .runCommand("retryStage", { missionId: mission.id, stageId: record.stageId, attempt: record.attempt });
             return;
           }
-          const doneWhen = stage?.kind === "ai" && stage.doneWhen !== AGENT_RUN_DEFAULT_DONE_WHEN ? stage.doneWhen : null;
+          // A new run follows the same stages: the workflow it ran, or its one Work stage.
+          const stages = mission.playbook.stages;
+          const single = stages.length === 1 && stages[0]!.id === AGENT_RUN_STAGE_ID ? stages[0]! : null;
+          const doneWhen = single?.kind === "ai" && single.doneWhen !== AGENT_RUN_DEFAULT_DONE_WHEN ? single.doneWhen : null;
           const started = await useMissionsStore.getState().startMission(
             buildAgentRunStartInput({
               workspaceId: mission.workspaceId,
               taskId: mission.leadTaskId,
-              agent: { name: mission.playbook.name },
+              agent: {
+                name: mission.playbook.name,
+                workflow: single ? undefined : stages,
+                checkIns: mission.consent.checkIns,
+              },
               assignment: mission.assignment,
               doneWhen,
               now: new Date(),

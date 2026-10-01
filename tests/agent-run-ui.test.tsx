@@ -52,6 +52,18 @@ describe("agent run status line", () => {
     expect(html).not.toContain("Mission");
   });
 
+  test("an agent with a workflow shows its stages and where it stands", () => {
+    const html = bar(runs.workflow);
+    expect(html).toContain("<ol");
+    expect(html).toContain("2/3");
+    expect(html).toContain("Cause");
+    const detail = panel(runs.workflow);
+    expect(detail).toContain('aria-label="Stages"');
+    expect(detail).toContain("Reproduce");
+    expect(detail).toContain("Check in: Only when stuck");
+    expect(panel(runs.working)).not.toContain('aria-label="Stages"');
+  });
+
   test("a blocked run says Needs you and what it waits on", () => {
     const html = bar(runs.needsYou);
     expect(html).toContain("Needs you");

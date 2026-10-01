@@ -36,7 +36,6 @@ export interface ProposedMissionsPanelProps {
   onDismiss: (proposal: ProposedMission) => void;
   onOpenLink: (url: string) => void;
   onOpenMission: (proposal: ProposedMission) => void;
-  onOpenPlaybooks: () => void;
 }
 
 const age = (now: Date, at: string) => formatAge(now.getTime() - Date.parse(at));
@@ -164,12 +163,9 @@ export function ProposedMissionsPanel(props: ProposedMissionsPanelProps) {
       <div className={sx(styles.page)}>
         <header className={sx(styles.intro)}>
           <p className={sx(styles.lead)}>
-            Missions your playbooks proposed — for an assigned issue, a pull request in trouble, a schedule, or a request
-            a triage mission found. Nothing runs until you start it, unless a playbook starts on its own.
+            Work your saved start conditions proposed — for an assigned issue, a pull request in trouble, a schedule, or a
+            request a triage run found. Start opens a task with the request; choose an agent and Assign.
           </p>
-          <Button type="button" size="sm" variant="quiet" xstyle={styles.introAction} onClick={props.onOpenPlaybooks}>
-            Start conditions
-          </Button>
         </header>
 
         {!props.loaded ? (
@@ -182,14 +178,7 @@ export function ProposedMissionsPanel(props: ProposedMissionsPanelProps) {
               <p className={sx(styles.emptyText)}>
                 Watching: {props.watching}. What they propose waits here.
               </p>
-            ) : (
-              <p className={sx(styles.emptyText)}>
-                Give a playbook a start condition under <strong>Starts when</strong>, and the missions it proposes wait here.
-              </p>
-            )}
-            <Button type="button" size="sm" variant="secondary" onClick={props.onOpenPlaybooks}>
-              Open playbooks
-            </Button>
+            ) : null}
           </div>
         ) : (
           <section aria-label="Waiting for you">
@@ -239,7 +228,6 @@ const styles = stylex.create({
     paddingInline: vars["--ads-space-20"],
   },
   intro: { display: "flex", alignItems: "flex-start", gap: vars["--ads-space-16"], justifyContent: "space-between" },
-  introAction: { flexShrink: 0 },
   lead: {
     margin: 0,
     maxWidth: "44rem",

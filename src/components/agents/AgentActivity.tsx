@@ -8,7 +8,9 @@ import {
   matchesAgentActivityFilter,
   summarizeAgentActivity,
   type AgentActivityFilter,
+  type AgentActivitySummary,
 } from "@/lib/agents/agent-activity";
+import { formatRelativeTime } from "@/components/layout/automation-center/automation-center.utils";
 import { classifyTaskStatus, type FleetTaskStatus } from "@/lib/fleet/task-status";
 import { useAppStore } from "@/store/app.store";
 import type { AppState } from "@/store/app-store.types";
@@ -46,25 +48,45 @@ function useStatusByTaskId(taskIds: readonly string[]): Record<string, FleetTask
   return useMemo(() => JSON.parse(serialized) as Record<string, FleetTaskStatus>, [serialized]);
 }
 
-function formatWhen(iso: string | null): string {
-  if (!iso) return "Never";
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime()) ? iso : date.toLocaleString();
+function plural(count: number, one: string, many = `${one}s`): string {
+  return `${count} ${count === 1 ? one : many}`;
 }
 
-function Stat(props: { label: string; value: number | string }) {
+/**
+ * The summary line under the header. Only what drives a decision is loud:
+ * "N running" and "N need you" appear when non-zero. Everything else is one
+ * quiet line: how many assignments, how many couldn't start, last used as a
+ * relative time (the full timestamp is its title).
+ */
+function ActivitySummary(props: { summary: AgentActivitySummary }) {
+  const { summary } = props;
+  if (summary.total === 0) return null;
+  const quiet = [
+    plural(summary.total, "assignment"),
+    ...(summary.couldntStart > 0 ? [`${summary.couldntStart} couldn't start`] : []),
+  ].join(" · ");
+  const lastUsed = summary.lastUsedAt ? new Date(summary.lastUsedAt) : null;
   return (
-    <div className={sx(agentStyles.stat)}>
-      <span className={sx(agentStyles.statValue)}>{props.value}</span>
-      <span className={sx(styles.hint)}>{props.label}</span>
+    <div className={sx(agentStyles.summary)}>
+      {summary.running > 0 ? <span className={sx(agentStyles.attention)}>{summary.running} running</span> : null}
+      {summary.needsYou > 0 ? <span className={sx(agentStyles.attention)}>{summary.needsYou} need you</span> : null}
+      <span className={sx(styles.hint)}>
+        {quiet}
+        {lastUsed && !Number.isNaN(lastUsed.getTime()) ? (
+          <>
+            {" · "}
+            <span title={lastUsed.toLocaleString()}>Last used {formatRelativeTime(summary.lastUsedAt)}</span>
+          </>
+        ) : null}
+      </span>
     </div>
   );
 }
 
 /**
- * Activity, shown on the agent page above Settings and History: headline counts from the assignment rows joined with live
- * Fleet status (running, needs you, couldn't start), last used, and the Work
- * list with a state filter. Counts are derived in pure `summarizeAgentActivity`
+ * Activity, shown on the agent page above Settings and History: a short summary from the assignment rows joined with live
+ * Fleet status (running and needs you when non-zero, then totals and last
+ * used as one quiet line), and the Work list with a state filter. Counts are derived in pure `summarizeAgentActivity`
  * so they are tested once; the live status map avoids an unstable selector.
  */
 export function AgentActivity(props: { assignments: readonly AgentAssignment[] }) {
@@ -84,27 +106,23 @@ export function AgentActivity(props: { assignments: readonly AgentAssignment[] }
   );
 
   return (
-    <section aria-label="Activity" className={sx(styles.editor)}>
-      <div className={sx(agentStyles.stats)}>
-        <Stat label="Assignments" value={summary.total} />
-        <Stat label="Running" value={summary.running} />
-        <Stat label="Needs you" value={summary.needsYou} />
-        <Stat label="Couldn't start" value={summary.couldntStart} />
-        <Stat label="Last used" value={formatWhen(summary.lastUsedAt)} />
-      </div>
+    <section aria-label="Activity" className={sx(agentStyles.activity)}>
+      <ActivitySummary summary={summary} />
       <section aria-label="Work">
         <div className={sx(styles.sectionHeader)}>
           <h3 className={sx(styles.sectionTitle)}>Work</h3>
-          <Select
-            size="sm"
-            aria-label="Filter by state"
-            value={filter}
-            options={AGENT_ACTIVITY_FILTERS.map((value) => ({ value, label: AGENT_ACTIVITY_FILTER_LABELS[value] }))}
-            onValueChange={(value) => setFilter(String(value) as AgentActivityFilter)}
-          />
+          {props.assignments.length > 0 ? (
+            <Select
+              size="sm"
+              aria-label="Filter by state"
+              value={filter}
+              options={AGENT_ACTIVITY_FILTERS.map((value) => ({ value, label: AGENT_ACTIVITY_FILTER_LABELS[value] }))}
+              onValueChange={(value) => setFilter(String(value) as AgentActivityFilter)}
+            />
+          ) : null}
         </div>
         {filtered.length === 0 ? (
-          <p className={sx(styles.hint)}>Nothing here yet.</p>
+          <p className={sx(styles.hint)}>{props.assignments.length === 0 ? "Nothing assigned yet." : "Nothing in this state."}</p>
         ) : (
           <ul className={sx(agentStyles.runs)}>
             {filtered.map((row) => {

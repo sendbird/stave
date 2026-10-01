@@ -2,7 +2,7 @@ import { create } from "zustand";
 
 /**
  * What Kickoff opens with when work is handed to it from elsewhere: an issue,
- * the composer's `!assign`, an agent's "Start work…", or the command palette.
+ * the composer's `!assign`, an agent's "Assign…", or the command palette.
  * Frozen at open time, so moving between tasks or issues while the dialog is
  * up never retargets it. A rising `nonce` reopens Kickoff with a new request
  * even when the dialog is already open.
@@ -24,6 +24,9 @@ interface AgentsUiState {
   /** Rises when "New agent" is requested (palette, deep link); the Agents tab opens its dialog. */
   newAgentNonce: number;
   requestNewAgent: () => void;
+  /** Rises when "Assign to an agent…" is requested; the composer opens its selector on Agents. */
+  agentSelectorNonce: number;
+  requestAgentSelector: () => void;
 }
 
 export const useAgentsUiStore = create<AgentsUiState>((set) => ({
@@ -33,4 +36,6 @@ export const useAgentsUiStore = create<AgentsUiState>((set) => ({
   clearKickoffRequest: () => set({ kickoffRequest: null }),
   newAgentNonce: 0,
   requestNewAgent: () => set((state) => ({ newAgentNonce: state.newAgentNonce + 1 })),
+  agentSelectorNonce: 0,
+  requestAgentSelector: () => set((state) => ({ agentSelectorNonce: state.agentSelectorNonce + 1 })),
 }));

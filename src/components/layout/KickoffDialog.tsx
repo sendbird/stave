@@ -91,10 +91,6 @@ import { sanitizeBranchName } from "@/store/repository.utils";
 import { sx } from "@/components/ads/utils/stylex";
 import { kickoffStyles } from "@/components/layout/kickoff-dialog.styles";
 import { useAppStore, type AppSettings } from "@/store/app.store";
-import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
-import { listPlaybookChoices } from "@/lib/missions/start-sheet";
-
-const NO_PLAYBOOK = "none";
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 
 type KickoffPhase = "source" | "preview";
@@ -179,11 +175,6 @@ function resolveSelectedBranchKind(args: {
   remoteBranches: string[];
 }): "local" | "remote" {
   return args.remoteBranches.includes(args.branch) ? "remote" : "local";
-}
-
-/** Missions run on Claude and Codex tasks. */
-function missionCapableFor(providerId: ProviderId): boolean {
-  return providerId === "claude-code" || providerId === "codex";
 }
 
 function panelTargetLabel(target: KickoffPanelEntry["target"]) {
@@ -274,11 +265,6 @@ export function KickoffDialog(props: {
   const [remoteBranches, setRemoteBranches] = useState<string[]>([]);
   const [loadingBranches, setLoadingBranches] = useState(false);
   const [startFirstTask, setStartFirstTask] = useState(true);
-  // A playbook turns the first task into a mission, confirmed in the Start
-  // sheet right after the workspace exists.
-  const [playbookChoice, setPlaybookChoice] = useState(NO_PLAYBOOK);
-  const playbooks = useAppStore((state) => state.settings.playbooks);
-  const openStartSheet = usePlaybooksUiStore((state) => state.openStartSheet);
   const [firstTaskProvider, setFirstTaskProvider] = useState<ProviderId>(
     defaultFirstTaskProvider,
   );
@@ -327,10 +313,9 @@ export function KickoffDialog(props: {
   // other first task gets a new worktree.
   const agentWorksHere = who === "agent" && selectedAgent?.workspace === "same-workspace";
   // Which provider the first task actually runs on: the agent's route when one
-  // is chosen, else the Me controls. Missions run on Claude and Codex.
+  // is chosen, else the Me controls.
   const effectiveFirstTaskProvider =
     who === "agent" && agentRoute ? agentRoute.providerId : firstTaskProvider;
-  const effectiveMissionCapable = missionCapableFor(effectiveFirstTaskProvider);
 
   const activeBranch = workspaceBranchById[activeWorkspaceId] ?? defaultBranch;
   const activeWorkspacePath =
@@ -639,7 +624,6 @@ export function KickoffDialog(props: {
     await startKickoff({
       proposal: { ...draft, branchName: sanitizedBranchName },
       startFirstTask,
-      playbookId: playbookChoice,
       extraInstructions,
     });
   }
@@ -656,7 +640,6 @@ export function KickoffDialog(props: {
     await startKickoff({
       proposal: { ...proposal, branchName: sanitizeBranchName({ value: proposal.branchName }) },
       startFirstTask: true,
-      playbookId: NO_PLAYBOOK,
       extraInstructions: "",
     });
   }
@@ -670,7 +653,6 @@ export function KickoffDialog(props: {
   async function startKickoff(args: {
     proposal: KickoffProposalDraft;
     startFirstTask: boolean;
-    playbookId: string;
     extraInstructions: string;
   }) {
     // With an agent, its route decides the provider and model; a fixed agent
@@ -720,12 +702,11 @@ export function KickoffDialog(props: {
     setCreating(true);
     setError(null);
     try {
-      const missionHandOff = args.playbookId !== NO_PLAYBOOK && missionCapableFor(effectiveProvider);
       const result = await kickoffWorkspace({
         proposal: args.proposal,
         fromBranch,
         fromBranchKind,
-        startFirstTask: missionHandOff ? false : args.startFirstTask,
+        startFirstTask: args.startFirstTask,
         firstTaskProvider: effectiveProvider,
         firstTaskRuntimeOverrides,
         extraInstructions: args.extraInstructions,
@@ -744,17 +725,6 @@ export function KickoffDialog(props: {
         toast.success(agentWorksHere ? "Task started in this workspace" : "Workspace created from kickoff source");
       }
       props.onOpenChange(false);
-      // A task left staged by a failed agent record is "blocked"; its mission
-      // must not start as a plain task.
-      if (missionHandOff && result.startup === "staged" && result.workspaceId && result.taskId) {
-        openStartSheet({
-          workspaceId: result.workspaceId,
-          taskId: result.taskId,
-          playbookId: args.playbookId,
-          assignment: useAppStore.getState().promptDraftByTask[result.taskId]?.text ?? "",
-          fromComposerDraft: true,
-        });
-      }
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -1346,22 +1316,20 @@ export function KickoffDialog(props: {
                         Choose who does the work, how it runs, and where.
                       </p>
                     </div>
-                    {playbookChoice === NO_PLAYBOOK || !effectiveMissionCapable ? (
-                      <div className={sx(kickoffStyles.startToggle)}>
-                        <label
-                          htmlFor="kickoff-start-task"
-                          className={sx(kickoffStyles.label)}
-                        >
-                          Start now
-                        </label>
-                        <Switch
-                          id="kickoff-start-task"
-                          aria-label="Start now"
-                          checked={startFirstTask}
-                          onCheckedChange={setStartFirstTask}
-                        />
-                      </div>
-                    ) : null}
+                    <div className={sx(kickoffStyles.startToggle)}>
+                      <label
+                        htmlFor="kickoff-start-task"
+                        className={sx(kickoffStyles.label)}
+                      >
+                        Start now
+                      </label>
+                      <Switch
+                        id="kickoff-start-task"
+                        aria-label="Start now"
+                        checked={startFirstTask}
+                        onCheckedChange={setStartFirstTask}
+                      />
+                    </div>
                   </div>
                   <div className={sx(kickoffStyles.field)}>
                     <p
@@ -1531,43 +1499,6 @@ export function KickoffDialog(props: {
                   </div>
                   )}
                   <div className={sx(kickoffStyles.field)}>
-                    <p
-                      id="kickoff-first-task-playbook-label"
-                      className={sx(kickoffStyles.label)}
-                    >
-                      How
-                    </p>
-                    <Select
-                      value={effectiveMissionCapable ? playbookChoice : NO_PLAYBOOK}
-                      disabled={!effectiveMissionCapable || creating}
-                      onValueChange={(value) => setPlaybookChoice(String(value))}
-                    >
-                      <SelectTrigger
-                        className={sx(kickoffStyles.fullWidth)}
-                        aria-labelledby="kickoff-first-task-playbook-label"
-                      >
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value={NO_PLAYBOOK}>
-                          One task — run the prompt as one task
-                        </SelectItem>
-                        {listPlaybookChoices(playbooks).map((choice) => (
-                          <SelectItem key={choice.value} value={choice.value}>
-                            {choice.label}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                    <p className={sx(kickoffStyles.hint)}>
-                      {!effectiveMissionCapable
-                        ? "Missions run on Claude and Codex tasks."
-                        : playbookChoice === NO_PLAYBOOK
-                          ? "Choose a playbook to carry the task through its stages as a mission."
-                          : "After the workspace is created, you confirm the mission's check-ins and permissions, then it starts."}
-                    </p>
-                  </div>
-                  <div className={sx(kickoffStyles.field)}>
                     <p className={sx(kickoffStyles.label)}>Where</p>
                     <p className={sx(kickoffStyles.hint)}>
                       {agentWorksHere
@@ -1664,7 +1595,7 @@ export function KickoffDialog(props: {
                 onClick={() => void handleCreate()}
               >
                 <Rocket className={sx(kickoffStyles.buttonIcon)} />
-                {startFirstTask ? "Create and start" : "Create workspace"}
+                {!startFirstTask ? "Create workspace" : who === "agent" && selectedAgent ? "Assign" : "Create and start"}
               </Button>
             </DialogFooter>
           </>

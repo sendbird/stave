@@ -261,6 +261,10 @@ export interface AppSettings extends WorkspaceKickoffSettings {
   customAgents: AgentConfig[];
   /** Saved custom agents this version could not read, kept as saved. */
   customAgentsUnreadable: UnreadableAgent[];
+  // temporary-migration: playbooks-to-agent-workflows
+  /** Saved playbooks were copied into custom agents once. */
+  playbookAgentsMigrated: boolean;
+  // end temporary-migration: playbooks-to-agent-workflows
   /**
    * Version history per custom agent: the replaced version is pushed on every
    * behavioural change, newest first, capped per agent. Dropped when the agent
@@ -692,6 +696,9 @@ export const defaultSettings: AppSettings = {
   playbooksUnreadable: [],
   customAgents: [],
   customAgentsUnreadable: [],
+  // temporary-migration: playbooks-to-agent-workflows
+  playbookAgentsMigrated: false,
+  // end temporary-migration: playbooks-to-agent-workflows
   customAgentRevisions: {},
   agentSuggestions: {},
   agentLearningDisabled: [],

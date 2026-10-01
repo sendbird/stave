@@ -4,7 +4,6 @@ import {
   BookOpen,
   CalendarClock,
   Command as CommandIcon,
-  FolderKanban,
   GitFork,
   Inbox,
   ScanEye,
@@ -96,25 +95,18 @@ const FEATURES = [
 
 const HANDOFF_STEPS = [
   {
-    title: "Save how you work as a playbook",
+    title: "Give an agent a workflow",
     description:
-      "The stages you would otherwise prompt one by one — understand, build, verify, open a PR — each with when it is done and whether it asks you first. A new issue, failing checks or a schedule can propose the next mission.",
-    href: "./docs/playbooks/",
+      "The stages you would otherwise prompt one by one — reproduce, fix, verify, open a PR — each with when it is done, and where the agent checks in with you.",
+    href: "./docs/agents/",
     icon: BookOpen,
   },
   {
-    title: "Hand a task to a mission",
+    title: "Assign a task to an agent",
     description:
       "Stave runs each stage, opens the draft PR and watches its checks, and stops only at the sign-offs you chose — with evidence it verified itself.",
     href: "./docs/missions/",
     icon: Target,
-  },
-  {
-    title: "Give a bigger goal to a project",
-    description:
-      "A coordinator breaks the goal into missions on separate worktrees and proposes what comes next — woken by their reports, new issues, PR feedback or a schedule. Talk to it beside the board.",
-    href: "./docs/projects/",
-    icon: FolderKanban,
   },
 ];
 
@@ -225,17 +217,16 @@ export function LandingPage({ data: _data }: { data: SiteData }) {
           </div>
         </section>
 
-        {/* Hand off outcomes */}
+        {/* Assign outcomes */}
         <section className={sx(s.handoffSection)}>
           <div className={sx(s.featuresInner)}>
             <div className={sx(s.sectionHeader)}>
               <h2 className={sx(s.sectionTitle)}>
-                Hand off outcomes, not prompts.
+                Assign outcomes, not prompts.
               </h2>
               <p className={sx(s.sectionLead)}>
-                Missions carry a task through the stages you saved and stop
-                only where you asked. Projects take the goals that need several
-                of them.
+                An agent with a workflow carries a task through its stages and
+                checks in only where you asked.
               </p>
             </div>
             <div className={sx(s.handoffGrid)}>

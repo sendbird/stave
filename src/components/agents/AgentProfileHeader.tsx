@@ -2,7 +2,6 @@ import { sx } from "@/components/ads/utils/stylex";
 import {
   AGENT_PERMISSION_LABELS,
   AGENT_SOURCE_LABELS,
-  AGENT_WORKSPACE_LABELS,
   type AgentConfig,
 } from "@/lib/agents/schema";
 import { playbookStyles as styles } from "../playbooks/playbooks.styles";
@@ -11,18 +10,18 @@ import { agentStyles } from "./agents.styles";
 
 /**
  * The profile head of an agent's detail: avatar, name, "Use when", and chips
- * for source, model, permission and where it works. Pure presentation of one
- * agent; the surrounding detail owns the actions.
+ * for source, the model choice (once: "Auto" or the pinned model) and, when it
+ * applies, "Read only". Permission and where it works are in Settings. Pure
+ * presentation of one agent; the surrounding detail owns the actions.
  */
 export function AgentProfileHeader(props: { agent: AgentConfig; status?: AgentAvatarStatus }) {
   const { agent } = props;
   const model =
-    agent.model.mode === "fixed" ? (agent.model.model ?? agent.model.providerId) : "Auto-routing";
+    agent.model.mode === "fixed" ? (agent.model.model ?? agent.model.providerId) : "Auto";
   const chips = [
     AGENT_SOURCE_LABELS[agent.source],
     model,
-    AGENT_PERMISSION_LABELS[agent.permission],
-    AGENT_WORKSPACE_LABELS[agent.workspace],
+    ...(agent.permission === "read-only" ? [AGENT_PERMISSION_LABELS["read-only"]] : []),
   ];
   return (
     <div className={sx(agentStyles.profile)}>

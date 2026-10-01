@@ -59,6 +59,20 @@ describe("agent config schema", () => {
     expect(AgentConfigSchema.safeParse({ ...customAgent(), grantsAdmin: true }).success).toBe(false);
   });
 
+  test("a workflow uses the stage schema and its cross-stage rules", () => {
+    const stages = [
+      { id: "fix", title: "Fix", kind: "ai", instruction: "Fix it.", doneWhen: "It works." },
+      { id: "open-draft-pr", title: "Open draft PR", kind: "action", action: { type: "open-draft-pr" } },
+    ];
+    expect(customAgent({ workflow: stages as AgentConfig["workflow"], checkIns: "every-stage" }).workflow).toHaveLength(2);
+    const twice = AgentConfigSchema.safeParse({ ...customAgent(), workflow: [...stages, { ...stages[1], id: "again" }] });
+    expect(twice.success).toBe(false);
+    expect(twice.error?.issues.map((issue) => `${issue.path.join(".")}: ${issue.message}`)).toContain(
+      "workflow.2: Open a draft PR only once.",
+    );
+    expect(AgentConfigSchema.safeParse({ ...customAgent(), workflow: [] }).success).toBe(false);
+  });
+
   test("rejects duplicate ids in a list", () => {
     expect(AgentConfigListSchema.safeParse([customAgent(), customAgent()]).success).toBe(false);
   });
@@ -113,6 +127,7 @@ describe("snapshot", () => {
     expect(snapshotAgent({ ...spec, instructions: "Different." }).contentHash).not.toBe(
       snapshotAgent(spec).contentHash,
     );
+    expect(snapshotAgent({ ...spec, checkIns: "every-stage" }).contentHash).not.toBe(snapshotAgent(spec).contentHash);
   });
 
   test("snapshot is a copy: later edits do not reach it", () => {
@@ -184,6 +199,10 @@ describe("compileAgent", () => {
       workspaceMode: "new-worktree",
     });
     expect(result.compiled.promptPreamble).toContain("# Agent: UI Maintainer");
+    expect(result.compiled.promptPreamble).not.toContain("Work in these stages");
+    const staged = compileAgent({ snapshot: snapshotAgent(getBuiltinAgent("debugger")!), role: "delegate", providerId: "codex" });
+    if (!staged.ok || staged.compiled.role !== "delegate") throw new Error("expected delegated");
+    expect(staged.compiled.promptPreamble).toContain("Work in these stages, in order:\n1. Reproduce:");
 
     const kiro = compileAgent({ snapshot: snapshotAgent(customAgent()), role: "delegate", providerId: "kiro" });
     expect(kiro).toMatchObject({ ok: false, code: "provider-unavailable" });

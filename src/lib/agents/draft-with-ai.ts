@@ -7,7 +7,6 @@
  * The reply style every built-in agent shares is added to the instructions, so
  * a drafted agent writes back the same way. Pure. The call itself lives in `src/store/agent-draft-runtime.ts`.
  */
-import { extractJsonObject } from "@/lib/playbooks/draft-with-ai";
 import { TASK_CLASSES } from "@/lib/providers/auto-routing-profile";
 import { blankCustomAgent } from "./library";
 import { SHARED_STYLE } from "./starters";
@@ -19,6 +18,13 @@ import {
   AgentConfigSchema,
   type AgentConfig,
 } from "./schema";
+
+/** The outermost JSON object in a model answer, tolerating a code fence. */
+export function extractJsonObject(text: string): string | null {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+  return start === -1 || end <= start ? null : text.slice(start, end + 1);
+}
 
 export const MAX_AGENT_DESCRIPTION_CHARS = 2_000;
 

@@ -8,7 +8,6 @@ import {
 } from "../electron/host-service/supervision/mission-actions";
 import { MissionStore } from "../electron/persistence/mission-store";
 import { createMission } from "../src/lib/missions/domain";
-import { describeExternalEffect } from "../src/lib/missions/start-sheet";
 import { createActionStage } from "../src/lib/playbooks/library";
 import { PlaybookSchema } from "../src/lib/playbooks/schema";
 
@@ -101,10 +100,9 @@ describe("the Run script action", () => {
     expect((outcome as { detail: string }).detail).toContain("Stave stopped while “preview” ran");
   });
 
-  test("is a consented external effect, created with a script to fill in, and reads URLs off output", () => {
+  test("is created with a script to fill in, and reads URLs off output", () => {
     const stage = createActionStage("run-script", []);
     expect(stage).toMatchObject({ title: "Run script", action: { type: "run-script", scriptId: "preview" } });
-    expect(describeExternalEffect(stage)).toContain("may act outside this machine");
     expect(lastPrintedUrl("see https://a.test/x and https://b.test/y).")).toBe("https://b.test/y");
     expect(lastPrintedUrl("no address")).toBeUndefined();
     expect(

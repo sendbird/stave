@@ -1,8 +1,9 @@
 /**
- * How an agent run reads. A run is a mission with one implicit stage
- * (`agent-run.ts`), so its surfaces drop the playbook vocabulary (Mission,
- * Stage, sign-off) and show the agent, a state, the Done when lines and what
- * the run produced.
+ * How an agent run reads. A run is a mission (`agent-run.ts`) with one
+ * implicit stage or the stages of the agent's workflow, so its surfaces drop
+ * the playbook vocabulary (Mission, playbook) and show the agent, a state,
+ * the stages when there is more than one, the Done when lines and what the
+ * run produced.
  *
  * Pure. Used by the mission surfaces in `src/components/missions/` for runs
  * marked `origin: "agent"`; a playbook mission keeps its own copy.
@@ -97,7 +98,7 @@ export function describeAgentRunStatus(detail: MissionDetail): AgentRunStatus {
     case "stuck":
       return make("needs-you", "warning", record.detail ?? "The run stopped making progress.", "retry-stage");
     case "awaiting-sign-off":
-      return make("needs-you", "warning", "The run is waiting for you.");
+      return make("needs-you", "warning", stage ? `Waiting for you to start ${stage.title}.` : "The run is waiting for you.");
     default:
       return make("working", "accent");
   }
@@ -131,9 +132,18 @@ export interface AgentRunDoneWhenLine {
   label: string;
 }
 
-/** The latest report of the run's one stage, with what Stave saw of it. */
+/**
+ * The run's latest report, with what Stave saw of it: the last AI stage that
+ * reported complete, else the last AI stage (or, in a run of Stave actions
+ * only, the first stage) as it stands. A one-stage run reads its one stage.
+ */
 function reportOf(detail: MissionDetail) {
-  const stage = detail.mission.playbook.stages[0];
+  const stages = detail.mission.playbook.stages;
+  const ai = stages.filter((candidate) => candidate.kind === "ai");
+  const reported = [...ai]
+    .reverse()
+    .find((candidate) => latestStageRecord(detail.stages, candidate.id)?.report?.outcome === "complete");
+  const stage = reported ?? ai.at(-1) ?? stages[0];
   const record = stage ? latestStageRecord(detail.stages, stage.id) : undefined;
   const report = record?.report?.outcome === "complete" ? record.report : null;
   const evidence = report ? classifyStageEvidence(report, record?.facts ?? null) : [];
@@ -157,6 +167,20 @@ export function describeDoneWhen(detail: MissionDetail): AgentRunDoneWhenLine[] 
   if (criteria.length > 0) {
     return criteria.map((criterion) =>
       line(criterion.text, criterion.status === "met" ? "met-reported" : criterion.status),
+    );
+  }
+  const stages = detail.mission.playbook.stages;
+  if (stages.length > 1) {
+    // No criteria were reported: each AI stage's own line holds once that stage completes.
+    return stages.flatMap((candidate) =>
+      candidate.kind === "ai"
+        ? [
+            line(
+              candidate.doneWhen,
+              latestStageRecord(detail.stages, candidate.id)?.status === "completed" ? "met-reported" : "unverified",
+            ),
+          ]
+        : [],
     );
   }
   const text = stage?.kind === "ai" ? stage.doneWhen : (stage?.title ?? "");

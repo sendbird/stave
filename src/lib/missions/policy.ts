@@ -161,8 +161,7 @@ export function resolveMissionStageSignOff(mission: Mission, index: number): Sig
 /**
  * The sign-off a stage gets under a start's consent: a stage that writes
  * outside the workspace without the user's go-ahead always asks; the rest
- * follow the chosen check-ins. The Start sheet previews missions with this
- * same rule, so what it shows is what the mission does.
+ * follow the chosen check-ins.
  */
 export function resolveConsentStageSignOff(
   mission: Pick<Mission, "playbook"> & { consent: Pick<Mission["consent"], "checkIns" | "authorizedEffectStageIds"> },

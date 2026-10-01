@@ -544,15 +544,3 @@ export function createPlaybookFromStarter(
   };
 }
 
-/** A copy of the template's stage with an id no other stage uses. */
-export function createStageFromTemplate(
-  template: StageTemplate,
-  existingStageIds: Iterable<string>,
-): AiStage {
-  const taken = new Set(existingStageIds);
-  let id = template.stage.id;
-  for (let suffix = 2; taken.has(id); suffix += 1) {
-    id = `${template.stage.id}-${suffix}`;
-  }
-  return { ...structuredClone(template.stage), id };
-}

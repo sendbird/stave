@@ -48,6 +48,8 @@ import { normalizePrePrReviewProvider } from "@/lib/source-control-review";
 import { normalizeSteerQueueEnterAction } from "@/lib/steer-queue-shortcuts";
 import { normalizePersistedMacros } from "@/lib/macros/normalize";
 import { restoreCustomAgents } from "@/lib/agents/library";
+// temporary-migration: playbooks-to-agent-workflows
+import { migratePlaybooksToAgents } from "@/lib/agents/playbook-agents-migration";
 import { normalizeAgentRevisions } from "@/lib/agents/revisions";
 import { normalizeAgentSuggestions, normalizeLearningDisabled } from "@/lib/agents/learned-suggestions";
 import {
@@ -357,6 +359,10 @@ export function createAppStorePersistenceOptions() {
       });
       state.settings.customAgents = restoredAgents.agents;
       state.settings.customAgentsUnreadable = restoredAgents.unreadable;
+      // temporary-migration: playbooks-to-agent-workflows
+      state.settings.playbookAgentsMigrated = raw.playbookAgentsMigrated === true;
+      migratePlaybooksToAgents(state.settings);
+      // end temporary-migration: playbooks-to-agent-workflows
       state.settings.customAgentRevisions = normalizeAgentRevisions(raw.customAgentRevisions);
       state.settings.agentSuggestions = normalizeAgentSuggestions(raw.agentSuggestions);
       state.settings.agentLearningDisabled = normalizeLearningDisabled(raw.agentLearningDisabled);

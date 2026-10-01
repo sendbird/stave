@@ -28,8 +28,6 @@ interface ProjectsState {
   projects: Project[];
   details: Record<string, ProjectDetail>;
   selectedId: string | null;
-  /** The command palette asked for the New project dialog. */
-  newProjectRequested: boolean;
   /** The tab the project home shows below its lanes. */
   detailTab: ProjectDetailTab;
   /** The coordinator conversation beside the project, where the window has room for it. */
@@ -48,7 +46,6 @@ interface ProjectsState {
   load: () => Promise<void>;
   refresh: (projectId: string) => Promise<void>;
   select: (projectId: string | null) => void;
-  requestNewProject: (requested: boolean) => void;
   setDetailTab: (tab: ProjectDetailTab) => void;
   /** Shows the coordinator conversation: docked where it fits, floating otherwise. */
   openCoordinatorDock: () => void;
@@ -75,7 +72,6 @@ export const useProjectsStore = create<ProjectsState>()((set, get) => {
     projects: [],
     details: {},
     selectedId: null,
-    newProjectRequested: false,
     detailTab: "memory",
     dockOpen: true,
     dockOverlayOpen: false,
@@ -141,7 +137,6 @@ export const useProjectsStore = create<ProjectsState>()((set, get) => {
       if (projectId && !get().details[projectId]) void get().refresh(projectId);
     },
 
-    requestNewProject: (requested) => set({ newProjectRequested: requested }),
     setDetailTab: (tab) => set({ detailTab: tab }),
     openCoordinatorDock: () => set({ dockOpen: true, dockOverlayOpen: true }),
     closeCoordinatorDock: (mode) => set(mode === "docked" ? { dockOpen: false } : { dockOverlayOpen: false }),

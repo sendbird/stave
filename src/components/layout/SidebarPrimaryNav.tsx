@@ -52,9 +52,9 @@ function useAgentsWithWork() {
 }
 
 /**
- * The sidebar's top navigation: Fleet View, Projects, and the open projects
- * under it, each with what waits for you, so a goal in flight is one click
- * away from any workspace.
+ * The sidebar's top navigation: Fleet View, Projects and the open projects
+ * under it (only for a user who has a project: projects are deprecated), and
+ * Agents with the agents at work, each with what waits for you.
  */
 export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   const surface = useAppStore((state) => state.activeAppSurface.kind);
@@ -89,21 +89,23 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
           Fleet View
         </AdsButton>
       ) : null}
-      <AdsButton
-        layout="host"
-        type="button"
-        onClick={() => openProjects()}
-        aria-label={totalNeeds > 0 ? `Projects, ${totalNeeds} need you` : "Projects"}
-        xstyle={[
-          repositorySidebarStyles.navButton,
-          transition.colors,
-          surface === "projects" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
-        ]}
-      >
-        <FolderKanban className={sx(repositorySidebarStyles.iconMd)} />
-        <span className={sx(styles.label)}>Projects</span>
-        {totalNeeds > 0 ? <span className={sx(styles.count)}>{totalNeeds}</span> : null}
-      </AdsButton>
+      {projects.length > 0 ? (
+        <AdsButton
+          layout="host"
+          type="button"
+          onClick={() => openProjects()}
+          aria-label={totalNeeds > 0 ? `Projects, ${totalNeeds} need you` : "Projects"}
+          xstyle={[
+            repositorySidebarStyles.navButton,
+            transition.colors,
+            surface === "projects" ? repositorySidebarStyles.navButtonActive : repositorySidebarStyles.navButtonIdle,
+          ]}
+        >
+          <FolderKanban className={sx(repositorySidebarStyles.iconMd)} />
+          <span className={sx(styles.label)}>Projects</span>
+          {totalNeeds > 0 ? <span className={sx(styles.count)}>{totalNeeds}</span> : null}
+        </AdsButton>
+      ) : null}
       {open.map((project) => {
         const needs = countProjectNeeds(details[project.id]);
         const active = surface === "projects" && selectedId === project.id;
@@ -178,7 +180,7 @@ export function SidebarPrimaryNav(props: { showFleetView: boolean }) {
   );
 }
 
-/** The collapsed sidebar's rail: Fleet View and Projects as icons, a dot when a project needs you. */
+/** The collapsed sidebar's rail: Fleet View, Projects (when the user has one) and Agents, with a dot when something needs you. */
 export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
   const surface = useAppStore((state) => state.activeAppSurface.kind);
   const openFleetView = useAppStore((state) => state.openFleetView);
@@ -210,23 +212,25 @@ export function SidebarPrimaryNavCollapsed(props: { showFleetView: boolean }) {
           <TooltipContent side="right">Fleet View</TooltipContent>
         </Tooltip>
       ) : null}
-      <Tooltip>
-        <TooltipTrigger
-          render={
-            <Button
-              variant="ghost"
-              size="sm"
-              xstyle={railButton(surface === "projects")}
-              onClick={() => openProjects()}
-              aria-label={needs > 0 ? `Projects, ${needs} need you` : "Projects"}
-            />
-          }
-        >
-          <FolderKanban className={sx(repositorySidebarStyles.iconMd)} />
-          {needs > 0 ? <span aria-hidden className={sx(styles.railDot)} /> : null}
-        </TooltipTrigger>
-        <TooltipContent side="right">{needs > 0 ? `Projects · ${needs} need you` : "Projects"}</TooltipContent>
-      </Tooltip>
+      {projects.length > 0 ? (
+        <Tooltip>
+          <TooltipTrigger
+            render={
+              <Button
+                variant="ghost"
+                size="sm"
+                xstyle={railButton(surface === "projects")}
+                onClick={() => openProjects()}
+                aria-label={needs > 0 ? `Projects, ${needs} need you` : "Projects"}
+              />
+            }
+          >
+            <FolderKanban className={sx(repositorySidebarStyles.iconMd)} />
+            {needs > 0 ? <span aria-hidden className={sx(styles.railDot)} /> : null}
+          </TooltipTrigger>
+          <TooltipContent side="right">{needs > 0 ? `Projects · ${needs} need you` : "Projects"}</TooltipContent>
+        </Tooltip>
+      ) : null}
       <Tooltip>
         <TooltipTrigger
           render={

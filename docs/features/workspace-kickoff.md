@@ -31,20 +31,14 @@ While Stave Auto is turned on in Settings, the model control also offers
 and effort for the first turn and every later one, so the effort and Fast
 controls are hidden. Pick a model to pin one instead.
 
-**Who** can hand the first task to a saved [agent](agents.md) instead. With an
-agent, **Start now** on the first screen starts the work right away through the
-same start as **Create and start**, from the source as Skip AI reads it. An
+**Who** can assign the first task to a saved [agent](agents.md) instead. With
+an agent, **Assign** on the first screen starts the work right away through
+the same start as **Assign** on the review screen, from the source as Skip AI
+reads it. The agent's workflow decides the stages the run follows. An
 agent that works in the current workspace gets a new task there instead of a
 worktree. An agent whose model is Auto-routing follows Stave Auto the same way
 when it is on; see the agents page for where an agent's task runs and which
 permissions apply.
-
-To hand the first task to a [mission](missions.md) instead, pick a
-**Playbook** for it (Claude and Codex tasks). Stave creates the workspace and
-the task, then opens **Start a mission** on it with the prompt as the
-assignment, so you confirm the stages and what may run on its own before
-anything starts. **None — run the prompt as one task** keeps the usual
-behavior.
 
 ## Source Configuration
 

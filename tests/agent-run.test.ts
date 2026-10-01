@@ -68,6 +68,34 @@ describe("agent run: implicit playbook", () => {
     expect(prompt).not.toContain("Instructions");
   });
 
+  test("an agent with a workflow runs its stages and check-ins", () => {
+    const workflow = [
+      { id: "plan", title: "Plan", kind: "ai" as const, instruction: "Plan it.", doneWhen: "A plan exists." },
+      { id: "build", title: "Build", kind: "ai" as const, instruction: "Build it.", doneWhen: "It builds." },
+      { id: "open-draft-pr", title: "Open draft PR", kind: "action" as const, action: { type: "open-draft-pr" as const } },
+    ];
+    const quiet = buildAgentRunStartInput({
+      workspaceId: "ws-1",
+      taskId: "task-1",
+      agent: { name: "Shipper", workflow },
+      assignment: "Ship it.",
+      doneWhen: "Ignored with a workflow.",
+      now: NOW,
+    });
+    expect(PlaybookSchema.parse(quiet.playbook).stages.map((stage) => stage.id)).toEqual(["plan", "build", "open-draft-pr"]);
+    // Only when stuck: assigning the work authorizes the workflow's publishing stages.
+    expect(quiet.consent).toEqual({ checkIns: "when-stuck", permissionMode: "manual", authorizedEffectStageIds: ["open-draft-pr"] });
+    const careful = buildAgentRunStartInput({
+      workspaceId: "ws-1",
+      taskId: "task-1",
+      agent: { name: "Shipper", workflow, checkIns: "plan-and-publishing" },
+      assignment: "Ship it.",
+      now: NOW,
+    });
+    expect(careful.consent).toMatchObject({ checkIns: "plan-and-publishing", authorizedEffectStageIds: [] });
+    expect(careful.playbook.checkIns).toBe("plan-and-publishing");
+  });
+
   test("a playbook mission is not an agent run", () => {
     expect(isAgentRun({})).toBe(false);
     expect(isAgentRun(null)).toBe(false);

@@ -1,66 +1,73 @@
+import type { AgentWorkflow } from "./schema";
+
 /**
- * The workflow each built-in agent recommends: its ordered stages, each with
- * the condition that makes the stage done. Data only. The Workflow feature
- * reads this to offer a starting point; an agent's saved config has no
- * workflow field and nothing here changes how an agent runs today.
+ * The workflows of the built-in agents that work in stages. A run of one of
+ * these agents follows its stages, reporting each; every other built-in runs
+ * as one "Work" stage. Implementer, Researcher, Reviewer and Lead stay single
+ * stage on purpose: they plan their own steps inside the work.
  */
-
-export interface BuiltinWorkflowStage {
-  title: string;
-  /** What must be true before the stage counts as finished. */
-  doneWhen: string;
-}
-
-export const BUILTIN_AGENT_WORKFLOW_IDS = [
-  "implementer",
-  "lead",
-  "debugger",
-  "ui-polisher",
-  "reviewer",
-  "researcher",
-  "shipper",
-] as const;
-export type BuiltinWorkflowAgentId = (typeof BUILTIN_AGENT_WORKFLOW_IDS)[number];
-
-export const BUILTIN_AGENT_WORKFLOWS: Readonly<Record<BuiltinWorkflowAgentId, readonly BuiltinWorkflowStage[]>> = {
-  implementer: [
-    { title: "Understand", doneWhen: "The change is scoped and the code it touches is read." },
-    { title: "Change", doneWhen: "The change follows the surrounding code and stays in scope." },
-    { title: "Verify", doneWhen: "The relevant tests, typecheck and build pass." },
-    { title: "Commit", doneWhen: "The verified work is committed and the report lists what is left." },
-  ],
-  lead: [
-    { title: "Plan", doneWhen: "Acceptance criteria are written for the whole goal." },
-    { title: "Delegate", doneWhen: "Each part has an agent, a scope and the commit to review." },
-    { title: "Verify", doneWhen: "Every report is checked against the real diff and checks." },
-    { title: "Report", doneWhen: "Outcome, evidence and remaining risks are stated." },
-  ],
+export const BUILTIN_AGENT_WORKFLOWS: Readonly<Record<string, AgentWorkflow>> = {
   debugger: [
-    { title: "Reproduce", doneWhen: "The steps and the observed behaviour are recorded." },
-    { title: "Cause", doneWhen: "The root cause is shown with evidence, apart from hypotheses." },
-    { title: "Fix", doneWhen: "The smallest change at the cause is made." },
-    { title: "Verify", doneWhen: "The reproduction now passes." },
+    {
+      id: "reproduce",
+      title: "Reproduce",
+      kind: "ai",
+      instruction: "Reproduce the problem. Record the exact steps, the inputs and what you observed. Change nothing yet.",
+      doneWhen: "The steps and the observed behaviour are recorded.",
+    },
+    {
+      id: "cause",
+      title: "Cause",
+      kind: "ai",
+      instruction: "Find the root cause. Show the evidence for it and keep confirmed facts apart from hypotheses.",
+      doneWhen: "The root cause is shown with evidence, apart from hypotheses.",
+    },
+    {
+      id: "fix",
+      title: "Fix",
+      kind: "ai",
+      instruction: "Make the smallest change at the cause, then run the reproduction again and the checks that cover it.",
+      doneWhen: "The reproduction now passes and the relevant checks pass.",
+    },
   ],
   "ui-polisher": [
-    { title: "Reproduce", doneWhen: "The defect is captured in the rendered app." },
-    { title: "Fix", doneWhen: "The fix uses existing components and tokens." },
-    { title: "Verify", doneWhen: "Light and dark themes and a sibling screen look right." },
-    { title: "Report", doneWhen: "Before and after screenshots are attached." },
-  ],
-  reviewer: [
-    { title: "Pin", doneWhen: "The workspace is at the commit to review." },
-    { title: "Review", doneWhen: "The change is read in context and existing behaviour is checked." },
-    { title: "Report", doneWhen: "Findings are listed with file, line, severity and a failure scenario." },
-  ],
-  researcher: [
-    { title: "Question", doneWhen: "The question and what counts as an answer are clear." },
-    { title: "Search", doneWhen: "The relevant code and documents are read." },
-    { title: "Conclude", doneWhen: "The answer comes first, each claim has a source and unknowns are named." },
+    {
+      id: "reproduce",
+      title: "Reproduce",
+      kind: "ai",
+      instruction: "Open the screen in the rendered app and capture the defect before you edit anything.",
+      doneWhen: "The defect is captured in the rendered app.",
+    },
+    {
+      id: "fix",
+      title: "Fix",
+      kind: "ai",
+      instruction: "Fix the defect with the existing components and tokens. Check light and dark themes and a sibling screen that shares the component.",
+      doneWhen: "The fix uses existing components and tokens, and both themes and a sibling screen look right.",
+    },
+    {
+      id: "report",
+      title: "Report",
+      kind: "ai",
+      instruction: "Attach before and after screenshots and list what a designer still has to decide.",
+      doneWhen: "Before and after screenshots are attached.",
+    },
   ],
   shipper: [
-    { title: "Scope", doneWhen: "The diff is understood and unrelated changes are left out." },
-    { title: "Validate", doneWhen: "The required checks pass locally." },
-    { title: "Publish", doneWhen: "The pull request is open and auto-merge is queued." },
-    { title: "CI", doneWhen: "All required checks are finished and failures are fixed or reported." },
+    {
+      id: "validate",
+      title: "Validate",
+      kind: "ai",
+      instruction: "Read the diff, leave unrelated changes unstaged, run the required checks and commit the scoped change.",
+      doneWhen: "The scoped change is committed and the required checks pass locally.",
+    },
+    { id: "open-draft-pr", title: "Open draft PR", kind: "action", action: { type: "open-draft-pr" } },
+    {
+      id: "watch-checks",
+      title: "Watch checks",
+      kind: "action",
+      action: { type: "watch-checks", repairAttempts: 2, timeoutMinutes: 30 },
+    },
+    { id: "ready-for-review", title: "Ready for review", kind: "action", action: { type: "mark-pr-ready" } },
   ],
 };

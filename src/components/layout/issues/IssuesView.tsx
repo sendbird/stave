@@ -26,11 +26,9 @@ import {
   type TrackerSourceId,
 } from "@/lib/tracker-issues/types";
 import { sx } from "@/components/ads/utils/stylex";
-import { playbookChoiceForId } from "@/lib/missions/start-sheet";
 import type { ProposedMission } from "@/lib/missions/proposed";
 import { summarizeWatching } from "@/lib/playbooks/starts-when";
 import { useAppStore } from "@/store/app.store";
-import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
 import { useProposalsStore } from "@/store/proposals-store";
 import { IssuesBoard } from "./IssuesBoard";
 import { IssuesPeekPanel } from "./IssuesPeekPanel";
@@ -347,9 +345,6 @@ export function IssuesView(props: { onClose: () => void }) {
                 .catch(() => undefined)
             }
             onOpenMission={proposalActions.openMission}
-            onOpenPlaybooks={() =>
-              usePlaybooksUiStore.getState().openPlaybooks()
-            }
           />
         </div>
       ) : (
@@ -486,33 +481,15 @@ export function IssuesView(props: { onClose: () => void }) {
 
       <TrackerIssueKickoffSheet
         item={kickoffItem}
-        initialPlaybookChoice={
-          kickoffProposal
-            ? playbookChoiceForId(kickoffProposal.playbookId)
-            : null
-        }
         onClose={() => {
           setKickoffKey(null);
           setKickoffProposal(null);
         }}
-        onKickedOff={(result, playbookChoice) => {
+        onKickedOff={(result) => {
           if (!kickoffItem) return;
-          const proposal = kickoffProposal;
-          const markStarted = proposal
-            ? (missionId: string | null) =>
-                void useProposalsStore
-                  .getState()
-                  .markStarted(proposal.id, missionId)
-            : undefined;
-          void actions.completeKickoff({
-            task: kickoffItem.task,
-            result,
-            playbookChoice,
-            onMissionStarted: markStarted,
-          });
-          // Kicked off without a mission: the ticket's task is the answer.
-          if (markStarted && (!playbookChoice || !result.staged))
-            markStarted(null);
+          void actions.completeKickoff({ task: kickoffItem.task, result });
+          // The ticket's task is the proposal's answer.
+          if (kickoffProposal) void useProposalsStore.getState().markStarted(kickoffProposal.id, null);
         }}
       />
     </div>

@@ -2,17 +2,14 @@ import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { createMissionRuntime } from "../electron/host-service/supervision/mission-runtime";
 import { MissionStore } from "../electron/persistence/mission-store";
-import { createMission, MissionStartInputSchema } from "../src/lib/missions/domain";
-import { applyMissionDecision, decideMissionAction } from "../src/lib/missions/policy";
-import { evaluatePreStartChecks } from "../src/lib/missions/pre-start-checks";
-import { buildMissionReport } from "../src/lib/missions/report";
 import {
-  buildMissionStartInput,
-  defaultAuthorizedEffects,
-  describeStartButton,
-  listMissionStops,
-  remainingStages,
-} from "../src/lib/missions/start-sheet";
+  createMission,
+  listExternalEffectStages,
+  MissionStartInputSchema,
+  type MissionStartInput,
+} from "../src/lib/missions/domain";
+import { applyMissionDecision, decideMissionAction } from "../src/lib/missions/policy";
+import { buildMissionReport } from "../src/lib/missions/report";
 import { MISSION_NOW, observe, starterPlaybook } from "./fixtures/mission-fixtures";
 
 const playbook = starterPlaybook("request-to-pr");
@@ -20,11 +17,26 @@ const indexOf = (id: string) => playbook.stages.findIndex((stage) => stage.id ==
 const consent = {
   checkIns: "plan-and-publishing" as const,
   permissionMode: "guided" as const,
-  authorizedEffectStageIds: defaultAuthorizedEffects(playbook),
+  authorizedEffectStageIds: listExternalEffectStages(playbook).map((stage) => stage.id),
 };
 
+function buildMissionStartInput(args: {
+  assignment: string;
+  consent: typeof consent;
+  startStageIndex: number;
+}): MissionStartInput {
+  return {
+    workspaceId: "ws-1",
+    leadTaskId: "task-1",
+    playbook,
+    assignment: args.assignment,
+    consent: args.consent,
+    ...(args.startStageIndex ? { startStageIndex: args.startStageIndex } : {}),
+  };
+}
+
 function input(startStageIndex: number) {
-  return buildMissionStartInput({ workspaceId: "ws-1", taskId: "task-1", playbook, assignment: "Verify the fix.", consent, startStageIndex });
+  return buildMissionStartInput({ assignment: "Verify the fix.", consent, startStageIndex });
 }
 
 describe("starting a mission at a later stage", () => {
@@ -61,16 +73,6 @@ describe("starting a mission at a later stage", () => {
     expect("startStageIndex" in input(0)).toBe(false);
   });
 
-  test("starting signs off the chosen stage; only later stops remain, and the button says where it starts", () => {
-    expect(listMissionStops(playbook, consent, indexOf("build")).map((index) => playbook.stages[index]!.title)).toEqual([
-      "Ready for review",
-    ]);
-    expect(describeStartButton(playbook, consent, indexOf("build"))).toBe("Start at Build — asks before Ready for review");
-    expect(describeStartButton(playbook, { ...consent, checkIns: "when-stuck" }, indexOf("verify"))).toBe(
-      "Start at Verify — runs to the end",
-    );
-  });
-
   test("the mission does not ask again at the stage it starts at", () => {
     // Build follows the plan stage, so plan-and-publishing asks before it.
     const change = createMission({
@@ -87,7 +89,6 @@ describe("starting a mission at a later stage", () => {
       attempt: 1,
       reason: "stage-start",
     });
-    expect(listMissionStops(playbook, consent, indexOf("build"))).not.toContain(indexOf("build"));
 
     // An action stage signed off at start runs, and gets its start time then.
     const atOpenPr = createMission({
@@ -104,14 +105,11 @@ describe("starting a mission at a later stage", () => {
     expect(started.upserts[0]).toMatchObject({ stageId: "open-draft-pr", status: "running", startedAt: MISSION_NOW.toISOString() });
   });
 
-  test("a start stage that writes outside the workspace without consent still asks, and the sheet says so", () => {
+  test("a start stage that writes outside the workspace without consent still asks", () => {
     const withheld = { ...consent, authorizedEffectStageIds: consent.authorizedEffectStageIds.filter((id) => id !== "open-draft-pr") };
     const change = createMission({
       id: "mission-1",
       input: buildMissionStartInput({
-        workspaceId: "ws-1",
-        taskId: "task-1",
-        playbook,
         assignment: "Open the PR.",
         consent: withheld,
         startStageIndex: indexOf("open-draft-pr"),
@@ -125,22 +123,6 @@ describe("starting a mission at a later stage", () => {
     expect(decideMissionAction({ aggregate, observation: observe(), now: MISSION_NOW })).toEqual({
       action: "request-sign-off",
     });
-    expect(listMissionStops(playbook, withheld, indexOf("open-draft-pr"))[0]).toBe(indexOf("open-draft-pr"));
-  });
-
-  test("starting after Open draft PR needs a pull request that already exists", () => {
-    const base = {
-      providerSupported: true,
-      reporting: { state: "ready" } as never,
-      github: { state: "authenticated", pullRequest: null } as never,
-      dirtyFileCount: 0,
-      dirtyAcknowledged: false,
-      activeMission: false,
-    };
-    const fromStart = evaluatePreStartChecks({ ...base, playbook: remainingStages(playbook, 0) });
-    expect(fromStart.find((check) => check.id === "pull-request")).toBeUndefined();
-    const fromChecks = evaluatePreStartChecks({ ...base, playbook: remainingStages(playbook, indexOf("watch-checks")) });
-    expect(fromChecks.find((check) => check.id === "pull-request")).toMatchObject({ state: "fail", blocking: true });
   });
 
   test("the runtime runs the chosen stage first", async () => {

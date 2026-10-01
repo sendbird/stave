@@ -130,23 +130,23 @@ export const PUBLIC_DOC_SECTIONS: PublicDocSection[] = [
       {
         routePath: "missions",
         sourcePath: "docs/features/missions.md",
-        title: "Missions",
+        title: "Agent runs",
         description:
-          "Hand an outcome to a playbook: Stave runs each stage, opens the PR, watches checks and stops only where you sign off.",
+          "Assign an outcome to an agent: Stave runs its workflow's stages, opens the PR, watches checks and checks in only where the agent says.",
       },
       {
         routePath: "playbooks",
         sourcePath: "docs/features/playbooks.md",
-        title: "Playbooks",
+        title: "Playbooks (retired)",
         description:
-          "Save the stages you would otherwise prompt one by one, with where missions should ask you first.",
+          "Playbooks folded into agents: each saved playbook became a custom agent with the same stages.",
       },
       {
         routePath: "projects",
         sourcePath: "docs/features/projects.md",
         title: "Projects",
         description:
-          "Brief a goal that takes several missions; a coordinator plans them, wakes on issues, PR feedback or a schedule, and talks with you beside the board.",
+          "Deprecated: existing projects keep working; new ones cannot be started.",
       },
     ],
   },

@@ -2,7 +2,6 @@ import { useState } from "react";
 import {
   ArrowUpRight,
   BookmarkPlus,
-  BookPlus,
   CircleCheck,
   CircleMinus,
   CircleX,
@@ -26,7 +25,7 @@ import { EvidenceList } from "./EvidenceList";
 import type { MissionReportActions } from "./useMissionReportActions";
 import { missionStyles as styles } from "./missions.styles";
 
-type ReportActionKey = "pr" | "memory" | "playbook" | "slack";
+type ReportActionKey = "pr" | "memory" | "slack";
 
 const OUTCOME = {
   completed: { title: "Mission complete", icon: CircleCheck, tone: "success" },
@@ -233,7 +232,7 @@ export function MissionReportView({
             Add to PR description
           </Button>
         ) : null}
-        {actions.saveDecisions || actions.saveAsPlaybook || actions.shareToSlack ? (
+        {actions.saveDecisions || actions.shareToSlack ? (
           <DropdownMenu
             placement="bottom-start"
             triggerAsChild
@@ -248,9 +247,6 @@ export function MissionReportView({
                 items: [
                   ...(actions.saveDecisions
                     ? [{ label: "Save decisions to memory", icon: <BookmarkPlus />, pending: running === "memory", onSelect: () => void runAction("memory", actions.saveDecisions!) }]
-                    : []),
-                  ...(actions.saveAsPlaybook
-                    ? [{ label: "Save as playbook", icon: <BookPlus />, pending: running === "playbook", onSelect: () => void runAction("playbook", actions.saveAsPlaybook!) }]
                     : []),
                   ...(actions.shareToSlack ? [{ label: "Share to Slack…", icon: <Send />, onSelect: () => setSharing(true) }] : []),
                 ],

@@ -23,9 +23,6 @@ import type {
 } from "@/lib/tracker-issues/types";
 import { sx } from "@/components/ads/utils/stylex";
 import { useAppStore } from "@/store/app.store";
-import { useEffect, useState } from "react";
-import { Select } from "@/components/ads/components/Select";
-import { listPlaybookChoices } from "@/lib/missions/start-sheet";
 import {
   TRACKER_SOURCE_LABELS,
   openTrackerIssueInBrowser,
@@ -35,7 +32,6 @@ import { useTrackerIssueKickoffDraft } from "./useTrackerIssueKickoffDraft";
 import { taskLayoutStyles } from "./issues-layout.stylex";
 
 const ID_PREFIX = "tracker-issue-kickoff";
-const NO_PLAYBOOK = "none";
 
 const START_MODE_OPTIONS: readonly {
   value: TrackerIssueStartMode;
@@ -49,10 +45,7 @@ export interface TrackerIssueKickoffSheetProps {
   /** The ticket being kicked off; `null` keeps the sheet closed. */
   item: TrackerIssueListItem | null;
   onClose: () => void;
-  /** `playbookChoice` is set when the ticket becomes a mission. */
-  onKickedOff: (result: TrackerIssueKickoffResult, playbookChoice: string | null) => void;
-  /** The playbook chosen when the sheet opens, e.g. the one a proposal named. */
-  initialPlaybookChoice?: string | null;
+  onKickedOff: (result: TrackerIssueKickoffResult) => void;
 }
 
 export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
@@ -65,24 +58,11 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
   const repositories = useAppStore((state) => state.recentRepositories);
   const settings = useAppStore((state) => state.settings);
   const draft = useTrackerIssueKickoffDraft({ task, open: item !== null });
-  const playbooks = useAppStore((state) => state.settings.playbooks);
-  const [playbookChoice, setPlaybookChoice] = useState(NO_PLAYBOOK);
-  const missionChosen = playbookChoice !== NO_PLAYBOOK;
-  const initialChoice = props.initialPlaybookChoice ?? null;
-
-  // Each ticket opens on its own choice; declared after the draft so its
-  // start mode, seeded for the ticket, is the one a playbook overrides.
-  useEffect(() => {
-    if (!task) return;
-    setPlaybookChoice(initialChoice ?? NO_PLAYBOOK);
-    if (initialChoice) draft.setStartMode("stage");
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [task, initialChoice]);
 
   const submit = async () => {
     const result = await draft.submit();
     if (result) {
-      props.onKickedOff(result, missionChosen ? playbookChoice : null);
+      props.onKickedOff(result);
       props.onClose();
     }
   };
@@ -219,21 +199,6 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
             >
               How it starts
             </h3>
-            <Select
-              size="sm"
-              aria-label="Playbook"
-              value={playbookChoice}
-              options={[
-                { value: NO_PLAYBOOK, label: "No playbook — one task" },
-                ...listPlaybookChoices(playbooks),
-              ]}
-              onValueChange={(value) => {
-                const next = String(value);
-                setPlaybookChoice(next);
-                // A mission starts from a prepared task, after your consent.
-                if (next !== NO_PLAYBOOK) draft.setStartMode("stage");
-              }}
-            />
             <div className={sx(taskLayoutStyles.kickoffModeList)}>
               {START_MODE_OPTIONS.map((option) => (
                 <Button
@@ -252,7 +217,6 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
                         ]
                       : taskLayoutStyles.kickoffMode
                   }
-                  disabled={missionChosen && option.value === "run"}
                   onClick={() => draft.setStartMode(option.value)}
                 >
                   {option.label}
@@ -260,9 +224,7 @@ export function TrackerIssueKickoffSheet(props: TrackerIssueKickoffSheetProps) {
               ))}
             </div>
             <p className={sx(taskLayoutStyles.kickoffHint)}>
-              {missionChosen
-                ? "The workspace and task are prepared, then you confirm the mission's check-ins and permissions to start it."
-                : draft.startMode === "run"
+              {draft.startMode === "run"
                   ? "The workspace is created and the turn starts immediately."
                   : "The workspace and a prefilled prompt are prepared; you send it."}
             </p>

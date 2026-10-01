@@ -36,13 +36,13 @@ describe("agents view", () => {
     ]);
   });
 
-  test("the tab renders the list and a Start work button for the first agent", () => {
+  test("the tab renders the list and an Assign button for the first agent", () => {
     const html = renderToStaticMarkup(createElement(AgentsTab));
     expect(html).toContain('data-testid="agents-tab"');
     expect(html).toContain("Implementer");
-    // The embedded Assign panel is gone; the detail offers Start work… which
+    // The embedded Assign panel is gone; the detail offers Assign… which
     // opens Kickoff.
-    expect(html).toContain("Start work");
+    expect(html).toContain("Assign…");
     // The agent's assignments section is titled "Work" (was "Recent work").
     expect(html).toContain(">Work<");
     expect(html).not.toContain("Recent work");
@@ -82,6 +82,62 @@ describe("agents view", () => {
   });
 });
 
+describe("agent detail hierarchy", () => {
+  const chipsOf = async (agent: ReturnType<typeof getBuiltinAgent>) => {
+    const { AgentProfileHeader } = await import("../src/components/agents/AgentProfileHeader");
+    const html = renderToStaticMarkup(createElement(AgentProfileHeader, { agent: agent! }));
+    return [...html.matchAll(/<span class="[^"]*">([^<]+)<\/span>/g)].map((match) => match[1]);
+  };
+
+  test("the header says the model once and only flags Read only", async () => {
+    const reviewer = getBuiltinAgent("reviewer")!;
+    expect(await chipsOf(reviewer)).toEqual(["Built-in", "Auto", "Read only"]);
+    expect(await chipsOf(getBuiltinAgent("implementer")!)).toEqual(["Built-in", "Auto"]);
+    const pinned = { ...reviewer, permission: "auto" as const, model: { mode: "fixed" as const, providerId: "codex" as const, model: "gpt-5" } };
+    expect(await chipsOf(pinned)).toEqual(["Built-in", "gpt-5"]);
+  });
+
+  test("activity shows relative last used and no zero-value tiles", async () => {
+    const { AgentActivity } = await import("../src/components/agents/AgentActivity");
+    const row = (id: string, state: string, createdAt: string) =>
+      ({ id, state, createdAt, taskId: null, assignment: "Do it" }) as never;
+    const html = renderToStaticMarkup(
+      createElement(AgentActivity, {
+        assignments: [row("a", "started", new Date(Date.now() - 3 * 86_400_000).toISOString()), row("b", "failed", "2019-01-01T00:00:00.000Z")],
+      }),
+    );
+    expect(html).toContain("2 assignments");
+    expect(html).toContain("1 couldn&#x27;t start");
+    expect(html).toContain("Last used");
+    expect(html).toContain("3 days ago");
+    expect(html).not.toContain(">0<");
+    expect(html).not.toContain("running");
+    expect(html).not.toContain("need you");
+  });
+
+  test("learned suggestions are a single line with nothing to review", async () => {
+    const { AgentSuggestions } = await import("../src/components/agents/AgentSuggestions");
+    const agent = duplicateAgent(getBuiltinAgent("implementer")!, []);
+    const render = (learning: boolean) =>
+      renderToStaticMarkup(
+        createElement(AgentSuggestions, {
+          agent,
+          learning,
+          suggestions: [],
+          onLearningChange: () => {},
+          onApply: () => {},
+          onDismiss: () => {},
+        }),
+      );
+    const on = render(true);
+    expect(on).toContain("Learned suggestions");
+    expect(on).toContain("None yet.");
+    expect(on).toContain("Learn from my corrections");
+    expect(on).not.toContain("<ul");
+    expect(render(false)).toContain("Learning is off.");
+  });
+});
+
 describe("start work entry points", () => {
   test("an issue opens Kickoff with the ticket as the work source", async () => {
     const { assignTrackerIssueToAgent } = await import("../src/components/layout/issues/assign-issue-to-agent");
@@ -100,14 +156,19 @@ describe("start work entry points", () => {
     useAgentsUiStore.getState().clearKickoffRequest();
   });
 
-  test("`!assign` is offered in the composer palette and is not a playbook", async () => {
-    const { ASSIGN_PALETTE_ENTRY, isAssignPaletteEntry, playbookIdOfPaletteEntry } = await import(
-      "../src/components/session/HandOffControl"
-    );
+  test("`!assign` is offered in the composer palette", async () => {
+    const { ASSIGN_PALETTE_ENTRY, isAssignPaletteEntry } = await import("../src/components/session/assign-palette-entry");
     expect(ASSIGN_PALETTE_ENTRY.slug).toBe("assign");
-    expect(ASSIGN_PALETTE_ENTRY.label).toBe("Start work with an agent…");
+    expect(ASSIGN_PALETTE_ENTRY.label).toBe("Assign to an agent…");
     expect(isAssignPaletteEntry(ASSIGN_PALETTE_ENTRY)).toBe(true);
-    expect(playbookIdOfPaletteEntry(ASSIGN_PALETTE_ENTRY)).toBeNull();
+    expect(isAssignPaletteEntry({ id: "macro-1" })).toBe(false);
+  });
+
+  test("the palette's Assign to an agent… opens the composer selector on Agents when a task is open", async () => {
+    const { useAgentsUiStore } = await import("@/store/agents-ui-store");
+    const before = useAgentsUiStore.getState().agentSelectorNonce;
+    useAgentsUiStore.getState().requestAgentSelector();
+    expect(useAgentsUiStore.getState().agentSelectorNonce).toBe(before + 1);
   });
 
   test("openKickoffWithAgent raises a fresh nonce so an open dialog reopens", async () => {

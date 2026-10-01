@@ -295,8 +295,7 @@ function PlaybookDetailView(props: MissionDetailViewProps) {
 /**
  * The mission in the Task panel's Progress tab, with the commands that steer
  * it. Shown only for a task that has a mission; a task without one shows its
- * flow there instead, and starting a mission stays with the composer's
- * hand-off control.
+ * flow there instead; a run starts when work is assigned to an agent.
  */
 export function MissionPanel(props: { taskId: string; detail: MissionDetail }) {
   const { detail } = props;
