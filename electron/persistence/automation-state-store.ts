@@ -22,7 +22,6 @@ interface AppStateStatement {
 
 interface AppStateDatabase {
   prepare: (sql: string) => AppStateStatement;
-  transaction: <T>(fn: () => T) => () => T;
 }
 
 interface JsonValueRow {
@@ -37,117 +36,8 @@ const UPSERT_APP_STATE = `
     updated_at = excluded.updated_at
 `;
 
-// temporary-migration: automation-app-state-keys
-/** Keys written before automations were renamed from routines. */
-const LEGACY_ROUTINE_STATE_KEY = "routine_state_v1";
-const LEGACY_ROUTINE_PROVIDER_TIMEOUT_KEY = "routine_provider_timeout_ms_v1";
-
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  Boolean(value) && typeof value === "object" && !Array.isArray(value);
-
-/** `projectPath` → `repositoryPath`, from before registered projects became repositories. */
-function renameProjectPath(value: unknown): unknown {
-  if (!isRecord(value) || !("projectPath" in value)) return value;
-  const { projectPath, ...rest } = value;
-  return rest.repositoryPath === undefined ? { ...rest, repositoryPath: projectPath } : rest;
-}
-
-/**
- * Renames the legacy fields of a saved state: `routines` and `routineId`, and
- * each environment's and run's `projectPath`. Idempotent, so it also runs on
- * every load. Anything that is not the expected shape is returned untouched
- * and later normalized to an empty state, exactly as an unreadable
- * current-key value would be.
- */
-export function renameLegacyAutomationStateFields(value: unknown): unknown {
-  if (!isRecord(value)) {
-    return value;
-  }
-  const { routines, runs, ...rest } = value;
-  const automations = routines !== undefined && rest.automations === undefined ? routines : rest.automations;
-  return {
-    ...rest,
-    ...(automations !== undefined
-      ? {
-          automations: Array.isArray(automations)
-            ? automations.map((automation) =>
-                isRecord(automation) && "environment" in automation
-                  ? { ...automation, environment: renameProjectPath(automation.environment) }
-                  : automation,
-              )
-            : automations,
-        }
-      : {}),
-    ...(runs !== undefined
-      ? {
-          runs: Array.isArray(runs)
-            ? runs.map((run) => {
-                if (!isRecord(run)) {
-                  return run;
-                }
-                const { routineId, ...runRest } = run;
-                return renameProjectPath(
-                  routineId !== undefined && runRest.automationId === undefined
-                    ? { ...runRest, automationId: routineId }
-                    : runRest,
-                );
-              })
-            : runs,
-        }
-      : {}),
-  };
-}
-
-/**
- * Moves values saved under the legacy keys to the automation keys, once. A
- * value already present under the new key wins; the legacy row is deleted in
- * the same transaction either way, so this never runs twice for the same data.
- */
-export function migrateLegacyAutomationAppState(db: AppStateDatabase) {
-  const read = (key: string) =>
-    db.prepare("SELECT value_json FROM app_state WHERE key = ?").get(key) as
-      | JsonValueRow
-      | undefined;
-  const remove = (key: string) =>
-    db.prepare("DELETE FROM app_state WHERE key = ?").run(key);
-  const move = (
-    legacyKey: string,
-    currentKey: string,
-    transform: (value: unknown) => unknown,
-  ) => {
-    const legacy = read(legacyKey);
-    if (!legacy) return;
-    if (!read(currentKey)) {
-      let valueJson = legacy.value_json;
-      try {
-        valueJson = JSON.stringify(transform(JSON.parse(legacy.value_json)));
-      } catch {
-        // Unreadable legacy JSON moves as-is and normalizes to empty on load.
-      }
-      db.prepare(UPSERT_APP_STATE).run(
-        currentKey,
-        valueJson,
-        new Date().toISOString(),
-      );
-    }
-    remove(legacyKey);
-  };
-  db.transaction(() => {
-    move(
-      LEGACY_ROUTINE_STATE_KEY,
-      AUTOMATION_STATE_KEY,
-      renameLegacyAutomationStateFields,
-    );
-    move(LEGACY_ROUTINE_PROVIDER_TIMEOUT_KEY, AUTOMATION_PROVIDER_TIMEOUT_KEY, (value) => value);
-  })();
-}
-// end temporary-migration: automation-app-state-keys
-
 export class AutomationStateStore {
-  constructor(private readonly db: AppStateDatabase) {
-    // temporary-migration: automation-app-state-keys
-    migrateLegacyAutomationAppState(db);
-  }
+  constructor(private readonly db: AppStateDatabase) {}
 
   private read(key: string) {
     return this.db
@@ -167,8 +57,7 @@ export class AutomationStateStore {
       return createEmptyAutomationState();
     }
     try {
-      // temporary-migration: automation-app-state-keys
-      return normalizeAutomationState(renameLegacyAutomationStateFields(JSON.parse(row.value_json)));
+      return normalizeAutomationState(JSON.parse(row.value_json));
     } catch {
       return createEmptyAutomationState();
     }

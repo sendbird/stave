@@ -1,5 +1,3 @@
-// temporary-migration: connector-repository-mappings
-import { renameLegacyConnectorMappings } from "@/lib/legacy-connector-mappings";
 import { z } from "zod";
 
 import { CraneTeamRuntimeMemorySchema } from "@/lib/crane-connector/types";
@@ -118,10 +116,8 @@ export const DEFAULT_JIRA_CONNECTOR_SETTINGS = Object.freeze({
 }) satisfies JiraConnectorSettings;
 
 export function normalizeJiraConnectorSettings(
-  input: unknown,
+  value: unknown,
 ): JiraConnectorSettings {
-  // temporary-migration: connector-repository-mappings
-  const value = renameLegacyConnectorMappings(input);
   const parsed = JiraConnectorSettingsSchema.safeParse(value);
   if (parsed.success) {
     return parsed.data;

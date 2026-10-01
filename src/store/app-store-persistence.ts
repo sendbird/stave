@@ -5,10 +5,6 @@ import { normalizeCraneConnectorSettings } from "@/lib/crane-connector/types";
 import { normalizeMartinSyncSettings } from "@/lib/martin-sync/types";
 import { normalizeJiraConnectorSettings } from "@/lib/jira-connector/types";
 import { normalizeTrackerIssuesSettings } from "@/lib/tracker-issues/settings";
-// temporary-migration: issue-tracker-settings
-import { migrateLegacyIssueTrackerSettings } from "@/lib/tracker-issues/legacy-settings";
-// temporary-migration: repository-persisted-state
-import { migrateLegacyRepositoryState } from "@/store/legacy-repository-state";
 import {
   mergeWorkspaceActivityStamps,
   pruneWorkspaceActivityStamps,
@@ -178,22 +174,11 @@ export function createAppStorePersistenceOptions() {
       settings: state.settings,
       repositoryName: state.repositoryName,
     }),
-    // The default shallow merge, after renaming the snapshot's legacy keys:
-    // once merged, the new keys hold their initial values and a legacy value
-    // can no longer be told apart from an empty one.
-    merge: (persisted: unknown, current: AppState): AppState => {
-      const snapshot = { ...((persisted ?? {}) as Record<string, unknown>) };
-      // temporary-migration: repository-persisted-state
-      migrateLegacyRepositoryState(snapshot);
-      return { ...current, ...snapshot } as AppState;
-    },
     onRehydrateStorage: () => (state?: AppState) => {
       if (!state) {
         return;
       }
       const persistedSettings = state.settings;
-      // temporary-migration: issue-tracker-settings
-      migrateLegacyIssueTrackerSettings(persistedSettings);
       state.activeAppSurface = normalizeAppActiveSurface(
         state.activeAppSurface,
       );

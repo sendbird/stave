@@ -7,14 +7,6 @@ import {
   type LayoutState,
 } from "../src/store/layout.utils";
 
-test("a saved layout that names the old collaboration panel opens the Task panel on Team", () => {
-  expect(normalizeRightRailSelection("collaboration", undefined)).toEqual({
-    sidebarOverlayTab: "task",
-    taskPanelTab: "team",
-  });
-  expect(normalizeSidebarOverlayTab("collaboration")).toBe("task");
-});
-
 test("a saved layout that names a retired task panel opens the Task panel on its tab", () => {
   expect(RIGHT_RAIL_PANEL_TITLES.task).toBe("Task");
   for (const [panel, tab] of [

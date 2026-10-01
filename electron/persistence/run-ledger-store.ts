@@ -235,46 +235,12 @@ function hasStepTargetConflict(
   );
 }
 
-// temporary-migration: delegated-task-ledger-kinds
-/**
- * Rows written before delegated tasks were renamed from child tasks carry the
- * legacy run and step kinds and a few legacy bookkeeping strings. Rewrites
- * them once, in one transaction, before anything reads the ledger. Run ids
- * (`child-task:<parent>:<key>`) are persisted identity and deliberately stay.
- */
-export function migrateLegacyDelegatedTaskLedgerRows(db: RunLedgerDatabase) {
-  db.transaction(() => {
-    db.prepare(
-      "UPDATE runs SET kind = 'delegated-task' WHERE kind = 'child-task'",
-    ).run();
-    db.prepare(
-      "UPDATE run_steps SET kind = 'delegated-task-turn' WHERE kind = 'child-task-turn'",
-    ).run();
-    db.prepare(
-      `UPDATE runs
-         SET provenance_json = REPLACE(provenance_json, '"child-task-coordinator"', '"delegated-task-coordinator"')
-       WHERE provenance_json LIKE '%"child-task-coordinator"%'`,
-    ).run();
-    db.prepare(
-      `UPDATE run_receipts
-         SET detail_json = REPLACE(REPLACE(REPLACE(detail_json,
-           '"child-task-failure"', '"delegated-task-failure"'),
-           '"child-task-detached"', '"delegated-task-detached"'),
-           '"child-task-stopped"', '"delegated-task-stopped"')
-       WHERE detail_json LIKE '%"child-task-%'`,
-    ).run();
-  })();
-}
-// end temporary-migration: delegated-task-ledger-kinds
-
 export class RunLedgerStore {
   private readonly db: RunLedgerDatabase;
 
   constructor(database: unknown) {
     this.db = database as RunLedgerDatabase;
     this.bootstrap();
-    // temporary-migration: delegated-task-ledger-kinds
-    migrateLegacyDelegatedTaskLedgerRows(this.db);
   }
 
   private bootstrap() {

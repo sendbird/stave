@@ -72,8 +72,6 @@ import { ResultReviewStore } from "./result-review-store";
 import { NotificationStore } from "./notification-store";
 import { FleetAttentionSnoozeStore } from "./fleet-attention-snooze-store";
 import { WorkspaceDirectionDraftStore } from "./workspace-direction-drafts";
-// temporary-migration: repository-persisted-state
-import { migrateLegacyRepositoryEntries } from "../../src/store/legacy-repository-state";
 import type { RepositoryMemoryKind } from "../../src/lib/repository-memory";
 import type {
   WakeUp,
@@ -1670,7 +1668,7 @@ export class SqliteStore {
     if (!row) {
       return [];
     }
-    return migrateLegacyRepositoryEntries(JSON.parse(row.value_json)) as PersistenceRepositoryRegistryEntry[];
+    return JSON.parse(row.value_json) as PersistenceRepositoryRegistryEntry[];
   }
 
   loadActiveRepositoryPath(): string | null | undefined {

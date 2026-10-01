@@ -63,7 +63,7 @@ As-built:
       `electron/persistence/automation-state-store.ts`, which owns the marked
       migration `automation-app-state-keys` (removeInVersion 0.22.0). The
       ratchet dropped from 3097 to 3044.
-  - Test: `tests/automation-state-migration.test.ts` covers the move, the new
+  - Test: automation-state-migration.test.ts (removed) covers the move, the new
     key winning, idempotency and unreadable legacy JSON.
 - [x] No notification kinds or result-navigation keys embed `routine`, so no
       further data migration was needed.
@@ -99,7 +99,7 @@ As-built:
   - renames the tables and the column, drops the old index names
   - legacy data wins over an empty new table
   - both populated: warns and keeps the legacy table
-  - Test: `tests/wake-up-store-migration.test.ts`, including the
+  - Test: wake-up-store-migration.test.ts (removed), including the
     idempotency guarantee for occurrences recorded before the rename.
 - [x] Taxonomy (Wake-up vocabulary row, boundary 2, Layer 3 text), contracts,
       architecture index and the feature doc updated. Awkward "a wake-up
@@ -119,7 +119,7 @@ As-built:
 - [x] Temporary migration `delegated-task-ledger-kinds` in
       `run-ledger-store.ts` (removeInVersion 0.22.0) rewrites legacy kinds and
       the exact bookkeeping strings in one transaction and keeps run ids.
-  - Test: `tests/delegated-task-ledger-migration.test.ts`.
+  - Test: delegated-task-ledger-migration.test.ts (removed).
 - [x] UI-only exchange ids moved to `delegated-task:<key>`. They are not
       persisted.
 - [x] Prose fixed after the run:
@@ -145,11 +145,11 @@ As-built:
     string is indistinguishable
 - [x] Temporary migrations (removeInVersion 0.22.0):
   - `tracker-issue-tables` in `tracker-issues-store.ts`
-  - `issue-tracker-settings` in `src/lib/tracker-issues/legacy-settings.ts`,
+  - `issue-tracker-settings` in legacy-settings.ts (removed),
     called from `app-store-persistence.ts` on the persisted snapshot before
     the defaults merge. It covers the settings key, the shortcut override,
     command palette recents and the two local view keys.
-  - Test: `tests/tracker-issue-migrations.test.ts`.
+  - Test: tracker-issue-migrations.test.ts (removed).
 - [x] Persisted `activeAppSurface` with the old kind already falls back to the
       workspace, so it needs no migration.
 - [x] Taxonomy: Issue vocabulary row.
@@ -163,7 +163,7 @@ As-built:
 As-built:
 
 - [x] A TypeScript language-service codemod
-      (`scripts/codemods/rename-repositories.ts`): seeds every declaration
+      (rename-repositories.ts (removed)): seeds every declaration
       whose name contains "project" and is not a Martin/Jira/provider concept,
       then renames each symbol with `findRenameLocations`. Merges the two edits
       that land on one shorthand/aliased span, and follows renamed compound
@@ -191,10 +191,10 @@ As-built:
       `stave_list_repository_memories`. The read-only allowlist already only
       auto-allowed the memory read, which maps across cleanly.
 - [x] Temporary migration `repository-persisted-state`
-      (`src/store/legacy-repository-state.ts`, removeInVersion 0.22.0) maps the
+      (legacy-repository-state.ts (removed), removeInVersion 0.22.0) maps the
       persisted zustand keys `recentProjects`/`projectPath`/`projectName` on
       rehydrate so the registered-repository list and current selection
-      survive. Test: `tests/legacy-repository-state.test.ts`.
+      survive. Test: legacy-repository-state.test.ts (removed).
 - [x] Fixed by hand after the mechanical pass: ~10 object-literal keys the
       language service could not link to a renamed type, several stale test
       stubs (the `window.api.projectMemory` mock, a `recentProjects` fixture
@@ -252,7 +252,7 @@ copy.
 - [ ] Settings and local storage keys that embed `project`; the workspace
       session file fields that the host reads (`loadNormalizedProjects`).
 - [ ] IPC payload fields and schemas across the contract file list.
-- [ ] Keep `scripts/codemods/rename-vocabulary.ts --rule repositories` for one
+- [ ] Keep rename-vocabulary.ts --rule repositories (removed) for one
       release so open branches can replay it.
 - [ ] Gate: `bun run test:ci`, `bun run build:desktop`, and a manual smoke
       test: open a repository, create a workspace, run a turn, delegate a task,

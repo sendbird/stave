@@ -133,11 +133,6 @@ export function normalizeSidebarOverlayTab(value: unknown): RightRailPanelId {
 
 /** The Task tab a retired rail panel id stands for, or null for any other value. */
 function taskPanelTabForRetiredPanel(value: unknown): TaskPanelTab | null {
-  // temporary-migration: right-rail-mission-panel
-  // The Task Collaboration panel became the Team panel; a saved layout
-  // still names it by its old id.
-  if (value === "collaboration") return "team";
-  // end temporary-migration: right-rail-mission-panel
   // temporary-migration: right-rail-task-panel
   // Turn Activity, Task Results, Mission, Flow and Team were rail panels of
   // their own; they are tabs of the Task panel now, and a saved layout still

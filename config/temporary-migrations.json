@@ -3,107 +3,6 @@
   "policy": "Every entry is code that exists only to read or convert names Stave no longer uses, or to replay a rename on another branch. `bun run check:temporary-migrations` fails once package.json reaches removeInVersion; delete the marked blocks, the listed tests and the entry before that release. See AGENTS.md, Temporary Migrations.",
   "migrations": [
     {
-      "id": "automation-app-state-keys",
-      "description": "Moves app_state values saved under routine_state_v1 and routine_provider_timeout_ms_v1 to the automation keys, renaming routines/routineId to automations/automationId.",
-      "introducedAfter": "0.19.6",
-      "removeInVersion": "0.22.0",
-      "files": [
-        "electron/persistence/automation-state-store.ts"
-      ],
-      "tests": [
-        "tests/automation-state-migration.test.ts"
-      ]
-    },
-    {
-      "id": "wake-up-tables",
-      "description": "Renames the task_heartbeats and task_heartbeat_occurrences tables, the heartbeat_id column and their indexes to the wake-up names.",
-      "introducedAfter": "0.19.6",
-      "removeInVersion": "0.22.0",
-      "files": [
-        "electron/persistence/wake-up-store.ts"
-      ],
-      "tests": [
-        "tests/wake-up-store-migration.test.ts"
-      ]
-    },
-    {
-      "id": "delegated-task-ledger-kinds",
-      "description": "Rewrites ledger rows written with the child-task run kind, child-task-turn step kind and child-task bookkeeping codes to the delegated-task names. Run ids keep their child-task prefix on purpose.",
-      "introducedAfter": "0.19.6",
-      "removeInVersion": "0.22.0",
-      "files": [
-        "electron/persistence/run-ledger-store.ts"
-      ],
-      "tests": [
-        "tests/delegated-task-ledger-migration.test.ts"
-      ]
-    },
-    {
-      "id": "tracker-issue-tables",
-      "description": "Renames the tracker_tasks_cache and tracker_task_kickoffs tables and their indexes to the tracker issue names.",
-      "introducedAfter": "0.19.6",
-      "removeInVersion": "0.22.0",
-      "files": [
-        "electron/persistence/tracker-issues-store.ts"
-      ],
-      "tests": [
-        "tests/tracker-issue-migrations.test.ts"
-      ]
-    },
-    {
-      "id": "issue-tracker-settings",
-      "description": "Moves the trackerTasks setting, the navigation.tasks shortcut override, legacy command palette recents and the stave.tracker-tasks.* local view keys to the Issues names.",
-      "introducedAfter": "0.19.6",
-      "removeInVersion": "0.22.0",
-      "files": [
-        "src/lib/tracker-issues/legacy-settings.ts",
-        "src/store/app-store-persistence.ts"
-      ],
-      "tests": [
-        "tests/tracker-issue-migrations.test.ts"
-      ]
-    },
-    {
-      "id": "connector-repository-mappings",
-      "description": "Renames the projectMappings key of saved Jira and Crane connector settings to repositoryMappings, so the connectors keep their site, URL, enabled flag and mappings after the projects->repositories rename.",
-      "introducedAfter": "0.19.6",
-      "removeInVersion": "0.22.0",
-      "files": [
-        "src/lib/legacy-connector-mappings.ts",
-        "src/lib/jira-connector/types.ts",
-        "src/lib/crane-connector/types.ts"
-      ],
-      "tests": [
-        "tests/legacy-repository-state.test.ts"
-      ]
-    },
-    {
-      "id": "repository-persisted-state",
-      "description": "Maps the persisted zustand keys recentProjects, projectPath and projectName, and the projectPath, projectName and projectBasePrompt fields of each registered-repository entry (in that snapshot and in SQLite's project_registry), to the repository names, so the registered-repository list and current selection survive the projects->repositories rename.",
-      "introducedAfter": "0.19.6",
-      "removeInVersion": "0.22.0",
-      "files": [
-        "src/store/legacy-repository-state.ts",
-        "src/store/app-store-persistence.ts",
-        "electron/persistence/sqlite-store.ts"
-      ],
-      "tests": [
-        "tests/legacy-repository-state.test.ts"
-      ]
-    },
-    {
-      "id": "right-rail-mission-panel",
-      "description": "Maps a saved right-rail layout that names the old collaboration panel id to the Team panel that replaced it, so the panel a user left open survives the rename.",
-      "introducedAfter": "0.19.7",
-      "removeInVersion": "0.22.0",
-      "files": [
-        "src/store/layout.utils.ts"
-      ],
-      "tests": [
-        "tests/right-rail-panel-migration.test.ts"
-      ]
-    },
-    {
       "id": "right-rail-task-panel",
       "description": "Maps a saved right-rail layout that names the retired Turn Activity, Task Results, Mission, Flow or Team panel ids to the Task panel and the tab that replaced each, so the panel a user left open survives the merge.",
       "introducedAfter": "0.21.2",
@@ -126,17 +25,6 @@
       "tests": [
         "tests/repository-memory-table-migration.test.ts"
       ]
-    },
-    {
-      "id": "rename-vocabulary-codemod",
-      "description": "Replays the vocabulary renames (routine to automation, task heartbeat to wake-up, child task to delegated task, tracker task to tracker issue, project to repository, and later renames) on branches that started before they landed.",
-      "introducedAfter": "0.19.6",
-      "removeInVersion": "0.22.0",
-      "files": [
-        "scripts/codemods/rename-vocabulary.ts",
-        "scripts/codemods/rename-repositories.ts"
-      ],
-      "tests": []
     },
     {
       "id": "retired-advisor-crane-memory",
