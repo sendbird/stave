@@ -59,6 +59,7 @@ interface MissionRow {
   expires_at: string | null;
   created_at: string;
   updated_at: string;
+  origin: string | null;
 }
 
 interface MissionStageRow {
@@ -119,6 +120,7 @@ function parseMissionRow(row: MissionRow): Mission {
     expiresAt: row.expires_at,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
+    ...(row.origin ? { origin: row.origin } : {}),
   });
 }
 
@@ -195,7 +197,8 @@ export class MissionStore {
         max_turns INTEGER NOT NULL DEFAULT ${MISSION_LIMITS.defaultMaxTurns},
         expires_at TEXT,
         created_at TEXT NOT NULL,
-        updated_at TEXT NOT NULL
+        updated_at TEXT NOT NULL,
+        origin TEXT
       );
       CREATE UNIQUE INDEX IF NOT EXISTS idx_missions_active_lead
         ON missions (lead_task_id) WHERE state IN ${ACTIVE_STATES_SQL};
@@ -242,6 +245,11 @@ export class MissionStore {
         seen_at TEXT NOT NULL
       );
     `);
+    // Additive: databases from before agent runs gain the nullable column.
+    const columns = this.db.prepare("PRAGMA table_info(missions)").all() as { name: string }[];
+    if (!columns.some((column) => column.name === "origin")) {
+      this.db.exec("ALTER TABLE missions ADD COLUMN origin TEXT");
+    }
   }
 
   /** Adds a proposal unless its source key was proposed before; false when it was. */
@@ -340,6 +348,7 @@ export class MissionStore {
       mission.expiresAt,
       mission.createdAt,
       mission.updatedAt,
+      mission.origin ?? null,
     ];
     if (insert) {
       this.db
@@ -348,8 +357,8 @@ export class MissionStore {
              repository_path, workspace_id, lead_task_id, project_id,
              playbook_json, assignment, consent_json, fingerprint_json, state,
              pause_reason, stop_reason, reason_detail, current_stage_index,
-             turn_count, max_turns, expires_at, created_at, updated_at, id
-           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+             turn_count, max_turns, expires_at, created_at, updated_at, origin, id
+           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         )
         .run(...values, mission.id);
       return;
@@ -361,7 +370,8 @@ export class MissionStore {
            project_id = ?, playbook_json = ?, assignment = ?, consent_json = ?,
            fingerprint_json = ?, state = ?, pause_reason = ?, stop_reason = ?,
            reason_detail = ?, current_stage_index = ?, turn_count = ?,
-           max_turns = ?, expires_at = ?, created_at = ?, updated_at = ?
+           max_turns = ?, expires_at = ?, created_at = ?, updated_at = ?,
+           origin = ?
          WHERE id = ?`,
       )
       .run(...values, mission.id);

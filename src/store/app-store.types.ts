@@ -45,7 +45,7 @@ import type {
   StartCompareRunResult,
 } from "@/lib/compare-runs";
 import type { AppSettings } from "@/store/app-settings";
-import type { AutoRoutingDecisionRecord } from "@/store/auto-routing";
+import type { AutoRoutingDecisionRecord } from "@/lib/routing/auto-routing";
 import type { AppActiveSurface, AppSurfaceActions } from "@/store/app-surface";
 import type { FailedOutgoingSendsByTask } from "@/store/failed-send-recovery";
 import type { LayoutState } from "@/store/layout.utils";
@@ -111,6 +111,8 @@ export type SendUserMessageResult =
       message: string;
     }
   | { status: "started"; taskId: string; workspaceId: string; turnId: string }
+  /** An Agent-mode prompt started an agent run; the host starts its turns. */
+  | { status: "run-started"; taskId: string; workspaceId: string; missionId: string }
   | {
       /**
        * The message never reached the provider. Its payload is parked as a

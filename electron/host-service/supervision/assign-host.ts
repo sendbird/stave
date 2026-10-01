@@ -9,6 +9,7 @@ import { RecordTaskAgentInputSchema, ReleaseTaskAgentInputSchema } from "../../.
 import { listAgents, normalizeCustomAgents } from "../../../src/lib/agents/library";
 import { activeStandards, normalizeMyStandards } from "../../../src/lib/agents/standards";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
+import { AgentRouteSettingsSchema } from "../../../src/lib/routing/agent-run-route";
 import { setTaskAgentTurnResolver } from "../../providers/runtime";
 import { ensureHostServicePersistenceReady } from "../persistence";
 import { AssignError, createAssignRuntime, type AssignRuntime } from "./assign-runtime";
@@ -87,9 +88,14 @@ export async function invokeAgentAction(
         return { ok: true, value: runtime.list(value) };
       }
       case "sync-agents": {
-        const payload = (args ?? {}) as { customAgents?: unknown; myStandards?: unknown };
+        const payload = (args ?? {}) as { customAgents?: unknown; myStandards?: unknown; routeSettings?: unknown };
         hostCustomAgents = normalizeCustomAgents(payload.customAgents).agents;
         hostStandards = activeStandards(normalizeMyStandards(payload.myStandards));
+        // Agent runs route the turns the host starts with the user's Stave Auto settings.
+        const routeSettings = AgentRouteSettingsSchema.safeParse(payload.routeSettings);
+        if (routeSettings.success) {
+          ensureHostServicePersistenceReady().delegationPolicies.saveRouteSettings(routeSettings.data);
+        }
         return { ok: true, value: { count: hostCustomAgents.length } };
       }
       case "delegation-context": {

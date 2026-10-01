@@ -12,6 +12,16 @@ import { DEFAULT_MY_STANDARDS, normalizeMyStandards, type MyStandards } from "..
 
 let customAgents: AgentConfig[] = [];
 let myStandards: MyStandards = DEFAULT_MY_STANDARDS;
+/** The renderer's Stave Auto settings for agent runs; the host validates them. */
+let routeSettings: unknown;
+
+export function setRouteSettings(input: unknown) {
+  if (input !== undefined) routeSettings = input;
+}
+
+export function getRouteSettings(): unknown {
+  return routeSettings;
+}
 
 export function setMyStandards(input: unknown) {
   myStandards = normalizeMyStandards(input);

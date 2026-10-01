@@ -57,7 +57,7 @@ import { providerToolingStatePatch } from "./provider-tooling";
 import {
   normalizeAutoRoutingEligibleModels,
   normalizeAutoRoutingObjective,
-} from "@/store/auto-routing";
+} from "@/lib/routing/auto-routing";
 import {
   STANCE_OBJECTIVE,
   validateProfile,

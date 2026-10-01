@@ -7,7 +7,7 @@ import type { AutoRoutingModelResolution } from "../src/lib/providers/provider.t
 import {
   AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE,
   AUTO_ROUTING_CLASSIFIER_UNAVAILABLE_RATIONALE,
-} from "../src/store/auto-routing";
+} from "../src/lib/routing/auto-routing";
 import {
   beginPendingAutoRoute,
   endPendingAutoRoute,

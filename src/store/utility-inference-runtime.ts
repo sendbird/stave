@@ -13,7 +13,7 @@ import {
 import type {
   AutoRoutingClassifierRequest,
   AutoRoutingClassifierResult,
-} from "@/store/auto-routing";
+} from "@/lib/routing/auto-routing";
 import type { ChatMessage, Task } from "@/types/chat";
 import { isAccountUsageBlockingFromState } from "@/store/account-usage-guard";
 import { useAppStore } from "@/store/app.store";

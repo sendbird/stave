@@ -14,7 +14,7 @@ import {
   resolveHeuristicRoute,
   resolveProviderStickiness,
   type AutoRoutingSettings,
-} from "@/store/auto-routing";
+} from "@/lib/routing/auto-routing";
 import { isAutoRoutingUnavailableForSend } from "@/store/auto-routing-dispatch";
 
 const AUTO_SETTINGS: AutoRoutingSettings = {

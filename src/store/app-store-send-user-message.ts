@@ -19,7 +19,7 @@ import { buildCanonicalConversationRequest } from "@/lib/providers/canonical-req
 import { getProviderSessionCursor } from "@/lib/providers/provider-sessions";
 import { applyModelRuntimePreference } from "@/lib/providers/model-runtime-preferences";
 import { resolveTurnModelInfo } from "@/lib/providers/turn-model-info";
-import { buildAutoRoutingDecisionRecord } from "@/store/auto-routing";
+import { buildAutoRoutingDecisionRecord } from "@/lib/routing/auto-routing";
 import { endPendingAutoRoute } from "@/store/pending-auto-routing-store";
 import {
   buildAutoRoutingModelResolvedEvent,
@@ -69,6 +69,7 @@ import {
 import { guardSendAgainstAccountUsage } from "@/store/account-usage-guard";
 import { toast } from "@/lib/notifications/toast";
 import { applySteeredTurnState } from "@/store/steer-turn-state";
+import { prepareAgentRunForSend } from "@/store/agent-run-send";
 import {
   createWebFetchAuthWallTracker,
   maybeStartProviderBrowserFallbackTurn,
@@ -505,6 +506,12 @@ export function createSendUserMessageAction(args: {
     const promptDisplayParts = buildPromptDraftDisplayPartsForSend(promptDraft);
     const activeTurnId =
       taskWorkspaceSession.activeTurnIdsByTask[resolvedTaskId];
+    // Decided synchronously: a Chat send must not pass an await before its draft is cleared.
+    const agentRunStart = prepareAgentRunForSend({ set, workspaceId: taskWorkspaceId, taskId: resolvedTaskId,
+      providerId: provider, prompt: promptContent, promptDraft, extraContextCount: (fileContexts?.length ?? 0) + (imageContexts?.length ?? 0),
+      turnActive: Boolean(activeTurnId), queued: Boolean(queuedTurnToSend), turnOrigin, preservePromptDraft });
+    const agentRunStarted = agentRunStart ? await agentRunStart() : null;
+    if (agentRunStarted) return agentRunStarted;
     // A "stalled" turn is one whose provider stream has gone silent past the
     // stall threshold with no pending approval/user_input interaction — e.g. a
     // background task that never emitted `done`, or one whose runtime died. In

@@ -20,7 +20,7 @@ import {
   resolveBudgetUsedPercentByProvider,
   resolveRoutingProviderAvailability,
   type AutoRoutingDecision,
-} from "@/store/auto-routing";
+} from "@/lib/routing/auto-routing";
 import { buildOutgoingUserMessage } from "@/store/chat-state-helpers";
 import {
   beginPendingAutoRoute,

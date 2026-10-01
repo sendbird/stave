@@ -32,7 +32,7 @@ import {
 import { DelegationsBlock } from "@/components/delegation/DelegationsBlock";
 import { isRoutedDecision, RouteTrace } from "@/components/auto-routing";
 import { isDelegatedTaskInTurn } from "@/lib/work-graph/delegated-task-scope";
-import type { AutoRoutingDecisionRecord } from "@/store/auto-routing";
+import type { AutoRoutingDecisionRecord } from "@/lib/routing/auto-routing";
 import {
   selectDelegationExchanges,
   type DelegationActionId,

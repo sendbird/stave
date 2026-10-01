@@ -12,7 +12,7 @@ import { sx } from "@/components/ads/utils/stylex";
 import { collaborationPreviewStyles as cp } from "./collaboration-preview.styles";
 import type { ChatMessage } from "@/types/chat";
 import { createWorkGraph } from "@/lib/work-graph/work-graph-reducer";
-import { buildAutoRoutingDecisionRecord } from "@/store/auto-routing";
+import { buildAutoRoutingDecisionRecord } from "@/lib/routing/auto-routing";
 const target = {
   taskId: "preview-parent",
   workspaceId: "preview-workspace",

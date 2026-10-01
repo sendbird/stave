@@ -306,9 +306,17 @@ export function acceptMissionRuntime(args: {
 }
 
 /** Ends the mission. Completed work, pushed branches and PRs stay as they are. */
+/** Why an agent run ended without a report (`agent-run.ts`), in the stage's words. */
+const AGENT_RUN_END_DETAIL = {
+  stopped: "You stopped the run.",
+  released: "The task no longer runs as an agent.",
+} as const;
+
 export function cancelMission(args: {
   aggregate: MissionAggregate;
   now: Date;
+  /** Set when an agent run ends on its own: the user stopped it, or the agent was released. */
+  endedBy?: keyof typeof AGENT_RUN_END_DETAIL;
 }): MissionChange {
   requireActive(args.aggregate);
   const record = currentStageRecord(args.aggregate);
@@ -319,7 +327,7 @@ export function cancelMission(args: {
           ...record,
           status: "cancelled" as const,
           blockReason: null,
-          detail: "The mission was cancelled.",
+          detail: args.endedBy ? AGENT_RUN_END_DETAIL[args.endedBy] : "The mission was cancelled.",
           endedAt: args.now.toISOString(),
         },
       ];
@@ -330,7 +338,13 @@ export function cancelMission(args: {
       args.now,
     ),
     upserts,
-    events: [{ kind: "mission-ended", idempotencyKey: null, detail: { outcome: "cancelled" } }],
+    events: [
+      {
+        kind: "mission-ended",
+        idempotencyKey: null,
+        detail: { outcome: "cancelled", ...(args.endedBy ? { endedBy: args.endedBy } : {}) },
+      },
+    ],
   };
 }
 

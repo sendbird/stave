@@ -23,7 +23,7 @@ import {
   toHumanModelName,
 } from "@/lib/providers/model-catalog";
 import type { ProviderId } from "@/lib/providers/provider.types";
-import type { AutoRoutingSignalSummary } from "@/store/auto-routing";
+import type { AutoRoutingSignalSummary } from "@/lib/routing/auto-routing";
 import { routeFlowStyles as styles } from "./route-flow.styles";
 
 /* -------------------------------------------------------------------------- */

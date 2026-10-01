@@ -83,6 +83,11 @@ function resolveActionStatus(
         tone: "success" as const,
         text: "A new turn started with this reply.",
       };
+    case "run-started":
+      return {
+        tone: "success" as const,
+        text: "The agent started a run with this reply.",
+      };
     case "steer-unavailable":
     case "steer-delivery-unknown":
     case "send-failed":
@@ -418,7 +423,8 @@ export function FleetTaskControlPanel(args: {
     if (
       result.status === "steered" ||
       result.status === "queued" ||
-      result.status === "started"
+      result.status === "started" ||
+      result.status === "run-started"
     ) {
       setReply("");
     }

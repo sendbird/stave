@@ -485,6 +485,16 @@ const missionIdentity = {
 };
 
 /**
+ * `agent`: an agent run. An Agent-mode prompt started it with an implicit
+ * one-stage playbook built from the task's agent (`agent-run.ts`); the host
+ * routes each of its turns and it ends when the agent stops running the task.
+ * Absent for a mission started from a saved playbook.
+ */
+export const MISSION_ORIGINS = ["agent"] as const;
+export type MissionOrigin = (typeof MISSION_ORIGINS)[number];
+const MissionOriginSchema = z.enum(MISSION_ORIGINS).optional();
+
+/**
  * What starting a mission takes. It names an existing lead task and carries no
  * field that could create one.
  */
@@ -506,6 +516,7 @@ export const MissionStartInputSchema = z
      * and never run — for work already done by hand.
      */
     startStageIndex: z.number().int().min(0).default(0),
+    origin: MissionOriginSchema,
   })
   .strict()
   .superRefine((input, context) => {
@@ -553,6 +564,7 @@ export const MissionSchema = z
     expiresAt: TimestampSchema.nullable(),
     createdAt: TimestampSchema,
     updatedAt: TimestampSchema,
+    origin: MissionOriginSchema,
   })
   .strict()
   .superRefine((mission, context) => {
@@ -845,6 +857,7 @@ export function createMission(args: {
     expiresAt: input.expiresAt,
     createdAt: timestamp,
     updatedAt: timestamp,
+    ...(input.origin ? { origin: input.origin } : {}),
   });
   const startStage = playbookStageAt(mission, input.startStageIndex);
   // Starting later records the earlier stages as skipped, so the rail and the
@@ -882,6 +895,7 @@ export function createMission(args: {
           permissionMode: mission.consent.permissionMode,
           authorizedEffectStageIds: mission.consent.authorizedEffectStageIds,
           ...(input.startStageIndex > 0 ? { startStageId: startStage.id } : {}),
+          ...(mission.origin ? { origin: mission.origin } : {}),
         },
       },
     ],

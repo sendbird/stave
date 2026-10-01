@@ -13,7 +13,7 @@ import type { ProviderId } from "@/lib/providers/provider.types";
 import type {
   AutoRoutingDecision,
   AutoRoutingDecisionRecord,
-} from "@/store/auto-routing";
+} from "@/lib/routing/auto-routing";
 import { routeTraceStyles as styles } from "./route-trace.styles";
 
 /* -------------------------------------------------------------------------- */

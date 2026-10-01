@@ -19,7 +19,7 @@ import {
   STANCE_LABELS,
   formatResolvedRouteLabel,
 } from "@/lib/providers/auto-routing-profile";
-import { formatAutoRoutingSignalSummary } from "@/store/auto-routing";
+import { formatAutoRoutingSignalSummary } from "@/lib/routing/auto-routing";
 import { formatAdvisorRuntimeStatusValue } from "@/components/ai-elements/prompt-input-advisor-mode.utils";
 import { toast } from "@/components/ui";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";

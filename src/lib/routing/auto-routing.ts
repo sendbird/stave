@@ -31,6 +31,13 @@ import type {
 } from "@/lib/providers/provider.types";
 import type { PromptDraftRuntimeOverrides } from "@/types/chat";
 
+/**
+ * Stave Auto's decision core, pure apart from the classifier it is handed.
+ * The composer routes its sends with it (`src/store/auto-routing-dispatch.ts`,
+ * classifier over IPC) and the host routes the turns it starts for an agent
+ * run (`src/lib/routing/agent-run-route.ts`, classifier in process).
+ */
+
 export const AUTO_ROUTING_CLASSIFIER_TIMEOUT_MS = ROUTE_CLASSIFICATION_DEADLINE_MS;
 /** Rationale lead for a fallback the user asked for by skipping the classifier. */
 export const AUTO_ROUTING_CLASSIFIER_SKIPPED_RATIONALE =
@@ -303,11 +310,18 @@ export interface ResolveAutoRoutingDecisionArgs {
    * the classifier's answer.
    */
   classifierSignal?: AbortSignal;
-  classifyRoute?: (
-    args: AutoRoutingClassifierRequest,
-    signal?: AbortSignal,
-  ) => Promise<AutoRoutingClassifierResult | null>;
+  classifyRoute?: RouteClassifier;
 }
+
+/**
+ * The classifier port: the renderer passes one over IPC, the host one that
+ * runs utility inference in process. Null means "no answer"; routing then
+ * falls back to local rules.
+ */
+export type RouteClassifier = (
+  args: AutoRoutingClassifierRequest,
+  signal?: AbortSignal,
+) => Promise<AutoRoutingClassifierResult | null>;
 
 interface HeuristicRoute {
   taskType: TaskType;

@@ -84,7 +84,7 @@ import { normalizeKickoffSourceConfigs } from "@/lib/workspace-kickoff";
 import {
   normalizeAutoRoutingEligibleModels,
   normalizeAutoRoutingObjective,
-} from "@/store/auto-routing";
+} from "@/lib/routing/auto-routing";
 import {
   migrateLegacyAutoSettings,
   validateProfile,

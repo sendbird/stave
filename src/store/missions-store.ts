@@ -23,6 +23,8 @@ import type {
 import { isActiveMissionState, latestStageRecord, type Mission } from "@/lib/missions/domain";
 import { buildMissionTurnDividers, isOlderMissionDetail } from "@/lib/missions/mission-view";
 import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
+import { isAgentRun } from "@/lib/missions/agent-run";
+import { registerAgentRunBridge } from "@/store/agent-run-send";
 import { useAppStore } from "@/store/app.store";
 
 type CommandName =
@@ -263,6 +265,19 @@ export const useMissionsStore = create<MissionsState>()((set, get) => {
       return response;
     },
   };
+});
+
+/** The send path and Stop reach missions through this bridge (`agent-run-send.ts`). */
+registerAgentRunBridge({
+  activeMission: (workspaceId, taskId) => {
+    const state = useMissionsStore.getState();
+    if (state.loadedWorkspaceId !== workspaceId) return undefined;
+    const id = state.missionIdByTask[missionTaskKey(workspaceId, taskId)];
+    const mission = id ? state.details[id]?.mission : undefined;
+    return mission && isActiveMissionState(mission.state) ? { id: mission.id, agentRun: isAgentRun(mission) } : null;
+  },
+  start: (input) => useMissionsStore.getState().startMission(input),
+  cancel: (missionId) => useMissionsStore.getState().runCommand("cancel", { missionId }),
 });
 
 /** The task's mission detail, or undefined. Returns the stored reference. */

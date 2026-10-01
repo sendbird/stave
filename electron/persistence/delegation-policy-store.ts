@@ -11,6 +11,11 @@ import type {
   ProviderRuntimeOptions,
 } from "../../src/lib/providers/provider.types";
 import {
+  AgentRouteSettingsSchema,
+  type AgentRouteSettings,
+  type AgentRouteSettingsInput,
+} from "../../src/lib/routing/agent-run-route";
+import {
   DelegatedTaskEffortSchema,
   type DelegatedTaskEffort,
 } from "../../src/lib/runs/delegated-task";
@@ -49,6 +54,14 @@ export class DelegationPolicyStore {
       "delegation.permission-settings",
       DelegationPermissionSettingsSchema.parse(settings),
     );
+  }
+  /** The user's Stave Auto settings, for the turns the host routes (`agent-run-route.ts`). */
+  loadRouteSettings(): AgentRouteSettings | null {
+    const parsed = AgentRouteSettingsSchema.safeParse(this.read("routing.agent-route-settings"));
+    return parsed.success ? parsed.data : null;
+  }
+  saveRouteSettings(settings: AgentRouteSettingsInput) {
+    this.write("routing.agent-route-settings", AgentRouteSettingsSchema.parse(settings));
   }
   loadTask(taskId: string) {
     const raw = this.read(`delegation.task-policy:${taskId}`);
