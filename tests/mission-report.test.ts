@@ -6,14 +6,16 @@ import { buildMissionReport, type MissionWorkspaceState } from "../src/lib/missi
 import { COMPLETE_REPORT, MISSION_NOW, missionFixture } from "./fixtures/mission-fixtures";
 
 const FACTS: StageFacts = {
+  currentTurnId: "turn-1",
+  workspaceRevision: { status: "known", revision: "revision-1" },
   diff: { filesChanged: 3, insertions: 40, deletions: 2 },
   commands: [
-    { command: "bun run typecheck", exitCode: 0, toolCallId: "call-1" },
-    { command: "bun test tests/export.test.ts", exitCode: 1, toolCallId: "call-2" },
+    { command: "bun run typecheck", exitCode: 0, toolCallId: "call-1", turnId: "turn-1", outcome: "succeeded", provenance: "provider-structured", sourceRevision: { status: "known", revision: "revision-1" } },
+    { command: "bun test tests/export.test.ts", exitCode: 1, toolCallId: "call-2", turnId: "turn-1", outcome: "failed", provenance: "provider-structured" },
   ],
   toolCalls: [
-    { toolCallId: "call-3", name: "stave_lens_screenshot", ok: true },
-    { toolCallId: "call-4", name: "stave_lens_snapshot", ok: false },
+    { toolCallId: "call-3", name: "stave_lens_screenshot", ok: true, turnId: "turn-1" },
+    { toolCallId: "call-4", name: "stave_lens_snapshot", ok: false, turnId: "turn-1" },
   ],
   action: null,
 };
@@ -70,9 +72,9 @@ describe("evidence provenance", () => {
     };
     expect(classifyStageEvidence(report, FACTS).map((item) => [item.label, item.source])).toEqual([
       ["Typecheck passes", "stave"],
-      ["Tests pass", "agent"],
-      ["Screenshot", "stave"],
-      ["Snapshot", "agent"],
+      ["Tests pass", "provider"],
+      ["Screenshot", "provider"],
+      ["Snapshot", "provider"],
       ["Typecheck by call", "stave"],
       ["Looks right", "agent"],
     ]);
@@ -119,7 +121,7 @@ describe("mission report", () => {
       ["watch-checks", "completed", 1],
       ["ready-for-review", "pending", 0],
     ]);
-    expect(report.stages[1]?.evidence).toEqual([
+    expect(report.stages[1]?.evidence).toMatchObject([
       { label: "Typecheck passes", kind: "check", command: "bun run typecheck", source: "stave" },
     ]);
     expect(report.stages[3]?.evidence[0]).toMatchObject({ label: "Opened draft PR #12", source: "stave" });

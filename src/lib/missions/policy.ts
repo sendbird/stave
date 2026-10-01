@@ -13,6 +13,7 @@
  *   decision creates one.
  */
 import { resolveStageSignOff } from "@/lib/playbooks/sign-off";
+import { unmetStageAcceptance } from "./acceptance";
 import type { SignOff } from "@/lib/playbooks/schema";
 import {
   clampReason,
@@ -194,6 +195,9 @@ function attemptLimitDetail(error: MissionCommandError) {
  * no attempts left: entering that stage would otherwise throw on every tick.
  */
 function completeStage(aggregate: MissionAggregate, record: MissionStageRecord): MissionDecision {
+  const unmet = unmetStageAcceptance(aggregate, record);
+  if (unmet) return record.status === "blocked" && record.blockReason === "acceptance-unmet" && record.detail === clampReason(unmet)
+    ? { action: "idle" } : { action: "block", reason: "acceptance-unmet", detail: clampReason(unmet) };
   const { mission } = aggregate;
   const nextIndex = mission.currentStageIndex + 1;
   if (nextIndex < mission.playbook.stages.length) {
@@ -259,8 +263,8 @@ function startTurn(args: {
 /** True when the report was made during or after the last ended turn. */
 function isCurrentReport(record: MissionStageRecord, lastEndedTurn: ObservedTurn | null) {
   if (!record.report) return false;
+  if (record.report.turnId) return record.report.turnId === lastEndedTurn?.turnId;
   if (!lastEndedTurn) return true;
-  if (record.report.turnId && record.report.turnId === lastEndedTurn.turnId) return true;
   return Date.parse(record.report.reportedAt) >= Date.parse(lastEndedTurn.startedAt);
 }
 
@@ -641,6 +645,8 @@ export function applyMissionDecision(args: {
     }
     case "complete-stage": {
       const record = currentStageRecord(aggregate);
+      const unmet = unmetStageAcceptance(aggregate, record);
+      if (unmet) return applyMissionDecision({ aggregate, decision: { action: "block", reason: "acceptance-unmet", detail: unmet }, now });
       const completed: MissionStageRecord = {
         ...record,
         status: "completed",

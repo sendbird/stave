@@ -1097,6 +1097,8 @@ export type NormalizedProviderEvent =
       output: string;
       isError?: boolean;
       isPartial?: boolean;
+      /** Explicit process status from a structured provider command result. */
+      exitCode?: number | null;
     }
   | {
       type: "diff";

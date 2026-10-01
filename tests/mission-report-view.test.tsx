@@ -56,6 +56,21 @@ test("the report leads with outcome and figures, then decisions, open items and 
   expect(html).toContain("Copy Markdown");
 });
 
+test("stale or failed checks are never counted or exported as verified", () => {
+  const report: MissionReport = { ...REPORT, stages: [{ ...REPORT.stages[0]!, evidence: [
+    { label: "Old check", kind: "check", source: "stave", outcome: "succeeded", exitCode: 0, freshness: "stale" },
+    { label: "Failed check", kind: "check", source: "provider", outcome: "failed", exitCode: 7, freshness: "unknown" },
+  ] }] };
+  const html = renderToStaticMarkup(createElement(MissionReportView, { report }));
+  expect(html).toMatch(/Verified<\/dt><dd[^>]*>0/);
+  expect(html).toContain("Stave result");
+  expect(html).toContain("Provider result");
+  const markdown = formatMissionReportMarkdown(report);
+  expect(markdown).not.toContain("Verified by Stave: Old check");
+  expect(markdown).toContain("Exit 0 · Changed since this check");
+  expect(markdown).toContain("Failed · Exit 7 · Current work unverified");
+});
+
 test("under the Mission panel the report leaves the outcome and open items to the panel header", () => {
   const html = renderToStaticMarkup(createElement(MissionReportView, { report: REPORT, context: "panel" }));
   expect(html).not.toContain("Mission stopped");

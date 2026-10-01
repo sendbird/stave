@@ -5,6 +5,8 @@
  * Used by: `electron/host-service.ts`.
  */
 import { hostAgents } from "./assign-host";
+import { readWorkspaceRevision } from "./workspace-revision";
+import { observeWorkspaceScript } from "./workspace-script-verification";
 import type { MissionChangedEvent } from "../../../src/lib/missions/api";
 import { buildProjectMemoryContext } from "../../../src/lib/projects/briefing";
 import { readStaveLocalMcpManifest } from "../../main/stave-local-mcp-manifest";
@@ -51,19 +53,19 @@ async function runMissionScript(args: { workspaceId: string; scriptId: string })
         detail: `This workspace has no script action “${args.scriptId}”. Add it in Settings → Repositories → Scripts, or change the stage.`,
       };
     }
-    const result = await runScriptEntry({
+    const { result, verification } = await observeWorkspaceScript({ cwd: workspace.path, run: () => runScriptEntry({
       workspaceId: args.workspaceId,
       scriptEntry,
       repositoryPath: repository.repositoryPath,
       workspacePath: workspace.path,
       workspaceName: workspace.name,
       branch: workspace.branch ?? repository.defaultBranch ?? "",
-    });
+    }) });
     if (!("exitCode" in result)) return { ok: false, detail: `“${args.scriptId}” did not run as an action.` };
     const output = "output" in result && typeof result.output === "string" ? result.output : "";
-    return result.ok
-      ? { ok: true, exitCode: result.exitCode ?? 0, output }
-      : { ok: false, detail: "error" in result && result.error ? String(result.error) : `“${args.scriptId}” exited with ${result.exitCode}.`, exitCode: result.exitCode, output };
+    return result.ok && typeof result.exitCode === "number" && Number.isInteger(result.exitCode)
+      ? { ok: true, exitCode: result.exitCode, output, verification }
+      : { ok: false, detail: "error" in result && result.error ? String(result.error) : typeof result.exitCode === "number" && Number.isInteger(result.exitCode) ? `“${args.scriptId}” exited with ${result.exitCode}.` : `“${args.scriptId}” did not report a process exit status.`, exitCode: result.exitCode, output };
   }
   return { ok: false, detail: "The workspace could not be found." };
 }
@@ -106,11 +108,13 @@ export function createHostMissionRuntime(args: {
     resolveMissionGrant,
     resolveWorkspacePath,
     readHeadSha: (cwd) => readHeadSha({ cwd, run: runCommandArgs }),
+    readWorkspaceRevision,
     collectStageFacts: async (factArgs) =>
       collectStageFacts({
         cwd: factArgs.cwd,
         startHeadSha: factArgs.startHeadSha,
         turnIds: factArgs.turnIds,
+        currentTurnId: factArgs.currentTurnId,
         messages:
           persistence.loadTaskMessagesPage({
             workspaceId: factArgs.workspaceId,

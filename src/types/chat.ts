@@ -260,6 +260,8 @@ export interface ToolUsePart extends MessagePartBase {
   toolName: string;
   input: string;
   output?: string;
+  /** A real process exit status; absent when the provider did not supply one. */
+  exitCode?: number | null;
   state:
     "input-streaming" | "input-available" | "output-available" | "output-error";
   elapsedSeconds?: number;

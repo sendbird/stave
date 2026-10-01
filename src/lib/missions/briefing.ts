@@ -27,7 +27,7 @@ import {
   type MissionAggregate,
   type StageStatus,
 } from "./domain";
-import { describeActionEvidence } from "./evidence";
+import { describeActionEvidence, isVerifiedEvidence } from "./evidence";
 import type { StageTurnReason } from "./policy";
 
 export const MISSION_TOOL_NAMES = Object.freeze({
@@ -90,20 +90,31 @@ export function collectPriorStageSummaries(
 }
 
 /**
- * The acceptance criteria the current stage is judged against: the latest
- * ones an earlier stage reported. A later stage's statuses are not carried
+ * The goal criteria reported by prior stages, updated by matching reports and
+ * observed script checks. A later stage's statuses are not carried
  * back when "Ask for changes" reruns an earlier stage, because the change can
  * invalidate them.
  */
 export function collectAcceptanceCriteria(
   aggregate: MissionAggregate,
+  includeCurrent = false,
 ): AcceptanceCriterion[] {
   const { mission, stages } = aggregate;
   let criteria: AcceptanceCriterion[] = [];
-  for (let index = 0; index < mission.currentStageIndex; index += 1) {
+  for (let index = 0; index < mission.currentStageIndex + Number(includeCurrent); index += 1) {
     const record = latestStageRecord(stages, playbookStageAt(mission, index).id);
-    if (record?.report?.outcome === "complete" && record.report.acceptanceCriteria?.length) {
-      criteria = record.report.acceptanceCriteria;
+    const stage = playbookStageAt(mission, index);
+    const observed = stage.kind === "action" && record?.facts?.action?.type === "run-script"
+      ? (stage.acceptanceCriteria ?? []).map((criterion) => ({ text: criterion.text, required: criterion.required, status: isVerifiedEvidence(describeActionEvidence(record.facts!.action!, record.facts)) ? "met" as const : "unverified" as const })) : [];
+    const reported = record?.report?.outcome === "complete" ? record.report.acceptanceCriteria ?? [] : [];
+    const updates = [...reported, ...observed];
+    if (updates.length) {
+      if (stage.kind === "ai" && stage.role === "plan") criteria = [];
+      for (const incoming of updates) {
+        const position = criteria.findIndex((criterion) => criterion.text.trim() === incoming.text.trim());
+        if (position < 0) criteria.push(incoming);
+        else criteria[position] = { ...incoming, ...(incoming.required === false && criteria[position]?.required !== false ? { required: true } : {}) };
+      }
     }
   }
   return criteria;

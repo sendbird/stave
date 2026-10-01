@@ -132,7 +132,7 @@ describe("mission view", () => {
     ]);
   });
 
-  test("stage rows carry durations and put Stave's evidence first", () => {
+  test("stage rows carry durations and preserve legacy evidence as agent reported", () => {
     const detail = detailAtBuild();
     const withEvidence: MissionDetail = {
       ...detail,
@@ -159,8 +159,8 @@ describe("mission view", () => {
     const rows = projectMissionStages(withEvidence, new Date(NOW));
     expect(rows[0]).toMatchObject({ status: "completed", durationMs: 3 * 60_000, current: false });
     expect(rows[0]!.evidence.map((item) => [item.label, item.source])).toEqual([
-      ["Tests pass", "stave"],
       ["Looked right", "agent"],
+      ["Tests pass", "agent"],
     ]);
     expect(rows[1]).toMatchObject({ status: "running", current: true, asksFirst: true });
     expect(rows[5]).toMatchObject({ status: "pending", asksFirst: true });

@@ -23,6 +23,14 @@ import { classifyStageEvidence } from "../src/lib/missions/evidence";
 import type { ActionOutcome } from "../src/lib/missions/policy";
 import { computeMissionMetrics } from "../src/lib/missions/report";
 import { PlaybookSchema, type Playbook, type PlaybookStage } from "../src/lib/playbooks/schema";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { execFileSync } from "node:child_process";
+import { readWorkspaceRevision } from "../electron/host-service/supervision/workspace-revision";
+import { observeWorkspaceScript } from "../electron/host-service/supervision/workspace-script-verification";
+import { createMissionActionExecutor, type MissionScmPort } from "../electron/host-service/supervision/mission-actions";
+import { runCommandArgs } from "../electron/main/utils/command";
 
 const START = "2026-09-26T10:00:00.000Z";
 
@@ -89,6 +97,7 @@ function createHarness(options: {
   hangTurnStarts?: boolean;
   performAction?: MissionRuntimeDependencies["performAction"];
   updatePullRequestBody?: MissionRuntimeDependencies["updatePullRequestBody"];
+  workspacePath?: string;
 } = {}) {
   const store = options.store ?? new MissionStore(new Database(":memory:"));
   const turnPrefix = options.turnPrefix ?? "turn";
@@ -156,7 +165,8 @@ function createHarness(options: {
     countActiveDelegatedTasks: () => activeDelegated,
     isReportingAvailable: async () => reportingAvailable,
     resolveMissionGrant: (key) => grants.get(key) ?? null,
-    resolveWorkspacePath: async () => "/tmp/repo-ws",
+    resolveWorkspacePath: async () => options.workspacePath ?? "/tmp/repo-ws",
+    ...(options.workspacePath ? { readWorkspaceRevision } : {}),
     readHeadSha: async () => "abc1234",
     collectStageFacts: async (args) => {
       factCalls.push(args);
@@ -383,7 +393,7 @@ describe("mission runtime: stage reports", () => {
     expect(harness.current(missionId).stageId).toBe("polish");
   });
 
-  test("facts collected when a turn ends verify the evidence the report cites", async () => {
+  test("legacy command facts without real execution provenance do not verify a report", async () => {
     const harness = createHarness();
     harness.setFacts({
       ...EMPTY_STAGE_FACTS,
@@ -401,7 +411,7 @@ describe("mission runtime: stage reports", () => {
     const draft = harness.aggregate(missionId).stages.find((record) => record.stageId === "draft")!;
     expect(draft.report?.outcome).toBe("complete");
     if (draft.report?.outcome !== "complete") throw new Error("expected a complete report");
-    expect(classifyStageEvidence(draft.report, draft.facts)[0]?.source).toBe("stave");
+    expect(classifyStageEvidence(draft.report, draft.facts)[0]?.source).toBe("agent");
   });
 });
 
@@ -684,6 +694,51 @@ describe("mission runtime: failures and restarts", () => {
 });
 
 describe("mission runtime: Stave action stages", () => {
+  test("a real nonzero script blocks its stage even when stdout claims success", async () => {
+    const store = new MissionStore(new Database(":memory:"));
+    const performAction = createMissionActionExecutor({ store, scm: {} as MissionScmPort, resolveWorkspacePath: async () => "/tmp", runScript: async () => {
+      const observed = await observeWorkspaceScript({ cwd: "/tmp", readRevision: async () => ({ status: "unknown", reason: "unavailable" }), run: () => runCommandArgs({ cwd: "/tmp", command: process.execPath, commandArgs: ["-e", "console.log('all tests passed; exit 0'); process.exit(7)"] }) });
+      return { ok: true, exitCode: observed.result.code!, output: observed.result.stdout, verification: observed.verification };
+    } });
+    const harness = createHarness({ store, performAction });
+    const id = await startedMission(harness, startInput({ playbook: playbook([{ id: "check", title: "Check", kind: "action", action: { type: "run-script", scriptId: "test" }, acceptanceCriteria: [{ text: "Tests pass" }] }]), consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["check"] } }));
+    for (let attempt = 0; attempt < 30 && harness.current(id).status !== "blocked"; attempt++) {
+      await new Promise((resolve) => setTimeout(resolve, 10)); await harness.tick();
+    }
+    expect(harness.current(id)).toMatchObject({ status: "blocked", blockReason: "action-failed" });
+    expect(harness.current(id).detail).toContain("exited with 7");
+    expect(harness.aggregate(id).mission.state).not.toBe("completed");
+  });
+  test("a real unchanged Run script satisfies required checks; a later edit makes its evidence stale", async () => {
+    const cwd = mkdtempSync(join(tmpdir(), "stave-mission-check-"));
+    try {
+      const git = (...args: string[]) => execFileSync("git", args, { cwd, stdio: "pipe" });
+      git("init"); writeFileSync(join(cwd, "tracked.txt"), "original"); git("add", ".");
+      git("-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-m", "test: record workspace");
+      const store = new MissionStore(new Database(":memory:"));
+      const performAction = createMissionActionExecutor({ store, scm: {} as MissionScmPort, resolveWorkspacePath: async () => cwd, runScript: async () => {
+        const observed = await observeWorkspaceScript({ cwd, run: () => runCommandArgs({ cwd, command: process.execPath, commandArgs: ["-e", "process.exit(0)"] }) });
+        return { ok: true, exitCode: observed.result.code!, output: observed.result.stdout, verification: observed.verification };
+      } });
+      const harness = createHarness({ store, workspacePath: cwd, performAction });
+      const id = await startedMission(harness, startInput({ playbook: playbook([{ ...DRAFT, role: "plan" }, { id: "check", title: "Check", kind: "action", action: { type: "run-script", scriptId: "test" }, acceptanceCriteria: [{ text: "Tests pass" }] }]), consent: { checkIns: "when-stuck", permissionMode: "guided", authorizedEffectStageIds: ["check"] } }));
+      await harness.runtime.reportStage({ missionKey: "key-turn-1", report: { ...COMPLETE, acceptanceCriteria: [{ text: "Tests pass", status: "unverified" }] } });
+      harness.endTurn("turn-1"); await harness.tick();
+      for (let attempt = 0; attempt < 30 && harness.aggregate(id).mission.state !== "completed"; attempt++) {
+        await new Promise((resolve) => setTimeout(resolve, 10)); await harness.tick();
+      }
+      expect(harness.aggregate(id).mission.state).toBe("completed");
+      const current = await harness.runtime.get({ missionId: id });
+      expect(current.report?.stages[1]?.evidence[0]).toMatchObject({ outcome: "succeeded", exitCode: 0, freshness: "current" });
+      expect(current.report?.acceptanceCriteria).toContainEqual(expect.objectContaining({ text: "Tests pass", status: "met" }));
+      writeFileSync(join(cwd, "tracked.txt"), "changed after the check");
+      const stale = await harness.runtime.get({ missionId: id });
+      expect(stale.report?.stages[1]?.evidence[0]).toMatchObject({ freshness: "stale", exitCode: 0 });
+      expect(stale.report?.acceptanceCriteria).toContainEqual(expect.objectContaining({ text: "Tests pass", status: "unverified" }));
+      // Viewing changed work must not rewrite the check's original source revision.
+      expect(harness.aggregate(id).stages[1]?.facts?.action).toEqual(current.stages[1]?.facts?.action);
+    } finally { rmSync(cwd, { recursive: true, force: true }); }
+  });
   const actionInput = () =>
     startInput({
       playbook: playbook([DRAFT, OPEN_PR]),

@@ -269,6 +269,7 @@ const ToolResultEventSchema = z.object({
   output: z.string(),
   isError: z.boolean().optional(),
   isPartial: z.boolean().optional(),
+  exitCode: z.number().int().nullable().optional(),
 });
 
 const ToolProgressEventSchema = z.object({

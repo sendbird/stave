@@ -89,6 +89,7 @@ const CanonicalMessagePartSchema = z.discriminatedUnion("type", [
       toolName: z.string().max(200),
       input: z.string().max(500_000),
       output: z.string().max(500_000).optional(),
+      exitCode: z.number().int().nullable().optional(),
       state: z.union([
         z.literal("input-streaming"),
         z.literal("input-available"),

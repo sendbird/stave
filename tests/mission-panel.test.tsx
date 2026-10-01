@@ -154,7 +154,7 @@ describe("sign-off card", () => {
   test("it cites the stage before it and offers review and changes", () => {
     const detail = detailAtBuild("awaiting-sign-off");
     const rows = projectMissionStages(detail, new Date(NOW));
-    expect(summarizePreviousStage(rows[0])).toBe("Understand done · 4 files +82 −17 · 1 verified by Stave");
+    expect(summarizePreviousStage(rows[0])).toBe("Understand done · 4 files +82 −17");
     const html = renderToStaticMarkup(
       createElement(SignOffCard, {
         detail,
