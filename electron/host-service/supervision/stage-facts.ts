@@ -17,6 +17,7 @@ import {
 import type { StageFacts } from "../../../src/lib/missions/domain";
 import type { MissionWorkspaceState } from "../../../src/lib/missions/report";
 import type { ScmCommandRunner } from "../scm-runtime";
+import { readWorkspaceRevision } from "./workspace-revision";
 
 const GIT_TIMEOUT_MS = 15_000;
 const SHA_PATTERN = /^[0-9a-f]{7,64}$/i;
@@ -54,6 +55,7 @@ export async function collectStageFacts(args: {
   cwd: string | null;
   startHeadSha: string | null;
   turnIds: ReadonlySet<string>;
+  currentTurnId?: string;
   messages: readonly FactSourceMessage[];
   run: ScmCommandRunner;
 }): Promise<StageFacts> {
@@ -61,7 +63,8 @@ export async function collectStageFacts(args: {
     args.cwd && args.startHeadSha
       ? await readDiffSince({ cwd: args.cwd, sha: args.startHeadSha, run: args.run })
       : null;
-  return extractStageFacts({ messages: args.messages, turnIds: args.turnIds, diff });
+  const workspaceRevision = args.cwd ? await readWorkspaceRevision(args.cwd) : { status: "unknown" as const, reason: "unavailable" as const };
+  return { ...extractStageFacts({ messages: args.messages, turnIds: args.turnIds, currentTurnId: args.currentTurnId, diff }), workspaceRevision };
 }
 
 /**

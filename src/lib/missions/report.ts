@@ -5,6 +5,7 @@
  */
 import type { AcceptanceCriterion } from "@/lib/playbooks/stage-prompt";
 import type { MissionUsage } from "./usage";
+import { collectAcceptanceCriteria } from "./briefing";
 import {
   latestStageRecord,
   type MissionAggregate,
@@ -122,7 +123,7 @@ export function buildMissionReport(args: {
     throw new Error(`Mission ${mission.id} is still ${mission.state}; report it once it ends.`);
   }
 
-  let acceptanceCriteria: AcceptanceCriterion[] = [];
+  const acceptanceCriteria = collectAcceptanceCriteria(args.aggregate, true);
   const links = new Map<string, MissionReportLink>();
   const addLink = (link: MissionReportLink) => {
     const existing = links.get(link.url);
@@ -140,7 +141,7 @@ export function buildMissionReport(args: {
       : [];
     const action = record?.facts?.action ?? null;
     if (action) {
-      const actionEvidence = describeActionEvidence(action);
+      const actionEvidence = describeActionEvidence(action, record?.facts);
       evidence.unshift(actionEvidence);
       if (actionEvidence.ref) {
         addLink({ label: actionEvidence.label, url: actionEvidence.ref, source: "stave" });
@@ -148,9 +149,6 @@ export function buildMissionReport(args: {
     }
     for (const artifact of report?.artifacts ?? []) {
       addLink({ label: artifact.label, url: artifact.url, source: "agent" });
-    }
-    if (report?.acceptanceCriteria?.length) {
-      acceptanceCriteria = report.acceptanceCriteria;
     }
     return {
       stageId: stage.id,

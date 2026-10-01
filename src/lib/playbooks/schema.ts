@@ -136,10 +136,13 @@ const stageIdentity = {
   signOff: z.enum(SIGN_OFFS).optional(),
 };
 
+const criterionIdentity = { text: text("Acceptance criterion", 500), required: z.boolean().optional() };
+
 const AiStageSchema = z
   .object({
     ...stageIdentity,
     kind: z.literal("ai"),
+    acceptanceCriteria: z.array(z.object({ ...criterionIdentity, verification: z.literal("agent-report").optional() }).strict()).max(20).optional(),
     instruction: text("Instruction", PLAYBOOK_LIMITS.instruction),
     doneWhen: text("Done when", PLAYBOOK_LIMITS.doneWhen),
     role: z.enum(AI_STAGE_ROLES).optional(),
@@ -161,6 +164,7 @@ const ActionStageSchema = z
   .object({
     ...stageIdentity,
     kind: z.literal("action"),
+    acceptanceCriteria: z.array(z.object({ ...criterionIdentity, verification: z.literal("stave-check").optional() }).strict()).max(20).optional(),
     action: StaveActionSchema,
   })
   .strict();
@@ -190,9 +194,9 @@ interface StructureInput {
 }
 
 function stageTextLength(stage: PlaybookStage): number {
-  return stage.kind === "ai"
+  return (stage.acceptanceCriteria ?? []).reduce((total, criterion) => total + criterion.text.length, 0) + (stage.kind === "ai"
     ? stage.title.length + stage.instruction.length + stage.doneWhen.length
-    : stage.title.length;
+    : stage.title.length);
 }
 
 export function playbookTextLength(playbook: StructureInput): number {
@@ -227,6 +231,12 @@ function listPlaybookStructureIssues(
       });
     }
     seenIds.add(stage.id);
+    if (stage.kind === "action" && stage.action.type !== "run-script" && stage.acceptanceCriteria?.some((criterion) => criterion.required !== false)) {
+      issues.push({ message: "Required Stave checks belong to a Run script stage.", path: ["stages", index, "acceptanceCriteria"] });
+    }
+    if (new Set(stage.acceptanceCriteria?.map((criterion) => criterion.text)).size !== (stage.acceptanceCriteria?.length ?? 0)) {
+      issues.push({ message: "Each acceptance criterion must be distinct.", path: ["stages", index, "acceptanceCriteria"] });
+    }
   });
 
   const openIndexes = actionIndexes(playbook.stages, "open-draft-pr");

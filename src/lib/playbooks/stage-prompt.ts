@@ -12,6 +12,7 @@ export type AcceptanceCriterionStatus =
 export interface AcceptanceCriterion {
   text: string;
   status: AcceptanceCriterionStatus;
+  required?: boolean;
 }
 
 export interface PriorStageSummary {
@@ -36,7 +37,7 @@ export interface StagePromptInput {
 
 const REPORTING_CONTRACT = [
   "Before you end this turn, call `stave_report_stage` with a short summary, the decisions you made and why, the evidence you gathered, and the status of each acceptance criterion. If you cannot finish this stage, call `stave_block_stage` instead and name exactly what is missing.",
-  "Never report unverified work as complete. Mark a criterion you could not check as unverified, and cite the commands and tool calls you ran; Stave confirms cited evidence against this stage's turns.",
+  "Never report unverified work as complete. Mark a criterion you could not check as unverified, and cite the commands and tool calls you ran. Provider results may lack an exit code or a workspace revision; only a successful Stave script check of unchanged work supplies current verification.",
   "Do only this stage. Stave starts the next stage after your report, so do not begin later stages in this turn.",
 ].join("\n\n");
 
@@ -98,6 +99,10 @@ function section(heading: string, body: string): string {
 export function compileStagePrompt(input: StagePromptInput): string {
   const { playbook, stageIndex } = input;
   const stage = requireAiStage(playbook, stageIndex);
+  const acceptanceCriteria = [...input.acceptanceCriteria];
+  for (const criterion of stage.acceptanceCriteria ?? []) {
+    if (!acceptanceCriteria.some((entry) => entry.text === criterion.text)) acceptanceCriteria.push({ text: criterion.text, status: "unverified", required: criterion.required });
+  }
   const position = `Stage ${stageIndex + 1} of ${playbook.stages.length}`;
 
   const stageBody = [
@@ -128,10 +133,10 @@ export function compileStagePrompt(input: StagePromptInput): string {
       )
     : null;
 
-  const criteria = input.acceptanceCriteria.length
+  const criteria = acceptanceCriteria.length
     ? section(
         "Acceptance criteria",
-        input.acceptanceCriteria
+        acceptanceCriteria
           .map((criterion) => `- [${criterion.status}] ${criterion.text}`)
           .join("\n"),
       )

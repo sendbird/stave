@@ -1,7 +1,7 @@
 /**
  * Evidence provenance. A report may cite a tool call or a command; the citation
- * counts as "Verified by Stave" only when Stave observed that call succeed in
- * this stage's turns. Everything else is "Agent reported".
+ * distinguishes a provider result from a successful check of the same workspace
+ * revision. Missing process status and missing revision remain unknown.
  */
 import type {
   ActionResult,
@@ -9,38 +9,53 @@ import type {
   StageEvidence,
   StageFacts,
 } from "./domain";
+import { revisionsMatch } from "./verification-contract";
 
-export type EvidenceSource = "stave" | "agent";
+export type EvidenceSource = "stave" | "provider" | "agent";
 
 export interface ClassifiedEvidence extends StageEvidence {
   source: EvidenceSource;
+  outcome?: "succeeded" | "failed" | "unknown";
+  freshness?: "current" | "stale" | "unknown";
+  exitCode?: number | null;
 }
 
 export const EVIDENCE_SOURCE_LABELS: Record<EvidenceSource, string> = {
   stave: "Verified by Stave",
+  provider: "Provider result",
   agent: "Agent reported",
 };
+
+/** Observing an action does not verify a failed or no-longer-current check. */
+export function isVerifiedEvidence(evidence: ClassifiedEvidence): boolean {
+  return evidence.source === "stave" && evidence.outcome !== "failed" && evidence.freshness !== "unknown" && evidence.freshness !== "stale";
+}
+
+export function evidenceSourceLabel(evidence: ClassifiedEvidence): string {
+  return evidence.source === "stave" && !isVerifiedEvidence(evidence) ? "Stave result" : EVIDENCE_SOURCE_LABELS[evidence.source];
+}
 
 function normalizeCommand(command: string) {
   return command.trim().replace(/\s+/g, " ");
 }
 
-function isVerified(evidence: StageEvidence, facts: StageFacts | null): boolean {
-  if (!facts) return false;
-  if (evidence.toolCallId) {
-    const id = evidence.toolCallId;
-    if (facts.toolCalls.some((call) => call.toolCallId === id && call.ok)) return true;
-    if (facts.commands.some((run) => run.toolCallId === id && run.exitCode === 0)) {
-      return true;
-    }
+function classify(evidence: StageEvidence, report: CompleteStageReport, facts: StageFacts | null): Pick<ClassifiedEvidence, "source" | "outcome" | "freshness" | "exitCode"> {
+  if (!facts || !report.turnId || facts.currentTurnId !== report.turnId)
+    return { source: "agent", freshness: "unknown" };
+  if (evidence.kind === "check") {
+    const run = facts.commands.find((candidate) => candidate.turnId === report.turnId && (
+      evidence.toolCallId ? candidate.toolCallId === evidence.toolCallId : evidence.command && normalizeCommand(candidate.command) === normalizeCommand(evidence.command)
+    ));
+    if (!run) return { source: "agent", freshness: "unknown" };
+    const freshness = revisionsMatch(run.sourceRevision, facts.workspaceRevision) ? "current" : run.sourceRevision?.status === "known" && facts.workspaceRevision?.status === "known" ? "stale" : "unknown";
+    const succeeded = run.provenance && run.outcome === "succeeded" && run.exitCode === 0;
+    return {
+      source: succeeded && freshness === "current" ? "stave" : run.provenance || run.outcome === "failed" ? "provider" : "agent",
+      outcome: run.outcome ?? "unknown", freshness, exitCode: run.provenance ? run.exitCode : null,
+    };
   }
-  if (evidence.command) {
-    const cited = normalizeCommand(evidence.command);
-    return facts.commands.some(
-      (run) => run.exitCode === 0 && normalizeCommand(run.command) === cited,
-    );
-  }
-  return false;
+  const call = facts.toolCalls.find((candidate) => candidate.toolCallId === evidence.toolCallId && candidate.turnId === report.turnId);
+  return call ? { source: "provider", outcome: call.ok ? "succeeded" : "failed", freshness: "unknown" } : { source: "agent", freshness: "unknown" };
 }
 
 export function classifyStageEvidence(
@@ -49,12 +64,12 @@ export function classifyStageEvidence(
 ): ClassifiedEvidence[] {
   return report.evidence.map((evidence) => ({
     ...evidence,
-    source: isVerified(evidence, facts) ? "stave" : "agent",
+    ...classify(evidence, report, facts),
   }));
 }
 
-/** A Stave action's own result is always verified: Stave performed it. */
-export function describeActionEvidence(result: ActionResult): ClassifiedEvidence {
+/** Host actions record their origin; script checks also expose outcome and freshness. */
+export function describeActionEvidence(result: ActionResult, facts?: StageFacts | null): ClassifiedEvidence {
   switch (result.type) {
     case "open-draft-pr":
       return {
@@ -82,8 +97,11 @@ export function describeActionEvidence(result: ActionResult): ClassifiedEvidence
         source: "stave",
       };
     case "run-script":
-      return result.url
-        ? { label: `Ran “${result.scriptId}”`, kind: "link", ref: result.url, source: "stave" }
-        : { label: `Ran “${result.scriptId}” (exit ${result.exitCode})`, kind: "check", source: "stave" };
+      return {
+        ...(result.url ? { label: `Ran “${result.scriptId}”`, kind: "link" as const, ref: result.url } : { label: `Ran “${result.scriptId}” (exit ${result.exitCode})`, kind: "check" as const }),
+        source: "stave", exitCode: result.exitCode,
+        outcome: result.exitCode === 0 ? "succeeded" : "failed",
+        freshness: revisionsMatch(result.verification?.sourceRevision, result.verification?.completedRevision) && revisionsMatch(result.verification?.sourceRevision, facts?.workspaceRevision) ? "current" : result.verification?.sourceRevision.status === "known" && result.verification.completedRevision.status === "known" && facts?.workspaceRevision?.status === "known" ? "stale" : "unknown",
+      };
   }
 }

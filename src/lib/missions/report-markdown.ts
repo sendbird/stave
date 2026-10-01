@@ -5,7 +5,7 @@
  * Pure. Used by `src/components/missions/MissionReportView.tsx`.
  */
 import { formatAge } from "./mission-view";
-import { EVIDENCE_SOURCE_LABELS } from "./evidence";
+import { EVIDENCE_SOURCE_LABELS, evidenceSourceLabel } from "./evidence";
 import type { MissionMetrics, MissionReport } from "./report";
 
 /** "2 replies from you · 1 reminder to report · sign-offs waited 12m on average (longest 20m)". */
@@ -56,7 +56,12 @@ export function formatMissionReportMarkdown(report: MissionReport): string {
     }
     for (const evidence of stage.evidence) {
       const ref = evidence.ref ? ` (${evidence.ref})` : evidence.command ? ` (\`${evidence.command}\`)` : "";
-      lines.push(`  - ${EVIDENCE_SOURCE_LABELS[evidence.source]}: ${evidence.label}${ref}`);
+      const status = [
+        evidence.outcome === "failed" ? "Failed" : null,
+        evidence.exitCode !== undefined ? `Exit ${evidence.exitCode ?? "unknown"}` : null,
+        evidence.freshness === "stale" ? "Changed since this check" : evidence.freshness === "unknown" && evidence.kind === "check" ? "Current work unverified" : null,
+      ].filter(Boolean).join(" · ");
+      lines.push(`  - ${evidenceSourceLabel(evidence)}: ${evidence.label}${ref}${status ? ` · ${status}` : ""}`);
     }
   }
   if (report.acceptanceCriteria.length > 0) {

@@ -113,17 +113,17 @@ describe("stage facts", () => {
             { type: "text", text: "done" },
           ],
         },
-        { turnId: "turn-2", parts: [tool({})] },
+        { turnId: "turn-1", parts: [tool({})] },
       ],
     });
     expect(facts.commands).toEqual([
-      { command: "bun test", exitCode: 0, toolCallId: "call-1" },
-      { command: "bun run lint", exitCode: 1, toolCallId: "call-2" },
+      { command: "bun test", exitCode: null, toolCallId: "call-1", turnId: "turn-1", outcome: "unknown" },
+      { command: "bun run lint", exitCode: null, toolCallId: "call-2", turnId: "turn-1", outcome: "failed" },
     ]);
     expect(facts.toolCalls).toEqual([
-      { toolCallId: "call-1", name: "Bash", ok: true },
-      { toolCallId: "call-2", name: "bash", ok: false },
-      { toolCallId: "call-3", name: "Read", ok: true },
+      { toolCallId: "call-1", name: "Bash", ok: true, turnId: "turn-1" },
+      { toolCallId: "call-2", name: "bash", ok: false, turnId: "turn-1" },
+      { toolCallId: "call-3", name: "Read", ok: true, turnId: "turn-1" },
     ]);
     expect(facts.diff).toEqual({ filesChanged: 2, insertions: 10, deletions: 1 });
   });

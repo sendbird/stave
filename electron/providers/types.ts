@@ -260,6 +260,7 @@ export type BridgeEvent =
       output: string;
       isError?: boolean;
       isPartial?: boolean;
+      exitCode?: number | null;
     }
   | {
       type: "diff";

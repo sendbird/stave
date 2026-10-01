@@ -17,6 +17,7 @@ import { DropdownMenu } from "@/components/ads/components/DropdownMenu";
 import { TextField } from "@/components/ads/components/TextField";
 import { IconTile, iconTileGlyphSizes } from "@/components/ads/components/IconTile";
 import { describeUsageShort } from "@/lib/missions/usage";
+import { isVerifiedEvidence } from "@/lib/missions/evidence";
 import { sx } from "@/components/ads/utils/stylex";
 import type { MissionReport } from "@/lib/missions/report";
 import { describeMissionMetrics, formatMissionReportMarkdown } from "@/lib/missions/report-markdown";
@@ -73,9 +74,9 @@ export function MissionReportView({
   const OutcomeIcon = outcome.icon;
   const evidence = report.stages.flatMap((stage) => stage.evidence);
   const verifiedFirst = [...evidence].sort(
-    (left, right) => Number(right.source === "stave") - Number(left.source === "stave"),
+    (left, right) => Number(isVerifiedEvidence(right)) - Number(isVerifiedEvidence(left)),
   );
-  const verifiedCount = evidence.filter((item) => item.source === "stave").length;
+  const verifiedCount = evidence.filter(isVerifiedEvidence).length;
   const decisions = report.stages.flatMap((stage) => stage.decisions);
   const open = report.acceptanceCriteria.filter((criterion) => criterion.status !== "met");
   const completedStages = report.stages.filter((stage) => stage.status === "completed").length;

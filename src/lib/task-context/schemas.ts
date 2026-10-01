@@ -83,6 +83,7 @@ const ToolUsePartSchema = z.object({
   toolName: z.string(),
   input: z.string(),
   output: z.string().optional(),
+  exitCode: z.number().int().nullable().optional(),
   elapsedSeconds: z.number().optional(),
   progressMessages: z.array(z.string()).optional(),
   workerExecution: WorkerExecutionMetadataSchema.optional(),
