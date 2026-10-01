@@ -47,6 +47,7 @@ export const RuntimeOptionsObjectSchema = z
     claudeAllowDangerouslySkipPermissions: z.boolean().optional(),
     claudeSandboxEnabled: z.boolean().optional(),
     claudeAllowUnsandboxedCommands: z.boolean().optional(),
+    claudeSandboxReadOnly: z.boolean().optional(),
     claudeSandboxCredentialFiles: z
       .array(z.string().trim().min(1).max(4096))
       .max(100)

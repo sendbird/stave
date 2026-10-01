@@ -1098,18 +1098,24 @@ export function buildClaudeQueryOptions(args: {
       value: process.env.STAVE_CLAUDE_ALLOW_DANGEROUSLY_SKIP_PERMISSIONS,
       fallback: permissionMode === "bypassPermissions",
     });
+  // Restrictive only, so it overrides the sandbox toggles rather than merging
+  // with them: a read-only delegated task must not depend on the user's setting.
+  const claudeSandboxReadOnly =
+    args.runtimeOptions?.claudeSandboxReadOnly === true;
   const claudeSandboxEnabled =
-    args.runtimeOptions?.claudeSandboxEnabled ??
-    parseBooleanEnv({
-      value: process.env.STAVE_CLAUDE_SANDBOX_ENABLED,
-      fallback: false,
-    });
+    claudeSandboxReadOnly ||
+    (args.runtimeOptions?.claudeSandboxEnabled ??
+      parseBooleanEnv({
+        value: process.env.STAVE_CLAUDE_SANDBOX_ENABLED,
+        fallback: false,
+      }));
   const claudeAllowUnsandboxedCommands =
-    args.runtimeOptions?.claudeAllowUnsandboxedCommands ??
-    parseBooleanEnv({
-      value: process.env.STAVE_CLAUDE_ALLOW_UNSANDBOXED_COMMANDS,
-      fallback: true,
-    });
+    !claudeSandboxReadOnly &&
+    (args.runtimeOptions?.claudeAllowUnsandboxedCommands ??
+      parseBooleanEnv({
+        value: process.env.STAVE_CLAUDE_ALLOW_UNSANDBOXED_COMMANDS,
+        fallback: true,
+      }));
   const credentialFiles = Array.from(
     new Set(
       (args.runtimeOptions?.claudeSandboxCredentialFiles ?? [])
@@ -1232,6 +1238,15 @@ export function buildClaudeQueryOptions(args: {
     : {
         enabled: claudeSandboxEnabled,
         allowUnsandboxedCommands: claudeAllowUnsandboxedCommands,
+        // Fail closed and never treat "sandboxed" as approval, so only the
+        // turn's explicit allowlist runs; writes are denied below either way.
+        ...(claudeSandboxReadOnly
+          ? {
+              failIfUnavailable: true,
+              autoAllowBashIfSandboxed: false,
+              filesystem: { denyWrite: [path.parse(args.cwd).root] },
+            }
+          : {}),
         ...(sandboxCredentials ? { credentials: sandboxCredentials } : {}),
       };
 
