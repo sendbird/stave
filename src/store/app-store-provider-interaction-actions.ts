@@ -343,11 +343,11 @@ export function createProviderInteractionActions(args: {
     },
     resolveApproval: ({ taskId, messageId, requestId, approved, scope }) => {
       const stateBefore = get();
-      const task = findTaskById(stateBefore, taskId);
       const runtimeTarget = resolveTaskRuntimeTarget({
         state: stateBefore,
         taskId,
       });
+      const task = runtimeTarget?.task ?? findTaskById(stateBefore, taskId);
       const workspaceId =
         runtimeTarget?.workspaceId ??
         stateBefore.taskWorkspaceIdById[taskId] ??
@@ -590,11 +590,11 @@ export function createProviderInteractionActions(args: {
       denied,
     }) => {
       const stateBefore = get();
-      const task = findTaskById(stateBefore, taskId);
       const runtimeTarget = resolveTaskRuntimeTarget({
         state: stateBefore,
         taskId,
       });
+      const task = runtimeTarget?.task ?? findTaskById(stateBefore, taskId);
       const workspaceId =
         runtimeTarget?.workspaceId ??
         stateBefore.taskWorkspaceIdById[taskId] ??

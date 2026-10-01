@@ -100,6 +100,8 @@ function resolveActionStatus(
 export function FleetTaskControlPanel(args: {
   target: FleetTaskControlTarget;
   expectedInteraction?: FleetTaskExpectedInteraction;
+  /** Answer the pinned request without offering task navigation or execution controls. */
+  interactionOnly?: boolean;
   returnFocusElementId?: string;
   onOpenTask: (target: FleetTaskControlTarget) => void;
   onClose: () => void;
@@ -192,15 +194,16 @@ export function FleetTaskControlPanel(args: {
     return findLatestPendingToolInteraction({ messages });
   }, [args.expectedInteraction, messages]);
   const interactionTurnMatches =
-    managed ||
+    (!args.interactionOnly && managed) ||
     (Boolean(activeTurnId) &&
       (!expectedTurnId || activeTurnId === expectedTurnId));
-  const pendingPart = interactionTurnMatches
+  const interactionMessageMatches = !args.expectedInteraction?.messageId || pendingInteraction?.messageId === args.expectedInteraction.messageId;
+  const pendingPart = interactionTurnMatches && interactionMessageMatches
     ? (pendingInteraction?.part ?? null)
     : null;
   const hasStaleExpectedInteraction =
     Boolean(args.expectedInteraction) &&
-    (!pendingInteraction || !interactionTurnMatches);
+    (!pendingInteraction || !interactionTurnMatches || !interactionMessageMatches);
   // The panel's agent count and its child rows must describe the same listing.
   // The count comes from the turn's work graph, and ledger-owned children only
   // reach that graph through this merge — previously it ran only when the Turn
@@ -210,6 +213,7 @@ export function FleetTaskControlPanel(args: {
     parentTaskId: args.target.taskId,
     parentWorkspaceId: args.target.workspaceId,
     repositoryPath: args.target.repositoryPath,
+    enabled: !args.interactionOnly,
   });
   const { children: delegatedTaskRows } = delegatedTasks;
   const delegatedTaskSource = useMemo(
@@ -220,11 +224,12 @@ export function FleetTaskControlPanel(args: {
     (state) => state.syncDelegatedTasksIntoTurnGraph,
   );
   useEffect(() => {
+    if (args.interactionOnly) return;
     syncDelegatedTasksIntoTurnGraph({
       taskId: args.target.taskId,
       children: delegatedTaskRows,
     });
-  }, [args.target.taskId, delegatedTaskRows, syncDelegatedTasksIntoTurnGraph]);
+  }, [args.interactionOnly, args.target.taskId, delegatedTaskRows, syncDelegatedTasksIntoTurnGraph]);
   const summary = useMemo(
     () =>
       buildTaskExecutionSummary({
@@ -253,7 +258,7 @@ export function FleetTaskControlPanel(args: {
       providerId: task?.provider ?? "claude-code",
     });
   const canQuickReply =
-    Boolean(activeTurnId) && Boolean(task) && !managed && !pendingPart;
+    !args.interactionOnly && Boolean(activeTurnId) && Boolean(task) && !managed && !pendingPart;
 
   useEffect(
     () => () => {
@@ -298,13 +303,13 @@ export function FleetTaskControlPanel(args: {
       window.clearTimeout(completionTimerRef.current);
     }
     completionTimerRef.current = window.setTimeout(() => {
-      const validation = validateFleetInteractionAction({
-        expected,
-        current: getFreshCurrentState(),
-      });
+      const current = getFreshCurrentState();
+      const validation = validateFleetInteractionAction({ expected, current });
+      const identityChanged = args.interactionOnly && (current.turnId !== expected.turnId ||
+        !current.messages.some(message => message.id === expected.messageId));
       setBusyAction(null);
       setStatus(
-        validation.ok
+        identityChanged ? { tone: "neutral", text: "The request changed. Delivery cannot be confirmed here." } : validation.ok
           ? {
               tone: "neutral",
               text: "The provider is still processing this response.",
@@ -328,10 +333,10 @@ export function FleetTaskControlPanel(args: {
     }
     const expected: FleetInteractionControlIdentity = {
       ...args.target,
-      turnId: managed ? activeTurnId : expectedTurnId,
+      turnId: args.interactionOnly ? expectedTurnId : managed ? activeTurnId : expectedTurnId,
       kind: input.kind,
       requestId: pendingInteraction.part.requestId,
-      messageId: pendingInteraction.messageId,
+      messageId: args.expectedInteraction?.messageId ?? pendingInteraction.messageId,
     };
     const validation = validateFleetInteractionAction({
       expected,
@@ -456,11 +461,11 @@ export function FleetTaskControlPanel(args: {
             {task?.title || args.target.taskTitle || "Task controls"}
           </h3>
           <p className={sx(styles.subtitle)}>
-            Review activity, answer requests, or direct the running agent.
+            {args.interactionOnly ? "Answer this request while keeping the parent task open." : "Review activity, answer requests, or direct the running agent."}
           </p>
         </div>
         <div className={sx(styles.headerActions)}>
-          <Button
+          {!args.interactionOnly ? <Button
             type="button"
             size="sm"
             variant="outline"
@@ -469,7 +474,7 @@ export function FleetTaskControlPanel(args: {
           >
             Open task
             <ArrowRight className={sx(styles.actionIcon)} aria-hidden="true" />
-          </Button>
+          </Button> : null}
           <Button
             type="button"
             size="icon-sm"
@@ -483,7 +488,7 @@ export function FleetTaskControlPanel(args: {
         </div>
       </div>
 
-      <TaskExecutionSummarySurface summary={summary} xstyle={styles.section} />
+      {!args.interactionOnly ? <><TaskExecutionSummarySurface summary={summary} xstyle={styles.section} />
 
       <DelegatedTaskParentBacklink
         taskId={args.target.taskId}
@@ -496,15 +501,14 @@ export function FleetTaskControlPanel(args: {
         repositoryPath={args.target.repositoryPath}
         source={delegatedTaskSource}
         className={sx(styles.section)}
-      />
+      /></> : null}
 
       {hasStaleExpectedInteraction ? (
         <div
           className={sx(styles.staleNotice)}
           role="status"
         >
-          This request was already answered or expired. Open the task to review
-          its latest state.
+          {args.interactionOnly ? "This request was answered, expired, or belongs to another turn. Refresh the request to review its current state." : "This request was already answered or expired. Open the task to review its latest state."}
         </div>
       ) : null}
 
@@ -613,14 +617,14 @@ export function FleetTaskControlPanel(args: {
             </Button>
           </div>
         </div>
-      ) : managed && activeTurnId && !pendingPart ? (
+      ) : !args.interactionOnly && managed && activeTurnId && !pendingPart ? (
         <p className={sx(styles.managedNotice)}>
           This task is externally managed. Open it to attach before sending a
           reply.
         </p>
       ) : null}
 
-      {activeTurnId ? (
+      {activeTurnId && !args.interactionOnly ? (
         <div className={sx(styles.turnFooter)}>
           <p className={sx(styles.turnText)}>
             Turn{" "}

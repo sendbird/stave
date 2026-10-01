@@ -1,7 +1,8 @@
 import { ChildListingProbe } from "./listing-probe";
+import { ChildAttentionProbe, installChildAttentionFixture } from "./child-attention-fixture";
 import { TaskWorkPanel } from "@/components/session/TaskWorkPanel";
 import { TaskResultReviews } from "@/components/session/TaskResultReviews";
-import { useEffect, useLayoutEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { TeamSection } from "@/components/team/TeamSection";
 import { TurnActivityPanel } from "@/components/session/TurnActivityPanel";
 import { ActionButton } from "@/components/system/ActionButton";
@@ -79,13 +80,14 @@ function CollaborationPreviewContent() {
   const search = new URLSearchParams(location.search);
   const inspector = search.has("inspector");
   const managed = search.has("managed");
+  const attention = search.has("attention");
   const panelWidth = Number(search.get("panelWidth"));
   // Keep the root class in the same commit as the preview control state so the
   // top-level design provider observes one coherent palette change.
   useLayoutEffect(() => {
     applyThemeClass({ enabled: dark });
   }, [dark]);
-  useEffect(() => {
+  useLayoutEffect(() => {
     const inspectorMessage = inspector
       ? {
           ...message,
@@ -219,7 +221,8 @@ function CollaborationPreviewContent() {
           }
         : {}),
     });
-  }, [inspector, managed]);
+    return attention ? installChildAttentionFixture() : undefined;
+  }, [attention, inspector, managed]);
   return (
     <main className={sx(cp.page)}>
       <div className={sx(cp.container)}>
@@ -231,6 +234,7 @@ function CollaborationPreviewContent() {
             {dark ? "Light theme" : "Dark theme"}
           </ActionButton>
         </div>
+        {attention ? <ChildAttentionProbe /> : null}
         {search.has("resultReview") ? (
           <TaskResultReviews
             workspaceId={target.workspaceId}

@@ -42,6 +42,7 @@ import * as stylex from "@stylexjs/stylex";
 import { collaborationStyles as styles } from "./collaboration.styles";
 import { delegationStyles } from "@/components/delegation/delegation.styles";
 import { sx } from "@/components/ads/utils/stylex";
+import { ChildTaskAttention } from "./ChildTaskAttention";
 
 const EMPTY_MESSAGES: ChatMessage[] = [];
 
@@ -240,6 +241,11 @@ export function TeamSection({ target, readOnly = false }: { target: Collaboratio
     },
     [childController, readOnly],
   );
+  const renderChildAttention = useCallback((exchange: DelegationExchange) => {
+    if (exchange.kind !== "delegated-task") return null;
+    const child = childController.children.find(row => row.delegationKey === exchange.ref.delegationKey);
+    return child ? <ChildTaskAttention key={`${child.delegatedTaskId}:${child.attempt}`} child={child} repositoryPath={target.repositoryPath} /> : null;
+  }, [childController.children, target.repositoryPath]);
   const statusNoteFor = useCallback(
     (exchange: DelegationExchange) =>
       exchange.ref.delegationKey
@@ -434,6 +440,7 @@ export function TeamSection({ target, readOnly = false }: { target: Collaboratio
           showHeader={false}
           onAction={handleAction}
           renderExtraActions={renderExtraActions}
+          renderRowFooter={renderChildAttention}
           statusNoteFor={statusNoteFor}
           onInspect={exchange => setDetailSelection({ title: exchange.title, exchange })}
           data-testid="delegations-list"
