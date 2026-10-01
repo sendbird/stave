@@ -138,81 +138,11 @@ function parseOccurrenceRow(
   });
 }
 
-// temporary-migration: wake-up-tables
-/** Names written before wake-ups were renamed from task heartbeats. */
-const LEGACY_WAKE_UP_TABLES = [
-  ["task_heartbeats", "wake_ups"],
-  ["task_heartbeat_occurrences", "wake_up_occurrences"],
-] as const;
-const LEGACY_WAKE_UP_INDEXES = [
-  "idx_task_heartbeats_task",
-  "idx_task_heartbeats_due",
-  "idx_task_heartbeat_occurrence_key",
-  "idx_task_heartbeat_occurrences_recent",
-];
-
-/**
- * Renames the legacy tables, the occurrence table's legacy `heartbeat_id`
- * column and drops the legacy index names (the bootstrap recreates them under
- * the new names). Runs before the bootstrap, once: afterwards no legacy name
- * exists. If an empty new table was already created next to a legacy one, the
- * legacy data wins; if both hold rows, the legacy table is left untouched and
- * reported rather than merged.
- */
-export function migrateLegacyWakeUpTables(db: WakeUpDatabase) {
-  const tableExists = (name: string) =>
-    Boolean(
-      db
-        .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
-        .get(name),
-    );
-  const rowCount = (name: string) =>
-    (db.prepare(`SELECT COUNT(*) AS count FROM ${name}`).get() as { count: number })
-      .count;
-  db.exec("SAVEPOINT legacy_wake_up_tables");
-  try {
-    for (const [legacy, current] of LEGACY_WAKE_UP_TABLES) {
-      if (!tableExists(legacy)) continue;
-      if (tableExists(current)) {
-        if (rowCount(current) > 0) {
-          console.warn(
-            `[persistence] kept legacy table ${legacy}: ${current} already has rows`,
-          );
-          continue;
-        }
-        db.exec(`DROP TABLE ${current}`);
-      }
-      db.exec(`ALTER TABLE ${legacy} RENAME TO ${current}`);
-    }
-    const occurrenceColumns = tableExists("wake_up_occurrences")
-      ? (db.prepare("PRAGMA table_info(wake_up_occurrences)").all() as Array<{
-          name: string;
-        }>)
-      : [];
-    if (occurrenceColumns.some((column) => column.name === "heartbeat_id")) {
-      db.exec(
-        "ALTER TABLE wake_up_occurrences RENAME COLUMN heartbeat_id TO wake_up_id",
-      );
-    }
-    for (const index of LEGACY_WAKE_UP_INDEXES) {
-      db.exec(`DROP INDEX IF EXISTS ${index}`);
-    }
-    db.exec("RELEASE legacy_wake_up_tables");
-  } catch (error) {
-    db.exec("ROLLBACK TO legacy_wake_up_tables");
-    db.exec("RELEASE legacy_wake_up_tables");
-    throw error;
-  }
-}
-// end temporary-migration: wake-up-tables
-
 export class WakeUpStore {
   private readonly db: WakeUpDatabase;
 
   constructor(database: unknown) {
     this.db = database as WakeUpDatabase;
-    // temporary-migration: wake-up-tables
-    migrateLegacyWakeUpTables(this.db);
     this.bootstrap();
   }
 

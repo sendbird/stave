@@ -127,56 +127,6 @@ export interface TrackerIssuesStoreOptions {
   }) => void;
 }
 
-// temporary-migration: tracker-issue-tables
-/** Names written before the Tasks surface was renamed to Issues. */
-const LEGACY_TRACKER_TABLES = [
-  ["tracker_tasks_cache", "tracker_issues_cache"],
-  ["tracker_task_kickoffs", "tracker_issue_kickoffs"],
-] as const;
-const LEGACY_TRACKER_INDEXES = [
-  "idx_tracker_tasks_cache_recent",
-  "idx_tracker_task_kickoffs_task",
-  "idx_tracker_task_kickoffs_crane_job",
-  "idx_tracker_task_kickoffs_stave_task",
-];
-
-/**
- * Renames the legacy tables and drops the legacy index names; the bootstrap
- * recreates the indexes under the new names. An empty new table next to a
- * legacy one yields to the legacy data; if both hold rows the legacy table is
- * kept and reported rather than merged. Runs once, before the bootstrap.
- */
-export function migrateLegacyTrackerIssueTables(db: TrackerIssuesDatabase) {
-  const tableExists = (name: string) =>
-    Boolean(
-      db
-        .prepare("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = ?")
-        .get(name),
-    );
-  const rowCount = (name: string) =>
-    (db.prepare(`SELECT COUNT(*) AS count FROM ${name}`).get() as { count: number })
-      .count;
-  db.transaction(() => {
-    for (const [legacy, current] of LEGACY_TRACKER_TABLES) {
-      if (!tableExists(legacy)) continue;
-      if (tableExists(current)) {
-        if (rowCount(current) > 0) {
-          console.warn(
-            `[persistence] kept legacy table ${legacy}: ${current} already has rows`,
-          );
-          continue;
-        }
-        db.exec(`DROP TABLE ${current}`);
-      }
-      db.exec(`ALTER TABLE ${legacy} RENAME TO ${current}`);
-    }
-    for (const index of LEGACY_TRACKER_INDEXES) {
-      db.exec(`DROP INDEX IF EXISTS ${index}`);
-    }
-  })();
-}
-// end temporary-migration: tracker-issue-tables
-
 export class TrackerIssuesStore {
   private readonly db: TrackerIssuesDatabase;
   private readonly options: TrackerIssuesStoreOptions;
@@ -185,8 +135,6 @@ export class TrackerIssuesStore {
   constructor(database: unknown, options: TrackerIssuesStoreOptions = {}) {
     this.db = database as TrackerIssuesDatabase;
     this.options = options;
-    // temporary-migration: tracker-issue-tables
-    migrateLegacyTrackerIssueTables(this.db);
     this.bootstrap();
   }
 

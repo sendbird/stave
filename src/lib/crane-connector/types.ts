@@ -1,5 +1,3 @@
-// temporary-migration: connector-repository-mappings
-import { renameLegacyConnectorMappings } from "@/lib/legacy-connector-mappings";
 import { z } from "zod";
 import { CraneStaveJobV1Schema } from "./contract";
 
@@ -309,8 +307,6 @@ export type CraneDispatchWorkspaceChoice = z.infer<
 export function normalizeCraneConnectorSettings(
   value: unknown,
 ): CraneConnectorSettings {
-  // temporary-migration: connector-repository-mappings
-  value = renameLegacyConnectorMappings(value);
   const parsed = CraneConnectorSettingsSchema.safeParse(value);
   if (parsed.success) {
     return parsed.data;
