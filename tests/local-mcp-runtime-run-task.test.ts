@@ -76,11 +76,14 @@ const persistedTurnEventsById = new Map<
   }>
 >();
 const persistedNotifications: unknown[] = [];
+const rendererSelectedTaskByWorkspaceId = new Map<string, string>();
+const persistedDeltaSelections: Array<{ taskId: string; activeTaskId?: string }> = [];
 let persistedProviderTimeoutMs: number | null = null;
 let persistedPermissionSettings: import("@/lib/runs/delegation-policy").DelegationPermissionSettings | null = null;
 const lastUpsertSnapshotByWorkspaceId = new Map<
   string,
   {
+    activeTaskId?: string;
     tasks?: Array<{ id: string; archivedAt?: string | null }>;
     messagesByTask?: Record<
       string,
@@ -98,7 +101,7 @@ const lastUpsertSnapshotByWorkspaceId = new Map<
 function loadFakeWorkspaceSnapshot(workspaceId: string) {
   return workspaceId === RELEASE_WORKSPACE_ID
     ? {
-        activeTaskId: RELEASE_TASK_ID,
+        activeTaskId: rendererSelectedTaskByWorkspaceId.get(workspaceId) ?? RELEASE_TASK_ID,
         tasks: [
           {
             id: RELEASE_TASK_ID,
@@ -117,7 +120,7 @@ function loadFakeWorkspaceSnapshot(workspaceId: string) {
           persistedWorkspaceInformationById.get(workspaceId),
       }
     : {
-        activeTaskId: "",
+        activeTaskId: rendererSelectedTaskByWorkspaceId.get(workspaceId) ?? "",
         tasks: [],
         messagesByTask: {},
         workspaceInformation:
@@ -302,7 +305,10 @@ const fakeStore = {
   // `loadWorkspaceSnapshot` returns `messagesByTask`), for which
   // `persistTaskTurnDelta` declines so the caller migrates via the
   // whole-snapshot write below.
-  persistTaskTurnDelta: () => ({ ok: false, messageCount: 0 }),
+  persistTaskTurnDelta: (args: { taskId: string; activeTaskId?: string }) => {
+    persistedDeltaSelections.push(args);
+    return { ok: false, messageCount: 0 };
+  },
   loadAutomationProviderTimeoutMs: () => persistedProviderTimeoutMs,
   upsertWorkspace: ({
     id,
@@ -310,6 +316,7 @@ const fakeStore = {
   }: {
     id: string;
     snapshot: {
+      activeTaskId?: string;
       workspaceInformation?: unknown;
       tasks?: Array<Partial<PersistedTaskRow> & { id: string }>;
       messagesByTask?: Record<
@@ -408,6 +415,42 @@ describe("local MCP runtime runTask", () => {
     expect(result.turnId).toBeTruthy();
     expect(startTurnStreamCalls).toHaveLength(1);
   });
+
+  test("delegated creation, start and completion preserve the parent's selected task", async () => {
+    const result = await runtime.runTask({ workspaceId: RELEASE_WORKSPACE_ID, parentTaskId: RELEASE_TASK_ID,
+      taskId: "child-foreground-regression", prompt: "Read the fixture", provider: "codex" });
+    expect(lastUpsertSnapshotByWorkspaceId.get(RELEASE_WORKSPACE_ID)?.activeTaskId).toBe(RELEASE_TASK_ID);
+    const handler = startTurnStreamHandlers.at(-1);
+    handler?.onEvent?.({ type: "text", text: "Read the fixture" });
+    handler?.onEvent?.({ type: "done" });
+    for (let i = 0; i < 20 && !(await runtime.getTaskStatus({ workspaceId: RELEASE_WORKSPACE_ID, taskId: result.taskId })).latestTurnCompletedAt; i += 1) await Bun.sleep(0);
+    expect((await runtime.getTaskStatus({ workspaceId: RELEASE_WORKSPACE_ID, taskId: result.taskId })).latestTurnCompletedAt).toBeTruthy();
+    expect(lastUpsertSnapshotByWorkspaceId.get(RELEASE_WORKSPACE_ID)?.activeTaskId).toBe(RELEASE_TASK_ID);
+    expect(persistedDeltaSelections.filter(delta => delta.taskId === result.taskId).every(delta => delta.activeTaskId === undefined)).toBe(true);
+  });
+
+  test("delegated progress retains a child the user explicitly opened and a later parent selection", async () => {
+    const result = await runtime.runTask({ workspaceId: RELEASE_WORKSPACE_ID, parentTaskId: RELEASE_TASK_ID,
+      taskId: "child-explicit-open-regression", prompt: "Read the fixture", provider: "codex" });
+    const handler = startTurnStreamHandlers.at(-1);
+    try {
+      rendererSelectedTaskByWorkspaceId.set(RELEASE_WORKSPACE_ID, result.taskId);
+      handler?.onEvent?.({ type: "text", text: "First output" });
+      for (let i = 0; i < 20 && lastUpsertSnapshotByWorkspaceId.get(RELEASE_WORKSPACE_ID)?.activeTaskId !== result.taskId; i += 1) await Bun.sleep(0);
+      expect(lastUpsertSnapshotByWorkspaceId.get(RELEASE_WORKSPACE_ID)?.activeTaskId).toBe(result.taskId);
+      rendererSelectedTaskByWorkspaceId.set(RELEASE_WORKSPACE_ID, "");
+      handler?.onEvent?.({ type: "text", text: "After closing all task tabs" });
+      for (let i = 0; i < 20 && lastUpsertSnapshotByWorkspaceId.get(RELEASE_WORKSPACE_ID)?.activeTaskId !== ""; i += 1) await Bun.sleep(0);
+      expect(lastUpsertSnapshotByWorkspaceId.get(RELEASE_WORKSPACE_ID)?.activeTaskId).toBe("");
+      rendererSelectedTaskByWorkspaceId.set(RELEASE_WORKSPACE_ID, RELEASE_TASK_ID);
+      handler?.onEvent?.({ type: "done" });
+      for (let i = 0; i < 20 && !(await runtime.getTaskStatus({ workspaceId: RELEASE_WORKSPACE_ID, taskId: result.taskId })).latestTurnCompletedAt; i += 1) await Bun.sleep(0);
+    expect((await runtime.getTaskStatus({ workspaceId: RELEASE_WORKSPACE_ID, taskId: result.taskId })).latestTurnCompletedAt).toBeTruthy();
+      expect(lastUpsertSnapshotByWorkspaceId.get(RELEASE_WORKSPACE_ID)?.activeTaskId).toBe(RELEASE_TASK_ID);
+    } finally { rendererSelectedTaskByWorkspaceId.delete(RELEASE_WORKSPACE_ID); }
+  });
+
+
 
   test("records effort, Fast, and 1M on the pending assistant message", async () => {
     const result = await runtime.runTask({

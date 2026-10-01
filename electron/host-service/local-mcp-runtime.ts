@@ -348,7 +348,7 @@ async function persistWorkspaceSession(args: {
       messages: (args.changedMessagesByTask?.[args.taskId] ??
         args.session.messagesByTask[args.taskId] ??
         []) as never,
-      ...(args.session.activeTaskId === args.taskId
+      ...(!task?.parentTaskId && args.session.activeTaskId === args.taskId
         ? { activeTaskId: args.taskId }
         : {}),
       ...(args.session.providerSessionByTask[args.taskId]
@@ -366,20 +366,21 @@ async function persistWorkspaceSession(args: {
     // yet): fall through to the whole-snapshot write, which migrates it.
   }
 
-  // Task archive/restore lifecycle is owned by the renderer and durably held in
-  // the `tasks` table. The host's cached session copy can be stale, so re-read
-  // the authoritative archived state right before writing — otherwise a stale
-  // host persist would revive a task the renderer just archived (it would come
-  // back to life on the next restart).
+  // Archival belongs to the renderer's durable tasks table. Re-read it before
+  // writing, since stale host metadata could otherwise restore a task the user
+  // already archived.
   const reconciledTasks = reconcileTasksWithPersistedArchival({
     tasks: args.session.tasks,
     persistedTasks: store.listWorkspaceTasks({ workspaceId: args.workspaceId }),
   });
+  const delegatedShell = args.taskId && args.session.tasks.find(task => task.id === args.taskId)?.parentTaskId
+    ? store.loadWorkspaceShell({ workspaceId: args.workspaceId }) : null;
   store.upsertWorkspace({
     id: args.workspaceId,
     name: args.workspaceName,
     snapshot: createWorkspaceSnapshot({
-      activeTaskId: args.session.activeTaskId,
+      // Delegated progress never owns foreground selection, including legacy fallback writes.
+      activeTaskId: delegatedShell ? delegatedShell.activeTaskId : args.session.activeTaskId,
       tasks: reconciledTasks,
       messagesByTask: args.changedMessagesByTask ?? args.session.messagesByTask,
       promptDraftByTask: args.session.promptDraftByTask,
@@ -1805,7 +1806,7 @@ async function runTaskImpl(args: {
     } satisfies Task;
     session = cacheWorkspaceSession(args.workspaceId, {
       ...session,
-      activeTaskId: task.id,
+      activeTaskId: args.parentTaskId?.trim() ? session.activeTaskId : task.id,
       tasks: [task, ...session.tasks],
       messagesByTask: {
         ...session.messagesByTask,
@@ -1957,7 +1958,7 @@ async function runTaskImpl(args: {
   });
   session = cacheWorkspaceSession(args.workspaceId, {
     ...session,
-    activeTaskId: task.id,
+    activeTaskId: args.parentTaskId?.trim() ? session.activeTaskId : task.id,
     tasks: pendingState.tasks,
     messagesByTask: pendingState.messagesByTask,
     messageCountByTask: pendingState.messageCountByTask,
