@@ -138,7 +138,8 @@ process.on("SIGTERM", () => child.kill("SIGTERM"));
       instructions: { channel: "instruction", status: "delivered" },
     });
     expect(completed?.agentProvenance?.turnId).toBe(completed?.turnId);
-    await stave.page.getByRole("button", { name: "Turn Activity", exact: true }).click();
+    await stave.page.getByRole("button", { name: "Task", exact: true }).click();
+    await stave.page.getByRole("tablist", { name: "Task sections" }).getByRole("tab", { name: /^Activity/ }).click();
     await stave.page.getByText("Run details", { exact: true }).click();
     await expect(stave.page.getByText("Assigned main Agent", { exact: true })).toBeVisible();
     await expect(stave.page.getByText(assignment.agentContentHash.slice(0, 12), { exact: true })).toBeVisible();

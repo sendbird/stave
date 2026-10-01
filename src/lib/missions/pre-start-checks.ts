@@ -106,7 +106,7 @@ export function evaluatePreStartChecks(facts: PreStartFacts): PreStartCheck[] {
           id: "mission",
           label: "No mission running",
           state: "fail",
-          detail: "This task is already running a mission. Cancel it in the Mission panel, or wait for it to end.",
+          detail: "This task is already running a mission. Cancel it in the task's Progress tab, or wait for it to end.",
           blocking: true,
         }
       : { id: "mission", label: "No mission running", state: "pass", detail: "The task is free.", blocking: true },

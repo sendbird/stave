@@ -105,15 +105,22 @@ test("result review survives notification cleanup and renderer restart, with exp
       { projectPath: repositoryPath, workspaceId: workspaceId },
     );
     const results = stave.page.getByRole("region", { name: "Task results" });
-    const resultsShortcut = stave.page.getByRole("button", {
-      name: "Task Results",
-      exact: true,
+    const taskSections = stave.page.getByRole("tablist", {
+      name: "Task sections",
     });
+    const openTaskTab = async (name: RegExp) => {
+      if ((await taskSections.count()) === 0) {
+        await stave.page
+          .getByRole("button", { name: "Task", exact: true })
+          .click();
+      }
+      await taskSections.getByRole("tab", { name }).click();
+    };
     await expect(results).toHaveCount(0);
     await expect(
       stave.page.getByRole("navigation", { name: "Task activity shortcuts" }),
     ).toHaveCount(0);
-    await resultsShortcut.click();
+    await openTaskTab(/^Results/);
     await expect(results.getByRole("button", { name: "Needs review" })).toHaveAttribute("aria-pressed", "true");
     await expect(
       stave.page.getByRole("tablist", { name: "Task inspection" }),
@@ -175,13 +182,11 @@ test("result review survives notification cleanup and renderer restart, with exp
     await stave.page.reload();
     // Wait for the restored task before inspecting its persisted panel layout.
     await expect(stave.page.getByTestId("task-start-guide")).toBeVisible();
-    await stave.page
-      .getByRole("button", { name: "Turn Activity", exact: true })
-      .click();
+    await openTaskTab(/^Activity/);
     await expect(
-      stave.page.getByRole("heading", { name: "Turn Activity", exact: true }),
+      stave.page.getByRole("heading", { name: "Task", exact: true }),
     ).toBeVisible();
-    await resultsShortcut.click();
+    await openTaskTab(/^Results/);
     await expect(results.getByRole("button", { name: "Needs review" })).toHaveAttribute("aria-pressed", "true");
     await results.getByRole("button", { name: "All runs" }).click();
     await expect(

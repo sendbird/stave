@@ -1,10 +1,11 @@
+import { taskPanelLayoutPatch, type TaskPanelTab } from "@/lib/right-rail-panels";
 import { useAppStore } from "@/store/app.store";
 
-/** Open a task-owned destination without a second tab-selection store. */
+/** Open one task's Task panel on a tab, without a second tab-selection store. */
 export function openTaskInspection(
   workspaceId: string,
   taskId: string,
-  destination: "results" | "mission" | "team",
+  tab: TaskPanelTab,
 ) {
   const state = useAppStore.getState();
   if (
@@ -13,7 +14,5 @@ export function openTaskInspection(
   )
     return;
   if (state.activeTaskId !== taskId) state.selectTask({ taskId });
-  useAppStore.getState().setLayout({
-    patch: { sidebarOverlayVisible: true, sidebarOverlayTab: destination },
-  });
+  useAppStore.getState().setLayout({ patch: taskPanelLayoutPatch(tab) });
 }

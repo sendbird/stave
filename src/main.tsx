@@ -101,12 +101,12 @@ if (preview === "kickoff") {
       </StrictMode>,
     );
   });
-} else if (preview === "flow") {
-  void import("@/dev/flow-preview").then(({ FlowPreview }) => {
+} else if (preview === "task-panel") {
+  void import("@/dev/task-panel-preview").then(({ TaskPanelPreview }) => {
     root.render(
       <StrictMode>
         <StaveDesignProvider>
-          <FlowPreview />
+          <TaskPanelPreview />
         </StaveDesignProvider>
       </StrictMode>,
     );

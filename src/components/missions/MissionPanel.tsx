@@ -29,12 +29,10 @@ import {
 } from "@/lib/missions/mission-view";
 import type { AcceptanceCriterion } from "@/lib/playbooks/stage-prompt";
 import { useAppStore } from "@/store/app.store";
-import { missionStageKey, useMissionFailure, useMissionsStore, useTaskMission } from "@/store/missions-store";
-import { usePlaybooksUiStore } from "@/store/playbooks-ui-store";
+import { missionStageKey, useMissionFailure, useMissionsStore } from "@/store/missions-store";
 import { MissionReportView } from "./MissionReportView";
 import { useMissionReportActions, type MissionReportActions } from "./useMissionReportActions";
 import { MissionRunSummary } from "./MissionRunSummary";
-import { WakeUpSection } from "./WakeUpSection";
 import { StageCard } from "./StageCard";
 import { StageTrack } from "./StageTrack";
 import { useNow, usePrefersReducedMotion } from "./useMission";
@@ -272,85 +270,41 @@ export function MissionDetailView(props: {
   );
 }
 
-/** No mission yet: what a mission is, and the way to start one. */
-function HandOffEmptyState(props: { workspaceId: string; taskId: string }) {
-  const provider = useAppStore((state) => state.tasks.find((task) => task.id === props.taskId)?.provider ?? null);
-  const draft = useAppStore((state) => state.promptDraftByTask[props.taskId]?.text ?? "");
-  const openStartSheet = usePlaybooksUiStore((state) => state.openStartSheet);
-  const openPlaybooks = usePlaybooksUiStore((state) => state.openPlaybooks);
-  const supported = provider === "claude-code" || provider === "codex";
-  return (
-    <section className={sx(styles.empty)} aria-label="Mission">
-      <IconTile size="md" tone="accent">
-        <Target size={iconTileGlyphSizes.md} />
-      </IconTile>
-      <div className={sx(styles.headText)}>
-        <h2 className={sx(styles.title)}>Hand this task off</h2>
-        <p className={sx(styles.notice)}>
-          A mission carries the task through a playbook — understand, build, verify, open a PR — and stops only
-          where you ask to sign off.
-        </p>
-      </div>
-      <div className={sx(styles.actions)}>
-        <Button
-          size="sm"
-          disabled={!supported}
-          title={supported ? undefined : "Missions run on Claude and Codex tasks."}
-          onClick={() =>
-            openStartSheet({ workspaceId: props.workspaceId, taskId: props.taskId, assignment: draft })
-          }
-        >
-          <Target aria-hidden />
-          Start a mission
-        </Button>
-        <Button variant="quiet" size="sm" onClick={() => openPlaybooks()}>
-          Manage playbooks
-        </Button>
-      </div>
-    </section>
-  );
-}
-
 /**
- * The right rail's Mission panel: what supervises the task — its mission and
- * its wake-up. The task's collaborators are in the Team panel.
+ * The mission in the Task panel's Progress tab, with the commands that steer
+ * it. Shown only for a task that has a mission; a task without one shows its
+ * flow there instead, and starting a mission stays with the composer's
+ * hand-off control.
  */
-export function MissionPanel(props: { workspaceId: string; taskId: string }) {
-  const detail = useTaskMission(props.workspaceId, props.taskId);
+export function MissionPanel(props: { taskId: string; detail: MissionDetail }) {
+  const { detail } = props;
   const runCommand = useMissionsStore((state) => state.runCommand);
   const refreshMission = useMissionsStore((state) => state.refreshMission);
-  const missionId = detail?.mission.id ?? "";
+  const missionId = detail.mission.id;
   const busy = useMissionsStore((state) => Boolean(state.pendingByMission[missionId]));
-  const stage = detail?.mission.playbook.stages[detail.mission.currentStageIndex];
-  const record = detail && stage ? latestStageRecord(detail.stages, stage.id) : null;
+  const stage = detail.mission.playbook.stages[detail.mission.currentStageIndex];
+  const record = stage ? latestStageRecord(detail.stages, stage.id) : null;
   const failure = useMissionFailure(missionId, record ? missionStageKey(record) : null);
   const focusTranscriptTool = useAppStore((state) => state.focusTranscriptTool);
   const reportActions = useMissionReportActions(detail);
-  const active = Boolean(detail && isActiveMissionState(detail.mission.state));
+  const active = isActiveMissionState(detail.mission.state);
   const now = useNow(active);
   const reducedMotion = usePrefersReducedMotion();
   // A finished mission's report is built on request; fetch it once.
-  const needsReport = Boolean(detail && !active && !detail.report);
+  const needsReport = !active && !detail.report;
   useEffect(() => {
-    if (needsReport && missionId) void refreshMission(missionId);
+    if (needsReport) void refreshMission(missionId);
   }, [needsReport, missionId, refreshMission]);
   return (
-    <div className={sx(styles.panel)}>
-      {detail ? (
-        <MissionDetailView
-          detail={detail}
-          now={now}
-          busy={busy}
-          failure={failure}
-          reducedMotion={reducedMotion}
-          onCommand={runCommand}
-          reportActions={reportActions}
-          onShowTool={(toolUseId) => focusTranscriptTool({ taskId: props.taskId, toolUseId })}
-        />
-      ) : (
-        <HandOffEmptyState workspaceId={props.workspaceId} taskId={props.taskId} />
-      )}
-      <WakeUpSection workspaceId={props.workspaceId} taskId={props.taskId} />
-    </div>
+    <MissionDetailView
+      detail={detail}
+      now={now}
+      busy={busy}
+      failure={failure}
+      reducedMotion={reducedMotion}
+      onCommand={runCommand}
+      reportActions={reportActions}
+      onShowTool={(toolUseId) => focusTranscriptTool({ taskId: props.taskId, toolUseId })}
+    />
   );
 }

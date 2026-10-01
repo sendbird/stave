@@ -28,8 +28,8 @@ once.
 ## Before You Start
 
 - Use **Collaboration & workflows → Team** in a task or Fleet control panel,
-  or the **Team** tab in the right rail, which lists the task's Advisor
-  consults, workers and delegated tasks.
+  or the **Team** tab of the right rail's Task panel, which lists the task's
+  Advisor consults, workers and delegated tasks.
   Agent-driven delegation additionally requires the Stave Local MCP server
   (Settings → Local MCP).
 - The parent task's workspace must belong to a registered repository. A delegation

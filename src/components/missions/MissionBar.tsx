@@ -14,6 +14,7 @@ import {
 } from "@/lib/missions/mission-view";
 import { describeToolActivity, nextNowLine, NOW_LINE_MIN_INTERVAL_MS, type NowLineState } from "@/lib/missions/now-line";
 import type { ProviderTurnActivitySnapshot } from "@/lib/providers/turn-status";
+import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { useAppStore } from "@/store/app.store";
 import { useMissionsStore } from "@/store/missions-store";
 import { StageStatusIcon } from "./StageStatusIcon";
@@ -209,12 +210,12 @@ export function MissionBarView(props: {
               </Button>
             ) : null}
             {actions.onOpenPanel ? (
-              <Tooltip content="Open the Mission panel">
+              <Tooltip content="Open Progress in the Task panel">
                 <Button
                   variant="quiet"
                   size="iconSm"
                   iconOnly
-                  aria-label="Open the Mission panel"
+                  aria-label="Open Progress in the Task panel"
                   onClick={actions.onOpenPanel}
                   xstyle={styles.quietButton}
                 >
@@ -262,7 +263,7 @@ export function MissionBar(props: { variant?: "docked" | "panel"; framed?: boole
         busy,
         onTakeOver: () => void runCommand("takeOver", { missionId }),
         onResume: () => void runCommand("resume", { missionId }),
-        onOpenPanel: () => setLayout({ patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "mission" } }),
+        onOpenPanel: () => setLayout({ patch: taskPanelLayoutPatch("progress") }),
       }}
     />
   );

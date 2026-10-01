@@ -22,6 +22,7 @@ import type {
 } from "@/lib/missions/api";
 import { isActiveMissionState, latestStageRecord, type Mission } from "@/lib/missions/domain";
 import { buildMissionTurnDividers, isOlderMissionDetail } from "@/lib/missions/mission-view";
+import { taskPanelLayoutPatch } from "@/lib/right-rail-panels";
 import { useAppStore } from "@/store/app.store";
 
 type CommandName =
@@ -212,7 +213,7 @@ export const useMissionsStore = create<MissionsState>()((set, get) => {
           ok: false,
           mission: null,
           code: "failed",
-          message: "Stave could not confirm that the mission started. Check the Mission panel before trying again.",
+          message: "Stave could not confirm that the mission started. Check the task's Progress tab before trying again.",
         };
       }
     },
@@ -353,7 +354,7 @@ export function useMissionSync() {
           app.activeWorkspaceId === event.workspaceId &&
           app.activeTaskId === event.leadTaskId
         ) {
-          app.setLayout({ patch: { sidebarOverlayVisible: true, sidebarOverlayTab: "mission" } });
+          app.setLayout({ patch: taskPanelLayoutPatch("progress") });
         }
       });
     });

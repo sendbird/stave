@@ -85,10 +85,7 @@ import {
   TASK_MESSAGES_PAGE_SIZE,
   resolveInitialLatestTaskMessagesPageSize,
 } from "@/store/task-message-loading";
-import {
-  DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
-  WORKSPACE_SIDEBAR_MIN_WIDTH,
-} from "@/store/layout.utils";
+import { createDefaultLayoutState } from "@/store/layout.utils";
 import {
   registerTaskWorkspaceOwnership,
   resolveWorkspaceName,
@@ -1181,19 +1178,7 @@ export const useAppStore = create<AppState>()(
       failedSendsByTask: {},
       messageCountByTask: {},
       taskMessagesLoadingByTask: {},
-      layout: {
-        workspaceSidebarWidth: WORKSPACE_SIDEBAR_MIN_WIDTH,
-        workspaceSidebarCollapsed: false,
-        workspaceSidebarItemDisplayMode:
-          DEFAULT_WORKSPACE_SIDEBAR_ITEM_DISPLAY_MODE,
-        explorerPanelWidth: 300,
-        sidebarOverlayVisible: false,
-        sidebarOverlayTab: "explorer",
-        terminalDocked: false,
-        editorDiffMode: false,
-        editorMarkdownPreviewMode: false,
-        turnActivityFloatPos: null,
-      },
+      layout: createDefaultLayoutState(),
       settings: defaultSettings,
       editorTabs: [],
       activeEditorTabId: null,

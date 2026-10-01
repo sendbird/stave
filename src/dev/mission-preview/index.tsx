@@ -5,7 +5,6 @@ import { cx, sx } from "@/components/ads/utils/stylex";
 import { ActionButton } from "@/components/system/ActionButton";
 import { MissionBarView } from "@/components/missions/MissionBar";
 import { MissionDetailView } from "@/components/missions/MissionPanel";
-import { TaskWorkPanelHeader } from "@/components/session/TaskWorkPanel";
 import { MissionReportView } from "@/components/missions/MissionReportView";
 import { SignOffCard } from "@/components/missions/SignOffCard";
 import { EvidenceList } from "@/components/missions/EvidenceList";
@@ -291,18 +290,17 @@ export function MissionPreview() {
 
         <div className={sx(styles.rails)}>
           <section className={sx(styles.case, styles.rail)} data-preview-case="Panel">
-            <p className={sx(styles.caption)}>Mission panel · running</p>
+            <p className={sx(styles.caption)}>Progress tab · mission running</p>
             <div data-testid="mission-panel-frame">
-              <TaskWorkPanelHeader title="Fix the billing table overflow on narrow screens" />
               <MissionDetailView detail={live} now={now} onCommand={noop} onShowTool={() => {}} />
             </div>
           </section>
           <section className={sx(styles.case, styles.rail)} data-preview-case="Panel blocked">
-            <p className={sx(styles.caption)}>Mission panel · blocked</p>
+            <p className={sx(styles.caption)}>Progress tab · mission blocked</p>
             <MissionDetailView detail={blocked} now={now} onCommand={noop} onShowTool={() => {}} />
           </section>
           <section className={sx(styles.case, styles.rail)} data-preview-case="Report">
-            <p className={sx(styles.caption)}>Mission panel · ended</p>
+            <p className={sx(styles.caption)}>Progress tab · mission ended</p>
             <MissionDetailView
               detail={completed}
               now={now}
@@ -317,7 +315,7 @@ export function MissionPreview() {
             />
           </section>
           <section className={sx(styles.case, styles.rail)} data-preview-case="Report only">
-            <p className={sx(styles.caption)}>Mission report in Task Results</p>
+            <p className={sx(styles.caption)}>Mission report in the Results tab</p>
             <MissionReportView
               report={completed.report!}
               actions={{
@@ -330,7 +328,7 @@ export function MissionPreview() {
             />
           </section>
           <section className={sx(styles.case, styles.rail)} data-preview-case="Wake-ups">
-            <p className={sx(styles.caption)}>Wake-ups in the Mission panel</p>
+            <p className={sx(styles.caption)}>Wake-ups in the Progress tab</p>
             <WakeUpSectionView
               entry={{
                 wakeUp: previewWakeUp,
