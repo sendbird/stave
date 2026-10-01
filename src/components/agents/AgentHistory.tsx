@@ -37,7 +37,7 @@ function RevisionRow(props: {
         </span>
       </div>
       <div className={sx(agentStyles.historyMeta)}>
-        {props.ran ? <span className={sx(styles.chip)}>Ran</span> : null}
+        {props.ran ? <span className={sx(styles.chip)}>Assigned</span> : null}
         <Button size="sm" variant="quiet" onClick={props.onRestore} disabled={changed.length === 0}>
           <RotateCcw aria-hidden />
           Restore
@@ -49,7 +49,7 @@ function RevisionRow(props: {
 
 /**
  * History: the earlier saves of a custom agent, newest first. Each row names
- * the fields that differ from the agent now and marks a version "Ran" when a
+ * the fields that differ from the agent now and marks a version "Assigned" when a
  * recorded assignment used its exact content. Restore saves that version as
  * the current agent, so the replaced one joins history and nothing is lost.
  */
@@ -75,7 +75,7 @@ export function AgentHistory(props: {
           <span className={sx(agentStyles.historyWhen)}>Current</span>
         </div>
         <div className={sx(agentStyles.historyMeta)}>
-          {currentRan ? <span className={sx(styles.chip)}>Ran</span> : null}
+          {currentRan ? <span className={sx(styles.chip)}>Assigned</span> : null}
         </div>
       </li>
       {props.revisions.map((revision) => (

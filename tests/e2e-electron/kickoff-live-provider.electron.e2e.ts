@@ -127,6 +127,21 @@ process.on("SIGTERM", () => child.kill("SIGTERM"));
         message.role === "assistant" && message.content.includes(marker) && !message.isStreaming,
       ) ?? false;
     }, { timeout: 100_000, intervals: [500, 1000] }).toBe(true);
+    const persisted = await stave.page.evaluate(async (workspaceId) => window.api.persistence!.loadWorkspace!({ workspaceId }), assignment.workspaceId!);
+    const completed = persisted.snapshot?.messagesByTask[assignment.taskId!]?.find((message) =>
+      message.role === "assistant" && message.content.includes(marker) && !message.isStreaming,
+    );
+    expect(completed?.agentProvenance).toMatchObject({
+      assignmentId: assignment.id, agentConfigId: agent.id, agentName: agent.name,
+      agentContentHash: assignment.agentContentHash, role: "primary", providerId: "codex", model, effort: "low",
+      permission: { source: "user-settings", applied: { codexFileAccess: "read-only", codexApprovalPolicy: "never" } },
+      instructions: { channel: "instruction", status: "delivered" },
+    });
+    expect(completed?.agentProvenance?.turnId).toBe(completed?.turnId);
+    await stave.page.getByRole("button", { name: "Turn Activity", exact: true }).click();
+    await stave.page.getByText("Run details", { exact: true }).click();
+    await expect(stave.page.getByText("Assigned main Agent", { exact: true })).toBeVisible();
+    await expect(stave.page.getByText(assignment.agentContentHash.slice(0, 12), { exact: true })).toBeVisible();
     const requests = (await readFile(requestsPath, "utf8")).trim().split("\n").map((line) => JSON.parse(line));
     expect(requests).toContainEqual(expect.objectContaining({
       method: "thread/start", model,

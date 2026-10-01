@@ -9,8 +9,7 @@ import { RecordTaskAgentInputSchema, ReleaseTaskAgentInputSchema } from "../../.
 import { listAgents, normalizeCustomAgents } from "../../../src/lib/agents/library";
 import { activeStandards, normalizeMyStandards } from "../../../src/lib/agents/standards";
 import type { AgentConfig } from "../../../src/lib/agents/schema";
-import { taskAgentRuntimeOptions } from "../../../src/lib/agents/runtime-options";
-import { setTaskPromptPrefixResolver, setTaskRuntimeOptionsResolver } from "../../providers/runtime";
+import { setTaskAgentTurnResolver } from "../../providers/runtime";
 import { ensureHostServicePersistenceReady } from "../persistence";
 import { AssignError, createAssignRuntime, type AssignRuntime } from "./assign-runtime";
 
@@ -26,16 +25,7 @@ export function createHostAssignRuntime(args: {
     ...runtime,
     start() {
       runtime.recover();
-      // Every later turn of an assigned task runs as the same agent version.
-      setTaskRuntimeOptionsResolver(({ taskId, providerId, runtimeOptions }) => {
-        const task = runtime.taskAgent(taskId);
-        return task
-          ? taskAgentRuntimeOptions({ agent: task.agent, providerId, base: runtimeOptions, standards: task.standards })
-          : {};
-      });
-      // A task recorded before its first turn, or switched to another agent,
-      // owes a prompt-channel provider the agent's instructions once.
-      setTaskPromptPrefixResolver(({ taskId, providerId }) => runtime.prepareTaskPreamble(taskId, providerId));
+      setTaskAgentTurnResolver((turn) => runtime.prepareTurn(turn));
     },
   };
 }
@@ -80,6 +70,7 @@ export async function invokeAgentAction(
             workspaceId: value.workspaceId,
             repositoryPath: value.repositoryPath,
             agent: value.agent,
+            role: value.role,
             providerId: value.providerId,
             model: value.model ?? null,
             assignment: value.assignment,

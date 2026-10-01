@@ -176,6 +176,10 @@ input.on("line", (line) => {
     return;
   }
   if (method === "session/load") {
+    if (scenario === "echo-session-resume-failure") {
+      send({ jsonrpc: "2.0", id, error: { code: -32000, message: "Session missing" } });
+      return;
+    }
     // ACP v1 requires session/load to replay the prior conversation as
     // session/update notifications before answering. Distinct copy so a
     // leaked replay cannot be mistaken for this turn's prompt response.
@@ -322,7 +326,7 @@ input.on("line", (line) => {
     finishPrompt();
     return;
   }
-  if (scenario === "echo-session") {
+  if (scenario === "echo-session" || scenario === "echo-session-resume-failure") {
     const params = message.params as Record<string, unknown> | undefined;
     update({
       sessionUpdate: "agent_message_chunk",

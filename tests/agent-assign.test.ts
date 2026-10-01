@@ -67,8 +67,8 @@ describe("assignments", () => {
     expect(runtime.agentForTask("some-other-task")).toBeNull();
     const onCodex = taskAgentRuntimeOptions({ agent: agent!, providerId: "codex" });
     expect(onCodex.agentInstructions).toContain("# Agent: Implementer");
-    // A turn that already carries instructions gets nothing added twice.
-    expect(taskAgentRuntimeOptions({ agent: agent!, providerId: "codex", base: { agentInstructions: "x" } })).toEqual({});
+    // A stale caller copy cannot override the task's saved Agent version.
+    expect(taskAgentRuntimeOptions({ agent: agent!, providerId: "codex", base: { agentInstructions: "x" } }).agentInstructions).toBe(onCodex.agentInstructions);
     // Archiving the agent later does not strip it from a task already running as it.
     expect(taskAgentRuntimeOptions({ agent: { ...agent!, archived: true }, providerId: "claude-code" }).agentInstructions).toBeDefined();
   });
@@ -151,55 +151,5 @@ describe("record-task", () => {
     expect(runtime.releaseTaskAgent("task-7")).toBeNull();
   });
 
-  test("a prompt-channel provider receives a recorded agent's instructions once", () => {
-    const { runtime } = harness();
-    runtime.recordTaskAgent({
-      requestId: "kickoff:kiro",
-      taskId: "task-kiro",
-      workspaceId: "ws-1",
-      repositoryPath: "/tmp/repo",
-      agent: getBuiltinAgent("implementer")!,
-      providerId: "kiro",
-      model: null,
-      assignment: "Do the work.",
-    });
-    const preamble = runtime.prepareTaskPreamble("task-kiro", "kiro");
-    expect(preamble?.prefix).toContain(getBuiltinAgent("implementer")!.instructions.split("\n")[0]!);
-    // A blocked/cancelled/failed start has not acknowledged execution.
-    expect(runtime.prepareTaskPreamble("task-kiro", "kiro")?.prefix).toBe(preamble?.prefix);
-    preamble?.acknowledge();
-    expect(runtime.prepareTaskPreamble("task-kiro", "kiro")).toBeNull();
-  });
-
-  test("an instruction-channel provider acknowledges execution without a preamble", () => {
-    const { runtime } = harness();
-    runtime.recordTaskAgent({
-      requestId: "kickoff:claude",
-      taskId: "task-claude",
-      workspaceId: "ws-1",
-      repositoryPath: "/tmp/repo",
-      agent: getBuiltinAgent("implementer")!,
-      providerId: "claude-code",
-      model: null,
-      assignment: "Do the work.",
-    });
-    const prepared = runtime.prepareTaskPreamble("task-claude", "claude-code");
-    expect(prepared?.prefix).toBeNull();
-    prepared?.acknowledge();
-    // Switching this task to Kiro later no longer owes a preamble for the old row.
-    expect(runtime.prepareTaskPreamble("task-claude", "kiro")).toBeNull();
-  });
-  test("a delayed earlier turn cannot consume the new agent's instructions", () => {
-    const { runtime } = harness();
-    const task = {
-      taskId: "task-reassigned", workspaceId: "ws-1", repositoryPath: "/tmp/repo",
-      providerId: "kiro" as const, model: null, assignment: "Do the work.",
-    };
-    runtime.recordTaskAgent({ ...task, requestId: "old", agent: getBuiltinAgent("implementer")! });
-    const old = runtime.prepareTaskPreamble(task.taskId, "kiro");
-    runtime.recordTaskAgent({ ...task, requestId: "new", agent: getBuiltinAgent("researcher")! });
-    old?.acknowledge();
-    expect(runtime.prepareTaskPreamble(task.taskId, "kiro")?.prefix).toContain("Researcher");
-  });
 
 });

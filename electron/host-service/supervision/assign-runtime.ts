@@ -15,6 +15,8 @@ import type { AgentAssignment } from "../../../src/lib/agents/assign";
 import { compileAgent, hashAgentContent, snapshotAgent } from "../../../src/lib/agents/compile";
 import type { ProviderId } from "../../../src/lib/providers/provider.types";
 import type { AgentAssignmentStore } from "../../persistence/agent-assignment-store";
+import { prepareTaskAgentTurn, type TaskAgentTurn } from "../../providers/task-agent-turn";
+import type { StreamTurnArgs } from "../../providers/types";
 
 export class AssignError extends Error {
   constructor(
@@ -34,6 +36,7 @@ export interface AssignRuntimeDependencies {
 }
 
 export interface AssignRuntime {
+  prepareTurn: (turn: StreamTurnArgs) => TaskAgentTurn | null;
   /** Marks rows a previous run left preparing as interrupted. Call once at start. */
   recover: () => void;
   list: (args?: { agentConfigId?: string; limit?: number }) => AgentAssignment[];
@@ -49,6 +52,7 @@ export interface AssignRuntime {
     workspaceId: string;
     repositoryPath: string;
     agent: AgentAssignment["agent"];
+    role?: "primary" | "delegate";
     providerId: ProviderId;
     model: string | null;
     assignment: string;
@@ -62,14 +66,7 @@ export interface AssignRuntime {
    * the task was not running as an agent.
    */
   releaseTaskAgent: (taskId: string) => AgentAssignment | null;
-  /**
-   * The instructions a prompt-channel provider still owes the task's agent,
-   * prepared without consuming them; acknowledge after primary execution starts.
-   */
-  prepareTaskPreamble: (taskId: string, providerId: ProviderId) => {
-    prefix: string | null;
-    acknowledge: () => void;
-  } | null;
+
 }
 
 export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRuntime {
@@ -90,6 +87,28 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
   };
 
   return {
+    prepareTurn(turn) {
+      if (!turn.taskId || turn.executionPolicy) return null;
+      const row = currentRow(turn.taskId);
+      if (!row) return null;
+      // Capture once, independently of a later release or assignment switch.
+      return prepareTaskAgentTurn({
+        turn, assignment: row,
+        hasDelivery: (delivery) => (row.instructionDeliveries ?? []).some((entry) =>
+          entry.providerId === delivery.providerId && entry.nativeSessionId === delivery.nativeSessionId &&
+          entry.agentContentHash === delivery.agentContentHash),
+        recordDelivery: (delivery) => {
+          const current = currentRow(turn.taskId!);
+          if (current?.id !== row.id || current.agentContentHash !== row.agentContentHash) return;
+          const deliveries = current.instructionDeliveries ?? [];
+          if (deliveries.some((entry) => entry.providerId === delivery.providerId &&
+              entry.nativeSessionId === delivery.nativeSessionId && entry.agentContentHash === delivery.agentContentHash)) return;
+          // Eviction only resends instructions; it cannot imply missing delivery.
+          deps.store.update({ ...current, instructionDeliveries: [...deliveries, delivery].slice(-32),
+            updatedAt: now().toISOString() });
+        },
+      });
+    },
     list: (args = {}) => deps.store.list(args),
     agentForTask: (taskId) => {
       // A task intake made for an agent keeps running as it, even after a failed first turn.
@@ -103,36 +122,16 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
       const row = currentRow(taskId);
       if (!row) return null;
       const timestamp = now().toISOString();
-      const ended: AgentAssignment = { ...row, endedAt: timestamp, preambleDue: false, updatedAt: timestamp };
+      const ended: AgentAssignment = { ...row, endedAt: timestamp, updatedAt: timestamp };
       deps.store.update(ended);
       announce(ended);
       return ended;
-    },
-    prepareTaskPreamble(taskId, providerId) {
-      const row = currentRow(taskId);
-      if (!row?.preambleDue) return null;
-      const compiled = compileAgent({
-        snapshot: snapshotAgent({ ...row.agent, archived: false }),
-        role: "primary",
-        providerId,
-        ...(row.standards ? { standards: row.standards } : {}),
-      });
-      if (!compiled.ok || compiled.compiled.role !== "primary") return null;
-      return {
-        prefix: compiled.compiled.promptPreamble ?? null,
-        acknowledge: () => {
-          // A delayed old turn must never consume a newer agent's instructions.
-          const current = currentRow(taskId);
-          if (current?.id !== row.id || !current.preambleDue) return;
-          deps.store.update({ ...current, preambleDue: false, updatedAt: now().toISOString() });
-        },
-      };
     },
     recordTaskAgent(args) {
       const existing = deps.store.getByRequestId(args.requestId);
       if (existing) return existing;
       const snapshot = snapshotAgent(args.agent);
-      const compiled = compileAgent({ snapshot, role: "primary", providerId: args.providerId, standards: args.standards });
+      const compiled = compileAgent({ snapshot, role: args.role ?? "primary", providerId: args.providerId, standards: args.standards });
       if (!compiled.ok) throw new AssignError("refused", compiled.message);
       const timestamp = now().toISOString();
       const row: AgentAssignment = {
@@ -143,6 +142,7 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
         agentName: args.agent.name,
         agentContentHash: snapshot.contentHash,
         agent: snapshot.agent,
+        role: args.role ?? "primary",
         assignment: args.assignment,
         providerId: args.providerId,
         model: args.model,
@@ -156,9 +156,6 @@ export function createAssignRuntime(deps: AssignRuntimeDependencies): AssignRunt
         state: "started",
         detail: null,
         standards: args.standards ?? null,
-        // The starter sends the user's text as is, so a prompt-channel provider
-        // gets the agent's instructions from the next primary turn instead.
-        preambleDue: true,
         received: compiled.compiled.received,
         support: compiled.compiled.support,
         createdAt: timestamp,
