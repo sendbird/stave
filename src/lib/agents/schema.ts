@@ -242,7 +242,7 @@ export const AgentConfigSchema = z
     id: AgentConfigIdSchema,
     source: z.enum(AGENT_SOURCES),
     name: z.string().trim().min(1).max(AGENT_CONFIG_LIMITS.name),
-    /** "Use when": when to hand work to this agent. A trigger, not a bio. */
+    /** "Use when": when to assign work to this agent. A trigger, not a bio. */
     description: z.string().trim().min(1).max(AGENT_CONFIG_LIMITS.description),
     /** "Don't use when". */
     avoidWhen: z.string().trim().max(AGENT_CONFIG_LIMITS.avoidWhen).optional(),

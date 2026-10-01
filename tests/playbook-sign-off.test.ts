@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import type { CheckIns, Playbook, PlaybookStage } from "../src/lib/playbooks/schema";
 import {
   deriveStageSignOff,
-  isCustomCheckIns,
   listSignOffStageIndexes,
   resolveStageSignOff,
 } from "../src/lib/playbooks/sign-off";
@@ -55,30 +54,20 @@ describe("sign-off derivation", () => {
   test("starting a mission signs off the first stage, even a publish stage or an override", () => {
     const publishFirst = [{ ...ai("post", "publish"), signOff: "ask" as const }, ai("next")];
     expect(resolveStageSignOff(playbook("every-stage", publishFirst), 0)).toBe("auto");
-    expect(isCustomCheckIns(playbook("every-stage", publishFirst))).toBe(false);
   });
 
-  test("a stage override wins and makes the check-ins custom", () => {
+  test("a stage override wins", () => {
     const stages = STAGES.map((stage) =>
       stage.id === "verify" ? { ...stage, signOff: "ask" as const } : stage,
     );
     const custom = playbook("plan-and-publishing", stages);
     expect(resolveStageSignOff(custom, 2)).toBe("ask");
-    expect(isCustomCheckIns(custom)).toBe(true);
 
     const quiet = playbook(
       "plan-and-publishing",
       STAGES.map((stage) => (stage.id === "ready" ? { ...stage, signOff: "auto" as const } : stage)),
     );
     expect(resolveStageSignOff(quiet, 5)).toBe("auto");
-    expect(isCustomCheckIns(quiet)).toBe(true);
-  });
-
-  test("an override equal to the derived value is not custom", () => {
-    const stages = STAGES.map((stage) =>
-      stage.id === "build" ? { ...stage, signOff: "ask" as const } : stage,
-    );
-    expect(isCustomCheckIns(playbook("plan-and-publishing", stages))).toBe(false);
   });
 
   test("rejects an index outside the playbook", () => {

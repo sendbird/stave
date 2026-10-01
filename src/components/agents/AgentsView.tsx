@@ -5,29 +5,25 @@ import { sx } from "@/components/ads/utils/stylex";
 import { ActionButton } from "@/components/system/ActionButton";
 import { AgentsTab } from "@/components/agents/AgentsTab";
 import { MyStandardsPanel } from "@/components/agents/MyStandardsPanel";
-import { PlaybooksTab } from "@/components/playbooks/PlaybooksTab";
 import { useAppStore } from "@/store/app.store";
 import { useAgentsViewStore, type AgentsViewTab } from "@/store/agents-view-store";
 import { centerStyles } from "@/components/layout/automation-center/automation-center-view.styles";
 
 const TABS: ReadonlyArray<readonly [AgentsViewTab, string]> = [
   ["agents", "Agents"],
-  ["playbooks", "Playbooks"],
   ["standards", "My standards"],
 ];
 
 const TAB_NOTES: Record<AgentsViewTab, string> = {
-  agents: "Saved agents to hand work to. Start work opens Kickoff with the agent chosen.",
-  playbooks: "Saved ways of working. A mission runs one on a task, stage by stage.",
+  agents: "Saved agents to assign work to. An agent with a workflow works in stages.",
   standards: "Your own rules, added after every agent's instructions when on.",
 };
 
 /**
- * The Agents surface: saved agents, the playbooks missions run, and the
- * standards added to every agent. One of Fleet View, Automations, Issues,
- * Projects and Agents owns the main column at a time; the tab is held in
- * `useAgentsViewStore` so a deep link (for example "manage playbooks") can open
- * this surface on a given tab.
+ * The Agents surface: saved agents (with their workflows) and the standards
+ * added to every agent. One of Fleet View, Automations, Issues, Projects and
+ * Agents owns the main column at a time; the tab is held in
+ * `useAgentsViewStore` so a deep link can open this surface on a given tab.
  */
 export function AgentsView() {
   const activeTab = useAgentsViewStore((state) => state.activeTab);
@@ -60,8 +56,8 @@ export function AgentsView() {
             <h1 className={sx(centerStyles.headerTitle)}>Agents</h1>
           </div>
           <p className={sx(centerStyles.headerSubtitle)}>
-            Hand work to a saved agent, save the ways missions work, and set the
-            standards every agent follows.
+            Assign work to a saved agent and set the standards every agent
+            follows.
           </p>
         </div>
         <div className={sx(centerStyles.headerActions)}>
@@ -97,8 +93,6 @@ export function AgentsView() {
 
       {activeTab === "agents" ? (
         <AgentsTab />
-      ) : activeTab === "playbooks" ? (
-        <PlaybooksTab />
       ) : (
         <MyStandardsPanel />
       )}

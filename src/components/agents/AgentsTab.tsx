@@ -515,7 +515,7 @@ export function AgentsTab() {
         ))}
         {groups.length === 0 && !query ? (
           <div className={sx(styles.empty)} style={{ padding: 0 }}>
-            <p className={sx(styles.emptyText)}>No agents yet. Create one to hand work to it.</p>
+            <p className={sx(styles.emptyText)}>No agents yet. Create one to assign work to it.</p>
             <div className={sx(styles.emptyActions)}>
               <Button size="sm" onClick={() => setNewOpen(true)}>
                 <Plus aria-hidden />

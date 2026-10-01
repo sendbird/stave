@@ -362,21 +362,3 @@ export const PlaybookSchema = z
 export type Playbook = z.infer<typeof PlaybookSchema>;
 export type PlaybookRuntime = NonNullable<Playbook["runtime"]>;
 
-/**
- * True when the playbook acts on a pull request it does not open itself, so a
- * mission can start only in a workspace that already has one.
- */
-export function playbookNeedsExistingPullRequest(
-  playbook: Pick<Playbook, "stages">,
-): boolean {
-  const usesPullRequest = playbook.stages.some(
-    (stage) =>
-      stage.kind === "action" &&
-      (stage.action.type === "watch-checks" ||
-        stage.action.type === "mark-pr-ready"),
-  );
-  return (
-    usesPullRequest &&
-    actionIndexes(playbook.stages, "open-draft-pr").length === 0
-  );
-}

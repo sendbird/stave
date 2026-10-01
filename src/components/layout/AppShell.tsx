@@ -1173,7 +1173,15 @@ export function AppShell() {
           openAgents();
           useAgentsUiStore.getState().requestNewAgent();
         },
-        startWorkWithAgent: () => useAgentsUiStore.getState().openKickoffWithAgent(),
+        startWorkWithAgent: () => {
+          // With a task open, its composer's selector opens on Agents; otherwise Kickoff.
+          const app = useAppStore.getState();
+          if (app.activeTaskId && app.activeAppSurface.kind === "workspace") {
+            useAgentsUiStore.getState().requestAgentSelector();
+          } else {
+            useAgentsUiStore.getState().openKickoffWithAgent();
+          }
+        },
         refreshTrackerIssues: () => refreshTrackerIssues().then(() => undefined),
         openKeyboardShortcuts: handleOpenKeyboardShortcuts,
         openRepository: (nextRepositoryPath: string) =>

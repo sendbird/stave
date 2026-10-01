@@ -14,7 +14,7 @@ import { AgentAvatar } from "@/components/agents/AgentAvatar";
 
 const ME = "me";
 
-/** Start now on the source screen; the dialog owns the start itself. */
+/** Assign on the source screen; the dialog owns the start itself. */
 export interface KickoffStartNowProps {
   canStart: boolean;
   busy: boolean;
@@ -24,9 +24,9 @@ export interface KickoffStartNowProps {
 }
 
 /**
- * "Who" on the source phase: run the work yourself, or hand it to a saved
- * agent. With an agent, "Start now" starts the work right away through the
- * same start as the review screen's Create, next to the deliberate
+ * "Who" on the source phase: run the work yourself, or assign it to a saved
+ * agent. With an agent, "Assign" starts the work right away through the
+ * same start as the review screen's Assign, next to the deliberate
  * "Resolve source" / "Skip AI" prepare step.
  */
 export function KickoffSourceWho(props: {
@@ -79,7 +79,7 @@ export function KickoffSourceWho(props: {
               onClick={props.startNow.onStart}
             >
               <Rocket className={sx(kickoffStyles.buttonIcon)} />
-              {props.startNow.busy ? "Starting…" : "Start now"}
+              {props.startNow.busy ? "Assigning…" : "Assign"}
             </Button>
           </div>
           {props.startNow.hint ? (
@@ -88,7 +88,7 @@ export function KickoffSourceWho(props: {
         </div>
       ) : (
         <p className={sx(kickoffStyles.hint)}>
-          Prepare the workspace and its first task, or pick an agent to start work now.
+          Prepare the workspace and its first task, or pick an agent and assign the work now.
         </p>
       )}
     </div>

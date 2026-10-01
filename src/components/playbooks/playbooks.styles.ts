@@ -2,7 +2,7 @@ import * as stylex from "@stylexjs/stylex";
 import { vars } from "../ads/tokens/tokens.stylex";
 
 /**
- * Playbooks tab and editor. Existing ADS tokens only.
+ * The workflow stage editor in the agent editor. Existing ADS tokens only.
  *
  * Grid: the editor is one reading column; properties are a two-column grid
  * (label 7.5rem, control) so every control starts on one line; stage rows keep

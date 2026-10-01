@@ -81,16 +81,6 @@ if (preview === "kickoff") {
       </StrictMode>,
     );
   });
-} else if (preview === "playbooks") {
-  void import("@/dev/playbooks-preview").then(({ PlaybooksPreview }) => {
-    root.render(
-      <StrictMode>
-        <StaveDesignProvider>
-          <PlaybooksPreview />
-        </StaveDesignProvider>
-      </StrictMode>,
-    );
-  });
 } else if (preview === "results") {
   void import("@/dev/results-preview").then(({ ResultsPreview }) => {
     root.render(

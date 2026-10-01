@@ -24,6 +24,9 @@ interface AgentsUiState {
   /** Rises when "New agent" is requested (palette, deep link); the Agents tab opens its dialog. */
   newAgentNonce: number;
   requestNewAgent: () => void;
+  /** Rises when "Assign to an agent…" is requested; the composer opens its selector on Agents. */
+  agentSelectorNonce: number;
+  requestAgentSelector: () => void;
 }
 
 export const useAgentsUiStore = create<AgentsUiState>((set) => ({
@@ -33,4 +36,6 @@ export const useAgentsUiStore = create<AgentsUiState>((set) => ({
   clearKickoffRequest: () => set({ kickoffRequest: null }),
   newAgentNonce: 0,
   requestNewAgent: () => set((state) => ({ newAgentNonce: state.newAgentNonce + 1 })),
+  agentSelectorNonce: 0,
+  requestAgentSelector: () => set((state) => ({ agentSelectorNonce: state.agentSelectorNonce + 1 })),
 }));

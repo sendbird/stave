@@ -2,7 +2,6 @@ import { describe, expect, test } from "bun:test";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import {
-  describeUnreadablePlaybook,
   normalizePersistedPlaybooks,
   parsePlaybook,
   restorePersistedPlaybooks,
@@ -12,14 +11,12 @@ import {
   MAX_PLAYBOOK_STAGES,
   MAX_PLAYBOOK_TEXT_LENGTH,
   PLAYBOOK_LIMITS,
-  playbookNeedsExistingPullRequest,
   playbookTextLength,
   type Playbook,
   type PlaybookStage,
 } from "../src/lib/playbooks/schema";
 import {
   createPlaybookFromStarter,
-  createStageFromTemplate,
   findPlaybookStarter,
   PLAYBOOK_STARTERS,
   STAGE_TEMPLATES,
@@ -157,13 +154,6 @@ describe("playbook schema", () => {
   test("lets checks act on an existing pull request when no stage opens one", () => {
     const fixChecks = playbook({ stages: [aiStage("fix"), watchChecks] });
     expect(issuesOf(fixChecks)).toEqual([]);
-    expect(playbookNeedsExistingPullRequest(fixChecks)).toBe(true);
-    expect(
-      playbookNeedsExistingPullRequest(
-        playbook({ stages: [action("open", "open-draft-pr"), watchChecks] }),
-      ),
-    ).toBe(false);
-    expect(playbookNeedsExistingPullRequest(playbook())).toBe(false);
   });
 
   test("validates the watch-checks bounds and the runtime", () => {
@@ -198,7 +188,7 @@ describe("starter playbooks", () => {
       expect({ id: starter.id, issues: issuesOf(created) }).toEqual({ id: starter.id, issues: [] });
     }
     for (const template of STAGE_TEMPLATES) {
-      const stage = createStageFromTemplate(template, []);
+      const stage = structuredClone(template.stage);
       expect({ id: template.id, issues: issuesOf(playbook({ stages: [stage] })) }).toEqual({
         id: template.id,
         issues: [],
@@ -224,13 +214,6 @@ describe("starter playbooks", () => {
     ]);
   });
 
-  test("the checks and review starters work on an existing pull request", () => {
-    const needsPr = PLAYBOOK_STARTERS.filter((starter) =>
-      playbookNeedsExistingPullRequest(starter.template),
-    ).map((starter) => starter.id);
-    expect(needsPr).toEqual(["fix-failing-checks", "address-review"]);
-  });
-
   test("creating from a starter copies it with fresh identity", () => {
     const starter = findPlaybookStarter("request-to-pr")!;
     const created = createPlaybookFromStarter(starter, { now: NOW });
@@ -238,14 +221,6 @@ describe("starter playbooks", () => {
     expect(created.createdAt).toBe(NOW.toISOString());
     created.stages[0]!.title = "Changed";
     expect(starter.template.stages[0]!.title).toBe("Understand");
-  });
-
-  test("a stage template gets an id no existing stage uses", () => {
-    const template = STAGE_TEMPLATES.find((candidate) => candidate.id === "visual-check")!;
-    expect(createStageFromTemplate(template, ["build"]).id).toBe("visual-check");
-    expect(
-      createStageFromTemplate(template, ["visual-check", "visual-check-2"]).id,
-    ).toBe("visual-check-3");
   });
 
   test("every Stave tool a starter names is a registered tool", () => {
@@ -325,7 +300,6 @@ describe("unreadable playbooks are kept aside, never lost", () => {
     expect(restored.unreadable).toHaveLength(1);
     expect(restored.unreadable[0]!.value).toEqual(fromNewerVersion);
     expect(restored.unreadable[0]!.issues.length).toBeGreaterThan(0);
-    expect(describeUnreadablePlaybook(restored.unreadable[0]!)).toBe("From a newer Stave");
   });
 
   test("a kept-aside entry survives every later load and comes back once it reads", () => {

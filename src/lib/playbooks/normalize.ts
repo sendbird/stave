@@ -165,12 +165,6 @@ export function restorePersistedPlaybooks(input: { playbooks: unknown; unreadabl
   return { playbooks: result.playbooks, unreadable, diagnostics: result.diagnostics };
 }
 
-/** "Request → PR", or null when a kept-aside entry has no readable name. */
-export function describeUnreadablePlaybook(entry: UnreadablePlaybook): string | null {
-  const name = readLabel(entry.value, "name")?.trim();
-  return name ? name : null;
-}
-
 export function warnPlaybookDiagnostics(diagnostics: PlaybookDiagnostic[]) {
   if (diagnostics.length > 0) {
     console.warn("[playbooks] adjusted saved playbooks", diagnostics);

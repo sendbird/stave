@@ -294,17 +294,16 @@
     },
     {
       "id": "mission-start-consent",
-      "title": "A saved playbook never grants permissions; every mission start records its own consent",
-      "invariant": "Starting a mission sends the check-ins, permission mode and external-effect go-aheads chosen in the Start sheet; the mission stores that consent, its turns take permissions from mission.consent only (never from the playbook's saved defaults), and an external effect the consent does not list always waits for sign-off.",
+      "title": "A saved agent never grants permissions; every run start records its own consent",
+      "invariant": "Starting an agent run records the user's own permission settings and the agent's check-ins as the run's consent; its turns take permissions from mission.consent only (never from a saved agent or playbook), and a publish or Stave action stage the consent does not list always waits for sign-off. Only an agent that checks in only when stuck lists its workflow's external-effect stages at start.",
       "testFiles": [
         "tests/mission-start-consent.test.ts",
-        "tests/pre-start-checks.test.ts"
+        "tests/agent-run.test.ts"
       ],
       "assertionRefs": [
         "docs/architecture/agent-platform-taxonomy.md",
-        "src/lib/missions/start-sheet.ts",
+        "src/lib/missions/agent-run.ts",
         "src/lib/missions/policy.ts",
-        "src/components/missions/StartMissionSheet.tsx",
         "electron/host-service/supervision/mission-runtime.ts"
       ]
     },

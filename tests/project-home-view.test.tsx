@@ -107,10 +107,10 @@ test("counting what a project needs covers proposals, sign-offs and stuck missio
   expect(missionNeedsYou(mission({ state: "paused", currentStageStatus: "awaiting-sign-off" }))).toBe(false);
 });
 
-test("the projects view explains itself when empty and lists open projects before ended ones", () => {
-  const empty = renderToStaticMarkup(createElement(ProjectsEmpty, { onCreate: () => {} }));
-  expect(empty).toContain("Hand Stave a goal, not just a task");
-  expect(empty).toContain("Brief the goal");
+test("the projects view says projects are retired when empty and lists open projects before ended ones", () => {
+  const empty = renderToStaticMarkup(createElement(ProjectsEmpty));
+  expect(empty).toContain("Projects are being retired");
+  expect(empty).not.toContain("New project");
 
   const listed = renderToStaticMarkup(
     createElement(ProjectList, {
@@ -126,17 +126,20 @@ test("the projects view explains itself when empty and lists open projects befor
   expect(listed).toContain('aria-current="true"');
 });
 
-test("the command palette opens projects and starts a new one", () => {
-  const ids = buildMissionCommandActions().map((action) => action.id);
-  expect(ids).toContain("projects.open");
-  expect(ids).toContain("projects.new");
-});
+test("projects are offered only to a user who has one, and never a new one", async () => {
+  const { useProjectsStore } = await import("../src/store/projects-store");
+  const { SidebarPrimaryNav, SidebarPrimaryNavCollapsed } = await import("../src/components/layout/SidebarPrimaryNav");
+  const original = useProjectsStore.getState().projects;
+  useProjectsStore.setState({ projects: [] });
+  expect(buildMissionCommandActions()).toEqual([]);
+  const none = renderToStaticMarkup(createElement(SidebarPrimaryNavCollapsed, { showFleetView: true }));
+  expect(none).toContain('aria-label="open-fleet-view"');
+  expect(none).not.toContain('aria-label="Projects"');
+  expect(renderToStaticMarkup(createElement(SidebarPrimaryNav, { showFleetView: true }))).not.toContain("Projects");
 
-test("the collapsed sidebar keeps Projects one click away", async () => {
-  const { SidebarPrimaryNavCollapsed } = await import("../src/components/layout/SidebarPrimaryNav");
-  const html = renderToStaticMarkup(createElement(SidebarPrimaryNavCollapsed, { showFleetView: true }));
-  expect(html).toContain('aria-label="open-fleet-view"');
-  expect(html).toContain('aria-label="Projects"');
+  useProjectsStore.setState({ projects: [PROJECT] });
+  expect(buildMissionCommandActions().map((action) => action.id)).toEqual(["projects.open"]);
+  useProjectsStore.setState({ projects: original });
 });
 
 test("the coordinator conversation shows what you wrote, what woke it and its answers, never tool calls", async () => {

@@ -68,8 +68,7 @@ export interface KickoffWorkspaceArgs {
   firstTaskRuntimeOverrides?: PromptDraftRuntimeOverrides;
   extraInstructions?: string;
   /**
-   * Runs once the task exists and before its first send (and before a mission
-   * Start sheet). Kickoff uses it to record that the task runs as an agent.
+   * Runs once the task exists and before its first send. Kickoff uses it to record that the task runs as an agent.
    * A rejection stages the task with its prompt and never sends.
    */
   beforeFirstTurn?: (args: {

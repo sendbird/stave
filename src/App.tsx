@@ -13,7 +13,6 @@ import { WorkspaceSaveNotice } from "@/components/layout/WorkspaceSaveNotice";
 import { flushPendingSnapshotPersists } from "@/store/workspace-session-state";
 import { LensCdpApprovalDialog } from "@/components/layout/LensCdpApprovalDialog";
 import { CraneDispatchApprovalDialog } from "@/components/layout/CraneDispatchApprovalDialog";
-import { StartMissionSheetHost } from "@/components/missions/StartMissionSheet";
 import { useLensGuestHost } from "@/components/panes/useLensGuestHost";
 import { useLensSessionClosedEvents } from "@/components/panes/useLensSessionClosedEvents";
 import { useLensSessionPresentationRequests } from "@/components/panes/useLensSessionPresentationRequests";
@@ -498,7 +497,6 @@ export default function App() {
       <AppShell />
       <WorkspaceSaveNotice />
       <LensCdpApprovalDialog />
-      <StartMissionSheetHost />
       <CraneDispatchApprovalDialog />
     </TooltipProvider>
   );

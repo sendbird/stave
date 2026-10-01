@@ -10,13 +10,11 @@ import {
 } from "../electron/host-service/supervision/proposal-runtime";
 import { ProposedMissionsPanel } from "../src/components/layout/issues/ProposedMissionsPanel";
 import { describeMissingWorkspace, describeProposalStart } from "../src/components/layout/issues/useProposalActions";
-import { PlaybookStartsWhen } from "../src/components/playbooks/PlaybookStartsWhen";
 import type { MissionDetail } from "../src/lib/missions/api";
 import { createMission, currentStageRecord, type MissionStartInput } from "../src/lib/missions/domain";
-import { playbookChoiceForId } from "../src/lib/missions/start-sheet";
 import type { ObservedPullRequest, ProposedMission } from "../src/lib/missions/proposed";
 import type { Playbook } from "../src/lib/playbooks/schema";
-import { applyStartsWhen, describeStartsWhen, newScheduleStartsOnItsOwn, summarizeWatching } from "../src/lib/playbooks/starts-when";
+import { summarizeWatching } from "../src/lib/playbooks/starts-when";
 import type { ObservedIssue } from "../src/lib/projects/policy";
 import { pullRequestWatchKey, toObservedPullRequest } from "../src/store/proposals-store";
 import { MISSION_NOW, starterPlaybook } from "./fixtures/mission-fixtures";
@@ -388,7 +386,6 @@ describe("triage", () => {
       proposedByMissionId: "triage-mission",
       detail: "Proposed by Triage requests",
     });
-    expect(playbookChoiceForId(proposal!.playbookId)).toBe("starter:request-to-pr");
     await expect(h.runtime.proposeForGrant({ missionKey: "grant", input: { ...input, key: "x", playbookId: "missing" } })).rejects.toThrow(
       'No playbook "missing"',
     );
@@ -448,62 +445,18 @@ describe("deciding", () => {
   });
 });
 
-describe("editing start conditions", () => {
+describe("what saved start conditions watch", () => {
   const base = starterPlaybook("fix-failing-checks");
-  const now = new Date("2026-09-27T12:00:00.000Z");
-
-  test("each condition is stamped when turned on, a new filter restamps, and none left removes startsWhen", () => {
-    const withIssue = applyStartsWhen(base, { issueAssigned: { filter: "" } }, now);
-    expect(withIssue.startsWhen).toEqual({ issueAssigned: { filter: "", since: now.toISOString() } });
-    const later = new Date("2026-09-28T00:00:00.000Z");
-    expect(applyStartsWhen(withIssue, { issueAssigned: { filter: "" } }, later).startsWhen?.issueAssigned?.since).toBe(now.toISOString());
-    const edited = applyStartsWhen(withIssue, { issueAssigned: { filter: "bug" } }, later);
-    expect(edited.startsWhen?.issueAssigned).toEqual({ filter: "bug", since: later.toISOString() });
-    expect("startsWhen" in applyStartsWhen(edited, { issueAssigned: null }, now)).toBe(false);
-  });
-
-  test("a new schedule starts on its own only when pull requests are not watched", () => {
-    expect(newScheduleStartsOnItsOwn(undefined, true)).toBe(true);
-    expect(newScheduleStartsOnItsOwn(undefined, false)).toBe(false);
-    expect(newScheduleStartsOnItsOwn({ pullRequest: { checksFailed: true, changesRequested: false } }, true)).toBe(false);
-    const both = applyStartsWhen(
-      base,
-      { pullRequest: { checksFailed: true, changesRequested: false }, schedule: { schedule: "daily", workspaceId: "ws", workspaceName: "web-app" } },
-      now,
-    );
-    const html = renderToStaticMarkup(createElement(PlaybookStartsWhen, { draft: both, workspace: null, onChange: () => {}, now: () => now }));
-    expect(html).toContain("Both pull request and scheduled missions start without asking");
-    expect(html).toContain("Watches the workspaces of the open repository");
-  });
+  const since = "2026-09-27T12:00:00.000Z";
 
   test("the watch summary names what the playbooks watch", () => {
-    expect(summarizeWatching([base])).toBeNull();
-    const issues = applyStartsWhen(base, { issueAssigned: { filter: "" } }, now);
-    const scheduled = applyStartsWhen(base, { schedule: { schedule: "daily", workspaceId: "ws", workspaceName: "web-app" } }, now);
-    expect(summarizeWatching([issues, scheduled, base])).toBe("2 playbooks — assigned issues, a schedule");
-    expect(summarizeWatching([applyStartsWhen(base, { pullRequest: { checksFailed: true, changesRequested: false } }, now)])).toBe(
+    const { startsWhen: _none, ...plain } = base;
+    expect(summarizeWatching([plain])).toBeNull();
+    const issues = { ...plain, startsWhen: { issueAssigned: { filter: "", since } } };
+    const scheduled = { ...plain, startsWhen: { schedule: { schedule: "daily" as const, workspaceId: "ws", workspaceName: "web-app", since } } };
+    expect(summarizeWatching([issues, scheduled, plain])).toBe("2 playbooks — assigned issues, a schedule");
+    expect(summarizeWatching([{ ...plain, startsWhen: { pullRequest: { checksFailed: true, changesRequested: false } } }])).toBe(
       "1 playbook — pull requests in the open repository",
-    );
-  });
-
-  test("auto-start needs a pull request or schedule condition; a new schedule restamps", () => {
-    const withPr = applyStartsWhen(base, { pullRequest: { checksFailed: true, changesRequested: false }, autoStart: true }, now);
-    expect(withPr.startsWhen?.autoStart).toBe(true);
-    const issueOnly = applyStartsWhen(applyStartsWhen(withPr, { issueAssigned: { filter: "" } }, now), { pullRequest: null }, now);
-    expect(issueOnly.startsWhen?.autoStart).toBeUndefined();
-    const noChecks = applyStartsWhen(withPr, { pullRequest: { checksFailed: false, changesRequested: false } }, now);
-    expect("startsWhen" in noChecks).toBe(false);
-
-    const scheduled = applyStartsWhen(base, { schedule: { schedule: "daily", workspaceId: "ws", workspaceName: "web-app" } }, now);
-    const later = new Date("2026-09-30T00:00:00.000Z");
-    expect(applyStartsWhen(scheduled, { schedule: { schedule: "daily", workspaceId: "ws", workspaceName: "web-app" } }, later).startsWhen?.schedule?.since).toBe(
-      now.toISOString(),
-    );
-    expect(applyStartsWhen(scheduled, { schedule: { schedule: "weekly", workspaceId: "ws", workspaceName: "web-app" } }, later).startsWhen?.schedule?.since).toBe(
-      later.toISOString(),
-    );
-    expect(describeStartsWhen(applyStartsWhen(withPr, { schedule: { schedule: "weekdays", workspaceId: "ws", workspaceName: "w" } }, now).startsWhen)).toBe(
-      "PR checks fail · Weekdays at 09:00",
     );
   });
 });
@@ -543,7 +496,7 @@ describe("Issues → Proposed", () => {
     ).toContain("Open a workspace");
   });
 
-  test("the panel lists what waits and what was decided, and guides an empty list to start conditions", () => {
+  test("the panel lists what waits and what was decided, and says when nothing is proposed", () => {
     const render = (pending: ProposedMission[], recent: ProposedMission[]) =>
       renderToStaticMarkup(
         createElement(ProposedMissionsPanel, {
@@ -556,7 +509,6 @@ describe("Issues → Proposed", () => {
           onDismiss: () => {},
           onOpenLink: () => {},
           onOpenMission: () => {},
-          onOpenPlaybooks: () => {},
         }),
       );
     const html = render([proposal()], [proposal({ id: "p2", state: "started", missionId: "m1", title: "Nightly triage" })]);
@@ -569,7 +521,7 @@ describe("Issues → Proposed", () => {
     expect(html).toContain("Started");
     const empty = render([], []);
     expect(empty).toContain("Nothing proposed right now");
-    expect(empty).toContain("Open playbooks");
+    expect(empty).not.toContain("playbook");
     const watching = renderToStaticMarkup(
       createElement(ProposedMissionsPanel, {
         pending: [],
@@ -582,7 +534,6 @@ describe("Issues → Proposed", () => {
         onDismiss: () => {},
         onOpenLink: () => {},
         onOpenMission: () => {},
-        onOpenPlaybooks: () => {},
       }),
     );
     expect(watching).toContain("Watching: 2 playbooks — assigned issues, a schedule.");

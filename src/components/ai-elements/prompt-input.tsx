@@ -118,14 +118,7 @@ import {
   getActiveMacroTokenMatch,
 } from "@/lib/macros/token";
 import type { Macro, MacroTokenMatch } from "@/lib/macros/types";
-import {
-  HandOffControl,
-  playbookIdOfPaletteEntry,
-  playbookPaletteEntries,
-  ASSIGN_PALETTE_ENTRY,
-  isAssignPaletteEntry,
-  useOpenHandOff,
-} from "@/components/session/HandOffControl";
+import { ASSIGN_PALETTE_ENTRY, isAssignPaletteEntry } from "@/components/session/assign-palette-entry";
 import { useAgentsUiStore } from "@/store/agents-ui-store";
 import { sx, cx } from "../ads/utils/stylex";
 import { promptInputStyles } from "./prompt-input.styles";
@@ -1082,6 +1075,10 @@ export function PromptInput(args: PromptInputProps) {
   );
   const [isPromptInputFocused, setIsPromptInputFocused] = useState(false);
   const [modelSelectorOpenNonce, setModelSelectorOpenNonce] = useState(0);
+  // "Assign to an agent…" opens the selector on its Agents section.
+  const agentSelectorNonce = useAgentsUiStore((state) => state.agentSelectorNonce);
+  const handledAgentSelectorNonce = useRef(agentSelectorNonce);
+  const [agentsOpenToken, setAgentsOpenToken] = useState<number | undefined>(undefined);
   const [editingQueuedTurnId, setEditingQueuedTurnId] = useState<string | null>(
     null,
   );
@@ -1246,24 +1243,7 @@ export function PromptInput(args: PromptInputProps) {
       }),
     [caretIndex, value],
   );
-  // `!shortcut` finds playbooks next to macros; choosing one hands off.
-  const playbooks = useAppStore((state) => state.settings.playbooks);
-  const openHandOff = useOpenHandOff({
-    clearComposer: () => {
-      valueRef.current = "";
-      onValueChange("");
-    },
-  });
-  const handOffAvailable = openHandOff !== null;
-  const paletteMacros = useMemo(
-    () =>
-      [
-        ...(macros ?? []),
-        ...(handOffAvailable ? playbookPaletteEntries(playbooks) : []),
-        ASSIGN_PALETTE_ENTRY,
-      ],
-    [handOffAvailable, macros, playbooks],
-  );
+  const paletteMacros = useMemo(() => [...(macros ?? []), ASSIGN_PALETTE_ENTRY], [macros]);
   const filteredMacroItems = useMemo(
     () =>
       filterMacroEntries({
@@ -1558,6 +1538,13 @@ export function PromptInput(args: PromptInputProps) {
       windowShortcutsEnabled,
     ],
   );
+
+  useEffect(() => {
+    if (agentSelectorNonce === handledAgentSelectorNonce.current) return;
+    handledAgentSelectorNonce.current = agentSelectorNonce;
+    if (interactionsDisabled || !windowShortcutsEnabled) return;
+    setAgentsOpenToken(agentSelectorNonce);
+  }, [agentSelectorNonce, interactionsDisabled, windowShortcutsEnabled]);
 
   useEffect(() => {
     if (interactionsDisabled || !windowShortcutsEnabled) {
@@ -2185,8 +2172,7 @@ export function PromptInput(args: PromptInputProps) {
   function applyMacroSelection(item: Macro) {
     const match = resolveMacroTokenSelection();
     pendingMacroTokenRef.current = null;
-    const playbookId = playbookIdOfPaletteEntry(item);
-    if (playbookId || isAssignPaletteEntry(item)) {
+    if (isAssignPaletteEntry(item)) {
       // The rest of the draft becomes the assignment; the token goes away.
       const currentValue = valueRef.current;
       const nextValue = match
@@ -2197,8 +2183,7 @@ export function PromptInput(args: PromptInputProps) {
       setSuppressedAutocompleteValue({ palette: "macro", value: nextValue });
       setDismissedMacroToken(match?.token ?? `!${item.slug}`);
       setSelectedMacroIndex(NO_COMMAND_SELECTION);
-      if (playbookId) openHandOff?.({ assignment: nextValue, playbookId });
-      else useAgentsUiStore.getState().openKickoffWithAgent({ text: nextValue });
+      useAgentsUiStore.getState().openKickoffWithAgent({ text: nextValue });
       return;
     }
     if (!onMacroSelect) {
@@ -2342,14 +2327,6 @@ export function PromptInput(args: PromptInputProps) {
   if (!hasReviewControl) unavailableComposerControls.push("review");
   if (!secretsControl) unavailableComposerControls.push("secrets");
   if (!macroControl) unavailableComposerControls.push("macro");
-  const handOffControl =
-    openHandOff && !minimal ? (
-      <HandOffControl
-        disabled={interactionsDisabled}
-        onClick={() => openHandOff({ assignment: valueRef.current })}
-      />
-    ) : null;
-  if (!handOffControl) unavailableComposerControls.push("handOff");
   if (!compareControl) unavailableComposerControls.push("compare");
   if (!hasRuntimeContent) unavailableComposerControls.push("runtime");
 
@@ -2456,7 +2433,6 @@ export function PromptInput(args: PromptInputProps) {
     ) : null,
     secrets: secretsControl,
     macro: macroControl,
-    handOff: handOffControl,
     compare: compareControl,
     runtime: hasRuntimeContent ? (
       isMobile ? (
@@ -3481,7 +3457,7 @@ export function PromptInput(args: PromptInputProps) {
                     filteredMacroItems.length === 0 ? (
                     <CommandEmpty>
                       {paletteMacros.length > 0
-                        ? "No matching macro or playbook."
+                        ? "No matching macro."
                         : "No macros yet. Add one in Settings → Macros."}
                     </CommandEmpty>
                   ) : activePalette === "command" &&
@@ -3720,11 +3696,7 @@ export function PromptInput(args: PromptInputProps) {
                       {activePalette === "macro" &&
                       indexedMacroItems.length > 0 ? (
                         <CommandGroup
-                          heading={
-                            indexedMacroItems.some(({ item }) => playbookIdOfPaletteEntry(item))
-                              ? "Macros and playbooks"
-                              : "Macros"
-                          }
+                          heading="Macros"
                         >
                           {indexedMacroItems.map(({ item, index }) => (
                             <CommandItem
@@ -3740,7 +3712,7 @@ export function PromptInput(args: PromptInputProps) {
                               onSelect={() => applyMacroSelection(item)}
                             >
                               <div className={sx(promptInputStyles.iconWrap)}>
-                                {playbookIdOfPaletteEntry(item) ? (
+                                {isAssignPaletteEntry(item) ? (
                                   <Target className={sx(promptInputStyles.iconMuted)} />
                                 ) : (
                                   <Zap className={sx(promptInputStyles.iconMuted)} />
@@ -4342,6 +4314,7 @@ export function PromptInput(args: PromptInputProps) {
                       ? modelSelectorOpenNonce
                       : undefined
                   }
+                  openAgentsToken={agentsOpenToken}
                   onFastModeChange={onFastModeChange}
                   onSelect={({ selection, effort, fastMode: nextFastMode }) => {
                     onModelSelect({

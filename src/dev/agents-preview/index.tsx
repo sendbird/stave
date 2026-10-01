@@ -10,7 +10,6 @@ import { sx } from "@/components/ads/utils/stylex";
 import type { AgentAssignment } from "@/lib/agents/assign";
 import { duplicateAgent } from "@/lib/agents/library";
 import { revisionContentHash } from "@/lib/agents/revisions";
-import { createBlankPlaybook } from "@/lib/playbooks/library";
 import { getBuiltinAgent } from "@/lib/agents/starters";
 import { applyCustomTheme, applyThemeClass } from "@/lib/themes/apply";
 import { BUILTIN_CUSTOM_THEMES } from "@/lib/themes/builtin-themes";
@@ -161,24 +160,25 @@ export function AgentsPreview() {
     previewRanContentHash = revisionContentHash(olderVersion);
     useAppStore.getState().updateSettings({
       patch: {
-        customAgents: [custom],
+        customAgents: [
+          custom,
+          {
+            ...custom,
+            id: "ship-ui",
+            name: "Ship a UI fix",
+            description: "Lands a small UI change and opens its PR.",
+            workflow: [
+              { id: "implement", title: "Implement", kind: "ai", instruction: "Make the change.", doneWhen: "It builds.", agentConfigId: "ui-maintainer" },
+              { id: "open-draft-pr", title: "Open draft PR", kind: "action", action: { type: "open-draft-pr" } },
+            ],
+          },
+        ],
         customAgentRevisions: {
           "ui-maintainer": [
             { savedAt: "2026-09-26T10:00:00.000Z", agent: olderVersion },
             { savedAt: "2026-09-24T10:00:00.000Z", agent: olderStill },
           ],
         },
-        playbooks: [
-          {
-            ...createBlankPlaybook({ now: new Date("2026-09-28T09:00:00.000Z"), taken: [] }),
-            id: "ship-ui",
-            name: "Ship a UI fix",
-            purpose: "Land a small UI change and open its PR.",
-            stages: [
-              { id: "implement", title: "Implement", kind: "ai", instruction: "Make the change.", doneWhen: "It builds.", agentConfigId: "ui-maintainer" },
-            ],
-          },
-        ],
       },
     });
     useAppStore.setState({

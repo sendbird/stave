@@ -49,7 +49,7 @@ function general(draft: GeneralAgentDraft): AgentConfig {
 
 /**
  * Listed in the order the selector shows them, by expected use. An agent that
- * only reads names none to call; the rest name the agents they hand work to.
+ * only reads names none to call; the rest name the agents they delegate to.
  */
 const GENERAL_AGENTS: readonly AgentConfig[] = [
   general({

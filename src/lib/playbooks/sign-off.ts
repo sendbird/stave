@@ -62,18 +62,6 @@ export function resolveStageSignOff(
   return stage.signOff ?? deriveStageSignOff(playbook.checkIns, playbook.stages, index);
 }
 
-/**
- * True when a stage override changes what the check-in level alone would do,
- * so the builder labels the check-ins "Custom".
- */
-export function isCustomCheckIns(playbook: SignOffInput): boolean {
-  return playbook.stages.some(
-    (_, index) =>
-      resolveStageSignOff(playbook, index) !==
-      deriveStageSignOff(playbook.checkIns, playbook.stages, index),
-  );
-}
-
 /** Indexes of the stages that wait for the user's sign-off. */
 export function listSignOffStageIndexes(playbook: SignOffInput): number[] {
   return playbook.stages.flatMap((_, index) =>

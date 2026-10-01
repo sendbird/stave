@@ -100,14 +100,19 @@ describe("start work entry points", () => {
     useAgentsUiStore.getState().clearKickoffRequest();
   });
 
-  test("`!assign` is offered in the composer palette and is not a playbook", async () => {
-    const { ASSIGN_PALETTE_ENTRY, isAssignPaletteEntry, playbookIdOfPaletteEntry } = await import(
-      "../src/components/session/HandOffControl"
-    );
+  test("`!assign` is offered in the composer palette", async () => {
+    const { ASSIGN_PALETTE_ENTRY, isAssignPaletteEntry } = await import("../src/components/session/assign-palette-entry");
     expect(ASSIGN_PALETTE_ENTRY.slug).toBe("assign");
-    expect(ASSIGN_PALETTE_ENTRY.label).toBe("Start work with an agent…");
+    expect(ASSIGN_PALETTE_ENTRY.label).toBe("Assign to an agent…");
     expect(isAssignPaletteEntry(ASSIGN_PALETTE_ENTRY)).toBe(true);
-    expect(playbookIdOfPaletteEntry(ASSIGN_PALETTE_ENTRY)).toBeNull();
+    expect(isAssignPaletteEntry({ id: "macro-1" })).toBe(false);
+  });
+
+  test("the palette's Assign to an agent… opens the composer selector on Agents when a task is open", async () => {
+    const { useAgentsUiStore } = await import("@/store/agents-ui-store");
+    const before = useAgentsUiStore.getState().agentSelectorNonce;
+    useAgentsUiStore.getState().requestAgentSelector();
+    expect(useAgentsUiStore.getState().agentSelectorNonce).toBe(before + 1);
   });
 
   test("openKickoffWithAgent raises a fresh nonce so an open dialog reopens", async () => {

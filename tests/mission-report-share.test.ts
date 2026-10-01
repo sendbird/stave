@@ -2,9 +2,7 @@ import { describe, expect, test } from "bun:test";
 import { Database } from "bun:sqlite";
 import { createMissionRuntime } from "../electron/host-service/supervision/mission-runtime";
 import { MissionStore } from "../electron/persistence/mission-store";
-import { saveMissionPlaybook } from "../src/components/missions/useMissionReportActions";
 import { buildShareReportPrompt, findSlackThreadUrl, SLACK_THREAD_URL } from "../src/lib/missions/report-markdown";
-import { useAppStore } from "../src/store/app.store";
 import { MISSION_NOW, starterPlaybook } from "./fixtures/mission-fixtures";
 
 const THREAD = "https://acme.slack.com/archives/C123ABC/p1727000000123456";
@@ -90,34 +88,5 @@ describe("sharing a mission report to Slack", () => {
     // The ended mission's consent no longer applies: the user's own settings do.
     expect(turn.runtimeOptions).toEqual({ claudePermissionMode: "auto", claudeSandboxEnabled: false });
     expect(h.store.listEventsByKind(missionId, ["report-shared"])).toHaveLength(1);
-  });
-});
-
-describe("saving a mission's playbook", () => {
-  test("adds the playbook under its own name, and only names one that is saved unchanged", () => {
-    const base = useAppStore.getState().settings;
-    useAppStore.setState({ settings: { ...base, playbooks: [] } });
-    const playbook = starterPlaybook("request-to-pr");
-    expect(saveMissionPlaybook(playbook)).toBe("Saved as “Request → PR” in Automations → Playbooks.");
-    const saved = useAppStore.getState().settings.playbooks;
-    expect(saved).toHaveLength(1);
-    expect(saved[0]!.id).not.toBe(playbook.id);
-
-    // The saved copy, run unchanged, is only named.
-    expect(saveMissionPlaybook(saved[0]!)).toBe("This mission ran “Request → PR” as it is saved.");
-    // Edited for a run, it is saved again under a free name.
-    const edited = { ...saved[0]!, stages: saved[0]!.stages.slice(0, 3) };
-    expect(saveMissionPlaybook(edited)).toBe("Saved as “Request → PR 2” in Automations → Playbooks.");
-    useAppStore.setState({ settings: base });
-  });
-
-  test("saving the same mission's playbook again names the copy instead of adding another", () => {
-    const base = useAppStore.getState().settings;
-    useAppStore.setState({ settings: { ...base, playbooks: [] } });
-    const playbook = starterPlaybook("request-to-pr");
-    expect(saveMissionPlaybook(playbook)).toBe("Saved as “Request → PR” in Automations → Playbooks.");
-    expect(saveMissionPlaybook(playbook)).toBe("Already saved as “Request → PR” in Automations → Playbooks.");
-    expect(useAppStore.getState().settings.playbooks).toHaveLength(1);
-    useAppStore.setState({ settings: base });
   });
 });

@@ -59,7 +59,7 @@ describe("kickoff chooses who does the work", () => {
       }),
     );
     expect(html).toContain("Who");
-    expect(html).toContain("Start now");
+    expect(html).toContain("Assign");
     expect(html).toContain("Your permission settings");
   });
 
