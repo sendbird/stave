@@ -6,6 +6,7 @@ import {
   type ProviderAccountProviderId,
 } from "../../src/lib/providers/provider-accounts";
 import { getProviderAccountRegistry } from "./registry";
+import { currentProviderAccountId } from "./runtime-scope";
 
 const INHERITED_AUTH_KEYS = {
   "claude-code": [
@@ -40,6 +41,7 @@ export function resolveProviderAccountEnvironment(args: {
     profileId: string;
   }) => string | null;
 }) {
+  args = { ...args, profileId: args.profileId ?? currentProviderAccountId(args.providerId) };
   if (
     args.profileId === undefined ||
     args.profileId === SYSTEM_ACCOUNT_PROFILE_ID
@@ -71,6 +73,7 @@ export function resolveProviderAccountEnvironment(args: {
     for (const authKey of INHERITED_AUTH_KEYS[args.providerId])
       delete env[authKey];
     env[key] = directory;
+    if (args.providerId === "claude-code") env.CLAUDE_SECURESTORAGE_CONFIG_DIR = directory;
     return env;
   };
 }

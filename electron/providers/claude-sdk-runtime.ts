@@ -1,3 +1,4 @@
+import { currentProviderAccountId, providerAccountKey, providerAccountKeyMatchesTask } from "../provider-accounts/runtime-scope";
 import { createClaudeModelResolutionTracker } from "./claude-model-resolution";
 import {
   buildClaudeDenyPermissionResult,
@@ -249,11 +250,8 @@ export function resolveClaudeExecutablePath(
   });
 }
 
-export function buildClaudeEnv(args: { executablePath: string; cwd?: string }) {
-  return buildClaudeCliEnv({
-    executablePath: args.executablePath,
-    cwd: args.cwd,
-  });
+export function buildClaudeEnv(args: { executablePath: string; cwd?: string; accountProfileId?: string }) {
+  return buildClaudeCliEnv(args);
 }
 
 function buildClaudeDiagnostics(args: {
@@ -557,6 +555,7 @@ async function resolveClaudeEnabledPluginsForQuery(args: {
       args.claudeConfigDir ??
       buildClaudeEnv({
         executablePath: args.claudeExecutablePath,
+        accountProfileId: args.runtimeOptions?.claudeAccountProfileId,
         cwd: args.cwd,
       }).CLAUDE_CONFIG_DIR;
     const inventory = await resolveClaudeInstalledPlugins({
@@ -2175,6 +2174,7 @@ function toClaudeCommandCatalogKey(args: {
   const settingSources = args.runtimeOptions?.claudeSettingSources;
   const pluginOverrides = args.runtimeOptions?.claudePluginOverrides ?? {};
   return JSON.stringify([
+    currentProviderAccountId("claude-code"),
     args.cwd && path.isAbsolute(args.cwd) ? args.cwd : process.cwd(),
     args.runtimeOptions?.claudeBinaryPath ?? "",
     Array.isArray(settingSources) ? [...settingSources].sort() : null,
@@ -2541,16 +2541,16 @@ export async function reloadClaudePlugins(args: {
 }
 
 export function cleanupClaudeTask(taskId: string) {
-  sessionIdByTask.delete(taskId);
-  sessionMcpScopeByTask.delete(taskId);
-  activeRunByTask.delete(taskId);
+  for (const map of [sessionIdByTask, sessionMcpScopeByTask, activeRunByTask]) {
+    for (const key of map.keys()) if (providerAccountKeyMatchesTask(key, taskId)) map.delete(key);
+  }
 }
 
 function resolveSessionId(args: {
   taskId?: string;
   fallbackSessionId?: string;
 }) {
-  const taskKey = args.taskId ?? "default";
+  const taskKey = providerAccountKey("claude-code", args.taskId ?? "default");
   return sessionIdByTask.get(taskKey) ?? args.fallbackSessionId?.trim();
 }
 
@@ -2563,7 +2563,7 @@ function rememberSessionId(args: {
   if (!nextSessionId) {
     return;
   }
-  const taskKey = args.taskId ?? "default";
+  const taskKey = providerAccountKey("claude-code", args.taskId ?? "default");
   sessionIdByTask.set(taskKey, nextSessionId);
   if (args.mcpScopeKey) {
     sessionMcpScopeByTask.set(taskKey, args.mcpScopeKey);
@@ -2935,7 +2935,7 @@ async function createClaudeMcpControlQuery(args: {
 
   return {
     runtimeCwd,
-    scopeKey: `${claudeExecutablePath}\u0000${runtimeCwd}`,
+    scopeKey: providerAccountKey("claude-code", `${claudeExecutablePath}\u0000${runtimeCwd}`),
     stream,
   };
 }
@@ -3184,7 +3184,7 @@ export async function streamClaudeWithSdk(
     registerSteerResponder?: (responder: ProviderSteerResponder) => void;
   },
 ): Promise<BridgeEvent[] | null> {
-  const taskKey = args.taskId ?? "default";
+  const taskKey = providerAccountKey("claude-code", args.taskId ?? "default");
   const previousRun = activeRunByTask.get(taskKey) ?? Promise.resolve();
   let releaseCurrentRun!: () => void;
   const currentRun = new Promise<void>((resolve) => {

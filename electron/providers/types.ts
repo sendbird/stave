@@ -95,6 +95,7 @@ export type BridgeEvent =
   | { type: "text"; text: string; segmentId?: string }
   | {
       type: "provider_session";
+      accountProfileId?: string;
       providerId: ProviderId;
       nativeSessionId: string;
     }
@@ -336,7 +337,7 @@ export type BridgeEvent =
       modelExecution?: ModelExecution;
     }
   | { type: "error"; message: string; recoverable: boolean }
-  | { type: "done"; stop_reason?: string };
+  | { type: "done"; stop_reason?: string; accountProfileId?: string };
 
 export interface ProviderRuntime {
   streamTurn: (args: StreamTurnArgs) => Promise<BridgeEvent[]>;

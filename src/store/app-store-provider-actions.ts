@@ -1,3 +1,4 @@
+import { selectedProviderAccount, snapshotProviderAccounts } from "@/lib/providers/provider-account-selection";
 import type { StoreApi } from "zustand";
 import type { AppState } from "./app-store.types";
 import { mergeRateLimitsSnapshots } from "@/lib/providers/account-usage-block";
@@ -25,6 +26,8 @@ export function createProviderSupportActions(args: {
       }
       const requestedAt = Date.now();
       const runtimeOptions = {
+        ...snapshotProviderAccounts(get().settings),
+        claudeBinaryPath: get().settings.claudeBinaryPath || undefined,
         cursorBinaryPath: get().settings.cursorBinaryPath || undefined,
         kiroBinaryPath: get().settings.kiroBinaryPath || undefined,
         codexBinaryPath: get().settings.codexBinaryPath || undefined,
@@ -50,6 +53,7 @@ export function createProviderSupportActions(args: {
         set((state) => {
           const providers = requestedProviders.filter(
             (providerId) =>
+              selectedProviderAccount(providerId, state.settings) === selectedProviderAccount(providerId, runtimeOptions) &&
               providerReadsAllowed(providerId, runtimeOptions) &&
               generations.get(providerId) ===
                 providerReadiness(providerId, runtimeOptions)?.generation &&
@@ -100,6 +104,8 @@ export function createProviderSupportActions(args: {
       }
       const settings = get().settings;
       const runtimeOptions = {
+        claudeAccountProfileId: settings.claudeAccountProfileId,
+        codexAccountProfileId: settings.codexAccountProfileId,
         claudeBinaryPath: settings.claudeBinaryPath || undefined,
         codexBinaryPath: settings.codexBinaryPath || undefined,
         cursorBinaryPath: settings.cursorBinaryPath || undefined,

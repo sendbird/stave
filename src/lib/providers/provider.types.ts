@@ -915,6 +915,7 @@ export type NormalizedProviderEvent =
   | { type: "text"; text: string; segmentId?: string }
   | {
       type: "provider_session";
+      accountProfileId?: string;
       providerId: ProviderId;
       nativeSessionId: string;
     }
@@ -1171,6 +1172,7 @@ export type NormalizedProviderEvent =
   | { type: "error"; message: string; recoverable: boolean }
   | {
       type: "done";
+      accountProfileId?: string;
       stop_reason?:
         "end_turn" | "max_tokens" | "stop_sequence" | "tool_use" | string;
     };
@@ -1186,6 +1188,8 @@ export interface ProviderTurnRequest {
 }
 
 export interface ProviderRuntimeOptions {
+  claudeAccountProfileId?: string;
+  codexAccountProfileId?: string;
   model?: string;
   chatStreamingEnabled?: boolean;
   debug?: boolean;

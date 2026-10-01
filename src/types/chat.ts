@@ -91,6 +91,8 @@ export const DEFAULT_CLAUDE_PLAN_MODE_APPROVAL_SCOPE: ClaudePlanModeApprovalScop
   "bashTaskAndMcp";
 
 export interface PromptDraftRuntimeOverrides {
+  claudeAccountProfileId?: string;
+  codexAccountProfileId?: string;
   claudePermissionMode?: ClaudePermissionMode;
   claudePermissionModeBeforePlan?: ClaudePermissionModeBeforePlan;
   claudeEffort?: "low" | "medium" | "high" | "xhigh" | "max";
@@ -169,6 +171,8 @@ export interface PromptDraftQueuedNextTurn {
 }
 
 export interface PromptDraftQueuedTurn {
+  claudeAccountProfileId?: string;
+  codexAccountProfileId?: string;
   id: string;
   queuedAt: string;
   sourceTurnId?: string;

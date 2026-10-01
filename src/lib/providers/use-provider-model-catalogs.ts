@@ -1,3 +1,4 @@
+import { selectedProviderAccount } from "./provider-account-selection";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { registerCursorModelDisplayNames } from "@/lib/providers/cursor-model-id";
 import {
@@ -72,6 +73,7 @@ function cacheKey(args: {
           : "";
   return [
     args.providerId,
+    selectedProviderAccount(args.providerId, args.runtimeOptions),
     binaryPath?.trim() || "<default-binary>",
     args.cwd?.trim() || "<default-cwd>",
   ].join(":");

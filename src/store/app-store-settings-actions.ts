@@ -1,3 +1,4 @@
+import { emptyRateLimitsSnapshot } from "@/lib/providers/account-usage-block";
 import type { StoreApi } from "zustand";
 import { normalizeMyStandards } from "@/lib/agents/standards";
 import { normalizeTaskMode } from "@/lib/agents/task-mode";
@@ -677,6 +678,8 @@ export function createSettingsActions(args: {
         }
         const nextState: Partial<AppState> = {
           settings: nextSettings,
+          ...(nextSettings.claudeAccountProfileId !== state.settings.claudeAccountProfileId || nextSettings.codexAccountProfileId !== state.settings.codexAccountProfileId
+            ? { rateLimitsSnapshot: emptyRateLimitsSnapshot(), rateLimitsUpdatedAtByProvider: {}, rateLimitsError: null } : {}),
         };
         if (nextIsDark !== null) {
           nextState.isDarkMode = nextIsDark;
@@ -694,6 +697,10 @@ export function createSettingsActions(args: {
             console.warn("[automations] failed to sync provider timeout", error);
           });
         }
+      }
+      if (normalizedPatch.claudeAccountProfileId !== undefined || normalizedPatch.codexAccountProfileId !== undefined) {
+        void get().refreshRateLimits();
+        void get().refreshProviderAvailability();
       }
       if (normalizedPatch.cursorBinaryPath !== undefined || normalizedPatch.kiroBinaryPath !== undefined) {
         set(providerToolingStatePatch(get()));

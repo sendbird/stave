@@ -1,3 +1,4 @@
+import { ProviderAccountProfileIdSchema } from "../providers/provider-accounts";
 import { ModelExecutionSchema } from "@/lib/providers/model-execution";
 import { WORKER_PRESET_IDS } from "../providers/worker-preset-ids";
 import {
@@ -264,6 +265,8 @@ const AttachmentSchema = z.discriminatedUnion("kind", [
 ]);
 
 const PromptDraftRuntimeOverridesSchema = z.object({
+  claudeAccountProfileId: ProviderAccountProfileIdSchema.optional(),
+  codexAccountProfileId: ProviderAccountProfileIdSchema.optional(),
   model: z.string().optional(),
   modelProviderId: ProviderIdSchema.optional(),
   claudePermissionMode: z
@@ -466,6 +469,8 @@ const PromptDraftQueuedNextTurnSchema = z
 
 const PromptDraftQueuedTurnSchema = z
   .object({
+    claudeAccountProfileId: ProviderAccountProfileIdSchema.optional(),
+    codexAccountProfileId: ProviderAccountProfileIdSchema.optional(),
     id: z.string(),
     queuedAt: z.string(),
     sourceTurnId: z.string().optional(),
@@ -654,6 +659,7 @@ const TaskProviderSessionEntrySchema = z.union([
 ]);
 
 const TaskProviderSessionStateSchema = z.object({
+  accounts: z.record(z.string(), z.object({ "claude-code": TaskProviderSessionEntrySchema.optional(), codex: TaskProviderSessionEntrySchema.optional() })).optional(),
   "claude-code": TaskProviderSessionEntrySchema.optional(),
   codex: TaskProviderSessionEntrySchema.optional(),
   cursor: TaskProviderSessionEntrySchema.optional(),

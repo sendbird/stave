@@ -1,3 +1,4 @@
+import { providerAccountKey, withProviderAccountScope } from "../../provider-accounts/runtime-scope";
 import { emptyRateLimitsSnapshot } from "../../../src/lib/providers/account-usage-block";
 import type {
   ProviderId,
@@ -81,6 +82,7 @@ export async function getRateLimitsSnapshot(args: {
   fetchers?: Partial<UsageFetchers>;
   optionalReadKey?: typeof optionalProviderReadKey;
 }): Promise<RateLimitsSnapshotResponse> {
+  return withProviderAccountScope(args.runtimeOptions, async () => {
   const providers = args.providers;
   const force = args.force;
   const fetchers = { ...defaultFetchers, ...args.fetchers };
@@ -97,7 +99,7 @@ export async function getRateLimitsSnapshot(args: {
     }
     const readKey = isOptionalProvider(providerId)
       ? (args.optionalReadKey ?? optionalProviderReadKey)(providerId, args.runtimeOptions)
-      : providerId;
+      : providerAccountKey(providerId, providerId);
     if (!readKey) return empty[key];
     const value = await readProviderUsage({
       key: readKey,
@@ -123,4 +125,5 @@ export async function getRateLimitsSnapshot(args: {
     })),
   ]);
   return { claude, codex, cursor, kiro };
+  });
 }

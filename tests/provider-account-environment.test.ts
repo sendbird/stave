@@ -1,3 +1,4 @@
+import { withProviderAccountScope } from "../electron/provider-accounts/runtime-scope";
 import { afterEach, describe, expect, test } from "bun:test";
 import { spawnSync } from "node:child_process";
 import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
@@ -93,6 +94,9 @@ describe("native account environments", () => {
       for (const profile of [a, b]) {
         const env = build(profile.id);
         expect(env[key]).toBe(profile.configDirectory!);
+        const selection = providerId === "codex" ? { codexAccountProfileId: profile.id } : { claudeAccountProfileId: profile.id };
+        expect(withProviderAccountScope(selection, () => build())[key]).toBe(profile.configDirectory!);
+        if (providerId === "claude-code") expect(env.CLAUDE_SECURESTORAGE_CONFIG_DIR).toBe(profile.configDirectory);
         for (const authKey of authKeys) expect(env[authKey]).toBeUndefined();
         const child = spawnSync(
           process.execPath,

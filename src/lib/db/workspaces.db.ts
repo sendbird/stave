@@ -34,6 +34,7 @@ export interface ProviderSessionCursor {
 export type TaskProviderSessionEntry = string | ProviderSessionCursor;
 
 export interface TaskProviderSessionState {
+  accounts?: Record<string, Partial<Record<"claude-code" | "codex", TaskProviderSessionEntry>>>;
   "claude-code"?: TaskProviderSessionEntry;
   codex?: TaskProviderSessionEntry;
   cursor?: TaskProviderSessionEntry;

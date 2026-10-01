@@ -34,7 +34,7 @@ exhausted quota remains visible. Startup, window focus, binary changes, periodic
 discovery, and Tooling Refresh update status. Late replies cannot repopulate a
 catalog or usage meter after a detected logout or configuration change.
 
-### Native account registration foundation
+### Native account profiles and execution
 
 The desktop bridge exposes `window.api.providerAccounts` for Claude and Codex
 profile registration, renaming, removal, and native login. Each provider keeps
@@ -63,13 +63,33 @@ Custom profile environments select their configuration directory before MCP
 environment discovery and reapply it after hydration. They omit inherited
 provider API keys, OAuth tokens, and endpoint overrides. System default preserves
 those existing settings. Bound vault secrets cannot override `STAVE_USER_DATA_PATH`,
-`CLAUDE_CONFIG_DIR`, or `CODEX_HOME`.
+`CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, or `CODEX_HOME`.
 
-This is a desktop backend foundation. Account management UI and task account
-selection are pending the profile-aware conversation, queue, client, catalog,
-and usage work. Conversation runtime options and existing standalone chat CLI
-sessions continue to use System default; the registration API does not switch
-them. The login bridge reports process creation, not authentication success.
+Conversation requests accept `claudeAccountProfileId` and
+`codexAccountProfileId`. Omitted IDs retain System default behavior. The host
+captures both selections in request-local async context, and each primary turn
+captures its selection before asynchronous dispatch. Native child environments,
+Codex App Server clients, Claude session maps, MCP observations, model catalog
+cache keys, and usage reads are separated by profile. Reusing a Codex client
+revalidates the registration; removing a profile prevents new requests without
+terminating a turn already running on it.
+
+Native session cursors for custom profiles are stored under
+`providerSession.accounts[profileId][providerId]`; existing top-level entries
+remain System default. Session and terminal events carry their originating
+profile ID, including synthesized terminal failures. Queue entries capture both
+profile IDs, including explicit System default, so changing a selection does not
+retarget an already queued turn. Account selection changes invalidate displayed
+usage, and late usage responses cannot replace the new selection's readings.
+Custom Claude usage reads search only the selected configuration directory and
+its scoped keychain service, without falling back to default credentials.
+
+The account-management and account-selection UI is not exposed yet. Native
+history actions, standalone chat CLI restoration, and all settings/catalog
+callers still need selection wiring before enabling that UI. Registration alone
+does not switch those surfaces. The login bridge reports process creation, not
+authentication success; real multi-account login and restart flows require
+separate desktop verification.
 
 ## Cursor Agent ACP runtime
 

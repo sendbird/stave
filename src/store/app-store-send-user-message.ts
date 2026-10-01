@@ -1,3 +1,4 @@
+import { selectedProviderAccount, snapshotProviderAccounts } from "@/lib/providers/provider-account-selection";
 import type { AppState, SendUserMessageResult } from "@/store/app-store.types";
 import { useAgentAssignmentsStore } from "@/store/agent-assignments-store";
 import { CanonicalRetrievedContextPart, NormalizedProviderEvent } from "@/lib/providers/provider.types";
@@ -459,6 +460,7 @@ export function createSendUserMessageAction(args: {
     }
     const { promptDraft, queuedTurnToSend, remainingQueuedTurns } =
       promptDraftSendState;
+    const turnAccounts = snapshotProviderAccounts({ ...state.settings, ...promptDraft.runtimeOverrides });
     if (
       isAutoRoutingUnavailableForSend({
         promptDraft,
@@ -492,6 +494,7 @@ export function createSendUserMessageAction(args: {
       provider = queuedTurnToSend.providerId;
     }
     const codexGoalQueuedTurns = buildCodexGoalQueuedTurns({
+      accounts: turnAccounts,
       provider,
       content,
       turnId,
@@ -882,7 +885,7 @@ export function createSendUserMessageAction(args: {
         const accountUsageBlock = await guardSendAgainstAccountUsage(
           get,
           provider,
-          { model: activeModel },
+          { model: activeModel, accountProfileId: selectedProviderAccount(provider, turnAccounts) },
         );
         if (accountUsageBlock) {
           submittedPromptDraft.restore();
@@ -952,6 +955,7 @@ export function createSendUserMessageAction(args: {
       const providerSessionCursor = getProviderSessionCursor({
         sessions: providerSession,
         providerId: provider,
+        accountProfileId: selectedProviderAccount(provider, turnAccounts),
       });
       const taskWorkspaceSummary =
         state.workspaces.find(
@@ -1077,18 +1081,7 @@ export function createSendUserMessageAction(args: {
         runtimeOverrides: promptDraft.runtimeOverrides,
         runtimeState: resolvePromptDraftRuntimeState({
           promptDraft,
-          fallback: {
-            claudePermissionMode: modelRuntimeSettings.claudePermissionMode,
-            claudePermissionModeBeforePlan:
-              modelRuntimeSettings.claudePermissionModeBeforePlan,
-            claudeEffort: modelRuntimeSettings.claudeEffort,
-            codexPlanMode: modelRuntimeSettings.codexPlanMode,
-            codexReasoningEffort: modelRuntimeSettings.codexReasoningEffort,
-            cursorMode: modelRuntimeSettings.cursorMode,
-            cursorEffort: modelRuntimeSettings.cursorEffort,
-            cursorFastMode: modelRuntimeSettings.cursorFastMode,
-            kiroEffort: modelRuntimeSettings.kiroEffort,
-          },
+          fallback: modelRuntimeSettings,
         }),
       });
       const providerRuntimeOptions = buildProviderRuntimeOptions({
@@ -1101,6 +1094,7 @@ export function createSendUserMessageAction(args: {
         settings: {
           ...modelRuntimeSettings,
           ...resolvedPromptDraftRuntimeState,
+          ...turnAccounts,
           codexFastMode:
             resolvedPromptDraftRuntimeState.codexFastMode ??
             modelRuntimeSettings.codexFastMode,

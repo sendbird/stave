@@ -1,3 +1,6 @@
+import { getProviderAccountRegistry } from "../../provider-accounts/registry";
+import { currentProviderAccountId } from "../../provider-accounts/runtime-scope";
+import { SYSTEM_ACCOUNT_PROFILE_ID } from "../../../src/lib/providers/provider-accounts";
 import { execFile } from "node:child_process";
 import { createHash } from "node:crypto";
 import { readFileSync, realpathSync } from "node:fs";
@@ -34,6 +37,12 @@ const DEFAULT_CLAUDE_CONFIG_DIR = path.join(homedir(), ".claude");
  * Symlinks are resolved so a dir and its target count as one candidate.
  */
 async function listClaudeConfigDirCandidates(): Promise<string[]> {
+  const profileId = currentProviderAccountId("claude-code");
+  if (profileId !== SYSTEM_ACCOUNT_PROFILE_ID) {
+    const directory = getProviderAccountRegistry().resolveDirectory({providerId: "claude-code", profileId});
+    if (!directory) throw new Error("Provider account could not be resolved.");
+    return [directory];
+  }
   const shellValues = await resolveLoginShellEnvVarValuesAsync({
     keys: ["CLAUDE_SECURESTORAGE_CONFIG_DIR", "CLAUDE_CONFIG_DIR"],
   });
@@ -116,8 +125,8 @@ export function parseOAuthCredentials(raw: string): ClaudeOAuthCredentials {
  * candidates in order is cheap — the first hit wins and misses fall
  * through to the credentials file / CLI paths.
  */
-function listKeychainServiceCandidates(configDirs: string[]): string[] {
-  const services = new Set<string>([MACOS_KEYCHAIN_SERVICE]);
+export function listKeychainServiceCandidates(configDirs: string[], includeDefault = currentProviderAccountId("claude-code") === SYSTEM_ACCOUNT_PROFILE_ID): string[] {
+  const services = new Set<string>(includeDefault ? [MACOS_KEYCHAIN_SERVICE] : []);
   for (const dir of configDirs) {
     if (dir === DEFAULT_CLAUDE_CONFIG_DIR) {
       continue;
