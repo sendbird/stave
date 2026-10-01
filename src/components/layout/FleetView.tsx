@@ -3,6 +3,7 @@ import { useAgentAssignmentsSync } from "@/store/agent-assignments-store";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import {
   ArrowRight,
+  ChartNoAxesColumn,
   ChevronDown,
   ChevronRight,
   CircleDashed,
@@ -197,6 +198,7 @@ export function FleetView() {
   const [
     focusTaskAttention,
     closeFleetView,
+    openResults,
     openRepository,
     switchWorkspace,
     openNotificationContext,
@@ -207,6 +209,7 @@ export function FleetView() {
         [
           state.focusTaskAttention,
           state.closeFleetView,
+          state.openResults,
           state.openRepository,
           state.switchWorkspace,
           state.openNotificationContext,
@@ -678,6 +681,16 @@ export function FleetView() {
             {blockingItems.length > 0 ? (
               <Kbd>N</Kbd>
             ) : null}
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            xstyle={styles.headerAction}
+            onClick={openResults}
+          >
+            <ChartNoAxesColumn className={sx(styles.actionIcon)} aria-hidden="true" />
+            Results
           </Button>
           <Button
             type="button"

@@ -16,6 +16,7 @@ import { FleetView } from "@/components/layout/FleetView";
 import { AutomationCenterView } from "@/components/layout/automation-center/AutomationCenterView";
 import { ProjectsView } from "@/components/projects/ProjectsView";
 import { AgentsView } from "@/components/agents/AgentsView";
+import { ResultsView } from "@/components/results/ResultsView";
 import {
   COLLAPSED_REPOSITORY_SIDEBAR_WIDTH,
   RepositoryWorkspaceSidebar,
@@ -154,6 +155,7 @@ export function AppShell() {
     openIssues,
     closeIssues,
     openAgents,
+    openResults,
     openRepository,
     switchWorkspace,
     abortTaskTurn,
@@ -199,6 +201,7 @@ export function AppShell() {
           state.openIssues,
           state.closeIssues,
           state.openAgents,
+          state.openResults,
           state.openRepository,
           state.switchWorkspace,
           state.abortTaskTurn,
@@ -1165,6 +1168,7 @@ export function AppShell() {
         openAutomationCenter: () => openAutomationCenter(),
         openIssues: () => openIssues(),
         openAgents: () => openAgents(),
+        openResults: () => openResults(),
         newAgent: () => {
           openAgents();
           useAgentsUiStore.getState().requestNewAgent();
@@ -1263,6 +1267,7 @@ export function AppShell() {
       openAutomationCenter,
       openIssues,
       openAgents,
+      openResults,
       handleStartCompareRun,
       openRepository,
       repositoryPath,
@@ -1296,8 +1301,9 @@ export function AppShell() {
   const showIssues = activeAppSurface.kind === "issues";
   const showProjects = activeAppSurface.kind === "projects";
   const showAgents = activeAppSurface.kind === "agents";
+  const showResults = activeAppSurface.kind === "results";
   const showWorkspaceSurface =
-    !showFleetView && !showAutomationCenter && !showIssues && !showProjects && !showAgents;
+    !showFleetView && !showAutomationCenter && !showIssues && !showProjects && !showAgents && !showResults;
 
   return (
     <div className={sx(appShellStyles.root)}>
@@ -1472,6 +1478,8 @@ export function AppShell() {
                     <ProjectsView />
                   ) : showAgents ? (
                     <AgentsView />
+                  ) : showResults ? (
+                    <ResultsView />
                   ) : showIssues ? (
                     <Suspense
                       fallback={
