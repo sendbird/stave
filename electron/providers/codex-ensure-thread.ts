@@ -1,3 +1,4 @@
+import { providerAccountKey } from "../provider-accounts/runtime-scope";
 import { requireCompactResumeSession } from "../../src/lib/providers/native-compaction";
 import { resolveDefaultCodexFallbackModel } from "../../src/lib/providers/model-catalog";
 import { resolveProviderResumeSessionId } from "../../src/lib/providers/provider-request-translators";
@@ -61,11 +62,11 @@ export function forgetCodexInstructionProfilesForExecutable(
   executablePath: string,
 ) {
   for (const threadKey of forgetCodexThreadSessionsForExecutable(
-    executablePath,
+    providerAccountKey("codex", executablePath),
   )) {
     instructionProfileByThreadKey.delete(threadKey);
   }
-  freshCodexThreadExecutables.add(executablePath);
+  freshCodexThreadExecutables.add(providerAccountKey("codex", executablePath));
 }
 
 export function forgetCodexInstructionProfilesForTask(taskId: string) {
@@ -111,10 +112,10 @@ export async function ensureCodexThread(args: {
   const instructionProfile = buildCodexInstructionProfileKey(instructionArgs);
   let resumeThreadId = resolveCodexThreadSession({
     threadKey,
-    executablePath: args.executablePath,
+    executablePath: providerAccountKey("codex", args.executablePath),
     ephemeral: args.ephemeral,
     turnGrants: args.turnGrants,
-    fallbackThreadId: freshCodexThreadExecutables.has(args.executablePath)
+    fallbackThreadId: freshCodexThreadExecutables.has(providerAccountKey("codex", args.executablePath))
       ? undefined
       : resolveCodexResumeThreadFallback({
           conversation: args.conversation,
@@ -175,7 +176,7 @@ export async function ensureCodexThread(args: {
       rememberCodexThreadSession({
         threadKey,
         threadId,
-        executablePath: args.executablePath,
+        executablePath: providerAccountKey("codex", args.executablePath),
         turnGrants: args.turnGrants,
       });
       instructionRefresh = resolveCodexInstructionRefresh({

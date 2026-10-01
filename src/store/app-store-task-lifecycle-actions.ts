@@ -1,3 +1,4 @@
+import { selectedProviderAccount } from "@/lib/providers/provider-account-selection";
 import type { StoreApi } from "zustand";
 import { loadAllTaskMessages } from "@/lib/db/workspaces.db";
 import { workspaceFsAdapter } from "@/lib/fs";
@@ -528,6 +529,7 @@ export function createTaskLifecycleActions(args: {
             ...state.nativeSessionReadyByTask,
             [taskId]: Boolean(
               getProviderSessionId({
+                accountProfileId: selectedProviderAccount(provider, state.settings),
                 sessions: state.providerSessionByTask[taskId],
                 providerId: provider,
               }),

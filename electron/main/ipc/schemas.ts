@@ -1,3 +1,4 @@
+import { ProviderAccountProfileIdSchema } from "../../../src/lib/providers/provider-accounts";
 export { AgentHistoryRequestSchema } from "../../../src/lib/providers/agent-history";
 export { WorkspaceExecutionArgsSchema } from "../../../src/lib/performance/workspace-execution";
 import { WorkspaceSnapshotSchema } from "../../../src/lib/task-context/schemas";
@@ -941,14 +942,15 @@ export const ClaudeRuntimeActionArgsSchema = z
   })
   .strict();
 
-export const ClaudeSessionForkArgsSchema = z
-  .object({
-    sessionId: z.string().min(1).max(200),
-    upToMessageId: z.string().min(1).max(200),
-    title: z.string().trim().min(1).max(200).optional(),
-    cwd: z.string().max(4096).optional(),
-  })
-  .strict();
+const ClaudeSessionMutationBaseSchema = z.object({
+  sessionId: z.string().min(1).max(200),
+  cwd: z.string().max(4096).optional(),
+  runtimeOptions: RuntimeOptionsSchema,
+});
+export const ClaudeSessionForkArgsSchema = ClaudeSessionMutationBaseSchema.extend({
+  upToMessageId: z.string().min(1).max(200),
+  title: z.string().trim().min(1).max(200).optional(),
+}).strict();
 
 export const ClaudeFileRewindArgsSchema = z
   .object({
@@ -960,13 +962,9 @@ export const ClaudeFileRewindArgsSchema = z
   })
   .strict();
 
-export const ClaudeSessionRenameArgsSchema = z
-  .object({
-    sessionId: z.string().min(1).max(200),
-    title: z.string().min(1).max(200),
-    cwd: z.string().max(4096).optional(),
-  })
-  .strict();
+export const ClaudeSessionRenameArgsSchema = ClaudeSessionMutationBaseSchema.extend({
+  title: z.string().min(1).max(200),
+}).strict();
 
 const McpConfigMutationBaseSchema = z.object({
   cwd: z.string().max(4096).optional(),
@@ -1453,6 +1451,8 @@ export const OpenPathArgsSchema = z
 
 export const ToolingStatusArgsSchema = z
   .object({
+    claudeAccountProfileId: ProviderAccountProfileIdSchema.optional(),
+    codexAccountProfileId: ProviderAccountProfileIdSchema.optional(),
     cwd: z.string().max(4096).optional(),
     claudeBinaryPath: z.string().max(4096).optional(),
     codexBinaryPath: z.string().max(4096).optional(),

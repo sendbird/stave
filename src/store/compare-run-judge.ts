@@ -191,8 +191,8 @@ function buildCompareJudgeRuntimeHints(args: {
 }): SecondaryRunRuntimeHints {
   if (args.provider === "claude-code") {
     return {
-      ...(args.runtimeOptions.claudeBinaryPath
-        ? { claudeBinaryPath: args.runtimeOptions.claudeBinaryPath }
+      ...((args.runtimeOptions.claudeBinaryPath || args.runtimeOptions.claudeAccountProfileId)
+        ? { claudeAccountProfileId: args.runtimeOptions.claudeAccountProfileId, claudeBinaryPath: args.runtimeOptions.claudeBinaryPath }
         : {}),
       ...(args.runtimeOptions.claudeEffort
         ? { claudeEffort: args.runtimeOptions.claudeEffort }
@@ -219,8 +219,8 @@ function buildCompareJudgeRuntimeHints(args: {
       ? "low"
       : args.runtimeOptions.codexReasoningEffort;
   return {
-    ...(args.runtimeOptions.codexBinaryPath
-      ? { codexBinaryPath: args.runtimeOptions.codexBinaryPath }
+    ...((args.runtimeOptions.codexBinaryPath || args.runtimeOptions.codexAccountProfileId)
+      ? { codexAccountProfileId: args.runtimeOptions.codexAccountProfileId, codexBinaryPath: args.runtimeOptions.codexBinaryPath }
       : {}),
     ...(codexReasoningEffort
       ? { codexReasoningEffort }

@@ -1,4 +1,6 @@
 import { readAgentHistory } from "./providers/agent-history";
+import { withRequestAccountScope } from "./provider-accounts/runtime-scope";
+import { withGatewayCredential } from "./provider-accounts/gateway-runtime";
 import { realpathSync } from "node:fs";
 import { workspaceExecutionGate } from "./shared/workspace-execution-gate";
 import { WorkspaceExecutionArgsSchema } from "../src/lib/performance/workspace-execution";
@@ -1495,6 +1497,11 @@ function requestNeedsCliDiscovery(method: string) {
 }
 
 async function handleRequest(request: AnyHostServiceRequestEnvelope) {
+  return withGatewayCredential(request.gatewayCredential, () =>
+    withRequestAccountScope(request.params, () => handleAccountRequest(request)));
+}
+
+async function handleAccountRequest(request: AnyHostServiceRequestEnvelope) {
   if (requestNeedsCliDiscovery(request.method)) {
     // Discovery may initialize login shells. Turns and tooling probes must see
     // CLAUDE_CONFIG_DIR / CODEX_HOME from that shell; PTY traffic, turn stop,
@@ -1572,6 +1579,9 @@ async function handleRequest(request: AnyHostServiceRequestEnvelope) {
         request.id,
         terminalRuntime.createCliSession(request.params),
       );
+      return;
+    case "terminal.create-provider-login-session":
+      await respond(request.id, terminalRuntime.createProviderLoginSession(request.params));
       return;
     case "terminal.create-cursor-chat-id":
       await respond(request.id, await createCursorChatId(request.params));

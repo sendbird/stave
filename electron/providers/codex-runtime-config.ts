@@ -1,3 +1,4 @@
+import { currentProviderAccountId } from "../provider-accounts/runtime-scope";
 import { createHash } from "node:crypto";
 import {
   buildWorkerPrimaryInstructions,
@@ -277,7 +278,8 @@ export function buildCodexThreadKey(args: {
   // each thread last saw and sends `buildCodexInstructionRefreshBlock` on the
   // next turn when it differs — the history prefix (and its cache) survives.
   const secretFingerprint = args.boundSecretFingerprint ?? "none";
-  return `${args.taskId ?? "default"}:${args.cwd}:${model}:${mode}:${secretFingerprint}`;
+  const profileId = args.runtimeOptions?.codexAccountProfileId ?? currentProviderAccountId("codex");
+  return `${args.taskId ?? "default"}:${args.cwd}:${model}:${mode}:${secretFingerprint}${profileId === "system-default" ? "" : `:account:${profileId}`}`;
 }
 
 export const CODEX_INSTRUCTION_REFRESH_HEADER = "[Stave Instructions Update]";

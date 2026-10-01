@@ -1,3 +1,4 @@
+import { resolveCliAccountIdentity } from "./cli-account-identity";
 import { retainResourceProcessOwner, forgetResourceProcess } from "../shared/resource-process-owners";
 import { workspaceExecutionGate } from "../shared/workspace-execution-gate";
 import { randomUUID } from "node:crypto";
@@ -38,6 +39,7 @@ import {
   createOscColorInterceptor,
 } from "./terminal-pty-stream";
 import { buildCliSessionLaunch } from "./cli-session-launch";
+import { createProviderAccountLoginSession } from "./provider-account-login";
 import { createNativeSessionDiscovery } from "./native-session-discovery";
 import {
   appendBackgroundBuffer,
@@ -198,7 +200,7 @@ export function createTerminalRuntime(args: {
   }
 
   async function persistSessionSnapshot(session: TerminalSessionEntry) {
-    if (!session.slotKey || !persistence) return;
+    if (!session.slotKey || !persistence || session.persistScreenState === false) return;
     await session.lastHeadlessWritePromise;
     const screenState = serializeScreenState(session);
     if (screenState) {
@@ -332,6 +334,8 @@ export function createTerminalRuntime(args: {
     themeColors?: { foreground?: string; background?: string };
     slotKey?: string;
     nativeSessionId?: string;
+    cliAccountIdentity?: string;
+    persistScreenState?: boolean;
   }) {
     const ptyProcess = pty.spawn(args.command, args.commandArgs ?? [], {
       name: "xterm-256color",
@@ -399,13 +403,15 @@ export function createTerminalRuntime(args: {
       exitCode: null,
       exitSignal: undefined,
       nativeSessionId: args.nativeSessionId?.trim() || null,
+      cliAccountIdentity: args.cliAccountIdentity,
       disposeNativeSessionDiscovery: null,
       outputSequence: 0,
       sentOutputBytes: 0,
       acknowledgedOutputBytes: 0,
       flowPaused: false,
+      persistScreenState: args.persistScreenState ?? true,
       persistedScreenState:
-        args.slotKey && persistence
+        args.slotKey && persistence && args.persistScreenState !== false
           ? (persistence.loadTerminalSnapshot({ slotKey: args.slotKey })
               ?.screen_state ?? null)
           : null,
@@ -594,6 +600,9 @@ export function createTerminalRuntime(args: {
   ): HostTerminalCreateSessionResult {
     try { workspaceExecutionGate.assertAllowed({ workspaceId: args.workspaceId, cwd: args.workspacePath }); }
     catch (error) { return { ok: false, stderr: String(error) }; }
+    let cliAccountIdentity: string;
+    try { cliAccountIdentity = resolveCliAccountIdentity(args); }
+    catch (error) { return { ok: false, stderr: String(error) }; }
     const slotKey = buildTerminalSessionSlotKey({
       workspaceId: args.workspaceId,
       surface: "cli",
@@ -601,6 +610,8 @@ export function createTerminalRuntime(args: {
     });
     const existing = getSessionBySlotKey(slotKey);
     if (existing && !existing.session.closing) {
+      if (existing.session.cliAccountIdentity !== cliAccountIdentity)
+        return { ok: false, stderr: "This CLI tab belongs to another account. Open a new CLI tab." };
       setSessionDeliveryMode({
         sessionId: existing.sessionId,
         deliveryMode: args.deliveryMode ?? existing.session.deliveryMode,
@@ -636,6 +647,7 @@ export function createTerminalRuntime(args: {
       deliveryMode: args.deliveryMode,
       slotKey,
       nativeSessionId: launch.nativeSessionId,
+      cliAccountIdentity,
       env: {
         ...launch.env,
         STAVE_WORKSPACE_PATH: args.workspacePath,
@@ -645,6 +657,7 @@ export function createTerminalRuntime(args: {
     });
     if (launch.discovery === "codex") {
       startCodexNativeSessionDiscovery({
+        codexHome: launch.env.CODEX_HOME,
         sessionId,
         cwd: sessionCwd,
         startedAtMs,
@@ -991,6 +1004,8 @@ export function createTerminalRuntime(args: {
     stopWorkspace,
     createSession,
     createCliSession,
+    createProviderLoginSession: (input: Parameters<typeof createProviderAccountLoginSession>[0]) =>
+      createProviderAccountLoginSession(input, { getSessionBySlotKey, createPtySession }),
     writeSession,
     ackSessionOutput,
     readSession,

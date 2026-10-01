@@ -99,16 +99,13 @@ export function createIntentGuardRunner(deps: {
       ...(lane.config.onlyWhenDiffChanged
         ? { intentFingerprintGate: true }
         : {}),
-      ...(lane.model
-        ? {
-            model: lane.model,
-            runtimeOptions: buildReadOnlyAuxRuntimeOptions({
-              providerId: lane.providerId,
-              model: lane.model,
-              effortOverrides: lane.effortOverrides,
-            }),
-          }
-        : {}),
+      ...(lane.model ? { model: lane.model } : {}),
+      runtimeOptions: buildReadOnlyAuxRuntimeOptions({
+        accountSelection: state.settings,
+        providerId: lane.providerId,
+        model: lane.model,
+        effortOverrides: lane.effortOverrides,
+      }),
     })
       .then((result) => {
         if (!result.ok) {

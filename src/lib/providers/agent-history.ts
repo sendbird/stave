@@ -1,3 +1,4 @@
+import { ProviderAccountProfileIdSchema } from "./provider-accounts";
 import { z } from "zod";
 
 export const AgentHistoryRequestSchema = z.object({
@@ -7,6 +8,8 @@ export const AgentHistoryRequestSchema = z.object({
   cwd: z.string().min(1).max(4096),
   offset: z.number().int().min(0).max(1_000_000).default(0),
   limit: z.number().int().min(1).max(100).default(50),
+  accountProfileId: ProviderAccountProfileIdSchema.optional(),
+  claudeBinaryPath: z.string().max(4096).optional(),
   codexBinaryPath: z.string().max(4096).optional(),
 }).strict();
 

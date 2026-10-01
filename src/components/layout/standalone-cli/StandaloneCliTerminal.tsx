@@ -1,3 +1,4 @@
+import { useAccountRuntimeOptions } from "@/lib/providers/use-provider-accounts";
 import { Button as AdsButton } from "@/components/ads/components/Button";
 import { sx } from "@/components/ads/utils/stylex";
 import { standaloneCliStyles as styles } from "@/components/layout/standalone-cli/standalone-cli.styles";
@@ -62,6 +63,7 @@ export function buildStandaloneCliCreateSessionArgs(args: {
     deliveryMode: args.deliveryMode,
     runtimeOptions: buildCliSessionRuntimeOptions({
       providerId: args.tab.id,
+      accountProfileId: args.tab.accountProfileId ?? "system-default",
       claudeBinaryPath: args.claudeBinaryPath,
       codexBinaryPath: args.codexBinaryPath,
       cursorBinaryPath: args.cursorBinaryPath,
@@ -140,6 +142,8 @@ export function StandaloneCliTerminal(props: {
   >(() => {});
   const [rendererRestartToken, setRendererRestartToken] = useState(0);
 
+  const defaults = useAccountRuntimeOptions();
+  const accountProfileIdByTab = useStandaloneCliStore(s => s.accountProfileIdByTab);
   const [activeTabId, nativeSessionIdByTab] = useStandaloneCliStore(
     useShallow(
       (state) => [state.activeTabId, state.nativeSessionIdByTab] as const,
@@ -182,8 +186,9 @@ export function StandaloneCliTerminal(props: {
       buildStandaloneCliTabs({
         folderPath: props.folderPath,
         nativeSessionIdByTab,
+        accountProfileIdByTab, defaults,
       }),
-    [props.folderPath, nativeSessionIdByTab],
+    [props.folderPath, nativeSessionIdByTab, accountProfileIdByTab, defaults],
   );
   const activeTab = useMemo(
     () => tabs.find((tab) => tab.id === activeTabId) ?? null,
@@ -220,6 +225,7 @@ export function StandaloneCliTerminal(props: {
           stderr: "CLI session bridge unavailable. Use bun run dev:desktop.",
         };
       }
+      useStandaloneCliStore.getState().pinTabAccount(args.tab.id, args.tab.accountProfileId ?? "system-default");
       const launchTab = await resolveStandaloneCliLaunchTab({
         tab: args.tab,
         folderPath: props.folderPath,

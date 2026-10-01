@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useProviderReadinessStore } from "@/lib/providers/provider-readiness-store";
 import { RefreshCw } from "lucide-react";
 import {
   Button,
@@ -339,6 +340,14 @@ export function StatusBarUsageSegment({
   provider: UsageProvider;
 }) {
   const [open, setOpen] = useState(false);
+  const stale = useProviderReadinessStore((state) => provider === "cursor" || provider === "kiro" ? state.providers[provider]?.stale === true : false);
+  useEffect(() => () => noteRateLimitsMeterClosed(USAGE_PROVIDER_IDS[provider]), [provider]);
+  useEffect(() => {
+    if (stale) {
+      setOpen(false);
+      noteRateLimitsMeterClosed(USAGE_PROVIDER_IDS[provider]);
+    }
+  }, [provider, stale]);
   const snapshot = useAppStore((state) => state.rateLimitsSnapshot);
   const loading = useAppStore((state) => state.rateLimitsLoading);
   const refreshRateLimits = useAppStore((state) => state.refreshRateLimits);
@@ -373,7 +382,7 @@ export function StatusBarUsageSegment({
         // fast poll tier, and only for the provider actually on screen. The
         // read is left to the poll tick, which still applies the per-provider
         // cache floor, so holding the popover open cannot spam the account.
-        if (next) {
+        if (next && !stale) {
           noteRateLimitsMeterOpen(USAGE_PROVIDER_IDS[provider]);
         } else {
           noteRateLimitsMeterClosed(USAGE_PROVIDER_IDS[provider]);
@@ -399,7 +408,7 @@ export function StatusBarUsageSegment({
               : usageToneStyle(clampUsagePercent(headlinePercent)),
           )}
         />
-        <span>{label[provider]}</span>
+        <span>{label[provider]}{stale ? " (unverified)" : ""}</span>
         {headlineWindows.length === 0 ? (
           <span className={sx(statusBarUsageStyles.triggerMono)}>—</span>
         ) : (
@@ -440,6 +449,7 @@ export function StatusBarUsageSegment({
             size="sm"
             xstyle={statusBarUsageStyles.refreshButton}
             aria-label="refresh-rate-limits"
+            disabled={stale}
             onClick={() =>
               void refreshRateLimits({
                 providers: [USAGE_PROVIDER_IDS[provider]],
