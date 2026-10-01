@@ -9,7 +9,7 @@ export const STAGE_TONE_WORK_STATE: Record<StageTone, WorkState> = {
   done: "ready",
   active: "working",
   waiting: "needs-you",
-  attention: "failed",
+  attention: "needs-you", // blocked or stuck: the user decides next
   idle: "queued",
   skipped: "skipped",
 };
